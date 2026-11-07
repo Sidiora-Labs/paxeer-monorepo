@@ -1,7 +1,7 @@
 use layerx_portable::{PortableReceiptV2, ReceiptKeyEntry, PORTABLE_RECEIPT_FORMAT};
 use serde_json::Value;
 
-const GUIDE: &str = include_str!("../../../PORTABILITY.md");
+const GUIDE: &str = include_str!("../../../../../docs/interop/PORTABILITY.md");
 const FIXTURE: &str =
     include_str!("../../../../../sdk/platform/conformance/fixtures/sequencer-receipt-v1.json");
 

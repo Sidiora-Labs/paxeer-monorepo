@@ -1,0 +1,34 @@
+[meta]
+task = "22.33.612"
+requirement = "22998.1"
+status = "implemented-awaiting-bounded-qualification"
+record = "repair-22-33-612.test.mjs:REPAIR_TASK_RECORD"
+evidence = "The private hf-build/hf-done ledger records the verified revision, command, exit and log; only passing hf-done establishes closure."
+
+[finding.003]
+tests = ["daemonProviderConsumesCurrentProducerResponse", "daemonProviderBindsCurrentReceiptEvidence", "daemonServiceProviderWiresCurrentReceiptEvidence", "daemonProviderVerifiesSignedSequencerReceipt", "daemonProviderRefusesObsoleteStatusFields"]
+proof = "Recorded canonical signed bytes and current daemon receipt metadata traverse loopback HTTP, AgentEnvelopeTransport, configured portable evidence and DaemonReceiptResolver; close and reopen verifies durable reference recovery."
+transcript = "daemon-current-transcript.json retains signed bytes from fixtures/daemon-submission-transcript.json and projects receipt_value/success_body fields from the signed protocol receipt, correcting the batch fee asset without changing signatures."
+
+[finding.004]
+tests = ["paymentToolVerifiesSignedSequencerReceipt", "paymentToolVerifiesCurrentProducerReceipt", "serviceClientReadsSignedReceiptFields", "serviceTransportRefusesObsoleteStatusFields", "trackingToolVerifiesCurrentProducerReceipt", "trackingToolRefusesUntrustedCurrentProducerReceipt", "trackingToolVerifiesExecutedReceiptAndRefusesSignedRevert"]
+proof = "Real middleware and conformance producers feed loopback receipt and gateway routes, authenticated transport, LayerXReceiptResolver and AgentToolExecutor; expectations derive from recorded transaction fields; decimal heights, obsolete level, tampered digests/signatures, untrusted pins and signed reverts remain refused."
+digests = "Agent proof identifiers are Keccak of signed bytes; the payment tool validates that identifier and supplies the verified signing digest required by the seller verifier, retaining the producer identifier in its result."
+
+[baseline]
+revision = "34715afd945e5c82272ac0ebf44a186821994734"
+observed = "Supplied attempt-6 qualification reports 17 of 20 cases passing and three payment expectation failures, including paymentToolVerifiesSignedSequencerReceipt returning verification-failure."
+order = "No unchanged baseline rerun: the current explicit implementation-first order and bounded hf-build/hf-done gates supersede the earlier baseline instruction."
+
+[wiring.daemon]
+request = "services/agent/crates/layerx-agentd/src/agent_rpc_dispatch.rs — daemon domain: refresh MIDDLEWARE_SUBMISSION_TRANSCRIPT through receipt_value so batch asset equals the signed fee asset and current metadata is captured."
+
+[wiring.middleware]
+request = "services/platform/middleware/agent/src/daemon.ts — middleware domain: decodeDaemonSubmission must accept current receipt_value metadata; this proof keeps the existing observation decoder and sends current metadata through DaemonReceiptResolver."
+
+[wiring.seller]
+request = "services/platform/middleware/seller/src/index.ts — middleware domain: reconcile signing-digest evidence with agent producer Keccak identifiers; the integration currently authenticates and translates at its payment boundary."
+
+[gotcha.continuation]
+observed = "The continuation restored four changed paths but omitted five previously rejected supporting paths, which are now explicitly allowed; they were also absent from the supplied seed revision."
+fix = "Retain the applied changes and provide the supporting producer fixture, source loader, transcript, service wiring and task record inside the expanded exact scope."

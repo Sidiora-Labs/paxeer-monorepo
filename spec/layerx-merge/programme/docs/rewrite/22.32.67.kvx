@@ -1,0 +1,11 @@
+[manifest]
+task = "22.32.67"
+domain = 6
+owner_role = "fm-chain-modules"
+pages = 1
+
+[page.1]
+path = "modules/tokenfactory/README.md"
+status = "misleading"
+bytes = 7249
+source_1 = "record 22.30.59 [doc.18] (misleading): Admin-only guide omits issuer/pause/query/recovery behavior; renunciation at 17-18 conflicts with normal Msg validation."

@@ -878,6 +878,9 @@ elif not TYPE_CHECKING:  # TODO: condition is weird
 
 
 class SecurityOptions(TypedDict, total=False):
+    RestApiKey: bool
+    WsMintKey: bool
+    WsToken: bool
     api_key_auth: bool
     bearer_auth: bool
 

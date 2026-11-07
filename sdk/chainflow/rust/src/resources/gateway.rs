@@ -76,7 +76,15 @@ impl ListHealthRequestBuilder {
             max_retries: self.max_retries,
         };
         self.client
-            .send_bytes(http::Method::GET, &path, &query, &headers, body, true, overrides)
+            .send_bytes(
+                http::Method::GET,
+                &path,
+                &query,
+                &headers,
+                body,
+                crate::client::SecurityScheme::RestApiKey,
+                overrides,
+            )
             .await
     }
 }
@@ -148,7 +156,15 @@ impl CreateWebSocketTokenRequestBuilder {
             max_retries: self.max_retries,
         };
         self.client
-            .send::<crate::models::WsToken, _>(http::Method::POST, &path, &query, &headers, body, true, overrides)
+            .send::<crate::models::WsToken, _>(
+                http::Method::POST,
+                &path,
+                &query,
+                &headers,
+                body,
+                crate::client::SecurityScheme::WsMintKey,
+                overrides,
+            )
             .await
     }
 }

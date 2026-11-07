@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	sdkerrors "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types/errors"
 	govtypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/gov/types"
 )
 
@@ -29,6 +30,23 @@ func (p *UpdateMinterProposal) ProposalType() string {
 }
 
 func (p *UpdateMinterProposal) ValidateBasic() error {
+	if p == nil {
+		return p.ValidateContent()
+	}
+	if err := govtypes.ValidateAbstract(p); err != nil {
+		return err
+	}
+	return p.ValidateContent()
+}
+
+// ValidateContent checks the replacement minter before admission or execution.
+func (p *UpdateMinterProposal) ValidateContent() error {
+	if p == nil {
+		return sdkerrors.Wrap(govtypes.ErrInvalidProposalContent, "proposal cannot be nil")
+	}
+	if p.Minter == nil {
+		return sdkerrors.Wrap(govtypes.ErrInvalidProposalContent, "minter cannot be nil")
+	}
 	return ValidateMinter(*p.Minter)
 }
 

@@ -15,9 +15,10 @@
 
 use std::fmt;
 use std::io::{Read, Write};
-use std::net::{TcpStream, ToSocketAddrs as _};
-use std::sync::atomic::{AtomicU64, Ordering};
-use std::time::Duration;
+use std::net::{IpAddr, SocketAddr, TcpStream, ToSocketAddrs as _};
+use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
+use std::sync::mpsc;
+use std::time::{Duration, Instant};
 
 use serde_json::Value;
 
@@ -34,6 +35,7 @@ pub const DENOM_LIMIT: usize = 128;
 pub const NETWORK_ID_LIMIT: usize = 64;
 
 static NEXT_REQUEST: AtomicU64 = AtomicU64::new(1);
+static ACTIVE_RESOLVERS: AtomicUsize = AtomicUsize::new(0);
 
 /// How a fact reached a caller. A gateway answer is never upgraded to a
 /// verified level: the two sources stay distinguishable at every hop.
@@ -276,13 +278,86 @@ impl ResolvedIdentities {
     }
 }
 
+/// An exact unsigned on-chain amount, including the full uint256 domain.
+#[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+pub struct Quantity([u8; 32]);
+
+impl Quantity {
+    /// Preserves a complete big-endian uint256 word.
+    #[must_use]
+    pub const fn from_be_bytes(bytes: [u8; 32]) -> Self {
+        Self(bytes)
+    }
+
+    /// Returns the complete big-endian uint256 word.
+    #[must_use]
+    pub const fn to_be_bytes(self) -> [u8; 32] {
+        self.0
+    }
+
+    /// Narrows an amount only for the explicitly named business operation.
+    ///
+    /// # Errors
+    /// Refuses amounts that the operation's 128-bit amount cannot represent.
+    pub fn for_operation(self, operation: &'static str) -> Result<u128, GatewayError> {
+        if self.0[..16].iter().any(|byte| *byte != 0) {
+            return Err(GatewayError::AmountOutOfRange { operation });
+        }
+        let mut bytes = [0; 16];
+        bytes.copy_from_slice(&self.0[16..]);
+        Ok(u128::from_be_bytes(bytes))
+    }
+
+    fn counted(self) -> Result<u64, GatewayError> {
+        if self.0[..24].iter().any(|byte| *byte != 0) {
+            return Err(GatewayError::MalformedAnswer);
+        }
+        let mut bytes = [0; 8];
+        bytes.copy_from_slice(&self.0[24..]);
+        Ok(u64::from_be_bytes(bytes))
+    }
+}
+
+impl From<u128> for Quantity {
+    fn from(value: u128) -> Self {
+        let mut bytes = [0; 32];
+        bytes[16..].copy_from_slice(&value.to_be_bytes());
+        Self(bytes)
+    }
+}
+
+impl fmt::Display for Quantity {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let mut value = self.0;
+        let mut digits = [b'0'; 78];
+        let mut start = digits.len();
+        loop {
+            let mut remainder = 0_u16;
+            for byte in &mut value {
+                let current = (remainder << 8) | u16::from(*byte);
+                *byte = (current / 10) as u8;
+                remainder = current % 10;
+            }
+            start -= 1;
+            digits[start] = b'0' + remainder as u8;
+            if value.iter().all(|byte| *byte == 0) {
+                break;
+            }
+        }
+        for byte in &digits[start..] {
+            write!(formatter, "{}", char::from(*byte))?;
+        }
+        Ok(())
+    }
+}
+
 /// The Paxeer half of one account as `px_getAccount` reports it.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct PaxeerAccount {
     /// The EVM address the balance and nonce were read at.
     pub address: [u8; 20],
     /// The native balance at the reported block height.
-    pub balance: u128,
+    pub balance: Quantity,
     /// The transaction count at the reported block height.
     pub nonce: u64,
     /// The block height at which the balance and nonce were read.
@@ -306,7 +381,7 @@ pub struct AssetBalance {
     /// The bank denomination.
     pub denom: String,
     /// The exact balance at the answer height.
-    pub amount: u128,
+    pub amount: Quantity,
 }
 
 /// The bounded bank balance table for one account at one height.
@@ -372,8 +447,23 @@ impl WalletObservation {
 
     /// The exact bank amount, absent when the producer supplied no row.
     #[must_use]
-    pub fn balance(&self, denom: &str) -> Option<u128> {
+    pub fn balance(&self, denom: &str) -> Option<Quantity> {
         self.balances.asset(denom).map(|row| row.amount)
+    }
+
+    /// Reads a balance for a named operation with a 128-bit business amount.
+    ///
+    /// # Errors
+    /// Refuses an existing balance too large for that operation; absence stays
+    /// distinct from both refusal and an observed zero.
+    pub fn balance_for_operation(
+        &self,
+        denom: &str,
+        operation: &'static str,
+    ) -> Result<Option<u128>, GatewayError> {
+        self.balance(denom)
+            .map(|amount| amount.for_operation(operation))
+            .transpose()
     }
 
     /// The original joined result, including its evidence and height.
@@ -399,7 +489,7 @@ pub struct AssetEntry {
     /// The chain decimal precision, absent when the metadata read failed.
     pub decimals: Option<u8>,
     /// The chain supply, absent when the metadata read failed.
-    pub supply: Option<u128>,
+    pub supply: Option<Quantity>,
 }
 
 /// The bounded chain asset table at one height.
@@ -461,6 +551,11 @@ pub enum GatewayError {
     Unbound,
     /// The answer is not the documented gateway document.
     MalformedAnswer,
+    /// A valid chain amount exceeds a named operation's business amount.
+    AmountOutOfRange {
+        /// The operation that requested the narrower amount.
+        operation: &'static str,
+    },
 }
 
 impl fmt::Display for GatewayError {
@@ -473,6 +568,12 @@ impl fmt::Display for GatewayError {
             }
             Self::Unbound => formatter.write_str("gateway answer is bound to another request"),
             Self::MalformedAnswer => formatter.write_str("gateway answer is malformed"),
+            Self::AmountOutOfRange { operation } => {
+                write!(
+                    formatter,
+                    "chain amount exceeds the 128-bit amount for {operation}"
+                )
+            }
         }
     }
 }
@@ -493,28 +594,39 @@ impl GatewayEndpoint {
     /// Parses `http://host[:port][/path]` or `https://host[:port][/path]`.
     ///
     /// # Errors
-    /// Refuses another scheme, an empty host, a zero port and a host outside
-    /// the ASCII host grammar.
+    /// Refuses invalid authorities, request-target characters and escapes.
     pub fn parse(endpoint: &str) -> Result<Self, GatewayError> {
-        let trimmed = endpoint.trim();
-        let (secure, rest) = if let Some(rest) = trimmed.strip_prefix("https://") {
+        if endpoint
+            .bytes()
+            .any(|byte| !byte.is_ascii() || byte.is_ascii_control() || byte.is_ascii_whitespace())
+        {
+            return Err(GatewayError::InvalidEndpoint);
+        }
+        let (secure, rest) = if let Some(rest) = endpoint.strip_prefix("https://") {
             (true, rest)
-        } else if let Some(rest) = trimmed.strip_prefix("http://") {
+        } else if let Some(rest) = endpoint.strip_prefix("http://") {
             (false, rest)
         } else {
             return Err(GatewayError::InvalidEndpoint);
         };
-        let (authority, path) = rest
-            .split_once('/')
-            .map_or((rest, "/".to_owned()), |(authority, path)| {
-                (authority, format!("/{path}"))
-            });
+        let (authority, target) = rest.split_at(rest.find(['/', '?']).unwrap_or(rest.len()));
+        let path = if target.starts_with('/') {
+            target.to_owned()
+        } else {
+            format!("/{target}")
+        };
+        validate_request_target(&path)?;
         let (host, port) = match authority.rsplit_once(':') {
-            Some((host, port)) => (
-                host,
-                port.parse::<u16>()
-                    .map_err(|_| GatewayError::InvalidEndpoint)?,
-            ),
+            Some((host, port))
+                if !port.is_empty() && port.bytes().all(|byte| byte.is_ascii_digit()) =>
+            {
+                (
+                    host,
+                    port.parse::<u16>()
+                        .map_err(|_| GatewayError::InvalidEndpoint)?,
+                )
+            }
+            Some(_) => return Err(GatewayError::InvalidEndpoint),
             None => (authority, if secure { 443 } else { 80 }),
         };
         if port == 0
@@ -550,6 +662,20 @@ impl GatewayEndpoint {
     /// # Errors
     /// Reports connection, TLS and HTTP framing failures.
     pub fn post(&self, body: &str) -> Result<Vec<u8>, GatewayError> {
+        self.post_with_deadline(body, Instant::now() + IO_TIMEOUT)
+    }
+
+    /// Posts with one injected monotonic deadline for resolution, connect,
+    /// TLS, request writes and response reads.
+    ///
+    /// # Errors
+    /// Reports an expired budget or a transport or framing failure.
+    pub fn post_with_deadline(
+        &self,
+        body: &str,
+        deadline: Instant,
+    ) -> Result<Vec<u8>, GatewayError> {
+        remaining(deadline).map_err(transport_error)?;
         let head = format!(
             "POST {} HTTP/1.1\r\nHost: {}:{}\r\nContent-Type: application/json\r\nAccept: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
             self.path,
@@ -559,11 +685,11 @@ impl GatewayEndpoint {
         );
         let mut last = "gateway endpoint has no address".to_owned();
         let mut connected = None;
-        for address in (self.host.as_str(), self.port)
-            .to_socket_addrs()
-            .map_err(|error| GatewayError::Transport(format!("resolution failed: {error}")))?
-        {
-            match TcpStream::connect_timeout(&address, IO_TIMEOUT) {
+        for address in resolve_addresses(&self.host, self.port, deadline)? {
+            match TcpStream::connect_timeout(
+                &address,
+                remaining(deadline).map_err(transport_error)?,
+            ) {
                 Ok(stream) => {
                     connected = Some(stream);
                     break;
@@ -571,11 +697,10 @@ impl GatewayEndpoint {
                 Err(error) => last = format!("connection failed: {error}"),
             }
         }
-        let stream = connected.ok_or(GatewayError::Transport(last))?;
-        stream
-            .set_read_timeout(Some(IO_TIMEOUT))
-            .and_then(|()| stream.set_write_timeout(Some(IO_TIMEOUT)))
-            .map_err(|error| GatewayError::Transport(format!("timeout setup failed: {error}")))?;
+        let stream = DeadlineStream {
+            stream: connected.ok_or(GatewayError::Transport(last))?,
+            deadline,
+        };
         let answer = if self.secure {
             let connector = native_tls::TlsConnector::builder()
                 .build()
@@ -583,12 +708,14 @@ impl GatewayEndpoint {
             let mut stream = connector.connect(&self.host, stream).map_err(|error| {
                 GatewayError::Transport(format!("TLS handshake failed: {error}"))
             })?;
-            exchange(&mut stream, &head, body.as_bytes())?
+            exchange(&mut stream, &head, body.as_bytes(), deadline)?
         } else {
             let mut stream = stream;
-            exchange(&mut stream, &head, body.as_bytes())?
+            exchange(&mut stream, &head, body.as_bytes(), deadline)?
         };
-        http_body(&answer)
+        let result = http_body(&answer)?;
+        remaining(deadline).map_err(transport_error)?;
+        Ok(result)
     }
 
     /// Posts one `px_*` or `eth_*` call and returns its JSON-RPC result.
@@ -667,10 +794,127 @@ impl GatewayEndpoint {
 /// The deployment variable every service reads the gateway endpoint from.
 pub const ENDPOINT_VARIABLE: &str = "LAYERX_NETWORK_GATEWAY_ENDPOINT";
 
+fn validate_request_target(target: &str) -> Result<(), GatewayError> {
+    let mut bytes = target.bytes();
+    while let Some(byte) = bytes.next() {
+        if byte == b'%' {
+            let high = bytes
+                .next()
+                .and_then(nibble)
+                .ok_or(GatewayError::InvalidEndpoint)?;
+            let low = bytes
+                .next()
+                .and_then(nibble)
+                .ok_or(GatewayError::InvalidEndpoint)?;
+            if (high * 16 + low).is_ascii_control() {
+                return Err(GatewayError::InvalidEndpoint);
+            }
+        } else if !byte.is_ascii_alphanumeric() && !b"-._~!$&'()*+,;=:@/?".contains(&byte) {
+            return Err(GatewayError::InvalidEndpoint);
+        }
+    }
+    Ok(())
+}
+
+fn remaining(deadline: Instant) -> std::io::Result<Duration> {
+    deadline
+        .checked_duration_since(Instant::now())
+        .filter(|left| !left.is_zero())
+        .ok_or_else(|| {
+            std::io::Error::new(
+                std::io::ErrorKind::TimedOut,
+                "gateway total deadline expired",
+            )
+        })
+}
+
+fn transport_error(error: std::io::Error) -> GatewayError {
+    GatewayError::Transport(error.to_string())
+}
+
+struct ResolverPermit;
+
+impl Drop for ResolverPermit {
+    fn drop(&mut self) {
+        ACTIVE_RESOLVERS.fetch_sub(1, Ordering::AcqRel);
+    }
+}
+
+fn resolve_addresses(
+    host: &str,
+    port: u16,
+    deadline: Instant,
+) -> Result<Vec<SocketAddr>, GatewayError> {
+    remaining(deadline).map_err(transport_error)?;
+    if let Ok(address) = host.parse::<IpAddr>() {
+        return Ok(vec![SocketAddr::new(address, port)]);
+    }
+    // The system resolver cannot be interrupted. Bound both its caller's wait
+    // and the number of resolver threads that may outlive that wait.
+    ACTIVE_RESOLVERS
+        .fetch_update(Ordering::AcqRel, Ordering::Acquire, |active| {
+            (active < 16).then_some(active + 1)
+        })
+        .map_err(|_| GatewayError::Transport("gateway resolver capacity exhausted".to_owned()))?;
+    let permit = ResolverPermit;
+    let host = host.to_owned();
+    let (sender, receiver) = mpsc::sync_channel(1);
+    std::thread::Builder::new()
+        .name("gateway-resolver".to_owned())
+        .spawn(move || {
+            let _permit = permit;
+            let result = (host.as_str(), port)
+                .to_socket_addrs()
+                .map(Iterator::collect);
+            let _ = sender.send(result);
+        })
+        .map_err(transport_error)?;
+    let addresses = receiver
+        .recv_timeout(remaining(deadline).map_err(transport_error)?)
+        .map_err(|error| GatewayError::Transport(format!("resolution deadline: {error}")))?
+        .map_err(transport_error)?;
+    remaining(deadline).map_err(transport_error)?;
+    Ok(addresses)
+}
+
+#[derive(Debug)]
+struct DeadlineStream {
+    stream: TcpStream,
+    deadline: Instant,
+}
+
+impl Read for DeadlineStream {
+    fn read(&mut self, buffer: &mut [u8]) -> std::io::Result<usize> {
+        self.stream
+            .set_read_timeout(Some(remaining(self.deadline)?))?;
+        let count = self.stream.read(buffer)?;
+        remaining(self.deadline)?;
+        Ok(count)
+    }
+}
+
+impl Write for DeadlineStream {
+    fn write(&mut self, buffer: &[u8]) -> std::io::Result<usize> {
+        self.stream
+            .set_write_timeout(Some(remaining(self.deadline)?))?;
+        let count = self.stream.write(buffer)?;
+        remaining(self.deadline)?;
+        Ok(count)
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        remaining(self.deadline)?;
+        self.stream.flush()?;
+        remaining(self.deadline)?;
+        Ok(())
+    }
+}
+
 fn exchange<S: Read + Write>(
     stream: &mut S,
     head: &str,
     body: &[u8],
+    deadline: Instant,
 ) -> Result<Vec<u8>, GatewayError> {
     stream
         .write_all(head.as_bytes())
@@ -678,13 +922,19 @@ fn exchange<S: Read + Write>(
         .and_then(|()| stream.flush())
         .map_err(|error| GatewayError::Transport(format!("request failed: {error}")))?;
     let mut answer = Vec::new();
-    Read::take(&mut *stream, ANSWER_LIMIT + 1)
-        .read_to_end(&mut answer)
-        .map_err(|error| GatewayError::Transport(format!("answer failed: {error}")))?;
-    if u64::try_from(answer.len()).map_or(true, |length| length > ANSWER_LIMIT) {
-        return Err(GatewayError::Transport(
-            "answer exceeds its size limit".to_owned(),
-        ));
+    let mut buffer = [0; 8192];
+    loop {
+        remaining(deadline).map_err(transport_error)?;
+        let count = stream.read(&mut buffer).map_err(transport_error)?;
+        if count == 0 {
+            break;
+        }
+        if (answer.len() + count) as u64 > ANSWER_LIMIT {
+            return Err(GatewayError::Transport(
+                "answer exceeds its size limit".to_owned(),
+            ));
+        }
+        answer.extend_from_slice(&buffer[..count]);
     }
     Ok(answer)
 }
@@ -692,8 +942,13 @@ fn exchange<S: Read + Write>(
 /// Extracts the body of one HTTP/1.1 answer, failing closed on a refusal.
 ///
 /// # Errors
-/// Refuses an unframed answer, a non-200 status and a truncated body.
+/// Refuses an unframed answer, a non-200 status, transfer encodings and any
+/// body whose size differs from its single declared Content-Length.
 pub fn http_body(answer: &[u8]) -> Result<Vec<u8>, GatewayError> {
+    let invalid = || GatewayError::Transport("invalid HTTP response framing".to_owned());
+    if answer.len() as u64 > ANSWER_LIMIT {
+        return Err(invalid());
+    }
     let end = answer
         .windows(4)
         .position(|value| value == b"\r\n\r\n")
@@ -701,16 +956,54 @@ pub fn http_body(answer: &[u8]) -> Result<Vec<u8>, GatewayError> {
     let head = std::str::from_utf8(answer.get(..end).unwrap_or_default())
         .map_err(|_| GatewayError::Transport("answer headers are not UTF-8".to_owned()))?;
     let body = answer.get(end + 4..).unwrap_or_default();
-    let status = head
-        .lines()
-        .next()
-        .and_then(|line| line.split_ascii_whitespace().nth(1))
-        .and_then(|code| code.parse::<u16>().ok())
-        .ok_or_else(|| GatewayError::Transport("answer has no status".to_owned()))?;
+    let mut lines = head.split("\r\n");
+    let status_line = lines.next().ok_or_else(invalid)?;
+    if status_line.bytes().any(|byte| byte.is_ascii_control()) {
+        return Err(invalid());
+    }
+    let mut status_fields = status_line.splitn(3, ' ');
+    if !matches!(status_fields.next(), Some("HTTP/1.1" | "HTTP/1.0")) {
+        return Err(invalid());
+    }
+    let code = status_fields.next().ok_or_else(invalid)?;
+    if code.len() != 3 || !code.bytes().all(|byte| byte.is_ascii_digit()) {
+        return Err(invalid());
+    }
+    let status = code.parse::<u16>().map_err(|_| invalid())?;
     if status != 200 {
         return Err(GatewayError::Transport(format!(
             "gateway answered HTTP {status}"
         )));
+    }
+    let mut length = None;
+    for line in lines {
+        let (name, value) = line.split_once(':').ok_or_else(invalid)?;
+        if name.is_empty()
+            || !name
+                .bytes()
+                .all(|byte| byte.is_ascii_alphanumeric() || b"!#$%&'*+-.^_`|~".contains(&byte))
+            || value
+                .bytes()
+                .any(|byte| byte.is_ascii_control() && byte != b'\t')
+        {
+            return Err(invalid());
+        }
+        if name.eq_ignore_ascii_case("transfer-encoding") {
+            return Err(invalid());
+        }
+        if name.eq_ignore_ascii_case("content-length") {
+            let value = value.trim_matches([' ', '\t']);
+            if length.is_some()
+                || value.is_empty()
+                || !value.bytes().all(|byte| byte.is_ascii_digit())
+            {
+                return Err(invalid());
+            }
+            length = Some(value.parse::<usize>().map_err(|_| invalid())?);
+        }
+    }
+    if length != Some(body.len()) {
+        return Err(invalid());
     }
     Ok(body.to_vec())
 }
@@ -836,34 +1129,51 @@ pub fn boolean(value: &Value) -> Result<bool, GatewayError> {
     value.as_bool().ok_or(GatewayError::MalformedAnswer)
 }
 
-/// Decodes a gateway quantity: an unsigned decimal string, a `0x` quantity or
-/// a JSON integer. Nothing else is admitted.
+/// Decodes an unsigned decimal string, a `0x` quantity or a JSON integer
+/// without narrowing an on-chain amount.
 ///
 /// # Errors
-/// Refuses every other spelling and any value beyond 128 bits.
-pub fn quantity(value: &Value) -> Result<u128, GatewayError> {
+/// Refuses malformed quantities and values beyond 256 bits. JSON numbers
+/// must be exact unsigned integers representable by the JSON decoder.
+pub fn quantity(value: &Value) -> Result<Quantity, GatewayError> {
     match value {
         Value::Number(number) => number
             .as_u64()
-            .map(u128::from)
+            .map(|value| Quantity::from(u128::from(value)))
             .ok_or(GatewayError::MalformedAnswer),
         Value::String(text) => {
             let trimmed = text.trim();
-            if let Some(body) = trimmed
+            let (digits, radix) = if let Some(body) = trimmed
                 .strip_prefix("0x")
                 .or_else(|| trimmed.strip_prefix("0X"))
             {
-                if body.is_empty()
-                    || body.len() > 32
-                    || !body.bytes().all(|byte| byte.is_ascii_hexdigit())
-                {
+                if body.len() > 64 {
                     return Err(GatewayError::MalformedAnswer);
                 }
-                return u128::from_str_radix(body, 16).map_err(|_| GatewayError::MalformedAnswer);
+                (body, 16_u16)
+            } else {
+                (trimmed, 10_u16)
+            };
+            if digits.is_empty() {
+                return Err(GatewayError::MalformedAnswer);
             }
-            trimmed
-                .parse::<u128>()
-                .map_err(|_| GatewayError::MalformedAnswer)
+            let mut bytes = [0_u8; 32];
+            for byte in digits.bytes() {
+                let digit = nibble(byte).ok_or(GatewayError::MalformedAnswer)?;
+                if u16::from(digit) >= radix {
+                    return Err(GatewayError::MalformedAnswer);
+                }
+                let mut carry = u16::from(digit);
+                for byte in bytes.iter_mut().rev() {
+                    let current = u16::from(*byte) * radix + carry;
+                    *byte = (current & 0xff) as u8;
+                    carry = current >> 8;
+                }
+                if carry != 0 {
+                    return Err(GatewayError::MalformedAnswer);
+                }
+            }
+            Ok(Quantity(bytes))
         }
         _ => Err(GatewayError::MalformedAnswer),
     }
@@ -873,7 +1183,7 @@ pub fn quantity(value: &Value) -> Result<u128, GatewayError> {
 ///
 /// # Errors
 /// Refuses every spelling [`quantity`] refuses.
-pub fn optional_quantity(value: &Value) -> Result<Option<u128>, GatewayError> {
+pub fn optional_quantity(value: &Value) -> Result<Option<Quantity>, GatewayError> {
     if value.is_null() {
         return Ok(None);
     }
@@ -885,7 +1195,7 @@ pub fn optional_quantity(value: &Value) -> Result<Option<u128>, GatewayError> {
 /// # Errors
 /// Refuses every spelling [`quantity`] refuses and any value beyond 64 bits.
 pub fn counted(value: &Value) -> Result<u64, GatewayError> {
-    u64::try_from(quantity(value)?).map_err(|_| GatewayError::MalformedAnswer)
+    quantity(value)?.counted()
 }
 
 /// Decodes the `px_resolveAccount` result.
@@ -1005,9 +1315,10 @@ pub fn decode_assets(result: &Value) -> Result<AssetTable, GatewayError> {
             name: asset_metadata_text(&row["name"])?,
             symbol: asset_metadata_text(&row["symbol"])?,
             decimals: optional_quantity(&row["decimals"])?
-                .map(u8::try_from)
-                .transpose()
-                .map_err(|_| GatewayError::MalformedAnswer)?,
+                .map(|quantity| {
+                    u8::try_from(quantity.counted()?).map_err(|_| GatewayError::MalformedAnswer)
+                })
+                .transpose()?,
             supply: optional_quantity(&row["supply"])?,
         });
     }
@@ -1117,7 +1428,7 @@ mod tests {
             .asset("upax")
             .unwrap_or_else(|| panic!("asset row"));
         assert_eq!(row.denom, "upax");
-        assert_eq!(row.amount, 250);
+        assert_eq!(row.amount, Quantity::from(250));
         assert_eq!(balances.evidence, Evidence::GatewayReported);
     }
 
@@ -1170,9 +1481,9 @@ mod tests {
 
     #[test]
     fn a_malformed_quantity_is_refused_rather_than_defaulted() {
-        assert_eq!(quantity(&json!("12")), Ok(12));
-        assert_eq!(quantity(&json!("0x0c")), Ok(12));
-        assert_eq!(quantity(&json!(12)), Ok(12));
+        assert_eq!(quantity(&json!("12")), Ok(Quantity::from(12)));
+        assert_eq!(quantity(&json!("0x0c")), Ok(Quantity::from(12)));
+        assert_eq!(quantity(&json!(12)), Ok(Quantity::from(12)));
         for refused in [json!("-1"), json!("0x"), json!("zz"), json!(true)] {
             assert_eq!(quantity(&refused), Err(GatewayError::MalformedAnswer));
         }

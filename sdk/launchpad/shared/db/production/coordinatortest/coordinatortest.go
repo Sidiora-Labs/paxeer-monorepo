@@ -118,7 +118,7 @@ type registryDocument struct {
 }
 
 // RepositoryRoot is the monorepo root (the reviewed migration inputs live
-// under spec/production-system).
+// under launchpad/spec/production-system).
 func RepositoryRoot(t testing.TB) string {
 	t.Helper()
 	_, file, _, ok := runtime.Caller(0)
@@ -130,6 +130,15 @@ func RepositoryRoot(t testing.TB) string {
 
 func readBound(t testing.TB, root, relative, want string) []byte {
 	t.Helper()
+	if strings.HasPrefix(relative, "spec/production-system/") {
+		relative = "launchpad/" + relative
+	}
+	for _, prefix := range []string{"core/", "media/"} {
+		if strings.HasPrefix(relative, prefix) {
+			relative = "services/launchpad/" + strings.TrimPrefix(relative, prefix)
+			break
+		}
+	}
 	raw, err := os.ReadFile(filepath.Join(root, relative))
 	if err != nil {
 		t.Fatal(err)

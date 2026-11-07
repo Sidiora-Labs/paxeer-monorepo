@@ -8,11 +8,18 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/artifacts"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxgov"
 	layerxgovtypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxgov/types"
 	minttypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/mint/types"
 	pricefeedtypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/pricefeed/types"
+	spotkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/spot/keeper"
 	spottypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/spot/types"
+	app "github.com/Sidiora-Labs/Paxeer-X-Network/node"
+	spotprecompile "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/spot"
+	putils "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/utils"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/store/rootmulti"
+	storetypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/store/types"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
 	banktypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/bank/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/utils"
@@ -21,13 +28,59 @@ import (
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/stretchr/testify/require"
+	dbm "github.com/tendermint/tm-db"
 )
+
+func listingDisk(t *testing.T, source sdk.Context) (sdk.Context, func(sdk.Context) sdk.Context) {
+	t.Helper()
+	directory := t.TempDir()
+	keys := source.MultiStore().StoreKeys()
+	var root *rootmulti.Store
+	open := func() {
+		db, err := dbm.NewDB("listing", dbm.GoLevelDBBackend, directory)
+		require.NoError(t, err)
+		root = rootmulti.NewStore(db)
+		for _, key := range keys {
+			kind := storetypes.StoreTypeIAVL
+			switch key.(type) {
+			case *storetypes.TransientStoreKey:
+				kind = storetypes.StoreTypeTransient
+			case *storetypes.MemoryStoreKey:
+				kind = storetypes.StoreTypeMemory
+			}
+			root.MountStoreWithDB(key, kind, nil)
+		}
+		require.NoError(t, root.LoadLatestVersion())
+	}
+	open()
+	t.Cleanup(func() { require.NoError(t, root.Close()) })
+	for _, key := range keys {
+		it := source.MultiStore().GetKVStore(key).Iterator(nil, nil)
+		for ; it.Valid(); it.Next() {
+			root.GetKVStore(key).Set(it.Key(), it.Value())
+		}
+		require.NoError(t, it.Close())
+	}
+	reopen := func(ctx sdk.Context) sdk.Context {
+		t.Helper()
+		root.Commit(true)
+		require.NoError(t, root.Close())
+		root = nil
+		open()
+		return ctx.WithMultiStore(root).WithEventManager(sdk.NewEventManager()).
+			WithEvmEventManager(sdk.NewEVMEventManager()).
+			WithGasMeter(sdk.NewInfiniteGasMeterWithMultiplier(ctx))
+	}
+	return source.WithMultiStore(root), reopen
+}
 
 func TestGovernanceListedTokenTradesThroughPECOR(t *testing.T) {
 	f := newProductionSpotRails(t)
 	a := f.app
 	ctx := f.ctx.WithBlockTime(time.Unix(1_800_000_000, 0)).WithEvmEventManager(sdk.NewEVMEventManager())
 	a.EvmKeeper.BeginBlock(ctx)
+	ctx, reopen := listingDisk(t, ctx)
+	shareABI := *artifacts.GetParsedABI("native")
 	pecor := common.HexToAddress("0x1021")
 	vault := common.HexToAddress("0x1025")
 	pecorABI, vaultABI := f.contract(pecor).GetABI(), f.contract(vault).GetABI()
@@ -112,6 +165,11 @@ func TestGovernanceListedTokenTradesThroughPECOR(t *testing.T) {
 	proposal, err := layerxgovtypes.NewLayerXProposal("List GOVLIST on spot", "Register the priced native token for PECOR trading.",
 		&spottypes.MsgUpdateParams{Authority: layerxgovtypes.GovernanceAuthority(), Params: params})
 	require.NoError(t, err)
+	for _, pool := range []common.Address{usdl, token} {
+		_, _, exists := a.EvmKeeper.GetERC20NativePointer(ctx, a.SpotKeeper.ShareDenom(pool))
+		require.False(t, exists, "shares must be created by governance")
+	}
+	beforeListing := len(ctx.EVMEventManager().Events())
 	require.NoError(t, layerxgov.NewProposalHandler(a.MsgServiceRouter())(ctx, proposal))
 	registered, err := a.SpotKeeper.GetParams(ctx)
 	require.NoError(t, err)
@@ -131,18 +189,67 @@ func TestGovernanceListedTokenTradesThroughPECOR(t *testing.T) {
 		require.Zero(t, value.(*big.Int).Sign())
 	}
 
-	for _, pool := range []struct {
-		token    common.Address
-		symbol   string
-		decimals uint8
-	}{{usdl, "USDL", spottypes.OpeningTokenDecimals}, {token, symbol, decimals}} {
-		require.NoError(t, a.EvmKeeper.RunWithOneOffEVMInstance(ctx, func(evm *vm.EVM) error {
-			_, err := a.SpotKeeper.CreateShareToken(ctx, evm, pool.token, pool.symbol, pool.decimals)
-			return err
-		}, func(string, string) {}))
-		share, _, exists := a.EvmKeeper.GetERC20NativePointer(ctx, a.SpotKeeper.ShareDenom(pool.token))
+	shares := make(map[common.Address]common.Address)
+	for _, pool := range []common.Address{usdl, token} {
+		share, _, exists := a.EvmKeeper.GetERC20NativePointer(ctx, a.SpotKeeper.ShareDenom(pool))
 		require.True(t, exists)
+		require.NotEqual(t, common.Address{}, share)
+		require.Equal(t, share, read(vault, vaultABI, "shareTokens", pool)[0])
 		require.NotEmpty(t, a.EvmKeeper.GetCode(ctx, share))
+		shares[pool] = share
+		created := 0
+		for _, log := range ctx.EVMEventManager().Events()[beforeListing:] {
+			if len(log.Topics) > 1 && log.Topics[0] == vaultABI.Events["ShareTokenCreated"].ID &&
+				log.Topics[1] == common.BytesToHash(pool.Bytes()) {
+				require.Equal(t, vault, log.Address)
+				require.Equal(t, []common.Hash{vaultABI.Events["ShareTokenCreated"].ID,
+					common.BytesToHash(pool.Bytes()), common.BytesToHash(share.Bytes())}, log.Topics)
+				require.Empty(t, log.Data)
+				created++
+			}
+		}
+		require.Equal(t, 1, created)
+		require.Zero(t, read(share, shareABI, "totalSupply")[0].(*big.Int).Sign())
+	}
+	assertShares := func(pool common.Address, balance, supply *big.Int) {
+		t.Helper()
+		denom := a.SpotKeeper.ShareDenom(pool)
+		share := shares[pool]
+		pointer, _, exists := a.EvmKeeper.GetERC20NativePointer(ctx, denom)
+		require.True(t, exists)
+		require.Equal(t, share, pointer)
+		require.Equal(t, share, read(vault, vaultABI, "shareTokens", pool)[0])
+		require.NotEmpty(t, a.EvmKeeper.GetCode(ctx, share))
+		require.Zero(t, balance.Cmp(read(share, shareABI, "balanceOf", lp)[0].(*big.Int)))
+		require.Zero(t, balance.Cmp(a.BankKeeper.GetBalance(ctx, a.EvmKeeper.GetPaxAddressOrDefault(ctx, lp), denom).Amount.BigInt()))
+		require.Zero(t, supply.Cmp(read(share, shareABI, "totalSupply")[0].(*big.Int)))
+		require.Zero(t, supply.Cmp(a.BankKeeper.GetSupply(ctx, denom).Amount.BigInt()))
+		require.Zero(t, big.NewInt(spotkeeper.MinimumShares).Cmp(read(share, shareABI,
+			"balanceOf", a.SpotKeeper.CustodyEVMAddress(ctx))[0].(*big.Int)))
+	}
+	// Reopen the stores and reconstruct the keeper and served rails, so no
+	// registration, bank or EVM state can survive only in the producer's cache.
+	restart := func() {
+		t.Helper()
+		want, err := json.Marshal(a.SpotKeeper.ExportGenesis(ctx))
+		require.NoError(t, err)
+		a.SpotKeeper = nil
+		ctx = reopen(ctx)
+		a.SpotKeeper = spotkeeper.NewKeeper(a.GetKey(spottypes.StoreKey), a.BankKeeper, &a.EvmKeeper, a.PricefeedKeeper)
+		versioned := make(map[common.Address]putils.VersionedPrecompiles, len(f.contracts))
+		for address, contract := range f.contracts {
+			versioned[address] = putils.VersionedPrecompiles{app.LatestUpgrade: contract}
+		}
+		spot, err := spotprecompile.GetVersioned(app.LatestUpgrade, app.NewPrecompileKeepers(a))
+		require.NoError(t, err)
+		for address, contracts := range spot {
+			versioned[address] = contracts
+		}
+		a.EvmKeeper.SetCustomPrecompiles(versioned, app.LatestUpgrade)
+		f.ctx, f.contracts = ctx, a.EvmKeeper.CustomPrecompiles(ctx)
+		got, err := json.Marshal(a.SpotKeeper.ExportGenesis(ctx))
+		require.NoError(t, err)
+		require.JSONEq(t, string(want), string(got))
 	}
 
 	liquidity := sdk.NewInt(100_000_00000000)
@@ -152,8 +259,14 @@ func TestGovernanceListedTokenTradesThroughPECOR(t *testing.T) {
 		a.EvmKeeper.GetPaxAddressOrDefault(ctx, lp), coins))
 	require.Equal(t, common.LeftPadBytes([]byte{1}, 32),
 		call(lp, usdl, packed(t, erc20, "approve", vault, big.NewInt(500_000e6))))
-	call(lp, vault, packed(t, vaultABI, "deposit", usdl, big.NewInt(500_000e6)))
-	call(lp, vault, packed(t, vaultABI, "deposit", token, liquidity.BigInt()))
+	stableSupply := big.NewInt(500_000e6)
+	require.Empty(t, call(lp, vault, packed(t, vaultABI, "deposit", usdl, stableSupply)))
+	require.Empty(t, call(lp, vault, packed(t, vaultABI, "deposit", token, liquidity.BigInt())))
+	assertShares(usdl, new(big.Int).Sub(stableSupply, big.NewInt(spotkeeper.MinimumShares)), stableSupply)
+	assertShares(token, liquidity.SubRaw(spotkeeper.MinimumShares).BigInt(), liquidity.BigInt())
+	restart()
+	assertShares(usdl, new(big.Int).Sub(stableSupply, big.NewInt(spotkeeper.MinimumShares)), stableSupply)
+	assertShares(token, liquidity.SubRaw(spotkeeper.MinimumShares).BigInt(), liquidity.BigInt())
 	before, err := a.SpotKeeper.GetBook(ctx, token)
 	require.NoError(t, err)
 	require.Equal(t, liquidity, before.Reserves)
@@ -181,4 +294,39 @@ func TestGovernanceListedTokenTradesThroughPECOR(t *testing.T) {
 	require.Equal(t, true, info[0])
 	require.Equal(t, decimals, info[2])
 	require.Equal(t, after.Reserves.BigInt(), info[3])
+	burn := liquidity.QuoRaw(10)
+	nav, err := a.SpotKeeper.NAV(ctx, token)
+	require.NoError(t, err)
+	expectedPayout := burn.Mul(nav).Quo(liquidity)
+	lpBefore := a.BankKeeper.GetBalance(ctx, a.EvmKeeper.GetPaxAddressOrDefault(ctx, lp), denom).Amount
+	withdrawn, err := vaultABI.Unpack("withdraw", call(lp, vault, packed(t, vaultABI, "withdraw", token, burn.BigInt())))
+	require.NoError(t, err)
+	require.Zero(t, expectedPayout.BigInt().Cmp(withdrawn[0].(*big.Int)))
+	require.Equal(t, lpBefore.Add(expectedPayout), a.BankKeeper.GetBalance(ctx,
+		a.EvmKeeper.GetPaxAddressOrDefault(ctx, lp), denom).Amount)
+	remainingSupply := liquidity.Sub(burn)
+	assertShares(token, remainingSupply.SubRaw(spotkeeper.MinimumShares).BigInt(), remainingSupply.BigInt())
+	withdrawBook, err := a.SpotKeeper.GetBook(ctx, token)
+	require.NoError(t, err)
+	require.Equal(t, after.Reserves.Sub(expectedPayout), withdrawBook.Reserves)
+	require.Equal(t, liquidity, withdrawBook.TotalDeposited)
+	require.Equal(t, expectedPayout, withdrawBook.TotalWithdrawn)
+	restart()
+	assertShares(token, remainingSupply.SubRaw(spotkeeper.MinimumShares).BigInt(), remainingSupply.BigInt())
+	assertShares(usdl, new(big.Int).Sub(stableSupply, big.NewInt(spotkeeper.MinimumShares)), stableSupply)
+	recoveredBook, err := a.SpotKeeper.GetBook(ctx, token)
+	require.NoError(t, err)
+	require.Equal(t, withdrawBook, recoveredBook)
+	// A further redemption proves the recovered public consumer is usable.
+	lpBefore = a.BankKeeper.GetBalance(ctx, a.EvmKeeper.GetPaxAddressOrDefault(ctx, lp), denom).Amount
+	nav, err = a.SpotKeeper.NAV(ctx, token)
+	require.NoError(t, err)
+	expectedPayout = burn.Mul(nav).Quo(remainingSupply)
+	withdrawn, err = vaultABI.Unpack("withdraw", call(lp, vault, packed(t, vaultABI, "withdraw", token, burn.BigInt())))
+	require.NoError(t, err)
+	require.Zero(t, expectedPayout.BigInt().Cmp(withdrawn[0].(*big.Int)))
+	require.Equal(t, lpBefore.Add(expectedPayout), a.BankKeeper.GetBalance(ctx,
+		a.EvmKeeper.GetPaxAddressOrDefault(ctx, lp), denom).Amount)
+	remainingSupply = remainingSupply.Sub(burn)
+	assertShares(token, remainingSupply.SubRaw(spotkeeper.MinimumShares).BigInt(), remainingSupply.BigInt())
 }

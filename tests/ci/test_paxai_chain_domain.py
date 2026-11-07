@@ -6,12 +6,12 @@ import subprocess
 
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
-MERGED_CHAIN_DOMAIN = "b69143b1aa0c360367c299a2a47bbbfe3546ecbdc0a78c640770d49d977f038d"
+MERGED_CHAIN_DOMAIN = "62b6b14734fa769c3e0fbc94de495a3d038be49a2524b1c071d75d0a4eed71f6"
 
 
 def test_makefile_chain_domain_is_merged_chain_golden():
     expected = hashlib.sha256(
-        b"PAXAI/chain-domain/v1" + (229).to_bytes(8, "big")
+        b"PAXAI/chain-domain/v1" + (125).to_bytes(8, "big")
     ).hexdigest()
     assert expected == MERGED_CHAIN_DOMAIN
     env = {**os.environ, "LC_ALL": "C"}

@@ -1,0 +1,37 @@
+[manifest]
+task = "22.32.144"
+domain = 14
+owner_role = "fm-web-explorer-bridge"
+pages = 5
+
+[page.1]
+path = "services/explorer/backend/apps/block_scout_web/API.md"
+status = "stale"
+bytes = 51151
+source_1 = "record 22.30.149 [doc.13] (stale): Read all account request and response examples; v1 paths and controller names disagree with the mounted v2 account API. See account-api-documentation-version."
+
+[page.2]
+path = "services/explorer/backend/apps/ethereum_jsonrpc/README.md"
+status = "stale"
+bytes = 3363
+source_1 = "record 22.30.147 [doc.13] (stale): line 11: readme-config — The library README instructs configuring top-level url/trace_url/http and presents embedded public-provider URLs for Geth tests. Production selection uses json_rpc_named_arguments transport_options with URL lists and the PaxeerX variant, so the example does not describe the current running path."
+
+[page.3]
+path = "services/explorer/backend/apps/nft_media_handler/README.md"
+status = "misleading"
+bytes = 2644
+source_1 = "record 22.30.150 [doc.017] (misleading): The line-31 Vix image-open example passes the constructor tuple to an image-struct consumer; finding 010 proposes explicit successful-open matching and error handling."
+
+[page.4]
+path = "services/explorer/services/libs/blockscout-client/README.md"
+status = "stale"
+bytes = 1190
+source_1 = "record 22.30.139 [doc.13] (stale): The client generation overview is coherent, but the record-stubs example still instructs recording /api/v1/health, an operation absent from the current backend router. Rewrite: Use /api/health in the stub-recording example and align the generated client health contract with actual controller output rather than preserving the obsolete operation."
+source_2 = "record 22.30.146 [doc.013] (stale): Lines 17-26 prescribe remote generation; lines 31-47 recommend upstream stubs including unmounted /api/v1/health. No guidance binds generation/tests to the local Paxeer producer."
+source_3 = "record 22.30.152 [doc.14] (stale): Lines33-47 describe remote mock recording as the test workflow, with a health example; they omit a current local backend-to-Rust contract check and actual error-status recording. See client-contract-tests."
+
+[page.5]
+path = "services/explorer/services/libs/blockscout-db/migration/README.md"
+status = "misleading"
+bytes = 829
+source_1 = "record 22.30.143 [doc.13] (misleading): The CLI catalogue advertises rollback, refresh and reset although the registered initial migration implements only up. See migration-rollback-runbook for the supported recovery documentation proposal."

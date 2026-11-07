@@ -480,6 +480,12 @@ fn with_state(job: &Job, state: JobState, now_ms: u64) -> StateRecord {
     }
 }
 
+pub struct Cancellation {
+    pub key: JobKey,
+    pub state: JobState,
+    pub acknowledgment: Vec<u8>,
+}
+
 /// One worker replica: the shared store, its runner and the delegate key.
 pub struct JobService {
     store: JobStore,
@@ -499,6 +505,48 @@ impl JobService {
     #[must_use]
     pub const fn runner(&self) -> &ProcessRunner {
         &self.runner
+    }
+
+    pub fn signing_key(&self, delegate: PublicKey32) -> Result<SigningKey, ServiceError> {
+        if self.key.verifying_key().to_bytes() == delegate.0 {
+            Ok(self.key.clone())
+        } else {
+            self.store.signing_key(delegate)
+        }
+    }
+
+    /// Recover an exact signed admission without consulting mutable task or input files.
+    pub fn replay_submit(
+        &self,
+        signed: &[u8],
+        authority: &FinalizedAuthority,
+        customer: &IdentityEvidence,
+    ) -> Result<Option<Receipt>, ServiceError> {
+        let envelope = decode_service(signed)?;
+        authority.worker_binding().check_domain(&envelope.context)?;
+        let key = JobKey::derive(
+            envelope.context.market,
+            envelope.context.actor,
+            envelope.context.request,
+        )?;
+        let Some(saved) = self.store.find(key)? else {
+            return Ok(None);
+        };
+        verify_request(
+            &envelope,
+            Route::Submit,
+            &saved.record.admission.worker_binding(),
+        )?;
+        authority.release_gate()?;
+        check_actor(&envelope, customer, authority.height())?;
+        if saved.record.admission.request_commitment != envelope.digest {
+            return Err(ServiceError::IdempotencyConflict);
+        }
+        Ok(Some(Receipt {
+            key,
+            acknowledgment: saved.record.acknowledgment,
+            result: saved.result,
+        }))
     }
 
     /// F02-R017/R023 `SubmitJob`. An exact duplicate returns the saved acknowledgment and any
@@ -532,21 +580,14 @@ impl JobService {
         let request = ServiceRequest::decode(&envelope.payload)?;
         let context = envelope.context;
         let key = JobKey::derive(context.market, context.actor, context.request)?;
-        if let Some(saved) = self.store.find(key)? {
-            authority.release_gate()?;
-            check_actor(&envelope, customer, authority.height())?;
-            if saved.record.admission.request_commitment != envelope.digest {
-                return Err(ServiceError::IdempotencyConflict);
-            }
-            return Ok(Receipt {
-                key,
-                acknowledgment: saved.record.acknowledgment,
-                result: saved.result,
-            });
+        if let Some(receipt) = self.replay_submit(signed, authority, customer)? {
+            return Ok(receipt);
         }
         let admission = admit(&envelope, &request, authority, customer, metadata, task)?;
         let capability = metadata.manifest().capability(request.capability)?;
         bind_input(&envelope, &admission, &request, input)?;
+        let key_for_admission = self.signing_key(admission.delegate)?;
+        self.store.retain_signing_key(&key_for_admission)?;
         self.store.mark(
             replay_marker(&context, request.generation, ServiceOperation::SubmitJob)?,
             envelope.digest,
@@ -564,7 +605,7 @@ impl JobService {
                 max_input_units: capability.max_input_units,
                 accepted_ms: now_ms,
             },
-            |sequence| admission.sign_acknowledgment(sequence, &self.key),
+            |sequence| admission.sign_acknowledgment(sequence, &key_for_admission),
         )?;
         Ok(Receipt {
             key,
@@ -625,6 +666,7 @@ impl JobService {
                 state: JobState::Running,
                 fence,
                 lease_until_ms,
+                late: false,
                 changed_ms: now_ms,
                 ..job.state
             };
@@ -861,7 +903,8 @@ impl JobService {
         now_ms: u64,
     ) -> Result<Change, ServiceError> {
         let sequence = txn.next_sequence()?;
-        let result = sign_result(&job.record.admission, sequence, body, &self.key)?;
+        let key = self.signing_key(job.record.admission.delegate)?;
+        let result = sign_result(&job.record.admission, sequence, body, &key)?;
         Ok(Change {
             state: Some(with_state(job, JobState::Ended(body.outcome), now_ms)),
             terminal: Some(Terminal {
@@ -1043,6 +1086,17 @@ impl JobService {
         actor: &IdentityEvidence,
         now_ms: u64,
     ) -> Result<JobState, ServiceError> {
+        Ok(self.cancel_record(signed, authority, actor, now_ms)?.state)
+    }
+
+    /// Returns the exact authorized admission alongside its cancellation state.
+    pub fn cancel_record(
+        &self,
+        signed: &[u8],
+        authority: &FinalizedAuthority,
+        actor: &IdentityEvidence,
+        now_ms: u64,
+    ) -> Result<Cancellation, ServiceError> {
         let job = self.authorized(signed, Route::Cancel, authority, actor, &[], now_ms)?;
         let key = job.record.key;
         let (state, fence) = self.store.update(key, |job, txn| match job.state.state {
@@ -1068,7 +1122,11 @@ impl JobService {
             // Cooperative only: the answer carries no authority over the job's state.
             let _ = self.runner.cancel(key, fence);
         }
-        Ok(state)
+        Ok(Cancellation {
+            key,
+            state,
+            acknowledgment: job.record.acknowledgment,
+        })
     }
 
     /// F01 result commitment input for a final job. Reconciliation of already admitted work
@@ -1154,6 +1212,39 @@ impl JobService {
         } else {
             Readiness::NotReady
         }
+    }
+
+    /// Persist the expired fence in the job itself before cancellation or reconciliation.
+    pub fn fence_expired(&self, key: JobKey, fence: u64, now_ms: u64) -> Result<(), ServiceError> {
+        self.store.update(key, |job, _| {
+            let state =
+                (job.state.fence == fence && fence != 0 && job.state.lease_until_ms <= now_ms)
+                    .then_some(StateRecord {
+                        late: true,
+                        ..job.state
+                    });
+            Ok((
+                Change {
+                    state,
+                    ..Change::default()
+                },
+                (),
+            ))
+        })
+    }
+
+    /// Finalized settlement or an elapsed chain deadline releases retention eligibility.
+    /// Unfinished and unknown executions are always preserved by the store.
+    pub fn purge_settled(
+        &self,
+        now_ms: u64,
+        height: u64,
+        settled: &[TaskId],
+    ) -> Result<usize, ServiceError> {
+        self.store.purge_where(now_ms, height, |job| {
+            Ok(height >= job.record.admission.task_deadline
+                || settled.contains(&job.record.admission.task))
+        })
     }
 
     /// Retention purge; see [`JobStore::purge`].

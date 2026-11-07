@@ -1,7 +1,7 @@
 package main
 
 import (
-	"encoding/json"
+	"bytes"
 	"errors"
 	"fmt"
 	"os"
@@ -9,6 +9,8 @@ import (
 	"strings"
 	"syscall"
 	"time"
+
+	"golang.org/x/sys/unix"
 )
 
 type qualificationRegistry struct{ root string }
@@ -84,15 +86,14 @@ func qSyncDir(path string) error {
 	defer f.Close()
 	return f.Sync()
 }
-func qWrite(path string, b []byte) error {
+func qStageWrite(path string) (*os.File, error) {
 	if e := qPrivate(filepath.Dir(path), true); e != nil {
-		return e
+		return nil, e
 	}
-	f, e := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL|syscall.O_NOFOLLOW, 0600)
-	if e != nil {
-		return e
-	}
-	_, e = f.Write(b)
+	return os.CreateTemp(filepath.Dir(path), ".qualification-*.tmp")
+}
+func qPrepareWrite(f *os.File, b []byte) error {
+	_, e := f.Write(b)
 	if e == nil {
 		e = f.Sync()
 	}
@@ -103,13 +104,101 @@ func qWrite(path string, b []byte) error {
 	if ce != nil {
 		return ce
 	}
+	return nil
+}
+func qPublishWrite(staged, path string) error {
+	return unix.Renameat2(unix.AT_FDCWD, staged, unix.AT_FDCWD, path, unix.RENAME_NOREPLACE)
+}
+func qWrite(path string, b []byte) error {
+	f, e := qStageWrite(path)
+	if e != nil {
+		return e
+	}
+	defer os.Remove(f.Name())
+	if e = qPrepareWrite(f, b); e != nil {
+		return e
+	}
+	if e = qPublishWrite(f.Name(), path); e != nil {
+		return e
+	}
 	return qSyncDir(filepath.Dir(path))
+}
+func qStagedWrite(name string) bool {
+	if !strings.HasPrefix(name, ".qualification-") || !strings.HasSuffix(name, ".tmp") {
+		return false
+	}
+	number := strings.TrimSuffix(strings.TrimPrefix(name, ".qualification-"), ".tmp")
+	if number == "" {
+		return false
+	}
+	for _, c := range number {
+		if c < '0' || c > '9' {
+			return false
+		}
+	}
+	return true
+}
+
+// Only staging names are uncommitted. A final record, including dispatch_intent,
+// is never discarded or rewritten, even when its caller did not see success.
+// Callers hold the registry lock so recovery cannot remove a live writer's file.
+func (r *qualificationRegistry) recoverRequest(id string) (bool, error) {
+	dir := filepath.Join(r.root, id)
+	if e := qPrivate(dir, true); e != nil {
+		return false, e
+	}
+	entries, e := os.ReadDir(dir)
+	if e != nil {
+		return false, e
+	}
+	remaining := 0
+	for _, entry := range entries {
+		if !qStagedWrite(entry.Name()) {
+			remaining++
+			continue
+		}
+		path := filepath.Join(dir, entry.Name())
+		if e = qPrivate(path, false); e != nil {
+			return false, e
+		}
+		if e = os.Remove(path); e != nil {
+			return false, e
+		}
+	}
+	if e = qSyncDir(dir); e != nil {
+		return false, e
+	}
+	if remaining != 0 {
+		return false, nil
+	}
+	// No first record was published, so no dispatch could have been granted.
+	if e = os.Remove(dir); e != nil {
+		return false, e
+	}
+	return true, qSyncDir(r.root)
 }
 func newQualificationRegistry(root string) (*qualificationRegistry, error) {
 	if e := qPrivate(root, true); e != nil {
 		return nil, e
 	}
-	return &qualificationRegistry{root}, nil
+	r := &qualificationRegistry{root}
+	lock, e := r.lock()
+	if e != nil {
+		return nil, e
+	}
+	defer lock.Close()
+	entries, e := os.ReadDir(root)
+	if e != nil {
+		return nil, e
+	}
+	for _, entry := range entries {
+		if qDigest.MatchString(entry.Name()) {
+			if _, e = r.recoverRequest(entry.Name()); e != nil {
+				return nil, e
+			}
+		}
+	}
+	return r, nil
 }
 func (r *qualificationRegistry) lock() (*os.File, error) {
 	f, e := os.OpenFile(filepath.Join(r.root, "registry.lock"), os.O_CREATE|os.O_RDWR|syscall.O_NOFOLLOW, 0600)
@@ -132,6 +221,9 @@ func (r *qualificationRegistry) read(id string) (qualificationRecord, error) {
 		return rec, errors.New("invalid logical identity")
 	}
 	dir := filepath.Join(r.root, id)
+	if e := qPrivate(dir, true); e != nil {
+		return rec, e
+	}
 	entries, e := os.ReadDir(dir)
 	if e != nil {
 		return rec, e
@@ -139,6 +231,12 @@ func (r *qualificationRegistry) read(id string) (qualificationRecord, error) {
 	previous := ""
 	seq := int64(0)
 	for _, entry := range entries {
+		if qStagedWrite(entry.Name()) {
+			if e = qPrivate(filepath.Join(dir, entry.Name()), false); e != nil {
+				return rec, e
+			}
+			continue
+		}
 		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".json") {
 			return rec, errors.New("registry has unexpected entry")
 		}
@@ -164,8 +262,18 @@ func (r *qualificationRegistry) read(id string) (qualificationRecord, error) {
 			if next.State != "prepared" {
 				return rec, errors.New("invalid initial state")
 			}
-		} else if !qTransition(rec.State, next.State) || qHash(qCanonical(next.Request)) != qHash(qCanonical(rec.Request)) {
-			return rec, errors.New("invalid registry transition")
+		} else {
+			nextBytes, err := qCanonical(next.Request)
+			if err != nil {
+				return rec, err
+			}
+			oldBytes, err := qCanonical(rec.Request)
+			if err != nil {
+				return rec, err
+			}
+			if !qTransition(rec.State, next.State) || !bytes.Equal(nextBytes, oldBytes) {
+				return rec, errors.New("invalid registry transition")
+			}
 		}
 		rec = next
 		previous = qHash(b)
@@ -187,11 +295,27 @@ func (r *qualificationRegistry) submit(req qualificationRequest) (qualificationR
 	defer lock.Close()
 	dir := filepath.Join(r.root, req.LogicalID)
 	if _, e = os.Lstat(dir); e == nil {
-		old, err := r.read(req.LogicalID)
-		if err == nil && qHash(qCanonical(old.Request)) != qHash(qCanonical(req)) {
-			err = errors.New("logical request payload changed")
+		empty, err := r.recoverRequest(req.LogicalID)
+		if err != nil {
+			return rec, err
 		}
-		return old, err
+		if !empty {
+			old, err := r.read(req.LogicalID)
+			if err == nil {
+				oldBytes, e := qCanonical(old.Request)
+				if e != nil {
+					return old, e
+				}
+				newBytes, e := qCanonical(req)
+				if e != nil {
+					return old, e
+				}
+				if !bytes.Equal(oldBytes, newBytes) {
+					err = errors.New("logical request payload changed")
+				}
+			}
+			return old, err
+		}
 	} else if !os.IsNotExist(e) {
 		return rec, e
 	}
@@ -202,7 +326,11 @@ func (r *qualificationRegistry) submit(req qualificationRequest) (qualificationR
 		return rec, e
 	}
 	rec = qualificationRecord{Request: req, Sequence: 1, State: "prepared", UpdatedAt: time.Now().UTC()}
-	e = qWrite(filepath.Join(dir, fmt.Sprintf("%020d.json", 1)), qCanonical(rec))
+	b, e := qCanonical(rec)
+	if e != nil {
+		return rec, e
+	}
+	e = qWrite(filepath.Join(dir, fmt.Sprintf("%020d.json", 1)), b)
 	return rec, e
 }
 func (r *qualificationRegistry) advance(id, old, state string, run, attempt int64, detail string) (qualificationRecord, error) {
@@ -230,7 +358,11 @@ func (r *qualificationRegistry) advance(id, old, state string, run, attempt int6
 	rec.Attempt = attempt
 	rec.Detail = detail
 	rec.UpdatedAt = time.Now().UTC()
-	return rec, qWrite(filepath.Join(r.root, id, fmt.Sprintf("%020d.json", rec.Sequence)), qCanonical(rec))
+	b, e := qCanonical(rec)
+	if e != nil {
+		return rec, e
+	}
+	return rec, qWrite(filepath.Join(r.root, id, fmt.Sprintf("%020d.json", rec.Sequence)), b)
 }
 func (r *qualificationRegistry) list() ([]qualificationRecord, error) {
 	entries, e := os.ReadDir(r.root)
@@ -265,7 +397,6 @@ func (r *qualificationRegistry) protects(runID int64) bool {
 	}
 	return false
 }
-func qJSON(v any) []byte { b, _ := json.Marshal(v); return b }
 
 func (r *qualificationRegistry) protectsAssigned(m machine, idx *jobIndex) bool {
 	records, e := r.list()

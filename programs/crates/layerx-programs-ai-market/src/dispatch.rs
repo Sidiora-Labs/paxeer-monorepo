@@ -13,19 +13,23 @@ use crate::{
     admission, aggregation, closure, commit_reveal, epoch, evidence, queries, rewards, tasks,
     value_adapter, workers, MAX_STATE_BYTES,
 };
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub enum SequencePolicy {
     Role,
     ObjectLocal,
 }
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub enum CallBoundary {
     Mutation,
     ProgramRead,
 }
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct Operation(u16);
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct OperationMetadata {
     pub operation: Operation,
     pub name: &'static str,
@@ -41,6 +45,7 @@ impl Operation {
     ///
     /// # Errors
     /// Returns `UNKNOWN_OPERATION` when the selector is not in the table.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn decode(selector: u16) -> CodecResult<Self> {
         OPERATIONS
             .iter()
@@ -60,6 +65,9 @@ impl Operation {
                 return m;
             }
         }
+        #[cfg(target_arch = "wasm32")]
+        core::arch::wasm32::unreachable();
+        #[cfg(not(target_arch = "wasm32"))]
         unreachable!("Operation is constructed only by the frozen table")
     }
     /// Checks a payload length against the operation's bounds.
@@ -124,6 +132,8 @@ pub const ResumeHistory: Operation = Operation(0x0703);
 pub const ApproveAdmission: Operation = Operation(0x0801);
 pub const RevokeAdmissionApproval: Operation = Operation(0x0802);
 pub const AdmitWorker: Operation = Operation(0x0803);
+/// Successful consent binds the evaluator replay slot and records this request. Subsequent
+/// evidence, commit and reveal calls must use the next sequence from committed replay.
 pub const AdmitEvaluator: Operation = Operation(0x0804);
 pub const Heartbeat: Operation = Operation(0x0805);
 pub const RequestExit: Operation = Operation(0x0806);
@@ -734,7 +744,8 @@ pub struct Buffers<'b> {
     pub result: &'b mut [u8],
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub enum Routed {
     /// `next[..state_len]` and `event[..event_len]` must be committed together with the
     /// `Ok` result frame in `result[..result_len]`.
@@ -793,9 +804,11 @@ pub fn route(
     current: Option<&[u8]>,
     buffers: Buffers<'_>,
 ) -> CodecResult<Routed> {
-    let visible = current
-        .and_then(|bytes| state::decode_shared_state(bytes).ok())
-        .map_or(0, |s| s.revision);
+    let visible = || {
+        current
+            .and_then(|bytes| state::decode_shared_state(bytes).ok())
+            .map_or(0, |s| s.revision)
+    };
     let envelope = match codec::decode_envelope(envelope_bytes) {
         Ok(envelope) => envelope,
         Err(error) => return refuse(error, Presence::Absent, 0, buffers.result),
@@ -855,7 +868,7 @@ pub fn route(
                 Payload::Record(bytes, n) => &bytes[..*n],
             };
             frame(
-                ApplicationResult::success(ResultStatus::AlreadyApplied, request, visible, bytes),
+                ApplicationResult::success(ResultStatus::AlreadyApplied, request, visible(), bytes),
                 result,
             )
             .map(|result_len| Routed::Unchanged { result_len })
@@ -863,13 +876,13 @@ pub fn route(
         Ok(Step::Read { payload_len }) => scratch
             .get(..payload_len)
             .ok_or(NON_CANONICAL)
-            .and_then(|body| queries::frame_read_result(request, visible, body, result))
+            .and_then(|body| queries::frame_read_result(request, visible(), body, result))
             .map(|result_len| Routed::Unchanged { result_len }),
         Err(error) => Err(error),
     };
     match framed {
         Ok(routed) => Ok(routed),
-        Err(error) => refuse(error, Presence::Present(request), visible, result),
+        Err(error) => refuse(error, Presence::Present(request), visible(), result),
     }
 }
 
@@ -929,7 +942,7 @@ fn transition(
     if current.is_none()
         || matches!(
             envelope.envelope.operation.0,
-            0x0105 | 0x0111 | 0x0501..=0x0503 | 0x0701..=0x0703 | 0x0A01 | 0x0A02
+            0x0105 | 0x0111 | 0x0501..=0x0503 | 0x0601 | 0x0701..=0x0703 | 0x0A01 | 0x0A02
         )
     {
         return transition_inner(ctx, envelope, envelope_bytes, current, next, scratch, event);
@@ -1158,6 +1171,7 @@ fn settlement(
     }
 }
 
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 fn read(
     ctx: &CallContext,
     envelope: &ValidatedEnvelope<'_>,
@@ -1210,13 +1224,19 @@ fn identity(
             }
         }
         0x0301..=0x0303 => {
+            let aggregate_sealed =
+                authority::evaluator_region(state.section(Section::IdentityRoster)?)?
+                    .snapshot()
+                    .is_some()
+                    && aggregation::progress(bytes)?.phase
+                        != crate::aggregation_codec::AggregationPhase::Unsealed;
             let call = authority::AuthorityContext {
                 market: &section.header,
                 invoking_principal: ctx.principal,
                 immediate_caller: Presence::Absent,
                 height: ctx.height,
                 approved_rubric: section.current.commitments.rubric,
-                aggregate_sealed: false,
+                aggregate_sealed,
             };
             match authority::apply(bytes, &call, envelope_bytes, scratch, next, event)? {
                 authority::Outcome::Applied {

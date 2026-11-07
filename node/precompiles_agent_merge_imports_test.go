@@ -12,7 +12,7 @@ func TestMergeConstructorsRegisteredForAgentOracleSchedulerStreams(t *testing.T)
 	a := Setup(t, false, false, false)
 	t.Cleanup(func() { require.NoError(t, a.Close()) })
 
-	custom, err := precompiles.GetCustomPrecompilesE(LatestUpgrade, NewPrecompileKeepers(a))
+	custom, err := precompiles.GetCustomPrecompilesE(LatestUpgrade, a.GetPrecompileKeepers())
 	require.NoError(t, err)
 	missing := precompiles.MissingMergeConstructors()
 	for _, entry := range []precompiles.MergeAddress{

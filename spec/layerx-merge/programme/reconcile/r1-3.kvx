@@ -1,0 +1,585 @@
+[reconcile.r1-3]
+revision = "d6c341e59603faf9a28756df9aff6d45927fe392"
+rows = 60
+
+[row.r1-3.1]
+interface = "interface.1.c-lxp-capacity-observation"
+verdict = "retired"
+path = "include/layerx/lxp_kernel.h"
+line = 806
+symbol = "lxp_capacity_observation"
+evidence = "lxp_capacity_observation is absent from include/layerx/lxp_kernel.h; repository-wide search outside spec and docs finds only retirement checks and interface-audit test references, with no surviving implementation."
+remaining_refs = 1
+remaining = ["tests/codec/lxp_test_kernel_complete.c:419"]
+
+[row.r1-3.2]
+interface = "interface.1.c-lxp-capacity-profile-validate"
+verdict = "retired"
+path = "include/layerx/lxp_kernel.h"
+line = 821
+symbol = "lxp_capacity_profile_validate"
+evidence = "lxp_capacity_profile_validate is absent from include/layerx/lxp_kernel.h; repository-wide search outside spec and docs finds only retirement checks and interface-audit test references, with no surviving implementation."
+remaining_refs = 1
+remaining = ["tests/codec/lxp_test_kernel_complete.c:434"]
+
+[row.r1-3.3]
+interface = "interface.1.c-lxp-capacity-ledger-install"
+verdict = "retired"
+path = "include/layerx/lxp_kernel.h"
+line = 822
+symbol = "lxp_capacity_ledger_install"
+evidence = "lxp_capacity_ledger_install is absent from include/layerx/lxp_kernel.h; repository-wide search outside spec and docs finds only retirement checks and interface-audit test references, with no surviving implementation."
+remaining_refs = 2
+remaining = ["tests/codec/lxp_test_kernel_complete.c:416", "tests/codec/lxp_test_kernel_entry_retired.c:15"]
+
+[row.r1-3.4]
+interface = "interface.1.c-lxp-kernel-capacity-observe"
+verdict = "retired"
+path = "include/layerx/lxp_kernel.h"
+line = 824
+symbol = "lxp_kernel_capacity_observe"
+evidence = "lxp_kernel_capacity_observe is absent from include/layerx/lxp_kernel.h; repository-wide search outside spec and docs finds only retirement checks and interface-audit test references, with no surviving implementation."
+remaining_refs = 3
+remaining = ["tests/ci/test_programs_capacity_feed_removed.py:18", "tests/codec/lxp_test_kernel_complete.c:932", "tests/codec/lxp_test_kernel_entry_retired.c:11"]
+
+[row.r1-3.5]
+interface = "interface.1.c-lxp-kernel-capacity-reserve"
+verdict = "retired"
+path = "include/layerx/lxp_kernel.h"
+line = 827
+symbol = "lxp_kernel_capacity_reserve"
+evidence = "lxp_kernel_capacity_reserve is absent from include/layerx/lxp_kernel.h; repository-wide search outside spec and docs finds only retirement checks and interface-audit test references, with no surviving implementation."
+remaining_refs = 2
+remaining = ["tests/codec/lxp_test_kernel_complete.c:938", "tests/codec/lxp_test_kernel_entry_retired.c:12"]
+
+[row.r1-3.6]
+interface = "interface.1.c-lxp-kernel-capacity-reconcile"
+verdict = "retired"
+path = "include/layerx/lxp_kernel.h"
+line = 832
+symbol = "lxp_kernel_capacity_reconcile"
+evidence = "lxp_kernel_capacity_reconcile is absent from include/layerx/lxp_kernel.h; repository-wide search outside spec and docs finds only retirement checks and interface-audit test references, with no surviving implementation."
+remaining_refs = 2
+remaining = ["tests/codec/lxp_test_kernel_complete.c:935", "tests/codec/lxp_test_kernel_entry_retired.c:13"]
+
+[row.r1-3.7]
+interface = "interface.1.c-lxp-kernel-capacity-cancel"
+verdict = "retired"
+path = "include/layerx/lxp_kernel.h"
+line = 836
+symbol = "lxp_kernel_capacity_cancel"
+evidence = "lxp_kernel_capacity_cancel is absent from include/layerx/lxp_kernel.h; repository-wide search outside spec and docs finds only retirement checks and interface-audit test references, with no surviving implementation."
+remaining_refs = 2
+remaining = ["tests/codec/lxp_test_kernel_complete.c:929", "tests/codec/lxp_test_kernel_entry_retired.c:14"]
+
+[row.r1-3.8]
+interface = "interface.1.c-lxp-capacity-profile-encode"
+verdict = "retired"
+path = "include/layerx/lxp_kernel.h"
+line = 840
+symbol = "lxp_capacity_profile_encode"
+evidence = "lxp_capacity_profile_encode is absent from include/layerx/lxp_kernel.h; repository-wide search outside spec and docs finds only retirement checks and interface-audit test references, with no surviving implementation."
+remaining_refs = 1
+remaining = ["tests/codec/lxp_test_kernel_complete.c:431"]
+
+[row.r1-3.9]
+interface = "interface.1.c-lxp-capacity-profile-decode"
+verdict = "retired"
+path = "include/layerx/lxp_kernel.h"
+line = 842
+symbol = "lxp_capacity_profile_decode"
+evidence = "lxp_capacity_profile_decode is absent from include/layerx/lxp_kernel.h; repository-wide search outside spec and docs finds only retirement checks and interface-audit test references, with no surviving implementation."
+remaining_refs = 1
+remaining = ["tests/codec/lxp_test_kernel_complete.c:428"]
+
+[row.r1-3.10]
+interface = "interface.1.c-lxp-capacity-request-decode"
+verdict = "retired"
+path = "include/layerx/lxp_kernel.h"
+line = 845
+symbol = "lxp_capacity_request_decode"
+evidence = "lxp_capacity_request_decode is absent from include/layerx/lxp_kernel.h; repository-wide search outside spec and docs finds only retirement checks and interface-audit test references, with no surviving implementation."
+remaining_refs = 1
+remaining = ["tests/codec/lxp_test_kernel_complete.c:440"]
+
+[row.r1-3.11]
+interface = "interface.1.c-lxp-capacity-reservation-encode"
+verdict = "retired"
+path = "include/layerx/lxp_kernel.h"
+line = 848
+symbol = "lxp_capacity_reservation_encode"
+evidence = "lxp_capacity_reservation_encode is absent from include/layerx/lxp_kernel.h; repository-wide search outside spec and docs finds only retirement checks and interface-audit test references, with no surviving implementation."
+remaining_refs = 1
+remaining = ["tests/codec/lxp_test_kernel_complete.c:446"]
+
+[row.r1-3.12]
+interface = "interface.1.c-lxp-capacity-observation-encode"
+verdict = "retired"
+path = "include/layerx/lxp_kernel.h"
+line = 851
+symbol = "lxp_capacity_observation_encode"
+evidence = "lxp_capacity_observation_encode is absent from include/layerx/lxp_kernel.h; repository-wide search outside spec and docs finds only retirement checks and interface-audit test references, with no surviving implementation."
+remaining_refs = 1
+remaining = ["tests/codec/lxp_test_kernel_complete.c:422"]
+
+[row.r1-3.13]
+interface = "interface.1.c-lxp-capacity-ledger-encode"
+verdict = "retired"
+path = "include/layerx/lxp_kernel.h"
+line = 854
+symbol = "lxp_capacity_ledger_encode"
+evidence = "lxp_capacity_ledger_encode is absent from include/layerx/lxp_kernel.h; repository-wide search outside spec and docs finds only retirement checks and interface-audit test references, with no surviving implementation."
+remaining_refs = 1
+remaining = ["tests/codec/lxp_test_kernel_complete.c:413"]
+
+[row.r1-3.14]
+interface = "interface.1.c-lxp-capacity-ledger-decode"
+verdict = "retired"
+path = "include/layerx/lxp_kernel.h"
+line = 857
+symbol = "lxp_capacity_ledger_decode"
+evidence = "lxp_capacity_ledger_decode is absent from include/layerx/lxp_kernel.h; repository-wide search outside spec and docs finds only retirement checks and interface-audit test references, with no surviving implementation."
+remaining_refs = 1
+remaining = ["tests/codec/lxp_test_kernel_complete.c:410"]
+
+[row.r1-3.15]
+interface = "interface.1.c-lxp-send-environment"
+verdict = "served"
+path = "include/layerx/lxp_ledger.h"
+line = 183
+symbol = "lxp_send_environment"
+evidence = "typedef struct lxp_send_environment now appends bool binding_authority after struct lxp_transfer_allowance *allowance at lxp_ledger.h:195; the other registered fields remain in order."
+
+[row.r1-3.16]
+interface = "interface.1.c-lxp-payer-grant"
+verdict = "retired"
+path = "include/layerx/lxp_ledger.h"
+line = 198
+symbol = "lxp_payer_grant"
+evidence = "lxp_payer_grant is absent from include/layerx/lxp_ledger.h; repository-wide search outside spec and docs finds retained receive/grant tests, vectors or historical mentions, with no live implementation. Retirement probes in tests/codec/lxp_test_receive_retired.c check the removed API."
+remaining_refs = 7
+remaining = ["services/agent/crates/layerx-crypto/tests/native_payment_vectors.c:46", "services/human/crates/layerx-human-service/src/journeys/router.rs:288", "tests/codec/lxp_test_binding_authority_receive.c:31", "tests/codec/lxp_test_budget_pull_retired.c:78", "tests/codec/lxp_test_receive_retired.c:17", "tests/fuzz/lxp_prop_payer_grant.c:40", "tests/qualification/lxp_wallet_caps_discovery.c:587"]
+
+[row.r1-3.17]
+interface = "interface.1.c-lxp-receive"
+verdict = "retired"
+path = "include/layerx/lxp_ledger.h"
+line = 216
+symbol = "lxp_receive"
+evidence = "lxp_receive is absent from include/layerx/lxp_ledger.h; repository-wide search outside spec and docs finds retained receive/grant tests, vectors or historical mentions, with no live implementation. Retirement probes in tests/codec/lxp_test_receive_retired.c check the removed API."
+remaining_refs = 8
+remaining = ["GOTCHA.kvx:5535", "services/agent/crates/layerx-crypto/tests/native_payment_vectors.c:40", "services/agent/crates/layerx-crypto/tests/native_receive.c:9", "services/human/crates/layerx-intents/tests/differential.rs:185", "services/human/crates/layerx-intents/vectors/v1.kvx:41", "services/human/crates/layerx-intents/vectors/v2.kvx:41", "tests/codec/lxp_test_binding_authority_receive.c:30", "tests/codec/lxp_test_receive_retired.c:13"]
+
+[row.r1-3.18]
+interface = "interface.1.c-lxp-receive-environment"
+verdict = "retired"
+path = "include/layerx/lxp_ledger.h"
+line = 244
+symbol = "lxp_receive_environment"
+evidence = "lxp_receive_environment is absent from include/layerx/lxp_ledger.h; repository-wide search outside spec and docs finds retained receive/grant tests, vectors or historical mentions, with no live implementation. Retirement probes in tests/codec/lxp_test_receive_retired.c check the removed API."
+remaining_refs = 3
+remaining = ["GOTCHA.kvx:11118", "tests/codec/lxp_test_binding_authority_receive.c:342", "tests/codec/lxp_test_receive_retired.c:14"]
+
+[row.r1-3.19]
+interface = "interface.1.c-lxp-payer-grant-encode"
+verdict = "retired"
+path = "include/layerx/lxp_ledger.h"
+line = 394
+symbol = "lxp_payer_grant_encode"
+evidence = "lxp_payer_grant_encode is absent from include/layerx/lxp_ledger.h; repository-wide search outside spec and docs finds retained receive/grant tests, vectors or historical mentions, with no live implementation. Retirement probes in tests/codec/lxp_test_receive_retired.c check the removed API."
+remaining_refs = 6
+remaining = ["services/agent/crates/layerx-crypto/tests/native_payment_vectors.c:67", "tests/codec/lxp_test_binding_authority_receive.c:227", "tests/codec/lxp_test_budget_pull_retired.c:480", "tests/codec/lxp_test_receive_retired.c:189", "tests/fuzz/lxp_prop_payer_grant.c:103", "tests/qualification/lxp_wallet_caps_discovery.c:680"]
+
+[row.r1-3.20]
+interface = "interface.1.c-lxp-payer-grant-decode"
+verdict = "retired"
+path = "include/layerx/lxp_ledger.h"
+line = 396
+symbol = "lxp_payer_grant_decode"
+evidence = "lxp_payer_grant_decode is absent from include/layerx/lxp_ledger.h; repository-wide search outside spec and docs finds retained receive/grant tests, vectors or historical mentions, with no live implementation. Retirement probes in tests/codec/lxp_test_receive_retired.c check the removed API."
+remaining_refs = 2
+remaining = ["tests/codec/lxp_test_receive_retired.c:189", "tests/fuzz/lxp_prop_payer_grant.c:107"]
+
+[row.r1-3.21]
+interface = "interface.1.c-lxp-receive-authorization-message"
+verdict = "retired"
+path = "include/layerx/lxp_ledger.h"
+line = 401
+symbol = "lxp_receive_authorization_message"
+evidence = "lxp_receive_authorization_message is absent from include/layerx/lxp_ledger.h; repository-wide search outside spec and docs finds retained receive/grant tests, vectors or historical mentions, with no live implementation. Retirement probes in tests/codec/lxp_test_receive_retired.c check the removed API."
+remaining_refs = 4
+remaining = ["services/agent/crates/layerx-crypto/tests/native_payment_vectors.c:62", "services/agent/crates/layerx-crypto/tests/native_receive.c:28", "tests/codec/lxp_test_binding_authority_receive.c:269", "tests/codec/lxp_test_receive_retired.c:191"]
+
+[row.r1-3.22]
+interface = "interface.1.c-lxp-receive-encode"
+verdict = "retired"
+path = "include/layerx/lxp_ledger.h"
+line = 404
+symbol = "lxp_receive_encode"
+evidence = "lxp_receive_encode is absent from include/layerx/lxp_ledger.h; repository-wide search outside spec and docs finds retained receive/grant tests, vectors or historical mentions, with no live implementation. Retirement probes in tests/codec/lxp_test_receive_retired.c check the removed API."
+remaining_refs = 4
+remaining = ["services/agent/crates/layerx-crypto/tests/native_payment_vectors.c:68", "services/agent/crates/layerx-crypto/tests/native_receive.c:21", "tests/codec/lxp_test_binding_authority_receive.c:199", "tests/codec/lxp_test_receive_retired.c:190"]
+
+[row.r1-3.23]
+interface = "interface.1.c-lxp-receive-decode"
+verdict = "retired"
+path = "include/layerx/lxp_ledger.h"
+line = 406
+symbol = "lxp_receive_decode"
+evidence = "lxp_receive_decode is absent from include/layerx/lxp_ledger.h; repository-wide search outside spec and docs finds retained receive/grant tests, vectors or historical mentions, with no live implementation. Retirement probes in tests/codec/lxp_test_receive_retired.c check the removed API."
+remaining_refs = 2
+remaining = ["services/agent/crates/layerx-crypto/tests/native_receive.c:20", "tests/codec/lxp_test_receive_retired.c:190"]
+
+[row.r1-3.24]
+interface = "interface.1.c-lxp-verify-payer-grant"
+verdict = "retired"
+path = "include/layerx/lxp_ledger.h"
+line = 408
+symbol = "lxp_verify_payer_grant"
+evidence = "lxp_verify_payer_grant is absent from include/layerx/lxp_ledger.h; repository-wide search outside spec and docs finds retained receive/grant tests, vectors or historical mentions, with no live implementation. Retirement probes in tests/codec/lxp_test_receive_retired.c check the removed API."
+remaining_refs = 5
+remaining = ["GOTCHA.kvx:11795", "services/agent/crates/layerx-crypto/tests/native_payment_vectors.c:66", "services/agent/crates/layerx-crypto/tests/native_receive.c:27", "tests/codec/lxp_test_budget_pull_retired.c:479", "tests/codec/lxp_test_receive_retired.c:31"]
+
+[row.r1-3.25]
+interface = "interface.1.c-lxp-receive-execute"
+verdict = "retired"
+path = "include/layerx/lxp_ledger.h"
+line = 417
+symbol = "lxp_receive_execute"
+evidence = "lxp_receive_execute is absent from include/layerx/lxp_ledger.h; repository-wide search outside spec and docs finds retained receive/grant tests, vectors or historical mentions, with no live implementation. Retirement probes in tests/codec/lxp_test_receive_retired.c check the removed API."
+remaining_refs = 2
+remaining = ["tests/codec/lxp_test_binding_authority_receive.c:362", "tests/codec/lxp_test_receive_retired.c:21"]
+
+[row.r1-3.26]
+interface = "interface.1.c-lxp-ctx-asset-issuance-stage"
+verdict = "served"
+path = "include/layerx/lxp_module.h"
+line = 115
+symbol = "lxp_ctx_asset_issuance_stage"
+evidence = "Declaration lxp_result lxp_ctx_asset_issuance_stage(lxp_module_ctx *ctx, const lxp_activity *activity, const lxp_authority_resolved *authority, lx_account **account) has unchanged parameters and return type, shifted from line 116 to 115. src/protocol/lxp_module_ctx.c:566 now skips only signature verification when runtime binding_authority is set, retaining payload-hash validation."
+
+[row.r1-3.27]
+interface = "interface.1.c-lxp-ctx-asset-account-stage"
+verdict = "served"
+path = "include/layerx/lxp_module.h"
+line = 119
+symbol = "lxp_ctx_asset_account_stage"
+evidence = "Declaration lxp_result lxp_ctx_asset_account_stage(lxp_module_ctx *ctx, const lxp_activity *activity, const lxp_authority_resolved *authority, lx_account **account) has unchanged parameters and return type, shifted from line 120 to 119. src/protocol/lxp_module_ctx.c:620 now skips only signature verification when runtime binding_authority is set, retaining payload-hash validation."
+
+[row.r1-3.28]
+interface = "interface.1.c-lxp-ctx-verified-receipt-authority-facts"
+verdict = "kept"
+path = "include/layerx/lxp_module.h"
+line = 173
+symbol = "lxp_ctx_verified_receipt_authority_facts"
+evidence = "Decision override.J21.38 keeps this accessor under task 1.17.4. lxp_result lxp_ctx_verified_receipt_authority_facts(const lxp_module_ctx *ctx, const uint8_t receipt_digest[32], lxp_verified_receipt_authority_facts *facts) retains its signature at line 173; its output is now the V2 block_height record, with network, digest and committed-height binding required by the header comment."
+
+[row.r1-3.29]
+interface = "interface.1.c-enum-lxp-paxeer-custody-input-count"
+verdict = "retired"
+path = "include/layerx/lxp_paxeer.h"
+line = 10
+symbol = "LXP_PAXEER_CUSTODY_INPUT_COUNT"
+evidence = "The registered header include/layerx/lxp_paxeer.h no longer exists; repository-wide search outside spec and docs finds LXP_PAXEER_CUSTODY_INPUT_COUNT only in retirement checks and interface-audit tests, with no replacement declaration or implementation."
+remaining_refs = 2
+remaining = ["tests/ci/test_retired_guarantor_bond_custody.py:15", "tests/codec/lxp_test_kernel_complete.c:56"]
+
+[row.r1-3.30]
+interface = "interface.1.c-lxp-paxeer-custody-input-kind"
+verdict = "retired"
+path = "include/layerx/lxp_paxeer.h"
+line = 21
+symbol = "lxp_paxeer_custody_input_kind"
+evidence = "The registered header include/layerx/lxp_paxeer.h no longer exists; repository-wide search outside spec and docs finds lxp_paxeer_custody_input_kind only in retirement checks and interface-audit tests, with no replacement declaration or implementation."
+remaining_refs = 1
+remaining = ["tests/codec/lxp_test_kernel_complete.c:995"]
+
+[row.r1-3.31]
+interface = "interface.1.c-lxp-paxeer-custody-abi"
+verdict = "retired"
+path = "include/layerx/lxp_paxeer.h"
+line = 30
+symbol = "lxp_paxeer_custody_abi"
+evidence = "The registered header include/layerx/lxp_paxeer.h no longer exists; repository-wide search outside spec and docs finds lxp_paxeer_custody_abi only in retirement checks and interface-audit tests, with no replacement declaration or implementation."
+remaining_refs = 2
+remaining = ["tests/ci/test_retired_guarantor_bond_custody.py:10", "tests/codec/lxp_test_kernel_complete.c:989"]
+
+[row.r1-3.32]
+interface = "interface.1.c-lxp-checkpoint-registry-state"
+verdict = "retired"
+path = "include/layerx/lxp_paxeer.h"
+line = 36
+symbol = "lxp_checkpoint_registry_state"
+evidence = "The registered header include/layerx/lxp_paxeer.h no longer exists; repository-wide search outside spec and docs finds lxp_checkpoint_registry_state only in retirement checks and interface-audit tests, with no replacement declaration or implementation."
+remaining_refs = 2
+remaining = ["tests/ci/test_retired_guarantor_bond_custody.py:11", "tests/codec/lxp_test_kernel_complete.c:473"]
+
+[row.r1-3.33]
+interface = "interface.1.c-lxp-paxeer-guarantor-attestation"
+verdict = "retired"
+path = "include/layerx/lxp_paxeer.h"
+line = 45
+symbol = "lxp_paxeer_guarantor_attestation"
+evidence = "The registered header include/layerx/lxp_paxeer.h no longer exists; repository-wide search outside spec and docs finds lxp_paxeer_guarantor_attestation only in retirement checks and interface-audit tests, with no replacement declaration or implementation."
+remaining_refs = 2
+remaining = ["tests/ci/test_retired_guarantor_bond_custody.py:13", "tests/codec/lxp_test_kernel_complete.c:998"]
+
+[row.r1-3.34]
+interface = "interface.1.c-lxp-checkpoint-registration"
+verdict = "retired"
+path = "include/layerx/lxp_paxeer.h"
+line = 66
+symbol = "lxp_checkpoint_registration"
+evidence = "The registered header include/layerx/lxp_paxeer.h no longer exists; repository-wide search outside spec and docs finds lxp_checkpoint_registration only in retirement checks and interface-audit tests, with no replacement declaration or implementation."
+remaining_refs = 2
+remaining = ["tests/ci/test_retired_guarantor_bond_custody.py:12", "tests/codec/lxp_test_kernel_complete.c:470"]
+
+[row.r1-3.35]
+interface = "interface.1.c-lxp-paxeer-membership-binding"
+verdict = "retired"
+path = "include/layerx/lxp_paxeer.h"
+line = 78
+symbol = "lxp_paxeer_membership_binding"
+evidence = "The registered header include/layerx/lxp_paxeer.h no longer exists; repository-wide search outside spec and docs finds lxp_paxeer_membership_binding only in retirement checks and interface-audit tests, with no replacement declaration or implementation."
+remaining_refs = 1
+remaining = ["tests/codec/lxp_test_kernel_complete.c:1004"]
+
+[row.r1-3.36]
+interface = "interface.1.c-lxp-paxeer-membership-observation"
+verdict = "retired"
+path = "include/layerx/lxp_paxeer.h"
+line = 89
+symbol = "lxp_paxeer_membership_observation"
+evidence = "The registered header include/layerx/lxp_paxeer.h no longer exists; repository-wide search outside spec and docs finds lxp_paxeer_membership_observation only in retirement checks and interface-audit tests, with no replacement declaration or implementation."
+remaining_refs = 1
+remaining = ["tests/codec/lxp_test_kernel_complete.c:1010"]
+
+[row.r1-3.37]
+interface = "interface.1.c-lxp-paxeer-bond-deposit-evidence"
+verdict = "retired"
+path = "include/layerx/lxp_paxeer.h"
+line = 100
+symbol = "lxp_paxeer_bond_deposit_evidence"
+evidence = "The registered header include/layerx/lxp_paxeer.h no longer exists; repository-wide search outside spec and docs finds lxp_paxeer_bond_deposit_evidence only in retirement checks and interface-audit tests, with no replacement declaration or implementation."
+remaining_refs = 1
+remaining = ["tests/codec/lxp_test_kernel_complete.c:968"]
+
+[row.r1-3.38]
+interface = "interface.1.c-lxp-paxeer-bond-deposit-record"
+verdict = "retired"
+path = "include/layerx/lxp_paxeer.h"
+line = 113
+symbol = "lxp_paxeer_bond_deposit_record"
+evidence = "The registered header include/layerx/lxp_paxeer.h no longer exists; repository-wide search outside spec and docs finds lxp_paxeer_bond_deposit_record only in retirement checks and interface-audit tests, with no replacement declaration or implementation."
+remaining_refs = 2
+remaining = ["tests/ci/test_retired_paxeer_membership.py:19", "tests/codec/lxp_test_kernel_complete.c:974"]
+
+[row.r1-3.39]
+interface = "interface.1.c-lxp-paxeer-bond-state"
+verdict = "retired"
+path = "include/layerx/lxp_paxeer.h"
+line = 124
+symbol = "lxp_paxeer_bond_state"
+evidence = "The registered header include/layerx/lxp_paxeer.h no longer exists; repository-wide search outside spec and docs finds lxp_paxeer_bond_state only in retirement checks and interface-audit tests, with no replacement declaration or implementation."
+remaining_refs = 1
+remaining = ["tests/codec/lxp_test_kernel_complete.c:980"]
+
+[row.r1-3.40]
+interface = "interface.1.c-lxp-paxeer-bond-binding"
+verdict = "retired"
+path = "include/layerx/lxp_paxeer.h"
+line = 140
+symbol = "lxp_paxeer_bond_binding"
+evidence = "The registered header include/layerx/lxp_paxeer.h no longer exists; repository-wide search outside spec and docs finds lxp_paxeer_bond_binding only in retirement checks and interface-audit tests, with no replacement declaration or implementation."
+remaining_refs = 2
+remaining = ["tests/ci/test_retired_paxeer_membership.py:15", "tests/codec/lxp_test_kernel_complete.c:953"]
+
+[row.r1-3.41]
+interface = "interface.1.c-lxp-paxeer-membership-sync-availability"
+verdict = "retired"
+path = "include/layerx/lxp_paxeer.h"
+line = 153
+symbol = "lxp_paxeer_membership_sync_availability"
+evidence = "The registered header include/layerx/lxp_paxeer.h no longer exists; repository-wide search outside spec and docs finds lxp_paxeer_membership_sync_availability only in retirement checks and interface-audit tests, with no replacement declaration or implementation."
+remaining_refs = 1
+remaining = ["tests/codec/lxp_test_kernel_complete.c:1016"]
+
+[row.r1-3.42]
+interface = "interface.1.c-lxp-paxeer-bond-init"
+verdict = "retired"
+path = "include/layerx/lxp_paxeer.h"
+line = 190
+symbol = "lxp_paxeer_bond_init"
+evidence = "The registered header include/layerx/lxp_paxeer.h no longer exists; repository-wide search outside spec and docs finds lxp_paxeer_bond_init only in retirement checks and interface-audit tests, with no replacement declaration or implementation."
+remaining_refs = 2
+remaining = ["modules/lxphost/retired_bond_client_test.go:14", "tests/codec/lxp_test_kernel_complete.c:977"]
+
+[row.r1-3.43]
+interface = "interface.1.c-lxp-paxeer-membership-commitment"
+verdict = "retired"
+path = "include/layerx/lxp_paxeer.h"
+line = 197
+symbol = "lxp_paxeer_membership_commitment"
+evidence = "The registered header include/layerx/lxp_paxeer.h no longer exists; repository-wide search outside spec and docs finds lxp_paxeer_membership_commitment only in retirement checks and interface-audit tests, with no replacement declaration or implementation."
+remaining_refs = 3
+remaining = ["modules/lxphost/retired_bond_client_test.go:17", "tests/ci/test_retired_paxeer_membership.py:18", "tests/codec/lxp_test_kernel_complete.c:1007"]
+
+[row.r1-3.44]
+interface = "interface.1.c-lxp-paxeer-membership-sync"
+verdict = "retired"
+path = "include/layerx/lxp_paxeer.h"
+line = 200
+symbol = "lxp_paxeer_membership_sync"
+evidence = "The registered header include/layerx/lxp_paxeer.h no longer exists; repository-wide search outside spec and docs finds lxp_paxeer_membership_sync only in retirement checks and interface-audit tests, with no replacement declaration or implementation."
+remaining_refs = 2
+remaining = ["modules/lxphost/retired_bond_client_test.go:18", "tests/codec/lxp_test_kernel_complete.c:1013"]
+
+[row.r1-3.45]
+interface = "interface.1.c-lxp-paxeer-membership-sync-status"
+verdict = "retired"
+path = "include/layerx/lxp_paxeer.h"
+line = 204
+symbol = "lxp_paxeer_membership_sync_status"
+evidence = "The registered header include/layerx/lxp_paxeer.h no longer exists; repository-wide search outside spec and docs finds lxp_paxeer_membership_sync_status only in retirement checks and interface-audit tests, with no replacement declaration or implementation."
+remaining_refs = 2
+remaining = ["modules/lxphost/retired_bond_client_test.go:19", "tests/codec/lxp_test_kernel_complete.c:1019"]
+
+[row.r1-3.46]
+interface = "interface.1.c-lxp-paxeer-bond-deposit"
+verdict = "retired"
+path = "include/layerx/lxp_paxeer.h"
+line = 207
+symbol = "lxp_paxeer_bond_deposit"
+evidence = "The registered header include/layerx/lxp_paxeer.h no longer exists; repository-wide search outside spec and docs finds lxp_paxeer_bond_deposit only in retirement checks and interface-audit tests, with no replacement declaration or implementation."
+remaining_refs = 2
+remaining = ["modules/lxphost/retired_bond_client_test.go:15", "tests/codec/lxp_test_kernel_complete.c:965"]
+
+[row.r1-3.47]
+interface = "interface.1.c-lxp-paxeer-bond-deposit-proof"
+verdict = "retired"
+path = "include/layerx/lxp_paxeer.h"
+line = 210
+symbol = "lxp_paxeer_bond_deposit_proof"
+evidence = "The registered header include/layerx/lxp_paxeer.h no longer exists; repository-wide search outside spec and docs finds lxp_paxeer_bond_deposit_proof only in retirement checks and interface-audit tests, with no replacement declaration or implementation."
+remaining_refs = 2
+remaining = ["modules/lxphost/retired_bond_client_test.go:16", "tests/codec/lxp_test_kernel_complete.c:971"]
+
+[row.r1-3.48]
+interface = "interface.1.c-lxp-paxeer-bond-binding-encode"
+verdict = "retired"
+path = "include/layerx/lxp_paxeer.h"
+line = 213
+symbol = "lxp_paxeer_bond_binding_encode"
+evidence = "The registered header include/layerx/lxp_paxeer.h no longer exists; repository-wide search outside spec and docs finds lxp_paxeer_bond_binding_encode only in retirement checks and interface-audit tests, with no replacement declaration or implementation."
+remaining_refs = 3
+remaining = ["modules/lxphost/retired_bond_client_test.go:20", "tests/ci/test_retired_paxeer_membership.py:14", "tests/codec/lxp_test_kernel_complete.c:962"]
+
+[row.r1-3.49]
+interface = "interface.1.c-lxp-paxeer-bond-binding-decode"
+verdict = "retired"
+path = "include/layerx/lxp_paxeer.h"
+line = 216
+symbol = "lxp_paxeer_bond_binding_decode"
+evidence = "The registered header include/layerx/lxp_paxeer.h no longer exists; repository-wide search outside spec and docs finds lxp_paxeer_bond_binding_decode only in retirement checks and interface-audit tests, with no replacement declaration or implementation."
+remaining_refs = 3
+remaining = ["modules/lxphost/retired_bond_client_test.go:21", "tests/ci/test_retired_paxeer_membership.py:16", "tests/codec/lxp_test_kernel_complete.c:959"]
+
+[row.r1-3.50]
+interface = "interface.1.c-lxp-paxeer-bond-binding-adopt"
+verdict = "retired"
+path = "include/layerx/lxp_paxeer.h"
+line = 218
+symbol = "lxp_paxeer_bond_binding_adopt"
+evidence = "The registered header include/layerx/lxp_paxeer.h no longer exists; repository-wide search outside spec and docs finds lxp_paxeer_bond_binding_adopt only in retirement checks and interface-audit tests, with no replacement declaration or implementation."
+remaining_refs = 3
+remaining = ["modules/lxphost/retired_bond_client_test.go:22", "tests/ci/test_retired_paxeer_membership.py:17", "tests/codec/lxp_test_kernel_complete.c:956"]
+
+[row.r1-3.51]
+interface = "interface.1.c-lxp-paxeer-bond-state-read"
+verdict = "retired"
+path = "include/layerx/lxp_paxeer.h"
+line = 220
+symbol = "lxp_paxeer_bond_state_read"
+evidence = "The registered header include/layerx/lxp_paxeer.h no longer exists; repository-wide search outside spec and docs finds lxp_paxeer_bond_state_read only in retirement checks and interface-audit tests, with no replacement declaration or implementation."
+remaining_refs = 2
+remaining = ["modules/lxphost/retired_bond_client_test.go:23", "tests/codec/lxp_test_kernel_complete.c:983"]
+
+[row.r1-3.52]
+interface = "interface.1.c-lxp-paxeer-slash-submit"
+verdict = "retired"
+path = "include/layerx/lxp_paxeer.h"
+line = 223
+symbol = "lxp_paxeer_slash_submit"
+evidence = "The registered header include/layerx/lxp_paxeer.h no longer exists; repository-wide search outside spec and docs finds lxp_paxeer_slash_submit only in retirement checks and interface-audit tests, with no replacement declaration or implementation."
+remaining_refs = 3
+remaining = ["modules/lxphost/retired_bond_client_test.go:24", "tests/ci/test_retired_equivocation_bond.py:13", "tests/codec/lxp_test_kernel_complete.c:1022"]
+
+[row.r1-3.53]
+interface = "interface.1.c-enum-lxp-qual-activity-type-count"
+verdict = "served"
+path = "include/layerx/lxp_qualification.h"
+line = 11
+symbol = "LXP_QUAL_ACTIVITY_TYPE_COUNT"
+evidence = "The former anonymous enum is now enum LXP_QUAL_ACTIVITY_TYPE_COUNT; its enumerator LXP_QUAL_ACTIVITY_TYPE_COUNT = 50 replaces the registered value 53. The byte-size constants remain 72, 106 and 36; tests/codec/lxp_test_qual_header.c:31 asserts the count against the surviving activity registry."
+
+[row.r1-3.54]
+interface = "interface.1.c-lxp-partition-sim"
+verdict = "retired"
+path = "include/layerx/lxp_qualification.h"
+line = 43
+symbol = "lxp_partition_sim"
+evidence = "lxp_partition_sim is absent from include/layerx/lxp_qualification.h; its only remaining files are the retirement CI check and lxp_test_qual_header.c, where a test-only typedef asserts that the old function is undeclared."
+remaining_refs = 2
+remaining = ["tests/ci/test_retired_qual_faults.py:19", "tests/codec/lxp_test_qual_header.c:10"]
+
+[row.r1-3.55]
+interface = "interface.1.c-lxp-sequencer-loss-sim"
+verdict = "retired"
+path = "include/layerx/lxp_qualification.h"
+line = 44
+symbol = "lxp_sequencer_loss_sim"
+evidence = "lxp_sequencer_loss_sim is absent from include/layerx/lxp_qualification.h; its only remaining files are the retirement CI check and lxp_test_qual_header.c, where a test-only typedef asserts that the old function is undeclared."
+remaining_refs = 2
+remaining = ["tests/ci/test_retired_qual_faults.py:19", "tests/codec/lxp_test_qual_header.c:11"]
+
+[row.r1-3.56]
+interface = "interface.1.c-lxp-verified-receipt-authority-facts"
+verdict = "kept"
+path = "include/layerx/lxp_receipt.h"
+line = 128
+symbol = "lxp_verified_receipt_authority_facts"
+evidence = "Decision override.J21.37 keeps the type for task 1.17.4 as height-keyed V2 authority facts. typedef struct lxp_verified_receipt_authority_facts now has uint64_t block_height instead of batch_number, epoch, global_sequence and both authorization batch bounds; sequencer_id and sequencer_public_key are removed. Network, protocol, module, operation, result, digest, activity and state-root fields remain."
+
+[row.r1-3.57]
+interface = "interface.1.c-lxp-verified-receipt-index"
+verdict = "served"
+path = "include/layerx/lxp_receipt.h"
+line = 146
+symbol = "lxp_verified_receipt_index"
+evidence = "typedef struct lxp_verified_receipt_index now appends uint32_t authority_network_id at line 153 after authority_count; authority_entries stores the V2 block_height facts rather than the registered sequencer-authorized facts. The existing receipt entries, count, fallback and fallback_context remain."
+
+[row.r1-3.58]
+interface = "interface.1.c-lxp-verified-receipt-index-add-authority"
+verdict = "retired"
+path = "include/layerx/lxp_receipt.h"
+line = 245
+symbol = "lxp_verified_receipt_index_add_authority"
+evidence = "lxp_verified_receipt_index_add_authority is absent from lxp_receipt.h; only a weak extern retirement probe and interface-audit string remain. The live replacement is lxp_verified_receipt_index_add_height_authority at lxp_receipt.h:245, accepting canonical_receipt and block_height instead of a signed batch header and sequencer authorization."
+remaining_refs = 2
+remaining = ["tests/codec/lxp_test_kernel_complete.c:1241", "tests/codec/lxp_test_receipt_authority_v2.c:5"]
+
+[row.r1-3.59]
+interface = "interface.1.c-lxp-verified-receipt-index-lookup-authority"
+verdict = "served"
+path = "include/layerx/lxp_receipt.h"
+line = 248
+symbol = "lxp_verified_receipt_index_lookup_authority"
+evidence = "Declaration lxp_result lxp_verified_receipt_index_lookup_authority(const lxp_verified_receipt_index *index, const uint8_t receipt_digest[32], lxp_verified_receipt_authority_facts *facts) retains its parameters and return type, moved from line 250 to 248. Its output type now carries block_height rather than batch, epoch, authorization bounds and sequencer identity."
+
+[row.r1-3.60]
+interface = "interface.1.c-lxp-result-name"
+verdict = "served"
+path = "include/layerx/lxp_result.h"
+line = 170
+symbol = "lxp_result_name"
+evidence = "Declaration const char *lxp_result_name(lxp_result result) retains its parameter and return type, moved from line 163 to 170. LXP_RESULT_CODE_LIST now includes LXP_ERR_ARBITER_REQUIRED = -737, LXP_ERR_UNAUTHORIZED_ARBITER = -738 and LXP_ERR_ESCROW_LINK_MISMATCH = -739; src/protocol/lxp_result.c expands that list to return their names."

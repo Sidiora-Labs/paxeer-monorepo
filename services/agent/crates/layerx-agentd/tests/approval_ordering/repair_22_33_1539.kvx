@@ -1,0 +1,35 @@
+[repair.22.33.1539]
+finding = 27
+producer = "preparation.rs uses signed SendDebit, prepare_bound, and the production call disclosure binder; the original ordering tests share the resulting API adapter."
+tests = ["finding_27_ledger_producer_fields_survive_codec_and_approval_hold", "finding_27_changed_call_and_disclosure_refusals", "finding_27_durable_hold_reopens_with_the_exact_producer_binding", "finding_27_grant_rejection_concurrency_and_durable_winner", "finding_27_api_changed_call_and_disclosure_never_queue"]
+baseline = "No unchanged-tree verification was run: the explicit gate order requires complete implementation before hf-build and hf-done; no earlier gate ledger existed."
+evidence = "The runner's private hf-build/hf-done ledger records the exact candidate revision, command, exit and log; closure requires hf-done passing."
+wiring_request = "Resolved by prerequisite 22.31.495, domain 9 agent daemon owner: services/agent/crates/layerx-agentd/src/approval/mod.rs now accepts explicit wall time for timed policy registry get/claim APIs."
+
+[build_repair.1]
+revision = "f8ff86452b6fe51cae3767f3671aaf9c05cfee6d"
+command = "cargo build --locked --manifest-path services/agent/crates/layerx-agentd/Cargo.toml --tests"
+exit = 101
+log = "/out/logs/build-1.log"
+observed = "The new integration test incorrectly used ModuleRegistry::default; it now constructs the explicit Asset Send registration through ModuleRegistry::new."
+
+[verification_repair.2]
+revision = "0c91a28d1e93d74ccb94391bbca8ff8c251e4199"
+command = "cg spec done 22.33.1539 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Two producer/codec/refusal tests passed; three store-dependent tests refused default directory permissions before decision execution; both ordering fixtures now create owned private directories with mode 0700."
+
+[continuation.6]
+base_revision = "cdc031c745376234ac010cc61ede4f84eac6abe1"
+prior_result = "Attempt 4 passed three of five integration cases; finding_27_grant_rejection_concurrency_and_durable_winner and finding_27_api_changed_call_and_disclosure_never_queue failed with Registry(ClockRequired). Attempt 5 then failed the lib test build on the missing TimestampSeconds import before verification."
+implementation = "Import TimestampSeconds through layerx_agent_api, use hold_at with ApprovalSequence and explicit time 10 in both original ordering tests, and supply explicit time 11 in the integration decision-request helper; retain the private mode-0700 directories and every assertion."
+qualification = "Run hf-build then hf-done without intervening edits; the runner's private gate ledger binds both results to the exact verified candidate revision."
+
+[qualification.6]
+revision = "cd53185f684ba523d51f4fc3fbcdea26eb442a26"
+command = "cargo build --locked --manifest-path services/agent/crates/layerx-agentd/Cargo.toml --tests"
+exit = 101
+log = "/out/logs/build-1.log"
+observed = "The build failed on eight unrelated human_approval_budget_actor errors: missing crate::committed, crate::loopback_http, super::Human, super::Policy, Config.human and ApprovalService::get current_time; hf-done did not run because its prerequisite build failed."
+assumption = "Domain 9 agent daemon owner must repair services/agent/crates/layerx-agentd/tests/human_approval_budget_actor.rs and its authority fixture integration; task 22.31.516 owns replacing the path-included authority human module, and this repair remains unqualified."

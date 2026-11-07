@@ -1,0 +1,48 @@
+[repair.22.33.1183]
+audit = "22.30.55"
+baseline = "Not run: the explicit implementation-first order and bounded hf-done-only verification prohibit the contradictory baseline step; no pre-change test failure is claimed."
+qualification = "The hf-build/hf-done private gate ledger records the exact candidate revision, command, exit code and log; the final evidence line identifies the verified revision."
+wiring_requests = ["Domain 15: consensus/proto/tendermint/statesync/message.go must reject SnapshotsResponse.Chunks above the documented statesync limit of 65,536 in Message.Validate; the consumer pool and queue already enforce this limit before allocation."]
+
+[finding.backfill-close]
+test = "TestRepairM_1183_BackfillClose"
+repair = "Idempotent shutdown closes and clears active fetch and verify waiters exactly once; new requests after closure are closed too. Production consumers and existing tests handle closed channels explicitly."
+proof = "Live fetch and verify notifications, retry exhaustion, terminal success, repeated and concurrent close; full backfill is also exercised against real P2P producers and stores."
+
+[finding.snapshot-allocation]
+test = "TestRepairM_1183_SnapshotAllocation"
+repair = "Bound snapshots to 65,536 chunks in both admission and direct queue creation before filesystem allocation; grow all tracking maps incrementally."
+proof = "Real ABCI snapshot fixture, reactor announcement producer, P2P protobuf transport and consumer pool; accept the limit and the value below it, refuse the value above it and uint32 maximum, then fetch/store/consume boundary chunks and check rejected queues leave no temporary directory."
+
+[finding.dispatcher-close]
+tests = ["TestRepairM_1183_DispatcherClose", "TestRepairM_1183_DispatcherCancellation"]
+repair = "Response, context termination and Close use one identity-checked completion operation; Close also refuses new requests."
+proof = "Real P2P request arrival before shutdown/cancellation, prompt nil shutdown completion, a real producer's late response refused, repeated Close and empty pending-call state; parameter and backfill proofs exercise successful responses."
+
+[finding.dispatcher-timeout-assertion]
+test = "TestRepairM_1183_PeerListConcurrent"
+repair = "A bounded context terminates and joins all consumers through scope.Run; errors, completion count, exact consumed peers and the empty remaining list are asserted on both outcome paths."
+
+[finding.backfill-empty-assertion-loop]
+test = "TestRepairM_1183_BackfillRecoveredInterval"
+repair = "The existing test now descends through the recovered interval, checks each header and commit and asserts 11 visited heights, preserving all boundary, save-order and metric assertions."
+proof = "The repair gate separately runs the real reactor producer, P2P transport, dispatcher, backwards verifier and real block/state stores, checking every recovered header, commit and validator set plus both boundaries and metrics."
+
+[finding.params-transition-test]
+test = "TestRepairM_1183_ParamsTransition"
+repair = "The existing reactor fixture signs a real parameter transition between H+1 and H+2 and serves parameters by request height, checking exact restored parameters and distinct adjacent hashes."
+proof = "Reuse the prerequisite's real signed-chain, state/block stores, producer reactor, P2P transport and consumer light client for restoration, wrong-height and wrong-hash refusal, including persisted restored state."
+
+[finding.snapshot-comparator]
+test = "TestRepairM_1183_SnapshotComparator"
+repair = "Document common-candidate priority followed by height, peer count and format; compare peer counts in both directions before format."
+proof = "Assert irreflexivity and both comparison directions, then exact ranking and best selection for all 24 insertion permutations of equal-height candidates, including opposing peer/format preferences and equal peer counts."
+
+[finding.discovery-cancellation]
+test = "TestRepairM_1183_DiscoveryCancellation"
+repair = "Check cancellation before discovery and on every cycle, and use context-aware timer waits for both initial and empty-cycle discovery."
+proof = "Real syncer and P2P channel with no snapshots; observe actual timer cancellation registration, cancel, require prompt completion and join the discovery goroutine for both branches."
+
+[gotcha.closed-notification-consumers]
+observed = "Closing block-queue notification channels makes receive cases ready with zero values as well as making done ready."
+resolution = "Check the receive boolean in backfill workers, verifier and pre-existing queue tests so shutdown cannot dereference an empty block or request height zero."

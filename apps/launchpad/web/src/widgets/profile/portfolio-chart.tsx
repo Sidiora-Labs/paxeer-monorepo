@@ -1,6 +1,6 @@
 'use client';
 
-import { useId, useMemo, useState, type PointerEvent } from 'react';
+import { useEffect, useId, useMemo, useState, type PointerEvent } from 'react';
 import { cn } from '@/lib/utils';
 import { formatUsdl, rawToDecimalString } from '@/utils/format';
 import { useBalanceVisibility } from './balance-visibility';
@@ -56,8 +56,9 @@ function bucketLabel(iso: string): string {
 export function PortfolioChart({ points, tone, height = 200, className }: PortfolioChartProps) {
   const { hidden } = useBalanceVisibility();
   const geometry = useMemo(() => chartGeometry(points, height), [points, height]);
-  const [hover, setHover] = useState<number | null>(null);
+  const [hover, setHover] = useState<{ points: readonly SeriesPoint[]; index: number } | null>(null);
   const readoutId = useId();
+  useEffect(() => { setHover(null); }, [points]);
 
   const summary = points.length === 0
     ? 'No history yet.'
@@ -77,10 +78,11 @@ export function PortfolioChart({ points, tone, height = 200, className }: Portfo
     if (points.length < 2) return;
     const rect = event.currentTarget.getBoundingClientRect();
     const ratio = Math.min(1, Math.max(0, (event.clientX - rect.left) / rect.width));
-    setHover(Math.round(ratio * (points.length - 1)));
+    setHover({ points, index: Math.round(ratio * (points.length - 1)) });
   }
 
-  const active = hover !== null && points.length > 1 ? hover : null;
+  const active = hover !== null && hover.points === points && points.length > 1 && points[hover.index] ? hover.index : null;
+  const activePoint = active !== null ? points[active] : null;
   const activeCoord = active !== null ? geometry.coords[active] : null;
   const end = geometry.coords[geometry.coords.length - 1];
 
@@ -107,11 +109,11 @@ export function PortfolioChart({ points, tone, height = 200, className }: Portfo
           </>
         ) : null}
       </svg>
-      {active !== null ? (
+      {activePoint ? (
         <p id={readoutId} role="status" className="pointer-events-none absolute left-2 top-2 rounded-sm bg-surface-3 px-2 py-1 text-xs font-semibold text-text">
-          <span data-numeric className="tabular-nums">{formatUsdl(points[active].valueRaw)}</span>
-          <span className="ml-2 text-text-faint">{bucketLabel(points[active].time)}</span>
-          {!points[active].complete ? <span className="ml-2 text-warning">some prices missing</span> : null}
+          <span data-numeric className="tabular-nums">{formatUsdl(activePoint.valueRaw)}</span>
+          <span className="ml-2 text-text-faint">{bucketLabel(activePoint.time)}</span>
+          {!activePoint.complete ? <span className="ml-2 text-warning">some prices missing</span> : null}
         </p>
       ) : null}
     </div>

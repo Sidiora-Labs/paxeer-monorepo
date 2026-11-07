@@ -64,7 +64,8 @@ func (n *BlockHeaderNotifier) Stash(req *abci.RequestFinalizeBlock, resp *abci.R
 	}
 	n.mu.Lock()
 	defer n.mu.Unlock()
-	n.pending = &blockHeaderEvent{hash: req.Hash, header: req.Header, response: resp}
+	evt := committedHeaderEvent(req.Hash, req.Header, resp)
+	n.pending = &evt
 }
 
 // ClearStash drops any pending stash without publishing. Called at
@@ -112,7 +113,18 @@ func (n *BlockHeaderNotifier) OnBlockCommitted(hash []byte, header *tmproto.Head
 	if n == nil {
 		return
 	}
-	n.publish(blockHeaderEvent{hash: hash, header: header, response: response})
+	n.publish(committedHeaderEvent(hash, header, response))
+}
+
+// committedHeaderEvent owns the header it publishes. FinalizeBlock's response
+// carries this block's state root; the request header carries its parent's.
+func committedHeaderEvent(hash []byte, header *tmproto.Header, response *abci.ResponseFinalizeBlock) blockHeaderEvent {
+	if header != nil && response != nil {
+		committed := *header
+		committed.AppHash = append([]byte(nil), response.AppHash...)
+		header = &committed
+	}
+	return blockHeaderEvent{hash: hash, header: header, response: response}
 }
 
 // publish pushes evt onto the fan-out channel with overwrite-on-full

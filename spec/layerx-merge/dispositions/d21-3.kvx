@@ -1,0 +1,53 @@
+[disposition.21.5.1.1]
+finding = "21.5.1.1"
+status = "resolved"
+evidence = "Main's spec/layerx-merge/spec.kvx:234791 builds the real native producer with make layerx-genesis-build before compiling the proof, which still requires and executes that binary at tools/qualification/paxeer-x/tests/test_proof_qual_cli.py:245."
+follow_up = "closure"
+
+[disposition.21.19.1.1]
+finding = "21.19.1.1"
+status = "resolved"
+evidence = "Landed commit bd7dc0c03 changes the refresh test to pass t to xwebInfo, as main's node/sequencer/precompile_refresh_test.go:74 now does against the helper declared at node/sequencer/position_test.go:116."
+follow_up = "closure"
+
+[disposition.21.5.1.2]
+finding = "21.5.1.2"
+status = "superseded"
+evidence = "Landed commit ff75a3d8a retires arbiter-admission.py and the other qualification scripts and build fragments whose batch-WAL producers were deleted, removes their Makefile includes and drops deleted producer references from retained scripts."
+follow_up = "closure"
+
+[disposition.21.87.1.1]
+finding = "21.87.1.1"
+status = "resolved"
+evidence = "Landed commit bd7dc0c03 repairs the shared sequencer package's parameterless helper call, and main's node/sequencer/precompile_refresh_test.go:74 passes t to the xwebInfo helper that requires it."
+follow_up = "closure"
+
+[disposition.21.92.1.1]
+finding = "21.92.1.1"
+status = "resolved"
+evidence = "Landed commit da1642c7b adds the committed-height behavior for idle pending reads, and main's rpc/watermark_manager.go:118 handles ErrLayerNotOpen by waiting for an open snapshot or returning LatestHeight when the bounded wait reports ErrPendingBlockClosed."
+follow_up = "closure"
+
+[disposition.21.160.1.1]
+finding = "21.160.1.1"
+status = "resolved"
+evidence = "Landed commit 43e826f4e moves the shared exchange consumers into assertion-free-at-import test/support/exchange_consumers.ts, imports them directly in proof_exchange.test.ts:28 and checks the generated catalogue's actual tuple signature at proof_exchange.test.ts:44."
+follow_up = "closure"
+
+[disposition.21.18.1.1]
+finding = "21.18.1.1"
+status = "resolved"
+evidence = "Landed commit 3f20303a2 makes startSocial build sociald itself at services/launchpad/gateway/internal/proxy/proof_launchpad_gateway_test.go:500 through buildService, which compiles the repository module into t.TempDir() instead of reading GATEWAY_PROOF_SOCIAL_BIN."
+follow_up = "closure"
+
+[disposition.21.130.1.1]
+finding = "21.130.1.1"
+status = "resolved"
+evidence = "Main exports read_native_receipt_authority under host-ffi at programs/crates/layerx-programs-runtime/src/lib.rs:49, while landed commit 33e42cbd3 assigns its native proof to the C host proof and removes the FFI import from the pure Rust runtime proof."
+follow_up = "closure"
+
+[disposition.21.11.1.2]
+finding = "21.11.1.2"
+status = "resolved"
+evidence = "Landed commit 4120aa4c4 makes modules/lxphost/ctx.go:351 check the persisted payment-reference record before kernel execution, and main's precompiles/layerxledger/proof_layerxledger_0x101a_test.go:264 retains the duplicate payExact refusal assertion after commit, close and reopen."
+follow_up = "closure"

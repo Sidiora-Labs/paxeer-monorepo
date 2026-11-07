@@ -77,6 +77,31 @@ type PendingTx struct {
 	Result  *abci.ExecTxResult
 }
 
+// simulationContextAtHeight resolves speculative heights before asking the state
+// provider, which only accepts the pending sentinel while a block is open.
+func simulationContextAtHeight(ctx context.Context, provider func(int64) sdk.Context, wm *WatermarkManager, height int64) sdk.Context {
+	latest := provider(LatestCtxHeight)
+	if height == PendingCtxHeight || height > latest.BlockHeight() {
+		if wm != nil && wm.pending != nil {
+			snapshot, pendingHeight, open, err := wm.pendingSnapshot(ctx)
+			if err != nil {
+				return latest
+			}
+			if open && (height == PendingCtxHeight || height == pendingHeight) {
+				return snapshot
+			}
+			if !open && height == PendingCtxHeight {
+				return provider(pendingHeight)
+			}
+		}
+		if height == PendingCtxHeight {
+			return provider(latest.BlockHeight())
+		}
+		return latest
+	}
+	return provider(height)
+}
+
 // ErrBlockNotFoundByHash is returned when no block exists for the given hash (e.g. empty or unknown hash).
 // Ethereum-compatible RPCs should return result: null for this case instead of an error.
 var ErrBlockNotFoundByHash = errors.New("block not found by hash")
@@ -406,6 +431,21 @@ func filterTransactions(
 	cacheCreationMutex *sync.Mutex,
 	globalBlockCache BlockCache,
 ) []indexedMsg {
+	txs, _ := filterTransactionsWithReceiptErrors(k, ctxProvider, txConfigProvider, block, includeSyntheticTxs, includeBankTransfers, cacheCreationMutex, globalBlockCache, false)
+	return txs
+}
+
+func filterTransactionsWithReceiptErrors(
+	k *keeper.Keeper,
+	ctxProvider func(int64) sdk.Context,
+	txConfigProvider func(int64) client.TxConfig,
+	block *coretypes.ResultBlock,
+	includeSyntheticTxs bool,
+	includeBankTransfers bool,
+	cacheCreationMutex *sync.Mutex,
+	globalBlockCache BlockCache,
+	strict bool,
+) ([]indexedMsg, error) {
 	txs := []indexedMsg{}
 	txCounts := make(map[string]uint64)
 	startOfBlockNonce := make(map[string]uint64)
@@ -433,8 +473,11 @@ func filterTransactions(
 				if err != nil {
 					continue
 				}
-				receipt, found := getOrSetCachedReceipt(cacheCreationMutex, globalBlockCache, latestCtx, k, block, hash)
-				if !found || receipt == nil || receipt.BlockNumber != uint64(block.Block.Height) || isReceiptFromAnteError(ctx, receipt) { //nolint:gosec
+				receipt, err := getOrSetCachedReceiptErr(cacheCreationMutex, globalBlockCache, latestCtx, k, block, hash)
+				if strict && err != nil && !errors.Is(err, receiptstore.ErrNotFound) {
+					return nil, fmt.Errorf("load receipt %s: %w", hash, err)
+				}
+				if err != nil || receipt == nil || receipt.BlockNumber != uint64(block.Block.Height) || isReceiptFromAnteError(ctx, receipt) { //nolint:gosec
 					continue
 				}
 				txCount := txCounts[sender.Hex()]
@@ -457,8 +500,11 @@ func filterTransactions(
 					continue
 				}
 				th := sha256.Sum256(block.Block.Txs[i])
-				_, found := getOrSetCachedReceipt(cacheCreationMutex, globalBlockCache, latestCtx, k, block, th)
-				if !found {
+				_, err := getOrSetCachedReceiptErr(cacheCreationMutex, globalBlockCache, latestCtx, k, block, th)
+				if strict && err != nil && !errors.Is(err, receiptstore.ErrNotFound) {
+					return nil, fmt.Errorf("load synthetic receipt %x: %w", th, err)
+				}
+				if err != nil {
 					continue
 				}
 				txs = append(txs, indexedMsg{index: i, msg: msg})
@@ -470,7 +516,7 @@ func filterTransactions(
 			}
 		}
 	}
-	return txs
+	return txs, nil
 }
 
 func recordMetrics(ctx context.Context, apiMethod string, connectionType ConnectionType, startTime time.Time) {
@@ -540,8 +586,26 @@ func getTxHashesFromBlock(
 	cacheCreationMutex *sync.Mutex,
 	globalBlockCache BlockCache,
 ) []typedTxHash {
+	hashes, _ := getTxHashesFromBlockWithReceiptErrors(ctxProvider, txConfigProvider, k, block, shouldIncludeSynthetic, cacheCreationMutex, globalBlockCache, false)
+	return hashes
+}
+
+func getTxHashesFromBlockWithReceiptErrors(
+	ctxProvider func(int64) sdk.Context,
+	txConfigProvider func(int64) client.TxConfig,
+	k *keeper.Keeper,
+	block *coretypes.ResultBlock,
+	shouldIncludeSynthetic bool,
+	cacheCreationMutex *sync.Mutex,
+	globalBlockCache BlockCache,
+	strict bool,
+) ([]typedTxHash, error) {
 	txHashes := []typedTxHash{}
-	for _, tx := range filterTransactions(k, ctxProvider, txConfigProvider, block, shouldIncludeSynthetic, false, cacheCreationMutex, globalBlockCache) {
+	txs, err := filterTransactionsWithReceiptErrors(k, ctxProvider, txConfigProvider, block, shouldIncludeSynthetic, false, cacheCreationMutex, globalBlockCache, strict)
+	if err != nil {
+		return nil, err
+	}
+	for _, tx := range txs {
 		switch tx.msg.(type) {
 		case *types.MsgEVMTransaction:
 			ethtx, _ := tx.msg.(*types.MsgEVMTransaction).AsTransaction()
@@ -553,13 +617,16 @@ func getTxHashesFromBlock(
 	latestCtx := ctxProvider(LatestCtxHeight)
 	for _, kind := range keeper.SyntheticReceiptKinds {
 		hash := keeper.SyntheticReceiptHash(kind, block.Block.Height)
-		receipt, found := getOrSetCachedReceipt(cacheCreationMutex, globalBlockCache, latestCtx, k, block, hash)
-		if !found || receipt == nil || receipt.BlockNumber != uint64(block.Block.Height) { //nolint:gosec
+		receipt, err := getOrSetCachedReceiptErr(cacheCreationMutex, globalBlockCache, latestCtx, k, block, hash)
+		if strict && err != nil && !errors.Is(err, receiptstore.ErrNotFound) {
+			return nil, fmt.Errorf("load venue receipt %s: %w", hash, err)
+		}
+		if err != nil || receipt == nil || receipt.BlockNumber != uint64(block.Block.Height) { //nolint:gosec
 			continue
 		}
 		txHashes = append(txHashes, typedTxHash{hash: hash, isEvm: true, txIndex: syntheticTxIndex(block, kind)})
 	}
-	return txHashes
+	return txHashes, nil
 }
 
 func isReceiptFromAnteError(ctx sdk.Context, receipt *types.Receipt) bool {

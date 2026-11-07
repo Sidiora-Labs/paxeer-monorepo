@@ -1,0 +1,30 @@
+[repair.22.31.126]
+audit = "22.30.57"
+finding = "redelegation-shares"
+proof = ["TestRepair_126_RedelegationShares", "TestRepair_126_UpgradeReplay"]
+implementation = "Project RedelegationEntry.SharesDst.String() at and above the applied common.MergeUpgrade height; retain the historical Balance.String() projection before activation."
+activation = "Use common.MergePlanActive with the real EVM upgrade keeper, including ordinary execution and historical tracing; leave all legacy implementations, version registrations, selectors and ABI tuple types unchanged."
+producer = "Real staking handler creates validators, staking keeper Slash changes the destination exchange rate, and BeginRedelegation generates fractional destination shares; the real Querier emits both shares and token balance."
+consumer = "RunAndCalculateGas decodes calldata, queries the keeper and ABI-encodes the result; the frozen ABI decoder asserts all tuple fields and decimal precision on both direct and source-index query paths."
+baseline = "Not run: the explicit task order requires complete implementation, hf-build, then hf-done and prohibits a manual verify_cmd before hf-done; no pre-change failures are claimed."
+wiring_requests = []
+evidence = "The bounded hf-build and hf-done ledger in /out/run/gates.jsonl records the exact candidate revision, command, exit code and private /out/logs evidence; qualification requires hf-done to pass on the build revision."
+
+[gotcha.activation]
+observed = "Ordinary EVM execution selects the latest registered implementation, while historical tracing selects a version by applied upgrade height."
+resolution = "Gate the corrected projection by the applied merge height inside the current executor and prove ordinary execution and tracing below, at and above activation against the untouched legacy implementation."
+
+[gotcha.share_precision]
+observed = "SharesFromTokens uses Dec.QuoInt, which truncates rather than rounds the fractional destination shares at 18 decimal places."
+resolution = "Assert the exact truncated share count and preserve its string unchanged through ABI encoding and decoding."
+
+[gotcha.upgrade_fixture]
+observed = "LatestUpgrade can equal MergeUpgrade, so marking the latest tag done at an earlier height also activates the correction early."
+resolution = "Register the current implementation under MergeUpgrade and record only the historical tag before explicitly applying the merge plan."
+
+[qualification.first_attempt]
+revision = "53d005795d41e20652f61cc92e0eab2cf722eb77"
+command = "cg spec done 22.31.126 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "The new tests expected rounded shares and accidentally applied the merge tag early; the pre-existing tests passed."

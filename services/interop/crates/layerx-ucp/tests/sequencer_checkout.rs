@@ -506,3 +506,11 @@ fn with_signed_log(
         },
     }
 }
+
+#[path = "support/producer_checkout.rs"]
+mod producer_checkout;
+
+#[test]
+fn ucp_checkout_producer() {
+    producer_checkout::producer_checkout("ucp-checkout-producer");
+}

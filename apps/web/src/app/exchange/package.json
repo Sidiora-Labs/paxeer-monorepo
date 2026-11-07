@@ -1,0 +1,11 @@
+{
+  "name": "@layerx/exchange-integration",
+  "private": true,
+  "type": "module",
+  "devDependencies": {
+    "happy-dom": "21.0.4"
+  },
+  "scripts": {
+    "postinstall": "node integration-dependencies.mjs"
+  }
+}

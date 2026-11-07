@@ -20,7 +20,7 @@ use layerx_types::ids::Did;
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 
-use crate::approval::ApprovalPolicy;
+use crate::approval::{ApprovalError, ApprovalPolicy};
 use crate::boundary::{BoundaryRefusal, ToolBoundary};
 use crate::catalogue::{self, WEB_TOOLS};
 pub use crate::readonly::ReadOnly;
@@ -525,6 +525,7 @@ impl Server {
         let tools = TOOL_CATALOGUE
             .iter()
             .chain(WEB_TOOLS.iter())
+            .chain(catalogue::SESSION_TOOLS.iter())
             .filter(|tool| {
                 binding.scopes.contains(tool.required_scope)
                     && (mode == DeploymentMode::Full || tool.kind == ToolKind::Read)
@@ -851,6 +852,10 @@ impl Server {
         Ok(WebBoundary {
             inner,
             context: ApprovalContext {
+                actor_address: route
+                    .config
+                    .payer_address()
+                    .ok_or(ServerError::CapabilityMismatch)?,
                 tenant: self.binding.tenant.clone(),
                 agent: self.binding.agent.clone(),
                 session: self.binding.session_id,
@@ -1080,6 +1085,9 @@ impl Server {
         catalogue::validate(name, arguments).map_err(|_| ServerError::InvalidInvocation)?;
         let encoded = serde_json::to_vec(arguments).map_err(|_| ServerError::InvalidInvocation)?;
         let (invocation, permit) = self.route(core_sequence, name, encoded)?;
+        // Sample local prerequisites before opening the durable invocation. Retained
+        // results and reconciliation still take precedence over a new preflight result.
+        let preflight = boundary.preflight(invocation.tool);
         let start = permit
             .mcp_begin(&self.control, identity)
             .map_err(ServerError::DurableInvocation)?;
@@ -1135,7 +1143,10 @@ impl Server {
                 permit
                     .mcp_start_effect(&self.control, &handle)
                     .map_err(ServerError::DurableInvocation)?;
-                let value = boundary.execute(invocation.tool, arguments);
+                let (value, effect_attempted) = match preflight {
+                    Ok(()) => (boundary.execute(invocation.tool, arguments), true),
+                    Err(refusal) => (Err(refusal), false),
+                };
                 if name == "activity.prepare" {
                     if let Ok(result) = &value {
                         if let Some(id) =
@@ -1150,7 +1161,7 @@ impl Server {
                 }
                 let outcome = match &value {
                     Ok(_) => InvocationOutcome::Completed,
-                    Err(error) if error.unknown() => InvocationOutcome::Unknown,
+                    Err(error) if effect_attempted && error.unknown() => InvocationOutcome::Unknown,
                     Err(_) => InvocationOutcome::Refused,
                 };
                 self.complete(&invocation, outcome)?;
@@ -1317,6 +1328,7 @@ fn decode_mcp_outcome(bytes: &[u8]) -> Result<Result<Value, BoundaryRefusal>, Se
 /// The configured x-websearch sidecar, the payer's signing boundary and the approval registry
 /// and threshold every web spend passes through.
 pub struct WebRoute {
+    clock: Arc<dyn layerx_types::clock::Clock>,
     config: WebConfig,
     approvals: Arc<ApprovalRegistry>,
     policy: ApprovalPolicy,
@@ -1330,8 +1342,10 @@ impl WebRoute {
         approvals: Arc<ApprovalRegistry>,
         policy: ApprovalPolicy,
         payer: Box<dyn WebPayer + Send>,
+        clock: Arc<dyn layerx_types::clock::Clock>,
     ) -> Self {
         Self {
+            clock,
             config,
             approvals,
             policy,
@@ -1350,6 +1364,11 @@ pub struct WebBoundary<B: ToolBoundary> {
 }
 
 impl<B: ToolBoundary> WebBoundary<B> {
+    pub(crate) fn with_observed_sequence(mut self, sequence: u64) -> Self {
+        self.observed = Some(sequence);
+        self
+    }
+
     fn web(&mut self, tool: ToolDefinition, arguments: &Value) -> Result<Value, BoundaryRefusal> {
         let call = WebCall::from_arguments(tool.name, arguments)
             .map_err(|error| BoundaryRefusal::Malformed(error.detail()))?;
@@ -1357,6 +1376,7 @@ impl<B: ToolBoundary> WebBoundary<B> {
             BoundaryRefusal::Malformed("no core sequence was observed for the web spend".to_owned())
         })?;
         let WebRoute {
+            clock,
             config,
             approvals,
             policy,
@@ -1367,6 +1387,7 @@ impl<B: ToolBoundary> WebBoundary<B> {
             policy: *policy,
             context: self.context.clone(),
             current_sequence,
+            clock: clock.as_ref(),
         };
         let outcome = web_tool(config, &call, &approval, payer.as_mut())
             .map_err(|error| web_refusal(&error))?;
@@ -1379,6 +1400,18 @@ impl<B: ToolBoundary> WebBoundary<B> {
 }
 
 impl<B: ToolBoundary> ToolBoundary for WebBoundary<B> {
+    fn preflight(&mut self, tool: ToolDefinition) -> Result<(), BoundaryRefusal> {
+        if catalogue::untrusted_output(tool.name) {
+            crate::approval::decision_time(self.route.clock.as_ref())
+                .map(|_| ())
+                .map_err(|_| {
+                    BoundaryRefusal::Unavailable("the approval clock is unavailable".to_owned())
+                })
+        } else {
+            self.inner.preflight(tool)
+        }
+    }
+
     fn execute(
         &mut self,
         tool: ToolDefinition,
@@ -1443,6 +1476,11 @@ fn web_refusal(error: &WebToolError) -> BoundaryRefusal {
         }
         WebToolError::ApprovalChanged => {
             refused("the web spend differs from the disclosure under approval".to_owned())
+        }
+        WebToolError::Approval(ApprovalError::Daemon(
+            layerx_agentd::policy::approval::ApprovalError::Unavailable,
+        )) => {
+            BoundaryRefusal::Unavailable("the approval clock or registry is unavailable".to_owned())
         }
         WebToolError::Approval(_) => {
             refused("the approval boundary refused the web spend".to_owned())

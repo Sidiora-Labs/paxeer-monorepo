@@ -220,6 +220,7 @@ export function serializeRoute(route: ShellRoute): string {
   switch (route.name) {
     case 'send':
       if (route.token) url.searchParams.set('token', route.token);
+      if (route.to) url.searchParams.set('to', route.to);
       break;
     case 'token-detail':
       url.searchParams.set('token', route.token);

@@ -30,14 +30,16 @@ from pathlib import Path
 def git(*args):return subprocess.check_output(['git',*args]).decode().strip()
 revision=os.environ['LAYERX_MULTI_ASSET_BUILD_REVISION']
 assert not git('status','--porcelain','--untracked-files=all') and git('rev-parse','HEAD')==revision
-artifacts={}
-for key,event,name,kind in (
-    ('probe','LAYERX_MULTI_ASSET_PROBE_EVENTS','layerx-node-probe','bin')):
-    rows=[json.loads(line) for line in Path(os.environ[event]).read_text().splitlines() if line.strip()]
-    assert rows[-1]=={'reason':'build-finished','success':True},'actual successful Cargo completion required'
+def compiler_artifact(rows, name, kind):
+    assert rows and rows[-1]=={'reason':'build-finished','success':True},'actual successful Cargo completion required'
     paths={r['executable'] for r in rows if r.get('reason')=='compiler-artifact' and r.get('executable') and r['target']['name']==name and kind in r['target']['kind']}
     assert len(paths)==1,'one actual executable required: '+name
-    path=Path(paths.pop())
+    return Path(paths.pop())
+artifacts={}
+for key,event,name,kind in (
+    ('probe','LAYERX_MULTI_ASSET_PROBE_EVENTS','layerx-node-probe','bin'),):
+    rows=[json.loads(line) for line in Path(os.environ[event]).read_text().splitlines() if line.strip()]
+    path=compiler_artifact(rows,name,kind)
     assert path.is_absolute() and not any(p.is_symlink() for p in (path,*path.parents)) and path.is_file() and os.access(path,os.X_OK)
     with path.open('rb') as stream:
         assert stream.read(4)==b'\x7fELF';stream.seek(0);digest=hashlib.file_digest(stream,'sha256').hexdigest()

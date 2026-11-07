@@ -26,7 +26,7 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/attestor/internal/policy"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/attestor/internal/policy/lx"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/attestor/internal/store"
-	"github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/attestor/internal/tss/dealer"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/attestor/internal/tss/dealershare"
 )
 
 func importEd25519(t *testing.T, c *testCluster, keyID, label string) (ed25519.PublicKey, string) {
@@ -300,7 +300,8 @@ func programTransfer(t *testing.T, pub ed25519.PublicKey, sequence uint64, amoun
 	return pending.envelope(t), pending.digest(t)
 }
 
-// signKernel authorizes a send, then records and replicates the accepted debit.
+// signKernel authorizes a send, then injects an accepted debit for ledger tests.
+// This helper does not supply production committed-receipt evidence.
 func signKernel(t *testing.T, c *testCluster, keyID, session string, signers []string, unsigned []byte) []apiResult {
 	t.Helper()
 	disclosure, approval := approvedActivity(t, c, unsigned, keyID, session, testOwner)
@@ -385,14 +386,17 @@ func acceptKernelSend(t *testing.T, c *testCluster, keyID, session, nodeID strin
 	if len(decision.Spends) != 0 {
 		t.Fatalf("send authorization recorded spends: %+v", decision.Spends)
 	}
-	spends := make([]policy.Spend, 0, len(effect.Amounts))
-	for _, amount := range effect.Amounts {
-		spends = append(spends, policy.Spend{Asset: "lx:" + hex.EncodeToString(amount.Asset[:]), Amount: amount.Amount})
-	}
-	if err := node.server.spends.Apply(policy.AccountKey(held.Account), requestID(keyID, session), spends, time.Now()); err != nil {
+	debit, err := lx.DecodeAuthorizedSendDebit(lx.SendDebitBinding{
+		KeyID: keyID, Account: common.HexToAddress(held.Account), PublicKey: pub,
+		NetworkID: testChainID, AuthorizationDigest: digest,
+	}, completed)
+	if err != nil {
 		t.Fatal(err)
 	}
-	if acked, silent := node.server.Announce(context.Background(), keyID, session, held.Account, rec.Participants, spends); acked != len(rec.Participants) {
+	if err := node.server.spends.Apply(policy.AccountKey(held.Account), requestID(keyID, session), debit.Spends, time.Now()); err != nil {
+		t.Fatal(err)
+	}
+	if acked, silent := node.server.Announce(context.Background(), keyID, session, held.Account, rec.Participants, debit.Spends); acked != len(rec.Participants) {
 		t.Fatalf("completed send replicated to %d participants, silent %v", acked, silent)
 	}
 }

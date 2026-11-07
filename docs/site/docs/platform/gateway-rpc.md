@@ -1,324 +1,216 @@
-# Public JSON-RPC
+# Public node and hosted gateway JSON-RPC
 
-The limited beta has not opened yet; the gateway API becomes available
-when it does. Once available, the JSON-RPC gateway provides 33
-`lx_*` and `px_*` methods: self-service onboarding, authenticated canonical submission,
-unauthenticated committed reads, fee estimation, and scoped live
-subscriptions. The source contract is
-the embedded OpenRPC 1.3.2 document plus the gateway dispatch and public-core
-read implementations.
+Paxeer mainnet-beta is one BFT network, EVM chain ID `125` (`0x7d`). The kernel
+runs inside `paxd`, proposes blocks and executes within the network. A receipt
+is final once its block is committed. The public node and an operator-hosted
+gateway expose different method contracts over that same network.
 
-See [Commitment levels](../protocol/commitment-levels.md), [Assets](../concepts/assets.md),
-[Payments developer path](../overview/payments.md), and the
-[exact real-process transcript](public-api.md).
+## Public node endpoints
 
-## Endpoints
+Send JSON-RPC to the root of `https://api-mainnet-beta.paxeer.network` or
+`https://api1.mainnet-beta.paxeer.network` through
+`https://api14.mainnet-beta.paxeer.network`. The public namespaces are `debug`,
+`echo`, `eth`, `net`, `pax`, `test` and `txpool`; individual methods depend on
+node configuration. The full node list and root WebSocket URLs are in
+[Public RPC endpoints](../reference/public-rpc.md).
 
-| Transport | Endpoint | Use |
-| --- | --- | --- |
-| HTTPS | `https://api-mainnet-beta.paxeer.network/rpc` | JSON-RPC 2.0 request or batch |
-| HTTPS | `https://api-mainnet-beta.paxeer.network/rpc/schema` | Embedded OpenRPC document |
-| WebSocket | `wss://api-mainnet-beta.paxeer.network/rpc/ws` | `lx_subscribe` |
+```bash
+curl --fail-with-body --max-time 15 \
+  https://api1.mainnet-beta.paxeer.network \
+  -H 'Content-Type: application/json' \
+  -d '{"jsonrpc":"2.0","id":1,"method":"eth_chainId","params":[]}'
+```
 
-`POST /rpc` requires `Content-Type: application/json`. It accepts a single
-request or a batch of 1–32 requests. A request that carries no `id`, alone or
-in a batch, produces no response body and returns HTTP 204; JSON-RPC responses
-and errors use HTTP 200. The request body
-limit enforced by the gateway is 8 MiB. Parameters are positional.
+The expected chain ID result is `"0x7d"`. Check it before signing or
+broadcasting, and compare `eth_blockNumber` across nodes when choosing a node
+near the head. An unavailable endpoint does not prove a transaction failed.
 
-## Methods
+The pre-merge router and its `/rpc`, `/rpc/ws` and `/rpc/schema` paths are retired.
+There is no separate LayerX interface to configure.
+`node.hyperpaxeer.com` is only the hpx library mirror, never an RPC endpoint.
+Sub-chains are tenant domains in the database; creating one does not deploy a
+second chain or change the public EVM chain ID.
+
+## Hosted gateway endpoint and request shape
+
+An operator-deployed gateway accepts `POST /` at its own configured origin.
+Obtain that origin from the operator. The `px_*` methods below are hosted
+contracts, not additional methods promised on every public node. The checked-in
+OpenRPC document has no `servers` entry establishing a public gateway origin.
+
+The gateway's method contract is
+`services/platform/hosted/gateway/openrpc.json` (OpenRPC 1.3.2).
+Compatibility handlers for retired prefixed RPC paths remain in the hosted
+source; new clients should use the root. All `lx_*` methods are retired and
+return `-32601` before any upstream call, including the former activity,
+batch, checkpoint, proof and subscription methods.
+
+Requests use JSON-RPC 2.0 and `Content-Type: application/json`. Hosted method
+parameters are positional arrays. The gateway accepts a single request or a
+batch of 1–32 requests within its 8 MiB request bound. Valid notifications
+without an `id` produce no response; a notification-only exchange returns HTTP
+204. JSON-RPC results and errors use HTTP 200. Clients must inspect `error`.
+
+Example hosted read, sent to the operator's gateway root:
+
+```json
+{"jsonrpc":"2.0","id":1,"method":"px_getNetwork","params":[]}
+```
+
+## Hosted methods
+
+These are the 17 declared method names. Optional trailing arguments can be
+omitted; consult OpenRPC for each method's exact selectors and schemas.
 
 | Method | Positional parameters | Result |
 | --- | --- | --- |
-| `px_register` | `[signer_public_key, registration_signature]` | Identity principal record for a self-registered signer |
-| `px_getCommit` | `[height]` | Decimal-string `height` and consensus `signedHeader` containing `header` and `commit` |
-| `px_getValidators` | `[height]` | Decimal-string `height` and `total`, plus `validators` with `address`, `pubKey`, and decimal-string `votingPower` |
-| `px_getReceiptKeys` | `[]` | Pinned signing `keys`, each with `keyId`, `publicKey`, and inclusive integer `firstHeight` and `lastHeight` |
-| `px_getSequenceBatch` | `[height]` | Decimal-string `height`, hex `tx`, and verified inclusion `proof` with `total`, `index`, `leafHash`, and `aunts` |
-| `px_requestFunds` | `[did, signer_public_key]` | Funded claim with `funded: true`, `funding_id`, `transaction_id`, decimal-string `amount`, `network`, and `starter_credit` |
-| `px_resolveAccount` | `[account]` | Resolution object with `evm_address`, `pax_address`, `layerx_did`, `layerx_account`, and `bound`; unbound references are null |
-| `px_getAccount` | `[account]` | Resolved `account` and `paxeer` with `address`, hex `balance` and `nonce`, and integer `height`; `paxeer` is null without an EVM binding |
-| `px_getBalances` | `[account]` | Resolved `account`, integer `height`, and `balances` with `denom` and exact decimal-string `amount` |
-| `px_listAssets` | `[]` | Joined LayerX asset and Paxeer custody records, with null custody for unregistered assets and `joined_limit` |
-| `px_getNetwork` | `[]` | `network_id`, `paxeer`, `layerx`, `anchor`, and `kernel` with `available` and `reason` |
-| `px_getHistory` | `[account, cursor, limit, kind]` | `account`, indexed transfer `items` with asset metadata, `next_cursor`, `indexedHeight`, `chainHeight`, and `freshness` |
-| `px_getUnifiedHistory` | `[account, cursor, limit, kind]` | Resolved `account`, merged `accounts`, `items` tagged with `side`, `next_cursor`, `indexedHeight`, `chainHeight`, and `freshness` |
-| `px_listHolderRecords` | `[address, kind, cursor, limit]` | Holder-record `items`, `next_cursor`, `indexedHeight`, and `chainHeight` |
-| `px_getCapabilities` | `[]` | Boolean `exchange`, `bridge`, and `launchpad` availability, integer `probed_at`, and decimal-string `rpc_height` |
-| `px_getRouteCatalogue` | `[]` | Catalogue with `schema: "paxeer-x.routes.v1"`, `chain_id: 125`, `services`, `routes`, and dependency `readiness` |
-| `lx_requestFunds` | `[did, signer_public_key]` | One bounded beta faucet grant the faucet confirmed as funded |
-| `lx_getAccount` | `[account_id]` | Authenticated account snapshot |
-| `lx_getBalance` | `[account_id]` | The same account object; use its `balance` and `asset_id` |
-| `lx_getBalances` | `[did]` | Complete bounded DID account list |
-| `lx_getReceipt` | `[activity_id]` | `activity_id` and verified `receipt` bytes |
-| `lx_getActivityStatus` | `[activity_id]` | The same receipt read, or an unavailable error while no receipt exists |
-| `lx_getBatchHeader` | `[batch_number]` | Sequencer-signed batch header |
-| `lx_getCheckpoint` | `[checkpoint_id]` | Checkpoint evidence |
-| `lx_getNodeInfo` | `[]` or no `params` | Protocol/network handshake and current heads |
-| `lx_getSequence` | `[account_id]` | The account object; read its `next_sequence` |
-| `lx_getSequence` | `[did, "identity"]` | `did`, `next_sequence`, `observed_head_sequence`, `state_root`, and `verification: "authenticated_node_snapshot"` |
-| `lx_getProof` | `["activity", activity_id]` | Activity proof and signed header |
-| `lx_getProof` | `["receipt", activity_id]` | Receipt proof and signed header |
-| `lx_getProof` | `["account", activity_id, account_id]` | Exact verified native account-proof bytes |
-| `lx_sendActivity` | `[canonical_hex, commitment]` | Verified outcome at the requested commitment |
-| `lx_subscribe` | `["receipts"]`, `["checkpoints"]`, or `["account", account_id]`, each optionally followed by a `cursor` string | Subscription id string; WebSocket only |
-| `lx_unsubscribe` | `[subscription]` | `true` once that subscription stops; WebSocket only |
-| `lx_listAssets` | `[]`, `[cursor]`, or `[cursor, limit]`, where `cursor` is `null` or a 64-hex asset id and `limit` is 1..256 | One page of assets under `assets`, ordered by ascending `asset_id`, with `next_cursor` |
-| `lx_getAsset` | `[asset_id]` | One Asset metadata record |
-| `lx_estimateFee` | `[canonical_hex]` | Committed-schedule estimate |
+| `px_register` | `[signer_public_key, registration_signature]` | Hosted identity principal record |
+| `px_requestFunds` | `[did, signer_public_key]` | Confirmed faucet claim with `funded`, `funding_id`, `transaction_id`, decimal-string `amount`, `network` and `starter_credit` |
+| `px_resolveAccount` | `[account]` | `evm_address`, `pax_address`, `layerx_did`, `layerx_account` and `bound` |
+| `px_getAccount` | `[account]` | Resolved `account` and `paxeer` address, hex balance/nonce and integer height; `paxeer` can be null |
+| `px_getBalances` | `[account]` | Resolved `account`, integer `height` and `balances` with `denom` and exact decimal-string `amount` |
+| `px_listAssets` | `[]` | Integer `height`, joined `assets` and `joined_limit` |
+| `px_getNetwork` | `[]` | `network_id`, `paxeer` chain ID/head and `consensus`; a missing consensus snapshot is null with `reason: "consensus_unavailable"` |
+| `px_getHistory` | `[account, cursor?, limit?, kind?]` | Transfer `items`, `next_cursor`, `indexedHeight`, `chainHeight` and `freshness` for the resolved address |
+| `px_getUnifiedHistory` | `[account, cursor?, limit?, kind?]` | Resolved `account`, merged `accounts`, history `items` tagged with `side`, cursor and freshness fields |
+| `px_listHolderRecords` | `[address, kind, cursor?, limit?]` | Holder-record `items`, `next_cursor`, `indexedHeight` and `chainHeight`; kind is `budget` or `grant` |
+| `px_getCapabilities` | `[]` | Boolean `exchange`, `bridge`, `launchpad`, `ledger`, `pay`, `auth`, `programs`; `addresses`, integer `probed_at` and decimal-string `rpc_height` |
+| `px_getRouteCatalogue` | `[]` | `schema: "paxeer-x.routes.v1"`, `chain_id: 125`, `services`, `routes` and dependency `readiness` |
+| `px_getCommit` | `[height]` | Decimal-string `height` and `signedHeader` with consensus `header` and `commit` |
+| `px_getValidators` | `[height]` | Decimal-string `height` and `total`, plus `validators` with `address`, `pubKey` and decimal-string `votingPower` |
+| `px_getReceiptKeys` | `[]` | Signing `keys` with `keyId`, `publicKey` and inclusive integer `firstHeight`/`lastHeight` |
+| `px_getSequenceBatch` | `[height]` | Decimal-string `height`, hex `tx` and inclusion `proof` containing `total`, `index`, `leafHash` and `aunts` |
+| `pax_sequencerReceipt` | `[txHash]` | Node receipt lifecycle object or null when the transaction is unknown |
 
-`lx_getSequence` and `lx_getProof` each have multiple parameter forms but
-count as one method each; the table therefore describes all 33 method names.
+Account resolution reads `addr` at
+`0x0000000000000000000000000000000000001004`; bank balances come from
+`0x0000000000000000000000000000000000001001`. Null unbound references do not
+establish zero balances. `px_getBalances` requires a bound EVM address.
+`px_listAssets` joins at most 16 records; `joined_limit` makes that bound
+explicit rather than claiming an unbounded inventory.
 
-`px_register` and `lx_requestFunds` are the onboarding pair. `px_register`
-takes a lowercase-hex 32-byte Ed25519 public key and its 64-byte signature over
-the registration binding and returns the principal record; the subject is
-derived from the key, so it is idempotent and cannot name another holder's
-principal. `lx_requestFunds` claims one faucet grant for the authenticated
-principal and requires that the named signer key be one the session authorises
-(`services/platform/hosted/gateway/src/rpc_register.rs`;
-`services/platform/hosted/gateway/src/rpc_faucet.rs`). The gateway derives the faucet
-idempotency key from the principal, DID, and signer key, so a repeated request
-returns the same grant rather than a second one, and a claim whose funded
-evidence is incomplete is `-32603` rather than a reported success. Both are
-optional upstreams: when the identity or faucet upstream is not configured the
-method answers `-32001` with `data.code` `registration_not_configured` or
-`faucet_not_configured`. See [Hosted faucet](faucet.md).
+History cursors are the indexer's 32 lowercase hexadecimal characters encoding
+its block/transaction/log position. Pass `next_cursor` through unchanged, or
+use null/omit it for the first page. Limits are integers 1–100, default 50.
+History amounts are exact decimal strings in asset base units. Indexer height
+and chain height describe freshness; a stale or absent indexer is not proof
+that an account has no activity.
 
-Identifiers are nonzero hexadecimal strings encoding 32 bytes. The gateway
-selector accepts either case, but the receipt route refuses any uppercase
-digit, so `lx_getReceipt` and `lx_getActivityStatus` require lowercase. Batch numbers are canonical nonzero decimal `u64` strings: `0` and
-leading-zero forms are invalid. Canonical activity input is non-empty hex and
-is limited to 512 KiB of decoded bytes.
+Consensus read heights are positive decimal `u64` strings, unlike EVM hex
+quantities. Receipt key IDs and public keys encode 32 bytes with a `0x` prefix.
+The sequence-batch proof covers transaction index zero of the requested block;
+a block without a sequence batch returns `-32602` with
+`data.code: "no_sequence_batch"`.
 
-## Read result objects
+## Authentication and onboarding
 
-Public reads return native committed data; the gateway does not reconstruct
-or invent proof material.
+Public balance, history, capability and consensus reads do not require a
+gateway key. `px_register` proves possession of the Ed25519 signer key: its
+public key is 64 lowercase hex characters and the signature is 128 lowercase
+hex characters, both unprefixed. The signature covers the registration binding
+implemented in `src/rpc_register.rs`. Registration is idempotent for that
+signer and creates a hosted principal; it does not establish an on-chain DID
+binding or complete [Human onboarding](../concepts/identity.md#human-onboarding).
 
-- An account includes `account_id`, `name`, `asset_id`, decimal-string
-  `balance`, decimal-string `next_sequence`, `frozen`, `canonical_value`,
-  `proof_material`, decimal-string `observed_head_sequence`,
-  decimal-string `batch_number`, and `verification`. `verification` is one of
-  `state_proven`, `checkpoint_finalised`, or `settlement_anchored`: the read is
-  requested at state-proven level and fails closed if no level is achieved.
-- A DID account list's entries carry the same fields, each with a per-entry
-  `verification` naming the level its own proof achieved: the enumeration is
-  requested at state-proven level and fails closed with core code
-  `did_account_listing_unavailable` when the node holds no proof for it or
-  reports no entries, which carries no proof of absence. Every entry carries
-  proof material that the client verifies against the signed batch header.
-- A DID account list includes `did`, `accounts`, and a listing `verification`
-  that names the weakest level any entry achieved (`state_proven`,
-  `checkpoint_finalised`, or `settlement_anchored`). It is complete within the
-  native bound; it does not independently prove completeness.
-- Asset results carry `asset_id`, `symbol`, `name`, `decimals`, `custody_kind`,
-  `custody_reference`, `paused`, `supply_cap`, `issuer_did`, `issuer_kind`,
-  `total_units`, and `salt`. A single record nests under `asset`; the list
-  nests under `assets`. Both carry version-3 metadata, `observed_head_sequence`,
-  `state_root`, and
-  `verification: "authenticated_committed_snapshot"`. Amounts are decimal
-  strings; ids and custody references are hexadecimal. `symbol` is the record's
-  1..=16 ASCII bytes as a string; a committed record whose symbol falls outside
-  that encoding is refused with core code `invalid_asset_symbol` (JSON-RPC
-  `-32001`) rather than rendered with replacement characters.
-- A fee estimate includes decimal-string `fee`, `parameter_version`,
-  hexadecimal `canonical_schedule`, `canonical_bytes`,
-  `observed_head_sequence`, `state_root`, and
-  `verification: "authenticated_committed_snapshot"`. It does not reserve a
-  fee or prove execution.
-- Node info includes `protocol_version`, `network_id`,
-  `chain_head_sequence`, `latest_sealed_batch`,
-  `latest_finalised_checkpoint`, `authorised_sequencer_key`, and
-  `capabilities`.
-- Proof results include `kind`, `activity_id`, `canonical_value`,
-  `account_id` (null for activity and receipt kinds), `proof`, and a
-  `signed_header` carrying `canonical_header`, `signature`, `sequencer_id`,
-  `public_key`, and the covered batch interval. `proof` is polymorphic:
-  activity and receipt proofs carry `leaf_index`, `leaf_count`, and
-  `siblings`; an account proof carries `canonical_bytes`.
-- Batch-header results carry `batch_number`, `canonical_header`, `signature`,
-  `sequencer_id`, `sequencer_public_key`, `first_batch_number`, and
-  `last_batch_number`. Note that a proof's signed header names the key
-  `public_key` while the batch-header read names it `sequencer_public_key`.
-- Checkpoint results carry `checkpoint_id`, `checkpoint`, `context`, and
-  `canonical_header`.
-
-Unsupported evidence, unknown records, malformed native responses, and
-schedules requiring unavailable execution or storage inputs fail closed.
-
-## Submit
-
-Example:
-
-```json
-{
-  "jsonrpc": "2.0",
-  "id": 1,
-  "method": "lx_sendActivity",
-  "params": ["<canonical activity hex>", "executed"]
-}
-```
-
-`commitment` is exactly `executed`, `batched`, or `finalised`. The gateway
-verifies the canonical envelope, actor authorization, protocol/network, and
-registered module route before forwarding `application/octet-stream` with the
-signed idempotency key. It preserves activity-id outer deduplication.
-
-The admitted native operations are:
-
-- Asset ordinals `1`, `4`, `5`, `6`, `7`, `8`, `10`, and `11`;
-- Programs ordinals `1` deploy, `2` upgrade, `3` call, `5` transfer,
-  `6` account registration, and `7` wind-down.
-
-Asset pause/unpause (`2`/`3`) are excluded and Asset ordinal `9` is reserved.
-Programs deploy, upgrade, call, and wind-down use their existing dedicated
-gateway routes; other admitted activities use `/v1/activities`.
-
-A successful result always contains a verified receipt and sets the exact
-requested `commitment`. `batched` also contains `batch_evidence`; `finalised`
-contains both `batch_evidence` and `checkpoint_evidence`. If the bounded wait
-cannot establish the requested level, the response is error `-32001`
-(`Requested commitment unavailable`) with `data.state = "pending"`,
-`data.requested_commitment`, and `data.evidence` carrying what is already
-available. When the upstream itself answers HTTP 202 the message is
-`Submission unavailable` and the same `state`/`requested_commitment` pair is
-returned with `data.upstream` instead of `data.evidence`. It never returns a
-weaker success.
-
-A success carries `activity_id`, `batch_id`, `global_sequence` (a JSON
-number), `result_code`, `state_root`, `receipt`, `idempotency_key`, and
-`commitment`.
-
-## Authentication and scopes
-
-Read methods require no credential. `px_register` requires no credential; it
-proves possession of the named signer key by signature. `lx_requestFunds`
-requires a hosted identity session, not a gateway key:
+`px_requestFunds` requires a hosted identity session:
 
 ```text
 Authorization: Bearer <identity session token>
 ```
 
-`lx_sendActivity` requires:
+The session must authorize the named signer. The gateway derives faucet
+idempotency from the principal, DID and signer key. A retry resolves the same
+claim. Incomplete funded evidence returns `-32603`, and a pending upstream
+claim remains `-32001` with `data.code: "faucet_claim_pending"`.
+
+`px_getRouteCatalogue` requires gateway key authentication even though most
+reads are public. Its credential format is:
 
 ```text
 Authorization: LayerX-Key <key-id>:lxp_live_<64-hex-secret>
 ```
 
-The key must permit `activity:write`, and a Programs activity route must hold
-`activity:write` **and** its own route scope. The full vocabulary is
-`activity:write`, `program:call`, `program:simulate`, `state:read`,
-`receipt:read`, and `program:read`. Missing or invalid authorization, a signer
-mismatch, a disabled key record, and insufficient scope are refusals rather
-than anonymous fallback. A key id must be non-empty, at most 64 characters, and
-drawn from `[A-Za-z0-9-_]`.
+Missing credentials, disabled keys and mismatched authority are refusals.
+Requests carrying caller-supplied `x-layerx-principal` or `x-layerx-api-key`
+headers are rejected with HTTP 400 `untrusted_identity_header`.
 
-## WebSocket subscriptions
+## Submission and committed receipts
 
-Open `GET /rpc/ws` with WebSocket version 13, an empty body, no browser
-`Origin`, and a `LayerX-Key` credential. Receipt subscriptions require
-`receipt:read`; checkpoint and account subscriptions require `state:read`.
-Sending `lx_subscribe` to HTTPS `POST /rpc` returns `-32004`.
+Transactions use the EVM path: sign the exact chain-125 transaction with its
+pending nonce and fee bounds, then submit signed bytes with
+`eth_sendRawTransaction`, or use the configured gas station's sponsored flow.
+The gateway relays supported `eth_`, `net_` and `web3_` calls to its node pool.
+It refuses node-side account/signing methods such as `eth_sendTransaction`
+and `eth_sign`; callers supply their own signing authority.
 
-The result of `lx_subscribe` is a one-based string id, allocated once per
-subscription on the connection and never reused after `lx_unsubscribe`.
-Notifications are:
+`px_getCapabilities` probes the native surfaces. Raw sends addressed to an
+unavailable exchange, bridge, launchpad, ledger, pay, auth or programs
+precompile are refused with `-32003` and `data.code: "surface_unavailable"`.
+A false capability is not a route to a fallback execution network.
 
-```json
-{
-  "jsonrpc": "2.0",
-  "method": "lx_subscription",
-  "params": {"subscription": "1", "result": {}, "cursor": "41"}
-}
-```
+Read `pax_sequencerReceipt` using the original `0x`-prefixed 32-byte transaction
+hash. The gateway relays the node's lifecycle object unchanged:
 
-`params.cursor` is the receipt-feed position last delivered on that
-subscription, as a canonical decimal string with no leading zeros.
+| Wire rung | Meaning |
+| --- | --- |
+| `submitted` | Accepted transaction with `txHash` and hex `nonce`; no execution outcome yet |
+| `receipted` | Signed execution receipt and outcome, without committed block evidence |
+| `committed` | Receipt covered by a sequence batch in a committed block, including `blockNumber` and `blockHash` |
 
-`lx_unsubscribe` takes that subscription id and answers `{"result": true}`;
-the remaining subscriptions keep their ids and cursors. An id that is not
-active on the connection returns `-32602`, and the method is refused over
-HTTPS `POST /rpc` with `-32004` like `lx_subscribe`.
+A committed receipt must still report successful execution (`status: "0x1"`)
+for the intended operation. `"0x0"` is a failed execution. The method name is
+retained; it does not designate a separate running service. Signing keys,
+transaction inclusion and consensus evidence support independent verification.
+Neither an acknowledgement nor a timeout establishes a successful outcome.
+Resume lookups under the same transaction and journey identity; see
+[Human journeys](../human/journeys.md#done-means-committed-success).
 
-To reconnect, subscribe again with the cursor of the last notification the
-client kept: `["receipts", "41"]`, `["checkpoints", "41"]` or
-`["account", account_id, "41"]`. A receipt subscription replays every event
-after that position; checkpoint and account subscriptions replay the current
-snapshot once. Replayed notifications carry the position they replayed and are
-delivered after the acknowledgement and before any live notification, and a
-live event at or below the cursor is not delivered twice. The resume window is
-16 positions: a wider gap is refused with `-32005`, a cursor ahead of
-`chain_head_sequence` with `-32602`, and an unavailable feed with `-32001`. A
-refused resume creates no subscription, so reconcile through reads and
-subscribe without a cursor. The gateway allows 32 sockets, 8 subscriptions per
-socket, and 16 queued receipt wakes. It pings every 5 seconds, closes idle sockets after 60
-seconds, and limits a connection to one hour; both of those expiries close with
-`1000`. Slow consumers, feed loss, and exhausting the read rate limiter inside
-a live socket close with `1013`; revoked keys or changed scope close with
-`1008`; protocol errors close with `1002`.
+The HTTPS relay refuses `eth_subscribe` and `eth_unsubscribe` with `-32004`.
+Use the node's root WebSocket endpoint for supported EVM subscriptions. New-head
+notifications prompt reads; they do not replace committed receipt verification.
 
-Every read method is also servable over the socket: a frame whose `method` is
-neither `lx_subscribe` nor `lx_unsubscribe` is dispatched as an ordinary
-JSON-RPC request, and the key
-is re-authenticated on every inbound frame, every wake, and every ping.
-`account` notifications fire only on a receipt wake and are suppressed when the
-account is unchanged; the account id is lowercased into the topic name.
-Checkpoint notifications also fire when a bounded wait expires.
+## Errors and limits
 
-The upgrade requires `Upgrade: websocket`, a `Connection` list containing
-`upgrade`, a decodable `Sec-WebSocket-Key`, and a key already holding
-`receipt:read` or `state:read`. Socket capacity is refused at the upgrade with
-HTTP `429` and `Retry-After: 1`, never as a JSON-RPC error.
+These codes describe gateway handling; relayed node errors retain their node
+meaning. Method-specific `error.data.code` distinguishes the cause.
 
-## JSON-RPC errors
-
-| Code | Meaning |
+| Code | Gateway meaning |
 | ---: | --- |
-| `-32700` | Parse error |
-| `-32600` | Invalid request envelope, empty batch, or batch over 32 |
-| `-32601` | Method not found |
-| `-32602` | Invalid positional parameters, selector, resume cursor, canonical activity, or commitment, or a subscription id that is not active |
-| `-32603` | Invalid upstream response, gateway persistence failure, invalid route, or missing verified receipt |
-| `-32001` | Read/submission unavailable or requested commitment still pending |
-| `-32002` | Authentication, authorization, or scope refusal |
-| `-32004` | `lx_subscribe` and `lx_unsubscribe` require WebSocket |
-| `-32005` | Read rate limit, the per-connection subscription limit, or a resume cursor outside the 16-position window |
+| `-32700` | Invalid JSON |
+| `-32600` | Invalid JSON-RPC envelope or batch size |
+| `-32601` | Unknown, retired or non-relayable method |
+| `-32602` | Invalid parameters or selector; also no sequence batch at a requested height |
+| `-32603` | Malformed upstream response or incomplete required evidence |
+| `-32001` | Unavailable read, missing configuration or pending faucet claim |
+| `-32002` | Authentication or authorization refusal |
+| `-32003` | Unavailable chain evidence or precompile surface |
+| `-32004` | EVM subscriptions are not relayed over HTTPS |
+| `-32005` | Rate-limit refusal on methods using this code |
+| `-32010` | Required hosted backend unavailable; `data.code: "kernel_unavailable"` names its backend and reason |
 
-For proxied calls, upstream HTTP `400`/`415` maps to `-32602`, `401`/`403`
-to `-32002`, `429` to `-32005`, and other non-success status to `-32001`.
-The upstream body is retained in `error.data`. A proxied read carries the
-message that belongs to its code: `Invalid params` for `-32602`,
-`Insufficient scope` for `-32002`, and `Read unavailable` for `-32005` and
-`-32001`. Every proxied submission carries `Submission unavailable`,
-whichever of the four codes applies; gateway-side refusals carry distinct
-messages such as `Insufficient scope`, `Invalid params`, and
-`Missing verified receipt`.
+The shared hosted read limiter admits at most 120 reads per second per process
+and 30 per attributed client. One hosted operation can consume several upstream
+reads. REST limiter refusals use HTTP 429 `public_read_rate_limit` with
+`Retry-After: 1`; JSON-RPC error mapping depends on the method. Registration and
+faucet claims also have separate 30-per-minute process limits. A wrong JSON
+content type returns HTTP 415 `json_content_type_required`.
 
-The public read limiter admits 120 requests per second process-wide across all
-read methods and refuses beyond that with HTTP `429 public_read_rate_limit` and
-`Retry-After: 1`.
+## Source contract and configuration
 
-Non-JSON-RPC statuses on the public surface are `405 method_not_allowed` for a
-non-POST `/rpc` or non-GET `/rpc/schema`, `415 json_content_type_required`,
-`400 invalid_websocket_upgrade`, `403 insufficient_scope` at the WebSocket
-upgrade, `401 api_key_required`, and `503 persistence_unavailable`. A request
-carrying `x-layerx-principal` or `x-layerx-api-key` is refused with
-`400 untrusted_identity_header`.
+All source paths below are relative to `services/platform/hosted/gateway/`:
 
-## Source contract
+- `openrpc.json`: declared method parameters, result encodings and errors.
+- `src/main.rs` and `src/rpc.rs`: root dispatch, request bound, batch and notification behavior.
+- `src/paxeer.rs` and `src/evm.rs`: account resolution, bank reads and EVM relay policy.
+- `src/chain_reads.rs`: commit, validator, receipt-key and sequence-batch evidence.
+- `src/history.rs` and `src/capabilities.rs`: indexed reads and native surface probes.
+- `src/rpc_register.rs`, `src/rpc_faucet.rs` and `src/routes.rs`: identity, funding and authenticated route catalogue.
 
-- `services/platform/hosted/gateway/openrpc.json` defines the public method contract.
-- `services/platform/hosted/gateway/src/rpc.rs` dispatches HTTPS JSON-RPC.
-- `services/platform/hosted/gateway/src/ws.rs` implements subscriptions.
-- `services/platform/hosted/gateway/src/main.rs` owns routing (`route`), the scope table
-  (`permits`), key authentication, and the request-size bound.
-- `services/platform/hosted/gateway/src/lib.rs` owns canonical submission verification
-  (`verify_submission`) and the key-id format bound.
-- `services/platform/hosted/gateway/src/public_reads.rs` serves the unauthenticated REST
-  read passthroughs `GET /v1/state`, `GET /v1/accounts/{id}/balance`, and
-  `GET /v1/dids/{did}/accounts`, and holds the read limiter.
-- `services/platform/hosted/core/src/public_reads.rs` implements authenticated native
-  read translation.
+`LAYERX_GATEWAY_PAXEER_RPC_URLS` is a JSON array of two to eight distinct node
+URLs. The relay checks chain ID `125` before using an endpoint.
+`LAYERX_GATEWAY_CONSENSUS_RPC_URL` configures consensus reads;
+`LAYERX_GATEWAY_RECEIPT_KEYS_FILE` supplies the receipt signing-key list.
+Missing upstreams or invalid evidence produce explicit unavailable responses,
+not fabricated balances, receipts or finality.
 
-[Home](../index.md)
+[Human web application](../human/web-app.md) · [Home](../index.md)

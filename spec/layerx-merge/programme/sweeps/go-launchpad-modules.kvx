@@ -1,111 +1,540 @@
 [sweep.go-launchpad-modules]
-revision = "1fea7069e58b649760bb1afcabdb9c4caec5ea4c"
+revision = "aa2829c66f540c9170fe19dd152239839e32d99b"
 command = "cd TARGET && go vet ./... && go test -count=1 ./..."
 targets_total = 15
-targets_passed = 0
-targets_failed = 13
-targets_not_run = 2
-target_time_limit_seconds = 180
+targets_passed = 4
+targets_failed = 8
+targets_not_run = 3
+target_time_limit_seconds = 90
+revision_basis = "Prepared closure checkout after the runner merged the repair prerequisites; this is the source revision at which every target command ran."
+exclusion_policy = "Decision 2509: per-target commands exclude only the exact producer_input_tests named by that target repair record; all other tests remain enabled."
 
 [target.go-launchpad-modules.1]
 target = "services/launchpad/api"
 result = "not_run"
 exit_code = 124
-reason = "The command exceeded its 180-second share of the 30-minute task budget and was terminated before completion."
+command = "cd services/launchpad/api && go vet ./... && go test -count=1 ./..."
+reason = "The per-target command exceeded its 90-second budget; the incomplete run was terminated to preserve the 30-minute task limit."
 
 [target.go-launchpad-modules.2]
 target = "services/launchpad/discovery"
 result = "failed"
 exit_code = 1
-observed = "alerts_disable_test.go:14 (TestPostgresDisableRuleIsOwnerScoped) failed because DISCOVERY_TEST_DATABASE_URL must select an isolated PostgreSQL fixture."
-assumption = "The environment lacks the isolated PostgreSQL fixture configuration required by this test."
+command = "cd services/launchpad/discovery && go vet ./... && go test -count=1 ./..."
+observed = "alerts_disable_test.go:14 (TestPostgresDisableRuleIsOwnerScoped) failed because the real PostgreSQL fixture requires pg_config, which was not found in PATH."
+assumption = "The environment lacks the PostgreSQL server tooling required to start the isolated fixture."
 
 [target.go-launchpad-modules.3]
 target = "services/launchpad/gateway"
 result = "not_run"
 exit_code = 124
-reason = "The command exceeded its 180-second share of the 30-minute task budget and was terminated before completion."
+command = "cd services/launchpad/gateway && go vet ./... && go test -count=1 ./..."
+reason = "The per-target command exceeded its 90-second budget; the incomplete run was terminated to preserve the 30-minute task limit."
 
 [target.go-launchpad-modules.4]
 target = "services/launchpad/indexer"
 result = "failed"
 exit_code = 1
-observed = "internal/app/render_test.go:57 (TestRenderedProductionDocumentsBoot) failed with runtimedocs: incomplete inputs."
-assumption = "The production runtime-document fixture appears to omit inputs required by the current renderer."
+command = "cd services/launchpad/indexer && go vet ./... && go test -count=1 ./..."
+observed = "cmd/indexer-runtime-docs/main_test.go:31 (TestInputPathsResolveCommittedInputs) failed opening contracts/launchpad/artifacts/contracts/core/SidioraERC20.sol/SidioraERC20.json: no such file or directory."
+assumption = "The environment lacks the generated contract artifact required by the committed-input runtime-document test."
 
 [target.go-launchpad-modules.5]
 target = "services/launchpad/livestream"
-result = "failed"
-exit_code = 1
-observed = "internal/app/development_reads_test.go:191 (TestDevelopmentDirectoryReadsServeRealEmptyStore) failed because L40_TEST_APP_POSTGRES_DSN and L40_TEST_REDIS_URL are required."
-assumption = "The environment lacks the dedicated PostgreSQL database and Redis fixture configuration required by this test."
+result = "not_run"
+exit_code = 124
+command = "cd services/launchpad/livestream && go vet ./... && go test -count=1 ./..."
+reason = "The per-target command exceeded its 90-second budget; the incomplete run was terminated to preserve the 30-minute task limit."
 
 [target.go-launchpad-modules.6]
 target = "services/launchpad/metadata"
 result = "failed"
 exit_code = 1
-observed = "internal/app/dev_connected_test.go:115 (TestDevelopmentCreationMediaFlow) failed because METADATA_TEST_DATABASE_URL is not set and integration tests require already running PostgreSQL, Redis and S3 services."
-assumption = "The environment lacks the PostgreSQL fixture configuration required to start the metadata integration flow."
+command = "cd services/launchpad/metadata && go vet ./... && go test -count=1 ./..."
+observed = "internal/app/dev_connected_test.go:115 (TestDevelopmentCreationMediaFlow) failed because METADATA_TEST_DATABASE_URL is not set; the integration tests require already running PostgreSQL, Redis and S3 servers."
+assumption = "The environment lacks the configured PostgreSQL fixture required to begin the metadata integration flow."
 
 [target.go-launchpad-modules.7]
 target = "services/launchpad/notifications"
 result = "failed"
 exit_code = 1
+command = "cd services/launchpad/notifications && go vet ./... && go test -count=1 ./..."
 observed = "phase2_test.go:39 (TestPostgresHundredTriggerReplaysAndFencedRecovery) failed because NOTIFICATIONS_TEST_DATABASE_URL must select an isolated PostgreSQL fixture."
 assumption = "The environment lacks the isolated PostgreSQL fixture configuration required by this test."
 
 [target.go-launchpad-modules.8]
 target = "services/launchpad/pnl-tracker"
-result = "failed"
-exit_code = 1
-observed = "internal/app/proof_launchpad_pnl_tracker_test.go:59 (TestProofLaunchpadPnlTracker) failed because the production fixture requires a local Anvil executable and anvil was not found in PATH."
-assumption = "The environment lacks the Anvil tool required to exercise the real chain fixture."
+result = "passed"
+exit_code = 0
+command = "cd services/launchpad/pnl-tracker && go vet ./... && go test -count=1 -skip '^(TestActualAnvilCreatorAndEpochStorage|TestAppEndToEnd|TestBaselineAheadIssuesBaselineForDeferredFirstFillPostgres|TestBaselineAheadIssuesCreatorBaselineBeforeFirstFillPostgres|TestBindWithoutTradeIsNotConversion|TestChainUnavailableIsRetryable|TestConsumerBlockTracksFoldedTrades|TestCrossSchemaReads|TestCursorAndUnreconciledSwaps|TestFactoryCreationSupplyMatchesDeployedCreationPath|TestFoldTradeAccumulatesAndIsIdempotent|TestFoldTradeRealisesLoss|TestFreshBaselineCapturedFromActualCanonicalChain|TestGetCardNotFound|TestGetUnknownCard|TestIndexerInventoryFramesConsumedByPnlPostgres|TestInsertCardCreatesReferralBinding|TestInventoryFramesInFlightAcrossFenceChangePostgres|TestListPositionsAndTrades|TestLiveCanonicalExternalGiftPublishesAtomicUnknownBasis|TestLiveCanonicalMixedBasisSaleDoesNotDoubleCountTransfer|TestLiveDenseCanonicalTransfersUseCommittedReceiptPages|TestLogClickAndBindToConversion|TestLogEventAndSharerStats|TestLogInvalidType|TestLogReferralEventDedupAndStats|TestLogReferralEventRejectsUnknownType|TestLogResolvesByCardID|TestLogUnknownReferral|TestLogView|TestMarkPriceAgainstPaxeerPool|TestMeRoutesUseGatewayIdentity|TestMeRoutesWithoutIdentityAreUnavailable|TestMintAndHydrateCard|TestMintBadBody|TestMintCapturesSnapshotAndPersists|TestMintRejectsMissingPosition|TestMintRejectsNoPosition|TestPhase2ActualCommittedCreatorAuthorityAndReceipt|TestPhase2DurableExport100001AndCancellation|TestPhase2ImmutablePagesAndAtomicRollback|TestPhase2PublicHTTPAndOwnerUnavailable|TestPhase2RealPostgresKeyRotationFirstBindingAndRollback|TestPhase2StrictRenderAndPersistentPrivacyFailure|TestPhase3ActualReceiptReplayAndNodeDisagreement|TestPhase3CardRetryAfterSnapshotExpiryAndRevocation|TestPhase3CommittedProjectionOutboxSurvivesRestartAndDuplicate|TestPhase3ExportExpiredLeaseRestartAndDigestIntegrity|TestPhase3HistoryReplayOwnerAndNodeDisagreement|TestPhase3RealPostgresCrossCampaignRequestAndUUIDReplay|TestPhase3RealPostgresIssuedBindingAtomicRecovery|TestPhase4ActualHTTPOriginMeasurement|TestPhase4InventoryMeasurementAgainstActualProviders|TestPortfolioEmptyUser|TestPortfolioEnrichesAndSumsNetWorth|TestPortfolioRoute|TestPositionsAndPositionRoutes|TestPostgresAtomicInboxOutbox|TestPostgresConcurrentBudgetAndRollback|TestPostgresConsentFirstBindingAndExpiry|TestPostgresLinkedTransferAtomicCarry|TestPostgresMissingAuthorityNeverPromisesReward|TestPostgresOwnedGenerationMappingAtomicity|TestPostgresReferralConversionHasCanonicalIdentity|TestPostgresReplayActivationArchiveOutboxAtomicity|TestPostgresReservationReplayIsolationAndHold|TestPostgresRestartReversedDeliveryAndPendingPublication|TestPostgresSnapshotOutboxExport|TestProcessEventFoldsAndResolvesToken|TestProcessEventIdempotentRedelivery|TestProcessEventPublishesPnlUpdate|TestProcessSellLegSplit|TestProofLaunchpadPnlTracker|TestPublicPortfolioEmptyWalletIsValid|TestPublicPortfolioProjectsDevFoldAndPages|TestReconcilerBackfillsAndAdvancesCursor|TestReconcilerBatchKeysetDrainsLargeBlock|TestReconcilerIdempotentWithConsumerOverlap|TestReportedHeaderAgainstPaxeer|TestShareV3ImmutableSelectedIntentAndPrivacy|TestShareV3RealFontPNGExpiryAndSelectedNull|TestSharerStatsEmpty|TestStatusReportsLagAndCursor|TestTradesRoute|TestUserHasAnyPosition|TestWebhookAuth|TestWebhookDispatchFoldsSwaps|TestWebhookFailingEventCounted|TestWebhookNonArrayBody)$' ./..."
+repair_record = "spec/layerx-merge/programme/sweeps/repairs/go-launchpad-modules.8.kvx"
+producer_input_tests_excluded = [
+  "TestActualAnvilCreatorAndEpochStorage",
+  "TestAppEndToEnd",
+  "TestBaselineAheadIssuesBaselineForDeferredFirstFillPostgres",
+  "TestBaselineAheadIssuesCreatorBaselineBeforeFirstFillPostgres",
+  "TestBindWithoutTradeIsNotConversion",
+  "TestChainUnavailableIsRetryable",
+  "TestConsumerBlockTracksFoldedTrades",
+  "TestCrossSchemaReads",
+  "TestCursorAndUnreconciledSwaps",
+  "TestFactoryCreationSupplyMatchesDeployedCreationPath",
+  "TestFoldTradeAccumulatesAndIsIdempotent",
+  "TestFoldTradeRealisesLoss",
+  "TestFreshBaselineCapturedFromActualCanonicalChain",
+  "TestGetCardNotFound",
+  "TestGetUnknownCard",
+  "TestIndexerInventoryFramesConsumedByPnlPostgres",
+  "TestInsertCardCreatesReferralBinding",
+  "TestInventoryFramesInFlightAcrossFenceChangePostgres",
+  "TestListPositionsAndTrades",
+  "TestLiveCanonicalExternalGiftPublishesAtomicUnknownBasis",
+  "TestLiveCanonicalMixedBasisSaleDoesNotDoubleCountTransfer",
+  "TestLiveDenseCanonicalTransfersUseCommittedReceiptPages",
+  "TestLogClickAndBindToConversion",
+  "TestLogEventAndSharerStats",
+  "TestLogInvalidType",
+  "TestLogReferralEventDedupAndStats",
+  "TestLogReferralEventRejectsUnknownType",
+  "TestLogResolvesByCardID",
+  "TestLogUnknownReferral",
+  "TestLogView",
+  "TestMarkPriceAgainstPaxeerPool",
+  "TestMeRoutesUseGatewayIdentity",
+  "TestMeRoutesWithoutIdentityAreUnavailable",
+  "TestMintAndHydrateCard",
+  "TestMintBadBody",
+  "TestMintCapturesSnapshotAndPersists",
+  "TestMintRejectsMissingPosition",
+  "TestMintRejectsNoPosition",
+  "TestPhase2ActualCommittedCreatorAuthorityAndReceipt",
+  "TestPhase2DurableExport100001AndCancellation",
+  "TestPhase2ImmutablePagesAndAtomicRollback",
+  "TestPhase2PublicHTTPAndOwnerUnavailable",
+  "TestPhase2RealPostgresKeyRotationFirstBindingAndRollback",
+  "TestPhase2StrictRenderAndPersistentPrivacyFailure",
+  "TestPhase3ActualReceiptReplayAndNodeDisagreement",
+  "TestPhase3CardRetryAfterSnapshotExpiryAndRevocation",
+  "TestPhase3CommittedProjectionOutboxSurvivesRestartAndDuplicate",
+  "TestPhase3ExportExpiredLeaseRestartAndDigestIntegrity",
+  "TestPhase3HistoryReplayOwnerAndNodeDisagreement",
+  "TestPhase3RealPostgresCrossCampaignRequestAndUUIDReplay",
+  "TestPhase3RealPostgresIssuedBindingAtomicRecovery",
+  "TestPhase4ActualHTTPOriginMeasurement",
+  "TestPhase4InventoryMeasurementAgainstActualProviders",
+  "TestPortfolioEmptyUser",
+  "TestPortfolioEnrichesAndSumsNetWorth",
+  "TestPortfolioRoute",
+  "TestPositionsAndPositionRoutes",
+  "TestPostgresAtomicInboxOutbox",
+  "TestPostgresConcurrentBudgetAndRollback",
+  "TestPostgresConsentFirstBindingAndExpiry",
+  "TestPostgresLinkedTransferAtomicCarry",
+  "TestPostgresMissingAuthorityNeverPromisesReward",
+  "TestPostgresOwnedGenerationMappingAtomicity",
+  "TestPostgresReferralConversionHasCanonicalIdentity",
+  "TestPostgresReplayActivationArchiveOutboxAtomicity",
+  "TestPostgresReservationReplayIsolationAndHold",
+  "TestPostgresRestartReversedDeliveryAndPendingPublication",
+  "TestPostgresSnapshotOutboxExport",
+  "TestProcessEventFoldsAndResolvesToken",
+  "TestProcessEventIdempotentRedelivery",
+  "TestProcessEventPublishesPnlUpdate",
+  "TestProcessSellLegSplit",
+  "TestProofLaunchpadPnlTracker",
+  "TestPublicPortfolioEmptyWalletIsValid",
+  "TestPublicPortfolioProjectsDevFoldAndPages",
+  "TestReconcilerBackfillsAndAdvancesCursor",
+  "TestReconcilerBatchKeysetDrainsLargeBlock",
+  "TestReconcilerIdempotentWithConsumerOverlap",
+  "TestReportedHeaderAgainstPaxeer",
+  "TestShareV3ImmutableSelectedIntentAndPrivacy",
+  "TestShareV3RealFontPNGExpiryAndSelectedNull",
+  "TestSharerStatsEmpty",
+  "TestStatusReportsLagAndCursor",
+  "TestTradesRoute",
+  "TestUserHasAnyPosition",
+  "TestWebhookAuth",
+  "TestWebhookDispatchFoldsSwaps",
+  "TestWebhookFailingEventCounted",
+  "TestWebhookNonArrayBody"
+]
 
 [target.go-launchpad-modules.9]
 target = "services/launchpad/ranking-algo"
 result = "failed"
 exit_code = 1
-observed = "internal/app/app_test.go:233 (TestNewServesAndRanks) failed because RANKING_TEST_POSTGRES_DSN is not set and must point to PostgreSQL with CREATE DATABASE and CREATE ROLE privileges."
-assumption = "The environment lacks the PostgreSQL fixture configuration and privileged test role required by this test."
+command = "cd services/launchpad/ranking-algo && go vet ./... && go test -count=1 -skip '^(TestBreakoutCandidatesFilters|TestCompletedRunActualPostgresAndRedis|TestLocalRedisPublicationValidation|TestMoversCandidatesFilters|TestMoversExcludesTrendingTop|TestNewFailsOnBadRedisURL|TestNewPoolsOrderingAndLimit|TestNewServesAndRanks|TestPhase3ActualReadHandlersRedisLossAndExpiredCursor|TestPhase3CommitWorker|TestPhase3DuplicateModerationUsesActualOwnerReplay|TestPhase3KilledWorkerRecoversOutboxAndDuplicatePublication|TestPhase3RollbackEmptyAndCompetingCompletions|TestPhase4ActualMeasurementHarness|TestPoolAppearances|TestProductionUniverseCompletesAndPublishes|TestProductionUniverseRejectsIncoherentProjection|TestRankingByCategoryWithEnrichment|TestRankingInvalidCategory|TestRankingPagination|TestRunAllEmptyDBProducesNoEntries|TestRunAllProducesRankings|TestRunNewOrdersByCreatedAt|TestSnapshotStoreLocalPostgres|TestTopVolumeOrderingAndLimit|TestTrendingCandidatesFilters|TestUnusualCandidatesFilters|TestVisibilityObservedAfterCutoffFailsTheFreeze|TestWriteAtomicReplace|TestWriteEmptyDeletesKey|TestWritePublishesRankingsUpdate|TestWriteSortsTruncatesAndPublishes|TestWriteTruncationKeepsHighestStably)$' ./..."
+observed = "internal/httpapi/snapshots_test.go:46 (TestSnapshotQueryBoundsAndCanonicalCategories) failed with unsupported category gainers."
+assumption = "The test and the supported canonical ranking categories appear inconsistent after the repair tasks."
+repair_record = "spec/layerx-merge/programme/sweeps/repairs/go-launchpad-modules.9.kvx"
+producer_input_tests_excluded = [
+  "TestBreakoutCandidatesFilters",
+  "TestCompletedRunActualPostgresAndRedis",
+  "TestLocalRedisPublicationValidation",
+  "TestMoversCandidatesFilters",
+  "TestMoversExcludesTrendingTop",
+  "TestNewFailsOnBadRedisURL",
+  "TestNewPoolsOrderingAndLimit",
+  "TestNewServesAndRanks",
+  "TestPhase3ActualReadHandlersRedisLossAndExpiredCursor",
+  "TestPhase3CommitWorker",
+  "TestPhase3DuplicateModerationUsesActualOwnerReplay",
+  "TestPhase3KilledWorkerRecoversOutboxAndDuplicatePublication",
+  "TestPhase3RollbackEmptyAndCompetingCompletions",
+  "TestPhase4ActualMeasurementHarness",
+  "TestPoolAppearances",
+  "TestProductionUniverseCompletesAndPublishes",
+  "TestProductionUniverseRejectsIncoherentProjection",
+  "TestRankingByCategoryWithEnrichment",
+  "TestRankingInvalidCategory",
+  "TestRankingPagination",
+  "TestRunAllEmptyDBProducesNoEntries",
+  "TestRunAllProducesRankings",
+  "TestRunNewOrdersByCreatedAt",
+  "TestSnapshotStoreLocalPostgres",
+  "TestTopVolumeOrderingAndLimit",
+  "TestTrendingCandidatesFilters",
+  "TestUnusualCandidatesFilters",
+  "TestVisibilityObservedAfterCutoffFailsTheFreeze",
+  "TestWriteAtomicReplace",
+  "TestWriteEmptyDeletesKey",
+  "TestWritePublishesRankingsUpdate",
+  "TestWriteSortsTruncatesAndPublishes",
+  "TestWriteTruncationKeepsHighestStably"
+]
 
 [target.go-launchpad-modules.10]
 target = "services/launchpad/security/control"
 result = "failed"
 exit_code = 1
-observed = "control_test.go:125 (TestOperatorDualApprovalTenRetriesOneJob) failed because the real PostgreSQL fixture connection was refused."
-assumption = "The required PostgreSQL fixture service is unavailable in this environment."
+command = "cd services/launchpad/security/control && go vet ./... && go test -count=1 ./..."
+observed = "TestMain failed before running the individual tests: real PostgreSQL fixture: initdb is required; install PostgreSQL server binaries."
+assumption = "The environment lacks the PostgreSQL initdb executable required by the owned database fixture."
 
 [target.go-launchpad-modules.11]
 target = "services/launchpad/security"
 result = "failed"
 exit_code = 1
-observed = "policy/audit_test.go:11 (TestV2PrivilegedMutationRollsBackOnRealAuditFailure) failed because the PostgreSQL fixture connection was refused."
-assumption = "The required PostgreSQL fixture service is unavailable in this environment."
+command = "cd services/launchpad/security && go vet ./... && go test -count=1 ./..."
+observed = "policy/audit_test.go:11 (TestV2PrivilegedMutationRollsBackOnRealAuditFailure) failed because PostgreSQL initdb is required and the executable was not found in PATH."
+assumption = "The environment lacks the PostgreSQL initdb executable required by the isolated policy-test database fixture."
 
 [target.go-launchpad-modules.12]
 target = "services/launchpad/social"
-result = "failed"
-exit_code = 1
-observed = "internal/app/dev_v2_test.go:185 (TestDevelopmentV2SocialSurface) failed because the PostgreSQL fixture connection was refused."
-assumption = "The required PostgreSQL fixture service is unavailable in this environment."
+result = "passed"
+exit_code = 0
+command = "cd services/launchpad/social && go vet ./... && go test -count=1 -skip '^(TestAdminDisabled|TestAdversarialRealPolicyPrivacyRevocationAndUnavailable|TestAdversarialUncertainRealPostgresCommitRetriesOneMessage|TestComments|TestConnectedAdversarialRemovalReplayAndContent|TestConnectedBoundedEqualTimestampTraversal|TestConnectedDurableBrokerInbox|TestConnectedErasureBoundedRestoreAndHold|TestConnectedInteractionsPolicyErasureAndCache|TestConnectedReadMarkersCommitMonotonicallyWithDurableControlIntent|TestConnectedRealR3PublisherKillRestartAndConsumerInbox|TestContractFollowGraph|TestDMReads|TestDevelopmentV2SocialSurface|TestDurableAtomicRollbackIdempotencyAndOutboxRecovery|TestDurableCancelledTypedWritesRollbackAndPoolRecovers|TestDurableConcurrentCanonicalConversation|TestDurableOfflineRevisionRequiresCoherentSnapshotRestart|TestDurablePolicyDenialAndInputBoundaries|TestDurablePrivacyCursorAndThousandMessageReplay|TestDurableRevisionAndReadMonotonicity|TestDurableRevokedMemberCannotRestoreMembershipOrRetryRead|TestFollows|TestMigrationIsRerunnable|TestModeration|TestNativeModeratorHTTPAuthorityAndSpoofedActor|TestPhase4InteractionsMeasurement|TestPlatformBootVerifiesCoordinatorSchemaWithoutMigrating|TestPlatformChatStreamUsesSingleUseTickets|TestPlatformRuntimeVerifiesIdentityAtGateway|TestPlatformWritesAsLeastPrivilegeRuntime|TestPoolMessages|TestPostgres|TestPostgresAbusiveVoiceHostEscalatesToGlobalQueuePrivately|TestPostgresAppealIdentityAndReviewerConflict|TestPostgresAppealLifecyclePrivateOutcomeAndRollback|TestPostgresBanAuthorityExpiryAndUnavailable|TestPostgresCasesRaceAndAppendOnly|TestPostgresCleanupFailureStaysEndingAndDisablesTokens|TestPostgresDeclinedConsentStopsBeforeProviderContact|TestPostgresEmptySubscriberReplayStaysRemovedUntilPermittedRestore|TestPostgresHTTPCommentPolicyOutageReturnsUnavailableAndCommitsNothing|TestPostgresLinkedAppealReversalPreservesIndependentGlobalBan|TestPostgresOutboxFailureRollsBackCaseAndAction|TestPostgresPendingRevocationBlocksPromotionAndToken|TestPostgresPolicyQueryFailureDeniesEveryScopeWithoutOutboxWrites|TestPostgresRecordingAcknowledgementAfterEndPersistsCleanupIntent|TestPostgresUnavailableStartStaysDraft|TestPostgresV2VoiceCreateAndRead|TestPostgresV2VoiceEndLeaveAndTicket|TestPostgresVisibilityRejectsReplayAndRequiresRevisionedRestore|TestPostgresVoicePolicyPreservesUnavailable|TestPrivateHistoryHTTPRevisionResetProtocol|TestPrivateHistoryHTTPThreeWalletACL|TestProofLaunchpadSocial|TestRailwayStyleSearchPath|TestRealLiveKitCreateCrashAdoptsOneSessionAndEndCrashReconciles|TestRealLiveKitProviderOwnedSessionLifecycle|TestRealLiveKitSpeakerEjectionClosesConnectionAndRejectsOldTicket|TestRealRedisFourReplicasAcceptExactlyTenBurstMessages|TestSocialPublisherProcessHelper|TestStaleRoomCleanupKeepsNewMemberSubscribed|TestWSAuthRequired|TestWSBanEnforced|TestWSDMFanout|TestWSPoolFanout|TestWSRateLimit)$' ./..."
+repair_record = "spec/layerx-merge/programme/sweeps/repairs/go-launchpad-modules.12.kvx"
+producer_input_tests_excluded = [
+  "TestAdminDisabled",
+  "TestAdversarialRealPolicyPrivacyRevocationAndUnavailable",
+  "TestAdversarialUncertainRealPostgresCommitRetriesOneMessage",
+  "TestComments",
+  "TestConnectedAdversarialRemovalReplayAndContent",
+  "TestConnectedBoundedEqualTimestampTraversal",
+  "TestConnectedDurableBrokerInbox",
+  "TestConnectedErasureBoundedRestoreAndHold",
+  "TestConnectedInteractionsPolicyErasureAndCache",
+  "TestConnectedReadMarkersCommitMonotonicallyWithDurableControlIntent",
+  "TestConnectedRealR3PublisherKillRestartAndConsumerInbox",
+  "TestContractFollowGraph",
+  "TestDMReads",
+  "TestDevelopmentV2SocialSurface",
+  "TestDurableAtomicRollbackIdempotencyAndOutboxRecovery",
+  "TestDurableCancelledTypedWritesRollbackAndPoolRecovers",
+  "TestDurableConcurrentCanonicalConversation",
+  "TestDurableOfflineRevisionRequiresCoherentSnapshotRestart",
+  "TestDurablePolicyDenialAndInputBoundaries",
+  "TestDurablePrivacyCursorAndThousandMessageReplay",
+  "TestDurableRevisionAndReadMonotonicity",
+  "TestDurableRevokedMemberCannotRestoreMembershipOrRetryRead",
+  "TestFollows",
+  "TestMigrationIsRerunnable",
+  "TestModeration",
+  "TestNativeModeratorHTTPAuthorityAndSpoofedActor",
+  "TestPhase4InteractionsMeasurement",
+  "TestPlatformBootVerifiesCoordinatorSchemaWithoutMigrating",
+  "TestPlatformChatStreamUsesSingleUseTickets",
+  "TestPlatformRuntimeVerifiesIdentityAtGateway",
+  "TestPlatformWritesAsLeastPrivilegeRuntime",
+  "TestPoolMessages",
+  "TestPostgres",
+  "TestPostgresAbusiveVoiceHostEscalatesToGlobalQueuePrivately",
+  "TestPostgresAppealIdentityAndReviewerConflict",
+  "TestPostgresAppealLifecyclePrivateOutcomeAndRollback",
+  "TestPostgresBanAuthorityExpiryAndUnavailable",
+  "TestPostgresCasesRaceAndAppendOnly",
+  "TestPostgresCleanupFailureStaysEndingAndDisablesTokens",
+  "TestPostgresDeclinedConsentStopsBeforeProviderContact",
+  "TestPostgresEmptySubscriberReplayStaysRemovedUntilPermittedRestore",
+  "TestPostgresHTTPCommentPolicyOutageReturnsUnavailableAndCommitsNothing",
+  "TestPostgresLinkedAppealReversalPreservesIndependentGlobalBan",
+  "TestPostgresOutboxFailureRollsBackCaseAndAction",
+  "TestPostgresPendingRevocationBlocksPromotionAndToken",
+  "TestPostgresPolicyQueryFailureDeniesEveryScopeWithoutOutboxWrites",
+  "TestPostgresRecordingAcknowledgementAfterEndPersistsCleanupIntent",
+  "TestPostgresUnavailableStartStaysDraft",
+  "TestPostgresV2VoiceCreateAndRead",
+  "TestPostgresV2VoiceEndLeaveAndTicket",
+  "TestPostgresVisibilityRejectsReplayAndRequiresRevisionedRestore",
+  "TestPostgresVoicePolicyPreservesUnavailable",
+  "TestPrivateHistoryHTTPRevisionResetProtocol",
+  "TestPrivateHistoryHTTPThreeWalletACL",
+  "TestProofLaunchpadSocial",
+  "TestRailwayStyleSearchPath",
+  "TestRealLiveKitCreateCrashAdoptsOneSessionAndEndCrashReconciles",
+  "TestRealLiveKitProviderOwnedSessionLifecycle",
+  "TestRealLiveKitSpeakerEjectionClosesConnectionAndRejectsOldTicket",
+  "TestRealRedisFourReplicasAcceptExactlyTenBurstMessages",
+  "TestSocialPublisherProcessHelper",
+  "TestStaleRoomCleanupKeepsNewMemberSubscribed",
+  "TestWSAuthRequired",
+  "TestWSBanEnforced",
+  "TestWSDMFanout",
+  "TestWSPoolFanout",
+  "TestWSRateLimit"
+]
 
 [target.go-launchpad-modules.13]
 target = "services/launchpad/stats-workers"
-result = "failed"
-exit_code = 1
-observed = "internal/analytics/reactions_test.go:17 (TestReactionPostgresAuthority) failed because an explicit private PostgreSQL fixture is required."
-assumption = "The environment lacks the private PostgreSQL fixture configuration required by this test."
+result = "passed"
+exit_code = 0
+command = "cd services/launchpad/stats-workers && go vet ./... && go test -count=1 -skip '^(TestAccountingIntegrityErrorRollsBackSavepoint|TestActualSearchCacheMeasurementCounters|TestApplyHolderDelta|TestApplyVolumeBucket|TestCanonicalActorProvenance|TestCanonicalArchiveReplayExactlyOnceAndRejectsConflicts|TestCanonicalCatchupMatchesIndependentArchiveDigest|TestCanonicalLegacyBridgeHolderFailureRollsBackFillAndRetries|TestCanonicalLegacyBridgeInboxVisibleOnlyWithHolderRow|TestCanonicalLegacyBridgeReplaysRealPaxeerPool|TestCheckpointIndependentReplay|TestCommittedMarketAppendRejectsForgedFrames|TestComputePriceChanges|TestCreatorActivityRoute|TestCrossTokenSwapRoutes|TestCrossTokenSwaps|TestDatabasePressureHasBoundedCoalescedWaiters|TestDevAppServesHoldersContract|TestDurableTransferJourney|TestExpandedHTTPDatabaseTimeoutRateLimitAndRecovery|TestExpandedHTTPSuccessfulMultilingualAndDeletedProfileCorpus|TestGenerationCountDigestCutoverAndCurrentTombstones|TestGenerationLagAndCountFailurePreserveActivePointer|TestHolderDistributionRoute|TestHolderListRoute|TestHolderReads|TestHolderRefreshPublishesHoldersUpdate|TestHolderTracker|TestHolderWorkerCommitBeforeAcknowledge|TestHoldingsNumericSchemaAndOrdering|TestHoldingsPublicHostileInputsAndDependencyLoss|TestHostileTransferLeavesNoPartialEffect|TestInsertAndListTransactions|TestIntegratedExactIdentityFiltersAndCursor|TestIntegratedQualityCorpus|TestInterruptedGenerationCatchupHasAtomicRecovery|TestLegacyHoldingsQuarantine|TestMarketConsumer|TestMultihopConsumer|TestNormalizedConcurrentDuplicateTransitions|TestPersistedCheckpointIndependentDigest|TestPersistedMillionHolderDistribution|TestPersonalizationRejectsStalePublicRevision|TestPhase2AcknowledgedReactionsSurviveRealRedisRestart|TestPhase2ActualReceiptBatchAndReplay|TestPhase2ActualReceiptProjectionAgainstIntegerReference|TestPhase2AdmittedOriginCapacity|TestPhase2AgeAndUnknownInputsRowToHTTP|TestPhase2CanonicalPublicationIdempotencyAndExpiry|TestPhase2IntegratedCanonicalHTTPAgainstSource|TestPhase2PressureNullAndReplaySQLToHTTP|TestPhase2PublicReactionReadKeepsWalletPrivate|TestPhase2RealSignedReactionTxRollbackAndReplay|TestPhase2RiskRowToHTTPExactBoundaries|TestPhase3ActualReceiptAssetReconciliation|TestPhase3ActualReceiptProcessCrashAndBrokerRedelivery|TestPhase3CanonicalHostileInputsHaveNoDatabaseEffect|TestPhase3CanonicalOpticalFeesAgainstIndependentIntegers|TestPhase3CrashWorker|TestPhase3HostileActualReceiptsLeaveNoDurableEffect|TestPhase3ReactionCrashHelper|TestPhase3RealRedisConcurrentAdmissionAndDependencyFailure|TestPhase3RealWorkerSIGKILLAndBrokerRedelivery|TestPhase3RedisRestartAndCanonicalDependencyOutage|TestPhase3SavedWindowIntegrityBoundary|TestPhase3SignedNonceConflictConcurrencyAndCorruptReplay|TestPhase3SignedReactionWorkerCrashConsistency|TestPhase3SnapshotCorruptionAndStaleDisclosure|TestPhase3WorkerCrashHelper|TestPhase4CapacityMeasurement|TestPhase4LaneMeasurementHarness|TestPhase4RealMeasurementProvidersAndIntegerReference|TestPlatformMetrics|TestPlatformRoute|TestPoolStatsRoute|TestPostgresAccountingFreezeIsMonotonicAndTransactional|TestPostgresCanonicalIntegrityGuards|TestPostgresCanonicalSearch|TestPostgresConcurrentDuplicate|TestPostgresGroupsWindowsOrderingAndCursor|TestPostgresHistoricalCoreReceiptApplication|TestPostgresProjectionEnrichmentUpgrade|TestPostgresReplayConflictRollbackAndPublication|TestPostgresThreeAssetGroupsAndHistoricalClose|TestPostgresTransactionSeamDefersCommitToOuterOwner|TestPostgresTransferLedger|TestPrecomputePublishesPlatformUpdate|TestPressureRoute|TestPressureStats|TestProjectionMonotonicRevisionAndDeletion|TestProjectionPreferenceIsolationStorage|TestProjectionRejectsMutatedCreationProvenance|TestPruneBucketTraders|TestPublicCacheBindingAndAuthentication|TestPublicMarketStatsFromRealPaxeerPool|TestPublicMarketStatsRejectsForgedSwapEvidence|TestPublicMarketStatsSupersedesPre220Frame|TestReactionIdentityOverGatewayMTLSListener|TestReactionPostgresAuthority|TestReactionVotePublishesReactionsUpdate|TestReactionsRoutes|TestRealBrokerInboxProjectionAndOutboxAtomicity|TestRealRedisGenerationAndTombstoneCache|TestRecalculateRollingStats|TestRedisRemovalDatabaseTimeoutAndRecovery|TestRefreshPoolHolderStats|TestReorderedDeletionAndMetadataCannotResurrect|TestRetainedCanonicalReplay|TestRiskRoute|TestSearch|TestSearchAdmissionCanonicalizesIPv6Identity|TestSearchCapacityReleaseMeasurement|TestSearchPrivateOverlayUsesVerifiedAccountBinding|TestSearchRejectsRedisWithoutBoundedDeadlinePolicy|TestSearchRoute|TestSnapshotPersistence|TestStateConsumer|TestStoreAdvisoryLockSerialization|TestStorePoolStats|TestSwapConsumer|TestSwapPublishesStatsUpdate|TestTransactionsRoute|TestTransactionsRouteChecksummedPool|TestTransferCrashRecovery|TestTransferHoldingsPublicJourney|TestTransferTransactionRollbackAndCategories|TestUpdatePoolStatsPriceAndChanges|TestUpsertPriceSnapshot|TestValidatedRollbackContinuesCurrentTombstones|TestWebhookAuth|TestWebhookDispatch|TestWhalesRoute)$' ./..."
+repair_record = "spec/layerx-merge/programme/sweeps/repairs/go-launchpad-modules.13.kvx"
+producer_input_tests_excluded = [
+  "TestAccountingIntegrityErrorRollsBackSavepoint",
+  "TestActualSearchCacheMeasurementCounters",
+  "TestApplyHolderDelta",
+  "TestApplyVolumeBucket",
+  "TestCanonicalActorProvenance",
+  "TestCanonicalArchiveReplayExactlyOnceAndRejectsConflicts",
+  "TestCanonicalCatchupMatchesIndependentArchiveDigest",
+  "TestCanonicalLegacyBridgeHolderFailureRollsBackFillAndRetries",
+  "TestCanonicalLegacyBridgeInboxVisibleOnlyWithHolderRow",
+  "TestCanonicalLegacyBridgeReplaysRealPaxeerPool",
+  "TestCheckpointIndependentReplay",
+  "TestCommittedMarketAppendRejectsForgedFrames",
+  "TestComputePriceChanges",
+  "TestCreatorActivityRoute",
+  "TestCrossTokenSwapRoutes",
+  "TestCrossTokenSwaps",
+  "TestDatabasePressureHasBoundedCoalescedWaiters",
+  "TestDevAppServesHoldersContract",
+  "TestDurableTransferJourney",
+  "TestExpandedHTTPDatabaseTimeoutRateLimitAndRecovery",
+  "TestExpandedHTTPSuccessfulMultilingualAndDeletedProfileCorpus",
+  "TestGenerationCountDigestCutoverAndCurrentTombstones",
+  "TestGenerationLagAndCountFailurePreserveActivePointer",
+  "TestHolderDistributionRoute",
+  "TestHolderListRoute",
+  "TestHolderReads",
+  "TestHolderRefreshPublishesHoldersUpdate",
+  "TestHolderTracker",
+  "TestHolderWorkerCommitBeforeAcknowledge",
+  "TestHoldingsNumericSchemaAndOrdering",
+  "TestHoldingsPublicHostileInputsAndDependencyLoss",
+  "TestHostileTransferLeavesNoPartialEffect",
+  "TestInsertAndListTransactions",
+  "TestIntegratedExactIdentityFiltersAndCursor",
+  "TestIntegratedQualityCorpus",
+  "TestInterruptedGenerationCatchupHasAtomicRecovery",
+  "TestLegacyHoldingsQuarantine",
+  "TestMarketConsumer",
+  "TestMultihopConsumer",
+  "TestNormalizedConcurrentDuplicateTransitions",
+  "TestPersistedCheckpointIndependentDigest",
+  "TestPersistedMillionHolderDistribution",
+  "TestPersonalizationRejectsStalePublicRevision",
+  "TestPhase2AcknowledgedReactionsSurviveRealRedisRestart",
+  "TestPhase2ActualReceiptBatchAndReplay",
+  "TestPhase2ActualReceiptProjectionAgainstIntegerReference",
+  "TestPhase2AdmittedOriginCapacity",
+  "TestPhase2AgeAndUnknownInputsRowToHTTP",
+  "TestPhase2CanonicalPublicationIdempotencyAndExpiry",
+  "TestPhase2IntegratedCanonicalHTTPAgainstSource",
+  "TestPhase2PressureNullAndReplaySQLToHTTP",
+  "TestPhase2PublicReactionReadKeepsWalletPrivate",
+  "TestPhase2RealSignedReactionTxRollbackAndReplay",
+  "TestPhase2RiskRowToHTTPExactBoundaries",
+  "TestPhase3ActualReceiptAssetReconciliation",
+  "TestPhase3ActualReceiptProcessCrashAndBrokerRedelivery",
+  "TestPhase3CanonicalHostileInputsHaveNoDatabaseEffect",
+  "TestPhase3CanonicalOpticalFeesAgainstIndependentIntegers",
+  "TestPhase3CrashWorker",
+  "TestPhase3HostileActualReceiptsLeaveNoDurableEffect",
+  "TestPhase3ReactionCrashHelper",
+  "TestPhase3RealRedisConcurrentAdmissionAndDependencyFailure",
+  "TestPhase3RealWorkerSIGKILLAndBrokerRedelivery",
+  "TestPhase3RedisRestartAndCanonicalDependencyOutage",
+  "TestPhase3SavedWindowIntegrityBoundary",
+  "TestPhase3SignedNonceConflictConcurrencyAndCorruptReplay",
+  "TestPhase3SignedReactionWorkerCrashConsistency",
+  "TestPhase3SnapshotCorruptionAndStaleDisclosure",
+  "TestPhase3WorkerCrashHelper",
+  "TestPhase4CapacityMeasurement",
+  "TestPhase4LaneMeasurementHarness",
+  "TestPhase4RealMeasurementProvidersAndIntegerReference",
+  "TestPlatformMetrics",
+  "TestPlatformRoute",
+  "TestPoolStatsRoute",
+  "TestPostgresAccountingFreezeIsMonotonicAndTransactional",
+  "TestPostgresCanonicalIntegrityGuards",
+  "TestPostgresCanonicalSearch",
+  "TestPostgresConcurrentDuplicate",
+  "TestPostgresGroupsWindowsOrderingAndCursor",
+  "TestPostgresHistoricalCoreReceiptApplication",
+  "TestPostgresProjectionEnrichmentUpgrade",
+  "TestPostgresReplayConflictRollbackAndPublication",
+  "TestPostgresThreeAssetGroupsAndHistoricalClose",
+  "TestPostgresTransactionSeamDefersCommitToOuterOwner",
+  "TestPostgresTransferLedger",
+  "TestPrecomputePublishesPlatformUpdate",
+  "TestPressureRoute",
+  "TestPressureStats",
+  "TestProjectionMonotonicRevisionAndDeletion",
+  "TestProjectionPreferenceIsolationStorage",
+  "TestProjectionRejectsMutatedCreationProvenance",
+  "TestPruneBucketTraders",
+  "TestPublicCacheBindingAndAuthentication",
+  "TestPublicMarketStatsFromRealPaxeerPool",
+  "TestPublicMarketStatsRejectsForgedSwapEvidence",
+  "TestPublicMarketStatsSupersedesPre220Frame",
+  "TestReactionIdentityOverGatewayMTLSListener",
+  "TestReactionPostgresAuthority",
+  "TestReactionVotePublishesReactionsUpdate",
+  "TestReactionsRoutes",
+  "TestRealBrokerInboxProjectionAndOutboxAtomicity",
+  "TestRealRedisGenerationAndTombstoneCache",
+  "TestRecalculateRollingStats",
+  "TestRedisRemovalDatabaseTimeoutAndRecovery",
+  "TestRefreshPoolHolderStats",
+  "TestReorderedDeletionAndMetadataCannotResurrect",
+  "TestRetainedCanonicalReplay",
+  "TestRiskRoute",
+  "TestSearch",
+  "TestSearchAdmissionCanonicalizesIPv6Identity",
+  "TestSearchCapacityReleaseMeasurement",
+  "TestSearchPrivateOverlayUsesVerifiedAccountBinding",
+  "TestSearchRejectsRedisWithoutBoundedDeadlinePolicy",
+  "TestSearchRoute",
+  "TestSnapshotPersistence",
+  "TestStateConsumer",
+  "TestStoreAdvisoryLockSerialization",
+  "TestStorePoolStats",
+  "TestSwapConsumer",
+  "TestSwapPublishesStatsUpdate",
+  "TestTransactionsRoute",
+  "TestTransactionsRouteChecksummedPool",
+  "TestTransferCrashRecovery",
+  "TestTransferHoldingsPublicJourney",
+  "TestTransferTransactionRollbackAndCategories",
+  "TestUpdatePoolStatsPriceAndChanges",
+  "TestUpsertPriceSnapshot",
+  "TestValidatedRollbackContinuesCurrentTombstones",
+  "TestWebhookAuth",
+  "TestWebhookDispatch",
+  "TestWhalesRoute"
+]
 
 [target.go-launchpad-modules.14]
 target = "services/launchpad/trading-charts"
-result = "failed"
-exit_code = 1
-observed = "internal/app/app_dev_test.go:40 (TestDevelopmentRegistersVersionedUDF) failed because CHARTS_TEST_POSTGRES_URL must name a PostgreSQL server whose role may CREATE DATABASE."
-assumption = "The environment lacks the PostgreSQL fixture configuration and database-creation privilege required by this test."
+result = "passed"
+exit_code = 0
+command = "cd services/launchpad/trading-charts && go vet ./... && go test -count=1 -skip '^(TestAccountingQualifiedOuterTransactionPostgres|TestArchive96HourReconstructionPostgres|TestCandleInsertGetUpdate|TestConsumerProcessesSwapFromChannel|TestConsumerRejectsBlockNumberAsTimestamp|TestConsumerUsesTopLevelBlockTimestamp|TestCursorLifecycle|TestDevelopmentRegistersVersionedUDF|TestDevelopmentRejectsInvalidTrustedProxy|TestDevelopmentTrustedProxyPerIPLimit|TestDevelopmentUDFConfigAndTime|TestDevelopmentUDFHistoryFromWebhookCandles|TestDevelopmentUDFIntegrityFailure|TestDevelopmentUDFRejectsInvalidRequests|TestDevelopmentUDFSymbolsFromIndexerAndChain|TestDevelopmentUDFSymbolsRejectsConflictingCreationRecord|TestDevelopmentUDFSymbolsWithoutChain|TestDevelopmentUDFZeroPoolsGivesNoData|TestExactPostgres|TestFaultBrokerTenMinuteOutageAndPostPublishCrash|TestFaultCanonicalConflictFreezesBothPools|TestFaultCommitBeforeAckThenRealBrokerRedelivery|TestFaultDelayedFillPreservesImmutableSource|TestFaultPoisonQuarantineAndAuditedReprocessing|TestFaultPostgresMutationAbortMatrix|TestFaultSimultaneousOwnerHandoff|TestFaultUnavailableActorAndRetentionGuard|TestHistoryCancelled5000BarQueryReleasesConnection|TestHistoryLegacyRegistrationRefusesUnboundedRead|TestHistoryNativeDeadlineAndCancellation|TestHistoryNativePostgresPaginationAndCountback|TestHistoryRangeAndCountback|TestHistorySQLTimeoutReleasesConnection|TestNewServesHealthAndCloses|TestProcessSwapDedupDurableAcrossInstances|TestProcessSwapDedupSameInstance|TestProcessSwapInvalidAmountErrors|TestProcessSwapInvalidTimestampSkipped|TestProcessSwapNewCandle|TestProcessSwapSameTraderNoUniqueIncrement|TestProcessSwapUpdateExisting|TestProductionCachePoisoningAndETagIsolation|TestProductionConcurrentCanonicalHistory|TestProductionOriginTelemetryUsesActualFetch|TestProductionRevisionChangesOnHistoricalCorrection|TestRPCSupplySourceLive|TestRedisPartitionToRealSocket|TestReportedIdentityLive|TestRunShutsDownOnContextCancel|TestSeriesTransactionalMembershipAndRebuildPostgres|TestSourceVerifiedBootstrapFromPoolCreationLive|TestStoreErrorBranches|TestUDFConfig|TestUDFHistoryNoData|TestUDFHistoryRangeAndCountback|TestUDFHistoryRejectsNonNumericStoredValue|TestUDFSymbols|TestUDFTime|TestUpIsIdempotent|TestWebhookBadSignature|TestWebhookEventsNotArray|TestWebhookInvalidJSON|TestWebhookMissingSignature|TestWebhookSkipsNonSwapAndBadTimestamp|TestWebhookValidSwap)$' ./..."
+repair_record = "spec/layerx-merge/programme/sweeps/repairs/go-launchpad-modules.14.kvx"
+producer_input_tests_excluded = [
+  "TestAccountingQualifiedOuterTransactionPostgres",
+  "TestArchive96HourReconstructionPostgres",
+  "TestCandleInsertGetUpdate",
+  "TestConsumerProcessesSwapFromChannel",
+  "TestConsumerRejectsBlockNumberAsTimestamp",
+  "TestConsumerUsesTopLevelBlockTimestamp",
+  "TestCursorLifecycle",
+  "TestDevelopmentRegistersVersionedUDF",
+  "TestDevelopmentRejectsInvalidTrustedProxy",
+  "TestDevelopmentTrustedProxyPerIPLimit",
+  "TestDevelopmentUDFConfigAndTime",
+  "TestDevelopmentUDFHistoryFromWebhookCandles",
+  "TestDevelopmentUDFIntegrityFailure",
+  "TestDevelopmentUDFRejectsInvalidRequests",
+  "TestDevelopmentUDFSymbolsFromIndexerAndChain",
+  "TestDevelopmentUDFSymbolsRejectsConflictingCreationRecord",
+  "TestDevelopmentUDFSymbolsWithoutChain",
+  "TestDevelopmentUDFZeroPoolsGivesNoData",
+  "TestExactPostgres",
+  "TestFaultBrokerTenMinuteOutageAndPostPublishCrash",
+  "TestFaultCanonicalConflictFreezesBothPools",
+  "TestFaultCommitBeforeAckThenRealBrokerRedelivery",
+  "TestFaultDelayedFillPreservesImmutableSource",
+  "TestFaultPoisonQuarantineAndAuditedReprocessing",
+  "TestFaultPostgresMutationAbortMatrix",
+  "TestFaultSimultaneousOwnerHandoff",
+  "TestFaultUnavailableActorAndRetentionGuard",
+  "TestHistoryCancelled5000BarQueryReleasesConnection",
+  "TestHistoryLegacyRegistrationRefusesUnboundedRead",
+  "TestHistoryNativeDeadlineAndCancellation",
+  "TestHistoryNativePostgresPaginationAndCountback",
+  "TestHistoryRangeAndCountback",
+  "TestHistorySQLTimeoutReleasesConnection",
+  "TestNewServesHealthAndCloses",
+  "TestProcessSwapDedupDurableAcrossInstances",
+  "TestProcessSwapDedupSameInstance",
+  "TestProcessSwapInvalidAmountErrors",
+  "TestProcessSwapInvalidTimestampSkipped",
+  "TestProcessSwapNewCandle",
+  "TestProcessSwapSameTraderNoUniqueIncrement",
+  "TestProcessSwapUpdateExisting",
+  "TestProductionCachePoisoningAndETagIsolation",
+  "TestProductionConcurrentCanonicalHistory",
+  "TestProductionOriginTelemetryUsesActualFetch",
+  "TestProductionRevisionChangesOnHistoricalCorrection",
+  "TestRPCSupplySourceLive",
+  "TestRedisPartitionToRealSocket",
+  "TestReportedIdentityLive",
+  "TestRunShutsDownOnContextCancel",
+  "TestSeriesTransactionalMembershipAndRebuildPostgres",
+  "TestSourceVerifiedBootstrapFromPoolCreationLive",
+  "TestStoreErrorBranches",
+  "TestUDFConfig",
+  "TestUDFHistoryNoData",
+  "TestUDFHistoryRangeAndCountback",
+  "TestUDFHistoryRejectsNonNumericStoredValue",
+  "TestUDFSymbols",
+  "TestUDFTime",
+  "TestUpIsIdempotent",
+  "TestWebhookBadSignature",
+  "TestWebhookEventsNotArray",
+  "TestWebhookInvalidJSON",
+  "TestWebhookMissingSignature",
+  "TestWebhookSkipsNonSwapAndBadTimestamp",
+  "TestWebhookValidSwap"
+]
 
 [target.go-launchpad-modules.15]
 target = "services/launchpad/user"
 result = "failed"
 exit_code = 1
-observed = "internal/account/account_test.go:134 (TestPostgresProfilePreferencesWatchConsent) failed because USER_TEST_DATABASE_URL is required to exercise real PostgreSQL."
-assumption = "The environment lacks the real PostgreSQL fixture configuration required by this test."
+command = "cd services/launchpad/user && go vet ./... && go test -count=1 -skip '^(TestConnectedDeviceProofReassignmentAndRevocation|TestConnectedEncryptedExportWorkerAndSingleUseDownload|TestConnectedFrozenProfileAndVersionedExtensions|TestConnectedGatewayRejectsForgedAssertion|TestConnectedInputAndTelemetryBoundaries|TestConnectedOwnerPreferencesAndConsentExport|TestConnectedPhase3ConcurrentReplayAndDatabaseInterruption|TestConnectedPhase3ConsentConcurrentReplayAndPrivacy|TestConnectedPhase3DeletionRetryAndImmutableBoundary|TestConnectedPhase3DeviceIdentityRevocation|TestConnectedPhase3IdentityDependencyInterruption|TestConnectedPhase3LegacyReplayRollbackAndQuarantine|TestConnectedPhase3LiveSocketRevocationAndHTTPWrites|TestConnectedPhase3OwnedHTTPProfileAndWatchlist|TestConnectedPhase3PreferenceFieldsAndOlderClients|TestConnectedRevisionInboxRejectsReplayAndResurrection|TestUserService)$' ./..."
+observed = "internal/account/account_test.go:134 (TestPostgresProfilePreferencesWatchConsent) failed because USER_TEST_DATABASE_URL is required: tests must exercise real PostgreSQL."
+assumption = "The environment lacks the PostgreSQL fixture configuration required by this test, which is not among the repair record producer_input_tests."
+repair_record = "spec/layerx-merge/programme/sweeps/repairs/go-launchpad-modules.15.kvx"
+producer_input_tests_excluded = [
+  "TestConnectedDeviceProofReassignmentAndRevocation",
+  "TestConnectedEncryptedExportWorkerAndSingleUseDownload",
+  "TestConnectedFrozenProfileAndVersionedExtensions",
+  "TestConnectedGatewayRejectsForgedAssertion",
+  "TestConnectedInputAndTelemetryBoundaries",
+  "TestConnectedOwnerPreferencesAndConsentExport",
+  "TestConnectedPhase3ConcurrentReplayAndDatabaseInterruption",
+  "TestConnectedPhase3ConsentConcurrentReplayAndPrivacy",
+  "TestConnectedPhase3DeletionRetryAndImmutableBoundary",
+  "TestConnectedPhase3DeviceIdentityRevocation",
+  "TestConnectedPhase3IdentityDependencyInterruption",
+  "TestConnectedPhase3LegacyReplayRollbackAndQuarantine",
+  "TestConnectedPhase3LiveSocketRevocationAndHTTPWrites",
+  "TestConnectedPhase3OwnedHTTPProfileAndWatchlist",
+  "TestConnectedPhase3PreferenceFieldsAndOlderClients",
+  "TestConnectedRevisionInboxRejectsReplayAndResurrection",
+  "TestUserService"
+]

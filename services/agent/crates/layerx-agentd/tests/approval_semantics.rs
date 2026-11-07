@@ -17,7 +17,7 @@ use layerx_agentd::budget::{
 };
 use layerx_agentd::capability::CapabilityId;
 use layerx_agentd::policy::approval::{
-    hold, ApprovalContext, ApprovalError, ApprovalRegistry, ApproverId,
+    hold_at, ApprovalContext, ApprovalError, ApprovalRegistry, ApprovalSequence, ApproverId,
 };
 use layerx_agentd::session::SessionId;
 use layerx_agentd::store::TenantId;
@@ -33,7 +33,6 @@ impl Directory {
             std::process::id()
         ));
         let _ = fs::remove_dir_all(&root);
-        fs::create_dir_all(&root).unwrap_or_else(|error| panic!("directory: {error}"));
         Self(root)
     }
 
@@ -53,16 +52,30 @@ fn tenant() -> TenantId {
 }
 
 fn prepared(id: u8, expiry: u64) -> Prepared {
-    let bytes = format!("durable-approval-preparation-{id}").into_bytes();
+    let call = layerx_crypto::evm_transaction::Eip1559Call {
+        chain_id: 125,
+        nonce: u64::from(id),
+        max_priority_fee_per_gas: 1,
+        max_fee_per_gas: 2,
+        gas_limit: 100_000,
+        to: [3; 20],
+        data: [
+            layerx_crypto::disclosure::call::ledger_selector("transfer(address,uint256)").to_vec(),
+            [vec![0; 12], vec![5; 20]].concat(),
+            [vec![0; 31], vec![50]].concat(),
+        ]
+        .concat(),
+    };
+    let bytes = call.encode_unsigned();
     let digest: [u8; 32] = Sha256::digest(&bytes).into();
-    let actor = AgentDid::new("did:layerx:approval-semantics")
+    let actor = AgentDid::new("0404040404040404040404040404040404040404")
         .unwrap_or_else(|error| panic!("actor: {error:?}"));
     Prepared {
         preparation_ref: PreparationRef::new(format!("prepared-{id}"))
             .unwrap_or_else(|error| panic!("preparation: {error:?}")),
         unsigned_canonical_bytes: CanonicalBytes::new(bytes)
             .unwrap_or_else(|error| panic!("bytes: {error:?}")),
-        signing_preimage: SigningPreimage::new(vec![id; 32])
+        signing_preimage: SigningPreimage::new(call.signing_hash().to_vec())
             .unwrap_or_else(|error| panic!("preimage: {error:?}")),
         disclosure: Disclosure {
             canonical_digest: digest,
@@ -84,8 +97,9 @@ fn prepared(id: u8, expiry: u64) -> Prepared {
 
 fn context(id: u8) -> ApprovalContext {
     ApprovalContext {
+        actor_address: [4; 20],
         tenant: tenant(),
-        agent: Did::new(b"did:layerx:approval-semantics")
+        agent: Did::new(b"0404040404040404040404040404040404040404")
             .unwrap_or_else(|error| panic!("agent: {error:?}")),
         session: SessionId([2; 32]),
         capability: CapabilityId([3; 32]),
@@ -138,8 +152,15 @@ fn concurrent_conflicting_decisions_have_one_durable_winner() {
     let queue = Arc::new(ApprovalSubmissionQueue::default());
     let held = prepared(10, 40);
     reserve_hold(&limiter, 10, 40);
-    hold(&registry, context(10), held.clone(), 10, 40)
-        .unwrap_or_else(|error| panic!("hold: {error:?}"));
+    hold_at(
+        &registry,
+        context(10),
+        held.clone(),
+        ApprovalSequence(10),
+        ApprovalSequence(40),
+        TimestampSeconds(10),
+    )
+    .unwrap_or_else(|error| panic!("hold: {error:?}"));
     let barrier = Arc::new(Barrier::new(2));
 
     let approve_worker = {
@@ -159,6 +180,7 @@ fn concurrent_conflicting_decisions_have_one_durable_winner() {
                     idempotency_key: &key("approve-10"),
                     approver: approver("human:approve"),
                     current_sequence: 11,
+                    current_time: TimestampSeconds(11),
                 },
                 &held,
                 &queue,
@@ -179,6 +201,7 @@ fn concurrent_conflicting_decisions_have_one_durable_winner() {
                 idempotency_key: &key("reject-10"),
                 approver: approver("human:reject"),
                 current_sequence: 11,
+                current_time: TimestampSeconds(11),
             })
         })
     };
@@ -222,8 +245,15 @@ fn decision_record_survives_process_restart_and_replays_original_outcome() {
         let limiter = limiter();
         let expiry = ApprovalExpiry::open(directory.path())
             .unwrap_or_else(|error| panic!("first open: {error:?}"));
-        hold(&registry, context(11), held.clone(), 10, 40)
-            .unwrap_or_else(|error| panic!("first hold: {error:?}"));
+        hold_at(
+            &registry,
+            context(11),
+            held.clone(),
+            ApprovalSequence(10),
+            ApprovalSequence(40),
+            TimestampSeconds(10),
+        )
+        .unwrap_or_else(|error| panic!("first hold: {error:?}"));
         let service = ApprovalService::new(&registry, &limiter, &expiry);
         service
             .approve(
@@ -233,6 +263,7 @@ fn decision_record_survives_process_restart_and_replays_original_outcome() {
                     idempotency_key: &key("approve-11"),
                     approver: approver("human:first"),
                     current_sequence: 11,
+                    current_time: TimestampSeconds(11),
                 },
                 &held,
                 &ApprovalSubmissionQueue::default(),
@@ -245,8 +276,15 @@ fn decision_record_survives_process_restart_and_replays_original_outcome() {
     let limiter = limiter();
     let expiry =
         ApprovalExpiry::open(directory.path()).unwrap_or_else(|error| panic!("reopen: {error:?}"));
-    hold(&registry, context(11), held.clone(), 10, 40)
-        .unwrap_or_else(|error| panic!("restored hold: {error:?}"));
+    hold_at(
+        &registry,
+        context(11),
+        held.clone(),
+        ApprovalSequence(10),
+        ApprovalSequence(40),
+        TimestampSeconds(10),
+    )
+    .unwrap_or_else(|error| panic!("restored hold: {error:?}"));
     let queue = ApprovalSubmissionQueue::default();
     let service = ApprovalService::new(&registry, &limiter, &expiry);
     let replay = service
@@ -257,6 +295,7 @@ fn decision_record_survives_process_restart_and_replays_original_outcome() {
                 idempotency_key: &key("approve-11"),
                 approver: approver("human:retry"),
                 current_sequence: 12,
+                current_time: TimestampSeconds(11),
             },
             &held,
             &queue,
@@ -276,11 +315,18 @@ fn downtime_expiry_is_recovered_once_and_releases_the_reservation() {
         let limiter = limiter();
         let expiry = ApprovalExpiry::open(directory.path())
             .unwrap_or_else(|error| panic!("first open: {error:?}"));
-        hold(&registry, context(12), prepared(12, 20), 10, 20)
-            .unwrap_or_else(|error| panic!("hold: {error:?}"));
+        hold_at(
+            &registry,
+            context(12),
+            prepared(12, 20),
+            ApprovalSequence(10),
+            ApprovalSequence(20),
+            TimestampSeconds(10),
+        )
+        .unwrap_or_else(|error| panic!("hold: {error:?}"));
         let service = ApprovalService::new(&registry, &limiter, &expiry);
         service
-            .get(&tenant, [12; 32], 11)
+            .get(&tenant, [12; 32], 11, TimestampSeconds(11))
             .unwrap_or_else(|error| panic!("persist pending hold: {error:?}"));
     }
 
@@ -303,7 +349,14 @@ fn downtime_expiry_is_recovered_once_and_releases_the_reservation() {
 fn hold_expiry_cannot_outlive_the_prepared_activity() {
     let registry = ApprovalRegistry::default();
     assert_eq!(
-        hold(&registry, context(13), prepared(13, 30), 10, 31),
+        hold_at(
+            &registry,
+            context(13),
+            prepared(13, 30),
+            ApprovalSequence(10),
+            ApprovalSequence(31),
+            TimestampSeconds(30),
+        ),
         Err(ApprovalError::InvalidWindow)
     );
 }

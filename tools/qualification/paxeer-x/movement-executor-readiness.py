@@ -4,8 +4,8 @@
 --build compiles the named targets once and records them in a private build
 manifest. Without arguments the gate checks its prerequisites and that
 manifest, then runs the named readiness tests from those prebuilt executables
-against a real Human KMS process, two TLS chain origins and the real movement
-provider, retaining every log and fixture under a private evidence directory.
+against a real Human KMS process, two TLS chain origins and the retained KMS
+executor, retaining every log and fixture under a private evidence directory.
 It never compiles.
 """
 import hashlib
@@ -24,16 +24,19 @@ MANIFEST = Path(os.environ.get('PAXEER_X_MOVEMENT_READINESS_MANIFEST',
                                ROOT / 'services/human/target/paxeer-x/movement-executor-readiness.json'))
 SOURCES = ['services/human/Cargo.toml', 'services/human/Cargo.lock', 'services/human/crates', 'services/agent/crates',
            'services/platform/Cargo.toml', 'services/platform/Cargo.lock', 'services/platform/hosted/runtime-clock',
-           'tools/runtime/run-with-clock.sh']
+           'services/interop', 'programs', 'tools/runtime/run-with-clock.sh',
+           'tools/qualification/paxeer-x/movement-executor-readiness.py']
 CASES = [
-    ('probe', 'probe_refuses_a_missing_socket'),
-    ('probe', 'probe_exits_zero_only_on_the_serving_providers_healthy_answer'),
-    ('probe', 'readiness_withdraws_on_executor_loss_or_stall_and_returns_on_recovery'),
-    ('probe', 'readiness_refuses_an_executor_with_the_wrong_identity_or_handshake'),
-    ('probe', 'executor_certificate_gains_no_export_owner_or_signing_authority'),
-    ('unit', 'tests::readiness_is_ready_while_the_real_paxeer_origin_and_execution_authority_answer'),
-    ('unit', 'tests::readiness_stops_being_ready_once_the_paxeer_origin_is_down'),
+    ('probe', 'proof_human_kms'),
+    ('kms_cases', 'actual_client_lifecycle_and_mutual_tls'),
+    ('deadline_cases', 'fragmented_handshake_and_frame_release_all_permits'),
+    ('deadline_cases', 'store_admission_has_the_same_deadline'),
+    ('kms_cases', 'atomic_rotation_lost_response_restart_and_tombstones'),
+    ('kms_cases', 'executor_certificate_cannot_authorize_or_manage_keys'),
+    ('kms_cases', 'external_signature_verification_and_executor_journal_recovery'),
 ]
+ARTIFACTS = frozenset({'probe', 'kms_cases', 'deadline_cases', 'kms', 'clock'})
+
 PASSED = re.compile(r'^test result: ok\. 1 passed; 0 failed; 0 ignored; 0 measured; \d+ filtered out;', re.M)
 
 
@@ -54,7 +57,7 @@ def git(*args):
 
 
 def source():
-    if git('status', '--porcelain', '--untracked-files=no', '--', *SOURCES):
+    if git('status', '--porcelain', '--untracked-files=all', '--', *SOURCES):
         refuse('the qualified sources have uncommitted changes')
     return git('rev-parse', 'HEAD')
 
@@ -84,10 +87,12 @@ def build():
     revision = source()
     human = ['--locked', '--manifest-path', 'services/human/Cargo.toml', '--message-format=json']
     built = {}
-    built.update(artifacts(['cargo', 'test', '--no-run', '-p', 'layerx-human-movement-provider', *human], {
-        ('layerx-human-movement-provider', ('bin',), True): 'unit',
-        ('probe', ('test',), True): 'probe',
-        ('layerx-human-movement-provider', ('bin',), False): 'provider',
+    built.update(artifacts(['cargo', 'test', '--no-run', '-p', 'layerx-human-kms',
+                            '--test', 'proof_human_kms', '--test', 'provider',
+                            '--test', 'repair_22_33_25', *human], {
+        ('proof_human_kms', ('test',), True): 'probe',
+        ('provider', ('test',), True): 'kms_cases',
+        ('repair_22_33_25', ('test',), True): 'deadline_cases',
     }))
     built.update(artifacts(['cargo', 'build', '-p', 'layerx-human-kms', '--bin', 'layerx-human-kms', *human], {
         ('layerx-human-kms', ('bin',), False): 'kms',
@@ -125,15 +130,22 @@ def prerequisites():
     data = json.loads(MANIFEST.read_text())
     if data.get('schema') != SCHEMA or data.get('revision') != source():
         refuse('the prebuilt executables were not built from this revision; run --build')
+    built = admit_artifacts(data, source())
+    return built
+
+
+def admit_artifacts(data, revision):
+    if data.get('schema') != SCHEMA or data.get('revision') != revision:
+        refuse('the retained KMS executables were not built from this revision')
     built = data['artifacts']
+    if set(built) != ARTIFACTS:
+        refuse('exact retained KMS executor artifact inventory required')
     for name, row in built.items():
         path = Path(row['path'])
         if not (path.is_absolute() and path.is_file() and not path.is_symlink() and os.access(path, os.X_OK)):
             refuse('prebuilt executable missing: ' + name)
         if digest(path) != row['sha256']:
             refuse('prebuilt executable changed since the build: ' + name)
-    if Path(built['kms']['path']).parent != Path(built['provider']['path']).parent:
-        refuse('the KMS and movement provider executables must share one profile directory')
     return built
 
 

@@ -1,0 +1,43 @@
+[task.22.33.1403]
+audit = "spec/layerx-merge/programme/audit/records/22.30.78.kvx"
+requirement = "22998.1"
+base_revision = "399c122802fbe3326c62ef9251760c3e53ee4060"
+inherited_source_revision = "89e45d29edcce70257395c96cf3da6491fbd6086"
+repair = "Add focused offline source regression checks for root-doc-two-domains against the production README inherited from owning task 22.31.470, per decision 2525; README.md is outside scope and remains unchanged."
+source_proof = "The module reads README.md directly, checks the integrated chain-125 paxd execution domain and block commitment finality, parses the root JSON-RPC URLs and curl JSON request, follows the documented signed-transaction to committed-receipt steps and trust requirements, checks diagram nesting and ordered receipt/commit messages, parses the current precompile address table and checks custody/checkpoint retirement and archive-only exceptions. The record-to-test check binds this finding to every proving test."
+review_only = "Native builds, runtime transaction execution, receipt cryptography, live JSON-RPC availability, WAL restart/recovery and BFT commitment are not executed by this documentation gate. The tests prove documented producer, root JSON-RPC transport and receipt/state consumer facts; agreement with runtime behavior and visual rendering of Mermaid require review. No interface or stateful component is changed, and this finding is neither restart-recovery nor interface-mismatch."
+baseline = "Initial git status/diff showed only runner-prepared .cgignore and spec bookkeeping; both scoped repair files were absent. The private ledger /out/run/gates.jsonl was absent and gate.json recorded zero builds/verifies. No pre-change pytest run or pre-existing failed test is claimed: the explicit implementation-first order and instruction never to run verify_cmd by hand supersede step 5's baseline request. Qualification tests the unchanged inherited README."
+build_cmd = "python3 --version"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_1403.py"
+evidence_ledger = "/out/run/gates.jsonl"
+evidence = "The last hf-done JSON and private evidence ledger name the exact verified content-derived candidate revision, command, exit code and log path; build and verify must pass on the same candidate revision. This record is finalized before qualification because embedding a candidate hash in its own content changes the hash. Only the external gate receipt establishes qualification; the runner publishes it without a manual commit or push."
+
+[finding.root-doc-two-domains]
+audit = "22.30.78"
+file = "README.md"
+line = 49
+class = "doc-drift"
+severity = "medium"
+owner_domain = 17
+owning_task = "22.31.470"
+observed = "The architecture describes a separate layerxd kernel with checkpoints settled on Paxeer and diagrams that daemon as a running service."
+expected = "Brief facts 1 and 2 define one integrated paxd execution domain and block commitment as finality."
+resolution = "The inherited README states the expected facts, including root api1 through api14 JSON-RPC, current constructs, transaction and committed receipt flows, retired refusal surfaces and no separate kernel or checkpoint deployment; no missing fact was identified during implementation review. Closure is conditional on the declared hf-done evidence."
+tests = ["test_root_doc_two_domains_integrated_network_and_finality", "test_root_doc_two_domains_root_rpc_and_chain_probe", "test_root_doc_two_domains_transaction_and_committed_receipt_flow", "test_root_doc_two_domains_diagrams_show_integrated_execution_and_commit", "test_root_doc_two_domains_current_constructs_and_retired_executors"]
+wiring_requests = []
+outside_scope = "README.md | domain 17 | task 22.31.470 owns all root README rewrites; its inherited text already supplies this finding's facts, so no additional wiring request is needed."
+
+[format]
+policy = "No Python or KVX formatter is configured for these paths. Apply the repository .editorconfig UTF-8, LF, final newline and trailing-whitespace conventions only after implementation is complete."
+
+[gotcha.1]
+observed = "The legacy baseline instruction conflicts with the explicit implementation-first and hf-done-only gate order."
+resolution = "Preserve the strict gate order and record the absent baseline honestly; do not invent an initial failure or run an extra verify command."
+
+[gotcha.2]
+observed = "Codify brief/survey reports unrelated cached task and change context; broad combined reads can exceed output limits."
+resolution = "Use actual git status/diff, bounded reads of the declared task and finding, and the private gate ledger. Record notes here because GOTCHA.kvx and spec files are outside task scope."
+
+[gotcha.3]
+observed = "A simple heading regex would mistake the README curl example's expected-result shell comment for a Markdown heading."
+resolution = "The section reader tracks fenced code blocks before recognizing section boundaries; this was corrected during implementation review before any gate ran."

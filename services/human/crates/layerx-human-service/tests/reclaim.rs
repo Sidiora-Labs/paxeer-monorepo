@@ -258,6 +258,16 @@ fn every_reclaim_mechanism_uses_real_agent_receipts_and_projects_activity() {
             .unwrap_or_else(|error| panic!("reclaim raw transaction: {error:?}"));
         let (call, signature) = layerx_crypto::evm_transaction::decode_signed(raw)
             .unwrap_or_else(|error| panic!("reclaim type-2 transaction: {error:?}"));
+        let signing = signing_preparation(
+            &agent.preparations[&request.idempotency_key],
+            agent.sender.expect("agent wallet"),
+        )
+        .unwrap_or_else(|error| panic!("reclaim signing preparation: {error:?}"));
+        assert_eq!(call, signing.transaction.call);
+        assert_eq!(
+            layerx_agentd::prepare::verify_call_binding(&signing.transaction),
+            Ok(())
+        );
         assert_eq!(raw[0], 2);
         assert_eq!(signature.as_bytes().len(), 65);
         assert_eq!(call.nonce, request.agent.nonce());

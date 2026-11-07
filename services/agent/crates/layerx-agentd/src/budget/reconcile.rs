@@ -95,22 +95,30 @@ impl ReconciliationState {
 
 /// Verifies receipt identity and state inclusion, then rebuilds the local cache
 /// from the decoded canonical budget record.
-pub(crate) fn reconcile_state(
+pub(crate) fn reconcile_state<E: Clone + Into<super::BudgetReceiptEvidence>>(
     local: &mut LocalAccounting,
     protocol: &ProtocolBudgetState,
-    receipts: &[SpendReceiptEvidence],
+    receipts: &[SpendReceiptEvidence<E>],
     verifier: &EvidenceAuthority,
 ) -> Result<ReconciliationState, ReconcileError> {
     let mut replay = EvidenceAuthority::receipt_replay_guard();
     let mut last_verified_receipt = local.last_receipt;
     for receipt in receipts {
-        let verified_receipt = verifier
-            .verify_receipt(&receipt.evidence)
+        let verified_receipt = receipt
+            .evidence
+            .clone()
+            .into()
+            .verify(verifier)
             .map_err(|_| ReconcileError::UnverifiedReceipt)?;
         if verified_receipt.activity_id() != receipt.expected_activity_id {
             return Err(ReconcileError::ReceiptActivityMismatch);
         }
-        replay.admit(&verified_receipt).map_err(map_replay_error)?;
+        replay
+            .admit_identity(
+                verified_receipt.receipt_ref(),
+                verified_receipt.activity_id(),
+            )
+            .map_err(map_replay_error)?;
         last_verified_receipt = Some(verified_receipt.activity_id());
     }
     let verified_state = verifier

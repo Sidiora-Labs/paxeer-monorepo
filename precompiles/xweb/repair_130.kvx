@@ -1,0 +1,32 @@
+[repair.22.31.130]
+audit = "22.30.65"
+base_revision = "630bbaef660d5fa23f2d56d1c74264a6fcaa9325"
+contract = "XWebProgramRequested(bytes32 indexed programId,uint64 indexed requestId,uint8 kind,bytes payload,uint64 sequence); kind and sequence come from the accepted keeper record; XWebRequested is emitted only for origin-one requests."
+qualification = "The runner's /out/run/gates.jsonl records the exact candidate revision, command, exit and private log for hf-build and hf-done; only a passing hf-done qualifies this repair."
+baseline = "Not run: the task's ordered gate instructions prohibit testing before full implementation and prohibit running verify_cmd by hand; no pre-change test result is claimed."
+
+[finding.program-event-semantics]
+test = "TestRepair_130_ProgramEventSemantics"
+proof = "Real keeper records and Go-emitted fetch/search logs with distinct nonzero u64 sequences traverse HTTP JSON-RPC, the production Rust RequestWatcher, its on-disk journal, close/reopen, ProgramRequest::attestation, signature validation and observation_bytes, then the EVM fulfilProgram entry and result view; replay cannot pay again."
+
+[finding.program-evm-journal-collision]
+test = "TestRepair_130_ProgramEVMJournalCollision"
+proof = "An EVM request and two programs share one numeric id in one block, each receipt is delivered twice, the real Rust watcher queues one origin-one and two program entries, advances its cursor and reopens; Rust-signed answers fulfil once and pay exact PAX/USDL shares from the recorded fee accounts; retired work remains absent after another process restart."
+
+[wiring.solidity]
+request = "Domain 6: rename the program event parameter labels in contracts/src/precompiles/IXWeb.sol and precompiles/xweb/XWeb.sol together to kind, payload and sequence; consumer_interface requires byte-identical copies, so defer both Solidity labels while the producer ABI and real Rust path use the repaired semantics without changing the topic or positional types."
+
+[wiring.registry]
+request = "Domains 6 and 11: update spec/layerx-merge/interfaces.kvx entries for the 0x1019 program-request event, origin-one XWebRequested and 11.rs-xws-decode-program-requested to record kind/payload/sequence semantics and disjoint origins."
+
+[wiring.interop]
+request = "Domain 11: retain services/interop/crates/x-websearch/src/watch.rs and src/program.rs kind/payload/sequence decoding and composite program identity; adopt the real producer/journal/signing/fulfilment proof in precompiles/xweb/repair_130_test.go as the shared event contract."
+
+[gotcha.baseline-order]
+observed = "The audit task's do_6 asks for a pre-change verify, while its explicit ordered gate policy forbids verification before complete implementation or by hand."
+resolution = "Follow the explicit ordered gates, preserve every existing test, and report no unexecuted baseline result."
+
+[qualification.first-pass]
+evidence = "revision=ab73294ac11b5a449ca82afd685980e1e992ab25; command=cg spec done 22.31.130 -f layerx-merge --root /work/paxeer-monorepo; exit=1; log=/out/logs/verify-1.log"
+observed = "Only TestABIMatchesTheSolidityInterface/consumer_interface failed because renaming the local Solidity parameter labels diverged from its out-of-scope byte-identical copy; both new real Rust path tests completed without failure."
+resolution = "Keep both Solidity declarations byte-identical and defer their coordinated label rename to the domain 6 wiring request; preserve the existing assertion and the runtime kind/sequence and program-only event repair."

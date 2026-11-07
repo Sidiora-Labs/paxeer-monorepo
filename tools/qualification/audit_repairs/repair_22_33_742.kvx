@@ -1,0 +1,31 @@
+[task.22.33.742]
+base_revision = "76c050242a1edcad6212aa52fac15670ecb5612d"
+repair = "Capture baseline totals at the recorded beginning heights, compare cumulative ten-item batch deltas at each recorded height, and capture every fixture code ID and its metadata using baseline-relative forward pages. Compare those exact records at each later recorded height in forward and reverse order and require all ten records to belong to the recorded creator. Update wasm and denom comments to the real ten-item batches. Use pagination totals instead of capped page lengths, including on baselines larger than 400."
+source_proof = "Parse the repaired YAML and all CLI/jq pipelines; assert captured environment dependencies, pinned height files, count-total pagination fields, baseline-relative offsets, reverse offsets, complete ten-record creator guards, exact historical metadata comparisons and strict delta assertions. Read the actual fixture producers, wasm CLI and keeper pagination, tokenfactory CLI and Go runner wiring. Execute the real Python runner verifier on the repaired count expressions with varied baselines and missing/extra counts. No external command runs inside pytest."
+review_only = "Live paxd queries, shell and jq execution, Go runner execution, actual historical storage and node restarts are not exercised by this offline source-fact gate. The fixed-height fixture producer to CLI/JSON to captured environment to verifier connection is established by source review and assertions; only numeric verifier behavior executes in-process. This is a test-gap finding, not a restart-recovery or interface-mismatch finding. No shell script, unit file or build manifest is under repair."
+baseline = "No unchanged-tree verification was run: the explicit implementation-first order and exclusive hf-build/hf-done gate sequence prohibit the older pre-change verify clause. No pre-change test failure is claimed. Initial git status/diff showed only runner-prepared .cgignore and spec bookkeeping, no scoped repair changes. gate.json showed zero build and verify runs; no gates.jsonl existed."
+build_cmd = "python3 --version"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_742.py"
+evidence_ledger = "/out/run/gates.jsonl"
+evidence = "The final hf-done JSON and private gate ledger record the exact verified candidate revision, command, exit code and log path. Build and verification must pass on that same revision. This record is finalized before qualification; embedding its own candidate hash would change that hash. The runner retains the evidence and commits the qualified result."
+wiring_request = []
+
+[finding.state-store-fixed-fixtures]
+audit = "22.30.172"
+file = "tests/integration/db/state_store_test.yaml"
+class = "test-gap"
+severity = "medium"
+observed = "Wasm counts assumed a baseline of three and fixed later totals; hard-coded IDs and outdated hundred-item comments hid fixture dependencies."
+closure_basis = "All three existing cases remain active with strict batch deltas and recorded-height queries. Historical checks now identify all ten code records per batch, verify their creator and compare their metadata across later heights and both iteration orders without fixed absolute code IDs. No external producer changes are required: existing beginning/batch height and creator files supply the inputs."
+tests = ["test_state_store_yaml_captures_every_input_before_consuming_it", "test_wasm_totals_use_the_recorded_baseline_and_both_iteration_orders", "test_real_verifier_accepts_count_deltas_and_rejects_missing_or_extra_codes", "test_fixture_ids_and_creators_are_captured_and_compared_across_heights", "test_tokenfactory_uses_baseline_deltas_and_comments_match_ten_item_batches", "test_source_proof_connects_fixture_producers_cli_pagination_and_consumers"]
+
+[format]
+policy = "No Python, YAML or KVX formatter is configured for these paths; apply .editorconfig two-space YAML indentation, UTF-8, LF, final-newline and trailing-whitespace conventions after implementation. The configured yamllint hook is a linter, not a formatter, and is outside the allowed gates."
+
+[gotcha.1]
+observed = "The unchanged-tree verification clause conflicts with the explicit implementation-first and wrapper-only gate order."
+resolution = "Follow the explicit order and report no baseline execution; record the conflict here because GOTCHA.kvx and spec files are outside scope."
+
+[gotcha.2]
+observed = "Fixture producers persist heights and creator addresses but do not persist wasm code IDs; page lengths also truncate nonempty baselines."
+resolution = "Capture IDs and complete metadata at recorded heights using baseline-relative ten-record pages, require the recorded creator, and use pagination.total for strict cumulative deltas. No out-of-scope fixture producer edit is necessary."

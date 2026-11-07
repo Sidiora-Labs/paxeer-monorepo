@@ -302,3 +302,96 @@ func TestEpochRealPostgresFailureCannotCertifyFence(t *testing.T) {
 		t.Fatal("failed broker fence became verified", state, proof)
 	}
 }
+
+// The bounded repair gate uses committed loopback protocol peers. This matrix
+// also exercises the same restart path against real file-backed NATS members
+// when the separately admitted real-broker suite is run.
+func TestEpochRealBrokerInterruptedMembersResume(t *testing.T) {
+	for _, stage := range []string{"published", "reloaded", "verified"} {
+		t.Run(stage, func(t *testing.T) {
+			first, _, _ := epochBrokerFixture(t)
+			second, _, _ := epochBrokerFixture(t)
+			second.Name = "member-two"
+			members := []EpochMemberAuthority{first, second}
+			path := filepath.Join(t.TempDir(), "recovery.json")
+			if err := os.Chmod(filepath.Dir(path), 0700); err != nil {
+				t.Fatal(err)
+			}
+			plan := EpochRecoveryPlan{Proposal: "actual-cutover", Actor: "fixture-operator", Epoch: 3, Region: "region-primary", Revision: 2}
+			controller, err := NewJournalBrokerEpochController(path, plan, members)
+			if err != nil {
+				t.Fatal(err)
+			}
+			interruption := &struct{}{}
+			controller.checkpoint = func(member, point string) error {
+				if member == first.Name && point == stage {
+					panic(interruption)
+				}
+				return nil
+			}
+			ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+			defer cancel()
+			func() {
+				defer func() {
+					if recovered := recover(); recovered != interruption {
+						t.Fatalf("wrong interruption: %v", recovered)
+					}
+				}()
+				_, _ = controller.FenceAndBind(ctx, plan.Proposal, plan.Actor)
+				t.Fatal("interruption not reached")
+			}()
+			first.Control.Close()
+			second.Control.Close()
+			controller = nil
+			for i := range members {
+				conn, err := nats.Connect(members[i].URL, nats.UserInfo("system-operator", "test-system-secret"), nats.NoReconnect())
+				if err != nil {
+					t.Fatal(err)
+				}
+				defer conn.Close()
+				members[i].Control = conn
+			}
+			reopened, err := NewJournalBrokerEpochController(path, plan, members)
+			if err != nil {
+				t.Fatal(err)
+			}
+			result, err := reopened.FenceAndBind(ctx, plan.Proposal, plan.Actor)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(result.Evidence) != 2 {
+				t.Fatal("incomplete cluster proof")
+			}
+			recordWire, err := readEpochJournal(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var record epochFenceRecord
+			if json.Unmarshal(recordWire, &record) != nil || record.State != "verified" || record.BoundProof != result.ProofSHA256 {
+				t.Fatal("proof not durably consumed")
+			}
+			for _, member := range members {
+				progress := record.Members[member.Name]
+				if progress == nil || progress.Stage != "verified" || len(progress.Evidence) != 1 {
+					t.Fatal("missing member proof")
+				}
+				proof := progress.Evidence[0]
+				if !proof.AuthenticationDenied || !proof.PublishDenied || !proof.AckDenied {
+					t.Fatal("incomplete denial proof")
+				}
+				if conn, err := connectEpochCredential(member, member.Credentials[0]); !errors.Is(err, nats.ErrAuthorization) {
+					if conn != nil {
+						conn.Close()
+					}
+					t.Fatal("old authentication survived", err)
+				}
+				if err := epochCommandDenied(ctx, member, member.Credentials[0], member.Probe.Subject, []byte("revoked-publish")); err != nil {
+					t.Fatal(err)
+				}
+				if err := epochCommandDenied(ctx, member, member.Credentials[0], progress.Acks[member.Credentials[0].ID], []byte("+ACK")); err != nil {
+					t.Fatal(err)
+				}
+			}
+		})
+	}
+}

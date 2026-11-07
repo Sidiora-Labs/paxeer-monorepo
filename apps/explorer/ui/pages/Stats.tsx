@@ -7,7 +7,9 @@ import PageTitle from 'ui/shared/Page/PageTitle';
 
 import ChartsWidgetsList from '../stats/ChartsWidgetsList';
 import { getStatsSectionAnchorId, getStatsSectionKeys, STATS_OVERVIEW_SECTION } from '../stats/constants';
+import NetworkStatsHero from '../stats/NetworkStatsHero';
 import NumberWidgetsList from '../stats/NumberWidgetsList';
+import RecentBlocks from '../stats/RecentBlocks';
 import StatsFilters from '../stats/StatsFilters';
 import useStats from '../stats/useStats';
 
@@ -76,6 +78,9 @@ const Stats = () => {
       <PageTitle
         title={ config.meta.seo.enhancedDataEnabled ? `${ config.chain.name } statistic & data` : `${ config.chain.name } stats` }
       />
+
+      <NetworkStatsHero/>
+      <RecentBlocks/>
 
       <Box mb={{ base: 4, lg: 6 }}>
         <StatsFilters
@@ -147,9 +152,8 @@ const Stats = () => {
               id={ getStatsSectionAnchorId(STATS_OVERVIEW_SECTION.id) }
               scrollMarginTop={{ base: 20, lg: 24 }}
               mb={{ base: 3, lg: 4 }}
-              textStyle="heading.sm"
-              fontWeight="600"
-              color="text.primary"
+              textStyle="label"
+              color="text.muted"
             >
               <chakra.span data-section-title>{ STATS_OVERVIEW_SECTION.title }</chakra.span>
             </chakra.h2>

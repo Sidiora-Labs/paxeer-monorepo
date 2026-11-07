@@ -17,6 +17,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -370,6 +371,7 @@ func startSeqReceiptServer9005(t *testing.T, testApp *app.App, ctxProvider func(
 type seqReceiptRPCError9005 struct {
 	Code    int    `json:"code"`
 	Message string `json:"message"`
+	Data    any    `json:"data"`
 }
 
 // callSeqReceipt9005 posts one JSON-RPC call and returns its raw result or its error.
@@ -406,6 +408,272 @@ func seqReceiptTwoLogs9005() []*types.Log {
 	return []*types.Log{
 		{Address: seqReceiptLogAddr9005.Hex(), Topics: []string{seqReceiptTopicA9005.Hex(), seqReceiptTopicB9005.Hex()}, Data: []byte("transfer")},
 		{Address: seqReceiptTo9005.Hex(), Topics: []string{}, Data: nil},
+	}
+}
+
+func TestReceiptKeysNotServedNamesRequestedMethod(t *testing.T) {
+	chain := newSeqReceiptChain9005(t)
+	testApp := app.Setup(t, false, false, false)
+	port := startSeqReceiptServer9005(t, testApp, chain.ctxProvider, evmrpc.SequencerReceiptOption{})
+	unavailableURL, err := url.Parse(fmt.Sprintf("http://%s:%d", TestAddr, port))
+	require.NoError(t, err)
+	forwardPort := startSeqReceiptServer9005(t, testApp, chain.ctxProvider, evmrpc.SequencerReceiptOption{ForwardURL: unavailableURL})
+
+	for _, node := range []struct {
+		name string
+		port int
+	}{
+		{name: "direct", port: port},
+		{name: "forwarded", port: forwardPort},
+	} {
+		t.Run(node.name, func(t *testing.T) {
+			_, rpcErr := callSeqReceipt9005(t, node.port, evmrpc.ReceiptKeysMethod)
+			require.NotNil(t, rpcErr)
+			require.Equal(t, -32000, rpcErr.Code)
+			require.Equal(t, "px_getReceiptKeys served by sequencer", rpcErr.Message)
+		})
+	}
+
+	_, rpcErr := callSeqReceipt9005(t, port, evmrpc.SequencerReceiptMethod, common.HexToHash("0x77"))
+	require.NotNil(t, rpcErr)
+	require.Equal(t, -32000, rpcErr.Code)
+	require.Equal(t, "pax_sequencerReceipt served by sequencer", rpcErr.Message)
+}
+
+func TestPublicPxReceiptKeysCanonical(t *testing.T) {
+	chain := newSeqReceiptChain9005(t)
+	testApp := app.Setup(t, false, false, false)
+	port := startSeqReceiptServer9005(t, testApp, chain.ctxProvider, evmrpc.SequencerReceiptOption{Source: chain, Keeper: &chain.keeper})
+	unavailablePort := startSeqReceiptServer9005(t, testApp, chain.ctxProvider, evmrpc.SequencerReceiptOption{})
+	_, unavailable := callSeqReceipt9005(t, unavailablePort, evmrpc.ReceiptKeysMethod)
+	require.NotNil(t, unavailable)
+	require.Equal(t, -32000, unavailable.Code)
+	require.Equal(t, "px_getReceiptKeys served by sequencer", unavailable.Message)
+	require.Nil(t, unavailable.Data)
+
+	root, err := filepath.Abs("..")
+	require.NoError(t, err)
+	sdkPath := filepath.Join(root, "services", "agent", "sdk")
+	const typescript = `
+import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { createRequire, registerHooks } from "node:module";
+import { pathToFileURL, fileURLToPath } from "node:url";
+const sdk = process.argv[1];
+const require = createRequire(pathToFileURL(sdk + "/typescript/package.json"));
+const ts = require("typescript");
+const sourceRoot = pathToFileURL(sdk + "/typescript/src/").href;
+registerHooks({
+  resolve(specifier, context, nextResolve) {
+    if (context.parentURL?.startsWith(sourceRoot) && specifier.startsWith(".") && specifier.endsWith(".js"))
+      specifier = specifier.slice(0, -3) + ".ts";
+    return nextResolve(specifier, context);
+  },
+  load(url, context, nextLoad) {
+    if (url.startsWith(sourceRoot) && url.endsWith(".ts")) {
+      const source = ts.transpileModule(readFileSync(fileURLToPath(url), "utf8"), {
+        compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ESNext },
+        fileName: fileURLToPath(url),
+      }).outputText;
+      return { format: "module", source, shortCircuit: true };
+    }
+    return nextLoad(url, context);
+  },
+});
+const { PxClient, decodePxReceiptKeys } = await import(sourceRoot + "px.ts");
+const { JsonRpcError, decodeJsonRpcResponse } = await import(sourceRoot + "rpc.ts");
+const input = JSON.parse(readFileSync(0, "utf8"));
+const normalize = keys => keys.map(key => {
+  assert.equal(typeof key.firstHeight, "bigint");
+  assert.equal(typeof key.lastHeight, "bigint");
+  assert.equal(Object.isFrozen(key), true);
+  assert.equal(Buffer.from(key.keyId, "hex").length, 32);
+  assert.equal(Buffer.from(key.publicKey, "hex").length, 32);
+  return { ...key, firstHeight: key.firstHeight.toString(), lastHeight: key.lastHeight.toString() };
+});
+const keys = await new PxClient({ endpoint: input.url }).getReceiptKeys();
+assert.equal(Object.isFrozen(keys), true);
+assert.deepEqual(normalize(keys), input.expected);
+assert.deepEqual(normalize(decodePxReceiptKeys(input.document)), input.expected);
+await assert.rejects(new PxClient({ endpoint: input.errorUrl }).getReceiptKeys(), error => {
+  assert.ok(error instanceof JsonRpcError);
+  assert.equal(error.code, input.error.code);
+  assert.equal(error.message, input.error.message);
+  assert.deepEqual(error.data ?? null, input.error.data);
+  return true;
+});
+for (const mutation of input.mutations)
+  assert.throws(() => decodePxReceiptKeys(mutation.value), { message: mutation.ts }, mutation.name);
+for (const mutation of input.unsafe)
+  assert.throws(() => decodePxReceiptKeys(mutation), { message: "Invalid gateway quantity" });
+for (const mutation of input.valid)
+  assert.deepEqual(normalize(decodePxReceiptKeys(mutation.value)), mutation.expected);
+const envelope = { jsonrpc: "2.0", id: "1", result: input.document };
+assert.deepEqual(decodeJsonRpcResponse(envelope, "1"), input.document);
+for (const invalid of [
+  { ...envelope, jsonrpc: "1.0" }, { ...envelope, id: "2" }, { ...envelope, id: 1 },
+  { ...envelope, error: input.error }, { jsonrpc: "2.0", id: "1" },
+]) assert.throws(() => decodeJsonRpcResponse(invalid, "1"));
+console.log(JSON.stringify(normalize(keys)));
+`
+	const python = `
+import json
+import sys
+from dataclasses import FrozenInstanceError
+sys.path.insert(0, sys.argv[1] + "/python")
+from layerx_sdk.px import PxClient, PxRpcError, decode_px_receipt_keys
+
+document = json.load(sys.stdin)
+def normalize(keys):
+    assert isinstance(keys, tuple)
+    result = []
+    for key in keys:
+        assert type(key.first_height) is int
+        assert type(key.last_height) is int
+        assert len(bytes.fromhex(key.key_id)) == 32
+        assert len(bytes.fromhex(key.public_key)) == 32
+        try:
+            key.first_height = 0
+        except FrozenInstanceError:
+            pass
+        else:
+            raise AssertionError("mutable receipt key")
+        result.append({"keyId": key.key_id, "publicKey": key.public_key,
+                       "firstHeight": str(key.first_height), "lastHeight": str(key.last_height)})
+    return result
+keys = PxClient(document["url"]).get_receipt_keys()
+assert normalize(keys) == document["expected"]
+assert normalize(decode_px_receipt_keys(document["document"])) == document["expected"]
+try:
+    PxClient(document["errorUrl"]).get_receipt_keys()
+except PxRpcError as error:
+    assert error.code == document["error"]["code"]
+    assert error.message == document["error"]["message"]
+    assert error.data == document["error"]["data"]
+else:
+    raise AssertionError("non-serving node accepted")
+for mutation in document["mutations"]:
+    try:
+        decode_px_receipt_keys(mutation["value"])
+    except ValueError as error:
+        assert str(error) == mutation["py"], (mutation["name"], str(error))
+    else:
+        raise AssertionError(mutation["name"])
+for mutation in document["valid"]:
+    assert normalize(decode_px_receipt_keys(mutation["value"])) == mutation["expected"]
+print(json.dumps(normalize(keys)))
+`
+	public := chain.receiptKey.PublicKey()
+	want := seqkeeper.ReceiptKeys{{KeyId: bytes.Clone(chain.keyID[:]), PublicKey: bytes.Clone(public[:]), FirstHeight: 1, LastHeight: 1999}}
+	for _, phase := range []string{"initial", "rotated", "empty"} {
+		t.Run(phase, func(t *testing.T) {
+			if phase == "rotated" {
+				secondPublic := ed25519.NewKeyFromSeed(bytes.Repeat([]byte{0x31}, ed25519.SeedSize)).Public().(ed25519.PublicKey)
+				want = append(want, seqkeeper.ReceiptKeyEntry{KeyId: bytes.Repeat([]byte{0x22}, 32), PublicKey: secondPublic, FirstHeight: 2000, LastHeight: 9007199254740991})
+				require.NoError(t, chain.keeper.SetReceiptKeys(chain.writeCtx9005(7), want))
+				chain.commit9005(7)
+			} else if phase == "empty" {
+				want = seqkeeper.ReceiptKeys{}
+				require.NoError(t, chain.keeper.SetReceiptKeys(chain.writeCtx9005(8), want))
+				chain.commit9005(8)
+			}
+			raw, rpcErr := callSeqReceipt9005(t, port, evmrpc.ReceiptKeysMethod)
+			require.Nil(t, rpcErr)
+			var captured map[string]any
+			require.NoError(t, json.Unmarshal(raw, &captured))
+			entries, ok := captured["keys"].([]any)
+			require.True(t, ok, "the producer must emit an array, including when empty")
+			require.Len(t, entries, len(want))
+			expected := make([]map[string]string, 0, len(want))
+			for _, key := range want {
+				expected = append(expected, map[string]string{"keyId": hex.EncodeToString(key.KeyId), "publicKey": hex.EncodeToString(key.PublicKey), "firstHeight": fmt.Sprint(key.FirstHeight), "lastHeight": fmt.Sprint(key.LastHeight)})
+			}
+			mutations := make([]map[string]any, 0)
+			unsafe := make([]any, 0)
+			valid := make([]map[string]any, 0)
+			mutate := func(change func(map[string]any, map[string]any)) map[string]any {
+				var document map[string]any
+				require.NoError(t, json.Unmarshal(raw, &document))
+				entry := document["keys"].([]any)[0].(map[string]any)
+				change(document, entry)
+				return document
+			}
+			add := func(name string, value any, ts, py string) {
+				mutations = append(mutations, map[string]any{"name": name, "value": value, "ts": ts, "py": py})
+			}
+			if len(entries) > 0 {
+				for _, field := range []string{"keyId", "publicKey", "firstHeight", "lastHeight"} {
+					add("missing "+field, mutate(func(_ map[string]any, entry map[string]any) { delete(entry, field) }), "Incomplete gateway document", "incomplete-px-document")
+				}
+				add("extra field", mutate(func(_ map[string]any, entry map[string]any) { entry["extra"] = true }), "Invalid gateway receipt key", "invalid-px-receipt-key")
+				add("duplicate id", mutate(func(document, entry map[string]any) { document["keys"] = append(document["keys"].([]any), entry) }), "Invalid gateway receipt key", "invalid-px-receipt-key")
+				add("duplicate mixed case id", mutate(func(document, entry map[string]any) {
+					duplicate := make(map[string]any)
+					for key, value := range entry {
+						duplicate[key] = value
+					}
+					duplicate["keyId"] = "0x" + strings.ToUpper(entry["keyId"].(string)[2:])
+					document["keys"] = append(document["keys"].([]any), duplicate)
+				}), "Invalid gateway receipt key", "invalid-px-receipt-key")
+				add("reversed range", mutate(func(_ map[string]any, entry map[string]any) { entry["firstHeight"] = entry["lastHeight"].(float64) + 1 }), "Invalid gateway receipt key range", "invalid-px-receipt-key-range")
+				for _, field := range []string{"keyId", "publicKey"} {
+					original := entries[0].(map[string]any)[field].(string)
+					for _, value := range []any{nil, 1, original[2:], original[:len(original)-2], original + "00", "0x" + strings.Repeat("gg", 32), " " + original, original + "\n", original + "\r", original + "\r\n", strings.Repeat("A", 43) + "="} {
+						add("malformed "+field, mutate(func(_ map[string]any, entry map[string]any) { entry[field] = value }), "Invalid gateway receipt key bytes", "invalid-px-receipt-key-bytes")
+					}
+					add("zero "+field, mutate(func(_ map[string]any, entry map[string]any) { entry[field] = "0x" + strings.Repeat("00", 32) }), "Invalid gateway receipt key", "invalid-px-receipt-key")
+				}
+				for _, field := range []string{"firstHeight", "lastHeight"} {
+					for _, value := range []any{nil, true, -1, 1.5, "-1", "01", "0xgg", ""} {
+						add("invalid "+field, mutate(func(_ map[string]any, entry map[string]any) { entry[field] = value }), "Invalid gateway quantity", "invalid-px-quantity")
+					}
+					add("overflow "+field, mutate(func(_ map[string]any, entry map[string]any) { entry[field] = "18446744073709551616" }), "Invalid gateway count", "invalid-px-count")
+					unsafe = append(unsafe, mutate(func(_ map[string]any, entry map[string]any) { entry[field] = uint64(9007199254740992) }))
+				}
+				for _, value := range []any{nil, true, []any{}} {
+					add("invalid entry", mutate(func(document, _ map[string]any) { document["keys"] = []any{value} }), "Invalid gateway document", "invalid-px-document")
+				}
+				for _, bounds := range [][2]string{{"0", "0"}, {"0x1", "0x7cf"}, {"0", "18446744073709551615"}} {
+					value := mutate(func(document, entry map[string]any) {
+						entry["firstHeight"], entry["lastHeight"] = bounds[0], bounds[1]
+						document["keys"] = []any{entry}
+					})
+					first, ok := new(big.Int).SetString(bounds[0], 0)
+					require.True(t, ok)
+					last, ok := new(big.Int).SetString(bounds[1], 0)
+					require.True(t, ok)
+					valid = append(valid, map[string]any{"value": value, "expected": []map[string]string{{"keyId": expected[0]["keyId"], "publicKey": expected[0]["publicKey"], "firstHeight": first.String(), "lastHeight": last.String()}}})
+				}
+			}
+			for _, value := range []any{nil, entries, map[string]any{}, map[string]any{"keys": nil}, map[string]any{"keys": captured}, map[string]any{"keys": entries, "extra": true}} {
+				add("invalid result shape", value, "Invalid gateway receipt keys", "invalid-px-receipt-keys")
+			}
+			input, err := json.Marshal(map[string]any{
+				"url": fmt.Sprintf("http://%s:%d", TestAddr, port), "errorUrl": fmt.Sprintf("http://%s:%d", TestAddr, unavailablePort),
+				"document": captured, "expected": expected, "error": unavailable, "mutations": mutations, "unsafe": unsafe, "valid": valid,
+			})
+			require.NoError(t, err)
+			for _, language := range []string{"typescript", "python"} {
+				t.Run(language, func(t *testing.T) {
+					ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+					defer cancel()
+					var command *exec.Cmd
+					if language == "typescript" {
+						command = exec.CommandContext(ctx, "node", "--input-type=module", "-e", typescript, sdkPath)
+					} else {
+						command = exec.CommandContext(ctx, "python3", "-B", "-c", python, sdkPath)
+					}
+					command.Stdin = bytes.NewReader(input)
+					var stderr bytes.Buffer
+					command.Stderr = &stderr
+					output, err := command.Output()
+					require.NoError(t, err, "%s", stderr.String())
+					expectedJSON, err := json.Marshal(expected)
+					require.NoError(t, err)
+					require.JSONEq(t, string(expectedJSON), string(output))
+				})
+			}
+		})
 	}
 }
 
@@ -825,4 +1093,62 @@ func TestSequencerReceiptViewCarriesPaymentDenom(t *testing.T) {
 		require.NoError(t, json.Unmarshal(encoded, &decoded))
 		require.ErrorIs(t, decoded.Verify(), evmrpc.ErrSequencerReceiptMismatch)
 	}
+}
+
+func repairM1297CommittedReceiptNilView(t *testing.T) {
+	var missing *evmrpc.SequencerReceiptResult
+	require.ErrorIs(t, missing.Verify(), evmrpc.ErrSequencerReceiptMismatch)
+	block := common.HexToHash("0x1234")
+	for _, body := range []string{
+		`{"txHash":"` + common.HexToHash("0x5678").Hex() + `","rung":"committed","blockNumber":"0x7","blockHash":"` + block.Hex() + `"}`,
+		`{"txHash":"` + common.HexToHash("0x5678").Hex() + `","rung":"committed","blockNumber":"0x7","blockHash":"` + block.Hex() + `","receipt":"0x"}`,
+		`{"txHash":"` + common.HexToHash("0x5678").Hex() + `","rung":"receipted"}`,
+	} {
+		t.Run(body, func(t *testing.T) {
+			var result evmrpc.SequencerReceiptResult
+			require.NoError(t, json.Unmarshal([]byte(body), &result))
+			require.NotPanics(t, func() { require.ErrorIs(t, result.Verify(), evmrpc.ErrSequencerReceiptMismatch) })
+			upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				var request struct {
+					ID     json.RawMessage `json:"id"`
+					Method string          `json:"method"`
+				}
+				if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+					http.Error(w, err.Error(), http.StatusBadRequest)
+					return
+				}
+				if request.Method != evmrpc.SequencerReceiptMethod {
+					http.Error(w, "unexpected forwarding method", http.StatusBadRequest)
+					return
+				}
+				w.Header().Set("Content-Type", "application/json")
+				_ = json.NewEncoder(w).Encode(map[string]any{"jsonrpc": "2.0", "id": request.ID, "result": json.RawMessage(body)})
+			}))
+			defer upstream.Close()
+			forwardURL, err := url.Parse(upstream.URL)
+			require.NoError(t, err)
+			a := app.Setup(t, false, false, false)
+			ctx := a.GetContextForDeliverTx(nil)
+			public := ed25519.NewKeyFromSeed(seqVecReceiptSeed).Public().(ed25519.PublicKey)
+			require.NoError(t, a.SequencerKeeper.SetReceiptKeys(ctx, seqkeeper.ReceiptKeys{{
+				KeyId: seqVecKeyID[:], PublicKey: public, FirstHeight: 1, LastHeight: 1000,
+			}}))
+			port := startSeqReceiptServer9005(t, a, func(int64) sdk.Context { return ctx }, evmrpc.SequencerReceiptOption{ForwardURL: forwardURL})
+			answer, rpcErr := callSeqReceipt9005(t, port, evmrpc.SequencerReceiptMethod, common.HexToHash("0x5678"))
+			require.NotNil(t, rpcErr, string(answer))
+			require.Contains(t, rpcErr.Message, evmrpc.ErrSequencerReceiptMismatch.Error())
+		})
+	}
+	t.Run("null receipt rejected by codec", func(t *testing.T) {
+		var result evmrpc.SequencerReceiptResult
+		require.ErrorContains(t, json.Unmarshal([]byte(`{"rung":"committed","receipt":null}`), &result),
+			"cannot unmarshal non-string")
+		require.ErrorIs(t, result.Verify(), evmrpc.ErrSequencerReceiptMismatch)
+	})
+	require.NoError(t, (&evmrpc.SequencerReceiptResult{Rung: evmrpc.RungSubmitted}).Verify())
+	require.ErrorIs(t, (&evmrpc.SequencerReceiptResult{Rung: evmrpc.RungSubmitted, SequencerReceiptView: &evmrpc.SequencerReceiptView{}}).Verify(), evmrpc.ErrSequencerReceiptMismatch)
+}
+
+func init() {
+	evmrpc.RepairM1297Proofs["committed-receipt-nil-view"] = repairM1297CommittedReceiptNilView
 }

@@ -7,6 +7,7 @@ export const recipe = defineRecipe({
     fontWeight: 500,
     overflow: 'hidden',
     borderRadius: 'full',
+    _focusVisible: { outline: '2px solid', outlineColor: 'focusRing', outlineOffset: '2px' },
     _disabled: {
       opacity: 'control.disabled',
     },
@@ -32,10 +33,10 @@ export const recipe = defineRecipe({
         },
       },
       solid_danger: {
-        bg: 'red.600',
+        bg: 'negative',
         color: 'button.solid.text',
         _hover: {
-          bg: 'red.500',
+          bg: 'negative',
         },
         _loading: {
           opacity: 1,
@@ -46,7 +47,7 @@ export const recipe = defineRecipe({
           },
         },
         _expanded: {
-          bg: 'red.500',
+          bg: 'negative',
         },
       },
       outline: {
@@ -73,17 +74,17 @@ export const recipe = defineRecipe({
         borderWidth: '1px',
         borderStyle: 'solid',
         bg: 'transparent',
-        color: 'red.600',
-        borderColor: 'red.600',
+        color: 'negative',
+        borderColor: 'negative',
         _hover: {
           bg: 'transparent',
-          color: 'red.500',
-          borderColor: 'red.500',
+          color: 'negative',
+          borderColor: 'negative',
         },
         _loading: {
           opacity: 1,
           '& .chakra-spinner': {
-            borderColor: 'red.600',
+            borderColor: 'negative',
             borderBottomColor: 'spinner.track',
             borderInlineStartColor: 'spinner.track',
           },
@@ -374,6 +375,8 @@ export const recipe = defineRecipe({
       },
     },
     size: {
+      '2xs_alt': {},
+
       '2xs': {
         px: 2,
         h: 5,
@@ -413,6 +416,17 @@ export const recipe = defineRecipe({
       },
     },
   },
+  compoundVariants: [
+    {
+      size: [ '2xs_alt', '2xs', 'xs', 'sm', 'md' ],
+      css: {
+        borderRadius: 'control',
+        _first: { borderTopLeftRadius: 'control', borderBottomLeftRadius: 'control' },
+        _last: { borderTopRightRadius: 'control', borderBottomRightRadius: 'control' },
+      },
+    },
+    { variant: [ 'outline', 'dropdown', 'header', 'pagination' ], css: { borderColor: 'hairline' } },
+  ],
   defaultVariants: {
     size: 'md',
     variant: 'solid',

@@ -1,0 +1,41 @@
+[repair.22.33.996]
+audit = "22.30.33"
+base_revision = "0d67b10a1307bd87573ba79cf46b7f9c0337f7e3"
+qualification = "The final hf-done JSON and immutable private /out/run/gates.jsonl ledger name the verified candidate revision, exact command, exit code and log. This record is frozen before qualification; hf-build and hf-done must qualify the same candidate."
+baseline = "No unchanged-tree verification ran: the ordered instructions require complete implementation before testing and prohibit hand-running verify_cmd. The required test file did not exist at the base; no pre-change failing test execution is claimed."
+scope = "Only httpapi and security/policy/deadletter.go changed; runner-owned task status and cgignore changes were preserved."
+
+[finding.canonical-status-truth]
+tests = ["TestRepairM_996_CanonicalCommitsAndDurableHealth", "TestRepairM_996_LegacyAndFailedCounts", "TestRepairM_996_RealDatabaseOutage"]
+change = "Explicit canonical mode reads the configured stream through Store.GetCanonicalWatermark and durable delivery Stats with an explicit lag budget. Quarantine or excessive lag is degraded/503; failed or missing reads/configuration are unavailable/503 with null unknown values and sanitized component names. Explicit legacy mode reads the cursor and labels compatibility publisher counters; canonical mode never exposes those counters."
+proof = "The real Store.CommitCanonical commits raw provenance, completeness, intent, watermark and commit record into a transactional in-memory DB peer, then the mounted HTTP route consumes that watermark and the peer's committed delivery state. Tests assert separate legacy progress, configured stream isolation, quarantine, exact lag boundary, missing configuration and failed counts. Actual closed pgx pools drive real Store and delivery.Store read failures without a PostgreSQL service."
+evidence_boundary = "The gate uses real driver pool shutdown as the database outage, not a live PostgreSQL process. Durable delivery health is tested using committed in-memory state and the real delivery.Store outage path."
+wiring = "Domain 4 launchpad runtime owner: services/launchpad/indexer/internal/app/app.go must pass StatusCanonical, deps.CanonicalStreamID, its durable delivery Store and the approved MaxDeliveryLag to RegisterStatus; select StatusLegacy explicitly only for the compatibility adapter. Unconfigured callers now return unavailable."
+wiring_tests = "Domain 4 launchpad processor owner: services/launchpad/indexer/internal/processor/repair_54_test.go callers of RegisterStatus must supply explicit mode/stream/delivery health and lag budget for canonical status assertions; those files are outside this task scope."
+
+[finding.dead-letter-authorization]
+tests = ["TestRepairM_996_DeadLetterAuthorizationAndRetention", "TestRepairM_996_NoCompatibilityDeadLetterEscape"]
+change = "Both mounted operations delegate exclusively to an authorized durable policy; no handler reads or drains Publisher state. AuditedDeadLetters provides equivalent operations using shared ServiceAssertionVerifier, durable operator sessions, scoped MFA authorization, append-only authorization decisions and metadata-only durable quarantine reads. Both the local operations and security/policy.DeadLetters refuse drain even with retention scope because separate retention approval is required. Security policy dispatch is restricted to the declared methods and paths."
+proof = "A real shared ServiceAssertionIssuer signs requests over a genuine TLS 1.3 mutually authenticated loopback connection into the mounted handler and shared verifier. A committed in-memory database peer supplies sessions, quarantine metadata and journal records. Unsigned, ordinary-user, wrong-audience, revoked, expired-MFA, forged-trace and wrong-scope requests fail; authorized inspection returns the real delivery codec's envelope hash with redacted metadata and bounded pagination. Audit/read failure returns unavailable. A retention-scoped operator is audited but cannot delete. A real Publisher failure produces a compatibility letter which public inspection/drain cannot expose or delete."
+wiring = "Domain 4 launchpad runtime/security owner: services/launchpad/indexer/internal/app/app.go must supply AuditedDeadLetters with the least-privilege durable DB, security/delivery schemas, trusted shared assertion verifier, indexer audience and policy version, or a security/policy.DeadLetters adapter. No policy configuration leaves both mounted routes unavailable."
+wiring_retention = "Domain 4 security retention owner: implement any deletion only through the separately approved audited retention operation; neither HTTP drain route authorizes deletion."
+
+[gotcha.baseline-conflict]
+observed = "An unchanged-tree baseline is requested while the ordered gate instructions forbid all tests before implementation and prohibit invoking verify_cmd by hand."
+resolution = "Use only hf-build and hf-done after complete implementation; claim no baseline result."
+
+[gotcha.module-boundary]
+observed = "The indexer module has no dependency on the sibling security module, and its go.mod is outside scope."
+resolution = "Accept the existing policy through a structural Handler boundary and provide equivalent durable audited operations using the already declared shared auth and pgx dependencies."
+
+[gotcha.identity-fixture]
+observed = "The shared assertion issuer and verifier require canonical nonzero UUID account, session and trace identifiers."
+resolution = "Produce each identifier through uuid.NewString and normalize the wallet through the production auth normalizer before signing."
+
+[qualification.first_build]
+revision = "d39e172034bbe6c617bc1fb3419aa0c13c1214fb"
+command = "cd services/launchpad/indexer && go build ./internal/httpapi/..."
+exit = 1
+log = "/out/logs/build-1.log"
+observed = "The enclosing workspace refuses to load because its notifications module requires Go 1.27 while go.work declares Go 1.25; compilation never reached the task package."
+assumption = "Run the same scoped gates with GOWORK=off against the indexer's committed go.mod; no workspace manifest is edited and no unrelated module is compiled."

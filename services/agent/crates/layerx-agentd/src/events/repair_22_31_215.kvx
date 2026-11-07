@@ -1,0 +1,15 @@
+[repair.22.31.215]
+audit = "22.30.90"
+acceptance = "22998.1"
+verification = "hf-done owns the verified candidate revision, command, exit code and private log; no baseline failure or passing gate is claimed here."
+baseline = "Not run: the task's explicit gate order prohibits testing before complete implementation and prohibits running verify_cmd by hand. No prior gate ledger existed."
+wiring = "No out-of-path proposal steps are required for the LayerX EVM chain 125 event stream."
+
+[finding.event-cursor]
+test = "event_cursor_preserves_node_positions_across_ack_reopen_and_live_backfill_seam"
+repair = "Deliver retained node positions, select resume rows by the full cursor, count unacknowledged matching events, and keep journal ordinals separate for the captured live watermark."
+
+[finding.event-replay-identity]
+test = "event_replay_identity_survives_receipt_promotion_reopen_and_one_consumer_effect"
+additional_test = "event_replay_identity_without_transaction_hash_uses_fixed_block_position"
+repair = "Domain-separated identity binds tenant and LayerX chain 125 to block height, transaction hash and log index; without a transaction hash it binds the fixed block hash and full position. Journal ordinals, mutable transaction index and promoted evidence bytes do not enter transaction-log identities."

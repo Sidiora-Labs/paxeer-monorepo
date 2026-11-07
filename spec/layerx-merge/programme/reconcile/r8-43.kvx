@@ -1,0 +1,561 @@
+[reconcile.r8-43]
+revision = "d6c341e59603faf9a28756df9aff6d45927fe392"
+rows = 60
+
+[row.r8-43.1]
+interface = "interface.8.ts-examples-agent-spend-services-ownerwallethandoff-j41"
+verdict = "served"
+path = "services/platform/examples/agent-spend/services.mjs"
+line = 141
+symbol = "ownerWalletHandoff"
+evidence = "Signature remains export function ownerWalletHandoff(); declaration moved from registered line 119 to 141. It still requires active services and returns active.handoff; no parameter or export change was observed."
+
+[row.r8-43.2]
+interface = "interface.8.cfg-examples-buyer-agent-environments-beta-receiptauthorityurl"
+verdict = "retired"
+path = "services/platform/examples/buyer-agent/layerx.example.json"
+line = 7
+symbol = "receiptAuthorityUrl"
+evidence = "environments.beta.receiptAuthorityUrl is absent from the registered JSON file, including both environment blocks. The config now declares rpcUrl and receiptKeysEnvironment for sequencer receipts; the only remaining exact-identifier references are absence assertions in two example test files. Remaining references count distinct tracked files in the current tree, excluding all spec/ and docs/ directories."
+remaining_refs = 2
+remaining = ["services/platform/examples/test/buyer-agent.test.mjs:110", "services/platform/examples/test/merchant-config.test.mjs:34"]
+
+[row.r8-43.3]
+interface = "interface.8.cfg-examples-buyer-agent-environments-emulator-receiptauthorityurl"
+verdict = "retired"
+path = "services/platform/examples/buyer-agent/layerx.example.json"
+line = 7
+symbol = "receiptAuthorityUrl"
+evidence = "environments.emulator.receiptAuthorityUrl is absent from the registered JSON file, including both environment blocks. The config now declares rpcUrl and receiptKeysEnvironment for sequencer receipts; the only remaining exact-identifier references are absence assertions in two example test files. Remaining references count distinct tracked files in the current tree, excluding all spec/ and docs/ directories."
+remaining_refs = 2
+remaining = ["services/platform/examples/test/buyer-agent.test.mjs:110", "services/platform/examples/test/merchant-config.test.mjs:34"]
+
+[row.r8-43.4]
+interface = "interface.8.cfg-examples-buyer-agent-environments-beta-network"
+verdict = "served"
+path = "services/platform/examples/buyer-agent/layerx.example.json"
+line = 21
+symbol = "network"
+evidence = "environments.beta.network is now \"network\": \"eip155:125\", replacing the registered \"network\": \"layerx:emulator\" signature. The current key is at line 21 within the beta configuration block."
+
+[row.r8-43.5]
+interface = "interface.8.cfg-examples-buyer-agent-environments-emulator-network"
+verdict = "served"
+path = "services/platform/examples/buyer-agent/layerx.example.json"
+line = 10
+symbol = "network"
+evidence = "environments.emulator.network is now \"network\": \"eip155:125\", replacing the registered \"network\": \"layerx:emulator\" signature. The current key is at line 10 within the emulator configuration block."
+
+[row.r8-43.6]
+interface = "interface.8.cfg-examples-buyer-agent-environments-beta-protocolversion"
+verdict = "retired"
+path = "services/platform/examples/buyer-agent/layerx.example.json"
+line = 11
+symbol = "protocolVersion"
+evidence = "environments.beta.protocolVersion is absent from the registered JSON file, including both environment blocks. The config now uses network \"eip155:125\" and receiptKeysEnvironment without a per-environment protocolVersion. Repository references include absence assertions and independent protocol fields, not a relocated example config key. Remaining references count distinct tracked files in the current tree, excluding all spec/ and docs/ directories."
+remaining_refs = 60
+remaining = ["apps/perps/src/hooks/spot/useSpotUserStream.ts:13", "consensus/proto/tendermint/p2p/types.pb.go:91", "core/deps/geth/internal/jsre/completion.go:78", "core/deps/geth/internal/jsre/deps/web3.js:5536", "core/deps/geth/signer/fourbyte/4byte.json:44929", "layerxproof/codec/receipt.go:352", "modules/layerxledger/types/payload_transfer.go:86", "programs/vendor/windows-sys-0.52.0/src/Windows/Win32/System/RemoteDesktop/mod.rs:889", "programs/vendor/windows-sys-0.61.2/src/Windows/Win32/System/RemoteDesktop/mod.rs:154", "sdk/integrations/agents/src/a2a.ts:349", "sdk/integrations/agents/src/config.ts:71", "sdk/integrations/agents/src/daemon-providers.ts:21", "sdk/integrations/agents/src/mcp.ts:398", "sdk/integrations/agents/src/service-providers.ts:50", "sdk/integrations/express/src/index.ts:195", "sdk/integrations/next/src/index.ts:178", "sdk/platform/dotnet/Programs.cs:217", "sdk/platform/dotnet/Verifier.cs:435", "sdk/platform/go/kernel_verifier_retired_test.go:41", "sdk/platform/go/native_program_lifecycle.go:409", "sdk/platform/go/programs.go:389", "sdk/platform/go/verify.go:175", "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/ProgramsClient.java:513", "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/verify/LocalVerifier.java:58", "sdk/platform/jvm/target/apidocs/com.sidiora.layerx.sdk/com/sidiora/layerx/sdk/verify/LocalVerifier.ProtocolReceipt.html:101", "sdk/platform/jvm/target/apidocs/com.sidiora.layerx.sdk/com/sidiora/layerx/sdk/verify/LocalVerifier.html:153", "sdk/platform/jvm/target/apidocs/com.sidiora.layerx.sdk/com/sidiora/layerx/sdk/verify/class-use/LocalVerifier.ProgramReceiptOutcome.html:101", "sdk/platform/jvm/target/apidocs/com.sidiora.layerx.sdk/com/sidiora/layerx/sdk/verify/class-use/LocalVerifier.ReceiptEffect.html:83", "sdk/platform/jvm/target/apidocs/index-all.html:14572", "sdk/platform/jvm/target/apidocs/member-search-index.js:1", "sdk/platform/swift/Sources/LayerXSDK/Programs.swift:405", "sdk/platform/swift/Sources/LayerXSDK/Verifier.swift:92", "sdk/platform/swift/Tests/LayerXSDKTests/ReceiptFixtureTests.swift:115", "sdk/x/upgrade/keeper/keeper.go:83", "services/agent/crates/layerx-mcp/src/stdio.rs:166", "services/agent/sdk/typescript/src/ai_market.ts:2648", "services/agent/sdk/typescript/src/program-wire.ts:103", "services/agent/sdk/typescript/src/programs.ts:80", "services/agent/sdk/typescript/src/verifier.ts:18", "services/agent/sdk/typescript/src/web-search.ts:82", "services/agent/sdk/typescript/test/ai-market.test.ts:1912", "services/agent/sdk/typescript/test/web-search.test.ts:165", "services/launchpad/social/internal/fanout/http.go:81", "services/launchpad/social/internal/fanout/hub.go:84", "services/launchpad/social/internal/fanout/message.go:124", "services/launchpad/social/internal/fanout/notification.go:427", "services/platform/examples/run-reference-apps.mjs:99", "services/platform/examples/test/buyer-agent.test.mjs:111", "services/platform/examples/test/merchant-config.test.mjs:35", "services/platform/hosted/gateway/src/routes.rs:1238", "services/platform/hosted/paxeer/deploy-contracts.sh:204", "services/platform/middleware/agent/test/proof_middleware_agent_ts_exports.test.mjs:303", "services/platform/middleware/conformance/test/service-scenarios.test.mjs:31", "services/platform/perps-data/internal/gateway/server_test.go:423", "services/platform/perps-data/internal/ws/hub_test.go:309", "services/platform/perps-data/internal/ws/spotuser.go:126", "services/platform/perps-data/internal/ws/spotuser_test.go:195", "tests/sdk/typescript/program-terminal-v5.test.mjs:49", "tools/platform/cli/src/install/a2a.rs:316", "tools/qualification/paxeer-x/mcp_binding_listener.py:548"]
+
+[row.r8-43.7]
+interface = "interface.8.cfg-examples-buyer-agent-environments-emulator-protocolversion"
+verdict = "retired"
+path = "services/platform/examples/buyer-agent/layerx.example.json"
+line = 11
+symbol = "protocolVersion"
+evidence = "environments.emulator.protocolVersion is absent from the registered JSON file, including both environment blocks. The config now uses network \"eip155:125\" and receiptKeysEnvironment without a per-environment protocolVersion. Repository references include absence assertions and independent protocol fields, not a relocated example config key. Remaining references count distinct tracked files in the current tree, excluding all spec/ and docs/ directories."
+remaining_refs = 60
+remaining = ["apps/perps/src/hooks/spot/useSpotUserStream.ts:13", "consensus/proto/tendermint/p2p/types.pb.go:91", "core/deps/geth/internal/jsre/completion.go:78", "core/deps/geth/internal/jsre/deps/web3.js:5536", "core/deps/geth/signer/fourbyte/4byte.json:44929", "layerxproof/codec/receipt.go:352", "modules/layerxledger/types/payload_transfer.go:86", "programs/vendor/windows-sys-0.52.0/src/Windows/Win32/System/RemoteDesktop/mod.rs:889", "programs/vendor/windows-sys-0.61.2/src/Windows/Win32/System/RemoteDesktop/mod.rs:154", "sdk/integrations/agents/src/a2a.ts:349", "sdk/integrations/agents/src/config.ts:71", "sdk/integrations/agents/src/daemon-providers.ts:21", "sdk/integrations/agents/src/mcp.ts:398", "sdk/integrations/agents/src/service-providers.ts:50", "sdk/integrations/express/src/index.ts:195", "sdk/integrations/next/src/index.ts:178", "sdk/platform/dotnet/Programs.cs:217", "sdk/platform/dotnet/Verifier.cs:435", "sdk/platform/go/kernel_verifier_retired_test.go:41", "sdk/platform/go/native_program_lifecycle.go:409", "sdk/platform/go/programs.go:389", "sdk/platform/go/verify.go:175", "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/ProgramsClient.java:513", "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/verify/LocalVerifier.java:58", "sdk/platform/jvm/target/apidocs/com.sidiora.layerx.sdk/com/sidiora/layerx/sdk/verify/LocalVerifier.ProtocolReceipt.html:101", "sdk/platform/jvm/target/apidocs/com.sidiora.layerx.sdk/com/sidiora/layerx/sdk/verify/LocalVerifier.html:153", "sdk/platform/jvm/target/apidocs/com.sidiora.layerx.sdk/com/sidiora/layerx/sdk/verify/class-use/LocalVerifier.ProgramReceiptOutcome.html:101", "sdk/platform/jvm/target/apidocs/com.sidiora.layerx.sdk/com/sidiora/layerx/sdk/verify/class-use/LocalVerifier.ReceiptEffect.html:83", "sdk/platform/jvm/target/apidocs/index-all.html:14572", "sdk/platform/jvm/target/apidocs/member-search-index.js:1", "sdk/platform/swift/Sources/LayerXSDK/Programs.swift:405", "sdk/platform/swift/Sources/LayerXSDK/Verifier.swift:92", "sdk/platform/swift/Tests/LayerXSDKTests/ReceiptFixtureTests.swift:115", "sdk/x/upgrade/keeper/keeper.go:83", "services/agent/crates/layerx-mcp/src/stdio.rs:166", "services/agent/sdk/typescript/src/ai_market.ts:2648", "services/agent/sdk/typescript/src/program-wire.ts:103", "services/agent/sdk/typescript/src/programs.ts:80", "services/agent/sdk/typescript/src/verifier.ts:18", "services/agent/sdk/typescript/src/web-search.ts:82", "services/agent/sdk/typescript/test/ai-market.test.ts:1912", "services/agent/sdk/typescript/test/web-search.test.ts:165", "services/launchpad/social/internal/fanout/http.go:81", "services/launchpad/social/internal/fanout/hub.go:84", "services/launchpad/social/internal/fanout/message.go:124", "services/launchpad/social/internal/fanout/notification.go:427", "services/platform/examples/run-reference-apps.mjs:99", "services/platform/examples/test/buyer-agent.test.mjs:111", "services/platform/examples/test/merchant-config.test.mjs:35", "services/platform/hosted/gateway/src/routes.rs:1238", "services/platform/hosted/paxeer/deploy-contracts.sh:204", "services/platform/middleware/agent/test/proof_middleware_agent_ts_exports.test.mjs:303", "services/platform/middleware/conformance/test/service-scenarios.test.mjs:31", "services/platform/perps-data/internal/gateway/server_test.go:423", "services/platform/perps-data/internal/ws/hub_test.go:309", "services/platform/perps-data/internal/ws/spotuser.go:126", "services/platform/perps-data/internal/ws/spotuser_test.go:195", "tests/sdk/typescript/program-terminal-v5.test.mjs:49", "tools/platform/cli/src/install/a2a.rs:316", "tools/qualification/paxeer-x/mcp_binding_listener.py:548"]
+
+[row.r8-43.8]
+interface = "interface.8.ts-examples-marketplace-index-platform-ref-marketplace-j41"
+verdict = "served"
+path = "services/platform/examples/marketplace/index.mjs"
+line = 27
+symbol = "platform_ref_marketplace"
+evidence = "Signature remains export function platform_ref_marketplace(); declaration moved from registered line 25 to 27 and returns the programs-shared-listing-receipt-settled-marketplace marker. No parameter change was observed."
+
+[row.r8-43.9]
+interface = "interface.8.cfg-examples-marketplace-environments-beta-network"
+verdict = "served"
+path = "services/platform/examples/marketplace/layerx.example.json"
+line = 22
+symbol = "network"
+evidence = "environments.beta.network is now \"network\": \"eip155:125\", replacing the registered \"network\": \"layerx:emulator\" signature. The current key is at line 22 within the beta configuration block."
+
+[row.r8-43.10]
+interface = "interface.8.cfg-examples-marketplace-environments-emulator-network"
+verdict = "served"
+path = "services/platform/examples/marketplace/layerx.example.json"
+line = 7
+symbol = "network"
+evidence = "environments.emulator.network is now \"network\": \"eip155:125\", replacing the registered \"network\": \"layerx:emulator\" signature. The current key is at line 7 within the emulator configuration block."
+
+[row.r8-43.11]
+interface = "interface.8.cfg-examples-marketplace-environments-beta-protocolversion"
+verdict = "retired"
+path = "services/platform/examples/marketplace/layerx.example.json"
+line = 8
+symbol = "protocolVersion"
+evidence = "environments.beta.protocolVersion is absent from the registered JSON file, including both environment blocks. The config now uses network \"eip155:125\" and receiptKeysEnvironment without a per-environment protocolVersion. Repository references include absence assertions and independent protocol fields, not a relocated example config key. Remaining references count distinct tracked files in the current tree, excluding all spec/ and docs/ directories."
+remaining_refs = 60
+remaining = ["apps/perps/src/hooks/spot/useSpotUserStream.ts:13", "consensus/proto/tendermint/p2p/types.pb.go:91", "core/deps/geth/internal/jsre/completion.go:78", "core/deps/geth/internal/jsre/deps/web3.js:5536", "core/deps/geth/signer/fourbyte/4byte.json:44929", "layerxproof/codec/receipt.go:352", "modules/layerxledger/types/payload_transfer.go:86", "programs/vendor/windows-sys-0.52.0/src/Windows/Win32/System/RemoteDesktop/mod.rs:889", "programs/vendor/windows-sys-0.61.2/src/Windows/Win32/System/RemoteDesktop/mod.rs:154", "sdk/integrations/agents/src/a2a.ts:349", "sdk/integrations/agents/src/config.ts:71", "sdk/integrations/agents/src/daemon-providers.ts:21", "sdk/integrations/agents/src/mcp.ts:398", "sdk/integrations/agents/src/service-providers.ts:50", "sdk/integrations/express/src/index.ts:195", "sdk/integrations/next/src/index.ts:178", "sdk/platform/dotnet/Programs.cs:217", "sdk/platform/dotnet/Verifier.cs:435", "sdk/platform/go/kernel_verifier_retired_test.go:41", "sdk/platform/go/native_program_lifecycle.go:409", "sdk/platform/go/programs.go:389", "sdk/platform/go/verify.go:175", "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/ProgramsClient.java:513", "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/verify/LocalVerifier.java:58", "sdk/platform/jvm/target/apidocs/com.sidiora.layerx.sdk/com/sidiora/layerx/sdk/verify/LocalVerifier.ProtocolReceipt.html:101", "sdk/platform/jvm/target/apidocs/com.sidiora.layerx.sdk/com/sidiora/layerx/sdk/verify/LocalVerifier.html:153", "sdk/platform/jvm/target/apidocs/com.sidiora.layerx.sdk/com/sidiora/layerx/sdk/verify/class-use/LocalVerifier.ProgramReceiptOutcome.html:101", "sdk/platform/jvm/target/apidocs/com.sidiora.layerx.sdk/com/sidiora/layerx/sdk/verify/class-use/LocalVerifier.ReceiptEffect.html:83", "sdk/platform/jvm/target/apidocs/index-all.html:14572", "sdk/platform/jvm/target/apidocs/member-search-index.js:1", "sdk/platform/swift/Sources/LayerXSDK/Programs.swift:405", "sdk/platform/swift/Sources/LayerXSDK/Verifier.swift:92", "sdk/platform/swift/Tests/LayerXSDKTests/ReceiptFixtureTests.swift:115", "sdk/x/upgrade/keeper/keeper.go:83", "services/agent/crates/layerx-mcp/src/stdio.rs:166", "services/agent/sdk/typescript/src/ai_market.ts:2648", "services/agent/sdk/typescript/src/program-wire.ts:103", "services/agent/sdk/typescript/src/programs.ts:80", "services/agent/sdk/typescript/src/verifier.ts:18", "services/agent/sdk/typescript/src/web-search.ts:82", "services/agent/sdk/typescript/test/ai-market.test.ts:1912", "services/agent/sdk/typescript/test/web-search.test.ts:165", "services/launchpad/social/internal/fanout/http.go:81", "services/launchpad/social/internal/fanout/hub.go:84", "services/launchpad/social/internal/fanout/message.go:124", "services/launchpad/social/internal/fanout/notification.go:427", "services/platform/examples/run-reference-apps.mjs:99", "services/platform/examples/test/buyer-agent.test.mjs:111", "services/platform/examples/test/merchant-config.test.mjs:35", "services/platform/hosted/gateway/src/routes.rs:1238", "services/platform/hosted/paxeer/deploy-contracts.sh:204", "services/platform/middleware/agent/test/proof_middleware_agent_ts_exports.test.mjs:303", "services/platform/middleware/conformance/test/service-scenarios.test.mjs:31", "services/platform/perps-data/internal/gateway/server_test.go:423", "services/platform/perps-data/internal/ws/hub_test.go:309", "services/platform/perps-data/internal/ws/spotuser.go:126", "services/platform/perps-data/internal/ws/spotuser_test.go:195", "tests/sdk/typescript/program-terminal-v5.test.mjs:49", "tools/platform/cli/src/install/a2a.rs:316", "tools/qualification/paxeer-x/mcp_binding_listener.py:548"]
+
+[row.r8-43.12]
+interface = "interface.8.cfg-examples-marketplace-environments-emulator-protocolversion"
+verdict = "retired"
+path = "services/platform/examples/marketplace/layerx.example.json"
+line = 8
+symbol = "protocolVersion"
+evidence = "environments.emulator.protocolVersion is absent from the registered JSON file, including both environment blocks. The config now uses network \"eip155:125\" and receiptKeysEnvironment without a per-environment protocolVersion. Repository references include absence assertions and independent protocol fields, not a relocated example config key. Remaining references count distinct tracked files in the current tree, excluding all spec/ and docs/ directories."
+remaining_refs = 60
+remaining = ["apps/perps/src/hooks/spot/useSpotUserStream.ts:13", "consensus/proto/tendermint/p2p/types.pb.go:91", "core/deps/geth/internal/jsre/completion.go:78", "core/deps/geth/internal/jsre/deps/web3.js:5536", "core/deps/geth/signer/fourbyte/4byte.json:44929", "layerxproof/codec/receipt.go:352", "modules/layerxledger/types/payload_transfer.go:86", "programs/vendor/windows-sys-0.52.0/src/Windows/Win32/System/RemoteDesktop/mod.rs:889", "programs/vendor/windows-sys-0.61.2/src/Windows/Win32/System/RemoteDesktop/mod.rs:154", "sdk/integrations/agents/src/a2a.ts:349", "sdk/integrations/agents/src/config.ts:71", "sdk/integrations/agents/src/daemon-providers.ts:21", "sdk/integrations/agents/src/mcp.ts:398", "sdk/integrations/agents/src/service-providers.ts:50", "sdk/integrations/express/src/index.ts:195", "sdk/integrations/next/src/index.ts:178", "sdk/platform/dotnet/Programs.cs:217", "sdk/platform/dotnet/Verifier.cs:435", "sdk/platform/go/kernel_verifier_retired_test.go:41", "sdk/platform/go/native_program_lifecycle.go:409", "sdk/platform/go/programs.go:389", "sdk/platform/go/verify.go:175", "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/ProgramsClient.java:513", "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/verify/LocalVerifier.java:58", "sdk/platform/jvm/target/apidocs/com.sidiora.layerx.sdk/com/sidiora/layerx/sdk/verify/LocalVerifier.ProtocolReceipt.html:101", "sdk/platform/jvm/target/apidocs/com.sidiora.layerx.sdk/com/sidiora/layerx/sdk/verify/LocalVerifier.html:153", "sdk/platform/jvm/target/apidocs/com.sidiora.layerx.sdk/com/sidiora/layerx/sdk/verify/class-use/LocalVerifier.ProgramReceiptOutcome.html:101", "sdk/platform/jvm/target/apidocs/com.sidiora.layerx.sdk/com/sidiora/layerx/sdk/verify/class-use/LocalVerifier.ReceiptEffect.html:83", "sdk/platform/jvm/target/apidocs/index-all.html:14572", "sdk/platform/jvm/target/apidocs/member-search-index.js:1", "sdk/platform/swift/Sources/LayerXSDK/Programs.swift:405", "sdk/platform/swift/Sources/LayerXSDK/Verifier.swift:92", "sdk/platform/swift/Tests/LayerXSDKTests/ReceiptFixtureTests.swift:115", "sdk/x/upgrade/keeper/keeper.go:83", "services/agent/crates/layerx-mcp/src/stdio.rs:166", "services/agent/sdk/typescript/src/ai_market.ts:2648", "services/agent/sdk/typescript/src/program-wire.ts:103", "services/agent/sdk/typescript/src/programs.ts:80", "services/agent/sdk/typescript/src/verifier.ts:18", "services/agent/sdk/typescript/src/web-search.ts:82", "services/agent/sdk/typescript/test/ai-market.test.ts:1912", "services/agent/sdk/typescript/test/web-search.test.ts:165", "services/launchpad/social/internal/fanout/http.go:81", "services/launchpad/social/internal/fanout/hub.go:84", "services/launchpad/social/internal/fanout/message.go:124", "services/launchpad/social/internal/fanout/notification.go:427", "services/platform/examples/run-reference-apps.mjs:99", "services/platform/examples/test/buyer-agent.test.mjs:111", "services/platform/examples/test/merchant-config.test.mjs:35", "services/platform/hosted/gateway/src/routes.rs:1238", "services/platform/hosted/paxeer/deploy-contracts.sh:204", "services/platform/middleware/agent/test/proof_middleware_agent_ts_exports.test.mjs:303", "services/platform/middleware/conformance/test/service-scenarios.test.mjs:31", "services/platform/perps-data/internal/gateway/server_test.go:423", "services/platform/perps-data/internal/ws/hub_test.go:309", "services/platform/perps-data/internal/ws/spotuser.go:126", "services/platform/perps-data/internal/ws/spotuser_test.go:195", "tests/sdk/typescript/program-terminal-v5.test.mjs:49", "tools/platform/cli/src/install/a2a.rs:316", "tools/qualification/paxeer-x/mcp_binding_listener.py:548"]
+
+[row.r8-43.13]
+interface = "interface.8.cfg-examples-marketplace-environments-beta-receiptauthorityurl"
+verdict = "retired"
+path = "services/platform/examples/marketplace/layerx.example.json"
+line = 10
+symbol = "receiptAuthorityUrl"
+evidence = "environments.beta.receiptAuthorityUrl is absent from the registered JSON file, including both environment blocks. The config now declares rpcUrl and receiptKeysEnvironment for sequencer receipts; the only remaining exact-identifier references are absence assertions in two example test files. Remaining references count distinct tracked files in the current tree, excluding all spec/ and docs/ directories."
+remaining_refs = 2
+remaining = ["services/platform/examples/test/buyer-agent.test.mjs:110", "services/platform/examples/test/merchant-config.test.mjs:34"]
+
+[row.r8-43.14]
+interface = "interface.8.cfg-examples-marketplace-environments-emulator-receiptauthorityurl"
+verdict = "retired"
+path = "services/platform/examples/marketplace/layerx.example.json"
+line = 10
+symbol = "receiptAuthorityUrl"
+evidence = "environments.emulator.receiptAuthorityUrl is absent from the registered JSON file, including both environment blocks. The config now declares rpcUrl and receiptKeysEnvironment for sequencer receipts; the only remaining exact-identifier references are absence assertions in two example test files. Remaining references count distinct tracked files in the current tree, excluding all spec/ and docs/ directories."
+remaining_refs = 2
+remaining = ["services/platform/examples/test/buyer-agent.test.mjs:110", "services/platform/examples/test/merchant-config.test.mjs:34"]
+
+[row.r8-43.15]
+interface = "interface.8.cfg-examples-merchant-checkout-environments-beta-receiptauthorityurl"
+verdict = "retired"
+path = "services/platform/examples/merchant-checkout/layerx.example.json"
+line = 8
+symbol = "receiptAuthorityUrl"
+evidence = "environments.beta.receiptAuthorityUrl is absent from the registered JSON file, including both environment blocks. The config now declares rpcUrl and receiptKeysEnvironment for sequencer receipts; the only remaining exact-identifier references are absence assertions in two example test files. Remaining references count distinct tracked files in the current tree, excluding all spec/ and docs/ directories."
+remaining_refs = 2
+remaining = ["services/platform/examples/test/buyer-agent.test.mjs:110", "services/platform/examples/test/merchant-config.test.mjs:34"]
+
+[row.r8-43.16]
+interface = "interface.8.cfg-examples-merchant-checkout-environments-emulator-receiptauthorityurl"
+verdict = "retired"
+path = "services/platform/examples/merchant-checkout/layerx.example.json"
+line = 8
+symbol = "receiptAuthorityUrl"
+evidence = "environments.emulator.receiptAuthorityUrl is absent from the registered JSON file, including both environment blocks. The config now declares rpcUrl and receiptKeysEnvironment for sequencer receipts; the only remaining exact-identifier references are absence assertions in two example test files. Remaining references count distinct tracked files in the current tree, excluding all spec/ and docs/ directories."
+remaining_refs = 2
+remaining = ["services/platform/examples/test/buyer-agent.test.mjs:110", "services/platform/examples/test/merchant-config.test.mjs:34"]
+
+[row.r8-43.17]
+interface = "interface.8.cfg-examples-merchant-checkout-environments-beta-network"
+verdict = "served"
+path = "services/platform/examples/merchant-checkout/layerx.example.json"
+line = 27
+symbol = "network"
+evidence = "environments.beta.network is now \"network\": \"eip155:125\", replacing the registered \"network\": \"layerx:emulator\" signature. The current key is at line 27 within the beta configuration block."
+
+[row.r8-43.18]
+interface = "interface.8.cfg-examples-merchant-checkout-environments-emulator-network"
+verdict = "served"
+path = "services/platform/examples/merchant-checkout/layerx.example.json"
+line = 10
+symbol = "network"
+evidence = "environments.emulator.network is now \"network\": \"eip155:125\", replacing the registered \"network\": \"layerx:emulator\" signature. The current key is at line 10 within the emulator configuration block."
+
+[row.r8-43.19]
+interface = "interface.8.cfg-examples-merchant-checkout-environments-beta-protocolversion"
+verdict = "retired"
+path = "services/platform/examples/merchant-checkout/layerx.example.json"
+line = 11
+symbol = "protocolVersion"
+evidence = "environments.beta.protocolVersion is absent from the registered JSON file, including both environment blocks. The config now uses network \"eip155:125\" and receiptKeysEnvironment without a per-environment protocolVersion. Repository references include absence assertions and independent protocol fields, not a relocated example config key. Remaining references count distinct tracked files in the current tree, excluding all spec/ and docs/ directories."
+remaining_refs = 60
+remaining = ["apps/perps/src/hooks/spot/useSpotUserStream.ts:13", "consensus/proto/tendermint/p2p/types.pb.go:91", "core/deps/geth/internal/jsre/completion.go:78", "core/deps/geth/internal/jsre/deps/web3.js:5536", "core/deps/geth/signer/fourbyte/4byte.json:44929", "layerxproof/codec/receipt.go:352", "modules/layerxledger/types/payload_transfer.go:86", "programs/vendor/windows-sys-0.52.0/src/Windows/Win32/System/RemoteDesktop/mod.rs:889", "programs/vendor/windows-sys-0.61.2/src/Windows/Win32/System/RemoteDesktop/mod.rs:154", "sdk/integrations/agents/src/a2a.ts:349", "sdk/integrations/agents/src/config.ts:71", "sdk/integrations/agents/src/daemon-providers.ts:21", "sdk/integrations/agents/src/mcp.ts:398", "sdk/integrations/agents/src/service-providers.ts:50", "sdk/integrations/express/src/index.ts:195", "sdk/integrations/next/src/index.ts:178", "sdk/platform/dotnet/Programs.cs:217", "sdk/platform/dotnet/Verifier.cs:435", "sdk/platform/go/kernel_verifier_retired_test.go:41", "sdk/platform/go/native_program_lifecycle.go:409", "sdk/platform/go/programs.go:389", "sdk/platform/go/verify.go:175", "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/ProgramsClient.java:513", "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/verify/LocalVerifier.java:58", "sdk/platform/jvm/target/apidocs/com.sidiora.layerx.sdk/com/sidiora/layerx/sdk/verify/LocalVerifier.ProtocolReceipt.html:101", "sdk/platform/jvm/target/apidocs/com.sidiora.layerx.sdk/com/sidiora/layerx/sdk/verify/LocalVerifier.html:153", "sdk/platform/jvm/target/apidocs/com.sidiora.layerx.sdk/com/sidiora/layerx/sdk/verify/class-use/LocalVerifier.ProgramReceiptOutcome.html:101", "sdk/platform/jvm/target/apidocs/com.sidiora.layerx.sdk/com/sidiora/layerx/sdk/verify/class-use/LocalVerifier.ReceiptEffect.html:83", "sdk/platform/jvm/target/apidocs/index-all.html:14572", "sdk/platform/jvm/target/apidocs/member-search-index.js:1", "sdk/platform/swift/Sources/LayerXSDK/Programs.swift:405", "sdk/platform/swift/Sources/LayerXSDK/Verifier.swift:92", "sdk/platform/swift/Tests/LayerXSDKTests/ReceiptFixtureTests.swift:115", "sdk/x/upgrade/keeper/keeper.go:83", "services/agent/crates/layerx-mcp/src/stdio.rs:166", "services/agent/sdk/typescript/src/ai_market.ts:2648", "services/agent/sdk/typescript/src/program-wire.ts:103", "services/agent/sdk/typescript/src/programs.ts:80", "services/agent/sdk/typescript/src/verifier.ts:18", "services/agent/sdk/typescript/src/web-search.ts:82", "services/agent/sdk/typescript/test/ai-market.test.ts:1912", "services/agent/sdk/typescript/test/web-search.test.ts:165", "services/launchpad/social/internal/fanout/http.go:81", "services/launchpad/social/internal/fanout/hub.go:84", "services/launchpad/social/internal/fanout/message.go:124", "services/launchpad/social/internal/fanout/notification.go:427", "services/platform/examples/run-reference-apps.mjs:99", "services/platform/examples/test/buyer-agent.test.mjs:111", "services/platform/examples/test/merchant-config.test.mjs:35", "services/platform/hosted/gateway/src/routes.rs:1238", "services/platform/hosted/paxeer/deploy-contracts.sh:204", "services/platform/middleware/agent/test/proof_middleware_agent_ts_exports.test.mjs:303", "services/platform/middleware/conformance/test/service-scenarios.test.mjs:31", "services/platform/perps-data/internal/gateway/server_test.go:423", "services/platform/perps-data/internal/ws/hub_test.go:309", "services/platform/perps-data/internal/ws/spotuser.go:126", "services/platform/perps-data/internal/ws/spotuser_test.go:195", "tests/sdk/typescript/program-terminal-v5.test.mjs:49", "tools/platform/cli/src/install/a2a.rs:316", "tools/qualification/paxeer-x/mcp_binding_listener.py:548"]
+
+[row.r8-43.20]
+interface = "interface.8.cfg-examples-merchant-checkout-environments-emulator-protocolversion"
+verdict = "retired"
+path = "services/platform/examples/merchant-checkout/layerx.example.json"
+line = 11
+symbol = "protocolVersion"
+evidence = "environments.emulator.protocolVersion is absent from the registered JSON file, including both environment blocks. The config now uses network \"eip155:125\" and receiptKeysEnvironment without a per-environment protocolVersion. Repository references include absence assertions and independent protocol fields, not a relocated example config key. Remaining references count distinct tracked files in the current tree, excluding all spec/ and docs/ directories."
+remaining_refs = 60
+remaining = ["apps/perps/src/hooks/spot/useSpotUserStream.ts:13", "consensus/proto/tendermint/p2p/types.pb.go:91", "core/deps/geth/internal/jsre/completion.go:78", "core/deps/geth/internal/jsre/deps/web3.js:5536", "core/deps/geth/signer/fourbyte/4byte.json:44929", "layerxproof/codec/receipt.go:352", "modules/layerxledger/types/payload_transfer.go:86", "programs/vendor/windows-sys-0.52.0/src/Windows/Win32/System/RemoteDesktop/mod.rs:889", "programs/vendor/windows-sys-0.61.2/src/Windows/Win32/System/RemoteDesktop/mod.rs:154", "sdk/integrations/agents/src/a2a.ts:349", "sdk/integrations/agents/src/config.ts:71", "sdk/integrations/agents/src/daemon-providers.ts:21", "sdk/integrations/agents/src/mcp.ts:398", "sdk/integrations/agents/src/service-providers.ts:50", "sdk/integrations/express/src/index.ts:195", "sdk/integrations/next/src/index.ts:178", "sdk/platform/dotnet/Programs.cs:217", "sdk/platform/dotnet/Verifier.cs:435", "sdk/platform/go/kernel_verifier_retired_test.go:41", "sdk/platform/go/native_program_lifecycle.go:409", "sdk/platform/go/programs.go:389", "sdk/platform/go/verify.go:175", "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/ProgramsClient.java:513", "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/verify/LocalVerifier.java:58", "sdk/platform/jvm/target/apidocs/com.sidiora.layerx.sdk/com/sidiora/layerx/sdk/verify/LocalVerifier.ProtocolReceipt.html:101", "sdk/platform/jvm/target/apidocs/com.sidiora.layerx.sdk/com/sidiora/layerx/sdk/verify/LocalVerifier.html:153", "sdk/platform/jvm/target/apidocs/com.sidiora.layerx.sdk/com/sidiora/layerx/sdk/verify/class-use/LocalVerifier.ProgramReceiptOutcome.html:101", "sdk/platform/jvm/target/apidocs/com.sidiora.layerx.sdk/com/sidiora/layerx/sdk/verify/class-use/LocalVerifier.ReceiptEffect.html:83", "sdk/platform/jvm/target/apidocs/index-all.html:14572", "sdk/platform/jvm/target/apidocs/member-search-index.js:1", "sdk/platform/swift/Sources/LayerXSDK/Programs.swift:405", "sdk/platform/swift/Sources/LayerXSDK/Verifier.swift:92", "sdk/platform/swift/Tests/LayerXSDKTests/ReceiptFixtureTests.swift:115", "sdk/x/upgrade/keeper/keeper.go:83", "services/agent/crates/layerx-mcp/src/stdio.rs:166", "services/agent/sdk/typescript/src/ai_market.ts:2648", "services/agent/sdk/typescript/src/program-wire.ts:103", "services/agent/sdk/typescript/src/programs.ts:80", "services/agent/sdk/typescript/src/verifier.ts:18", "services/agent/sdk/typescript/src/web-search.ts:82", "services/agent/sdk/typescript/test/ai-market.test.ts:1912", "services/agent/sdk/typescript/test/web-search.test.ts:165", "services/launchpad/social/internal/fanout/http.go:81", "services/launchpad/social/internal/fanout/hub.go:84", "services/launchpad/social/internal/fanout/message.go:124", "services/launchpad/social/internal/fanout/notification.go:427", "services/platform/examples/run-reference-apps.mjs:99", "services/platform/examples/test/buyer-agent.test.mjs:111", "services/platform/examples/test/merchant-config.test.mjs:35", "services/platform/hosted/gateway/src/routes.rs:1238", "services/platform/hosted/paxeer/deploy-contracts.sh:204", "services/platform/middleware/agent/test/proof_middleware_agent_ts_exports.test.mjs:303", "services/platform/middleware/conformance/test/service-scenarios.test.mjs:31", "services/platform/perps-data/internal/gateway/server_test.go:423", "services/platform/perps-data/internal/ws/hub_test.go:309", "services/platform/perps-data/internal/ws/spotuser.go:126", "services/platform/perps-data/internal/ws/spotuser_test.go:195", "tests/sdk/typescript/program-terminal-v5.test.mjs:49", "tools/platform/cli/src/install/a2a.rs:316", "tools/qualification/paxeer-x/mcp_binding_listener.py:548"]
+
+[row.r8-43.21]
+interface = "interface.8.cfg-examples-merchant-shop-environments-beta-receiptauthorityurl"
+verdict = "retired"
+path = "services/platform/examples/merchant-shop/layerx.example.json"
+line = 8
+symbol = "receiptAuthorityUrl"
+evidence = "environments.beta.receiptAuthorityUrl is absent from the registered JSON file, including both environment blocks. The config now declares rpcUrl and receiptKeysEnvironment for sequencer receipts; the only remaining exact-identifier references are absence assertions in two example test files. Remaining references count distinct tracked files in the current tree, excluding all spec/ and docs/ directories."
+remaining_refs = 2
+remaining = ["services/platform/examples/test/buyer-agent.test.mjs:110", "services/platform/examples/test/merchant-config.test.mjs:34"]
+
+[row.r8-43.22]
+interface = "interface.8.cfg-examples-merchant-shop-environments-emulator-receiptauthorityurl"
+verdict = "retired"
+path = "services/platform/examples/merchant-shop/layerx.example.json"
+line = 8
+symbol = "receiptAuthorityUrl"
+evidence = "environments.emulator.receiptAuthorityUrl is absent from the registered JSON file, including both environment blocks. The config now declares rpcUrl and receiptKeysEnvironment for sequencer receipts; the only remaining exact-identifier references are absence assertions in two example test files. Remaining references count distinct tracked files in the current tree, excluding all spec/ and docs/ directories."
+remaining_refs = 2
+remaining = ["services/platform/examples/test/buyer-agent.test.mjs:110", "services/platform/examples/test/merchant-config.test.mjs:34"]
+
+[row.r8-43.23]
+interface = "interface.8.cfg-examples-merchant-shop-environments-beta-network"
+verdict = "served"
+path = "services/platform/examples/merchant-shop/layerx.example.json"
+line = 27
+symbol = "network"
+evidence = "environments.beta.network is now \"network\": \"eip155:125\", replacing the registered \"network\": \"layerx:emulator\" signature. The current key is at line 27 within the beta configuration block."
+
+[row.r8-43.24]
+interface = "interface.8.cfg-examples-merchant-shop-environments-emulator-network"
+verdict = "served"
+path = "services/platform/examples/merchant-shop/layerx.example.json"
+line = 10
+symbol = "network"
+evidence = "environments.emulator.network is now \"network\": \"eip155:125\", replacing the registered \"network\": \"layerx:emulator\" signature. The current key is at line 10 within the emulator configuration block."
+
+[row.r8-43.25]
+interface = "interface.8.cfg-examples-merchant-shop-environments-beta-protocolversion"
+verdict = "retired"
+path = "services/platform/examples/merchant-shop/layerx.example.json"
+line = 11
+symbol = "protocolVersion"
+evidence = "environments.beta.protocolVersion is absent from the registered JSON file, including both environment blocks. The config now uses network \"eip155:125\" and receiptKeysEnvironment without a per-environment protocolVersion. Repository references include absence assertions and independent protocol fields, not a relocated example config key. Remaining references count distinct tracked files in the current tree, excluding all spec/ and docs/ directories."
+remaining_refs = 60
+remaining = ["apps/perps/src/hooks/spot/useSpotUserStream.ts:13", "consensus/proto/tendermint/p2p/types.pb.go:91", "core/deps/geth/internal/jsre/completion.go:78", "core/deps/geth/internal/jsre/deps/web3.js:5536", "core/deps/geth/signer/fourbyte/4byte.json:44929", "layerxproof/codec/receipt.go:352", "modules/layerxledger/types/payload_transfer.go:86", "programs/vendor/windows-sys-0.52.0/src/Windows/Win32/System/RemoteDesktop/mod.rs:889", "programs/vendor/windows-sys-0.61.2/src/Windows/Win32/System/RemoteDesktop/mod.rs:154", "sdk/integrations/agents/src/a2a.ts:349", "sdk/integrations/agents/src/config.ts:71", "sdk/integrations/agents/src/daemon-providers.ts:21", "sdk/integrations/agents/src/mcp.ts:398", "sdk/integrations/agents/src/service-providers.ts:50", "sdk/integrations/express/src/index.ts:195", "sdk/integrations/next/src/index.ts:178", "sdk/platform/dotnet/Programs.cs:217", "sdk/platform/dotnet/Verifier.cs:435", "sdk/platform/go/kernel_verifier_retired_test.go:41", "sdk/platform/go/native_program_lifecycle.go:409", "sdk/platform/go/programs.go:389", "sdk/platform/go/verify.go:175", "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/ProgramsClient.java:513", "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/verify/LocalVerifier.java:58", "sdk/platform/jvm/target/apidocs/com.sidiora.layerx.sdk/com/sidiora/layerx/sdk/verify/LocalVerifier.ProtocolReceipt.html:101", "sdk/platform/jvm/target/apidocs/com.sidiora.layerx.sdk/com/sidiora/layerx/sdk/verify/LocalVerifier.html:153", "sdk/platform/jvm/target/apidocs/com.sidiora.layerx.sdk/com/sidiora/layerx/sdk/verify/class-use/LocalVerifier.ProgramReceiptOutcome.html:101", "sdk/platform/jvm/target/apidocs/com.sidiora.layerx.sdk/com/sidiora/layerx/sdk/verify/class-use/LocalVerifier.ReceiptEffect.html:83", "sdk/platform/jvm/target/apidocs/index-all.html:14572", "sdk/platform/jvm/target/apidocs/member-search-index.js:1", "sdk/platform/swift/Sources/LayerXSDK/Programs.swift:405", "sdk/platform/swift/Sources/LayerXSDK/Verifier.swift:92", "sdk/platform/swift/Tests/LayerXSDKTests/ReceiptFixtureTests.swift:115", "sdk/x/upgrade/keeper/keeper.go:83", "services/agent/crates/layerx-mcp/src/stdio.rs:166", "services/agent/sdk/typescript/src/ai_market.ts:2648", "services/agent/sdk/typescript/src/program-wire.ts:103", "services/agent/sdk/typescript/src/programs.ts:80", "services/agent/sdk/typescript/src/verifier.ts:18", "services/agent/sdk/typescript/src/web-search.ts:82", "services/agent/sdk/typescript/test/ai-market.test.ts:1912", "services/agent/sdk/typescript/test/web-search.test.ts:165", "services/launchpad/social/internal/fanout/http.go:81", "services/launchpad/social/internal/fanout/hub.go:84", "services/launchpad/social/internal/fanout/message.go:124", "services/launchpad/social/internal/fanout/notification.go:427", "services/platform/examples/run-reference-apps.mjs:99", "services/platform/examples/test/buyer-agent.test.mjs:111", "services/platform/examples/test/merchant-config.test.mjs:35", "services/platform/hosted/gateway/src/routes.rs:1238", "services/platform/hosted/paxeer/deploy-contracts.sh:204", "services/platform/middleware/agent/test/proof_middleware_agent_ts_exports.test.mjs:303", "services/platform/middleware/conformance/test/service-scenarios.test.mjs:31", "services/platform/perps-data/internal/gateway/server_test.go:423", "services/platform/perps-data/internal/ws/hub_test.go:309", "services/platform/perps-data/internal/ws/spotuser.go:126", "services/platform/perps-data/internal/ws/spotuser_test.go:195", "tests/sdk/typescript/program-terminal-v5.test.mjs:49", "tools/platform/cli/src/install/a2a.rs:316", "tools/qualification/paxeer-x/mcp_binding_listener.py:548"]
+
+[row.r8-43.26]
+interface = "interface.8.cfg-examples-merchant-shop-environments-emulator-protocolversion"
+verdict = "retired"
+path = "services/platform/examples/merchant-shop/layerx.example.json"
+line = 11
+symbol = "protocolVersion"
+evidence = "environments.emulator.protocolVersion is absent from the registered JSON file, including both environment blocks. The config now uses network \"eip155:125\" and receiptKeysEnvironment without a per-environment protocolVersion. Repository references include absence assertions and independent protocol fields, not a relocated example config key. Remaining references count distinct tracked files in the current tree, excluding all spec/ and docs/ directories."
+remaining_refs = 60
+remaining = ["apps/perps/src/hooks/spot/useSpotUserStream.ts:13", "consensus/proto/tendermint/p2p/types.pb.go:91", "core/deps/geth/internal/jsre/completion.go:78", "core/deps/geth/internal/jsre/deps/web3.js:5536", "core/deps/geth/signer/fourbyte/4byte.json:44929", "layerxproof/codec/receipt.go:352", "modules/layerxledger/types/payload_transfer.go:86", "programs/vendor/windows-sys-0.52.0/src/Windows/Win32/System/RemoteDesktop/mod.rs:889", "programs/vendor/windows-sys-0.61.2/src/Windows/Win32/System/RemoteDesktop/mod.rs:154", "sdk/integrations/agents/src/a2a.ts:349", "sdk/integrations/agents/src/config.ts:71", "sdk/integrations/agents/src/daemon-providers.ts:21", "sdk/integrations/agents/src/mcp.ts:398", "sdk/integrations/agents/src/service-providers.ts:50", "sdk/integrations/express/src/index.ts:195", "sdk/integrations/next/src/index.ts:178", "sdk/platform/dotnet/Programs.cs:217", "sdk/platform/dotnet/Verifier.cs:435", "sdk/platform/go/kernel_verifier_retired_test.go:41", "sdk/platform/go/native_program_lifecycle.go:409", "sdk/platform/go/programs.go:389", "sdk/platform/go/verify.go:175", "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/ProgramsClient.java:513", "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/verify/LocalVerifier.java:58", "sdk/platform/jvm/target/apidocs/com.sidiora.layerx.sdk/com/sidiora/layerx/sdk/verify/LocalVerifier.ProtocolReceipt.html:101", "sdk/platform/jvm/target/apidocs/com.sidiora.layerx.sdk/com/sidiora/layerx/sdk/verify/LocalVerifier.html:153", "sdk/platform/jvm/target/apidocs/com.sidiora.layerx.sdk/com/sidiora/layerx/sdk/verify/class-use/LocalVerifier.ProgramReceiptOutcome.html:101", "sdk/platform/jvm/target/apidocs/com.sidiora.layerx.sdk/com/sidiora/layerx/sdk/verify/class-use/LocalVerifier.ReceiptEffect.html:83", "sdk/platform/jvm/target/apidocs/index-all.html:14572", "sdk/platform/jvm/target/apidocs/member-search-index.js:1", "sdk/platform/swift/Sources/LayerXSDK/Programs.swift:405", "sdk/platform/swift/Sources/LayerXSDK/Verifier.swift:92", "sdk/platform/swift/Tests/LayerXSDKTests/ReceiptFixtureTests.swift:115", "sdk/x/upgrade/keeper/keeper.go:83", "services/agent/crates/layerx-mcp/src/stdio.rs:166", "services/agent/sdk/typescript/src/ai_market.ts:2648", "services/agent/sdk/typescript/src/program-wire.ts:103", "services/agent/sdk/typescript/src/programs.ts:80", "services/agent/sdk/typescript/src/verifier.ts:18", "services/agent/sdk/typescript/src/web-search.ts:82", "services/agent/sdk/typescript/test/ai-market.test.ts:1912", "services/agent/sdk/typescript/test/web-search.test.ts:165", "services/launchpad/social/internal/fanout/http.go:81", "services/launchpad/social/internal/fanout/hub.go:84", "services/launchpad/social/internal/fanout/message.go:124", "services/launchpad/social/internal/fanout/notification.go:427", "services/platform/examples/run-reference-apps.mjs:99", "services/platform/examples/test/buyer-agent.test.mjs:111", "services/platform/examples/test/merchant-config.test.mjs:35", "services/platform/hosted/gateway/src/routes.rs:1238", "services/platform/hosted/paxeer/deploy-contracts.sh:204", "services/platform/middleware/agent/test/proof_middleware_agent_ts_exports.test.mjs:303", "services/platform/middleware/conformance/test/service-scenarios.test.mjs:31", "services/platform/perps-data/internal/gateway/server_test.go:423", "services/platform/perps-data/internal/ws/hub_test.go:309", "services/platform/perps-data/internal/ws/spotuser.go:126", "services/platform/perps-data/internal/ws/spotuser_test.go:195", "tests/sdk/typescript/program-terminal-v5.test.mjs:49", "tools/platform/cli/src/install/a2a.rs:316", "tools/qualification/paxeer-x/mcp_binding_listener.py:548"]
+
+[row.r8-43.27]
+interface = "interface.8.http-examples-paid-api-get-paid"
+verdict = "served"
+path = "services/platform/examples/paid-api/index.mjs"
+line = 116
+symbol = "/paid"
+evidence = "The GET /paid predicate remains request.method !== \"GET\" || request.url !== \"/paid\", moved from registered line 159 to 116 inside exported createPaidApiServer(middleware, resourceBody). The handler calls middleware.handle before writing the response."
+
+[row.r8-43.28]
+interface = "interface.8.cfg-examples-paid-api-environments-beta-receiptauthorityurl"
+verdict = "retired"
+path = "services/platform/examples/paid-api/layerx.example.json"
+line = 6
+symbol = "receiptAuthorityUrl"
+evidence = "environments.beta.receiptAuthorityUrl is absent from the registered JSON file, including both environment blocks. The config now declares rpcUrl and receiptKeysEnvironment for sequencer receipts; the only remaining exact-identifier references are absence assertions in two example test files. Remaining references count distinct tracked files in the current tree, excluding all spec/ and docs/ directories."
+remaining_refs = 2
+remaining = ["services/platform/examples/test/buyer-agent.test.mjs:110", "services/platform/examples/test/merchant-config.test.mjs:34"]
+
+[row.r8-43.29]
+interface = "interface.8.cfg-examples-paid-api-environments-emulator-receiptauthorityurl"
+verdict = "retired"
+path = "services/platform/examples/paid-api/layerx.example.json"
+line = 6
+symbol = "receiptAuthorityUrl"
+evidence = "environments.emulator.receiptAuthorityUrl is absent from the registered JSON file, including both environment blocks. The config now declares rpcUrl and receiptKeysEnvironment for sequencer receipts; the only remaining exact-identifier references are absence assertions in two example test files. Remaining references count distinct tracked files in the current tree, excluding all spec/ and docs/ directories."
+remaining_refs = 2
+remaining = ["services/platform/examples/test/buyer-agent.test.mjs:110", "services/platform/examples/test/merchant-config.test.mjs:34"]
+
+[row.r8-43.30]
+interface = "interface.8.cfg-examples-paid-api-environments-beta-network"
+verdict = "served"
+path = "services/platform/examples/paid-api/layerx.example.json"
+line = 25
+symbol = "network"
+evidence = "environments.beta.network is now \"network\": \"eip155:125\", replacing the registered \"network\": \"layerx:emulator\" signature. The current key is at line 25 within the beta configuration block."
+
+[row.r8-43.31]
+interface = "interface.8.cfg-examples-paid-api-environments-emulator-network"
+verdict = "served"
+path = "services/platform/examples/paid-api/layerx.example.json"
+line = 10
+symbol = "network"
+evidence = "environments.emulator.network is now \"network\": \"eip155:125\", replacing the registered \"network\": \"layerx:emulator\" signature. The current key is at line 10 within the emulator configuration block."
+
+[row.r8-43.32]
+interface = "interface.8.cfg-examples-paid-api-environments-beta-protocolversion"
+verdict = "retired"
+path = "services/platform/examples/paid-api/layerx.example.json"
+line = 10
+symbol = "protocolVersion"
+evidence = "environments.beta.protocolVersion is absent from the registered JSON file, including both environment blocks. The config now uses network \"eip155:125\" and receiptKeysEnvironment without a per-environment protocolVersion. Repository references include absence assertions and independent protocol fields, not a relocated example config key. Remaining references count distinct tracked files in the current tree, excluding all spec/ and docs/ directories."
+remaining_refs = 60
+remaining = ["apps/perps/src/hooks/spot/useSpotUserStream.ts:13", "consensus/proto/tendermint/p2p/types.pb.go:91", "core/deps/geth/internal/jsre/completion.go:78", "core/deps/geth/internal/jsre/deps/web3.js:5536", "core/deps/geth/signer/fourbyte/4byte.json:44929", "layerxproof/codec/receipt.go:352", "modules/layerxledger/types/payload_transfer.go:86", "programs/vendor/windows-sys-0.52.0/src/Windows/Win32/System/RemoteDesktop/mod.rs:889", "programs/vendor/windows-sys-0.61.2/src/Windows/Win32/System/RemoteDesktop/mod.rs:154", "sdk/integrations/agents/src/a2a.ts:349", "sdk/integrations/agents/src/config.ts:71", "sdk/integrations/agents/src/daemon-providers.ts:21", "sdk/integrations/agents/src/mcp.ts:398", "sdk/integrations/agents/src/service-providers.ts:50", "sdk/integrations/express/src/index.ts:195", "sdk/integrations/next/src/index.ts:178", "sdk/platform/dotnet/Programs.cs:217", "sdk/platform/dotnet/Verifier.cs:435", "sdk/platform/go/kernel_verifier_retired_test.go:41", "sdk/platform/go/native_program_lifecycle.go:409", "sdk/platform/go/programs.go:389", "sdk/platform/go/verify.go:175", "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/ProgramsClient.java:513", "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/verify/LocalVerifier.java:58", "sdk/platform/jvm/target/apidocs/com.sidiora.layerx.sdk/com/sidiora/layerx/sdk/verify/LocalVerifier.ProtocolReceipt.html:101", "sdk/platform/jvm/target/apidocs/com.sidiora.layerx.sdk/com/sidiora/layerx/sdk/verify/LocalVerifier.html:153", "sdk/platform/jvm/target/apidocs/com.sidiora.layerx.sdk/com/sidiora/layerx/sdk/verify/class-use/LocalVerifier.ProgramReceiptOutcome.html:101", "sdk/platform/jvm/target/apidocs/com.sidiora.layerx.sdk/com/sidiora/layerx/sdk/verify/class-use/LocalVerifier.ReceiptEffect.html:83", "sdk/platform/jvm/target/apidocs/index-all.html:14572", "sdk/platform/jvm/target/apidocs/member-search-index.js:1", "sdk/platform/swift/Sources/LayerXSDK/Programs.swift:405", "sdk/platform/swift/Sources/LayerXSDK/Verifier.swift:92", "sdk/platform/swift/Tests/LayerXSDKTests/ReceiptFixtureTests.swift:115", "sdk/x/upgrade/keeper/keeper.go:83", "services/agent/crates/layerx-mcp/src/stdio.rs:166", "services/agent/sdk/typescript/src/ai_market.ts:2648", "services/agent/sdk/typescript/src/program-wire.ts:103", "services/agent/sdk/typescript/src/programs.ts:80", "services/agent/sdk/typescript/src/verifier.ts:18", "services/agent/sdk/typescript/src/web-search.ts:82", "services/agent/sdk/typescript/test/ai-market.test.ts:1912", "services/agent/sdk/typescript/test/web-search.test.ts:165", "services/launchpad/social/internal/fanout/http.go:81", "services/launchpad/social/internal/fanout/hub.go:84", "services/launchpad/social/internal/fanout/message.go:124", "services/launchpad/social/internal/fanout/notification.go:427", "services/platform/examples/run-reference-apps.mjs:99", "services/platform/examples/test/buyer-agent.test.mjs:111", "services/platform/examples/test/merchant-config.test.mjs:35", "services/platform/hosted/gateway/src/routes.rs:1238", "services/platform/hosted/paxeer/deploy-contracts.sh:204", "services/platform/middleware/agent/test/proof_middleware_agent_ts_exports.test.mjs:303", "services/platform/middleware/conformance/test/service-scenarios.test.mjs:31", "services/platform/perps-data/internal/gateway/server_test.go:423", "services/platform/perps-data/internal/ws/hub_test.go:309", "services/platform/perps-data/internal/ws/spotuser.go:126", "services/platform/perps-data/internal/ws/spotuser_test.go:195", "tests/sdk/typescript/program-terminal-v5.test.mjs:49", "tools/platform/cli/src/install/a2a.rs:316", "tools/qualification/paxeer-x/mcp_binding_listener.py:548"]
+
+[row.r8-43.33]
+interface = "interface.8.cfg-examples-paid-api-environments-emulator-protocolversion"
+verdict = "retired"
+path = "services/platform/examples/paid-api/layerx.example.json"
+line = 10
+symbol = "protocolVersion"
+evidence = "environments.emulator.protocolVersion is absent from the registered JSON file, including both environment blocks. The config now uses network \"eip155:125\" and receiptKeysEnvironment without a per-environment protocolVersion. Repository references include absence assertions and independent protocol fields, not a relocated example config key. Remaining references count distinct tracked files in the current tree, excluding all spec/ and docs/ directories."
+remaining_refs = 60
+remaining = ["apps/perps/src/hooks/spot/useSpotUserStream.ts:13", "consensus/proto/tendermint/p2p/types.pb.go:91", "core/deps/geth/internal/jsre/completion.go:78", "core/deps/geth/internal/jsre/deps/web3.js:5536", "core/deps/geth/signer/fourbyte/4byte.json:44929", "layerxproof/codec/receipt.go:352", "modules/layerxledger/types/payload_transfer.go:86", "programs/vendor/windows-sys-0.52.0/src/Windows/Win32/System/RemoteDesktop/mod.rs:889", "programs/vendor/windows-sys-0.61.2/src/Windows/Win32/System/RemoteDesktop/mod.rs:154", "sdk/integrations/agents/src/a2a.ts:349", "sdk/integrations/agents/src/config.ts:71", "sdk/integrations/agents/src/daemon-providers.ts:21", "sdk/integrations/agents/src/mcp.ts:398", "sdk/integrations/agents/src/service-providers.ts:50", "sdk/integrations/express/src/index.ts:195", "sdk/integrations/next/src/index.ts:178", "sdk/platform/dotnet/Programs.cs:217", "sdk/platform/dotnet/Verifier.cs:435", "sdk/platform/go/kernel_verifier_retired_test.go:41", "sdk/platform/go/native_program_lifecycle.go:409", "sdk/platform/go/programs.go:389", "sdk/platform/go/verify.go:175", "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/ProgramsClient.java:513", "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/verify/LocalVerifier.java:58", "sdk/platform/jvm/target/apidocs/com.sidiora.layerx.sdk/com/sidiora/layerx/sdk/verify/LocalVerifier.ProtocolReceipt.html:101", "sdk/platform/jvm/target/apidocs/com.sidiora.layerx.sdk/com/sidiora/layerx/sdk/verify/LocalVerifier.html:153", "sdk/platform/jvm/target/apidocs/com.sidiora.layerx.sdk/com/sidiora/layerx/sdk/verify/class-use/LocalVerifier.ProgramReceiptOutcome.html:101", "sdk/platform/jvm/target/apidocs/com.sidiora.layerx.sdk/com/sidiora/layerx/sdk/verify/class-use/LocalVerifier.ReceiptEffect.html:83", "sdk/platform/jvm/target/apidocs/index-all.html:14572", "sdk/platform/jvm/target/apidocs/member-search-index.js:1", "sdk/platform/swift/Sources/LayerXSDK/Programs.swift:405", "sdk/platform/swift/Sources/LayerXSDK/Verifier.swift:92", "sdk/platform/swift/Tests/LayerXSDKTests/ReceiptFixtureTests.swift:115", "sdk/x/upgrade/keeper/keeper.go:83", "services/agent/crates/layerx-mcp/src/stdio.rs:166", "services/agent/sdk/typescript/src/ai_market.ts:2648", "services/agent/sdk/typescript/src/program-wire.ts:103", "services/agent/sdk/typescript/src/programs.ts:80", "services/agent/sdk/typescript/src/verifier.ts:18", "services/agent/sdk/typescript/src/web-search.ts:82", "services/agent/sdk/typescript/test/ai-market.test.ts:1912", "services/agent/sdk/typescript/test/web-search.test.ts:165", "services/launchpad/social/internal/fanout/http.go:81", "services/launchpad/social/internal/fanout/hub.go:84", "services/launchpad/social/internal/fanout/message.go:124", "services/launchpad/social/internal/fanout/notification.go:427", "services/platform/examples/run-reference-apps.mjs:99", "services/platform/examples/test/buyer-agent.test.mjs:111", "services/platform/examples/test/merchant-config.test.mjs:35", "services/platform/hosted/gateway/src/routes.rs:1238", "services/platform/hosted/paxeer/deploy-contracts.sh:204", "services/platform/middleware/agent/test/proof_middleware_agent_ts_exports.test.mjs:303", "services/platform/middleware/conformance/test/service-scenarios.test.mjs:31", "services/platform/perps-data/internal/gateway/server_test.go:423", "services/platform/perps-data/internal/ws/hub_test.go:309", "services/platform/perps-data/internal/ws/spotuser.go:126", "services/platform/perps-data/internal/ws/spotuser_test.go:195", "tests/sdk/typescript/program-terminal-v5.test.mjs:49", "tools/platform/cli/src/install/a2a.rs:316", "tools/qualification/paxeer-x/mcp_binding_listener.py:548"]
+
+[row.r8-43.34]
+interface = "interface.8.env-examples-paxeer-x-reference-apps-environment"
+verdict = "served"
+path = "services/platform/examples/qualify-reference-apps.mjs"
+line = 11
+symbol = "PAXEER_X_REFERENCE_APPS_ENVIRONMENT"
+evidence = "Declaration remains const environment = process.env.PAXEER_X_REFERENCE_APPS_ENVIRONMENT ?? \"emulator\"; it moved from registered line 9 to 11 inside main(). The selector still admits emulator and beta; its default and spelling are unchanged."
+
+[row.r8-43.35]
+interface = "interface.8.cli-examples-run-reference-apps-mjs-check"
+verdict = "served"
+path = "services/platform/examples/run-reference-apps.mjs"
+line = 41
+symbol = "--check"
+evidence = "The command predicate remains arguments_.length === 1 && arguments_[0] === \"--check\" at line 41, calling checkManifest(). No command spelling or argument change was observed; the alternative --scenario accepts emulator or beta."
+
+[row.r8-43.36]
+interface = "interface.8.ts-examples-support-merchant-app-runmerchantapplication-j41"
+verdict = "served"
+path = "services/platform/examples/support/merchant-app.mjs"
+line = 480
+symbol = "runMerchantApplication"
+evidence = "Signature remains export async function runMerchantApplication(moduleUrl, application); declaration moved from registered line 338 to 480. It now delegates server creation to createMerchantApplicationServer(config), validates the port and listens on loopback."
+
+[row.r8-43.37]
+interface = "interface.8.http-examples-support-get-orders"
+verdict = "served"
+path = "services/platform/examples/support/merchant-app.mjs"
+line = 424
+symbol = "/orders/"
+evidence = "The route predicate remains request.method === \"GET\" && request.url?.startsWith(\"/orders/\"); it moved from registered line 382 to 424 inside createMerchantApplicationServer(config). It reads the persisted order and returns JSON with status 404 or 200."
+
+[row.r8-43.38]
+interface = "interface.8.http-examples-support-post-webhooks-settlement"
+verdict = "served"
+path = "services/platform/examples/support/merchant-app.mjs"
+line = 430
+symbol = "/webhooks/settlement"
+evidence = "The route predicate remains request.method === \"POST\" && request.url === \"/webhooks/settlement\"; it moved from registered line 388 to 430 inside createMerchantApplicationServer(config). It consumes the raw body with verified webhook headers and returns processing or completion state."
+
+[row.r8-43.39]
+interface = "interface.8.http-examples-support-post-checkout"
+verdict = "served"
+path = "services/platform/examples/support/merchant-app.mjs"
+line = 442
+symbol = "/checkout"
+evidence = "The route predicate remains request.method !== \"POST\" || request.url !== \"/checkout\"; it moved from registered line 400 to 442 inside createMerchantApplicationServer(config). Nonmatching requests receive 404 before the checkout body is parsed."
+
+[row.r8-43.40]
+interface = "interface.8.ts-examples-support-runtime-loadapplicationconfig-j41"
+verdict = "served"
+path = "services/platform/examples/support/runtime.mjs"
+line = 29
+symbol = "loadApplicationConfig"
+evidence = "Signature remains export async function loadApplicationConfig(moduleUrl, application) at line 29. Its configuration path now honors LAYERX_EXAMPLE_CONFIG with layerx.example.json as the default; it validates application identity and freezes the selected environment configuration."
+
+[row.r8-43.41]
+interface = "interface.8.ts-examples-support-runtime-applyendpointoverride-j41"
+verdict = "served"
+path = "services/platform/examples/support/runtime.mjs"
+line = 61
+symbol = "applyEndpointOverride"
+evidence = "Signature remains export function applyEndpointOverride(environment, config); declaration moved from registered line 69 to 61. It rebases humanUrl, rpcUrl, settlementUrl and endpoint for beta; receiptAuthorityUrl is absent from ENDPOINT_FIELDS."
+
+[row.r8-43.42]
+interface = "interface.8.err-agent-boundary-capability-unavailable"
+verdict = "retired"
+path = "services/platform/hosted/agent-boundary/src/head_attestation.rs"
+line = 34
+symbol = "capability_unavailable"
+evidence = "The registered agent-boundary/src/head_attestation.rs file is absent, so its capability_unavailable refusal declaration no longer exists. The seven remaining files use the same error spelling in hosted core or Launchpad transport and tests, rather than a relocated agent-boundary head-attestation handler. Remaining references count distinct tracked files in the current tree, excluding all spec/ and docs/ directories."
+remaining_refs = 7
+remaining = ["apps/launchpad/web/src/core/user-facing-error.test.ts:66", "apps/launchpad/web/src/ui/common/source-notice.test.tsx:22", "apps/launchpad/web/src/widgets/social/social.test.tsx:88", "sdk/launchpad/packages/sdk/src/transport.ts:15", "sdk/launchpad/packages/sdk/test/development-gating.test.mjs:33", "sdk/launchpad/packages/sdk/test/unrouted-refusal.test.mjs:38", "services/platform/hosted/core/src/main.rs:1087"]
+
+[row.r8-43.43]
+interface = "interface.8.err-agent-boundary-head-stale"
+verdict = "retired"
+path = "services/platform/hosted/agent-boundary/src/head_attestation.rs"
+line = 45
+symbol = "head_stale"
+evidence = "The registered agent-boundary/src/head_attestation.rs file is absent, so its head_stale refusal declaration no longer exists. The repository-wide exact-identifier search found no remaining files outside spec/ and docs/ directories. Remaining references count distinct tracked files in the current tree, excluding all spec/ and docs/ directories."
+remaining_refs = 0
+remaining = []
+
+[row.r8-43.44]
+interface = "interface.8.err-agent-boundary-program-not-registered"
+verdict = "retired"
+path = "services/platform/hosted/agent-boundary/src/head_attestation.rs"
+line = 47
+symbol = "program_not_registered"
+evidence = "The registered agent-boundary/src/head_attestation.rs file is absent, so its program_not_registered refusal declaration no longer exists. The repository-wide exact-identifier search found no remaining files outside spec/ and docs/ directories. Remaining references count distinct tracked files in the current tree, excluding all spec/ and docs/ directories."
+remaining_refs = 0
+remaining = []
+
+[row.r8-43.45]
+interface = "interface.8.err-agent-boundary-invalid-program-id"
+verdict = "retired"
+path = "services/platform/hosted/agent-boundary/src/head_attestation.rs"
+line = 94
+symbol = "invalid_program_id"
+evidence = "The registered agent-boundary/src/head_attestation.rs file is absent, so its invalid_program_id refusal declaration no longer exists. The one remaining file is gateway/src/main.rs, where read_program_registry independently rejects malformed program identifiers with HTTP 400. Remaining references count distinct tracked files in the current tree, excluding all spec/ and docs/ directories."
+remaining_refs = 1
+remaining = ["services/platform/hosted/gateway/src/main.rs:2927"]
+
+[row.r8-43.46]
+interface = "interface.8.err-agent-boundary-invalid-staleness-ms"
+verdict = "retired"
+path = "services/platform/hosted/agent-boundary/src/head_attestation.rs"
+line = 100
+symbol = "invalid_staleness_ms"
+evidence = "The registered agent-boundary/src/head_attestation.rs file is absent, so its invalid_staleness_ms refusal declaration no longer exists. The repository-wide exact-identifier search found no remaining files outside spec/ and docs/ directories. Remaining references count distinct tracked files in the current tree, excluding all spec/ and docs/ directories."
+remaining_refs = 0
+remaining = []
+
+[row.r8-43.47]
+interface = "interface.8.fmt-authority-ai-storage-admission"
+verdict = "retired"
+path = "services/platform/hosted/authority/src/ai_storage_admission.rs"
+line = 12
+symbol = "FORMAT_VERSION"
+evidence = "The registered authority/src/ai_storage_admission.rs file is absent; its declaration pub const FORMAT_VERSION: u16 = 1; is gone. The sole remaining FORMAT_VERSION is the unrelated u8 keystore format in layerx-crypto, not the removed u16 storage-admission format. Remaining references count distinct tracked files in the current tree, excluding all spec/ and docs/ directories."
+remaining_refs = 1
+remaining = ["services/agent/crates/layerx-crypto/src/keystore.rs:11"]
+
+[row.r8-43.48]
+interface = "interface.8.rs-authority-layerx-platform-authority-ai-storage-admission-profile-bytes"
+verdict = "retired"
+path = "services/platform/hosted/authority/src/ai_storage_admission.rs"
+line = 14
+symbol = "PROFILE_BYTES"
+evidence = "The registered authority/src/ai_storage_admission.rs file is absent; its declaration pub const PROFILE_BYTES: usize = 2 + 2 + 32 + DEMAND_BYTES + 8; is gone. The repository-wide exact-identifier search found no remaining files outside spec/ and docs/ directories. Remaining references count distinct tracked files in the current tree, excluding all spec/ and docs/ directories."
+remaining_refs = 0
+remaining = []
+
+[row.r8-43.49]
+interface = "interface.8.rs-authority-layerx-platform-authority-ai-storage-admission-request-bytes"
+verdict = "retired"
+path = "services/platform/hosted/authority/src/ai_storage_admission.rs"
+line = 15
+symbol = "REQUEST_BYTES"
+evidence = "The registered authority/src/ai_storage_admission.rs file is absent; its declaration pub const REQUEST_BYTES: usize = 2 + 1 + 32 + 32 + 2 + 255 + DEMAND_BYTES + 8 + 32 + 8 + 8; is gone. The six remaining REQUEST_BYTES files use the unrelated 24-byte runtime clock protocol, not the removed storage-admission request encoding. Remaining references count distinct tracked files in the current tree, excluding all spec/ and docs/ directories."
+remaining_refs = 6
+remaining = ["services/agent/crates/layerx-agentd/tests/bootstrap_bind_layerx.rs:425", "services/agent/crates/layerx-agentd/tests/native_send_preview_evm.rs:471", "services/agent/crates/layerx-sdk/tests/proof_layerx_wallet_rpc.rs:687", "services/agent/crates/layerx-types/src/clock_protocol.rs:3", "services/human/crates/layerx-human-kms/tests/support/attestor_cluster.rs:78", "services/platform/hosted/runtime-clock/src/server.rs:14"]
+
+[row.r8-43.50]
+interface = "interface.8.rs-authority-layerx-platform-authority-ai-storage-admission-record-bytes"
+verdict = "retired"
+path = "services/platform/hosted/authority/src/ai_storage_admission.rs"
+line = 16
+symbol = "RECORD_BYTES"
+evidence = "The registered authority/src/ai_storage_admission.rs file is absent; its declaration pub const RECORD_BYTES: usize = is gone. The eight remaining RECORD_BYTES files describe independent AI-market grant, CosmWasm reference, naming, web-answer or daemon-budget records, not a relocated storage-admission record. Remaining references count distinct tracked files in the current tree, excluding all spec/ and docs/ directories."
+remaining_refs = 8
+remaining = ["programs/crates/layerx-programs-ai-market/src/evaluators/authority.rs:36", "programs/porting/cosmwasm/src/reference.rs:107", "programs/sdk/rust/examples/naming/src/lib.rs:7", "programs/sdk/rust/examples/web-reader/src/lib.rs:5", "programs/sdk/rust/src/lib.rs:117", "programs/sdk/rust/src/naming.rs:8", "programs/sdk/rust/src/web.rs:14", "services/agent/crates/layerx-agentd/src/budget/daemon.rs:18"]
+
+[row.r8-43.51]
+interface = "interface.8.rs-authority-layerx-platform-authority-ai-storage-admission-observation-bytes"
+verdict = "retired"
+path = "services/platform/hosted/authority/src/ai_storage_admission.rs"
+line = 18
+symbol = "OBSERVATION_BYTES"
+evidence = "The registered authority/src/ai_storage_admission.rs file is absent; its declaration pub const OBSERVATION_BYTES: usize = 2 + 2 + 32 + 8 + 32 + 6 * DEMAND_BYTES + 4 + 8; is gone. The three remaining OBSERVATION_BYTES files declare or expose the unrelated 64-byte program SDK oracle observation, not the removed storage-admission observation encoding. Remaining references count distinct tracked files in the current tree, excluding all spec/ and docs/ directories."
+remaining_refs = 3
+remaining = ["programs/sdk/rust/src/host.rs:274", "programs/sdk/rust/src/lib.rs:113", "programs/sdk/rust/src/oracle.rs:6"]
+
+[row.r8-43.52]
+interface = "interface.8.rs-authority-layerx-platform-authority-ai-storage-admission-proof-bytes"
+verdict = "retired"
+path = "services/platform/hosted/authority/src/ai_storage_admission.rs"
+line = 19
+symbol = "PROOF_BYTES"
+evidence = "The registered authority/src/ai_storage_admission.rs file is absent; its declaration pub const PROOF_BYTES: usize = 32 + 64; is gone. The repository-wide exact-identifier search found no remaining files outside spec/ and docs/ directories. Remaining references count distinct tracked files in the current tree, excluding all spec/ and docs/ directories."
+remaining_refs = 0
+remaining = []
+
+[row.r8-43.53]
+interface = "interface.8.rs-authority-layerx-platform-authority-ai-storage-admission-observe-request"
+verdict = "retired"
+path = "services/platform/hosted/authority/src/ai_storage_admission.rs"
+line = 22
+symbol = "OBSERVE_REQUEST"
+evidence = "The registered authority/src/ai_storage_admission.rs file is absent; its declaration pub const OBSERVE_REQUEST: u16 = 50; is gone. The repository-wide exact-identifier search found no remaining files outside spec/ and docs/ directories. Remaining references count distinct tracked files in the current tree, excluding all spec/ and docs/ directories."
+remaining_refs = 0
+remaining = []
+
+[row.r8-43.54]
+interface = "interface.8.rs-authority-layerx-platform-authority-ai-storage-admission-observe-response"
+verdict = "retired"
+path = "services/platform/hosted/authority/src/ai_storage_admission.rs"
+line = 23
+symbol = "OBSERVE_RESPONSE"
+evidence = "The registered authority/src/ai_storage_admission.rs file is absent; its declaration pub const OBSERVE_RESPONSE: u16 = 51; is gone. The repository-wide exact-identifier search found no remaining files outside spec/ and docs/ directories. Remaining references count distinct tracked files in the current tree, excluding all spec/ and docs/ directories."
+remaining_refs = 0
+remaining = []
+
+[row.r8-43.55]
+interface = "interface.8.rs-authority-layerx-platform-authority-ai-storage-admission-reserve-request"
+verdict = "retired"
+path = "services/platform/hosted/authority/src/ai_storage_admission.rs"
+line = 24
+symbol = "RESERVE_REQUEST"
+evidence = "The registered authority/src/ai_storage_admission.rs file is absent; its declaration pub const RESERVE_REQUEST: u16 = 52; is gone. The repository-wide exact-identifier search found no remaining files outside spec/ and docs/ directories. Remaining references count distinct tracked files in the current tree, excluding all spec/ and docs/ directories."
+remaining_refs = 0
+remaining = []
+
+[row.r8-43.56]
+interface = "interface.8.rs-authority-layerx-platform-authority-ai-storage-admission-reserve-response"
+verdict = "retired"
+path = "services/platform/hosted/authority/src/ai_storage_admission.rs"
+line = 25
+symbol = "RESERVE_RESPONSE"
+evidence = "The registered authority/src/ai_storage_admission.rs file is absent; its declaration pub const RESERVE_RESPONSE: u16 = 53; is gone. The repository-wide exact-identifier search found no remaining files outside spec/ and docs/ directories. Remaining references count distinct tracked files in the current tree, excluding all spec/ and docs/ directories."
+remaining_refs = 0
+remaining = []
+
+[row.r8-43.57]
+interface = "interface.8.rs-authority-layerx-platform-authority-ai-storage-admission-reconcile-request"
+verdict = "retired"
+path = "services/platform/hosted/authority/src/ai_storage_admission.rs"
+line = 26
+symbol = "RECONCILE_REQUEST"
+evidence = "The registered authority/src/ai_storage_admission.rs file is absent; its declaration pub const RECONCILE_REQUEST: u16 = 54; is gone. The repository-wide exact-identifier search found no remaining files outside spec/ and docs/ directories. Remaining references count distinct tracked files in the current tree, excluding all spec/ and docs/ directories."
+remaining_refs = 0
+remaining = []
+
+[row.r8-43.58]
+interface = "interface.8.rs-authority-layerx-platform-authority-ai-storage-admission-reconcile-response"
+verdict = "retired"
+path = "services/platform/hosted/authority/src/ai_storage_admission.rs"
+line = 27
+symbol = "RECONCILE_RESPONSE"
+evidence = "The registered authority/src/ai_storage_admission.rs file is absent; its declaration pub const RECONCILE_RESPONSE: u16 = 55; is gone. The repository-wide exact-identifier search found no remaining files outside spec/ and docs/ directories. Remaining references count distinct tracked files in the current tree, excluding all spec/ and docs/ directories."
+remaining_refs = 0
+remaining = []
+
+[row.r8-43.59]
+interface = "interface.8.rs-authority-layerx-platform-authority-ai-storage-admission-cancel-request"
+verdict = "retired"
+path = "services/platform/hosted/authority/src/ai_storage_admission.rs"
+line = 28
+symbol = "CANCEL_REQUEST"
+evidence = "The registered authority/src/ai_storage_admission.rs file is absent; its declaration pub const CANCEL_REQUEST: u16 = 56; is gone. The repository-wide exact-identifier search found no remaining files outside spec/ and docs/ directories. Remaining references count distinct tracked files in the current tree, excluding all spec/ and docs/ directories."
+remaining_refs = 0
+remaining = []
+
+[row.r8-43.60]
+interface = "interface.8.rs-authority-layerx-platform-authority-ai-storage-admission-cancel-response"
+verdict = "retired"
+path = "services/platform/hosted/authority/src/ai_storage_admission.rs"
+line = 29
+symbol = "CANCEL_RESPONSE"
+evidence = "The registered authority/src/ai_storage_admission.rs file is absent; its declaration pub const CANCEL_RESPONSE: u16 = 57; is gone. The repository-wide exact-identifier search found no remaining files outside spec/ and docs/ directories. Remaining references count distinct tracked files in the current tree, excluding all spec/ and docs/ directories."
+remaining_refs = 0
+remaining = []

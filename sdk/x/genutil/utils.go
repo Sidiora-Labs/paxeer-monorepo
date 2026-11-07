@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
 	"path/filepath"
 	"time"
 
@@ -80,10 +81,37 @@ func InitializeNodeValidatorFilesFromMnemonic(config *cfg.Config, mnemonic strin
 
 	var filePV *privval.FilePV
 	if len(mnemonic) == 0 {
-		filePV, _ = privval.LoadOrGenFilePV(pvKeyFile, pvStateFile)
+		filePV, err = privval.LoadOrGenFilePV(pvKeyFile, pvStateFile)
+		if err != nil {
+			return "", nil, err
+		}
 	} else {
 		privKey := tmed25519.TestSecretKey([]byte(mnemonic))
-		filePV = privval.NewFilePV(privKey, pvKeyFile, pvStateFile)
+		_, keyErr := os.Lstat(pvKeyFile)
+		if keyErr != nil && !os.IsNotExist(keyErr) {
+			return "", nil, keyErr
+		}
+		_, stateErr := os.Lstat(pvStateFile)
+		if stateErr != nil && !os.IsNotExist(stateErr) {
+			return "", nil, stateErr
+		}
+		switch {
+		case keyErr == nil && stateErr == nil:
+			filePV, err = privval.LoadFilePV(pvKeyFile, pvStateFile)
+			if err != nil {
+				return "", nil, err
+			}
+			if filePV.Key.PubKey.Compare(privKey.Public()) != 0 {
+				return "", nil, fmt.Errorf("mnemonic does not match existing validator key")
+			}
+		case os.IsNotExist(keyErr) && os.IsNotExist(stateErr):
+			filePV = privval.NewFilePV(privKey, pvKeyFile, pvStateFile)
+			if err := filePV.Save(); err != nil {
+				return "", nil, err
+			}
+		default:
+			return "", nil, fmt.Errorf("incomplete validator files: restore both key and signing state before mnemonic recovery")
+		}
 	}
 
 	tmValPubKey, err := filePV.GetPubKey(context.Background())

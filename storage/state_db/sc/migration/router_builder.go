@@ -3,7 +3,6 @@ package migration
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/storage/common/keys"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/storage/config"
@@ -172,7 +171,7 @@ func buildMigrateEVMRouter(
 		buildFlatKVReader(flatKV),
 		buildFlatKVWriter(flatKV),
 		NewMemiavlMigrationIterator(memIAVL.GetDB(), []string{keys.EVMStoreKey}),
-		NewMigrationMetrics(ctx, Version1_MigrateEVM, 10*time.Second),
+		NewMigrationMetrics(ctx, Version1_MigrateEVM, migrationBoundarySnapshotInterval),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("NewMigrationManager: %w", err)
@@ -301,7 +300,7 @@ func buildMigrateAllButBankRouter(
 		buildFlatKVReader(flatKV),
 		buildFlatKVWriter(flatKV),
 		NewMemiavlMigrationIterator(memIAVL.GetDB(), allModulesButEvmAndBank),
-		NewMigrationMetrics(ctx, Version2_MigrateAllButBank, 10*time.Second),
+		NewMigrationMetrics(ctx, Version2_MigrateAllButBank, migrationBoundarySnapshotInterval),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("NewMigrationManager: %w", err)
@@ -432,7 +431,7 @@ func buildMigrateBankRouter(
 		buildFlatKVReader(flatKV),
 		buildFlatKVWriter(flatKV),
 		NewMemiavlMigrationIterator(memIAVL.GetDB(), []string{keys.BankStoreKey}),
-		NewMigrationMetrics(ctx, Version3_FlatKVOnly, 10*time.Second),
+		NewMigrationMetrics(ctx, Version3_FlatKVOnly, migrationBoundarySnapshotInterval),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("NewMigrationManager: %w", err)

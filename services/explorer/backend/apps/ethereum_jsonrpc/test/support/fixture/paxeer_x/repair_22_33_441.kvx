@@ -1,0 +1,12 @@
+[repair.22.33.441]
+finding = "mixed-count-fixture-shape"
+test_file = "services/explorer/backend/apps/ethereum_jsonrpc/test/repair/repair_22_33_441_test.exs"
+proving_tests = ["mixed-count-fixture-shape: paired eth captures traverse HTTP and the block importer", "mixed-count-fixture-shape: Cosmos shell logs do not become eth block transactions", "synthetic Cosmos compatibility remains explicitly separate from the node capture"]
+producer_revision = "2da69275051f6feb074a8b552977d37197735d86"
+capture = "tx_count_parity.json records one batch from one node at committed height 0x289221e; application git_commit was read before and after the batch and matched."
+membership = "The eth block and count both exclude Cosmos shells: zero visible transactions, with fifteen recorded shell logs at the same block hash and height. No synthetic transaction was inserted into the capture."
+synthetic = "synthetic_cosmos_tx_count_parity.json preserves the former reconstructed two-transaction compatibility example byte for byte; it is not a node capture."
+baseline = "Not run: the task's mandatory gate order forbids verification before implementation and permits verification only through hf-done; the repair test did not exist on the base. No baseline failure is claimed."
+qualification = "The verified candidate revision, command, exit and private log are recorded by hf-done in the runner evidence ledger; no qualification is claimed by this source record."
+repair_cycle = "First verify at 0facbb05f3231a5fc9fd58550f70d668691019dc exited 1 (verify_cmd exit 2), /out/logs/verify-1.log: importer emits uppercase hex quantities; recaptured the actual uppercase block/count requests instead of normalizing transcript matching or relaxing assertions."
+wiring_request = "Domain 14 (fm-web-explorer-bridge), task 22.33.435: update services/explorer/backend/apps/ethereum_jsonrpc/test/ethereum_jsonrpc/paxeer_x_tx_count_parity_test.exs to consume the recorded eth pair for parity and synthetic_cosmos_tx_count_parity.json for its existing Cosmos normalization assertions; its hardcoded count-two assumption describes the synthetic example."

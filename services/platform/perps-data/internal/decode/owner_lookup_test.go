@@ -69,6 +69,7 @@ type positionRecord struct {
 	User             common.Address
 	MarketId         *big.Int
 	IsLong           bool
+	SizeBase         *big.Int
 	SizeUsd          *big.Int
 	CollateralUsd    *big.Int
 	CollateralToken  common.Address
@@ -107,7 +108,7 @@ func (s *recordedState) ownOrder(id int64, owner common.Address) {
 
 func (s *recordedState) ownPosition(id int64, owner common.Address) {
 	one := big.NewInt(1)
-	s.positions[big.NewInt(id).String()] = positionRecord{User: owner, MarketId: one, SizeUsd: one, CollateralUsd: one, CollateralAmount: one,
+	s.positions[big.NewInt(id).String()] = positionRecord{User: owner, MarketId: one, SizeBase: big.NewInt(1_000_000_000_000_000_000), SizeUsd: one, CollateralUsd: one, CollateralAmount: one,
 		EntryPrice: one, Leverage: one, TakeProfitPrice: new(big.Int), StopLossPrice: new(big.Int)}
 }
 
@@ -165,7 +166,7 @@ func (s *recordedState) answer(data []byte) ([]byte, error) {
 				TakeProfitPrice  *big.Int
 				StopLossPrice    *big.Int
 				OpenedAt         *big.Int
-			}{id, p.User, p.MarketId, p.IsLong, new(big.Int), p.SizeUsd, p.EntryPrice, p.Leverage, new(big.Int), new(big.Int), new(big.Int),
+			}{id, p.User, p.MarketId, p.IsLong, p.SizeBase, p.SizeUsd, p.EntryPrice, p.Leverage, new(big.Int), new(big.Int), new(big.Int),
 				p.TakeProfitPrice, p.StopLossPrice, new(big.Int)})
 		}
 	default:

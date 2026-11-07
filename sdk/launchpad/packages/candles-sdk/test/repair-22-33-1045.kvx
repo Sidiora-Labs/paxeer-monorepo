@@ -1,0 +1,11 @@
+[repair.22.33.1045]
+audit = "22.30.41"
+finding = "3"
+test = "repair-22-33-1045.test.mjs: finding3GoHandlerJourney (also registered in client.test.mjs)"
+proof = "The production CandlesClient walkthrough uses real loopback HTTP and replays byte-for-byte Go RegisterUDFWithHistory responses captured against an in-memory candle store; source hashes bind the transcript to history.go, symbols.go, udf.go and shared/http/errors.go."
+coverage = "Canonical pool symbols, Go resolution aliases, the 5000-bar vendor bound, forward and countback cursor propagation, complete OHLCV values, no gaps or duplicate timestamps, no_data, invalid display symbols, tampered and filter-mismatched cursors, missing source and corrupt stored candles."
+capture = "node sdk/launchpad/packages/candles-sdk/test/record-go-udf.mjs; development-only recording, never imported by the Node gate."
+baseline = "Not executed: the ordered gate instructions prohibit verification before implementation and prohibit invoking verify_cmd by hand; no pre-change failure is claimed."
+preexisting = "Source inspection: client.test.mjs expects countback=2001 to reject although the prerequisite repair raised the production vendor bound to 5000; repair-22-31-72.test.mjs also requires Go and PostgreSQL subprocesses. Neither inherited assertion nor test is changed or run by this focused gate."
+wiring = "None: the Go production modules are read without changes; their real handler output is committed as a test fixture."
+evidence = "The runner's private hf-done ledger records the exact verified candidate revision, command, exit code and log; no verification pass is claimed before that result."

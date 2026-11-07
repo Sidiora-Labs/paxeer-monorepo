@@ -1,3 +1,5 @@
+import { DeliveryMap, deliveryGraph, loadSnapshot } from "./delivery.mjs";
+
 const VIEW_DEFINITIONS = [
   { id: "systems", icon: "◫", label: "Systems", kicker: "Architecture", title: "System relationships" },
   { id: "packages", icon: "◇", label: "Packages", kicker: "Manifest scopes", title: "Manifest-scope relationships" },
@@ -82,6 +84,7 @@ function buildIndex() {
   const routes = byId(data.routes);
   const tasks = new Map(data.tasks.map((task) => [task.id, task]));
   const requirements = new Map(data.requirements.map((requirement) => [requirement.id, requirement]));
+  const delivery = new DeliveryMap(data.tasks);
   const symbolsByFile = new Map();
   const routesByFile = new Map();
   const importsByFile = new Map();
@@ -115,7 +118,7 @@ function buildIndex() {
   }
 
   return {
-    files, symbols, packages, areas, routes, tasks, requirements,
+    files, symbols, packages, areas, routes, tasks, requirements, delivery,
     symbolsByFile, routesByFile, importsByFile, taskLinksByFile, taskLinksBySymbol,
     fileEdgesOut, fileEdgesIn, symbolEdgesOut, symbolEdgesIn,
   };
@@ -163,7 +166,7 @@ function saveHistory() {
 function navigate(view, scope = {}, selected = null, remember = true) {
   if (remember) saveHistory();
   state.view = view;
-  state.scope = scope;
+  state.scope = view === "tasks" && selected?.type === "task" ? index.delivery.scopeForTask(selected.id) : scope;
   state.selected = selected;
   render();
 }
@@ -195,13 +198,6 @@ function nodeForFile(file) {
 
 function nodeForSymbol(symbol) {
   return { id: symbol.id, entityType: "symbol", entityId: symbol.id, label: symbol.name, secondary: symbol.kind, value: 1, color: COLORS.symbol };
-}
-
-function nodeForTask(task) {
-  return {
-    id: `t:${task.id}`, entityType: "task", entityId: task.id, label: task.id,
-    secondary: task.title, value: 1, color: COLORS[task.status] ?? COLORS.task,
-  };
 }
 
 function rankAndLimit(items, score, selectedId, limit) {
@@ -373,25 +369,7 @@ function graphRoutes() {
 }
 
 function graphTasks() {
-  const tasks = data.tasks.filter((task) => task.deliverable && (!state.scope.wave || task.wave === state.scope.wave));
-  const ids = new Set(tasks.map((task) => task.id));
-  const wavePositions = new Map();
-  const waves = [...new Set(tasks.map((task) => task.wave))].sort((left, right) => left - right);
-  const waveCenter = (waves.length - 1) / 2;
-  const taskNodes = tasks.map((task) => {
-    const peers = tasks.filter((candidate) => candidate.wave === task.wave);
-    const position = wavePositions.get(task.wave) ?? 0;
-    wavePositions.set(task.wave, position + 1);
-    return {
-      ...nodeForTask(task),
-      initialX: (waves.indexOf(task.wave) - waveCenter) * 130,
-      initialY: (position - (peers.length - 1) / 2) * 34,
-    };
-  });
-  const edges = tasks.flatMap((task) => task.requires.filter((required) => ids.has(required)).map((required) => ({
-    source: `t:${required}`, target: `t:${task.id}`, total: 1, kind: "requires",
-  })));
-  return { nodes: taskNodes, edges, total: tasks.length };
+  return deliveryGraph(index.delivery, state.scope, COLORS);
 }
 
 function buildGraph() {
@@ -435,7 +413,8 @@ class CanvasGraph {
     return (hash >>> 0) / 4294967295;
   }
 
-  setGraph(nodes, edges, selectedId) {
+  setGraph(nodes, edges, selectedId, layout = "force") {
+    this.layout = layout;
     const prior = new Map(this.nodes.map((node) => [node.id, node]));
     this.nodes = nodes.map((node, index) => {
       const previous = prior.get(node.id);
@@ -443,8 +422,8 @@ class CanvasGraph {
       const radius = 60 + Math.sqrt(index + 1) * 28;
       return {
         ...node,
-        x: previous?.x ?? node.initialX ?? Math.cos(angle) * radius,
-        y: previous?.y ?? node.initialY ?? Math.sin(angle) * radius,
+        x: layout === "fixed" ? node.initialX : previous?.x ?? node.initialX ?? Math.cos(angle) * radius,
+        y: layout === "fixed" ? node.initialY : previous?.y ?? node.initialY ?? Math.sin(angle) * radius,
         vx: 0,
         vy: 0,
         radius: Math.max(5, Math.min(17, 6 + Math.log2((node.value ?? 1) + 1) * 1.7)),
@@ -453,7 +432,7 @@ class CanvasGraph {
     });
     this.nodeById = new Map(this.nodes.map((node) => [node.id, node]));
     this.edges = edges.filter((edge) => this.nodeById.has(edge.source) && this.nodeById.has(edge.target));
-    this.steps = this.nodes.length > 1 ? 110 : 0;
+    this.steps = layout === "fixed" ? 0 : this.nodes.length > 1 ? 110 : 0;
     this.start();
     requestAnimationFrame(() => this.fit());
   }
@@ -655,7 +634,7 @@ class CanvasGraph {
           this.dragged.y = world.y + this.pointer.offsetY;
           this.dragged.vx = 0;
           this.dragged.vy = 0;
-          this.steps = Math.max(this.steps, 24);
+          if (this.layout !== "fixed") this.steps = Math.max(this.steps, 24);
           this.start();
         } else {
           this.camera.x = this.pointer.cameraX + dx;
@@ -714,6 +693,10 @@ class CanvasGraph {
 const graph = new CanvasGraph(elements.graph);
 
 function selectNode(node) {
+  if (node.entityType === "wave") {
+    navigate("tasks", { wave: node.entityId, page: 0 });
+    return;
+  }
   state.selected = { type: node.entityType, id: node.entityId };
   render(false);
 }
@@ -749,7 +732,9 @@ function inventoryForView() {
     return [...counts].sort((left, right) => right[1] - left[1]).map(([module, count]) => ({ type: "module", id: module, title: module, subtitle: "external or unresolved module", value: exactNumber.format(count), icon: "⇢" }));
   }
   if (state.view === "routes") return data.routes.filter((item) => !state.scope.framework || item.framework === state.scope.framework).map((item) => ({ type: "route", id: item.id, title: `${item.method ?? "*"} ${item.pattern}`, subtitle: `${item.framework} · ${index.files.get(item.file)?.path ?? "unknown"}`, value: item.line ? `L${item.line}` : "", icon: "↗" }));
-  return data.tasks.filter((item) => item.deliverable && (!state.scope.wave || item.wave === state.scope.wave)).map((item) => ({ type: "task", id: item.id, title: `${item.id} · ${item.title}`, subtitle: `Wave ${item.wave} · ${item.status}`, value: item.requires.length ? `${item.requires.length} dep` : "root", icon: "✓" }));
+  const view = index.delivery.view(state.scope);
+  if (!view.expanded) return view.items.map(({ wave, count }) => ({ type: "wave", id: wave, title: `Wave ${wave}`, subtitle: "Open to expand tasks", value: `${exactNumber.format(count)} tasks`, icon: "✓" }));
+  return view.items.map((item) => ({ type: "task", id: item.id, title: `${item.id} · ${item.title}`, subtitle: `Wave ${item.wave} · ${item.status}`, value: item.requires.length ? `${item.requires.length} dep` : "root", icon: "✓" }));
 }
 
 function selectedMatches(item) {
@@ -757,6 +742,7 @@ function selectedMatches(item) {
 }
 
 function chooseInventory(item) {
+  if (item.type === "wave") { navigate("tasks", { wave: item.id, page: 0 }); return; }
   state.selected = { type: item.type, id: item.id };
   if (item.type === "file" && state.view === "imports") state.scope = { file: item.id };
   render();
@@ -766,8 +752,9 @@ function renderInventory() {
   const definition = VIEW_DEFINITIONS.find((view) => view.id === state.view);
   const items = inventoryForView();
   const maximum = 450;
+  const deliveryView = state.view === "tasks" ? index.delivery.view(state.scope) : null;
   elements["inventory-title"].textContent = definition.label;
-  elements["inventory-count"].textContent = exactNumber.format(items.length);
+  elements["inventory-count"].textContent = exactNumber.format(deliveryView?.total ?? items.length);
   elements.inventory.replaceChildren(...items.slice(0, maximum).map((item) => {
     const control = button(`inventory-item${selectedMatches(item) ? " selected" : ""}`, "", () => chooseInventory(item));
     const icon = element("span", "item-icon", item.icon);
@@ -777,6 +764,20 @@ function renderInventory() {
     control.setAttribute("role", "listitem");
     return control;
   }));
+  if (deliveryView) {
+    const { page, pageCount } = deliveryView;
+    const controls = element("div", "breadcrumbs");
+    const previous = button("text-button", "Previous page", () => navigate("tasks", { ...state.scope, page: page - 1 }));
+    const next = button("text-button", "Next page", () => navigate("tasks", { ...state.scope, page: page + 1 }));
+    previous.disabled = page === 0;
+    next.disabled = page === pageCount - 1;
+    controls.append(previous, element("span", "", `${page + 1} / ${pageCount}`), next);
+    elements.inventory.append(controls);
+    elements["inventory-note"].textContent = deliveryView.expanded
+      ? "Tasks on this page · search reaches every task across waves"
+      : "Open a wave to expand tasks · search reaches every task";
+    return;
+  }
   elements["inventory-note"].textContent = items.length > maximum
     ? `Showing ${maximum} of ${exactNumber.format(items.length)} · search reaches all`
     : "Select once to inspect · double-click a graph node to drill in";
@@ -797,7 +798,7 @@ function renderBreadcrumbs() {
     crumbs.push({ label: file?.name ?? state.scope.file, handler: () => { state.selected = { type: "file", id: state.scope.file }; render(false); } });
   }
   if (state.scope.framework) crumbs.push({ label: state.scope.framework, handler: () => {} });
-  if (state.scope.wave) crumbs.push({ label: `Wave ${state.scope.wave}`, handler: () => {} });
+  if (state.scope.wave !== undefined && state.scope.wave !== null) crumbs.push({ label: `Wave ${state.scope.wave}`, handler: () => {} });
   elements.breadcrumbs.replaceChildren(...crumbs.map((crumb) => button("crumb", crumb.label, crumb.handler)));
 }
 
@@ -819,7 +820,7 @@ function searchEverything(query) {
   for (const file of data.files) consider("file", file.id, file.name, file.path, file.language);
   for (const symbol of data.symbols) consider("symbol", symbol.id, symbol.name, `${symbol.kind ?? "symbol"} · ${index.files.get(symbol.file)?.path ?? ""}`, symbol.signature ?? "");
   for (const route of data.routes) consider("route", route.id, `${route.method ?? "*"} ${route.pattern}`, `${route.framework} · ${index.files.get(route.file)?.path ?? ""}`);
-  for (const task of data.tasks) if (task.deliverable) consider("task", task.id, `${task.id} · ${task.title}`, `Wave ${task.wave} · ${task.status}`, `${task.symbols.join(" ")} ${task.touches.join(" ")}`);
+  for (const match of index.delivery.search(query)) matches.push(match);
   return matches.sort((left, right) => right.score - left.score || left.title.localeCompare(right.title)).slice(0, 120);
 }
 
@@ -999,7 +1000,7 @@ function inspectSymbol(id) {
 function inspectTask(id) {
   const task = index.tasks.get(id);
   const requirements = task.reqs.map((requirement) => index.requirements.get(requirement.split(".")[0])).filter(Boolean);
-  const dependent = data.tasks.filter((candidate) => candidate.requires.includes(id));
+  const dependent = index.delivery.dependents.get(id) ?? [];
   const status = element("span", `status-chip ${task.status}`, task.status.replaceAll("_", " "));
   return [
     inspectorHeader("Delivery task", `${task.id} · ${task.title}`, `Wave ${task.wave ?? "group"}`, [
@@ -1101,7 +1102,7 @@ function render(updateGraph = true) {
     const result = buildGraph();
     const selectedGraphId = state.selected?.type === "task" ? `t:${state.selected.id}` :
       state.selected?.type === "module" ? `m:${state.selected.id}` : state.selected?.id;
-    graph.setGraph(result.nodes, result.edges, selectedGraphId);
+    graph.setGraph(result.nodes, result.edges, selectedGraphId, result.layout);
     elements["render-note"].textContent = `showing ${exactNumber.format(result.nodes.length)} nodes · ${exactNumber.format(result.edges.length)} edges${result.total > result.nodes.length ? ` · ${exactNumber.format(result.total)} in scope` : ""}`;
     elements["graph-empty"].hidden = result.nodes.length !== 0;
   } else {
@@ -1140,10 +1141,7 @@ function attachGlobalEvents() {
 }
 
 async function initialize() {
-  const response = await fetch("data/codebase-map.json", { cache: "no-store" });
-  if (!response.ok) throw new Error(`Map data returned HTTP ${response.status}. Run \`npm run generate\`.`);
-  data = await response.json();
-  if (data.schemaVersion !== 1) throw new Error(`Unsupported map schema ${data.schemaVersion}.`);
+  data = await loadSnapshot();
   index = buildIndex();
   initializeHeader();
   initializeNavigation();

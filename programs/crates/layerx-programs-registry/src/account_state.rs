@@ -421,6 +421,49 @@ impl ProgramValueAccountBinding {
         Ok(())
     }
 
+    /// Decodes the production version-two Programs binding record.
+    pub fn decode_primary_value(value: &[u8]) -> Result<Self, AccountStateError> {
+        if value.len() < 139 {
+            return Err(AccountStateError::InvalidBinding);
+        }
+        let seed_length = usize::from(u16::from_be_bytes(
+            value[97..99]
+                .try_into()
+                .map_err(|_| AccountStateError::InvalidBinding)?,
+        ));
+        if value.len() != 139 + seed_length {
+            return Err(AccountStateError::InvalidBinding);
+        }
+        let binding = Self {
+            record_version: value[0],
+            program: ProgramId::new(
+                value[1..33]
+                    .try_into()
+                    .map_err(|_| AccountStateError::InvalidBinding)?,
+            )
+            .map_err(|_| AccountStateError::InvalidBinding)?,
+            account_id: value[33..65]
+                .try_into()
+                .map_err(|_| AccountStateError::InvalidBinding)?,
+            asset_id: value[65..97]
+                .try_into()
+                .map_err(|_| AccountStateError::InvalidBinding)?,
+            registered_sequence: u64::from_be_bytes(
+                value[99..107]
+                    .try_into()
+                    .map_err(|_| AccountStateError::InvalidBinding)?,
+            ),
+            registration_event_digest: value[107..139]
+                .try_into()
+                .map_err(|_| AccountStateError::InvalidBinding)?,
+            seed: value[139..].to_vec(),
+        };
+        if binding.primary_value()? != value {
+            return Err(AccountStateError::InvalidBinding);
+        }
+        Ok(binding)
+    }
+
     /// Returns the exact Programs-module primary-index key.
     #[must_use]
     pub fn primary_key(&self) -> Vec<u8> {
@@ -548,6 +591,107 @@ impl CanonicalAccountLeaf {
     }
 }
 
+impl CanonicalAccountLeaf {
+    /// Standalone lx_account_record_encode bytes persisted by lxphost at 06 || id.
+    pub fn host_record_encoding(&self) -> Result<Vec<u8>, AccountStateError> {
+        self.validate_module_value()?;
+        let mut bytes = Vec::new();
+        for field in [&self.account_id[..], self.name.as_slice()] {
+            bytes.extend_from_slice(&(field.len() as u32).to_be_bytes());
+            bytes.extend_from_slice(field);
+        }
+        bytes.push(self.kind);
+        bytes.extend_from_slice(&self.balance.to_be_bytes());
+        bytes.extend_from_slice(&32u32.to_be_bytes());
+        bytes.extend_from_slice(&self.asset_id);
+        bytes.push(self.has_asset.into());
+        bytes.extend_from_slice(&self.next_sequence.to_be_bytes());
+        bytes.extend_from_slice(&self.created_at_sequence.to_be_bytes());
+        bytes.push(self.frozen.into());
+        bytes.push(self.has_open_reference.into());
+        bytes.extend_from_slice(&32u32.to_be_bytes());
+        bytes.extend_from_slice(&self.authority_key);
+        bytes.push(self.has_authority_key.into());
+        Ok(bytes)
+    }
+
+    pub fn decode_host_record(bytes: &[u8]) -> Result<Self, AccountStateError> {
+        fn take<const N: usize>(
+            bytes: &[u8],
+            cursor: &mut usize,
+        ) -> Result<[u8; N], AccountStateError> {
+            let end = cursor
+                .checked_add(N)
+                .ok_or(AccountStateError::InvalidAccountLeaf)?;
+            let value = bytes
+                .get(*cursor..end)
+                .ok_or(AccountStateError::InvalidAccountLeaf)?;
+            *cursor = end;
+            value
+                .try_into()
+                .map_err(|_| AccountStateError::InvalidAccountLeaf)
+        }
+        fn flag(bytes: &[u8], cursor: &mut usize) -> Result<bool, AccountStateError> {
+            match take::<1>(bytes, cursor)? {
+                [0] => Ok(false),
+                [1] => Ok(true),
+                _ => Err(AccountStateError::InvalidAccountLeaf),
+            }
+        }
+        let mut cursor = 0;
+        if u32::from_be_bytes(take(bytes, &mut cursor)?) != 32 {
+            return Err(AccountStateError::InvalidAccountLeaf);
+        }
+        let account_id = take(bytes, &mut cursor)?;
+        let length = u32::from_be_bytes(take(bytes, &mut cursor)?) as usize;
+        if length == 0 || length > MAX_ACCOUNT_NAME_BYTES {
+            return Err(AccountStateError::InvalidAccountLeaf);
+        }
+        let end = cursor
+            .checked_add(length)
+            .ok_or(AccountStateError::InvalidAccountLeaf)?;
+        let name = bytes
+            .get(cursor..end)
+            .ok_or(AccountStateError::InvalidAccountLeaf)?
+            .to_vec();
+        cursor = end;
+        let kind = take::<1>(bytes, &mut cursor)?[0];
+        let balance = u128::from_be_bytes(take(bytes, &mut cursor)?);
+        if u32::from_be_bytes(take(bytes, &mut cursor)?) != 32 {
+            return Err(AccountStateError::InvalidAccountLeaf);
+        }
+        let asset_id = take(bytes, &mut cursor)?;
+        let has_asset = flag(bytes, &mut cursor)?.into();
+        let next_sequence = u64::from_be_bytes(take(bytes, &mut cursor)?);
+        let created_at_sequence = u64::from_be_bytes(take(bytes, &mut cursor)?);
+        let frozen = flag(bytes, &mut cursor)?.into();
+        let has_open_reference = flag(bytes, &mut cursor)?.into();
+        if u32::from_be_bytes(take(bytes, &mut cursor)?) != 32 {
+            return Err(AccountStateError::InvalidAccountLeaf);
+        }
+        let authority_key = take(bytes, &mut cursor)?;
+        let has_authority_key = flag(bytes, &mut cursor)?.into();
+        let leaf = Self {
+            account_id,
+            name,
+            kind,
+            balance,
+            asset_id,
+            has_asset,
+            next_sequence,
+            created_at_sequence,
+            frozen,
+            has_open_reference,
+            authority_key,
+            has_authority_key,
+        };
+        if cursor != bytes.len() || leaf.host_record_encoding()? != bytes {
+            return Err(AccountStateError::InvalidAccountLeaf);
+        }
+        Ok(leaf)
+    }
+}
+
 impl VerifiedAccountSnapshot {
     /// # Errors
     ///
@@ -558,13 +702,15 @@ impl VerifiedAccountSnapshot {
         leaf: &CanonicalAccountLeaf,
         ops: &[ProofOp],
     ) -> Result<VerifiedChainAccountSnapshot, AccountStateError> {
-        let key = programs_state_key(&leaf.primary_key());
-        let value = leaf.primary_value()?;
+        let mut key = vec![6];
+        key.extend_from_slice(&leaf.account_id);
+        let value = leaf.host_record_encoding()?;
+        let decoded = CanonicalAccountLeaf::decode_host_record(&value)?;
         let state_height = verify_state(next, HOST_STORE_NAME, &key, &value, ops)
             .map_err(|_| AccountStateError::InvalidAccountLeaf)?;
         Ok(VerifiedChainAccountSnapshot {
             head: next.clone(),
-            leaf: leaf.clone(),
+            leaf: decoded,
             state_height,
         })
     }

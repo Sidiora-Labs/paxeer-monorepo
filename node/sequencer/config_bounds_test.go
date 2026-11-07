@@ -62,10 +62,11 @@ func TestSequencerConfigReadsRetentionAndQueueBounds(t *testing.T) {
 	templateOpts := seqConfigOptions(t, sequencer.ConfigTemplate)
 	for _, key := range []string{
 		sequencer.FlagWALRetainBlocks, sequencer.FlagNonceQueueMaxPerSender,
-		sequencer.FlagNonceQueueMaxTotal, sequencer.FlagLeaseDuration,
+		sequencer.FlagNonceQueueMaxTotal,
 	} {
 		require.True(t, templateOpts.IsSet(key), key)
 	}
+	require.False(t, templateOpts.IsSet(sequencer.FlagLeaseDuration))
 }
 
 func TestSequencerConfigRefusesZeroBounds(t *testing.T) {

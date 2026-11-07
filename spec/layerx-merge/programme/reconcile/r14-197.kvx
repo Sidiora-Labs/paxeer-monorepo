@@ -1,0 +1,27 @@
+[reconcile.r14-197]
+revision = "751d6ff8dbcfeaec3fbdee7c8c9aac3813e83488"
+rows = 3
+
+[row.r14-197.1]
+interface = "interface.14.rpc-explorer-served-eth-maxpriorityfeepergas"
+verdict = "served"
+path = "services/explorer/backend/apps/explorer/lib/explorer/eth_rpc.ex"
+line = 232
+symbol = "eth_maxPriorityFeePerGas"
+evidence = "The @methods map declares eth_maxPriorityFeePerGas at line 232 with action :eth_max_priority_fee_per_gas and no parameters. The example at line 237 and handler documentation at line 825 are mentions; the declaration remains at the registered line."
+
+[row.r14-197.2]
+interface = "interface.14.rpc-explorer-served-eth-sendrawtransaction"
+verdict = "served"
+path = "services/explorer/backend/apps/explorer/lib/explorer/eth_rpc.ex"
+line = 623
+symbol = "eth_sendRawTransaction"
+evidence = "The @proxy_methods map declares eth_sendRawTransaction at line 623 with arity 1 and hex_data_validator/1. The occurrence at line 627 is an example request. The declaration remains at the registered line; responses routes this method through EthereumJSONRPC.json_rpc rather than a database handler."
+
+[row.r14-197.3]
+interface = "interface.14.env-test-paxeer-x-gate-secret-key-base"
+verdict = "served"
+path = "tests/explorer/paxeer-x-data-boundary.py"
+line = 377
+symbol = "PAXEER_X_GATE_SECRET_KEY_BASE"
+evidence = "unified_pagination reads PAXEER_X_GATE_SECRET_KEY_BASE through unified_pagination_required at line 377 and binds secret. The occurrences at lines 463 and 469 fetch and pass the same key for the embedded Phoenix cursor signer; line 377 is the harness prerequisite read."

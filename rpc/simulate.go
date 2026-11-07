@@ -88,7 +88,7 @@ func (s *SimulationAPI) CreateAccessList(ctx context.Context, args export.Transa
 	defer func() {
 		recordMetricsWithError(ctx, "eth_createAccessList", s.connectionType, startTime, returnErr, recover())
 	}()
-	bNrOrHash := rpc.BlockNumberOrHashWithNumber(rpc.PendingBlockNumber)
+	bNrOrHash := s.backend.defaultEstimateTag()
 	if blockNrOrHash != nil {
 		bNrOrHash = *blockNrOrHash
 	}
@@ -171,8 +171,8 @@ func (s *SimulationAPI) Call(ctx context.Context, args export.TransactionArgs, b
 		}
 	}()
 	if blockNrOrHash == nil {
-		latest := rpc.BlockNumberOrHashWithNumber(rpc.LatestBlockNumber)
-		blockNrOrHash = &latest
+		defaultTag := s.backend.defaultEstimateTag()
+		blockNrOrHash = &defaultTag
 	}
 	ctx = context.WithValue(ctx, CtxIsWasmdPrecompileCallKey, wasmd.IsWasmdCall(args.To))
 	callResult, err := export.DoCall(ctx, s.backend, args, *blockNrOrHash, overrides, blockOverrides, s.backend.RPCEVMTimeout(), s.backend.RPCGasCap())
@@ -312,8 +312,10 @@ func (b *Backend) SetTraceContextProvider(provider TraceContextProvider) {
 	}
 }
 
-// defaultEstimateTag is pending on the sequencer and standby, which hold the
-// open block, and latest on every other node.
+// defaultEstimateTag is the shared default for call, gas estimation and access
+// list simulation: pending when an open-state provider is wired, latest otherwise.
+// Provider capability persists during the idle seal-to-open interval; pending
+// resolution then applies its bounded wait and committed-state fallback.
 func (b *Backend) defaultEstimateTag() rpc.BlockNumberOrHash {
 	if b.watermarks != nil && b.watermarks.pending != nil {
 		return rpc.BlockNumberOrHashWithNumber(rpc.PendingBlockNumber)
@@ -329,22 +331,7 @@ func isPendingBlockNrOrHash(blockNrOrHash rpc.BlockNumberOrHash) bool {
 // block, the latest committed context for a future height, and the provider's
 // context for every other height.
 func (b *Backend) ctxAtHeight(height int64) sdk.Context {
-	latest := b.ctxProvider(LatestCtxHeight)
-	if b.watermarks != nil && b.watermarks.pending != nil && (height == PendingCtxHeight || height > latest.BlockHeight()) {
-		snapshot, pendingHeight, open, err := b.watermarks.pendingSnapshot(context.Background())
-		if err == nil {
-			if open && (height == PendingCtxHeight || pendingHeight == height) {
-				return snapshot
-			}
-			if !open && height == PendingCtxHeight {
-				return b.ctxProvider(pendingHeight)
-			}
-		}
-	}
-	if height > latest.BlockHeight() {
-		return latest
-	}
-	return b.ctxProvider(height)
+	return simulationContextAtHeight(context.Background(), b.ctxProvider, b.watermarks, height)
 }
 
 // pendingStateAndHeader reads a snapshot of the open block. Its header carries

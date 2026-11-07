@@ -24,6 +24,7 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/attestor/internal/policy"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/attestor/internal/policy/evm"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/attestor/internal/store"
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 )
@@ -529,42 +530,9 @@ func (a *Authority) Evaluate(keyID, subject, requestID, kind string, view any) e
 	if value == nil || value.Sign() < 0 {
 		return ErrAuthority
 	}
-	var to, selector, token, recipient string
-	var tokenAmount *big.Int
-	approve := false
-	if destination == nil {
-		if p.Policy.Mode != "full" {
-			return ErrAuthority
-		}
-	} else {
+	to := ""
+	if destination != nil {
 		to = strings.ToLower(destination.Hex())
-		if len(data) > 0 && len(data) < 4 {
-			return ErrAuthority
-		}
-		if len(data) >= 4 {
-			selector = "0x" + hex.EncodeToString(data[:4])
-		}
-		if selector == "0x095ea7b3" || selector == "0xa9059cbb" || selector == "0x23b872dd" {
-			call, err := evm.DecodeCalldata(*destination, data)
-			if err != nil || call.Kind != evm.CallERC20 {
-				return ErrAuthority
-			}
-			arg := "to"
-			if selector == "0x095ea7b3" {
-				arg = "spender"
-				approve = true
-			}
-			address, ok := call.Args[arg].(common.Address)
-			if !ok {
-				return ErrAuthority
-			}
-			recipient = strings.ToLower(address.Hex())
-			tokenAmount, ok = call.Args["value"].(*big.Int)
-			if !ok {
-				return ErrAuthority
-			}
-			token = to
-		}
 	}
 	if permits != nil {
 		totals := make(map[string]*big.Int)
@@ -582,7 +550,7 @@ func (a *Authority) Evaluate(keyID, subject, requestID, kind string, view any) e
 				return err
 			}
 		}
-	} else if err := checkAgentSpend(p, to, selector, token, recipient, value, tokenAmount, approve, len(data) == 0); err != nil {
+	} else if err := checkAgentCallSpend(p, destination, data, value, 0); err != nil {
 		return err
 	}
 
@@ -616,20 +584,26 @@ func (a *Authority) Evaluate(keyID, subject, requestID, kind string, view any) e
 		if raw != nil && strictJSON(raw, &entries) != nil {
 			return nil, ErrAuthority
 		}
-		kept := make([]policyReservation, 0, len(entries)+1)
-		spent, _ := amount256(p.LegacySpent)
-		requests := p.LegacyRecent
-		unaccounted := map[string]*big.Int{}
 		already := false
 		for _, e := range entries {
 			if e.Request == requestID && e.Digest != digest {
 				return nil, ErrAuthority
 			}
 			if e.Digest == digest {
+				if e.Value != value.String() {
+					return nil, ErrAuthority
+				}
 				already = true
-				kept = append(kept, e)
-				continue
 			}
+		}
+		if already {
+			return append([]byte(nil), raw...), nil
+		}
+		kept := make([]policyReservation, 0, len(entries)+1)
+		spent, _ := amount256(p.LegacySpent)
+		requests := p.LegacyRecent
+		unaccounted := map[string]*big.Int{}
+		for _, e := range entries {
 			if e.At < now.Add(-24*time.Hour).Unix() {
 				continue
 			}
@@ -684,12 +658,143 @@ func (a *Authority) Evaluate(keyID, subject, requestID, kind string, view any) e
 				return nil, ErrAuthority
 			}
 		}
-		if already {
-			return append([]byte(nil), raw...), nil
-		}
 		kept = append(kept, policyReservation{Request: requestID, Digest: digest, At: now.Unix(), Value: value.String(), Budget: budgetID, Reservation: reservationID})
 		return json.Marshal(kept)
 	})
+}
+
+// These input ABIs match the served scheduler and streams contracts. Unknown
+// or noncanonical calls cannot grant authority, including through scheduled jobs.
+const agentSchedulerABI = `[
+ {"type":"function","name":"schedule","inputs":[{"name":"target","type":"address"},{"name":"callData","type":"bytes"},{"name":"executeAtBlock","type":"uint64"},{"name":"gasLimit","type":"uint64"}]},
+ {"type":"function","name":"cancel","inputs":[{"name":"jobId","type":"uint256"}]},
+ {"type":"function","name":"reschedule","inputs":[{"name":"jobId","type":"uint256"},{"name":"newBlock","type":"uint64"}]},
+ {"type":"function","name":"getJob","inputs":[{"name":"jobId","type":"uint256"}]},
+ {"type":"function","name":"pending","inputs":[{"name":"creator","type":"address"}]}
+]`
+const agentStreamsABI = `[
+ {"type":"function","name":"open","inputs":[{"name":"payee","type":"address"},{"name":"token","type":"address"},{"name":"ratePerSecond","type":"uint256"},{"name":"startTime","type":"uint64"},{"name":"stopTime","type":"uint64"},{"name":"cap","type":"uint256"}]},
+ {"type":"function","name":"settle","inputs":[{"name":"streamId","type":"uint256"}]},
+ {"type":"function","name":"close","inputs":[{"name":"streamId","type":"uint256"}]},
+ {"type":"function","name":"updateRate","inputs":[{"name":"streamId","type":"uint256"},{"name":"newRate","type":"uint256"}]},
+ {"type":"function","name":"accrued","inputs":[{"name":"streamId","type":"uint256"}]},
+ {"type":"function","name":"getStream","inputs":[{"name":"streamId","type":"uint256"}]}
+]`
+
+var loadAgentPrecompileABIs = sync.OnceValues(func() (map[common.Address]abi.ABI, error) {
+	contracts := make(map[common.Address]abi.ABI)
+	for address, source := range map[string]string{
+		"0x0000000000000000000000000000000000000905": agentSchedulerABI,
+		"0x0000000000000000000000000000000000000906": agentStreamsABI,
+	} {
+		parsed, err := abi.JSON(strings.NewReader(source))
+		if err != nil {
+			return nil, err
+		}
+		contracts[common.HexToAddress(address)] = parsed
+	}
+	return contracts, nil
+})
+
+func checkAgentCallSpend(p AuthorityPrincipal, destination *common.Address, data []byte, value *big.Int, depth int) error {
+	if destination == nil {
+		if p.Policy.Mode != "full" {
+			return ErrAuthority
+		}
+		return nil
+	}
+	to := strings.ToLower(destination.Hex())
+	selector, token, recipient := "", "", ""
+	var tokenAmount *big.Int
+	approve := false
+	contracts, err := loadAgentPrecompileABIs()
+	if err != nil {
+		return ErrAuthority
+	}
+	if contract, found := contracts[*destination]; found {
+		if depth >= 16 || len(data) < 4 {
+			return ErrAuthority
+		}
+		method, err := contract.MethodById(data[:4])
+		if err != nil {
+			return ErrAuthority
+		}
+		args, err := method.Inputs.Unpack(data[4:])
+		if err != nil {
+			return ErrAuthority
+		}
+		canonical, err := method.Inputs.Pack(args...)
+		if err != nil || !bytes.Equal(canonical, data[4:]) {
+			return ErrAuthority
+		}
+		selector = "0x" + hex.EncodeToString(data[:4])
+		switch method.Name {
+		case "schedule":
+			target, ok := args[0].(common.Address)
+			if !ok {
+				return ErrAuthority
+			}
+			nested, ok := args[1].([]byte)
+			if !ok {
+				return ErrAuthority
+			}
+			if err := checkAgentSpend(p, to, selector, "", strings.ToLower(target.Hex()), value, nil, false, false); err != nil {
+				return err
+			}
+			return checkAgentCallSpend(p, &target, nested, new(big.Int), depth+1)
+		case "open":
+			payee, ok := args[0].(common.Address)
+			if !ok {
+				return ErrAuthority
+			}
+			asset, ok := args[1].(common.Address)
+			if !ok {
+				return ErrAuthority
+			}
+			cap, ok := args[5].(*big.Int)
+			if !ok || cap.Sign() == 0 {
+				return ErrAuthority
+			}
+			return checkAgentSpend(p, to, selector, strings.ToLower(asset.Hex()), strings.ToLower(payee.Hex()), value, cap, false, false)
+		case "reschedule", "settle", "close", "updateRate":
+			// IDs alone do not prove the current destination, payee or token cap.
+			return ErrAuthority
+		default:
+			return checkAgentSpend(p, to, selector, "", "", value, nil, false, false)
+		}
+	}
+	if len(data) > 0 && len(data) < 4 {
+		return ErrAuthority
+	}
+	if len(data) >= 4 {
+		selector = "0x" + hex.EncodeToString(data[:4])
+	}
+	if selector == "0x095ea7b3" || selector == "0xa9059cbb" || selector == "0x23b872dd" {
+		call, err := evm.DecodeCalldata(*destination, data)
+		if err != nil || call.Kind != evm.CallERC20 {
+			return ErrAuthority
+		}
+		arg := "to"
+		if selector == "0x095ea7b3" {
+			arg, approve = "spender", true
+		}
+		address, ok := call.Args[arg].(common.Address)
+		if !ok {
+			return ErrAuthority
+		}
+		tokenAmount, ok = call.Args["value"].(*big.Int)
+		if !ok {
+			return ErrAuthority
+		}
+		recipient, token = strings.ToLower(address.Hex()), to
+	} else if depth > 0 {
+		// Known opaque movers cannot hide inside a scheduled call.
+		switch selector {
+		case "0xac9650d8", "0x5ae401dc", "0x39509351", "0x3177029f", "0xcae9ca51", "0xa22cb465", "0x1296ee62", "0x4000aea0", "0x42842e0e", "0xb88d4fde", "0xf242432a", "0x2eb2c2d6":
+			return ErrAuthority
+		}
+	}
+	return checkAgentSpend(p, to, selector, token, recipient, value, tokenAmount, approve, len(data) == 0)
 }
 
 func checkAgentSpend(p AuthorityPrincipal, to, selector, token, recipient string, value, tokenAmount *big.Int, approve, native bool) error {

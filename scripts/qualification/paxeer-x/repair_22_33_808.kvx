@@ -1,0 +1,48 @@
+[meta]
+task = "22.33.808"
+audit = "22.30.178"
+base_revision = "caa8b41ee668274ee1e5c1df6691288455c46278"
+mode = "BUILD"
+qualification = "hf-build followed by hf-done on the identical final candidate; the private gate ledger and final JSON name the verified revision, command, exit and log."
+verify_cmd = "python3 -m pytest -q scripts/qualification/paxeer-x/test_repair_22_33_808.py"
+build_cmd = "python3 -m py_compile scripts/qualification/paxeer-x/program-http-producer.py scripts/qualification/paxeer-x/reference-custody.py"
+
+[finding.43]
+repair = "Replace the retired process inventory, authority and native-owner orchestration with supported paxd and hosted gateway JSON-RPC producers; bind signed deploy/call EVM transactions to canonical native payloads, independent network/key pins, exact receipt bytes, execution results and block-commit metadata."
+tests = ["test_finding_43_signed_program_http_real_codec_and_receipt", "test_finding_43_deployment_envelope_traverses_supported_http_without_invented_receipt", "test_finding_43_changed_signed_envelope_is_refused_before_transport", "test_finding_43_receipted_program_never_claims_committed_qualification", "test_finding_43_gateway_and_paxd_must_agree", "test_finding_43_http_authentication_is_not_bypassed", "test_finding_43_signed_receipt_must_prove_the_declared_outcome", "test_retired_inventory_and_source_revision_are_refused"]
+proof = "Real SDK transaction/native codecs, signer recovery, ABI payloads and receipt verification cross loopback HTTP and an HTTP relay; program-call bytes and signed receipts are replayed unchanged from the node-produced conformance corpus. A newly signed deployment is sent byte for byte but cannot claim execution without an actual receipt."
+
+[finding.53]
+repair = "Export authenticated source receipts from the supported producer and consume them with separately selected network/key pins; match every source receipt to the native report's consumed-condition inventory and unchanged native receipt files. Remove the unqualified criterion only after native verification and committed authenticated-source qualification both pass."
+tests = ["test_finding_53_committed_authenticated_source_producer_to_native_receipt_consumer", "test_finding_53_receipted_source_keeps_explicit_unqualified_refusal", "test_finding_53_authentication_rejects_changed_real_proof_material", "test_finding_53_native_condition_binding_is_required", "test_finding_53_genuine_refused_source_cannot_be_a_successful_condition", "test_finding_53_authentication_alone_cannot_qualify_unverified_native_custody"]
+proof = "The original committed paxd recording, including its EIP-155 transaction, receipt signature and commit metadata, crosses HTTP into the production exporter and custody source consumer; the consumer reopens durable exact-byte proof material and refuses changed pins, signatures, receipt JSON, artifacts, consumed identities, revisions and noncommitted evidence."
+limits = "The in-process native peer stores consumed source receipts and does not claim to execute escrow/vault or native gates. The current C reporter lacks the consumption export, so whole native custody qualification remains explicitly refused until the owning domain supplies that interface. Block-commit assertions validate the paxd/gateway receipt metadata; they do not claim an independent Comet light-client verification."
+
+[wiring.sdk]
+request = "tests/agent/sdk/python/test_program_http.py and scripts/paxeer-x/verify-sdk-program-python.sh: domain 16 tools/scripts and domain 9 agent SDK owners must consume program-http-result.v2 and supported root JSON-RPC raw-transaction/receipt evidence instead of the retired native-owner HTTP fixture and /v1/programs routes; the agent SDK owner must also migrate services/agent/sdk/python/layerx_sdk/x402_rpc.py from its retired /rpc-only endpoint validation to the root endpoint."
+
+[wiring.programs]
+request = "tests/programs/test_reference_custody.c: domain 1 kernel/native-test owner, coordinated with domain 13 programs, must accept --authenticated-source, --receipt-keys and --network-id after the existing native arguments, import the supported authenticated source receipt material into the native condition-verification path and export authenticated_source with schema paxeer-x.reference-custody-source-consumption.v1 and exact activity_id/receipt_sha256 pairs for the receipts actually consumed; absent this export the consumer refuses qualification."
+
+[baseline]
+observed = "The initial working tree contained no task test module and no earlier gate ledger; only the runner's .cgignore and in_progress spec setup were changed."
+command = "Not run: the explicit allowed-gate order forbids pytest before implementation and requires verification solely through hf-done."
+failing_tests = "No baseline failures claimed; the task text's separate unchanged-tree verify instruction conflicts with the explicit gate order."
+
+[implementation_notes]
+formatter = "No Python formatter is configured for this directory; preserve the existing Python style."
+source_network = "The real committed-fixture recording uses an isolated EIP-155 network; network selection is explicit and independently checked against transaction replay protection and both producer endpoints. Production defaults to network 125."
+bytecode = "Use an external PYTHONPYCACHEPREFIX for hf-build so the explicit py_compile command cannot add binary caches to the source candidate."
+scoped_gotchas = "GOTCHA.kvx and spec files are outside this task's scope; workflow contradictions and external interface requests are recorded here. The existing SDK transport requires a retired endpoint, so the scoped ProducerRpc transport uses the supported root and SDK response decoder. A source lookup initially used req.22998.1 instead of req.22998/ac_1; a patch hunk initially targeted the wrong file and was corrected before qualification."
+
+[qualification.first_run]
+revision = "0eac6e7f1883e7a2110d5c5299c7715adc7450f9"
+command = "cg spec done 22.33.808 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "17 tests passed and 17 committed-source cases failed because the new verifier assumed receipt operation 2 for an already supported EIP-155 legacy transaction."
+repair = "Bind operation exactly to the retained EVM transaction type, matching node/sequencer/receipt.go:400; assert unchanged type-2 operation 2 and legacy operation 0 against original signed receipts without re-signing or changing either fixture."
+
+[evidence]
+ledger = "/out/run/gates.jsonl"
+verified_revision = "The final successful verify row in the private gate ledger names the exact candidate revision; no source file is edited after that row."

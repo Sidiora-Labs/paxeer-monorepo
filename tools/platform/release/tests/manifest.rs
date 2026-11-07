@@ -2,400 +2,16 @@
 #[path = "../src/main.rs"]
 mod release;
 
-use std::fmt::Write as _;
-use std::fs;
-use std::path::{Path, PathBuf};
-use std::process::Command;
+#[path = "support/manifest_fixture.rs"]
+mod fixture;
 
+use fixture::*;
 use release::{
     artifact_manifest, parse_artifact_manifest, plan, release_pipeline, release_pipeline_verify,
-    render_artifact_manifest, sha256_digest, ArtifactManifest, ArtifactSource, ImageRegistry,
-    PublicationJob, ReleasePipeline,
+    render_artifact_manifest, ArtifactSource,
 };
-
-const VERSION: &str = "0.1.0";
-const ROLLBACK: &str = "0.0.9";
-const REVISION: &str = "0123456789abcdef0123456789abcdef01234567";
-const OTHER_REVISION: &str = "fedcba9876543210fedcba9876543210fedcba98";
-const SOURCE_DIGEST: &str = "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08";
-const ARTIFACT_COUNT: usize = 28;
-const IMAGE_COUNT: usize = 17;
-const IMAGE_TAG: &str = "sdk-v0.1.0";
-const IMAGE_PLATFORM: &str = "linux/amd64";
-
-fn read(relative: &str) -> String {
-    let path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(relative);
-    fs::read_to_string(&path).unwrap_or_else(|error| panic!("read {}: {error}", path.display()))
-}
-
-fn registries_path() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("registries.kvx")
-}
-
-fn workflow_path() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../../.github/workflows/platform.yml")
-}
-
-fn committed_workflow() -> String {
-    read("../../../.github/workflows/platform.yml")
-}
-
-fn committed_pipeline() -> ReleasePipeline {
-    release_pipeline(&read("registries.kvx"), &committed_workflow())
-        .unwrap_or_else(|error| panic!("committed release pipeline refused: {error}"))
-}
-
-fn write(path: &Path, bytes: &[u8]) {
-    if let Some(parent) = path.parent() {
-        fs::create_dir_all(parent)
-            .unwrap_or_else(|error| panic!("create {}: {error}", parent.display()));
-    }
-    fs::write(path, bytes).unwrap_or_else(|error| panic!("write {}: {error}", path.display()));
-}
-
-struct Record {
-    name: String,
-    file: String,
-    digest_of: &'static str,
-    signature: String,
-    sbom: String,
-    attestation: String,
-    location: String,
-}
-
-fn crate_record(package: &str) -> Record {
-    let file = format!("{package}-{VERSION}.crate");
-    let sbom = match package {
-        "layerx-mirror" | "layerx-programs-runtime" => format!("{package}.sbom.spdx.json"),
-        _ => "agent.sbom.spdx.json".to_owned(),
-    };
-    Record {
-        name: package.to_owned(),
-        signature: format!("{file}.sigstore.json"),
-        sbom,
-        attestation: "provenance.sigstore.json".to_owned(),
-        location: format!("https://crates.io/api/v1/crates/{package}/{VERSION}/download"),
-        file,
-        digest_of: "built-bytes",
-    }
-}
-
-fn npm_record(package: &str) -> Record {
-    let bare = package.trim_start_matches("@sidiora/");
-    let file = format!("sidiora-{bare}-{VERSION}.tgz");
-    Record {
-        name: package.to_owned(),
-        signature: format!("{file}.sigstore.json"),
-        sbom: format!("_sidiora-{bare}.sbom.spdx.json"),
-        attestation: format!(
-            "npm-provenance:https://registry.npmjs.org/-/npm/v1/attestations/%40sidiora%2F{bare}@{VERSION}"
-        ),
-        location: format!("https://registry.npmjs.org/{package}/-/{bare}-{VERSION}.tgz"),
-        file,
-        digest_of: "built-bytes",
-    }
-}
-
-fn pypi_record(package: &str) -> Record {
-    let wheel = format!("{}-{VERSION}-py3-none-any.whl", package.replace('-', "_"));
-    Record {
-        name: package.to_owned(),
-        file: format!("dist/{wheel}"),
-        digest_of: "built-bytes",
-        signature: format!("signatures/{wheel}.sigstore.json"),
-        sbom: format!("{package}.sbom.spdx.json"),
-        attestation: format!(
-            "pypi-integrity:https://pypi.org/integrity/{package}/{VERSION}/{wheel}/provenance"
-        ),
-        location: format!("simple+https://pypi.org/simple/{package}/"),
-    }
-}
-
-fn go_record(package: &str) -> Record {
-    Record {
-        name: package.to_owned(),
-        file: format!("layerx-go-v{VERSION}.zip"),
-        digest_of: "registry-bytes",
-        signature: "tag-signature.txt".to_owned(),
-        sbom: "layerx-go.sbom.spdx.json".to_owned(),
-        attestation: format!("go-checksum-database:sum.golang.org {package} v{VERSION} h1:fixture="),
-        location: format!(
-            "https://proxy.golang.org/github.com/!sidiora-!labs/!layer-x-!protocol/platform/sdk/go/@v/v{VERSION}.zip"
-        ),
-    }
-}
-
-fn maven_records(package: &str) -> Vec<Record> {
-    let (group, name) = package
-        .split_once(':')
-        .unwrap_or_else(|| panic!("maven coordinate {package} has no group"));
-    let directory = format!("{}/{name}/{VERSION}", group.replace('.', "/"));
-    ["jar", "pom"]
-        .into_iter()
-        .map(|extension| {
-            let file = format!("staging/{directory}/{name}-{VERSION}.{extension}");
-            Record {
-                name: package.to_owned(),
-                signature: format!("{file}.asc"),
-                sbom: format!("{name}.sbom.spdx.json"),
-                attestation: "provenance.sigstore.json".to_owned(),
-                location: format!(
-                    "https://repo1.maven.org/maven2/{directory}/{name}-{VERSION}.{extension}"
-                ),
-                file,
-                digest_of: "built-bytes",
-            }
-        })
-        .collect()
-}
-
-fn swift_record(package: &str) -> Record {
-    Record {
-        name: package.to_owned(),
-        file: format!("LayerXSDK-{VERSION}.tar"),
-        digest_of: "built-bytes",
-        signature: "tag-signature.txt".to_owned(),
-        sbom: "LayerXSDK.sbom.spdx.json".to_owned(),
-        attestation: "provenance.sigstore.json".to_owned(),
-        location: format!("git+https://github.com/Sidiora-Labs/LayerXSDK#{VERSION}"),
-    }
-}
-
-fn nuget_record(package: &str) -> Record {
-    Record {
-        name: package.to_owned(),
-        file: format!("LayerX.Sdk.{VERSION}.registry.nupkg"),
-        digest_of: "registry-bytes",
-        signature: "repository-signature.txt".to_owned(),
-        sbom: "LayerX.Sdk.sbom.spdx.json".to_owned(),
-        attestation: "provenance.sigstore.json".to_owned(),
-        location: format!(
-            "https://api.nuget.org/v3-flatcontainer/layerx.sdk/{VERSION}/layerx.sdk.{VERSION}.nupkg"
-        ),
-    }
-}
-
-fn records(registry: &str, packages: &[String]) -> Vec<Record> {
-    packages
-        .iter()
-        .flat_map(|package| match registry {
-            "crates-io" => vec![crate_record(package)],
-            "npm" => vec![npm_record(package)],
-            "pypi" => vec![pypi_record(package)],
-            "go-modules" => vec![go_record(package)],
-            "maven-central" => maven_records(package),
-            "swiftpm" => vec![swift_record(package)],
-            "nuget" => vec![nuget_record(package)],
-            other => panic!("no fixture records for registry {other}"),
-        })
-        .collect()
-}
-
-struct Fixture {
-    release_dir: PathBuf,
-    downloads: PathBuf,
-}
-
-fn write_publication(pipeline: &ReleasePipeline, publication: &PublicationJob, bundle: &Path) {
-    let registry = pipeline
-        .declarations
-        .registries
-        .iter()
-        .find(|registry| registry.name == publication.registry)
-        .unwrap_or_else(|| panic!("registry {} undeclared", publication.registry));
-    let distribution = registry
-        .declarations
-        .iter()
-        .find(|(key, _)| key == "distribution")
-        .map_or_else(
-            || panic!("registry {} has no distribution", registry.name),
-            |(_, value)| value.clone(),
-        );
-    write(
-        &bundle.join("publication.txt"),
-        format!(
-            "registry={}\nversion={VERSION}\ndistribution={distribution}\ntarget={distribution}\npackages={}\nrevision={REVISION}\npublished=true\ninstall_check=pass\n",
-            publication.registry,
-            publication.packages.join(" ")
-        )
-        .as_bytes(),
-    );
-}
-
-fn image_declaration(registry: &ImageRegistry, key: &str) -> String {
-    registry
-        .declarations
-        .iter()
-        .find(|(declared, _)| declared == key)
-        .map_or_else(
-            || panic!("image registry {} has no {key}", registry.name),
-            |(_, value)| value.clone(),
-        )
-}
-
-struct ImageRecord {
-    name: String,
-    digest: String,
-    signature: String,
-    sbom: String,
-    sbom_digest: String,
-    attestation: String,
-    attestation_digest: String,
-}
-
-fn image_records(registry: &ImageRegistry, bundle: &Path) -> Vec<ImageRecord> {
-    registry
-        .images
-        .iter()
-        .map(|name| {
-            let signature = format!("signatures/{name}.sigstore.json");
-            let sbom = format!("sbom/{name}.spdx.json");
-            let attestation = format!("attestations/{name}.provenance.json");
-            let sbom_bytes = format!("{{\"spdxVersion\": \"SPDX-2.3\", \"name\": \"{name}\"}}\n");
-            let attestation_bytes =
-                format!("{{\"predicateType\": \"slsaprovenance\", \"image\": \"{name}\"}}\n");
-            write(
-                &bundle.join(&signature),
-                format!("signature of {name}\n").as_bytes(),
-            );
-            write(&bundle.join(&sbom), sbom_bytes.as_bytes());
-            write(&bundle.join(&attestation), attestation_bytes.as_bytes());
-            ImageRecord {
-                digest: sha256_digest(format!("{name} image manifest\n").as_bytes()),
-                signature,
-                sbom,
-                sbom_digest: sha256_digest(sbom_bytes.as_bytes()),
-                attestation,
-                attestation_digest: sha256_digest(attestation_bytes.as_bytes()),
-                name: name.clone(),
-            }
-        })
-        .collect()
-}
-
-fn write_image_bundle(registry: &ImageRegistry, release_dir: &Path) {
-    let bundle = release_dir.join(format!("release-image-{}", registry.name));
-    let distribution = image_declaration(registry, "distribution");
-    write(
-        &bundle.join("publication.txt"),
-        format!(
-            "registry={}\nversion={VERSION}\ndistribution={distribution}\nimages={}\nrevision={REVISION}\npublished=true\npull_check=pass\n",
-            registry.name,
-            registry.images.join(" ")
-        )
-        .as_bytes(),
-    );
-    let mut images = String::new();
-    for record in image_records(registry, &bundle) {
-        write!(
-            images,
-            "[image.{}]\nname = \"{}\"\ntag = \"{IMAGE_TAG}\"\ndigest = \"{}\"\nplatform = \"{IMAGE_PLATFORM}\"\nsignature = \"{}\"\nsbom = \"{}\"\nsbom_digest = \"{}\"\nattestation = \"{}\"\nattestation_digest = \"{}\"\n\n",
-            record.name,
-            record.name,
-            record.digest,
-            record.signature,
-            record.sbom,
-            record.sbom_digest,
-            record.attestation,
-            record.attestation_digest
-        )
-        .unwrap_or_else(|error| panic!("write image record: {error}"));
-    }
-    write(&bundle.join("images.kvx"), images.as_bytes());
-}
-
-impl Fixture {
-    fn build(name: &str, pipeline: &ReleasePipeline) -> Self {
-        let root = PathBuf::from(env!("CARGO_TARGET_TMPDIR"))
-            .join("artifact-manifest")
-            .join(name);
-        if root.exists() {
-            fs::remove_dir_all(&root)
-                .unwrap_or_else(|error| panic!("remove {}: {error}", root.display()));
-        }
-        let release_dir = root.join("release");
-        let downloads = root.join("downloads");
-        write(
-            &release_dir.join("release-pipeline/version.txt"),
-            format!("version={VERSION}\n").as_bytes(),
-        );
-        write(
-            &release_dir.join("release-pipeline/source-digest.txt"),
-            format!("{SOURCE_DIGEST}  -\n").as_bytes(),
-        );
-        write(
-            &release_dir.join("release-pipeline/release-plan.txt"),
-            plan(pipeline)
-                .unwrap_or_else(|error| panic!("plan: {error}"))
-                .as_bytes(),
-        );
-        for publication in &pipeline.publications {
-            let bundle = release_dir.join(format!("release-{}", publication.registry));
-            write_publication(pipeline, publication, &bundle);
-            let mut artifacts = String::new();
-            for (index, record) in records(&publication.registry, &publication.packages)
-                .iter()
-                .enumerate()
-            {
-                let bytes = format!(
-                    "{} {} {} published bytes\n",
-                    publication.registry, record.name, record.file
-                );
-                let path = bundle.join(&record.file);
-                write(&path, bytes.as_bytes());
-                let basename = Path::new(&record.file)
-                    .file_name()
-                    .and_then(|name| name.to_str())
-                    .unwrap_or_else(|| panic!("record file {} has no name", record.file));
-                write(
-                    &downloads.join(&publication.registry).join(basename),
-                    bytes.as_bytes(),
-                );
-                write(
-                    &bundle.join(&record.signature),
-                    format!("signature of {}\n", record.file).as_bytes(),
-                );
-                write(
-                    &bundle.join(&record.sbom),
-                    b"{\"spdxVersion\": \"SPDX-2.3\"}\n",
-                );
-                if !record.attestation.contains(':') {
-                    write(
-                        &bundle.join(&record.attestation),
-                        b"{\"provenance\": true}\n",
-                    );
-                }
-                write!(
-                    artifacts,
-                    "[artifact.{}]\nname = \"{}\"\nversion = \"{VERSION}\"\nfile = \"{}\"\ndigest = \"{}\"\ndigest_of = \"{}\"\nsignature = \"{}\"\nsbom = \"{}\"\nattestation = \"{}\"\nlocation = \"{}\"\n\n",
-                    index + 1,
-                    record.name,
-                    record.file,
-                    sha256_digest(bytes.as_bytes()),
-                    record.digest_of,
-                    record.signature,
-                    record.sbom,
-                    record.attestation,
-                    record.location
-                )
-                .unwrap_or_else(|error| panic!("write artifact record: {error}"));
-            }
-            write(&bundle.join("artifacts.kvx"), artifacts.as_bytes());
-        }
-        for registry in &pipeline.declarations.image_registries {
-            write_image_bundle(registry, &release_dir);
-        }
-        Self {
-            release_dir,
-            downloads,
-        }
-    }
-
-    fn manifest(&self, pipeline: &ReleasePipeline) -> ArtifactManifest {
-        artifact_manifest(pipeline, &self.release_dir, Some(ROLLBACK))
-            .unwrap_or_else(|error| panic!("artifact manifest refused: {error}"))
-    }
-}
+use std::fs;
+use std::process::Command;
 
 #[test]
 fn manifest_lists_every_declared_artifact_bound_to_its_source() {
@@ -490,9 +106,11 @@ fn matching_published_bytes_pass_verification() {
         .iter()
         .any(|artifact| artifact.name == "layerx-sdk" && artifact.registry == "crates-io"));
     assert_eq!(verified.images.len(), IMAGE_COUNT);
-    assert!(verified.images.iter().all(|image| image
-        .reference
-        .starts_with(&format!("ghcr.io/sidiora-labs/{}@sha256:", image.name))));
+    assert!(verified.images.iter().all(|image| {
+        image
+            .reference
+            .starts_with(&format!("ghcr.io/sidiora-labs/{}@sha256:", image.name))
+    }));
 }
 
 #[test]
@@ -515,7 +133,9 @@ fn tampered_published_artifact_halts_the_release_naming_it() {
     .err()
     .unwrap_or_else(|| panic!("tampered crate passed verification"));
     assert!(
-        error.starts_with("release halted before promotion: 1 of 28 artifacts failed verification"),
+        error.starts_with(&format!(
+            "release halted before promotion: 1 of {ARTIFACT_COUNT} artifacts failed verification"
+        )),
         "{error}"
     );
     assert!(
@@ -572,7 +192,9 @@ fn manifest_bound_to_another_revision_halts_the_release() {
     .unwrap_or_else(|| panic!("revision mismatch passed verification"));
     assert_eq!(
         error,
-        format!("release halted before promotion: the artifact manifest binds revision {REVISION}, not the release revision {OTHER_REVISION}")
+        format!(
+            "release halted before promotion: the artifact manifest binds revision {REVISION}, not the release revision {OTHER_REVISION}"
+        )
     );
 }
 
@@ -639,7 +261,10 @@ fn artifact_of_an_undeclared_package_is_refused_at_emission() {
     let error = artifact_manifest(&pipeline, &fixture.release_dir, Some(ROLLBACK))
         .err()
         .unwrap_or_else(|| panic!("undeclared package produced a manifest"));
-    assert_eq!(error, "release-pypi/artifacts.kvx lists layerx-django, which the manifest does not declare for pypi");
+    assert_eq!(
+        error,
+        "release-pypi/artifacts.kvx lists layerx-django, which the manifest does not declare for pypi"
+    );
 }
 
 #[test]
@@ -653,7 +278,12 @@ fn publication_from_another_revision_is_refused_at_emission() {
     let error = artifact_manifest(&pipeline, &fixture.release_dir, Some(ROLLBACK))
         .err()
         .unwrap_or_else(|| panic!("split revision produced a manifest"));
-    assert_eq!(error, format!("release-swiftpm/publication.txt records revision {OTHER_REVISION}, but {REVISION} published the other registries"));
+    assert_eq!(
+        error,
+        format!(
+            "release-swiftpm/publication.txt records revision {OTHER_REVISION}, but {REVISION} published the other registries"
+        )
+    );
 }
 
 #[test]
@@ -690,7 +320,10 @@ fn promotion_that_does_not_need_verification_is_refused() {
     let error = release_pipeline(&read("registries.kvx"), &source)
         .err()
         .unwrap_or_else(|| panic!("promotion without verification accepted"));
-    assert_eq!(error, "job release-promotion must need release-verification so no unverified artifact is promoted");
+    assert_eq!(
+        error,
+        "job release-promotion must need release-verification so no unverified artifact is promoted"
+    );
 }
 
 #[test]
@@ -703,7 +336,10 @@ fn verification_without_fetching_from_registries_is_refused() {
     let error = release_pipeline(&read("registries.kvx"), &source)
         .err()
         .unwrap_or_else(|| panic!("verification without fetch accepted"));
-    assert_eq!(error, "job release-verification lacks its fetch from every registry: expected `--fetch` in the job");
+    assert_eq!(
+        error,
+        "job release-verification lacks its fetch from every registry: expected `--fetch` in the job"
+    );
 }
 
 #[test]
@@ -846,7 +482,12 @@ fn image_published_from_another_revision_is_refused_at_emission() {
     let error = artifact_manifest(&pipeline, &fixture.release_dir, Some(ROLLBACK))
         .err()
         .unwrap_or_else(|| panic!("split image revision produced a manifest"));
-    assert_eq!(error, format!("release-image-ghcr/publication.txt records revision {OTHER_REVISION}, but {REVISION} published the other registries"));
+    assert_eq!(
+        error,
+        format!(
+            "release-image-ghcr/publication.txt records revision {OTHER_REVISION}, but {REVISION} published the other registries"
+        )
+    );
 }
 
 #[test]
@@ -902,7 +543,7 @@ fn image_reference_moved_off_its_digest_halts_the_release() {
     .err()
     .unwrap_or_else(|| panic!("tag-pinned image reference passed verification"));
     assert!(
-        error.contains("1 of 17 images failed verification"),
+        error.contains(&format!("1 of {IMAGE_COUNT} images failed verification")),
         "{error}"
     );
     assert!(
@@ -1025,7 +666,7 @@ fn command_line_emits_the_manifest_and_verifies_downloaded_artifacts() {
         .unwrap_or_else(|error| panic!("run verify: {error}"));
     assert!(!halted.status.success());
     let stderr = String::from_utf8_lossy(&halted.stderr);
-    assert!(stderr.contains("release halted before promotion: 1 of 28 artifacts failed verification: com.sidiora.layerx:layerx-sdk@0.1.0 from maven-central (the downloaded layerx-sdk-0.1.0.pom hash to sha256:"), "{stderr}");
+    assert!(stderr.contains(&format!("release halted before promotion: 1 of {ARTIFACT_COUNT} artifacts failed verification: com.sidiora.layerx:layerx-sdk@{VERSION} from maven-central (the downloaded layerx-sdk-{VERSION}.pom hash to sha256:")), "{stderr}");
     let both = tool()
         .arg("verify")
         .arg("--manifest")

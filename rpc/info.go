@@ -120,6 +120,7 @@ func (i *InfoAPI) Accounts(ctx context.Context) (result []common.Address, return
 	if err != nil {
 		return []common.Address{}, err
 	}
+	result = make([]common.Address, 0)
 	for addr := range getAddressPrivKeyMap(kb) {
 		result = append(result, common.HexToAddress(addr))
 	}
@@ -152,7 +153,14 @@ func (i *InfoAPI) GasPrice(ctx context.Context) (result *hexutil.Big, returnErr 
 	} else {
 		medianRewardPrevBlock = feeHist.Reward[0][0].ToInt()
 	}
-	return i.gasPriceHelper(ctx, baseFee, totalGasUsed, medianRewardPrevBlock)
+	return GasPriceHelper(i, ctx, baseFee, totalGasUsed, medianRewardPrevBlock)
+}
+
+// GasPriceHelper calculates the suggested gas price from the base fee and the
+// previous block's gas usage and median reward. It is a package function so it
+// does not register an additional JSON-RPC method on InfoAPI.
+func GasPriceHelper(i *InfoAPI, ctx context.Context, baseFee *big.Int, totalGasUsedPrevBlock uint64, medianRewardPrevBlock *big.Int) (*hexutil.Big, error) {
+	return i.gasPriceHelper(ctx, baseFee, totalGasUsedPrevBlock, medianRewardPrevBlock)
 }
 
 // Helper function useful for testing
@@ -180,7 +188,7 @@ func (i *InfoAPI) FeeHistory(ctx context.Context, blockCount gmath.HexOrDecimal6
 	defer func() {
 		recordMetricsWithError(ctx, "eth_feeHistory", i.connectionType, startTime, returnErr, recover())
 	}()
-	result = &FeeHistoryResult{}
+	result = &FeeHistoryResult{OldestBlock: new(hexutil.Big)}
 
 	// logic consistent with go-ethereum's validation (block < 1 means no block)
 	if blockCount < 1 {

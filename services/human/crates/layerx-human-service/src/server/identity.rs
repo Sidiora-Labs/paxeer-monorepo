@@ -1,3 +1,5 @@
+use crate::onboarding::OnboardingStatus;
+use crate::store::PrincipalScope;
 use serde_json::{json, Value};
 
 use crate::auth::{
@@ -13,6 +15,127 @@ use super::backend::{ApiFailure, BackendResponse, SessionSecrets};
 pub struct IdentityProjector;
 
 impl IdentityProjector {
+    pub fn checked_passkey(value: &PasskeyRecord) -> Result<Value, ApiFailure> {
+        let mut result = json!({"passkey_id":value.passkey_id(),"label":value.label(),
+            "created_at":super::projection::unix_time(value.created_at())?});
+        if let Some(time) = value.last_used_at() {
+            result["last_used_at"] = json!(super::projection::unix_time(time)?);
+        }
+        Ok(result)
+    }
+
+    pub fn checked_passkeys(values: &[PasskeyRecord]) -> Result<Value, ApiFailure> {
+        Ok(
+            json!({"passkeys":values.iter().map(Self::checked_passkey).collect::<Result<Vec<_>, _>>()?}),
+        )
+    }
+
+    pub fn checked_session(session: &SessionView) -> Result<Value, ApiFailure> {
+        let mut result = Self::session(session);
+        result["opened_at"] = json!(super::projection::unix_time(session.opened_at)?);
+        result["last_active_at"] = json!(super::projection::unix_time(session.last_active_at)?);
+        Ok(result)
+    }
+
+    pub fn checked_revocation(value: &SessionRevocation) -> Result<Value, ApiFailure> {
+        Ok(json!({"revoked_session_ids": value.revoked_session_ids,
+            "revoked_at": super::projection::unix_time(value.revoked_at)?}))
+    }
+
+    pub fn checked_registration_challenge(
+        value: &RegistrationChallenge,
+    ) -> Result<Value, ApiFailure> {
+        Ok(
+            json!({"registration_id":value.registration_id,"ceremony":value.ceremony,
+            "expires_at":super::projection::unix_time(value.expires_at)?}),
+        )
+    }
+
+    pub fn checked_assertion_challenge(value: &AssertionChallenge) -> Result<Value, ApiFailure> {
+        Ok(
+            json!({"assertion_id":value.assertion_id,"ceremony":value.ceremony,
+            "expires_at":super::projection::unix_time(value.expires_at)?}),
+        )
+    }
+
+    pub fn checked_assertion(value: &AssertionProof) -> Result<Value, ApiFailure> {
+        Ok(
+            json!({"assertion_id":value.assertion_id,"passkey_id":value.passkey_id,
+            "completed_at":super::projection::unix_time(value.completed_at)?,
+            "expires_at":super::projection::unix_time(value.expires_at)?}),
+        )
+    }
+
+    pub fn checked_step_up_challenge(value: &StepUpChallenge) -> Result<Value, ApiFailure> {
+        crate::auth::validate_step_up_challenge_id(&value.challenge_id)
+            .map_err(|_| ApiFailure::upstream_degraded())?;
+        super::identity_dispatch::step_up_challenge(value)
+            .map_err(|_| ApiFailure::upstream_degraded())
+    }
+
+    pub fn checked_step_up(value: &StepUpEvidence) -> Result<Value, ApiFailure> {
+        crate::auth::validate_step_up_challenge_id(value.challenge_id())
+            .map_err(|_| ApiFailure::upstream_degraded())?;
+        super::identity_dispatch::step_up_evidence(value)
+            .map_err(|_| ApiFailure::upstream_degraded())
+    }
+
+    pub fn onboarding(
+        scope: &PrincipalScope<'_>,
+        value: &OnboardingStatus,
+    ) -> Result<Value, ApiFailure> {
+        super::identity_dispatch::onboarding_status(scope, value)
+            .map_err(|_| ApiFailure::upstream_degraded())
+    }
+
+    pub fn authenticator_setup(
+        value: &crate::security::AuthenticatorSetupChallenge,
+    ) -> Result<Value, ApiFailure> {
+        Ok(
+            json!({"setup_id":value.setup_id,"secret":Self::timed_secret(&value.secret)?,
+            "otpauth_uri":Self::timed_secret(&value.otpauth_uri)?,"expires_at":super::projection::unix_time(value.expires_at)?}),
+        )
+    }
+
+    pub fn backup_codes(value: &crate::security::BackupCodeSet) -> Result<Value, ApiFailure> {
+        Ok(
+            json!({"codes":value.expose(),"remask_at":super::projection::unix_time(value.remask_at())?,"copyable":true}),
+        )
+    }
+
+    pub fn key_export_challenge(
+        value: &crate::security::KeyExportChallenge,
+    ) -> Result<Value, ApiFailure> {
+        Ok(
+            json!({"export_id":value.export_id,"confirms":value.confirms.to_schema(),
+            "expires_at":super::projection::unix_time(value.expires_at)?}),
+        )
+    }
+
+    pub fn exported_key(value: &crate::security::ExportedKey) -> Result<Value, ApiFailure> {
+        Ok(
+            json!({"public_key":value.public_key,"secret":Self::timed_secret(&value.secret)?,
+            "self_custodied_at":super::projection::unix_time(value.self_custodied_at)?}),
+        )
+    }
+
+    pub fn authenticator_method(
+        value: &crate::security::AuthenticatorMethod,
+    ) -> Result<Value, ApiFailure> {
+        let mut result = json!({"authenticator_id":value.id,"label":value.label,
+            "enabled_at":super::projection::unix_time(value.enabled_at)?});
+        if let Some(time) = value.last_used_at {
+            result["last_used_at"] = json!(super::projection::unix_time(time)?);
+        }
+        Ok(result)
+    }
+
+    pub fn timed_secret(value: &crate::security::TimedSecret) -> Result<Value, ApiFailure> {
+        Ok(
+            json!({"value":value.expose(),"remask_at":super::projection::unix_time(value.remask_at())?,"copyable":value.copyable()}),
+        )
+    }
+
     /// Mints the service-owned device identifier from the schema-decoded
     /// session.open presentation metadata.
     ///
@@ -135,23 +258,12 @@ impl IdentityProjector {
 
     #[must_use]
     pub fn step_up_challenge(challenge: &StepUpChallenge) -> Value {
-        json!({
-            "challenge_id": challenge.challenge_id,
-            "confirms": challenge.confirms.to_schema(),
-            "ceremony": challenge.ceremony,
-            "expires_at": rfc3339(challenge.expires_at)
-        })
+        challenge.to_schema_json()
     }
 
     #[must_use]
     pub fn step_up(evidence: &StepUpEvidence) -> Value {
-        json!({
-            "challenge_id": evidence.challenge_id(),
-            "confirms": evidence.confirms().to_schema(),
-            "passkey_id": evidence.passkey_id(),
-            "completed_at": rfc3339(evidence.completed_at()),
-            "expires_at": rfc3339(evidence.expires_at())
-        })
+        evidence.to_schema_json()
     }
 
     /// Projects one freshly issued or rotated session and separates its

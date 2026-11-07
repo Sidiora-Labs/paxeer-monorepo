@@ -10,7 +10,9 @@ use layerx_gas_station::config::{
 use layerx_gas_station::journal::{
     Completion, Entry, Journal, JournalError, Key, QuoteRecord, Submission,
 };
-use layerx_gas_station::policy::{DidBudget, PolicyRefusal, QuotePolicy};
+use layerx_gas_station::policy::{
+    DidBudget, PolicyRefusal, QuotePolicy, DID_BUDGET_INTERVAL_SECONDS,
+};
 use layerx_gas_station::price::{GovernedRate, PAX_BASE_UNITS};
 use layerx_gas_station::quote::{address_word, keccak, word, Address, Quote, Word, SIDIORA};
 use layerx_gas_station::rpc::hex;
@@ -399,13 +401,25 @@ fn assert_budget_rollover(policy: &mut QuotePolicy, did: &str) {
         policy.reserve_for_did(did, [3; 20], 4_000_001, fees(1), u128::MAX, 1060),
         Err(PolicyRefusal::PerQuote)
     );
-    assert_eq!(policy.did_budget().used(did, 16), 1_000_000);
+    assert_eq!(policy.did_budget().used(did, 0), 1_000_000);
     assert_eq!(
         policy.reserve_for_did(did, [3; 20], 1, fees(20_000), u128::MAX, 1060),
+        Err(PolicyRefusal::PerAccount)
+    );
+    assert_eq!(policy.did_budget().used(did, 0), 1_000_000);
+    assert_eq!(
+        policy.reserve_for_did(
+            did,
+            [3; 20],
+            1,
+            fees(20_000),
+            u128::MAX,
+            DID_BUDGET_INTERVAL_SECONDS + 1000
+        ),
         Ok(())
     );
-    assert_eq!(policy.did_budget().used(did, 17), 20_000);
-    assert_eq!(policy.did_budget().used(did, 16), 0);
+    assert_eq!(policy.did_budget().used(did, 1), 20_000);
+    assert_eq!(policy.did_budget().used(did, 0), 0);
     assert_eq!(
         policy.reserve_for_did(did, [3; 20], 1, fees(1), u128::MAX, 1059),
         Err(PolicyRefusal::ClockRegression)
@@ -429,7 +443,12 @@ fn assert_budget_boundaries(config: &StationConfig, did: &str) -> TestResult {
         overflow.reserve_for_did(did, [2; 20], 1, fees(1), u128::MAX, 1000),
         Err(PolicyRefusal::PerAccount)
     );
-    assert_eq!(overflow.did_budget().used(did, 16), u64::MAX);
+    assert_eq!(
+        overflow
+            .did_budget()
+            .used(did, 1000 / DID_BUDGET_INTERVAL_SECONDS),
+        u64::MAX
+    );
     assert_eq!(overflow.outstanding_pax(), before);
     Ok(())
 }
@@ -482,7 +501,7 @@ fn did_budget_refuses_over_budget() -> TestResult {
     assert_eq!(
         policy
             .did_budget()
-            .used(&did, 1000 / config.interval_seconds),
+            .used(&did, 1000 / DID_BUDGET_INTERVAL_SECONDS),
         990_000
     );
     assert_eq!(policy.outstanding_pax(), before);
@@ -490,7 +509,7 @@ fn did_budget_refuses_over_budget() -> TestResult {
         policy.reserve_for_did(&did, [2; 20], 1, fees(10_000), u128::MAX, 1000),
         Ok(())
     );
-    assert_eq!(policy.did_budget().used(&did, 16), 1_000_000);
+    assert_eq!(policy.did_budget().used(&did, 0), 1_000_000);
     assert_budget_rollover(&mut policy, &did);
     assert_budget_boundaries(&config, &did)?;
     let mut admitted = QuotePolicy::new(&config)?.with_did_budget(DidBudget::new(1_000_000));
@@ -510,7 +529,7 @@ fn did_budget_refuses_over_budget() -> TestResult {
         tx::recover(signed.digest, &signed.signature)?,
         sponsor.address()
     );
-    assert_eq!(admitted.did_budget().used(&did, 16), 20_000);
+    assert_eq!(admitted.did_budget().used(&did, 0), 20_000);
     Ok(())
 }
 

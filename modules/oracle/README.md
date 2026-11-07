@@ -1,12 +1,24 @@
+# Oracle
+
 ## Abstract
 
-The Paxeer X chain has an `oracle` module that provides asset exchange rates for other modules and contracts (EVM contracts reach it through the `oracle` precompile in [`precompiles/oracle`](../../precompiles/oracle)). Bonded validators are expected to submit exchange-rate votes.
+The `oracle` module stores validator-voted asset exchange rates in Paxeer's chain state. Paxeer mainnet-beta is one BFT network, with the kernel participating in block proposals, EVM chain ID 125 (`0x7d`), and finality when a block is committed. Oracle messages and queries use the native module interfaces described below.
 
-Voting is a single step: every vote period, each validator (or the feeder it delegated to) submits a `MsgAggregateExchangeRateVote` with its proposed rates for the current vote targets. On the last block of each vote period the votes are tallied, and a weighted median (weighted by validator voting power) becomes the exchange rate for each asset.
+The legacy EVM oracle precompile at `0x0000000000000000000000000000000000001008` is retired. Its `getExchangeRates` and `getOracleTwaps` methods reject otherwise valid calls with `ErrOraclePrecompileRetired`: `oracle precompile is retired; oracle data queries are disabled`. See [`precompiles/oracle/oracle.go`](../../precompiles/oracle/oracle.go); it is not a current contract interface for reading this module's prices.
 
-There are penalties for non-participation and for bad data. Each validator has success, abstain, and miss counters. At the end of every slash window, a validator whose valid vote rate is below the minimum is slashed and jailed.
+Native Cosmos queries remain available through the oracle query service (CLI, gRPC and REST), and the wasm bindings retain exchange-rate and TWAP queries. Current EVM price consumers use the supported [PriceFeed contract](../../precompiles/pricefeed/PriceFeed.sol) at `0x0000000000000000000000000000000000001020`, backed by `modules/pricefeed`; that interface has its own market identifiers and observation policy and is not the retired oracle ABI.
+
+Voting is a single step: each bonded validator, or its delegated feeder, submits a `MsgAggregateExchangeRateVote` with rates for the current vote targets. On the last block of each vote period, `MidBlocker` tallies ballots using validator voting power. The node calls this hook in `CompleteBlock`, after transaction execution and before EndBlock. See [the block lifecycle](spec/03_end_block.md).
+
+Each validator has success, abstain, and miss counters. EndBlock evaluates them at the end of each slash window and can slash and jail a bonded, unjailed validator whose valid vote rate is below `MinValidPerWindow`. The default minimum and slash fraction are both zero, so the defaults do not penalize non-participation. Query live parameters before assuming a penalty policy.
 
 ## Contents
+
+- [Concepts](spec/01_concepts.md)
+- [State and freshness](spec/02_state.md)
+- [MidBlock and EndBlock](spec/03_end_block.md)
+- [Messages](spec/04_messages.md)
+- [Events](spec/05_events.md)
 
 ## Concepts
 
@@ -14,31 +26,31 @@ There are penalties for non-participation and for bad data. Each validator has s
 
 Votes are collected per denom into ballots. In the mid-block step of the last block of each vote period (`VotePeriod` blocks):
 
-1. Among the vote targets whose ballots reach `VoteThreshold` of bonded voting power, the one with the highest voting power becomes the reference denom. Ballots below the threshold are not tallied; voting in them counts as a win.
+1. Among the vote targets whose ballots have nonzero power and reach the rounded `VoteThreshold * totalBondedPower`, the one with the highest voting power becomes the reference denom; equal power is resolved by denom name in ascending order. Ballots below the threshold do not update prices; submitting a tuple in such a ballot counts as a win for that target.
 2. The reference rate is the weighted median of its ballot. Other ballots are converted to cross rates against the reference denom, tallied, and converted back.
-3. Each accepted rate is stored as the base exchange rate and emits an `exchange_rate_update` event.
+3. Each nonzero tally result is stored with its block height and timestamp and emits an `exchange_rate_update` event. Existing rates are retained when a period supplies no replacement; presence alone does not establish freshness.
 4. Ballots are cleared and the vote targets are re-synced with the `Whitelist` param.
 
 ### Reward Band
 
-A vote counts as a win when it falls within `RewardBand` around the weighted median (half the band on each side, widened to the ballot's standard deviation when that is larger).
+A vote counts as a win when it is within an inclusive spread of `max(median * RewardBand / 2, ballot standard deviation)` around the weighted median, using cross rates for non-reference denoms. The current tally tracks wins but does not distribute token rewards. See [Reward Band](spec/01_concepts.md#reward-band).
 
 ### Slashing
 
-On the last block of each slash window (`SlashWindow` blocks), the end blocker computes each validator's valid vote rate as `success / (success + abstain + miss)`. If it is below `MinValidPerWindow`, a bonded, unjailed validator is slashed by `SlashFraction` and jailed. The counters are then reset and an `end_slash_window` event reports them.
+On the last block of each slash window (`SlashWindow` blocks), the end blocker computes each nonempty counter's valid vote rate as `success / (success + abstain + miss)`. If it is below `MinValidPerWindow`, a bonded, unjailed validator is slashed by `SlashFraction` and jailed. An `end_slash_window` event reports the counts, then the counter is deleted. EndBlock also removes stored rates whose denoms are no longer vote targets.
 
 ### Abstaining from Voting
 
-A vote with a non-positive exchange rate is an abstain and carries zero voting power in the tally. At the end of each vote period, a validator that won every vote target has its success counter incremented; one that submitted no vote has its abstain counter incremented; any other validator has its miss counter incremented.
+A stored tuple with a non-positive rate carries zero voting power. This differs from the period's abstain counter: a validator that wins every target receives a success; otherwise, one whose participation was not recorded by the tally receives an abstain; the rest receive a miss. Explicit zero-rate tuples can still record participation. See [Abstaining from Voting](spec/01_concepts.md#abstaining-from-voting).
 
 ## Messages
 
-- `MsgAggregateExchangeRateVote` (`exchange_rates`, `feeder`, `validator`) — submits the validator's rates for all vote targets.
+- `MsgAggregateExchangeRateVote` (`exchange_rates`, `feeder`, `validator`) — submits a comma-separated list of decimal rates and target denoms. There is no prevote or salt.
 - `MsgDelegateFeedConsent` — lets a validator delegate voting to a separate feeder address.
 
 ## Events
 
-`exchange_rate_update`, `aggregate_vote`, `feed_delegate`, and `end_slash_window`; see [`types/events.go`](types/events.go).
+`exchange_rate_update`, `aggregate_vote`, `feed_delegate`, and `end_slash_window`; see the [event attributes and emitting hooks](spec/05_events.md).
 
 ## Parameters
 
@@ -49,16 +61,20 @@ A vote with a non-positive exchange rate is an abstain and carries zero voting p
 | `RewardBand` | 0.02 |
 | `Whitelist` | `uatom`, `ueth` |
 | `SlashFraction` | 0 |
-| `SlashWindow` | two days of blocks |
+| `SlashWindow` | 216000 blocks (`2 * BlocksPerDay`) |
 | `MinValidPerWindow` | 0 |
 | `LookbackDuration` | 3600 seconds |
+
+These are [`DefaultParams`](types/params.go), not a statement of deployed parameter values. `BlocksPerDay` is a fixed block-count convention in [`utils/period.go`](utils/period.go), not a wall-clock guarantee.
 
 ## Transactions
 
 ```bash
-paxd tx oracle aggregate-vote [exchange-rates] [validator]
-paxd tx oracle set-feeder [feeder]
+paxd tx oracle aggregate-vote '<rate><denom>,<rate><denom>' [validator] --from <feeder-key>
+paxd tx oracle set-feeder <feeder-address> --from <validator-operator-key>
 ```
+
+The validator argument defaults to the signer's operator address; a delegated feeder must specify the validator it represents. Use `pax` account addresses and `paxvaloper` operator addresses. See [message validation](spec/04_messages.md).
 
 ## Queries
 
@@ -73,4 +89,4 @@ paxd q oracle vote-penalty-counter [validator]
 paxd q oracle vote-targets
 ```
 
-The detailed spec lives in [`spec/`](spec/README.md).
+`actives` lists denoms with stored rates; `vote-targets` lists denoms accepted for voting. Exchange-rate responses include observation height and time. Snapshot history and TWAP queries read stored snapshots; the current oracle block hooks do not produce new snapshots. See [state](spec/02_state.md) and the [specification index](spec/README.md).

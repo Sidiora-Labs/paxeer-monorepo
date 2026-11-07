@@ -229,6 +229,9 @@ func (cs *CommitStore) Get(store string, key []byte) (value []byte, ok bool, err
 
 	childStore := cs.GetChildStoreByName(store)
 	if childStore == nil {
+		if cs.IsLoaded() {
+			return nil, false, fmt.Errorf("store %q not found", store)
+		}
 		return nil, false, nil
 	}
 
@@ -249,6 +252,9 @@ func (cs *CommitStore) GetProof(store string, key []byte) (*ics23.CommitmentProo
 
 	childStore := cs.GetChildStoreByName(store)
 	if childStore == nil {
+		if cs.IsLoaded() {
+			return nil, fmt.Errorf("store %q not found", store)
+		}
 		return nil, nil
 	}
 
@@ -270,6 +276,9 @@ func (cs *CommitStore) Iterator(store string, start []byte, end []byte, ascendin
 
 	childStore := cs.GetChildStoreByName(store)
 	if childStore == nil {
+		if cs.IsLoaded() {
+			return nil, fmt.Errorf("store %q not found", store)
+		}
 		return nil, nil
 	}
 

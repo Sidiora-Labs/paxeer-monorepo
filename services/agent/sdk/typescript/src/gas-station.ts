@@ -1,5 +1,6 @@
 import { secp256k1 } from "@noble/curves/secp256k1.js";
 import { keccak_256 } from "@noble/hashes/sha3.js";
+import { sha256 } from "@noble/hashes/sha2.js";
 
 import {
   abiEventTopic,
@@ -12,6 +13,30 @@ export const SIDIORA_TOKEN = "0x21f7b20a555199fa73A238B1a91FD0f549068fEe";
 export const SIDIORA_DECIMALS = 6;
 export const GAS_STATION_QUOTE_URL =
   "https://api-mainnet-beta.paxeer.network/gas-station/quote";
+
+export const GAS_RESPONSE_LIMITS = Object.freeze({ quote: 16_384, submission: 4_096, status: 16_384 });
+
+async function boundedGasJson(response: Response, maximum: number): Promise<unknown> {
+  const reader = response.body?.getReader();
+  if (reader === undefined) throw new Refusal("invalid_response", "body");
+  try {
+    const advertised = response.headers.get("content-length");
+    if (advertised !== null && (!/^(0|[1-9][0-9]*)$/u.test(advertised) || BigInt(advertised) > BigInt(maximum)))
+      throw new Refusal("invalid_response", "body");
+    const chunks: Uint8Array[] = [];
+    let received = 0;
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      received += value.byteLength;
+      if (received > maximum) throw new Refusal("invalid_response", "body");
+      chunks.push(value);
+    }
+    return JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(Buffer.concat(chunks, received)));
+  } finally {
+    try { await reader.cancel(); } finally { reader.releaseLock(); }
+  }
+}
 
 export interface GasQuote {
   readonly sponsor: string;
@@ -603,7 +628,7 @@ export async function requestGasQuote(
   if (!response.ok) return stationRefusal(response, "quoteUrl");
   let payload: unknown;
   try {
-    payload = await response.json();
+    payload = await boundedGasJson(response, GAS_RESPONSE_LIMITS.quote);
   } catch {
     return { ok: false, refusal: { code: "invalid_response", field: "quote" } };
   }
@@ -664,9 +689,100 @@ export interface SponsoredGasSubmission {
   readonly rung: "submitted";
 }
 
-export interface SponsoredGasBatchStatus {
-  readonly transactionHash: string;
-  readonly rung: "submitted" | "receipted" | "committed";
+export type SponsoredGasBatchStatus =
+  | {
+      readonly transactionHash: string;
+      readonly rung: "submitted";
+    }
+  | (GasReceiptDenominations & {
+      readonly transactionHash: string;
+      readonly rung: "receipted" | "committed";
+    });
+
+interface GasReceiptDenominations {
+  readonly paymentDenom: string;
+  readonly feeDenom: string;
+}
+
+export function gasReceiptDenominations(
+  view: Record<string, unknown>,
+): GasReceiptDenominations {
+  const paymentDenom = wireString(view.paymentDenom, "paymentDenom");
+  const feeDenom = wireString(view.feeDenom, "feeDenom");
+  for (const [field, denom] of Object.entries({ paymentDenom, feeDenom })) {
+    if (!/^[a-zA-Z][a-zA-Z0-9/:._-]{2,63}$/u.test(denom))
+      throw new Refusal("invalid_response", field);
+  }
+  const encoded = wireString(view.receipt, "receipt");
+  if (!/^0x(?:[0-9a-fA-F]{2})+$/u.test(encoded) || encoded.length > 2_097_154)
+    throw new Refusal("invalid_response", "receipt");
+  const receipt = unhex(encoded.slice(2));
+  let offset = 0;
+  const take = (length: number): Uint8Array => {
+    if (offset + length > receipt.length)
+      throw new Refusal("invalid_response", "receipt");
+    const data = receipt.subarray(offset, offset + length);
+    offset += length;
+    return data;
+  };
+  const integer = (length: number): number =>
+    take(length).reduce((value, byte) => value * 256 + byte, 0);
+  const bounded = (length: number): Uint8Array => {
+    if (integer(4) !== length) throw new Refusal("invalid_response", "receipt");
+    return take(length);
+  };
+  if (integer(2) !== 2 || integer(2) !== 0x5201 || integer(2) !== 2)
+    throw new Refusal("invalid_response", "receipt");
+  if (`0x${hex(bounded(32))}` !== wireHash(view.txHash, "txHash"))
+    throw new Refusal("invalid_response", "txHash");
+  take(8);
+  bounded(32);
+  bounded(32);
+  bounded(32);
+  take(4);
+  const effectCount = integer(4);
+  if (effectCount < 1 || effectCount > 512)
+    throw new Refusal("invalid_response", "receipt");
+  for (let index = 0; index < effectCount; index++) {
+    const moduleId = integer(2);
+    const ordinal = integer(2);
+    const eventType = integer(2);
+    const kind = integer(1);
+    const monetary = integer(1);
+    bounded(32);
+    const size = integer(4);
+    if (size > 256) throw new Refusal("invalid_response", "receipt");
+    const body = take(size);
+    if (index === 0) {
+      const denomSize = body[108];
+      if (
+        moduleId !== 12 ||
+        ordinal !== 0 ||
+        eventType !== 0 ||
+        kind !== 1 ||
+        monetary !== 0 ||
+        denomSize === undefined ||
+        denomSize < 1 ||
+        denomSize > 64 ||
+        body.length !== 109 + denomSize ||
+        hex(body.subarray(109)) !== hex(new TextEncoder().encode(feeDenom))
+      )
+        throw new Refusal("invalid_response", "feeDenom");
+    }
+  }
+  take(16);
+  bounded(32);
+  if (
+    integer(2) !== 12 ||
+    integer(4) !== 1 ||
+    integer(4) !== 0 ||
+    integer(1) !== 2
+  )
+    throw new Refusal("invalid_response", "receipt");
+  const asset = bounded(32);
+  if (hex(asset) !== hex(sha256(new TextEncoder().encode(paymentDenom))))
+    throw new Refusal("invalid_response", "paymentDenom");
+  return { paymentDenom, feeDenom };
 }
 
 export async function requestSponsoredGasBatchStatus(
@@ -690,7 +806,12 @@ export async function requestSponsoredGasBatchStatus(
       const rung = receipt.rung;
       if (rung !== "submitted" && rung !== "receipted" && rung !== "committed")
         throw new Refusal("invalid_response", "rung");
-      return { transactionHash: hash, rung };
+      if (rung === "submitted") return { transactionHash: hash, rung };
+      return {
+        transactionHash: hash,
+        rung,
+        ...gasReceiptDenominations(receipt),
+      };
     });
   } catch (error) {
     return {
@@ -889,7 +1010,7 @@ async function submissionRequest(
     };
   let payload: unknown;
   try {
-    payload = await response.json();
+    payload = await boundedGasJson(response, GAS_RESPONSE_LIMITS.status);
   } catch {
     return { ok: false, refusal: { code: "invalid_response", field: route } };
   }
@@ -1031,7 +1152,7 @@ export async function submitSponsoredGasBatch(
   if (!response.ok) return stationRefusal(response, "submit");
   let payload: unknown;
   try {
-    payload = await response.json();
+    payload = await boundedGasJson(response, GAS_RESPONSE_LIMITS.submission);
   } catch {
     return {
       ok: false,

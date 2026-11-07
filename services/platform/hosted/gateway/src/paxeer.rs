@@ -12,8 +12,11 @@ use layerx_platform_gateway::evm;
 use layerx_platform_gateway::http::OutboundRequest;
 use serde_json::{json, Map, Value};
 
+#[path = "../../../../../tools/platform/cli/src/wallet_gateway.rs"]
+mod wallet_contract;
+
 /// Assets joined per `px_listAssets` answer.
-const MAX_JOINED_ASSETS: usize = 16;
+const MAX_JOINED_ASSETS: usize = wallet_contract::ASSET_PAGE_LIMIT;
 
 /// Paxeer RPC names the relay may fail over across.
 const MIN_ENDPOINTS: usize = 2;
@@ -89,7 +92,23 @@ pub(super) fn node(config: &Config, request: &Value) -> Result<Value, &'static s
     node_unmetered(config, request)
 }
 
-fn node_unmetered(config: &Config, request: &Value) -> Result<Value, &'static str> {
+pub(super) fn node_unmetered(config: &Config, request: &Value) -> Result<Value, &'static str> {
+    node_before(config, request, None)
+}
+
+fn check_deadline(deadline: Option<std::time::Instant>) -> Result<(), &'static str> {
+    if deadline.is_some_and(|deadline| std::time::Instant::now() >= deadline) {
+        Err("asset_list_deadline_exceeded")
+    } else {
+        Ok(())
+    }
+}
+
+fn node_before(
+    config: &Config,
+    request: &Value,
+    deadline: Option<std::time::Instant>,
+) -> Result<Value, &'static str> {
     let Some(endpoints) = &config.paxeer else {
         return Err("paxeer_rpc_not_configured");
     };
@@ -97,6 +116,7 @@ fn node_unmetered(config: &Config, request: &Value) -> Result<Value, &'static st
     let mut failure = "paxeer_unreachable";
     let mut answered = None;
     for endpoint in endpoints {
+        check_deadline(deadline)?;
         let path = rpc_path(endpoint);
         let mut target = endpoint.clone();
         target.base_path.clear();
@@ -112,10 +132,21 @@ fn node_unmetered(config: &Config, request: &Value) -> Result<Value, &'static st
                 body: identity_body,
             },
         );
-        let valid_network = identity
-            .ok()
-            .filter(|reply| reply.status == 200 && reply.content_type == "application/json")
-            .and_then(|reply| serde_json::from_slice::<Value>(&reply.body).ok())
+        check_deadline(deadline)?;
+        let identity = match identity {
+            Ok(reply) if reply.status == 200 => reply,
+            Ok(_) => {
+                failure = "paxeer_node_unavailable";
+                continue;
+            }
+            Err(_) => {
+                failure = "paxeer_unreachable";
+                continue;
+            }
+        };
+        let valid_network = (identity.content_type == "application/json")
+            .then(|| serde_json::from_slice::<Value>(&identity.body).ok())
+            .flatten()
             .is_some_and(|body| {
                 body["jsonrpc"] == "2.0"
                     && body["id"] == "route-network"
@@ -130,7 +161,8 @@ fn node_unmetered(config: &Config, request: &Value) -> Result<Value, &'static st
             failure = "paxeer_wrong_network_or_unavailable";
             continue;
         }
-        match config.client.request_unauthenticated(
+        check_deadline(deadline)?;
+        let result = config.client.request_unauthenticated(
             &target,
             &OutboundRequest {
                 method: "POST",
@@ -139,7 +171,9 @@ fn node_unmetered(config: &Config, request: &Value) -> Result<Value, &'static st
                 content_type: "application/json",
                 body: &body,
             },
-        ) {
+        );
+        check_deadline(deadline)?;
+        match result {
             Ok(upstream) if upstream.status == 200 => {
                 answered = Some(upstream);
                 break;
@@ -263,13 +297,12 @@ struct Resolution {
 
 impl Resolution {
     fn document(&self) -> Value {
-        json!({
-            "evm_address": self.evm.as_ref().map(evm::address_hex),
-            "pax_address": self.pax_address,
-            "layerx_did": self.did_public_key.map(|key| format!("did:layerx:{}", hex32(&key))),
-            "layerx_account": self.layerx_account.as_ref().map(hex32),
-            "bound": self.evm.is_some() && self.did_public_key.is_some()
-        })
+        wallet_contract::account_document(
+            self.evm,
+            self.pax_address.clone(),
+            self.did_public_key,
+            self.layerx_account,
+        )
     }
 
     fn did(&self) -> Option<String> {
@@ -572,6 +605,33 @@ fn resolved_at_height(
 }
 
 fn get_account(config: &Config, id: &Value, params: Option<&Value>) -> Value {
+    if let Some([Value::String(did), Value::String(asset)]) =
+        params.and_then(Value::as_array).map(Vec::as_slice)
+    {
+        if wallet_contract::key(asset).is_err()
+            || did
+                .strip_prefix("did:layerx:")
+                .is_none_or(|key| wallet_contract::key(key).is_err())
+        {
+            return super::rpc::error(id, -32602, "Invalid params");
+        }
+        let height = match block_number(&mut |request| node(config, request)) {
+            Ok(height) => height,
+            Err(code) => return unavailable(id, code),
+        };
+        return match wallet_contract::ledger_account(did, asset, height, &mut |data| {
+            call(
+                &mut |request| {
+                    node_at_height(&mut |request| node(config, request), height, request)
+                },
+                &evm::LEDGER_PRECOMPILE,
+                data,
+            )
+        }) {
+            Ok(result) => json!({"jsonrpc":"2.0","id":id,"result":result}),
+            Err(code) => unavailable(id, code),
+        };
+    }
     let (resolution, height) = match resolved_at_height(config, id, params) {
         Ok(snapshot) => snapshot,
         Err(refusal) => return refusal,
@@ -607,78 +667,88 @@ fn get_account(config: &Config, id: &Value, params: Option<&Value>) -> Value {
     })
 }
 
-fn layerx_assets(config: &Config, id: &Value) -> Result<Vec<Value>, Value> {
+const ASSET_LIST_DEADLINE: std::time::Duration = std::time::Duration::from_secs(10);
+
+fn layerx_assets(
+    config: &Config,
+    id: &Value,
+    cursor: Option<u64>,
+    limit: usize,
+) -> Result<(Vec<Value>, Option<u64>), Value> {
     let indexer = config
         .indexer
         .as_ref()
         .ok_or_else(|| unavailable(id, "indexer_not_configured"))?;
-    let mut records = Vec::new();
-    let mut cursor = 0_u64;
-    loop {
-        if !public_reads::consume_read() {
-            return Err(unavailable(id, "public_read_rate_limit"));
-        }
-        let query = if cursor == 0 {
-            "limit=500".to_owned()
-        } else {
-            format!("limit=500&cursor={cursor}")
-        };
-        let answer = match indexer {
-            super::history::Indexer::Tls(endpoint) => {
-                config.client.get_with_query(endpoint, "/v1/assets", &query)
-            }
-            super::history::Indexer::Loopback {
-                address,
-                authority,
-                base_path,
-            } => layerx_platform_gateway::http::loopback_get(
-                *address,
-                authority,
-                &format!("{base_path}/v1/assets"),
-                &query,
-            ),
-        }
-        .map_err(|_| unavailable(id, "indexer_unreachable"))?;
-        if answer.status != 200 || answer.content_type != "application/json" {
-            return Err(unavailable(id, "indexer_assets_unavailable"));
-        }
-        let document: Value = serde_json::from_slice(&answer.body)
-            .map_err(|_| unavailable(id, "invalid_indexer_response"))?;
-        let rows = document
-            .get("items")
-            .and_then(Value::as_array)
-            .ok_or_else(|| unavailable(id, "invalid_indexer_response"))?;
-        for row in rows {
-            let asset_id = row
-                .get("asset")
-                .and_then(Value::as_str)
-                .filter(|asset| !asset.is_empty())
-                .ok_or_else(|| unavailable(id, "invalid_indexer_response"))?;
-            let kind = row
-                .get("kind")
-                .and_then(Value::as_str)
-                .ok_or_else(|| unavailable(id, "invalid_indexer_response"))?;
-            let denom = row
-                .get("denom")
-                .filter(|denom| denom.is_null() || denom.is_string())
-                .ok_or_else(|| unavailable(id, "invalid_indexer_response"))?;
-            records.push(json!({"asset_id": asset_id, "denom": denom, "kind": kind}));
-        }
-        match document.get("next_cursor") {
-            Some(Value::Null) => break,
-            Some(Value::String(next)) => {
-                cursor = next
-                    .parse::<u64>()
-                    .ok()
-                    .filter(|next| *next > cursor)
-                    .ok_or_else(|| unavailable(id, "invalid_indexer_response"))?;
-            }
-            _ => return Err(unavailable(id, "invalid_indexer_response")),
-        }
+    if !public_reads::consume_read() {
+        return Err(unavailable(id, "public_read_rate_limit"));
     }
-    records.sort_by(|left, right| left["asset_id"].as_str().cmp(&right["asset_id"].as_str()));
-    records.truncate(MAX_JOINED_ASSETS);
-    Ok(records)
+    // The indexer's keyset contract is registration order, not lexical asset order.
+    // Request exactly one bounded page; never walk its continuation here.
+    let query = cursor.map_or_else(
+        || format!("limit={limit}"),
+        |cursor| format!("limit={limit}&cursor={cursor}"),
+    );
+    let answer = match indexer {
+        super::history::Indexer::Tls(endpoint) => {
+            config.client.get_with_query(endpoint, "/v1/assets", &query)
+        }
+        super::history::Indexer::Loopback {
+            address,
+            authority,
+            base_path,
+        } => layerx_platform_gateway::http::loopback_get(
+            *address,
+            authority,
+            &format!("{base_path}/v1/assets"),
+            &query,
+        ),
+    }
+    .map_err(|_| unavailable(id, "indexer_unreachable"))?;
+    if answer.status != 200 || answer.content_type != "application/json" {
+        return Err(unavailable(id, "indexer_assets_unavailable"));
+    }
+    let document: Value = serde_json::from_slice(&answer.body)
+        .map_err(|_| unavailable(id, "invalid_indexer_response"))?;
+    let rows = document
+        .get("items")
+        .and_then(Value::as_array)
+        .filter(|rows| rows.len() <= limit)
+        .ok_or_else(|| unavailable(id, "invalid_indexer_response"))?;
+    if document["version"] != 1 {
+        return Err(unavailable(id, "invalid_indexer_response"));
+    }
+    let next = match document.get("next_cursor") {
+        Some(Value::Null) => None,
+        Some(Value::String(next)) if rows.len() == limit => {
+            let parsed = next
+                .parse::<u64>()
+                .ok()
+                .filter(|next| *next > cursor.unwrap_or(0) && i64::try_from(*next).is_ok())
+                .filter(|parsed| parsed.to_string() == *next)
+                .ok_or_else(|| unavailable(id, "invalid_indexer_response"))?;
+            Some(parsed)
+        }
+        _ => return Err(unavailable(id, "invalid_indexer_response")),
+    };
+    let mut records = Vec::with_capacity(rows.len());
+    let mut seen = std::collections::BTreeSet::new();
+    for row in rows {
+        let asset_id = row
+            .get("asset")
+            .and_then(Value::as_str)
+            .filter(|asset| !asset.is_empty() && seen.insert(*asset))
+            .ok_or_else(|| unavailable(id, "invalid_indexer_response"))?;
+        let kind = row
+            .get("kind")
+            .and_then(Value::as_str)
+            .ok_or_else(|| unavailable(id, "invalid_indexer_response"))?;
+        let denom = row
+            .get("denom")
+            .filter(|denom| denom.is_null() || denom.is_string())
+            .ok_or_else(|| unavailable(id, "invalid_indexer_response"))?;
+        records.push(json!({"asset_id": asset_id, "denom": denom, "kind": kind}));
+    }
+    Ok((records, next))
 }
 
 /// Successful ledger reads include the optional OpenRPC `paused` and `verification` fields.
@@ -703,11 +773,7 @@ fn custody_asset(node: &mut Node<'_>, record: &Value, height: u64) -> Result<Val
                 &evm::LEDGER_PRECOMPILE,
                 &evm::calldata_word(evm::SELECTOR_GET_ASSET, &id),
             )?;
-            let asset = evm::decode_ledger_asset(&answer).map_err(|_| "invalid_ledger_asset")?;
-            if asset.asset_id != id {
-                return Err("invalid_ledger_asset");
-            }
-            return Ok(layerx_asset_metadata(&asset));
+            return wallet_contract::ledger_asset_metadata(&answer, id);
         }
         let denom = record["denom"]
             .as_str()
@@ -738,6 +804,7 @@ fn custody_asset(node: &mut Node<'_>, record: &Value, height: u64) -> Result<Val
     match metadata {
         Ok(metadata) => Ok(metadata),
         Err("public_read_rate_limit") => Err("public_read_rate_limit"),
+        Err("asset_list_deadline_exceeded") => Err("asset_list_deadline_exceeded"),
         Err(_) => Ok(json!({"name": null, "symbol": null, "decimals": null, "supply": null})),
     }
 }
@@ -746,25 +813,44 @@ fn list_assets(config: &Config, id: &Value, params: Option<&Value>) -> Value {
     if config.paxeer.is_none() {
         return unconfigured(id);
     }
-    if !no_params(params) {
-        return super::rpc::error(id, -32602, "Invalid params");
-    }
-    let records = match layerx_assets(config, id) {
+    let (cursor, limit) = match wallet_contract::page_params(params) {
+        Ok(page) if page.1 <= MAX_JOINED_ASSETS => page,
+        _ => return super::rpc::error(id, -32602, "Invalid params"),
+    };
+    let started = std::time::Instant::now();
+    let (records, next_cursor) = match layerx_assets(config, id, cursor, limit) {
         Ok(records) => records,
         Err(refusal) => return refusal,
     };
     if !public_reads::consume_read() {
         return unavailable(id, "public_read_rate_limit");
     }
-    let mut node = |request: &Value| node_unmetered(config, request);
+    let mut node = |request: &Value| {
+        if started.elapsed() >= ASSET_LIST_DEADLINE {
+            return Err("asset_list_deadline_exceeded");
+        }
+        let answer = node_before(config, request, Some(started + ASSET_LIST_DEADLINE));
+        if started.elapsed() >= ASSET_LIST_DEADLINE {
+            return Err("asset_list_deadline_exceeded");
+        }
+        answer
+    };
     let height = match block_number(&mut node) {
         Ok(height) => height,
         Err(code) => return unavailable(id, code),
     };
-    let mut joined = Vec::with_capacity(records.len());
-    for mut record in records {
-        let metadata = match custody_asset(&mut node, &record, height) {
-            Ok(metadata) => metadata,
+    // Page before joining: a small requested page bounds native metadata reads.
+    let page = match wallet_contract::assets_page(records, height, cursor, limit, next_cursor) {
+        Ok(page) => page,
+        Err(code) => return unavailable(id, code),
+    };
+    let mut result = page;
+    let Some(records) = result["assets"].as_array_mut() else {
+        return unavailable(id, "invalid_asset_page");
+    };
+    for record in records {
+        let metadata = match custody_asset(&mut node, record, height) {
+            Ok(value) => value,
             Err(code) => return unavailable(id, code),
         };
         record
@@ -776,13 +862,8 @@ fn list_assets(config: &Config, id: &Value, params: Option<&Value>) -> Value {
                     .expect("asset metadata is an object")
                     .clone(),
             );
-        joined.push(record);
     }
-    json!({
-        "jsonrpc": "2.0",
-        "id": id,
-        "result": {"height": height, "assets": joined, "joined_limit": MAX_JOINED_ASSETS}
-    })
+    json!({"jsonrpc":"2.0","id":id,"result":result})
 }
 
 fn decode_coins(answer: &[u8]) -> Result<Vec<Value>, &'static str> {
@@ -821,11 +902,7 @@ fn get_balances(config: &Config, id: &Value, params: Option<&Value>) -> Value {
     json!({
         "jsonrpc": "2.0",
         "id": id,
-        "result": {
-            "account": resolution.document(),
-            "height": height,
-            "balances": balances
-        }
+        "result": wallet_contract::balances(resolution.document(), height, balances)
     })
 }
 

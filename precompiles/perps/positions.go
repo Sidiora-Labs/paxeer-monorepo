@@ -13,12 +13,6 @@ import (
 	"github.com/holiman/uint256"
 )
 
-var (
-	positionWad      = big.NewInt(1_000_000_000_000_000_000)
-	positionUsdlUnit = big.NewInt(1_000_000_000_000)
-	positionPpm      = big.NewInt(int64(types.PpmDenominator))
-)
-
 func init() {
 	handlers["openPosition"] = handleOpenPosition
 	handlers["addSize"] = handleAddSize
@@ -308,70 +302,11 @@ func (p PrecompileExecutor) compatibilityOpen(ctx sdk.Context, evm *vm.EVM, call
 // lot rounding.
 func (p PrecompileExecutor) compatibilitySize(ctx sdk.Context, caller common.Address, marketID uint64, isLong bool,
 	amount, leverage uint256.Int) (uint256.Int, error) {
-	params, err := p.keeper.GetParams(ctx)
+	order, err := p.keeper.CompatOpenOrder(ctx, caller, marketID, amount, leverage, isLong)
 	if err != nil {
 		return uint256.Int{}, err
 	}
-	market, err := p.keeper.GetMarket(ctx, marketID)
-	if err != nil {
-		return uint256.Int{}, err
-	}
-	if market.PxDecimals > types.USDDecimals || market.SzDecimals > types.USDDecimals {
-		return uint256.Int{}, fmt.Errorf("%w: market %d decimals", types.ErrInvalidParams, marketID)
-	}
-	if params.DefaultSlippagePpm >= types.PpmDenominator {
-		return uint256.Int{}, fmt.Errorf("%w: default slippage %d ppm", types.ErrInvalidParams, params.DefaultSlippagePpm)
-	}
-	tier, err := p.keeper.FeeTier(ctx, caller)
-	if err != nil {
-		return uint256.Int{}, err
-	}
-	collateralUsd := new(big.Int).Mul(amount.ToBig(), positionUsdlUnit)
-	notional, err := perpskeeper.CompatibilityNotional(sdk.NewIntFromBigInt(collateralUsd), leverage, tier.TakerFeePpm)
-	if err != nil {
-		return uint256.Int{}, err
-	}
-	state, err := p.keeper.GetMarketState(ctx, marketID)
-	if err != nil {
-		return uint256.Int{}, err
-	}
-	if state.MarkPrice.IsZero() {
-		return uint256.Int{}, fmt.Errorf("%w: market %d has no mark", types.ErrPriceStale, marketID)
-	}
-	mark := state.MarkPrice.ToBig()
-	var price *big.Int
-	if isLong {
-		tick := new(big.Int).Exp(big.NewInt(10), big.NewInt(int64(types.USDDecimals-market.PxDecimals)), nil)
-		bound := new(big.Int).Mul(mark, new(big.Int).SetUint64(types.PpmDenominator+params.DefaultSlippagePpm))
-		bound.Quo(bound, new(big.Int).Mul(positionPpm, tick))
-		price = bound.Mul(bound, tick)
-	} else {
-		bid, ok, err := p.keeper.BestBid(ctx, marketID)
-		if err != nil {
-			return uint256.Int{}, err
-		}
-		if !ok {
-			return uint256.Int{}, fmt.Errorf("%w: market %d has no bid", types.ErrNoLiquidity, marketID)
-		}
-		price = bid.ToBig()
-	}
-	if price.Sign() == 0 {
-		return uint256.Int{}, fmt.Errorf("%w: market %d sizing price is zero", types.ErrPriceStale, marketID)
-	}
-	lot := new(big.Int).Exp(big.NewInt(10), big.NewInt(int64(types.USDDecimals-market.SzDecimals)), nil)
-	base := new(big.Int).Quo(new(big.Int).Mul(notional.BigInt(), positionWad), price)
-	base.Sub(base, new(big.Int).Mod(base, lot))
-	if base.Sign() == 0 {
-		return uint256.Int{}, fmt.Errorf("%w: %s USD at %s is below one lot", types.ErrLotSize, notional, price)
-	}
-	sizeUsd := new(big.Int).Mul(base, mark)
-	sizeUsd.Add(sizeUsd, new(big.Int).Sub(positionWad, big.NewInt(1)))
-	sizeUsd.Quo(sizeUsd, positionWad)
-	word, overflow := uint256.FromBig(sizeUsd)
-	if overflow {
-		return uint256.Int{}, fmt.Errorf("%w: compatibility size of market %d", types.ErrOverflow, marketID)
-	}
-	return *word, nil
+	return order.SizeUsd, nil
 }
 
 // placeClose places the reduce-only closing order the keeper built, with the

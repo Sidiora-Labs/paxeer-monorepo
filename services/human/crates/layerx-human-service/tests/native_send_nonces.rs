@@ -482,3 +482,160 @@ fn native_send_access_below_pending_nonce_is_expired() {
     peer.finish();
     checked(std::fs::remove_dir_all(root));
 }
+
+pub(crate) fn consent_expiry_round_trip(label: &str) {
+    let root = directory(label);
+    let (mut store, digest) = install_and_open(
+        &root,
+        &tenancy(&[(PRINCIPAL, TENANT)]),
+        retention_uniform(10_000),
+    );
+    let id = principal(PRINCIPAL);
+    let mut scope = checked(store.principal(&id));
+    let (owner_peer, mut runtime) = Peer::serve(vec![owner_exchange()]);
+    let context = retain_access(&mut scope, &mut runtime);
+    owner_peer.finish();
+    let original = checked(serde_json::to_vec(&context));
+    let mut unsigned = checked(context.signed_grant());
+    let signature = ed25519_dalek::Signature::from_bytes(&unsigned.signature);
+    unsigned.signature = [0; 64];
+    let signed_digest: [u8; 32] =
+        Sha256::digest(checked(native_local_grant_signing_bytes(&unsigned))).into();
+    checked(
+        owner()
+            .verifying_key()
+            .verify_strict(&signed_digest, &signature),
+    );
+    // Session access consumes seconds; purpose and grant expiry remain milliseconds.
+    assert_eq!(context.expires_at_ms, EXPIRY_MS);
+    let before_seconds = EXPIRY_MS / 1_000 - 1;
+    let before_milliseconds = before_seconds.checked_mul(1_000).expect("milliseconds");
+    assert!(before_milliseconds < EXPIRY_MS);
+    let (peer, mut runtime) = Peer::serve(vec![nonce_exchange(NONCE), nonce_exchange(NONCE)]);
+    checked(context.session.validate(&scope, before_seconds));
+    let loaded = checked(load_access(&scope, &mut runtime, ACTION, before_seconds));
+    assert_eq!(checked(serde_json::to_vec(&loaded)), original);
+    drop(loaded);
+    drop(scope);
+    drop(store);
+    let mut store = checked(PrincipalStore::open(
+        &root,
+        retention_uniform(10_000),
+        digest,
+    ));
+    let scope = checked(store.principal(&id));
+    let recovered = checked(load_access(&scope, &mut runtime, ACTION, before_seconds));
+    assert_eq!(checked(serde_json::to_vec(&recovered)), original);
+    for seconds in [EXPIRY_MS.div_ceil(1_000), EXPIRY_MS.div_ceil(1_000) + 1] {
+        assert!(matches!(
+            load_access(&scope, &mut runtime, ACTION, seconds),
+            Err(AgentFailure::Refused("Human owner session unavailable"))
+        ));
+        assert!(recovered.session.validate(&scope, seconds).is_err());
+    }
+    assert_eq!(
+        scope
+            .get(
+                Table::Journeys,
+                &checked(RowKey::new(format!(
+                    "human-native-send-access-{}",
+                    hex(ACTION)
+                )))
+            )
+            .expect("immutable consent")
+            .bytes(),
+        original
+    );
+    drop(scope);
+    drop(store);
+    peer.finish();
+    checked(std::fs::remove_dir_all(root));
+}
+
+pub(crate) fn progressing_head_preserves_exact_action() {
+    let root = directory("repair-22-33-63-progressing-head");
+    let (mut store, _) = install_and_open(
+        &root,
+        &tenancy(&[(PRINCIPAL, TENANT)]),
+        retention_uniform(10_000),
+    );
+    let id = principal(PRINCIPAL);
+    let mut scope = checked(store.principal(&id));
+    let (owner_peer, mut runtime) = Peer::serve(vec![owner_exchange()]);
+    let context = retain_access(&mut scope, &mut runtime);
+    owner_peer.finish();
+    let retained = scope
+        .get(
+            Table::Journeys,
+            &checked(RowKey::new(format!(
+                "human-native-send-access-{}",
+                hex(ACTION)
+            ))),
+        )
+        .expect("retained consent")
+        .bytes()
+        .to_vec();
+    let first = preview_exchange(&context);
+    let mut second = preview_exchange(&context);
+    // The preview carries its own returned snapshot. Advance only the peer's head.
+    let offset = second.1.len() - 56;
+    assert_eq!(&second.1[offset..offset + 8], &HEAD.to_be_bytes());
+    second.1[offset..offset + 8].copy_from_slice(&(HEAD + 1).to_be_bytes());
+    let (peer, mut runtime) = Peer::serve(vec![
+        nonce_exchange(NONCE),
+        first,
+        nonce_exchange(NONCE),
+        second,
+    ]);
+    let first = checked(preview_send(
+        &scope,
+        &mut runtime,
+        &request(),
+        ACTION,
+        EXPIRY_MS,
+        COMMITMENT,
+        NOW,
+    ));
+    let second = checked(preview_send(
+        &scope,
+        &mut runtime,
+        &request(),
+        ACTION,
+        EXPIRY_MS,
+        COMMITMENT,
+        NOW,
+    ));
+    assert_eq!(first.head_sequence, HEAD);
+    assert_eq!(second.head_sequence, HEAD + 1);
+    assert!(second.protocol_time_ms >= first.protocol_time_ms);
+    assert_eq!(second.canonical_bytes, first.canonical_bytes);
+    assert_eq!(second.signing_preimage, first.signing_preimage);
+    assert_eq!(second.purpose, first.purpose);
+    assert_eq!(
+        second.purpose.canonical_digest,
+        <[u8; 32]>::from(Sha256::digest(&second.canonical_bytes))
+    );
+    assert_eq!(
+        second.purpose.capability_id.to_bytes().expect("capability"),
+        ACTION
+    );
+    assert_eq!(second.nonce, NONCE);
+    assert_eq!(
+        scope
+            .get(
+                Table::Journeys,
+                &checked(RowKey::new(format!(
+                    "human-native-send-access-{}",
+                    hex(ACTION)
+                )))
+            )
+            .expect("unchanged authorization")
+            .bytes(),
+        retained
+    );
+    assert_eq!(scope.keys(Table::Journeys).len(), 1);
+    drop(scope);
+    drop(store);
+    peer.finish();
+    checked(std::fs::remove_dir_all(root));
+}

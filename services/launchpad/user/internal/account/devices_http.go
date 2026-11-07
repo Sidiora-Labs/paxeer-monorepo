@@ -35,6 +35,13 @@ func (v DeviceBody) Validate() error {
 	}
 	return nil
 }
+func deviceEndpointCapacity(total, replaced int) error {
+	if total < 0 || replaced < 0 || replaced > total || total-replaced >= 32 {
+		return ErrState
+	}
+	return nil
+}
+
 func (h HTTP) devicePut(w http.ResponseWriter, r *http.Request) {
 	id := requestID(r)
 	p, e := authenticated(r)
@@ -99,12 +106,12 @@ func (h HTTP) devicePut(w http.ResponseWriter, r *http.Request) {
 			return e
 		}
 		var active int
-		var same bool
-		if e := tx.QueryRow(r.Context(), `SELECT count(*) FILTER(WHERE NOT revoked),coalesce(bool_or(device_id=$2),false) FROM account_endpoint WHERE account_id=$1`, p.AccountID, device).Scan(&active, &same); e != nil {
+		var same int
+		if e := tx.QueryRow(r.Context(), `SELECT count(*),count(*) FILTER(WHERE device_id=$2) FROM account_endpoint WHERE account_id=$1`, p.AccountID, device).Scan(&active, &same); e != nil {
 			return e
 		}
-		if active >= 32 && !same {
-			return ErrState
+		if e := deviceEndpointCapacity(active, same); e != nil {
+			return e
 		}
 		tag, e := tx.Exec(r.Context(), `INSERT INTO account_endpoint_proof VALUES($1,$2) ON CONFLICT DO NOTHING`, proofHash[:], h.Store.now().Add(5*time.Minute))
 		if e != nil {
@@ -112,6 +119,12 @@ func (h HTTP) devicePut(w http.ResponseWriter, r *http.Request) {
 		}
 		if tag.RowsAffected() != 1 {
 			return ErrDenied
+		}
+		// The delivery authority reads all endpoint rows, including revoked rows.
+		// Replace the installation binding in the same locked transaction so neither
+		// target enumeration nor single-target lookup can observe a stale token.
+		if _, e = tx.Exec(r.Context(), `DELETE FROM account_endpoint WHERE account_id=$1 AND device_id=$2`, p.AccountID, device); e != nil {
+			return e
 		}
 		_, e = tx.Exec(r.Context(), `INSERT INTO account_endpoint(fingerprint,account_id,ciphertext,platform,consent_revision,validated_at,revoked,device_id,provider,session_id) VALUES($1,$2,$3,$4,$5,$6,false,$7,$8,$9) ON CONFLICT(fingerprint) DO UPDATE SET account_id=EXCLUDED.account_id,ciphertext=EXCLUDED.ciphertext,platform=EXCLUDED.platform,consent_revision=EXCLUDED.consent_revision,validated_at=EXCLUDED.validated_at,revoked=false,device_id=EXCLUDED.device_id,provider=EXCLUDED.provider,session_id=EXCLUDED.session_id`, fingerprint(h.Runtime.EndpointFingerprintKey, v.Provider+":"+v.Token), p.AccountID, sealed, v.Platform, a.Revision, h.Store.now(), device, v.Provider, session)
 		return e

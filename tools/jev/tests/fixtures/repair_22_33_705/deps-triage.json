@@ -1,0 +1,37 @@
+{
+  "model": "typesafe/jev-1.13-20260917",
+  "answers": {
+    "priority": {
+      "type": "choice",
+      "choice": "production_reachable",
+      "probabilities": {
+        "production_reachable": 0.91,
+        "dev_only": 0.05,
+        "already_mitigated": 0.02,
+        "needs_human": 0.02
+      },
+      "confidence": 0.91
+    },
+    "urgency": {
+      "type": "score",
+      "score": 1.62,
+      "legend": {
+        "0": "low",
+        "1": "medium",
+        "2": "high"
+      },
+      "probabilities": {
+        "0": 0.02,
+        "1": 0.34,
+        "2": 0.64
+      },
+      "confidence": 0.58
+    }
+  },
+  "usage": {
+    "input_tokens": 512,
+    "output_tokens": 64,
+    "cost": 2.15e-05
+  },
+  "id": "gen-dec-1789715517-deps"
+}

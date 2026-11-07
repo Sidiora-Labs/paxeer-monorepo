@@ -409,7 +409,7 @@ impl ProofBundle {
         request.selector.encode()?;
         response.value.validate()?;
         let expected = request.selector.required_rung();
-        if response.achieved_rung != expected
+        if response.achieved_rung < expected
             || response.achieved_rung < request.requested_rung
             || response.value.verification_level != response.achieved_rung
         {
@@ -707,11 +707,27 @@ impl FeeProjection {
         gas_units: u64,
         denom: String,
     ) -> Result<Self, ContractError> {
+        let (head, snapshot) = observation.into_parts();
+        Self::from_committed_snapshot(request, head, snapshot, gas_units, denom)
+    }
+
+    /// Converts a committed fee snapshot using the RPC head captured for the read.
+    ///
+    /// # Errors
+    /// Returns the meter refusal or rejects a stale, unversioned, or empty snapshot.
+    pub fn from_committed_snapshot(
+        request: FeeProjectionRequest,
+        head: layerx_client::rpc::Head,
+        snapshot: layerx_client::rpc::payments::CommittedSnapshot<
+            layerx_client::rpc::payments::FeeEstimate,
+        >,
+        gas_units: u64,
+        denom: String,
+    ) -> Result<Self, ContractError> {
         let request = request.validate()?;
         if denom.is_empty() {
             return Err(ContractError::Empty("fee_denom"));
         }
-        let (head, snapshot) = observation.into_parts();
         if snapshot.observed_sequence != head.chain_sequence {
             return Err(ContractError::Mismatch("fee_snapshot_height"));
         }

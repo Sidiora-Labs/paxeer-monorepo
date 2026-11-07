@@ -1,0 +1,17 @@
+[manifest]
+task = "22.32.63"
+domain = 6
+owner_role = "fm-chain-modules"
+pages = 2
+
+[page.1]
+path = "interchain/modules/light-clients/06-solomachine/spec/01_concepts.md"
+status = "misleading"
+bytes = 5325
+source_1 = "record 22.30.59 [doc.14] (misleading): Vendored v2 guide retains numeric freeze prose at 9-13 and 155; proof sample at 104 assigns a signing object where encoded bytes are required."
+
+[page.2]
+path = "interchain/modules/light-clients/06-solomachine/spec/03_state_transitions.md"
+status = "stale"
+bytes = 1382
+source_1 = "record 22.30.59 [doc.16] (stale): Vendored transitions at 29 and 39 describe a numeric frozen sequence, whereas actual v2 freeze/recovery use IsFrozen bool."

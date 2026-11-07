@@ -8,10 +8,16 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"reflect"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/Sidiora-Technologies/KindleLaunch/shared/chain"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/go-chi/chi/v5"
 
 	"github.com/Sidiora-Technologies/KindleLaunch/core/api/internal/config"
@@ -138,28 +144,31 @@ func TestProductionNetworkReadsFromBoundAuthorityDocument(t *testing.T) {
 	if status != 200 || interfaces.ValidateJSON("TxStatusResponse", body) != nil {
 		t.Fatalf("transaction %d %s", status, body)
 	}
-	var tx struct {
-		Data struct {
-			Status  string `json:"status"`
-			Receipt *struct {
-				Height    string `json:"height"`
-				BlockHash string `json:"blockHash"`
-				Success   bool   `json:"success"`
-				Position  struct {
-					TransactionIndex string `json:"transactionIndex"`
-				} `json:"position"`
-			} `json:"receipt"`
-		} `json:"data"`
-	}
-	if err := json.Unmarshal(body, &tx); err != nil {
+	tx, err := interfaces.DecodeTxStatusResponse(body)
+	if err != nil {
 		t.Fatal(err)
 	}
 	if tx.Data.Status == "unknown" {
 		t.Fatalf("the pruned RPC no longer serves block %s; rerun against an archive NETWORK_RPC_URL: %s", productionPoolSwapHeight, body)
 	}
-	if tx.Data.Status != "included_success" || tx.Data.Receipt == nil || tx.Data.Receipt.Height != productionPoolSwapHeight || !strings.EqualFold(tx.Data.Receipt.BlockHash, productionPoolSwapBlock) || !tx.Data.Receipt.Success || tx.Data.Receipt.Position.TransactionIndex != "0" {
+	if tx.Data.Status != "included_success" || tx.Data.Receipt == nil || string(tx.Data.Receipt.Height) != productionPoolSwapHeight || !strings.EqualFold(tx.Data.Receipt.BlockHash, productionPoolSwapBlock) || !tx.Data.Receipt.Success || tx.Data.Receipt.Position.TransactionIndex != "0" {
 		t.Fatalf("transaction status %s", body)
 	}
+	rpcClient, err := dialNetworkRPC(context.Background(), endpoint, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer rpcClient.Close()
+	hash := common.HexToHash(productionPoolSwapTx)
+	receipt, err := ethclient.NewClient(rpcClient).TransactionReceipt(context.Background(), hash)
+	if err != nil {
+		t.Fatal(err)
+	}
+	expected, err := chain.TransactionStatus(context.Background(), rpcClient, hash)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertProductionReceiptPosition(t, srv.URL, receipt, expected)
 
 	status, body, _ = netCall(t, "GET", srv.URL+"/v2/transactions/0x"+strings.Repeat("0", 63)+"1")
 	if status != 200 || !strings.Contains(string(body), `"status":"unknown"`) {
@@ -193,5 +202,68 @@ func TestProductionNetworkReadsWithoutAuthorityDocument(t *testing.T) {
 		if status != 503 || !strings.Contains(string(body), `"retryable":false`) {
 			t.Fatalf("%s answered %d %s", path, status, body)
 		}
+	}
+}
+
+// assertProductionReceiptPosition consumes the public HTTP response through the
+// generated decoder and compares every position field to node-produced evidence.
+func assertProductionReceiptPosition(t *testing.T, origin string, receipt *types.Receipt, expected interfaces.TxStatusData) {
+	t.Helper()
+	status, body, header := netCall(t, "GET", origin+"/v2/transactions/"+receipt.TxHash.Hex())
+	got, err := interfaces.DecodeTxStatusResponse(body)
+	if status != 200 || err != nil || header.Get("Cache-Control") != "no-store" || header.Get("X-Schema-Version") != "2" {
+		t.Fatalf("receipt consumer: status %d decode %v body %s", status, err, body)
+	}
+	if got.Quality != "complete" || !reflect.DeepEqual(got.Data, expected) || got.Data.Receipt == nil {
+		t.Fatalf("API/SDK receipt mismatch: %s; SDK %+v", body, expected)
+	}
+	logIndex := "0"
+	if len(receipt.Logs) > 0 {
+		logIndex = strconv.FormatUint(uint64(receipt.Logs[0].Index), 10)
+	}
+	want := interfaces.ChainPosition{
+		ChainId: "125", Height: interfaces.UInt256(receipt.BlockNumber.String()),
+		BlockHash: receipt.BlockHash.Hex(), TransactionHash: receipt.TxHash.Hex(),
+		TransactionIndex: interfaces.UInt256(strconv.FormatUint(uint64(receipt.TransactionIndex), 10)),
+		LogIndex:         interfaces.UInt256(logIndex),
+	}
+	if got.Data.Receipt.Position != want || got.Data.Receipt.Success != (receipt.Status == types.ReceiptStatusSuccessful) {
+		t.Fatalf("public receipt position %+v; producer %+v", got.Data.Receipt, receipt)
+	}
+}
+
+func TestProductionNetworkReceiptPositions(t *testing.T) {
+	c := repair27Node(t, 125)
+	event := c.events(t)
+	to := common.HexToAddress("0x1234")
+	success := c.send(t, &to, nil)
+	reverted := c.send(t, nil, common.FromHex("0x60006000fd"))
+	c.backend.Commit()
+	sdk := repair27SDK(t, c)
+	server := repair27HTTP(t, c.endpoint)
+	for _, tc := range []struct {
+		name          string
+		hash          common.Hash
+		status, state string
+		logs          int
+	}{
+		{"nonzero_first_log", event, "included_success", "included_success", 1},
+		{"log_free_success", success, "included_success", "included_success", 0},
+		{"log_free_reversion", reverted, "included_reverted", "included_failure", 0},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			receipt, err := c.backend.Client().TransactionReceipt(context.Background(), tc.hash)
+			if err != nil || receipt == nil {
+				t.Fatalf("producer receipt: %v", err)
+			}
+			if len(receipt.Logs) != tc.logs || (tc.logs > 0 && (receipt.Logs[0].Index != 1 || receipt.TransactionIndex != 1)) {
+				t.Fatalf("producer position fixture: %+v", receipt)
+			}
+			next, expected, err := sdk.ReceiptState(context.Background(), repair27Submitted(t, tc.hash))
+			if err != nil || expected.Status != tc.status || next.State != tc.state || expected.Receipt == nil {
+				t.Fatalf("SDK receipt: state %+v view %+v error %v", next, expected, err)
+			}
+			assertProductionReceiptPosition(t, server.URL, receipt, expected)
+		})
 	}
 }

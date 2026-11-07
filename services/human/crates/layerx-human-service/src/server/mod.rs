@@ -2,16 +2,21 @@
 
 pub mod agent_creation;
 pub mod agent_runtime;
+pub mod attestor_send_journal;
 pub mod backend;
+mod balance_material;
 mod component;
 mod component_protocol;
 mod executor;
+mod finalization;
 mod http;
 pub mod identity;
 mod identity_dispatch;
 mod identity_services;
+pub mod key_export;
 mod limits;
 pub mod native_send;
+mod persisted_reads;
 mod privileged;
 pub mod production_auth;
 pub mod production_components;
@@ -49,6 +54,7 @@ pub use identity_dispatch::{
 };
 pub use identity_services::{IdentityServices, ProvisionedAccount, ProvisionedAccounts};
 pub use limits::PrincipalLimits;
+pub use persisted_reads::PersistedReadServices;
 pub use privileged::{
     AuthorizationGrantPolicy, AuthorizedSession, ComponentOperationRequest,
     PrivilegedHumanComponents, PrivilegedHumanServices,

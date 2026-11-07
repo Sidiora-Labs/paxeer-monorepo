@@ -2,7 +2,7 @@ use ed25519_dalek::{Signer as _, SigningKey};
 use layerx_client::sequencer::{ReceiptKeyEntry, SequencerLog};
 use layerx_crypto::evm_transaction::Eip1559Call;
 use layerx_proof::receipt::ReceiptCheck;
-use layerx_ramp_toolkit::evm::LEDGER_ADDRESS;
+use layerx_ramp_toolkit::evm::{encode_draw, LEDGER_ADDRESS, PAY_ADDRESS};
 use layerx_ramp_toolkit::{
     compile_operator_send, compile_payer_grant_draw, verify_order_receipt, AuthenticatedPrincipal,
     CreateOrder, OperatorIdentity, QuoteTerms, RampDirection, RampError, RampOrder,
@@ -13,7 +13,15 @@ use layerx_types::rung::Rung;
 use sha2::{Digest as _, Sha256};
 use sha3::Keccak256;
 
-fn order(direction: RampDirection) -> RampOrder {
+#[path = "support/repair_22_33_1490.rs"]
+mod repair_1490;
+
+#[test]
+fn recorded_node_receipt_and_mutated_execution_reach_production_authenticator() {
+    repair_1490::recorded_receipt();
+}
+
+pub(crate) fn order(direction: RampDirection) -> RampOrder {
     RampOrder::bind(
         CreateOrder {
             order_id: "order-1".into(),
@@ -52,8 +60,11 @@ fn order(direction: RampDirection) -> RampOrder {
 }
 
 fn account_id(account: &str) -> [u8; 32] {
-    layerx_wire::hash::account_id(&AccountId::parse(account).expect("account"))
-        .expect("ledger account id")
+    layerx_wire::hash::account_id_for_protocol(
+        &AccountId::parse(account).expect("account"),
+        layerx_wire::limits::STATE_COMMITMENT_PROTOCOL_VERSION,
+    )
+    .expect("ledger account id")
 }
 
 #[test]
@@ -73,7 +84,10 @@ fn on_ramp_compiles_pay_exact_with_order_reference() {
         &order.quote.layerx_amount.to_be_bytes()
     );
     assert_eq!(&call.data[132..156], &[0; 24]);
-    assert_eq!(&call.data[156..164], &order.quote.expires_at.to_be_bytes());
+    assert_eq!(
+        &call.data[156..164],
+        &(order.quote.expires_at * 1_000).to_be_bytes()
+    );
     assert_eq!(&call.data[164..196], &order.order_digest);
     assert_eq!(
         compile_operator_send(&self::order(RampDirection::OffRamp)),
@@ -85,36 +99,29 @@ fn on_ramp_compiles_pay_exact_with_order_reference() {
 fn off_ramp_compiles_draw_against_customer_grant() {
     let order = order(RampDirection::OffRamp);
     let call = compile_payer_grant_draw(&order, 9).expect("customer grant draw");
-    assert_eq!(call.to, LEDGER_ADDRESS);
-    assert_eq!(call.data.len(), 228);
+    assert_eq!(call.to, PAY_ADDRESS);
+    assert_eq!(call.data.len(), 100);
     assert_eq!(
         &call.data[..4],
-        &Keccak256::digest(b"draw(bytes32,bytes32,uint128,bytes32,uint64,bytes32,bytes32)")[..4]
+        &Keccak256::digest(b"budgetSpend(bytes32,bytes32,uint128)")[..4]
     );
-    assert_eq!(&call.data[4..36], &order.payer_grant.expect("grant"));
     assert_eq!(
-        &call.data[36..68],
-        &account_id(&format!(
-            "agent:did:layerx:operator-1:asset:{}",
-            "01".repeat(32)
-        ))
+        &call.data[4..36],
+        &order.payer_grant.expect("customer budget")
     );
+    assert_eq!(&call.data[36..68], &account_id(&order.operator.account));
     assert_eq!(&call.data[68..84], &[0; 16]);
     assert_eq!(
         &call.data[84..100],
         &order.quote.layerx_amount.to_be_bytes()
     );
-    assert_eq!(&call.data[100..132], &order.order_digest);
-    assert_eq!(&call.data[132..156], &[0; 24]);
-    assert_eq!(&call.data[156..164], &9_u64.to_be_bytes());
     assert_eq!(
-        &call.data[164..196],
-        &order.payer_grant_purpose.expect("grant purpose")
+        order.customer_payment_authorization().unwrap().purpose_hash,
+        order.payer_grant_purpose.unwrap()
     );
-    assert_eq!(&call.data[196..228], &order.context);
     assert_eq!(
         compile_payer_grant_draw(&self::order(RampDirection::OnRamp), 9),
-        Err(RampError::PayerGrantRequired)
+        Err(RampError::InvalidOrder)
     );
     let mut missing = order.clone();
     missing.payer_grant = None;
@@ -180,17 +187,28 @@ fn off_ramp_draw_follows_the_native_ledger_abi() {
     order.quote.layerx_amount = (1_u128 << 100) + 1_000;
     order.order_digest = order.digest();
     let sequence = 0x0102_0304_0506_0708_u64;
-    let call = compile_payer_grant_draw(&order, sequence).expect("native draw call");
+    // This codec remains a historical ABI reader/encoder. The order compiler
+    // below must select the maintained customer budget authority instead.
+    let recipient = account_id(&order.operator.account);
+    let call = layerx_ramp_toolkit::LedgerCall {
+        to: LEDGER_ADDRESS,
+        data: encode_draw(
+            order.payer_grant.unwrap(),
+            recipient,
+            order.quote.layerx_amount,
+            order.order_digest,
+            sequence,
+            order.payer_grant_purpose.unwrap(),
+            order.context,
+        ),
+    };
     let mut amount = [0; 32];
     amount[16..].copy_from_slice(&order.quote.layerx_amount.to_be_bytes());
     let mut sequence_word = [0; 32];
     sequence_word[24..].copy_from_slice(&sequence.to_be_bytes());
     let expected = [
         order.payer_grant.expect("payer grant"),
-        account_id(&format!(
-            "agent:did:layerx:operator-1:asset:{}",
-            "ab".repeat(32)
-        )),
+        recipient,
         amount,
         order.order_digest,
         sequence_word,
@@ -220,6 +238,11 @@ fn off_ramp_draw_follows_the_native_ledger_abi() {
         );
     }
 
+    let maintained = compile_payer_grant_draw(&order, sequence).unwrap();
+    assert_eq!(maintained.to, PAY_ADDRESS);
+    assert_eq!(&maintained.data[36..68], &recipient);
+    assert_ne!(&maintained.data[..4], &call.data[..4]);
+
     for direction in [RampDirection::OnRamp, RampDirection::OffRamp] {
         let bound = self::order(direction);
         for purpose in [None, Some([0; 32]), Some([6; 32])] {
@@ -246,7 +269,7 @@ fn off_ramp_draw_follows_the_native_ledger_abi() {
     }
 }
 
-fn payment_log(order: &RampOrder) -> SequencerLog {
+pub(crate) fn payment_log(order: &RampOrder) -> SequencerLog {
     let operator = account_id(&order.operator.account);
     let customer = account_id(&order.customer.account);
     let mut data = order.quote.layerx_asset.to_vec();
@@ -260,17 +283,16 @@ fn payment_log(order: &RampOrder) -> SequencerLog {
             customer,
         ],
         RampDirection::OffRamp => {
-            data.extend_from_slice(&order.order_digest);
-            data.extend_from_slice(&order.context);
-            vec![
-                Keccak256::digest(
-                    b"PaymentDrawn(bytes32,bytes32,bytes32,bytes32,uint128,bytes32,bytes32)",
-                )
-                .into(),
-                order.payer_grant.expect("grant"),
-                customer,
-                operator,
-            ]
+            let call = compile_payer_grant_draw(order, 9).expect("maintained payment producer");
+            return SequencerLog {
+                address: PAY_ADDRESS,
+                topics: vec![
+                    Keccak256::digest(b"BudgetSpent(bytes32,bytes32,uint128)").into(),
+                    call.data[4..36].try_into().unwrap(),
+                ],
+                data: call.data[36..100].to_vec(),
+                log_index: 0,
+            };
         }
     };
     SequencerLog {
@@ -299,7 +321,7 @@ fn effect(out: &mut Vec<u8>, ordinal: u16, kind: u8, body: &[u8]) {
     bytes(out, body);
 }
 
-fn signed_evidence(order: &RampOrder, logs: Vec<SequencerLog>) -> ReceiptEvidence {
+pub(crate) fn signed_evidence(order: &RampOrder, logs: Vec<SequencerLog>) -> ReceiptEvidence {
     let call = match order.direction() {
         RampDirection::OnRamp => compile_operator_send(order),
         RampDirection::OffRamp => compile_payer_grant_draw(order, 9),
@@ -364,12 +386,17 @@ fn signed_evidence(order: &RampOrder, logs: Vec<SequencerLog>) -> ReceiptEvidenc
     receipt.push(0);
     bytes(&mut receipt, &Sha256::digest(b"upaxe"));
     receipt.extend_from_slice(&0_u128.to_be_bytes());
-    bytes(&mut receipt, &[0; 32]);
+    let (signed_call, signature) =
+        layerx_crypto::evm_transaction::decode_signed(&raw_transaction).unwrap();
+    let sender = layerx_crypto::evm_transaction::recover_sender(&signed_call, &signature).unwrap();
+    let mut from = [0; 32];
+    from[12..].copy_from_slice(&sender);
+    bytes(&mut receipt, &from);
     receipt.extend_from_slice(&0_u128.to_be_bytes());
     receipt.extend_from_slice(&0_u128.to_be_bytes());
     receipt.extend_from_slice(&9_u64.to_be_bytes());
     let mut to = [0; 32];
-    to[12..].copy_from_slice(&LEDGER_ADDRESS);
+    to[12..].copy_from_slice(&call.to);
     bytes(&mut receipt, &to);
     receipt.extend_from_slice(&0_u128.to_be_bytes());
     receipt.extend_from_slice(&0_u128.to_be_bytes());
@@ -441,7 +468,7 @@ fn verify_order_receipt_accepts_matching_payment_log() {
             verify_order_receipt(&order, &changed),
             Err(RampError::Receipt(ReceiptCheck::SequencerSignature))
         );
-        for index in 0..4 {
+        for index in 0..payment_log(&order).topics.len() {
             let mut log = payment_log(&order);
             log.topics[index][0] ^= 1;
             let changed = signed_evidence(&order, vec![log]);

@@ -1,0 +1,183 @@
+{
+  "provenance": "Read-only JSON-RPC captured from the documented numbered node root paths; no hosted gateway success is implied.",
+  "nodes": [
+    {
+      "endpoint": "https://api1.mainnet-beta.paxeer.network/",
+      "exchanges": [
+        {
+          "request": {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "eth_chainId",
+            "params": []
+          },
+          "status": 200,
+          "content_type": "application/json",
+          "response": {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "result": "0x7d"
+          }
+        },
+        {
+          "request": {
+            "jsonrpc": "2.0",
+            "id": 2,
+            "method": "eth_blockNumber",
+            "params": []
+          },
+          "status": 200,
+          "content_type": "application/json",
+          "response": {
+            "jsonrpc": "2.0",
+            "id": 2,
+            "result": "0x2898afe"
+          }
+        },
+        {
+          "request": {
+            "jsonrpc": "2.0",
+            "id": 3,
+            "method": "eth_getBalance",
+            "params": [
+              "0x1111111111111111111111111111111111111111",
+              "latest"
+            ]
+          },
+          "status": 200,
+          "content_type": "application/json",
+          "response": {
+            "jsonrpc": "2.0",
+            "id": 3,
+            "result": "0x0"
+          }
+        },
+        {
+          "request": {
+            "jsonrpc": "2.0",
+            "id": 4,
+            "method": "px_getNetwork",
+            "params": []
+          },
+          "status": 200,
+          "content_type": "application/json",
+          "response": {
+            "jsonrpc": "2.0",
+            "id": 4,
+            "error": {
+              "code": -32601,
+              "message": "the method px_getNetwork does not exist/is not available"
+            }
+          }
+        },
+        {
+          "request": {
+            "jsonrpc": "2.0",
+            "id": 5,
+            "method": "status",
+            "params": {}
+          },
+          "status": 200,
+          "content_type": "application/json",
+          "response": {
+            "jsonrpc": "2.0",
+            "id": 5,
+            "error": {
+              "code": -32601,
+              "message": "the method status does not exist/is not available"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "endpoint": "https://api2.mainnet-beta.paxeer.network/",
+      "exchanges": [
+        {
+          "request": {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "eth_chainId",
+            "params": []
+          },
+          "status": 200,
+          "content_type": "application/json",
+          "response": {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "result": "0x7d"
+          }
+        },
+        {
+          "request": {
+            "jsonrpc": "2.0",
+            "id": 2,
+            "method": "eth_blockNumber",
+            "params": []
+          },
+          "status": 200,
+          "content_type": "application/json",
+          "response": {
+            "jsonrpc": "2.0",
+            "id": 2,
+            "result": "0x2898afa"
+          }
+        },
+        {
+          "request": {
+            "jsonrpc": "2.0",
+            "id": 3,
+            "method": "eth_getBalance",
+            "params": [
+              "0x1111111111111111111111111111111111111111",
+              "latest"
+            ]
+          },
+          "status": 200,
+          "content_type": "application/json",
+          "response": {
+            "jsonrpc": "2.0",
+            "id": 3,
+            "result": "0x0"
+          }
+        },
+        {
+          "request": {
+            "jsonrpc": "2.0",
+            "id": 4,
+            "method": "px_getNetwork",
+            "params": []
+          },
+          "status": 200,
+          "content_type": "application/json",
+          "response": {
+            "jsonrpc": "2.0",
+            "id": 4,
+            "error": {
+              "code": -32601,
+              "message": "the method px_getNetwork does not exist/is not available"
+            }
+          }
+        },
+        {
+          "request": {
+            "jsonrpc": "2.0",
+            "id": 5,
+            "method": "status",
+            "params": {}
+          },
+          "status": 200,
+          "content_type": "application/json",
+          "response": {
+            "jsonrpc": "2.0",
+            "id": 5,
+            "error": {
+              "code": -32601,
+              "message": "the method status does not exist/is not available"
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

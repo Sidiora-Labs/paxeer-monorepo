@@ -1,0 +1,91 @@
+[repair.22.31.219]
+audit = "22.30.93"
+base = "13531a9e95bc34a9b21e00a3e375a215261f2bd6"
+evidence = "/out/run/gates.jsonl records the exact candidate revision, command, exit and private log; hf-done is the declared qualification gate."
+baseline = "Not run: the task's explicit ordered gates prohibit testing before complete implementation and prohibit running verify_cmd by hand. The test target did not exist on the base; no pre-change test failure is claimed."
+test_file = "services/agent/crates/layerx-agentd/tests/repair_22_31_219.rs"
+
+[finding.journey-wire]
+test = "journey_wire_rotate_recover_bind_persisted_key_policy_over_socket"
+repair = "Version J1 has operation-specific fields, no empty currency for rotate/recover, and a persisted key-policy digest checked by the lifecycle owner after reopen."
+
+[finding.finalization-rungs]
+tests = ["finalization_rungs_and_session_observation_shape_survive_suspend_resume_archive_reopen", "finalization_limit_and_reclaim_use_committed_receipts_and_independent_action_keys", "journey_wire_rotate_recover_bind_persisted_key_policy_over_socket"]
+repair = "Finalization loads the transaction receipt store and re-verifies retained native result inclusion and the signed Comet commit; only Committed is accepted and action identity remains independent."
+
+[finding.session-observation-shape]
+test = "finalization_rungs_and_session_observation_shape_survive_suspend_resume_archive_reopen"
+repair = "One digest-versioned codec includes generation; the consumer compares restored session and managed coordinates. Suspend updates both generations atomically. Recorded and prepared observations survive reopen."
+
+[finding.human-refusal-wire]
+test = "human_refusal_wire_preserves_budget_session_capability_export_policy_and_nonce"
+repair = "The bounded LXHAGT01 refusal envelope preserves stable typed reasons and nonce fields through the actual frame transport and shared response decoder."
+
+[finding.checkpoint-request-shape]
+test = "checkpoint_request_shape_routes_selector_and_refuses_bad_selector_and_quorum"
+repair = "Canonicalization and routing share CheckpointRequest and the pinned committed checkpoint owner, returning commit, validator set and height."
+
+[finding.startup-gateway-node]
+test = "startup_gateway_node_uses_direct_node_commit_and_rejects_chain_mismatch"
+repair = "Startup checks eth_chainId 125 and verified committed node evidence without gateway metadata."
+
+[finding.history-commit-inclusion]
+test = "history_commit_inclusion_binds_signed_outcomes_landing_and_timestamp"
+repair = "Historical receipts require committed ancestry, successor-root inclusion, exact native execution and committed block timestamp; signed receipts alone cannot establish membership."
+
+[finding.history-window-completeness]
+test = "history_window_completeness_refuses_omission_end_empty_and_stale_after_restart"
+repair = "The real producer authenticates every result leaf in the bounded range and compares all relevant outcomes against the index. Omitted, truncated, empty or stale index coverage cannot mint usage evidence. Coverage is recomputed after producer restart."
+
+[wiring.human]
+request = "Domain 10: services/human/crates/layerx-human-service/src/server/agent_runtime.rs must use human::HumanJourneyRequestV1 with the verified key-policy observation and human::decode_response, mapping typed reasons and nonce details to the Human API."
+
+[wiring.native_rpc]
+request = "Domain 9 deployment owner: services/agent deployment configuration must supply the explicit LAYERX_AGENT_NODE_COMET_RPC_URL alongside EVM RPC for authenticated native result and commit acquisition."
+
+[gotcha.session_generation]
+observed = "Closing a session increments its generation; the prior owner observation retained the old managed generation. Persist the closed session, managed generation and observation in one atomic update."
+
+[gotcha.gate_order]
+observed = "The baseline-before-change clause conflicts with the explicit implementation-before-gates order and no manual verify rule; preserve the ordered gates and record the missing baseline honestly."
+
+[gotcha.digest_inference]
+observed = "The session codec digest needs an explicit [u8; 32] annotation because the byte-writer argument otherwise infers an unsized slice."
+revision = "fcd1fce4681ee93dde35f1f47b82ba91d80dc09d"
+command = "cargo build --locked --manifest-path services/agent/crates/layerx-agentd/Cargo.toml --tests"
+exit = 101
+log = "/out/logs/build-1.log"
+
+[qualification.first_verify]
+revision = "5534dcbb5816de07d1b911ab83a5c2ee6f57a93c"
+command = "cg spec done 22.31.219 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Five cases passed; session suspend refused a new observation in an update-only batch, and both positive history cases correctly refused the fixture's incorrect committed timestamp."
+repair = "Use the existing atomic update-plus-create store transaction and match committed fixture times to the exact recorded signed receipt timestamp 1750000400000 ms."
+
+[gotcha.atomic_companion]
+observed = "update_local_batch accepts existing records only; a new session observation must be a companion to the managed-agent and session updates in update_local_batch_with_companions."
+
+[gotcha.recorded_timestamp]
+observed = "The first two sequencer receipt recordings are timestamped 1750000400000 ms, not 1750000000000 ms; committed fixture headers must use their exact timestamp."
+
+[qualification.continuation]
+inherited_revision = "9863017f636b3435542176af5bd82ed443c2948f"
+inherited_failures = ["finalization_rungs_and_session_observation_shape_survive_suspend_resume_archive_reopen", "history_commit_inclusion_binds_signed_outcomes_landing_and_timestamp", "history_window_completeness_refuses_omission_end_empty_and_stale_after_restart"]
+observed = "The supplied attempt failed three of eight cases; the inherited tree already contains the atomic companion and timestamp repairs. No unchanged verify was rerun outside the ordered gates."
+repair = "Preserve both inherited repairs and the exact published history wire envelope; the shared client obtains chain height separately from eth_blockNumber. The bounded gate ledger identifies this candidate and its final qualification."
+
+[gotcha.history_peer_metadata]
+observed = "The ascending history consumer requires indexedHeight and chainHeight internally, but the shared client obtains chainHeight separately; the wire envelope must contain exactly items, next_cursor and indexedHeight."
+
+[gotcha.test_failure_location]
+observed = "A panic inside unwrap_or_else hides the caller despite track_caller; match the Result directly to retain the failing integration call site."
+
+[qualification.continuation_first_verify]
+revision = "0e22af90509fd5f1aff5e9d4cc1f19056d4f3831"
+command = "cg spec done 22.31.219 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Seven cases passed; history-window-completeness failed because the peer incorrectly added chainHeight to the strict wire envelope."
+repair = "Restore the exact three-field px_getHistory response while retaining independently fetched eth_blockNumber freshness and every completeness assertion."

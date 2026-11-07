@@ -22,13 +22,17 @@ func TestAtomicPublicAndPrivateTopicDecisions(t *testing.T) {
 	if len(accepted) != 1 || accepted[0] != public {
 		t.Fatal(accepted)
 	}
-	b.Topics = []string{"*"}
-	b.FilterDigest = sharedauth.StreamFilterDigest(b.Topics)
-	if _, err = set.Replace(context.Background(), sharedauth.StreamPrincipal{}, b, nil); err == nil {
-		t.Fatal("wildcard admitted")
-	}
-	if topics := set.Topics(); len(topics) != 1 || topics[0] != public {
-		t.Fatal("malformed update changed prior grant", topics)
+	for _, wildcard := range []string{"*", ">", "market.trades.*", "market.>", "private.portfolio.*"} {
+		for _, update := range [][]string{{wildcard}, {public, wildcard}} {
+			b.Topics = update
+			b.FilterDigest = sharedauth.StreamFilterDigest(b.Topics)
+			if _, err = set.Replace(context.Background(), sharedauth.StreamPrincipal{}, b, nil); err == nil {
+				t.Fatal("wildcard admitted", wildcard)
+			}
+			if topics := set.Topics(); len(topics) != 1 || topics[0] != public {
+				t.Fatal("malformed update changed prior grant", topics)
+			}
+		}
 	}
 	accepted[0] = private
 	if set.Topics()[0] != public {

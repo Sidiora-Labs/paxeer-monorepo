@@ -260,19 +260,19 @@ func TestAPIKeyAuth(t *testing.T) {
 }
 
 func TestScanBufferNotConfigured(t *testing.T) {
-	t.Parallel()
+	t.Setenv("CLAMAV_HOST", "")
 	res := ScanBuffer(context.Background(), []byte("data"), ScanOptions{})
-	if !res.Clean || res.Reason != "clamav-not-configured" {
+	if res.Clean || res.Verdict != ScanUnavailable || res.Reason != "clamav-not-configured" || res.ContentHash != "" || res.Size != 0 {
 		t.Errorf("unconfigured scan = %+v", res)
 	}
 }
 
 func TestScanBufferUnreachable(t *testing.T) {
 	t.Parallel()
-	// Port 1 is not listening -> best-effort clean.
+	// Port 1 is not listening, so the scan is unavailable.
 	res := ScanBuffer(context.Background(), []byte("data"), ScanOptions{Host: "127.0.0.1", Port: 1, Timeout: 500 * time.Millisecond})
-	if !res.Clean {
-		t.Errorf("unreachable scan should be best-effort clean: %+v", res)
+	if res.Clean || res.Verdict != ScanUnavailable || res.Reason != "clamav-unreachable" || res.ContentHash != "" || res.Size != 0 {
+		t.Errorf("unreachable scan must remain unavailable: %+v", res)
 	}
 }
 
@@ -331,8 +331,8 @@ func TestScanBufferInfected(t *testing.T) {
 	if res.Clean {
 		t.Errorf("expected infected, got %+v", res)
 	}
-	if !strings.Contains(res.Reason, "FOUND") {
-		t.Errorf("reason = %q", res.Reason)
+	if res.Verdict != ScanInfected || res.Reason != "malware-detected" || res.ContentHash != "" || res.Size != 0 {
+		t.Errorf("infected scan = %+v", res)
 	}
 }
 
@@ -394,6 +394,12 @@ func TestResolveClientIP(t *testing.T) {
 		{"trusted peer, all hops trusted -> empty", "10.0.0.1:9000", "10.1.1.1, 192.168.0.9", "", trusted, ""},
 		{"trusted peer, no headers -> empty", "10.0.0.1:9000", "", "", trusted, ""},
 		{"bare host (no port) trusted peer", "10.0.0.2", "1.2.3.4", "", trusted, "1.2.3.4"},
+		{"invalid chain does not use X-Real-IP", "10.0.0.1:9000", "invalid, 1.2.3.4", "203.0.113.9", trusted, ""},
+		{"empty hop rejects chain", "10.0.0.1:9000", "1.2.3.4,,10.1.1.1", "", trusted, ""},
+		{"all trusted chain does not use X-Real-IP", "10.0.0.1:9000", "10.1.1.1", "203.0.113.9", trusted, ""},
+		{"invalid X-Real-IP", "10.0.0.1:9000", "", "not-an-ip", trusted, ""},
+		{"canonical IPv6", "10.0.0.1:9000", "2001:0DB8:0:0:0:0:0:1", "", trusted, "2001:db8::1"},
+		{"mapped trusted hop", "10.0.0.1:9000", "::ffff:1.2.3.4, ::ffff:10.1.1.1", "", trusted, "1.2.3.4"},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {

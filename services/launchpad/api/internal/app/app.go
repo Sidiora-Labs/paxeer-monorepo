@@ -356,49 +356,12 @@ func New(ctx context.Context, cfg *config.Config, logger *slog.Logger) (*App, er
 		accountingModel = model
 	}
 
-	// REST snapshot group: per-IP/key token bucket + global in-flight load-shed.
-	if cfg.APIRole != "sockets" {
-		var devReadsErr error
-		router.Group(func(gr chi.Router) {
-			gr.Use(limiter.Middleware)
-			gr.Use(sharedhttp.RateLimit(sharedhttp.RateLimitOptions{
-				Max:     cfg.RateLimitMax,
-				Window:  cfg.RateLimitWindow(),
-				Redis:   rdb,
-				KeyFunc: ratelimit.ClientKey,
-			}))
-			if cfg.NodeEnv != "production" {
-				devReadsErr = registerDevelopmentReads(gr, developmentReadDeps{cfg: cfg, store: st, cache: responseCache, admission: admission})
-			}
-			gr.Get("/status", app.statusHandler)
-		})
-		if devReadsErr != nil {
-			app.Close()
-			return nil, devReadsErr
-		}
-	}
-
 	if cfg.NodeEnv == "production" && cfg.APIRole == "rest" {
-		model := accountingModel
-		if err := rest.RegisterAccountingV2WithAdmission(router, model, []byte(cfg.StreamSigningKey), nil, admission); err != nil {
-			app.Close()
-			return nil, err
-		}
-		if err := rest.RegisterProductionReads(router, rest.ProductionReadOptions{Model: model, Stream: privateStream, Store: st, StatsOrigin: cfg.StatsURL, RegisterSnapshots: true, Admission: admission, AllowedOrigins: allowedOrigins, TrustedProxyCIDRs: trustedProxies}); err != nil {
-			app.Close()
-			return nil, err
-		}
-		authority.Register(router, admission)
-		authority.RegisterNetworkReads(router, admission)
 		app.sqlDB = stdlib.OpenDBFromPool(pool)
-		if err = app.registerProductionOperations(ctx, router, identityRequest, admission, secretChecks); err != nil {
-			app.Close()
-			return nil, err
-		}
-		if err := rest.RegisterV2SearchProxy(router, cfg.StatsURL); err != nil {
-			app.Close()
-			return nil, err
-		}
+	}
+	if err := app.registerREST(ctx, router, st, accountingModel, identityRequest, secretChecks, allowedOrigins, trustedProxies); err != nil {
+		app.Close()
+		return nil, err
 	}
 	if metrics != nil {
 		router.Handle("/metrics", metrics)
@@ -414,6 +377,45 @@ func New(ctx context.Context, cfg *config.Config, logger *slog.Logger) (*App, er
 	resourcesOwned = true
 	secretOwned = true
 	return app, nil
+}
+
+// registerREST installs every snapshot registration under the same client quota
+// and in-flight limit, including handlers that have their own workload admission.
+func (a *App) registerREST(ctx context.Context, router chi.Router, st *store.Store, model *store.AccountingReadModel, identity requestIdentity, checks map[string]sharedhttp.Check, allowedOrigins map[string]bool, trustedProxies []string) error {
+	if a.cfg.APIRole == "sockets" {
+		return nil
+	}
+	var registrationErr error
+	router.Group(func(gr chi.Router) {
+		gr.Use(a.limiter.Middleware)
+		gr.Use(sharedhttp.RateLimit(sharedhttp.RateLimitOptions{
+			Max:     a.cfg.RateLimitMax,
+			Window:  a.cfg.RateLimitWindow(),
+			Redis:   a.redis,
+			KeyFunc: ratelimit.ClientKey,
+		}))
+		gr.Get("/status", a.statusHandler)
+		if a.cfg.NodeEnv != "production" {
+			registrationErr = registerDevelopmentReads(gr, developmentReadDeps{cfg: &a.cfg, store: st, cache: a.cache, admission: a.admission})
+			return
+		}
+		if a.cfg.APIRole != "rest" {
+			return
+		}
+		if registrationErr = rest.RegisterAccountingV2WithAdmission(gr, model, []byte(a.cfg.StreamSigningKey), nil, a.admission); registrationErr != nil {
+			return
+		}
+		if registrationErr = rest.RegisterProductionReads(gr, rest.ProductionReadOptions{Model: model, Stream: a.privateStream, Store: st, StatsOrigin: a.cfg.StatsURL, RegisterSnapshots: true, Admission: a.admission, AllowedOrigins: allowedOrigins, TrustedProxyCIDRs: trustedProxies}); registrationErr != nil {
+			return
+		}
+		a.authority.Register(gr, a.admission)
+		a.authority.RegisterNetworkReads(gr, a.admission)
+		if registrationErr = a.registerProductionOperations(ctx, gr, identity, a.admission, checks); registrationErr != nil {
+			return
+		}
+		registrationErr = rest.RegisterV2SearchProxy(gr, a.cfg.StatsURL)
+	})
+	return registrationErr
 }
 
 // statusHandler reports live gateway gauges (subscribers, connections, cache,
@@ -594,15 +596,16 @@ func runtimeHandler(tracker *sharedprocess.Tracker, next http.Handler, metrics *
 }
 
 type discoveryRuntimeDocument struct {
-	D11Base          string                       `json:"d11Base"`
-	D11TokenRef      string                       `json:"d11TokenRef"`
-	D12Base          string                       `json:"d12Base"`
-	D12TokenRef      string                       `json:"d12TokenRef"`
-	CursorKeyRef     string                       `json:"cursorKeyRef"`
-	InternalTokenRef string                       `json:"internalTokenRef"`
-	DeletePeerDNS    string                       `json:"deletePeerDNS"`
-	ChatPeerDNS      string                       `json:"chatPeerDNS"`
-	Push             notifications.RuntimeOptions `json:"push"`
+	QuoteTokenAddress string                       `json:"quoteTokenAddress"`
+	D11Base           string                       `json:"d11Base"`
+	D11TokenRef       string                       `json:"d11TokenRef"`
+	D12Base           string                       `json:"d12Base"`
+	D12TokenRef       string                       `json:"d12TokenRef"`
+	CursorKeyRef      string                       `json:"cursorKeyRef"`
+	InternalTokenRef  string                       `json:"internalTokenRef"`
+	DeletePeerDNS     string                       `json:"deletePeerDNS"`
+	ChatPeerDNS       string                       `json:"chatPeerDNS"`
+	Push              notifications.RuntimeOptions `json:"push"`
 }
 
 func (a *App) registerProductionOperations(ctx context.Context, router chi.Router, identity requestIdentity, admission *rest.Admission, checks map[string]sharedhttp.Check) error {
@@ -614,6 +617,13 @@ func (a *App) registerProductionOperations(ctx context.Context, router chi.Route
 }
 
 func (a *App) registerDiscovery(ctx context.Context, router chi.Router, identity requestIdentity, admission *rest.Admission, checks map[string]sharedhttp.Check) error {
+	principal := func(r *http.Request) (notifications.Principal, error) {
+		if identity == nil {
+			return notifications.Principal{}, sharedauth.ErrScopeDenied
+		}
+		p, err := identity.AuthenticateRequest(r.Context(), r)
+		return notifications.Principal{AccountID: p.AccountID, Wallet: p.Wallet}, err
+	}
 	authenticate := func(r *http.Request) (string, error) {
 		if identity == nil {
 			return "", sharedauth.ErrScopeDenied
@@ -637,7 +647,13 @@ func (a *App) registerDiscovery(ctx context.Context, router chi.Router, identity
 		if !ok {
 			return errors.New("discovery identity transport unavailable")
 		}
-		runtime, err := notifications.NewHTTPRuntime(ctx, a.sqlDB, authenticate, notifications.RuntimeConfig{Secrets: sharedsecrets.Options{Provider: sharedsecrets.ProviderType(a.cfg.SecretsProvider), CacheTTL: 0}, Client: concrete.Client, D11Base: document.D11Base, D11TokenRef: document.D11TokenRef, D12Base: document.D12Base, D12TokenRef: document.D12TokenRef, CursorKeyRef: document.CursorKeyRef, InternalTokenRef: document.InternalTokenRef, DeletePeerDNS: document.DeletePeerDNS, ChatPeerDNS: document.ChatPeerDNS, Push: document.Push})
+		var err error
+		runtimeConfig := notifications.RuntimeConfig{Principal: principal, Secrets: sharedsecrets.Options{Provider: sharedsecrets.ProviderType(a.cfg.SecretsProvider), CacheTTL: 0}, Client: concrete.Client, D11Base: document.D11Base, D11TokenRef: document.D11TokenRef, D12Base: document.D12Base, D12TokenRef: document.D12TokenRef, CursorKeyRef: document.CursorKeyRef, InternalTokenRef: document.InternalTokenRef, DeletePeerDNS: document.DeletePeerDNS, ChatPeerDNS: document.ChatPeerDNS, Push: document.Push}
+		runtimeConfig.Pools, runtimeConfig.Intervals, err = notifications.NewRuntimeAuthorities(ctx, a.sqlDB, runtimeConfig, document.QuoteTokenAddress)
+		if err != nil {
+			return err
+		}
+		runtime, err := notifications.NewHTTPRuntime(ctx, a.sqlDB, authenticate, runtimeConfig)
 		if err == nil {
 			a.discoveryRuntime = runtime
 			handler := rest.ResponseMetadata(admission.Middleware(rest.AdmissionAggregate)(runtime.Handler()))
@@ -652,12 +668,12 @@ func (a *App) registerDiscovery(ctx context.Context, router chi.Router, identity
 			checks["discovery_notifications"] = runtime.Ready
 			return nil
 		}
-		checks["discovery_provider_configuration"] = func(context.Context) error { return err }
+		return err
 	}
 	ds := discovery.Store{DB: a.sqlDB}
 	ns := notifications.Store{DB: a.sqlDB}
 	discoveryHTTP := discovery.HTTP{Store: ds, Callouts: discovery.CalloutService{Store: ds}, Authenticate: authenticate, Wallet: wallet}
-	notificationsHTTP := notifications.HTTP{Store: ns, Discovery: ds, Authenticate: authenticate}
+	notificationsHTTP := notifications.HTTP{Store: ns, Discovery: ds, Authenticate: authenticate, Principal: principal}
 	router.Handle("/v2/discovery/notifications", rest.ResponseMetadata(admission.Middleware(rest.AdmissionAggregate)(notificationsHTTP.Handler())))
 	router.Handle("/v2/discovery/notifications/*", rest.ResponseMetadata(admission.Middleware(rest.AdmissionAggregate)(notificationsHTTP.Handler())))
 	router.Handle("/v2/me/notifications", rest.ResponseMetadata(admission.Middleware(rest.AdmissionAggregate)(notificationsHTTP.Handler())))

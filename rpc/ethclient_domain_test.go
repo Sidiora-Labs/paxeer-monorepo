@@ -150,7 +150,9 @@ func TestEthclientOnTheChainPathSendsReceiptsAndFilters(t *testing.T) {
 	chainLog := sign(chainID, 1, emitter, 0)
 	rootLog := sign(rootID, 2, emitter, 0)
 	want := []*ethtypes.Transaction{transfer, chainLog, rootLog}
+	wantHashes := make([]common.Hash, 0, len(want))
 	for _, tx := range want {
+		wantHashes = append(wantHashes, tx.Hash())
 		require.NoError(t, chain.SendTransaction(ctx, tx))
 	}
 
@@ -158,6 +160,7 @@ func TestEthclientOnTheChainPathSendsReceiptsAndFilters(t *testing.T) {
 	// sends. Submission does not promise a particular proposal or batch boundary.
 	next := initialHeight + 1
 	processed := 0
+	committedHashes := make([]common.Hash, 0, len(want))
 	blockHashes := make(map[int64]common.Hash)
 	blockTxs := make(map[int64][]common.Hash)
 	chainTxs := make(map[int64][]common.Hash)
@@ -186,7 +189,11 @@ func TestEthclientOnTheChainPathSendsReceiptsAndFilters(t *testing.T) {
 			tx, _ := message.AsTransaction()
 			require.NotNil(t, tx)
 			require.Less(t, processed, len(want))
-			require.Equal(t, want[processed].Hash(), tx.Hash())
+			// kvstore CheckTx does not supply EVM nonce metadata. Its mempool
+			// orders equal-priority envelopes from a map, not by send order.
+			require.Contains(t, wantHashes, tx.Hash())
+			require.NotContains(t, committedHashes, tx.Hash())
+			committedHashes = append(committedHashes, tx.Hash())
 			processed++
 			blockTxs[block.Block.Height] = append(blockTxs[block.Block.Height], tx.Hash())
 			executionCtx := sdkctx.WithBlockHeight(block.Block.Height).WithBlockTime(block.Block.Time).
@@ -226,6 +233,7 @@ func TestEthclientOnTheChainPathSendsReceiptsAndFilters(t *testing.T) {
 		height.Store(block.Block.Height)
 
 	}
+	require.ElementsMatch(t, wantHashes, committedHashes)
 
 	// Wait for every receipt through the standard client, including the
 	// root-signed transaction submitted through /chain/1.

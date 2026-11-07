@@ -1,14 +1,18 @@
 import { Flex } from '@chakra-ui/react';
 import React from 'react';
 
+import type { PriceUpdateItem } from 'types/api/paxeerXFeed';
 import type { Transaction } from 'types/api/transaction';
 
 import { route } from 'nextjs/routes';
 
+import type { ResourcePayload } from 'lib/api/resources';
 import { Link } from 'toolkit/chakra/link';
 import AddressFromTo from 'ui/shared/address/AddressFromTo';
 
-export const isPriceUpdate = (tx: Pick<Transaction, 'transaction_types'>) => tx.transaction_types.includes('price_update');
+export type TransactionFeedItem = ResourcePayload<'general:homepage_txs'>[number];
+
+export const isPriceUpdate = (tx: TransactionFeedItem): tx is PriceUpdateItem => tx.transaction_types.includes('price_update');
 
 export const priceUpdateHref = (hash: string) => route({ pathname: '/feed/update/[hash]', query: { hash } });
 
@@ -18,7 +22,7 @@ export const priceUpdateMethod = (tx: Pick<Transaction, 'price_update'>) => {
 };
 
 interface Props {
-  tx: Transaction;
+  tx: PriceUpdateItem;
   current?: string;
   isLoading?: boolean;
   mt?: number | string;

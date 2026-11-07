@@ -1,6 +1,7 @@
 import * as http from "node:http";
 import * as https from "node:https";
-import { mkdir, open, readFile, rename } from "node:fs/promises";
+import { randomUUID } from "node:crypto";
+import { mkdir, open, readFile, rename, unlink } from "node:fs/promises";
 import { join } from "node:path";
 import { ed25519 } from "@noble/curves/ed25519.js";
 import { secp256k1 } from "@noble/curves/secp256k1.js";
@@ -26,10 +27,7 @@ import {
 } from "./account-derivation.js";
 import { abiSelector, type PrecompileCall } from "./exchange.js";
 import { decodeRevertReason, RevertReasonError } from "./revert.js";
-import {
-  verifySequencerReceipt,
-  type SequencerAuthorization,
-} from "./verifier.js";
+import { verifySequencerReceipt, type SequencerAuthorization } from "./verifier.js";
 
 /** Values of sdk/platform/schema/paxai-v1.kvx [limits]. */
 export const PAXAI_LIMITS = Object.freeze({
@@ -85,8 +83,13 @@ const PROGRAMS_CALL_SELECTOR = fromHex(
     "call(bytes32,uint16,string,bytes,bytes,bytes,uint32,uint64[7],uint128)",
   ).slice(2),
 );
+const PROGRAMS_CALL_WITH_RECEIPTS_SELECTOR = fromHex(
+  abiSelector(
+    "callWithReceipts(bytes32,uint16,string,bytes,bytes,bytes,uint32,uint64[7],uint128,(bytes,uint64)[])",
+  ).slice(2),
+);
 const MAX_CALL_BYTES = 2_163_428;
-const RECORD_MAGIC = ascii("PAXAIOP1");
+const RECORD_MAGIC = ascii("PAXAIOP2");
 const ENVELOPE_MAGIC = ascii("PAXAI1");
 const TOKEN = Symbol("paxai");
 
@@ -1792,6 +1795,10 @@ export function decodeRefundRequest(bytes: Uint8Array): RefundRequest {
 export interface ProgramCallActivity {
   readonly payload: Uint8Array;
   readonly feeLimit: bigint;
+  readonly receiptAuthorities?: readonly Readonly<{
+    canonicalReceipt: Uint8Array;
+    blockHeight: bigint;
+  }>[];
 }
 
 function abiWord(value: bigint, bits = 256): Uint8Array {
@@ -1816,31 +1823,53 @@ export function encodeProgramCallActivity(
     call.capabilities,
     call.accessDeclaration,
   ].map(abiBytes);
-  let offset = 15 * 32;
+  const authorities = activity.receiptAuthorities;
+  if (authorities !== undefined && authorities.length > 4096) invalid();
+  let offset = (authorities === undefined ? 15 : 16) * 32;
   const offsets = tails.map((tail) => {
     const word = abiWord(BigInt(offset));
     offset += tail.length;
     return word;
   });
-  return concat(
-    PROGRAMS_CALL_SELECTOR,
+  let receiptTail: Uint8Array = new Uint8Array();
+  if (authorities !== undefined) {
+    let tupleOffset = authorities.length * 32;
+    const tuples = authorities.map((authority) => {
+      if (authority.canonicalReceipt.length === 0 || authority.canonicalReceipt.length > MAX_CALL_BYTES) invalid();
+      return concat(abiWord(64n), abiWord(authority.blockHeight, 64), abiBytes(authority.canonicalReceipt));
+    });
+    const tupleOffsets = tuples.map((tuple) => {
+      const word = abiWord(BigInt(tupleOffset));
+      tupleOffset += tuple.length;
+      return word;
+    });
+    receiptTail = concat(abiWord(BigInt(authorities.length)), ...tupleOffsets, ...tuples);
+  }
+  const encoded = concat(
+    authorities === undefined ? PROGRAMS_CALL_SELECTOR : PROGRAMS_CALL_WITH_RECEIPTS_SELECTOR,
     call.programId,
     abiWord(BigInt(call.guestAbi), 16),
     ...offsets,
     abiWord(BigInt(call.responseCapacity), 32),
     ...call.resources.map((value) => abiWord(value, 64)),
     abiWord(activity.feeLimit, 128),
+    ...(authorities === undefined ? [] : [abiWord(BigInt(offset))]),
     ...tails,
+    receiptTail,
   );
+  if (encoded.length > MAX_CALL_BYTES) invalid();
+  return encoded;
 }
 
 export function decodeProgramCallActivity(
   bytes: Uint8Array,
 ): ProgramCallActivity {
+  const withReceipts = equal(bytes.slice(0, 4), PROGRAMS_CALL_WITH_RECEIPTS_SELECTOR);
+  const headSize = (withReceipts ? 16 : 15) * 32;
   if (
-    bytes.length < 484 ||
+    bytes.length < headSize + 4 ||
     bytes.length > MAX_CALL_BYTES ||
-    !equal(bytes.slice(0, 4), PROGRAMS_CALL_SELECTOR)
+    (!withReceipts && !equal(bytes.slice(0, 4), PROGRAMS_CALL_SELECTOR))
   ) {
     refuse("NotNativeProgramCall");
   }
@@ -1854,7 +1883,7 @@ export function decodeProgramCallActivity(
   const dynamic = (index: number, maximum: number): Uint8Array => {
     const offset = word(index);
     if (
-      offset < 480n ||
+      offset < BigInt(headSize) ||
       offset % 32n !== 0n ||
       offset > BigInt(bytes.length - 36)
     )
@@ -1897,7 +1926,32 @@ export function decodeProgramCallActivity(
   } catch (cause) {
     return refuse("NativeCall", { cause });
   }
-  const activity = Object.freeze({ payload, feeLimit: word(14, 128) });
+  let receiptAuthorities: ProgramCallActivity["receiptAuthorities"];
+  if (withReceipts) {
+    const at = (offset: number, bits = 256): bigint => {
+      if (!Number.isSafeInteger(offset) || offset < 4 || offset + 32 > bytes.length) invalid();
+      const value = BigInt(`0x${hex(bytes.slice(offset, offset + 32))}`);
+      if (value >= 1n << BigInt(bits)) invalid();
+      return value;
+    };
+    const arrayOffset = word(15);
+    if (arrayOffset < BigInt(headSize) || arrayOffset % 32n !== 0n || arrayOffset > BigInt(bytes.length - 36)) invalid();
+    const start = Number(arrayOffset) + 4;
+    const count = at(start);
+    if (count > 4096n || count * 32n > BigInt(bytes.length - start - 32)) invalid();
+    receiptAuthorities = Object.freeze(Array.from({ length: Number(count) }, (_, index) => {
+      const offset = at(start + 32 + index * 32);
+      if (offset < count * 32n || offset % 32n !== 0n || offset > BigInt(bytes.length - start - 32)) invalid();
+      const tuple = start + 32 + Number(offset);
+      if (at(tuple) !== 64n) invalid();
+      const blockHeight = at(tuple + 32, 64);
+      const length = at(tuple + 64);
+      if (length === 0n || length > BigInt(bytes.length - tuple - 96)) invalid();
+      return Object.freeze({ canonicalReceipt: bytes.slice(tuple + 96, tuple + 96 + Number(length)), blockHeight });
+    }));
+  }
+  const activity: ProgramCallActivity = Object.freeze({ payload, feeLimit: word(14, 128),
+    ...(receiptAuthorities === undefined ? {} : { receiptAuthorities }) });
   if (!equal(encodeProgramCallActivity(activity), bytes)) invalid();
   return activity;
 }
@@ -2714,6 +2768,8 @@ function signedIntent(signed: Uint8Array): Hex32 {
 }
 
 /** SDK lifecycle of one signed native operation; distinct from the AI domain job status. */
+const recordRevisions = new WeakMap<OperationRecord, Uint8Array>();
+
 export class OperationRecord implements RecordFields {
   public readonly state!: OperationState;
   public readonly domain!: DomainStatus;
@@ -2768,8 +2824,8 @@ export class OperationRecord implements RecordFields {
     return `0x${this.activityId}`;
   }
 
-  public get rung(): "submitted" | "receipted" | null {
-    if (this.globalSequence !== null) return "receipted";
+  public get rung(): "submitted" | "committed" | null {
+    if (this.globalSequence !== null) return "committed";
     return this.state === "pending" || this.state === "unknown"
       ? "submitted"
       : null;
@@ -2790,7 +2846,9 @@ export class OperationRecord implements RecordFields {
   ): OperationRecord {
     if (token !== TOKEN)
       throw new TypeError("record transitions are owned by OperationJournal");
-    return new OperationRecord({ ...this.#fields(), ...changes });
+    const next = new OperationRecord({ ...this.#fields(), ...changes });
+    recordRevisions.set(next, this.encode());
+    return next;
   }
 
   public encode(): Uint8Array {
@@ -2864,6 +2922,7 @@ export class OperationRecord implements RecordFields {
       !record.#consistent()
     )
       corrupt();
+    recordRevisions.set(record, record.encode());
     return record;
   }
 
@@ -2940,6 +2999,26 @@ function errorCode(error: unknown): string | undefined {
     : undefined;
 }
 
+export class CommitFinality {
+  public constructor(
+    public readonly blockHeight: bigint,
+    public readonly blockHash: Hex32,
+    public readonly appHash: Hex32,
+    public readonly storeProofDigest: Hex32,
+  ) {
+    if (
+      typeof blockHeight !== "bigint" ||
+      blockHeight < 0n ||
+      blockHeight > U64_MAX ||
+      !isId(blockHash) ||
+      !isId(appHash) ||
+      !isId(storeProofDigest)
+    )
+      refuse("FinalityUnavailable");
+    Object.freeze(this);
+  }
+}
+
 /** Crash-safe journal of signed operations; one file per activity, replaced atomically. */
 export class OperationJournal {
   readonly #directory: string;
@@ -2998,24 +3077,44 @@ export class OperationJournal {
 
   public async persist(record: OperationRecord): Promise<void> {
     const path = this.recordPath(record.activityId);
-    const partial = `${path}.partial`;
+    const lockPath = `${path}.lock`;
+    const partial = `${path}.${randomUUID()}.partial`;
+    let lock: Awaited<ReturnType<typeof open>> | undefined;
     try {
-      const file = await open(partial, "w");
-      try {
-        await file.writeFile(record.encode());
-        await file.sync();
-      } finally {
-        await file.close();
+      // Exclusive creation also excludes writers in other journal instances/processes.
+      // An abandoned lock fails closed: an operator must reconcile it before removal.
+      for (let attempt = 0; attempt < 100; attempt++) {
+        try { lock = await open(lockPath, "wx", 0o600); break; }
+        catch (cause) {
+          if (errorCode(cause) !== "EEXIST" || attempt === 99) throw cause;
+          await new Promise(resolve => setTimeout(resolve, 10));
+        }
       }
+      let current: Uint8Array | undefined;
+      try { current = await readFile(path); }
+      catch (cause) { if (errorCode(cause) !== "ENOENT") throw cause; }
+      const encoded = record.encode();
+      OperationRecord.decode(encoded);
+      if (current !== undefined && equal(current, encoded)) return;
+      const expected = recordRevisions.get(record);
+      if (current === undefined ? expected !== undefined : expected === undefined || !equal(current, expected))
+        refuse("InvalidTransition", current === undefined ? {} : { from: OperationRecord.decode(current).state });
+      const file = await open(partial, "wx", 0o600);
+      try { await file.writeFile(encoded); await file.sync(); }
+      finally { await file.close(); }
       await rename(partial, path);
       const directory = await open(this.#directory, "r");
-      try {
-        await directory.sync();
-      } finally {
-        await directory.close();
-      }
+      try { await directory.sync(); }
+      finally { await directory.close(); }
     } catch (cause) {
+      if (cause instanceof AiMarketError) throw cause;
       refuse("Journal", { cause });
+    } finally {
+      if (lock !== undefined) {
+        try { await unlink(partial); } catch (cause) { if (errorCode(cause) !== "ENOENT") throw cause; }
+        await lock.close();
+        await unlink(lockPath);
+      }
     }
   }
 
@@ -3031,7 +3130,11 @@ export class OperationJournal {
     if (record.activityId !== activityId) refuse("CorruptRecord");
     if (record.state !== "submitting") return record;
     const recovered = record.with({ state: "unknown" }, TOKEN);
-    await this.persist(recovered);
+    try { await this.persist(recovered); }
+    catch (cause) {
+      if (!(cause instanceof AiMarketError) || cause.code !== "InvalidTransition") throw cause;
+      return this.load(activityId);
+    }
     return recovered;
   }
 
@@ -3054,6 +3157,7 @@ export class OperationJournal {
     operations: Eip1193Requester,
   ): Promise<OperationRecord> {
     requireState(record, ["signed"]);
+    await this.recordSigned(record);
     return await this.#deliver(record, operations);
   }
 
@@ -3068,45 +3172,93 @@ export class OperationJournal {
 
   public async resolve(
     record: OperationRecord,
-    submission: unknown,
+    transactionReceipt: unknown,
+    finality: CommitFinality | null = null,
   ): Promise<OperationRecord> {
     requireState(record, ["pending", "unknown"]);
-    const execution = await decodeProgramsReceipt(
-      submission,
-      record.signedBytes,
-      this.#receiptKeys,
-    );
-    if (execution === null) return record;
-    const code =
-      execution.programResult?.terminalResult ?? execution.receipt.resultCode;
-    const resolved = record.with(
-      {
+    if (transactionReceipt === null) return record;
+    // Kernel receipt evidence remains private to the journal. Committed EVM
+    // receipts retain their existing finality and transaction binding path.
+    if (Object.hasOwn(receiptObject(transactionReceipt), "rung")) {
+      if (finality !== null) refuse("FinalityUnavailable");
+      const execution = await decodeProgramsReceipt(
+        transactionReceipt,
+        record.signedBytes,
+        this.#receiptKeys,
+      );
+      if (execution === null) return record;
+      const code = execution.programResult?.terminalResult ?? execution.receipt.resultCode;
+      const resolved = record.with({
         state: code === 0 ? "executed" : "failed",
         resultCode: code,
         globalSequence: execution.receipt.globalSequence,
+      }, TOKEN);
+      await this.persist(resolved);
+      if (execution.revert !== null) throw execution.revert;
+      return resolved;
+    }
+    const receipt = decodeCommittedTransactionReceipt(
+      transactionReceipt,
+      record.signedBytes,
+    );
+    if (finality !== null && !(finality instanceof CommitFinality))
+      refuse("FinalityUnavailable");
+    if (
+      finality !== null &&
+      (receipt.blockHeight > finality.blockHeight ||
+        (receipt.blockHeight === finality.blockHeight &&
+          receipt.blockHash !== finality.blockHash))
+    )
+      refuse("FinalityMismatch");
+    const executed = record.with(
+      {
+        state: receipt.success ? "executed" : "failed",
+        resultCode: receipt.success ? 0 : 1,
+        globalSequence: receipt.blockHeight,
       },
       TOKEN,
     );
-    await this.persist(resolved);
-    if (execution.revert !== null) throw execution.revert;
-    return resolved;
+    await this.persist(executed);
+    return receipt.success && finality !== null
+      ? await this.finalize(executed, finality)
+      : executed;
+  }
+
+  public async finalize(
+    record: OperationRecord,
+    finality: CommitFinality,
+  ): Promise<OperationRecord> {
+    requireState(record, ["executed"]);
+    if (!(finality instanceof CommitFinality)) refuse("FinalityUnavailable");
+    if (
+      record.globalSequence === null ||
+      record.globalSequence > finality.blockHeight
+    )
+      refuse("FinalityMismatch");
+    const finalized = record.with(
+      { state: "finalized", checkpoint: finality.blockHash },
+      TOKEN,
+    );
+    await this.persist(finalized);
+    return finalized;
   }
 
   public async resolveThrough(
     record: OperationRecord,
     operations: Eip1193Requester,
+    finality: CommitFinality | null = null,
   ): Promise<OperationRecord> {
     requireState(record, ["pending", "unknown"]);
-    let submission: unknown;
+    let receipt: unknown;
     try {
-      submission = await operations.request({
-        method: "pax_sequencerReceipt",
-        params: [`0x${record.activityId}`],
+      receipt = await operations.request({
+        method: "eth_getTransactionReceipt",
+        params: [record.txHash],
       });
     } catch {
       return record;
     }
-    return await this.resolve(record, submission);
+    return await this.resolve(record, receipt, finality);
   }
 
   /** A signed operation never sent becomes `failed` once its validity window has passed. */
@@ -3250,9 +3402,13 @@ export function decodeProgramsCallResult(
       execution,
       responseCapacity,
       Number(word(1)),
+      legs,
     );
     response = execution;
-  } else if (response.length > responseCapacity) {
+  } else if (response.length > responseCapacity || [
+    "LXP/program-execution-with-transfer-authority/v2\0",
+    "LXP/program-execution-with-occupancy/v1\0",
+  ].some((domain) => equal(response.slice(0, ascii(domain).length), ascii(domain)))) {
     refuse("ReceiptMismatch");
   }
   return Object.freeze({
@@ -3266,9 +3422,20 @@ function validateProgramsExecutionResponse(
   execution: Uint8Array,
   responseCapacity: number,
   terminalKind: number,
+  appliedLegs: Uint8Array,
 ): void {
+  const authority = ascii("LXP/program-execution-with-transfer-authority/v2\0");
   const occupancy = ascii("LXP/program-execution-with-occupancy/v1\0");
   let inner = execution;
+  let authorityProgram: Uint8Array | undefined;
+  if (equal(inner.slice(0, authority.length), authority)) {
+    const wrapper = new Reader(inner.slice(authority.length), () => refuse("ReceiptMismatch"));
+    inner = wrapper.sized(1_048_576);
+    const authorization = wrapper.sized(1_048_576);
+    const root = wrapper.fixed(32);
+    wrapper.end();
+    authorityProgram = validateProgramsTransferAuthority(authorization, root, appliedLegs);
+  }
   if (equal(inner.slice(0, occupancy.length), occupancy)) {
     const wrapper = new Reader(inner.slice(occupancy.length), () =>
       refuse("ReceiptMismatch"),
@@ -3316,7 +3483,9 @@ function validateProgramsExecutionResponse(
     else if (trace !== 0 || version === 3) refuse("ReceiptMismatch");
   }
   if (version >= 4) {
-    reader.fixed(32);
+    const program = reader.fixed(32);
+    if (authorityProgram !== undefined && !equal(program, authorityProgram))
+      refuse("ReceiptMismatch");
     const abi = reader.u16();
     if (version === 4 ? abi !== 2 : abi < 3 || abi > 5)
       refuse("ReceiptMismatch");
@@ -3353,6 +3522,189 @@ function validateProgramsExecutionResponse(
     sized64(1_048_576);
   }
   reader.end();
+}
+
+function decodeCommittedTransactionReceipt(value: unknown, signed: Uint8Array) {
+  const receipt = receiptObject(value);
+  const transaction = decodeTransaction(signed);
+  if (transaction.signature === null) refuse("ReceiptMismatch");
+  const sender = keccak_256(
+    secp256k1.Point.fromBytes(
+      recoveredKey(transaction.signature, keccak_256(transaction.canonical)),
+    )
+      .toBytes(false)
+      .slice(1),
+  ).slice(12);
+  const blockHeight = rpcQuantity(receipt.blockNumber);
+  const blockHash = hex(rpcBytes(receipt.blockHash, 32));
+  const status = rpcQuantity(receipt.status);
+  if (
+    !equal(rpcBytes(receipt.transactionHash, 32), keccak_256(signed)) ||
+    !equal(rpcBytes(receipt.from, 20), sender) ||
+    !equal(rpcBytes(receipt.to, 20), fromHex(PROGRAMS_PRECOMPILE.slice(2))) ||
+    blockHeight === 0n ||
+    blockHeight > U64_MAX ||
+    !isId(blockHash) ||
+    (status !== 0n && status !== 1n)
+  )
+    refuse("ReceiptMismatch");
+  return { blockHeight, blockHash, success: status === 1n };
+}
+
+// The wrapper root equals the applied-legs root; protocol occupancy charges
+// settle in their own activity.
+function programsLegRoot(legs: readonly Uint8Array[]): Uint8Array {
+  let level = legs.map((leg) => sha256(concat(ascii("LXP/v1/merkle-leaf\0"), leg)));
+  while (level.length > 1) {
+    const next: typeof level = [];
+    for (let i = 0; i < level.length; i += 2)
+      next.push(sha256(concat(ascii("LXP/v1/merkle-internal\0"), level[i]!, level[i + 1] ?? level[i]!)));
+    level = next;
+  }
+  return level[0] ?? new Uint8Array(32);
+}
+
+function validateProgramsTransferAuthority(encoded: Uint8Array, root: Uint8Array, applied: Uint8Array): Uint8Array {
+  const fail = (): never => refuse("ReceiptMismatch");
+  const reader = (bytes: Uint8Array) => new Reader(bytes, fail);
+  const nonzero = (bytes: Uint8Array): Uint8Array => bytes.some((b) => b !== 0) ? bytes : fail();
+  const domain = (r: Reader, text: string): void => { if (!equal(r.fixed(ascii(text).length), ascii(text))) fail(); };
+  const frame = (r: Reader): Uint8Array => {
+    const path = r.fixed(8), depth = r.u8();
+    if (depth > 8 || path.slice(0, depth).some((b) => b === 0) || path.slice(depth).some((b) => b !== 0)) fail();
+    return concat(path, Uint8Array.of(depth));
+  };
+  const derive = (owner: Uint8Array, seed: Uint8Array) => sha256(concat(ascii("LayerX/programs/program-account/v1\0"), owner, new Writer().sized(seed).bytes()));
+  const capabilities = (encoded: Uint8Array, v2: boolean): void => {
+    const r = reader(encoded), count = r.u16();
+    if (encoded.length > 65_452 || count > 238) fail();
+    let previous: Uint8Array[] | undefined, sights = 0;
+    for (let i = 0; i < count; i++) {
+      const tag = r.u8();
+      const rank = [0, 0, 1, 2, 3, 4, 6, 8, 9, 5, 7][tag];
+      if (tag < 1 || tag > 10 || rank === undefined || (!v2 && tag >= 9)) fail();
+      let key: Uint8Array[] = [Uint8Array.of(rank!)];
+      if (tag === 4 || tag === 6) key.push(nonzero(r.fixed(32)));
+      if (tag === 5) { key.push(nonzero(r.fixed(32)), nonzero(r.fixed(32))); if (r.u128() === 0n) fail(); }
+      if (tag === 9) {
+        const owner = nonzero(r.fixed(32)), length = r.u16(); if (length > 128) fail();
+        const seed = r.fixed(length), source = r.fixed(32);
+        if (!equal(derive(owner, seed), source)) fail();
+        key.push(owner, seed, source, nonzero(r.fixed(32)), nonzero(r.fixed(32)));
+        if (r.u128() === 0n) fail();
+      }
+      if (tag === 10) { key.push(nonzero(r.fixed(32)), nonzero(r.fixed(32))); nonzero(r.fixed(32)); if (++sights > 32) fail(); }
+      if (previous !== undefined) {
+        let order = 0;
+        for (let field = 0; field < Math.min(previous.length, key.length) && order === 0; field++) order = Buffer.compare(previous[field]!, key[field]!);
+        if (order >= 0) fail();
+      }
+      previous = key;
+    }
+    r.end();
+  };
+  let names: Reader | undefined;
+  const bound = ascii("LayerX/programs/402LXP/account-bound-set/v1\0");
+  if (equal(encoded.slice(0, bound.length), bound)) {
+    names = reader(encoded.slice(bound.length));
+    encoded = names.sized(1_048_576);
+  }
+  const r = reader(encoded);
+  const v2Domain = ascii("LayerX/programs/402LXP/transfer-set/v2\0");
+  const v2 = equal(encoded.slice(0, v2Domain.length), v2Domain);
+  domain(r, `LayerX/programs/402LXP/transfer-set/v${v2 ? 2 : 1}\0`);
+  const program = nonzero(r.fixed(32));
+  const principal = nonzero(r.fixed(32));
+  nonzero(r.fixed(32));
+  const rootFrame = frame(r);
+  const frames = new Map<string, Uint8Array>([[hex(rootFrame), program]]);
+  const eventBindings: Array<{ program: Uint8Array; frame: Uint8Array }> = [];
+  const events = reader(r.sized(1_048_576));
+  domain(events, "LayerX/programs/events/v1\0");
+  const eventCount = events.u32(); if (eventCount > 64) fail();
+  for (let i = 0; i < eventCount; i++) {
+    const eventProgram = nonzero(events.fixed(32));
+    if (!equal(events.fixed(32), principal)) fail();
+    eventBindings.push({ program: eventProgram, frame: frame(events) });
+    if (events.sized(64).length === 0) fail(); events.sized(65_536);
+  }
+  events.end();
+  const calls = r.u64(); if (calls > 64n) fail();
+  for (let i = 0n; i < calls; i++) {
+    const caller = nonzero(r.fixed(32)), callee = nonzero(r.fixed(32));
+    if (!equal(r.fixed(32), principal)) fail();
+    const callerFrame = frame(r), calleeFrame = frame(r);
+    const expectedCaller = frames.get(hex(callerFrame));
+    const callerDepth = callerFrame[8]!;
+    if (expectedCaller === undefined || !equal(expectedCaller, caller) ||
+      frames.has(hex(calleeFrame)) || calleeFrame[8] !== callerDepth + 1 ||
+      !equal(calleeFrame.slice(0, callerDepth), callerFrame.slice(0, callerDepth))) fail();
+    frames.set(hex(calleeFrame), callee);
+    capabilities(r.sized(65_452), v2);
+  }
+  for (const event of eventBindings) {
+    const expected = frames.get(hex(event.frame));
+    if (expected === undefined || !equal(expected, event.program)) fail();
+  }
+  const count = r.u64(); if (count === 0n || count > 256n) fail();
+  const legs: Uint8Array[] = [];
+  let total = 0n;
+  for (let i = 0n; i < count; i++) {
+    const staged = frame(r), tag = v2 ? r.u8() : 1;
+    let source = principal;
+    let binding: { owner: Uint8Array; account: Uint8Array; asset: Uint8Array; frame?: Uint8Array; to?: Uint8Array; amount?: bigint } | undefined;
+    if (tag === 1 || tag === 3) {
+      if (v2 && !equal(r.fixed(32), principal)) fail();
+    } else if (tag !== 2) fail();
+    if (tag === 2 || tag === 3) {
+      const b = reader(r.sized(512));
+      domain(b, `LayerX/programs/402LXP/program-${tag === 2 ? "authority" : "funding"}/v1\0`);
+      const owner = nonzero(b.fixed(32)), length = b.u16(); if (length > 128) fail();
+      const seed = b.fixed(length), account = nonzero(b.fixed(32));
+      if (!equal(account, derive(owner, seed))) fail();
+      if (tag === 2) {
+        source = account;
+        binding = { owner, account, frame: frame(b), asset: nonzero(b.fixed(32)), to: nonzero(b.fixed(32)), amount: b.u128() };
+      } else binding = { owner, account, asset: nonzero(b.fixed(32)) };
+      b.end();
+    }
+    const asset = nonzero(r.fixed(32)), to = nonzero(r.fixed(32)), amount = r.u128(), program = nonzero(r.fixed(32));
+    const expectedProgram = frames.get(hex(staged));
+    if (expectedProgram === undefined || !equal(expectedProgram, program)) fail();
+    if (amount === 0n || (total += amount) > U128_MAX) fail();
+    if (binding !== undefined && (!equal(binding.owner, program) || !equal(binding.asset, asset))) fail();
+    if (tag === 2 && binding !== undefined && (!equal(binding.frame!, staged) || !equal(binding.to!, to) || binding.amount !== amount)) fail();
+    if (tag === 3 && binding !== undefined && !equal(binding.account, to)) fail();
+    if (names !== undefined) {
+      const length = names.u16(); if (length > 512) fail();
+      const name = names.fixed(length);
+      if (tag === 2) { if (length !== 0) fail(); }
+      else {
+        if (name.some((b) => !(b >= 97 && b <= 122) && !(b >= 48 && b <= 57) && ![46, 95, 45, 58].includes(b))) fail();
+        const text = new TextDecoder().decode(name);
+        if (!text.startsWith("agent:") || text.includes("::")) fail();
+        const suffix = text.endsWith(":main") ? ":main" : `:asset:${hex(asset)}`;
+        if (!text.endsWith(suffix)) fail();
+        const did = text.slice(6, -suffix.length);
+        if (did.length === 0 || did.startsWith(":") || did.endsWith(":")) fail();
+        if (!equal(sha256(concat(ascii("LXP/v1/did-id\0"), new Writer().u16(ascii(did).length).put(ascii(did)).bytes())), principal)) fail();
+        source = sha256(concat(ascii("LX:ACCOUNT:v1"), new Writer().sized(name).bytes()));
+      }
+    }
+    legs.push(concat(Uint8Array.of(0), source, to, asset, new Writer().u128(amount).u16(1).bytes()));
+  }
+  r.end(); names?.end();
+  if (!equal(programsLegRoot(legs), root)) fail();
+  const appliedLegs = Array.from({ length: applied.length / 115 }, (_, index) =>
+    applied.slice(index * 115, (index + 1) * 115));
+  if (!equal(programsLegRoot(appliedLegs), root)) fail();
+  let offset = 0;
+  for (const leg of legs) {
+    while (offset < applied.length && !equal(leg, applied.slice(offset, offset + 115))) offset += 115;
+    if (offset === applied.length) fail();
+    offset += 115;
+  }
+  return program;
 }
 
 function receiptObject(value: unknown): Readonly<Record<string, unknown>> {
@@ -3433,7 +3785,7 @@ export async function gatewayReceiptKeys(
   );
 }
 
-export async function decodeProgramsReceipt(
+async function decodeProgramsReceipt(
   value: unknown,
   signed: Uint8Array,
   receiptKeys: readonly SequencerAuthorization[],
@@ -3569,12 +3921,15 @@ export async function decodeProgramsReceipt(
   }
   sr.end();
   const returnData = rpcBytes(v.returnData);
+  const paymentDenom = v.paymentDenom;
   if (
     typeof v.vmError !== "string" ||
     typeof v.feeDenom !== "string" ||
     v.feeDenom !== feeDenom ||
+    typeof paymentDenom !== "string" ||
+    !/^[a-zA-Z][a-zA-Z0-9/:._-]{2,63}$/u.test(paymentDenom) ||
     !equal(sha256(ascii(v.vmError)), vmErrorDigest) ||
-    !equal(sha256(ascii(feeDenom)), asset) ||
+    !equal(sha256(ascii(paymentDenom)), asset) ||
     returnData.length !== returnDataLength ||
     !equal(sha256(returnData), activityRoot) ||
     gasUsed > transaction.fees.gasLimit ||

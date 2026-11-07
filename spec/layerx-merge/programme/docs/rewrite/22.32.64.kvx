@@ -1,0 +1,23 @@
+[manifest]
+task = "22.32.64"
+domain = 6
+owner_role = "fm-chain-modules"
+pages = 3
+
+[page.1]
+path = "interchain/testing/README.md"
+status = "stale"
+bytes = 11537
+source_1 = "record 22.30.64 [doc.13] (stale): Read in full. NewSimApp snippets and TestingApp match current declarations; line 302 has an obsolete OnChanOpenTry callback signature and lines 219-220 compare ClientID to connection/channel identifiers."
+
+[page.2]
+path = "interchain/testing/mock/README.md"
+status = "stale"
+bytes = 523
+source_1 = "record 22.30.64 [doc.14] (stale): Read in full. Lines 4-5 promise nil and no errors, unlike configurable callback refusals, capability checks and error acknowledgements."
+
+[page.3]
+path = "interchain/testing/simapp/README.md"
+status = "stale"
+bytes = 2928
+source_1 = "record 22.30.64 [doc.15] (stale): Read in full. Correctly describes simd as test-only and paxd as the chain; line 24 funds stake while default genesis expects uhpx for staking."

@@ -1,6 +1,4 @@
-use super::{
-    refusal, rpc_error, transport, NodeEndpoint, NodeFailure, Request, Response, NODE_IO_TIMEOUT,
-};
+use super::{refusal, rpc_error, transport, NodeEndpoint, NodeFailure, Request, Response};
 use serde::Deserialize;
 use serde_json::{value::RawValue, Value};
 use std::time::Instant;
@@ -136,8 +134,7 @@ fn validate(body: &[u8]) -> Result<Validated, Response> {
                 .filter(|height| *height < i64::MAX as u64)
                 .ok_or_else(invalid)?;
             let digits = params.data.strip_prefix("0x").ok_or_else(invalid)?;
-            if params.path != "/store/evm/key"
-                || !params.prove
+            if !params.prove
                 || digits.is_empty()
                 || digits.len() > 256
                 || !digits.len().is_multiple_of(2)
@@ -145,6 +142,16 @@ fn validate(body: &[u8]) -> Result<Validated, Response> {
                     .bytes()
                     .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
             {
+                return Err(invalid());
+            }
+            let allowed_key = match params.path {
+                "/store/evm/key" => true,
+                "/store/lxphost/key" => {
+                    digits == "02" || (digits.len() == 66 && digits.starts_with("06"))
+                }
+                _ => false,
+            };
+            if !allowed_key {
                 return Err(invalid());
             }
             Method::Query(height)
@@ -355,8 +362,7 @@ fn validate_result(method: &Method, result: &Value) -> Result<(), Failure> {
     Ok(())
 }
 
-fn fetch(node: &NodeEndpoint, request: &Validated) -> Result<Vec<u8>, Failure> {
-    let deadline = Instant::now() + NODE_IO_TIMEOUT;
+fn fetch(node: &NodeEndpoint, request: &Validated, deadline: Instant) -> Result<Vec<u8>, Failure> {
     if let Method::Query(height) = request.method {
         if committed_height(node, &request.id, None, deadline)? < height + 1 {
             return Err(Failure::Unavailable);
@@ -371,7 +377,7 @@ fn fetch(node: &NodeEndpoint, request: &Validated) -> Result<Vec<u8>, Failure> {
     Ok(body)
 }
 
-pub(super) fn response(node: &NodeEndpoint, request: &Request) -> Response {
+pub(super) fn response(node: &NodeEndpoint, request: &Request, deadline: Instant) -> Response {
     if request.headers.get("content-type").map(String::as_str) != Some("application/json") {
         return refusal(400, "content_type_required", None);
     }
@@ -379,7 +385,7 @@ pub(super) fn response(node: &NodeEndpoint, request: &Request) -> Response {
         Ok(validated) => validated,
         Err(response) => return response,
     };
-    match fetch(node, &validated) {
+    match fetch(node, &validated, deadline) {
         Ok(body) => Response {
             status: 200,
             body,
@@ -448,6 +454,51 @@ mod tests {
         for params in ["[]", r#"{"extra":1}"#, r#"{"height":"1"}"#] {
             let body = format!(r#"{{"jsonrpc":"2.0","id":1,"method":"status","params":{params}}}"#);
             assert!(validate(body.as_bytes()).is_err());
+        }
+    }
+
+    #[test]
+    fn native_store_queries_require_exact_sequence_or_account_keys() {
+        for data in ["0x02".to_owned(), format!("0x06{}", "ab".repeat(32))] {
+            let body = serde_json::json!({"jsonrpc":"2.0","id":"native","method":"abci_query","params":{"path":"/store/lxphost/key","data":data,"height":"8","prove":true}}).to_string();
+            let request =
+                validate(body.as_bytes()).unwrap_or_else(|_| panic!("native proof refused"));
+            assert_eq!(request.method, Method::Query(8));
+            let upstream: serde_json::Value = serde_json::from_slice(&request.body).unwrap();
+            assert_eq!(upstream["params"]["data"], &data[2..]);
+            assert_eq!(upstream["params"]["path"], "/store/lxphost/key");
+            assert_eq!(upstream["params"]["prove"], true);
+        }
+        let canonical = serde_json::json!({"jsonrpc":"2.0","id":"native","method":"abci_query","params":{"path":"/store/lxphost/key","data":"0x02","height":"8","prove":true}});
+        for data in [
+            "0x01".to_owned(),
+            "0x0200".to_owned(),
+            "0x06".to_owned(),
+            format!("0x06{}", "ab".repeat(31)),
+            format!("0x06{}", "ab".repeat(33)),
+            format!("0x07{}", "ab".repeat(32)),
+            format!("0x06{}", "AB".repeat(32)),
+            "02".to_owned(),
+        ] {
+            let mut request = canonical.clone();
+            request["params"]["data"] = serde_json::json!(data);
+            assert!(
+                validate(request.to_string().as_bytes()).is_err(),
+                "accepted {data}"
+            );
+        }
+        for (field, value) in [
+            ("path", serde_json::json!("/store/lxphost/subspace")),
+            ("prove", serde_json::json!(false)),
+            ("height", serde_json::json!("0")),
+            ("height", serde_json::json!("9223372036854775807")),
+        ] {
+            let mut request = canonical.clone();
+            request["params"][field] = value;
+            assert!(
+                validate(request.to_string().as_bytes()).is_err(),
+                "accepted {request}"
+            );
         }
     }
 

@@ -1,0 +1,11 @@
+[disposition.8.101.4.1]
+finding = "8.101.4.1"
+status = "resolved"
+evidence = "Commit 5c85898cdf1b1305a664724ca96f144b150f62b1 on origin/main deleted services/platform/hosted/gateway/tests/local/Cargo.toml, verifier.rs, lifecycle_sdk.rs and the rest of the standalone qualification package, removing its retired kernel activity decoding path."
+follow_up = "closure"
+
+[disposition.8.101.4.2]
+finding = "8.101.4.2"
+status = "resolved"
+evidence = "Commit 5c85898cdf1b1305a664724ca96f144b150f62b1 on origin/main deleted every remaining file under services/platform/hosted/gateway/tests/local/, so the directory whose presence failed the first verification clause is gone."
+follow_up = "closure"

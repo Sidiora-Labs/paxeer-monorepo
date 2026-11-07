@@ -1,0 +1,243 @@
+[reconcile.r16-200]
+revision = "751d6ff8dbcfeaec3fbdee7c8c9aac3813e83488"
+rows = 30
+
+[row.r16-200.1]
+interface = "interface.16.mk-agent-test-sdk-py"
+verdict = "served"
+path = "Makefile"
+line = 2333
+symbol = "agent-test-sdk-py"
+evidence = "Declares agent-test-sdk-py: with no prerequisites; its recipe generates the SDK, runs Python unittest discovery and compiles the SDK and examples. The occurrences at lines 2044 and 2340 are recursive make calls, not declarations."
+
+[row.r16-200.2]
+interface = "interface.16.mk-agent-test-sdk-rust"
+verdict = "served"
+path = "Makefile"
+line = 2319
+symbol = "agent-test-sdk-rust"
+evidence = "Declares agent-test-sdk-rust: with no prerequisites; its recipe runs the layerx-sdk sdk test through run-with-clock.sh. The occurrence at line 3096 is a qualification command string, not the target definition."
+
+[row.r16-200.3]
+interface = "interface.16.mk-agent-test-sdk-ts"
+verdict = "served"
+path = "Makefile"
+line = 2329
+symbol = "agent-test-sdk-ts"
+evidence = "Declares agent-test-sdk-ts: with no prerequisites; its recipe generates the SDK and runs npm test in services/agent/sdk/typescript. The occurrences at lines 2043 and 2339 are recursive make calls."
+
+[row.r16-200.4]
+interface = "interface.16.mk-agent-test-types-ids"
+verdict = "served"
+path = "Makefile"
+line = 1970
+symbol = "agent-test-types-ids"
+evidence = "Declares agent-test-types-ids: with no prerequisites; its recipe runs the layerx-types ids test through run-with-clock.sh. The occurrence at line 161 belongs to the continued .PHONY list."
+
+[row.r16-200.5]
+interface = "interface.16.mk-autobahn-integration-test"
+verdict = "served"
+path = "Makefile"
+line = 2422
+symbol = "$(PAXEER_FORWARDED_TARGETS)"
+evidence = "autobahn-integration-test is listed in PAXEER_FORWARDED_TARGETS at Makefile:2408. The registered signature $(PAXEER_FORWARDED_TARGETS): is the shared target definition at line 2422, whose recipe invokes $(PAXEER_MAKE) $@. Line 2421 is .PHONY, not the recipe-bearing rule."
+
+[row.r16-200.6]
+interface = "interface.16.mk-beta-contract-check"
+verdict = "served"
+path = "Makefile"
+line = 3059
+symbol = "beta-contract-check"
+evidence = "Declares beta-contract-check: with no prerequisites; its recipe invokes tools/ci/beta-report.sh --check. The .PHONY list at line 3054 and qualification command at line 3104 are references."
+
+[row.r16-200.7]
+interface = "interface.16.mk-beta-driver-test"
+verdict = "served"
+path = "Makefile"
+line = 3071
+symbol = "beta-driver-test"
+evidence = "Declares beta-driver-test: with no prerequisites; its recipe runs unittest for tools.qualification.test_release_runner and tools.qualification.test_beta_driver. Line 3066 is the .PHONY declaration."
+
+[row.r16-200.8]
+interface = "interface.16.mk-beta-ledger-check"
+verdict = "served"
+path = "Makefile"
+line = 3056
+symbol = "beta-ledger-check"
+evidence = "Declares beta-ledger-check: with no prerequisites and invokes scripts/ci/beta-ledger-check.sh. The occurrence at line 3054 is in .PHONY and the occurrence at line 3057 is the recipe script name."
+
+[row.r16-200.9]
+interface = "interface.16.mk-beta-qualify"
+verdict = "served"
+path = "Makefile"
+line = 3068
+symbol = "beta-qualify"
+evidence = "Declares beta-qualify: with no prerequisites and runs python3 tools/qualification/release_runner.py $@. Line 3066 is .PHONY; beta-qualify-focused at line 3087 is a distinct target."
+
+[row.r16-200.10]
+interface = "interface.16.mk-beta-report"
+verdict = "served"
+path = "Makefile"
+line = 3062
+symbol = "beta-report"
+evidence = "Declares beta-report: with no prerequisites and invokes tools/ci/beta-report.sh without --check. The .PHONY list and script invocation in beta-contract-check do not define this target."
+
+[row.r16-200.11]
+interface = "interface.16.mk-bridge-test-evm"
+verdict = "served"
+path = "Makefile"
+line = 2707
+symbol = "bridge-test-evm"
+evidence = "Declares bridge-test-evm: with no prerequisites; its recipe bootstraps EVM bridge libraries and runs forge test --root contracts/bridge/evm -vvv. Line 2705 is the .PHONY list."
+
+[row.r16-200.12]
+interface = "interface.16.mk-bridge-test-solana"
+verdict = "served"
+path = "Makefile"
+line = 2711
+symbol = "bridge-test-solana"
+evidence = "Declares bridge-test-solana: with no prerequisites; its recipe runs cargo test --locked --manifest-path contracts/bridge/solana/Cargo.toml. Line 2705 is the .PHONY list."
+
+[row.r16-200.13]
+interface = "interface.16.mk-build-docker-node"
+verdict = "served"
+path = "Makefile"
+line = 2422
+symbol = "$(PAXEER_FORWARDED_TARGETS)"
+evidence = "build-docker-node is listed in PAXEER_FORWARDED_TARGETS at Makefile:2408. The registered signature $(PAXEER_FORWARDED_TARGETS): is the shared target definition at line 2422, whose recipe invokes $(PAXEER_MAKE) $@. Line 2421 is .PHONY, not the recipe-bearing rule."
+
+[row.r16-200.14]
+interface = "interface.16.mk-build-integration-ci-artifacts"
+verdict = "served"
+path = "Makefile"
+line = 2422
+symbol = "$(PAXEER_FORWARDED_TARGETS)"
+evidence = "build-integration-ci-artifacts is listed in PAXEER_FORWARDED_TARGETS at Makefile:2409. The registered signature $(PAXEER_FORWARDED_TARGETS): is the shared target definition at line 2422, whose recipe invokes $(PAXEER_MAKE) $@. Line 2421 is .PHONY, not the recipe-bearing rule."
+
+[row.r16-200.15]
+interface = "interface.16.mk-build-linux"
+verdict = "served"
+path = "Makefile"
+line = 2422
+symbol = "$(PAXEER_FORWARDED_TARGETS)"
+evidence = "build-linux is listed in PAXEER_FORWARDED_TARGETS at Makefile:2409. The registered signature $(PAXEER_FORWARDED_TARGETS): is the shared target definition at line 2422, whose recipe invokes $(PAXEER_MAKE) $@. Line 2421 is .PHONY, not the recipe-bearing rule."
+
+[row.r16-200.16]
+interface = "interface.16.mk-build-loadtest"
+verdict = "served"
+path = "Makefile"
+line = 2422
+symbol = "$(PAXEER_FORWARDED_TARGETS)"
+evidence = "build-loadtest is listed in PAXEER_FORWARDED_TARGETS at Makefile:2409. The registered signature $(PAXEER_FORWARDED_TARGETS): is the shared target definition at line 2422, whose recipe invokes $(PAXEER_MAKE) $@. Line 2421 is .PHONY, not the recipe-bearing rule."
+
+[row.r16-200.17]
+interface = "interface.16.mk-build-paxd-in-localnode"
+verdict = "served"
+path = "Makefile"
+line = 2422
+symbol = "$(PAXEER_FORWARDED_TARGETS)"
+evidence = "build-paxd-in-localnode is listed in PAXEER_FORWARDED_TARGETS at Makefile:2410. The registered signature $(PAXEER_FORWARDED_TARGETS): is the shared target definition at line 2422, whose recipe invokes $(PAXEER_MAKE) $@. Line 2421 is .PHONY, not the recipe-bearing rule."
+
+[row.r16-200.18]
+interface = "interface.16.mk-build-paxd-in-localnode-ci"
+verdict = "served"
+path = "Makefile"
+line = 2422
+symbol = "$(PAXEER_FORWARDED_TARGETS)"
+evidence = "build-paxd-in-localnode-ci is listed in PAXEER_FORWARDED_TARGETS at Makefile:2410. The registered signature $(PAXEER_FORWARDED_TARGETS): is the shared target definition at line 2422, whose recipe invokes $(PAXEER_MAKE) $@. Line 2421 is .PHONY, not the recipe-bearing rule."
+
+[row.r16-200.19]
+interface = "interface.16.mk-build-rocksdb"
+verdict = "served"
+path = "Makefile"
+line = 2422
+symbol = "$(PAXEER_FORWARDED_TARGETS)"
+evidence = "build-rocksdb is listed in PAXEER_FORWARDED_TARGETS at Makefile:2410. The registered signature $(PAXEER_FORWARDED_TARGETS): is the shared target definition at line 2422, whose recipe invokes $(PAXEER_MAKE) $@. Line 2421 is .PHONY, not the recipe-bearing rule."
+
+[row.r16-200.20]
+interface = "interface.16.mk-build-rpc-node"
+verdict = "served"
+path = "Makefile"
+line = 2422
+symbol = "$(PAXEER_FORWARDED_TARGETS)"
+evidence = "build-rpc-node is listed in PAXEER_FORWARDED_TARGETS at Makefile:2411. The registered signature $(PAXEER_FORWARDED_TARGETS): is the shared target definition at line 2422, whose recipe invokes $(PAXEER_MAKE) $@. Line 2421 is .PHONY, not the recipe-bearing rule."
+
+[row.r16-200.21]
+interface = "interface.16.mk-build-verbose"
+verdict = "served"
+path = "Makefile"
+line = 2422
+symbol = "$(PAXEER_FORWARDED_TARGETS)"
+evidence = "build-verbose is listed in PAXEER_FORWARDED_TARGETS at Makefile:2411. The registered signature $(PAXEER_FORWARDED_TARGETS): is the shared target definition at line 2422, whose recipe invokes $(PAXEER_MAKE) $@. Line 2421 is .PHONY, not the recipe-bearing rule."
+
+[row.r16-200.22]
+interface = "interface.16.mk-builddir-bin-layerx-archive-codec"
+verdict = "served"
+path = "Makefile"
+line = 3177
+symbol = "$(BUILD_DIR)/bin/layerx-archive-codec"
+evidence = "Defines $(BUILD_DIR)/bin/layerx-archive-codec with $(ARCHIVE_CODEC_OBJECTS), $(LIBRARY) and continued $(PROGRAMS_RUNTIME_LIB) prerequisites, plus order-only programs-build, matching the registered signature. Line 3175 is the wrapper target dependency."
+
+[row.r16-200.23]
+interface = "interface.16.mk-builddir-bin-layerx-genesis-build"
+verdict = "served"
+path = "Makefile"
+line = 1014
+symbol = "$(BUILD_DIR)/bin/layerx-genesis-build"
+evidence = "Defines $(BUILD_DIR)/bin/layerx-genesis-build with continued main.c, lxp_genesis_build_cli.c, lxp_genesis_builder.c, $(LIBRARY), $(PROGRAMS_RUNTIME_LIB) and order-only programs-build prerequisites, matching the signature. Lines 1026 and 3075 are wrapper dependencies."
+
+[row.r16-200.24]
+interface = "interface.16.mk-builddir-bin-layerx-module-registry"
+verdict = "served"
+path = "Makefile"
+line = 3142
+symbol = "$(BUILD_DIR)/bin/layerx-module-registry"
+evidence = "Defines $(BUILD_DIR)/bin/layerx-module-registry with cmd/layerx-module-registry/main.c, $(LIBRARY), $(PROGRAMS_RUNTIME_LIB) and order-only programs-build. Compared with the registered signature, cmd/layerx-module-registry/node.c has been removed from both prerequisites and compile inputs. Lines 3140 and 3147 are uses."
+
+[row.r16-200.25]
+interface = "interface.16.mk-builddir-obj-fuzz-fuzz-gateway-json-o"
+verdict = "served"
+path = "Makefile"
+line = 981
+symbol = "$(BUILD_DIR)/obj/fuzz/fuzz_gateway_json.o"
+evidence = "Defines $(BUILD_DIR)/obj/fuzz/fuzz_gateway_json.o: tests/fuzz/fuzz_gateway_json.c and compiles $< to $@, matching the registered signature. The occurrence at line 986 is a continued prerequisite of test-gateway."
+
+[row.r16-200.26]
+interface = "interface.16.mk-builddir-tests-lxp-fuzz-codec"
+verdict = "served"
+path = "Makefile"
+line = 1250
+symbol = "$(BUILD_DIR)/tests/lxp_fuzz_codec"
+evidence = "Defines $(BUILD_DIR)/tests/lxp_fuzz_codec with tests/fuzz/lxp_fuzz_codec.c and continued lxp_codec.c, lxp_arena.c, lxp_protocol.c, lxp_result.c and lxp_u128.c prerequisites, matching the signature. Lines 1258 and 1260 are a dependency and an execution."
+
+[row.r16-200.27]
+interface = "interface.16.mk-builddir-tests-lxp-test-activity-codec"
+verdict = "served"
+path = "Makefile"
+line = 1487
+symbol = "$(BUILD_DIR)/tests/lxp_test_activity_codec"
+evidence = "Defines $(BUILD_DIR)/tests/lxp_test_activity_codec with continued tests/protocol/lxp_test_activity_codec.c, tests/fuzz/lxp_fuzz_activity.c and $(LIBRARY) prerequisites, matching the signature. Lines 1494 and 1495 are the wrapper dependency and execution."
+
+[row.r16-200.28]
+interface = "interface.16.mk-builddir-tests-lxp-test-admission"
+verdict = "served"
+path = "Makefile"
+line = 1525
+symbol = "$(BUILD_DIR)/tests/lxp_test_admission"
+evidence = "Defines $(BUILD_DIR)/tests/lxp_test_admission with tests/sequencer/lxp_test_admission.c and continued $(LIBRARY) prerequisites, matching the signature. Lines 1530 and 1531 are the test-admission dependency and execution."
+
+[row.r16-200.29]
+interface = "interface.16.mk-builddir-tests-lxp-test-allowance"
+verdict = "served"
+path = "Makefile"
+line = 1573
+symbol = "$(BUILD_DIR)/tests/lxp_test_allowance"
+evidence = "Defines $(BUILD_DIR)/tests/lxp_test_allowance with tests/state/lxp_test_allowance.c and continued $(LIBRARY) prerequisites, matching the signature. Lines 1578 and 1579 are the test-allowance dependency and execution."
+
+[row.r16-200.30]
+interface = "interface.16.mk-builddir-tests-lxp-test-arith-property"
+verdict = "served"
+path = "Makefile"
+line = 1376
+symbol = "$(BUILD_DIR)/tests/lxp_test_arith_property"
+evidence = "Defines $(BUILD_DIR)/tests/lxp_test_arith_property: $(ARITH_PROPERTY_SOURCES) $(LIBRARY), matching the signature. The _san target at line 1381 is distinct; lines 1388 and 1390 are the ordinary binary dependency and execution."

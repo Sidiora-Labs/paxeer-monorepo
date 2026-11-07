@@ -1,0 +1,19 @@
+{
+ "slug": "tools-wasm-tools-2",
+ "manifests": [
+  "tools/wasm-tools/playground/package.json",
+  "tools/wasm-tools/playground/package-lock.json"
+ ],
+ "alerts": [
+  {
+   "ghsa": "GHSA-g3hv-75wg-m249",
+   "number": 4722,
+   "package": "minimatch",
+   "ecosystem": "npm",
+   "manifest": "tools/wasm-tools/playground/package-lock.json",
+   "severity": "medium",
+   "range": "< 11.0.1",
+   "patched": "11.0.1"
+  }
+ ]
+}

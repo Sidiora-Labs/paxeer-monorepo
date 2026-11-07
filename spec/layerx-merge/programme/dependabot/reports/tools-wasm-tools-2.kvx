@@ -1,0 +1,8 @@
+[alert.GHSA-g3hv-75wg-m249]
+package = "minimatch"
+manifest = "tools/wasm-tools/playground/package-lock.json"
+verdict = "upgraded"
+version_before = "10.2.6"
+version_after = "11.0.1"
+pinned_by = ""
+revision = "c69af8b6706e55a243bc0f3a0e184b872b900e14"

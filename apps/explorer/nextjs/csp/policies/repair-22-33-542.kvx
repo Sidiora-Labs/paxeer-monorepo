@@ -1,0 +1,12 @@
+[repair.22.33.542]
+finding = "marketplace-analytics-origin"
+test = "repairMarketplaceAnalyticsConfigurationAndResponse"
+additional_tests = ["repairMarketplaceAnalyticsUsesOnlyConfiguredOrigin", "repairMarketplaceAnalyticsPermitsActualCloudEndpoints", "repairMarketplaceAnalyticsRejectsInvalidHosts", "repairMarketplaceAnalyticsRequiresEnabledMultisend"]
+test_file = "apps/explorer/nextjs/csp/policies/repair-22-33-542.spec.ts"
+baseline = "Not run: the explicit gate order requires complete implementation before hf-build and hf-done and forbids running verify_cmd by hand; no pre-change test failure is claimed."
+proof = "The production config loader consumes serialized EssentialDappsConfig; the test checks the production Multisend JSX's direct host/key prop wiring, then drives the production policy, CSP generator, configuration fetch over loopback HTTP and middleware response for default and private profiles."
+validation = "Only valid HTTP(S) origins enter connect-src and script-src; paths, query strings and fragments do not grant additional sources; invalid URLs, wildcard origins, directive separators and absent hosts grant no analytics source."
+default = "The pinned MultisenderWidget initializes analytics only when both posthogHost and posthogKey are present; there is no analytics host fallback when the host is omitted. An explicitly configured PostHog cloud origin also permits only its actual regional ingestion and asset origins, checked against the real pinned PostHog request router; custom hosts do not add cloud sources."
+tooling = "The prescribed exec gates use pnpm 8.15.9; dependency installation uses the manifest-pinned Yarn 1.22.22 without changing the manifest or package-manager checks."
+wiring_request = "spec/layerx-merge/spec.kvx | fm-web-explorer-bridge (domain 14): attach this finding/test mapping and the runner's verified revision, command, exit and private log location to task 22.33.542."
+formatting_note = "ESLint fixed formatting and import order in the touched TypeScript files; its vitest rules still reject named function registrations as nonliteral titles and assertion-free callbacks, although the declared test functions retain all assertions as required by the task."

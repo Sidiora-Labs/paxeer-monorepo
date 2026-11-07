@@ -1,7 +1,7 @@
 #![forbid(unsafe_code)]
 
 use std::fs::{self, OpenOptions};
-use std::io::{Read, Write};
+use std::io::Write;
 use std::os::unix::fs::{MetadataExt, OpenOptionsExt};
 use std::path::{Path, PathBuf};
 use std::time::Duration;
@@ -30,28 +30,9 @@ struct Config {
 }
 
 fn protected(path: &Path) -> Result<Vec<u8>, u8> {
-    let file = OpenOptions::new()
-        .read(true)
-        .custom_flags(rustix::fs::OFlags::NOFOLLOW.bits() as i32)
-        .open(path)
-        .map_err(|_| 2_u8)?;
-    let meta = file.metadata().map_err(|_| 2_u8)?;
-    let owner = fs::metadata("/proc/self").map_err(|_| 2_u8)?.uid();
-    if !meta.is_file()
-        || meta.mode() & 0o077 != 0
-        || meta.nlink() != 1
-        || meta.uid() != owner
-        || meta.len() == 0
-        || meta.len() > 65536
-    {
-        return Err(2);
-    }
-    let mut bytes = Vec::new();
-    file.take(65537).read_to_end(&mut bytes).map_err(|_| 2_u8)?;
-    if bytes.len() > 65536 {
-        return Err(2);
-    }
-    Ok(bytes)
+    SecretFile::new(path)
+        .and_then(|file| file.read())
+        .map_err(|_| 2_u8)
 }
 
 fn hex(bytes: &[u8]) -> String {
@@ -107,7 +88,16 @@ fn run() -> Result<(), u8> {
         return Err(5);
     }
     let evidence = evidence.ok_or(5_u8)?;
-    let checked = layerx_ramp_toolkit::verify_order_receipt(&order, &evidence).map_err(|_| 5_u8)?;
+    let mut checked =
+        layerx_ramp_toolkit::verify_order_receipt(&order, &evidence).map_err(|_| 5_u8)?;
+    // Receipt authentication proves execution; resolve_with_evidence separately
+    // authenticates committed inclusion before returning maintained_batch=true.
+    if checked.rung != layerx_types::rung::Rung::Receipted
+        || leg.rung != layerx_types::rung::Rung::Committed
+    {
+        return Err(5);
+    }
+    checked.rung = layerx_types::rung::Rung::Committed;
     if checked != leg {
         return Err(5);
     }

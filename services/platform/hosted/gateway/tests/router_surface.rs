@@ -420,12 +420,23 @@ impl Gateway {
         Ok((status, answer[header_end + 4..].to_vec()))
     }
 
+    fn assert_retired_rpc_path(&self) {
+        let call =
+            json!({"jsonrpc":"2.0", "id":"retired", "method":"px_getReceiptKeys", "params":[]});
+        let (status, body) = self
+            .exchange("POST", "/rpc", call.to_string().as_bytes())
+            .expect("retired path refusal");
+        assert_eq!(status, 404);
+        let body: Value = serde_json::from_slice(&body).expect("retired refusal JSON");
+        assert_eq!(body["error"]["code"], "not_found");
+    }
+
     fn rpc(&self, method: &str, params: Value) -> Value {
         thread::sleep(Duration::from_secs(1));
         let call =
             json!({"jsonrpc": "2.0", "id": "router-surface", "method": method, "params": params});
         let (status, body) = self
-            .exchange("POST", "/rpc", call.to_string().as_bytes())
+            .exchange("POST", "/", call.to_string().as_bytes())
             .unwrap_or_else(|error| panic!("RPC exchange: {error}"));
         assert_eq!(status, 200, "{}", String::from_utf8_lossy(&body));
         let answer: Value =
@@ -555,6 +566,21 @@ fn consensus_answer(request: &IncomingRequest) -> http::Response {
     assert_eq!(request.path, "/consensus");
     let call: Value = serde_json::from_slice(&request.body).expect("consensus JSON-RPC request");
     assert_eq!(call["jsonrpc"], "2.0");
+    if call["method"] == "status" {
+        assert_eq!(call["params"], json!({}));
+        return http::json(
+            200,
+            &json!({
+                "jsonrpc": "2.0", "id": call["id"],
+                "result": {"sync_info": {
+                    "latest_block_height": CHAIN_HEIGHT.to_string(),
+                    "latest_block_hash": "AB".repeat(32),
+                    "latest_app_hash": "CD".repeat(32),
+                    "catching_up": false
+                }}
+            }),
+        );
+    }
     let height = call["params"]["height"]
         .as_str()
         .expect("requested height")
@@ -726,6 +752,7 @@ fn router_answers_every_listed_method() {
         layerx_indexer::api::route(&store, &request.method, &request.path)
     });
     let gateway = Gateway::start(&fixture, &chain, &consensus, &indexer);
+    gateway.assert_retired_rpc_path();
     let document: Value =
         serde_json::from_str(include_str!("../openrpc.json")).expect("OpenRPC JSON");
     let entries = document["methods"].as_array().expect("OpenRPC methods");
@@ -778,8 +805,15 @@ fn router_answers_every_listed_method() {
     let calls = consensus_calls.lock().expect("recorded consensus calls");
     assert_eq!(
         calls.len(),
-        6,
+        7,
         "every consensus read must reach the one listener: {calls:?}"
+    );
+    assert_eq!(
+        calls
+            .iter()
+            .filter(|call| call["method"] == "status" && call["params"] == json!({}))
+            .count(),
+        1
     );
     for height in [5, 23] {
         for method in ["commit", "validators", "block"] {
@@ -883,6 +917,7 @@ fn chain_only_router_serves_receipts_balances_and_assets() {
         layerx_indexer::api::route(&store, &request.method, &request.path)
     });
     let gateway = Gateway::start(&fixture, &chain, &consensus, &indexer);
+    gateway.assert_retired_rpc_path();
 
     let balances = gateway.rpc("px_getBalances", json!([ACCOUNT]));
     assert!(balances.get("error").is_none(), "{balances}");

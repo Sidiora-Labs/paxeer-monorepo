@@ -50,6 +50,16 @@ def name(value):
     require(isinstance(value, str) and NAME.fullmatch(value), "invalid resource name")
     return value
 
+def version_id(value):
+    """Preserve the opaque provider version; never normalize an inventory identity."""
+    require(isinstance(value, str) and 1 <= len(value) <= 1024
+            and value != "null" and "\x00" not in value, "pinned version required")
+    try:
+        value.encode("utf-8")
+    except UnicodeEncodeError as exc:
+        raise Invalid("invalid version encoding") from exc
+    return value
+
 def canonical(obj):
     return json.dumps(obj, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode()
 
@@ -126,7 +136,7 @@ def manifest(m):
     seen = set()
     for obj in m["objects"]:
         exact(obj, {"key", "version_id", "sha256", "size", "kind"})
-        object_key(obj["key"]); name(obj["version_id"]); digest(obj["sha256"]); integer(obj["size"],1, 2**40)
+        object_key(obj["key"]); version_id(obj["version_id"]); digest(obj["sha256"]); integer(obj["size"],1, 2**40)
         require(obj["kind"] in {"base", "wal", "raw-chain", "media", "metadata"}, "unknown object kind")
         require(obj["key"] not in seen, "duplicate object"); seen.add(obj["key"])
     require({"base", "wal"} <= {o["kind"] for o in m["objects"]}, "physical base and WAL inventory required")
@@ -297,9 +307,9 @@ def resources(d):
         require(policy["allow"]==allow and policy["deny"]==deny,"least-privilege policy drift: "+principal)
     cmd=d["command_contracts"]
     exact(cmd,{"base_backup","verify_base","restore","secrets"})
-    require(cmd["base_backup"]==["pg_basebackup","--format=tar","--wal-method=stream","--checkpoint=spread","--manifest-checksums=SHA256","--no-password"],"unsafe base backup command")
+    require(cmd["base_backup"]==["pg_basebackup","--format=plain","--wal-method=stream","--checkpoint=spread","--manifest-checksums=SHA256","--no-password","--pgdata=<isolated-owned-backup-directory>"],"unsafe base backup command")
     require(cmd["verify_base"]==["pg_verifybackup","--exit-on-error","<isolated-owned-backup-directory>"],"backup validation command required")
-    require(cmd["restore"]==["pg_ctl","--pgdata=<isolated-owned-data-directory>","--wait","start"],"isolated restore command required")
+    require(cmd["restore"]==["pg_ctl","--pgdata=<isolated-owned-data-directory>","--wait","--timeout=60","--log=<isolated-owned-data-directory>/recovery.log","start"],"isolated restore command required")
     require(cmd["secrets"]=="External secret references and service-specific identities only; no passwords in argv/manifests.","secret isolation required")
     return d
 

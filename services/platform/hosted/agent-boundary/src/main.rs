@@ -6,7 +6,6 @@ mod lifecycle_tests;
 
 use crate::chain_receipt::ChainReceipts;
 use layerx_proof::receipt::verify_sequencer_signature;
-use layerx_types::payload::{ActivityType, ModuleId, ModuleRegistration, ModuleRegistry};
 use layerx_types::result::{ResultCode, Retriability};
 use layerx_wire::limits::STATE_COMMITMENT_PROTOCOL_VERSION as PROTOCOL_VERSION;
 use rustls::pki_types::{CertificateDer, PrivateKeyDer, PrivatePkcs8KeyDer};
@@ -19,9 +18,9 @@ use std::env;
 use std::fs;
 use std::io::{Read, Write};
 use std::net::{SocketAddr, TcpListener, TcpStream};
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::{Arc, Mutex, PoisonError};
+use std::sync::Arc;
 use std::thread;
 use std::time::Duration;
 use subtle::ConstantTimeEq;
@@ -30,18 +29,10 @@ use zeroize::{Zeroize, Zeroizing};
 const SERVICE: &str = "agent-boundary";
 const MAX_ACTIVITY_BYTES: usize = 1_048_576;
 const MAX_REQUEST_BYTES: usize = MAX_ACTIVITY_BYTES + 16 * 1024;
-const MAX_RELAY_BYTES: usize = 4 * 1024 * 1024;
 const CONNECT_TIMEOUT: Duration = Duration::from_secs(3);
 const IO_TIMEOUT: Duration = Duration::from_secs(15);
 const MAX_CONNECTIONS: usize = 128;
-const MAX_MODULES: usize = 9;
-const MAX_ORDINALS: usize = 64;
-const DEFAULT_ORDINALS: u16 = 16;
 static ACTIVE_CONNECTIONS: AtomicUsize = AtomicUsize::new(0);
-
-struct NodeEndpoint {
-    port: u16,
-}
 
 struct Config {
     listen: SocketAddr,
@@ -49,15 +40,8 @@ struct Config {
     gateway_token: Zeroizing<String>,
     registry_token: Zeroizing<String>,
     webhook_token: Zeroizing<String>,
-    node: NodeEndpoint,
     chain_receipts: ChainReceipts,
-    node_token: Zeroizing<String>,
-    state_dir: PathBuf,
-    protocol_network_id: u32,
     network_name: String,
-    registry: ModuleRegistry,
-    receipt_wait: Duration,
-    key_locks: Mutex<BTreeMap<String, Arc<Mutex<()>>>>,
 }
 
 #[derive(Clone, Copy, Eq, PartialEq)]
@@ -106,19 +90,6 @@ impl Route {
             Self::ProgramWindDown => Some(7),
         }
     }
-}
-
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-struct ModuleFile {
-    modules: Vec<ModuleDeclaration>,
-}
-
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-struct ModuleDeclaration {
-    module: u16,
-    ordinals: Vec<u16>,
 }
 
 #[derive(Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -247,14 +218,6 @@ fn read_secret(path_variable: &str) -> Result<Zeroizing<String>, String> {
     Ok(Zeroizing::new(value))
 }
 
-fn parse_u64(name: &str, default: u64) -> Result<u64, String> {
-    env::var(name).map_or(Ok(default), |value| {
-        value
-            .parse::<u64>()
-            .map_err(|_| format!("{name} must be an integer"))
-    })
-}
-
 fn server_tls_config() -> Result<Arc<ServerConfig>, String> {
     rustls::crypto::ring::default_provider()
         .install_default()
@@ -292,64 +255,6 @@ fn server_tls_config() -> Result<Arc<ServerConfig>, String> {
     Ok(Arc::new(config))
 }
 
-fn module_registry() -> Result<ModuleRegistry, String> {
-    let declarations = match env::var("LAYERX_AGENT_BOUNDARY_MODULE_REGISTRY_FILE") {
-        Ok(path) => {
-            let file: ModuleFile =
-                serde_json::from_slice(&fs::read(path).map_err(|error| error.to_string())?)
-                    .map_err(|error| format!("module registry file is invalid: {error}"))?;
-            file.modules
-        }
-        Err(_) => (1..=9)
-            .map(|module| ModuleDeclaration {
-                module,
-                ordinals: (1..=DEFAULT_ORDINALS).collect(),
-            })
-            .collect(),
-    };
-    if declarations.is_empty() || declarations.len() > MAX_MODULES {
-        return Err("module registry must declare between one and nine modules".to_owned());
-    }
-    let mut registrations = Vec::with_capacity(declarations.len());
-    for declaration in declarations {
-        let module = ModuleId::from_u16(declaration.module)
-            .map_err(|_| format!("module {} is unknown", declaration.module))?;
-        if declaration.ordinals.is_empty() || declaration.ordinals.len() > MAX_ORDINALS {
-            return Err(format!(
-                "module {} declares no ordinals",
-                declaration.module
-            ));
-        }
-        let mut types = Vec::with_capacity(declaration.ordinals.len());
-        for ordinal in declaration.ordinals {
-            types.push(
-                ActivityType::new(module, ordinal)
-                    .map_err(|_| format!("ordinal {ordinal} is invalid"))?,
-            );
-        }
-        registrations.push(
-            ModuleRegistration::new(module, &types)
-                .map_err(|_| format!("module {} registration is invalid", declaration.module))?,
-        );
-    }
-    ModuleRegistry::new(&registrations).map_err(|_| "module registry is invalid".to_owned())
-}
-
-fn node_endpoint(value: &str) -> Result<NodeEndpoint, String> {
-    let rest = value.strip_prefix("http://127.0.0.1:").ok_or_else(|| {
-        "LAYERX_AGENT_BOUNDARY_NODE_URL must be http://127.0.0.1:<port>".to_owned()
-    })?;
-    let port = rest
-        .strip_suffix('/')
-        .unwrap_or(rest)
-        .parse::<u16>()
-        .map_err(|_| "LAYERX_AGENT_BOUNDARY_NODE_URL port is invalid".to_owned())?;
-    if port == 0 {
-        return Err("LAYERX_AGENT_BOUNDARY_NODE_URL port is invalid".to_owned());
-    }
-    Ok(NodeEndpoint { port })
-}
-
 fn config() -> Result<Config, String> {
     let listen = env::var("LAYERX_AGENT_BOUNDARY_LISTEN")
         .unwrap_or_else(|_| "0.0.0.0:9446".to_owned())
@@ -372,38 +277,17 @@ fn config() -> Result<Config, String> {
     {
         return Err("webhook bearer token must be distinct from gateway and registry".to_owned());
     }
-    let receipt_wait_ms = parse_u64("LAYERX_AGENT_BOUNDARY_RECEIPT_WAIT_MS", 5_000)?;
-    if !(1..=60_000).contains(&receipt_wait_ms) {
-        return Err("LAYERX_AGENT_BOUNDARY_RECEIPT_WAIT_MS must be within 1..=60000".to_owned());
-    }
-    let protocol_network_id = env::var("LAYERX_AGENT_BOUNDARY_PROTOCOL_NETWORK_ID")
-        .map_err(|_| "LAYERX_AGENT_BOUNDARY_PROTOCOL_NETWORK_ID is required".to_owned())?
-        .parse::<u32>()
-        .map_err(|_| "LAYERX_AGENT_BOUNDARY_PROTOCOL_NETWORK_ID must be a u32".to_owned())?;
-    if protocol_network_id == 0 {
-        return Err("LAYERX_AGENT_BOUNDARY_PROTOCOL_NETWORK_ID must be non-zero".to_owned());
-    }
     let network_name = env::var("LAYERX_AGENT_BOUNDARY_NETWORK_ID")
         .map_err(|_| "LAYERX_AGENT_BOUNDARY_NETWORK_ID is required".to_owned())?;
     if !valid_identifier(&network_name, 64) {
         return Err("LAYERX_AGENT_BOUNDARY_NETWORK_ID is not a canonical identifier".to_owned());
     }
-    let state_dir = PathBuf::from(
-        env::var("LAYERX_AGENT_BOUNDARY_STATE_DIR")
-            .map_err(|_| "LAYERX_AGENT_BOUNDARY_STATE_DIR is required")?,
-    );
-    fs::create_dir_all(state_dir.join("journal")).map_err(|error| error.to_string())?;
-    fs::create_dir_all(state_dir.join("activities")).map_err(|error| error.to_string())?;
     Ok(Config {
         listen,
         tls: server_tls_config()?,
         gateway_token,
         registry_token,
         webhook_token,
-        node: node_endpoint(
-            &env::var("LAYERX_AGENT_BOUNDARY_NODE_URL")
-                .map_err(|_| "LAYERX_AGENT_BOUNDARY_NODE_URL is required")?,
-        )?,
         chain_receipts: ChainReceipts::from_config(
             &env::var("LAYERX_AGENT_BOUNDARY_CHAIN_RPC_URL")
                 .map_err(|_| "LAYERX_AGENT_BOUNDARY_CHAIN_RPC_URL is required")?,
@@ -412,13 +296,7 @@ fn config() -> Result<Config, String> {
                     .map_err(|_| "LAYERX_AGENT_BOUNDARY_RECEIPT_KEYS_FILE is required")?,
             ),
         )?,
-        node_token: read_secret("LAYERX_AGENT_BOUNDARY_NODE_BEARER_TOKEN_FILE")?,
-        state_dir,
-        protocol_network_id,
         network_name,
-        registry: module_registry()?,
-        receipt_wait: Duration::from_millis(receipt_wait_ms),
-        key_locks: Mutex::new(BTreeMap::new()),
     })
 }
 
@@ -447,66 +325,6 @@ fn terminal(status: u16, code: &str) -> Refusal {
         code: code.to_owned(),
         retry_after: None,
     }
-}
-
-fn journal_path(config: &Config, key_digest: &str) -> PathBuf {
-    config
-        .state_dir
-        .join("journal")
-        .join(format!("{key_digest}.json"))
-}
-
-fn activity_index_path(config: &Config, activity: &str) -> PathBuf {
-    config.state_dir.join("activities").join(activity)
-}
-
-fn write_atomic(path: &Path, bytes: &[u8]) -> Result<(), String> {
-    let parent = path
-        .parent()
-        .ok_or_else(|| "journal path has no parent".to_owned())?;
-    let name = path
-        .file_name()
-        .and_then(|name| name.to_str())
-        .ok_or_else(|| "journal path has no name".to_owned())?;
-    let temporary = parent.join(format!("{name}.tmp"));
-    {
-        let mut file = fs::File::create(&temporary).map_err(|error| error.to_string())?;
-        file.write_all(bytes).map_err(|error| error.to_string())?;
-        file.sync_all().map_err(|error| error.to_string())?;
-    }
-    fs::rename(&temporary, path).map_err(|error| error.to_string())?;
-    fs::File::open(parent)
-        .and_then(|directory| directory.sync_all())
-        .map_err(|error| error.to_string())
-}
-
-fn load_record(config: &Config, key_digest: &str) -> Result<Option<JournalRecord>, String> {
-    let path = journal_path(config, key_digest);
-    match fs::read(&path) {
-        Ok(bytes) => serde_json::from_slice(&bytes)
-            .map(Some)
-            .map_err(|error| format!("journal record is invalid: {error}")),
-        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(None),
-        Err(error) => Err(error.to_string()),
-    }
-}
-
-fn store_record(config: &Config, key_digest: &str, record: &JournalRecord) -> Result<(), String> {
-    let bytes = serde_json::to_vec(record).map_err(|error| error.to_string())?;
-    write_atomic(&journal_path(config, key_digest), &bytes)?;
-    write_atomic(
-        &activity_index_path(config, &record.activity_id),
-        key_digest.as_bytes(),
-    )
-}
-
-fn key_lock(config: &Config, key_digest: &str) -> Arc<Mutex<()>> {
-    let mut locks = config
-        .key_locks
-        .lock()
-        .unwrap_or_else(PoisonError::into_inner);
-    locks.retain(|_, lock| Arc::strong_count(lock) > 1);
-    Arc::clone(locks.entry(key_digest.to_owned()).or_default())
 }
 
 struct ReceiptMetadata {
@@ -672,79 +490,17 @@ fn receipt_route(config: &Config, transaction_text: &str, plane: Plane) -> Respo
     }
 }
 
-fn relay_path_allowed(path: &str, query: Option<&str>) -> bool {
-    if path == "/v1/protocol/account-state/head" {
-        return query.is_none();
-    }
-    if let Some(rest) = path.strip_prefix("/v1/receipts/") {
-        return query.is_none() && rest.strip_suffix("/account-state").is_some_and(is_hex32);
-    }
-    false
-}
-
-fn relay_route(config: &Config, target: &str) -> Response {
-    relay_bounded(config, target, MAX_RELAY_BYTES)
-}
-
-fn relay_bounded(config: &Config, target: &str, maximum: usize) -> Response {
-    let address = SocketAddr::from(([127, 0, 0, 1], config.node.port));
-    let Ok(mut stream) = TcpStream::connect_timeout(&address, CONNECT_TIMEOUT) else {
-        return refusal(503, "node_unavailable", Some(5));
-    };
-    if stream.set_read_timeout(Some(IO_TIMEOUT)).is_err()
-        || stream.set_write_timeout(Some(IO_TIMEOUT)).is_err()
-    {
-        return refusal(503, "node_unavailable", Some(5));
-    }
-    let written = write!(
-        stream,
-        "GET {target} HTTP/1.1\r\nHost: 127.0.0.1:{}\r\nAuthorization: Bearer {}\r\nConnection: close\r\n\r\n",
-        config.node.port,
-        config.node_token.as_str()
-    )
-    .and_then(|()| stream.flush());
-    if written.is_err() {
-        return refusal(503, "node_unavailable", Some(5));
-    }
-    let Ok(mut upstream) = read_http_message(&mut stream, maximum) else {
-        return refusal(503, "node_invalid", Some(5));
-    };
-    let status = upstream
-        .headers
-        .get("")
-        .and_then(|line| {
-            let mut parts = line.split_whitespace();
-            (parts.next() == Some("HTTP/1.1"))
-                .then(|| parts.next())
-                .flatten()
-        })
-        .and_then(|code| code.parse::<u16>().ok());
-    let Some(status) = status.filter(|status| (200..600).contains(status)) else {
-        return refusal(503, "node_invalid", Some(5));
-    };
-    let Ok(body) = String::from_utf8(std::mem::take(&mut upstream.body)) else {
-        return refusal(503, "node_invalid", Some(5));
-    };
-    Response {
-        status,
-        body,
-        retry_after: None,
-    }
-}
-
 fn readiness(config: &Config) -> Response {
-    let address = SocketAddr::from(([127, 0, 0, 1], config.node.port));
-    if TcpStream::connect_timeout(&address, CONNECT_TIMEOUT).is_err() {
-        return refusal(503, "node_unavailable", Some(5));
-    }
     let probe = Sha256::digest(b"LayerX-AgentBoundary-Readiness/v1").into();
     if config.chain_receipts.lookup(probe).is_err() {
         return refusal(503, "node_unavailable", Some(5));
     }
-    ok(format!(
-        "{{\"ready\":true,\"network_id\":\"{}\",\"wire_version\":\"{}\",\"synchronous_receipts\":true,\"state_snapshot\":true}}",
-        config.network_name, PROTOCOL_VERSION
-    ))
+    ok(serde_json::json!({
+        "ready": true,
+        "network_id": config.network_name,
+        "chain_receipts": true,
+    })
+    .to_string())
 }
 
 fn authenticate(config: &Config, request: &Request) -> Result<Plane, Response> {
@@ -804,15 +560,6 @@ fn route(config: &Config, request: &Request) -> Response {
     };
     if let Some(response) = deployment::route(config, request, path, query, plane) {
         return response;
-    }
-    if relay_path_allowed(path, query) {
-        if plane != Plane::Registry {
-            return refusal(403, "entitlement_denied", None);
-        }
-        if request.method != "GET" {
-            return refusal(404, "not_found", None);
-        }
-        return relay_route(config, &request.path);
     }
     if let Some(activity) = path.strip_prefix("/internal/v1/receipts/") {
         if !matches!(plane, Plane::Registry | Plane::Webhook) {

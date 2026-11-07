@@ -1,0 +1,40 @@
+[repair.22.33.264]
+audit = "22.30.131"
+mode = "BUILD"
+scope = "apps/bridge/src/lib/bridge"
+api-base-url = "apiBaseUrlRoutesPreserveQueryAndExcludeFragment"
+csp-effective-rpc = "cspAllowsTheEffectiveDefaultRpcForAVaultRoute"
+registry-deposit-log = "registryDepositShapeFeedsTheRealEnrichmentConsumer"
+receipt-multiple-events = "receiptMultipleEventsAndLegacyKeysSurviveRestart"
+solana-import-recipient = "solanaBurnRecoveryResolvesAndValidatesTheCustodyRecipient"
+zero-vault-caps = "zeroVaultCapsReachTheCardWithPaxeerXVaultSemantics"
+unloaded-route-state = "unloadedRoutesNeverBecomeReadyBeforePausedOrDisabledReads"
+phase-test-broadcast = "phaseBroadcastIsPendingUntilDestinationConfirmation, broadcastAndRevertedRecoveryKeepTheRealRetryAction"
+baseline = "Not run: the explicit implementation-first order and hf-build/hf-done-only gate budget prohibit step 12's unchanged-tree verify; no baseline failure is claimed. The settlement producer was already repaired by prerequisite 22.31.376, and the existing parsed-event shape is retained."
+evidence = "The runner records the exact candidate revision, command, exit and private log in /out/run/gates.jsonl; hf-done is the sole verification gate."
+
+[wiring.registry-deposit-log]
+request = "Domain 14: update spec/layerx-merge/interfaces.kvx interface 14.ts-bridge-lib-bridge-import-matchdepositlog-j55 and spec/layerx-merge/contracts/bridge-client.md to describe the parsed BridgeDeposit event with numeric logIndex and args.nonce bigint, exactly as the producer/enrichment assertion proves."
+
+[wiring.import-selection]
+request = "Domain 14: apps/bridge/src/components/bridge/import-transfer.tsx must expose logIndex/burn-nonce selection for batch receipts and await importWithdrawalResolved for Solana before saveTransfer; ambiguous imports now refuse rather than silently dropping events."
+
+[wiring.browser-csp]
+request = "Domain 14: include a vault-configured route without an RPC override in the release browser matrix for apps/bridge/next.config.ts; this task's permitted Vitest/jsdom gate checks the actual wagmi transport against the bounded CSP source list but does not run a browser gate."
+
+[gotcha.test-registration]
+observed = "Vitest 4 requires test(function.name, function) to execute a named test; test(function) is a todo registration. All new tests and the repaired phase suite provide both arguments."
+
+[gotcha.ledger-enrichment]
+observed = "Event enrichment changes a provisional scoped identity; updateTransfer accepts an unambiguous provisional/legacy alias and rekeys the persisted row, while ambiguous aliases cannot update batch siblings."
+
+[qualification.layout-props]
+revision = "cda298073843cc2b9578baa162731d8839c7d578"
+command = "pnpm --dir apps/bridge exec tsc --noEmit -p tsconfig.json"
+exit = 2
+log = "/out/logs/build-1.log"
+observed = "The pre-existing apps/bridge/src/app/layout.tsx:36 LayoutProps error, already recorded in repair-22-31-376.kvx, blocks the declared build; no task-scoped TypeScript error was reported and verification did not run."
+assumption = "The application owner must supply the generated Next.js LayoutProps interface; no out-of-scope fix, substitute declaration or additional gate is authorized here."
+
+[gotcha.layout-formatter]
+observed = "The repository layout formatter reports contradictory brace/newline rules around the inherited comment-only storage catch; formatting was applied only to touched TypeScript files and no lint gate was run."

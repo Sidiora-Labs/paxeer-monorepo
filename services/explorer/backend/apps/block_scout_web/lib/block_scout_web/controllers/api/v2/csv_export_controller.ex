@@ -2,7 +2,7 @@ defmodule BlockScoutWeb.API.V2.CsvExportController do
   use BlockScoutWeb, :controller
   use OpenApiSpex.ControllerSpecs
 
-  alias BlockScoutWeb.AccessHelper
+  alias BlockScoutWeb.API.V2.RestrictedAccessHelper
   alias BlockScoutWeb.CsvExport.Address.InternalTransactions, as: AddressInternalTransactionsCsvExporter
   alias BlockScoutWeb.Schemas.API.V2.ErrorResponses.NotFoundResponse
   alias Explorer.Chain
@@ -52,12 +52,19 @@ defmodule BlockScoutWeb.API.V2.CsvExportController do
   @spec export_token_holders(Conn.t(), map()) :: Conn.t()
   def export_token_holders(conn, %{address_hash_param: address_hash_string} = params) do
     with {:format, {:ok, address_hash}} <- {:format, Chain.string_to_address_hash(address_hash_string)},
-         {:ok, false} <- AccessHelper.restricted_access?(address_hash_string, params),
+         {:ok, false} <- RestrictedAccessHelper.restricted_access?(address_hash_string, params),
          {:not_found, {:ok, token}} <- {:not_found, Chain.token_from_address_hash(address_hash, @api_true)} do
       token_holders = Chain.fetch_token_holders_from_token_hash_for_csv(address_hash, options())
 
       token_holders
       |> CurrentTokenBalance.to_csv_format(token)
+      |> Stream.map(fn
+        ["HolderAddress", "Balance"] = header ->
+          header
+
+        [address, balance] ->
+          [address, balance |> Decimal.new() |> Decimal.normalize() |> Decimal.to_string(:normal)]
+      end)
       |> CsvHelper.dump_to_stream()
       |> Enum.reduce_while(put_resp_params(conn), fn chunk, conn ->
         case Conn.chunk(conn, chunk) do
@@ -93,6 +100,7 @@ defmodule BlockScoutWeb.API.V2.CsvExportController do
        )
        when is_binary(address_hash_string) do
     with {:ok, address_hash} <- Chain.string_to_address_hash(address_hash_string),
+         {:ok, false} <- RestrictedAccessHelper.restricted_access?(address_hash_string, params),
          {:address_exists, true} <- {:address_exists, Address.address_exists?(address_hash)} do
       filter_type = Map.get(params, :filter_type)
       filter_value = Map.get(params, :filter_value)
@@ -114,6 +122,9 @@ defmodule BlockScoutWeb.API.V2.CsvExportController do
 
       {:address_exists, false} ->
         not_found(conn)
+
+      {:restricted_access, true} = error ->
+        error
     end
   end
 

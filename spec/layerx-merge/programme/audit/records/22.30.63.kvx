@@ -1,0 +1,1274 @@
+# Pre-upgrade audit: proposed repairs only; runtime gates are not implied.
+
+[audit.22.30.63]
+task = "22.30.63"
+revision = "2b99f88520e4e809ad5593f3bee2df74fe355d7b"
+files_reviewed = 148
+findings = 27
+docs_reviewed = 17
+upgrade_ready = true
+blocking = []
+note = "No high issue found in the active paths of this slice. Medium and low findings need owner follow-up. Readiness is scoped static audit disposition, not certification of an upgrade or of unexecuted runtime gates."
+
+[file.001]
+path = "api/evm/config.proto"
+lines = 20
+verdict = "clean"
+note = "Configuration fields and imported Cosmos metadata match native EVM configuration types."
+
+[file.002]
+path = "api/evm/enums.proto"
+lines = 21
+verdict = "clean"
+note = "Enum numbers and JSON names preserve the EVM transaction consumer contract."
+
+[file.003]
+path = "api/evm/genesis.proto"
+lines = 45
+verdict = "clean"
+note = "Genesis accounts and EVM state fields agree with keeper genesis types and transport."
+
+[file.004]
+path = "api/evm/gov.proto"
+lines = 121
+verdict = "clean"
+note = "Pointer governance payloads preserve authority, code IDs and versions consumed by handlers."
+
+[file.005]
+path = "api/evm/params.proto"
+lines = 326
+verdict = "clean"
+note = "Parameter fields, numbers and types match keeper storage and query use."
+
+[file.006]
+path = "api/evm/query.proto"
+lines = 92
+verdict = "clean"
+note = "Reviewed every query RPC, REST binding, bytes/integer encoding and request/response against generated transport and keeper handlers."
+
+[file.007]
+path = "api/evm/receipt.proto"
+lines = 32
+verdict = "clean"
+note = "Receipt/log and index fields preserve EVM query shapes and transaction association."
+
+[file.008]
+path = "api/evm/tx.proto"
+lines = 118
+verdict = "clean"
+note = "Transactions and pointer messages match registered handlers, signer annotations and response fields."
+
+[file.009]
+path = "api/evm/types.proto"
+lines = 21
+verdict = "clean"
+note = "Account, access-list and state declarations agree with generated native representations."
+
+[file.010]
+path = "api/xweb/query.proto"
+lines = 138
+verdict = "clean"
+note = "Program IDs are base64 bytes over grpc-gateway with real server length-32 validation. Request/result errors and params-only response match handlers; stale registry paused field is recorded separately."
+
+[file.011]
+path = "api/xweb/tx.proto"
+lines = 113
+verdict = "clean"
+note = "Authorities, program IDs, request payloads and attestation fields match the native message paths."
+
+[file.012]
+path = "modules/layerxgov/client/cli/tx.go"
+lines = 229
+verdict = "clean"
+note = "Proposal decoding, authority validation, packing and CLI/REST broadcast use real governance messages and explicit errors."
+
+[file.013]
+path = "modules/layerxgov/handler.go"
+lines = 42
+verdict = "clean"
+note = "Routes actual packed messages through the message-service router with pause validation; the owning keeper rejects retired anchor writes."
+
+[file.014]
+path = "modules/layerxgov/handler_anchor_retired_test.go"
+lines = 76
+verdict = "clean"
+note = "Read the full test file and its real producer/keeper/ABI path. Reviewed assertions: TestGovRouteRefusesRetiredAnchorParams. Expectations agree with current shapes and lifecycle; retained historical and explicit retirement assertions are intentional."
+
+[file.015]
+path = "modules/layerxgov/handler_pause_live_test.go"
+lines = 87
+verdict = "clean"
+note = "Read the full test file and its real producer/keeper/ABI path. Reviewed assertions: TestLayerXProposalPausesLedgerAndAuthLive. Expectations agree with current shapes and lifecycle; retained historical and explicit retirement assertions are intentional."
+
+[file.016]
+path = "modules/layerxgov/handler_pay_pause_live_test.go"
+lines = 102
+verdict = "clean"
+note = "Read the full test file and its real producer/keeper/ABI path. Reviewed assertions: TestLayerXProposalPausesPayLive. Expectations agree with current shapes and lifecycle; retained historical and explicit retirement assertions are intentional."
+
+[file.017]
+path = "modules/layerxgov/types/amino_bridge_test.go"
+lines = 94
+verdict = "clean"
+note = "Read the full test file and its real producer/keeper/ABI path. Reviewed assertions: TestLayerXProposalBridgeAminoJSON. Expectations agree with current shapes and lifecycle; retained historical and explicit retirement assertions are intentional."
+
+[file.018]
+path = "modules/layerxgov/types/keys.go"
+lines = 4
+verdict = "clean"
+note = "Module, route and key constants agree with registration and proposal use."
+
+[file.019]
+path = "modules/layerxgov/types/pause_conformance_test.go"
+lines = 75
+verdict = "clean"
+note = "Read the full test file and its real producer/keeper/ABI path. Reviewed assertions: TestGovernancePauseConformance. Expectations agree with current shapes and lifecycle; retained historical and explicit retirement assertions are intentional."
+
+[file.020]
+path = "modules/layerxgov/types/pause_exit_scope_test.go"
+lines = 28
+verdict = "clean"
+note = "Read the full test file and its real producer/keeper/ABI path. Reviewed assertions: TestLedgerPauseScopeAllowsRevokeGrant, TestAuthPauseScopeAllowsRevokeGrant, TestAgentPauseScopeAllowsCancel. Expectations agree with current shapes and lifecycle; retained historical and explicit retirement assertions are intentional."
+
+[file.021]
+path = "modules/layerxgov/types/pause_test.go"
+lines = 83
+verdict = "clean"
+note = "Read the full test file and its real producer/keeper/ABI path. Reviewed assertions: TestPauseRoutesLedgerAndAuth, TestPauseRefusesForeignAuthority. Expectations agree with current shapes and lifecycle; retained historical and explicit retirement assertions are intentional."
+
+[file.022]
+path = "modules/layerxgov/types/pay_pause_route_test.go"
+lines = 93
+verdict = "clean"
+note = "Read the full test file and its real producer/keeper/ABI path. Reviewed assertions: TestLayerXProposalRoutesPayPause. Expectations agree with current shapes and lifecycle; retained historical and explicit retirement assertions are intentional."
+
+[file.023]
+path = "modules/layerxgov/types/proposal.go"
+lines = 252
+verdict = "clean"
+note = "All twenty-one local Amino registrations, interface unpacking and per-message authority validation reviewed. pay.MsgUpdateParams is registered; the obsolete registry note is a separate finding."
+
+[file.024]
+path = "modules/layerxgov/types/proposal_module_authority_test.go"
+lines = 122
+verdict = "clean"
+note = "Read the full test file and its real producer/keeper/ABI path. Reviewed assertions: TestGovernanceMessagePayUpdateParams, TestGovernanceMessageAgentUpdateParams, TestGovernanceMessagePerpsAuthority, TestGovernanceMessagePricefeedSetParams, TestGovernanceMessageSpotAuthority. Expectations agree with current shapes and lifecycle; retained historical and explicit retirement assertions are intentional."
+
+[file.025]
+path = "modules/layerxgov/types/proposal_test.go"
+lines = 165
+verdict = "clean"
+note = "Read the full test file and its real producer/keeper/ABI path. Reviewed assertions: TestLayerXProposalSixModulesRoundTrip, TestLayerXProposalRefusals, TestLayerXProposalAuthorityWhitelist, TestLayerXProposalAnchorAndLaunchpadParams. Expectations agree with current shapes and lifecycle; retained historical and explicit retirement assertions are intentional."
+
+[file.026]
+path = "modules/layerxgov/types/resolution_pause_test.go"
+lines = 110
+verdict = "clean"
+note = "Read the full test file and its real producer/keeper/ABI path. Reviewed assertions: TestResolutionPauseScopes, TestResolutionParamsRegistered. Expectations agree with current shapes and lifecycle; retained historical and explicit retirement assertions are intentional."
+
+[file.027]
+path = "precompiles/layerxbridge/LayerXBridge.sol"
+lines = 73
+verdict = "clean"
+note = "Selectors, bytes[] signatures, bank-base-unit amounts and event indexing agree with Go and relayer/SDK consumers."
+
+[file.028]
+path = "precompiles/layerxbridge/abi.json"
+lines = 1
+verdict = "clean"
+note = "Full ABI reviewed including nested types and indexed flags; bridgeIn bytes[] and BridgeOut topics/data match Solidity, Go, Rust and Python."
+
+[file.029]
+path = "precompiles/layerxbridge/abi_test.go"
+lines = 130
+verdict = "clean"
+note = "Read the full test file and its real producer/keeper/ABI path. Reviewed assertions: TestBridgeSolidityInterfaceMatchesTheABI. Expectations agree with current shapes and lifecycle; retained historical and explicit retirement assertions are intentional."
+
+[file.030]
+path = "precompiles/layerxbridge/layerxbridge.go"
+lines = 355
+verdict = "clean"
+note = "Constructor wiring, attestation handling, event emission, gas and errors agree with declared methods; keeper owns replay and bank-state decisions."
+
+[file.031]
+path = "precompiles/layerxbridge/layerxbridge_test.go"
+lines = 579
+verdict = "clean"
+note = "Read the full test file and its real producer/keeper/ABI path. Reviewed assertions: TestBridgeInMintsAtThresholdThroughThePrecompile, TestBridgeInRefusalsThroughThePrecompile, TestBridgeRevertCodes, TestBridgeOutBurnsAndEmitsThroughThePrecompile, TestBridgeCapBoundariesThroughThePrecompile, TestBridgeOutboundNonceThroughThePrecompile, TestGasIsTheDocumentedFormula, TestNewPrecompileNeedsTheBridgeKeeper. Expectations agree with current shapes and lifecycle; retained historical and explicit retirement assertions are intentional."
+
+[file.032]
+path = "precompiles/layerxbridge/method_parity_test.go"
+lines = 152
+verdict = "clean"
+note = "Read the full test file and its real producer/keeper/ABI path. Reviewed assertions: TestBridgeMethodConstantsCoverEveryABIMethod. Expectations agree with current shapes and lifecycle; retained historical and explicit retirement assertions are intentional."
+
+[file.033]
+path = "precompiles/layerxbridge/revert_registry_test.go"
+lines = 63
+verdict = "clean"
+note = "Read the full test file and its real producer/keeper/ABI path. Reviewed assertions: TestBridgeRevertCodesAgreeWithTheLXPRegistry. Expectations agree with current shapes and lifecycle; retained historical and explicit retirement assertions are intentional."
+
+[file.034]
+path = "precompiles/layerxbridge/setup.go"
+lines = 21
+verdict = "generated"
+note = "Generated precompile helper identified by its generated header; classified as generator output rather than a source-level clean verdict. Address and constructor wiring were traced in the owning executor and central setup."
+
+[file.035]
+path = "precompiles/layerxcustody/LayerXCustody.sol"
+lines = 195
+verdict = "issues"
+note = "Read in full. Concrete findings below describe the discrepancy and owning repair proposal; this audit changes no implementation."
+
+[file.036]
+path = "precompiles/layerxcustody/abi.json"
+lines = 1
+verdict = "clean"
+note = "All twenty methods and tuples reviewed against Solidity, executor packing and historical consumers. Retained ABI shape does not promise merged availability."
+
+[file.037]
+path = "precompiles/layerxcustody/layerxcustody.go"
+lines = 559
+verdict = "issues"
+note = "Read in full. Concrete findings below describe the discrepancy and owning repair proposal; this audit changes no implementation."
+
+[file.038]
+path = "precompiles/layerxcustody/layerxcustody_test.go"
+lines = 414
+verdict = "clean"
+note = "Decision 2231 intentionally disables proof creation. Preseeded claim tests exercise retained state directly and refusal tests preserve balances; no false historical-proof defect reported."
+
+[file.039]
+path = "precompiles/layerxcustody/retire_registry_test.go"
+lines = 81
+verdict = "clean"
+note = "Read the full test file and its real producer/keeper/ABI path. Reviewed assertions: TestCustodyAddressStaysInThePrecompileSetAfterTheMergePlan. Expectations agree with current shapes and lifecycle; retained historical and explicit retirement assertions are intentional."
+
+[file.040]
+path = "precompiles/layerxcustody/retire_test.go"
+lines = 114
+verdict = "clean"
+note = "All twenty selectors, merge boundary heights, exact disabled-module bytes and static/delegate/value precedence are asserted through the actual precompile."
+
+[file.041]
+path = "precompiles/layerxcustody/setup.go"
+lines = 21
+verdict = "generated"
+note = "Generated precompile helper identified by its generated header; classified as generator output rather than a source-level clean verdict. Address and constructor wiring were traced in the owning executor and central setup."
+
+[file.042]
+path = "precompiles/layerxverify/LayerXVerify.sol"
+lines = 109
+verdict = "issues"
+note = "Read in full. Concrete findings below describe the discrepancy and owning repair proposal; this audit changes no implementation."
+
+[file.043]
+path = "precompiles/layerxverify/abi.json"
+lines = 1
+verdict = "clean"
+note = "All five methods and fact tuples reviewed. Historical pure ABI metadata is preserved; availability follows decision 2316 and the merge gate."
+
+[file.044]
+path = "precompiles/layerxverify/layerxverify.go"
+lines = 296
+verdict = "issues"
+note = "Read in full. Concrete findings below describe the discrepancy and owning repair proposal; this audit changes no implementation."
+
+[file.045]
+path = "precompiles/layerxverify/layerxverify_test.go"
+lines = 341
+verdict = "clean"
+note = "Read the full test file and its real producer/keeper/ABI path. Reviewed assertions: TestAddressAndMethods, TestVerifyEd25519, TestVerifyReceipt, TestVerifyReceiptInclusion, TestVerifyStateProof, TestVerifyDiscoveryProof, TestRejectsValueDelegateCallAndUnknownSelector, TestRequiredGasFollowsDocumentedFormula. Expectations agree with current shapes and lifecycle; retained historical and explicit retirement assertions are intentional."
+
+[file.046]
+path = "precompiles/layerxverify/retire_gate_test.go"
+lines = 194
+verdict = "clean"
+note = "Current supported/retired below-height split matches decision 2316 and resolved disposition 22.6.7.1; all methods refuse at and after merge."
+
+[file.047]
+path = "precompiles/layerxverify/setup.go"
+lines = 21
+verdict = "generated"
+note = "Generated precompile helper identified by its generated header; classified as generator output rather than a source-level clean verdict. Address and constructor wiring were traced in the owning executor and central setup."
+
+[file.048]
+path = "precompiles/layerxverify/verifier_methods_retired_test.go"
+lines = 85
+verdict = "clean"
+note = "Asserts unconditional inclusion/discovery and non-255 domain refusal before proof validation, preserving raw Ed25519 and receipt success below merge."
+
+[file.049]
+path = "precompiles/p256/P256VERIFY.sol"
+lines = 12
+verdict = "clean"
+note = "verify(bytes), selector 0x8e760afe and bytes output match the 160-byte hash/r/s/x/y verifier path."
+
+[file.050]
+path = "precompiles/p256/abi.json"
+lines = 1
+verdict = "clean"
+note = "Full bytes input/output ABI and mutability reviewed against current and historical wrappers."
+
+[file.051]
+path = "precompiles/p256/abi_freeze_test.go"
+lines = 91
+verdict = "clean"
+note = "Read the full test file and its real producer/keeper/ABI path. Reviewed assertions: TestP256ABIFrozen. Expectations agree with current shapes and lifecycle; retained historical and explicit retirement assertions are intentional."
+
+[file.052]
+path = "precompiles/p256/gas_golden_test.go"
+lines = 73
+verdict = "clean"
+note = "Read the full test file and its real producer/keeper/ABI path. Reviewed assertions: TestP256GasGolden. Expectations agree with current shapes and lifecycle; retained historical and explicit retirement assertions are intentional."
+
+[file.053]
+path = "precompiles/p256/legacy/v606/abi.json"
+lines = 1
+verdict = "clean"
+note = "Read the complete historical v606 abi.json. Its version-specific wrapper, 160-byte verifier input, bytes output, curve validation and 300-per-byte gas preserve that historical ABI/replay contract; this is retained versioned source, not a live retired daemon."
+
+[file.054]
+path = "precompiles/p256/legacy/v606/p256.go"
+lines = 113
+verdict = "clean"
+note = "Read the complete historical v606 p256.go. Its version-specific wrapper, 160-byte verifier input, bytes output, curve validation and 300-per-byte gas preserve that historical ABI/replay contract; this is retained versioned source, not a live retired daemon."
+
+[file.055]
+path = "precompiles/p256/legacy/v606/verifier.go"
+lines = 40
+verdict = "clean"
+note = "Read the complete historical v606 verifier.go. Its version-specific wrapper, 160-byte verifier input, bytes output, curve validation and 300-per-byte gas preserve that historical ABI/replay contract; this is retained versioned source, not a live retired daemon."
+
+[file.056]
+path = "precompiles/p256/legacy/v614/abi.json"
+lines = 1
+verdict = "clean"
+note = "Read the complete historical v614 abi.json. Its version-specific wrapper, 160-byte verifier input, bytes output, curve validation and 300-per-byte gas preserve that historical ABI/replay contract; this is retained versioned source, not a live retired daemon."
+
+[file.057]
+path = "precompiles/p256/legacy/v614/p256.go"
+lines = 113
+verdict = "clean"
+note = "Read the complete historical v614 p256.go. Its version-specific wrapper, 160-byte verifier input, bytes output, curve validation and 300-per-byte gas preserve that historical ABI/replay contract; this is retained versioned source, not a live retired daemon."
+
+[file.058]
+path = "precompiles/p256/legacy/v614/verifier.go"
+lines = 40
+verdict = "clean"
+note = "Read the complete historical v614 verifier.go. Its version-specific wrapper, 160-byte verifier input, bytes output, curve validation and 300-per-byte gas preserve that historical ABI/replay contract; this is retained versioned source, not a live retired daemon."
+
+[file.059]
+path = "precompiles/p256/legacy/v620/abi.json"
+lines = 1
+verdict = "clean"
+note = "Read the complete historical v620 abi.json. Its version-specific wrapper, 160-byte verifier input, bytes output, curve validation and 300-per-byte gas preserve that historical ABI/replay contract; this is retained versioned source, not a live retired daemon."
+
+[file.060]
+path = "precompiles/p256/legacy/v620/p256.go"
+lines = 113
+verdict = "clean"
+note = "Read the complete historical v620 p256.go. Its version-specific wrapper, 160-byte verifier input, bytes output, curve validation and 300-per-byte gas preserve that historical ABI/replay contract; this is retained versioned source, not a live retired daemon."
+
+[file.061]
+path = "precompiles/p256/legacy/v620/verifier.go"
+lines = 40
+verdict = "clean"
+note = "Read the complete historical v620 verifier.go. Its version-specific wrapper, 160-byte verifier input, bytes output, curve validation and 300-per-byte gas preserve that historical ABI/replay contract; this is retained versioned source, not a live retired daemon."
+
+[file.062]
+path = "precompiles/p256/legacy/v630/abi.json"
+lines = 1
+verdict = "clean"
+note = "Read the complete historical v630 abi.json. Its version-specific wrapper, 160-byte verifier input, bytes output, curve validation and 300-per-byte gas preserve that historical ABI/replay contract; this is retained versioned source, not a live retired daemon."
+
+[file.063]
+path = "precompiles/p256/legacy/v630/p256.go"
+lines = 113
+verdict = "clean"
+note = "Read the complete historical v630 p256.go. Its version-specific wrapper, 160-byte verifier input, bytes output, curve validation and 300-per-byte gas preserve that historical ABI/replay contract; this is retained versioned source, not a live retired daemon."
+
+[file.064]
+path = "precompiles/p256/legacy/v630/verifier.go"
+lines = 40
+verdict = "clean"
+note = "Read the complete historical v630 verifier.go. Its version-specific wrapper, 160-byte verifier input, bytes output, curve validation and 300-per-byte gas preserve that historical ABI/replay contract; this is retained versioned source, not a live retired daemon."
+
+[file.065]
+path = "precompiles/p256/legacy/v640/abi.json"
+lines = 1
+verdict = "clean"
+note = "Read the complete historical v640 abi.json. Its version-specific wrapper, 160-byte verifier input, bytes output, curve validation and 300-per-byte gas preserve that historical ABI/replay contract; this is retained versioned source, not a live retired daemon."
+
+[file.066]
+path = "precompiles/p256/legacy/v640/p256.go"
+lines = 113
+verdict = "clean"
+note = "Read the complete historical v640 p256.go. Its version-specific wrapper, 160-byte verifier input, bytes output, curve validation and 300-per-byte gas preserve that historical ABI/replay contract; this is retained versioned source, not a live retired daemon."
+
+[file.067]
+path = "precompiles/p256/legacy/v640/verifier.go"
+lines = 40
+verdict = "clean"
+note = "Read the complete historical v640 verifier.go. Its version-specific wrapper, 160-byte verifier input, bytes output, curve validation and 300-per-byte gas preserve that historical ABI/replay contract; this is retained versioned source, not a live retired daemon."
+
+[file.068]
+path = "precompiles/p256/legacy/v65/abi.json"
+lines = 1
+verdict = "clean"
+note = "Read the complete historical v65 abi.json. Its version-specific wrapper, 160-byte verifier input, bytes output, curve validation and 300-per-byte gas preserve that historical ABI/replay contract; this is retained versioned source, not a live retired daemon."
+
+[file.069]
+path = "precompiles/p256/legacy/v65/p256.go"
+lines = 113
+verdict = "clean"
+note = "Read the complete historical v65 p256.go. Its version-specific wrapper, 160-byte verifier input, bytes output, curve validation and 300-per-byte gas preserve that historical ABI/replay contract; this is retained versioned source, not a live retired daemon."
+
+[file.070]
+path = "precompiles/p256/legacy/v65/verifier.go"
+lines = 40
+verdict = "clean"
+note = "Read the complete historical v65 verifier.go. Its version-specific wrapper, 160-byte verifier input, bytes output, curve validation and 300-per-byte gas preserve that historical ABI/replay contract; this is retained versioned source, not a live retired daemon."
+
+[file.071]
+path = "precompiles/p256/p256.go"
+lines = 113
+verdict = "clean"
+note = "Current wrapper validates call shape, preserves verify(bytes) transport and charges the declared byte-based gas."
+
+[file.072]
+path = "precompiles/p256/p256_test.go"
+lines = 73
+verdict = "clean"
+note = "Read the full test file and its real producer/keeper/ABI path. Reviewed assertions: TestPrecompile_verify. Expectations agree with current shapes and lifecycle; retained historical and explicit retirement assertions are intentional."
+
+[file.073]
+path = "precompiles/p256/setup.go"
+lines = 31
+verdict = "generated"
+note = "Generated precompile helper identified by its generated header; classified as generator output rather than a source-level clean verdict. Address and constructor wiring were traced in the owning executor and central setup."
+
+[file.074]
+path = "precompiles/p256/verifier.go"
+lines = 40
+verdict = "clean"
+note = "Exact 160-byte bounds, P256 curve point and signature verification retain valid/invalid result encodings."
+
+[file.075]
+path = "precompiles/p256/verifier_test.go"
+lines = 108
+verdict = "clean"
+note = "Read the full test file and its real producer/keeper/ABI path. Reviewed assertions: TestVerify, TestVerifyEdgeCases. Expectations agree with current shapes and lifecycle; retained historical and explicit retirement assertions are intentional."
+
+[file.076]
+path = "precompiles/utils/expected_keepers.go"
+lines = 295
+verdict = "clean"
+note = "Keeper method types agree with constructors and calls, including historical custody/anchor access and EVM upgrade lookup; retained interfaces are compatibility rather than daemon wiring."
+
+[file.077]
+path = "precompiles/utils/keepers_freeze_test.go"
+lines = 125
+verdict = "clean"
+note = "Read the full test file and its real producer/keeper/ABI path. Reviewed assertions: TestPrecompileKeeperMethodSetsFrozen. Expectations agree with current shapes and lifecycle; retained historical and explicit retirement assertions are intentional."
+
+[file.078]
+path = "precompiles/utils/types.go"
+lines = 5
+verdict = "clean"
+note = "Versioned precompile types agree with central setup and historical lookup consumers."
+
+[file.079]
+path = "services/platform/hosted/node/tests/sequencer-seed-test.py"
+lines = 287
+verdict = "issues"
+note = "Read in full. Concrete findings below describe the discrepancy and owning repair proposal; this audit changes no implementation."
+
+[file.080]
+path = "services/platform/hosted/node/tests/signer-test.py"
+lines = 765
+verdict = "issues"
+note = "Read in full. Concrete findings below describe the discrepancy and owning repair proposal; this audit changes no implementation."
+
+[file.081]
+path = "tests/bridge/files.h"
+lines = 42
+verdict = "clean"
+note = "Bounded no-follow file reads check regular files, link count and optional private permissions; errors remain explicit to callers."
+
+[file.082]
+path = "tests/bridge/retired/kernel_retirement.py"
+lines = 331
+verdict = "issues"
+note = "Read in full. Concrete findings below describe the discrepancy and owning repair proposal; this audit changes no implementation."
+
+[file.083]
+path = "tests/bridge/retired/test_kernel_retirement_harness.py"
+lines = 441
+verdict = "clean"
+note = "Read the complete real-scanner harness tests, covering tracked target absence, executable consumer detection, comments/strings and exclusions. Historical target paths are deliberate absence fixtures."
+
+[file.084]
+path = "tests/bridge/retired/test_retired_asset_registry.py"
+lines = 5
+verdict = "clean"
+note = "Read the complete asset_registry retirement test. It asserts target absence using the real shared scanner and rejects executable consumers. Legacy names are deliberate absence assertions, not live references to retired network components."
+
+[file.085]
+path = "tests/bridge/retired/test_retired_block_errors.py"
+lines = 5
+verdict = "clean"
+note = "Read the complete block_errors retirement test. It asserts target absence using the real shared scanner and rejects executable consumers. Legacy names are deliberate absence assertions, not live references to retired network components."
+
+[file.086]
+path = "tests/bridge/retired/test_retired_blueprint.py"
+lines = 5
+verdict = "clean"
+note = "Read the complete blueprint retirement test. It asserts target absence using the real shared scanner and rejects executable consumers. Legacy names are deliberate absence assertions, not live references to retired network components."
+
+[file.087]
+path = "tests/bridge/retired/test_retired_bridge_emergency_exit.py"
+lines = 5
+verdict = "clean"
+note = "Read the complete bridge_emergency_exit retirement test. It asserts target absence using the real shared scanner and rejects executable consumers. Legacy names are deliberate absence assertions, not live references to retired network components."
+
+[file.088]
+path = "tests/bridge/retired/test_retired_burn.py"
+lines = 5
+verdict = "clean"
+note = "Read the complete burn retirement test. It asserts target absence using the real shared scanner and rejects executable consumers. Legacy names are deliberate absence assertions, not live references to retired network components."
+
+[file.089]
+path = "tests/bridge/retired/test_retired_bytes.py"
+lines = 5
+verdict = "clean"
+note = "Read the complete bytes retirement test. It asserts target absence using the real shared scanner and rejects executable consumers. Legacy names are deliberate absence assertions, not live references to retired network components."
+
+[file.090]
+path = "tests/bridge/retired/test_retired_caller_checker.py"
+lines = 5
+verdict = "clean"
+note = "Read the complete caller_checker retirement test. It asserts target absence using the real shared scanner and rejects executable consumers. Legacy names are deliberate absence assertions, not live references to retired network components."
+
+[file.091]
+path = "tests/bridge/retired/test_retired_canonical_checkpoint.py"
+lines = 5
+verdict = "clean"
+note = "Read the complete canonical_checkpoint retirement test. It asserts target absence using the real shared scanner and rejects executable consumers. Legacy names are deliberate absence assertions, not live references to retired network components."
+
+[file.092]
+path = "tests/bridge/retired/test_retired_checkpoint_challenge_manager.py"
+lines = 5
+verdict = "clean"
+note = "Read the complete checkpoint_challenge_manager retirement test. It asserts target absence using the real shared scanner and rejects executable consumers. Legacy names are deliberate absence assertions, not live references to retired network components."
+
+[file.093]
+path = "tests/bridge/retired/test_retired_checkpoint_registry.py"
+lines = 5
+verdict = "clean"
+note = "Read the complete checkpoint_registry retirement test. It asserts target absence using the real shared scanner and rejects executable consumers. Legacy names are deliberate absence assertions, not live references to retired network components."
+
+[file.094]
+path = "tests/bridge/retired/test_retired_credit_c_harness.py"
+lines = 12
+verdict = "clean"
+note = "Read the complete credit_c_harness retirement test. It asserts target absence using the real shared scanner and rejects executable consumers. Legacy names are deliberate absence assertions, not live references to retired network components."
+
+[file.095]
+path = "tests/bridge/retired/test_retired_credit_qualification.py"
+lines = 12
+verdict = "clean"
+note = "Read the complete credit_qualification retirement test. It asserts target absence using the real shared scanner and rejects executable consumers. Legacy names are deliberate absence assertions, not live references to retired network components."
+
+[file.096]
+path = "tests/bridge/retired/test_retired_cryptography_primitives.py"
+lines = 5
+verdict = "clean"
+note = "Read the complete cryptography_primitives retirement test. It asserts target absence using the real shared scanner and rejects executable consumers. Legacy names are deliberate absence assertions, not live references to retired network components."
+
+[file.097]
+path = "tests/bridge/retired/test_retired_custody_deploy_scripts.py"
+lines = 12
+verdict = "clean"
+note = "Read the complete custody_deploy_scripts retirement test. It asserts target absence using the real shared scanner and rejects executable consumers. Legacy names are deliberate absence assertions, not live references to retired network components."
+
+[file.098]
+path = "tests/bridge/retired/test_retired_daemon_consumers.py"
+lines = 37
+verdict = "clean"
+note = "Read the complete daemon_consumers retirement test. It asserts target absence using the real shared scanner and rejects executable consumers. Legacy names are deliberate absence assertions, not live references to retired network components."
+
+[file.099]
+path = "tests/bridge/retired/test_retired_decimals_converter_helper.py"
+lines = 5
+verdict = "clean"
+note = "Read the complete decimals_converter_helper retirement test. It asserts target absence using the real shared scanner and rejects executable consumers. Legacy names are deliberate absence assertions, not live references to retired network components."
+
+[file.100]
+path = "tests/bridge/retired/test_retired_delegate_call_aware.py"
+lines = 5
+verdict = "clean"
+note = "Read the complete delegate_call_aware retirement test. It asserts target absence using the real shared scanner and rejects executable consumers. Legacy names are deliberate absence assertions, not live references to retired network components."
+
+[file.101]
+path = "tests/bridge/retired/test_retired_e_o_a.py"
+lines = 5
+verdict = "clean"
+note = "Read the complete e_o_a retirement test. It asserts target absence using the real shared scanner and rejects executable consumers. Legacy names are deliberate absence assertions, not live references to retired network components."
+
+[file.102]
+path = "tests/bridge/retired/test_retired_ed25519.py"
+lines = 7
+verdict = "clean"
+note = "Read the complete ed25519 retirement test. It asserts target absence using the real shared scanner and rejects executable consumers. Legacy names are deliberate absence assertions, not live references to retired network components."
+
+[file.103]
+path = "tests/bridge/retired/test_retired_encoding.py"
+lines = 5
+verdict = "clean"
+note = "Read the complete encoding retirement test. It asserts target absence using the real shared scanner and rejects executable consumers. Legacy names are deliberate absence assertions, not live references to retired network components."
+
+[file.104]
+path = "tests/bridge/retired/test_retired_error.py"
+lines = 5
+verdict = "clean"
+note = "Read the complete error retirement test. It asserts target absence using the real shared scanner and rejects executable consumers. Legacy names are deliberate absence assertions, not live references to retired network components."
+
+[file.105]
+path = "tests/bridge/retired/test_retired_features.py"
+lines = 5
+verdict = "clean"
+note = "Read the complete features retirement test. It asserts target absence using the real shared scanner and rejects executable consumers. Legacy names are deliberate absence assertions, not live references to retired network components."
+
+[file.106]
+path = "tests/bridge/retired/test_retired_guarantor_bond.py"
+lines = 5
+verdict = "clean"
+note = "Read the complete guarantor_bond retirement test. It asserts target absence using the real shared scanner and rejects executable consumers. Legacy names are deliberate absence assertions, not live references to retired network components."
+
+[file.107]
+path = "tests/bridge/retired/test_retired_hashing.py"
+lines = 5
+verdict = "clean"
+note = "Read the complete hashing retirement test. It asserts target absence using the real shared scanner and rejects executable consumers. Legacy names are deliberate absence assertions, not live references to retired network components."
+
+[file.108]
+path = "tests/bridge/retired/test_retired_i_e_r_c20_minimal.py"
+lines = 5
+verdict = "clean"
+note = "Read the complete i_e_r_c20_minimal retirement test. It asserts target absence using the real shared scanner and rejects executable consumers. Legacy names are deliberate absence assertions, not live references to retired network components."
+
+[file.109]
+path = "tests/bridge/retired/test_retired_i_guarantor_eligibility.py"
+lines = 5
+verdict = "clean"
+note = "Read the complete i_guarantor_eligibility retirement test. It asserts target absence using the real shared scanner and rejects executable consumers. Legacy names are deliberate absence assertions, not live references to retired network components."
+
+[file.110]
+path = "tests/bridge/retired/test_retired_i_layer_x_asset_registry.py"
+lines = 5
+verdict = "clean"
+note = "Read the complete i_layer_x_asset_registry retirement test. It asserts target absence using the real shared scanner and rejects executable consumers. Legacy names are deliberate absence assertions, not live references to retired network components."
+
+[file.111]
+path = "tests/bridge/retired/test_retired_layer_x_beta_timelock.py"
+lines = 5
+verdict = "clean"
+note = "Read the complete layer_x_beta_timelock retirement test. It asserts target absence using the real shared scanner and rejects executable consumers. Legacy names are deliberate absence assertions, not live references to retired network components."
+
+[file.112]
+path = "tests/bridge/retired/test_retired_layer_x_component.py"
+lines = 5
+verdict = "clean"
+note = "Read the complete layer_x_component retirement test. It asserts target absence using the real shared scanner and rejects executable consumers. Legacy names are deliberate absence assertions, not live references to retired network components."
+
+[file.113]
+path = "tests/bridge/retired/test_retired_layer_x_custody.py"
+lines = 5
+verdict = "clean"
+note = "Read the complete layer_x_custody retirement test. It asserts target absence using the real shared scanner and rejects executable consumers. Legacy names are deliberate absence assertions, not live references to retired network components."
+
+[file.114]
+path = "tests/bridge/retired/test_retired_layer_x_timelock.py"
+lines = 5
+verdict = "clean"
+note = "Read the complete layer_x_timelock retirement test. It asserts target absence using the real shared scanner and rejects executable consumers. Legacy names are deliberate absence assertions, not live references to retired network components."
+
+[file.115]
+path = "tests/bridge/retired/test_retired_layer_x_vault.py"
+lines = 5
+verdict = "clean"
+note = "Read the complete layer_x_vault retirement test. It asserts target absence using the real shared scanner and rejects executable consumers. Legacy names are deliberate absence assertions, not live references to retired network components."
+
+[file.116]
+path = "tests/bridge/retired/test_retired_light_credit.py"
+lines = 5
+verdict = "clean"
+note = "Read the complete light_credit retirement test. It asserts target absence using the real shared scanner and rejects executable consumers. Legacy names are deliberate absence assertions, not live references to retired network components."
+
+[file.117]
+path = "tests/bridge/retired/test_retired_manager_container.py"
+lines = 5
+verdict = "clean"
+note = "Read the complete manager_container retirement test. It asserts target absence using the real shared scanner and rejects executable consumers. Legacy names are deliberate absence assertions, not live references to retired network components."
+
+[file.118]
+path = "tests/bridge/retired/test_retired_manager_migrator.py"
+lines = 5
+verdict = "clean"
+note = "Read the complete manager_migrator retirement test. It asserts target absence using the real shared scanner and rejects executable consumers. Legacy names are deliberate absence assertions, not live references to retired network components."
+
+[file.119]
+path = "tests/bridge/retired/test_retired_merkle_lib.py"
+lines = 5
+verdict = "clean"
+note = "Read the complete merkle_lib retirement test. It asserts target absence using the real shared scanner and rejects executable consumers. Legacy names are deliberate absence assertions, not live references to retired network components."
+
+[file.120]
+path = "tests/bridge/retired/test_retired_message_types.py"
+lines = 5
+verdict = "clean"
+note = "Read the complete message_types retirement test. It asserts target absence using the real shared scanner and rejects executable consumers. Legacy names are deliberate absence assertions, not live references to retired network components."
+
+[file.121]
+path = "tests/bridge/retired/test_retired_native_publication_verifier.py"
+lines = 5
+verdict = "clean"
+note = "Read the complete native_publication_verifier retirement test. It asserts target absence using the real shared scanner and rejects executable consumers. Legacy names are deliberate absence assertions, not live references to retired network components."
+
+[file.122]
+path = "tests/bridge/retired/test_retired_native_state_proof.py"
+lines = 5
+verdict = "clean"
+note = "Read the complete native_state_proof retirement test. It asserts target absence using the real shared scanner and rejects executable consumers. Legacy names are deliberate absence assertions, not live references to retired network components."
+
+[file.123]
+path = "tests/bridge/retired/test_retired_native_withdrawal_proof.py"
+lines = 5
+verdict = "clean"
+note = "Read the complete native_withdrawal_proof retirement test. It asserts target absence using the real shared scanner and rejects executable consumers. Legacy names are deliberate absence assertions, not live references to retired network components."
+
+[file.124]
+path = "tests/bridge/retired/test_retired_paxeer_beta_deployment_validator.py"
+lines = 5
+verdict = "clean"
+note = "Read the complete paxeer_beta_deployment_validator retirement test. It asserts target absence using the real shared scanner and rejects executable consumers. Legacy names are deliberate absence assertions, not live references to retired network components."
+
+[file.125]
+path = "tests/bridge/retired/test_retired_paxeer_withdrawal_codec.py"
+lines = 5
+verdict = "clean"
+note = "Read the complete paxeer_withdrawal_codec retirement test. It asserts target absence using the real shared scanner and rejects executable consumers. Legacy names are deliberate absence assertions, not live references to retired network components."
+
+[file.126]
+path = "tests/bridge/retired/test_retired_paxeer_x_credit_profiles.py"
+lines = 10
+verdict = "clean"
+note = "Read the complete paxeer_x_credit_profiles retirement test. It asserts target absence using the real shared scanner and rejects executable consumers. Legacy names are deliberate absence assertions, not live references to retired network components."
+
+[file.127]
+path = "tests/bridge/retired/test_retired_predeploys.py"
+lines = 5
+verdict = "clean"
+note = "Read the complete predeploys retirement test. It asserts target absence using the real shared scanner and rejects executable consumers. Legacy names are deliberate absence assertions, not live references to retired network components."
+
+[file.128]
+path = "tests/bridge/retired/test_retired_preinstalls.py"
+lines = 5
+verdict = "clean"
+note = "Read the complete preinstalls retirement test. It asserts target absence using the real shared scanner and rejects executable consumers. Legacy names are deliberate absence assertions, not live references to retired network components."
+
+[file.129]
+path = "tests/bridge/retired/test_retired_reserve_reconciler.py"
+lines = 5
+verdict = "clean"
+note = "Read the complete reserve_reconciler retirement test. It asserts target absence using the real shared scanner and rejects executable consumers. Legacy names are deliberate absence assertions, not live references to retired network components."
+
+[file.130]
+path = "tests/bridge/retired/test_retired_safe_transfer.py"
+lines = 5
+verdict = "clean"
+note = "Read the complete safe_transfer retirement test. It asserts target absence using the real shared scanner and rejects executable consumers. Legacy names are deliberate absence assertions, not live references to retired network components."
+
+[file.131]
+path = "tests/bridge/retired/test_retired_semver_comp.py"
+lines = 5
+verdict = "clean"
+note = "Read the complete semver_comp retirement test. It asserts target absence using the real shared scanner and rejects executable consumers. Legacy names are deliberate absence assertions, not live references to retired network components."
+
+[file.132]
+path = "tests/bridge/retired/test_retired_standard_validator_utils.py"
+lines = 5
+verdict = "clean"
+note = "Read the complete standard_validator_utils retirement test. It asserts target absence using the real shared scanner and rejects executable consumers. Legacy names are deliberate absence assertions, not live references to retired network components."
+
+[file.133]
+path = "tests/bridge/retired/test_retired_staticconfig.py"
+lines = 5
+verdict = "clean"
+note = "Read the complete staticconfig retirement test. It asserts target absence using the real shared scanner and rejects executable consumers. Legacy names are deliberate absence assertions, not live references to retired network components."
+
+[file.134]
+path = "tests/bridge/retired/test_retired_storage.py"
+lines = 5
+verdict = "clean"
+note = "Read the complete storage retirement test. It asserts target absence using the real shared scanner and rejects executable consumers. Legacy names are deliberate absence assertions, not live references to retired network components."
+
+[file.135]
+path = "tests/bridge/retired/test_retired_transient_context.py"
+lines = 5
+verdict = "clean"
+note = "Read the complete transient_context retirement test. It asserts target absence using the real shared scanner and rejects executable consumers. Legacy names are deliberate absence assertions, not live references to retired network components."
+
+[file.136]
+path = "tests/bridge/retired/test_retired_uups_not_upgradeable.py"
+lines = 5
+verdict = "clean"
+note = "Read the complete uups_not_upgradeable retirement test. It asserts target absence using the real shared scanner and rejects executable consumers. Legacy names are deliberate absence assertions, not live references to retired network components."
+
+[file.137]
+path = "tests/bridge/retired/test_retired_withdrawal_claims.py"
+lines = 5
+verdict = "clean"
+note = "Read the complete withdrawal_claims retirement test. It asserts target absence using the real shared scanner and rejects executable consumers. Legacy names are deliberate absence assertions, not live references to retired network components."
+
+[file.138]
+path = "tests/bridge/retired/test_retired_withdrawal_nullifier_registry.py"
+lines = 5
+verdict = "clean"
+note = "Read the complete withdrawal_nullifier_registry retirement test. It asserts target absence using the real shared scanner and rejects executable consumers. Legacy names are deliberate absence assertions, not live references to retired network components."
+
+[file.139]
+path = "wasm/Makefile"
+lines = 210
+verdict = "issues"
+note = "Read in full. Concrete findings below describe the discrepancy and owning repair proposal; this audit changes no implementation."
+
+[file.140]
+path = "wasm/benchmarks/app_test.go"
+lines = 207
+verdict = "issues"
+note = "Read the full test file and its real producer/keeper/ABI path. Reviewed assertions: . Expectations agree with current shapes and lifecycle; retained historical and explicit retirement assertions are intentional."
+
+[file.141]
+path = "wasm/benchmarks/bench_test.go"
+lines = 166
+verdict = "issues"
+note = "Read the full test file and its real producer/keeper/ABI path. Reviewed assertions: BenchmarkTxSending. Expectations agree with current shapes and lifecycle; retained historical and explicit retirement assertions are intentional."
+
+[file.142]
+path = "wasm/benchmarks/cw20_test.go"
+lines = 22
+verdict = "clean"
+note = "CW20 init and transfer fields use expected JSON names and decimal-string amounts, matching contract message encoding."
+
+[file.143]
+path = "wasm/proto/cosmwasm/wasm/v1/genesis.proto"
+lines = 62
+verdict = "clean"
+note = "Code, contract and sequence fields agree with native genesis storage and generated transport."
+
+[file.144]
+path = "wasm/proto/cosmwasm/wasm/v1/ibc.proto"
+lines = 29
+verdict = "clean"
+note = "IBC WASM declarations preserve native keeper packet and message transport fields."
+
+[file.145]
+path = "wasm/proto/cosmwasm/wasm/v1/proposal.proto"
+lines = 171
+verdict = "clean"
+note = "Legacy proposal declarations are historical compatibility; instantiate/migrate/permission payloads match native module types."
+
+[file.146]
+path = "wasm/proto/cosmwasm/wasm/v1/query.proto"
+lines = 214
+verdict = "clean"
+note = "All query RPCs, pagination, REST bindings and response fields reviewed against native WASM query consumers."
+
+[file.147]
+path = "wasm/proto/cosmwasm/wasm/v1/tx.proto"
+lines = 136
+verdict = "clean"
+note = "All request/response messages, signers, coins and raw contract bytes match native message handling."
+
+[file.148]
+path = "wasm/proto/cosmwasm/wasm/v1/types.proto"
+lines = 123
+verdict = "clean"
+note = "Code/contract information, access configuration, history and metadata preserve native storage shapes and protobuf field numbers."
+
+[finding.001]
+file = "wasm/benchmarks/app_test.go"
+line = 36
+severity = "medium"
+observed = "SetupWithGenesisAccounts accepts testing.TB but asserts b.(*testing.T). BenchmarkTxSending passes *testing.B through InitializeWasmApp, so initialization deterministically panics before measuring any transaction."
+expected = "The actual benchmark caller must be able to initialize the real application and reach transaction delivery."
+proposal = "Provide a benchmark-compatible application initializer accepting testing.TB, adapt the owning node helper as needed, and exercise initialization through the actual benchmark entrypoint without weakening assertions."
+owner_domain = 6
+class = "test-gap"
+
+[finding.002]
+file = "wasm/benchmarks/app_test.go"
+line = 26
+severity = "medium"
+observed = "setup receives db, invCheckPeriod and WASM options but calls paxapp.Setup(t, false, false, false) without using them. The memdb and leveldb cases do not select the database they claim to measure."
+expected = "The database selected by each benchmark case must back the application workload, and advertised setup options must be applied."
+proposal = "Inject the selected database and supported options into the real application constructor in wasm/benchmarks/app_test.go and assert that its selected backend is used by delivered transactions."
+owner_domain = 6
+class = "test-gap"
+
+[finding.003]
+file = "wasm/benchmarks/bench_test.go"
+line = 103
+severity = "medium"
+observed = "The measured loop uses b.N/blockSize full blocks, delivering no transaction when b.N is smaller than blockSize and dropping any remainder while reporting b.N operations."
+expected = "Every benchmark calibration must execute exactly its reported transaction count, including a final partial block."
+proposal = "Process all b.N generated transactions in bounded batches, handle the final partial block and assert the delivered count before accepting timing results."
+owner_domain = 6
+class = "test-gap"
+
+[finding.004]
+file = "wasm/benchmarks/bench_test.go"
+line = 116
+severity = "medium"
+observed = "InitializeWasmApp ends and commits block 2; the measured loop delivers and ends block 3 and successive blocks without BeginBlock for those heights."
+expected = "Measured transactions must follow the real begin, deliver, end and commit lifecycle, including keeper hooks and per-block context."
+proposal = "Begin every measured block through the actual node lifecycle in wasm/benchmarks/bench_test.go, retain delivery success assertions, then end and commit it and check successive committed heights."
+owner_domain = 6
+class = "test-gap"
+
+[finding.005]
+file = "wasm/Makefile"
+line = 81
+severity = "medium"
+observed = "The standalone build depends on absent wasm/go.mod and wasm/go.sum and targets absent ./cmd/wasmd. SDK_PACK and linker flags still name upstream cosmos-sdk and CosmWasm/wasmd instead of the root fork."
+expected = "The embedded WASM module must build through the actual root module and supported paxd targets, using existing manifests and packages."
+proposal = "Replace standalone wasmd recipes in wasm/Makefile with supported root-module paxd and module developer targets, or explicitly retire this build entrypoint and point developers to the maintained root commands."
+owner_domain = 6
+class = "config-drift"
+
+[finding.006]
+file = "services/platform/hosted/node/tests/sequencer-seed-test.py"
+line = 107
+severity = "medium"
+observed = "bootstrap and supervisor_command start build/bin/layerxd as an independent sequencer and pass --settlement-document from checkpoint-settlement.json; assertions depend on separate sequencer.env and supervisor key propagation."
+expected = "The finished network runs its kernel in paxd and has no independently bootstrapped layerxd sequencer or checkpoint settlement service."
+proposal = "Migrate the hosted seed harness to integrated paxd key loading and restart, preserving secret-file permissions, no-copy assertions, invalid-key rejection and key propagation checks."
+owner_domain = 8
+class = "retired-reference"
+interface = "8.cli-node-bootstrap-sh-layerxd"
+
+[finding.007]
+file = "services/platform/hosted/node/tests/signer-test.py"
+line = 607
+severity = "medium"
+observed = "BootstrapTreasuryCase skips when layerxd or layerx-genesis-build is absent and otherwise invokes the retired daemon and settlement-document bootstrap. A merged-node checkout can omit treasury bootstrap coverage entirely."
+expected = "Treasury signer bootstrap must be exercised against the supported merged node instead of disappearing when an intentionally retired daemon is absent."
+proposal = "Move BootstrapTreasuryCase onto real paxd signer bootstrap and require its actual prerequisites explicitly; preserve peer-credential, key-binding, private-file and signature assertions in this suite."
+owner_domain = 8
+class = "test-gap"
+interface = "8.cli-node-bootstrap-sh-layerxd"
+
+[finding.008]
+file = "tests/bridge/retired/kernel_retirement.py"
+line = 179
+severity = "low"
+observed = "checkpoint_settlement reads the legacy checkpoint-settlement.json and asserts its custody export schema, but no test under tests/bridge calls the helper."
+expected = "The retirement harness should check absence and reject live consumers without unused readers of configuration scheduled for retirement."
+proposal = "Remove the unused checkpoint_settlement helper after confirming callers remain absent, retaining all assert_retired consumer scanning, tracked-path handling and absence assertions."
+owner_domain = 6
+class = "dead-code"
+
+[finding.009]
+file = "precompiles/layerxcustody/LayerXCustody.sol"
+line = 8
+severity = "medium"
+observed = "NatSpec promises verified receipt withdrawals and forced exits without a retirement notice. Its gas table omits registerDepositRoot, which Signatures charges one signature and Writes charges two writes."
+expected = "Integrators must distinguish historical ABI from availability: all twenty methods retire at merge and proof claim creation is already disabled; gas documentation must match registration."
+proposal = "Label this Solidity ABI historical, document exact LXP_MODULE_DISABLED behavior and the merge boundary, explain the disabled proof paths and add registerDepositRoot gas terms without changing selectors."
+owner_domain = 6
+class = "doc-drift"
+
+[finding.010]
+file = "precompiles/layerxcustody/layerxcustody.go"
+line = 1
+severity = "medium"
+observed = "The package comment says proofs are verified to create and pay claims although withdrawal and forced-exit validators unconditionally refuse retired operations. Its gas comment omits registerDepositRoot signature/write terms."
+expected = "Package documentation must distinguish retained historical state from disabled proof creation and the merge-wide gate, and agree with Signatures and Writes."
+proposal = "Rewrite the custody package comment around historical compatibility and the exact retirement boundary; document registerDepositRoot as one signature and two writes and identify the supported merged replacement flow."
+owner_domain = 6
+class = "doc-drift"
+
+[finding.011]
+file = "precompiles/layerxverify/LayerXVerify.sol"
+line = 8
+severity = "medium"
+observed = "NatSpec says no chain state is read and advertises tagged Ed25519, inclusion and discovery proofs. Execute reads upgrade state, and all non-255 domains plus inclusion and discovery are unconditionally retired."
+expected = "Interface prose must describe the historical method split and merge gate rather than suggesting every retained selector is an available proof service."
+proposal = "Label the verifier ABI historical and document raw-domain, receipt and state-proof availability below merge, unconditional retirement of the other operations and exact disabled-module errors; preserve selector compatibility."
+owner_domain = 6
+class = "doc-drift"
+
+[finding.012]
+file = "precompiles/layerxverify/layerxverify.go"
+line = 1
+severity = "medium"
+observed = "The package comment calls every method pure and stateless, while NewPrecompile retains EVMK and Execute consults upgrade state; it also advertises proof methods retired at every height."
+expected = "The package description must match the actual upgrade-dependent executor and method availability established by decision 2316."
+proposal = "Update the package comment to explain the merge height and supported historical methods, distinguishing ABI pure metadata from retirement-state lookup without changing the consensus checks or rejection behavior."
+owner_domain = 6
+class = "doc-drift"
+
+[finding.013]
+file = "spec/layerx-merge/interfaces.kvx"
+line = 273575
+severity = "low"
+observed = "Row 6.go-layerxgov-proposal-amino-registry-j35 says init registers thirteen types and omits pay.MsgUpdateParams. proposal.go contains twenty-one registrations including pay at line 74."
+expected = "The governance registry must describe current codec coverage so completed registration work is not planned again as missing."
+proposal = "Refresh this row from modules/layerxgov/types/proposal.go, including ledger, auth, pay, agent and XWeb messages, while retaining the separate ownership of bridge registrations."
+owner_domain = 6
+class = "doc-drift"
+interface = "6.go-layerxgov-proposal-amino-registry-j35"
+
+[finding.014]
+file = "spec/layerx-merge/interfaces.kvx"
+line = 286901
+severity = "medium"
+observed = "The 0x1012 and 0x1013 rows say no retirement gate exists at HEAD, and the verifier constructor row says keepers are ignored. Current executors and all-selector tests implement the gates; getAsset also lists a gateway caller that now uses ledger reads."
+expected = "The registry must describe implemented lifecycle, historical availability and actual consumers rather than completed retirement wiring as missing work."
+proposal = "Reconcile verifier/custody method notes, constructor notes and caller lists with current executors, retirement tests and hosted gateway ledger reads; distinguish always-disabled methods from below-height compatibility."
+owner_domain = 6
+class = "doc-drift"
+interface = "6.pc-0x1012-verifyed25519"
+
+[finding.015]
+file = "spec/layerx-merge/interfaces.kvx"
+line = 293026
+severity = "medium"
+observed = "Row 6.proto-xweb-query-params-response-j37 declares QueryParamsResponse{params, paused}. The source proto defines only params and the actual keeper Params handler returns only Params."
+expected = "The documented response must match protobuf and generated transport so consumers do not require a field that is never produced."
+proposal = "Correct the registry to the actual params-only response and describe the supported program-status view where needed; keep clients aligned with the real protobuf schema."
+owner_domain = 6
+class = "doc-drift"
+interface = "6.proto-xweb-query-params-response-j37"
+
+[finding.016]
+file = "README.md"
+line = 47
+severity = "medium"
+observed = "The introduction calls layerxd a separate C17 daemon whose checkpoints settle through layerxAnchor, and the build example invokes make layerxd at line 145."
+expected = "The entry page must describe one paxd BFT network with its integrated kernel and committed-block finality."
+proposal = "Rewrite the README architecture, diagram and quickstart for integrated paxd, remove operational layerxd instructions and label historical custody/anchor interfaces rather than advertising them as active merged capabilities."
+owner_domain = 17
+class = "doc-drift"
+
+[finding.017]
+file = "docs/wiki/UnifiedNetwork.md"
+line = 11
+severity = "medium"
+observed = "The page puts sequencer and consensus in cmd/layerxd, calls LayerXVerify stateless and advertises working custody proof claims and anchor checkpoint submission."
+expected = "The network guide must distinguish the integrated BFT network and active services from historical ABI inventory and disabled proofs."
+proposal = "Rewrite the guide for paxd commitment and supported gateway/native modules; label verifier, custody and anchor lifecycle and remove the separate daemon and settlement deployment flow."
+owner_domain = 17
+class = "doc-drift"
+
+[finding.018]
+file = "docs/system/governance.md"
+line = 21
+severity = "low"
+observed = "The generated Chain proposal types table lists LayerXCustody without indicating that retained constants do not establish a live merged custody governance route."
+expected = "The governance reference must let operators distinguish historical declarations from operations executable on the finished network."
+proposal = "Add lifecycle metadata to tools/docs/gen-system-docs.sh and regenerate the governance page with custody retirement and current kernel governance clearly identified."
+owner_domain = 17
+class = "doc-drift"
+
+[finding.019]
+file = "docs/system/precompiles.md"
+line = 36
+severity = "medium"
+observed = "The generated summary and detailed sections present custody and verifier methods as ordinary interfaces, including proofs disabled at every height, without retirement errors or availability boundaries."
+expected = "The reference must retain historical ABI shapes while stating which operations execute at the queried upgrade height."
+proposal = "Add lifecycle metadata to the system documentation generator and regenerate 0x1012/0x1013 summary and method sections with exact LXP_MODULE_DISABLED behavior and supported below-height methods."
+owner_domain = 17
+class = "doc-drift"
+
+[finding.020]
+file = "docs/system/chain-modules.md"
+line = 18
+severity = "medium"
+observed = "The generated module summary and custody section list custody messages and genesis as ordinary functionality; anchor and sequencer listings also lack merged lifecycle context."
+expected = "The module reference must distinguish integrated sequencing from retired custody/anchor writes and historical genesis or store compatibility."
+proposal = "Extend tools/docs/gen-system-docs.sh with module lifecycle metadata and regenerate this page so operators can identify active merged replacements and historical declarations."
+owner_domain = 17
+class = "doc-drift"
+
+[finding.021]
+file = "docs/paxeer-network.md"
+line = 5
+severity = "medium"
+observed = "The page says ordinary activity stays on a separate LayerX sequencer with periodic checkpoints settling to Paxeer custody, and line 20 calls 402LXP the only balance writer."
+expected = "The merged network has one BFT execution and finality model with an integrated kernel, not a separate sequencer and settlement trust boundary."
+proposal = "Rewrite this page for integrated paxd execution, balances and committed-receipt finality; remove the independent custody settlement narrative and identify current module ownership."
+owner_domain = 17
+class = "doc-drift"
+
+[finding.022]
+file = "docs/site/docs/overview/unified-network.md"
+line = 129
+severity = "medium"
+observed = "The site advertises https://api-mainnet-beta.paxeer.network/rpc as a router, GET /rpc/schema at line 171, an independent layerxd and custody joins for px_listAssets."
+expected = "Public node RPC uses the root path on api1 through api14 and api-mainnet-beta; px methods belong to the hosted gateway contract and there is no /rpc router."
+proposal = "Replace architecture and endpoint instructions with root-path node RPC and the hosted gateway OpenRPC contract, remove /rpc/schema and separate daemon instructions and describe ledger-backed asset views."
+owner_domain = 17
+class = "doc-drift"
+
+[finding.023]
+file = "docs/readme/README.pt-BR.md"
+line = 37
+severity = "medium"
+observed = "This translated README presents layerxd as the kernel domain and custody/anchor checkpoint settlement as live at lines 37-41, then diagrams a separate daemon and settlement flow."
+expected = "Translated entry pages must describe the same integrated paxd network, active interfaces and committed-block finality as the finished product."
+proposal = "Synchronize the pt-BR architecture text, component table and diagram with the corrected merged-network source, labeling historical ABIs and removing separate-daemon operational instructions."
+owner_domain = 17
+class = "doc-drift"
+
+[finding.024]
+file = "docs/readme/README.fr.md"
+line = 37
+severity = "medium"
+observed = "This translated README presents layerxd as the kernel domain and custody/anchor checkpoint settlement as live at lines 37-41, then diagrams a separate daemon and settlement flow."
+expected = "Translated entry pages must describe the same integrated paxd network, active interfaces and committed-block finality as the finished product."
+proposal = "Synchronize the fr architecture text, component table and diagram with the corrected merged-network source, labeling historical ABIs and removing separate-daemon operational instructions."
+owner_domain = 17
+class = "doc-drift"
+
+[finding.025]
+file = "docs/readme/README.ja.md"
+line = 37
+severity = "medium"
+observed = "This translated README presents layerxd as the kernel domain and custody/anchor checkpoint settlement as live at lines 37-41, then diagrams a separate daemon and settlement flow."
+expected = "Translated entry pages must describe the same integrated paxd network, active interfaces and committed-block finality as the finished product."
+proposal = "Synchronize the ja architecture text, component table and diagram with the corrected merged-network source, labeling historical ABIs and removing separate-daemon operational instructions."
+owner_domain = 17
+class = "doc-drift"
+
+[finding.026]
+file = "docs/readme/README.ru.md"
+line = 37
+severity = "medium"
+observed = "This translated README presents layerxd as the kernel domain and custody/anchor checkpoint settlement as live at lines 37-41, then diagrams a separate daemon and settlement flow."
+expected = "Translated entry pages must describe the same integrated paxd network, active interfaces and committed-block finality as the finished product."
+proposal = "Synchronize the ru architecture text, component table and diagram with the corrected merged-network source, labeling historical ABIs and removing separate-daemon operational instructions."
+owner_domain = 17
+class = "doc-drift"
+
+[finding.027]
+file = "docs/readme/README.zh-CN.md"
+line = 37
+severity = "medium"
+observed = "This translated README presents layerxd as the kernel domain and custody/anchor checkpoint settlement as live at lines 37-41, then diagrams a separate daemon and settlement flow."
+expected = "Translated entry pages must describe the same integrated paxd network, active interfaces and committed-block finality as the finished product."
+proposal = "Synchronize the zh-CN architecture text, component table and diagram with the corrected merged-network source, labeling historical ABIs and removing separate-daemon operational instructions."
+owner_domain = 17
+class = "doc-drift"
+
+[doc.01]
+path = "README.md"
+status = "stale"
+notes = "Lines 43-47, the architecture diagram and make layerxd at 145 retain a separate daemon and checkpoint settlement; rewrite for integrated paxd."
+
+[doc.02]
+path = "docs/wiki/UnifiedNetwork.md"
+status = "stale"
+notes = "Lines 11, 19, 54 and 188-206 advertise a live daemon, stateless verifier, custody proofs and anchor genesis. Historical ABI shapes need lifecycle labels."
+
+[doc.03]
+path = "docs/system/governance.md"
+status = "stale"
+notes = "Line 21 retains the custody constant without route lifecycle context; generated declarations need active versus historical labels."
+
+[doc.04]
+path = "docs/system/precompiles.md"
+status = "stale"
+notes = "Summary lines 32-40 and detailed custody/verifier sections accurately inventory ABI shapes but omit retirement and always-disabled methods."
+
+[doc.05]
+path = "docs/system/chain-modules.md"
+status = "stale"
+notes = "Summary lines 15-28 and custody section at 197 need lifecycle labels and must distinguish the embedded sequencer from historical custody/anchor writes."
+
+[doc.06]
+path = "docs/paxeer-network.md"
+status = "misleading"
+notes = "Lines 3-20 describe a separate sequencer, periodic L1 settlement and sole 402LXP balance writer instead of the merged execution model."
+
+[doc.07]
+path = "docs/site/docs/overview/unified-network.md"
+status = "misleading"
+notes = "Lines 11-19, 106-124 and 129-171 retain daemon, proof custody, /rpc router, obsolete custody asset joins and /rpc/schema instructions."
+
+[doc.08]
+path = "docs/readme/README.pt-BR.md"
+status = "stale"
+notes = "Read in full. Lines 37-41 and the architecture table/diagram present layerxd, custody and checkpoint settlement as active; synchronize this translation with the merged-network rewrite."
+
+[doc.09]
+path = "docs/readme/README.fr.md"
+status = "stale"
+notes = "Read in full. Lines 37-41 and the architecture table/diagram present layerxd, custody and checkpoint settlement as active; synchronize this translation with the merged-network rewrite."
+
+[doc.10]
+path = "docs/readme/README.ja.md"
+status = "stale"
+notes = "Read in full. Lines 37-41 and the architecture table/diagram present layerxd, custody and checkpoint settlement as active; synchronize this translation with the merged-network rewrite."
+
+[doc.11]
+path = "docs/readme/README.ru.md"
+status = "stale"
+notes = "Read in full. Lines 37-41 and the architecture table/diagram present layerxd, custody and checkpoint settlement as active; synchronize this translation with the merged-network rewrite."
+
+[doc.12]
+path = "docs/readme/README.zh-CN.md"
+status = "stale"
+notes = "Read in full. Lines 37-41 and the architecture table/diagram present layerxd, custody and checkpoint settlement as active; synchronize this translation with the merged-network rewrite."
+
+[doc.13]
+path = "spec/layerx-merge/programme/audit/BRIEF.kvx"
+status = "accurate"
+notes = "Finished-network facts, interface/security/recovery checks and record grammar applied throughout; deliberate historical declarations were distinguished from live retired consumers."
+
+[doc.14]
+path = "modules/layerxbridge/ATTESTATION.md"
+status = "accurate"
+notes = "Read in full. Digest domains, chain/vault binding, low-S signatures, signer ordering, nonces and event shapes agree with producer and Rust/Python consumers."
+
+[doc.15]
+path = "spec/layerx-merge/interfaces.kvx"
+status = "stale"
+notes = "Reviewed every package-listed produced/consumed row, including shape, status and caller paths; obsolete codec count, lifecycle notes and XWeb params shape have findings. This is a targeted row review, not the entire registry."
+
+[doc.16]
+path = "spec/layerx-merge/dispositions/d22-5.kvx"
+status = "accurate"
+notes = "Read the dispositions including resolved 22.6.7.1; ccd3b0d9d and current verifier tests agree on supported and retired below-height methods."
+
+[doc.17]
+path = "spec/layerx-merge/spec.kvx"
+status = "accurate"
+notes = "Read package requirement sections and relevant decisions, including 2231 and 2316. Disabled proof validators and the historical verifier split are intentional. This entry covers those sections, not unrelated feature content."
+
+[review.method]
+requirements = ["22998.1", "22012.1", "8348.1", "13083.1", "5093.1", "89817.1", "6015.1", "6063.1", "6009.1", "6271.1", "6272.1", "6273.1", "6274.1", "6275.1", "6276.1", "6484.1", "6484.2", "6484.3", "6484.4", "6487.1", "6487.2", "6487.3", "6488.1", "6488.2", "6488.3", "6489.1", "6489.2", "6489.3", "6489.4", "6489.5", "6489.6", "6490.1", "6490.2", "6490.3", "6491.1", "6491.2", "6491.3", "6491.4", "6492.1", "6492.2", "6493.1", "6493.2", "6493.3", "6493.4", "6494.1", "6494.2", "6494.3", "6494.4", "6494.5", "6494.6", "6494.7", "6494.8", "6494.9", "6494.10", "6494.11", "6494.12", "6494.13", "6494.14", "6494.15", "6494.16", "6494.17", "6494.18", "6494.19", "6495.1", "6495.2", "6495.3", "6495.4", "6496.1", "6496.2", "6496.3", "6496.4", "6497.1", "6497.2", "6497.3", "6497.4", "6497.5", "6805.1", "6841.1", "6841.2", "6841.3"]
+produces_reviewed = 400
+consumes_reviewed = 400
+notes = "Every non-generated member was read in full. Review covered listed registry signatures, status and callers, producer/transport/consumer field shapes and encodings, registration, errors, authority, untrusted lengths, gas, state and recovery. Only generated setup helpers take generated verdicts. No daemon, benchmark or broad runtime test was executed; only declared record gates qualify this task."
+retirement = "Decision 2231 disables custody proof verification even below merge. Decision 2316 keeps raw Ed25519, standalone receipt and state proof below merge; tagged domains, inclusion and discovery always refuse. Current tests honor these decisions and resolved findings were not reopened."
+recovery = "Custody and bridge state is keeper-backed: claims, deposit indices, replay protection and module balances are not an in-memory daemon cache. Reviewed upgrade done-height lookup and refusal before mutation. Hosted seed tests need migration to the integrated node restart path."
+extent = "Package produces and consumes lists are capped; every listed row was reviewed. Deleted C harness interfaces and absence tests were interpreted using lifecycle status instead of being mistaken for live callers."
+
+[review.bridge]
+notes = "Bridge signature arrays, bank units, topic/data indexing and attestation domains were traced through Go/Solidity, services/interop/crates/layerx-bridge-relayer/src/abi.rs, services/agent/sdk/python/layerx_sdk/bridge.py and ATTESTATION.md. Current hosted gateway asset reads use ledger 0x101a, not old custody joins. Retained platform core/probe custody helpers preserve historical tuple encoding; their declarations do not establish merged service availability."
+
+[review.proto]
+notes = "EVM and WASM protobuf names, scalar/bytes shapes, signer metadata and routes agree with generated native types. XWeb program IDs use base64 bytes over grpc-gateway with actual length-32 checks; request/result handlers distinguish InvalidArgument and NotFound. Params produces only params, making the registry paused-field claim documentary drift rather than an observed live decoder failure."

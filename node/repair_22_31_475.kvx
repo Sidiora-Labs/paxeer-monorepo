@@ -1,0 +1,52 @@
+[repair.22.31.475]
+mode = "BUILD"
+base_revision = "975b052e36fad2aa5620ba78b30a4c47f0dc264b"
+dependents = ["22.33.1076", "22.33.47"]
+qualification = "The verified candidate revision, exact command, exit and private log are recorded by hf-done in /out/run/gates.jsonl; this record makes no claim of qualification until that gate passes."
+verify_cmd = "go test -count=1 -run '^TestRepair475_' ./node/"
+
+[observation.reported]
+source = "22.33.1076 attempt 5"
+height = 3
+application_hash = "6869C4E57274EF62B9E7049396550A9C3FF66681D7DB5E47ACAA75045F368D59"
+consensus_hash = "997A6D6A11195C23E9CD168CAAE1F164D2D955C18BA1BA354DDA859BB6E02CCC"
+reopen = "The application hash was identical before close, after plain reopen and after deletion-loader reopen; the reported disagreement was in the consensus committed record."
+
+[producer]
+header = "node/sequencer/executor.go Open correctly carries the previous height's hash in Header.AppHash; it now copies those bytes."
+commit = "node/abci.go Commit captures and copies the height-bound post-commit hash after BaseApp.Commit and publishes that hash to the listener."
+record = "The reproduced wrong producer is ABCI FinalizeBlock.AppHash: FinalizeBlocker hashes the state before HandlePreCommit introduces the node/committed-block-id key into the upgrade store. Consensus records that earlier hash while Commit and restart report the durable hash. The driver was already called after commit; the executor header's parent hash is correct."
+repair = "App.FinalizeBlock now includes the same committed-block-id marker before returning the working hash, leaving LastBlockID publication to Commit. Driver.OnCommit also rejects a supplied parent or otherwise unequal hash before Release and writes the application's validated post-commit hash. No old mismatched record is silently accepted or rewritten."
+handshake = "node/sequencer/node_start.go is the existing startup handshake; node/node_start.go supplies shared application hash validation, not a second startup implementation. The comparison and missing-COMMITTED crash-recovery Release use the same height-bound hash contract."
+
+[proof]
+heights = [1, 2, 3]
+hashes = "TestRepair475_CommitHashesSurviveEveryRestart asserts at each height that FinalizeBlock.AppHash equals CommitMultiStore.LastCommitID.Hash, the driver-produced persisted COMMITTED.AppHash and the reopened hash; each new header equals the previous height's hash and differs from its own committed hash. Exact generated hashes are attached to assertion diagnostics via t.Logf."
+restart = "The application and WAL are closed and reopened from the same temporary home after every height, and the real Node.Start handshake must install the next open layer."
+corruption = "Production-emitted WAL records are modified with valid framing and CRC to carry a parent hash, damaged hash or wrong sequence; Node.Start must refuse each without installing the runtime."
+crash = "Truncating the producer WAL immediately before height three COMMITTED simulates a crash after application commit; startup reconstructs its own-height hash through Replicator.Release and a second restart verifies durability."
+producer_refusal = "Driver.OnCommit with the previous height's hash must fail without writing any WAL bytes; callers cannot mutate the application's committed hash through the returned snapshot."
+
+[qualification.first_attempt]
+revision = "20edc0888a4217da253556074c97c771ffc3e656"
+command = "cg spec done 22.31.475 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "At height one FinalizeBlock returned 10469C254544F9628A5B278C410C4108A30CAF06AE0DA8BF95C441E9D43EDD40 while Commit and the driver's COMMITTED record held 09361BDBFA3A862481459D0CC2DC09B8DA9DCE978D0CF63E463D534F83691009."
+repair = "Include the block identity marker in the state before returning FinalizeBlock.AppHash; retain all equality assertions and give every test height a real consensus header hash."
+
+[gotcha.start_path]
+observed = "The task narrative calls the existing handshake node/node_start.go, but the implementation lives in node/sequencer/node_start.go."
+resolution = "Modify that existing sequencer path and place only the shared application hash validation in the required node/node_start.go path."
+
+[qualification.second_attempt]
+revision = "2d3293c71b44c58085f601795e6f345a635662a9"
+command = "cg spec done 22.31.475 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-2.log"
+observed = "The strengthened test's HeaderFromProto validation rejected protocol version zero before finalization executed."
+repair = "Supply version.BlockProtocol and the production consensus proposer's address on every test header, preserving header validation and all hash assertions."
+
+[continuation]
+review = "The inherited test helper already supplies the required block protocol and proposer. Retain that repair and all producer, restart, corruption and crash-recovery assertions; qualify the inherited implementation through the declared gates."
+identity = "Each successful Commit must publish the block identity used by FinalizeBlock, and every restarted application must restore that exact identity alongside its own-height application hash."

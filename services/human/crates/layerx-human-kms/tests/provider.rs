@@ -38,6 +38,8 @@ type Result<T> = std::result::Result<T, Box<dyn Error>>;
 mod attestor_cluster;
 #[path = "provider/native_setup.rs"]
 mod native_setup;
+#[path = "support/principal_attestors.rs"]
+mod principal_attestors;
 const MAX: usize = 2_097_152;
 static ATTESTOR_FIXTURE: Mutex<()> = Mutex::new(());
 struct Host {
@@ -59,6 +61,9 @@ impl Drop for Host {
 }
 impl Host {
     fn new() -> Result<Self> {
+        Self::for_bindings(&[])
+    }
+    fn for_bindings(bindings: &[u8]) -> Result<Self> {
         let _fixture = ATTESTOR_FIXTURE
             .lock()
             .map_err(|_| "attestor fixture lock poisoned")?;
@@ -93,8 +98,16 @@ impl Host {
         let clock = RuntimeClock::connect(binding.clone())?;
         let listener = TcpListener::bind("127.0.0.1:0")?;
         let address = listener.local_addr()?;
-        let mut attestors = attestor_cluster::Cluster::start(&[])?;
-        attestors.provision_kms_evm(&root)?;
+        let mut attestors = attestor_cluster::Cluster::start_with_policies(
+            &[],
+            &serde_json::json!({"version":1,"defaults":{
+                "chain_id":125,"kinds":["lx_activity","evm_tx"],
+                "selectors":{"0x000000000000000000000000000000000000101a":[format!("0x{}", attestor_cluster::hex(&layerx_crypto::disclosure::call::ledger_selector("openAccount(bytes32)")))]},
+                "caps":{"native":{"per_transaction":"1000000000000000000","daily":"10000000000000000000"}},"rate_per_minute":1000
+            }}),
+            &serde_json::json!({"version":1,"defaults":{"modules":{}}}),
+        )?;
+        principal_attestors::provision(&mut attestors, &root, "beta-kms", bindings)?;
         let environment = [
             ("REGISTRY_FILE", "registry.json"),
             ("CLIENT_CA_DER", "ca.der"),
@@ -103,7 +116,6 @@ impl Host {
             ("CLIENT_CERT_DER", "client.der"),
             ("SEAL_SECRET_FILE", "seal"),
             ("ATTESTOR_CONFIG_FILE", "attestor.json"),
-            ("EVM_ASSERTION_FILE", "evm-assertion.jwt"),
         ]
         .into_iter()
         .map(|(suffix, file)| (suffix, root.join(file)))
@@ -339,43 +351,16 @@ impl Host {
         checked(write_frame(&mut tls, request, MAX))?;
         checked(read_frame(&mut tls, MAX))
     }
-    fn sender(&self, handle: &[u8]) -> Result<[u8; 20]> {
-        use ring::aead::{Aad, LessSafeKey, Nonce, UnboundKey, AES_256_GCM};
-        #[derive(serde::Deserialize)]
-        struct SigningRecord {
-            handle: [u8; 32],
-            seed: [u8; 32],
-        }
-        impl Drop for SigningRecord {
-            fn drop(&mut self) {
-                zeroize::Zeroize::zeroize(&mut self.seed);
-            }
-        }
-        #[derive(serde::Deserialize)]
-        struct SigningState {
-            records: std::collections::BTreeMap<String, SigningRecord>,
-        }
-        let seal = zeroize::Zeroizing::new(fs::read(self.root.join("seal"))?);
-        let mut encrypted = zeroize::Zeroizing::new(fs::read(self.root.join("state/state.aead"))?);
-        let nonce = encrypted[..12].try_into()?;
-        let key = checked(UnboundKey::new(&AES_256_GCM, &seal))?;
-        let mut aad = b"LXKP/state/v1\0beta-kms".to_vec();
-        aad.extend(125_u32.to_be_bytes());
-        let plain = checked(LessSafeKey::new(key).open_in_place(
-            Nonce::assume_unique_for_key(nonce),
-            Aad::from(&aad),
-            &mut encrypted[12..],
-        ))?;
-        let state: SigningState = serde_json::from_slice(plain)?;
-        let record = state
-            .records
-            .values()
-            .find(|record| record.handle.as_slice() == handle)
-            .ok_or("missing signing record")?;
-        let key = k256::ecdsa::SigningKey::from_slice(&record.seed)?;
-        checked(layerx_crypto::secp256k1::evm_address(
-            key.verifying_key().to_encoded_point(false).as_bytes(),
-        ))
+    fn sender(&self, binding: [u8; 32], handle: &[u8]) -> Result<[u8; 20]> {
+        use layerx_human_service::custody::{PrincipalKeyBinding, ProviderKeyReference};
+        let remote = self.remote("client", "beta-kms")?;
+        let binding = PrincipalKeyBinding::from_digest(binding, 125, KeyClass::HumanPrimary)?;
+        let reference = ProviderKeyReference::new(handle.to_vec())?;
+        let described = remote.describe_key(&binding, &reference)?;
+        let descriptor = remote.wallet_descriptor(&binding, &reference)?;
+        assert_eq!(descriptor.native_ed25519, described.public_key());
+        assert_ne!(descriptor.evm_secp256k1, [0; 20]);
+        Ok(descriptor.evm_secp256k1)
     }
 }
 fn blob(out: &mut Vec<u8>, value: &[u8]) -> Result<()> {
@@ -710,7 +695,13 @@ fn encoded_disclosure(disclosure: &layerx_crypto::disclosure::Disclosure) -> Res
 fn checked<T, E: std::fmt::Debug>(value: std::result::Result<T, E>) -> Result<T> {
     value.map_err(|error| format!("{error:?}").into())
 }
-fn verify_evm_signature(host: &Host, handle: &[u8], digest: &[u8; 32], bytes: &[u8]) -> Result<()> {
+fn verify_evm_signature(
+    host: &Host,
+    binding: [u8; 32],
+    handle: &[u8],
+    digest: &[u8; 32],
+    bytes: &[u8],
+) -> Result<()> {
     assert_eq!(bytes.len(), 65);
     let signature = k256::ecdsa::Signature::from_slice(&bytes[..64])?;
     let recovery =
@@ -720,7 +711,7 @@ fn verify_evm_signature(host: &Host, handle: &[u8], digest: &[u8; 32], bytes: &[
         checked(layerx_crypto::secp256k1::evm_address(
             key.to_encoded_point(false).as_bytes()
         ))?,
-        host.sender(handle)?
+        host.sender(binding, handle)?
     );
     Ok(())
 }
@@ -816,7 +807,7 @@ fn evm_signing_request(
     let mut bytes = request(5, binding, handle, None)?;
     bytes[4..6].copy_from_slice(&7_u16.to_be_bytes());
     bytes.extend(digest);
-    bytes.extend(host.sender(handle)?);
+    bytes.extend(host.sender(binding, handle)?);
     blob(&mut bytes, canonical)?;
     blob(&mut bytes, disclosure)?;
     Ok((bytes, digest))
@@ -840,7 +831,7 @@ fn construct_signing_call(
 fn canonical_signing_and_disclosure_refusals() -> Result<()> {
     use layerx_crypto::send::{ledger_payment_call, CallOptions};
     use std::io::Write;
-    let host = Host::new()?;
+    let host = Host::for_bindings(&[41])?;
     let binding = [41; 32];
     let (handle, _) = facts(&host.call(&request(1, binding, &[], None)?)?)?;
     let (call, wallet) = authorize_canonical_send(&host, binding, &handle)?;
@@ -874,7 +865,7 @@ fn canonical_signing_and_disclosure_refusals() -> Result<()> {
     let response = host.call(&bytes)?;
     assert_eq!(response[7], 0);
     assert_eq!(response.len(), 73);
-    verify_evm_signature(&host, &handle, &digest, &response[8..])?;
+    verify_evm_signature(&host, binding, &handle, &digest, &response[8..])?;
     let mut changed_disclosure = disclosure.clone();
     let last = changed_disclosure.len() - 2;
     changed_disclosure[last] ^= 1;
@@ -951,7 +942,7 @@ fn monetary_payloads() -> Result<Vec<layerx_types::payload::Payload>> {
 fn monetary_roles_are_bound_by_the_real_provider_before_and_after_restart() -> Result<()> {
     use layerx_crypto::disclosure::AmountRole;
     use layerx_crypto::payments::Payment;
-    let mut host = Host::new()?;
+    let mut host = Host::for_bindings(&[71])?;
     let binding = [71; 32];
     let (handle, _) = facts(&host.call(&request(1, binding, &[], None)?)?)?;
     let payloads = monetary_payloads()?;
@@ -962,7 +953,8 @@ fn monetary_roles_are_bound_by_the_real_provider_before_and_after_restart() -> R
         }
         for payload in &payloads {
             let call = native_setup::setup_call(payload.clone(), (7, 1))?;
-            let (canonical, disclosure) = construct_signing_call(&call, host.sender(&handle)?)?;
+            let (canonical, disclosure) =
+                construct_signing_call(&call, host.sender(binding, &handle)?)?;
             let roles: Vec<_> = disclosure
                 .amounts
                 .iter()
@@ -991,7 +983,7 @@ fn monetary_roles_are_bound_by_the_real_provider_before_and_after_restart() -> R
             let response = host.call(&request)?;
             assert_eq!(response[7], 0);
             assert_eq!(response.len(), 73);
-            verify_evm_signature(&host, &handle, &digest, &response[8..])?;
+            verify_evm_signature(&host, binding, &handle, &digest, &response[8..])?;
             let start = 1
                 + 4
                 + 4
@@ -1151,7 +1143,7 @@ fn evm_authorization_nonce_dedup_and_acknowledgement_recovery() -> Result<()> {
 
 #[test]
 fn executor_certificate_cannot_authorize_or_manage_keys() -> Result<()> {
-    let host = Host::new()?;
+    let host = Host::for_bindings(&[81])?;
     let binding = [81; 32];
     let (handle, _) = facts(&host.call(&request(1, binding, &[], None)?)?)?;
     for operation in [0, 1, 2, 4, 7, 11] {
@@ -1190,7 +1182,7 @@ fn export_signing_frame(
         .next()
         .ok_or("missing payload")?;
     let call = native_setup::setup_call(payload, (7, 1))?;
-    let (canonical, disclosure) = construct_signing_call(&call, host.sender(handle)?)?;
+    let (canonical, disclosure) = construct_signing_call(&call, host.sender(binding, handle)?)?;
     evm_signing_request(
         host,
         binding,
@@ -1202,8 +1194,10 @@ fn export_signing_frame(
 
 #[test]
 fn primary_export_is_admitted_once_committed_before_success_and_survives_restart() -> Result<()> {
+    use layerx_human_kms::export::{ExportAcknowledgement, ExportRecipient};
     use layerx_human_service::custody::{KmsError, PrincipalKeyBinding, ProviderKeyReference};
-    let mut host = Host::new()?;
+    use ring::signature::KeyPair;
+    let mut host = Host::for_bindings(&[91, 92, 94])?;
     let client = host.remote("client", "beta-kms")?;
     let executor = host.remote("foreign", "beta-kms")?;
     let human = PrincipalKeyBinding::from_digest([91; 32], 125, KeyClass::HumanPrimary)?;
@@ -1216,10 +1210,11 @@ fn primary_export_is_admitted_once_committed_before_success_and_survives_restart
     let (sign, digest) = export_signing_frame(&host, [91; 32], &handle)?;
     let signed = host.call(&sign)?;
     assert_eq!(signed[7], 0);
-    verify_evm_signature(&host, &handle, &digest, &signed[8..])?;
+    verify_evm_signature(&host, [91; 32], &handle, &digest, &signed[8..])?;
 
-    let mut export = request(14, [91; 32], &handle, None)?;
-    export[4..6].copy_from_slice(&5_u16.to_be_bytes());
+    let recipient = ExportRecipient::new([11; 32])?;
+    let ceremony = recipient.ceremony([12; 32])?;
+    let export = client.encode_export_request(&human, &reference, &ceremony)?;
     let mut legacy = export.clone();
     legacy[4..6].copy_from_slice(&1_u16.to_be_bytes());
     let mut evm_version = export.clone();
@@ -1247,38 +1242,45 @@ fn primary_export_is_admitted_once_committed_before_success_and_survives_restart
     checked(write_frame(&mut stream, &export, MAX))?;
     assert_eq!(
         checked(read_frame(&mut stream, MAX))?,
-        b"LXKP\0\x05\x0e\x01"
+        b"LXKP\0\x08\x0e\x01"
     );
     assert_eq!(
-        executor.export_primary_key(&human, &reference).err(),
+        executor
+            .export_envelope(&human, &reference, &ceremony)
+            .err(),
         Some(KmsError::Refused)
     );
     assert_eq!(
         host.remote("client", "other-kms")?
-            .export_primary_key(&human, &reference)
+            .export_envelope(&human, &reference, &ceremony)
             .err(),
         Some(KmsError::Refused)
     );
     assert_eq!(
-        client.export_primary_key(&agent, &agent_reference).err(),
+        client
+            .export_envelope(&agent, &agent_reference, &ceremony)
+            .err(),
         Some(KmsError::Refused)
     );
     let misclassed = PrincipalKeyBinding::from_digest([91; 32], 125, KeyClass::AgentPrimary)?;
     assert_eq!(
-        client.export_primary_key(&misclassed, &reference).err(),
-        Some(KmsError::Integrity)
-    );
-    assert_eq!(
         client
-            .export_primary_key(&human, &ProviderKeyReference::new(vec![33; 32])?)
+            .export_envelope(&misclassed, &reference, &ceremony)
             .err(),
         Some(KmsError::Integrity)
     );
     assert_eq!(
         client
-            .export_primary_key(
+            .export_envelope(&human, &ProviderKeyReference::new(vec![33; 32])?, &ceremony)
+            .err(),
+        Some(KmsError::Integrity)
+    );
+    assert_eq!(
+        client
+            .export_envelope(
                 &PrincipalKeyBinding::from_digest([93; 32], 125, KeyClass::HumanPrimary)?,
-                &reference
+                &reference,
+                &ceremony
             )
             .err(),
         Some(KmsError::KeyNotFound)
@@ -1292,7 +1294,7 @@ fn primary_export_is_admitted_once_committed_before_success_and_survives_restart
     let blocker = host.root.join("state/state.next");
     fs::create_dir(&blocker)?;
     assert_eq!(
-        client.export_primary_key(&human, &reference).err(),
+        client.export_envelope(&human, &reference, &ceremony).err(),
         Some(KmsError::Unavailable)
     );
     assert_eq!(
@@ -1309,7 +1311,33 @@ fn primary_export_is_admitted_once_committed_before_success_and_survives_restart
     );
     assert_eq!(host.call(&sign)?[7], 0);
 
-    let seed = client.export_primary_key(&human, &reference)?;
+    let envelope = client.export_envelope(&human, &reference, &ceremony)?;
+    assert_eq!(
+        client.export_envelope(&human, &reference, &ceremony)?,
+        envelope
+    );
+    let (seed, acknowledgement) = recipient.open("beta-kms", human.digest(), &handle, &envelope)?;
+    let wrong_recipient = ExportRecipient::new([13; 32])?;
+    assert!(wrong_recipient
+        .open("beta-kms", human.digest(), &handle, &envelope)
+        .is_err());
+    assert_eq!(
+        client.export_envelope(&human, &reference, &wrong_recipient.ceremony(ceremony.id)?),
+        Err(KmsError::Conflict)
+    );
+    assert_eq!(
+        client.export_envelope(&human, &reference, &recipient.ceremony([14; 32])?),
+        Err(KmsError::Conflict)
+    );
+    let invalid_ack = ExportAcknowledgement {
+        ceremony: ceremony.clone(),
+        proof: [0; 32],
+    };
+    assert_eq!(
+        client.acknowledge_export(&human, &reference, &invalid_ack),
+        Err(KmsError::Refused)
+    );
+    client.acknowledge_export(&human, &reference, &acknowledgement)?;
     let derived = checked(ring::signature::Ed25519KeyPair::from_seed_unchecked(
         seed.as_slice(),
     ))?;
@@ -1323,7 +1351,7 @@ fn primary_export_is_admitted_once_committed_before_success_and_survives_restart
             host.start()?;
         }
         assert_eq!(
-            client.export_primary_key(&human, &reference).err(),
+            client.export_envelope(&human, &reference, &ceremony).err(),
             Some(KmsError::SelfCustodied)
         );
         assert_eq!(host.call(&sign)?[7], 6);
@@ -1335,10 +1363,12 @@ fn primary_export_is_admitted_once_committed_before_success_and_survives_restart
         );
         assert_eq!(
             client.evm_operation(6, &human, &reference, &[]).err(),
-            Some(KmsError::Refused)
+            Some(KmsError::SelfCustodied)
         );
         assert_eq!(
-            executor.export_primary_key(&human, &reference).err(),
+            executor
+                .export_envelope(&human, &reference, &ceremony)
+                .err(),
             Some(KmsError::Refused)
         );
         assert_eq!(client.create_key(&human).err(), Some(KmsError::Conflict));
@@ -1351,8 +1381,8 @@ fn primary_export_is_admitted_once_committed_before_success_and_survives_restart
     let lost = PrincipalKeyBinding::from_digest([94; 32], 125, KeyClass::HumanPrimary)?;
     let lost_created = client.create_key(&lost)?;
     let lost_reference = lost_created.reference().clone();
-    let mut lost_export = request(14, [94; 32], lost_reference.as_bytes(), None)?;
-    lost_export[4..6].copy_from_slice(&5_u16.to_be_bytes());
+    let lost_ceremony = recipient.ceremony([15; 32])?;
+    let lost_export = client.encode_export_request(&lost, &lost_reference, &lost_ceremony)?;
     {
         let mut tls = host.connection(Some("client"))?;
         checked(write_frame(&mut tls, &lost_export, MAX))?;
@@ -1360,22 +1390,54 @@ fn primary_export_is_admitted_once_committed_before_success_and_survives_restart
     let clock = Arc::clone(&host.clock);
     let mut deadline = Deadline::start(clock.as_ref(), Duration::from_secs(5))?;
     loop {
-        match client.export_primary_key(&lost, &lost_reference) {
-            Err(KmsError::SelfCustodied) => break,
-            Ok(_) => return Err("lost-response export was handed out twice".into()),
-            Err(_) => {}
+        if client.evm_operation(6, &lost, &lost_reference, &[]).err()
+            == Some(KmsError::SelfCustodied)
+        {
+            break;
         }
         if deadline.remaining(clock.as_ref())?.is_zero() {
             return Err("lost-response export was not committed".into());
         }
         std::thread::sleep(Duration::from_millis(20));
     }
+    let lost_envelope = client.export_envelope(&lost, &lost_reference, &lost_ceremony)?;
     host.stop();
     host.start()?;
     assert_eq!(
-        client.export_primary_key(&lost, &lost_reference).err(),
+        client.export_envelope(&lost, &lost_reference, &lost_ceremony)?,
+        lost_envelope
+    );
+    let (recovered, lost_ack) = recipient.open(
+        "beta-kms",
+        lost.digest(),
+        lost_reference.as_bytes(),
+        &lost_envelope,
+    )?;
+    assert_eq!(
+        checked(ring::signature::Ed25519KeyPair::from_seed_unchecked(
+            &*recovered
+        ))?
+        .public_key()
+        .as_ref(),
+        lost_created.public_key()
+    );
+    assert!(client
+        .export_envelope(&human, &lost_reference, &lost_ceremony)
+        .is_err());
+    assert_eq!(
+        client.export_envelope(&lost, &lost_reference, &recipient.ceremony([16; 32])?),
+        Err(KmsError::Conflict)
+    );
+    client.acknowledge_export(&lost, &lost_reference, &lost_ack)?;
+    host.stop();
+    host.start()?;
+    assert_eq!(
+        client
+            .export_envelope(&lost, &lost_reference, &lost_ceremony)
+            .err(),
         Some(KmsError::SelfCustodied)
     );
+    client.acknowledge_export(&lost, &lost_reference, &lost_ack)?;
     assert_eq!(client.create_key(&lost).err(), Some(KmsError::Conflict));
     assert_eq!(
         client.describe_key(&lost, &lost_reference)?.public_key(),
@@ -1393,8 +1455,25 @@ fn primary_export_is_admitted_once_committed_before_success_and_survives_restart
     let alice_public = keystore.create(&alice, &key, KeyClass::HumanPrimary)?;
     let bob_public = keystore.create(&bob, &key, KeyClass::AgentPrimary)?;
     assert!(keystore.export_primary_once(&bob, &key).is_err());
-    let exported = keystore.export_primary_once(&alice, &key)?;
-    assert_eq!(exported.public_key(), alice_public);
+    let alice_binding = keystore.evm_binding(&alice, &key)?;
+    let alice_reference = keystore.evm_provider_reference(&alice, &key)?;
+    let alice_ceremony = recipient.ceremony([17; 32])?;
+    let exported = client.export_envelope(&alice_binding, &alice_reference, &alice_ceremony)?;
+    let (alice_seed, alice_ack) = recipient.open(
+        "beta-kms",
+        alice_binding.digest(),
+        alice_reference.as_bytes(),
+        &exported,
+    )?;
+    assert_eq!(
+        checked(ring::signature::Ed25519KeyPair::from_seed_unchecked(
+            &*alice_seed
+        ))?
+        .public_key()
+        .as_ref(),
+        alice_public
+    );
+    client.acknowledge_export(&alice_binding, &alice_reference, &alice_ack)?;
     assert!(keystore.export_primary_once(&alice, &key).is_err());
     host.stop();
     host.start()?;
@@ -1681,7 +1760,7 @@ fn owner_fee_grants_bind_every_disclosed_budget_field_across_provider_restart() 
     use layerx_crypto::authority_grant::AuthorityGrant;
     use layerx_types::ids::Did;
     use layerx_types::payload::{ActivityType, ModuleId, Payload};
-    let mut host = Host::new()?;
+    let mut host = Host::for_bindings(&[73])?;
     let binding = [73; 32];
     let (handle, _) = facts(&host.call(&request(1, binding, &[], None)?)?)?;
     let actor = checked(Did::new(b"did:layerx:alice"))?;
@@ -1697,7 +1776,7 @@ fn owner_fee_grants_bind_every_disclosed_budget_field_across_provider_restart() 
         &checked(grant.payload())?,
     ))?;
     let grant = checked(AuthorityGrant::from_payload(payload.as_bytes()))?;
-    let sender = host.sender(&handle)?;
+    let sender = host.sender(binding, &handle)?;
     let call = canonical_send(
         125,
         &layerx_crypto::send::CallOptions {
@@ -1735,7 +1814,7 @@ fn owner_fee_grants_bind_every_disclosed_budget_field_across_provider_restart() 
         let response = host.call(&signed_request)?;
         assert_eq!(response[7], 0);
         assert_eq!(response.len(), 73);
-        verify_evm_signature(&host, &handle, &digest, &response[8..])?;
+        verify_evm_signature(&host, binding, &handle, &digest, &response[8..])?;
         for changed in mutated_payment_fields(&disclosure) {
             assert_eq!(
                 host.call(
@@ -1773,7 +1852,7 @@ fn owner_fee_grants_bind_every_disclosed_budget_field_across_provider_restart() 
 fn session_registration_and_replacement_disclosures_survive_provider_restart() -> Result<()> {
     use layerx_crypto::disclosure::{DisclosedSessionGrant, DisclosedSessionReplacement};
     use layerx_crypto::session::decode_session_key;
-    let mut host = Host::new()?;
+    let mut host = Host::for_bindings(&[74])?;
     let binding = [74; 32];
     let (handle, _) = facts(&host.call(&request(1, binding, &[], None)?)?)?;
     let grantor = checked(layerx_intents::canonical::did_id_for_protocol(
@@ -1808,7 +1887,7 @@ fn session_registration_and_replacement_disclosures_survive_provider_restart() -
                 &layerx_intents::Intent::v3(layerx_intents::IntentKind::SessionGrant(grant)),
                 &registry()?,
             ))?;
-            let sender = host.sender(&handle)?;
+            let sender = host.sender(binding, &handle)?;
             let call = canonical_send(
                 125,
                 &layerx_crypto::send::CallOptions {
@@ -1845,7 +1924,7 @@ fn session_registration_and_replacement_disclosures_survive_provider_restart() -
                 evm_signing_request(&host, binding, &handle, &canonical, &encoded)?;
             let response = host.call(&request)?;
             assert_eq!(response[7], 0);
-            verify_evm_signature(&host, &handle, &digest, &response[8..])?;
+            verify_evm_signature(&host, binding, &handle, &digest, &response[8..])?;
             for changed in mutated_payment_fields(&disclosure) {
                 assert_eq!(
                     host.call(
@@ -1907,4 +1986,79 @@ fn session_disclosure_grant(
             SessionPurpose::Activity
         },
     }))
+}
+
+#[test]
+fn public_wallet_signing_isolated_for_two_principals_after_restart() -> Result<()> {
+    let mut host = Host::new()?;
+    let client = host.remote("client", "beta-kms")?;
+    let store = Keystore::open_production(
+        host.root.join("isolated-client"),
+        125,
+        host.remote("client", "beta-kms")?,
+    )?;
+    let key = KeyId::new("primary")?;
+    let mut rows = Vec::new();
+    for name in ["alice", "bob"] {
+        let principal = PrincipalId::new(name)?;
+        let public = store.create(&principal, &key, KeyClass::HumanPrimary)?;
+        let binding = store.evm_binding(&principal, &key)?;
+        let reference = store.evm_provider_reference(&principal, &key)?;
+        let description = client.describe_key(&binding, &reference)?;
+        assert_eq!(description.public_key(), public);
+        let wallet = store.evm_wallet(&principal, &key)?;
+        assert_eq!(
+            client
+                .wallet_descriptor(&binding, &reference)?
+                .evm_secp256k1,
+            wallet
+        );
+        rows.push((binding, reference, wallet));
+    }
+    assert_ne!(rows[0].2, rows[1].2);
+    assert!(client.wallet_descriptor(&rows[1].0, &rows[0].1).is_err());
+    for pass in 0..2 {
+        if pass == 1 {
+            host.stop();
+            host.start()?;
+        }
+        for (binding, reference, wallet) in &rows {
+            assert_eq!(
+                client.wallet_descriptor(binding, reference)?.evm_secp256k1,
+                *wallet
+            );
+            let mut to = [0; 20];
+            to[18..].copy_from_slice(&[0x10, 0x1a]);
+            let mut data =
+                layerx_crypto::disclosure::call::ledger_selector("openAccount(bytes32)").to_vec();
+            data.extend([3; 32]);
+            let call = layerx_crypto::evm_transaction::Eip1559Call {
+                chain_id: 125,
+                nonce: pass,
+                max_priority_fee_per_gas: 1,
+                max_fee_per_gas: 2,
+                gas_limit: 100_000,
+                to,
+                data,
+            };
+            let (canonical, disclosure) = construct_signing_call(&call, *wallet)?;
+            let (frame, digest) = evm_signing_request(
+                &host,
+                binding.digest(),
+                reference.as_bytes(),
+                &canonical,
+                &encoded_disclosure(&disclosure)?,
+            )?;
+            let response = host.call(&frame)?;
+            assert_eq!(response[7], 0);
+            verify_evm_signature(
+                &host,
+                binding.digest(),
+                reference.as_bytes(),
+                &digest,
+                &response[8..],
+            )?;
+        }
+    }
+    Ok(())
 }

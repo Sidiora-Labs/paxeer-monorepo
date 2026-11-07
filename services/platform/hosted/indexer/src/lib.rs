@@ -11,6 +11,8 @@ pub mod abi;
 pub mod ai_health;
 pub mod ai_market;
 pub mod ai_reputation;
+pub mod ai_runtime;
+pub mod ai_views;
 pub mod api;
 pub mod backfill;
 pub mod blockscout;
@@ -36,6 +38,8 @@ pub enum IndexError {
     Source(String),
     /// The durable store failed.
     Store(String),
+    /// A names read exceeds the maximum complete result size.
+    NameResultLimit,
     /// The configuration is incomplete or invalid.
     Config(String),
     /// A reorganisation reaches below the finality window; indexing stops
@@ -51,6 +55,7 @@ impl fmt::Display for IndexError {
             Self::Decode(detail) => write!(formatter, "decode failed: {detail}"),
             Self::Source(detail) => write!(formatter, "source failed: {detail}"),
             Self::Store(detail) => write!(formatter, "store failed: {detail}"),
+            Self::NameResultLimit => write!(formatter, "names result exceeds its bound"),
             Self::Config(detail) => write!(formatter, "configuration invalid: {detail}"),
             Self::ReorgBeyondFinality { source, position } => write!(
                 formatter,

@@ -1,0 +1,32 @@
+[meta]
+task = "22.33.1430"
+mode = "BUILD"
+record = "spec/layerx-merge/programme/audit/records/22.30.80.kvx"
+baseline = "No baseline gate run: the declared test did not exist on the starting tree, and task gate ordering explicitly forbids verification before implementation and hf-build. No pre-change test failure is claimed."
+evidence = "The runner records the candidate revision, exact command, exit status and private log in the hf-build/hf-done ledger."
+wiring_requests = "None; production producers, persistence, publisher, SMTP acknowledgement and verification consumer are all inside the declared source scope."
+gotcha = "A checkpoint must rewind the still-open journal after truncation; set_len alone retains its previous write offset."
+
+[finding.identity-outbox-durability]
+tests = ["identity_outbox_durability_recovers_before_and_after_rename", "identity_outbox_failed_publication_is_retried_after_reopen"]
+repair = "Atomically persist encrypted delivery with pending signup, sync outbox creation and publication, reconcile incomplete publication on startup and periodic delivery passes, and retain retry metadata until the real SMTP consumer acknowledges delivery."
+
+[finding.identity-verify-session-retry]
+tests = ["identity_verify_session_retry_is_atomic_and_recovers_lost_response", "identity_http_signup_retry_and_authenticated_rotation_use_the_real_codec_and_routes"]
+repair = "Commit principal verification, session identity and encrypted response together after generating entropy; retain one capacity-bounded completion until the earlier of token/session expiry, returning the same result on retry and refusing revoked sessions."
+
+[finding.identity-hourly-key-bound]
+tests = ["identity_hourly_key_bound_refuses_distinct_ip_flood_and_capacity"]
+repair = "The durable authoritative limiter checks both limits and strict key capacity before allocating a new IP/email key; refused attempts allocate no windows."
+
+[finding.identity-rate-window-restart]
+tests = ["identity_rate_window_restart_preserves_ip_and_email_refusals_until_expiry", "identity_hourly_key_bound_refuses_distinct_ip_flood_and_capacity"]
+repair = "Journal admitted hourly IP/email counters with the store and restore them on reopen; only the actual hour boundary retires them."
+
+[finding.identity-expired-signup-growth]
+tests = ["identity_expired_signup_growth_reclaims_live_state_and_preserves_bindings"]
+repair = "Durably reclaim expired pending signups, deliveries and verification results plus obsolete hourly/daily counters, checkpoint the reclaimed state, and preserve verified email/principal bindings and the separate audit log."
+
+[finding.identity-signup-subject-replacement]
+tests = ["identity_signup_subject_replacement_is_refused_and_explicit_rotation_survives", "identity_http_signup_retry_and_authenticated_rotation_use_the_real_codec_and_routes"]
+repair = "Reject an existing subject at signup admission and again at verification, including a pending-signup race; authenticated principal management remains the explicit rotation route."

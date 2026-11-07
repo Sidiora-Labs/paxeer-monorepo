@@ -1,0 +1,48 @@
+[issue.1567]
+number = 1567
+title = "[P2] Populate Autobahn committed header roots before publishing newHeads"
+revision = "53150198caf59defafffab36d79dbc66d921ae57"
+verdict = "task"
+evidence = "consensus/internal/p2p/giga_router.go:331-351 forwards Autobahn committed headers whose receipts, state and transactions roots node/app.go:1952-1957 and node/abci.go:318-326 fill only afterwards, while rpc/subscribe.go:129-161 and 520-553 publish newHeads from the forwarded header."
+close_comment = "newHeads notifications for Autobahn-committed blocks now carry populated header roots: the roots are filled before the header is published and the subscription test asserts them."
+
+[task.18.1567.1]
+title = "Issue #1567: Populate Autobahn committed header roots before publishing newHeads"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181567.1"]
+capabilities = []
+interfaces = []
+do_1 = "Decision 2490 (triage record spec/layerx-merge/programme/issues/1567.kvx, verdict task): the newHeads publication for Autobahn-committed blocks (rpc/subscribe.go:129-161 and 520-553) receives the header forwarded by consensus/internal/p2p/giga_router.go:331-351 before node/app.go:1952-1957 and node/abci.go:318-326 have filled its receipts, state and transactions roots, so subscribers see zero roots. Publish the header only after the roots are populated (publish from the committed-block path that holds the finished header, or fill the roots before forwarding); the producer is the real block commit path, not a copied header."
+do_2 = "Extend TestSubscribeNewHeadsAutobahn in rpc/subscribe_test.go (line 120) to assert the published header's receiptsRoot, stateRoot and transactionsRoot are the committed block's non-zero roots; keep TestSubscribeNewHeads (line 44) passing; never weaken either test."
+symbols = []
+touches = ["consensus/internal/p2p/giga_router.go", "node/app.go", "node/abci.go", "rpc/subscribe.go", "rpc/subscribe_test.go"]
+tests = ["rpc/subscribe_test.go::TestSubscribeNewHeadsAutobahn"]
+planned_paths = []
+build_cmd = "go build ./consensus/... ./node/... ./rpc/..."
+verify_cmd = "CGO_ENABLED=1 go test -count=1 ./rpc/ -run '^(TestSubscribeNewHeads|TestSubscribeNewHeadsAutobahn)$'"
+gate_kind = "planned"
+sandbox_profile = "go-cgo"
+owner_role = "fm-rpc-api"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181567]
+title = "newHeads for Autobahn-committed blocks carries populated header roots"
+ac_1 = "Given an Autobahn-committed block, when its newHeads notification is published through rpc/subscribe.go, then receiptsRoot, stateRoot and transactionsRoot equal the committed block's roots and TestSubscribeNewHeadsAutobahn asserts it."
+
+[acceptance.18.1567.1]
+feature = "18"
+req = "181567.1"
+scenario = "Given a subscriber to newHeads and an Autobahn-committed block, when the block is committed, then the notification carries the block's populated roots."
+contract = "contracts/rpc-api.md#newheads"
+test = "rpc/subscribe_test.go::TestSubscribeNewHeadsAutobahn (planned)"
+qualification = "UNRUN"

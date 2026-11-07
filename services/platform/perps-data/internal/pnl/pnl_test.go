@@ -66,7 +66,7 @@ func testDB(t *testing.T) *sql.DB {
 	t.Helper()
 	url := os.Getenv(testDatabaseEnv)
 	if url == "" {
-		t.Fatal("TestPnl requires " + testDatabaseEnv)
+		t.Fatalf("TestPnl requires %s pointing to a dedicated PostgreSQL database with permission to drop and recreate the perps schema", testDatabaseEnv)
 	}
 	db, err := store.Open(url)
 	if err != nil {

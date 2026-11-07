@@ -1,3 +1,6 @@
+#[path = "recorded_node.rs"]
+pub(crate) mod recorded_node;
+
 #[allow(dead_code)]
 #[path = "../../../layerx-human-kms/tests/support/attestor_cluster.rs"]
 pub(crate) mod cluster;
@@ -155,6 +158,11 @@ pub(crate) struct PeerState {
     pub(crate) receipts: BTreeMap<[u8; 32], Value>,
     pub(crate) blocks: BTreeMap<u64, Value>,
     pub(crate) receipt_rung: Option<layerx_types::rung::Rung>,
+    pub(crate) node_recording: Option<recorded_node::NodeRecording>,
+    pub(crate) fail_next_receipt_lookup: bool,
+    pub(crate) failed_receipt_lookups: usize,
+    pub(crate) reject_repeated_send: bool,
+    pub(crate) receipt_lookups: Vec<([u8; 32], [u8; 32])>,
 }
 
 pub(crate) fn bytes(out: &mut Vec<u8>, value: &[u8]) {
@@ -364,7 +372,11 @@ pub(crate) struct RealAgentLayer {
 }
 
 impl RealAgentLayer {
-    fn start(root: &std::path::Path, state: Arc<Mutex<PeerState>>) -> Result<Self> {
+    fn start(
+        root: &std::path::Path,
+        state: Arc<Mutex<PeerState>>,
+        rpc_url: String,
+    ) -> Result<Self> {
         use layerx_agentd::human::{decode_request, encode_response, HumanResponse};
         use layerx_human_service::frame::{read_frame, write_frame};
         let directory = root.join("agent-socket");
@@ -405,7 +417,51 @@ impl RealAgentLayer {
                 };
                 let request = decode_request(frame)
                     .unwrap_or_else(|error| panic!("decode agent request: {error:?}"));
-                let payload = state.lock().expect("peer state").answer(request, None);
+                let mut inner = &request;
+                while let layerx_agentd::human::HumanRequest::Subject { request, .. } = inner {
+                    inner = request;
+                }
+                let payload = if let layerx_agentd::human::HumanRequest::ReceiptLookup {
+                    idempotency_key,
+                    expected_activity_id,
+                } = inner
+                {
+                    let raw = {
+                        let mut state = state.lock().expect("peer state");
+                        state.served.push("ReceiptLookup".to_owned());
+                        state
+                            .receipt_lookups
+                            .push((*idempotency_key, *expected_activity_id));
+                        if std::mem::take(&mut state.fail_next_receipt_lookup) {
+                            state.failed_receipt_lookups += 1;
+                            continue;
+                        }
+                        let raw = state
+                            .submitted
+                            .get(expected_activity_id)
+                            .expect("accepted leg");
+                        let (call, signature) = required(
+                            layerx_crypto::evm_transaction::decode_signed(raw),
+                            "signed leg",
+                        );
+                        let sender = required(
+                            layerx_crypto::evm_transaction::recover_sender(&call, &signature),
+                            "sender",
+                        );
+                        assert_eq!(
+                            required(
+                                layerx_crypto::disclosure::call::bind_call(&call, sender),
+                                "disclosure"
+                            )
+                            .idempotency_key,
+                            *idempotency_key
+                        );
+                        raw.clone()
+                    };
+                    receipt_lookup_answer(&rpc_url, *expected_activity_id, &raw)
+                } else {
+                    state.lock().expect("peer state").answer(request, None)
+                };
                 let response =
                     encode_response(Ok(HumanResponse::new(payload).expect("agent response")));
                 let response = if let Some(trace) = trace {
@@ -439,6 +495,93 @@ impl Drop for RealAgentLayer {
                 .expect("agent peer IO");
         }
     }
+}
+
+fn receipt_lookup_answer(rpc_url: &str, hash: [u8; 32], raw: &[u8]) -> Vec<u8> {
+    use layerx_agentd::human_receipt_frame::{ReceiptLookupAnswer, ReceiptLookupFrame};
+    use layerx_client::rpc::receipt::{lookup_authenticated, Lookup, LookupContext};
+    use layerx_client::sequencer::SequencerEndpoint;
+    use layerx_proof::receipt::AuthorizedBatch;
+    use sha2::{Digest as _, Sha256};
+
+    let endpoint = required(SequencerEndpoint::new(rpc_url, &[]), "receipt endpoint");
+    let keys = required(endpoint.receipt_keys(), "receipt keys");
+    let lookup = required(
+        lookup_authenticated(
+            &endpoint,
+            hash,
+            LookupContext {
+                receipt_keys: &keys,
+            },
+        ),
+        "authenticated receipt",
+    );
+    if let Some(answer) = layerx_agentd::human_runtime::receipt_lookup_not_ready_bytes(&lookup) {
+        return answer;
+    }
+    let Lookup::Verified(receipt) = lookup else {
+        unreachable!("not-ready answer handled")
+    };
+    let protocol = receipt.receipt().protocol().expect("protocol receipt");
+    let (call, signature) = required(
+        layerx_crypto::evm_transaction::decode_signed(raw),
+        "submitted call",
+    );
+    let sender = required(
+        layerx_crypto::evm_transaction::recover_sender(&call, &signature),
+        "submitted sender",
+    );
+    let disclosure = required(
+        layerx_crypto::disclosure::call::bind_call(&call, sender),
+        "submitted disclosure",
+    );
+    let batch = protocol.batch_id();
+    eprintln!(
+        "receipt binding: activity_id=0x{} retained_hash=0x{} batch_height={} submission_height={} timestamp={} fee_charged={} fee_limit={} result_code={} module_id={} expected_module=12 protocol_version={} expected_protocol={} module_version={} expiry={}..={}",
+        cluster::hex(&protocol.activity_id()),
+        cluster::hex(&hash),
+        u64::from_be_bytes(batch[24..].try_into().expect("batch height")),
+        receipt.height(),
+        protocol.timestamp(),
+        protocol.fee_charged(),
+        disclosure.fee_limit,
+        protocol.result_code(),
+        protocol.module_id(),
+        protocol.protocol_version(),
+        layerx_wire::limits::PROTOCOL_VERSION,
+        protocol.module_version(),
+        disclosure.expiry.not_before,
+        disclosure.expiry.not_after,
+    );
+    let key = keys
+        .iter()
+        .find(|key| key.key_id == receipt.execution().key_id)
+        .expect("published receipt key");
+    required(
+        ReceiptLookupAnswer::Found(ReceiptLookupFrame {
+            canonical_bytes: receipt.canonical_bytes().to_vec(),
+            authorised_batch: AuthorizedBatch::new(
+                protocol.batch_id(),
+                protocol.asset(),
+                protocol.previous_state_root(),
+                protocol.resulting_state_root(),
+                key.public_key,
+            ),
+            verification_level: layerx_types::verify::VerificationLevel::SEQUENCER_SIGNED,
+            tx_hash: receipt.activity_id(),
+            receipt_hash: Sha256::digest(receipt.canonical_bytes()).into(),
+            block_height: receipt.height(),
+            rung: receipt.rung(),
+            signed_receipt: receipt.canonical_bytes().to_vec(),
+            receipt_key_id: key.key_id,
+            public_key: key.public_key,
+            first_height: key.first_height,
+            last_height: key.last_height,
+            inclusion_height: receipt.height(),
+        })
+        .encode(),
+        "owner receipt answer",
+    )
 }
 
 pub(crate) struct RpcServer {
@@ -512,22 +655,13 @@ const SEQUENCER_RECEIPT_TEMPLATE: &str = concat!(
     "0000004000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000", // signature
 );
 
-fn sequencer_answer(raw: &[u8], block: &Value, rung: layerx_types::rung::Rung) -> Value {
+fn receipted_answer(raw: &[u8], timestamp: u64) -> Value {
     use ed25519_dalek::Signer as _;
     use sha2::{Digest as _, Sha256};
     let (call, signature) = layerx_crypto::evm_transaction::decode_signed(raw).expect("signed leg");
     let sender = layerx_crypto::evm_transaction::recover_sender(&call, &signature).expect("sender");
     let hash = layerx_crypto::evm_transaction::transaction_hash(raw);
     let sequence = call.nonce - NONCE + 1;
-    let timestamp = u64::from_str_radix(
-        block["timestamp"]
-            .as_str()
-            .expect("timestamp")
-            .strip_prefix("0x")
-            .expect("timestamp prefix"),
-        16,
-    )
-    .expect("timestamp quantity");
     let gas = 21_000_u64;
     let fee = u128::from(gas);
     let previous = [4_u8; 32];
@@ -578,8 +712,8 @@ fn sequencer_answer(raw: &[u8], block: &Value, rung: layerx_types::rung::Rung) -
         )),
         "canonical signed receipt",
     );
-    let mut answer = json!({
-        "rung": rung.name(), "txHash": format!("0x{}", cluster::hex(&hash)),
+    let answer = json!({
+        "rung": "receipted", "txHash": format!("0x{}", cluster::hex(&hash)),
         "nonce": format!("0x{:x}", call.nonce), "seq": format!("0x{sequence:x}"),
         "height": format!("0x{HEAD:x}"), "index": "0x0", "timestamp": format!("0x{timestamp:x}"),
         "status": "0x1", "returnData": "0x", "logs": [], "gasUsed": format!("0x{gas:x}"),
@@ -592,42 +726,25 @@ fn sequencer_answer(raw: &[u8], block: &Value, rung: layerx_types::rung::Rung) -
         "signingKey": format!("0x{}", cluster::hex(&key.public_key())),
         "receipt": format!("0x{}", cluster::hex(&signed))
     });
-    if rung == layerx_types::rung::Rung::Committed {
-        answer["blockNumber"] = block["number"].clone();
-        answer["blockHash"] = block["hash"].clone();
-    }
     answer
-}
-
-fn full_transaction(raw: &[u8], block: &Value) -> Value {
-    let (call, signature) = required(
-        layerx_crypto::evm_transaction::decode_signed(raw),
-        "signed leg",
-    );
-    let from = required(
-        layerx_crypto::evm_transaction::recover_sender(&call, &signature),
-        "sender",
-    );
-    let sig = signature.as_bytes();
-    let quantity = |bytes: &[u8]| {
-        let text = cluster::hex(bytes);
-        let digits = text.trim_start_matches('0');
-        format!("0x{}", if digits.is_empty() { "0" } else { digits })
-    };
-    json!({"blockHash": block["hash"], "blockNumber": block["number"],
-        "from": format!("0x{}", cluster::hex(&from)), "gas": format!("0x{:x}", call.gas_limit),
-        "gasPrice": "0x1", "hash": format!("0x{}", cluster::hex(&layerx_crypto::evm_transaction::transaction_hash(raw))),
-        "input": format!("0x{}", cluster::hex(&call.data)), "nonce": format!("0x{:x}", call.nonce),
-        "to": format!("0x{}", cluster::hex(&call.to)), "transactionIndex": "0x0", "value": "0x0",
-        "type": "0x2", "v": format!("0x{:x}", sig[64] - 27), "yParity": format!("0x{:x}", sig[64] - 27),
-        "r": quantity(&sig[..32]), "s": quantity(&sig[32..64]), "accessList": [],
-        "chainId": format!("0x{:x}", call.chain_id),
-        "maxFeePerGas": format!("0x{:x}", call.max_fee_per_gas),
-        "maxPriorityFeePerGas": format!("0x{:x}", call.max_priority_fee_per_gas)})
 }
 
 impl RpcServer {
     fn start(state: Arc<Mutex<PeerState>>, clock: Arc<SerialClock>) -> Result<Self> {
+        Self::serve(state, Some(clock))
+    }
+
+    pub(crate) fn start_recorded(state: Arc<Mutex<PeerState>>) -> Result<Self> {
+        let peer = state.lock().expect("peer state");
+        assert!(
+            peer.node_recording.is_some()
+                || peer.receipt_rung == Some(layerx_types::rung::Rung::Committed)
+        );
+        drop(peer);
+        Self::serve(state, None)
+    }
+
+    fn serve(state: Arc<Mutex<PeerState>>, clock: Option<Arc<SerialClock>>) -> Result<Self> {
         let listener = std::net::TcpListener::bind("127.0.0.1:0")?;
         let url = format!("http://{}", listener.local_addr()?);
         listener.set_nonblocking(true)?;
@@ -681,187 +798,203 @@ impl RpcServer {
                 if method.starts_with("px_") {
                     state.gateway_served.push(format!("{path} {method}"));
                 }
-                let result = match method {
-                    "eth_chainId" => json!("0x7d"),
-                    "eth_getTransactionCount" => {
-                        assert_eq!(request["params"][1], "pending");
-                        let wallet: [u8; 20] =
-                            unhex(request["params"][0].as_str().expect("nonce wallet"))
-                                .try_into()
-                                .expect("nonce wallet length");
-                        assert!(state.identities.values().any(|(_, known)| *known == wallet));
-                        let nonce = state
-                            .submitted
-                            .values()
-                            .filter_map(|raw| {
-                                let (call, signature) =
-                                    layerx_crypto::evm_transaction::decode_signed(raw)
-                                        .expect("signed transaction");
-                                (layerx_crypto::evm_transaction::recover_sender(&call, &signature)
-                                    .expect("sender")
-                                    == wallet)
-                                    .then_some(call.nonce + 1)
-                            })
-                            .max()
-                            .unwrap_or(NONCE);
-                        state.pending_nonces.push((wallet, nonce));
-                        json!(format!("0x{nonce:x}"))
-                    }
-                    "px_listAssets" => {
-                        assert_eq!(request["params"], json!([]));
-                        json!({
-                            "height": HEAD.to_string(),
-                            "joined_limit": 16,
-                            "assets": [{
-                                "asset_id": "denom:alxp",
-                                "denom": "alxp", "kind": "bank",
-                                "name": null, "symbol": null, "decimals": null, "supply": null
-                            }]
-                        })
-                    }
-                    "eth_call" => {
-                        let data = unhex(request["params"][0]["data"].as_str().expect("call data"));
-                        let key: [u8; 32] = data[4..].try_into().expect("DID public key");
-                        let wallet = state
-                            .identities
-                            .values()
-                            .find(|(public, _)| *public == key)
-                            .expect("bound identity")
-                            .1;
-                        json!(format!("0x{}{}", "00".repeat(12), cluster::hex(&wallet)))
-                    }
-                    "px_getBalances" => {
-                        let address = request["params"][0].as_str().expect("balance wallet");
-                        let wallet: [u8; 20] =
-                            unhex(address).try_into().expect("balance wallet length");
-                        let identity = state
-                            .identities
-                            .values()
-                            .find(|(_, known_wallet)| *known_wallet == wallet)
-                            .map(|(key, _)| cluster::hex(key));
-                        let did = identity.as_ref().map(|key| format!("did:layerx:{key}"));
-                        json!({
-                            "account": {
-                                "evm_address": address, "pax_address": null,
-                                "layerx_did": did, "layerx_account": identity,
-                                "bound": identity.is_some()
-                            },
-                            "height": HEAD.to_string(),
-                            "balances": [{
-                                "denom": "alxp", "amount": "1000000000000000000"
-                            }]
-                        })
-                    }
-                    "eth_sendRawTransaction" => {
-                        let raw = unhex(request["params"][0].as_str().expect("raw transaction"));
-                        let (call, signature) = layerx_crypto::evm_transaction::decode_signed(&raw)
-                            .expect("signed type-2 leg");
-                        let sender =
-                            layerx_crypto::evm_transaction::recover_sender(&call, &signature)
-                                .expect("leg sender");
-                        assert!(state
-                            .identities
-                            .values()
-                            .any(|(_, wallet)| *wallet == sender));
-                        assert_eq!(call.chain_id, 125);
-                        layerx_crypto::disclosure::call::bind_call(&call, sender)
-                            .expect("disclosed call");
-                        let hash = layerx_crypto::evm_transaction::transaction_hash(&raw);
-                        if let Some(previous) = state.submitted.insert(hash, raw.clone()) {
-                            assert_eq!(previous, raw);
-                        } else {
-                            let number = HEAD
-                                .checked_add(call.nonce.checked_sub(NONCE).expect("leg nonce"))
-                                .and_then(|height| height.checked_add(1))
-                                .expect("block height");
-                            let block_hash = <sha2::Sha256 as sha2::Digest>::digest(&raw);
-                            let block_hash = format!("0x{}", cluster::hex(&block_hash));
-                            let transaction_hash = format!("0x{}", cluster::hex(&hash));
-                            let timestamp = clock
-                                .sample(Duration::from_secs(1))
-                                .expect("block clock")
-                                .unix_seconds();
-                            state.receipts.insert(hash, json!({
-                                "status": "0x1", "blockNumber": format!("0x{number:x}"),
-                                "blockHash": block_hash, "transactionHash": transaction_hash,
-                                "transactionIndex": "0x0", "gasUsed": format!("0x{:x}", call.gas_limit),
-                                "logs": []
-                            }));
-                            assert!(state.blocks.insert(number, json!({
-                                "number": format!("0x{number:x}"), "hash": block_hash,
-                                "timestamp": format!("0x{timestamp:x}"), "transactions": [transaction_hash]
-                            })).is_none(), "each accepted leg has its own block");
+                let mut rpc_error = None;
+                let recording = state.node_recording.clone().or_else(|| {
+                    (state.receipt_rung == Some(layerx_types::rung::Rung::Committed)
+                        && matches!(
+                            method,
+                            "px_getReceiptKeys"
+                                | "pax_sequencerReceipt"
+                                | "eth_getTransactionReceipt"
+                                | "eth_getBlockByNumber"
+                                | "eth_getRawTransactionByHash"
+                                | "block"
+                                | "commit"
+                                | "validators"
+                                | "tx"
+                        ))
+                    .then(recorded_node::NodeRecording::open)
+                });
+                let result = if let Some(recording) = recording {
+                    match recording.answer(method, &request["params"]) {
+                        Ok(answer) => answer,
+                        Err(error) => {
+                            rpc_error = Some(error);
+                            Value::Null
                         }
-                        json!(format!("0x{}", cluster::hex(&hash)))
                     }
-                    "eth_getTransactionReceipt" => {
-                        let hash: [u8; 32] = unhex(request["params"][0].as_str().expect("hash"))
-                            .try_into()
-                            .expect("hash length");
-                        state.receipts.get(&hash).cloned().unwrap_or(Value::Null)
-                    }
-                    "eth_getBlockByNumber" => {
-                        let height = request["params"][0].as_str().expect("block height");
-                        let height = u64::from_str_radix(
-                            height.strip_prefix("0x").expect("block height prefix"),
-                            16,
-                        )
-                        .expect("block height quantity");
-                        let mut block = state.blocks.get(&height).cloned().unwrap_or(Value::Null);
-                        if request["params"][1] == true && !block.is_null() {
-                            let hash: [u8; 32] =
-                                unhex(block["transactions"][0].as_str().expect("transaction hash"))
+                } else {
+                    match method {
+                        "eth_chainId" => json!("0x7d"),
+                        "eth_getTransactionCount" => {
+                            assert_eq!(request["params"][1], "pending");
+                            let wallet: [u8; 20] =
+                                unhex(request["params"][0].as_str().expect("nonce wallet"))
                                     .try_into()
-                                    .expect("transaction hash length");
-                            let raw = state.submitted.get(&hash).expect("block transaction");
-                            block["transactions"] = json!([full_transaction(raw, &block)]);
-                            block["parentHash"] = json!(format!("0x{}", cluster::hex(&[0; 32])));
-                            block["transactionsRoot"] =
-                                json!(format!("0x{}", cluster::hex(&[1; 32])));
-                            block["receiptsRoot"] = json!(format!("0x{}", cluster::hex(&[2; 32])));
-                        }
-                        block
-                    }
-                    "px_getReceiptKeys" => {
-                        assert_eq!(request["params"], json!([]));
-                        let key = receipt_key();
-                        json!([{"keyId": format!("0x{}", cluster::hex(&key.sequencer_id())),
-                            "publicKey": format!("0x{}", cluster::hex(&key.public_key())),
-                            "firstHeight": format!("0x{:x}", key.first_batch_number()),
-                            "lastHeight": format!("0x{:x}", key.last_batch_number())}])
-                    }
-                    "pax_sequencerReceipt" => {
-                        let hash: [u8; 32] = unhex(request["params"][0].as_str().expect("hash"))
-                            .try_into()
-                            .expect("hash length");
-                        match state.submitted.get(&hash) {
-                            Some(raw) => {
-                                let (call, _) = layerx_crypto::evm_transaction::decode_signed(raw)
-                                    .expect("signed transaction");
-                                if let Some(rung) = state.receipt_rung {
-                                    let height = HEAD + call.nonce - NONCE + 1;
-                                    sequencer_answer(
-                                        raw,
-                                        state.blocks.get(&height).expect("covering block"),
-                                        rung,
+                                    .expect("nonce wallet length");
+                            assert!(state.identities.values().any(|(_, known)| *known == wallet));
+                            let nonce = state
+                                .submitted
+                                .values()
+                                .filter_map(|raw| {
+                                    let (call, signature) =
+                                        layerx_crypto::evm_transaction::decode_signed(raw)
+                                            .expect("signed transaction");
+                                    (layerx_crypto::evm_transaction::recover_sender(
+                                        &call, &signature,
                                     )
-                                } else {
-                                    json!({"rung": "submitted", "txHash": format!("0x{}", cluster::hex(&hash)), "nonce": format!("0x{:x}", call.nonce)})
-                                }
-                            }
-                            None => Value::Null,
+                                    .expect("sender")
+                                        == wallet)
+                                        .then_some(call.nonce + 1)
+                                })
+                                .max()
+                                .unwrap_or(NONCE);
+                            state.pending_nonces.push((wallet, nonce));
+                            json!(format!("0x{nonce:x}"))
                         }
+                        "px_listAssets" => {
+                            assert_eq!(request["params"], json!([]));
+                            json!({
+                                "height": HEAD.to_string(),
+                                "joined_limit": 16,
+                                "assets": [{
+                                    "asset_id": "denom:alxp",
+                                    "denom": "alxp", "kind": "bank",
+                                    "name": null, "symbol": null, "decimals": null, "supply": null
+                                }]
+                            })
+                        }
+                        "eth_call" => {
+                            let data =
+                                unhex(request["params"][0]["data"].as_str().expect("call data"));
+                            let key: [u8; 32] = data[4..].try_into().expect("DID public key");
+                            let wallet = state
+                                .identities
+                                .values()
+                                .find(|(public, _)| *public == key)
+                                .expect("bound identity")
+                                .1;
+                            json!(format!("0x{}{}", "00".repeat(12), cluster::hex(&wallet)))
+                        }
+                        "px_getBalances" => {
+                            let address = request["params"][0].as_str().expect("balance wallet");
+                            let wallet: [u8; 20] =
+                                unhex(address).try_into().expect("balance wallet length");
+                            let identity = state
+                                .identities
+                                .values()
+                                .find(|(_, known_wallet)| *known_wallet == wallet)
+                                .map(|(key, _)| cluster::hex(key));
+                            let did = identity.as_ref().map(|key| format!("did:layerx:{key}"));
+                            json!({
+                                "account": {
+                                    "evm_address": address, "pax_address": null,
+                                    "layerx_did": did, "layerx_account": identity,
+                                    "bound": identity.is_some()
+                                },
+                                "height": HEAD.to_string(),
+                                "balances": [{
+                                    "denom": "alxp", "amount": "1000000000000000000"
+                                }]
+                            })
+                        }
+                        "eth_sendRawTransaction" => {
+                            let raw =
+                                unhex(request["params"][0].as_str().expect("raw transaction"));
+                            let (call, signature) =
+                                layerx_crypto::evm_transaction::decode_signed(&raw)
+                                    .expect("signed type-2 leg");
+                            let sender =
+                                layerx_crypto::evm_transaction::recover_sender(&call, &signature)
+                                    .expect("leg sender");
+                            assert!(state
+                                .identities
+                                .values()
+                                .any(|(_, wallet)| *wallet == sender));
+                            assert_eq!(call.chain_id, 125);
+                            layerx_crypto::disclosure::call::bind_call(&call, sender)
+                                .expect("disclosed call");
+                            let hash = layerx_crypto::evm_transaction::transaction_hash(&raw);
+                            if state.reject_repeated_send && state.submitted.contains_key(&hash) {
+                                rpc_error = Some(json!({"code": -32000,
+                                "message": format!("same nonce already receipted or held: sender 0x{} nonce {} receipted",
+                                    cluster::hex(&sender), call.nonce)}));
+                            } else if let Some(previous) = state.submitted.insert(hash, raw.clone())
+                            {
+                                assert_eq!(previous, raw);
+                            } else {
+                                assert_eq!(
+                                    layerx_crypto::evm_transaction::transaction_hash(&raw),
+                                    hash
+                                );
+                            }
+                            json!(format!("0x{}", cluster::hex(&hash)))
+                        }
+                        "eth_getTransactionReceipt" => {
+                            let hash: [u8; 32] =
+                                unhex(request["params"][0].as_str().expect("hash"))
+                                    .try_into()
+                                    .expect("hash length");
+                            state.receipts.get(&hash).cloned().unwrap_or(Value::Null)
+                        }
+                        "eth_getBlockByNumber" => {
+                            let height = request["params"][0].as_str().expect("block height");
+                            let height = u64::from_str_radix(
+                                height.strip_prefix("0x").expect("block height prefix"),
+                                16,
+                            )
+                            .expect("block height quantity");
+                            state.blocks.get(&height).cloned().unwrap_or(Value::Null)
+                        }
+
+                        "px_getReceiptKeys" => {
+                            assert_eq!(request["params"], json!([]));
+                            let key = receipt_key();
+                            json!({"keys": [{"keyId": format!("0x{}", cluster::hex(&key.sequencer_id())),
+                            "publicKey": format!("0x{}", cluster::hex(&key.public_key())),
+                            "firstHeight": key.first_batch_number(),
+                            "lastHeight": key.last_batch_number()}]})
+                        }
+                        "pax_sequencerReceipt" => {
+                            let hash: [u8; 32] =
+                                unhex(request["params"][0].as_str().expect("hash"))
+                                    .try_into()
+                                    .expect("hash length");
+                            match state.submitted.get(&hash) {
+                                Some(raw) => {
+                                    let (call, _) =
+                                        layerx_crypto::evm_transaction::decode_signed(raw)
+                                            .expect("signed transaction");
+                                    match state.receipt_rung {
+                                        Some(layerx_types::rung::Rung::Receipted) => {
+                                            let timestamp = clock
+                                                .as_ref()
+                                                .expect("receipted peer clock")
+                                                .sample(Duration::from_secs(1))
+                                                .expect("receipt clock")
+                                                .unix_seconds();
+                                            receipted_answer(raw, timestamp)
+                                        }
+                                        _ => {
+                                            json!({"rung": "submitted", "txHash": format!("0x{}", cluster::hex(&hash)), "nonce": format!("0x{:x}", call.nonce)})
+                                        }
+                                    }
+                                }
+                                None => Value::Null,
+                            }
+                        }
+                        method => panic!("unexpected node request: {method}"),
                     }
-                    method => panic!("unexpected node request: {method}"),
                 };
                 if method.starts_with("px_") {
                     state.gateway_last_answer = Some(result.clone());
                 }
                 drop(state);
-                let body = serde_json::to_vec(
-                    &json!({"jsonrpc": "2.0", "id": request["id"], "result": result}),
-                )
-                .expect("RPC response");
+                let answer = match rpc_error {
+                    Some(error) => json!({"jsonrpc": "2.0", "id": request["id"], "error": error}),
+                    None => json!({"jsonrpc": "2.0", "id": request["id"], "result": result}),
+                };
+                let body = serde_json::to_vec(&answer).expect("RPC response");
                 write!(stream, "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n", body.len())?;
                 stream.write_all(&body)?;
             }
@@ -1000,6 +1133,7 @@ impl Fixture {
         fixture.agent_server = Some(RealAgentLayer::start(
             &fixture.root,
             fixture.peer_state.clone(),
+            fixture.rpc_server.as_ref().ok_or("RPC peer")?.url.clone(),
         )?);
         fixture.reopen()?;
         Ok(fixture)
@@ -1394,6 +1528,14 @@ impl Fixture {
     }
 
     pub(crate) fn journey_record(&mut self, journey_id: &str) -> Result<Value> {
+        self.edit_journey_record(journey_id, |_| {})
+    }
+
+    pub(crate) fn edit_journey_record(
+        &mut self,
+        journey_id: &str,
+        edit: impl FnOnce(&mut Value),
+    ) -> Result<Value> {
         use layerx_human_service::store::{
             PrincipalId, PrincipalStore, RowKey, Table, TenancyDigest,
         };
@@ -1420,14 +1562,20 @@ impl Fixture {
             Arc::new(IdentityTenancy(binding)),
         )?;
         let principal = PrincipalId::new(self.document["principal"].as_str().ok_or("principal")?)?;
-        let scope = store.principal(&principal)?;
+        let mut scope = store.principal(&principal)?;
         let key = RowKey::new(format!("intent-evm-{journey_id}"))?;
-        let record = serde_json::from_slice(
+        let mut record: Value = serde_json::from_slice(
             scope
                 .get(Table::Journeys, &key)
                 .ok_or("journey record")?
                 .bytes(),
         )?;
+        let original = record.clone();
+        edit(&mut record);
+        if record != original {
+            let now = self.clock.sample(Duration::from_secs(1))?.unix_seconds();
+            scope.put(Table::Journeys, key, now, serde_json::to_vec(&record)?)?;
+        }
         drop(scope);
         drop(store);
         self.reopen()?;

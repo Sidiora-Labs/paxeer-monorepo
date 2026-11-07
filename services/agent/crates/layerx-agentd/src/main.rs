@@ -15,7 +15,7 @@ use layerx_agentd::agent_rpc::{self, AgentRpcResponse};
 use layerx_agentd::agent_rpc_tls::{AgentRpcTls, AgentRpcTlsPaths};
 use layerx_agentd::audit::Redacted;
 use layerx_agentd::boot::readiness_gate;
-use layerx_agentd::budget::{LimitConfig, LimitId, LimitScope};
+use layerx_agentd::budget::{BudgetLimiter, LimitConfig, LimitId, LimitScope};
 use layerx_agentd::capability::CapabilityId;
 use layerx_agentd::enrolment::{
     self, BindingMode, BindingPublisher, DaemonSurface, EnrolmentRequest, ListenerDeclaration,
@@ -48,7 +48,145 @@ use layerx_programs::{
 };
 use layerx_types::ids::Did;
 
-mod human_owner_mode;
+use layerx_agentd::config::agent_mode as human_owner_mode;
+
+mod human_owner {
+    use super::serve_http::DeadlineStream;
+
+    // The shared handler is also exercised at a real loopback listener by the repair proof.
+    use super::{
+        connect_human_authority, human_peers, optional, parse_u64, required, start_human_owner,
+        HttpPool, SUPERVISION_INTERVAL,
+    };
+    use layerx_agentd::human_receipt_frame::owner_health as health_contract;
+    use layerx_agentd::node_rpc::{NodeRpc, NodeRpcConfig};
+    use std::net::TcpListener;
+    use std::sync::atomic::{AtomicBool, Ordering};
+    use std::sync::{mpsc, Arc};
+    use std::thread;
+    use std::time::Duration;
+
+    fn node_rpc_config() -> Result<NodeRpcConfig, String> {
+        NodeRpcConfig::from_environment().map_err(|error| {
+        format!(
+            "human node RPC requires LAYERX_AGENT_NODE_RPC_URL and LAYERX_AGENT_NODE_CHAIN_ID: {error}"
+        )
+    })
+    }
+
+    fn dependencies_ready() -> Result<(), String> {
+        let deadline = Duration::from_millis(parse_u64("LAYERX_AGENT_HUMAN_DEADLINE_MS")?);
+        NodeRpc::connect(&node_rpc_config()?)
+            .map_err(|error| format!("human node RPC is unavailable: {error}"))?;
+        connect_human_authority(deadline, &human_peers()?)?;
+        Ok(())
+    }
+
+    fn owner_running(human: &mpsc::Receiver<Result<(), String>>) -> Result<(), String> {
+        match human.try_recv() {
+            Err(mpsc::TryRecvError::Empty) => Ok(()),
+            Ok(Err(error)) => Err(error),
+            Ok(Ok(())) | Err(mpsc::TryRecvError::Disconnected) => {
+                Err("human listener terminated".to_owned())
+            }
+        }
+    }
+
+    pub(super) fn serve_human_owner() -> Result<(), String> {
+        let listen = required("LAYERX_AGENT_PROGRAM_LISTEN")?;
+        let bearer = required(health_contract::HEALTH_BEARER_ENV)?;
+        health_contract::validate_health_credentials(
+            &listen,
+            &bearer,
+            &required(health_contract::AUTHORITY_BEARER_ENV)?,
+        )?;
+        if optional("LAYERX_AGENT_MCP_BINDING_ROOT").is_some() {
+            return Err(
+            "LAYERX_AGENT_MCP_BINDING_ROOT requires the full agent mode, which serves the program endpoint and probe program the binding names"
+                .to_owned(),
+        );
+        }
+        human_peers()?;
+        NodeRpc::connect(&node_rpc_config()?)
+            .map_err(|error| format!("human node RPC is unavailable: {error}"))?;
+        let human = start_human_owner(None)?;
+        let listener = TcpListener::bind(listen)
+            .map_err(|error| format!("human health listener failed: {error}"))?;
+        let alive = Arc::new(AtomicBool::new(true));
+        let ready = Arc::clone(&alive);
+        let pool = HttpPool::start(listener, move |mut stream| {
+            let _ = serve_health(&mut stream, &bearer, || ready.load(Ordering::Acquire));
+        })?;
+        loop {
+            if let Err(error) = owner_running(&human).and_then(|()| pool.check()) {
+                alive.store(false, Ordering::Release);
+                return Err(error);
+            }
+            thread::sleep(SUPERVISION_INTERVAL);
+        }
+    }
+
+    fn serve_health<F: Fn() -> bool>(
+        stream: &mut DeadlineStream,
+        bearer: &str,
+        owner_ready: F,
+    ) -> Result<(), String> {
+        health_contract::serve_health(stream, bearer, owner_ready, dependencies_ready)
+    }
+
+    #[cfg(test)]
+    mod tests {
+
+        #[test]
+        fn health_refuses_terminated_owner_and_preserves_http_boundaries(
+        ) -> Result<(), Box<dyn std::error::Error>> {
+            use std::io::{Read, Write};
+            use std::net::{TcpListener, TcpStream};
+            use std::sync::mpsc;
+            use std::thread;
+            use std::time::Duration;
+
+            let bearer = "h".repeat(32);
+            let cases = [
+            (format!("GET /healthz HTTP/1.1\r\nAuthorization: Bearer {bearer}\r\n\r\n"), 503, "{\"ready\":false}"),
+            ("GET /healthz HTTP/1.1\r\n\r\n".to_owned(), 401, "unauthorized"),
+            (format!("GET /v1/programs/anything/balances HTTP/1.1\r\nAuthorization: Bearer {bearer}\r\n\r\n"), 404, "not_found"),
+            ("POST /healthz HTTP/1.1\r\n\r\n".to_owned(), 400, "invalid_request"),
+            ("x".repeat(crate::HEADER_LIMIT), 431, "headers_too_large"),
+        ];
+            for (request, status, body) in cases {
+                let listener = TcpListener::bind("127.0.0.1:0")?;
+                let address = listener.local_addr()?;
+                let bearer = bearer.clone();
+                let server = thread::spawn(move || -> Result<(), String> {
+                    let (stream, _) = listener.accept().map_err(|e| e.to_string())?;
+                    stream
+                        .set_read_timeout(Some(Duration::from_secs(5)))
+                        .map_err(|e| e.to_string())?;
+                    let (sender, receiver) = mpsc::channel();
+                    drop(sender);
+                    let mut stream = super::DeadlineStream {
+                        socket: stream,
+                        expires: std::time::Instant::now()
+                            + super::super::serve_http::REQUEST_DEADLINE,
+                    };
+                    super::serve_health(&mut stream, &bearer, || {
+                        super::owner_running(&receiver).is_ok()
+                    })
+                });
+                let mut client = TcpStream::connect(address)?;
+                client.set_read_timeout(Some(Duration::from_secs(5)))?;
+                client.write_all(request.as_bytes())?;
+                let mut response = String::new();
+                client.read_to_string(&mut response)?;
+                server.join().map_err(|_| "health server panicked")??;
+                assert!(response.starts_with(&format!("HTTP/1.1 {status} ")));
+                assert!(response.contains(body));
+            }
+            Ok(())
+        }
+    }
+}
 mod human_peer_config;
 
 #[path = "../../layerx-agentd-host/src/payer.rs"]
@@ -63,6 +201,7 @@ pub(crate) use self::serve_http::{
 };
 
 struct Config {
+    inference: Option<layerx_agentd::config::InferenceConfig>,
     listen: String,
     bearer: String,
     node_endpoint: String,
@@ -284,13 +423,31 @@ fn mcp_web(config: &Config) -> Result<Option<WebDeclaration>, String> {
     let keys = NativeReadRoute::new(client, config.expected_chain_id)
         .signed_authority()
         .map_err(|error| format!("MCP receipt keys unavailable: {error:?}"))?;
-    let key = keys
-        .get(index)
-        .ok_or("LAYERX_AGENT_MCP_WEB_RECEIPT_KEY_INDEX has no px_getReceiptKeys entry")?;
+    if config.expected_chain_id != 125 {
+        return Err("the MCP web binding requires chain id 125".to_owned());
+    }
+    let address = |name: &str| -> Result<[u8; 20], String> {
+        let value = required(name)?;
+        let text = value
+            .strip_prefix("0x")
+            .ok_or_else(|| format!("{name} must be an EVM address"))?;
+        if text.len() != 40 || !text.bytes().all(|byte| byte.is_ascii_hexdigit()) {
+            return Err(format!("{name} must be an EVM address"));
+        }
+        let mut bytes = [0; 20];
+        for (index, byte) in bytes.iter_mut().enumerate() {
+            *byte = u8::from_str_radix(&text[index * 2..index * 2 + 2], 16)
+                .map_err(|_| format!("{name} must be an EVM address"))?;
+        }
+        Ok(bytes)
+    };
     WebDeclaration::new(
         endpoint,
         required("LAYERX_AGENT_MCP_WEB_NETWORK")?,
-        key.public_key,
+        address("LAYERX_AGENT_MCP_WEB_PAYER_ADDRESS")?,
+        address("LAYERX_AGENT_MCP_WEB_RECEIVER_ADDRESS")?,
+        keys,
+        index,
         parse_u64("LAYERX_AGENT_MCP_WEB_TIMEOUT_MS")?,
         required("LAYERX_AGENT_MCP_WEB_PENDING_ATTEMPTS")?
             .parse()
@@ -465,23 +622,7 @@ fn publish_mcp_binding(
 }
 
 fn human_frame_limits(deadline: Duration) -> Result<Limits, String> {
-    Limits {
-        maximum_frame_bytes: required("LAYERX_AGENT_HUMAN_MAX_FRAME_BYTES")?
-            .parse()
-            .map_err(|_| "human max frame is invalid")?,
-        maximum_connections: required("LAYERX_AGENT_HUMAN_MAX_CONNECTIONS")?
-            .parse()
-            .map_err(|_| "human max connections is invalid")?,
-        maximum_streams: required("LAYERX_AGENT_HUMAN_MAX_STREAMS")?
-            .parse()
-            .map_err(|_| "human max streams is invalid")?,
-        maximum_queued_bytes: required("LAYERX_AGENT_HUMAN_MAX_QUEUED_BYTES")?
-            .parse()
-            .map_err(|_| "human max queue is invalid")?,
-        deadline,
-    }
-    .validate()
-    .map_err(|_| "human frame limits are invalid".to_owned())
+    layerx_agentd::human::human_frame_limits(deadline, required)
 }
 
 fn connect_human_node() -> Result<SequencerEndpoint, String> {
@@ -497,12 +638,6 @@ fn connect_human_node() -> Result<SequencerEndpoint, String> {
         Vec::new()
     };
     let roots: Vec<&[u8]> = certificates.iter().map(AsRef::as_ref).collect();
-    let network = PxEndpoint::new(&config.url, &roots)
-        .and_then(|endpoint| endpoint.network())
-        .map_err(|error| format!("human PX network head is unavailable: {error:?}"))?;
-    if network.paxeer.chain_id != config.chain_id {
-        return Err("human node RPC chain id mismatch".to_owned());
-    }
     let endpoint = SequencerEndpoint::new(&config.url, &roots)
         .map_err(|error| format!("human sequencer endpoint is invalid: {error:?}"))?;
     if endpoint
@@ -512,6 +647,8 @@ fn connect_human_node() -> Result<SequencerEndpoint, String> {
     {
         return Err("human sequencer chain id mismatch".to_owned());
     }
+    layerx_agentd::human_node::verify_direct_node_readiness(&endpoint, config.chain_id)
+        .map_err(|error| format!("human node evidence refused: {error:?}"))?;
     Ok(endpoint)
 }
 
@@ -699,7 +836,7 @@ fn start_human_owner(mcp: Option<McpBoot>) -> Result<OwnerStatus, String> {
         &denomination_sources,
         runtime_clock,
     )
-    .map(|(receiver, _, _)| receiver)
+    .map(|(receiver, _, _, _)| receiver)
 }
 
 fn start_shared_owner(
@@ -719,6 +856,7 @@ fn start_shared_owner(
         OwnerStatus,
         SharedAgentOwner<RemoteHumanAuthority>,
         mpsc::SyncSender<Result<(), String>>,
+        Arc<Mutex<Store>>,
     ),
     String,
 > {
@@ -826,7 +964,7 @@ fn start_shared_owner(
     .map_err(|error| format!("human session key registry is invalid: {error:?}"))?;
     let mut unified = UnifiedAgentOwner::new(
         operations,
-        shared_store,
+        Arc::clone(&shared_store),
         &peers,
         vec![verified_limit()?],
         session_keys,
@@ -850,6 +988,9 @@ fn start_shared_owner(
             mode: u32::from_str_radix(&required("LAYERX_AGENT_HUMAN_SOCKET_MODE")?, 8)
                 .map_err(|_| "human socket mode is invalid")?,
             maximum_frame_bytes: human_limits.maximum_frame_bytes,
+            maximum_connections: human_limits.maximum_connections,
+            maximum_streams: human_limits.maximum_streams,
+            maximum_queued_bytes: human_limits.maximum_queued_bytes,
             deadline,
             peers,
         },
@@ -868,13 +1009,14 @@ fn start_shared_owner(
             );
         })
         .map_err(|error| format!("human listener thread failed: {error}"))?;
-    Ok((receiver, owner, sender))
+    Ok((receiver, owner, sender, shared_store))
 }
 
 /// Starts the dedicated mutually authenticated agent RPC listener when it is
 /// configured. A configured listener without its complete TLS material refuses boot.
 fn start_agent_rpc(
     owner: SharedAgentOwner<RemoteHumanAuthority>,
+    shared_store: Arc<Mutex<Store>>,
 ) -> Result<Option<HttpPool>, String> {
     let Some(listen) = optional("LAYERX_AGENTD_RPC_LISTEN") else {
         return Ok(None);
@@ -915,7 +1057,7 @@ fn start_agent_rpc(
         })
         .transpose()?
         .unwrap_or_default();
-    attach_mcp_payers(&owner, &mut mcp_bindings)?;
+    attach_mcp_payers(&owner, &shared_store, &mut mcp_bindings)?;
     let listener = TcpListener::bind(&listen)
         .map_err(|error| format!("agent rpc listener failed: {error}"))?;
     HttpPool::start(listener, move |stream| {
@@ -971,6 +1113,7 @@ fn mcp_config_digest(value: &str) -> Result<[u8; 32], String> {
 
 fn attach_mcp_payers(
     owner: &SharedAgentOwner<RemoteHumanAuthority>,
+    shared_store: &Arc<Mutex<Store>>,
     bindings: &mut [layerx_mcp::binding::Binding],
 ) -> Result<(), String> {
     let Some(source) = optional("LAYERX_AGENTD_MCP_PAYERS") else {
@@ -985,6 +1128,10 @@ fn attach_mcp_payers(
     if configs.is_empty() || configs.len() > 64 {
         return Err("MCP payer configuration count is invalid".to_owned());
     }
+    let limit = mcp_limit()?;
+    let limit_id = limit.id;
+    let limiter =
+        Arc::new(BudgetLimiter::new(vec![limit]).map_err(|_| "MCP payer budget limit is invalid")?);
     let mut attached = BTreeSet::new();
     for config in configs {
         let session_id = mcp_config_digest(&config.session_id)?;
@@ -1042,13 +1189,21 @@ fn attach_mcp_payers(
             &[&ca_der],
             receipt_keys,
         )
-        .map_err(|_| "MCP payer owner authority is unavailable")?;
+        .map_err(|_| "MCP payer owner authority is unavailable")?
+        .with_approval_resources(
+            Arc::clone(shared_store),
+            Arc::clone(&limiter),
+            vec![limit_id],
+        );
         let approvals = owner
             .lock()
             .map_err(|_| "MCP approval owner is unavailable")?
             .approvals
             .clone();
         binding.attach_web(layerx_mcp::binding::WebAuthority::new(
+            owner
+                .mcp_clock()
+                .map_err(|_| "MCP approval clock is unavailable")?,
             approvals,
             Box::new(payer.into_web_payer()),
         ));
@@ -1498,6 +1653,12 @@ fn program_budget_denomination_sources(
 }
 
 fn config() -> Result<Config, String> {
+    let inference = match human_owner_mode::Mode::from_environment()? {
+        human_owner_mode::Mode::InferenceMarket => {
+            Some(layerx_agentd::config::InferenceConfig::from_environment()?)
+        }
+        _ => None,
+    };
     let listen = required("LAYERX_AGENT_PROGRAM_LISTEN")?;
     let bearer = required("LAYERX_AGENT_PROGRAM_BEARER_TOKEN")?;
     let node_bearer = required("LAYERX_AGENT_NODE_BEARER_TOKEN")?;
@@ -1525,6 +1686,7 @@ fn config() -> Result<Config, String> {
     let native_effect_policy_sources = native_effect_policy_sources(&tenants)?;
     let program_budget_denomination_sources = program_budget_denomination_sources(&tenants)?;
     Ok(Config {
+        inference,
         listen,
         policy_sources,
         native_policy_sources,
@@ -1692,7 +1854,117 @@ fn program_reader(
     Ok(reader)
 }
 
+struct InferenceSupervision {
+    market: layerx_agentd::boot::inference_market::InferenceMarket,
+    signal: HttpPool,
+    completion: HttpPool,
+    reader: LayerxdProgramBalanceReader,
+    agent: ureq::Agent,
+    next_check: Instant,
+}
+
+fn inference_node_config(config: &Config) -> NodeRpcConfig {
+    NodeRpcConfig {
+        url: config.node_endpoint.clone(),
+        chain_id: config.expected_chain_id,
+        deadline: REQUEST_DEADLINE,
+    }
+}
+
+fn inference_observation(
+    config: &Config,
+    reader: &LayerxdProgramBalanceReader,
+    agent: &ureq::Agent,
+) -> Result<(layerx_agentd::degraded::Reference, serde_json::Value), String> {
+    let node = NodeRpc::connect_with_ca(&inference_node_config(config), &config.authority_ca_der)
+        .map_err(|error| format!("inference node RPC readiness failed: {error}"))?;
+    readiness_gate(&node)
+        .map_err(|error| format!("inference node RPC readiness failed: {error:?}"))?;
+    let height = node.block_number().map_err(|error| error.to_string())?;
+    reader
+        .read_chain_head_at(height, now_ms()?)
+        .map_err(|error| format!("inference program authority failed: {error:?}"))?;
+    let block = node
+        .block_by_number(height)
+        .map_err(|error| error.to_string())?
+        .ok_or("inference node head is unavailable")?;
+    let reference = layerx_agentd::degraded::Reference {
+        head_sequence: height,
+        checkpoint: block.hash,
+    };
+    let components = layerx_agentd::boot::inference_market::read_availability(
+        agent,
+        &config.node_endpoint,
+        &config.node_bearer,
+        config.expected_chain_id,
+        &config.probe_program.bytes(),
+        reference,
+    )?;
+    Ok((reference, components))
+}
+
+fn inference_boot(
+    config: &Config,
+    inference: layerx_agentd::config::InferenceConfig,
+    reader: LayerxdProgramBalanceReader,
+) -> Result<InferenceSupervision, String> {
+    use layerx_agentd::boot::inference_market;
+    let roots = [ureq::tls::Certificate::from_der(&config.authority_ca_der).to_owned()];
+    let agent: ureq::Agent = ureq::Agent::config_builder()
+        .timeout_global(Some(REQUEST_DEADLINE))
+        .http_status_as_error(false)
+        .max_redirects(0)
+        .tls_config(
+            ureq::tls::TlsConfig::builder()
+                .provider(ureq::tls::TlsProvider::Rustls)
+                .root_certs(ureq::tls::RootCerts::new_with_certs(&roots))
+                .build(),
+        )
+        .build()
+        .into();
+    let (reference, components) = inference_observation(config, &reader, &agent)?;
+    let mut gate = layerx_agentd::boot::InferenceBootGate::default();
+    gate.ready(reference, layerx_types::rung::Rung::Committed, &components)
+        .map_err(|error| format!("inference boot refused: {error:?}"))?;
+    let market = inference_market::serve_inference_market(inference, gate)?;
+    let signal_gate = Arc::clone(&market.gate);
+    let signal = HttpPool::start(
+        market
+            .signal_listener
+            .try_clone()
+            .map_err(|error| error.to_string())?,
+        move |mut stream| {
+            let _ = inference_market::serve_health(&mut stream, &signal_gate);
+        },
+    )?;
+    let completion_gate = Arc::clone(&market.gate);
+    let completion = HttpPool::start(
+        market
+            .completion_listener
+            .try_clone()
+            .map_err(|error| error.to_string())?,
+        move |mut stream| {
+            let _ = inference_market::serve_health(&mut stream, &completion_gate);
+        },
+    )?;
+    Ok(InferenceSupervision {
+        market,
+        signal,
+        completion,
+        reader,
+        agent,
+        next_check: Instant::now(),
+    })
+}
+
 fn serve(config: Config) -> Result<(), String> {
+    if config.inference.is_some() {
+        let node =
+            NodeRpc::connect_with_ca(&inference_node_config(&config), &config.authority_ca_der)
+                .map_err(|error| format!("inference node RPC readiness failed: {error}"))?;
+        readiness_gate(&node)
+            .map_err(|error| format!("inference node RPC readiness failed: {error:?}"))?;
+    }
     let mcp = mcp_enrolment(&config)?
         .map(|enrolment| mcp_boot(&config, enrolment))
         .transpose()?;
@@ -1715,13 +1987,24 @@ fn serve(config: Config) -> Result<(), String> {
         registry,
         receipt_keys,
     } = program_authority_boot(&config, &mut native)?;
+    let mut inference = config
+        .inference
+        .clone()
+        .map(|inference| {
+            inference_boot(
+                &config,
+                inference,
+                program_reader(&config, verifier.clone(), registry.clone())?,
+            )
+        })
+        .transpose()?;
     let route =
         ProgramBalanceReadRoute::new(program_reader(&config, verifier.clone(), registry.clone())?);
     let programs = ProgramOperations::new(program_reader(&config, verifier, registry)?);
     let export_trust = receipt_keys
         .map(|keys| export_trust_source(keys, &config.authority_ca_der))
         .transpose()?;
-    let (human, owner, status) = start_shared_owner(
+    let (human, owner, status, shared_store) = start_shared_owner(
         mcp,
         Some(programs),
         export_trust,
@@ -1731,7 +2014,7 @@ fn serve(config: Config) -> Result<(), String> {
         &config.program_budget_denomination_sources,
         runtime_clock,
     )?;
-    let rpc = start_agent_rpc(owner)?;
+    let rpc = start_agent_rpc(owner, shared_store)?;
     drop(status);
     let node_config = NodeRpcConfig {
         url: config.node_endpoint.clone(),
@@ -1743,17 +2026,22 @@ fn serve(config: Config) -> Result<(), String> {
         &[&config.authority_ca_der],
     )
     .map_err(|error| format!("program node endpoint is invalid: {error:?}"))?;
-    let listener = TcpListener::bind(&config.listen)
-        .map_err(|error| format!("agent program listener failed: {error}"))?;
-    let program = serve_read_routes(
-        listener,
-        config.bearer,
-        route,
-        native,
-        node_config,
-        config.authority_ca_der.clone(),
-        endpoint,
-    )?;
+    let program = if inference.is_none() {
+        let listener = TcpListener::bind(&config.listen)
+            .map_err(|error| format!("agent program listener failed: {error}"))?;
+        let pool = serve_read_routes(
+            listener,
+            config.bearer.clone(),
+            route,
+            native,
+            node_config,
+            config.authority_ca_der.clone(),
+            endpoint,
+        )?;
+        Some(pool)
+    } else {
+        None
+    };
     loop {
         match human.try_recv() {
             Ok(result) => return result,
@@ -1762,7 +2050,24 @@ fn serve(config: Config) -> Result<(), String> {
             }
             Err(mpsc::TryRecvError::Empty) => {}
         }
-        program.check()?;
+        if let Some(program) = &program {
+            program.check()?;
+        }
+        if let Some(inference) = &mut inference {
+            inference.signal.check()?;
+            inference.completion.check()?;
+            if Instant::now() >= inference.next_check {
+                let observation =
+                    inference_observation(&config, &inference.reader, &inference.agent);
+                if let Err(error) = layerx_agentd::boot::inference_market::observe_availability(
+                    &inference.market.gate,
+                    observation,
+                ) {
+                    eprintln!("layerx-agentd: {}", Redacted::boot_diagnostic(&error));
+                }
+                inference.next_check = Instant::now() + Duration::from_secs(1);
+            }
+        }
         if let Some(rpc) = &rpc {
             rpc.check()?;
         }
@@ -1835,7 +2140,11 @@ fn mcp_evidence_mode() -> Option<Result<(), String>> {
 }
 
 fn main() {
-    if let Err(error) = refuse_retired_environment() {
+    if let Err(error) = layerx_agentd::human::refuse_retired_human_inputs(
+        env::vars_os().map(|(name, _)| name.to_string_lossy().into_owned()),
+    )
+    .and_then(|()| refuse_retired_environment())
+    {
         eprintln!("layerx-agentd: {}", Redacted::boot_diagnostic(&error));
         std::process::exit(2);
     }
@@ -1846,7 +2155,11 @@ fn main() {
         }
         return;
     }
-    if let Err(error) = human_owner_mode::run() {
+    if let Err(error) = human_owner_mode::run(
+        || config().and_then(serve),
+        human_owner::serve_human_owner,
+        || config().and_then(serve),
+    ) {
         eprintln!("layerx-agentd: {}", Redacted::boot_diagnostic(&error));
         std::process::exit(2);
     }

@@ -1,0 +1,25 @@
+[repair.22.33.811]
+audit = "22.30.178"
+base_revision = "caa8b41ee668274ee1e5c1df6691288455c46278"
+finding_54 = "TestRepairM_811_SourceHome: real backend copy, CLI stage handler and prepareHome preserve config/wasm siblings and isolate original state."
+finding_55 = "TestRepairM_811_PrecompileCallsSurviveReopen: per-plan activation, supported merged ledger/pay operations and every retired verify/custody/anchor write."
+finding_56 = "TestRepairM_811_PrecompileCallsSurviveReopen: production replay and real EVM calls, close/reopen recovery, historical behavior, exact retirement reasons and wrong-ABI rejection."
+baseline = "The continued implementation passed TestRepairM_811_SourceHome and failed TestRepairM_811_PrecompileCallsSurviveReopen before this repair; see qualification.continued_baseline. The initial attempt did not run an unimplemented baseline because the explicit gate order requires complete implementation first."
+wiring_requests = "None; all required producer, staging and consumer changes are inside tools/chain/upgrade-replay."
+evidence = "The bounded hf-build/hf-done ledger records the exact candidate revision, command, exit and private evidence path; the final task receipt repeats the last gate row."
+
+[qualification.initial]
+revision = "e8be159f25145de0c3e91d74a163a8828c4a9db9"
+command = "cg spec done 22.33.811 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log; detailed assertions in /tmp/repair-m811.log"
+observed = "Existing historical replay checks fail four times because the generated fixture and current module manager leave out anchor genesis and its module-version entry."
+assumption = "The precompile behavior test supplies a retained historical snapshot through the real anchor InitGenesis and upgrade keeper; no migration or existing replay assertion is changed."
+
+[qualification.continued_baseline]
+revision = "c43c7402e7d126a674f1e2c65a555abd45bc34ff"
+command = "cg spec done 22.33.811 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log; detailed assertions in /out/logs/repair-m811-baseline.log"
+observed = "The historical raw-call check rewound height after recording the only registered contract version's merge marker, making six historical addresses unavailable."
+assumption = "Historical calls are checked on the actual pre-merge state; ledger and pay remain required to be absent below their recorded merge height, and all merged calls and refusals are checked before and after reopening."

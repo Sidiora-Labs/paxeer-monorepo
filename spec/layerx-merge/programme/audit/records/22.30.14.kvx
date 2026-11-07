@@ -1,0 +1,1176 @@
+# Pre-upgrade markets audit at the recorded revision. Repairs are proposals only.
+
+[audit.22.30.14]
+task = "22.30.14"
+revision = "6d2c32a65a1c7989a6a37abf5965929de9769ae4"
+files_reviewed = 113
+findings = 43
+docs_reviewed = 4
+upgrade_ready = false
+blocking = ["trigger-live-margin", "pending-reduce-only-flip", "cancelled-attachment-export", "genesis-ownership-and-counts", "adl-uses-current-mark", "settlement-leaves-adl-rank", "adl-index-visit-bound", "paused-trigger-visit-bound", "trigger-fok-becomes-ioc", "expired-orders-still-fill", "open-fill-margin", "quote-open-base-rounding", "quote-short-self-bid", "abci-keeper-core", "abci-governance-params", "abci-governance-market", "abci-margin", "abci-freshness", "abci-positions", "abci-oi", "abci-liquidation", "abci-fees", "abci-insurance", "abci-funding", "abci-keeper-genesis", "abci-type-genesis", "abci-params", "abci-math", "abci-module-genesis"]
+
+[file.001]
+path = "modules/perps/abci.go"
+lines = 13
+verdict = "clean"
+note = "Delegates to the venue EndBlock pass; node/legacyabci calls it before EVM EndBlock after v6.12.0 activation."
+
+[file.002]
+path = "modules/perps/gov_route_test.go"
+lines = 130
+verdict = "clean"
+note = "Real codecs, MsgServiceRouter and LayerX proposal execution cover parameter routing and rollback of a later refused market message."
+
+[file.003]
+path = "modules/perps/keeper/account.go"
+lines = 527
+verdict = "issues"
+note = "Reviewed creation, collateral ledger, transfer, governed withdrawal floor and settlement; the ADL rank refresh is missing after settlement/collateral changes."
+
+[file.004]
+path = "modules/perps/keeper/account_test.go"
+lines = 416
+verdict = "clean"
+note = "Reviewed handwritten EVM setup, collateral accounting, settlement and transfers; the embedded ERC20 deployment hex is a generated fixture payload."
+
+[file.005]
+path = "modules/perps/keeper/adl.go"
+lines = 303
+verdict = "issues"
+note = "Reviewed integer ranks, ordered index consumption, paired reductions, deficit coverage and cached writes; the ranking walk bounds eligible results rather than visited entries."
+
+[file.006]
+path = "modules/perps/keeper/adl_bound_test.go"
+lines = 148
+verdict = "issues"
+note = "Governed per-call limits, large uint64 bounds and continuation are covered; the shared-deficit case does not exercise repeated EndBlock invocations."
+
+[file.007]
+path = "modules/perps/keeper/adl_test.go"
+lines = 364
+verdict = "clean"
+note = "Reviewed golden rank/reduction vectors, deficit recovery, rollback and actual index decoding; historical C names explain the engine that Go replaced."
+
+[file.008]
+path = "modules/perps/keeper/book.go"
+lines = 193
+verdict = "clean"
+note = "Reviewed price-time keys, bid inversion, record/index consistency, iteration/removal and SDK-aware refusals; no active retired engine dependency."
+
+[file.009]
+path = "modules/perps/keeper/book_test.go"
+lines = 187
+verdict = "clean"
+note = "Whole-file review covers FIFO, bid/ask priority, removals, malformed records and depth/midpoint behavior against actual stored keys."
+
+[file.010]
+path = "modules/perps/keeper/endblock.go"
+lines = 418
+verdict = "issues"
+note = "Reviewed nine stages, cached isolation, sweep cursor wrap, error events and receipt commit; repeated coverage paths renew the ADL allowance within one block."
+
+[file.011]
+path = "modules/perps/keeper/endblock_test.go"
+lines = 308
+verdict = "clean"
+note = "Reviewed stage order, market failure isolation, receipt rollback, cursor continuation, funding/expiry and synthetic log observations."
+
+[file.012]
+path = "modules/perps/keeper/events_reconstruct_test.go"
+lines = 335
+verdict = "clean"
+note = "Actual events reconstruct position size and account collateral and are compared with keeper state, including repeated receipt consumption."
+
+[file.013]
+path = "modules/perps/keeper/evmlogs.go"
+lines = 70
+verdict = "clean"
+note = "PackEvent order/topic encoding agrees with producers; synthetic hash, provisional index, append, bloom and precommit flush match actual EVM consumers."
+
+[file.014]
+path = "modules/perps/keeper/evmlogs_test.go"
+lines = 167
+verdict = "clean"
+note = "Reviewed ABI packing, receipt append/index/bloom and malformed-event refusal through the real transient receipt boundary."
+
+[file.015]
+path = "modules/perps/keeper/export_test.go"
+lines = 54
+verdict = "clean"
+note = "Reviewed canonical export, omission of rebuildable indexes, normalized order fields and export/import equality for the exercised state."
+
+[file.016]
+path = "modules/perps/keeper/fees.go"
+lines = 520
+verdict = "issues"
+note = "Reviewed daily volume windows, fee/rebate thresholds, rounding, insurance split and residue; contextual registered refusals lose ABCI identity."
+
+[file.017]
+path = "modules/perps/keeper/fees_test.go"
+lines = 293
+verdict = "clean"
+note = "Reviewed rolling volume, tier boundaries, maker share rebates, recipient debits, conversion residue and emitted fee values."
+
+[file.018]
+path = "modules/perps/keeper/funding.go"
+lines = 360
+verdict = "issues"
+note = "Reviewed premium sampling, hourly index advance, signed lazy funding and residue; contextual refusals use the incompatible ABCI wrapper."
+
+[file.019]
+path = "modules/perps/keeper/funding_test.go"
+lines = 320
+verdict = "clean"
+note = "Reviewed premium vectors, sample cadence, lazy funding signs, hour transitions, caps, integer bounds and accounting residue."
+
+[file.020]
+path = "modules/perps/keeper/genesis.go"
+lines = 435
+verdict = "issues"
+note = "Reviewed every prefix, counter/cursor, export and supplied-index check; ownership indexes import verbatim and contextual errors lose SDK codes."
+
+[file.021]
+path = "modules/perps/keeper/genesis_governed_test.go"
+lines = 93
+verdict = "clean"
+note = "Governance, pause and market changes export/import into a separate keeper with byte-identical re-export."
+
+[file.022]
+path = "modules/perps/keeper/genesis_test.go"
+lines = 327
+verdict = "clean"
+note = "Reviewed fixtures, rebuildable indexes, malformed state, counters, cooldown basis and deterministic round-trip assertions."
+
+[file.023]
+path = "modules/perps/keeper/gov_price_age_test.go"
+lines = 101
+verdict = "clean"
+note = "Actual proposal execution changes the pricefeed age limit; a cached fresh venue mark cannot override the real producer's newly stale read."
+
+[file.024]
+path = "modules/perps/keeper/governed_backstop_ratio_test.go"
+lines = 82
+verdict = "clean"
+note = "A served parameter change moves the real backstop line; stored ratio and account maintenance boundaries are checked."
+
+[file.025]
+path = "modules/perps/keeper/governed_class_e_caps_test.go"
+lines = 78
+verdict = "clean"
+note = "Governance replaces listing-age rows and the real OI-cap consumer reads the new age-appropriate cap."
+
+[file.026]
+path = "modules/perps/keeper/governed_disabled_market_test.go"
+lines = 131
+verdict = "clean"
+note = "Served disable rejects opening orders and permits a real reduce-only close while retaining the governed market configuration."
+
+[file.027]
+path = "modules/perps/keeper/governed_disabled_premium_test.go"
+lines = 125
+verdict = "clean"
+note = "Disabled EndBlock market state retains its mark and premium sample while enabled market paths remain exercised."
+
+[file.028]
+path = "modules/perps/keeper/governed_fee_tiers_test.go"
+lines = 99
+verdict = "clean"
+note = "A served fee-table change affects actual subsequent fill fees, balances and emitted rates."
+
+[file.029]
+path = "modules/perps/keeper/governed_funding_cap_test.go"
+lines = 91
+verdict = "clean"
+note = "A served cap change reaches hourly settlement and is checked in actual funding records and persisted state."
+
+[file.030]
+path = "modules/perps/keeper/governed_insurance_share_test.go"
+lines = 84
+verdict = "clean"
+note = "A served insurance share changes actual trading-fee ledger splits and contribution event amounts."
+
+[file.031]
+path = "modules/perps/keeper/governed_invariants_test.go"
+lines = 240
+verdict = "clean"
+note = "Actual governed venue state is checked with every registered invariant after each message and EndBlock."
+
+[file.032]
+path = "modules/perps/keeper/governed_liquidation_caps_test.go"
+lines = 93
+verdict = "clean"
+note = "Governed account/slice limits constrain the liquidation scan, with remaining positions and next-block continuation checked."
+
+[file.033]
+path = "modules/perps/keeper/governed_mark_ema_test.go"
+lines = 148
+verdict = "clean"
+note = "The served time constant reaches EndBlock price computation and yields the expected stronger mark response."
+
+[file.034]
+path = "modules/perps/keeper/governed_max_leverage_test.go"
+lines = 65
+verdict = "clean"
+note = "Tests the current req.3006.23 TierClass-based leverage change with MaxLeverage remaining 1000; the older contradictory acceptance is recorded separately."
+
+[file.035]
+path = "modules/perps/keeper/governed_max_open_orders_test.go"
+lines = 90
+verdict = "clean"
+note = "Served updates below live open counts are refused and preserve parameters, orders and invariants."
+
+[file.036]
+path = "modules/perps/keeper/governed_min_order_value_test.go"
+lines = 60
+verdict = "clean"
+note = "Served minimum-value changes refuse the next undersized order without allocating ids or changing account state."
+
+[file.037]
+path = "modules/perps/keeper/governed_oi_cap_test.go"
+lines = 97
+verdict = "clean"
+note = "Served market cap changes reach real fill admission and admit an opening fill previously refused at the old cap."
+
+[file.038]
+path = "modules/perps/keeper/governed_rebate_tiers_test.go"
+lines = 110
+verdict = "clean"
+note = "Served rebate changes alter actual maker credits, fee-recipient debits and rebate events."
+
+[file.039]
+path = "modules/perps/keeper/governed_unpause_test.go"
+lines = 63
+verdict = "clean"
+note = "Pause/unpause through the Msg route stops and restores opening admission and the public precompile pause gate."
+
+[file.040]
+path = "modules/perps/keeper/insurance.go"
+lines = 737
+verdict = "issues"
+note = "Reviewed takeover/netting, cover, carried deficits and bounded closes; ADL receives the current updated mark and contextual errors lose SDK identity."
+
+[file.041]
+path = "modules/perps/keeper/insurance_test.go"
+lines = 483
+verdict = "clean"
+note = "Reviewed takeover/netting vectors, insurance balances, deficit/ADL integration, cooldown, continuation and cached rollback."
+
+[file.042]
+path = "modules/perps/keeper/invariants.go"
+lines = 694
+verdict = "clean"
+note = "Reviewed nine invariant registrations and canonical walks for solvency, OI, orders/book, positions, funding, counters and indexes; these report invariant violations rather than encode ABCI refusals."
+
+[file.043]
+path = "modules/perps/keeper/invariants_test.go"
+lines = 416
+verdict = "clean"
+note = "Reviewed corruption cases and real EVM custody-balance checks; embedded ERC20 bytecode is a generated payload inside handwritten tests."
+
+[file.044]
+path = "modules/perps/keeper/keeper.go"
+lines = 205
+verdict = "issues"
+note = "Actual application keepers and gov authority are wired; parameter/market persistence and id allocation are reviewed, with registered-error wrapping defects recorded."
+
+[file.045]
+path = "modules/perps/keeper/keeper_test.go"
+lines = 202
+verdict = "clean"
+note = "Reviewed authority checks, parameter/market persistence, listing-time reset and id/sequence allocation against real store state."
+
+[file.046]
+path = "modules/perps/keeper/liquidation.go"
+lines = 613
+verdict = "issues"
+note = "Reviewed account margin checks, index scan limits, slices, cooldown basis and atomicity; contextual public refusals lose SDK identity."
+
+[file.047]
+path = "modules/perps/keeper/liquidation_test.go"
+lines = 463
+verdict = "clean"
+note = "Reviewed liquidation, tier thresholds, cooldown, freshness, scan order/rebucketing, continuation and actual event payloads."
+
+[file.048]
+path = "modules/perps/keeper/listing_endblock_test.go"
+lines = 139
+verdict = "clean"
+note = "Actual pricefeed listing/aggregation reaches a newly governed venue market at EndBlock, including mark and ABI log checks."
+
+[file.049]
+path = "modules/perps/keeper/margin.go"
+lines = 573
+verdict = "issues"
+note = "Reviewed cross equity, lazy funding, initial/tier maintenance margin and fee reserve; actual contextual margin refusals lose ABCI codes."
+
+[file.050]
+path = "modules/perps/keeper/margin_test.go"
+lines = 383
+verdict = "clean"
+note = "Reviewed tier boundaries, account equity and fee reserve; untriggered orders holding no reserved margin makes live activation checks necessary."
+
+[file.051]
+path = "modules/perps/keeper/mark.go"
+lines = 256
+verdict = "issues"
+note = "Reviewed actual pricefeed freshness, median components, EMA and signed bounds; contextual stale-price refusals lose ABCI identity."
+
+[file.052]
+path = "modules/perps/keeper/mark_test.go"
+lines = 236
+verdict = "clean"
+note = "Reviewed median/EMA vectors, absent book-side fallbacks, freshness transitions, market errors and encoding boundaries."
+
+[file.053]
+path = "modules/perps/keeper/matching.go"
+lines = 578
+verdict = "issues"
+note = "Reviewed maker-price FIFO, STP, slippage, cap, FOK rollback, fees and OI; expired persisted orders and post-fill margin need enforcement."
+
+[file.054]
+path = "modules/perps/keeper/matching_test.go"
+lines = 674
+verdict = "clean"
+note = "Reviewed hand-checked vectors, price-time priority, STP, capped walks, bounds, rollback and maker/taker accounting/events."
+
+[file.055]
+path = "modules/perps/keeper/msg_server.go"
+lines = 70
+verdict = "issues"
+note = "Reviewed authority, immutable collateral, live-count cap and atomic events/state; contextual refusals lose registered SDK identity."
+
+[file.056]
+path = "modules/perps/keeper/msg_server_market.go"
+lines = 59
+verdict = "issues"
+note = "Reviewed real pricefeed identity, immutable symbol/precision, listing lifecycle and events; contextual refusals lose ABCI identity."
+
+[file.057]
+path = "modules/perps/keeper/msg_server_market_test.go"
+lines = 219
+verdict = "issues"
+note = "Listings and mutable/immutable settings are covered; the MaxLeverage refusal contradicts older acceptance text still printed in the contract."
+
+[file.058]
+path = "modules/perps/keeper/msg_server_pause.go"
+lines = 31
+verdict = "issues"
+note = "Reviewed idempotent pause bytes and per-call events; parameters are decoded before caller authority is checked."
+
+[file.059]
+path = "modules/perps/keeper/msg_server_pause_test.go"
+lines = 138
+verdict = "clean"
+note = "Covers exits, idempotence, refusal atomicity and events; combined wrong-authority/corrupt-state behavior is recorded in the governance proof finding."
+
+[file.060]
+path = "modules/perps/keeper/msg_server_test.go"
+lines = 99
+verdict = "clean"
+note = "Reviewed served parameter updates, collateral immutability, authority refusal and cached event/state behavior."
+
+[file.061]
+path = "modules/perps/keeper/openinterest.go"
+lines = 188
+verdict = "issues"
+note = "Reviewed base OI deltas, opening/closing netting and listing-age caps; contextual cap refusals lose registered SDK identity."
+
+[file.062]
+path = "modules/perps/keeper/openinterest_test.go"
+lines = 217
+verdict = "clean"
+note = "Reviewed side equality, netting combinations, cap/age boundaries, disabled markets and integer overflow refusal."
+
+[file.063]
+path = "modules/perps/keeper/orders.go"
+lines = 633
+verdict = "issues"
+note = "Reviewed admission sequence, exact sizing and cloid/account/expiry keys; terminal cancellation leaves stale attached TP/SL references."
+
+[file.064]
+path = "modules/perps/keeper/orders_test.go"
+lines = 489
+verdict = "issues"
+note = "Reviewed sizing, validation, cloid, expiry and cancellations; requireRefused reads the expected sentinel's code rather than the produced wire error."
+
+[file.065]
+path = "modules/perps/keeper/pause.go"
+lines = 40
+verdict = "clean"
+note = "Public pause gate matches the exit set; direct SetPaused checks authority first and changes only Paused, with views outside this gate."
+
+[file.066]
+path = "modules/perps/keeper/pause_test.go"
+lines = 103
+verdict = "clean"
+note = "Enumerates writes and exits against the actual CheckPause method and proves exits remain available under pause."
+
+[file.067]
+path = "modules/perps/keeper/paused_funding_test.go"
+lines = 81
+verdict = "clean"
+note = "Actual EndBlock advances funding while paused, with expected signed event values and persisted index."
+
+[file.068]
+path = "modules/perps/keeper/paused_liquidation_test.go"
+lines = 137
+verdict = "clean"
+note = "Actual EndBlock liquidates while paused although the transaction-level liquidate gate refuses it."
+
+[file.069]
+path = "modules/perps/keeper/paused_triggers_test.go"
+lines = 104
+verdict = "clean"
+note = "Actual EndBlock fires a protective stop and leaves an opening trigger pending under pause; collected-order counts do not establish an index-visit bound."
+
+[file.070]
+path = "modules/perps/keeper/positions.go"
+lines = 985
+verdict = "issues"
+note = "Reviewed netting, flips, partial/full close, entry/reference prices, fees and exact closing base; pending reduce-only triggers are excluded from reconciliation."
+
+[file.071]
+path = "modules/perps/keeper/positions_test.go"
+lines = 411
+verdict = "clean"
+note = "Reviewed open/increase/reduce/flip, weighted entry, settlement residue, holder checks, exact closing size and resting-order reconciliation."
+
+[file.072]
+path = "modules/perps/keeper/pricefeed_contract_test.go"
+lines = 31
+verdict = "clean"
+note = "Compile-time contract assignment and actual pricefeed keeper state establish GetPrice/MarketSymbol and missing-market behavior."
+
+[file.073]
+path = "modules/perps/keeper/proof_perps_governance_test.go"
+lines = 238
+verdict = "issues"
+note = "Actual codec/router/result and reopened LevelDB prove transport/recovery; one corrupt-state assertion deliberately pins the wrong pause-authority refusal."
+
+[file.074]
+path = "modules/perps/keeper/quotes.go"
+lines = 501
+verdict = "issues"
+note = "Reviewed cached execution-based quotes and ABI integer bounds; open sizing diverges from real execution through floor/ceil and caller-owned best bid handling."
+
+[file.075]
+path = "modules/perps/keeper/quotes_test.go"
+lines = 348
+verdict = "issues"
+note = "Reviewed quote fields, immutability, signs and exact close base; open equality uses a hard-coded keeper order instead of the compatibility precompile."
+
+[file.076]
+path = "modules/perps/keeper/scenario_test.go"
+lines = 455
+verdict = "clean"
+note = "Reviewed multi-step venue scenarios, deterministic stores/events, export/import continuation and all invariants for the exercised paths."
+
+[file.077]
+path = "modules/perps/keeper/seed_governed_test.go"
+lines = 61
+verdict = "clean"
+note = "Repeat activation seed preserves already-governed params and disabled markets rather than restoring defaults."
+
+[file.078]
+path = "modules/perps/keeper/seed_v6120.go"
+lines = 115
+verdict = "clean"
+note = "Reviewed eighteen identities, USDL literal, precision, fixed tiers, activation timestamps and idempotent preservation of existing state."
+
+[file.079]
+path = "modules/perps/keeper/seed_v6120_test.go"
+lines = 182
+verdict = "clean"
+note = "Reviewed all seeded rows, protocol accounts, timestamps, defaults and repeat-seed store equality."
+
+[file.080]
+path = "modules/perps/keeper/set_paused_test.go"
+lines = 114
+verdict = "clean"
+note = "Direct pause calls enforce gov authority, unchanged state on refusal and preservation of every other parameter field."
+
+[file.081]
+path = "modules/perps/keeper/triggers.go"
+lines = 744
+verdict = "issues"
+note = "Reviewed direction/index order, activation and OCO; missing live risk checks, FOK downgrade and unbounded paused scans have findings."
+
+[file.082]
+path = "modules/perps/keeper/triggers_test.go"
+lines = 536
+verdict = "clean"
+note = "Reviewed directions, trigger prices, FIFO/caps, stop-limit priority, IOC results, attachments/replacement/OCO, refusals and full-close cleanup."
+
+[file.083]
+path = "modules/perps/keeper/validate_genesis_test.go"
+lines = 81
+verdict = "clean"
+note = "Supplied derived-index mismatches are refused before writes and exercised exports restore identically; missing ownership-index cases are proposed in the production finding."
+
+[file.084]
+path = "modules/perps/keeper/withdraw_floor_test.go"
+lines = 103
+verdict = "clean"
+note = "Governed floor, ceil rounding, zero/full boundaries and unchanged defaults agree with actual account notional."
+
+[file.085]
+path = "modules/perps/migration_test.go"
+lines = 111
+verdict = "clean"
+note = "Actual module-manager migrations from consensus version 1 are a no-op and preserve the seeded store."
+
+[file.086]
+path = "modules/perps/module.go"
+lines = 129
+verdict = "issues"
+note = "Reviewed module/services, genesis and streaming entry points; malformed JSON genesis uses the incompatible registered-error wrapper."
+
+[file.087]
+path = "modules/perps/module_genesis_test.go"
+lines = 53
+verdict = "clean"
+note = "Module validation invokes keeper derived-index checks and refuses malformed supplied entries before initialization."
+
+[file.088]
+path = "modules/perps/module_services_test.go"
+lines = 62
+verdict = "clean"
+note = "Actual MsgServiceRouter executes registered pause messages with no query service and unchanged consensus version."
+
+[file.089]
+path = "modules/perps/module_test.go"
+lines = 599
+verdict = "clean"
+note = "Reviewed SDK module conformance, codec/service shape, genesis and streaming round-trip assertions."
+
+[file.090]
+path = "modules/perps/types/codec.go"
+lines = 23
+verdict = "clean"
+note = "Actual governance messages are registered under stable type URLs and amino names; routes are neither missing nor retired."
+
+[file.091]
+path = "modules/perps/types/codec_test.go"
+lines = 74
+verdict = "clean"
+note = "Actual interface registry resolves each message and amino JSON uses declared perps names."
+
+[file.092]
+path = "modules/perps/types/errors.go"
+lines = 110
+verdict = "clean"
+note = "All 44 errors have ordered unique codes 2..45, codespace perps and stable LXP names; contextual-producing wrappers hold the defects."
+
+[file.093]
+path = "modules/perps/types/errors_test.go"
+lines = 77
+verdict = "clean"
+note = "Reviewed fixed code/name/codespace anchors for every error including pause, holder, overflow and genesis."
+
+[file.094]
+path = "modules/perps/types/events.go"
+lines = 44
+verdict = "clean"
+note = "Event names agree with embedded ABI declarations and actual EventRecord producers; argument enums have consistent encodings."
+
+[file.095]
+path = "modules/perps/types/expected_keepers.go"
+lines = 31
+verdict = "clean"
+note = "EVM calls/receipts and pricefeed GetPrice/MarketSymbol signatures match the actual application implementations and units."
+
+[file.096]
+path = "modules/perps/types/genesis.go"
+lines = 537
+verdict = "issues"
+note = "Reviewed collections, references, indexes and id/sequence bounds; ownership indexes are one-directional and contextual errors lose SDK codes."
+
+[file.097]
+path = "modules/perps/types/genesis_test.go"
+lines = 326
+verdict = "issues"
+note = "Reviewed the complete mutation matrix; the accepted positive fixture has one long position with zero side OI, which the real fill producer cannot emit."
+
+[file.098]
+path = "modules/perps/types/keys.go"
+lines = 175
+verdict = "clean"
+note = "Reviewed prefixes, fixed-width endian keys, account/market ownership, inverted price/rank and cooldown basis encoding against consumers."
+
+[file.099]
+path = "modules/perps/types/market.go"
+lines = 94
+verdict = "clean"
+note = "Lot/tick USDL compatibility, positive caps and tier-0 leverage match current fixed-tier behavior; contradictory older governance acceptance is recorded at its test/contract."
+
+[file.100]
+path = "modules/perps/types/math.go"
+lines = 172
+verdict = "issues"
+note = "Reviewed signed/unsigned 256-bit arithmetic, conversions and rounding residue; contextual overflow errors lose their declared ABCI code."
+
+[file.101]
+path = "modules/perps/types/math_test.go"
+lines = 187
+verdict = "clean"
+note = "Reviewed boundary vectors, signed extrema, conversion directions, zero/negative inputs and residue conservation."
+
+[file.102]
+path = "modules/perps/types/msg_codec.go"
+lines = 98
+verdict = "clean"
+note = "Customtype Marshal/Unmarshal/Size agree on JSON payload bytes and malformed-input behavior across real governance message transport."
+
+[file.103]
+path = "modules/perps/types/msg_codec_test.go"
+lines = 119
+verdict = "clean"
+note = "Defaults and populated markets round-trip without aliasing, Size matches wire bytes and malformed payloads are refused."
+
+[file.104]
+path = "modules/perps/types/msgs.go"
+lines = 52
+verdict = "clean"
+note = "Reviewed address validation, signer derivation and Params/Market validation delegation; no signer bypass or state-dependent authorization."
+
+[file.105]
+path = "modules/perps/types/msgs_test.go"
+lines = 90
+verdict = "clean"
+note = "Valid/bad authorities, invalid params/markets and signer addresses are asserted using actual SDK encoding."
+
+[file.106]
+path = "modules/perps/types/params.go"
+lines = 326
+verdict = "issues"
+note = "Reviewed defaults, governed scalars, table order and cross-field safety; the shared invalid helper loses registered ABCI identity."
+
+[file.107]
+path = "modules/perps/types/params_test.go"
+lines = 169
+verdict = "clean"
+note = "Reviewed defaults and complete scalar/table/relationship mutation cases against the release parameter sheet."
+
+[file.108]
+path = "modules/perps/types/proof_perps_0x1015_test.go"
+lines = 320
+verdict = "clean"
+note = "Actual precompile, receipt/protobuf/log transport and ABI consumer cross the real boundary, with replay/recovery and damaged transport rejected."
+
+[file.109]
+path = "modules/perps/types/proof_perps_errors_test.go"
+lines = 230
+verdict = "issues"
+note = "Real response/protobuf/client decoding proves repaired wrappers; OutsideScope deliberately expects remaining registered identities to be lost."
+
+[file.110]
+path = "modules/perps/types/registered_errors_test.go"
+lines = 73
+verdict = "clean"
+note = "Every registry entry is checked once in order, with perps codespace, code number and LXP name."
+
+[file.111]
+path = "modules/perps/types/state.go"
+lines = 420
+verdict = "clean"
+note = "Full binary layouts, signed two's-complement words, address widths and exact lengths agree across record Marshal/Unmarshal consumers."
+
+[file.112]
+path = "modules/perps/types/tiers.go"
+lines = 148
+verdict = "clean"
+note = "Reviewed fixed A-F tables, continuous maintenance deductions, tier selection and the 1000x tier-0 cap against the market sheet."
+
+[file.113]
+path = "modules/perps/types/tiers_test.go"
+lines = 217
+verdict = "clean"
+note = "Reviewed all tier values, boundaries, continuity, class handling and invalid tables against actual producer definitions."
+
+[finding.trigger-live-margin]
+file = "modules/perps/keeper/triggers.go"
+line = 310
+class = "runtime-risk"
+severity = "high"
+observed = "triggerOrder moves an admitted trigger directly to Match or BookInsert without CheckOpen, a current fee reserve or current governed value/leverage checks. AccountMargin ignores UNTRIGGERED orders, so collateral can be withdrawn after placement and an opening stop can activate with only enough balance for its fee."
+expected = "Every opening exposure must satisfy current cross equity, initial margin and fee reserve. Pending activation must apply the same governed risk limits as a newly admitted opening order."
+proposal = "In modules/perps/keeper/triggers.go revalidate live opening exposure and current governed limits before activating either stop type, atomically cancel refused EndBlock activations, and add actual 0x1015 placement, withdrawal and subsequent activation scenarios."
+owner_domain = 3
+interface = "3.go-perps-keeper-executeorder-j64"
+
+[finding.pending-reduce-only-flip]
+file = "modules/perps/keeper/positions.go"
+line = 820
+class = "interface-mismatch"
+severity = "high"
+observed = "positionReduceOnlyOrders selects only RESTING orders. A whole-position TP/SL remains at its old SizeBase after a partial close; triggerOrder checks position existence but not its live side/size. ApplyFill can close the remainder and open an opposite position with the excess of the supposedly reduce-only leg."
+expected = "The declared TP/SL pair protects the live position and every reduce-only order must only shrink exposure, including after intervening partial reductions and recovery."
+proposal = "In modules/perps/keeper/positions.go and triggers.go reconcile UNTRIGGERED reduce-only legs on every position change and enforce closing side/current size at each fill. Prove partial close followed by TP and SL execution through 0x1015, including export/import."
+owner_domain = 3
+interface = "3.go-perps-keeper-setpositiontpsl-j64"
+
+[finding.cancelled-attachment-export]
+file = "modules/perps/keeper/orders.go"
+line = 563
+class = "restart-recovery"
+severity = "high"
+observed = "closeOrder removes account/cloid/expiry keys but leaves the cancelled id in AttachedTpSl. ExportGenesis preserves that attachment while types.ValidateGenesis requires attached legs to be UNTRIGGERED. A valid public cancellation can therefore leave an export that fresh-store InitGenesis refuses. cancelUntriggered has the same omission."
+expected = "Public cancellation must leave recoverable, valid genesis state and attached protection metadata must refer only to live legs; req.3005.2 requires valid venue exports to be accepted."
+proposal = "In modules/perps/keeper/orders.go and triggers.go clear the corresponding attachment leg atomically on cancellation, expiry and activation refusal, deleting an empty pair. Test actual 0x1015 cancellation/refusal, exported state validation and fresh-store import together."
+owner_domain = 3
+interface = "3.go-perps-keeper-cancelorder-j64"
+
+[finding.genesis-ownership-and-counts]
+file = "modules/perps/types/genesis.go"
+line = 397
+class = "interface-mismatch"
+severity = "high"
+observed = "validateOrderIndexes and validatePositionIndexes check supplied ownership entries only in one direction. They do not require each open order/position to be indexed, reconcile account counts, or reconcile market OI. keeper.initGenesis imports AccountOrders and AccountMarketPositions verbatim, so an omitted position is invisible to AccountMargin, withdrawal and netting after recovery."
+expected = "Validated recovery state must preserve every liability and ownership relation; canonical orders/positions, ownership indexes, account counts and market OI must agree before a restored account can trade or withdraw."
+proposal = "In modules/perps/types/genesis.go require complete bidirectional ownership indexes and count/OI agreement, or derive them canonically in keeper/genesis.go before validation and writes. Use real filled/exported state to test omitted indexes and mismatched counts/OI, then inspect restored margin and withdrawal behavior."
+owner_domain = 3
+interface = "3.go-perps-types-validategenesis-j64"
+
+[finding.adl-uses-current-mark]
+file = "modules/perps/keeper/insurance.go"
+line = 286
+class = "interface-mismatch"
+severity = "high"
+observed = "insuranceAdlInputs passes MarketState.MarkPrice to ExecuteADL. endBlockPrices has already overwritten it with this block’s mark before Backstop/CoverDeficit executes. Thus real EndBlock ADL settles at the current mark; MarketState retains no previous committed mark for the promised pricing rule."
+expected = "perps.md section 16 and perps-parameters.md section 7 require paired deficit/counterparty ADL reductions at the previous block’s mark, including across restart."
+proposal = "Persist the previous committed mark in modules/perps/keeper/mark.go and types/state.go, carry it through genesis and pass it from insuranceAdlInputs. Add a two-block actual EndBlock scenario with different marks, restart before ADL, and assert settlement balances and ADLMatched prices."
+owner_domain = 3
+interface = "3.go-perps-keeper-endblock-j64"
+
+[finding.settlement-leaves-adl-rank]
+file = "modules/perps/keeper/account.go"
+line = 298
+class = "runtime-risk"
+severity = "high"
+observed = "Settle rewrites ReferencePrice, CostBasisUsd and funding basis while preserving RankScore and AdlRankIndex. Deposit/withdrawal then change collateral without reranking. RankADL consumes the stale index, so the documented sweep never refreshes its priority and a different profitable counterparty can be deleveraged."
+expected = "The ADL index must represent the position at its last settlement using final account value, and the EndBlock sweep must refresh that state as the storage and EndBlock contracts specify."
+proposal = "In modules/perps/keeper/account.go refresh rank keys for affected positions after the final account balance is known, sharing the calculation with positions.go/insurance.go and including post-fee effects. Prove rank reordering after settlement, deposit, withdrawal and reopened-store recovery before actual ADL."
+owner_domain = 3
+interface = "3.key-perps-adl-rank-index-prefix-j25"
+
+[finding.adl-index-visit-bound]
+file = "modules/perps/keeper/adl.go"
+line = 70
+class = "runtime-risk"
+severity = "high"
+observed = "RankADL stops on len(ranked), but unprofitable and same-account records consume no limit. A deficit may scan the entire opposite-side index in every block when few or no profitable counterparties are eligible; the configured match count does not bound database work."
+expected = "The EndBlock contract requires a fixed work bound independent of account/position count, with unfinished work carried rather than an arbitrary prefix rescanned each block."
+proposal = "In modules/perps/keeper/adl.go budget examined entries separately from matches and retain a deterministic persisted continuation cursor, sharing the visit allowance across the block. Test a real EndBlock deficit behind a large ineligible prefix, bounded progress and restart continuation."
+owner_domain = 3
+interface = "3.go-perps-keeper-endblock-j64"
+
+[finding.paused-trigger-visit-bound]
+file = "modules/perps/keeper/triggers.go"
+line = 175
+class = "runtime-risk"
+severity = "high"
+observed = "crossedInDirection limits len(ids) but continues over crossed opening triggers while paused without charging a visit. The same potentially unbounded prefix of opening triggers is decoded again each block before protective reduce-only stops can be collected."
+expected = "Pause must preserve protective exits while every EndBlock index walk has a fixed visit bound and recovery-safe continuation; counting only collected orders does not bound execution cost."
+proposal = "In modules/perps/keeper/triggers.go use a separately bounded reduce-only index or a persisted visited-entry budget that cannot starve exits. Test a large crossed opening prefix under pause with protective stops and restart between bounded passes."
+owner_domain = 3
+interface = "3.go-perps-keeper-endblock-j64"
+
+[finding.adl-budget-renewed-in-block]
+file = "modules/perps/keeper/endblock.go"
+line = 377
+class = "config-drift"
+severity = "medium"
+observed = "endBlockDeficits calls CoverDeficit separately per candidate, and ExecuteADL starts a fresh AdlPositionsPerBlock allowance on every call. Liquidation Backstop and insurance-position closes can call coverage again, so the real block can exceed the advertised per-block counterparty cap."
+expected = "The parameter sheet and EndBlock contract advertise a block-wide ADL allowance. req.3006.3 checks a per-call bound and does not establish the whole-block claim."
+proposal = "In modules/perps/keeper/endblock.go carry one ADL allowance through liquidation, deficit coverage and backstop closes, charging committed work and retaining deficits for the next block. Add a multi-deficit actual EndBlock test and reconcile the per-call requirement wording."
+owner_domain = 3
+interface = "3.gen-perps-adl-positions-per-block-j25"
+
+[finding.trigger-fok-becomes-ioc]
+file = "modules/perps/keeper/triggers.go"
+line = 353
+class = "interface-mismatch"
+severity = "high"
+observed = "PlaceOrder admits STOP_MARKET with TimeInForceFOK, but triggerOrder unconditionally replaces its time in force with IOC. A pending FOK stop can partially fill and cancel its remainder instead of rolling back when full liquidity is unavailable."
+expected = "The FOK contract refuses incomplete execution with PerpsFokNotFilled and applies no partial trade. Activation must preserve the execution policy accepted and exposed in OrderDetails, or reject that combination at admission."
+proposal = "In modules/perps/keeper/triggers.go preserve admitted FOK on activation or reject unsupported trigger/time-in-force combinations explicitly in orders.go. Test public placement and activation against insufficient liquidity, asserting no partial balances, positions or logs and valid recovery state."
+owner_domain = 3
+interface = "3.go-perps-types-timeinforcefok-j64"
+
+[finding.expired-orders-still-fill]
+file = "modules/perps/keeper/matching.go"
+line = 373
+class = "interface-mismatch"
+severity = "high"
+observed = "fillMaker and validateTaker never inspect Deadline. Trigger activation also lacks a deadline check and runs before expiry cleanup. An expired stop or resting maker remaining in the bounded expiry backlog can still execute after its declared deadline."
+expected = "The DeadlineExpired contract treats a nonzero deadline below block time as expired; asynchronous bounded cleanup must not extend a trader’s authorization to execute an order."
+proposal = "In modules/perps/keeper/matching.go refuse or atomically expire past-deadline takers and skip/expire makers before fills, and share the check with triggers.go. Test real 0x1015 calls before cleanup plus stop activation with a backlog of due expiries."
+owner_domain = 3
+interface = "3.err-sdk-perps-22-deadline-expired"
+
+[finding.open-fill-margin]
+file = "modules/perps/keeper/matching.go"
+line = 407
+class = "runtime-risk"
+severity = "high"
+observed = "PlaceOrder checks opening margin at sizing notional, then fillMaker calls ApplyFill without a resulting-equity check. At BTC mark 60000, a 6000 USD market buy at 10x with 602.7 USD collateral passes CheckOpen; a fill at the allowed 60300 price charges 2.7135 USD and leaves equity 569.9865 USD at mark, below 600 USD initial margin."
+expected = "The parameter sheet requires equity after the fee and position increase to cover all resulting initial margin. Accepted slippage cannot silently bypass the same requirement for an immediately matched opening order."
+proposal = "In modules/perps/keeper/orders.go and matching.go reserve risk at the executable worst price and validate resulting margin atomically after actual settlement/fees, also rechecking stale maker risk. Add the explicit adverse-fill case through PlaceOrder/0x1015 and require refusal without partial state or logs."
+owner_domain = 3
+interface = "3.go-perps-keeper-placeorder-j64"
+
+[finding.quote-open-base-rounding]
+file = "modules/perps/keeper/quotes.go"
+line = 217
+class = "interface-mismatch"
+severity = "high"
+observed = "CompatOpenOrder floors base times mark to SizeUsd, then QuoteOpen calls quotePlace with a zero exact-base override and divides by mark again. Real precompiles/perps/positions.go compatibilitySize rounds that product up. At mark 60000e18+1 the quote loses a lot while actual open retains the intended base."
+expected = "quoteOpenPosition and openPosition at the same state and arguments must agree on base size, fills, fees, entry, funding estimate and liquidation output as the order confirmation contract promises."
+proposal = "In modules/perps/keeper/quotes.go and precompiles/perps/positions.go share compatibility sizing or carry exact base through both paths. Add a real quote/deposit/open EVM comparison at off-tick marks, checking exact lot, notional and fee outputs."
+owner_domain = 3
+interface = "3.pc-0x1015-quoteopenposition"
+
+[finding.quote-short-self-bid]
+file = "modules/perps/keeper/quotes.go"
+line = 187
+class = "interface-mismatch"
+severity = "high"
+observed = "CompatOpenOrder excludes caller-owned bids when selecting a short sizing price. Actual compatibilitySize uses BestBid including the caller’s bid, which Match then cancels via self-trade prevention. With an own best bid above an external bid, quote and execution calculate different base sizes."
+expected = "The public confirmation quote must reproduce the same compatibility sizing and self-trade behavior as actual execution for the same account and starting book."
+proposal = "Unify short sizing and self-trade treatment in modules/perps/keeper/quotes.go and precompiles/perps/positions.go under one documented rule. Compare actual 0x1015 quote and open on equivalent snapshots with an own best bid and lower external liquidity."
+owner_domain = 3
+interface = "3.pc-0x1015-quoteopenposition"
+
+[finding.pause-authority-order]
+file = "modules/perps/keeper/msg_server_pause.go"
+line = 18
+class = "security"
+severity = "medium"
+observed = "msgServer.SetPaused reads GetParams before Keeper.SetPaused checks authority. With corrupt stored params a wrong authority receives ErrInvalidParams rather than ErrUnauthorized, exposing store validity and differing from UpdateParams and direct SetPaused."
+expected = "Governance callers without authority must be refused before protected state is read, consistently whether persisted parameter bytes are valid or corrupt."
+proposal = "In modules/perps/keeper/msg_server_pause.go call checkGovernanceAuthority before unwrapping/decoding state, retain cached writes, and test the real MsgServiceRouter path with a wrong authority and corrupt parameters."
+owner_domain = 3
+interface = "3.go-perps-keeper-setpaused-j25"
+
+[finding.abci-keeper-core]
+file = "modules/perps/keeper/keeper.go"
+line = 101
+class = "interface-mismatch"
+severity = "high"
+observed = "GetMarket and UpdateParams/SetMarket contextualize ErrUnknownMarket, ErrUnauthorized and ErrInvalidParams with fmt.Errorf and %w. The consumed SDK ABCIInfo encoder follows Cause() rather than Unwrap(), so these errors encode as undefined codespace/code 1 instead of their registered perps identity. errors.Is and the custom EVM selector mapping can still recognize them."
+expected = "The declared perps error codes must retain codespace, numeric identity and LXP name through the actual SDK response/protobuf/client decoder, with contextual details preserved. Generic internal errors do not round-trip as the registered refusal."
+proposal = "Replace contextual registered-error wrapping in modules/perps/keeper/keeper.go with the SDK-aware Error.Wrap/Wrapf pattern used in orders.go and triggers.go. Add actual producer to ResponseDeliverTx/protobuf to ABCIError assertions for these branches, retaining sentinel, LXP and EVM selector checks."
+owner_domain = 3
+interface = "3.err-sdk-perps-3-unknown-market"
+
+[finding.abci-governance-params]
+file = "modules/perps/keeper/msg_server.go"
+line = 23
+class = "interface-mismatch"
+severity = "high"
+observed = "checkGovernanceAuthority and UpdateParams contextualize ErrUnauthorized and ErrInvalidParams with fmt.Errorf and %w. The consumed SDK ABCIInfo encoder follows Cause() rather than Unwrap(), so these errors encode as undefined codespace/code 1 instead of their registered perps identity. errors.Is and the custom EVM selector mapping can still recognize them."
+expected = "The declared perps error codes must retain codespace, numeric identity and LXP name through the actual SDK response/protobuf/client decoder, with contextual details preserved. Generic internal errors do not round-trip as the registered refusal."
+proposal = "Replace contextual registered-error wrapping in modules/perps/keeper/msg_server.go with the SDK-aware Error.Wrap/Wrapf pattern used in orders.go and triggers.go. Add actual producer to ResponseDeliverTx/protobuf to ABCIError assertions for these branches, retaining sentinel, LXP and EVM selector checks."
+owner_domain = 3
+interface = "3.err-sdk-perps-35-unauthorized"
+
+[finding.abci-governance-market]
+file = "modules/perps/keeper/msg_server_market.go"
+line = 28
+class = "interface-mismatch"
+severity = "high"
+observed = "SetMarket and MarketSymbol contextualize ErrUnauthorized, ErrUnknownMarket and ErrInvalidParams with fmt.Errorf and %w. The consumed SDK ABCIInfo encoder follows Cause() rather than Unwrap(), so these errors encode as undefined codespace/code 1 instead of their registered perps identity. errors.Is and the custom EVM selector mapping can still recognize them."
+expected = "The declared perps error codes must retain codespace, numeric identity and LXP name through the actual SDK response/protobuf/client decoder, with contextual details preserved. Generic internal errors do not round-trip as the registered refusal."
+proposal = "Replace contextual registered-error wrapping in modules/perps/keeper/msg_server_market.go with the SDK-aware Error.Wrap/Wrapf pattern used in orders.go and triggers.go. Add actual producer to ResponseDeliverTx/protobuf to ABCIError assertions for these branches, retaining sentinel, LXP and EVM selector checks."
+owner_domain = 3
+interface = "3.err-sdk-perps-35-unauthorized"
+
+[finding.abci-margin]
+file = "modules/perps/keeper/margin.go"
+line = 245
+class = "interface-mismatch"
+severity = "high"
+observed = "CheckOpen and SetMarginMode contextualize ErrInsufficientMargin, ErrLeverageTooHigh and ErrCrossMarginOnly with fmt.Errorf and %w. The consumed SDK ABCIInfo encoder follows Cause() rather than Unwrap(), so these errors encode as undefined codespace/code 1 instead of their registered perps identity. errors.Is and the custom EVM selector mapping can still recognize them."
+expected = "The declared perps error codes must retain codespace, numeric identity and LXP name through the actual SDK response/protobuf/client decoder, with contextual details preserved. Generic internal errors do not round-trip as the registered refusal."
+proposal = "Replace contextual registered-error wrapping in modules/perps/keeper/margin.go with the SDK-aware Error.Wrap/Wrapf pattern used in orders.go and triggers.go. Add actual producer to ResponseDeliverTx/protobuf to ABCIError assertions for these branches, retaining sentinel, LXP and EVM selector checks."
+owner_domain = 3
+interface = "3.err-sdk-perps-9-insufficient-margin"
+
+[finding.abci-freshness]
+file = "modules/perps/keeper/mark.go"
+line = 182
+class = "interface-mismatch"
+severity = "high"
+observed = "RequireFresh and market-state decoding contextualize ErrPriceStale, ErrInvalidParams and ErrOverflow with fmt.Errorf and %w. The consumed SDK ABCIInfo encoder follows Cause() rather than Unwrap(), so these errors encode as undefined codespace/code 1 instead of their registered perps identity. errors.Is and the custom EVM selector mapping can still recognize them."
+expected = "The declared perps error codes must retain codespace, numeric identity and LXP name through the actual SDK response/protobuf/client decoder, with contextual details preserved. Generic internal errors do not round-trip as the registered refusal."
+proposal = "Replace contextual registered-error wrapping in modules/perps/keeper/mark.go with the SDK-aware Error.Wrap/Wrapf pattern used in orders.go and triggers.go. Add actual producer to ResponseDeliverTx/protobuf to ABCIError assertions for these branches, retaining sentinel, LXP and EVM selector checks."
+owner_domain = 3
+interface = "3.err-sdk-perps-5-price-stale"
+
+[finding.abci-positions]
+file = "modules/perps/keeper/positions.go"
+line = 718
+class = "interface-mismatch"
+severity = "high"
+observed = "positionToClose and positionByID contextualize ErrNotPositionHolder, ErrUnknownPosition and ErrCloseSizeExceedsPosition with fmt.Errorf and %w. The consumed SDK ABCIInfo encoder follows Cause() rather than Unwrap(), so these errors encode as undefined codespace/code 1 instead of their registered perps identity. errors.Is and the custom EVM selector mapping can still recognize them."
+expected = "The declared perps error codes must retain codespace, numeric identity and LXP name through the actual SDK response/protobuf/client decoder, with contextual details preserved. Generic internal errors do not round-trip as the registered refusal."
+proposal = "Replace contextual registered-error wrapping in modules/perps/keeper/positions.go with the SDK-aware Error.Wrap/Wrapf pattern used in orders.go and triggers.go. Add actual producer to ResponseDeliverTx/protobuf to ABCIError assertions for these branches, retaining sentinel, LXP and EVM selector checks."
+owner_domain = 3
+interface = "3.err-sdk-perps-28-not-position-holder"
+
+[finding.abci-oi]
+file = "modules/perps/keeper/openinterest.go"
+line = 156
+class = "interface-mismatch"
+severity = "high"
+observed = "checkOiCap and CheckOpenInterest contextualize ErrOpenInterestCap, ErrZeroAmount and ErrOverflow with fmt.Errorf and %w. The consumed SDK ABCIInfo encoder follows Cause() rather than Unwrap(), so these errors encode as undefined codespace/code 1 instead of their registered perps identity. errors.Is and the custom EVM selector mapping can still recognize them."
+expected = "The declared perps error codes must retain codespace, numeric identity and LXP name through the actual SDK response/protobuf/client decoder, with contextual details preserved. Generic internal errors do not round-trip as the registered refusal."
+proposal = "Replace contextual registered-error wrapping in modules/perps/keeper/openinterest.go with the SDK-aware Error.Wrap/Wrapf pattern used in orders.go and triggers.go. Add actual producer to ResponseDeliverTx/protobuf to ABCIError assertions for these branches, retaining sentinel, LXP and EVM selector checks."
+owner_domain = 3
+interface = "3.err-sdk-perps-15-open-interest-cap"
+
+[finding.abci-liquidation]
+file = "modules/perps/keeper/liquidation.go"
+line = 71
+class = "interface-mismatch"
+severity = "high"
+observed = "Liquidate and liquidation record decoding contextualize ErrNotLiquidatable, ErrLiquidationCooldown and ErrUnknownPosition with fmt.Errorf and %w. The consumed SDK ABCIInfo encoder follows Cause() rather than Unwrap(), so these errors encode as undefined codespace/code 1 instead of their registered perps identity. errors.Is and the custom EVM selector mapping can still recognize them."
+expected = "The declared perps error codes must retain codespace, numeric identity and LXP name through the actual SDK response/protobuf/client decoder, with contextual details preserved. Generic internal errors do not round-trip as the registered refusal."
+proposal = "Replace contextual registered-error wrapping in modules/perps/keeper/liquidation.go with the SDK-aware Error.Wrap/Wrapf pattern used in orders.go and triggers.go. Add actual producer to ResponseDeliverTx/protobuf to ABCIError assertions for these branches, retaining sentinel, LXP and EVM selector checks."
+owner_domain = 3
+interface = "3.err-sdk-perps-33-not-liquidatable"
+
+[finding.abci-fees]
+file = "modules/perps/keeper/fees.go"
+line = 493
+class = "interface-mismatch"
+severity = "high"
+observed = "debitBookedAccount and fee amount conversion contextualize ErrInsufficientCollateral, ErrNoAccount and ErrOverflow with fmt.Errorf and %w. The consumed SDK ABCIInfo encoder follows Cause() rather than Unwrap(), so these errors encode as undefined codespace/code 1 instead of their registered perps identity. errors.Is and the custom EVM selector mapping can still recognize them."
+expected = "The declared perps error codes must retain codespace, numeric identity and LXP name through the actual SDK response/protobuf/client decoder, with contextual details preserved. Generic internal errors do not round-trip as the registered refusal."
+proposal = "Replace contextual registered-error wrapping in modules/perps/keeper/fees.go with the SDK-aware Error.Wrap/Wrapf pattern used in orders.go and triggers.go. Add actual producer to ResponseDeliverTx/protobuf to ABCIError assertions for these branches, retaining sentinel, LXP and EVM selector checks."
+owner_domain = 3
+interface = "3.err-sdk-perps-8-insufficient-collateral"
+
+[finding.abci-insurance]
+file = "modules/perps/keeper/insurance.go"
+line = 58
+class = "interface-mismatch"
+severity = "high"
+observed = "Backstop and insurance ledger validation contextualize ErrNotLiquidatable, ErrInvalidParams and ErrOverflow with fmt.Errorf and %w. The consumed SDK ABCIInfo encoder follows Cause() rather than Unwrap(), so these errors encode as undefined codespace/code 1 instead of their registered perps identity. errors.Is and the custom EVM selector mapping can still recognize them."
+expected = "The declared perps error codes must retain codespace, numeric identity and LXP name through the actual SDK response/protobuf/client decoder, with contextual details preserved. Generic internal errors do not round-trip as the registered refusal."
+proposal = "Replace contextual registered-error wrapping in modules/perps/keeper/insurance.go with the SDK-aware Error.Wrap/Wrapf pattern used in orders.go and triggers.go. Add actual producer to ResponseDeliverTx/protobuf to ABCIError assertions for these branches, retaining sentinel, LXP and EVM selector checks."
+owner_domain = 3
+interface = "3.err-sdk-perps-33-not-liquidatable"
+
+[finding.abci-funding]
+file = "modules/perps/keeper/funding.go"
+line = 304
+class = "interface-mismatch"
+severity = "high"
+observed = "SettlePositionFunding and premium validation contextualize ErrNotPositionHolder, ErrInvalidParams and ErrOverflow with fmt.Errorf and %w. The consumed SDK ABCIInfo encoder follows Cause() rather than Unwrap(), so these errors encode as undefined codespace/code 1 instead of their registered perps identity. errors.Is and the custom EVM selector mapping can still recognize them."
+expected = "The declared perps error codes must retain codespace, numeric identity and LXP name through the actual SDK response/protobuf/client decoder, with contextual details preserved. Generic internal errors do not round-trip as the registered refusal."
+proposal = "Replace contextual registered-error wrapping in modules/perps/keeper/funding.go with the SDK-aware Error.Wrap/Wrapf pattern used in orders.go and triggers.go. Add actual producer to ResponseDeliverTx/protobuf to ABCIError assertions for these branches, retaining sentinel, LXP and EVM selector checks."
+owner_domain = 3
+interface = "3.err-sdk-perps-28-not-position-holder"
+
+[finding.abci-keeper-genesis]
+file = "modules/perps/keeper/genesis.go"
+line = 184
+class = "interface-mismatch"
+severity = "high"
+observed = "matchSuppliedIndexes and genesis import/export contextualize ErrInvalidGenesis with fmt.Errorf and %w. The consumed SDK ABCIInfo encoder follows Cause() rather than Unwrap(), so these errors encode as undefined codespace/code 1 instead of their registered perps identity. errors.Is and the custom EVM selector mapping can still recognize them."
+expected = "The declared perps error codes must retain codespace, numeric identity and LXP name through the actual SDK response/protobuf/client decoder, with contextual details preserved. Generic internal errors do not round-trip as the registered refusal."
+proposal = "Replace contextual registered-error wrapping in modules/perps/keeper/genesis.go with the SDK-aware Error.Wrap/Wrapf pattern used in orders.go and triggers.go. Add actual producer to ResponseDeliverTx/protobuf to ABCIError assertions for these branches, retaining sentinel, LXP and EVM selector checks."
+owner_domain = 3
+interface = "3.err-sdk-perps-39-invalid-genesis"
+
+[finding.abci-type-genesis]
+file = "modules/perps/types/genesis.go"
+line = 149
+class = "interface-mismatch"
+severity = "high"
+observed = "invalidGenesis and ValidateGenesis contextualize ErrInvalidGenesis with fmt.Errorf and %w. The consumed SDK ABCIInfo encoder follows Cause() rather than Unwrap(), so these errors encode as undefined codespace/code 1 instead of their registered perps identity. errors.Is and the custom EVM selector mapping can still recognize them."
+expected = "The declared perps error codes must retain codespace, numeric identity and LXP name through the actual SDK response/protobuf/client decoder, with contextual details preserved. Generic internal errors do not round-trip as the registered refusal."
+proposal = "Replace contextual registered-error wrapping in modules/perps/types/genesis.go with the SDK-aware Error.Wrap/Wrapf pattern used in orders.go and triggers.go. Add actual producer to ResponseDeliverTx/protobuf to ABCIError assertions for these branches, retaining sentinel, LXP and EVM selector checks."
+owner_domain = 3
+interface = "3.err-sdk-perps-39-invalid-genesis"
+
+[finding.abci-params]
+file = "modules/perps/types/params.go"
+line = 165
+class = "interface-mismatch"
+severity = "high"
+observed = "invalid used by Params.Validate and Market.Validate contextualize ErrInvalidParams with fmt.Errorf and %w. The consumed SDK ABCIInfo encoder follows Cause() rather than Unwrap(), so these errors encode as undefined codespace/code 1 instead of their registered perps identity. errors.Is and the custom EVM selector mapping can still recognize them."
+expected = "The declared perps error codes must retain codespace, numeric identity and LXP name through the actual SDK response/protobuf/client decoder, with contextual details preserved. Generic internal errors do not round-trip as the registered refusal."
+proposal = "Replace contextual registered-error wrapping in modules/perps/types/params.go with the SDK-aware Error.Wrap/Wrapf pattern used in orders.go and triggers.go. Add actual producer to ResponseDeliverTx/protobuf to ABCIError assertions for these branches, retaining sentinel, LXP and EVM selector checks."
+owner_domain = 3
+interface = "3.err-sdk-perps-2-invalid-params"
+
+[finding.abci-math]
+file = "modules/perps/types/math.go"
+line = 59
+class = "interface-mismatch"
+severity = "high"
+observed = "USD conversions and bounded fixed-point math contextualize ErrOverflow with fmt.Errorf and %w. The consumed SDK ABCIInfo encoder follows Cause() rather than Unwrap(), so these errors encode as undefined codespace/code 1 instead of their registered perps identity. errors.Is and the custom EVM selector mapping can still recognize them."
+expected = "The declared perps error codes must retain codespace, numeric identity and LXP name through the actual SDK response/protobuf/client decoder, with contextual details preserved. Generic internal errors do not round-trip as the registered refusal."
+proposal = "Replace contextual registered-error wrapping in modules/perps/types/math.go with the SDK-aware Error.Wrap/Wrapf pattern used in orders.go and triggers.go. Add actual producer to ResponseDeliverTx/protobuf to ABCIError assertions for these branches, retaining sentinel, LXP and EVM selector checks."
+owner_domain = 3
+interface = "3.err-sdk-perps-38-overflow"
+
+[finding.abci-module-genesis]
+file = "modules/perps/module.go"
+line = 57
+class = "interface-mismatch"
+severity = "high"
+observed = "AppModuleBasic.ValidateGenesis malformed-JSON refusal contextualize ErrInvalidGenesis with fmt.Errorf and %w. The consumed SDK ABCIInfo encoder follows Cause() rather than Unwrap(), so these errors encode as undefined codespace/code 1 instead of their registered perps identity. errors.Is and the custom EVM selector mapping can still recognize them."
+expected = "The declared perps error codes must retain codespace, numeric identity and LXP name through the actual SDK response/protobuf/client decoder, with contextual details preserved. Generic internal errors do not round-trip as the registered refusal."
+proposal = "Replace contextual registered-error wrapping in modules/perps/module.go with the SDK-aware Error.Wrap/Wrapf pattern used in orders.go and triggers.go. Add actual producer to ResponseDeliverTx/protobuf to ABCIError assertions for these branches, retaining sentinel, LXP and EVM selector checks."
+owner_domain = 3
+interface = "3.err-sdk-perps-39-invalid-genesis"
+
+[finding.refusal-test-expected-sentinel]
+file = "modules/perps/keeper/orders_test.go"
+line = 124
+class = "test-gap"
+severity = "medium"
+observed = "requireRefused checks errors.Is on err but obtains ABCICode from want, the expected root sentinel. It never encodes the produced error, so it passes when its actual SDK wire code has become undefined/1."
+expected = "A test claiming a refusal code must assert codespace and number from the actual producer through the transport the SDK client consumes."
+proposal = "In modules/perps/keeper/orders_test.go encode err with ResponseDeliverTx and protobuf, assert its received perps code and ABCIError identity, and retain errors.Is. Include actual unknown-market, stale-price and margin refusals."
+owner_domain = 3
+interface = "3.go-perps-keeper-placeorder-j64"
+
+[finding.error-proof-pins-loss]
+file = "modules/perps/types/proof_perps_errors_test.go"
+line = 225
+class = "test-gap"
+severity = "medium"
+observed = "TestProofPerpsErrorsOutsideScope expects UndefinedCodespace and code 1 for actual GetMarket and ValidateGenesis errors, and asserts the decoded SDK client cannot recover their perps sentinel. The passing proof pins the broken interface."
+expected = "The transport proof must establish the declared registered identity for actual producer refusals; historical repair scope is not a final network contract."
+proposal = "After the wrapper repairs, update modules/perps/types/proof_perps_errors_test.go to call proofPerpsTransport on these errors and require registered codes/decoded identities, preserving malformed-message and wrong-namespace checks."
+owner_domain = 3
+interface = "3.err-sdk-perps-3-unknown-market"
+
+[finding.pause-proof-pins-wrong-refusal]
+file = "modules/perps/keeper/proof_perps_governance_test.go"
+line = 233
+class = "test-gap"
+severity = "medium"
+observed = "The corrupt-parameter branch explicitly expects ErrInvalidParams from actual MsgSetPaused with a wrong authority, while the same proof expects ErrUnauthorized from UpdateParams and direct SetPaused for that caller."
+expected = "The served governance proof must require authority-first refusal consistently across valid and corrupt persisted state at the actual message boundary."
+proposal = "Repair modules/perps/keeper/msg_server_pause.go first, then change this assertion in proof_perps_governance_test.go to ErrUnauthorized and check its SDK wire identity while preserving unchanged-store and no-event assertions."
+owner_domain = 3
+interface = "3.go-perps-keeper-setpaused-j25"
+
+[finding.open-quote-test-bypasses-execution]
+file = "modules/perps/keeper/quotes_test.go"
+line = 108
+class = "test-gap"
+severity = "medium"
+observed = "quotesFixture.open submits a hard-coded 990e18 keeper MARKET order. TestQuotesOpenEqualsExecution uses that helper at an aligned mark, bypassing the real compatibility sizing/deposit route and hiding its rounding and own-best-bid discrepancies."
+expected = "The quote confirmation contract needs the actual EVM quote producer and execution consumer using identical arguments and initial state, including size precision and self-trade behavior."
+proposal = "Add real 0x1015 quoteOpenPosition/openPosition comparisons on equivalent snapshots in precompiles/perps/quotes_test.go, covering unaligned marks, caller-owned best bids, partial fills and fee tiers, and compare decoded receipts with actual positions and balances."
+owner_domain = 3
+interface = "3.pc-0x1015-quoteopenposition"
+
+[finding.adl-bound-test-misses-block]
+file = "modules/perps/keeper/adl_bound_test.go"
+line = 62
+class = "test-gap"
+severity = "medium"
+observed = "The shared_across_deficits case invokes ExecuteADL once with two ids. This proves a per-call allowance but cannot detect EndBlock/Backstop/CoverDeficit invoking it repeatedly with renewed budgets in one block."
+expected = "A per-block configuration claim requires observing all ADL work from the actual EndBlock pass sharing one allowance and carrying remaining work forward."
+proposal = "Extend modules/perps/keeper/adl_bound_test.go or endblock_test.go with multiple deficits, backstop coverage and insurance closes in one block, assert total ADLMatched records in the synthetic receipt, then verify bounded next-block continuation."
+owner_domain = 3
+interface = "3.gen-perps-adl-positions-per-block-j25"
+
+[finding.genesis-positive-fixture-shape]
+file = "modules/perps/types/genesis_test.go"
+line = 35
+class = "test-gap"
+severity = "medium"
+observed = "validGenesis contains one long position while its MarketStates record has zero long and short OI. TestGenesisValidateAccepts treats that literal as valid although a real matched fill produces equal long/short base OI and cannot emit it."
+expected = "A positive recovery fixture must reflect the canonical fill producer and documented OI invariant; mismatched side totals belong in refused negative fixtures."
+proposal = "In modules/perps/types/genesis_test.go build positive state from actual matched fills and export, then independently corrupt OI, account counts and ownership indexes and require rejection before import, retaining all existing malformed-reference cases."
+owner_domain = 3
+interface = "3.go-perps-types-validategenesis-j64"
+
+[finding.leverage-acceptance-conflict]
+file = "modules/perps/keeper/msg_server_market_test.go"
+line = 209
+class = "test-gap"
+severity = "medium"
+observed = "The MaxLeverage case expects a change from 1000 to 500 to fail because it differs from tier 0. req.3001.18 and its printed contract still require a standalone MaxLeverage change to be stored, while req.3010.1 and the fixed tiers retain 1000."
+expected = "Governance acceptance and tests must express one coherent leverage policy; asserting the opposite behavior cannot qualify the older mutable-MaxLeverage acceptance."
+proposal = "Have the markets owner reconcile req.3001.18 and the contract with the current TierClass-based governance policy before altering behavior. Preserve fixed-tier safety checks and make msg_server_market_test.go prove the resolved policy through actual Msg execution."
+owner_domain = 3
+interface = "3.gen-perps-market-j25"
+
+[finding.markets-contract-historical-state]
+file = "spec/layerx-merge/contracts/markets.md"
+line = 414
+class = "doc-drift"
+severity = "medium"
+observed = "Perps tables call RegisterInterfaces/RegisterServices no-ops at HEAD, label served Msg methods/codecs planned, and say WithdrawFloorPpm and AdlPositionsPerBlock are never read at lines 90-91. These routes and governed consumers are now implemented."
+expected = "The merged-network contract must identify routes and governed fields actually served at the audited revision, with current signatures and administration behavior."
+proposal = "Regenerate spec/layerx-merge/contracts/markets.md from its owning spec/interface sources and reconcile Perps sections with module.go, types/codec.go and keeper consumers. Replace historical planned/no-op claims and resolve the mutable-MaxLeverage acceptance at line 451."
+owner_domain = 3
+
+[finding.parameter-sheet-governance-route]
+file = "spec/release-v6-12-0/contracts/perps-parameters.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The parameter sheet says post-activation changes are made by an upgrade handler through keeper setters. The running module also serves UpdateParams, SetMarket and SetPaused through governance messages and executed LayerX proposals."
+expected = "Operators need the supported proposal workflow for changing live economics and its immutable-collateral and live-count constraints."
+proposal = "Update spec/release-v6-12-0/contracts/perps-parameters.md to include served governance Msg/proposal execution, authority and validation constraints, linking actual codecs and service behavior instead of prescribing upgrades as the administration workflow."
+owner_domain = 3
+
+[finding.market-sheet-governance-route]
+file = "spec/release-v6-12-0/contracts/perps-markets.md"
+line = 49
+class = "doc-drift"
+severity = "medium"
+observed = "The class-E section describes ClassEOiCaps changes through an upgrade handler. Served MsgUpdateParams can change that table live and MsgSetMarket controls enable/relisting lifecycle."
+expected = "Market operators must know the current proposal-driven update method and exactly when re-enabling a market resets its ListedAt time."
+proposal = "Rewrite administration guidance in spec/release-v6-12-0/contracts/perps-markets.md to include governance message/proposal execution, preserve ascending-age/increasing-cap constraints and explain the actual relisting timestamp lifecycle."
+owner_domain = 3
+
+[finding.main-contract-governance-route]
+file = "spec/release-v6-12-0/contracts/perps.md"
+line = 1318
+class = "doc-drift"
+severity = "medium"
+observed = "Section 22 says post-activation parameter/market changes are applied only by upgrade handlers and section 25 repeats it. The module registers live governance messages and actual proposal tests route them."
+expected = "The main perpetuals contract must describe the supported ongoing administrative lifecycle, authority refusals, pause messages and emitted governance events."
+proposal = "Update sections 22 and 25 of spec/release-v6-12-0/contracts/perps.md for served UpdateParams, SetMarket and SetPaused through LayerX proposals, keeping activation seeding distinct from ongoing administration."
+owner_domain = 3
+
+[finding.compat-order-collateral-example]
+file = "spec/release-v6-12-0/contracts/perps.md"
+line = 481
+class = "doc-drift"
+severity = "medium"
+observed = "The getOrder example returns collateralAmount 300000000 for its 5946.02 USD order at 20x. Actual viewGetOrder computes InitialMargin(SizeUsd,Leverage), returning 297301000 USDL units; the order does not retain the original deposit amount."
+expected = "The documented eleven-field tuple must describe the real view producer so an integrator does not confuse initial margin with the original compatibility deposit."
+proposal = "Correct the getOrder example/field semantics in spec/release-v6-12-0/contracts/perps.md to the actual initial-margin result, or explicitly define and implement retained deposit metadata in the owning order/view paths if original collateral is the intended contract."
+owner_domain = 3
+
+[doc.markets]
+path = "spec/layerx-merge/contracts/markets.md"
+status = "stale"
+notes = "Reviewed the Perps interface, event, governance, exported-type and acceptance sections against package registry and actual code. Historical planned/no-op and leverage-acceptance claims are stale; other domain sections are outside this slice."
+
+[doc.parameters]
+path = "spec/release-v6-12-0/contracts/perps-parameters.md"
+status = "stale"
+notes = "Reviewed economic defaults, fee/risk formulas, ADL pricing and work bounds against actual keeper consumers. Administration guidance omits the served governance route; source disagreements have separate findings."
+
+[doc.markets-release]
+path = "spec/release-v6-12-0/contracts/perps-markets.md"
+status = "stale"
+notes = "Reviewed all eighteen identities, precision, tiers and listing-age caps against seed and types. The class-E update guidance omits now-served governance messages."
+
+[doc.perps-release]
+path = "spec/release-v6-12-0/contracts/perps.md"
+status = "stale"
+notes = "Reviewed units/tuples, custody, order/trigger/position lifecycle, events/errors, storage, activation, EndBlock and invariants. Upgrade-only governance and the compatibility getOrder amount are stale; code disagreements are source findings."

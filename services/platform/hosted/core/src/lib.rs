@@ -56,12 +56,10 @@ impl SocketSigner {
         timeout: std::time::Duration,
     ) -> Result<Self, String> {
         let did = custody::SocketSigner::connect_with_timeout(path, timeout)?;
-        let evm =
-            EvmSender::from_env("LAYERX_CORE_FUNDING_SENDER").map_err(|error| error.to_string())?;
-        Ok(Self {
-            did,
-            evm: Ok(Arc::new(evm)),
-        })
+        let evm = EvmSender::from_env("LAYERX_CORE_FUNDING_SENDER")
+            .map(Arc::new)
+            .map_err(|error| error.to_string());
+        Ok(Self { did, evm })
     }
 
     pub fn connect_with_evm_sender(path: &std::path::Path, evm: EvmSender) -> Result<Self, String> {
@@ -497,8 +495,7 @@ pub struct RegisteredCustodyAsset {
     trusted_height: u64,
     pub denom: String,
     pub pointer: [u8; 20],
-    pub custody_cap: [u8; 32],
-    pub custodied: [u8; 32],
+    pub total_supply: [u8; 32],
     network_id: u32,
     state_root: [u8; 32],
 }
@@ -562,11 +559,11 @@ impl AuthenticatedCustodyAsset {
     }
 }
 
-const CUSTODY_PRECOMPILE: [u8; 20] = [
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x10, 0x13,
+const BANK_PRECOMPILE: [u8; 20] = [
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x10, 0x01,
 ];
-const ANCHOR_PRECOMPILE: [u8; 20] = [
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x10, 0x14,
+const POINTERVIEW_PRECOMPILE: [u8; 20] = [
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x10, 0x0a,
 ];
 
 fn custody_selector(signature: &str) -> [u8; 4] {
@@ -601,11 +598,35 @@ fn abi_bool(bytes: &[u8], index: usize) -> Result<bool, String> {
     }
 }
 
+#[cfg(test)]
+#[allow(dead_code)]
+struct LegacyCustodyAsset {
+    asset: [u8; 32],
+    network_id: u32,
+    denom: String,
+    pointer: [u8; 20],
+    custody_cap: [u8; 32],
+    custodied: [u8; 32],
+    profile: Vec<u8>,
+    state_root: [u8; 32],
+    trusted_height: u64,
+}
+#[cfg(test)]
+impl LegacyCustodyAsset {
+    fn asset(&self) -> [u8; 32] {
+        self.asset
+    }
+    fn profile(&self) -> &[u8] {
+        &self.profile
+    }
+}
+
+#[cfg(test)]
 fn decode_custody_asset(
     bytes: Vec<u8>,
     asset: [u8; 32],
     network_id: u32,
-) -> Result<RegisteredCustodyAsset, String> {
+) -> Result<LegacyCustodyAsset, String> {
     if abi_u64(&bytes, 0)? != 32 {
         return Err("invalid custody tuple offset".into());
     }
@@ -642,7 +663,7 @@ fn decode_custody_asset(
     let custody_cap = abi_word(tuple, 6)?;
     let custodied = abi_word(tuple, 7)?;
     abi_word(tuple, 9)?;
-    Ok(RegisteredCustodyAsset {
+    Ok(LegacyCustodyAsset {
         asset,
         network_id,
         denom,
@@ -657,38 +678,40 @@ fn decode_custody_asset(
     })
 }
 
+/// The native committed block replaces the retired checkpoint authority.
 pub fn custody_latest_finalized(
     sequencer: &layerx_client::sequencer::SequencerEndpoint,
     committed_height: u64,
 ) -> Result<u64, String> {
-    let bytes = sequencer
-        .call_at(
-            committed_height,
-            &ANCHOR_PRECOMPILE,
-            &custody_selector("latestFinalized()"),
-        )
-        .map_err(|error| format!("custody latest finalized: {error:?}"))?;
-    if bytes.len() != 64 || !abi_bool(&bytes, 1)? {
-        return Err("custody has no finalized checkpoint".into());
-    }
-    abi_u64(&bytes, 0)
+    native_committed_state(sequencer, committed_height)?;
+    Ok(committed_height)
 }
 
-fn custody_checkpoint(
+pub fn native_committed_state(
     sequencer: &layerx_client::sequencer::SequencerEndpoint,
-    committed_height: u64,
-    batch: u64,
-) -> Result<Vec<u8>, String> {
-    let mut data = custody_selector("checkpoint(uint64)").to_vec();
-    data.extend_from_slice(&[0; 24]);
-    data.extend_from_slice(&batch.to_be_bytes());
-    let bytes = sequencer
-        .call_at(committed_height, &ANCHOR_PRECOMPILE, &data)
-        .map_err(|error| format!("custody checkpoint: {error:?}"))?;
-    if bytes.len() != 18 * 32 {
-        return Err("invalid anchor checkpoint tuple".into());
+    height: u64,
+) -> Result<(layerx_client::sequencer::SequencerBlock, [u8; 32]), String> {
+    let block = sequencer
+        .block_by_number(height)
+        .map_err(|error| format!("native committed block: {error:?}"))?
+        .ok_or("native committed block unavailable")?;
+    let root = sequencer
+        .state_root(height)
+        .map_err(|error| format!("native app hash: {error:?}"))?;
+    if height == 0 || block.number != height || block.hash == [0; 32] || root == [0; 32] {
+        return Err("invalid native committed block".into());
     }
-    Ok(bytes)
+    let confirmation = sequencer
+        .block_by_number(height)
+        .map_err(|error| format!("native block confirmation: {error:?}"))?
+        .ok_or("native committed block unavailable")?;
+    let confirmed_root = sequencer
+        .state_root(height)
+        .map_err(|error| format!("native app hash confirmation: {error:?}"))?;
+    if confirmation != block || confirmed_root != root {
+        return Err("native committed block changed".into());
+    }
+    Ok((block, root))
 }
 
 pub fn custody_checkpoint_state_root(
@@ -696,14 +719,114 @@ pub fn custody_checkpoint_state_root(
     committed_height: u64,
     batch: u64,
 ) -> Result<Option<[u8; 32]>, String> {
-    let bytes = custody_checkpoint(sequencer, committed_height, batch)?;
-    if abi_u64(&bytes, 12)? == 0 {
-        return Ok(None);
+    if batch == 0 || batch > committed_height {
+        return Err("native block is outside the committed range".into());
     }
-    if abi_u64(&bytes, 0)? != batch {
-        return Err("anchor checkpoint batch mismatch".into());
+    native_committed_state(sequencer, batch).map(|(_, root)| Some(root))
+}
+
+fn native_string_call(signature: &str, denom: &str) -> Result<Vec<u8>, String> {
+    if denom.is_empty()
+        || denom.len() > 256
+        || !denom.is_ascii()
+        || denom
+            .bytes()
+            .any(|byte| byte.is_ascii_control() || byte == b' ')
+    {
+        return Err("invalid native denomination".into());
     }
-    Ok(Some(abi_word(&bytes, 7)?))
+    let mut data = custody_selector(signature).to_vec();
+    data.extend_from_slice(&[0; 24]);
+    data.extend_from_slice(&32_u64.to_be_bytes());
+    data.extend_from_slice(&[0; 24]);
+    data.extend_from_slice(&(denom.len() as u64).to_be_bytes());
+    data.extend_from_slice(denom.as_bytes());
+    data.resize(4 + 64 + denom.len().div_ceil(32) * 32, 0);
+    Ok(data)
+}
+
+fn native_abi_string(bytes: &[u8]) -> Result<String, String> {
+    if abi_u64(bytes, 0)? != 32 {
+        return Err("invalid native string offset".into());
+    }
+    let length = usize::try_from(abi_u64(bytes, 1)?).map_err(|_| "native string overflow")?;
+    if length == 0 || length > 256 || bytes.len() != 64 + length.div_ceil(32) * 32 {
+        return Err("invalid native metadata length".into());
+    }
+    if bytes[64 + length..].iter().any(|byte| *byte != 0) {
+        return Err("invalid native metadata padding".into());
+    }
+    std::str::from_utf8(&bytes[64..64 + length])
+        .map(str::to_owned)
+        .map_err(|_| "invalid native metadata text".into())
+}
+
+pub fn read_native_asset_profile(
+    sequencer: &layerx_client::sequencer::SequencerEndpoint,
+    network_id: u32,
+    committed_height: u64,
+    asset: [u8; 32],
+    denom: &str,
+) -> Result<RegisteredCustodyAsset, String> {
+    if network_id == 0 || asset == [0; 32] {
+        return Err("invalid native asset identity".into());
+    }
+    let (block, state_root) = native_committed_state(sequencer, committed_height)?;
+    let read = |signature, address| {
+        let data = native_string_call(signature, denom)?;
+        sequencer
+            .call_at(committed_height, &address, &data)
+            .map_err(|error| format!("native asset read: {error:?}"))
+    };
+    let name = native_abi_string(&read("name(string)", BANK_PRECOMPILE)?)?;
+    let symbol = native_abi_string(&read("symbol(string)", BANK_PRECOMPILE)?)?;
+    let decimals_bytes = read("decimals(string)", BANK_PRECOMPILE)?;
+    if decimals_bytes.len() != 32 || abi_u64(&decimals_bytes, 0)? > 255 {
+        return Err("invalid native decimals".into());
+    }
+    let decimals = abi_u64(&decimals_bytes, 0)?;
+    let supply = read("supply(string)", BANK_PRECOMPILE)?;
+    if supply.len() != 32 {
+        return Err("invalid native supply".into());
+    }
+    let total_supply = abi_word(&supply, 0)?;
+    let pointer_bytes = read("getNativePointer(string)", POINTERVIEW_PRECOMPILE)?;
+    let pointer_word = abi_word(&pointer_bytes, 0)?;
+    let version = abi_u64(&pointer_bytes, 1)?;
+    if pointer_bytes.len() != 96
+        || pointer_word[..12] != [0; 12]
+        || pointer_word[12..] == [0; 20]
+        || version > u64::from(u16::MAX)
+        || !abi_bool(&pointer_bytes, 2)?
+    {
+        return Err("native asset pointer unavailable".into());
+    }
+    let pointer: [u8; 20] = pointer_word[12..]
+        .try_into()
+        .map_err(|_| "invalid native pointer")?;
+    let (confirmed, confirmed_root) = native_committed_state(sequencer, committed_height)?;
+    if confirmed != block || confirmed_root != state_root {
+        return Err("native asset snapshot changed".into());
+    }
+    let profile = serde_json::to_vec(&serde_json::json!({
+        "version": 2, "asset_id": hex_encode(&asset), "denom": denom,
+        "name": name, "symbol": symbol, "decimals": decimals,
+        "pointer": hex_encode(&pointer), "pointer_version": version,
+        "total_supply": hex_encode(&total_supply), "height": committed_height,
+        "block_hash": hex_encode(&block.hash), "app_hash": hex_encode(&state_root),
+        "units": "native_bank_base_units"
+    }))
+    .map_err(|error| error.to_string())?;
+    Ok(RegisteredCustodyAsset {
+        asset,
+        profile,
+        trusted_height: committed_height,
+        denom: denom.to_owned(),
+        pointer,
+        total_supply,
+        network_id,
+        state_root,
+    })
 }
 
 pub fn read_custody_profile(
@@ -712,25 +835,17 @@ pub fn read_custody_profile(
     committed_height: u64,
     asset: [u8; 32],
 ) -> Result<RegisteredCustodyAsset, String> {
-    let mut data = custody_selector("getAsset(bytes32)").to_vec();
-    data.extend_from_slice(&asset);
-    let bytes = sequencer
-        .call_at(committed_height, &CUSTODY_PRECOMPILE, &data)
-        .map_err(|error| format!("custody registry read: {error:?}"))?;
-    let mut registered = decode_custody_asset(bytes, asset, network_id)?;
-    let batch = custody_latest_finalized(sequencer, committed_height)?;
-    let checkpoint = custody_checkpoint(sequencer, committed_height, batch)?;
-    let root = abi_word(&checkpoint, 7)?;
-    if abi_u64(&checkpoint, 0)? != batch
-        || abi_u64(&checkpoint, 12)? != 2
-        || abi_u64(&checkpoint, 17)? > committed_height
-        || root == [0; 32]
-    {
-        return Err("custody checkpoint is not finalized at the committed height".into());
-    }
-    registered.state_root = root;
-    registered.trusted_height = batch;
-    Ok(registered)
+    // Asset IDs do not encode bank denominations. Require the owning domain's
+    // explicit binding rather than inventing a mirror or a custody profile.
+    let bindings: std::collections::BTreeMap<String, String> = serde_json::from_str(
+        &std::env::var("LAYERX_CORE_NATIVE_ASSET_DENOMS")
+            .map_err(|_| "native asset denomination bindings unavailable")?,
+    )
+    .map_err(|_| "invalid native asset denomination bindings")?;
+    let denom = bindings
+        .get(&hex_encode(&asset))
+        .ok_or("native asset denomination unbound")?;
+    read_native_asset_profile(sequencer, network_id, committed_height, asset, denom)
 }
 
 pub fn custody_source_address(

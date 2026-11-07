@@ -1,0 +1,243 @@
+[reconcile.r14-196]
+revision = "751d6ff8dbcfeaec3fbdee7c8c9aac3813e83488"
+rows = 30
+
+[row.r14-196.1]
+interface = "interface.14.ts-web-explorer-client-unifiedaccountunavailableerror"
+verdict = "served"
+path = "apps/web/src/explorer/client.ts"
+line = 243
+symbol = "UnifiedAccountUnavailableError"
+evidence = "The exported class extends ExplorerUnavailableError and accepts gateway_unavailable or index_incomplete; line 91 constructs this class rather than declaring it."
+
+[row.r14-196.2]
+interface = "interface.14.ts-web-settings-wallet-model-walletfeesnapshot"
+verdict = "served"
+path = "apps/web/src/settings/wallet/model.ts"
+line = 15
+symbol = "WalletFeeSnapshot"
+evidence = "The exported interface declares readonly currency, maximum and valid fields; the controller field and method return annotations are uses of this interface."
+
+[row.r14-196.3]
+interface = "interface.14.ts-web-settings-wallet-wallet-screen-walletfeechoice"
+verdict = "served"
+path = "apps/web/src/settings/wallet/wallet-screen.tsx"
+line = 10
+symbol = "WalletFeeChoice"
+evidence = "The exported function destructures snapshot and onChange from Readonly props, with currency and maximum callback arguments matching the signature; line 46 renders it."
+
+[row.r14-196.4]
+interface = "interface.14.ts-sdkjs-encoding-tendermint-abci-types-event-type"
+verdict = "served"
+path = "sdk/js/dist/types/encoding/tendermint/abci/types.d.ts"
+line = 17
+symbol = "Event"
+evidence = "The exported interface Event extends Event_type here; the import alias, MessageFns constant and amino converter annotations are separate occurrences."
+
+[row.r14-196.5]
+interface = "interface.14.ts-sdkjs-encoding-tendermint-abci-types-eventattribute-type"
+verdict = "served"
+path = "sdk/js/dist/types/encoding/tendermint/abci/types.d.ts"
+line = 19
+symbol = "EventAttribute"
+evidence = "The exported interface EventAttribute extends EventAttribute_type here; the import alias, MessageFns constant and amino converter annotations are separate occurrences."
+
+[row.r14-196.6]
+interface = "interface.14.ts-sdkjs-encoding-tendermint-abci-types-exectxresult-type"
+verdict = "served"
+path = "sdk/js/dist/types/encoding/tendermint/abci/types.d.ts"
+line = 21
+symbol = "ExecTxResult"
+evidence = "The exported interface ExecTxResult extends ExecTxResult_type here; the MessageFns constant and amino converter annotations do not declare this interface."
+
+[row.r14-196.7]
+interface = "interface.14.ts-sdkjs-encoding-tendermint-abci-types-responsefinalizeblock-type"
+verdict = "served"
+path = "sdk/js/dist/types/encoding/tendermint/abci/types.d.ts"
+line = 15
+symbol = "ResponseFinalizeBlock"
+evidence = "The exported interface ResponseFinalizeBlock extends ResponseFinalizeBlock_type here; the MessageFns constant at line 32 is a separate declaration."
+
+[row.r14-196.8]
+interface = "interface.14.ts-sdkjs-encoding-tendermint-abci-types-responseinfo-fns"
+verdict = "served"
+path = "sdk/js/dist/types/encoding/tendermint/abci/types.d.ts"
+line = 27
+symbol = "ResponseInfo"
+evidence = "The export declare const ResponseInfo has type MessageFns<ResponseInfo, tendermint.abci.ResponseInfo>; the interface at line 5 is the separate type declaration."
+
+[row.r14-196.9]
+interface = "interface.14.ts-sdkjs-encoding-tendermint-abci-types-responsequery-fns"
+verdict = "served"
+path = "sdk/js/dist/types/encoding/tendermint/abci/types.d.ts"
+line = 28
+symbol = "ResponseQuery"
+evidence = "The export declare const ResponseQuery has type MessageFns<ResponseQuery, tendermint.abci.ResponseQuery>; the interface at line 7 is the separate type declaration."
+
+[row.r14-196.10]
+interface = "interface.14.ts-sdkjs-encoding-tendermint-abci-types-txresult-fns"
+verdict = "served"
+path = "sdk/js/dist/types/encoding/tendermint/abci/types.d.ts"
+line = 36
+symbol = "TxResult"
+evidence = "The export declare const TxResult has type MessageFns<TxResult, tendermint.abci.TxResult>; the interface at line 23 is the separate type declaration."
+
+[row.r14-196.11]
+interface = "interface.14.ts-sdkjs-encoding-tendermint-abci-types-txresult-type"
+verdict = "served"
+path = "sdk/js/dist/types/encoding/tendermint/abci/types.d.ts"
+line = 23
+symbol = "TxResult"
+evidence = "The exported interface TxResult extends TxResult_type here; the MessageFns constant at line 36 and converter parameter annotations are separate occurrences."
+
+[row.r14-196.12]
+interface = "interface.14.ts-sdkjs-encoding-tendermint-abci-types-validatorupdate-fns"
+verdict = "served"
+path = "sdk/js/dist/types/encoding/tendermint/abci/types.d.ts"
+line = 37
+symbol = "ValidatorUpdate"
+evidence = "The export declare const ValidatorUpdate has type MessageFns<ValidatorUpdate, tendermint.abci.ValidatorUpdate>; line 25 declares the separate interface."
+
+[row.r14-196.13]
+interface = "interface.14.ts-sdkjs-encoding-tendermint-abci-types-validatorupdate-type"
+verdict = "served"
+path = "sdk/js/dist/types/encoding/tendermint/abci/types.d.ts"
+line = 25
+symbol = "ValidatorUpdate"
+evidence = "The exported interface ValidatorUpdate extends ValidatorUpdate_type here; the MessageFns constant at line 37 and converter annotations are separate occurrences."
+
+[row.r14-196.14]
+interface = "interface.14.ts-sdkjs-types-tendermint-abci-types-event"
+verdict = "served"
+path = "sdk/js/dist/types/types/tendermint/abci/types.d.ts"
+line = 63
+symbol = "Event"
+evidence = "The exported Event interface declares type: string and attributes: EventAttribute[]; the earlier events fields refer to this type rather than declaring it."
+
+[row.r14-196.15]
+interface = "interface.14.ts-sdkjs-types-tendermint-abci-types-eventattribute"
+verdict = "served"
+path = "sdk/js/dist/types/types/tendermint/abci/types.d.ts"
+line = 67
+symbol = "EventAttribute"
+evidence = "The exported EventAttribute interface declares key: string, value: string and index: boolean; Event.attributes refers to this declaration."
+
+[row.r14-196.16]
+interface = "interface.14.ts-sdkjs-types-tendermint-abci-types-validatorupdate"
+verdict = "served"
+path = "sdk/js/dist/types/types/tendermint/abci/types.d.ts"
+line = 92
+symbol = "ValidatorUpdate"
+evidence = "The exported ValidatorUpdate interface declares optional pub_key: PublicKey and power: number; ResponseFinalizeBlock.validator_updates refers to this type."
+
+[row.r14-196.17]
+interface = "interface.14.rpc-explorer-served-eth-blocknumber"
+verdict = "served"
+path = "services/explorer/backend/apps/explorer/lib/explorer/eth_rpc.ex"
+line = 29
+symbol = "eth_blockNumber"
+evidence = "The @methods map declares the eth_blockNumber literal with action :eth_block_number; get_action dispatches it to the handler at line 779, which reads BlockNumber.get_max()."
+
+[row.r14-196.18]
+interface = "interface.14.rpc-explorer-served-eth-call"
+verdict = "served"
+path = "services/explorer/backend/apps/explorer/lib/explorer/eth_rpc.ex"
+line = 637
+symbol = "eth_call"
+evidence = "The @proxy_methods map declares eth_call with arity 2 and call/block validators; responses forwards validated requests through EthereumJSONRPC.json_rpc, rather than answering from the explorer database."
+
+[row.r14-196.19]
+interface = "interface.14.rpc-explorer-served-eth-chainid"
+verdict = "served"
+path = "services/explorer/backend/apps/explorer/lib/explorer/eth_rpc.ex"
+line = 216
+symbol = "eth_chainId"
+evidence = "The @methods map declares eth_chainId with action :eth_chain_id; the handler at line 842 returns chain_id(), which reads the configured block_scout_web chain_id."
+
+[row.r14-196.20]
+interface = "interface.14.rpc-explorer-served-eth-estimategas"
+verdict = "served"
+path = "services/explorer/backend/apps/explorer/lib/explorer/eth_rpc.ex"
+line = 289
+symbol = "eth_estimateGas"
+evidence = "The @proxy_methods map declares eth_estimateGas with arity 2 and call/block validators; validated requests are forwarded through EthereumJSONRPC.json_rpc rather than computed from the explorer database."
+
+[row.r14-196.21]
+interface = "interface.14.rpc-explorer-served-eth-gasprice"
+verdict = "served"
+path = "services/explorer/backend/apps/explorer/lib/explorer/eth_rpc.ex"
+line = 104
+symbol = "eth_gasPrice"
+evidence = "The @methods map declares eth_gasPrice with action :eth_gas_price; its handler at line 814 reads GasPriceOracle.get_gas_prices() and hex-encodes the average wei price."
+
+[row.r14-196.22]
+interface = "interface.14.rpc-explorer-served-eth-getbalance"
+verdict = "served"
+path = "services/explorer/backend/apps/explorer/lib/explorer/eth_rpc.ex"
+line = 40
+symbol = "eth_getBalance"
+evidence = "The @methods map declares eth_getBalance with action :eth_get_balance; the handler at line 793 validates the address and block and reads Blocks.get_balance_as_of_block."
+
+[row.r14-196.23]
+interface = "interface.14.rpc-explorer-served-eth-getblockbyhash"
+verdict = "served"
+path = "services/explorer/backend/apps/explorer/lib/explorer/eth_rpc.ex"
+line = 463
+symbol = "eth_getBlockByHash"
+evidence = "The @proxy_methods map declares eth_getBlockByHash with arity 2 and hash/bool validators; responses forwards validated requests through EthereumJSONRPC.json_rpc rather than answering from the explorer database."
+
+[row.r14-196.24]
+interface = "interface.14.rpc-explorer-served-eth-getblockbynumber"
+verdict = "served"
+path = "services/explorer/backend/apps/explorer/lib/explorer/eth_rpc.ex"
+line = 303
+symbol = "eth_getBlockByNumber"
+evidence = "The @proxy_methods map declares eth_getBlockByNumber with arity 2 and block/bool validators; responses forwards validated requests through EthereumJSONRPC.json_rpc rather than answering from the explorer database."
+
+[row.r14-196.25]
+interface = "interface.14.rpc-explorer-served-eth-getcode"
+verdict = "served"
+path = "services/explorer/backend/apps/explorer/lib/explorer/eth_rpc.ex"
+line = 261
+symbol = "eth_getCode"
+evidence = "The @proxy_methods map declares eth_getCode with arity 2 and address/block validators; responses forwards validated requests through EthereumJSONRPC.json_rpc rather than answering from the explorer database."
+
+[row.r14-196.26]
+interface = "interface.14.rpc-explorer-served-eth-getlogs"
+verdict = "served"
+path = "services/explorer/backend/apps/explorer/lib/explorer/eth_rpc.ex"
+line = 69
+symbol = "eth_getLogs"
+evidence = "The @methods map declares eth_getLogs with action :eth_get_logs; the handler at line 1031 validates filters and obtains database-backed logs through Logs.list_logs."
+
+[row.r14-196.27]
+interface = "interface.14.rpc-explorer-served-eth-getstorageat"
+verdict = "served"
+path = "services/explorer/backend/apps/explorer/lib/explorer/eth_rpc.ex"
+line = 275
+symbol = "eth_getStorageAt"
+evidence = "The @proxy_methods map declares eth_getStorageAt with arity 3 and address/integer/block validators; validated requests are forwarded through EthereumJSONRPC.json_rpc rather than answered from the explorer database."
+
+[row.r14-196.28]
+interface = "interface.14.rpc-explorer-served-eth-gettransactionbyhash"
+verdict = "served"
+path = "services/explorer/backend/apps/explorer/lib/explorer/eth_rpc.ex"
+line = 117
+symbol = "eth_getTransactionByHash"
+evidence = "The @methods map declares eth_getTransactionByHash with action :eth_get_transaction_by_hash; the handler at line 850 loads a transaction through validate_and_render_transaction and renders it."
+
+[row.r14-196.29]
+interface = "interface.14.rpc-explorer-served-eth-gettransactioncount"
+verdict = "served"
+path = "services/explorer/backend/apps/explorer/lib/explorer/eth_rpc.ex"
+line = 251
+symbol = "eth_getTransactionCount"
+evidence = "The @proxy_methods map declares eth_getTransactionCount with arity 2 and address/block validators; validated requests are forwarded through EthereumJSONRPC.json_rpc rather than answered from the explorer database."
+
+[row.r14-196.30]
+interface = "interface.14.rpc-explorer-served-eth-gettransactionreceipt"
+verdict = "served"
+path = "services/explorer/backend/apps/explorer/lib/explorer/eth_rpc.ex"
+line = 160
+symbol = "eth_getTransactionReceipt"
+evidence = "The @methods map declares eth_getTransactionReceipt with action :eth_get_transaction_receipt; the handler at line 894 loads the transaction with block/log associations and renders its receipt."

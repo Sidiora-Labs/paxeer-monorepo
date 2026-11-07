@@ -1,4 +1,8 @@
 {
+  "metadata": {
+    "compatibility_version": "upstream-v1-2025-02-19",
+    "merged_explorer_supported": false
+  },
   "request": {
     "method": "GET",
     "urlPath": "/api/v1/health"

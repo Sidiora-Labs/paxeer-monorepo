@@ -62,11 +62,35 @@ fn budget_reader_uses_only_node_read_interfaces() {
             );
         }
     }
+    let committed_sources = [
+        ("src/main.rs", include_str!("../src/main.rs")),
+        ("src/human.rs", include_str!("../src/human.rs")),
+        ("src/trust.rs", include_str!("../src/trust.rs")),
+        ("src/committed.rs", include_str!("../src/committed.rs")),
+        (
+            "src/human/budget_state.rs",
+            include_str!("../src/human/budget_state.rs"),
+        ),
+        (
+            "src/human/budget_state/native.rs",
+            include_str!("../src/human/budget_state/native.rs"),
+        ),
+    ];
+    for (path, source) in committed_sources {
+        for retired in [
+            "latestFinalized()",
+            "checkpoint(uint64)",
+            "0000000000000000000000000000000000001014",
+        ] {
+            assert!(
+                !source.contains(retired),
+                "{path} names retired call {retired}"
+            );
+        }
+    }
     for method in [
         "getBudget(bytes32)",
         "budgetRemaining(bytes32)",
-        "latestFinalized()",
-        "checkpoint(uint64)",
         "layerx.human.budget-proof.v2",
     ] {
         assert!(
@@ -74,6 +98,26 @@ fn budget_reader_uses_only_node_read_interfaces() {
                 .iter()
                 .any(|(_, source)| source.contains(method)),
             "missing node interface {method}"
+        );
+    }
+    for method in [
+        "CommittedHeader::open",
+        "commit_material",
+        "block_by_number",
+        "state_root",
+        "abci_query",
+        "/store/lxphost/key",
+        "ics23:iavl",
+        "ics23:simple",
+        "verify_membership",
+        "state_height",
+        "bind_receipt",
+    ] {
+        assert!(
+            committed_sources
+                .iter()
+                .any(|(_, source)| source.contains(method)),
+            "missing committed-proof interface {method}"
         );
     }
 }

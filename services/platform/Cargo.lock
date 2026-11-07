@@ -1476,6 +1476,7 @@ dependencies = [
  "layerx-crypto",
  "layerx-identity-binding",
  "layerx-indexer",
+ "layerx-platform-authority",
  "layerx-platform-internal",
  "layerx-programs-registry",
  "layerx-programs-runtime",
@@ -1483,12 +1484,16 @@ dependencies = [
  "layerx-types",
  "layerx-wire",
  "native-tls",
+ "rcgen",
  "rustix",
  "rustls",
  "serde",
  "serde_json",
+ "serde_yaml",
  "sha2 0.10.9",
+ "signal-hook",
  "subtle",
+ "tempfile",
  "zeroize",
 ]
 
@@ -1534,11 +1539,16 @@ version = "0.1.0"
 name = "layerx-platform-paxeer-boundary"
 version = "0.1.0"
 dependencies = [
+ "k256",
  "layerx-proof",
  "layerx-types",
+ "rustix",
  "rustls",
  "serde",
  "serde_json",
+ "sha2 0.10.9",
+ "sha3",
+ "ureq",
  "zeroize",
 ]
 
@@ -1562,6 +1572,7 @@ dependencies = [
  "rustls",
  "serde",
  "serde_json",
+ "serde_yaml",
  "sha2 0.10.9",
  "subtle",
  "ureq",
@@ -1589,13 +1600,16 @@ dependencies = [
  "getrandom 0.4.3",
  "layerx-committed-proof",
  "layerx-indexer",
+ "layerx-platform-authority",
  "layerx-platform-gateway",
+ "layerx-proof",
  "layerx-programs-ai-market",
- "layerx-wire",
  "native-tls",
+ "rcgen",
  "rustls",
  "serde",
  "serde_json",
+ "serde_yaml",
  "sha2 0.10.9",
  "subtle",
  "x509-cert",
@@ -1623,7 +1637,6 @@ dependencies = [
  "ed25519-dalek",
  "layerx-program-sdk",
  "sha2 0.10.9",
- "spin",
 ]
 
 [[package]]
@@ -2419,6 +2432,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cf54715a573b99ac80df0bc206da022bcd442c974952c7b9720069370852e21f"
 
 [[package]]
+name = "ryu"
+version = "1.0.23"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9774ba4a74de5f7b1c1451ed6cd5285a32eddb5cccb8cc655a4e50009e06477f"
+
+[[package]]
 name = "schannel"
 version = "0.1.29"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2517,6 +2536,19 @@ dependencies = [
  "serde",
  "serde_core",
  "zmij",
+]
+
+[[package]]
+name = "serde_yaml"
+version = "0.9.34+deprecated"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6a8b1a1a2ebf674015cc02edccce75287f1a0130d394307b36743c2f5d504b47"
+dependencies = [
+ "indexmap",
+ "itoa",
+ "ryu",
+ "serde",
+ "unsafe-libyaml",
 ]
 
 [[package]]
@@ -2943,6 +2975,12 @@ dependencies = [
  "crypto-common 0.1.7",
  "subtle",
 ]
+
+[[package]]
+name = "unsafe-libyaml"
+version = "0.2.11"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "673aac59facbab8a9007c7f6108d11f63b603f7cabff99fabf650fea5c32b861"
 
 [[package]]
 name = "untrusted"

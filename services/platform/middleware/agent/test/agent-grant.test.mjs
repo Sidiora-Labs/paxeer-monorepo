@@ -1,27 +1,33 @@
+import "./production-sources.mjs";
 import assert from "node:assert/strict";
 import { createHash, generateKeyPairSync, sign } from "node:crypto";
 import test from "node:test";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+import { BudgetStore, temporaryDirectory, loopback } from "./repair-support.mjs";
 import { secp256k1 } from "@noble/curves/secp256k1.js";
 import { decodeRawEip1559, keccak256 } from "@sidiora/layerx-sdk";
-import { decodePaymentDrawnLog, encodeLedgerDraw, LAYERX_LEDGER_ADDRESS, ReceiptPayloadAuthority } from "@sidiora/layerx-seller-middleware";
-import { AgentGrantMiddleware, AgentMiddlewareError } from "../dist/index.js";
+import { decodePaymentDrawnLog, encodeLedgerDraw, LAYERX_LEDGER_ADDRESS, ReceiptPayloadAuthority, PaymentRpc, PaymentRpcError } from "@sidiora/layerx-seller-middleware";
+const { AgentGrantMiddleware, AgentMiddlewareError } = await import("../src/index.ts");
 
 const hex = (value) => `0x${Buffer.from(value).toString("hex")}`;
 const bytes = (value) => Buffer.from(value.slice(2), "hex");
 const sha256 = (value) => createHash("sha256").update(value).digest();
 const word = (value) => Buffer.alloc(32, value);
 const draw = {
-  from: word(0x11), assetId: word(0x22), amount: 40n, grantId: word(0x33), receiverSequence: 1n,
+  recipient: word(0x66), purposeHash: word(0x99), amount: 40n, grantId: word(0x33), sequence: 1n,
   idempotencyKey: word(0x44), contextHash: word(0x55),
 };
 const payee = word(0x66);
+const payer = word(0x11);
+const grantAsset = word(0x22);
 const keyId = word(0x77);
 const pair = generateKeyPairSync("ed25519");
 const pin = { keyId, publicKey: new Uint8Array(pair.publicKey.export({ type: "spki", format: "der" }).subarray(-32)),
   first_height: 1n, last_height: 1000n };
-const requirements = { scheme: "metered", network: "eip155:125", amount: "40", asset: hex(draw.assetId),
+const requirements = { scheme: "metered", network: "eip155:125", amount: "40", asset: hex(grantAsset),
   payTo: hex(payee), maxTimeoutSeconds: 120,
-  extra: { layerx: { commitment: "receipted", purposeHash: draw.assetId.toString("hex") } } };
+  extra: { layerx: { commitment: "receipted", payer: payer.toString("hex"), purposeHash: draw.purposeHash.toString("hex") } } };
 const drawnTopic = keccak256(new TextEncoder().encode("PaymentDrawn(bytes32,bytes32,bytes32,bytes32,uint128,bytes32,bytes32)"));
 
 function uint(value, width) {
@@ -66,10 +72,10 @@ function effect(ordinal, kind, body) {
 
 function signedProof(rawTransaction, { grantId = draw.grantId, count = 1, address = LAYERX_LEDGER_ADDRESS,
   topic = drawnTopic, amount = draw.amount, resultCode = 0n, recipient = payee,
-  idempotencyKey = draw.idempotencyKey, contextHash = draw.contextHash, assetId = draw.assetId } = {}) {
+  idempotencyKey = draw.idempotencyKey, contextHash = draw.contextHash, assetId = grantAsset, source = payer } = {}) {
   const txHash = keccak256(bytes(rawTransaction));
   const logData = Buffer.concat([assetId, uint(amount, 32), idempotencyKey, contextHash]);
-  const logBody = Buffer.concat([bytes(address), Buffer.of(4), topic, grantId, draw.from, recipient, sha256(logData)]);
+  const logBody = Buffer.concat([bytes(address), Buffer.of(4), topic, grantId, source, recipient, sha256(logData)]);
   const summary = Buffer.concat([uint(50000n, 8), uint(50000n, 8), uint(2n, 8), uint(0n, 4), Buffer.alloc(40),
     sha256(Buffer.alloc(0)), uint(0n, 4), uint(BigInt(count), 4), Buffer.of(4), Buffer.from("uhpx")]);
   const effects = [effect(0, 1, summary), ...Array.from({ length: count }, (_, i) => effect(i + 1, 3, logBody))];
@@ -166,9 +172,14 @@ class ReceiptDrawExecution {
 
   async execute(request) {
     this.inputs.push(structuredClone(request));
-    return this.authority.settle({ principal: request.principal, requestDigest: request.requestDigest,
-      idempotencyKey: request.idempotencyKey, requirements: request.requirements,
-      payload: { x402Version: 2, accepted: request.requirements, payload: this.proof } });
+    try {
+      return await this.authority.settle({ principal: request.principal, requestDigest: request.requestDigest,
+        idempotencyKey: request.idempotencyKey, requirements: request.requirements,
+        payload: { x402Version: 2, accepted: request.requirements, payload: this.proof } });
+    } catch (error) {
+      assert.equal(error.code, "verification-failure");
+      throw new AgentMiddlewareError("verification-failure");
+    }
   }
 }
 
@@ -181,7 +192,10 @@ function setup(proof = signedProof(transaction()), receiptKeys = [pin], availabl
   const budgets = new AgentBudgetLedger(available);
   const receipts = new AgentReceiptRepository(proof);
   const draws = new ReceiptDrawExecution(proof);
-  const middleware = new AgentGrantMiddleware({ tenant: "agent-grant", budgets, receipts, draws, receiptKeys });
+  const middleware = new AgentGrantMiddleware({ tenant: "agent-grant", budgets, receipts, draws, receiptKeys,
+    grants: { async resolve({ network, grantId }) {
+      return { network, grantId, payer: payer.toString("hex"), asset: grantAsset.toString("hex") };
+    } } });
   return { middleware, budgets, receipts, draws };
 }
 
@@ -193,9 +207,13 @@ async function agentGrantSettlesDrawWithPaymentDrawnLog() {
   const input = request();
   const proof = signedProof(input.rawTransaction);
   const event = decodePaymentDrawnLog({ address: LAYERX_LEDGER_ADDRESS,
-    topics: [drawnTopic, draw.grantId, draw.from, payee],
-    data: Buffer.concat([draw.assetId, uint(40n, 32), draw.idempotencyKey, draw.contextHash]) });
+    topics: [drawnTopic, draw.grantId, payer, payee],
+    data: Buffer.concat([grantAsset, uint(40n, 32), draw.idempotencyKey, draw.contextHash]) });
   assert.equal(event.amount, 40n);
+  assert.deepEqual(Buffer.from(event.from), payer);
+  assert.deepEqual(Buffer.from(event.to), payee);
+  assert.notDeepEqual(payer, payee);
+  assert.notDeepEqual(grantAsset, draw.purposeHash);
   assert.equal(Buffer.from(event.idempotencyKey).toString("hex"), input.idempotencyKey);
   for (const scheme of ["metered", "subscription"]) {
     const { middleware, budgets, receipts, draws } = setup(proof);
@@ -208,7 +226,7 @@ async function agentGrantSettlesDrawWithPaymentDrawnLog() {
     assert.equal(budgets.transitions.length, 1);
     assert.equal(budgets.transitions[0].state, "committed");
     assert.equal(budgets.transitions[0].amount, "40");
-    assert.equal(budgets.transitions[0].asset, draw.assetId.toString("hex"));
+    assert.equal(budgets.transitions[0].asset, grantAsset.toString("hex"));
     assert.equal(budgets.transitions[0].receiptDigest, proof.receiptDigest.slice(2));
     assert.deepEqual(receipts.records, [{ idempotencyKey: input.idempotencyKey,
       activityId: hex(keccak256(bytes(input.rawTransaction))), receiptDigest: proof.receiptDigest.slice(2) }]);
@@ -226,7 +244,7 @@ async function agentGrantSettlesDrawWithPaymentDrawnLog() {
 
   for (const changes of [
     { count: 0 }, { count: 2 }, { amount: 41n }, { grantId: word(0xaa) },
-    { recipient: word(0xaa) }, { assetId: word(0xaa) }, { idempotencyKey: word(0xaa) },
+    { source: word(0xaa) }, { source: payee }, { recipient: payer }, { recipient: word(0xaa) }, { assetId: word(0xaa) }, { idempotencyKey: word(0xaa) },
     { contextHash: word(0xaa) }, { address: "0x000000000000000000000000000000000000101b" },
     { topic: word(0xaa) }, { resultCode: 1n },
   ]) {
@@ -260,7 +278,7 @@ async function agentGrantRefusesDrawAboveReservation() {
     transaction({ to: "0x000000000000000000000000000000000000101b" }),
     transaction({ value: 1n }), transaction({ chainId: 1n }),
     transaction({ data: encodeLedgerDraw({ ...draw, amount: 39n }) }),
-    transaction({ data: encodeLedgerDraw({ ...draw, assetId: word(0xaa) }) }),
+    transaction({ data: encodeLedgerDraw({ ...draw, purposeHash: word(0xaa) }) }),
     transaction({ data: encodeLedgerDraw({ ...draw, idempotencyKey: word(0xaa) }) }),
     transaction({ data: Buffer.alloc(228) }),
   ]) {
@@ -279,6 +297,66 @@ async function agentGrantRefusesDrawAboveReservation() {
   assert.equal(exhausted.budgets.reservations.size, 0);
 }
 
+export async function agentDrawProducerRefusalSurvivesReopen(t) {
+  const recording = JSON.parse(readFileSync(new URL(
+    "../../../../../services/interop/crates/x-websearch/tests/fixtures/gateway/metered.json", import.meta.url,
+  ), "utf8"));
+  const refused = recording.endpoints.gateway["*"].find((entry) =>
+    entry.error?.message === "execution reverted: LXP_NO_PAYER_GRANT");
+  assert.ok(refused, "the committed producer refusal must be present");
+  assert.equal(refused.error.code, 3);
+  const calls = [];
+  let disconnected = true;
+  const endpoint = await loopback(t, (body, _request, response) => {
+    assert.equal(body.jsonrpc, "2.0");
+    assert.equal(body.method, refused.method);
+    assert.deepEqual(body.params, refused.params);
+    calls.push(body);
+    if (disconnected) { response.destroy(); return; }
+    return { jsonrpc: "2.0", id: body.id, error: refused.error };
+  });
+  const path = join(temporaryDirectory(t), "draw-budget.sqlite");
+  const input = request(transaction({ data: encodeLedgerDraw({ ...draw, grantId: word(0xee) }) }));
+  const proof = signedProof(input.rawTransaction, { grantId: word(0xee) });
+  const draws = new ReceiptDrawExecution(proof);
+  const receipts = new AgentReceiptRepository(proof);
+  const grants = { async resolve({ network, grantId }) {
+    assert.equal(network, input.requirements.network);
+    assert.equal(grantId, refused.params[0].data.slice(10));
+    // Query the actual producer-owned getPayerGrant refusal before any draw.
+    // The current ledger has no successful grant state to supply to the consumer.
+    return new PaymentRpc(endpoint).call(refused.method, refused.params);
+  } };
+  const open = () => {
+    const budgets = new BudgetStore(path, 100n);
+    return { budgets, middleware: new AgentGrantMiddleware({ tenant: "agent-grant", budgets,
+      receipts, draws, grants, receiptKeys: [pin] }) };
+  };
+  let component = open();
+  const calldata = decodeRawEip1559(bytes(input.rawTransaction)).data;
+  assert.equal(hex(calldata.subarray(36, 68)), hex(payee));
+  assert.equal(hex(calldata.subarray(164, 196)), hex(draw.purposeHash));
+  assert.notEqual(hex(payee), hex(payer));
+  assert.notEqual(hex(grantAsset), hex(draw.purposeHash));
+  await assert.rejects(component.middleware.execute(input));
+  assert.equal(component.budgets.available, 60n);
+  assert.equal(component.budgets.transitions.length, 0);
+  component.budgets.close();
+  disconnected = false;
+  for (let restart = 0; restart < 2; restart += 1) {
+    component = open();
+    await assert.rejects(component.middleware.execute(input), (error) =>
+      error instanceof PaymentRpcError && error.code === refused.error.code);
+    assert.equal(component.budgets.available, 60n);
+    assert.equal(component.budgets.transitions.length, 0);
+    assert.equal([...component.budgets.reservations.values()][0].state, "reserved");
+    assert.deepEqual(draws.inputs, []);
+    assert.deepEqual(receipts.records, []);
+    component.budgets.close();
+  }
+  assert.equal(calls.length, 3);
+}
+
 test(agentGrantSettlesDrawWithPaymentDrawnLog);
 test(agentGrantRefusesDrawAboveReservation);
-
+test(agentDrawProducerRefusalSurvivesReopen);

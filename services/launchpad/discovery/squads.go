@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"database/sql"
 	"encoding/json"
+	v2 "github.com/Sidiora-Technologies/KindleLaunch/shared/interfaces/v2"
 	"time"
 )
 
@@ -64,42 +65,54 @@ func (s Store) Squad(ctx context.Context, id string) (Squad, error) {
 	}
 	return q, nil
 }
-func (s Store) Invite(ctx context.Context, actor, squadID, account, token string, expires time.Time) error {
+
+// Invite compares the recipient's membership revision under the squad lock.
+// expected is zero only when the recipient has no prior membership.
+func (s Store) Invite(ctx context.Context, actor, squadID, account, token string, expected uint64, expires time.Time) error {
 	if len(token) < 32 || len(token) > 512 || account == "" || account == actor || !expires.After(time.Now()) || expires.After(time.Now().Add(7*24*time.Hour)) {
 		return ErrInvalid
 	}
-	return s.transaction(ctx, func(tx *sql.Tx) error {
-		if e := lock(ctx, tx, "squad:"+squadID); e != nil {
-			return e
-		}
-		q, e := squad(ctx, tx, squadID)
-		if e != nil {
-			return e
-		}
-		m, e := member(ctx, tx, squadID, actor)
-		if e != nil || m.Status != "active" || (q.OwnerAccountID != actor && m.Role != "moderator") {
-			return ErrForbidden
-		}
-		existing, e := member(ctx, tx, squadID, account)
-		if e != nil && e != sql.ErrNoRows {
-			return e
-		}
-		if e == nil && (existing.Status == "active" || existing.Status == "banned") {
-			return ErrConflict
-		}
-		inv := Invitation{SquadID: squadID, AccountID: account, TokenHash: sha256.Sum256([]byte(token)), ExpiresAt: expires}
-		m = Membership{SquadID: squadID, AccountID: account, Status: "invited", Revision: existing.Revision + 1}
-		if m.Revision == 0 {
-			return ErrRevisionExhausted
-		}
-		_, e = tx.ExecContext(ctx, `INSERT INTO narrative_discovery.invitations(squad_id,account_id,document)VALUES($1,$2,$3)ON CONFLICT(squad_id,account_id) DO UPDATE SET document=EXCLUDED.document`, squadID, account, encode(inv))
-		if e != nil {
-			return e
-		}
-		_, e = tx.ExecContext(ctx, `INSERT INTO narrative_discovery.members(squad_id,account_id,document)VALUES($1,$2,$3)ON CONFLICT(squad_id,account_id) DO UPDATE SET document=EXCLUDED.document`, squadID, account, encode(m))
-		return e
-	})
+	return s.transaction(ctx, func(tx *sql.Tx) error { return inviteTx(ctx, tx, actor, squadID, account, token, expected, expires) })
 }
+func inviteTx(ctx context.Context, tx *sql.Tx, actor, squadID, account, token string, expected uint64, expires time.Time) error {
+	if e := lock(ctx, tx, "squad:"+squadID); e != nil {
+		return e
+	}
+	q, e := squad(ctx, tx, squadID)
+	if e != nil {
+		return e
+	}
+	m, e := member(ctx, tx, squadID, actor)
+	if e != nil || m.Status != "active" || (q.OwnerAccountID != actor && m.Role != "moderator") {
+		return ErrForbidden
+	}
+	existing, e := member(ctx, tx, squadID, account)
+	if e != nil && e != sql.ErrNoRows {
+		return e
+	}
+	if existing.Revision != expected {
+		return ErrConflict
+	}
+	if e == nil && (existing.Status == "active" || existing.Status == "banned") {
+		return ErrConflict
+	}
+	inv := Invitation{SquadID: squadID, AccountID: account, TokenHash: sha256.Sum256([]byte(token)), ExpiresAt: expires}
+	m = Membership{SquadID: squadID, AccountID: account, Status: "invited", Revision: existing.Revision + 1}
+	if m.Revision == 0 {
+		return ErrRevisionExhausted
+	}
+	_, e = tx.ExecContext(ctx, `INSERT INTO narrative_discovery.invitations(squad_id,account_id,document)VALUES($1,$2,$3)ON CONFLICT(squad_id,account_id) DO UPDATE SET document=EXCLUDED.document`, squadID, account, encode(inv))
+	if e != nil {
+		return e
+	}
+	delivery := InvitationDelivery{SquadID: squadID, AccountID: account, Token: token, ExpiresAt: expires, Revision: m.Revision}
+	if _, e = tx.ExecContext(ctx, `INSERT INTO narrative_discovery.invitation_deliveries(squad_id,account_id,document)VALUES($1,$2,$3) ON CONFLICT(squad_id,account_id) DO UPDATE SET document=EXCLUDED.document`, squadID, account, encode(delivery)); e != nil {
+		return e
+	}
+	_, e = tx.ExecContext(ctx, `INSERT INTO narrative_discovery.members(squad_id,account_id,document)VALUES($1,$2,$3)ON CONFLICT(squad_id,account_id) DO UPDATE SET document=EXCLUDED.document`, squadID, account, encode(m))
+	return e
+}
+
 func (s Store) AcceptInvitation(ctx context.Context, actor, squadID, token string, expected uint64, now time.Time) (Membership, error) {
 	var m Membership
 	e := s.transaction(ctx, func(tx *sql.Tx) error {
@@ -159,73 +172,92 @@ func (s Store) SetMemberStatus(ctx context.Context, actor, squadID, account, sta
 	if status != "removed" && status != "banned" {
 		return ErrInvalid
 	}
-	return s.transaction(ctx, func(tx *sql.Tx) error {
-		if e := lock(ctx, tx, "squad:"+squadID); e != nil {
-			return e
-		}
-		q, e := squad(ctx, tx, squadID)
-		if e != nil {
-			return e
-		}
-		if q.OwnerAccountID != actor || account == actor {
-			return ErrForbidden
-		}
-		m, e := member(ctx, tx, squadID, account)
-		if e != nil {
-			return e
-		}
-		if m.Revision != expected {
-			return ErrConflict
-		}
-		if m.Revision == ^uint64(0) {
-			return ErrRevisionExhausted
-		}
-		m.Status = status
-		m.Revision++
-		_, e = tx.ExecContext(ctx, `UPDATE narrative_discovery.members SET document=$1 WHERE squad_id=$2 AND account_id=$3`, encode(m), squadID, account)
-		return e
-	})
+	return s.transaction(ctx, func(tx *sql.Tx) error { return setMemberStatusTx(ctx, tx, actor, squadID, account, status, expected) })
 }
+func setMemberStatusTx(ctx context.Context, tx *sql.Tx, actor, squadID, account, status string, expected uint64) error {
+	if e := lock(ctx, tx, "squad:"+squadID); e != nil {
+		return e
+	}
+	q, e := squad(ctx, tx, squadID)
+	if e != nil {
+		return e
+	}
+	if q.OwnerAccountID != actor || account == actor {
+		return ErrForbidden
+	}
+	m, e := member(ctx, tx, squadID, account)
+	if e != nil {
+		return e
+	}
+	if m.Revision != expected {
+		return ErrConflict
+	}
+	if m.Revision == ^uint64(0) {
+		return ErrRevisionExhausted
+	}
+	m.Status = status
+	m.Revision++
+	_, e = tx.ExecContext(ctx, `UPDATE narrative_discovery.members SET document=$1 WHERE squad_id=$2 AND account_id=$3`, encode(m), squadID, account)
+	return e
+}
+
 func (s Store) SetMemberRole(ctx context.Context, actor, squadID, account, role string, expected uint64) error {
 	if role != "moderator" && role != "member" {
 		return ErrInvalid
 	}
-	return s.transaction(ctx, func(tx *sql.Tx) error {
-		if e := lock(ctx, tx, "squad:"+squadID); e != nil {
-			return e
-		}
-		q, e := squad(ctx, tx, squadID)
-		if e != nil {
-			return e
-		}
-		if actor != q.OwnerAccountID || account == q.OwnerAccountID {
-			return ErrForbidden
-		}
-		m, e := member(ctx, tx, squadID, account)
-		if e != nil {
-			return e
-		}
-		if m.Status != "active" || (m.Role != "member" && m.Role != "moderator") {
-			return ErrForbidden
-		}
-		if m.Revision != expected {
-			return ErrConflict
-		}
-		if m.Revision == ^uint64(0) {
-			return ErrRevisionExhausted
-		}
-		m.Role = role
-		m.Revision++
-		_, e = tx.ExecContext(ctx, `UPDATE narrative_discovery.members SET document=$1 WHERE squad_id=$2 AND account_id=$3`, encode(m), squadID, account)
+	return s.transaction(ctx, func(tx *sql.Tx) error { return setMemberRoleTx(ctx, tx, actor, squadID, account, role, expected) })
+}
+func setMemberRoleTx(ctx context.Context, tx *sql.Tx, actor, squadID, account, role string, expected uint64) error {
+	if e := lock(ctx, tx, "squad:"+squadID); e != nil {
+		return e
+	}
+	q, e := squad(ctx, tx, squadID)
+	if e != nil {
+		return e
+	}
+	if actor != q.OwnerAccountID || account == q.OwnerAccountID {
+		return ErrForbidden
+	}
+	m, e := member(ctx, tx, squadID, account)
+	if e != nil {
+		return e
+	}
+	if m.Status != "active" || (m.Role != "member" && m.Role != "moderator") {
+		return ErrForbidden
+	}
+	if m.Revision != expected {
+		return ErrConflict
+	}
+	if m.Revision == ^uint64(0) {
+		return ErrRevisionExhausted
+	}
+	m.Role = role
+	m.Revision++
+	_, e = tx.ExecContext(ctx, `UPDATE narrative_discovery.members SET document=$1 WHERE squad_id=$2 AND account_id=$3`, encode(m), squadID, account)
+	return e
+}
+
+// RequestJoin checks the actor's membership revision, not the squad revision.
+// A first request expects zero; both open joins and requests increment it.
+func (s Store) RequestJoin(ctx context.Context, actor, squadID string, expected uint64) (Membership, error) {
+	var requested Membership
+	err := s.transaction(ctx, func(tx *sql.Tx) error {
+		var e error
+		requested, e = requestJoinTx(ctx, tx, actor, squadID, expected)
 		return e
 	})
+	if err != nil {
+		return Membership{}, err
+	}
+	return requested, nil
 }
-func (s Store) RequestJoin(ctx context.Context, actor, squadID string, expected uint64) (Membership, error) {
+func requestJoinTx(ctx context.Context, tx *sql.Tx, actor, squadID string, expected uint64) (Membership, error) {
 	var requested Membership
 	if actor == "" {
 		return requested, ErrInvalid
 	}
-	e := s.transaction(ctx, func(tx *sql.Tx) error {
+
+	e := func() error {
 		if e := lock(ctx, tx, "squad:"+squadID); e != nil {
 			return e
 		}
@@ -233,7 +265,7 @@ func (s Store) RequestJoin(ctx context.Context, actor, squadID string, expected 
 		if e != nil {
 			return e
 		}
-		if q.Policy != "request" {
+		if q.Policy != "request" && q.Policy != "open" {
 			return ErrForbidden
 		}
 		m, e := member(ctx, tx, squadID, actor)
@@ -253,25 +285,50 @@ func (s Store) RequestJoin(ctx context.Context, actor, squadID string, expected 
 			return ErrRevisionExhausted
 		}
 		requested = Membership{SquadID: squadID, AccountID: actor, Role: "member", Status: "requested", Revision: m.Revision + 1}
+
+		if q.Policy == "open" {
+			requested.Status, requested.JoinedAt = "active", time.Now().UTC()
+			if _, e = tx.ExecContext(ctx, `DELETE FROM narrative_discovery.invitations WHERE squad_id=$1 AND account_id=$2`, squadID, actor); e != nil {
+				return e
+			}
+		}
 		inv := Invitation{SquadID: squadID, AccountID: actor, Status: "requested"}
-		_, e = tx.ExecContext(ctx, `INSERT INTO narrative_discovery.invitations(squad_id,account_id,document)VALUES($1,$2,$3)ON CONFLICT(squad_id,account_id) DO UPDATE SET document=EXCLUDED.document`, squadID, actor, encode(inv))
-		if e != nil {
-			return e
+		if q.Policy == "request" {
+			_, e = tx.ExecContext(ctx, `INSERT INTO narrative_discovery.invitations(squad_id,account_id,document)VALUES($1,$2,$3)ON CONFLICT(squad_id,account_id) DO UPDATE SET document=EXCLUDED.document`, squadID, actor, encode(inv))
+			if e != nil {
+				return e
+			}
 		}
 		_, e = tx.ExecContext(ctx, `INSERT INTO narrative_discovery.members(squad_id,account_id,document)VALUES($1,$2,$3)ON CONFLICT(squad_id,account_id) DO UPDATE SET document=EXCLUDED.document`, squadID, actor, encode(requested))
 		return e
-	})
+	}()
 	if e != nil {
 		return Membership{}, e
 	}
 	return requested, nil
 }
+
+// ApproveRequest checks the applicant's membership revision and returns the
+// committed active membership, with JoinedAt taken from now.
 func (s Store) ApproveRequest(ctx context.Context, actor, squadID, account string, expected uint64, now time.Time) (Membership, error) {
+	var approved Membership
+	err := s.transaction(ctx, func(tx *sql.Tx) error {
+		var e error
+		approved, e = approveRequestTx(ctx, tx, actor, squadID, account, expected, now)
+		return e
+	})
+	if err != nil {
+		return Membership{}, err
+	}
+	return approved, nil
+}
+func approveRequestTx(ctx context.Context, tx *sql.Tx, actor, squadID, account string, expected uint64, now time.Time) (Membership, error) {
 	var approved Membership
 	if now.IsZero() {
 		return approved, ErrInvalid
 	}
-	e := s.transaction(ctx, func(tx *sql.Tx) error {
+
+	e := func() error {
 		if e := lock(ctx, tx, "squad:"+squadID); e != nil {
 			return e
 		}
@@ -321,12 +378,13 @@ func (s Store) ApproveRequest(ctx context.Context, actor, squadID, account strin
 		}
 		approved = m
 		return nil
-	})
+	}()
 	if e != nil {
 		return Membership{}, e
 	}
 	return approved, nil
 }
+
 func (s Store) ProposeTransfer(ctx context.Context, actor, squadID, recipient string, expected uint64) error {
 	return s.transaction(ctx, func(tx *sql.Tx) error {
 		if e := lock(ctx, tx, "squad:"+squadID); e != nil {
@@ -398,4 +456,37 @@ func (s Store) ConfirmTransfer(ctx context.Context, actor, squadID string) error
 		_, e = tx.ExecContext(ctx, `DELETE FROM narrative_discovery.transfers WHERE squad_id=$1`, squadID)
 		return e
 	})
+}
+
+// The connected contract predates visibility/description. New connected squads
+// are private, and patches preserve those fields under the mutation lock.
+func (s Store) UpdateConnectedSquad(ctx context.Context, actor, id string, input v2.ConnectedSquadPatchBody) (Squad, error) {
+	var next Squad
+	e := s.transaction(ctx, func(tx *sql.Tx) error {
+		if e := lock(ctx, tx, "squad:"+id); e != nil {
+			return e
+		}
+		q, e := squad(ctx, tx, id)
+		if e != nil {
+			return e
+		}
+		m, e := member(ctx, tx, id, actor)
+		if e != nil || m.Status != "active" || (m.Role != "owner" && m.Role != "moderator") {
+			return ErrForbidden
+		}
+		if input.Expected < 1 || input.Squad.ID != id || input.Squad.OwnerAccountID != q.OwnerAccountID || uint64(input.Expected) != q.Revision || input.Squad.Revision != input.Expected+1 {
+			return ErrConflict
+		}
+		next = q
+		next.Name, next.Policy, next.Revision = input.Squad.Name, input.Squad.Policy, uint64(input.Squad.Revision)
+		if next.Validate() != nil || next.Revision > 9007199254740991 {
+			return ErrInvalid
+		}
+		_, e = tx.ExecContext(ctx, `UPDATE narrative_discovery.squads SET document=$1 WHERE id=$2`, encode(next), id)
+		return e
+	})
+	if e != nil {
+		return Squad{}, e
+	}
+	return next, nil
 }

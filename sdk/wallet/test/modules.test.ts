@@ -1,3 +1,5 @@
+import { parseTransaction } from 'viem';
+import { nodeVector, receiptWireKeys } from './support/receipt-recordings.js';
 import { readFileSync, readdirSync } from 'node:fs';
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import type { AddressInfo } from 'node:net';
@@ -459,20 +461,25 @@ const rpcCalls: { authorization: string | undefined; body: Json }[] = [];
 const moduleReceiptFixtures = JSON.parse(
   readFileSync(new URL('./fixtures/sequencer-receipt.json', import.meta.url), 'utf8')
 ) as Record<'submitted' | 'receipted' | 'committed', Json>;
-const bridgeReceiptVector = eventVectors.bridge!.find((vector) => vector.event === 'BridgeOut')!;
+const bridgeRecording = nodeVector('V1-layerxbridge-bridge-out');
+const bridgeReceiptVector = {
+  event: 'BridgeOut',
+  fields: {
+    chain: '1',
+    asset: '0x5fbdb2315678afecb367f032d93f642f64180aa3',
+    amount: '5000000000000000000',
+    recipient: '0x3c44cdddb6a900fa2b585dd299e03d12fa4293bc',
+    nonce: '7',
+  },
+};
 const bridgeReceiptEvent = abi('layerxbridge').find(
   (entry) => entry.type === 'event' && entry.name === bridgeReceiptVector.event
 )!;
-const moduleReceipted = {
-  ...moduleReceiptFixtures.receipted,
-  blockNumber: moduleReceiptFixtures.committed.blockNumber,
-  blockHash: moduleReceiptFixtures.committed.blockHash,
-  logs: [
-    {
-      ...encodeLog(bridge(signer).address, bridgeReceiptEvent, bridgeReceiptVector.fields),
-      logIndex: '0x0',
-    },
-  ],
+const moduleReceipted = bridgeRecording.receiptJson;
+const moduleSubmitted = {
+  rung: 'submitted',
+  txHash: moduleReceipted.txHash,
+  nonce: moduleReceipted.nonce,
 };
 const moduleReceiptRequests: { scenario: string; method: string; params: unknown[] }[] = [];
 let server: Server;
@@ -492,7 +499,11 @@ function handle(req: IncomingMessage, res: ServerResponse): void {
       const scenario = req.url.slice('/module-receipts/'.length);
       moduleReceiptRequests.push({ scenario, method: body.method, params: body.params });
       res.writeHead(200, { 'content-type': 'application/json' });
-      if (body.method === 'paxeer_sendTransactionReceipted') {
+      if (body.method === 'px_getReceiptKeys') {
+        res.end(
+          JSON.stringify({ jsonrpc: '2.0', id: body.id, result: receiptWireKeys(moduleReceipted) })
+        );
+      } else if (body.method === 'paxeer_sendTransactionReceipted') {
         const code =
           scenario === 'injected'
             ? 4200
@@ -507,8 +518,7 @@ function handle(req: IncomingMessage, res: ServerResponse): void {
             id: body.id,
             ...(code === null
               ? {
-                  result:
-                    scenario === 'submitted' ? moduleReceiptFixtures.submitted : moduleReceipted,
+                  result: scenario === 'submitted' ? moduleSubmitted : moduleReceipted,
                 }
               : { error: { code, message: scenario } }),
           })
@@ -518,7 +528,7 @@ function handle(req: IncomingMessage, res: ServerResponse): void {
           JSON.stringify({
             jsonrpc: '2.0',
             id: body.id,
-            result: moduleReceiptFixtures.submitted.txHash,
+            result: moduleSubmitted.txHash,
           })
         );
       } else if (scenario === 'injected' && body.method === 'pax_sequencerReceipt') {
@@ -529,7 +539,7 @@ function handle(req: IncomingMessage, res: ServerResponse): void {
           JSON.stringify({
             jsonrpc: '2.0',
             id: body.id,
-            result: polls === 1 ? moduleReceiptFixtures.submitted : moduleReceipted,
+            result: polls === 1 ? moduleSubmitted : moduleReceipted,
           })
         );
       } else {
@@ -659,10 +669,51 @@ describe('modules', () => {
       expect(ours.value).toBe(0n);
       expect(known.has(ours.data.slice(0, 10))).toBe(true);
     }
+    const openAbi = abi('perps').find(
+      (entry) => entry.type === 'function' && entry.name === 'openPosition'
+    );
+    const cancelAbi = abi('perps').find(
+      (entry) => entry.type === 'function' && entry.name === 'cancelOrder'
+    );
+    if (!openAbi?.inputs || !cancelAbi?.inputs) throw new Error('missing perps open/cancel ABI');
+    expect(openAbi.inputs.map((input) => input.type)).toEqual([
+      'uint256',
+      'address',
+      'uint256',
+      'uint256',
+      'bool',
+    ]);
+    expect(cancelAbi.inputs.map((input) => input.type)).toEqual(['uint256']);
+    const openSelector = abiSelector(
+      `openPosition(${openAbi.inputs.map((input) => input.type).join(',')})`
+    );
+    const cancelSelector = abiSelector(
+      `cancelOrder(${cancelAbi.inputs.map((input) => input.type).join(',')})`
+    );
+    expect(module.openPosition(order).data).toBe(
+      openSelector +
+        [
+          word('uint256', order.marketId.toString()),
+          word('address', order.collateralToken),
+          word('uint256', order.collateralAmount.toString()),
+          word('uint256', order.leverage.toString()),
+          word('bool', order.isLong),
+        ].join('')
+    );
+    expect(module.cancelOrder(orderId).data).toBe(
+      cancelSelector + word('uint256', orderId.toString())
+    );
+    expect(module.openPosition({ ...order, isLong: false }).data).toBe(
+      perpsOpenPositionCall({ ...order, isLong: false }).data
+    );
     expect(known.has(abiSelector('placeOrder(bytes32,uint8,uint256,uint256,uint8)'))).toBe(false);
     const moved = exchange(signer, '0x00000000000000000000000000000000000A1015');
     expect(moved.openPosition(order)).toEqual({
       ...perpsOpenPositionCall(order),
+      to: '0x00000000000000000000000000000000000a1015',
+    });
+    expect(moved.cancelOrder(orderId)).toEqual({
+      ...perpsCancelOrderCall(orderId),
       to: '0x00000000000000000000000000000000000a1015',
     });
   });
@@ -1207,7 +1258,7 @@ describe('modules', () => {
       account,
       nonce: 4n,
       calls: [
-        orders.cancelOrder(`0x${word('uint256', '34')}`, fill(0x33, 32)),
+        orders.cancelOrder(34n),
         feeToken(signer).setFeeDenom('usid'),
         { to: `0x${'dd'.repeat(20)}`, value: 5n, data: '0x' },
       ],
@@ -1533,19 +1584,21 @@ function moduleReceiptProvider(scenario: string): ModuleProvider {
 }
 
 function bridgeOutTransaction(provider: ModuleProvider): PrecompileCall {
-  const outbound = section('bridge').bridgeOut as Json;
-  return bridge(provider).bridgeOut(
-    big(outbound.chain),
-    text(outbound.asset),
-    big(outbound.amount),
-    text(outbound.recipient)
+  const fields = bridgeReceiptVector.fields;
+  const tx = bridge(provider).bridgeOut(
+    BigInt(fields.chain),
+    fields.asset,
+    BigInt(fields.amount),
+    fields.recipient
   );
+  expect(tx.data).toBe(parseTransaction(bridgeRecording.rawTransaction).data);
+  return tx;
 }
 
 async function send_module_transaction_receipted_answers_the_receipt_with_logs() {
   const provider = moduleReceiptProvider('direct');
   const tx = bridgeOutTransaction(provider);
-  const from = `0x${account.slice(2).toUpperCase()}`;
+  const from = `0x${moduleReceipted.from!.slice(2).toUpperCase()}`;
   const before = moduleReceiptRequests.length;
   const answer = await sendModuleTransactionReceipted(provider, from, tx);
   expect(answer).toEqual(moduleReceipted);
@@ -1562,7 +1615,7 @@ async function send_module_transaction_receipted_answers_the_receipt_with_logs()
       method: 'paxeer_sendTransactionReceipted',
       params: [
         {
-          from: account,
+          from: moduleReceipted.from,
           to: tx.to,
           data: tx.data,
           value: `0x${tx.value.toString(16)}`,
@@ -1571,6 +1624,7 @@ async function send_module_transaction_receipted_answers_the_receipt_with_logs()
         },
       ],
     },
+    { scenario: 'direct', method: 'px_getReceiptKeys', params: [] },
   ]);
   for (const [scenario, code] of [
     ['rejected', 4001],
@@ -1600,14 +1654,14 @@ async function send_module_transaction_receipted_falls_back_for_an_injected_prov
   const provider = moduleReceiptProvider('injected');
   const tx = bridgeOutTransaction(provider);
   const before = moduleReceiptRequests.length;
-  const answer = await sendModuleTransactionReceipted(provider, account, tx);
+  const answer = await sendModuleTransactionReceipted(provider, moduleReceipted.from!, tx);
   expect(answer).toEqual(moduleReceipted);
   expect(answer.rung).toBe('receipted');
-  expect(answer.txHash).toBe(moduleReceiptFixtures.submitted.txHash);
+  expect(answer.txHash).toBe(moduleSubmitted.txHash);
   expect(answer.logs).toEqual(moduleReceipted.logs);
   const params = [
     {
-      from: account,
+      from: moduleReceipted.from,
       to: tx.to,
       data: tx.data,
       value: `0x${tx.value.toString(16)}`,
@@ -1620,6 +1674,7 @@ async function send_module_transaction_receipted_falls_back_for_an_injected_prov
     { scenario: 'injected', method: 'eth_sendTransaction', params },
     { scenario: 'injected', method: 'pax_sequencerReceipt', params: [answer.txHash] },
     { scenario: 'injected', method: 'pax_sequencerReceipt', params: [answer.txHash] },
+    { scenario: 'injected', method: 'px_getReceiptKeys', params: [] },
   ]);
 }
 

@@ -5,8 +5,12 @@ import (
 	"crypto/ecdsa"
 	"flag"
 	"fmt"
+	"io"
 	"math/big"
+	"os"
+	"os/signal"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -22,6 +26,7 @@ const (
 	chainID    = 713714 // default EVM chain ID for "pax-chain"
 	targetTPS  = 500
 	numWorkers = 250
+	rpcTimeout = 10 * time.Second
 
 	// Total unique sender accounts pre-funded in genesis. Every tx sent by
 	// the stress test has a distinct sender with nonce=0. At targetTPS, the
@@ -131,16 +136,88 @@ func deployStorageContract(nonce uint64, key *ecdsa.PrivateKey) *types.Transacti
 	}), key)
 }
 
-func waitForBalance(ctx context.Context, client *ethclient.Client, addr common.Address) {
+func waitForBalance(ctx context.Context, client *ethclient.Client, addr common.Address, timeout time.Duration) error {
 	fmt.Printf("waiting for %s to have balance...\n", addr.Hex())
 	for {
-		bal, err := client.BalanceAt(ctx, addr, nil)
+		callCtx, cancel := context.WithTimeout(ctx, timeout)
+		bal, err := client.BalanceAt(callCtx, addr, nil)
+		cancel()
 		if err == nil && bal.Sign() > 0 {
 			fmt.Printf("  %s: %s wei\n", addr.Hex(), bal.String())
-			return
+			return nil
 		}
-		time.Sleep(300 * time.Millisecond)
+		timer := time.NewTimer(300 * time.Millisecond)
+		select {
+		case <-ctx.Done():
+			timer.Stop()
+			return ctx.Err()
+		case <-timer.C:
+		}
 	}
+}
+
+type submissionCounts struct {
+	attempted uint64
+	accepted  uint64
+	refused   uint64
+}
+
+func runStress(ctx context.Context, client *ethclient.Client, funded <-chan *ecdsa.PrivateKey,
+	ticks <-chan time.Time, workers int, timeout time.Duration,
+	makeTx func(*ecdsa.PrivateKey) *types.Transaction, out io.Writer) submissionCounts {
+	var counts submissionCounts
+	var mu sync.Mutex
+	var wg sync.WaitGroup
+	for range workers {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for {
+				var key *ecdsa.PrivateKey
+				select {
+				case <-ctx.Done():
+					return
+				case next, ok := <-funded:
+					if !ok {
+						return
+					}
+					key = next
+				}
+				select {
+				case <-ctx.Done():
+					return
+				case <-ticks:
+				}
+				if ctx.Err() != nil {
+					return
+				}
+				tx := makeTx(key)
+				callCtx, cancel := context.WithTimeout(ctx, timeout)
+				err := client.SendTransaction(callCtx, tx)
+				cancel()
+				mu.Lock()
+				counts.attempted++
+				if err != nil {
+					counts.refused++
+					fmt.Fprintf(out, "submission refused tx=%s: %v\n", tx.Hash().Hex(), err)
+				} else {
+					counts.accepted++
+				}
+				mu.Unlock()
+			}
+		}()
+	}
+	wg.Wait()
+	status := "completed"
+	if counts.refused > 0 {
+		status = "degraded"
+	}
+	if ctx.Err() != nil {
+		status = "canceled"
+	}
+	fmt.Fprintf(out, "run %s: attempted=%d accepted=%d refused=%d\n",
+		status, counts.attempted, counts.accepted, counts.refused)
+	return counts
 }
 
 func main() {
@@ -177,8 +254,11 @@ func main() {
 		panic(fmt.Sprintf("unknown -mode %q (expected %q or %q)", *mode, workloadModeTransfer, workloadModeContractStorage))
 	}
 
-	ctx := context.Background()
-	client, err := ethclient.Dial(evmRPC)
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+	dialCtx, cancel := context.WithTimeout(ctx, rpcTimeout)
+	client, err := ethclient.DialContext(dialCtx, evmRPC)
+	cancel()
 	if err != nil {
 		panic(fmt.Sprintf("dial %s: %v", evmRPC, err))
 	}
@@ -187,7 +267,10 @@ func main() {
 	fmt.Printf("recipient: %s mode: %s\n", recipient.Hex(), *mode)
 
 	// Wait for genesis accounts to have balance — confirms the node is live.
-	waitForBalance(ctx, client, keyAddr(nextKey(1)))
+	if err := waitForBalance(ctx, client, keyAddr(nextKey(1)), rpcTimeout); err != nil {
+		fmt.Fprintf(os.Stderr, "balance wait stopped: %v\n", err)
+		return
+	}
 
 	// Pre-fill the work queue. Each key is used for exactly one tx (nonce=0).
 	funded := make(chan *ecdsa.PrivateKey, totalAccounts)
@@ -203,18 +286,5 @@ func main() {
 	fmt.Printf("starting %d workers, %d unique senders, target %d TPS\n",
 		numWorkers, totalAccounts, targetTPS)
 
-	var wg sync.WaitGroup
-	for range numWorkers {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			for key := range funded {
-				<-ticker.C
-				_ = client.SendTransaction(ctx, makeTx(key))
-			}
-		}()
-	}
-
-	wg.Wait()
-	fmt.Printf("all %d accounts exhausted\n", totalAccounts)
+	runStress(ctx, client, funded, ticker.C, numWorkers, rpcTimeout, makeTx, os.Stdout)
 }

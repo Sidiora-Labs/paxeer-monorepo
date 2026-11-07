@@ -245,7 +245,10 @@ fn platform_completion_retired_surfaces_absent() -> Result<(), Box<dyn Error>> {
         let interface = inventory
             .get(&id)
             .unwrap_or_else(|| panic!("missing interface record {id}"));
-        if quoted(field(interface, "status")) != "retire" {
+        if !matches!(
+            quoted(field(interface, "status")).as_str(),
+            "retire" | "retired"
+        ) {
             continue;
         }
         retired += 1;

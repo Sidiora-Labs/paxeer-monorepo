@@ -179,6 +179,7 @@ impl Client {
             return Err("outbound trace exceeds its boundary".to_owned());
         }
         let connector = TlsConnector::builder()
+            .disable_built_in_roots(true)
             .add_root_certificate(self.ca.clone())
             .identity(self.identity.clone())
             .min_protocol_version(Some(native_tls::Protocol::Tlsv12))

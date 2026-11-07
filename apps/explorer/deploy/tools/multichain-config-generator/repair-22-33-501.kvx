@@ -1,0 +1,16 @@
+[repair.22.33.501]
+finding = "multichain-fetch-unbounded"
+implementation = "index.ts: a 30000ms deadline covers the initial HTTP fetch and JSON body; HTTP status, items and every HTTP(S) explorer URL are validated before workers start; failures reject run and the CLI sets exit code 1."
+tests = ["repairMultichainFetchDeadlineBeforeHeaders", "repairMultichainFetchDeadlineIncludesBody", "repairMultichainFetchRejectsHttpErrors", "repairMultichainFetchValidatesEveryExplorerBeforeWorkers", "repairMultichainFetchPropagatesInvalidJson", "repairMultichainFetchRejectsEmptyCluster", "repairMultichainFetchPreservesValidExplorerUrls"]
+proof = "repair-22-33-501.spec.ts drives the production module against loopback HTTP servers and observes real worker creation through async_hooks; the shared fetch interception is disabled."
+baseline = "Not run: the explicit implementation-first order and hf-build/hf-done-only gate limits take precedence over step 5's baseline instruction. No pre-change test failures are claimed."
+format = "apps/explorer/eslint.config.mjs explicitly ignores deploy/tools/; no repository formatter applies to these TypeScript files, and no KVX formatter is configured."
+previous_attempt = "Attempt 1 could not qualify because its build invoked pnpm in the Yarn-pinned explorer app (ERR_PNPM_OTHER_PM_EXPECTED); the current runner declares the authorized Yarn build and verify commands. The existing implementation and tests are retained."
+attempt_2 = "All seven tests executed and passed, but suite teardown failed in vitest-fetch-mock normalizeRequest with an undefined request; the task remained unqualified."
+attempt_3 = "Fetch setup hooks now use block bodies so they return void; the enableMocks return value cannot be registered by Vitest as a cleanup function and invoked without a request. All seven tests and every assertion are retained."
+wiring_requests = []
+evidence = "The runner's final hf-done (or hf-build if verification cannot run) evidence JSON records the exact candidate revision, command, exit and private log; no unexecuted gate is claimed here."
+
+[qualification.repair]
+observed = "The first verify invocation returned zero but Vitest 4.1.11 registered test(function) as seven todos and executed no assertions; that result is not behavior evidence."
+repair = "Register each existing declared test function with test(function.name, function), retaining all seven tests and every assertion; rerun the build and hf-done against the repaired candidate."

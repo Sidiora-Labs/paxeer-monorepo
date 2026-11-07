@@ -1,0 +1,17 @@
+[alert.GHSA-73rr-hh4g-fpgx]
+package = "diff"
+manifest = "tests/integration/dapp_tests/package-lock.json"
+verdict = "upgraded"
+version_before = "7.0.0"
+version_after = "8.0.3"
+pinned_by = ""
+revision = "4a9dbd7408d98ec112b849894a0d4c9ed40a2aa9"
+
+[alert.GHSA-3g3m-2fjr-6pw4]
+package = "glob"
+manifest = "tests/integration/dapp_tests/package-lock.json"
+verdict = "upgraded"
+version_before = "10.5.0"
+version_after = "14.0.2"
+pinned_by = ""
+revision = "4a9dbd7408d98ec112b849894a0d4c9ed40a2aa9"

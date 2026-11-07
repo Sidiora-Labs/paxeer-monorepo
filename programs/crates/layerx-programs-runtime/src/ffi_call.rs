@@ -1,22 +1,20 @@
 //! Scalar-only C ingress for one real Programs CALL activity.
 
 use crate::occupancy::{
-    OccupancyAuthority, OccupancyLedger, OccupancyUsage, MAX_OCCUPANCY_EVIDENCE_BYTES,
-    MAX_OCCUPANCY_LEDGER_BYTES, MAX_OCCUPANCY_POSITIONS,
+    OccupancyAuthority, OccupancyDebitAuthority, OccupancyError, OccupancyLedger, OccupancyUsage,
+    MAX_OCCUPANCY_EVIDENCE_BYTES, MAX_OCCUPANCY_LEDGER_BYTES, MAX_OCCUPANCY_POSITIONS,
 };
-use crate::storage::StorageError;
 use crate::validate::AbiRevision;
 use crate::{
     AbiError, AccessSet, ActivityBudgetBinding, AtomicTransferSet, AuthorizationContext,
     BalanceView, BudgetMeterRefusal, BudgetResourceKind, BudgetedAuthorizedExecutionRequest,
-    BudgetedV1FailureCause, CandidateAuthorizedExecutionRecord, CapabilitySet, CommittedOracle,
-    CommittedWeb, CompiledModule, CompositionContext, CompositionRefusal, CompositionRules,
-    DeclaredBudget, EntrypointRefusal, ExecutionFault, Executor, KernelTransferEvidence,
-    KernelTransferPrimitive, MeterRefusal, MeteredUsage, ModuleCacheKey, OracleObservation,
-    PreparedAuthorizedActivityOutcome, PrincipalId, ProgramEvent, ProgramId, ProgramResolver,
-    ReceiptOracle, ReceiptView, ResourceKind, ResponseRefusal, RuntimeArtifactOwnerRefusal,
-    Storage, StorageNamespace, TransferCapability, TransferLawError, TransferSource,
-    V2ActivityOutcome, WebAnswer,
+    CandidateAuthorizedExecutionRecord, CapabilitySet, CommittedOracle, CommittedWeb,
+    CompiledModule, CompositionContext, CompositionRules, DeclaredBudget, Executor,
+    KernelTransferEvidence, KernelTransferPrimitive, MeteredUsage, ModuleCacheKey,
+    OracleObservation, PreparedAuthorizedActivityOutcome, PrincipalId, ProgramEvent, ProgramId,
+    ProgramResolver, ReceiptOracle, ReceiptView, RuntimeArtifactOwnerRefusal, Storage,
+    StorageNamespace, TransferCapability, TransferLawError, TransferSource, V2ActivityOutcome,
+    WebAnswer,
 };
 use std::collections::{BTreeMap, BTreeSet};
 use std::rc::Rc;
@@ -85,50 +83,25 @@ unsafe fn schedule_span<'a>(span: ScheduleByteSpan) -> Result<&'a [u8], i32> {
 }
 
 fn schedule_descriptor_spans_bound(call: &CallScheduleDescriptor) -> bool {
-    const CALL_FIXED_BYTES: usize = 32 + 2 + 2 + 4 + 2 + 4 + 4 + 7 * 8;
     if call.canonical_payload.bytes.is_null()
         || call.capabilities.bytes.is_null()
         || call.access_declaration.bytes.is_null()
     {
         return false;
     }
-    let payload = call.canonical_payload.bytes as usize;
-    let capabilities = call.capabilities.bytes as usize;
-    let declaration = call.access_declaration.bytes as usize;
-    let Some(payload_end) = payload.checked_add(call.canonical_payload.length) else {
+    let payload = unsafe {
+        core::slice::from_raw_parts(call.canonical_payload.bytes, call.canonical_payload.length)
+    };
+    let Some(layout) = crate::native_contract::call_payload_layout(payload) else {
         return false;
     };
-    let Some(capabilities_end) = capabilities.checked_add(call.capabilities.length) else {
-        return false;
-    };
-    let Some(declaration_end) = declaration.checked_add(call.access_declaration.length) else {
-        return false;
-    };
-    if call.canonical_payload.length < CALL_FIXED_BYTES {
-        return false;
-    }
-    let header =
-        unsafe { std::slice::from_raw_parts(call.canonical_payload.bytes, CALL_FIXED_BYTES) };
-    let entrypoint_length = usize::from(u16::from_be_bytes([header[34], header[35]]));
-    let calldata_length =
-        u32::from_be_bytes([header[36], header[37], header[38], header[39]]) as usize;
-    let capabilities_length = usize::from(u16::from_be_bytes([header[40], header[41]]));
-    let access_declaration_length =
-        u32::from_be_bytes([header[42], header[43], header[44], header[45]]) as usize;
-    let Some(expected_capabilities) = payload
-        .checked_add(CALL_FIXED_BYTES)
-        .and_then(|offset| offset.checked_add(entrypoint_length))
-        .and_then(|offset| offset.checked_add(calldata_length))
-    else {
-        return false;
-    };
-    payload <= capabilities
-        && header[..32] == call.program_id
-        && capabilities == expected_capabilities
-        && call.capabilities.length == capabilities_length
-        && call.access_declaration.length == access_declaration_length
-        && capabilities_end == declaration
-        && declaration_end == payload_end
+    let start = call.canonical_payload.bytes as usize;
+    payload[layout.call_offset..layout.call_offset + 32] == call.program_id
+        && start.checked_add(layout.capabilities_offset) == Some(call.capabilities.bytes as usize)
+        && call.capabilities.length == layout.capabilities_length
+        && start.checked_add(layout.declaration_offset)
+            == Some(call.access_declaration.bytes as usize)
+        && call.access_declaration.length == layout.declaration_length
 }
 
 fn validate_schedule_owners(call: &CallScheduleDescriptor) -> Result<usize, i32> {
@@ -416,6 +389,7 @@ const PROGRAM_REFUSED: i32 = -736;
 
 #[derive(Debug, Default)]
 struct CachedProgramResolver {
+    token: u64,
     modules: BTreeMap<ProgramId, Arc<CompiledModule>>,
     interfaces: BTreeMap<ProgramId, Vec<u8>>,
 }
@@ -434,7 +408,97 @@ impl CachedProgramResolver {
     }
 }
 
+extern "C" {
+    fn layerx_programs_call_dispute_artifact_open(
+        token: u64,
+        program: *const u8,
+        hash: *const u8,
+        wasm: *mut *const u8,
+        length: *mut usize,
+    ) -> i32;
+    fn layerx_programs_call_dispute_schedule(
+        token: u64,
+        kind: u16,
+        version: u32,
+        output: *mut u8,
+    ) -> i32;
+}
+
 impl ProgramResolver for CachedProgramResolver {
+    fn dispute_artifact(
+        &self,
+        program: ProgramId,
+        hash: [u8; 32],
+        abi: u16,
+        metering: u32,
+    ) -> Option<Arc<CompiledModule>> {
+        let mut wasm = core::ptr::null();
+        let mut length = 0;
+        let mut schedule = [0u8; 76];
+        if unsafe {
+            layerx_programs_call_dispute_artifact_open(
+                self.token,
+                program.bytes().as_ptr(),
+                hash.as_ptr(),
+                &mut wasm,
+                &mut length,
+            )
+        } != OK
+            || unsafe {
+                layerx_programs_call_dispute_schedule(
+                    self.token,
+                    1,
+                    metering,
+                    schedule.as_mut_ptr(),
+                )
+            } != OK
+            || wasm.is_null()
+            || length == 0
+            || length > 16 * 1024 * 1024
+        {
+            return None;
+        }
+        let schedule = crate::FuelSchedule::from_protocol_bytes(&schedule).ok()?;
+        let wasm = unsafe { core::slice::from_raw_parts(wasm, length) };
+        let key = ModuleCacheKey::for_wasm_with_schedule(
+            hash,
+            crate::RUNTIME_VERSION,
+            abi,
+            wasm,
+            schedule,
+        )
+        .ok()?;
+        compiled_module(key, wasm).ok()
+    }
+
+    fn dispute_fee_schedule(&self, version: u32) -> Option<crate::FeeSchedule> {
+        let mut bytes = [0u8; 60];
+        if unsafe {
+            layerx_programs_call_dispute_schedule(self.token, 0, version, bytes.as_mut_ptr())
+        } != OK
+        {
+            return None;
+        }
+        let coefficient = |index: usize| {
+            u64::from_be_bytes(
+                bytes[4 + index * 8..12 + index * 8]
+                    .try_into()
+                    .unwrap_or([0; 8]),
+            )
+        };
+        let schedule = crate::FeeSchedule::new_complete(crate::FeeScheduleParameters {
+            version: u32::from_be_bytes(bytes[..4].try_into().ok()?),
+            fee_units_per_cpu_fuel: coefficient(0),
+            fee_units_per_memory_byte: coefficient(1),
+            fee_units_per_storage_read_byte: coefficient(2),
+            fee_units_per_storage_write_byte: coefficient(3),
+            fee_units_per_output_value: coefficient(4),
+            fee_units_per_output_byte: coefficient(5),
+            fee_units_per_occupancy_byte_batch: coefficient(6),
+        });
+        (schedule.is_valid() && schedule.version() == version).then_some(schedule)
+    }
+
     fn authorize_interface_call(
         &self,
         program: ProgramId,
@@ -519,23 +583,6 @@ pub extern "C" fn layerx_programs_module_cache_invalidate_abi(retired_abi_versio
         .map_or_else(|refusal| artifact_refusal_status(&refusal), |_| OK)
 }
 
-fn put_usize(out: &mut Vec<u8>, value: usize) -> Result<(), i32> {
-    out.extend_from_slice(
-        &u64::try_from(value)
-            .map_err(|_| LENGTH_LIMIT)?
-            .to_be_bytes(),
-    );
-    Ok(())
-}
-fn put_text(out: &mut Vec<u8>, value: &str) -> Result<(), i32> {
-    out.extend_from_slice(
-        &u32::try_from(value.len())
-            .map_err(|_| LENGTH_LIMIT)?
-            .to_be_bytes(),
-    );
-    out.extend_from_slice(value.as_bytes());
-    Ok(())
-}
 const fn protocol_supported(protocol_version: u16) -> bool {
     matches!(
         protocol_version,
@@ -556,285 +603,6 @@ const fn protocol_admits_abi(protocol_version: u16, abi_version: u16) -> bool {
         Ok(CapabilityEncoding::V2) => protocol_uses_occupancy(protocol_version),
         Err(_) => false,
     }
-}
-
-const fn revision_tag(value: AbiRevision) -> u8 {
-    match value {
-        AbiRevision::V1 => 1,
-        AbiRevision::V2 => 2,
-        AbiRevision::V3 => 3,
-        AbiRevision::V4 => 4,
-        AbiRevision::V5 => 5,
-    }
-}
-const fn meter_kind(value: ResourceKind) -> u8 {
-    match value {
-        ResourceKind::Cpu => 1,
-        ResourceKind::Memory => 2,
-        ResourceKind::StorageRead => 3,
-        ResourceKind::StorageWrite => 4,
-        ResourceKind::StorageOccupancy => 5,
-        ResourceKind::Output => 6,
-        ResourceKind::OutputBytes => 7,
-    }
-}
-fn meter_payload(value: MeterRefusal) -> Vec<u8> {
-    let mut out = Vec::new();
-    match value {
-        MeterRefusal::BudgetExceeded {
-            resource,
-            limit,
-            attempted,
-        } => {
-            out.extend([1, meter_kind(resource)]);
-            out.extend_from_slice(&limit.to_be_bytes());
-            out.extend_from_slice(&attempted.to_be_bytes());
-        }
-        MeterRefusal::CounterOverflow { resource } => out.extend([2, meter_kind(resource)]),
-        MeterRefusal::FeeOverflow => out.push(3),
-    }
-    out
-}
-const fn storage_tag(value: StorageError) -> u8 {
-    match value {
-        StorageError::InvalidProgram => 1,
-        StorageError::InvalidPrincipal => 2,
-        StorageError::EmptyKey => 3,
-        StorageError::KeyTooLarge => 4,
-        StorageError::ValueTooLarge => 5,
-        StorageError::PrefixTooLarge => 6,
-        StorageError::InvalidScanCursor => 7,
-        StorageError::InvalidScanLimits => 8,
-        StorageError::ScanCeilingExceeded => 9,
-        StorageError::SizeOverflow => 10,
-        StorageError::FrozenNamespace => 11,
-    }
-}
-fn abi_payload(value: &AbiError) -> Vec<u8> {
-    match value {
-        AbiError::WrongVersion => vec![1],
-        AbiError::InvalidCapability => vec![2],
-        AbiError::DuplicateCapability => vec![3],
-        AbiError::CapabilityDenied => vec![4],
-        AbiError::CapabilityEscalation => vec![5],
-        AbiError::EventBounds => vec![6],
-        AbiError::CallBounds => vec![7],
-        AbiError::AmountBounds => vec![8],
-        AbiError::ReceiptMismatch => vec![9],
-        AbiError::BalanceAbsent => vec![13],
-        AbiError::BalanceEvidenceUnavailable => vec![14],
-        AbiError::AccessDeclaration => vec![15],
-        AbiError::OracleUnknownMarket => vec![16],
-        AbiError::OracleMarketHalted => vec![17],
-        AbiError::EffectLimit => vec![18],
-        AbiError::InvalidEncoding => vec![10],
-        AbiError::Storage(error) => vec![11, storage_tag(*error)],
-        AbiError::Meter(error) => {
-            let mut out = vec![12];
-            out.extend(meter_payload(*error));
-            out
-        }
-    }
-}
-fn fault_payload(value: &ExecutionFault) -> Result<Vec<u8>, i32> {
-    let mut out = Vec::new();
-    match value {
-        ExecutionFault::UnknownExport { name } => {
-            out.push(1);
-            put_text(&mut out, name)?;
-        }
-        ExecutionFault::NotAFunction { name } => {
-            out.push(2);
-            put_text(&mut out, name)?;
-        }
-        ExecutionFault::UnreachableExecuted => out.push(3),
-        ExecutionFault::MemoryOutOfBounds => out.push(4),
-        ExecutionFault::TableOutOfBounds => out.push(5),
-        ExecutionFault::IndirectCallToNull => out.push(6),
-        ExecutionFault::IntegerDivisionByZero => out.push(7),
-        ExecutionFault::IntegerOverflow => out.push(8),
-        ExecutionFault::BadConversionToInteger => out.push(9),
-        ExecutionFault::StackExhausted => out.push(10),
-        ExecutionFault::BadSignature => out.push(11),
-        ExecutionFault::OutOfFuel => out.push(12),
-        ExecutionFault::GrowthLimited => out.push(13),
-        ExecutionFault::Resource { refusal } => {
-            out.push(14);
-            out.extend(meter_payload(*refusal));
-        }
-        ExecutionFault::NonIntegerValue => out.push(15),
-        ExecutionFault::EngineFault { reason } => {
-            out.push(16);
-            put_text(&mut out, reason)?;
-        }
-    }
-    Ok(out)
-}
-fn response_payload(value: &ResponseRefusal) -> Result<Vec<u8>, i32> {
-    let mut out = Vec::new();
-    match value {
-        ResponseRefusal::TooLarge { bytes, limit } => {
-            out.push(1);
-            put_usize(&mut out, *bytes)?;
-            put_usize(&mut out, *limit)?;
-        }
-        ResponseRefusal::CapacityExceeded { bytes, capacity } => {
-            out.push(2);
-            put_usize(&mut out, *bytes)?;
-            put_usize(&mut out, *capacity)?;
-        }
-        ResponseRefusal::DuplicatePublication => out.push(3),
-        ResponseRefusal::InvalidPublication => out.push(4),
-        ResponseRefusal::CodeMismatch {
-            published,
-            returned,
-        } => {
-            out.push(5);
-            out.extend_from_slice(&published.to_be_bytes());
-            out.extend_from_slice(&returned.to_be_bytes());
-        }
-        ResponseRefusal::Meter(error) => {
-            out.push(6);
-            out.extend(meter_payload(*error));
-        }
-    }
-    Ok(out)
-}
-fn entry_payload(value: &EntrypointRefusal) -> Result<Vec<u8>, i32> {
-    let mut out = Vec::new();
-    match value {
-        EntrypointRefusal::InputTooLarge { bytes, limit } => {
-            out.push(1);
-            put_usize(&mut out, *bytes)?;
-            put_usize(&mut out, *limit)?;
-        }
-        EntrypointRefusal::MissingAllocator => out.push(2),
-        EntrypointRefusal::MissingMemory => out.push(3),
-        EntrypointRefusal::MissingEntry => out.push(4),
-        EntrypointRefusal::AllocationRefused { code } => {
-            out.push(5);
-            out.extend_from_slice(&code.to_be_bytes());
-        }
-        EntrypointRefusal::GuestRefused { code } => {
-            out.push(6);
-            out.extend_from_slice(&code.to_be_bytes());
-        }
-        EntrypointRefusal::Fault(fault) => {
-            out.push(7);
-            out.extend(fault_payload(fault)?);
-        }
-        EntrypointRefusal::Resource(error) => {
-            out.push(8);
-            out.extend(meter_payload(*error));
-        }
-    }
-    Ok(out)
-}
-fn composition_payload(value: &CompositionRefusal) -> Result<Vec<u8>, i32> {
-    let mut out = Vec::new();
-    match value {
-        CompositionRefusal::NotComposable => out.push(1),
-        CompositionRefusal::ActivityEvidenceRequired => out.push(20),
-        CompositionRefusal::ActivityEvidenceMismatch => out.push(21),
-        CompositionRefusal::ActivityEvidenceReused => out.push(22),
-        CompositionRefusal::WrongVersion { expected, actual } => {
-            out.extend([2, revision_tag(*expected), revision_tag(*actual)]);
-        }
-        CompositionRefusal::MeteringPlanMismatch { expected, actual } => {
-            out.push(23);
-            out.extend_from_slice(expected);
-            out.extend_from_slice(actual);
-        }
-        CompositionRefusal::UnknownProgram { program } => {
-            out.push(3);
-            out.extend_from_slice(&program.bytes());
-        }
-        CompositionRefusal::Reentrancy { program } => {
-            out.push(4);
-            out.extend_from_slice(&program.bytes());
-        }
-        CompositionRefusal::DepthExceeded { limit, attempted } => {
-            out.push(5);
-            out.extend_from_slice(&limit.to_be_bytes());
-            out.extend_from_slice(&attempted.to_be_bytes());
-        }
-        CompositionRefusal::EdgesExceeded { limit, attempted } => {
-            out.push(6);
-            out.extend_from_slice(&limit.to_be_bytes());
-            out.extend_from_slice(&attempted.to_be_bytes());
-        }
-        CompositionRefusal::FanoutExceeded { limit, attempted } => {
-            out.push(7);
-            out.extend_from_slice(&limit.to_be_bytes());
-            out.extend_from_slice(&attempted.to_be_bytes());
-        }
-        CompositionRefusal::VisitsExceeded {
-            program,
-            limit,
-            attempted,
-        } => {
-            out.push(8);
-            out.extend_from_slice(&program.bytes());
-            out.extend_from_slice(&limit.to_be_bytes());
-            out.extend_from_slice(&attempted.to_be_bytes());
-        }
-        CompositionRefusal::MissingEntry => out.push(9),
-        CompositionRefusal::MissingAllocator => out.push(10),
-        CompositionRefusal::MissingMemory => out.push(11),
-        CompositionRefusal::AllocationRefused { code } => {
-            out.push(12);
-            out.extend_from_slice(&code.to_be_bytes());
-        }
-        CompositionRefusal::InputTooLarge { bytes, limit } => {
-            out.push(13);
-            put_usize(&mut out, *bytes)?;
-            put_usize(&mut out, *limit)?;
-        }
-        CompositionRefusal::GuestRefused { program, code } => {
-            out.push(14);
-            out.extend_from_slice(&program.bytes());
-            out.extend_from_slice(&code.to_be_bytes());
-        }
-        CompositionRefusal::Program(failure) => {
-            out.push(15);
-            out.extend(failure.canonical_encode());
-        }
-        CompositionRefusal::Authority(error) => {
-            out.push(16);
-            out.extend(abi_payload(error));
-        }
-        CompositionRefusal::Fault(fault) => {
-            out.push(17);
-            out.extend(fault_payload(fault)?);
-        }
-        CompositionRefusal::Resource(error) => {
-            out.push(18);
-            out.extend(meter_payload(*error));
-        }
-        CompositionRefusal::Response(error) => {
-            out.push(19);
-            out.extend(response_payload(error)?);
-        }
-    }
-    Ok(out)
-}
-
-fn typed_failure_detail(cause: &BudgetedV1FailureCause) -> Result<Vec<u8>, i32> {
-    let mut encoded = b"LXP/programs/failure-detail/v1\0".to_vec();
-    let (tag, payload) = match cause {
-        BudgetedV1FailureCause::Program(failure) => (1_u8, failure.canonical_encode()),
-        BudgetedV1FailureCause::Composition(refusal) => (2, composition_payload(refusal)?),
-        BudgetedV1FailureCause::Entrypoint(refusal) => (3, entry_payload(refusal)?),
-        BudgetedV1FailureCause::Abi(refusal) => (4, abi_payload(refusal)),
-    };
-    encoded.push(tag);
-    encoded.extend_from_slice(
-        &u32::try_from(payload.len())
-            .map_err(|_| LENGTH_LIMIT)?
-            .to_be_bytes(),
-    );
-    encoded.extend_from_slice(&payload);
-    Ok(encoded)
 }
 
 const fn resource_tag(resource: BudgetResourceKind) -> u8 {
@@ -1227,12 +995,7 @@ fn derive_sandbox_execution_principal(
     host_program: ProgramId,
     lease_id: [u8; 32],
 ) -> Result<PrincipalId, i32> {
-    let mut preimage = b"LayerX/programs/sandbox/namespace/v1\0".to_vec();
-    preimage.extend_from_slice(&host_program.bytes());
-    preimage.extend_from_slice(&lease_id);
-    let principal =
-        crate::hash_bytes(crate::HashAlgorithm::Sha256, &preimage).map_err(|_| NON_CANONICAL)?;
-    PrincipalId::new(principal).map_err(|_| NON_CANONICAL)
+    crate::native_contract::sandbox_execution_principal(host_program, lease_id).ok_or(NON_CANONICAL)
 }
 
 struct SandboxCallSettlement {
@@ -1595,6 +1358,8 @@ fn replay_profile(token: u64) -> Result<Option<crate::ProgramReplayProfile>, i32
 }
 
 fn publish_replay_record(token: u64, record: &crate::ProgramReplayRecord) -> Result<(), i32> {
+    // The derived replay_fuel field travels as the existing committed boundary
+    // fuel fields; portable decoding reconstructs and checks it without a new ABI.
     let bytes = record.canonical_bytes();
     c_ok(unsafe {
         layerx_programs_call_replay_record_begin(
@@ -2327,6 +2092,7 @@ fn import_occupancy_activation_positions(
     if count > MAX_OCCUPANCY_POSITIONS {
         return Err(LENGTH_LIMIT);
     }
+    let mut records = Vec::with_capacity(count);
     let mut previous = None;
     for index in 0..count {
         let index = u16::try_from(index).map_err(|_| LENGTH_LIMIT)?;
@@ -2374,11 +2140,14 @@ fn import_occupancy_activation_positions(
                 .try_into()
                 .map_err(|_| NON_CANONICAL)?,
         );
-        ledger
-            .import_activation_position(namespace, payer, bytes)
-            .map_err(|_| NON_CANONICAL)?;
+        records.push((namespace, payer, bytes));
     }
-    Ok(())
+    ledger
+        .import_activation_records(records)
+        .map_err(|error| match error {
+            OccupancyError::LengthLimit => LENGTH_LIMIT,
+            _ => NON_CANONICAL,
+        })
 }
 
 fn publish_occupancy(
@@ -2388,11 +2157,13 @@ fn publish_occupancy(
     ledger: &OccupancyLedger,
 ) -> Result<(), i32> {
     let payer_dispositions = settlement.payer_dispositions().map_err(|_| NON_CANONICAL)?;
-    let ledger = ledger.canonical_state();
-    let evidence = settlement.canonical_evidence();
-    if ledger.len() > MAX_OCCUPANCY_LEDGER_BYTES || evidence.len() > MAX_OCCUPANCY_EVIDENCE_BYTES {
-        return Err(LENGTH_LIMIT);
-    }
+    let (ledger, evidence) =
+        ledger
+            .canonical_publication(settlement)
+            .map_err(|error| match error {
+                OccupancyError::LengthLimit => LENGTH_LIMIT,
+                _ => NON_CANONICAL,
+            })?;
     let (units_hi, units_lo) = split_u128(settlement.usage().byte_batches);
     let (fee_hi, fee_lo) = split_u128(settlement.usage().fee_units);
     let (paid_hi, paid_lo) = split_u128(settlement.usage().paid_fee_units);
@@ -2456,20 +2227,26 @@ fn publish_occupancy(
     Ok(())
 }
 
-fn unavailable_occupancy_payers(
+struct NativeOccupancyDebits {
     token: u64,
-    settlement: &crate::OccupancySettlement,
-) -> Result<BTreeSet<PrincipalId>, i32> {
-    let mut unavailable = BTreeSet::new();
-    for (payer, (_, paid, _, _)) in settlement.payer_dispositions().map_err(|_| NON_CANONICAL)? {
-        if paid == 0 {
-            continue;
+    batch: u64,
+}
+
+impl OccupancyDebitAuthority for NativeOccupancyDebits {
+    fn can_debit(
+        &mut self,
+        batch: u64,
+        payer: PrincipalId,
+        amount: u128,
+    ) -> Result<bool, OccupancyError> {
+        if batch != self.batch {
+            return Err(OccupancyError::MalformedEvidence);
         }
         let principal = words(payer.bytes());
-        let (fee_hi, fee_lo) = split_u128(paid);
+        let (fee_hi, fee_lo) = split_u128(amount);
         let status = unsafe {
             layerx_programs_occupancy_payer_available(
-                token,
+                self.token,
                 principal[0],
                 principal[1],
                 principal[2],
@@ -2478,13 +2255,12 @@ fn unavailable_occupancy_payers(
                 fee_lo,
             )
         };
-        if status == INSUFFICIENT_BALANCE {
-            unavailable.insert(payer);
-        } else {
-            c_ok(status)?;
+        match status {
+            OK => Ok(true),
+            INSUFFICIENT_BALANCE => Ok(false),
+            code => Err(OccupancyError::DebitAuthorityRefused(code)),
         }
     }
-    Ok(unavailable)
 }
 
 struct CallOccupancySettlement<'a> {
@@ -2662,37 +2438,14 @@ fn execution_with_sandbox_receipt(
     receipt: &[u8],
     transfer_root: [u8; 32],
 ) -> Result<(), i32> {
-    const DOMAIN: &[u8] = b"LXP/programs/sandbox-settlement/v1\0";
-    let execution_length = execution.len();
-    let prefix = DOMAIN.len() + 4;
-    let added = prefix
-        .checked_add(4)
-        .and_then(|value| value.checked_add(receipt.len()))
-        .and_then(|value| value.checked_add(32))
-        .ok_or(LENGTH_LIMIT)?;
-    let final_length = execution_length.checked_add(added).ok_or(LENGTH_LIMIT)?;
-    if final_length > execution.capacity() {
+    let added = crate::terminal::SANDBOX_SETTLEMENT_DOMAIN.len() + 4 + 4 + receipt.len() + 32;
+    if execution.len().checked_add(added).ok_or(LENGTH_LIMIT)? > execution.capacity() {
         return Err(FATAL_INVARIANT);
     }
-    execution.resize(final_length, 0);
-    execution.copy_within(0..execution_length, prefix);
-    execution[..DOMAIN.len()].copy_from_slice(DOMAIN);
-    execution[DOMAIN.len()..prefix].copy_from_slice(
-        &u32::try_from(execution_length)
-            .map_err(|_| LENGTH_LIMIT)?
-            .to_be_bytes(),
-    );
-    let mut offset = prefix + execution_length;
-    execution[offset..offset + 4].copy_from_slice(
-        &u32::try_from(receipt.len())
-            .map_err(|_| LENGTH_LIMIT)?
-            .to_be_bytes(),
-    );
-    offset += 4;
-    execution[offset..offset + receipt.len()].copy_from_slice(receipt);
-    offset += receipt.len();
-    execution[offset..offset + 32].copy_from_slice(&transfer_root);
-    Ok(())
+    crate::terminal::attach_sandbox_settlement(execution, receipt, transfer_root).map_err(|error| {
+        eprintln!("Programs sandbox settlement: {error}");
+        error.result_code()
+    })
 }
 
 #[no_mangle]
@@ -2950,7 +2703,10 @@ pub extern "C" fn layerx_programs_call_begin(
             |offset| unsafe { layerx_programs_call_activity_byte(token, WASM, offset) },
         )?;
         let count = c_count(unsafe { layerx_programs_call_catalog_count(token) })?;
-        let mut catalog = CachedProgramResolver::default();
+        let mut catalog = CachedProgramResolver {
+            token,
+            ..CachedProgramResolver::default()
+        };
         let mut root_module = None;
         let mut entries = Vec::with_capacity(usize::try_from(count).map_err(|_| LENGTH_LIMIT)?);
         let mut program_owners = BTreeMap::new();
@@ -3131,16 +2887,16 @@ pub extern "C" fn layerx_programs_call_begin(
             )
             .map_err(|_| NON_CANONICAL)?;
             let mut final_storage = storage.clone();
-            let record = executor
-                .execute_authorized_v2_budgeted(
+            let record = crate::native_result::from_captured(
+                executor.execute_authorized_v2_budgeted(
                     &mut final_storage,
                     BudgetedAuthorizedExecutionRequest::new(request, admitted, payer, binding)
                         .with_access_declaration(access_declaration.clone())
                         .with_committed_oracle(Arc::new(CCommittedOracle { token }))
                         .with_committed_web(Arc::new(CCommittedWeb { token }))
                         .with_authenticated_execution_context(execution_context),
-                )
-                .map_err(|_| NON_CANONICAL)?;
+                ),
+            )?;
             match (profile, record.replay_record()) {
                 (Some(_), Some(replay)) => publish_replay_record(token, replay)?,
                 (None, None) => {}
@@ -3814,7 +3570,7 @@ pub extern "C" fn layerx_programs_call_begin(
                 })
             }
             PreparedAuthorizedActivityOutcome::Failure(failure) => {
-                let detail = typed_failure_detail(failure.cause())?;
+                let detail = crate::terminal::encode_failure_payload(failure.cause())?;
                 failure
                     .call_graph()
                     .write_canonical_evidence(&mut terminal_graph);
@@ -3900,20 +3656,19 @@ pub extern "C" fn layerx_programs_occupancy_finalize_rust(
         }
         let mut ledger = occupancy_ledger(token, batch_number)?;
         import_occupancy_activation_positions(token, &mut ledger)?;
-        let mut prepared = ledger
-            .prepare_unchanged_batch(batch_number, schedule)
-            .map_err(|_| NON_CANONICAL)?;
-        let unavailable = unavailable_occupancy_payers(token, prepared.settlement())?;
-        prepared
-            .defer_unpaid(&unavailable)
-            .map_err(|_| NON_CANONICAL)?;
-        let settlement = prepared.settlement().clone();
-        let committed = ledger
-            .commit_unchanged_after_debits(prepared)
-            .map_err(|_| NON_CANONICAL)?;
-        if committed != settlement {
-            return Err(FATAL_INVARIANT);
-        }
+        let settlement = ledger
+            .finalize_unchanged_batch(
+                batch_number,
+                schedule,
+                &mut NativeOccupancyDebits {
+                    token,
+                    batch: batch_number,
+                },
+            )
+            .map_err(|error| match error {
+                OccupancyError::DebitAuthorityRefused(code) => code,
+                _ => NON_CANONICAL,
+            })?;
         publish_occupancy(token, parameter_version, &settlement, &ledger)?;
         Ok(OK)
     };

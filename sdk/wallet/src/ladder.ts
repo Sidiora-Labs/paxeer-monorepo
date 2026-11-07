@@ -1,4 +1,4 @@
-import { isRecord } from './rpc.js';
+import { isRecord, type JsonRpcRequestOptions } from './rpc.js';
 import { decodeSequencerReceipt, readSequencerReceipt } from './receipt.js';
 import type {
   ExplorerRung,
@@ -6,6 +6,7 @@ import type {
   JourneyState,
   SequencerReceiptAnswer,
   SequencerRung,
+  ReceiptKeyPin,
 } from './types.js';
 
 export type LadderRung = SequencerRung;
@@ -58,14 +59,21 @@ function rank(rung: LadderRung | null): number {
 export const statusLadder: Readonly<{
   rungs: typeof LADDER_RUNGS;
   tables: Readonly<{ explorer: typeof EXPLORER_TABLE; journey: typeof JOURNEY_TABLE }>;
-  fromSequencerReceipt(answer: SequencerReceiptAnswer): readonly LadderStep[];
+  fromSequencerReceipt(
+    answer: SequencerReceiptAnswer,
+    pins?: readonly ReceiptKeyPin[]
+  ): readonly LadderStep[];
   fromExplorer(status: ExplorerTransactionStatus | SequencerRung): LadderStep;
   fromJourney(state: JourneyState): LadderStep;
   highest(steps: readonly LadderStep[]): LadderStep | null;
 }> = {
   rungs: LADDER_RUNGS,
   tables: Object.freeze({ explorer: EXPLORER_TABLE, journey: JOURNEY_TABLE }),
-  fromSequencerReceipt(answer: SequencerReceiptAnswer): readonly LadderStep[] {
+  fromSequencerReceipt(
+    value: SequencerReceiptAnswer,
+    pins: readonly ReceiptKeyPin[] = []
+  ): readonly LadderStep[] {
+    const answer = decodeSequencerReceipt(value, undefined, pins);
     const highestRung = answer.status === '0x0' ? 'submitted' : answer.rung;
     return LADDER_RUNGS.slice(0, rank(highestRung) + 1).map(
       (rung): LadderStep => ({
@@ -178,7 +186,11 @@ export interface TransferObservation {
   warning?: string;
 }
 
-export type TransferRpc = (method: string, params: readonly unknown[]) => Promise<unknown>;
+export type TransferRpc = (
+  method: string,
+  params: readonly unknown[],
+  options?: JsonRpcRequestOptions
+) => Promise<unknown>;
 const HASH = /^0x[0-9a-fA-F]{64}$/;
 const ADDRESS = /^0x[0-9a-fA-F]{40}$/;
 
@@ -217,7 +229,8 @@ export function submittedTransfer(identity: TransferIdentity): TransferObservati
 
 export function recoverTransferObservation(
   identity: TransferIdentity,
-  value: unknown
+  value: unknown,
+  pins: readonly ReceiptKeyPin[] = []
 ): TransferObservation {
   const submitted = submittedTransfer(identity);
   if (
@@ -255,7 +268,7 @@ export function recoverTransferObservation(
     let sequencer: SequencerReceiptAnswer | undefined;
     if (evidence.sequencer !== undefined) {
       try {
-        sequencer = decodeSequencerReceipt(evidence.sequencer, identity.hash);
+        sequencer = decodeSequencerReceipt(evidence.sequencer, identity.hash, pins);
         if (
           (sequencer.blockNumber !== undefined &&
             quantity(sequencer.blockNumber, 'sequencer block number') !== evidence.blockNumber) ||
@@ -267,6 +280,17 @@ export function recoverTransferObservation(
         return submitted;
       }
     }
+    if (
+      steps.some(
+        (step) =>
+          step.source === 'receipt' &&
+          rank(step.rung) >
+            rank(
+              sequencer === undefined || sequencer.status === '0x0' ? 'submitted' : sequencer.rung
+            )
+      )
+    )
+      return submitted;
     submitted.lastVerified = {
       blockNumber: Number(evidence.blockNumber),
       blockHash: evidence.blockHash,
@@ -401,7 +425,10 @@ export async function observeTransfer(
         !matchesTransfer(transaction, identity.intent) ||
         !hasTransferLog(receipt, identity.intent)
       ) {
-        return { ...unknown(), warning: 'Successful execution has no matching transfer evidence' };
+        return {
+          ...unknown(),
+          warning: 'Successful execution has no matching transfer evidence',
+        };
       }
       sender = identity.intent.sender;
       nonce = quantity(transaction.nonce, 'included transaction nonce');
@@ -460,7 +487,12 @@ export async function observeTransfer(
         rank(statusLadder.highest(previous.lastVerified.steps)?.rung ?? null) >
           rank(statusLadder.highest(steps)?.rung ?? null)
           ? previous.lastVerified
-          : { blockNumber, blockHash, steps, ...(sequencer === null ? {} : { sequencer }) },
+          : {
+              blockNumber,
+              blockHash,
+              steps,
+              ...(sequencer === null ? {} : { sequencer }),
+            },
     };
   }
   const tx = await rpc('eth_getTransactionByHash', [identity.hash]);

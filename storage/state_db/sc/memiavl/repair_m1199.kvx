@@ -1,0 +1,48 @@
+[repair.22.33.1199]
+audit = "22.30.56"
+base = "72c91077cb966f1c4c640ded61b4b259f41cad90"
+build_cmd = "go build ./storage/state_db/sc/memiavl/..."
+verify_cmd = "go test -count=1 -v -run '^TestRepairM_1199_' ./storage/state_db/sc/memiavl/"
+evidence = "The runner's private hf-build/hf-done ledger records the exact candidate revision, command, exit code and log location."
+baseline = "Not run: the explicit task order forbids tests before complete implementation and permits verification only through hf-done following hf-build; no pre-change test failures are claimed."
+wiring = "spec/layerx-merge/spec.kvx: fm-node-runtime / task runner owns publication of this finding-to-test mapping and exact gate evidence; the task forbids agent edits to spec files."
+
+[finding.memiavl-retirement-test-contract]
+tests = ["TestRepairM_1199_RetirementTestContract"]
+proof = "The real CommitStore retires a snapshot-backed anchor at initial heights 0 and 100, preserves all retained stores, hashes, versions and lookup identities, accepts repeated retirement without adding pending WAL upgrades, commits and reopens again."
+
+[finding.memiavl-open-error-cleanup]
+tests = ["TestRepairM_1199_OpenErrorCleanup"]
+proof = "Failed pruned-target lookup, drifted rollback, partial snapshot loading and WAL opening release locks, mappings, descriptors and workers; immediate retry opens real snapshot/WAL directories with retained versions, hashes and data."
+
+[finding.memiavl-stale-current-link]
+tests = ["TestRepairM_1199_StaleCurrentLink"]
+proof = "A stopped database with a stale dangling current-tmp symlink restarts, publishes the next snapshot and reopens with its committed state; failed publication cleans its temporary symlink and preserves unexpected regular files."
+
+[finding.memiavl-import-error-backpressure]
+tests = ["TestRepairM_1199_ImportErrorBackpressure"]
+proof = "Real filesystem and invalid-version failures complete without Close and release producers sending beyond the configured node channel capacity; errors cross MultiTreeImporter.Add/Close intact, retries reopen imported state, and idle-input cancellation releases all resources."
+
+[finding.memiavl-import-stack-validation]
+tests = ["TestRepairM_1199_ImportStackValidation"]
+proof = "Real tree exports feed MultiTreeImporter; first-branch, nil-node, truncated-tree, negative/invalid child height, unordered leaves/branches and invalid version variants return errors without publishing snapshots; valid exported state reopens with matching hashes, values and verified proofs."
+
+[finding.memiavl-delete-tree-release]
+tests = ["TestRepairM_1199_DeleteTreeRelease", "TestRepairM_1199_RetirementTestContract"]
+proof = "Accepted deletion drains every queued replay write and releases snapshot ownership; rejected atomic upgrades retain ownership, independent copied readers survive live DB closure, and the final copied reader releases all mappings and their descriptors."
+
+[finding.memiavl-zero-rate-config]
+tests = ["TestRepairM_1199_ZeroRateConfig"]
+proof = "DefaultConfig supplies the default rate; explicit zero and positive rates survive CommitStore configuration through OpenDB, shared rate limiter construction, snapshot writing and restart with identical state."
+
+[finding.memiavl-empty-membership-proof]
+tests = ["TestRepairM_1199_EmptyMembershipProof"]
+proof = "Direct membership queries on a new tree, a missing key in a populated tree and a tree emptied by removals return errors and nil proofs; every populated-tree membership proof still verifies."
+
+[constraint.baseline-order]
+observed = "Step 12 requests an unchanged-tree verification, while the exact gate order prohibits testing before implementation and manual verify runs."
+resolution = "Follow the explicit gate order and preserve the baseline omission above instead of claiming an unrun result."
+
+[gotcha.typed-nil-wal]
+observed = "NewChangelogWAL can return a typed nil WAL inside its interface on open failure."
+resolution = "Stage the WAL for cleanup only after its constructor succeeds, preventing cleanup from invoking Close on a nil receiver."

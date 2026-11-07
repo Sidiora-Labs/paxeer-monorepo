@@ -174,6 +174,7 @@ func TestFilteredFeeValidAllow(t *testing.T) {
 			fee:       bigAtom,
 			blockTime: oneHour,
 			accept:    false,
+			remove:    true,
 		},
 		"msg type not allowed": {
 			allowance: &feegrant.AllowedMsgAllowance{
@@ -199,13 +200,13 @@ func TestFilteredFeeValidAllow(t *testing.T) {
 			ctx := app.BaseApp.NewContext(false, tmproto.Header{}).WithBlockTime(tc.blockTime)
 
 			removed, err := tc.allowance.Accept(ctx, tc.fee, tc.msgs)
+			require.Equal(t, tc.remove, removed)
 			if !tc.accept {
 				require.Error(t, err)
 				return
 			}
 			require.NoError(t, err)
 
-			require.Equal(t, tc.remove, removed)
 			if !removed {
 				allowance, _ := tc.allowance.GetAllowance()
 				assert.Equal(t, tc.remains, allowance.(*feegrant.BasicAllowance).SpendLimit)
@@ -263,13 +264,13 @@ func TestFilteredFeeValidAllowance(t *testing.T) {
 					Amount:      tc.fee,
 				},
 			})
+			require.Equal(t, tc.remove, removed)
 			if !tc.accept {
 				require.Error(t, err)
 				return
 			}
 			require.NoError(t, err)
 
-			require.Equal(t, tc.remove, removed)
 			if !removed {
 				var basicAllowanceLeft feegrant.BasicAllowance
 				app.AppCodec().Unmarshal(tc.allowance.Allowance.Value, &basicAllowanceLeft)

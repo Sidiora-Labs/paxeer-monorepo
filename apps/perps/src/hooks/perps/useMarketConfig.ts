@@ -1,10 +1,12 @@
 "use client";
 
-import { queryOptions, useQuery } from "@tanstack/react-query";
+import { useEffect } from "react";
+import { queryOptions, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { ContractFunctionReturnType } from "viem";
 import type { PerpsPrecompileABI } from "@/core/network/abi/PerpsPrecompile";
 import { buildGetMarketConfig, buildGetMarginTiers } from "@/core/perps/calls";
 import { decodeMarketConfig, type MarginTier } from "@/core/perps/marketConfig";
+import { onStreamResync } from "@/core/net/realtime";
 import { readContract } from "./useContract";
 
 export function marketConfigQueryOptions(marketId: bigint) {
@@ -27,11 +29,11 @@ export function marketConfigQueryOptions(marketId: bigint) {
         config.marketId !== marketId ||
         config.tickSize <= 0n ||
         config.lotSize <= 0n ||
-        config.maxLeverage < 10n ** 18n ||
+        config.maxLeverage < 1n ||
         !tiers.some((tier) => tier.lowerBoundUsd === 0n) ||
         tiers.some(
           (tier, index) =>
-            tier.maxLeverage < 10n ** 18n ||
+            tier.maxLeverage < 1n ||
             tier.maintenanceBps > 10_000n ||
             (index > 0 && tier.lowerBoundUsd <= tiers[index - 1].lowerBoundUsd),
         )
@@ -40,15 +42,28 @@ export function marketConfigQueryOptions(marketId: bigint) {
       }
       return { config, tiers };
     },
-    staleTime: Infinity,
-    gcTime: Infinity,
+    staleTime: 30_000,
+    gcTime: 5 * 60_000,
+    refetchInterval: 30_000,
     retry: false,
-    refetchOnMount: false,
-    refetchOnWindowFocus: false,
-    refetchOnReconnect: false,
+    refetchOnMount: true,
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
   });
 }
 
 export function useMarketConfig(marketId: bigint) {
+  const client = useQueryClient();
+  const marketKey = marketId.toString();
+  useEffect(
+    () =>
+      onStreamResync(() => {
+        void client.invalidateQueries({
+          queryKey: ["perps", "marketConfig", marketKey],
+          exact: true,
+        });
+      }),
+    [client, marketKey],
+  );
   return useQuery(marketConfigQueryOptions(marketId));
 }

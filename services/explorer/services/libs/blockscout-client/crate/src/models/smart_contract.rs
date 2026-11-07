@@ -44,7 +44,13 @@ pub struct SmartContract {
     pub can_be_visualized_via_sol2uml: Option<bool>,
 
     #[serde(default)]
-    pub minimal_proxy_address_hash: Option<String>,
+    pub proxy_type: Option<String>,
+
+    #[serde(default)]
+    pub implementations: Option<Vec<ProxyImplementation>>,
+
+    #[serde(default)]
+    pub conflicting_implementations: Option<Vec<ConflictingImplementations>>,
 
     #[serde(default)]
     pub sourcify_repo_url: Option<String>,
@@ -55,8 +61,8 @@ pub struct SmartContract {
     #[serde(default)]
     pub optimization_enabled: Option<bool>,
 
-    #[serde(default)]
-    pub optimizations_runs: Option<Decimal>,
+    #[serde(default, serialize_with = "serialize_optimization_runs")]
+    pub optimization_runs: Option<Decimal>,
 
     #[serde(default)]
     pub compiler_version: Option<String>,
@@ -68,7 +74,7 @@ pub struct SmartContract {
     pub verified_at: Option<String>,
 
     #[serde(default)]
-    pub abi: Option<String>,
+    pub abi: Option<Vec<serde_json::Map<String, serde_json::Value>>>,
 
     #[serde(default)]
     pub source_code: Option<String>,
@@ -102,4 +108,39 @@ pub struct SmartContract {
 
     #[serde(default)]
     pub creation_status: Option<String>,
+}
+
+#[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
+pub struct ProxyImplementation {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub address: Option<String>,
+    pub address_hash: String,
+    pub name: Option<String>,
+}
+
+#[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
+pub struct ConflictingImplementations {
+    pub proxy_type: String,
+    pub implementations: Vec<ProxyImplementation>,
+}
+
+fn serialize_optimization_runs<S: serde::Serializer>(
+    runs: &Option<Decimal>,
+    serializer: S,
+) -> Result<S::Ok, S::Error> {
+    use rust_decimal::prelude::ToPrimitive;
+    match runs {
+        None => serializer.serialize_none(),
+        Some(runs) => {
+            if !runs.fract().is_zero() || runs.is_sign_negative() {
+                return Err(serde::ser::Error::custom(
+                    "optimization_runs must be a nonnegative integer",
+                ));
+            }
+            let runs = runs.to_u128().ok_or_else(|| {
+                <S::Error as serde::ser::Error>::custom("invalid optimization_runs")
+            })?;
+            serializer.serialize_some(&runs)
+        }
+    }
 }

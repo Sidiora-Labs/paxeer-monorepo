@@ -50,11 +50,11 @@ func TestSetDenomPausedByIssuerRefusesOtherDid(t *testing.T) {
 				s := denomPauseSuite(t)
 				k := s.App.TokenFactoryKeeper
 				issuerDid := adminsIssuerDid(0xab)
-				if bound {
-					require.NoError(t, k.SetIssuerDid(s.Ctx, s.defaultDenom, issuerDid))
-				}
 				if initiallyPaused {
 					require.NoError(t, denomPauseSet(s, s.TestAccs[0].String(), true))
+				}
+				if bound {
+					require.NoError(t, k.SetIssuerDid(s.Ctx, s.defaultDenom, issuerDid))
 				}
 				ctx := s.Ctx.WithEventManager(sdk.NewEventManager())
 				metadata, err := k.GetAuthorityMetadata(ctx, s.defaultDenom)

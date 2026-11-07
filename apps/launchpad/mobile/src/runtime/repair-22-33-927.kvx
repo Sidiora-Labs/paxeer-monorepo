@@ -1,0 +1,22 @@
+[task]
+id = "22.33.927"
+audit = "22.30.22"
+base = "4299cb15eced23eb9a839162acd11e9a937edd05"
+baseline = "Not executed: the explicit ordered implementation-first and hf-build/hf-done-only instructions prohibit the contradictory pre-change verify request; no pre-change test result is claimed."
+evidence = "The runner's hf-done ledger names the exact qualified candidate revision, command, exit and private evidence log; this source record claims no gate result."
+
+[finding.mobile-trade-unknown-recovery]
+test = "mobileTradeProcessDeathBeforeWalletResponse"
+path = "apps/launchpad/mobile/test/vitest/repair-22-33-927.test.ts"
+implementation = "executeExternalWallet prepares and atomically journals the exact chain125 transaction, sender and nonce before wallet acceptance; the native provider submits that saved nonce. ForegroundLifecycle exposes tradeRecovery and recoverTrade for wallet-activity hash entry, verifies transaction identity and canonical receipt, and reconciles saved hashes on foreground after restart."
+proof = "The real lifecycle, pending journal, session, service client, quote producer and recovery RPC client cross a loopback wallet/chain peer. The wallet signs an EIP1559 transaction and records acceptance before the installation closes; reopening recovers the persisted awaiting-wallet state and clears it only after verifying the wallet activity hash without another submission."
+boundaries = ["mobileTradeUnknownRecovery", "mobileTradeRecoveryIdentityAndCanonicalReceipt", "mobileTradePendingRecoveryAcrossRestart", "mobileTradeRecoveryAuthorityAndReversion", "mobileTradeKnownHashRecovery"]
+validation = "Sender, chain, nonce, destination, calldata, value, transaction hash, receipt sender/destination/status, block identity, height, transaction index and canonical block membership must match. Missing receipts remain submitted across restart; account or lifecycle changes and malformed/mismatched evidence preserve the outstanding operation. Canonical reversion is reported separately from success."
+limits = "The loopback peer is an in-memory wallet and inclusion transcript, not live chain/device qualification. Legacy journals without a pre-handoff sender/nonce retain their existing blocked state because that missing authority cannot be invented."
+
+[wiring]
+screen = "apps/launchpad/mobile/src/screens/token.tsx and apps/launchpad/mobile/src/navigation.tsx (domain 4 mobile UI owner): display lifecycle.tradeRecovery account/chain/nonce and instructions, accept the hash copied from wallet activity, call lifecycle.recoverTrade(hash), and show tradeRecoveryResult including reversion; keep new signatures blocked until reconciliation."
+
+[gotcha]
+imports = "Lifecycle's native Linking and protected WalletConnect storage load only when native wallet connection is used, allowing the production lifecycle and recovery path to run in the declared Node Vitest gate without a device or mocked native module."
+journal = "The version3 trade journal nests the unchanged version2 callback journal, preserving requestId-only callback handling and legacy/approval readers through PendingOperations; the nonce and transaction are saved together before handoff."

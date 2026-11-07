@@ -1,0 +1,1000 @@
+[audit.22.30.74]
+task = "22.30.74"
+revision = "2b99f88520e4e809ad5593f3bee2df74fe355d7b"
+files_reviewed = 62
+findings = 50
+docs_reviewed = 21
+upgrade_ready = false
+blocking = ["call-submission-fate"]
+basis = "All 62 member files were read in full against the brief and package requirements; findings propose repairs only and do not infer component test success from static review."
+interface_review = "All 290 produced and 400 consumed registry rows were considered. Many rows describe declarations outside the member set or lexical caller matches rather than actual runtime dependencies. C/result-code, human HTTP, precompile and Solidity closure rows without member calls do not establish transports in this slice. Direct CLI/version calls, historical wire fixtures, middleware/wallet preparation, receipt resolution and runtime-clock producer/protocol/client paths were compared explicitly."
+historical_boundary = "Inherited simd/Rosetta tooling and independent local ICS23 are not the paxd proof path; root go.mod selects published cosmos/ics23 v0.8.0 for confio imports. Historical maintenance/header vectors remain compatibility evidence under req.9312, and relay-archive mentions in absence guards are intentional negative assertions."
+acceptance_boundary = "Requirement 22998.1 concerns executing recorded failed targets without weakened tests. This audit claims no component repairs or product-test qualification; the task evidence is limited to the declared audit-record and graph gate."
+
+[file.01]
+path = "sdk/contrib/devtools/Makefile"
+lines = 76
+verdict = "clean"
+note = "Full file read. Versioned statik/runsim installation is developer tooling and does not start network or proof services."
+
+[file.02]
+path = "sdk/contrib/githooks/README.md"
+lines = 27
+verdict = "clean"
+note = "Full page read. Hook installation and staged-file behavior are described; inherited upstream goimports grouping limitation is explicit."
+
+[file.03]
+path = "sdk/contrib/images/Makefile"
+lines = 14
+verdict = "issues"
+note = "Full file read. Both image contexts disagree with the root-module checkout; see image-build-context."
+
+[file.04]
+path = "sdk/contrib/images/simd-dlv/Dockerfile"
+lines = 22
+verdict = "issues"
+note = "Full file read. Inherited debugger image uses obsolete toolchain, source paths and absent executable; configuration drift recorded."
+
+[file.05]
+path = "sdk/contrib/images/simd-dlv/README.md"
+lines = 28
+verdict = "clean"
+note = "Full page read. Explicitly discloses non-runnable inherited simd tooling and identifies paxd and chain.mk as maintained build."
+
+[file.06]
+path = "sdk/contrib/images/simd-dlv/wrapper.sh"
+lines = 25
+verdict = "issues"
+note = "Full file read. Binary/home/argument forwarding is present; unreachable debugger logging branch is recorded."
+
+[file.07]
+path = "sdk/contrib/images/simd-env/Dockerfile"
+lines = 22
+verdict = "issues"
+note = "Full file read. Environment image cannot consume this module layout, toolchain or executable output; drift recorded."
+
+[file.08]
+path = "sdk/contrib/images/simd-env/wrapper.sh"
+lines = 20
+verdict = "clean"
+note = "Full file read. Historical simd wrapper checks binary existence and forwards home/arguments; Alpine-shell pipeline failures propagate."
+
+[file.09]
+path = "sdk/contrib/localnet_liveness.sh"
+lines = 55
+verdict = "issues"
+note = "Full file read. Empty restart-target discovery and unbounded status transport defeat the local liveness completion bound."
+
+[file.10]
+path = "sdk/contrib/migrate/lib.py"
+lines = 28
+verdict = "clean"
+note = "Full file read. Offline historical-genesis parser checks chain id, reads JSON once and emits transformed JSON; no live network hook."
+
+[file.11]
+path = "sdk/contrib/migrate/v0.33.x-to-v0.34.0.py"
+lines = 79
+verdict = "issues"
+note = "Full file read. Explicit historical 0.33-to-0.34 conversion is not a merge migration; optimization-dependent validation recorded."
+
+[file.12]
+path = "sdk/contrib/rosetta/README.md"
+lines = 38
+verdict = "issues"
+note = "Full page read. Absent simapp warning is accurate, but deterministic regeneration claim disagrees with the generator."
+
+[file.13]
+path = "sdk/contrib/rosetta/configuration/bootstrap.json"
+lines = 12
+verdict = "issues"
+note = "Full file read and compared to archived genesis. Account, opening balance and denomination are inconsistent."
+
+[file.14]
+path = "sdk/contrib/rosetta/configuration/data.sh"
+lines = 59
+verdict = "issues"
+note = "Full file read. Archive generator does not synchronize its changing account and currency with construction/bootstrap consumers."
+
+[file.15]
+path = "sdk/contrib/rosetta/configuration/faucet.py"
+lines = 25
+verdict = "issues"
+note = "Full file read. Unchecked funding outcome, request-triggered process exit and missing input/process limits recorded for the local test faucet."
+
+[file.16]
+path = "sdk/contrib/rosetta/configuration/rosetta.json"
+lines = 51
+verdict = "clean"
+note = "Full file read. app/network agrees with compose and reconciliation/construction remain enabled; bootstrap inconsistency is recorded separately."
+
+[file.17]
+path = "sdk/contrib/rosetta/configuration/run_tests.sh"
+lines = 17
+verdict = "clean"
+note = "Full file read. Bounded startup wait precedes both real rosetta-cli checks with set -e; no synthetic success replaces a check."
+
+[file.18]
+path = "sdk/contrib/rosetta/configuration/send_funds.sh"
+lines = 5
+verdict = "issues"
+note = "Full file read. Actual stake funding cannot satisfy the uhpx construction consumer."
+
+[file.19]
+path = "sdk/contrib/rosetta/docker-compose.yaml"
+lines = 39
+verdict = "issues"
+note = "Full file read. Rosetta app/network fields agree locally, but simd startup depends on an image that cannot build from this checkout."
+
+[file.20]
+path = "sdk/contrib/rosetta/node/Dockerfile"
+lines = 31
+verdict = "issues"
+note = "Full file read. Absent simapp target, toolchain and source paths block the inherited image; archived test keys are not production credentials."
+
+[file.21]
+path = "sdk/contrib/rosetta/rosetta-cli/Dockerfile"
+lines = 18
+verdict = "clean"
+note = "Full file read. Rosetta CLI source tag is pinned to v0.6.7 and copied from its build stage; this image does not supply chain state."
+
+[file.22]
+path = "sdk/contrib/test_cover.sh"
+lines = 14
+verdict = "clean"
+note = "Full file read. Initializes one atomic profile header, propagates package failures and strips temporary headers for root-module package coverage."
+
+[file.23]
+path = "sdk/ics23/Makefile"
+lines = 20
+verdict = "issues"
+note = "Full file read. Protobuf schema input is absent and local go test target has no test files; exported proof semantics lack this module coverage."
+
+[file.24]
+path = "sdk/ics23/compress.go"
+lines = 157
+verdict = "issues"
+note = "Full file read. Shared InnerOps encoding is present, but decoded indexes and entry variants can panic; no paxd caller is attributed to this local module."
+
+[file.25]
+path = "sdk/ics23/ics23.go"
+lines = 175
+verdict = "issues"
+note = "Full file read. Exported signatures match registry, but partial/nil inputs can panic. Root go.mod replaces confio imports with published cosmos/ics23."
+
+[file.26]
+path = "sdk/ics23/ops.go"
+lines = 250
+verdict = "issues"
+note = "Full file read. Declared hash/length and IAVL checks are present; unconditional library stdout diagnostic is recorded."
+
+[file.27]
+path = "sdk/ics23/proof.go"
+lines = 452
+verdict = "issues"
+note = "Full file read. IAVL/SMT proof specs and algorithms are present; malformed-entry, neighbor-path and nil-error size handling defects recorded."
+
+[file.28]
+path = "sdk/internal/conv/doc.go"
+lines = 2
+verdict = "clean"
+note = "Full file read. Internal conversion package description is accurate and adds no external transport or persisted-state promise."
+
+[file.29]
+path = "sdk/internal/conv/string.go"
+lines = 19
+verdict = "clean"
+note = "Full file read. Unsafe byte/string conversion preserves representation and documents read-only/aliasing constraints; consumers borrow data for internal key operations."
+
+[file.30]
+path = "sdk/internal/conv/string_test.go"
+lines = 54
+verdict = "clean"
+note = "Full file read. Conversion tests assert empty and representative byte/string cases without claiming immutable ownership of aliased buffers."
+
+[file.31]
+path = "sdk/scripts/README.md"
+lines = 10
+verdict = "issues"
+note = "Full page read. Script locations/purposes match, but valid merged coverage claim conflicts with actual implementation."
+
+[file.32]
+path = "sdk/scripts/linkify_changelog.py"
+lines = 15
+verdict = "clean"
+note = "Full file read. Historical upstream issue-link replacement matches the documented changelog convention and file-in/file-out interface."
+
+[file.33]
+path = "sdk/scripts/module-tests.sh"
+lines = 48
+verdict = "issues"
+note = "Full file read. Test failure exit propagation remains; aggregate profile corruption and path-only dependent-module selection gaps recorded."
+
+[file.34]
+path = "sdk/scripts/protoc-swagger-gen.sh"
+lines = 27
+verdict = "clean"
+note = "Full file read. Current proto directories contain at most one query.proto/service.proto match each; generation and configured merge paths agree for this tree."
+
+[file.35]
+path = "sdk/scripts/update-swagger-ui-statik.sh"
+lines = 2
+verdict = "clean"
+note = "Full file read. statik input/output paths and build tag match the documented sdk working directory."
+
+[file.36]
+path = "sdk/version/command.go"
+lines = 54
+verdict = "clean"
+note = "Full file read. Server mounts Cobra command; consensus CLI OutputFlag and text/JSON/YAML or unsupported-format errors agree with its consumer tests."
+
+[file.37]
+path = "sdk/version/version.go"
+lines = 119
+verdict = "issues"
+note = "Full file read. Info serialization matches fields; linker instructions and main-module SDK version discovery drift recorded."
+
+[file.38]
+path = "sdk/version/version_test.go"
+lines = 65
+verdict = "clean"
+note = "Full file read. ApplyMockIO cases assert version output and unsupported formats; they do not substitute a fabricated transport shape."
+
+[file.39]
+path = "services/agent/crates/layerx-wire/tests/maintenance_identity.rs"
+lines = 168
+verdict = "clean"
+note = "Full file read. Retained native signed-header/receipt provenance and maintenance helper were traced; historical identity/hash/range checks remain intentional compatibility coverage under req.9312."
+
+[file.40]
+path = "services/agent/sdk/python/layerx_sdk/stream.py"
+lines = 77
+verdict = "issues"
+note = "Full file read. Cursor is lower-hex height/txIndex/logIndex; pages commit atomically only in strictly increasing order. Identity-memory growth and empty-page spinning recorded."
+
+[file.41]
+path = "services/platform/deny.toml"
+lines = 56
+verdict = "clean"
+note = "Full file read. Advisory/license/source policy matches tools copy; paste advisory exception is scoped and explained. Threshold prose is not relayer configuration."
+
+[file.42]
+path = "services/platform/examples/agent-program-call/verify-receipt.mjs"
+lines = 57
+verdict = "issues"
+note = "Full file read. Transaction hash verification precedes pinned receipt resolution; missing initial transport deadline/body bound recorded."
+
+[file.43]
+path = "services/platform/examples/agent-program-call/walkthrough.sh"
+lines = 65
+verdict = "issues"
+note = "Full file read and traced into CLI eth_sendRawTransaction. Simulation and receipt checks exist; transport-loss submission state is falsely reported as unsent."
+
+[file.44]
+path = "services/platform/examples/agent-spend/index.mjs"
+lines = 82
+verdict = "clean"
+note = "Full file read. Tenant, original-wallet handoff and key-height ranges reach middleware; outputs use transactionHash/rung and no protocol selector. Manifest dependency/runtime gaps recorded on package.json."
+
+[file.45]
+path = "services/platform/examples/agent-spend/package.json"
+lines = 12
+verdict = "issues"
+note = "Full file read. Direct integration dependency is undeclared and Node engine floor disagrees with bundled service checks."
+
+[file.46]
+path = "services/platform/examples/agent-spend/services.mjs"
+lines = 222
+verdict = "issues"
+note = "Full file read against middleware preparation and wallet producers. Unsigned EIP-1559 Keccak binding, principal checks, private leased stores and explicit approval exist; review creation recovery can remain stuck."
+
+[file.47]
+path = "services/platform/examples/build-reference-apps.mjs"
+lines = 68
+verdict = "issues"
+note = "Full file read. CLI/guest/Node artifact hashes bind clean source revision; stalled/TERM-resistant child lifetime and output cleanup are insufficient."
+
+[file.48]
+path = "services/platform/examples/qualify-reference-apps.mjs"
+lines = 138
+verdict = "clean"
+note = "Full file read. Real process rows require distinct hashes/digests, receipt rungs, marketplace success codes and the actual seller resource before evidence publication."
+
+[file.49]
+path = "services/platform/examples/reference-apps.json"
+lines = 50
+verdict = "clean"
+note = "Full file read. Application names, package paths, config filenames, function symbols and command arrays match the reference-runner manifest shape."
+
+[file.50]
+path = "services/platform/hosted/gateway/Cargo.toml"
+lines = 42
+verdict = "clean"
+note = "Full file read. Retained program dependencies are used by gateway main.rs: ABI admission at 2444/2528 and interface decoding at 3106, consistent with req.8082.1."
+
+[file.51]
+path = "services/platform/hosted/runtime-clock/Cargo.toml"
+lines = 21
+verdict = "clean"
+note = "Full file read. Workspace versions and rustix/signal/clock-protocol dependencies match the supervised socket implementation."
+
+[file.52]
+path = "services/platform/hosted/runtime-clock/src/main.rs"
+lines = 115
+verdict = "clean"
+note = "Full file read. Socket/PID/UID injection, process groups, parent-death handling and TERM/KILL supervision agree with real client identity and restart contract."
+
+[file.53]
+path = "services/platform/hosted/runtime-clock/src/server.rs"
+lines = 257
+verdict = "clean"
+note = "Full file read. Private directory/socket, peer UID, exact bounded frames, generation changes, regression latch and bounded workers/waits agree with client runtime_clock and shared clock_protocol."
+
+[file.54]
+path = "services/platform/hosted/runtime-clock/tests/supervisor.rs"
+lines = 453
+verdict = "clean"
+note = "Full file read. Real supervisor/client cases cover lifecycle, generation restart, saturation and clock-dependent operations; historical receipt API references still resolve to retained compatibility APIs."
+
+[file.55]
+path = "services/platform/tests/support/tls_boundary.rs"
+lines = 329
+verdict = "issues"
+note = "Full file read. Six real certificate/hostname cases and completion assertions remain; unbounded probe-child wait is recorded."
+
+[file.56]
+path = "services/platform/tests/test_ramp_dependencies.py"
+lines = 116
+verdict = "clean"
+note = "Full file read. Dependency metadata checks reject retired ramp imports and accept unrelated packages; forbidden names are negative-test inputs."
+
+[file.57]
+path = "services/platform/tests/test_ramp_sandbox_journey.py"
+lines = 91
+verdict = "clean"
+note = "Full file read. Sandbox journey checks require transaction-hash evidence and execute the extracted evidence handler, rejecting retired activity identifiers."
+
+[file.58]
+path = "services/platform/tests/test_relay_archive_install_retired.py"
+lines = 37
+verdict = "clean"
+note = "Full file read. Retirement guard rejects relay-archive install configuration instead of launching the removed component."
+
+[file.59]
+path = "services/platform/tests/test_relay_archive_package_retired.py"
+lines = 11
+verdict = "clean"
+note = "Full file read. Package absence assertion intentionally requires the retired relay-archive path not to exist."
+
+[file.60]
+path = "services/platform/tests/test_relay_archive_rpc_retired.py"
+lines = 47
+verdict = "clean"
+note = "Full file read. Import/source scan rejects the retired archive RPC surface; names in assertions are forbidden references, not live callers."
+
+[file.61]
+path = "services/platform/tests/test_relay_archive_store_retired.py"
+lines = 47
+verdict = "clean"
+note = "Full file read. Import/source scan rejects retired archive-store usage and does not create replacement stores or synthetic receipts."
+
+[file.62]
+path = "tools/platform/deny.toml"
+lines = 56
+verdict = "clean"
+note = "Full file read. Matches services/platform/deny.toml; threshold words in the scoped paste advisory rationale do not set membership, attestor or destination policy."
+
+[finding.image-build-context]
+file = "sdk/contrib/images/Makefile"
+line = 5
+class = "wiring-gap"
+severity = "medium"
+observed = "Both Docker build targets choose sdk/ as context, but sdk/go.mod is absent and the chain module lives at the repository root."
+expected = "Development image targets must provide the existing module, source paths and executable consumed by their Dockerfile."
+proposal = "Port this Makefile and both Dockerfiles together to the root chain build, or retire the executable targets with an explicit inherited-tooling explanation."
+owner_domain = 15
+
+[finding.debug-image-build]
+file = "sdk/contrib/images/simd-dlv/Dockerfile"
+line = 1
+class = "config-drift"
+severity = "medium"
+observed = "The image pins Go 1.18, copies contrib/ paths and expects build/simd; the root module requires Go 1.25.8, assets live under sdk/contrib and simapp is absent."
+expected = "A supported Paxeer debug image must use the declared toolchain and package the executable actually produced by chain.mk."
+proposal = "Port sdk/contrib/images/simd-dlv/Dockerfile to the root module, current toolchain, paxd output and matching wrapper paths, or withdraw its supported build target."
+owner_domain = 15
+
+[finding.environment-image-build]
+file = "sdk/contrib/images/simd-env/Dockerfile"
+line = 1
+class = "config-drift"
+severity = "medium"
+observed = "Go 1.18, ./ics23/go.mod, contrib/ and build/simd are assumed under an sdk-root context with no go.mod; these inputs do not describe this checkout."
+expected = "A runnable local image must build an existing module and copy the binary produced by its declared chain build."
+proposal = "Update sdk/contrib/images/simd-env/Dockerfile and its Makefile caller together for root module paths, Go 1.25.8 and paxd, or explicitly retire the image."
+owner_domain = 15
+
+[finding.debug-log-branch]
+file = "sdk/contrib/images/simd-dlv/wrapper.sh"
+line = 19
+class = "dead-code"
+severity = "low"
+observed = "The elif DEBUG=1 branch repeats the preceding DEBUG=1 predicate and is unreachable; debugger output never takes its intended tee path."
+expected = "Debugger selection and log-directory availability must independently determine execution and log capture."
+proposal = "Restructure sdk/contrib/images/simd-dlv/wrapper.sh to choose debugger mode once and apply log capture independently when the directory exists."
+owner_domain = 15
+
+[finding.liveness-empty-container-set]
+file = "sdk/contrib/localnet_liveness.sh"
+line = 47
+class = "runtime-risk"
+severity = "medium"
+observed = "The first iteration computes RANDOM modulo the discovered array length even when no simd-named container exists, causing division by zero."
+expected = "Local liveness checks must validate restart targets and numeric arguments before selecting a random container."
+proposal = "Validate a nonempty target set in sdk/contrib/localnet_liveness.sh, support maintained node names and return an actionable configuration error before polling or restart."
+owner_domain = 15
+
+[finding.liveness-request-deadline]
+file = "sdk/contrib/localnet_liveness.sh"
+line = 32
+class = "runtime-risk"
+severity = "medium"
+observed = "The status curl has no connection or total deadline, so one stalled peer bypasses the intended ITER/SLEEP completion bound."
+expected = "Each liveness observation must finish within a bounded interval and count transport failure toward the overall run deadline."
+proposal = "Add explicit connect/response deadlines and HTTP/JSON validation in sdk/contrib/localnet_liveness.sh while preserving an overall bounded failure result."
+owner_domain = 15
+
+[finding.historical-migration-validation]
+file = "sdk/contrib/migrate/v0.33.x-to-v0.34.0.py"
+line = 52
+class = "runtime-risk"
+severity = "medium"
+observed = "After deleting type and value, unsupported proposal types and extra fields are rejected only by assert; Python optimization disables both checks and can silently drop unexpected data."
+expected = "Historical genesis conversion must reject unsupported input independently of interpreter optimization and preserve all supported proposal facts."
+proposal = "Replace the asserts in sdk/contrib/migrate/v0.33.x-to-v0.34.0.py with explicit errors before mutation and retain rejection fixtures for unsupported types and extra fields."
+owner_domain = 15
+
+[finding.rosetta-regeneration-documentation]
+file = "sdk/contrib/rosetta/README.md"
+line = 27
+class = "doc-drift"
+severity = "low"
+observed = "The README promises deterministic node-data recreation, but data.sh creates a fresh random fd key and prints its address for manual bootstrap replacement."
+expected = "Fixture instructions must explain identity changes and how bootstrap balances and construction currency stay synchronized."
+proposal = "Correct sdk/contrib/rosetta/README.md to describe the random generator and manual metadata update, or document a deterministic replacement once implemented."
+owner_domain = 15
+
+[finding.rosetta-bootstrap-state]
+file = "sdk/contrib/rosetta/configuration/bootstrap.json"
+line = 4
+class = "config-drift"
+severity = "medium"
+observed = "The bootstrap claims cosmos1kezmr2... owns 999990000000 uhpx; the bundled archive genesis instead funds cosmos1w537ue... with 1000000000000 stake."
+expected = "The reconciliation bootstrap account, denomination and opening balance must describe the exact bundled chain state."
+proposal = "Regenerate sdk/contrib/rosetta/configuration/bootstrap.json from the actual snapshot and synchronize the denomination with data.sh, transfer.ros and send_funds.sh."
+owner_domain = 15
+
+[finding.rosetta-regeneration-contract]
+file = "sdk/contrib/rosetta/configuration/data.sh"
+line = 22
+class = "config-drift"
+severity = "medium"
+observed = "The generator creates a random account and stake genesis without emitting matching bootstrap balances; transfer.ros and bootstrap.json instead require a fixed account and uhpx."
+expected = "Regenerating a test archive must also regenerate the account and currency metadata consumed by reconciliation and construction."
+proposal = "Make sdk/contrib/rosetta/configuration/data.sh generate shared currency/bootstrap metadata from an explicit reproducible fixture identity and synchronize its consumers."
+owner_domain = 15
+
+[finding.faucet-transfer-outcome]
+file = "sdk/contrib/rosetta/configuration/faucet.py"
+line = 14
+class = "runtime-risk"
+severity = "medium"
+observed = "subprocess.call failure is ignored before HTTP 200, while any malformed-request exception invokes os._exit and kills the entire faucet."
+expected = "A construction faucet must report failed funding accurately and isolate malformed requests without terminating unrelated requests."
+proposal = "Check child status and return bounded non-success responses in sdk/contrib/rosetta/configuration/faucet.py; replace os._exit with per-request validation errors."
+owner_domain = 15
+
+[finding.faucet-input-and-process-bounds]
+file = "sdk/contrib/rosetta/configuration/faucet.py"
+line = 11
+class = "security"
+severity = "medium"
+observed = "Content-Length and body reads have no size or time limit, and the funding subprocess has no deadline; one container-network peer can monopolize this single-threaded fixture server."
+expected = "The local faucet must bound request bodies, socket reads and bank-command execution before serving another funding request."
+proposal = "Bound Content-Length, validate addresses, set request deadlines and supervise a timed funding subprocess with cleanup in sdk/contrib/rosetta/configuration/faucet.py."
+owner_domain = 15
+
+[finding.rosetta-faucet-currency]
+file = "sdk/contrib/rosetta/configuration/send_funds.sh"
+line = 5
+class = "config-drift"
+severity = "medium"
+observed = "The faucet sends 100stake, but transfer.ros requests and waits for a uhpx balance; successful funding cannot satisfy the construction currency check."
+expected = "The bank transfer denomination and Rosetta construction currency must describe the same asset and precision."
+proposal = "Read shared fixture currency metadata in sdk/contrib/rosetta/configuration/send_funds.sh and synchronize bootstrap.json, data.sh and transfer.ros with it."
+owner_domain = 15
+
+[finding.rosetta-compose-node-wiring]
+file = "sdk/contrib/rosetta/docker-compose.yaml"
+line = 6
+class = "wiring-gap"
+severity = "medium"
+observed = "The compose node and API invoke simd from rosetta-ci, whose Dockerfile builds the absent simapp tree; neither Rosetta check has a runnable node from this checkout."
+expected = "Supported local orchestration must start the binary its image actually builds and expose the configured data/construction APIs."
+proposal = "Port sdk/contrib/rosetta/docker-compose.yaml and node/Dockerfile together to a maintained paxd fixture, or withdraw the executable target while retaining the historical example."
+owner_domain = 15
+
+[finding.rosetta-node-image-source]
+file = "sdk/contrib/rosetta/node/Dockerfile"
+line = 13
+class = "wiring-gap"
+severity = "medium"
+observed = "The image builds absent ./simapp/simd with Go 1.18 and copies contrib/ paths although current chain sources and sdk/contrib assets belong to the root module."
+expected = "The Rosetta fixture image must compile an existing node package with its declared Go toolchain and matching asset paths."
+proposal = "Update sdk/contrib/rosetta/node/Dockerfile for the root chain build and explicit fixture paths, with paxd Rosetta startup and a clear test-only archived-key boundary."
+owner_domain = 15
+
+[finding.ics23-protobuf-regeneration]
+file = "sdk/ics23/Makefile"
+line = 14
+class = "wiring-gap"
+severity = "medium"
+observed = "The protoc target consumes ../proofs.proto from sdk/ics23, but sdk/proofs.proto is absent, so the checked-in proof types have no working regeneration input at this path."
+expected = "A maintained generator target must point to a checked-in schema and reproduce the proof types consumed by verification."
+proposal = "Restore the authoritative schema and repair sdk/ics23/Makefile include/output paths, or formally retire the independent module and document its maintained published replacement."
+owner_domain = 15
+
+[finding.ics23-verification-coverage]
+file = "sdk/ics23/Makefile"
+line = 10
+class = "test-gap"
+severity = "medium"
+observed = "go test . targets a directory with no Go test files; no declared membership, non-membership, compression or malformed-proof behavior is asserted by this target."
+expected = "The externally exported ICS23 module needs real round-trip vectors and malformed-input rejection tests on this exact implementation."
+proposal = "Add producer-derived vectors and malformed index/variant tests under sdk/ics23; document that root go.mod selects published cosmos/ics23 rather than this local copy."
+owner_domain = 15
+interface = "15.go-ics23-verify-membership-j76"
+
+[finding.ics23-compressed-index-bounds]
+file = "sdk/ics23/compress.go"
+line = 154
+class = "security"
+severity = "medium"
+observed = "decompressExist directly indexes lookup[step] with an int32 decoded from proof input; negative, oversized or empty-table indexes panic before boolean verification can reject them."
+expected = "Serialized lookup indexes must be validated and invalid compressed proofs must be rejected without terminating the embedding process."
+proposal = "Add checked decompression in sdk/ics23/compress.go, propagate errors through combination/verification and exercise actual decoded negative and out-of-range index cases."
+owner_domain = 15
+interface = "15.go-ics23-decompress-j76"
+
+[finding.ics23-compress-empty-variant]
+file = "sdk/ics23/compress.go"
+line = 64
+class = "runtime-risk"
+severity = "medium"
+observed = "compressEntry assumes every entry without Exist has Nonexist and dereferences non.Key; a nil entry or unset protobuf oneof panics in Compress/CombineProofs."
+expected = "Compression must validate batch-entry variants before dereferencing them and report structurally invalid proof input predictably."
+proposal = "Validate nil and missing variants in sdk/ics23/compress.go and carry a real error through compression/combination, preserving valid round trips in tests."
+owner_domain = 15
+interface = "15.go-ics23-compress-j76"
+
+[finding.ics23-public-verifier-inputs]
+file = "sdk/ics23/ics23.go"
+line = 136
+class = "runtime-risk"
+severity = "medium"
+observed = "getExistProofForKey dereferences proof.Proof without a nil check, and single-proof variants dereference nil embedded pointers; exported boolean verification may panic on partial input."
+expected = "Boolean membership APIs must reject malformed proof/spec structures without requiring callers to know protobuf pointer invariants."
+proposal = "Validate top-level proof, nested variants and specification in sdk/ics23/ics23.go before decompression/lookup and assert rejection without panic for malformed input."
+owner_domain = 15
+interface = "15.go-ics23-verify-membership-j76"
+
+[finding.ics23-library-stdout]
+file = "sdk/ics23/ops.go"
+line = 96
+class = "runtime-risk"
+severity = "low"
+observed = "LeafOp.CheckAgainstSpec prints Dragonberry Active to stdout for every IAVL-spec check, injecting unrelated text into its embedding application output."
+expected = "Library verification must communicate via results and leave stdout ownership to applications, including structured-output consumers."
+proposal = "Remove the unconditional print in sdk/ics23/ops.go or supply an explicit diagnostic sink outside the verification result path while retaining every IAVL check."
+owner_domain = 15
+
+[finding.ics23-decompress-empty-variant]
+file = "sdk/ics23/proof.go"
+line = 157
+class = "runtime-risk"
+severity = "medium"
+observed = "decompressEntry assumes any compressed entry without Exist has Nonexist and dereferences non.Key; an empty decoded oneof or nil entry panics."
+expected = "Malformed compressed batch entries must produce a normal verification refusal rather than dereferencing absent message fields."
+proposal = "Check compressed entry variants in sdk/ics23/proof.go, propagate a checked decompression error and cover nil/unset oneofs through real protobuf decoding."
+owner_domain = 15
+interface = "15.go-ics23-decompress-j76"
+
+[finding.ics23-neighbor-path-panics]
+file = "sdk/ics23/proof.go"
+line = 296
+class = "runtime-risk"
+severity = "medium"
+observed = "IsLeftNeighbor removes the last element without length checks and repeats until divergence; empty or exhausted identical paths panic, as do isLeftStep padding errors."
+expected = "Invalid or non-divergent non-membership paths must be rejected without process panic, including direct callers of the exported predicate."
+proposal = "Guard empty/nil/exhausted paths and convert invalid padding to rejection in sdk/ics23/proof.go, with empty, identical and malformed sibling vectors."
+owner_domain = 15
+interface = "15.go-ics23-is-left-neighbor-j76"
+
+[finding.ics23-root-length-error]
+file = "sdk/ics23/proof.go"
+line = 140
+class = "runtime-risk"
+severity = "medium"
+observed = "The oversized inner-hash branch returns errors.WithMessage(err, inner) after successful Apply left err nil, yielding a nil root and nil error for a configured ChildSize violation."
+expected = "Detected hash/child-size violations must return an explicit error and never appear as a successful empty commitment calculation."
+proposal = "Create a new size-mismatch error in sdk/ics23/proof.go and assert rejection for inconsistent hash/child-size specifications through the calculation and verification path."
+owner_domain = 15
+
+[finding.module-coverage-documentation]
+file = "sdk/scripts/README.md"
+line = 7
+class = "doc-drift"
+severity = "low"
+observed = "The README says profiles are merged, but module-tests.sh appends every mode header and retains previous output, yielding invalid or stale aggregate coverage."
+expected = "The documented aggregate must be a valid current-run Go coverage profile or clearly disclose its limitation pending repair."
+proposal = "Update sdk/scripts/README.md with the coverage-merger repair to describe initialization, header handling and dependency-aware module selection accurately."
+owner_domain = 15
+
+[finding.module-coverage-profile]
+file = "sdk/scripts/module-tests.sh"
+line = 29
+class = "runtime-risk"
+severity = "medium"
+observed = "tail -n +1 copies each temporary mode header despite the strip comment, and the aggregate is never initialized; repeated invocations append stale runs and repeated headers."
+expected = "A Go aggregate coverage profile must contain one mode header and only current-run rows from the selected modules."
+proposal = "Initialize output once, validate matching modes and append data after each header in sdk/scripts/module-tests.sh; publish only after the selected tests succeed."
+owner_domain = 15
+
+[finding.module-dependent-tests]
+file = "sdk/scripts/module-tests.sh"
+line = 17
+class = "test-gap"
+severity = "medium"
+observed = "GIT_DIFF only matches changed module directories; in this multi-module path-dependency tree unchanged consumers can be skipped after their dependency changes."
+expected = "Change selection must cover affected dependent modules or conservatively execute the declared module set when impact is unknown."
+proposal = "Replace path-only filtering in sdk/scripts/module-tests.sh with dependency-aware selection, or remove the optimization without weakening or skipping existing tests."
+owner_domain = 15
+
+[finding.version-build-instructions]
+file = "sdk/version/version.go"
+line = 12
+class = "doc-drift"
+severity = "low"
+observed = "The example passes -X directly to go build and names upstream cosmos-sdk/version symbols for four variables instead of this fork package path."
+expected = "Instructions must use valid -ldflags syntax and set the actual symbols consumed by NewInfo so binary version provenance is meaningful."
+proposal = "Rewrite sdk/version/version.go build instructions with -ldflags, github.com/Sidiora-Labs/Paxeer-X-Network/sdk/version for every variable and paxd names consistent with chain.mk."
+owner_domain = 15
+interface = "15.go-version-new-info-j76"
+
+[finding.version-sdk-module-identity]
+file = "sdk/version/version.go"
+line = 45
+class = "config-drift"
+severity = "medium"
+observed = "getSDKVersion searches dependency build info for a separate Paxeer-X-Network/sdk module, but sdk belongs to the root main module; native chain builds leave cosmos_sdk_version empty."
+expected = "Version metadata must identify the SDK implementation compiled into the chain, including main-module and replacement provenance."
+proposal = "Read the actual root/main module identity in sdk/version/version.go or explicitly report unavailable provenance, and assert native-build metadata rather than looking for a nonexistent SDK dependency."
+owner_domain = 15
+interface = "15.go-version-info-j76"
+
+[finding.stream-retained-identities]
+file = "services/agent/sdk/python/layerx_sdk/stream.py"
+line = 71
+class = "runtime-risk"
+severity = "medium"
+observed = "Every accepted event_id is retained in _seen forever although positions already increase strictly, making listener memory grow with total network history."
+expected = "Long-running streams must bound memory independently of lifetime event count while rejecting replay and out-of-order pages."
+proposal = "Use the monotone cursor and a documented bounded identity window in services/agent/sdk/python/layerx_sdk/stream.py, retaining strict order and within-page duplicate rejection."
+owner_domain = 9
+
+[finding.stream-empty-page-loop]
+file = "services/agent/sdk/python/layerx_sdk/stream.py"
+line = 76
+class = "runtime-risk"
+severity = "medium"
+observed = "events immediately requests again after an empty unchanged-cursor page; an immediate polling source causes a tight synchronous loop without wait, cancellation or yield."
+expected = "Idle streams must wait or stop under a documented polling contract and allow cancellation without continuously hammering the source."
+proposal = "Add explicit empty-page backoff or caller-controlled polling and cancellation to services/agent/sdk/python/layerx_sdk/stream.py while preserving cursor validation."
+owner_domain = 9
+
+[finding.program-raw-transaction-fetch-bounds]
+file = "services/platform/examples/agent-program-call/verify-receipt.mjs"
+line = 20
+class = "runtime-risk"
+severity = "medium"
+observed = "Initial fetch and response.json have no time or byte cap; the hex bound applies only after buffering the whole body, so stalled or oversized node replies exhaust verification."
+expected = "Receipt verification must bound transport time and bytes before decoding and preserve unknown fate when the transaction cannot be read."
+proposal = "Use bounded JSON-RPC transport or a deadline plus streaming cap in services/platform/examples/agent-program-call/verify-receipt.mjs without weakening hash or pinned-key verification."
+owner_domain = 8
+
+[finding.call-submission-fate]
+file = "services/platform/examples/agent-program-call/walkthrough.sh"
+line = 44
+class = "restart-recovery"
+severity = "high"
+observed = "Every nonzero program call exit becomes submitted:false with exit zero. The real CLI sends eth_sendRawTransaction before returning its transport result; acknowledgement loss after acceptance is falsely reported as an unsent refusal and can prompt a second economic call."
+expected = "After submission is attempted, acknowledgement loss must retain the locally computed hash and report unknown fate until reconciled, never authorize a fresh retry as unsent."
+proposal = "Change services/platform/examples/agent-program-call/walkthrough.sh and CLI submission results to distinguish proved pre-send refusal from attempted submission, persist/output the signed transaction hash before sending and reconcile receipt state with do-not-resubmit guidance."
+owner_domain = 8
+interface = "13.pc-0x101d-call"
+
+[finding.agent-spend-dependency]
+file = "services/platform/examples/agent-spend/package.json"
+line = 7
+class = "wiring-gap"
+severity = "medium"
+observed = "index.mjs imports @sidiora/layerx-agent-integrations but the manifest declares only middleware and SDK; root workspace hoisting hides failure under isolated installation."
+expected = "The example must explicitly declare every imported package so its composition loads consistently under dependency-isolated tooling."
+proposal = "Declare the matching integration package in services/platform/examples/agent-spend/package.json and build/document its dependency closure before launch."
+owner_domain = 8
+
+[finding.agent-spend-node-version]
+file = "services/platform/examples/agent-spend/package.json"
+line = 11
+class = "config-drift"
+severity = "medium"
+observed = "The manifest permits Node >=22, but bundled createAgentServices rejects 22 releases below 22.18 and the imported integrations require >=22.18.0."
+expected = "The advertised engine floor must agree with the bundled service runtime check and required integration dependencies."
+proposal = "Set services/platform/examples/agent-spend/package.json to Node >=22.18.0 and apply that minimum to example setup and runtime qualification."
+owner_domain = 8
+
+[finding.wallet-review-recovery]
+file = "services/platform/examples/agent-spend/services.mjs"
+line = 192
+class = "restart-recovery"
+severity = "medium"
+observed = "A prepared record with reviewId:null is committed before wallet review creation. A crash or lost response after the wallet durably creates the review leaves every retry permanently throwing wallet_review_outcome_unknown."
+expected = "The original review must be recoverable after restart without making a fresh approval, signing blindly or resubmitting an unknown transaction."
+proposal = "Add idempotent review creation and lookup keyed by the verified preparation/signing hash, then reconcile and retain the original review id in services/platform/examples/agent-spend/services.mjs before approval."
+owner_domain = 8
+interface = "8.ts-examples-agent-spend-services-ownerwallethandoff-j41"
+
+[finding.reference-build-process-deadline]
+file = "services/platform/examples/build-reference-apps.mjs"
+line = 15
+class = "runtime-risk"
+severity = "medium"
+observed = "The child command wrapper has no elapsed deadline; on output overflow it only sends TERM then rejects, leaving a TERM-resistant child alive without escalation or process-group cleanup."
+expected = "Artifact preparation must bound process runtime and retained output and reap the entire child tree before reporting a failure."
+proposal = "Add command deadlines, bounded diagnostics and awaited TERM-to-KILL process-group cleanup in services/platform/examples/build-reference-apps.mjs."
+owner_domain = 8
+
+[finding.tls-probe-process-deadline]
+file = "services/platform/tests/support/tls_boundary.rs"
+line = 294
+class = "runtime-risk"
+severity = "medium"
+observed = "Each exact TLS test runs through Command.output with no deadline; the unrestricted supplied probe may block indefinitely despite bounded listener startup."
+expected = "Each real certificate/hostname case must finish within a bounded interval and fail with child cleanup if its client stalls."
+proposal = "Supervise each probe with deadline, bounded output and kill/reap cleanup in services/platform/tests/support/tls_boundary.rs while retaining every real TLS assertion."
+owner_domain = 8
+interface = "8.rs-platform-tests-tls-boundary-qualify-j41"
+
+[finding.webhooks-site]
+file = "docs/site/docs/platform/webhooks.md"
+line = 170
+class = "doc-drift"
+severity = "medium"
+observed = "Payment tables at lines 169-225 require activity_id and receipt-verified joins; line 77 references router deployment configuration, preserving pre-merge evidence identity."
+expected = "The finished network is one Paxeer BFT chain with an embedded kernel, root-path node JSON-RPC and transaction receipts; retired router, daemon and checkpoint workflows must not guide current operation."
+proposal = "Rewrite docs/site/docs/platform/webhooks.md for transaction identity, receipt rungs, height-scoped keys and actual event-source configuration, preserving tenant authentication and redelivery/journal guarantees."
+owner_domain = 8
+
+[finding.webhooks-wiki]
+file = "docs/wiki/HostedWebhooks.md"
+line = 171
+class = "doc-drift"
+severity = "medium"
+observed = "The mirror tables at lines 170-226 use activity_id as receipt join key and receipt-verified authority terminology, with the same retired router configuration as the site page."
+expected = "The finished network is one Paxeer BFT chain with an embedded kernel, root-path node JSON-RPC and transaction receipts; retired router, daemon and checkpoint workflows must not guide current operation."
+proposal = "Update docs/wiki/HostedWebhooks.md with the site webhook page to chain transactions, current receipt rungs/key-height ranges and recovery; keep the published mirrors synchronized."
+owner_domain = 8
+
+[finding.repository-topology]
+file = "README.md"
+line = 47
+class = "doc-drift"
+severity = "medium"
+observed = "The README presents layerxd as a separate running kernel settling checkpoints through layerxAnchor; lines 145 and 181 tell readers to build it and describe the merge as a draft."
+expected = "The finished network is one Paxeer BFT chain with an embedded kernel, root-path node JSON-RPC and transaction receipts; retired router, daemon and checkpoint workflows must not guide current operation."
+proposal = "Rewrite README.md architecture/build sections for paxd with embedded kernel, chain id 125 and block-commit finality; distinguish historical sources from supported running components."
+owner_domain = 17
+
+[finding.site-topology]
+file = "docs/site/docs/index.md"
+line = 11
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 11-26 separate kernel activity from the Paxeer chain and describe custody, emergency exits and periodic checkpoints as normal architecture."
+expected = "The finished network is one Paxeer BFT chain with an embedded kernel, root-path node JSON-RPC and transaction receipts; retired router, daemon and checkpoint workflows must not guide current operation."
+proposal = "Rewrite docs/site/docs/index.md for one BFT chain, tenant sub-domains and native transaction/receipt finality, linking current funding and evidence guides."
+owner_domain = 17
+
+[finding.quickstart-network]
+file = "docs/site/docs/overview/quickstart.md"
+line = 167
+class = "doc-drift"
+severity = "medium"
+observed = "The quickstart directs readers to POST /rpc, GET /rpc/ws and lx_getActivityStatus/lx_getReceipt; later custody funding and activity/batch authority examples conflict with current transaction examples."
+expected = "The finished network is one Paxeer BFT chain with an embedded kernel, root-path node JSON-RPC and transaction receipts; retired router, daemon and checkpoint workflows must not guide current operation."
+proposal = "Rewrite docs/site/docs/overview/quickstart.md as one root-path JSON-RPC transaction journey with bank/ledger funding, pinned height-scoped receipt keys and submitted/receipted/committed outcomes."
+owner_domain = 8
+
+[finding.payments-network]
+file = "docs/site/docs/overview/payments.md"
+line = 21
+class = "doc-drift"
+severity = "medium"
+observed = "The payment guide sets a public /rpc endpoint, specifies first_batch/last_batch policy near line 34 and retains custody/checkpoint evidence alongside the merged payment path."
+expected = "The finished network is one Paxeer BFT chain with an embedded kernel, root-path node JSON-RPC and transaction receipts; retired router, daemon and checkpoint workflows must not guide current operation."
+proposal = "Update docs/site/docs/overview/payments.md for root chain JSON-RPC, native funding, height-scoped receipt keys and transaction-hash reconciliation; remove retired custody/checkpoint steps."
+owner_domain = 8
+
+[finding.internal-payment-evidence]
+file = "docs/site/docs/operators/hosted-internal.md"
+line = 289
+class = "doc-drift"
+severity = "medium"
+observed = "The payment observation table and following lines 289-300 define identity and event binding from activity_id and historical protocol-receipt facts."
+expected = "The finished network is one Paxeer BFT chain with an embedded kernel, root-path node JSON-RPC and transaction receipts; retired router, daemon and checkpoint workflows must not guide current operation."
+proposal = "Update docs/site/docs/operators/hosted-internal.md adapters and observation examples to chain transactions, receipt rungs and height-bound verification while preserving tenant/origin authentication."
+owner_domain = 8
+
+[finding.beta-funding-control]
+file = "docs/site/docs/operators/beta-control.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The page introduces wallet custody funding through a router and later describes treasury send as a native activity hop, preserving the separate-domain operating model."
+expected = "The finished network is one Paxeer BFT chain with an embedded kernel, root-path node JSON-RPC and transaction receipts; retired router, daemon and checkpoint workflows must not guide current operation."
+proposal = "Rewrite docs/site/docs/operators/beta-control.md funding and treasury procedures for bank/ledger moves, chain receipts and reconciliation with current tenant-domain controls."
+owner_domain = 8
+
+[finding.agent-running-receipts]
+file = "docs/site/docs/agents/running.md"
+line = 482
+class = "doc-drift"
+severity = "medium"
+observed = "The agent guide requires VerificationLevel.SequencerSigned, sends transactions to /rpc at line 512 and retains activity/authorized-batch verification settings in later examples."
+expected = "The finished network is one Paxeer BFT chain with an embedded kernel, root-path node JSON-RPC and transaction receipts; retired router, daemon and checkpoint workflows must not guide current operation."
+proposal = "Update docs/site/docs/agents/running.md commands/configuration for root chain transport, PortableReceiptV2 rungs, key-height ranges and transaction-hash recovery without weakening local verification."
+owner_domain = 9
+
+[finding.cli-current-surface]
+file = "docs/site/docs/platform/cli.md"
+line = 8
+class = "doc-drift"
+severity = "medium"
+observed = "The page requires /rpc, describes wallet/token as both implemented and unimplemented at lines 25/106, and denies program registry list at 147 although the current CLI and walkthrough use it."
+expected = "The finished network is one Paxeer BFT chain with an embedded kernel, root-path node JSON-RPC and transaction receipts; retired router, daemon and checkpoint workflows must not guide current operation."
+proposal = "Reconcile docs/site/docs/platform/cli.md with current CLI dispatch, root chain transport and transaction/receipt fields; remove obsolete feature denials, policy flags and activity-id examples."
+owner_domain = 8
+
+[finding.boundary-retired-lni]
+file = "docs/site/docs/platform/agent-boundary.md"
+line = 297
+class = "doc-drift"
+severity = "medium"
+observed = "The boundary page configures an LNI socket to layerxd, activity-id response wrappers and live layerxd/authority-replica qualification at lines 419-420."
+expected = "The finished network is one Paxeer BFT chain with an embedded kernel, root-path node JSON-RPC and transaction receipts; retired router, daemon and checkpoint workflows must not guide current operation."
+proposal = "Rewrite docs/site/docs/platform/agent-boundary.md for chain receipt reads and actual fields; label retired submission/program routes unavailable and replace LNI setup/qualification instructions."
+owner_domain = 8
+
+[finding.authority-retired-service]
+file = "docs/site/docs/platform/hosted-authority.md"
+line = 31
+class = "doc-drift"
+severity = "medium"
+observed = "The authority guide provisions layerxd-authority and an LNI socket, serves authorized batches by activity and instructs starting layerxd plus an authority replica."
+expected = "The finished network is one Paxeer BFT chain with an embedded kernel, root-path node JSON-RPC and transaction receipts; retired router, daemon and checkpoint workflows must not guide current operation."
+proposal = "Replace docs/site/docs/platform/hosted-authority.md live-service setup with governed height-scoped receipt-key and committed-block evidence guidance; label retained batch/header vectors historical only."
+owner_domain = 8
+
+[doc.webhooks-site]
+path = "docs/site/docs/platform/webhooks.md"
+status = "stale"
+notes = "Full page read. Incorrect guidance starts at line 170; finding.webhooks-site identifies the product drift and concrete owning rewrite."
+
+[doc.webhooks-wiki]
+path = "docs/wiki/HostedWebhooks.md"
+status = "stale"
+notes = "Full page read. Incorrect guidance starts at line 171; finding.webhooks-wiki identifies the product drift and concrete owning rewrite."
+
+[doc.repository-topology]
+path = "README.md"
+status = "misleading"
+notes = "Full page read. Incorrect guidance starts at line 47; finding.repository-topology identifies the product drift and concrete owning rewrite."
+
+[doc.site-topology]
+path = "docs/site/docs/index.md"
+status = "misleading"
+notes = "Full page read. Incorrect guidance starts at line 11; finding.site-topology identifies the product drift and concrete owning rewrite."
+
+[doc.quickstart-network]
+path = "docs/site/docs/overview/quickstart.md"
+status = "misleading"
+notes = "Full page read. Incorrect guidance starts at line 167; finding.quickstart-network identifies the product drift and concrete owning rewrite."
+
+[doc.payments-network]
+path = "docs/site/docs/overview/payments.md"
+status = "stale"
+notes = "Full page read. Incorrect guidance starts at line 21; finding.payments-network identifies the product drift and concrete owning rewrite."
+
+[doc.internal-payment-evidence]
+path = "docs/site/docs/operators/hosted-internal.md"
+status = "stale"
+notes = "Full page read. Incorrect guidance starts at line 289; finding.internal-payment-evidence identifies the product drift and concrete owning rewrite."
+
+[doc.beta-funding-control]
+path = "docs/site/docs/operators/beta-control.md"
+status = "stale"
+notes = "Full page read. Incorrect guidance starts at line 3; finding.beta-funding-control identifies the product drift and concrete owning rewrite."
+
+[doc.agent-running-receipts]
+path = "docs/site/docs/agents/running.md"
+status = "stale"
+notes = "Full page read. Incorrect guidance starts at line 482; finding.agent-running-receipts identifies the product drift and concrete owning rewrite."
+
+[doc.cli-current-surface]
+path = "docs/site/docs/platform/cli.md"
+status = "misleading"
+notes = "Full page read. Incorrect guidance starts at line 8; finding.cli-current-surface identifies the product drift and concrete owning rewrite."
+
+[doc.boundary-retired-lni]
+path = "docs/site/docs/platform/agent-boundary.md"
+status = "stale"
+notes = "Full page read. Incorrect guidance starts at line 297; finding.boundary-retired-lni identifies the product drift and concrete owning rewrite."
+
+[doc.authority-retired-service]
+path = "docs/site/docs/platform/hosted-authority.md"
+status = "stale"
+notes = "Full page read. Incorrect guidance starts at line 31; finding.authority-retired-service identifies the product drift and concrete owning rewrite."
+
+[doc.githooks]
+path = "sdk/contrib/githooks/README.md"
+status = "accurate"
+notes = "Full page read; hook setup and inherited local-import grouping limitation are explicit."
+
+[doc.simd-debug]
+path = "sdk/contrib/images/simd-dlv/README.md"
+status = "accurate"
+notes = "Full page read; labels image inherited/non-runnable and identifies the maintained paxd build."
+
+[doc.rosetta]
+path = "sdk/contrib/rosetta/README.md"
+status = "stale"
+notes = "Full page read; simapp warning is accurate but line 27 overstates deterministic regeneration; see the matching finding."
+
+[doc.sdk-scripts]
+path = "sdk/scripts/README.md"
+status = "stale"
+notes = "Full page read; line 7 overstates profile merging; repeated headers and stale rows are recorded in module-coverage-profile."
+
+[doc.cosmos-contract]
+path = "spec/layerx-merge/contracts/cosmos-fork.md"
+status = "accurate"
+notes = "Read applicable cli/go-api ICS23, internal-conv and version rows plus caller notes. Explicitly pinned historical snapshot; local ICS23 exports are not proof of wiring into paxd."
+
+[doc.examples-contract]
+path = "spec/layerx-merge/contracts/platform-examples.md"
+status = "accurate"
+notes = "Read examples-environment and examples-js-exports, including preparation reference and owner-wallet rows. Pinned snapshot status is historical; current code was compared to current requirements/registry."
+
+[doc.middleware-contract]
+path = "spec/layerx-merge/contracts/platform-middleware.md"
+status = "accurate"
+notes = "Read examples-agent-spend-env-vars, examples-env-vars and examples-config-keys. Snapshot environment spellings and manifest nesting match; current transaction requirements supersede frozen retirement states."
+
+[doc.hosted-contract]
+path = "spec/layerx-merge/contracts/platform-hosted.md"
+status = "accurate"
+notes = "Read runtime-clock CLI/environment anchors and boundary-chain context. Socket/PID agree; actual producer also injects UID and client checks peer identity. Historical snapshot is explicitly pinned."
+
+[doc.tools-contract]
+path = "spec/layerx-merge/contracts/platform-tools.md"
+status = "accurate"
+notes = "Read platform-test-support-rust-pub-items and qualify signature. Callback and exact test-name re-execution agree; lack of a probe-child deadline is recorded on the implementation."

@@ -2,12 +2,12 @@ package keeper
 
 import (
 	"bytes"
+	"fmt"
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/layerxproof/codec"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/layerxproof/verify"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxexchange/types"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
-	sdkerrors "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types/errors"
 )
 
 // ProvenState is one LayerX state entry proven under a finalized state root.
@@ -35,7 +35,7 @@ func (k *Keeper) finalizedRoot(ctx sdk.Context, batchNumber uint64, witness []by
 	}
 	root, found := k.custody.Anchor().FinalizedStateRoot(ctx, batchNumber)
 	if !found {
-		return [32]byte{}, sdkerrors.Wrapf(types.ErrNotFinalized, "batch %d", batchNumber)
+		return [32]byte{}, fmt.Errorf("batch %d: %w", batchNumber, types.ErrNotFinalized)
 	}
 	return root, nil
 }
@@ -49,7 +49,7 @@ func (k *Keeper) ProveState(ctx sdk.Context, batchNumber uint64, witness []byte,
 	}
 	proven, err := verify.StateProof(witness, root)
 	if err != nil {
-		return ProvenState{}, sdkerrors.Wrap(types.ErrInvalidProof, err.Error())
+		return ProvenState{}, fmt.Errorf("%s: %w", err.Error(), types.ErrInvalidProof)
 	}
 	if proven.ModuleID != moduleID || !bytes.Equal(proven.Key, key) || len(proven.Value) == 0 {
 		return ProvenState{}, types.ErrStateMismatch
@@ -81,7 +81,7 @@ func (k *Keeper) ProveMargin(ctx sdk.Context, account, assetID [32]byte, batchNu
 	}
 	proven, err := verify.AccountProof(witness, root, account, &assetID)
 	if err != nil {
-		return ProvenMargin{}, sdkerrors.Wrap(types.ErrInvalidProof, err.Error())
+		return ProvenMargin{}, fmt.Errorf("%s: %w", err.Error(), types.ErrInvalidProof)
 	}
 	return ProvenMargin{BatchNumber: batchNumber, StateRoot: root, Account: proven}, nil
 }

@@ -10,12 +10,13 @@ mod redaction;
 
 pub use exporting::{
     export, review, verify_chain_material, AuditExport, ChainError, ChainLink, ChainMaterial,
-    EvidenceStore, ExportError, ExportedEntry, Query, ReferencedEvidence, ReviewError,
-    ReviewReport,
+    EvidenceStore, ExportError, ExportedEntry, Query, RedactionProof, ReferencedEvidence,
+    ReviewError, ReviewReport,
 };
 pub use log::{
     verify_chain, AppendReceipt, AuditError, ChainFailure, ChainIssue, Log, Verification,
 };
+pub(crate) use records::{encode_operator_attempt, OperatorAttempt};
 pub use records::{
     read_entries, reconstruct_session, record, Coverage, Decision, DecisionEvidence, Entry,
     EventClass, Reconstruction, RecordError, StoredReceiptEvidence,

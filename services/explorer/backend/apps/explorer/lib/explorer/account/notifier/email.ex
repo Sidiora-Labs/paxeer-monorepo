@@ -58,6 +58,9 @@ defmodule Explorer.Account.Notifier.Email do
       "ZRC-2" ->
         amount
 
+      "ERC-7984" ->
+        "Confidential amount"
+
       "ERC-721" ->
         "Token ID: " <> subject <> " of "
 

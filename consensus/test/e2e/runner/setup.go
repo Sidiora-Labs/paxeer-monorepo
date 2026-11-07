@@ -311,6 +311,10 @@ func MakeConfig(node *e2e.Node) (*config.Config, error) {
 
 // MakeAppConfig generates an ABCI application config for a node.
 func MakeAppConfig(node *e2e.Node) ([]byte, error) {
+	if node.Testnet.ABCIProtocol != e2e.ProtocolBuiltin {
+		return nil, fmt.Errorf("unsupported ABCI protocol %q: application nodes require %q", node.Testnet.ABCIProtocol, e2e.ProtocolBuiltin)
+	}
+
 	leaderPin := make([]string, len(node.Testnet.LeaderPin))
 	for i, leader := range node.Testnet.LeaderPin {
 		leaderPin[i] = hex.EncodeToString(leader.PrivvalKey.Public().Bytes())
@@ -320,7 +324,7 @@ func MakeAppConfig(node *e2e.Node) ([]byte, error) {
 		"dir":                       "data/app",
 		"mode":                      node.Mode,
 		"proxy_port":                node.ProxyPort,
-		"protocol":                  "socket",
+		"protocol":                  node.Testnet.ABCIProtocol,
 		"persist_interval":          node.PersistInterval,
 		"snapshot_interval":         node.SnapshotInterval,
 		"retain_blocks":             node.RetainBlocks,

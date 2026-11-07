@@ -11,6 +11,7 @@ import { toast } from '@/components/ui/sonner';
 import { Spinner } from '@/components/ui/spinner';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { capPercent, formatAmountDisplay, parseAmount } from '@/lib/bridge/amount';
+import { cardState } from '@/lib/bridge/card-state';
 import {
   BRIDGE_CHAINS,
   bridgeChainByKey,
@@ -19,14 +20,12 @@ import {
   PAXEER_ROUTE_KEY,
   type BridgeChain,
 } from '@/lib/bridge/chains';
-import { cardState } from '@/lib/bridge/card-state';
 import { erc20Abi, layerxBridgeAbi, LAYERX_BRIDGE_ADDRESS } from '@/lib/bridge/contracts';
 import { describeWriteError } from '@/lib/bridge/errors';
 import { isSolanaAddress, solanaRecipientHandle } from '@/lib/bridge/solana';
 import { solanaWithdrawalBlocker } from '@/lib/bridge/solana-route';
 import { planDeposit } from '@/lib/bridge/submission';
 import { depositRecord, withdrawalRecord } from '@/lib/bridge/submitted';
-import { saveTransfer } from '@/lib/bridge/transfers';
 import {
   attestationApiConfigured,
   paxeerConfigured,
@@ -42,6 +41,7 @@ import { isAddress, type Address, type Hex } from 'viem';
 import { useAccount, useChainId, useConnect, useReadContract, useSwitchChain, useWaitForTransactionReceipt, useWriteContract } from 'wagmi';
 
 import { AmountInput, AssetPicker, ReceivePreview, RoutePanel, SwapDirectionButton, type RouteOption } from './route-panels';
+import { saveBridgeTransfer } from './transfer-ledger';
 
 type Direction = 'in' | 'out';
 
@@ -82,9 +82,9 @@ export function recordBridgeSubmission(
   onTransferSubmitted: () => void,
 ) {
   const transfer = submission.direction === 'in' ? depositRecord(submission.input) : withdrawalRecord(submission.input);
-  saveTransfer(transfer);
+  const saved = saveBridgeTransfer(transfer);
   onTransferSubmitted();
-  return transfer;
+  return saved;
 }
 
 export function bridgeCardAmount(input: string, decimals: number) {
@@ -109,7 +109,7 @@ export function BridgeCard({ onTransferSubmitted }: { onTransferSubmitted: () =>
   const asset = foreign.assets.find((a) => a.key === assetKey) ?? foreign.assets[0];
 
   const paxeerState = usePaxeerPairState(foreign, asset.assetId);
-  const vaultState = useVaultState(foreign, asset.address);
+  const vaultState = useVaultState(foreign, foreign.kind === 'solana' ? asset.assetId : asset.address);
   const foreignBalance = useForeignBalance(foreign, asset.address, asset.isNative);
   const bridgedBalance = useBridgedBalance(paxeerState.denom);
   const allowance = useReadContract({
@@ -135,7 +135,7 @@ export function BridgeCard({ onTransferSubmitted }: { onTransferSubmitted: () =>
   }, [ direction, asset.address, asset.isNative, address, foreign.vault, foreign.viemChain, approve.confirmed, deposit.confirmed, refetchAllowance ]);
 
   const { parsedAmount, amountValue } = bridgeCardAmount(amount, asset.decimals);
-  const finality = paxeerState.finalityDepth ?? foreign.finalityDepth;
+  const finality = direction === 'out' ? 1 : (paxeerState.finalityDepth ?? foreign.finalityDepth);
 
   const destination = destTouched ? destOverride.trim() : (address ?? '');
   const isSolanaRoute = foreign.kind === 'solana';
@@ -464,7 +464,7 @@ export function BridgeCard({ onTransferSubmitted }: { onTransferSubmitted: () =>
         <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-[13px] sm:grid-cols-4">
           <div>
             <dt className="text-muted-foreground">Arrival</dt>
-            <dd className="font-medium">{ finalityEstimate({ ...foreign, finalityDepth: finality }) }</dd>
+            <dd className="font-medium">{ direction === 'out' ? 'At the committed Paxeer block' : finalityEstimate({ ...foreign, finalityDepth: finality }) }</dd>
           </div>
           <div>
             <dt className="text-muted-foreground">Confirmations</dt>

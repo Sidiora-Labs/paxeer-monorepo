@@ -13,10 +13,11 @@ function rung_order_is_three_rungs() {
     { label: 'Receipted', icon: 'clock', colorPalette: 'blue' },
     { label: 'Committed', icon: 'status/success', colorPalette: 'green' },
   ]);
-  expect(RUNGS.submitted.description).toContain('sequencer receipt');
+  expect(RUNGS.submitted.description).toContain('submitted to the node');
+  expect(RUNGS.submitted.description).toContain('awaiting a receipt');
   expect(RUNGS.submitted.description).toContain('committed block');
-  expect(RUNGS.receipted.description).toContain('sequencer receipt');
-  expect(RUNGS.committed.description).toContain('committed block');
+  expect(RUNGS.receipted.description).toBe('A transaction receipt is available, and finality requires its block to be committed.');
+  expect(RUNGS.committed.description).toBe('The transaction receipt is final because its block is committed.');
 }
 
-test(rung_order_is_three_rungs);
+test(rung_order_is_three_rungs.name, rung_order_is_three_rungs);

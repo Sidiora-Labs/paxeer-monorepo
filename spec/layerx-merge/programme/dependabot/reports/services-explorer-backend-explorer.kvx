@@ -1,0 +1,35 @@
+[alert.GHSA-8r9p-f939-6h3c]
+package = "follow-redirects"
+manifest = "services/explorer/backend/apps/explorer/package-lock.json"
+verdict = "upgraded"
+version_before = "1.16.0"
+version_after = "1.16.2"
+pinned_by = ""
+revision = "4a9dbd7408d98ec112b849894a0d4c9ed40a2aa9"
+
+[alert.GHSA-q3jh-wrc6-jgq8]
+package = "follow-redirects"
+manifest = "services/explorer/backend/apps/explorer/package-lock.json"
+verdict = "upgraded"
+version_before = "1.16.0"
+version_after = "1.16.2"
+pinned_by = ""
+revision = "4a9dbd7408d98ec112b849894a0d4c9ed40a2aa9"
+
+[alert.GHSA-mrwp-f3q8-3g9p]
+package = "follow-redirects"
+manifest = "services/explorer/backend/apps/explorer/package-lock.json"
+verdict = "upgraded"
+version_before = "1.16.0"
+version_after = "1.16.2"
+pinned_by = ""
+revision = "4a9dbd7408d98ec112b849894a0d4c9ed40a2aa9"
+
+[alert.GHSA-7c78-jf6q-g5cm]
+package = "tmp"
+manifest = "services/explorer/backend/apps/explorer/package-lock.json"
+verdict = "upgraded"
+version_before = "0.2.6"
+version_after = "0.2.7"
+pinned_by = ""
+revision = "4a9dbd7408d98ec112b849894a0d4c9ed40a2aa9"

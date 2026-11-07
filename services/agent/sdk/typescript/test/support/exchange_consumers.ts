@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { keccak_256 } from "@noble/hashes/sha3.js";
+import { exchangeOrderAbi } from "./exchange-abi.js";
 
 import {
   LAYERX_EXCHANGE_PRECOMPILE,
@@ -46,10 +46,10 @@ export function consumeExchangePlaceOrderCall(
   order: Parameters<typeof exchangePlaceOrderCall>[0],
 ): void {
   const word = (value: bigint | number): string => BigInt(value).toString(16).padStart(64, "0");
-  const selector = "0x" + Buffer.from(keccak_256(new TextEncoder().encode("placeOrder(bytes32,bytes32,uint8,uint256,uint256,uint8)")).subarray(0, 4)).toString("hex");
+  const selector = abiSelector(exchangeOrderAbi("accountId" in order).signature);
   assert.deepEqual(actual, {
     to: "0x0000000000000000000000000000000000001015",
-    data: selector + order.marketId.slice(2).toLowerCase() + order.accountId.slice(2).toLowerCase()
+    data: selector + order.marketId.slice(2).toLowerCase() + (order.accountId === undefined ? "" : order.accountId.slice(2).toLowerCase())
       + word(order.side) + word(order.price) + word(order.quantity) + word(order.timeInForce),
     value: 0n,
   });

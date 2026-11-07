@@ -1,0 +1,20 @@
+[task]
+id = "22.33.245"
+audit = "22.30.129"
+finding = "013"
+proof = "test_repair_245_parameterized_imports; test_repair_245_paid_counter_sources; test_repair_245_compiled_imports; test_repair_245_paid_counter_kernel"
+path = "Unmodified paid-counter source list and supported SDK import declarations -> production check_source -> ordinary paid-counter build -> production check_module -> real kernel deployment and call -> signed receipt with exact counter/note event."
+repair = "Tokenize import arguments and supported SDK macro definitions within their logical lines; validate literal macro invocations against the frozen manifest. Compatibility declarations may name supported versions, while compiled imports retain selected-version, module/name, duplicate and exact-signature checks."
+negative_proof = "Unknown and malformed source imports are refused; mutate the real compiler-produced paid-counter module's import module, name and integer parameter type and assert forbidden-import or wrong-import-signature, restoring the artifact between checks."
+baseline = "No pristine-tree verify ran: the ordered task instructions prohibit builds/tests before implementation and allow only hf-build followed by hf-done. No earlier gate ledger exists for this task. Prior task 22.31.374 records inherited signature-harness and source-lint failures; no baseline test result is claimed here."
+qualification = "The runner records the verified candidate revision, exact command, exit code and private evidence log in its hf-build/hf-done ledger; closure requires hf-done passing."
+wiring_harness = "Makefile programs-sdk-c, owning domain 13: compile/link the existing signature kernel harness and guests as build prerequisites so tests do not invoke subprocess toolchains; this task adds in-process lint cases and a kernel case without adding subprocess calls, and preserves the inherited signature runner."
+constraint = "The declared make target builds paid-counter before running capability_parity; compiled-import and kernel cases consume that actual artifact. The inherited signature_status.py still invokes subprocess toolchains and is outside this finding's repair."
+
+[qualification.build_1]
+revision = "8203ccc4313b2fa6b4507c667c0becf52352b73d"
+command = "make -s programs-sdk-c"
+exit = 2
+log = "/out/logs/build-1.log"
+observed = "All unmodified paid-counter source lint checks passed; compilation stopped because clang was absent, before any test executed."
+repair = "Provision the declared clang/lld toolchain and inherited AssemblyScript 0.27.31 compiler in the sandbox without changing repository manifests or build commands; retain the original failure evidence."

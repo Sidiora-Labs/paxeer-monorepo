@@ -1,9 +1,12 @@
 package server
 
 import (
+	"context"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
+	"sync"
 	"time"
 
 	assert "github.com/coinbase/rosetta-sdk-go/asserter"
@@ -35,23 +38,57 @@ type Settings struct {
 }
 
 type Server struct {
-	h    http.Handler
-	addr string
+	lifecycle *serverLifecycle
+}
+
+type serverLifecycle struct {
+	http        *http.Server
+	client      io.Closer
+	shutdown    sync.Once
+	shutdownErr error
 }
 
 func (h Server) Start() error {
-	srvr := &http.Server{
-		Addr:              h.addr,
-		Handler:           h.h,
-		ReadHeaderTimeout: 10 * time.Second,
+	if h.lifecycle == nil {
+		return fmt.Errorf("rosetta server is not initialized")
 	}
-	if err := srvr.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-		return err
+	if err := h.lifecycle.http.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+		return errors.Join(err, h.Shutdown(context.Background()))
 	}
 	return nil
 }
 
-func NewServer(settings Settings) (Server, error) {
+// Shutdown drains HTTP requests before closing the client connection, once across
+// all copies of Server. If draining expires, remaining connections are closed.
+func (h Server) Shutdown(ctx context.Context) error {
+	if h.lifecycle == nil {
+		return nil
+	}
+	lifecycle := h.lifecycle
+	lifecycle.shutdown.Do(func() {
+		lifecycle.shutdownErr = lifecycle.http.Shutdown(ctx)
+		if lifecycle.shutdownErr != nil {
+			lifecycle.shutdownErr = errors.Join(lifecycle.shutdownErr, lifecycle.http.Close())
+		}
+		if lifecycle.client != nil {
+			lifecycle.shutdownErr = errors.Join(lifecycle.shutdownErr, lifecycle.client.Close())
+		}
+	})
+	return lifecycle.shutdownErr
+}
+
+// NewServer takes ownership of clients that implement io.Closer, including on
+// initialization failure. Clients must retain and close their own connections.
+func NewServer(settings Settings) (result Server, err error) {
+	if settings.Client == nil {
+		return Server{}, fmt.Errorf("client is nil")
+	}
+	client, _ := settings.Client.(io.Closer)
+	defer func() {
+		if err != nil && client != nil {
+			err = errors.Join(err, client.Close())
+		}
+	}()
 	asserter, err := assert.NewServer(
 		settings.Client.SupportedOperations(),
 		true,
@@ -85,8 +122,14 @@ func NewServer(settings Settings) (Server, error) {
 	)
 
 	return Server{
-		h:    h,
-		addr: settings.Listen,
+		lifecycle: &serverLifecycle{
+			http: &http.Server{
+				Addr:              settings.Listen,
+				Handler:           h,
+				ReadHeaderTimeout: 10 * time.Second,
+			},
+			client: client,
+		},
 	}, nil
 }
 

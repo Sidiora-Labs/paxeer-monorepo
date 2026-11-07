@@ -1,0 +1,8 @@
+[repair.22.33.655]
+base = "26bb0fe1436e9a72a6260976b19c445841ae7af0"
+finding_ante_params_concrete_assertion = "ante-params-concrete-assertion: TestRepairM_655_AnteParamsConstruction"
+finding_multisig_gas_shape_panic = "multisig-gas-shape-panic: TestRepairM_655_MultisigGasShapes, TestRepairM_655_MultisigGasDecorator, TestRepairM_655_ValidMultisigGas"
+params_boundary = "TxFeeChecker and its node caller consume paramskeeper.Keeper; HandlerOptions documents and checks that concrete requirement and returns ErrLogic for other implementations."
+baseline = "Not run: the task's explicit gate order forbids pre-implementation testing and direct verify_cmd invocation; no pre-change failures are claimed."
+wiring_requests = "None: both repairs are contained in sdk/x/auth/ante."
+evidence = "The runner's hf-build/hf-done ledger records the candidate revision, command, exit code and private log; no gate is claimed before it runs."

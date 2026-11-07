@@ -69,6 +69,9 @@ pub struct TransactionRow {
     pub to_address_hash: Option<Vec<u8>>,
     /// `numeric` wei, as decimal text.
     pub value: String,
+    /// Optional decimal transaction domain; authenticated again by the node at import.
+    #[serde(default)]
+    pub chain_id: Option<String>,
     pub gas_used: Option<String>,
     /// `1` success, `0` failure, `NULL` when Blockscout has no receipt.
     pub status: Option<i64>,
@@ -76,6 +79,14 @@ pub struct TransactionRow {
     pub input: Option<Vec<u8>>,
     #[serde(default, with = "option_bytes_hex")]
     pub created_contract_address_hash: Option<Vec<u8>>,
+}
+
+impl TransactionRow {
+    /// Replace a database hint only with a domain obtained from the trusted node's
+    /// transaction at this row's verified hash, block height and index.
+    pub(crate) fn set_verified_domain(&mut self, domain: u64) {
+        self.chain_id = Some(domain.to_string());
+    }
 }
 
 /// One `logs` row. `index` is the block-wide log index.
@@ -440,7 +451,7 @@ pub fn rpc_blocks(range: &BlockscoutRange) -> Result<BTreeMap<u64, RpcBlock>, In
                 }
             };
             let transaction_index = to_quantity(*index);
-            objects.push(json!({
+            let mut object = json!({
                 "hash": hash,
                 "blockHash": block_hash,
                 "blockNumber": number,
@@ -449,7 +460,11 @@ pub fn rpc_blocks(range: &BlockscoutRange) -> Result<BTreeMap<u64, RpcBlock>, In
                 "to": to,
                 "value": decimal_quantity(&transaction.value)?,
                 "input": hex0x(transaction.input.as_deref().unwrap_or_default()),
-            }));
+            });
+            if let Some(chain_id) = &transaction.chain_id {
+                object["chainId"] = Value::String(decimal_quantity(chain_id)?);
+            }
+            objects.push(object);
             let mut receipt_logs = Vec::new();
             for log in logs.get(&hash).map_or(&[][..], Vec::as_slice) {
                 receipt_logs.push(json!({

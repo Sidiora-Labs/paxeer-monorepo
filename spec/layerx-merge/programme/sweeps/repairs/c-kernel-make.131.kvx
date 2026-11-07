@@ -1,0 +1,6 @@
+[repair.c-kernel-make.131]
+target = "test-programs-metered-call"
+command = "make -s test-programs-metered-call"
+revision = "a107f4879aa40e14330fcddf09483ca109f0d527"
+result = "repaired"
+change = "The metered-call fixture directly includes layerx/lxp_genesis.h, which defines the lxp_genesis_manifest it initializes for fee genesis materialization; all existing metered-call assertions and the Makefile target are unchanged."

@@ -1,0 +1,12 @@
+[repair.22.31.240]
+finding = "snapshot-state"
+audit = "22.30.116"
+base_revision = "9b3c0edb83db2c918d37d3910bad522f5b067ca3"
+implementation = "Snapshot v3 authenticates an explicit manifest of shares, staged, records and replay from one read transaction; restore inserts and validates the complete lifecycle in one write transaction before returning a Store."
+compatibility = "Shares-only versions 1 and 2 are refused because absent policy and replay history cannot safely be reconstructed. Unknown durable bucket types require an explicit format extension; unknown record kinds are preserved byte-for-byte."
+proving_tests = ["TestRepair_240_SpendAndRateLimitsSurviveBackupRestart", "TestRepair_240_ReplayAndOpaqueAuthorityRecordsSurviveBackupRestart", "TestRepair_240_InterruptedCeremonyRecoversThroughRestoredServer", "TestRepair_240_RestoreRejectsIncompleteOrInconsistentStateAtomically", "TestRepair_240_SnapshotVersionAuthenticationAndEmptyLifecycle", "TestRepair_240_SnapshotRefusesInconsistentCeremony"]
+producer_transport_consumer = "Real dealer and server share codec -> Store.Import/lifecycle APIs and policy.SpendLedger -> backup.Writer.WriteSnapshot -> backup.RestoreFile -> closed/reopened Store -> production policy evaluation and server.New with describe over mutual TLS."
+recovery_cases = "Import identity/audit idempotency; staged undecided, commit and abort refresh recovery; daily spend/rate windows; token-request and agent nonce replay refusals; authority sequence rollback; opaque records; authenticated corruption, missing buckets, duplicate entries and lifecycle orphans rejected without leaving a database."
+baseline = "No baseline verification ran: the explicit gate order prohibits tests before complete implementation and requires hf-build before hf-done; repair_240_test.go was absent on the starting tree. No pre-change failing test is claimed."
+evidence = "The runner writes the exact verified candidate revision, command, exit and private log location to /out/run/gates.jsonl; the final response copies the last hf-done evidence line."
+wiring_request = "services/wallet/attestor/internal/backup/restore.go and internal/audit (wallet domain 12): recover the separately retained audit log alongside snapshots so existing ceremony audit-sequence checks can admit resumed signing; store snapshots cover durable database buckets, and the restored-server test uses the real retained audit log."

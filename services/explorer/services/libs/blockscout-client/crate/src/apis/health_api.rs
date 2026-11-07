@@ -31,7 +31,7 @@ pub trait HealthApi: Send + Sync {
     ///
     async fn health(&self) -> Result<ResponseContent<HealthSuccess>, Error<HealthError>>;
 
-    /// GET /api/v1/health
+    /// Unsupported upstream variant on the current backend. Use health().
     ///
     ///
     async fn health_v1(&self) -> Result<ResponseContent<HealthV1Success>, Error<HealthV1Error>>;
@@ -54,7 +54,7 @@ impl HealthApi for HealthApiClient {
 
         let local_var_client = &local_var_configuration.client;
 
-        let local_var_uri_str = format!("{}/api/health", local_var_configuration.base_path);
+        let local_var_uri_str = format!("{}/api/health", local_var_configuration.rest_origin()?);
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::GET, local_var_uri_str.as_str());
 
@@ -63,72 +63,27 @@ impl HealthApi for HealthApiClient {
                 .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
         }
 
-        let local_var_req = local_var_req_builder.build()?;
+        let local_var_req = local_var_req_builder
+            .timeout(local_var_configuration.request_timeout)
+            .build()?;
         let local_var_resp = local_var_client.execute(local_var_req).await?;
 
         let local_var_status = local_var_resp.status();
-        let local_var_content = local_var_resp.text().await?;
+        let local_var_content =
+            super::read_bounded(local_var_resp, local_var_configuration.max_response_bytes).await?;
 
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            let local_var_entity: Option<HealthSuccess> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_result = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Ok(local_var_result)
-        } else {
-            let local_var_entity: Option<HealthError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        super::decode_success(
+            local_var_status,
+            local_var_content,
+            "/api/health",
+            HealthSuccess::Status200,
+        )
     }
 
     async fn health_v1(&self) -> Result<ResponseContent<HealthV1Success>, Error<HealthV1Error>> {
-        let local_var_configuration = &self.configuration;
-
-        let local_var_client = &local_var_configuration.client;
-
-        let local_var_uri_str = format!("{}/api/v1/health", local_var_configuration.base_path);
-        let mut local_var_req_builder =
-            local_var_client.request(reqwest::Method::GET, local_var_uri_str.as_str());
-
-        if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-            local_var_req_builder = local_var_req_builder
-                .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
-        }
-
-        let local_var_req = local_var_req_builder.build()?;
-        let local_var_resp = local_var_client.execute(local_var_req).await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            let local_var_entity: Option<HealthV1Success> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_result = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Ok(local_var_result)
-        } else {
-            let local_var_entity: Option<HealthV1Error> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        Err(Error::UnsupportedCapability(
+            "upstream /api/v1/health is not mounted; use health() at /api/health",
+        ))
     }
 }
 
@@ -186,6 +141,7 @@ impl ResponseContent<HealthV1Success> {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum HealthError {
+    Status500(Box<models::UnhealthyHealthCheckResponse>),
     UnknownValue(serde_json::Value),
 }
 

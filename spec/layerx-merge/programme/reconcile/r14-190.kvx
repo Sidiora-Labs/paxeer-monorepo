@@ -1,0 +1,243 @@
+[reconcile.r14-190]
+revision = "751d6ff8dbcfeaec3fbdee7c8c9aac3813e83488"
+rows = 30
+
+[row.r14-190.1]
+interface = "interface.14.ts-web-api-generated-index-encodenotificationpreferences"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 3205
+symbol = "encodeNotificationPreferences"
+evidence = "Declaration at line 3205 matches export function encodeNotificationPreferences(value: NotificationPreferences): JsonValue; registered line 2984 has drifted. Other occurrences at lines 6205 are encoder uses, not declarations."
+
+[row.r14-190.2]
+interface = "interface.14.ts-web-api-generated-index-encodenotificationsummary"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 3259
+symbol = "encodeNotificationSummary"
+evidence = "Declaration at line 3259 matches export function encodeNotificationSummary(value: NotificationSummary): JsonValue; registered line 3038 has drifted. Other occurrences at lines 3157, 4982 are encoder uses, not declarations."
+
+[row.r14-190.3]
+interface = "interface.14.ts-web-api-generated-index-encodeownerrotationdisclosurerequest"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 3371
+symbol = "encodeOwnerRotationDisclosureRequest"
+evidence = "Declaration at line 3371 matches export function encodeOwnerRotationDisclosureRequest(value: OwnerRotationDisclosureRequest): JsonValue; registered line 3082 has drifted. Other occurrences at lines 6143 are encoder uses, not declarations."
+
+[row.r14-190.4]
+interface = "interface.14.ts-web-api-generated-index-encodeownerrotationrequest"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 3396
+symbol = "encodeOwnerRotationRequest"
+evidence = "Declaration at line 3396 matches export function encodeOwnerRotationRequest(value: OwnerRotationRequest): JsonValue; registered line 3107 has drifted. Other occurrences at lines 6145 are encoder uses, not declarations."
+
+[row.r14-190.5]
+interface = "interface.14.ts-web-api-generated-index-encodepasskey"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 3425
+symbol = "encodePasskey"
+evidence = "Declaration at line 3425 matches export function encodePasskey(value: Passkey): JsonValue; registered line 3136 has drifted. Other occurrences at lines 3544 are encoder uses, not declarations."
+
+[row.r14-190.6]
+interface = "interface.14.ts-web-api-generated-index-encodepasskeyassertionbegin"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 3478
+symbol = "encodePasskeyAssertionBegin"
+evidence = "Declaration at line 3478 matches export function encodePasskeyAssertionBegin(value: PasskeyAssertionBegin): JsonValue; registered line 3189 has drifted. Other occurrences at lines 6213 are encoder uses, not declarations."
+
+[row.r14-190.7]
+interface = "interface.14.ts-web-api-generated-index-encodepasskeyassertionfinish"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 3523
+symbol = "encodePasskeyAssertionFinish"
+evidence = "Declaration at line 3523 matches export function encodePasskeyAssertionFinish(value: PasskeyAssertionFinish): JsonValue; registered line 3234 has drifted. Other occurrences at lines 6215 are encoder uses, not declarations."
+
+[row.r14-190.8]
+interface = "interface.14.ts-web-api-generated-index-encodepasskeyregistrationbegin"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 3561
+symbol = "encodePasskeyRegistrationBegin"
+evidence = "Declaration at line 3561 matches export function encodePasskeyRegistrationBegin(value: PasskeyRegistrationBegin): JsonValue; registered line 3272 has drifted. Other occurrences at lines 6217 are encoder uses, not declarations."
+
+[row.r14-190.9]
+interface = "interface.14.ts-web-api-generated-index-encodepasskeyregistrationfinish"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 3605
+symbol = "encodePasskeyRegistrationFinish"
+evidence = "Declaration at line 3605 matches export function encodePasskeyRegistrationFinish(value: PasskeyRegistrationFinish): JsonValue; registered line 3316 has drifted. Other occurrences at lines 6219 are encoder uses, not declarations."
+
+[row.r14-190.10]
+interface = "interface.14.ts-web-api-generated-index-encodeplanintentrequest"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 3632
+symbol = "encodePlanIntentRequest"
+evidence = "Declaration at line 3632 matches export function encodePlanIntentRequest(value: PlanIntentRequest): JsonValue; registered line 3343 has drifted. Other occurrences at lines 6183 are encoder uses, not declarations."
+
+[row.r14-190.11]
+interface = "interface.14.ts-web-api-generated-index-encodeprofileupdate"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 3686
+symbol = "encodeProfileUpdate"
+evidence = "Declaration at line 3686 matches export function encodeProfileUpdate(value: ProfileUpdate): JsonValue; registered line 3397 has drifted. Other occurrences at lines 6223 are encoder uses, not declarations."
+
+[row.r14-190.12]
+interface = "interface.14.ts-web-api-generated-index-encodeprogramapprovalbudget"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 3743
+symbol = "encodeProgramApprovalBudget"
+evidence = "Declaration at line 3743 matches export function encodeProgramApprovalBudget(value: ProgramApprovalBudget): JsonValue; registered line 3450 has drifted. Other occurrences at lines 3911 are encoder uses, not declarations."
+
+[row.r14-190.13]
+interface = "interface.14.ts-web-api-generated-index-encodeprogramapprovaldecisionrequest"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 3833
+symbol = "encodeProgramApprovalDecisionRequest"
+evidence = "Declaration at line 3833 matches export function encodeProgramApprovalDecisionRequest(value: ProgramApprovalDecisionRequest): JsonValue; registered line 3530 has drifted. Other occurrences at lines 6153, 6165 are encoder uses, not declarations."
+
+[row.r14-190.14]
+interface = "interface.14.ts-web-api-generated-index-encodeprogramapprovaldisclosurerequest"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 3963
+symbol = "encodeProgramApprovalDisclosureRequest"
+evidence = "Declaration at line 3963 matches export function encodeProgramApprovalDisclosureRequest(value: ProgramApprovalDisclosureRequest): JsonValue; registered line 3660 has drifted. Other occurrences at lines 6157 are encoder uses, not declarations."
+
+[row.r14-190.15]
+interface = "interface.14.ts-web-api-generated-index-encodeprogramapprovaloperation"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 4039
+symbol = "encodeProgramApprovalOperation"
+evidence = "Declaration at line 4039 matches export function encodeProgramApprovalOperation(value: ProgramApprovalOperation): JsonValue; registered line 3736 has drifted. Other occurrences at lines 3899, 4125 are encoder uses, not declarations."
+
+[row.r14-190.16]
+interface = "interface.14.ts-web-api-generated-index-encodeprogramapprovalsummary"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 4115
+symbol = "encodeProgramApprovalSummary"
+evidence = "Declaration at line 4115 matches export function encodeProgramApprovalSummary(value: ProgramApprovalSummary): JsonValue; registered line 3812 has drifted. Other occurrences at lines 2285, 4075, 4985 are encoder uses, not declarations."
+
+[row.r14-190.17]
+interface = "interface.14.ts-web-api-generated-index-encodeprogramauthorizedlimit"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 4155
+symbol = "encodeProgramAuthorizedLimit"
+evidence = "Declaration at line 4155 matches export function encodeProgramAuthorizedLimit(value: ProgramAuthorizedLimit): JsonValue; registered line 3852 has drifted. Other occurrences at lines 3901, 4127 are encoder uses, not declarations."
+
+[row.r14-190.18]
+interface = "interface.14.ts-web-api-generated-index-encodeprogrambytescommitment"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 4182
+symbol = "encodeProgramBytesCommitment"
+evidence = "Declaration at line 4182 matches export function encodeProgramBytesCommitment(value: ProgramBytesCommitment): JsonValue; registered line 3879 has drifted. Other occurrences at lines 4218, 4219, 4220, 4254, 4257, 4295, 4298 are encoder uses, not declarations."
+
+[row.r14-190.19]
+interface = "interface.14.ts-web-api-generated-index-encodeprogramcallfacts"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 4214
+symbol = "encodeProgramCallFacts"
+evidence = "Declaration at line 4214 matches export function encodeProgramCallFacts(value: ProgramCallFacts): JsonValue; registered line 3911 has drifted. Other occurrences at lines 4051 are encoder uses, not declarations."
+
+[row.r14-190.20]
+interface = "interface.14.ts-web-api-generated-index-encodeprogramdeployfacts"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 4249
+symbol = "encodeProgramDeployFacts"
+evidence = "Declaration at line 4249 matches export function encodeProgramDeployFacts(value: ProgramDeployFacts): JsonValue; registered line 3946 has drifted. Other occurrences at lines 4045 are encoder uses, not declarations."
+
+[row.r14-190.21]
+interface = "interface.14.ts-web-api-generated-index-encodeprogramupgradefacts"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 4288
+symbol = "encodeProgramUpgradeFacts"
+evidence = "Declaration at line 4288 matches export function encodeProgramUpgradeFacts(value: ProgramUpgradeFacts): JsonValue; registered line 3985 has drifted. Other occurrences at lines 4048 are encoder uses, not declarations."
+
+[row.r14-190.22]
+interface = "interface.14.ts-web-api-generated-index-encodeprogramupgradepolicyfacts"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 4319
+symbol = "encodeProgramUpgradePolicyFacts"
+evidence = "Declaration at line 4319 matches export function encodeProgramUpgradePolicyFacts(value: ProgramUpgradePolicyFacts): JsonValue; registered line 4016 has drifted. Other occurrences at lines 4252 are encoder uses, not declarations."
+
+[row.r14-190.23]
+interface = "interface.14.ts-web-api-generated-index-encodeprotocolfreshness"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 4419
+symbol = "encodeProtocolFreshness"
+evidence = "Declaration at line 4419 matches export function encodeProtocolFreshness(value: ProtocolFreshness): JsonValue; registered line 4116 has drifted. Other occurrences at lines 718 are encoder uses, not declarations."
+
+[row.r14-190.24]
+interface = "interface.14.ts-web-api-generated-index-encoderefusal"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 4480
+symbol = "encodeRefusal"
+evidence = "Declaration at line 4480 matches export function encodeRefusal(value: Refusal): JsonValue; registered line 4177 has drifted. Other occurrences at lines 1206, 2627, 3341 are encoder uses, not declarations."
+
+[row.r14-190.25]
+interface = "interface.14.ts-web-api-generated-index-encodeschemaversion"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 4538
+symbol = "encodeSchemaVersion"
+evidence = "Declaration at line 4538 matches export function encodeSchemaVersion(value: SchemaVersion): JsonValue; registered line 4235 has drifted. Other occurrences at lines 5383 are encoder uses, not declarations."
+
+[row.r14-190.26]
+interface = "interface.14.ts-web-api-generated-index-encodesecurityactionrequest"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 4581
+symbol = "encodeSecurityActionRequest"
+evidence = "Declaration at line 4581 matches export function encodeSecurityActionRequest(value: SecurityActionRequest): JsonValue; registered line 4278 has drifted. Other occurrences at lines 6225 are encoder uses, not declarations."
+
+[row.r14-190.27]
+interface = "interface.14.ts-web-api-generated-index-encodesecuritypasskeyregistrationbegin"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 4605
+symbol = "encodeSecurityPasskeyRegistrationBegin"
+evidence = "Declaration at line 4605 matches export function encodeSecurityPasskeyRegistrationBegin(value: SecurityPasskeyRegistrationBegin): JsonValue; registered line 4302 has drifted. Other occurrences at lines 6233 are encoder uses, not declarations."
+
+[row.r14-190.28]
+interface = "interface.14.ts-web-api-generated-index-encodesecuritypasskeyregistrationfinish"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 4627
+symbol = "encodeSecurityPasskeyRegistrationFinish"
+evidence = "Declaration at line 4627 matches export function encodeSecurityPasskeyRegistrationFinish(value: SecurityPasskeyRegistrationFinish): JsonValue; registered line 4324 has drifted. Other occurrences at lines 6235 are encoder uses, not declarations."
+
+[row.r14-190.29]
+interface = "interface.14.ts-web-api-generated-index-encodesecuritypasskeyrevocation"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 4647
+symbol = "encodeSecurityPasskeyRevocation"
+evidence = "Declaration at line 4647 matches export function encodeSecurityPasskeyRevocation(value: SecurityPasskeyRevocation): JsonValue; registered line 4344 has drifted. Other occurrences at lines 6237 are encoder uses, not declarations."
+
+[row.r14-190.30]
+interface = "interface.14.ts-web-api-generated-index-encodesecurityrecoveryreveal"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 4668
+symbol = "encodeSecurityRecoveryReveal"
+evidence = "Declaration at line 4668 matches export function encodeSecurityRecoveryReveal(value: SecurityRecoveryReveal): JsonValue; registered line 4365 has drifted. Other occurrences at lines 6239 are encoder uses, not declarations."

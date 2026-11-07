@@ -1,0 +1,29 @@
+[repair.22.31.342]
+audit = "22.30.74"
+finding = "call-submission-fate"
+source_revision = "7f80bc77d69d432a30797265253debe7936b8dfb"
+implementation = "A single-use local relay exclusively claims a durable journal, computes and fsyncs the signed transaction hash before forwarding eth_sendRawTransaction, and exposes preparation, proved pre-send refusal, attempted submission and acknowledgement as separate states."
+recovery = "LAYERX_CALL_STATE_FILE selects the durable journal; the default is $XDG_STATE_HOME/layerx/agent-program-call.json or $HOME/.local/state/layerx/agent-program-call.json. Existing journals are recovery-only, including interrupted preparation. The walkthrough queries and verifies receipts by the recorded hash and exits 75 for unknown fate with do-not-resubmit guidance. Keep the journal after reconciliation; a distinct intentional economic call requires a distinct state file."
+endpoint = "LAYERX_RPC_URL binds discovery, simulation, the relayed CLI submission and receipt reconciliation to the same explicit endpoint; recovery refuses a different endpoint."
+proof = "services/platform/examples/agent-program-call/test/repair-22-31-342.test.mjs drives the production relay, journal reader, submit recovery entry point and verifyCalledReceipt in-process over loopback HTTP. The committed sdk/platform/conformance/fixtures/sequencer-receipt-v1.json program-call transcript comes from rpc/sequencer_receipt_vectors_test.go; the real SDK validates its signed transaction and receipt. Tests stop the relay while acknowledgement is outstanding, restart the durable receiver, reopen the journal, prove one send and reconcile the original hash without a CLI binary, subprocess, credential or live endpoint."
+qualification = "Only hf-build then hf-done are authorized; their private gate ledger records the exact candidate revision, command, exit code and log. No success is asserted without that record."
+baseline = "Not run: the explicit ordered gate rules prohibit testing before the complete implementation and prohibit running verify_cmd by hand. No baseline test failures are claimed."
+
+[finding.call-submission-fate]
+tests = ["call_submission_fate_recovers_after_acceptance_and_acknowledgement_loss", "call_submission_fate_recovers_after_relay_stop_before_acknowledgement", "call_submission_fate_acknowledgement_still_requires_receipt_reconciliation", "call_submission_fate_rpc_errors_and_invalid_acknowledgements_remain_unknown", "call_submission_fate_proves_pre_send_refusal", "call_submission_fate_corrupt_journal_cannot_authorize_resubmission", "call_submission_fate_interrupted_preparation_cannot_authorize_resubmission", "call_submission_fate_concurrent_sends_forward_only_once"]
+
+[wiring.cli]
+request = "Owner domain 8: tools/platform/cli/src/programs.rs and tools/platform/cli/src/main.rs must expose a durable pre-send signed hash and structured pre-send/attempted/unknown submission results for all direct CLI users; the in-scope walkthrough uses its journaled relay until that interface exists."
+
+[continuation]
+previous_gate = "Attempt 1 failed before executing the Rust test: cargo test --locked --manifest-path services/platform/Cargo.toml --test repair_22_31_342 exited 101 because this virtual workspace owns no such test target; no baseline behavioral failures are claimed."
+change = "Removed the explicitly rejected Rust test and replaced its subprocess proof with the declared Node integration gate. The relay now validates signed transactions and drains or cancels active requests on stop before recovery; graceful pre-send completion alone proves refusal."
+constraints = "Global GOTCHA.kvx and spec files remain untouched under the explicit scope restriction; the corrected Node toolchain gate and final-tree evidence requirements are already recorded in gotchas 2966, 2967 and 2969."
+
+[qualification.repair-1]
+revision = "82991194260161860c4a967d260a4fac3dd3d2e7"
+command = "cg spec done 22.31.342 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "The test confused the wrapper's Keccak digest of the whole signed receipt with the producer's domain-separated SHA-256 signing digest; the transaction recovery and receipt signature checks passed."
+repair = "Assert the wrapper fingerprint against the signed bytes and separately assert the production verifier's signing digest against the committed producer fixture; both checks remain strict."

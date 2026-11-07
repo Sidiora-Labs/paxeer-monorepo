@@ -6,7 +6,6 @@ import (
 	sharedhttp "github.com/Sidiora-Technologies/KindleLaunch/shared/http"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/secrets"
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
 	"net"
 	"net/http"
@@ -145,13 +144,14 @@ func TestAPIKeyHealthPrefix(t *testing.T) {
 func TestRedisDistributedBudget(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
-	r := redis.NewClient(&redis.Options{Addr: "127.0.0.1:26379", Password: "kindle_fixture_password"})
+	socket := localSecurityRedis(t)
+	r := redis.NewClient(&redis.Options{Network: "unix", Addr: socket})
 	defer r.Close()
 	if e := r.Ping(ctx).Err(); e != nil {
 		t.Fatal(e)
 	}
 	ns := "kd_12d3ff56525034b7bcfef87a:" + time.Now().Format("150405.000000000")
-	r2 := redis.NewClient(&redis.Options{Addr: "127.0.0.1:26379", Password: "kindle_fixture_password"})
+	r2 := redis.NewClient(&redis.Options{Network: "unix", Addr: socket})
 	defer r2.Close()
 	var allowed atomic.Int64
 	var wg sync.WaitGroup
@@ -194,29 +194,14 @@ func TestRedisDistributedBudget(t *testing.T) {
 	}
 }
 func TestAuditRollbackRealPostgres(t *testing.T) {
+	p, s := realSecurityDatabase(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
-	p, e := pgxpool.New(ctx, "postgres://kindle_fixture:kindle_fixture_password@127.0.0.1:25432/kindle_fixture?sslmode=disable")
-	if e != nil {
-		t.Fatal(e)
-	}
-	defer p.Close()
-	s := "kd_12d3ff56525034b7bcfef87a_" + time.Now().Format("150405000000000")
 	schema := pgx.Identifier{s}.Sanitize()
-	if _, e = p.Exec(ctx, "CREATE SCHEMA "+schema); e != nil {
+	if _, e := p.Exec(ctx, "CREATE TABLE "+schema+".caps (n integer); INSERT INTO "+schema+".caps VALUES (1); CREATE TABLE "+schema+".audit(record jsonb CHECK(false))"); e != nil {
 		t.Fatal(e)
 	}
-	defer func() {
-		cleanup, cancel := context.WithTimeout(context.Background(), time.Second*5)
-		defer cancel()
-		if _, e := p.Exec(cleanup, "DROP SCHEMA "+schema+" CASCADE"); e != nil {
-			t.Error(e)
-		}
-	}()
-	if _, e = p.Exec(ctx, "CREATE TABLE "+schema+".caps (n integer); INSERT INTO "+schema+".caps VALUES (1); CREATE TABLE "+schema+".audit(record jsonb CHECK(false))"); e != nil {
-		t.Fatal(e)
-	}
-	e = MutateAudited(ctx, p, pgx.Identifier{s, "audit"}, Audit{Actor: "operator", Action: "cap-write", PolicyVersion: "v1"}, func(tx pgx.Tx) error { _, e := tx.Exec(ctx, "UPDATE "+schema+".caps SET n=2"); return e })
+	e := MutateAudited(ctx, p, pgx.Identifier{s, "audit"}, Audit{Actor: "operator", Action: "cap-write", PolicyVersion: "v1"}, func(tx pgx.Tx) error { _, e := tx.Exec(ctx, "UPDATE "+schema+".caps SET n=2"); return e })
 	if e == nil {
 		t.Fatal("audit failure accepted")
 	}

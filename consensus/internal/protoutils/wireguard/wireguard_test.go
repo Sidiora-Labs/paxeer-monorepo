@@ -71,7 +71,7 @@ func TestScan_CountsArePerNestedInstance(t *testing.T) {
 		Rules: map[wireguard.Number]wireguard.Rule{1: {MaxCount: 3}},
 	}
 	outer := &wireguard.Schema{
-		Rules: map[wireguard.Number]wireguard.Rule{2: {Nested: utils.Some(inner), MaxCount: 5}},
+		Rules: map[wireguard.Number]wireguard.Rule{2: {Nested: utils.Some(inner), MaxCount: 5, Repeated: true}},
 	}
 
 	threeInners := appendBytesField(nil, 1, nil)
@@ -144,13 +144,13 @@ func TestMustFieldNum_PanicsOnUnknownField(t *testing.T) {
 }
 
 func TestScan_DuplicateOuterEachWithinCapPasses(t *testing.T) {
-	// Two occurrences of a nested field each carrying 2 inner items (cap=3)
+	// Two elements of a repeated nested field each carrying 2 inner items (cap=3)
 	// must both pass — the cap is per-instance, not a global sum.
 	inner := &wireguard.Schema{
 		Rules: map[wireguard.Number]wireguard.Rule{1: {MaxCount: 3}},
 	}
 	outer := &wireguard.Schema{
-		Rules: map[wireguard.Number]wireguard.Rule{2: {Nested: utils.Some(inner)}},
+		Rules: map[wireguard.Number]wireguard.Rule{2: {Nested: utils.Some(inner), Repeated: true}},
 	}
 	innerBytes := appendBytesField(nil, 1, nil)
 	innerBytes = appendBytesField(innerBytes, 1, nil)

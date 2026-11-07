@@ -9,7 +9,7 @@ use std::time::Duration;
 
 use ed25519_dalek::{Signature as Ed25519Signature, VerifyingKey as Ed25519VerifyingKey};
 use k256::ecdsa::{RecoveryId, Signature, VerifyingKey};
-use layerx_crypto::{ed25519, secp256k1};
+use layerx_crypto::secp256k1;
 use openssl::ssl::{SslConnector, SslFiletype, SslMethod, SslVerifyMode, SslVersion};
 use sha2::Digest as _;
 use sha3::Keccak256;
@@ -155,7 +155,8 @@ impl RemoteChainSigner {
     }
 
     /// Requests a signature under an explicit policy domain and validates the
-    /// exact returned signature against both digest and configured key.
+    /// exact returned signature against both digest and configured secp256k1 key.
+    /// Ed25519 callers must use `sign_message` with the complete message.
     ///
     /// # Errors
     /// Returns an error for invalid policy, transport or authentication failure, refusal or invalid signature.
@@ -164,6 +165,9 @@ impl RemoteChainSigner {
         policy_domain: &[u8],
         digest: [u8; 32],
     ) -> Result<ChainSignature, SignerError> {
+        if self.config.algorithm != SigningAlgorithm::Secp256k1Recoverable {
+            return Err(SignerError::Configuration);
+        }
         if policy_domain.is_empty()
             || policy_domain.len() > MAX_DOMAIN_BYTES
             || policy_domain.contains(&0)
@@ -437,21 +441,7 @@ fn verify_response(
             }
             Ok(ChainSignature::Secp256k1(signature))
         }
-        SigningAlgorithm::Ed25519 => {
-            let signature: [u8; 64] = response
-                .get(1..)
-                .ok_or(SignerError::MalformedResponse)?
-                .try_into()
-                .map_err(|_| SignerError::MalformedResponse)?;
-            let public_key: [u8; 32] = config
-                .public_key
-                .as_slice()
-                .try_into()
-                .map_err(|_| SignerError::Configuration)?;
-            ed25519::verify_digest(&public_key, &signature, &digest)
-                .map_err(|_| SignerError::InvalidSignature)?;
-            Ok(ChainSignature::Ed25519(signature))
-        }
+        SigningAlgorithm::Ed25519 => Err(SignerError::Configuration),
     }
 }
 

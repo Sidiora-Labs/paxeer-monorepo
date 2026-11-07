@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::io::{self, Write as _};
 use std::net::{SocketAddr, ToSocketAddrs as _};
 use std::path::{Path, PathBuf};
@@ -418,6 +418,7 @@ fn parse_program_record(record: &Value) -> Option<ProgramRecord> {
     })
 }
 
+#[derive(Clone)]
 pub(crate) struct Held {
     pub(crate) answer: Answer,
     pub(crate) signatures: BTreeMap<[u8; 20], [u8; SIGNATURE_LENGTH]>,
@@ -449,6 +450,8 @@ pub struct ProgramExchange {
     answers: Mutex<BTreeMap<ProgramKey, Held>>,
     discarded: Mutex<Vec<ProgramDiscarded>>,
     log_path: PathBuf,
+    retired: Mutex<BTreeSet<ProgramKey>>,
+    _lease: std::fs::File,
 }
 
 impl ProgramExchange {
@@ -471,13 +474,146 @@ impl ProgramExchange {
         std::fs::create_dir_all(state_dir)?;
         let client = HttpClient::new(PEER_CONNECT_TIMEOUT)
             .map_err(|error| io::Error::other(error.code()))?;
+        let lease = std::fs::OpenOptions::new()
+            .create(true)
+            .truncate(false)
+            .read(true)
+            .write(true)
+            .open(state_dir.join("answers.lock"))?;
+        lease
+            .try_lock()
+            .map_err(|_| io::Error::other("program exchange already open"))?;
+        let mut answers = BTreeMap::new();
+        let mut retired = BTreeSet::new();
+        let state = match std::fs::read(state_dir.join("answers.json")) {
+            Ok(bytes) => Some(serde_json::from_slice::<Value>(&bytes).map_err(io::Error::other)?),
+            Err(e) if e.kind() == io::ErrorKind::NotFound => None,
+            Err(e) => return Err(e),
+        };
+        if let Some(state) = state {
+            if state["version"] != 1 {
+                return Err(io::ErrorKind::InvalidData.into());
+            }
+            for row in state["retired"]
+                .as_array()
+                .ok_or(io::ErrorKind::InvalidData)?
+            {
+                let key: ProgramKey =
+                    serde_json::from_value(row.clone()).map_err(io::Error::other)?;
+                if !retired.insert(key) {
+                    return Err(io::ErrorKind::InvalidData.into());
+                }
+            }
+            for row in state["answers"]
+                .as_array()
+                .ok_or(io::ErrorKind::InvalidData)?
+            {
+                let held = decode_held(row).ok_or(io::ErrorKind::InvalidData)?;
+                let key = (held.answer.attestation.requester, held.answer.request_id());
+                if row["retired"].as_bool().ok_or(io::ErrorKind::InvalidData)? {
+                    retired.insert(key);
+                }
+                if answers.insert(key, held).is_some() {
+                    return Err(io::ErrorKind::InvalidData.into());
+                }
+            }
+        }
         Ok(Self {
+            retired: Mutex::new(retired),
+            _lease: lease,
             peers,
             client,
-            answers: Mutex::new(BTreeMap::new()),
+            answers: Mutex::new(answers),
             discarded: Mutex::new(Vec::new()),
             log_path: state_dir.join(DISCARD_LOG),
         })
+    }
+
+    fn persist(
+        &self,
+        answers: &BTreeMap<ProgramKey, Held>,
+        retired: &BTreeSet<ProgramKey>,
+    ) -> io::Result<()> {
+        let rows: Vec<Value> = answers
+            .iter()
+            .map(|(key, held)| {
+                json!({
+                    "attestation": held.answer.attestation, "held": held_value(held),
+                    "retired": retired.contains(key),
+                })
+            })
+            .collect();
+        let path = self.log_path.with_file_name("answers.json");
+        let temporary = path.with_extension("tmp");
+        std::fs::write(
+            &temporary,
+            json!({"version": 1, "answers": rows, "retired": retired}).to_string(),
+        )?;
+        std::fs::File::open(&temporary)?.sync_all()?;
+        std::fs::rename(&temporary, &path)?;
+        std::fs::File::open(path.parent().ok_or(io::ErrorKind::InvalidInput)?)?.sync_all()
+    }
+
+    /// Pins persisted program answers to the chain and local signing identity.
+    pub fn bind_chain(&self, chain: u64, network: u32, signer: [u8; 20]) -> io::Result<()> {
+        let path = self.log_path.with_file_name("identity.json");
+        let identity = json!({"chain": chain, "network": network, "signer": hex(&signer)});
+        match std::fs::read(&path) {
+            Ok(bytes) => {
+                if serde_json::from_slice::<Value>(&bytes).map_err(io::Error::other)? != identity {
+                    return Err(io::ErrorKind::InvalidData.into());
+                }
+            }
+            Err(e) if e.kind() == io::ErrorKind::NotFound => {
+                let tmp = path.with_extension("tmp");
+                std::fs::write(&tmp, identity.to_string())?;
+                std::fs::File::open(&tmp)?.sync_all()?;
+                std::fs::rename(tmp, &path)?;
+                std::fs::File::open(path.parent().ok_or(io::ErrorKind::InvalidInput)?)?
+                    .sync_all()?;
+            }
+            Err(e) => return Err(e),
+        }
+        if self.answers().values().any(|held| {
+            held.answer.signer != signer
+                || held.answer.attestation.network_id
+                    != crate::attest::network_word(u64::from(network))
+        }) {
+            return Err(io::ErrorKind::InvalidData.into());
+        }
+        Ok(())
+    }
+
+    fn check_request(
+        &self,
+        request: &ProgramRequest,
+        network: u32,
+        signer: [u8; 20],
+    ) -> Result<(), AttestError> {
+        let key = (request.program_id, request.request_id);
+        let answers = self.answers();
+        if self
+            .retired
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .contains(&key)
+        {
+            return Err(AttestError::Store);
+        }
+        if let Some(held) = answers.get(&key) {
+            if held.answer.signer != signer
+                || held.answer.attestation
+                    != request.attestation(
+                        network,
+                        held.answer.attestation.content_digest,
+                        &held.answer.response,
+                        held.answer.attestation.full_length,
+                    )
+            {
+                return Err(AttestError::Store);
+            }
+        }
+        Ok(())
     }
 
     pub(crate) fn snapshot(&self, key: ProgramKey) -> Option<Value> {
@@ -530,26 +666,32 @@ impl ProgramExchange {
             }
         }
         if signatures.get(&signer) != Some(&signature)
-            || signatures.len() - 1 > MAX_OBSERVATION_SIGNATURES
+            || signatures.len() > MAX_OBSERVATION_SIGNATURES
         {
             return Err(KernelError::Journal);
         }
-        self.answers().insert(
-            (request.program_id, request.request_id),
-            Held {
-                answer: Answer {
-                    attestation,
-                    level: Level::Majority,
-                    response,
-                    callback_gas: 0,
-                    timeout_height: u64::MAX,
-                    digest,
-                    signer,
-                    signature,
-                },
-                signatures,
+        let answer = Held {
+            answer: Answer {
+                attestation,
+                level: Level::Majority,
+                response,
+                callback_gas: 0,
+                timeout_height: u64::MAX,
+                digest,
+                signer,
+                signature,
             },
-        );
+            signatures,
+        };
+        self.record(answer.answer.clone())
+            .map_err(|_| KernelError::Journal)?;
+        let mut answers = self.answers();
+        answers.insert((request.program_id, request.request_id), answer);
+        self.persist(
+            &answers,
+            &self.retired.lock().unwrap_or_else(PoisonError::into_inner),
+        )
+        .map_err(|_| KernelError::Journal)?;
         Ok(())
     }
 
@@ -566,30 +708,78 @@ impl ProgramExchange {
     /// Keeps this sidecar's own answer and its own signature under the
     /// answer's program and request. An answer already held there is kept
     /// as it is.
-    pub fn record(&self, answer: Answer) {
-        self.answers()
-            .entry((answer.attestation.requester, answer.request_id()))
-            .or_insert_with(|| Held {
+    pub fn record(&self, answer: Answer) -> Result<(), KernelError> {
+        let key = (answer.attestation.requester, answer.request_id());
+        if answer.attestation.origin != ORIGIN_PROGRAM
+            || answer.attestation.response_hash != keccak(&answer.response)
+            || answer.digest != answer.attestation.digest()
+            || recover_signer(&answer.digest, &answer.signature).ok() != Some(answer.signer)
+        {
+            return Err(KernelError::Journal);
+        }
+        let mut answers = self.answers();
+        let retired = self.retired.lock().unwrap_or_else(PoisonError::into_inner);
+        if retired.contains(&key) {
+            return Err(KernelError::Journal);
+        }
+        if let Some(held) = answers.get(&key) {
+            return if held.answer.digest == answer.digest && held.answer.signer == answer.signer {
+                Ok(())
+            } else {
+                Err(KernelError::Journal)
+            };
+        }
+        let mut next = answers.clone();
+        next.insert(
+            key,
+            Held {
                 signatures: BTreeMap::from([(answer.signer, answer.signature)]),
                 answer,
-            });
+            },
+        );
+        self.persist(&next, &retired)
+            .map_err(|_| KernelError::Journal)?;
+        *answers = next;
+        Ok(())
     }
 
     /// This sidecar's answer to a program's request.
     #[must_use]
     pub fn answer(&self, key: ProgramKey) -> Option<Answer> {
-        self.answers().get(&key).map(|held| held.answer.clone())
+        let answers = self.answers();
+        if self
+            .retired
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .contains(&key)
+        {
+            return None;
+        }
+        answers.get(&key).map(|held| held.answer.clone())
     }
 
     /// The program requests this sidecar holds an answer for, ascending.
     #[must_use]
     pub fn pending(&self) -> Vec<ProgramKey> {
-        self.answers().keys().copied().collect()
+        let answers = self.answers();
+        let retired = self.retired.lock().unwrap_or_else(PoisonError::into_inner);
+        answers
+            .keys()
+            .filter(|key| !retired.contains(key))
+            .copied()
+            .collect()
     }
 
     /// Drops the answer and signatures for a program's request.
-    pub fn forget(&self, key: ProgramKey) {
-        self.answers().remove(&key);
+    pub fn forget(&self, key: ProgramKey) -> Result<(), KernelError> {
+        let answers = self.answers();
+        let mut retired = self.retired.lock().unwrap_or_else(PoisonError::into_inner);
+        let mut next = retired.clone();
+        next.insert(key);
+        self.persist(&answers, &next)
+            .map_err(|_| KernelError::Journal)?;
+        *retired = next;
+        Ok(())
     }
 
     /// Every signature discarded so far, in the order it was discarded.
@@ -672,12 +862,20 @@ impl ProgramExchange {
         };
         match verdict {
             Ok(signer) => {
-                if let (Some(held), Some(record)) = (self.answers().get_mut(&key), parsed) {
+                let mut answers = self.answers();
+                let mut next = answers.clone();
+                if let (Some(held), Some(record)) = (next.get_mut(&key), parsed) {
                     let own = held.answer.signer;
                     held.signatures
                         .retain(|kept, _| *kept == own || set.contains(kept));
                     held.signatures.insert(signer, record.signature);
                 }
+                self.persist(
+                    &next,
+                    &self.retired.lock().unwrap_or_else(PoisonError::into_inner),
+                )
+                .map_err(|_| Discard::Persistence)?;
+                *answers = next;
                 Ok(Some(signer))
             }
             Err(reason) => {
@@ -745,6 +943,14 @@ impl ProgramExchange {
     #[must_use]
     pub fn ready(&self, key: ProgramKey, set: &AttestorSet) -> Option<Ready> {
         let answers = self.answers();
+        if self
+            .retired
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .contains(&key)
+        {
+            return None;
+        }
         let held = answers.get(&key)?;
         Ready::from_signatures(&held.answer, set, &held.signatures)
     }
@@ -822,8 +1028,12 @@ impl ProgramRelay {
     /// Returns the attestor's refusal of the request.
     pub fn prepare_program(&self, request: &ProgramRequest) -> Result<Option<Ready>, AttestError> {
         let key = (request.program_id, request.request_id);
+        self.exchange
+            .check_request(request, self.attestor.network_id, self.attestor.signer())?;
         if self.exchange.answer(key).is_none() {
-            self.exchange.record(self.attestor.attest(request)?);
+            self.exchange
+                .record(self.attestor.attest(request)?)
+                .map_err(|_| AttestError::Store)?;
         }
         let _ = self.exchange.collect(key, &self.set);
         Ok(self.exchange.ready(key, &self.set))
@@ -840,7 +1050,7 @@ impl ProgramRelay {
                 .find(|entry| (entry.program_id, entry.request_id) == key)
             {
                 self.watcher.retire_program(key.0, key.1)?;
-                self.exchange.forget(key);
+                self.exchange.forget(key).map_err(|_| EvmError::Journal)?;
                 steps.push(Step::Discarded {
                     program_id: key.0,
                     request_id: key.1,
@@ -855,6 +1065,7 @@ impl ProgramRelay {
                 let ready = match self.prepare_program(&request) {
                     Ok(Some(ready)) => ready,
                     Ok(None) => continue,
+                    Err(AttestError::Store) => return Err(EvmError::Journal),
                     Err(reason) => {
                         let code = match &reason {
                             AttestError::Fetch(error) => error.code().to_owned(),
@@ -878,7 +1089,7 @@ impl ProgramRelay {
                         writeln!(file, "{record}").map_err(|_| EvmError::Journal)?;
                         file.sync_all().map_err(|_| EvmError::Journal)?;
                         self.watcher.retire_program(key.0, key.1)?;
-                        self.exchange.forget(key);
+                        self.exchange.forget(key).map_err(|_| EvmError::Journal)?;
                         steps.push(Step::Discarded {
                             program_id: key.0,
                             request_id: key.1,
@@ -895,7 +1106,7 @@ impl ProgramRelay {
             };
             if outcome.completed() {
                 self.watcher.retire_program(key.0, key.1)?;
-                self.exchange.forget(key);
+                self.exchange.forget(key).map_err(|_| EvmError::Journal)?;
             }
             steps.push(Step::Submitted {
                 program_id: key.0,
@@ -913,4 +1124,54 @@ fn submit_error(error: SubmitError) -> EvmError {
         SubmitError::Journal => EvmError::Journal,
         _ => EvmError::Malformed,
     }
+}
+
+fn decode_held(row: &Value) -> Option<Held> {
+    let attestation: Attestation = serde_json::from_value(row["attestation"].clone()).ok()?;
+    let value = &row["held"];
+    let response = unhex(value["response"].as_str()?)?;
+    let signer = fixed(value.get("signer"))?;
+    let signature = fixed(value.get("signature"))?;
+    let digest = attestation.digest();
+    if attestation.origin != ORIGIN_PROGRAM
+        || attestation.requester == [0; 32]
+        || !matches!(attestation.kind, 1 | 2)
+        || attestation.network_id[..28] != [0; 28]
+        || attestation.network_id[28..] == [0; 4]
+        || response.len() > MAX_RESPONSE_BYTES
+        || attestation.full_length < response.len() as u32
+        || fixed(value.get("content_digest")) != Some(attestation.content_digest)
+        || value["full_length"].as_u64() != Some(u64::from(attestation.full_length))
+        || attestation.response_hash != keccak(&response)
+        || recover_signer(&digest, &signature).ok() != Some(signer)
+    {
+        return None;
+    }
+    let mut signatures = BTreeMap::new();
+    for row in value["signatures"].as_array()? {
+        let signer = fixed(row.get("signer"))?;
+        let signature = fixed(row.get("signature"))?;
+        if recover_signer(&digest, &signature).ok() != Some(signer)
+            || signatures.insert(signer, signature).is_some()
+        {
+            return None;
+        }
+    }
+    if signatures.len() > MAX_OBSERVATION_SIGNATURES || signatures.get(&signer) != Some(&signature)
+    {
+        return None;
+    }
+    Some(Held {
+        answer: Answer {
+            attestation,
+            level: Level::Majority,
+            response,
+            callback_gas: 0,
+            timeout_height: u64::MAX,
+            digest,
+            signer,
+            signature,
+        },
+        signatures,
+    })
 }

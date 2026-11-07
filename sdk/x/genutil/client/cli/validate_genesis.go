@@ -1,11 +1,14 @@
 package cli
 
 import (
+	"bufio"
 	"encoding/json"
 	"fmt"
+	"io"
+	"os"
+	"path/filepath"
 
 	tmtypes "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/types"
-	genesistypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types/genesis"
 	"github.com/spf13/cobra"
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/client"
@@ -90,15 +93,10 @@ func parseModule(jsonStr string) (*ModuleState, error) {
 	return &module, nil
 }
 
-func validateGenesisStream(mbm module.BasicManager, cmd *cobra.Command, args []string) error {
+func validateGenesisStream(mbm module.BasicManager, cmd *cobra.Command, args []string) (err error) {
 	serverCtx := server.GetServerContextFromCmd(cmd)
 	clientCtx := client.GetClientContextFromCmd(cmd)
 
-	const genesisDocModule = "genesisDoc"
-
-	cdc := clientCtx.Codec
-
-	// Load default if passed no args, otherwise load passed file
 	var genesis string
 	if len(args) == 0 {
 		genesis = serverCtx.Config.GenesisFile()
@@ -106,57 +104,107 @@ func validateGenesisStream(mbm module.BasicManager, cmd *cobra.Command, args []s
 		genesis = args[0]
 	}
 
-	lines := genesistypes.IngestGenesisFileLineByLine(genesis)
+	file, err := os.Open(filepath.Clean(genesis))
+	if err != nil {
+		return fmt.Errorf("error opening genesis file %s: %w", genesis, err)
+	}
+	defer func() { _ = file.Close() }()
 
-	genesisCh := make(chan json.RawMessage)
-	doneCh := make(chan struct{})
-	errCh := make(chan error, 1)
+	var genesisCh chan json.RawMessage
+	var resultCh chan error
+	finishModule := func() error {
+		if genesisCh == nil {
+			return nil
+		}
+		close(genesisCh)
+		validationErr := <-resultCh
+		genesisCh = nil
+		resultCh = nil
+		return validationErr
+	}
+	defer func() {
+		if validationErr := finishModule(); err == nil {
+			err = validationErr
+		}
+	}()
+
 	seenModules := make(map[string]bool)
 	prevModule := ""
-	var moduleName string
-	var genDoc *tmtypes.GenesisDoc
-	go func() {
-		for line := range lines {
-			moduleState, err := parseModule(line)
-			// determine module name or genesisDoc
-			if err != nil {
-				genDoc, err = tmtypes.GenesisDocFromJSON([]byte(line))
-				if err != nil {
-					errCh <- fmt.Errorf("error unmarshalling genesis doc %s: %s", genesis, err.Error())
-					return
+	headerValidated := false
+	reader := bufio.NewReader(file)
+	for {
+		if err := cmd.Context().Err(); err != nil {
+			return err
+		}
+		line, readErr := reader.ReadBytes('\n')
+		if readErr != nil && readErr != io.EOF {
+			return fmt.Errorf("error reading genesis file %s: %w", genesis, readErr)
+		}
+		if len(line) > 0 {
+			moduleState, parseErr := parseModule(string(line))
+			if parseErr != nil {
+				if _, err := tmtypes.GenesisDocFromJSON(line); err != nil {
+					return fmt.Errorf("error validating genesis doc %s: %w", genesis, err)
 				}
-				moduleName = genesisDocModule
+				if headerValidated {
+					return fmt.Errorf("module genesisDoc seen twice in genesis file")
+				}
+				if err := finishModule(); err != nil {
+					return err
+				}
+				headerValidated = true
+				prevModule = ""
 			} else {
-				moduleName = moduleState.AppState.Module
-			}
-			if seenModules[moduleName] {
-				errCh <- fmt.Errorf("module %s seen twice in genesis file", moduleName)
-				return
-			}
-			if prevModule != moduleName { // new module
-				if prevModule != "" && prevModule != genesisDocModule {
-					doneCh <- struct{}{}
-				}
-				seenModules[prevModule] = true
-				if moduleName != genesisDocModule {
-					go mbm.ValidateGenesisStream(cdc, clientCtx.TxConfig, moduleName, genesisCh, doneCh, errCh)
-					genesisCh <- moduleState.AppState.Data
-				} else {
-					err = genDoc.ValidateAndComplete()
-					if err != nil {
-						errCh <- fmt.Errorf("error validating genesis doc %s: %s", genesis, err.Error())
+				moduleName := moduleState.AppState.Module
+				if prevModule != moduleName {
+					if err := finishModule(); err != nil {
+						return err
+					}
+					if seenModules[moduleName] {
+						return fmt.Errorf("module %s seen twice in genesis file", moduleName)
+					}
+					seenModules[moduleName] = true
+					prevModule = moduleName
+					if validator, ok := mbm[moduleName]; ok {
+						genesisCh = make(chan json.RawMessage)
+						resultCh = make(chan error, 1)
+						go func(ch <-chan json.RawMessage, result chan<- error) {
+							result <- validator.ValidateGenesisStream(clientCtx.Codec, clientCtx.TxConfig, ch)
+						}(genesisCh, resultCh)
 					}
 				}
-			} else { // same module
-				genesisCh <- moduleState.AppState.Data
+				if genesisCh != nil {
+					select {
+					case genesisCh <- moduleState.AppState.Data:
+					case validationErr := <-resultCh:
+						close(genesisCh)
+						genesisCh = nil
+						resultCh = nil
+						if validationErr == nil {
+							return fmt.Errorf("module %s validator stopped before input completed", moduleName)
+						}
+						return validationErr
+					case <-cmd.Context().Done():
+						return cmd.Context().Err()
+					}
+				}
 			}
-			prevModule = moduleName
 		}
-		fmt.Printf("File at %s is a valid genesis file\n", genesis)
-		errCh <- nil
-	}()
-	err := <-errCh
-	return err
+		if readErr == io.EOF {
+			break
+		}
+	}
+	if !headerValidated {
+		return fmt.Errorf("genesis file %s is missing a valid genesis header", genesis)
+	}
+	if err := finishModule(); err != nil {
+		return err
+	}
+	if err := cmd.Context().Err(); err != nil {
+		return err
+	}
+	cmd.Printf("File at %s is a valid genesis file\n", genesis)
+	return nil
 }
 
 // validateGenDoc reads a genesis file and validates that it is a correct

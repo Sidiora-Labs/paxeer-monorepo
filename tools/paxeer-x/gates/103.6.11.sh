@@ -6,6 +6,7 @@ import contextlib
 import fcntl
 import hashlib
 import json
+import math
 import os
 from pathlib import Path
 import re
@@ -125,6 +126,22 @@ def source_identity():
     }
 
 
+def restore_deadline(built):
+    global DEADLINE
+    recorded = built["deadline_epoch"]
+    require(
+        type(recorded) in (int, float) and math.isfinite(recorded) and recorded > 0,
+        "finite original task deadline required",
+    )
+    explicit = os.environ.get("PAXEER_X_TASK_DEADLINE_EPOCH")
+    require(
+        explicit is None or float(explicit) == recorded,
+        "original task deadline changed",
+    )
+    DEADLINE = recorded
+    remaining(1)
+
+
 def remaining(bound):
     seconds = min(bound, DEADLINE - time.time())
     require(seconds > 0, "original task deadline exhausted")
@@ -207,6 +224,8 @@ def tool(name, override=None):
 
 
 def build(directory):
+    require(math.isfinite(DEADLINE) and DEADLINE > 0, "finite task deadline required")
+    remaining(1)
     require(
         not (directory / "build-manifest.json").exists(), "task build already recorded"
     )
@@ -304,7 +323,7 @@ def build(directory):
                     "test",
                     "--locked",
                     "--manifest-path",
-                    workspace + "/Cargo.toml",
+                    "services/" + workspace + "/Cargo.toml",
                     "-p",
                     package,
                     *options,
@@ -417,7 +436,7 @@ def qualify(directory):
         built["identity"] == source_identity(),
         "compiled source revision/tree/bytes changed",
     )
-    require(built["deadline_epoch"] == DEADLINE, "original task deadline changed")
+    restore_deadline(built)
     require(
         set(built["native"])
         == set(NATIVE) | {"layerx-genesis-build", "runtime_library"},

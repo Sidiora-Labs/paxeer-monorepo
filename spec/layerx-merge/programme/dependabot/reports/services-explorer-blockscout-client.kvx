@@ -1,0 +1,62 @@
+[alert.GHSA-8r9p-f939-6h3c]
+package = "follow-redirects"
+manifest = "services/explorer/services/libs/blockscout-client/yarn.lock"
+verdict = "upgraded"
+version_before = "1.16.0"
+version_after = "1.16.2"
+pinned_by = ""
+revision = "acb0ede973ea7d56086f9026bd71bd4d78145ae9"
+
+[alert.GHSA-q3jh-wrc6-jgq8]
+package = "follow-redirects"
+manifest = "services/explorer/services/libs/blockscout-client/yarn.lock"
+verdict = "upgraded"
+version_before = "1.16.0"
+version_after = "1.16.2"
+pinned_by = ""
+revision = "acb0ede973ea7d56086f9026bd71bd4d78145ae9"
+
+[alert.GHSA-mrwp-f3q8-3g9p]
+package = "follow-redirects"
+manifest = "services/explorer/services/libs/blockscout-client/yarn.lock"
+verdict = "upgraded"
+version_before = "1.16.0"
+version_after = "1.16.2"
+pinned_by = ""
+revision = "acb0ede973ea7d56086f9026bd71bd4d78145ae9"
+
+[alert.GHSA-g3hv-75wg-m249]
+package = "minimatch"
+manifest = "services/explorer/services/libs/blockscout-client/yarn.lock"
+verdict = "upgraded"
+version_before = "4.2.5"
+version_after = "11.0.1"
+pinned_by = ""
+revision = "acb0ede973ea7d56086f9026bd71bd4d78145ae9"
+
+[alert.GHSA-28wg-ghj8-5hjv]
+package = "nanoid"
+manifest = "services/explorer/services/libs/blockscout-client/yarn.lock"
+verdict = "upgraded"
+version_before = "3.3.8"
+version_after = "3.3.18"
+pinned_by = ""
+revision = "acb0ede973ea7d56086f9026bd71bd4d78145ae9"
+
+[alert.GHSA-2v37-7h3g-55p8]
+package = "nanoid"
+manifest = "services/explorer/services/libs/blockscout-client/yarn.lock"
+verdict = "upgraded"
+version_before = "3.3.8"
+version_after = "3.3.18"
+pinned_by = ""
+revision = "acb0ede973ea7d56086f9026bd71bd4d78145ae9"
+
+[alert.GHSA-xwg4-73v4-xw9w]
+package = "nanoid"
+manifest = "services/explorer/services/libs/blockscout-client/yarn.lock"
+verdict = "upgraded"
+version_before = "3.3.8"
+version_after = "3.3.18"
+pinned_by = ""
+revision = "acb0ede973ea7d56086f9026bd71bd4d78145ae9"

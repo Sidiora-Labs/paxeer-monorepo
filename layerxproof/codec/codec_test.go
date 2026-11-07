@@ -47,6 +47,24 @@ func array(t *testing.T, v testvectors.Vector, key string) [32]byte {
 	return out
 }
 
+func stateWitnessField(t *testing.T, v testvectors.Vector) []byte {
+	t.Helper()
+	raw := field(t, v, "witness")
+	if v.Name == "module-tree-width" {
+		// The historical negative vector uses eleven leaves, which is now a
+		// canonical native width. Keep testing an out-of-contract width with
+		// the original refusal assertions and unchanged sibling path/root.
+		const depth = 4
+		countOffset := len(raw) - 5 - depth*32
+		if countOffset < 0 || binary.BigEndian.Uint32(raw[countOffset:]) != 11 || raw[countOffset+4] != depth {
+			t.Fatal("unexpected historical module-tree-width layout")
+		}
+		raw = bytes.Clone(raw)
+		binary.BigEndian.PutUint32(raw[countOffset:], uint32(codec.MaxStateModuleID)+2)
+	}
+	return raw
+}
+
 func TestReceiptDecodeMatchesRustCanonicalForm(t *testing.T) {
 	for _, v := range load(t, "receipts") {
 		raw := field(t, v, "receipt")
@@ -199,7 +217,7 @@ func effectBoundLayoutReceipt(t *testing.T, raw []byte, protocol, moduleID uint1
 func TestStateWitnessAgainstRustFixture(t *testing.T) {
 	for _, v := range load(t, "state") {
 		root := array(t, v, "state_root")
-		witness, err := codec.DecodeStateWitness(field(t, v, "witness"))
+		witness, err := codec.DecodeStateWitness(stateWitnessField(t, v))
 		if err == nil {
 			err = witness.Verify(root)
 		}
@@ -239,7 +257,7 @@ func TestStateWitnessRefusalClasses(t *testing.T) {
 			continue
 		}
 		matched++
-		witness, err := codec.DecodeStateWitness(field(t, v, "witness"))
+		witness, err := codec.DecodeStateWitness(stateWitnessField(t, v))
 		if err == nil {
 			err = witness.Verify(array(t, v, "state_root"))
 		}
@@ -268,9 +286,16 @@ func TestAccountValueAgainstRustFixture(t *testing.T) {
 	}
 }
 
-// The C core produced contracts/config/native-state-proofs.json; every entry
-// must decode and fold to its committed root, and refuse a different root.
+// Consume current registered-host witnesses and the retained twelve-leaf C
+// codec fixture alongside the historical core proofs.
 func TestNativeStateProofsFromCore(t *testing.T) {
+	repairM1CurrentHost(t)
+	repairM1Compatibility(t)
+	testHistoricalNativeStateProofsFromCore(t)
+}
+
+func testHistoricalNativeStateProofsFromCore(t *testing.T) {
+	t.Helper()
 	root, err := testvectors.RepositoryRoot()
 	if err != nil {
 		t.Fatal(err)

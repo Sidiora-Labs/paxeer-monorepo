@@ -41,18 +41,26 @@ fn load_vectors(path: &Path) -> Vec<TestVector> {
         .unwrap_or_else(|error| panic!("failed to parse {}: {}", path.display(), error))
 }
 
-fn run_vector(vector: &TestVector) -> bool {
-    if vector.hex_generator.is_some() {
-        return false;
+fn generate_hex(generator: &str) -> Vec<u8> {
+    match generator {
+        "layerx_convention + bytes_tag + length(4096) + repeat(0x42, 4096)" => {
+            let mut bytes = vec![0x01, 0x20, 0x00, 0x00, 0x10, 0x00];
+            bytes.extend_from_slice(&[0x42; 4096]);
+            bytes
+        }
+        _ => panic!("Unknown calldata hex_generator syntax: {generator}"),
     }
+}
 
-    let hex = vector.hex.as_deref().unwrap_or_else(|| {
-        panic!(
-            "Vector '{}' has neither literal hex nor a generator",
+fn run_vector(vector: &TestVector) -> bool {
+    let bytes = match (&vector.hex, &vector.hex_generator) {
+        (Some(hex), None) => hex_decode(hex),
+        (None, Some(generator)) => generate_hex(generator),
+        _ => panic!(
+            "Vector '{}' must have exactly one literal or generator",
             vector.description
-        )
-    });
-    let bytes = hex_decode(hex);
+        ),
+    };
     let result = Calldata::from_bytes(&bytes);
 
     match vector.expected.as_str() {
@@ -146,7 +154,7 @@ fn invalid_malformed() {
 
 #[test]
 fn boundaries_depth_and_size() {
-    test_vector_directory("boundaries", 10, 1);
+    test_vector_directory("boundaries", 11, 0);
 }
 
 #[test]
@@ -373,4 +381,43 @@ fn canonical_variable_array_roundtrip() {
         decoded.payload(),
         &[0x31, 0x00, 0x00, 0x00, 0x01, 0x20, 0x00, 0x00, 0x00, 0x01, b'x']
     );
+}
+
+#[test]
+fn generated_boundary_decodes_exact_published_bytes() {
+    let path = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../tests/vectors/calldata/boundaries/depth_and_size.json");
+    let vectors = load_vectors(&path);
+    let generated: Vec<_> = vectors
+        .iter()
+        .filter(|vector| vector.hex_generator.is_some())
+        .collect();
+    assert_eq!(generated.len(), 1);
+    let vector = generated[0];
+    assert_eq!(vector.expected, "pass");
+    assert!(run_vector(vector));
+    let bytes = generate_hex(vector.hex_generator.as_deref().unwrap());
+    assert_eq!(bytes.len(), 4102);
+    assert_eq!(&bytes[..6], &[0x01, 0x20, 0, 0, 0x10, 0]);
+    assert_eq!(&bytes[6..], &[0x42; 4096]);
+    let decoded = Calldata::from_bytes(&bytes).unwrap();
+    assert_eq!(decoded.payload(), &bytes[1..]);
+    assert_eq!(decoded.as_bytes(), bytes);
+    let mut producer = Calldata::new();
+    producer.encode_bytes(&[0x42; 4096]).unwrap();
+    assert_eq!(producer.as_bytes(), bytes);
+}
+
+#[test]
+fn unknown_generator_syntax_fails_explicitly() {
+    for syntax in [
+        "unknown",
+        "layerx_convention + bytes_tag + length(4096) + repeat(0x42, 4095)",
+        "layerx_convention + bytes_tag + length(4294967295) + repeat(0x42, 4294967295)",
+    ] {
+        let failure = std::panic::catch_unwind(|| generate_hex(syntax)).unwrap_err();
+        let message = failure.downcast_ref::<String>().unwrap();
+        assert!(message.contains("Unknown calldata hex_generator syntax:"));
+        assert!(message.contains(syntax));
+    }
 }

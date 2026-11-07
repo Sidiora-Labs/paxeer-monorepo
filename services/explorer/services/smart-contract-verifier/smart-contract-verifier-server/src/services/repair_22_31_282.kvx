@@ -1,0 +1,19 @@
+[repair.22.31.282]
+status = "implemented-awaiting-qualification"
+acceptance = "22998.1"
+baseline = "No previous hf-build/hf-done ledger exists; pre-change verification was not run because the ordered task instructions prohibit tests before full implementation and prohibit running verify_cmd by hand."
+qualification_failure = "Candidate 7c07e0797cc79c77bea5c3b189b07d24da1afc6d: cg spec done 22.31.282 -f layerx-merge --root /work/paxeer-monorepo exited 1; /out/logs/verify-1.log records both tests failing because the catalogue contains v0.4.10+commit.9e8cc01b rather than v0.4.10+commit.f0d539ae; repair aligns the requested version with that producer without changing assertions."
+gate_constraint = "The inherited positive old-solc compilation assertions require the published catalogue and a native compiler; retaining those assertions as requested does not satisfy step 8's self-contained gate restriction."
+continuation = "Attempt 4 provisions the exact requested old-solc executable with the production checksum-enforcing ListFetcher, closes the installation write handle, and authenticates its checksum, ownership, permissions and executable version with the production cache validator before starting either real service; successful-request assertions now include the HTTP response body on failure, and sentinel assertions remain unchanged."
+compiler_wiring_request = "Domain 14: services/explorer/services/smart-contract-verifier/smart-contract-verifier/src/compiler/fetcher.rs should close writable compiler handles before SolcValidator executes a downloaded file; the current write_executable invokes validation while NamedTempFile is open for writing, which Linux rejects with ETXTBSY."
+qualification_repair = "Revision 7b614a7928cd63bb425b7eefa0879de898433471 built successfully; cg spec done 22.31.282 -f layerx-merge --root /work/paxeer-monorepo exited 1 (/out/logs/verify-1.log): old-solc compilation and health passed, but the library's earlier path rejection bypassed the service error wording. Move uniform path validation before request conversion, retain standard-json parse errors through the existing response macros, and extend rejection coverage to Windows prefixes, backslash traversal and NUL bytes."
+
+[finding.absolute-source-path-write]
+test = "absolute_source_path_write"
+implementation = "All four Solidity service handlers reject rooted, parent-component and non-file source paths before calling compilation; real old-solc route tests protect an external sentinel, an external symlink target and the cached compiler."
+wiring_request = "Domain 14: services/explorer/services/smart-contract-verifier/smart-contract-verifier/src/verify/solc_compiler_cli.rs must independently reject rooted/parent paths and use confined, symlink-safe creation; this library path is outside this task scope."
+
+[finding.health-unknown-service]
+test = "health_unknown_service"
+implementation = "HealthService accepts an explicit registered-service set and reports NOT_FOUND for all other nonempty names, retaining whole-server and health-service probes; real gRPC router tests cover an enabled Solidity verifier and an omitted Vyper verifier, and HTTP tests retain /health."
+wiring_request = "Domain 14: services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/src/run.rs must construct HealthService::new with NamedService names from the Some verifier instances already registered in grpc_router; this wiring path is outside this task scope, so default production construction remains limited to aggregate and health-service probes."

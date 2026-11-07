@@ -8,7 +8,9 @@ use layerx_bridge_relayer::attestation::{
     ethereum_address, to_attestor_signature, uint256_from_u64, InboundAttestation,
     OutboundAttestation,
 };
-use layerx_bridge_relayer::attestation_api::{deposit_answer, release_answer, AttestationView};
+use layerx_bridge_relayer::attestation_api::{
+    deposit_answer, release_answer, AttestationView, AuthenticatedPolicy, PolicyDestination,
+};
 use layerx_bridge_relayer::cosign::CosignDirectory;
 use layerx_bridge_relayer::hex;
 use layerx_bridge_relayer::journal::{
@@ -87,6 +89,46 @@ fn sign(digest: &[u8; 32], seed: u8) -> ([u8; 20], [u8; 65]) {
     )
 }
 
+// Direct answer/encoding cases use destination policies too. The companion
+// repair path obtains these policies through the production relayer and HTTP.
+fn snapshot(
+    journal: &Journal,
+    cosign: Option<&CosignDirectory>,
+    threshold: Option<usize>,
+) -> AttestationView {
+    let attestors: Vec<_> = (1..=3).map(|seed| sign(&[0; 32], seed).0).collect();
+    let mut policies = BTreeMap::new();
+    if let Some(threshold) = threshold {
+        for item in journal.state().items.values() {
+            let destination = match &item.observation {
+                Observation::Inbound {
+                    chain_id, vault, ..
+                } => PolicyDestination::Inbound {
+                    chain_id: 125,
+                    bridge: layerx_bridge_relayer::abi::LAYERX_BRIDGE_PRECOMPILE,
+                    source_chain_id: *chain_id,
+                    source_vault: *vault,
+                },
+                Observation::Outbound {
+                    chain_id, vault, ..
+                } => PolicyDestination::EvmRelease {
+                    chain_id: *chain_id,
+                    vault: *vault,
+                },
+            };
+            policies.insert(
+                destination,
+                AuthenticatedPolicy {
+                    destination,
+                    threshold,
+                    attestors: attestors.clone(),
+                },
+            );
+        }
+    }
+    AttestationView::from_journal(journal, cosign, &policies)
+}
+
 fn answer(view: &AttestationView, attestation: &InboundAttestation) -> Value {
     deposit_answer(
         view,
@@ -125,11 +167,7 @@ fn an_observed_deposit_answers_the_bundle_fields_the_bridge_app_reads() {
         let (signer, signature) = sign(&digest, 1);
         let cosign = CosignDirectory::new(directory.0.join("cosign"));
         must(cosign.publish(&digest, &signer, &signature));
-        let view = AttestationView {
-            items: journal.state().items.clone(),
-            signatures: BTreeMap::from([(digest, cosign.collect(&digest))]),
-            thresholds: BTreeMap::from([(attestation.chain_id, 2)]),
-        };
+        let view = snapshot(&journal, Some(&cosign), Some(2));
         let result = answer(&view, &attestation);
         assert_eq!(
             result,
@@ -227,11 +265,7 @@ fn deposit_status_follows_the_collected_signatures() {
         attestation.log_index,
     );
     let cosign = CosignDirectory::new(directory.0.join("cosign"));
-    let mut view = AttestationView {
-        items: journal.state().items.clone(),
-        signatures: BTreeMap::from([(digest, cosign.collect(&digest))]),
-        thresholds: BTreeMap::from([(attestation.chain_id, 2)]),
-    };
+    let mut view = snapshot(&journal, Some(&cosign), Some(2));
     assert_eq!(answer(&view, &attestation)["status"], "observed");
     assert_eq!(answer(&view, &attestation)["signatures"], json!([]));
 
@@ -240,7 +274,7 @@ fn deposit_status_follows_the_collected_signatures() {
         item: key,
         signature: own_signature,
     }));
-    view.items = journal.state().items.clone();
+    view = snapshot(&journal, Some(&cosign), Some(2));
     assert_eq!(answer(&view, &attestation)["status"], "attesting");
     assert_eq!(
         answer(&view, &attestation)["signatures"],
@@ -281,18 +315,19 @@ fn deposit_status_follows_the_collected_signatures() {
         .collect();
     assert_eq!(answer(&view, &attestation)["signatures"], json!(encoded));
 
-    view.thresholds.insert(attestation.chain_id, 4);
+    view = snapshot(&journal, Some(&cosign), Some(4));
     assert_eq!(answer(&view, &attestation)["status"], "attesting");
-    view.thresholds.insert(attestation.chain_id, 0);
+    view = snapshot(&journal, Some(&cosign), Some(0));
     assert_eq!(answer(&view, &attestation)["status"], "attesting");
-    view.thresholds.remove(&attestation.chain_id);
+    view = snapshot(&journal, Some(&cosign), None);
     assert_eq!(answer(&view, &attestation)["status"], "attesting");
-    view.thresholds.insert(attestation.chain_id, 1);
+    view = snapshot(&journal, Some(&cosign), Some(1));
     view.signatures.clear();
     assert_eq!(answer(&view, &attestation)["status"], "ready");
 
     drop(journal);
-    view.items = directory.journal().state().items.clone();
+    let replayed = directory.journal();
+    view = snapshot(&replayed, None, Some(1));
     assert_eq!(answer(&view, &attestation)["status"], "ready");
 }
 
@@ -346,11 +381,7 @@ fn an_observed_release_answers_the_bundle_fields_the_bridge_app_reads() {
         let (own_signer, own_signature) = sign(&digest, 1);
         let (peer, peer_signature) = sign(&digest, 2);
         must(cosign.publish(&digest, &peer, &peer_signature));
-        let mut view = AttestationView {
-            items: journal.state().items.clone(),
-            signatures: BTreeMap::from([(digest, cosign.collect(&digest))]),
-            thresholds: BTreeMap::from([(attestation.chain_id, 2)]),
-        };
+        let mut view = snapshot(&journal, Some(&cosign), Some(2));
         let mut expected = json!({
             "chainId": "18446744073709551615",
             "vault": format!("0x{}", "cd".repeat(20)),
@@ -369,7 +400,7 @@ fn an_observed_release_answers_the_bundle_fields_the_bridge_app_reads() {
             item: key,
             signature: own_signature,
         }));
-        view.items = journal.state().items.clone();
+        view = snapshot(&journal, Some(&cosign), Some(2));
         view.signatures.clear();
         expected["signatures"] = json!([hex::prefixed(&own_signature)]);
         expected["status"] = json!("attesting");
@@ -390,15 +421,15 @@ fn an_observed_release_answers_the_bundle_fields_the_bridge_app_reads() {
         assert_eq!(release_bundle(&view, &attestation), expected);
 
         for threshold in [0, 3] {
-            view.thresholds.insert(attestation.chain_id, threshold);
+            view = snapshot(&journal, Some(&cosign), Some(threshold));
             assert_eq!(release_bundle(&view, &attestation)["status"], "attesting");
         }
-        view.thresholds.remove(&attestation.chain_id);
+        view = snapshot(&journal, Some(&cosign), None);
         assert_eq!(release_bundle(&view, &attestation)["status"], "attesting");
-        view.thresholds.insert(attestation.chain_id, 2);
+        view = snapshot(&journal, Some(&cosign), Some(2));
         drop(journal);
         journal = directory.journal();
-        view.items = journal.state().items.clone();
+        view = snapshot(&journal, Some(&cosign), Some(2));
         assert_eq!(release_bundle(&view, &attestation), expected);
     }
 }
@@ -469,4 +500,13 @@ fn an_unobserved_release_answers_nothing() {
         ),
         None
     );
+}
+
+#[allow(dead_code)]
+#[path = "support/repair_22_33_68.rs"]
+mod repair_22_33_68_support;
+
+#[test]
+fn repair_22_33_68_policy_restart_and_rotation() {
+    repair_22_33_68_support::policy_restart_and_rotation();
 }

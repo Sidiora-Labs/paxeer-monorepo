@@ -1,0 +1,20 @@
+[repair.22.31.344]
+audit = "22.30.77"
+acceptance = "22998.1"
+test_class = "com.sidiora.layerx.sdk.Repair2231344Test"
+evidence = "The bounded hf-build and hf-done ledger records the candidate revision, exact command, exit code and private log; this source record does not itself claim qualification."
+baseline = "Not run: the explicit task gate order prohibits tests before complete implementation and prohibits invoking verify_cmd by hand; the initial ledger contained no prior gate runs, so no pre-change test failure is claimed."
+
+[finding.lifecycle-abi-range]
+repair = "NativeProgramLifecycle.code delegates admission to GeneratedReceiptContract.supportsProgramGuestAbi, the same generated contract used by NativeProgramCall; its generator validates named versions against programs/sdk/rust/src/abi_policy.rs."
+tests = ["lifecycleAdmissionMatchesSharedGuestAbiContract", "abi4AndAbi5DeployAndMonotonicUpgradeTransactionsBindAt101D", "unsupportedGuestAbisAreRefusedByConstructorsAndWireDecoders", "newGuestAbisPreserveCodeIntegrityAndSignedTransactionBinding", "recordedNativeLifecycleEncodersRoundTripUnchanged", "recordedProgramReceiptTraversesHttpVerifierAndPortableDecoder"]
+proof = "All admitted guest ABIs traverse real lifecycle constructors, payload encoders/decoders, precompile ABI calldata and signed EVM transaction binding at 0x101D; ABI 4/5 upgrades bind each preceding code hash, and unsupported versions and code/transaction mutations are refused. Unmodified native encoder fixtures and the RPC producer's signed program-call receipt traverse the real HTTP, verifier and portable decoder paths."
+limit = "The ABI 4/5 transaction tests prove JVM wire admission and binding, not node execution or runtime downgrade refusal; the recorded program-call receipt is independent evidence and is never relabelled as an ABI 4/5 deploy or upgrade receipt."
+
+[wiring]
+execution_recordings = "precompiles/layerxprograms and rpc/sequencer_receipt_vectors_test.go — owning domain: native Programs precompile and sequencer RPC; record real ABI 4/5 deployments, same-version and increasing upgrades, unsupported-version and downgrade refusals, with signed receipts, raw transactions and resulting program heads for JVM replay."
+task_record = "spec/layerx-merge/spec.kvx — owning domain 8: copy the lifecycle-abi-range test mapping, baseline gate-order conflict and execution-recording request from this scoped repair record; this task cannot edit spec files."
+
+[gotcha.lifecycle-fixture-versions]
+observed = "The native-program-deploy-v4.json and native-program-upgrade-v4.json filenames do not denote guest ABI 4: both contain guest ABI 2, and their provenance explicitly makes no execution claim."
+action = "Keep those recorded payloads unchanged as encoder vectors; construct admitted ABI 4/5 transactions through the real JVM producer and request actual node execution recordings from their owning domain."

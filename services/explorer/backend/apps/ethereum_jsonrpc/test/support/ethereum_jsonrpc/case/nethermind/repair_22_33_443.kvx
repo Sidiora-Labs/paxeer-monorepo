@@ -1,0 +1,8 @@
+[repair.22.33.443]
+finding = "external-test-endpoint-142"
+proof = "EthereumJSONRPC.Repair2233443Test: explicit local pair verifies chain 125 and transports recorded blocks and heads; wrong HTTP chain; mismatched WebSocket chain; explicit compatibility profile; invalid configuration fails closed."
+implementation = "HTTPWebSocket.setup reads an explicit paired configuration, requires loopback for Paxeer chain 125, verifies both real transports before exposing context, and permits Nethermind only through the explicit compatibility profile."
+qualification = "Disposable loopback Cowboy node serves committed Paxeer block/head recordings through production HTTP.Tesla, WebSocketClient, JSON-RPC and subscription consumers; runner ledger records verified candidate revision, command, exit and private log."
+baseline = "Not run: the ordered bounded gates prohibit a pre-implementation verify; the repair test did not exist in the starting tree. No pre-change failure is claimed."
+wiring_request = "Domain 14 owns test/support/ethereum_jsonrpc/web_socket/case/nethermind.ex: migrate its standalone hardcoded endpoint under its separately scoped audit repair; this helper no longer calls it."
+gotcha = "Production EthereumJSONRPC.json_rpc requires keyword transport options while WebSocket consumes a struct; the chain probe uses the real WebSocket transport directly, and subscriptions use the public consumer API."

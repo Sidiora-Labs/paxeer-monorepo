@@ -270,7 +270,8 @@ func getBody(t *testing.T, url string) (int, http.Header, []byte) {
 // Paxeer creation, display data and logo from the published document.
 func TestProductionLegacyReadsFromCanonicalStore(t *testing.T) {
 	ctx := context.Background()
-	f := loadCreationFixture(t)
+	keypair := repair1007Key(t)
+	f := repair1007Creator(loadCreationFixture(t), keypair)
 	pool := edgePool(t, "")
 	indexerSchema := edgeSchema(t, pool, "edge_indexer")
 	stream := "paxeer125-canonical"
@@ -285,7 +286,11 @@ func TestProductionLegacyReadsFromCanonicalStore(t *testing.T) {
 	}
 	client, objects := edgeObjects(t, "metadata-approved")
 	origin := "https://metadata.example"
-	media := ConnectedMedia{Metadata: V2ContractHandlers{Store: store, Canonical: PostgresCanonicalSource{Schema: indexerSchema, CanonicalStreamID: stream}}, Objects: S3AssetObjects{Client: client, PublicBucket: objects.Bucket, QuarantineBucket: objects.Bucket + "-quarantine", PublicOrigin: origin}}
+	visibilitySchema := edgeSchema(t, pool, "edge_legacy_visibility")
+	if _, e = pool.Exec(ctx, "CREATE TABLE "+pgx.Identifier{visibilitySchema, "safety_visibility"}.Sanitize()+"(target_type text NOT NULL,target_id text NOT NULL,status text NOT NULL,revision bigint NOT NULL,PRIMARY KEY(target_type,target_id)); CREATE VIEW "+pgx.Identifier{visibilitySchema, "safety_visibility_v2"}.Sanitize()+" AS SELECT target_type,target_id,status,revision FROM "+pgx.Identifier{visibilitySchema, "safety_visibility"}.Sanitize()); e != nil {
+		t.Fatal(e)
+	}
+	media := ConnectedMedia{Metadata: V2ContractHandlers{Store: store, Canonical: PostgresCanonicalSource{Schema: indexerSchema, CanonicalStreamID: stream}}, Objects: S3AssetObjects{Client: client, PublicBucket: objects.Bucket, QuarantineBucket: objects.Bucket + "-quarantine", PublicOrigin: origin}, Moderation: PostgresVisibilityAuthority{Pool: pool, Schema: visibilitySchema}}
 	router := chi.NewRouter()
 	NewProductionLegacyReads(media, origin).RegisterRoutes(router)
 	media.RegisterApprovedObjects(router)
@@ -294,7 +299,7 @@ func TestProductionLegacyReadsFromCanonicalStore(t *testing.T) {
 	read := func(token string) types.PublicMetadata {
 		t.Helper()
 		status, header, body := getBody(t, server.URL+"/metadata/"+token)
-		if status != 200 || header.Get("Cache-Control") != "public, max-age=60" {
+		if status != 200 || header.Get("Cache-Control") != "no-store" {
 			t.Fatalf("GET /metadata/%s: %d %s", token, status, body)
 		}
 		var out types.PublicMetadata
@@ -315,29 +320,16 @@ func TestProductionLegacyReadsFromCanonicalStore(t *testing.T) {
 	// 2. A published document with an approved logo.
 	original := pngBytes(t, 640, 480)
 	originalHash := sha256.Sum256(original)
-	variant := pngBytes(t, 512, 384)
-	variantHash := sha256.Sum256(variant)
-	key := fmt.Sprintf("approved/%x/512/%x.png", originalHash, variantHash)
-	if _, e = client.PutObject(ctx, &s3.PutObjectInput{Bucket: aws.String(objects.Bucket), Key: aws.String(key), Body: bytes.NewReader(variant), ContentType: aws.String("image/png")}); e != nil {
+	asset := uuid.NewString()
+	document := map[string]any{"name": "Kindle Coin", "description": "Creator text", "tags": []string{"meme", "paxeer"}, "socials": []V2Social{{Label: "X", URL: "https://x.com/kindle"}, {Label: "Site", URL: "https://kindle.example"}, {Label: "TG", URL: "https://t.me/kindle"}}}
+	if _, e = pool.Exec(ctx, "INSERT INTO "+store.table("pools")+" VALUES($1,$2,$3)", f.Pool, f.Creator, f.Token); e != nil {
 		t.Fatal(e)
 	}
-	asset := uuid.NewString()
-	variants, _ := json.Marshal(map[string]string{"256": fmt.Sprintf("approved/%x/256/%x.png", originalHash, variantHash), "512": key, "1024": fmt.Sprintf("approved/%x/1024/%x.png", originalHash, variantHash)})
-	document := `{"name":"Kindle Coin","description":"Creator text","tags":["meme","paxeer"],"socials":[{"label":"X","url":"https://x.com/kindle"},{"label":"Site","url":"https://kindle.example"},{"label":"TG","url":"https://t.me/kindle"}]}`
+	decoded := repair1007PublishApproved(t, store, media.Objects, f, keypair, original, asset, document)
+	variant := decoded.Variants[512]
+	variantHash := sha256.Sum256(variant)
+	key := fmt.Sprintf("approved/%x/512/%x.png", originalHash, variantHash)
 	updated := time.Date(2026, 10, 13, 9, 0, 0, 0, time.UTC)
-	for _, statement := range []struct {
-		sql  string
-		args []any
-	}{
-		{"INSERT INTO " + store.table("pools") + " VALUES($1,$2,$3)", []any{f.Pool, f.Creator, f.Token}},
-		{"INSERT INTO " + store.table("assets") + "(id,pool,state,hash,size,object_key,scanner_engine,scanner_revision) VALUES($1,$2,'APPROVED',$3,$4,$5,'ClamAV 1.4.3','27792')", []any{asset, f.Pool, hex.EncodeToString(originalHash[:]), len(original), "quarantine/" + asset}},
-		{"INSERT INTO " + store.table("asset_details_v2") + "(asset_id,mime,width,height,variants) VALUES($1,'image/png',640,480,$2::jsonb)", []any{asset, string(variants)}},
-		{"INSERT INTO " + store.table("v2_documents") + "(pool,revision,document,asset_id,updated_at) VALUES($1,1,$2::jsonb,$3,$4)", []any{f.Pool, document, asset, updated}},
-	} {
-		if _, e = pool.Exec(ctx, statement.sql, statement.args...); e != nil {
-			t.Fatal(e)
-		}
-	}
 	got = read(f.Token + ".json")
 	logo := origin + "/logo/" + f.Token + ".png"
 	if *got.Name != "Kindle Coin" || *got.Symbol != f.Symbol || got.Description == nil || *got.Description != "Creator text" || strings.Join(got.Tags, ",") != "meme,paxeer" || got.Socials.Twitter == nil || *got.Socials.Twitter != "https://x.com/kindle" || got.Socials.Website == nil || *got.Socials.Website != "https://kindle.example" || got.Socials.Telegram == nil || got.Socials.Discord != nil || got.Images.Logo == nil || *got.Images.Logo != logo || got.Images.Banner != nil || got.UpdatedAt == nil || *got.UpdatedAt != updated.UnixMilli() {
@@ -381,7 +373,7 @@ func TestProductionLegacyReadsFromCanonicalStore(t *testing.T) {
 	}
 
 	// 4. Moderation removal hides creator content and the logo.
-	if _, e = pool.Exec(ctx, "INSERT INTO "+store.table("documents")+"(pool,moderation_revision,blocked) VALUES($1,3,true)", f.Pool); e != nil {
+	if _, e = pool.Exec(ctx, "INSERT INTO "+pgx.Identifier{visibilitySchema, "safety_visibility"}.Sanitize()+"(target_type,target_id,status,revision) VALUES('token',$1,'removed',3)", f.Pool); e != nil {
 		t.Fatal(e)
 	}
 	got = read(f.Token)
@@ -390,6 +382,11 @@ func TestProductionLegacyReadsFromCanonicalStore(t *testing.T) {
 	}
 	if status, _, _ = getBody(t, server.URL+"/logo/"+f.Token+".png"); status != 404 {
 		t.Fatalf("blocked logo: %d", status)
+	}
+
+	status, _, body = getBody(t, server.URL+"/metadata/batch?addresses="+f.Token)
+	if status != 200 || json.Unmarshal(body, &batch) != nil || batch[f.Token].Description != nil || batch[f.Token].Images.Logo != nil || batch[f.Token].Name == nil || *batch[f.Token].Name != f.Name {
+		t.Fatalf("blocked batch leaked: %d %s", status, body)
 	}
 
 	// 5. An incomplete canonical block fails closed (no guessed identity).

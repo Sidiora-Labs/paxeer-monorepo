@@ -1,0 +1,29 @@
+[manifest]
+task = "22.32.93"
+domain = 10
+owner_role = "fm-human"
+pages = 3
+
+[page.1]
+path = "docs/wiki/HostedInternal.md"
+status = "stale"
+bytes = 30340
+source_1 = "record 22.30.102 [doc.10] (stale): Read in full. Rewrite the exact locations in hosted-events-wiki: The event-source section says no layerx-human workload is declared and no source under services/human/crates or hosted sources issues POST /internal/v1/observe (232-250). Hosted human/deployment.yaml now declares the Human service and node-pod selector, and human-service/src/event_producer.rs builds the internal producer client and durable observation outbox. The blanket missing-producer statement is stale."
+source_2 = "record 22.30.183 [doc.11] (stale): Lines 71-81 incorrectly deny installation of internal workloads; lines 232-233 incorrectly deny the hosted Human workload. The current beta image table and apply path contain both."
+source_3 = "record 22.30.32 [doc.06] (stale): Read complete page; line 69 in internal_wiki identifies the stale statements and owning rewrite proposal."
+source_4 = "record 22.30.71 [doc.7] (stale): KMS lines 196-198 and 416 omit the supported secp256k1 signing/key contract and its digest and encoding requirements. Mirrored operator content was compared with the real KMS producer."
+
+[page.2]
+path = "docs/wiki/HumanCustody.md"
+status = "stale"
+bytes = 4489
+source_1 = "record 22.30.103 [doc.01] (stale): Read in full. Lines 38-45 and 55-117 describe old disclosure/custody boundaries, export exclusion and dual finality; rewrite for current signing, owner export and merged-chain rungs."
+
+[page.3]
+path = "docs/wiki/HumanJourneys.md"
+status = "misleading"
+bytes = 11075
+source_1 = "record 22.30.102 [doc.11] (stale): Read in full. Rewrite the exact locations in human-journey-map: The journey guide calls the schema minor 4 although v1.kvx declares 10. It lists wallet-binding/deposit/withdraw/exit as active journeys and gives active operation instructions for routes now returning 410 operation-retired; its onboarding and verification discussion retains the old custody/settlement model."
+source_2 = "record 22.30.103 [doc.02] (stale): Read in full. Lines 3-4 misstate the current schema minor; lines 31 and 99-178 present retired journeys and their initiation operations as current."
+source_3 = "record 22.30.105 [doc.10] (misleading): Lines 31-35 and the wallet-binding/deposit/withdraw/exit sections at 99-136 and 158-187 present retired operations as live; lines 75-78 allow onboarding at receipt-verified."
+source_4 = "record 22.30.106 [doc.1] (misleading): Full page read. Lines 31-36 and later deposit/withdraw/exit and onboarding tables describe retired custody journeys and receipt-only activation; rewrite for the committed single-chain lifecycle."

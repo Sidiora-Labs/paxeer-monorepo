@@ -237,14 +237,18 @@ pub enum MemoryGrowCost {
     Linear(NonZeroU32),
 }
 
-#[cfg(feature = "bulk")]
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 enum DynamicHelper {
     MemoryGrow(u32, NonZeroU32),
+    #[cfg(feature = "bulk")]
     MemoryCopy(u32, u32, NonZeroU32),
+    #[cfg(feature = "bulk")]
     MemoryFill(u32, NonZeroU32),
+    #[cfg(feature = "bulk")]
     MemoryInit(u32, u32, NonZeroU32),
+    #[cfg(feature = "bulk")]
     TableCopy(u32, u32, NonZeroU32),
+    #[cfg(feature = "bulk")]
     TableInit(u32, u32, NonZeroU32),
     #[cfg(feature = "reference_types")]
     TableGrow(u32, ValueType, NonZeroU32),
@@ -522,9 +526,7 @@ pub fn inject<R: Rules, B: Backend>(
     // We need the built the module for making injections to its blocks
     let mut module = mbuilder.build();
 
-    #[cfg(feature = "bulk")]
     let mut dynamic_helpers = Vec::<DynamicHelper>::new();
-    #[cfg(feature = "bulk")]
     let mut need_internal_grow_counter = false;
     let mut error = false;
 
@@ -590,7 +592,6 @@ pub fn inject<R: Rules, B: Backend>(
                         error = true;
                         break;
                     }
-                    #[cfg(feature = "bulk")]
                     if matches!(&gas_meter, GasMeter::Internal { .. }) {
                         if rules.memory_grow_cost().enabled()
                             && inject_internal_grow_counter(func_body.code_mut(), total_func) > 0
@@ -689,13 +690,11 @@ pub fn inject<R: Rules, B: Backend>(
         return Err(module);
     }
 
-    #[cfg(feature = "bulk")]
     let module = if need_internal_grow_counter {
         add_internal_grow_counter(module, rules, gas_func_idx)
     } else {
         module
     };
-    #[cfg(feature = "bulk")]
     let module = add_dynamic_helpers(module, gas_func_idx, dynamic_check_idx, &dynamic_helpers);
     let mut standards = Vec::new();
     let mut customs = Vec::new();
@@ -943,7 +942,6 @@ impl Counter {
     }
 }
 
-#[cfg(feature = "bulk")]
 fn inject_internal_grow_counter(
     instructions: &mut elements::Instructions,
     grow_counter_func: u32,
@@ -959,7 +957,6 @@ fn inject_internal_grow_counter(
     counter
 }
 
-#[cfg(feature = "bulk")]
 fn add_internal_grow_counter<R: Rules>(
     module: elements::Module,
     rules: &R,
@@ -995,7 +992,6 @@ fn add_internal_grow_counter<R: Rules>(
     builder.build()
 }
 
-#[cfg(feature = "bulk")]
 fn inject_dynamic_counters<R: Rules>(
     instructions: &mut elements::Instructions,
     first_helper: u32,
@@ -1007,25 +1003,32 @@ fn inject_dynamic_counters<R: Rules>(
     if dynamic_check.is_none() {
         return;
     }
-    use parity_wasm::elements::{BulkInstruction, Instruction};
+    #[cfg(feature = "bulk")]
+    use parity_wasm::elements::BulkInstruction;
+    use parity_wasm::elements::Instruction;
     for instruction in instructions.elements_mut() {
         let helper = match instruction {
             Instruction::GrowMemory(memory) => match rules.memory_grow_cost() {
                 MemoryGrowCost::Linear(cost) => Some(DynamicHelper::MemoryGrow(*memory, cost)),
                 MemoryGrowCost::Free => None,
             },
+            #[cfg(feature = "bulk")]
             Instruction::Bulk(BulkInstruction::MemoryCopy(dst, src)) => rules
                 .memory_bytes_per_fuel()
                 .map(|divisor| DynamicHelper::MemoryCopy(*dst, *src, divisor)),
+            #[cfg(feature = "bulk")]
             Instruction::Bulk(BulkInstruction::MemoryFill(memory)) => rules
                 .memory_bytes_per_fuel()
                 .map(|divisor| DynamicHelper::MemoryFill(*memory, divisor)),
+            #[cfg(feature = "bulk")]
             Instruction::Bulk(BulkInstruction::MemoryInit(segment, memory)) => rules
                 .memory_bytes_per_fuel()
                 .map(|divisor| DynamicHelper::MemoryInit(*segment, *memory, divisor)),
+            #[cfg(feature = "bulk")]
             Instruction::Bulk(BulkInstruction::TableCopy(dst, src)) => rules
                 .table_elements_per_fuel()
                 .map(|divisor| DynamicHelper::TableCopy(*dst, *src, divisor)),
+            #[cfg(feature = "bulk")]
             Instruction::Bulk(BulkInstruction::TableInit(segment, table)) => rules
                 .table_elements_per_fuel()
                 .map(|divisor| DynamicHelper::TableInit(*segment, *table, divisor)),
@@ -1062,21 +1065,22 @@ fn inject_dynamic_counters<R: Rules>(
     }
 }
 
-#[cfg(feature = "bulk")]
 fn add_dynamic_helpers(
     module: elements::Module,
     gas_func: u32,
     dynamic_check: Option<u32>,
     helpers: &[DynamicHelper],
 ) -> elements::Module {
-    use parity_wasm::elements::{BlockType, BulkInstruction, Instruction::*, Local};
+    #[cfg(feature = "bulk")]
+    use parity_wasm::elements::BulkInstruction;
+    use parity_wasm::elements::{BlockType, Instruction::*, Local};
     let dynamic_check = match dynamic_check {
         Some(index) => index,
         None => return module,
     };
     let mut builder = builder::from_module(module);
     for helper in helpers {
-        let (params, mut body, length_local, divisor) = match *helper {
+        let bulk_body: Option<(Vec<ValueType>, Vec<Instruction>, u32, NonZeroU32)> = match *helper {
             DynamicHelper::MemoryGrow(memory, cost_per_page) => {
                 let body = vec![
                     GetLocal(0),
@@ -1119,9 +1123,10 @@ fn add_dynamic_helpers(
                         .build()
                         .build(),
                 );
-                continue;
+                None
             }
-            DynamicHelper::MemoryCopy(dst, src, divisor) => (
+            #[cfg(feature = "bulk")]
+            DynamicHelper::MemoryCopy(dst, src, divisor) => Some((
                 vec![ValueType::I32, ValueType::I32, ValueType::I32],
                 vec![
                     GetLocal(0),
@@ -1131,8 +1136,9 @@ fn add_dynamic_helpers(
                 ],
                 2,
                 divisor,
-            ),
-            DynamicHelper::MemoryFill(memory, divisor) => (
+            )),
+            #[cfg(feature = "bulk")]
+            DynamicHelper::MemoryFill(memory, divisor) => Some((
                 vec![ValueType::I32, ValueType::I32, ValueType::I32],
                 vec![
                     GetLocal(0),
@@ -1142,8 +1148,9 @@ fn add_dynamic_helpers(
                 ],
                 2,
                 divisor,
-            ),
-            DynamicHelper::MemoryInit(segment, memory, divisor) => (
+            )),
+            #[cfg(feature = "bulk")]
+            DynamicHelper::MemoryInit(segment, memory, divisor) => Some((
                 vec![ValueType::I32, ValueType::I32, ValueType::I32],
                 vec![
                     GetLocal(0),
@@ -1153,8 +1160,9 @@ fn add_dynamic_helpers(
                 ],
                 2,
                 divisor,
-            ),
-            DynamicHelper::TableCopy(dst, src, divisor) => (
+            )),
+            #[cfg(feature = "bulk")]
+            DynamicHelper::TableCopy(dst, src, divisor) => Some((
                 vec![ValueType::I32, ValueType::I32, ValueType::I32],
                 vec![
                     GetLocal(0),
@@ -1164,8 +1172,9 @@ fn add_dynamic_helpers(
                 ],
                 2,
                 divisor,
-            ),
-            DynamicHelper::TableInit(segment, table, divisor) => (
+            )),
+            #[cfg(feature = "bulk")]
+            DynamicHelper::TableInit(segment, table, divisor) => Some((
                 vec![ValueType::I32, ValueType::I32, ValueType::I32],
                 vec![
                     GetLocal(0),
@@ -1175,9 +1184,9 @@ fn add_dynamic_helpers(
                 ],
                 2,
                 divisor,
-            ),
+            )),
             #[cfg(feature = "reference_types")]
-            DynamicHelper::TableFill(table, element_type, divisor) => (
+            DynamicHelper::TableFill(table, element_type, divisor) => Some((
                 vec![ValueType::I32, element_type, ValueType::I32],
                 vec![
                     GetLocal(0),
@@ -1187,7 +1196,7 @@ fn add_dynamic_helpers(
                 ],
                 2,
                 divisor,
-            ),
+            )),
             #[cfg(feature = "reference_types")]
             DynamicHelper::TableGrow(table, element_type, divisor) => {
                 let body = vec![
@@ -1225,8 +1234,11 @@ fn add_dynamic_helpers(
                         .build()
                         .build(),
                 );
-                continue;
+                None
             }
+        };
+        let Some((params, mut body, length_local, divisor)) = bulk_body else {
+            continue;
         };
         let mut wrapped = vec![
             GetLocal(length_local),
@@ -1640,6 +1652,7 @@ mod tests {
         );
     }
 
+    #[cfg(feature = "bulk")]
     #[test]
     fn layerx_memory_grow_lazy_helper_sequence_is_frozen() {
         let module = add_dynamic_helpers(
@@ -1684,6 +1697,7 @@ mod tests {
         );
     }
 
+    #[cfg(feature = "bulk")]
     #[test]
     fn layerx_bulk_memory_lazy_helper_sequence_is_frozen() {
         use parity_wasm::elements::BulkInstruction;

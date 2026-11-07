@@ -2,7 +2,9 @@
 
 ## Overview
 
-The `modules/evm` module integrates a full Ethereum Virtual Machine into the Pax SDK chain. It enables native EVM transaction execution, bidirectional address association between Pax and EVM, and interoperability between CosmWasm (CW) and EVM smart contracts via pointer contracts.
+The `modules/evm` module integrates Ethereum transaction execution into the Pax SDK chain, with bidirectional Pax/EVM address association and interoperability between CosmWasm (CW) and EVM contracts through pointers.
+
+Paxeer mainnet-beta is one BFT network running `paxd`. The kernel is part of that network and proposes blocks; a receipt is final once its block commits. The root EVM chain ID is **125** (`0x7d`). Public JSON-RPC uses the root URL of the public nodes, for example `https://api1.mainnet-beta.paxeer.network`; the numbered hosts `api1` through `api14.mainnet-beta.paxeer.network` and `api-mainnet-beta.paxeer.network` serve the node API. Sub-chains are tenant domains in the database, with their own registered EVM chain IDs and state namespaces.
 
 ---
 
@@ -10,155 +12,181 @@ The `modules/evm` module integrates a full Ethereum Virtual Machine into the Pax
 
 Every account can have both a Pax (bech32) address and an EVM (hex) address. The module maintains a bidirectional mapping between them.
 
-- **Explicit association** — users can link their addresses via an Associate transaction or by signing any Cosmos/EVM transaction (the EVM address is derived from their secp256k1 public key).
-- **Default (cast) addresses** — when no explicit association exists, the module falls back to a deterministic byte-cast. Cast addresses have limitations on receiving funds compared to fully associated addresses.
+- **Explicit association** — an Associate transaction or an accepted EVM transaction recovers the addresses from its signature and creates the mapping when needed. The Cosmos ante chain also associates signers whose public keys can be parsed as secp256k1 keys.
+- **Default (cast) addresses** — [address lookups](keeper/address.go) fall back to a deterministic byte-cast when no mapping exists. After an EVM address is associated with a different Pax address, its old cast Pax address cannot receive bank transfers. A mapping to the cast address itself remains receivable, as with EVM contract addresses.
 
-- **Why** - cast addresses will result in two views of the same account (e.g. two balances, etc.)
+Association migrates balances from the cast account to the derived Pax account, avoiding separate balance views for the same key.
 
 ---
 
 ## EVM Execution
 
-The module executes Ethereum transactions by bridging into go-ethereum's EVM interpreter:
+The [message server](keeper/msg_server.go) executes Ethereum transactions through the repository's go-ethereum integration:
 
 1. An incoming `MsgEVMTransaction` is unpacked into a native Ethereum transaction.
-2. A go-ethereum `vm.EVM` instance is created with appropriate block and transaction context.
+2. A go-ethereum `vm.EVM` instance is created with the block and transaction context.
 3. Execution runs through go-ethereum's `core.StateTransition`.
-4. Gas is converted between Pax and EVM units using a configurable normalizer.
-5. Results (logs, state changes, receipts) are persisted back to Cosmos SDK stores.
+4. Gas is converted between Pax and EVM units using the configured `PriorityNormalizer`.
+5. State changes are finalized into SDK stores, and logs and gas usage feed transient receipts.
 
-There is no block-level gas limit enforced by the EVM module; gas limits are per-transaction.
+Each Ethereum transaction carries a gas limit. [Basic admission checks](ante/basic.go) also reject a transaction whose gas limit exceeds a positive consensus `Block.MaxGas`; gas accounting must therefore respect the configured block limit as well as the transaction limit.
 
-Other modules and CosmWasm contracts can also invoke the EVM programmatically through internal call and delegate-call messages. However, only 1-hop of write-able call is allowed.
+Other modules and CosmWasm contracts can invoke the EVM through [internal call messages](keeper/evm.go). Writable re-entry is constrained by the execution context: `CallEVM` rejects an EVM-to-CW-to-EVM call unless the context marks entry through the Wasmd precompile, then clears that entry flag for the internal execution. CosmWasm cannot call the Solo precompile through this path.
 
 ---
 
 ## Supported Transaction Types
 
 | Type | EIP | Notes |
-|------|-----|-------|
-| Legacy | — | Type 0 |
+| --- | --- | --- |
+| Legacy | EIP-155 | Type 0, replay-protected on normal execution paths |
 | AccessList | EIP-2930 | Type 1 |
 | DynamicFee | EIP-1559 | Type 2 |
-| SetCode | EIP-7702 | Type 4, code delegation via authorization list |
-| Associate | Pax-specific | Binds Pax and EVM addresses |
+| SetCode | EIP-7702 | Type 4, code delegation via authorization list, enabled with the Prague signer |
+| Associate | Pax-specific | Binds Pax and EVM addresses in the root domain |
+
+The [signer and type table](ante/preprocess.go) depends on the active EVM fork. Blob transactions (type 3) are rejected by admission with `sdkerrors.ErrUnsupportedTxType`, even though the transaction data types can represent them. Unprotected legacy transactions are rejected during signature recovery outside block-test mode.
 
 ---
 
 ## Ante Handler Pipeline
 
-EVM transactions go through a dedicated ante handler chain, separate from the standard Cosmos ante chain. A router decorator at the front decides which chain to use based on whether the message is a `MsgEVMTransaction`.
+The mounted chains are defined in [node/ante.go](../../node/ante.go). The in-process `EVMRouterDecorator` selects the EVM ante chain for a `MsgEVMTransaction` and rejects an EVM transaction containing more than one message. Other transactions use the Cosmos ante chain.
 
-The EVM ante chain performs, in order:
+The ordinary EVM ante chain runs these decorators in order:
 
-1. **Cosmos field rejection** — EVM txs must not use Cosmos-specific fields (memo, timeout, fees, etc.).
-2. **Preprocessing** — unpacks the inner Ethereum tx, recovers the sender via ECDSA, populates derived metadata. Associate transactions are handled here.
-3. **Address derivation** — for Cosmos-signed txs, derives the EVM address from the public key and sets up mappings.
-4. **Basic validation** — init code size, non-negative value, intrinsic gas.
-5. **Signature/nonce verification** — validates chain ID and nonce. CheckTx uses pending nonce logic for mempool ordering; DeliverTx requires exact match.
-6. **Fee validation** — checks against base fee and minimum fee, executes gas purchase, stores any fee surplus.
-7. **Gas metering** — sets the Pax gas meter using the converted EVM gas limit.
+1. **`EVMNoCosmosFieldsDecorator`** — rejects Cosmos wrapper memo, timeout height, extension options, signer information, fee amounts, payer/granter and signatures. This runs before any association can write state.
+2. **`EVMChainIDDecorator`** — performs stateless checks and resolves the signed transaction's chain ID to the root or a registered, active tenant domain. It sets that domain on the context before preprocessing and fee purchase.
+3. **`EVMPreprocessDecorator`** — unpacks the Ethereum data, recovers the sender using the fork-appropriate signer, populates derived metadata and associates addresses when needed. An Associate transaction must have a positive balance, creates its root-domain association and returns here without running later decorators.
+4. **`BasicDecorator`** — checks init-code size, non-negative value, intrinsic gas, unsupported blob transactions and the consensus gas bound. For an eligible delivered transaction with the expected nonce, it installs the callback that bumps the nonce if execution or later ante handling does not do so.
+5. **`EVMFeeCheckDecorator`** — checks the fee cap against the selected base fee and the module minimum fee, then buys gas after checking funds. Tenant transactions use `ChainsFeeReader.NextBaseFee(ctx, domainID)`; root transactions use the root base fee. Delivery runs go-ethereum's `StatelessChecks` (including exact nonce and sender-EOA checks) before `BuyGas`, then finalizes ante fee state and records surplus. CheckTx and ReCheckTx omit those checks here and do not finalize the gas purchase into the store. An enabled alternative fee denomination is charged through the fee-token path; transaction value still requires network coin. Simulation skips this decorator's fee purchase.
+6. **`EVMDomainSigVerifyDecorator`** — delegates root transactions to `EVMSigVerifyDecorator` and checks tenant nonces in the selected domain. CheckTx accepts a nonce at or above the stored nonce for pending transactions; delivery requires an exact match. Failures return `sdkerrors.ErrWrongSequence`. Signature recovery has already occurred during preprocessing.
+7. **`GasDecorator`** — installs the Pax gas meter using the EVM gas limit multiplied by `PriorityNormalizer`, and sets the gas estimate.
+
+Domain admission is implemented by `ResolveTransactionChain` in [node/ante/evm_checktx.go](../../node/ante/evm_checktx.go). Root transactions select domain 0, clearing any inherited tenant context; `DomainFrom` reports no tenant for domain 0. Tenant chain IDs are `125000000 + domainID`, with a nonzero domain ID, as defined in [layerxchains/types/domain.go](../layerxchains/types/domain.go). A numeric ID in that range alone is insufficient: it must resolve to a registered domain with `StatusActive`. An unknown chain ID returns `sdkerrors.ErrInvalidChainID`; a registered inactive domain returns `chainstypes.ErrDomainNotActive`. These admission checks precede signature recovery, address association and gas purchase. Admission recognizes an unprotected legacy envelope as root, but normal signature recovery subsequently rejects it.
+
+`EVMAddressDecorator` belongs to the **Cosmos** ante chain, after signature verification and sequence increment. It is not a separate address-derivation stage in the EVM chain.
+
+The optimized `EvmCheckTxAnte` path in [node/ante/evm_checktx.go](../../node/ante/evm_checktx.go) performs wrapper/stateless checks, domain resolution, signature recovery and association, fee checks and `BuyGas`, pending nonce checks, then context decoration. `EvmCheckAndChargeFees` is called with `statelessChecks=false`, so gas purchase precedes its `CheckNonce` call. Its Associate path is read-only: it validates the signature, absence of an existing association and positive balance, then returns without creating the association or buying gas. The tracing ante chain mounts wrapper rejection, chain-ID admission, preprocessing, basic checks and domain signature/nonce verification; it omits fee purchase and the final gas decorator.
 
 ---
 
 ## StateDB Bridge
 
-The `state` package implements go-ethereum's `vm.StateDB` interface on top of Cosmos SDK stores. This is the core bridge that lets the EVM read and write state within the Cosmos framework.
+The [state package](state/statedb.go) implements go-ethereum's `vm.StateDB` interface on Cosmos SDK stores. It does not own an Ethereum state trie root.
 
 Key design choices:
 
-- **Balance representation** — Pax uses 6-decimal `uhpx` while EVM expects 18-decimal wei. The StateDB converts between them, tracking the sub-uhpx remainder (`wei`) separately.
-- **Snapshots and reverts** — uses Cosmos `CacheMultiStore` for state snapshots. A journal records every state mutation so it can be rolled back on revert.
-- **Transient state** — logs, transient storage (EIP-1153), access lists, and gas refunds are held in memory per-transaction and not persisted until finalization.
-- **Coinbase collection** — each transaction gets a deterministic coinbase address for collecting fee surplus, which is swept to the fee collector at end-of-block.
+- **Balance representation** — Pax uses 6-decimal `uhpx` while EVM expects 18-decimal wei. The StateDB converts between them, tracking the sub-uhpx remainder (`wei`) separately: [1 `uhpx` = 10^12 wei](state/utils.go).
+- **Snapshots and reverts** — uses Cosmos `CacheMultiStore` for state snapshots. A journal records in-memory mutations so they can be rolled back on revert.
+- **Transient state** — logs, transient storage (EIP-1153), access lists and gas refunds are held in memory per transaction. Logs feed receipts; transient storage and access lists do not become persistent contract storage. `Finalize` writes surviving cached state and events back to the surrounding transaction context.
+- **Coinbase collection** — each transaction gets a deterministic coinbase account for fee collection, which is swept to the fee collector at end-of-block.
 
 ---
 
 ## Deferred Processing
 
-Rather than finalizing everything during transaction execution, some work is deferred to `EndBlock`:
+Execution finalizes its own state, while [deferred processing](keeper/deferred.go) supplies the information needed by [EndBlock](keeper/abci.go):
 
-- **Deferred info** — each EVM tx records its bloom filter, fee surplus, and any error to a transient store.
-- **End-of-block aggregation** — surplus is collected across all transactions, failed receipts are written, and block-level bloom filters are composed.
+- **Deferred info** — execution records the transaction bloom and fee surplus in transient storage. If a reverted transaction has no deferred record, `GetAllEVMTxDeferredInfo` reconstructs its error from the transaction result.
+- **End-of-block aggregation** — transaction coinbase balances are swept, surplus is combined, failed receipts are written for nonce-bumped transactions, and block-level bloom filters are composed. Domain fee accounting also adjusts domain base fees and pays operator shares.
 
-<!-- TODO: why is processing deferred rather than done inline? what are the benefits? -->
+Per-transaction coinbase accounts avoid a shared fee-collection account during execution. Deferred records let the end-block hook collect fees and compose blooms across the completed block. Receipt persistence is a later pre-commit step.
 
 ---
 
 ## Fee Management (EIP-1559)
 
-The module implements EIP-1559-style dynamic base fee adjustment:
+The module implements [EIP-1559-style dynamic base fee adjustment](keeper/fee.go):
 
-- At the end of each block, the base fee is adjusted based on how actual gas usage compared to a target.
-- If usage exceeds the target, the base fee increases (up to a configurable cap).
-- If usage is below the target, the base fee decreases (down to a configurable floor).
-- Minimum and maximum fee bounds prevent extreme values.
+- At the end of each block, the root base fee is adjusted based on actual gas usage compared to a target.
+- Usage above the target increases the base fee; usage below it decreases the base fee.
+- Configured adjustment rates and minimum/maximum fee bounds constrain the result.
+- A zero target leaves the previous fee unchanged; absent block consensus parameters skip the root adjustment.
 
-Fee "surplus" — the difference between what the user paid and what the protocol required — is tracked per-transaction and collected into the fee collector at end-of-block.
+Per-transaction coinbase balances are swept to the fee collector at end-of-block in normal execution. StateDB and ante surplus are tracked separately and reconciled into the EVM module account. Active tenant domains have separate base-fee adjustment and operator fee-share accounting in [EndBlock](keeper/abci.go).
 
 ---
 
 ## Pointer Contracts (CW ↔ ERC Interoperability)
 
-Pointer contracts enable tokens on one VM to be accessed from the other VM. This is the primary interoperability mechanism between CosmWasm and EVM.
+Pointer contracts enable tokens on one VM to be accessed from the other VM.
 
 **EVM pointers for CW/native tokens:**
+
 - Native Cosmos denoms get an ERC20 representation.
 - CW20 tokens get an ERC20 pointer.
 - CW721 NFTs get an ERC721 pointer.
 - CW1155 multi-tokens get an ERC1155 pointer.
 
 **CW wrappers for ERC tokens:**
+
 - ERC20 tokens get a CW20 wrapper.
 - ERC721 NFTs get a CW721 wrapper.
 - ERC1155 multi-tokens get a CW1155 wrapper.
 
-Pointers are versioned and can be upgraded. A reverse registry allows looking up the original token from its pointer address.
+Pointers are versioned and can be upgraded. The [pointer registry](keeper/pointer.go) records forward and reverse mappings, allowing lookup of the original token from its pointer address. It rejects a pointer to another pointer.
 
-Pre-compiled bytecode for all pointer contracts is embedded in the binary under `artifacts/`.
+EVM bytecode/ABIs and CW wrapper Wasm are embedded from [artifacts/](artifacts/).
 
 ---
 
 ## Precompiled Contracts
 
-The module supports custom precompiled contracts (e.g., Bank, Staking, Gov, Wasmd) that expose Cosmos SDK functionality to EVM callers. Precompiles are versioned by block height, allowing tracer functionality at historical heights.
+The module supports custom precompiled contracts such as Bank, Staking, Gov and Wasmd that expose SDK functionality to EVM callers. The [keeper's precompile selection](keeper/keeper.go) gates activation by the block context. Ordinary execution uses the latest enabled implementation; tracing selects the implementation for the historical height.
 
-Payable precompiles suppress transfer events to avoid double-counting when value is forwarded through them.
+The [payable-precompile set](keeper/precompile.go) identifies addresses whose transfer events are suppressed to avoid double-counting forwarded value.
 
 ---
 
 ## ABCI Lifecycle
 
 ### BeginBlock
-- Resets per-block tracking state (transaction results, messages).
+
+- Resets per-block tracking state (transaction results, messages) outside tracing.
 
 ### EndBlock
-1. Cleans up old transaction hashes.
-2. Migrates legacy receipts (if any remain).
-3. Prunes zero-value storage slots (resumable, batched).
-4. Adjusts the dynamic base fee for the next block.
-5. Sweeps coinbase surplus to the fee collector.
-6. Aggregates deferred info: surplus, failed receipts, block bloom.
+
+The [keeper hook](keeper/abci.go) performs:
+
+1. Captures an available trace snapshot and queues the preceding height for trace baking outside tracing, after the first height.
+2. Cleans up old transaction hashes.
+3. Migrates legacy receipts in periodic batches, if any remain.
+4. Prunes zero-value storage slots in resumable batches.
+5. Adjusts the root dynamic base fee for the next block.
+6. Processes deferred records: writes eligible failed receipts, sweeps transaction coinbase balances to the fee collector and reconciles surplus.
+7. Adjusts active domain base fees and pays domain operator shares.
+8. Composes block blooms, including chain-generated synthetic receipts.
+
+Before commit, [node/app.go](../../node/app.go) calls `FlushTransientReceipts` to persist the block's receipts.
 
 ---
 
 ## Transaction Receipts and Logs
 
-- Receipts are built from StateDB logs, bloom filters, gas usage, and contract addresses.
-- Within a block, receipts live in transient storage and are flushed to a dedicated receipt store at the end.
-- Block-level bloom filters are maintained for efficient log filtering. A separate EVM-only bloom excludes CW-originated logs.
+- Receipts are built from StateDB logs, bloom filters, gas usage and contract addresses.
+- Within a block, receipts live in transient storage and are flushed to the dedicated receipt store before commit, with cumulative gas usage calculated during the flush. See [receipt.go](keeper/receipt.go).
+- Block blooms support log filtering. The EVM-only bloom excludes transaction shell receipts but includes all logs on the selected EVM receipts, including synthetic logs. Chain-generated end-block receipts also contribute their logs. `GetLogsForTx` converts receipt logs without filtering the synthetic flag. See [log.go](keeper/log.go) and [abci.go](keeper/abci.go).
 
 ### Synthetic Receipts and Logs
-There are several types of synthetic receipts/logs on Pax.
-- **CW->EVM** - if a Cosmos transaction calls an EVM contract, a synthetic receipt is created to carry any logs emitted on the EVM side.
-- **CW Pointee** - if a Cosmos transaction calls a CosmWasm contract that has an EVM pointer, a synthetic receipt is created and synthetic logs are emitted to represent activities from EVM lens.
-- **EVM->CW** - if an EVM transaction calls a CosmWasm contract that has an EVM pointer, synthetic logs are emitted and stored on the EVM transaction's receipt.
+
+There are several types of synthetic receipts/logs on Pax:
+
+- **CW->EVM** — a Cosmos transaction calling an EVM contract creates a receipt carrying EVM logs.
+- **CW pointee** — a Cosmos transaction calling a CosmWasm contract with an EVM pointer can emit synthetic logs representing its token activity to EVM clients.
+- **EVM->CW** — an EVM transaction calling a CosmWasm contract with an EVM pointer can include synthetic logs on its EVM receipt.
+
+There are also [chain-generated receipts](keeper/synthetic_receipts.go) for perps and spot end-block processing and the v6.12.0 activation. Each kind merges its block's internal EVM calls under a deterministic hash; receipt flushing assigns its final transaction index after the real transactions.
 
 ### Receipts for Failure Scenarios
 
-Unlike Ethereum, an EVM transaction on Pax could fail before it reaches the EVM (i.e. during ante handling).
-- **Nonce Mismatch** - such failures would not result in any receipt, because they involve no state change
-- **Others Ante Failures** - such failures would result in a status-0 receipt, because nonce for the sender will be incremented in such cases.
+An EVM transaction can fail during ante handling before EVM execution. Receipt creation depends on how far admission progressed:
+
+- **Nonce mismatch** — no failed receipt is created when the sender nonce was not bumped.
+- **Later ante failure with a nonce bump** — `EndBlock` writes a status-0 receipt from deferred error information when the transaction's nonce-bump marker is present.
+- **Early admission failure** — wrapper rejection, unknown/inactive domains and signature recovery failures occur before the basic decorator can install its nonce-bump callback. These do not automatically produce failed receipts.
+
+The controlling condition is `GetNonceBumped` in [abci.go](keeper/abci.go), not merely the presence of an ante error.
 
 ---
 
@@ -166,7 +194,7 @@ Unlike Ethereum, an EVM transaction on Pax could fail before it reaches the EVM 
 
 CosmWasm contracts can interact with the EVM through two mechanisms:
 
-- **Queries** — static EVM calls, ERC20/721/1155 token queries, address lookups.
-- **Messages** — `MsgInternalEVMCall` for regular calls and `MsgInternalEVMDelegateCall` for delegate calls (restricted to whitelisted pointer contracts).
+- **Queries** — [static EVM calls, ERC20/721/1155 token queries and address lookups](client/wasm/query.go).
+- **Messages** — `MsgInternalEVMCall` for regular calls and `MsgInternalEVMDelegateCall` for the pointer delegate-call path. [Internal call handling](keeper/evm.go) requires the delegate-call source to match a registered pointer and the sender to have an address association; delegate-creation is rejected.
 
 ---

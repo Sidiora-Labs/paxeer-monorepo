@@ -14,7 +14,7 @@
 # 10.2.6 one it copies into, where that column is NOT NULL.
 #
 # Scenarios, in order, each against the tool's real exit code and the resulting
-# row counts:
+# row counts, keys and copied values:
 #
 #   1  a dry run writes nothing
 #   2  a full copy into an empty destination, with the trace address derived
@@ -31,6 +31,11 @@
 #      it is found by the verification and copied by the rescan
 #   9  a destination holding a row the source does not exits non-zero, names
 #      the table with both counts, and deletes nothing
+#
+#  10  an interrupted copy retains its committed values and refuses same-key
+#      source changes until the original snapshot content is restored
+#  11  equal source/destination counts cannot conceal a substituted key; a
+#      refusal leaves the complete conflicting destination row intact
 #
 # Requires docker and psql on PATH.
 
@@ -461,7 +466,8 @@ SQL
 reset_destination() {
   dst_sql "TRUNCATE TABLE internal_transactions, logs, transactions, blocks, addresses CASCADE;
            DROP TABLE IF EXISTS paxeer_x_copy_progress;
-           DROP TABLE IF EXISTS paxeer_x_copy_stage;" > /dev/null
+           DROP TABLE IF EXISTS paxeer_x_copy_stage;
+           DROP TABLE IF EXISTS paxeer_x_copy_run;" > /dev/null
 }
 
 # A row-level trigger that refuses the blocks above a bound, so a copy stops in
@@ -710,6 +716,73 @@ scenario_unrepairable_mismatch() {
     'destination logs are left alone rather than trimmed to match'
 }
 
+scenario_recovery_content_divergence() {
+  log "-- 10 an interrupted boundary refuses a same-key source mutation"
+  reset_destination
+  install_interruption
+  run_tool content-interrupted BLOCK_BATCH=2
+  assert_rc 2 'content interruption'
+  assert_log 'stopped at logs' 'content interruption stops after transactions committed'
+  assert_count dst 'SELECT value FROM transactions WHERE block_number = 1' 1000 \
+    'the committed value exists before the source changes'
+  assert_count dst "SELECT highest_key FROM paxeer_x_copy_progress WHERE table_name = 'logs'" 3 \
+    'the interrupted boundary is below the failing log batch'
+  local retained_transaction
+  retained_transaction=$(dst_sql 'SELECT row_to_json(t)::text FROM transactions AS t WHERE block_number = 1')
+  remove_interruption
+  src_sql 'UPDATE transactions SET value = 999 WHERE block_number = 1' > /dev/null
+  assert_count src 'SELECT value FROM transactions WHERE block_number = 1' 999 \
+    'the source changed the value beneath the resume mark'
+  assert_count src 'SELECT count(*) FROM transactions' 10 'source count after same-key mutation'
+  assert_count dst 'SELECT count(*) FROM transactions' 10 'destination count before recovery'
+  run_tool changed-source BLOCK_BATCH=2
+  assert_rc 2 'changed source after interruption'
+  assert_log 'source keys or content changed since the interrupted snapshot' \
+    'recovery refuses changed content beneath the resume mark'
+  assert_count dst 'SELECT value FROM transactions WHERE block_number = 1' 1000 \
+    'the previously copied transaction value is retained'
+  assert_value "$retained_transaction" \
+    "$(dst_sql 'SELECT row_to_json(t)::text FROM transactions AS t WHERE block_number = 1')" \
+    'refusal retains every column of the committed transaction'
+  assert_count dst "SELECT highest_key FROM paxeer_x_copy_progress WHERE table_name = 'logs'" 3 \
+    'refusal does not advance interrupted progress'
+  src_sql 'UPDATE transactions SET value = 1000 WHERE block_number = 1' > /dev/null
+  run_tool restored-source BLOCK_BATCH=2
+  assert_rc 0 'recovery after explicit source reconciliation'
+  assert_count dst 'SELECT value FROM transactions WHERE block_number = 1' 1000 \
+    'the recovered value matches the original source boundary'
+  assert_value "$retained_transaction" \
+    "$(dst_sql 'SELECT row_to_json(t)::text FROM transactions AS t WHERE block_number = 1')" \
+    'successful recovery retains every column of the committed transaction'
+  assert_count dst 'SELECT count(*) FROM logs' 18 'recovery completes the interrupted logs'
+  assert_log 'every processed table matches under its cut' 'reconciled recovery verifies content'
+}
+
+scenario_equal_count_wrong_key() {
+  log "-- 11 equal counts with a substituted destination key fail verification"
+  assert_count src 'SELECT count(*) FROM logs' 18 'source count before key substitution'
+  assert_count dst 'SELECT count(*) FROM logs' 18 'destination count before key substitution'
+  assert_count dst 'SELECT count(*) FROM logs WHERE block_number = 3 AND "index" = 0' 1 \
+    'the destination holds the original key before substitution'
+  dst_sql 'UPDATE logs SET "index" = 99 WHERE block_number = 3 AND "index" = 0' > /dev/null
+  local retained_log
+  retained_log=$(dst_sql 'SELECT row_to_json(l)::text FROM logs AS l WHERE block_number = 3 AND "index" = 99')
+  run_tool wrong-key
+  assert_rc 3 'equal-count wrong-key destination'
+  assert_log 'MISMATCH (keys or content differ)' 'content verification rejects a substituted key'
+  assert_count dst 'SELECT count(*) FROM logs' 18 'destination log count remains unchanged'
+  assert_count src 'SELECT count(*) FROM logs' 18 'source log count equals the destination count'
+  assert_count dst 'SELECT count(*) FROM logs WHERE "index" = 99' 1 \
+    'the tool refuses divergence without deleting the conflicting row'
+  assert_count dst 'SELECT count(*) FROM logs WHERE block_number = 3 AND "index" = 0' 0 \
+    'refusal does not insert the missing original key'
+  assert_count src 'SELECT count(*) FROM logs WHERE block_number = 3 AND "index" = 0' 1 \
+    'the original key still exists at the source'
+  assert_value "$retained_log" \
+    "$(dst_sql 'SELECT row_to_json(l)::text FROM logs AS l WHERE block_number = 3 AND "index" = 99')" \
+    'refusal retains every column of the substituted destination log'
+}
+
 main() {
   command -v docker > /dev/null || die 'docker is not on PATH'
   command -v psql > /dev/null || die 'psql is not on PATH'
@@ -744,6 +817,8 @@ main() {
   scenario_nonempty_destination
   scenario_late_row
   scenario_unrepairable_mismatch
+  scenario_recovery_content_divergence
+  scenario_equal_count_wrong_key
 
   if [ "$FAILURES" -ne 0 ]; then
     log "${FAILURES} assertion(s) failed"

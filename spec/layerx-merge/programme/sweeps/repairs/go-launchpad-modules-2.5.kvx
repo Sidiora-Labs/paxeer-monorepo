@@ -1,0 +1,30 @@
+# Decision 2496 qualifies vet and the full test build independently of producer inputs.
+[repair.go-launchpad-modules-2.5]
+target = "services/launchpad/metadata"
+command = "cd services/launchpad/metadata && go vet ./... && go test -count=1 ./..."
+revision = "c56bf8dab2a36860f56543433ebe85802b492d14"
+result = "already-passing"
+change = "none"
+qualification_command = "test -s spec/layerx-merge/programme/sweeps/repairs/go-launchpad-modules-2.5.kvx && cd services/launchpad/metadata && go vet ./... && go test -count=1 -run NoTestMatchesThisName ./..."
+recorded_command_exit = 1
+observed = "The recorded command passes vet and fails only on missing S3 configuration, a delegated raster cgroup, the fixed PostgreSQL fixture database, NETWORK_RPC_URL, KINDLE_PUBLICATION_TEST_URL and configured clamd; no deterministic defect is reproduced."
+producer_input_tests = [
+  "internal/app.TestDevelopmentCreationMediaFlow: PostgreSQL METADATA_TEST_DATABASE_URL, Redis METADATA_TEST_REDIS_URL, S3 METADATA_TEST_S3_ENDPOINT / METADATA_TEST_S3_ACCESS_KEY_ID / METADATA_TEST_S3_SECRET_ACCESS_KEY and clamd METADATA_TEST_CLAMAV_ADDR",
+  "internal/app.TestDevelopmentCreatorUpload: PostgreSQL METADATA_TEST_DATABASE_URL, Redis METADATA_TEST_REDIS_URL, S3 METADATA_TEST_S3_ENDPOINT / METADATA_TEST_S3_ACCESS_KEY_ID / METADATA_TEST_S3_SECRET_ACCESS_KEY and clamd METADATA_TEST_CLAMAV_ADDR",
+  "internal/app.TestDevelopmentV2Reads: PostgreSQL METADATA_TEST_DATABASE_URL and Redis METADATA_TEST_REDIS_URL",
+  "internal/image.TestProductionActualIsolatedDimensionBomb: delegated raster-worker cgroup KINDLE_RASTER_CGROUP_PARENT",
+  "internal/metadata.TestProductionAssetLifecycle: PostgreSQL fixture database at the test's fixed endpoint",
+  "internal/metadata.TestProductionAdversarialActualStorageRecovery: PostgreSQL KINDLE_PRODUCTION_TEST_DATABASE_URL or the fixed fixture endpoint, delegated raster-worker cgroup KINDLE_RASTER_CGROUP_PARENT, S3 METADATA_TEST_S3_ENDPOINT / METADATA_TEST_S3_ACCESS_KEY_ID / METADATA_TEST_S3_SECRET_ACCESS_KEY and configured clamd CLAMAV_HOST / CLAMAV_PORT",
+  "internal/metadata.TestProductionReportedCommittedProofVerifierOnPaxeer: Paxeer RPC NETWORK_RPC_URL and PostgreSQL METADATA_TEST_DATABASE_URL or the fixed fixture endpoint",
+  "internal/metadata.TestProductionConnectedActualPostgresRestrictionOrdering: PostgreSQL KINDLE_PRODUCTION_TEST_DATABASE_URL or the fixed fixture endpoint",
+  "internal/metadata.TestProductionLegacyReadsFromCanonicalStore: PostgreSQL METADATA_TEST_DATABASE_URL or the fixed fixture endpoint and S3 METADATA_TEST_S3_ENDPOINT / METADATA_TEST_S3_ACCESS_KEY_ID / METADATA_TEST_S3_SECRET_ACCESS_KEY",
+  "internal/metadata.TestProductionVisibilityAuthorityFromSocialView: PostgreSQL METADATA_TEST_DATABASE_URL or the fixed fixture endpoint",
+  "internal/metadata.TestProductionObjectsReadinessProvesPrivateQuarantine: S3 METADATA_TEST_S3_ENDPOINT / METADATA_TEST_S3_ACCESS_KEY_ID / METADATA_TEST_S3_SECRET_ACCESS_KEY with bucket policy and anonymous access probes",
+  "internal/metadata.TestMetadataService: PostgreSQL METADATA_TEST_DATABASE_URL, Redis METADATA_TEST_REDIS_URL, S3 METADATA_TEST_S3_ENDPOINT / METADATA_TEST_S3_ACCESS_KEY_ID / METADATA_TEST_S3_SECRET_ACCESS_KEY and clamd METADATA_TEST_CLAMAV_ADDR",
+  "internal/metadata.TestProductionSessionChannelWithRealIdentityService: PostgreSQL METADATA_TEST_DATABASE_URL, Redis METADATA_TEST_REDIS_URL and S3 METADATA_TEST_S3_ENDPOINT / METADATA_TEST_S3_ACCESS_KEY_ID / METADATA_TEST_S3_SECRET_ACCESS_KEY",
+  "internal/metadata.TestProductionPersistentRevision: PostgreSQL fixture database at the test's fixed endpoint",
+  "internal/metadata.TestPublicationRealCreatorQueueRecovery: publication service KINDLE_PUBLICATION_TEST_URL, PostgreSQL KINDLE_PUBLICATION_TEST_DATABASE_URL, owned schemas KINDLE_PUBLICATION_TEST_SCHEMA / KINDLE_PUBLICATION_TEST_IDENTITY_SCHEMA, token and creation receipt KINDLE_PUBLICATION_TEST_TOKEN / KINDLE_PUBLICATION_TEST_CREATION_TX_HASH, creator authorization KINDLE_PUBLICATION_TEST_ACCESS_TOKEN / KINDLE_PUBLICATION_TEST_REAUTHORIZED_ACCESS_TOKEN / KINDLE_PUBLICATION_TEST_CREATOR_PRIVATE_KEY and image KINDLE_PUBLICATION_TEST_IMAGE",
+  "internal/metadata.TestProductionActualScannerMidstreamDisconnect: configured clamd CLAMAV_HOST / CLAMAV_PORT",
+  "internal/metadata.TestProductionV2RoundTrip: PostgreSQL fixture database at the test's fixed endpoint",
+  "internal/metadata.TestProductionV2RevisionSevenRace: PostgreSQL fixture database at the test's fixed endpoint"
+]

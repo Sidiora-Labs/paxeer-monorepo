@@ -176,13 +176,16 @@ static int32_t lxphost_read_live(lxphost_read_state *state,
 }
 
 static int32_t lxphost_read_authority_envelope(lxphost_read_state *state,
+                                               uint16_t programs_guest_abi,
                                                lxp_authority_envelope *out)
 {
     int32_t status = lxp_kernel_register_module(&state->kernel,
                                                  lxp_governance_module_iface());
     if (status == LXP_OK)
         status = lxp_kernel_register_module(&state->kernel,
-                                             programs_module_registration_v4_storage_retirement());
+                                             programs_guest_abi == LX_PROGRAMS_GUEST_ABI_V5_VERSION ?
+                                                 programs_module_registration_v5() :
+                                                 programs_module_registration_v4_storage_retirement());
     if (status == LXP_OK)
         status = lxp_kernel_register_module(&state->kernel,
                                              lx_asset_module_iface());
@@ -416,8 +419,8 @@ type IdentityState struct {
 	Authority                 AuthorityState
 }
 
-func lxphost_read_authority_envelope(state *C.lxphost_read_state, envelope *C.lxp_authority_envelope) error {
-	return result(C.lxphost_read_authority_envelope(state, envelope))
+func lxphost_read_authority_envelope(state *C.lxphost_read_state, programsGuestABI uint16, envelope *C.lxp_authority_envelope) error {
+	return result(C.lxphost_read_authority_envelope(state, C.uint16_t(programsGuestABI), envelope))
 }
 
 func readAuthorityScope(scope *C.struct_lxp_authority_scope) AuthorityScope {
@@ -745,7 +748,7 @@ func (h *Host) ReadCheckActivity(ctx sdk.Context, actorDID []byte, grantID [32]b
 		var grant C.lxp_authority_grant
 		var authority C.struct_lxp_authority_resolved
 		var envelope C.lxp_authority_envelope
-		if err := lxphost_read_authority_envelope(state, &envelope); err != nil {
+		if err := lxphost_read_authority_envelope(state, h.cfg.ProgramsGuestABI, &envelope); err != nil {
 			return err
 		}
 		if err := result(C.lxphost_read_check_activity(state, bytesPtr(actorDID), C.size_t(len(actorDID)),
@@ -768,7 +771,7 @@ func (h *Host) ReadIdentityState(ctx sdk.Context, actorDID []byte) (IdentityStat
 		var grant C.lxp_authority_grant
 		var authority C.struct_lxp_authority_resolved
 		var envelope C.lxp_authority_envelope
-		if err := lxphost_read_authority_envelope(state, &envelope); err != nil {
+		if err := lxphost_read_authority_envelope(state, h.cfg.ProgramsGuestABI, &envelope); err != nil {
 			return err
 		}
 		if err := result(C.lxphost_read_identity_state(state, bytesPtr(actorDID), C.size_t(len(actorDID)),

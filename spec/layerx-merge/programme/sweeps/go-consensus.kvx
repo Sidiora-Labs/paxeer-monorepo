@@ -1,5 +1,5 @@
 [sweep.go-consensus]
-revision = "1fea7069e58b649760bb1afcabdb9c4caec5ea4c"
+revision = "5903ffbb1db92c2e133ddd0fa7f87c058af7b5ed"
 command = "CGO_ENABLED=1 go vet ./TARGET/ && CGO_ENABLED=1 go test -count=1 ./TARGET/"
 targets_total = 162
 targets_passed = 161
@@ -100,8 +100,8 @@ exit_code = 0
 target = "consensus/internal/autobahn/consensus/persist"
 result = "failed"
 exit_code = 1
-observed = "TestPersistWriteErrorReturnsError failed at consensus/internal/autobahn/consensus/persist/persist_test.go:162 because an error was expected but got nil."
-assumption = "The sandbox runs as root, which can bypass the directory permissions removed by the test, so this is likely an environmental permission mismatch."
+observed = "TestPersistWriteErrorDoesNotAdvanceSeq fails at consensus/internal/autobahn/consensus/persist/persist_test.go:181 because an error is expected but got nil."
+assumption = "The sandbox runs as root and can bypass chmod 0000 permissions, likely causing both this test and TestLoadPersistedOSErrorPropagates to receive nil instead of the expected filesystem errors."
 
 [target.go-consensus.20]
 target = "consensus/internal/autobahn/data"

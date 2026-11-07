@@ -1,0 +1,41 @@
+{
+ "slug": "apps-explorer-2",
+ "manifests": [
+  "apps/explorer/deploy/tools/affected-tests/package.json",
+  "apps/explorer/deploy/tools/affected-tests/yarn.lock",
+  "apps/explorer/toolkit/package/package.json",
+  "apps/explorer/toolkit/package/yarn.lock"
+ ],
+ "alerts": [
+  {
+   "ghsa": "GHSA-g3hv-75wg-m249",
+   "number": 4570,
+   "package": "minimatch",
+   "ecosystem": "npm",
+   "manifest": "apps/explorer/deploy/tools/affected-tests/yarn.lock",
+   "severity": "medium",
+   "range": "< 11.0.1",
+   "patched": "11.0.1"
+  },
+  {
+   "ghsa": "GHSA-g3hv-75wg-m249",
+   "number": 4571,
+   "package": "minimatch",
+   "ecosystem": "npm",
+   "manifest": "apps/explorer/toolkit/package/yarn.lock",
+   "severity": "medium",
+   "range": "< 11.0.1",
+   "patched": "11.0.1"
+  },
+  {
+   "ghsa": "GHSA-7r86-cg39-jmmj",
+   "number": 4705,
+   "package": "minimatch",
+   "ecosystem": "npm",
+   "manifest": "apps/explorer/toolkit/package/yarn.lock",
+   "severity": "high",
+   "range": ">= 10.0.0, < 10.2.3",
+   "patched": "10.2.3"
+  }
+ ]
+}

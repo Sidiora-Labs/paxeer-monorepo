@@ -105,7 +105,7 @@ fn is_extreme(path: &[InnerOp], position: u8, spec: &InnerSpec) -> bool {
         .all(|op| child_position(op, spec) == Some(position))
 }
 
-fn adjacent(left: &[InnerOp], right: &[InnerOp], spec: &InnerSpec) -> bool {
+pub(crate) fn adjacent(left: &[InnerOp], right: &[InnerOp], spec: &InnerSpec) -> bool {
     let (mut left_end, mut right_end) = (left.len(), right.len());
     while left_end > 0 && right_end > 0 {
         let l = &left[left_end - 1];

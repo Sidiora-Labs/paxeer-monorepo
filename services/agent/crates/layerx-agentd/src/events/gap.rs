@@ -374,7 +374,8 @@ pub fn attempt_backfill(
                     tx_index: event.tx_index,
                     log_index: event.log_index,
                 };
-                if event.block_height != height
+                if event.block_hash.is_none()
+                    || event.block_height != height
                     || previous.is_some_and(|last| position <= last)
                     || source
                         .address

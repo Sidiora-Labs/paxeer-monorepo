@@ -1,4 +1,7 @@
 import { fileURLToPath } from "node:url";
+import { assertAgentSpendRuntime } from "./runtime.mjs";
+
+assertAgentSpendRuntime();
 
 const required = (name) => {
   const value = process.env[name];

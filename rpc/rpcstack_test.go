@@ -37,6 +37,34 @@ import (
 
 const testMethod = "rpc_modules"
 
+func TestHTTPServerStartThenStopDoesNotPanic(t *testing.T) {
+	for i := 0; i < 100; i++ {
+		srv := evmrpc.NewHTTPServer(rpc.DefaultHTTPTimeouts)
+		if !assert.NoError(t, srv.SetListenAddr("127.0.0.1", 0)) {
+			return
+		}
+
+		stopped := make(chan struct{})
+		go func() {
+			defer close(stopped)
+			assert.NotPanics(t, func() {
+				if !assert.NoError(t, srv.Start()) {
+					return
+				}
+				srv.Stop()
+			})
+		}()
+
+		timer := time.NewTimer(5 * time.Second)
+		select {
+		case <-stopped:
+			timer.Stop()
+		case <-timer.C:
+			t.Fatalf("iteration %d: Start followed by Stop did not return", i)
+		}
+	}
+}
+
 // TestCorsHandler makes sure CORS are properly handled on the http server.
 func TestCorsHandler(t *testing.T) {
 	srv := createAndStartServer(t, &evmrpc.HTTPConfig{CorsAllowedOrigins: []string{"test", "test.com"}}, false, &evmrpc.WsConfig{}, nil)

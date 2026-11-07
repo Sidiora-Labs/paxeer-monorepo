@@ -5,8 +5,8 @@
 //! requires TLS. The paxscan server presents a self-signed certificate, so
 //! it is authenticated either by pinning the SHA-256 of its leaf
 //! certificate or, when the operator opts in, left unauthenticated; the
-//! backfill verifies every paxscan block hash against the node before
-//! committing it either way.
+//! backfill verifies every paxscan block hash and obtains all published
+//! transaction bodies and receipts from the trusted node before committing.
 
 use std::sync::Arc;
 use std::time::Duration;
@@ -111,6 +111,23 @@ fn get<'a, T: postgres::types::FromSql<'a>>(row: &'a Row, index: usize) -> Resul
     row.try_get(index).map_err(|error| source(&error))
 }
 
+/// Resolve database domain hints through the trusted node before conversion. A
+/// missing or conflicting hint never assigns a transaction to root history.
+pub fn resolve_transaction_domains(
+    rows: &mut BlockscoutRange,
+    node: &crate::paxeer::PaxeerIngester,
+) -> Result<(), IndexError> {
+    let domains = rows
+        .transactions
+        .iter()
+        .map(|row| node.transaction_domain(row))
+        .collect::<Result<Vec<_>, _>>()?;
+    for (row, domain) in rows.transactions.iter_mut().zip(domains) {
+        row.set_verified_domain(domain);
+    }
+    Ok(())
+}
+
 /// A read-only session on the paxscan database.
 pub struct PaxscanDatabase {
     client: Client,
@@ -154,6 +171,18 @@ impl PaxscanDatabase {
         Ok(Self { client })
     }
 
+    /// Reads and authenticates transaction domains even on older schemas without chain_id.
+    pub fn range_verified(
+        &mut self,
+        from: u64,
+        to: u64,
+        node: &crate::paxeer::PaxeerIngester,
+    ) -> Result<BlockscoutRange, IndexError> {
+        let mut rows = self.range(from, to)?;
+        resolve_transaction_domains(&mut rows, node)?;
+        Ok(rows)
+    }
+
     /// Reads every Blockscout row of heights `from..=to` from one snapshot.
     ///
     /// # Errors
@@ -194,7 +223,7 @@ impl PaxscanDatabase {
         let transactions = query(
             "SELECT t.hash, t.block_number::bigint, t.index::bigint, t.from_address_hash,
                     t.to_address_hash, t.value::text, t.gas_used::text, t.status::bigint, t.input,
-                    t.created_contract_address_hash
+                    t.created_contract_address_hash, to_jsonb(t)->>'chain_id'
              FROM transactions t JOIN blocks b ON b.hash = t.block_hash AND b.consensus
              WHERE t.block_number BETWEEN $1::bigint AND $2::bigint
              ORDER BY t.block_number, t.index",
@@ -212,6 +241,7 @@ impl PaxscanDatabase {
                 status: get(row, 7)?,
                 input: get(row, 8)?,
                 created_contract_address_hash: get(row, 9)?,
+                chain_id: get(row, 10)?,
             })
         })
         .collect::<Result<Vec<_>, IndexError>>()?;

@@ -28,7 +28,7 @@ defmodule Explorer.PaxeerX.CosmosRest do
   @max_body_bytes 33_554_432
   @http_options [recv_timeout: 30_000, timeout: 2_000, follow_redirect: false]
   @max_int64 9_223_372_036_854_775_807
-  @max_int32 2_147_483_647
+  @max_uint64 18_446_744_073_709_551_615
 
   @type error ::
           :no_urls
@@ -36,6 +36,7 @@ defmodule Explorer.PaxeerX.CosmosRest do
           | {:height_ahead, String.t()}
           | {:unreachable, String.t()}
           | {:http_status, non_neg_integer(), String.t()}
+          | {:node_error, String.t(), String.t()}
           | {:too_large, String.t()}
           | {:malformed, String.t()}
 
@@ -230,11 +231,11 @@ defmodule Explorer.PaxeerX.CosmosRest do
   end
 
   defp observation(%{} = observation) do
-    with {:ok, market_id} <- integer(observation["market_id"], @max_int32),
-         {:ok, sequence} <- integer(observation["sequence"], @max_int64),
+    with {:ok, market_id} <- integer(observation["market_id"], @max_uint64),
+         {:ok, sequence} <- integer(observation["sequence"], @max_uint64),
          {:ok, index_price} <- price(observation["index_price"]),
          {:ok, mark_price} <- price(observation["mark_price"]),
-         {:ok, source_timestamp_ms} <- integer(observation["source_timestamp_ms"], @max_int64) do
+         {:ok, source_timestamp_ms} <- integer(observation["source_timestamp_ms"], @max_uint64) do
       {:ok,
        %{
          market_id: market_id,
@@ -380,6 +381,10 @@ defmodule Explorer.PaxeerX.CosmosRest do
 
       {:ok, %HTTPoison.Response{status_code: status, body: body}} ->
         case {status, Jason.decode(body)} do
+          {200, {:ok, %{"code" => _, "message" => message} = decoded}}
+          when is_binary(message) and not is_map_key(decoded, "result") ->
+            {:error, {:node_error, url, message}}
+
           {200, {:ok, %{"error" => _}}} ->
             node_error(status, body, url)
 

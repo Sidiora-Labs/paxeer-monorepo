@@ -50,36 +50,32 @@ func admissionChainID(t *testing.T, chainID int64) {
 	})
 }
 
-type allowanceHost struct {
-	*app.App
-	domains map[uint32]chainstypes.Domain
-}
-
-func (h *allowanceHost) DomainAllowance(ctx sdk.Context, chainID *big.Int) (id uint32, gas uint64, bytes uint64, active bool, known bool) {
-	id, known = chainstypes.DomainOfChainID(chainID)
-	if !known || id == 0 {
-		return h.App.DomainAllowance(ctx, chainID)
-	}
-	domain, known := h.domains[id]
-	return id, domain.GasAllowance, domain.ByteAllowance, domain.Status == chainstypes.StatusActive, known
-}
-
 func newAllowanceHarness(t *testing.T, maxGas int64, domains map[uint32]chainstypes.Domain, funded ...utils.TestAcct) *sourceHarness {
 	t.Helper()
-	h := newSourceHarness(t, openHeight, admissionParams(maxGas, maxGas, 200000), funded...)
-	exec, err := sequencer.NewExecutor(&allowanceHost{App: h.app, domains: domains}, sequencer.Options{
-		ChainID: testChainID, ProposerAddress: h.proposer,
-		LastSeq: sourceLastSeq, LastSeqHash: sourcePrevSeqHash,
-	})
-	require.NoError(t, err)
-	h.exec = exec
-	return h
+	return newSourceHarness(t, openHeight, func(ctx sdk.Context, a *app.App) {
+		admissionParams(maxGas, maxGas, 200000)(ctx, a)
+		genesis := chainstypes.DefaultGenesis()
+		genesis.Params.MinGasAllowance = 2
+		genesis.Params.MinByteAllowance = 1
+		for id, domain := range domains {
+			domain.Id = id
+			domain.Name = fmt.Sprintf("chain-%d", id)
+			domain.TargetGasPerBlock = domain.GasAllowance / 2
+			domain.Bond = sdk.ZeroInt()
+			genesis.Domains = append(genesis.Domains, domain)
+			genesis.NextBaseFees[id] = sdk.ZeroDec()
+			if id >= genesis.NextID {
+				genesis.NextID = id + 1
+			}
+		}
+		require.NoError(t, a.LayerXChainsKeeper.InitGenesis(ctx, *genesis))
+	}, funded...)
 }
 
 func TestAcceptRefusesPastChainGasAllowance(t *testing.T) {
 	t.Run("usage and delivery rollback", func(t *testing.T) {
 		chainID := chainstypes.ChainIDOf(7).Int64()
-		admissionChainID(t, chainID)
+		admissionChainID(t, 125)
 		sender, other, recipient := utils.NewSigner(), utils.NewSigner(), utils.NewSigner()
 		h := newAllowanceHarness(t, 20*transferGas, map[uint32]chainstypes.Domain{
 			7: {Status: chainstypes.StatusActive, GasAllowance: 2 * transferGas, ByteAllowance: 200000},
@@ -111,7 +107,6 @@ func TestAcceptRefusesPastChainGasAllowance(t *testing.T) {
 		require.ErrorContains(t, err, fmt.Sprintf("chain %d gas wanted %d exceeds its allowance %d", 7, 3*transferGas, 2*transferGas))
 		requireWei(t, before, h.weiBalance(h.openCtx(), sender.EvmAddress))
 		require.Equal(t, uint64(2), h.app.EvmKeeper.GetNonce(h.openCtx(), sender.EvmAddress))
-		admissionChainID(t, chainstypes.ChainIDOf(8).Int64())
 		_, bz := signEVM(t, other, chainstypes.ChainIDOf(8).Int64(), 0, recipient.EvmAddress, big.NewInt(1))
 		_, err = h.exec.Accept(bz)
 		require.NoError(t, err)
@@ -136,7 +131,13 @@ func TestAcceptRefusesPastChainGasAllowance(t *testing.T) {
 			acc, err := h.exec.Accept(bz)
 			require.Nil(t, acc)
 			require.ErrorIs(t, err, sequencer.ErrNotAdmitted)
-			require.ErrorIs(t, err, chainstypes.ErrDomainNotActive)
+			if domainID, virtual := chainstypes.DomainOfChainID(big.NewInt(chainID)); virtual && domains[domainID].Status != 0 {
+				require.ErrorIs(t, err, chainstypes.ErrDomainNotActive)
+				require.NotErrorIs(t, err, sdkerrors.ErrInvalidChainID)
+			} else {
+				require.ErrorIs(t, err, sdkerrors.ErrInvalidChainID)
+				require.NotErrorIs(t, err, chainstypes.ErrDomainNotActive)
+			}
 			require.NotErrorIs(t, err, sequencer.ErrBlockFull)
 			require.ErrorContains(t, err, fmt.Sprintf("chain %d", chainID))
 		}
@@ -185,7 +186,7 @@ func TestAcceptRefusesPastChainGasAllowance(t *testing.T) {
 }
 
 func TestChainAllowanceDoesNotLimitRootTransactions(t *testing.T) {
-	admissionChainID(t, chainstypes.ChainIDOf(1).Int64())
+	admissionChainID(t, 125)
 	sender, root, recipient := utils.NewSigner(), utils.NewSigner(), utils.NewSigner()
 	h := newAllowanceHarness(t, 4*transferGas, map[uint32]chainstypes.Domain{
 		1: {Status: chainstypes.StatusActive, GasAllowance: transferGas, ByteAllowance: 200000},
@@ -220,7 +221,7 @@ func TestAcceptRefusesPastChainByteAllowance(t *testing.T) {
 	for _, short := range []uint64{0, 1} {
 		t.Run(fmt.Sprintf("%d bytes short", short), func(t *testing.T) {
 			chainID := chainstypes.ChainIDOf(7).Int64()
-			admissionChainID(t, chainID)
+			admissionChainID(t, 125)
 			sender, other, recipient := utils.NewSigner(), utils.NewSigner(), utils.NewSigner()
 			_, first := signEVM(t, sender, chainID, 0, recipient.EvmAddress, big.NewInt(1))
 			_, second := signEVM(t, sender, chainID, 1, recipient.EvmAddress, big.NewInt(1))
@@ -252,7 +253,6 @@ func TestAcceptRefusesPastChainByteAllowance(t *testing.T) {
 			require.ErrorContains(t, err, fmt.Sprintf("chain %d bytes wanted %d exceeds its allowance %d", 7, wanted, allowance))
 			requireWei(t, before, h.weiBalance(h.openCtx(), sender.EvmAddress))
 			require.Equal(t, uint64(len(accepted)), h.app.EvmKeeper.GetNonce(h.openCtx(), sender.EvmAddress))
-			admissionChainID(t, chainstypes.ChainIDOf(8).Int64())
 			_, bz := signEVM(t, other, chainstypes.ChainIDOf(8).Int64(), 0, recipient.EvmAddress, big.NewInt(1))
 			_, err = h.exec.Accept(bz)
 			require.NoError(t, err)
@@ -427,5 +427,5 @@ func TestSealedBlockPassesCheckTotalBlockGas(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, maxBytes, int64(len(tx0)+len(first)+len(second)))
 	require.Equal(t, abci.ResponseProcessProposal_ACCEPT,
-		resolutionProposal(t, h.app, openHeight, time.UnixMilli(ms), sealed.Txs))
+		resolutionProposalFrom(t, h.app, openHeight, time.UnixMilli(ms), sealed.Txs, h.proposer))
 }

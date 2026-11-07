@@ -10,6 +10,7 @@ import {
 import { copyEntry } from "../../copy/runtime.ts";
 import { formatCopy } from "../../copy/format.ts";
 import type { TraceId } from "../api";
+import { useActiveAccountId } from "../auth/use-active-account.ts";
 import { InlineNotice, ScreenCard, StateEmpty } from "../kit/surface";
 import { KitButton } from "../kit/control";
 import { KitTextField } from "../kit/display";
@@ -154,6 +155,12 @@ export function SupportChat({
   platform,
   traceId,
 }: Readonly<{ platform: "mobile" | "desktop"; traceId?: TraceId }>) {
+  const accountId = useActiveAccountId();
+  return <SupportChatForAccount key={`${accountId ?? "session"}:${platform}:${traceId ?? ""}`} platform={platform}
+    {...(traceId === undefined ? {} : { traceId })} />;
+}
+
+function SupportChatForAccount({ platform, traceId }: Readonly<{ platform: "mobile" | "desktop"; traceId?: TraceId }>) {
   const resolved = useResolvedPlatform(platform);
   const sessionRef = useRef<SupportChatSession | undefined>(undefined);
   sessionRef.current ??= new SupportChatSession({
@@ -165,7 +172,7 @@ export function SupportChat({
   const endRef = useRef<HTMLLIElement | null>(null);
 
   useEffect(() => {
-    void session.initialize();
+    session.start();
     const online = () => {
       session.setOnline(true);
       void session.retryFailed();
@@ -177,6 +184,7 @@ export function SupportChat({
       offline();
     }
     return () => {
+      session.stop();
       window.removeEventListener("online", online);
       window.removeEventListener("offline", offline);
     };

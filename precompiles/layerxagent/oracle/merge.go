@@ -5,9 +5,12 @@ import (
 	"math/big"
 
 	evmkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/keeper"
+	exchangetypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxexchange/types"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/lxphost"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/precompiles"
 	agentcommon "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/layerxagent/common"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/utils"
+	storekeys "github.com/Sidiora-Labs/Paxeer-X-Network/storage/common/keys"
 	"github.com/ethereum/go-ethereum/common"
 )
 
@@ -30,15 +33,19 @@ func NewMergePrecompile(keepers utils.Keepers, planName string) (precompiles.IPr
 	if keepers == nil {
 		return nil, fmt.Errorf("%w: precompile keepers are unavailable", agentcommon.ErrNoContext)
 	}
-	exchange := keepers.LayerXExchangeK()
-	if exchange == nil {
-		return nil, fmt.Errorf("%w: exchange keeper is unavailable", agentcommon.ErrNoContext)
-	}
 	evmKeeper, ok := keepers.EVMK().(*evmkeeper.Keeper)
 	if !ok || evmKeeper == nil {
 		return nil, fmt.Errorf("%w: evm keeper is unavailable", agentcommon.ErrNoContext)
 	}
-	p, err := NewPrecompile(exchange, evmKeeper, evmKeeper.UpgradeKeeper(), planName, MergeMaxFeeds, big.NewInt(mergeMaxConfidence))
+	hostKeepers, ok := keepers.(interface{ LayerXHost() *lxphost.Host })
+	if !ok || hostKeepers.LayerXHost() == nil {
+		return nil, fmt.Errorf("%w: committed oracle host is unavailable", agentcommon.ErrNoContext)
+	}
+	live, err := NewKeeper(hostKeepers.LayerXHost(), storekeys.LayerXHostStoreKey, exchangetypes.StoreKey)
+	if err != nil {
+		return nil, err
+	}
+	p, err := NewPrecompile(live, evmKeeper, evmKeeper.UpgradeKeeper(), planName, MergeMaxFeeds, big.NewInt(mergeMaxConfidence))
 	if err != nil {
 		return nil, err
 	}

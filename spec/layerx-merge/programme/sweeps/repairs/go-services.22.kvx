@@ -1,0 +1,7 @@
+[repair.go-services.22]
+target = "services/platform/perps-data/internal/gateway"
+command = "cd services/platform/perps-data && go vet ./internal/gateway/ && go test -count=1 ./internal/gateway/"
+revision = "cea04b0a20fed9621b2f2580398024b38b76ff2e"
+result = "already-passing"
+change = "none"
+producer_input_tests = ["TestGatewayServer: PERPS_DATA_TEST_DATABASE_URL for a PostgreSQL database permitting the perps schema to be reset and migrated, and PERPS_DATA_TEST_RPC for an EVM JSON-RPC endpoint."]

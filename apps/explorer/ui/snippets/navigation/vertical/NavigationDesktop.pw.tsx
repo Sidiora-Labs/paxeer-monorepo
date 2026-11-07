@@ -4,12 +4,14 @@ import React from 'react';
 
 import config from 'configs/app';
 import * as cookies from 'lib/cookies';
+import * as profileMock from 'mocks/user/profile';
 import { contextWithAuth } from 'playwright/fixtures/auth';
 import { ENVS_MAP } from 'playwright/fixtures/mockEnvs';
 import { test, expect } from 'playwright/lib';
 import * as pwConfig from 'playwright/utils/config';
 
 import NavigationDesktop from './NavigationDesktop';
+import NavigationDesktopAuthScene from './NavigationDesktopAuthScene';
 
 const hooksConfig = {
   router: {
@@ -51,19 +53,31 @@ const authTest = test.extend<{ context: BrowserContext }>({
   context: contextWithAuth,
 });
 
-// FIXME: at the moment, in the docker container playwright make screenshot before the page is completely loaded
-// I cannot figure out the reason, so I skip this test for now
-authTest.describe.skip('auth', () => {
+authTest.describe('auth', () => {
   let component: Locator;
 
-  authTest.beforeEach(async({ render }) => {
+  authTest.beforeEach(async({ render, mockApiResponse, context }) => {
+    await expect.poll(async() => {
+      const contextCookies = await context.cookies();
+      return contextCookies.some((cookie) => cookie.name === cookies.NAMES.API_TOKEN);
+    }).toBe(true);
+    await mockApiResponse('general:user_info', profileMock.base);
+
     component = await render(
-      <Flex w="100%" minH="100vh" alignItems="stretch">
-        <NavigationDesktop/>
-        <Box bgColor="lightpink" w="100%"/>
-      </Flex>,
+      <NavigationDesktopAuthScene/>,
       { hooksConfig },
     );
+
+    await expect(component).toHaveAttribute('aria-busy', 'false');
+    await expect(component.locator('header')).toBeVisible();
+    await expect(component.getByRole('link', { name: 'Watch list link', exact: true })).toBeVisible();
+    await expect(component.getByRole('link', { name: 'Private tags link', exact: true })).toBeVisible();
+    await expect(component.getByRole('link', { name: 'API keys link', exact: true })).toBeVisible();
+    await expect(component.getByRole('link', { name: 'Custom ABI link', exact: true })).toBeVisible();
+    await expect(component.locator('[data-loading]')).toHaveCount(0);
+    await component.evaluate(async() => {
+      await document.fonts.ready;
+    });
   });
 
   authTest('+@dark-mode', async() => {

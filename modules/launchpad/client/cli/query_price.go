@@ -3,10 +3,12 @@ package cli
 import (
 	"fmt"
 	"strconv"
+	"strings"
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/launchpad/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/client"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/client/flags"
+	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
 	"github.com/spf13/cobra"
 )
 
@@ -60,8 +62,14 @@ func CmdQueryQuote() *cobra.Command {
 			if args[1] != "buy" && args[1] != "sell" {
 				return fmt.Errorf("side must be buy or sell, got %q", args[1])
 			}
-			if _, err := strconv.ParseUint(args[2], 10, 64); err != nil {
-				return fmt.Errorf("amount-in %q: %w", args[2], err)
+			for _, digit := range args[2] {
+				if digit < '0' || digit > '9' {
+					return fmt.Errorf("amount-in must be a positive base-10 uint256 integer: %w", &strconv.NumError{Func: "ParseUint256", Num: args[2], Err: strconv.ErrSyntax})
+				}
+			}
+			amount, ok := sdk.NewIntFromString(strings.TrimLeft(args[2], "0"))
+			if !ok || !amount.IsPositive() {
+				return fmt.Errorf("amount-in must be a positive base-10 uint256 integer: %w", &strconv.NumError{Func: "ParseUint256", Num: args[2], Err: strconv.ErrRange})
 			}
 			clientCtx, err := client.GetClientQueryContext(cmd)
 			if err != nil {

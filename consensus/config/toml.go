@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 	"text/template"
+	"unicode/utf8"
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/libs/utils/tcp"
 
@@ -23,10 +24,44 @@ func init() {
 	var err error
 	tmpl := template.New("configFileTemplate").Funcs(template.FuncMap{
 		"StringsJoin": strings.Join,
+		"tomlQuote":   tomlQuote,
 	})
 	if configTemplate, err = tmpl.Parse(defaultConfigTemplate); err != nil {
 		panic(err)
 	}
+}
+
+func tomlQuote(value string) (string, error) {
+	if !utf8.ValidString(value) {
+		return "", fmt.Errorf("TOML string is not valid UTF-8")
+	}
+	var quoted strings.Builder
+	quoted.WriteByte('"')
+	for _, r := range value {
+		switch r {
+		case '"', '\\':
+			quoted.WriteByte('\\')
+			quoted.WriteRune(r)
+		case '\b':
+			quoted.WriteString(`\b`)
+		case '\t':
+			quoted.WriteString(`\t`)
+		case '\n':
+			quoted.WriteString(`\n`)
+		case '\f':
+			quoted.WriteString(`\f`)
+		case '\r':
+			quoted.WriteString(`\r`)
+		default:
+			if r < 0x20 || r == 0x7f {
+				fmt.Fprintf(&quoted, `\u%04X`, r)
+			} else {
+				quoted.WriteRune(r)
+			}
+		}
+	}
+	quoted.WriteByte('"')
+	return quoted.String(), nil
 }
 
 /****** these are for production settings ***********/
@@ -89,7 +124,7 @@ const manualConfigTemplate = `# This is a TOML config file.
 #######################################################################
 
 # A custom human readable name for this node
-moniker = "{{ .BaseConfig.Moniker }}"
+moniker = {{ tomlQuote .BaseConfig.Moniker }}
 
 # Mode of Node: full | validator | seed
 # * validator node
@@ -101,7 +136,7 @@ moniker = "{{ .BaseConfig.Moniker }}"
 # * seed node
 #   - only P2P, PEX Reactor
 #   - No priv_validator_key.json, priv_validator_state.json
-mode = "{{ .BaseConfig.Mode }}"
+mode = {{ tomlQuote .BaseConfig.Mode }}
 
 # Database backend: goleveldb | cleveldb | boltdb | rocksdb | badgerdb
 # * goleveldb (github.com/syndtr/goleveldb - most popular implementation)
@@ -122,24 +157,28 @@ mode = "{{ .BaseConfig.Mode }}"
 # * badgerdb (uses github.com/dgraph-io/badger)
 #   - EXPERIMENTAL
 #   - use badgerdb build tag (go build -tags badgerdb)
-db-backend = "{{ .BaseConfig.DBBackend }}"
+db-backend = {{ tomlQuote .BaseConfig.DBBackend }}
 
 # Database directory
-db-dir = "{{ js .BaseConfig.DBPath }}"
+db-dir = {{ tomlQuote .BaseConfig.DBPath }}
 
 # Output level for logging, including package level options
-log-level = "{{ .BaseConfig.LogLevel }}"
+log-level = {{ tomlQuote .BaseConfig.LogLevel }}
 
 # Output format: 'plain' (colored text) or 'json'
-log-format = "{{ .BaseConfig.LogFormat }}"
+log-format = {{ tomlQuote .BaseConfig.LogFormat }}
 
 ##### additional base config options #####
 
 # Path to the JSON file containing the initial validator set and other meta data
-genesis-file = "{{ js .BaseConfig.Genesis }}"
+genesis-file = {{ tomlQuote .BaseConfig.Genesis }}
 
 # Path to the JSON file containing the private key to use for node authentication in the p2p protocol
-node-key-file = "{{ js .BaseConfig.NodeKey }}"
+node-key-file = {{ tomlQuote .BaseConfig.NodeKey }}
+
+# Path to a JSON file containing the Autobahn (GigaRouter) configuration.
+# Leave empty to disable Autobahn.
+autobahn-config-file = {{ tomlQuote .AutobahnConfigFile }}
 
 #######################################################################
 ###                 Advanced Configuration Options                  ###
@@ -151,18 +190,18 @@ node-key-file = "{{ js .BaseConfig.NodeKey }}"
 [rpc]
 
 # TCP or UNIX socket address for the RPC server to listen on
-laddr = "{{ .RPC.ListenAddress }}"
+laddr = {{ tomlQuote .RPC.ListenAddress }}
 
 # A list of origins a cross-domain request can be executed from
 # Default value '[]' disables cors support
 # Use '["*"]' to allow any origin
-cors-allowed-origins = [{{ range .RPC.CORSAllowedOrigins }}{{ printf "%q, " . }}{{end}}]
+cors-allowed-origins = [{{ range .RPC.CORSAllowedOrigins }}{{ tomlQuote . }}, {{end}}]
 
 # A list of methods the client is allowed to use with cross-domain requests
-cors-allowed-methods = [{{ range .RPC.CORSAllowedMethods }}{{ printf "%q, " . }}{{end}}]
+cors-allowed-methods = [{{ range .RPC.CORSAllowedMethods }}{{ tomlQuote . }}, {{end}}]
 
 # A list of non simple headers the client is allowed to use with cross-domain requests
-cors-allowed-headers = [{{ range .RPC.CORSAllowedHeaders }}{{ printf "%q, " . }}{{end}}]
+cors-allowed-headers = [{{ range .RPC.CORSAllowedHeaders }}{{ tomlQuote . }}, {{end}}]
 
 # Activate unsafe RPC commands like /dial-seeds and /unsafe-flush-mempool
 unsafe = {{ .RPC.Unsafe }}
@@ -231,16 +270,16 @@ max-header-bytes = {{ .RPC.MaxHeaderBytes }}
 # and the CA's certificate.
 # NOTE: both tls-cert-file and tls-key-file must be present for Tendermint to create HTTPS server.
 # Otherwise, HTTP server is run.
-tls-cert-file = "{{ .RPC.TLSCertFile }}"
+tls-cert-file = {{ tomlQuote .RPC.TLSCertFile }}
 
 # The path to a file containing matching private key that is used to create the HTTPS server.
 # Might be either absolute path or path related to Tendermint's config directory.
 # NOTE: both tls-cert-file and tls-key-file must be present for Tendermint to create HTTPS server.
 # Otherwise, HTTP server is run.
-tls-key-file = "{{ .RPC.TLSKeyFile }}"
+tls-key-file = {{ tomlQuote .RPC.TLSKeyFile }}
 
 # pprof listen address (https://golang.org/pkg/net/http/pprof)
-pprof-laddr = "{{ .RPC.PprofListenAddress }}"
+pprof-laddr = {{ tomlQuote .RPC.PprofListenAddress }}
 
 # timeout for any read request
 timeout-read = "{{ .RPC.TimeoutRead }}"
@@ -255,28 +294,28 @@ timeout-write = "{{ .RPC.TimeoutWrite }}"
 [p2p]
 
 # Select the p2p internal queue
-queue-type = "{{ .P2P.QueueType }}"
+queue-type = {{ tomlQuote .P2P.QueueType }}
 
 # Address to listen for incoming connections
-laddr = "{{ .P2P.ListenAddress }}"
+laddr = {{ tomlQuote .P2P.ListenAddress }}
 
 # Address to advertise to peers for them to dial
 # If empty, will use the same port as the laddr,
 # and will introspect on the listener or use UPnP
 # to figure out the address. ip and port are required
 # example: 159.89.10.97:26656
-external-address = "{{ .P2P.ExternalAddress }}"
+external-address = {{ tomlQuote .P2P.ExternalAddress }}
 
 # Comma separated list of peers to be added to the peer store
 # on startup. Either BootstrapPeers or PersistentPeers are
 # needed for peer discovery
-bootstrap-peers = "{{ .P2P.BootstrapPeers }}"
+bootstrap-peers = {{ tomlQuote .P2P.BootstrapPeers }}
 
 # Comma separated list of nodes to keep persistent connections to
-persistent-peers = "{{ .P2P.PersistentPeers }}"
+persistent-peers = {{ tomlQuote .P2P.PersistentPeers }}
 
 # Comma separated list of nodes for block sync only
-blocksync-peers = "{{ .P2P.BlockSyncPeers }}"
+blocksync-peers = {{ tomlQuote .P2P.BlockSyncPeers }}
 
 # UPNP port forwarding
 upnp = {{ .P2P.UPNP }}
@@ -292,7 +331,7 @@ pex = {{ .P2P.PexReactor }}
 
 # Comma separated list of peer IDs to keep private (will not be gossiped to other peers)
 # Warning: IPs will be exposed at /net_info, for more information https://github.com/tendermint/tendermint/issues/3055
-private-peer-ids = "{{ .P2P.PrivatePeerIDs }}"
+private-peer-ids = {{ tomlQuote .P2P.PrivatePeerIDs }}
 
 # Toggle to disable guard against peers connecting from the same ip.
 allow-duplicate-ip = {{ .P2P.AllowDuplicateIP }}
@@ -319,7 +358,7 @@ send-rate = {{ .P2P.SendRate }}
 recv-rate = {{ .P2P.RecvRate }}
 
 # List of node IDs, to which a connection will be (re)established, dropping an existing peer if any existing limit has been reached
-unconditional-peer-ids = "{{ .P2P.UnconditionalPeerIDs }}"
+unconditional-peer-ids = {{ tomlQuote .P2P.UnconditionalPeerIDs }}
 
 #######################################################################
 ###          Mempool Configuration Options                          ###
@@ -444,11 +483,11 @@ use-p2p = {{ .StateSync.UseP2P }}
 
 # If using RPC, at least two addresses need to be provided. They should be compatible with net.Dial,
 # for example: "host.example.com:2125"
-rpc-servers = "{{ StringsJoin .StateSync.RPCServers "," }}"
+rpc-servers = {{ tomlQuote (StringsJoin .StateSync.RPCServers ",") }}
 
 # The hash and height of a trusted block. Must be within the trust-period.
 trust-height = {{ .StateSync.TrustHeight }}
-trust-hash = "{{ .StateSync.TrustHash }}"
+trust-hash = {{ tomlQuote .StateSync.TrustHash }}
 
 # The trust period should be set so that Tendermint can detect and gossip misbehavior before
 # it is considered expired. For chains based on the Cosmos SDK, one day less than the unbonding
@@ -473,7 +512,7 @@ use-local-snapshot = {{ .StateSync.UseLocalSnapshot }}
 #######################################################################
 [consensus]
 
-wal-file = "{{ js .Consensus.WalPath }}"
+wal-file = {{ tomlQuote .Consensus.WalPath }}
 
 # How many blocks to look back to check existence of the node's consensus votes before joining consensus
 # When non-zero, the node will panic upon restart
@@ -572,11 +611,11 @@ const autoManagedConfigTemplate = `
 #   2) "kv" - a simple indexer backed by key-value storage (see DBBackend)
 #   3) "psql" - the indexer services backed by PostgreSQL.
 # When "kv" or "psql" is chosen "tx.height" and "tx.hash" will always be indexed.
-indexer = [{{ range $i, $e := .TxIndex.Indexer }}{{if $i}}, {{end}}{{ printf "%q" $e}}{{end}}]
+indexer = [{{ range $i, $e := .TxIndex.Indexer }}{{if $i}}, {{end}}{{ tomlQuote $e }}{{end}}]
 
 # The PostgreSQL connection configuration, the connection format:
 #   postgresql://<user>:<password>@<host>:<port>/<db>?<opts>
-psql-conn = "{{ .TxIndex.PsqlConn }}"
+psql-conn = {{ tomlQuote .TxIndex.PsqlConn }}
 
 #######################################################################
 ###       Instrumentation Configuration (Auto-managed)             ###
@@ -589,7 +628,7 @@ psql-conn = "{{ .TxIndex.PsqlConn }}"
 prometheus = {{ .Instrumentation.Prometheus }}
 
 # Address to listen for Prometheus collector(s) connections
-prometheus-listen-addr = "{{ .Instrumentation.PrometheusListenAddr }}"
+prometheus-listen-addr = {{ tomlQuote .Instrumentation.PrometheusListenAddr }}
 
 # Maximum number of simultaneous connections.
 # If you want to accept a larger number than the default, make sure
@@ -598,7 +637,7 @@ prometheus-listen-addr = "{{ .Instrumentation.PrometheusListenAddr }}"
 max-open-connections = {{ .Instrumentation.MaxOpenConnections }}
 
 # Instrumentation namespace
-namespace = "{{ .Instrumentation.Namespace }}"
+namespace = {{ tomlQuote .Instrumentation.Namespace }}
 
 #######################################################################
 ###       Priv Validator Configuration (Auto-managed)              ###
@@ -606,25 +645,25 @@ namespace = "{{ .Instrumentation.Namespace }}"
 [priv-validator]
 
 # Path to the JSON file containing the private key to use as a validator in the consensus protocol
-key-file = "{{ js .PrivValidator.Key }}"
+key-file = {{ tomlQuote .PrivValidator.Key }}
 
 # Path to the JSON file containing the last sign state of a validator
-state-file = "{{ js .PrivValidator.State }}"
+state-file = {{ tomlQuote .PrivValidator.State }}
 
 # TCP or UNIX socket address for Tendermint to listen on for
 # connections from an external PrivValidator process
 # when the listenAddr is prefixed with grpc instead of tcp it will use the gRPC Client
-laddr = "{{ .PrivValidator.ListenAddr }}"
+laddr = {{ tomlQuote .PrivValidator.ListenAddr }}
 
 # Path to the client certificate generated while creating needed files for secure connection.
 # If a remote validator address is provided but no certificate, the connection will be insecure
-client-certificate-file = "{{ js .PrivValidator.ClientCertificate }}"
+client-certificate-file = {{ tomlQuote .PrivValidator.ClientCertificate }}
 
 # Client key generated while creating certificates for secure connection
-client-key-file = "{{ js .PrivValidator.ClientKey }}"
+client-key-file = {{ tomlQuote .PrivValidator.ClientKey }}
 
 # Path to the Root Certificate Authority used to sign both client and server certificates
-root-ca-file = "{{ js .PrivValidator.RootCA }}"
+root-ca-file = {{ tomlQuote .PrivValidator.RootCA }}
 
 #######################################################################
 ###       SelfRemediation Configuration (Auto-managed)             ###
@@ -648,10 +687,6 @@ blocks-behind-check-interval = {{ .SelfRemediation.BlocksBehindCheckIntervalSeco
 
 # Cooldown between each restart
 restart-cooldown-seconds = {{ .SelfRemediation.RestartCooldownSeconds }}
-
-# Path to a JSON file containing the Autobahn (GigaRouter) configuration.
-# Leave empty to disable Autobahn.
-autobahn-config-file = "{{ .AutobahnConfigFile }}"
 
 `
 

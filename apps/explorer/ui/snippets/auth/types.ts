@@ -11,6 +11,7 @@ export type ScreenSuccess = {
   profile: UserInfo;
   isAuth?: boolean;
   rewardsToken?: string;
+  rewardsAuthFailed?: boolean;
 };
 export type Screen = {
   type: 'select_method';

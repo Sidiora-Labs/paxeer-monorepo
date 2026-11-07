@@ -1,0 +1,48 @@
+[issue.1568]
+number = 1568
+title = "[P2] Classify the fee-token receipt fixture in the SDK pipeline inventory"
+revision = "53150198caf59defafffab36d79dbc66d921ae57"
+verdict = "task"
+evidence = "sdk/platform/pipeline.kvx:405-445 classifies the conformance fixtures by name and leaves sdk/platform/conformance/fixtures/sequencer-receipt-fee-token-v1.json unclassified, which the generators at sdk/platform/generators/src/main.rs:295-361, 1961-1967 and 2033-2053 then skip."
+close_comment = "The SDK pipeline inventory now classifies the fee-token sequencer receipt fixture, so the platform SDK generators include it in their conformance set and the check target passes."
+
+[task.18.1568.1]
+title = "Issue #1568: Classify the fee-token receipt fixture in the SDK pipeline inventory"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181568.1"]
+capabilities = []
+interfaces = []
+do_1 = "Decision 2490 (triage record spec/layerx-merge/programme/issues/1568.kvx, verdict task): sdk/platform/pipeline.kvx:405-445 lists the conformance fixtures by class and omits sdk/platform/conformance/fixtures/sequencer-receipt-fee-token-v1.json; the generators (sdk/platform/generators/src/main.rs:295-361, 1961-1967, 2033-2053) derive their fixture set from that inventory, so the fee-token receipt fixture is never generated into the portable, JVM and Rust SDK checks. Add the fixture to the inventory under the sequencer receipt class with the same key set as its siblings and adjust the generator only where the new entry needs it."
+do_2 = "The verify is the existing make platform-sdk-check target (services/platform/Makefile.inc:231-235: portable and JVM generator checks and the sdkgen check and PaxAI check); it must pass with the fixture classified; never remove a fixture from the inventory to make it pass."
+symbols = []
+touches = ["sdk/platform/pipeline.kvx", "sdk/platform/generators/src/main.rs"]
+tests = []
+planned_paths = []
+build_cmd = "make -s -n platform-sdk-check"
+verify_cmd = "make -s platform-sdk-check"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181568]
+title = "The SDK pipeline inventory classifies every conformance fixture"
+ac_1 = "Given sdk/platform/conformance/fixtures/sequencer-receipt-fee-token-v1.json, when make platform-sdk-check runs, then the fixture is classified in sdk/platform/pipeline.kvx and every generator check exits zero."
+
+[acceptance.18.1568.1]
+feature = "18"
+req = "181568.1"
+scenario = "Given the fee-token receipt fixture is classified, when the platform SDK check target runs, then every generator check passes."
+contract = "contracts/platform-sdk.md#pipeline"
+test = "make -s platform-sdk-check (planned)"
+qualification = "UNRUN"

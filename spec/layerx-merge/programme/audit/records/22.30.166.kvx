@@ -1,0 +1,1813 @@
+# Pre-upgrade source audit of the auth/bank package (decision 2515).
+
+[audit.22.30.166]
+task = "22.30.166"
+revision = "2b99f88520e4e809ad5593f3bee2df74fe355d7b"
+files_reviewed = 204
+findings = 44
+docs_reviewed = 23
+upgrade_ready = false
+blocking = ["vesting-allowlist-bypass", "allowlist-genesis-loss", "gas-estimate-stale-authinfo", "block-tx-reverse-pagination", "legacy-supply-request-shape"]
+coverage = "All 204 members reviewed in full, including four upstream Atlas files classified as vendored historical material with provenance notes. Reviewed all 311 produced and 340 consumed interface rows, including names, types, encodings, errors and state lifecycle, against actual source and node registration."
+requirements_reviewed = ["7288.1", "15002.1", "15002.2", "15017.1", "15017.2", "15017.3", "15018.1", "15018.2", "15027.1", "15033.1", "15028.1", "15034.1", "7289.1"]
+interface_review = "Compared auth identity/Any queries, ante feegrant/signatures/params, binary and JSON transaction/signing boundaries, vesting creation and account schedules, bank send/authz, metadata slash-safe gateway bindings, fractional wei and supply accounting, balance hooks, deferred cache and genesis recovery. Existing legacy metric declarations are retired and replacement OTel emitters are present; no member references a retired LayerX router, daemon or public /rpc component."
+lifecycle_review = "Node CompleteBlock flushes deferred bank balances before EndBlock/commit; they are not reported as an unflushed-restart defect. Persisted allowlists survive ordinary restart but are lost through genesis recovery. The EVM GetBalance consumer subtracts LockedCoins before reporting spendable base-denom funds, so SubWei borrowing alone does not establish a vesting bypass."
+evidence_limits = "Findings describe reviewed source behavior and registry/document agreement. No source repair, Go compilation or runtime regression qualification is asserted by this record."
+
+[file.001]
+path = "sdk/x/auth/ante/ante.go"
+lines = 64
+verdict = "issues"
+note = "Ante decorator construction, required keepers and fee-checker wiring reviewed; concrete params-keeper assertion needs repair."
+
+[file.002]
+path = "sdk/x/auth/ante/ante_test.go"
+lines = 1211
+verdict = "clean"
+note = "Read all ante scenarios, including sequence-check configuration, fee grants, gas limits and signer ordering; assertions match the exercised decorators."
+
+[file.003]
+path = "sdk/x/auth/ante/basic.go"
+lines = 204
+verdict = "clean"
+note = "Memo, transaction-size, basic-validation and timeout decorators reviewed against transaction interfaces and gas accounting."
+
+[file.004]
+path = "sdk/x/auth/ante/basic_test.go"
+lines = 224
+verdict = "clean"
+note = "Basic-validation, memo bounds, transaction size and timeout cases exercise the corresponding decorators with matching transaction shapes."
+
+[file.005]
+path = "sdk/x/auth/ante/expected_keepers.go"
+lines = 29
+verdict = "clean"
+note = "Account, feegrant and params keeper method contracts agree with their concrete callers in the ante path."
+
+[file.006]
+path = "sdk/x/auth/ante/ext.go"
+lines = 36
+verdict = "clean"
+note = "Extension-option rejection returns the declared unsupported-extension error and calls the next decorator only on accepted transactions."
+
+[file.007]
+path = "sdk/x/auth/ante/ext_test.go"
+lines = 36
+verdict = "clean"
+note = "Extension-option tests exercise accepted empty options and rejected unsupported options using the actual transaction wrapper."
+
+[file.008]
+path = "sdk/x/auth/ante/fee.go"
+lines = 128
+verdict = "clean"
+note = "Fee deduction, payer/granter selection and priority propagation agree with bank and feegrant interfaces; failures retain their SDK errors."
+
+[file.009]
+path = "sdk/x/auth/ante/fee_test.go"
+lines = 432
+verdict = "clean"
+note = "Fee-checker and minimum-price test fixtures match the fee types and local/global price combination used by the producer."
+
+[file.010]
+path = "sdk/x/auth/ante/feegrant_test.go"
+lines = 231
+verdict = "clean"
+note = "Feegrant integration scenarios exercise actual allowances, fee payer changes and exhausted grants with the ante chain."
+
+[file.011]
+path = "sdk/x/auth/ante/setup.go"
+lines = 94
+verdict = "clean"
+note = "Setup decorators initialize gas meters and recover out-of-gas with height and simulation handling consistent with SDK context."
+
+[file.012]
+path = "sdk/x/auth/ante/setup_test.go"
+lines = 99
+verdict = "clean"
+note = "Setup tests cover out-of-gas recovery and simulation gas behavior through the real decorators."
+
+[file.013]
+path = "sdk/x/auth/ante/sigverify.go"
+lines = 515
+verdict = "issues"
+note = "Signer key setup, sequence checks and verification were read; malformed multisig gas-accounting shapes can index outside their slices."
+
+[file.014]
+path = "sdk/x/auth/ante/sigverify_benchmark_test.go"
+lines = 44
+verdict = "clean"
+note = "Benchmarks construct supported public-key/signature types and call the declared verification gas consumer."
+
+[file.015]
+path = "sdk/x/auth/ante/sigverify_test.go"
+lines = 407
+verdict = "clean"
+note = "Read the signature verification suite in full; signer/key, sequence, gas-cost and nested multisig cases match their exercised producers."
+
+[file.016]
+path = "sdk/x/auth/ante/testutil_test.go"
+lines = 204
+verdict = "clean"
+note = "Ante test harness registers real codecs, bank and account keepers and constructs the decorator chain with the required params keeper."
+
+[file.017]
+path = "sdk/x/auth/ante/validator_tx_fee.go"
+lines = 91
+verdict = "clean"
+note = "Allowed fee denoms, minimum gas prices, int64 bounds and base-denom priority scaling agree with the fee-checker contract."
+
+[file.018]
+path = "sdk/x/auth/ante/validator_tx_fee_test.go"
+lines = 99
+verdict = "clean"
+note = "Priority and global/local minimum-price tests use the same units and fee encodings as validator fee checks."
+
+[file.019]
+path = "sdk/x/auth/atlas/atlas-v0.39.1.md"
+lines = 194
+verdict = "vendored"
+note = "Archived upstream Cosmos SDK v0.39.x usage material; retained as vendored historical documentation, not Paxeer deployment instructions."
+
+[file.020]
+path = "sdk/x/auth/atlas/atlas.toml"
+lines = 33
+verdict = "vendored"
+note = "Vendored upstream Atlas catalogue identifies v0.39.2 provenance, compatibility and upstream authors; not the fork release manifest."
+
+[file.021]
+path = "sdk/x/auth/client/cli/broadcast.go"
+lines = 63
+verdict = "clean"
+note = "Broadcast command decodes the configured wire transaction and delegates to the supported client broadcast mode."
+
+[file.022]
+path = "sdk/x/auth/client/cli/decode.go"
+lines = 53
+verdict = "clean"
+note = "Decode command uses the configured decoder and JSON encoder, preserving transaction transport errors."
+
+[file.023]
+path = "sdk/x/auth/client/cli/encode.go"
+lines = 47
+verdict = "clean"
+note = "Encode command reads the configured JSON shape and emits base64 binary transaction bytes using the matching encoder."
+
+[file.024]
+path = "sdk/x/auth/client/cli/encode_test.go"
+lines = 79
+verdict = "clean"
+note = "Encoding tests compare CLI output with the configured transaction encoders rather than a third fixture shape."
+
+[file.025]
+path = "sdk/x/auth/client/cli/query.go"
+lines = 365
+verdict = "clean"
+note = "Auth account and transaction queries construct matching protobuf requests and preserve client errors and pagination flags."
+
+[file.026]
+path = "sdk/x/auth/client/cli/query_test.go"
+lines = 33
+verdict = "clean"
+note = "Query tests use registered account codecs and the real CLI request types for the exercised account paths."
+
+[file.027]
+path = "sdk/x/auth/client/cli/tx_multisign.go"
+lines = 432
+verdict = "issues"
+note = "Read single and batch multisign assembly fully; output-file routing, short signature batches and scanner error handling need repair."
+
+[file.028]
+path = "sdk/x/auth/client/cli/tx_sign.go"
+lines = 350
+verdict = "issues"
+note = "Read individual and batch signing fully; batch scanning loses reader errors even though ordinary output-file writes use cmd output correctly."
+
+[file.029]
+path = "sdk/x/auth/client/cli/validate_sigs.go"
+lines = 136
+verdict = "issues"
+note = "Signature validation dereferences optional public keys and panics on signature conversion errors rather than reporting a validation failure."
+
+[file.030]
+path = "sdk/x/auth/client/rest/decode.go"
+lines = 90
+verdict = "clean"
+note = "Legacy decode handler validates requests and decodes transaction bytes with the configured transaction codec."
+
+[file.031]
+path = "sdk/x/auth/client/rest/query.go"
+lines = 235
+verdict = "clean"
+note = "Legacy auth account/query handlers preserve codec and query errors and use matching custom-query routes."
+
+[file.032]
+path = "sdk/x/auth/client/rest/rest.go"
+lines = 34
+verdict = "clean"
+note = "Legacy auth REST route registration agrees with the local request handlers and deprecation wrappers."
+
+[file.033]
+path = "sdk/x/auth/client/testutil/cli_test.go"
+lines = 18
+verdict = "issues"
+note = "The norace integration suite calls network.DefaultConfig without its required testing argument."
+
+[file.034]
+path = "sdk/x/auth/client/testutil/helpers.go"
+lines = 110
+verdict = "clean"
+note = "CLI helper commands use matching flags, argument order and codec output for auth queries and signing operations."
+
+[file.035]
+path = "sdk/x/auth/client/testutil/suite.go"
+lines = 1364
+verdict = "clean"
+note = "Read the full CLI suite, including signing, multisig, batch and broadcast cases; its exercised successful paths use real app transactions."
+
+[file.036]
+path = "sdk/x/auth/client/tx.go"
+lines = 188
+verdict = "clean"
+note = "BatchScanner exposes both scanner and JSON errors, but CLI consumers inspect only UnmarshalErr; file reading and account population agree with their APIs."
+
+[file.037]
+path = "sdk/x/auth/client/tx_test.go"
+lines = 158
+verdict = "clean"
+note = "Scanner tests cover JSON errors, blank lines and trailing-newline handling; consumer reader-error regressions are proposed with the CLI findings."
+
+[file.038]
+path = "sdk/x/auth/genesis.go"
+lines = 42
+verdict = "clean"
+note = "Auth genesis initialization sorts/unpacks accounts and restores the next account number through the account keeper."
+
+[file.039]
+path = "sdk/x/auth/keeper/account.go"
+lines = 90
+verdict = "clean"
+note = "Account keeper reads/writes typed accounts, indexes addresses and advances account numbers consistently with its store keys."
+
+[file.040]
+path = "sdk/x/auth/keeper/grpc_query.go"
+lines = 95
+verdict = "clean"
+note = "Auth gRPC account, list, params and next-account-number queries agree with their protobuf request and response declarations."
+
+[file.041]
+path = "sdk/x/auth/keeper/grpc_query_test.go"
+lines = 193
+verdict = "clean"
+note = "Auth query tests exercise real keeper responses, invalid requests and account Any unpacking using matching generated types."
+
+[file.042]
+path = "sdk/x/auth/keeper/integration_test.go"
+lines = 18
+verdict = "clean"
+note = "Account integration scenarios use the registered keeper and actual account types rather than synthetic transport shapes."
+
+[file.043]
+path = "sdk/x/auth/keeper/keeper.go"
+lines = 231
+verdict = "clean"
+note = "Account keeper construction and codec/store dependencies agree with module wiring and account lookup contracts."
+
+[file.044]
+path = "sdk/x/auth/keeper/keeper_bench_test.go"
+lines = 41
+verdict = "clean"
+note = "Keeper benchmarks initialize matching account records and exercise declared keeper lookup/update operations."
+
+[file.045]
+path = "sdk/x/auth/keeper/keeper_test.go"
+lines = 148
+verdict = "clean"
+note = "Keeper tests cover account iteration, numbering and permissions through actual stored accounts and registered interfaces."
+
+[file.046]
+path = "sdk/x/auth/keeper/migrations.go"
+lines = 37
+verdict = "issues"
+note = "Version-2-to-3 migration replaces all governed auth parameters with defaults instead of retaining existing values."
+
+[file.047]
+path = "sdk/x/auth/keeper/params.go"
+lines = 17
+verdict = "clean"
+note = "Auth parameter getters and setters use the declared parameter set and subspace keys."
+
+[file.048]
+path = "sdk/x/auth/keeper/querier.go"
+lines = 61
+verdict = "clean"
+note = "Legacy auth query routes decode matching params and encode registered account types with retained query errors."
+
+[file.049]
+path = "sdk/x/auth/keeper/querier_test.go"
+lines = 65
+verdict = "clean"
+note = "Legacy query tests invoke the real querier with the request shapes emitted by auth clients."
+
+[file.050]
+path = "sdk/x/auth/keeper/v2_to_v3_test.go"
+lines = 28
+verdict = "issues"
+note = "Migration regression starts from defaults and checks only the new flag, leaving governed parameter preservation unasserted."
+
+[file.051]
+path = "sdk/x/auth/legacy/legacytx/amino_signing.go"
+lines = 91
+verdict = "clean"
+note = "Amino signing normalizes messages, fees and signer metadata according to the legacy signing contract."
+
+[file.052]
+path = "sdk/x/auth/legacy/legacytx/amino_signing_test.go"
+lines = 73
+verdict = "clean"
+note = "Amino signing test vectors use the same sign-document shape and canonical JSON as the producer."
+
+[file.053]
+path = "sdk/x/auth/legacy/legacytx/codec.go"
+lines = 9
+verdict = "clean"
+note = "Legacy codec registration names the supported StdTx and crypto interfaces consistently with decoding."
+
+[file.054]
+path = "sdk/x/auth/legacy/legacytx/config_test.go"
+lines = 28
+verdict = "clean"
+note = "Legacy transaction config tests exercise the actual encoder/decoder and supported signing mode."
+
+[file.055]
+path = "sdk/x/auth/legacy/legacytx/stdsig_test.go"
+lines = 41
+verdict = "clean"
+note = "StdSignature tests preserve public keys and signature bytes through the declared legacy representation."
+
+[file.056]
+path = "sdk/x/auth/legacy/legacytx/stdsign.go"
+lines = 176
+verdict = "issues"
+note = "Legacy signature conversion recursively indexes multisig public keys and signatures without validating bitarray cardinality."
+
+[file.057]
+path = "sdk/x/auth/legacy/legacytx/stdsignmsg.go"
+lines = 36
+verdict = "clean"
+note = "StdSignMsg emits canonical account, sequence, chain and fee fields consumed by legacy signature verification."
+
+[file.058]
+path = "sdk/x/auth/legacy/legacytx/stdtx.go"
+lines = 255
+verdict = "clean"
+note = "StdTx message, signer and fee accessors agree with the supported legacy transaction representation."
+
+[file.059]
+path = "sdk/x/auth/legacy/legacytx/stdtx_builder.go"
+lines = 200
+verdict = "clean"
+note = "Legacy TxBuilder adapts StdTx operations to the supported amino signing API and explicitly lacks protobuf-only extension capabilities."
+
+[file.060]
+path = "sdk/x/auth/legacy/legacytx/stdtx_test.go"
+lines = 257
+verdict = "clean"
+note = "Legacy transaction tests exercise valid/invalid basic validation and encoder compatibility with the configured amino codec."
+
+[file.061]
+path = "sdk/x/auth/module.go"
+lines = 206
+verdict = "issues"
+note = "Auth module registration and migration services are wired; its registry contract page is absent from the repository."
+
+[file.062]
+path = "sdk/x/auth/module_test.go"
+lines = 28
+verdict = "clean"
+note = "Module tests register real interfaces and validate genesis handling against the auth module implementation."
+
+[file.063]
+path = "sdk/x/auth/signing/handler_map.go"
+lines = 60
+verdict = "clean"
+note = "Signing handler map advertises supported modes and dispatches to the corresponding registered handlers."
+
+[file.064]
+path = "sdk/x/auth/signing/handler_map_test.go"
+lines = 90
+verdict = "clean"
+note = "Handler-map tests check duplicate/unsupported modes and default-mode behavior using matching handler interfaces."
+
+[file.065]
+path = "sdk/x/auth/signing/sig_verifiable_tx.go"
+lines = 26
+verdict = "clean"
+note = "Signature-verifiable transaction interface agrees with transaction wrapper and legacy transaction implementations."
+
+[file.066]
+path = "sdk/x/auth/signing/sign_mode_handler.go"
+lines = 37
+verdict = "clean"
+note = "SignModeHandler defines the modes and signer-data boundary used by both direct and amino signing."
+
+[file.067]
+path = "sdk/x/auth/signing/verify.go"
+lines = 41
+verdict = "clean"
+note = "Signature verification dispatches single and multisig data through the matching key and signing-mode implementations."
+
+[file.068]
+path = "sdk/x/auth/signing/verify_test.go"
+lines = 107
+verdict = "clean"
+note = "Signing verification tests exercise actual keys, signer metadata and signature data across supported modes."
+
+[file.069]
+path = "sdk/x/auth/simulation/decoder.go"
+lines = 48
+verdict = "clean"
+note = "Simulation store decoder uses account and next-account-number prefixes consistent with auth keeper persistence."
+
+[file.070]
+path = "sdk/x/auth/simulation/genesis.go"
+lines = 134
+verdict = "clean"
+note = "Random auth genesis generation creates supported base/vesting account types and emits the registered genesis encoding."
+
+[file.071]
+path = "sdk/x/auth/simulation/params.go"
+lines = 40
+verdict = "clean"
+note = "Simulation auth parameter changes use the declared legacy auth parameter names and valid randomized values."
+
+[file.072]
+path = "sdk/x/auth/spec/01_concepts.md"
+lines = 43
+verdict = "issues"
+note = "Current fee concepts page denies fee-based priority although the fork computes and propagates it."
+
+[file.073]
+path = "sdk/x/auth/spec/02_state.md"
+lines = 73
+verdict = "issues"
+note = "Current auth state page claims account structs store balances, whereas the declared BaseAccount has no coin fields."
+
+[file.074]
+path = "sdk/x/auth/spec/03_antehandlers.md"
+lines = 40
+verdict = "issues"
+note = "Ante-handler page lists a removed mempool decorator and does not match the constructed decorator order."
+
+[file.075]
+path = "sdk/x/auth/spec/04_keepers.md"
+lines = 47
+verdict = "clean"
+note = "Account keeper overview and capability description agree with the actual auth keeper boundary."
+
+[file.076]
+path = "sdk/x/auth/spec/05_vesting.md"
+lines = 618
+verdict = "issues"
+note = "Vesting page wrongly claims genesis-only creation and does not distinguish active message creation from the schema-only administrator/cancellation fields."
+
+[file.077]
+path = "sdk/x/auth/spec/07_client.md"
+lines = 421
+verdict = "issues"
+note = "Client guide advertises a wrong auth REST route and a periodic vesting creation command absent from the CLI."
+
+[file.078]
+path = "sdk/x/auth/spec/07_params.md"
+lines = 15
+verdict = "issues"
+note = "Parameter guide omits DisableSeqnoCheck, its persisted key and its effect on sequence verification."
+
+[file.079]
+path = "sdk/x/auth/spec/README.md"
+lines = 39
+verdict = "clean"
+note = "Auth overview correctly identifies its account/ante responsibilities and links the live node application."
+
+[file.080]
+path = "sdk/x/auth/testutil/suite.go"
+lines = 304
+verdict = "clean"
+note = "Shared auth test suite registers matching account interfaces and initializes real account/bank state."
+
+[file.081]
+path = "sdk/x/auth/tx/builder.go"
+lines = 356
+verdict = "issues"
+note = "Read transaction wrapper, cached bytes and all setters fully; SetGasEstimate leaves cached AuthInfo bytes stale."
+
+[file.082]
+path = "sdk/x/auth/tx/builder_test.go"
+lines = 315
+verdict = "clean"
+note = "Builder tests cover existing setter/cache behavior and signing shapes; gas-estimate cache invalidation needs the proposed regression."
+
+[file.083]
+path = "sdk/x/auth/tx/config.go"
+lines = 80
+verdict = "clean"
+note = "TxConfig installs matching binary/JSON codecs, signing handlers and signature JSON codecs."
+
+[file.084]
+path = "sdk/x/auth/tx/config_test.go"
+lines = 22
+verdict = "clean"
+note = "Config tests exercise signature JSON round trips and supported sign-mode configuration against the actual codecs."
+
+[file.085]
+path = "sdk/x/auth/tx/decoder.go"
+lines = 203
+verdict = "clean"
+note = "Transaction decoder checks unknown fields, decodes TxRaw and preserves original signed bytes with registered Any messages."
+
+[file.086]
+path = "sdk/x/auth/tx/direct.go"
+lines = 55
+verdict = "clean"
+note = "Direct signing uses the wrapper's body/AuthInfo bytes and declared SignDoc fields; stale setter bytes originate in builder.go."
+
+[file.087]
+path = "sdk/x/auth/tx/direct_test.go"
+lines = 166
+verdict = "clean"
+note = "Direct-signing vectors match SignDoc wire encoding and reject unsupported transaction/mode combinations."
+
+[file.088]
+path = "sdk/x/auth/tx/encode_decode_test.go"
+lines = 338
+verdict = "clean"
+note = "Encode/decode tests cover known transaction fields and supported wire/JSON paths with actual message registration."
+
+[file.089]
+path = "sdk/x/auth/tx/encoder.go"
+lines = 47
+verdict = "clean"
+note = "Binary encoder emits TxRaw with cached signed byte fields; JSON encoder emits the in-memory Tx, making the builder cache defect visible across transports."
+
+[file.090]
+path = "sdk/x/auth/tx/legacy_amino_json.go"
+lines = 54
+verdict = "clean"
+note = "Legacy amino JSON handler constructs the supported sign document and rejects incompatible mode/transaction shapes."
+
+[file.091]
+path = "sdk/x/auth/tx/legacy_amino_json_test.go"
+lines = 93
+verdict = "clean"
+note = "Legacy signing tests match canonical message/fee encoding and signer account/sequence metadata."
+
+[file.092]
+path = "sdk/x/auth/tx/mode_handler.go"
+lines = 40
+verdict = "clean"
+note = "Mode handler advertises and dispatches direct and amino signing modes consistently with TxConfig."
+
+[file.093]
+path = "sdk/x/auth/tx/query.go"
+lines = 143
+verdict = "clean"
+note = "Transaction query helpers use matching RPC search/event encodings and transaction decoding for their returned results."
+
+[file.094]
+path = "sdk/x/auth/tx/service.go"
+lines = 277
+verdict = "issues"
+note = "Tx service registration is live; reverse pagination and valid empty-block queries have incorrect behavior."
+
+[file.095]
+path = "sdk/x/auth/tx/sigs.go"
+lines = 151
+verdict = "issues"
+note = "Multisig ModeInfo decoding lacks nil/length checks and can panic on malformed transaction signature data."
+
+[file.096]
+path = "sdk/x/auth/tx/sigs_test.go"
+lines = 40
+verdict = "clean"
+note = "Multisig codec tests exercise ordinary round trips and unknown-field rejection; structural malformed-input coverage is proposed with the decoder finding."
+
+[file.097]
+path = "sdk/x/auth/types/account.go"
+lines = 355
+verdict = "issues"
+note = "BaseAccount validation returns early for nil public keys, allowing invalid addresses through genesis validation."
+
+[file.098]
+path = "sdk/x/auth/types/account_retriever.go"
+lines = 80
+verdict = "clean"
+note = "AccountRetriever consumes registered protobuf account query results and extracts signer account/sequence metadata consistently."
+
+[file.099]
+path = "sdk/x/auth/types/account_retriever_test.go"
+lines = 43
+verdict = "clean"
+note = "AccountRetriever tests use actual network/account query encoding and supported account types."
+
+[file.100]
+path = "sdk/x/auth/types/account_test.go"
+lines = 209
+verdict = "clean"
+note = "Account tests cover supported key/address associations and module permission handling; independent nil-key address validation is missing."
+
+[file.101]
+path = "sdk/x/auth/types/codec.go"
+lines = 48
+verdict = "clean"
+note = "Auth amino and interface registration names match the account implementations and protobuf Any boundaries."
+
+[file.102]
+path = "sdk/x/auth/types/common_test.go"
+lines = 11
+verdict = "clean"
+note = "Common test setup registers matching auth account and crypto codecs for the package tests."
+
+[file.103]
+path = "sdk/x/auth/types/expected_keepers.go"
+lines = 11
+verdict = "clean"
+note = "Expected bank keeper capability contains the balance and transfer methods actually used by auth."
+
+[file.104]
+path = "sdk/x/auth/types/genesis.go"
+lines = 156
+verdict = "clean"
+note = "Genesis validation delegates account validity to each GenesisAccount; the BaseAccount validation hole is recorded at its implementation."
+
+[file.105]
+path = "sdk/x/auth/types/genesis_test.go"
+lines = 134
+verdict = "clean"
+note = "Auth genesis tests cover duplicate and registered account types with matching serialized account Any values."
+
+[file.106]
+path = "sdk/x/auth/types/keys.go"
+lines = 38
+verdict = "clean"
+note = "Auth store keys, account prefix and next-account-number key agree with keeper reads and writes."
+
+[file.107]
+path = "sdk/x/auth/types/params.go"
+lines = 181
+verdict = "clean"
+note = "Auth parameters and default values agree with stored/query protobuf fields; sequence-check override is intentional configurable behavior."
+
+[file.108]
+path = "sdk/x/auth/types/params_test.go"
+lines = 50
+verdict = "clean"
+note = "Auth parameter tests exercise numeric parameter validity, defaults and parameter-set registration."
+
+[file.109]
+path = "sdk/x/auth/types/permissions.go"
+lines = 59
+verdict = "clean"
+note = "Module-account permission vocabulary and keeper validation agree on minter, burner and staking capabilities."
+
+[file.110]
+path = "sdk/x/auth/types/permissions_test.go"
+lines = 55
+verdict = "clean"
+note = "Permission tests exercise accepted and rejected module capability lists against the declared permission rules."
+
+[file.111]
+path = "sdk/x/auth/types/querier.go"
+lines = 7
+verdict = "clean"
+note = "Legacy auth query parameter constructors and route constants match the consumers in auth REST/query code."
+
+[file.112]
+path = "sdk/x/auth/types/query.go"
+lines = 10
+verdict = "clean"
+note = "Auth query constructors populate generated protobuf request fields consistently with keeper handlers."
+
+[file.113]
+path = "sdk/x/auth/vesting/client/cli/tx.go"
+lines = 92
+verdict = "clean"
+note = "Vesting CLI registers continuous/delayed creation with admin arguments; it does not provide the periodic command advertised by the guide."
+
+[file.114]
+path = "sdk/x/auth/vesting/client/testutil/cli_test.go"
+lines = 18
+verdict = "issues"
+note = "The norace vesting CLI integration entry point omits the required network.DefaultConfig testing argument."
+
+[file.115]
+path = "sdk/x/auth/vesting/client/testutil/suite.go"
+lines = 132
+verdict = "clean"
+note = "Vesting integration suite creates and queries actual vesting accounts through the registered message/CLI path."
+
+[file.116]
+path = "sdk/x/auth/vesting/exported/exported.go"
+lines = 42
+verdict = "clean"
+note = "Vesting exported interface supplies the locked/delegated coin and time capabilities consumed by auth and bank."
+
+[file.117]
+path = "sdk/x/auth/vesting/handler.go"
+lines = 26
+verdict = "clean"
+note = "Legacy vesting handler dispatches the supported creation message to the same registered message server."
+
+[file.118]
+path = "sdk/x/auth/vesting/handler_test.go"
+lines = 120
+verdict = "clean"
+note = "Handler tests exercise vesting account creation, account conflicts, funding and administrator validation with real keepers."
+
+[file.119]
+path = "sdk/x/auth/vesting/legacy_metrics_test.go"
+lines = 66
+verdict = "clean"
+note = "Legacy metric tests check the removed auth vesting metric paths without requiring legacy emissions to remain."
+
+[file.120]
+path = "sdk/x/auth/vesting/metrics.go"
+lines = 33
+verdict = "clean"
+note = "OTel vesting instruments preserve declared scope, counter/gauge names and bounded denom_class labels."
+
+[file.121]
+path = "sdk/x/auth/vesting/module.go"
+lines = 143
+verdict = "clean"
+note = "Vesting module registers the message server and account interfaces through the app module lifecycle."
+
+[file.122]
+path = "sdk/x/auth/vesting/msg_server.go"
+lines = 107
+verdict = "issues"
+note = "Vesting message path has allowlist, invalid schedule and failed-funding metric issues; funding uses the real bank keeper."
+
+[file.123]
+path = "sdk/x/auth/vesting/otel_metrics_test.go"
+lines = 59
+verdict = "clean"
+note = "Vesting OTel tests verify successful creation instruments and labels; failed creation must be covered with the metric repair."
+
+[file.124]
+path = "sdk/x/auth/vesting/types/codec.go"
+lines = 66
+verdict = "clean"
+note = "Vesting account and message registration names agree with protobuf Any and legacy amino consumers."
+
+[file.125]
+path = "sdk/x/auth/vesting/types/common_test.go"
+lines = 9
+verdict = "clean"
+note = "Vesting common test codec setup registers the concrete account implementations used by the tests."
+
+[file.126]
+path = "sdk/x/auth/vesting/types/constants.go"
+lines = 12
+verdict = "clean"
+note = "Vesting module name, router and query constants agree with handler/CLI/module registration."
+
+[file.127]
+path = "sdk/x/auth/vesting/types/expected_keepers.go"
+lines = 13
+verdict = "clean"
+note = "Vesting expected bank interface exposes SendCoins/send-enabled/blocklist but no denom allowlist policy capability; bypass recorded at message server."
+
+[file.128]
+path = "sdk/x/auth/vesting/types/genesis_test.go"
+lines = 43
+verdict = "clean"
+note = "Vesting genesis tests round-trip concrete vesting account types through the registered auth genesis encoding."
+
+[file.129]
+path = "sdk/x/auth/vesting/types/msgs.go"
+lines = 77
+verdict = "clean"
+note = "Creation message validates addresses, positive coins and positive end time; block-relative continuous schedule validation belongs in the handler finding."
+
+[file.130]
+path = "sdk/x/auth/vesting/types/period.go"
+lines = 60
+verdict = "clean"
+note = "Period helpers aggregate supported coin amounts and period durations consistently with periodic vesting account representation."
+
+[file.131]
+path = "sdk/x/auth/vesting/types/test_common.go"
+lines = 29
+verdict = "clean"
+note = "Shared vesting test account/key helpers construct valid concrete account types for account calculations."
+
+[file.132]
+path = "sdk/x/auth/vesting/types/vesting_account.go"
+lines = 625
+verdict = "issues"
+note = "Read every vesting schedule, delegation, lock and validation method; declared Admin/CancelledTime fields have no cancellation execution path or effect on vested/locked-coin calculations."
+
+[file.133]
+path = "sdk/x/auth/vesting/types/vesting_account_test.go"
+lines = 869
+verdict = "clean"
+note = "Read the full vesting account test suite; schedule boundary, delegation and validation expectations match the concrete types."
+
+[file.134]
+path = "sdk/x/bank/app_test.go"
+lines = 696
+verdict = "clean"
+note = "Read complete bank app tests, including send/multisend denom allowlist cases and actual account/balance state transitions."
+
+[file.135]
+path = "sdk/x/bank/atlas/atlas-v0.39.1.md"
+lines = 208
+verdict = "vendored"
+note = "Vendored upstream v0.39.x bank usage document retained as historical provenance, not current fork setup instructions."
+
+[file.136]
+path = "sdk/x/bank/atlas/atlas.toml"
+lines = 34
+verdict = "vendored"
+note = "Vendored Atlas catalogue identifies upstream version, authors and compatibility; not a declaration of the fork's active release."
+
+[file.137]
+path = "sdk/x/bank/client/cli/query.go"
+lines = 214
+verdict = "clean"
+note = "Bank CLI queries emit matching protobuf requests, including slash-safe denom query routes through the client bindings."
+
+[file.138]
+path = "sdk/x/bank/client/cli/tx.go"
+lines = 66
+verdict = "clean"
+note = "Bank CLI send/multisend arguments and coin parsing match the registered message types and signer requirements."
+
+[file.139]
+path = "sdk/x/bank/client/rest/grpc_query_test.go"
+lines = 270
+verdict = "clean"
+note = "Legacy gateway tests exercise retained single-segment aliases and expected query errors using the real network helpers."
+
+[file.140]
+path = "sdk/x/bank/client/rest/query.go"
+lines = 118
+verdict = "issues"
+note = "Legacy total-supply REST handler emits Page/Limit parameters that the custom querier no longer consumes."
+
+[file.141]
+path = "sdk/x/bank/client/rest/query_test.go"
+lines = 199
+verdict = "issues"
+note = "The norace REST suite invokes network.DefaultConfig without its required testing argument."
+
+[file.142]
+path = "sdk/x/bank/client/rest/rest.go"
+lines = 19
+verdict = "clean"
+note = "Legacy bank REST registration binds handlers and deprecation wrappers consistently with the supported route names."
+
+[file.143]
+path = "sdk/x/bank/client/rest/tx.go"
+lines = 51
+verdict = "clean"
+note = "Legacy bank transaction REST handlers validate base requests and create matching send/multisend messages."
+
+[file.144]
+path = "sdk/x/bank/client/rest/tx_test.go"
+lines = 108
+verdict = "clean"
+note = "REST transaction tests exercise request validation and unsigned transaction response encoding using the actual messages."
+
+[file.145]
+path = "sdk/x/bank/client/testutil/cli_helpers.go"
+lines = 28
+verdict = "clean"
+note = "Bank CLI integration helpers preserve argument order, pagination flags and response decoding for exercised commands."
+
+[file.146]
+path = "sdk/x/bank/client/testutil/cli_test.go"
+lines = 18
+verdict = "issues"
+note = "The norace bank CLI integration entry point omits the network.DefaultConfig testing argument."
+
+[file.147]
+path = "sdk/x/bank/client/testutil/suite.go"
+lines = 476
+verdict = "clean"
+note = "Read full bank CLI suite; balance, supply, metadata and transfer fixtures use real module genesis and message encodings."
+
+[file.148]
+path = "sdk/x/bank/exported/exported.go"
+lines = 12
+verdict = "clean"
+note = "Bank exported genesis balance interface agrees with genesis iteration and account-balance consumers."
+
+[file.149]
+path = "sdk/x/bank/handler.go"
+lines = 30
+verdict = "clean"
+note = "Legacy bank handler dispatches send and multisend to the same message server used by protobuf services."
+
+[file.150]
+path = "sdk/x/bank/handler_test.go"
+lines = 88
+verdict = "clean"
+note = "Handler tests exercise actual account and bank keepers for message dispatch, unknown messages and transfer failures."
+
+[file.151]
+path = "sdk/x/bank/keeper/deferred_cache.go"
+lines = 126
+verdict = "clean"
+note = "Deferred balances are indexed by module/transaction and flushed through bank balance writes; node CompleteBlock flushes them before commit."
+
+[file.152]
+path = "sdk/x/bank/keeper/deferred_cache_test.go"
+lines = 85
+verdict = "clean"
+note = "Deferred-cache tests exercise aggregation, transaction indexing, bank movement and clearing with the actual cache key format."
+
+[file.153]
+path = "sdk/x/bank/keeper/genesis.go"
+lines = 80
+verdict = "issues"
+note = "Genesis export/import preserves coins, wei and metadata but has no representation for persistent denom allowlists."
+
+[file.154]
+path = "sdk/x/bank/keeper/genesis_test.go"
+lines = 129
+verdict = "clean"
+note = "Genesis tests cover real balance/supply/wei export and import; denom allowlist recovery coverage is proposed with the schema repair."
+
+[file.155]
+path = "sdk/x/bank/keeper/grpc_query.go"
+lines = 202
+verdict = "clean"
+note = "Bank gRPC queries validate request/address/denom shape and populate matching balance, supply, metadata and params responses."
+
+[file.156]
+path = "sdk/x/bank/keeper/grpc_query_test.go"
+lines = 361
+verdict = "issues"
+note = "Two metadata suite methods lack the Test prefix, and the single-denom success fixture shadows its expected metadata."
+
+[file.157]
+path = "sdk/x/bank/keeper/invariants.go"
+lines = 56
+verdict = "issues"
+note = "TotalSupply invariant includes deferred balances and wei, but returns a healthy boolean when collecting total supply fails."
+
+[file.158]
+path = "sdk/x/bank/keeper/keeper.go"
+lines = 752
+verdict = "clean"
+note = "Bank keeper module transfers, mint/burn permissions, balances and supply use matching account/store interfaces."
+
+[file.159]
+path = "sdk/x/bank/keeper/keeper_test.go"
+lines = 2039
+verdict = "clean"
+note = "Read all keeper tests, including module permissions, fractional wei, allowlist checks, recipient hooks and balance-change hooks."
+
+[file.160]
+path = "sdk/x/bank/keeper/legacy_send_amount_test.go"
+lines = 56
+verdict = "clean"
+note = "Legacy send-amount metric test asserts retired emission paths stay absent, consistent with the OTel replacement requirements."
+
+[file.161]
+path = "sdk/x/bank/keeper/metrics.go"
+lines = 36
+verdict = "clean"
+note = "Bank keeper OTel instruments use the declared scope/names and bounded denom_class labels."
+
+[file.162]
+path = "sdk/x/bank/keeper/migrations.go"
+lines = 20
+verdict = "clean"
+note = "Bank migration implementation preserves its declared module-version entry point and does not advertise a nonexistent migrated schema."
+
+[file.163]
+path = "sdk/x/bank/keeper/msg_server.go"
+lines = 123
+verdict = "clean"
+note = "Bank Send/MultiSend validate user transfer policy and allowlists before calling lower-level balance transfers."
+
+[file.164]
+path = "sdk/x/bank/keeper/otel_new_account_test.go"
+lines = 124
+verdict = "clean"
+note = "New-account OTel tests exercise account creation through the actual keeper and check counter changes."
+
+[file.165]
+path = "sdk/x/bank/keeper/otel_send_amount_test.go"
+lines = 49
+verdict = "clean"
+note = "Send-amount OTel tests exercise real messages and verify supported denom classes and absence of unbounded denomination labels."
+
+[file.166]
+path = "sdk/x/bank/keeper/pool.go"
+lines = 34
+verdict = "clean"
+note = "Keeper buffer pools return/reset reusable codec buffers consistently with balance iterator use."
+
+[file.167]
+path = "sdk/x/bank/keeper/querier.go"
+lines = 121
+verdict = "clean"
+note = "Custom total-supply querier expects protobuf Pagination, disagreeing with the REST producer recorded at query.go."
+
+[file.168]
+path = "sdk/x/bank/keeper/querier_test.go"
+lines = 163
+verdict = "issues"
+note = "Custom query tests use protobuf-shaped pagination directly, which fails to exercise the legacy REST producer's Page/Limit encoding."
+
+[file.169]
+path = "sdk/x/bank/keeper/send.go"
+lines = 615
+verdict = "clean"
+note = "Send, wei, recipient hooks and allowlist persistence read fully; allowlist recovery omission belongs to genesis; EVM balance consumer subtracts locked coins."
+
+[file.170]
+path = "sdk/x/bank/keeper/send_test.go"
+lines = 21
+verdict = "clean"
+note = "Send tests cover actual keeper transfers and wei behavior with real account/balance state."
+
+[file.171]
+path = "sdk/x/bank/keeper/view.go"
+lines = 270
+verdict = "clean"
+note = "Read-only bank methods and balance iterators agree with store key encodings and vesting LockedCoins semantics."
+
+[file.172]
+path = "sdk/x/bank/keeper/view_test.go"
+lines = 52
+verdict = "clean"
+note = "View tests exercise account balances, spendable amounts and iteration with concrete bank state and vesting accounts."
+
+[file.173]
+path = "sdk/x/bank/metrics.go"
+lines = 33
+verdict = "clean"
+note = "Bank module OTel genesis-duration instrument uses the declared scope, histogram name and seconds unit."
+
+[file.174]
+path = "sdk/x/bank/module.go"
+lines = 205
+verdict = "clean"
+note = "Bank module registers real message/query/migration services; empty crisis invariant registration is distinguished from node light invariance in the documentation finding."
+
+[file.175]
+path = "sdk/x/bank/otel_metrics_test.go"
+lines = 49
+verdict = "clean"
+note = "Module OTel test records actual InitGenesis duration and verifies the replacement instrument without legacy emissions."
+
+[file.176]
+path = "sdk/x/bank/simulation/genesis.go"
+lines = 86
+verdict = "clean"
+note = "Random bank genesis emits supported balances, supply and metadata matching the bank genesis type."
+
+[file.177]
+path = "sdk/x/bank/simulation/operations.go"
+lines = 424
+verdict = "issues"
+note = "Simulation can request more unique multisend input accounts than exist, leaving account selection in an unbounded loop."
+
+[file.178]
+path = "sdk/x/bank/simulation/params.go"
+lines = 35
+verdict = "clean"
+note = "Bank simulation parameter changes use declared send-enabled parameter names and valid value encodings."
+
+[file.179]
+path = "sdk/x/bank/spec/01_state.md"
+lines = 12
+verdict = "issues"
+note = "Bank state guide omits wei balances and persistent denom allowlist keys used by the fork."
+
+[file.180]
+path = "sdk/x/bank/spec/02_keepers.md"
+lines = 134
+verdict = "issues"
+note = "Bank keeper guide embeds obsolete capability signatures and omits wei, deferred balances and balance-change hooks."
+
+[file.181]
+path = "sdk/x/bank/spec/03_messages.md"
+lines = 27
+verdict = "issues"
+note = "Message guide omits the sender/recipient denom allowlist authorization enforced by Send and MultiSend."
+
+[file.182]
+path = "sdk/x/bank/spec/04_events.md"
+lines = 149
+verdict = "issues"
+note = "Event guide omits fractional wei transfer/spend/receive events emitted by the keeper."
+
+[file.183]
+path = "sdk/x/bank/spec/05_params.md"
+lines = 24
+verdict = "clean"
+note = "Bank send-enabled and default-send-enabled parameter descriptions agree with the declared parameter types/defaults."
+
+[file.184]
+path = "sdk/x/bank/spec/README.md"
+lines = 102
+verdict = "issues"
+note = "Bank overview does not explain that module crisis invariants are unregistered and node light invariance covers the base denomination."
+
+[file.185]
+path = "sdk/x/bank/types/balance.go"
+lines = 90
+verdict = "clean"
+note = "Genesis Balance validates addresses and coin sets using the same types consumed by bank initialization."
+
+[file.186]
+path = "sdk/x/bank/types/balance_test.go"
+lines = 216
+verdict = "clean"
+note = "Balance tests exercise valid/invalid address and coin representations against the real validation method."
+
+[file.187]
+path = "sdk/x/bank/types/codec.go"
+lines = 48
+verdict = "clean"
+note = "Bank amino and interface registration matches send, multisend and send-authorization transport names."
+
+[file.188]
+path = "sdk/x/bank/types/errors.go"
+lines = 15
+verdict = "clean"
+note = "Bank error codes are distinct and agree with send-disabled, metadata and input/output validation consumers."
+
+[file.189]
+path = "sdk/x/bank/types/events.go"
+lines = 89
+verdict = "clean"
+note = "Coin/wei event constructors preserve the declared attribute names and decimal amount units."
+
+[file.190]
+path = "sdk/x/bank/types/expected_keepers.go"
+lines = 28
+verdict = "clean"
+note = "Bank expected AccountKeeper methods match module-account, permission and vesting-account consumers."
+
+[file.191]
+path = "sdk/x/bank/types/genesis.go"
+lines = 119
+verdict = "issues"
+note = "Genesis validation sums WeiBalances without validating each address/amount or rejecting duplicate wei records."
+
+[file.192]
+path = "sdk/x/bank/types/genesis_test.go"
+lines = 159
+verdict = "clean"
+note = "Genesis tests exercise coin/metadata validation and supply equality; invalid individual wei record coverage is proposed with the validation repair."
+
+[file.193]
+path = "sdk/x/bank/types/key.go"
+lines = 111
+verdict = "clean"
+note = "Read all bank key encoders, including length-prefixed address, deferred cache, metadata, wei and allowlist prefixes."
+
+[file.194]
+path = "sdk/x/bank/types/key_test.go"
+lines = 57
+verdict = "clean"
+note = "Key tests round-trip encoded bank addresses and reject malformed store-key shapes through the real helpers."
+
+[file.195]
+path = "sdk/x/bank/types/metadata.go"
+lines = 100
+verdict = "clean"
+note = "Metadata validation enforces base/display denom units, uniqueness and aliases matching the protobuf representation."
+
+[file.196]
+path = "sdk/x/bank/types/metadata_test.go"
+lines = 274
+verdict = "clean"
+note = "Metadata tests exercise validation against actual denom-unit and alias objects without alternative wire shapes."
+
+[file.197]
+path = "sdk/x/bank/types/msgs.go"
+lines = 187
+verdict = "clean"
+note = "Send/multisend message validation checks addresses, positive coins and input/output conservation using declared signer semantics."
+
+[file.198]
+path = "sdk/x/bank/types/msgs_test.go"
+lines = 269
+verdict = "clean"
+note = "Message tests exercise correct signer ordering, validation errors and matching amino sign bytes."
+
+[file.199]
+path = "sdk/x/bank/types/params.go"
+lines = 142
+verdict = "clean"
+note = "Bank params validate default-send-enabled and per-denom entries using declared subspace keys."
+
+[file.200]
+path = "sdk/x/bank/types/params_test.go"
+lines = 125
+verdict = "clean"
+note = "Bank params tests check valid/default settings, malformed send-enabled entries and parameter-set registration."
+
+[file.201]
+path = "sdk/x/bank/types/querier.go"
+lines = 55
+verdict = "clean"
+note = "Legacy query constructors retain a Page/Limit supply API incompatible with the actual custom querier; recorded at the REST producer."
+
+[file.202]
+path = "sdk/x/bank/types/query_gw_test.go"
+lines = 101
+verdict = "clean"
+note = "Generated-gateway regression tests cover query-string slash denoms, ordinary denoms, retained aliases and missing arguments; recording server matches the generated query request."
+
+[file.203]
+path = "sdk/x/bank/types/send_authorization.go"
+lines = 51
+verdict = "clean"
+note = "SendAuthorization validates spend limits and accepted messages, subtracting authorized amounts through the authz response contract."
+
+[file.204]
+path = "sdk/x/bank/types/send_authorization_test.go"
+lines = 58
+verdict = "clean"
+note = "SendAuthorization tests cover spend exhaustion, wrong message types and limits using matching bank messages."
+
+[finding.vesting-allowlist-bypass]
+file = "sdk/x/auth/vesting/msg_server.go"
+line = 94
+class = "security"
+severity = "high"
+observed = "CreateVestingAccount checks send-enabled and the recipient blocklist, then calls BankKeeper.SendCoins without checking either address against the denomination allowlist. Bank MsgServer.Send/MultiSend perform IsInDenomAllowList for both parties; SendCoins itself does not. Node registers this vesting server with its bank keeper, allowing a restricted factory denomination to reach an unlisted new vesting recipient."
+expected = "Tokenfactory README states that a denom allow_list restricts who may send and receive its tokens. The registered cosmos.vesting.v1beta1.Msg/CreateVestingAccount path must enforce the same user-transfer authorization as bank messages; rows 15.go-x-auth-vesting-types-bank-keeper-j76 and 7.proto-cosmos-bank-v1beta1-allowlist-j39 cross this boundary."
+proposal = "In sdk/x/auth/vesting/msg_server.go and types/expected_keepers.go, expose and apply the shared bank user-transfer policy before creating/funding the account, preserving intentional module-transfer permissions. Add a real restricted-denom vesting transaction test for both forbidden sender and recipient and assert unchanged accounts/balances on rejection."
+owner_domain = 15
+interface = "7.msg-cosmos-vesting-v1beta1-createvestingaccount-j39"
+
+[finding.allowlist-genesis-loss]
+file = "sdk/x/bank/keeper/genesis.go"
+line = 73
+class = "restart-recovery"
+severity = "high"
+observed = "Bank SetDenomAllowList persists transfer authorization, but ExportGenesis emits only params, balances, supply, metadata and WeiBalances, and InitGenesis restores only those fields. Tokenfactory keeper/genesis.go also exports/restores no allowlist. After export into a fresh genesis, GetDenomAllowList returns empty and IsInDenomAllowList permits every address. Ordinary KV-store restart preserves these keys; genesis recovery does not."
+expected = "The bank GenesisState and AllowList interfaces must carry persistent token transfer policy through supported state export/import recovery, retaining exactly the same allowed and denied transfers after recovery."
+proposal = "Extend sdk/proto/cosmos/bank/v1beta1/genesis.proto and bank genesis types/keeper export-import paths with versioned denom allowlists, including address/duplicate validation, and coordinate tokenfactory ownership. Add a real export/fresh-init recovery test comparing lists and both allowed and forbidden sends before/after recovery."
+owner_domain = 15
+interface = "7.proto-cosmos-bank-v1beta1-genesisstate-j39"
+
+[finding.gas-estimate-stale-authinfo]
+file = "sdk/x/auth/tx/builder.go"
+line = 243
+class = "interface-mismatch"
+severity = "high"
+observed = "wrapper.SetGasEstimate mutates tx.AuthInfo.Fee.GasEstimate but never clears authInfoBz. Once DefaultTxEncoder or direct GetSignBytes caches AuthInfo, changing the estimate leaves binary TxRaw/sign bytes at the old value while GetGasEstimate and JSON encoding expose the new value. Other fee setters explicitly invalidate this cache."
+expected = "TxBuilder setters and the Fee protobuf representation must round-trip the same gas_estimate through JSON, binary encoding and direct signing, including after decoding an existing transaction or previously producing sign bytes."
+proposal = "In sdk/x/auth/tx/builder.go invalidate authInfoBz whenever SetGasEstimate updates Fee. Extend builder_test.go with encode/decode-then-set and sign-bytes-then-set cases that compare decoded binary Fee.GasEstimate, JSON and GetGasEstimate without an intervening setter that hides the defect."
+owner_domain = 15
+interface = "15.go-client-tx-builder-j76"
+
+[finding.block-tx-reverse-pagination]
+file = "sdk/x/auth/tx/service.go"
+line = 223
+class = "interface-mismatch"
+severity = "high"
+observed = "GetBlockWithTxs initializes its reverse loop at Pagination.Offset and continues only while i > 0. A nonempty block queried with Reverse=true and the default Offset=0 therefore returns no transactions; nonzero offsets are counted from the front, and transaction index zero is never returned."
+expected = "GetBlockWithTxsRequest.PageRequest reverse pagination must return the requested suffix in reverse order, with offset measured from the reversed sequence and every transaction reachable exactly once."
+proposal = "In sdk/x/auth/tx/service.go derive the reverse starting index from block transaction count and offset, using bounds that include index zero without unsigned underflow. Add service tests through the registered transaction query server for a one-transaction block, default reverse page and successive reverse offsets/limits."
+owner_domain = 15
+interface = "7.proto-cosmos-tx-v1beta1-getblockwithtxsrequest-j39"
+
+[finding.legacy-supply-request-shape]
+file = "sdk/x/bank/client/rest/query.go"
+line = 76
+class = "interface-mismatch"
+severity = "high"
+observed = "totalSupplyHandlerFn serializes NewQueryTotalSupplyParams(page, limit), whose fields are Page and Limit, and forwards it to custom/bank/total_supply. keeper/querier.go:79 instead unmarshals QueryTotalSupplyRequest and reads Pagination. The HTTP producer never sends the pagination object the consumer uses; rejection or ignored fields prevents the requested page/limit from round-tripping."
+expected = "The registered legacy REST total-supply transport must translate its page/limit arguments into the custom querier accepted request shape and return the requested supply page consistently with direct queries."
+proposal = "In sdk/x/bank/client/rest/query.go translate page/limit to QueryTotalSupplyRequest.Pagination using the shared pagination rules, or restore an explicitly versioned legacy decoder in keeper/querier.go. Add an end-to-end REST-to-custom-querier test with more denoms than one page and compare page two and nondefault limits."
+owner_domain = 15
+interface = "15.go-x-bank-types-new-query-total-supply-params-j76"
+
+[finding.empty-block-query-rejected]
+file = "sdk/x/auth/tx/service.go"
+line = 206
+class = "runtime-risk"
+severity = "medium"
+observed = "GetBlockWithTxs rejects offset >= len(block.Data.Txs) before constructing the response. A valid committed empty block queried with the default offset zero is rejected as out of range, although the block itself exists and GetProtoBlock has succeeded."
+expected = "A valid empty block must remain queryable with its block identity, empty transaction list and a zero pagination total; absence of transactions is a normal committed-block condition."
+proposal = "Handle the empty-block/default-offset case in sdk/x/auth/tx/service.go before the nonempty pagination bounds check. Add a registered-service regression that queries an empty committed block and checks the block id, empty Txs and total zero."
+owner_domain = 15
+interface = "7.proto-cosmos-tx-v1beta1-getblockwithtxsresponse-j39"
+
+[finding.multisig-mode-shape-panic]
+file = "sdk/x/auth/tx/sigs.go"
+line = 75
+class = "security"
+severity = "medium"
+observed = "ModeInfoAndSigToSignatureData dereferences modeInfo.Sum and nested Single/Multi values without nil checks, then indexes sigv2s[i] and sigs[i] for every ModeInfos element without equal cardinality validation. A malformed protobuf multisig can therefore panic during signature conversion instead of returning its declared error."
+expected = "Untrusted transaction signature structures must be checked before recursion and indexing; malformed mode or multisig lengths must produce an SDK transaction-decode error rather than a panic in node or offline clients."
+proposal = "Validate mode discriminants, nested pointers, bitarray shape and signature/mode counts in sdk/x/auth/tx/sigs.go before recursive conversion. Add malformed wire-signature tests for missing/extra signatures, nil nested modes and invalid bitarrays, asserting returned errors and no panic."
+owner_domain = 15
+interface = "7.proto-cosmos-tx-v1beta1-modeinfo-multi-j39"
+
+[finding.multisig-gas-shape-panic]
+file = "sdk/x/auth/ante/sigverify.go"
+line = 431
+class = "security"
+severity = "medium"
+observed = "ConsumeMultisignatureVerificationGas trusts sig.BitArray.Count, indexes pubkey.GetPubKeys()[i] and sig.Signatures[sigIndex] for set bits, and never verifies either length. Malformed multisig structures reaching gas consumption can panic before signature validation can reject them."
+expected = "Ante signature gas accounting must reject inconsistent key, bitarray and signature cardinalities with a typed validation error before any untrusted-derived index is used."
+proposal = "In sdk/x/auth/ante/sigverify.go validate nonnil bitarrays, key count, set-bit count and signature count at the gas-consumer boundary. Add tests invoking the actual decorator/consumer with short signatures, oversized bitarrays and nested malformed multisigs and require deterministic SDK errors."
+owner_domain = 15
+
+[finding.amino-multisig-shape-panic]
+file = "sdk/x/auth/legacy/legacytx/stdsign.go"
+line = 164
+class = "security"
+severity = "medium"
+observed = "pubKeySigToSigData trusts AminoMultisignature.BitArray.Count and indexes pubKeys[i] and multiSig.Sigs[sigIdx] without validating key count, set bits or signature count. Decodable legacy signature bytes with mismatched arrays can panic during conversion."
+expected = "Legacy amino transaction decoding must reject structurally invalid multisig input with an error before converting it to SignatureV2, consistently with the protobuf signature boundary."
+proposal = "Add structural validation to sdk/x/auth/legacy/legacytx/stdsign.go before allocating and recursing. Extend stdsig_test.go with real amino-encoded short/extra signature arrays, nil bitarrays and bitarrays larger than the key set, asserting an error instead of panic."
+owner_domain = 15
+
+[finding.migration-resets-governance]
+file = "sdk/x/auth/keeper/migrations.go"
+line = 35
+class = "config-drift"
+severity = "medium"
+observed = "Migrate2to3 constructs types.DefaultParams and writes the whole auth parameter set. Existing governed MaxMemoCharacters, TxSigLimit, TxSizeCostPerByte and both signature verification costs are silently reset while introducing DisableSeqnoCheck."
+expected = "Adding the new sequence-check parameter during migration should preserve previously stored governance choices unless an explicit network upgrade decision specifies replacement values."
+proposal = "In sdk/x/auth/keeper/migrations.go migrate existing legacy fields individually into the new Params shape and initialize only the new sequence-check flag to its documented default. Verify preservation with nondefault values for every existing parameter and repeat migration on the migrated store."
+owner_domain = 15
+
+[finding.migration-test-default-only]
+file = "sdk/x/auth/keeper/v2_to_v3_test.go"
+line = 13
+class = "test-gap"
+severity = "medium"
+observed = "TestMigrate2to3 seeds every preexisting parameter with its default and asserts only DisableSeqnoCheck=false. It cannot distinguish preserving governance settings from resetting the whole parameter set, which is what the implementation does."
+expected = "The migration regression must prove that all preexisting auth parameter values survive while the newly introduced flag receives its expected default."
+proposal = "In sdk/x/auth/keeper/v2_to_v3_test.go seed valid distinct nondefault values for all legacy fields, invoke the registered migration and compare every preserved field plus the new flag. Include migrated-state reapplication to establish stable recovery behavior."
+owner_domain = 15
+
+[finding.vesting-failed-funding-metrics]
+file = "sdk/x/auth/vesting/msg_server.go"
+line = 84
+class = "runtime-risk"
+severity = "medium"
+observed = "CreateVestingAccount defers newAccount.Add and accountAmount.Record before bk.SendCoins. If funding fails, including insufficient balance, the handler returns an error but still emits both OTel measurements; transaction-state rollback cannot undo these external measurements."
+expected = "Requirement 15027.1 counts newly created vesting accounts and their funded amounts. A rejected creation must not be reported as a successful created account or funding amount."
+proposal = "Move vesting metric emission in sdk/x/auth/vesting/msg_server.go after successful bank funding. Extend otel_metrics_test.go with a real failed funding transaction and verify no new_account increment or account_amount observation for that failure."
+owner_domain = 15
+interface = "15.met-otel-x-auth-vesting-new-account-j56"
+
+[finding.continuous-vesting-invalid-time]
+file = "sdk/x/auth/vesting/msg_server.go"
+line = 79
+class = "runtime-risk"
+severity = "medium"
+observed = "MsgCreateVestingAccount.ValidateBasic checks only EndTime > 0. The handler chooses current block time as a continuous account StartTime and stores the raw account without Validate, so EndTime <= block time is accepted even though ContinuousVestingAccount.Validate rejects StartTime >= EndTime."
+expected = "The live vesting creation path must create accounts satisfying the same schedule validity rules used for genesis validation and subsequent export/import recovery."
+proposal = "In sdk/x/auth/vesting/msg_server.go reject a continuous end time at/before the chosen block start and validate the constructed account before SetAccount or funding. Add real-handler boundary tests for past, equal and future end times, checking no account/balance mutation on rejection."
+owner_domain = 15
+interface = "7.msg-cosmos-vesting-v1beta1-createvestingaccount-j39"
+
+[finding.nil-key-account-invalid-address]
+file = "sdk/x/auth/types/account.go"
+line = 122
+class = "runtime-risk"
+severity = "medium"
+observed = "BaseAccount.Validate returns nil whenever PubKey is nil or Address is empty, before AccAddressFromBech32 runs. Genesis validation delegates to this method, so an otherwise isolated malformed address with an unset public key can pass account validation; GetAddress suppresses its parse error."
+expected = "Public keys may legitimately be omitted for unused accounts, but every persisted genesis account must still have a valid nonempty account address independently of whether a key has been established."
+proposal = "In sdk/x/auth/types/account.go validate the address unconditionally, then perform key/address agreement only when a key exists. Add genesis/account tests for empty and malformed addresses with nil keys and valid funded addresses whose key remains unset."
+owner_domain = 15
+
+[finding.sign-batch-reader-errors]
+file = "sdk/x/auth/client/cli/tx_sign.go"
+line = 137
+class = "runtime-risk"
+severity = "medium"
+observed = "makeSignBatchCmd checks scanner.UnmarshalErr after scanning but never scanner.Err. NewBatchScanner uses bufio.NewScanner with the default token limit; a large JSON transaction line or reader error stops scanning with nil UnmarshalErr, allowing a truncated or empty batch to exit successfully."
+expected = "Batch signing must report input truncation, scanner length violations and read failures to the operator; a successful exit must mean every supplied transaction was processed."
+proposal = "In sdk/x/auth/client/cli/tx_sign.go return scanner.Err as well as UnmarshalErr and configure an explicit transaction-compatible line limit. Extend real command tests with a transaction line over 64 KiB and a failing reader, requiring a nonzero command error rather than silently accepting partial output."
+owner_domain = 15
+
+[finding.multisign-batch-reader-errors]
+file = "sdk/x/auth/client/cli/tx_multisign.go"
+line = 387
+class = "runtime-risk"
+severity = "medium"
+observed = "makeBatchMultisignCmd returns only scanner.UnmarshalErr after its loop. Underlying bufio.Scanner read failures and token-too-long errors stop processing without setting that field, so assembling only part of the requested batch can report success."
+expected = "Batch multisign assembly must detect all input-reader failures and distinguish successful completion of the supplied batch from premature scanning termination."
+proposal = "In sdk/x/auth/client/cli/tx_multisign.go return the underlying scanner error after JSON error handling and share a documented line-size policy with batch signing. Add a real multisign-batch command regression for a long line and for a reader failure after one valid transaction."
+owner_domain = 15
+
+[finding.multisign-output-file-empty]
+file = "sdk/x/auth/client/cli/tx_multisign.go"
+line = 210
+class = "runtime-risk"
+severity = "medium"
+observed = "Single multisign opens/truncates the output-document file but calls clientCtx.PrintBytes without binding fp. Batch multisign similarly discards the returned clientCtx.WithOutput(cmd.OutOrStdout()) at line 312 and prints via the old context. Output can go to the previous writer while the requested file is left empty."
+expected = "The output-document flag promises to write assembled transactions/signatures to the named file; success must leave usable output there, including for both single and batch multisign."
+proposal = "In sdk/x/auth/client/cli/tx_multisign.go write single-command output to fp or assign the updated context, and retain the WithOutput result for batch assembly. Extend real multisign command tests to read and decode the requested files and assert the previous output stream does not receive the transaction."
+owner_domain = 15
+
+[finding.multisign-batch-short-signatures]
+file = "sdk/x/auth/client/cli/tx_multisign.go"
+line = 329
+class = "runtime-risk"
+severity = "medium"
+observed = "For each scanned transaction, makeBatchMultisignCmd indexes sig[i] in every signature file without checking its length. A signature file containing fewer entries than the transaction batch panics instead of explaining the missing signer/transaction entry."
+expected = "Operator-supplied transaction and signature batches must have consistent cardinality, and missing or excess signature entries must return an actionable validation error without a process panic."
+proposal = "Validate each signature batch length against transaction positions in sdk/x/auth/client/cli/tx_multisign.go, detect unused trailing signatures at completion and report file/transaction indexes. Add actual command tests for shorter and longer signature files with no panic."
+owner_domain = 15
+
+[finding.validate-signatures-optional-key]
+file = "sdk/x/auth/client/cli/validate_sigs.go"
+line = 90
+class = "runtime-risk"
+severity = "medium"
+observed = "printAndValidateSigs calls sig.PubKey.Address unconditionally and panics on GetSignaturesV2 errors at line 76. Transaction wrapper GetPubKeys explicitly supports unset SignerInfo.PublicKey, so a valid account-established-key transaction or malformed signature input can crash this CLI command."
+expected = "Validation of supplied transactions must handle optional signer public keys and conversion failures as validation results. Online mode may resolve an established account key; offline mode must explain when verification lacks enough information."
+proposal = "In sdk/x/auth/client/cli/validate_sigs.go return/report conversion errors, check nil keys before Address, and use the account retriever where online key resolution is appropriate. Add real command cases for an omitted public key, an unsigned transaction and malformed multisig data."
+owner_domain = 15
+
+[finding.auth-cli-network-signature]
+file = "sdk/x/auth/client/testutil/cli_test.go"
+line = 15
+class = "test-gap"
+severity = "medium"
+observed = "The norace integration entry point calls network.DefaultConfig() with no arguments, while sdk/testutil/network/network.go declares DefaultConfig(t *testing.T) Config. Selecting this build-tagged suite therefore presents a source-level compile-time argument mismatch before its integration assertions can run."
+expected = "Integration suites must consume the actual network test constructor signature and execute their existing assertions against the configured application. The required testing handle initializes the app constructor and cleanup lifecycle."
+proposal = "Update sdk/x/auth/client/testutil/cli_test.go to call network.DefaultConfig(t). Qualify its existing norace suite in the owning repair task without dropping the build tag, assertions or network-backed cases; no Go compilation was performed by this audit."
+owner_domain = 15
+interface = "15.go-testutil-network-default-config-j76"
+
+[finding.vesting-cli-network-signature]
+file = "sdk/x/auth/vesting/client/testutil/cli_test.go"
+line = 15
+class = "test-gap"
+severity = "medium"
+observed = "The norace integration entry point calls network.DefaultConfig() with no arguments, while sdk/testutil/network/network.go declares DefaultConfig(t *testing.T) Config. Selecting this build-tagged suite therefore presents a source-level compile-time argument mismatch before its integration assertions can run."
+expected = "Integration suites must consume the actual network test constructor signature and execute their existing assertions against the configured application. The required testing handle initializes the app constructor and cleanup lifecycle."
+proposal = "Update sdk/x/auth/vesting/client/testutil/cli_test.go to call network.DefaultConfig(t). Qualify its existing norace suite in the owning repair task without dropping the build tag, assertions or network-backed cases; no Go compilation was performed by this audit."
+owner_domain = 15
+interface = "15.go-testutil-network-default-config-j76"
+
+[finding.bank-cli-network-signature]
+file = "sdk/x/bank/client/testutil/cli_test.go"
+line = 15
+class = "test-gap"
+severity = "medium"
+observed = "The norace integration entry point calls network.DefaultConfig() with no arguments, while sdk/testutil/network/network.go declares DefaultConfig(t *testing.T) Config. Selecting this build-tagged suite therefore presents a source-level compile-time argument mismatch before its integration assertions can run."
+expected = "Integration suites must consume the actual network test constructor signature and execute their existing assertions against the configured application. The required testing handle initializes the app constructor and cleanup lifecycle."
+proposal = "Update sdk/x/bank/client/testutil/cli_test.go to call network.DefaultConfig(t). Qualify its existing norace suite in the owning repair task without dropping the build tag, assertions or network-backed cases; no Go compilation was performed by this audit."
+owner_domain = 15
+interface = "15.go-testutil-network-default-config-j76"
+
+[finding.bank-rest-network-signature]
+file = "sdk/x/bank/client/rest/query_test.go"
+line = 28
+class = "test-gap"
+severity = "medium"
+observed = "The norace integration entry point calls network.DefaultConfig() with no arguments, while sdk/testutil/network/network.go declares DefaultConfig(t *testing.T) Config. Selecting this build-tagged suite therefore presents a source-level compile-time argument mismatch before its integration assertions can run."
+expected = "Integration suites must consume the actual network test constructor signature and execute their existing assertions against the configured application. The required testing handle initializes the app constructor and cleanup lifecycle."
+proposal = "Update sdk/x/bank/client/rest/query_test.go to call network.DefaultConfig(s.T()). Qualify its existing norace suite in the owning repair task without dropping the build tag, assertions or network-backed cases; no Go compilation was performed by this audit."
+owner_domain = 15
+interface = "15.go-testutil-network-default-config-j76"
+
+[finding.metadata-suite-not-discovered]
+file = "sdk/x/bank/keeper/grpc_query_test.go"
+line = 184
+class = "test-gap"
+severity = "medium"
+observed = "IntegrationTestSuite.QueryDenomsMetadataRequest and QueryDenomMetadataRequest lack the Test prefix required by testify suite discovery. The latter success closure also declares a new expMetadata at line 316, leaving the value compared at line 355 empty, so simply enabling discovery does not yield a valid assertion."
+expected = "Metadata keeper tests must actually execute through the real query client and compare the response with the same metadata inserted by the producer, including the single-denom success case."
+proposal = "Rename both methods in sdk/x/bank/keeper/grpc_query_test.go with Test prefixes and assign the outer expMetadata rather than shadowing it. Run the actual integration suite and retain its error and success assertions, including slash-containing factory denoms."
+owner_domain = 15
+
+[finding.wei-genesis-input-validation]
+file = "sdk/x/bank/types/genesis.go"
+line = 69
+class = "runtime-risk"
+severity = "medium"
+observed = "getTotalSupply validates each ordinary Balance and rejects duplicate coin addresses, but only sums WeiBalances.Amount. It does not validate each wei address, amount initialization/nonnegativity or duplicate address. Invalid addresses can pass GenesisState.Validate and later panic in InitGenesis MustAccAddressFromBech32; offsetting negative/positive entries are not checked individually."
+expected = "Bank genesis validation must reject malformed individual fractional-balance records before initialization, just as it rejects malformed ordinary balances; aggregate conservation does not establish per-address record validity."
+proposal = "In sdk/x/bank/types/genesis.go validate every WeiBalance address and initialized nonnegative amount, define canonical per-address fractional bounds and reject duplicates before summing. Add invalid-address, negative, uninitialized, duplicate and valid aggregate-carry genesis cases that return errors before InitGenesis."
+owner_domain = 15
+
+[finding.invariant-query-error-healthy]
+file = "sdk/x/bank/keeper/invariants.go"
+line = 18
+class = "runtime-risk"
+severity = "medium"
+observed = "TotalSupply returns sdk.FormatInvariant with an error message but broken=false when CollectAllTotalSupply fails. Callers observing the SDK invariant boolean receive the same healthy result as a successful conservation check even though total supply could not be read."
+expected = "A failed supply collection must not be interpreted as a passed monetary invariant; the invariant contract must signal failure when it cannot establish conservation."
+proposal = "In sdk/x/bank/keeper/invariants.go return a failing invariant result for collection errors with the original cause preserved. Add a focused real keeper/error-path regression that proves a collection failure cannot return a healthy conservation result."
+owner_domain = 15
+
+[finding.simulation-account-selection-unbounded]
+file = "sdk/x/bank/simulation/operations.go"
+line = 186
+class = "runtime-risk"
+severity = "medium"
+observed = "SimulateMsgMultiSend chooses one to three inputs independent of len(accs) and repeatedly samples until each input address is unique. If two accounts are provided and three inputs are selected, the final loop cannot terminate; a single-account list also prevents randomSendFields from finding a distinct recipient."
+expected = "Simulation operations must terminate for supported small account sets and report a no-op when the requested transfer cannot be constructed, rather than hanging the upgrade verification workload."
+proposal = "In sdk/x/bank/simulation/operations.go bound input count by available distinct accounts, sample without replacement and return an explicit no-op when fewer than two eligible accounts exist. Add deterministic operation cases for zero, one and two accounts with the random seed that requests three inputs."
+owner_domain = 15
+
+[finding.ante-params-concrete-assertion]
+file = "sdk/x/auth/ante/ante.go"
+line = 54
+class = "runtime-risk"
+severity = "medium"
+observed = "HandlerOptions declares ParamsKeeper as the ParamsKeeper interface, and NewAnteHandler validates only that it is nonnil, but then asserts options.ParamsKeeper.(paramskeeper.Keeper). Any otherwise conforming implementation of the advertised interface panics during construction instead of returning an error."
+expected = "Ante construction must either accept every implementation of its declared dependency interface or explicitly require the concrete dependency and return a useful construction error for unsupported input."
+proposal = "Align HandlerOptions and NewDeductFeeDecorator in sdk/x/auth/ante/ante.go and fee.go on the smallest actually consumed params capability. Remove the unchecked assertion or declare the concrete requirement, and add a construction test that exercises the advertised dependency boundary."
+owner_domain = 15
+interface = "15.go-x-auth-ante-new-ante-handler-j76"
+
+[finding.auth-fee-priority-doc]
+file = "sdk/x/auth/spec/01_concepts.md"
+line = 37
+class = "doc-drift"
+severity = "medium"
+observed = "The concepts page states that Tendermint does not provide fee-based mempool prioritization and that fees are only local filtering. The fork computes priority in ante.GetTxPriority and propagates it through the fee decorator using base-denom precision scaling."
+expected = "The current network fee guide must describe the fork priority calculation and distinguish validator minimum-price filtering, global fee parameters and actual transaction prioritization."
+proposal = "Rewrite sdk/x/auth/spec/01_concepts.md lines 23-39 against ante/validator_tx_fee.go and fee.go, with Paxeer denomination and paxd examples and the real global/local minimum-price interaction."
+owner_domain = 15
+
+[finding.auth-account-balances-doc]
+file = "sdk/x/auth/spec/02_state.md"
+line = 11
+class = "doc-drift"
+severity = "medium"
+observed = "The auth state page says account structs store balances as sdk.Coins. Its own BaseAccount protobuf below contains only address, public key, account number and sequence; balances are stored and queried by x/bank."
+expected = "Integrators must use auth for identity and signing metadata and bank for coin/wei balances; account query responses cannot be described as containing balances."
+proposal = "Correct sdk/x/auth/spec/02_state.md lines 9-12 and the AccountI comment to explain bank-owned balances, with links to the actual account and bank query shapes and distinct persistence keys."
+owner_domain = 15
+
+[finding.ante-order-doc]
+file = "sdk/x/auth/spec/03_antehandlers.md"
+line = 20
+class = "doc-drift"
+severity = "medium"
+observed = "The current ante-handler list includes MempoolFeeDecorator before ValidateBasic. NewAnteHandler has no such decorator and performs fee checking/deduction through NewDeductFeeDecorator after transaction-size gas handling."
+expected = "The published validation order must match the constructed SDK ante chain and locate fee filtering, feegrant and priority calculation in the decorator that actually executes them."
+proposal = "Update sdk/x/auth/spec/03_antehandlers.md to mirror ante/ante.go, document the fee checker inside DeductFeeDecorator and link any application-specific ante differences to node wiring rather than inventing a removed decorator."
+owner_domain = 15
+
+[finding.vesting-genesis-only-doc]
+file = "sdk/x/auth/spec/05_vesting.md"
+line = 61
+class = "doc-drift"
+severity = "medium"
+observed = "The vesting guide claims all vesting accounts must be created at genesis or manual upgrade. The live module registers CreateVestingAccount. It also omits the fork Admin/CancelledTime schema fields, whose cancellation behavior is itself unwired as recorded in vesting-cancellation-unwired; the guide cannot present that unimplemented behavior as active."
+expected = "Users must be able to distinguish live message-based continuous/delayed account creation, historical genesis examples and schema-only administrator/cancellation fields that currently have no implemented cancellation path."
+proposal = "Rewrite sdk/x/auth/spec/05_vesting.md starting at lines 59-65 and its old genesis construction examples to document the real creation message, supported account types and export/import representation. State the present limits of Admin/CancelledTime until the separately proposed lifecycle repair supplies authorized cancellation semantics."
+owner_domain = 15
+
+[finding.auth-client-wrong-endpoint]
+file = "sdk/x/auth/spec/07_client.md"
+line = 362
+class = "doc-drift"
+severity = "medium"
+observed = "The client page advertises /cosmos/auth/v1beta1/account?address={address}; the auth query protobuf/gateway uses /cosmos/auth/v1beta1/accounts/{address}. The same page at line 395 advertises create-periodic-vesting-account, while vesting/client/cli/tx.go registers only create-vesting-account."
+expected = "The current client guide must provide routes and commands available in the merged node and clearly distinguish periodic account types from supported live creation commands."
+proposal = "Correct sdk/x/auth/spec/07_client.md to the generated accounts/{address} binding, use paxd examples and remove or explicitly label the unavailable periodic creation command. Demonstrate the actually registered continuous/delayed creation command and administrator argument."
+owner_domain = 15
+
+[finding.auth-sequence-parameter-doc]
+file = "sdk/x/auth/spec/07_params.md"
+line = 9
+class = "doc-drift"
+severity = "medium"
+observed = "The auth parameter table ends after the five upstream numeric fields and omits DisableSeqnoCheck. The persisted KeyDisableSeqnoCheck parameter is read by SDK SigVerificationDecorator and node/ante/cosmos_checktx.go to control sequence checking."
+expected = "Operators and governance users must see every active auth parameter, its exact stored key, default and impact on transaction sequence/replay checks."
+proposal = "Extend sdk/x/auth/spec/07_params.md with DisableSeqnoCheck, its false default and KeyDisableSeqnoCheck persistence spelling, explaining the affected check paths and operational constraints of enabling it."
+owner_domain = 15
+
+[finding.bank-state-extra-stores-doc]
+file = "sdk/x/bank/spec/01_state.md"
+line = 7
+class = "doc-drift"
+severity = "medium"
+observed = "The bank state guide enumerates only supply, denom metadata and ordinary balances. The fork also persists WeiBalancesPrefix and denom allowlists and uses a transaction-indexed deferred-balance cache, with different durability/lifecycle semantics."
+expected = "The bank state guide must let recovery and integration owners account for every monetary/policy store and distinguish fractional wei units and ephemeral deferred balances from committed KV state."
+proposal = "Extend sdk/x/bank/spec/01_state.md using bank/types/key.go, keeper/send.go and deferred_cache.go. Document 10^12 wei per uhpx, allowlist persistence and genesis recovery limitations, and the node CompleteBlock flush-before-commit lifecycle."
+owner_domain = 15
+
+[finding.bank-keeper-capabilities-doc]
+file = "sdk/x/bank/spec/02_keepers.md"
+line = 62
+class = "doc-drift"
+severity = "medium"
+observed = "The bank keeper guide embeds upstream interface definitions that omit current wei/deferred-balance and hook capabilities; its SendKeeper/ViewKeeper examples do not show current SubUnlockedCoins/AddCoins signatures or new mutation APIs. It also describes all balance lookups as O(1) despite account/all-balance iteration."
+expected = "Module integrators need exact current keeper capabilities, signatures and mutation-policy obligations to select least privilege and correctly handle ordinary, fractional and deferred balances."
+proposal = "Regenerate the code examples in sdk/x/bank/spec/02_keepers.md from current keeper interfaces, document checkNeg semantics and hook/recipient-checker behavior, and qualify complexity for single-denom lookup versus iterating account/all balances."
+owner_domain = 15
+
+[finding.bank-message-allowlist-doc]
+file = "sdk/x/bank/spec/03_messages.md"
+line = 12
+class = "doc-drift"
+severity = "medium"
+observed = "The bank message guide lists send-enabled and restricted recipient conditions but omits denomination allowlist checks. MsgServer.Send and MultiSend reject both unlisted senders and unlisted recipients for restricted factory denoms with ErrUnauthorized."
+expected = "Clients constructing transfers of factory tokens must be told that both parties require allowlist authorization and how an unauthorized transfer differs from send-disabled, blocked-address and insufficient-funds errors."
+proposal = "Update sdk/x/bank/spec/03_messages.md to match keeper/msg_server.go checks for both message types, including the empty-allowlist unrestricted rule and concrete unauthorized sender/recipient examples."
+owner_domain = 15
+
+[finding.bank-wei-events-doc]
+file = "sdk/x/bank/spec/04_events.md"
+line = 7
+class = "doc-drift"
+severity = "medium"
+observed = "The event guide describes ordinary coin and transfer events only. Bank types/events.go and keeper/send.go also emit wei_spent, wei_received and wei_transfer events for fractional base-denom movements, which indexers relying on this list would omit."
+expected = "Indexers must be able to reconstruct supported bank monetary movements using the documented event names, address attributes and exact coin-versus-wei units."
+proposal = "Extend sdk/x/bank/spec/04_events.md from the current event constructors with fractional wei events, amount units, sender/recipient attributes and interaction with whole-coin carry/borrow; verify examples against emitted keeper events."
+owner_domain = 15
+
+[finding.bank-invariant-wiring-doc]
+file = "sdk/x/bank/spec/README.md"
+line = 31
+class = "doc-drift"
+severity = "medium"
+observed = "The overview promises an invariant check of chain total supply without explaining that bank.AppModule.RegisterInvariants is empty. The node instead runs LightInvarianceTotalSupply for changed base-denom/wei balances, not the registered all-denomination bank TotalSupply invariant."
+expected = "Operators must know which conservation checks actually execute, which denominations they cover, the light_invariance.supply_enabled switch and the distinction between the SDK invariant helper and application runtime checks."
+proposal = "Clarify sdk/x/bank/spec/README.md supply/invariant text against module.go and node/invariance.go. State the actual coverage/configuration and either register the intended broader invariant through an owner task or explicitly document its absence."
+owner_domain = 15
+
+[finding.missing-interface-contract-pages]
+file = "sdk/x/auth/module.go"
+line = 0
+class = "doc-drift"
+severity = "low"
+observed = "The package registry links Go APIs and OTel instruments to contracts/cosmos-fork.md, protobuf/REST contracts to contracts/proto-api.md and consensus APIs to contracts/consensus-fork.md. All three files are absent, leaving the declared behavior contracts unavailable to integrators."
+expected = "Every contract link in the produced/consumed interface registry should resolve to an existing current contract page with the referenced anchor and compatible ownership/version information."
+proposal = "Restore contracts/cosmos-fork.md and coordinate the proto and consensus owners to restore their pages or update registry contract links to canonical existing pages. Cover actual Go APIs, OTel names, protobuf versions and runtime consensus interfaces without reintroducing retired network components."
+owner_domain = 15
+
+[finding.registry-cross-language-callers]
+file = "spec/layerx-merge/interfaces.kvx"
+line = 298605
+class = "doc-drift"
+severity = "low"
+observed = "Rows 6.sol-evmcompatibilitytester-setbalance-e30443bc and 6.sol-testtoken-setbalance-e30443bc list sdk/x/bank/keeper setBalance calls as Solidity consumers. The Go calls operate on bank balances through a private Go method; they do not invoke either Solidity contract or its ABI selector."
+expected = "Interface-registry consumers must resolve to the actual declared producer and transport, including language/type identity, so bank state mutations are not mistaken for EVM test-contract calls."
+proposal = "Correct these rows in spec/layerx-merge/interfaces.kvx through the registry owner and make caller extraction resolve symbols by language, receiver and import/ABI identity. Retain genuine contracts/test JavaScript consumers and remove textual-name-only Go matches."
+owner_domain = 6
+interface = "6.sol-evmcompatibilitytester-setbalance-e30443bc"
+
+[finding.legacy-supply-test-third-shape]
+file = "sdk/x/bank/keeper/querier_test.go"
+line = 109
+class = "test-gap"
+severity = "medium"
+observed = "The custom total-supply query tests marshal QueryTotalSupplyRequest with Pagination directly. The registered legacy REST handler instead emits QueryTotalSupplyParams with Page/Limit. The tests exercise a different producer shape, hiding the broken HTTP-to-custom-query interface."
+expected = "The compatibility regression must exercise the request produced by the actual REST handler and compare its page/limit behavior with the same keeper state, rather than proving only a direct protobuf-shaped custom query."
+proposal = "In sdk/x/bank/keeper/querier_test.go and client/rest/query_test.go add the complete actual REST producer-to-querier path with at least two supply pages and a nondefault limit, preserving direct query coverage and asserting identical pagination results."
+owner_domain = 15
+interface = "7.proto-cosmos-bank-v1beta1-querytotalsupplyrequest-j39"
+
+[doc.01]
+path = "sdk/x/auth/atlas/atlas-v0.39.1.md"
+status = "accurate"
+notes = "Archived upstream v0.39.x usage/provenance page, read as historical vendored material; its imports and constructor examples are not a current Paxeer integration contract."
+
+[doc.02]
+path = "sdk/x/auth/atlas/atlas.toml"
+status = "accurate"
+notes = "Vendored upstream catalogue accurately identifies its own v0.39.2 provenance and upstream links; current fork application wiring is described separately in the module spec."
+
+[doc.03]
+path = "sdk/x/bank/atlas/atlas-v0.39.1.md"
+status = "accurate"
+notes = "Archived upstream v0.39.x usage/provenance page, read as historical vendored material; its imports and constructor examples are not a current Paxeer integration contract."
+
+[doc.04]
+path = "sdk/x/bank/atlas/atlas.toml"
+status = "accurate"
+notes = "Vendored upstream catalogue accurately identifies its own v0.39.2 provenance and upstream links; current fork application wiring is described separately in the module spec."
+
+[doc.05]
+path = "sdk/x/auth/spec/01_concepts.md"
+status = "stale"
+notes = "Lines 23-39 omit global fee configuration and incorrectly deny the fee priority computed by the fork; see auth-fee-priority-doc."
+
+[doc.06]
+path = "sdk/x/auth/spec/02_state.md"
+status = "misleading"
+notes = "Lines 9-12 place coin balances in account structs despite the shown BaseAccount schema and actual bank-owned balances; see auth-account-balances-doc."
+
+[doc.07]
+path = "sdk/x/auth/spec/03_antehandlers.md"
+status = "stale"
+notes = "Lines 14-30 list a removed MempoolFeeDecorator and obsolete ordering; see ante-order-doc."
+
+[doc.08]
+path = "sdk/x/auth/spec/04_keepers.md"
+status = "accurate"
+notes = "Read the complete account keeper overview; account capability and module-account lookup descriptions agree with the auth keeper."
+
+[doc.09]
+path = "sdk/x/auth/spec/05_vesting.md"
+status = "misleading"
+notes = "Lines 59-65 incorrectly deny live message creation and omit schema-only administrator/cancellation fields; historical genesis construction examples also need rewriting; see vesting-genesis-only-doc."
+
+[doc.10]
+path = "sdk/x/auth/spec/07_client.md"
+status = "misleading"
+notes = "Line 362 gives the wrong REST account route; lines 395-406 advertise an unavailable periodic creation command; see auth-client-wrong-endpoint."
+
+[doc.11]
+path = "sdk/x/auth/spec/07_params.md"
+status = "stale"
+notes = "The table at lines 9-15 omits the active DisableSeqnoCheck parameter and its operational effect; see auth-sequence-parameter-doc."
+
+[doc.12]
+path = "sdk/x/auth/spec/README.md"
+status = "accurate"
+notes = "Auth responsibility overview and node/app.go integration link match the live module; detailed linked-page drift is recorded individually."
+
+[doc.13]
+path = "sdk/x/bank/spec/01_state.md"
+status = "stale"
+notes = "Lines 7-12 omit fractional wei balances, denom allowlists and the deferred-balance lifecycle; see bank-state-extra-stores-doc."
+
+[doc.14]
+path = "sdk/x/bank/spec/02_keepers.md"
+status = "stale"
+notes = "Embedded interfaces beginning at line 62 omit current fork capabilities/signatures; line 116 overstates lookup complexity; see bank-keeper-capabilities-doc."
+
+[doc.15]
+path = "sdk/x/bank/spec/03_messages.md"
+status = "stale"
+notes = "Failure conditions at lines 12-27 omit both sender and recipient denom allowlist authorization; see bank-message-allowlist-doc."
+
+[doc.16]
+path = "sdk/x/bank/spec/04_events.md"
+status = "stale"
+notes = "The event inventory beginning at line 7 excludes emitted fractional wei events and units; see bank-wei-events-doc."
+
+[doc.17]
+path = "sdk/x/bank/spec/05_params.md"
+status = "accurate"
+notes = "Read the complete send-enabled/default-send-enabled parameter page and compared types/defaults to bank params validation."
+
+[doc.18]
+path = "sdk/x/bank/spec/README.md"
+status = "stale"
+notes = "Line 31 does not distinguish an unregistered SDK invariant helper from the node base-denom light invariance check; see bank-invariant-wiring-doc."
+
+[doc.19]
+path = "modules/tokenfactory/README.md"
+status = "accurate"
+notes = "Read in full; the stated allow_list sender/recipient restriction matches bank message authorization intent and exposes the vesting bypass. Genesis allowlist durability is not promised by this page."
+
+[doc.20]
+path = "contracts/cosmos-fork.md"
+status = "missing"
+notes = "Go API and OTel contract target referenced by the slice registry is absent; see missing-interface-contract-pages."
+
+[doc.21]
+path = "contracts/proto-api.md"
+status = "missing"
+notes = "Protobuf and REST contract target referenced by the slice registry is absent; see missing-interface-contract-pages."
+
+[doc.22]
+path = "contracts/consensus-fork.md"
+status = "missing"
+notes = "Consensus interface contract target referenced by consumed registry rows is absent; see missing-interface-contract-pages."
+
+[doc.23]
+path = "spec/layerx-merge/interfaces.kvx"
+status = "stale"
+notes = "All 311 produced and 340 consumed package rows were inspected with producer/consumer paths; Solidity setBalance consumer lists contain false Go matches, as recorded. Existing old REST aliases coexist with separate slash-safe query-string rows."
+
+[finding.vesting-cancellation-unwired]
+file = "sdk/x/auth/vesting/types/vesting_account.go"
+line = 228
+class = "wiring-gap"
+severity = "medium"
+observed = "BaseVestingAccount declares Admin and CancelledTime, and vesting.proto describes administrator oversight and cancellation time, but continuous, delayed and periodic GetVestedCoins never read CancelledTime. No non-generated auth, node or module execution path reads or sets this field to perform cancellation. An imported account carrying a nonzero cancellation marker continues vesting by time alone."
+expected = "The declared BaseVestingAccount lifecycle must distinguish supported administrator/cancellation behavior from reserved schema fields. Accounts marked cancelled must not silently retain the ordinary active schedule contrary to the meaning of that persisted marker."
+proposal = "In sdk/x/auth/vesting define the cancellation policy with the network owner, implement an authorized message and consistent schedule/locked/delegated-coin handling, and preserve the state through genesis and restart tests. If cancellation is intentionally unsupported, explicitly reserve the fields and reject nonzero cancellation markers during account validation rather than implying an effective lifecycle."
+owner_domain = 15
+interface = "7.proto-cosmos-vesting-v1beta1-basevestingaccount-j39"
+
+[finding.wrapper-signature-cardinality]
+file = "sdk/x/auth/tx/builder.go"
+line = 182
+class = "security"
+severity = "medium"
+observed = "wrapper.GetSignaturesV2 allocates by len(AuthInfo.SignerInfos) and indexes tx.Signatures[i] for each nonnil ModeInfo without first checking signature count. Decoding an unsigned or malformed externally supplied Tx with signer infos but fewer signatures can therefore panic when CLI validation or conversion asks for signatures."
+expected = "The signature retrieval API returns an error and must handle externally decoded transaction shapes, including unsigned transactions, without unchecked indexing before cardinality validation."
+proposal = "In sdk/x/auth/tx/builder.go validate the signature/signer-info lengths and nil signer-info entries before iterating, distinguish supported unsigned simulation shapes explicitly and return typed errors for malformed cases. Extend builder/CLI tests with actual decoded short-signature TxRaw values and require errors without panic."
+owner_domain = 15
+interface = "7.proto-cosmos-tx-v1beta1-txraw-j39"
+

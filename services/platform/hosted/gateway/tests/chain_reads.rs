@@ -6,12 +6,13 @@ use sha2::{Digest, Sha256};
 use std::fs;
 use std::io::{Read, Write};
 use std::net::{TcpListener, TcpStream};
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::process::{Child, Command, Stdio};
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::Arc;
 use std::thread::{self, JoinHandle};
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::time::Duration;
+use tempfile::TempDir;
 
 const RPC_URL: &str = "LAYERX_GATEWAY_CONSENSUS_RPC_URL";
 
@@ -44,7 +45,7 @@ fn free_port() -> u16 {
 /// certificate every TLS peer of the test presents.
 struct Fixture {
     redis: Child,
-    directory: PathBuf,
+    directory: TempDir,
     redis_port: u16,
     tls: Arc<ServerConfig>,
 }
@@ -52,20 +53,12 @@ struct Fixture {
 impl Fixture {
     fn start() -> Self {
         let _ = rustls::crypto::ring::default_provider().install_default();
-        let directory = std::env::temp_dir().join(format!(
-            "layerx-chain-reads-{}-{}",
-            std::process::id(),
-            SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .unwrap_or_default()
-                .as_nanos()
-        ));
-        fs::create_dir(&directory)
+        let directory = tempfile::tempdir()
             .unwrap_or_else(|error| panic!("test directory must be created: {error}"));
-        let pem = directory.join("server.pem");
-        let der = directory.join("server.der");
-        let key = directory.join("server.key");
-        let key_der = directory.join("server-key.der");
+        let pem = directory.path().join("server.pem");
+        let der = directory.path().join("server.der");
+        let key = directory.path().join("server.key");
+        let key_der = directory.path().join("server-key.der");
         command(
             "openssl",
             &[
@@ -114,11 +107,11 @@ impl Fixture {
         );
         let redis_port = free_port();
         fs::write(
-            directory.join("users.acl"),
+            directory.path().join("users.acl"),
             "user default off\nuser gateway on >gateway-secret ~* &* +@all\n",
         )
         .unwrap_or_else(|error| panic!("test Redis ACL must be written: {error}"));
-        let config = directory.join("redis.conf");
+        let config = directory.path().join("redis.conf");
         fs::write(
             &config,
             format!(
@@ -126,8 +119,8 @@ impl Fixture {
                 path(&pem),
                 path(&key),
                 path(&pem),
-                path(&directory.join("users.acl")),
-                path(&directory),
+                path(&directory.path().join("users.acl")),
+                path(directory.path()),
             ),
         )
         .unwrap_or_else(|error| panic!("test Redis config must be written: {error}"));
@@ -165,13 +158,13 @@ impl Fixture {
     }
 
     fn secret(&self, name: &str, value: &str) -> String {
-        let file = self.directory.join(name);
+        let file = self.directory.path().join(name);
         fs::write(&file, value).unwrap_or_else(|error| panic!("{name} must be written: {error}"));
         path(&file).to_owned()
     }
 
     fn environment(&self, listen: u16) -> Vec<(String, String)> {
-        let ca = path(&self.directory.join("server.der")).to_owned();
+        let ca = path(&self.directory.path().join("server.der")).to_owned();
         vec![
             (
                 "LAYERX_GATEWAY_LISTEN".to_owned(),
@@ -211,7 +204,6 @@ impl Drop for Fixture {
     fn drop(&mut self) {
         let _ = self.redis.kill();
         let _ = self.redis.wait();
-        let _ = fs::remove_dir_all(&self.directory);
     }
 }
 
@@ -407,8 +399,14 @@ impl Gateway {
     fn rpc(&self, method: &str, params: Value) -> Value {
         let call =
             json!({"jsonrpc": "2.0", "id": "chain-read", "method": method, "params": params});
+        assert_eq!(
+            self.exchange("POST", "/rpc", call.to_string().as_bytes())
+                .expect("retired RPC refusal")
+                .0,
+            404
+        );
         let (status, body) = self
-            .exchange("POST", "/rpc", call.to_string().as_bytes())
+            .exchange("POST", "/", call.to_string().as_bytes())
             .unwrap_or_else(|error| panic!("RPC exchange: {error}"));
         assert_eq!(status, 200, "{}", String::from_utf8_lossy(&body));
         let answer: Value =

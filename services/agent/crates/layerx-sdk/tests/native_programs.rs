@@ -15,10 +15,12 @@ fn bytes(value: &str) -> Result<Vec<u8>, std::num::ParseIntError> {
 
 #[test]
 fn native_request_binds_real_signed_fixture() -> Result<(), Box<dyn std::error::Error>> {
+    use layerx_crypto::evm_transaction::{transaction_hash, Eip1559Call};
+
     let fixture: serde_json::Value = serde_json::from_str(include_str!(
         "../../../../../sdk/platform/conformance/fixtures/native-program-call-v3.json"
     ))?;
-    let signed = bytes(
+    let legacy = bytes(
         fixture["signed_activity_hex"]
             .as_str()
             .ok_or("signed fixture missing")?,
@@ -29,6 +31,18 @@ fn native_request_binds_real_signed_fixture() -> Result<(), Box<dyn std::error::
             .ok_or("payload fixture missing")?,
     )?;
     let native = NativeProgramCall::decode(&payload).map_err(|_| "invalid fixture")?;
+    let signed = Eip1559Call {
+        chain_id: 125,
+        nonce: 7,
+        max_priority_fee_per_gas: 1,
+        max_fee_per_gas: 2,
+        gas_limit: 500,
+        to: bytes("000000000000000000000000000000000000101d")?
+            .try_into()
+            .map_err(|_| "invalid precompile address")?,
+        data: layerx_crypto::disclosure::call::encode_program_call(&native, 1000),
+    }
+    .sign(&[0x42; 32])?;
     let registry = ModuleRegistry::new(&[ModuleRegistration::new(
         ModuleId::Programs,
         &[ActivityType::new(ModuleId::Programs, 3).map_err(|_| "activity type invalid")?],
@@ -38,10 +52,18 @@ fn native_request_binds_real_signed_fixture() -> Result<(), Box<dyn std::error::
     let bound = NativeProgramCallRequest::new(&registry, native, 1000, &signed)
         .map_err(|_| "binding failed")?;
     assert_eq!(bound.signed_activity(), signed);
+    assert_eq!(bound.bound_activity_id(), transaction_hash(&signed));
+    let mut digest = sha2::Sha256::new();
+    use sha2::Digest as _;
+    digest.update(b"layerxprograms/idempotency/v1");
+    digest.update(transaction_hash(&signed));
+    digest.update(0_u32.to_be_bytes());
+    digest.update([0x54, 0xbd, 0x2b, 0x48]);
     assert_eq!(
-        bound.bound_activity_id().to_vec(),
-        bytes(fixture["activity_id_hex"].as_str().ok_or("id missing")?)?
+        bound.bound_idempotency_key(),
+        <[u8; 32]>::from(digest.finalize())
     );
+    assert!(NativeProgramCallRequest::new(&registry, native, 1000, &legacy).is_err());
     assert!(NativeProgramCallRequest::new(&registry, native, 999, &signed).is_err());
     assert!(NativeProgramCallRequest::new(
         &registry,
@@ -215,4 +237,13 @@ fn program_http_decodes_signed_program_calls_as_eip1559() -> Result<(), Box<dyn 
     assert_eq!(idempotency_key, request.bound_idempotency_key());
     assert_eq!(retained_signed_activity.as_deref(), Some(raw.as_slice()));
     Ok(())
+}
+
+#[allow(dead_code)]
+#[path = "support/audit_22_30_99.rs"]
+mod audit;
+
+#[test]
+fn public_native_constructor_reaches_transport_receipt_and_recovery() {
+    audit::program_constructors_share_live_abi_submit_retry_and_recovery();
 }

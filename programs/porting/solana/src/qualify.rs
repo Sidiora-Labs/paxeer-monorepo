@@ -357,7 +357,9 @@ pub fn settle(
 ///
 /// The bytes are carried across unchanged: an account that began with its
 /// Anchor discriminator still begins with it, so a later read decodes with the
-/// generated type.
+/// generated type. The complete plan is applied to a storage candidate before
+/// assignment; any refusal leaves the target unchanged, including earlier cells
+/// belonging to other principals.
 ///
 /// # Errors
 ///
@@ -368,13 +370,16 @@ pub fn import_accounts(
     program: ProgramId,
     cells: &[(MigrationCell, Vec<u8>)],
 ) -> Result<usize, PortRefusal> {
+    let mut candidate = storage.clone();
     let mut changed = 0_usize;
     for (cell, data) in cells {
         let principal = PrincipalId::new(cell.principal)?;
-        let mut transaction = storage.transaction(StorageNamespace::principal(program, principal));
+        let mut transaction =
+            candidate.transaction(StorageNamespace::principal(program, principal));
         transaction.write(&cell.layerx_key, data)?;
         changed = changed.saturating_add(transaction.commit());
     }
+    *storage = candidate;
     Ok(changed)
 }
 

@@ -1,0 +1,7 @@
+[repair.22.31.245]
+finding = "delta-missing-table"
+proof = "TestRepair_245_UnrelatedMissingTable, TestRepair_245_ExactAppliedRetirements, TestRepair_245_SourceAlreadyAppliedRetirement, TestRepair_245_MissingSourceMigration, TestRepair_245_PresentTablesArePreserved"
+integration = "TestMoveDeltaRefusesMissingPopulatedTableAfterReopen exercises Move, the applied PostgreSQL ledger, a dropped populated wallet_signatures table, and MoveDelta after closing and reopening connections; it is outside the service-free task gate and has not been run here."
+baseline = "No baseline gate run: the explicit task order requires full implementation, hf-build, then hf-done, and forbids running verify_cmd by hand; no pre-change test failures are claimed."
+wiring = "None: all repair code and tests are inside services/wallet/ceremony/internal/move, owned by the wallet domain."
+evidence = "The runner records the exact candidate revision, command, exit and private log in the hf-done receipt; no unrun integration result is claimed."

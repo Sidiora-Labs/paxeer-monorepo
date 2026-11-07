@@ -1,0 +1,23 @@
+[repair.22.33.1125]
+audit = "22.30.49"
+acceptance = "22998.1"
+evidence = "The runner's hf-done ledger records the exact candidate revision, command, exit code and private log for this record."
+baseline = "Not run: the explicit gate order requires complete implementation before hf-build and hf-done and prohibits running verify_cmd by hand; no pre-change failure is claimed."
+wiring = "None: canonical sdk/x/bank module genesis already owns initialization and export."
+
+[finding.007]
+repair = "Giga InitGenesis and ExportGenesis explicitly panic before touching state and direct callers to canonical bank genesis."
+test = "TestRepairM_1125_GenesisRefusalAndRestartRecovery"
+proof = "Real Giga keeper refuses both entry points in both store modes without changing canonical state; canonical JSON export/import preserves nondefault send restrictions, balances, supply, metadata and wei across database close/reopen and fresh-database recovery."
+
+[finding.009]
+repair = "view_test.go now exercises Giga view reads, cache writes/publication and both store modes; canonical view/iterator expectations remain separate."
+tests = ["TestRepairM_1125_GigaViewAndTrace", "TestRepairM_1125_CanonicalViewAndTrace"]
+proof = "Real Giga cache/store reads prove balances, wei, spendability and thresholds; regular mode traces point reads, direct Giga mode bypasses tracing and explicitly rejects forward/reverse iteration; canonical mode retains its iterator trace proof."
+
+[qualification.initial]
+revision = "47f6007a5098b520a7d4315a0373b8a465d95856"
+command = "cg spec done 22.33.1125 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+repair = "Use this repository's ProtoCodec.UnmarshalAsJSON API for the real genesis transport decoder."

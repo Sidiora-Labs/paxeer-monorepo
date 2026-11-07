@@ -1,0 +1,206 @@
+[alert.GHSA-8g5g-mxqh-grgj]
+package = "vite"
+manifest = "apps/explorer/deploy/tools/envs-validator/package.json"
+verdict = "upgraded"
+version_before = "6.4.4"
+version_after = "6.4.5"
+pinned_by = ""
+revision = "b8dabee336db28fe3b74c42fb4aec6356364fdcc"
+
+[alert.GHSA-8g5g-mxqh-grgj]
+package = "vite"
+manifest = "apps/explorer/deploy/tools/essential-dapps-chains-config-generator/package.json"
+verdict = "upgraded"
+version_before = "6.4.4"
+version_after = "6.4.5"
+pinned_by = ""
+revision = "b8dabee336db28fe3b74c42fb4aec6356364fdcc"
+
+[alert.GHSA-8g5g-mxqh-grgj]
+package = "vite"
+manifest = "apps/explorer/deploy/tools/llms-txt-generator/package.json"
+verdict = "upgraded"
+version_before = "6.4.4"
+version_after = "6.4.5"
+pinned_by = ""
+revision = "b8dabee336db28fe3b74c42fb4aec6356364fdcc"
+
+[alert.GHSA-8g5g-mxqh-grgj]
+package = "vite"
+manifest = "apps/explorer/deploy/tools/multichain-config-generator/package.json"
+verdict = "upgraded"
+version_before = "6.4.4"
+version_after = "6.4.5"
+pinned_by = ""
+revision = "b8dabee336db28fe3b74c42fb4aec6356364fdcc"
+
+[alert.GHSA-8g5g-mxqh-grgj]
+package = "vite"
+manifest = "apps/explorer/toolkit/package/package.json"
+verdict = "upgraded"
+version_before = "6.4.4"
+version_after = "6.4.5"
+pinned_by = ""
+revision = "b8dabee336db28fe3b74c42fb4aec6356364fdcc"
+
+[alert.GHSA-3gc7-fjrx-p6mg]
+package = "bigint-buffer"
+manifest = "apps/explorer/yarn.lock"
+verdict = "no-fix"
+version_before = "1.1.5"
+version_after = "1.1.5"
+pinned_by = "@dynamic-labs/ethereum@4.74.1 -> @dynamic-labs/waas-evm@4.74.1 -> @dynamic-labs/waas@4.74.1 -> @dynamic-labs/solana-core@4.74.1 -> @solana/spl-token@0.4.14 -> @solana/buffer-layout-utils@0.2.0 -> bigint-buffer@1.1.5"
+revision = "b8dabee336db28fe3b74c42fb4aec6356364fdcc"
+
+[alert.GHSA-gcqx-w48m-w2h4]
+package = "deepmerge"
+manifest = "apps/explorer/yarn.lock"
+verdict = "no-fix"
+version_before = "4.2.2, 4.3.1"
+version_after = "4.2.2, 4.3.1"
+pinned_by = "@svgr/webpack@6.5.1 -> @svgr/plugin-svgo@6.5.1 -> deepmerge@4.2.2; swagger-ui-react@5.30.3 -> swagger-client@3.36.0 -> deepmerge@4.3.1"
+revision = "b8dabee336db28fe3b74c42fb4aec6356364fdcc"
+
+[alert.GHSA-cmwh-pvxp-8882]
+package = "dompurify"
+manifest = "apps/explorer/yarn.lock"
+verdict = "upgraded"
+version_before = "3.4.9"
+version_after = "3.4.17"
+pinned_by = ""
+revision = "b8dabee336db28fe3b74c42fb4aec6356364fdcc"
+
+[alert.GHSA-c2j3-45gr-mqc4]
+package = "dompurify"
+manifest = "apps/explorer/yarn.lock"
+verdict = "upgraded"
+version_before = "3.4.9"
+version_after = "3.4.17"
+pinned_by = ""
+revision = "b8dabee336db28fe3b74c42fb4aec6356364fdcc"
+
+[alert.GHSA-55q2-fjhq-7xh7]
+package = "dompurify"
+manifest = "apps/explorer/yarn.lock"
+verdict = "upgraded"
+version_before = "3.4.9"
+version_after = "3.4.17"
+pinned_by = ""
+revision = "b8dabee336db28fe3b74c42fb4aec6356364fdcc"
+
+[alert.GHSA-6688-9rhm-gjv2]
+package = "dompurify"
+manifest = "apps/explorer/yarn.lock"
+verdict = "upgraded"
+version_before = "3.4.9"
+version_after = "3.4.17"
+pinned_by = ""
+revision = "b8dabee336db28fe3b74c42fb4aec6356364fdcc"
+
+[alert.GHSA-c6gr-qvv4-5v3f]
+package = "dompurify"
+manifest = "apps/explorer/yarn.lock"
+verdict = "upgraded"
+version_before = "3.4.9"
+version_after = "3.4.17"
+pinned_by = ""
+revision = "b8dabee336db28fe3b74c42fb4aec6356364fdcc"
+
+[alert.GHSA-mrv2-3pqr-j5jr]
+package = "dompurify"
+manifest = "apps/explorer/yarn.lock"
+verdict = "upgraded"
+version_before = "3.4.9"
+version_after = "3.4.17"
+pinned_by = ""
+revision = "b8dabee336db28fe3b74c42fb4aec6356364fdcc"
+
+[alert.GHSA-cg2g-xh64-v4q7]
+package = "dompurify"
+manifest = "apps/explorer/yarn.lock"
+verdict = "upgraded"
+version_before = "3.4.9"
+version_after = "3.4.17"
+pinned_by = ""
+revision = "b8dabee336db28fe3b74c42fb4aec6356364fdcc"
+
+[alert.GHSA-8r9p-f939-6h3c]
+package = "follow-redirects"
+manifest = "apps/explorer/yarn.lock"
+verdict = "upgraded"
+version_before = "1.16.0"
+version_after = "1.16.2"
+pinned_by = ""
+revision = "b8dabee336db28fe3b74c42fb4aec6356364fdcc"
+
+[alert.GHSA-q3jh-wrc6-jgq8]
+package = "follow-redirects"
+manifest = "apps/explorer/yarn.lock"
+verdict = "upgraded"
+version_before = "1.16.0"
+version_after = "1.16.2"
+pinned_by = ""
+revision = "b8dabee336db28fe3b74c42fb4aec6356364fdcc"
+
+[alert.GHSA-mrwp-f3q8-3g9p]
+package = "follow-redirects"
+manifest = "apps/explorer/yarn.lock"
+verdict = "upgraded"
+version_before = "1.16.0"
+version_after = "1.16.2"
+pinned_by = ""
+revision = "b8dabee336db28fe3b74c42fb4aec6356364fdcc"
+
+[alert.GHSA-5r4p-p66f-jhc7]
+package = "hono"
+manifest = "apps/explorer/yarn.lock"
+verdict = "upgraded"
+version_before = "4.13.7"
+version_after = "4.13.11"
+pinned_by = ""
+revision = "b8dabee336db28fe3b74c42fb4aec6356364fdcc"
+
+[alert.GHSA-g3hv-75wg-m249]
+package = "minimatch"
+manifest = "apps/explorer/yarn.lock"
+verdict = "upgraded"
+version_before = "9.0.7"
+version_after = "11.0.1"
+pinned_by = ""
+revision = "b8dabee336db28fe3b74c42fb4aec6356364fdcc"
+
+[alert.GHSA-28wg-ghj8-5hjv]
+package = "nanoid"
+manifest = "apps/explorer/yarn.lock"
+verdict = "upgraded"
+version_before = "5.1.6"
+version_after = "5.1.16"
+pinned_by = ""
+revision = "b8dabee336db28fe3b74c42fb4aec6356364fdcc"
+
+[alert.GHSA-xwg4-73v4-xw9w]
+package = "nanoid"
+manifest = "apps/explorer/yarn.lock"
+verdict = "upgraded"
+version_before = "5.1.6"
+version_after = "5.1.16"
+pinned_by = ""
+revision = "b8dabee336db28fe3b74c42fb4aec6356364fdcc"
+
+[alert.GHSA-j3f2-48v5-ccww]
+package = "protobufjs"
+manifest = "apps/explorer/yarn.lock"
+verdict = "upgraded"
+version_before = "7.6.3"
+version_after = "7.6.5"
+pinned_by = ""
+revision = "b8dabee336db28fe3b74c42fb4aec6356364fdcc"
+
+[alert.GHSA-jj87-hc4r-jwfw]
+package = "stream-json"
+manifest = "apps/explorer/yarn.lock"
+verdict = "upgraded"
+version_before = "3.6.0"
+version_after = "3.7.0"
+pinned_by = ""
+revision = "b8dabee336db28fe3b74c42fb4aec6356364fdcc"

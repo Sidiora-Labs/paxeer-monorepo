@@ -66,10 +66,13 @@ func makeSignBatchCmd() func(cmd *cobra.Command, args []string) error {
 		if err != nil {
 			return err
 		}
-		txFactory := tx.NewFactoryCLI(clientCtx, cmd.Flags())
+		txFactory, err := tx.NewFactoryCLI(clientCtx, cmd.Flags())
+		if err != nil {
+			return err
+		}
 		txCfg := clientCtx.TxConfig
 		printSignatureOnly, _ := cmd.Flags().GetBool(flagSigOnly)
-		infile := os.Stdin
+		infile := cmd.InOrStdin()
 
 		ms, err := cmd.Flags().GetString(flagMultisig)
 		if err != nil {
@@ -83,15 +86,17 @@ func makeSignBatchCmd() func(cmd *cobra.Command, args []string) error {
 		}
 
 		defer closeFunc()
-		clientCtx.WithOutput(cmd.OutOrStdout())
+		clientCtx = clientCtx.WithOutput(cmd.OutOrStdout())
 
 		if args[0] != "-" {
-			infile, err = os.Open(args[0])
+			fp, err := os.Open(args[0])
 			if err != nil {
 				return err
 			}
+			defer fp.Close()
+			infile = fp
 		}
-		scanner := authclient.NewBatchScanner(txCfg, infile)
+		scanner := newBatchTxScanner(txCfg, infile)
 
 		for sequence := txFactory.Sequence(); scanner.Scan(); sequence++ {
 			unsignedStdTx := scanner.Tx()
@@ -138,7 +143,7 @@ func makeSignBatchCmd() func(cmd *cobra.Command, args []string) error {
 			return err
 		}
 
-		return scanner.UnmarshalErr()
+		return scanner.Err()
 	}
 }
 

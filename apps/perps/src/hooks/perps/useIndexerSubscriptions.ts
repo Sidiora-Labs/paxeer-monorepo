@@ -15,7 +15,7 @@
 //   tradeCreated          → useTradeCreatedSubscription(marketId)
 //   liquidationCreated    → useLiquidationSubscription(marketId)
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { subscribeStream } from "@/core/graphql/client";
 import { INDEXER_GRAPHQL } from "@/core/perps/config";
 
@@ -52,25 +52,151 @@ export interface IndexerOrder {
   status: string;
   marketId: number;
   orderType: number;
-  remainingSize: string;
-  blockTimestamp: number;
+  remainingSize: string | null;
+  blockTimestamp: string | null;
 }
 
 export interface IndexerTrade {
   positionId: string;
-  userAddress: string;
+  userAddress: string | null;
   sizeUsd: string;
-  executionPrice: string;
+  executionPrice: string | null;
   tradeType: string;
-  blockTimestamp: number;
+  blockTimestamp: string;
 }
 
 export interface IndexerLiquidation {
   positionId: string;
   userAddress: string;
-  sizeUsd: string;
-  executionPrice: string;
-  blockTimestamp: number;
+  sizeUsd: string | null;
+  executionPrice: string | null;
+  blockTimestamp: string;
+}
+
+function eventFields(value: unknown): Record<string, unknown> {
+  if (value === null || typeof value !== "object" || Array.isArray(value)) {
+    throw new TypeError("Indexer event must be an object");
+  }
+  return value as Record<string, unknown>;
+}
+
+function eventString(value: unknown, field: string): string {
+  if (typeof value !== "string") {
+    throw new TypeError(`Indexer ${field} must be a string`);
+  }
+  return value;
+}
+
+function eventDecimal(value: unknown, field: string): string {
+  const text = eventString(value, field);
+  if (!/^\d+$/.test(text)) {
+    throw new TypeError(`Indexer ${field} must be an unsigned decimal integer`);
+  }
+  return text;
+}
+
+function eventInt(value: unknown, field: string): number {
+  if (
+    typeof value !== "number" ||
+    !Number.isInteger(value) ||
+    value < 0 ||
+    value > 2147483647
+  ) {
+    throw new TypeError(`Indexer ${field} must be a nonnegative GraphQL Int`);
+  }
+  return value;
+}
+
+function eventTime(value: unknown): string {
+  const text = eventString(value, "blockTimestamp");
+  if (
+    !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,9})?(?:Z|[+-]\d{2}:\d{2})$/.test(
+      text,
+    ) ||
+    !Number.isFinite(Date.parse(text))
+  ) {
+    throw new TypeError("Indexer blockTimestamp must be an RFC3339 DateTime");
+  }
+  return text;
+}
+
+export function decodeIndexerOrder(value: unknown): IndexerOrder {
+  const row = eventFields(value);
+  return {
+    orderId: eventDecimal(row.orderId, "orderId"),
+    status: eventString(row.status, "status"),
+    marketId: eventInt(row.marketId, "marketId"),
+    orderType: eventInt(row.orderType, "orderType"),
+    remainingSize:
+      row.remainingSize === null
+        ? null
+        : eventDecimal(row.remainingSize, "remainingSize"),
+    blockTimestamp:
+      row.blockTimestamp === null ? null : eventTime(row.blockTimestamp),
+  };
+}
+
+export function decodeIndexerTrade(value: unknown): IndexerTrade {
+  const row = eventFields(value);
+  return {
+    positionId: eventDecimal(row.positionId, "positionId"),
+    userAddress:
+      row.userAddress === null
+        ? null
+        : eventString(row.userAddress, "userAddress"),
+    sizeUsd: eventDecimal(row.sizeUsd, "sizeUsd"),
+    executionPrice:
+      row.executionPrice === null
+        ? null
+        : eventDecimal(row.executionPrice, "executionPrice"),
+    tradeType: eventString(row.tradeType, "tradeType"),
+    blockTimestamp: eventTime(row.blockTimestamp),
+  };
+}
+
+export function decodeIndexerLiquidation(value: unknown): IndexerLiquidation {
+  const row = eventFields(value);
+  return {
+    positionId: eventDecimal(row.positionId, "positionId"),
+    userAddress: eventString(row.userAddress, "userAddress"),
+    sizeUsd: row.sizeUsd === null ? null : eventDecimal(row.sizeUsd, "sizeUsd"),
+    executionPrice:
+      row.executionPrice === null
+        ? null
+        : eventDecimal(row.executionPrice, "executionPrice"),
+    blockTimestamp: eventTime(row.blockTimestamp),
+  };
+}
+
+/** Retained stream values are only visible to the generation that received them. */
+function useIndexerSelection<T>(
+  selection: string | number | undefined,
+  subscribe: (onData: (data: T) => void) => () => void,
+): T | null {
+  const generation = useMemo(() => ({}), [selection]);
+  const subscribeRef = useRef(subscribe);
+  subscribeRef.current = subscribe;
+  const [state, setState] = useState<{ generation: object; value: T | null }>({
+    generation,
+    value: null,
+  });
+  useEffect(() => {
+    let active = true;
+    setState({ generation, value: null });
+    const unsubscribe =
+      selection === undefined
+        ? undefined
+        : subscribeRef.current((value) => {
+            if (active) setState({ generation, value });
+          });
+    return () => {
+      active = false;
+      unsubscribe?.();
+    };
+  }, [selection, generation]);
+  return selection !== undefined && state.generation === generation
+    ? state.value
+    : null;
 }
 
 // ── indexerStatusUpdated ───────────────────────────────────────────────
@@ -142,19 +268,14 @@ const PRICE_UPDATED_SUBSCRIPTION = /* GraphQL */ `
 `;
 
 export function useSingleMarketPriceSubscription(marketId: number | undefined) {
-  const [price, setPrice] = useState<IndexerPriceUpdate | null>(null);
-
-  useEffect(() => {
-    if (marketId === undefined) return;
-    return subscribeStream<{ priceUpdated: IndexerPriceUpdate }>({
+  return useIndexerSelection<IndexerPriceUpdate>(marketId, (onData) =>
+    subscribeStream<{ priceUpdated: IndexerPriceUpdate }>({
       endpoint: INDEXER_GRAPHQL,
       query: PRICE_UPDATED_SUBSCRIPTION,
       variables: { marketId },
-      onData: (data) => setPrice(data.priceUpdated),
-    });
-  }, [marketId]);
-
-  return price;
+      onData: (data) => onData(data.priceUpdated),
+    }),
+  );
 }
 
 // ── positionChanged(userAddress) ───────────────────────────────────────
@@ -174,20 +295,18 @@ const POSITION_CHANGED_SUBSCRIPTION = /* GraphQL */ `
   }
 `;
 
-export function usePositionChangedSubscription(userAddress: string | undefined) {
-  const [positions, setPositions] = useState<IndexerPosition[] | null>(null);
-
-  useEffect(() => {
-    if (!userAddress) return;
-    return subscribeStream<{ positionChanged: IndexerPosition[] }>({
+export function usePositionChangedSubscription(
+  userAddress: string | undefined,
+) {
+  const account = userAddress?.toLowerCase() || undefined;
+  return useIndexerSelection<IndexerPosition[]>(account, (onData) =>
+    subscribeStream<{ positionChanged: IndexerPosition[] }>({
       endpoint: INDEXER_GRAPHQL,
       query: POSITION_CHANGED_SUBSCRIPTION,
-      variables: { userAddress },
-      onData: (data) => setPositions(data.positionChanged),
-    });
-  }, [userAddress]);
-
-  return positions;
+      variables: { userAddress: account },
+      onData: (data) => onData(data.positionChanged),
+    }),
+  );
 }
 
 // ── orderChanged(userAddress) ──────────────────────────────────────────
@@ -206,19 +325,23 @@ const ORDER_CHANGED_SUBSCRIPTION = /* GraphQL */ `
 `;
 
 export function useOrderChangedSubscription(userAddress: string | undefined) {
-  const [latestOrder, setLatestOrder] = useState<IndexerOrder | null>(null);
+  const selection = userAddress?.toLowerCase() || undefined;
+  return useIndexerSelection<IndexerOrder>(selection, (onData) => {
+    if (selection === undefined) return () => {};
+    return subscribeIndexerOrder(selection, onData);
+  });
+}
 
-  useEffect(() => {
-    if (!userAddress) return;
-    return subscribeStream<{ orderChanged: IndexerOrder }>({
-      endpoint: INDEXER_GRAPHQL,
-      query: ORDER_CHANGED_SUBSCRIPTION,
-      variables: { userAddress },
-      onData: (data) => setLatestOrder(data.orderChanged),
-    });
-  }, [userAddress]);
-
-  return latestOrder;
+export function subscribeIndexerOrder(
+  userAddress: string,
+  onOrder: (order: IndexerOrder) => void,
+) {
+  return subscribeStream<{ orderChanged: unknown }>({
+    endpoint: INDEXER_GRAPHQL,
+    query: ORDER_CHANGED_SUBSCRIPTION,
+    variables: { userAddress },
+    onData: (data) => onOrder(decodeIndexerOrder(data.orderChanged)),
+  });
 }
 
 // ── tradeCreated(marketId) ─────────────────────────────────────────────
@@ -237,19 +360,23 @@ const TRADE_CREATED_SUBSCRIPTION = /* GraphQL */ `
 `;
 
 export function useTradeCreatedSubscription(marketId: number | undefined) {
-  const [latestTrade, setLatestTrade] = useState<IndexerTrade | null>(null);
+  const selection = marketId;
+  return useIndexerSelection<IndexerTrade>(selection, (onData) => {
+    if (selection === undefined) return () => {};
+    return subscribeIndexerTrade(selection, onData);
+  });
+}
 
-  useEffect(() => {
-    if (marketId === undefined) return;
-    return subscribeStream<{ tradeCreated: IndexerTrade }>({
-      endpoint: INDEXER_GRAPHQL,
-      query: TRADE_CREATED_SUBSCRIPTION,
-      variables: { marketId },
-      onData: (data) => setLatestTrade(data.tradeCreated),
-    });
-  }, [marketId]);
-
-  return latestTrade;
+export function subscribeIndexerTrade(
+  marketId: number,
+  onTrade: (trade: IndexerTrade) => void,
+) {
+  return subscribeStream<{ tradeCreated: unknown }>({
+    endpoint: INDEXER_GRAPHQL,
+    query: TRADE_CREATED_SUBSCRIPTION,
+    variables: { marketId },
+    onData: (data) => onTrade(decodeIndexerTrade(data.tradeCreated)),
+  });
 }
 
 // ── liquidationCreated(marketId) ───────────────────────────────────────
@@ -267,17 +394,22 @@ const LIQUIDATION_SUBSCRIPTION = /* GraphQL */ `
 `;
 
 export function useLiquidationSubscription(marketId: number | undefined) {
-  const [latestLiquidation, setLatestLiquidation] = useState<IndexerLiquidation | null>(null);
+  const selection = marketId;
+  return useIndexerSelection<IndexerLiquidation>(selection, (onData) => {
+    if (selection === undefined) return () => {};
+    return subscribeIndexerLiquidation(selection, onData);
+  });
+}
 
-  useEffect(() => {
-    if (marketId === undefined) return;
-    return subscribeStream<{ liquidationCreated: IndexerLiquidation }>({
-      endpoint: INDEXER_GRAPHQL,
-      query: LIQUIDATION_SUBSCRIPTION,
-      variables: { marketId },
-      onData: (data) => setLatestLiquidation(data.liquidationCreated),
-    });
-  }, [marketId]);
-
-  return latestLiquidation;
+export function subscribeIndexerLiquidation(
+  marketId: number,
+  onLiquidation: (liquidation: IndexerLiquidation) => void,
+) {
+  return subscribeStream<{ liquidationCreated: unknown }>({
+    endpoint: INDEXER_GRAPHQL,
+    query: LIQUIDATION_SUBSCRIPTION,
+    variables: { marketId },
+    onData: (data) =>
+      onLiquidation(decodeIndexerLiquidation(data.liquidationCreated)),
+  });
 }

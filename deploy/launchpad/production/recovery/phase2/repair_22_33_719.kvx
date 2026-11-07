@@ -1,0 +1,25 @@
+[task.22.33.719]
+mode = "BUILD"
+base_revision = "ca3015b61333a7ebcaedf0914337d4460107fe1a"
+baseline = "No earlier gate ledger or scoped implementation existed. No baseline verify was run: the explicit gate order forbids testing before implementation and running verify_cmd by hand; do_6 conflicts with that order. No pre-change test failure is claimed."
+qualification = "hf-build followed by hf-done; the runner's private /out/run/gates.jsonl and /out/logs/verify-1.log name the exact verified candidate revision, command, exit and evidence location. The final response copies the gate evidence record."
+
+[finding.recovery_reconciliation_response_bound]
+repair = "Replace all eight monolithic identity arrays with C-ordered canonical JSONB row streams inside the original repeatable-read read-only transaction. PostgreSQL.document consumes the real stream incrementally, verifies every independent row count and returns domain-separated SHA256 commitments, full counts, authority, snapshot and unchanged exact raw integer totals to the existing phase4 release consumer."
+test = "test_recovery_reconciliation_response_bound_full_retained_dataset"
+additional_tests = ["test_recovery_reconciliation_snapshot_consistency", "test_recovery_reconciliation_empty_streams_remain_exact", "test_recovery_reconciliation_every_authoritative_stream_is_committed", "test_recovery_reconciliation_rejects_truncation_duplicates_and_foreign_streams", "test_recovery_reconciliation_preserves_transport_and_database_bounds"]
+proof = "The production PostgreSQL client sends its authenticated psql invocation contract to a loopback SQL peer. The peer executes production SELECTs on private SQLite WAL stores with explicit PostgreSQL JSON-constructor and epoch-table dialect adapters. Real NDJSON crosses HTTP and the production bounded decoder into the production digest consumer and the existing phase4 Journal. 18000 retained chain125 identities exceed 2 MiB; every identity enters an independently computed commitment, a final-row change is detected, all other streams are independently mutated, exact amounts exceed JavaScript integer precision, and a concurrent committed insert is excluded from the active snapshot then included in the next. No live PostgreSQL or native psql executable is claimed by this gate."
+bounds = "The existing general BoundTools.run 2 MiB response bound is unchanged. The dedicated stream retains that bound per row, limits total bytes to 16 GiB, uses a 64 KiB input file and pipe reads, discards private stderr, kills timed-out or rejected children, and returns only after successful process completion. SQL retains 20-second statement and 2-second lock limits, adds 8 MiB work_mem and disables parallel workers, and rejects an unbounded or greater-than-256-MiB temp_file_limit. Counts are never inferred from a truncated response."
+wiring_request = "Owning domain 16 / serial PostgreSQL migration owner: in deploy/launchpad/production/recovery/epoch.sql, pin the actual coordinator role's temp_file_limit to 256 MiB or tighter before admitting phase4 collection; do not grant application principals parameter administration."
+release_wiring = "No phase4/release.py edit is necessary: Collector.collect already passes reconciliation.sql to the changed PostgreSQL.document and Journal serializes the returned digest document; the real Journal path is exercised by the proving test."
+
+[finding.recovery_v3_command_paths]
+repair = "Retain the base revision's already-canonical full paths, expand abbreviated validation, activation, status and broker source paths, and identify canonical tools/launchpad/production sources. Preserve every configuration, proposal, observation, identity, source and scenario argument and every authority and qualification condition."
+test = "test_recovery_v3_command_paths_match_real_cli_declarations"
+proof = "All six shell examples resolve from the actual repository root and parse against the actual argparse declarations extracted from each checked-in entry point; operation-specific arguments and safety conditions are asserted."
+
+[gotcha.scope]
+observed = "The general workflow asks for GOTCHA.kvx and spec task record edits, but this task expressly prohibits both out-of-scope and spec edits; durable task notes are therefore recorded here."
+
+[gotcha.runbook_patch]
+observed = "An exact-line patch could not match a long runbook paragraph; no partial runbook change was applied, and the canonical command edits were reapplied against the full paragraph."

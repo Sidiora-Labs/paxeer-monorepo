@@ -1,0 +1,46 @@
+[repair.22.33.1271]
+audit = "22.30.63"
+requirement = "22998.1"
+baseline = "Continued from attempt 1 candidate 3a743a65eb5c610bc1fb4e966d1aea7e6d650c54: the supplied gate report records failures in SelectedDatabaseAndOptions, BenchmarkInitialization, AllTransactionsIncludingPartialBlocks, BlockLifecycleAndCommittedHeights and CW20PartialBlockDelivery (all TestRepairM_1271_ prefixed). No manual baseline rerun: qualification runs only through hf-done after the full implementation."
+evidence = "The runner records the exact candidate revision, command, exit and private log in its hf-build/hf-done ledger and task done record."
+
+[finding.001]
+test = "TestRepairM_1271_BenchmarkInitialization"
+change = "testing.TB reaches the real constructor without a testing.T cast; the identical sub-benchmark entrypoints run with a real testing.B and report one successful delivered transaction for both transaction families and both supported PebbleDB writer-buffer configurations; instantiate the actual uploaded code ID emitted by StoreCode rather than the genesis ERC20 wrapper at code ID 1."
+
+[finding.002]
+test = "TestRepairM_1271_SelectedDatabaseAndOptions"
+change = "Select the production PebbleDB state backend, its directory and writer-buffer options through node.New application options; prove the real WASM query-stack limit, exact delivered balances below keeper caches and the same balances after stopping the app and reopening the selected directory. Benchmark labels now name the supported state backend and buffer configuration. The ignored invariant-period helper parameter is removed."
+status = "The continuation ruling supersedes the prior backend blocker: use the exposed state-store application options, with no external wiring request."
+
+[finding.003]
+test = "TestRepairM_1271_AllTransactionsIncludingPartialBlocks"
+additional_test = "TestRepairM_1271_CW20PartialBlockDelivery"
+change = "Bound each batch, include its final partial block, assert b.N successful deliveries and prove recipient balances, sender sequence and exact committed block count for zero, sub-block, exact-block and remainder transaction counts."
+
+[finding.004]
+test = "TestRepairM_1271_BlockLifecycleAndCommittedHeights"
+change = "Use the production FinalizeBlock path for BeginBlock, actual transaction delivery, deferred bank writes and EndBlock, then Commit and assert consecutive committed heights; prove persisted staking BeginBlock history at each measured height."
+
+[fees]
+change = "Fund the chain fee denomination separately from transfer balances and sign upload, instantiation and measured transactions with ceil(gas * effective minimum gas price); the partial-block test independently checks each signed fee and exact committed fee deductions."
+
+[qualification.001]
+revision = "9dff80a42c14965407bb1a8d500463304486951d"
+command = "cg spec done 22.33.1271 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "All runtime tests reached real instantiation, but hardcoded code ID 1 refers to the genesis cwerc20 wrapper; the SDK DB-adapter experiment also prevented the production supply check from running."
+assumption = "Use the upload event's actual code ID and preserve the production PaxDB store and supply check; do not weaken the backend assertion to hide the missing external database interface."
+
+[gotcha.001]
+observed = "Passing db to node.New alone does not select the workload backend: SetupPaxDB replaces BaseApp's DB-backed multistore with independently configured PaxDB stores."
+resolution = "Configure the production state store via its supported application options; memdb and leveldb are obsolete state workload labels. Keep exact persisted-balance assertions against the production store, including reopening its selected directory, without compatibility adapters or bypassing supply checks."
+
+[gotcha.002]
+observed = "Genesis registers WASM wrappers before the benchmark upload, so hardcoded code ID 1 instantiates cwerc20 rather than the uploaded cw20_base fixture."
+resolution = "Commit the real StoreCode transaction and parse its code_id event before constructing the real InstantiateContract transaction."
+
+[gotcha.003]
+observed = "The prior candidate signed measured transactions with zero fees in the transfer denomination; the chain requires 12346uhpx for the configured 1234567 gas limit."
+resolution = "Read the effective chain minimum gas price, round the signed fee upward and fund its denomination in genesis; keep delivery-success and exact transfer-balance assertions."

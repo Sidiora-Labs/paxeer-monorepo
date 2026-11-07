@@ -42,13 +42,26 @@ be a matter of minutes and not even require them to be awake at that time.
 
 # Integrating With An App
 
-Setup an upgrade Keeper for the app and then define a BeginBlocker that calls the upgrade
-keeper's BeginBlocker method:
+Create an upgrade keeper during application initialization. These examples use the following imports:
 
-	func (app *myApp) BeginBlocker(ctx sdk.Context, req abci.RequestBeginBlock) abci.ResponseBeginBlock {
-		app.upgradeKeeper.BeginBlocker(ctx, req)
-		return abci.ResponseBeginBlock{}
+	import (
+		"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/baseapp"
+		store "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/store/types"
+		sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
+		"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types/module"
+		"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/upgrade"
+		"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/upgrade/keeper"
+		"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/upgrade/types"
+	)
+
+Call the module's upgrade.BeginBlocker from the application's BeginBlock path, before transaction processing:
+
+	func beginUpgradeBlock(k keeper.Keeper, ctx sdk.Context) {
+		upgrade.BeginBlocker(k, ctx)
 	}
+
+Paxeer calls this hook after epoch processing and before capability, distribution, slashing,
+evidence, staking, IBC client and EVM begin-block processing in node/legacyabci/begin_block.go.
 
 The app must then integrate the upgrade keeper with its governance module as appropriate. The governance module
 should call ScheduleUpgrade to schedule an upgrade and ClearUpgradePlan to cancel a pending upgrade.
@@ -59,41 +72,49 @@ Upgrades can be scheduled at a predefined block height. Once this block height i
 existing software will cease to process ABCI messages and a new version with code that handles the upgrade must be deployed.
 All upgrades are coordinated by a unique upgrade name that cannot be reused on the same blockchain. In order for the upgrade
 module to know that the upgrade has been safely applied, a handler with the name of the upgrade must be installed.
-Here is an example handler for an upgrade named "my-fancy-upgrade":
+Here is an example registration for an upgrade named "my-fancy-upgrade". The application supplies
+migrate as a types.UpgradeHandler, for example a function calling its module manager's RunMigrations.
+It receives the persisted module.VersionMap and must return the migrated map or an error:
 
-	app.upgradeKeeper.SetUpgradeHandler("my-fancy-upgrade", func(ctx sdk.Context, plan upgrade.Plan) {
-		// Perform any migrations of the state store needed for this upgrade
-	})
+	func registerUpgradeHandler(k keeper.Keeper, migrate types.UpgradeHandler) {
+		k.SetUpgradeHandler("my-fancy-upgrade", func(ctx sdk.Context, plan types.Plan, fromVM module.VersionMap) (module.VersionMap, error) {
+			return migrate(ctx, plan, fromVM)
+		})
+	}
+
+Keeper.ApplyUpgrade persists the returned version map and marks the plan complete only after the handler
+succeeds. A handler error panics and prevents block completion. A migration that needs no version changes
+must still return fromVM and nil; returning an empty map would lose the recorded module versions.
 
 This upgrade handler performs the dual function of alerting the upgrade module that the named upgrade has been applied,
 as well as providing the opportunity for the upgraded software to perform any necessary state migrations. Both the halt
 (with the old binary) and applying the migration (with the new binary) are enforced in the state machine. Actually
 switching the binaries is an ops task and not handled inside the sdk / abci app.
 
-Here is a sample code to set store migrations with an upgrade:
+Store layout changes are configured before loading the application database, separately from the handler.
+The old binary writes upgrade-info.json before halting at the upgrade height. During replacement startup,
+read that file, honor skip heights, install types.UpgradeStoreLoader and propagate startup errors:
 
-	// this configures a no-op upgrade handler for the "my-fancy-upgrade" upgrade
-	app.UpgradeKeeper.SetUpgradeHandler("my-fancy-upgrade",  func(ctx sdk.Context, plan upgrade.Plan) {
-		// upgrade changes here
-	})
-
-	upgradeInfo, err := app.UpgradeKeeper.ReadUpgradeInfoFromDisk()
-	if err != nil {
-		// handle error
-	}
-
-	if upgradeInfo.Name == "my-fancy-upgrade" && !app.UpgradeKeeper.IsSkipHeight(upgradeInfo.Height) {
-		storeUpgrades := store.StoreUpgrades{
-			Renamed: []store.StoreRename{{
-				OldKey: "foo",
-				NewKey: "bar",
-			}},
-			Deleted: []string{},
+	func configureUpgradeStores(app *baseapp.BaseApp, k keeper.Keeper) error {
+		upgradeInfo, err := k.ReadUpgradeInfoFromDisk()
+		if err != nil {
+			return err
 		}
-
-		// configure store loader that checks if version == upgradeHeight and applies store upgrades
-		app.SetStoreLoader(upgrade.UpgradeStoreLoader(upgradeInfo.Height, &storeUpgrades))
+		if upgradeInfo.Name == "my-fancy-upgrade" && !k.IsSkipHeight(upgradeInfo.Height) {
+			storeUpgrades := store.StoreUpgrades{
+				Renamed: []store.StoreRename{{OldKey: "foo", NewKey: "bar"}},
+			}
+			app.SetStoreLoader(types.UpgradeStoreLoader(upgradeInfo.Height, &storeUpgrades))
+		}
+		return nil
 	}
+
+Call configureUpgradeStores and registerUpgradeHandler before app.LoadLatestVersion. Mount the new
+store keys in the replacement application. The loader renames foo to bar only when the last committed
+version is upgradeInfo.Height - 1; the handler then runs at BeginBlock for the upgrade height. On success,
+the keeper clears the pending plan and records the done height; these changes become durable with the
+block commit. A restart after that commit must preserve the returned version map without repeating
+store renames or the migration. The examples above are compiled and exercised by repair_m610_test.go.
 
 # Halt Behavior
 

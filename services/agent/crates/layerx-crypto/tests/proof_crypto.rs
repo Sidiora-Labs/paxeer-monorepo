@@ -1,4 +1,4 @@
-//! Proves: SendDebit, CallOptions, DisclosedCall, Disclosure and KeystoreSigner -> canonical activity bytes and EIP-1559 calldata -> DisclosedCall::from_call, Disclosure validation and sign_disclosed_call.
+//! Proves: SendDebit, CallOptions, DisclosedCall, Disclosure and KeystoreSigner -> canonical payer authorizations and EIP-1559 calldata -> DisclosedCall::from_call, Disclosure validation and sign_disclosed_call.
 //!
 //! The daemon's human_runtime consumes prepared calls with DisclosedCall::from_call;
 //! prepare/disclose and approval/native_effect consume canonical bytes with
@@ -24,16 +24,16 @@ use std::task::{Context, Poll, Wake, Waker};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use layerx_crypto::account_derivation::derive_from_seed;
+use layerx_crypto::binding::BindMessage;
 use layerx_crypto::disclosure::call::{bind_call, ConstructMethod};
-use layerx_crypto::disclosure::{bind, DisclosureError};
+use layerx_crypto::disclosure::DisclosureError;
 use layerx_crypto::evm_transaction::{assemble, decode_signed, recover_sender};
 use layerx_crypto::send::{
-    encode_send_envelope, ledger_payment_call, send_context_hash, CallOptions, DisclosedCall,
-    EnvelopeOptions, SendCondition, SendDebit,
+    ledger_payment_call, send_context_hash, CallOptions, DisclosedCall, SendCondition, SendDebit,
 };
-use layerx_crypto::signer::{
-    sign_disclosed, sign_disclosed_call, KeystoreSigner, LocalSigner, SignError, Signer,
-};
+use layerx_crypto::signer::{sign_disclosed_call, KeystoreSigner, LocalSigner, SignError, Signer};
+
+mod support;
 
 type TestResult = Result<(), Box<dyn Error>>;
 
@@ -73,20 +73,6 @@ fn debit(amount: u128) -> SendDebit {
         authorization_kind: 1,
         network_id: 17,
         protocol_version: 3,
-    }
-}
-
-fn envelope_options(public_key: [u8; 32]) -> EnvelopeOptions<'static> {
-    EnvelopeOptions {
-        actor: "did:layerx:crypto-proof",
-        public_key,
-        protocol_version: 3,
-        network_id: 17,
-        identity_sequence: 7,
-        idempotency_key: [4; 32],
-        fee_limit: 20,
-        not_before: 10,
-        not_after: 100,
     }
 }
 
@@ -215,15 +201,26 @@ fn proof_crypto_producer_to_call_consumer_twice_and_refusals() -> TestResult {
 
 #[test]
 fn proof_crypto_canonical_activity_consumer_redecodes_and_refuses_tampering() -> TestResult {
-    let signer = LocalSigner::new([5; 32]);
-    let options = envelope_options(signer.public_key());
+    let account = derive_from_seed(&[5; 64], 0)?;
+    let signer = LocalSigner::from_derived_account(&account);
+    let from = signer.evm_address().ok_or("missing EVM key")?;
+    let options = CallOptions {
+        from,
+        chain_id: 125,
+        nonce: 7,
+        max_priority_fee_per_gas: 2,
+        max_fee_per_gas: 30,
+        gas_limit: 100_000,
+    };
     let mut previous = None;
     for amount in [123, 124] {
         let payload = complete(debit(amount).sign(&signer))?;
-        let produced = encode_send_envelope(&payload, &options)?;
+        let produced = ledger_payment_call(&payload, &options)?;
+        let canonical = produced.call.encode_unsigned();
         for _ in 0..2 {
-            let consumed = bind(&produced.canonical, &produced.registry)?;
-            consumed.validate_canonical(&produced.canonical)?;
+            let call = layerx_crypto::evm_transaction::decode_unsigned(&canonical)?;
+            let consumed = bind_call(&call, from)?;
+            consumed.validate_canonical(&canonical)?;
             consumed.validate()?;
             assert_eq!(consumed, produced.disclosure);
             assert_eq!(consumed.amounts[0].value, amount);
@@ -231,19 +228,14 @@ fn proof_crypto_canonical_activity_consumer_redecodes_and_refuses_tampering() ->
             assert_eq!(consumed.counterparties[1].account, [2; 32]);
             assert_eq!(consumed.payload_sequence()?, Some(9));
             assert_eq!(consumed.envelope_sequence(), 7);
-            assert_eq!(consumed.construct_method()?, None);
-            let signature = complete(sign_disclosed(
-                &signer,
-                &produced.canonical,
-                &consumed,
-                &produced.registry,
-            ))?;
-            layerx_crypto::ed25519::verify_digest(
-                &signer.public_key(),
-                signature.as_bytes(),
-                &consumed.signing_digest()?,
-            )
-            .map_err(|error| format!("signature verification: {error:?}"))?;
+            assert_eq!(
+                consumed.construct_method()?,
+                Some(ConstructMethod::LedgerSend {
+                    payload: payload.clone()
+                })
+            );
+            let signature = complete(sign_disclosed_call(&signer, &call, &consumed, from))?;
+            assert_eq!(recover_sender(&call, &signature)?, from);
             if let Some(old) = previous {
                 assert_ne!(consumed.audit_digest()?, old);
             }
@@ -255,16 +247,10 @@ fn proof_crypto_canonical_activity_consumer_redecodes_and_refuses_tampering() ->
             altered.validate(),
             Err(DisclosureError::FieldMismatch("counterparties"))
         );
-        assert!(altered.validate_canonical(&produced.canonical).is_err());
-        assert!(complete(sign_disclosed(
-            &signer,
-            &produced.canonical,
-            &altered,
-            &produced.registry,
-        ))
-        .is_err());
-        let truncated = &produced.canonical[..produced.canonical.len() - 1];
-        assert!(bind(truncated, &produced.registry).is_err());
+        assert!(altered.validate_canonical(&canonical).is_err());
+        assert!(complete(sign_disclosed_call(&signer, &produced.call, &altered, from)).is_err());
+        let truncated = &canonical[..canonical.len() - 1];
+        assert!(layerx_crypto::evm_transaction::decode_unsigned(truncated).is_err());
         assert_eq!(
             produced.disclosure.validate_canonical(truncated),
             Err(DisclosureError::FieldMismatch("canonical_bytes"))
@@ -346,28 +332,31 @@ fn proof_crypto_real_keystore_transport_survives_agent_reopen_and_refuses_unknow
     let public_key: [u8; 32] = blob[19..].try_into()?;
     let socket = directory.0.join("agent.sock");
     let local = LocalSigner::new([5; 32]);
-    let payload = complete(debit(123).sign(&local))?;
-    let produced = encode_send_envelope(&payload, &envelope_options(public_key))?;
+    let mut chain = [0; 32];
+    chain[24..].copy_from_slice(&125u64.to_be_bytes());
+    let produced = BindMessage::new(chain, [0xa1; 20], 7);
+    let canonical = produced.as_bytes();
+    let old = support::signing::old_envelope(public_key);
     let mut prior_signature = None;
     for _ in 0..2 {
         let agent = open_agent(&directory)?;
         let signer = KeystoreSigner::new(&socket, public_key)?.with_timeout(Duration::from_secs(2));
         assert_eq!(signer.public_key(), public_key);
         assert_eq!(signer.evm_address(), None);
-        for _ in 0..2 {
-            let consumed = bind(&produced.canonical, &produced.registry)?;
-            let signature = complete(sign_disclosed(
+        assert_eq!(
+            complete(layerx_crypto::signer::sign_disclosed(
                 &signer,
-                &produced.canonical,
-                &consumed,
-                &produced.registry,
-            ))?;
-            layerx_crypto::ed25519::verify_digest(
-                &public_key,
-                signature.as_bytes(),
-                &consumed.signing_digest()?,
-            )
-            .map_err(|error| format!("agent signature: {error:?}"))?;
+                &old.canonical,
+                &old.disclosure,
+                &old.registry
+            )),
+            Err(SignError::InvalidDisclosure)
+        );
+        for _ in 0..2 {
+            let consumed = BindMessage::decode(canonical)?;
+            assert_eq!(consumed, produced);
+            let signature = complete(signer.sign_bind_bytes(consumed.as_bytes()))?;
+            consumed.verify(&public_key, signature.as_bytes())?;
             if let Some(expected) = prior_signature {
                 assert_eq!(signature, expected);
             }
@@ -375,22 +364,21 @@ fn proof_crypto_real_keystore_transport_survives_agent_reopen_and_refuses_unknow
         }
         let unknown = KeystoreSigner::new(&socket, local.public_key())?;
         assert_eq!(
-            complete(sign_disclosed(
-                &unknown,
-                &produced.canonical,
-                &produced.disclosure,
-                &produced.registry,
-            )),
+            complete(unknown.sign_bind_bytes(canonical)),
             Err(SignError::KeystoreRefused)
         );
         drop(agent);
         assert_eq!(
-            complete(sign_disclosed(
+            complete(layerx_crypto::signer::sign_disclosed(
                 &signer,
-                &produced.canonical,
-                &produced.disclosure,
-                &produced.registry,
+                &old.canonical,
+                &old.disclosure,
+                &old.registry
             )),
+            Err(SignError::InvalidDisclosure)
+        );
+        assert_eq!(
+            complete(signer.sign_bind_bytes(canonical)),
             Err(SignError::KeystoreUnavailable)
         );
     }

@@ -1,0 +1,7 @@
+[issue.1565]
+number = 1565
+title = "[P2] Restore the wallet lockfile required by its image build"
+revision = "c69af8b6706e55a243bc0f3a0e184b872b900e14"
+verdict = "already-fixed"
+evidence = "apps/wallet/pnpm-lock.yaml is present on main at the recorded revision, so the frozen install of the wallet image build resolves."
+close_comment = "The wallet lockfile is present on main and its frozen install passes; the image build has its lock again."

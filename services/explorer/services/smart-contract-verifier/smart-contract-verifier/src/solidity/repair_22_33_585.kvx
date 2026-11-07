@@ -1,0 +1,15 @@
+[repair.22.33.585]
+finding = "prerelease-validator"
+proofs = ["matching_release_beta_and_rc_compiler_versions_are_accepted", "mismatching_release_beta_and_rc_compilers_are_rejected", "prerelease_and_build_metadata_are_normalized_on_both_sides"]
+test = "services/explorer/services/smart-contract-verifier/smart-contract-verifier/tests/repair_22_33_585.rs"
+policy = "Preserve the existing major/minor/patch identity policy by normalizing both requested and executable-reported versions; prerelease, commit and platform metadata do not participate on either side."
+path = "Public standard-JSON request conversion produces DetailedVersion; compiler --version transcripts pass through the semver codec and the production SolcValidator::validate_version consumer called by FileValidator::validate."
+baseline = "No pre-change gate ran: the explicit gate order forbids testing before complete implementation and requires hf-build before hf-done; no pre-change failure is claimed."
+evidence = "The runner records the verified candidate revision, command, exit and private log in /out/run/gates.jsonl and the final evidence line."
+wiring_requests = []
+
+[gotcha.runner_bookkeeping]
+observed = "The runner supplied .cgignore and spec.kvx changes before implementation; they remain untouched by this repair."
+
+[gotcha.baseline_order]
+observed = "The task requests a pre-change verify but explicitly orders implementation, formatting, hf-build and hf-done; follow the explicit gate order without claiming a baseline result."

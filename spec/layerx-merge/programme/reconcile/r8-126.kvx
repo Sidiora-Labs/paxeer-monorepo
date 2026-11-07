@@ -1,0 +1,243 @@
+[reconcile.r8-126]
+revision = "53150198caf59defafffab36d79dbc66d921ae57"
+rows = 30
+
+[row.r8-126.1]
+interface = "interface.8.go-sdkjvm-generatedschema-agentmodels-transition"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 958
+symbol = "Transition"
+evidence = "AgentModels declaration moved from registered line 1043 to 958: public record Transition(JsonNode from, JsonNode to, JsonNode cause, JsonNode at) implements SchemaTypes.GeneratedResponse. The declaration matches the registered signature; the following compact constructor is a separate occurrence."
+
+[row.r8-126.2]
+interface = "interface.8.go-sdkjvm-generatedschema-agentmodels-truncationnotice"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 966
+symbol = "TruncationNotice"
+evidence = "AgentModels declaration moved from registered line 1051 to 966: public record TruncationNotice(JsonNode requested_first, JsonNode oldest_available, JsonNode resume_cursor) implements SchemaTypes.GeneratedResponse. The declaration matches the registered signature; the following compact constructor is a separate occurrence."
+
+[row.r8-126.3]
+interface = "interface.8.go-sdkjvm-generatedschema-agentmodels-verifiedprogramdiscovery"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 973
+symbol = "VerifiedProgramDiscovery"
+evidence = "AgentModels declaration moved from registered line 1066 to 973: public record VerifiedProgramDiscovery(JsonNode program_id, JsonNode lifecycle, JsonNode version, JsonNode code_hash, AgentModels.ProgramGuestAbi abi_version, JsonNode receipt_digest, JsonNode state_root, JsonNode observed_sequence, JsonNode observed_at, JsonNode valid_through, JsonNode verification, JsonNode deployment_receipt_digest, JsonNode discovery_public_key, JsonNode discovery_signature) implements SchemaTypes.GeneratedResponse. The declaration matches the registered signature; the following compact constructor is a separate occurrence."
+
+[row.r8-126.4]
+interface = "interface.8.go-sdkjvm-generatedschema-agentmodels-verifiedprograminterface"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 989
+symbol = "VerifiedProgramInterface"
+evidence = "AgentModels declaration moved from registered line 1082 to 989: public record VerifiedProgramInterface(JsonNode program_id, JsonNode version, JsonNode code_hash, AgentModels.ProgramGuestAbi abi_version, @JsonProperty(\"interface\") JsonNode interface_, JsonNode interface_digest, JsonNode receipt_digest, JsonNode state_root, JsonNode observed_sequence, JsonNode observed_at, JsonNode valid_through, AgentModels.ProgramSource source, JsonNode verification) implements SchemaTypes.GeneratedResponse. The declaration matches the registered signature; the following compact constructor is a separate occurrence."
+
+[row.r8-126.5]
+interface = "interface.8.go-sdkjvm-generatedschema-agentmodels-verifiedread"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 1006
+symbol = "VerifiedRead"
+evidence = "AgentModels declaration moved from registered line 1099 to 1006: public record VerifiedRead(JsonNode value, JsonNode achieved_verification_level, JsonNode freshness) implements SchemaTypes.GeneratedResponse. The declaration matches the registered signature; the following compact constructor is a separate occurrence."
+
+[row.r8-126.6]
+interface = "interface.8.go-sdkjvm-generatedschema-agentmodels-versionrequest"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 1013
+symbol = "VersionRequest"
+evidence = "AgentModels declaration moved from registered line 1106 to 1013: public record VersionRequest(@JsonSerialize(using = ToStringSerializer.class) @JsonDeserialize(using = SchemaTypes.DecimalU64Deserializer.class) BigInteger request_id, AgentModels.ContractVersion supported) implements SchemaTypes.GeneratedResponse. The AgentModels.ContractVersion component identifies the agent model; the HumanOperations version record has different components."
+
+[row.r8-126.7]
+interface = "interface.8.go-sdkjvm-generatedschema-agentmodels-versionresponse"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 1020
+symbol = "VersionResponse"
+evidence = "AgentModels declaration moved from registered line 1113 to 1020: public record VersionResponse(@JsonSerialize(using = ToStringSerializer.class) @JsonDeserialize(using = SchemaTypes.DecimalU64Deserializer.class) BigInteger request_id, AgentModels.ContractVersion contract, @JsonDeserialize(using = SchemaTypes.IntegerNumberDeserializer.class) long node_interface_major) implements SchemaTypes.GeneratedResponse. The AgentModels.ContractVersion component identifies the agent model; the HumanOperations version record has different components."
+
+[row.r8-126.8]
+interface = "interface.8.go-sdkjvm-generatedschema-agentoperations"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 2581
+symbol = "AgentOperations"
+evidence = "AgentOperations declaration moved from registered line 2686 to 2581: public static final class AgentOperations. This is the public static final class declaration; the next occurrence is its private constructor and the catalog entries are uses."
+
+[row.r8-126.9]
+interface = "interface.8.go-sdkjvm-generatedschema-agentoperations-agentregisterrequest"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 2583
+symbol = "AgentRegisterRequest"
+evidence = "AgentOperations declaration moved from registered line 2688 to 2583: public record AgentRegisterRequest(JsonNode tenant, JsonNode agent_did, JsonNode authority_ref, JsonNode client, JsonNode policy_version, JsonNode owner_address, JsonNode binding_consent, JsonNode fee_limit) implements SchemaTypes.GeneratedRequest. The current request appends JsonNode owner_address, JsonNode binding_consent and JsonNode fee_limit to the five registered components; it remains the agent.register request bound by AGENT_REGISTER."
+
+[row.r8-126.10]
+interface = "interface.8.go-sdkjvm-generatedschema-agentoperations-agentregisterresponse"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 2595
+symbol = "AgentRegisterResponse"
+evidence = "AgentOperations declaration moved from registered line 2697 to 2595: public record AgentRegisterResponse(JsonNode authority, JsonNode value) implements SchemaTypes.GeneratedResponse. The declaration matches the registered signature; the compact constructor and operation descriptors are other occurrences."
+
+[row.r8-126.11]
+interface = "interface.8.go-sdkjvm-generatedschema-agentoperations-approvalapproverequest"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 2602
+symbol = "ApprovalApproveRequest"
+evidence = "AgentOperations declaration moved from registered line 2704 to 2602: public record ApprovalApproveRequest(JsonNode tenant, JsonNode approval_id, JsonNode idempotency_key) implements SchemaTypes.GeneratedRequest. The JsonNode components and enclosing AgentOperations identify the agent declaration; the human declaration with the same name has a different signature."
+
+[row.r8-126.12]
+interface = "interface.8.go-sdkjvm-generatedschema-agentoperations-approvalapproveresponse"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 2609
+symbol = "ApprovalApproveResponse"
+evidence = "AgentOperations declaration moved from registered line 2711 to 2609: public record ApprovalApproveResponse(JsonNode outcome, JsonNode submission_ref) implements SchemaTypes.GeneratedResponse. The JsonNode components and enclosing AgentOperations identify the agent declaration; the human declaration with the same name has a different signature."
+
+[row.r8-126.13]
+interface = "interface.8.go-sdkjvm-generatedschema-agentoperations-approvalgetrequest"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 2616
+symbol = "ApprovalGetRequest"
+evidence = "AgentOperations declaration moved from registered line 2718 to 2616: public record ApprovalGetRequest(JsonNode tenant, JsonNode approval_id) implements SchemaTypes.GeneratedRequest. The JsonNode components and enclosing AgentOperations identify the agent declaration; the human declaration with the same name has a different signature."
+
+[row.r8-126.14]
+interface = "interface.8.go-sdkjvm-generatedschema-agentoperations-approvalgetresponse"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 2622
+symbol = "ApprovalGetResponse"
+evidence = "AgentOperations declaration moved from registered line 2724 to 2622: public record ApprovalGetResponse(JsonNode approval_id, JsonNode tenant, JsonNode held_activity, JsonNode canonical_bytes_digest, JsonNode hold_reason, @JsonSerialize(using = ToStringSerializer.class) @JsonDeserialize(using = SchemaTypes.DecimalU64Deserializer.class) BigInteger created_at, @JsonSerialize(using = ToStringSerializer.class) @JsonDeserialize(using = SchemaTypes.DecimalU64Deserializer.class) BigInteger expires_at, JsonNode state) implements SchemaTypes.GeneratedResponse. The JsonNode components and enclosing AgentOperations identify the agent declaration; the human declaration with the same name has a different signature."
+
+[row.r8-126.15]
+interface = "interface.8.go-sdkjvm-generatedschema-agentoperations-approvallistrequest"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 2637
+symbol = "ApprovalListRequest"
+evidence = "AgentOperations declaration moved from registered line 2739 to 2637: public record ApprovalListRequest(JsonNode tenant, JsonNode cursor, JsonNode page_limit) implements SchemaTypes.GeneratedRequest. The JsonNode components and enclosing AgentOperations identify the agent declaration; the human declaration with the same name has a different signature."
+
+[row.r8-126.16]
+interface = "interface.8.go-sdkjvm-generatedschema-agentoperations-approvallistresponse"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 2644
+symbol = "ApprovalListResponse"
+evidence = "AgentOperations declaration moved from registered line 2746 to 2644: public record ApprovalListResponse(JsonNode approvals, JsonNode next_cursor) implements SchemaTypes.GeneratedResponse. The JsonNode components and enclosing AgentOperations identify the agent declaration; the human declaration with the same name has a different signature."
+
+[row.r8-126.17]
+interface = "interface.8.go-sdkjvm-generatedschema-agentoperations-approvalrejectrequest"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 2651
+symbol = "ApprovalRejectRequest"
+evidence = "AgentOperations declaration moved from registered line 2753 to 2651: public record ApprovalRejectRequest(JsonNode tenant, JsonNode approval_id, JsonNode idempotency_key, JsonNode reason) implements SchemaTypes.GeneratedRequest. The JsonNode components and enclosing AgentOperations identify the agent declaration; the human declaration with the same name has a different signature."
+
+[row.r8-126.18]
+interface = "interface.8.go-sdkjvm-generatedschema-agentoperations-approvalrejectresponse"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 2659
+symbol = "ApprovalRejectResponse"
+evidence = "AgentOperations declaration moved from registered line 2761 to 2659: public record ApprovalRejectResponse(JsonNode outcome) implements SchemaTypes.GeneratedResponse. The JsonNode components and enclosing AgentOperations identify the agent declaration; the human declaration with the same name has a different signature."
+
+[row.r8-126.19]
+interface = "interface.8.go-sdkjvm-generatedschema-agentoperations-availabilityfetchrequest"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 2665
+symbol = "AvailabilityFetchRequest"
+evidence = "AgentOperations declaration moved from registered line 2767 to 2665: public record AvailabilityFetchRequest(JsonNode selector, JsonNode requested_verification_level, JsonNode maximum_bytes, JsonNode maximum_chunks, JsonNode deadline) implements SchemaTypes.GeneratedRequest. The declaration matches the registered signature; the compact constructor and operation descriptors are other occurrences."
+
+[row.r8-126.20]
+interface = "interface.8.go-sdkjvm-generatedschema-agentoperations-availabilityfetchresponse"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 2674
+symbol = "AvailabilityFetchResponse"
+evidence = "AgentOperations declaration moved from registered line 2776 to 2674: public record AvailabilityFetchResponse(JsonNode value, JsonNode achieved_verification_level, JsonNode freshness) implements SchemaTypes.GeneratedResponse. The declaration matches the registered signature; the compact constructor and operation descriptors are other occurrences."
+
+[row.r8-126.21]
+interface = "interface.8.go-sdkjvm-generatedschema-agentoperations-budgetcreaterequest"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 2682
+symbol = "BudgetCreateRequest"
+evidence = "AgentOperations declaration moved from registered line 2784 to 2682: public record BudgetCreateRequest(JsonNode tenant, JsonNode agent_did, JsonNode asset, JsonNode limit, JsonNode enforcement, JsonNode expiry) implements SchemaTypes.GeneratedRequest. The declaration matches the registered signature; the compact constructor and operation descriptors are other occurrences."
+
+[row.r8-126.22]
+interface = "interface.8.go-sdkjvm-generatedschema-agentoperations-budgetcreateresponse"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 2692
+symbol = "BudgetCreateResponse"
+evidence = "AgentOperations declaration moved from registered line 2794 to 2692: public record BudgetCreateResponse(JsonNode authority, JsonNode value) implements SchemaTypes.GeneratedResponse. The declaration matches the registered signature; the compact constructor and operation descriptors are other occurrences."
+
+[row.r8-126.23]
+interface = "interface.8.go-sdkjvm-generatedschema-agentoperations-budgetfundrequest"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 2699
+symbol = "BudgetFundRequest"
+evidence = "AgentOperations declaration moved from registered line 2801 to 2699: public record BudgetFundRequest(JsonNode tenant, JsonNode agent_did, JsonNode budget_id, JsonNode amount) implements SchemaTypes.GeneratedRequest. The declaration matches the registered signature; the compact constructor and operation descriptors are other occurrences."
+
+[row.r8-126.24]
+interface = "interface.8.go-sdkjvm-generatedschema-agentoperations-budgetfundresponse"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 2707
+symbol = "BudgetFundResponse"
+evidence = "AgentOperations declaration moved from registered line 2809 to 2707: public record BudgetFundResponse(JsonNode authority, JsonNode value) implements SchemaTypes.GeneratedResponse. The declaration matches the registered signature; the compact constructor and operation descriptors are other occurrences."
+
+[row.r8-126.25]
+interface = "interface.8.go-sdkjvm-generatedschema-agentoperations-budgetlistrequest"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 2714
+symbol = "BudgetListRequest"
+evidence = "AgentOperations declaration moved from registered line 2816 to 2714: public record BudgetListRequest(JsonNode tenant, JsonNode agent_did) implements SchemaTypes.GeneratedRequest. The declaration matches the registered signature; the compact constructor and operation descriptors are other occurrences."
+
+[row.r8-126.26]
+interface = "interface.8.go-sdkjvm-generatedschema-agentoperations-budgetlistresponse"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 2720
+symbol = "BudgetListResponse"
+evidence = "AgentOperations declaration moved from registered line 2822 to 2720: public record BudgetListResponse(JsonNode authority, JsonNode value) implements SchemaTypes.GeneratedResponse. The declaration matches the registered signature; the compact constructor and operation descriptors are other occurrences."
+
+[row.r8-126.27]
+interface = "interface.8.go-sdkjvm-generatedschema-agentoperations-budgetreconciliationrequest"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 2727
+symbol = "BudgetReconciliationRequest"
+evidence = "AgentOperations declaration moved from registered line 2829 to 2727: public record BudgetReconciliationRequest(JsonNode tenant, JsonNode agent_did, JsonNode budget_id) implements SchemaTypes.GeneratedRequest. The declaration matches the registered signature; the compact constructor and operation descriptors are other occurrences."
+
+[row.r8-126.28]
+interface = "interface.8.go-sdkjvm-generatedschema-agentoperations-budgetreconciliationresponse"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 2734
+symbol = "BudgetReconciliationResponse"
+evidence = "AgentOperations declaration moved from registered line 2836 to 2734: public record BudgetReconciliationResponse(JsonNode authority, JsonNode value) implements SchemaTypes.GeneratedResponse. The declaration matches the registered signature; the compact constructor and operation descriptors are other occurrences."
+
+[row.r8-126.29]
+interface = "interface.8.go-sdkjvm-generatedschema-agentoperations-budgetrevokerequest"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 2741
+symbol = "BudgetRevokeRequest"
+evidence = "AgentOperations declaration moved from registered line 2843 to 2741: public record BudgetRevokeRequest(JsonNode tenant, JsonNode agent_did, JsonNode budget_id) implements SchemaTypes.GeneratedRequest. The declaration matches the registered signature; the compact constructor and operation descriptors are other occurrences."
+
+[row.r8-126.30]
+interface = "interface.8.go-sdkjvm-generatedschema-agentoperations-budgetrevokeresponse"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 2748
+symbol = "BudgetRevokeResponse"
+evidence = "AgentOperations declaration moved from registered line 2850 to 2748: public record BudgetRevokeResponse(JsonNode authority, JsonNode value) implements SchemaTypes.GeneratedResponse. The declaration matches the registered signature; the compact constructor and operation descriptors are other occurrences."

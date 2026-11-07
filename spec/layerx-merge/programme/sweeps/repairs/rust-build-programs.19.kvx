@@ -1,0 +1,6 @@
+[repair.rust-build-programs.19]
+target = "wasm-instrument"
+command = "cargo build --locked --manifest-path programs/Cargo.toml -p wasm-instrument --all-targets"
+revision = "cea04b0a20fed9621b2f2580398024b38b76ff2e"
+result = "already-passing"
+change = "none"

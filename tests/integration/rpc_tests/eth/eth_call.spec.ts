@@ -523,18 +523,33 @@ describe('eth_call Tests', function () {
             expect(gBody.result).to.equal(ethers.zeroPadValue('0xdeadbeef', 32));
         });
 
-        it('nonce override is reflected in eth_call simulation', async () => {
-            // Overriding nonce to a specific value must not cause an error.
-            // We cannot observe the nonce inside the call easily without a contract,
-            // so this test just checks the call does not error with a nonce override.
-            const paxBody = await rawPax('eth_call', [
-                { to: runtime.contracts.erc20, data: erc20.balanceOf(paxAdmin) },
-                'latest',
-                { [paxAdmin]: { nonce: '0xff' } },
-            ]);
-            // The balance read is unaffected by the nonce override.
-            expect(paxBody.result).to.match(/^0x/);
-            
+        it('nonce override changes the simulated creation address, matches geth and never persists', async () => {
+            const creator = ethers.Wallet.createRandom().address;
+            // Constructor: ADDRESS; MSTORE(0); RETURN(0, 32). Its return value
+            // exposes CREATE's address, which is derived from the sender nonce.
+            const initCode = '0x3060005260206000f3';
+            const call = { from: creator, data: initCode, gas: '0x186a0' };
+            const providers = [pax, geth];
+            const tags = await Promise.all(providers.map(p => p.send('eth_blockNumber', [])));
+            const before = await Promise.all(providers.map((p, i) => p.send('eth_getTransactionCount', [creator, tags[i]])));
+            expect(before).to.deep.equal(['0x0', '0x0']);
+            const results: string[][] = [];
+            for (const nonce of [0n, 255n]) {
+                const overrides = nonce === 0n ? {} : { [creator]: { nonce: ethers.toQuantity(nonce) } };
+                const expected = ethers.zeroPadValue(ethers.getCreateAddress({ from: creator, nonce }), 32).toLowerCase();
+                const pair = await Promise.all(providers.map((p, i) => p.send('eth_call', [call, tags[i], overrides])));
+                expect(pair[0], `Pax creation at nonce ${nonce}`).to.equal(expected);
+                expect(pair[1], `geth creation at nonce ${nonce}`).to.equal(expected);
+                expect(pair[0], 'real geth reference parity').to.equal(pair[1]);
+                results.push(pair);
+                const after = await Promise.all(providers.map((p, i) => p.send('eth_getTransactionCount', [creator, tags[i]])));
+                expect(after, 'simulation preserves the committed nonce').to.deep.equal(before);
+                for (const p of providers) {
+                    expect(await p.send('eth_getCode', [ethers.getCreateAddress({ from: creator, nonce }), 'latest'])).to.equal('0x');
+                    expect(await p.send('eth_getTransactionCount', [creator, 'latest'])).to.equal('0x0');
+                }
+            }
+            expect(results[1][0], 'ignoring the nonce override must change the result').to.not.equal(results[0][0]);
         });
     });
 

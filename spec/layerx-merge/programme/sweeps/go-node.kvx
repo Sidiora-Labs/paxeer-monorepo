@@ -1,83 +1,122 @@
 [sweep.go-node]
-revision = "1fea7069e58b649760bb1afcabdb9c4caec5ea4c"
+revision = "83a834bb8d0b5582d2a59d4f396b7326d61bb3c0"
 command = "CGO_ENABLED=1 go vet ./TARGET/ && CGO_ENABLED=1 go test -count=1 ./TARGET/"
 targets_total = 14
 targets_passed = 12
-targets_failed = 0
-targets_not_run = 2
+targets_failed = 2
+targets_not_run = 0
+revision_note = "Swept the task runner closure checkout: main base 9d9e08eab472fa421d0539dfe84c0f67ac71f784 with the required node repair tasks merged, at the exact revision named above."
 enumeration_command = "CGO_ENABLED=1 go list ./node/..."
 enumeration_exit_code = 0
-native_prerequisite_command = "CGO_ENABLED=1 make paxd-native-libs"
+enumeration_log = "/out/logs/go-node-closure/enumeration.log"
+native_prerequisite_command = "make paxd-native-libs"
 native_prerequisite_exit_code = 0
+native_prerequisite_log = "/out/logs/native-libs.log"
+native_prerequisite_note = "The task runner completed the native prerequisite before the sweep; it was reused without another build."
+execution_environment = "CGO_ENABLED=1 GOMAXPROCS=4 GOFLAGS=-p=4"
+go_version = "go1.25.8 linux/amd64"
+qualification_log = "/out/logs/go-node-closure/qualification.jsonl"
 
 [target.go-node.1]
 target = "node"
-result = "not_run"
-exit_code = 124
-reason = "The per-target command exceeded its 480-second sweep allocation and was stopped to preserve the task time limit."
+result = "failed"
+exit_code = 1
+command = "CGO_ENABLED=1 go vet ./node/ && CGO_ENABLED=1 go test -count=1 ./node/"
+log = "/out/logs/go-node-closure/node.log"
+observed = "TestActivationUpgradeIsRegisteredBesideTheTagList failed at node/upgrades_activation_test.go:105: expected upgrade v6.8, but the registered upgrade was v7.0."
+assumption = "The activation test likely retains an older upgrade-registration expectation after the v7.0 merge plan replaced that registration."
 
 [target.go-node.2]
 target = "node/ante"
 result = "passed"
 exit_code = 0
+command = "CGO_ENABLED=1 go vet ./node/ante/ && CGO_ENABLED=1 go test -count=1 ./node/ante/"
+log = "/out/logs/go-node-closure/node-ante.log"
 
 [target.go-node.3]
 target = "node/antedecorators"
 result = "passed"
 exit_code = 0
+command = "CGO_ENABLED=1 go vet ./node/antedecorators/ && CGO_ENABLED=1 go test -count=1 ./node/antedecorators/"
+log = "/out/logs/go-node-closure/node-antedecorators.log"
 
 [target.go-node.4]
 target = "node/apptesting"
 result = "passed"
 exit_code = 0
+command = "CGO_ENABLED=1 go vet ./node/apptesting/ && CGO_ENABLED=1 go test -count=1 ./node/apptesting/"
+log = "/out/logs/go-node-closure/node-apptesting.log"
 
 [target.go-node.5]
 target = "node/benchmark"
 result = "passed"
 exit_code = 0
+command = "CGO_ENABLED=1 go vet ./node/benchmark/ && CGO_ENABLED=1 go test -count=1 ./node/benchmark/"
+log = "/out/logs/go-node-closure/node-benchmark.log"
 
 [target.go-node.6]
 target = "node/genesis"
 result = "passed"
 exit_code = 0
+command = "CGO_ENABLED=1 go vet ./node/genesis/ && CGO_ENABLED=1 go test -count=1 ./node/genesis/"
+log = "/out/logs/go-node-closure/node-genesis.log"
 
 [target.go-node.7]
 target = "node/legacyabci"
 result = "passed"
 exit_code = 0
+command = "CGO_ENABLED=1 go vet ./node/legacyabci/ && CGO_ENABLED=1 go test -count=1 ./node/legacyabci/"
+log = "/out/logs/go-node-closure/node-legacyabci.log"
 
 [target.go-node.8]
 target = "node/params"
 result = "passed"
 exit_code = 0
+command = "CGO_ENABLED=1 go vet ./node/params/ && CGO_ENABLED=1 go test -count=1 ./node/params/"
+log = "/out/logs/go-node-closure/node-params.log"
 
 [target.go-node.9]
 target = "node/sequencer"
-result = "not_run"
-exit_code = 124
-reason = "The per-target command exceeded its 180-second sweep allocation and was stopped to preserve the task time limit."
+result = "failed"
+exit_code = 1
+command = "CGO_ENABLED=1 go vet ./node/sequencer/ && CGO_ENABLED=1 go test -count=1 -skip '^TestReceiptLatencyP99UnderBound$' ./node/sequencer/"
+log = "/out/logs/go-node-closure/node-sequencer.log"
+observed = "TestSealBatchEqualsGigaProcessBlock failed at node/sequencer/seal_giga_test.go:49: replay.App.GigaEvmKeeper.EvmoneVM was nil when the test required a non-nil VM."
+assumption = "An environmental native EVMOne runtime or initialization prerequisite may be missing in the sandbox, leaving the Giga fixture without its VM."
+producer_input_tests = ["TestReceiptLatencyP99UnderBound"]
+exclusion_reason = "Only TestReceiptLatencyP99UnderBound was excluded because repair.go-node.9 classifies it as requiring the reference host under decision 2506; the remaining suite still failed."
 
 [target.go-node.10]
 target = "node/sequencer/wal"
 result = "passed"
 exit_code = 0
+command = "CGO_ENABLED=1 go vet ./node/sequencer/wal/ && CGO_ENABLED=1 go test -count=1 ./node/sequencer/wal/"
+log = "/out/logs/go-node-closure/node-sequencer-wal.log"
 
 [target.go-node.11]
 target = "node/upgrades"
 result = "passed"
 exit_code = 0
+command = "CGO_ENABLED=1 go vet ./node/upgrades/ && CGO_ENABLED=1 go test -count=1 ./node/upgrades/"
+log = "/out/logs/go-node-closure/node-upgrades.log"
 
 [target.go-node.12]
 target = "node/wasmbinding"
 result = "passed"
 exit_code = 0
+command = "CGO_ENABLED=1 go vet ./node/wasmbinding/ && CGO_ENABLED=1 go test -count=1 ./node/wasmbinding/"
+log = "/out/logs/go-node-closure/node-wasmbinding.log"
 
 [target.go-node.13]
 target = "node/wasmbinding/bindings"
 result = "passed"
 exit_code = 0
+command = "CGO_ENABLED=1 go vet ./node/wasmbinding/bindings/ && CGO_ENABLED=1 go test -count=1 ./node/wasmbinding/bindings/"
+log = "/out/logs/go-node-closure/node-wasmbinding-bindings.log"
 
 [target.go-node.14]
 target = "node/wasmbinding/test"
 result = "passed"
 exit_code = 0
+command = "CGO_ENABLED=1 go vet ./node/wasmbinding/test/ && CGO_ENABLED=1 go test -count=1 ./node/wasmbinding/test/"
+log = "/out/logs/go-node-closure/node-wasmbinding-test.log"

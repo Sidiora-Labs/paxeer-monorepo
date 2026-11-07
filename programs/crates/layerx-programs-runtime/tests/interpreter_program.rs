@@ -1,4 +1,5 @@
-use std::path::PathBuf;
+#[path = "support/compiled_guest.rs"]
+mod compiled_guest;
 
 use layerx_programs_runtime::{
     AuthorizationContext, AuthorizedExecutionRequest, CandidateActivityOutcome, Capability,
@@ -47,11 +48,15 @@ fn vectors(source: &[u8]) -> Vec<Vec<u8>> {
 }
 
 fn artifact() -> Vec<u8> {
-    let path = std::env::var_os("LAYERX_INTERPRETER_WASM").map_or_else(
-        || panic!("LAYERX_INTERPRETER_WASM must name the built interpreter Wasm"),
-        PathBuf::from,
-    );
-    std::fs::read(&path).unwrap_or_else(|error| panic!("read {}: {error}", path.display()))
+    static WASM: std::sync::OnceLock<Vec<u8>> = std::sync::OnceLock::new();
+    WASM.get_or_init(|| {
+        compiled_guest::load_or_build(
+            "LAYERX_INTERPRETER_WASM",
+            "layerx-programs-interpreter",
+            "layerx_programs_interpreter.wasm",
+        )
+    })
+    .clone()
 }
 
 fn execute(

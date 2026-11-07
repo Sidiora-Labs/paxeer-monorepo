@@ -38,7 +38,7 @@ const AddressesListItem = ({
   return (
     <ListItemMobile rowGap={ 3 }>
       <Flex alignItems="center" columnGap={ 2 } w="100%">
-        <Skeleton loading={ isLoading } textStyle="sm" color="text.secondary" minW={ 5 } data-address-rank>
+        <Skeleton loading={ isLoading } textStyle="number" color="text.secondary" minW={ 5 } data-address-rank>
           <span>{ index }</span>
         </Skeleton>
         <AddressEntity
@@ -50,17 +50,17 @@ const AddressesListItem = ({
       </Flex>
       { renderRow('Name tag', <AddressNameTag item={ item } isLoading={ isLoading }/>) }
       { renderRow(`Balance ${ currencyUnits.ether }`, (
-        <Skeleton loading={ isLoading } textStyle="sm" color="text.secondary" minW="0" whiteSpace="pre-wrap" textAlign="right">
+        <Skeleton loading={ isLoading } textStyle="number" color="text.secondary" minW="0" whiteSpace="pre-wrap" textAlign="right">
           <span>{ addressBalance.dp(8).toFormat() }</span>
         </Skeleton>
       )) }
       { !totalSupply.eq(ZERO) && renderRow('Percentage', (
-        <Skeleton loading={ isLoading } textStyle="sm" color="text.secondary">
+        <Skeleton loading={ isLoading } textStyle="number" color="text.secondary">
           <span>{ addressBalance.div(totalSupply).multipliedBy(100).dp(8).toFormat() + '%' }</span>
         </Skeleton>
       )) }
       { renderRow('Txn count', (
-        <Skeleton loading={ isLoading } textStyle="sm" color="text.secondary" data-address-txn-count>
+        <Skeleton loading={ isLoading } textStyle="number" color="text.secondary" data-address-txn-count>
           <span>{ Number(item.transactions_count).toLocaleString() }</span>
         </Skeleton>
       )) }

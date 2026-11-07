@@ -1,0 +1,487 @@
+[reconcile.r6-23]
+revision = "d6c341e59603faf9a28756df9aff6d45927fe392"
+rows = 60
+
+[row.r6-23.1]
+interface = "interface.6.sol-wpax-decimals-313ce567"
+verdict = "served"
+path = "contracts/src/WPAX.sol"
+line = 7
+symbol = "decimals"
+evidence = "WPAX still declares uint8 public decimals = 18; at line 7; the public uint8 variable supplies the decimals() getter. The registered literal uses single spacing while the source has two spaces after uint8; the identifier is present and the signature is unchanged."
+
+[row.r6-23.2]
+interface = "interface.6.sol-ibank-sendfromcaller-0b5765aa"
+verdict = "retired"
+path = "contracts/src/precompiles/IBank.sol"
+line = 19
+symbol = "sendFromCaller"
+evidence = "sendFromCaller is absent from the entire IBank.sol interface. Task 6.82.1 implemented decision 683 by deleting this declaration; precompiles/bank/abi.json has no such method. Repository-wide whole-identifier search excluding spec and docs found zero other files mentioning sendFromCaller; line 19 is its former registered location."
+remaining_refs = 0
+remaining = []
+
+[row.r6-23.3]
+interface = "interface.6.sol-ibank-sendfromorigin-9fdfa201"
+verdict = "retired"
+path = "contracts/src/precompiles/IBank.sol"
+line = 25
+symbol = "sendFromOrigin"
+evidence = "sendFromOrigin is absent from the entire IBank.sol interface. Task 6.82.1 implemented decision 683 by deleting this declaration; precompiles/bank/abi.json has no such method. Repository-wide whole-identifier search excluding spec and docs found zero other files mentioning sendFromOrigin; line 25 is its former registered location."
+remaining_refs = 0
+remaining = []
+
+[row.r6-23.4]
+interface = "interface.6.sevt-ilayerxanchor-checkpointsubmitted-f732efc9"
+verdict = "served"
+path = "contracts/src/precompiles/ILayerXAnchor.sol"
+line = 48
+symbol = "CheckpointSubmitted"
+evidence = "ILayerXAnchor still declares event CheckpointSubmitted(uint64 indexed batchNumber, bytes32 indexed checkpointId, bytes32 stateRoot, bytes32 receiptRoot, uint8 signers); at line 48, unchanged from the registered signature. Registry status retire records retirement intent, but this consumer declaration for 0x1014 remains in the tree; served records source presence only."
+
+[row.r6-23.5]
+interface = "interface.6.sevt-ilayerxanchor-checkpointfinalized-4da1187d"
+verdict = "served"
+path = "contracts/src/precompiles/ILayerXAnchor.sol"
+line = 49
+symbol = "CheckpointFinalized"
+evidence = "ILayerXAnchor still declares event CheckpointFinalized(uint64 indexed batchNumber, bytes32 indexed checkpointId, bytes32 stateRoot, bytes32 receiptRoot); at line 49, unchanged from the registered signature. Registry status retire records retirement intent, but this consumer declaration for 0x1014 remains in the tree; served records source presence only."
+
+[row.r6-23.6]
+interface = "interface.6.sevt-ilayerxanchor-availabilityattested-d7c40697"
+verdict = "served"
+path = "contracts/src/precompiles/ILayerXAnchor.sol"
+line = 50
+symbol = "AvailabilityAttested"
+evidence = "ILayerXAnchor still declares event AvailabilityAttested(uint64 indexed batchNumber, bytes32 indexed guarantorId, uint8 classMask, uint8 availabilityMask); at line 50, unchanged from the registered signature. Registry status retire records retirement intent, but this consumer declaration for 0x1014 remains in the tree; served records source presence only."
+
+[row.r6-23.7]
+interface = "interface.6.sevt-ilayerxanchor-guarantorregistered-674824b5"
+verdict = "served"
+path = "contracts/src/precompiles/ILayerXAnchor.sol"
+line = 51
+symbol = "GuarantorRegistered"
+evidence = "ILayerXAnchor still declares event GuarantorRegistered(bytes32 indexed guarantorId, address indexed signer, address operator, uint256 bond, uint8 status); at line 51, unchanged from the registered signature. Registry status retire records retirement intent, but this consumer declaration for 0x1014 remains in the tree; served records source presence only."
+
+[row.r6-23.8]
+interface = "interface.6.sevt-ilayerxanchor-guarantoractivated-da409fb8"
+verdict = "served"
+path = "contracts/src/precompiles/ILayerXAnchor.sol"
+line = 52
+symbol = "GuarantorActivated"
+evidence = "ILayerXAnchor still declares event GuarantorActivated(bytes32 indexed guarantorId); at line 52, unchanged from the registered signature. Registry status retire records retirement intent, but this consumer declaration for 0x1014 remains in the tree; served records source presence only."
+
+[row.r6-23.9]
+interface = "interface.6.sevt-ilayerxanchor-bondincreased-d5631724"
+verdict = "served"
+path = "contracts/src/precompiles/ILayerXAnchor.sol"
+line = 53
+symbol = "BondIncreased"
+evidence = "ILayerXAnchor still declares event BondIncreased(bytes32 indexed guarantorId, uint256 amount, uint256 bond); at line 53, unchanged from the registered signature. Registry status retire records retirement intent, but this consumer declaration for 0x1014 remains in the tree; served records source presence only."
+
+[row.r6-23.10]
+interface = "interface.6.sevt-ilayerxanchor-unbondbegun-f5928c43"
+verdict = "served"
+path = "contracts/src/precompiles/ILayerXAnchor.sol"
+line = 54
+symbol = "UnbondBegun"
+evidence = "ILayerXAnchor still declares event UnbondBegun(bytes32 indexed guarantorId, uint256 amount, uint64 completionTime); at line 54, unchanged from the registered signature. Registry status retire records retirement intent, but this consumer declaration for 0x1014 remains in the tree; served records source presence only."
+
+[row.r6-23.11]
+interface = "interface.6.sevt-ilayerxanchor-unbondcompleted-92e6a12e"
+verdict = "served"
+path = "contracts/src/precompiles/ILayerXAnchor.sol"
+line = 55
+symbol = "UnbondCompleted"
+evidence = "ILayerXAnchor still declares event UnbondCompleted(bytes32 indexed guarantorId, uint256 amount); at line 55, unchanged from the registered signature. Registry status retire records retirement intent, but this consumer declaration for 0x1014 remains in the tree; served records source presence only."
+
+[row.r6-23.12]
+interface = "interface.6.sevt-ilayerxanchor-guarantorslashed-718d0e16"
+verdict = "served"
+path = "contracts/src/precompiles/ILayerXAnchor.sol"
+line = 56
+symbol = "GuarantorSlashed"
+evidence = "ILayerXAnchor still declares event GuarantorSlashed(bytes32 indexed guarantorId, uint8 reason, uint64 batchNumber, uint256 amount, address reporter, uint256 reporterReward); at line 56, unchanged from the registered signature. Registry status retire records retirement intent, but this consumer declaration for 0x1014 remains in the tree; served records source presence only."
+
+[row.r6-23.13]
+interface = "interface.6.sevt-ilayerxanchor-challengeopened-8ece2a23"
+verdict = "served"
+path = "contracts/src/precompiles/ILayerXAnchor.sol"
+line = 57
+symbol = "ChallengeOpened"
+evidence = "ILayerXAnchor still declares event ChallengeOpened(uint64 indexed challengeId, uint64 indexed batchNumber, uint8 kind, bytes32 evidenceHash, address challenger); at line 57, unchanged from the registered signature. Registry status retire records retirement intent, but this consumer declaration for 0x1014 remains in the tree; served records source presence only."
+
+[row.r6-23.14]
+interface = "interface.6.sevt-ilayerxanchor-challengeresolved-ad004243"
+verdict = "served"
+path = "contracts/src/precompiles/ILayerXAnchor.sol"
+line = 58
+symbol = "ChallengeResolved"
+evidence = "ILayerXAnchor still declares event ChallengeResolved(uint64 indexed challengeId, uint64 indexed batchNumber, bool upheld); at line 58, unchanged from the registered signature. Registry status retire records retirement intent, but this consumer declaration for 0x1014 remains in the tree; served records source presence only."
+
+[row.r6-23.15]
+interface = "interface.6.sevt-ilayerxanchor-sequencerauthorized-55f05966"
+verdict = "served"
+path = "contracts/src/precompiles/ILayerXAnchor.sol"
+line = 59
+symbol = "SequencerAuthorized"
+evidence = "ILayerXAnchor still declares event SequencerAuthorized(bytes32 indexed sequencerId, bytes32 publicKey, uint64 firstBatchNumber, uint64 lastBatchNumber); at line 59, unchanged from the registered signature. Registry status retire records retirement intent, but this consumer declaration for 0x1014 remains in the tree; served records source presence only."
+
+[row.r6-23.16]
+interface = "interface.6.sol-ilayerxanchor-submitcheckpoint-5598ba4d"
+verdict = "served"
+path = "contracts/src/precompiles/ILayerXAnchor.sol"
+line = 66
+symbol = "submitCheckpoint"
+evidence = "ILayerXAnchor still declares function submitCheckpoint(bytes calldata header, bytes calldata headerSignature, bytes calldata certificate) external returns (bytes32 checkpointId, uint8 status); at line 66, unchanged from the registered signature. Registry status retire records retirement intent, but this consumer declaration for 0x1014 remains in the tree; served records source presence only."
+
+[row.r6-23.17]
+interface = "interface.6.sol-ilayerxanchor-submitavailabilityattestation-29b615b9"
+verdict = "served"
+path = "contracts/src/precompiles/ILayerXAnchor.sol"
+line = 69
+symbol = "submitAvailabilityAttestation"
+evidence = "ILayerXAnchor still declares function submitAvailabilityAttestation(bytes calldata attestation) external returns (uint8 availabilityMask); at line 69, unchanged from the registered signature. Registry status retire records retirement intent, but this consumer declaration for 0x1014 remains in the tree; served records source presence only."
+
+[row.r6-23.18]
+interface = "interface.6.sol-ilayerxanchor-finalize-359bc19e"
+verdict = "served"
+path = "contracts/src/precompiles/ILayerXAnchor.sol"
+line = 72
+symbol = "finalize"
+evidence = "ILayerXAnchor still declares function finalize(uint64 batchNumber) external returns (bool); at line 72, unchanged from the registered signature. Registry status retire records retirement intent, but this consumer declaration for 0x1014 remains in the tree; served records source presence only."
+
+[row.r6-23.19]
+interface = "interface.6.sol-ilayerxanchor-registerguarantor-eabcab91"
+verdict = "served"
+path = "contracts/src/precompiles/ILayerXAnchor.sol"
+line = 74
+symbol = "registerGuarantor"
+evidence = "ILayerXAnchor still declares function registerGuarantor(bytes32 guarantorId, address signer) external payable returns (bool); at line 74, unchanged from the registered signature. Registry status retire records retirement intent, but this consumer declaration for 0x1014 remains in the tree; served records source presence only."
+
+[row.r6-23.20]
+interface = "interface.6.sol-ilayerxanchor-increasebond-9e58863c"
+verdict = "served"
+path = "contracts/src/precompiles/ILayerXAnchor.sol"
+line = 76
+symbol = "increaseBond"
+evidence = "ILayerXAnchor still declares function increaseBond(bytes32 guarantorId) external payable returns (bool); at line 76, unchanged from the registered signature. Registry status retire records retirement intent, but this consumer declaration for 0x1014 remains in the tree; served records source presence only."
+
+[row.r6-23.21]
+interface = "interface.6.sol-ilayerxanchor-beginunbond-8b570a10"
+verdict = "served"
+path = "contracts/src/precompiles/ILayerXAnchor.sol"
+line = 78
+symbol = "beginUnbond"
+evidence = "ILayerXAnchor still declares function beginUnbond(bytes32 guarantorId, uint256 amount) external returns (uint64 completionTime); at line 78, unchanged from the registered signature. Registry status retire records retirement intent, but this consumer declaration for 0x1014 remains in the tree; served records source presence only."
+
+[row.r6-23.22]
+interface = "interface.6.sol-ilayerxanchor-completeunbond-f941f3b0"
+verdict = "served"
+path = "contracts/src/precompiles/ILayerXAnchor.sol"
+line = 80
+symbol = "completeUnbond"
+evidence = "ILayerXAnchor still declares function completeUnbond(bytes32 guarantorId) external returns (uint256 amount); at line 80, unchanged from the registered signature. Registry status retire records retirement intent, but this consumer declaration for 0x1014 remains in the tree; served records source presence only."
+
+[row.r6-23.23]
+interface = "interface.6.sol-ilayerxanchor-submitequivocation-b9b1a153"
+verdict = "served"
+path = "contracts/src/precompiles/ILayerXAnchor.sol"
+line = 84
+symbol = "submitEquivocation"
+evidence = "ILayerXAnchor still declares function submitEquivocation(bytes calldata evidenceA, bytes calldata evidenceB) external returns (uint256 slashed); at line 84, unchanged from the registered signature. Registry status retire records retirement intent, but this consumer declaration for 0x1014 remains in the tree; served records source presence only."
+
+[row.r6-23.24]
+interface = "interface.6.sol-ilayerxanchor-openchallenge-c75d125d"
+verdict = "served"
+path = "contracts/src/precompiles/ILayerXAnchor.sol"
+line = 87
+symbol = "openChallenge"
+evidence = "ILayerXAnchor still declares function openChallenge(uint64 batchNumber, uint8 kind, bytes32 evidenceHash) external payable returns (uint64 challengeId); at line 87, unchanged from the registered signature. Registry status retire records retirement intent, but this consumer declaration for 0x1014 remains in the tree; served records source presence only."
+
+[row.r6-23.25]
+interface = "interface.6.sol-ilayerxanchor-resolvechallenge-ac18e6b8"
+verdict = "served"
+path = "contracts/src/precompiles/ILayerXAnchor.sol"
+line = 90
+symbol = "resolveChallenge"
+evidence = "ILayerXAnchor still declares function resolveChallenge(uint64 challengeId, bool upheld) external returns (bool); at line 90, unchanged from the registered signature. Registry status retire records retirement intent, but this consumer declaration for 0x1014 remains in the tree; served records source presence only."
+
+[row.r6-23.26]
+interface = "interface.6.sol-ilayerxanchor-activateguarantor-5543ebb8"
+verdict = "served"
+path = "contracts/src/precompiles/ILayerXAnchor.sol"
+line = 93
+symbol = "activateGuarantor"
+evidence = "ILayerXAnchor still declares function activateGuarantor(bytes32 guarantorId) external returns (bool); at line 93, unchanged from the registered signature. Registry status retire records retirement intent, but this consumer declaration for 0x1014 remains in the tree; served records source presence only."
+
+[row.r6-23.27]
+interface = "interface.6.sol-ilayerxanchor-setsequencerauthorization-c2661383"
+verdict = "served"
+path = "contracts/src/precompiles/ILayerXAnchor.sol"
+line = 96
+symbol = "setSequencerAuthorization"
+evidence = "ILayerXAnchor still declares function setSequencerAuthorization(bytes32 sequencerId, bytes32 publicKey, uint64 firstBatchNumber, uint64 lastBatchNumber) external returns (bool); at line 96, unchanged from the registered signature. Registry status retire records retirement intent, but this consumer declaration for 0x1014 remains in the tree; served records source presence only."
+
+[row.r6-23.28]
+interface = "interface.6.sol-ilayerxanchor-latestfinalized-6cdd45ae"
+verdict = "served"
+path = "contracts/src/precompiles/ILayerXAnchor.sol"
+line = 98
+symbol = "latestFinalized"
+evidence = "ILayerXAnchor still declares function latestFinalized() external view returns (uint64 batchNumber, bool exists); at line 98, unchanged from the registered signature. Registry status retire records retirement intent, but this consumer declaration for 0x1014 remains in the tree; served records source presence only."
+
+[row.r6-23.29]
+interface = "interface.6.sol-ilayerxanchor-checkpoint-2d588b18"
+verdict = "served"
+path = "contracts/src/precompiles/ILayerXAnchor.sol"
+line = 100
+symbol = "checkpoint"
+evidence = "ILayerXAnchor still declares function checkpoint(uint64 batchNumber) external view returns (Checkpoint memory); at line 100, unchanged from the registered signature. Registry status retire records retirement intent, but this consumer declaration for 0x1014 remains in the tree; served records source presence only."
+
+[row.r6-23.30]
+interface = "interface.6.sol-ilayerxanchor-finalizedstateroot-0f607fe4"
+verdict = "served"
+path = "contracts/src/precompiles/ILayerXAnchor.sol"
+line = 102
+symbol = "finalizedStateRoot"
+evidence = "ILayerXAnchor still declares function finalizedStateRoot(uint64 batchNumber) external view returns (bytes32 stateRoot, bool finalized); at line 102, unchanged from the registered signature. Registry status retire records retirement intent, but this consumer declaration for 0x1014 remains in the tree; served records source presence only."
+
+[row.r6-23.31]
+interface = "interface.6.sol-ilayerxanchor-finalizedreceiptroot-e0a3ccaa"
+verdict = "served"
+path = "contracts/src/precompiles/ILayerXAnchor.sol"
+line = 104
+symbol = "finalizedReceiptRoot"
+evidence = "ILayerXAnchor still declares function finalizedReceiptRoot(uint64 batchNumber) external view returns (bytes32 receiptRoot, bool finalized); at line 104, unchanged from the registered signature. Registry status retire records retirement intent, but this consumer declaration for 0x1014 remains in the tree; served records source presence only."
+
+[row.r6-23.32]
+interface = "interface.6.sol-ilayerxanchor-guarantor-b3fc9298"
+verdict = "served"
+path = "contracts/src/precompiles/ILayerXAnchor.sol"
+line = 106
+symbol = "guarantor"
+evidence = "ILayerXAnchor still declares function guarantor(bytes32 guarantorId) external view returns (Guarantor memory); at line 106, unchanged from the registered signature. Registry status retire records retirement intent, but this consumer declaration for 0x1014 remains in the tree; served records source presence only."
+
+[row.r6-23.33]
+interface = "interface.6.sol-ilayerxanchor-threshold-42cde4e8"
+verdict = "served"
+path = "contracts/src/precompiles/ILayerXAnchor.sol"
+line = 108
+symbol = "threshold"
+evidence = "ILayerXAnchor still declares function threshold() external view returns (uint32); at line 108, unchanged from the registered signature. Registry status retire records retirement intent, but this consumer declaration for 0x1014 remains in the tree; served records source presence only."
+
+[row.r6-23.34]
+interface = "interface.6.sol-ilayerxanchor-statusof-4eb47710"
+verdict = "served"
+path = "contracts/src/precompiles/ILayerXAnchor.sol"
+line = 111
+symbol = "statusOf"
+evidence = "ILayerXAnchor still declares function statusOf(uint64 batchNumber) external view returns (uint8); at line 111, unchanged from the registered signature. Registry status retire records retirement intent, but this consumer declaration for 0x1014 remains in the tree; served records source presence only."
+
+[row.r6-23.35]
+interface = "interface.6.sol-ilayerxanchor-checkpointbatch-18603476"
+verdict = "served"
+path = "contracts/src/precompiles/ILayerXAnchor.sol"
+line = 114
+symbol = "checkpointBatch"
+evidence = "ILayerXAnchor still declares function checkpointBatch(bytes32 checkpointId) external view returns (uint64 batchNumber, uint8 status); at line 114, unchanged from the registered signature. Registry status retire records retirement intent, but this consumer declaration for 0x1014 remains in the tree; served records source presence only."
+
+[row.r6-23.36]
+interface = "interface.6.sol-ilayerxanchor-checkpointguarantors-8ea69468"
+verdict = "served"
+path = "contracts/src/precompiles/ILayerXAnchor.sol"
+line = 117
+symbol = "checkpointGuarantors"
+evidence = "ILayerXAnchor still declares function checkpointGuarantors(uint64 batchNumber) external view returns (bytes32[] memory guarantorIds); at line 117, unchanged from the registered signature. Registry status retire records retirement intent, but this consumer declaration for 0x1014 remains in the tree; served records source presence only."
+
+[row.r6-23.37]
+interface = "interface.6.sevt-ilayerxcustody-custodydeposit-7edb71c9"
+verdict = "served"
+path = "contracts/src/precompiles/ILayerXCustody.sol"
+line = 76
+symbol = "CustodyDeposit"
+evidence = "ILayerXCustody still declares event CustodyDeposit( bytes32 indexed depositId, bytes32 indexed assetId, address indexed payer, bytes32 beneficiary, uint256 amount, uint64 nonce ); at line 76, unchanged from the registered signature. Registry status retire records retirement intent, but this consumer declaration for 0x1013 remains in the tree; served records source presence only."
+
+[row.r6-23.38]
+interface = "interface.6.sevt-ilayerxcustody-claimqueued-c732a87b"
+verdict = "served"
+path = "contracts/src/precompiles/ILayerXCustody.sol"
+line = 84
+symbol = "ClaimQueued"
+evidence = "ILayerXCustody still declares event ClaimQueued( bytes32 indexed claimId, bytes32 indexed nullifier, bytes32 indexed checkpointHash, bytes32 assetId, address recipient, uint256 amount, uint64 availableAt ); at line 84, unchanged from the registered signature. Registry status retire records retirement intent, but this consumer declaration for 0x1013 remains in the tree; served records source presence only."
+
+[row.r6-23.39]
+interface = "interface.6.sevt-ilayerxcustody-claimfinalised-c01cc728"
+verdict = "served"
+path = "contracts/src/precompiles/ILayerXCustody.sol"
+line = 93
+symbol = "ClaimFinalised"
+evidence = "ILayerXCustody still declares event ClaimFinalised(bytes32 indexed claimId, bytes32 indexed nullifier); at line 93, unchanged from the registered signature. Registry status retire records retirement intent, but this consumer declaration for 0x1013 remains in the tree; served records source presence only."
+
+[row.r6-23.40]
+interface = "interface.6.sevt-ilayerxcustody-custodyrelease-37567a5b"
+verdict = "served"
+path = "contracts/src/precompiles/ILayerXCustody.sol"
+line = 94
+symbol = "CustodyRelease"
+evidence = "ILayerXCustody still declares event CustodyRelease( bytes32 indexed claimId, bytes32 indexed assetId, address indexed recipient, uint256 amount, address settlementModule ); at line 94, unchanged from the registered signature. Registry status retire records retirement intent, but this consumer declaration for 0x1013 remains in the tree; served records source presence only."
+
+[row.r6-23.41]
+interface = "interface.6.sevt-ilayerxcustody-emergencyexitexecuted-4f804cfb"
+verdict = "served"
+path = "contracts/src/precompiles/ILayerXCustody.sol"
+line = 101
+symbol = "EmergencyExitExecuted"
+evidence = "ILayerXCustody still declares event EmergencyExitExecuted( bytes32 indexed claimId, bytes32 indexed nullifier, bytes32 indexed checkpointHash, bytes32 account, bytes32 assetId, address recipient, uint256 amount ); at line 101, unchanged from the registered signature. Registry status retire records retirement intent, but this consumer declaration for 0x1013 remains in the tree; served records source presence only."
+
+[row.r6-23.42]
+interface = "interface.6.sevt-ilayerxcustody-depositrootregistered-dc7b7dbc"
+verdict = "served"
+path = "contracts/src/precompiles/ILayerXCustody.sol"
+line = 111
+symbol = "DepositRootRegistered"
+evidence = "ILayerXCustody still declares event DepositRootRegistered( bytes32 indexed checkpointId, bytes32 indexed depositRoot, bytes32 commitment, uint16 version ); at line 111, unchanged from the registered signature. Registry status retire records retirement intent, but this consumer declaration for 0x1013 remains in the tree; served records source presence only."
+
+[row.r6-23.43]
+interface = "interface.6.sol-ilayerxcustody-deposit-b214faa5"
+verdict = "served"
+path = "contracts/src/precompiles/ILayerXCustody.sol"
+line = 116
+symbol = "deposit"
+evidence = "ILayerXCustody still declares function deposit(bytes32 beneficiary) external payable returns (bytes32 depositId); at line 116, unchanged from the registered signature. Registry status retire records retirement intent, but this consumer declaration for 0x1013 remains in the tree; served records source presence only."
+
+[row.r6-23.44]
+interface = "interface.6.sol-ilayerxcustody-deposittoken-84abac95"
+verdict = "served"
+path = "contracts/src/precompiles/ILayerXCustody.sol"
+line = 119
+symbol = "depositToken"
+evidence = "ILayerXCustody still declares function depositToken(address pointer, uint256 amount, bytes32 beneficiary) external returns (bytes32 depositId); at line 119, unchanged from the registered signature. Registry status retire records retirement intent, but this consumer declaration for 0x1013 remains in the tree; served records source presence only."
+
+[row.r6-23.45]
+interface = "interface.6.sol-ilayerxcustody-requestwithdrawal-3e4e8e1a"
+verdict = "served"
+path = "contracts/src/precompiles/ILayerXCustody.sol"
+line = 122
+symbol = "requestWithdrawal"
+evidence = "ILayerXCustody still declares function requestWithdrawal( bytes calldata receipt, bytes calldata proof, bytes calldata header, bytes calldata headerSignature ) external returns (bytes32 claimId, uint64 availableAt); at line 122, unchanged from the registered signature. Registry status retire records retirement intent, but this consumer declaration for 0x1013 remains in the tree; served records source presence only."
+
+[row.r6-23.46]
+interface = "interface.6.sol-ilayerxcustody-finalisewithdrawal-22daf69e"
+verdict = "served"
+path = "contracts/src/precompiles/ILayerXCustody.sol"
+line = 131
+symbol = "finaliseWithdrawal"
+evidence = "ILayerXCustody still declares function finaliseWithdrawal( bytes calldata receipt, bytes calldata proof, bytes calldata header, bytes calldata headerSignature ) external returns (bytes32 claimId); at line 131, unchanged from the registered signature. Registry status retire records retirement intent, but this consumer declaration for 0x1013 remains in the tree; served records source presence only."
+
+[row.r6-23.47]
+interface = "interface.6.sol-ilayerxcustody-requestforcedexit-79a9e29c"
+verdict = "served"
+path = "contracts/src/precompiles/ILayerXCustody.sol"
+line = 139
+symbol = "requestForcedExit"
+evidence = "ILayerXCustody still declares function requestForcedExit( bytes calldata witness, uint64 batchNumber, bytes32 account, bytes32 assetId, address recipient, bytes calldata recipientSignature ) external returns (bytes32 claimId, uint64 availableAt); at line 139, unchanged from the registered signature. Registry status retire records retirement intent, but this consumer declaration for 0x1013 remains in the tree; served records source presence only."
+
+[row.r6-23.48]
+interface = "interface.6.sol-ilayerxcustody-executeforcedexit-9a9795cd"
+verdict = "served"
+path = "contracts/src/precompiles/ILayerXCustody.sol"
+line = 149
+symbol = "executeForcedExit"
+evidence = "ILayerXCustody still declares function executeForcedExit( bytes calldata witness, uint64 batchNumber, bytes32 account, bytes32 assetId, address recipient, bytes calldata recipientSignature ) external returns (bytes32 claimId); at line 149, unchanged from the registered signature. Registry status retire records retirement intent, but this consumer declaration for 0x1013 remains in the tree; served records source presence only."
+
+[row.r6-23.49]
+interface = "interface.6.sol-ilayerxcustody-depositcount-2dfdf0b5"
+verdict = "served"
+path = "contracts/src/precompiles/ILayerXCustody.sol"
+line = 158
+symbol = "depositCount"
+evidence = "ILayerXCustody still declares function depositCount() external view returns (uint64 count); at line 158, unchanged from the registered signature. Registry status retire records retirement intent, but this consumer declaration for 0x1013 remains in the tree; served records source presence only."
+
+[row.r6-23.50]
+interface = "interface.6.sol-ilayerxcustody-depositnonce-6e4d5961"
+verdict = "served"
+path = "contracts/src/precompiles/ILayerXCustody.sol"
+line = 160
+symbol = "depositNonce"
+evidence = "ILayerXCustody still declares function depositNonce(address depositor, bytes32 assetId) external view returns (uint64 nonce); at line 160, unchanged from the registered signature. Registry status retire records retirement intent, but this consumer declaration for 0x1013 remains in the tree; served records source presence only."
+
+[row.r6-23.51]
+interface = "interface.6.sol-ilayerxcustody-getdeposit-7a86983f"
+verdict = "served"
+path = "contracts/src/precompiles/ILayerXCustody.sol"
+line = 162
+symbol = "getDeposit"
+evidence = "ILayerXCustody still declares function getDeposit(bytes32 depositId) external view returns (DepositRecord memory record); at line 162, unchanged from the registered signature. Registry status retire records retirement intent, but this consumer declaration for 0x1013 remains in the tree; served records source presence only."
+
+[row.r6-23.52]
+interface = "interface.6.sol-ilayerxcustody-getdepositbyindex-d750cc72"
+verdict = "served"
+path = "contracts/src/precompiles/ILayerXCustody.sol"
+line = 164
+symbol = "getDepositByIndex"
+evidence = "ILayerXCustody still declares function getDepositByIndex(uint64 index) external view returns (DepositRecord memory record); at line 164, unchanged from the registered signature. Registry status retire records retirement intent, but this consumer declaration for 0x1013 remains in the tree; served records source presence only."
+
+[row.r6-23.53]
+interface = "interface.6.sol-ilayerxcustody-getclaim-c9100bcb"
+verdict = "served"
+path = "contracts/src/precompiles/ILayerXCustody.sol"
+line = 166
+symbol = "getClaim"
+evidence = "ILayerXCustody still declares function getClaim(bytes32 claimId) external view returns (Claim memory claim); at line 166, unchanged from the registered signature. Registry status retire records retirement intent, but this consumer declaration for 0x1013 remains in the tree; served records source presence only."
+
+[row.r6-23.54]
+interface = "interface.6.sol-ilayerxcustody-nullifierstatus-5c4f7620"
+verdict = "served"
+path = "contracts/src/precompiles/ILayerXCustody.sol"
+line = 169
+symbol = "nullifierStatus"
+evidence = "ILayerXCustody still declares function nullifierStatus(bytes32 nullifier) external view returns (uint8 status); at line 169, unchanged from the registered signature. Registry status retire records retirement intent, but this consumer declaration for 0x1013 remains in the tree; served records source presence only."
+
+[row.r6-23.55]
+interface = "interface.6.sol-ilayerxcustody-getasset-2cc3ce80"
+verdict = "served"
+path = "contracts/src/precompiles/ILayerXCustody.sol"
+line = 171
+symbol = "getAsset"
+evidence = "ILayerXCustody still declares function getAsset(bytes32 assetId) external view returns (Asset memory asset); at line 171, unchanged from the registered signature. Registry status retire records retirement intent, but this consumer declaration for 0x1013 remains in the tree; served records source presence only."
+
+[row.r6-23.56]
+interface = "interface.6.sol-ilayerxcustody-assetbypointer-ca65021c"
+verdict = "served"
+path = "contracts/src/precompiles/ILayerXCustody.sol"
+line = 173
+symbol = "assetByPointer"
+evidence = "ILayerXCustody still declares function assetByPointer(address pointer) external view returns (bytes32 assetId); at line 173, unchanged from the registered signature. Registry status retire records retirement intent, but this consumer declaration for 0x1013 remains in the tree; served records source presence only."
+
+[row.r6-23.57]
+interface = "interface.6.sol-ilayerxcustody-nativeassetid-aafcde84"
+verdict = "served"
+path = "contracts/src/precompiles/ILayerXCustody.sol"
+line = 175
+symbol = "nativeAssetId"
+evidence = "ILayerXCustody still declares function nativeAssetId() external view returns (bytes32 assetId); at line 175, unchanged from the registered signature. Registry status retire records retirement intent, but this consumer declaration for 0x1013 remains in the tree; served records source presence only."
+
+[row.r6-23.58]
+interface = "interface.6.sol-ilayerxcustody-exiteligible-a87a6e98"
+verdict = "served"
+path = "contracts/src/precompiles/ILayerXCustody.sol"
+line = 177
+symbol = "exitEligible"
+evidence = "ILayerXCustody still declares function exitEligible() external view returns (bool eligible); at line 177, unchanged from the registered signature. Registry status retire records retirement intent, but this consumer declaration for 0x1013 remains in the tree; served records source presence only."
+
+[row.r6-23.59]
+interface = "interface.6.sol-ilayerxcustody-registerdepositroot-8ff1fac9"
+verdict = "served"
+path = "contracts/src/precompiles/ILayerXCustody.sol"
+line = 185
+symbol = "registerDepositRoot"
+evidence = "ILayerXCustody still declares function registerDepositRoot(bytes calldata registration, bytes calldata signature, bytes32[] calldata leafOrdering) external; at line 185, unchanged from the registered signature. Registry status retire records retirement intent, but this consumer declaration for 0x1013 remains in the tree; served records source presence only."
+
+[row.r6-23.60]
+interface = "interface.6.sol-ilayerxcustody-depositrootauthority-b4768600"
+verdict = "served"
+path = "contracts/src/precompiles/ILayerXCustody.sol"
+line = 189
+symbol = "depositRootAuthority"
+evidence = "ILayerXCustody still declares function depositRootAuthority() external view returns (bytes32 authority); at line 189, unchanged from the registered signature. Registry status retire records retirement intent, but this consumer declaration for 0x1013 remains in the tree; served records source presence only."

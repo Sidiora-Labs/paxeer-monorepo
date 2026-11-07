@@ -1,3 +1,5 @@
+//go:build ignore
+
 #include "layerx/lxp_protocol.h"
 
 #include <stdint.h>

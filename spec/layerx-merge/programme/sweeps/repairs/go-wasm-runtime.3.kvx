@@ -1,0 +1,6 @@
+[repair.go-wasm-runtime.3]
+target = "wasm-runtime/internal/api"
+command = "CGO_ENABLED=1 go vet ./wasm-runtime/internal/api/ && CGO_ENABLED=1 go test -count=1 ./wasm-runtime/internal/api/"
+revision = "c69af8b6706e55a243bc0f3a0e184b872b900e14"
+result = "repaired"
+change = "wasm-runtime/internal/api/lib_test.go uses a regular-file parent for TestInitCacheErrorsForBrokenDir so directory creation fails independently of permissions while preserving the error assertion."

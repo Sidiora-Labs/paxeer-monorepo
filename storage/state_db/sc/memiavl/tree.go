@@ -109,6 +109,8 @@ func (t *Tree) Copy() *Tree {
 	}
 	newTree := *t
 	newTree.mtx = &sync.RWMutex{}
+	newTree.pendingChanges = nil
+	newTree.pendingWg = &sync.WaitGroup{}
 	if newTree.snapshot != nil {
 		newTree.snapshot.Acquire()
 	}
@@ -161,13 +163,13 @@ func (t *Tree) Set(key, value []byte) {
 		// the value could be nil when replaying changes from write-ahead-log because of protobuf decoding
 		value = []byte{}
 	}
-	t.root, _ = setRecursive(t.root, key, value, t.version+1, t.cowVersion)
+	t.root, _ = setRecursive(t.root, key, value, nextVersionU32(t.version, t.initialVersion), t.cowVersion)
 }
 
 func (t *Tree) Remove(key []byte) {
 	t.mtx.Lock()
 	defer t.mtx.Unlock()
-	_, t.root, _ = removeRecursive(t.root, key, t.version+1, t.cowVersion)
+	_, t.root, _ = removeRecursive(t.root, key, nextVersionU32(t.version, t.initialVersion), t.cowVersion)
 }
 
 // SaveVersion increases the version number and optionally updates the hashes
@@ -250,7 +252,7 @@ func (t *Tree) Iterator(start, end []byte, ascending bool) dbm.Iterator {
 }
 
 // ScanPostOrder scans the tree in post-order, and call the callback function on each node.
-// If the callback function returns false, the scan will be stopped.
+// If the callback function returns true, the scan will be stopped, as in exportWorker.
 func (t *Tree) ScanPostOrder(callback func(node Node) bool) {
 	t.mtx.RLock()
 	defer t.mtx.RUnlock()
@@ -264,7 +266,9 @@ func (t *Tree) ScanPostOrder(callback func(node Node) bool) {
 		entry := stack[len(stack)-1]
 
 		if entry.node.IsLeaf() || entry.expanded {
-			callback(entry.node)
+			if callback(entry.node) {
+				return
+			}
 			stack = stack[:len(stack)-1]
 			continue
 		}
@@ -305,15 +309,13 @@ func (t *Tree) Export() *Exporter {
 }
 
 func (t *Tree) Close() error {
+	t.WaitToCompleteAsyncWrite()
 	t.mtx.Lock()
 	defer t.mtx.Unlock()
 	var err error
 	if t.snapshot != nil {
 		err = t.snapshot.Close()
 		t.snapshot = nil
-	}
-	if t.pendingChanges != nil {
-		close(t.pendingChanges)
 	}
 	t.root = nil
 	return err

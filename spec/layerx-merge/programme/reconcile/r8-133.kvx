@@ -1,0 +1,243 @@
+[reconcile.r8-133]
+revision = "53150198caf59defafffab36d79dbc66d921ae57"
+rows = 30
+
+[row.r8-133.1]
+interface = "interface.8.go-sdkjvm-generatedschema-humanmodels-programapprovalsummary"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 2088
+symbol = "ProgramApprovalSummary"
+evidence = "HumanModels declares public record ProgramApprovalSummary with approval and agent identifiers, state, reason and timestamps, held_digest, operation, semantics, authorized_limits and evidence; it still implements SchemaTypes.GeneratedResponse with the registered signature."
+
+[row.r8-133.2]
+interface = "interface.8.go-sdkjvm-generatedschema-humanmodels-programauthorizedlimit"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 2104
+symbol = "ProgramAuthorizedLimit"
+evidence = "HumanModels declares public record ProgramAuthorizedLimit with ProgramChargeKind kind, source_account, asset_id, ProtocolAmount maximum_amount and destination, implementing GeneratedResponse; the registered signature is unchanged."
+
+[row.r8-133.3]
+interface = "interface.8.go-sdkjvm-generatedschema-humanmodels-programcallfacts"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 2118
+symbol = "ProgramCallFacts"
+evidence = "HumanModels declares public record ProgramCallFacts with integer-deserialized long guest_abi and response_capacity, entrypoint_hex, calldata, capabilities, access_declaration and List<ProtocolAmount> resources; the GeneratedResponse signature is unchanged."
+
+[row.r8-133.4]
+interface = "interface.8.go-sdkjvm-generatedschema-humanmodels-programchargekind"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 2127
+symbol = "ProgramChargeKind"
+evidence = "HumanModels declares public enum ProgramChargeKind with PRINCIPAL and PROGRAM_SPEND wire variants; this is the enum declaration described by the signature, before its constructor and fromWire uses."
+
+[row.r8-133.5]
+interface = "interface.8.go-sdkjvm-generatedschema-humanmodels-programdeployfacts"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 2138
+symbol = "ProgramDeployFacts"
+evidence = "HumanModels declares public record ProgramDeployFacts with integer-deserialized guest_abi, policy, new_hash, wasm and interface_ annotated JsonProperty(interface); it retains the registered GeneratedResponse signature."
+
+[row.r8-133.6]
+interface = "interface.8.go-sdkjvm-generatedschema-humanmodels-programmaterialprovenance"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 2145
+symbol = "ProgramMaterialProvenance"
+evidence = "HumanModels declares public enum ProgramMaterialProvenance with LOCAL_OWNED mapped to local-owned; the registered enum declaration is here, before its constructor and fromWire references."
+
+[row.r8-133.7]
+interface = "interface.8.go-sdkjvm-generatedschema-humanmodels-programoperationkind"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 2155
+symbol = "ProgramOperationKind"
+evidence = "HumanModels declares public enum ProgramOperationKind with DEPLOY, UPGRADE, CALL and WIND_DOWN wire variants; the registered declaration remains here, before its constructor and fromWire references."
+
+[row.r8-133.8]
+interface = "interface.8.go-sdkjvm-generatedschema-humanmodels-programupgradefacts"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 2168
+symbol = "ProgramUpgradeFacts"
+evidence = "HumanModels declares public record ProgramUpgradeFacts with integer-deserialized guest_abi, old_hash, new_hash, migration_hook_hex, clear_interface, wasm and JsonProperty(interface) interface_; the GeneratedResponse signature is unchanged."
+
+[row.r8-133.9]
+interface = "interface.8.go-sdkjvm-generatedschema-humanmodels-programupgradepolicyfacts"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 2176
+symbol = "ProgramUpgradePolicyFacts"
+evidence = "HumanModels declares public record ProgramUpgradePolicyFacts(HumanModels.ProgramUpgradePolicyKind kind, String authority) implements SchemaTypes.GeneratedResponse; this matches the registered signature."
+
+[row.r8-133.10]
+interface = "interface.8.go-sdkjvm-generatedschema-humanmodels-programupgradepolicykind"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 2181
+symbol = "ProgramUpgradePolicyKind"
+evidence = "HumanModels declares public enum ProgramUpgradePolicyKind with IMMUTABLE and AUTHORITY wire variants; this is the registered enum declaration, before its constructor and fromWire references."
+
+[row.r8-133.11]
+interface = "interface.8.go-sdkjvm-generatedschema-humanmodels-programwinddownfacts"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 2192
+symbol = "ProgramWindDownFacts"
+evidence = "HumanModels declares public record ProgramWindDownFacts with kind, account, asset_id, destination, seed_hex, exit_program and ProtocolAmount deadline_batch and maximum_exit_amount; its GeneratedResponse signature is unchanged."
+
+[row.r8-133.12]
+interface = "interface.8.go-sdkjvm-generatedschema-humanmodels-programwinddownkind"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 2197
+symbol = "ProgramWindDownKind"
+evidence = "HumanModels declares public enum ProgramWindDownKind with ROUTE, DEPRECATE, TOMBSTONE, EXIT and BOUNDED_EXIT; this declaration matches the registered enum signature rather than the separate AgentModels enum."
+
+[row.r8-133.13]
+interface = "interface.8.go-sdkjvm-generatedschema-humanmodels-programwinddownkind-deprecate"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 2199
+symbol = "DEPRECATE"
+evidence = "DEPRECATE(\"deprecate\"), is declared inside HumanModels.ProgramWindDownKind after ROUTE; the same spelling in AgentModels is a different enum member. The registered member signature is unchanged."
+
+[row.r8-133.14]
+interface = "interface.8.go-sdkjvm-generatedschema-humanmodels-programwinddownkind-exit"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 2201
+symbol = "EXIT"
+evidence = "EXIT(\"exit\"), is declared inside HumanModels.ProgramWindDownKind after TOMBSTONE and before BOUNDED_EXIT; the AgentModels EXIT belongs to another enum. The registered member signature is unchanged."
+
+[row.r8-133.15]
+interface = "interface.8.go-sdkjvm-generatedschema-humanmodels-programwinddownkind-route"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 2198
+symbol = "ROUTE"
+evidence = "ROUTE(\"route\"), is the first member declared inside HumanModels.ProgramWindDownKind; the earlier AgentModels ROUTE belongs to another enum. The registered member signature is unchanged."
+
+[row.r8-133.16]
+interface = "interface.8.go-sdkjvm-generatedschema-humanmodels-programwinddownkind-tombstone"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 2200
+symbol = "TOMBSTONE"
+evidence = "TOMBSTONE(\"tombstone\"), is declared inside HumanModels.ProgramWindDownKind between DEPRECATE and EXIT; the AgentModels member is a separate declaration. The registered member signature is unchanged."
+
+[row.r8-133.17]
+interface = "interface.8.go-sdkjvm-generatedschema-humanmodels-protocolfreshness"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 2211
+symbol = "ProtocolFreshness"
+evidence = "HumanModels declares public record ProtocolFreshness with observed_at, integer-deserialized long age_seconds, source_head, within_bound and checkpoint, implementing GeneratedResponse; its registered signature is unchanged."
+
+[row.r8-133.18]
+interface = "interface.8.go-sdkjvm-generatedschema-humanmodels-refusal"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 2217
+symbol = "Refusal"
+evidence = "HumanModels declares public record Refusal(HumanModels.RefusedBy refused_by, String copy_key, boolean money_left, String change_path) implements SchemaTypes.GeneratedResponse; this is the registered declaration, before its compact constructor."
+
+[row.r8-133.19]
+interface = "interface.8.go-sdkjvm-generatedschema-humanmodels-refusedby"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 2223
+symbol = "RefusedBy"
+evidence = "HumanModels declares public enum RefusedBy with POLICY, BUDGET, CAPABILITY, PROTOCOL and LIMIT wire variants; this is the registered enum declaration, before its constructor and fromWire references."
+
+[row.r8-133.20]
+interface = "interface.8.go-sdkjvm-generatedschema-humanmodels-refusedby-protocol"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 2227
+symbol = "PROTOCOL"
+evidence = "PROTOCOL(\"protocol\"), is declared within HumanModels.RefusedBy between CAPABILITY and LIMIT; the earlier PROTOCOL occurrence belongs to another enum. The registered member signature is unchanged."
+
+[row.r8-133.21]
+interface = "interface.8.go-sdkjvm-generatedschema-humanmodels-responseenvelope"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 2237
+symbol = "ResponseEnvelope"
+evidence = "HumanModels declares public record ResponseEnvelope(boolean ok, JsonNode result, String trace, HumanModels.ApiError error) implements SchemaTypes.GeneratedResponse; the signature matches the registry."
+
+[row.r8-133.22]
+interface = "interface.8.go-sdkjvm-generatedschema-humanmodels-retriability"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 2243
+symbol = "Retriability"
+evidence = "HumanModels declares public enum Retriability with RETRIABLE, RETRIABLE_AFTER, STRUCTURAL and FINAL; AgentModels has a separate Retriability enum with differently cased wire values. This is the registered HumanModels declaration."
+
+[row.r8-133.23]
+interface = "interface.8.go-sdkjvm-generatedschema-humanmodels-retriability-retriable"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 2244
+symbol = "RETRIABLE"
+evidence = "RETRIABLE(\"retriable\"), is declared as the first member of HumanModels.Retriability; AgentModels instead declares RETRIABLE with wire value Retriable. The lowercase wire literal matches the registered signature."
+
+[row.r8-133.24]
+interface = "interface.8.go-sdkjvm-generatedschema-humanmodels-schemaversion"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 2268
+symbol = "SchemaVersion"
+evidence = "HumanModels declares public record SchemaVersion with integer-deserialized long major and long minor, implementing SchemaTypes.GeneratedResponse; the annotations, component types and registered signature are unchanged."
+
+[row.r8-133.25]
+interface = "interface.8.go-sdkjvm-generatedschema-humanmodels-securityaction"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 2270
+symbol = "SecurityAction"
+evidence = "HumanModels declares public record SecurityAction(String confirms) implements SchemaTypes.GeneratedResponse; this is the unchanged registered record declaration, before its compact constructor."
+
+[row.r8-133.26]
+interface = "interface.8.go-sdkjvm-generatedschema-humanmodels-securityactionkind"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 2275
+symbol = "SecurityActionKind"
+evidence = "HumanModels declares public enum SecurityActionKind with passkey, session, authenticator, backup-code, recovery-evidence and primary-key action variants; the registered enum declaration is here, before its constructor and fromWire uses."
+
+[row.r8-133.27]
+interface = "interface.8.go-sdkjvm-generatedschema-humanmodels-securityactionrequest"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 2293
+symbol = "SecurityActionRequest"
+evidence = "HumanModels declares public record SecurityActionRequest(HumanModels.SecurityActionKind action, String target_id) implements SchemaTypes.GeneratedResponse. The later HumanOperations record implements GeneratedRequest and is not the registered signature."
+
+[row.r8-133.28]
+interface = "interface.8.go-sdkjvm-generatedschema-humanmodels-securitypasskeyregistrationbegin"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 2298
+symbol = "SecurityPasskeyRegistrationBegin"
+evidence = "HumanModels declares public record SecurityPasskeyRegistrationBegin(String label, HumanModels.StepUpEvidence step_up) implements SchemaTypes.GeneratedResponse; the registered signature is unchanged, before its compact constructor."
+
+[row.r8-133.29]
+interface = "interface.8.go-sdkjvm-generatedschema-humanmodels-securitypasskeyregistrationfinish"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 2304
+symbol = "SecurityPasskeyRegistrationFinish"
+evidence = "HumanModels declares public record SecurityPasskeyRegistrationFinish(String credential, HumanModels.StepUpEvidence step_up) implements SchemaTypes.GeneratedResponse; the registered signature remains unchanged and its toString redacts the credential."
+
+[row.r8-133.30]
+interface = "interface.8.go-sdkjvm-generatedschema-humanmodels-securitypasskeyrevocation"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 2311
+symbol = "SecurityPasskeyRevocation"
+evidence = "HumanModels declares public record SecurityPasskeyRevocation(HumanModels.StepUpEvidence step_up) implements SchemaTypes.GeneratedResponse; the registered signature is unchanged, before its compact constructor."

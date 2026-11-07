@@ -64,7 +64,7 @@ type CompositeCommitStore struct {
 	// config holds the store configuration
 	config config.StateCommitConfig
 
-	// latticeAppendLatched is a sticky one-way flag: once it transitions
+	// latticeAppendLatched is sticky within a loaded timeline: once it transitions
 	// to true, LastCommitInfo and WorkingCommitInfo unconditionally
 	// append the evm_lattice StoreInfo without consulting the on-disk
 	// migration metadata again. The flag protects the AppHash continuity
@@ -324,12 +324,23 @@ func (cs *CompositeCommitStore) LoadVersion(targetVersion int64, readOnly bool) 
 		}
 	}
 
-	if err := cs.buildRouter(); err != nil {
+	if err := cs.resetHeightState(); err != nil {
 		return nil, err
 	}
-	cs.refreshPendingStores()
 
 	return cs, nil
+}
+
+// resetHeightState drops state derived from the previous backend height,
+// including uncommitted migration progress, after a writable load or rewind.
+func (cs *CompositeCommitStore) resetHeightState() error {
+	if err := cs.buildRouter(); err != nil {
+		return err
+	}
+	cs.latticeAppendLatched.Store(false)
+	cs.migrationAdvancedThisCommit = false
+	cs.refreshPendingStores()
+	return nil
 }
 
 // buildRouter constructs the migration router against the currently-opened
@@ -757,7 +768,7 @@ func (cs *CompositeCommitStore) Rollback(targetVersion int64) error {
 		}
 	}
 
-	return nil
+	return cs.resetHeightState()
 }
 
 // Exporter returns an exporter for state sync

@@ -191,21 +191,11 @@ type decodedReceipt struct {
 	protocol           ProtocolReceipt
 }
 
+// VerifyProgramLifecycleReceipt refuses the retired kernel receipt format.
+// Deprecated: use Programs.LifecycleReceipt with the signed EVM transaction hash,
+// or VerifySequencerReceipt with the raw transaction and independent ReceiptKeys.
 func VerifyProgramLifecycleReceipt(canonical []byte, expectedActivity [32]byte, sequencer [32]byte) (VerifiedReceipt, error) {
-	decoded, err := decodeProtocolReceipt(canonical)
-	if err != nil {
-		return VerifiedReceipt{}, err
-	}
-	receipt := decoded.protocol
-	if receipt.ProtocolVersion != 3 || receipt.ModuleID != 9 || receipt.ModuleVersion != 4 || receipt.Operation != 0 || receipt.ProgramOutcome != nil || receipt.ActivityID != expectedActivity || zero32(expectedActivity) || zero32(sequencer) {
-		return VerifiedReceipt{}, receiptFailure(ReceiptCheckReceiptShape)
-	}
-	digest := domainDigest(receiptDomain, decoded.unsigned)
-	if !ed25519.Verify(sequencer[:], digest[:], decoded.signature[:]) {
-		return VerifiedReceipt{}, receiptFailure(ReceiptCheckSequencerSignature)
-	}
-	return VerifiedReceipt{Level: "sequencer-signed", Receipt: receipt, CanonicalBytes: append([]byte{}, canonical...), ReceiptDigest: digest,
-		Facts: ProtocolReceiptFacts{ResultCode: receipt.ResultCode, Asset: receipt.Asset, Amount: receipt.Amount, FeeCharged: receipt.FeeCharged}}, nil
+	return VerifiedReceipt{}, receiptFailure(ReceiptCheckReceiptShape)
 }
 
 func decodeProtocolReceipt(value []byte) (decodedReceipt, error) {
@@ -594,7 +584,13 @@ func (r *ReceiptRevert) Error() string {
 	return "execution reverted"
 }
 
+type CommittedCoordinate struct {
+	Height    uint64
+	BlockHash [32]byte
+}
+
 type SequencerReceiptVerification struct {
+	TransportBlock *CommittedCoordinate
 	VerifiedReceipt
 	Rung       string
 	Status     uint64
@@ -612,6 +608,8 @@ type SequencerReceiptLog struct {
 
 type sequencerReceiptJSON struct {
 	Rung              string                `json:"rung"`
+	BlockNumber       *string               `json:"blockNumber,omitempty"`
+	BlockHash         *string               `json:"blockHash,omitempty"`
 	TxHash            string                `json:"txHash"`
 	Nonce             string                `json:"nonce"`
 	Seq               string                `json:"seq"`
@@ -624,6 +622,7 @@ type sequencerReceiptJSON struct {
 	GasUsed           string                `json:"gasUsed"`
 	CumulativeGasUsed string                `json:"cumulativeGasUsed"`
 	EffectiveGasPrice string                `json:"effectiveGasPrice"`
+	PaymentDenom      string                `json:"paymentDenom"`
 	FeeDenom          string                `json:"feeDenom"`
 	FeeAmount         string                `json:"feeAmount"`
 	Sponsor           string                `json:"sponsor"`
@@ -651,7 +650,7 @@ func VerifySequencerReceipt(receiptBytes, rawTransaction []byte, keys ReceiptKey
 	if err := json.Unmarshal(receiptBytes, &fields); err != nil {
 		return fail(ReceiptCheckDecode)
 	}
-	for _, name := range []string{"rung", "txHash", "nonce", "seq", "height", "index", "timestamp", "status", "returnData", "logs", "gasUsed", "cumulativeGasUsed", "effectiveGasPrice", "feeDenom", "feeAmount", "sponsor", "from", "to", "contractAddress", "vmError", "keyId", "receipt"} {
+	for _, name := range []string{"rung", "txHash", "nonce", "seq", "height", "index", "timestamp", "status", "returnData", "logs", "gasUsed", "cumulativeGasUsed", "effectiveGasPrice", "paymentDenom", "feeDenom", "feeAmount", "sponsor", "from", "to", "contractAddress", "vmError", "keyId", "receipt"} {
 		if v, ok := fields[name]; !ok || bytes.Equal(v, []byte("null")) {
 			return fail(ReceiptCheckFields)
 		}
@@ -740,6 +739,13 @@ func VerifySequencerReceipt(receiptBytes, rawTransaction []byte, keys ReceiptKey
 			Facts: ProtocolReceiptFacts{ResultCode: r.ResultCode, Asset: r.Asset, Amount: r.Amount, FeeCharged: r.FeeCharged}},
 		Rung: string(VerificationReceipted), Status: status, ReturnData: append([]byte(nil), data...), Logs: view.Logs,
 	}
+	if view.BlockNumber != nil {
+		number, _ := receiptQuantity(*view.BlockNumber, 63)
+		hash, _ := receiptHex(*view.BlockHash)
+		coordinate := &CommittedCoordinate{Height: number.Uint64()}
+		copy(coordinate.BlockHash[:], hash)
+		result.TransportBlock = coordinate
+	}
 	if status == 0 {
 		result.Revert = decodeReceiptRevert(data)
 	}
@@ -779,8 +785,18 @@ func receiptQuantityEquals(value string, expected uint64) bool {
 
 func verifySequencerFields(v sequencerReceiptJSON, r ProtocolReceipt, height uint64) (uint64, error) {
 	fail := func() (uint64, error) { return 0, receiptFailure(ReceiptCheckFields) }
-	if v.Rung != "receipted" || r.ModuleID <= 11 || r.ModuleVersion != 1 || r.ParameterVersion != 0 || r.ProgramOutcome != nil || r.GlobalSequence == 0 || height == 0 || r.Timestamp == 0 || len(r.Effects) == 0 || r.ResultCode < 0 || r.ResultCode > 1 {
+	if (v.Rung != "receipted" && v.Rung != "committed") || r.ModuleID <= 11 || r.ModuleVersion != 1 || r.ParameterVersion != 0 || r.ProgramOutcome != nil || r.GlobalSequence == 0 || height == 0 || r.Timestamp == 0 || len(r.Effects) == 0 || r.ResultCode < 0 || r.ResultCode > 1 {
 		return fail()
+	}
+	if (v.BlockNumber == nil) != (v.BlockHash == nil) || v.Rung == "committed" && v.BlockNumber == nil {
+		return fail()
+	}
+	if v.BlockNumber != nil {
+		number, ok := receiptQuantity(*v.BlockNumber, 63)
+		hash, valid := receiptHex(*v.BlockHash)
+		if !ok || number.Sign() <= 0 || number.Uint64() < height || !valid || len(hash) != 32 || bytes.Equal(hash, make([]byte, 32)) {
+			return fail()
+		}
 	}
 	status := uint64(1 - r.ResultCode)
 	if !receiptHexEquals(v.TxHash, r.ActivityID[:]) || !receiptHexEquals(v.KeyID, r.ContextHash[:]) ||
@@ -797,7 +813,10 @@ func verifySequencerFields(v sequencerReceiptJSON, r ProtocolReceipt, height uin
 		return fail()
 	}
 	denomLen := int(b[108])
-	if denomLen == 0 || denomLen > 64 || len(b) != 109+denomLen || !utf8.Valid(b[109:]) || v.FeeDenom != string(b[109:]) || sha256.Sum256(b[109:]) != r.Asset {
+	if denomLen == 0 || denomLen > 64 || len(b) != 109+denomLen || !utf8.Valid(b[109:]) || v.FeeDenom != string(b[109:]) {
+		return fail()
+	}
+	if len(v.PaymentDenom) == 0 || len(v.PaymentDenom) > 64 || !utf8.ValidString(v.PaymentDenom) || sha256.Sum256([]byte(v.PaymentDenom)) != r.Asset {
 		return fail()
 	}
 	if !receiptQuantityEquals(v.GasUsed, binary.BigEndian.Uint64(b[:8])) ||

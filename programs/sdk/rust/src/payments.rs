@@ -124,13 +124,7 @@ pub enum PaymentGrant<'a> {
 impl PaymentGrant<'_> {
     fn validate(self) -> Result<(), ProgramError> {
         match self {
-            Self::Basic(Capability::Transfer402 {
-                asset,
-                to,
-                maximum_amount,
-            }) => {
-                Capability::transfer(asset, to, maximum_amount)?;
-            }
+            Self::Basic(grant) => grant.validate()?,
             Self::ProgramSpend {
                 account,
                 to,
@@ -138,7 +132,6 @@ impl PaymentGrant<'_> {
             } => {
                 account.payment(to, maximum)?;
             }
-            Self::Basic(_) => {}
         }
         Ok(())
     }

@@ -1,0 +1,40 @@
+[repair.22.31.310]
+audit = "22.30.168"
+requirement = "22998.1"
+baseline = "Not run: the ordered task instructions prohibit tests before implementation and authorize verification only through hf-done after hf-build; no baseline failure is claimed."
+evidence = "The runner gate ledger records the exact candidate revision, command, exit and private log location; final response copies the terminal gate evidence."
+wiring = "No out-of-path changes required; generated gRPC gateway and staking precompile are exercised unchanged from repair_310_test.go."
+
+[finding.unbonding-retry]
+tests = ["TestRepair_310_UnbondingRetryRestart", "TestRepair_310_UnbondingAtomicFailure"]
+repair = "Atomic completion discards all payment, account, entry and event writes on error; end block durably requeues each failed pair once. A committed LevelDB store is closed and reopened before an admitted later block pays exactly once."
+
+[finding.redelegation-filters]
+tests = ["TestRepair_310_RedelegationFiltersTransports"]
+repair = "Validate and apply every supplied validator filter before pagination; filtered totals and continuation keys agree with the real producer records through protobuf query routing, generated HTTP gateway and ABI precompile."
+
+[finding.redelegation-power-cap]
+tests = ["TestRepair_310_RedelegationPowerCap"]
+repair = "Project end-block powers from the current validator index, replacing the destination and applying MaxValidators, after source removal; reject above-cap destination shares without persisting source changes. Multiple transfers and new delegation in one block are checked against the actual end-block set."
+
+[qualification.compile-repair]
+revision = "9f6a87a6312315b043fea0801c73145cde9635b8"
+command = "cg spec done 22.31.310 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "The fork's codec.Codec JSON decoder is named UnmarshalAsJSON; the HTTP proof now uses that real interface."
+
+[qualification.gateway-repair]
+observed = "The previous attempt reached the generated HTTP handler but panicked in the upstream jsonpb marshaler on SDK non-scalar fields; the HTTP proof now uses sdk/server/api.New and its production gogo gateway marshaler and interface registry."
+gotcha = "A bare runtime.NewServeMux uses an incompatible default marshaler for SDK responses; construct the gateway through the production API server."
+
+[qualification.pagination-repair]
+revision = "652a2f28334554166dfa7fa0eb33e9d08c548ff9"
+command = "cg spec done 22.31.310 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Destination-filtered gRPC and HTTP pages lost a matching row because FilteredPaginate overwrites NextKey on later nonmatching records while counting totals; the staking callback now preserves the first omitted matching key."
+
+[qualification.coin-equality-repair]
+observed = "The carried restart proof compared Coin values structurally, so equal zero amounts with different big.Int backing slices could fail; coin and balance assertions now use IsEqual with unchanged expected values."
+gotcha = "Compare SDK coin amounts by numeric equality instead of big.Int representation; the inherited production API gateway fixture already uses the SDK gogo codec."

@@ -28,7 +28,9 @@ rustix = { version = "=1.1.4", features = ["net"] }
 zeroize = "=1.9.0"
 getrandom = "=0.3.4"
 
+# The native reads HTTP proof is owned by layerx-mcp; keep the daemon dependency one-way.
 [dev-dependencies]
+layerx-platform-authority = { path = "../../../platform/hosted/authority" }
 hex = "=0.4.3"
 layerx-sdk = { path = "../layerx-sdk" }
 native-tls = "=0.2.18"
@@ -36,9 +38,18 @@ openssl = "=0.10.81"
 ed25519-dalek = "=2.2.0"
 k256 = { version = "=0.13.4", default-features = false, features = ["ecdsa", "std"] }
 
+# Shared producer harness; the end-to-end consumer proof is a layerx-mcp target.
+[[test]]
+name = "native-reads-http"
+path = "tests/proof_native_reads.rs"
+
 [[test]]
 name = "limits-exactly-once"
 path = "../../tests/limits/exactly_once.rs"
+
+[[test]]
+name = "repair_22_33_1532"
+path = "tests/repair_22_33_1532.rs"
 
 [lints]
 workspace = true

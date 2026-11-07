@@ -17,8 +17,8 @@ var (
 	jsonUnmarshalerType = reflect.TypeOf(new(json.Unmarshaler)).Elem()
 )
 
-// Marshal marshals the value as JSON, using Amino-compatible JSON encoding (strings for
-// 64-bit numbers, and type wrappers for registered types).
+// Marshal marshals concrete values as JSON, using Amino-compatible string encoding
+// for 64-bit integers. It does not add type wrappers or encode interface fields.
 func Marshal(v any) ([]byte, error) {
 	buf := new(bytes.Buffer)
 	err := encode(buf, v)

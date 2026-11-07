@@ -74,6 +74,7 @@ spec:
             - {name: LAYERX_REGISTRY_IDENTITY_CLIENT_IDENTITY_PASSWORD_FILE, value: "/run/layerx/events/password"}
             - {name: LAYERX_REGISTRY_LISTEN, value: "0.0.0.0:9420"}
             - {name: LAYERX_REGISTRY_HEALTH_LISTEN, value: "0.0.0.0:9421"}
+            - {name: LAYERX_REGISTRY_CHAIN_RPC_URL, value: "https://api1.mainnet-beta.paxeer.network/"}
             - {name: LAYERX_REGISTRY_STATE, value: /var/lib/layerx-program-registry}
             - {name: LAYERX_REGISTRY_JOURNAL, value: /var/lib/layerx-registry-journal}
             - {name: LAYERX_REGISTRY_REQUEST_TOKEN_FILE, value: /run/layerx/request/token}
@@ -123,84 +124,30 @@ spec:
             - {name: builder, mountPath: /opt/layerx-builder, readOnly: true}
             - {name: host-cgroup, mountPath: /run/layerx/host-cgroup, readOnly: false}
             - {name: quota, mountPath: /run/layerx/quota}
-        - name: explorer-index
-          image: ghcr.io/sidiora-labs/layerx-human:0.1.0
+        - name: chain-indexer
+          image: ghcr.io/sidiora-labs/platform-indexer:0.1.0
           imagePullPolicy: Always
-          command: [/bin/sh, -ec]
-          args:
-            - |
-              material=$(python3 /usr/local/lib/layerx-human/material.py --verify-registry-material /run/layerx/trust/material)
-              selected=$(printf '%s' "$material" | python3 -c 'import json,sys; print(json.load(sys.stdin)["directory"])')
-              LAYERX_EXPLORER_AUTHORITY_REPLICA_ID=$(printf '%s' "$material" | python3 -c 'import json,sys; print(json.load(sys.stdin)["manifest"]["replica_id"])')
-              LAYERX_EXPLORER_KERNEL_GENERATION=$(printf '%s' "$material" | python3 -c 'import json,sys; print(json.load(sys.stdin)["generation"])')
-              LAYERX_EXPLORER_SEQUENCER_TRUST_HISTORY="$selected/trust-history"
-              export LAYERX_EXPLORER_AUTHORITY_REPLICA_ID LAYERX_EXPLORER_KERNEL_GENERATION LAYERX_EXPLORER_SEQUENCER_TRUST_HISTORY
-              : "${LAYERX_EXPLORER_DEPLOYMENT_JOURNAL:?deployment journal is required}"
-              : "${LAYERX_EXPLORER_OBSERVATION_DIR:?protocol observation directory is required}"
-              until [ -s "$LAYERX_EXPLORER_DEPLOYMENT_JOURNAL/head" ] \
-                  && ls "$LAYERX_EXPLORER_DEPLOYMENT_JOURNAL"/*.admission > /dev/null 2>&1 \
-                  && [ -s "$LAYERX_EXPLORER_OBSERVATION_DIR/probe-program" ] \
-                  && [ -s "$LAYERX_EXPLORER_OBSERVATION_DIR/naming-program" ] \
-                  && [ -s "$LAYERX_EXPLORER_OBSERVATION_DIR/observed-sealed-batch" ] \
-                  && [ -s "$LAYERX_EXPLORER_OBSERVATION_DIR/finalised-checkpoint" ]; do
-                  sleep 5
-              done
-              LAYERX_EXPLORER_PROGRAM_PROBE_ID=$(tr -d '\r\n' < "$LAYERX_EXPLORER_OBSERVATION_DIR/probe-program")
-              LAYERX_EXPLORER_OBSERVED_SEALED_BATCH=$(tr -d '\r\n' < "$LAYERX_EXPLORER_OBSERVATION_DIR/observed-sealed-batch")
-              LAYERX_EXPLORER_FINALISED_CHECKPOINT=$(tr -d '\r\n' < "$LAYERX_EXPLORER_OBSERVATION_DIR/finalised-checkpoint")
-              LAYERX_EXPLORER_NAMING_PROGRAM=$(tr -d '\r\n' < "$LAYERX_EXPLORER_OBSERVATION_DIR/naming-program")
-              export LAYERX_EXPLORER_PROGRAM_PROBE_ID LAYERX_EXPLORER_OBSERVED_SEALED_BATCH LAYERX_EXPLORER_FINALISED_CHECKPOINT
-              export LAYERX_EXPLORER_NAMING_PROGRAM
-              exec /usr/local/bin/layerx-runtime-clock --runtime-dir /run/layerx/explorer-clock -- /usr/local/bin/layerx-explorer-index
+          command: [/usr/local/bin/layerx-indexer]
+          ports: [{name: chain-indexer, containerPort: 8095}]
           env:
-            - {name: LAYERX_EXPLORER_OBSERVATION_DIR, value: /run/layerx/explorer-observation}
-            - {name: LAYERX_EXPLORER_PROGRAM_LISTEN, value: "127.0.0.1:9457"}
-            - {name: LAYERX_EXPLORER_PROGRAM_BEARER_TOKEN, valueFrom: {secretKeyRef: {name: layerx-explorer-index, key: program-token}}}
-            - {name: LAYERX_EXPLORER_PROGRAM_MAX_STALENESS_MS, value: "300000"}
-            - {name: LAYERX_EXPLORER_NODE_ENDPOINT, value: "https://layerx-agent-boundary.layerx-testnet.svc.cluster.local:9443"}
-            - {name: LAYERX_EXPLORER_NODE_BEARER_TOKEN, valueFrom: {secretKeyRef: {name: layerx-program-registry-node-client, key: token}}}
-            - {name: LAYERX_EXPLORER_AUTHORITY_ENDPOINT, value: "https://layerx-receipt-authority.layerx-testnet.svc.cluster.local:9443"}
-            - {name: LAYERX_EXPLORER_AUTHORITY_BEARER_TOKEN, valueFrom: {secretKeyRef: {name: layerx-explorer-index, key: authority-evidence-token}}}
-            - {name: LAYERX_EXPLORER_AUTHORITY_CA_DER, value: /run/layerx/client-ca/ca.crt.der}
-            - {name: LAYERX_EXPLORER_DEPLOYMENT_JOURNAL, value: /var/lib/layerx-registry-journal}
-            - {name: LAYERX_EXPLORER_VERIFIED_SOURCE_STORE, value: /var/lib/layerx-registry-verified}
-            - {name: LAYERX_EXPLORER_READ_KEY_FILE, value: /run/layerx/explorer-read/read-key}
-            - {name: LAYERX_EXPLORER_READ_ENDPOINT, value: "https://layerx-pending-core.layerx-testnet.svc.cluster.local:9443"}
-            - {name: LAYERX_EXPLORER_READ_CA_DER, value: /run/layerx/client-ca/ca.crt.der}
-            - {name: LAYERX_EXPLORER_READ_SEQUENCER_PUBLIC_KEY_FILE, value: /run/layerx/explorer-read/sequencer-public-key}
-            - {name: LAYERX_EXPLORER_READ_NETWORK_ID, valueFrom: {configMapKeyRef: {name: layerx-node-config, key: network-id}}}
-            - {name: LAYERX_EXPLORER_READ_FEE_LIMIT, value: "50000000"}
-            - {name: LAYERX_NETWORK_GATEWAY_ENDPOINT, value: "https://layerx-gateway.layerx-testnet.svc.cluster.local:443/rpc"}
+            - {name: LAYERX_INDEXER_DB, value: /var/lib/layerx-indexer/indexer.sqlite}
+            - {name: LAYERX_INDEXER_LISTEN, value: "0.0.0.0:8095"}
+            - {name: LAYERX_INDEXER_TLS_CERT_DER, value: /run/layerx/indexer-tls/tls.crt.der}
+            - {name: LAYERX_INDEXER_TLS_KEY_DER, value: /run/layerx/indexer-tls/tls.key.der}
+            - {name: LAYERX_INDEXER_EVM_URL, valueFrom: {configMapKeyRef: {name: layerx-chain-indexer-chain, key: evm-url}}}
+            - {name: LAYERX_INDEXER_COMET_URL, valueFrom: {configMapKeyRef: {name: layerx-chain-indexer-chain, key: comet-url}}}
+            - {name: LAYERX_INDEXER_START_BLOCK, valueFrom: {configMapKeyRef: {name: layerx-chain-indexer-chain, key: start-block}}}
+            - {name: LAYERX_INDEXER_EVM_CHAIN_ID, value: "125"}
+            - {name: LAYERX_INDEXER_EVM_CA_DER, value: /usr/local/share/layerx/isrg-root-x1.der}
+            - {name: LAYERX_INDEXER_COMET_CA_DER, value: /usr/local/share/layerx/isrg-root-x1.der}
+            - {name: LAYERX_INDEXER_ABI_DIR, value: /usr/local/share/layerx/precompiles}
+          readinessProbe: {httpGet: {scheme: HTTPS, path: /readyz, port: chain-indexer}, periodSeconds: 10, timeoutSeconds: 5, failureThreshold: 1}
+          livenessProbe: {httpGet: {scheme: HTTPS, path: /healthz, port: chain-indexer}, periodSeconds: 10, timeoutSeconds: 5, failureThreshold: 6}
           resources: {requests: {cpu: 100m, memory: 128Mi}, limits: {cpu: "1", memory: 512Mi}}
           securityContext: {runAsUser: 4030, runAsGroup: 4030, runAsNonRoot: true, allowPrivilegeEscalation: false, readOnlyRootFilesystem: true, capabilities: {drop: [ALL]}, seccompProfile: {type: RuntimeDefault}}
           volumeMounts:
-            - {name: journal, mountPath: /var/lib/layerx-registry-journal, subPath: journal, readOnly: true}
-            - {name: state, mountPath: /var/lib/layerx-registry-verified, subPath: verified, readOnly: true}
-            - {name: client-ca, mountPath: /run/layerx/client-ca, readOnly: true}
-            - {name: trust, mountPath: /run/layerx/trust, readOnly: true}
-            - {name: explorer-observation, mountPath: /run/layerx/explorer-observation, readOnly: true}
-            - {name: explorer-read, mountPath: /run/layerx/explorer-read, readOnly: true}
-            - {name: explorer-clock, mountPath: /run/layerx/explorer-clock}
-        - name: explorer-boundary
-          image: ghcr.io/sidiora-labs/layerx-node:0.1.0
-          imagePullPolicy: Always
-          command: [/bin/sh, -ec]
-          args:
-            - |
-              : "${LAYERX_EXPLORER_BOUNDARY_PORT:?explorer boundary port is required}"
-              : "${LAYERX_EXPLORER_PROGRAM_PORT:?explorer program port is required}"
-              while ! socat -T 2 /dev/null "TCP:127.0.0.1:${LAYERX_EXPLORER_PROGRAM_PORT}" > /dev/null 2>&1; do sleep 5; done
-              exec socat -T 30 \
-                "OPENSSL-LISTEN:${LAYERX_EXPLORER_BOUNDARY_PORT},bind=0.0.0.0,reuseaddr,fork,cert=/run/layerx/explorer-tls/tls.crt,key=/run/layerx/explorer-tls/tls.key,verify=0" \
-                "TCP:127.0.0.1:${LAYERX_EXPLORER_PROGRAM_PORT}"
-          env:
-            - {name: LAYERX_EXPLORER_BOUNDARY_PORT, value: "9443"}
-            - {name: LAYERX_EXPLORER_PROGRAM_PORT, value: "9457"}
-          ports: [{name: explorer-tls, containerPort: 9443}]
-          resources: {requests: {cpu: 50m, memory: 32Mi}, limits: {cpu: 500m, memory: 128Mi}}
-          securityContext: {runAsUser: 4030, runAsGroup: 4030, runAsNonRoot: true, allowPrivilegeEscalation: false, readOnlyRootFilesystem: true, capabilities: {drop: [ALL]}, seccompProfile: {type: RuntimeDefault}}
-          volumeMounts:
-            - {name: explorer-tls, mountPath: /run/layerx/explorer-tls, readOnly: true}
+            - {name: indexer-state, mountPath: /var/lib/layerx-indexer}
+            - {name: indexer-tls, mountPath: /run/layerx/indexer-tls, readOnly: true}
       volumes:
         - {name: journal, persistentVolumeClaim: {claimName: layerx-registry-journal}}
         - {name: events, secret: {secretName: layerx-registry-event-producer, defaultMode: 0440}}
@@ -213,12 +160,11 @@ spec:
         - {name: builder, persistentVolumeClaim: {claimName: layerx-program-builder-release}}
         - {name: host-cgroup, hostPath: {path: /sys/fs/cgroup/kubelet.slice, type: Directory}}
         - {name: quota, hostPath: {path: /var/lib/layerx-program-registry-builds, type: Directory}}
-        - {name: explorer-tls, secret: {secretName: layerx-explorer-index-tls, defaultMode: 0440}}
-        - {name: explorer-observation, configMap: {name: layerx-explorer-index, optional: true, defaultMode: 0444}}
-        - {name: explorer-read, secret: {secretName: layerx-explorer-index, defaultMode: 0440, items: [{key: read-key, path: read-key}, {key: sequencer-public-key, path: sequencer-public-key}]}}
-        - {name: explorer-clock, emptyDir: {medium: Memory, sizeLimit: 1Mi}}
+        - {name: indexer-tls, secret: {secretName: layerx-chain-indexer-tls, defaultMode: 0440, items: [{key: tls.crt.der, path: tls.crt.der}, {key: tls.key.der, path: tls.key.der}]}}
   volumeClaimTemplates:
     - metadata: {name: state}
+      spec: {accessModes: [ReadWriteOnce], resources: {requests: {storage: 100Gi}}}
+    - metadata: {name: indexer-state}
       spec: {accessModes: [ReadWriteOnce], resources: {requests: {storage: 100Gi}}}
 ---
 apiVersion: v1
@@ -238,37 +184,27 @@ spec:
     - from: [{podSelector: {matchLabels: {layerx-role: source-publication-operator}}}]
       ports: [{protocol: TCP, port: 9420}]
   egress:
+    - to: [{ipBlock: {cidr: 0.0.0.0/0}}, {ipBlock: {cidr: "::/0"}}]
+      ports: [{protocol: TCP, port: 443}]
     - to: [{podSelector: {matchLabels: {layerx-plane: trusted-boundary}}}]
       ports: [{protocol: TCP, port: 9443}, {protocol: TCP, port: 9445}, {protocol: TCP, port: 9446}]
-    - to: [{podSelector: {matchLabels: {app: layerx-gateway}}}]
-      ports: [{protocol: TCP, port: 9443}]
     - to: [{namespaceSelector: {}}]
       ports: [{protocol: UDP, port: 53}, {protocol: TCP, port: 53}]
 ---
 apiVersion: v1
 kind: Service
-metadata: {name: layerx-explorer-index, namespace: layerx-testnet}
-spec: {selector: {app: layerx-program-registry}, ports: [{name: explorer, port: 9443, targetPort: explorer-tls}]}
+metadata: {name: layerx-chain-indexer, namespace: layerx-testnet}
+spec: {selector: {app: layerx-program-registry}, ports: [{name: chain-indexer, port: 8095, targetPort: chain-indexer}]}
 ---
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
-metadata: {name: layerx-explorer-index, namespace: layerx-testnet}
+metadata: {name: layerx-chain-indexer, namespace: layerx-testnet}
 spec:
   podSelector: {matchLabels: {app: layerx-program-registry}}
   policyTypes: [Ingress]
   ingress:
-    - from: [{podSelector: {matchLabels: {app: layerx-human-web}}}]
-      ports: [{protocol: TCP, port: 9443}]
----
-apiVersion: networking.k8s.io/v1
-kind: NetworkPolicy
-metadata: {name: layerx-registry-lni-bridge, namespace: layerx-testnet}
-spec:
-  podSelector: {matchLabels: {app: layerx-node}}
-  policyTypes: [Ingress]
-  ingress:
-    - from: [{podSelector: {matchLabels: {app: layerx-program-registry}}}]
-      ports: [{protocol: TCP, port: 9443}]
+    - from: [{podSelector: {matchLabels: {app: layerx-human-web}}}, {podSelector: {matchLabels: {app: layerx-gateway}}}]
+      ports: [{protocol: TCP, port: 8095}]
 ---
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy

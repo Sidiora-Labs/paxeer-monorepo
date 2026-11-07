@@ -3,6 +3,7 @@ package segment
 import (
 	"bufio"
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"log/slog"
 	"os"
@@ -38,6 +39,12 @@ type keyFile struct {
 	// The writer for the file. If the file is sealed, this value is nil.
 	writer *bufio.Writer
 
+	// The file owned by the writer, retained until sealing completes.
+	file *os.File
+
+	// Whether flush must sync key bytes to durable storage.
+	fsync bool
+
 	// The size of the key file in bytes.
 	size uint64
 
@@ -55,6 +62,7 @@ func createKeyFile(
 	index uint32,
 	segmentPath *SegmentPath,
 	swap bool,
+	fsync bool,
 ) (*keyFile, error) {
 
 	keys := &keyFile{
@@ -63,6 +71,7 @@ func createKeyFile(
 		segmentPath:    segmentPath,
 		segmentVersion: LatestSegmentVersion,
 		swap:           swap,
+		fsync:          fsync,
 	}
 
 	filePath := keys.path()
@@ -84,6 +93,15 @@ func createKeyFile(
 
 	writer := bufio.NewWriter(file)
 	keys.writer = writer
+	keys.file = file
+
+	if fsync {
+		// A durable key file also needs its directory entry to survive a crash.
+		if err := util.SyncParentPath(filePath); err != nil {
+			_ = file.Close()
+			return nil, fmt.Errorf("failed to sync key file directory: %w", err)
+		}
+	}
 
 	return keys, nil
 }
@@ -238,7 +256,15 @@ func (k *keyFile) flush() error {
 		return fmt.Errorf("key file is sealed")
 	}
 
-	return k.writer.Flush()
+	if err := k.writer.Flush(); err != nil {
+		return fmt.Errorf("failed to flush key file: %w", err)
+	}
+	if k.fsync {
+		if err := k.file.Sync(); err != nil {
+			return fmt.Errorf("failed to sync key file: %w", err)
+		}
+	}
+	return nil
 }
 
 // seal seals the key file, preventing further writes.
@@ -247,13 +273,18 @@ func (k *keyFile) seal() error {
 		return fmt.Errorf("key file is already sealed")
 	}
 
-	err := k.flush()
-	if err != nil {
-		return fmt.Errorf("failed to flush key file: %w", err)
-	}
+	flushErr := k.flush()
+	closeErr := k.file.Close()
 	k.writer = nil
+	k.file = nil
 
-	return nil
+	if flushErr != nil {
+		flushErr = fmt.Errorf("failed to flush key file: %w", flushErr)
+	}
+	if closeErr != nil {
+		closeErr = fmt.Errorf("failed to close key file: %w", closeErr)
+	}
+	return errors.Join(flushErr, closeErr)
 }
 
 // readKeys reads all keys from the key file. This method returns an error if the key file is not sealed.

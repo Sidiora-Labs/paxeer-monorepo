@@ -1,9 +1,12 @@
 //! Preparation of EIP-1559 calls against sequencer pending state.
 
+pub mod disclose;
+
 pub mod evm {
     use std::time::Duration;
 
     use layerx_client::sequencer::{CallRequest, SequencerEndpoint, SequencerError};
+    use layerx_crypto::disclosure::{Disclosure, DisclosureError};
     use layerx_crypto::evm_transaction::Eip1559Call;
     use serde_json::{json, Value};
 
@@ -146,6 +149,9 @@ pub mod evm {
     #[derive(Clone, Debug, Eq, PartialEq)]
     pub struct Prepared {
         pub call: Eip1559Call,
+        pub from: [u8; 20],
+        pub disclosure: Disclosure,
+        pub disclosure_digest: [u8; 32],
         pub signing_hash: [u8; 32],
         pub observed_head_height: u64,
     }
@@ -153,6 +159,7 @@ pub mod evm {
     #[derive(Clone, Debug, Eq, PartialEq)]
     pub enum PrepareError {
         Sequencer(SequencerError),
+        Disclosure(DisclosureError),
         StaleNonce { expected: u64, pending: u64 },
         InvalidDefaults,
         PayloadLimitExceeded { actual: usize, maximum: usize },
@@ -318,7 +325,7 @@ pub mod evm {
                 data: call.data.clone(),
             })
             .map_err(PrepareError::Sequencer)?;
-        finish_call(call, state.head_height)
+        finish_call(call, request.from, state.head_height)
     }
 
     /// Deterministic construction from an observed state and its pending gas estimate.
@@ -330,18 +337,39 @@ pub mod evm {
     ) -> Result<Prepared, PrepareError> {
         let mut call = build_call(state, defaults, &request)?;
         call.gas_limit = gas_limit;
-        finish_call(call, state.head_height)
+        finish_call(call, request.from, state.head_height)
     }
 
-    fn finish_call(call: Eip1559Call, observed_head_height: u64) -> Result<Prepared, PrepareError> {
+    fn finish_call(
+        call: Eip1559Call,
+        from: [u8; 20],
+        observed_head_height: u64,
+    ) -> Result<Prepared, PrepareError> {
         if call.gas_limit == 0 {
             return Err(PrepareError::InvalidDefaults);
         }
+        let bound = super::disclose::bind(&call, from).map_err(PrepareError::Disclosure)?;
+        let disclosure = bound.disclosure;
+        let disclosure_digest = bound.digest;
         Ok(Prepared {
+            from,
+            disclosure,
+            disclosure_digest,
             signing_hash: call.signing_hash(),
             call,
             observed_head_height,
         })
+    }
+
+    #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+    pub enum CallBindingError {
+        Disclosure(DisclosureError),
+        DigestMismatch,
+        SigningHashMismatch,
+    }
+
+    pub fn verify_call_binding(prepared: &Prepared) -> Result<(), CallBindingError> {
+        super::disclose::verify_binding(prepared)
     }
 
     fn build_call(
@@ -394,10 +422,13 @@ pub mod evm {
 }
 
 pub use evm::{
-    prepare_bound, AbiArgument, EvmPreparationState, PrecompileCall, PrecompileTarget,
-    PreparationDefaults as EvmPreparationDefaults, PrepareError as EvmPrepareError,
-    PrepareRequest as EvmPrepareRequest, Prepared as EvmPrepared, ProductionEvmPreparationBoundary,
+    prepare_bound, verify_call_binding, AbiArgument, CallBindingError, EvmPreparationState,
+    PrecompileCall, PrecompileTarget, PreparationDefaults as EvmPreparationDefaults,
+    PrepareError as EvmPrepareError, PrepareRequest as EvmPrepareRequest,
+    ProductionEvmPreparationBoundary,
 };
+
+pub type EvmPrepared = evm::Prepared;
 
 #[path = ""]
 pub mod legacy {
@@ -414,7 +445,7 @@ pub mod legacy {
     use layerx_wire::sign::preimage_unsigned;
     use layerx_wire::WireError;
 
-    #[path = "disclose.rs"]
+    #[path = "legacy_disclose.rs"]
     mod disclosure_binding;
     #[path = "expiry.rs"]
     mod lifecycle;
@@ -424,7 +455,8 @@ pub mod legacy {
     pub use lifecycle::{
         DurablePreparation, ExpirationReport, LifecycleError, LifecycleState, PayloadRedaction,
         PreparationExtension, PreparationInvalidationReport, PreparationLifecycle, RetentionReport,
-        EXTENSION_CAPABILITY, EXTENSION_IDEMPOTENCY, EXTENSION_OUTCOME,
+        EXTENSION_CALL, EXTENSION_CAPABILITY, EXTENSION_IDEMPOTENCY, EXTENSION_OUTCOME,
+        EXTENSION_TERMINAL_SEQUENCE,
     };
 
     /// Domain-separated digest of the validated structured disclosure.
@@ -534,7 +566,10 @@ pub mod legacy {
             let state = CorePreparationState {
                 network_id,
                 account_sequence,
-                protocol_timestamp: head.timestamp,
+                protocol_timestamp: head
+                    .timestamp
+                    .checked_mul(1000)
+                    .ok_or(CoreStateError::Unverified)?,
                 observed_head_sequence: head.number,
                 module_registry: self.module_registry.clone(),
             };
@@ -586,6 +621,16 @@ pub mod legacy {
         pub disclosure: layerx_crypto::disclosure::Disclosure,
         pub disclosure_digest: DisclosureDigest,
         pub audit: PreparationAuditEntry,
+    }
+
+    impl Prepared {
+        pub(crate) fn lifecycle_facts(&self) -> Result<(u64, [u8; 32]), LifecycleError> {
+            verify_disclosure_binding(self).map_err(|_| LifecycleError::InvalidSignedBytes)?;
+            Ok((
+                self.disclosure.expiry.not_after,
+                self.envelope.payload_hash(),
+            ))
+        }
     }
 
     /// Preparation audit evidence emitted with every response.
@@ -898,7 +943,7 @@ pub mod legacy {
     }
 
     #[cfg(test)]
-    #[path = "restore_tests.rs"]
+    #[path = "legacy_restore_tests.rs"]
     mod restore_tests;
 }
 

@@ -1,3 +1,8 @@
+mod backend_availability;
+use backend_availability::{BackendAvailability, KernelBackend};
+mod authority_readiness;
+
+use authority_readiness::probe_authority_readiness;
 mod capabilities;
 mod chain_reads;
 mod explorer_proxy;
@@ -39,7 +44,7 @@ use std::fs;
 use std::io::Write;
 use std::net::{SocketAddr, TcpListener, TcpStream};
 use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::Arc;
+use std::sync::{Arc, OnceLock};
 use std::thread;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use subtle::ConstantTimeEq;
@@ -66,7 +71,10 @@ struct Config {
     client: Client,
     client_identity: bool,
     kernel: Option<Kernel>,
+    identity: Option<IdentityTarget>,
     receipt_keys: Option<ReceiptKeyList>,
+    committed_state: Option<layerx_platform_gateway::committed_state::Authority>,
+    state_clock: fn() -> Result<u64, String>,
     paxeer: Option<Vec<Endpoint>>,
     capabilities: capabilities::Cache,
     indexer: Option<history::Indexer>,
@@ -88,59 +96,28 @@ struct Kernel {
     public_core: Option<Endpoint>,
     authority: Endpoint,
     authority_token: Zeroizing<String>,
-    identity: Endpoint,
-    identity_token: Zeroizing<String>,
     registry: Endpoint,
     registry_token: Zeroizing<String>,
-    key_provisioning_key: Zeroizing<[u8; 32]>,
     #[cfg(test)]
     modules: ModuleRegistry,
 }
 
-const KERNEL_VARIABLES: [&str; 13] = [
+struct IdentityTarget {
+    endpoint: Endpoint,
+    token: Zeroizing<String>,
+    key_provisioning_key: Option<Zeroizing<[u8; 32]>>,
+}
+
+const KERNEL_VARIABLES: [&str; 8] = [
     "LAYERX_GATEWAY_COMPONENT_URL",
     "LAYERX_GATEWAY_COMPONENT_TOKEN_FILE",
     "LAYERX_GATEWAY_PUBLIC_CORE_URL",
     "LAYERX_GATEWAY_AUTHORITY_URL",
     "LAYERX_GATEWAY_AUTHORITY_TOKEN_FILE",
-    "LAYERX_GATEWAY_IDENTITY_URL",
-    "LAYERX_GATEWAY_IDENTITY_TOKEN_FILE",
     "LAYERX_GATEWAY_PROGRAM_REGISTRY_URL",
     "LAYERX_GATEWAY_PROGRAM_REGISTRY_TOKEN_FILE",
-    "LAYERX_GATEWAY_CLIENT_IDENTITY_PKCS12",
-    "LAYERX_GATEWAY_CLIENT_IDENTITY_PASSWORD_FILE",
-    "LAYERX_GATEWAY_KEY_PROVISIONING_KEY_FILE",
     "LAYERX_GATEWAY_MODULE_REGISTRY_FILE",
 ];
-
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-enum KernelBackend {
-    Component,
-    PublicCore,
-    Authority,
-    Identity,
-    Registry,
-}
-
-impl KernelBackend {
-    const ALL: [Self; 5] = [
-        Self::Component,
-        Self::PublicCore,
-        Self::Authority,
-        Self::Identity,
-        Self::Registry,
-    ];
-
-    const fn name(self) -> &'static str {
-        match self {
-            Self::Component => "core_agent_boundary",
-            Self::PublicCore => "public_core",
-            Self::Authority => "independent_receipt_authority",
-            Self::Identity => "identity",
-            Self::Registry => "program_registry",
-        }
-    }
-}
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 struct KernelUnavailable {
@@ -211,43 +188,15 @@ impl From<KernelUnavailable> for OutgoingResponse {
     }
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-struct BackendAvailability {
-    backend: &'static str,
-    ready: bool,
-    configured: bool,
-    reason: &'static str,
-}
-
-impl BackendAvailability {
-    const fn probed(backend: &'static str, ready: bool) -> Self {
-        Self {
-            backend,
-            ready,
-            configured: true,
-            reason: if ready { "ready" } else { "unreachable" },
-        }
-    }
-
-    const fn not_configured(backend: &'static str) -> Self {
-        Self {
-            backend,
-            ready: false,
-            configured: false,
-            reason: "not_configured",
-        }
-    }
-
-    fn document(self) -> serde_json::Value {
-        serde_json::json!({
-            "state": if self.ready { "ready" } else { "unavailable" },
-            "reason": self.reason
-        })
-    }
-}
-
 impl Config {
     fn backend(&self, backend: KernelBackend) -> Result<(&Endpoint, &str), KernelUnavailable> {
+        if backend == KernelBackend::Identity {
+            let target = self
+                .identity
+                .as_ref()
+                .ok_or(KernelUnavailable::not_configured(backend))?;
+            return Ok((&target.endpoint, target.token.as_str()));
+        }
         let kernel = self
             .kernel
             .as_ref()
@@ -262,7 +211,7 @@ impl Config {
                 kernel.component_token.as_str(),
             ),
             KernelBackend::Authority => (&kernel.authority, kernel.authority_token.as_str()),
-            KernelBackend::Identity => (&kernel.identity, kernel.identity_token.as_str()),
+            KernelBackend::Identity => unreachable!("identity is resolved independently"),
             KernelBackend::Registry => (&kernel.registry, kernel.registry_token.as_str()),
         })
     }
@@ -285,8 +234,10 @@ impl Config {
     }
 
     fn key_provisioning_key(&self) -> Result<&Zeroizing<[u8; 32]>, KernelUnavailable> {
-        self.kernel_side(KernelBackend::Identity)
-            .map(|kernel| &kernel.key_provisioning_key)
+        self.identity
+            .as_ref()
+            .and_then(|target| target.key_provisioning_key.as_ref())
+            .ok_or(KernelUnavailable::not_configured(KernelBackend::Identity))
     }
 }
 
@@ -365,76 +316,6 @@ struct ReadinessResponse {
     synchronous_receipts: bool,
     #[serde(default)]
     state_snapshot: bool,
-}
-
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-struct AuthorityReadinessResponse {
-    ready: bool,
-    network_id: String,
-    protocol_network_id: u32,
-    wire_version: String,
-}
-
-#[derive(Debug, PartialEq, Eq)]
-enum AuthorityUnready {
-    Transport,
-    InvalidSchema,
-    IdentityMismatch,
-    Unavailable,
-}
-
-fn decode_authority_readiness(
-    status: u16,
-    content_type: &str,
-    body: &[u8],
-    network_id: &str,
-    protocol_network_id: u32,
-    wire_version: &str,
-) -> Result<(), AuthorityUnready> {
-    let readiness: AuthorityReadinessResponse =
-        serde_json::from_slice(body).map_err(|_| AuthorityUnready::InvalidSchema)?;
-    if readiness.network_id != network_id
-        || readiness.protocol_network_id != protocol_network_id
-        || readiness.wire_version != wire_version
-    {
-        return Err(AuthorityUnready::IdentityMismatch);
-    }
-    if status != 200 || content_type != "application/json" || !readiness.ready {
-        return Err(AuthorityUnready::Unavailable);
-    }
-    Ok(())
-}
-
-fn probe_authority_readiness(
-    client: &Client,
-    endpoint: &Endpoint,
-    token: &str,
-    network_id: &str,
-    protocol_network_id: u32,
-    wire_version: &str,
-) -> Result<(), AuthorityUnready> {
-    let upstream = client
-        .request(
-            endpoint,
-            token,
-            &http::OutboundRequest {
-                method: "GET",
-                path: "/readyz",
-                idempotency: None,
-                content_type: "application/json",
-                body: &[],
-            },
-        )
-        .map_err(|_| AuthorityUnready::Transport)?;
-    decode_authority_readiness(
-        upstream.status,
-        &upstream.content_type,
-        &upstream.body,
-        network_id,
-        protocol_network_id,
-        wire_version,
-    )
 }
 
 fn authority_ready(config: &Config, endpoint: &Endpoint, token: &str) -> bool {
@@ -790,9 +671,14 @@ const LISTENER_CERTIFICATE_VARIABLES: [&str; 2] =
     ["LAYERX_GATEWAY_TLS_CERT_DER", "LAYERX_GATEWAY_TLS_KEY_DER"];
 
 fn listener_config() -> Result<Listener, String> {
-    rustls::crypto::ring::default_provider()
-        .install_default()
-        .map_err(|_| "failed to install TLS crypto provider".to_owned())?;
+    static TLS_PROVIDER: OnceLock<Result<(), String>> = OnceLock::new();
+    TLS_PROVIDER
+        .get_or_init(|| {
+            rustls::crypto::ring::default_provider()
+                .install_default()
+                .map_err(|_| "failed to install TLS crypto provider".to_owned())
+        })
+        .clone()?;
     match env::var("LAYERX_GATEWAY_LISTENER") {
         Err(env::VarError::NotPresent) => tls_config().map(Listener::Tls),
         Ok(mode) if mode == "tls" => tls_config().map(Listener::Tls),
@@ -862,7 +748,7 @@ fn configured_protocol() -> Result<ProtocolConfig, String> {
     })
 }
 
-fn configured_kernel() -> Result<Option<(Kernel, Identity)>, String> {
+fn configured_kernel() -> Result<Option<Kernel>, String> {
     if env::var_os("LAYERX_GATEWAY_COMPONENT_URL").is_none() {
         if let Some(variable) = KERNEL_VARIABLES
             .iter()
@@ -874,18 +760,6 @@ fn configured_kernel() -> Result<Option<(Kernel, Identity)>, String> {
         }
         return Ok(None);
     }
-    let identity_password = read_secret("LAYERX_GATEWAY_CLIENT_IDENTITY_PASSWORD_FILE")?;
-    let identity = Identity::from_pkcs12(
-        &fs::read(
-            env::var("LAYERX_GATEWAY_CLIENT_IDENTITY_PKCS12")
-                .map_err(|_| "gateway client identity is required")?,
-        )
-        .map_err(|error| error.to_string())?,
-        identity_password.as_str(),
-    )
-    .map_err(|error| error.to_string())?;
-    let provisioning_key = read_secret("LAYERX_GATEWAY_KEY_PROVISIONING_KEY_FILE")?;
-    let key_provisioning_key = Zeroizing::new(parse_hex32(provisioning_key.as_str())?);
     #[cfg(not(test))]
     configured_modules()?;
     let kernel = Kernel {
@@ -900,47 +774,78 @@ fn configured_kernel() -> Result<Option<(Kernel, Identity)>, String> {
                 .map_err(|_| "gateway authority URL is required")?,
         )?,
         authority_token: read_secret("LAYERX_GATEWAY_AUTHORITY_TOKEN_FILE")?,
-        identity: Endpoint::parse(
-            &env::var("LAYERX_GATEWAY_IDENTITY_URL")
-                .map_err(|_| "gateway identity URL is required")?,
-        )?,
-        identity_token: read_secret("LAYERX_GATEWAY_IDENTITY_TOKEN_FILE")?,
         registry: Endpoint::parse(
             &env::var("LAYERX_GATEWAY_PROGRAM_REGISTRY_URL")
                 .map_err(|_| "gateway program registry URL is required")?,
         )?,
         registry_token: read_secret("LAYERX_GATEWAY_PROGRAM_REGISTRY_TOKEN_FILE")?,
-        key_provisioning_key,
         #[cfg(test)]
         modules: configured_modules()?,
     };
-    Ok(Some((kernel, identity)))
+    Ok(Some(kernel))
 }
 
-fn configured_service_identity(kernel_configured: bool) -> Result<Option<Identity>, String> {
-    const IDENTITY: &str = "LAYERX_GATEWAY_SERVICE_CLIENT_IDENTITY_PKCS12";
-    const PASSWORD: &str = "LAYERX_GATEWAY_SERVICE_CLIENT_IDENTITY_PASSWORD_FILE";
-    let identity_configured = env::var_os(IDENTITY).is_some();
-    let password_configured = env::var_os(PASSWORD).is_some();
-    if !identity_configured && !password_configured {
+fn configured_identity() -> Result<Option<IdentityTarget>, String> {
+    const URL: &str = "LAYERX_GATEWAY_IDENTITY_URL";
+    const TOKEN: &str = "LAYERX_GATEWAY_IDENTITY_TOKEN_FILE";
+    const KEY: &str = "LAYERX_GATEWAY_KEY_PROVISIONING_KEY_FILE";
+    let Some(url) = env::var_os(URL) else {
+        for variable in [
+            TOKEN,
+            KEY,
+            "LAYERX_GATEWAY_IDENTITY_PROVISIONING_TOKEN_FILE",
+        ] {
+            if env::var_os(variable).is_some() {
+                return Err(format!("{variable} requires {URL}"));
+            }
+        }
         return Ok(None);
-    }
-    if kernel_configured {
+    };
+    let url = url
+        .into_string()
+        .map_err(|_| "gateway identity URL is invalid")?;
+    let key_provisioning_key = if env::var_os(KEY).is_some() {
+        Some(Zeroizing::new(parse_hex32(read_secret(KEY)?.as_str())?))
+    } else {
+        None
+    };
+    Ok(Some(IdentityTarget {
+        endpoint: Endpoint::parse(&url)?,
+        token: read_secret(TOKEN)?,
+        key_provisioning_key,
+    }))
+}
+
+fn configured_service_identity() -> Result<Option<Identity>, String> {
+    let legacy = (
+        "LAYERX_GATEWAY_CLIENT_IDENTITY_PKCS12",
+        "LAYERX_GATEWAY_CLIENT_IDENTITY_PASSWORD_FILE",
+    );
+    let service = (
+        "LAYERX_GATEWAY_SERVICE_CLIENT_IDENTITY_PKCS12",
+        "LAYERX_GATEWAY_SERVICE_CLIENT_IDENTITY_PASSWORD_FILE",
+    );
+    let legacy_set = env::var_os(legacy.0).is_some() || env::var_os(legacy.1).is_some();
+    let service_set = env::var_os(service.0).is_some() || env::var_os(service.1).is_some();
+    if legacy_set && service_set {
         return Err(
-            "service client identity conflicts with the configured kernel client identity"
-                .to_owned(),
+            "service client identity conflicts with the configured kernel client identity".into(),
         );
     }
-    if !identity_configured || !password_configured {
+    let (identity, password) = if legacy_set { legacy } else { service };
+    if !legacy_set && !service_set {
+        return Ok(None);
+    }
+    if env::var_os(identity).is_none() || env::var_os(password).is_none() {
         return Err(format!(
-            "{IDENTITY} and {PASSWORD} must be configured together"
+            "{identity} and {password} must be configured together"
         ));
     }
-    let path = env::var(IDENTITY)
-        .map_err(|_| "gateway service client identity path is invalid".to_owned())?;
-    let password = read_secret(PASSWORD)?;
-    let encoded = Zeroizing::new(fs::read(path).map_err(|error| error.to_string())?);
-    Identity::from_pkcs12(encoded.as_slice(), password.as_str())
+    let encoded = Zeroizing::new(
+        fs::read(env::var(identity).map_err(|_| "invalid client identity path")?)
+            .map_err(|error| error.to_string())?,
+    );
+    Identity::from_pkcs12(encoded.as_slice(), read_secret(password)?.as_str())
         .map(Some)
         .map_err(|error| error.to_string())
 }
@@ -971,13 +876,14 @@ fn config(event_producer: bool) -> Result<Config, String> {
     )
     .map_err(|error| error.to_string())?;
     let kernel = configured_kernel()?;
-    let service_identity = configured_service_identity(kernel.is_some())?;
-    let (client, kernel, client_identity) = match kernel {
-        Some((kernel, identity)) => (Client::new(ca.clone(), identity), Some(kernel), true),
-        None => match service_identity {
-            Some(identity) => (Client::new(ca.clone(), identity), None, true),
-            None => (Client::without_identity(ca.clone()), None, false),
-        },
+    let identity = configured_identity()?;
+    let service_identity = configured_service_identity()?;
+    if kernel.is_some() && service_identity.is_none() {
+        return Err("gateway kernel client identity is required".into());
+    }
+    let (client, client_identity) = match service_identity {
+        Some(identity) => (Client::new(ca.clone(), identity), true),
+        None => (Client::without_identity(ca.clone()), false),
     };
     let idempotency_seconds = env::var("LAYERX_GATEWAY_IDEMPOTENCY_SECONDS")
         .unwrap_or_else(|_| "604800".to_owned())
@@ -999,9 +905,11 @@ fn config(event_producer: bool) -> Result<Config, String> {
         client,
         client_identity,
         kernel,
+        identity,
         receipt_keys,
-        paxeer: paxeer::configured_endpoint()?
-            .map(|endpoints| endpoints.into_iter().map(capabilities::chain_rpc).collect()),
+        committed_state: layerx_platform_gateway::committed_state::Authority::configured()?,
+        state_clock: now,
+        paxeer: paxeer::configured_endpoint()?,
         capabilities: capabilities::configured()?,
         indexer: history::configured_endpoint()?,
         registration_token: rpc_register::configured_token()?,
@@ -1984,7 +1892,9 @@ fn route_with_peer(
         .path
         .split_once('?')
         .map_or(request.path.as_str(), |(path, _)| path);
-    if path == "/v1/activities"
+    if path == "/rpc"
+        || path.starts_with("/rpc/")
+        || path == "/v1/activities"
         || path.starts_with("/v1/activities/")
         || path == "/v1/programs"
         || path.starts_with("/v1/programs/")
@@ -2002,11 +1912,47 @@ fn route_with_peer(
     {
         return response(400, "untrusted_identity_header", None);
     }
+    if path.starts_with("/v1/ai/markets/") {
+        let Some(views) = &config.capabilities.ai_views else {
+            return response(503, "ai_views_unavailable", None);
+        };
+        let Ok(now_ms) = (config.state_clock)().and_then(|seconds| {
+            seconds
+                .checked_mul(1000)
+                .ok_or_else(|| "AI clock overflow".to_owned())
+        }) else {
+            return response(503, "readiness_clock_unavailable", None);
+        };
+        // A local projection cannot assert its own freshness. Only a verified live
+        // consensus observation can supply the independent authority height.
+        let height = config.committed_state.as_ref().and_then(|authority| {
+            let id = serde_json::json!("gateway-ai-freshness");
+            let status = chain_reads::consensus(config, "status", &id, serde_json::json!({}))?;
+            let height = status.pointer("/sync_info/latest_block_height")?.as_str()?;
+            let commit = chain_reads::consensus(
+                config,
+                "commit",
+                &id,
+                serde_json::json!({"height": height}),
+            )?;
+            authority
+                .verify(&status, &commit, (config.state_clock)().ok()?)
+                .ok()
+                .map(|state| state.height)
+        });
+        return layerx_platform_gateway::ai_views::respond(
+            views,
+            &config.store,
+            &request.method,
+            &request.path,
+            request.headers.get("authorization").map(String::as_str),
+            height,
+            now_ms,
+        )
+        .unwrap_or_else(|| response(404, "not_found", None));
+    }
     if let Some(result) = routes::route(config, request, peer) {
         return result;
-    }
-    if request.path == "/" && request.method == "POST" {
-        return rpc::route(config, request);
     }
     if let Some(result) = public_reads::route(config, request) {
         return result;
@@ -2046,8 +1992,10 @@ fn route_with_peer(
     let Ok(parsed) = production_route(&request.method, &request.path) else {
         return response(404, "not_found", None);
     };
-    if let Err(unavailable) = config.backend(KernelBackend::Component) {
-        return OutgoingResponse::from(unavailable);
+    if matches!(parsed, ProductionRoute::Receipt(_)) {
+        if let Err(unavailable) = config.backend(KernelBackend::Component) {
+            return OutgoingResponse::from(unavailable);
+        }
     }
     let record = match authenticate_key(config, request) {
         Ok(value) => value,
@@ -2108,17 +2056,20 @@ fn exchange<S: ws::Connection>(
             }
             Err(_) => return Ok(()),
         };
+        if request.method == "GET"
+            && request.path == "/"
+            && request
+                .headers
+                .get("upgrade")
+                .is_some_and(|value| value.eq_ignore_ascii_case("websocket"))
+        {
+            return ws::serve(config, &request, stream);
+        }
         if let Some(result) = explorer_proxy::websocket(&request, stream) {
             return result;
         }
         if let Some(result) = ui_proxy::exchange(&request, stream) {
             return result;
-        }
-        if request.path == "/rpc/evm/ws" {
-            return ws::serve_evm(config, &request, stream);
-        }
-        if request.path == "/rpc/ws" {
-            return ws::serve(config, &request, stream);
         }
         if let Some(result) = routes::stream(config, &request, stream) {
             return result;
@@ -2317,31 +2268,15 @@ fn readiness(config: &Config) -> Vec<BackendAvailability> {
         },
         paxeer_chain_readiness(config),
         consensus_readiness(config),
+        if config.indexer.is_some() {
+            BackendAvailability::probed("indexer", history::status(config) == "available")
+        } else {
+            BackendAvailability::not_configured("indexer")
+        },
     ];
-    if KernelBackend::ALL
-        .into_iter()
-        .all(|backend| config.backend(backend).is_err())
-    {
-        backends.retain(|backend| backend.configured || backend.backend == "paxeer_chain");
-        return backends;
-    }
-    backends.extend(KernelBackend::ALL.into_iter().map(|backend| {
-        kernel_availability(config, backend, |endpoint, token| match backend {
-            KernelBackend::Component => dependency_ready(config, endpoint, token, true),
-            KernelBackend::PublicCore => authenticated_readiness(config, endpoint, token)
-                .is_some_and(|upstream| {
-                    public_core_readiness(
-                        &upstream,
-                        config.protocol_network_id,
-                        &config.wire_version,
-                    )
-                }),
-            KernelBackend::Authority => authority_ready(config, endpoint, token),
-            KernelBackend::Identity => authenticated_readiness(config, endpoint, token)
-                .is_some_and(|upstream| identity_readiness(&upstream)),
-            KernelBackend::Registry => program_registry_ready(config),
-        })
-    }));
+    backends.retain(|backend| {
+        backend.configured || matches!(backend.backend, "paxeer_chain" | "consensus" | "indexer")
+    });
     backends
 }
 
@@ -2355,7 +2290,7 @@ fn paxeer_chain_readiness(config: &Config) -> BackendAvailability {
         "method": "eth_chainId",
         "params": []
     });
-    let ready = paxeer::node(config, &request).is_ok_and(|document| {
+    let ready = paxeer::node_unmetered(config, &request).is_ok_and(|document| {
         document.get("jsonrpc").and_then(serde_json::Value::as_str) == Some("2.0")
             && document.get("id") == request.get("id")
             && document.get("result").and_then(serde_json::Value::as_str) == Some("0x7d")
@@ -2434,29 +2369,18 @@ fn gateway_readiness_scope(config: &Config, include_product_routes: bool) -> Out
         return response(503, "readiness_clock_unavailable", None);
     };
     let backends = readiness(config);
-    let kernel_configured = KernelBackend::ALL
-        .into_iter()
-        .any(|backend| config.backend(backend).is_ok());
     let chain = backends
         .iter()
         .find(|backend| backend.backend == "paxeer_chain")
         .copied()
         .unwrap_or_else(|| BackendAvailability::not_configured("paxeer_chain"));
-    let serving = backends
-        .iter()
-        .all(|backend| backend.ready || !backend.configured);
+    let serving = backends.iter().all(|backend| backend.ready);
     let product_routes = if include_product_routes {
         config.routes.readiness(config)
     } else {
         serde_json::Value::Null
     };
-    let complete = if !kernel_configured {
-        backends.iter().all(|backend| backend.ready) && chain.ready
-    } else if include_product_routes {
-        backends.iter().all(|backend| backend.ready) && product_routes["complete"] == true
-    } else {
-        backends.iter().all(|backend| backend.ready)
-    };
+    let complete = serving && (!include_product_routes || product_routes["complete"] == true);
     let component_name = |name: &str| {
         if backend_ready(&backends, name) {
             "ready"
@@ -2464,21 +2388,11 @@ fn gateway_readiness_scope(config: &Config, include_product_routes: bool) -> Out
             "unavailable"
         }
     };
-    let mut components = serde_json::json!({
+    let components = serde_json::json!({
         "durable_store": component_name("durable_store")
     });
-    if kernel_configured {
-        for backend in KernelBackend::ALL {
-            components[backend.name()] = serde_json::json!(component_name(backend.name()));
-        }
-        components["principal_state_boundary"] = serde_json::json!("unavailable");
-    }
     json_response(
-        if (include_product_routes && serving) || (!include_product_routes && complete) {
-            200
-        } else {
-            503
-        },
+        if complete { 200 } else { 503 },
         &serde_json::json!({
             "readiness_version": 1,
             "protocol_version": config.protocol_version,
@@ -2496,6 +2410,10 @@ fn gateway_readiness_scope(config: &Config, include_product_routes: bool) -> Out
                     "state": if chain.ready { "ready" } else { "unavailable" },
                     "reason": chain.reason,
                     "chain_id": 125_u64
+                },
+                "layerx_activity": {
+                    "state": "not_configured",
+                    "reason": "not_configured"
                 }
             },
             "components": components,
@@ -2509,24 +2427,39 @@ fn gateway_readiness_scope(config: &Config, include_product_routes: bool) -> Out
 }
 
 fn gateway_status(config: &Config) -> OutgoingResponse {
-    let gateway = config.store.ready();
-    let core = kernel_availability(config, KernelBackend::Component, |endpoint, token| {
-        dependency_ready(config, endpoint, token, true)
-    });
-    let authority = kernel_availability(config, KernelBackend::Authority, |endpoint, token| {
-        authority_ready(config, endpoint, token)
-    });
+    let backends = readiness(config);
+    let available = backends.iter().all(|backend| backend.ready);
+    let mut services = backends
+        .iter()
+        .map(|backend| {
+            (
+                backend.backend.to_owned(),
+                serde_json::json!(if backend.ready {
+                    "available"
+                } else if backend.configured {
+                    "unavailable"
+                } else {
+                    "not_configured"
+                }),
+            )
+        })
+        .collect::<serde_json::Map<_, _>>();
+    services.insert(
+        "hosted_gateway".to_owned(),
+        serde_json::json!(if available {
+            "available"
+        } else if backend_ready(&backends, "durable_store") {
+            "degraded"
+        } else {
+            "unavailable"
+        }),
+    );
     json_response(
         200,
         &serde_json::json!({
             "ok": true,
-            "services": {
-                "hosted_gateway": if gateway { "degraded" } else { "unavailable" },
-                "testnet_core": if core.ready { "available" } else { "unavailable" },
-                "receipt_authority": if authority.ready { "available" } else { "unavailable" },
-                "paxeer": paxeer::status(config),
-                "indexer": history::status(config)
-            },
+            "services": services,
+            "product_routes": config.routes.readiness(config),
             "lxp_wire_version": config.wire_version,
             "package_semver": env!("CARGO_PKG_VERSION")
         }),
@@ -4376,10 +4309,19 @@ mod module_schema_tests {
 
     #[test]
     fn native_generated_registry_admits_exactly_the_closed_protocol_module_set() {
-        let document: serde_json::Value = serde_json::from_slice(include_bytes!(
+        let mut document: serde_json::Value = serde_json::from_slice(include_bytes!(
             "../../../../../tests/fixtures/public-testnet-modules/registry.json"
         ))
         .unwrap_or_else(|error| panic!("native generated module registry: {error}"));
+        for module in [ModuleId::Spot, ModuleId::Web] {
+            let activity = ActivityType::new(module, 1).expect("declared protocol activity");
+            document["modules"]
+                .as_array_mut()
+                .expect("module declarations")
+                .push(
+                    serde_json::json!({"module": module as u16, "ordinals": [activity.ordinal()]}),
+                );
+        }
         let parse = |value: serde_json::Value| -> Result<ModuleRegistry, String> {
             modules_from_file(serde_json::from_value(value).map_err(|error| error.to_string())?)
         };
@@ -4396,17 +4338,17 @@ mod module_schema_tests {
         for module in ModuleId::ALL {
             assert_eq!(ModuleId::from_u16(module as u16), Ok(module));
         }
-        let mut tenth = document.clone();
-        tenth["modules"]
+        let mut oversized = document.clone();
+        oversized["modules"]
             .as_array_mut()
             .unwrap_or_else(|| panic!("module declarations"))
             .push(document["modules"][0].clone());
-        assert!(parse(tenth).is_err());
+        assert!(parse(oversized).is_err());
         let mut duplicate = document.clone();
         duplicate["modules"][8] = document["modules"][0].clone();
         assert!(parse(duplicate).is_err());
         let mut unknown = document.clone();
-        unknown["modules"][8]["module"] = serde_json::json!(10);
+        unknown["modules"][8]["module"] = serde_json::json!(12);
         assert!(parse(unknown).is_err());
         let mut zero = document.clone();
         zero["modules"][0]["ordinals"][0] = serde_json::json!(0);
@@ -5051,189 +4993,6 @@ mod settlement_contract_tests {
     }
 }
 
-#[cfg(test)]
-mod authority_readiness_contract_tests {
-    use super::*;
-
-    #[test]
-    fn authority_readiness_contract() {
-        let input =
-            env::var("PAXEER_X_AUTHORITY_CONTRACT_CASE").expect("real authority case required");
-        let case: serde_json::Value =
-            serde_json::from_slice(&fs::read(input).expect("case file")).expect("case JSON");
-        let text = |name: &str| case[name].as_str().expect(name);
-        let ca =
-            Certificate::from_der(&fs::read(text("ca_der")).expect("CA file")).expect("CA DER");
-        let client = Client::without_identity(ca);
-        let endpoint = Endpoint::parse(text("endpoint")).expect("TLS endpoint");
-        let token = fs::read_to_string(text("token_file")).expect("token file");
-        let network = case["protocol_network_id"]
-            .as_u64()
-            .expect("numeric identity") as u32;
-        let expected = match text("expected") {
-            "ready" => Ok(()),
-            "identity_mismatch" => Err(AuthorityUnready::IdentityMismatch),
-            "unavailable" => Err(AuthorityUnready::Unavailable),
-            "transport" => Err(AuthorityUnready::Transport),
-            _ => panic!("unknown expected state"),
-        };
-        let actual = probe_authority_readiness(
-            &client,
-            &endpoint,
-            token.trim(),
-            text("network_id"),
-            network,
-            text("wire_version"),
-        );
-        assert_eq!(actual, expected);
-        let backend = BackendAvailability::probed(KernelBackend::Authority.name(), actual.is_ok());
-        assert_eq!(backend.backend, "independent_receipt_authority");
-        assert_eq!(
-            backend.document()["state"],
-            if actual.is_ok() {
-                "ready"
-            } else {
-                "unavailable"
-            }
-        );
-        let mut count = 1;
-        if case["mutations"] == true {
-            let body = fs::read(text("response_file")).expect("real serializer response");
-            let original: serde_json::Value = serde_json::from_slice(&body).expect("response JSON");
-            let decode = |status, content_type: &str, value: &serde_json::Value| {
-                decode_authority_readiness(
-                    status,
-                    content_type,
-                    &serde_json::to_vec(value).expect("JSON"),
-                    text("network_id"),
-                    network,
-                    text("wire_version"),
-                )
-            };
-            assert_eq!(decode(200, "application/json", &original), Ok(()));
-            count += 1;
-            for field in ["ready", "network_id", "protocol_network_id", "wire_version"] {
-                let mut missing = original.clone();
-                missing.as_object_mut().expect("object").remove(field);
-                assert_eq!(
-                    decode(200, "application/json", &missing),
-                    Err(AuthorityUnready::InvalidSchema)
-                );
-                count += 1;
-                let mut wrong_type = original.clone();
-                wrong_type[field] = serde_json::Value::Null;
-                assert_eq!(
-                    decode(200, "application/json", &wrong_type),
-                    Err(AuthorityUnready::InvalidSchema)
-                );
-                count += 1;
-            }
-            for value in [
-                serde_json::json!("7331"),
-                serde_json::json!(-1),
-                serde_json::json!(4294967296_u64),
-                serde_json::json!(7331.5),
-                serde_json::json!(true),
-            ] {
-                let mut invalid = original.clone();
-                invalid["protocol_network_id"] = value;
-                assert_eq!(
-                    decode(200, "application/json", &invalid),
-                    Err(AuthorityUnready::InvalidSchema)
-                );
-                count += 1;
-            }
-            let mut unknown = original.clone();
-            unknown["unexpected"] = serde_json::json!(true);
-            assert_eq!(
-                decode(200, "application/json", &unknown),
-                Err(AuthorityUnready::InvalidSchema)
-            );
-            count += 1;
-            let mut false_ready = original.clone();
-            false_ready["ready"] = serde_json::json!(false);
-            assert_eq!(
-                decode(200, "application/json", &false_ready),
-                Err(AuthorityUnready::Unavailable)
-            );
-            count += 1;
-            assert_eq!(
-                decode(503, "application/json", &original),
-                Err(AuthorityUnready::Unavailable)
-            );
-            count += 1;
-            assert_eq!(
-                decode(200, "text/plain", &original),
-                Err(AuthorityUnready::Unavailable)
-            );
-            count += 1;
-            assert_eq!(
-                decode_authority_readiness(
-                    200,
-                    "application/json",
-                    b"{",
-                    text("network_id"),
-                    network,
-                    text("wire_version")
-                ),
-                Err(AuthorityUnready::InvalidSchema)
-            );
-            count += 1;
-            for (field, value) in [
-                ("network_id", serde_json::json!("different")),
-                ("protocol_network_id", serde_json::json!(network + 1)),
-                ("wire_version", serde_json::json!("0")),
-            ] {
-                let mut mismatch = original.clone();
-                mismatch[field] = value;
-                assert_eq!(
-                    decode(200, "application/json", &mismatch),
-                    Err(AuthorityUnready::IdentityMismatch)
-                );
-                count += 1;
-            }
-        }
-        println!("PAXEER_X_AUTHORITY_CASES={count}");
-    }
-}
-
-#[cfg(test)]
-mod authority_lni_compatibility_tests {
-    use super::*;
-    #[test]
-    fn authenticated_lni_preserves_the_strict_four_field_contract() {
-        let case: serde_json::Value = serde_json::from_slice(
-            &fs::read(env::var("PAXEER_X_AUTHORITY_CONTRACT_CASE").expect("actual case"))
-                .expect("case file"),
-        )
-        .expect("case JSON");
-        let original: serde_json::Value = serde_json::from_slice(
-            &fs::read(case["response_file"].as_str().expect("response path"))
-                .expect("actual serializer body"),
-        )
-        .expect("actual JSON");
-        assert_eq!(original.as_object().expect("object").len(), 4);
-        let decode = |value: &serde_json::Value| {
-            decode_authority_readiness(
-                200,
-                "application/json",
-                &serde_json::to_vec(value).expect("JSON"),
-                case["network_id"].as_str().expect("label"),
-                case["protocol_network_id"].as_u64().expect("network") as u32,
-                case["wire_version"].as_str().expect("wire"),
-            )
-        };
-        assert_eq!(decode(&original), Ok(()));
-        let mut false_ready = original.clone();
-        false_ready["ready"] = serde_json::json!(false);
-        assert_eq!(decode(&false_ready), Err(AuthorityUnready::Unavailable));
-        let mut unexpected = original;
-        unexpected["dependencies"] = serde_json::json!({});
-        assert_eq!(decode(&unexpected), Err(AuthorityUnready::InvalidSchema));
-        println!("PAXEER_X_LNI_CASES=3");
-    }
-}
-
 struct WalletCaps {
     bridge: Endpoint,
     issuer_socket: std::path::PathBuf,
@@ -5602,11 +5361,19 @@ mod complete_readiness_contract_tests {
             assert_eq!(document["lxp_wire_version"], config.wire_version);
             assert_eq!(document["network_id"], config.network_id);
             let backends = document["backends"].as_object().expect("backend object");
-            assert_eq!(backends.len(), 8);
+            assert_eq!(backends.len(), if event_producer { 5 } else { 4 });
+            for name in ["durable_store", "paxeer_chain", "consensus", "indexer"] {
+                assert!(backends.contains_key(name), "required dependency {name}");
+            }
+            assert!(!backends.contains_key("core_agent_boundary"));
+            assert!(!document["components"]
+                .as_object()
+                .unwrap()
+                .contains_key("principal_state_boundary"));
             let capabilities = document["capabilities"]
                 .as_object()
                 .expect("capabilities object");
-            assert_eq!(capabilities.len(), 1);
+            assert_eq!(capabilities.len(), 2);
             let chain = capabilities["chain_serving"]
                 .as_object()
                 .expect("chain capability");
@@ -5615,7 +5382,12 @@ mod complete_readiness_contract_tests {
             assert_eq!(chain["state"], backends["paxeer_chain"]["state"]);
             assert_eq!(chain["reason"], backends["paxeer_chain"]["reason"]);
             assert_eq!(chain["state"], case[scope]["chain_state"]);
-            assert!(!capabilities.contains_key("layerx_activity"));
+            assert_eq!(
+                capabilities["layerx_activity"],
+                serde_json::json!({
+                    "state": "not_configured", "reason": "not_configured"
+                })
+            );
             assert_eq!(document["status"], case[scope]["status"]);
             assert_eq!(
                 u64::from(response.status),
@@ -5625,10 +5397,14 @@ mod complete_readiness_contract_tests {
                 assert!(document["product_routes"].is_object());
             } else {
                 assert!(document["product_routes"].is_null());
+            }
+            {
                 let all_backends_ready =
                     backends.values().all(|backend| backend["state"] == "ready");
-                assert_eq!(response.status == 200, all_backends_ready);
-                assert_eq!(document["status"] == "ready", all_backends_ready);
+                let expected_ready = all_backends_ready
+                    && (!include_product_routes || document["product_routes"]["complete"] == true);
+                assert_eq!(response.status == 200, expected_ready);
+                assert_eq!(document["status"] == "ready", expected_ready);
             }
             let observed_at = document["observed_at_ms"]
                 .as_u64()

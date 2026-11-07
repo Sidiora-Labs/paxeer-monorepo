@@ -1,0 +1,155 @@
+[reconcile.r2-6]
+revision = "d6c341e59603faf9a28756df9aff6d45927fe392"
+rows = 19
+
+[row.r2-6.1]
+interface = "interface.2.msg-layerxauth-updateparams"
+verdict = "served"
+path = "api/layerxauth/tx.proto"
+line = 9
+symbol = "UpdateParams"
+evidence = "rpc UpdateParams(MsgUpdateParams) returns (MsgUpdateParamsResponse) retains the registered signature. The former missing handler is implemented at modules/layerxauth/keeper/msg_server.go:17, checks module authority and calls SetParams."
+
+[row.r2-6.2]
+interface = "interface.2.proto-layerxauth-layerxscopeauthorization"
+verdict = "served"
+path = "api/layerxauth/tx.proto"
+line = 24
+symbol = "LayerXScopeAuthorization"
+evidence = "message LayerXScopeAuthorization retains fields 1-9 and adds uint32 kind = 10, uint64 period_length = 11, string max_per_period = 12, bytes purpose_hash = 13, uint64 not_before = 14, uint64 not_after = 15 and string spent_total = 16. These extend the registered scope with authority kind, period caps, purpose, validity bounds and cumulative spend."
+
+[row.r2-6.3]
+interface = "interface.2.msg-layerxledger-updateparams"
+verdict = "served"
+path = "api/layerxledger/tx.proto"
+line = 11
+symbol = "UpdateParams"
+evidence = "rpc UpdateParams(MsgUpdateParams) returns (MsgUpdateParamsResponse) retains the registered signature. The former missing handler is implemented at modules/layerxledger/keeper/msg_server.go:17, checks ledger authority and calls SetParams."
+
+[row.r2-6.4]
+interface = "interface.2.go-layerxagent-keeper-modulename-j24"
+verdict = "served"
+path = "modules/layerxagent/keeper/keeper.go"
+line = 24
+symbol = "ModuleName"
+evidence = "ModuleName = types.ModuleName replaces the registered literal ModuleName = layerxagent; the keeper now re-exports the types package constant, avoiding a keeper import for module naming."
+
+[row.r2-6.5]
+interface = "interface.2.go-layerxagent-keeper-params-j24"
+verdict = "served"
+path = "modules/layerxagent/keeper/keeper.go"
+line = 49
+symbol = "Params"
+evidence = "type Params = types.Params replaces the registered keeper-local type Params struct. The generated declaration at modules/layerxagent/types/tx.pb.go:31 includes MaxCallDataBytes, MaxBlockGas and Paused alongside the original scheduler bounds."
+
+[row.r2-6.6]
+interface = "interface.2.go-layerxagent-keeper-defaultparams-j24"
+verdict = "served"
+path = "modules/layerxagent/keeper/keeper.go"
+line = 51
+symbol = "DefaultParams"
+evidence = "func DefaultParams() Params retains its signature but delegates to types.DefaultParams(); modules/layerxagent/types/params.go:16 supplies MaxCallDataBytes 8192, MaxBlockGas 30000000 and Paused false in the generated Params type."
+
+[row.r2-6.7]
+interface = "interface.2.go-layerxagent-keeper-params-validate-j24"
+verdict = "served_elsewhere"
+path = "modules/layerxagent/types/params.go"
+line = 30
+symbol = "Validate"
+evidence = "func (p Params) Validate() error moved from the keeper to the types package; keeper.Params aliases types.Params. Validation requires positive MaxCallDataBytes and MaxBlockGas and rejects MaxJobGasLimit greater than MaxBlockGas."
+
+[row.r2-6.8]
+interface = "interface.2.go-layerxagent-keeper-keeper-schedule-j24"
+verdict = "served"
+path = "modules/layerxagent/keeper/keeper.go"
+line = 241
+symbol = "Schedule"
+evidence = "func (k Keeper) Schedule(ctx sdk.Context, payer sdk.AccAddress, creator, target common.Address, callData []byte, executeAtBlock, gasLimit uint64, deposit *big.Int) (uint64, error) keeps its signature; it now checks the pause scope first and rejects callData longer than MaxCallDataBytes before gas and schedule validation."
+
+[row.r2-6.9]
+interface = "interface.2.go-layerxagent-keeper-keeper-reschedule-j24"
+verdict = "served"
+path = "modules/layerxagent/keeper/keeper.go"
+line = 313
+symbol = "Reschedule"
+evidence = "func (k Keeper) Reschedule(ctx sdk.Context, caller common.Address, id, newBlock uint64) error keeps its signature; it now calls CheckPauseScope with params.Paused before ownedJob and the block bounds, while Cancel remains available without a pause check."
+
+[row.r2-6.10]
+interface = "interface.2.go-layerxagent-keeper-keeper-endblocker-j24"
+verdict = "served"
+path = "modules/layerxagent/keeper/scheduler.go"
+line = 23
+symbol = "EndBlocker"
+evidence = "func (k Keeper) EndBlocker(ctx sdk.Context) error retains its signature and now delegates to RunDue(ctx), returning its error. RunDue at line 36 returns actual gasUsed and admits jobs within both MaxJobsPerBlock and the sum of GasLimit bounded by MaxBlockGas."
+
+[row.r2-6.11]
+interface = "interface.2.evt-layerxagent-event-job-executed"
+verdict = "served"
+path = "modules/layerxagent/keeper/scheduler.go"
+line = 87
+symbol = "EventJobExecuted"
+evidence = "runJob emits types.EventJobExecuted through EmitTypedEvent with JobId, Creator, GasUsed and Refund after execution and settlement; the emission moved from registered line 68 to line 87."
+
+[row.r2-6.12]
+interface = "interface.2.evt-layerxagent-event-job-failed"
+verdict = "served"
+path = "modules/layerxagent/keeper/scheduler.go"
+line = 94
+symbol = "EventJobFailed"
+evidence = "runJob emits types.EventJobFailed through EmitTypedEvent with JobId, Creator and a truncated Reason when execution or settlement supplies reasons; the emission moved from registered line 75 to line 94."
+
+[row.r2-6.13]
+interface = "interface.2.err-sdk-layerxauth-11-paused-scope"
+verdict = "served_elsewhere"
+path = "modules/layerxgov/types/proposal.go"
+line = 30
+symbol = "ErrPausedScope"
+evidence = "The layerxauth code-11 registration is removed; modules/layerxauth/types/errors.go:7 documents the replacement. ErrPausedScope is registered in layerxgov as code 735 with text LXP_PAUSED_SCOPE, and modules/layerxauth/keeper/pause.go delegates to layerxgov CheckPauseScope."
+
+[row.r2-6.14]
+interface = "interface.2.go-layerxpay-escrowmoduleid-j24"
+verdict = "served"
+path = "modules/layerxpay/types/keys.go"
+line = 10
+symbol = "EscrowModuleID"
+evidence = "EscrowModuleID uint16 = 2 remains declared in the registered constant block at line 10 and is used by KernelModuleEnableKey and genesis validation."
+
+[row.r2-6.15]
+interface = "interface.2.go-layerxpay-budgetmoduleid-j24"
+verdict = "served"
+path = "modules/layerxpay/types/keys.go"
+line = 11
+symbol = "BudgetModuleID"
+evidence = "BudgetModuleID uint16 = 3 remains declared in the registered constant block at line 11 and is used by KernelModuleEnableKey and genesis validation."
+
+[row.r2-6.16]
+interface = "interface.2.go-layerxpay-streammoduleid-j24"
+verdict = "served"
+path = "modules/layerxpay/types/keys.go"
+line = 12
+symbol = "StreamModuleID"
+evidence = "StreamModuleID uint16 = 4 remains declared in the registered constant block at line 12 and is used by KernelModuleEnableKey and genesis validation."
+
+[row.r2-6.17]
+interface = "interface.2.go-layerxpay-servicemoduleid-j24"
+verdict = "served"
+path = "modules/layerxpay/types/keys.go"
+line = 13
+symbol = "ServiceModuleID"
+evidence = "ServiceModuleID uint16 = 5 remains declared in the registered constant block at line 13 and is used by KernelModuleEnableKey and genesis validation."
+
+[row.r2-6.18]
+interface = "interface.2.go-layerxpay-governancemoduleid-j24"
+verdict = "served"
+path = "modules/layerxpay/types/keys.go"
+line = 14
+symbol = "GovernanceModuleID"
+evidence = "GovernanceModuleID uint16 = 7 remains declared in the registered constant block at line 14; KernelModuleEnableKey uses it to namespace the kernel enable flag key."
+
+[row.r2-6.19]
+interface = "interface.2.go-layerxpay-params-j24"
+verdict = "served_elsewhere"
+path = "modules/layerxpay/types/tx.pb.go"
+line = 31
+symbol = "Params"
+evidence = "type Params struct is now generated from api/layerxpay/tx.proto in tx.pb.go rather than declared in params.go. It carries Paused, EscrowEnabled, BudgetEnabled, StreamEnabled and ServiceEnabled with snake_case JSON names; params.go retains DefaultParams and Validate methods."

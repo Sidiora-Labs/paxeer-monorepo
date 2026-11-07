@@ -1,17 +1,17 @@
 package main
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
 	"math/big"
 	"math/rand"
 	"net/http"
+	"net/url"
 	"os"
-	"os/exec"
 	"os/signal"
 	"path/filepath"
 	"strconv"
@@ -30,6 +30,7 @@ import (
 	banktypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/bank/types"
 	distributiontypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/distribution/types"
 	stakingtypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/staking/types"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/tools/benchmark/loadtest/operations"
 	wasmtypes "github.com/Sidiora-Labs/Paxeer-X-Network/wasm/x/wasm/types"
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -57,7 +58,8 @@ var (
 	prevSentCounterPerMsgType = make(map[string]*int64)
 
 	BlockHeightsWithTxs = []int{}
-	EvmTxHashes         = []common.Hash{}
+	EvmTxHashes         = newEvmTxHashStore(maxRetainedEvmTxHashes)
+	observationMu       sync.Mutex
 )
 
 type BlockData struct {
@@ -87,18 +89,25 @@ func init() {
 	http.DefaultTransport.(*http.Transport).MaxIdleConnsPerHost = 100
 }
 
-// deployEvmContract executes a bash script and returns its output as a string.
-//
-//nolint:gosec
+// deployEvmContract executes the deployment entry point and validates its address.
 func deployEvmContract(scriptPath string, config *Config) (common.Address, error) {
-	cmd := exec.Command(scriptPath, config.EVMRpcEndpoint())
-	var out bytes.Buffer
-	cmd.Stdout = &out
-	err := cmd.Run()
+	return deployEvmContractWithCommands(context.Background(), operations.Executables{}, scriptPath, config)
+}
+
+func deployEvmContractWithCommands(ctx context.Context, commands operations.Commands, scriptPath string, config *Config) (common.Address, error) {
+	raw, err := commands.Run(ctx, operations.Command{Args: []string{scriptPath, config.EVMRpcEndpoint()}})
 	if err != nil {
 		return common.Address{}, err
 	}
-	return common.HexToAddress(strings.TrimSpace(out.String())), nil
+	encoded, err := json.Marshal(map[string]string{"deployedTo": strings.TrimSpace(string(raw))})
+	if err != nil {
+		return common.Address{}, err
+	}
+	address, err := operations.DeploymentAddress(encoded)
+	if err != nil {
+		return common.Address{}, err
+	}
+	return common.HexToAddress(address), nil
 }
 
 //nolint:gosec
@@ -125,7 +134,7 @@ func deployEvmContracts(config *Config) {
 }
 
 func run(config *Config) {
-	if err := config.ValidateMessageTypes(); err != nil {
+	if err := config.Validate(); err != nil {
 		panic(err)
 	}
 	config.EVMAddresses = &EVMAddresses{}
@@ -133,7 +142,11 @@ func run(config *Config) {
 	metricsServer := MetricsServer{}
 	go metricsServer.StartMetricsClient(*config)
 
-	client := NewLoadTestClient(*config)
+	client, err := NewLoadTestClient(*config)
+	if err != nil {
+		panic(err)
+	}
+	defer client.Close()
 	client.SetValidators()
 	deployEvmContracts(config)
 
@@ -164,96 +177,135 @@ func run(config *Config) {
 		}
 	}
 
-	startLoadtestWorkers(client, *config)
-	runEvmQueries(*config)
+	if err := startLoadtestWorkers(client, *config); err != nil {
+		panic(fmt.Errorf("benchmark incomplete: %w", err))
+	}
+	if err := runEvmQueries(*config); err != nil {
+		panic(fmt.Errorf("post-load queries incomplete: %w", err))
+	}
 }
 
-// starts loadtest workers. If config.Constant is true, then we don't gather loadtest results and let producer/consumer
-// workers continue running. If config.Constant is false, then we will gather load test results in a file
-func startLoadtestWorkers(client *LoadTestClient, config Config) {
-	configString, _ := json.Marshal(config)
-	fmt.Printf("Running with \n %s \n", string(configString))
+var errBenchmarkComplete = errors.New("benchmark ticks complete")
 
-	// Catch OS signals for graceful shutdown
-	signals := make(chan os.Signal, 1)
-	signal.Notify(signals, syscall.SIGINT, syscall.SIGTERM)
+func startLoadtestWorkers(client *LoadTestClient, config Config) error {
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
+	ticker := time.NewTicker(10 * time.Second)
+	defer ticker.Stop()
+	return runLoadtestWorkers(ctx, client, config, ticker.C)
+}
 
-	var blockHeights []int
-	var blockTimes []string
-	var startHeight = getLastHeight(config.BlockchainEndpoint)
-	keys := client.AccountKeys
-
-	// Create producers and consumers
-	fmt.Printf("Starting loadtest producers and consumers\n")
-	txQueues := make([]chan SignedTx, len(keys))
+func runLoadtestWorkers(parent context.Context, client *LoadTestClient, config Config, ticks <-chan time.Time) error {
+	if config.TargetTps == 0 || config.TargetTps > uint64(^uint(0)>>1) {
+		return fmt.Errorf("invalid target TPS: %d", config.TargetTps)
+	}
+	ctx, cancel := context.WithCancelCause(parent)
+	defer cancel(nil)
+	startHeight, err := getLastHeight(ctx, config.BlockchainEndpoint)
+	if err != nil {
+		return fmt.Errorf("benchmark startup height: %w", err)
+	}
+	observationMu.Lock()
+	BlockHeightsWithTxs = nil
+	EvmTxHashes = newEvmTxHashStore(maxRetainedEvmTxHashes)
+	observationMu.Unlock()
+	configString, err := json.Marshal(config)
+	if err != nil {
+		return fmt.Errorf("benchmark config: %w", err)
+	}
+	fmt.Printf("Running with \n %s \n", configString)
+	txQueues := make([]chan SignedTx, len(client.AccountKeys))
+	producerRateLimiter := rate.NewLimiter(rate.Limit(config.TargetTps), int(config.TargetTps))
+	consumerSemaphore := semaphore.NewWeighted(int64(config.TargetTps))
+	var wg sync.WaitGroup
 	for i := range txQueues {
 		txQueues[i] = make(chan SignedTx, 10)
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			if err := client.BuildTxs(ctx, txQueues[i], i, producerRateLimiter, producedCountPerMsgType); err != nil && ctx.Err() == nil {
+				cancel(fmt.Errorf("producer %d: %w", i, err))
+			}
+		}(i)
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			if err := client.SendTxs(ctx, txQueues[i], i, sentCountPerMsgType, consumerSemaphore); err != nil && ctx.Err() == nil {
+				cancel(fmt.Errorf("consumer %d: %w", i, err))
+			}
+		}(i)
 	}
-	done := make(chan struct{})
-	producerRateLimiter := rate.NewLimiter(rate.Limit(config.TargetTps), int(config.TargetTps)) //nolint:gosec
-	consumerSemaphore := semaphore.NewWeighted(int64(config.TargetTps))                         //nolint:gosec
-	var wg sync.WaitGroup
-	for i := 0; i < len(keys); i++ {
-		go client.BuildTxs(txQueues[i], i, &wg, done, producerRateLimiter, producedCountPerMsgType)
-		go client.SendTxs(txQueues[i], i, done, sentCountPerMsgType, consumerSemaphore, &wg)
-	}
-
-	// Statistics reporting goroutine
-	ticker := time.NewTicker(10 * time.Second)
-	ticks := 0
+	wg.Add(1)
 	go func() {
+		defer wg.Done()
+		nextHeight := startHeight
 		start := time.Now()
+		var completed uint64
 		for {
 			select {
-			case <-ticker.C:
-				currHeight := getLastHeight(config.BlockchainEndpoint)
-				for i := startHeight; i <= currHeight; i++ {
-					txCnt, blockTime, err := getTxBlockInfo(config.BlockchainEndpoint, strconv.Itoa(i))
-					if err != nil {
-						fmt.Printf("Encountered error scraping data: %s\n", err)
-						return
-					}
-					blockHeights = append(blockHeights, i)
-					blockTimes = append(blockTimes, blockTime)
-					if txCnt > 0 {
-						BlockHeightsWithTxs = append(BlockHeightsWithTxs, i)
-					}
-				}
-
-				printStats(start, producedCountPerMsgType, sentCountPerMsgType, prevSentCounterPerMsgType, blockHeights, blockTimes)
-				startHeight = currHeight
-				blockHeights, blockTimes = nil, nil
-				start = time.Now()
-
-				for msgType := range sentCountPerMsgType {
-					count := atomic.LoadInt64(sentCountPerMsgType[msgType])
-					atomic.StoreInt64(prevSentCounterPerMsgType[msgType], count)
-				}
-				ticks++
-				if config.Ticks > 0 && ticks >= int(config.Ticks) { //nolint:gosec
-					close(done)
-				}
-			case <-done:
-				ticker.Stop()
+			case <-ctx.Done():
 				return
+			case _, ok := <-ticks:
+				if !ok {
+					cancel(errors.New("statistics ticker closed before benchmark completion"))
+					return
+				}
+				heights, times, err := scrapeStatistics(ctx, config.BlockchainEndpoint, &nextHeight)
+				if err != nil {
+					cancel(fmt.Errorf("statistics scrape: %w", err))
+					return
+				}
+				if len(heights) == 0 {
+					fmt.Println("No new committed blocks in reporting interval")
+				}
+				printStats(start, producedCountPerMsgType, sentCountPerMsgType, prevSentCounterPerMsgType, heights, times)
+				start = time.Now()
+				for msgType, count := range sentCountPerMsgType {
+					atomic.StoreInt64(prevSentCounterPerMsgType[msgType], atomic.LoadInt64(count))
+				}
+				completed++
+				if config.Ticks > 0 && completed >= config.Ticks {
+					cancel(errBenchmarkComplete)
+					return
+				}
 			}
 		}
 	}()
-
-	// Wait for a termination signal
-	if config.Ticks == 0 {
-		<-signals
-		fmt.Println("SIGINT received, shutting down producers and consumers...")
-		close(done)
-	}
-
-	fmt.Println("Waiting for wait groups...")
-
+	<-ctx.Done()
 	wg.Wait()
-	fmt.Println("Closing channels...")
-	for i := range txQueues {
-		close(txQueues[i])
+	for _, queue := range txQueues {
+		close(queue)
 	}
+	cause := context.Cause(ctx)
+	if errors.Is(cause, errBenchmarkComplete) {
+		return nil
+	}
+	return fmt.Errorf("benchmark stopped: %w", cause)
+}
+
+func scrapeStatistics(ctx context.Context, endpoint string, nextHeight *int) ([]int, []string, error) {
+	currHeight, err := getLastHeight(ctx, endpoint)
+	if err != nil {
+		return nil, nil, err
+	}
+	var heights []int
+	var times []string
+	for *nextHeight <= currHeight {
+		height := *nextHeight
+		count, blockTime, err := getTxBlockInfo(ctx, endpoint, strconv.Itoa(height))
+		if err != nil {
+			return heights, times, fmt.Errorf("height %d: %w", height, err)
+		}
+		heights = append(heights, height)
+		times = append(times, blockTime)
+		if count > 0 {
+			observationMu.Lock()
+			BlockHeightsWithTxs = append(BlockHeightsWithTxs, height)
+			observationMu.Unlock()
+		}
+		*nextHeight = height + 1
+	}
+	return heights, times, nil
 }
 
 func printStats(
@@ -524,119 +576,237 @@ func (c *LoadTestClient) generateStakingMsg(delegatorAddr string, chosenValidato
 	return msg
 }
 
-// nolint
-func getLastHeight(blockchainEndpoint string) int {
-	out, err := exec.Command("curl", blockchainEndpoint+"/blockchain").Output()
+const (
+	benchmarkRPCTimeout       = 5 * time.Second
+	maxBenchmarkResponseBytes = 16 << 20
+	postQueryConcurrency      = 16
+)
+
+var benchmarkHTTPClient = &http.Client{Timeout: benchmarkRPCTimeout}
+
+func benchmarkEndpoint(endpoint string, allowWebsocket bool) (*url.URL, error) {
+	u, err := url.Parse(strings.TrimSpace(endpoint))
 	if err != nil {
-		panic(err)
+		return nil, fmt.Errorf("invalid endpoint: %w", err)
 	}
-	var dat map[string]interface{}
-	if err := json.Unmarshal(out, &dat); err != nil {
-		panic(err)
+	if u.Hostname() == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" || (u.Scheme != "http" && u.Scheme != "https" && !(allowWebsocket && (u.Scheme == "ws" || u.Scheme == "wss"))) {
+		return nil, fmt.Errorf("invalid RPC endpoint %q", endpoint)
 	}
-	height, err := strconv.Atoi(dat["last_height"].(string))
-	if err != nil {
-		panic(err)
-	}
-	return height
+	return u, nil
 }
 
-func getTxBlockInfo(blockchainEndpoint string, height string) (int, string, error) {
-
-	resp, err := http.Get(blockchainEndpoint + "/block?height=" + height)
+func readBenchmarkRPC(ctx context.Context, endpoint, path string, query url.Values, target any) error {
+	u, err := benchmarkEndpoint(endpoint, false)
 	if err != nil {
-		fmt.Printf("Error query block data: %s\n", err)
-		return 0, "", err
+		return err
 	}
-	defer func() { _ = resp.Body.Close() }()
-
-	body, err := io.ReadAll(resp.Body)
+	u.Path = strings.TrimRight(u.Path, "/") + path
+	u.RawQuery = query.Encode()
+	ctx, cancel := context.WithTimeout(ctx, benchmarkRPCTimeout)
+	defer cancel()
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u.String(), nil)
 	if err != nil {
-		fmt.Printf("Error reading block data: %s\n", err)
-		return 0, "", err
+		return err
 	}
+	resp, err := benchmarkHTTPClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("GET %s: %w", u, err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return fmt.Errorf("GET %s: HTTP %s", u, resp.Status)
+	}
+	body, err := io.ReadAll(io.LimitReader(resp.Body, maxBenchmarkResponseBytes+1))
+	if err != nil {
+		return fmt.Errorf("GET %s read: %w", u, err)
+	}
+	if len(body) > maxBenchmarkResponseBytes {
+		return fmt.Errorf("GET %s: response exceeds %d bytes", u, maxBenchmarkResponseBytes)
+	}
+	var envelope struct {
+		Result json.RawMessage `json:"result"`
+		Error  *struct {
+			Code    int             `json:"code"`
+			Message string          `json:"message"`
+			Data    json.RawMessage `json:"data"`
+		} `json:"error"`
+	}
+	if err := json.Unmarshal(body, &envelope); err != nil {
+		return fmt.Errorf("GET %s JSON: %w", u, err)
+	}
+	if envelope.Error != nil {
+		return fmt.Errorf("GET %s RPC %d: %s (%s)", u, envelope.Error.Code, envelope.Error.Message, envelope.Error.Data)
+	}
+	if envelope.Result != nil {
+		body = envelope.Result
+	}
+	if err := json.Unmarshal(body, target); err != nil {
+		return fmt.Errorf("GET %s payload: %w", u, err)
+	}
+	return nil
+}
 
-	var blockResponse struct {
-		Block struct {
-			Header BlockHeader `json:"header"`
-			Data   BlockData   `json:"data"`
+func getLastHeight(ctx context.Context, endpoint string) (int, error) {
+	var data struct {
+		LastHeight *string `json:"last_height"`
+	}
+	if err := readBenchmarkRPC(ctx, endpoint, "/blockchain", nil, &data); err != nil {
+		return 0, err
+	}
+	if data.LastHeight == nil {
+		return 0, errors.New("blockchain response missing last_height")
+	}
+	height, err := strconv.Atoi(*data.LastHeight)
+	if err != nil || height <= 0 || height == int(^uint(0)>>1) {
+		return 0, fmt.Errorf("invalid last_height %q", *data.LastHeight)
+	}
+	return height, nil
+}
+
+func getTxBlockInfo(ctx context.Context, endpoint, height string) (int, string, error) {
+	var response struct {
+		Block *struct {
+			Header *struct {
+				Height string `json:"height"`
+				Time   string `json:"time"`
+			} `json:"header"`
+			Data *struct {
+				Txs json.RawMessage `json:"txs"`
+			} `json:"data"`
 		} `json:"block"`
 	}
-	err = json.Unmarshal(body, &blockResponse)
-	if err != nil {
-		fmt.Printf("Error reading block data: %s\n", err)
+	if err := readBenchmarkRPC(ctx, endpoint, "/block", url.Values{"height": {height}}, &response); err != nil {
 		return 0, "", err
 	}
-
-	return len(blockResponse.Block.Data.Txs), blockResponse.Block.Header.Time, nil
+	if response.Block == nil || response.Block.Header == nil || response.Block.Data == nil || response.Block.Data.Txs == nil {
+		return 0, "", errors.New("block response missing block, header, data or txs")
+	}
+	header := response.Block.Header
+	if header.Height != height {
+		return 0, "", fmt.Errorf("block height %q differs from requested %s", header.Height, height)
+	}
+	timestamp, err := time.Parse(time.RFC3339Nano, header.Time)
+	if err != nil || timestamp.IsZero() {
+		return 0, "", fmt.Errorf("invalid block time %q", header.Time)
+	}
+	var txs []string
+	if err := json.Unmarshal(response.Block.Data.Txs, &txs); err != nil {
+		return 0, "", fmt.Errorf("invalid block transactions: %w", err)
+	}
+	for i, tx := range txs {
+		if tx == "" {
+			return 0, "", fmt.Errorf("invalid empty block transaction %d", i)
+		}
+	}
+	return len(txs), header.Time, nil
 }
 
-func runEvmQueries(config Config) {
-	ethEndpoints := strings.Split(config.EvmRpcEndpoints, ",")
-	if len(ethEndpoints) == 0 {
-		return
+func runEvmQueries(config Config) error {
+	return runEvmQueriesContext(context.Background(), config)
+}
+
+func runEvmQueriesContext(ctx context.Context, config Config) error {
+	queries := config.PostTxEvmQueries
+	if queries.BlockByNumber < 0 || queries.Receipt < 0 || queries.Filters < 0 {
+		return errors.New("negative post-load query count")
 	}
-	ethClients := make([]*ethclient.Client, len(ethEndpoints))
-	for i, endpoint := range ethEndpoints {
-		client, err := ethclient.Dial(endpoint)
-		if err != nil {
-			fmt.Printf("Failed to connect to endpoint %s with error %s", endpoint, err.Error())
+	if queries.BlockByNumber == 0 && queries.Receipt == 0 && queries.Filters == 0 {
+		return nil
+	}
+	observationMu.Lock()
+	heights := append([]int(nil), BlockHeightsWithTxs...)
+	hashes := EvmTxHashes.Snapshot()
+	observationMu.Unlock()
+	if queries.BlockByNumber > 0 && len(heights) == 0 {
+		return errors.New("block queries require observed committed transaction heights")
+	}
+	if queries.Receipt > 0 && len(hashes) == 0 {
+		return errors.New("receipt queries require successfully submitted EVM transactions")
+	}
+	if queries.Filters > 0 && (config.EVMAddresses == nil || config.EVMAddresses.ERC20 == (common.Address{})) {
+		return errors.New("filter queries require a deployed ERC20 address")
+	}
+	var clients []*ethclient.Client
+	defer func() {
+		for _, client := range clients {
+			client.Close()
 		}
-		ethClients[i] = client
+	}()
+	for _, endpoint := range strings.Split(config.EvmRpcEndpoints, ",") {
+		u, err := benchmarkEndpoint(endpoint, true)
+		if err != nil {
+			return err
+		}
+		dialCtx, cancel := context.WithTimeout(ctx, benchmarkRPCTimeout)
+		client, err := ethclient.DialContext(dialCtx, u.String())
+		if err == nil {
+			clients = append(clients, client)
+			_, err = client.NetworkID(dialCtx)
+		}
+		cancel()
+		if err != nil {
+			return fmt.Errorf("connect EVM endpoint %s: %w", u, err)
+		}
 	}
-	wg := sync.WaitGroup{}
-	start := time.Now()
-	for i := 0; i < config.PostTxEvmQueries.BlockByNumber; i++ {
-		wg.Add(1)
-		i := i
-		go func() {
-			defer func() { wg.Done() }()
-			height := int64(BlockHeightsWithTxs[i%len(BlockHeightsWithTxs)])
-			_, err := ethClients[i%len(ethClients)].BlockByNumber(context.Background(), big.NewInt(height))
-			if err != nil {
-				fmt.Printf("Failed to get full block of height %d due to %s\n", height, err)
-			}
-		}()
+	families := []struct {
+		name  string
+		count int
+		query func(context.Context, *ethclient.Client, int) error
+	}{
+		{"blocks", queries.BlockByNumber, func(ctx context.Context, c *ethclient.Client, i int) error {
+			_, err := c.BlockByNumber(ctx, big.NewInt(int64(heights[i%len(heights)])))
+			return err
+		}},
+		{"receipts", queries.Receipt, func(ctx context.Context, c *ethclient.Client, i int) error {
+			_, err := c.TransactionReceipt(ctx, hashes[i%len(hashes)])
+			return err
+		}},
+		{"filter logs", queries.Filters, func(ctx context.Context, c *ethclient.Client, i int) error {
+			_, err := c.FilterLogs(ctx, ethereum.FilterQuery{Addresses: []common.Address{config.EVMAddresses.ERC20}})
+			return err
+		}},
 	}
-	wg.Wait()
-	fmt.Printf("Querying %d blocks in parallel took %fs\n", config.PostTxEvmQueries.BlockByNumber, time.Since(start).Seconds())
-
-	wg = sync.WaitGroup{}
-	start = time.Now()
-	for i := 0; i < config.PostTxEvmQueries.Receipt; i++ {
-		wg.Add(1)
-		i := i
-		go func() {
-			defer func() { wg.Done() }()
-			hash := EvmTxHashes[i%len(EvmTxHashes)]
-			_, err := ethClients[i%len(ethClients)].TransactionReceipt(context.Background(), hash)
-			if err != nil {
-				fmt.Printf("Failed to get receipt of tx %s due to %s\n", hash.Hex(), err)
-			}
-		}()
-	}
-	wg.Wait()
-	fmt.Printf("Querying %d receipts in parallel took %fs\n", config.PostTxEvmQueries.Receipt, time.Since(start).Seconds())
-
-	if config.EVMAddresses.ERC20.Cmp(common.Address{}) != 0 {
-		wg = sync.WaitGroup{}
-		start = time.Now()
-		for i := 0; i < config.PostTxEvmQueries.Filters; i++ {
+	for _, family := range families {
+		if family.count == 0 {
+			continue
+		}
+		start := time.Now()
+		familyCtx, cancel := context.WithCancelCause(ctx)
+		var wg sync.WaitGroup
+		jobs := make(chan int)
+		for worker := 0; worker < postQueryConcurrency && worker < family.count; worker++ {
 			wg.Add(1)
-			i := i
 			go func() {
-				defer func() { wg.Done() }()
-				_, err := ethClients[i%len(ethClients)].FilterLogs(context.Background(), ethereum.FilterQuery{
-					Addresses: []common.Address{config.EVMAddresses.ERC20},
-				})
-				if err != nil {
-					fmt.Printf("Failed to get logs due to %s\n", err)
+				defer wg.Done()
+				for i := range jobs {
+					queryCtx, stop := context.WithTimeout(familyCtx, benchmarkRPCTimeout)
+					err := family.query(queryCtx, clients[i%len(clients)], i)
+					stop()
+					if err != nil {
+						cancel(fmt.Errorf("%s query %d: %w", family.name, i, err))
+						return
+					}
 				}
 			}()
 		}
+	dispatch:
+		for i := 0; i < family.count; i++ {
+			select {
+			case jobs <- i:
+			case <-familyCtx.Done():
+				break dispatch
+			}
+		}
+		close(jobs)
 		wg.Wait()
-		fmt.Printf("Querying %d filter logs in parallel took %fs\n", config.PostTxEvmQueries.Filters, time.Since(start).Seconds())
+		err := context.Cause(familyCtx)
+		cancel(nil)
+		if err != nil {
+			return err
+		}
+		fmt.Printf("Querying %d %s with concurrency <= %d took %fs\n", family.count, family.name, postQueryConcurrency, time.Since(start).Seconds())
 	}
+	return nil
 }
 
 func GetDefaultConfigFilePath() string {
@@ -650,10 +820,23 @@ func ReadConfig(path string) Config {
 	if err := json.Unmarshal(file, &config); err != nil {
 		panic(err)
 	}
+	if err := config.Validate(); err != nil {
+		panic(err)
+	}
 	return config
 }
 
 func main() {
+	if len(os.Args) > 1 && os.Args[1] == "benchmark-ops" {
+		ctx, stop := operations.SignalContext()
+		err := operations.RunCLI(ctx, os.Args[2:], os.Stdin, os.Stdout, operations.Executables{})
+		stop()
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		return
+	}
 	configFilePath := flag.String("config-file", GetDefaultConfigFilePath(), "Path to the config.json file to use for this run")
 	flag.Parse()
 

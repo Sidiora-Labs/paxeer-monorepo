@@ -9,8 +9,13 @@ import ArrowIcon from 'icons/arrows/east-mini.svg';
 import CheckIcon from 'icons/check.svg';
 
 import { FilterInput } from '../components/filters/FilterInput';
+import { recipe as selectRecipe } from '../theme/recipes/select.recipe';
 import { CloseButton } from './close-button';
+import { withRecipe, type WithRecipeProps } from './recipe-props';
 import { Skeleton } from './skeleton';
+
+type RecipeRootProps = WithRecipeProps<ChakraSelect.RootProps, typeof selectRecipe>;
+const RecipeRoot = withRecipe(ChakraSelect.Root, selectRecipe);
 
 export type ViewMode = 'default' | 'compact';
 
@@ -188,15 +193,15 @@ export const SelectValueText = React.forwardRef<
   );
 });
 
-export interface SelectRootProps extends ChakraSelect.RootProps {}
+export interface SelectRootProps extends RecipeRootProps {}
 
 export const SelectRoot = React.forwardRef<
   HTMLDivElement,
-  ChakraSelect.RootProps
+  SelectRootProps
 >(function SelectRoot(props, ref) {
   const { lazyMount = true, unmountOnExit = true, ...rest } = props;
   return (
-    <ChakraSelect.Root
+    <RecipeRoot
       ref={ ref }
       lazyMount={ lazyMount }
       unmountOnExit={ unmountOnExit }
@@ -211,9 +216,9 @@ export const SelectRoot = React.forwardRef<
           { props.children }
         </>
       ) }
-    </ChakraSelect.Root>
+    </RecipeRoot>
   );
-}) as ChakraSelect.RootComponent;
+});
 
 interface SelectItemGroupProps extends ChakraSelect.ItemGroupProps {
   label: React.ReactNode;
@@ -292,16 +297,42 @@ export interface SelectAsyncProps extends Omit<SelectProps, 'collection'> {
 }
 
 export const SelectAsync = React.forwardRef<HTMLDivElement, SelectAsyncProps>((props, ref) => {
-  const { placeholder, portalled = true, loading, loadOptions, extraControls, onValueChange, errorText, mode, contentHeader, ...rest } = props;
+  const {
+    placeholder, portalled = true, loading, loadOptions, extraControls, onValueChange, errorText, mode, contentHeader,
+    value: controlledValue, defaultValue, ...rest
+  } = props;
 
   const [ collection, setCollection ] = React.useState<ListCollection<SelectOption>>(createListCollection<SelectOption>({ items: [] }));
   const [ inputValue, setInputValue ] = React.useState('');
-  const [ value, setValue ] = React.useState<Array<string>>([]);
+  const [ internalValue, setInternalValue ] = React.useState<Array<string>>(defaultValue ?? []);
+  const [ optionsLoading, setOptionsLoading ] = React.useState(true);
+  const [ optionsError, setOptionsError ] = React.useState(false);
+
+  const value = controlledValue ?? internalValue;
 
   const debouncedInputValue = useDebounce(inputValue, 300);
 
   React.useEffect(() => {
-    loadOptions(debouncedInputValue, value).then(setCollection);
+    let active = true;
+    setOptionsLoading(true);
+    setOptionsError(false);
+
+    async function load() {
+      try {
+        const nextCollection = await loadOptions(debouncedInputValue, value);
+        if (active) setCollection(nextCollection);
+      } catch {
+        if (active) setOptionsError(true);
+      } finally {
+        if (active) setOptionsLoading(false);
+      }
+    }
+
+    void load();
+
+    return () => {
+      active = false;
+    };
   }, [ debouncedInputValue, loadOptions, value ]);
 
   const handleFilterChange = React.useCallback((value: string) => {
@@ -309,9 +340,9 @@ export const SelectAsync = React.forwardRef<HTMLDivElement, SelectAsyncProps>((p
   }, [ ]);
 
   const handleValueChange = React.useCallback(({ value, items }: { value: Array<string>; items: Array<SelectOption> }) => {
-    setValue(value);
+    if (controlledValue === undefined) setInternalValue(value);
     onValueChange?.({ value, items });
-  }, [ onValueChange ]);
+  }, [ controlledValue, onValueChange ]);
 
   return (
     <SelectRoot
@@ -319,8 +350,10 @@ export const SelectAsync = React.forwardRef<HTMLDivElement, SelectAsyncProps>((p
       collection={ collection }
       onValueChange={ handleValueChange }
       { ...rest }
+      value={ value }
+      aria-busy={ loading || optionsLoading }
     >
-      <SelectControl loading={ loading }>
+      <SelectControl loading={ loading || optionsLoading }>
         <SelectValueText
           placeholder={ placeholder }
           size={ props.size }
@@ -330,6 +363,7 @@ export const SelectAsync = React.forwardRef<HTMLDivElement, SelectAsyncProps>((p
           mode={ mode }
         />
       </SelectControl>
+      { optionsError && <Box role="alert">Could not load options. Change the search to try again.</Box> }
       <SelectContent portalled={ portalled }>
         <Box px="4">
           <FilterInput

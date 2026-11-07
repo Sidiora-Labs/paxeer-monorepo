@@ -1,0 +1,37 @@
+[task]
+id = "22.31.233"
+audit = "22.30.112"
+original_attempt_base_revision = "9b3c0edb83db2c918d37d3910bad522f5b067ca3"
+base_revision = "4273de5e86f58f8212e00898cbfeb995efcb85b5"
+qualification = "Bounded hf-build and hf-done results, including the verified candidate revision, exact command, exit and private log, are retained in /out/run/gates.jsonl and returned with the task."
+baseline = "No prior gate ledger or repair test existed; no baseline test was executed because the ordered instructions prohibit testing before implementation and prohibit running verify_cmd outside hf-done. No pre-change test failure is claimed."
+
+[finding.mirror_verify_shape]
+test = "services/interop/deploy/mirror/tests/test_repair_22_31_233.py::test_mirror_verify_shape"
+repair = "The strict verifier example uses receipt_keys and Paxeer network 125, matching the publisher's actual RuntimeConfig and key window."
+proof = "A real Archive producer consumes recorded signed node receipts; ethabi encodes the archive RPC responses; the unchanged Rust verifier binary reads them over authenticated TLS quorum RPC and verifies both receipts, refusing other height windows, wrong keys and obsolete fields."
+
+[finding.solana_mutable_deployment]
+test = "services/interop/deploy/mirror/tests/test_repair_22_31_233.py::test_solana_mutable_deployment"
+authorization_test = "services/interop/deploy/mirror/tests/test_repair_22_31_233.py::test_finalization_requires_explicit_authorization"
+repair = "Deployment requires explicit FINALIZE=YES authorization, checks the rooted ELF and publisher authority before removing it, runs set-upgrade-authority --final at finalized commitment, then re-fetches and checks immutable rooted loader accounts before writing readiness."
+proof = "The real loader bincode codec produces mutable and immutable account states around an actual ELF; the production readiness RPC client, Rust publisher and Rust reader consume the same states over TLS. Both Rust clients refuse mutable or different-code states and accept the verified immutable state; the readiness client also refuses stale roots, unsuccessful finality and incorrect account identities."
+limit = "The focused test exercises readiness and both production identity consumers against in-process RPC; it does not broadcast a deployment or irreversible finalization transaction to a live cluster."
+
+[wiring.verify_registry]
+request = "Domain 11: update spec/layerx-merge/interfaces.kvx [interface.11.fmt-deploy-mirror-verify-config-example] and spec/layerx-merge/contracts/interop-deploy.md#fmt-deploy-mirror-verify-config-example to JSON {layerx_network_id, receipt_keys: [{sequencer_id_hex, public_key_hex, first_height, last_height}], sources}; these files are outside this task's scope."
+
+[wiring.solana_registry]
+request = "Domain 11: update spec/layerx-merge/interfaces.kvx [interface.11.cli-deploy-mirror-deploy-solana-mirror] and spec/layerx-merge/contracts/interop-deploy.md#cli-deploy-mirror-deploy-solana-mirror to require LAYERX_SOLANA_MIRROR_FINALIZE=YES and rooted immutable ELF verification before readiness."
+
+[gotcha.loader_authority_output]
+observed = "The pinned Solana CLI set-upgrade-authority JSON reports authority and accountType, not a transaction signature."
+resolution = "Require finalized CLI confirmation and independently re-fetch rooted loader bytes instead of inventing a finalization_signature field."
+
+[gotcha.candidate_drift]
+observed = "The earlier focused verification passed all three tests but qualification rejected differing build and verification candidates; generated Python bytecode and an uncarried nested Cargo.lock changed the candidate."
+resolution = "Keep the real-client harness manifest at the scoped mirror root with its generated lockfile, remove seeded bytecode artifacts, and set PYTHONPYCACHEPREFIX outside the checkout for both gates. Preserve every original behavioral assertion."
+
+[continuation]
+previous_result = "Attempt 1 reported 3 passed in 104.18s at verification revision 4f88812760f9a214520a6bcd09a88ca30993c991; it was not qualified because same_candidate and build_on_verified were unmet."
+evidence = "The current verified revision is the revision field of the final hf-done record in /out/run/gates.jsonl; its command, exit and private log are returned verbatim in the final response. No pre-change baseline failure is claimed."

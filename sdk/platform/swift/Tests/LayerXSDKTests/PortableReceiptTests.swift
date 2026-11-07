@@ -32,6 +32,7 @@ final class PortableReceiptTests: XCTestCase {
     var inclusion: ReceiptInclusion
     var commit: CometCommit
     let validators: [CometValidator]
+    let trust: CommittedTrust
   }
 
   private func vectors() throws -> [Vector] {
@@ -96,7 +97,7 @@ final class PortableReceiptTests: XCTestCase {
       rawTransaction: hex(v.rawTransaction), signedReceipt: hex(v.signedReceipt),
       receiptJSON: v.receiptJson, receiptKey: key(v), prevSeqHash: hex(v.prevSeqHash),
       blockHeader: evidence?.header, receiptInclusion: evidence?.inclusion,
-      commit: evidence?.commit, validatorSet: evidence?.validators)
+      commit: evidence?.commit, validatorSet: evidence?.validators, trust: evidence?.trust)
   }
 
   private func document(_ receipt: PortableReceipt) throws -> [String: JSONValue] {
@@ -109,7 +110,7 @@ final class PortableReceiptTests: XCTestCase {
     return try encoder.encode(value)
   }
 
-  private func publishedBundles(_ data: Data) throws -> [Data] {
+  private static func publishedBundles(_ data: Data) throws -> [Data] {
     let field = try XCTUnwrap(data.range(of: Data("\"bundles\"".utf8)))
     let arrayStart = try XCTUnwrap(data[field.upperBound...].firstIndex(of: 0x5b))
     var depth = 0
@@ -217,7 +218,8 @@ final class PortableReceiptTests: XCTestCase {
         batchTransaction: batch,
         batchProof: .init(total: 2, index: 0, aunts: [CommittedWire.leaf(leaves[1])]),
         nextHeader: next, nextCommit: try commit(next), nextValidators: validators),
-      commit: signed, validators: validators)
+      commit: signed, validators: validators,
+      trust: CommittedTrust(chainID: header.chainID, height: header.height, blockHash: header.hash))
   }
 
   func testPortableVectorV5Verifies() throws {
@@ -225,7 +227,7 @@ final class PortableReceiptTests: XCTestCase {
       .deletingLastPathComponent().deletingLastPathComponent()
       .deletingLastPathComponent().deletingLastPathComponent()
       .appendingPathComponent("conformance/fixtures/vector-v5-portable.json")
-    let bundles = try publishedBundles(Data(contentsOf: url))
+    let bundles = try Self.publishedBundles(Data(contentsOf: url))
     XCTAssertEqual(bundles.count, 2)
     let documents = try bundles.map { try JSONDecoder().decode([String: JSONValue].self, from: $0) }
     let levels = try documents.map { try XCTUnwrap($0["verificationLevel"]?.stringValue) }
@@ -250,7 +252,8 @@ final class PortableReceiptTests: XCTestCase {
       XCTAssertEqual(try height("firstHeight"), pinned.firstHeight, level)
       XCTAssertEqual(try height("lastHeight"), pinned.lastHeight, level)
       let verified = try PortableReceipt.verify(
-        bytes, keys: [pinned], prevSeqHash: source.prevSeqHash)
+        bytes, keys: [pinned], prevSeqHash: source.prevSeqHash,
+        trust: level == "committed" ? RecordedProgramEvidence1398.checkpoint() : nil)
       XCTAssertEqual(verified.verificationLevel, level, level)
       XCTAssertEqual(verified.status, 1, level)
       XCTAssertEqual(
@@ -268,7 +271,7 @@ final class PortableReceiptTests: XCTestCase {
       .deletingLastPathComponent().deletingLastPathComponent()
       .deletingLastPathComponent().deletingLastPathComponent()
       .appendingPathComponent("conformance/fixtures/vector-v5-portable.json")
-    let bundles = try publishedBundles(Data(contentsOf: url))
+    let bundles = try Self.publishedBundles(Data(contentsOf: url))
     XCTAssertEqual(bundles.count, 2)
     let sources = try portableVectorV5Sources(url.deletingLastPathComponent())
     var levels: Set<String> = []
@@ -279,7 +282,8 @@ final class PortableReceiptTests: XCTestCase {
       levels.insert(level)
       let source = try XCTUnwrap(sources[level])
       let verified = try PortableReceipt.verify(
-        bytes, keys: [source.pin], prevSeqHash: source.prevSeqHash)
+        bytes, keys: [source.pin], prevSeqHash: source.prevSeqHash,
+        trust: level == "committed" ? RecordedProgramEvidence1398.checkpoint() : nil)
       XCTAssertEqual(verified.export(), bytes, level)
       XCTAssertNotEqual(bytes, try encode(bundle), level)
     }
@@ -366,7 +370,7 @@ final class PortableReceiptTests: XCTestCase {
     let receipted = try export(v)
     let proof = try evidence(v, receipted)
     let exported = try export(v, evidence: proof)
-    let verified = try PortableReceipt.verify(exported.export(), keys: [pinned])
+    let verified = try PortableReceipt.verify(exported.export(), keys: [pinned], trust: proof.trust)
     XCTAssertEqual(verified.verificationLevel, "committed")
     XCTAssertEqual(verified.status, 1)
     XCTAssertEqual(try XCTUnwrap(verified.committed).blockHash, proof.header.hash)
@@ -451,5 +455,125 @@ final class PortableReceiptTests: XCTestCase {
       XCTAssertThrowsError(
         try PortableReceipt.verify(exported.export() + Data("{}".utf8), keys: [pinned]))
     }
+  }
+}
+
+extension PortableReceiptTests {
+  func testRecordedNodePortableShapesRequireIndependentReceiptAndConsensusPins() throws {
+    try Self.proveRecordedPortableShapes1398()
+  }
+
+  static func proveRecordedPortableShapes1398() throws {
+    typealias E = RecordedProgramEvidence1398
+    let (vector, committedView) = try E.recordedCommitted()
+    let evidence = try E.evidence(vector)
+    let pin = try E.pin(vector)
+    let checkpoint = try E.checkpoint()
+    for (view, committed) in [(try E.object(vector, "receiptJson"), false), (committedView, true)] {
+      XCTAssertEqual(view["paymentDenom"], .string("uhpx"))
+      XCTAssertEqual(view["feeDenom"], .string("uhpx"))
+      let exported = try PortableReceipt.export(
+        rawTransaction: E.bytes(vector, "rawTransaction"),
+        signedReceipt: E.bytes(vector, "signedReceipt"), receiptJSON: view,
+        receiptKey: pin, prevSeqHash: E.bytes(vector, "prevSeqHash"),
+        blockHeader: committed ? evidence.header : nil,
+        receiptInclusion: committed ? evidence.inclusion : nil,
+        commit: committed ? evidence.commit : nil,
+        validatorSet: committed ? evidence.validators : nil,
+        trust: committed ? checkpoint : nil)
+      let bytes = exported.export()
+      let verified = try PortableReceipt.verify(
+        bytes, keys: [pin],
+        prevSeqHash: E.bytes(vector, "prevSeqHash"), trust: committed ? checkpoint : nil)
+      XCTAssertEqual(verified.verificationLevel, committed ? "committed" : "receipted")
+      XCTAssertEqual(verified.export(), bytes)
+      XCTAssertEqual(verified.receiptDigest, try E.bytes(vector, "receiptDigest"))
+      XCTAssertEqual(
+        verified.receiptVerification.canonicalBytes, try E.bytes(vector, "signedReceipt"))
+      let document = try JSONDecoder().decode(E.Record.self, from: bytes)
+      XCTAssertEqual(document["receiptJson"], .object(view))
+      XCTAssertEqual(verified.status, 1)
+      let foreign = ReceiptKeys(
+        keyId: pin.keyId, publicKey: Data(repeating: 0x42, count: 32),
+        firstHeight: pin.firstHeight, lastHeight: pin.lastHeight)
+      XCTAssertThrowsError(try PortableReceipt.verify(bytes, keys: [foreign], trust: checkpoint)) {
+        XCTAssertEqual(($0 as? PlatformSDKError)?.code, .verificationFailure)
+      }
+      if committed {
+        XCTAssertEqual(verified.committed?.blockHash, checkpoint.blockHash)
+        XCTAssertEqual(verified.receiptVerification.reportedBlockHash, checkpoint.blockHash)
+        XCTAssertEqual(verified.receiptVerification.reportedBlockNumber, 10)
+        XCTAssertThrowsError(try PortableReceipt.verify(bytes, keys: [pin])) {
+          XCTAssertEqual($0 as? CommittedError, .trust)
+        }
+        let wrong = CommittedTrust(
+          chainID: checkpoint.chainID, height: checkpoint.height,
+          blockHash: Data(repeating: 0x42, count: 32))
+        XCTAssertThrowsError(try PortableReceipt.verify(bytes, keys: [pin], trust: wrong)) {
+          XCTAssertEqual($0 as? CommittedError, .trust)
+        }
+        for (field, value) in [
+          ("blockNumber", "0xb"),
+          ("blockHash", "0x" + String(repeating: "42", count: 32)),
+        ] {
+          var changedView = view
+          changedView[field] = .string(value)
+          var changed = document
+          changed["receiptJson"] = .object(changedView)
+          XCTAssertThrowsError(
+            try PortableReceipt.verify(E.encode(changed), keys: [pin], trust: checkpoint)
+          ) {
+            XCTAssertEqual($0 as? CommittedError, .receipt)
+          }
+        }
+      } else {
+        XCTAssertNil(verified.committed)
+        XCTAssertNil(verified.receiptVerification.reportedBlockHash)
+      }
+      for field in ["paymentDenom", "feeDenom"] {
+        var changedView = view
+        changedView[field] = .string("usid")
+        var changed = document
+        changed["receiptJson"] = .object(changedView)
+        XCTAssertThrowsError(
+          try PortableReceipt.verify(E.encode(changed), keys: [pin], trust: checkpoint), field)
+      }
+    }
+  }
+
+  static func provePublishedPortableBytes1398() throws {
+    typealias E = RecordedProgramEvidence1398
+    let data = try Data(
+      contentsOf: E.root.appendingPathComponent(
+        "sdk/platform/conformance/fixtures/vector-v5-portable.json"))
+    let bundles = try publishedBundles(data)
+    XCTAssertEqual(bundles.count, 2)
+    var levels: Set<String> = []
+    for bytes in bundles {
+      let document = try JSONDecoder().decode(E.Record.self, from: bytes)
+      let level = try E.text(document, "verificationLevel")
+      levels.insert(level)
+      let source =
+        try level == "committed"
+        ? E.recordedCommitted().0 : E.firstVector("vector-v1-receipted-positive")
+      let pin = try E.pin(source)
+      let verified = try PortableReceipt.verify(
+        bytes, keys: [pin],
+        prevSeqHash: E.bytes(source, "prevSeqHash"), trust: E.checkpoint())
+      XCTAssertEqual(verified.export(), bytes)
+      XCTAssertEqual(verified.verificationLevel, level)
+      XCTAssertNotEqual(bytes, try E.encode(document))
+      let foreignSource =
+        try level == "committed"
+        ? E.firstVector("vector-v1-receipted-positive") : E.recordedCommitted().0
+      XCTAssertThrowsError(
+        try PortableReceipt.verify(
+          bytes, keys: [E.pin(foreignSource)],
+          trust: E.checkpoint())
+      ) {
+        XCTAssertEqual(($0 as? PlatformSDKError)?.code, .verificationFailure)
+      }
+    }
+    XCTAssertEqual(levels, ["receipted", "committed"])
   }
 }

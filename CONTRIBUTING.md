@@ -12,10 +12,11 @@ Follow [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md). Report vulnerabilities only thr
 
 ## Repository layout
 
-[docs/MONOREPO.md](docs/MONOREPO.md) describes the tree. In short:
+[docs/MONOREPO.md](docs/MONOREPO.md) provides the directory inventory. The current runtime is one Paxeer network: the C17 kernel executes inside `paxd`, in the node's execution domain and block proposal path. The former `layerxd` daemon is retired. A transaction receipt is final once its block is committed.
 
 - `apps/` holds the user-facing frontends, `services/` the off-chain programs, `sdk/` the client SDKs, `contracts/` the Solidity contracts, `tests/` the cross-cutting test suites, and `tools/` the developer and release tooling.
-- The Paxeer X chain node (`paxd`) is the root Go module (`go.mod`, built through `chain.mk`); its packages live in root directories such as `node/`, `modules/`, `precompiles/`, `rpc/` and `consensus/`. The LayerX kernel (`layerxd`, C17) lives in `src/`, `include/` and `cmd/`. These root directories move under `core/` in a later release.
+- The Paxeer X chain node (`paxd`) is the root Go module (`go.mod`, built through `chain.mk`); its entry point is `daemon/paxd/` and its packages live in root directories such as `node/`, `modules/`, `precompiles/`, `rpc/` and `consensus/`.
+- The C17 kernel sources and headers live in `src/` and `include/`; `cmd/` contains tools such as the genesis builder. The node embeds the kernel through [`modules/lxphost/`](modules/lxphost/), which links `build/liblayerx.a` and the Rust programs sandbox archive `programs/target/release/liblayerx_programs_sandbox.a`. These are native library build boundaries within the same network.
 - `sdk/js/` is the first-party `@pax-js/cosmos` package, edited in place and aligned to the protos of this repository.
 - `core/deps/` and several directories under `tools/` are vendored upstream snapshots. Each has a `VENDOR.kvx` pin record, and `scripts/ci/vendor-verify.sh <dir>` proves the directory equals the pinned upstream commit. Do not edit them in place; change the upstream repository and re-pin.
 
@@ -28,8 +29,8 @@ Working a task:
 1. Read [GOTCHA.kvx](GOTCHA.kvx), the repository's append-only ledger of known pitfalls, and the feature's `spec.kvx`.
 2. Take the next pending task whose required tasks are done, and mark it `in_progress`.
 3. Implement the whole task before building or testing it.
-4. Qualify it once: format the touched files, run one build of its targets and run its `verify_cmd`. Fix failures the task caused; record unrelated or pre-existing failures as one entry in the feature's `qualification.kvx` instead of chasing them.
-5. Mark the task `done` only after its `verify_cmd` passes.
+4. Qualify it: format the touched files, run its declared build and run its `verify_cmd`. Repair failures the task caused within the declared time and repair budget, with at most two repair cycles. Record unrelated or pre-existing failures in the feature's `qualification.kvx` instead of chasing them.
+5. Run `cg spec done <id>` for the owning feature without `--force`; mark the task `done` only when the declared verification and graph checks pass. Record the verified revision, command, exit code and evidence log path. Follow any task-specific gate wrappers and scope limits.
 
 A change to planned behavior changes the specification in the same pull request. A reproducible defect can be fixed without a spec task; link the issue instead.
 
@@ -45,22 +46,22 @@ Files generated from KVX are not edited by hand: `AGENTS.md`, `CLAUDE.md` and th
 ## Toolchains
 
 - Go: the version in `go.mod` (the release build refuses any other)
-- C17 for the LayerX kernel (`-std=c17` in the root `Makefile`)
+- C17 for the embedded kernel (`-std=c17` in the root `Makefile`)
 - Rust 1.91.1 (`rust-toolchain.toml`)
 - Solidity 0.8.27 for the root Foundry project (`foundry.toml`)
 - Node.js for the TypeScript apps and SDKs; each workspace declares its own package manager
 
-The development container under [.devcontainer/](.devcontainer/) provides a ready environment. Replay qualification needs further compilers and runners listed in [docs/QUALIFICATION.md](docs/QUALIFICATION.md).
+The development container under [.devcontainer/](.devcontainer/) provides a development environment. Node builds require `CGO_ENABLED=1`, the kernel and programs sandbox archives, and OpenSSL development libraries; `make paxeer-build` builds the native archives before linking `paxd`. The merged-network [test plan](spec/layerx-merge/docs/plans/test-plan.md#command-shapes-and-manifest-constraints) describes toolchain boundaries and bounded verification commands; the active task declares the commands to run.
 
 ## Gates
 
-Run the narrowest target that covers your change while you work, then the gate the task names.
+Finish the task implementation before building or testing. Run only the task's declared build and verification commands. The following targets show the available build and test boundaries; they are not a per-task checklist.
 
 ```sh
-make build             # LayerX kernel library
-make test              # LayerX kernel tests
+make build             # embedded kernel library and genesis builder
+make test              # native kernel test suite
 make test-contracts    # Foundry tests of the root contracts
-make paxeer-build      # paxd chain node
+make paxeer-build      # paxd with embedded kernel and programs sandbox
 make paxeer-test       # paxd unit tests
 make paxeer-lint       # golangci-lint over the chain node
 make public-audit      # publication audit: pinned actions, required files, secrets
@@ -69,7 +70,7 @@ make specgen-lint      # generated rule files match spec/workflow.kvx
 
 `scripts/ci/layout-check.sh` fails while any file or configuration names a path that has moved. The pre-commit hooks in `.pre-commit-config.yaml` check whitespace, Markdown, YAML, `cargo fmt` and `forge fmt`. Moved trees keep their own targets, such as `make agent-build`, `make human-build` and `make bridge-test-evm`.
 
-`make ci`, `make paxeer-ci` and `make monorepo-ci` are aggregate gates that include sanitizer and reproducibility runs; they run once per wave or at release rather than per change. Arithmetic, replay, recovery, settlement and cross-architecture changes have extra gates in [docs/QUALIFICATION.md](docs/QUALIFICATION.md).
+`make ci`, `make paxeer-ci` and `make monorepo-ci` are aggregate gates; they run at the wave or release boundary rather than per task. `make ci` includes sanitizer and reproducibility runs. Merged-network acceptance coverage, domain ownership and release qualification are described in the [test plan](spec/layerx-merge/docs/plans/test-plan.md); use the owning specification's declared gates for execution, ledger, replay, recovery and cross-architecture changes.
 
 ## Pull requests
 

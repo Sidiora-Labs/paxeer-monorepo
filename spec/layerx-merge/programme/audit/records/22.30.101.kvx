@@ -1,0 +1,1033 @@
+[audit.22.30.101]
+task = "22.30.101"
+revision = "2b99f88520e4e809ad5593f3bee2df74fe355d7b"
+files_reviewed = 94
+findings = 39
+docs_reviewed = 7
+upgrade_ready = false
+blocking = ["rpc-root", "websocket-root", "commit-inclusion", "lifecycle-abi", "draw-restart", "stream-undelivered", "web-payer-header", "web-ledger-account", "exchange-account-abi"]
+
+[file.001]
+path = "services/agent/sdk/typescript/examples/budget-constrained-spending.ts"
+lines = 11
+verdict = "clean"
+note = "Read in full: demonstrates budget refusal with a required idempotency key and no local transfer authority."
+
+[file.002]
+path = "services/agent/sdk/typescript/examples/http-402-settlement.ts"
+lines = 13
+verdict = "clean"
+note = "Read in full: settlement example preserves the operation idempotency key and refuses Submitted or Reverted status instead of treating admission as settled payment."
+
+[file.003]
+path = "services/agent/sdk/typescript/examples/payment-with-verification.ts"
+lines = 23
+verdict = "clean"
+note = "Read in full: canonical payment bytes are submitted with an idempotency key; requireVerified enforces the requested rung and refuses reverted or admission-only outcomes."
+
+[file.004]
+path = "services/agent/sdk/typescript/examples/service-lifecycle.ts"
+lines = 14
+verdict = "clean"
+note = "Read in full: lifecycle example uses the generated service contract and explicit idempotency on mutations."
+
+[file.005]
+path = "services/agent/sdk/typescript/package.json"
+lines = 52
+verdict = "issues"
+note = "Read in full: Node ESM/browser exports, pinned dependencies and build metadata reviewed; test execution omissions recorded."
+
+[file.006]
+path = "services/agent/sdk/typescript/scripts/generate-precompile-writes.mjs"
+lines = 122
+verdict = "clean"
+note = "Read in full: handwritten generator reads canonical ABI files, handles tuple signatures and deterministically emits typed write/event catalogues."
+
+[file.007]
+path = "services/agent/sdk/typescript/src/account-derivation.ts"
+lines = 738
+verdict = "clean"
+note = "Read in full: EIP-712 wallet signature normalization, SLIP-10/HKDF derivation, DID binding preflight and signed type-2 transaction binding reviewed against addr and wallet contracts."
+
+[file.008]
+path = "services/agent/sdk/typescript/src/agent-http.ts"
+lines = 1012
+verdict = "issues"
+note = "Read in full: major-2 envelope, credential handling, readiness/proof decoders and TLS admission reviewed; retired daemon transport recorded separately from the valid hosted envelope."
+
+[file.009]
+path = "services/agent/sdk/typescript/src/ai_market.ts"
+lines = 3725
+verdict = "issues"
+note = "Read in full: ABI-5 requests, paymentDenom, canonical views/cursors, raw-transaction and signed log/sequence bindings, terminal authority and journal state transitions reviewed; concurrent durable replacement risk recorded."
+
+[file.010]
+path = "services/agent/sdk/typescript/src/bridge.ts"
+lines = 100
+verdict = "clean"
+note = "Read in full: bridge ABI selectors, chain/log widths, dynamic signatures, events and wallet submission match the declared bridge contract."
+
+[file.011]
+path = "services/agent/sdk/typescript/src/browser.ts"
+lines = 19
+verdict = "clean"
+note = "Read in full: browser entry point exposes portable bindings and types without importing Node-only journal or process execution modules."
+
+[file.012]
+path = "services/agent/sdk/typescript/src/chains.ts"
+lines = 374
+verdict = "clean"
+note = "Read in full: tenant identifiers, limits, EVM chain identity and hosted create/read response validation preserve tenant namespaces and explicit outcomes."
+
+[file.013]
+path = "services/agent/sdk/typescript/src/evm-transaction.ts"
+lines = 210
+verdict = "clean"
+note = "Read in full: strict canonical RLP, EIP-1559 chain/nonce/fee fields, access list, low-s recovery and exact raw transaction hashing reviewed."
+
+[file.014]
+path = "services/agent/sdk/typescript/src/exchange.ts"
+lines = 669
+verdict = "issues"
+note = "Read in full: ABI tuple/string/array framing, width validation, event topics and write requests reviewed; accountId placeOrder ABI disagreement recorded."
+
+[file.015]
+path = "services/agent/sdk/typescript/src/gas-station.ts"
+lines = 1559
+verdict = "issues"
+note = "Read in full: fee-denomination governance, pending sponsored nonce, authorization and quote binding, submission retries and receipt fee parsing reviewed; success-body allocation remains unbounded."
+
+[file.016]
+path = "services/agent/sdk/typescript/src/history.ts"
+lines = 412
+verdict = "clean"
+note = "Read in full: decimal amounts, positional ordering, same-position transaction hashes, explorer IDs, asset metadata and opaque overflow cursors preserve the hosted history contract."
+
+[file.017]
+path = "services/agent/sdk/typescript/src/index.ts"
+lines = 41
+verdict = "clean"
+note = "Read in full: public exports resolve to the reviewed source/generated modules; retired kernel receipt verifier names are absent and current receipt APIs remain exported."
+
+[file.018]
+path = "services/agent/sdk/typescript/src/intent.ts"
+lines = 688
+verdict = "clean"
+note = "Read in full: human plan/submit fields, expiry, exact call legs, fee/nonces, typed errors and signed submission binding follow the declared intent envelope."
+
+[file.019]
+path = "services/agent/sdk/typescript/src/launchpad.ts"
+lines = 194
+verdict = "clean"
+note = "Read in full: generated write dispatch, exact allowance target/amount, token reads and approval confirmation precede launchpad sends. The on-chain token Router is a live contract, not the retired network router."
+
+[file.020]
+path = "services/agent/sdk/typescript/src/mirror.ts"
+lines = 39
+verdict = "clean"
+note = "Read in full: mirror target/policy/provenance types preserve explicit verification lag and unavailable checkpoint semantics without claiming consensus authority."
+
+[file.021]
+path = "services/agent/sdk/typescript/src/names.ts"
+lines = 142
+verdict = "clean"
+note = "Read in full: normalized suffix/label validation, registrar calldata and strict address/record decoding follow the name contract. Inherited HTTP routing is recorded against rpc.ts."
+
+[file.022]
+path = "services/agent/sdk/typescript/src/native-capabilities.ts"
+lines = 149
+verdict = "clean"
+note = "Read in full: canonical capability ordering, account derivation, field lengths, finite list bounds and narrowing preserve host capability encoding."
+
+[file.023]
+path = "services/agent/sdk/typescript/src/native-effect.ts"
+lines = 89
+verdict = "clean"
+note = "Read in full: prepared native effect encoding binds canonical capability set, transaction payload and supported versions with bounded fields."
+
+[file.024]
+path = "services/agent/sdk/typescript/src/native-program-call.ts"
+lines = 72
+verdict = "clean"
+note = "Read in full: current CALL codecs admit the shared ABI set and enforce canonical capability/resource/entrypoint framing; legacy codec has explicit narrower version semantics."
+
+[file.025]
+path = "services/agent/sdk/typescript/src/node-mirror.ts"
+lines = 26
+verdict = "issues"
+note = "Read in full: executable arguments, JSON result shape, timeout and output bounds reviewed; unhandled stdin write failure recorded."
+
+[file.026]
+path = "services/agent/sdk/typescript/src/perps.ts"
+lines = 912
+verdict = "issues"
+note = "Read in full: disclosure-bound trading payloads, generated canonical perps signatures and state readers reviewed; latest-versus-pending nonce rejection recorded for the shared writer."
+
+[file.027]
+path = "services/agent/sdk/typescript/src/production.ts"
+lines = 398
+verdict = "issues"
+note = "Read in full: idempotency classifications, safe error details, secret rendering and transport outcome taxonomy reviewed; observer exceptions can change a completed result."
+
+[file.028]
+path = "services/agent/sdk/typescript/src/program-lifecycle.ts"
+lines = 136
+verdict = "issues"
+note = "Read in full: deploy/upgrade/wind-down framing, hashes and signed request binding reviewed; current ABI admission and whole-payload size drift recorded."
+
+[file.029]
+path = "services/agent/sdk/typescript/src/program-wire.ts"
+lines = 837
+verdict = "clean"
+note = "Read in full: canonical signed activity framing, payload hashes, actor/key/nonce binding, occupancy authority and lifecycle recovery retain exact bytes and enforce the submission size bound."
+
+[file.030]
+path = "services/agent/sdk/typescript/src/programs.ts"
+lines = 461
+verdict = "clean"
+note = "Read in full: supported CALL requests, discovery/interface signature verification, simulation freshness, terminal document parsing and explicit unknown outcomes reviewed against hosted program contracts."
+
+[file.031]
+path = "services/agent/sdk/typescript/src/px.ts"
+lines = 586
+verdict = "clean"
+note = "Read in full: hosted gateway method inventory, EVM/DID account forms, decimal amounts, error envelopes and history metadata reviewed against openrpc.json. Inherited path rewrite is recorded against rpc.ts."
+
+[file.032]
+path = "services/agent/sdk/typescript/src/revert.ts"
+lines = 134
+verdict = "clean"
+note = "Read in full: handwritten bounded ABI Error(string) decoder and typed error wrapper reviewed; generated retryability region mirrors the current 54-code registry set."
+
+[file.033]
+path = "services/agent/sdk/typescript/src/rpc-subscription.ts"
+lines = 136
+verdict = "issues"
+note = "Read in full: eth subscription selectors, response IDs, log/head continuity, unsubscribe and cancellation reviewed; endpoint and backlog risks recorded."
+
+[file.034]
+path = "services/agent/sdk/typescript/src/rpc.ts"
+lines = 280
+verdict = "issues"
+note = "Read in full: eth_/pax_/hosted px_ calls, pending quantities, strict result envelopes and response bounds reviewed; forced /rpc route prevents real endpoint use."
+
+[file.035]
+path = "services/agent/sdk/typescript/src/spot.ts"
+lines = 242
+verdict = "clean"
+note = "Read in full: generated live spot ABI calls, address/amount framing and disclosure-bound writer delegation reviewed; shared writer nonce finding belongs to perps.ts."
+
+[file.036]
+path = "services/agent/sdk/typescript/src/stream.ts"
+lines = 82
+verdict = "issues"
+note = "Read in full: cursor continuity and duplicate validation reviewed; pre-delivery cursor advancement and lifetime duplicate-set growth recorded."
+
+[file.037]
+path = "services/agent/sdk/typescript/src/verifier.ts"
+lines = 631
+verdict = "issues"
+note = "Read in full: canonical signed sequencer receipt parsing, pinned key ranges, raw hash binding and Comet vote arithmetic reviewed; missing inclusion proof and duplicate ABI predicate drift recorded."
+
+[file.038]
+path = "services/agent/sdk/typescript/src/wallet.ts"
+lines = 128
+verdict = "clean"
+note = "Read in full: retained signer identity, type-2 signing, bounded process interaction, stdin errors and non-secret rendering reviewed against wallet-executable request/response contract."
+
+[file.039]
+path = "services/agent/sdk/typescript/src/web-search.ts"
+lines = 543
+verdict = "issues"
+note = "Read in full: challenge/preference selection, content hash, grant/transaction/receipt checks and retry bounds reviewed against the real seller; header/account/trust-option drift recorded."
+
+[file.040]
+path = "services/agent/sdk/typescript/src/x402/activity.ts"
+lines = 34
+verdict = "clean"
+note = "Read in full: chain, signer, destination, value and exact draw calldata are bound to a canonical raw EIP-1559 transaction before registration."
+
+[file.041]
+path = "services/agent/sdk/typescript/src/x402/draw.ts"
+lines = 82
+verdict = "issues"
+note = "Read in full: SQLite registration uniqueness, principal/digest/raw-byte binding and pinned settlement verification reviewed; attempted-before-send recovery hole recorded."
+
+[file.042]
+path = "services/agent/sdk/typescript/src/x402/grant.ts"
+lines = 65
+verdict = "clean"
+note = "Read in full: canonical draw operation, allowance/window/recipient/asset/purpose and idempotency checks preserve grant restrictions before submission."
+
+[file.043]
+path = "services/agent/sdk/typescript/src/x402/receive.ts"
+lines = 236
+verdict = "clean"
+note = "Read in full: exact and metered x402 requirement construction, canonical grants, digest/purpose and settlement response boundaries reviewed; no local state-transfer authority added."
+
+[file.044]
+path = "services/agent/sdk/typescript/src/xweb-api.ts"
+lines = 803
+verdict = "clean"
+note = "Read in full: xweb key/namespace encodings, sealed request cryptography, fee and account quantities, response validation and generated request framing reviewed against the live xweb API."
+
+[file.045]
+path = "services/agent/sdk/typescript/test/abi-tuple-width.test.ts"
+lines = 126
+verdict = "clean"
+note = "Read in full: tests tuple component widths, offsets and generated signatures, preserving malformed and out-of-range refusals."
+
+[file.046]
+path = "services/agent/sdk/typescript/test/account-bind-eip1559.test.ts"
+lines = 162
+verdict = "clean"
+note = "Read in full: bind signing vectors exercise exact EIP-1559 bytes, nonce/chain identity and refusal of changed signatures or payloads."
+
+[file.047]
+path = "services/agent/sdk/typescript/test/account-bound-call.test.ts"
+lines = 32
+verdict = "clean"
+note = "Read in full: bound DID call preflight and transaction request behavior are asserted against the addr binding response shape."
+
+[file.048]
+path = "services/agent/sdk/typescript/test/account-derivation.test.ts"
+lines = 508
+verdict = "clean"
+note = "Read in full: deterministic wallet/mnemonic derivation, account binding, authority mismatches and signed raw transaction vectors reviewed."
+
+[file.049]
+path = "services/agent/sdk/typescript/test/agent-envelope-bootstrap-credential.test.ts"
+lines = 37
+verdict = "clean"
+note = "Read in full: bootstrap credential admission and redaction checks match the hosted envelope transport contract."
+
+[file.050]
+path = "services/agent/sdk/typescript/test/agent-http-daemon-envelope.test.ts"
+lines = 107
+verdict = "clean"
+note = "Read in full: historical daemon name identifies static shared-envelope golden bytes and error-decoder cases; it does not start or call a retired daemon."
+
+[file.051]
+path = "services/agent/sdk/typescript/test/agent-http-major2.test.ts"
+lines = 174
+verdict = "clean"
+note = "Read in full: major-2 admission/submitted/pending/error envelopes retain the distinction between admission and authenticated execution."
+
+[file.052]
+path = "services/agent/sdk/typescript/test/agent-http.test.ts"
+lines = 184
+verdict = "clean"
+note = "Read in full: hosted envelope serialization, idempotency, credentials and safe refusal decoding reviewed against generated operation contract."
+
+[file.053]
+path = "services/agent/sdk/typescript/test/agent-operation-envelope.test.ts"
+lines = 505
+verdict = "issues"
+note = "Read in full: real case-file harness and admission/disclosure probes reviewed; active retired-daemon probe recorded."
+
+[file.054]
+path = "services/agent/sdk/typescript/test/ai-market.test.ts"
+lines = 2873
+verdict = "clean"
+note = "Read in full: all request/view vectors, ABI-5 terminal mutations, signed log and transaction checks, journal reopen and authority-before-reward cases reviewed; concurrent journal writes are not established by these sequential cases."
+
+[file.055]
+path = "services/agent/sdk/typescript/test/binding-preflight.test.ts"
+lines = 545
+verdict = "issues"
+note = "Read in full: binding refusal and explicit bind-before-write assertions reviewed; latest nonce fixture hides a real pending queue."
+
+[file.056]
+path = "services/agent/sdk/typescript/test/chains.test.ts"
+lines = 396
+verdict = "clean"
+note = "Read in full: hosted tenant create/status envelopes, limit bounds and namespaced endpoint behavior reviewed, including malformed response refusals."
+
+[file.057]
+path = "services/agent/sdk/typescript/test/evm-transaction.test.ts"
+lines = 143
+verdict = "clean"
+note = "Read in full: canonical RLP and signed EIP-1559 positive/negative vectors bind exact raw bytes, sender, chain and nonce."
+
+[file.058]
+path = "services/agent/sdk/typescript/test/exchange-v2.test.ts"
+lines = 140
+verdict = "issues"
+note = "Read in full: accountId calldata and type-2 Anvil submission checks reviewed; no exchange execution consumer is installed in that harness."
+
+[file.059]
+path = "services/agent/sdk/typescript/test/gas-station-pending.test.ts"
+lines = 471
+verdict = "clean"
+note = "Read in full: pending nonce, submitted-versus-receipted status, denomination and quote/authorization binding refusals reviewed."
+
+[file.060]
+path = "services/agent/sdk/typescript/test/gas-station.test.ts"
+lines = 1152
+verdict = "clean"
+note = "Read in full: signed quotes, EIP-7702 consent, native fee preferences, idempotent submission and governed-denomination parsing assertions reviewed."
+
+[file.061]
+path = "services/agent/sdk/typescript/test/generated-rung.test.ts"
+lines = 46
+verdict = "clean"
+note = "Read in full: generated client/rung contract retains explicit submitted, receipted and committed distinctions and unknown outcome handling."
+
+[file.062]
+path = "services/agent/sdk/typescript/test/history-cursor.test.ts"
+lines = 454
+verdict = "clean"
+note = "Read in full: tied-position overflow cursors, reordered/duplicate rows, metadata and real stored page shape assertions preserve history without silently dropping ties."
+
+[file.063]
+path = "services/agent/sdk/typescript/test/integration.test.ts"
+lines = 107
+verdict = "clean"
+note = "Read in full: generated client metadata, bigint bounds, scoped secret lifetime, verification-rung comparison and approval operation forwarding are asserted without claiming chain execution."
+
+[file.064]
+path = "services/agent/sdk/typescript/test/intent-legs.test.ts"
+lines = 110
+verdict = "clean"
+note = "Read in full: exact intent leg fields, raw calldata, nonce and signing identity refusal vectors match the declared plan/submit contract."
+
+[file.065]
+path = "services/agent/sdk/typescript/test/intent.test.ts"
+lines = 211
+verdict = "clean"
+note = "Read in full: human intent plan/submission and errors retain canonical money strings, expiry and bound-call fields."
+
+[file.066]
+path = "services/agent/sdk/typescript/test/launchpad-approval.test.ts"
+lines = 170
+verdict = "clean"
+note = "Read in full: real allowance spender/amount and approval confirmation behavior are asserted before launchpad submission, including failure paths."
+
+[file.067]
+path = "services/agent/sdk/typescript/test/names.test.ts"
+lines = 250
+verdict = "issues"
+note = "Read in full: normalized name, registrar calldata and malformed records tested; HTTP fixture still requires the retired /rpc route."
+
+[file.068]
+path = "services/agent/sdk/typescript/test/native-abi5.test.ts"
+lines = 40
+verdict = "clean"
+note = "Read in full: ABI-5 CALL encoding and unsupported versions are checked; explicit legacy codec refusals are not presented as lifecycle registration coverage."
+
+[file.069]
+path = "services/agent/sdk/typescript/test/native-capabilities.test.ts"
+lines = 69
+verdict = "clean"
+note = "Read in full: capability encoding/narrowing/order and malformed-set vectors are consistent with canonical host types and bounds."
+
+[file.070]
+path = "services/agent/sdk/typescript/test/native-effect.test.ts"
+lines = 114
+verdict = "clean"
+note = "Read in full: prepared native-effect encoding binds the actual cross-language request/output environment contract and refuses malformed fields."
+
+[file.071]
+path = "services/agent/sdk/typescript/test/perps-v2.test.ts"
+lines = 88
+verdict = "clean"
+note = "Read in full: canonical live openPosition and uint256 cancelOrder signatures match the current perps ABI; older superseded requirement signatures are not substituted."
+
+[file.072]
+path = "services/agent/sdk/typescript/test/precompile-calls.test.ts"
+lines = 328
+verdict = "issues"
+note = "Read in full: ABI/event inventories and width checks retained; accountId exchange case disagrees with the declared precompile ABI."
+
+[file.073]
+path = "services/agent/sdk/typescript/test/program-executed-v3.test.ts"
+lines = 13
+verdict = "clean"
+note = "Read in full: stored fixture execution_document uses module_version 4; malformed version documents are refused. The v3 fixture name is historical provenance."
+
+[file.074]
+path = "services/agent/sdk/typescript/test/program-lifecycle.test.ts"
+lines = 130
+verdict = "issues"
+note = "Read in full: signed payload, size limits, framing and current CALL versions checked; ABI-4/5 deployment/upgrade path missing."
+
+[file.075]
+path = "services/agent/sdk/typescript/test/proof_exchange.test.ts"
+lines = 171
+verdict = "clean"
+note = "Read in full: exact call/request forwarding checked twice with changed values; test explicitly records the real five-argument ABI mismatch and makes no exchange execution claim."
+
+[file.076]
+path = "services/agent/sdk/typescript/test/proof_gas_station.test.ts"
+lines = 648
+verdict = "issues"
+note = "Read in full: producer-consumer request forwarding and signer/nonce proofs reviewed; local nonce transport still mounts /rpc."
+
+[file.077]
+path = "services/agent/sdk/typescript/test/proof_x402_receive.test.ts"
+lines = 121
+verdict = "clean"
+note = "Read in full: canonical x402 offer/grant/settlement producer-consumer forwarding checked without claiming fabricated chain execution."
+
+[file.078]
+path = "services/agent/sdk/typescript/test/px.test.ts"
+lines = 1452
+verdict = "issues"
+note = "Read in full: gateway account/asset/history and stored indexer row vectors reviewed; retired router/path fixtures recorded."
+
+[file.079]
+path = "services/agent/sdk/typescript/test/receipt-fixture.test.ts"
+lines = 342
+verdict = "clean"
+note = "Read in full: stored signed sequencer receipt/raw transaction evidence and required refusal mutations reviewed, with AI log binding distinct from generic finality."
+
+[file.080]
+path = "services/agent/sdk/typescript/test/retired-kernel-receipts.test.ts"
+lines = 29
+verdict = "clean"
+note = "Read in full: asserts retired kernel verifier exports are absent and current sequencer/committed verifier exports exist; historical names are intentional negative coverage."
+
+[file.081]
+path = "services/agent/sdk/typescript/test/revert-retryable.test.ts"
+lines = 52
+verdict = "clean"
+note = "Read in full: current registry-derived retryability and generated mirror equality are asserted per code without obsolete fixed counts."
+
+[file.082]
+path = "services/agent/sdk/typescript/test/revert.test.ts"
+lines = 105
+verdict = "issues"
+note = "Read in full: bounded ABI reason decoder cases and per-code mapping preserved; old registry/set cardinalities contradict current source."
+
+[file.083]
+path = "services/agent/sdk/typescript/test/rpc-node.test.ts"
+lines = 168
+verdict = "issues"
+note = "Read in full: eth/pax method and pending nonce requests reviewed; endpoint recorder enshrines retired /rpc path."
+
+[file.084]
+path = "services/agent/sdk/typescript/test/rpc-subscription-eth.test.ts"
+lines = 102
+verdict = "issues"
+note = "Read in full: eth heads/log selectors, cancellation and cursor errors reviewed; fixture only serves retired /rpc/ws transport."
+
+[file.085]
+path = "services/agent/sdk/typescript/test/rpc.test.ts"
+lines = 195
+verdict = "issues"
+note = "Read in full: strict JSON-RPC/asset snapshots and subscription continuity assertions reviewed; asset fixture requires retired /rpc route."
+
+[file.086]
+path = "services/agent/sdk/typescript/test/sequencer-receipt-verify.test.ts"
+lines = 155
+verdict = "issues"
+note = "Read in full: raw hash, pins, height and voting-power boundary assertions reviewed; committed positive lacks a receipt-to-block inclusion path."
+
+[file.087]
+path = "services/agent/sdk/typescript/test/support/exchange_consumers.ts"
+lines = 57
+verdict = "clean"
+note = "Read in full: shared consumers validate exact calldata and wallet request values, expose actual observed requests and do not simulate exchange execution."
+
+[file.088]
+path = "services/agent/sdk/typescript/test/trading-payload.test.ts"
+lines = 624
+verdict = "clean"
+note = "Read in full: signed disclosure payloads, occupancy metadata, account binding and canonical perps/spot codecs reviewed across refusal cases."
+
+[file.089]
+path = "services/agent/sdk/typescript/test/web-search-sequencer.test.ts"
+lines = 364
+verdict = "issues"
+note = "Read in full: pin, payment and mutation tests reviewed; positive receipt re-signing replaces real account evidence and masks seller incompatibility."
+
+[file.090]
+path = "services/agent/sdk/typescript/test/web-search.test.ts"
+lines = 388
+verdict = "issues"
+note = "Read in full: challenges, exact/metered offers, content hashes and refusals reviewed; positive authority configuration belongs to the obsolete receipt trust path."
+
+[file.091]
+path = "services/agent/sdk/typescript/test/x402-draw-sequencer.test.ts"
+lines = 214
+verdict = "issues"
+note = "Read in full: exact raw transaction, principal, grant and pinned receipt binding reviewed; in-memory fixture omits disk reopen recovery."
+
+[file.092]
+path = "services/agent/sdk/typescript/test/x402-ledger-calls.test.ts"
+lines = 184
+verdict = "clean"
+note = "Read in full: canonical ledger pay/draw and bound EIP-1559 transactions are compared with their actual declared selectors and account IDs."
+
+[file.093]
+path = "services/agent/sdk/typescript/test/xweb-api.test.ts"
+lines = 652
+verdict = "clean"
+note = "Read in full: key derivation, encryption vectors, namespace/account checks and web API request/response boundaries reviewed."
+
+[file.094]
+path = "services/agent/sdk/typescript/tsconfig.json"
+lines = 18
+verdict = "clean"
+note = "Read in full: strict NodeNext compilation includes source, examples and test TypeScript with consistent declaration/output paths."
+
+[finding.rpc-root]
+file = "services/agent/sdk/typescript/src/rpc.ts"
+line = 63
+class = "interface-mismatch"
+severity = "high"
+observed = "JsonRpcClient rewrites every endpoint to a path ending in /rpc. A public node root becomes /rpc, and PxClient inherits this rewrite. rpc/rpcstack.go CheckPath accepts only / for the default node path; services/platform/hosted/gateway/src/main.rs likewise mounts JSON-RPC POST at /. Neither real producer serves this rewritten route."
+expected = "Brief facts 2 and 3 require the merged node JSON-RPC at the root and hosted px_ reads at the gateway contract. A configured endpoint must reach its actual producer, including tenant endpoints without an invented suffix."
+proposal = "In services/agent/sdk/typescript/src/rpc.ts preserve the configured node or gateway URL, default root URLs to /, and prove eth_ calls against the node handler and px_ calls against the hosted gateway handler. Retain explicit tenant path prefixes supported by the producer."
+owner_domain = 9
+interface = "9.ts-sdk-rpc-jsonrpcclient"
+
+[finding.websocket-root]
+file = "services/agent/sdk/typescript/src/rpc-subscription.ts"
+line = 80
+class = "interface-mismatch"
+severity = "high"
+observed = "subscribeRpc appends /ws to its input endpoint. Through JsonRpcClient this connects to /rpc/ws; even a direct root input becomes /ws. The node HTTP/WS stack uses CheckPath with the configured root path, so subscriptions never reach the default node WebSocket handler."
+expected = "Requirement 9354 requires live eth_subscribe heads and logs with continuity. Brief facts 2 and 3 prohibit the retired /rpc/ws transport and require the merged node public endpoint."
+proposal = "In services/agent/sdk/typescript/src/rpc-subscription.ts select ws or wss while preserving the configured WebSocket endpoint path. Exercise the real node root WebSocket handshake, heads/log notifications, cancellation and reconnect reconciliation."
+owner_domain = 9
+interface = "9.ts-sdk-rpc-subscription-subscriberpc"
+
+[finding.commit-inclusion]
+file = "services/agent/sdk/typescript/src/verifier.ts"
+line = 574
+class = "security"
+severity = "high"
+observed = "verifyCommittedReceipt accepts a sequencer-signed receipt and a valid greater-than-two-thirds Comet commit whenever landingHeight is at least receipt.height. CommittedReceiptEvidence has no authenticated execution header, transaction/batch inclusion proof or result proof tying that receipt to blockId. An unrelated later block commit can therefore label the receipt committed."
+expected = "Requirement 9962 and docs/site/docs/agents/sdk-verification.md require the receipt and its raw transaction to be included in the authenticated MsgSequenceBatch/execution block and successful result, with consensus commitment of the corresponding headers. Voting power alone authenticates a block, not this receipt."
+proposal = "Extend services/agent/sdk/typescript/src/verifier.ts committed evidence with canonical execution and successor headers, batch/transaction/result proofs and trusted header linkage. Return committed only after all bindings pass; add an unrelated-valid-commit refusal using recorded producer evidence."
+owner_domain = 9
+interface = "9.ts-sdk-verifier-receiptverification"
+
+[finding.lifecycle-abi]
+file = "services/agent/sdk/typescript/src/program-lifecycle.ts"
+line = 58
+class = "interface-mismatch"
+severity = "high"
+observed = "NativeProgramDeploy and NativeProgramUpgrade restrict guestAbi to 1 | 2 | 3, and code() rejects ABI 4 and 5 at runtime; both decoders also re-encode through that restriction. programs/sdk/rust/src/abi_policy.rs admits versions 1 through 5 and the registry pipeline delegates to that policy. The AI-market guest uses ABI 5."
+expected = "Brief fact 6 requires agreement on every registration path. Requirement 22014 and the host ABI policy admit current versions including ABI 4 and 5; an SDK must be able to register and upgrade the guest that the host accepts."
+proposal = "Update services/agent/sdk/typescript/src/program-lifecycle.ts deployment/upgrade types and validators from the shared admitted ABI policy. Prove ABI 4 and 5 deploy and monotonic upgrade payloads through the real registration consumer, retaining refusals for unsupported versions and downgrades."
+owner_domain = 9
+interface = "9.ts-sdk-program-lifecycle-encodenativeprogramdeploy"
+
+[finding.draw-restart]
+file = "services/agent/sdk/typescript/src/x402/draw.ts"
+line = 50
+class = "restart-recovery"
+severity = "high"
+observed = "PreparedGrantDraws.execute durably sets attempted = 1 before sendRawTransaction. A crash between those operations, or a send failure before admission, leaves the stored transaction permanently unsent. Later executions only poll sequencerReceipt and cannot resubmit the retained identical raw transaction, so the payment remains pending indefinitely."
+expected = "Brief checks 5 and 7 require durable payment recovery and idempotent redelivery. A retained signed transaction with unknown admission must be reconcilable and safely delivered after restart without creating a second payment."
+proposal = "In services/agent/sdk/typescript/src/x402/draw.ts persist an explicit unknown-admission state, reconcile by the stored hash and permit redelivery of the exact stored raw bytes under the same idempotency and period keys. Add disk-backed reopen cases for crashes before send and uncertain send acknowledgement."
+owner_domain = 9
+interface = "9.ts-sdk-x402-draw-preparedgrantdraws"
+
+[finding.stream-undelivered]
+file = "services/agent/sdk/typescript/src/stream.ts"
+line = 76
+class = "restart-recovery"
+severity = "high"
+observed = "ResumableStream.events calls accept(page), which advances #cursor to page.nextCursor and records every event ID before yielding the first event. If a consumer stops or checkpoints stream.cursor after one event of a multi-event page, resume starts beyond events that were never delivered."
+expected = "Brief check 5 requires resumable delivery without lost events. The public cursor of an event iterator must identify the last delivered or explicitly acknowledged event, so interruption in the middle of a page remains recoverable."
+proposal = "In services/agent/sdk/typescript/src/stream.ts separate page validation from delivery acknowledgement, advance the resumable cursor only as each event is delivered or acknowledged, and prove stop/reopen after the first item of a multi-item page returns every remaining item."
+owner_domain = 9
+interface = "9.ts-sdk-stream-resumablestream"
+
+[finding.web-payer-header]
+file = "services/agent/sdk/typescript/src/web-search.ts"
+line = 13
+class = "interface-mismatch"
+severity = "high"
+observed = "WebSearchClient sends LAYERX-PAYER-DID from payer.did. The real x-websearch payment.rs PAYER_ADDRESS constant is LAYERX-PAYER-ADDRESS and payer_address() parses a 20-byte EVM address. Without a server-configured payer, the SDK cannot identify the payer needed to obtain a metered offer."
+expected = "The declared x-websearch paid routes consume an EVM payer address after the ledger migration. Requirement 181518 and brief check 1 require the SDK request headers and values to match the actual seller transport."
+proposal = "Change services/agent/sdk/typescript/src/web-search.ts payer configuration to the validated EVM payer address and send LAYERX-PAYER-ADDRESS. Coordinate the payer-account resolution with services/interop/crates/x-websearch/src/payment.rs and prove a metered purchase with no server-configured payer."
+owner_domain = 9
+interface = "11.http-xws-search"
+
+[finding.web-ledger-account]
+file = "services/agent/sdk/typescript/src/web-search.ts"
+line = 450
+class = "interface-mismatch"
+severity = "high"
+observed = "WebSearchClient derives payTo and metered payer with walletAccount(DID, asset, nativeAsset), requiring the resulting name hash. The real seller payment.rs ledger_account_for_owner() returns the ledger accountId(bytes32,bytes32) result for non-PAX assets, with only PAX retaining a legacy name-hash exception. Valid SID/USDC/USDL offers and their signed payment summaries fail the SDK comparison."
+expected = "The x-websearch producer, payer grant, raw ledger transaction and authenticated settlement receipt must refer to the same ledger accounts. Brief check 1 forbids substituting DID-name hashes for producer ledger account IDs."
+proposal = "In services/agent/sdk/typescript/src/web-search.ts bind offers and payments to ledger account IDs resolved for the configured owner and asset, matching services/interop/crates/x-websearch/src/payment.rs. Add real seller purchases for PAX and a non-PAX asset without rewriting or re-signing positive receipts."
+owner_domain = 9
+interface = "11.http-xws-fetch"
+
+[finding.exchange-account-abi]
+file = "services/agent/sdk/typescript/src/exchange.ts"
+line = 587
+class = "interface-mismatch"
+severity = "high"
+observed = "exchangePlaceOrderCall emits placeOrder(bytes32,bytes32,uint8,uint256,uint256,uint8), including accountId. precompiles/layerxexchange/abi.json and registry row 3.pc-0x1015-exchange-placeorder declare placeOrder(bytes32,uint8,uint256,uint256,uint8). Their selectors and calldata lengths disagree; proof_exchange.test.ts explicitly pins this outstanding discrepancy."
+expected = "Requirement 9360 requires the exchange v2 accountId order to round-trip through the deployed precompile. The SDK producer, declared ABI, selector dispatcher and exchange execution consumer must agree on the account-bearing signature."
+proposal = "Migrate precompiles/layerxexchange/abi.json and its real dispatch/execution path to the accountId contract required by 9360, coordinated with services/agent/sdk/typescript/src/exchange.ts. Prove execution and resulting order account on the merged node; preserve historical dispatch where required."
+owner_domain = 3
+interface = "3.pc-0x1015-exchange-placeorder"
+
+[finding.lifecycle-size]
+file = "services/agent/sdk/typescript/src/program-lifecycle.ts"
+line = 59
+class = "runtime-risk"
+severity = "medium"
+observed = "The lifecycle code validator permits wasm.length up to 1048576 and the deploy encoder adds at least 104 bytes without checking the total. It can return a payload over the 524288-byte network limit; bindSignedProgramLifecycle later rejects it. Optional interface metadata further reduces the usable code budget."
+expected = "Brief fact 6 and decision 2483 bound the whole deploy payload, including the envelope, to 524288 bytes. Public payload construction should enforce the same framing limit as submission rather than approve an undeployable artifact."
+proposal = "In services/agent/sdk/typescript/src/program-lifecycle.ts bound the complete encoded deploy/upgrade payload using the registration consumer limits and account for optional metadata. Keep the downstream binding check and add exact total-size boundary cases with metadata."
+owner_domain = 9
+interface = "9.ts-sdk-program-lifecycle-encodenativeprogramdeploy"
+
+[finding.stream-memory]
+file = "services/agent/sdk/typescript/src/stream.ts"
+line = 33
+class = "runtime-risk"
+severity = "medium"
+observed = "ResumableStream keeps every accepted eventId in #seen for the entire lifetime of the stream. No checkpoint, page transition or cursor advancement prunes the set, so a long-running event consumer retains memory proportional to all historical events."
+expected = "Brief check 4 requires bounded runtime growth. A continuously running stream should retain only the state needed to validate the active replay/continuity window, rather than an unlimited historical event inventory."
+proposal = "In services/agent/sdk/typescript/src/stream.ts define the supported replay window and bound duplicate detection to that window or its cursor interval. Prove that duplicate and continuity refusals remain correct while retained state stays bounded across many pages."
+owner_domain = 9
+interface = "9.ts-sdk-stream-resumablestream"
+
+[finding.trading-pending-nonce]
+file = "services/agent/sdk/typescript/src/perps.ts"
+line = 386
+class = "runtime-risk"
+severity = "medium"
+observed = "TradingWriter.send compares fees.evmNonce to eth_getTransactionCount(address, latest). With an already pending transaction, the next valid pending nonce differs from latest and the SDK rejects the queued trade before eth_sendRawTransaction. The shared writer affects spot as well as perps."
+expected = "Requirement 9352 adopts pending transaction-count discovery and requirement 9357 requires usable type-2 submission. Clients must support successive trades while an earlier transaction awaits commitment."
+proposal = "Use the pending nonce consistently in services/agent/sdk/typescript/src/perps.ts TradingWriter.send and its fee preparation contract. Add a real-node case with one pending transaction and a second valid nonce, retaining wrong-nonce and returned-hash refusals."
+owner_domain = 9
+interface = "9.ts-sdk-perps-tradingwriter"
+
+[finding.telemetry-outcome]
+file = "services/agent/sdk/typescript/src/production.ts"
+line = 377
+class = "runtime-risk"
+severity = "medium"
+observed = "ProductionClient.execute runs the completed telemetry callback inside the transport try block. If that callback throws after a successful mutation, catch converts the local observer error to transport-failure with retry safe; a second throwing refused callback can also replace the typed error. The caller loses the successful result and receives misleading retry guidance."
+expected = "Brief check 4 requires accurate errors and lifecycle outcomes. Optional telemetry must not change a completed operation into a transport refusal or erase an authenticated response."
+proposal = "In services/agent/sdk/typescript/src/production.ts isolate observer failures from the request outcome and give telemetry failures a separate diagnostic path. Prove that a throwing telemetry callback after a successful mutation preserves the original response and does not invite resubmission."
+owner_domain = 9
+interface = "9.ts-sdk-production-productionclient"
+
+[finding.mirror-stdin]
+file = "services/agent/sdk/typescript/src/node-mirror.ts"
+line = 25
+class = "runtime-risk"
+severity = "medium"
+observed = "LocalMirrorExecutableVerifier.verify attaches child error, stdout data and close listeners but no child.stdin error listener before child.stdin.end(request). If the executable exits early while a large request is being written, an EPIPE on the writable stream can be an unhandled error that terminates the SDK process."
+expected = "Brief check 4 requires subprocess failures to become bounded verification refusals. An unavailable or malformed verifier executable must not crash the parent application."
+proposal = "Handle child.stdin write/error completion in services/agent/sdk/typescript/src/node-mirror.ts, settle the verification once and clean up the child consistently. Add an executable that exits before consuming a large request and assert a typed refusal with the parent still running."
+owner_domain = 9
+interface = "9.ts-sdk-node-mirror-localmirrorexecutableverifier"
+
+[finding.gas-response-bound]
+file = "services/agent/sdk/typescript/src/gas-station.ts"
+line = 607
+class = "runtime-risk"
+severity = "medium"
+observed = "Successful quote, submission and status responses are read with response.json() at lines 607, 989 and 1131 without a response-byte limit. Refusal and governed-read paths have bounds, but an oversized HTTP 200 body can still consume unbounded client memory before shape validation; the request timeout does not impose a byte limit."
+expected = "Brief checks 4 and 8 require input size limits before parsing untrusted data. Successful gas-station envelopes should have a finite byte budget just as error bodies and other SDK network responses do."
+proposal = "In services/agent/sdk/typescript/src/gas-station.ts read success bodies through a bounded streaming decoder with explicit quote/submission/status budgets before JSON parsing. Prove oversized and chunked responses fail without retaining the entire body."
+owner_domain = 9
+interface = "9.ts-sdk-gas-station-requestgasquote"
+
+[finding.test-discovery]
+file = "services/agent/sdk/typescript/package.json"
+line = 33
+class = "test-gap"
+severity = "medium"
+observed = "The test script explicitly executes 26 compiled test files and omits maintained suites including rpc-node, rpc-subscription-eth, sequencer-receipt-verify, gas-station-pending, history-cursor, native-effect and the proof suites. A normal package test run therefore does not exercise several current producer/consumer contracts or recovery checks."
+expected = "Brief check 7 requires real interface coverage and requirement 22998 requires truthful qualification of failed inventory targets. Merely compiling a test file does not execute its assertions."
+proposal = "In services/agent/sdk/typescript/package.json maintain an explicit complete self-contained test inventory or supported discovery pattern, with separate documented commands for external-node, Anvil and case-file probes. Ensure CI actually executes each maintained interface and recovery suite without skipping failures."
+owner_domain = 9
+
+[finding.revert-stale-counts]
+file = "services/agent/sdk/typescript/test/revert.test.ts"
+line = 28
+class = "test-gap"
+severity = "medium"
+observed = "revert.test.ts hard-codes 274 registry rows and LXP_RETRYABLE.size = 37. The current address-table.md error registry contains 392 rows and 54 retryable codes, and src/revert.ts contains the corresponding 54 retryable literals. These old cardinality assertions contradict the producer table before the decoder checks run."
+expected = "Requirement 22998 forbids weakening or skipping a failing test, and the address-table Retryable column is the declared source of truth. Inventory checks must cover the current complete registry while retaining per-code and uniqueness assertions."
+proposal = "Update services/agent/sdk/typescript/test/revert.test.ts cardinalities to a deliberately versioned current registry snapshot and preserve exact per-code retryability/decoder parity. Keep the generator check against spec/layerx-merge/contracts/address-table.md so future registry changes require an explicit synchronized update."
+owner_domain = 9
+
+[finding.daemon-surface]
+file = "services/agent/sdk/typescript/src/agent-http.ts"
+line = 401
+class = "retired-reference"
+severity = "medium"
+observed = "AgentEnvelopeSurface still advertises daemon, AGENT_DAEMON_RPC_PATH is /rpc, and AgentEnvelopeTransport constructs an mTLS transport to that retired full-daemon listener. The supported hosted /v1/agent/rpc envelope is mixed with a running-component surface that the merged network no longer has."
+expected = "Brief fact 2 retires the separate daemon and unified /rpc interface. SDK public transports and configuration must describe live node and hosted service surfaces while preserving valid hosted operation envelopes."
+proposal = "Retire the daemon transport option, session-only configuration and /rpc constant from services/agent/sdk/typescript/src/agent-http.ts through a documented compatibility change. Keep hosted /v1/agent/rpc authentication and wire decoding, and direct node operations to their real node methods."
+owner_domain = 9
+interface = "9.ts-sdk-agent-http-agent-daemon-rpc-path"
+
+[finding.journal-concurrent-writers]
+file = "services/agent/sdk/typescript/src/ai_market.ts"
+line = 3003
+class = "restart-recovery"
+severity = "medium"
+observed = "OperationJournal.persist opens the fixed <activity>.op.partial name with w and renames it without a per-activity lock or durable state comparison. Overlapping persist/load/recovery calls or two journal instances can truncate the same temporary file, race its rename, or replace a newer terminal record with stale state."
+expected = "Brief check 5 requires durable lifecycle recovery. Atomic replacement protects a single write from interruption but must also preserve operation state under overlapping public journal calls or explicitly enforced single-writer ownership."
+proposal = "In services/agent/sdk/typescript/src/ai_market.ts serialize each activity across journal instances/processes or enforce exclusive journal ownership, and reject stale state transitions against the durable record. Use unique temporary files plus revision checks and prove concurrent persist/recovery cannot overwrite a terminal outcome."
+owner_domain = 9
+interface = "9.ts-sdk-ai-market-operationjournal"
+
+[finding.abi-helper-drift]
+file = "services/agent/sdk/typescript/src/verifier.ts"
+line = 38
+class = "interface-mismatch"
+severity = "medium"
+observed = "The public supportedProgramGuestAbi helper returns true only for ABI 1 or 2, while generated/receipt.ts supportsProgramGuestAbi and the shared host policy admit 1 through 5. Integrators using the verifier export are told that valid ABI 3, 4 and 5 programs are unsupported."
+expected = "Requirement 22014 and brief fact 6 require shared host/guest ABI admission rules across SDK entry points. Two public predicates for program support must report the same admitted versions."
+proposal = "In services/agent/sdk/typescript/src/verifier.ts delegate supportedProgramGuestAbi to the generated shared ABI policy or retire the duplicate export with migration guidance. Preserve exact version refusals and compare both public predicates against the host policy vector."
+owner_domain = 9
+interface = "9.ts-sdk-verifier-supportedprogramguestabi"
+
+[finding.web-unused-authority]
+file = "services/agent/sdk/typescript/src/web-search.ts"
+line = 81
+class = "config-drift"
+severity = "medium"
+observed = "WebSearchClientOptions accepts authority and protocolVersion, but neither option is used by WebSearchClient. Settlement verification instead requires receiptKeys and, for exact payment, rawTransaction. Existing callers can configure the old authority callback successfully at construction and discover only during payment that their trust configuration is ignored."
+expected = "Brief checks 1 and 6 require configuration to have its declared effect or be refused explicitly. The merged receipt-key trust model must be visible to callers before they prepare a paid request."
+proposal = "In services/agent/sdk/typescript/src/web-search.ts remove or explicitly reject obsolete authority/protocolVersion configuration and require the appropriate receipt pins and exact-payment raw bytes up front. Publish migration guidance and keep settlement signature verification mandatory."
+owner_domain = 9
+interface = "9.ts-sdk-web-search-websearchclient"
+
+[finding.subscription-backlog]
+file = "services/agent/sdk/typescript/src/rpc-subscription.ts"
+line = 83
+class = "runtime-risk"
+severity = "medium"
+observed = "subscribeRpc keeps incoming notifications in an unbounded queue while the async generator yields at consumer speed. maxPayload bounds one WebSocket message but not the accumulated notifications, so a slow consumer can exhaust memory on a busy log subscription."
+expected = "Brief check 4 requires bounded runtime growth. Subscription delivery must bound outstanding events and provide a recoverable overflow signal without silently dropping notifications."
+proposal = "In services/agent/sdk/typescript/src/rpc-subscription.ts add a finite backlog budget and close with an explicit reconciliation-required error when it is exceeded. Preserve the last delivered cursor and prove slow-consumer overflow resumes through node reads without lost logs."
+owner_domain = 9
+interface = "9.ts-sdk-rpc-subscription-subscriberpc"
+
+[finding.rpc-node-route-test]
+file = "services/agent/sdk/typescript/test/rpc-node.test.ts"
+line = 56
+class = "test-gap"
+severity = "medium"
+observed = "The request recorder expects POST /rpc even when constructed with a root endpoint. This fixture agrees with the SDK rewrite rather than the real node or hosted gateway root route."
+expected = "Brief facts 2 and 3 and check 7 require fixtures to represent the actual producer transport, so a passing test must fail when the SDK invents a /rpc or /rpc/ws suffix."
+proposal = "Update services/agent/sdk/typescript/test/rpc-node.test.ts to use the producer root route and reject invented route suffixes; pair the fixture assertions with the real node or hosted gateway handler. Preserve existing method, shape, cursor and error assertions."
+owner_domain = 9
+interface = "9.ts-sdk-rpc-jsonrpcclient"
+
+[finding.rpc-route-test]
+file = "services/agent/sdk/typescript/test/rpc.test.ts"
+line = 99
+class = "test-gap"
+severity = "medium"
+observed = "The asset server asserts request.url equals /rpc. This fixture agrees with the SDK rewrite rather than the real node or hosted gateway root route."
+expected = "Brief facts 2 and 3 and check 7 require fixtures to represent the actual producer transport, so a passing test must fail when the SDK invents a /rpc or /rpc/ws suffix."
+proposal = "Update services/agent/sdk/typescript/test/rpc.test.ts to use the producer root route and reject invented route suffixes; pair the fixture assertions with the real node or hosted gateway handler. Preserve existing method, shape, cursor and error assertions."
+owner_domain = 9
+interface = "9.ts-sdk-rpc-jsonrpcclient"
+
+[finding.subscription-route-test]
+file = "services/agent/sdk/typescript/test/rpc-subscription-eth.test.ts"
+line = 9
+class = "test-gap"
+severity = "medium"
+observed = "The WebSocket fixture mounts /rpc/ws and asserts that retired upgrade path. This fixture agrees with the SDK rewrite rather than the real node or hosted gateway root route."
+expected = "Brief facts 2 and 3 and check 7 require fixtures to represent the actual producer transport, so a passing test must fail when the SDK invents a /rpc or /rpc/ws suffix."
+proposal = "Update services/agent/sdk/typescript/test/rpc-subscription-eth.test.ts to use the producer root route and reject invented route suffixes; pair the fixture assertions with the real node or hosted gateway handler. Preserve existing method, shape, cursor and error assertions."
+owner_domain = 9
+interface = "9.ts-sdk-rpc-subscription-subscriberpc"
+
+[finding.names-route-test]
+file = "services/agent/sdk/typescript/test/names.test.ts"
+line = 96
+class = "test-gap"
+severity = "medium"
+observed = "The name-resolution HTTP fixture asserts request.url equals /rpc. This fixture agrees with the SDK rewrite rather than the real node or hosted gateway root route."
+expected = "Brief facts 2 and 3 and check 7 require fixtures to represent the actual producer transport, so a passing test must fail when the SDK invents a /rpc or /rpc/ws suffix."
+proposal = "Update services/agent/sdk/typescript/test/names.test.ts to use the producer root route and reject invented route suffixes; pair the fixture assertions with the real node or hosted gateway handler. Preserve existing method, shape, cursor and error assertions."
+owner_domain = 9
+interface = "9.ts-sdk-rpc-jsonrpcclient"
+
+[finding.px-route-test]
+file = "services/agent/sdk/typescript/test/px.test.ts"
+line = 915
+class = "test-gap"
+severity = "medium"
+observed = "The px HTTP fixture asserts /rpc, endpoints are built with that suffix, and px_methods_list_is_the_router_px_set still describes a retired router. This fixture agrees with the SDK rewrite rather than the real node or hosted gateway root route."
+expected = "Brief facts 2 and 3 and check 7 require fixtures to represent the actual producer transport, so a passing test must fail when the SDK invents a /rpc or /rpc/ws suffix."
+proposal = "Update services/agent/sdk/typescript/test/px.test.ts to use the producer root route and reject invented route suffixes; pair the fixture assertions with the real node or hosted gateway handler. Preserve existing method, shape, cursor and error assertions."
+owner_domain = 9
+interface = "9.ts-sdk-rpc-jsonrpcclient"
+
+[finding.gas-proof-route-test]
+file = "services/agent/sdk/typescript/test/proof_gas_station.test.ts"
+line = 264
+class = "test-gap"
+severity = "medium"
+observed = "The proof harness mounts and fetches /rpc for its local nonce producer. This fixture agrees with the SDK rewrite rather than the real node or hosted gateway root route."
+expected = "Brief facts 2 and 3 and check 7 require fixtures to represent the actual producer transport, so a passing test must fail when the SDK invents a /rpc or /rpc/ws suffix."
+proposal = "Update services/agent/sdk/typescript/test/proof_gas_station.test.ts to use the producer root route and reject invented route suffixes; pair the fixture assertions with the real node or hosted gateway handler. Preserve existing method, shape, cursor and error assertions."
+owner_domain = 9
+interface = "9.ts-sdk-rpc-jsonrpcclient"
+
+[finding.daemon-probe-test]
+file = "services/agent/sdk/typescript/test/agent-operation-envelope.test.ts"
+line = 420
+class = "retired-reference"
+severity = "medium"
+observed = "The read_daemon case loads daemon_endpoint and client certificate/key/CA files, requires an HTTPS /rpc URL, and constructs AgentEnvelopeTransport with surface daemon. The file describes a real full-mode daemon probe, so this is an active retired-component dependency rather than a historical golden fixture name."
+expected = "Brief fact 2 removes the running separate daemon interface. Qualification probes must exercise live hosted envelopes or node methods, with credentials and readiness belonging to those actual producers."
+proposal = "Replace the daemon probe cases in services/agent/sdk/typescript/test/agent-operation-envelope.test.ts with real hosted/node producer cases and update the owning case-file schema. Preserve the current authentication, readiness, refusal and mutation-disclosure assertions on supported surfaces."
+owner_domain = 9
+interface = "9.ts-sdk-agent-http-agent-daemon-rpc-path"
+
+[finding.committed-proof-test]
+file = "services/agent/sdk/typescript/test/sequencer-receipt-verify.test.ts"
+line = 107
+class = "test-gap"
+severity = "medium"
+observed = "commitEvidence builds an arbitrary blockId from fixed hash bytes and independent validator signatures. verify_committed_receipt_two_thirds accepts that evidence for a receipt without supplying transaction, batch or result inclusion. The positive test proves vote arithmetic while accepting the missing receipt-to-block binding."
+expected = "Requirement 9962 and the SDK verification guide require committed evidence to authenticate this receipt inclusion as well as more than two thirds voting power. Brief check 7 requires the positive fixture to come from that real producer path."
+proposal = "Use recorded sequence-batch, execution-header, result and commit evidence in services/agent/sdk/typescript/test/sequencer-receipt-verify.test.ts. Keep the voting-power boundary and signature refusals and add an otherwise valid unrelated commit that must be rejected."
+owner_domain = 9
+interface = "9.ts-sdk-verifier-receiptverification"
+
+[finding.web-resigned-positive]
+file = "services/agent/sdk/typescript/test/web-search-sequencer.test.ts"
+line = 109
+class = "test-gap"
+severity = "medium"
+observed = "resignReceipt overwrites the recorded producer receipt payer and recipient with offer-derived DID account hashes and signs it again, including for the positive path. The fake seller reads layerx-payer-did. The test therefore normalizes away the real seller ledger-account and payer-address contract instead of proving compatibility."
+expected = "Brief fact 7 requires real producer/transport/consumer evidence; docs/site/docs/agents/sdk-verification.md requires preserving positive receipt bytes and provenance. Re-signing is appropriate for explicit refusal mutations, not to make an incompatible positive payment fit."
+proposal = "In services/agent/sdk/typescript/test/web-search-sequencer.test.ts consume unmodified recorded positive receipts and run the actual x-websearch handler with the declared payer-address header. Keep re-signed mutations only as clearly separate negative cases and cover a non-PAX ledger payment."
+owner_domain = 9
+interface = "11.http-xws-search"
+
+[finding.web-obsolete-tests]
+file = "services/agent/sdk/typescript/test/web-search.test.ts"
+line = 164
+class = "test-gap"
+severity = "medium"
+observed = "The client fixture supplies authority: async receipt => batchFacts(...) and no receiptKeys, and its exact payer returns a receipt without rawTransaction. The current implementation ignores authority and verifies pinned sequencer receipts bound to raw bytes, so the old happy-path expectations describe a trust contract the consumer no longer implements."
+expected = "Brief check 7 requires tests to use the same receipt trust, transaction binding and seller offer shape as the implementation and real producer. Current signed-receipt validation must not be weakened to accommodate old authority fixtures."
+proposal = "Migrate services/agent/sdk/typescript/test/web-search.test.ts positives to authentic pinned sequencer receipts and their exact raw transactions, matching real seller accounts and headers. Retain authority/key mismatch, payment-pending, budget and malformed-response refusals as explicit negative coverage."
+owner_domain = 9
+interface = "9.ts-sdk-web-search-websearchclient"
+
+[finding.exchange-execution-test]
+file = "services/agent/sdk/typescript/test/exchange-v2.test.ts"
+line = 120
+class = "test-gap"
+severity = "medium"
+observed = "The test starts an ordinary Anvil process and verifies eth_getTransactionByHash fields for sends to 0x1015, without deploying the exchange precompile or checking order state/events. A transfer to an address with no exchange implementation can satisfy every assertion even when the SDK selector is absent from the real ABI."
+expected = "Requirement 9360 and brief fact 7 require the accountId-bearing call to reach the actual exchange consumer. Observing submitted transaction bytes alone does not prove precompile admission or execution."
+proposal = "Extend services/agent/sdk/typescript/test/exchange-v2.test.ts with a merged-node exchange harness that checks execution success and the created order account and cancellation. Keep the existing wallet-request byte assertions as unit coverage and label their limited scope."
+owner_domain = 9
+interface = "3.pc-0x1015-exchange-placeorder"
+
+[finding.exchange-parity-test]
+file = "services/agent/sdk/typescript/test/precompile-calls.test.ts"
+line = 137
+class = "test-gap"
+severity = "medium"
+observed = "The exchange case expects placeOrder(bytes32,bytes32,uint8,uint256,uint256,uint8) to exist in the ABI loaded from precompiles/layerxexchange/abi.json, whose placeOrder still has five inputs. This inventory cannot currently establish its promised SDK/ABI parity; the discrepancy is separately pinned by proof_exchange.test.ts."
+expected = "Requirement 9360 and brief check 7 require the SDK producer and precompile ABI to have one account-bearing contract, with an assertion that truly compares the live matching signatures."
+proposal = "After the domain-3 ABI/dispatch migration, synchronize services/agent/sdk/typescript/test/precompile-calls.test.ts to the approved accountId contract and prove it on the real precompile. Preserve the exact ABI-membership assertion and all calldata-width and selector checks."
+owner_domain = 9
+interface = "3.pc-0x1015-exchange-placeorder"
+
+[finding.trading-latest-test]
+file = "services/agent/sdk/typescript/test/binding-preflight.test.ts"
+line = 266
+class = "test-gap"
+severity = "medium"
+observed = "The TradingWriter.send assertions require eth_getTransactionCount with latest, and the AddrChain fixture increments one nonce without modeling a distinct pending queue. They therefore enshrine the preflight that rejects a valid second queued trade instead of exercising the required pending nonce."
+expected = "Requirement 9352 uses pending transaction-count discovery and brief check 7 requires producer-shaped nonce behavior, including the interval between admission and commitment."
+proposal = "In services/agent/sdk/typescript/test/binding-preflight.test.ts model latest and pending independently and require the pending tag for sends. Add one queued transaction plus a second valid trade and retain refusal tests for stale or malformed nonces."
+owner_domain = 9
+interface = "9.ts-sdk-perps-tradingwriter"
+
+[finding.draw-reopen-test]
+file = "services/agent/sdk/typescript/test/x402-draw-sequencer.test.ts"
+line = 140
+class = "test-gap"
+severity = "medium"
+observed = "PreparedGrantDraws is constructed with :memory: and exercised within one process. The suite proves at-most-once calls in that instance but never closes/reopens durable storage or interrupts between setting attempted and sending, leaving the unsent-after-crash state untested."
+expected = "Brief checks 5 and 7 require restart/recovery coverage on the real durable state path. A payment recovery test must reopen the database and reconcile uncertain admission while preserving identical signed transaction bytes."
+proposal = "Add temporary disk-backed reopen cases to services/agent/sdk/typescript/test/x402-draw-sequencer.test.ts for interruption before send, uncertain response and receipt arrival after restart. Assert exact raw-byte redelivery, no duplicate payment and eventual settlement with the original idempotency key."
+owner_domain = 9
+interface = "9.ts-sdk-x402-draw-preparedgrantdraws"
+
+[finding.lifecycle-abi-test]
+file = "services/agent/sdk/typescript/test/program-lifecycle.test.ts"
+line = 23
+class = "test-gap"
+severity = "medium"
+observed = "Lifecycle deploy/upgrade positives use old fixtures admitted by the 1-through-3 validator. Later loops cover ABI 3, 4 and 5 for CALL codecs only, so they do not detect that deploy and upgrade reject current ABI 4/5 registrations."
+expected = "Brief fact 6 requires every registration path to share host ABI admission. Requirement 22014 coverage for CALL does not establish that the same guest can be deployed or upgraded."
+proposal = "In services/agent/sdk/typescript/test/program-lifecycle.test.ts add deploy and upgrade positives for ABI 4 and 5 through the real registration consumer, plus unsupported-version and downgrade refusals. Preserve existing signature, payload-size, framing and mutation-protection assertions."
+owner_domain = 9
+interface = "9.ts-sdk-program-lifecycle-encodenativeprogramdeploy"
+
+[finding.sdk-contract-doc]
+file = "spec/layerx-merge/contracts/agent-ts-sdk.md"
+line = 122
+class = "doc-drift"
+severity = "medium"
+observed = "The pinned SDK contract table still lists AGENT_DAEMON_RPC_PATH and the daemon surface as stable at lines 122 and 127. Its verifier table at lines 1530 onward inventories retired verifyBatchInclusion/verifyCheckpoint and other kernel receipt entry points that are absent from the current sequencer verifier exports."
+expected = "Brief facts 1 and 2 and the current SDK terminal-verification guide describe the merged node and pinned sequencer receipts. Integration guidance must distinguish historical pinned declarations from currently supported runtime surfaces."
+proposal = "Regenerate spec/layerx-merge/contracts/agent-ts-sdk.md from updated interface sources after owners settle the daemon retirement and receipt APIs. Document current node/hosted routing and committed inclusion requirements, retaining old tables only as explicitly historical material."
+owner_domain = 9
+interface = "9.ts-sdk-agent-http-agent-daemon-rpc-path"
+
+[finding.config-contract-doc]
+file = "spec/layerx-merge/contracts/agent-config.md"
+line = 260
+class = "doc-drift"
+severity = "medium"
+observed = "The pinned agent configuration contract includes a startup acceptance scenario accepting https://node.invalid/rpc and sections describing daemon readiness and retired daemon authority/listener configuration as current stable interfaces. This remains inconsistent with the merged-network root endpoint and retired full-daemon surface."
+expected = "Brief facts 2 and 3 require public node JSON-RPC at / and configuration for the actual merged-node and hosted-service lifecycle. Historical daemon configuration must not guide a new SDK integration."
+proposal = "Update the owning configuration/interface spec sources and regenerate spec/layerx-merge/contracts/agent-config.md with root node endpoint examples, hosted credential ownership and supported startup/recovery configuration. Clearly separate any retained historical daemon scenarios from active deployment instructions."
+owner_domain = 9
+
+[doc.brief]
+path = "spec/layerx-merge/programme/audit/BRIEF.kvx"
+status = "accurate"
+notes = "Decision-2515 audit baseline read first: one BFT node, root public RPC, hosted px_ methods, tenant namespaces, bounded deployment payload and producer-shaped recovery evidence."
+
+[doc.sdk-contract]
+path = "spec/layerx-merge/contracts/agent-ts-sdk.md"
+status = "stale"
+notes = "Pinned historical interface table reviewed for this slice. Lines 122/127 still expose the daemon surface; verifier rows at 1530 onward describe removed kernel APIs. Finding sdk-contract-doc proposes regeneration from current owning sources."
+
+[doc.config-contract]
+path = "spec/layerx-merge/contracts/agent-config.md"
+status = "stale"
+notes = "Configuration and harness contract reviewed for SDK dependencies; line 260 accepts a /rpc node endpoint and daemon startup sections retain pre-merge operation. Finding config-contract-doc separates historical configuration from current deployment guidance."
+
+[doc.sdk-inventory]
+path = "docs/system/sdk.md"
+status = "accurate"
+notes = "TypeScript inventory checked against this slice: it names current sequencer and committed verifier exports and their source modules. This is an export inventory, not proof that implementations or package gates qualify."
+
+[doc.sdk-guide]
+path = "docs/site/docs/agents/sdks.md"
+status = "accurate"
+notes = "Current SDK family/schema and non-authority guidance agrees with generated operation clients, canonical signed submissions and explicit qualification status; no cross-language or release gate is claimed passed."
+
+[doc.verification-guide]
+path = "docs/site/docs/agents/sdk-verification.md"
+status = "accurate"
+notes = "Guide correctly separates signed execution from committed inclusion, independent receipt pins and validator trust, unmodified positive vectors, sequence/log binding and batch/transaction/result proofs. The generic committed SDK implementation falls short as recorded."
+
+[doc.error-registry]
+path = "spec/layerx-merge/contracts/address-table.md"
+status = "accurate"
+notes = "Error-registry section (b), lines 197-609, reviewed as the source for this slice: 392 LXP rows and 54 retryable entries, ABI Error(string) encoding and generated-mirror policy. Stale test cardinalities are recorded against revert.test.ts."

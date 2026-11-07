@@ -23,7 +23,7 @@ function TradesLive({ pool, token, live }: { pool: TradeFeedPool; token: TradeFe
     {trades.isError && live.state.rows.length === 0 ? <ErrorState title="Trades can't load right now" message={userFacingMessage(trades.error)} onRetry={() => { void trades.refetch(); }} retrying={trades.isFetching} /> : null}
     {trades.isError && live.state.rows.length > 0 ? <ErrorState variant="inline" message="Older trades can't load right now. Newer ones are still shown." /> : null}
     {trades.isError && live.state.rows.length === 0 ? null : trades.isPending && live.state.rows.length === 0 ? <Skeleton variant="rows" rows={6} label="trades" /> : <MarketTradeFeed pool={pool} token={token} rows={live.state.rows} watermark={watermark} contiguous={live.state.stream === 'live'} explorerOrigin={explorerOrigin} />}
-    {trades.data ? <LoadMore auto={false} hasMore={trades.data.nextCursor !== null} loading={trades.isFetching} error={trades.isError} label="Load older trades" endLabel="No older trades" onLoadMore={() => { if (trades.data?.nextCursor) setCursor(trades.data.nextCursor); }} /> : null}
+    {trades.data || cursor !== null ? <LoadMore auto={false} hasMore={trades.isError || (trades.data ? trades.data.nextCursor !== null : cursor !== null)} loading={trades.isFetching} error={trades.isError} label="Load older trades" endLabel="No older trades" onLoadMore={() => { if (trades.isError) { void trades.refetch(); } else if (trades.data?.nextCursor) setCursor(trades.data.nextCursor); }} /> : null}
   </div>;
 }
 

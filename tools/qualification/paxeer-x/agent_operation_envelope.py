@@ -1,12 +1,15 @@
 #!/usr/bin/env python3
 import argparse
+import ctypes
 import hashlib
 import importlib.util
 import json
 import os
 from pathlib import Path
 import re
+import shlex
 import shutil
+import signal
 import socket
 import ssl
 import stat
@@ -19,15 +22,15 @@ import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 ROOT = Path(__file__).resolve().parents[3]
-sys.path.insert(0, str(ROOT / 'tests/daemon'))
 sys.path.insert(0, str(ROOT / 'services/agent/sdk/python'))
 sys.path.insert(0, str(ROOT / 'tools/qualification/paxeer-x/fixtures'))
-from event_source_fixture import NativeProofFaultRelay
+import merged_runtime_fixture as fixture
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
 
 SCHEMA = 'paxeer-x.agent-envelope-artifacts.v1'
 CONFIG_SCHEMA = 'paxeer-x.agent-envelope-qualification.v1'
+PROOF_CASES = ('activity', 'receipt', 'maintained_account', 'non_maintained_account')
 ROUTE = '/v1/agent/rpc'
 MAX_BODY = 1_048_576
 LANGUAGES = ('rust', 'typescript', 'python', 'go', 'java', 'kotlin', 'swift', 'csharp')
@@ -58,7 +61,9 @@ W20_SESSION_FIELDS = ('tenant', 'session_id', 'token_id', 'generation')
 
 W7_OWNER_DIRECT = ('session_list_provisioned', 'availability_fetch_provisioned')
 W7_AVAILABILITY_SECONDS = 60
-W7_REQUEST_LEVELS = ('unverified', 'sequencer-signed', 'batch-included', 'state-proven', 'checkpoint-finalised', 'settlement-anchored')
+RUNGS = ('submitted', 'receipted', 'committed')
+READ_WIRE_OPERATIONS = frozenset(('export.offline', 'read.proof_bundle', 'program.discover',
+                                  'program.interface', 'wait', 'availability.fetch'))
 W7_AVAILABILITY_CLASSES = ('activities', 'receipts', 'oracle', 'state_diff', 'recovery')
 
 W20_COMPLETED_DIRECT = ('history_cursor_round_trip', 'subscription_lifecycle')
@@ -87,12 +92,12 @@ POLICY_DRY_RUN_RESULT = ('outcome', 'policy_version', 'matched_rules', 'deciding
 POLICY_REASONS = ('permitted_by_rule', 'explicit_deny', 'approval_required', 'no_permitting_rule', 'invalid_context',
                   'evaluation_failure')
 FRESHNESS = ('chain_head', 'latest_sealed_batch', 'latest_finalised_checkpoint', 'value_sequence', 'relative_to')
-EXPORT_BUCKETS = ('receipts', 'proofs', 'certificates', 'headers')
+PORTABLE_FIELDS = frozenset(('format', 'verificationLevel', 'rawTransaction', 'signedReceipt', 'receiptDigest', 'receiptKey'))
+COMMITTED_FIELDS = frozenset(('blockHeader', 'receiptInclusion', 'commit', 'validatorSet'))
 NONZERO_HEX32 = '(?!0{64})[0-9a-f]{64}'
 FACT_REF = '(receipt|activity):' + NONZERO_HEX32 + '|state:' + NONZERO_HEX32 + ':' + NONZERO_HEX32 + '|checkpoint:' + NONZERO_HEX32 + ':[1-9][0-9]{0,19}'
 MAX_FACTS = 16
-DISCOVERY = ('program_id', 'lifecycle', 'version', 'code_hash', 'abi_version', 'receipt_digest', 'state_root',
-             'observed_sequence', 'observed_at', 'valid_through', 'verification')
+DISCOVERY = ('program_id', 'policy', 'authority', 'code_hash', 'abi_version', 'version', 'active')
 DECIMAL_U64 = '(0|[1-9][0-9]{0,19})'
 W7_SUBMITTED_STATES = ('Queued', 'Submitted', 'Acknowledged', 'Executed')
 W20_SUBSCRIPTION_RECORD = ('subscription_id', 'scope', 'filter', 'start', 'last_acknowledged', 'delivery_target', 'paused')
@@ -119,8 +124,8 @@ SOURCES = ('services/agent/crates', 'services/agent/Cargo.toml', 'services/agent
            'services/agent/sdk/typescript/tsconfig.json', 'services/agent/sdk/python', 'services/platform/hosted/gateway', 'services/platform/Cargo.toml',
            'services/platform/Cargo.lock', 'sdk/platform/go', 'sdk/platform/jvm', 'sdk/platform/swift', 'sdk/platform/dotnet',
            'tools/paxeer-x/route-catalogue.json', 'tools/qualification/paxeer-x/agent_operation_envelope.py',
-           'tools/qualification/paxeer-x/fixtures/event_source_fixture.py',
-           'tests/programs/test_call_activity.c', 'services/agent/schema/lni/v1.kvx')
+           'tools/qualification/paxeer-x/fixtures/merged_runtime_fixture.py',
+           'services/platform/hosted/node/native_runtime.py', 'daemon/paxd')
 CASE_LINE = re.compile(r'^PAXEER_X_AGENT_ENVELOPE_CASE ([a-z0-9_.\-]+) passed$', re.M)
 COUNT_LINE = re.compile(r'^PAXEER_X_AGENT_ENVELOPE_CASES=(\d+)$', re.M)
 
@@ -382,11 +387,55 @@ def native_purpose_bytes(purpose):
     return encoded
 
 
+def wire_decimal(value, bits=64, positive=False):
+    return (isinstance(value, str) and re.fullmatch(DECIMAL_U64, value) is not None
+            and int(value) < 2**bits and (not positive or int(value) > 0))
+
+
+def read_wire_request(operation, request, with_deadline=False):
+    require(operation in READ_WIRE_OPERATIONS and isinstance(request, dict), operation + ': request object')
+    level_field = 'requested_verification_level' if operation == 'read.proof_bundle' else 'requested_rung'
+    require(request.get(level_field) in RUNGS, operation + ': canonical ' + level_field + ' required')
+    optional = {'tenant', 'agent'}
+    if operation == 'export.offline':
+        fields = {'fact_set', 'requested_rung'}
+        facts = request.get('fact_set')
+        require(isinstance(facts, list) and 1 <= len(facts) <= MAX_FACTS
+                and all(isinstance(f, str) and len(f) <= 135 and re.fullmatch(FACT_REF, f) for f in facts)
+                and len(set(facts)) == len(facts), operation + ': 1..16 unique strict fact references')
+    elif operation == 'read.proof_bundle':
+        fields, optional = {'target', 'requested_verification_level'}, set()
+        target = request.get('target')
+        require(isinstance(target, str) and len(target) in (70, 134)
+                and re.fullmatch('[0-9a-f]+', target), operation + ': canonical target')
+        raw = bytes.fromhex(target)
+        require(raw[:2] == b'\x00\x01' and raw[2] in (1, 2, 3)
+                and len(raw) == (67 if raw[2] == 2 else 35) and any(raw[3:35])
+                and (raw[2] != 2 or any(raw[35:])), operation + ': target binding')
+    elif operation in ('program.discover', 'program.interface'):
+        fields, optional = {'program_id', 'requested_rung'}, set()
+        require(isinstance(request.get('program_id'), str) and re.fullmatch(NONZERO_HEX32, request['program_id'])
+                and request['requested_rung'] == 'submitted', operation + ': pending registry selector at submitted')
+    elif operation == 'wait':
+        fields, optional = {'submission_ref', 'requested_rung'}, set()
+        require(isinstance(request.get('submission_ref'), str) and request['submission_ref'], operation + ': submission_ref')
+    else:
+        fields = {'selector', 'requested_rung', 'maximum_bytes', 'maximum_chunks'}
+        require(wire_decimal(request.get('selector'), positive=True)
+                and wire_decimal(request.get('maximum_bytes'), positive=True)
+                and wire_decimal(request.get('maximum_chunks'), bits=32, positive=True), operation + ': bounded availability request')
+    if with_deadline:
+        require(operation in ('wait', 'availability.fetch') and wire_decimal(request.get('deadline')), operation + ': decimal deadline')
+        fields = fields | {'deadline'}
+    require(fields <= set(request) <= fields | optional, operation + ': exact wire fields (harness owns the deadline)')
+    return request
+
+
 def load_config():
     config = load_private(os.environ.get('PAXEER_X_AGENT_ENVELOPE_CONFIG'), 'PAXEER_X_AGENT_ENVELOPE_CONFIG')
     require(config.get('schema') == CONFIG_SCHEMA, 'qualification configuration schema')
     for key in ('agentd_env', 'gateway_env', 'requests', 'credential_file', 'gateway_api_key_file',
-                'program_bearer_file', 'gateway_peer_identity', 'program_route', 'native_rpc_body',
+                'program_bearer_file', 'gateway_peer_identity', 'program_route', 'merged_runtime',
                 'gateway_network_id', 'wire_version', 'route_bindings', 'agentd_binding_pointer', 'signer_key_file'):
         require(key in config, 'qualification configuration lacks ' + key)
     require(isinstance(config['gateway_network_id'], str) and config['gateway_network_id']
@@ -429,14 +478,7 @@ def load_config():
     require(config['requests'][W7_SIGN_DIRECT[0]]['prepare']['request'] != config['requests'][W7_SIGN_DIRECT[1]]['prepare']['request'],
             'sign cases must prepare distinct activities')
 
-    row = config['requests']['operation.availability.fetch']
-    require(set(row['request']) <= {'tenant', 'agent', 'selector', 'requested_verification_level', 'maximum_bytes', 'maximum_chunks'}
-            and {'selector', 'requested_verification_level', 'maximum_bytes', 'maximum_chunks'} <= set(row['request'])
-            and row['request']['requested_verification_level'] in W7_REQUEST_LEVELS
-            and W7_REQUEST_LEVELS.index(row['request']['requested_verification_level']) <= W7_REQUEST_LEVELS.index('batch-included')
-            and all(isinstance(row['request'][k], str) and re.fullmatch('[1-9][0-9]{0,19}', row['request'][k])
-                    for k in ('selector', 'maximum_bytes', 'maximum_chunks')),
-            'provisioned request lacks operation.availability.fetch (harness owns the deadline)')
+    read_wire_request('availability.fetch', config['requests']['operation.availability.fetch']['request'])
     row = config['requests']['operation.capability.create']
     dims = row['request'].get('dimensions')
     require(set(row['request']) == {'tenant', 'agent_did', 'dimensions'} and isinstance(dims, dict) and set(dims) == set(W8_DIMENSIONS)
@@ -472,19 +514,9 @@ def load_config():
             and re.fullmatch(W8_DECIMAL, req['amount']) and int(req['amount']) < 2**128
             and re.fullmatch(DECIMAL_U64, req['core_sequence']) and int(req['core_sequence']) < 2**64,
             'provisioned operation.policy.dry_run needs the ten typed dry-run fields for the provisioned tenant')
-    row = config['requests']['operation.export.offline']
-    req = row['request']
-    facts = req.get('fact_set')
-    require({'fact_set', 'requested_verification_level'} <= set(req) <= {'tenant', 'agent', 'fact_set', 'requested_verification_level'}
-            and isinstance(facts, list) and 1 <= len(facts) <= MAX_FACTS and len(set(map(str, facts))) == len(facts)
-            and all(isinstance(f, str) and len(f) <= 135 and re.fullmatch(FACT_REF, f) for f in facts)
-            and req['requested_verification_level'] in LEVELS[:-1],
-            'provisioned operation.export.offline needs 1..16 unique strict fact references below SettlementAnchored')
-    row = config['requests']['operation.program.discover']
-    req = row['request']
-    require(set(req) == {'program_id', 'requested_verification_level'} and isinstance(req['program_id'], str)
-            and re.fullmatch(NONZERO_HEX32, req['program_id']) and req['requested_verification_level'] == 'sequencer-signed',
-            'provisioned operation.program.discover needs a non-zero lowercase program_id at sequencer-signed')
+    for operation in ('export.offline', 'read.proof_bundle', 'program.discover', 'program.interface'):
+        read_wire_request(operation, config['requests']['operation.' + operation]['request'])
+    read_wire_request('program.interface', config['requests']['program_read']['request'])
     row = config['requests']['operation.session.list']
     require(set(row['request']) == {'context'} and isinstance(row['request']['context'], dict)
             and row['request']['context'].get('tenant') == load_private(config['credential_file'], 'credential_file')['tenant']
@@ -493,9 +525,10 @@ def load_config():
 
     row = config['requests'].get('wait_bounded')
     require(isinstance(row, dict) and set(row) == {'operation', 'request'} and row['operation'] == 'wait'
-            and isinstance(row['request'], dict) and set(row['request']) == {'submission_ref', 'requested_verification_level'}
-            and row['request']['requested_verification_level'] in LEVELS,
+            and isinstance(row['request'], dict),
             'provisioned request lacks wait_bounded (harness owns the deadline)')
+
+    read_wire_request('wait', row['request'])
 
     row = config['requests'].get('credential_expiry')
     require(isinstance(row, dict) and set(row) == {'credential_file', 'list'} and isinstance(row['list'], dict)
@@ -562,9 +595,12 @@ def load_config():
 
 
 def proof_bundle_authority_inputs(config, primary):
-    advance = config.get('proof_bundle_head_advance_sequence')
-    require(isinstance(advance, str) and re.fullmatch(DECIMAL_U64, advance) and 6 <= int(advance) < 2**64,
-            'proof_bundle_head_advance_sequence must be the genuine next treasury fixture sequence')
+    advance = config.get('proof_bundle_head_advance_transaction')
+    require(isinstance(advance, str) and re.fullmatch('0x([0-9a-f]{2})+', advance),
+            'proof_bundle_head_advance_transaction must be a genuine signed merged transaction')
+    reference = config.get('proof_bundle_non_maintained_submission_ref')
+    require(isinstance(reference, str) and re.fullmatch(NONZERO_HEX32, reference),
+            'proof_bundle_non_maintained_submission_ref must name a genuine retained submission')
     entries = config.get('proof_bundle_authorities')
     names = {'wrong_tenant', 'wrong_principal', 'wrong_agent', 'wrong_asset', 'wrong_scope'}
     require(isinstance(entries, dict) and set(entries) == names,
@@ -685,7 +721,11 @@ class Qualification:
         if observed != 'success_record':
             return observed, False
         try:
-            self.success(status, json.dumps(body), body['request_id'], label)
+            if operation in READ_WIRE_OPERATIONS:
+                response = self.read_success(status, json.dumps(body), body['request_id'], label)
+                self.read_wire_record(operation, response, row['request'], label)
+            else:
+                self.success(status, json.dumps(body), body['request_id'], label)
         except (RuntimeError, TypeError, KeyError, AttributeError):
             return 'malformed_success_record', False
         if not isinstance(body['request_id'], str) or not re.fullmatch('(0|[1-9][0-9]{0,19})', body['request_id']):
@@ -730,11 +770,30 @@ class Qualification:
     def substitute(self, env, extra=None):
         values = {'tls_dir': str(self.tls), 'state_dir': str(self.d / 'agent-state'), 'runtime_dir': str(self.runtime.directory),
                   'agent_rpc_port': str(self.agent_port), 'gateway_port': str(self.gateway_port),
-                  'node_rpc_url': self.runtime.rpc_url, 'replica_url': 'http://127.0.0.1:' + str(self.runtime.ports[8]),
-                  'node_socket': self.runtime.manifest['node_socket'],
+                  'node_rpc_url': self.runtime.rpc_url,
+                  'hosted_rpc_url': 'https://localhost:' + str(self.gateway_port) + '/',
                   'route_bindings_file': str(self.d / 'route-bindings.json')}
         values.update(extra or {})
         return {key: value.format(**values) for key, value in env.items()}
+
+    def public_rpc_cases(self):
+        # Public node JSON-RPC and hosted px_ contracts have different owners.
+        require(self.runtime.rpc.request('eth_chainId', []) == '0x7d', 'merged root chain identity')
+        status, response = self.http(self.encode({'jsonrpc': '2.0', 'id': 1,
+                                                 'method': 'px_getNetwork', 'params': []}),
+                                     path='/', case='native_rpc_unchanged')
+        value = json.loads(response)
+        require(status == 200 and set(value) == {'jsonrpc', 'id', 'result'}
+                and value['jsonrpc'] == '2.0' and type(value['id']) is int and value['id'] == 1,
+                'hosted px_getNetwork envelope')
+        from layerx_sdk.px import decode_px_network_head
+        head = decode_px_network_head(value['result'])
+        require(head.paxeer.chain_id == 125 and head.latest_committed_height > 0,
+                'hosted px_getNetwork committed identity')
+        for path in ('/rpc', '/rpc/schema'):
+            status, _ = self.http(None, path=path, method='GET', case='retired_public_' + path.replace('/', '_'))
+            require(status == 404, 'retired public router route is still served: ' + path)
+        self.passed('native_rpc_unchanged', self.d / 'responses/native_rpc_unchanged.http')
 
     def start_agentd(self, overrides=None, expect_up=True):
         if self.agentd is not None and self.agentd.poll() is None:
@@ -856,6 +915,123 @@ class Qualification:
                     and LEVELS.index(vs['achieved']) < LEVELS.index(vs['requested']), case + ': unverified status')
         return value
 
+    def read_success(self, status, body, request_id, case):
+        require(status == 200, case + ': expected 200, got ' + str(status))
+        require(len(body) <= MAX_BODY, case + ': response exceeds the transport body bound')
+        value = json.loads(body)
+        require(isinstance(value, dict) and set(value) == {'request_id', 'value', 'verification_status'}
+                and value['request_id'] == str(request_id), case + ': success envelope fields and request_id')
+        from layerx_sdk.agent_http import _valid_verification_status
+        require(_valid_verification_status(value['verification_status']), case + ': canonical rung provenance')
+        return value
+
+    def read_freshness(self, freshness, case, authoritative=True):
+        require(isinstance(freshness, dict) and set(freshness) == {'chain_head', 'value_height', 'relative_to'}
+                and wire_decimal(freshness['chain_head']) and wire_decimal(freshness['value_height']),
+                case + ': freshness heights')
+        if authoritative:
+            relative = freshness['relative_to']
+            require(isinstance(relative, dict) and set(relative) == {'height', 'hash'}
+                    and relative['height'] == freshness['value_height'] and wire_decimal(relative['height'], positive=True)
+                    and isinstance(relative['hash'], str) and re.fullmatch(NONZERO_HEX32, relative['hash'])
+                    and int(freshness['value_height']) <= int(freshness['chain_head']), case + ': authenticated block reference')
+        return freshness
+
+    def ordinary_read_record(self, envelope, requested, case):
+        require(envelope['verification_status'] == {'state': 'absent', 'requested': requested},
+                case + ': ordinary read must state absent proof provenance')
+        read = envelope['value']
+        require(isinstance(read, dict) and set(read) == {'value', 'achieved_verification_level', 'freshness'}
+                and read['achieved_verification_level'] is None, case + ': ordinary read claims no rung')
+        self.read_freshness(read['freshness'], case, authoritative=False)
+        return read
+
+    def program_read_record(self, envelope, request, operation, case):
+        read_wire_request(operation, request)
+        read = self.ordinary_read_record(envelope, 'submitted', case)
+        require(read['freshness']['relative_to'] == 'pending'
+                and int(read['freshness']['value_height']) == int(read['freshness']['chain_head']) + 1,
+                case + ': current pending registry observation')
+        result = read['value']
+        fields = set(DISCOVERY) if operation == 'program.discover' else {'program_id', 'version', 'interface_digest', 'interface'}
+        require(isinstance(result, dict) and set(result) == fields and result['program_id'] == request['program_id'],
+                case + ': exact program binding and registry fields')
+        require(type(result['version']) is int and 0 <= result['version'] < 2**32, case + ': registry version')
+        if operation == 'program.discover':
+            require(type(result['abi_version']) is int and 0 <= result['abi_version'] < 2**16
+                    and type(result['policy']) is int and 0 <= result['policy'] < 2**8
+                    and type(result['active']) is bool
+                    and isinstance(result['authority'], str) and re.fullmatch('[0-9a-f]{64}', result['authority'])
+                    and isinstance(result['code_hash'], str) and re.fullmatch('[0-9a-f]{64}', result['code_hash']),
+                    case + ': registry policy, authority, code and ABI')
+        else:
+            require(isinstance(result['interface_digest'], str) and re.fullmatch('[0-9a-f]{64}', result['interface_digest'])
+                    and isinstance(result['interface'], str) and re.fullmatch('([0-9a-f]{2})+', result['interface'])
+                    and hashlib.sha256(bytes.fromhex(result['interface'])).hexdigest() == result['interface_digest'],
+                    case + ': exact interface bytes and digest')
+        return result
+
+    def wait_record(self, envelope, request, case):
+        read_wire_request('wait', request, with_deadline=True)
+        value = envelope['value']
+        require(isinstance(value, dict) and set(value) == {'submission', 'actual_rung', 'deadline_elapsed'},
+                case + ': wait payload fields')
+        submission = value['submission']
+        actual = value['actual_rung']
+        require(isinstance(submission, dict) and submission.get('submission_ref') == request['submission_ref']
+                and submission.get('rung') == actual and actual in RUNGS, case + ': real submission and achieved rung')
+        require(value['deadline_elapsed'] is True and RUNGS.index(actual) < RUNGS.index(request['requested_rung']),
+                case + ': elapsed deadline and insufficient achieved rung')
+        require(envelope['verification_status'] == {'state': 'unverified', 'requested': request['requested_rung'],
+                'achieved': actual, 'reason': 'deadline_elapsed'}, case + ': exact wait deadline provenance')
+        return value
+
+    def availability_record(self, envelope, request, case, require_complete=True):
+        read_wire_request('availability.fetch', request, with_deadline=True)
+        read = self.ordinary_read_record(envelope, request['requested_rung'], case)
+        fetched = read['value']
+        require(isinstance(fetched, dict) and fetched.get('height') == request['selector']
+                and read['freshness']['value_height'] == request['selector']
+                and read['freshness']['relative_to'] == request['selector']
+                and int(request['selector']) <= int(read['freshness']['chain_head']), case + ': availability block binding')
+        completion = fetched.get('completion')
+        require(isinstance(completion, dict) and completion.get('state') in ('complete', 'partial'), case + ': completion')
+        if completion['state'] == 'partial':
+            require(not require_complete and set(fetched) == {'completion', 'classes', 'providers', 'height'}
+                    and completion == {'state': 'partial'} and fetched['classes'] == []
+                    and isinstance(fetched['providers'], list) and len(fetched['providers']) == 1,
+                    case + ': attributed partial availability')
+            provider = fetched['providers'][0]
+            require(isinstance(provider, dict) and set(provider) == {'provider', 'failure'}
+                    and isinstance(provider['provider'], str) and provider['provider'] and provider['failure'] == 'pruned',
+                    case + ': partial provider isolation')
+            return fetched
+        require(set(fetched) == {'completion', 'classes', 'providers', 'height', 'transactions_root', 'receipts_root'}
+                and set(completion) == {'state', 'provider'} and isinstance(completion['provider'], str) and completion['provider']
+                and fetched['providers'] == [completion['provider']], case + ': complete provider isolation')
+        require(all(isinstance(fetched[k], str) and re.fullmatch('0x[0-9a-f]{64}', fetched[k])
+                    for k in ('transactions_root', 'receipts_root')), case + ': availability roots')
+        classes = fetched['classes']
+        require(isinstance(classes, list) and len(classes) == 1, case + ': transaction class')
+        item = classes[0]
+        require(isinstance(item, dict) and set(item) == {'class', 'complete', 'verified_chunks', 'verified_bytes', 'failure'}
+                and item['class'] == 'transactions' and item['complete'] is True and item['failure'] is None
+                and wire_decimal(item['verified_chunks'], bits=32, positive=True) and wire_decimal(item['verified_bytes'], positive=True)
+                and int(item['verified_chunks']) <= int(request['maximum_chunks'])
+                and int(item['verified_bytes']) <= int(request['maximum_bytes']), case + ': verified retrieval within byte/chunk limits')
+        return fetched
+
+    def read_wire_record(self, operation, response, request, case):
+        if operation == 'read.proof_bundle':
+            return self.proof_bundle_record(response, request, bytes.fromhex(request['target'])[2])
+        if operation == 'export.offline':
+            return self.offline_export_record(response, request, case)
+        if operation in ('program.discover', 'program.interface'):
+            return self.program_read_record(response, request, operation, case)
+        if operation == 'wait':
+            return self.wait_record(response, request, case)
+        return self.availability_record(response, request, case)
+
     def refusal(self, status, body, http_status, klass, reason, case, request_id=None):
         require(status == http_status, case + ': expected HTTP ' + str(http_status) + ', got ' + str(status))
         value = json.loads(body)
@@ -962,13 +1138,7 @@ class Qualification:
             self.refusal(status, response, 403, 'PolicyRefusal', 'envelope.coordinate_mismatch',
                          'coordinate_mismatch_' + field, value['request_id'])
         self.passed('coordinate_mismatch', self.d / 'responses/coordinate_mismatch_tenant.http')
-        status, response = self.http(self.config['native_rpc_body'].encode(), path='/rpc', headers=self.api_key(), case='native_rpc_unchanged')
-        value = json.loads(response)
-        require(status == 200 and value.get('jsonrpc') == '2.0' and 'request_id' not in value, 'native_rpc_unchanged: /rpc changed contract')
-        status, response = self.http(None, path='/rpc/schema', method='GET', headers={'Content-Type': 'application/json'},
-                                     case='native_rpc_schema_unchanged')
-        require(status == 200 and 'verification_status' not in json.loads(response), 'native /rpc/schema changed contract')
-        self.passed('native_rpc_unchanged', self.d / 'responses/native_rpc_unchanged.http')
+        self.public_rpc_cases()
         route = self.config['program_route']
         status, response = self.http(None if route['method'] == 'GET' else route['body'].encode(), path=route['path'],
                                      method=route['method'], headers=self.api_key(), case='programs_route_unchanged')
@@ -1033,6 +1203,7 @@ class Qualification:
     def probe_requests(self, language):
         mutating = mutating_operations()
         requests = json.loads(json.dumps(self.config['requests']))
+        requests['operation.availability.fetch']['request']['deadline'] = str(int(time.time()) + W7_AVAILABILITY_SECONDS)
         requests['read_decode_failure'] = json.loads(json.dumps(requests['read']))
         requests['mutation_decode_unknown'] = json.loads(json.dumps(requests['allowed_mutation']))
         cases = ['allowed_mutation', 'wrong_scope', 'mutation_decode_unknown']
@@ -1177,26 +1348,19 @@ class Qualification:
         self.effect(language, 'mutation_decode_unknown', mutation['operation'], mutation['idempotency_key'])
         self.decode_observed.append({'language': language, 'observed_requests': observed})
 
-    def w20_wait(self):
-        run = 'pre-restart-w20-wait'
+    def w20_wait(self, phase='pre-restart'):
+        run = phase + '-w20-wait'
         requests = json.loads(json.dumps(self.config['requests']))
         deadline = int(time.time()) + W20_WAIT_SECONDS
-        requests['wait_bounded']['request']['deadline'] = str(deadline)
-        self.probe('rust', W20_WAIT_PRE, 'pre-restart', self.d / 'probes/rust-w20-wait.state', requests, run=run)
-        waited, _ = self.w20_success(run, 'wait_bounded')
-        value = waited['value']
-        requested = requests['wait_bounded']['request']['requested_verification_level']
-        require(isinstance(value, dict) and set(value) == {'submission', 'actual_verification_level', 'deadline_elapsed'},
-                'wait_bounded: AMEND 28b wait payload fields')
-        require(value['deadline_elapsed'] is True, 'wait_bounded: deadline did not elapse')
-        actual = value['actual_verification_level']
-        require(actual in LEVELS and LEVELS.index(actual) < LEVELS.index(requested),
-                'wait_bounded: achieved level must be reported and below the requested level')
-        vs = waited['verification_status']
-        require((vs['level'] if vs['state'] == 'achieved' else vs['achieved']) == actual,
-                'wait_bounded: verification status disagrees with the reported achieved level')
+        request = requests['wait_bounded']['request']
+        request['deadline'] = str(deadline)
+        read_wire_request('wait', request, with_deadline=True)
+        self.probe('rust', W20_WAIT_PRE, phase, self.d / 'probes' / ('rust-' + run + '.state'), requests, run=run, prefix=phase == 'post-restart')
+        status, body, _ = self.w20_doc(run, 'wait_bounded')
+        waited = self.read_success(status, json.dumps(body).encode(), body.get('request_id'), 'wait_bounded')
+        self.wait_record(waited, request, 'wait_bounded')
         timing = json.loads((self.d / 'probes' / ('rust-' + run) / 'wait_bounded.timing.json').read_text())
-        require(set(timing) == {'sent_unix', 'received_unix'} and all(isinstance(v, int) for v in timing.values())
+        require(set(timing) == {'sent_unix', 'received_unix'} and all(type(v) is int for v in timing.values())
                 and timing['sent_unix'] <= deadline <= timing['received_unix'] and timing['received_unix'] - timing['sent_unix'] < 300,
                 'wait_bounded: wait did not return at its deadline within the probe bound')
 
@@ -1375,6 +1539,8 @@ class Qualification:
         for case in cases:
             if case.startswith('proof_bundle.'):
                 self.passed('sdk_' + language + '_' + run + '_' + case, log)
+            elif requests[case].get('operation') in READ_WIRE_OPERATIONS:
+                self.passed('sdk_' + language + '_' + run + '_' + case, log)
             elif case.startswith('native_'):
                 self.passed('sdk_' + language + '_' + run, log)
             else:
@@ -1438,33 +1604,12 @@ class Qualification:
         case = 'availability_fetch_provisioned'
         row = self.config['requests']['operation.availability.fetch']
         request = dict(row['request'], deadline=str(int(time.time()) + W7_AVAILABILITY_SECONDS))
+        read_wire_request('availability.fetch', request, with_deadline=True)
+        started = time.monotonic()
         value, status, body = self.call(case, row['operation'], request)
-        envelope = self.success(status, body, value['request_id'], case)
-        fetched = envelope['value']
-        require(isinstance(fetched, dict) and set(fetched) == {'completion', 'classes', 'providers'}, case + ': availability fields')
-        completion = fetched['completion']
-        require(isinstance(completion, dict) and completion == {'state': 'complete', 'provider': completion.get('provider')}
-                and isinstance(completion['provider'], str) and completion['provider'], case + ': provisioned batch not completely retrieved')
-        require(envelope['verification_status'] == {'state': 'achieved', 'level': 'BatchIncluded'},
-                case + ': complete retrieval not verified against the sequencer-signed batch header')
-        require(isinstance(fetched['classes'], list) and fetched['classes'], case + ': classes')
-        classes = [self.w7_availability_class(item, case) for item in fetched['classes']]
-        require(len({item['class'] for item in classes}) == len(classes), case + ': class reported twice')
-        for item in classes:
-            require((item['complete'] and item['failure'] is None) or (not item['complete'] and item['failure'] == 'missing_class'),
-                    case + ': class completion and failure disagree')
-        obtained = [item for item in classes if item['complete']]
-        require(obtained and all(int(item['verified_chunks']) > 0 and int(item['verified_bytes']) > 0 for item in obtained),
-                case + ': no verified chunk retrieved')
-        require(sum(int(item['verified_bytes']) for item in classes) <= int(request['maximum_bytes'])
-                and sum(int(item['verified_chunks']) for item in classes) <= int(request['maximum_chunks']),
-                case + ': retrieval exceeded the requested limits')
-        providers = fetched['providers']
-        require(isinstance(providers, list) and len(providers) == 1 and isinstance(providers[0], dict)
-                and set(providers[0]) == {'provider', 'classes', 'failure'} and providers[0]['provider'] == completion['provider']
-                and providers[0]['failure'] is None and isinstance(providers[0]['classes'], list)
-                and [self.w7_availability_class(item, case) for item in providers[0]['classes']] == classes,
-                case + ': complete provider record')
+        envelope = self.read_success(status, body, value['request_id'], case)
+        self.availability_record(envelope, request, case)
+        require(time.monotonic() - started <= W7_AVAILABILITY_SECONDS, case + ': retrieval exceeded its deadline')
         self.passed(case, self.d / 'responses' / (case + '.http'))
 
     def w20_history_cursor(self):
@@ -1553,51 +1698,112 @@ class Qualification:
         self.passed(case, self.d / 'responses' / (case + '.submit.http'))
         self.proof_bundle_pre_restart(submitted)
 
-    def proof_bundle_record(self, envelope, request, expected_variant, receipt_bytes=None):
+    def proof_bundle_record(self, envelope, request, expected_kind, receipt_bytes=None):
+        read_wire_request('read.proof_bundle', request)
+        target = bytes.fromhex(request['target'])
+        require(target[2] == expected_kind, 'proof bundle target kind')
         value = envelope['value']
         require(isinstance(value, dict) and set(value) == {'value', 'achieved_verification_level', 'freshness'},
                 'proof bundle VerifiedRead fields')
         bundle = value['value']
-        require(isinstance(bundle, dict) and set(bundle) == {'target', 'proofs'}
-                and bundle['target'] == request['target'] and isinstance(bundle['proofs'], list)
-                and len(bundle['proofs']) == 1, 'proof bundle exact target and single proof')
-        encoded = bundle['proofs'][0]
-        require(isinstance(encoded, str) and len(encoded) <= 524288 and re.fullmatch('([0-9a-f]{2})+', encoded),
-                'proof bundle canonical bounded record')
-        record = bytes.fromhex(encoded)
-        require(record[:5] == b'LXPB1' and len(record) > 6 and record[5] == expected_variant,
-                'proof bundle native evidence variant')
-        fields, offset = [], 6
-        for _ in range(4 if expected_variant == 4 else 2):
-            require(offset + 4 <= len(record), 'proof bundle counted field header')
-            count = int.from_bytes(record[offset:offset + 4], 'big')
-            offset += 4
-            require(count > 0 and offset + count <= len(record), 'proof bundle counted field bounds')
-            fields.append(record[offset:offset + count])
-            offset += count
-        require(offset == len(record), 'proof bundle trailing bytes')
+        level = value['achieved_verification_level']
+        require(level in ('receipted', 'committed') and RUNGS.index(level) >= RUNGS.index(request['requested_verification_level'])
+                and (expected_kind != 2 or level == 'committed')
+                and envelope['verification_status'] == {'state': 'achieved', 'rung': level}, 'proof bundle rung')
+        fields = PORTABLE_FIELDS | (COMMITTED_FIELDS if level == 'committed' else frozenset())
+        if expected_kind == 2:
+            fields = fields | {'accountProof'}
+        require(isinstance(bundle, dict) and set(bundle) == fields
+                and bundle['format'] == 'layerx-receipt-proof-v2' and bundle['verificationLevel'] == level,
+                'proof bundle exact portable v2 field set')
+        total = len(bundle['format']) + 112
+        for key in fields - {'format', 'verificationLevel', 'receiptKey', 'receiptDigest'}:
+            encoded = bundle[key]
+            require(isinstance(encoded, str) and re.fullmatch('([0-9a-f]{2})+', encoded), 'proof bundle canonical ' + key)
+            total += len(encoded) // 2
+        require(total <= 262144 and isinstance(bundle['receiptDigest'], str)
+                and re.fullmatch(NONZERO_HEX32, bundle['receiptDigest']), 'proof bundle size and digest')
+        key = bundle['receiptKey']
+        require(isinstance(key, dict) and set(key) == {'keyId', 'publicKey', 'firstHeight', 'lastHeight'}
+                and all(isinstance(key[k], str) and re.fullmatch(NONZERO_HEX32, key[k]) for k in ('keyId', 'publicKey'))
+                and wire_decimal(key['firstHeight']) and wire_decimal(key['lastHeight'])
+                and int(key['firstHeight']) <= int(key['lastHeight']), 'proof bundle receipt authority interval')
+        from layerx_sdk.account_derivation import keccak256
+        require(keccak256(bytes.fromhex(bundle['rawTransaction'])) == target[3:35], 'proof bundle transaction binding')
         if receipt_bytes is not None:
-            if expected_variant == 3:
-                require(fields[0].hex() == receipt_bytes, 'proof bundle changed retained verified receipt')
-            elif expected_variant == 4:
-                require(fields[2].hex() == receipt_bytes, 'proof bundle changed maintained activity receipt link')
-        level = 'StateProven' if expected_variant in (2, 4) else 'BatchIncluded'
-        require(value['achieved_verification_level'] == level
-                and envelope['verification_status'] == {'state': 'achieved', 'level': level}
-                and LEVELS.index(request['requested_verification_level']) <= LEVELS.index(level),
-                'proof bundle requested and achieved verification')
-        fresh = value['freshness']
-        require(isinstance(fresh, dict) and set(fresh) == set(FRESHNESS)
-                and all(isinstance(fresh[k], str) and re.fullmatch(DECIMAL_U64, fresh[k]) and int(fresh[k]) < 2**64
-                        for k in ('chain_head', 'latest_sealed_batch', 'value_sequence'))
-                and int(fresh['value_sequence']) <= int(fresh['chain_head'])
-                and isinstance(fresh['latest_finalised_checkpoint'], str)
-                and re.fullmatch('[0-9a-f]{64}', fresh['latest_finalised_checkpoint'])
-                and isinstance(fresh['relative_to'], dict) and set(fresh['relative_to']) == {'batch'}
-                and re.fullmatch('[1-9][0-9]{0,19}', fresh['relative_to']['batch'])
-                and int(fresh['relative_to']['batch']) <= int(fresh['latest_sealed_batch']),
-                'proof bundle canonical freshness')
-        return record
+            require(bundle['signedReceipt'] == receipt_bytes, 'proof bundle changed retained verified receipt')
+        self.read_freshness(value['freshness'], 'proof bundle')
+        # The SDK must consume the exact producer response, with no PB1 conversion or trust override.
+        from layerx_sdk.agent_http import AgentEnvelopeSuccess, check_proof_bundle_response
+        check_proof_bundle_response(request, AgentEnvelopeSuccess(envelope['request_id'], value, envelope['verification_status']))
+        pins = load_private(self.config.get('proof_bundle_receipt_keys_file'), 'proof_bundle_receipt_keys_file')
+        require(isinstance(pins, list) and pins and key in pins, 'proof bundle receipt key is not independently pinned')
+        from layerx_sdk.verifier import ReceiptKey, verify_sequencer_receipt
+        for pin in pins:
+            require(isinstance(pin, dict) and set(pin) == {'keyId', 'publicKey', 'firstHeight', 'lastHeight'}
+                    and all(isinstance(pin[k], str) and re.fullmatch(NONZERO_HEX32, pin[k]) for k in ('keyId', 'publicKey'))
+                    and wire_decimal(pin['firstHeight']) and wire_decimal(pin['lastHeight'])
+                    and int(pin['firstHeight']) <= int(pin['lastHeight']), 'proof bundle independent receipt pin')
+        verified = verify_sequencer_receipt(bytes.fromhex(bundle['signedReceipt']), bytes.fromhex(bundle['rawTransaction']),
+                    [ReceiptKey(bytes.fromhex(pin['keyId']), bytes.fromhex(pin['publicKey']),
+                                int(pin['firstHeight']), int(pin['lastHeight'])) for pin in pins])
+        require(verified.receipt_digest.hex() == bundle['receiptDigest']
+                and verified.height <= int(value['freshness']['value_height']), 'proof bundle signed digest and inclusion height')
+        return bundle
+
+    def offline_export_record(self, envelope, request, case):
+        read_wire_request('export.offline', request)
+        read = envelope['value']
+        require(isinstance(read, dict) and set(read) == {'value', 'achieved_verification_level', 'freshness'}
+                and read['achieved_verification_level'] == 'committed'
+                and envelope['verification_status'] == {'state': 'achieved', 'rung': 'committed'}, case + ': committed export')
+        fresh = self.read_freshness(read['freshness'], case)
+        offline = read['value']
+        require(isinstance(offline, dict) and set(offline) == {'facts', 'bundles', 'height'}
+                and offline['facts'] == request['fact_set'] and wire_decimal(offline['height'], positive=True)
+                and offline['height'] == fresh['value_height']
+                and isinstance(offline['bundles'], list) and offline['bundles'], case + ': exact facts, bundles and height')
+        from layerx_sdk.account_derivation import keccak256
+        for bundle in offline['bundles']:
+            require(isinstance(bundle, dict) and isinstance(bundle.get('rawTransaction'), str)
+                    and re.fullmatch('([0-9a-f]{2})+', bundle['rawTransaction']), case + ': canonical raw transaction')
+            transaction = keccak256(bytes.fromhex(bundle['rawTransaction'])).hex()
+            states = [fact.split(':')[1] for fact in offline['facts'] if fact.startswith('state:')]
+            require(not states or len(set(states)) == 1, case + ': state export must bind one exact subject account')
+            kind = 2 if 'accountProof' in bundle else 3
+            require(kind != 2 or states, case + ': orphan account proof')
+            target = '0001' + ('02' if kind == 2 else '03') + transaction + (states[0] if kind == 2 else '')
+            proof = dict(envelope, value={'value': bundle, 'achieved_verification_level': 'committed', 'freshness': fresh})
+            self.proof_bundle_record(proof, {'target': target, 'requested_verification_level': 'committed'}, kind)
+        return offline
+
+    def proof_bundle_plan(self, observed, non_maintained):
+        account = self.config['requests']['read']['request']['account_id']
+        require(isinstance(account, str) and re.fullmatch(NONZERO_HEX32, account), 'proof account identity')
+        require(non_maintained['activity_id'] != observed['activity_id'],
+                'non-maintained account must use its own genuine producer activity')
+        plan = {}
+        for name, kind in (('activity', 1), ('receipt', 3), ('maintained_account', 2), ('non_maintained_account', 2)):
+            anchor = non_maintained if name == 'non_maintained_account' else observed
+            activity = anchor['activity_id']
+            require(isinstance(activity, str) and re.fullmatch(NONZERO_HEX32, activity)
+                    and anchor['submission']['state'] == 'Executed'
+                    and isinstance(anchor.get('receipt'), dict), name + ': genuine executed receipt required')
+            target = (b'\x00\x01' + bytes([kind]) + bytes.fromhex(activity)
+                      + (bytes.fromhex(account) if kind == 2 else b'')).hex()
+            request = {'target': target, 'requested_verification_level': 'committed' if kind == 2 else 'receipted'}
+            read_wire_request('read.proof_bundle', request)
+            plan['proof_bundle.' + name] = {'operation': 'read.proof_bundle', 'request': request,
+                                           'expected_kind': kind,
+                                           'receipt_bytes': anchor['receipt']['canonical_bytes']}
+        return plan
+
+    def check_proof_completeness(self):
+        expected = {'proof_bundle.' + name for name in PROOF_CASES}
+        require(self.proof_bundle_kinds == {1, 2, 3}
+                and self.proof_bundle_cases == expected and self.proof_bundle_recovered == expected,
+                'proof bundle qualification incomplete: genuine Activity, Receipt, maintained and non-maintained '
+                'AccountState portable v2 evidence must survive restart')
 
     def proof_bundle_pre_restart(self, submitted):
         case = 'proof_bundle.anchor'
@@ -1605,7 +1811,7 @@ class Qualification:
         require(submitted.get('receipt') is None and submitted['submission']['state'] != 'Executed',
                 case + ': fresh dispatch unexpectedly contains a retained execution receipt')
         absent_case = 'proof_bundle.refusal.missing_retained_receipt'
-        absent_request = {'target': '000103' + submitted['activity_id'], 'requested_verification_level': 'BatchIncluded'}
+        absent_request = {'target': '000103' + submitted['activity_id'], 'requested_verification_level': 'receipted'}
         value, status, body = self.call(absent_case, 'read.proof_bundle', absent_request)
         self.refusal(status, body, 503, 'UnavailableCapability', 'owner.unavailable', absent_case, value['request_id'])
         self.passed(absent_case, self.d / 'responses' / (absent_case + '.http'))
@@ -1614,7 +1820,7 @@ class Qualification:
         while observed['submission']['state'] != 'Executed':
             require(time.monotonic() < deadline, case + ': genuine signed submission did not execute')
             value, status, body = self.call(case + '.track', 'track', {'submission_ref': submission_ref})
-            observed = self.success(status, body, value['request_id'], case + '.track')['value']
+            observed = self.read_success(status, body, value['request_id'], case + '.track')['value']
             require(observed['activity_id'] == submitted['activity_id'] and observed['submission']['state'] != 'Failed',
                     case + ': activity identity changed or execution failed')
             if observed['submission']['state'] != 'Executed':
@@ -1624,27 +1830,30 @@ class Qualification:
         activity = observed['activity_id']
         account = self.config['requests']['read']['request']['account_id']
         require(re.fullmatch(NONZERO_HEX32, activity) and re.fullmatch(NONZERO_HEX32, account), case + ': actual activity/account')
-        self.proof_bundle_requests = {}
-        self.proof_bundle_variants = set()
-        for name, kind, variant in (('activity', 1, 1), ('receipt', 3, 3), ('maintained_account', 2, 4)):
-            target = (b'\x00\x01' + bytes([kind]) + bytes.fromhex(activity)
-                      + (bytes.fromhex(account) if kind == 2 else b'')).hex()
-            request = {'target': target, 'requested_verification_level': 'StateProven' if kind == 2 else 'BatchIncluded'}
-            entry = {'operation': 'read.proof_bundle', 'request': request, 'expected_variant': variant}
-            self.proof_bundle_requests['proof_bundle.' + name] = entry
-            value, status, body = self.call('proof_bundle.' + name, entry['operation'], request)
-            result = self.success(status, body, value['request_id'], 'proof_bundle.' + name)
+        value, status, body = self.call('proof_bundle.non_maintained.track', 'track',
+                                       {'submission_ref': self.config['proof_bundle_non_maintained_submission_ref']})
+        non_maintained = self.read_success(status, body, value['request_id'], 'proof_bundle.non_maintained.track')['value']
+        self.proof_bundle_requests = self.proof_bundle_plan(observed, non_maintained)
+        self.proof_bundle_kinds = set()
+        self.proof_bundle_cases = set()
+        self.proof_bundle_recovered = set()
+        self.proof_bundle_retained = {}
+        for label, entry in self.proof_bundle_requests.items():
+            request, kind = entry['request'], entry['expected_kind']
+            value, status, body = self.call(label, entry['operation'], request)
+            result = self.read_success(status, body, value['request_id'], label)
             require(len(body) <= MAX_BODY, 'proof bundle response body bound')
-            record = self.proof_bundle_record(result, request, variant, observed['receipt']['canonical_bytes'])
-            self.proof_bundle_variants.add(record[5])
-            self.passed('proof_bundle.' + name, self.d / 'responses' / ('proof_bundle.' + name + '.http'))
+            self.proof_bundle_retained[label] = self.proof_bundle_record(result, request, kind, entry['receipt_bytes'])
+            self.proof_bundle_kinds.add(kind)
+            self.proof_bundle_cases.add(label)
+            self.passed(label, self.d / 'responses' / (label + '.http'))
         receipt_request = self.proof_bundle_requests['proof_bundle.receipt']['request']
         wrong_account = bytearray.fromhex(account)
         wrong_account[0] ^= 1
         account_request = self.proof_bundle_requests['proof_bundle.maintained_account']['request']
         negative = {
             'wrong_account': dict(account_request, target=account_request['target'][:70] + wrong_account.hex()),
-            'higher_level': dict(receipt_request, requested_verification_level='CheckpointFinalised'),
+            'higher_level': dict(receipt_request, requested_verification_level='committed'),
             'missing_outbox': dict(receipt_request, target='000103' + hashlib.sha256(bytes.fromhex(activity) + b'missing-outbox').hexdigest()),
         }
         for name, request in negative.items():
@@ -1656,14 +1865,17 @@ class Qualification:
             'oversized': dict(receipt_request, target=receipt_request['target'] + '00' * 68),
             'zero_activity': dict(receipt_request, target='000103' + '00' * 32),
             'unknown_field': dict(receipt_request, proof='00'),
+            'incompatible_rung_field': dict(receipt_request, requested_rung='receipted'),
         }.items():
             label = 'proof_bundle.malformed.' + name
             value, status, body = self.call(label, 'read.proof_bundle', request)
-            self.refusal(status, body, 403, 'PolicyRefusal', 'owner.refused', label, value['request_id'])
+            self.refusal(status, body, 400, 'ProtocolIncompatibility',
+                         'envelope.unknown_field' if name in ('unknown_field', 'incompatible_rung_field') else 'envelope.malformed',
+                         label, value['request_id'])
             self.passed(label, self.d / 'responses' / (label + '.http'))
         self.config['requests']['operation.read.proof_bundle'] = dict(
             self.proof_bundle_requests['proof_bundle.receipt'])
-        for language in NATIVE_LANGUAGES:
+        for language in LANGUAGES:
             requests = dict(self.config['requests'], **self.proof_bundle_requests)
             self.probe(language, tuple(self.proof_bundle_requests), 'pre-restart',
                        self.d / 'probes' / (language + '-proof-bundle.state'), requests,
@@ -1673,8 +1885,9 @@ class Qualification:
         self.proof_bundle_moving_head()
         write_private(self.d / 'proof-bundle-coverage.json', {
             'source': 'existing w7 signed submit, actual owner track and retained receipt',
-            'variants_produced': sorted(self.proof_bundle_variants),
-            'variant_2': 'UNIMPLEMENTED: this maintained RuntimeFixture has no isolated non-maintained account producer',
+            'target_kinds_produced': sorted(self.proof_bundle_kinds),
+            'cases_produced': sorted(self.proof_bundle_cases),
+            'format': 'layerx-receipt-proof-v2',
             'authority_fault_process_cases': self.proof_bundle_fault_evidence,
             'authority_cases': 'five issued sessions, genuine current balance/session controls, exact owner/scope refusals',
             'missing_retained_receipt': 'actual fresh acknowledged outbox submission before first authenticated track persists receipt',
@@ -1699,9 +1912,9 @@ class Qualification:
                 status, body = self.http(self.encode(value), headers=self.api_key(), case=case + suffix)
                 return value, status, body
             value, status, body = issued_call('.balance_control', 'read.balance', {})
-            balance = self.success(status, body, value['request_id'], case + '.balance_control')
+            balance = self.read_success(status, body, value['request_id'], case + '.balance_control')
             require(balance['verification_status'].get('state') == 'achieved'
-                    and LEVELS.index(balance['verification_status']['level']) >= LEVELS.index('CheckpointFinalised')
+                    and balance['verification_status'].get('rung') == 'committed'
                     and isinstance(balance['value'], dict)
                     and re.fullmatch(NONZERO_HEX32, balance['value'].get('account', ''))
                     and re.fullmatch(NONZERO_HEX32, balance['value'].get('asset', '')),
@@ -1712,7 +1925,7 @@ class Qualification:
                 require(balance['value']['asset'] == expected_asset, case + ': asset differs in a principal/scope case')
             if name != 'wrong_scope':
                 value, status, body = issued_call('.session_control', 'session.list', {'context': context})
-                listed = self.success(status, body, value['request_id'], case + '.session_control')['value']
+                listed = self.read_success(status, body, value['request_id'], case + '.session_control')['value']
                 require(isinstance(listed, dict) and isinstance(listed.get('sessions'), list), case + ': session control')
                 own = [row for row in listed['sessions'] if row.get('session_id') == credential['session_id']]
                 require(len(own) == 1 and own[0]['open'] is True and own[0]['agent_did'] == context['agent_did']
@@ -1728,15 +1941,16 @@ class Qualification:
         for mode in ('wrong_header_signature', 'wrong_native_network', 'wrong_sequencer_key', 'maintenance_link'):
             case = 'proof_bundle.native_fault.' + mode
             with tempfile.TemporaryDirectory(prefix='lx-pb-') as directory:
-                relay = NativeProofFaultRelay(self.runtime.manifest['node_socket'],
-                                              str(Path(directory) / 'node.sock'), mode).start()
+                relay = fixture.RpcProofFaultRelay(self.runtime.rpc_url,
+                                                  'https://localhost:' + str(self.gateway_port) + '/',
+                                                  self.context(), mode).start()
                 try:
-                    self.start_agentd({'LAYERX_AGENT_HUMAN_NODE_LNI': str(Path(directory) / 'node.sock')})
+                    self.start_agentd({'LAYERX_AGENT_NODE_RPC_URL': relay.endpoint})
                     entry = self.proof_bundle_requests['proof_bundle.maintained_account' if mode == 'maintenance_link'
                                                         else 'proof_bundle.receipt']
                     value, status, body = self.call(case + '.baseline', entry['operation'], entry['request'])
-                    baseline = self.success(status, body, value['request_id'], case + '.baseline')
-                    self.proof_bundle_record(baseline, entry['request'], entry['expected_variant'],
+                    baseline = self.read_success(status, body, value['request_id'], case + '.baseline')
+                    self.proof_bundle_record(baseline, entry['request'], entry['expected_kind'],
                                              self.proof_bundle_anchor['receipt']['canonical_bytes'])
                     relay.arm()
                     value, status, body = self.call(case, entry['operation'], entry['request'])
@@ -1758,30 +1972,28 @@ class Qualification:
         entry = self.proof_bundle_requests['proof_bundle.receipt']
         produced = []
         with tempfile.TemporaryDirectory(prefix='lx-pb-head-') as directory:
-            relay = NativeProofFaultRelay(self.runtime.manifest['node_socket'],
-                                          str(Path(directory) / 'node.sock'), 'moving_head').start()
+            relay = fixture.RpcProofFaultRelay(self.runtime.rpc_url,
+                                              'https://localhost:' + str(self.gateway_port) + '/',
+                                              self.context(), 'moving_head').start()
             try:
-                self.start_agentd({'LAYERX_AGENT_HUMAN_NODE_LNI': str(Path(directory) / 'node.sock')})
+                self.start_agentd({'LAYERX_AGENT_NODE_RPC_URL': relay.endpoint})
                 value, status, body = self.call(case + '.baseline', entry['operation'], entry['request'])
-                baseline = self.success(status, body, value['request_id'], case + '.baseline')
-                self.proof_bundle_record(baseline, entry['request'], entry['expected_variant'],
+                baseline = self.read_success(status, body, value['request_id'], case + '.baseline')
+                self.proof_bundle_record(baseline, entry['request'], entry['expected_kind'],
                                          self.proof_bundle_anchor['receipt']['canonical_bytes'])
                 head = int(baseline['value']['freshness']['chain_head'])
                 def advance():
-                    result = self.runtime.invoke('send-one', self.config['proof_bundle_head_advance_sequence'],
-                                                 'proof-bundle-head-advance')
-                    rows = [dict(item.split('=', 1) for item in line.split()[1:])
-                            for line in result.stdout.decode().splitlines() if line.startswith('receipt ')]
-                    require(len(rows) == 1 and rows[0]['result'] == '0' and int(rows[0]['sequence']) > head,
-                            case + ': real native fixture did not produce exactly one new successful receipt')
-                    produced.extend(rows)
+                    transaction = self.config['proof_bundle_head_advance_transaction']
+                    receipt = self.runtime.submit(transaction)
+                    require(int(receipt['blockNumber'], 16) > head and receipt['status'] == '0x1',
+                            case + ': genuine merged transaction did not advance the successful head')
+                    produced.append(receipt)
                 relay.arm(on_selected=advance)
                 value, status, body = self.call(case, entry['operation'], entry['request'])
                 self.refusal(status, body, 503, 'UnavailableCapability', 'owner.unavailable', case, value['request_id'])
                 relay.disarm()
                 require(relay.trigger_count == 1 and relay.mutated_frame_count == 0 and len(produced) == 1,
                         case + ': head advance must preserve every genuine native response byte')
-                self.runtime.catch_up(produced)
                 self.passed(case, self.d / 'responses' / (case + '.http'))
             finally:
                 try:
@@ -1795,8 +2007,15 @@ class Qualification:
         self.passed(stale_case, self.d / 'responses' / (stale_case + '.http'))
 
     def proof_bundle_post_restart(self):
-        cases = ('proof_bundle.activity', 'proof_bundle.receipt')
-        for language in NATIVE_LANGUAGES:
+        cases = tuple('proof_bundle.' + name for name in PROOF_CASES)
+        for case in cases:
+            entry = self.proof_bundle_requests[case]
+            value, status, body = self.call(case + '.recovered', entry['operation'], entry['request'])
+            envelope = self.read_success(status, body, value['request_id'], case + '.recovered')
+            recovered = self.proof_bundle_record(envelope, entry['request'], entry['expected_kind'], entry['receipt_bytes'])
+            require(recovered == self.proof_bundle_retained[case], case + ': restart changed retained portable evidence')
+            self.proof_bundle_recovered.add(case)
+        for language in LANGUAGES:
             requests = dict(self.config['requests'], **self.proof_bundle_requests)
             self.probe(language, cases, 'post-restart', self.d / 'probes' / (language + '-proof-bundle.state'),
                        requests, run='proof-bundle-post', prefix=True)
@@ -2036,21 +2255,8 @@ class Qualification:
         export = req['operation.export.offline']['request']
         case = SERVED_READ_DIRECT[2]
         value, status, body = self.call(case, 'export.offline', export)
-        response = self.success(status, body, value['request_id'], case)
-        result = response['value']
-        require(isinstance(result, dict) and set(result) == {'value', 'achieved_verification_level', 'freshness'},
-                case + ': VerifiedRead fields')
-        level = result['achieved_verification_level']
-        require(level in LEVELS and LEVELS.index(level) >= LEVELS.index(export['requested_verification_level']),
-                case + ': achieved level below the requested level')
-        require(response['verification_status'] == {'state': 'achieved', 'level': level}, case + ': envelope level differs')
-        offline = result['value']
-        require(isinstance(offline, dict) and set(offline) == {'facts', *EXPORT_BUCKETS}, case + ': OfflineExport fields')
-        require(offline['facts'] == export['fact_set'], case + ': facts are not exactly the requested references in order')
-        require(all(isinstance(offline[b], list) and all(isinstance(r, str) and re.fullmatch('([0-9a-f]{2})+', r) for r in offline[b])
-                    for b in EXPORT_BUCKETS), case + ': record buckets are not lowercase hex')
-        self.served_freshness(result['freshness'], case)
-        require(len(body) <= MAX_BODY, case + ': export exceeds the transport body bound')
+        response = self.read_success(status, body, value['request_id'], case)
+        self.offline_export_record(response, export, case)
         self.passed(case, self.d / 'responses' / (case + '.http'))
         fact = export['fact_set'][0]
         seventeen = ['receipt:' + hashlib.sha256(self.key_nonce + bytes([i])).hexdigest() for i in range(MAX_FACTS + 1)]
@@ -2072,42 +2278,25 @@ class Qualification:
         discover = req['operation.program.discover']['request']
         case = SERVED_READ_DIRECT[3]
         value, status, body = self.call(case, 'program.discover', discover)
-        response = self.success(status, body, value['request_id'], case)
-        vs = response['verification_status']
-        require((vs['level'] if vs['state'] == 'achieved' else vs['achieved']) == 'Unverified', case + ': discovery claims a level')
-        result = response['value']
-        require(isinstance(result, dict) and set(result) == set(DISCOVERY), case + ': discovery fields')
-        require(result['program_id'] == discover['program_id'], case + ': discovery names another program')
-        require(result['lifecycle'] in ('active', 'deprecated', 'tombstoned')
-                and result['verification'] == 'registry-receipt-and-current-head-verified', case + ': lifecycle or verification')
-        require(all(isinstance(result[k], int) and not isinstance(result[k], bool) for k in ('version', 'abi_version'))
-                and 0 <= result['version'] < 2**32 and 0 <= result['abi_version'] < 2**16, case + ': version or abi_version')
-        require(all(isinstance(result[k], str) and re.fullmatch('[0-9a-f]{64}', result[k])
-                    for k in ('code_hash', 'receipt_digest', 'state_root')), case + ': digests')
-        require(all(isinstance(result[k], str) and re.fullmatch(DECIMAL_U64, result[k]) and int(result[k]) < 2**64
-                    for k in ('observed_sequence', 'observed_at', 'valid_through'))
-                and int(result['observed_at']) <= int(result['valid_through']), case + ': observation window')
+        response = self.read_success(status, body, value['request_id'], case)
+        self.program_read_record(response, discover, 'program.discover', case)
         self.passed(case, self.d / 'responses' / (case + '.http'))
 
         interface_request = req['operation.program.interface']['request']
         case = SERVED_READ_DIRECT[4]
         value, status, body = self.call(case, 'program.interface', interface_request)
-        response = self.success(status, body, value['request_id'], case)
-        require(response['verification_status'] == {
-            'state': 'unverified', 'requested': 'SequencerSigned', 'achieved': 'Unverified',
-            'reason': 'owner_payload_carries_no_level'}, case + ': explicit unverified provenance envelope')
-        result = response['value']
-        from layerx_sdk.programs import _interface
-        documented = _interface(result, interface_request['program_id'], int(result['observed_at']))
-        require(documented.program_id == interface_request['program_id'], case + ': interface names another program')
-        require(result['verification'] == 'deployment-interface-and-current-head-verified', case + ': provenance marker')
-        require(0 < int(result['valid_through']) and int(result['observed_at']) <= int(result['valid_through']),
-                case + ': bounded authenticated head observation')
+        response = self.read_success(status, body, value['request_id'], case)
+        self.program_read_record(response, interface_request, 'program.interface', case)
         self.passed(case, self.d / 'responses' / (case + '.http'))
         self.served_read_refused(SERVED_READ_REFUSALS[8], 'program.interface', dict(interface_request, extra='forged'),
                                  400, 'ProtocolIncompatibility', 'envelope.unknown_field')
         self.served_read_refused(SERVED_READ_REFUSALS[9], 'program.interface',
-                                 dict(interface_request, requested_verification_level='settlement-anchored'),
+                                 dict(interface_request, requested_rung='committed'),
+                                 400, 'ProtocolIncompatibility', 'envelope.malformed')
+
+        self.served_read_refused('program_discover_refuse_unknown_field', 'program.discover', dict(discover, extra='forged'),
+                                 400, 'ProtocolIncompatibility', 'envelope.unknown_field')
+        self.served_read_refused('program_discover_refuse_bad_rung', 'program.discover', dict(discover, requested_rung='committed'),
                                  400, 'ProtocolIncompatibility', 'envelope.malformed')
 
         case = SERVED_READ_REFUSALS[7]
@@ -2314,6 +2503,7 @@ class Qualification:
         self.agentd.wait(timeout=15)
         self.start_agentd()
         require(self.agentd.pid != old, 'agentd restart reused the process')
+        self.runtime.restart()
         self.proof_bundle_post_restart()
         self.native_post_restart()
         self.probe('rust', RUST_POST_RESTART, 'post-restart', state)
@@ -2329,24 +2519,18 @@ class Qualification:
             'effect_count': len(self.effects), 'decode_requests': self.decode_observed})
 
         write_private(self.d / 'operation-evidence.json', {'rows': self.operation_evidence_rows})
-        require(self.proof_bundle_variants == {1, 2, 3, 4},
-                'proof bundle qualification incomplete: no genuine non-maintained Account variant-2 producer; see proof-bundle-coverage.json')
+        self.check_proof_completeness()
 
 
 def worker(directory):
     # Runtime dependencies are needed only when starting the actual runtime;
     # argument validation and artifact production must work before provisioning.
-    global fixture
-    import paxeer_x_runtime_fixture as fixture
-
     built = load_manifest()
     config, credential = load_config()
-    bundle = fixture.artifacts(os.environ.get('PAXEER_X_RUNTIME_ARTIFACTS'))
-    client = fixture.client_artifact(os.environ.get('PAXEER_X_RUNTIME_CLIENT_MANIFEST'))
     for name in ('net', 'pid', 'mnt'):
         require(os.readlink('/proc/self/ns/' + name) != os.environ['PAXEER_X_PARENT_' + name.upper()], 'namespace isolation')
     subprocess.run(['ip', 'link', 'set', 'lo', 'up'], check=True)
-    runtime = fixture.RuntimeFixture(directory, bundle, client)
+    runtime = fixture.RuntimeFixture(directory, config['merged_runtime'], built['source_revision'])
     qualification = None
     try:
         runtime.generate()
@@ -2371,9 +2555,9 @@ def worker(directory):
         expected += len(W20_COMPLETED_DIRECT) + len(W7_SIGN_DIRECT) + len(W7_SIGN_NEGATIVE)
 
         expected += len(W8_CAPABILITY_DIRECT) + len(W8_CAPABILITY_REFUSALS)
-        expected += len(SERVED_READ_DIRECT) + len(SERVED_READ_REFUSALS)
+        expected += len(SERVED_READ_DIRECT) + len(SERVED_READ_REFUSALS) + 2
         expected += len(NATIVE_LANGUAGES) * (16 + len(NATIVE_REFUSALS))
-        expected += 3 + 4 + 5 + 4 + 1 + 2 + len(NATIVE_LANGUAGES) * (6 + 2)
+        expected += 4 + 5 + 5 + 4 + 1 + 2 + len(LANGUAGES) * (7 + 4)
         require(len(qualification.results) == expected, 'case count ' + str(len(qualification.results)) + ' != ' + str(expected))
         write_private(runtime.directory / 'case-results.json', qualification.results)
         print(f'PAXEER_X_GATE tests={len(qualification.results)} skipped=0', flush=True)
@@ -2381,6 +2565,96 @@ def worker(directory):
         if qualification is not None:
             qualification.stop()
         runtime.cleanup()
+
+
+def terminate_participant_tree(participant):
+    # Pin descendants before stopping the launcher, including children that
+    # created their own sessions. The namespace also kills late descendants.
+    descendants = []
+    pending = [participant.pid]
+    while pending:
+        pid = pending.pop()
+        try:
+            children = Path('/proc', str(pid), 'task', str(pid), 'children').read_text().split()
+        except FileNotFoundError:
+            continue
+        for child in map(int, children):
+            try:
+                descriptor = os.pidfd_open(child)
+            except ProcessLookupError:
+                continue
+            descendants.append((child, descriptor))
+            pending.append(child)
+    try:
+        try:
+            os.killpg(participant.pid, signal.SIGKILL)
+        except ProcessLookupError:
+            pass
+        for _, descriptor in reversed(descendants):
+            try:
+                signal.pidfd_send_signal(descriptor, signal.SIGKILL)
+            except ProcessLookupError:
+                pass
+        participant.wait()
+        for child, _ in descendants:
+            try:
+                os.waitpid(child, 0)
+            except ChildProcessError:
+                pass
+        while True:
+            try:
+                os.waitpid(-participant.pid, 0)
+            except InterruptedError:
+                continue
+            except ChildProcessError:
+                break
+    finally:
+        for _, descriptor in descendants:
+            os.close(descriptor)
+
+
+def run_participant(argv, env, evidence, revision, directory, timeout=1680):
+    """Retain terminal evidence even when the namespace participant times out."""
+    started = time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())
+    log_path = evidence / 'worker.log'
+    # Adopt orphaned namespace-launcher descendants so killing the process group
+    # cannot leave grandchildren as zombies in the qualification container.
+    libc = ctypes.CDLL(None, use_errno=True)
+    previous = ctypes.c_int()
+    require(libc.prctl(37, ctypes.byref(previous), 0, 0, 0) == 0, 'read child subreaper state')
+    require(libc.prctl(36, 1, 0, 0, 0) == 0, 'enable participant child reaping')
+    timed_out = False
+    participant = None
+    try:
+        descriptor = os.open(log_path, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
+        with os.fdopen(descriptor, 'wb') as log:
+            participant = subprocess.Popen(argv, env=env, stdout=log, stderr=log, start_new_session=True)
+            try:
+                participant.wait(timeout=timeout)
+            except subprocess.TimeoutExpired:
+                timed_out = True
+                terminate_participant_tree(participant)
+    finally:
+        require(libc.prctl(36, previous.value, 0, 0, 0) == 0, 'restore child subreaper state')
+    text = log_path.read_text(errors='replace')
+    markers = re.findall(r'^PAXEER_X_GATE tests=(\d+) skipped=0$', text, re.M)
+    progress = re.findall(r'^PAXEER_X_PROGRESS cases=(\d+)', text, re.M)
+    count = int(markers[0]) if len(markers) == 1 else int(progress[-1]) if progress else 0
+    exit_code = 124 if timed_out else participant.returncode
+    complete = not timed_out and exit_code == 0 and len(markers) == 1 and count > 0
+    outcome_exit = 0 if complete else exit_code or 1
+    write_private(evidence / 'result.json', {
+        'candidate_revision': revision, 'command': shlex.join(argv), 'participant_argv': list(argv),
+        'started_utc': started, 'finished_utc': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()),
+        'exit_code': outcome_exit, 'participant_exit_code': participant.returncode,
+        'status': 'timeout' if timed_out else 'passed' if complete else 'failed',
+        'timed_out': timed_out, 'timeout_seconds': timeout, 'participant_pid': participant.pid,
+        'cases_passed': count, 'gate_marker': complete, 'worker_log': str(log_path),
+        'runtime_directory': str(directory), 'case_results': str(directory / 'case-results.json'),
+        'effect_manifest': str(directory / 'effect-manifest.json')})
+    print(f'PAXEER_X_GATE tests={count} skipped=0' if complete else
+          f'PAXEER_X_GATE tests={count} skipped=0 incomplete=1', flush=True)
+    return outcome_exit
 
 
 def main():
@@ -2407,30 +2681,12 @@ def main():
     revision = capture(['git', 'rev-parse', 'HEAD'])
     directory = Path(tempfile.mkdtemp(prefix='px-agent-envelope-', dir='/var/tmp'))
     directory.rmdir()
-    command = 'timeout 30m python3 tools/qualification/paxeer-x/agent_operation_envelope.py'
-    started = time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())
     env = dict(os.environ)
     for name in ('net', 'pid', 'mnt'):
         env['PAXEER_X_PARENT_' + name.upper()] = os.readlink('/proc/self/ns/' + name)
-    log_path = evidence / 'worker.log'
-    with log_path.open('wb') as log:
-        result = subprocess.run(['unshare', '--mount', '--net', '--pid', '--fork', '--kill-child=KILL', '--mount-proc',
-                                 '--propagation', 'private', sys.executable, str(Path(__file__).resolve()), '--worker', str(directory)],
-                                env=env, stdout=log, stderr=log, timeout=1680)
-    text = log_path.read_text()
-    markers = re.findall(r'^PAXEER_X_GATE tests=(\d+) skipped=0$', text, re.M)
-    progress = re.findall(r'^PAXEER_X_PROGRESS cases=(\d+)', text, re.M)
-    count = int(markers[0]) if len(markers) == 1 else int(progress[-1]) if progress else 0
-    write_private(evidence / 'result.json', {
-        'candidate_revision': revision, 'command': command, 'started_utc': started,
-        'finished_utc': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()), 'exit_code': result.returncode,
-        'cases_passed': count, 'gate_marker': len(markers) == 1, 'worker_log': str(log_path),
-        'runtime_directory': str(directory), 'case_results': str(directory / 'case-results.json'),
-        'effect_manifest': str(directory / 'effect-manifest.json')})
-    print(f'PAXEER_X_GATE tests={count} skipped=0' if len(markers) == 1 else
-          f'PAXEER_X_GATE tests={count} skipped=0 incomplete=1', flush=True)
-    require(result.returncode == 0 and len(markers) == 1 and count > 0, 'worker failed; inspect private worker.log')
-    return 0
+    argv = ['unshare', '--mount', '--net', '--pid', '--fork', '--kill-child=KILL', '--mount-proc',
+            '--propagation', 'private', sys.executable, str(Path(__file__).resolve()), '--worker', str(directory)]
+    return run_participant(argv, env, evidence, revision, directory)
 
 
 if __name__ == '__main__':

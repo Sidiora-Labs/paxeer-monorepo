@@ -6,6 +6,7 @@ import shlex
 import subprocess
 import sys
 from pathlib import Path
+from urllib.parse import urlsplit
 
 
 def test_check_passes_only_arguments_the_renderer_declares():
@@ -126,12 +127,13 @@ def test_rendered_keys_match_the_example(tmp_path):
         "0279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
     ]
     for chain in ("paxeer", "ethereum"):
+        rpc_path = "/" if chain == "paxeer" else "/rpc"
         for backend in ("a", "b"):
             command.extend(
                 [
                     "--%s-endpoint" % chain,
-                    "https://%s-%s.example/rpc,%s-%s,/run/secrets/ca.der,/run/secrets/token"
-                    % (chain, backend, chain, backend),
+                    "https://%s-%s.example%s,%s-%s,/run/secrets/ca.der,/run/secrets/token"
+                    % (chain, backend, rpc_path, chain, backend),
                 ]
             )
 
@@ -174,6 +176,15 @@ def test_rendered_keys_match_the_example(tmp_path):
         if not with_solana:
             expected.pop("solana")
         assert key_sets(rendered) == key_sets(expected)
+        for chain in ("paxeer", "ethereum", "solana"):
+            if chain in rendered:
+                expected_path = "/" if chain == "paxeer" else "/rpc"
+                endpoints = rendered[chain]["rpc"]["endpoints"]
+                assert len(endpoints) == 2, endpoints
+                for endpoint in endpoints:
+                    parsed = urlsplit(endpoint["url"])
+                    assert parsed.path == expected_path, endpoint
+                    assert not parsed.query and not parsed.fragment, endpoint
         assert rendered["first_height"] == 1000
         assert (
             rendered["freshness_budget_blocks"]
@@ -237,9 +248,14 @@ def test_rendered_keys_match_the_example(tmp_path):
         for invalid in (None, 1, "00" * 32, "11" * 31, "gg" * 32):
             invalid_key_sets.append([{**keys[0], name: invalid}])
     for name in ("firstHeight", "lastHeight"):
-        for invalid in (True, "1000", 0, -1, 2**64):
+        for invalid in (True, "1000", -1, 2**64):
             invalid_key_sets.append([{**keys[0], name: invalid}])
     invalid_key_sets.append([{**keys[0], "lastHeight": 999}])
+    invalid_key_sets.append([{**keys[0], "lastHeight": 0}])
+    invalid_key_sets.append([keys[0], {**keys[1], "keyId": keys[0]["keyId"]}])
+    invalid_key_sets.append([
+        keys[0], {**keys[1], "keyId": keys[0]["keyId"][2:].upper()}
+    ])
     for invalid_keys in invalid_key_sets:
         keys_file.write_text(json.dumps(invalid_keys))
         assert_refused(command, "--receipt-keys-file")
@@ -253,3 +269,26 @@ def test_rendered_keys_match_the_example(tmp_path):
     assert result.returncode == 0, result.stderr
     assert json.loads(output.read_text())["paxeer"]["receipt_keys"] == expected_keys[::-1]
     assert json.loads(keys_file.read_text()) == reordered_keys
+
+    for first, last in ((0, 0), (0, 2**64 - 1), (2**64 - 1, 2**64 - 1)):
+        boundary = [{**keys[0], "firstHeight": first, "lastHeight": last}]
+        keys_file.write_text(json.dumps(boundary))
+        result = subprocess.run(command, capture_output=True, text=True, timeout=30)
+        assert result.returncode == 0, result.stderr
+        rendered_key = json.loads(output.read_text())["paxeer"]["receipt_keys"][0]
+        assert rendered_key == {**expected_keys[0], "first_height": first, "last_height": last}
+
+    keys_file.write_text(json.dumps(keys))
+    endpoint_index = command.index("--paxeer-endpoint") + 1
+    for url in (
+        "https://paxeer-a.example/rpc",
+        "https://paxeer-a.example/evm",
+        "https://paxeer-a.example/?method=eth_chainId",
+        "https://paxeer-a.example/#rpc",
+        "https://user@paxeer-a.example/",
+    ):
+        arguments = list(command)
+        parts = arguments[endpoint_index].split(",")
+        parts[0] = url
+        arguments[endpoint_index] = ",".join(parts)
+        assert_refused(arguments, "root JSON-RPC URL")

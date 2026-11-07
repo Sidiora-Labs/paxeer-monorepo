@@ -1,3 +1,5 @@
+//go:build ignore
+
 #include "lxp_test_harness.h"
 
 #include <string.h>

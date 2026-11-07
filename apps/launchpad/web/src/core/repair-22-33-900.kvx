@@ -1,0 +1,61 @@
+[repair.22.33.900]
+mode = "BUILD"
+scope = "apps/launchpad/web/src/core"
+baseline = "No pre-change gate was run: the explicit gate order reserves verification for hf-done after the complete implementation. No claim is made that baseline tests executed or failed."
+evidence = "Exact candidate revision, command, exit and private log location are retained by hf-build/hf-done in /out/run/gates.jsonl."
+
+[finding.wallet_parent_configuration]
+test = "walletParentConfigurationRejectsInvalidOriginsAndFeedsCspAndBridge"
+proof = "Strict HTTPS origin-only configuration feeds the real CSP middleware and the real iframe provider; invalid entries are visible in backendConfigurationProblems."
+
+[finding.postmessage_destroy]
+test = "postmessageDestroySettlesSigningExactlyOnceAndCanReopen"
+proof = "A real EIP-191 request is held during destroy; rejection is disconnected code 4900, repeated teardown and a late signed reply cannot resettle it, and a reopened provider completes a fresh request."
+
+[finding.postmessage_sender]
+test = "postmessageSenderRejectsSiblingResponsesAndMalformedEvents"
+proof = "Actual parent and sibling DOM windows supply provenance to the real provider; same-origin sibling responses/events, another admitted origin and malformed messages are refused before a real signature is consumed."
+
+[finding.postmessage_outbound_origin]
+test = "postmessageOutboundOriginPinsAdmittedParent"
+proof = "Native outbound postMessage admission is exercised with multiple allowed origins and an unlisted same-origin parent; requests require the parent ready handshake, stay pinned to its exact origin and reject conflicting overrides."
+
+[finding.telemetry_redaction]
+test = "telemetryRedactionProtectsAuthCallbackTransports"
+proof = "The real telemetry codec crosses loopback HTTP and reportError crosses the real Sentry SDK and HTTP transport; auth query/fragment, raw messages/stacks and unrestricted context never enter either diagnostic payload."
+wiring_request = "Domain 4: apps/launchpad/web/src/app/api/errors/route.ts must apply core/report-error.ts allowlist validation to incoming beacons before Sentry and console, including direct forged POSTs; this sink is outside this task's scope."
+
+[finding.rpc_override_policy]
+test = "rpcOverridePolicySelectsValidatedTransport"
+proof = "All three override variables fail visibly on insecure, credential-bearing, non-root, retired and library-mirror URLs; the real wallet public client sends eth_chainId to the selected loopback qualification endpoint and wagmi consumes the same resolver."
+
+[finding.authority_production_coverage]
+fixture_status = "Recorded current Go producer response with eligible surface roles; the gate consumes only the committed recording and loopback TLS fixtures."
+tests = ["authorityProductionCoverageAcceptsCurrentGoProducer", "authorityProductionCoverageRefusesChangedRuntimeAndRevision", "privateFixtureProfileRefusedInProduction", "privateFixtureProfileParsedOutsideProduction"]
+proof = "The production suite replays an unchanged current Go authority response over real HTTPS into loadRuntimeAuthority, checks surface pins and committed-head consumption, and refuses changed runtime and both corrupt and internally consistent changed revisions. Existing private-fixture refusals execute in the same gate."
+recording = "test-fixtures/authority-production/go-authority.json is unchanged stdout from GOWORK=off go run /work/paxeer-monorepo/apps/launchpad/web/src/core/repair-22-31-22/attest.go, run from sdk/launchpad/shared during implementation. The gate itself launches no Go, openssl or live endpoint."
+recording_sha256 = "3978b449e751a72c754f033045a9e832594722143d01faf79cba400ca9b7a566"
+
+[gotcha.test_registration]
+observed = "Vitest 4 treats test(function) as TODO rather than executing it."
+action = "Register each named function with test(function.name, function), preserving both production fixture refusal tests."
+
+[qualification.external_authority]
+observed = "The deployed GET https://api-production-e4bd.up.railway.app/v2/network/authority returned HTTP 503 DEPENDENCY_UNAVAILABLE during read-only fixture discovery."
+action = "Do not change or re-investigate the external deployment; record current producer output separately for deterministic local replay."
+
+[qualification.initial]
+revision = "236ac87d8fc33d5c5024e47958f7266c3b2bf583"
+command = "cg spec done 22.33.900 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Three tests passed; seven failed on missing Go authority recording, parent Window provenance in the fixture, and Sentry CommonJS namespace interop."
+assumption = "Use the child's actual parent Window and normalize the real Sentry module; authority qualification still requires producer-emitted recording bytes."
+
+[gotcha.fixture_publication]
+observed = "The root ignore rules exclude PEM files, so bare PEM fixture names are omitted from the runner candidate."
+action = "Preserve the existing public loopback test certificate and key as .pem.txt fixtures and read those committed paths; leave repository ignore rules unchanged."
+
+[qualification.continuation]
+observed = "The supplied previous attempt reached eight passing cases but both authority tests failed opening the absent producer recording."
+action = "Capture the real Go producer once during implementation, retain its exact bytes, and qualify replay through the declared gates."

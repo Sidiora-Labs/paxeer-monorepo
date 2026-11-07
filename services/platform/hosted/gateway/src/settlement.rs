@@ -159,7 +159,7 @@ pub fn claim(body: &[u8]) -> Result<Claim, Refusal> {
         .ok_or(Refusal::Evidence)?;
     let presented = layerx_proof::merkle::leaf_hash(&receipt).map_err(|_| Refusal::Evidence)?;
     if presented.ct_eq(&receipt_digest).unwrap_u8() != 1 {
-        return Err(Refusal::Evidence);
+        return Err(Refusal::ReceiptDigest);
     }
     let mut binding = Sha256::new();
     binding.update(IDEMPOTENCY_DOMAIN);
@@ -783,10 +783,10 @@ mod tests {
         );
         body["payload"]["payload"]["receiptDigest"] = serde_json::json!(hex(&wrong_digest));
         let refusal = claim(body.to_string().as_bytes());
-        assert_eq!(refusal, Err(Refusal::Evidence));
+        assert_eq!(refusal, Err(Refusal::ReceiptDigest));
         assert_eq!(
             refusal.err().map(Refusal::reason),
-            Some("invalid_receipt_evidence")
+            Some("receipt_digest_mismatch")
         );
         Ok(())
     }

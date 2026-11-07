@@ -1,0 +1,36 @@
+[repair.22.33.1260]
+finding = "historical-rewards-value-v630"
+tests = ["TestRepairM_1260_HistoricalActivationRawCALL", "TestRepairM_1260_LiveRoutingActivation", "TestRepairM_1260_ZeroValueRewards", "TestRepairM_1260_FrozenReplayBytes"]
+implementation = "Keep distribution.go and abi.json byte-identical. Exercise distribution.GetVersioned through the real EVM keeper's ordinary and tracing routes, the EVM CALL/STATICCALL machinery, distribution query keeper, ABI transport and in-memory SDK stores. Directly construct production auth, bank, staking, distribution, upgrade and EVM keepers; create a validator through the real staking message server and allocate its rewards through the distribution keeper."
+activation = "The fixture records v6.3.0 at height 10 and v7.0 at height 20 through the real upgrade keeper. Historical tracing selects v630 from its recorded activation until the next completed version. Ordinary routing uses the current executor, whose value refusal activates at the recorded v7.0 done height, inclusive. These fixture heights are not deployment heights."
+proof = "Positive CALL values of one wei, one bank base unit and one base unit plus one wei succeed historically and transfer their exact value to 0x1007. From v7.0 activation, current ordinary and tracing routes revert and preserve both balances. Zero-value CALL and STATICCALL return every nonzero rewards tuple field from the real distribution keeper. Finalized balances are checked through a reopened state DB. Embedded source and ABI hashes pin the unchanged historical bytes."
+baseline = "No unchanged-tree test result is claimed: the explicit Order permits verification only through hf-done after complete implementation and hf-build. The inherited qualification.initial records an earlier compile failure; attempt 2 also failed while compiling sdk/x/auth/client/cli and sdk/x/staking/client/cli, before any TestRepairM_1260_ test executed."
+wiring_request = "Domain 6: link precompiles/distribution/legacy/v630/repair_m1260_test.go from precompiles/distribution tests and carry README.md historical CALL-value guidance into docs/system/precompiles.md; no out-of-scope file is changed here."
+evidence = "The private hf-done ledger and final task evidence record the exact verified candidate revision, command, exit code and log path."
+gotcha = "Historical tracing and ordinary execution intentionally choose different executors below the merge height; assert both routing identity and payment effects, and use ABI wire order for nested tuple decoding."
+continuation = "Retain the inherited three-file implementation from attempt 3 (1e2d2d2e7f787299c9eae43accde5329cb96050f) on base f25ab9129415b70e1e47d668e4d2d04777519969. The direct-keeper fixture avoids importing the full application but the production EVM keeper still imports wasm/x/wasm/keeper, which imports the SDK auth and staking modules and their CLI packages. Qualify the retained real path through hf-build and hf-done, whose private ledger supplies the verified revision."
+wiring_cli = "SDK CLI domain: complete task 22.31.463 in sdk/x/auth/client/cli and sdk/x/staking/client/cli so their NewFactoryCLI callers handle both return values; preserve the real EVM keeper routing proof here rather than replacing it with a test double."
+
+[qualification.initial]
+revision = "6f9e9f456d195490b2531e2a951b2005ba863977"
+command = "cg spec done 22.33.1260 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "The full-app fixture imported pre-existing auth, staking and tokenfactory CLI compile failures before tests ran; no CLI file was changed."
+assumption = "The task-scoped repair constructs the same real keeper components directly over isolated memory stores, removing the fixture's unrelated CLI dependency without weakening any assertion."
+
+[qualification.continuation]
+revision = "ad59a01ca73ced6dd6fba0df85a25451c781fa3c"
+command = "cg spec done 22.33.1260 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "hf-build passed at this revision, but hf-done compiled no repair tests: sdk/x/auth/client/cli/{tx_multisign.go:84,260,tx_sign.go:69,validate_sigs.go:216} and sdk/x/staking/client/cli/tx.go:62 still consume the two-return tx.NewFactoryCLI as one value; full compiler output is in /tmp/repair-m1260.log."
+assumption = "The direct real-keeper fixture still reaches these pre-existing CLI dependencies indirectly; caller repair belongs to sdk/client/tx and CLI owners under task 22.31.463, outside this task's scope, so no unrelated repair or unchanged gate rerun is made and this task remains unqualified."
+
+[qualification.attempt5_baseline]
+revision = "fcc0b27e8e38c22b1e2eb40e8aedb4195479166c"
+command = "cg spec done 22.33.1260 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "On base 13531a9e95bc34a9b21e00a3e375a215261f2bd6, the unchanged inherited tests compile: HistoricalActivationRawCALL and FrozenReplayBytes pass; LiveRoutingActivation and ZeroValueRewards fail at the balance comparison because math/big zero uses nil versus empty internal words."
+repair = "Compare every live and reopened balance using big.Int.Cmp with exact equality; retain all cases, values, routing assertions, decoded rewards and rejection checks, and keep distribution.go and abi.json unchanged. The previous SDK CLI wiring blocker is resolved on this base."

@@ -21,10 +21,11 @@ services/platform/hosted/tests/beta-cluster.sh up writes, PLATFORM_BETA_CLUSTER_
 readable:
 
   LAYERX_GATEWAY_URL             gateway base URL; JSON-RPC is served at /rpc
+  LAYERX_RPC_URL                 public node root URL
+  LAYERX_TEST_NODE_AUTH_TOKEN_FILE  file holding the node RPC bearer
   LAYERX_FAUCET_URL              faucet base URL; claims go to /v1/faucet/claims
   LAYERX_TEST_CA_FILE            internal CA both examples trust
-  LAYERX_TEST_AUTH_TOKEN_FILE    file holding the bearer for RPC submission and
-                                 faucet claims
+  LAYERX_TEST_AUTH_TOKEN_FILE    file holding the gateway and faucet bearer
   LAYERX_TEST_SOURCE_DID         funded DID whose sequence both examples read
   LAYERX_TEST_SOURCE_PUBLIC_KEY  32-byte hex public key of that DID
 
@@ -36,7 +37,7 @@ cluster bring-up does not write it:
   LAYERX_EXAMPLE_NODE_ACTIVITY_FILE        raw EIP-1559 transaction for the Node example
   LAYERX_EXAMPLE_NODE_RECEIPT_KEYS_FILE    receipt keys for that transaction
   LAYERX_EXAMPLE_PYTHON_ACTIVITY_FILE      signed activity for the Python example
-  LAYERX_EXAMPLE_PYTHON_AUTHORITY_FILE     trusted authority for that activity
+  LAYERX_EXAMPLE_PYTHON_RECEIPT_KEYS_FILE   keyId, publicKey, firstHeight and lastHeight pins
 
 Every input is required and no leg is skipped. Each example needs its own
 signed activity: a signed activity is consumed by the submission that carries
@@ -72,6 +73,7 @@ refuse_persistent_chain() {
     esac
 }
 refuse_persistent_chain LAYERX_GATEWAY_URL "${LAYERX_GATEWAY_URL:-}"
+refuse_persistent_chain LAYERX_RPC_URL "${LAYERX_RPC_URL:-}"
 refuse_persistent_chain LAYERX_FAUCET_URL "${LAYERX_FAUCET_URL:-}"
 
 missing=0
@@ -83,6 +85,8 @@ require() {
     fi
 }
 require LAYERX_GATEWAY_URL "the gateway base URL of the beta cluster"
+require LAYERX_RPC_URL "the public node root URL of the beta cluster"
+require LAYERX_TEST_NODE_AUTH_TOKEN_FILE "the file holding the bearer the node admits"
 require LAYERX_FAUCET_URL "the faucet base URL of the beta cluster"
 require LAYERX_TEST_CA_FILE "the internal CA file of the beta cluster"
 require LAYERX_TEST_AUTH_TOKEN_FILE "the file holding the bearer the gateway and the faucet admit"
@@ -93,7 +97,7 @@ require LAYERX_EXAMPLE_PAYER "the 32-byte hex payer account the payment debits"
 require LAYERX_EXAMPLE_NODE_ACTIVITY_FILE "the raw EIP-1559 transaction the Node example submits"
 require LAYERX_EXAMPLE_NODE_RECEIPT_KEYS_FILE "the pinned receipt keys for the Node example's transaction"
 require LAYERX_EXAMPLE_PYTHON_ACTIVITY_FILE "the signed activity the Python example submits"
-require LAYERX_EXAMPLE_PYTHON_AUTHORITY_FILE "the trusted authority for the Python example's activity"
+require LAYERX_EXAMPLE_PYTHON_RECEIPT_KEYS_FILE "the pinned receipt keys for the Python example's transaction"
 if [ "$missing" -gt 0 ]; then
     printf 'examples-live-check.sh: %d missing input(s); supply them in the environment or in %s, the cluster environment file the beta cluster bring-up writes\n' \
         "$missing" "$env_file" >&2
@@ -104,9 +108,9 @@ if [ "$LAYERX_EXAMPLE_NODE_ACTIVITY_FILE" = "$LAYERX_EXAMPLE_PYTHON_ACTIVITY_FIL
     printf 'examples-live-check.sh: the two examples were given the same signed activity; a signed activity is consumed by one submission\n' >&2
     exit 2
 fi
-for file in "$LAYERX_TEST_CA_FILE" "$LAYERX_TEST_AUTH_TOKEN_FILE" "$LAYERX_EXAMPLE_OFFER_FILE" \
+for file in "$LAYERX_TEST_CA_FILE" "$LAYERX_TEST_AUTH_TOKEN_FILE" "$LAYERX_TEST_NODE_AUTH_TOKEN_FILE" "$LAYERX_EXAMPLE_OFFER_FILE" \
     "$LAYERX_EXAMPLE_NODE_ACTIVITY_FILE" "$LAYERX_EXAMPLE_NODE_RECEIPT_KEYS_FILE" \
-    "$LAYERX_EXAMPLE_PYTHON_ACTIVITY_FILE" "$LAYERX_EXAMPLE_PYTHON_AUTHORITY_FILE"; do
+    "$LAYERX_EXAMPLE_PYTHON_ACTIVITY_FILE" "$LAYERX_EXAMPLE_PYTHON_RECEIPT_KEYS_FILE"; do
     [ -f "$file" ] && [ -r "$file" ] && [ -s "$file" ] || {
         printf 'examples-live-check.sh: %s is not a readable non-empty file\n' "$file" >&2
         exit 2
@@ -118,7 +122,14 @@ if [ -z "$bearer" ]; then
     exit 2
 fi
 
-rpc_url=${LAYERX_GATEWAY_URL%/}/rpc
+node_bearer=$(tr -d '\r\n' < "$LAYERX_TEST_NODE_AUTH_TOKEN_FILE")
+if [ -z "$node_bearer" ]; then
+    printf 'examples-live-check.sh: %s holds no bearer\n' "$LAYERX_TEST_NODE_AUTH_TOKEN_FILE" >&2
+    exit 2
+fi
+
+gateway_url=${LAYERX_GATEWAY_URL%/}/rpc
+rpc_url=$LAYERX_RPC_URL
 faucet_url=${LAYERX_FAUCET_URL%/}/v1/faucet/claims
 stamp=$(date -u +%Y%m%dT%H%M%SZ)
 
@@ -143,9 +154,10 @@ done
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT INT TERM
 
-LAYERX_RPC_TOKEN=$bearer
+LAYERX_GATEWAY_TOKEN=$bearer
+LAYERX_RPC_TOKEN=$node_bearer
 LAYERX_FAUCET_TOKEN=$bearer
-export LAYERX_RPC_TOKEN LAYERX_FAUCET_TOKEN
+export LAYERX_GATEWAY_TOKEN LAYERX_RPC_TOKEN LAYERX_FAUCET_TOKEN
 
 assert_legs() {
     assert_name=$1
@@ -184,7 +196,7 @@ run_example() {
 
 run_example node env NODE_EXTRA_CA_CERTS="$LAYERX_TEST_CA_FILE" \
     node services/platform/middleware/examples/public-rpc.mjs \
-    --rpc "$rpc_url" --did "$LAYERX_TEST_SOURCE_DID" \
+    --gateway "$gateway_url" --rpc "$rpc_url" --did "$LAYERX_TEST_SOURCE_DID" \
     --faucet "$faucet_url" --public-key "$LAYERX_TEST_SOURCE_PUBLIC_KEY" \
     --claim-key "examples-node-$stamp-$$" \
     --activity "$LAYERX_EXAMPLE_NODE_ACTIVITY_FILE" --offer "$LAYERX_EXAMPLE_OFFER_FILE" \
@@ -192,10 +204,10 @@ run_example node env NODE_EXTRA_CA_CERTS="$LAYERX_TEST_CA_FILE" \
 
 run_example python env SSL_CERT_FILE="$LAYERX_TEST_CA_FILE" PYTHONPATH=services/agent/sdk/python \
     python3 services/platform/middleware/examples/public_rpc.py \
-    --rpc "$rpc_url" --did "$LAYERX_TEST_SOURCE_DID" \
+    --gateway "$gateway_url" --rpc "$rpc_url" --did "$LAYERX_TEST_SOURCE_DID" \
     --faucet "$faucet_url" --public-key "$LAYERX_TEST_SOURCE_PUBLIC_KEY" \
     --claim-key "examples-python-$stamp-$$" \
     --activity "$LAYERX_EXAMPLE_PYTHON_ACTIVITY_FILE" --offer "$LAYERX_EXAMPLE_OFFER_FILE" \
-    --authority "$LAYERX_EXAMPLE_PYTHON_AUTHORITY_FILE" --payer "$LAYERX_EXAMPLE_PAYER"
+    --receipt-keys "$LAYERX_EXAMPLE_PYTHON_RECEIPT_KEYS_FILE" --payer "$LAYERX_EXAMPLE_PAYER"
 
 printf 'examples-live-check: both public RPC examples read the sequence, claimed faucet funding and verified their payment against %s\n' "$rpc_url"

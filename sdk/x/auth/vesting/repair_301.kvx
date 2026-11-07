@@ -1,0 +1,7 @@
+[task.22.31.301]
+finding = "vesting-allowlist-bypass"
+proving_tests = ["TestRepair_301_ForbiddenSender", "TestRepair_301_ForbiddenRecipient", "TestRepair_301_AuthorizedTransfers", "TestRepair_301_ModuleTransferPermissions"]
+path = "Production transaction encoder/decoder and registered node message service router to vesting handler, account keeper and bank keeper with real in-memory stores. Rejections preserve complete account and bank stores, including account numbering."
+baseline = "Not run: explicit task gate order forbids verification before implementation and permits only hf-build followed by hf-done. No pre-change test failures are claimed."
+wiring_requests = []
+evidence = "The runner records the qualified candidate revision, command, exit and private log through hf-build and hf-done."

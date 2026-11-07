@@ -73,6 +73,9 @@ func (k *Keeper) matchKind(ctx sdk.Context, market types.Market, taker types.Ord
 }
 
 func (k *Keeper) match(ctx sdk.Context, market types.Market, taker types.Order, kind FillKind) (MatchResult, error) {
+	if err := orderDeadline(ctx, taker); err != nil {
+		return MatchResult{}, err
+	}
 	remaining, err := validateTaker(market, taker)
 	if err != nil {
 		return MatchResult{}, err
@@ -111,6 +114,7 @@ func (k *Keeper) match(ctx sdk.Context, market types.Market, taker types.Order, 
 		capped         bool
 		takerPosition  uint256.Int
 		lastTradePrice uint256.Int
+		takerOpened    bool
 	)
 	for _, candidate := range candidates {
 		if remaining.IsZero() {
@@ -129,6 +133,13 @@ func (k *Keeper) match(ctx sdk.Context, market types.Market, taker types.Order, 
 		if maker.Status != types.OrderStatusResting || !maker.FilledBase.Lt(&maker.SizeBase) {
 			continue
 		}
+		if err := orderDeadline(ctx, maker); err != nil {
+			if err := k.withdrawOrder(ctx, maker, types.OrderStatusExpired); err != nil {
+				return MatchResult{}, err
+			}
+			result.Events = append(result.Events, types.EventRecord{Name: types.EventOrderExpired, Args: []any{maker.ID.ToBig(), maker.Account, new(big.Int).SetUint64(maker.MarketID)}})
+			continue
+		}
 		if maker.Account == taker.Account {
 			event, err := k.cancelResting(ctx, maker)
 			if err != nil {
@@ -137,6 +148,13 @@ func (k *Keeper) match(ctx sdk.Context, market types.Market, taker types.Order, 
 			result.Cancelled = append(result.Cancelled, maker.ID)
 			result.Events = append(result.Events, event)
 			continue
+		}
+		opens, err := k.openingBase(ctx, taker.Account, market.ID, taker.IsLong, remaining)
+		if err != nil {
+			return MatchResult{}, err
+		}
+		if !opens.IsZero() {
+			takerOpened = true
 		}
 		fill, events, err := k.fillMaker(ctx, market.ID, maker, taker, remaining, kind)
 		if err != nil {
@@ -206,6 +224,11 @@ func (k *Keeper) match(ctx sdk.Context, market types.Market, taker types.Order, 
 			return MatchResult{}, err
 		}
 		result.Events = append(result.Events, reconciled...)
+	}
+	if takerOpened && kind == FillKindTrade {
+		if err := k.checkFilledMargin(ctx, market, taker.Account); err != nil {
+			return MatchResult{}, err
+		}
 	}
 	result.Taker = taker
 	return result, nil
@@ -345,6 +368,9 @@ func (k *Keeper) crossingMakers(ctx sdk.Context, marketID uint64, taker types.Or
 			return true
 		}
 		makers = append(makers, maker)
+		if orderDeadline(ctx, maker) != nil {
+			return false
+		}
 		if maker.Account == taker.Account {
 			return false
 		}
@@ -375,6 +401,18 @@ func (k *Keeper) fillMaker(ctx sdk.Context, marketID uint64, maker, taker types.
 	size = takerLeft
 	if makerLeft.Lt(&takerLeft) {
 		size = makerLeft
+	}
+	for _, order := range []types.Order{maker, taker} {
+		if !order.ReduceOnly {
+			continue
+		}
+		position, exists, err := k.orderPosition(ctx, order.Account, marketID)
+		if err != nil {
+			return FillResult{}, nil, err
+		}
+		if !exists || position.IsLong == order.IsLong || size.Gt(&position.SizeBase) {
+			return FillResult{}, nil, types.ErrReduceOnlyViolation.Wrapf("fill %s exceeds live closing exposure of order %s", size.Dec(), order.ID.Dec())
+		}
 	}
 	price := maker.LimitPrice
 	notional, overflow := new(uint256.Int).MulDivOverflow(&size, &price, matchUnit)
@@ -439,6 +477,19 @@ func (k *Keeper) fillMaker(ctx sdk.Context, marketID uint64, maker, taker types.
 		}
 	} else {
 		k.setOrder(ctx, maker)
+	}
+	makerOpened := buyerOpens
+	if !maker.IsLong {
+		makerOpened = sellerOpens
+	}
+	if !makerOpened.IsZero() {
+		market, err := k.GetMarket(ctx, marketID)
+		if err != nil {
+			return FillResult{}, nil, err
+		}
+		if err := k.checkFilledMargin(ctx, market, maker.Account); err != nil {
+			return FillResult{}, nil, err
+		}
 	}
 	reconciled, err := k.ReconcileReduceOnly(ctx, maker.Account, marketID)
 	if err != nil {
@@ -575,4 +626,27 @@ func orderExecuted(orderID, positionID, executionPrice uint256.Int) types.EventR
 		Name: types.EventOrderExecuted,
 		Args: []any{orderID.ToBig(), positionID.ToBig(), executionPrice.ToBig()},
 	}
+}
+
+func (k *Keeper) checkFilledMargin(ctx sdk.Context, market types.Market, account common.Address) error {
+	summary, err := k.AccountMargin(ctx, account)
+	if err != nil {
+		return err
+	}
+	if summary.Equity.LT(summary.InitialMargin) {
+		return types.ErrInsufficientMargin.Wrapf("post-fee equity %s below resulting initial margin %s", summary.Equity, summary.InitialMargin)
+	}
+	position, exists, err := k.orderPosition(ctx, account, market.ID)
+	if err != nil || !exists {
+		return err
+	}
+	state, err := k.GetMarketState(ctx, market.ID)
+	if err != nil {
+		return err
+	}
+	notional, overflow := new(uint256.Int).MulDivOverflow(&position.SizeBase, &state.MarkPrice, matchUnit)
+	if overflow {
+		return types.ErrOverflow.Wrap("post-fill position notional")
+	}
+	return checkOrderLeverage(market, types.Order{SizeUsd: *notional, Leverage: position.Leverage})
 }

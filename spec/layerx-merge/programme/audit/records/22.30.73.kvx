@@ -1,0 +1,1648 @@
+# Pre-upgrade audit of SDK crypto and hosted interop deployment. Source inspection; no source repairs.
+
+[audit.22.30.73]
+task = "22.30.73"
+revision = "2b99f88520e4e809ad5593f3bee2df74fe355d7b"
+files_reviewed = 163
+findings = 52
+docs_reviewed = 22
+upgrade_ready = false
+blocking = ["ledger-algorithm", "multisig-aligned-bit-count", "multisig-amino-reuse", "interop-kubernetes-startup", "interop-fly-startup"]
+
+[file.001]
+path = "sdk/crypto/armor.go"
+lines = 203
+verdict = "issues"
+note = "Armor encryption, KDF envelope and import error path read in full; findings cover password classification, restore parameters and empty plaintext."
+
+[file.002]
+path = "sdk/crypto/armor_xcrypto_test.go"
+lines = 80
+verdict = "issues"
+note = "Both linked-build-info and actual armor round-trip tests read; the fixed v0.47.0 expectation disagrees with the root v0.53.0 require line. This is a static finding; no Go test result is claimed."
+
+[file.003]
+path = "sdk/crypto/bcrypt_readme.md"
+lines = 20
+verdict = "issues"
+note = "Export and file-backend password rationale read; the backup-threat explanation needs the keyhash distinction recorded below."
+
+[file.004]
+path = "sdk/crypto/codec/amino.go"
+lines = 32
+verdict = "clean"
+note = "All public and private Amino registrations read and matched with legacy codec consumers; P256 has a separate protobuf-only registration."
+
+[file.005]
+path = "sdk/crypto/codec/proto.go"
+lines = 22
+verdict = "clean"
+note = "All protobuf public-key registrations, including sr25519 and delegated P256 registration, matched to Any consumers and proto identities."
+
+[file.006]
+path = "sdk/crypto/codec/tm.go"
+lines = 54
+verdict = "clean"
+note = "Consensus conversion read in full; only Ed25519 is supported and secp256k1 is explicitly refused. SDK and consensus protobuf byte fields agree for supported keys."
+
+[file.007]
+path = "sdk/crypto/hd/algo.go"
+lines = 109
+verdict = "clean"
+note = "Both deterministic generators and BIP39/BIP32 derivation functions read; sr25519 is explicitly a distinct legacy derivation using SHA256 of its derived secret, not the one-account Ed25519 scheme."
+
+[file.008]
+path = "sdk/crypto/hd/algo_test.go"
+lines = 16
+verdict = "clean"
+note = "Full mnemonic derivation tests read; generated-key and algorithm assertions match the current software signing implementations."
+
+[file.009]
+path = "sdk/crypto/hd/doc.go"
+lines = 13
+verdict = "clean"
+note = "BIP32/BIP44 package guidance read; historical fundraiser context does not introduce a running retired network component."
+
+[file.010]
+path = "sdk/crypto/hd/fundraiser_test.go"
+lines = 90
+verdict = "clean"
+note = "Full fundraiser derivation vector table and byte/address comparisons read against ComputeMastersFromSeed and derivation paths."
+
+[file.011]
+path = "sdk/crypto/hd/hdpath.go"
+lines = 287
+verdict = "clean"
+note = "Full HD path parsing, range checks, hardened derivation and default coin-type consumers reviewed; no retired service reference found."
+
+[file.012]
+path = "sdk/crypto/hd/hdpath_test.go"
+lines = 306
+verdict = "clean"
+note = "Full path parser and derivation tests read, including invalid paths, path serialization and vector expectations."
+
+[file.013]
+path = "sdk/crypto/keyring/codec.go"
+lines = 21
+verdict = "clean"
+note = "Info concrete registrations read; value representations used by the legacy decoder explain the new-versus-reopened Info output mismatch recorded below."
+
+[file.014]
+path = "sdk/crypto/keyring/doc.go"
+lines = 46
+verdict = "issues"
+note = "Package documentation read; obsolete constructor and interface names are recorded as documentation drift."
+
+[file.015]
+path = "sdk/crypto/keyring/errors.go"
+lines = 13
+verdict = "clean"
+note = "All exported keyring errors read and compared with the unsupported-algorithm and language refusal paths."
+
+[file.016]
+path = "sdk/crypto/keyring/info.go"
+lines = 273
+verdict = "clean"
+note = "All local, hardware, offline and multisig Info fields, constructors and methods read; public-key and algorithm validity disagreements originate in keyring producers and are recorded there."
+
+[file.017]
+path = "sdk/crypto/keyring/keyring.go"
+lines = 856
+verdict = "issues"
+note = "Entire key store read, including every backend, software/hardware signing, import/export, password prompt and persistence path; detailed findings identify inconsistent interfaces and recovery gaps."
+
+[file.018]
+path = "sdk/crypto/keyring/keyring_ledger_test.go"
+lines = 152
+verdict = "issues"
+note = "All tagged hardware keyring tests read; producer error wrapping and algorithm coverage differ from test expectations."
+
+[file.019]
+path = "sdk/crypto/keyring/keyring_test.go"
+lines = 953
+verdict = "issues"
+note = "All keyring backend, list, export/import, account, deletion, password and algorithm tests read; findings identify false error/algorithm contracts."
+
+[file.020]
+path = "sdk/crypto/keyring/keys.toml"
+lines = 2
+verdict = "clean"
+note = "Two-key example configuration read; text output and local keydir values are example settings, not merged-network endpoints."
+
+[file.021]
+path = "sdk/crypto/keyring/legacy.go"
+lines = 14
+verdict = "clean"
+note = "Legacy key-name helpers and unused compatibility option types read; no active retired daemon or RPC path occurs."
+
+[file.022]
+path = "sdk/crypto/keyring/output.go"
+lines = 111
+verdict = "issues"
+note = "Entire public key-output conversion read and traced to actual client/keys print consumers; findings cover public address parity and sr25519 display."
+
+[file.023]
+path = "sdk/crypto/keyring/output_test.go"
+lines = 48
+verdict = "clean"
+note = "All output tests read; constituent multisig public keys and protobuf output match the registered types; missing supported-key output paths are covered by output findings."
+
+[file.024]
+path = "sdk/crypto/keyring/signing_algorithms.go"
+lines = 49
+verdict = "clean"
+note = "Signing algorithm lookup and supported-list operations read; explicit unsupported names are refused by the lookup layer."
+
+[file.025]
+path = "sdk/crypto/keyring/signing_algorithms_test.go"
+lines = 75
+verdict = "clean"
+note = "Full signing algorithm parser and membership tests read against supported-list semantics."
+
+[file.026]
+path = "sdk/crypto/keyring/types.go"
+lines = 71
+verdict = "clean"
+note = "Language, key types and Options definitions read; string encodings match persisted Info and output consumers."
+
+[file.027]
+path = "sdk/crypto/keyring/types_test.go"
+lines = 46
+verdict = "clean"
+note = "Full key-type and language tests read; display strings and enum values agree with producers."
+
+[file.028]
+path = "sdk/crypto/keys/ed25519/doc.go"
+lines = 11
+verdict = "clean"
+note = "Full Ed25519 package documentation read; ZIP215 and ed25519consensus verification accurately describe this consensus-compatible SDK key, not the strict hosted receipt verifier."
+
+[file.029]
+path = "sdk/crypto/keys/ed25519/ed25519.go"
+lines = 229
+verdict = "issues"
+note = "Full Ed25519 implementation read; valid key generation and ZIP215 signatures agree with consensus conversions; malformed private material validation is recorded."
+
+[file.030]
+path = "sdk/crypto/keys/ed25519/ed25519_test.go"
+lines = 256
+verdict = "clean"
+note = "Full Ed25519 generation, encoding, signature and malleability tests read against its stated ZIP215 contract."
+
+[file.031]
+path = "sdk/crypto/keys/internal/benchmarking/bench.go"
+lines = 84
+verdict = "clean"
+note = "All key generation, signing and verification benchmark loops read; measurements use actual key interfaces and do not assert deployment readiness."
+
+[file.032]
+path = "sdk/crypto/keys/internal/ecdsa/doc.go"
+lines = 3
+verdict = "clean"
+note = "Entire ECDSA package documentation read; its scope is SDK-compatible serializable keys."
+
+[file.033]
+path = "sdk/crypto/keys/internal/ecdsa/privkey.go"
+lines = 127
+verdict = "issues"
+note = "Entire P256 scalar, low-S normalization, serialization and signing implementation read; scalar acceptance finding identifies the decoder boundary."
+
+[file.034]
+path = "sdk/crypto/keys/internal/ecdsa/privkey_internal_test.go"
+lines = 100
+verdict = "clean"
+note = "Entire internal ECDSA test suite read; low-S and independently valid high-S signature behavior is explicitly exercised."
+
+[file.035]
+path = "sdk/crypto/keys/internal/ecdsa/pubkey.go"
+lines = 108
+verdict = "issues"
+note = "Entire compressed public-key decoder and verifier read; cached-address reuse is recorded without attributing reuse to the fresh outer protobuf decoder."
+
+[file.036]
+path = "sdk/crypto/keys/internal/ecdsa/pubkey_internal_test.go"
+lines = 71
+verdict = "clean"
+note = "Full internal ECDSA public-key tests read, including invalid points, encoding and signatures."
+
+[file.037]
+path = "sdk/crypto/keys/multisig/amino.go"
+lines = 114
+verdict = "issues"
+note = "Complete legacy Amino compatibility adapter read against Any caching and public-key consumers; same-instance replacement failure is recorded."
+
+[file.038]
+path = "sdk/crypto/keys/multisig/codec.go"
+lines = 32
+verdict = "clean"
+note = "Amino public-key registration and codec initialization read; route names agree with registered concrete types."
+
+[file.039]
+path = "sdk/crypto/keys/multisig/multisig.go"
+lines = 172
+verdict = "issues"
+note = "Entire threshold key implementation and nested signature verifier read, traced through SDK signing and ante consumers; malformed shape finding is separate from aligned bit counting."
+
+[file.040]
+path = "sdk/crypto/keys/multisig/multisig_test.go"
+lines = 463
+verdict = "issues"
+note = "Full multisig construction, equality, verification and serialization tests read; transaction boundary coverage gap is recorded."
+
+[file.041]
+path = "sdk/crypto/keys/secp256k1/bench_test.go"
+lines = 30
+verdict = "clean"
+note = "Entire secp256k1 benchmark file read; benchmark calls operate on real SDK keys and signatures."
+
+[file.042]
+path = "sdk/crypto/keys/secp256k1/internal/secp256k1/README.md"
+lines = 7
+verdict = "clean"
+note = "Copied go-ethereum wrapper provenance and cgo ownership documented; no upstream cryptographic requalification is claimed."
+
+[file.043]
+path = "sdk/crypto/keys/secp256k1/internal/secp256k1/curve.go"
+lines = 298
+verdict = "vendored"
+note = "Copied go-ethereum curve implementation; vendored wrapper provenance is documented in the adjacent README."
+
+[file.044]
+path = "sdk/crypto/keys/secp256k1/internal/secp256k1/dummy.go"
+lines = 21
+verdict = "vendored"
+note = "Copied package-retention marker; vendored wrapper provenance is documented in the adjacent README."
+
+[file.045]
+path = "sdk/crypto/keys/secp256k1/internal/secp256k1/ext.h"
+lines = 130
+verdict = "vendored"
+note = "Copied C wrapper and callbacks; vendored wrapper provenance is documented in the adjacent README."
+
+[file.046]
+path = "sdk/crypto/keys/secp256k1/internal/secp256k1/libsecp256k1/.travis.yml"
+lines = 69
+verdict = "vendored"
+note = "Vendored upstream libsecp256k1 source, build support, header or test; recorded under the brief vendored exception. No independent cryptographic or upstream test qualification is claimed."
+
+[file.047]
+path = "sdk/crypto/keys/secp256k1/internal/secp256k1/libsecp256k1/README.md"
+lines = 61
+verdict = "vendored"
+note = "Vendored upstream libsecp256k1 source, build support, header or test; recorded under the brief vendored exception. No independent cryptographic or upstream test qualification is claimed."
+
+[file.048]
+path = "sdk/crypto/keys/secp256k1/internal/secp256k1/libsecp256k1/autogen.sh"
+lines = 3
+verdict = "vendored"
+note = "Vendored upstream libsecp256k1 source, build support, header or test; recorded under the brief vendored exception. No independent cryptographic or upstream test qualification is claimed."
+
+[file.049]
+path = "sdk/crypto/keys/secp256k1/internal/secp256k1/libsecp256k1/contrib/dummy.go"
+lines = 8
+verdict = "vendored"
+note = "Vendored upstream libsecp256k1 source, build support, header or test; recorded under the brief vendored exception. No independent cryptographic or upstream test qualification is claimed."
+
+[file.050]
+path = "sdk/crypto/keys/secp256k1/internal/secp256k1/libsecp256k1/contrib/lax_der_parsing.c"
+lines = 150
+verdict = "vendored"
+note = "Vendored upstream libsecp256k1 source, build support, header or test; recorded under the brief vendored exception. No independent cryptographic or upstream test qualification is claimed."
+
+[file.051]
+path = "sdk/crypto/keys/secp256k1/internal/secp256k1/libsecp256k1/contrib/lax_der_parsing.h"
+lines = 91
+verdict = "vendored"
+note = "Vendored upstream libsecp256k1 source, build support, header or test; recorded under the brief vendored exception. No independent cryptographic or upstream test qualification is claimed."
+
+[file.052]
+path = "sdk/crypto/keys/secp256k1/internal/secp256k1/libsecp256k1/contrib/lax_der_privatekey_parsing.c"
+lines = 113
+verdict = "vendored"
+note = "Vendored upstream libsecp256k1 source, build support, header or test; recorded under the brief vendored exception. No independent cryptographic or upstream test qualification is claimed."
+
+[file.053]
+path = "sdk/crypto/keys/secp256k1/internal/secp256k1/libsecp256k1/contrib/lax_der_privatekey_parsing.h"
+lines = 90
+verdict = "vendored"
+note = "Vendored upstream libsecp256k1 source, build support, header or test; recorded under the brief vendored exception. No independent cryptographic or upstream test qualification is claimed."
+
+[file.054]
+path = "sdk/crypto/keys/secp256k1/internal/secp256k1/libsecp256k1/dummy.go"
+lines = 8
+verdict = "vendored"
+note = "Vendored upstream libsecp256k1 source, build support, header or test; recorded under the brief vendored exception. No independent cryptographic or upstream test qualification is claimed."
+
+[file.055]
+path = "sdk/crypto/keys/secp256k1/internal/secp256k1/libsecp256k1/include/dummy.go"
+lines = 8
+verdict = "vendored"
+note = "Vendored upstream libsecp256k1 source, build support, header or test; recorded under the brief vendored exception. No independent cryptographic or upstream test qualification is claimed."
+
+[file.056]
+path = "sdk/crypto/keys/secp256k1/internal/secp256k1/libsecp256k1/include/secp256k1.h"
+lines = 577
+verdict = "vendored"
+note = "Vendored upstream libsecp256k1 source, build support, header or test; recorded under the brief vendored exception. No independent cryptographic or upstream test qualification is claimed."
+
+[file.057]
+path = "sdk/crypto/keys/secp256k1/internal/secp256k1/libsecp256k1/include/secp256k1_ecdh.h"
+lines = 31
+verdict = "vendored"
+note = "Vendored upstream libsecp256k1 source, build support, header or test; recorded under the brief vendored exception. No independent cryptographic or upstream test qualification is claimed."
+
+[file.058]
+path = "sdk/crypto/keys/secp256k1/internal/secp256k1/libsecp256k1/include/secp256k1_recovery.h"
+lines = 110
+verdict = "vendored"
+note = "Vendored upstream libsecp256k1 source, build support, header or test; recorded under the brief vendored exception. No independent cryptographic or upstream test qualification is claimed."
+
+[file.059]
+path = "sdk/crypto/keys/secp256k1/internal/secp256k1/libsecp256k1/src/basic-config.h"
+lines = 32
+verdict = "vendored"
+note = "Vendored upstream libsecp256k1 source, build support, header or test; recorded under the brief vendored exception. No independent cryptographic or upstream test qualification is claimed."
+
+[file.060]
+path = "sdk/crypto/keys/secp256k1/internal/secp256k1/libsecp256k1/src/bench.h"
+lines = 66
+verdict = "vendored"
+note = "Vendored upstream libsecp256k1 source, build support, header or test; recorded under the brief vendored exception. No independent cryptographic or upstream test qualification is claimed."
+
+[file.061]
+path = "sdk/crypto/keys/secp256k1/internal/secp256k1/libsecp256k1/src/bench_ecdh.c"
+lines = 54
+verdict = "vendored"
+note = "Vendored upstream libsecp256k1 source, build support, header or test; recorded under the brief vendored exception. No independent cryptographic or upstream test qualification is claimed."
+
+[file.062]
+path = "sdk/crypto/keys/secp256k1/internal/secp256k1/libsecp256k1/src/bench_internal.c"
+lines = 382
+verdict = "vendored"
+note = "Vendored upstream libsecp256k1 source, build support, header or test; recorded under the brief vendored exception. No independent cryptographic or upstream test qualification is claimed."
+
+[file.063]
+path = "sdk/crypto/keys/secp256k1/internal/secp256k1/libsecp256k1/src/bench_recover.c"
+lines = 60
+verdict = "vendored"
+note = "Vendored upstream libsecp256k1 source, build support, header or test; recorded under the brief vendored exception. No independent cryptographic or upstream test qualification is claimed."
+
+[file.064]
+path = "sdk/crypto/keys/secp256k1/internal/secp256k1/libsecp256k1/src/bench_schnorr_verify.c"
+lines = 73
+verdict = "vendored"
+note = "Vendored upstream libsecp256k1 source, build support, header or test; recorded under the brief vendored exception. No independent cryptographic or upstream test qualification is claimed."
+
+[file.065]
+path = "sdk/crypto/keys/secp256k1/internal/secp256k1/libsecp256k1/src/bench_sign.c"
+lines = 56
+verdict = "vendored"
+note = "Vendored upstream libsecp256k1 source, build support, header or test; recorded under the brief vendored exception. No independent cryptographic or upstream test qualification is claimed."
+
+[file.066]
+path = "sdk/crypto/keys/secp256k1/internal/secp256k1/libsecp256k1/src/bench_verify.c"
+lines = 112
+verdict = "vendored"
+note = "Vendored upstream libsecp256k1 source, build support, header or test; recorded under the brief vendored exception. No independent cryptographic or upstream test qualification is claimed."
+
+[file.067]
+path = "sdk/crypto/keys/secp256k1/internal/secp256k1/libsecp256k1/src/dummy.go"
+lines = 8
+verdict = "vendored"
+note = "Vendored upstream libsecp256k1 source, build support, header or test; recorded under the brief vendored exception. No independent cryptographic or upstream test qualification is claimed."
+
+[file.068]
+path = "sdk/crypto/keys/secp256k1/internal/secp256k1/libsecp256k1/src/ecdsa.h"
+lines = 21
+verdict = "vendored"
+note = "Vendored upstream libsecp256k1 source, build support, header or test; recorded under the brief vendored exception. No independent cryptographic or upstream test qualification is claimed."
+
+[file.069]
+path = "sdk/crypto/keys/secp256k1/internal/secp256k1/libsecp256k1/src/ecdsa_impl.h"
+lines = 315
+verdict = "vendored"
+note = "Vendored upstream libsecp256k1 source, build support, header or test; recorded under the brief vendored exception. No independent cryptographic or upstream test qualification is claimed."
+
+[file.070]
+path = "sdk/crypto/keys/secp256k1/internal/secp256k1/libsecp256k1/src/eckey.h"
+lines = 25
+verdict = "vendored"
+note = "Vendored upstream libsecp256k1 source, build support, header or test; recorded under the brief vendored exception. No independent cryptographic or upstream test qualification is claimed."
+
+[file.071]
+path = "sdk/crypto/keys/secp256k1/internal/secp256k1/libsecp256k1/src/eckey_impl.h"
+lines = 99
+verdict = "vendored"
+note = "Vendored upstream libsecp256k1 source, build support, header or test; recorded under the brief vendored exception. No independent cryptographic or upstream test qualification is claimed."
+
+[file.072]
+path = "sdk/crypto/keys/secp256k1/internal/secp256k1/libsecp256k1/src/ecmult.h"
+lines = 31
+verdict = "vendored"
+note = "Vendored upstream libsecp256k1 source, build support, header or test; recorded under the brief vendored exception. No independent cryptographic or upstream test qualification is claimed."
+
+[file.073]
+path = "sdk/crypto/keys/secp256k1/internal/secp256k1/libsecp256k1/src/ecmult_const.h"
+lines = 15
+verdict = "vendored"
+note = "Vendored upstream libsecp256k1 source, build support, header or test; recorded under the brief vendored exception. No independent cryptographic or upstream test qualification is claimed."
+
+[file.074]
+path = "sdk/crypto/keys/secp256k1/internal/secp256k1/libsecp256k1/src/ecmult_const_impl.h"
+lines = 239
+verdict = "vendored"
+note = "Vendored upstream libsecp256k1 source, build support, header or test; recorded under the brief vendored exception. No independent cryptographic or upstream test qualification is claimed."
+
+[file.075]
+path = "sdk/crypto/keys/secp256k1/internal/secp256k1/libsecp256k1/src/ecmult_gen.h"
+lines = 43
+verdict = "vendored"
+note = "Vendored upstream libsecp256k1 source, build support, header or test; recorded under the brief vendored exception. No independent cryptographic or upstream test qualification is claimed."
+
+[file.076]
+path = "sdk/crypto/keys/secp256k1/internal/secp256k1/libsecp256k1/src/ecmult_gen_impl.h"
+lines = 210
+verdict = "vendored"
+note = "Vendored upstream libsecp256k1 source, build support, header or test; recorded under the brief vendored exception. No independent cryptographic or upstream test qualification is claimed."
+
+[file.077]
+path = "sdk/crypto/keys/secp256k1/internal/secp256k1/libsecp256k1/src/ecmult_impl.h"
+lines = 406
+verdict = "vendored"
+note = "Vendored upstream libsecp256k1 source, build support, header or test; recorded under the brief vendored exception. No independent cryptographic or upstream test qualification is claimed."
+
+[file.078]
+path = "sdk/crypto/keys/secp256k1/internal/secp256k1/libsecp256k1/src/field.h"
+lines = 132
+verdict = "vendored"
+note = "Vendored upstream libsecp256k1 source, build support, header or test; recorded under the brief vendored exception. No independent cryptographic or upstream test qualification is claimed."
+
+[file.079]
+path = "sdk/crypto/keys/secp256k1/internal/secp256k1/libsecp256k1/src/field_10x26.h"
+lines = 47
+verdict = "vendored"
+note = "Vendored upstream libsecp256k1 source, build support, header or test; recorded under the brief vendored exception. No independent cryptographic or upstream test qualification is claimed."
+
+[file.080]
+path = "sdk/crypto/keys/secp256k1/internal/secp256k1/libsecp256k1/src/field_10x26_impl.h"
+lines = 1140
+verdict = "vendored"
+note = "Vendored upstream libsecp256k1 source, build support, header or test; recorded under the brief vendored exception. No independent cryptographic or upstream test qualification is claimed."
+
+[file.081]
+path = "sdk/crypto/keys/secp256k1/internal/secp256k1/libsecp256k1/src/field_5x52.h"
+lines = 47
+verdict = "vendored"
+note = "Vendored upstream libsecp256k1 source, build support, header or test; recorded under the brief vendored exception. No independent cryptographic or upstream test qualification is claimed."
+
+[file.082]
+path = "sdk/crypto/keys/secp256k1/internal/secp256k1/libsecp256k1/src/field_5x52_asm_impl.h"
+lines = 502
+verdict = "vendored"
+note = "Vendored upstream libsecp256k1 source, build support, header or test; recorded under the brief vendored exception. No independent cryptographic or upstream test qualification is claimed."
+
+[file.083]
+path = "sdk/crypto/keys/secp256k1/internal/secp256k1/libsecp256k1/src/field_5x52_impl.h"
+lines = 451
+verdict = "vendored"
+note = "Vendored upstream libsecp256k1 source, build support, header or test; recorded under the brief vendored exception. No independent cryptographic or upstream test qualification is claimed."
+
+[file.084]
+path = "sdk/crypto/keys/secp256k1/internal/secp256k1/libsecp256k1/src/field_5x52_int128_impl.h"
+lines = 277
+verdict = "vendored"
+note = "Vendored upstream libsecp256k1 source, build support, header or test; recorded under the brief vendored exception. No independent cryptographic or upstream test qualification is claimed."
+
+[file.085]
+path = "sdk/crypto/keys/secp256k1/internal/secp256k1/libsecp256k1/src/field_impl.h"
+lines = 315
+verdict = "vendored"
+note = "Vendored upstream libsecp256k1 source, build support, header or test; recorded under the brief vendored exception. No independent cryptographic or upstream test qualification is claimed."
+
+[file.086]
+path = "sdk/crypto/keys/secp256k1/internal/secp256k1/libsecp256k1/src/gen_context.c"
+lines = 74
+verdict = "vendored"
+note = "Vendored upstream libsecp256k1 source, build support, header or test; recorded under the brief vendored exception. No independent cryptographic or upstream test qualification is claimed."
+
+[file.087]
+path = "sdk/crypto/keys/secp256k1/internal/secp256k1/libsecp256k1/src/group.h"
+lines = 144
+verdict = "vendored"
+note = "Vendored upstream libsecp256k1 source, build support, header or test; recorded under the brief vendored exception. No independent cryptographic or upstream test qualification is claimed."
+
+[file.088]
+path = "sdk/crypto/keys/secp256k1/internal/secp256k1/libsecp256k1/src/group_impl.h"
+lines = 700
+verdict = "vendored"
+note = "Vendored upstream libsecp256k1 source, build support, header or test; recorded under the brief vendored exception. No independent cryptographic or upstream test qualification is claimed."
+
+[file.089]
+path = "sdk/crypto/keys/secp256k1/internal/secp256k1/libsecp256k1/src/hash.h"
+lines = 41
+verdict = "vendored"
+note = "Vendored upstream libsecp256k1 source, build support, header or test; recorded under the brief vendored exception. No independent cryptographic or upstream test qualification is claimed."
+
+[file.090]
+path = "sdk/crypto/keys/secp256k1/internal/secp256k1/libsecp256k1/src/hash_impl.h"
+lines = 281
+verdict = "vendored"
+note = "Vendored upstream libsecp256k1 source, build support, header or test; recorded under the brief vendored exception. No independent cryptographic or upstream test qualification is claimed."
+
+[file.091]
+path = "sdk/crypto/keys/secp256k1/internal/secp256k1/libsecp256k1/src/java/org/bitcoin/NativeSecp256k1.java"
+lines = 446
+verdict = "vendored"
+note = "Vendored upstream libsecp256k1 source, build support, header or test; recorded under the brief vendored exception. No independent cryptographic or upstream test qualification is claimed."
+
+[file.092]
+path = "sdk/crypto/keys/secp256k1/internal/secp256k1/libsecp256k1/src/java/org/bitcoin/NativeSecp256k1Test.java"
+lines = 226
+verdict = "vendored"
+note = "Vendored upstream libsecp256k1 source, build support, header or test; recorded under the brief vendored exception. No independent cryptographic or upstream test qualification is claimed."
+
+[file.093]
+path = "sdk/crypto/keys/secp256k1/internal/secp256k1/libsecp256k1/src/java/org/bitcoin/NativeSecp256k1Util.java"
+lines = 45
+verdict = "vendored"
+note = "Vendored upstream libsecp256k1 source, build support, header or test; recorded under the brief vendored exception. No independent cryptographic or upstream test qualification is claimed."
+
+[file.094]
+path = "sdk/crypto/keys/secp256k1/internal/secp256k1/libsecp256k1/src/java/org/bitcoin/Secp256k1Context.java"
+lines = 51
+verdict = "vendored"
+note = "Vendored upstream libsecp256k1 source, build support, header or test; recorded under the brief vendored exception. No independent cryptographic or upstream test qualification is claimed."
+
+[file.095]
+path = "sdk/crypto/keys/secp256k1/internal/secp256k1/libsecp256k1/src/java/org_bitcoin_NativeSecp256k1.c"
+lines = 377
+verdict = "vendored"
+note = "Vendored upstream libsecp256k1 source, build support, header or test; recorded under the brief vendored exception. No independent cryptographic or upstream test qualification is claimed."
+
+[file.096]
+path = "sdk/crypto/keys/secp256k1/internal/secp256k1/libsecp256k1/src/java/org_bitcoin_NativeSecp256k1.h"
+lines = 119
+verdict = "vendored"
+note = "Vendored upstream libsecp256k1 source, build support, header or test; recorded under the brief vendored exception. No independent cryptographic or upstream test qualification is claimed."
+
+[file.097]
+path = "sdk/crypto/keys/secp256k1/internal/secp256k1/libsecp256k1/src/java/org_bitcoin_Secp256k1Context.c"
+lines = 15
+verdict = "vendored"
+note = "Vendored upstream libsecp256k1 source, build support, header or test; recorded under the brief vendored exception. No independent cryptographic or upstream test qualification is claimed."
+
+[file.098]
+path = "sdk/crypto/keys/secp256k1/internal/secp256k1/libsecp256k1/src/java/org_bitcoin_Secp256k1Context.h"
+lines = 22
+verdict = "vendored"
+note = "Vendored upstream libsecp256k1 source, build support, header or test; recorded under the brief vendored exception. No independent cryptographic or upstream test qualification is claimed."
+
+[file.099]
+path = "sdk/crypto/keys/secp256k1/internal/secp256k1/libsecp256k1/src/modules/dummy.go"
+lines = 8
+verdict = "vendored"
+note = "Vendored upstream libsecp256k1 source, build support, header or test; recorded under the brief vendored exception. No independent cryptographic or upstream test qualification is claimed."
+
+[file.100]
+path = "sdk/crypto/keys/secp256k1/internal/secp256k1/libsecp256k1/src/modules/ecdh/dummy.go"
+lines = 8
+verdict = "vendored"
+note = "Vendored upstream libsecp256k1 source, build support, header or test; recorded under the brief vendored exception. No independent cryptographic or upstream test qualification is claimed."
+
+[file.101]
+path = "sdk/crypto/keys/secp256k1/internal/secp256k1/libsecp256k1/src/modules/ecdh/main_impl.h"
+lines = 54
+verdict = "vendored"
+note = "Vendored upstream libsecp256k1 source, build support, header or test; recorded under the brief vendored exception. No independent cryptographic or upstream test qualification is claimed."
+
+[file.102]
+path = "sdk/crypto/keys/secp256k1/internal/secp256k1/libsecp256k1/src/modules/ecdh/tests_impl.h"
+lines = 105
+verdict = "vendored"
+note = "Vendored upstream libsecp256k1 source, build support, header or test; recorded under the brief vendored exception. No independent cryptographic or upstream test qualification is claimed."
+
+[file.103]
+path = "sdk/crypto/keys/secp256k1/internal/secp256k1/libsecp256k1/src/modules/recovery/dummy.go"
+lines = 8
+verdict = "vendored"
+note = "Vendored upstream libsecp256k1 source, build support, header or test; recorded under the brief vendored exception. No independent cryptographic or upstream test qualification is claimed."
+
+[file.104]
+path = "sdk/crypto/keys/secp256k1/internal/secp256k1/libsecp256k1/src/modules/recovery/main_impl.h"
+lines = 193
+verdict = "vendored"
+note = "Vendored upstream libsecp256k1 source, build support, header or test; recorded under the brief vendored exception. No independent cryptographic or upstream test qualification is claimed."
+
+[file.105]
+path = "sdk/crypto/keys/secp256k1/internal/secp256k1/libsecp256k1/src/modules/recovery/tests_impl.h"
+lines = 393
+verdict = "vendored"
+note = "Vendored upstream libsecp256k1 source, build support, header or test; recorded under the brief vendored exception. No independent cryptographic or upstream test qualification is claimed."
+
+[file.106]
+path = "sdk/crypto/keys/secp256k1/internal/secp256k1/libsecp256k1/src/num.h"
+lines = 74
+verdict = "vendored"
+note = "Vendored upstream libsecp256k1 source, build support, header or test; recorded under the brief vendored exception. No independent cryptographic or upstream test qualification is claimed."
+
+[file.107]
+path = "sdk/crypto/keys/secp256k1/internal/secp256k1/libsecp256k1/src/num_gmp.h"
+lines = 20
+verdict = "vendored"
+note = "Vendored upstream libsecp256k1 source, build support, header or test; recorded under the brief vendored exception. No independent cryptographic or upstream test qualification is claimed."
+
+[file.108]
+path = "sdk/crypto/keys/secp256k1/internal/secp256k1/libsecp256k1/src/num_gmp_impl.h"
+lines = 288
+verdict = "vendored"
+note = "Vendored upstream libsecp256k1 source, build support, header or test; recorded under the brief vendored exception. No independent cryptographic or upstream test qualification is claimed."
+
+[file.109]
+path = "sdk/crypto/keys/secp256k1/internal/secp256k1/libsecp256k1/src/num_impl.h"
+lines = 24
+verdict = "vendored"
+note = "Vendored upstream libsecp256k1 source, build support, header or test; recorded under the brief vendored exception. No independent cryptographic or upstream test qualification is claimed."
+
+[file.110]
+path = "sdk/crypto/keys/secp256k1/internal/secp256k1/libsecp256k1/src/scalar.h"
+lines = 106
+verdict = "vendored"
+note = "Vendored upstream libsecp256k1 source, build support, header or test; recorded under the brief vendored exception. No independent cryptographic or upstream test qualification is claimed."
+
+[file.111]
+path = "sdk/crypto/keys/secp256k1/internal/secp256k1/libsecp256k1/src/scalar_4x64.h"
+lines = 19
+verdict = "vendored"
+note = "Vendored upstream libsecp256k1 source, build support, header or test; recorded under the brief vendored exception. No independent cryptographic or upstream test qualification is claimed."
+
+[file.112]
+path = "sdk/crypto/keys/secp256k1/internal/secp256k1/libsecp256k1/src/scalar_4x64_impl.h"
+lines = 949
+verdict = "vendored"
+note = "Vendored upstream libsecp256k1 source, build support, header or test; recorded under the brief vendored exception. No independent cryptographic or upstream test qualification is claimed."
+
+[file.113]
+path = "sdk/crypto/keys/secp256k1/internal/secp256k1/libsecp256k1/src/scalar_8x32.h"
+lines = 19
+verdict = "vendored"
+note = "Vendored upstream libsecp256k1 source, build support, header or test; recorded under the brief vendored exception. No independent cryptographic or upstream test qualification is claimed."
+
+[file.114]
+path = "sdk/crypto/keys/secp256k1/internal/secp256k1/libsecp256k1/src/scalar_8x32_impl.h"
+lines = 721
+verdict = "vendored"
+note = "Vendored upstream libsecp256k1 source, build support, header or test; recorded under the brief vendored exception. No independent cryptographic or upstream test qualification is claimed."
+
+[file.115]
+path = "sdk/crypto/keys/secp256k1/internal/secp256k1/libsecp256k1/src/scalar_impl.h"
+lines = 370
+verdict = "vendored"
+note = "Vendored upstream libsecp256k1 source, build support, header or test; recorded under the brief vendored exception. No independent cryptographic or upstream test qualification is claimed."
+
+[file.116]
+path = "sdk/crypto/keys/secp256k1/internal/secp256k1/libsecp256k1/src/scalar_low.h"
+lines = 15
+verdict = "vendored"
+note = "Vendored upstream libsecp256k1 source, build support, header or test; recorded under the brief vendored exception. No independent cryptographic or upstream test qualification is claimed."
+
+[file.117]
+path = "sdk/crypto/keys/secp256k1/internal/secp256k1/libsecp256k1/src/scalar_low_impl.h"
+lines = 114
+verdict = "vendored"
+note = "Vendored upstream libsecp256k1 source, build support, header or test; recorded under the brief vendored exception. No independent cryptographic or upstream test qualification is claimed."
+
+[file.118]
+path = "sdk/crypto/keys/secp256k1/internal/secp256k1/libsecp256k1/src/secp256k1.c"
+lines = 559
+verdict = "vendored"
+note = "Vendored upstream libsecp256k1 source, build support, header or test; recorded under the brief vendored exception. No independent cryptographic or upstream test qualification is claimed."
+
+[file.119]
+path = "sdk/crypto/keys/secp256k1/internal/secp256k1/libsecp256k1/src/testrand.h"
+lines = 38
+verdict = "vendored"
+note = "Vendored upstream libsecp256k1 source, build support, header or test; recorded under the brief vendored exception. No independent cryptographic or upstream test qualification is claimed."
+
+[file.120]
+path = "sdk/crypto/keys/secp256k1/internal/secp256k1/libsecp256k1/src/testrand_impl.h"
+lines = 110
+verdict = "vendored"
+note = "Vendored upstream libsecp256k1 source, build support, header or test; recorded under the brief vendored exception. No independent cryptographic or upstream test qualification is claimed."
+
+[file.121]
+path = "sdk/crypto/keys/secp256k1/internal/secp256k1/libsecp256k1/src/tests.c"
+lines = 4525
+verdict = "vendored"
+note = "Vendored upstream libsecp256k1 source, build support, header or test; recorded under the brief vendored exception. No independent cryptographic or upstream test qualification is claimed."
+
+[file.122]
+path = "sdk/crypto/keys/secp256k1/internal/secp256k1/libsecp256k1/src/tests_exhaustive.c"
+lines = 470
+verdict = "vendored"
+note = "Vendored upstream libsecp256k1 source, build support, header or test; recorded under the brief vendored exception. No independent cryptographic or upstream test qualification is claimed."
+
+[file.123]
+path = "sdk/crypto/keys/secp256k1/internal/secp256k1/libsecp256k1/src/util.h"
+lines = 113
+verdict = "vendored"
+note = "Vendored upstream libsecp256k1 source, build support, header or test; recorded under the brief vendored exception. No independent cryptographic or upstream test qualification is claimed."
+
+[file.124]
+path = "sdk/crypto/keys/secp256k1/internal/secp256k1/panic_cb.go"
+lines = 24
+verdict = "vendored"
+note = "Copied cgo panic callbacks; vendored wrapper provenance is documented in the adjacent README."
+
+[file.125]
+path = "sdk/crypto/keys/secp256k1/internal/secp256k1/scalar_mult_cgo.go"
+lines = 57
+verdict = "vendored"
+note = "Copied cgo scalar multiplication bridge; vendored wrapper provenance is documented in the adjacent README."
+
+[file.126]
+path = "sdk/crypto/keys/secp256k1/internal/secp256k1/scalar_mult_nocgo.go"
+lines = 14
+verdict = "vendored"
+note = "Copied non-cgo scalar multiplication implementation; vendored wrapper provenance is documented in the adjacent README."
+
+[file.127]
+path = "sdk/crypto/keys/secp256k1/internal/secp256k1/secp256.go"
+lines = 179
+verdict = "vendored"
+note = "Copied libsecp256k1 Go bridge; vendored provenance is documented in the adjacent README and its cgo integration was inspected."
+
+[file.128]
+path = "sdk/crypto/keys/secp256k1/internal/secp256k1/secp256_test.go"
+lines = 238
+verdict = "issues"
+note = "Copied wrapper test suite read; missing cgo selection constraint is an SDK integration finding, not an upstream cryptography verdict."
+
+[file.129]
+path = "sdk/crypto/keys/secp256k1/secp256k1.go"
+lines = 202
+verdict = "issues"
+note = "Entire secp256k1 key generation, Amino and public-key implementation read; import scalar acceptance differs from signer validity and is recorded."
+
+[file.130]
+path = "sdk/crypto/keys/secp256k1/secp256k1_cgo.go"
+lines = 26
+verdict = "clean"
+note = "Entire optional libsecp256k1_sdk signer and verifier read; output drops recovery byte to emit the declared raw R||S encoding."
+
+[file.131]
+path = "sdk/crypto/keys/secp256k1/secp256k1_cgo_test.go"
+lines = 41
+verdict = "clean"
+note = "Full optional cgo signature and high-S tests read; verifier expectations match the raw low-S signature producer."
+
+[file.132]
+path = "sdk/crypto/keys/secp256k1/secp256k1_internal_test.go"
+lines = 45
+verdict = "clean"
+note = "Full secp256k1 internal entropy/key generation tests read against valid scalar generation."
+
+[file.133]
+path = "sdk/crypto/keys/secp256k1/secp256k1_nocgo.go"
+lines = 49
+verdict = "clean"
+note = "Entire pure-Go signer and verifier read; single SHA256, compressed public-key parsing, scalar overflow and low-S checks agree with valid-key consumers."
+
+[file.134]
+path = "sdk/crypto/keys/secp256k1/secp256k1_nocgo_test.go"
+lines = 53
+verdict = "issues"
+note = "Full pure-Go tests read; the claimed nonmalleability case omits a genuine high-S counterpart."
+
+[file.135]
+path = "sdk/crypto/keys/secp256k1/secp256k1_test.go"
+lines = 264
+verdict = "issues"
+note = "All secp256k1 vector, signing and generation tests read; independent-verifier coverage was commented out and is recorded."
+
+[file.136]
+path = "sdk/crypto/keys/secp256r1/doc.go"
+lines = 35
+verdict = "clean"
+note = "Full P256 documentation and registry initialization read; named curve, key size and protobuf public-key registration agree."
+
+[file.137]
+path = "sdk/crypto/keys/secp256r1/privkey.go"
+lines = 66
+verdict = "clean"
+note = "Entire P256 private-key wrapper read; its decoder delegates to the internal scalar decoder identified in a finding."
+
+[file.138]
+path = "sdk/crypto/keys/secp256r1/privkey_internal_test.go"
+lines = 115
+verdict = "clean"
+note = "Full P256 private-key protobuf tests read; generated key round-trips and signature assertions agree with the wrapper."
+
+[file.139]
+path = "sdk/crypto/keys/secp256r1/pubkey.go"
+lines = 63
+verdict = "clean"
+note = "Entire P256 public-key wrapper read; protobuf decoder allocates a new ecdsaPK, and compressed SEC1 bytes and type names agree."
+
+[file.140]
+path = "sdk/crypto/keys/secp256r1/pubkey_internal_test.go"
+lines = 125
+verdict = "issues"
+note = "Full P256 public-key protobuf and registry tests read; nil-destination assertion checks an old error and is recorded."
+
+[file.141]
+path = "sdk/crypto/keys/sr25519/internal/privkey.go"
+lines = 150
+verdict = "clean"
+note = "Entire sr25519 mini-secret, JSON restore, randomness and transcript signing implementation read; stored JSON restores seed bytes without rehashing."
+
+[file.142]
+path = "sdk/crypto/keys/sr25519/internal/pubkey.go"
+lines = 57
+verdict = "clean"
+note = "Entire internal sr25519 public-key decoder and transcript verifier read; public bytes and empty signing context agree with the signer."
+
+[file.143]
+path = "sdk/crypto/keys/sr25519/internal/sr25519_test.go"
+lines = 29
+verdict = "clean"
+note = "Full internal sr25519 signing and JSON tests read; positive, malformed and restored-key checks match the implementation."
+
+[file.144]
+path = "sdk/crypto/keys/sr25519/privkey.go"
+lines = 47
+verdict = "issues"
+note = "Entire SDK sr25519 private-key wrapper read; formatting emits the mini-secret and is recorded as a security finding."
+
+[file.145]
+path = "sdk/crypto/keys/sr25519/pubkey.go"
+lines = 38
+verdict = "clean"
+note = "Entire SDK sr25519 public-key wrapper read; address hashing, protobuf public-key name and signature adapter agree with its internal producer."
+
+[file.146]
+path = "sdk/crypto/keys/sr25519/sr25519_test.go"
+lines = 107
+verdict = "clean"
+note = "Full outer sr25519 key and signature tests read; algorithm, public bytes and real signature behavior match the wrapper."
+
+[file.147]
+path = "sdk/crypto/ledger/amino.go"
+lines = 19
+verdict = "clean"
+note = "Full Ledger Amino registration read against the stored path and public-key representation."
+
+[file.148]
+path = "sdk/crypto/ledger/encode_test.go"
+lines = 61
+verdict = "clean"
+note = "Entire Ledger encoding tests read against the Amino key/path representation."
+
+[file.149]
+path = "sdk/crypto/ledger/ledger_mock.go"
+lines = 119
+verdict = "issues"
+note = "Complete tagged Ledger mock read; public encoding and HRP disagree with the declared device API and bypass real hardware evidence."
+
+[file.150]
+path = "sdk/crypto/ledger/ledger_notavail.go"
+lines = 19
+verdict = "clean"
+note = "Entire no-device implementation read; explicit unavailable-device errors prevent silent software signing fallback."
+
+[file.151]
+path = "sdk/crypto/ledger/ledger_real.go"
+lines = 20
+verdict = "clean"
+note = "Entire hardware-discovery implementation read; device initialization is registered only for the hardware-enabled build."
+
+[file.152]
+path = "sdk/crypto/ledger/ledger_secp256k1.go"
+lines = 299
+verdict = "clean"
+note = "Complete device signing, key validation, show-address, connection lifecycle and DER conversion read; key mismatch checks remain enforced and DER coverage gap is recorded in tests."
+
+[file.153]
+path = "sdk/crypto/ledger/ledger_secp256k1_test.go"
+lines = 177
+verdict = "issues"
+note = "Full Ledger tests read; actual DER branch is bypassed by the signature producer and passthrough-only converter case."
+
+[file.154]
+path = "sdk/crypto/types/compact_bit_array.go"
+lines = 286
+verdict = "issues"
+note = "Entire bit-array implementation read, including JSON and compact encoding and index helpers; valid aligned verification panic and empty JSON failure are recorded."
+
+[file.155]
+path = "sdk/crypto/types/compact_bit_array_test.go"
+lines = 295
+verdict = "issues"
+note = "All bit-array tests and benchmarks read; random data generator and aligned endpoint omissions are recorded."
+
+[file.156]
+path = "sdk/crypto/types/multisig/multisignature.go"
+lines = 89
+verdict = "issues"
+note = "Entire signature assembly and public-key lookup helpers read against SDK MultiSignatureData; unchecked destination dimensions are recorded."
+
+[file.157]
+path = "sdk/crypto/types/multisig/pubkey.go"
+lines = 27
+verdict = "clean"
+note = "Multisig public-key interface and GetSignBytesFunc read; nested structured signature semantics agree with SDK consumers subject to the recorded implementation findings."
+
+[file.158]
+path = "sdk/crypto/types/types.go"
+lines = 43
+verdict = "clean"
+note = "All private, ledger-private and public key interfaces read against software and hardware implementations; error and algorithm disagreements are recorded on their producers."
+
+[file.159]
+path = "sdk/crypto/utils/utils.go"
+lines = 17
+verdict = "clean"
+note = "Entire OS-random reader and SHA256 utilities read; entropy and digest widths agree with armor and signature callers."
+
+[file.160]
+path = "services/platform/clippy.toml"
+lines = 2
+verdict = "clean"
+note = "Entire Clippy configuration read; MSRV 1.91.1 agrees with the service workspace toolchain and exported-API lint setting is explicit."
+
+[file.161]
+path = "services/platform/hosted/interop/deployment.yaml"
+lines = 111
+verdict = "issues"
+note = "Entire deployment, secret mounts, probes and network policies read against interop config load; missing startup inputs and retired authority dependency are recorded."
+
+[file.162]
+path = "services/platform/hosted/interop/fly.toml"
+lines = 128
+verdict = "issues"
+note = "Entire Fly configuration, secrets, service exposure, probes and machine sizing read against the same service; missing RPC/key inputs and retired architecture are recorded."
+
+[file.163]
+path = "tools/platform/clippy.toml"
+lines = 2
+verdict = "clean"
+note = "Entire tooling Clippy configuration read; MSRV 1.91.1 agrees with the tools workspace toolchain."
+
+[finding.armor-password-code]
+file = "sdk/crypto/armor.go"
+line = 195
+class = "interface-mismatch"
+severity = "medium"
+observed = "DecryptSymmetric emits lowercase ciphertext decryption failed at line 97, but decryptPrivKey compares the capitalized Ciphertext decryption failed. ImportPrivKey therefore receives an untyped error instead of ErrWrongPassword."
+expected = "The exported armor decoder must preserve the SDK wrong-password error classification for keyring import callers, including after wrapping."
+proposal = "In sdk/crypto/armor.go use a decryption sentinel and typed wrapping rather than matching error text; verify ErrWrongPassword through sdk/crypto/keyring ImportPrivKey with an actual encrypted key."
+owner_domain = 15
+interface = "15.go-types-errors-err-wrong-password-j76"
+
+[finding.armor-kdf-recovery]
+file = "sdk/crypto/armor.go"
+line = 123
+class = "restart-recovery"
+severity = "medium"
+observed = "EncryptArmorPrivKey stores kdf and salt but omits the bcrypt cost. decryptPrivKey always uses the current mutable BcryptSecurityParameter. An export created at one effective cost cannot be restored with the correct password after a process starts with another effective cost; arguments below the dependency minimum all normalize to cost 10."
+expected = "An exported key must carry the KDF parameters needed to restore the same account across restarts and future password-hardening upgrades."
+proposal = "Version the envelope in sdk/crypto/armor.go, store and bound its cost, preserve cost 12 for legacy envelopes, and prove export in one process and restore in a new process with a different configured default."
+owner_domain = 15
+interface = "15.go-crypto-encrypt-armor-priv-key-j76"
+
+[finding.symmetric-empty-payload]
+file = "sdk/crypto/armor.go"
+line = 86
+class = "runtime-risk"
+severity = "medium"
+observed = "EncryptSymmetric accepts empty plaintext and emits a 40-byte nonce-plus-tag ciphertext, while DecryptSymmetric rejects every length less than or equal to 40 before authenticating it."
+expected = "The symmetric encryption pair must either support an authenticated empty plaintext in both directions or refuse it consistently before encryption."
+proposal = "In sdk/crypto/armor.go admit the exact nonce-plus-tag length for authentication and add an empty plaintext round-trip alongside truncated-tag and tampering refusals."
+owner_domain = 15
+
+[finding.ledger-algorithm]
+file = "sdk/crypto/keyring/keyring.go"
+line = 201
+class = "interface-mismatch"
+severity = "high"
+observed = "SupportedAlgosLedger advertises sr25519 as well as secp256k1. SaveLedgerKey always calls NewPrivKeySecp256k1 at line 364 and stores the requested algorithm at line 369, so an sr25519 request produces a secp256k1 public key and signatures labeled sr25519."
+expected = "A supported hardware signing algorithm must agree with the device key type, the persisted Info.GetAlgo value, and the verifier that consumes the signature."
+proposal = "In sdk/crypto/keyring/keyring.go advertise only hardware algorithms the device path implements and reject sr25519 before device access; add a real supported-device create, reopen and sign proof with matching key type and algorithm."
+owner_domain = 15
+interface = "15.go-crypto-keyring-keyring-j76"
+
+[finding.keyring-partial-persistence]
+file = "sdk/crypto/keyring/keyring.go"
+line = 771
+class = "restart-recovery"
+severity = "medium"
+observed = "writeInfo persists name.info and the address index in separate Set calls without rollback or reconciliation. An error or restart between calls leaves a key address lookup cannot find and retries reject as already present. Delete similarly removes the index before the name at lines 409-414."
+expected = "Creating and deleting a wallet must leave the name and address views consistent after storage errors or restart, with an explicit recoverable outcome."
+proposal = "Add a recoverable operation journal or atomic backend transaction in sdk/crypto/keyring, reconcile incomplete name/address operations on reopen, and exercise actual file-backend interruption and retry without replacing the account."
+owner_domain = 15
+interface = "15.go-crypto-keyring-keyring-j76"
+
+[finding.keyring-list-invalid-info]
+file = "sdk/crypto/keyring/keyring.go"
+line = 462
+class = "interface-mismatch"
+severity = "medium"
+observed = "List prints storage or decode errors and returns success with offlineInfo entries whose public key is nil (also lines 472 and 483). The actual keys list consumer calls MkAccKeysOutput and dereferences pk.Address at output.go:67, causing a panic for the supposed successful list."
+expected = "A successful key listing must contain usable public information; damaged entries must produce a typed recoverable error rather than an Info that violates the output consumer shape."
+proposal = "In sdk/crypto/keyring/keyring.go return a structured corruption error identifying the affected entry and preserve healthy records for recovery; make output.go propagate that condition and test the real persisted-corruption to CLI-output path."
+owner_domain = 15
+interface = "15.go-crypto-keyring-info-j76"
+
+[finding.keyring-empty-address-index]
+file = "sdk/crypto/keyring/keyring.go"
+line = 428
+class = "runtime-risk"
+severity = "medium"
+observed = "KeyByAddress calls wrapKeyNotFound with a nil error when an existing index has empty Data; wrapKeyNotFound returns nil. The result is (nil, nil), and SignByAddress and DeleteByAddress then dereference the absent Info."
+expected = "A missing or empty address index must return ErrKeyNotFound or an explicit corruption error and never report a successful nil key."
+proposal = "Return the typed missing-index error directly in sdk/crypto/keyring/keyring.go and verify KeyByAddress, SignByAddress and DeleteByAddress against a reopened file store containing an empty index."
+owner_domain = 15
+interface = "15.go-types-errors-err-key-not-found-j76"
+
+[finding.keyring-import-algorithm]
+file = "sdk/crypto/keyring/keyring.go"
+line = 287
+class = "interface-mismatch"
+severity = "medium"
+observed = "ImportPrivKey treats every armor algorithm other than sr25519 as secp256k1, then preserves the unrecognized label in the new LocalInfo. A 32-byte key with type ed25519 or an unknown type is therefore accepted as a different cryptographic algorithm."
+expected = "The armor type, decoded private key, persisted public key and signing algorithm must agree; unsupported types must be refused before any wallet record is written."
+proposal = "Dispatch on an explicit supported algorithm set in sdk/crypto/keyring/keyring.go, reject unknown armor labels, and verify the label, public key and signature after export/import and reopen for each supported algorithm."
+owner_domain = 15
+interface = "15.go-crypto-unarmor-decrypt-priv-key-j76"
+
+[finding.keyring-offline-algorithm]
+file = "sdk/crypto/keyring/keyring.go"
+line = 385
+class = "interface-mismatch"
+severity = "medium"
+observed = "SavePubKey accepts a public key and independent algorithm label without checking they agree. keyring_test.go:749-756 saves an Ed25519 key labeled secp256k1 and asserts success; MkAccKeysOutput selects EVM processing from this label."
+expected = "Stored watch-only public key metadata must identify the actual signing system so wallet and EVM output consumers can select the correct address and verification rules."
+proposal = "In sdk/crypto/keyring/keyring.go derive or validate the offline algorithm from PubKey.Type and reject inconsistent inputs before writeInfo; add save, reopen and output cases for each supported public key type."
+owner_domain = 15
+interface = "15.go-crypto-keyring-info-j76"
+
+[finding.keyring-passphrase-oracle]
+file = "sdk/crypto/keyring/keyring.go"
+line = 722
+class = "security"
+severity = "medium"
+observed = "The file backend writes a reusable bcrypt passphrase verifier to keyhash using argument 2, which the pinned tendermint/crypto bcrypt dependency normalizes to DefaultCost 10 because MinCost is 4. A stolen directory therefore exposes a verifier with about one quarter the bcrypt work of cost-12 armored exports, while the intended policy is implicit."
+expected = "Wallet backup protection must state and deliberately choose the effective verifier cost, accounting for every password-checking artifact in the directory."
+proposal = "In sdk/crypto/keyring/keyring.go use a reviewed bounded password KDF work factor for keyhash, version and migrate existing hashes after successful unlock, and document and test old-backup unlock and migration without exposing passwords."
+owner_domain = 15
+
+[finding.keyring-output-public-address]
+file = "sdk/crypto/keyring/output.go"
+line = 96
+class = "interface-mismatch"
+severity = "medium"
+observed = "PopulateEvmAddrIfApplicable accepts only the LocalInfo value type and derives an EVM address by decoding private material. Newly created keys return *LocalInfo, and hardware/offline keys also fail the assertion, leaving evm_address empty despite an available secp256k1 public key."
+expected = "The same secp256k1 public key must produce the same public EVM address for new, reopened, hardware and watch-only wallet records without requiring its secret."
+proposal = "In sdk/crypto/keyring/output.go derive the EVM address from the compressed public key and key type; prove equal output for the actual creation result, the reopened record and watch-only/hardware records."
+owner_domain = 15
+interface = "15.go-crypto-keyring-populate-evm-addr-if-applicable-j76"
+
+[finding.keyring-output-sr25519]
+file = "sdk/crypto/keyring/output.go"
+line = 99
+class = "runtime-risk"
+severity = "medium"
+observed = "sdk/client/keys/utils.go:27 calls PopulateEvmAddrIfApplicable unconditionally. For a reloaded local sr25519 Info the function feeds the JSON mini-secret encoding to legacy.PrivKeyFromBytes and returns an error, which printKeyInfo converts into a panic."
+expected = "Displaying a supported sr25519 wallet must succeed and omit an inapplicable EVM address while preserving the account and public-key output."
+proposal = "Guard the public address conversion by the actual key type in sdk/crypto/keyring/output.go and return normal output for other types; drive keys show using a real persisted sr25519 account."
+owner_domain = 15
+interface = "15.go-crypto-keyring-populate-evm-addr-if-applicable-j76"
+
+[finding.keyring-test-wrong-password]
+file = "sdk/crypto/keyring/keyring_test.go"
+line = 302
+class = "test-gap"
+severity = "medium"
+observed = "The export/import test asserts the generic lowercase decryption error text; repeated cases at lines 839 and 866 preserve the same result instead of asserting the declared ErrWrongPassword classification."
+expected = "Wrong-password tests must establish the public SDK error code through encryption and import, while proving that the failed import wrote no account."
+proposal = "Update sdk/crypto/keyring/keyring_test.go with typed wrong-password checks after the armor producer is repaired, retaining the real export/import path and checking unchanged key inventory."
+owner_domain = 15
+interface = "15.go-types-errors-err-wrong-password-j76"
+
+[finding.keyring-test-offline-shape]
+file = "sdk/crypto/keyring/keyring_test.go"
+line = 752
+class = "test-gap"
+severity = "medium"
+observed = "TestAltKeyring_SavePubKey creates an Ed25519 public key and saves it with hd.Secp256k1.Name, then asserts the false algorithm at line 756. This fixture approves metadata that the output and signing consumers interpret as a different key family."
+expected = "Watch-only wallet tests must use the public-key algorithm actually emitted by their producer and explicitly refuse inconsistent metadata."
+proposal = "In sdk/crypto/keyring/keyring_test.go cover real matching Ed25519 and secp256k1 records plus a rejected mismatched label, and inspect the reopened output rather than preserving the inconsistent fixture."
+owner_domain = 15
+interface = "15.go-crypto-keyring-info-j76"
+
+[finding.keyring-ledger-test-errors]
+file = "sdk/crypto/keyring/keyring_ledger_test.go"
+line = 26
+class = "test-gap"
+severity = "medium"
+observed = "Ledger creation tests expect the unwrapped ledger nano S unavailable message and skip on creation errors. SaveLedgerKey now prefixes failed to generate ledger key, so the fixture no longer describes its producer; the tests also request only secp256k1 despite advertised sr25519 support."
+expected = "Hardware wallet qualification must assert the actual wrapped error and advertised algorithm behavior, and a missing device must not stand in for successful hardware round-trip evidence."
+proposal = "In sdk/crypto/keyring/keyring_ledger_test.go assert the typed/wrapped unavailable error separately, require a configured device for the positive gate, and exercise each truthfully advertised algorithm through create, reopen and sign."
+owner_domain = 15
+interface = "15.go-crypto-keyring-keyring-j76"
+
+[finding.keyring-doc-api]
+file = "sdk/crypto/keyring/doc.go"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The package documentation names a Keybase interface, NewLegacy and NewKeyring constructors that are absent from the package. The implementation exposes Keyring and New; the legacy.go file contains only key naming and empty option types."
+expected = "Wallet storage documentation must direct integrators to the constructors and backend security properties that the current SDK actually exposes."
+proposal = "Rewrite sdk/crypto/keyring/doc.go around Keyring, New and NewInMemory, retain the insecure-test-backend warning, and describe supported algorithms and durable recovery limits using the current implementation."
+owner_domain = 15
+
+[finding.bcrypt-doc-backup-risk]
+file = "sdk/crypto/bcrypt_readme.md"
+line = 9
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 18-20 describe keyhash as cost 2, but the pinned tendermint/crypto dependency normalizes argument 2 to effective cost 10 (MinCost 4, DefaultCost 10). Lines 9-16 discuss exported files and copied directories together without explaining the lower-cost verifier in a directory backup."
+expected = "The wallet security explanation must distinguish export protection from keyring backup protection and state the effective offline password-guessing boundary."
+proposal = "Revise sdk/crypto/bcrypt_readme.md alongside the keyhash KDF migration to explain backup theft, the verifier work factor and strong passphrases without suggesting that export cost alone protects the entire directory."
+owner_domain = 15
+
+[finding.sr25519-string-secret]
+file = "sdk/crypto/keys/sr25519/privkey.go"
+line = 38
+class = "security"
+severity = "medium"
+observed = "PrivKey.String returns string(m.Bytes()). Bytes exposes the 32-byte mini-secret, so formatting a private key with fmt or logging its proto.Message representation emits raw secret material."
+expected = "Ordinary formatting of a private signing key must reveal no secret, consistently with the redacted secp256r1 private-key String implementation."
+proposal = "Return a redacted sr25519 type label in sdk/crypto/keys/sr25519/privkey.go and cover String and fmt formatting of an actual initialized key without placing its seed in output."
+owner_domain = 15
+interface = "15.go-crypto-keys-sr25519-priv-key-j76"
+
+[finding.p256-private-scalar]
+file = "sdk/crypto/keys/internal/ecdsa/privkey.go"
+line = 118
+class = "security"
+severity = "medium"
+observed = "PrivKey.Unmarshal checks byte length only, accepts zero or a scalar at or above the curve order, and assigns it before deriving the public point. secp256r1 ecdsaSK.Unmarshal delegates directly to this decoder, admitting unusable private keys."
+expected = "A successfully imported P256 private key must satisfy 0 < D < N and yield a valid public point and a signature accepted by its public key."
+proposal = "Validate the scalar range and public point before replacing state in sdk/crypto/keys/internal/ecdsa/privkey.go; cover zero, N, N+1 and valid boundary scalars through the outer secp256r1 protobuf decoder."
+owner_domain = 15
+interface = "15.go-crypto-keys-internal-ecdsa-priv-key-j76"
+
+[finding.secp-private-scalar]
+file = "sdk/crypto/keys/secp256k1/secp256k1.go"
+line = 59
+class = "security"
+severity = "medium"
+observed = "UnmarshalAmino accepts any 32 bytes. The default signer converts through btcec.PrivKeyFromBytes, which reduces the value, while the libsecp256k1_sdk signer rejects invalid scalars. Thus the same imported bytes have different validity across supported builds."
+expected = "A stored secp256k1 secret must be canonical in 1..N-1 and behave identically in the pure-Go and libsecp256k1 signing paths."
+proposal = "Validate the scalar range in sdk/crypto/keys/secp256k1 before accepting imported data, preserve bytes only after validation, and qualify both implementations against zero, N, N+1 and valid scalar boundaries."
+owner_domain = 15
+interface = "15.go-crypto-keys-secp256k1-priv-key-size-j76"
+
+[finding.ed25519-import-consistency]
+file = "sdk/crypto/keys/ed25519/ed25519.go"
+line = 106
+class = "security"
+severity = "medium"
+observed = "UnmarshalAmino checks only the 64-byte length and accepts a private-key value whose public half does not match its seed half. PubKey trusts the latter half while ed25519.Sign derives signing internals from the seed, so an accepted key can generate unverifiable signatures."
+expected = "A decoded Ed25519 private key must contain a public suffix derived from its seed, and invalid private material must be rejected before use."
+proposal = "In sdk/crypto/keys/ed25519/ed25519.go reconstruct the canonical private key from its seed and compare the supplied public suffix before acceptance; verify refusal of a mutated suffix and successful import/sign/verify for real keys."
+owner_domain = 15
+interface = "15.go-crypto-types-priv-key-j76"
+
+[finding.ecdsa-address-cache]
+file = "sdk/crypto/keys/internal/ecdsa/pubkey.go"
+line = 106
+class = "runtime-risk"
+severity = "medium"
+observed = "PubKey.Address caches the address, but a successful PubKey.Unmarshal replaces PublicKey without clearing that cache. Reusing this helper for a second valid key returns the first key address together with the second key bytes. The outer generated P256 decoder currently allocates a fresh helper."
+expected = "A successfully decoded public key must report an address derived from its current bytes, including when the helper instance is reused."
+proposal = "Clear the address cache when sdk/crypto/keys/internal/ecdsa/pubkey.go installs a new validated public point and add a same-instance decode of two real keys with an Address call between decodes."
+owner_domain = 15
+interface = "15.go-crypto-keys-internal-ecdsa-pub-key-j76"
+
+[finding.multisig-aligned-bit-count]
+file = "sdk/crypto/types/compact_bit_array.go"
+line = 97
+class = "interface-mismatch"
+severity = "high"
+observed = "For a valid 8-bit array NumTrueBitsBefore(8) counts Elems[0], then reads nonexistent Elems[1]. The same occurs at every byte-aligned end. LegacyAminoPubKey.VerifyMultisignature calls it with Count at multisig.go:64, so valid 8-key multisig transactions panic through sdk/x/auth/signing/verify.go."
+expected = "A signature assembled with NewMultisig and AddSignature must verify for every supported key count; valid byte-aligned signer sets must not be rejected or panic in transaction verification."
+proposal = "In sdk/crypto/types/compact_bit_array.go count complete bytes without reading a nonexistent final byte, handle empty bounds explicitly, and prove real assembled multisig transaction verification for 8, 16 and neighboring key counts."
+owner_domain = 15
+interface = "15.go-crypto-types-multisig-pub-key-j76"
+
+[finding.multisig-cardinality]
+file = "sdk/crypto/keys/multisig/multisig.go"
+line = 60
+class = "runtime-risk"
+severity = "medium"
+observed = "VerifyMultisignature checks the signature count only against threshold and key count, not against set bits. With three keys, threshold two, three true bits and two signatures it indexes past sig.Signatures; two true bits and three signatures leave one signature unchecked. Decoded threshold zero and nil inputs are also not validated here."
+expected = "A decoded multisignature must have a valid positive threshold and exactly one signature for every selected key; malformed shapes must return an error before signature or gas traversal."
+proposal = "Validate threshold, bit-array structure and exact selected-signature cardinality in sdk/crypto/keys/multisig and share the checks with sdk/x/auth/ante gas traversal; exercise malformed protobuf and legacy transaction inputs without panics."
+owner_domain = 15
+interface = "15.go-types-tx-signing-multi-signature-data-j76"
+
+[finding.multisig-amino-reuse]
+file = "sdk/crypto/keys/multisig/amino.go"
+line = 88
+class = "interface-mismatch"
+severity = "high"
+observed = "UnmarshalAminoJSON sizes m.PubKeys only when nil, then iterates the old length. Reusing a destination with fewer keys than the new value drops keys; reusing it with more keys indexes past protoPk.PubKeys. For equal lengths the existing Any cachedValue is not replaced when TypeUrl and Value change, so GetPubKeys can retain the old key."
+expected = "A valid Amino public key emitted by MarshalAminoJSON must decode to the same threshold and complete current key set even when the destination previously held another valid multisig."
+proposal = "In sdk/crypto/keys/multisig/amino.go replace the complete validated key set and its Any caches while retaining only applicable compatibility bytes; prove same-instance decoding of different keys and growing and shrinking key counts."
+owner_domain = 15
+interface = "15.go-crypto-keys-multisig-pub-key-amino-route-j76"
+
+[finding.bitarray-empty-json]
+file = "sdk/crypto/types/compact_bit_array.go"
+line = 222
+class = "runtime-risk"
+severity = "medium"
+observed = "MarshalJSON emits an empty JSON string for a nonnil zero-length CompactBitArray, including the state produced by decoding null into a preallocated value. UnmarshalJSON accepts that string, obtains nil from NewCompactBitArray(0), and dereferences it at line 228."
+expected = "Empty and null bit-array states must have a documented stable representation and decoding their accepted JSON must return normally or a typed refusal."
+proposal = "Handle the zero-bit case explicitly in sdk/crypto/types/compact_bit_array.go and prove null-to-preallocated, empty-string and marshal/unmarshal behavior, retaining malformed-input refusal checks."
+owner_domain = 15
+interface = "15.go-crypto-types-new-compact-bit-array-j76"
+
+[finding.bitarray-test-generation]
+file = "sdk/crypto/types/compact_bit_array_test.go"
+line = 23
+class = "test-gap"
+severity = "medium"
+observed = "randCompactBitArray shifts by 8-j instead of 7-j, discarding the first bit of each byte. Its final-byte loop starts at numBytes*8, so SetIndex rejects every write and the final byte stays zero. NumTrueBitsBefore cases at lines 206-211 omit Count for aligned arrays."
+expected = "Bit-array test inputs must represent their stated source bits and include the full boundary used by the multisig verifier, including nonzero final bytes."
+proposal = "Correct the source-bit mapping and final-byte indices in sdk/crypto/types/compact_bit_array_test.go, assert successful SetIndex calls, and add aligned Count endpoints plus empty JSON cases against independent expected counts."
+owner_domain = 15
+
+[finding.multisig-test-boundary]
+file = "sdk/crypto/keys/multisig/multisig_test.go"
+line = 108
+class = "test-gap"
+severity = "medium"
+observed = "The multisignature verification tests exercise nested and malformed cases but do not establish the real transaction decode and verification path for byte-aligned 8-key and 16-key signer sets, which reach the compact-bit-array panic."
+expected = "Multisig acceptance coverage must prove that signatures created by the SDK can traverse the actual transaction encoding, decoding and ante verification path at key-count boundaries."
+proposal = "Extend sdk/crypto/keys/multisig/multisig_test.go with actual assembled and encoded transactions at 7, 8, 9, 16 keys and exact cardinality refusals; keep every existing signature assertion."
+owner_domain = 15
+interface = "15.go-crypto-types-multisig-pub-key-j76"
+
+[finding.multisig-add-index]
+file = "sdk/crypto/types/multisig/multisignature.go"
+line = 41
+class = "runtime-risk"
+severity = "medium"
+observed = "AddSignature ignores the false result from BitArray.SetIndex. AddSignatureFromPubKey can find a key index in keys that exceeds the target bit-array size and return nil after appending a signature without a selected bit; an aligned out-of-range index can instead hit NumTrueBitsBefore panic."
+expected = "Adding by public key must refuse a key-list and bit-array size disagreement without modifying the target signature collection."
+proposal = "Validate the target bit-array dimensions and key index in sdk/crypto/types/multisig/multisignature.go before mutation, propagate failure through AddSignatureFromPubKey and AddSignatureV2, and cover mismatched key-set sizes."
+owner_domain = 15
+interface = "15.go-crypto-types-multisig-add-signature-from-pub-key-j76"
+
+[finding.p256-test-stale-error]
+file = "sdk/crypto/keys/secp256r1/pubkey_internal_test.go"
+line = 114
+class = "test-gap"
+severity = "low"
+observed = "The nil-destination UnmarshalInterface call discards its returned error. The next require.Error checks err left from the earlier unregistered-interface failure at line 108, so this test passes independently of the nil-destination behavior."
+expected = "The nil-destination assertion must inspect the error returned by the operation that the case claims to verify."
+proposal = "Capture and assert the error from cdc.UnmarshalInterface(bz, nil) directly in sdk/crypto/keys/secp256r1/pubkey_internal_test.go while retaining successful registered-interface round-trip assertions."
+owner_domain = 15
+
+[finding.secp-test-independent-verifier]
+file = "sdk/crypto/keys/secp256k1/secp256k1_test.go"
+line = 75
+class = "test-gap"
+severity = "medium"
+observed = "TestSignAndValidateSecp256k1 comments out independent ECDSA verification and claims the new SignCompact representation is incompatible. Production removes its recovery byte and emits standard fixed-width R||S, and the test already extracts R and S before discarding the verification."
+expected = "The SDK signature encoding must be proven against an independent verifier so a producer and its own consumer cannot agree on the same incorrect hash or encoding."
+proposal = "Restore independent crypto/ecdsa verification of SHA256(message) and the actual R||S output in sdk/crypto/keys/secp256k1/secp256k1_test.go, plus verification in the other direction using a correctly encoded independent signature."
+owner_domain = 15
+
+[finding.secp-test-high-s]
+file = "sdk/crypto/keys/secp256k1/secp256k1_nocgo_test.go"
+line = 13
+class = "test-gap"
+severity = "medium"
+observed = "TestSignatureNonMalleable signs, verifies, and changes the message, but never replaces S with N-S. It therefore does not exercise the high-S refusal its name claims and would pass if that refusal disappeared."
+expected = "The default secp256k1 verifier must reject an independently valid high-S counterpart while accepting the original low-S signature."
+proposal = "In sdk/crypto/keys/secp256k1/secp256k1_nocgo_test.go construct N-S from a genuine signature, establish its mathematical validity independently and assert SDK refusal without removing the existing valid-signature checks."
+owner_domain = 15
+
+[finding.ledger-mock-shape]
+file = "sdk/crypto/ledger/ledger_mock.go"
+line = 88
+class = "test-gap"
+severity = "medium"
+observed = "GetAddressPubKeySECP256K1 constructs compressedPublicKey but returns the uncompressed pk. It also ignores the supplied hrp and uses the global account prefix. The mock thus differs from its declared compressed-key and requested-address contract."
+expected = "Hardware integration evidence must use the device public-key encoding and requested address prefix that the actual driver produces."
+proposal = "Align the test-only encoding in sdk/crypto/ledger/ledger_mock.go with recorded real-device output and verify the hardware create/show-address path with a nondefault HRP and exact compressed public key."
+owner_domain = 15
+interface = "15.go-crypto-ledger-new-priv-key-secp256k1-j76"
+
+[finding.ledger-der-test-gap]
+file = "sdk/crypto/ledger/ledger_secp256k1_test.go"
+line = 167
+class = "test-gap"
+severity = "medium"
+observed = "TestConvertDERtoBER tests only the already-64-byte passthrough. The test Ledger signer returns raw R||S, so the tests bypass the DER parser and conversion branch used by hardware signatures."
+expected = "The hardware signing path must prove that the real device signature encoding converts to an SDK-verifiable R||S value and that malformed DER is refused."
+proposal = "Add real-device DER signature evidence and malformed DER refusals to sdk/crypto/ledger/ledger_secp256k1_test.go, asserting verification under the returned public key and preserving the raw-format compatibility test."
+owner_domain = 15
+interface = "15.go-crypto-ledger-sign-with-path-j76"
+
+[finding.cgo-test-selection]
+file = "sdk/crypto/keys/secp256k1/internal/secp256k1/secp256_test.go"
+line = 5
+class = "config-drift"
+severity = "medium"
+observed = "This copied test file has no cgo build constraint but calls Sign and RecoverPubkey, which are declared only by secp256.go under !gofuzz && cgo. A recursive crypto test selection with CGO_ENABLED=0 therefore selects tests whose required functions are absent."
+expected = "The pure-Go SDK configuration must select only tests whose implementation exists in that build; optional cgo wrapper coverage must retain its explicit supported configuration."
+proposal = "Align the build selection of sdk/crypto/keys/secp256k1/internal/secp256k1/secp256_test.go with its cgo implementation and qualify both the supported cgo wrapper and the complete pure-Go crypto package selection."
+owner_domain = 15
+
+[finding.interop-kubernetes-startup]
+file = "services/platform/hosted/interop/deployment.yaml"
+line = 16
+class = "interface-mismatch"
+severity = "high"
+observed = "The Deployment env does not supply LAYERX_INTEROP_SEQUENCER_URL or LAYERX_INTEROP_RECEIPT_KEYS_FILE, and also omits required CHAIN_ID and READINESS_MAX_AGE_MS. config.rs:240 calls sequencer_url first and refuses startup; lines 275, 302 and 309 require the other values. Old hosted URL and four batch pins are never read as substitutes."
+expected = "The deployed interop service must start against the merged node RPC with independently pinned receipt keys, chain 125 and bounded freshness, using exactly the configuration consumed by its binary."
+proposal = "Update services/platform/hosted/interop/deployment.yaml with the actual node RPC endpoint, mounted receipt-key JSON, chain 125 and bounded freshness; coordinate its network policies with the chosen listener and prove startup and restart with the real service and node."
+owner_domain = 8
+interface = "11.env-svc-layerx-interop-sequencer-url-j47"
+
+[finding.interop-fly-startup]
+file = "services/platform/hosted/interop/fly.toml"
+line = 32
+class = "interface-mismatch"
+severity = "high"
+observed = "The Fly environment supplies HOSTED_GATEWAY_URL and individual batch pins but neither LAYERX_INTEROP_SEQUENCER_URL nor LAYERX_INTEROP_RECEIPT_KEYS_FILE. config.rs:426 requires the former before reading the runtime manifest, and line 275 requires the pinned-key file, so this published configuration cannot start the service."
+expected = "The Fly service must consume the same merged-node RPC and independently pinned receipt-key inputs as the interop runtime, including a durable source of pins across restarts."
+proposal = "In services/platform/hosted/interop/fly.toml provide the correct node RPC URL and mount the receipt-key JSON under LAYERX_INTEROP_RECEIPT_KEYS_FILE, coordinate rendering with services/interop, and demonstrate real startup, key comparison and restart using that deployment contract."
+owner_domain = 8
+interface = "11.env-svc-layerx-interop-receipt-keys-file-j47"
+
+[finding.interop-kubernetes-retired-authority]
+file = "services/platform/hosted/interop/deployment.yaml"
+line = 25
+class = "retired-reference"
+severity = "medium"
+observed = "The Deployment still injects LAYERX_INTEROP_RECEIPT_AUTHORITY_URL and its bearer-token path, mounts layerx-gateway-authority-client, and supplies the four old sequencer batch-window files. The registry marks the authority inputs retired and the service no longer reads these values."
+expected = "Merged-network deployment must use block-height receipt-key pins and committed node evidence without provisioning an independent receipt-authority service or its unused secret."
+proposal = "Remove retired authority and batch-window configuration from services/platform/hosted/interop/deployment.yaml when installing the current node inputs; remove the unused secret mount and reconcile generated runtime secrets with the service owner."
+owner_domain = 8
+interface = "11.env-svc-layerx-interop-receipt-authority-url"
+
+[finding.interop-fly-retired-authority]
+file = "services/platform/hosted/interop/fly.toml"
+line = 4
+class = "retired-reference"
+severity = "medium"
+observed = "Comments describe router Redis, a receipt authority on kernel_ports and a separate kernel app. Lines 41-49 still configure retired authority and batch-window inputs, and lines 76-94 require their secrets to be staged even though the current service never reads them."
+expected = "The interop deployment must describe one network and provision only the RPC, key pins and shared storage its current runtime uses; a retired router or receipt authority is not an operator dependency."
+proposal = "Rewrite services/platform/hosted/interop/fly.toml comments and secret mappings for the merged node RPC and pinned key list, deleting the obsolete authority token and batch pins as part of the deployment migration."
+owner_domain = 8
+interface = "11.env-svc-layerx-interop-receipt-authority-token-file"
+
+[finding.doc-01]
+file = "docs/site/docs/programs/workspace.md"
+line = 15
+class = "doc-drift"
+severity = "medium"
+observed = "The workspace guide still lists layerx-programs-protocol-adapter and says the generator requires crate-root ABI_VERSION 2. programs/Cargo.toml no longer includes that adapter, includes AI-market and arbiter, and the runtime lib.rs:115 selects ABI_V4_VERSION."
+expected = "Operator and integrator documentation must match the merged network and the current producer, transport and consumer interfaces at the audited revision."
+proposal = "Update docs/site/docs/programs/workspace.md to the current workspace inventory, frozen ABI versions and registration compatibility; include the AI-market release size and chain-domain requirements without claiming unrun gates."
+owner_domain = 13
+
+[finding.doc-02]
+file = "docs/wiki/ProgramsWorkspace.md"
+line = 15
+class = "doc-drift"
+severity = "medium"
+observed = "The wiki workspace guide repeats the removed layerx-programs-protocol-adapter membership and ABI_VERSION 2 claim while the current workspace and runtime select the newer crates and ABI v4."
+expected = "Operator and integrator documentation must match the merged network and the current producer, transport and consumer interfaces at the audited revision."
+proposal = "Regenerate or rewrite docs/wiki/ProgramsWorkspace.md from the corrected site workspace guide, including the current ABI compatibility and AI-market payload constraints and preserving historical vector provenance."
+owner_domain = 13
+
+[finding.doc-03]
+file = "docs/site/docs/overview/unified-network.md"
+line = 135
+class = "doc-drift"
+severity = "medium"
+observed = "The architecture page describes a separate layerxd network, custody deposits and forced exits, guarantor checkpoint finality, and a router at api-mainnet-beta.paxeer.network/rpc with GET /rpc/schema."
+expected = "Operator and integrator documentation must match the merged network and the current producer, transport and consumer interfaces at the audited revision."
+proposal = "Rewrite docs/site/docs/overview/unified-network.md for one paxd BFT network, kernel execution inside the node, finality at committed blocks, native balances, node root JSON-RPC and separately owned hosted px_ methods."
+owner_domain = 8
+
+[finding.doc-04]
+file = "docs/site/docs/overview/i18n/fr.md"
+line = 18
+class = "doc-drift"
+severity = "medium"
+observed = "The French overview says ordinary LayerX activity needs no Paxeer transaction and settles periodic checkpoints on Paxeer; it directs developers to Activity and AuthorizedBatch-style workflows and a running layerxd daemon."
+expected = "Operator and integrator documentation must match the merged network and the current producer, transport and consumer interfaces at the audited revision."
+proposal = "Rewrite docs/site/docs/overview/i18n/fr.md in French against the merged-network behavior, preserving chain id 125, root node RPC and committed-block finality with current transaction and receipt examples."
+owner_domain = 8
+
+[finding.doc-05]
+file = "docs/site/docs/concepts/one-account.md"
+line = 87
+class = "doc-drift"
+severity = "medium"
+observed = "The EIP-712 account-derivation example hardcodes chainId 713714 and the opening paragraph describes a deposit opening a LayerX account, whereas this network is chain 125 and uses native accounts."
+expected = "Operator and integrator documentation must match the merged network and the current producer, transport and consumer interfaces at the audited revision."
+proposal = "Correct docs/site/docs/concepts/one-account.md to use chain 125 in its concrete example and native account opening in its introduction; retain the exact versioned signing domains and explain that a different chain id derives a different key."
+owner_domain = 8
+
+[finding.doc-06]
+file = "docs/site/docs/operators/settlement-evidence.md"
+line = 7
+class = "doc-drift"
+severity = "medium"
+observed = "The operator page prescribes CheckpointRegistry witness publication, a vault deposit-root authority and forced-exit recipient proofs as the settlement procedure for the network."
+expected = "Operator and integrator documentation must match the merged network and the current producer, transport and consumer interfaces at the audited revision."
+proposal = "Replace docs/site/docs/operators/settlement-evidence.md with the merged committed-block evidence and recovery procedure; move any retained historical format explanation into an explicitly retired reference with no live rollout instructions."
+owner_domain = 8
+
+[finding.doc-07]
+file = "docs/site/docs/platform/hosted-core.md"
+line = 6
+class = "doc-drift"
+severity = "medium"
+observed = "Hosted core documentation instructs running a layerxd sibling and Unix LNI socket, submitting native Activities and probing a receipt-authority replica as live service dependencies."
+expected = "Operator and integrator documentation must match the merged network and the current producer, transport and consumer interfaces at the audited revision."
+proposal = "Rewrite docs/site/docs/platform/hosted-core.md around the current payer-signed EVM transaction relay, merged node RPC, receipt-key validation and current readiness; retain only evidence actually qualified on that path."
+owner_domain = 8
+
+[finding.doc-08]
+file = "docs/site/docs/human/owner-registration.md"
+line = 14
+class = "doc-drift"
+severity = "medium"
+observed = "The Human owner guide requires Bridge Credit account establishment, native-daemon Governance registration, HTTPS receipt-authority authorized batches and guarantor checkpoint qualification."
+expected = "Operator and integrator documentation must match the merged network and the current producer, transport and consumer interfaces at the audited revision."
+proposal = "Update docs/site/docs/human/owner-registration.md with the merged native-account and owner registration interfaces, persisted recovery and current committed-block evidence; remove obsolete receipt-authority and daemon rollout dependencies."
+owner_domain = 10
+
+[finding.doc-09]
+file = "docs/site/docs/interop/portable-receipts.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The portable receipt page documents layerx-receipt-proof-v1, verificationLevel sequencer-signed, canonicalReceipt in base64url and AuthorizedBatch. The actual receipt.rs declares layerx-receipt-proof-v2 and PortableReceiptV2 with signedReceipt, receiptKey, inclusionHeight and optional rawTransaction."
+expected = "Operator and integrator documentation must match the merged network and the current producer, transport and consumer interfaces at the audited revision."
+proposal = "Rewrite docs/site/docs/interop/portable-receipts.md from PortableReceiptV2 and its actual verifier, showing lowercase 0x byte strings and quantities, pinned key-height windows, raw-transaction binding and the current refusal and commitment boundaries."
+owner_domain = 11
+
+[finding.doc-10]
+file = "docs/site/docs/interop/x402.md"
+line = 89
+class = "doc-drift"
+severity = "medium"
+observed = "The x402 guide instructs ordinal-7 grants and ordinal-6 receives via lx_sendActivity at POST /rpc and guarantor checkpoint finality. It describes layerx namespace offers while the current model declares LAYERX_NETWORK eip155:125."
+expected = "Operator and integrator documentation must match the merged network and the current producer, transport and consumer interfaces at the audited revision."
+proposal = "Rewrite docs/site/docs/interop/x402.md for payer-signed chain transactions, eip155:125, the deployed interop routes, current receipt rungs and the explicit retired-grant refusal; replace historical rollout claims with current qualified evidence."
+owner_domain = 11
+
+[finding.doc-11]
+file = "docs/readme/README.fr.md"
+line = 35
+class = "doc-drift"
+severity = "medium"
+observed = "The French repository README describes paxd and layerxd as separate execution services joined through custody and checkpoint precompiles; its diagram runs an independent sequencer and guarantor settlement flow."
+expected = "Operator and integrator documentation must match the merged network and the current producer, transport and consumer interfaces at the audited revision."
+proposal = "Synchronize docs/readme/README.fr.md with the merged-network architecture in French, using one paxd node with embedded kernel, chain 125, root JSON-RPC and committed-block finality, and update the diagram and build/deployment instructions."
+owner_domain = 8
+
+[finding.doc-12]
+file = "docs/wiki/HostedCore.md"
+line = 6
+class = "doc-drift"
+severity = "medium"
+observed = "The wiki hosted core page repeats the running layerxd, LNI socket, Activity submission and receipt-authority readiness model as the operating contract."
+expected = "Operator and integrator documentation must match the merged network and the current producer, transport and consumer interfaces at the audited revision."
+proposal = "Synchronize docs/wiki/HostedCore.md with a corrected current hosted-core guide describing payer-signed EVM relay, merged-node receipt checks, durable idempotency and the current readiness contract."
+owner_domain = 8
+
+[doc.01]
+path = "docs/site/docs/programs/workspace.md"
+status = "stale"
+notes = "Lines 15 and 35 describe a removed protocol-adapter member and ABI_VERSION 2; the workspace has AI-market and arbiter members and runtime ABI_VERSION selects ABI v4."
+
+[doc.02]
+path = "docs/wiki/ProgramsWorkspace.md"
+status = "stale"
+notes = "Lines 15 and 35 retain the removed protocol-adapter and ABI v2 description; the current runtime selects ABI v4 and the workspace includes AI-market and arbiter."
+
+[doc.03]
+path = "docs/site/docs/overview/unified-network.md"
+status = "stale"
+notes = "Lines 5-11 describe two runtimes and running layerxd; 49-125 retain retired custody/anchor finality; 135-171 advertise router /rpc and /rpc/schema with separate lx_ methods."
+
+[doc.04]
+path = "docs/site/docs/overview/i18n/fr.md"
+status = "stale"
+notes = "Lines 14-20 describe separate Activity sequencing and checkpoint settlement; 24-68 give the retired submission/proof flow; 98 lists running layerxd."
+
+[doc.05]
+path = "docs/site/docs/concepts/one-account.md"
+status = "stale"
+notes = "Line 87 uses chainId 713714 rather than merged chain 125; line 6 still describes custody deposit opening. The derivation and consent-binding descriptions otherwise remain useful."
+
+[doc.06]
+path = "docs/site/docs/operators/settlement-evidence.md"
+status = "stale"
+notes = "Lines 3-39 and 73-105 prescribe retired checkpoint publication, custody deposit roots and exit payout instead of committed-block settlement."
+
+[doc.07]
+path = "docs/site/docs/platform/hosted-core.md"
+status = "stale"
+notes = "Lines 6, 23 and 41 name a running layerxd and LNI connection; 74-92 describe retired Activity and receipt-authority routes; 305-329 claim daemon-era qualification."
+
+[doc.08]
+path = "docs/site/docs/human/owner-registration.md"
+status = "stale"
+notes = "Lines 9, 14-18 and 28-34 retain Bridge Credit, native daemon and guarantor/receipt-authority provisioning as the current registration path."
+
+[doc.09]
+path = "docs/site/docs/interop/portable-receipts.md"
+status = "stale"
+notes = "Lines 3-57 specify v1, sequencer-signed, base64url and AuthorizedBatch; current receipt.rs exports v2, receipted, 0x hex/quantities and independently pinned receipt keys."
+
+[doc.10]
+path = "docs/site/docs/interop/x402.md"
+status = "stale"
+notes = "Lines 25-29, 79-105 and 147-176 prescribe retired payer grants, Activity RPC and checkpoint finality; 232-235 and vectors use layerx networks instead of eip155:125."
+
+[doc.11]
+path = "docs/readme/README.fr.md"
+status = "stale"
+notes = "Lines 35-37, 81-89 and 131-243 describe a running layerxd, separate kernel app and checkpoint/custody connector architecture."
+
+[doc.12]
+path = "docs/wiki/HostedCore.md"
+status = "stale"
+notes = "Lines 6, 23, 41, 74-92 and 305-329 mirror the retired daemon/LNI, Activity, receipt-authority and daemon-test operating model."
+
+[doc.13]
+path = "sdk/crypto/bcrypt_readme.md"
+status = "misleading"
+notes = "Lines 4-7 correctly describe export cost 12; lines 18-20 mistake the keyhash argument 2 for its effective cost, which the pinned bcrypt dependency normalizes to 10. Lines 9-16 omit that verifier from the copied-directory threat model; see bcrypt-doc-backup-risk."
+
+[doc.14]
+path = "sdk/crypto/keys/secp256k1/internal/secp256k1/README.md"
+status = "accurate"
+notes = "All seven lines read: copied go-ethereum cgo wrapper provenance and BSD licensing scope are explicit; this is upstream provenance, not a current network deployment guide."
+
+[doc.15]
+path = "sdk/crypto/keys/secp256k1/internal/secp256k1/libsecp256k1/README.md"
+status = "accurate"
+notes = "Full upstream library README read; describes vendored implementation/build features and experimental provenance, without claiming merged-network qualification."
+
+[doc.16]
+path = "sdk/crypto/hd/doc.go"
+status = "accurate"
+notes = "Full BIP32/BIP44 package guide read; legacy fundraiser derivation context matches the local HD implementation."
+
+[doc.17]
+path = "sdk/crypto/keyring/doc.go"
+status = "stale"
+notes = "Lines 3-12 describe absent Keybase, NewLegacy and NewKeyring APIs; actual public constructors are New and NewInMemory."
+
+[doc.18]
+path = "sdk/crypto/keys/ed25519/doc.go"
+status = "accurate"
+notes = "Full package comment read; ZIP215 verification and ed25519consensus match ed25519.go, independently of stricter hosted receipt verification."
+
+[doc.19]
+path = "sdk/crypto/keys/internal/ecdsa/doc.go"
+status = "accurate"
+notes = "Full package comment read; SDK-compatible ECDSA serialization describes the implementation without an external service claim."
+
+[doc.20]
+path = "sdk/crypto/keys/secp256r1/doc.go"
+status = "accurate"
+notes = "Full comment and registration code read; P256 protobuf/Any registration, field width and named curve agree with the wrapper."
+
+[doc.21]
+path = "spec/layerx-merge/contracts/cosmos-fork.md"
+status = "accurate"
+notes = "Reviewed the relevant crypto anchor and linked SDK declarations as a pinned historical contract; its UNRUN labels are preserved, and live crypto disagreements are recorded on their source files."
+
+[doc.22]
+path = "spec/layerx-merge/contracts/interop-service.md"
+status = "accurate"
+notes = "Reviewed relevant env and service-config contract sections: authority inputs are explicitly retired, new RPC URL and receipt-key file replace old batch pins, and UNRUN is historical rather than deployment evidence."
+
+[finding.xcrypto-test-version-drift]
+file = "sdk/crypto/armor_xcrypto_test.go"
+line = 58
+class = "test-gap"
+severity = "medium"
+observed = "TestXCryptoBuildMatchesRequire accepts only golang.org/x/crypto v0.47.0, while the current go.mod:101 requires v0.53.0 and go.sum records that release. The test name promises agreement with the require line but its fixed value represents requirement 18932.1 from an earlier dependency revision."
+expected = "The linked executable, dependency manifest and approved version requirement must agree; changing the supported dependency must retain an explicit linked-version and no-replacement assertion."
+proposal = "Have the dependency owner reconcile the intentional x/crypto upgrade with requirement 18932.1, then align sdk/crypto/armor_xcrypto_test.go with that approved exact version and retain the real linked executable and armor round-trip checks; do not skip or weaken them."
+owner_domain = 15

@@ -1,0 +1,13 @@
+[repair.22.33.1122]
+audit = "22.30.49"
+baseline = "Not run: the ordered gate instructions prohibit verification before implementation and prohibit invoking verify_cmd outside hf-done; no baseline failures are claimed."
+wiring_requests = []
+evidence = "The runner records the qualified revision, command, exit code and private log from hf-done."
+
+[finding.001]
+tests = ["TestRepairM_1122_IdleHistoryExpires", "TestRepairM_1122_RefreshPreservesWindowAndLimit", "TestRepairM_1122_DisabledWindowKeepsNoHistory"]
+repair = "Expire connection history with one ordered entry per address and a single timer; repeated short-lived distinct addresses return to an empty history without further traffic."
+
+[finding.003]
+tests = ["TestRepairM_1122_OrderedPeerUpdates"]
+repair = "Append received events to actual and retain both node and status comparisons; real loopback routers produce ordered up/down subscription batches."

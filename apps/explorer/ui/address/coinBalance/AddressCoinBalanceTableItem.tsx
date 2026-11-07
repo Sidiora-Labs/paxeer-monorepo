@@ -1,4 +1,3 @@
-import { Stat } from '@chakra-ui/react';
 import BigNumber from 'bignumber.js';
 import React from 'react';
 
@@ -6,6 +5,7 @@ import type { AddressCoinBalanceHistoryItem } from 'types/api/address';
 import type { ClusterChainConfig } from 'types/multichain';
 
 import { Skeleton } from 'toolkit/chakra/skeleton';
+import { Stat } from 'toolkit/chakra/stat';
 import { TableCell, TableRow } from 'toolkit/chakra/table';
 import { ZERO } from 'toolkit/utils/consts';
 import BlockEntity from 'ui/shared/entities/block/BlockEntity';

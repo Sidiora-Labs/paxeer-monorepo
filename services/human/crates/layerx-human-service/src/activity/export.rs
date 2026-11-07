@@ -1,3 +1,7 @@
+#[path = "committed.rs"]
+mod committed;
+pub use committed::{CommittedReceiptEvidence, ConsensusAuthority, ReceiptHeaderBinding};
+
 use std::collections::BTreeSet;
 use std::fmt::{Display, Formatter, Write as _};
 
@@ -5,7 +9,10 @@ use layerx_client::sequencer::ReceiptKeyEntry;
 use layerx_proof::export::{
     DerivedAggregate, ExportVerificationError, InclusionFact, InclusionKind, VerificationReport,
 };
-use layerx_proof::inclusion::{verify_activity, verify_state, SequencerAuthorization};
+use layerx_proof::inclusion::{
+    verify_activity, verify_receipt as verify_receipt_inclusion, verify_state,
+    SequencerAuthorization,
+};
 use layerx_proof::merkle::{decode_proof, encode_proof};
 use layerx_proof::receipt::verify_sequencer_signature;
 use layerx_types::rung::Rung;
@@ -24,7 +31,7 @@ const MAXIMUM_EXPORT_BYTES: usize = 64 * 1024 * 1024;
 const PRINCIPAL_DOMAIN: &[u8] = b"layerx-human-export-principal/v1";
 const CSV_HEADER: &str =
     "entry_id,kind,status,occurred_at,projected_at,verification,receipt_references\r\n";
-const BUNDLE_MAGIC: &[u8; 8] = b"LXHEXPV2";
+const BUNDLE_MAGIC: &[u8; 8] = b"LXHEXPV3";
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct StatementExport {
@@ -57,6 +64,8 @@ pub struct ReceiptFact {
     pub receipt_hash: [u8; 32],
     pub block_height: u64,
     pub rung: Rung,
+    pub committed: Option<CommittedReceiptEvidence>,
+    pub header_binding: Option<ReceiptHeaderBinding>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -110,13 +119,18 @@ pub struct EvidenceBundle {
     protocol_evidence: Vec<ReceiptExport>,
     audit_export: Option<Vec<u8>>,
     bounded_bytes: usize,
+    version: u8,
 }
 
 impl EvidenceBundle {
     pub fn encode(&self) -> Result<Vec<u8>, ExportError> {
         let mut out = Vec::new();
-        out.extend_from_slice(BUNDLE_MAGIC);
-        out.push(2);
+        out.extend_from_slice(if self.version == 2 {
+            b"LXHEXPV2"
+        } else {
+            BUNDLE_MAGIC
+        });
+        out.push(self.version);
         out.extend_from_slice(&self.principal_binding);
         push_u32(&mut out, self.entries.len())?;
         for entry in &self.entries {
@@ -143,6 +157,24 @@ impl EvidenceBundle {
                 out.extend_from_slice(&receipt.receipt_hash);
                 out.extend_from_slice(&receipt.block_height.to_be_bytes());
                 out.push(rung_byte(receipt.rung));
+                if self.version >= 3 {
+                    match &receipt.committed {
+                        Some(evidence) => {
+                            out.push(1);
+                            evidence.encode(&mut out)?;
+                        }
+                        None => out.push(0),
+                    }
+                    match &receipt.header_binding {
+                        Some(binding) => {
+                            out.push(1);
+                            binding.encode(&mut out)?;
+                        }
+                        None => out.push(0),
+                    }
+                } else if receipt.committed.is_some() || receipt.header_binding.is_some() {
+                    return Err(ExportError::UnboundProtocolEvidence);
+                }
             }
             push_u32(&mut out, export.inclusions.len())?;
             for fact in &export.inclusions {
@@ -190,11 +222,11 @@ impl EvidenceBundle {
         if magic == b"LXHEXP01" || magic == b"LXHEXP02" {
             return Err(ExportError::UnsupportedVersion { version: 1 });
         }
-        if magic != BUNDLE_MAGIC {
+        if magic != BUNDLE_MAGIC && magic != b"LXHEXPV2" {
             return Err(ExportError::UnboundProtocolEvidence);
         }
         let version = reader.byte()?;
-        if version != 2 {
+        if !((magic == BUNDLE_MAGIC && version == 3) || (magic == b"LXHEXPV2" && version == 2)) {
             return Err(ExportError::UnsupportedVersion { version });
         }
         let principal_binding = reader.array()?;
@@ -229,6 +261,24 @@ impl EvidenceBundle {
                     receipt_hash: reader.array()?,
                     block_height: u64::from_be_bytes(reader.array()?),
                     rung: read_rung(reader.byte()?)?,
+                    committed: if version == 2 {
+                        None
+                    } else {
+                        match reader.byte()? {
+                            0 => None,
+                            1 => Some(CommittedReceiptEvidence::decode(&mut reader)?),
+                            _ => return Err(ExportError::UnboundProtocolEvidence),
+                        }
+                    },
+                    header_binding: if version == 2 {
+                        None
+                    } else {
+                        match reader.byte()? {
+                            0 => None,
+                            1 => Some(ReceiptHeaderBinding::decode(&mut reader)?),
+                            _ => return Err(ExportError::UnboundProtocolEvidence),
+                        }
+                    },
                 });
             }
             let count = reader.count()?;
@@ -277,6 +327,7 @@ impl EvidenceBundle {
             protocol_evidence,
             audit_export,
             bounded_bytes: bytes.len(),
+            version,
         })
     }
     #[must_use]
@@ -333,6 +384,8 @@ impl EvidenceBundle {
             block_height,
             rung,
             canonical_receipt_bytes: canonical_receipt,
+            committed: None,
+            header_binding: None,
         })
     }
 
@@ -352,6 +405,7 @@ impl EvidenceBundle {
             }],
             audit_export: None,
             bounded_bytes: 0,
+            version: 3,
         };
         bundle.bounded_bytes = bundle.encode().map_err(VerifyError::Unavailable)?.len();
         Ok(bundle)
@@ -366,13 +420,27 @@ impl EvidenceBundle {
         if self.digest().map_err(VerifyError::Unavailable)? != expected_digest {
             return Err(VerifyError::Unverified(UnverifiedReason::DigestMismatch));
         }
-        self.verify_bindings(principal, receipt_keys)
+        self.verify_bindings(principal, receipt_keys, &[])
+    }
+
+    pub fn verify_with_consensus(
+        &self,
+        expected_digest: [u8; 32],
+        principal: &PrincipalId,
+        receipt_keys: &[ReceiptKeyEntry],
+        consensus: &[ConsensusAuthority],
+    ) -> Result<BundleReport, VerifyError> {
+        if self.digest().map_err(VerifyError::Unavailable)? != expected_digest {
+            return Err(VerifyError::Unverified(UnverifiedReason::DigestMismatch));
+        }
+        self.verify_bindings(principal, receipt_keys, consensus)
     }
 
     fn verify_bindings(
         &self,
         principal: &PrincipalId,
         receipt_keys: &[ReceiptKeyEntry],
+        consensus: &[ConsensusAuthority],
     ) -> Result<BundleReport, VerifyError> {
         if principal_binding(principal.as_str()) != self.principal_binding {
             return Err(VerifyError::Unverified(UnverifiedReason::PrincipalMismatch));
@@ -406,8 +474,9 @@ impl EvidenceBundle {
                 return Err(VerifyError::Unverified(UnverifiedReason::AuthorityMismatch));
             }
         }
-        let protocol = verify_protocol_set(&self.protocol_evidence, &expected, receipt_keys)
-            .map_err(VerifyError::from)?;
+        let protocol =
+            verify_protocol_set(&self.protocol_evidence, &expected, receipt_keys, consensus)
+                .map_err(VerifyError::from)?;
         let audit = self
             .audit_export
             .as_deref()
@@ -431,6 +500,14 @@ impl EvidenceBundle {
         receipt: &ReceiptFact,
         receipt_keys: &[ReceiptKeyEntry],
     ) -> Result<BundleReport, VerifyError> {
+        Self::verify_receipt_with_consensus(receipt, receipt_keys, &[])
+    }
+
+    pub fn verify_receipt_with_consensus(
+        receipt: &ReceiptFact,
+        receipt_keys: &[ReceiptKeyEntry],
+        consensus: &[ConsensusAuthority],
+    ) -> Result<BundleReport, VerifyError> {
         if <[u8; 32]>::from(Sha256::digest(&receipt.canonical_receipt_bytes))
             != receipt.receipt_hash
         {
@@ -449,37 +526,9 @@ impl EvidenceBundle {
         {
             return Err(VerifyError::Unverified(UnverifiedReason::Tampered));
         }
-        let matching = receipt_keys
-            .iter()
-            .filter(|key| key.key_id == protocol.context_hash())
-            .collect::<Vec<_>>();
-        if matching.is_empty() {
-            return Err(VerifyError::Unavailable(
-                ExportError::AuthorityUnavailable {
-                    reference: hex(receipt.receipt_hash),
-                },
-            ));
-        }
-        if matching.len() != 1
-            || matching[0].key_id == [0; 32]
-            || matching[0].public_key == [0; 32]
-            || receipt.block_height < matching[0].first_height
-            || receipt.block_height > matching[0].last_height
-        {
-            return Err(VerifyError::Unverified(UnverifiedReason::AuthorityMismatch));
-        }
-        let keys = receipt_keys
-            .iter()
-            .map(|key| {
-                SequencerAuthorization::new(
-                    key.key_id,
-                    key.public_key,
-                    key.first_height,
-                    key.last_height,
-                )
-            })
-            .collect::<Vec<_>>();
-        verify_sequencer_signature(&receipt.canonical_receipt_bytes, keys.as_slice()).map_err(
+        let authority =
+            pinned_authorization(protocol.context_hash(), receipt.block_height, receipt_keys)?;
+        verify_sequencer_signature(&receipt.canonical_receipt_bytes, &[authority]).map_err(
             |failure| {
                 VerifyError::Unverified(
                     if failure.check == layerx_proof::receipt::ReceiptCheck::SequencerSignature {
@@ -490,13 +539,99 @@ impl EvidenceBundle {
                 )
             },
         )?;
+        let accepted = match &receipt.committed {
+            None => Rung::Receipted,
+            Some(evidence) => {
+                evidence.verify(protocol, receipt.block_height, receipt_keys, consensus)?;
+                Rung::Committed
+            }
+        };
+        if receipt.rung != accepted {
+            return Err(VerifyError::Unverified(UnverifiedReason::Tampered));
+        }
+        if let Some(binding) = &receipt.header_binding {
+            verify_header_binding(receipt, binding, receipt_keys)?;
+        }
         Ok(BundleReport {
             entries: 1,
             verified_receipts: 1,
-            verified_inclusions: 0,
+            verified_inclusions: usize::from(receipt.header_binding.is_some()),
             audit_entries: 0,
         })
     }
+}
+
+fn pinned_authorization(
+    key_id: [u8; 32],
+    height: u64,
+    keys: &[ReceiptKeyEntry],
+) -> Result<SequencerAuthorization, VerifyError> {
+    let known = keys.iter().any(|key| key.key_id == key_id);
+    if !known {
+        return Err(VerifyError::Unavailable(
+            ExportError::AuthorityUnavailable {
+                reference: hex(key_id),
+            },
+        ));
+    }
+    let matching: Vec<_> = keys
+        .iter()
+        .filter(|key| {
+            key.key_id == key_id && key.first_height <= height && height <= key.last_height
+        })
+        .collect();
+    if matching.len() != 1 || key_id == [0; 32] || matching[0].public_key == [0; 32] {
+        return Err(VerifyError::Unverified(UnverifiedReason::AuthorityMismatch));
+    }
+    let key = matching[0];
+    Ok(SequencerAuthorization::new(
+        key.key_id,
+        key.public_key,
+        key.first_height,
+        key.last_height,
+    ))
+}
+
+fn verify_header_binding(
+    receipt: &ReceiptFact,
+    binding: &ReceiptHeaderBinding,
+    keys: &[ReceiptKeyEntry],
+) -> Result<SequencerAuthorization, VerifyError> {
+    let invalid = || VerifyError::Unverified(UnverifiedReason::Tampered);
+    let decoded =
+        layerx_wire::receipt::decode(&receipt.canonical_receipt_bytes).map_err(|_| invalid())?;
+    let protocol = decoded.protocol().ok_or_else(invalid)?;
+    let header = layerx_wire::receipt::decode_batch_header(&binding.canonical_header_bytes)
+        .map_err(|_| invalid())?;
+    let pinned = pinned_authorization(protocol.context_hash(), header.batch_number(), keys)?;
+    // Core batch headers name the signing public key as sequencer identity;
+    // the receipt's context names its governed key-history identifier.
+    if header.sequencer_id() != pinned.public_key()
+        || header.batch_number() != receipt.block_height
+        || header.protocol_version() != protocol.protocol_version()
+        || !(header.first_sequence()..=header.last_sequence()).contains(&protocol.global_sequence())
+        || receipt
+            .committed
+            .as_ref()
+            .is_some_and(|evidence| evidence.execution_header.height < header.batch_number())
+    {
+        return Err(VerifyError::Unverified(UnverifiedReason::AuthorityMismatch));
+    }
+    let authority = SequencerAuthorization::new(
+        header.sequencer_id(),
+        pinned.public_key(),
+        pinned.first_batch_number(),
+        pinned.last_batch_number(),
+    );
+    verify_receipt_inclusion(
+        &receipt.canonical_receipt_bytes,
+        &binding.receipt_proof,
+        &binding.canonical_header_bytes,
+        &binding.header_signature,
+        &authority,
+    )
+    .map_err(|_| invalid())?;
+    Ok(authority)
 }
 
 fn entry_for_receipt(entry_id: ActivityEntryId, receipt: &ReceiptFact) -> EvidenceEntry {
@@ -846,6 +981,30 @@ impl EvidenceExport {
         now: u64,
         observed_agent_head: u64,
     ) -> Result<(EvidenceBundle, BundleReport), ExportError> {
+        self.evidence_with_consensus(
+            scope,
+            filters,
+            entry_ids,
+            protocol_evidence,
+            receipt_keys,
+            &[],
+            now,
+            observed_agent_head,
+        )
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub fn evidence_with_consensus(
+        self,
+        scope: &PrincipalScope<'_>,
+        filters: &AppliedFilters,
+        entry_ids: &[ActivityEntryId],
+        protocol_evidence: Vec<ReceiptExport>,
+        receipt_keys: &[ReceiptKeyEntry],
+        consensus: &[ConsensusAuthority],
+        now: u64,
+        observed_agent_head: u64,
+    ) -> Result<(EvidenceBundle, BundleReport), ExportError> {
         let selected = self.select(scope, filters, entry_ids, now, observed_agent_head)?;
         let mut entries = Vec::new();
         for entry in &selected {
@@ -865,7 +1024,7 @@ impl EvidenceExport {
             }
         }
         let expected = referenced_receipts(&entries);
-        verify_protocol_set(&protocol_evidence, &expected, receipt_keys)?;
+        verify_protocol_set(&protocol_evidence, &expected, receipt_keys, consensus)?;
         let bounded_bytes = evidence_size(&entries, &protocol_evidence, None)?;
         let mut bundle = EvidenceBundle {
             principal_binding: principal_binding(scope.principal().as_str()),
@@ -873,10 +1032,11 @@ impl EvidenceExport {
             protocol_evidence,
             audit_export: None,
             bounded_bytes,
+            version: 3,
         };
         bundle.bounded_bytes = bundle.encode()?.len();
         require_bound(bundle.bounded_bytes, self.maximum_bytes)?;
-        let report = bundle.verify_bindings(scope.principal(), receipt_keys)?;
+        let report = bundle.verify_bindings(scope.principal(), receipt_keys, consensus)?;
         Ok((bundle, report))
     }
 
@@ -901,6 +1061,7 @@ impl EvidenceExport {
             protocol_evidence: Vec::new(),
             audit_export: Some(audit_export),
             bounded_bytes,
+            version: 3,
         };
         let digest = bundle.digest()?;
         bundle.verify(digest, scope.principal(), &[])?;
@@ -1028,6 +1189,14 @@ pub fn verify_receipt_export(
     artifact: &ReceiptExport,
     receipt_keys: &[ReceiptKeyEntry],
 ) -> Result<VerificationReport, ExportError> {
+    verify_receipt_export_with_consensus(artifact, receipt_keys, &[])
+}
+
+pub fn verify_receipt_export_with_consensus(
+    artifact: &ReceiptExport,
+    receipt_keys: &[ReceiptKeyEntry],
+    consensus: &[ConsensusAuthority],
+) -> Result<VerificationReport, ExportError> {
     if !artifact.derived_aggregates.is_empty() {
         return Err(ExportError::UnboundProtocolEvidence);
     }
@@ -1037,12 +1206,14 @@ pub fn verify_receipt_export(
                 ExportVerificationError::EmptyStatement,
             ));
         }
-        EvidenceBundle::verify_receipt(receipt, receipt_keys).map_err(|error| match error {
-            VerifyError::Unverified(UnverifiedReason::DigestMismatch) => {
-                ExportError::Unverified(UnverifiedReason::Tampered)
-            }
-            other => ExportError::from(other),
-        })?;
+        EvidenceBundle::verify_receipt_with_consensus(receipt, receipt_keys, consensus).map_err(
+            |error| match error {
+                VerifyError::Unverified(UnverifiedReason::DigestMismatch) => {
+                    ExportError::Unverified(UnverifiedReason::Tampered)
+                }
+                other => ExportError::from(other),
+            },
+        )?;
     }
     for (index, fact) in artifact.inclusions.iter().enumerate() {
         if fact.statement.trim().is_empty() {
@@ -1050,13 +1221,53 @@ pub fn verify_receipt_export(
                 ExportVerificationError::EmptyStatement,
             ));
         }
+        let selected = artifact
+            .receipts
+            .iter()
+            .filter(|receipt| {
+                receipt.header_binding.as_ref().is_some_and(|binding| {
+                    binding.canonical_header_bytes == fact.canonical_header_bytes
+                        && binding.header_signature == fact.header_signature
+                }) && match fact.kind {
+                    InclusionKind::Activity => {
+                        fact.canonical_leaf_bytes.as_slice() == receipt.tx_hash
+                    }
+                    InclusionKind::State => {
+                        layerx_wire::receipt::decode(&receipt.canonical_receipt_bytes)
+                            .ok()
+                            .and_then(|decoded| {
+                                decoded
+                                    .protocol()
+                                    .map(|protocol| protocol.resulting_state_root())
+                            })
+                            == Some(fact.named_root)
+                    }
+                }
+            })
+            .collect::<Vec<_>>();
+        if selected.len() != 1 {
+            return Err(ExportError::UnboundProtocolEvidence);
+        }
+        let receipt = selected[0];
+        let authority = verify_header_binding(
+            receipt,
+            receipt
+                .header_binding
+                .as_ref()
+                .ok_or(ExportError::UnboundProtocolEvidence)?,
+            receipt_keys,
+        )
+        .map_err(ExportError::from)?;
+        if fact.sequencer_authorization != authority {
+            return Err(ExportError::Unverified(UnverifiedReason::AuthorityMismatch));
+        }
         let evidence = match fact.kind {
             InclusionKind::Activity => verify_activity(
                 &fact.canonical_leaf_bytes,
                 &fact.proof,
                 &fact.canonical_header_bytes,
                 &fact.header_signature,
-                &fact.sequencer_authorization,
+                &authority,
             ),
             InclusionKind::State => verify_state(
                 &fact.canonical_leaf_bytes,
@@ -1064,7 +1275,7 @@ pub fn verify_receipt_export(
                 &fact.named_root,
                 &fact.canonical_header_bytes,
                 &fact.header_signature,
-                &fact.sequencer_authorization,
+                &authority,
             ),
         }
         .map_err(|error| {
@@ -1082,12 +1293,23 @@ pub fn verify_receipt_export(
     }
     Ok(VerificationReport {
         verified_receipts: artifact.receipts.len(),
-        verified_inclusions: artifact.inclusions.len(),
+        verified_inclusions: artifact.inclusions.len()
+            + artifact
+                .receipts
+                .iter()
+                .filter(|receipt| receipt.header_binding.is_some())
+                .count(),
         receipt_digests: artifact.receipts.iter().map(|r| r.receipt_hash).collect(),
-        achieved_levels: vec![
-            layerx_types::verify::VerificationLevel::SEQUENCER_SIGNED;
-            artifact.receipts.len()
-        ],
+        achieved_levels: artifact
+            .receipts
+            .iter()
+            .map(|receipt| match receipt.rung {
+                Rung::Committed => layerx_types::verify::VerificationLevel::CHECKPOINT_FINALISED,
+                Rung::Receipted | Rung::Submitted => {
+                    layerx_types::verify::VerificationLevel::SEQUENCER_SIGNED
+                }
+            })
+            .collect(),
         derived_aggregates_are_protocol_facts: false,
     })
 }
@@ -1096,6 +1318,7 @@ fn verify_protocol_set(
     protocol: &[ReceiptExport],
     expected: &BTreeSet<String>,
     receipt_keys: &[ReceiptKeyEntry],
+    consensus: &[ConsensusAuthority],
 ) -> Result<Vec<VerificationReport>, ExportError> {
     let mut provided = BTreeSet::new();
     let mut reports = Vec::with_capacity(protocol.len());
@@ -1103,7 +1326,7 @@ fn verify_protocol_set(
         if artifact.receipts.is_empty() {
             return Err(ExportError::UnboundProtocolEvidence);
         }
-        let report = verify_receipt_export(artifact, receipt_keys)?;
+        let report = verify_receipt_export_with_consensus(artifact, receipt_keys, consensus)?;
         for receipt in &artifact.receipts {
             let reference = hex(receipt.receipt_hash);
             if !provided.insert(reference.clone()) {

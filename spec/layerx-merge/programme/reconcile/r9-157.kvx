@@ -1,0 +1,243 @@
+[reconcile.r9-157]
+revision = "53150198caf59defafffab36d79dbc66d921ae57"
+rows = 30
+
+[row.r9-157.1]
+interface = "interface.9.rs-agent-api-feeprojectionrequest-meter-j70"
+verdict = "served"
+path = "services/agent/crates/layerx-agent-api/src/read.rs"
+line = 674
+symbol = "meter"
+evidence = "FeeProjectionRequest declares pub const fn meter(self); its return type is now layerx_client::fee::FeeMeter rather than the registered layerx_client::client::FeeMeter. The body constructs that fee meter from the request fields."
+
+[row.r9-157.2]
+interface = "interface.9.rs-agent-api-feeprojectionrequest-validate-j70"
+verdict = "served"
+path = "services/agent/crates/layerx-agent-api/src/read.rs"
+line = 666
+symbol = "validate"
+evidence = "Inside impl FeeProjectionRequest, pub const fn validate(self) -> Result<Self, ContractError> checks canonical_bytes against the native meter maximum. This is distinct from the other validate methods in read.rs."
+
+[row.r9-157.3]
+interface = "interface.9.rs-agent-api-projectionresult-new-j70"
+verdict = "served"
+path = "services/agent/crates/layerx-agent-api/src/read.rs"
+line = 633
+symbol = "new"
+evidence = "Inside impl<T> ProjectionResult<T>, pub fn new takes projected: T, rationale: impl Into<String>, and observed_freshness: Freshness, returning Result<Self, ContractError>. Other new occurrences construct references or verified reads."
+
+[row.r9-157.4]
+interface = "interface.9.rs-agent-api-proofbundle-check-response-j70"
+verdict = "served"
+path = "services/agent/crates/layerx-agent-api/src/read.rs"
+line = 405
+symbol = "check_response"
+evidence = "Inside impl ProofBundle, pub fn check_response takes &ReadRequest<ProofBundleTarget> and &VerifiedRead<Self>, returning Result<(), ContractError>; it checks the requested target and response rung. The later occurrence calls this method."
+
+[row.r9-157.5]
+interface = "interface.9.rs-agent-api-proofbundle-record-j70"
+verdict = "served"
+path = "services/agent/crates/layerx-agent-api/src/read.rs"
+line = 478
+symbol = "record"
+evidence = "Inside impl ProofBundle, record is now an associated function taking target: &CanonicalBytes and proofs: &[CanonicalBytes], rather than the registered &self receiver. It still returns Result<ProofBundleRecord, ContractError> and checks the decoded target against the proof variant."
+
+[row.r9-157.6]
+interface = "interface.9.rs-agent-api-read-availabilityclass"
+verdict = "served"
+path = "services/agent/crates/layerx-agent-api/src/read.rs"
+line = 522
+symbol = "AvailabilityClass"
+evidence = "pub enum AvailabilityClass declares Activities, Receipts, Oracle, StateDiff, and Recovery. The other occurrence is the type of ClassReport.class, not the enum declaration."
+
+[row.r9-157.7]
+interface = "interface.9.rs-agent-api-read-availabilitycompletion"
+verdict = "served"
+path = "services/agent/crates/layerx-agent-api/src/read.rs"
+line = 547
+symbol = "AvailabilityCompletion"
+evidence = "pub enum AvailabilityCompletion declares Complete { provider: ProviderRef } and Partial. AvailabilityReport.completion refers to this enum below its declaration."
+
+[row.r9-157.8]
+interface = "interface.9.rs-agent-api-read-availabilityreport"
+verdict = "served"
+path = "services/agent/crates/layerx-agent-api/src/read.rs"
+line = 553
+symbol = "AvailabilityReport"
+evidence = "pub struct AvailabilityReport declares completion, classes, and providers. The subsequent sealed::Sealed and CoreProduced implementations refer to this struct rather than declaring it."
+
+[row.r9-157.9]
+interface = "interface.9.rs-agent-api-read-availabilityrequest"
+verdict = "served"
+path = "services/agent/crates/layerx-agent-api/src/read.rs"
+line = 563
+symbol = "AvailabilityRequest"
+evidence = "pub struct AvailabilityRequest declares selector, requested_rung, maximum_bytes, maximum_chunks, and deadline. Its later impl block validates the retrieval bounds."
+
+[row.r9-157.10]
+interface = "interface.9.rs-agent-api-read-classreport"
+verdict = "served"
+path = "services/agent/crates/layerx-agent-api/src/read.rs"
+line = 531
+symbol = "ClassReport"
+evidence = "pub struct ClassReport declares class, complete, verified_chunks, verified_bytes, and failure. ProviderReport and AvailabilityReport subsequently use Vec<ClassReport>."
+
+[row.r9-157.11]
+interface = "interface.9.rs-agent-api-read-feeprojectionrequest"
+verdict = "served"
+path = "services/agent/crates/layerx-agent-api/src/read.rs"
+line = 652
+symbol = "FeeProjectionRequest"
+evidence = "pub struct FeeProjectionRequest declares protocol_activity_type, canonical_bytes, execution_units, and storage_units. Its impl and FeeProjection.request are later references to this declaration."
+
+[row.r9-157.12]
+interface = "interface.9.rs-agent-api-read-projectionresult"
+verdict = "served"
+path = "services/agent/crates/layerx-agent-api/src/read.rs"
+line = 622
+symbol = "ProjectionResult"
+evidence = "pub struct ProjectionResult<T> declares projected: T, rationale: String, and observed_freshness: Freshness. The following impl<T> supplies its constructor; later fee projection code returns this type."
+
+[row.r9-157.13]
+interface = "interface.9.rs-agent-api-read-proofbundlerecord"
+verdict = "served"
+path = "services/agent/crates/layerx-agent-api/src/read.rs"
+line = 306
+symbol = "ProofBundleRecord"
+evidence = "pub struct ProofBundleRecord declares variant, canonical_value, native_proof, and optional activity_receipt. The following impl provides encode and decode; later ProofBundle code and tests use the record."
+
+[row.r9-157.14]
+interface = "interface.9.rs-agent-api-read-proofbundlevariant"
+verdict = "served"
+path = "services/agent/crates/layerx-agent-api/src/read.rs"
+line = 298
+symbol = "ProofBundleVariant"
+evidence = "The repr(u8) pub enum ProofBundleVariant declares Activity = 1, Account = 2, Receipt = 3, and MaintainedAccount = 4. Other occurrences reference these variants during encoding, decoding, and validation."
+
+[row.r9-157.15]
+interface = "interface.9.rs-agent-api-read-providerreport-j43"
+verdict = "served"
+path = "services/agent/crates/layerx-agent-api/src/read.rs"
+line = 540
+symbol = "ProviderReport"
+evidence = "pub struct ProviderReport declares provider: ProviderRef, classes: Vec<ClassReport>, and failure: Option<String>. AvailabilityReport.providers subsequently uses Vec<ProviderReport>."
+
+[row.r9-157.16]
+interface = "interface.9.rs-agentd-agent-rpc-agentrpcresponse"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/agent_rpc.rs"
+line = 492
+symbol = "AgentRpcResponse"
+evidence = "pub struct AgentRpcResponse declares status: u16 and body: Vec<u8>. The many later occurrences are return types, borrowed response arguments, or response construction expressions."
+
+[row.r9-157.17]
+interface = "interface.9.rs-agentd-agent-rpc-authorize-j43"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/agent_rpc.rs"
+line = 320
+symbol = "authorize"
+evidence = "pub fn authorize takes &SessionControl, &Envelope, Surface, core_sequence: u64, and Option<ObjectOwner>, returning Result<OperationPermit, Rejection>. The later .authorize occurrence calls session control inside this function."
+
+[row.r9-157.18]
+interface = "interface.9.rs-agentd-agent-rpc-decode"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/agent_rpc.rs"
+line = 200
+symbol = "decode"
+evidence = "pub fn decode(body: &[u8]) -> Result<Envelope, Rejection> declares the bounded version 1 envelope decoder. Later decode(body) occurrences invoke this function from RPC and human request handlers."
+
+[row.r9-157.19]
+interface = "interface.9.rs-agentd-agent-rpc-error-body-j43"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/agent_rpc.rs"
+line = 476
+symbol = "error_body"
+evidence = "pub fn error_body(rejection: &Rejection) -> Vec<u8> declares the JSON error envelope renderer. The refusal and rejected helpers later call it to populate response bodies."
+
+[row.r9-157.20]
+interface = "interface.9.rs-agentd-agent-rpc-handle-rpc"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/agent_rpc.rs"
+line = 830
+symbol = "handle_rpc"
+evidence = "pub fn handle_rpc<A: HumanAuthorityBoundary> takes owner: &SharedAgentOwner<A> and body: &[u8], returning AgentRpcResponse. The declaration spans four lines; later human request handlers call it."
+
+[row.r9-157.21]
+interface = "interface.9.rs-agentd-agent-rpc-http-status-j43"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/agent_rpc.rs"
+line = 452
+symbol = "http_status"
+evidence = "pub fn http_status(rejection: &Rejection) -> u16 declares the rejection-to-HTTP-status mapper. The rejected helper later calls it when constructing an AgentRpcResponse."
+
+[row.r9-157.22]
+interface = "interface.9.rs-agentd-agent-rpc-mcp-api-refusal"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/agent_rpc.rs"
+line = 1358
+symbol = "mcp_api_refusal"
+evidence = "pub fn mcp_api_refusal(error: &ApiError) -> AgentRpcResponse declares the MCP API error renderer. The later mcp_control_refusal code calls this function after translating a session-control error."
+
+[row.r9-157.23]
+interface = "interface.9.rs-agentd-agent-rpc-refusal"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/agent_rpc.rs"
+line = 499
+symbol = "refusal"
+evidence = "pub fn refusal(status: u16, class: ErrorClass, reason: &'static str) -> AgentRpcResponse declares the HTTP framing refusal renderer. Other occurrences include calls, documentation, and local variables named refusal."
+
+[row.r9-157.24]
+interface = "interface.9.rs-agentd-agent-rpc-success-body-j43"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/agent_rpc.rs"
+line = 602
+symbol = "success_body"
+evidence = "pub fn success_body takes RequestId, &Dispatched, and requested: Option<Option<Rung>>, returning Result<AgentRpcResponse, Rejection>. It renders the verified success envelope; later dispatcher paths call it."
+
+[row.r9-157.25]
+interface = "interface.9.rs-agentd-budget-budget-proof-verify-budget-proof-j43"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/budget/budget_proof.rs"
+line = 423
+symbol = "verify_budget_proof"
+evidence = "The current declaration is pub fn verify_budget_proof<T: BudgetProofVerifier>, taking export: &[u8], budget_id: [u8; 32], and trust: &T, returning Result<T::Verified, BudgetProofError>. The generic parameter now appears before the argument list; the later occurrence is a test invocation."
+
+[row.r9-157.26]
+interface = "interface.9.rs-agentd-budget-create-locallimit"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/budget/create.rs"
+line = 495
+symbol = "LocalLimit"
+evidence = "pub struct LocalLimit declares tenant, id, asset, ceiling, enforcement, and bypass_statement. The following impl LocalLimit supplies new; it is not the struct declaration."
+
+[row.r9-157.27]
+interface = "interface.9.rs-agentd-budget-create-protocolbudget-j43"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/budget/create.rs"
+line = 450
+symbol = "ProtocolBudget"
+evidence = "pub struct ProtocolBudget declares private object_id, kind, receipt_bytes, enforcement, record, and observed_head_sequence fields. Its impl, the create_protocol_budget return type, and construction expression are later uses."
+
+[row.r9-157.28]
+interface = "interface.9.rs-agentd-protocolbudget-enforcement-j70"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/budget/create.rs"
+line = 476
+symbol = "enforcement"
+evidence = "Inside impl ProtocolBudget, pub const fn enforcement(&self) -> &'static str returns self.enforcement. The similarly named ProtocolBudget and LocalLimit fields and their initializers are not this method declaration."
+
+[row.r9-157.29]
+interface = "interface.9.rs-agentd-budget-mod-program-consumption-updates-j43"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/budget/mod.rs"
+line = 914
+symbol = "program_consumption_updates"
+evidence = "pub fn program_consumption_updates takes &Store, &TenantId, and &ProgramBudgetReservation, returning Result<Vec<(TenantKey, Vec<u8>)>, DaemonLimitError>. Later occurrences call this declaration in reservation recovery tests."
+
+[row.r9-157.30]
+interface = "interface.9.rs-agentd-budget-program-settlement-programexecuteddebit-j43"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/budget/program_settlement.rs"
+line = 358
+symbol = "ProgramExecutedDebit"
+evidence = "pub struct ProgramExecutedDebit declares kind, source, asset, destination, and actual_amount. VerifiedProgramDebitSettlement stores these debits, and later settlement paths construct values of this type."

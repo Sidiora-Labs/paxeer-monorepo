@@ -11,6 +11,7 @@ import (
 	"crypto/x509"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"flag"
 	"io"
 	"log"
@@ -19,6 +20,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"reflect"
 	"slices"
 	"strconv"
 	"strings"
@@ -38,7 +40,7 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/attestor/internal/policy/lx"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/attestor/internal/store"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/attestor/internal/transport"
-	"github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/attestor/internal/tss/dealer"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/attestor/internal/tss/dealershare"
 )
 
 var updateGolden = flag.Bool("update", false, "rewrite the attestor API golden files")
@@ -831,6 +833,10 @@ func TestSnapshotFollowsAddShare(t *testing.T) {
 	edPub := importSnapshotKey(t, c, nil, holders, "share-key", account)
 	h.expect(t, c, "keys.import", map[string]int{"node-1": 1, "node-2": 1, "node-3": 1, "node-4": 1, "node-5": 1}, "share-key")
 
+	originalReceipt, err := c.nodes[0].store.ImportReceipt("share-key")
+	if err != nil {
+		t.Fatal(err)
+	}
 	quorum := []string{"node-1", "node-2", "node-3", "node-4"}
 	newcomer := "node-6"
 	denied := c.call(t, c.byID(newcomer)[0], PathAddShare, AddShareRequest{SessionID: "unapproved-replacement", KeyID: "share-key", Curve: "ed25519", PublicKey: hex.EncodeToString(edPub), Owner: testOwner, Account: account, NewParticipantID: newcomer, Quorum: quorum}, "")
@@ -841,6 +847,18 @@ func TestSnapshotFollowsAddShare(t *testing.T) {
 		return AddShareRequest{SessionID: "addshare-snap", KeyID: "share-key", Curve: "ed25519", PublicKey: hex.EncodeToString(edPub), Owner: testOwner, Account: account, NewParticipantID: newcomer, Quorum: quorum}
 	}, ""))
 	h.expect(t, c, "keys.addshare", map[string]int{"node-1": 2, "node-2": 2, "node-3": 2, "node-4": 2, "node-5": 1, "node-6": 1}, "share-key")
+	for _, n := range c.nodes {
+		h.mu.Lock()
+		state := h.writers[n.id].State()
+		h.mu.Unlock()
+		if state.LastError != "" || state.Failures != 0 {
+			t.Fatalf("%s: snapshot failed after add-share: %+v", n.id, state)
+		}
+	}
+	receipt, err := c.nodes[0].store.ImportReceipt("share-key")
+	if err != nil || !reflect.DeepEqual(receipt, originalReceipt) {
+		t.Fatalf("replacement changed original import identity: %+v %v", receipt, err)
+	}
 	logged, err := os.ReadFile(filepath.Join(c.configs[5].nodeDir, "audit", audit.FileName))
 	if err != nil {
 		t.Fatal(err)
@@ -879,6 +897,46 @@ func TestSnapshotFollowsAddShare(t *testing.T) {
 			t.Fatalf("restored replacement signature: %+v %v", response, err)
 		}
 	}
+	contributor := c.nodes[0]
+	var originalHistory []byte
+	if err := contributor.store.WithRecord(store.RecordReplacement, "share-key", func(raw []byte) error {
+		originalHistory = append([]byte(nil), raw...)
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	for _, tc := range []struct {
+		name   string
+		mutate func([]store.ShareReplacement)
+		want   error
+	}{
+		{"original material", func(h []store.ShareReplacement) { h[0].Previous.Ciphertext[0] ^= 1 }, store.ErrAuthFailed},
+		{"replacement roster", func(h []store.ShareReplacement) { h[0].NewParticipantID = "node-5" }, store.ErrSnapshotFormat},
+		{"foreign contributor", func(h []store.ShareReplacement) { h[0].Quorum[0] = "node-6" }, store.ErrSnapshotFormat},
+		{"duplicate contributor", func(h []store.ShareReplacement) { h[0].Quorum[0] = h[0].Quorum[1] }, store.ErrSnapshotFormat},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Cleanup(func() {
+				if err := contributor.store.UpdateRecord(store.RecordReplacement, "share-key", func([]byte) ([]byte, error) { return append([]byte(nil), originalHistory...), nil }); err != nil {
+					t.Error(err)
+				}
+			})
+			if err := contributor.store.UpdateRecord(store.RecordReplacement, "share-key", func(raw []byte) ([]byte, error) {
+				var history []store.ShareReplacement
+				if err := json.Unmarshal(raw, &history); err != nil {
+					return nil, err
+				}
+				tc.mutate(history)
+				return json.Marshal(history)
+			}); err != nil {
+				t.Fatal(err)
+			}
+			if err := contributor.store.Snapshot(io.Discard, snapshotBackupKey(contributor.id), contributor.id); !errors.Is(err, tc.want) {
+				t.Fatalf("snapshot accepted invalid replacement history: %v, want %v", err, tc.want)
+			}
+		})
+	}
+
 }
 
 func heldShareHex(t *testing.T, n *testNode, keyID string) string {
@@ -962,7 +1020,7 @@ func TestDescribeReturnsPublicMaterialToTheOperator(t *testing.T) {
 					want = append(want, "ceremony_id", "import_session_id", "import_digest")
 				}
 				if stage == "refreshed" {
-					want = append(want, "refresh_session_id", "refresh_state")
+					want = append(want, "refresh", "refresh_session_id", "refresh_state")
 				}
 				if len(fields) != len(want) {
 					t.Fatalf("%s %s on %s: fields %s", stage, kc.id, n.id, r.body)
@@ -984,6 +1042,19 @@ func TestDescribeReturnsPublicMaterialToTheOperator(t *testing.T) {
 				}
 				if stage == "refreshed" && (got.RefreshSessionID != "refresh-"+kc.id || got.RefreshState != "complete") {
 					t.Fatalf("durable refresh identity: %+v", got)
+				}
+				if stage == "refreshed" {
+					refresh := got.Refresh
+					importSession := ""
+					if strings.HasPrefix(kc.id, "imported-") {
+						importSession = "import-" + kc.id
+					}
+					if refresh == nil || refresh.ExistingKey != strings.HasPrefix(kc.id, "generated-") || refresh.CeremonyID != "metrics-ceremony" ||
+						refresh.ImportSessionID != importSession || refresh.SessionID != "refresh-"+kc.id || refresh.KeyID != kc.id || refresh.BaseEpoch != 0 ||
+						refresh.Curve != kc.curve || refresh.PublicKey != kc.created[i].PublicKey || !slices.Equal(refresh.Participants, c.ids) ||
+						refresh.Decision != PhaseCommit || refresh.AuditSequence == 0 || refresh.AuditSequence >= got.AuditSequence {
+						t.Fatalf("durable public refresh material for %s on %s: %+v", kc.id, n.id, refresh)
+					}
 				}
 				created := kc.created[i]
 				head, _ := n.audit.Head()

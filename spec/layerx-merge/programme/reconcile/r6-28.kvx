@@ -1,0 +1,291 @@
+[reconcile.r6-28]
+revision = "d6c341e59603faf9a28756df9aff6d45927fe392"
+rows = 36
+
+[row.r6-28.1]
+interface = "interface.6.wasm-std-msg-ibc-send-packet"
+verdict = "served"
+path = "wasm/x/wasm/keeper/handler_plugin.go"
+line = 155
+symbol = "SendPacket"
+evidence = "IBCRawPacketHandler.DispatchMsg handles msg.IBC.SendPacket at line 155, obtains the next send sequence at line 166, and calls channelKeeper.SendPacket at line 191 using the contract IBC port and channel capability."
+
+[row.r6-28.2]
+interface = "interface.6.wasm-std-msg-bank-send"
+verdict = "served"
+path = "wasm/x/wasm/keeper/handler_plugin_encoders.go"
+line = 120
+symbol = "MsgSend"
+evidence = "EncodeBankMsg converts bank.send amounts and constructs banktypes.MsgSend at line 120 with the contract sender, recipient and coins; an empty amount returns no message at lines 113-114."
+
+[row.r6-28.3]
+interface = "interface.6.wasm-std-msg-distribution-set-withdraw-address"
+verdict = "served"
+path = "wasm/x/wasm/keeper/handler_plugin_encoders.go"
+line = 134
+symbol = "SetWithdrawAddress"
+evidence = "EncodeDistributionMsg handles msg.SetWithdrawAddress at line 134 and constructs distributiontypes.MsgSetWithdrawAddress with the contract as delegator and the requested withdrawal address."
+
+[row.r6-28.4]
+interface = "interface.6.wasm-std-msg-distribution-withdraw-delegator-reward"
+verdict = "served"
+path = "wasm/x/wasm/keeper/handler_plugin_encoders.go"
+line = 140
+symbol = "WithdrawDelegatorReward"
+evidence = "EncodeDistributionMsg handles msg.WithdrawDelegatorReward at line 140 and constructs distributiontypes.MsgWithdrawDelegatorReward with the contract delegator and requested validator."
+
+[row.r6-28.5]
+interface = "interface.6.wasm-std-msg-staking-delegate"
+verdict = "served"
+path = "wasm/x/wasm/keeper/handler_plugin_encoders.go"
+line = 153
+symbol = "Delegate"
+evidence = "EncodeStakingMsg handles msg.Delegate at line 153, converts its coin, and constructs stakingtypes.MsgDelegate with the contract delegator, validator and amount at lines 158-162."
+
+[row.r6-28.6]
+interface = "interface.6.wasm-std-msg-staking-redelegate"
+verdict = "served"
+path = "wasm/x/wasm/keeper/handler_plugin_encoders.go"
+line = 165
+symbol = "Redelegate"
+evidence = "EncodeStakingMsg handles msg.Redelegate at line 165 and constructs stakingtypes.MsgBeginRedelegate with contract delegator, source validator, destination validator and converted amount."
+
+[row.r6-28.7]
+interface = "interface.6.wasm-std-msg-staking-undelegate"
+verdict = "served"
+path = "wasm/x/wasm/keeper/handler_plugin_encoders.go"
+line = 177
+symbol = "Undelegate"
+evidence = "EncodeStakingMsg handles msg.Undelegate at line 177 and constructs stakingtypes.MsgUndelegate with contract delegator, validator and converted amount at lines 182-186."
+
+[row.r6-28.8]
+interface = "interface.6.wasm-std-msg-stargate"
+verdict = "served"
+path = "wasm/x/wasm/keeper/handler_plugin_encoders.go"
+line = 193
+symbol = "EncodeStargateMsg"
+evidence = "EncodeStargateMsg returns a StargateEncoder that places TypeURL and Value into codectypes.Any, unpacks it as sdk.Msg, unpacks nested interfaces and returns the decoded message."
+
+[row.r6-28.9]
+interface = "interface.6.wasm-std-msg-wasm-execute"
+verdict = "served"
+path = "wasm/x/wasm/keeper/handler_plugin_encoders.go"
+line = 212
+symbol = "Execute"
+evidence = "EncodeWasmMsg handles msg.Execute at line 212 and constructs types.MsgExecuteContract with contract sender, target ContractAddr, raw Msg and converted Funds at lines 218-223."
+
+[row.r6-28.10]
+interface = "interface.6.wasm-std-msg-wasm-instantiate"
+verdict = "served"
+path = "wasm/x/wasm/keeper/handler_plugin_encoders.go"
+line = 225
+symbol = "Instantiate"
+evidence = "EncodeWasmMsg handles msg.Instantiate at line 225 and constructs types.MsgInstantiateContract with contract sender, CodeID, Label, Msg, Admin and converted Funds at lines 231-238."
+
+[row.r6-28.11]
+interface = "interface.6.wasm-std-msg-wasm-migrate"
+verdict = "served"
+path = "wasm/x/wasm/keeper/handler_plugin_encoders.go"
+line = 240
+symbol = "Migrate"
+evidence = "EncodeWasmMsg handles msg.Migrate at line 240 and constructs types.MsgMigrateContract with contract sender, ContractAddr, NewCodeID and Msg at lines 241-246."
+
+[row.r6-28.12]
+interface = "interface.6.wasm-std-msg-wasm-clear-admin"
+verdict = "served"
+path = "wasm/x/wasm/keeper/handler_plugin_encoders.go"
+line = 248
+symbol = "ClearAdmin"
+evidence = "EncodeWasmMsg handles msg.ClearAdmin at line 248 and constructs types.MsgClearAdmin with the contract sender and requested ContractAddr at lines 249-252."
+
+[row.r6-28.13]
+interface = "interface.6.wasm-std-msg-wasm-update-admin"
+verdict = "served"
+path = "wasm/x/wasm/keeper/handler_plugin_encoders.go"
+line = 254
+symbol = "UpdateAdmin"
+evidence = "EncodeWasmMsg handles msg.UpdateAdmin at line 254 and constructs types.MsgUpdateAdmin with contract sender, requested ContractAddr and NewAdmin at lines 255-259."
+
+[row.r6-28.14]
+interface = "interface.6.wasm-std-msg-ibc-close-channel"
+verdict = "served"
+path = "wasm/x/wasm/keeper/handler_plugin_encoders.go"
+line = 269
+symbol = "CloseChannel"
+evidence = "EncodeIBCMsg handles msg.CloseChannel at line 269 and constructs channeltypes.MsgChannelCloseInit using PortIDForContract(sender), the requested channel ID and contract signer."
+
+[row.r6-28.15]
+interface = "interface.6.wasm-std-msg-ibc-transfer"
+verdict = "served"
+path = "wasm/x/wasm/keeper/handler_plugin_encoders.go"
+line = 275
+symbol = "Transfer"
+evidence = "EncodeIBCMsg handles msg.Transfer at line 275 and constructs ibctransfertypes.MsgTransfer with portSource.GetPort(ctx), requested channel, converted token, contract sender, receiver and both timeout fields."
+
+[row.r6-28.16]
+interface = "interface.6.wasm-std-msg-gov-vote"
+verdict = "served"
+path = "wasm/x/wasm/keeper/handler_plugin_encoders.go"
+line = 313
+symbol = "MsgVote"
+evidence = "EncodeGovMsg constructs govtypes.MsgVote at line 313 using ProposalId, the contract voter and the mapped yes, no, no_with_veto or abstain option; a missing Vote is now rejected at lines 297-298."
+
+[row.r6-28.17]
+interface = "interface.6.wasm-std-msg-gov-vote-weighted"
+verdict = "served"
+path = "wasm/x/wasm/keeper/handler_plugin_encoders.go"
+line = 296
+symbol = "EncodeGovMsg"
+evidence = "The declaration remains func EncodeGovMsg(sender sdk.AccAddress, msg *wasmvmtypes.GovMsg) ([]sdk.Msg, error). The registered signature description of an unconditional msg.Vote dereference has changed: lines 297-298 guard a nil Vote and return wrapped ErrUnknownMsg (Unknown variant of Gov), so a vote_weighted-only message is refused rather than panicking. Weighted-vote encoding remains unsupported; VoteWeighted is still declared at wasm-runtime/types/msg.go:139."
+
+[row.r6-28.18]
+interface = "interface.6.msg-wasm-storecode"
+verdict = "served"
+path = "wasm/x/wasm/keeper/msg_server.go"
+line = 24
+symbol = "StoreCode"
+evidence = "msgServer.StoreCode accepts *types.MsgStoreCode and returns (*types.MsgStoreCodeResponse, error); it calls keeper.Create with the sender, WASMByteCode and InstantiatePermission and returns CodeID."
+
+[row.r6-28.19]
+interface = "interface.6.msg-wasm-instantiatecontract"
+verdict = "served"
+path = "wasm/x/wasm/keeper/msg_server.go"
+line = 47
+symbol = "InstantiateContract"
+evidence = "msgServer.InstantiateContract accepts *types.MsgInstantiateContract and returns (*types.MsgInstantiateContractResponse, error); keeper.Instantiate receives code ID, sender, optional admin, message, label and funds, and returns address and data."
+
+[row.r6-28.20]
+interface = "interface.6.msg-wasm-executecontract"
+verdict = "served"
+path = "wasm/x/wasm/keeper/msg_server.go"
+line = 78
+symbol = "ExecuteContract"
+evidence = "msgServer.ExecuteContract accepts *types.MsgExecuteContract and returns (*types.MsgExecuteContractResponse, error); it validates sender and contract addresses, calls keeper.Execute with message and funds, and returns data."
+
+[row.r6-28.21]
+interface = "interface.6.msg-wasm-migratecontract"
+verdict = "served"
+path = "wasm/x/wasm/keeper/msg_server.go"
+line = 110
+symbol = "MigrateContract"
+evidence = "msgServer.MigrateContract accepts *types.MsgMigrateContract and returns (*types.MsgMigrateContractResponse, error); it validates sender and contract, calls keeper.Migrate with CodeID and Msg, and returns data."
+
+[row.r6-28.22]
+interface = "interface.6.msg-wasm-updateadmin"
+verdict = "served"
+path = "wasm/x/wasm/keeper/msg_server.go"
+line = 137
+symbol = "UpdateAdmin"
+evidence = "msgServer.UpdateAdmin accepts *types.MsgUpdateAdmin and returns (*types.MsgUpdateAdminResponse, error); it validates sender, contract and new admin before calling keeper.UpdateContractAdmin."
+
+[row.r6-28.23]
+interface = "interface.6.msg-wasm-clearadmin"
+verdict = "served"
+path = "wasm/x/wasm/keeper/msg_server.go"
+line = 165
+symbol = "ClearAdmin"
+evidence = "msgServer.ClearAdmin accepts *types.MsgClearAdmin and returns (*types.MsgClearAdminResponse, error); it validates sender and contract before calling keeper.ClearContractAdmin."
+
+[row.r6-28.24]
+interface = "interface.6.wasm-std-qry-bank-all-balances"
+verdict = "served"
+path = "wasm/x/wasm/keeper/query_plugins.go"
+line = 169
+symbol = "AllBalances"
+evidence = "BankQuerier handles request.AllBalances at line 169, validates the address, reads bankKeeper.GetAllBalances and marshals AllBalancesResponse with converted coins in Amount."
+
+[row.r6-28.25]
+interface = "interface.6.wasm-std-qry-bank-balance"
+verdict = "served"
+path = "wasm/x/wasm/keeper/query_plugins.go"
+line = 180
+symbol = "Balance"
+evidence = "BankQuerier handles request.Balance at line 180, validates the address, reads bankKeeper.GetBalance with the requested denom and marshals BalanceResponse with the coin denom and string amount."
+
+[row.r6-28.26]
+interface = "interface.6.wasm-std-qry-ibc-port-id"
+verdict = "served"
+path = "wasm/x/wasm/keeper/query_plugins.go"
+line = 204
+symbol = "PortID"
+evidence = "IBCQuerier handles request.PortID at line 204, obtains the calling contract metadata and marshals PortIDResponse containing contractInfo.IBCPortID."
+
+[row.r6-28.27]
+interface = "interface.6.wasm-std-qry-ibc-list-channels"
+verdict = "served"
+path = "wasm/x/wasm/keeper/query_plugins.go"
+line = 211
+symbol = "ListChannels"
+evidence = "IBCQuerier handles request.ListChannels at line 211 and marshals ListChannelsResponse after iterating OPEN channels; an empty requested port accepts all ports, otherwise the channel port must match."
+
+[row.r6-28.28]
+interface = "interface.6.wasm-std-qry-ibc-channel"
+verdict = "served"
+path = "wasm/x/wasm/keeper/query_plugins.go"
+line = 239
+symbol = "Channel"
+evidence = "IBCQuerier handles request.Channel at line 239, defaults an empty port to the calling contract IBC port, and marshals ChannelResponse with a channel only when it exists in OPEN state."
+
+[row.r6-28.29]
+interface = "interface.6.wasm-std-qry-staking-bonded-denom"
+verdict = "served"
+path = "wasm/x/wasm/keeper/query_plugins.go"
+line = 281
+symbol = "BondedDenom"
+evidence = "StakingQuerier handles request.BondedDenom at line 281 and marshals BondedDenomResponse with the denom read from keeper.BondDenom(ctx)."
+
+[row.r6-28.30]
+interface = "interface.6.wasm-std-qry-staking-all-validators"
+verdict = "served"
+path = "wasm/x/wasm/keeper/query_plugins.go"
+line = 288
+symbol = "AllValidators"
+evidence = "StakingQuerier handles request.AllValidators at line 288, reads keeper.GetBondedValidatorsByPower and marshals AllValidatorsResponse with each validator address and commission fields."
+
+[row.r6-28.31]
+interface = "interface.6.wasm-std-qry-staking-validator"
+verdict = "served"
+path = "wasm/x/wasm/keeper/query_plugins.go"
+line = 305
+symbol = "Validator"
+evidence = "StakingQuerier handles request.Validator at line 305, validates the requested validator address and marshals ValidatorResponse with optional validator data from keeper.GetValidator."
+
+[row.r6-28.32]
+interface = "interface.6.wasm-std-qry-staking-all-delegations"
+verdict = "served"
+path = "wasm/x/wasm/keeper/query_plugins.go"
+line = 322
+symbol = "AllDelegations"
+evidence = "StakingQuerier handles request.AllDelegations at line 322, validates the delegator, reads GetAllDelegatorDelegations, converts with sdkToDelegations and marshals AllDelegationsResponse."
+
+[row.r6-28.33]
+interface = "interface.6.wasm-std-qry-staking-delegation"
+verdict = "served"
+path = "wasm/x/wasm/keeper/query_plugins.go"
+line = 337
+symbol = "Delegation"
+evidence = "StakingQuerier handles request.Delegation at line 337, validates delegator and validator, and marshals DelegationResponse with sdkToFullDelegation data only when keeper.GetDelegation finds a delegation."
+
+[row.r6-28.34]
+interface = "interface.6.wasm-std-qry-wasm-smart"
+verdict = "served"
+path = "wasm/x/wasm/keeper/query_plugins.go"
+line = 512
+symbol = "Smart"
+evidence = "WasmQuerier handles request.Smart at line 512, validates the contract address and RawContractMessage JSON, then returns k.QuerySmart(ctx, addr, msg)."
+
+[row.r6-28.35]
+interface = "interface.6.wasm-std-qry-wasm-raw"
+verdict = "served"
+path = "wasm/x/wasm/keeper/query_plugins.go"
+line = 522
+symbol = "Raw"
+evidence = "WasmQuerier handles request.Raw at line 522, validates the contract address and returns k.QueryRaw(ctx, addr, request.Raw.Key) as the raw store value."
+
+[row.r6-28.36]
+interface = "interface.6.wasm-std-qry-wasm-contract-info"
+verdict = "served"
+path = "wasm/x/wasm/keeper/query_plugins.go"
+line = 528
+symbol = "ContractInfo"
+evidence = "WasmQuerier handles request.ContractInfo at line 528, validates the contract address, refuses a missing contract and marshals ContractInfoResponse with CodeID, Creator, Admin, Pinned and IBCPort."

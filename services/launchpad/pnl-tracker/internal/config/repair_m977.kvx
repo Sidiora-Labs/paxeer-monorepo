@@ -1,0 +1,10 @@
+[repair.22.33.977]
+finding = "reconciler-interval-validation"
+tests = ["TestRepairM_977_ValidIntervals", "TestRepairM_977_RejectInvalidIntervals"]
+path = "Environment -> config.Load -> Config.ReconcileInterval -> time.NewTicker; invalid input is rejected before returning Config."
+boundary = "1 through 9223372036854 milliseconds inclusive; zero, negatives, duration overflow and integer parse overflow are rejected."
+baseline = "Not run: the ordered gate instructions prohibit verification before implementation and allow verification only through hf-done. No pre-change test failure is claimed."
+wiring_requests = "None; the repair is wholly within the config package."
+evidence = "The private hf-build/hf-done gate ledger records the exact candidate revision, command, exit code and log path; final task evidence is emitted by hf-done."
+parser_gotcha = "caarlos0/env v11.4.1 parses int fields at 32 bits; Load explicitly parses only the reconciler interval at native int width, retaining the existing field type and all boundary assertions."
+first_verification = "79dd59ab70725e8d8979b59165a418eda68d5c8f; cg spec done 22.33.977 -f layerx-merge --root /work/paxeer-monorepo; exit 1; /out/logs/verify-1.log; boundary values hit the library's 32-bit parser and lacked an environment-key diagnostic."

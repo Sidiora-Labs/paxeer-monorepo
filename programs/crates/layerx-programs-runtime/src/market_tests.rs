@@ -5,6 +5,20 @@ use crate::{
     ProgramId, Storage, StorageNamespace, TransferSource, WasmEngine,
 };
 
+#[path = "../tests/support/compiled_guest.rs"]
+mod compiled_guest;
+
+fn market_wasm() -> &'static [u8] {
+    static WASM: std::sync::OnceLock<Vec<u8>> = std::sync::OnceLock::new();
+    WASM.get_or_init(|| {
+        compiled_guest::load_or_build(
+            "LAYERX_MARKET_WASM",
+            "layerx-programs-market",
+            "layerx_programs_market.wasm",
+        )
+    })
+}
+
 fn program() -> ProgramId {
     ProgramId::new([0x55; 32]).unwrap_or_else(|e| panic!("{e}"))
 }
@@ -100,12 +114,9 @@ fn execute_with_authority(
     input: &[u8],
     authority: Vec<Capability>,
 ) -> CandidateAuthorizedExecutionRecord {
-    let path = std::env::var("LAYERX_MARKET_WASM")
-        .unwrap_or_else(|e| panic!("actual compiled market: {e}"));
-    let wasm = std::fs::read(path).unwrap_or_else(|e| panic!("compiled market: {e}"));
     let module = WasmEngine::declared()
         .unwrap_or_else(|e| panic!("engine: {e}"))
-        .validate_v5(&wasm)
+        .validate_v5(market_wasm())
         .unwrap_or_else(|e| panic!("market validation: {e}"));
     let mut catalog = ProgramCatalog::new();
     catalog.insert(sandbox_program(), sandbox_module());
@@ -341,8 +352,8 @@ fn compiled_market_refuses_unfunded_and_unauthorized_payments_atomically() {
 }
 
 use crate::execute::{
-    encode_market_step_evidence, instantiate_market_sandbox_untrusted, market_sandbox_input_digest,
-    MarketSandboxRequest, MarketStepProof,
+    encode_market_step_evidence_with_header, instantiate_market_sandbox_untrusted,
+    market_sandbox_input_digest, MarketSandboxRequest, MarketStepProof,
 };
 use crate::portable_replay::{replay_leaf_hash, replay_node_hash, PortableBoundary};
 use crate::replay::{
@@ -350,7 +361,7 @@ use crate::replay::{
 };
 use crate::test_support::{
     code_section, export_section, func_body, function_section, module, type_section, OP_END,
-    OP_I32_ADD, OP_I32_CONST, TYPE_I32,
+    OP_I32_ADD, OP_I32_CONST, OP_LOCAL_GET, TYPE_I32,
 };
 use crate::{
     ArbitrationStepCommitment, FeeSchedule, ProgramReplayProfile, ResourceBudget, ValidatedModule,
@@ -362,10 +373,11 @@ use layerx_program_sdk::arbiter::{
 };
 use sha2::{Digest, Sha256};
 
-const PRICE: u128 = 100_000_000;
+const PRICE: u128 = 10_000;
+const LEASE_UNITS: u64 = 100_000;
+const TOTAL_CAPACITY: u64 = 10 * LEASE_UNITS;
 const FUNDED: u128 = 1_000_000_000;
 const BOND: u128 = 3_000_000_000;
-const PAYABLE: u128 = 500_000_000;
 const CHALLENGE_STAKE: u128 = 250_000_000;
 const MAX_BYTES: u32 = 1_048_576;
 const PROVIDER: [u8; 32] = [2; 32];
@@ -377,19 +389,28 @@ const LEASE_A: [u8; 32] = [5; 32];
 const LEASE_B: [u8; 32] = [6; 32];
 const CHALLENGED_AT: u64 = 7;
 const WINDOW: u64 = 10;
-const USAGE: [u64; 6] = [5, 1, 0, 0, 0, 0];
+
+fn honest_usage() -> [u64; 6] {
+    static USAGE: std::sync::OnceLock<[u64; 6]> = std::sync::OnceLock::new();
+    *USAGE.get_or_init(|| Execution::capture(LEASE_A, None).usage)
+}
+fn payable() -> u128 {
+    PRICE
+        .checked_mul(u128::from(honest_usage()[0]))
+        .unwrap_or_else(|| panic!("price overflow"))
+}
 
 fn sandbox_program() -> ProgramId {
     ProgramId::new([0x77; 32]).unwrap_or_else(|e| panic!("{e}"))
 }
 fn integer_guest() -> Vec<u8> {
-    let mut body = vec![OP_I32_CONST, 1];
-    for value in 2..=6 {
+    let mut body = vec![OP_LOCAL_GET, 0];
+    for value in 2..=3 {
         body.extend([OP_I32_CONST, value, OP_I32_ADD]);
     }
     body.push(OP_END);
     module(&[
-        type_section(&[(&[], &[TYPE_I32])]),
+        type_section(&[(&[TYPE_I32], &[TYPE_I32])]),
         function_section(&[0]),
         export_section(&[("compute", 0)]),
         code_section(&[func_body(&[], &body)]),
@@ -417,12 +438,13 @@ fn claim_id(lease: [u8; 32]) -> [u8; 32] {
 
 /// A Merkle commitment over boundary leaves, built the way the runtime commits a trace.
 struct Committed {
+    header: crate::replay_record::ReplayRecordHeader,
     leaves: Vec<Vec<u8>>,
     levels: Vec<Vec<[u8; 32]>>,
 }
 
 impl Committed {
-    fn new(leaves: Vec<Vec<u8>>) -> Self {
+    fn new(leaves: Vec<Vec<u8>>, header: crate::replay_record::ReplayRecordHeader) -> Self {
         let mut levels = vec![leaves
             .iter()
             .enumerate()
@@ -438,7 +460,11 @@ impl Committed {
                 .collect();
             levels.push(next);
         }
-        Self { leaves, levels }
+        Self {
+            header,
+            leaves,
+            levels,
+        }
     }
     fn root(&self) -> [u8; 32] {
         self.levels[self.levels.len() - 1][0]
@@ -467,12 +493,31 @@ impl Committed {
                 siblings,
             })
             .collect();
-        encode_market_step_evidence(baseline, &proofs)
+        let initial = sandbox_module().initial_replay_memory().unwrap();
+        let mut memory = initial.clone();
+        for leaf in &self.leaves[..=indices[0] as usize] {
+            let mut boundary =
+                PortableBoundary::decode_with_header(leaf, MAX_BYTES as usize, &self.header)
+                    .unwrap();
+            memory = boundary.rebuild_memory(&memory).unwrap();
+        }
+        let chunks = crate::replay::ReplayMemory::capture(&memory, &initial)
+            .unwrap()
+            .changed_chunks;
+        encode_market_step_evidence_with_header(baseline, &proofs, &chunks, &self.header)
             .unwrap_or_else(|e| panic!("step evidence: {e:?}"))
     }
     fn commitment(&self, index: usize) -> [u8; 32] {
-        let boundary = PortableBoundary::decode_untrusted(&self.leaves[index], MAX_BYTES as usize)
-            .unwrap_or_else(|e| panic!("committed boundary: {e:?}"));
+        let mut memory = sandbox_module().initial_replay_memory().unwrap();
+        let mut boundary = None;
+        for leaf in &self.leaves[..=index] {
+            let mut current =
+                PortableBoundary::decode_with_header(leaf, MAX_BYTES as usize, &self.header)
+                    .unwrap();
+            memory = current.rebuild_memory(&memory).unwrap();
+            boundary = Some(current);
+        }
+        let boundary = boundary.unwrap();
         ArbitrationStepCommitment::from_state(&boundary.arbitration)
             .unwrap_or_else(|e| panic!("boundary commitment: {e:?}"))
             .digest
@@ -490,6 +535,8 @@ struct Execution {
     initial: [u8; 32],
     authority: MarketSandboxReplayAuthority,
     baseline: Vec<u8>,
+    usage: [u64; 6],
+    output_digest: [u8; 32],
 }
 
 impl Execution {
@@ -507,7 +554,7 @@ impl Execution {
             tenant: PrincipalId::new(TENANT).unwrap_or_else(|e| panic!("{e}")),
             payment_account: TENANT,
             code_hash: module.code_hash(),
-            input_digest: market_sandbox_input_digest("compute", &[])
+            input_digest: market_sandbox_input_digest("compute", &[crate::WasmValue::I32(1)])
                 .unwrap_or_else(|e| panic!("input digest: {e:?}")),
             runtime_version: RUNTIME_VERSION,
             abi_version: 2,
@@ -526,14 +573,17 @@ impl Execution {
             .call_market_sandbox_untrusted(MarketSandboxRequest {
                 module: &module,
                 entrypoint: "compute",
-                args: &[],
+                args: &[crate::WasmValue::I32(1)],
                 authority: &authority,
                 replay_profile: ProgramReplayProfile::new(128, MAX_BYTES)
                     .unwrap_or_else(|e| panic!("replay profile: {e:?}")),
             })
             .unwrap_or_else(|e| panic!("captured sandbox execution: {e:?}"));
         assert!(execution.terminal_fault.is_none());
-        let truth = Committed::new(execution.boundary_leaves.clone());
+        let truth = Committed::new(
+            execution.boundary_leaves.clone(),
+            execution.record.header().clone(),
+        );
         assert_eq!(truth.root(), execution.record.boundary_root());
         assert_eq!(truth.count(), execution.record.boundary_count());
         assert!(truth.count() >= 4, "trace too short to bisect");
@@ -546,9 +596,12 @@ impl Execution {
                 .enumerate()
                 .map(|(index, leaf)| {
                     if lie_from.is_some_and(|from| index >= from) {
-                        let mut boundary =
-                            PortableBoundary::decode_untrusted(leaf, MAX_BYTES as usize)
-                                .unwrap_or_else(|e| panic!("boundary: {e:?}"));
+                        let mut boundary = PortableBoundary::decode_with_header(
+                            leaf,
+                            MAX_BYTES as usize,
+                            execution.record.header(),
+                        )
+                        .unwrap_or_else(|e| panic!("boundary: {e:?}"));
                         boundary.arbitration.host_state_root[0] ^= 1;
                         boundary
                             .reencode_untrusted(MAX_BYTES as usize)
@@ -558,6 +611,7 @@ impl Execution {
                     }
                 })
                 .collect(),
+            execution.record.header().clone(),
         );
         Self {
             truth,
@@ -566,6 +620,10 @@ impl Execution {
             baseline: baseline
                 .replay_state_bytes(MAX_BYTES as usize)
                 .unwrap_or_else(|e| panic!("baseline bytes: {e:?}")),
+            usage: execution
+                .billing_usage(2)
+                .unwrap_or_else(|| panic!("billing interval overflow")),
+            output_digest: execution.output_digest,
             authority,
         }
     }
@@ -606,7 +664,7 @@ impl Execution {
                 namespace_bytes: self.authority.namespace_limit,
             },
             fee_budget: FUNDED,
-            interval_start: 5,
+            interval_start: 4,
             interval_end: 6,
             response_deadline: 6 + WINDOW,
             maximum_boundaries: 128,
@@ -657,7 +715,7 @@ fn refused(
 }
 fn settlement_spends(lease: [u8; 32]) -> Vec<Capability> {
     vec![
-        spend(escrow(lease), PAYOUT, PAYABLE),
+        spend(escrow(lease), PAYOUT, payable()),
         spend(escrow(lease), TENANT, FUNDED),
         spend(b"challenge/a", PAYOUT, CHALLENGE_STAKE),
         spend(b"challenge/a", CHALLENGER, CHALLENGE_STAKE),
@@ -712,21 +770,41 @@ fn moved(record: &CandidateAuthorizedExecutionRecord) -> Vec<([u8; 32], [u8; 32]
 
 fn bonded() -> Storage {
     let mut storage = Storage::new();
+    let mut offer = vec![1, 1];
+    for value in [[1; 32], PROVIDER, PAYOUT, [9; 32], source(b"offer/stake")] {
+        offer.extend(value);
+    }
+    seed(&mut offer, b"offer/stake");
+    offer.extend(BOND.to_be_bytes());
+    offer.extend(PRICE.to_be_bytes());
+    for value in [TOTAL_CAPACITY, LEASE_UNITS, 2 * LEASE_UNITS, 1_000] {
+        offer.extend(value.to_be_bytes());
+    }
+    offer.push(3);
     accepted(
         &mut storage,
         PROVIDER,
         1,
-        &offer_with(BOND, PRICE, 1_000),
+        &offer,
         vec![fund(b"offer/stake", BOND)],
     );
     storage
 }
 fn open_lease(storage: &mut Storage, lease: [u8; 32], height: u64, expires_at: u64) {
+    let mut call = vec![1, 2];
+    for value in [lease, [1; 32], TENANT, TENANT, source(escrow(lease))] {
+        call.extend(value);
+    }
+    seed(&mut call, escrow(lease));
+    call.extend(LEASE_UNITS.to_be_bytes());
+    call.extend(FUNDED.to_be_bytes());
+    call.extend(expires_at.to_be_bytes());
+    assert_eq!(u128::from(LEASE_UNITS) * PRICE, FUNDED);
     accepted(
         storage,
         TENANT,
         height,
-        &lease_with(lease, escrow(lease), FUNDED, expires_at),
+        &call,
         vec![fund(escrow(lease), FUNDED)],
     );
 }
@@ -747,6 +825,14 @@ fn seal_inputs(storage: &mut Storage, lease: [u8; 32]) -> [u8; 32] {
         .unwrap_or_else(|e| panic!("{e}"))
 }
 fn commit_sandbox_claim(storage: &mut Storage, lease: [u8; 32], execution: &Execution) -> [u8; 32] {
+    commit_sandbox_claim_with(storage, lease, execution, |_| {})
+}
+fn commit_sandbox_claim_with(
+    storage: &mut Storage,
+    lease: [u8; 32],
+    execution: &Execution,
+    alter: impl FnOnce(&mut MarketBillingCommitment),
+) -> [u8; 32] {
     let attested = seal_inputs(storage, lease);
     let profile = execution.profile(lease, attested);
     let mut profile_bytes = [0; MARKET_SANDBOX_PROFILE_CAPACITY];
@@ -757,17 +843,22 @@ fn commit_sandbox_claim(storage: &mut Storage, lease: [u8; 32], execution: &Exec
     authorize.extend(&profile_bytes[..length]);
     accepted(storage, TENANT, 4, &authorize, vec![]);
     let committed = &execution.committed;
-    let billing = MarketBillingCommitment {
+    let mut billing = MarketBillingCommitment {
         profile_digest: Sha256::digest(&profile_bytes[..length]).into(),
         provider_trace_root: committed.root(),
         final_execution_state_root: committed.last(),
-        output_digest: [0x44; 32],
-        usage: USAGE,
-        payable: PAYABLE,
+        output_digest: execution.output_digest,
+        usage: execution.usage,
+        payable: PRICE * u128::from(execution.usage[0]),
         challenger_stake: CHALLENGE_STAKE,
         challenge_window_batches: WINDOW,
         boundary_count: committed.count(),
     };
+    alter(&mut billing);
+    assert!(
+        billing.payable <= FUNDED,
+        "bill must fit the genuine funded lease"
+    );
     let mut billing_bytes = [0; MARKET_SANDBOX_BILLING_CAPACITY];
     let length = billing
         .encode(&mut billing_bytes)
@@ -783,14 +874,22 @@ fn commit_sandbox_claim(storage: &mut Storage, lease: [u8; 32], execution: &Exec
 }
 /// A challenge contradicting the claim's output digest, staked from `challenge/a`.
 fn challenge(challenge_id: [u8; 32], attested: [u8; 32], execution_root: [u8; 32]) -> Vec<u8> {
+    challenge_from(challenge_id, attested, execution_root, b"challenge/a")
+}
+fn challenge_from(
+    challenge_id: [u8; 32],
+    attested: [u8; 32],
+    execution_root: [u8; 32],
+    stake_seed: &[u8],
+) -> Vec<u8> {
     let mut tail = challenge_id.to_vec();
-    tail.extend(source(b"challenge/a"));
-    seed(&mut tail, b"challenge/a");
+    tail.extend(source(stake_seed));
+    seed(&mut tail, stake_seed);
     tail.extend(CHALLENGE_STAKE.to_be_bytes());
     tail.extend(attested);
     tail.extend([0x45; 32]);
     tail.extend(execution_root);
-    for value in USAGE {
+    for value in honest_usage() {
         tail.extend(value.to_be_bytes());
     }
     tail
@@ -807,10 +906,16 @@ struct Dispute {
 
 impl Dispute {
     fn open(lie_from: Option<usize>) -> Self {
+        Self::open_with_billing(lie_from, |_| {})
+    }
+    fn open_with_billing(
+        lie_from: Option<usize>,
+        alter: impl FnOnce(&mut MarketBillingCommitment),
+    ) -> Self {
         let mut storage = bonded();
         open_lease(&mut storage, LEASE_A, 2, 400);
         let execution = Execution::capture(LEASE_A, lie_from);
-        let attested = commit_sandbox_claim(&mut storage, LEASE_A, &execution);
+        let attested = commit_sandbox_claim_with(&mut storage, LEASE_A, &execution, alter);
         let challenged = accepted(
             &mut storage,
             CHALLENGER,
@@ -954,8 +1059,8 @@ fn assert_provider_won(
     assert_eq!(
         moved(record),
         vec![
-            (source(escrow(LEASE_A)), PAYOUT, PAYABLE),
-            (source(escrow(LEASE_A)), TENANT, FUNDED - PAYABLE),
+            (source(escrow(LEASE_A)), PAYOUT, payable()),
+            (source(escrow(LEASE_A)), TENANT, FUNDED - payable()),
             (source(b"challenge/a"), PAYOUT, CHALLENGE_STAKE),
         ]
     );
@@ -964,8 +1069,8 @@ fn assert_provider_won(
     assert_eq!(&settlement[..2], &[1, 2]);
     assert_eq!(&settlement[2..34], &LEASE_A);
     assert_eq!(&settlement[66..98], &claim_id(LEASE_A));
-    assert_eq!(amount_at(&settlement, 242), PAYABLE);
-    assert_eq!(amount_at(&settlement, 258), FUNDED - PAYABLE);
+    assert_eq!(amount_at(&settlement, 242), payable());
+    assert_eq!(amount_at(&settlement, 258), FUNDED - payable());
     let dispute = dispute_row(storage, LEASE_A);
     assert_eq!((dispute[1], dispute[6], dispute[7]), (4, 1, resolution));
     assert_eq!(stake(storage).2, 0);
@@ -1016,13 +1121,16 @@ fn lying_from_middle() -> usize {
 fn compiled_market_dispute_honest_provider_defeats_a_lying_challenger() {
     let mut dispute = Dispute::open(None);
     assert_eq!(stake(&dispute.storage), (BOND, FUNDED, 0));
-    assert_eq!(available_capacity(&dispute.storage), 90);
+    assert_eq!(
+        available_capacity(&dispute.storage),
+        TOTAL_CAPACITY - LEASE_UNITS
+    );
     let settled = dispute.play(|_, _| false);
     assert_provider_won(&settled, &dispute.storage, 4);
     let total: u128 = moved(&settled).iter().map(|(_, _, amount)| amount).sum();
     assert_eq!(total, FUNDED + CHALLENGE_STAKE);
     assert_eq!(stake(&dispute.storage), (BOND, 0, 0));
-    assert_eq!(available_capacity(&dispute.storage), 100);
+    assert_eq!(available_capacity(&dispute.storage), TOTAL_CAPACITY);
     assert!(dispute.moves <= bisection_bound(dispute.execution.committed.count()));
     let height = dispute.height + 1;
     let evidence = dispute
@@ -1070,7 +1178,7 @@ fn compiled_market_dispute_honest_challenger_slashes_a_lying_provider() {
     assert_eq!((position, lo, hi), (index - 1, index - 1, index));
     assert_challenger_won(&settled, &dispute.storage, 4);
     assert_eq!(stake(&dispute.storage), (BOND - FUNDED, 0, FUNDED));
-    assert_eq!(available_capacity(&dispute.storage), 100);
+    assert_eq!(available_capacity(&dispute.storage), TOTAL_CAPACITY);
     assert!(dispute.moves <= bisection_bound(dispute.execution.committed.count()));
     close_offer(&mut dispute.storage, BOND - FUNDED);
 
@@ -1306,7 +1414,7 @@ fn compiled_market_dispute_refuses_forged_wrong_replayed_unauthorized_and_premat
         KEEPER,
         height,
         &input(17, LEASE_A, &genuine),
-        vec![spend(escrow(LEASE_A), PAYOUT, PAYABLE)],
+        vec![spend(escrow(LEASE_A), PAYOUT, payable())],
     );
     let settled = accepted(
         &mut dispute.storage,
@@ -1346,15 +1454,31 @@ fn compiled_market_dispute_refuses_forged_wrong_replayed_unauthorized_and_premat
     commitment.extend(attested);
     commitment.extend([0x44; 32]);
     commitment.extend([0x46; 32]);
-    for value in USAGE {
+    for value in honest_usage() {
         commitment.extend(value.to_be_bytes());
     }
-    commitment.extend(PAYABLE.to_be_bytes());
+    commitment.extend(payable().to_be_bytes());
     commitment.extend(CHALLENGE_STAKE.to_be_bytes());
     commitment.extend(WINDOW.to_be_bytes());
     let mut committed = vec![1, 10];
     committed.extend(commitment);
-    accepted(&mut usage_claim, PROVIDER, 6, &committed, vec![]);
+    refused(&mut usage_claim, PROVIDER, 6, &committed, vec![]);
+    for (prefix, id) in [
+        (b"lx.market.claim/".as_slice(), LEASE_B),
+        (b"lx.market.claim-id/".as_slice(), claim_id(LEASE_B)),
+        (b"lx.market.challenge/".as_slice(), LEASE_B),
+        (b"lx.market.dispute/".as_slice(), LEASE_B),
+        (b"lx.market.settlement/".as_slice(), LEASE_B),
+    ] {
+        let mut key = prefix.to_vec();
+        key.extend(id);
+        assert_eq!(
+            usage_claim
+                .protocol_state_value(StorageNamespace::shared(program()), &key)
+                .unwrap_or_else(|error| panic!("plain usage state: {error:?}")),
+            None,
+        );
+    }
     refused(
         &mut usage_claim,
         CHALLENGER,
@@ -1416,11 +1540,17 @@ fn compiled_market_concurrent_leases_are_not_over_slashed_and_the_offer_closes_a
     let mut dispute = Dispute::open(Some(lying_from_middle()));
     open_lease(&mut dispute.storage, LEASE_B, CHALLENGED_AT, 30);
     assert_eq!(stake(&dispute.storage), (BOND, 2 * FUNDED, 0));
-    assert_eq!(available_capacity(&dispute.storage), 80);
+    assert_eq!(
+        available_capacity(&dispute.storage),
+        TOTAL_CAPACITY - 2 * LEASE_UNITS
+    );
     let settled = dispute.play(honest_challenger);
     assert_challenger_won(&settled, &dispute.storage, 4);
     assert_eq!(stake(&dispute.storage), (BOND - FUNDED, FUNDED, FUNDED));
-    assert_eq!(available_capacity(&dispute.storage), 90);
+    assert_eq!(
+        available_capacity(&dispute.storage),
+        TOTAL_CAPACITY - LEASE_UNITS
+    );
     refused(
         &mut dispute.storage,
         PROVIDER,
@@ -1440,6 +1570,127 @@ fn compiled_market_concurrent_leases_are_not_over_slashed_and_the_offer_closes_a
         vec![(source(escrow(LEASE_B)), TENANT, FUNDED)]
     );
     assert_eq!(stake(&dispute.storage), (BOND - FUNDED, 0, FUNDED));
-    assert_eq!(available_capacity(&dispute.storage), 100);
+    assert_eq!(available_capacity(&dispute.storage), TOTAL_CAPACITY);
     close_offer(&mut dispute.storage, BOND - FUNDED);
+}
+
+#[test]
+fn repair_22_31_260_billing_unbound() {
+    let mut honest = Dispute::open(None);
+    assert_eq!(
+        honest.execution.truth.root(),
+        honest.execution.committed.root()
+    );
+    assert!(honest.execution.usage[0] < budget().cpu_fuel());
+    assert_ne!(honest.execution.output_digest, [0x44; 32]);
+    let settled = honest.play(|_, _| true);
+    assert_provider_won(&settled, &honest.storage, 5);
+
+    for dimension in 0..=6 {
+        let mut dispute = Dispute::open_with_billing(None, |billing| {
+            if dimension == 6 {
+                billing.output_digest[0] ^= 1;
+            } else {
+                billing.usage[dimension] += if dimension == 1 { 2 } else { 1 };
+                billing.payable = PRICE * u128::from(billing.usage[0]);
+            }
+        });
+        assert_eq!(
+            dispute.execution.truth.root(),
+            dispute.execution.committed.root()
+        );
+        let claim = row(&dispute.storage, b"lx.market.claim/", LEASE_A);
+        assert_eq!(claim[1], 2, "the within-limit bill was challenged");
+        let settled = dispute.play(|_, _| true);
+        assert_challenger_won(&settled, &dispute.storage, 5);
+        assert_eq!(stake(&dispute.storage), (BOND - FUNDED, 0, FUNDED));
+        assert_eq!(available_capacity(&dispute.storage), TOTAL_CAPACITY);
+    }
+}
+
+#[test]
+fn repair_22_31_260_challenge_account_overlap() {
+    let mut storage = bonded();
+    open_lease(&mut storage, LEASE_A, 2, 400);
+    let execution = Execution::capture(LEASE_A, None);
+    let attested = commit_sandbox_claim(&mut storage, LEASE_A, &execution);
+    for stake_seed in [escrow(LEASE_A), b"offer/stake".as_slice()] {
+        refused(
+            &mut storage,
+            CHALLENGER,
+            CHALLENGED_AT,
+            &input(
+                11,
+                LEASE_A,
+                &challenge_from([0x71; 32], attested, execution.committed.last(), stake_seed),
+            ),
+            vec![fund(stake_seed, CHALLENGE_STAKE)],
+        );
+        assert_eq!(row(&storage, b"lx.market.claim/", LEASE_A)[1], 1);
+        assert_eq!(stake(&storage), (BOND, FUNDED, 0));
+        assert_eq!(available_capacity(&storage), TOTAL_CAPACITY - LEASE_UNITS);
+    }
+    let challenged = accepted(
+        &mut storage,
+        CHALLENGER,
+        CHALLENGED_AT,
+        &input(
+            11,
+            LEASE_A,
+            &challenge([0x71; 32], attested, execution.committed.last()),
+        ),
+        vec![fund(b"challenge/a", CHALLENGE_STAKE)],
+    );
+    let effects = challenged
+        .effects()
+        .unwrap_or_else(|| panic!("funded challenge effects"));
+    assert_eq!(effects.transfers.len(), 1);
+    let transfer = &effects.transfers[0];
+    assert!(matches!(
+        transfer.source(),
+        TransferSource::ProgramFunding { .. }
+    ));
+    assert_eq!(transfer.source().account(), CHALLENGER);
+    assert_eq!(transfer.to, source(b"challenge/a"));
+    assert_eq!(transfer.amount, CHALLENGE_STAKE);
+    assert_eq!(row(&storage, b"lx.market.claim/", LEASE_A)[1], 2);
+    let bytes = storage
+        .replay_state_bytes(MAX_BYTES as usize)
+        .unwrap_or_else(|e| panic!("persist funded challenge: {e:?}"));
+    drop(storage);
+    let storage = Storage::decode_untrusted_replay_state(&bytes, MAX_BYTES as usize)
+        .unwrap_or_else(|e| panic!("reopen funded challenge: {e:?}"));
+    let mut dispute = Dispute {
+        storage,
+        execution,
+        height: CHALLENGED_AT,
+        moves: 1,
+    };
+    let deadline = dispute.deadline();
+    refused(
+        &mut dispute.storage,
+        KEEPER,
+        deadline,
+        &input(17, LEASE_A, &[]),
+        settlement_spends(LEASE_A),
+    );
+    let settled = accepted(
+        &mut dispute.storage,
+        KEEPER,
+        deadline + 1,
+        &input(17, LEASE_A, &[]),
+        settlement_spends(LEASE_A),
+    );
+    assert_challenger_won(&settled, &dispute.storage, 1);
+    assert_eq!(stake(&dispute.storage), (BOND - FUNDED, 0, FUNDED));
+    assert_eq!(available_capacity(&dispute.storage), TOTAL_CAPACITY);
+    let total: u128 = moved(&settled).iter().map(|(_, _, amount)| amount).sum();
+    assert_eq!(total, 2 * FUNDED + CHALLENGE_STAKE);
+    refused(
+        &mut dispute.storage,
+        KEEPER,
+        deadline + 2,
+        &input(17, LEASE_A, &[]),
+        settlement_spends(LEASE_A),
+    );
 }

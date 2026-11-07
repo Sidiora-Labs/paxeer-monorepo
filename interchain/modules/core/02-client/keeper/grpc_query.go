@@ -175,11 +175,20 @@ func (q Keeper) ConsensusStates(c context.Context, req *types.QueryConsensusStat
 			return false, err
 		}
 
-		consensusStates = append(consensusStates, types.NewConsensusStateWithHeight(height, consensusState))
+		if accumulate {
+			consensusStates = append(consensusStates, types.NewConsensusStateWithHeight(height, consensusState))
+		}
 		return true, nil
 	})
 	if err != nil {
 		return nil, err
+	}
+
+	if len(consensusStates) > 0 {
+		reverse := req.Pagination != nil && req.Pagination.Reverse
+		if err := consensusStatePaginationNextKey(store, pageRes, consensusStates[len(consensusStates)-1].Height, reverse); err != nil {
+			return nil, err
+		}
 	}
 
 	return &types.QueryConsensusStatesResponse{
@@ -214,17 +223,62 @@ func (q Keeper) ConsensusStateHeights(c context.Context, req *types.QueryConsens
 			return false, err
 		}
 
-		consensusStateHeights = append(consensusStateHeights, height)
+		if accumulate {
+			consensusStateHeights = append(consensusStateHeights, height)
+		}
 		return true, nil
 	})
 	if err != nil {
 		return nil, err
 	}
 
+	if len(consensusStateHeights) > 0 {
+		reverse := req.Pagination != nil && req.Pagination.Reverse
+		if err := consensusStatePaginationNextKey(store, pageRes, consensusStateHeights[len(consensusStateHeights)-1], reverse); err != nil {
+			return nil, err
+		}
+	}
+
 	return &types.QueryConsensusStateHeightsResponse{
 		ConsensusStateHeights: consensusStateHeights,
 		Pagination:            pageRes,
 	}, nil
+}
+
+func consensusStatePaginationNextKey(store sdk.KVStore, pagination *query.PageResponse, lastHeight types.Height, reverse bool) error {
+	if !bytes.Contains(pagination.NextKey, []byte("/")) {
+		return nil
+	}
+
+	lastKey := []byte(lastHeight.String())
+	var iterator sdk.Iterator
+	if reverse {
+		iterator = store.ReverseIterator(nil, lastKey)
+	} else {
+		iterator = store.Iterator(sdk.InclusiveEndBytes(lastKey), nil)
+	}
+	defer func() { _ = iterator.Close() }()
+
+	var scanned uint64
+	for ; iterator.Valid(); iterator.Next() {
+		if scanned == query.MaxScanLimit {
+			return status.Errorf(codes.InvalidArgument, "scanned more than %d entries looking for the next consensus state", query.MaxScanLimit)
+		}
+		scanned++
+		if err := iterator.Error(); err != nil {
+			return err
+		}
+		if bytes.Contains(iterator.Key(), []byte("/")) {
+			continue
+		}
+		if _, err := types.ParseHeight(string(iterator.Key())); err != nil {
+			return err
+		}
+		pagination.NextKey = append([]byte(nil), iterator.Key()...)
+		return nil
+	}
+	pagination.NextKey = nil
+	return nil
 }
 
 // ClientStatus implements the Query/ClientStatus gRPC method

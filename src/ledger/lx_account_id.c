@@ -40,8 +40,8 @@ static bool has_agent_shape(const uint8_t *name, size_t length,
             i + marker_length < length) {
             size_t tail;
             for (tail = i + marker_length; tail < length; ++tail)
-                if (name[tail] == (uint8_t)':') return false;
-            return true;
+                if (name[tail] == (uint8_t)':') break;
+            if (tail == length) return true;
         }
     }
     return false;
@@ -136,8 +136,8 @@ static uint8_t hex_nibble(uint8_t byte)
                                   (uint8_t)(byte - (uint8_t)'a' + 10U);
 }
 
-lxp_result lx_account_name_parse(const uint8_t *name, size_t name_length,
-                                 lx_account_name *parsed)
+static lxp_result account_name_decode(const uint8_t *name, size_t name_length,
+                                      lx_account_name *parsed)
 {
     lx_account_kind kind;
     if (parsed == NULL || !canonical_bytes(name, name_length))
@@ -182,13 +182,19 @@ lxp_result lx_account_name_parse(const uint8_t *name, size_t name_length,
     return LXP_OK;
 }
 
+lxp_result lx_account_name_parse(const uint8_t *name, size_t name_length,
+                                 lx_account_name *parsed)
+{
+    return account_name_decode(name, name_length, parsed);
+}
+
 lxp_result lx_account_kind_of(const uint8_t *name, size_t name_length,
                               lx_account_kind *kind)
 {
     lx_account_name parsed;
     lxp_result status;
     if (kind == NULL) return LXP_ERR_NON_CANONICAL;
-    status = lx_account_name_parse(name, name_length, &parsed);
+    status = account_name_decode(name, name_length, &parsed);
     if (status == LXP_OK) *kind = parsed.kind;
     return status;
 }
@@ -203,7 +209,7 @@ lxp_result lx_account_id_from_string(const uint8_t *name, size_t name_length,
     lxp_result status;
     if (account_id == NULL || name_length > UINT32_MAX)
         return LXP_ERR_NON_CANONICAL;
-    status = lx_account_name_parse(name, name_length, &parsed);
+    status = account_name_decode(name, name_length, &parsed);
     if (status != LXP_OK) return status;
     if (parsed.kind == LX_ACCOUNT_MODULE_VALUE && !asset_issuance(name, name_length)) {
         const uint8_t *encoded = name + name_length - 64U;

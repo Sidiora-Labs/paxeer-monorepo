@@ -17,6 +17,19 @@ enum Phase {
     Refused,
 }
 
+#[derive(Clone, Copy, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+enum StoredRung {
+    Committed,
+}
+impl StoredRung {
+    fn rung(self) -> Rung {
+        match self {
+            Self::Committed => Rung::Committed,
+        }
+    }
+}
+
 #[derive(Serialize, Deserialize)]
 struct CommittedOutcome {
     signed_activity: Vec<u8>,
@@ -24,7 +37,7 @@ struct CommittedOutcome {
     activity_id: [u8; 32],
     receipt_digest: [u8; 32],
     observed_sequence: u64,
-    verification: u8,
+    rung: StoredRung,
     finalized_at: u64,
 }
 impl CommittedOutcome {
@@ -34,7 +47,7 @@ impl CommittedOutcome {
             activity_id: self.activity_id,
             receipt_digest: self.receipt_digest,
             observed_sequence: self.observed_sequence,
-            verification: self.verification,
+            verification: self.rung.rung().wire_rank(),
             finalized_at: self.finalized_at,
         }
     }
@@ -76,9 +89,15 @@ impl Rotation {
         let row = scope
             .get(Table::Journeys, &key)
             .ok_or_else(ApiFailure::not_found)?;
-        let value: Self =
+        let envelope: serde_json::Value =
             serde_json::from_slice(row.bytes()).map_err(|_| ApiFailure::upstream_degraded())?;
-        if value.version != 1
+        // V1 stored unversioned legacy verification bytes; they cannot establish a current rung.
+        if envelope["version"] == 1 {
+            return Err(ApiFailure::operation_retired());
+        }
+        let value: Self =
+            serde_json::from_value(envelope).map_err(|_| ApiFailure::upstream_degraded())?;
+        if value.version != 2
             || value.action == [0; 32]
             || value.old_key == value.new_key
             || value.begin >= value.end
@@ -119,16 +138,11 @@ impl Rotation {
             .announced
             .as_ref()
             .ok_or_else(ApiFailure::upstream_degraded)?;
-        if !(4..=5).contains(&evidence.verification) {
+        if evidence.rung.rung() != Rung::Committed {
             return Err(ApiFailure::upstream_degraded());
         }
-        let receipt = super::super::projection::managed_evidence(
-            &super::super::agent_runtime::ManagedAgentEvidence {
-                evidence_id: hex_bytes(&evidence.receipt_digest),
-                class: "rotate".to_owned(),
-                verification: evidence.verification,
-            },
-        )?;
+        let receipt = json!({"evidence_id":format!("evd_{}", hex_bytes(&evidence.receipt_digest)),
+            "class":"checkpoint-proof", "verification":super::super::HumanComponentServer::verification_level_name(evidence.rung.rung())});
         Ok(json!({
             "agent_id": self.agent_id,
             "kind": "rotate",
@@ -344,7 +358,8 @@ fn accept_outcome(
 ) -> Result<Option<CommittedOutcome>, ApiFailure> {
     let kind = layerx_types::payload::ActivityType::new(ModuleId::Governance, ordinal)
         .map_err(|_| ApiFailure::upstream_degraded())?;
-    let verified = outcome.verify_outcome(kind).map_err(creation_failure)?;
+    let verified = super::super::agent_creation::verify_evm_outcome(outcome, kind)
+        .map_err(creation_failure)?;
     let protocol = verified
         .protocol()
         .ok_or_else(ApiFailure::upstream_degraded)?;
@@ -361,7 +376,7 @@ fn accept_outcome(
         activity_id: outcome.activity_id,
         receipt_digest: Sha256::digest(&outcome.receipt_bytes).into(),
         observed_sequence: protocol.global_sequence(),
-        verification: outcome.rung.wire_rank(),
+        rung: StoredRung::Committed,
         finalized_at: now,
     };
     if protocol.result_code() != 0 {
@@ -567,7 +582,7 @@ impl ProductionComponents {
         )
         .map_err(|_| ApiFailure::upstream_degraded())?;
         Ok(BackendResponse {
-            result: json!({"confirms": format!("opd_{}", URL_SAFE_NO_PAD.encode(digest.bytes()))}),
+            result: json!({"confirms": digest.to_schema()}),
             session: None,
         })
     }

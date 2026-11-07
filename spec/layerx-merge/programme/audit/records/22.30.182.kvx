@@ -1,0 +1,1639 @@
+# Pre-upgrade audit: tools and operational qualification slice (decision 2515).
+
+[audit.22.30.182]
+task = "22.30.182"
+revision = "9d9e94b1751d89ba849d2d3d0f89b48fabce9756"
+files_reviewed = 130
+findings = 73
+docs_reviewed = 17
+upgrade_ready = false
+blocking = ["benchmark-home-delete","benchmark-rpc-envelope","custody-recovery-retired-api"]
+note = "Full source review against the package requirements, supplied producer/consumer registry rows and related caller contracts, retired inventory and documentation. Historical compatibility vectors are distinguished from active runtime dependencies; this record proposes repairs and changes no audited implementation."
+
+[file.001]
+path = ".codify/agent-context.md"
+lines = 197
+verdict = "generated"
+note = "Generated cg agentmd graph snapshot, rather than an authored runtime contract; directory statistics include the older daemon tree and need regeneration from the merged graph."
+
+[file.002]
+path = ".github/actionlint.yaml"
+lines = 4
+verdict = "clean"
+note = "Self-hosted actionlint labels are runner identifiers only; this configuration declares no node endpoints or ledger authority."
+
+[file.003]
+path = ".github/cliff.toml"
+lines = 58
+verdict = "clean"
+note = "Changelog grouping accepts natural commit messages and preserves chronological day groups, with explicit exclusions for registry and pre-rebase tags."
+
+[file.004]
+path = ".github/codecov.yml"
+lines = 61
+verdict = "clean"
+note = "Coverage configuration separates the pax-chain gate from informational partial PR coverage and scopes generated, historical and tooling exclusions explicitly."
+
+[file.005]
+path = ".github/copilot-instructions.md"
+lines = 25
+verdict = "generated"
+note = "Generated specification workflow pointer; source ownership and active feature references agree with spec/workflow.kvx and the declared LayerX workflow."
+
+[file.006]
+path = ".github/dependabot.yml"
+lines = 47
+verdict = "clean"
+note = "Dependency update entries point to existing Go, npm and Cargo package roots with bounded weekly pull requests; no runtime network authority is configured."
+
+[file.007]
+path = ".github/labeler.yml"
+lines = 112
+verdict = "clean"
+note = "Changed-file labels classify protocol and services/agent paths; these are repository labels rather than tenant or execution routing."
+
+[file.008]
+path = ".github/pull_request_template.md"
+lines = 27
+verdict = "issues"
+note = "Full-file review found pr-template-old-authority. The mandatory checklist asks every contributor to preserve 402LXP sole-writer invariants, presenting the retired separate ledger authority as a current contribution requirement."
+
+[file.009]
+path = ".github/release.yml"
+lines = 35
+verdict = "clean"
+note = "Release categories agree with area labels and retain a catch-all category; release notes do not define chain execution or settlement authority."
+
+[file.010]
+path = "admin/config.go"
+lines = 77
+verdict = "clean"
+note = "Admin configuration defaults disabled and validates an enabled listener as a numeric loopback address before accepting the server boundary."
+
+[file.011]
+path = "admin/config_test.go"
+lines = 168
+verdict = "clean"
+note = "Configuration tests cover disabled defaults, loopback acceptance and unsafe listener refusal against the actual parser."
+
+[file.012]
+path = "admin/server.go"
+lines = 37
+verdict = "clean"
+note = "Admin listener setup revalidates loopback configuration, uses the typed service registration and closes the server through its lifecycle."
+
+[file.013]
+path = "admin/server_test.go"
+lines = 135
+verdict = "clean"
+note = "Admin server cases exercise startup, shutdown and the local gRPC boundary; no public unauthenticated admin listener is admitted by configuration."
+
+[file.014]
+path = "admin/service.go"
+lines = 80
+verdict = "clean"
+note = "Admin methods return typed gRPC errors for unsupported actions and preserve deterministic ordering of logger inspection output."
+
+[file.015]
+path = "admin/service_test.go"
+lines = 354
+verdict = "clean"
+note = "Admin service tests use the declared request/response methods and assert supported logger behavior and typed refusals."
+
+[file.016]
+path = "custodyproof/decode.go"
+lines = 71
+verdict = "clean"
+note = "Proof decoding checks the declared binary/JSON field encodings and byte lengths before verification; active native bank coverage is addressed in the verifier findings."
+
+[file.017]
+path = "custodyproof/verify.go"
+lines = 407
+verdict = "issues"
+note = "Full-file review found commit-verifier-custody, commit-verifier-height. Verify retains committed-header verification but then requires layerxcustody asset/deposit membership and the retired 0x1013 custody address; it cannot serve native bank membership."
+
+[file.018]
+path = "custodyproof/verify_test.go"
+lines = 64
+verdict = "issues"
+note = "Full-file review found commit-verifier-tests. The positive Verify test loads tests/fixtures/custody/paxeer-state-v3/state-credit.json; no positive case consumes a merged native bank membership proof."
+
+[file.019]
+path = "docker/interop-gateway/Dockerfile"
+lines = 14
+verdict = "clean"
+note = "Container builds the locked interop gateway package, installs the environment-file entrypoint and runs as the declared unprivileged UID with a private runtime directory."
+
+[file.020]
+path = "docker/platform-registry/Dockerfile"
+lines = 21
+verdict = "clean"
+note = "Registry image builds the real registry and cgroup helper and installs environment initialization and isolation tools; the init script's obsolete trust bootstrap is recorded separately."
+
+[file.021]
+path = "docker/platform-registry/init.sh"
+lines = 373
+verdict = "issues"
+note = "Full-file review found registry-trust-bootstrap. Registry init waits for a generation copied from a separate kernel box and installs its sequencer trust-history into registry-generation before the registry starts."
+
+[file.022]
+path = "scripts/bump_version/README.md"
+lines = 112
+verdict = "issues"
+note = "Full-file review found archive-rerun-documentation, archive-error-documentation. The runbook calls reruns safe because the common archive directory exists, but main.go creates that directory before module archival finishes, allowing interrupted runs to skip missing module archives."
+
+[file.023]
+path = "scripts/bump_version/main.go"
+lines = 636
+verdict = "issues"
+note = "Full-file review found archive-incomplete, archive-tag-search. archiveCommon creates precompiles/common/legacy/<version> before archiveModule finishes; run treats existence of that directory as completion and skips every module on rerun."
+
+[file.024]
+path = "scripts/gates/test_wave_0.py"
+lines = 54
+verdict = "clean"
+note = "Wave-zero test checks exact list output, absence of list-mode side effects and resolution of declared Make targets; it does not claim those targets have run."
+
+[file.025]
+path = "scripts/gates/test_wave_1.py"
+lines = 47
+verdict = "clean"
+note = "Wave-one list assertions match the wrapper's workspace, core and sanitizer inventory and inspect runnable Make targets without substituting success claims."
+
+[file.026]
+path = "scripts/gates/test_wave_2.py"
+lines = 47
+verdict = "clean"
+note = "Wave-two list assertions preserve the exact workspace/core/agent target sequence and resolve the repository Makefile."
+
+[file.027]
+path = "scripts/gates/test_wave_3.py"
+lines = 52
+verdict = "clean"
+note = "Wave-three test checks invocation outside the checkout, a side-effect-free command listing and the exact interop/programs target sequence."
+
+[file.028]
+path = "scripts/gates/test_wave_4.py"
+lines = 46
+verdict = "clean"
+note = "Wave-four test matches workspace, qualification-environment and beta-driver targets; its list/dry-run checks are explicitly command-inventory coverage."
+
+[file.029]
+path = "scripts/gates/test_wave_5.py"
+lines = 51
+verdict = "clean"
+note = "Wave-five inventory test agrees with the wrapper's workspace, Human and container checks and verifies list mode without interpreting it as qualification."
+
+[file.030]
+path = "scripts/gates/test_wave_6.py"
+lines = 49
+verdict = "clean"
+note = "Wave-six inventory test matches the workspace/core/programs commands and the retired-caller deletion scan, preserving the exact deletion flag."
+
+[file.031]
+path = "scripts/gates/test_wave_programme.py"
+lines = 48
+verdict = "clean"
+note = "Programme inventory test asserts the declared aggregate, beta, retired-caller and ledger-revision commands; it does not turn a dry run into execution evidence."
+
+[file.032]
+path = "scripts/gates/wave-0.sh"
+lines = 21
+verdict = "clean"
+note = "Wave-zero wrapper separates side-effect-free --list from execution, rejects extra arguments and invokes the shared runner with exact argv and private umask."
+
+[file.033]
+path = "scripts/gates/wave-1.sh"
+lines = 22
+verdict = "clean"
+note = "Wave-one wrapper validates arguments and passes workspace/core/sanitizer commands as distinct argv groups to the shared gate runner."
+
+[file.034]
+path = "scripts/gates/wave-2.sh"
+lines = 22
+verdict = "clean"
+note = "Wave-two wrapper resolves its repository path and sends workspace, core and agent command groups and the selected log directory to the common runner."
+
+[file.035]
+path = "scripts/gates/wave-3.sh"
+lines = 20
+verdict = "clean"
+note = "Wave-three wrapper has an exact list contract and preserves workspace, agent, interop and programs commands through the common runner."
+
+[file.036]
+path = "scripts/gates/wave-4.sh"
+lines = 27
+verdict = "clean"
+note = "Wave-four wrapper preserves workspace, real qualification environment and beta-driver targets with a repository-relative shared runner."
+
+[file.037]
+path = "scripts/gates/wave-5.sh"
+lines = 29
+verdict = "clean"
+note = "Wave-five wrapper lists exact workspace/Human/container commands and converts its fixed command inventory into distinct runner argv groups."
+
+[file.038]
+path = "scripts/gates/wave-6.sh"
+lines = 30
+verdict = "clean"
+note = "Wave-six wrapper preserves retired-callers --deleted alongside workspace/core/programs checks and rejects unsupported command-line arguments."
+
+[file.039]
+path = "scripts/paxeer-x/qualify-scan-load.py"
+lines = 125
+verdict = "clean"
+note = "Scan-load qualification seals source/artifact identity, requires actual compiler and fixture evidence and reports unavailable prerequisites instead of synthesizing a pass."
+
+[file.040]
+path = "scripts/paxeer-x/verify-sdk-program-dotnet.sh"
+lines = 32
+verdict = "clean"
+note = "Dotnet gate runs the prebuilt Programs contract tests into a private fresh TRX and requires positive, all-passed accounting with zero unexecuted cases."
+
+[file.041]
+path = "scripts/paxeer-x/verify-sdk-program-go.sh"
+lines = 48
+verdict = "clean"
+note = "Go gate requires the published executable, digest and revision, runs that exact artifact and demands the named Programs behavior passes in its private log."
+
+[file.042]
+path = "scripts/paxeer-x/verify-sdk-program-jvm.sh"
+lines = 24
+verdict = "clean"
+note = "JVM gate requires the real ten-case native terminal-v5 ABI3/4 corpus and runs the prebuilt Programs conformance class with failIfNoTests."
+
+[file.043]
+path = "scripts/paxeer-x/verify-sdk-program-python.sh"
+lines = 36
+verdict = "issues"
+note = "Full-file review found python-sdk-import-root. PYTHONPATH is set to <root>/agent/sdk/python, which is absent; the in-tree Python SDK package is services/agent/sdk/python and the tests import layerx_sdk from it."
+
+[file.044]
+path = "scripts/paxeer-x/verify-sdk-program-rust.sh"
+lines = 25
+verdict = "clean"
+note = "Rust gate selects the actual executable from captured Cargo build JSON, checks exact source-contract/lifecycle case accounting and retains private evidence."
+
+[file.045]
+path = "scripts/paxeer-x/verify-sdk-program-schema.sh"
+lines = 9
+verdict = "clean"
+note = "Schema gate verifies the sealed SDK generator digest and invokes its real --check-program-contracts path against this repository."
+
+[file.046]
+path = "scripts/paxeer-x/verify-sdk-program-swift.sh"
+lines = 14
+verdict = "clean"
+note = "Swift gate requires the actual toolchain and genuine native terminal-v5 corpus and selects prebuilt Programs and signed-receipt conformance cases."
+
+[file.047]
+path = "scripts/paxeer-x/verify-sdk-program-typescript.sh"
+lines = 14
+verdict = "clean"
+note = "TypeScript gate requires the prebuilt lifecycle and response-code tests before running the source terminal-v5 corpus consumer."
+
+[file.048]
+path = "scripts/programs/dependency-policy.sh"
+lines = 164
+verdict = "clean"
+note = "Programs dependency policy rejects entropy, clock/network and unsafe dependencies, enforces license and checksum vendoring rules and pins the WASM engine."
+
+[file.049]
+path = "scripts/programs/generate-abi-vectors.py"
+lines = 219
+verdict = "clean"
+note = "ABI vector generator derives typed surfaces and terminal schema from source and frozen manifests; it generates compatibility bytes rather than admitting runtime ABIs."
+
+[file.050]
+path = "scripts/programs/program-fixtures.sh"
+lines = 92
+verdict = "clean"
+note = "Fixture builder explicitly remaps guest source paths and regenerates artifacts, interface records and registry values together to preserve their byte identity."
+
+[file.051]
+path = "tests/platform/emulator_maintenance_head.py"
+lines = 91
+verdict = "issues"
+note = "Full-file review found maintenance-emulator-batch. The maintenance head case inventory requires batch_evidence header_hex, header_signature and receipt_proof from the old kernel batch lifecycle."
+
+[file.052]
+path = "tests/platform/gateway_maintenance_head.rs"
+lines = 181
+verdict = "issues"
+note = "Full-file review found maintenance-gateway-wire. The gateway maintenance checks decode_batch_header and SequencerAuthorization from the retired layerx-wire batch evidence path."
+
+[file.053]
+path = "tests/qualification/lxp_qual_faults.c"
+lines = 409
+verdict = "clean"
+note = "Fault qualification exercises retained internal snapshot/application recovery boundaries and their real fault hooks; it does not require a separate daemon or sequencer service."
+
+[file.054]
+path = "tests/support/generate_beta_genesis.py"
+lines = 78
+verdict = "issues"
+note = "Full-file review found beta-genesis-builder. The helper loads services/platform/hosted/paxeer/prepare-beta.py, which is absent, and emits a separate sequencer/guarantor genesis registration corpus."
+
+[file.055]
+path = "tests/support/lxgb_metadata.py"
+lines = 85
+verdict = "issues"
+note = "Full-file review found python-genesis-metadata. metadata always emits a custody issuer and custody_reference; metadata_withdrawal appends the retired withdrawal fee schedule, and generate_beta_genesis and daemon tests import it."
+
+[file.056]
+path = "tests/support/lxgb_metadata.rs"
+lines = 163
+verdict = "issues"
+note = "Full-file review found rust-genesis-metadata. The Rust companion metadata emitter encodes Custody token and a custody_reference and exposes withdrawal schedule construction as ordinary genesis helpers."
+
+[file.057]
+path = "tools/benchmark/benchmark.sh"
+lines = 332
+verdict = "issues"
+note = "Full-file review found benchmark-home-delete, benchmark-custom-home, benchmark-node-exit. Initialization unconditionally runs rm -rf ~/.pax before validating or using PAX_HOME; a custom benchmark home still deletes an unrelated default node's data and keys."
+
+[file.058]
+path = "tools/benchmark/loadtest/contracts/deploy_ten_contracts.sh"
+lines = 121
+verdict = "issues"
+note = "Full-file review found dex-deploy-retired. The script invokes tx dex register-contract and register-pairs for mars and cw20_base instances, but no matching current module command exists; the script finally exits zero."
+
+[file.059]
+path = "tools/benchmark/loadtest/scripts/generate_bindings.sh"
+lines = 21
+verdict = "issues"
+note = "Full-file review found bindings-generator-exit. A failed abigen is followed by a successful echo and cd, so the script can report Generated binding and exit zero with missing or stale Go bindings."
+
+[file.060]
+path = "tools/benchmark/loadtest/scripts/metrics.py"
+lines = 145
+verdict = "issues"
+note = "Full-file review found benchmark-rpc-envelope, benchmark-metric-deadlines. get_block_info and get_transaction_breakdown read res.json()['block']; consensus/rpc/jsonrpc/types/types.go wraps coretypes.ResultBlock in result, so a real /block response raises KeyError."
+
+[file.061]
+path = "tools/benchmark/loadtest/scripts/populate_genesis_accounts.py"
+lines = 140
+verdict = "issues"
+note = "Full-file review found genesis-account-count, genesis-mnemonic-permissions. Every worker creates num_threads accounts including the last partial chunk; nondivisible requests overshoot, and the final guard only rejects fewer accounts. Thread exceptions also leave holes."
+
+[file.062]
+path = "tools/benchmark/loadtest/scripts/run_tests.py"
+lines = 133
+verdict = "clean"
+note = "Load-test wrapper selects burst, steady or continuous configuration, propagates the real client exit with check=True and deletes its temporary JSON in finally; paths remain explicitly overridable."
+
+[file.063]
+path = "tools/benchmark/loadtest/scripts/validator_failures.py"
+lines = 119
+verdict = "issues"
+note = "Full-file review found validator-fault-commands, validator-fault-cleanup. Restart passes an entire SSH command as one executable with shell=False; delegation also uses filter(...)[address], len(validator_addrs // 4) and a printf command without a pipe."
+
+[file.064]
+path = "tools/pnsdns/main.go"
+lines = 92
+verdict = "clean"
+note = "DNS entrypoint validates flags and configured RPC/name/address inputs before constructing the actual resolver server and handles process shutdown."
+
+[file.065]
+path = "tools/pnsdns/server.go"
+lines = 325
+verdict = "issues"
+note = "Full-file review found pns-tcp-capacity. serveTCP launches a goroutine for every accepted connection with no admission bound; each peer can retain a descriptor for repeated 30-second DNS exchanges while UDP alone has a 128-worker limit."
+
+[file.066]
+path = "tools/pnsdns/server_test.go"
+lines = 319
+verdict = "issues"
+note = "Full-file review found pns-real-contract-coverage. The DNS tests handcraft owner and contenthash eth_call replies in httptest; they check DNS wire behavior but never read output from the actual registry/resolver contract producer."
+
+[file.067]
+path = "tools/price-sidecar/config.template.json"
+lines = 90
+verdict = "clean"
+note = "Price template deliberately leaves chain/account/endpoint fields empty and includes a loader-refused note; key-file and environment names agree with the sidecar boundary."
+
+[file.068]
+path = "tools/price-sidecar/tests/domain-check.sh"
+lines = 62
+verdict = "clean"
+note = "Price domain check binds actual keeper/precompile Go signatures, runs real Go/Rust cases and the packaging check while explicitly checking oracle-domain isolation."
+
+[file.069]
+path = "tools/price-sidecar/tests/packaging-check.sh"
+lines = 248
+verdict = "clean"
+note = "Packaging check inspects systemd sandbox/credential/state contracts and uses the real loader to refuse each unresolved template field; it installs nothing."
+
+[file.070]
+path = "tools/qualification/paxeer-x/hpx-ingress.py"
+lines = 210
+verdict = "clean"
+note = "Ingress harness binds retained gateway and HPX artifacts to source digests, protects evidence and runs the real ingress cases with deadlines and cleanup."
+
+[file.071]
+path = "tools/qualification/paxeer-x/human-canonical-projections.py"
+lines = 239
+verdict = "issues"
+note = "Full-file review found human-projection-finality. The client admits checkpoint-finalised and settlement-anchored budget/spend evidence and later requires checkpoint-proof entries for a completed journey."
+
+[file.072]
+path = "tools/qualification/paxeer-x/human-security-prerequisites.py"
+lines = 455
+verdict = "issues"
+note = "Full-file review found human-security-node-material. The security prerequisite harness copies core.env and sequencer-public-key from a separate node fixture and requires old genesis and sequencer key paths."
+
+[file.073]
+path = "tools/qualification/paxeer-x/human_attestor_intents.py"
+lines = 169
+verdict = "issues"
+note = "Full-file review found human-attestor-dual-finality. The attestor client classifies native SEND in domain layerx and permits checkpoint-finalised and settlement-anchored evidence alongside wallet legs in domain paxeer."
+
+[file.074]
+path = "tools/qualification/paxeer-x/human_deposit_initial_response.py"
+lines = 458
+verdict = "issues"
+note = "Full-file review found human-deposit-hop. The gate requires journey.kind=deposit, deposit.stage.wallet and deposit start/confirm requests, including durable recovery of that custody continuation as its success corpus."
+
+[file.075]
+path = "tools/qualification/paxeer-x/human_journey_projections.py"
+lines = 201
+verdict = "issues"
+note = "Full-file review found human-journey-custody. The fixture must contain waiting-custody and unknown-withdrawal-broadcast and the verification vocabulary includes settlement-anchored and checkpoint-finalised."
+
+[file.076]
+path = "tools/qualification/paxeer-x/human_program_approvals.py"
+lines = 190
+verdict = "issues"
+note = "Full-file review found approval-budget-checkpoint. The approval budget assertion requires verification in checkpoint-finalised or settlement-anchored and age_sequences/maximum_age_sequences."
+
+[file.077]
+path = "tools/qualification/paxeer-x/human_stream_push.py"
+lines = 333
+verdict = "clean"
+note = "Stream harness requires real private service/session material, distinct tenants and positive driver assertions, and preserves process and interruption cleanup."
+
+[file.078]
+path = "tools/qualification/paxeer-x/identity-assertion-binding.py"
+lines = 431
+verdict = "clean"
+note = "Identity assertion harness uses actual signed assertions, JWKS rotation and provider/attestor processes to check principal binding, refusals and persisted reopening."
+
+[file.079]
+path = "tools/qualification/paxeer-x/migration-funded-operator.py"
+lines = 214
+verdict = "issues"
+note = "Full-file review found funded-operator-destination. The funded operator requires source_pending/source_settled/layerx_pending/layerx_refused/done and inherits the ramp corpus that accepts only a maintained_batch destination receipt."
+
+[file.080]
+path = "tools/qualification/paxeer-x/migration-v2.py"
+lines = 198
+verdict = "issues"
+note = "Full-file review found migration-connected-destination. MigrationContract.run inherits ramp-source-settlement receipt validation requiring maintained_batch and the historical module-1 SEND receipt as destination completion."
+
+[file.081]
+path = "tools/qualification/paxeer-x/movement-custody-profile.py"
+lines = 244
+verdict = "issues"
+note = "Full-file review found movement-profile-custody. The movement gate still requires changed-checkpoint-authority, changed-custody-reference and changed-checkpoint-registry pin cases plus custody profile provisioning."
+
+[file.082]
+path = "tools/qualification/paxeer-x/native_send_profile.py"
+lines = 211
+verdict = "clean"
+note = "Native send profile requires a real isolated non-root Agent peer, exact source-bound artifacts, independent grant/refusal inputs and explicit disposable restart authority; Agent daemon references do not denote layerxd."
+
+[file.083]
+path = "tools/qualification/paxeer-x/private-human-sponsored.py"
+lines = 197
+verdict = "clean"
+note = "Sponsored Human harness requires the genuine isolated browser/service fixture and private source-bound artifacts, with exact construction/refusal/recovery case inventory."
+
+[file.084]
+path = "tools/qualification/paxeer-x/program-abi-policy.py"
+lines = 218
+verdict = "clean"
+note = "ABI policy qualification validates source-bound runtime/registry/interface inventories; historical rotation vectors are explicitly compatibility regressions, not current sequencer deployment instructions."
+
+[file.085]
+path = "tools/qualification/paxeer-x/program-bindings-producer.py"
+lines = 362
+verdict = "clean"
+note = "Bindings producer pins immutable historical deployment fixtures and computes interface/state proof bytes from their sealed producer output; it explicitly does not assert the live head."
+
+[file.086]
+path = "tools/qualification/paxeer-x/program-bindings.py"
+lines = 243
+verdict = "clean"
+note = "Bindings consumer checks the sealed historical producer artifacts and real native/Rust binding paths; retained historical encodings are intentional compatibility evidence."
+
+[file.087]
+path = "tools/qualification/paxeer-x/program-storage-producer.py"
+lines = 124
+verdict = "clean"
+note = "Storage producer seals the actual native/Rust executables and producer output with source identity and bounded execution; persisted proof vectors retain their declared compatibility scope."
+
+[file.088]
+path = "tools/qualification/paxeer-x/program_balance_read.py"
+lines = 255
+verdict = "clean"
+note = "Balance-read qualification requires private source-bound manifest and exact artifacts, runs actual behavior executables and verifies result accounting rather than trusting fixture labels."
+
+[file.089]
+path = "tools/qualification/paxeer-x/program_cache_native_equivalence.py"
+lines = 246
+verdict = "clean"
+note = "Cache equivalence qualification binds native and cached artifacts to the same source inventory and checks real execution outputs and failure accounting."
+
+[file.090]
+path = "tools/qualification/paxeer-x/program_execution_context.py"
+lines = 271
+verdict = "clean"
+note = "Execution-context harness seals source and compiled artifacts, executes the actual context corpus and validates consumer output without fabricated receipt evidence."
+
+[file.091]
+path = "tools/qualification/paxeer-x/program_fee_governance.py"
+lines = 254
+verdict = "clean"
+note = "Fee-governance harness binds source identity and compiled behavior artifacts and validates the real fee and governance cases with private evidence and refusal paths."
+
+[file.092]
+path = "tools/qualification/paxeer-x/program_market_attestation.py"
+lines = 396
+verdict = "clean"
+note = "Market attestation harness binds actual market/runtime artifacts, payload and build identity, verifies real attestation paths and uses a private bounded evidence lifecycle."
+
+[file.093]
+path = "tools/qualification/paxeer-x/program_spend_composition.py"
+lines = 340
+verdict = "clean"
+note = "Spend composition harness uses actual sealed artifacts and private evidence, propagates timed process failures and verifies the full native composition case inventory."
+
+[file.094]
+path = "tools/qualification/paxeer-x/program_transfer_authority.py"
+lines = 230
+verdict = "issues"
+note = "Full-file review found transfer-evidence-private. When both evidence variables are absent, Path('') selects the checkout; only is_dir is checked before a log is opened with ambient permissions."
+
+[file.095]
+path = "tools/qualification/paxeer-x/programs_all_form_validation.py"
+lines = 341
+verdict = "issues"
+note = "Full-file review found all-form-abi-five. required_native_cases labels ABI 5 unsupported with result -101 and only admits versions 1 through 4; the canonical SDK/runtime ABI policy admits version 5."
+
+[file.096]
+path = "tools/qualification/paxeer-x/programs_language_abi.py"
+lines = 325
+verdict = "issues"
+note = "Full-file review found language-abi-five. manifest_parity accepts only namespaces layerx_v1 through layerx_v4 and exactly 28 rows, while programs/abi-frozen.sha256 and the runtime policy now publish ABI 5."
+
+[file.097]
+path = "tools/qualification/paxeer-x/programs_native_interfaces.py"
+lines = 181
+verdict = "issues"
+note = "Full-file review found native-interface-retired-artifacts, native-interface-abi-five. ARTIFACTS mandates layerxd, genesis-builder, sign-credit and test-credit and validates their old build/bin and tests/bridge layouts before any interface case runs."
+
+[file.098]
+path = "tools/qualification/paxeer-x/ramp-source-settlement.py"
+lines = 437
+verdict = "issues"
+note = "Full-file review found ramp-batch-authority. receipt requires verified=true, maintained_batch=true, module_id=1 and operation=5 before accepting destination funding, fixing completion to the old standalone batch receipt."
+
+[file.099]
+path = "tools/qualification/paxeer-x/tests/test_proof_qual_cli.py"
+lines = 330
+verdict = "issues"
+note = "Full-file review found proof-cli-positive-genesis. The native genesis crossing test requires build/bin/layerx-genesis-build and expects the renderer to fail; it proves a retained refusal rather than a successful merged genesis crossing."
+
+[file.100]
+path = "tools/qualification/paxeer-x/unified-account-identity.py"
+lines = 227
+verdict = "issues"
+note = "Full-file review found identity-router-prerequisite. The identity fixture requires a prebuilt router executable in addition to client, explorer, keeper and precompile binaries before exercising px_ joins."
+
+[file.101]
+path = "tools/qualification/paxeer-x/wallet-custody-recovery.py"
+lines = 176
+verdict = "issues"
+note = "Full-file review found custody-recovery-build-path, custody-recovery-retired-api. Build mode invokes tsc in services/wallet/sdk, which does not exist; sources and artifact imports correctly refer to sdk/wallet."
+
+[file.102]
+path = "tools/qualification/paxeer-x/wallet-custody-routing.py"
+lines = 278
+verdict = "issues"
+note = "Full-file review found custody-routing-bundle-private. The routing gate only checks that the resolved bundle is a directory before reading its manifests, credentials and database dump and copying the whole tree; it never checks source owner or permissions."
+
+[file.103]
+path = "tools/qualification/paxeer-x/wallet-injected-chain.py"
+lines = 203
+verdict = "clean"
+note = "Injected-chain harness builds the current wallet stack and drives real browser/provider behavior against the declared local fixture with startup and process cleanup."
+
+[file.104]
+path = "tools/qualification/paxeer-x/wallet-injected-fixture.mjs"
+lines = 415
+verdict = "clean"
+note = "Injected wallet driver validates actual account/hash results and artifact identity, exercises extension state and reports observed browser phases rather than replacing provider calls."
+
+[file.105]
+path = "tools/qualification/paxeer-x/wallet-injected-fixture.py"
+lines = 293
+verdict = "clean"
+note = "Injected fixture provisioner validates protected inputs and pinned downloads, binds built artifacts and runs local real node/browser services with deadlines and shutdown."
+
+[file.106]
+path = "tools/qualification/paxeer-x/wallet-signing-adapters.py"
+lines = 274
+verdict = "issues"
+note = "Full-file review found signing-adapters-deleted-source. The exact source artifact closure includes apps/wallet/src/account/DepositFlow.tsx, but that file has been removed and replaced by native account UI; reading its digest prevents qualification."
+
+[file.107]
+path = "tools/qualification/paxeer-x/wallet-sponsored-fees.py"
+lines = 216
+verdict = "clean"
+note = "Sponsored-fee harness requires private artifacts and loopback service endpoints and drives actual wallet/gateway behavior with current sponsored transaction evidence."
+
+[file.108]
+path = "tools/qualification/paxeer-x/wallet-supported-demo.py"
+lines = 314
+verdict = "issues"
+note = "Full-file review found demo-retired-custody. The supported demo requires data-custody-prepare/sign/recover/send controls and decodeCustodyAuthorization, but the current wallet has retired that flow and the SDK no longer exports the decoder."
+
+[file.109]
+path = "tools/qualification/paxeer_x_release.py"
+lines = 325
+verdict = "clean"
+note = "Release orchestrator binds a candidate revision and contract to private evidence, enforces real workflow/service material, deadlines and explicit prerequisite refusals."
+
+[file.110]
+path = "tools/qualification/test_beta_driver.py"
+lines = 429
+verdict = "issues"
+note = "Full-file review found beta-driver-old-emulator. The beta driver provisions emulator sequencer_trust_anchor/sequencer_seed_file, launches a sequencer emulator and exercises the old network-402 LXP workflow."
+
+[file.111]
+path = "tools/qualification/test_release_runner.py"
+lines = 353
+verdict = "issues"
+note = "Full-file review found release-runner-batch-cases. The release inventory test requires crash-before-batch-wal and crash-after-batch-wal from the standalone kernel lifecycle as mandatory real-node release cases."
+
+[file.112]
+path = "tools/v6120-halt-export/main.go"
+lines = 705
+verdict = "issues"
+note = "Full-file review found halt-export-rpc-path, halt-export-snapshot-binding, halt-export-atomic-publication, halt-export-network-deadline. defaultRPC is https://api-mainnet-beta.paxeer.network/rpc, retaining the removed unified /rpc path at the public node host."
+
+[file.113]
+path = "utils/constants.go"
+lines = 19
+verdict = "clean"
+note = "Numeric helper values match SDK and Go integer bounds; these are mutable big.Int variables and callers must not treat their names as language constants."
+
+[file.114]
+path = "utils/constants_test.go"
+lines = 73
+verdict = "clean"
+note = "Tests check numeric values and explicitly restore mutated Big0/Sdk0 after the mutation demonstration; they do not establish immutability of big.Int globals."
+
+[file.115]
+path = "utils/datastructures/set.go"
+lines = 76
+verdict = "issues"
+note = "Full-file review found syncset-read-locks. Contains, Size and ToOrderedSlice access the ordinary map without the mutex held by Add and Remove; a concurrent lookup or iteration during mutation can race or panic. Only write concurrency is documented."
+
+[file.116]
+path = "utils/datastructures/set_test.go"
+lines = 52
+verdict = "issues"
+note = "Full-file review found syncset-mixed-coverage. The concurrency case runs writes and waits for all goroutines before querying the set; no case overlaps Contains, Size or ToOrderedSlice with mutation."
+
+[file.117]
+path = "utils/datastructures/typed_sync_map.go"
+lines = 159
+verdict = "issues"
+note = "Full-file review found typedmap-range-stop, typedmap-range-delete. Range calls f(key, typedVal) but discards the returned bool, although the wrapper promises the same CRUD interface as sync.Map, whose Range stops on false."
+
+[file.118]
+path = "utils/datastructures/typed_sync_map_test.go"
+lines = 183
+verdict = "issues"
+note = "Full-file review found typedmap-range-coverage. No test exercises Range returning false or deleting a not-yet-visited key during its callback; existing iteration and concurrent-write cases miss both failures."
+
+[file.119]
+path = "utils/interface.go"
+lines = 9
+verdict = "clean"
+note = "Asset interface exposes native/CW20/CW721 classification and contract/denomination access consistently with its declared Go method types."
+
+[file.120]
+path = "utils/metadata.go"
+lines = 7
+verdict = "clean"
+note = "ERC metadata is a plain Name/Symbol string and uint8 Decimals value; no alternate wire encoding or external authority is introduced."
+
+[file.121]
+path = "utils/metadata_test.go"
+lines = 129
+verdict = "clean"
+note = "Metadata cases cover empty, zero and maximum uint8 decimals, field access and value equality against the actual ERCMetadata type."
+
+[file.122]
+path = "utils/metrics/README.md"
+lines = 9
+verdict = "clean"
+note = "Telemetry README matches safe wrappers, panic isolation, pax_chain instrumentation and the configured ten-second/one-minute in-memory sink periods."
+
+[file.123]
+path = "utils/metrics/labels.go"
+lines = 8
+verdict = "clean"
+note = "Transaction-process metric labels are fixed shared strings and agree with the metric utility's process-type emission."
+
+[file.124]
+path = "utils/metrics/metrics_util.go"
+lines = 363
+verdict = "clean"
+note = "Telemetry helpers retain the explicitly kept legacy RPC metrics, isolate telemetry panics and use the declared pax_chain provider and sink periods."
+
+[file.125]
+path = "utils/panic.go"
+lines = 43
+verdict = "clean"
+note = "Panic handler rethrows decorated hard failures and calls the recovery hook otherwise; logging intentionally closes over the supplied recovered value."
+
+[file.126]
+path = "utils/panic_test.go"
+lines = 20
+verdict = "clean"
+note = "Hard-fail regression invokes the actual decorated panic through the deferred handler and asserts it is rethrown."
+
+[file.127]
+path = "utils/prioritized_txs.go"
+lines = 25
+verdict = "clean"
+note = "Transaction priority is derived from pricefeed submission or the permitted oracle messages; mixed ordinary messages are rejected without consulting retired authority."
+
+[file.128]
+path = "utils/prioritized_txs_test.go"
+lines = 137
+verdict = "clean"
+note = "Priority tests cover oracle, ordinary and mixed/edge message lists against IsTxPrioritized and use local typed SDK transactions."
+
+[file.129]
+path = "utils/slice.go"
+lines = 46
+verdict = "clean"
+note = "Generic slice map/reduce/filter and copy helpers preserve order and expected value semantics; copy implementations allocate separate slice backing storage."
+
+[file.130]
+path = "utils/slice_test.go"
+lines = 31
+verdict = "clean"
+note = "Slice tests exercise filtering, mapped order and a mutation after SliceCopy to verify backing-store separation."
+
+[finding.archive-incomplete]
+file = "scripts/bump_version/main.go"
+line = 190
+class = "restart-recovery"
+severity = "medium"
+observed = "archiveCommon creates precompiles/common/legacy/<version> before archiveModule finishes; run treats existence of that directory as completion and skips every module on rerun."
+expected = "A failed or interrupted precompile release must resume all intended module archives before version setup files advertise the new release."
+proposal = "In scripts/bump_version/main.go stage and validate the complete common and module archive set, publish a completion marker last, and prove an interrupted archive resumes."
+owner_domain = 16
+
+[finding.archive-tag-search]
+file = "scripts/bump_version/main.go"
+line = 234
+class = "runtime-risk"
+severity = "medium"
+observed = "gitFindCommit uses strings.Contains(content, version), treats Contents errors as a history boundary, and discards iter.ForEach errors; v6.4 can match v6.40."
+expected = "The archival baseline must be the commit introducing the exact version line, and an unreadable history must fail rather than select a different baseline."
+proposal = "In scripts/bump_version/main.go compare parsed complete tag lines and propagate history and content errors before archiving any module."
+owner_domain = 16
+
+[finding.commit-verifier-custody]
+file = "custodyproof/verify.go"
+line = 304
+class = "retired-reference"
+severity = "medium"
+observed = "Verify retains committed-header verification but then requires layerxcustody asset/deposit membership and the retired 0x1013 custody address; it cannot serve native bank membership."
+expected = "The kept commit/header verifier in row 1.go-custodyproof-verify must remain reusable after custody-credit retirement; native bank balances replace the deposit hop."
+proposal = "In custodyproof/verify.go separate reusable committed-header trust from historical custody record validation and expose native bank proof verification with restart-safe trust state."
+owner_domain = 1
+interface = "1.go-custodyproof-verify"
+
+[finding.commit-verifier-height]
+file = "custodyproof/verify.go"
+line = 206
+class = "runtime-risk"
+severity = "medium"
+observed = "verifyHistory requires a height-one contiguous history and rejects finalized heights at or beyond MaxHistory=8192, bounding total chain lifetime rather than just proof work."
+expected = "A bounded proof verifier must continue to verify mature committed chain state without replaying the entire chain from height one on every request."
+proposal = "In custodyproof/verify.go admit a pinned trusted checkpoint and bounded verified extensions, persisting validator transitions and rejecting expired or conflicting checkpoints."
+owner_domain = 1
+interface = "1.go-custodyproof-max-history"
+
+[finding.commit-verifier-tests]
+file = "custodyproof/verify_test.go"
+line = 13
+class = "test-gap"
+severity = "medium"
+observed = "The positive Verify test loads tests/fixtures/custody/paxeer-state-v3/state-credit.json; no positive case consumes a merged native bank membership proof."
+expected = "The kept committed-state proof interface needs a real merged producer through Decode and Verify, including recovery of its trust state and malformed-proof refusal."
+proposal = "Extend custodyproof/verify_test.go with committed native bank proof output from paxd, a stop/reopen trust roundtrip, and bad header, membership and chain refusals."
+owner_domain = 1
+interface = "1.go-custodyproof-verify"
+
+[finding.registry-trust-bootstrap]
+file = "docker/platform-registry/init.sh"
+line = 250
+class = "retired-reference"
+severity = "medium"
+observed = "Registry init waits for a generation copied from a separate kernel box and installs its sequencer trust-history into registry-generation before the registry starts."
+expected = "The merged registry must authenticate deployments against committed paxd state and must not require a separately operated kernel sequencer service."
+proposal = "In docker/platform-registry/init.sh and the registry deployment contract replace the kernel-box generation prerequisite with chain-bound committed deployment trust and preserve atomic generation pinning."
+owner_domain = 8
+interface = "8.env-registry-layerx-registry-sequencer-trust-history"
+
+[finding.maintenance-emulator-batch]
+file = "tests/platform/emulator_maintenance_head.py"
+line = 19
+class = "retired-reference"
+severity = "medium"
+observed = "The maintenance head case inventory requires batch_evidence header_hex, header_signature and receipt_proof from the old kernel batch lifecycle."
+expected = "Merged maintenance recovery must establish the committed paxd head and its receipts without a separate daemon batch authority."
+proposal = "Rewrite tests/platform/emulator_maintenance_head.py to consume committed node head evidence and exercise interruption, receipt recovery and conflicting-head refusal."
+owner_domain = 16
+
+[finding.maintenance-gateway-wire]
+file = "tests/platform/gateway_maintenance_head.rs"
+line = 39
+class = "retired-reference"
+severity = "medium"
+observed = "The gateway maintenance checks decode_batch_header and SequencerAuthorization from the retired layerx-wire batch evidence path."
+expected = "The gateway maintenance path must agree with the merged node receipt and committed-block producer and have no wire-codec dependency."
+proposal = "Move tests/platform/gateway_maintenance_head.rs to the current committed receipt and block decoder, retaining foreign authority, malformed proof and recovery checks."
+owner_domain = 16
+interface = "1.c-lxp-sequencer-authorization"
+
+[finding.beta-genesis-builder]
+file = "tests/support/generate_beta_genesis.py"
+line = 24
+class = "retired-reference"
+severity = "medium"
+observed = "The helper loads services/platform/hosted/paxeer/prepare-beta.py, which is absent, and emits a separate sequencer/guarantor genesis registration corpus."
+expected = "Merged test genesis must come from the paxd genesis producer and native module configuration without the retired beta-registration service."
+proposal = "Replace tests/support/generate_beta_genesis.py with a chain genesis fixture producer whose output is opened by paxd and whose native modules and bank accounts are verified after restart."
+owner_domain = 16
+
+[finding.python-genesis-metadata]
+file = "tests/support/lxgb_metadata.py"
+line = 42
+class = "retired-reference"
+severity = "medium"
+observed = "metadata always emits a custody issuer and custody_reference; metadata_withdrawal appends the retired withdrawal fee schedule, and generate_beta_genesis and daemon tests import it."
+expected = "Current genesis helpers must express native bank asset state; historical custody encoding must have an explicit compatibility-only boundary."
+proposal = "In tests/support/lxgb_metadata.py isolate immutable LXGB compatibility vectors and switch active merged genesis callers to the bank/module genesis producer."
+owner_domain = 16
+
+[finding.rust-genesis-metadata]
+file = "tests/support/lxgb_metadata.rs"
+line = 32
+class = "retired-reference"
+severity = "medium"
+observed = "The Rust companion metadata emitter encodes Custody token and a custody_reference and exposes withdrawal schedule construction as ordinary genesis helpers."
+expected = "Rust and Python active genesis producers must describe one merged native ledger, while retained historical bytes stay immutable and explicitly scoped."
+proposal = "Isolate tests/support/lxgb_metadata.rs historical encoders and migrate current Rust fixture consumers to chain genesis output, preserving cross-language historical checksums."
+owner_domain = 16
+
+[finding.benchmark-home-delete]
+file = "tools/benchmark/benchmark.sh"
+line = 82
+class = "runtime-risk"
+severity = "high"
+observed = "Initialization unconditionally runs rm -rf ~/.pax before validating or using PAX_HOME; a custom benchmark home still deletes an unrelated default node's data and keys."
+expected = "Running a benchmark in a dedicated home must never destroy another node's validator state, account keys or chain database."
+proposal = "In tools/benchmark/benchmark.sh initialize directly with --home in a validated dedicated empty benchmark directory and require an explicit bounded reset before deleting existing benchmark state."
+owner_domain = 16
+interface = "16.env-scr-initialize-local-chain-pax-home"
+
+[finding.benchmark-custom-home]
+file = "tools/benchmark/benchmark.sh"
+line = 136
+class = "config-drift"
+severity = "medium"
+observed = "paxd init and genesis edits use ~/.pax, but populate_genesis_accounts.py reads exported PAX_HOME before the default tree is moved there at line 292."
+expected = "The benchmark node, key producer and genesis account writer must operate on the same selected home from initialization through startup."
+proposal = "Pass the selected dedicated home to every paxd command and genesis edit in tools/benchmark/benchmark.sh and remove the late move that splits initialization between homes."
+owner_domain = 16
+interface = "16.env-scr-initialize-local-chain-pax-home"
+
+[finding.benchmark-node-exit]
+file = "tools/benchmark/benchmark.sh"
+line = 329
+class = "runtime-risk"
+severity = "medium"
+observed = "The default start mode pipes paxd output to grep under set -e without pipefail; matching output lets a failing paxd return success for the benchmark."
+expected = "The benchmark process result must retain a node startup or execution failure so operators do not accept an incomplete run."
+proposal = "In tools/benchmark/benchmark.sh preserve paxd's pipeline exit status, propagate signals, and check a node that emits one matching line then exits nonzero."
+owner_domain = 16
+
+[finding.dex-deploy-retired]
+file = "tools/benchmark/loadtest/contracts/deploy_ten_contracts.sh"
+line = 59
+class = "retired-reference"
+severity = "medium"
+observed = "The script invokes tx dex register-contract and register-pairs for mars and cw20_base instances, but no matching current module command exists; the script finally exits zero."
+expected = "Load scenarios must register assets and orders using the merged exchange interfaces and stop if deployment or registration fails."
+proposal = "Replace the retired dex setup in tools/benchmark/loadtest/contracts/deploy_ten_contracts.sh with current native exchange scenarios and require CLI and committed transaction success before writing contract_distribution."
+owner_domain = 16
+
+[finding.bindings-generator-exit]
+file = "tools/benchmark/loadtest/scripts/generate_bindings.sh"
+line = 14
+class = "runtime-risk"
+severity = "medium"
+observed = "A failed abigen is followed by a successful echo and cd, so the script can report Generated binding and exit zero with missing or stale Go bindings."
+expected = "Binding generation must fail whenever the declared ABI cannot produce the requested Go output."
+proposal = "In tools/benchmark/loadtest/scripts/generate_bindings.sh resolve the bindings directory relative to the script, check each abigen result and refuse missing or stale output."
+owner_domain = 16
+
+[finding.benchmark-rpc-envelope]
+file = "tools/benchmark/loadtest/scripts/metrics.py"
+line = 39
+class = "interface-mismatch"
+severity = "high"
+observed = "get_block_info and get_transaction_breakdown read res.json()['block']; consensus/rpc/jsonrpc/types/types.go wraps coretypes.ResultBlock in result, so a real /block response raises KeyError."
+expected = "The consensus HTTP producer emits {jsonrpc,id,result:{block_id,block}}; the metrics CLI must decode result.block and permit an empty block's null transaction array."
+proposal = "In tools/benchmark/loadtest/scripts/metrics.py validate HTTP and JSON-RPC errors, decode result.block, handle null txs, and prove metrics against actual consensus HTTP responses."
+owner_domain = 16
+interface = "16.cli-bench-benchmark-loadtest-scripts-metrics"
+
+[finding.benchmark-metric-deadlines]
+file = "tools/benchmark/loadtest/scripts/metrics.py"
+line = 16
+class = "runtime-risk"
+severity = "medium"
+observed = "requests.get has no timeout; timestamp parsing assumes fractional precision and throughput divides by an unchecked millisecond duration."
+expected = "Metric collection must terminate within a bounded interval and handle valid RFC3339 timestamps and zero or submillisecond block intervals without hanging or dividing by zero."
+proposal = "Bound requests and parse complete RFC3339 timestamps in tools/benchmark/loadtest/scripts/metrics.py, reporting unavailable measurements for nonpositive duration instead of crashing."
+owner_domain = 16
+
+[finding.genesis-account-count]
+file = "tools/benchmark/loadtest/scripts/populate_genesis_accounts.py"
+line = 106
+class = "runtime-risk"
+severity = "medium"
+observed = "Every worker creates num_threads accounts including the last partial chunk; nondivisible requests overshoot, and the final guard only rejects fewer accounts. Thread exceptions also leave holes."
+expected = "The account producer must create exactly the requested count or fail before publishing a modified genesis file."
+proposal = "Clamp the final chunk in tools/benchmark/loadtest/scripts/populate_genesis_accounts.py, collect worker exceptions and require a contiguous exact account inventory before writing genesis."
+owner_domain = 16
+
+[finding.genesis-mnemonic-permissions]
+file = "tools/benchmark/loadtest/scripts/populate_genesis_accounts.py"
+line = 41
+class = "security"
+severity = "medium"
+observed = "Mnemonic JSON is written with ordinary open('w') beneath ~/test_accounts created with ambient permissions, allowing a common umask to expose generated account seeds."
+expected = "Generated mnemonic material must remain private to its owner and must not be overwritten through symlinks or shared account paths."
+proposal = "In tools/benchmark/loadtest/scripts/populate_genesis_accounts.py use an owner-only dedicated account directory and exclusive nonsymlink mode-0600 files before funding the generated accounts."
+owner_domain = 16
+
+[finding.validator-fault-commands]
+file = "tools/benchmark/loadtest/scripts/validator_failures.py"
+line = 20
+class = "runtime-risk"
+severity = "medium"
+observed = "Restart passes an entire SSH command as one executable with shell=False; delegation also uses filter(...)[address], len(validator_addrs // 4) and a printf command without a pipe."
+expected = "Each advertised fault mode must execute its intended validator operation and report failure when the requested fault did not occur."
+proposal = "Repair tools/benchmark/loadtest/scripts/validator_failures.py to use structured SSH/paxd arguments, decode the admin account, partition actual validator lists and confirm the requested restart or delegation result."
+owner_domain = 16
+
+[finding.validator-fault-cleanup]
+file = "tools/benchmark/loadtest/scripts/validator_failures.py"
+line = 75
+class = "restart-recovery"
+severity = "medium"
+observed = "slow_network deletes qdisc only after normal sleep, so a subprocess failure or interruption leaves previously modified validators delayed; a final odd batch can index past validators."
+expected = "A qualification fault must restore every changed validator when the controller fails or is interrupted, including partially applied batches."
+proposal = "In tools/benchmark/loadtest/scripts/validator_failures.py track successful changes, use bounded list slices and restore them in finally and signal cleanup with an actionable retained recovery record."
+owner_domain = 16
+
+[finding.human-projection-finality]
+file = "tools/qualification/paxeer-x/human-canonical-projections.py"
+line = 71
+class = "retired-reference"
+severity = "medium"
+observed = "The client admits checkpoint-finalised and settlement-anchored budget/spend evidence and later requires checkpoint-proof entries for a completed journey."
+expected = "Human projections must describe one native ledger and committed-block finality; a second settlement checkpoint is not a merged completion authority."
+proposal = "Revise tools/qualification/paxeer-x/human-canonical-projections.py to consume committed paxd receipts and bank budget proofs, preserving foreign-principal denial, real evidence retrieval and restart checks."
+owner_domain = 16
+interface = "16.cli-qual-qualification-paxeer-x-human-canonical-projections"
+
+[finding.human-security-node-material]
+file = "tools/qualification/paxeer-x/human-security-prerequisites.py"
+line = 143
+class = "retired-reference"
+severity = "medium"
+observed = "The security prerequisite harness copies core.env and sequencer-public-key from a separate node fixture and requires old genesis and sequencer key paths."
+expected = "Security provider qualification must start from the merged paxd genesis and receipt/validator authority rather than retired standalone kernel bootstrap artifacts."
+proposal = "Update tools/qualification/paxeer-x/human-security-prerequisites.py and its fixture producer to bind current chain genesis and receipt-key material while retaining UID, policy and private-file refusals."
+owner_domain = 16
+interface = "16.cli-qual-qualification-paxeer-x-human-security-prerequisites"
+
+[finding.human-attestor-dual-finality]
+file = "tools/qualification/paxeer-x/human_attestor_intents.py"
+line = 55
+class = "retired-reference"
+severity = "medium"
+observed = "The attestor client classifies native SEND in domain layerx and permits checkpoint-finalised and settlement-anchored evidence alongside wallet legs in domain paxeer."
+expected = "Native and EVM operations are capabilities of one chain and terminal intent evidence must identify the committed block rather than a second settlement network."
+proposal = "Replace the dual-domain authority assertions in tools/qualification/paxeer-x/human_attestor_intents.py with merged-ledger capabilities and block-commit evidence, keeping exact signed-intent and foreign-owner checks."
+owner_domain = 16
+interface = "16.cli-qual-qualification-paxeer-x-human-attestor-intents"
+
+[finding.human-deposit-hop]
+file = "tools/qualification/paxeer-x/human_deposit_initial_response.py"
+line = 54
+class = "retired-reference"
+severity = "medium"
+observed = "The gate requires journey.kind=deposit, deposit.stage.wallet and deposit start/confirm requests, including durable recovery of that custody continuation as its success corpus."
+expected = "The merged balance is already the native bank balance; users must not pass through the retired custody-deposit hop before using funds."
+proposal = "Replace tools/qualification/paxeer-x/human_deposit_initial_response.py with the current native funding/transfer response contract; retain lost acknowledgement, exact retry, owner isolation and process recovery checks."
+owner_domain = 16
+interface = "10.http-human-deposit-start"
+
+[finding.human-journey-custody]
+file = "tools/qualification/paxeer-x/human_journey_projections.py"
+line = 55
+class = "retired-reference"
+severity = "medium"
+observed = "The fixture must contain waiting-custody and unknown-withdrawal-broadcast and the verification vocabulary includes settlement-anchored and checkpoint-finalised."
+expected = "Merged movement projections must track native transactions through submitted, receipted and committed states without a custody-credit or forced-exit dependency."
+proposal = "Rebuild tools/qualification/paxeer-x/human_journey_projections.py around current chain transaction stages and committed evidence, retaining ambiguous broadcast and recovered history cases."
+owner_domain = 16
+interface = "16.cli-qual-qualification-paxeer-x-human-journey-projections"
+
+[finding.approval-budget-checkpoint]
+file = "tools/qualification/paxeer-x/human_program_approvals.py"
+line = 59
+class = "retired-reference"
+severity = "medium"
+observed = "The approval budget assertion requires verification in checkpoint-finalised or settlement-anchored and age_sequences/maximum_age_sequences."
+expected = "A program approval budget must derive its amount and freshness from the merged committed bank state and current block evidence."
+proposal = "In tools/qualification/paxeer-x/human_program_approvals.py qualify the committed budget projection and block-based freshness with the real producer while preserving reservation digest, owner and held-material checks."
+owner_domain = 16
+interface = "10.http-human-approval-program-budget"
+
+[finding.funded-operator-destination]
+file = "tools/qualification/paxeer-x/migration-funded-operator.py"
+line = 80
+class = "retired-reference"
+severity = "medium"
+observed = "The funded operator requires source_pending/source_settled/layerx_pending/layerx_refused/done and inherits the ramp corpus that accepts only a maintained_batch destination receipt."
+expected = "External source settlement must remain distinct from destination authority, but destination funding is a committed bank transfer on the single merged chain."
+proposal = "Update tools/qualification/paxeer-x/migration-funded-operator.py and its ramp receipt consumer to qualify committed native funding and retain separate source claim, idempotency and restart evidence."
+owner_domain = 16
+interface = "16.cli-qual-qualification-paxeer-x-migration-funded-operator"
+
+[finding.migration-connected-destination]
+file = "tools/qualification/paxeer-x/migration-v2.py"
+line = 184
+class = "retired-reference"
+severity = "medium"
+observed = "MigrationContract.run inherits ramp-source-settlement receipt validation requiring maintained_batch and the historical module-1 SEND receipt as destination completion."
+expected = "Connected source ownership and destination binding must lead to a merged committed bank credit, without treating a historical batch as current destination finality."
+proposal = "Replace the inherited destination proof in tools/qualification/paxeer-x/migration-v2.py with current committed bank evidence, preserving Ethereum/Solana source proofs, wrong-binding refusals and journal recovery."
+owner_domain = 16
+interface = "16.cli-qual-qualification-paxeer-x-migration-v2"
+
+[finding.movement-profile-custody]
+file = "tools/qualification/paxeer-x/movement-custody-profile.py"
+line = 178
+class = "retired-reference"
+severity = "medium"
+observed = "The movement gate still requires changed-checkpoint-authority, changed-custody-reference and changed-checkpoint-registry pin cases plus custody profile provisioning."
+expected = "Native movement must use chain module authority and committed bank state; retired custody profile and checkpoint anchoring are not startup requirements."
+proposal = "Replace the custody profile corpus in tools/qualification/paxeer-x/movement-custody-profile.py with merged bank authority, chain identity and committed-proof pinning, retaining non-owner and restored-state refusals."
+owner_domain = 16
+interface = "16.cli-qual-qualification-paxeer-x-movement-custody-profile"
+
+[finding.transfer-evidence-private]
+file = "tools/qualification/paxeer-x/program_transfer_authority.py"
+line = 194
+class = "security"
+severity = "medium"
+observed = "When both evidence variables are absent, Path('') selects the checkout; only is_dir is checked before a log is opened with ambient permissions."
+expected = "Qualification evidence must be explicitly selected, private and caller-owned outside the repository so raw operational records are not accidentally published."
+proposal = "Require an explicit owner-only evidence directory outside the checkout in tools/qualification/paxeer-x/program_transfer_authority.py, create nonsymlink exclusive mode-0600 outputs and reject unset evidence variables."
+owner_domain = 16
+interface = "16.env-qual-qualification-paxeer-x-program-transfer-authority-paxeer-x-evidence-dir"
+
+[finding.all-form-abi-five]
+file = "tools/qualification/paxeer-x/programs_all_form_validation.py"
+line = 195
+class = "test-gap"
+severity = "medium"
+observed = "required_native_cases labels ABI 5 unsupported with result -101 and only admits versions 1 through 4; the canonical SDK/runtime ABI policy admits version 5."
+expected = "Every supported registration ABI must be accepted with the appropriate validator and unknown versions must be refused; a published ABI cannot serve as the unknown-version case."
+proposal = "Derive the supported matrix in tools/qualification/paxeer-x/programs_all_form_validation.py and tests/programs/test_lifecycle.c from canonical ABI policy, include version 5 and test a genuinely unallocated version without weakening refusals."
+owner_domain = 16
+interface = "16.cli-qual-qualification-paxeer-x-programs-all-form-validation"
+
+[finding.language-abi-five]
+file = "tools/qualification/paxeer-x/programs_language_abi.py"
+line = 60
+class = "test-gap"
+severity = "medium"
+observed = "manifest_parity accepts only namespaces layerx_v1 through layerx_v4 and exactly 28 rows, while programs/abi-frozen.sha256 and the runtime policy now publish ABI 5."
+expected = "The language conformance inventory must cover all admitted guest ABI namespaces, retain frozen earlier surfaces and agree with current host registration."
+proposal = "Extend tools/qualification/paxeer-x/programs_language_abi.py and programs/sdk/abi-manifest.tsv from canonical versioned host tables, including version-5 linker and guest cases alongside historical versions."
+owner_domain = 16
+interface = "13.fmt-sdk-abi-manifest-tsv"
+
+[finding.native-interface-retired-artifacts]
+file = "tools/qualification/paxeer-x/programs_native_interfaces.py"
+line = 52
+class = "retired-reference"
+severity = "medium"
+observed = "ARTIFACTS mandates layerxd, genesis-builder, sign-credit and test-credit and validates their old build/bin and tests/bridge layouts before any interface case runs."
+expected = "Merged program registration and bindings must round-trip through paxd and the registry without retired daemon or custody-credit executables."
+proposal = "Replace tools/qualification/paxeer-x/programs_native_interfaces.py process prerequisites with the merged paxd deployment, registry and bank-funding producer, retaining builder isolation and source/artifact identity checks."
+owner_domain = 16
+interface = "16.cli-qual-qualification-paxeer-x-programs-native-interfaces"
+
+[finding.native-interface-abi-five]
+file = "tools/qualification/paxeer-x/programs_native_interfaces.py"
+line = 49
+class = "test-gap"
+severity = "medium"
+observed = "The required registry-process, restart, dynamic binding and monotonic operation inventories stop at ABI 4 although the canonical runtime and frozen surface include ABI 5."
+expected = "Each admitted guest ABI must retain its recorded version through deploy, bindings, upgrades and process restart using the real registration path."
+proposal = "Expand tools/qualification/paxeer-x/programs_native_interfaces.py using the canonical admitted ABI inventory and demand version-5 deployment, generated consumer and restarted registry evidence."
+owner_domain = 16
+interface = "16.fmt-schema-paxeer-x-native-interface-artifacts-v1"
+
+[finding.ramp-batch-authority]
+file = "tools/qualification/paxeer-x/ramp-source-settlement.py"
+line = 295
+class = "retired-reference"
+severity = "medium"
+observed = "receipt requires verified=true, maintained_batch=true, module_id=1 and operation=5 before accepting destination funding, fixing completion to the old standalone batch receipt."
+expected = "The source proof must remain independently verified, while destination completion must bind the merged chain's committed bank transaction, account, asset and amount."
+proposal = "Change tools/qualification/paxeer-x/ramp-source-settlement.py and the receipt verifier contract to consume committed destination transfer proofs, preserving order/context binding, forged-authority refusals and recovery."
+owner_domain = 16
+interface = "8.http-ramp-reference-post-internal-v2-source-settlements"
+
+[finding.proof-cli-positive-genesis]
+file = "tools/qualification/paxeer-x/tests/test_proof_qual_cli.py"
+line = 245
+class = "test-gap"
+severity = "medium"
+observed = "The native genesis crossing test requires build/bin/layerx-genesis-build and expects the renderer to fail; it proves a retained refusal rather than a successful merged genesis crossing."
+expected = "Requirement 21005.1 calls for the real producer through transport to consumer, with a successful persisted path, a refusal and stop/reopen where state is retained."
+proposal = "Keep the historical refusal regression explicit in tools/qualification/paxeer-x/tests/test_proof_qual_cli.py and add a real paxd genesis producer-consumer success and reopen path for current qualification."
+owner_domain = 16
+interface = "16.cli-bringup-bringup-kernel-genesis"
+
+[finding.identity-router-prerequisite]
+file = "tools/qualification/paxeer-x/unified-account-identity.py"
+line = 88
+class = "retired-reference"
+severity = "medium"
+observed = "The identity fixture requires a prebuilt router executable in addition to client, explorer, keeper and precompile binaries before exercising px_ joins."
+expected = "The merged network has no separate router; hosted px_ account joins and node state must resolve one chain identity and balance model."
+proposal = "Remove the separate router process prerequisite from tools/qualification/paxeer-x/unified-account-identity.py and bind gateway and node artifacts directly while preserving repeat lookup, foreign-network and reopen cases."
+owner_domain = 16
+interface = "8.rpc-gateway-px-getaccount"
+
+[finding.custody-recovery-build-path]
+file = "tools/qualification/paxeer-x/wallet-custody-recovery.py"
+line = 137
+class = "wiring-gap"
+severity = "medium"
+observed = "Build mode invokes tsc in services/wallet/sdk, which does not exist; sources and artifact imports correctly refer to sdk/wallet."
+expected = "The source-bound wallet SDK artifact used by the recovery consumer must be compiled from the actual sdk/wallet package."
+proposal = "Fix the package path map in tools/qualification/paxeer-x/wallet-custody-recovery.py to compile sdk/wallet and services/wallet/gateway explicitly and seal those exact generated artifacts."
+owner_domain = 16
+interface = "16.cli-qual-qualification-paxeer-x-wallet-custody-recovery"
+
+[finding.custody-recovery-retired-api]
+file = "tools/qualification/paxeer-x/wallet-custody-recovery.py"
+line = 112
+class = "interface-mismatch"
+severity = "high"
+observed = "The consumer imports decodeCustodyAuthorization and expects paxeer_recoverCustody and paxeer_signCustody to return retained signatures; provider.ts exports no decoder and lists both methods in UNSUPPORTED_METHODS."
+expected = "The current wallet provider refuses retired custody-hop methods locally; qualification must agree with that published behavior and recover current native sends through their supported interface."
+proposal = "Rewrite tools/qualification/paxeer-x/wallet-custody-recovery.py to assert the retired API refusals and exercise exact native transaction recovery through the supported SDK and authenticated gateway across restart."
+owner_domain = 16
+interface = "12.rpc-sdk-provider-paxeer-recover-custody"
+
+[finding.custody-routing-bundle-private]
+file = "tools/qualification/paxeer-x/wallet-custody-routing.py"
+line = 67
+class = "security"
+severity = "medium"
+observed = "The routing gate only checks that the resolved bundle is a directory before reading its manifests, credentials and database dump and copying the whole tree; it never checks source owner or permissions."
+expected = "Credential-bearing fixture inputs must be caller-owned private regular files and directories before any read or launch, with referenced paths confined to approved roots."
+proposal = "In tools/qualification/paxeer-x/wallet-custody-routing.py validate private owner and nonsymlink inputs before reading, contain config paths inside the bundle and reject unsafe credential or dump files."
+owner_domain = 16
+interface = "16.env-qual-qualification-paxeer-x-wallet-custody-routing-wallet-custody-fixture-bundle"
+
+[finding.signing-adapters-deleted-source]
+file = "tools/qualification/paxeer-x/wallet-signing-adapters.py"
+line = 79
+class = "wiring-gap"
+severity = "medium"
+observed = "The exact source artifact closure includes apps/wallet/src/account/DepositFlow.tsx, but that file has been removed and replaced by native account UI; reading its digest prevents qualification."
+expected = "A signing adapter manifest must bind the current supported wallet surface while preserving threshold signing and native transaction authorization."
+proposal = "Replace the deleted DepositFlow.tsx prerequisite in tools/qualification/paxeer-x/wallet-signing-adapters.py with the current native wallet flow and source-bound driver, retaining signer threshold and ambiguous-broadcast recovery checks."
+owner_domain = 16
+interface = "16.cli-qual-qualification-paxeer-x-wallet-signing-adapters"
+
+[finding.demo-retired-custody]
+file = "tools/qualification/paxeer-x/wallet-supported-demo.py"
+line = 175
+class = "retired-reference"
+severity = "medium"
+observed = "The supported demo requires data-custody-prepare/sign/recover/send controls and decodeCustodyAuthorization, but the current wallet has retired that flow and the SDK no longer exports the decoder."
+expected = "The supported user demo must complete current native and EVM operations on the merged chain and show truthful pending/committed recovery."
+proposal = "Update tools/qualification/paxeer-x/wallet-supported-demo.py to current account planning and send controls and supported SDK exports, preserving real browser execution, reload recovery and wrong-chain refusals."
+owner_domain = 16
+interface = "16.cli-qual-qualification-paxeer-x-wallet-supported-demo"
+
+[finding.beta-driver-old-emulator]
+file = "tools/qualification/test_beta_driver.py"
+line = 106
+class = "retired-reference"
+severity = "medium"
+observed = "The beta driver provisions emulator sequencer_trust_anchor/sequencer_seed_file, launches a sequencer emulator and exercises the old network-402 LXP workflow."
+expected = "Merged beta qualification must prove the real paxd chain-125 ledger and committed receipts rather than only standalone emulator behavior."
+proposal = "Replace the live beta authority fixture in tools/qualification/test_beta_driver.py with a merged paxd stack and native PAX journeys, retaining CLI key and credential-store security cases."
+owner_domain = 16
+interface = "8.cli-cli-layerx-emulator-provision"
+
+[finding.release-runner-batch-cases]
+file = "tools/qualification/test_release_runner.py"
+line = 43
+class = "retired-reference"
+severity = "medium"
+observed = "The release inventory test requires crash-before-batch-wal and crash-after-batch-wal from the standalone kernel lifecycle as mandatory real-node release cases."
+expected = "The released merged chain must recover node transaction application and committed receipts; the kernel daemon batch WAL is retired under requirement 16015."
+proposal = "Replace the retired batch-WAL inventory in tools/qualification/test_release_runner.py and the owning beta driver with current node persistence boundaries, retaining exact inventory and missing-case refusal."
+owner_domain = 16
+
+[finding.python-sdk-import-root]
+file = "scripts/paxeer-x/verify-sdk-program-python.sh"
+line = 4
+class = "wiring-gap"
+severity = "medium"
+observed = "PYTHONPATH is set to <root>/agent/sdk/python, which is absent; the in-tree Python SDK package is services/agent/sdk/python and the tests import layerx_sdk from it."
+expected = "The Python Programs qualification script must import the source-bound SDK in this checkout instead of relying on an installed package or an ambient PYTHONPATH."
+proposal = "Point scripts/paxeer-x/verify-sdk-program-python.sh at services/agent/sdk/python and prove the real HTTP/corpus tests use that source package in an isolated Python environment."
+owner_domain = 16
+interface = "16.env-scr-paxeer-x-verify-sdk-program-python-pythonpath"
+
+[finding.pns-tcp-capacity]
+file = "tools/pnsdns/server.go"
+line = 298
+class = "runtime-risk"
+severity = "medium"
+observed = "serveTCP launches a goroutine for every accepted connection with no admission bound; each peer can retain a descriptor for repeated 30-second DNS exchanges while UDP alone has a 128-worker limit."
+expected = "A public DNS answerer must bound simultaneous connections and in-flight work so slow TCP peers cannot exhaust the service for other users."
+proposal = "Add a bounded TCP connection/work budget in tools/pnsdns/server.go, release slots on every close and return overload behavior while preserving valid pipelined DNS requests."
+owner_domain = 16
+
+[finding.pns-real-contract-coverage]
+file = "tools/pnsdns/server_test.go"
+line = 43
+class = "test-gap"
+severity = "medium"
+observed = "The DNS tests handcraft owner and contenthash eth_call replies in httptest; they check DNS wire behavior but never read output from the actual registry/resolver contract producer."
+expected = "Brief check 7 requires a real producer path; requirement 19008.1 must hold for actual contract owner/contenthash values over JSON-RPC into DNS answers."
+proposal = "Add a source-bound registry/resolver deployment and real node RPC crossing to tools/pnsdns/server_test.go or its focused integration harness, checking ownerless NXDOMAIN, TXT height/contenthash and A/AAAA responses."
+owner_domain = 16
+
+[finding.halt-export-rpc-path]
+file = "tools/v6120-halt-export/main.go"
+line = 41
+class = "retired-reference"
+severity = "medium"
+observed = "defaultRPC is https://api-mainnet-beta.paxeer.network/rpc, retaining the removed unified /rpc path at the public node host."
+expected = "Public mainnet-beta node JSON-RPC is served at the root path and the retired router path must not be used by export or upgrade tooling."
+proposal = "Change the default endpoint in tools/v6120-halt-export/main.go to the root node RPC and validate the expected chain and pinned snapshot before fetching."
+owner_domain = 16
+interface = "7.rpc-eth-getstorageat"
+
+[finding.halt-export-snapshot-binding]
+file = "tools/v6120-halt-export/main.go"
+line = 429
+class = "restart-recovery"
+severity = "medium"
+observed = "An existing fetch record is unmarshaled and accepted without matching its Height to layout.Height or binding its absent-key set to the export; an old sidecar silently changes the snapshot used on rerun."
+expected = "Resumed upgrade export construction must use one explicitly bound chain snapshot and must not reuse negative reads from another export, layout or height."
+proposal = "In tools/v6120-halt-export/main.go bind the fetch record to chain identity, block hash, layout and export digests, validate equality on reopen and refuse mixed snapshot sidecars."
+owner_domain = 16
+
+[finding.halt-export-atomic-publication]
+file = "tools/v6120-halt-export/main.go"
+line = 680
+class = "restart-recovery"
+severity = "medium"
+observed = "The height/absent record is published before writeExport, which truncates and rewrites the original export with os.WriteFile; interruption can leave a partial export or mismatched sidecars."
+expected = "An interrupted export update must preserve the last usable export and a coherent resumable record rather than destroy the input fixture."
+proposal = "Stage export and sidecars in tools/v6120-halt-export/main.go, sync data and directories, and publish a digest-bound generation atomically with a tested interruption/reopen path."
+owner_domain = 16
+
+[finding.halt-export-network-deadline]
+file = "tools/v6120-halt-export/main.go"
+line = 660
+class = "runtime-risk"
+severity = "medium"
+observed = "Fetching uses context.Background for batched RPC reads, and readRecord uses client.Call without a deadline, so a peer that stalls can block the export indefinitely."
+expected = "Upgrade evidence collection must have an operator-visible finite request and overall deadline so a stalled RPC does not strand export production."
+proposal = "Add request and overall context deadlines in tools/v6120-halt-export/main.go, propagate them to height and batch calls, and retain resumable snapshot-bound progress on timeout."
+owner_domain = 16
+
+[finding.syncset-read-locks]
+file = "utils/datastructures/set.go"
+line = 55
+class = "runtime-risk"
+severity = "medium"
+observed = "Contains, Size and ToOrderedSlice access the ordinary map without the mutex held by Add and Remove; a concurrent lookup or iteration during mutation can race or panic. Only write concurrency is documented."
+expected = "The shared utility must make its supported concurrent access rules explicit and prevent callers combining reads and writes from crashing the process."
+proposal = "Synchronize all map reads and snapshot copying in utils/datastructures/set.go, sort a detached snapshot after unlocking and document the resulting concurrency contract."
+owner_domain = 16
+
+[finding.syncset-mixed-coverage]
+file = "utils/datastructures/set_test.go"
+line = 15
+class = "test-gap"
+severity = "medium"
+observed = "The concurrency case runs writes and waits for all goroutines before querying the set; no case overlaps Contains, Size or ToOrderedSlice with mutation."
+expected = "Concurrency coverage must exercise the public read/write combinations that can expose ordinary Go map races, not only simultaneous locked writers."
+proposal = "Extend utils/datastructures/set_test.go with bounded coordinated reader/writer overlap and deterministic final membership assertions after the utility's read synchronization is repaired."
+owner_domain = 16
+
+[finding.typedmap-range-stop]
+file = "utils/datastructures/typed_sync_map.go"
+line = 58
+class = "runtime-risk"
+severity = "medium"
+observed = "Range calls f(key, typedVal) but discards the returned bool, although the wrapper promises the same CRUD interface as sync.Map, whose Range stops on false."
+expected = "A caller must be able to stop ordered enumeration by returning false, including after it has found a result or exhausted its work budget."
+proposal = "Honor the callback result in utils/datastructures/typed_sync_map.go and stop before invoking later sorted entries, while retaining deterministic key order."
+owner_domain = 16
+
+[finding.typedmap-range-delete]
+file = "utils/datastructures/typed_sync_map.go"
+line = 57
+class = "runtime-risk"
+severity = "medium"
+observed = "Range snapshots keys, then Load ignores its ok value and asserts val.(V); deletion after key collection, even by an earlier callback, makes the assertion panic."
+expected = "A sync.Map-style enumeration permits deletion during iteration and must never type-assert a missing entry as a real value."
+proposal = "In utils/datastructures/typed_sync_map.go retain typed key/value snapshots or check successful loads and skip deleted entries, documenting consistent enumeration semantics without admitting untyped values."
+owner_domain = 16
+
+[finding.typedmap-range-coverage]
+file = "utils/datastructures/typed_sync_map_test.go"
+line = 0
+class = "test-gap"
+severity = "medium"
+observed = "No test exercises Range returning false or deleting a not-yet-visited key during its callback; existing iteration and concurrent-write cases miss both failures."
+expected = "The typed map contract must cover callback termination and mutation during enumeration with deterministic behavior and no panic."
+proposal = "Add focused callback-false and delete-during-range cases in utils/datastructures/typed_sync_map_test.go, asserting no later callbacks after false and valid behavior for removed keys."
+owner_domain = 16
+
+[finding.root-network-guide]
+file = "README.md"
+line = 44
+class = "doc-drift"
+severity = "medium"
+observed = "The root guide describes separate custody and settlement domains, a layerxd/checkpoint service, retired precompiles and old build commands; lines 79 and 181 still call the merge a draft."
+expected = "The public guide must describe one paxd BFT network, chain ID 125, root-path node RPC and committed-block finality with native bank balances."
+proposal = "Rewrite README.md architecture and build examples around the merged paxd node and current hosted gateway; replace lines 44-47, 79-83, 145 and 181 and link current native funding and recovery guidance."
+owner_domain = 17
+
+[finding.monorepo-architecture]
+file = "docs/MONOREPO.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The directory guide introduces layerxd and at lines 70-72 treats settlement, custody, guarantors and offline exits as separate active runtime responsibilities."
+expected = "The monorepo map must distinguish the current integrated chain kernel and hosted services from retired daemon, custody-credit and exit components."
+proposal = "Rewrite docs/MONOREPO.md runtime and directory descriptions to map paxd, native bank and hosted service ownership, marking retained compatibility fixtures as historical."
+owner_domain = 17
+
+[finding.network-overview]
+file = "docs/paxeer-network.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The network overview retains separate settlement and custody domains, a public faucet at line 9, an old agent path at line 15 and retired runtime modules at line 38."
+expected = "The overview must present one chain with native bank balances and current service paths; bootstrap and funding instructions must match the deployed network model."
+proposal = "Update docs/paxeer-network.md to chain 125 and committed paxd receipts, replace removed service paths and describe the supported funding mechanism without the retired custody bridge."
+owner_domain = 17
+
+[finding.site-network-index]
+file = "docs/site/docs/index.md"
+line = 11
+class = "doc-drift"
+severity = "medium"
+observed = "The site landing page describes periodic checkpoints, 402LXP as sole writer at lines 20 and 33, separate settlement at lines 24-26 and retired runtime roles at lines 41 and 45-46."
+expected = "The site entry page must orient users to the single paxd ledger, native PAX balances and finality when a BFT block commits."
+proposal = "Rewrite docs/site/docs/index.md network diagram and role descriptions around chain 125, integrated kernel execution and the hosted gateway, removing the separate checkpoint and settlement authority."
+owner_domain = 17
+
+[finding.portuguese-overview]
+file = "docs/site/docs/overview/i18n/pt-br.md"
+line = 16
+class = "doc-drift"
+severity = "medium"
+observed = "The Portuguese overview preserves log/checkpoint authority, sequencer and layerxd instructions, faucet assumptions and old source paths at lines 16-37, 50-56 and 98-104."
+expected = "The translated overview must describe the same merged network, current binaries, funding and committed-block authority as the canonical user documentation."
+proposal = "Rewrite docs/site/docs/overview/i18n/pt-br.md from the current merged architecture, updating commands, paths and funding descriptions and reviewing the translated finality terminology."
+owner_domain = 17
+
+[finding.german-overview]
+file = "docs/site/docs/overview/i18n/de.md"
+line = 16
+class = "doc-drift"
+severity = "medium"
+observed = "The German overview retains log/checkpoint authority, a separate sequencer and layerxd, faucet assumptions and retired source paths at lines 16-37, 50-56 and 98-104."
+expected = "The German user guide must agree with the current single paxd chain, native bank funding and committed-block finality."
+proposal = "Rewrite docs/site/docs/overview/i18n/de.md architecture and examples from the current network guide, correcting binary names, paths, funding and finality throughout the translated sections."
+owner_domain = 17
+
+[finding.qualification-runbook]
+file = "docs/site/docs/operators/qualification.md"
+line = 20
+class = "doc-drift"
+severity = "medium"
+observed = "The operator qualification guide requires guarantor/DA/offline-exit cases at lines 20-21 and 79-82, then describes an independent old qualification system at line 100."
+expected = "Operator qualification must exercise the merged node's actual committed-state and recovery paths and identify the current declared gates and private evidence contract."
+proposal = "Rewrite docs/site/docs/operators/qualification.md to the current paxd qualification inventory and evidence lifecycle, retaining failure and recovery expectations while removing retired guarantor and exit obligations."
+owner_domain = 17
+
+[finding.beta-site-runbook]
+file = "docs/site/docs/operators/beta-cluster.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The beta runbook provisions separate daemon, core and replica roles, old bootstrap commands, custody profiles, sequencer pins and deposit credits at lines 3-5, 26-50, 68 and 88-90."
+expected = "Beta operators must launch the merged paxd chain with current genesis and native account funding, and recover from committed node state without a separate daemon or deposit-credit authority."
+proposal = "Rewrite docs/site/docs/operators/beta-cluster.md deployment, funding and recovery procedures using the current merged node and hosted services, including pinned chain identity and private operator evidence."
+owner_domain = 17
+
+[finding.beta-wiki-runbook]
+file = "docs/wiki/BetaCluster.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The wiki beta guide keeps the split daemon/core/replica topology and removed bootstrap, custody and sequencer instructions at lines 3-5, 26-36, 42 and 60."
+expected = "The wiki and site runbooks must describe the same supported merged node topology and native funding/recovery lifecycle."
+proposal = "Rewrite docs/wiki/BetaCluster.md against the merged beta deployment contract and link the canonical runbook so operators do not provision retired services or custody credits."
+owner_domain = 17
+
+[finding.hosted-node-runbook]
+file = "docs/site/docs/platform/hosted-node.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The hosted-node guide calls the node a sequencer pod and builds layerxd; it retains replica/guarantor roles, LXGB custody registration, settlement environment keys and retired LNI listeners at lines 39-42, 96-303 and 435-589."
+expected = "A hosted node is the integrated paxd chain participant; registration, balances, public endpoints and recovery must bind its committed chain state and current service contracts."
+proposal = "Rewrite docs/site/docs/platform/hosted-node.md deployment and recovery around paxd and native bank state, replacing obsolete LXGB/custody procedures, settlement configuration and listener tables with current node and gateway interfaces."
+owner_domain = 17
+
+[finding.hosted-core-runbook]
+file = "docs/site/docs/platform/hosted-core.md"
+line = 5
+class = "doc-drift"
+severity = "medium"
+observed = "The hosted-core guide puts TLS in front of layerxd, lists separate LNI/program/replica sockets at line 23, describes old sequencer batch/checkpoint APIs at lines 69 and 83-85 and tests replica readiness and an old node fixture at lines 149 and 314."
+expected = "The hosted boundary must route to current node and gateway contracts, derive authority from committed chain state and qualify the actual supported topology."
+proposal = "Rewrite docs/site/docs/platform/hosted-core.md routing, listener and readiness sections for the merged paxd node and hosted gateway, with current real-node and stop/reopen qualification examples."
+owner_domain = 17
+
+[finding.launchpad-working-directory]
+file = "contracts/launchpad/operations/README.md"
+line = 11
+class = "doc-drift"
+severity = "medium"
+observed = "Deployment, verification and health instructions say to run from contracts/ at lines 11, 28 and 81, but the referenced launchpad scripts, Hardhat configuration and package commands live in contracts/launchpad/."
+expected = "An operator following the runbook must resolve the intended launchpad package, scripts, deployment manifest and artifact identity from a single correct working directory."
+proposal = "Change contracts/launchpad/operations/README.md commands to start from contracts/launchpad/ and qualify the displayed relative script, node_modules and deployment paths without sending transactions."
+owner_domain = 4
+
+[finding.archive-rerun-documentation]
+file = "scripts/bump_version/README.md"
+line = 65
+class = "doc-drift"
+severity = "medium"
+observed = "The runbook calls reruns safe because the common archive directory exists, but main.go creates that directory before module archival finishes, allowing interrupted runs to skip missing module archives."
+expected = "The documented release recovery procedure must only claim completion after all intended archives and version registrations are durable and consistent."
+proposal = "Update scripts/bump_version/README.md to state the partial-archive hazard and a concrete inspect/resume procedure; align the safety claim with a completion marker published after all module archives."
+owner_domain = 16
+
+[finding.archive-error-documentation]
+file = "scripts/bump_version/README.md"
+line = 93
+class = "doc-drift"
+severity = "medium"
+observed = "The error-handling section says Git failures are fatal, while gitFindCommit in main.go suppresses content and iterator errors and may choose an incorrect historical baseline."
+expected = "Release operators must be told which failures stop publication and must never rely on an unreadable history as a valid version baseline."
+proposal = "Correct scripts/bump_version/README.md error guarantees alongside exact tag-line lookup and error propagation in scripts/bump_version/main.go; document refusal and safe recovery for missing history."
+owner_domain = 16
+
+[finding.pr-template-old-authority]
+file = ".github/pull_request_template.md"
+line = 22
+class = "doc-drift"
+severity = "medium"
+observed = "The mandatory checklist asks every contributor to preserve 402LXP sole-writer invariants, presenting the retired separate ledger authority as a current contribution requirement."
+expected = "Contribution guidance must preserve canonical encoding and deterministic replay under the single chain-125 paxd ledger and its committed-state authority."
+proposal = "Update .github/pull_request_template.md to require merged-ledger and native bank invariants, retaining the current no-weakening, evidence and private-material requirements."
+owner_domain = 17
+
+[doc.01]
+path = "README.md"
+status = "stale"
+notes = "Lines 44-47, 79-83, 145 and 181 retain split runtime, retired precompiles, build and draft-merge wording; see root-network-guide."
+
+[doc.02]
+path = "docs/site/docs/operators/beta-cluster.md"
+status = "misleading"
+notes = "Lines 3-5, 26-50, 68 and 88-90 instruct split daemon/replica bootstrap and custody credits; see beta-site-runbook."
+
+[doc.03]
+path = "docs/MONOREPO.md"
+status = "stale"
+notes = "Lines 3 and 70-72 map layerxd, separate settlement/custody, guarantors and exits as current components; see monorepo-architecture."
+
+[doc.04]
+path = "docs/wiki/BetaCluster.md"
+status = "misleading"
+notes = "Lines 3-5, 26-36, 42 and 60 retain obsolete split-node and custody bootstrap; see beta-wiki-runbook."
+
+[doc.05]
+path = "contracts/launchpad/operations/README.md"
+status = "misleading"
+notes = "Deployment authority, private keys, journal identity and delayed recovery are described, but lines 11, 28 and 81 select contracts/ instead of contracts/launchpad/; see launchpad-working-directory."
+
+[doc.06]
+path = "docs/paxeer-network.md"
+status = "stale"
+notes = "Lines 3-20 and 38 retain split settlement/custody, a public faucet, an old agent path and retired modules; see network-overview."
+
+[doc.07]
+path = "docs/site/docs/index.md"
+status = "stale"
+notes = "Lines 11, 20-33 and 41-46 describe checkpoint finality, 402LXP sole writer and separate settlement/roles; see site-network-index."
+
+[doc.08]
+path = "docs/site/docs/overview/i18n/pt-br.md"
+status = "stale"
+notes = "Lines 16-37, 50-56 and 98-104 retain the translated split sequencer/checkpoint/faucet and source paths; see portuguese-overview."
+
+[doc.09]
+path = "docs/site/docs/overview/i18n/de.md"
+status = "stale"
+notes = "Lines 16-37, 50-56 and 98-104 retain the translated split sequencer/checkpoint/faucet and source paths; see german-overview."
+
+[doc.10]
+path = "docs/site/docs/operators/qualification.md"
+status = "misleading"
+notes = "Lines 20-21, 79-82 and 100 require retired guarantor/DA/offline-exit qualification and an obsolete gate model; see qualification-runbook."
+
+[doc.11]
+path = "docs/site/docs/platform/hosted-node.md"
+status = "misleading"
+notes = "Lines 3, 39-42, 96-303 and 435-589 provision layerxd, custody/LXGB, settlement configuration and retired listeners; see hosted-node-runbook."
+
+[doc.12]
+path = "docs/site/docs/platform/hosted-core.md"
+status = "misleading"
+notes = "Lines 5, 23, 69, 83-85, 149 and 314 route to layerxd/LNI and old batch/checkpoint/replica readiness; see hosted-core-runbook."
+
+[doc.13]
+path = ".codify/agent-context.md"
+status = "stale"
+notes = "Generated cg agentmd graph snapshot retains the older directory inventory, including daemon/; regenerate from the merged graph rather than editing generated statistics."
+
+[doc.14]
+path = ".github/copilot-instructions.md"
+status = "accurate"
+notes = "Generated specification workflow pointer correctly names spec/workflow.kvx and the active feature; generated workflow policy is interpreted subject to the current task scope."
+
+[doc.15]
+path = ".github/pull_request_template.md"
+status = "stale"
+notes = "Evidence, no-weakening and private-material guidance remains applicable, but line 22 names the retired 402LXP sole writer; see pr-template-old-authority."
+
+[doc.16]
+path = "scripts/bump_version/README.md"
+status = "misleading"
+notes = "Lines 65 and 93 overstate interrupted-rerun safety and Git error propagation; see archive-rerun-documentation and archive-error-documentation."
+
+[doc.17]
+path = "utils/metrics/README.md"
+status = "accurate"
+notes = "Safe telemetry wrappers, panic isolation, pax_chain OpenTelemetry instrumentation, and the ten-second/one-minute in-memory sink periods match metrics_util.go."

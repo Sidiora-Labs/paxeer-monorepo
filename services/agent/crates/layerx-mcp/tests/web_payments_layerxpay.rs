@@ -1,3 +1,6 @@
+#[path = "support/clock.rs"]
+mod test_clock;
+
 use std::io::{BufRead as _, BufReader, Read as _, Write as _};
 use std::net::TcpListener;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -5,7 +8,7 @@ use std::sync::Arc;
 use std::thread::{self, JoinHandle};
 
 use ed25519_dalek::{Signer as _, SigningKey};
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::time::Duration;
 
 use layerx_agentd::prepare::evm::PrecompileTarget;
 use layerx_crypto::evm_transaction::{
@@ -90,7 +93,7 @@ impl RecordedLedger {
                 let mut reader = BufReader::new(stream);
                 let mut line = String::new();
                 reader.read_line(&mut line).expect("request line");
-                assert_eq!(line, "POST /rpc HTTP/1.1\r\n");
+                assert_eq!(line, "POST / HTTP/1.1\r\n");
                 let mut length = None;
                 loop {
                     line.clear();
@@ -172,7 +175,7 @@ fn web_fetch_pays_with_pay_exact() {
         }),
     )
     .expect("web.fetch invocation");
-    let replay = RecordedLedger::start();
+    let mut replay = RecordedLedger::start();
     let config = config(&replay.endpoint);
     let required: PaymentRequired = serde_json::from_value(
         exchange()["exchange"][0]["response"]["headers"]["PAYMENT-REQUIRED"].clone(),
@@ -194,7 +197,7 @@ fn web_fetch_pays_with_pay_exact() {
         )
         .expect("exact call");
         let terms = call
-            .exact_terms(&config, exact, 7)
+            .exact_terms_with_payer(&config, exact, &mut replay, &test_clock::TestClock::new(50))
             .expect("recorded ledger offer");
         assert!(account_identifiers(&terms.recipient_account)
             .expect("recipient ids")
@@ -213,7 +216,12 @@ fn web_fetch_pays_with_pay_exact() {
     }
     let mut quote = quote();
     let terms = call
-        .exact_terms(&config, &quote, 7)
+        .exact_terms_with_payer(
+            &config,
+            &quote,
+            &mut replay,
+            &test_clock::TestClock::new(50),
+        )
         .expect("bind exact web price");
     let prepared = terms.prepare_pay_exact();
     let data = prepared.encode().expect("payExact ABI encoding");
@@ -279,19 +287,48 @@ fn web_fetch_pays_with_pay_exact() {
     );
     quote.pay_to = format!("0x{}", "aa".repeat(32));
     assert!(
-        call.exact_terms(&config, &quote, 7).is_err(),
+        call.exact_terms_with_payer(
+            &config,
+            &quote,
+            &mut replay,
+            &test_clock::TestClock::new(50)
+        )
+        .is_err(),
         "recipient substitution must fail"
     );
     quote.pay_to = format!("0x{}", "cd".repeat(20));
     assert!(
-        call.exact_terms(&config, &quote, 7).is_err(),
+        call.exact_terms_with_payer(
+            &config,
+            &quote,
+            &mut replay,
+            &test_clock::TestClock::new(50)
+        )
+        .is_err(),
         "20-byte addresses cannot name ledger accounts"
     );
 
+    let receiver_did_key = terms
+        .recipient_account
+        .strip_prefix("agent:did:layerx:")
+        .expect("receiver DID account")
+        .split(':')
+        .next()
+        .expect("receiver DID key")
+        .as_bytes()
+        .chunks_exact(2)
+        .map(|pair| {
+            u8::from_str_radix(std::str::from_utf8(pair).expect("hex pair"), 16)
+                .expect("receiver DID hex")
+        })
+        .collect::<Vec<_>>()
+        .try_into()
+        .expect("32-byte receiver DID key");
     let grant = GrantTerms {
         payer_did: terms.payer_did,
         payer_account: terms.payer_account,
         recipient: terms.recipient,
+        receiver_did_key,
         asset: terms.asset,
         expires_at_ms: 1_900_000_000_000,
         amount: 2,
@@ -340,7 +377,8 @@ fn web_fetch_pays_with_pay_exact() {
     assert_eq!(sequence_call.target, PrecompileTarget::Ledger);
     let sequence_data = sequence_call.encode().expect("nextSequence calldata");
     assert_eq!(&sequence_data[..4], &[0xce, 0x2f, 0x92, 0x1f]);
-    assert_eq!(&sequence_data[4..36], &grant.recipient);
+    assert_eq!(&sequence_data[4..36], &grant.receiver_did_key);
+    assert_ne!(grant.receiver_did_key, grant.recipient);
     assert_eq!(&sequence_data[36..68], &grant.asset);
     let draw = grant.prepare_draw([8; 32], 19);
     assert_eq!(draw.target, PrecompileTarget::Ledger);
@@ -373,22 +411,17 @@ fn web_fetch_pay_exact_expiry_is_the_disclosure_expiry_in_milliseconds() {
         }),
     )
     .expect("web.fetch invocation");
-    let replay = RecordedLedger::start();
+    let mut replay = RecordedLedger::start();
     let config = config(&replay.endpoint);
+    let clock = test_clock::TestClock::new(1_800_000_000);
     for timeout in [30_u64, 900] {
         let mut quote = quote();
         quote.max_timeout_seconds = timeout.try_into().expect("timeout");
-        let before = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .expect("unix clock")
-            .as_secs();
+        let before = clock.now();
         let terms = call
-            .exact_terms(&config, &quote, 7)
+            .exact_terms_with_payer(&config, &quote, &mut replay, &clock)
             .expect("bind exact web price");
-        let after = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .expect("unix clock")
-            .as_secs();
+        let after = clock.now();
         let window = timeout.min(layerx_mcp::tools::web::APPROVAL_WINDOW);
         assert!((before + window..=after + window).contains(&terms.disclosure.expiry.0));
         let data = terms
@@ -408,19 +441,11 @@ fn web_fetch_pay_exact_expiry_is_the_disclosure_expiry_in_milliseconds() {
     }
 }
 
+#[path = "support/payment_binding.rs"]
+mod payment_binding;
+
 fn document() -> Value {
-    json!({
-        "mode": "full", "tenant": "tenant-a", "store": "/tmp/web-store", "audit_root": "/tmp/web-audit",
-        "session_id": "07".repeat(32), "session_token_file": "/tmp/web-session-token", "session_generation": 1,
-        "capability_id": "09".repeat(32), "core_sequence": 7, "deadline_ms": 5000,
-        "agent": {"endpoint": "http://127.0.0.1:9500", "bearer_file": "/tmp/web-agent-bearer", "probe_program": "55".repeat(32)},
-        "limit": {"id": "09".repeat(16), "name": "mcp-limit", "scope": "tenant", "scope_id": "01".repeat(32), "ceiling": "1000", "consumed": "0"},
-        "web": {"endpoint": "http://127.0.0.1:9450", "payer_address": format!("0x{}", "ab".repeat(20)),
-            "receiver_address": format!("0x{}", "cd".repeat(20)), "network": "eip155:125",
-            "receipt_key_index": [{"keyId": "2a".repeat(32), "publicKey": "5e".repeat(32), "firstHeight": 1, "lastHeight": 100}],
-            "sequencer_id": "2a".repeat(32), "first_batch_number": 1, "last_batch_number": 100,
-            "timeout_ms": 5000, "pending_attempts": 3, "approval_threshold": "1000"}
-    })
+    payment_binding::document()
 }
 
 #[test]
@@ -464,4 +489,42 @@ fn web_binding_names_a_receipt_key_index() {
         Binding::parse(&uncovered.to_string()).is_err(),
         "key must cover the configured heights"
     );
+}
+
+impl layerx_mcp::tools::web::WebPayer for RecordedLedger {
+    fn view(
+        &mut self,
+        call: &layerx_agentd::prepare::evm::PrecompileCall,
+    ) -> Result<Vec<u8>, layerx_mcp::tools::web::WebPayerError> {
+        use layerx_mcp::tools::web::WebPayerError;
+        let node = layerx_client::sequencer::SequencerEndpoint::new(&self.endpoint, &[])
+            .map_err(|_| WebPayerError::Unavailable)?;
+        node.call_pending(
+            &call.target.address(),
+            &call.encode().map_err(|_| WebPayerError::Refused)?,
+        )
+        .map_err(|_| WebPayerError::Unavailable)
+    }
+    fn sign_grant(
+        &mut self,
+        _: &GrantTerms,
+    ) -> Result<Grant, layerx_mcp::tools::web::WebPayerError> {
+        panic!("quote-only ledger must not sign")
+    }
+    fn submit(
+        &mut self,
+        _: &layerx_agentd::prepare::evm::PrecompileCall,
+    ) -> Result<layerx_mcp::tools::web::ExactPayment, layerx_mcp::tools::web::WebPayerError> {
+        panic!("quote-only ledger must not submit")
+    }
+}
+
+#[path = "support/seller_exchange.rs"]
+mod seller_exchange;
+use seller_exchange::config;
+
+#[test]
+fn payment_receipts_round_trip_through_seller_router_and_node_root() {
+    seller_exchange::seller_routes_and_node_transport_complete_exact_and_metered();
+    seller_exchange::node_account_failures_never_reach_settlement();
 }

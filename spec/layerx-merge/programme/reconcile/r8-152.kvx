@@ -1,0 +1,245 @@
+[reconcile.r8-152]
+revision = "3bc9e23f938f3add09f1b16665b0c66d9e4695a1"
+rows = 30
+
+[row.r8-152.1]
+interface = "interface.8.rs-indexer-layerx-indexer-ai-market-querylimiter"
+verdict = "served"
+path = "services/platform/hosted/indexer/src/ai_market.rs"
+line = 720
+symbol = "QueryLimiter"
+evidence = "pub struct QueryLimiter declares the per-principal token bucket and concurrency limiter here; the Permit field and impl below are references, not the declaration."
+
+[row.r8-152.2]
+interface = "interface.8.rs-indexer-layerx-indexer-ai-market-viewer"
+verdict = "served"
+path = "services/platform/hosted/indexer/src/ai_market.rs"
+line = 634
+symbol = "Viewer"
+evidence = "pub struct Viewer declares the authenticated reader with visibility: Digest32; the following impl and query parameter types are uses of this declaration."
+
+[row.r8-152.3]
+interface = "interface.8.http-indexer-any-healthz"
+verdict = "served"
+path = "services/platform/hosted/indexer/src/api.rs"
+line = 607
+symbol = "/healthz"
+evidence = "The if path == /healthz branch in route_with calls store.ping and returns the health response; the module documentation is only a mention."
+
+[row.r8-152.4]
+interface = "interface.8.http-indexer-any-readyz"
+verdict = "served"
+path = "services/platform/hosted/indexer/src/api.rs"
+line = 613
+symbol = "/readyz"
+evidence = "The if path == /readyz branch in route_with calls readiness_document and selects HTTP 200 or 503; the other occurrences describe the route in documentation."
+
+[row.r8-152.5]
+interface = "interface.8.http-indexer-any-v1-assets"
+verdict = "served"
+path = "services/platform/hosted/indexer/src/api.rs"
+line = 625
+symbol = "/v1/assets"
+evidence = "The exact /v1/assets equality branch parses a row cursor and returns store.assets; the adjacent /v1/assets/ prefix branch defines the separate detail route."
+
+[row.r8-152.6]
+interface = "interface.8.http-indexer-any-v1-assets-2"
+verdict = "served"
+path = "services/platform/hosted/indexer/src/api.rs"
+line = 634
+symbol = "/v1/assets/"
+evidence = "The path.strip_prefix(/v1/assets/) branch defines the asset detail route, validates its segment, and calls store.asset; the module header merely lists the route."
+
+[row.r8-152.7]
+interface = "interface.8.http-indexer-any-v1-history"
+verdict = "served"
+path = "services/platform/hosted/indexer/src/api.rs"
+line = 648
+symbol = "/v1/history/"
+evidence = "The path.strip_prefix(/v1/history/) branch defines account history, parses a position cursor, and calls store.merged_history; the module header is not the handler."
+
+[row.r8-152.8]
+interface = "interface.8.http-indexer-any-v1-holders"
+verdict = "served"
+path = "services/platform/hosted/indexer/src/api.rs"
+line = 676
+symbol = "/v1/holders/"
+evidence = "The path.strip_prefix(/v1/holders/) branch defines holder history and calls store.holder_records after validating the holder and kind; other occurrences are documentation."
+
+[row.r8-152.9]
+interface = "interface.8.env-indexer-layerx-indexer-block-time-ms-j69"
+verdict = "retired"
+path = "services/platform/hosted/indexer/src/config.rs"
+line = 256
+symbol = "LAYERX_INDEXER_BLOCK_TIME_MS"
+evidence = "Decision 2494: the registered policy lookup and DEFAULT_BLOCK_TIME_MS are gone; no production read remains. Both remaining literals at lines 424 and 452 are test inputs inserted into the lookup to prove Config::from_lookup ignores LAYERX_INDEXER_BLOCK_TIME_MS. paxeer_source_is_final_at_block_commit asserts depth depends only on fixed_depth, and environment_builds_evm_and_comet_sources asserts the default depth is zero."
+remaining_refs = 2
+remaining = ["services/platform/hosted/indexer/src/config.rs:424", "services/platform/hosted/indexer/src/config.rs:452"]
+
+[row.r8-152.10]
+interface = "interface.8.env-indexer-layerx-indexer-comet-attributes-j69"
+verdict = "served"
+path = "services/platform/hosted/indexer/src/config.rs"
+line = 260
+symbol = "LAYERX_INDEXER_COMET_ATTRIBUTES"
+evidence = "Config::from_lookup matches lookup(LAYERX_INDEXER_COMET_ATTRIBUTES).as_deref() to choose Base64 or Plain encoding; the later literal belongs to the invalid-value error."
+
+[row.r8-152.11]
+interface = "interface.8.env-indexer-layerx-indexer-comet-ca-der-j69"
+verdict = "served"
+path = "services/platform/hosted/indexer/src/config.rs"
+line = 269
+symbol = "LAYERX_INDEXER_COMET_CA_DER"
+evidence = "The let comet = endpoint call supplies LAYERX_INDEXER_COMET_CA_DER as its certificate variable name; the endpoint closure reads that name and creates Security::PinnedTls when supplied."
+
+[row.r8-152.12]
+interface = "interface.8.env-indexer-layerx-indexer-comet-url-j69"
+verdict = "served"
+path = "services/platform/hosted/indexer/src/config.rs"
+line = 269
+symbol = "LAYERX_INDEXER_COMET_URL"
+evidence = "The let comet = endpoint call supplies LAYERX_INDEXER_COMET_URL as its URL variable name in Config::from_lookup; the occurrence at line 450 only supplies test configuration."
+
+[row.r8-152.13]
+interface = "interface.8.env-indexer-layerx-indexer-explorer-url-j69"
+verdict = "served"
+path = "services/platform/hosted/indexer/src/config.rs"
+line = 283
+symbol = "LAYERX_INDEXER_EXPLORER_URL"
+evidence = "The LAYERX_INDEXER_EXPLORER_URL argument to let explorer = endpoint defines the explorer URL lookup; the later occurrence is an error explaining its required EVM source."
+
+[row.r8-152.14]
+interface = "interface.8.env-indexer-layerx-indexer-pointers-j69"
+verdict = "served"
+path = "services/platform/hosted/indexer/src/config.rs"
+line = 301
+symbol = "LAYERX_INDEXER_POINTERS"
+evidence = "The Config initializer reads LAYERX_INDEXER_POINTERS through lookup and passes its value to parse_pointers; the later literal is a test input rather than the environment read."
+
+[row.r8-152.15]
+interface = "interface.8.rs-indexer-layerx-indexer-store-assetrow"
+verdict = "served"
+path = "services/platform/hosted/indexer/src/store.rs"
+line = 402
+symbol = "AssetRow"
+evidence = "pub struct AssetRow declares asset, chain, kind, address, denom and metadata; Unit.assets and register_assets refer to this type rather than declare it."
+
+[row.r8-152.16]
+interface = "interface.8.rs-indexer-layerx-indexer-store-holderrow"
+verdict = "served"
+path = "services/platform/hosted/indexer/src/store.rs"
+line = 386
+symbol = "HolderRow"
+evidence = "pub struct HolderRow declares a holder event with position, holder, kind and record state; the Unit.holders vector is a use of this type."
+
+[row.r8-152.17]
+interface = "interface.8.rs-indexer-layerx-indexer-store-position"
+verdict = "served"
+path = "services/platform/hosted/indexer/src/store.rs"
+line = 255
+symbol = "Position"
+evidence = "pub struct Position declares height: u64, tx_index: u32 and log_index: u32; the impl, cursor parameters and constructor calls reference this declaration."
+
+[row.r8-152.18]
+interface = "interface.8.rs-indexer-layerx-indexer-store-store"
+verdict = "served"
+path = "services/platform/hosted/indexer/src/store.rs"
+line = 526
+symbol = "Store"
+evidence = "pub struct Store declares the shared SQLite connection: Mutex<Connection>; IndexError::Store occurrences name an error variant, while impl Store implements this struct."
+
+[row.r8-152.19]
+interface = "interface.8.rs-indexer-layerx-indexer-store-transferrow"
+verdict = "served"
+path = "services/platform/hosted/indexer/src/store.rs"
+line = 311
+symbol = "TransferRow"
+evidence = "pub struct TransferRow declares a decoded transfer leg with height_or_seq, tx_index, direction, account and amount; vector fields, parameters and test constructors are uses."
+
+[row.r8-152.20]
+interface = "interface.8.rs-indexer-layerx-indexer-store-unit"
+verdict = "served"
+path = "services/platform/hosted/indexer/src/store.rs"
+line = 413
+symbol = "Unit"
+evidence = "pub struct Unit declares the chain unit and its transfer, event, holder and asset vectors; commit parameters and the test helper construct or borrow this type."
+
+[row.r8-152.21]
+interface = "interface.8.cfg-paxai-worker-config-certificate-chain"
+verdict = "served"
+path = "services/platform/hosted/paxai-worker/src/main.rs"
+line = 115
+symbol = "certificate_chain"
+evidence = "The Deserialize Config struct declares certificate_chain: PathBuf here; CertificateDer::pem_file_iter later reads config.certificate_chain during startup."
+
+[row.r8-152.22]
+interface = "interface.8.cfg-paxai-worker-config-chain"
+verdict = "served"
+path = "services/platform/hosted/paxai-worker/src/main.rs"
+line = 119
+symbol = "chain"
+evidence = "The Deserialize Config struct declares chain: String here; MetadataContext construction, the local TLS certificate chain and JSON fields are separate uses or bindings."
+
+[row.r8-152.23]
+interface = "interface.8.cfg-paxai-worker-config-delegate-seed"
+verdict = "served"
+path = "services/platform/hosted/paxai-worker/src/main.rs"
+line = 117
+symbol = "delegate_seed"
+evidence = "The Deserialize Config struct declares delegate_seed: PathBuf here; load later reads config.delegate_seed to construct the signing key."
+
+[row.r8-152.24]
+interface = "interface.8.cfg-paxai-worker-config-listen"
+verdict = "served"
+path = "services/platform/hosted/paxai-worker/src/main.rs"
+line = 114
+symbol = "listen"
+evidence = "The Deserialize Config struct declares listen: String here; TcpListener::bind later consumes config.listen and the failure message only mentions listening."
+
+[row.r8-152.25]
+interface = "interface.8.cfg-paxai-worker-config-market"
+verdict = "served"
+path = "services/platform/hosted/paxai-worker/src/main.rs"
+line = 121
+symbol = "market"
+evidence = "The Deserialize Config struct declares market: String here; load parses config.market into MarketId and the later binding and request fields use that identity."
+
+[row.r8-152.26]
+interface = "interface.8.cfg-paxai-worker-config-owner"
+verdict = "served"
+path = "services/platform/hosted/paxai-worker/src/main.rs"
+line = 123
+symbol = "owner"
+evidence = "The Deserialize Config struct declares owner: String here; load parses config.owner into PrincipalId, while the later owner: IdentityFact belongs to another struct."
+
+[row.r8-152.27]
+interface = "interface.8.cfg-paxai-worker-config-private-key"
+verdict = "served"
+path = "services/platform/hosted/paxai-worker/src/main.rs"
+line = 116
+symbol = "private_key"
+evidence = "The Deserialize Config struct declares private_key: PathBuf here; PrivateKeyDer::from_pem_file later reads config.private_key during TLS startup."
+
+[row.r8-152.28]
+interface = "interface.8.cfg-paxai-worker-config-program"
+verdict = "served"
+path = "services/platform/hosted/paxai-worker/src/main.rs"
+line = 120
+symbol = "program"
+evidence = "The Deserialize Config struct declares program: String here; MetadataContext parses config.program into ProgramId, and adapter and programs_call parameters are separate declarations."
+
+[row.r8-152.29]
+interface = "interface.8.cfg-paxai-worker-config-signed-metadata"
+verdict = "served"
+path = "services/platform/hosted/paxai-worker/src/main.rs"
+line = 118
+symbol = "signed_metadata"
+evidence = "The Deserialize Config struct declares signed_metadata: PathBuf here; load reads that file, while signed_metadata byte slice and vector fields elsewhere have different types."
+
+[row.r8-152.30]
+interface = "interface.8.cfg-paxai-worker-config-worker"
+verdict = "served"
+path = "services/platform/hosted/paxai-worker/src/main.rs"
+line = 122
+symbol = "worker"
+evidence = "The Deserialize Config struct declares worker: String here; load converts config.worker into WorkerId, and the module prose, binding fields and worker actor calls are uses."

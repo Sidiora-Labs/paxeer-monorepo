@@ -1,6 +1,7 @@
 package evmrpc
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -41,6 +42,11 @@ type SubscriptionAPI struct {
 	// receiptLogs, set by the sequencer's WebSocket server, feeds logs
 	// subscriptions from the logs of receipted transactions.
 	receiptLogs *ReceiptLogFeed
+	shutdownCtx context.Context
+	cancel      context.CancelFunc
+	shutdownMu  sync.Mutex
+	stopped     bool
+	wg          sync.WaitGroup
 }
 
 type domainSubscriptionAPI struct {
@@ -65,8 +71,11 @@ func NewSubscriptionAPI(tmClient client.LocalClient, k *keeper.Keeper, ctxProvid
 	if blockHeaderNotifier == nil && tmClient == nil {
 		return nil, errors.New("subscription API requires a consensus client or block-header notifier")
 	}
+	shutdownCtx, cancel := context.WithCancel(context.Background())
 	logFetcher.filterConfig = filterConfig
 	api := &SubscriptionAPI{
+		shutdownCtx:         shutdownCtx,
+		cancel:              cancel,
 		tmClient:            tmClient,
 		subscriptonConfig:   subscriptionConfig,
 		logFetcher:          logFetcher,
@@ -79,42 +88,48 @@ func NewSubscriptionAPI(tmClient client.LocalClient, k *keeper.Keeper, ctxProvid
 		// fan-out directly and the manager is unused.
 	}
 	if blockHeaderNotifier != nil {
+		api.wg.Add(1)
 		// Autobahn (and any future direct-channel) path. The producer
 		// pushes one event per committed block; there is no Tendermint
 		// event-bus subscription.
-		go api.runNewHeadsFromNotifier(blockHeaderNotifier, k, ctxProvider)
+		go api.runNewHeadsFromNotifier(blockHeaderNotifier)
 	} else {
 		// Legacy CometBFT path: subscribe to the Tendermint event bus.
 		api.subscriptionManager = NewSubscriptionManager(tmClient)
-		id, subCh, err := api.subscriptionManager.Subscribe(context.Background(), NewHeadQueryBuilder(), api.subscriptonConfig.subscriptionCapacity)
+		// The local consensus client resubscribes when its context is canceled.
+		// Remove its subscription explicitly instead; only our consumer observes
+		// shutdownCtx, and the join includes the deferred Unsubscribe below.
+		id, subCh, err := api.subscriptionManager.Subscribe(context.WithoutCancel(shutdownCtx), NewHeadQueryBuilder(), api.subscriptonConfig.subscriptionCapacity)
 		if err != nil {
+			cancel()
 			return nil, fmt.Errorf("subscribe to consensus new-head events: %w", err)
 		}
+		api.wg.Add(1)
 		go func() {
+			defer api.wg.Done()
 			defer recoverAndLog()
 			defer func() {
-				_ = api.subscriptionManager.Unsubscribe(context.Background(), id)
+				ctx, cancel := context.WithTimeout(context.Background(), currentHeaderLookupTimeout)
+				defer cancel()
+				_ = api.subscriptionManager.Unsubscribe(ctx, id)
 			}()
-			for res := range subCh {
+			for {
+				var res coretypes.ResultEvent
+				select {
+				case <-shutdownCtx.Done():
+					return
+				case event, ok := <-subCh:
+					if !ok {
+						return
+					}
+					res = event
+				}
 				eventHeader, ok := res.Data.(tmtypes.EventDataNewBlockHeader)
 				if !ok {
 					fmt.Printf("dropping malformed newHeads event of type %T\n", res.Data)
 					continue
 				}
-				ctx := ctxProvider(eventHeader.Header.Height)
-				baseFeePerGas := k.GetNextBaseFeePerGas(ctx).TruncateInt().BigInt()
-				cp := ctx.ConsensusParams()
-				if cp == nil || cp.Block == nil {
-					fmt.Printf("dropping newHeads event at height %d: consensus block parameters are unavailable\n", eventHeader.Header.Height)
-					continue
-				}
-				gasLimit := cp.Block.MaxGas
-				execution, err := logFetcher.loadHeadExecution(eventHeader.Header.Height)
-				if err != nil {
-					fmt.Printf("dropping newHeads event at height %d: %v\n", eventHeader.Header.Height, err)
-					continue
-				}
-				ethHeader, err := encodeTmHeader(tmClient, eventHeader, baseFeePerGas, gasLimit, execution)
+				ethHeader, err := logFetcher.loadBlockHeader(eventHeader.Header.Height, eventHeader.Header.Hash())
 				if err != nil {
 					fmt.Printf("dropping newHeads event at height %d: %v\n", eventHeader.Header.Height, err)
 					continue
@@ -126,9 +141,20 @@ func NewSubscriptionAPI(tmClient client.LocalClient, k *keeper.Keeper, ctxProvid
 	return api, nil
 }
 
-func (a *SubscriptionAPI) runNewHeadsFromNotifier(notifier *BlockHeaderNotifier, k *keeper.Keeper, ctxProvider func(int64) sdk.Context) {
+func (a *SubscriptionAPI) runNewHeadsFromNotifier(notifier *BlockHeaderNotifier) {
+	defer a.wg.Done()
 	defer recoverAndLog()
-	for evt := range notifier.recv() {
+	for {
+		var evt blockHeaderEvent
+		select {
+		case <-a.shutdownCtx.Done():
+			return
+		case event, ok := <-notifier.recv():
+			if !ok {
+				return
+			}
+			evt = event
+		}
 		// Defend against a misbehaving producer. OnBlockCommitted's
 		// contract requires non-nil header/response, but a single bad
 		// event must not kill the fan-out goroutine for all subscribers.
@@ -136,24 +162,7 @@ func (a *SubscriptionAPI) runNewHeadsFromNotifier(notifier *BlockHeaderNotifier,
 			fmt.Printf("dropping malformed newHeads event: header=%v response=%v\n", evt.header, evt.response)
 			continue
 		}
-		ctx := ctxProvider(evt.header.Height)
-		baseFeePerGas := pickHeadBaseFee(k.GetNextBaseFeePerGas, ctxProvider, evt.header.Height)
-		// Source gasLimit from the active SDK ConsensusParams rather than
-		// evt.response.ConsensusParamUpdates: the latter is only populated
-		// on actual updates (nil for nearly every block). See block.go's
-		// GetBlockByNumber for the same pattern + rationale.
-		cp := ctx.ConsensusParams()
-		if cp == nil || cp.Block == nil {
-			fmt.Printf("dropping newHeads event at height %d: consensus block parameters are unavailable\n", evt.header.Height)
-			continue
-		}
-		gasLimit := cp.Block.MaxGas
-		execution, err := a.logFetcher.loadHeadExecution(evt.header.Height)
-		if err != nil {
-			fmt.Printf("dropping newHeads event at height %d: %v\n", evt.header.Height, err)
-			continue
-		}
-		ethHeader, err := encodeCommittedHead(a.tmClient, evt, baseFeePerGas, gasLimit, execution)
+		ethHeader, err := a.logFetcher.loadBlockHeader(evt.header.Height, evt.hash)
 		if err != nil {
 			fmt.Printf("dropping invalid newHeads event at height %d: %v\n", evt.header.Height, err)
 			continue
@@ -206,6 +215,11 @@ func handleListener(c chan map[string]interface{}, ethHeader map[string]interfac
 }
 
 func (a *SubscriptionAPI) NewHeads(ctx context.Context) (s *rpc.Subscription, err error) {
+	a.shutdownMu.Lock()
+	defer a.shutdownMu.Unlock()
+	if a.stopped {
+		return nil, errors.New("subscription API is stopped")
+	}
 	startTime := time.Now()
 	defer func() {
 		recordMetricsWithError(ctx, "eth_newHeads", a.connectionType, startTime, err, recover())
@@ -224,7 +238,9 @@ func (a *SubscriptionAPI) NewHeads(ctx context.Context) (s *rpc.Subscription, er
 	}
 	a.newHeadListeners[rpcSub.ID] = listener
 
+	a.wg.Add(1)
 	go func() {
+		defer a.wg.Done()
 		defer recoverAndLog()
 	OUTER:
 		for {
@@ -236,6 +252,8 @@ func (a *SubscriptionAPI) NewHeads(ctx context.Context) (s *rpc.Subscription, er
 				if err := notifier.Notify(rpcSub.ID, res); err != nil {
 					break OUTER
 				}
+			case <-a.shutdownCtx.Done():
+				break OUTER
 			case <-rpcSub.Err():
 				break OUTER
 			}
@@ -251,6 +269,11 @@ func (a *SubscriptionAPI) NewHeads(ctx context.Context) (s *rpc.Subscription, er
 }
 
 func (a *SubscriptionAPI) Logs(ctx context.Context, filter *filters.FilterCriteria) (s *rpc.Subscription, _err error) {
+	a.shutdownMu.Lock()
+	defer a.shutdownMu.Unlock()
+	if a.stopped {
+		return nil, errors.New("subscription API is stopped")
+	}
 	startTime := time.Now()
 	defer func() {
 		recordMetricsWithError(ctx, "eth_logs", a.connectionType, startTime, _err, recover())
@@ -299,10 +322,14 @@ func (a *SubscriptionAPI) Logs(ctx context.Context, filter *filters.FilterCriter
 	// Track subscription metrics
 	wpMetrics := GetGlobalMetrics()
 	wpMetrics.RecordSubscriptionStart()
-	subscriptionCtx := context.WithoutCancel(ctx)
+	subscriptionCtx, cancel := context.WithCancel(context.WithoutCancel(ctx))
+	stopCancel := context.AfterFunc(a.shutdownCtx, cancel)
+	finish := func() { stopCancel(); cancel(); a.wg.Done() }
+	a.wg.Add(1)
 
 	if filter.BlockHash != nil {
 		go func() {
+			defer finish()
 			subCtx, cancel := context.WithCancel(subscriptionCtx)
 			defer cancel()
 			var err error
@@ -330,11 +357,15 @@ func (a *SubscriptionAPI) Logs(ctx context.Context, filter *filters.FilterCriter
 
 	if a.receiptLogs != nil {
 		listener := a.receiptLogs.addLogListener(*filter, a.logFetcher.includeSyntheticReceipts)
-		go a.notifyReceiptedLogs(subscriptionCtx, notifier, rpcSub, listener, wpMetrics)
+		go func() {
+			defer finish()
+			a.notifyReceiptedLogs(subscriptionCtx, notifier, rpcSub, listener, wpMetrics)
+		}()
 		return rpcSub, nil
 	}
 
 	go func() {
+		defer finish()
 		subCtx, cancel := context.WithCancel(subscriptionCtx)
 		defer cancel()
 		var err error
@@ -368,6 +399,9 @@ func (a *SubscriptionAPI) Logs(ctx context.Context, filter *filters.FilterCriter
 			timer := time.NewTimer(SleepInterval)
 			select {
 			case <-timer.C:
+			case <-subCtx.Done():
+				timer.Stop()
+				return
 			case <-rpcSub.Err():
 				timer.Stop()
 				return
@@ -411,23 +445,25 @@ func (a *SubscriptionAPI) notifyReceiptedLogs(ctx context.Context, notifier *rpc
 				}
 				return
 			}
-			logs, err := a.scopeLogs(ctx, []*FilterLog{&notice.log})
-			if err != nil {
-				wpMetrics.RecordSubscriptionError()
-				logger.Warn("Skipping receipted log after scope failure", "subscription", sub.ID, "height", notice.log.BlockNumber, "transaction", notice.log.TxHash, "err", err)
-				continue
-			}
-			if len(logs) == 0 {
-				continue
-			}
 			if notice.lagged > 0 {
 				if err := notifier.Notify(sub.ID, pendingTxLag1315{Lagged: hexutil.Uint64(notice.lagged)}); err != nil {
 					return
 				}
 			}
+			logs, err := a.scopeLogs(ctx, []*FilterLog{&notice.log})
+			if err != nil {
+				wpMetrics.RecordSubscriptionError()
+				logger.Warn("Ending receipted log subscription after scope failure", "subscription", sub.ID, "height", notice.log.BlockNumber, "transaction", notice.log.TxHash, "err", err)
+				return
+			}
+			if len(logs) == 0 {
+				continue
+			}
 			if err := notifier.Notify(sub.ID, notice.log); err != nil {
 				return
 			}
+		case <-ctx.Done():
+			return
 		case <-sub.Err():
 			return
 		}
@@ -534,6 +570,9 @@ func encodeCommittedBlock(evt blockHeaderEvent, baseFee *big.Int, gasLimit int64
 	if len(header.AppHash) != common.HashLength {
 		return nil, fmt.Errorf("committed Autobahn head %d lacks a state root", header.Height)
 	}
+	if common.BytesToHash(header.DataHash) == (common.Hash{}) || common.BytesToHash(header.LastResultsHash) == (common.Hash{}) || common.BytesToHash(header.AppHash) == (common.Hash{}) {
+		return nil, fmt.Errorf("committed Autobahn head %d has an unpopulated root", header.Height)
+	}
 	if len(evt.hash) != common.HashLength {
 		return nil, fmt.Errorf("committed Autobahn head %d has a %d-byte block hash", header.Height, len(evt.hash))
 	}
@@ -584,6 +623,47 @@ type headExecution struct {
 	gasUsed uint64
 	bloom   ethtypes.Bloom
 	txCount int
+}
+
+// loadBlockHeader uses the HTTP block formatter so every committed header field,
+// including size and the Ethereum transaction view, has one derivation.
+func (f *LogFetcher) loadBlockHeader(height int64, hash []byte) (map[string]interface{}, error) {
+	if f == nil || f.tmClient == nil {
+		return nil, errors.New("new head requires a consensus client")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), currentHeaderLookupTimeout)
+	defer cancel()
+	block, err := f.tmClient.Block(ctx, &height)
+	if err != nil {
+		return nil, fmt.Errorf("load new head block %d: %w", height, err)
+	}
+	if block == nil || block.Block == nil || block.Block.Height != height {
+		return nil, fmt.Errorf("new head block %d is unavailable", height)
+	}
+	if len(hash) != common.HashLength || !bytes.Equal(block.BlockID.Hash, hash) {
+		return nil, fmt.Errorf("new head block %d hash does not match committed event", height)
+	}
+	api := BlockAPI{
+		tmClient:           f.tmClient,
+		keeper:             f.k,
+		ctxProvider:        f.ctxProvider,
+		txConfigProvider:   f.txConfigProvider,
+		globalBlockCache:   f.globalBlockCache,
+		cacheCreationMutex: f.cacheCreationMutex,
+	}
+	header, err := api.encodeBlock(ctx, block, false, false, false)
+	if err != nil {
+		return nil, err
+	}
+	// Project a fresh map: subscription consumers must not mutate the canonical
+	// formatter's result or retain transaction payloads in notification buffers.
+	head := make(map[string]interface{}, len(header)-2)
+	for field, value := range header {
+		if field != "transactions" && field != "uncles" {
+			head[field] = value
+		}
+	}
+	return head, nil
 }
 
 func (f *LogFetcher) loadHeadExecution(height int64) (headExecution, error) {
@@ -711,4 +791,12 @@ func encodeHeadGasLimit(gasLimit int64) (hexutil.Uint64, error) {
 		return 0, fmt.Errorf("new head has invalid gas limit %d", gasLimit)
 	}
 	return hexutil.Uint64(gasLimit), nil
+}
+
+func (a *SubscriptionAPI) shutdown() {
+	a.shutdownMu.Lock()
+	a.stopped = true
+	a.cancel()
+	a.shutdownMu.Unlock()
+	a.wg.Wait()
 }

@@ -186,7 +186,11 @@ func retirementAuthGrantBody(didID, delegate [32]byte, timestamp uint64, kind by
 	field(didID[:])
 	body = append(body, kind)
 	field(delegate[:])
-	u64(1 << 9)
+	if kind == 3 {
+		u64(1 << 1)
+	} else {
+		u64(1 << 9)
+	}
 	body = binary.BigEndian.AppendUint16(body, 4)
 	body = binary.BigEndian.AppendUint16(body, 5)
 	if kind == 2 {

@@ -1,0 +1,8 @@
+[repair.22.33.656]
+audit = "22.30.166"
+finding = "amino-multisig-shape-panic"
+proof = ["TestRepairM_656_MalformedMultisigTransport", "TestRepairM_656_ValidMultisigTransport", "TestStdSignatureToSignatureV2MalformedMultisig"]
+change = "Validate bit-array storage, key count and signature cardinality before allocating or recursing; retain validated signer positions in converted signature data."
+baseline = "Not run: the task's explicit gate order forbids verification before full implementation and allows verification only through hf-done after hf-build; no baseline failures are claimed."
+wiring_requests = []
+evidence = "The hf-done receipt records the exact verified candidate revision, command, exit code and private log; no qualification is claimed without that receipt."

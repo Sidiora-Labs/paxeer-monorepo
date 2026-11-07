@@ -18,6 +18,8 @@ enum {
  * resolution split; every leg debits the same escrow account so the ledger
  * sees exactly one source authority. */
 typedef struct lx_escrow_settlement {
+    const lx_escrow_record *record;
+    bool recover_excess;
     lx_account *from;
     lx_account *to;
     lx_account *secondary_to;
@@ -26,6 +28,15 @@ typedef struct lx_escrow_settlement {
     lxp_u128 secondary_amount;
     uint16_t reason;
 } lx_escrow_settlement;
+
+lxp_result lx_escrow_binding_check(lxp_module_ctx *ctx,
+                                    const lx_escrow_record *record);
+lxp_result lx_escrow_prepare(lxp_module_ctx *ctx,
+                              const lx_escrow_record *record,
+                              const lx_account *account);
+lxp_result lx_escrow_recover_excess_execute(
+    lxp_module_ctx *ctx, const lx_escrow_release_request *request,
+    lxp_receipt *receipt);
 
 void lx_escrow_write_u64(uint8_t out[8], uint64_t value);
 uint64_t lx_escrow_read_u64(const uint8_t in[8]);

@@ -80,7 +80,8 @@ func TestRequestRefusals(t *testing.T) {
 		err     error
 	}{
 		"unknown kind":      {0, payload, callbackGas, sdk.NewInt(fee), types.ErrUnknownKind},
-		"kind four":         {4, payload, callbackGas, sdk.NewInt(fee), types.ErrUnknownKind},
+		"kind four":         {types.KindStorageReceipt, payload, callbackGas, sdk.NewInt(fee), types.ErrInvalidPayload},
+		"kind five":         {5, payload, callbackGas, sdk.NewInt(fee), types.ErrUnknownKind},
 		"empty payload":     {types.KindFetch, nil, callbackGas, sdk.NewInt(fee), types.ErrPayloadSize},
 		"payload over cap":  {types.KindFetch, make([]byte, payloadCap+1), callbackGas, sdk.NewInt(fee), types.ErrPayloadSize},
 		"zero callback gas": {types.KindFetch, payload, 0, sdk.NewInt(fee), types.ErrCallbackGas},

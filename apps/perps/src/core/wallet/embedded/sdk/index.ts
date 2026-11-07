@@ -28,7 +28,16 @@ import {
   type TxRequest,
 } from "./types";
 
+import {
+  PaxeerProvider,
+  type PaxeerProviderConfig,
+} from "@paxeer/wallet/provider";
+
 export * from "./types";
+export {
+  readSequencerReceipt,
+  waitForSequencerReceipt,
+} from "@paxeer/wallet/receipt";
 
 export type OAuthProvider = "google" | "apple" | "twitter" | "github" | "discord";
 
@@ -103,40 +112,127 @@ export class PaxeerWallet {
    * Get the current user's wallet. Auto-provisions on first call.
    * Throws if the user is not signed in.
    */
-  async getWallet(): Promise<{ wallet: PublicWallet; chain: ChainInfo }> {
+  async getWallet(
+    expectedSession?: Session,
+  ): Promise<{ wallet: PublicWallet; chain: ChainInfo }> {
     const me = await this.callJson<{ wallet: PublicWallet; chain: ChainInfo }>(
       "GET",
       "/v1/wallet/me",
+      undefined,
+      expectedSession,
     ).catch((err: PaxeerWalletError) => (err.status === 404 ? null : Promise.reject(err)));
     if (me) return me;
 
     // No wallet yet — provision then fetch.
-    await this.callJson<{ wallet: PublicWallet }>("POST", "/v1/wallet/provision");
-    return this.callJson<{ wallet: PublicWallet; chain: ChainInfo }>("GET", "/v1/wallet/me");
+    await this.callJson<{ wallet: PublicWallet }>(
+      "POST",
+      "/v1/wallet/provision",
+      undefined,
+      expectedSession,
+    );
+    return this.callJson<{ wallet: PublicWallet; chain: ChainInfo }>(
+      "GET",
+      "/v1/wallet/me",
+      undefined,
+      expectedSession,
+    );
   }
 
   /** Sign a transaction without broadcasting. Returns serialized signed tx hex. */
-  signTransaction(tx: TxRequest): Promise<SignTxResponse> {
-    return this.callJson<SignTxResponse>("POST", "/v1/wallet/sign", { tx: serialize(tx) });
+  signTransaction(
+    tx: TxRequest,
+    expectedSession?: Session,
+    assertCurrent?: () => void,
+  ): Promise<SignTxResponse> {
+    return this.callJson<SignTxResponse>(
+      "POST",
+      "/v1/wallet/sign",
+      { tx: serialize(tx) },
+      expectedSession,
+      assertCurrent,
+    );
   }
 
   /** Sign + broadcast in one round-trip. Returns the tx hash. */
-  sendTransaction(tx: TxRequest): Promise<SendTxResponse> {
-    return this.callJson<SendTxResponse>("POST", "/v1/wallet/send", { tx: serialize(tx) });
+  sendTransaction(
+    tx: TxRequest,
+    expectedSession?: Session,
+    assertCurrent?: () => void,
+  ): Promise<SendTxResponse> {
+    return this.callJson<SendTxResponse>(
+      "POST",
+      "/v1/wallet/send",
+      { tx: serialize(tx) },
+      expectedSession,
+      assertCurrent,
+    );
   }
 
   /** EIP-191 personal_sign over a message string. */
-  signMessage(message: string): Promise<SignMessageResponse> {
-    return this.callJson<SignMessageResponse>("POST", "/v1/wallet/sign-message", { message });
+  signMessage(
+    message: string,
+    expectedSession?: Session,
+    assertCurrent?: () => void,
+  ): Promise<SignMessageResponse> {
+    return this.callJson<SignMessageResponse>(
+      "POST",
+      "/v1/wallet/sign-message",
+      { message },
+      expectedSession,
+      assertCurrent,
+    );
   }
 
-  // ─────────────────────────────────────── Internal — auth-bearing fetch ─
+  createProvider(
+    config: Pick<PaxeerProviderConfig, "rpcUrl" | "chainId">,
+    expectedSession: Session,
+    assertCurrent?: () => void,
+  ): PaxeerProvider {
+    return new PaxeerProvider({
+      ...config,
+      gatewayUrl: this.apiUrl,
+      token: async () => {
+        const session = await this.requireSession(expectedSession);
+        assertCurrent?.();
+        return session.access_token;
+      },
+      fetch: async (input, init) => {
+        await this.requireSession(expectedSession);
+        assertCurrent?.();
+        const response = await this.fetchImpl(input, init);
+        await this.requireSession(expectedSession);
+        assertCurrent?.();
+        return response;
+      },
+    });
+  }
 
-  private async callJson<T>(method: "GET" | "POST", path: string, body?: unknown): Promise<T> {
+  private async requireSession(expectedSession?: Session): Promise<Session> {
     const session = await this.getSession();
     if (!session?.access_token) {
       throw new PaxeerWalletError("not_authenticated", "NO_SESSION", 401);
     }
+    if (
+      expectedSession &&
+      (session.user.id !== expectedSession.user.id ||
+        session.access_token !== expectedSession.access_token)
+    ) {
+      throw new PaxeerWalletError("The wallet session changed", "SESSION_CHANGED", 401);
+    }
+    return session;
+  }
+
+  // ─────────────────────────────────────── Internal — auth-bearing fetch ─
+
+  private async callJson<T>(
+    method: "GET" | "POST",
+    path: string,
+    body?: unknown,
+    expectedSession?: Session,
+    assertCurrent?: () => void,
+  ): Promise<T> {
+    const session = await this.requireSession(expectedSession);
+    assertCurrent?.();
     const res = await this.fetchImpl(`${this.apiUrl}${path}`, {
       method,
       headers: {
@@ -145,6 +241,9 @@ export class PaxeerWallet {
       },
       body: body !== undefined ? JSON.stringify(body) : undefined,
     });
+
+    if (expectedSession) await this.requireSession(expectedSession);
+    assertCurrent?.();
 
     let payload: unknown;
     try {

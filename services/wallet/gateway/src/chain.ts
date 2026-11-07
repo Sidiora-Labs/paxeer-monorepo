@@ -1,4 +1,4 @@
-import { defineChain, keccak256, type Hex } from 'viem';
+import { defineChain, keccak256, type Chain, type Hex } from 'viem';
 import { env } from './env.js';
 
 /** Spans several hundred blocks at the chain's sub-second block time; exists to outlast propagation lag. */
@@ -12,7 +12,7 @@ export function transactionHash(raw: Hex): Hex {
  * HyperPaxeer EVM chain definition for viem.
  * Chain ID 125, sub-second (~167 ms) block times, native token PAX.
  */
-export const hyperPaxeer = defineChain({
+export const hyperPaxeer: Chain = defineChain({
   id: env.HYPERPAXEER_CHAIN_ID,
   name: 'HyperPaxeer',
   nativeCurrency: { name: 'Paxeer', symbol: 'PAX', decimals: 18 },

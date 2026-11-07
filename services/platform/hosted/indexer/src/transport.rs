@@ -2,19 +2,20 @@
 //! relay/archive sync API, Paxeer EVM JSON-RPC and `CometBFT` JSON-RPC.
 //!
 //! The framing rules require exactly one of `Content-Length` or chunked
-//! encoding, bounded headers,
-//! bounded bodies, `Connection: close`. HTTPS is authenticated by an
-//! explicitly configured trust anchor; plaintext is admitted for loopback
+//! encoding, bounded headers and bodies, and completion at the framed body
+//! boundary. HTTPS is authenticated by an explicitly configured trust anchor;
+//! plaintext is admitted for loopback
 //! endpoints, or for in-cluster endpoints only when the operator opts in.
 
-use std::io::{Read, Write};
-use std::net::{TcpStream, ToSocketAddrs as _};
+use std::io::{self, BufRead, BufReader, Read, Write};
+use std::net::{IpAddr, SocketAddr, TcpStream, ToSocketAddrs as _};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use rustls::pki_types::{CertificateDer, ServerName};
 use rustls::{ClientConfig, ClientConnection, RootCertStore, StreamOwned};
+use serde::Serialize;
 use serde_json::Value;
 
 use crate::IndexError;
@@ -22,6 +23,15 @@ use crate::IndexError;
 const MAXIMUM_HEADER_BYTES: usize = 32 * 1024;
 const MAXIMUM_BODY_BYTES: usize = 64 * 1024 * 1024;
 const MAXIMUM_CHUNKS: usize = 1 << 20;
+const MAXIMUM_WRITE_BYTES: usize = 16 * 1024;
+
+#[derive(Serialize)]
+struct RpcRequest<'a> {
+    jsonrpc: &'static str,
+    id: u64,
+    method: &'a str,
+    params: &'a Value,
+}
 
 /// How one endpoint is authenticated.
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -175,14 +185,14 @@ impl Endpoint {
         params: &Value,
     ) -> Result<Result<Value, Value>, IndexError> {
         let id = REQUEST_ID.fetch_add(1, Ordering::Relaxed);
-        let body = serde_json::json!({
-            "jsonrpc": "2.0",
-            "id": id,
-            "method": method,
-            "params": params,
+        let body = serde_json::to_vec(&RpcRequest {
+            jsonrpc: "2.0",
+            id,
+            method,
+            params,
         })
-        .to_string();
-        let (status, answer) = self.exchange("POST", "", body.as_bytes())?;
+        .map_err(|error| IndexError::Source(format!("{method} request: {error}")))?;
+        let (status, answer) = self.exchange("POST", "", &body)?;
         if status != 200 {
             return Err(IndexError::Source(format!(
                 "{method} answered HTTP {status}"
@@ -228,11 +238,11 @@ impl Endpoint {
                 allow_remote: false
             }
         );
-        let tcp = connect(&self.host, self.port, self.timeout, loopback_only)?;
-        tcp.set_read_timeout(Some(self.timeout))
-            .map_err(|error| IndexError::Source(error.to_string()))?;
-        tcp.set_write_timeout(Some(self.timeout))
-            .map_err(|error| IndexError::Source(error.to_string()))?;
+        let deadline = Deadline::new(self.timeout).map_err(source_io)?;
+        let tcp = DeadlineTcp {
+            tcp: connect(&self.host, self.port, deadline, loopback_only)?,
+            deadline,
+        };
         let host = if (self.https && self.port == 443) || (!self.https && self.port == 80) {
             self.host.clone()
         } else {
@@ -242,18 +252,17 @@ impl Endpoint {
             "{method} {target} HTTP/1.1\r\nHost: {host}\r\nAccept: application/json\r\nContent-Type: application/json\r\nUser-Agent: layerx-indexer/1\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
             body.len()
         );
-        let raw = if let Some(tls) = &self.tls {
+        if let Some(tls) = &self.tls {
             let name = ServerName::try_from(self.host.clone())
                 .map_err(|_| IndexError::Config("TLS server name is invalid".to_owned()))?;
             let connection = ClientConnection::new(Arc::clone(tls), name)
                 .map_err(|error| IndexError::Source(error.to_string()))?;
             let mut stream = StreamOwned::new(connection, tcp);
-            round_trip(&mut stream, head.as_bytes(), body)?
+            round_trip(&mut stream, head.as_bytes(), body, deadline)
         } else {
             let mut stream = tcp;
-            round_trip(&mut stream, head.as_bytes(), body)?
-        };
-        split_response(&raw)
+            round_trip(&mut stream, head.as_bytes(), body, deadline)
+        }
     }
 }
 
@@ -266,16 +275,101 @@ fn loopback(host: &str) -> bool {
             .is_ok_and(|address| address.is_loopback())
 }
 
+#[derive(Clone, Copy)]
+struct Deadline(Instant);
+
+impl Deadline {
+    fn new(timeout: Duration) -> io::Result<Self> {
+        Instant::now()
+            .checked_add(timeout)
+            .map(Self)
+            .ok_or_else(|| {
+                io::Error::new(io::ErrorKind::InvalidInput, "request timeout is too large")
+            })
+    }
+
+    fn remaining(self) -> io::Result<Duration> {
+        self.0
+            .checked_duration_since(Instant::now())
+            .filter(|remaining| !remaining.is_zero())
+            .ok_or_else(deadline_error)
+    }
+}
+
+fn deadline_error() -> io::Error {
+    io::Error::new(io::ErrorKind::TimedOut, "request deadline exceeded")
+}
+
+fn source_io(error: io::Error) -> IndexError {
+    IndexError::Source(error.to_string())
+}
+
+struct DeadlineTcp {
+    tcp: TcpStream,
+    deadline: Deadline,
+}
+
+impl Read for DeadlineTcp {
+    fn read(&mut self, output: &mut [u8]) -> io::Result<usize> {
+        self.tcp
+            .set_read_timeout(Some(self.deadline.remaining()?))?;
+        let result = self.tcp.read(output);
+        self.deadline.remaining()?;
+        result
+    }
+}
+
+impl Write for DeadlineTcp {
+    fn write(&mut self, input: &[u8]) -> io::Result<usize> {
+        self.tcp
+            .set_write_timeout(Some(self.deadline.remaining()?))?;
+        let result = self
+            .tcp
+            .write(&input[..input.len().min(MAXIMUM_WRITE_BYTES)]);
+        self.deadline.remaining()?;
+        result
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        self.tcp
+            .set_write_timeout(Some(self.deadline.remaining()?))?;
+        let result = self.tcp.flush();
+        self.deadline.remaining()?;
+        result
+    }
+}
+
 fn connect(
     host: &str,
     port: u16,
-    timeout: Duration,
+    deadline: Deadline,
     loopback_only: bool,
 ) -> Result<TcpStream, IndexError> {
-    let addresses: Vec<_> = (host, port)
-        .to_socket_addrs()
-        .map_err(|error| IndexError::Source(format!("{host}: {error}")))?
-        .collect();
+    let addresses = if let Ok(ip) = host.parse::<IpAddr>() {
+        vec![SocketAddr::new(ip, port)]
+    } else {
+        let host = host.to_owned();
+        let (send, receive) = std::sync::mpsc::sync_channel(1);
+        std::thread::Builder::new()
+            .name("indexer-resolve".to_owned())
+            .spawn(move || {
+                let result = (host.as_str(), port)
+                    .to_socket_addrs()
+                    .map(|addresses| addresses.collect::<Vec<_>>());
+                let _ = send.send(result);
+            })
+            .map_err(source_io)?;
+        receive
+            .recv_timeout(deadline.remaining().map_err(source_io)?)
+            .map_err(|error| match error {
+                std::sync::mpsc::RecvTimeoutError::Timeout => source_io(deadline_error()),
+                std::sync::mpsc::RecvTimeoutError::Disconnected => {
+                    IndexError::Source("resolver stopped".to_owned())
+                }
+            })?
+            .map_err(source_io)?
+    };
+    deadline.remaining().map_err(source_io)?;
     if loopback_only && addresses.iter().any(|address| !address.ip().is_loopback()) {
         return Err(IndexError::Source(format!(
             "{host} does not resolve to loopback"
@@ -283,11 +377,15 @@ fn connect(
     }
     let mut last = None;
     for address in addresses {
-        match TcpStream::connect_timeout(&address, timeout) {
-            Ok(stream) => return Ok(stream),
+        match TcpStream::connect_timeout(&address, deadline.remaining().map_err(source_io)?) {
+            Ok(stream) => {
+                deadline.remaining().map_err(source_io)?;
+                return Ok(stream);
+            }
             Err(error) => last = Some(error),
         }
     }
+    deadline.remaining().map_err(source_io)?;
     Err(IndexError::Source(last.map_or_else(
         || format!("{host} resolved to no address"),
         |error| format!("{host}: {error}"),
@@ -298,49 +396,158 @@ fn round_trip<S: Read + Write>(
     stream: &mut S,
     head: &[u8],
     body: &[u8],
-) -> Result<Vec<u8>, IndexError> {
-    stream
-        .write_all(head)
-        .and_then(|()| stream.write_all(body))
-        .and_then(|()| stream.flush())
-        .map_err(|error| IndexError::Source(error.to_string()))?;
-    let mut response = Vec::new();
-    let mut block = [0_u8; 16 * 1024];
-    loop {
-        let read = match stream.read(&mut block) {
-            Ok(read) => read,
-            Err(error) if error.kind() == std::io::ErrorKind::UnexpectedEof => 0,
-            Err(error) => return Err(IndexError::Source(error.to_string())),
-        };
-        if read == 0 {
-            break;
+    deadline: Deadline,
+) -> Result<(u16, Vec<u8>), IndexError> {
+    for bytes in [head, body] {
+        for chunk in bytes.chunks(MAXIMUM_WRITE_BYTES) {
+            let mut remaining = chunk;
+            while !remaining.is_empty() {
+                deadline.remaining().map_err(source_io)?;
+                let written = match stream.write(remaining) {
+                    Err(error) if error.kind() == io::ErrorKind::Interrupted => continue,
+                    result => result.map_err(source_io)?,
+                };
+                deadline.remaining().map_err(source_io)?;
+                if written == 0 {
+                    return Err(source_io(io::Error::new(
+                        io::ErrorKind::WriteZero,
+                        "request write made no progress",
+                    )));
+                }
+                remaining = &remaining[written..];
+            }
         }
-        if response.len().saturating_add(read) > MAXIMUM_BODY_BYTES + MAXIMUM_HEADER_BYTES {
-            return Err(IndexError::Source("response exceeds its bound".to_owned()));
-        }
-        response.extend_from_slice(&block[..read]);
     }
+    deadline.remaining().map_err(source_io)?;
+    stream.flush().map_err(source_io)?;
+    deadline.remaining().map_err(source_io)?;
+    let mut reader = BufReader::new(stream);
+    let response = read_response(&mut reader, Some(deadline))?;
+    if !reader.buffer().is_empty() {
+        return Err(IndexError::Source("ambiguous HTTP framing".to_owned()));
+    }
+    deadline.remaining().map_err(source_io)?;
     Ok(response)
 }
 
-/// Splits one complete HTTP/1.1 response into status and exact body.
-///
-/// # Errors
-/// Refuses ambiguous framing, truncation and oversized parts.
-pub fn split_response(response: &[u8]) -> Result<(u16, Vec<u8>), IndexError> {
+fn read_line(
+    reader: &mut impl BufRead,
+    maximum: usize,
+    deadline: Option<Deadline>,
+) -> Result<Vec<u8>, IndexError> {
+    let mut line = Vec::new();
+    loop {
+        if let Some(deadline) = deadline {
+            deadline.remaining().map_err(source_io)?;
+        }
+        let available = reader.fill_buf().map_err(source_io)?;
+        if available.is_empty() {
+            return Err(IndexError::Source("truncated HTTP response".to_owned()));
+        }
+        let take = available
+            .iter()
+            .position(|byte| *byte == b'\n')
+            .map_or(available.len(), |index| index + 1);
+        if take > maximum.saturating_sub(line.len()) {
+            return Err(IndexError::Source("HTTP line exceeds its bound".to_owned()));
+        }
+        line.extend_from_slice(&available[..take]);
+        reader.consume(take);
+        if line.ends_with(b"\n") {
+            if !line.ends_with(b"\r\n") {
+                return Err(IndexError::Source("malformed HTTP response".to_owned()));
+            }
+            return Ok(line);
+        }
+    }
+}
+
+fn read_response(
+    reader: &mut impl BufRead,
+    deadline: Option<Deadline>,
+) -> Result<(u16, Vec<u8>), IndexError> {
+    let mut headers = Vec::new();
+    loop {
+        let line = read_line(
+            reader,
+            (MAXIMUM_HEADER_BYTES + 4).saturating_sub(headers.len()),
+            deadline,
+        )?;
+        let end = line == b"\r\n";
+        headers.extend_from_slice(&line);
+        if end {
+            if headers.len() < 4 {
+                return Err(IndexError::Source("malformed HTTP response".to_owned()));
+            }
+            break;
+        }
+    }
+    let (status, framing) = response_head(&headers[..headers.len() - 4])?;
+    let body = match framing {
+        Framing::Length(length) => {
+            if headers.len() + length > MAXIMUM_BODY_BYTES + MAXIMUM_HEADER_BYTES {
+                return Err(IndexError::Source("response exceeds its bound".to_owned()));
+            }
+            let mut body = vec![0; length];
+            reader.read_exact(&mut body).map_err(source_io)?;
+            body
+        }
+        Framing::Chunked => {
+            let mut output = Vec::new();
+            let mut wire_bytes = headers.len();
+            for _ in 0..MAXIMUM_CHUNKS {
+                let line = read_line(reader, MAXIMUM_HEADER_BYTES, deadline)?;
+                wire_bytes += line.len();
+                if wire_bytes > MAXIMUM_BODY_BYTES + MAXIMUM_HEADER_BYTES {
+                    return Err(IndexError::Source("response exceeds its bound".to_owned()));
+                }
+                let size = chunk_size(&line[..line.len() - 2])?;
+                if size == 0 {
+                    let end = read_line(reader, 2, deadline)?;
+                    if end != b"\r\n" || wire_bytes + 2 > MAXIMUM_BODY_BYTES + MAXIMUM_HEADER_BYTES
+                    {
+                        return Err(IndexError::Source("malformed chunked body".to_owned()));
+                    }
+                    return Ok((status, output));
+                }
+                if size > MAXIMUM_BODY_BYTES.saturating_sub(output.len())
+                    || size.saturating_add(2)
+                        > (MAXIMUM_BODY_BYTES + MAXIMUM_HEADER_BYTES).saturating_sub(wire_bytes)
+                {
+                    return Err(IndexError::Source(
+                        "chunked body exceeds its bound".to_owned(),
+                    ));
+                }
+                wire_bytes += size + 2;
+                let start = output.len();
+                output.resize(start + size, 0);
+                reader.read_exact(&mut output[start..]).map_err(source_io)?;
+                let mut end = [0; 2];
+                reader.read_exact(&mut end).map_err(source_io)?;
+                if end != *b"\r\n" {
+                    return Err(IndexError::Source("malformed chunked body".to_owned()));
+                }
+            }
+            return Err(IndexError::Source("too many chunks".to_owned()));
+        }
+    };
+    Ok((status, body))
+}
+
+enum Framing {
+    Length(usize),
+    Chunked,
+}
+
+fn response_head(headers: &[u8]) -> Result<(u16, Framing), IndexError> {
     let malformed = || IndexError::Source("malformed HTTP response".to_owned());
     let ambiguous = || IndexError::Source("ambiguous HTTP framing".to_owned());
-    let boundary = response
-        .windows(4)
-        .position(|window| window == b"\r\n\r\n")
-        .ok_or_else(malformed)?;
-    if boundary > MAXIMUM_HEADER_BYTES {
+    if headers.len() > MAXIMUM_HEADER_BYTES {
         return Err(IndexError::Source(
             "HTTP headers exceed their bound".to_owned(),
         ));
     }
-    let headers = std::str::from_utf8(&response[..boundary]).map_err(|_| malformed())?;
-    let raw_body = &response[boundary + 4..];
+    let headers = std::str::from_utf8(headers).map_err(|_| malformed())?;
     let mut lines = headers.split("\r\n");
     let mut status_parts = lines.next().ok_or_else(malformed)?.split_ascii_whitespace();
     if status_parts.next() != Some("HTTP/1.1") {
@@ -367,53 +574,35 @@ pub fn split_response(response: &[u8]) -> Result<(u16, Vec<u8>), IndexError> {
             chunked = Some(value.eq_ignore_ascii_case("chunked"));
         }
     }
-    let body = match (content_length, chunked) {
-        (Some(length), None) => {
-            if length > MAXIMUM_BODY_BYTES || raw_body.len() != length {
-                return Err(ambiguous());
-            }
-            raw_body.to_vec()
+    match (content_length, chunked) {
+        (Some(length), None) if length <= MAXIMUM_BODY_BYTES => {
+            Ok((status, Framing::Length(length)))
         }
-        (None, Some(true)) => decode_chunked(raw_body)?,
-        _ => return Err(ambiguous()),
-    };
-    Ok((status, body))
+        (None, Some(true)) => Ok((status, Framing::Chunked)),
+        _ => Err(ambiguous()),
+    }
 }
 
-fn decode_chunked(raw: &[u8]) -> Result<Vec<u8>, IndexError> {
+fn chunk_size(text: &[u8]) -> Result<usize, IndexError> {
     let malformed = || IndexError::Source("malformed chunked body".to_owned());
-    let mut output = Vec::new();
-    let mut rest = raw;
-    for _ in 0..MAXIMUM_CHUNKS {
-        let line_end = rest
-            .windows(2)
-            .position(|window| window == b"\r\n")
-            .ok_or_else(malformed)?;
-        let size_text = std::str::from_utf8(&rest[..line_end]).map_err(|_| malformed())?;
-        if size_text.is_empty() || size_text.contains(';') {
-            return Err(malformed());
-        }
-        let size = usize::from_str_radix(size_text, 16).map_err(|_| malformed())?;
-        rest = &rest[line_end + 2..];
-        if size == 0 {
-            return if rest == b"\r\n" {
-                Ok(output)
-            } else {
-                Err(malformed())
-            };
-        }
-        if size > MAXIMUM_BODY_BYTES.saturating_sub(output.len()) {
-            return Err(IndexError::Source(
-                "chunked body exceeds its bound".to_owned(),
-            ));
-        }
-        output.extend_from_slice(rest.get(..size).ok_or_else(malformed)?);
-        rest = rest
-            .get(size..)
-            .and_then(|tail| tail.strip_prefix(b"\r\n"))
-            .ok_or_else(malformed)?;
+    if text.is_empty() || !text.iter().all(u8::is_ascii_hexdigit) {
+        return Err(malformed());
     }
-    Err(IndexError::Source("too many chunks".to_owned()))
+    usize::from_str_radix(std::str::from_utf8(text).map_err(|_| malformed())?, 16)
+        .map_err(|_| malformed())
+}
+
+/// Splits one complete HTTP/1.1 response into status and exact body.
+///
+/// # Errors
+/// Refuses ambiguous framing, truncation and oversized parts.
+pub fn split_response(response: &[u8]) -> Result<(u16, Vec<u8>), IndexError> {
+    let mut reader = BufReader::new(response);
+    let result = read_response(&mut reader, None)?;
+    if !reader.fill_buf().map_err(source_io)?.is_empty() {
+        return Err(IndexError::Source("ambiguous HTTP framing".to_owned()));
+    }
+    Ok(result)
 }
 
 #[cfg(test)]

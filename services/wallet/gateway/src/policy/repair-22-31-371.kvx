@@ -1,0 +1,20 @@
+[repair.22.31.371]
+audit = "22.30.119"
+base_revision = "4273de5e86f58f8212e00898cbfeb995efcb85b5"
+qualification = "The runner records the exact candidate revision, command, exit and private evidence path from hf-done; this implementation record is not qualification evidence."
+baseline = "Not run: the explicit implementation-first order and bounded gates prohibit the conflicting request for unchanged-tree verification."
+
+[finding.human-daily-cap-fail-open]
+tests = ["humanDailyCapParallelLegacySigning", "humanDailyCapDatabaseRefusalBeforeLegacyAuthority", "humanDailyCapRetainsUncertainSendAcrossReopen"]
+repair = "Serialize the aggregate and durable wallet_signatures charge under the principal PostgreSQL transaction lock, commit before obtaining signing authority, refuse read/write errors, and bind signed transaction hashes to the retained charge before broadcast."
+uncertainty = "All charged attempts remain counted for the rolling 24-hour authorization window, including failed or uncertain signing/sends; nonce reconciliation never refunds this authority."
+
+[finding.raw-precompile-policy-bypass]
+tests = ["rawPrecompilePolicyMatchesHelperRecipientsAndCaps", "rawPrecompilePolicyChecksNestedScheduledCalls", "rawPrecompilePolicyRefusesUndecodableMovement", "rawPrecompilePolicyAllowsDecodedCallsAtPolicyBoundaries", "rawPrecompilePolicyUsesServedAbiOnBothSides"]
+repair = "Gateway and attestor decode canonical scheduler/streams inputs, check signed destinations and token/payee/cap operands, recursively inspect scheduled calls, and refuse unknown or opaque movement; helpers use the raw calldata policy path."
+qualification_limit = "The declared TypeScript gate exercises real gateway routes, authentication, PostgreSQL, envelope signing and codecs; Go authority execution is outside the allowed gates."
+wiring_request = "Domain 12: services/wallet/attestor/internal/policy/evm/decode.go needs authoritative retained job/stream evidence for ID-only reschedule/settle/close/updateRate; these calls fail closed until that interface is supplied."
+
+[qualification_gotcha]
+observed = "Vitest 4 registers test(function) as TODO and exits zero without executing the body; functions must be passed as the second argument."
+repair = "Register each declared named test with test(function.name, function); the initial verify exit zero with eight TODO tests is not behavioral qualification."

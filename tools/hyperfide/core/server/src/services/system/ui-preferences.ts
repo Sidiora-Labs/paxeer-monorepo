@@ -1,0 +1,116 @@
+import {
+  getStoredUiPreferenceDefault,
+  listStoredUiPreferenceDefaults,
+  listStoredUiPreferences,
+  overwriteStoredUiPreference,
+  replaceStoredUiPreference,
+  type StoredUiPreference,
+} from "@hyperfide/db";
+import {
+  UI_PREFERENCE_KEYS,
+  getUiPreferenceDefault,
+  isUiPreferenceKey,
+  parseUiPreferenceValue,
+  type UiPreferenceEntries,
+  type UiPreferenceEntry,
+  type UiPreferenceKey,
+  type UiPreferenceValue,
+} from "@hyperfide/domain";
+import type { AppDeps } from "../../types.js";
+
+function parseStoredJson(text: string): unknown {
+  try {
+    return JSON.parse(text);
+  } catch {
+    return undefined;
+  }
+}
+
+function installationDefault<Key extends UiPreferenceKey>(
+  key: Key,
+  stored: string | undefined,
+): UiPreferenceValue<Key> {
+  if (stored !== undefined) {
+    const parsed = parseUiPreferenceValue(key, parseStoredJson(stored));
+    if (parsed.success) return parsed.value;
+  }
+  return getUiPreferenceDefault(key);
+}
+
+function toEntry<Key extends UiPreferenceKey>(
+  key: Key,
+  stored: StoredUiPreference | undefined,
+  defaultValue: UiPreferenceValue<Key>,
+): UiPreferenceEntry<Key> {
+  const defaultEntry: UiPreferenceEntry<Key> = {
+    revision: stored?.revision ?? 0,
+    value: defaultValue,
+  };
+  if (stored === undefined) return defaultEntry;
+  const parsed = parseUiPreferenceValue(key, parseStoredJson(stored.valueJson));
+  return parsed.success
+    ? { revision: stored.revision, value: parsed.value }
+    : defaultEntry;
+}
+
+export async function readUiPreferences(
+  deps: AppDeps,
+): Promise<UiPreferenceEntries> {
+  const defaults = new Map(
+    (await listStoredUiPreferenceDefaults(deps.db)).map((row) => [
+      row.key,
+      row.valueJson,
+    ]),
+  );
+  const stored = new Map<string, StoredUiPreference>();
+  for (const row of await listStoredUiPreferences(deps.db)) {
+    if (isUiPreferenceKey(row.key)) stored.set(row.key, row);
+  }
+  return Object.fromEntries(
+    UI_PREFERENCE_KEYS.map((key) => [
+      key,
+      toEntry(
+        key,
+        stored.get(key),
+        installationDefault(key, defaults.get(key)),
+      ),
+    ]),
+  ) as UiPreferenceEntries;
+}
+
+export type WriteUiPreferenceResult<Key extends UiPreferenceKey> =
+  | { outcome: "updated"; entry: UiPreferenceEntry<Key> }
+  | { outcome: "conflict"; revision: number };
+
+export async function writeUiPreference<Key extends UiPreferenceKey>(
+  deps: AppDeps,
+  args: { expectedRevision: number; key: Key; value: UiPreferenceValue<Key> },
+): Promise<WriteUiPreferenceResult<Key>> {
+  const result = await replaceStoredUiPreference(deps.db, {
+    expectedRevision: args.expectedRevision,
+    key: args.key,
+    valueJson: JSON.stringify(args.value),
+  });
+  if (result.outcome === "conflict") {
+    return { outcome: "conflict", revision: result.revision };
+  }
+  return {
+    outcome: "updated",
+    entry: { revision: result.revision, value: args.value },
+  };
+}
+
+export async function resetUiPreference<Key extends UiPreferenceKey>(
+  deps: AppDeps,
+  key: Key,
+): Promise<UiPreferenceEntry<Key>> {
+  const value = installationDefault(
+    key,
+    await getStoredUiPreferenceDefault(deps.db, key),
+  );
+  const { revision } = await overwriteStoredUiPreference(deps.db, {
+    key,
+    valueJson: JSON.stringify(value),
+  });
+  return { revision, value };
+}

@@ -1,0 +1,9 @@
+[repair.22.31.333]
+audit = "22.30.58"
+finding = "upgrade-query-forwarding"
+implementation = "grpc_query.go: Keeper.UpgradedConsensusState forwards to ClientKeeper.UpgradedConsensusState."
+tests = ["TestRepair_333_UpgradedConsensusStateGRPC", "TestRepair_333_UpgradedConsensusStateGateway"]
+proof = "Real AppModule.RegisterServices, generated gRPC client and gateway, signed-block consensus state, real upgrade keeper store; asserts exact state and typed missing-state errors before storage, at the wrong height, and after clearing."
+baseline = "Not run: ordered task instructions prohibit verification before implementation and prohibit running verify_cmd by hand; no earlier gate ledger exists."
+wiring_requests = []
+evidence = "Runner hf-build and hf-done private gate ledger records the exact candidate revision, command, exit code and log; closure requires hf-done exit zero."

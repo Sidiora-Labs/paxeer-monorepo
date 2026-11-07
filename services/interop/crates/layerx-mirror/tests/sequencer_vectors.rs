@@ -59,7 +59,8 @@ fn classify(case: &Case) -> Classification {
         "V1-pax-transfer"
         | "V1-erc20-approve"
         | "V1-layerxledger-pay-exact"
-        | "V1-layerxbridge-bridge-out" => {
+        | "V1-layerxbridge-bridge-out"
+        | "V1-layerxprograms-call" => {
             assert_eq!(case.vector, "V1", "{}", case.id);
             Classification::Answer
         }
@@ -92,7 +93,7 @@ fn shared_vectors() -> Vectors {
         .unwrap_or_else(|error| panic!("{}: {error}", path.display()));
     assert_eq!(vectors.name, "sequencer-receipt-v1");
     assert_eq!(vectors.chain_id, 125);
-    assert_eq!(vectors.cases.len(), 11);
+    assert_eq!(vectors.cases.len(), 12);
     let mut ids = BTreeSet::new();
     for case in &vectors.cases {
         assert!(ids.insert(&case.id), "duplicate case: {}", case.id);
@@ -243,11 +244,11 @@ fn every_shared_receipted_case_verifies_in_the_mirror() {
         );
         checked += 1;
     }
-    assert_eq!(checked, 5);
+    assert_eq!(checked, 6);
 }
 
 #[test]
-fn every_shared_refusal_case_is_refused_by_the_mirror() {
+fn every_shared_v3_case_is_classified_at_the_signature_only_boundary() {
     let vectors = shared_vectors();
     let mut checked = 0;
     for case in &vectors.cases {
@@ -313,7 +314,39 @@ fn every_shared_refusal_case_is_refused_by_the_mirror() {
                             case.id
                         );
                     }
-                    "V3-tampered-log" => assert_eq!(case.expected["refusedAt"], "R5"),
+                    "V3-tampered-log" => {
+                        assert_eq!(case.expected["refusedAt"], "R5");
+                        let logs = case.receipt_json["logs"].as_array().expect("log view");
+                        let effects: Vec<_> = protocol
+                            .effects()
+                            .iter()
+                            .filter(|effect| effect.kind() == 3)
+                            .collect();
+                        assert_eq!(logs.len(), 1, "{}", case.id);
+                        assert_eq!(effects.len(), logs.len(), "{}", case.id);
+                        let body = effects[0].body();
+                        let topics = logs[0]["topics"].as_array().expect("topics");
+                        assert_eq!(
+                            &body[..20],
+                            hex(logs[0]["address"].as_str().expect("address"))
+                        );
+                        assert_eq!(usize::from(body[20]), topics.len());
+                        assert_eq!(body.len(), 21 + 32 * topics.len() + 32);
+                        for (index, topic) in topics.iter().enumerate() {
+                            assert_eq!(
+                                &body[21 + 32 * index..21 + 32 * (index + 1)],
+                                hex(topic.as_str().expect("topic"))
+                            );
+                        }
+                        let view_digest =
+                            Sha256::digest(hex(logs[0]["data"].as_str().expect("data")));
+                        assert_ne!(
+                            &body[body.len() - 32..],
+                            view_digest.as_slice(),
+                            "{}: signed log digest must expose the altered JSON view",
+                            case.id
+                        );
+                    }
                     id => panic!("unclassified shared sequencer-receipt client refusal: {id}"),
                 }
             }
@@ -325,4 +358,24 @@ fn every_shared_refusal_case_is_refused_by_the_mirror() {
         checked += 1;
     }
     assert_eq!(checked, 6);
+}
+
+#[test]
+fn shared_signature_and_decode_refusals_reach_the_mirror_consumer() {
+    let vectors = shared_vectors();
+    let mut checked = 0;
+    for case in &vectors.cases {
+        let Classification::Refusal(Some(check)) = classify(case) else {
+            continue;
+        };
+        let verifier = mirror_verifier(case, vectors.chain_id);
+        assert_eq!(
+            verifier.committed_receipt(0, &authorization(case)),
+            Err(MirrorVerifyError::Receipt(check)),
+            "{}: actual mirror consumer refusal",
+            case.id
+        );
+        checked += 1;
+    }
+    assert_eq!(checked, 3);
 }

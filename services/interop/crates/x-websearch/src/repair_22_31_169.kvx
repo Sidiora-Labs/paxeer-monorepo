@@ -1,0 +1,13 @@
+[repair.22.31.169]
+audit = "22.30.113"
+metered-retired = "metered_retired_offers_execute_exact_on_the_application_ledger"
+fulfilment-nonces = "fulfilment_nonces_are_shared_across_kinds_and_reopen_before_broadcast; fulfilment_nonces_recover_a_reservation_before_journal_publication"
+program-answer-recovery = "program_answer_recovery_preserves_emitted_bytes_and_quorum"
+baseline = "Not run: the prescribed implementation-first gate order prohibits baseline verification; the declared repair integration target did not exist in the starting tree. No pre-change failure is claimed."
+evidence = "The runner records the exact qualified candidate revision, command, exit code and private log in the hf-build/hf-done ledger."
+wiring_1 = "Domain 6: reconcile req.11392-11395 and the retired grant rows in spec/layerx-merge/spec.kvx and spec/layerx-merge/interfaces.kvx with decision 2340; retain exact settlement and never restore retired activities."
+wiring_2 = "Domain 11: update services/interop/crates/x-websearch/README.md and docs/site/docs/protocol/xweb.md for exact-only offers and durable program answer/quorum recovery."
+wiring_3 = "Domain 11: reconcile historical metered success expectations in services/interop/crates/x-websearch/tests/payment.rs and same-key changed-digest expectations in services/interop/crates/x-websearch/tests/proof_x_websearch_program_requests.rs without weakening their receipt/signature assertions."
+transcript = "repair_22_31_169_ledger.json preserves committed gateway account lookup and signed exact-payment exchanges; the loopback peer replays exact method/params pairs and the production seller verifies receipts before delivering all four assets. No native ledger, subprocess, credential or endpoint is required."
+prior_attempt = "Attempt 1: nonce and program recovery cases passed; metered_retired_offers_execute_exact_on_the_application_ledger failed before starting the native Go producer because -llayerx and -llayerx_programs_sandbox were absent. Attempt 2 replaces that peer with the committed transcript as instructed."
+qualification_repair = "Revision 10ec554a7c008c4c47e69dfa4f30bd547c40d349; cg spec done 22.31.169 -f layerx-merge --root /work/paxeer-monorepo; exit 1; /out/logs/verify-1.log: Config::parse rejected inherited zero crawl delay; use the recorded valid delay and positive confirmation count without changing validation."

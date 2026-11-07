@@ -25,7 +25,6 @@ sys.path.insert(0,str(LOAD))
 from capture import read_manifest, iter_artifact, gateway_summary
 from phase2_types import Bindings, bound_document, source_digest
 from workload import ledger, provisioned_budget
-from jsonschema import Draft202012Validator, ValidationError
 
 
 def source_sha256():
@@ -43,6 +42,8 @@ def bound(path, expected, limit=4*1024*1024):
 
 
 def validate_plan(plan,binding,config):
+    from jsonschema import Draft202012Validator
+
     validate_binding(binding,config)
     Draft202012Validator(load(Path(__file__).resolve().parents[1]/'config-v4.schema.json')).validate(plan)
     inventory.exact(plan,('version','binding_sha256','configuration_sha256','source_sha256','d16_bindings','run_id','namespace','sample_interval_seconds','duration_seconds','max_capture_bytes','budget_path','budget_sha256'))
@@ -266,6 +267,8 @@ def write_result(result,output):
 
 
 def release(plan,binding,config,measurement_path,measurement_sha256,shared_path,shared_sha256,scenario_path,scenario_sha256,key,output):
+    from jsonschema import ValidationError
+
     result=failed_result(binding,'missing_or_invalid_native_release_input')
     try:
         bindings,budget,allocations=validate_plan(plan,binding,config)
@@ -307,6 +310,8 @@ def release(plan,binding,config,measurement_path,measurement_sha256,shared_path,
 
 
 def main():
+    from jsonschema import ValidationError
+
     parser=argparse.ArgumentParser();parser.add_argument('action',choices=('collect','evaluate'));parser.add_argument('--plan',required=True);parser.add_argument('--binding',required=True);parser.add_argument('--config',required=True);parser.add_argument('--output',required=True);parser.add_argument('--root',default=str(ROOT));parser.add_argument('--measurement');parser.add_argument('--measurement-sha256');parser.add_argument('--shared-capture');parser.add_argument('--shared-capture-sha256');parser.add_argument('--scenario-evidence');parser.add_argument('--scenario-evidence-sha256');parser.add_argument('--attestation-key-file');args=parser.parse_args()
     binding=None
     try:binding=load(args.binding);config=load(args.config);plan=load(args.plan)

@@ -6,6 +6,46 @@
 
 #include <string.h>
 
+/* The keeper calls this before publishing its canonical unsigned receipt.
+ * The public declaration and direct kernel call are separate wiring work. */
+lxp_result lx_escrow_bind_economic_receipt(lxp_receipt *receipt,
+                                         const lxp_effect_buffer *effects);
+
+lxp_result lx_escrow_bind_economic_receipt(lxp_receipt *receipt,
+                                         const lxp_effect_buffer *effects)
+{
+    const lxp_effect *event;
+    if (receipt == NULL || effects == NULL ||
+        receipt->module_id != LXP_MODULE_ESCROW || receipt->module_version != 1U)
+        return LXP_ERR_NON_CANONICAL;
+    if (receipt->result_code != LXP_OK)
+        return effects->count == 0U &&
+               lxp_ct_is_zero(receipt->transfer_set_root, 32U) ?
+                   LXP_OK : LXP_FATAL_INVARIANT;
+    if (effects->count != 1U) return LXP_FATAL_INVARIANT;
+    event = &effects->effects[0];
+    if (event->module_id != LXP_MODULE_ESCROW ||
+        event->kind != LXP_EFFECT_EVENT || event->monetary ||
+        event->event_type == 0U || event->event_type > 7U ||
+        event->body_length != LX_ESCROW_EVENT_BYTES ||
+        lxp_ct_is_zero(event->body, 32U) ||
+        event->body[32] != 0U ||
+        event->body[33] != event->event_type ||
+        event->body[34] < LX_ESCROW_STATE_OPEN ||
+        event->body[34] > LX_ESCROW_STATE_TIMED_OUT)
+        return LXP_FATAL_INVARIANT;
+    /* Opening a dispute changes no balance. Every other admitted transition
+     * carries the transfer binding produced by execution or bound replay. */
+    if ((event->event_type == 6U) !=
+        lxp_ct_is_zero(event->transfer_set_root, 32U))
+        return LXP_FATAL_INVARIANT;
+    if (!lxp_ct_is_zero(receipt->transfer_set_root, 32U) &&
+        memcmp(receipt->transfer_set_root, event->transfer_set_root, 32U) != 0)
+        return LXP_ERR_CONTEXT_MISMATCH;
+    (void)memcpy(receipt->transfer_set_root, event->transfer_set_root, 32U);
+    return LXP_OK;
+}
+
 static const uint32_t activity_types[] = {
     LX_ESCROW_OPEN, LX_ESCROW_CAPTURE, LX_ESCROW_PARTIAL_CAPTURE,
     LX_ESCROW_RELEASE, LX_ESCROW_TIMEOUT, LX_ESCROW_DISPUTE_OPEN,
@@ -372,7 +412,6 @@ static lxp_result module_execute(lxp_module_ctx *ctx,
     const uint8_t *key;
     lxp_result status;
     bool replay = false;
-    (void)effects;
     if (ctx == NULL || activity == NULL || authority == NULL ||
         value == NULL || value->ordinal == 0U || value->ordinal > 7U)
         return LXP_ERR_UNKNOWN_ACTIVITY;
@@ -384,6 +423,8 @@ static lxp_result module_execute(lxp_module_ctx *ctx,
         if (status != LXP_OK) return status;
     }
     (void)memset(&receipt, 0, sizeof(receipt));
+    receipt.module_id = LXP_MODULE_ESCROW;
+    receipt.module_version = 1U;
     switch (value->ordinal) {
     case 1U:
         escrow_id = value->value.open.record.escrow_id;
@@ -412,8 +453,20 @@ static lxp_result module_execute(lxp_module_ctx *ctx,
         break;
     }
     if (status != LXP_OK) return status;
-    if (replay) return emit_replay_event(ctx, &prior);
-    return emit_state_event(ctx, escrow_id, value->ordinal);
+    if (effects == NULL) return LXP_ERR_NON_CANONICAL;
+    status = replay ? emit_replay_event(ctx, &prior) :
+                      emit_state_event(ctx, escrow_id, value->ordinal);
+    if (status != LXP_OK) return status;
+    if (effects->count == 0U ||
+        effects->effects[effects->count - 1U].module_id != LXP_MODULE_ESCROW ||
+        effects->effects[effects->count - 1U].kind != LXP_EFFECT_EVENT)
+        return LXP_FATAL_INVARIANT;
+    /* Carry the executed economic binding with the state event, including
+     * authenticated replay facts. Projection into the outer receipt belongs
+     * to the kernel receipt binder. A replay never emits another transfer. */
+    (void)memcpy(effects->effects[effects->count - 1U].transfer_set_root,
+                 receipt.transfer_set_root, 32U);
+    return lx_escrow_bind_economic_receipt(&receipt, effects);
 }
 
 static lxp_result module_epoch_end(lxp_module_ctx *ctx, uint64_t epoch,

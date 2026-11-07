@@ -1,5 +1,4 @@
 use layerx_client::px::PxAssetEntry;
-use layerx_client::rpc::evidence::{verification_label, Rung};
 use layerx_client::rpc::{evidence as evidence_rpc, history, payments};
 use layerx_client::sequencer::SequencerError;
 
@@ -49,6 +48,10 @@ pub(super) fn account(config: &Config, id: &str) -> Response {
         Ok(selector) => selector,
         Err(response) => return response,
     };
+    let (Ok(chain_id), Ok(height)) = (config.sequencer.chain_id(), config.sequencer.block_number())
+    else {
+        return refusal(503, "node_unavailable", Some(5));
+    };
     let joined = match config.network.account(&account_id) {
         Ok(joined) => joined,
         Err(error) => {
@@ -62,29 +65,56 @@ pub(super) fn account(config: &Config, id: &str) -> Response {
     let Some(address) = joined.account.evm_address else {
         return refusal(503, "account_evidence_unavailable", Some(5));
     };
-    let Ok(head) = config.network.network() else {
-        return refusal(503, "node_unavailable", Some(5));
-    };
-    let Ok(nonce) = config
-        .sequencer
-        .nonce_at(&address, head.latest_committed_height)
-    else {
+    let (Ok(balance), Ok(nonce)) = (
+        config.sequencer.balance_at(&address, height),
+        config.sequencer.nonce_at(&address, height),
+    ) else {
         return refusal(503, "account_evidence_unavailable", Some(5));
     };
+    let (Ok(confirmed_chain), Ok(confirmed_height)) =
+        (config.sequencer.chain_id(), config.sequencer.block_number())
+    else {
+        return refusal(503, "node_unavailable", Some(5));
+    };
+    if confirmed_height != height || confirmed_chain != chain_id {
+        return refusal(503, "account_snapshot_changed", Some(5));
+    }
+    native_account_result(joined, &account_id, height, balance, nonce)
+}
+
+pub(super) fn native_account_result(
+    joined: layerx_client::px::PxAccountJoin,
+    account_id: &str,
+    height: u64,
+    committed_balance: [u8; 32],
+    committed_nonce: u64,
+) -> Response {
+    let Some(native) = joined.paxeer else {
+        return refusal(503, "account_evidence_unavailable", Some(5));
+    };
+    let expected_balance = native.balance.bytes();
+    if height == 0
+        || joined.account.evm_address != Some(native.address)
+        || committed_balance != expected_balance
+        || committed_nonce != native.nonce
+    {
+        return refusal(502, "account_snapshot_mismatch", None);
+    }
     let mut result = serde_json::Map::new();
     if let Some(layerx) = joined.layerx {
-        for key in ["name", "asset_id", "balance", "frozen"] {
+        for key in ["name", "asset_id", "frozen"] {
             if let Some(value) = layerx.get(key) {
                 result.insert(key.to_owned(), value.clone());
             }
         }
     }
     result.insert("account_id".to_owned(), account_id.into());
-    result.insert("next_sequence".to_owned(), nonce.to_string().into());
-    result.insert(
-        "batch_number".to_owned(),
-        head.latest_committed_height.to_string().into(),
-    );
+    result.insert("balance".to_owned(), native.balance.to_string().into());
+    result.insert("balance_unit".to_owned(), "wei".into());
+    result.insert("balance_decimals".to_owned(), 18.into());
+    result.insert("height".to_owned(), height.to_string().into());
+    result.insert("next_sequence".to_owned(), native.nonce.to_string().into());
+    result.insert("batch_number".to_owned(), height.to_string().into());
     success(&serde_json::Value::Object(result))
 }
 
@@ -103,62 +133,56 @@ impl AssetSnapshotError {
 
 fn asset_json(asset: &PxAssetEntry) -> Result<serde_json::Value, AssetSnapshotError> {
     let mut metadata = serde_json::Map::new();
-    if let Some(layerx) = &asset.layerx {
-        let symbol = layerx
-            .get("symbol")
-            .and_then(serde_json::Value::as_str)
-            .ok_or(AssetSnapshotError::InvalidSymbol)?;
+    if let Some(symbol) = &asset.symbol {
         if !(1..=16).contains(&symbol.len()) || !symbol.is_ascii() {
             return Err(AssetSnapshotError::InvalidSymbol);
         }
-        for key in [
-            "symbol",
-            "name",
-            "decimals",
-            "custody_kind",
-            "custody_reference",
-            "paused",
-            "supply_cap",
-            "issuer_did",
-            "issuer_kind",
-            "total_units",
-            "salt",
-        ] {
-            if let Some(value) = layerx.get(key) {
-                metadata.insert(key.to_owned(), value.clone());
-            }
-        }
+        metadata.insert("symbol".to_owned(), symbol.clone().into());
     }
-    metadata.insert("asset_id".to_owned(), hex_encode(&asset.asset_id).into());
-    if let Some(custody) = &asset.paxeer {
-        metadata.insert("paused".to_owned(), custody.paused.into());
+    if let Some(name) = &asset.name {
+        metadata.insert("name".to_owned(), name.clone().into());
+    }
+    if let Some(decimals) = asset.decimals {
+        metadata.insert("decimals".to_owned(), decimals.into());
+    }
+    if let Some(supply) = asset.supply {
+        metadata.insert("total_units".to_owned(), supply.to_string().into());
+    }
+    metadata.insert("asset_id".to_owned(), asset.asset_id.clone().into());
+    if let Some(paused) = asset.paused {
+        metadata.insert("paused".to_owned(), paused.into());
     }
     Ok(serde_json::Value::Object(metadata))
 }
 
+pub(super) fn native_asset_result(asset: &PxAssetEntry) -> Response {
+    match asset_json(asset) {
+        Ok(asset) => success(&serde_json::json!({"asset": asset})),
+        Err(error) => error.response(),
+    }
+}
+
+pub(super) fn native_assets_result(table: &layerx_client::px::PxAssetTable) -> Response {
+    match table
+        .assets
+        .iter()
+        .map(asset_json)
+        .collect::<Result<Vec<_>, _>>()
+    {
+        Ok(assets) => success(&serde_json::json!({"assets": assets})),
+        Err(error) => error.response(),
+    }
+}
+
 fn assets(config: &Config, id: Option<[u8; 32]>) -> Response {
     if let Some(id) = id {
-        return match payments::get_asset(&config.network, id) {
-            Ok(asset) => match asset_json(&asset) {
-                Ok(asset) => success(&serde_json::json!({"asset": asset})),
-                Err(error) => error.response(),
-            },
+        return match payments::get_asset(&config.network, hex_encode(&id)) {
+            Ok(asset) => native_asset_result(&asset),
             Err(_) => refusal(503, "asset_evidence_unavailable", Some(5)),
         };
     }
     match payments::list_assets(&config.network) {
-        Ok(table) => {
-            let assets = match table
-                .assets
-                .iter()
-                .map(asset_json)
-                .collect::<Result<Vec<_>, _>>()
-            {
-                Ok(assets) => assets,
-                Err(error) => return error.response(),
-            };
-            success(&serde_json::json!({"assets": assets}))
-        }
+        Ok(table) => native_assets_result(&table),
         Err(_) => refusal(503, "asset_evidence_unavailable", Some(5)),
     }
 }
@@ -343,12 +367,20 @@ fn node_info(config: &Config) -> Response {
     else {
         return refusal(503, "node_unavailable", Some(5));
     };
+    native_node_info_result(head, key, checkpoint.hash)
+}
+
+pub(super) fn native_node_info_result(
+    head: layerx_client::px::PxNetworkHead,
+    key: &layerx_client::sequencer::ReceiptKeyEntry,
+    checkpoint_hash: [u8; 32],
+) -> Response {
     success(&serde_json::json!({
         "protocol_version": layerx_wire::limits::STATE_COMMITMENT_PROTOCOL_VERSION,
         "network_id": head.network_id,
         "chain_head_sequence": head.latest_committed_height.to_string(),
         "latest_sealed_batch": head.paxeer.latest_block.to_string(),
-        "latest_finalised_checkpoint": hex_encode(&checkpoint.hash),
+        "latest_finalised_checkpoint": hex_encode(&checkpoint_hash),
         "authorised_sequencer_key": hex_encode(&key.public_key),
         "capabilities": head.layerx.unwrap_or_default()
     }))
@@ -468,56 +500,39 @@ fn proof(config: &Config, kind: &str, id: &str, account: Option<&str>) -> Respon
     } else {
         receipt.execution().from
     };
-    let Ok(head) = config.network.network() else {
-        return refusal(503, "node_unavailable", Some(5));
-    };
-    if receipt.rung() != Rung::Committed || receipt.height() > head.latest_committed_height {
-        return refusal(503, "proof_evidence_unavailable", Some(5));
-    }
-    let bundle = if kind == "account" {
-        evidence_rpc::proof_bundle_with_history(
-            &config.sequencer,
-            address,
-            &[],
-            head.latest_committed_height,
-        )
-    } else {
-        evidence_rpc::proof_bundle(
-            &config.sequencer,
-            address,
-            &[],
-            head.latest_committed_height,
-        )
-    };
-    let Ok(bundle) = bundle else {
+    let Some(landing) = receipt.landing() else {
         return refusal(503, "proof_evidence_unavailable", Some(5));
     };
-    let mut result = serde_json::json!({
-        "kind": kind, "activity_id": id, "account_id": account,
-        "landing_block": landing_block_json(&bundle.landing_block),
-        "verification": verification_label(receipt.rung())
-    });
-    if kind == "receipt" {
-        result["canonical_value"] = hex_encode(receipt.canonical_bytes()).into();
-    } else if kind == "activity" {
-        let Some(landing) = receipt.landing() else {
-            return refusal(503, "proof_evidence_unavailable", Some(5));
-        };
-        let Ok(block) = evidence_rpc::checkpoint(&config.sequencer, landing.block_number) else {
-            return refusal(503, "proof_evidence_unavailable", Some(5));
-        };
-        let Some(transaction) = block.transactions.iter().find(|transaction| {
-            layerx_crypto::evm_transaction::transaction_hash(transaction) == identifier
-        }) else {
-            return refusal(503, "proof_evidence_unavailable", Some(5));
-        };
-        result["canonical_value"] = hex_encode(transaction).into();
+    let Ok((block, app_hash)) =
+        layerx_platform_core::native_committed_state(&config.sequencer, landing.block_number)
+    else {
+        return refusal(503, "proof_evidence_unavailable", Some(5));
+    };
+    if super::validate_receipt_landing(&receipt, &block).is_err() {
+        return refusal(502, "proof_landing_mismatch", None);
     }
-    success(&result)
+    if kind == "account" {
+        // eth_getProof witnesses EVM storage slots, not bank account balances.
+        // No empty slot list or block header can prove this account's value.
+        return refusal(503, "native_account_inclusion_unavailable", Some(5));
+    }
+    let Some(header) = receipt.committed_header() else {
+        return refusal(503, "native_receipt_inclusion_unavailable", Some(5));
+    };
+    if u64::try_from(header.height()).ok() != Some(landing.block_number)
+        || header.header_hash() != block.hash
+        || header.app_hash() != app_hash
+    {
+        return refusal(502, "proof_root_mismatch", None);
+    }
+    // The client must carry the batch transaction's inclusion path through to
+    // the public contract. A verified header without that path is insufficient.
+    let _ = (address, header);
+    refusal(503, "native_receipt_inclusion_unavailable", Some(5))
 }
 
 fn receipt_event(config: &Config, request: &Request, hash: &str) -> Response {
-    use layerx_client::sequencer::SequencerReceipt;
+    use layerx_client::rpc::receipt::Lookup;
     use subtle::ConstantTimeEq;
     let Some(token) = &config.receipt_events_token else {
         return refusal(503, "receipt_events_not_configured", None);
@@ -539,21 +554,25 @@ fn receipt_event(config: &Config, request: &Request, hash: &str) -> Response {
     if request.query.is_some() || !request.body.is_empty() {
         return refusal(400, "invalid_tx_hash", None);
     }
-    match config.sequencer.sequencer_receipt(&hash) {
-        Ok(Some(
-            SequencerReceipt::Receipted(receipt) | SequencerReceipt::Committed { receipt, .. },
-        )) => success(&serde_json::json!({
-            "state": if receipt.success { "completed" } else { "refused" },
-            "activity_id": hex_encode(&hash),
-            "global_sequence": receipt.seq.to_string(),
-            "height": receipt.height.to_string(),
-            "index": receipt.index.to_string(),
-            "result_code": if receipt.success { 0 } else { 1 },
-            "timestamp": receipt.timestamp.to_string()
+    match super::await_authenticated_receipt(config, hash, std::time::Duration::ZERO) {
+        Ok(Lookup::Verified(receipt)) => success(&serde_json::json!({
+            "state": if receipt.execution().success { "completed" } else { "refused" },
+            "rung": receipt.rung().name(),
+            "activity_id": hex_encode(&receipt.activity_id()),
+            "global_sequence": receipt.global_sequence().to_string(),
+            "height": receipt.height().to_string(),
+            "index": receipt.execution().index.to_string(),
+            "result_code": receipt.result_code().raw(),
+            "timestamp": receipt.execution().timestamp.to_string()
         })),
-        Ok(Some(SequencerReceipt::Submitted { .. }) | None) => {
-            super::json_response(202, &serde_json::json!({"result":{"state":"pending"}}))
-        }
+        Ok(Lookup::Submitted { tx_hash, nonce }) => super::json_response(
+            202,
+            &serde_json::json!({"result":{
+                "state":"pending", "rung":"submitted",
+                "activity_id":hex_encode(&tx_hash), "nonce":nonce.to_string()
+            }}),
+        ),
+        Ok(Lookup::Absent) => refusal(404, "not_found", None),
         Err(_) => refusal(503, "receipt_events_unavailable", Some(5)),
     }
 }
@@ -674,18 +693,16 @@ mod tests {
     }
 
     fn asset(symbol: &[u8]) -> super::PxAssetEntry {
-        let symbol = match std::str::from_utf8(symbol) {
-            Ok(symbol) => serde_json::Value::String(symbol.to_owned()),
-            Err(_) => serde_json::json!(symbol),
-        };
         super::PxAssetEntry {
-            asset_id: [1; 32],
-            layerx: Some(serde_json::Map::from_iter([
-                ("symbol".to_owned(), symbol),
-                ("name".to_owned(), "Test asset".into()),
-                ("decimals".to_owned(), 6.into()),
-            ])),
-            paxeer: None,
+            asset_id: "01".repeat(32),
+            kind: "ledger".to_owned(),
+            denom: None,
+            name: Some("Test asset".to_owned()),
+            symbol: Some(String::from_utf8_lossy(symbol).into_owned()),
+            decimals: Some(6),
+            supply: None,
+            paused: None,
+            verification: None,
         }
     }
 

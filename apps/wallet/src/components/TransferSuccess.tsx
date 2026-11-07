@@ -11,16 +11,15 @@ import {
   type TransferTruth,
 } from '@paxeer/wallet';
 import { StatusLadder } from '@/account/StatusLadder';
-import { useActiveNetwork } from '@/components/NetworkSwitcher';
-import { getActiveRpcUrl, PAXEER_CONFIG, RPC_CHANGED_EVENT } from '@/lib/constants';
 import { motion, AnimatePresence } from 'framer-motion';
 import { SvgIcon } from '@/components/ui/SvgIcon';
-import { openExternalUrl } from '@/lib/security/navigation';
+import { transferObservationsRepository } from '@/platform/storage/repositories';
 import {
-  putTransferRecord,
-  transferObservationsRepository,
-  type JsonValue,
-} from '@/platform/storage/repositories';
+  resolveTransferOrigin,
+  saveTransferObservation,
+  transferStorageKey,
+  type TransferOrigin,
+} from './transferOrigin';
 
 interface TransferSuccessProps {
   fromLabel: string;
@@ -98,13 +97,9 @@ const TRUTH_TITLES: Readonly<Record<TransferTruth, string>> = {
   included: 'Transfer Included',
 };
 
-function storageKey(identity: TransferIdentity): string {
-  return `${identity.chainId}:${identity.hash.toLowerCase()}`;
-}
-
 function recoverObservation(identity: TransferIdentity): TransferObservation {
   try {
-    const raw = transferObservationsRepository.read()[storageKey(identity)];
+    const raw = transferObservationsRepository.read()[transferStorageKey(identity)];
     return raw ? recoverTransferObservation(identity, raw) : submittedTransfer(identity);
   } catch {
     return submittedTransfer(identity);
@@ -140,11 +135,13 @@ async function rpcRequest(
 export function useTransferObservation(identity: TransferIdentity): {
   observation: TransferObservation;
   error: string;
+  origin: TransferOrigin | null;
 } {
   const [observation, setObservation] = useState<TransferObservation>(() =>
     submittedTransfer(identity)
   );
   const [error, setError] = useState('');
+  const [origin, setOrigin] = useState<TransferOrigin | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -153,33 +150,44 @@ export function useTransferObservation(identity: TransferIdentity): {
     let current = recoverObservation(identity);
     setObservation(current);
     setError('');
-    const explorerStatusUrl =
-      process.env.NEXT_PUBLIC_PAXEER_EXPLORER_URL ||
-      process.env.NEXT_PUBLIC_EXPLORER_STATUS_URL ||
-      PAXEER_CONFIG.blockscoutApiBase;
+    let retainedOrigin: TransferOrigin;
+    let persistenceError = '';
+    setOrigin(null);
+    try {
+      retainedOrigin = resolveTransferOrigin(identity);
+      setOrigin(retainedOrigin);
+    } catch (caught) {
+      setObservation({ ...current, truth: 'unknown', steps: [], blockNumber: null });
+      setError(caught instanceof Error ? caught.message : 'The submitted network is unavailable.');
+      return;
+    }
+    const persist = (next: TransferObservation) => {
+      try {
+        saveTransferObservation(next, retainedOrigin);
+        persistenceError = '';
+      } catch {
+        persistenceError =
+          'Observation is available, but this browser could not save its original network for reload.';
+      }
+    };
+    // Retain the origin before the first request, including offline/pending submissions.
+    persist(current);
+    setError(persistenceError);
     const tick = async () => {
       if (cancelled || running) return;
       if (timer) clearTimeout(timer);
       running = true;
       try {
-        const rpcUrl = getActiveRpcUrl();
         const next = await observeTransfer(
-          (method, params) => rpcRequest(rpcUrl, method, params),
+          (method, params) => rpcRequest(retainedOrigin.rpcUrl, method, params),
           current,
-          { url: explorerStatusUrl }
+          { url: retainedOrigin.statusUrl }
         );
         if (cancelled) return;
         current = next;
         setObservation(next);
-        setError(next.warning ?? '');
-        try {
-          const stored = JSON.parse(JSON.stringify(next)) as JsonValue;
-          transferObservationsRepository.update((records) =>
-            putTransferRecord(records, storageKey(identity), stored)
-          );
-        } catch {
-          setError('Observation is available, but this browser could not save it for reload.');
-        }
+        persist(next);
+        setError([next.warning, persistenceError].filter(Boolean).join(' '));
       } catch (e) {
         if (!cancelled) {
           current = {
@@ -199,12 +207,10 @@ export function useTransferObservation(identity: TransferIdentity): {
     };
     void tick();
     window.addEventListener('online', tick);
-    window.addEventListener(RPC_CHANGED_EVENT, tick);
     return () => {
       cancelled = true;
       if (timer) clearTimeout(timer);
       window.removeEventListener('online', tick);
-      window.removeEventListener(RPC_CHANGED_EVENT, tick);
     };
   }, [identity.hash, identity.chainId]);
 
@@ -214,19 +220,20 @@ export function useTransferObservation(identity: TransferIdentity): {
   return {
     observation: matches ? observation : submittedTransfer(identity),
     error: matches ? error : '',
+    origin: matches && origin?.chainId === identity.chainId ? origin : null,
   };
 }
 
 export function TransferSuccess(props: TransferSuccessProps) {
-  const activeNetwork = useActiveNetwork();
-  const { observation, error } = useTransferObservation(props.transfer);
-  const explorerUrl =
-    props.explorerUrl ??
-    `${activeNetwork.explorerUrl.replace(/\/+$/, '')}/tx/${props.transfer.hash}`;
+  const { observation, error, origin } = useTransferObservation(props.transfer);
+  const explorerUrl = origin
+    ? `${origin.explorerUrl.replace(/\/+$/, '')}/tx/${props.transfer.hash}`
+    : undefined;
   return (
     <TransferSuccessResult
       {...props}
       explorerUrl={explorerUrl}
+      onExplorerView={undefined}
       observation={observation}
       error={error}
     />
@@ -437,13 +444,17 @@ export function TransferSuccessResult({
               className="flex gap-3 mt-6"
             >
               {(onExplorerView || explorerUrl) && (
-                <button
-                  onClick={() =>
+                <a
+                  href={explorerUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={
                     onExplorerView
-                      ? onExplorerView()
-                      : explorerUrl
-                        ? openExternalUrl(explorerUrl)
-                        : undefined
+                      ? (event) => {
+                          event.preventDefault();
+                          onExplorerView();
+                        }
+                      : undefined
                   }
                   className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-white/5 text-xs font-medium press-scale"
                 >
@@ -453,7 +464,7 @@ export function TransferSuccessResult({
                     style={{ filter: 'brightness(0) invert(1)' }}
                   />{' '}
                   Explorer
-                </button>
+                </a>
               )}
               <button
                 onClick={() =>

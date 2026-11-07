@@ -19,9 +19,9 @@ export {
   perpsDepositCall,
   perpsOpenPositionCall,
   perpsWithdrawCall,
-  type PerpsOpenPosition,
   type PerpsWrite,
 } from "../../../../services/agent/sdk/typescript/src/perps.ts";
+export type { PerpsOpenPosition } from "../../../../services/agent/sdk/typescript/src/perps.ts";
 export {
   BRIDGE_EVENTS,
   LAYERX_BRIDGE_PRECOMPILE,

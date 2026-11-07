@@ -1,0 +1,40 @@
+[repair.22.33.1339]
+base_revision = "9d1a06c7f3635f5556023760af7a75ee9755efdd"
+status = "implementation_requires_bounded_qualification"
+baseline = "Not run: the ordered task instructions prohibit testing before complete implementation and prohibit invoking verify_cmd outside hf-done; no pre-change failure is claimed."
+evidence = "The runner's hf-build and hf-done ledger records the exact candidate revision, command, exit and private log; closure requires hf-done passing on the built revision."
+wiring_request = "sdk/crypto/ledger, owning domain 15: expose a typed unavailable sentinel and a recorded-transcript transport entry point to allow positive Ledger create/reopen/sign proof in the untagged, device-free gate; the existing tagged positive tests require the configured qualification device and are not claimed as executed by this task's gate."
+gotcha = "The inherited workflow asks for baseline verification and out-of-scope spec/GOTCHA writes, but this task's ordered gate and path restrictions forbid them; this in-scope record retains the conflict without running an extra gate or editing spec."
+
+[finding.keyring-doc-api]
+test = "TestRepairM_1339_DocAPI"
+repair = "Document current constructors, algorithms, verifier migration, insecure test backend and bounded backend recovery guarantees; exercise transient and persistent constructors."
+
+[finding.keyring-import-algorithm]
+test = "TestRepairM_1339_ImportAlgorithm"
+repair = "Explicit secp256k1/sr25519 dispatch respects configured supported algorithms and rejects unknown or ed25519 labels; export/import/reopen verifies labels, key bytes and real signatures for both supported algorithms."
+
+[finding.keyring-offline-algorithm]
+test = "TestRepairM_1339_OfflineAlgorithm"
+repair = "Validate the public key, derive an empty label and reject mismatches before persistence; test save/reopen/output and offline signing rejection for secp256k1, sr25519 and ed25519."
+
+[finding.keyring-empty-address-index]
+test = "TestRepairM_1339_EmptyAddressIndex"
+repair = "Return typed ErrKeyNotFound for an empty persisted address index; reopened KeyByAddress, SignByAddress and DeleteByAddress all fail safely while the name record remains recoverable."
+
+[finding.keyring-list-invalid-info]
+test = "TestRepairM_1339_ListInvalidInfo"
+repair = "Return healthy records plus structured CorruptionError entries without printing or deleting damage; output propagates List's error and rejects nil public information without dereference."
+
+[finding.keyring-passphrase-oracle]
+test = "TestRepairM_1339_PassphraseMigration"
+repair = "Use versioned bcrypt cost 12 with bounded backup costs 4-16 and atomic migration after successful verification; exercise actual encrypted file unlock, wrong-password immutability, old cost-10 backup migration, repeat reopen/sign, file mode and rejected unbounded work."
+
+[finding.keyring-partial-persistence]
+test = "TestRepairM_1339_PartialPersistence"
+repair = "Persist encrypted create/delete intent before name/address changes; reconcile on reopen and before subsequent access, preserve failed intents, and accept identical create retries without replacing accounts; actual filesystem obstructions interrupt Set and Remove and recovery restores consistent views."
+
+[finding.keyring-ledger-test-errors]
+test = "TestRepairM_1339_LedgerErrors"
+positive_test = "TestSignVerifyKeyRingWithLedger"
+repair = "Prove real wrapped unavailable create and persisted-reference signing errors separately, assert unsupported sr25519 is rejected before discovery, remove positive-gate error skips and require a configured device, and iterate every advertised hardware algorithm through create/reopen/sign in the existing tagged positive test."

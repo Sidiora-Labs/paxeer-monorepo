@@ -797,6 +797,7 @@ impl<'a> Reader<'a> {
 #[cfg(test)]
 mod chain_tests {
     use std::collections::{BTreeMap, BTreeSet};
+    use std::os::unix::fs::DirBuilderExt;
 
     use super::*;
     use crate::identity::ProtocolAuthority;
@@ -811,8 +812,10 @@ mod chain_tests {
     }
 
     fn open(name: &str) -> (std::path::PathBuf, Store) {
-        let root = std::env::temp_dir().join(format!("lxp-cb2-{name}-{}", std::process::id()));
+        let root = must(std::fs::canonicalize(std::env::temp_dir()))
+            .join(format!("lxp-cb2-{name}-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&root);
+        must(std::fs::DirBuilder::new().mode(0o700).create(&root));
         let store = must(Store::open(&root));
         (root, store)
     }
@@ -899,8 +902,10 @@ mod chain_tests {
             })
         ));
         must(reserve(&mut store, 14, &[(X, 30)]));
+        drop(store);
         let reopened = must(Store::open(&root));
         assert_eq!(totals(&reopened, &ROOT, &X), (100, 0));
+        drop(reopened);
         let _ = std::fs::remove_dir_all(root);
     }
 
@@ -909,9 +914,10 @@ mod chain_tests {
         let (root, mut store) = open("verified");
         must(reserve(&mut store, 20, &[(X, 60)]));
         must(apply(&mut store, &tenant(), [20; 32], Settlement::Consume));
-        let reopened = must(Store::open(&root));
-        assert_eq!(totals(&reopened, &LEAF, &X), (0, 60));
-        assert_eq!(totals(&reopened, &ROOT, &X), (0, 60));
+        drop(store);
+        let mut store = must(Store::open(&root));
+        assert_eq!(totals(&store, &LEAF, &X), (0, 60));
+        assert_eq!(totals(&store, &ROOT, &X), (0, 60));
         assert!(matches!(
             reserve(&mut store, 21, &[(X, 41)]),
             Err(ConsumeError::Refused {
@@ -923,6 +929,7 @@ mod chain_tests {
             apply(&mut store, &tenant(), [20; 32], Settlement::VerifiedRelease),
             Err(ConsumeError::Conflict)
         ));
+        drop(store);
         let _ = std::fs::remove_dir_all(root);
     }
 
@@ -945,6 +952,7 @@ mod chain_tests {
             Settlement::VerifiedRelease,
         ));
         assert_eq!(totals(&store, &LEAF, &X), (0, 0));
+        drop(store);
         let _ = std::fs::remove_dir_all(root);
     }
 
@@ -967,10 +975,12 @@ mod chain_tests {
             reserve(&mut store, 41, &[(X, 31)]),
             Err(ConsumeError::Refused { .. })
         ));
+        drop(store);
         let reopened = must(Store::open(&root));
         let records = must(restore(&reopened, &tenant()));
         assert_eq!(records.len(), 1);
         assert_eq!(records[0].state, ReservationState::Unknown);
+        drop(reopened);
         let _ = std::fs::remove_dir_all(root);
     }
 
@@ -987,6 +997,7 @@ mod chain_tests {
             reserve(&mut store, 50, &[(X, 41)]),
             Err(ConsumeError::Conflict)
         ));
+        drop(store);
         let _ = std::fs::remove_dir_all(root);
     }
 
@@ -1004,6 +1015,7 @@ mod chain_tests {
                 .count();
             assert_eq!(actions, 2);
         }
+        drop(store);
         let _ = std::fs::remove_dir_all(root);
     }
 

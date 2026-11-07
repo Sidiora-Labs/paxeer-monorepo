@@ -1,0 +1,8 @@
+[repair.22.33.609]
+finding = "capability-overview-genesis"
+tests = ["TestRepairM_609_GenesisAndRestartLifecycle", "TestRepairM_609_OverviewLifecycleContract"]
+change = "Retain the existing keeper-package constructor example; clarify genesis index/owners, validation before import, restart ordering, and retrieval of process-local canonical pointers. Correct the overview's stale validation boundary to match types.GenesisState.Validate."
+proof = "Production scoped keepers create and share a capability and release another; AppModule exports JSON, the real codec and validator consume it, and AppModule imports it into a separate store. Closing and reopening that store proves persisted index/owners survive while BeginBlocker reconstructs fresh canonical pointers, authentication, released-index gaps and the next allocation index."
+baseline = "Not run: the explicit implementation-first order and hf-done-only verification rule override do_5's contradictory unchanged-tree verification request. No baseline failure is claimed; no prior gate ledger existed at task entry."
+wiring_request = "None; the finding's constructor and lifecycle documentation and its real-path proof are entirely within sdk/x/capability."
+evidence = "The runner's hf-build/hf-done ledger records the exact candidate revision, command, exit code and private log location; final qualification is reported from hf-done without editing the candidate afterward."

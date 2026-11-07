@@ -1,0 +1,1873 @@
+# Pre-upgrade audit of the node-runtime slice at the declared revision.
+# Findings describe source-level paths; no source repair or runtime qualification is implied.
+
+[audit.22.30.43]
+task = "22.30.43"
+revision = "6d2c32a65a1c7989a6a37abf5965929de9769ae4"
+files_reviewed = 237
+findings = 32
+docs_reviewed = 21
+upgrade_ready = false
+blocking = ["f002"]
+note = "Coverage includes all package members, package requirements and the producer/consumer registry surfaces. Retired-reference refusal tests are distinguished from live legacy harnesses. Missing linked contracts are listed as missing documentation; registry totals include domain-wide rows beyond this file slice."
+
+[file.001]
+path = "cmd/layerx-module-registry/main.c"
+lines = 153
+verdict = "clean"
+note = "Module-registry CLI and its tests enforce the supported registry profile and reject the retired bridge profile."
+
+[file.002]
+path = "cmd/layerx-module-registry/test_no_bridge_profile.py"
+lines = 65
+verdict = "clean"
+note = "Module-registry CLI and its tests enforce the supported registry profile and reject the retired bridge profile."
+
+[file.003]
+path = "cmd/layerx-module-registry/test_registry.py"
+lines = 99
+verdict = "clean"
+note = "Module-registry CLI and its tests enforce the supported registry profile and reject the retired bridge profile."
+
+[file.004]
+path = "cmd/layerx-module-registry/test_registry_cli.py"
+lines = 110
+verdict = "clean"
+note = "Module-registry CLI and its tests enforce the supported registry profile and reject the retired bridge profile."
+
+[file.005]
+path = "cmd/layerxctl/Cargo.toml"
+lines = 30
+verdict = "clean"
+note = "Production dependencies provide RPC, receipt verification and result types; layerx-wire remains confined to dev dependencies."
+
+[file.006]
+path = "cmd/layerxctl/src/main.rs"
+lines = 482
+verdict = "issues"
+note = "EVM transaction submission and eth_call reads use the current client decoder and pinned receipt verification; fixture and registry discrepancies are listed separately."
+
+[file.007]
+path = "cmd/layerxctl/tests/files.rs"
+lines = 1163
+verdict = "issues"
+note = "EVM transaction submission and eth_call reads use the current client decoder and pinned receipt verification; fixture and registry discrepancies are listed separately."
+
+[file.008]
+path = "cmd/retirement/test_custody_proof_daemon.py"
+lines = 55
+verdict = "clean"
+note = "Retirement guard: references to deleted daemon/kernel clients are explicit absence or refusal assertions, rather than live service dependencies."
+
+[file.009]
+path = "cmd/retirement/test_daemon_tests_batch_wal.py"
+lines = 37
+verdict = "clean"
+note = "Retirement guard: references to deleted daemon/kernel clients are explicit absence or refusal assertions, rather than live service dependencies."
+
+[file.010]
+path = "cmd/retirement/test_daemon_tests_clients.py"
+lines = 34
+verdict = "clean"
+note = "Retirement guard: references to deleted daemon/kernel clients are explicit absence or refusal assertions, rather than live service dependencies."
+
+[file.011]
+path = "cmd/retirement/test_daemon_tests_custody.py"
+lines = 37
+verdict = "clean"
+note = "Retirement guard: references to deleted daemon/kernel clients are explicit absence or refusal assertions, rather than live service dependencies."
+
+[file.012]
+path = "cmd/retirement/test_daemon_tests_epoch.py"
+lines = 34
+verdict = "clean"
+note = "Retirement guard: references to deleted daemon/kernel clients are explicit absence or refusal assertions, rather than live service dependencies."
+
+[file.013]
+path = "cmd/retirement/test_daemon_tests_guarantor_c.py"
+lines = 35
+verdict = "clean"
+note = "Retirement guard: references to deleted daemon/kernel clients are explicit absence or refusal assertions, rather than live service dependencies."
+
+[file.014]
+path = "cmd/retirement/test_daemon_tests_guarantor_python.py"
+lines = 37
+verdict = "clean"
+note = "Retirement guard: references to deleted daemon/kernel clients are explicit absence or refusal assertions, rather than live service dependencies."
+
+[file.015]
+path = "cmd/retirement/test_daemon_tests_handover_finality.py"
+lines = 38
+verdict = "clean"
+note = "Retirement guard: references to deleted daemon/kernel clients are explicit absence or refusal assertions, rather than live service dependencies."
+
+[file.016]
+path = "cmd/retirement/test_daemon_tests_lni.py"
+lines = 28
+verdict = "clean"
+note = "Retirement guard: references to deleted daemon/kernel clients are explicit absence or refusal assertions, rather than live service dependencies."
+
+[file.017]
+path = "cmd/retirement/test_daemon_tests_maintenance.py"
+lines = 35
+verdict = "clean"
+note = "Retirement guard: references to deleted daemon/kernel clients are explicit absence or refusal assertions, rather than live service dependencies."
+
+[file.018]
+path = "cmd/retirement/test_daemon_tests_program_admission.py"
+lines = 39
+verdict = "clean"
+note = "Retirement guard: references to deleted daemon/kernel clients are explicit absence or refusal assertions, rather than live service dependencies."
+
+[file.019]
+path = "cmd/retirement/test_daemon_tests_runtime_fixture.py"
+lines = 37
+verdict = "clean"
+note = "Retirement guard: references to deleted daemon/kernel clients are explicit absence or refusal assertions, rather than live service dependencies."
+
+[file.020]
+path = "cmd/retirement/test_guarantor_core.py"
+lines = 33
+verdict = "clean"
+note = "Retirement guard: references to deleted daemon/kernel clients are explicit absence or refusal assertions, rather than live service dependencies."
+
+[file.021]
+path = "cmd/retirement/test_guarantor_exchange.py"
+lines = 32
+verdict = "clean"
+note = "Retirement guard: references to deleted daemon/kernel clients are explicit absence or refusal assertions, rather than live service dependencies."
+
+[file.022]
+path = "cmd/retirement/test_guarantor_python.py"
+lines = 33
+verdict = "clean"
+note = "Retirement guard: references to deleted daemon/kernel clients are explicit absence or refusal assertions, rather than live service dependencies."
+
+[file.023]
+path = "cmd/retirement/test_guarantor_settlement.py"
+lines = 30
+verdict = "clean"
+note = "Retirement guard: references to deleted daemon/kernel clients are explicit absence or refusal assertions, rather than live service dependencies."
+
+[file.024]
+path = "cmd/retirement/test_kernel_symbol_consumers_retired.py"
+lines = 156
+verdict = "clean"
+note = "Retirement guard: references to deleted daemon/kernel clients are explicit absence or refusal assertions, rather than live service dependencies."
+
+[file.025]
+path = "cmd/retirement/test_layerx_archive_codec.py"
+lines = 27
+verdict = "clean"
+note = "Retirement guard: references to deleted daemon/kernel clients are explicit absence or refusal assertions, rather than live service dependencies."
+
+[file.026]
+path = "cmd/retirement/test_layerx_handover.py"
+lines = 27
+verdict = "clean"
+note = "Retirement guard: references to deleted daemon/kernel clients are explicit absence or refusal assertions, rather than live service dependencies."
+
+[file.027]
+path = "cmd/retirement/test_layerx_verify.py"
+lines = 34
+verdict = "clean"
+note = "Retirement guard: references to deleted daemon/kernel clients are explicit absence or refusal assertions, rather than live service dependencies."
+
+[file.028]
+path = "cmd/retirement/test_layerxctl_c_tool.py"
+lines = 27
+verdict = "clean"
+note = "Retirement guard: references to deleted daemon/kernel clients are explicit absence or refusal assertions, rather than live service dependencies."
+
+[file.029]
+path = "cmd/retirement/test_layerxd_artifacts.py"
+lines = 36
+verdict = "clean"
+note = "Retirement guard: references to deleted daemon/kernel clients are explicit absence or refusal assertions, rather than live service dependencies."
+
+[file.030]
+path = "cmd/retirement/test_layerxd_batch_wal.py"
+lines = 30
+verdict = "clean"
+note = "Retirement guard: references to deleted daemon/kernel clients are explicit absence or refusal assertions, rather than live service dependencies."
+
+[file.031]
+path = "cmd/retirement/test_layerxd_core.py"
+lines = 36
+verdict = "clean"
+note = "Retirement guard: references to deleted daemon/kernel clients are explicit absence or refusal assertions, rather than live service dependencies."
+
+[file.032]
+path = "cmd/retirement/test_layerxd_evidence.py"
+lines = 31
+verdict = "clean"
+note = "Retirement guard: references to deleted daemon/kernel clients are explicit absence or refusal assertions, rather than live service dependencies."
+
+[file.033]
+path = "cmd/retirement/test_layerxd_finality.py"
+lines = 32
+verdict = "clean"
+note = "Retirement guard: references to deleted daemon/kernel clients are explicit absence or refusal assertions, rather than live service dependencies."
+
+[file.034]
+path = "cmd/retirement/test_layerxd_lni.py"
+lines = 35
+verdict = "clean"
+note = "Retirement guard: references to deleted daemon/kernel clients are explicit absence or refusal assertions, rather than live service dependencies."
+
+[file.035]
+path = "cmd/retirement/test_layerxd_replicas.py"
+lines = 30
+verdict = "clean"
+note = "Retirement guard: references to deleted daemon/kernel clients are explicit absence or refusal assertions, rather than live service dependencies."
+
+[file.036]
+path = "cmd/retirement/test_movement_proof_retired.py"
+lines = 33
+verdict = "clean"
+note = "Retirement guard: references to deleted daemon/kernel clients are explicit absence or refusal assertions, rather than live service dependencies."
+
+[file.037]
+path = "consensus/AGENTS.md"
+lines = 21
+verdict = "clean"
+note = "Documentation status and any exact stale lines are recorded in the doc blocks."
+
+[file.038]
+path = "consensus/Makefile"
+lines = 180
+verdict = "vendored"
+note = "Retained upstream standalone consensus tooling. consensus/networks/remote/README.md and consensus/README.md explicitly distinguish this historical machinery from the embedded paxd build/deployment; it is not a current network operator path."
+
+[file.039]
+path = "consensus/README.md"
+lines = 58
+verdict = "issues"
+note = "Documentation status and any exact stale lines are recorded in the doc blocks."
+
+[file.040]
+path = "consensus/abci/README.md"
+lines = 26
+verdict = "clean"
+note = "Documentation status and any exact stale lines are recorded in the doc blocks."
+
+[file.041]
+path = "consensus/abci/example/code/code.go"
+lines = 10
+verdict = "clean"
+note = "In-memory consensus test application: request/response fields, validator updates and persistence expectations match its test-only lifecycle."
+
+[file.042]
+path = "consensus/abci/example/example.go"
+lines = 3
+verdict = "clean"
+note = "In-memory consensus test application: request/response fields, validator updates and persistence expectations match its test-only lifecycle."
+
+[file.043]
+path = "consensus/abci/example/kvstore/README.md"
+lines = 11
+verdict = "clean"
+note = "In-memory consensus test application: request/response fields, validator updates and persistence expectations match its test-only lifecycle."
+
+[file.044]
+path = "consensus/abci/example/kvstore/helpers.go"
+lines = 32
+verdict = "clean"
+note = "In-memory consensus test application: request/response fields, validator updates and persistence expectations match its test-only lifecycle."
+
+[file.045]
+path = "consensus/abci/example/kvstore/kvstore.go"
+lines = 439
+verdict = "clean"
+note = "In-memory consensus test application: request/response fields, validator updates and persistence expectations match its test-only lifecycle."
+
+[file.046]
+path = "consensus/abci/example/kvstore/kvstore_test.go"
+lines = 191
+verdict = "clean"
+note = "In-memory consensus test application: request/response fields, validator updates and persistence expectations match its test-only lifecycle."
+
+[file.047]
+path = "consensus/abci/types/application.go"
+lines = 107
+verdict = "clean"
+note = "In-process Application request/response surface and adapters agree with the proxy; the validator comparison defect is recorded in util.go."
+
+[file.048]
+path = "consensus/abci/types/client.go"
+lines = 1
+verdict = "clean"
+note = "In-process Application request/response surface and adapters agree with the proxy; the validator comparison defect is recorded in util.go."
+
+[file.049]
+path = "consensus/abci/types/mocks/application.go"
+lines = 442
+verdict = "generated"
+note = "Generated by mockery from the ABCI Application interface; test-only mock implementation is not an exposed production transport."
+
+[file.050]
+path = "consensus/abci/types/plain_types.go"
+lines = 269
+verdict = "clean"
+note = "In-process Application request/response surface and adapters agree with the proxy; the validator comparison defect is recorded in util.go."
+
+[file.051]
+path = "consensus/abci/types/types.go"
+lines = 271
+verdict = "clean"
+note = "In-process Application request/response surface and adapters agree with the proxy; the validator comparison defect is recorded in util.go."
+
+[file.052]
+path = "consensus/abci/types/types_test.go"
+lines = 74
+verdict = "clean"
+note = "In-process Application request/response surface and adapters agree with the proxy; the validator comparison defect is recorded in util.go."
+
+[file.053]
+path = "consensus/abci/types/util.go"
+lines = 31
+verdict = "issues"
+note = "In-process Application request/response surface and adapters agree with the proxy; the validator comparison defect is recorded in util.go."
+
+[file.054]
+path = "consensus/internal/eventlog/cursor/cursor.go"
+lines = 100
+verdict = "clean"
+note = "Cursor encoding, ordering and source behavior agree with eventlog uses and boundary tests; no persistent state is implied."
+
+[file.055]
+path = "consensus/internal/eventlog/cursor/cursor_test.go"
+lines = 141
+verdict = "clean"
+note = "Cursor encoding, ordering and source behavior agree with eventlog uses and boundary tests; no persistent state is implied."
+
+[file.056]
+path = "consensus/internal/eventlog/eventlog.go"
+lines = 217
+verdict = "issues"
+note = "Sliding event window, pruning and metrics agree with callers; the WaitScan snapshot/subscription race is recorded in eventlog.go."
+
+[file.057]
+path = "consensus/internal/eventlog/eventlog_test.go"
+lines = 223
+verdict = "clean"
+note = "Sliding event window, pruning and metrics agree with callers; the WaitScan snapshot/subscription race is recorded in eventlog.go."
+
+[file.058]
+path = "consensus/internal/eventlog/item.go"
+lines = 78
+verdict = "clean"
+note = "Sliding event window, pruning and metrics agree with callers; the WaitScan snapshot/subscription race is recorded in eventlog.go."
+
+[file.059]
+path = "consensus/internal/eventlog/metrics.go"
+lines = 14
+verdict = "clean"
+note = "Sliding event window, pruning and metrics agree with callers; the WaitScan snapshot/subscription race is recorded in eventlog.go."
+
+[file.060]
+path = "consensus/internal/eventlog/prune.go"
+lines = 111
+verdict = "clean"
+note = "Sliding event window, pruning and metrics agree with callers; the WaitScan snapshot/subscription race is recorded in eventlog.go."
+
+[file.061]
+path = "consensus/internal/jsontypes/jsontypes.go"
+lines = 121
+verdict = "clean"
+note = "Registered JSON envelope names and concrete value decoding match callers; invalid registrations and incompatible target types are refused."
+
+[file.062]
+path = "consensus/internal/jsontypes/jsontypes_test.go"
+lines = 188
+verdict = "clean"
+note = "Registered JSON envelope names and concrete value decoding match callers; invalid registrations and incompatible target types are refused."
+
+[file.063]
+path = "consensus/internal/protoutils/conv.go"
+lines = 76
+verdict = "clean"
+note = "Conversion and protobuf test helpers agree on message types and canonical round trips; no independent daemon transport is introduced."
+
+[file.064]
+path = "consensus/internal/protoutils/msg.go"
+lines = 45
+verdict = "clean"
+note = "Conversion and protobuf test helpers agree on message types and canonical round trips; no independent daemon transport is introduced."
+
+[file.065]
+path = "consensus/internal/protoutils/testonly.go"
+lines = 89
+verdict = "clean"
+note = "Conversion and protobuf test helpers agree on message types and canonical round trips; no independent daemon transport is introduced."
+
+[file.066]
+path = "consensus/internal/protoutils/testonly.proto"
+lines = 17
+verdict = "clean"
+note = "Conversion and protobuf test helpers agree on message types and canonical round trips; no independent daemon transport is introduced."
+
+[file.067]
+path = "consensus/internal/protoutils/testonly_test.go"
+lines = 54
+verdict = "clean"
+note = "Conversion and protobuf test helpers agree on message types and canonical round trips; no independent daemon transport is introduced."
+
+[file.068]
+path = "consensus/internal/protoutils/wireguard/plugin/main.go"
+lines = 416
+verdict = "clean"
+note = "Generator maps protobuf annotations into predecode schema rules; scanner cardinality repair must carry singular/repeated parent metadata through this generator."
+
+[file.069]
+path = "consensus/internal/protoutils/wireguard/plugin/main_test.go"
+lines = 552
+verdict = "clean"
+note = "Generator maps protobuf annotations into predecode schema rules; scanner cardinality repair must carry singular/repeated parent metadata through this generator."
+
+[file.070]
+path = "consensus/internal/protoutils/wireguard/wgtest/wgtest.go"
+lines = 57
+verdict = "clean"
+note = "Predecode limits and nested rule semantics were compared with generated protobuf merge behavior; related scanner findings identify the unsafe singular-parent case."
+
+[file.071]
+path = "consensus/internal/protoutils/wireguard/wireguard.go"
+lines = 166
+verdict = "issues"
+note = "Predecode limits and nested rule semantics were compared with generated protobuf merge behavior; related scanner findings identify the unsafe singular-parent case."
+
+[file.072]
+path = "consensus/internal/protoutils/wireguard/wireguard_test.go"
+lines = 216
+verdict = "issues"
+note = "Predecode limits and nested rule semantics were compared with generated protobuf merge behavior; related scanner findings identify the unsafe singular-parent case."
+
+[file.073]
+path = "consensus/internal/proxy/metrics.go"
+lines = 16
+verdict = "clean"
+note = "Local proxy invokes the Go Application in process with matching request/response types; metrics and shutdown use that same boundary."
+
+[file.074]
+path = "consensus/internal/proxy/proxy.go"
+lines = 125
+verdict = "clean"
+note = "Local proxy invokes the Go Application in process with matching request/response types; metrics and shutdown use that same boundary."
+
+[file.075]
+path = "consensus/internal/proxy/proxy_test.go"
+lines = 75
+verdict = "clean"
+note = "Local proxy invokes the Go Application in process with matching request/response types; metrics and shutdown use that same boundary."
+
+[file.076]
+path = "consensus/internal/store/store.go"
+lines = 728
+verdict = "clean"
+note = "Block, part, commit and metadata key encodings agree with load/save callers and persisted pruning/reopen coverage."
+
+[file.077]
+path = "consensus/internal/store/store_test.go"
+lines = 582
+verdict = "clean"
+note = "Block, part, commit and metadata key encodings agree with load/save callers and persisted pruning/reopen coverage."
+
+[file.078]
+path = "consensus/internal/test/factory/block.go"
+lines = 88
+verdict = "clean"
+note = "Consensus test factory emits the declared block, vote, key and genesis types for engine callers; these are explicit test-only constructors."
+
+[file.079]
+path = "consensus/internal/test/factory/commit.go"
+lines = 47
+verdict = "clean"
+note = "Consensus test factory emits the declared block, vote, key and genesis types for engine callers; these are explicit test-only constructors."
+
+[file.080]
+path = "consensus/internal/test/factory/doc.go"
+lines = 6
+verdict = "clean"
+note = "Consensus test factory emits the declared block, vote, key and genesis types for engine callers; these are explicit test-only constructors."
+
+[file.081]
+path = "consensus/internal/test/factory/factory_test.go"
+lines = 15
+verdict = "clean"
+note = "Consensus test factory emits the declared block, vote, key and genesis types for engine callers; these are explicit test-only constructors."
+
+[file.082]
+path = "consensus/internal/test/factory/genesis.go"
+lines = 33
+verdict = "clean"
+note = "Consensus test factory emits the declared block, vote, key and genesis types for engine callers; these are explicit test-only constructors."
+
+[file.083]
+path = "consensus/internal/test/factory/p2p.go"
+lines = 32
+verdict = "clean"
+note = "Consensus test factory emits the declared block, vote, key and genesis types for engine callers; these are explicit test-only constructors."
+
+[file.084]
+path = "consensus/internal/test/factory/params.go"
+lines = 23
+verdict = "clean"
+note = "Consensus test factory emits the declared block, vote, key and genesis types for engine callers; these are explicit test-only constructors."
+
+[file.085]
+path = "consensus/internal/test/factory/tx.go"
+lines = 11
+verdict = "clean"
+note = "Consensus test factory emits the declared block, vote, key and genesis types for engine callers; these are explicit test-only constructors."
+
+[file.086]
+path = "consensus/internal/test/factory/validator.go"
+lines = 40
+verdict = "clean"
+note = "Consensus test factory emits the declared block, vote, key and genesis types for engine callers; these are explicit test-only constructors."
+
+[file.087]
+path = "consensus/internal/test/factory/vote.go"
+lines = 50
+verdict = "clean"
+note = "Consensus test factory emits the declared block, vote, key and genesis types for engine callers; these are explicit test-only constructors."
+
+[file.088]
+path = "consensus/networks/remote/README.md"
+lines = 5
+verdict = "clean"
+note = "Documentation status and any exact stale lines are recorded in the doc blocks."
+
+[file.089]
+path = "consensus/networks/remote/ansible/config.yml"
+lines = 15
+verdict = "vendored"
+note = "Retained upstream standalone consensus tooling. consensus/networks/remote/README.md and consensus/README.md explicitly distinguish this historical machinery from the embedded paxd build/deployment; it is not a current network operator path."
+
+[file.090]
+path = "consensus/networks/remote/ansible/install.yml"
+lines = 9
+verdict = "vendored"
+note = "Retained upstream standalone consensus tooling. consensus/networks/remote/README.md and consensus/README.md explicitly distinguish this historical machinery from the embedded paxd build/deployment; it is not a current network operator path."
+
+[file.091]
+path = "consensus/networks/remote/ansible/inventory/digital_ocean.py"
+lines = 541
+verdict = "vendored"
+note = "Retained upstream standalone consensus tooling. consensus/networks/remote/README.md and consensus/README.md explicitly distinguish this historical machinery from the embedded paxd build/deployment; it is not a current network operator path."
+
+[file.092]
+path = "consensus/networks/remote/ansible/logzio.yml"
+lines = 11
+verdict = "vendored"
+note = "Retained upstream standalone consensus tooling. consensus/networks/remote/README.md and consensus/README.md explicitly distinguish this historical machinery from the embedded paxd build/deployment; it is not a current network operator path."
+
+[file.093]
+path = "consensus/networks/remote/ansible/reset.yml"
+lines = 11
+verdict = "vendored"
+note = "Retained upstream standalone consensus tooling. consensus/networks/remote/README.md and consensus/README.md explicitly distinguish this historical machinery from the embedded paxd build/deployment; it is not a current network operator path."
+
+[file.094]
+path = "consensus/networks/remote/ansible/restart.yml"
+lines = 10
+verdict = "vendored"
+note = "Retained upstream standalone consensus tooling. consensus/networks/remote/README.md and consensus/README.md explicitly distinguish this historical machinery from the embedded paxd build/deployment; it is not a current network operator path."
+
+[file.095]
+path = "consensus/networks/remote/ansible/roles/config/tasks/main.yml"
+lines = 15
+verdict = "vendored"
+note = "Retained upstream standalone consensus tooling. consensus/networks/remote/README.md and consensus/README.md explicitly distinguish this historical machinery from the embedded paxd build/deployment; it is not a current network operator path."
+
+[file.096]
+path = "consensus/networks/remote/ansible/roles/install/handlers/main.yml"
+lines = 3
+verdict = "vendored"
+note = "Retained upstream standalone consensus tooling. consensus/networks/remote/README.md and consensus/README.md explicitly distinguish this historical machinery from the embedded paxd build/deployment; it is not a current network operator path."
+
+[file.097]
+path = "consensus/networks/remote/ansible/roles/install/tasks/main.yml"
+lines = 13
+verdict = "vendored"
+note = "Retained upstream standalone consensus tooling. consensus/networks/remote/README.md and consensus/README.md explicitly distinguish this historical machinery from the embedded paxd build/deployment; it is not a current network operator path."
+
+[file.098]
+path = "consensus/networks/remote/ansible/roles/logzio/handlers/main.yml"
+lines = 6
+verdict = "vendored"
+note = "Retained upstream standalone consensus tooling. consensus/networks/remote/README.md and consensus/README.md explicitly distinguish this historical machinery from the embedded paxd build/deployment; it is not a current network operator path."
+
+[file.099]
+path = "consensus/networks/remote/ansible/roles/logzio/tasks/main.yml"
+lines = 25
+verdict = "vendored"
+note = "Retained upstream standalone consensus tooling. consensus/networks/remote/README.md and consensus/README.md explicitly distinguish this historical machinery from the embedded paxd build/deployment; it is not a current network operator path."
+
+[file.100]
+path = "consensus/networks/remote/ansible/roles/start/tasks/main.yml"
+lines = 3
+verdict = "vendored"
+note = "Retained upstream standalone consensus tooling. consensus/networks/remote/README.md and consensus/README.md explicitly distinguish this historical machinery from the embedded paxd build/deployment; it is not a current network operator path."
+
+[file.101]
+path = "consensus/networks/remote/ansible/roles/status/tasks/main.yml"
+lines = 8
+verdict = "vendored"
+note = "Retained upstream standalone consensus tooling. consensus/networks/remote/README.md and consensus/README.md explicitly distinguish this historical machinery from the embedded paxd build/deployment; it is not a current network operator path."
+
+[file.102]
+path = "consensus/networks/remote/ansible/roles/stop/tasks/main.yml"
+lines = 3
+verdict = "vendored"
+note = "Retained upstream standalone consensus tooling. consensus/networks/remote/README.md and consensus/README.md explicitly distinguish this historical machinery from the embedded paxd build/deployment; it is not a current network operator path."
+
+[file.103]
+path = "consensus/networks/remote/ansible/roles/unsafe_reset/tasks/main.yml"
+lines = 3
+verdict = "vendored"
+note = "Retained upstream standalone consensus tooling. consensus/networks/remote/README.md and consensus/README.md explicitly distinguish this historical machinery from the embedded paxd build/deployment; it is not a current network operator path."
+
+[file.104]
+path = "consensus/networks/remote/ansible/start.yml"
+lines = 9
+verdict = "vendored"
+note = "Retained upstream standalone consensus tooling. consensus/networks/remote/README.md and consensus/README.md explicitly distinguish this historical machinery from the embedded paxd build/deployment; it is not a current network operator path."
+
+[file.105]
+path = "consensus/networks/remote/ansible/status.yml"
+lines = 9
+verdict = "vendored"
+note = "Retained upstream standalone consensus tooling. consensus/networks/remote/README.md and consensus/README.md explicitly distinguish this historical machinery from the embedded paxd build/deployment; it is not a current network operator path."
+
+[file.106]
+path = "consensus/networks/remote/ansible/stop.yml"
+lines = 9
+verdict = "vendored"
+note = "Retained upstream standalone consensus tooling. consensus/networks/remote/README.md and consensus/README.md explicitly distinguish this historical machinery from the embedded paxd build/deployment; it is not a current network operator path."
+
+[file.107]
+path = "consensus/networks/remote/integration.sh"
+lines = 141
+verdict = "vendored"
+note = "Retained upstream standalone consensus tooling. consensus/networks/remote/README.md and consensus/README.md explicitly distinguish this historical machinery from the embedded paxd build/deployment; it is not a current network operator path."
+
+[file.108]
+path = "consensus/networks/remote/terraform/cluster/main.tf"
+lines = 37
+verdict = "vendored"
+note = "Retained upstream standalone consensus tooling. consensus/networks/remote/README.md and consensus/README.md explicitly distinguish this historical machinery from the embedded paxd build/deployment; it is not a current network operator path."
+
+[file.109]
+path = "consensus/networks/remote/terraform/cluster/outputs.tf"
+lines = 15
+verdict = "vendored"
+note = "Retained upstream standalone consensus tooling. consensus/networks/remote/README.md and consensus/README.md explicitly distinguish this historical machinery from the embedded paxd build/deployment; it is not a current network operator path."
+
+[file.110]
+path = "consensus/networks/remote/terraform/cluster/variables.tf"
+lines = 25
+verdict = "vendored"
+note = "Retained upstream standalone consensus tooling. consensus/networks/remote/README.md and consensus/README.md explicitly distinguish this historical machinery from the embedded paxd build/deployment; it is not a current network operator path."
+
+[file.111]
+path = "consensus/networks/remote/terraform/main.tf"
+lines = 46
+verdict = "vendored"
+note = "Retained upstream standalone consensus tooling. consensus/networks/remote/README.md and consensus/README.md explicitly distinguish this historical machinery from the embedded paxd build/deployment; it is not a current network operator path."
+
+[file.112]
+path = "consensus/proto/README.md"
+lines = 18
+verdict = "clean"
+note = "Protocol conversion and boundary cases agree with generated message fields; the duplicate-singular scanner gap is recorded in the scanner and its unit tests."
+
+[file.113]
+path = "consensus/proto/tendermint/abci/types.proto"
+lines = 190
+verdict = "clean"
+note = "Protobuf source fields, encodings and declared limits agree with generated bindings and their channel uses; nested singular merge enforcement is owned by the scanner finding."
+
+[file.114]
+path = "consensus/proto/tendermint/blocksync/message_wireguard_test.go"
+lines = 92
+verdict = "clean"
+note = "Protocol conversion and boundary cases agree with generated message fields; the duplicate-singular scanner gap is recorded in the scanner and its unit tests."
+
+[file.115]
+path = "consensus/proto/tendermint/blocksync/types.proto"
+lines = 44
+verdict = "clean"
+note = "Protobuf source fields, encodings and declared limits agree with generated bindings and their channel uses; nested singular merge enforcement is owned by the scanner finding."
+
+[file.116]
+path = "consensus/proto/tendermint/blocksync/types.wireguard.go"
+lines = 30
+verdict = "generated"
+note = "Generated by consensus/internal/protoutils/wireguard/plugin from protobuf sources. Rule output was compared with its source; singular-parent merge enforcement is the scanner finding, not a handwritten repair here."
+
+[file.117]
+path = "consensus/proto/tendermint/consensus/message_wireguard_test.go"
+lines = 54
+verdict = "clean"
+note = "Protocol conversion and boundary cases agree with generated message fields; the duplicate-singular scanner gap is recorded in the scanner and its unit tests."
+
+[file.118]
+path = "consensus/proto/tendermint/consensus/types.proto"
+lines = 102
+verdict = "clean"
+note = "Protobuf source fields, encodings and declared limits agree with generated bindings and their channel uses; nested singular merge enforcement is owned by the scanner finding."
+
+[file.119]
+path = "consensus/proto/tendermint/consensus/types.wireguard.go"
+lines = 30
+verdict = "generated"
+note = "Generated by consensus/internal/protoutils/wireguard/plugin from protobuf sources. Rule output was compared with its source; singular-parent merge enforcement is the scanner finding, not a handwritten repair here."
+
+[file.120]
+path = "consensus/proto/tendermint/consensus/wal.proto"
+lines = 52
+verdict = "clean"
+note = "Protobuf source fields, encodings and declared limits agree with generated bindings and their channel uses; nested singular merge enforcement is owned by the scanner finding."
+
+[file.121]
+path = "consensus/proto/tendermint/consensus/wal.wireguard.go"
+lines = 40
+verdict = "generated"
+note = "Generated by consensus/internal/protoutils/wireguard/plugin from protobuf sources. Rule output was compared with its source; singular-parent merge enforcement is the scanner finding, not a handwritten repair here."
+
+[file.122]
+path = "consensus/proto/tendermint/crypto/crypto.go"
+lines = 6
+verdict = "clean"
+note = "Protocol conversion and boundary cases agree with generated message fields; the duplicate-singular scanner gap is recorded in the scanner and its unit tests."
+
+[file.123]
+path = "consensus/proto/tendermint/crypto/keys.proto"
+lines = 19
+verdict = "clean"
+note = "Protobuf source fields, encodings and declared limits agree with generated bindings and their channel uses; nested singular merge enforcement is owned by the scanner finding."
+
+[file.124]
+path = "consensus/proto/tendermint/crypto/proof.proto"
+lines = 42
+verdict = "clean"
+note = "Protobuf source fields, encodings and declared limits agree with generated bindings and their channel uses; nested singular merge enforcement is owned by the scanner finding."
+
+[file.125]
+path = "consensus/proto/tendermint/libs/bits/types.proto"
+lines = 10
+verdict = "clean"
+note = "Protobuf source fields, encodings and declared limits agree with generated bindings and their channel uses; nested singular merge enforcement is owned by the scanner finding."
+
+[file.126]
+path = "consensus/proto/tendermint/mempool/txs.go"
+lines = 14
+verdict = "clean"
+note = "Protocol conversion and boundary cases agree with generated message fields; the duplicate-singular scanner gap is recorded in the scanner and its unit tests."
+
+[file.127]
+path = "consensus/proto/tendermint/mempool/txs_test.go"
+lines = 16
+verdict = "clean"
+note = "Protocol conversion and boundary cases agree with generated message fields; the duplicate-singular scanner gap is recorded in the scanner and its unit tests."
+
+[file.128]
+path = "consensus/proto/tendermint/mempool/types.proto"
+lines = 15
+verdict = "clean"
+note = "Protobuf source fields, encodings and declared limits agree with generated bindings and their channel uses; nested singular merge enforcement is owned by the scanner finding."
+
+[file.129]
+path = "consensus/proto/tendermint/p2p/pex.proto"
+lines = 24
+verdict = "clean"
+note = "Protobuf source fields, encodings and declared limits agree with generated bindings and their channel uses; nested singular merge enforcement is owned by the scanner finding."
+
+[file.130]
+path = "consensus/proto/tendermint/p2p/types.proto"
+lines = 43
+verdict = "clean"
+note = "Protobuf source fields, encodings and declared limits agree with generated bindings and their channel uses; nested singular merge enforcement is owned by the scanner finding."
+
+[file.131]
+path = "consensus/proto/tendermint/privval/service.proto"
+lines = 16
+verdict = "clean"
+note = "Protobuf source fields, encodings and declared limits agree with generated bindings and their channel uses; nested singular merge enforcement is owned by the scanner finding."
+
+[file.132]
+path = "consensus/proto/tendermint/privval/types.proto"
+lines = 85
+verdict = "clean"
+note = "Protobuf source fields, encodings and declared limits agree with generated bindings and their channel uses; nested singular merge enforcement is owned by the scanner finding."
+
+[file.133]
+path = "consensus/proto/tendermint/privval/types.wireguard.go"
+lines = 42
+verdict = "generated"
+note = "Generated by consensus/internal/protoutils/wireguard/plugin from protobuf sources. Rule output was compared with its source; singular-parent merge enforcement is the scanner finding, not a handwritten repair here."
+
+[file.134]
+path = "consensus/proto/tendermint/state/types.proto"
+lines = 77
+verdict = "clean"
+note = "Protobuf source fields, encodings and declared limits agree with generated bindings and their channel uses; nested singular merge enforcement is owned by the scanner finding."
+
+[file.135]
+path = "consensus/proto/tendermint/statesync/message.go"
+lines = 68
+verdict = "clean"
+note = "Protocol conversion and boundary cases agree with generated message fields; the duplicate-singular scanner gap is recorded in the scanner and its unit tests."
+
+[file.136]
+path = "consensus/proto/tendermint/statesync/message_wireguard_test.go"
+lines = 36
+verdict = "clean"
+note = "Protocol conversion and boundary cases agree with generated message fields; the duplicate-singular scanner gap is recorded in the scanner and its unit tests."
+
+[file.137]
+path = "consensus/proto/tendermint/statesync/types.proto"
+lines = 63
+verdict = "clean"
+note = "Protobuf source fields, encodings and declared limits agree with generated bindings and their channel uses; nested singular merge enforcement is owned by the scanner finding."
+
+[file.138]
+path = "consensus/proto/tendermint/statesync/types.wireguard.go"
+lines = 30
+verdict = "generated"
+note = "Generated by consensus/internal/protoutils/wireguard/plugin from protobuf sources. Rule output was compared with its source; singular-parent merge enforcement is the scanner finding, not a handwritten repair here."
+
+[file.139]
+path = "consensus/proto/tendermint/store/types.proto"
+lines = 10
+verdict = "clean"
+note = "Protobuf source fields, encodings and declared limits agree with generated bindings and their channel uses; nested singular merge enforcement is owned by the scanner finding."
+
+[file.140]
+path = "consensus/proto/tendermint/types/block.proto"
+lines = 15
+verdict = "clean"
+note = "Protobuf source fields, encodings and declared limits agree with generated bindings and their channel uses; nested singular merge enforcement is owned by the scanner finding."
+
+[file.141]
+path = "consensus/proto/tendermint/types/block.wireguard.go"
+lines = 19
+verdict = "generated"
+note = "Generated by consensus/internal/protoutils/wireguard/plugin from protobuf sources. Rule output was compared with its source; singular-parent merge enforcement is the scanner finding, not a handwritten repair here."
+
+[file.142]
+path = "consensus/proto/tendermint/types/block_wireguard_test.go"
+lines = 40
+verdict = "clean"
+note = "Protocol conversion and boundary cases agree with generated message fields; the duplicate-singular scanner gap is recorded in the scanner and its unit tests."
+
+[file.143]
+path = "consensus/proto/tendermint/types/canonical.proto"
+lines = 44
+verdict = "clean"
+note = "Protobuf source fields, encodings and declared limits agree with generated bindings and their channel uses; nested singular merge enforcement is owned by the scanner finding."
+
+[file.144]
+path = "consensus/proto/tendermint/types/events.proto"
+lines = 11
+verdict = "clean"
+note = "Protobuf source fields, encodings and declared limits agree with generated bindings and their channel uses; nested singular merge enforcement is owned by the scanner finding."
+
+[file.145]
+path = "consensus/proto/tendermint/types/evidence_wireguard_test.go"
+lines = 30
+verdict = "clean"
+note = "Protocol conversion and boundary cases agree with generated message fields; the duplicate-singular scanner gap is recorded in the scanner and its unit tests."
+
+[file.146]
+path = "consensus/proto/tendermint/types/params.proto"
+lines = 155
+verdict = "clean"
+note = "Protobuf source fields, encodings and declared limits agree with generated bindings and their channel uses; nested singular merge enforcement is owned by the scanner finding."
+
+[file.147]
+path = "consensus/proto/tendermint/types/types.proto"
+lines = 235
+verdict = "clean"
+note = "Protobuf source fields, encodings and declared limits agree with generated bindings and their channel uses; nested singular merge enforcement is owned by the scanner finding."
+
+[file.148]
+path = "consensus/proto/tendermint/types/types.wireguard.go"
+lines = 85
+verdict = "generated"
+note = "Generated by consensus/internal/protoutils/wireguard/plugin from protobuf sources. Rule output was compared with its source; singular-parent merge enforcement is the scanner finding, not a handwritten repair here."
+
+[file.149]
+path = "consensus/proto/tendermint/types/validator.proto"
+lines = 26
+verdict = "clean"
+note = "Protobuf source fields, encodings and declared limits agree with generated bindings and their channel uses; nested singular merge enforcement is owned by the scanner finding."
+
+[file.150]
+path = "consensus/proto/tendermint/version/types.proto"
+lines = 17
+verdict = "clean"
+note = "Protobuf source fields, encodings and declared limits agree with generated bindings and their channel uses; nested singular merge enforcement is owned by the scanner finding."
+
+[file.151]
+path = "consensus/proto/wireguard/wireguard.proto"
+lines = 24
+verdict = "clean"
+note = "Protobuf source fields, encodings and declared limits agree with generated bindings and their channel uses; nested singular merge enforcement is owned by the scanner finding."
+
+[file.152]
+path = "consensus/version/version.go"
+lines = 48
+verdict = "clean"
+note = "Consensus, block, p2p and ABCI version constants match their wire declarations and version tests."
+
+[file.153]
+path = "consensus/version/version_test.go"
+lines = 36
+verdict = "clean"
+note = "Consensus, block, p2p and ABCI version constants match their wire declarations and version tests."
+
+[file.154]
+path = "node/antedecorators/authz_nested_message.go"
+lines = 67
+verdict = "clean"
+note = "Ante processing and its cases preserve message authorization, denomination, gas and priority contracts across the current SDK transaction path."
+
+[file.155]
+path = "node/antedecorators/authz_nested_message_test.go"
+lines = 58
+verdict = "clean"
+note = "Ante processing and its cases preserve message authorization, denomination, gas and priority contracts across the current SDK transaction path."
+
+[file.156]
+path = "node/antedecorators/feedenom.go"
+lines = 87
+verdict = "clean"
+note = "Ante processing and its cases preserve message authorization, denomination, gas and priority contracts across the current SDK transaction path."
+
+[file.157]
+path = "node/antedecorators/feedenom_test.go"
+lines = 176
+verdict = "clean"
+note = "Ante processing and its cases preserve message authorization, denomination, gas and priority contracts across the current SDK transaction path."
+
+[file.158]
+path = "node/antedecorators/gas.go"
+lines = 20
+verdict = "clean"
+note = "Ante processing and its cases preserve message authorization, denomination, gas and priority contracts across the current SDK transaction path."
+
+[file.159]
+path = "node/antedecorators/gas_test.go"
+lines = 97
+verdict = "clean"
+note = "Ante processing and its cases preserve message authorization, denomination, gas and priority contracts across the current SDK transaction path."
+
+[file.160]
+path = "node/antedecorators/gasless.go"
+lines = 148
+verdict = "clean"
+note = "Ante processing and its cases preserve message authorization, denomination, gas and priority contracts across the current SDK transaction path."
+
+[file.161]
+path = "node/antedecorators/gasless_test.go"
+lines = 143
+verdict = "clean"
+note = "Ante processing and its cases preserve message authorization, denomination, gas and priority contracts across the current SDK transaction path."
+
+[file.162]
+path = "node/antedecorators/priority.go"
+lines = 63
+verdict = "clean"
+note = "Ante processing and its cases preserve message authorization, denomination, gas and priority contracts across the current SDK transaction path."
+
+[file.163]
+path = "node/antedecorators/priority_test.go"
+lines = 216
+verdict = "clean"
+note = "Ante processing and its cases preserve message authorization, denomination, gas and priority contracts across the current SDK transaction path."
+
+[file.164]
+path = "node/antedecorators/traced.go"
+lines = 27
+verdict = "clean"
+note = "Ante processing and its cases preserve message authorization, denomination, gas and priority contracts across the current SDK transaction path."
+
+[file.165]
+path = "node/antedecorators/traced_test.go"
+lines = 26
+verdict = "clean"
+note = "Ante processing and its cases preserve message authorization, denomination, gas and priority contracts across the current SDK transaction path."
+
+[file.166]
+path = "node/apptesting/test_suite.go"
+lines = 199
+verdict = "issues"
+note = "Shared application test helper has a multi-message loss finding; account and context helpers retain the actual SDK types."
+
+[file.167]
+path = "node/benchmark/benchmark.go"
+lines = 98
+verdict = "clean"
+note = "Disposable-chain benchmark assembly, deployment and load generation use actual EVM transactions; scenario-account and progress-loop defects are recorded in generator.go."
+
+[file.168]
+path = "node/benchmark/config.go"
+lines = 45
+verdict = "clean"
+note = "Disposable-chain benchmark assembly, deployment and load generation use actual EVM transactions; scenario-account and progress-loop defects are recorded in generator.go."
+
+[file.169]
+path = "node/benchmark/contracts.go"
+lines = 81
+verdict = "clean"
+note = "Disposable-chain benchmark assembly, deployment and load generation use actual EVM transactions; scenario-account and progress-loop defects are recorded in generator.go."
+
+[file.170]
+path = "node/benchmark/generator.go"
+lines = 517
+verdict = "issues"
+note = "Disposable-chain benchmark assembly, deployment and load generation use actual EVM transactions; scenario-account and progress-loop defects are recorded in generator.go."
+
+[file.171]
+path = "node/benchmark/logger.go"
+lines = 238
+verdict = "clean"
+note = "Disposable-chain benchmark assembly, deployment and load generation use actual EVM transactions; scenario-account and progress-loop defects are recorded in generator.go."
+
+[file.172]
+path = "node/benchmark/logger_test.go"
+lines = 401
+verdict = "clean"
+note = "Disposable-chain benchmark assembly, deployment and load generation use actual EVM transactions; scenario-account and progress-loop defects are recorded in generator.go."
+
+[file.173]
+path = "node/legacyabci/begin_block.go"
+lines = 74
+verdict = "clean"
+note = "ABCI begin/check/deliver/end hooks use the merged app interfaces; agent scheduling and gas accounting are gated by merge state with explicit refusal/recovery behavior."
+
+[file.174]
+path = "node/legacyabci/check_tx.go"
+lines = 128
+verdict = "clean"
+note = "ABCI begin/check/deliver/end hooks use the merged app interfaces; agent scheduling and gas accounting are gated by merge state with explicit refusal/recovery behavior."
+
+[file.175]
+path = "node/legacyabci/deliver_tx.go"
+lines = 157
+verdict = "clean"
+note = "ABCI begin/check/deliver/end hooks use the merged app interfaces; agent scheduling and gas accounting are gated by merge state with explicit refusal/recovery behavior."
+
+[file.176]
+path = "node/legacyabci/end_block.go"
+lines = 54
+verdict = "clean"
+note = "ABCI begin/check/deliver/end hooks use the merged app interfaces; agent scheduling and gas accounting are gated by merge state with explicit refusal/recovery behavior."
+
+[file.177]
+path = "node/legacyabci/end_block_agent_gas_test.go"
+lines = 64
+verdict = "clean"
+note = "ABCI begin/check/deliver/end hooks use the merged app interfaces; agent scheduling and gas accounting are gated by merge state with explicit refusal/recovery behavior."
+
+[file.178]
+path = "node/legacyabci/end_block_agent_test.go"
+lines = 128
+verdict = "clean"
+note = "ABCI begin/check/deliver/end hooks use the merged app interfaces; agent scheduling and gas accounting are gated by merge state with explicit refusal/recovery behavior."
+
+[file.179]
+path = "node/legacyabci/metrics.go"
+lines = 47
+verdict = "clean"
+note = "ABCI begin/check/deliver/end hooks use the merged app interfaces; agent scheduling and gas accounting are gated by merge state with explicit refusal/recovery behavior."
+
+[file.180]
+path = "node/legacyabci/recovery.go"
+lines = 97
+verdict = "clean"
+note = "ABCI begin/check/deliver/end hooks use the merged app interfaces; agent scheduling and gas accounting are gated by merge state with explicit refusal/recovery behavior."
+
+[file.181]
+path = "node/params/amino.go"
+lines = 37
+verdict = "clean"
+note = "Node encoding, module registration, parameter defaults and voting weights agree with SDK consumers and the declared config surface."
+
+[file.182]
+path = "node/params/config.go"
+lines = 211
+verdict = "clean"
+note = "Node encoding, module registration, parameter defaults and voting weights agree with SDK consumers and the declared config surface."
+
+[file.183]
+path = "node/params/config_test.go"
+lines = 56
+verdict = "clean"
+note = "Node encoding, module registration, parameter defaults and voting weights agree with SDK consumers and the declared config surface."
+
+[file.184]
+path = "node/params/doc.go"
+lines = 19
+verdict = "clean"
+note = "Node encoding, module registration, parameter defaults and voting weights agree with SDK consumers and the declared config surface."
+
+[file.185]
+path = "node/params/encoding.go"
+lines = 16
+verdict = "clean"
+note = "Node encoding, module registration, parameter defaults and voting weights agree with SDK consumers and the declared config surface."
+
+[file.186]
+path = "node/params/params.go"
+lines = 7
+verdict = "clean"
+note = "Node encoding, module registration, parameter defaults and voting weights agree with SDK consumers and the declared config surface."
+
+[file.187]
+path = "node/params/proto.go"
+lines = 39
+verdict = "clean"
+note = "Node encoding, module registration, parameter defaults and voting weights agree with SDK consumers and the declared config surface."
+
+[file.188]
+path = "node/params/weights.go"
+lines = 28
+verdict = "clean"
+note = "Node encoding, module registration, parameter defaults and voting weights agree with SDK consumers and the declared config surface."
+
+[file.189]
+path = "node/upgrades/fork_manager.go"
+lines = 99
+verdict = "clean"
+note = "Fork manager dispatches upgrade steps against persisted chain height and preserves the registered migration lifecycle and ordering."
+
+[file.190]
+path = "node/upgrades/fork_manager_test.go"
+lines = 115
+verdict = "clean"
+note = "Fork manager dispatches upgrade steps against persisted chain height and preserves the registered migration lifecycle and ordering."
+
+[file.191]
+path = "storage/README.md"
+lines = 54
+verdict = "clean"
+note = "Documentation status and any exact stale lines are recorded in the doc blocks."
+
+[file.192]
+path = "storage/config/flatkv_parse.go"
+lines = 70
+verdict = "clean"
+note = "Configuration keys and defaults agree with render/parse paths and proof checks; the RocksDB consumer's <=0 synchronous-write disagreement is recorded at that consumer."
+
+[file.193]
+path = "storage/config/flatkv_parse_test.go"
+lines = 184
+verdict = "clean"
+note = "Configuration keys and defaults agree with render/parse paths and proof checks; the RocksDB consumer's <=0 synchronous-write disagreement is recorded at that consumer."
+
+[file.194]
+path = "storage/config/proof_node_config_test.go"
+lines = 165
+verdict = "clean"
+note = "Configuration keys and defaults agree with render/parse paths and proof checks; the RocksDB consumer's <=0 synchronous-write disagreement is recorded at that consumer."
+
+[file.195]
+path = "storage/config/receipt_config.go"
+lines = 106
+verdict = "clean"
+note = "Configuration keys and defaults agree with render/parse paths and proof checks; the RocksDB consumer's <=0 synchronous-write disagreement is recorded at that consumer."
+
+[file.196]
+path = "storage/config/receipt_config_test.go"
+lines = 23
+verdict = "clean"
+note = "Configuration keys and defaults agree with render/parse paths and proof checks; the RocksDB consumer's <=0 synchronous-write disagreement is recorded at that consumer."
+
+[file.197]
+path = "storage/config/sc_config.go"
+lines = 80
+verdict = "clean"
+note = "Configuration keys and defaults agree with render/parse paths and proof checks; the RocksDB consumer's <=0 synchronous-write disagreement is recorded at that consumer."
+
+[file.198]
+path = "storage/config/ss_config.go"
+lines = 95
+verdict = "clean"
+note = "Configuration keys and defaults agree with render/parse paths and proof checks; the RocksDB consumer's <=0 synchronous-write disagreement is recorded at that consumer."
+
+[file.199]
+path = "storage/config/toml.go"
+lines = 178
+verdict = "clean"
+note = "Configuration keys and defaults agree with render/parse paths and proof checks; the RocksDB consumer's <=0 synchronous-write disagreement is recorded at that consumer."
+
+[file.200]
+path = "storage/config/toml_test.go"
+lines = 301
+verdict = "clean"
+note = "Configuration keys and defaults agree with render/parse paths and proof checks; the RocksDB consumer's <=0 synchronous-write disagreement is recorded at that consumer."
+
+[file.201]
+path = "storage/config/write_mode.go"
+lines = 88
+verdict = "clean"
+note = "Configuration keys and defaults agree with render/parse paths and proof checks; the RocksDB consumer's <=0 synchronous-write disagreement is recorded at that consumer."
+
+[file.202]
+path = "storage/db_engine/rocksdb/mvcc/batch.go"
+lines = 62
+verdict = "clean"
+note = "Optional RocksDB MVCC timestamp, batch and iterator contracts were compared with state-store callers; queue, WAL ordering and lifecycle findings are recorded in db.go."
+
+[file.203]
+path = "storage/db_engine/rocksdb/mvcc/bench_test.go"
+lines = 25
+verdict = "clean"
+note = "Optional RocksDB MVCC timestamp, batch and iterator contracts were compared with state-store callers; queue, WAL ordering and lifecycle findings are recorded in db.go."
+
+[file.204]
+path = "storage/db_engine/rocksdb/mvcc/comparator.go"
+lines = 76
+verdict = "clean"
+note = "Optional RocksDB MVCC timestamp, batch and iterator contracts were compared with state-store callers; queue, WAL ordering and lifecycle findings are recorded in db.go."
+
+[file.205]
+path = "storage/db_engine/rocksdb/mvcc/db.go"
+lines = 506
+verdict = "issues"
+note = "Optional RocksDB MVCC timestamp, batch and iterator contracts were compared with state-store callers; queue, WAL ordering and lifecycle findings are recorded in db.go."
+
+[file.206]
+path = "storage/db_engine/rocksdb/mvcc/db_test.go"
+lines = 30
+verdict = "clean"
+note = "Optional RocksDB MVCC timestamp, batch and iterator contracts were compared with state-store callers; queue, WAL ordering and lifecycle findings are recorded in db.go."
+
+[file.207]
+path = "storage/db_engine/rocksdb/mvcc/iterator.go"
+lines = 184
+verdict = "clean"
+note = "Optional RocksDB MVCC timestamp, batch and iterator contracts were compared with state-store callers; queue, WAL ordering and lifecycle findings are recorded in db.go."
+
+[file.208]
+path = "storage/db_engine/rocksdb/mvcc/opts.go"
+lines = 125
+verdict = "clean"
+note = "Optional RocksDB MVCC timestamp, batch and iterator contracts were compared with state-store callers; queue, WAL ordering and lifecycle findings are recorded in db.go."
+
+[file.209]
+path = "storage/db_engine/types/types.go"
+lines = 147
+verdict = "clean"
+note = "Shared storage engine types preserve the names and shapes expected by backend and composite store consumers."
+
+[file.210]
+path = "storage/state_db/sc/hashvault/hashvault.go"
+lines = 58
+verdict = "clean"
+note = "Hashvault key/value codecs, committed versions and rollback journal agree across Pebble persistence, reopen and rollback callers; tests cover actual stored state."
+
+[file.211]
+path = "storage/state_db/sc/hashvault/hashvault_config.go"
+lines = 41
+verdict = "clean"
+note = "Hashvault key/value codecs, committed versions and rollback journal agree across Pebble persistence, reopen and rollback callers; tests cover actual stored state."
+
+[file.212]
+path = "storage/state_db/sc/hashvault/hashvault_test.go"
+lines = 229
+verdict = "clean"
+note = "Hashvault key/value codecs, committed versions and rollback journal agree across Pebble persistence, reopen and rollback callers; tests cover actual stored state."
+
+[file.213]
+path = "storage/state_db/sc/hashvault/pebble_hashvault.go"
+lines = 225
+verdict = "clean"
+note = "Hashvault key/value codecs, committed versions and rollback journal agree across Pebble persistence, reopen and rollback callers; tests cover actual stored state."
+
+[file.214]
+path = "storage/state_db/sc/hashvault/pebble_hashvault_codec.go"
+lines = 160
+verdict = "clean"
+note = "Hashvault key/value codecs, committed versions and rollback journal agree across Pebble persistence, reopen and rollback callers; tests cover actual stored state."
+
+[file.215]
+path = "storage/state_db/sc/hashvault/pebble_hashvault_rollback.go"
+lines = 111
+verdict = "clean"
+note = "Hashvault key/value codecs, committed versions and rollback journal agree across Pebble persistence, reopen and rollback callers; tests cover actual stored state."
+
+[file.216]
+path = "storage/state_db/sc/hashvault/pebble_hashvault_rollback_test.go"
+lines = 141
+verdict = "clean"
+note = "Hashvault key/value codecs, committed versions and rollback journal agree across Pebble persistence, reopen and rollback callers; tests cover actual stored state."
+
+[file.217]
+path = "storage/state_db/sc/hashvault/pebble_hashvault_test.go"
+lines = 338
+verdict = "clean"
+note = "Hashvault key/value codecs, committed versions and rollback journal agree across Pebble persistence, reopen and rollback callers; tests cover actual stored state."
+
+[file.218]
+path = "storage/state_db/sc/types/types.go"
+lines = 200
+verdict = "clean"
+note = "State-commit store and export/import interfaces agree on versions, child-store operations and hash lifecycles."
+
+[file.219]
+path = "storage/wal/changelog.go"
+lines = 26
+verdict = "clean"
+note = "Typed WAL and changelog serialization, ordering, replay and pruning agree with consumers; corrupt-tail boundary recovery is recorded in utils.go."
+
+[file.220]
+path = "storage/wal/types.go"
+lines = 44
+verdict = "clean"
+note = "Typed WAL and changelog serialization, ordering, replay and pruning agree with consumers; corrupt-tail boundary recovery is recorded in utils.go."
+
+[file.221]
+path = "storage/wal/utils.go"
+lines = 147
+verdict = "issues"
+note = "Typed WAL and changelog serialization, ordering, replay and pruning agree with consumers; corrupt-tail boundary recovery is recorded in utils.go."
+
+[file.222]
+path = "storage/wal/wal.go"
+lines = 622
+verdict = "clean"
+note = "Typed WAL and changelog serialization, ordering, replay and pruning agree with consumers; corrupt-tail boundary recovery is recorded in utils.go."
+
+[file.223]
+path = "storage/wal/wal_bench_test.go"
+lines = 116
+verdict = "clean"
+note = "Typed WAL and changelog serialization, ordering, replay and pruning agree with consumers; corrupt-tail boundary recovery is recorded in utils.go."
+
+[file.224]
+path = "storage/wal/wal_test.go"
+lines = 847
+verdict = "clean"
+note = "Typed WAL and changelog serialization, ordering, replay and pruning agree with consumers; corrupt-tail boundary recovery is recorded in utils.go."
+
+[file.225]
+path = "tests/chain/distribution_test.go"
+lines = 35
+verdict = "clean"
+note = "Chain-level assertions use the actual module and sequencer interfaces, including committed state and fee behavior; no separate sequencer service is assumed."
+
+[file.226]
+path = "tests/chain/epoch_test.go"
+lines = 39
+verdict = "clean"
+note = "Chain-level assertions use the actual module and sequencer interfaces, including committed state and fee behavior; no separate sequencer service is assumed."
+
+[file.227]
+path = "tests/chain/mint_test.go"
+lines = 40
+verdict = "clean"
+note = "Chain-level assertions use the actual module and sequencer interfaces, including committed state and fee behavior; no separate sequencer service is assumed."
+
+[file.228]
+path = "tests/chain/sequencer_test.go"
+lines = 94
+verdict = "clean"
+note = "Chain-level assertions use the actual module and sequencer interfaces, including committed state and fee behavior; no separate sequencer service is assumed."
+
+[file.229]
+path = "tests/chain/sidiora_fee_test.go"
+lines = 270
+verdict = "clean"
+note = "Chain-level assertions use the actual module and sequencer interfaces, including committed state and fee behavior; no separate sequencer service is assumed."
+
+[file.230]
+path = "tests/chain/template_test.go"
+lines = 56
+verdict = "clean"
+note = "Chain-level assertions use the actual module and sequencer interfaces, including committed state and fee behavior; no separate sequencer service is assumed."
+
+[file.231]
+path = "tests/daemon/test_handover_chain_no_read_consumer.py"
+lines = 23
+verdict = "issues"
+note = "Declared values and caller contracts agree with the merged-network requirements; no additional interface disagreement identified."
+
+[file.232]
+path = "tests/daemon/test_protocol_owner_binds_state_feed.py"
+lines = 50
+verdict = "issues"
+note = "Declared values and caller contracts agree with the merged-network requirements; no additional interface disagreement identified."
+
+[file.233]
+path = "tests/daemon/test_serve_commits_programs_call.py"
+lines = 263
+verdict = "issues"
+note = "Declared values and caller contracts agree with the merged-network requirements; no additional interface disagreement identified."
+
+[file.234]
+path = "tests/daemon/test_serve_startup_without_anchor_bind.py"
+lines = 44
+verdict = "issues"
+note = "Declared values and caller contracts agree with the merged-network requirements; no additional interface disagreement identified."
+
+[file.235]
+path = "tools/qualification/localnode/tests/test_merge_precompiles_served.py"
+lines = 118
+verdict = "clean"
+note = "Disposable local paxd harness names the Comet and EVM RPC endpoints separately and asserts the activated merged precompiles through node-serving paths."
+
+[file.236]
+path = "tools/qualification/localnode/v6120-node.sh"
+lines = 806
+verdict = "clean"
+note = "Disposable local paxd harness names the Comet and EVM RPC endpoints separately and asserts the activated merged precompiles through node-serving paths."
+
+[file.237]
+path = "tools/qualification/localnode/v6120_test.go"
+lines = 410
+verdict = "clean"
+note = "Disposable local paxd harness names the Comet and EVM RPC endpoints separately and asserts the activated merged precompiles through node-serving paths."
+
+[finding.f001]
+file = "cmd/layerxctl/tests/files.rs"
+line = 551
+class = "test-gap"
+severity = "medium"
+observed = "encoded_receipt writes zero effects and arbitrary previous/resulting roots; submit_reports_receipted_only_with_a_pinned_key_signature nevertheless expects success. main.rs verify_sequencer_signature requires the PAXEER/v1/sequence root and a module-12 summary effect."
+expected = "Receipt success fixtures must have exactly the signed structure emitted by the current node producer; BRIEF check_7 forbids a third receipt shape."
+proposal = "Replace the hand-encoded success receipts in cmd/layerxctl/tests/files.rs with the node-produced committed-fixture vectors, retaining all signature, boundary and result-code assertions."
+owner_domain = 5
+interface = "5.cli-layerxctl-submit"
+
+[finding.f002]
+file = "consensus/internal/protoutils/wireguard/wireguard.go"
+line = 107
+class = "security"
+severity = "high"
+observed = "scan creates a fresh counts map for each nested occurrence. Repeating singular Block.last_commit or SignedHeader.commit lets each occurrence stay within MaxCount while protobuf merges their repeated Commit.signatures into one over-cap Commit before semantic validation. The network path scans before gogo Unmarshal (consensus/internal/p2p/transport.go:85 and consensus/internal/consensus/state.go:2225); generated Block.Unmarshal reuses LastCommit, whose Unmarshal appends signatures. The byte limit remains, but the declared allocation cap is bypassed."
+expected = "Untrusted consensus bytes must be bounded according to the decoded message, including protobuf merge semantics for duplicate singular message fields, before allocations occur."
+proposal = "In consensus/internal/protoutils/wireguard preserve counters across occurrences that protobuf merges into the same singular message, distinguish repeated children in generated rules, and exercise duplicate last_commit/commit occurrences through the real channel decoder."
+owner_domain = 15
+interface = "15.go-consensus-internal-protoutils-wireguard-scan-j57"
+
+[finding.f003]
+file = "consensus/internal/protoutils/wireguard/wireguard_test.go"
+line = 146
+class = "test-gap"
+severity = "medium"
+observed = "TestScan_DuplicateOuterEachWithinCapPasses accepts two nested field occurrences with two inner entries each at cap 3. The synthetic schema does not distinguish singular and repeated parents; it never decodes the actual singular Commit that merges to four signatures."
+expected = "The predecode guard tests must cover the decoded producer/transport/consumer shape and reject merged repeated collections above their bound."
+proposal = "Add a real protobuf message with a singular nested Commit and split over-cap signatures across duplicate field occurrences; assert refusal through both Scan and the transport integration path."
+owner_domain = 15
+interface = "15.go-consensus-internal-protoutils-wireguard-scan-j57"
+
+[finding.f004]
+file = "consensus/internal/eventlog/eventlog.go"
+line = 97
+class = "runtime-risk"
+severity = "medium"
+observed = "WaitScan reads lg.state(), then separately calls waitStateChange which captures lg.ready under a later lock. An Add between those operations closes the old channel and installs a new one, so the waiter can miss an already-available event until another Add or cancellation."
+expected = "WaitScan must return when the head differs from the supplied cursor, including when a producer updates the head between snapshot and subscription."
+proposal = "Capture the head snapshot and ready channel together under the same mutex in consensus/internal/eventlog, and test the boundary with coordinated real Add/WaitScan calls."
+owner_domain = 15
+interface = "15.go-consensus-internal-eventlog-log-j57"
+
+[finding.f005]
+file = "consensus/abci/types/util.go"
+line = 26
+class = "runtime-risk"
+severity = "medium"
+observed = "ValidatorUpdates.Less returns PubKey.Compare(...) <= 0, so equal public keys compare less in both directions and Less(i,i) is true."
+expected = "sort.Interface.Less must implement a strict ordering; equal validator keys cannot precede themselves or each other."
+proposal = "Use a strict public-key comparison in consensus/abci/types/util.go and check equal and duplicate keys through the validator-update sorting callers."
+owner_domain = 15
+
+[finding.f006]
+file = "consensus/README.md"
+line = 16
+class = "doc-drift"
+severity = "medium"
+observed = "The engine overview calls layerxd the other execution domain of the network and points readers to that split architecture in the root README."
+expected = "BRIEF network facts 1 and 2 define one paxd execution domain with the kernel embedded and layerxd retired."
+proposal = "Rewrite consensus/README.md to describe the embedded kernel and committed-block finality, removing instructions that imply a separately running LayerX daemon."
+owner_domain = 15
+
+[finding.f007]
+file = "cmd/layerxctl/tests/files.rs"
+line = 597
+class = "test-gap"
+severity = "medium"
+observed = "pinned_key returns a bare array with hexadecimal-string heights; recorded_submissions also converts producer heights to hex and drops the keys envelope. submit_receipt omits paymentDenom and signingKey. The actual gateway chain_reads.rs:281 emits {keys:[...]} with numeric heights, and layerx-client sequencer.rs:879/914 accepts that envelope and all 24 receipt fields."
+expected = "CLI success and refusal tests must use the gateway and node producers' current response fields and numeric encodings; malformed fixtures must not stand in for a valid receipt or a valid key range."
+proposal = "In cmd/layerxctl/tests/files.rs preserve the producer's receipt-key envelope and integer ranges, include the complete current receipt view, and feed unmodified real producer responses into the CLI for success and refusal assertions."
+owner_domain = 5
+interface = "5.cli-layerxctl-submit"
+
+[finding.f008]
+file = "storage/db_engine/rocksdb/mvcc/db.go"
+line = 114
+class = "config-drift"
+severity = "medium"
+observed = "OpenDB allocates pendingChanges with config.AsyncWriteBuffer and always starts a worker. A negative buffer panics; buffer zero returns from enqueue when the worker receives, before ApplyChangesetSync completes. StateStoreConfig and the app.toml template promise persistence before return for every value <=0."
+expected = "The ss-async-write-buffer setting must select synchronous persistence for zero and negative values on the supported RocksDB backend, as storage/config/ss_config.go:35 and toml.go:116 declare."
+proposal = "In storage/db_engine/rocksdb/mvcc/db.go use a synchronous write path for buffers <=0 and allocate the async queue only for positive sizes; prove the configured path and persisted version through actual close and reopen."
+owner_domain = 5
+interface = "5.go-storage-db-engine-rocksdb-mvcc-open-db"
+
+[finding.f009]
+file = "storage/db_engine/rocksdb/mvcc/db.go"
+line = 258
+class = "restart-recovery"
+severity = "medium"
+observed = "ApplyChangesetAsync sends the changeset to pendingChanges before streamHandler.Write. The worker can apply and persist it while the WAL append is pending or fails, so a caller can receive an append error after its version already changed. The Pebble backend appends before enqueue; composite startup does perform WAL replay."
+expected = "A rejected WAL append must not publish its state mutation to the database; persisted database versions and the replay log must describe the same accepted write sequence."
+proposal = "In storage/db_engine/rocksdb/mvcc/db.go complete the WAL append before making the changes visible to the background writer, preserving ordering across callers, and prove append failure and restart consistency through the real store path."
+owner_domain = 5
+interface = "5.fmt-storage-changelog-wal"
+
+[finding.f010]
+file = "storage/db_engine/rocksdb/mvcc/db.go"
+line = 204
+class = "runtime-risk"
+severity = "medium"
+observed = "Has obtains an owned grocksdb.Slice from getSlice and returns slice.Exists() without Free. Get uses copyAndFreeSlice for the same allocation, so repeated existence checks retain native RocksDB value buffers outside Go garbage collection."
+expected = "Every RocksDB value slice must be freed after its existence or contents have been consumed, including the boolean-only lookup path."
+proposal = "In storage/db_engine/rocksdb/mvcc/db.go release the slice in Has on every successful allocation and inspect the other owned Slice reads for matching release; exercise repeated Has calls against the actual backend."
+owner_domain = 5
+
+[finding.f011]
+file = "storage/db_engine/rocksdb/mvcc/db.go"
+line = 278
+class = "runtime-risk"
+severity = "medium"
+observed = "The async worker increments asyncWriteWG only after its goroutine starts. Close can close the queue and observe a zero WaitGroup before that increment, then clear streamHandler and close RocksDB while buffered work or the worker still exists."
+expected = "Closing a state store must wait for all accepted queued writes and the background worker before releasing native database and WAL resources."
+proposal = "In storage/db_engine/rocksdb/mvcc/db.go register the worker with the WaitGroup before launching it and synchronize shutdown with accepted writes; prove immediate close after open and after queued writes using the real RocksDB lifecycle."
+owner_domain = 5
+
+[finding.f012]
+file = "storage/wal/utils.go"
+line = 85
+class = "restart-recovery"
+severity = "medium"
+observed = "truncateCorruptedTail advances pos while slicing data, then compares pos to the remaining len(data). A two-byte valid entry [01,61] followed by corrupt [80,80] leaves pos=2 and len(data)=2, so no truncation occurs and the subsequent WAL reopen still sees corruption."
+expected = "Tail recovery must retain exactly the valid prefix and remove every malformed suffix, including when prefix and suffix have equal byte lengths."
+proposal = "In storage/wal/utils.go track the original length or an explicit corrupt-tail condition and truncate to the validated prefix; add actual binary and JSON WAL reopen cases for equal-sized prefix and corrupt suffix."
+owner_domain = 5
+interface = "5.fmt-storage-changelog-wal"
+
+[finding.f013]
+file = "node/apptesting/test_suite.go"
+line = 148
+class = "test-gap"
+severity = "medium"
+observed = "KeeperTestHelper.BuildTx accepts []sdk.Msg but calls txBuilder.SetMsgs(msgs[0]); additional messages silently disappear and an empty slice panics. Tests using this shared helper cannot establish behavior of the multi-message transaction they requested."
+expected = "The transaction helper must encode the complete requested message sequence and handle invalid empty input explicitly so multi-message admission and authorization assertions exercise that sequence."
+proposal = "In node/apptesting/test_suite.go pass the full message slice to the transaction builder, define the empty-input contract, and assert the decoded message list of an actual encoded multi-message transaction."
+owner_domain = 5
+interface = "5.go-node-apptesting-keeper-test-helper-build-tx-j31"
+
+[finding.f014]
+file = "node/benchmark/generator.go"
+line = 133
+class = "runtime-risk"
+severity = "medium"
+observed = "NewGenerator allows cfg.Accounts=nil when every scenario has its own Accounts, constructing those pools successfully, but the final logger.Info unconditionally evaluates cfg.Accounts.Accounts and panics for that accepted configuration."
+expected = "A scenario-specific account configuration accepted by the constructor must produce a usable benchmark generator without requiring an unused shared account pool."
+proposal = "In node/benchmark/generator.go report account totals from the pools that were actually constructed, without dereferencing an absent shared configuration, and exercise a real scenario-only account configuration."
+owner_domain = 5
+interface = "5.go-node-benchmark-new-generator-j31"
+
+[finding.f015]
+file = "node/benchmark/generator.go"
+line = 503
+class = "runtime-risk"
+severity = "medium"
+observed = "StartProposalChannel repeatedly invokes Generate and immediately continues on empty batches. Generate increments warmupCounter on each invocation rather than on a block event, consuming the three-block warmup before any block commits and spinning continuously while deployment receipts are pending."
+expected = "The benchmark warmup must wait for actual chain progress and pending deployment waits must yield until the state changes, so test load begins only after the intended initialization period."
+proposal = "In node/benchmark/generator.go drive warmup and setup progress from committed-block or proposal demand signals, and wait for deployment state changes or cancellation between empty results; assert block-count warmup and bounded waiting through the manager path."
+owner_domain = 5
+interface = "5.go-node-benchmark-new-generator-j31"
+
+[finding.f016]
+file = "tests/daemon/test_handover_chain_no_read_consumer.py"
+line = 8
+class = "retired-reference"
+severity = "medium"
+observed = "The test imports tests/daemon/handover-chain.py and executes it before checking that retired read-consumer names are absent, but that legacy daemon driver no longer exists in this tree."
+expected = "A retirement assertion must run against an existing merged-node entry point and establish absence of the retired consumer without depending on a removed daemon harness."
+proposal = "Port the behavior asserted by tests/daemon/test_handover_chain_no_read_consumer.py to the current paxd handover or retirement harness, retaining the prohibition on the removed read-consumer binary."
+owner_domain = 5
+
+[finding.f017]
+file = "tests/daemon/test_protocol_owner_binds_state_feed.py"
+line = 9
+class = "retired-reference"
+severity = "medium"
+observed = "The test requires make layerxd to succeed and inspects cmd/layerxd/lxp_daemon_protocol.c for the old protocol-owner feed bindings. That daemon implementation is retired and removed, so the test cannot exercise the embedded runtime binding path."
+expected = "State-feed binding assertions must follow the embedded paxd kernel and programs runtime; a removed standalone daemon must not be a positive build prerequisite."
+proposal = "Move the binding-order and ownership assertions in tests/daemon/test_protocol_owner_binds_state_feed.py onto the current embedded runtime assembly and real state-feed execution path, preserving every applicable binding invariant."
+owner_domain = 5
+
+[finding.f018]
+file = "tests/daemon/test_serve_commits_programs_call.py"
+line = 113
+class = "retired-reference"
+severity = "medium"
+observed = "The test requires build/bin/layerxd, copies it into a temporary tree and launches a sequencer/replica service with legacy identity and migration files to commit a programs call."
+expected = "Programs-call commitment on the merged network is served by paxd's embedded kernel and becomes final in its committed block, without standalone layerxd or authority-replica processes."
+proposal = "Port tests/daemon/test_serve_commits_programs_call.py to submit the same admitted programs call to a real disposable paxd chain and verify execution, receipt and committed state, retaining admission and credential refusal assertions."
+owner_domain = 5
+
+[finding.f019]
+file = "tests/daemon/test_serve_startup_without_anchor_bind.py"
+line = 9
+class = "retired-reference"
+severity = "medium"
+observed = "The test builds layerxd and opens removed lxp_daemon_process.c and lxp_daemon_finality_authority.c, asserting legacy history-open argument positions and daemon startup stages."
+expected = "The current startup proof must cover paxd after anchor retirement and preserve its committed-state recovery behavior without rebuilding a removed daemon."
+proposal = "Replace the obsolete startup path in tests/daemon/test_serve_startup_without_anchor_bind.py with the embedded node startup and reopen path across merge and anchor-store deletion, preserving the no-anchor-dependency assertion."
+owner_domain = 5
+
+[finding.f020]
+file = "docs/runbooks/paxeer-x-fork.md"
+line = 4
+class = "doc-drift"
+severity = "medium"
+observed = "The validator runbook sets UPGRADE_NAME=v6.6, describes adding custody and anchor stores and activating 0x1014, and repeats v6.6 at line 138. Its merge rehearsal at lines 252-260 instead applies v7.0 and v7.0-anchor-store-delete; req.5049 and req.6288 define the latter retirement path."
+expected = "The finished network is one paxd chain with its kernel embedded, root-path node JSON-RPC on EVM chain 125, hosted gateway px_ methods, and final receipts at block commitment; standalone daemon and checkpoint settlement instructions must be retired."
+proposal = "Rewrite docs/runbooks/paxeer-x-fork.md around the merged upgrade and separate any historical v6.6 procedure into an explicitly historical section; list the merge stores, bond return, anchor read lifetime and subsequent store deletion with their actual plan names."
+owner_domain = 5
+
+[finding.f021]
+file = "docs/site/docs/operators/beta-cluster.md"
+line = 50
+class = "doc-drift"
+severity = "medium"
+observed = "The beta cluster guide describes sequencer/replica bootstrap and guarantor genesis inputs and says the custody profile is mounted for layerxd --custody-profile. Those operational steps preserve the retired standalone execution domain."
+expected = "The finished network is one paxd chain with its kernel embedded, root-path node JSON-RPC on EVM chain 125, hosted gateway px_ methods, and final receipts at block commitment; standalone daemon and checkpoint settlement instructions must be retired."
+proposal = "Update docs/site/docs/operators/beta-cluster.md to describe one embedded paxd deployment and its actual configuration and readiness checks; retain genuine custody restrictions while replacing daemon, replica and checkpoint dependencies with committed-chain verification."
+owner_domain = 5
+
+[finding.f022]
+file = "docs/readme/README.de.md"
+line = 37
+class = "doc-drift"
+severity = "medium"
+observed = "The translated overview calls paxd and layerxd two execution domains. Its architecture diagram at lines 125-239 routes LNI activity to a standalone sequencer and sealed batches through a guarantor to submitCheckpoint, and its command inventory still presents the retired daemon."
+expected = "The finished network is one paxd chain with its kernel embedded, root-path node JSON-RPC on EVM chain 125, hosted gateway px_ methods, and final receipts at block commitment; standalone daemon and checkpoint settlement instructions must be retired."
+proposal = "Rewrite docs/readme/README.de.md from a current merged-network overview: show the kernel inside paxd, committed-block finality, current repository paths and actual operator commands, and remove standalone daemon and checkpoint settlement nodes from the diagram."
+owner_domain = 5
+
+[finding.f023]
+file = "docs/readme/README.fr.md"
+line = 37
+class = "doc-drift"
+severity = "medium"
+observed = "The translated overview calls paxd and layerxd two execution domains. Its architecture diagram at lines 125-239 routes LNI activity to a standalone sequencer and sealed batches through a guarantor to submitCheckpoint, and its command inventory still presents the retired daemon."
+expected = "The finished network is one paxd chain with its kernel embedded, root-path node JSON-RPC on EVM chain 125, hosted gateway px_ methods, and final receipts at block commitment; standalone daemon and checkpoint settlement instructions must be retired."
+proposal = "Rewrite docs/readme/README.fr.md from a current merged-network overview: show the kernel inside paxd, committed-block finality, current repository paths and actual operator commands, and remove standalone daemon and checkpoint settlement nodes from the diagram."
+owner_domain = 5
+
+[finding.f024]
+file = "docs/readme/README.ja.md"
+line = 37
+class = "doc-drift"
+severity = "medium"
+observed = "The translated overview calls paxd and layerxd two execution domains. Its architecture diagram at lines 125-239 routes LNI activity to a standalone sequencer and sealed batches through a guarantor to submitCheckpoint, and its command inventory still presents the retired daemon."
+expected = "The finished network is one paxd chain with its kernel embedded, root-path node JSON-RPC on EVM chain 125, hosted gateway px_ methods, and final receipts at block commitment; standalone daemon and checkpoint settlement instructions must be retired."
+proposal = "Rewrite docs/readme/README.ja.md from a current merged-network overview: show the kernel inside paxd, committed-block finality, current repository paths and actual operator commands, and remove standalone daemon and checkpoint settlement nodes from the diagram."
+owner_domain = 5
+
+[finding.f025]
+file = "README.md"
+line = 44
+class = "doc-drift"
+severity = "medium"
+observed = "The root overview declares two execution domains and describes layerxd as a separately built daemon settling checkpoints through layerxAnchor. The build instructions include make layerxd at line 145 and the closing architecture note at line 181 calls the merge only a draft."
+expected = "The finished network is one paxd chain with its kernel embedded, root-path node JSON-RPC on EVM chain 125, hosted gateway px_ methods, and final receipts at block commitment; standalone daemon and checkpoint settlement instructions must be retired."
+proposal = "Update README.md to present the embedded paxd kernel and block-committed receipts, replace retired daemon build commands with supported tools, and align the architecture and repository layout with the merged implementation."
+owner_domain = 5
+
+[finding.f026]
+file = "docs/site/docs/overview/quickstart.md"
+line = 167
+class = "doc-drift"
+severity = "medium"
+observed = "The quickstart sends JSON-RPC to POST /rpc and WebSockets to /rpc/ws, including api-mainnet-beta.paxeer.network/rpc at lines 214 and 302. It also configures guarantor checkpoint settlement and teaches pre-merge finality stages."
+expected = "The finished network is one paxd chain with its kernel embedded, root-path node JSON-RPC on EVM chain 125, hosted gateway px_ methods, and final receipts at block commitment; standalone daemon and checkpoint settlement instructions must be retired."
+proposal = "Rewrite docs/site/docs/overview/quickstart.md using the node root URL and current node namespaces, identify hosted gateway px_ methods separately, and demonstrate a current transaction from submission to finality in its committed block without router or checkpoint steps."
+owner_domain = 5
+
+[finding.f027]
+file = "docs/site/docs/platform/hosted-node.md"
+line = 4
+class = "doc-drift"
+severity = "medium"
+observed = "The hosted node page says the image builds layerxd, lists its --serve CLI and a separate authority replica, and deploys persistent guarantor checkpoint processes. Its LNI, history and replica route descriptions point to removed cmd/layerxd files."
+expected = "The finished network is one paxd chain with its kernel embedded, root-path node JSON-RPC on EVM chain 125, hosted gateway px_ methods, and final receipts at block commitment; standalone daemon and checkpoint settlement instructions must be retired."
+proposal = "Replace docs/site/docs/platform/hosted-node.md with the actual paxd image, embedded runtime lifecycle, persisted stores, root JSON-RPC and committed-block receipt behavior; document restart recovery and supported hosted boundaries without retired daemon or replica endpoints."
+owner_domain = 5
+
+[finding.f028]
+file = "docs/site/docs/platform/hosted-gateway.md"
+line = 50
+class = "doc-drift"
+severity = "medium"
+observed = "The gateway page declares public POST /rpc, GET /rpc/schema and GET /rpc/ws and repeats them in the endpoint table at lines 198-200. The site says 15 methods while the wiki says 18; these pre-merge route contracts conflict with the current node and hosted gateway boundary."
+expected = "The finished network is one paxd chain with its kernel embedded, root-path node JSON-RPC on EVM chain 125, hosted gateway px_ methods, and final receipts at block commitment; standalone daemon and checkpoint settlement instructions must be retired."
+proposal = "Rewrite docs/site/docs/platform/hosted-gateway.md from services/platform/hosted/gateway/openrpc.json and current registered routes, separate gateway px_ capabilities from node methods, and synchronize the site/wiki method inventory and URLs with the single-network contract."
+owner_domain = 5
+
+[finding.f029]
+file = "docs/wiki/HostedGateway.md"
+line = 50
+class = "doc-drift"
+severity = "medium"
+observed = "The gateway page declares public POST /rpc, GET /rpc/schema and GET /rpc/ws and repeats them in the endpoint table at lines 198-200. The site says 15 methods while the wiki says 18; these pre-merge route contracts conflict with the current node and hosted gateway boundary."
+expected = "The finished network is one paxd chain with its kernel embedded, root-path node JSON-RPC on EVM chain 125, hosted gateway px_ methods, and final receipts at block commitment; standalone daemon and checkpoint settlement instructions must be retired."
+proposal = "Rewrite docs/wiki/HostedGateway.md from services/platform/hosted/gateway/openrpc.json and current registered routes, separate gateway px_ capabilities from node methods, and synchronize the site/wiki method inventory and URLs with the single-network contract."
+owner_domain = 5
+
+[finding.f030]
+file = "docs/site/docs/human/owner-registration.md"
+line = 17
+class = "doc-drift"
+severity = "medium"
+observed = "The owner-registration guide requires guarantor checkpoint certificates and describes a protocol-3 daemon/independent guarantor at genesis. Its native submission instructions assume a node-socket layerxctl client, while cmd/layerxctl/src/main.rs accepts --rpc-url for EVM transaction submission and eth_call reads."
+expected = "The finished network is one paxd chain with its kernel embedded, root-path node JSON-RPC on EVM chain 125, hosted gateway px_ methods, and final receipts at block commitment; standalone daemon and checkpoint settlement instructions must be retired."
+proposal = "Rewrite docs/site/docs/human/owner-registration.md around the current owner-registration producer and paxd transport, state the actual supported CLI flags and transaction shape, and replace daemon/guarantor checkpoint proof levels with verified committed-chain evidence and recovery behavior."
+owner_domain = 5
+
+[finding.f031]
+file = "docs/wiki/HumanOwnerRegistration.md"
+line = 17
+class = "doc-drift"
+severity = "medium"
+observed = "The owner-registration guide requires guarantor checkpoint certificates and describes a protocol-3 daemon/independent guarantor at genesis. Its native submission instructions assume a node-socket layerxctl client, while cmd/layerxctl/src/main.rs accepts --rpc-url for EVM transaction submission and eth_call reads."
+expected = "The finished network is one paxd chain with its kernel embedded, root-path node JSON-RPC on EVM chain 125, hosted gateway px_ methods, and final receipts at block commitment; standalone daemon and checkpoint settlement instructions must be retired."
+proposal = "Rewrite docs/wiki/HumanOwnerRegistration.md around the current owner-registration producer and paxd transport, state the actual supported CLI flags and transaction shape, and replace daemon/guarantor checkpoint proof levels with verified committed-chain evidence and recovery behavior."
+owner_domain = 5
+
+[finding.f032]
+file = "cmd/layerxctl/src/main.rs"
+line = 235
+class = "doc-drift"
+severity = "medium"
+observed = "Registry row 5.cli-layerxctl-submit says the CLI only reports submitted/unverified until receipt verification is implemented, but verify_sequencer_signature now validates pinned keys, roots, summary effects and receipt fields. Row 5.cli-layerxctl-wire-limit still declares a main.rs layerx_wire import although it is now only a dev dependency used by tests."
+expected = "The interface registry must describe the current CLI verification guarantees and dependency surface so integrators and follow-on work do not target already removed production imports or assume receipts are unverified."
+proposal = "Update spec/layerx-merge/interfaces.kvx rows 5.cli-layerxctl-submit and 5.cli-layerxctl-wire-limit in their owning follow-up task to describe the actual verified receipt path, current imports and supported command contract; supply the missing linked sequencer contract."
+owner_domain = 5
+interface = "5.cli-layerxctl-submit"
+
+[doc.001]
+path = "docs/runbooks/paxeer-x-fork.md"
+status = "stale"
+notes = "Lines 4-8, 28 and 138 prescribe v6.6 and custody/anchor activation, while lines 252-260 rehearse v7.0 and anchor retirement; the current upgrade procedure needs a single version-specific plan."
+
+[doc.002]
+path = "docs/site/docs/operators/beta-cluster.md"
+status = "stale"
+notes = "The bring-up model still deploys daemon/replica settlement infrastructure; line 50 mounts a custody profile for layerxd rather than the embedded paxd node."
+
+[doc.003]
+path = "docs/readme/README.de.md"
+status = "misleading"
+notes = "Lines 37-39 and 125-239 describe two execution domains and a live layerxd/guarantor checkpoint architecture; line 80 also lists retired daemon tooling."
+
+[doc.004]
+path = "docs/readme/README.fr.md"
+status = "misleading"
+notes = "Lines 37-39 and 125-239 describe two execution domains and a live layerxd/guarantor checkpoint architecture; line 80 also lists retired daemon tooling."
+
+[doc.005]
+path = "docs/readme/README.ja.md"
+status = "misleading"
+notes = "Lines 37-39 and 125-239 describe two execution domains and a live layerxd/guarantor checkpoint architecture; line 80 also lists retired daemon tooling."
+
+[doc.006]
+path = "README.md"
+status = "misleading"
+notes = "Lines 44-47 describe two execution domains, line 145 builds layerxd and line 181 calls the merge a draft with separate checkpoint settlement."
+
+[doc.007]
+path = "docs/site/docs/overview/quickstart.md"
+status = "misleading"
+notes = "Lines 20, 167-168, 214-215, 302, 497, 518 and 596 teach retired /rpc paths; settlement configuration and finality sections retain the separate checkpoint model."
+
+[doc.008]
+path = "docs/site/docs/platform/hosted-node.md"
+status = "misleading"
+notes = "Lines 4-12, 39-42 and 570-589 document removed layerxd and authority-replica services; the bootstrap, LNI and checkpoint sections require a merged-node rewrite."
+
+[doc.009]
+path = "docs/site/docs/platform/hosted-gateway.md"
+status = "misleading"
+notes = "Lines 50-51, 198-200 and 609 expose retired /rpc, /rpc/schema and /rpc/ws routes; the site and wiki also disagree on the method count (15 versus 18)."
+
+[doc.010]
+path = "docs/wiki/HostedGateway.md"
+status = "misleading"
+notes = "Lines 50-51, 198-200 and 609 expose retired /rpc, /rpc/schema and /rpc/ws routes; the site and wiki also disagree on the method count (15 versus 18)."
+
+[doc.011]
+path = "docs/site/docs/human/owner-registration.md"
+status = "stale"
+notes = "Lines 13-19 and 31-35 retain daemon identity bootstrap, LNI CLI and guarantor checkpoint_finalised proofs; current layerxctl uses --rpc-url EVM submission and eth_call reads."
+
+[doc.012]
+path = "docs/wiki/HumanOwnerRegistration.md"
+status = "stale"
+notes = "Lines 13-19 and 31-35 retain daemon identity bootstrap, LNI CLI and guarantor checkpoint_finalised proofs; current layerxctl uses --rpc-url EVM submission and eth_call reads."
+
+[doc.013]
+path = "consensus/AGENTS.md"
+status = "accurate"
+notes = "The local consensus workflow and scoped source guidance describe the embedded engine repository; no additional live daemon interface is introduced."
+
+[doc.014]
+path = "consensus/README.md"
+status = "stale"
+notes = "Line 16 calls layerxd the other execution domain, contradicting the embedded paxd network; see the corresponding doc-drift finding."
+
+[doc.015]
+path = "consensus/abci/README.md"
+status = "accurate"
+notes = "The application is called in-process through Go Application and internal/proxy; protobuf type generation links resolve to existing generated types."
+
+[doc.016]
+path = "consensus/abci/example/kvstore/README.md"
+status = "accurate"
+notes = "Describes the in-memory application used by consensus tests, consistent with the example implementation and its non-production lifecycle."
+
+[doc.017]
+path = "consensus/networks/remote/README.md"
+status = "accurate"
+notes = "Explicitly identifies the remote deployment tooling as inherited upstream machinery that is not runnable as-is for the embedded engine."
+
+[doc.018]
+path = "consensus/proto/README.md"
+status = "accurate"
+notes = "Describes the protobuf generation layout and tooling; generated wireguard rules remain subject to the scanner finding rather than implying independent runtime services."
+
+[doc.019]
+path = "storage/README.md"
+status = "accurate"
+notes = "Distinguishes state commit from historical state storage and describes default Pebble with optional RocksDB build support; backend-specific findings are recorded separately."
+
+[doc.020]
+path = "contracts/sequencer.md"
+status = "missing"
+notes = "Interface rows for the CLI, storage and node helpers link to this contract, but it is absent at the reviewed revision; source and acceptance criteria supplied the reviewed behavior."
+
+[doc.021]
+path = "contracts/consensus-fork.md"
+status = "missing"
+notes = "Consensus registry rows link to this contract, but it is absent at the reviewed revision; the source-level producer, wire decoder and consumer paths were used instead."
+
+

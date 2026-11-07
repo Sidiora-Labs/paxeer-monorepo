@@ -1,0 +1,8 @@
+[repair.22.31.216]
+finding = "approval-replay-bounds"
+implementation = "approval.rs shares validated_item_count across admission, encoding and decoding; TooManyItems refuses admission above 64 and CorruptRecord preserves replay safety. reserve_and_hold uses BudgetLimiter::reserve_locked so failed approval publication leaves acquired budget unchanged."
+test_path = "services/agent/crates/layerx-agentd/tests/repair_22_31_216.rs"
+proving_tests = ["approval_replay_bounds_64_items_survive_reopen", "approval_replay_bounds_65_items_refuse_without_reservation_leaks", "approval_replay_bounds_borrowed_admission_rejects_65_items", "approval_replay_bounds_decoder_still_refuses_oversized_records"]
+baseline = "No baseline test was run: the task's ordered gate instructions prohibit verification before complete implementation and require hf-build before hf-done; the integration target did not exist on the starting tree."
+wiring_request = "services/agent/crates/layerx-agentd/src/approval and other borrowed hold_reserved/hold_reserved_at callers, owning domain 9: use reserve_and_hold for newly acquired legacy approval budgets, or invoke the borrowed admission API within the existing BudgetLimiter::reserve_locked transaction, retaining caller ownership and rollback for previously acquired reservations."
+evidence = "The runner's private hf-build/hf-done ledger records the exact candidate revision, command, exit and log; the final task report copies the terminating gate evidence."

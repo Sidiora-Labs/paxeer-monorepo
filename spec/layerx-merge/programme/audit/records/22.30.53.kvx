@@ -1,0 +1,1502 @@
+[audit.22.30.53]
+task = "22.30.53"
+revision = "6d2c32a65a1c7989a6a37abf5965929de9769ae4"
+files_reviewed = 122
+findings = 67
+docs_reviewed = 5
+upgrade_ready = false
+blocking = ["key-durability", "segment-capacity-rollover", "push-destination-flag", "sync-destination-flag", "snapshot-reclaim-range", "initial-segment-recovery", "cache-expiry-visibility", "stale-lock-takeover", "remote-prune-sources", "backup-durable-ack", "build-after-close", "move-symlink-contract", "singleton-cohort-roundtrip", "disk-read-metric-semantics", "dashboard-latency-shape", "dashboard-counter-names"]
+requirements = ["22998.1", "22011.1"]
+interfaces_reviewed = ["5.cli-litt", "5.cli-litt-2", "5.cli-litt-3", "5.cli-litt-4", "5.cli-litt-benchmark", "5.cli-litt-benchmark-2", "5.cli-litt-flag-debug", "5.cli-litt-flag-pprof", "5.cli-litt-flag-pprof-port", "5.cli-litt-ls", "5.cli-litt-ls-flag-src", "5.cli-litt-prune", "5.cli-litt-prune-flag-max-age", "5.cli-litt-prune-flag-src", "5.cli-litt-prune-flag-table", "5.cli-litt-push", "5.cli-litt-push-flag-dst", "5.cli-litt-push-flag-key", "5.cli-litt-push-flag-no-gc", "5.cli-litt-push-flag-port", "5.cli-litt-push-flag-quiet", "5.cli-litt-push-flag-src", "5.cli-litt-push-flag-threads", "5.cli-litt-push-flag-throttle", "5.cli-litt-rebase", "5.cli-litt-rebase-flag-dst", "5.cli-litt-rebase-flag-preserve", "5.cli-litt-rebase-flag-quiet", "5.cli-litt-rebase-flag-src", "5.cli-litt-sync", "5.cli-litt-sync-flag-dst", "5.cli-litt-sync-flag-key", "5.cli-litt-sync-flag-litt-binary", "5.cli-litt-sync-flag-max-age", "5.cli-litt-sync-flag-no-gc", "5.cli-litt-sync-flag-period", "5.cli-litt-sync-flag-port", "5.cli-litt-sync-flag-quiet", "5.cli-litt-sync-flag-src", "5.cli-litt-sync-flag-threads", "5.cli-litt-sync-flag-throttle", "5.cli-litt-table-info", "5.cli-litt-table-info-flag-src", "5.cli-litt-unlock", "5.cli-main-storage-db-engine-litt-cli", "5.fmt-litt-cohort-file-extension", "5.fmt-litt-key-file-extension", "5.fmt-litt-keymap-initialized-file-name", "5.fmt-litt-keymap-type-file-name", "5.fmt-litt-lower-bound-file-name", "5.fmt-litt-metadata-file-extension", "5.fmt-litt-sharded-address-segment-version", "5.fmt-litt-swap-file-extension", "5.fmt-litt-upper-bound-file-name", "5.fmt-litt-values-file-extension", "5.go-storage-db-engine-litt-benchmark-config-benchmark-config", "5.go-storage-db-engine-litt-benchmark-config-default-benchmark-config", "5.go-storage-db-engine-litt-benchmark-config-load-config", "5.go-storage-db-engine-litt-benchmark-new-benchmark-engine", "5.go-storage-db-engine-litt-config", "5.go-storage-db-engine-litt-db", "5.go-storage-db-engine-litt-dbcache-new-cached-table", "5.go-storage-db-engine-litt-default-config", "5.go-storage-db-engine-litt-default-config-no-paths", "5.go-storage-db-engine-litt-default-runtime-config", "5.go-storage-db-engine-litt-default-table-config", "5.go-storage-db-engine-litt-disktable-keymap-build-keymap", "5.go-storage-db-engine-litt-disktable-keymap-keymap", "5.go-storage-db-engine-litt-disktable-keymap-keymap-data-directory-name", "5.go-storage-db-engine-litt-disktable-keymap-keymap-directory-name", "5.go-storage-db-engine-litt-disktable-keymap-keymap-file-exists", "5.go-storage-db-engine-litt-disktable-keymap-keymap-initialized-file-name", "5.go-storage-db-engine-litt-disktable-keymap-keymap-type", "5.go-storage-db-engine-litt-disktable-keymap-keymap-type-file", "5.go-storage-db-engine-litt-disktable-keymap-load-keymap-type-file", "5.go-storage-db-engine-litt-disktable-keymap-mem-keymap-type", "5.go-storage-db-engine-litt-disktable-keymap-new-keymap-type-file", "5.go-storage-db-engine-litt-disktable-keymap-new-mem-keymap", "5.go-storage-db-engine-litt-disktable-keymap-new-pebble-db-keymap", "5.go-storage-db-engine-litt-disktable-keymap-new-unsafe-pebble-db-keymap", "5.go-storage-db-engine-litt-disktable-keymap-pebble-db-keymap-type", "5.go-storage-db-engine-litt-disktable-keymap-unsafe-pebble-db-keymap-type", "5.go-storage-db-engine-litt-disktable-load-boundary-file", "5.go-storage-db-engine-litt-disktable-lower-bound", "5.go-storage-db-engine-litt-disktable-lower-bound-file-name", "5.go-storage-db-engine-litt-disktable-new-disk-table", "5.go-storage-db-engine-litt-disktable-segment-build-segment-paths", "5.go-storage-db-engine-litt-disktable-segment-create-segment", "5.go-storage-db-engine-litt-disktable-segment-flush-wait-function", "5.go-storage-db-engine-litt-disktable-segment-gather-segment-files", "5.go-storage-db-engine-litt-disktable-segment-hard-link-directory", "5.go-storage-db-engine-litt-disktable-segment-key-file-extension", "5.go-storage-db-engine-litt-disktable-segment-latest-segment-version", "5.go-storage-db-engine-litt-disktable-segment-metadata-file-extension", "5.go-storage-db-engine-litt-disktable-segment-new-segment-path", "5.go-storage-db-engine-litt-disktable-segment-segment", "5.go-storage-db-engine-litt-disktable-segment-segment-directory", "5.go-storage-db-engine-litt-disktable-segment-segment-path", "5.go-storage-db-engine-litt-disktable-segment-segment-reader", "5.go-storage-db-engine-litt-disktable-segment-v3-metadata-size", "5.go-storage-db-engine-litt-disktable-segment-values-file-extension", "5.go-storage-db-engine-litt-disktable-unlock", "5.go-storage-db-engine-litt-disktable-upper-bound", "5.go-storage-db-engine-litt-disktable-upper-bound-file-name", "5.go-storage-db-engine-litt-gc-filter", "5.go-storage-db-engine-litt-is-table-name-valid", "5.go-storage-db-engine-litt-iterator", "5.go-storage-db-engine-litt-littbuilder-find-keymap-location", "5.go-storage-db-engine-litt-littbuilder-new-db", "5.go-storage-db-engine-litt-managed-table", "5.go-storage-db-engine-litt-max-sharding-factor", "5.go-storage-db-engine-litt-metrics-litt-db-metrics", "5.go-storage-db-engine-litt-metrics-new-litt-db-metrics", "5.go-storage-db-engine-litt-runtime-config", "5.go-storage-db-engine-litt-table", "5.go-storage-db-engine-litt-table-config", "5.go-storage-db-engine-litt-types-address", "5.go-storage-db-engine-litt-types-address-serialized-size", "5.go-storage-db-engine-litt-types-deserialize-address", "5.go-storage-db-engine-litt-types-key-kind", "5.go-storage-db-engine-litt-types-key-kind-final-secondary", "5.go-storage-db-engine-litt-types-key-kind-primary", "5.go-storage-db-engine-litt-types-key-kind-secondary", "5.go-storage-db-engine-litt-types-key-kind-standalone", "5.go-storage-db-engine-litt-types-new-address", "5.go-storage-db-engine-litt-types-put-request", "5.go-storage-db-engine-litt-types-scoped-key", "5.go-storage-db-engine-litt-types-secondary-key", "5.go-storage-db-engine-litt-util-assert-eventually-true", "5.go-storage-db-engine-litt-util-atomic-rename", "5.go-storage-db-engine-litt-util-atomic-write", "5.go-storage-db-engine-litt-util-await", "5.go-storage-db-engine-litt-util-cache", "5.go-storage-db-engine-litt-util-cache-metrics", "5.go-storage-db-engine-litt-util-close-log-on-error", "5.go-storage-db-engine-litt-util-comma-o-matic", "5.go-storage-db-engine-litt-util-deep-delete", "5.go-storage-db-engine-litt-util-delete-orphaned-swap-files", "5.go-storage-db-engine-litt-util-ensure-directory-exists", "5.go-storage-db-engine-litt-util-err-if-not-exists", "5.go-storage-db-engine-litt-util-err-if-not-writable-file", "5.go-storage-db-engine-litt-util-error-monitor", "5.go-storage-db-engine-litt-util-exists", "5.go-storage-db-engine-litt-util-is-directory", "5.go-storage-db-engine-litt-util-is-process-alive", "5.go-storage-db-engine-litt-util-lock-directories", "5.go-storage-db-engine-litt-util-lockfile-name", "5.go-storage-db-engine-litt-util-map-does-not-contain-key", "5.go-storage-db-engine-litt-util-new-cache-metrics", "5.go-storage-db-engine-litt-util-new-error-monitor", "5.go-storage-db-engine-litt-util-new-fifo-cache", "5.go-storage-db-engine-litt-util-new-file-lock", "5.go-storage-db-engine-litt-util-new-pprof-profiler", "5.go-storage-db-engine-litt-util-new-queue", "5.go-storage-db-engine-litt-util-new-ssh-session", "5.go-storage-db-engine-litt-util-new-test-random", "5.go-storage-db-engine-litt-util-new-thread-safe-cache", "5.go-storage-db-engine-litt-util-pretty-print-bytes", "5.go-storage-db-engine-litt-util-pretty-print-time", "5.go-storage-db-engine-litt-util-recursive-move", "5.go-storage-db-engine-litt-util-sanitize-path", "5.go-storage-db-engine-litt-util-send", "5.go-storage-db-engine-litt-util-ssh-session", "5.go-storage-db-engine-litt-util-swap-file-extension", "5.go-storage-db-engine-litt-util-test-random", "5.go-storage-db-engine-litt-util-true", "5.go-storage-db-engine-litt-util-unsafe-bytes-to-string", "5.met-litt-litt-bytes-read", "5.met-litt-litt-bytes-written", "5.met-litt-litt-cache-hits", "5.met-litt-litt-cache-miss-latency-seconds", "5.met-litt-litt-cache-misses", "5.met-litt-litt-chunk-cache-eviction-latency-seconds", "5.met-litt-litt-chunk-cache-key-count", "5.met-litt-litt-chunk-cache-keys-added", "5.met-litt-litt-chunk-cache-weight-added-bytes", "5.met-litt-litt-chunk-cache-weight-bytes", "5.met-litt-litt-flush-count", "5.met-litt-litt-flush-latency-seconds", "5.met-litt-litt-garbage-collection-latency-seconds", "5.met-litt-litt-keymap-flush-latency-seconds", "5.met-litt-litt-keys-read", "5.met-litt-litt-keys-written", "5.met-litt-litt-open-iterator-count", "5.met-litt-litt-read-latency-seconds", "5.met-litt-litt-segment-flush-latency-seconds", "5.met-litt-litt-table-key-count", "5.met-litt-litt-table-size-bytes", "5.met-litt-litt-write-latency-seconds", "5.go-storage-common-metrics-latency-buckets", "5.go-storage-common-metrics-setup-otel-prometheus", "5.go-storage-common-metrics-start-metrics-server", "5.go-storage-common-unit-gb", "5.go-storage-common-unit-kb", "5.go-storage-common-unit-mb"]
+review_basis = "Full member-file review against the declared public storage, CLI, format and metric interfaces, including secondary-key groups, snapshot publication, retention and restart. No retired router, LayerX endpoint or separate daemon reference was found in this slice. Audit qualification does not assert that Go package builds or tests passed."
+
+[file.001]
+path = "storage/db_engine/litt/Makefile"
+lines = 26
+verdict = "clean"
+note = "Build/debug/test targets point to the real CLI package; reviewed command paths and serial test settings without claiming a Go gate result."
+
+[file.002]
+path = "storage/db_engine/litt/README.md"
+lines = 525
+verdict = "issues"
+note = "Read the full public storage guide, request and address layout, retention, snapshots and sharding prose; findings identify API and format drift."
+
+[file.003]
+path = "storage/db_engine/litt/benchmark/benchmark_engine.go"
+lines = 310
+verdict = "issues"
+note = "Reviewed config-to-DB wiring, worker loops, throttling, verification, monitor propagation and shutdown; failures are recorded separately."
+
+[file.004]
+path = "storage/db_engine/litt/benchmark/benchmark_metrics.go"
+lines = 217
+verdict = "clean"
+note = "Reviewed atomic counters, CAS latency maxima, duration conversions and context-driven logging; workload success-accounting defect belongs to engine."
+
+[file.005]
+path = "storage/db_engine/litt/benchmark/cmd/main.go"
+lines = 39
+verdict = "clean"
+note = "Standalone entrypoint passes config to the real engine and maps its returned error to process failure; engine lifecycle defects are recorded at their source."
+
+[file.006]
+path = "storage/db_engine/litt/benchmark/cohort.go"
+lines = 376
+verdict = "issues"
+note = "Reviewed every inclusive range, 41-byte big-endian field, completion flag, expiry and persistence path through creation and reload."
+
+[file.007]
+path = "storage/db_engine/litt/benchmark/cohort_test.go"
+lines = 310
+verdict = "clean"
+note = "Read all cohort persistence, index, completion and expiry cases; singleton reload and post-reload durability omissions are recorded against the format implementation."
+
+[file.008]
+path = "storage/db_engine/litt/benchmark/config/basic-config.json"
+lines = 8
+verdict = "clean"
+note = "Configuration uses the current nested LittConfig.Paths and SnapshotDirectory shape; units and paths match the strict loader fields."
+
+[file.009]
+path = "storage/db_engine/litt/benchmark/config/benchmark-grafana-dashboard.json"
+lines = 1982
+verdict = "issues"
+note = "Read the complete Grafana export including every panel and target; current histogram/counter consumers and fixed datasource drift are recorded."
+
+[file.010]
+path = "storage/db_engine/litt/benchmark/config/benchmark_config.go"
+lines = 151
+verdict = "issues"
+note = "Reviewed all workload fields, defaults, JSON unknown-field rejection and path sanitization; semantic validation gap is recorded."
+
+[file.011]
+path = "storage/db_engine/litt/benchmark/config/benchmark_config_test.go"
+lines = 60
+verdict = "clean"
+note = "Read default and file-loading cases against the strict JSON producer shape; unsupported input bounds are recorded at the loader."
+
+[file.012]
+path = "storage/db_engine/litt/benchmark/data_generator.go"
+lines = 74
+verdict = "issues"
+note = "Reviewed seed propagation, RNG pool reuse, deterministic key/value regeneration and value-length boundaries."
+
+[file.013]
+path = "storage/db_engine/litt/benchmark/data_generator_test.go"
+lines = 51
+verdict = "clean"
+note = "Read deterministic generation and pool-size cases; different-seed and equal-pool boundary omissions are captured with their production defects."
+
+[file.014]
+path = "storage/db_engine/litt/benchmark/data_tracker.go"
+lines = 589
+verdict = "issues"
+note = "Reviewed cohort discovery, complete-set selection, read/write channels, ReportWrite ordering, expiry and deterministic Close draining."
+
+[file.015]
+path = "storage/db_engine/litt/benchmark/data_tracker_test.go"
+lines = 254
+verdict = "clean"
+note = "Read tracker generation, reports, restart and close-drain cases against real cohort files; format and count defects are recorded at their producer paths."
+
+[file.016]
+path = "storage/db_engine/litt/benchmark/run.sh"
+lines = 19
+verdict = "issues"
+note = "Reviewed script-relative standalone binary resolution and configuration forwarding; unquoted final arguments split valid configuration paths."
+
+[file.017]
+path = "storage/db_engine/litt/cli/benchmark.go"
+lines = 36
+verdict = "clean"
+note = "The registered benchmark action validates its config argument and invokes the real benchmark engine; engine failures are recorded at their owning path."
+
+[file.018]
+path = "storage/db_engine/litt/cli/litt_cli.go"
+lines = 355
+verdict = "clean"
+note = "Reviewed all registered commands and flag types, required inputs and aliases; consumer mismatches are recorded at push.go and sync.go."
+
+[file.019]
+path = "storage/db_engine/litt/cli/ls.go"
+lines = 116
+verdict = "clean"
+note = "Reviewed sanitized multi-root listing, directory filtering and lock ownership; table namespaces and returned names match consumers."
+
+[file.020]
+path = "storage/db_engine/litt/cli/ls_test.go"
+lines = 128
+verdict = "clean"
+note = "Read multi-root table discovery cases, randomized table names and path checks against lsPaths and real table builders."
+
+[file.021]
+path = "storage/db_engine/litt/cli/main.go"
+lines = 17
+verdict = "clean"
+note = "CLI entrypoint builds the registered app and propagates returned command errors to its process error path."
+
+[file.022]
+path = "storage/db_engine/litt/cli/prune.go"
+lines = 242
+verdict = "issues"
+note = "Reviewed snapshot detection, publication bounds, segment age and release/lower-bound ordering; destructive discovery race is recorded."
+
+[file.023]
+path = "storage/db_engine/litt/cli/prune_test.go"
+lines = 349
+verdict = "clean"
+note = "Read real-table and snapshot retention cases, repeated pruning and published-bound checks; live publication interleaving gap is recorded at prune.go."
+
+[file.024]
+path = "storage/db_engine/litt/cli/push.go"
+lines = 361
+verdict = "issues"
+note = "Reviewed parser inputs, source locks, remote file mapping, sharded placement, concurrent transfer, acknowledgment and reclamation."
+
+[file.025]
+path = "storage/db_engine/litt/cli/push_test.go"
+lines = 719
+verdict = "issues"
+note = "Read the whole commented historical backup suite; no test body currently executes and the live-interface gap is recorded."
+
+[file.026]
+path = "storage/db_engine/litt/cli/rebase.go"
+lines = 532
+verdict = "clean"
+note = "Reviewed root normalization, overlap handling, preservation, segment/keymap movement and snapshot rejection across the entire implementation."
+
+[file.027]
+path = "storage/db_engine/litt/cli/rebase_test.go"
+lines = 408
+verdict = "issues"
+note = "Read all rebase configurations and resulting data checks; overlap-named cases incorrectly supply zero overlap."
+
+[file.028]
+path = "storage/db_engine/litt/cli/sync.go"
+lines = 268
+verdict = "issues"
+note = "Reviewed flag transport into syncEngine, periodic push, remote prune invocation, cancellation and session lifecycle."
+
+[file.029]
+path = "storage/db_engine/litt/cli/table_info.go"
+lines = 194
+verdict = "issues"
+note = "Reviewed snapshot-bound selection, keymap discovery and per-segment accounting; unordered-map break defect is recorded."
+
+[file.030]
+path = "storage/db_engine/litt/cli/table_info_test.go"
+lines = 129
+verdict = "clean"
+note = "Read normal-table and snapshot statistics cases against real table files; unpublished-segment map-order defect is recorded at producer."
+
+[file.031]
+path = "storage/db_engine/litt/cli/unlock.go"
+lines = 46
+verdict = "clean"
+note = "Reviewed required roots, explicit force/prompt control and calls into the real lock-removal utility; warning and operator intent remain explicit."
+
+[file.032]
+path = "storage/db_engine/litt/db.go"
+lines = 44
+verdict = "issues"
+note = "Reviewed the full DB interface and lifecycle comments; hot root-membership claim exceeds the implemented API."
+
+[file.033]
+path = "storage/db_engine/litt/dbcache/cached_table.go"
+lines = 237
+verdict = "issues"
+note = "Reviewed primary/secondary cache population, read races, resizing and lifecycle delegation; cache liveness gap is recorded."
+
+[file.034]
+path = "storage/db_engine/litt/disktable/boundary_file.go"
+lines = 183
+verdict = "issues"
+note = "Reviewed decimal file loading, optional boundaries, monotonic updates and atomic persistence; signed narrowing issue is recorded."
+
+[file.035]
+path = "storage/db_engine/litt/disktable/boundary_file_test.go"
+lines = 263
+verdict = "clean"
+note = "Read lower/upper-bound initialization, serialization and update assertions against real files; invalid numeric extent gap is recorded at decoder."
+
+[file.036]
+path = "storage/db_engine/litt/disktable/control_loop.go"
+lines = 653
+verdict = "issues"
+note = "Reviewed write/flush/GC/iterator scheduling, oldest/newest key tracking, reservations and shutdown ordering; capacity rotation failure is recorded."
+
+[file.037]
+path = "storage/db_engine/litt/disktable/control_loop_messages.go"
+lines = 99
+verdict = "clean"
+note = "Reviewed every typed control message, payload and completion channel against all dispatch and sender sites."
+
+[file.038]
+path = "storage/db_engine/litt/disktable/disk_table.go"
+lines = 1006
+verdict = "issues"
+note = "Reviewed startup recovery, keymap rebuild, group validation, memory-to-disk handoff, queries, boundaries and lifecycle; nil request validation is recorded."
+
+[file.039]
+path = "storage/db_engine/litt/disktable/disk_table_flush_loop.go"
+lines = 1
+verdict = "clean"
+note = "The file contains only its package declaration; the active flush implementation is flush_loop.go and no duplicate loop is wired here."
+
+[file.040]
+path = "storage/db_engine/litt/disktable/disk_table_secondary_keys_test.go"
+lines = 549
+verdict = "clean"
+note = "Read complete primary/secondary validation, visibility, group atomicity, GC and restart coverage through real table paths."
+
+[file.041]
+path = "storage/db_engine/litt/disktable/disk_table_test.go"
+lines = 2256
+verdict = "issues"
+note = "Read all table builders, crash fixtures, truncation/missing-file cases and concurrency checks; stale V3 extent and post-reopen mutation are recorded."
+
+[file.042]
+path = "storage/db_engine/litt/disktable/flush_coordinator.go"
+lines = 142
+verdict = "clean"
+note = "Reviewed batching queue, rate limiter, timer and per-caller error responses; final coordinator stop is recorded against the shared monitor lifecycle."
+
+[file.043]
+path = "storage/db_engine/litt/disktable/flush_coordinator_test.go"
+lines = 128
+verdict = "clean"
+note = "Read batching and failure-monitor assertions against the real coordinator; graceful final-stop gap is captured with monitor lifecycle finding."
+
+[file.044]
+path = "storage/db_engine/litt/disktable/flush_loop.go"
+lines = 136
+verdict = "clean"
+note = "Reviewed FIFO flush/seal dispatch, durable-key handoff, snapshot links then upper-bound publication, and shutdown acknowledgment."
+
+[file.045]
+path = "storage/db_engine/litt/disktable/flush_loop_messages.go"
+lines = 44
+verdict = "clean"
+note = "Reviewed flush, seal and shutdown request types and their wait/completion channel contracts against the loop consumers."
+
+[file.046]
+path = "storage/db_engine/litt/disktable/forward_iterator.go"
+lines = 226
+verdict = "clean"
+note = "Reviewed reserved segment traversal, primary/secondary identity, value reads, boundary snapshots and idempotent resource release."
+
+[file.047]
+path = "storage/db_engine/litt/disktable/gc_filter_test.go"
+lines = 316
+verdict = "clean"
+note = "Read primary/secondary filtering, monotonic eligibility and segment retention cases through real keymaps and GC."
+
+[file.048]
+path = "storage/db_engine/litt/disktable/iterator_test.go"
+lines = 899
+verdict = "clean"
+note = "Read forward/reverse insertion order, alias flags, snapshot isolation, empty iteration and close/GC reservation tests."
+
+[file.049]
+path = "storage/db_engine/litt/disktable/keymap/keymap.go"
+lines = 54
+verdict = "clean"
+note = "Reviewed keymap lifecycle, address API and concrete backend selection against memory, Pebble and unsafe-Pebble constructors."
+
+[file.050]
+path = "storage/db_engine/litt/disktable/keymap/keymap_test.go"
+lines = 292
+verdict = "clean"
+note = "Read all backend storage/retrieval, delete, count and lifecycle cases against the 13-byte Address representation."
+
+[file.051]
+path = "storage/db_engine/litt/disktable/keymap/keymap_type.go"
+lines = 14
+verdict = "clean"
+note = "Reviewed stable backend type strings and type-file version discrimination against build and migration consumers."
+
+[file.052]
+path = "storage/db_engine/litt/disktable/keymap/keymap_type_file.go"
+lines = 119
+verdict = "clean"
+note = "Reviewed persisted keymap kind, strict file reads, create/delete lifecycle and decoder values against backend selection."
+
+[file.053]
+path = "storage/db_engine/litt/disktable/keymap/mem_keymap.go"
+lines = 90
+verdict = "clean"
+note = "Reviewed in-memory keys, serialized Address-independent mapping, locking, batch changes and Stop behavior against Keymap."
+
+[file.054]
+path = "storage/db_engine/litt/disktable/keymap/pebble_db_keymap.go"
+lines = 224
+verdict = "clean"
+note = "Reviewed Pebble options, sync/unsafe distinctions, batched Set/Delete, 13-byte address decoding, size and Stop lifecycle."
+
+[file.055]
+path = "storage/db_engine/litt/disktable/keymap/pebble_db_keymap_options_test.go"
+lines = 24
+verdict = "clean"
+note = "Read comparer and value-block option tests against actual Pebble options; current API and format assumptions match."
+
+[file.056]
+path = "storage/db_engine/litt/disktable/reverse_iterator.go"
+lines = 129
+verdict = "clean"
+note = "Reviewed reverse segment/key traversal, reservation ownership and shared table-close notification against Iterator."
+
+[file.057]
+path = "storage/db_engine/litt/disktable/segment/address_test.go"
+lines = 250
+verdict = "clean"
+note = "Read randomized address round-trips against all four fields and exact serialized width."
+
+[file.058]
+path = "storage/db_engine/litt/disktable/segment/key_file.go"
+lines = 362
+verdict = "issues"
+note = "Reviewed V3 key-kind and address encoding, swap/reload, truncated-group handling, flush/seal, snapshots and deletion."
+
+[file.059]
+path = "storage/db_engine/litt/disktable/segment/key_file_test.go"
+lines = 319
+verdict = "issues"
+note = "Read full key-file creation, read/truncate/swap and record-size cases; second truncation comparison is tautological."
+
+[file.060]
+path = "storage/db_engine/litt/disktable/segment/metadata_file.go"
+lines = 243
+verdict = "clean"
+note = "Reviewed legacy/V3 metadata decoding, strict sizes, sharding validation, seal persistence, links and deletion against scanner use."
+
+[file.061]
+path = "storage/db_engine/litt/disktable/segment/metadata_file_test.go"
+lines = 181
+verdict = "clean"
+note = "Read metadata field round-trips, version/size validation and seal/snapshot cases through real files."
+
+[file.062]
+path = "storage/db_engine/litt/disktable/segment/segment.go"
+lines = 1028
+verdict = "clean"
+note = "Reviewed sharded write ordering, grouped aliases, raw extents, durability joins, reads, snapshots, reservations and delete lifecycle."
+
+[file.063]
+path = "storage/db_engine/litt/disktable/segment/segment_path.go"
+lines = 150
+verdict = "clean"
+note = "Reviewed directory creation, hard-link backing and soft-link publication with filesystem sync policy and canonical paths."
+
+[file.064]
+path = "storage/db_engine/litt/disktable/segment/segment_path_test.go"
+lines = 82
+verdict = "clean"
+note = "Read path construction and real hard/soft-link lifecycle assertions against multi-root segment layout."
+
+[file.065]
+path = "storage/db_engine/litt/disktable/segment/segment_reader.go"
+lines = 146
+verdict = "clean"
+note = "Reviewed raw-byte reads by Address offset and length, file seeking and iterator consumption against V3 values."
+
+[file.066]
+path = "storage/db_engine/litt/disktable/segment/segment_scanner.go"
+lines = 384
+verdict = "issues"
+note = "Reviewed filename discovery, missing-file classification, orphan cleanup, range linking and recovered segment loading."
+
+[file.067]
+path = "storage/db_engine/litt/disktable/segment/segment_test.go"
+lines = 1018
+verdict = "clean"
+note = "Read sharded writes, group addresses, flush/seal, restart and reservation lifecycle cases against the real segment implementation."
+
+[file.068]
+path = "storage/db_engine/litt/disktable/segment/segment_version.go"
+lines = 31
+verdict = "clean"
+note = "Reviewed version constants and the current V3 producer selection against metadata and key-file decoders."
+
+[file.069]
+path = "storage/db_engine/litt/disktable/segment/shard_id_validation_test.go"
+lines = 51
+verdict = "clean"
+note = "Read concrete shard/address validation assertions against metadata limits and raw value access."
+
+[file.070]
+path = "storage/db_engine/litt/disktable/segment/value_file.go"
+lines = 334
+verdict = "clean"
+note = "Reviewed prefix-free value writes, buffered/file reads, fsync, sealing, snapshots and deletion; capacity mismatch belongs to control-loop preflight."
+
+[file.071]
+path = "storage/db_engine/litt/disktable/segment/value_file_test.go"
+lines = 184
+verdict = "clean"
+note = "Read real-file value offset/readback, flush visibility and seal/delete cases against raw V3 byte layout."
+
+[file.072]
+path = "storage/db_engine/litt/disktable/unlock.go"
+lines = 44
+verdict = "clean"
+note = "Reviewed explicit root lock deletion and error handling; multi-root fixture gap is recorded at its test."
+
+[file.073]
+path = "storage/db_engine/litt/littbuilder/build_utils.go"
+lines = 264
+verdict = "issues"
+note = "Reviewed keymap discovery/migration ownership, cached wrapping, metrics exporter setup and external metrics server lifecycle."
+
+[file.074]
+path = "storage/db_engine/litt/littbuilder/db_impl.go"
+lines = 278
+verdict = "issues"
+note = "Reviewed directory locks, table ownership, dropped-name reuse, Close/Destroy, metrics updates and lifecycle admission."
+
+[file.075]
+path = "storage/db_engine/litt/littdb_config.go"
+lines = 199
+verdict = "issues"
+note = "Reviewed all storage defaults, signed settings, durability, paths, cache and metrics configuration plus validation."
+
+[file.076]
+path = "storage/db_engine/litt/littdb_config_test.go"
+lines = 26
+verdict = "clean"
+note = "Read defaults/path-sanitization/validation cases against Config; signed invalid bounds are recorded at validation."
+
+[file.077]
+path = "storage/db_engine/litt/metrics/littdb_metrics.go"
+lines = 382
+verdict = "issues"
+note = "Reviewed every OTel name, type, unit and table attribute through reports and cache metrics creation; disk/logical read mismatch is recorded."
+
+[file.078]
+path = "storage/db_engine/litt/runtime_config.go"
+lines = 52
+verdict = "clean"
+note = "Reviewed injected context, clock, logger and fatal callback defaults against builder and storage loop consumers."
+
+[file.079]
+path = "storage/db_engine/litt/table.go"
+lines = 215
+verdict = "issues"
+note = "Reviewed every table/iterator lifecycle, retention and secondary-key contract; inconsistent exact byte-limit prose is recorded."
+
+[file.080]
+path = "storage/db_engine/litt/table_config.go"
+lines = 83
+verdict = "clean"
+note = "Reviewed namespace validation, 1..255 sharding bounds, volatile restart settings, cache sizing and GCFilter contract."
+
+[file.081]
+path = "storage/db_engine/litt/test/cache_test.go"
+lines = 192
+verdict = "clean"
+note = "Read cache weight, order, resize and thread-safe wrapper behavior against the concrete FIFO implementation."
+
+[file.082]
+path = "storage/db_engine/litt/test/db_test.go"
+lines = 393
+verdict = "clean"
+note = "Read multi-table namespace, configuration, close/destroy and dropped-name reuse paths through littbuilder.NewDB."
+
+[file.083]
+path = "storage/db_engine/litt/test/generate_example_tree_test.go"
+lines = 100
+verdict = "clean"
+note = "Read the intentionally manual filesystem documentation fixture and its multi-table/shard setup; it is not used as qualification evidence."
+
+[file.084]
+path = "storage/db_engine/litt/test/keymap_migration_test.go"
+lines = 294
+verdict = "clean"
+note = "Read real keymap backend migrations and reopened-data comparisons with V3 files; no retired service dependency is introduced."
+
+[file.085]
+path = "storage/db_engine/litt/test/lock_test.go"
+lines = 254
+verdict = "clean"
+note = "Read normal acquisition, stale/dead/live PID and process ownership tests; concurrent stale-takeover race is recorded at file_lock.go."
+
+[file.086]
+path = "storage/db_engine/litt/test/migration_data.go"
+lines = 170
+verdict = "clean"
+note = "Read all hand-maintained historical metadata/key/value byte fixtures against migration consumers; these are canonical compatibility data, not generated code."
+
+[file.087]
+path = "storage/db_engine/litt/test/migration_test.go"
+lines = 203
+verdict = "clean"
+note = "Read fixture materialization, directory movement, reopened historical values and current-format migration checks."
+
+[file.088]
+path = "storage/db_engine/litt/test/snapshot_test.go"
+lines = 674
+verdict = "clean"
+note = "Read rolling snapshot link layout, multiple volumes, upper/lower-bound exchange and resumed snapshots through real DB files."
+
+[file.089]
+path = "storage/db_engine/litt/test/table_test.go"
+lines = 620
+verdict = "issues"
+note = "Read every builder and table read/write/cache/TTL/boundary case; cached GC is excluded from the retention matrix."
+
+[file.090]
+path = "storage/db_engine/litt/test/unlock_test.go"
+lines = 171
+verdict = "issues"
+note = "Read force/purge lock recovery and data checks; purported multi-volume purge case supplies one combined path."
+
+[file.091]
+path = "storage/db_engine/litt/types/address.go"
+lines = 87
+verdict = "issues"
+note = "Reviewed exact 13-byte big-endian index/offset/shard/length codec; stale prefix comments disagree with raw-byte V3 reads."
+
+[file.092]
+path = "storage/db_engine/litt/types/key_kind.go"
+lines = 31
+verdict = "clean"
+note = "Reviewed standalone/primary/secondary/final-secondary enum values and grouping meaning against key-file writer/reader."
+
+[file.093]
+path = "storage/db_engine/litt/types/put_request.go"
+lines = 11
+verdict = "clean"
+note = "Reviewed primary value and optional secondary list shape against table-level whole-batch validation and segment writes."
+
+[file.094]
+path = "storage/db_engine/litt/types/scoped_key.go"
+lines = 15
+verdict = "clean"
+note = "Reviewed key, kind and Address fields against keymap handoff and key-file reconstruction."
+
+[file.095]
+path = "storage/db_engine/litt/types/secondary_key.go"
+lines = 15
+verdict = "clean"
+note = "Reviewed alias offset/length units and zero-copy subrange semantics against PutBatch validation and V3 writes."
+
+[file.096]
+path = "storage/db_engine/litt/util/cache.go"
+lines = 29
+verdict = "clean"
+note = "Reviewed generic cache operations and weight contracts against FIFO and thread-safe wrappers and table consumers."
+
+[file.097]
+path = "storage/db_engine/litt/util/cache_metrics.go"
+lines = 116
+verdict = "issues"
+note = "Reviewed instruments, units, attributes and per-cache gauge/counter reporting; multi-table series collision is recorded."
+
+[file.098]
+path = "storage/db_engine/litt/util/common.go"
+lines = 9
+verdict = "clean"
+note = "Reviewed the nanosecond-preserving time.Duration-to-milliseconds helper against metric and diagnostic unit conversions; no retired runtime reference appears."
+
+[file.099]
+path = "storage/db_engine/litt/util/constants.go"
+lines = 4
+verdict = "clean"
+note = "Reviewed litt.lock as the shared filename used by DB, CLI and table locks."
+
+[file.100]
+path = "storage/db_engine/litt/util/core_utils.go"
+lines = 19
+verdict = "clean"
+note = "Reviewed closer/error logging helper against migration tests; it preserves the underlying error in diagnostics."
+
+[file.101]
+path = "storage/db_engine/litt/util/enforce.go"
+lines = 18
+verdict = "clean"
+note = "Reviewed explicit invariants and duplicate-map checks against backup callers; invariant panic behavior is intentional."
+
+[file.102]
+path = "storage/db_engine/litt/util/error_monitor.go"
+lines = 118
+verdict = "issues"
+note = "Reviewed first-error atomics, callback, send/await cancellation and admission shutdown; missing final cancellation leaves batching workers active."
+
+[file.103]
+path = "storage/db_engine/litt/util/fifo_cache.go"
+lines = 104
+verdict = "clean"
+note = "Reviewed insertion/eviction order, byte-weight accounting, resizing and read behavior against Cache; retention invalidation belongs to wrapper integration."
+
+[file.104]
+path = "storage/db_engine/litt/util/file_lock.go"
+lines = 224
+verdict = "issues"
+note = "Reviewed process liveness, stale acquisition, exclusive creation, diagnostics, release and multi-root unwind; takeover race is recorded."
+
+[file.105]
+path = "storage/db_engine/litt/util/file_lock_test.go"
+lines = 612
+verdict = "clean"
+note = "Read live/stale PID and acquisition/release assertions against filesystem locks; race between simultaneous stale contenders is recorded at implementation."
+
+[file.106]
+path = "storage/db_engine/litt/util/file_utils.go"
+lines = 454
+verdict = "issues"
+note = "Reviewed all path checks, atomic writes/renames, syncing, directory creation and deep deletion; relative-link deletion issue is recorded."
+
+[file.107]
+path = "storage/db_engine/litt/util/file_utils_test.go"
+lines = 1481
+verdict = "clean"
+note = "Read file/directory safety, atomic operations and deep-delete cases against real filesystem state; relative-target gap is recorded at utility."
+
+[file.108]
+path = "storage/db_engine/litt/util/pprof.go"
+lines = 35
+verdict = "issues"
+note = "Reviewed profiler bind address, default mux and timeout; optional diagnostic mode exposes unauthenticated network access."
+
+[file.109]
+path = "storage/db_engine/litt/util/queue.go"
+lines = 73
+verdict = "clean"
+note = "Reviewed queue operations delegated to the deque against flush batching usage and empty-queue behavior."
+
+[file.110]
+path = "storage/db_engine/litt/util/random_access_deque.go"
+lines = 481
+verdict = "clean"
+note = "Reviewed wraparound, resize, forward/reverse iteration, bounds and ordered insertion search used for in-memory tracking."
+
+[file.111]
+path = "storage/db_engine/litt/util/recursive_move.go"
+lines = 185
+verdict = "issues"
+note = "Reviewed same-filesystem rename, copy/preserve, tree walking, fsync and source removal; symlink preflight contract failure is recorded."
+
+[file.112]
+path = "storage/db_engine/litt/util/recursive_move_test.go"
+lines = 185
+verdict = "clean"
+note = "Read file/tree move and preserve cases plus failures across real directories; root-symlink fast-path gap is recorded at implementation."
+
+[file.113]
+path = "storage/db_engine/litt/util/ssh.go"
+lines = 232
+verdict = "issues"
+note = "Reviewed host trust, key loading, remote commands, discovery parsing, rsync argv, durability and connection/session cleanup."
+
+[file.114]
+path = "storage/db_engine/litt/util/ssh_self_destruct_test.go"
+lines = 101
+verdict = "issues"
+note = "Read the full commented historical container lifecycle check; no executable cleanup assertion remains."
+
+[file.115]
+path = "storage/db_engine/litt/util/ssh_test.go"
+lines = 216
+verdict = "issues"
+note = "Read the full commented SSH integration suite; disabled coverage of still-registered backup transports is recorded."
+
+[file.116]
+path = "storage/db_engine/litt/util/ssh_test_utils.go"
+lines = 734
+verdict = "issues"
+note = "Read the full commented Docker SSH fixture, keys, lifecycle and filesystem support; no helper is compiled."
+
+[file.117]
+path = "storage/db_engine/litt/util/test_assertions.go"
+lines = 34
+verdict = "clean"
+note = "Reviewed bounded eventual polling, test failure diagnostics and duration behavior against storage tests."
+
+[file.118]
+path = "storage/db_engine/litt/util/test_logger.go"
+lines = 15
+verdict = "clean"
+note = "Reviewed test logger construction and output settings used by fixtures; no operational credentials or endpoint assumptions appear."
+
+[file.119]
+path = "storage/db_engine/litt/util/test_random.go"
+lines = 220
+verdict = "clean"
+note = "Reviewed seed replay/reporting, synchronized RNG access and bounded generators used by table/segment tests."
+
+[file.120]
+path = "storage/db_engine/litt/util/thread_safe_cache.go"
+lines = 48
+verdict = "clean"
+note = "Reviewed mutex coverage of every Cache operation and returned-value semantics against FIFO and cached-table callers."
+
+[file.121]
+path = "storage/db_engine/litt/util/units.go"
+lines = 88
+verdict = "clean"
+note = "Reviewed human-readable byte/time formatting and comma grouping against CLI and benchmark output units."
+
+[file.122]
+path = "storage/db_engine/litt/util/unsafe_string.go"
+lines = 12
+verdict = "clean"
+note = "Reviewed zero-copy byte-to-string conversion against callers that require immutable key byte slices for handle lifetime."
+
+[finding.key-durability]
+file = "storage/db_engine/litt/disktable/segment/key_file.go"
+line = 241
+class = "restart-recovery"
+severity = "high"
+observed = "keyFile.flush only calls bufio.Writer.Flush; createKeyFile retains no os.File and has no fsync setting. Segment.flush reports these key records durable and Seal persists metadata, while only value files are synced. A power loss can erase acknowledged keys, especially with the memory keymap or a rebuilt keymap."
+expected = "Table.Flush and DB.Close guarantee crash durability, including the keys needed to recover values and secondary aliases from sealed segments."
+proposal = "In storage/db_engine/litt/disktable/segment/key_file.go retain the file handle and the configured durability mode, sync key bytes before reporting flush completion or sealing metadata, and qualify recovery with durable keymap rebuild and power-loss fault coverage."
+owner_domain = 5
+interface = "5.fmt-litt-key-file-extension"
+
+[finding.key-descriptor-lifecycle]
+file = "storage/db_engine/litt/disktable/segment/key_file.go"
+line = 254
+class = "runtime-risk"
+severity = "medium"
+observed = "createKeyFile opens an os.File but stores only its buffered writer; seal drops that writer without closing the file. Every segment rotation leaves descriptor release to the Go finalizer rather than completing it during sealing."
+expected = "Sealing and closing a table should deterministically release writable file descriptors, including in long-running nodes that continually rotate segments."
+proposal = "In storage/db_engine/litt/disktable/segment/key_file.go retain and close the key file after a successful durable flush, and close it on constructor and seal error paths; verify repeated rotation keeps descriptor use bounded."
+owner_domain = 5
+interface = "5.go-storage-db-engine-litt-disktable-segment-segment"
+
+[finding.segment-capacity-rollover]
+file = "storage/db_engine/litt/disktable/control_loop.go"
+line = 491
+class = "interface-mismatch"
+severity = "high"
+observed = "handleWriteRequest rotates only after Segment.Write succeeds and shardSize is greater than targetFileSize. Segment.Write rejects offset+valueLength above MaxUint32. With the default MaxUint32 target a shard can never exceed the target, so legal sustained writes eventually trigger ErrorMonitor.Panic instead of opening another segment."
+expected = "Table.Put accepts legal values throughout the lifetime of a growing table; reaching the addressable limit of one shard must rotate storage without failing the database."
+proposal = "In storage/db_engine/litt/disktable/control_loop.go preflight capacity for the selected shard and the whole primary/secondary group, seal and rotate before overflow, and retry the unchanged group once; exercise rollover near MaxUint32 without allocating a full shard."
+owner_domain = 5
+interface = "5.go-storage-db-engine-litt-table"
+
+[finding.push-destination-flag]
+file = "storage/db_engine/litt/cli/push.go"
+line = 37
+class = "interface-mismatch"
+severity = "high"
+observed = "buildCLIParser registers the required StringSlice flag dst with alias d, but pushCommand reads StringSlice(\"dest\"). The documented --dst command therefore reaches no destinations provided before opening a transfer."
+expected = "The registered push --dst value must arrive unchanged as the destination list consumed by pushCommand and pushTable."
+proposal = "In storage/db_engine/litt/cli/push.go read the registered dst flag through a shared flag definition and add a real parser-to-command test that supplies --src, --dst and USER@HOST."
+owner_domain = 5
+interface = "5.cli-litt-push-flag-dst"
+
+[finding.sync-destination-flag]
+file = "storage/db_engine/litt/cli/sync.go"
+line = 36
+class = "interface-mismatch"
+severity = "high"
+observed = "syncCommand reads StringSlice(\"dest\"), whereas buildCLIParser registers only dst and d. Every invocation using the declared --dst spelling fails with no destinations provided."
+expected = "The registered sync --dst paths must reach syncEngine.destinations and subsequently the remote transfer and pruning operations."
+proposal = "In storage/db_engine/litt/cli/sync.go consume dst from the shared flag declaration and cover the registered command path with source and destination paths supplied by the parser."
+owner_domain = 5
+interface = "5.cli-litt-sync-flag-dst"
+
+[finding.snapshot-reclaim-range]
+file = "storage/db_engine/litt/cli/push.go"
+line = 334
+class = "restart-recovery"
+severity = "high"
+observed = "pushTable limits transfer to the published upper-bound.txt index, but passes the entire GatherSegmentFiles map to deleteLocalSegments, which releases every segment. A fully linked new segment observed before the publisher advances the upper bound is deleted although none of its files was transferred."
+expected = "The snapshot consumer may reclaim only segments whose complete file set was acknowledged by the backup destination; unpublished segments remain owned by the publisher."
+proposal = "In storage/db_engine/litt/cli/push.go build an explicit set of successfully transferred published segments, reclaim only that set, and advance the lower bound only through a contiguous acknowledged prefix; cover concurrent snapshot publication."
+owner_domain = 5
+interface = "5.fmt-litt-upper-bound-file-name"
+
+[finding.initial-segment-recovery]
+file = "storage/db_engine/litt/disktable/segment/segment_scanner.go"
+line = 359
+class = "restart-recovery"
+severity = "high"
+observed = "When the only metadata file belongs to damaged segment 0, GatherSegmentFiles decrements the uint32 highest index to MaxUint32 and increments the lowest to 1. It then attempts LoadSegment(1) and fails, rather than recovering the empty healthy set after an interrupted initial segment creation."
+expected = "Restart after a crash while creating the first segment must either recover existing acknowledged data or initialize an empty table when no healthy segment was committed."
+proposal = "In storage/db_engine/litt/disktable/segment/segment_scanner.go derive the range from surviving healthy indices before unsigned arithmetic, handle an empty survivor set explicitly, and add restart cases for each partially created segment-0 file set."
+owner_domain = 5
+interface = "5.go-storage-db-engine-litt-disktable-segment-gather-segment-files"
+
+[finding.cache-expiry-visibility]
+file = "storage/db_engine/litt/dbcache/cached_table.go"
+line = 138
+class = "interface-mismatch"
+severity = "high"
+observed = "CacheAwareGet and Exists return from writeCache/readCache without checking the base table; RunGC only delegates. After disk GC removes an expired segment and its keymap entries, cached keys still return values and true, while KeyCount and iterators report them absent. An idle cache can preserve this disagreement indefinitely."
+expected = "Table TTL and CacheAwareGet.exists describe one key set across cached reads, disk reads, aliases, iteration and restart, after garbage collection has removed a key."
+proposal = "In storage/db_engine/litt/dbcache/cached_table.go connect cache liveness to segment/key removal or validate cached entries against authoritative liveness, including secondary aliases; test cached reads and Exists after forced GC and after restart."
+owner_domain = 5
+interface = "5.go-storage-db-engine-litt-table"
+
+[finding.stale-lock-takeover]
+file = "storage/db_engine/litt/util/file_lock.go"
+line = 95
+class = "restart-recovery"
+severity = "high"
+observed = "Two contenders can both parse the same dead PID. After one removes the stale path and acquires a new lock, the other unconditionally removes that new path and acquires another lock. Release also unlinks by path without proving ownership. Two writers can consequently mutate the same table files."
+expected = "Directory locks must exclude concurrent database and CLI writers through stale-lock recovery, acquisition, ownership changes and release."
+proposal = "In storage/db_engine/litt/util/file_lock.go use an OS advisory lock on a stable inode with process-lifetime ownership, or an equivalently race-safe protocol; qualify concurrent stale takeover and ensure release cannot remove a successor lock."
+owner_domain = 5
+interface = "5.go-storage-db-engine-litt-util-new-file-lock"
+
+[finding.sync-period-bounds]
+file = "storage/db_engine/litt/cli/sync.go"
+line = 61
+class = "runtime-risk"
+severity = "medium"
+observed = "sync declares period as Uint64Flag but retrieves it through ctx.Int64. The pinned CLI library parses ordinary values such as 300 successfully, while values beyond MaxInt64 decode to zero. Zero is also accepted explicitly, and seconds-to-duration multiplication is unchecked; syncLoop passes the result directly to time.NewTicker, which panics for nonpositive durations."
+expected = "The unsigned period flag must be bounded to positive seconds representable as time.Duration before any background ticker is started."
+proposal = "In storage/db_engine/litt/cli/sync.go read the unsigned value and reject zero or values above MaxInt64/time.Second before conversion; qualify the real parser with the default 300, zero, overflow and a valid nondefault period."
+owner_domain = 5
+interface = "5.cli-litt-sync-flag-period"
+
+[finding.remote-prune-sources]
+file = "storage/db_engine/litt/cli/sync.go"
+line = 228
+class = "interface-mismatch"
+severity = "high"
+observed = "sync builds the remote command as litt prune --max-age N without any --src values. The prune parser marks src required and pruneCommand rejects an empty source list, so configured remote retention never operates on the destination directories."
+expected = "sync --max-age must invoke the declared prune command with the remote backup directories as its required source paths."
+proposal = "In storage/db_engine/litt/cli/sync.go pass every sync destination as a safely quoted remote prune --src argument, preserve the configured age, and qualify the actual remote parser with more than one destination."
+owner_domain = 5
+interface = "5.cli-litt-prune-flag-src"
+
+[finding.prune-unpublished-orphans]
+file = "storage/db_engine/litt/cli/prune.go"
+line = 104
+class = "runtime-risk"
+severity = "medium"
+observed = "pruneTable calls GatherSegmentFiles with cleanOrphans=true before loading the snapshot upper bound. The live snapshot publisher creates metadata, key and value links sequentially, so pruning can remove links of an in-progress unpublished segment before it applies the publication boundary."
+expected = "Offline pruning of a rolling snapshot must respect the live publisher ownership boundary before performing any destructive discovery or orphan cleanup."
+proposal = "In storage/db_engine/litt/cli/prune.go discover snapshot boundaries without mutation, limit loading and cleanup to the published set, and leave newer partial links to the publisher; qualify publication interleavings for every link type."
+owner_domain = 5
+interface = "5.fmt-litt-upper-bound-file-name"
+
+[finding.push-connection-close]
+file = "storage/db_engine/litt/cli/push.go"
+line = 119
+class = "runtime-risk"
+severity = "medium"
+observed = "push creates an SSHSession and returns through success and error paths without calling connection.Close. sync calls push repeatedly, accumulating SSH connections and associated server resources across backup intervals."
+expected = "Each backup attempt must release its SSH connection after all transfer workers finish, including when listing or transferring a table fails."
+proposal = "In storage/db_engine/litt/cli/push.go defer SSHSession.Close immediately after successful creation, wait for transfer workers on all exits, and verify repeated sync attempts leave no live sessions."
+owner_domain = 5
+interface = "5.go-storage-db-engine-litt-util-new-ssh-session"
+
+[finding.backup-durable-ack]
+file = "storage/db_engine/litt/util/ssh.go"
+line = 179
+class = "restart-recovery"
+severity = "high"
+observed = "Rsync executes rsync -z and treats process success as completion without requesting receiver fsync or a durable destination acknowledgment. pushTable immediately deletes transferred snapshot symlinks and hard links. If live TTL GC has removed the original, a receiver power loss can erase the only remaining copy after a successful backup."
+expected = "Reclaiming the local incremental backup must follow durable acceptance of the complete segment on the destination, so acknowledged backup data survives restart and power loss."
+proposal = "In storage/db_engine/litt/util/ssh.go and cli/push.go establish a durable remote segment commit that syncs received files and directory entries before acknowledging reclamation; retain local snapshot files until that acknowledgment and qualify receiver-crash recovery."
+owner_domain = 5
+interface = "5.go-storage-db-engine-litt-util-ssh-session"
+
+[finding.ssh-host-verification]
+file = "storage/db_engine/litt/util/ssh.go"
+line = 43
+class = "security"
+severity = "medium"
+observed = "NewSSHSession accepts empty knownHosts by installing ssh.InsecureIgnoreHostKey; Rsync uses StrictHostKeyChecking=no for the same case. Backup server identity verification can be disabled while database contents are transferred."
+expected = "Backup transports must authenticate the destination identity consistently on the SSH control channel and every rsync data connection."
+proposal = "In storage/db_engine/litt/util/ssh.go require a valid known-hosts trust source or an explicitly pinned host key for both transports, reject missing trust, and cover unknown and changed keys as hard transfer failures."
+owner_domain = 5
+interface = "5.go-storage-db-engine-litt-util-new-ssh-session"
+
+[finding.ssh-path-encoding]
+file = "storage/db_engine/litt/util/ssh.go"
+line = 106
+class = "security"
+severity = "medium"
+observed = "FindFiles embeds root in double quotes in a remote shell command, allowing command substitution in a path; Mkdirs embeds an unescaped single-quoted path. Rsync constructs ssh -e from unquoted key/trust paths, sync interpolates litt-binary into a shell command, and newline-separated find output splits valid filenames."
+expected = "Operator-supplied paths must remain literal path arguments across local argv, the SSH remote shell and remote file discovery, without changing commands or splitting filenames."
+proposal = "In storage/db_engine/litt/util/ssh.go and cli/sync.go centralize POSIX shell quoting for remote commands and binary paths, preserve ssh argument boundaries, and use protected rsync arguments with option termination; use NUL-delimited discovery and cover spaces, quotes, substitutions and newlines."
+owner_domain = 5
+interface = "5.go-storage-db-engine-litt-util-ssh-session"
+
+[finding.ssh-cancellation]
+file = "storage/db_engine/litt/util/ssh.go"
+line = 55
+class = "runtime-risk"
+severity = "medium"
+observed = "SSH client configuration has no dial timeout, session.Run has no deadline, and rsync uses exec.Command without a context. A stalled host can block backup indefinitely; syncEngine.Stop only cancels its ticker context and does not stop or join an in-flight transfer."
+expected = "Backup and sync must have bounded connection and transfer timeouts and must stop all active transport work before shutdown returns."
+proposal = "In storage/db_engine/litt/util/ssh.go accept a context and bounded deadlines for dial, control sessions and rsync; propagate syncEngine context in cli/sync.go and join canceled workers before run or Stop completes."
+owner_domain = 5
+interface = "5.go-storage-db-engine-litt-util-ssh-session"
+
+[finding.config-signed-bounds]
+file = "storage/db_engine/litt/littdb_config.go"
+line = 179
+class = "config-drift"
+severity = "medium"
+observed = "Config.Validate checks ControlChannelSize and MetricsUpdateInterval only for equality to zero, so negative signed values pass. A negative channel capacity later panics during table construction, and a negative metrics interval panics inside gatherMetrics time.NewTicker. Negative GCPeriod is rejected only later by NewDiskTable."
+expected = "Configuration validation must reject nonpositive capacities and active loop periods before locks, metrics servers or worker goroutines are acquired."
+proposal = "In storage/db_engine/litt/littdb_config.go validate signed capacities and active durations with positive bounds, keeping explicitly documented disabled modes; add negative-value validation cases that return errors before resource allocation."
+owner_domain = 5
+interface = "5.go-storage-db-engine-litt-config"
+
+[finding.build-after-close]
+file = "storage/db_engine/litt/littbuilder/db_impl.go"
+line = 180
+class = "runtime-risk"
+severity = "high"
+observed = "BuildTable never checks d.closed or d.stopped under d.lock. After Close releases all directory locks, an old DB handle can open a new table while another DB owns the same roots; later Close on the old handle returns early and leaves that new table active."
+expected = "Closing a DB ends its ability to create writable table handles and releases all resources exactly once without permitting writes outside directory-lock ownership."
+proposal = "In storage/db_engine/litt/littbuilder/db_impl.go reject BuildTable when closing or closed while holding the lifecycle lock, and cover Close followed by BuildTable both alone and with a reopened DB on the same roots."
+owner_domain = 5
+interface = "5.go-storage-db-engine-litt-db"
+
+[finding.table-constructor-unwind]
+file = "storage/db_engine/litt/littbuilder/build_utils.go"
+line = 222
+class = "runtime-risk"
+severity = "medium"
+observed = "buildTable acquires a keymap and returns directly if NewDiskTable fails. The acquired Pebble keymap is not stopped, and NewDiskTable can already have started a flush coordinator before segment gathering fails, leaving resources and the keymap lock behind."
+expected = "A failed table open must release every acquired keymap, worker and file so an operator can repair the cause and retry without restarting the process."
+proposal = "In storage/db_engine/litt/littbuilder/build_utils.go and disktable/disk_table.go transfer ownership only on successful construction; unwind keymap and coordinator resources on each earlier return and qualify a failed-open then successful-retry sequence."
+owner_domain = 5
+interface = "5.go-storage-db-engine-litt-disktable-new-disk-table"
+
+[finding.metrics-server-close]
+file = "storage/db_engine/litt/littbuilder/build_utils.go"
+line = 261
+class = "wiring-gap"
+severity = "medium"
+observed = "buildMetrics starts the HTTP server using runtimeConfig.CTX, which defaults to context.Background. DB.Close only sets stopped and releases storage locks; it does not cancel that server context. Reopening the DB can leave the old registry on the metrics port while the new server bind error is discarded by StartMetricsServer."
+expected = "The metrics endpoint lifecycle must follow the DB instance, release its listener on Close, and expose startup failures rather than serving a previous instance registry."
+proposal = "In storage/db_engine/litt/littbuilder create a DB-owned child context and listener shutdown handle, cancel and join metrics serving during Close, and propagate binding failures from storage/common/metrics before NewDB reports success."
+owner_domain = 5
+interface = "5.go-storage-common-metrics-start-metrics-server"
+
+[finding.global-metrics-provider]
+file = "storage/db_engine/litt/littbuilder/build_utils.go"
+line = 253
+class = "wiring-gap"
+severity = "medium"
+observed = "Every metrics-enabled NewDB calls SetupOtelPrometheus, which replaces the process-global OTel MeterProvider with a new registry. Existing DB instruments remain attached to their earlier provider while later instruments use the new one, and closing one DB shuts down its provider independently of other DB lifetimes."
+expected = "Multiple DB instances and the rest of the node must share an intentional metrics ownership model so opening or closing storage cannot disconnect another component instrumentation."
+proposal = "In storage/db_engine/litt/littbuilder/build_utils.go accept an injected meter/provider and registry owned by the node, or explicitly manage one shared process provider; qualify two DBs with independent tables through open and close."
+owner_domain = 5
+interface = "5.go-storage-common-metrics-setup-otel-prometheus"
+
+[finding.table-info-map-order]
+file = "storage/db_engine/litt/cli/table_info.go"
+line = 166
+class = "runtime-risk"
+severity = "medium"
+observed = "The snapshot size and key-count loop iterates a Go map and breaks when it encounters a segment above the upper bound. Map order is unspecified, so encountering an unpublished segment first omits valid lower segments and yields nondeterministic totals."
+expected = "table-info must count every published segment and exclude every unpublished one regardless of map iteration order."
+proposal = "In storage/db_engine/litt/cli/table_info.go skip out-of-bound entries or iterate the ordered published index range, then cover snapshots with several valid segments and a fully linked segment above the upper bound."
+owner_domain = 5
+interface = "5.cli-litt-table-info"
+
+[finding.boundary-index-range]
+file = "storage/db_engine/litt/disktable/boundary_file.go"
+line = 136
+class = "runtime-risk"
+severity = "medium"
+observed = "BoundaryFile.deserialize parses a signed machine-width integer with strconv.Atoi and casts it to uint32. On a 64-bit node, -1 and 4294967296 are accepted and wrap to MaxUint32 and 0, changing the publication or reclamation boundary."
+expected = "Snapshot boundary files encode decimal uint32 segment indices; negative or overflowing content must fail before backup, pruning or recovery trusts it."
+proposal = "In storage/db_engine/litt/disktable/boundary_file.go decode with strconv.ParseUint at 32 bits, retain whitespace normalization at the file loader, and cover negative, overflow and valid boundary extrema."
+owner_domain = 5
+interface = "5.go-storage-db-engine-litt-disktable-load-boundary-file"
+
+[finding.move-symlink-contract]
+file = "storage/db_engine/litt/util/recursive_move.go"
+line = 63
+class = "interface-mismatch"
+severity = "high"
+observed = "RecursiveMove promises to reject symlinks, but uses os.Stat on the source and moveFile tries os.Rename before ErrIfSymlink. A same-filesystem symlink source is therefore moved successfully rather than rejected; a root directory symlink is also followed by the initial classification."
+expected = "The registered RecursiveMove utility used by rebasing and migration must reject symbolic-link sources consistently before any mutation on both rename and copy paths."
+proposal = "In storage/db_engine/litt/util/recursive_move.go use Lstat and validate the root and file source before rename or traversal; qualify root-file, root-directory and nested symlinks for preserve and move modes across filesystem paths."
+owner_domain = 5
+interface = "5.go-storage-db-engine-litt-util-recursive-move"
+
+[finding.delete-relative-link]
+file = "storage/db_engine/litt/util/file_utils.go"
+line = 443
+class = "security"
+severity = "medium"
+observed = "DeepDelete passes the raw os.Readlink result to os.Remove. Relative link targets are resolved against the process working directory instead of the symlink parent, so cleanup can remove an unrelated same-named file or fail to delete the intended snapshot hard link."
+expected = "Deleting a snapshot link and its backing link must resolve relative targets relative to the containing directory and preserve unrelated files."
+proposal = "In storage/db_engine/litt/util/file_utils.go resolve relative link targets against filepath.Dir(path) before deletion and enforce the intended snapshot backing-tree policy; cover differing working directories and relative targets."
+owner_domain = 5
+interface = "5.go-storage-db-engine-litt-util-deep-delete"
+
+[finding.benchmark-config-validation]
+file = "storage/db_engine/litt/benchmark/config/benchmark_config.go"
+line = 150
+class = "config-drift"
+severity = "medium"
+observed = "LoadConfig rejects unknown JSON fields but performs no semantic validation. LittConfig:null reaches a nil dereference in NewBenchmarkEngine; zero writer or reader parallelism reaches integer division by zero, and negative channel sizes reach make(chan). Invalid durations and zero cohort sizes also reach runtime operations unchecked."
+expected = "Benchmark configuration must produce actionable validation errors before opening storage or allocating large data pools, channels or periodic workers."
+proposal = "In storage/db_engine/litt/benchmark/config/benchmark_config.go validate the nested config, positive worker and channel bounds, cohort size, finite sizes/rates and representable active durations; qualify null, zero, negative and overflow inputs through LoadConfig."
+owner_domain = 5
+interface = "5.go-storage-db-engine-litt-benchmark-config-load-config"
+
+[finding.benchmark-error-result]
+file = "storage/db_engine/litt/benchmark/benchmark_engine.go"
+line = 178
+class = "runtime-risk"
+severity = "medium"
+observed = "BenchmarkEngine.Run waits only for b.ctx or an OS signal. ErrorMonitor.Panic cancels its own child context and stops readers/writers but does not cancel b.ctx; a fatal workload error can leave Run waiting indefinitely, then return nil when its time limit or an interrupt arrives."
+expected = "The declared benchmark command must terminate with a nonzero result when its real workload fails, preserving the first storage or data-integrity error."
+proposal = "In storage/db_engine/litt/benchmark/benchmark_engine.go select on the monitor failure signal, propagate its recorded error from Run, stop and join the workload, and verify the CLI exit status for a real failed operation."
+owner_domain = 5
+interface = "5.go-storage-db-engine-litt-benchmark-new-benchmark-engine"
+
+[finding.benchmark-shutdown-drain]
+file = "storage/db_engine/litt/benchmark/benchmark_engine.go"
+line = 187
+class = "restart-recovery"
+severity = "medium"
+observed = "Run returns on timeout or signal without waiting for worker goroutines, closing DataTracker, or closing the DB. The executable then exits with outstanding cohort reports and accepted database writes, bypassing the deterministic drain already provided by DataTracker.Close."
+expected = "A successful benchmark stop must drain acknowledged metadata and database writes so the next benchmark run resumes from the completed workload."
+proposal = "In storage/db_engine/litt/benchmark/benchmark_engine.go stop new work, join readers and writers, call DataTracker.Close and DB.Close in a defined durability order, and propagate any close error before reporting successful termination."
+owner_domain = 5
+interface = "5.go-storage-db-engine-litt-benchmark-new-benchmark-engine"
+
+[finding.generator-seed]
+file = "storage/db_engine/litt/benchmark/data_generator.go"
+line = 35
+class = "runtime-risk"
+severity = "medium"
+observed = "NewDataGenerator initializes randPool and dataPool but never assigns DataGenerator.seed. Key and Value reseed with g.seed+index, so configured nonzero seeds do not distinguish key streams; changing Seed reuses keys while the pooled value bytes can change."
+expected = "Benchmark seed configuration must determine a consistent, distinct deterministic key/value stream and reproduce it across restart."
+proposal = "In storage/db_engine/litt/benchmark/data_generator.go retain the constructor seed and qualify both same-seed replay and different-seed separation over keys, pooled values and values larger than the pool."
+owner_domain = 5
+interface = "5.go-storage-db-engine-litt-benchmark-config-benchmark-config"
+
+[finding.generator-exact-pool]
+file = "storage/db_engine/litt/benchmark/data_generator.go"
+line = 67
+class = "runtime-risk"
+severity = "medium"
+observed = "Value handles lengths greater than the pool separately, but equal lengths take rng.Intn(len(dataPool)-valueLength), which is Intn(0) and panics. A zero pool and zero-length value has the same failure."
+expected = "The data generator must handle a requested value exactly as large as its configured randomness pool without a runtime panic."
+proposal = "In storage/db_engine/litt/benchmark/data_generator.go define the inclusive valid start-position range and the zero-size case, preserving deterministic replay, and cover below, equal and above pool size."
+owner_domain = 5
+interface = "5.go-storage-db-engine-litt-benchmark-config-benchmark-config"
+
+[finding.singleton-cohort-roundtrip]
+file = "storage/db_engine/litt/benchmark/cohort.go"
+line = 342
+class = "interface-mismatch"
+severity = "high"
+observed = "NewCohort serializes an inclusive lowIndex==highIndex range, and NextCohort(1, ...) creates that valid one-key cohort. LoadCohort calls deserialize, which rejects lowKeyIndex>=highKeyIndex. A cohort emitted by the producer cannot be loaded on the next run."
+expected = "The registered .cohort format must round-trip every valid inclusive range emitted by cohort creation, including a configured cohort size of one."
+proposal = "In storage/db_engine/litt/benchmark/cohort.go validate inclusive ranges consistently at construction and decode, reject only reversed or overflowed ranges, and qualify NewCohort and NextCohort singleton files through Write and LoadCohort."
+owner_domain = 5
+interface = "5.fmt-litt-cohort-file-extension"
+
+[finding.cohort-durability-restart]
+file = "storage/db_engine/litt/benchmark/cohort.go"
+line = 134
+class = "restart-recovery"
+severity = "medium"
+observed = "LoadCohort constructs Cohort without fsync, leaving it false. NewDataTracker creates its next active cohort via the loaded highest cohort NextCohort, which inherits that false value, silently dropping an explicitly enabled BenchmarkConfig.Fsync after restart."
+expected = "The active benchmark durability setting must apply to newly written cohort files on initial startup and after loading prior metadata."
+proposal = "In storage/db_engine/litt/benchmark/cohort.go and data_tracker.go pass the current durability policy into loaded cohorts or into next-cohort creation instead of inheriting a zero value; qualify a restarted tracker with Fsync enabled."
+owner_domain = 5
+interface = "5.fmt-litt-cohort-file-extension"
+
+[finding.cohort-gap-recovery]
+file = "storage/db_engine/litt/benchmark/data_tracker.go"
+line = 140
+class = "restart-recovery"
+severity = "medium"
+observed = "NewDataTracker iterates every integer between the minimum and maximum discovered cohort IDs and calls cohorts[i].IsComplete without checking presence. A missing middle cohort file therefore causes a nil-pointer panic rather than a bounded recovery error."
+expected = "Persisted benchmark metadata must be validated before use; missing cohort files must produce an explicit repairable error or a documented safe recovery path."
+proposal = "In storage/db_engine/litt/benchmark/data_tracker.go validate cohort contiguity and range consistency during discovery and return a contextual error for holes; cover startup with a missing interior cohort and retain intact neighboring files."
+owner_domain = 5
+interface = "5.fmt-litt-cohort-file-extension"
+
+[finding.genesis-cohort-count]
+file = "storage/db_engine/litt/benchmark/data_tracker.go"
+line = 156
+class = "runtime-risk"
+severity = "medium"
+observed = "The first cohort uses inclusive range 0..config.CohortSize, producing CohortSize+1 keys, while NextCohort uses nextLow+keyCount-1. The same configured count therefore describes different initial and subsequent workloads."
+expected = "CohortSize must denote the same positive number of keys for the initial cohort and every later cohort."
+proposal = "In storage/db_engine/litt/benchmark/data_tracker.go create the first inclusive range with high=CohortSize-1 after validating a positive size, and assert exact key counts for initial and restarted trackers."
+owner_domain = 5
+interface = "5.go-storage-db-engine-litt-benchmark-config-benchmark-config"
+
+[finding.benchmark-missing-read-success]
+file = "storage/db_engine/litt/benchmark/benchmark_engine.go"
+line = 294
+class = "test-gap"
+severity = "medium"
+observed = "The default PanicOnReadFailure is false and reader logs missing keys then continues; reportRead is called before existence and value verification. A workload with missing expected data can report read throughput and finish successfully, hiding a storage or tracking defect."
+expected = "A benchmark used as upgrade evidence must distinguish valid completed reads from missing or corrupt data and must fail qualification when expected data is absent."
+proposal = "In storage/db_engine/litt/benchmark/benchmark_engine.go count only verified reads as successful throughput, track missing reads explicitly, and return a failing result for integrity violations; repair the metadata race rather than accepting missing expected keys."
+owner_domain = 5
+interface = "5.go-storage-db-engine-litt-benchmark-new-benchmark-engine"
+
+[finding.disk-read-metric-semantics]
+file = "storage/db_engine/litt/metrics/littdb_metrics.go"
+line = 299
+class = "interface-mismatch"
+severity = "high"
+observed = "litt_bytes_read and litt_keys_read are declared as reads from disk, but ReportReadOperation increments both unconditionally even when cacheHit is true. cachedTable reports read-cache and write-cache hits through this method, so memory reads are emitted as disk traffic."
+expected = "The declared disk-read metric must measure disk reads consistently between the producer, cache wrapper, registry description and monitoring consumers."
+proposal = "In storage/db_engine/litt/metrics/littdb_metrics.go separate total logical read counters from disk-miss counters or update the contract and all consumers together; qualify cached, unflushed and disk-backed reads against exported samples."
+owner_domain = 5
+interface = "5.met-litt-litt-bytes-read"
+
+[finding.cache-metric-series-collision]
+file = "storage/db_engine/litt/util/cache_metrics.go"
+line = 78
+class = "runtime-risk"
+severity = "medium"
+observed = "CacheMetrics identifies a series only by cache name. LittDBMetrics creates one chunk_read and one chunk_write metrics object and buildTable shares them across every table. Each FIFO reports its own absolute size into the same gauge, so the displayed count and weight are whichever table recorded last rather than an aggregate."
+expected = "Per-table cache occupancy must remain distinguishable or be explicitly aggregated so monitoring accurately describes memory pressure across the whole DB."
+proposal = "In storage/db_engine/litt/util/cache_metrics.go and littbuilder/build_utils.go include stable database/table labels in cache metrics or aggregate occupancy centrally; qualify two tables with different cache sizes."
+owner_domain = 5
+interface = "5.met-litt-litt-chunk-cache-key-count"
+
+[finding.dashboard-latency-shape]
+file = "storage/db_engine/litt/benchmark/config/benchmark-grafana-dashboard.json"
+line = 603
+class = "interface-mismatch"
+severity = "high"
+observed = "The dashboard queries litt_write_latency_ms and analogous *_ms summary series with quantile legends and avg(series). LittDBMetrics emits *_latency_seconds OTel histograms using LatencyBuckets, so write/read/flush/GC latency panels cannot consume the declared producer series."
+expected = "Grafana queries must consume the actual Prometheus histogram family and second units emitted by the current metric exporter."
+proposal = "In storage/db_engine/litt/benchmark/config/benchmark-grafana-dashboard.json replace summary selectors with histogram_quantile over rate of the exported bucket series and sum/count averages, convert seconds only for display, and qualify all latency panels against a real scrape."
+owner_domain = 5
+interface = "5.met-litt-litt-write-latency-seconds"
+
+[finding.dashboard-counter-names]
+file = "storage/db_engine/litt/benchmark/config/benchmark-grafana-dashboard.json"
+line = 303
+class = "interface-mismatch"
+severity = "high"
+observed = "Throughput panels select rate(litt_bytes_written[...]) and rate(litt_bytes_read[...]). SetupOtelPrometheus uses the default OTel Prometheus exporter, which adds Prometheus counter suffixes and unit translation; the dashboard retains raw OTel instrument names rather than the exported counter names."
+expected = "Counter panel selectors must match the names emitted on the configured /metrics transport, including the exporter naming translation."
+proposal = "In storage/db_engine/litt/benchmark/config/benchmark-grafana-dashboard.json derive every counter selector from real exporter exposition, including its _total suffix and unit normalization, and qualify the throughput and cache-hit panels against that scrape."
+owner_domain = 5
+interface = "5.met-litt-litt-bytes-written"
+
+[finding.dashboard-datasource]
+file = "storage/db_engine/litt/benchmark/config/benchmark-grafana-dashboard.json"
+line = 27
+class = "config-drift"
+severity = "medium"
+observed = "Every panel embeds the fixed Prometheus datasource UID denye6lsft2bka, with no datasource input mapping. Importing the dashboard into an operator Grafana instance without that private UID leaves panels disconnected."
+expected = "The shipped dashboard must let the operator select the network Prometheus datasource during import or through a consistent datasource variable."
+proposal = "In storage/db_engine/litt/benchmark/config/benchmark-grafana-dashboard.json declare a Prometheus datasource input or variable and use it throughout panels and targets; qualify import into an instance with a different datasource UID."
+owner_domain = 5
+
+[finding.push-tests-disabled]
+file = "storage/db_engine/litt/cli/push_test.go"
+line = 3
+class = "test-gap"
+severity = "medium"
+observed = "All push integration tests are preserved only as comments after the package declaration because their Docker SDK dependency was removed. The push and sync commands remain registered, so there is no executable parser-to-SSH backup coverage for the shipped interface."
+expected = "Declared backup commands must have executable coverage of real flag parsing, remote transfer, retry and publication/reclamation boundaries."
+proposal = "In storage/db_engine/litt/cli/push_test.go restore executable integration coverage using a supported real sshd/rsync fixture without the removed Docker SDK; exercise declared --dst flags and interrupted multi-file transfers."
+owner_domain = 5
+interface = "5.cli-litt-push"
+
+[finding.ssh-tests-disabled]
+file = "storage/db_engine/litt/util/ssh_test.go"
+line = 3
+class = "test-gap"
+severity = "medium"
+observed = "The SSH utility tests, including host verification and transfer cases, are entirely commented out. NewSSHSession, FindFiles, Mkdirs and Rsync remain live backup dependencies without executable coverage of their real transports."
+expected = "SSH control and data channels must be tested with real host trust, literal paths, command failures and connection cleanup before backup is qualified."
+proposal = "In storage/db_engine/litt/util/ssh_test.go restore runnable tests against a supported local sshd with genuine keys and rsync, including changed-host rejection, quoted paths, cancellation and transfer durability failures."
+owner_domain = 5
+interface = "5.go-storage-db-engine-litt-util-ssh-session"
+
+[finding.ssh-fixture-disabled]
+file = "storage/db_engine/litt/util/ssh_test_utils.go"
+line = 3
+class = "dead-code"
+severity = "low"
+observed = "The entire former Docker SSH fixture implementation remains as comments and exposes no runnable setup or cleanup helper. Its presence can be mistaken for an available integration harness while all associated tests are inactive."
+expected = "The test tree should identify one maintained executable SSH fixture and clearly separate historical implementation text from active test support."
+proposal = "In storage/db_engine/litt/util/ssh_test_utils.go replace the commented Docker fixture with the supported real-sshd lifecycle helper when backup tests are restored, including deterministic teardown without importing the retired Docker SDK."
+owner_domain = 5
+
+[finding.ssh-fixture-lifecycle-disabled]
+file = "storage/db_engine/litt/util/ssh_self_destruct_test.go"
+line = 3
+class = "test-gap"
+severity = "low"
+observed = "The fixture self-destruct test is entirely commented out alongside the removed Docker helper, so no executable check proves cleanup of SSH test resources after interruption."
+expected = "Restored SSH integration coverage must clean up its child server and temporary credentials even after failure or cancellation."
+proposal = "In storage/db_engine/litt/util/ssh_self_destruct_test.go replace the historical container case with a runnable lifecycle case for the supported sshd fixture, checking process termination and temporary-resource removal."
+owner_domain = 5
+
+[finding.rebase-overlap-fixture]
+file = "storage/db_engine/litt/cli/rebase_test.go"
+line = 301
+class = "test-gap"
+severity = "medium"
+observed = "Both preserve and do-not-preserve branches of TestRebaseNtoNOverlap pass overlap=0 to rebaseTest. Despite the test name, neither exercises shared source/destination roots, the case most likely to expose unsafe movement or deletion."
+expected = "Rebase overlap tests must supply genuinely overlapping root sets and verify preserved and moved files through the actual rebasing path."
+proposal = "In storage/db_engine/litt/cli/rebase_test.go use genuine nonzero overlap in the move case, keep source/destination canonical sets identical to the paths used to build data, and test the preserve-mode overlap policy explicitly rather than labeling a disjoint case as overlap."
+owner_domain = 5
+interface = "5.cli-litt-rebase"
+
+[finding.v3-truncation-fixture]
+file = "storage/db_engine/litt/disktable/disk_table_test.go"
+line = 1268
+class = "test-gap"
+severity = "medium"
+observed = "truncatedValueFileTest computes requiredLength=offset+valueSize+4, assuming a length prefix that V3 valueFile.write no longer emits. It then manually deletes expected missing keys from the reopened keymap before assertions, so the fixture alters the recovery result it is supposed to validate."
+expected = "Recovery fixtures must use the producer raw V3 byte layout and inspect the keymap reconstructed by the real open path without correcting that keymap inside the test."
+proposal = "In storage/db_engine/litt/disktable/disk_table_test.go derive extent from Address.Offset and ValueSize with widened arithmetic, remove post-open keymap mutation by constructing a realistic interrupted durable state, and assert complete primary/secondary groups after reopen."
+owner_domain = 5
+interface = "5.fmt-litt-values-file-extension"
+
+[finding.truncated-key-tautology]
+file = "storage/db_engine/litt/disktable/segment/key_file_test.go"
+line = 179
+class = "test-gap"
+severity = "medium"
+observed = "The second truncation branch overwrites keys with file.readKeys and then compares each key against keys[i] from the same returned slice. It checks a count but cannot detect corruption of any surviving decoded key or address."
+expected = "Truncated key-file recovery must prove that each surviving record equals the original independently retained producer record."
+proposal = "In storage/db_engine/litt/disktable/segment/key_file_test.go retain the original input slice, read into a separate variable, and compare surviving key bytes, kind and address fields across header and payload truncations."
+owner_domain = 5
+interface = "5.fmt-litt-key-file-extension"
+
+[finding.cached-gc-coverage]
+file = "storage/db_engine/litt/test/table_test.go"
+line = 479
+class = "test-gap"
+severity = "medium"
+observed = "TestGarbageCollection iterates only noCacheTableBuilders even though the file defines cached builders. It cannot expose expired values surviving in read/write caches after the base keymap and segment files have been collected."
+expected = "The table-level retention contract must be qualified through the same cached wrapper built by littbuilder, including secondary aliases and cache-only existence checks."
+proposal = "In storage/db_engine/litt/test/table_test.go run GC scenarios through cached builders, warm both caches before advancing time, and assert Get, Exists, CacheAwareGet, KeyCount and iterators agree after collection."
+owner_domain = 5
+interface = "5.go-storage-db-engine-litt-table"
+
+[finding.purge-multivolume-fixture]
+file = "storage/db_engine/litt/test/unlock_test.go"
+line = 129
+class = "test-gap"
+severity = "medium"
+observed = "TestPurgeLocks builds a slice containing one path.Join expression that nests volume1, volume2 and volume3 instead of three root paths. The test therefore does not check purging and reacquiring locks on multiple volumes."
+expected = "The purge-lock option must be tested against every configured root, preserving data and restoring exclusive access across multiple drives."
+proposal = "In storage/db_engine/litt/test/unlock_test.go construct three separate canonical root entries, assert the fixture has three distinct roots and verify each root lock before purge, after reopen and after close."
+owner_domain = 5
+interface = "5.go-storage-db-engine-litt-disktable-unlock"
+
+[finding.nil-batch-request]
+file = "storage/db_engine/litt/disktable/disk_table.go"
+line = 731
+class = "runtime-risk"
+severity = "medium"
+observed = "PutBatch dereferences kv.Key before checking whether a batch element is nil. A caller-supplied nil *PutRequest causes a process panic instead of returning a validation error, despite the adjacent validation for nil keys, values and secondary requests."
+expected = "Malformed batch requests must fail validation before any request in the batch changes caches or is enqueued to storage."
+proposal = "In storage/db_engine/litt/disktable/disk_table.go reject nil batch entries before dereferencing them, preserve whole-batch prevalidation, and cover a nil entry following valid primary/secondary requests without observable mutation."
+owner_domain = 5
+interface = "5.go-storage-db-engine-litt-types-put-request"
+
+[finding.flush-coordinator-shutdown]
+file = "storage/db_engine/litt/util/error_monitor.go"
+line = 94
+class = "runtime-risk"
+severity = "medium"
+observed = "ErrorMonitor.Shutdown stores an error but never cancels its context, contrary to its signal comment. DiskTable.Close uses Shutdown for graceful draining, while the rate-limited flushCoordinator exits only on ImmediateShutdownRequired. A successful Close therefore leaves that coordinator waiting on its request channel."
+expected = "Graceful table closure must drain accepted work and then terminate every background loop; the shutdown API must distinguish admission closure from final cancellation."
+proposal = "In storage/db_engine/litt/util/error_monitor.go and disktable/flush_coordinator.go define separate drain and final-stop phases, cancel only after control-loop completion, and join the coordinator before Close returns; verify repeated open/close with flush batching enabled."
+owner_domain = 5
+interface = "5.go-storage-db-engine-litt-util-error-monitor"
+
+[finding.pprof-network-exposure]
+file = "storage/db_engine/litt/util/pprof.go"
+line = 26
+class = "security"
+severity = "medium"
+observed = "When the CLI pprof option is enabled, PprofProfiler.Start binds 0.0.0.0 and serves the default pprof mux without authentication. Any reachable peer can request profiling and process diagnostic data from an operational storage command."
+expected = "Diagnostic endpoints should default to a local administrative interface or an authenticated deployment-controlled listener."
+proposal = "In storage/db_engine/litt/util/pprof.go bind loopback by default and make any wider bind an explicit protected operator configuration; retain the header timeout and provide a shutdown path tied to the CLI context."
+owner_domain = 5
+interface = "5.go-storage-db-engine-litt-util-new-pprof-profiler"
+
+[finding.readme-key-limit]
+file = "storage/db_engine/litt/README.md"
+line = 47
+class = "doc-drift"
+severity = "medium"
+observed = "The feature list promises keys and values up to 2^32 bytes, while PutBatch enforces a 65535-byte primary/secondary key limit and the later request section already documents that smaller key format."
+expected = "Public feature claims must agree with the key-file uint16 length encoding and the request validation used by callers."
+proposal = "In storage/db_engine/litt/README.md state the exact 65535-byte key and MaxUint32-byte value limits consistently in the feature list and request sections, with matching examples."
+owner_domain = 5
+interface = "5.go-storage-db-engine-litt-table"
+
+[finding.readme-close-name]
+file = "storage/db_engine/litt/README.md"
+line = 299
+class = "doc-drift"
+severity = "medium"
+observed = "The flush section directs callers to Stop() and says Stop blocks until unflushed data is written. DB exposes Close(), with no Stop method, so the documented durability lifecycle call cannot be used."
+expected = "The clean-shutdown instructions must name the real DB.Close API and describe its concurrent-Put durability boundary."
+proposal = "In storage/db_engine/litt/README.md replace the stale Stop references with DB.Close and show checked close errors, preserving the actual contract for writes that overlap shutdown."
+owner_domain = 5
+interface = "5.go-storage-db-engine-litt-db"
+
+[finding.readme-unbounded-value]
+file = "storage/db_engine/litt/README.md"
+line = 387
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 387-394 say only the first byte must fit before the segment limit and infer arbitrarily large values. Segment.Write now requires the entire offset+length to fit uint32, and PutBatch rejects values above MaxUint32."
+expected = "The storage format explanation must describe bounded V3 value extents and the rotation behavior required to preserve legal writes."
+proposal = "In storage/db_engine/litt/README.md rewrite the segment-capacity explanation around the actual uint32 offset and length bounds, remove the arbitrary-size claim and document the corrected pre-write rotation behavior."
+owner_domain = 5
+interface = "5.go-storage-db-engine-litt-disktable-segment-segment"
+
+[finding.readme-shard-limit]
+file = "storage/db_engine/litt/README.md"
+line = 475
+class = "doc-drift"
+severity = "medium"
+observed = "The sharding-factor section permits 256 shards, but TableConfig.ShardingFactor and SetShardingFactor use uint8 and MaxShardingFactor is 255. The documented upper bound cannot be configured through the public type."
+expected = "Operator guidance must use the same inclusive 1..255 sharding-factor range as the public API and metadata encoding."
+proposal = "In storage/db_engine/litt/README.md change the upper bound to MaxShardingFactor=255 and explain that the factor itself is stored in a byte, while preserving runtime changes through SetShardingFactor."
+owner_domain = 5
+interface = "5.go-storage-db-engine-litt-max-sharding-factor"
+
+[finding.db-runtime-volume-doc]
+file = "storage/db_engine/litt/db.go"
+line = 15
+class = "doc-drift"
+severity = "medium"
+observed = "The DB feature comment promises changing volume membership at runtime without stopping the DB. The DB interface has no path-membership setter, and table roots are constructed from Config.Paths when the table is opened; the README describes stopping for root changes."
+expected = "The public DB contract must distinguish runtime sharding changes from offline root-list changes and rebasing."
+proposal = "In storage/db_engine/litt/db.go remove the unsupported hot volume-membership promise and document the actual stop, reconfigure/rebase and restart procedure, with Table.SetShardingFactor described separately."
+owner_domain = 5
+interface = "5.go-storage-db-engine-litt-db"
+
+[finding.address-prefix-doc]
+file = "storage/db_engine/litt/types/address.go"
+line = 14
+class = "doc-drift"
+severity = "medium"
+observed = "Address comments at lines 14-16, 21-22 and 27 describe an offset pointing to a four-byte length prefix. V3 valueFile.write emits raw value bytes and segmentReader reads Address.ValueSize bytes starting at Address.Offset, including secondary subranges."
+expected = "The registered 13-byte Address layout must document raw-byte offsets and lengths as consumed by V3 reads and secondary aliases."
+proposal = "In storage/db_engine/litt/types/address.go describe Offset as the first referenced byte and ValueSize as its exact span with no prefix; align the storage-format prose and truncation fixtures with this definition."
+owner_domain = 5
+interface = "5.go-storage-db-engine-litt-types-address"
+
+[finding.table-api-size-doc]
+file = "storage/db_engine/litt/table.go"
+line = 57
+class = "doc-drift"
+severity = "medium"
+observed = "Get documents a maximum key size of 2^32 bytes, while Put and PutBatch enforce 2^16-1. The value comments also use 2^32 as an inclusive maximum although validation and Address.ValueSize cap values at MaxUint32."
+expected = "Table method documentation must share exact representable byte limits for keys and values so callers can validate requests consistently."
+proposal = "In storage/db_engine/litt/table.go use named or exact numeric limits consistently across Put, PutBatch and Get, and align the request type and README descriptions with the existing uint16/uint32 validation."
+owner_domain = 5
+interface = "5.go-storage-db-engine-litt-table"
+
+[finding.cli-doc-installation]
+file = "storage/db_engine/litt/docs/littdb_cli.md"
+line = 11
+class = "doc-drift"
+severity = "medium"
+observed = "Installation lines 11-50 clone Layr-Labs/eigenda and use eigenda/litt build and binary paths. The audited implementation is the monorepo storage/db_engine/litt package, so these instructions install a different codebase."
+expected = "The network storage CLI installation guide must build the audited monorepo implementation and identify its real output binary."
+proposal = "In storage/db_engine/litt/docs/littdb_cli.md replace repository, working-directory, alias, PATH and copy examples with the supported Paxeer monorepo source location and storage/db_engine/litt/bin/litt output."
+owner_domain = 5
+interface = "5.cli-litt"
+
+[finding.cli-doc-validator-config]
+file = "storage/db_engine/litt/docs/littdb_cli.md"
+line = 68
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 68-96 and 186-192 present EigenDA validator NODE_LITT_DB_STORAGE_PATHS, NODE_DB_PATH and chunk_v2_litt as operational configuration. This slice uses Config.Paths and explicit CLI --src values; it does not read those validator environment names."
+expected = "Merged-network operator guidance must identify the actual owning node configuration and how its storage paths map to CLI source roots."
+proposal = "In storage/db_engine/litt/docs/littdb_cli.md replace upstream validator instructions with the supported node configuration-to-Config.Paths mapping, or clearly label historical migration material and provide current source-selection examples."
+owner_domain = 5
+interface = "5.cli-litt-ls-flag-src"
+
+[finding.cli-doc-invalid-json]
+file = "storage/db_engine/litt/docs/littdb_cli.md"
+line = 206
+class = "doc-drift"
+severity = "medium"
+observed = "The benchmark JSON example leaves a trailing comma after LittConfig.Paths before the closing object. The real LoadConfig uses the standard JSON decoder and rejects that example before starting the workload."
+expected = "The published benchmark configuration example must be accepted unchanged by the strict production loader."
+proposal = "In storage/db_engine/litt/docs/littdb_cli.md remove the trailing comma and keep the example synchronized with benchmark/config/basic-config.json, qualifying the documented bytes through LoadConfig."
+owner_domain = 5
+interface = "5.go-storage-db-engine-litt-benchmark-config-load-config"
+
+[finding.cli-doc-restore-mode]
+file = "storage/db_engine/litt/docs/littdb_cli.md"
+line = 268
+class = "doc-drift"
+severity = "medium"
+observed = "Restore instructions say to push directly from backup roots without mentioning --no-gc. A received backup contains ordinary segment files, and pushTable explicitly rejects a non-snapshot source unless --no-gc is set."
+expected = "The documented restore command must satisfy the real non-snapshot safety check and preserve backup data during restoration."
+proposal = "In storage/db_engine/litt/docs/littdb_cli.md provide a complete restore example with --no-gc, every backup source root, destination roots and the stopped-target requirement; explain that the archive remains retained."
+owner_domain = 5
+interface = "5.cli-litt-push-flag-no-gc"
+
+[finding.architecture-cache-deletion]
+file = "storage/db_engine/litt/docs/architecture.md"
+line = 53
+class = "doc-drift"
+severity = "medium"
+observed = "The cache design says deletion removes data from both file and cache. The shipped cachedTable forwards GC and TTL changes to the base without removing read/write cache entries, so the page describes an invariant the implementation does not currently maintain."
+expected = "The architecture description must distinguish the intended cache invalidation invariant from the actual current retention behavior until that invariant is implemented."
+proposal = "In storage/db_engine/litt/docs/architecture.md explain the segment-driven cache invalidation mechanism after the cached-table repair and link the real retention test; until then document the current gap rather than asserting cache deletion."
+owner_domain = 5
+interface = "5.go-storage-db-engine-litt-dbcache-new-cached-table"
+
+[doc.readme]
+path = "storage/db_engine/litt/README.md"
+status = "stale"
+notes = "Full page read. Lines 47 and 141 disagree with exact key/value bounds; lines 299-300 use nonexistent Stop; lines 387-394 promise unbounded values; line 475 permits unsupported factor 256. Findings name the corresponding owners."
+
+[doc.cli]
+path = "storage/db_engine/litt/docs/littdb_cli.md"
+status = "stale"
+notes = "Full page read. Lines 11-50 build upstream EigenDA; lines 68-96 and 186-192 use upstream validator configuration; line 206 is invalid JSON; lines 268-269 omit required --no-gc for restore."
+
+[doc.filesystem]
+path = "storage/db_engine/litt/docs/filesystem_layout.md"
+status = "accurate"
+notes = "Full page and example tree read. Root/table/keymap layout, V3 shard filenames, hard-link-backed snapshot symlinks and boundary-file roles match the producers. Lock and durability implementation defects are recorded against their source files."
+
+[doc.architecture]
+path = "storage/db_engine/litt/docs/architecture.md"
+status = "stale"
+notes = "Full design evolution read. Final round-robin shard placement agrees with the implementation; line 53 describes cache removal on deletion that the current cached wrapper does not implement."
+
+[doc.contract]
+path = "spec/layerx-merge/contracts/sequencer.md"
+status = "accurate"
+notes = "Reviewed the Litt-specific node-storage, node-cli and node-metrics declarations referenced by this package, together with their registry rows; this verdict is limited to those sections. The current exported symbols and CLI names are declared accurately; failed runtime and monitoring round-trips are recorded as findings."
+
+[finding.rebase-path-fixture]
+file = "storage/db_engine/litt/cli/rebase_test.go"
+line = 53
+class = "test-gap"
+severity = "medium"
+observed = "rebaseTest constructs sourceDir with path.Join(testDir, name), then joins testDir onto it again for sourceDirList while storing the singly joined path in sourceDirSet and overlapping destinations. The actual data roots and the expected overlap roots are therefore different paths."
+expected = "The rebase fixture must use exactly the same canonical source paths for DB creation, overlap construction and expected-directory assertions."
+proposal = "In storage/db_engine/litt/cli/rebase_test.go append sourceDir directly and derive both sets from the final lists; assert fixture intersections before rebasing and qualify actual overlapping move roots without weakening data or directory checks."
+owner_domain = 5
+interface = "5.cli-litt-rebase"
+
+[finding.benchmark-script-paths]
+file = "storage/db_engine/litt/benchmark/run.sh"
+line = 19
+class = "runtime-risk"
+severity = "medium"
+observed = "The script resolves BINARY_PATH and CONFIG_PATH but expands both unquoted in its final invocation. A valid repository or JSON configuration path containing spaces is split into multiple arguments, so the standalone main either cannot start or rejects the argument count."
+expected = "The benchmark launcher must pass one literal configuration filename to its executable regardless of whitespace or shell glob characters in the path."
+proposal = "In storage/db_engine/litt/benchmark/run.sh quote the executable and configuration expansions and use an explicit exec handoff; qualify launch from a directory and config filename containing spaces without changing the standalone argument contract."
+owner_domain = 5
+interface = "5.go-storage-db-engine-litt-benchmark-new-benchmark-engine"

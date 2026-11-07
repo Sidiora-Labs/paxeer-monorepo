@@ -1,0 +1,6 @@
+[repair.go-precompiles.113]
+target = "precompiles/layerxagent/scheduler"
+command = "CGO_ENABLED=1 go vet ./precompiles/layerxagent/scheduler/ && CGO_ENABLED=1 go test -count=1 ./precompiles/layerxagent/scheduler/"
+revision = "c69af8b6706e55a243bc0f3a0e184b872b900e14"
+result = "already-passing"
+change = "No scheduler files changed; the wallet consumer uses the SDK dependencies already declared in services/agent/sdk/typescript/package-lock.json."

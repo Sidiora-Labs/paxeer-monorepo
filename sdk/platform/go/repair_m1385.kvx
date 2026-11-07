@@ -1,0 +1,42 @@
+[task]
+id = "22.33.1385"
+audit = "22.30.76"
+base = "9e535b4932ba8111a729a5cef10e0ca2370ca435"
+acceptance = "22998.1"
+status = "Implementation recorded here; qualification is exclusively the bounded hf-build/hf-done ledger."
+baseline = "Initial git status/diff contained only runner-owned .cgignore and task-start spec changes; no Go edits or previous gate ledger existed. No baseline test was run: the explicit Order prohibits testing before complete implementation and permits verification only through hf-done. No pre-change failing test is claimed."
+evidence = "The terminating hf-done JSON and private /out/run/gates.jsonl identify the exact verified candidate revision, command, exit and log; this record belongs to that same candidate, with no source edits after qualification."
+
+[finding.program-corpus-third-shape]
+test = "TestRepairM_1385_program_corpus_third_shape"
+repair = "Migrate TestProgramTerminalV5NativeCorpus to all twelve unchanged sequencer-receipt-v1 producer cases, their retained EVM transactions and independent ReceiptKeys. Exercise real JSON-RPC HTTP Activity transport and public VerifyProgramReceipt, compare signed bytes, digest, current rung, transaction state and authenticated program identity/ABI/result. Refuse malformed producer proofs, missing/substituted transaction evidence, unpinned keys, wrong identities/ABI/module, retired terminal/graph/outcome claims and signature tampering."
+codec = "Preserve the ten-case historical terminal-v5 corpus as TestProgramTerminalV5HistoricalCodecCorpus, using the internal terminal verifier rather than a public kernel-verification success. Retain its signature, activity-binding, accounting, truncation, trailing-byte, wrong-program, ABI, graph and public legacy-refusal assertions. The focused gate separately executes committed terminal/outcome codec and malformed wrapper tests."
+
+[finding.secret-callback-deadlock]
+test = "TestRepairM_1385_secret_callback_deadlock"
+concurrency_test = "TestRepairM_1385_secret_concurrent_cleanup"
+repair = "Expose snapshots material under the mutex and invokes consumers after unlocking. Each isolated borrow is wiped on normal return, error or panic; mutation does not change stored material or another borrow. Destroy immediately zeroizes stored material, rejects new borrows and remains idempotent without waiting on active callbacks; active snapshots remain valid only until callback return. Prove reentrant exposure, callback-triggered destruction, error/panic propagation, all copy zeroization and 32 simultaneous borrowers with 32 concurrent Destroy calls."
+
+[finding.stream-unbounded-history]
+test = "TestRepairM_1385_stream_unbounded_history"
+repair = "Keep only the last 256 acknowledged cursor identities in a fixed ring and map, alongside the independently validated pending page. Evict at acknowledgment, release acknowledged event payloads and release the drained page. Exercise 2048 four-event pages through real Human HTTP transport/source, assert the bound after every acknowledgment, reject recent/checkpoint/page duplicates and malformed pagination without state changes, and preserve partial retries and persisted checkpoint reopen recovery."
+ordering = "Cursors are opaque; the server enforces ordering relative to the supplied acknowledged checkpoint. Local historical replay detection is explicitly limited to the last 256 acknowledgments and duplicates within the pending page."
+
+[finding.exported-kernel-lifecycle-verifier]
+test = "TestRepairM_1385_exported_kernel_lifecycle_verifier"
+repair = "Keep the exported signature for source compatibility but always return a receipt-shape verification refusal and zero evidence. Prove refusal with the unchanged, independently signature-checked layerxd deploy receipt. Update the existing signed CALL control to refuse a correctly signed legacy lifecycle receipt and retain its CALL refusal. The existing native Programs.LifecycleReceipt caller already uses EVM TransactionHash through Activity; exercise that real RPC path with unchanged signed EVM producer receipts, current levels, foreign-pin refusal and missing-identity refusal. The old internal submission decoder can no longer return verified kernel success."
+
+[wiring.historical-terminal-corpus]
+request = "programs native terminal fixture producer and sdk/platform/conformance/fixtures — domain 8 Programs/platform SDK: commit the existing ten-case native terminal-v5 corpus for the separate historical codec suite; it remains an external fixture requirement outside this focused gate, with no invented producer messages or native subprocess added here."
+
+[wiring.native-lifecycle-fixtures]
+request = "sdk/platform/conformance/fixtures — domain 8 native Programs/platform SDK: retain authenticated JSON EVM deploy/upgrade/wind-down receipt transcripts alongside signed EVM transactions and independent pins; existing committed conformance coverage supplies the common EVM receipt consumer path and does not claim that a CALL or ledger receipt proves a lifecycle operation."
+
+[gotcha.scope]
+observed = "Task instructions exclude spec/ and GOTCHA.kvx writes, commits and pushes; in-scope records retain finding mappings and wiring notes, while runner-owned initial bookkeeping stays untouched."
+
+[gotcha.baseline-order]
+observed = "Step 8 asks for an unchanged-tree baseline, but explicit Order requires complete implementation before any test and prohibits invoking verify_cmd outside hf-done; follow the explicit Order and do not invent baseline evidence."
+
+[gotcha.historical-codec]
+observed = "The external terminal-v5 corpus was already recorded as unavailable by repair_141.kvx; its separate codec suite is retained without rerunning or investigating that recorded external requirement."

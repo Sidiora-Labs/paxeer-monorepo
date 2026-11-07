@@ -13,7 +13,7 @@ defmodule EthereumJSONRPC.Block.ByTag do
     ## Parameters
     - `%{id: id, tag: tag}`: Request parameters where:
       - `id`: Request identifier as a binary or non-negative integer
-      - `tag`: Semantic tag (e.g. "latest", "earliest", "pending") as a binary string
+      - `tag`: Semantic tag ("earliest", "latest", "pending", "safe", or "finalized") sent unchanged as a binary string
 
     ## Returns
     A JSON-RPC 2.0 request map for the `eth_getBlockByNumber` method with `false` for transaction details
@@ -57,6 +57,7 @@ defmodule EthereumJSONRPC.Block.ByTag do
 
   def number_from_result({:ok, nil}), do: {:error, :not_found}
 
+  def number_from_result({:error, %{code: -32602}}), do: {:error, :invalid_tag}
   def number_from_result({:error, %{"code" => -32602}}), do: {:error, :invalid_tag}
   def number_from_result({:error, _} = error), do: error
 end

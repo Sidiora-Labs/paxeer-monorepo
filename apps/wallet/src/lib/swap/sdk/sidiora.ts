@@ -13,31 +13,45 @@
  *   const tx    = await buy("0xPool...", parseUnits("5", 6), signer);
  */
 
-import { ethers } from "ethers";
-import { CONTRACTS, TOKENS, RPC_URL, MAX_UINT256 } from "./addresses";
-import { SIDIORA_POOL_REGISTRY_ABI, SIDIORA_POOL_ABI, SIDIORA_QUOTER_ABI, SIDIORA_ROUTER_ABI, ERC20_ABI } from "./abis";
-import type { PoolState, SidioraQuoteResult, SidioraMultihopQuoteResult, SidioraSwapParams } from "./types";
+import { ethers } from 'ethers';
+import { CONTRACTS, TOKENS, RPC_URL, MAX_UINT256 } from './addresses';
+import {
+  SIDIORA_POOL_REGISTRY_ABI,
+  SIDIORA_POOL_ABI,
+  SIDIORA_QUOTER_ABI,
+  SIDIORA_ROUTER_ABI,
+  ERC20_ABI,
+} from './abis';
+import type {
+  PoolState,
+  SidioraQuoteResult,
+  SidioraMultihopQuoteResult,
+  SidioraSwapParams,
+  SidioraMultihopConfirmation,
+} from './types';
 
-const TRANSFER_TOPIC = "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef";
-const TOKEN_FN_CANDIDATES = ["tokenAddress", "token", "launchToken", "memeToken", "saleToken"];
+const TRANSFER_TOPIC = '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef';
+const TOKEN_FN_CANDIDATES = ['tokenAddress', 'token', 'launchToken', 'memeToken', 'saleToken'];
 
 function sidDeadline(seconds = 300): bigint {
-    return BigInt(Math.floor(Date.now() / 1000) + seconds);
+  return BigInt(Math.floor(Date.now() / 1000) + seconds);
 }
 
 // ─── Pool Discovery ───────────────────────────────────────────────────────────
 
 /** Look up a pool address for a given token via the registry. */
 export async function getPoolByToken(
-    tokenAddress: string,
-    provider?: ethers.Provider
+  tokenAddress: string,
+  provider?: ethers.Provider
 ): Promise<string | null> {
-    const p = provider ?? new ethers.JsonRpcProvider(RPC_URL);
-    const registry = new ethers.Contract(CONTRACTS.PoolRegistry, SIDIORA_POOL_REGISTRY_ABI, p);
-    try {
-        const pool = await registry.getPoolByToken(tokenAddress) as string;
-        return pool && pool !== ethers.ZeroAddress ? pool : null;
-    } catch { return null; }
+  const p = provider ?? new ethers.JsonRpcProvider(RPC_URL);
+  const registry = new ethers.Contract(CONTRACTS.PoolRegistry, SIDIORA_POOL_REGISTRY_ABI, p);
+  try {
+    const pool = (await registry.getPoolByToken(tokenAddress)) as string;
+    return pool && pool !== ethers.ZeroAddress ? pool : null;
+  } catch {
+    return null;
+  }
 }
 
 /**
@@ -45,90 +59,92 @@ export async function getPoolByToken(
  * Tries common view function names; returns null if none exposed.
  */
 export async function getPoolToken(
-    poolAddress: string,
-    provider?: ethers.Provider
+  poolAddress: string,
+  provider?: ethers.Provider
 ): Promise<string | null> {
-    const p = provider ?? new ethers.JsonRpcProvider(RPC_URL);
-    for (const fn of TOKEN_FN_CANDIDATES) {
-        try {
-            const result = await p.call({ to: poolAddress, data: ethers.id(`${fn}()`).slice(0, 10) });
-            if (result && result !== "0x" && result.length >= 66) {
-                const addr = ethers.AbiCoder.defaultAbiCoder().decode(["address"], result)[0] as string;
-                if (addr && addr !== ethers.ZeroAddress) return addr;
-            }
-        } catch { /* try next */ }
+  const p = provider ?? new ethers.JsonRpcProvider(RPC_URL);
+  for (const fn of TOKEN_FN_CANDIDATES) {
+    try {
+      const result = await p.call({ to: poolAddress, data: ethers.id(`${fn}()`).slice(0, 10) });
+      if (result && result !== '0x' && result.length >= 66) {
+        const addr = ethers.AbiCoder.defaultAbiCoder().decode(['address'], result)[0] as string;
+        if (addr && addr !== ethers.ZeroAddress) return addr;
+      }
+    } catch {
+      /* try next */
     }
-    return null;
+  }
+  return null;
 }
 
 /** Full pool state including token address (null if not discoverable). */
 export async function getPoolState(
-    poolAddress: string,
-    provider?: ethers.Provider
+  poolAddress: string,
+  provider?: ethers.Provider
 ): Promise<PoolState> {
-    const p = provider ?? new ethers.JsonRpcProvider(RPC_URL);
-    const pool = new ethers.Contract(poolAddress, SIDIORA_POOL_ABI, p);
-    const [priceRaw, reserves, token] = await Promise.all([
-        pool.getPrice() as Promise<bigint>,
-        pool.getReserves() as Promise<[bigint, bigint, bigint]>,
-        getPoolToken(poolAddress, p),
-    ]);
-    return {
-        pool: poolAddress,
-        token,
-        price: priceRaw,
-        virtualUsdl: reserves[0],
-        realUsdl: reserves[1],
-        tokenReserve: reserves[2],
-    };
+  const p = provider ?? new ethers.JsonRpcProvider(RPC_URL);
+  const pool = new ethers.Contract(poolAddress, SIDIORA_POOL_ABI, p);
+  const [priceRaw, reserves, token] = await Promise.all([
+    pool.getPrice() as Promise<bigint>,
+    pool.getReserves() as Promise<[bigint, bigint, bigint]>,
+    getPoolToken(poolAddress, p),
+  ]);
+  return {
+    pool: poolAddress,
+    token,
+    price: priceRaw,
+    virtualUsdl: reserves[0],
+    realUsdl: reserves[1],
+    tokenReserve: reserves[2],
+  };
 }
 
 // ─── Quotes ───────────────────────────────────────────────────────────────────
 
 export async function quoteBuy(
-    poolAddress: string,
-    usdlAmountIn: bigint,
-    provider?: ethers.Provider
+  poolAddress: string,
+  usdlAmountIn: bigint,
+  provider?: ethers.Provider
 ): Promise<SidioraQuoteResult> {
-    const p = provider ?? new ethers.JsonRpcProvider(RPC_URL);
-    const quoter = new ethers.Contract(CONTRACTS.Quoter, SIDIORA_QUOTER_ABI, p);
-    return quoter.quoteExactInput(poolAddress, usdlAmountIn, true) as Promise<SidioraQuoteResult>;
+  const p = provider ?? new ethers.JsonRpcProvider(RPC_URL);
+  const quoter = new ethers.Contract(CONTRACTS.Quoter, SIDIORA_QUOTER_ABI, p);
+  return quoter.quoteExactInput(poolAddress, usdlAmountIn, true) as Promise<SidioraQuoteResult>;
 }
 
 export async function quoteSell(
-    poolAddress: string,
-    tokenAmountIn: bigint,
-    provider?: ethers.Provider
+  poolAddress: string,
+  tokenAmountIn: bigint,
+  provider?: ethers.Provider
 ): Promise<SidioraQuoteResult> {
-    const p = provider ?? new ethers.JsonRpcProvider(RPC_URL);
-    const quoter = new ethers.Contract(CONTRACTS.Quoter, SIDIORA_QUOTER_ABI, p);
-    return quoter.quoteExactInput(poolAddress, tokenAmountIn, false) as Promise<SidioraQuoteResult>;
+  const p = provider ?? new ethers.JsonRpcProvider(RPC_URL);
+  const quoter = new ethers.Contract(CONTRACTS.Quoter, SIDIORA_QUOTER_ABI, p);
+  return quoter.quoteExactInput(poolAddress, tokenAmountIn, false) as Promise<SidioraQuoteResult>;
 }
 
 export async function quoteMultihop(
-    tokenIn: string,
-    tokenOut: string,
-    amountIn: bigint,
-    provider?: ethers.Provider
+  tokenIn: string,
+  tokenOut: string,
+  amountIn: bigint,
+  provider?: ethers.Provider
 ): Promise<SidioraMultihopQuoteResult> {
-    const p = provider ?? new ethers.JsonRpcProvider(RPC_URL);
-    const quoter = new ethers.Contract(CONTRACTS.Quoter, SIDIORA_QUOTER_ABI, p);
-    return quoter.quoteMultihop(tokenIn, tokenOut, amountIn) as Promise<SidioraMultihopQuoteResult>;
+  const p = provider ?? new ethers.JsonRpcProvider(RPC_URL);
+  const quoter = new ethers.Contract(CONTRACTS.Quoter, SIDIORA_QUOTER_ABI, p);
+  return quoter.quoteMultihop(tokenIn, tokenOut, amountIn) as Promise<SidioraMultihopQuoteResult>;
 }
 
 // ─── Approvals ────────────────────────────────────────────────────────────────
 
 export async function approveRouter(
-    tokenAddress: string,
-    signer: ethers.Signer,
-    amount: bigint = MAX_UINT256
+  tokenAddress: string,
+  signer: ethers.Signer,
+  amount: bigint = MAX_UINT256
 ): Promise<boolean> {
-    const token = new ethers.Contract(tokenAddress, ERC20_ABI, signer);
-    const owner = await signer.getAddress();
-    const current = await token.allowance(owner, CONTRACTS.Router) as bigint;
-    if (current >= amount) return false;
-    await (await token.approve(CONTRACTS.Router, MAX_UINT256)).wait();
-    return true;
+  const token = new ethers.Contract(tokenAddress, ERC20_ABI, signer);
+  const owner = await signer.getAddress();
+  const current = (await token.allowance(owner, CONTRACTS.Router)) as bigint;
+  if (current >= amount) return false;
+  await (await token.approve(CONTRACTS.Router, MAX_UINT256)).wait();
+  return true;
 }
 
 // ─── Execution ────────────────────────────────────────────────────────────────
@@ -138,76 +154,132 @@ export async function approveRouter(
  * Returns the receipt; use getPoolToken() + balanceOf to read received amount.
  */
 export async function buy(
-    poolAddress: string,
-    usdlAmountIn: bigint,
-    signer: ethers.Signer,
-    slippageBps = 100,
-    deadlineSeconds = 300
-): Promise<{ receipt: ethers.TransactionReceipt; receivedToken: string | null; receivedAmount: bigint }> {
-    // approve USDL to router
-    await approveRouter(TOKENS.USDL.address, signer);
+  poolAddress: string,
+  usdlAmountIn: bigint,
+  signer: ethers.Signer,
+  slippageBps = 100,
+  deadlineSeconds = 300
+): Promise<{
+  receipt: ethers.TransactionReceipt;
+  receivedToken: string | null;
+  receivedAmount: bigint;
+}> {
+  // approve USDL to router
+  await approveRouter(TOKENS.USDL.address, signer);
 
-    const quote = await quoteBuy(poolAddress, usdlAmountIn, signer.provider ?? undefined);
-    const minOut = (quote.amountOut * BigInt(10000 - slippageBps)) / 10000n;
+  const quote = await quoteBuy(poolAddress, usdlAmountIn, signer.provider ?? undefined);
+  const minOut = (quote.amountOut * BigInt(10000 - slippageBps)) / 10000n;
 
-    const router = new ethers.Contract(CONTRACTS.Router, SIDIORA_ROUTER_ABI, signer);
-    const tx = await router.buy(poolAddress, usdlAmountIn, minOut, sidDeadline(deadlineSeconds));
-    const receipt = (await tx.wait())! as ethers.TransactionReceipt;
+  const router = new ethers.Contract(CONTRACTS.Router, SIDIORA_ROUTER_ABI, signer);
+  const tx = await router.buy(poolAddress, usdlAmountIn, minOut, sidDeadline(deadlineSeconds));
+  const receipt = (await tx.wait())! as ethers.TransactionReceipt;
 
-    // Detect received token + amount from Transfer logs
-    const buyerPadded = "0x000000000000000000000000" + (await signer.getAddress()).slice(2).toLowerCase();
-    let receivedToken: string | null = null;
-    let receivedAmount = 0n;
-    for (const log of receipt.logs) {
-        if (
-            log.topics[0]?.toLowerCase() === TRANSFER_TOPIC &&
-            log.topics[2]?.toLowerCase() === buyerPadded &&
-            log.address.toLowerCase() !== TOKENS.USDL.address.toLowerCase()
-        ) {
-            receivedToken = log.address;
-            receivedAmount = BigInt(log.data);
-            break;
-        }
+  // Detect received token + amount from Transfer logs
+  const buyerPadded =
+    '0x000000000000000000000000' + (await signer.getAddress()).slice(2).toLowerCase();
+  let receivedToken: string | null = null;
+  let receivedAmount = 0n;
+  for (const log of receipt.logs) {
+    if (
+      log.topics[0]?.toLowerCase() === TRANSFER_TOPIC &&
+      log.topics[2]?.toLowerCase() === buyerPadded &&
+      log.address.toLowerCase() !== TOKENS.USDL.address.toLowerCase()
+    ) {
+      receivedToken = log.address;
+      receivedAmount = BigInt(log.data);
+      break;
     }
-    return { receipt, receivedToken, receivedAmount };
+  }
+  return { receipt, receivedToken, receivedAmount };
 }
 
 /**
  * Sell a pool's launchpad token for USDL.
  */
 export async function sell(
-    poolAddress: string,
-    tokenAddress: string,
-    tokenAmountIn: bigint,
-    signer: ethers.Signer,
-    slippageBps = 100,
-    deadlineSeconds = 300
+  poolAddress: string,
+  tokenAddress: string,
+  tokenAmountIn: bigint,
+  signer: ethers.Signer,
+  slippageBps = 100,
+  deadlineSeconds = 300
 ): Promise<ethers.TransactionReceipt> {
-    await approveRouter(tokenAddress, signer);
+  await approveRouter(tokenAddress, signer);
 
-    const quote = await quoteSell(poolAddress, tokenAmountIn, signer.provider ?? undefined);
-    const minOut = (quote.amountOut * BigInt(10000 - slippageBps)) / 10000n;
+  const quote = await quoteSell(poolAddress, tokenAmountIn, signer.provider ?? undefined);
+  const minOut = (quote.amountOut * BigInt(10000 - slippageBps)) / 10000n;
 
-    const router = new ethers.Contract(CONTRACTS.Router, SIDIORA_ROUTER_ABI, signer);
-    const tx = await router.sell(poolAddress, tokenAmountIn, minOut, sidDeadline(deadlineSeconds));
-    return (await tx.wait())!;
+  const router = new ethers.Contract(CONTRACTS.Router, SIDIORA_ROUTER_ABI, signer);
+  const tx = await router.sell(poolAddress, tokenAmountIn, minOut, sidDeadline(deadlineSeconds));
+  return (await tx.wait())!;
 }
 
 /**
  * Swap one launchpad token for another via the USDL bridge.
  */
+export function prepareTokenToTokenSwap(
+  runner: ethers.ContractRunner,
+  tokenIn: string,
+  tokenOut: string,
+  amountIn: bigint,
+  confirmation: SidioraMultihopConfirmation
+) {
+  if (
+    amountIn <= 0n ||
+    amountIn > MAX_UINT256 ||
+    confirmation.minimumAmountOut <= 0n ||
+    confirmation.minimumAmountOut > MAX_UINT256
+  ) {
+    throw new RangeError('Sidiora swap requires positive uint256 input and minimum output');
+  }
+  if (
+    confirmation.deadline <= BigInt(Math.floor(Date.now() / 1000)) ||
+    confirmation.deadline > MAX_UINT256
+  ) {
+    throw new RangeError('Sidiora swap confirmation has expired or has an invalid expiry');
+  }
+  const router = new ethers.Contract(CONTRACTS.Router, SIDIORA_ROUTER_ABI, runner);
+  const method: ethers.ContractMethod<
+    [string, string, bigint, bigint, bigint],
+    [amountOut: bigint, intermediateUsdl: bigint]
+  > = router.getFunction('swapTokenForToken');
+  const args: [string, string, bigint, bigint, bigint] = [
+    tokenIn,
+    tokenOut,
+    amountIn,
+    confirmation.minimumAmountOut,
+    confirmation.deadline,
+  ];
+  Object.freeze(args);
+  return { router, method, args };
+}
+
 export async function swapTokenToToken(
-    tokenIn: string,
-    tokenOut: string,
-    amountIn: bigint,
-    signer: ethers.Signer,
-    slippageBps = 150,
-    deadlineSeconds = 300
+  tokenIn: string,
+  tokenOut: string,
+  amountIn: bigint,
+  signer: ethers.Signer,
+  slippageBps = 150,
+  deadlineSeconds = 300,
+  confirmation?: SidioraMultihopConfirmation
 ): Promise<ethers.TransactionReceipt> {
-    await approveRouter(tokenIn, signer);
-    const quote = await quoteMultihop(tokenIn, tokenOut, amountIn, signer.provider ?? undefined);
-    const minOut = (quote.amountOut * BigInt(10000 - slippageBps)) / 10000n;
-    const router = new ethers.Contract(CONTRACTS.Router, SIDIORA_ROUTER_ABI, signer);
-    const tx = await router.swapTokenToToken(tokenIn, tokenOut, amountIn, minOut, sidDeadline(deadlineSeconds));
-    return (await tx.wait())!;
+  if (!Number.isInteger(slippageBps) || slippageBps < 0 || slippageBps >= 10000) {
+    throw new RangeError('Invalid Sidiora swap slippage');
+  }
+  if (!Number.isSafeInteger(deadlineSeconds) || deadlineSeconds <= 0) {
+    throw new RangeError('Invalid Sidiora swap deadline');
+  }
+  const expiry = sidDeadline(deadlineSeconds);
+  const confirmed = confirmation ? { ...confirmation } : undefined;
+  const bound = confirmed ?? {
+    minimumAmountOut:
+      ((await quoteMultihop(tokenIn, tokenOut, amountIn, signer.provider ?? undefined)).amountOut *
+        BigInt(10000 - slippageBps)) /
+      10000n,
+    deadline: expiry,
+  };
+  const { method, args } = prepareTokenToTokenSwap(signer, tokenIn, tokenOut, amountIn, bound);
+  await approveRouter(tokenIn, signer);
+  const tx = await method.send(...args);
+  return (await tx.wait())!;
 }

@@ -36,7 +36,8 @@ pub const RESERVED_UNAVAILABLE: u16 = 0x0208;
 pub const CONTROL_SCRATCH_BYTES: usize =
     Section::IdentityRoster.payload_cap() + Section::Control.payload_cap();
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub enum WorkerState {
     Enrolled = 1,
     Available = 2,
@@ -66,14 +67,16 @@ impl WorkerState {
     }
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub enum RevocationReason {
     Compromised = 1,
     OwnerAction = 2,
     IdentityFreeze = 3,
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct WorkerCurrent {
     pub worker: WorkerId,
     pub owner: PrincipalId,
@@ -95,6 +98,7 @@ pub struct WorkerCurrent {
     pub last_metadata_height: u64,
 }
 impl WorkerCurrent {
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     fn validate(&self) -> CodecResult<()> {
         if self.delegate.0 == [0; 32]
             || self.generation == 0
@@ -107,6 +111,7 @@ impl WorkerCurrent {
         }
         Ok(())
     }
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     fn write(&self, w: &mut Writer<'_>) -> CodecResult<()> {
         w.put(self.worker.as_bytes())?;
         w.put(self.owner.as_bytes())?;
@@ -131,12 +136,13 @@ impl WorkerCurrent {
         w.u8(self.slot)?;
         w.u64(self.last_metadata_height)
     }
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     fn read(r: &mut Reader<'_>) -> CodecResult<Self> {
         let v = Self {
-            worker: WorkerId::new(r.fixed()?)?,
-            owner: PrincipalId::new(r.fixed()?)?,
+            worker: r.worker_id()?,
+            owner: r.principal_id()?,
             delegate: PublicKey32(r.fixed()?),
-            metadata: MetadataDigest::new(r.fixed()?)?,
+            metadata: r.metadata_digest()?,
             generation: r.u64()?,
             key_version: r.u64()?,
             metadata_revision: r.u64()?,
@@ -179,7 +185,8 @@ impl WorkerCurrent {
 }
 
 /// Bounded F02 current-record table: count:u8 then records sorted by `WorkerId`.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct WorkerTable {
     records: [Option<WorkerCurrent>; MAX_WORKERS],
     count: usize,
@@ -281,6 +288,7 @@ impl WorkerTable {
     ///
     /// # Errors
     /// Returns `CAPACITY` when `out` is shorter than `encoded_len`.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn encode(&self, out: &mut [u8]) -> CodecResult<usize> {
         let n = self.encoded_len();
         if out.len() < n {
@@ -297,6 +305,7 @@ impl WorkerTable {
     ///
     /// # Errors
     /// Returns `CAPACITY` when the input or record count exceeds the table bound; `NON_CANONICAL` when the input is short, has trailing bytes, holds an invalid or out-of-order record; `CONFLICT` when two records share a slot.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn decode(input: &[u8]) -> CodecResult<Self> {
         let mut table = Self::new();
         if input.is_empty() {
@@ -325,14 +334,16 @@ impl WorkerTable {
 }
 
 /// Authenticated host values for one direct native call.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct CallContext<'m> {
     pub market: &'m MarketHeader,
     pub invoking_principal: PrincipalId,
     pub height: u64,
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub enum Applied {
     Applied { state_len: usize, event_len: usize },
     AlreadyApplied(RetainedResult),
@@ -393,8 +404,10 @@ fn verify(key: PublicKey32, signature: Signature64, digest: Digest32) -> CodecRe
 }
 
 /// Bounded offchain manifest summary after full grammar validation.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct ManifestSummary {
+    pub version: u16,
     pub market: MarketId,
     pub worker: WorkerId,
     pub owner: PrincipalId,
@@ -404,6 +417,62 @@ pub struct ManifestSummary {
     pub valid_from: u64,
     pub expiry: u64,
     pub digest: MetadataDigest,
+    pub capabilities: Option<CapabilityFields>,
+}
+
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
+pub struct CapabilityFields {
+    pub accelerator_memory_mib: u32,
+    pub system_memory_mib: u32,
+    pub bandwidth_class: u8,
+    pub region_code: [u8; 2],
+    pub attestation_family: u8,
+    pub runtime_kind: u8,
+}
+
+impl CapabilityFields {
+    pub const ENCODED_BYTES: usize = 13;
+
+    pub fn validate(&self) -> CodecResult<()> {
+        if self.bandwidth_class > 4
+            || !self.region_code.iter().all(u8::is_ascii_alphabetic)
+            || self.runtime_kind > 2
+        {
+            return Err(NON_CANONICAL);
+        }
+        Ok(())
+    }
+
+    pub(crate) fn read(r: &mut Reader<'_>) -> CodecResult<Self> {
+        let fields = Self {
+            accelerator_memory_mib: r.u32()?,
+            system_memory_mib: r.u32()?,
+            bandwidth_class: r.u8()?,
+            region_code: r.fixed()?,
+            attestation_family: r.u8()?,
+            runtime_kind: r.u8()?,
+        };
+        fields.validate()?;
+        Ok(fields)
+    }
+
+    pub(crate) fn write(&self, w: &mut Writer<'_>) -> CodecResult<()> {
+        self.validate()?;
+        w.u32(self.accelerator_memory_mib)?;
+        w.u32(self.system_memory_mib)?;
+        w.u8(self.bandwidth_class)?;
+        w.put(&self.region_code)?;
+        w.u8(self.attestation_family)?;
+        w.u8(self.runtime_kind)
+    }
+}
+
+#[derive(Clone, Copy)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
+pub struct ManifestV2<'a> {
+    pub manifest_v1: &'a [u8],
+    pub capabilities: CapabilityFields,
 }
 
 fn ranged(value: u32, max: u32) -> CodecResult<()> {
@@ -477,24 +546,26 @@ pub fn check_uri(uri: &[u8]) -> CodecResult<()> {
 /// Decodes and checks a worker metadata manifest.
 ///
 /// # Errors
-/// Returns `CAPACITY` when the input exceeds `MAX_MANIFEST_BYTES`; `BAD_VERSION` when the version is not 1; `ARITHMETIC` when a URI length does not fit `usize`; `NON_CANONICAL` when the input is short, has trailing bytes, or any field, window, capability, or endpoint is out of bounds or out of order.
+/// Returns `CAPACITY` when the input exceeds `MAX_MANIFEST_BYTES`; `BAD_VERSION` when the version is not 1 or 2; `ARITHMETIC` when a URI length does not fit `usize`; `NON_CANONICAL` when the input is short, has trailing bytes, or any field, window, capability, or endpoint is out of bounds or out of order.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn decode_manifest(input: &[u8]) -> CodecResult<ManifestSummary> {
     if input.len() > MAX_MANIFEST_BYTES {
         return Err(CAPACITY);
     }
     let mut r = Reader::new(input);
-    if r.u16()? != 1 {
+    let version = r.u16()?;
+    if !matches!(version, 1 | 2) {
         return Err(BAD_VERSION);
     }
-    let market = MarketId::new(r.fixed()?)?;
-    let worker = WorkerId::new(r.fixed()?)?;
-    let owner = PrincipalId::new(r.fixed()?)?;
+    let market = r.market_id()?;
+    let worker = r.worker_id()?;
+    let owner = r.principal_id()?;
     let generation = r.u64()?;
     let key_version = r.u64()?;
     let revision = r.u64()?;
     let valid_from = r.u64()?;
     let expiry = r.u64()?;
-    Digest32::new(r.fixed()?)?;
+    r.digest32()?;
     if generation == 0 || key_version == 0 || revision == 0 {
         return Err(NON_CANONICAL);
     }
@@ -554,18 +625,24 @@ pub fn decode_manifest(input: &[u8]) -> CodecResult<ManifestSummary> {
             return Err(NON_CANONICAL);
         }
         first_uri = uri;
-        Digest32::new(r.fixed()?)?;
+        r.digest32()?;
         if r.u8()? != 1 || r.u16()? != 1 || r.u16()? != 1 {
             return Err(NON_CANONICAL);
         }
     }
-    Digest32::new(r.fixed()?)?;
-    Digest32::new(r.fixed()?)?;
+    r.digest32()?;
+    r.digest32()?;
     if r.u32()? != 0 {
         return Err(NON_CANONICAL);
     }
+    let capabilities = if version == 2 {
+        Some(CapabilityFields::read(&mut r)?)
+    } else {
+        None
+    };
     r.finish()?;
     Ok(ManifestSummary {
+        version,
         market,
         worker,
         owner,
@@ -575,8 +652,17 @@ pub fn decode_manifest(input: &[u8]) -> CodecResult<ManifestSummary> {
         valid_from,
         expiry,
         digest: MetadataDigest::new(
-            codec::domain_hash("PAXAI/worker-metadata/v1", input)?.bytes(),
+            codec::domain_hash(
+                if version == 1 {
+                    codec::PARTICIPANT_METADATA_DOMAIN_V1
+                } else {
+                    codec::PARTICIPANT_METADATA_DOMAIN_V2
+                },
+                input,
+            )?
+            .bytes(),
         )?,
+        capabilities,
     })
 }
 
@@ -625,6 +711,31 @@ pub fn check_new_admission(
         || frozen.public_key != record.delegate
     {
         return Err(F02_WRONG_GENERATION);
+    }
+    if height >= record.expiry {
+        return Err(F02_METADATA_EXPIRED);
+    }
+    Ok(())
+}
+
+/// New work against an opened immutable identity. A prospective next-epoch rotation
+/// leaves its opening entry intact; live revocation, ownership and expiry still apply.
+pub fn check_opened_admission(
+    record: &WorkerCurrent,
+    frozen: &WorkerRosterEntry,
+    epoch: u64,
+    height: u64,
+) -> CodecResult<()> {
+    if record.effective_epoch <= epoch {
+        return check_new_admission(record, frozen, height);
+    }
+    if frozen.worker != record.worker || frozen.owner != record.owner {
+        return Err(EVIDENCE_BINDING);
+    }
+    match record.state {
+        WorkerState::Revoked => return Err(F02_DELEGATE_REVOKED),
+        WorkerState::Enrolled | WorkerState::Available => {}
+        _ => return Err(F02_ADMISSION_NOT_EFFECTIVE),
     }
     if height >= record.expiry {
         return Err(F02_METADATA_EXPIRED);
@@ -832,10 +943,10 @@ fn enroll_worker(
 ) -> CodecResult<Applied> {
     let ctx = call.ctx;
     let mut r = exact(call.env.envelope.payload, 136)?;
-    let nominee = PrincipalId::new(r.fixed()?)?;
+    let nominee = r.principal_id()?;
     let nonce: [u8; 32] = r.fixed()?;
     let key = PublicKey32(r.fixed()?);
-    let metadata = MetadataDigest::new(r.fixed()?)?;
+    let metadata = r.metadata_digest()?;
     let consent_expiry = r.u64()?;
     if nonce == [0; 32] || key.0 == [0; 32] {
         return Err(NON_CANONICAL);
@@ -901,7 +1012,7 @@ fn expire_enrollment(
 ) -> CodecResult<Applied> {
     let ctx = call.ctx;
     let mut r = exact(call.env.envelope.payload, 72)?;
-    let worker = WorkerId::new(r.fixed()?)?;
+    let worker = r.worker_id()?;
     let expected_digest: [u8; 32] = r.fixed()?;
     let expected_expiry = r.u64()?;
     let record = table.get(worker).ok_or(NOT_FOUND)?;
@@ -1106,7 +1217,7 @@ fn publish_metadata(call: &Call<'_>, record: &mut WorkerCurrent) -> CodecResult<
     r.take(32)?;
     let expected = r.u64()?;
     let revision = r.u64()?;
-    let digest = MetadataDigest::new(r.fixed()?)?;
+    let digest = r.metadata_digest()?;
     let valid_from = r.u64()?;
     let expiry = r.u64()?;
     let manifest = r.bytes(MAX_MANIFEST_BYTES)?;
@@ -1157,7 +1268,7 @@ fn rotate_delegate(call: &Call<'_>, record: &mut WorkerCurrent) -> CodecResult<(
     let generation = r.u64()?;
     let key_version = r.u64()?;
     let key = PublicKey32(r.fixed()?);
-    let metadata = MetadataDigest::new(r.fixed()?)?;
+    let metadata = r.metadata_digest()?;
     let consent_expiry = r.u64()?;
     let signature = Signature64(r.fixed()?);
     if record.state == WorkerState::Retired {

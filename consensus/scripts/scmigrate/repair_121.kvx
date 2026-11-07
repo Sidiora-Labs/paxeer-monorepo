@@ -1,0 +1,8 @@
+[repair.22.31.121]
+audit = "22.30.55"
+finding = "seen-commit-destination"
+tests = ["TestRepair_121_OlderCanonicalNewerLegacy", "TestRepair_121_InterruptedRepeatedMixedFormats", "TestMigrations/MixedFormats"]
+proof = "Signed votes produce commits through MakeCommit and SaveSeenCommit; a real disk database is reopened after process exit during scan and after durable migration, then LoadSeenCommit checks recovery and repeated migration."
+baseline = "Not run: the explicit implementation-first order and hf-build/hf-done-only gates override the conflicting unchanged-tree verification step; no pre-change failure is claimed."
+wiring_requests = []
+evidence = "The runner's hf-done ledger records the exact verified candidate revision, command, exit code and private log location."

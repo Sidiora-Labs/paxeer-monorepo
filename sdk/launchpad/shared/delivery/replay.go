@@ -1,6 +1,7 @@
 package delivery
 
 import (
+	"bytes"
 	"context"
 	_ "embed"
 	"encoding/json"
@@ -61,19 +62,31 @@ func (r *ReplayEngine) Start(ctx context.Context, digest string) error {
 			return err
 		}
 		if active == r.generation {
-			return ErrIntegrity
+			var stored, status string
+			var next, count int64
+			err = tx.QueryRow(ctx, "SELECT b.manifest_digest,b.status,b.next_height,b.raw_count FROM "+r.archive.store.table("delivery_rebuilds")+" b JOIN "+r.archive.store.table("delivery_read_aliases")+" a USING(consumer_id,generation) WHERE b.consumer_id=$1 AND b.generation=$2 FOR UPDATE OF b,a", r.consumer, r.generation).Scan(&stored, &status, &next, &count)
+			if errors.Is(err, pgx.ErrNoRows) {
+				return ErrIntegrity
+			}
+			if err != nil {
+				return err
+			}
+			if stored != digest || status != "active" || next != m.ToHeight+1 || count != m.RawCount {
+				return ErrIntegrity
+			}
+			return nil
 		}
 		tag, err := tx.Exec(ctx, "INSERT INTO "+r.archive.store.table("delivery_rebuilds")+"(consumer_id,generation,manifest_digest,next_height,status,owner,epoch,lease_until) VALUES($1,$2,$3,$4,'building',$5,1,clock_timestamp()+$6::bigint*interval '1 millisecond') ON CONFLICT DO NOTHING", r.consumer, r.generation, digest, m.FromHeight, r.owner, r.lease.Milliseconds())
 		if err != nil {
 			return err
 		}
 		if tag.RowsAffected() == 0 {
-			var old string
-			err = tx.QueryRow(ctx, "SELECT manifest_digest FROM "+r.archive.store.table("delivery_rebuilds")+" WHERE consumer_id=$1 AND generation=$2", r.consumer, r.generation).Scan(&old)
+			var old, status string
+			err = tx.QueryRow(ctx, "SELECT manifest_digest,status FROM "+r.archive.store.table("delivery_rebuilds")+" WHERE consumer_id=$1 AND generation=$2", r.consumer, r.generation).Scan(&old, &status)
 			if err != nil {
 				return err
 			}
-			if old != digest {
+			if old != digest || status == "active" {
 				return ErrIntegrity
 			}
 		}
@@ -87,6 +100,33 @@ func (r *ReplayEngine) Start(ctx context.Context, digest string) error {
 		return r.archive.store.BindGenerationPathTx(ctx, tx, r.consumer, r.generation, "durable")
 	})
 }
+
+// Rebuild runs the configured startup rebuild, recovering a matching active
+// generation without replaying it or repeating its promotion.
+func (r *ReplayEngine) Rebuild(ctx context.Context, digest string, budget *WorkBudget, promote bool, expectedAliasRevision int64) error {
+	if err := r.Start(ctx, digest); err != nil {
+		return err
+	}
+	for {
+		status, err := r.Status(ctx, 0)
+		if err != nil {
+			return err
+		}
+		if status.Status == "active" {
+			return nil
+		}
+		if status.Status == "verified" {
+			if promote {
+				return r.Promote(ctx, expectedAliasRevision)
+			}
+			return nil
+		}
+		if err = r.RunBlockWithBudget(ctx, budget); err != nil {
+			return err
+		}
+	}
+}
+
 func (r *ReplayEngine) RunBlock(ctx context.Context) error {
 	var digest string
 	var height int64
@@ -225,11 +265,29 @@ func (r *ReplayEngine) Promote(ctx context.Context, expectedRevision int64) erro
 		if status != "verified" {
 			return ErrIntegrity
 		}
-		var compared bool
-		if err = tx.QueryRow(ctx, "SELECT EXISTS(SELECT 1 FROM "+r.archive.store.table("delivery_shadow_comparisons")+" WHERE manifest_digest=$1 AND event_count>0)", digest).Scan(&compared); err != nil {
+		subjects := []string{}
+		for subject, enabled := range r.archive.store.policy.Subjects {
+			if enabled {
+				subjects = append(subjects, subject)
+			}
+		}
+		subjects, err = r.archive.store.shadowSubjects(subjects)
+		if err != nil {
 			return err
 		}
-		if !compared {
+		var proofDigest string
+		var proofCount int
+		if err = tx.QueryRow(ctx, "SELECT event_digest,event_count FROM "+r.archive.store.table("delivery_shadow_comparisons")+" WHERE manifest_digest=$1 AND consumer_id=$2 AND generation=$3 AND subjects=$4::text[] AND event_count>0", digest, r.consumer, r.generation, subjects).Scan(&proofDigest, &proofCount); err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				return ErrIntegrity
+			}
+			return err
+		}
+		diff, evidenceCount, err := r.archive.store.compareShadowTx(ctx, tx, digest, subjects)
+		if err != nil {
+			return err
+		}
+		if diff.Digest != proofDigest || evidenceCount != proofCount {
 			return ErrIntegrity
 		}
 		var previous string
@@ -244,40 +302,13 @@ func (r *ReplayEngine) Promote(ctx context.Context, expectedRevision int64) erro
 		if revision != expectedRevision || previous == r.generation {
 			return ErrIntegrity
 		}
-		var raw []byte
-		if err = tx.QueryRow(ctx, "SELECT manifest FROM "+r.archive.store.table("delivery_archive_manifests")+" WHERE manifest_digest=$1", digest).Scan(&raw); err != nil {
+		var next, count int64
+		var projection string
+		if err = tx.QueryRow(ctx, "SELECT next_height,raw_count,projection_digest FROM "+r.archive.store.table("delivery_rebuilds")+" WHERE consumer_id=$1 AND generation=$2", r.consumer, r.generation).Scan(&next, &count, &projection); err != nil {
 			return err
 		}
-		var m ArchiveManifest
-		if json.Unmarshal(raw, &m) != nil || ValidateArchiveManifest(m) != nil {
-			return ErrIntegrity
-		}
-		var frontier int64
-		if err = tx.QueryRow(ctx, "SELECT typed_complete_height FROM indexer.indexer_ingest_watermarks_v1 WHERE chain_id=125 AND stream_id=$1", m.SourceStream).Scan(&frontier); err != nil {
+		if err = r.validateRecoveryTx(ctx, tx, r.generation, digest, next, count, projection); err != nil {
 			return err
-		}
-		if frontier != m.ToHeight {
-			return ErrGap
-		}
-		current, err := r.projector.ProjectionDigestTx(ctx, tx, r.generation)
-		if err != nil {
-			return err
-		}
-		canonical, err := r.projector.CanonicalDigestTx(ctx, tx, m)
-		if err != nil || current != canonical || !archiveHash.MatchString(current) {
-			return ErrIntegrity
-		}
-		for _, block := range m.Blocks {
-			actual, raw, err := r.archive.sourceBlock(ctx, tx, block.Height)
-			if err != nil {
-				return err
-			}
-			if actual.BlockHash != block.BlockHash || actual.RawCount != block.RawCount || Hash(raw) != block.SegmentHash {
-				return ErrIntegrity
-			}
-			if _, err = r.archive.read(ctx, "segments", block.SegmentHash, 64<<20); err != nil {
-				return err
-			}
 		}
 		_, err = tx.Exec(ctx, "INSERT INTO "+r.archive.store.table("delivery_read_aliases")+"(consumer_id,generation,prior_generation,revision) VALUES($1,$2,NULLIF($3,''),$4) ON CONFLICT(consumer_id) DO UPDATE SET generation=EXCLUDED.generation,prior_generation=EXCLUDED.prior_generation,revision=EXCLUDED.revision", r.consumer, r.generation, previous, revision+1)
 		if err != nil {
@@ -335,7 +366,14 @@ func (r *ReplayEngine) RollbackAlias(ctx context.Context, expectedRevision int64
 	if err := r.authorize(ctx, "replay.rollback"); err != nil {
 		return errors.New("delivery: administrator authorization required")
 	}
+	if r.archive.store.epochGuard == nil {
+		return errors.New("delivery: recovery epoch guard required")
+	}
 	return r.archive.store.mutate(ctx, func(tx pgx.Tx) error {
+		var epoch int64
+		if err := tx.QueryRow(ctx, "SELECT epoch FROM "+r.archive.store.table("delivery_rebuilds")+" WHERE consumer_id=$1 AND generation=$2 AND status='active' AND owner=$3 AND lease_until>clock_timestamp() FOR UPDATE", r.consumer, r.generation, r.owner).Scan(&epoch); err != nil {
+			return ErrLease
+		}
 		var current, prior string
 		var revision int64
 		err := tx.QueryRow(ctx, "SELECT generation,COALESCE(prior_generation,''),revision FROM "+r.archive.store.table("delivery_read_aliases")+" WHERE consumer_id=$1 FOR UPDATE", r.consumer).Scan(&current, &prior, &revision)
@@ -345,12 +383,28 @@ func (r *ReplayEngine) RollbackAlias(ctx context.Context, expectedRevision int64
 		if revision != expectedRevision || current != r.generation || prior == "" {
 			return ErrIntegrity
 		}
-		var status string
-		if err = tx.QueryRow(ctx, "SELECT status FROM "+r.archive.store.table("delivery_rebuilds")+" WHERE consumer_id=$1 AND generation=$2 FOR UPDATE", r.consumer, prior).Scan(&status); err != nil {
+		var status, digest, projection string
+		var next, count int64
+		if err = tx.QueryRow(ctx, "SELECT status,manifest_digest,next_height,raw_count,projection_digest FROM "+r.archive.store.table("delivery_rebuilds")+" WHERE consumer_id=$1 AND generation=$2 FOR UPDATE", r.consumer, prior).Scan(&status, &digest, &next, &count, &projection); err != nil {
 			return err
 		}
 		if status != "active" && status != "verified" && status != "retired" {
 			return ErrIntegrity
+		}
+		if err = r.validateRecoveryTx(ctx, tx, prior, digest, next, count, projection); err != nil {
+			return err
+		}
+		tag, err := tx.Exec(ctx, "UPDATE "+r.archive.store.table("delivery_rebuilds")+" SET epoch=epoch WHERE consumer_id=$1 AND generation=$2 AND status='active' AND owner=$3 AND epoch=$4 AND lease_until>clock_timestamp()", r.consumer, r.generation, r.owner, epoch)
+		if err != nil {
+			return err
+		}
+		if tag.RowsAffected() != 1 {
+			return ErrLease
+		}
+		if status != "active" {
+			if _, err = tx.Exec(ctx, "UPDATE "+r.archive.store.table("delivery_rebuilds")+" SET status='active',revision=revision+1 WHERE consumer_id=$1 AND generation=$2", r.consumer, prior); err != nil {
+				return err
+			}
 		}
 		_, err = tx.Exec(ctx, "UPDATE "+r.archive.store.table("delivery_read_aliases")+" SET generation=$2,prior_generation=$3,revision=revision+1 WHERE consumer_id=$1", r.consumer, prior, current)
 		if err != nil {
@@ -359,6 +413,50 @@ func (r *ReplayEngine) RollbackAlias(ctx context.Context, expectedRevision int64
 		_, err = tx.Exec(ctx, "INSERT INTO "+r.archive.store.table("delivery_cutover_history")+"(consumer_id,revision,generation,prior_generation) VALUES($1,$2,$3,$4)", r.consumer, revision+1, prior, current)
 		return err
 	})
+}
+
+// validateRecoveryTx refuses an incomplete, changed or unretained generation at
+// the current canonical frontier. The caller holds its recovery authority lock.
+func (r *ReplayEngine) validateRecoveryTx(ctx context.Context, tx pgx.Tx, generation, digest string, next, count int64, projection string) error {
+	raw, err := r.archive.read(ctx, "manifests", digest, 8<<20)
+	if err != nil {
+		return err
+	}
+	var stored []byte
+	if err = tx.QueryRow(ctx, "SELECT manifest FROM "+r.archive.store.table("delivery_archive_manifests")+" WHERE manifest_digest=$1", digest).Scan(&stored); err != nil {
+		return err
+	}
+	var m ArchiveManifest
+	if !bytes.Equal(raw, stored) || json.Unmarshal(raw, &m) != nil || ValidateArchiveManifest(m) != nil || m.SourceStream != r.archive.stream || m.Deployment != r.archive.deployment || m.DecoderDigest != r.archive.decoder || m.ABIDigest != r.archive.abi || m.CodeDigest != r.archive.code {
+		return ErrIntegrity
+	}
+	var frontier int64
+	if err = tx.QueryRow(ctx, "SELECT typed_complete_height FROM indexer.indexer_ingest_watermarks_v1 WHERE chain_id=125 AND stream_id=$1 FOR SHARE", m.SourceStream).Scan(&frontier); err != nil {
+		return err
+	}
+	if frontier != m.ToHeight || next != frontier+1 || count != m.RawCount {
+		return ErrGap
+	}
+	current, err := r.projector.ProjectionDigestTx(ctx, tx, generation)
+	if err != nil {
+		return err
+	}
+	canonical, err := r.projector.CanonicalDigestTx(ctx, tx, m)
+	if err != nil {
+		return err
+	}
+	if !archiveHash.MatchString(current) || current != canonical || current != projection {
+		return ErrIntegrity
+	}
+	if err = r.archive.ValidateSourceTx(ctx, tx, m); err != nil {
+		return err
+	}
+	for _, block := range m.Blocks {
+		if _, err = r.archive.records(ctx, block); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 type WorkBudget struct {

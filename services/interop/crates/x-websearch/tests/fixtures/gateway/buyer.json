@@ -2,26 +2,26 @@
   "exact": {
     "PAX": {
       "idempotencyKey": "b74ad2e4cd82b101acdcb553e1f0c57ffec708a757c09dffa99cc1c729129405",
-      "receiptDigest": "8b8d45de4cf36790cbc7189cc983dfa499f4001ec9518b8c54a6b603b0425a41",
-      "txHash": "0x14b5818276295f2cbff05d82bfa86d289414d3f96079d0ea1f2215c7ae4c350b",
+      "receiptDigest": "4cd761dedbeec7e06b571a458c18d7e4a892c59a19cc5d2f12874fd3ddcd749a",
+      "txHash": "0x81e2c5397c94b2a1b9ca29b880ccdcccbe2731e6b1183c736bd6382e8dbef878",
       "verificationLevel": "receipted"
     },
     "SID": {
       "idempotencyKey": "c6054f34a675eacd12c962477d1ab7108b66d7176cf12a9c5c8ecb4e75c5e84a",
-      "receiptDigest": "80e8a9d1ad7c6f02fd5e9461d3cd02c0db868087eeed2205659982a60dfbcac3",
-      "txHash": "0xaced6d29d32e3d7396b1f7bc552b3e6486f974dcec2454990ec09ba50a1d7d4d",
+      "receiptDigest": "f0592bfff13daab5a4e84608ce89e1116e9968d50fdd7bc2fdd50b28967c36a6",
+      "txHash": "0x8708f0f135af62405c07333728bb01eb2d6690b7a223400ecf251c40673ec70c",
       "verificationLevel": "receipted"
     },
     "USDC": {
       "idempotencyKey": "36a8ff8c54028c1dd90978dfd43fd24201f6356cd9ac85e82ea71cf907aff72f",
-      "receiptDigest": "963665d177be7494053fd9eb9ebb3263bb1ad85c140c10710eeac8e9ed4d3103",
-      "txHash": "0xcfaba005db676b4fb30e7b99a2c5f5642f9fbb475e99aecceb70de817ddaf2c9",
+      "receiptDigest": "b27f1014cf967addb57bd2fce7ccb96e41ec8113e2da96c93314ccaa4699c398",
+      "txHash": "0xa64082f5771110eb37c44c6d520824a95943724770aba272733cace312b58448",
       "verificationLevel": "receipted"
     },
     "USDL": {
       "idempotencyKey": "38c85da43545563e4d9dba14ba836d4d6a6ff2a25fcbadbf53c9861fcc814ca3",
-      "receiptDigest": "f1494f351c575c94b4b060ac29fd553ed71af55ff30919c7c549d9457fb103f7",
-      "txHash": "0x510b1a7c63d769da30d04ba833c043f0b77cc724fb8cf7f4451e521eaa98812c",
+      "receiptDigest": "33bda9005ca7fec26d97474f9766b9fa12e39847baec2b71cef667e09a3f00bd",
+      "txHash": "0xeef9e1c7182d679bed77dfa0055050dc7ec23ed7b3b628cda06e943d352ffbe8",
       "verificationLevel": "receipted"
     }
   },

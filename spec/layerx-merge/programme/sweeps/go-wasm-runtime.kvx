@@ -1,9 +1,9 @@
 [sweep.go-wasm-runtime]
-revision = "1fea7069e58b649760bb1afcabdb9c4caec5ea4c"
+revision = "ace3608260f2ec826292dab08cd058031efe2f46"
 command = "CGO_ENABLED=1 go vet ./TARGET/ && CGO_ENABLED=1 go test -count=1 ./TARGET/"
 targets_total = 5
-targets_passed = 4
-targets_failed = 1
+targets_passed = 5
+targets_failed = 0
 targets_not_run = 0
 
 [target.go-wasm-runtime.1]
@@ -18,10 +18,8 @@ exit_code = 0
 
 [target.go-wasm-runtime.3]
 target = "wasm-runtime/internal/api"
-result = "failed"
-exit_code = 1
-observed = "wasm-runtime/internal/api/lib_test.go:58, TestInitCacheErrorsForBrokenDir: an error is expected but got nil."
-assumption = "The likely environmental cause is execution as root, which can create /foo:bar despite the test's expectation that Unix permissions prevent creating it."
+result = "passed"
+exit_code = 0
 
 [target.go-wasm-runtime.4]
 target = "wasm-runtime/internal/api/testdb"

@@ -53,8 +53,7 @@ func TestReceiptLatencyP99UnderBound(t *testing.T) {
 		CommittedHeight: 1, LastSeq: secondary.opts.LastSeq,
 	})
 	require.NoError(t, err)
-	listener, err := net.Listen("tcp", "127.0.0.1:0")
-	require.NoError(t, err)
+	listener, auth := repair103TLSListener(t)
 	served := make(chan error, 1)
 	go func() { served <- standby.Serve(listener) }()
 	t.Cleanup(func() {
@@ -87,7 +86,7 @@ func TestReceiptLatencyP99UnderBound(t *testing.T) {
 	metrics, err := NewMetrics(provider.Meter("receipt-latency"))
 	require.NoError(t, err)
 	replicator, err := NewReplicator(ReplicatorConfig{
-		WAL: primary.log, Dial: DialStandby(listener.Addr().String(), 2*time.Second),
+		WAL: primary.log, Dial: DialStandby(listener.Addr().String(), 2*time.Second, auth),
 		ReplicationTimeout: 2 * time.Second, OnWALSync: metrics.ObserveWALSync,
 	})
 	require.NoError(t, err)

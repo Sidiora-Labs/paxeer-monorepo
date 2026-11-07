@@ -147,3 +147,59 @@ func mustFold(t *testing.T, st *store.Store, in store.TradeInput) {
 		t.Fatalf("fold %s: expected inserted=true", in.ID)
 	}
 }
+
+func TestFoldTradeRebuildsDelayedTrades(t *testing.T) {
+	for _, tc := range []struct {
+		name       string
+		order      []int
+		realized   string
+		average    string
+		delayedBuy bool
+	}{
+		{name: "delayed sell", order: []int{0, 2, 1}, realized: "4000000", average: "9000000"},
+		{name: "delayed buy", order: []int{1, 2, 0}, realized: "0", average: "5000000", delayedBuy: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			st := newStore(t)
+			ctx := context.Background()
+			trades := []store.TradeInput{
+				trade("0xz-2", someUser, somePool, someToken, true, usdl1, oneToken, 10, 100),
+				trade("0xa-10", someUser, somePool, someToken, false, usdl5, oneToken, 10, 100),
+				trade("0xm-11", someUser, somePool, someToken, true, "9000000", oneToken, 10, 100),
+			}
+			if tc.delayedBuy {
+				trades[1].IsBuy, trades[1].UsdlAmount = true, "9000000"
+				trades[2].IsBuy, trades[2].UsdlAmount = false, usdl5
+			}
+			for _, index := range tc.order {
+				mustFold(t, st, trades[index])
+			}
+			pos, err := st.GetPosition(ctx, someUser, somePool)
+			if err != nil || pos == nil {
+				t.Fatalf("position=%+v err=%v", pos, err)
+			}
+			if pos.RealizedPnlUsdl != tc.realized || pos.AvgCostBasis != tc.average ||
+				pos.CurrentHoldings != oneToken || pos.TotalUsdlSpent != "10000000" ||
+				pos.TotalUsdlReceived != usdl5 || pos.TotalTokensBought != "2000000000000000000" ||
+				pos.TotalTokensSold != oneToken || pos.TradeCount != 3 ||
+				pos.FirstBuyTs == nil || *pos.FirstBuyTs != 100 || pos.LastTradeTs != 100 {
+				t.Fatalf("incorrect canonical projection: %+v", pos)
+			}
+			if inserted, err := st.FoldTrade(ctx, trades[0]); err != nil || inserted {
+				t.Fatalf("redelivery inserted=%v err=%v", inserted, err)
+			}
+			// A failed projection must roll back its journal insert as well as
+			// its aggregates; a corrected redelivery with that ID must succeed.
+			bad := trade("0xnext-12", someUser, somePool, someToken, false, usdl5, "2000000000000000000", 10, 100)
+			if inserted, err := st.FoldTrade(ctx, bad); err == nil || inserted {
+				t.Fatalf("oversell inserted=%v err=%v", inserted, err)
+			}
+			after, err := st.GetPosition(ctx, someUser, somePool)
+			if err != nil || after == nil || after.RealizedPnlUsdl != tc.realized || after.TradeCount != 3 {
+				t.Fatalf("failed projection changed position: %+v err=%v", after, err)
+			}
+			bad.TokenAmount = oneToken
+			mustFold(t, st, bad)
+		})
+	}
+}

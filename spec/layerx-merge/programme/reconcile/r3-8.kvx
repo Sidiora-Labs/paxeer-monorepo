@@ -1,0 +1,501 @@
+[reconcile.r3-8]
+revision = "d6c341e59603faf9a28756df9aff6d45927fe392"
+rows = 59
+
+[row.r3-8.1]
+interface = "interface.3.gen-epoch-params-j26"
+verdict = "served"
+path = "api/epoch/genesis.proto"
+line = 13
+symbol = "params"
+evidence = "Params params = 1 remains non-nullable in epoch GenesisState; the registry uses the qualified field name epoch.params."
+
+[row.r3-8.2]
+interface = "interface.3.gen-epoch-epoch-j26"
+verdict = "served"
+path = "api/epoch/genesis.proto"
+line = 14
+symbol = "epoch"
+evidence = "Epoch epoch = 2 remains declared in epoch GenesisState; epoch.epoch is a registry qualification, not a source identifier."
+
+[row.r3-8.3]
+interface = "interface.3.gen-layerxexchange-params-j26"
+verdict = "served"
+path = "api/layerxexchange/genesis.proto"
+line = 12
+symbol = "params"
+evidence = "Params params = 1 remains non-nullable in layerxexchange GenesisState; the source field identifier is params."
+
+[row.r3-8.4]
+interface = "interface.3.gen-layerxexchange-intent-count-j26"
+verdict = "served"
+path = "api/layerxexchange/genesis.proto"
+line = 13
+symbol = "intent_count"
+evidence = "uint64 intent_count = 2 remains in GenesisState for the legacy exchange intent store."
+
+[row.r3-8.5]
+interface = "interface.3.gen-layerxexchange-intents-j26"
+verdict = "served"
+path = "api/layerxexchange/genesis.proto"
+line = 14
+symbol = "intents"
+evidence = "repeated Intent intents = 3 remains non-nullable in GenesisState for legacy exchange state."
+
+[row.r3-8.6]
+interface = "interface.3.gen-layerxexchange-owner-nonces-j26"
+verdict = "served"
+path = "api/layerxexchange/genesis.proto"
+line = 15
+symbol = "owner_nonces"
+evidence = "repeated OwnerNonce owner_nonces = 4 remains non-nullable in GenesisState; the source identifier is owner_nonces."
+
+[row.r3-8.7]
+interface = "interface.3.gen-layerxexchange-params-authority-j26"
+verdict = "served"
+path = "api/layerxexchange/params.proto"
+line = 26
+symbol = "authority"
+evidence = "string authority = 1 remains in exchange Params; an empty authority selects the governance module account."
+
+[row.r3-8.8]
+interface = "interface.3.gen-layerxexchange-params-markets-j26"
+verdict = "served"
+path = "api/layerxexchange/params.proto"
+line = 28
+symbol = "markets"
+evidence = "repeated Market markets = 2 remains non-nullable in exchange Params; the qualified registry field resolves to markets."
+
+[row.r3-8.9]
+interface = "interface.3.gen-layerxexchange-params-paused-j26"
+verdict = "served"
+path = "api/layerxexchange/params.proto"
+line = 29
+symbol = "paused"
+evidence = "bool paused = 3 remains declared in exchange Params; the registry-qualified name is not a literal in the proto."
+
+[row.r3-8.10]
+interface = "interface.3.gen-layerxexchange-params-time-in-force-j26"
+verdict = "served"
+path = "api/layerxexchange/params.proto"
+line = 30
+symbol = "time_in_force"
+evidence = "bool time_in_force = 4 remains declared in exchange Params alongside the paused field."
+
+[row.r3-8.11]
+interface = "interface.3.msg-layerxexchange-updateparams"
+verdict = "served"
+path = "api/layerxexchange/tx.proto"
+line = 13
+symbol = "UpdateParams"
+evidence = "rpc UpdateParams(MsgUpdateParams) returns (MsgUpdateParamsResponse) is still declared in service Msg despite registry status retire."
+
+[row.r3-8.12]
+interface = "interface.3.msg-layerxexchange-setmarket"
+verdict = "served"
+path = "api/layerxexchange/tx.proto"
+line = 14
+symbol = "SetMarket"
+evidence = "rpc SetMarket(MsgSetMarket) returns (MsgSetMarketResponse) is still declared in service Msg despite registry status retire."
+
+[row.r3-8.13]
+interface = "interface.3.proto-layerxexchange-msgupdateparams"
+verdict = "served"
+path = "api/layerxexchange/tx.proto"
+line = 18
+symbol = "MsgUpdateParams"
+evidence = "message MsgUpdateParams remains declared with string authority = 1 and non-nullable Params params = 2; retirement has not removed the schema."
+
+[row.r3-8.14]
+interface = "interface.3.proto-layerxexchange-msgupdateparamsresponse"
+verdict = "served"
+path = "api/layerxexchange/tx.proto"
+line = 24
+symbol = "MsgUpdateParamsResponse"
+evidence = "message MsgUpdateParamsResponse {} remains declared as the empty RPC response despite registry status retire."
+
+[row.r3-8.15]
+interface = "interface.3.proto-layerxexchange-msgsetmarket"
+verdict = "served"
+path = "api/layerxexchange/tx.proto"
+line = 27
+symbol = "MsgSetMarket"
+evidence = "message MsgSetMarket remains declared with string authority = 1 and non-nullable Market market = 2 despite registry status retire."
+
+[row.r3-8.16]
+interface = "interface.3.proto-layerxexchange-msgsetmarketresponse"
+verdict = "served"
+path = "api/layerxexchange/tx.proto"
+line = 33
+symbol = "MsgSetMarketResponse"
+evidence = "message MsgSetMarketResponse {} remains declared as the empty RPC response despite registry status retire."
+
+[row.r3-8.17]
+interface = "interface.3.gen-mint-minter-j26"
+verdict = "served"
+path = "api/mint/v1beta1/genesis.proto"
+line = 12
+symbol = "minter"
+evidence = "Minter minter = 1 remains non-nullable in mint GenesisState; mint.minter is the registry-qualified field name."
+
+[row.r3-8.18]
+interface = "interface.3.gen-mint-mint-denom-j26"
+verdict = "served"
+path = "api/mint/v1beta1/mint.proto"
+line = 31
+symbol = "mint_denom"
+evidence = "string mint_denom = 1 remains in mint Params; the exact source field is mint_denom."
+
+[row.r3-8.19]
+interface = "interface.3.gen-mint-token-release-schedule-j26"
+verdict = "served"
+path = "api/mint/v1beta1/mint.proto"
+line = 33
+symbol = "token_release_schedule"
+evidence = "Signature remains repeated ScheduledTokenRelease token_release_schedule = 2 with nullable false and a YAML tag; no schema change is observed against the registered field."
+
+[row.r3-8.20]
+interface = "interface.3.msg-spot-updateparams"
+verdict = "served"
+path = "api/spot/tx.proto"
+line = 6
+symbol = "UpdateParams"
+evidence = "Signature remains rpc UpdateParams(MsgUpdateParams) returns (MsgUpdateParamsResponse); no RPC signature change is observed. Request still contains authority and custom Params bytes."
+
+[row.r3-8.21]
+interface = "interface.3.msg-spot-syncreserves"
+verdict = "served"
+path = "api/spot/tx.proto"
+line = 7
+symbol = "SyncReserves"
+evidence = "Signature remains rpc SyncReserves(MsgSyncReserves) returns (MsgSyncReservesResponse); no RPC signature change is observed. Request still contains authority and repeated string tokens."
+
+[row.r3-8.22]
+interface = "interface.3.ts-perps-core-errors-classify-precompile-error-codes"
+verdict = "served"
+path = "apps/perps/src/core/errors/classify.ts"
+line = 315
+symbol = "PRECOMPILE_ERROR_CODES"
+evidence = "Declaration remains export const PRECOMPILE_ERROR_CODES: Readonly<Record<PrecompileErrorName, PrecompileErrorEntry>>. Its entries now map tick/lot to PRECISION, leverage to ABOVE_MAX, value bounds and market halt to specific errors."
+
+[row.r3-8.23]
+interface = "interface.3.ts-perps-core-net-venuestream-isvenuesymbol"
+verdict = "served"
+path = "apps/perps/src/core/net/venueStream.ts"
+line = 91
+symbol = "isVenueSymbol"
+evidence = "Signature remains export function isVenueSymbol(symbol: string | null | undefined): boolean; lookup now uses registeredVenueSymbols, replaced by registerVenueSymbols, rather than an immutable seed set."
+
+[row.r3-8.24]
+interface = "interface.3.ts-perps-core-perps-config-perpsmarket"
+verdict = "served"
+path = "apps/perps/src/core/perps/config.ts"
+line = 48
+symbol = "PerpsMarket"
+evidence = "export interface PerpsMarket now contains marketId, symbol, name, baseToken and optional description; static maxLeverage was removed, with the numeric leverage field on TradeableMarket instead."
+
+[row.r3-8.25]
+interface = "interface.3.ts-perps-core-perps-config-perps-markets"
+verdict = "served"
+path = "apps/perps/src/core/perps/config.ts"
+line = 60
+symbol = "PERPS_MARKETS"
+evidence = "Declaration remains export const PERPS_MARKETS: PerpsMarket[] = [. Entries are a metadata seed list without maxLeverage; the PerpsMarket shape no longer embeds a static leverage limit."
+
+[row.r3-8.26]
+interface = "interface.3.ts-perps-core-perps-config-spot-mode-labels"
+verdict = "retired"
+path = "apps/perps/src/core/perps/config.ts"
+line = 163
+symbol = "SPOT_MODE_LABELS"
+evidence = "SPOT_MODE_LABELS is absent from config.ts. Repository-wide exact-token search excluding spec and docs finds only the test asserting that this export is absent."
+remaining_refs = 1
+remaining = ["apps/perps/tests/perps-config.test.ts:14"]
+
+[row.r3-8.27]
+interface = "interface.3.ts-perps-core-perps-config-pofq-tier-labels"
+verdict = "retired"
+path = "apps/perps/src/core/perps/config.ts"
+line = 189
+symbol = "POFQ_TIER_LABELS"
+evidence = "POFQ_TIER_LABELS is absent from config.ts. Repository-wide exact-token search excluding spec and docs finds only the test asserting that this export is absent."
+remaining_refs = 1
+remaining = ["apps/perps/tests/perps-config.test.ts:15"]
+
+[row.r3-8.28]
+interface = "interface.3.ts-perps-core-perps-config-spot-mode-banner-copy"
+verdict = "retired"
+path = "apps/perps/src/core/perps/config.ts"
+line = 260
+symbol = "SPOT_MODE_BANNER_COPY"
+evidence = "SPOT_MODE_BANNER_COPY is absent from config.ts. Repository-wide exact-token search excluding spec and docs finds only the test asserting that this export is absent."
+remaining_refs = 1
+remaining = ["apps/perps/tests/perps-config.test.ts:16"]
+
+[row.r3-8.29]
+interface = "interface.3.ts-perps-core-perps-orderplan-buildorderplan"
+verdict = "served"
+path = "apps/perps/src/core/perps/orderPlan.ts"
+line = 258
+symbol = "buildOrderPlan"
+evidence = "Signature is now export function buildOrderPlan(state: OrderFormState, quote: OpenPositionQuote | null, limits: OrderLimits): OrderPlan; required limits is the added third argument for tick, lot and leverage validation."
+
+[row.r3-8.30]
+interface = "interface.3.ts-perps-core-perps-pnlhelpers-computepositionpnl"
+verdict = "served"
+path = "apps/perps/src/core/perps/pnlHelpers.ts"
+line = 146
+symbol = "computePositionPnl"
+evidence = "Signature now adds tiers: readonly MarginTier[] = [] after pos: ParsedPosition and markPrice: bigint, retaining PositionPnl return type; maintenanceMargin uses these chain tiers."
+
+[row.r3-8.31]
+interface = "interface.3.ts-perps-hooks-perps-usequoter-usequoter"
+verdict = "served"
+path = "apps/perps/src/hooks/perps/useQuoter.ts"
+line = 152
+symbol = "useQuoter"
+evidence = "Signature changed from export function useQuoter() to export function useQuoter(marketDataUrl = REST_API_URL); market quoting reads configuration from the chain rather than assuming enabled and fresh."
+
+[row.r3-8.32]
+interface = "interface.3.ts-perps-hooks-perps-usesubgraph-markets-query"
+verdict = "served"
+path = "apps/perps/src/hooks/perps/useSubgraph.ts"
+line = 285
+symbol = "MARKETS_QUERY"
+evidence = "Declaration remains export const MARKETS_QUERY = /* GraphQL */ with query GetMarkets. Its selected result shape now includes szDecimals, pxDecimals, tickSize, lotSize, tierClass and marginTiers."
+
+[row.r3-8.33]
+interface = "interface.3.ts-perps-hooks-perps-usesubgraph-spot-batch-clearings-query"
+verdict = "retired"
+path = "apps/perps/src/hooks/perps/useSubgraph.ts"
+line = 454
+symbol = "SPOT_BATCH_CLEARINGS_QUERY"
+evidence = "SPOT_BATCH_CLEARINGS_QUERY is absent from useSubgraph.ts following decision 346. Repository-wide search excluding spec and docs finds only the retired-operation absence test."
+remaining_refs = 1
+remaining = ["apps/perps/tests/graphql-operations.test.ts:245"]
+
+[row.r3-8.34]
+interface = "interface.3.ts-perps-hooks-perps-usesubgraph-spot-epoch-settlements-query"
+verdict = "retired"
+path = "apps/perps/src/hooks/perps/useSubgraph.ts"
+line = 463
+symbol = "SPOT_EPOCH_SETTLEMENTS_QUERY"
+evidence = "SPOT_EPOCH_SETTLEMENTS_QUERY is absent from useSubgraph.ts following decision 346. Repository-wide search excluding spec and docs finds only the retired-operation absence test."
+remaining_refs = 1
+remaining = ["apps/perps/tests/graphql-operations.test.ts:246"]
+
+[row.r3-8.35]
+interface = "interface.3.ts-perps-hooks-perps-usesubgraph-spot-fast-settlements-query"
+verdict = "retired"
+path = "apps/perps/src/hooks/perps/useSubgraph.ts"
+line = 472
+symbol = "SPOT_FAST_SETTLEMENTS_QUERY"
+evidence = "SPOT_FAST_SETTLEMENTS_QUERY is absent from useSubgraph.ts following decision 346. Repository-wide search excluding spec and docs finds only the retired-operation absence test."
+remaining_refs = 1
+remaining = ["apps/perps/tests/graphql-operations.test.ts:247"]
+
+[row.r3-8.36]
+interface = "interface.3.ts-perps-hooks-perps-usesubgraph-spot-market-mode-changes-query"
+verdict = "retired"
+path = "apps/perps/src/hooks/perps/useSubgraph.ts"
+line = 490
+symbol = "SPOT_MARKET_MODE_CHANGES_QUERY"
+evidence = "SPOT_MARKET_MODE_CHANGES_QUERY is absent from useSubgraph.ts following decision 346. Repository-wide search excluding spec and docs finds only the retired-operation absence test."
+remaining_refs = 1
+remaining = ["apps/perps/tests/graphql-operations.test.ts:248"]
+
+[row.r3-8.37]
+interface = "interface.3.ts-perps-hooks-perps-usesubgraph-spot-pofq-updates-query"
+verdict = "retired"
+path = "apps/perps/src/hooks/perps/useSubgraph.ts"
+line = 499
+symbol = "SPOT_POFQ_UPDATES_QUERY"
+evidence = "SPOT_POFQ_UPDATES_QUERY is absent from useSubgraph.ts following decision 346. Repository-wide search excluding spec and docs finds only the retired-operation absence test."
+remaining_refs = 1
+remaining = ["apps/perps/tests/graphql-operations.test.ts:249"]
+
+[row.r3-8.38]
+interface = "interface.3.ts-perps-hooks-perps-usesubgraph-spot-plvs-query"
+verdict = "retired"
+path = "apps/perps/src/hooks/perps/useSubgraph.ts"
+line = 508
+symbol = "SPOT_PLVS_QUERY"
+evidence = "SPOT_PLVS_QUERY is absent from useSubgraph.ts following decision 346. Repository-wide search excluding spec and docs finds only the retired-operation absence test."
+remaining_refs = 1
+remaining = ["apps/perps/tests/graphql-operations.test.ts:250"]
+
+[row.r3-8.39]
+interface = "interface.3.ts-perps-hooks-perps-usesubgraph-spot-keeper-cycles-query"
+verdict = "retired"
+path = "apps/perps/src/hooks/perps/useSubgraph.ts"
+line = 518
+symbol = "SPOT_KEEPER_CYCLES_QUERY"
+evidence = "SPOT_KEEPER_CYCLES_QUERY is absent from useSubgraph.ts following decision 346. Repository-wide search excluding spec and docs finds only the retired-operation absence test."
+remaining_refs = 1
+remaining = ["apps/perps/tests/graphql-operations.test.ts:251"]
+
+[row.r3-8.40]
+interface = "interface.3.ts-perps-hooks-perps-usesubgraph-spot-batch-clear-failures-query"
+verdict = "retired"
+path = "apps/perps/src/hooks/perps/useSubgraph.ts"
+line = 527
+symbol = "SPOT_BATCH_CLEAR_FAILURES_QUERY"
+evidence = "SPOT_BATCH_CLEAR_FAILURES_QUERY is absent from useSubgraph.ts following decision 346. Repository-wide search excluding spec and docs finds only the retired-operation absence test."
+remaining_refs = 1
+remaining = ["apps/perps/tests/graphql-operations.test.ts:252"]
+
+[row.r3-8.41]
+interface = "interface.3.ts-perps-widgets-markets-usemarketsrows-new-market-ids"
+verdict = "retired"
+path = "apps/perps/src/widgets/markets/useMarketsRows.ts"
+line = 20
+symbol = "NEW_MARKET_IDS"
+evidence = "NEW_MARKET_IDS is absent from useMarketsRows.ts; rows now derive isNew from catalog category. Repository-wide exact-token search excluding spec and docs finds no remaining files."
+remaining_refs = 0
+remaining = []
+
+[row.r3-8.42]
+interface = "interface.3.ts-perps-widgets-markets-usemarketsrows-usemarketsrows"
+verdict = "served"
+path = "apps/perps/src/widgets/markets/useMarketsRows.ts"
+line = 68
+symbol = "useMarketsRows"
+evidence = "export function useMarketsRows(): { rows: MarketRow[]; bySymbol: Map<string, MarketRow>; hasAnyLive: boolean } now builds rows from usePerpsMarkets().tradeable; catalog-derived MarketRow data replaces the static seed list."
+
+[row.r3-8.43]
+interface = "interface.3.ts-perps-widgets-portfolio-portfoliofeetierpanel-portfoliofeetierpanel"
+verdict = "served"
+path = "apps/perps/src/widgets/portfolio/PortfolioFeeTierPanel.tsx"
+line = 15
+symbol = "PortfolioFeeTierPanel"
+evidence = "Signature now destructures { address, view }: PortfolioFeeTierPanelProps, adding optional view?: FeeTierView; the connected panel reads useFeeTier(address) instead of displaying a fixed tier."
+
+[row.r3-8.44]
+interface = "interface.3.ts-perps-widgets-spot-spotmarketwatchlist-spotmarketwatchlist"
+verdict = "served"
+path = "apps/perps/src/widgets/spot/SpotMarketWatchlist.tsx"
+line = 205
+symbol = "SpotMarketWatchlist"
+evidence = "Signature remains export function SpotMarketWatchlist({ selectedSymbol, onSelect }: SpotMarketWatchlistProps); no parameter change is observed. Token state reads now support the paused indicator rendered by its rows."
+
+[row.r3-8.45]
+interface = "interface.3.ts-perps-widgets-spot-spotorderform-spotorderform"
+verdict = "served"
+path = "apps/perps/src/widgets/spot/SpotOrderForm.tsx"
+line = 380
+symbol = "SpotOrderForm"
+evidence = "Signature remains export function SpotOrderForm({ market, compact = false }: SpotOrderFormProps); no parameter change is observed. It validates the registered market, and connected submission reads useSpotTokenState to enforce pause state."
+
+[row.r3-8.46]
+interface = "interface.3.ts-perps-widgets-trading-perpsorderform-perpsorderform"
+verdict = "served"
+path = "apps/perps/src/widgets/trading/PerpsOrderForm.tsx"
+line = 294
+symbol = "PerpsOrderForm"
+evidence = "Signature remains export function PerpsOrderForm({ market, compact = false }: { market: PerpsMarket; compact?: boolean }); PerpsMarket no longer contains static maxLeverage, and leverage limits now come from chain configuration and margin tiers."
+
+[row.r3-8.47]
+interface = "interface.3.go-epoch-types-newmultiepochhooks-j26"
+verdict = "served"
+path = "modules/epoch/types/hooks.go"
+line = 20
+symbol = "NewMultiEpochHooks"
+evidence = "Signature remains func NewMultiEpochHooks(hooks ...EpochHooks) MultiEpochHooks; no parameter or return change is observed. Hook dispatch now forwards cached events after a successful write and re-panics on failure."
+
+[row.r3-8.48]
+interface = "interface.3.evt-layerxexchange-event-margin-deposited"
+verdict = "kept"
+path = "modules/layerxexchange/keeper/intents.go"
+line = 84
+symbol = "EventMarginDeposited"
+evidence = "Decision 323, recorded by override.J26.127, keeps the legacy intent store for replay. EmitTypedEvent still constructs EventMarginDeposited with deposit id, margin account, owner, asset id and amount."
+
+[row.r3-8.49]
+interface = "interface.3.evt-layerxexchange-event-margin-withdrawal-requested"
+verdict = "kept"
+path = "modules/layerxexchange/keeper/intents.go"
+line = 107
+symbol = "EventMarginWithdrawalRequested"
+evidence = "Decision 323, recorded by override.J26.129, keeps the legacy intent store for replay. EmitTypedEvent still constructs EventMarginWithdrawalRequested with intent id, owner, account, asset id, amount and nonce."
+
+[row.r3-8.50]
+interface = "interface.3.evt-layerxexchange-event-order-placed"
+verdict = "kept"
+path = "modules/layerxexchange/keeper/intents.go"
+line = 156
+symbol = "EventOrderPlaced"
+evidence = "Decision 323, recorded by override.J26.128, keeps the legacy intent store for replay. EmitTypedEvent still constructs EventOrderPlaced with order id, market id, zero fill count and quantity."
+
+[row.r3-8.51]
+interface = "interface.3.evt-layerxexchange-event-order-cancel-requested"
+verdict = "kept"
+path = "modules/layerxexchange/keeper/intents.go"
+line = 172
+symbol = "EventOrderCancelRequested"
+evidence = "Decision 323, recorded by override.J26.130, keeps the legacy intent store for replay. EmitTypedEvent still constructs EventOrderCancelRequested with intent id, owner, order id and nonce."
+
+[row.r3-8.52]
+interface = "interface.3.go-layerxexchange-keeper-requestsettlement-j64"
+verdict = "served"
+path = "modules/layerxexchange/keeper/intents.go"
+line = 178
+symbol = "RequestSettlement"
+evidence = "Signature remains func (k *Keeper) RequestSettlement(ctx sdk.Context, owner common.Address, positionID [32]byte) (types.Intent, error); no signature change is observed. It records atomically through record, which refuses retired exchange state."
+
+[row.r3-8.53]
+interface = "interface.3.evt-layerxexchange-event-settlement-requested"
+verdict = "kept"
+path = "modules/layerxexchange/keeper/intents.go"
+line = 188
+symbol = "EventSettlementRequested"
+evidence = "Decision 323, recorded by override.J26.131, keeps the legacy intent store for replay. EmitTypedEvent still constructs EventSettlementRequested with intent id, owner, position id and nonce."
+
+[row.r3-8.54]
+interface = "interface.3.go-layerxexchange-types-errorcode-j26"
+verdict = "served"
+path = "modules/layerxexchange/types/errors.go"
+line = 41
+symbol = "ErrorCode"
+evidence = "Signature remains func ErrorCode(err error) string; no parameter or return change is observed. The switch now includes ErrRetired mapping to CodeRetired, alongside the exchange validation and proof codes."
+
+[row.r3-8.55]
+interface = "interface.3.go-mint-client-rest-registerroutes-j26"
+verdict = "served"
+path = "modules/mint/client/rest/rest.go"
+line = 18
+symbol = "RegisterRoutes"
+evidence = "Signature is now func RegisterRoutes(_ client.Context, _ *mux.Router) {}; named clientCtx and rtr parameters became blank identifiers, and the body registers no legacy mint REST routes."
+
+[row.r3-8.56]
+interface = "interface.3.evt-mint-mint"
+verdict = "served"
+path = "modules/mint/types/events.go"
+line = 5
+symbol = "EventTypeMint"
+evidence = "Declaration remains EventTypeMint = ModuleName. Emission still carries mint_epoch, mint_date and amount in minter.go:133-139; epoch hooks now copy cached events to the parent EventManager at hooks.go:52, correcting the registered lost-event behavior."
+
+[row.r3-8.57]
+interface = "interface.3.evt-oracle-message"
+verdict = "served"
+path = "modules/oracle/keeper/msg_server.go"
+line = 61
+symbol = "EventTypeMessage"
+evidence = "sdk.EventTypeMessage is emitted with module and sender at lines 61-63 and 98-100; the registered literal message is represented by the SDK constant in this file."
+
+[row.r3-8.58]
+interface = "interface.3.evt-oracle-vote"
+verdict = "retired"
+path = "modules/oracle/types/events.go"
+line = 6
+symbol = "EventTypeVote"
+evidence = "EventTypeVote, formerly the vote event constant named by override.J25.1 and decision 309, is absent from events.go. Repository-wide exact-token search excluding spec and docs finds no references; the message emits EventTypeAggregateVote."
+remaining_refs = 0
+remaining = []
+
+[row.r3-8.59]
+interface = "interface.3.go-oracle-types-oracletwaps-j64"
+verdict = "served"
+path = "modules/oracle/types/snapshots.go"
+line = 12
+symbol = "OracleTwaps"
+evidence = "OracleTwaps []OracleTwap remains a named slice type in the grouped type declaration at snapshots.go:12."

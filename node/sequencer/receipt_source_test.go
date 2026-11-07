@@ -1,243 +1,171 @@
-package sequencer_test
+package sequencer
 
 import (
 	"bytes"
+	"context"
+	"errors"
+	"path/filepath"
 	"testing"
 
-	"github.com/Sidiora-Labs/Paxeer-X-Network/node/sequencer"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/layerxproof/codec"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/node/sequencer/wal"
 	evmrpc "github.com/Sidiora-Labs/Paxeer-X-Network/rpc"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/tests/occ/utils"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/holiman/uint256"
 	"github.com/stretchr/testify/require"
+	"go.opentelemetry.io/otel"
 )
 
-func receiptSourceAcceptedSend(t *testing.T, height int64) (common.Hash, evmrpc.SequencerSend) {
-	t.Helper()
-	in := vectorInput()
-	in.PaymentDenom = "upax"
-	in.Accepted.Height = height
-	in.Accepted.ActivityID[0] ^= byte(height)
-	in.Accepted.SeqHash = expectedSeqHash(in.Accepted.PrevSeqHash, in.Accepted.Seq, in.Accepted.ActivityID)
-	in.EVM.Status = 0
-	in.EVM.VmError = "execution reverted"
-	receipt, err := vectorKey(t).SignReceipt(in)
+func TestReceiptSourceReplayRestoresAcceptedSends(t *testing.T) {
+	sender := utils.NewSigner()
+	h := newConsensusFenceHarness(t, 42, sender)
+	dir := filepath.Join(t.TempDir(), "wal")
+	log, err := wal.OpenWAL(dir, wal.Config{SegmentSizeLimit: 1})
 	require.NoError(t, err)
-	logs := make([][]byte, len(in.EVM.Logs))
-	for i, log := range in.EVM.Logs {
-		logs[i] = bytes.Clone(log.Data)
-	}
-	return common.Hash(in.Accepted.ActivityID), evmrpc.SequencerSend{
-		Nonce: in.FromSequence, Receipt: receipt, ReturnData: in.ReturnData,
-		LogData: logs, VMError: in.EVM.VmError,
-	}
-}
-
-func TestReceiptSourceRecordsAcceptedSend(t *testing.T) {
-	hash, send := receiptSourceAcceptedSend(t, vectorHeight)
-	nextHash, next := receiptSourceAcceptedSend(t, vectorHeight+1)
-	lastHash, last := receiptSourceAcceptedSend(t, vectorHeight+2)
-	source := sequencer.NewReceiptSource(2)
-	source.Record(hash, send)
-	source.Record(nextHash, next)
-	got, err := source.SequencerSend(hash)
+	t.Cleanup(log.Close)
+	rep, err := NewReplicator(ReplicatorConfig{WAL: log, Standalone: true})
 	require.NoError(t, err)
-	require.Equal(t, &send, got)
-
-	t.Run("owns recorded and returned bytes", func(t *testing.T) {
-		wantReceipt := bytes.Clone(send.Receipt)
-		wantReturn := bytes.Clone(send.ReturnData)
-		wantLog := bytes.Clone(send.LogData[0])
-		send.Receipt[0] ^= 0xff
-		send.ReturnData[0] ^= 0xff
-		send.LogData[0][0] ^= 0xff
-		got.Receipt[0] ^= 0x7f
-		got.ReturnData[0] ^= 0x7f
-		got.LogData[0][0] ^= 0x7f
-		got.LogData[1] = []byte("changed empty log")
-		again, err := source.SequencerSend(hash)
+	t.Cleanup(rep.Close)
+	r, err := NewReceipter(h.src.exec, h.src.app, &h.src.app.EvmKeeper, h.src.key, 12)
+	require.NoError(t, err)
+	metrics, err := NewMetrics(otel.Meter("receipt-source-replay"))
+	require.NoError(t, err)
+	live := NewReceiptSource(3)
+	accepter := NewAccepter(r, rep, live, metrics)
+	require.NoError(t, h.src.exec.Open(2, h.openedAt))
+	_, err = rep.Release(t.Context(), &wal.Open{Height: 2, OpenTimeMs: uint64(h.openedAt), BaseFee: uint256.NewInt(0)})
+	require.NoError(t, err)
+	hashes := make([]common.Hash, 3)
+	sends := make([]*evmrpc.SequencerSend, 3)
+	txs := make([][]byte, 3)
+	for i := range hashes {
+		txs[i] = consensusFenceTransfer(t, h.src.app, sender, uint64(i))
+		accepted, err := accepter.Accept(txs[i])
 		require.NoError(t, err)
-		require.NotNil(t, again)
-		require.Equal(t, wantReceipt, again.Receipt)
-		require.Equal(t, wantReturn, again.ReturnData)
-		require.Equal(t, wantLog, again.LogData[0])
-		require.Nil(t, again.LogData[1])
-		send = *again
-	})
+		decoded, err := codec.DecodeReceipt(accepted.Receipt)
+		require.NoError(t, err)
+		require.Zero(t, decoded.ResultCode)
+		hashes[i] = common.Hash(decoded.ActivityID)
+		sends[i], err = live.SequencerSend(hashes[i])
+		require.NoError(t, err)
+		require.NotNil(t, sends[i])
+		require.Equal(t, accepted.Receipt, sends[i].Receipt)
+	}
+	batch, err := h.src.exec.Seal(2)
+	require.NoError(t, err)
+	_, err = rep.Release(t.Context(), &wal.Seal{Height: 2, FromSeq: batch.FromSeq, ToSeq: batch.LastSeq, LastSeqHash: batch.LastSeqHash})
+	require.NoError(t, err)
+	rep.Close()
+	log.Close()
+	reopened, err := wal.OpenWAL(dir, wal.DefaultConfig())
+	require.NoError(t, err)
+	t.Cleanup(reopened.Close)
 
-	t.Run("capacity preserves uncommitted receipts", func(t *testing.T) {
-		source.Record(nextHash, next)
-		require.Panics(t, func() { source.Record(lastHash, last) })
-		for hash, want := range map[common.Hash]evmrpc.SequencerSend{hash: send, nextHash: next} {
-			got, err := source.SequencerSend(hash)
+	for _, tc := range []struct {
+		name      string
+		capacity  int
+		committed int64
+		retained  int
+	}{
+		{"all sends survive seal", 3, 1, 3},
+		{"newest sends win before replayed seal", 2, 1, 2},
+		{"newest sends win below existing watermark", 2, 2, 2},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			exec, err := NewExecutor(h.src.app, h.opts)
 			require.NoError(t, err)
-			require.Equal(t, &want, got)
+			receipter, err := NewReceipter(exec, h.src.app, &h.src.app.EvmKeeper, h.src.key, 12)
+			require.NoError(t, err)
+			source := NewReceiptSource(tc.capacity)
+			source.Committed(tc.committed)
+			replayer := &nodeStartReplayer{AppReplayer: NewAppReplayer(exec, receipter), ctx: t.Context()}
+			replayer.src = source
+			result, err := reopened.Replay(replayer)
+			require.NoError(t, err)
+			require.Equal(t, len(hashes), result.Accepts)
+			require.True(t, replayer.sealed)
+			require.Equal(t, int64(2), source.committed)
+			require.Len(t, source.entries, tc.retained)
+			require.Empty(t, source.pendingOrder)
+			for i, hash := range hashes {
+				got, err := source.SequencerSend(hash)
+				require.NoError(t, err)
+				if i < len(hashes)-tc.retained {
+					require.Nil(t, got)
+				} else {
+					require.Equal(t, sends[i], got)
+				}
+			}
+			require.Equal(t, hashes[len(hashes)-tc.retained:], source.committedOrder)
+			source.Record(hashes[0], *sends[0])
+			got, err := source.SequencerSend(hashes[0])
+			require.NoError(t, err)
+			if tc.retained < len(hashes) {
+				require.Nil(t, got, "live records at committed heights must not restore evicted sends")
+			} else {
+				require.Equal(t, sends[0], got)
+			}
+			require.ErrorIs(t, replayer.Apply(&wal.Seal{Height: 3}), ErrLayerNotOpen)
+			require.Equal(t, int64(2), source.committed, "failed seals must not advance the watermark")
+		})
+	}
+
+	t.Run("mismatched receipt is never recorded", func(t *testing.T) {
+		exec, err := NewExecutor(h.src.app, h.opts)
+		require.NoError(t, err)
+		receipter, err := NewReceipter(exec, h.src.app, &h.src.app.EvmKeeper, h.src.key, 12)
+		require.NoError(t, err)
+		source := NewReceiptSource(3)
+		replayer := NewAppReplayer(exec, receipter)
+		replayer.src = source
+		require.NoError(t, replayer.Apply(&wal.Open{Height: 2, OpenTimeMs: uint64(h.openedAt), BaseFee: uint256.NewInt(0)}))
+		tampered := bytes.Clone(sends[0].Receipt)
+		tampered[len(tampered)-1] ^= 1
+		got, err := replayer.Execute(&wal.Accept{Seq: h.opts.LastSeq + 1, Height: 2, Tx: txs[0], Receipt: tampered})
+		require.ErrorIs(t, err, wal.ErrReceiptMismatch)
+		require.Nil(t, got)
+		stored, err := source.SequencerSend(hashes[0])
+		require.NoError(t, err)
+		require.Nil(t, stored)
+		require.Empty(t, source.entries)
+	})
+
+	_, err = reopened.Append(&wal.Committed{Height: 2, LastSeq: batch.LastSeq})
+	require.NoError(t, err)
+	_, err = reopened.GroupSync()
+	require.NoError(t, err)
+	t.Run("committed sends are scanned without executing", func(t *testing.T) {
+		for _, capacity := range []int{3, 2} {
+			source := NewReceiptSource(capacity)
+			require.NoError(t, source.restoreCommitted(t.Context(), reopened))
+			require.Equal(t, int64(2), source.committed)
+			require.Empty(t, source.pendingOrder)
+			require.Equal(t, hashes[len(hashes)-capacity:], source.committedOrder)
+			for i, hash := range hashes {
+				got, err := source.SequencerSend(hash)
+				require.NoError(t, err)
+				if i < len(hashes)-capacity {
+					require.Nil(t, got)
+				} else {
+					require.Equal(t, sends[i], got)
+				}
+			}
 		}
-	})
-
-	source.Committed(vectorHeight - 1)
-	got, err = source.SequencerSend(hash)
-	require.NoError(t, err)
-	require.Equal(t, &send, got)
-	source.Committed(vectorHeight)
-	got, err = source.SequencerSend(hash)
-	require.NoError(t, err)
-	require.Equal(t, &send, got)
-	got, err = source.SequencerSend(nextHash)
-	require.NoError(t, err)
-	require.Equal(t, &next, got)
-
-	source.Record(lastHash, last)
-	got, err = source.SequencerSend(hash)
-	require.NoError(t, err)
-	require.Nil(t, got, "a full source evicts its oldest committed send to admit a pending one")
-	for hash, want := range map[common.Hash]evmrpc.SequencerSend{nextHash: next, lastHash: last} {
-		got, err := source.SequencerSend(hash)
+		exec, err := NewExecutor(h.src.app, h.opts)
 		require.NoError(t, err)
-		require.Equal(t, &want, got)
-	}
-	source.Committed(vectorHeight - 1)
-	source.Record(hash, send)
-	got, err = source.SequencerSend(hash)
-	require.NoError(t, err)
-	require.Nil(t, got, "a record at or below the watermark records nothing and never restores an evicted send")
-	source.Committed(vectorHeight + 3)
-	for hash, want := range map[common.Hash]evmrpc.SequencerSend{nextHash: next, lastHash: last} {
-		got, err := source.SequencerSend(hash)
+		receipter, err := NewReceipter(exec, h.src.app, &h.src.app.EvmKeeper, h.src.key, 12)
 		require.NoError(t, err)
-		require.Equal(t, &want, got)
-	}
-
-	var zero sequencer.ReceiptSource
-	zero.Record(nextHash, next)
-	got, err = zero.SequencerSend(nextHash)
-	require.NoError(t, err)
-	require.Equal(t, &next, got)
-	zero.Committed(vectorHeight + 1)
-	got, err = zero.SequencerSend(nextHash)
-	require.NoError(t, err)
-	require.Equal(t, &next, got)
-}
-
-func TestReceiptSourceUnknownHashNil(t *testing.T) {
-	var source sequencer.ReceiptSource
-	unknown := common.HexToHash("0xdeadbeef")
-	got, err := source.SequencerSend(unknown)
-	require.NoError(t, err)
-	require.Nil(t, got)
-	hash, send := receiptSourceAcceptedSend(t, vectorHeight)
-	source.Record(hash, send)
-	got, err = source.SequencerSend(unknown)
-	require.NoError(t, err)
-	require.Nil(t, got)
-	source.Committed(vectorHeight)
-	got, err = source.SequencerSend(unknown)
-	require.NoError(t, err)
-	require.Nil(t, got)
-}
-
-func TestReceiptSourceServesCommittedSend(t *testing.T) {
-	hash, send := receiptSourceAcceptedSend(t, 7)
-	source := sequencer.NewReceiptSource(2)
-	source.Record(hash, send)
-	for _, height := range []int64{7, 9} {
-		source.Committed(height)
-		got, err := source.SequencerSend(hash)
+		result, err := reopened.Replay(NewAppReplayer(exec, receipter))
 		require.NoError(t, err)
-		require.Equal(t, &send, got)
-	}
-}
-
-func TestReceiptSourceEvictsOldestCommittedSendAtCapacity(t *testing.T) {
-	firstHash, first := receiptSourceAcceptedSend(t, 1)
-	secondHash, second := receiptSourceAcceptedSend(t, 2)
-	thirdHash, third := receiptSourceAcceptedSend(t, 3)
-	fourthHash, fourth := receiptSourceAcceptedSend(t, 4)
-
-	assertSend := func(source *sequencer.ReceiptSource, hash common.Hash, want *evmrpc.SequencerSend) {
-		t.Helper()
-		got, err := source.SequencerSend(hash)
-		require.NoError(t, err)
-		require.Equal(t, want, got)
-	}
-
-	source := sequencer.NewReceiptSource(2)
-	source.Record(firstHash, first)
-	source.Record(secondHash, second)
-	source.Committed(2)
-	source.Record(thirdHash, third)
-	assertSend(source, firstHash, nil)
-	assertSend(source, secondHash, &second)
-	assertSend(source, thirdHash, &third)
-	source.Record(fourthHash, fourth)
-	assertSend(source, firstHash, nil)
-	assertSend(source, secondHash, nil)
-	assertSend(source, thirdHash, &third)
-	assertSend(source, fourthHash, &fourth)
-	require.PanicsWithValue(t, "sequencer: receipt source capacity exhausted before commit", func() {
-		source.Record(firstHash, first)
-		// A late record is ignored even when no committed send remains to evict.
-		source.Record(secondHash, second)
-		nextHash, next := receiptSourceAcceptedSend(t, 5)
-		source.Record(nextHash, next)
-	})
-	assertSend(source, thirdHash, &third)
-	assertSend(source, fourthHash, &fourth)
-
-	uncommitted := sequencer.NewReceiptSource(2)
-	uncommitted.Record(firstHash, first)
-	uncommitted.Record(secondHash, second)
-	require.PanicsWithValue(t, "sequencer: receipt source capacity exhausted before commit", func() {
-		uncommitted.Record(thirdHash, third)
-	})
-	assertSend(uncommitted, firstHash, &first)
-	assertSend(uncommitted, secondHash, &second)
-	assertSend(uncommitted, thirdHash, nil)
-
-	t.Run("height order precedes insertion order", func(t *testing.T) {
-		source := sequencer.NewReceiptSource(2)
-		source.Record(secondHash, second)
-		source.Record(firstHash, first)
-		source.Committed(2)
-		source.Record(thirdHash, third)
-		got, err := source.SequencerSend(firstHash)
-		require.NoError(t, err)
-		require.Nil(t, got)
-		got, err = source.SequencerSend(secondHash)
-		require.NoError(t, err)
-		require.Equal(t, &second, got)
-	})
-
-	t.Run("insertion order breaks height ties", func(t *testing.T) {
-		in := vectorInput()
-		in.PaymentDenom = "upax"
-		in.Accepted.Height = 1
-		in.Accepted.ActivityID[0] ^= 0x80
-		in.Accepted.SeqHash = expectedSeqHash(in.Accepted.PrevSeqHash, in.Accepted.Seq, in.Accepted.ActivityID)
-		in.EVM.Status = 0
-		in.EVM.VmError = "execution reverted"
-		receipt, err := vectorKey(t).SignReceipt(in)
-		require.NoError(t, err)
-		sameHeightHash := common.Hash(in.Accepted.ActivityID)
-		sameHeight := first
-		sameHeight.Receipt = receipt
-		source := sequencer.NewReceiptSource(2)
-		source.Record(firstHash, first)
-		source.Record(sameHeightHash, sameHeight)
-		source.Record(firstHash, first)
-		source.Committed(1)
-		source.Committed(2)
-		source.Record(thirdHash, third)
-		got, err := source.SequencerSend(firstHash)
-		require.NoError(t, err)
-		require.Nil(t, got)
-		got, err = source.SequencerSend(sameHeightHash)
-		require.NoError(t, err)
-		require.Equal(t, &sameHeight, got)
-		source.Record(fourthHash, fourth)
-		got, err = source.SequencerSend(sameHeightHash)
-		require.NoError(t, err)
-		require.Nil(t, got)
-		got, err = source.SequencerSend(thirdHash)
-		require.NoError(t, err)
-		require.Equal(t, &third, got)
+		require.Zero(t, result.Accepts)
+		require.Nil(t, result.LastAccept)
+		_, err = exec.Snapshot()
+		require.ErrorIs(t, err, ErrLayerNotOpen)
+		ctx, cancel := context.WithCancel(t.Context())
+		cancel()
+		require.ErrorIs(t, NewReceiptSource(3).restoreCommitted(ctx, reopened), context.Canceled)
+		stopped := errors.New("stop scan")
+		require.ErrorIs(t, reopened.Scan(func(wal.Entry) error { return stopped }), stopped)
 	})
 }

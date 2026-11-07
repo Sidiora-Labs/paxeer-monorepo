@@ -1,9 +1,8 @@
 import type { HTMLChakraProps } from '@chakra-ui/react';
 import { Box } from '@chakra-ui/react';
-import type * as monaco from 'monaco-editor/esm/vs/editor/editor.api';
 import React from 'react';
 
-import type { File, Monaco, SearchResult } from './types';
+import type { File } from './types';
 
 import useDebounce from 'lib/hooks/useDebounce';
 import { AccordionRoot } from 'toolkit/chakra/accordion';
@@ -12,11 +11,13 @@ import { InputGroup } from 'toolkit/chakra/input-group';
 
 import CodeEditorSearchSection from './CodeEditorSearchSection';
 import CoderEditorCollapseButton from './CoderEditorCollapseButton';
+import type { EditorModels } from './useCodeEditorModels';
+import useCodeEditorSearch from './useCodeEditorSearch';
 import useThemeColors from './utils/useThemeColors';
 
 interface Props {
   data: Array<File>;
-  monaco: Monaco | undefined;
+  models: EditorModels;
   onFileSelect: (index: number, lineNumber?: number) => void;
   isInputStuck: boolean;
   isActive: boolean;
@@ -24,18 +25,17 @@ interface Props {
   defaultValue: string;
 }
 
-const CodeEditorSearch = ({ monaco, data, onFileSelect, isInputStuck, isActive, setActionBarRenderer, defaultValue }: Props) => {
+const CodeEditorSearch = ({ models, data, onFileSelect, isInputStuck, isActive, setActionBarRenderer, defaultValue }: Props) => {
   const [ searchTerm, changeSearchTerm ] = React.useState('');
-  const [ searchResults, setSearchResults ] = React.useState<Array<SearchResult>>([]);
   const [ expandedSections, setExpandedSections ] = React.useState<Array<string>>([]);
   const [ isMatchCase, setMatchCase ] = React.useState(false);
   const [ isMatchWholeWord, setMatchWholeWord ] = React.useState(false);
   const [ isMatchRegex, setMatchRegex ] = React.useState(false);
-  const decorations = React.useRef<Record<string, Array<string>>>({});
 
   const themeColors = useThemeColors();
 
   const debouncedSearchTerm = useDebounce(searchTerm, 300);
+  const searchResults = useCodeEditorSearch(models, debouncedSearchTerm, isMatchRegex, isMatchCase, isMatchWholeWord);
 
   const handleMatchCaseChange = React.useCallback(() => {
     setMatchCase((prev) => !prev);
@@ -52,40 +52,6 @@ const CodeEditorSearch = ({ monaco, data, onFileSelect, isInputStuck, isActive, 
   React.useEffect(() => {
     changeSearchTerm(defaultValue);
   }, [ defaultValue ]);
-
-  React.useEffect(() => {
-    if (!monaco) {
-      return;
-    }
-
-    if (!debouncedSearchTerm) {
-      setSearchResults([]);
-    }
-
-    const models = monaco.editor.getModels();
-    const matches = models.map((model) => model.findMatches(debouncedSearchTerm, false, isMatchRegex, isMatchCase, isMatchWholeWord ? 'true' : null, false));
-
-    models.forEach((model, index) => {
-      const filePath = model.uri.path;
-      const prevDecorations = decorations.current[filePath] || [];
-      const newDecorations: Array<monaco.editor.IModelDeltaDecoration> = matches[index].map(({ range }) => ({ range, options: { className: 'highlight' } }));
-
-      const newDecorationsIds = model.deltaDecorations(prevDecorations, newDecorations);
-      decorations.current[filePath] = newDecorationsIds;
-    });
-
-    const result: Array<SearchResult> = matches
-      .map((match, index) => {
-        const model = models[index];
-        return {
-          file_path: model.uri.path,
-          matches: match.map(({ range }) => ({ ...range, lineContent: model.getLineContent(range.startLineNumber) })),
-        };
-      })
-      .filter(({ matches }) => matches.length > 0);
-
-    setSearchResults(result.length > 0 ? result : []);
-  }, [ debouncedSearchTerm, isMatchCase, isMatchRegex, isMatchWholeWord, monaco ]);
 
   React.useEffect(() => {
     setExpandedSections(searchResults.map((item) => item.file_path));
@@ -203,7 +169,7 @@ const CodeEditorSearch = ({ monaco, data, onFileSelect, isInputStuck, isActive, 
         zIndex="2"
         bgColor={ themeColors['sideBar.background'] }
         pb="8px"
-        boxShadow={ isInputStuck ? '0px 6px 3px 0px rgba(0, 0, 0, 0.05)' : 'none' }
+        boxShadow={ isInputStuck ? '0px 6px 3px 0px var(--chakra-colors-editor-search-shadow)' : 'none' }
         endElement={ inputEndElement }
         endElementProps={{ height: '26px', pl: '0', right: '10px', columnGap: '2px' }}
       >

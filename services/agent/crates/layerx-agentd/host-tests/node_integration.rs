@@ -1,6 +1,10 @@
 #[path = "../../../../platform/hosted/runtime-clock/src/server.rs"]
 mod runtime_clock_server;
 
+#[allow(dead_code)]
+#[path = "../tests/proof_native_reads.rs"]
+mod node_routes;
+
 use std::error::Error;
 use std::io::Write as _;
 use std::net::{Ipv4Addr, SocketAddrV4};
@@ -64,10 +68,6 @@ fn node_integration(config: &NodeRpcConfig) -> Command {
             layerx_wire::limits::PROTOCOL_VERSION.to_string(),
         )
         .env("LAYERX_AGENT_HUMAN_NETWORK_ID", config.chain_id.to_string())
-        .env("LAYERX_AGENT_HUMAN_RECONNECT_ATTEMPTS", "3")
-        .env("LAYERX_AGENT_HUMAN_RECONNECT_BASE_MS", "100")
-        .env("LAYERX_AGENT_HUMAN_RECONNECT_MAX_MS", "1000")
-        .env("LAYERX_AGENT_HUMAN_RECONNECT_JITTER_PERCENT", "10")
         .env("LAYERX_AGENT_HUMAN_MAX_FRAME_BYTES", "16777216")
         .env("LAYERX_AGENT_HUMAN_MAX_CONNECTIONS", "4")
         .env("LAYERX_AGENT_HUMAN_MAX_STREAMS", "16")
@@ -175,24 +175,17 @@ fn closed_endpoint() -> Result<(std::os::fd::OwnedFd, NodeRpcConfig), Box<dyn Er
 }
 
 #[test]
-fn startup_checks_node_json_rpc_before_the_human_lni_variable() -> Result<(), Box<dyn Error>> {
+fn startup_checks_node_json_rpc_before_the_human_service_variable() -> Result<(), Box<dyn Error>> {
     let (_socket, config) = closed_endpoint()?;
-    let unserved_socket = std::env::temp_dir().join(format!(
-        "layerx-agentd-unserved-node-{}.sock",
-        std::process::id()
-    ));
-    assert!(unserved_socket.is_absolute());
-    assert!(!unserved_socket.exists());
+    let (_human_socket, human_config) = closed_endpoint()?;
+    assert_ne!(config.url, human_config.url);
     let output = startup_output(
-        node_integration(&config).env("LAYERX_AGENT_HUMAN_NODE_LNI", &unserved_socket),
+        node_integration(&config).env("LAYERX_AGENT_HUMAN_AUTHORITY_ENDPOINT", &human_config.url),
     )?;
     let stderr = String::from_utf8(output.stderr.clone())?;
     refused(output, "node JSON-RPC is unavailable")?;
-    assert!(
-        !stderr.contains(&*unserved_socket.to_string_lossy()),
-        "{stderr}"
-    );
-    assert!(!stderr.contains("LNI"), "{stderr}");
+    assert!(!stderr.contains(&human_config.url), "{stderr}");
+    assert!(!stderr.contains("human authority"), "{stderr}");
     Ok(())
 }
 
@@ -202,20 +195,16 @@ fn startup_reports_node_json_rpc_unavailable_for_a_closed_endpoint() -> Result<(
     let output = startup_output(&mut node_integration(&config))?;
     let stderr = String::from_utf8(output.stderr.clone())?;
     refused(output, "node JSON-RPC is unavailable")?;
-    assert!(!stderr.contains("LNI"), "{stderr}");
+    assert!(!stderr.contains("human authority"), "{stderr}");
     Ok(())
 }
 
 #[test]
 fn startup_refuses_a_chain_id_mismatch() -> Result<(), Box<dyn Error>> {
-    let chain_id: u64 = std::env::var("LAYERX_TEST_PAXEER_CHAIN_ID")
-        .map_err(|_| "LAYERX_TEST_PAXEER_CHAIN_ID is required for the in-tree local node")?
-        .parse()?;
-    let port: u16 = std::env::var("LAYERX_TEST_PAXEER_RPC_PORT")
-        .map_err(|_| "LAYERX_TEST_PAXEER_RPC_PORT is required for the in-tree local node")?
-        .parse()?;
+    let (_producer, url, _key) = node_routes::disposable_node::LocalNode::start();
+    let chain_id = 125;
     let mut config = NodeRpcConfig {
-        url: format!("http://127.0.0.1:{port}"),
+        url,
         chain_id,
         deadline: Duration::from_secs(5),
     };
@@ -226,7 +215,7 @@ fn startup_refuses_a_chain_id_mismatch() -> Result<(), Box<dyn Error>> {
     let output = startup_output(&mut node_integration(&config))?;
     let stderr = String::from_utf8(output.stderr.clone())?;
     refused(output, "node chain id mismatch")?;
-    assert!(!stderr.contains("LNI"), "{stderr}");
+    assert!(!stderr.contains("human authority"), "{stderr}");
     assert!(!stderr.contains("node JSON-RPC is unavailable"), "{stderr}");
     Ok(())
 }

@@ -100,3 +100,23 @@ impl HumanNode for NodeRpc {
         NodeRpc::sequencer_receipt(self, tx_hash)
     }
 }
+
+/// Checks the direct node interface. Gateway network metadata is not node readiness.
+pub fn verify_direct_node_readiness(
+    endpoint: &layerx_client::sequencer::SequencerEndpoint,
+    expected_chain: u64,
+) -> Result<crate::read::ServedCheckpoint, crate::read::CheckpointReadError> {
+    use crate::read::{CheckpointReadError, ServedCheckpoint};
+    if expected_chain != 125
+        || endpoint.chain_id().map_err(CheckpointReadError::Rpc)? != expected_chain
+    {
+        return Err(CheckpointReadError::TargetMismatch);
+    }
+    let height = endpoint.block_number().map_err(CheckpointReadError::Rpc)?;
+    ServedCheckpoint::acquire_at_committed_block(
+        endpoint,
+        height,
+        None,
+        &expected_chain.to_string(),
+    )
+}

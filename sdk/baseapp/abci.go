@@ -761,7 +761,11 @@ func (app *BaseApp) GetBlockRetentionHeight(commitHeight int64) (int64, error) {
 	// evidence parameters instead of computing an estimated nubmer of blocks based
 	// on the unbonding period and block commitment time as the two should be
 	// equivalent.
-	cp := app.GetConsensusParams(app.deliverState.ctx)
+	commitState := app.stateToCommit
+	if commitState == nil {
+		commitState = app.deliverState
+	}
+	cp := app.GetConsensusParams(commitState.ctx)
 	if cp != nil && cp.Evidence != nil && cp.Evidence.MaxAgeNumBlocks > 0 {
 		retentionHeight = commitHeight - cp.Evidence.MaxAgeNumBlocks
 	}
@@ -917,10 +921,7 @@ func handleQueryStore(ctx context.Context, app *BaseApp, path []string, req abci
 			), app.trace)
 	}
 
-	resp := queryable.Query(ctx, req)
-	resp.Height = req.Height
-
-	return resp
+	return queryable.Query(ctx, req)
 }
 
 func handleQueryCustom(app *BaseApp, path []string, req abci.RequestQuery) abci.ResponseQuery {

@@ -21,7 +21,8 @@
 #   same moment, which bounds the tables that carry no block number at all -
 #   addresses, tokens, contract methods - through the inserted_at column
 #   Blockscout stamps on every row and the copy carries across unchanged. No row
-#   above its table's cut is copied, and the verification counts both sides at
+#   above its table's cut is copied. One repeatable-read source snapshot is
+#   retained for the entire run. Verification compares keys and copied content at
 #   the same cut, so a source that keeps indexing while the copy runs cannot be
 #   read as a mismatch. The insert time is compared as epoch seconds so that
 #   neither side's session TimeZone can shift it. Both cuts are named in the run
@@ -43,7 +44,10 @@
 #
 #   A table that carries no block number has no key to resume from. It is
 #   copied whole under the same conflict handling, so a rerun still writes
-#   nothing.
+#   nothing. An interrupted run retains both cuts and the selected source
+#   fingerprints in destination progress. A reopened source snapshot must match
+#   those fingerprints before any further copying of that table is allowed.
+#   Source changes under an interrupted boundary are refused explicitly.
 #
 # Repairing
 #
@@ -57,7 +61,9 @@
 #   makes free for every row already there, and counts it again. A table that is
 #   still short, or that holds more rows than the source does under the cut, is
 #   reported and ends the run non-zero; this tool never deletes a row to make a
-#   count agree.
+#   count agree. Equal counts with different keys or copied content also fail.
+#   The destination session owns an advisory lock across staging, COPY and every
+#   progress commit; a competing run is refused before it can mutate state.
 #
 # Usage
 #   SRC_DATABASE_URL=... DST_DATABASE_URL=... ./copy-blockscout-11-to-10.sh
@@ -183,6 +189,7 @@ declare -A TABLE_COLUMN_LIST=()
 declare -A TABLE_SELECT_LIST=()
 declare -A TABLE_SOURCE_COUNT=()
 declare -A TABLE_TARGET_COUNT=()
+declare -A TABLE_MATCHES=()
 declare -A TABLE_SOURCE_ONLY=()
 declare -a PROCESSED_TABLES=()
 declare -a UNBOUNDED_TABLES=()
@@ -212,16 +219,43 @@ is_integer() {
   esac
 }
 
-# --no-psqlrc keeps a developer's ~/.psqlrc out of the output; ON_ERROR_STOP
-# turns a failed statement into a non-zero exit instead of a skipped line.
+# All SQL and COPY operations use the sessions that own the destination lock
+# and the source snapshot. Losing either connection stops the run; no reconnect.
+SESSION_HELPER="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)/copy_session.py"
+SESSION_DIR=''
+SESSION_PID=''
+
+close_sessions() {
+  if [ -n "$SESSION_PID" ]; then
+    kill "$SESSION_PID" 2> /dev/null || true
+    wait "$SESSION_PID" 2> /dev/null || true
+  fi
+  [ -z "$SESSION_DIR" ] || rm -rf -- "$SESSION_DIR"
+}
+
+start_sessions() {
+  command -v python3 > /dev/null || die "python3 is not on PATH"
+  SESSION_DIR=$(mktemp -d)
+  trap close_sessions EXIT
+  trap 'exit 130' INT
+  trap 'exit 143' TERM
+  coproc COPY_SESSION { exec python3 "$SESSION_HELPER" serve "$SESSION_DIR/session.sock"; }
+  SESSION_PID=$COPY_SESSION_PID
+  local ready
+  read -r ready <&"${COPY_SESSION[0]}" || die "cannot acquire copy sessions"
+  [ "$ready" = 'ready' ] || die "copy sessions did not become ready"
+}
+
+session_request() {
+  python3 "$SESSION_HELPER" request "$SESSION_DIR/session.sock" "$@"
+}
+
 src_query() {
-  psql --no-psqlrc --tuples-only --no-align --quiet \
-    --set ON_ERROR_STOP=1 --dbname "$SRC_DATABASE_URL" --command "$1"
+  session_request src "$1"
 }
 
 dst_query() {
-  psql --no-psqlrc --tuples-only --no-align --quiet \
-    --set ON_ERROR_STOP=1 --dbname "$DST_DATABASE_URL" --command "$1"
+  session_request dst "$1"
 }
 
 sql_literal() {
@@ -328,6 +362,10 @@ ensure_progress_table() {
     rows_copied bigint NOT NULL DEFAULT 0,
     updated_at  timestamptz NOT NULL DEFAULT now()
   )" > /dev/null || die "cannot create the progress table in the destination"
+  dst_query "ALTER TABLE public.$(quote_ident "$PROGRESS_TABLE")
+    ADD COLUMN IF NOT EXISTS snapshot_id text,
+    ADD COLUMN IF NOT EXISTS source_fingerprint text" > /dev/null ||
+    die "cannot persist source snapshot identity with progress"
 }
 
 progress_table_exists() {
@@ -420,35 +458,11 @@ copy_batch() {
 
   dst_query "TRUNCATE public.$(quote_ident "$STAGE_TABLE")" > /dev/null || return 1
 
-  if ! psql --no-psqlrc --quiet --set ON_ERROR_STOP=1 \
-    --dbname "$SRC_DATABASE_URL" \
-    --command "\\copy (SELECT ${select_list} FROM public.$(quote_ident "$table") ${predicate}) TO STDOUT" |
-    psql --no-psqlrc --quiet --set ON_ERROR_STOP=1 \
-      --dbname "$DST_DATABASE_URL" \
-      --command "\\copy public.$(quote_ident "$STAGE_TABLE") (${column_list}) FROM STDIN" > /dev/null; then
+  if ! session_request copy "$table" "$column_list" "$select_list" "$predicate" > /dev/null; then
     return 1
   fi
 
-  inserted=$(dst_query "
-    WITH inserted AS (
-      INSERT INTO public.$(quote_ident "$table") (${column_list})
-      SELECT ${column_list} FROM public.$(quote_ident "$STAGE_TABLE")
-      ON CONFLICT DO NOTHING
-      RETURNING 1
-    ), counted AS (
-      SELECT count(*)::bigint AS row_count FROM inserted
-    ), recorded AS (
-      INSERT INTO public.$(quote_ident "$PROGRESS_TABLE") AS p
-                  (table_name, ceiling, highest_key, rows_copied, updated_at)
-      SELECT $(sql_literal "$table"), ${CEILING}, ${high_key}, counted.row_count, now()
-        FROM counted
-      ON CONFLICT (table_name) DO UPDATE
-        SET ceiling     = EXCLUDED.ceiling,
-            highest_key = GREATEST(p.highest_key, EXCLUDED.highest_key),
-            rows_copied = p.rows_copied + EXCLUDED.rows_copied,
-            updated_at  = now()
-    )
-    SELECT row_count FROM counted") || return 1
+  inserted=$(session_request commit "$table" "$column_list" "$CEILING" "$high_key") || return 1
 
   is_integer "$inserted" || return 1
   printf '%s' "$inserted"
@@ -722,6 +736,13 @@ copy_table() {
     fi
   fi
 
+  local source_predicate=''
+  [ -z "${TABLE_BOUND_SRC[$table]}" ] || source_predicate="WHERE ${TABLE_BOUND_SRC[$table]}"
+  if ! session_request prepare "$table" "$column_list" "$select_list" "$source_predicate" > /dev/null; then
+    log "abort  ${table}: cannot retain or recover the source keys and content at the snapshot"
+    return 1
+  fi
+
   started=$SECONDS
 
   copy_rows "$table" 0 || return 1
@@ -739,11 +760,11 @@ copy_table() {
 }
 
 # Both sides counted under the same cut, so a source that grew while the copy
-# ran is not read as a row the copy lost. Returns 0 when the counts agree, 1
-# when they do not, and 2 when a count could not be taken.
+# ran is not read as a row the copy lost. Returns 0 only when the keys and all
+# copied values agree, 1 on divergence, and 2 on a database/session failure.
 verify_table() {
   local table=$1
-  local src_predicate='' dst_predicate='' src_n dst_n cut
+  local dst_predicate='' src_n dst_n matches result cut
 
   if [ -n "${TABLE_CEILING_COLUMN[$table]:-}" ]; then
     cut="block ${CEILING}"
@@ -753,31 +774,25 @@ verify_table() {
     cut='no cut'
   fi
 
-  if [ -n "${TABLE_BOUND_SRC[$table]:-}" ]; then
-    src_predicate=" WHERE ${TABLE_BOUND_SRC[$table]}"
-  fi
   if [ -n "${TABLE_BOUND_DST[$table]:-}" ]; then
-    dst_predicate=" WHERE ${TABLE_BOUND_DST[$table]}"
+    dst_predicate="WHERE ${TABLE_BOUND_DST[$table]}"
   fi
-
-  src_n=$(src_query "SELECT count(*) FROM public.$(quote_ident "$table")${src_predicate}") || {
-    log "abort  ${table}: cannot count the source at the cut"
+  result=$(session_request verify "$table" "${TABLE_COLUMN_LIST[$table]}" "$dst_predicate") || {
+    log "abort  ${table}: cannot compare keys and content at the snapshot"
     return 2
   }
-  dst_n=$(dst_query "SELECT count(*) FROM public.$(quote_ident "$table")${dst_predicate}") || {
-    log "abort  ${table}: cannot count the destination at the cut"
-    return 2
-  }
+  read -r src_n dst_n matches <<< "$result"
+  TABLE_MATCHES[$table]=$matches
 
   TABLE_SOURCE_COUNT[$table]=$src_n
   TABLE_TARGET_COUNT[$table]=$dst_n
 
-  if [ "$src_n" = "$dst_n" ]; then
+  if [ "$matches" = "1" ]; then
     log "verify ${table}: source ${src_n}, target ${dst_n} under ${cut}, ok"
     return 0
   fi
 
-  log "verify ${table}: source ${src_n}, target ${dst_n} under ${cut}, MISMATCH"
+  log "verify ${table}: source ${src_n}, target ${dst_n} under ${cut}, MISMATCH (keys or content differ)"
   return 1
 }
 
@@ -854,6 +869,8 @@ main() {
     die "BLOCK_BATCH must be a positive whole number of blocks"
   fi
 
+  start_sessions
+
   src_query "SELECT 1" > /dev/null || die "cannot query the source database"
   dst_query "SELECT 1" > /dev/null || die "cannot query the destination database"
 
@@ -863,6 +880,15 @@ main() {
   [ ${#tables[@]} -gt 0 ] || die "no tables to copy"
 
   pin_ceiling
+  local boundary
+  boundary=$(session_request boundary "$CEILING" "$TIME_CEILING" "$TIME_CEILING_EPOCH" \
+    "${tables[*]}" "${DRY_RUN:-0}") || die "cannot pin or recover the source boundary"
+  local -a pinned=()
+  mapfile -t pinned <<< "$boundary"
+  CEILING=${pinned[0]}
+  TIME_CEILING=${pinned[1]}
+  TIME_CEILING_EPOCH=${pinned[2]}
+  log "source snapshot boundary: ${pinned[3]}"
   log "ceiling: block ${CEILING}, the source's highest consensus block when this run started"
   log "insert cut: ${TIME_CEILING} UTC, for the tables that carry no block number"
 
@@ -908,7 +934,7 @@ main() {
   fi
 
   for table in "${PROCESSED_TABLES[@]}"; do
-    if [ "${TABLE_SOURCE_COUNT[$table]}" != "${TABLE_TARGET_COUNT[$table]}" ]; then
+    if [ "${TABLE_MATCHES[$table]}" != "1" ]; then
       MISMATCHES+=("${table}: source ${TABLE_SOURCE_COUNT[$table]}, target ${TABLE_TARGET_COUNT[$table]}")
     fi
   done
@@ -918,6 +944,7 @@ main() {
     exit 3
   fi
 
+  session_request complete > /dev/null || exit 2
   log "done"
 }
 

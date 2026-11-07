@@ -81,6 +81,8 @@ func programEVMEndpoint(t *testing.T, simulation string) (*Programs, func() []pr
 		mu.Unlock()
 		var result string
 		switch record.Method {
+		case "eth_chainId":
+			result = "0x7d"
 		case "eth_getTransactionCount":
 			result = "0x7"
 		case "eth_gasPrice":
@@ -147,7 +149,7 @@ func assertProgramEVMTransaction(t *testing.T, submission ProgramSubmission, vec
 	if tx.Type != "0x2" || tx.ChainID != "0x7d" || tx.To != layerxProgramsAddress || tx.Data != vector.EVM.Calldata || tx.Nonce != "0x7" || tx.Gas != "0x493e0" || tx.Value != "0x0" || tx.MaxFeePerGas != "0x64" || tx.MaxPriorityFeePerGas != "0x2" || len(tx.AccessList) != 0 {
 		t.Fatalf("unexpected EIP-1559 transaction: %+v", tx)
 	}
-	expected := []string{"eth_getTransactionCount", "eth_gasPrice", "eth_maxPriorityFeePerGas", "eth_estimateGas"}
+	expected := []string{"eth_chainId", "eth_getTransactionCount", "eth_gasPrice", "eth_maxPriorityFeePerGas", "eth_estimateGas"}
 	methods := make([]string, len(records))
 	for i, record := range records {
 		methods[i] = record.Method
@@ -155,14 +157,17 @@ func assertProgramEVMTransaction(t *testing.T, submission ProgramSubmission, vec
 	if !reflect.DeepEqual(methods, expected) {
 		t.Fatalf("RPC methods: got %v, want %v", methods, expected)
 	}
-	if len(records[0].Params) != 2 || string(records[0].Params[0]) != `"`+tx.From+`"` || string(records[0].Params[1]) != `"pending"` {
-		t.Fatalf("nonce was not read for the sender at pending: %+v", records[0])
+	if len(records[0].Params) != 0 {
+		t.Fatal("chain identity request carried parameters")
 	}
-	if len(records[3].Params) != 2 || string(records[3].Params[1]) != `"pending"` {
-		t.Fatalf("gas was not estimated at pending: %+v", records[3])
+	if len(records[1].Params) != 2 || string(records[1].Params[0]) != `"`+tx.From+`"` || string(records[1].Params[1]) != `"pending"` {
+		t.Fatalf("nonce was not read for the sender at pending: %+v", records[1])
+	}
+	if len(records[4].Params) != 2 || string(records[4].Params[1]) != `"pending"` {
+		t.Fatalf("gas was not estimated at pending: %+v", records[4])
 	}
 	var estimate map[string]json.RawMessage
-	if err := json.Unmarshal(records[3].Params[0], &estimate); err != nil {
+	if err := json.Unmarshal(records[4].Params[0], &estimate); err != nil {
 		t.Fatal(err)
 	}
 	for name, value := range map[string]string{"from": tx.From, "to": tx.To, "data": tx.Data, "nonce": tx.Nonce, "type": tx.Type, "chainId": tx.ChainID, "maxFeePerGas": tx.MaxFeePerGas, "maxPriorityFeePerGas": tx.MaxPriorityFeePerGas} {

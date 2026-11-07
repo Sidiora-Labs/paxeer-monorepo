@@ -53,12 +53,14 @@ defmodule Explorer.Chain.Address.ScamBadgeToAddress do
     safe_add(insert_params)
   end
 
-  defp safe_add(insert_params) do
-    Repo.insert_all(__MODULE__, insert_params, on_conflict: :nothing, returning: [:address_hash])
+  defp safe_add(insert_params, retries_left \\ 1) do
+    Repo.insert_all(__MODULE__, insert_params, on_conflict: :nothing, returning: [:address_hash], mode: :savepoint)
   rescue
     # if at least one of the address hashes didn't yet exist in the `addresses` table by the moment of scam badge assignment, we'll receive foreign key violation error.
     # In this case, we'll try to insert the missing addresses and then try to insert the scam badge mappings again.
-    error ->
+    error in Postgrex.Error ->
+      stacktrace = __STACKTRACE__
+
       address_insert_params =
         insert_params
         |> Enum.map(fn scam_address ->
@@ -67,11 +69,12 @@ defmodule Explorer.Chain.Address.ScamBadgeToAddress do
           |> Map.drop([:address_hash])
         end)
 
-      with %Postgrex.Error{postgres: %{code: :foreign_key_violation}} <- error,
-           {_number_of_inserted_addresses, [_term]} <- Address.create_multiple(address_insert_params) do
-        safe_add(insert_params)
+      with %Postgrex.Error{postgres: %{code: :foreign_key_violation}} when retries_left > 0 <- error,
+           {count, rows} when is_integer(count) and count >= 0 and (is_list(rows) or is_nil(rows)) <-
+             Address.create_multiple(address_insert_params) do
+        safe_add(insert_params, retries_left - 1)
       else
-        _ -> {0, []}
+        _ -> reraise error, stacktrace
       end
   end
 

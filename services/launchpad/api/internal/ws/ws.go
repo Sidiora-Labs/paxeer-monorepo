@@ -13,6 +13,7 @@ package ws
 
 import (
 	"context"
+	"encoding/hex"
 	"errors"
 	"net/url"
 
@@ -36,9 +37,11 @@ import (
 )
 
 const (
-	writeWait    = 5 * time.Second
-	pingInterval = 30 * time.Second
-	ctrlBuffer   = 8
+	writeWait       = 5 * time.Second
+	pingInterval    = 30 * time.Second
+	ctrlBuffer      = 8
+	legacyReadLimit = 16 * 1024
+	legacyMaxPools  = 128
 )
 
 // validChannels is the allowlist a client may subscribe to on the general /ws
@@ -241,6 +244,7 @@ func (c *wsConn) filter() broker.Filter {
 }
 
 func (c *wsConn) run(ctx context.Context) {
+	c.conn.SetReadLimit(legacyReadLimit)
 	ctx, cancel := context.WithCancel(ctx)
 	defer func() {
 		cancel()
@@ -273,10 +277,16 @@ func (c *wsConn) run(ctx context.Context) {
 		}
 		switch frame.Type {
 		case "subscribe":
-			c.applySubscribe(frame.Channels, frame.Pools, true)
+			if err := c.applySubscribe(frame.Channels, frame.Pools, true); err != nil {
+				c.enqueueCtrl(mustJSON(map[string]string{"type": "error", "message": err.Error()}))
+				continue
+			}
 			c.ackSubscription("subscribed", frame.Timeframes)
 		case "unsubscribe":
-			c.applySubscribe(frame.Channels, frame.Pools, false)
+			if err := c.applySubscribe(frame.Channels, frame.Pools, false); err != nil {
+				c.enqueueCtrl(mustJSON(map[string]string{"type": "error", "message": err.Error()}))
+				continue
+			}
 			c.ackSubscription("unsubscribed", frame.Timeframes)
 		case "ping":
 			c.enqueueCtrl(mustJSON(map[string]string{"type": "pong"}))
@@ -286,7 +296,29 @@ func (c *wsConn) run(ctx context.Context) {
 
 // applySubscribe mutates the desired channel/pool sets and re-indexes the broker
 // subscription. add=false removes the given keys.
-func (c *wsConn) applySubscribe(channels, pools []string, add bool) {
+func (c *wsConn) applySubscribe(channels, pools []string, add bool) error {
+	// Validate and budget the whole update before changing either filter set.
+	nextPools := make(map[string]struct{}, len(c.pools))
+	for p := range c.pools {
+		nextPools[p] = struct{}{}
+	}
+	for _, p := range pools {
+		p = strings.ToLower(strings.TrimSpace(p))
+		if len(p) != 42 || !strings.HasPrefix(p, "0x") || p == "0x"+strings.Repeat("0", 40) {
+			return errors.New("Invalid pool address")
+		}
+		if _, err := hex.DecodeString(p[2:]); err != nil {
+			return errors.New("Invalid pool address")
+		}
+		if add {
+			nextPools[p] = struct{}{}
+			if len(nextPools) > legacyMaxPools {
+				return errors.New("Pool subscription limit exceeded")
+			}
+		} else {
+			delete(nextPools, p)
+		}
+	}
 	if c.fixedChannel == "" {
 		for _, ch := range channels {
 			if _, ok := validChannels[ch]; !ok {
@@ -299,22 +331,9 @@ func (c *wsConn) applySubscribe(channels, pools []string, add bool) {
 			}
 		}
 	}
-	for _, p := range pools {
-		// Canonicalise to lowercase so the broker's exact-match pool filter
-		// matches the lowercased pool the transform routes on, regardless of the
-		// casing the client subscribed with (Bug 3 / 6a). The ack echo
-		// (setKeys(c.pools)) is then lowercase too.
-		p = strings.ToLower(strings.TrimSpace(p))
-		if p == "" {
-			continue
-		}
-		if add {
-			c.pools[p] = struct{}{}
-		} else {
-			delete(c.pools, p)
-		}
-	}
+	c.pools = nextPools
 	c.hub.broker.Resubscribe(c.sub, c.filter())
+	return nil
 }
 
 func (c *wsConn) ackSubscription(typ string, timeframes []string) {

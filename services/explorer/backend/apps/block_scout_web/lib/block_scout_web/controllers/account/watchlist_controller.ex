@@ -1,14 +1,16 @@
 defmodule BlockScoutWeb.Account.WatchlistController do
   use BlockScoutWeb, :controller
 
-  import BlockScoutWeb.Account.AuthController, only: [authenticate!: 1]
+  import BlockScoutWeb.Account.AuthController, only: [authenticate: 2]
   import Ecto.Query, only: [from: 2]
 
   alias Explorer.Account.{Watchlist, WatchlistAddress}
   alias Explorer.Repo
 
+  plug(:authenticate)
+
   def show(conn, _params) do
-    current_user = authenticate!(conn)
+    current_user = conn.assigns.current_user
 
     render(
       conn,

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# paxeer-x-services: mirror
+# paxeer-x-services: mirror-publisher mirror-signer platform-gateway explorer human-explorer-index
 set -euo pipefail
 root=$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd -P)
 exec python3 - "${root}" "$@" <<'PY'

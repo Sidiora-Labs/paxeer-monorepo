@@ -3,6 +3,7 @@ int metered_fixture_reference_main(int argc, char **argv);
 #include "test_call_activity.c"
 #undef main
 #include "layerx/lxp_batch_identity.h"
+#include "layerx/lxp_genesis.h"
 
 #define METERED_CHECK(condition) do { if (!(condition)) { \
     (void)fprintf(stderr, "metered call check failed at line %d: %s expected=1 observed=0\n", __LINE__, #condition); \

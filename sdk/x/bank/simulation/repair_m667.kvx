@@ -1,0 +1,7 @@
+[repair.22.33.667]
+finding = "simulation-account-selection-unbounded"
+proof = ["TestRepairM_667_ZeroAccounts", "TestRepairM_667_OneAccount", "TestRepairM_667_TwoAccounts", "TestRepairM_667_DuplicateOnlyAccount", "TestRepairM_667_TwoDistinctAccountsWithDuplicates", "TestRepairM_667_SampleWithoutReplacement"]
+path = "Real simulation operation, signed protobuf transaction, BaseApp, auth ante handler, bank MsgServer and in-memory stores; exact balances and signer sequences prove delivery."
+baseline = "Not run: the task's ordered gate instructions require complete implementation before the single hf-build and hf-done; no baseline failure is claimed."
+wiring_requests = []
+evidence = "The runner records the candidate revision, command, exit code and private log in the hf-build/hf-done ledger."

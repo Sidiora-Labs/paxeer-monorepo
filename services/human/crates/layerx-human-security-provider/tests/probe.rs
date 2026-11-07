@@ -1,6 +1,5 @@
 mod support;
 
-use layerx_client::runtime_clock::RuntimeClock;
 use layerx_human_security_provider::{serve, Config};
 use layerx_types::clock::Deadline;
 use std::fs::{self, OpenOptions};
@@ -65,7 +64,8 @@ fn probe_exits_zero_only_on_the_serving_providers_healthy_answer() {
         deadline: Duration::from_secs(1),
     };
     let shutdown = Arc::clone(&stop);
-    let clock = RuntimeClock::from_environment().unwrap();
+    let authority = support::ClockAuthority::start(&directory.0);
+    let clock = authority.clock.clone();
     let service_clock = clock.clone();
     let server = std::thread::spawn(move || serve(config, shutdown, service_clock));
     let mut deadline = Deadline::start(clock.as_ref(), Duration::from_secs(5)).unwrap();

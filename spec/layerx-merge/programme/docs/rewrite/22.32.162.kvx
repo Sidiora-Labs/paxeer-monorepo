@@ -1,0 +1,18 @@
+[manifest]
+task = "22.32.162"
+domain = 16
+owner_role = "fm-tools-ops"
+pages = 2
+
+[page.1]
+path = "contracts/README.md"
+status = "stale"
+bytes = 2263
+source_1 = "record 22.30.175 [doc.06] (stale): Line 7 lists retired kernel custody/settlement contracts without historical qualification; see finding.contracts-retired-settlement. The separate contracts/lib bootstrap instructions do not describe the benchmark lib directory."
+
+[page.2]
+path = "contracts/operations.md"
+status = "missing"
+bytes = 0
+source_1 = "record 22.30.183 [doc.17] (missing): The registry's tools-ops CLI, Docker environment and benchmark configuration anchors point to this absent contract page; restore the maintained contract or correct those registry links."
+source_2 = "record 22.30.38 [doc.019] (missing): Attempted registered contract target; absent at this revision. Restore or retarget to an authoritative owning page; see registry-contract-pages-missing."

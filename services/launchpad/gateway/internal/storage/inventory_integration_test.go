@@ -32,6 +32,9 @@ func TestConnectedOrphanRemainsDenied(t *testing.T) {
 
 func TestConnectedInventoryDetectsRealObjectDigestMutation(t *testing.T) {
 	a, ctx := connectedAuthority(t)
+	if _, err := a.Pool.Exec(ctx, a.InventoryCursorSchemaDDL()); err != nil {
+		t.Fatal(err)
+	}
 	hash, _ := seedConnectedAsset(t, a, ctx)
 	bucket := "l41-inventory-" + fmt.Sprint(time.Now().UnixNano())
 	backend := internaltest.NewMinIO(t, bucket)

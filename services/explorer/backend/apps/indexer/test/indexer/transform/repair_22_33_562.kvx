@@ -1,0 +1,9 @@
+[repair.22.33.562]
+finding = "22.30.158/026"
+path = "services/explorer/backend/apps/indexer/test/indexer/transform/token_transfers_test.exs"
+change = "Each WETH case registers on_exit restoration before its first Application.put_env; original parse assertions remain intact."
+proof = "Indexer.Repair2233562Test: 026: <original WETH case name> restores configuration after an assertion failure (three cases); the declared gate also executes the original TokenTransfersTest suite."
+producer_consumer = "Original recorded chain logs pass through production TokenTransfers.parse and the original exact-result assertions, then TokenTransfer.changeset validates the transfers before a deliberate assertion failure and ExUnit cleanup."
+baseline = "Not run: the explicit gate order forbids verification before the complete implementation; no earlier gate ledger or recorded baseline failures existed at session start."
+wiring_requests = []
+evidence = "The runner records the exact verified candidate revision, command, exit and private log in /out/run/gates.jsonl; completion requires hf-done exit zero on the built candidate."

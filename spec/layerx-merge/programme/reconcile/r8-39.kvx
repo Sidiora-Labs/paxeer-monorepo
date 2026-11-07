@@ -1,0 +1,519 @@
+[reconcile.r8-39]
+revision = "d6c341e59603faf9a28756df9aff6d45927fe392"
+rows = 60
+
+[row.r8-39.1]
+interface = "interface.8.go-sdkjvm-programsclient-programs-receipt-module-id"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/ProgramsClient.java"
+line = 276
+symbol = "PROGRAMS_RECEIPT_MODULE_ID"
+evidence = "Signature unchanged: int PROGRAMS_RECEIPT_MODULE_ID still equals 9; only its location moved from registered line 31. Declaration: public static final int PROGRAMS_RECEIPT_MODULE_ID = 9;"
+
+[row.r8-39.2]
+interface = "interface.8.go-sdkjvm-programsclient-call-operation"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/ProgramsClient.java"
+line = 277
+symbol = "CALL_OPERATION"
+evidence = "Signature unchanged: int CALL_OPERATION still equals 3; only its location moved from registered line 32. Declaration: public static final int CALL_OPERATION = 3;"
+
+[row.r8-39.3]
+interface = "interface.8.go-sdkjvm-programsclient-submissionstate"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/ProgramsClient.java"
+line = 321
+symbol = "SubmissionState"
+evidence = "Enum signature unchanged; SubmissionState still declares REFUSED, UNKNOWN and EXECUTED with string wire values. Declaration: public enum SubmissionState {"
+
+[row.r8-39.4]
+interface = "interface.8.go-sdkjvm-programsclient-submissionstate-executed"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/ProgramsClient.java"
+line = 322
+symbol = "EXECUTED"
+evidence = "Enum member signature unchanged: EXECUTED still has wire literal executed; receipt status 1 selects this state. Declaration: REFUSED(\"refused\"), UNKNOWN(\"unknown\"), EXECUTED(\"executed\");"
+
+[row.r8-39.5]
+interface = "interface.8.go-sdkjvm-programsclient-submissionstate-refused"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/ProgramsClient.java"
+line = 322
+symbol = "REFUSED"
+evidence = "Enum member signature unchanged: REFUSED still has wire literal refused; non-success sequencer receipts select this state. Declaration: REFUSED(\"refused\"), UNKNOWN(\"unknown\"), EXECUTED(\"executed\");"
+
+[row.r8-39.6]
+interface = "interface.8.go-sdkjvm-programsclient-submissionstate-unknown"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/ProgramsClient.java"
+line = 322
+symbol = "UNKNOWN"
+evidence = "Enum member signature unchanged: UNKNOWN still has wire literal unknown; submissions without a receipt use this state. Declaration: REFUSED(\"refused\"), UNKNOWN(\"unknown\"), EXECUTED(\"executed\");"
+
+[row.r8-39.7]
+interface = "interface.8.go-sdkjvm-programsclient-submissionstate-wire"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/ProgramsClient.java"
+line = 325
+symbol = "wire"
+evidence = "Signature unchanged: SubmissionState.wire() still returns String and returns the stored wire field. Declaration: public String wire() { return wire; }"
+
+[row.r8-39.8]
+interface = "interface.8.go-sdkjvm-programsclient-call"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/ProgramsClient.java"
+line = 339
+symbol = "Call"
+evidence = "Record prefix unchanged, but the signedActivity byte-array component is now signedTransaction; the record also retains NativeProgramCall nativeCall. Declaration: public record Call(byte[] programId, byte[] calldata, Budget budget,"
+
+[row.r8-39.9]
+interface = "interface.8.go-sdkjvm-programsclient-call-call"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/ProgramsClient.java"
+line = 341
+symbol = "Call"
+evidence = "Constructor changes the byte-array parameter name from signedActivity to signedTransaction and delegates to the record with nativeCall null; parameter types remain unchanged. Declaration: public Call(byte[] programId, byte[] calldata, Budget budget, List<Capability> capabilities, byte[] signedTransaction) {"
+
+[row.r8-39.10]
+interface = "interface.8.go-sdkjvm-programsclient-call-call-2"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/ProgramsClient.java"
+line = 344
+symbol = "Call"
+evidence = "Constructor changes the byte-array parameter name from signedActivity to signedTransaction; NativeProgramCall and BigInteger feeLimit parameters remain. Declaration: public Call(NativeProgramCall nativeCall, BigInteger feeLimit, byte[] signedTransaction) {"
+
+[row.r8-39.11]
+interface = "interface.8.go-sdkjvm-programsclient-interface"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/ProgramsClient.java"
+line = 399
+symbol = "Interface"
+evidence = "Registered record prefix unchanged: Interface still starts with programId, version, codeHash and abiVersion; remaining components include interfaceBytes, interfaceDigest, receiptDigest and verification. Declaration: public record Interface(byte[] programId, long version, byte[] codeHash, int abiVersion,"
+
+[row.r8-39.12]
+interface = "interface.8.go-sdkjvm-programsclient-submission"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/ProgramsClient.java"
+line = 442
+symbol = "Submission"
+evidence = "Submission replaces activityId with transactionHash; retained bytes are retainedSignedTransaction and execution is LocalVerifier.SequencerReceiptVerification. Declaration: public record Submission(SubmissionState state, byte[] transactionHash, String idempotencyKey,"
+
+[row.r8-39.13]
+interface = "interface.8.go-sdkjvm-programsclient-submission-unknown"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/ProgramsClient.java"
+line = 457
+symbol = "unknown"
+evidence = "Signature unchanged: boolean unknown() still tests state == SubmissionState.UNKNOWN; Submission now carries transaction hashes. Declaration: public boolean unknown() { return state == SubmissionState.UNKNOWN; }"
+
+[row.r8-39.14]
+interface = "interface.8.go-sdkjvm-programsclient-lifecyclereceipt"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/ProgramsClient.java"
+line = 460
+symbol = "lifecycleReceipt"
+evidence = "Signature unchanged: lifecycleReceipt(NativeProgramLifecycleRequest) still returns CompletionStage<LocalVerifier.ReceiptVerification>; it now adapts sequencerReceipt through legacyReceiptView. Declaration: public CompletionStage<LocalVerifier.ReceiptVerification> lifecycleReceipt(NativeProgramLifecycleRequest request) {"
+
+[row.r8-39.15]
+interface = "interface.8.go-sdkjvm-programsclient-deploy"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/ProgramsClient.java"
+line = 473
+symbol = "deploy"
+evidence = "Parameter name signedActivity changes to signedTransaction; deploy(NativeProgramDeploy, byte[], IdempotencyKey) still returns CompletionStage<LocalVerifier.ReceiptVerification> through lifecycle. Declaration: public CompletionStage<LocalVerifier.ReceiptVerification> deploy(NativeProgramDeploy operation, byte[] signedTransaction, IdempotencyKey key) {"
+
+[row.r8-39.16]
+interface = "interface.8.go-sdkjvm-programsclient-upgrade"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/ProgramsClient.java"
+line = 476
+symbol = "upgrade"
+evidence = "Parameter name signedActivity changes to signedTransaction; upgrade(NativeProgramUpgrade, byte[], IdempotencyKey) retains its return type and delegates to lifecycle. Declaration: public CompletionStage<LocalVerifier.ReceiptVerification> upgrade(NativeProgramUpgrade operation, byte[] signedTransaction, IdempotencyKey key) {"
+
+[row.r8-39.17]
+interface = "interface.8.go-sdkjvm-programsclient-winddown"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/ProgramsClient.java"
+line = 479
+symbol = "windDown"
+evidence = "Parameter name signedActivity changes to signedTransaction; windDown(NativeProgramWindDown, byte[], IdempotencyKey) retains its receipt-verification return type. Declaration: public CompletionStage<LocalVerifier.ReceiptVerification> windDown(NativeProgramWindDown operation, byte[] signedTransaction, IdempotencyKey key) {"
+
+[row.r8-39.18]
+interface = "interface.8.go-sdkjvm-programsclient-programsclient"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/ProgramsClient.java"
+line = 605
+symbol = "ProgramsClient"
+evidence = "Signature unchanged: ProgramsClient(ProductionClient, byte[] sequencerPublicKey) delegates to the clock and duration constructor with a five-minute maximum age. Declaration: public ProgramsClient(ProductionClient client, byte[] sequencerPublicKey) {"
+
+[row.r8-39.19]
+interface = "interface.8.go-sdkjvm-programsclient-programsclient-2"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/ProgramsClient.java"
+line = 609
+symbol = "ProgramsClient"
+evidence = "Registered constructor prefix unchanged: ProductionClient, sequencerPublicKey and Clock remain; continuation takes Duration maximumSimulationAge and int... selectedProtocol, accepting protocols 2 or 3. Declaration: public ProgramsClient(ProductionClient client, byte[] sequencerPublicKey, Clock clock,"
+
+[row.r8-39.20]
+interface = "interface.8.go-sdkjvm-programsclient-discover"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/ProgramsClient.java"
+line = 623
+symbol = "discover"
+evidence = "Signature unchanged: discover(byte[] programId) returns CompletionStage<Discovery>; its default verification level is now pending and reads chain state through eth_call. Declaration: public CompletionStage<Discovery> discover(byte[] programId) { return discover(programId, \"pending\"); }"
+
+[row.r8-39.21]
+interface = "interface.8.go-sdkjvm-programsclient-discover-2"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/ProgramsClient.java"
+line = 624
+symbol = "discover"
+evidence = "Signature unchanged: discover(byte[] programId, String verificationLevel) returns CompletionStage<Discovery>; only pending is accepted by the chain-state implementation. Declaration: public CompletionStage<Discovery> discover(byte[] programId, String verificationLevel) {"
+
+[row.r8-39.22]
+interface = "interface.8.go-sdkjvm-programsclient-interfaceat"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/ProgramsClient.java"
+line = 645
+symbol = "interfaceAt"
+evidence = "Signature unchanged: interfaceAt(byte[] programId) returns CompletionStage<Interface>; it defaults to pending and reads the native programs interface. Declaration: public CompletionStage<Interface> interfaceAt(byte[] programId) { return interfaceAt(programId, \"pending\"); }"
+
+[row.r8-39.23]
+interface = "interface.8.go-sdkjvm-programsclient-interfaceat-2"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/ProgramsClient.java"
+line = 646
+symbol = "interfaceAt"
+evidence = "Signature unchanged: interfaceAt(byte[] programId, String verificationLevel) returns CompletionStage<Interface>; it accepts pending and checks the returned interface digest. Declaration: public CompletionStage<Interface> interfaceAt(byte[] programId, String verificationLevel) {"
+
+[row.r8-39.24]
+interface = "interface.8.go-sdkjvm-programsclient-simulate"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/ProgramsClient.java"
+line = 674
+symbol = "simulate"
+evidence = "Return type changes from CompletionStage<Simulation> to CompletionStage<ProgramSimulation>; simulate(Call) delegates to the NativeProgramCall and feeLimit overload. Declaration: public CompletionStage<ProgramSimulation> simulate(Call call) {"
+
+[row.r8-39.25]
+interface = "interface.8.go-sdkjvm-programsclient-submit"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/ProgramsClient.java"
+line = 677
+symbol = "submit"
+evidence = "Signature unchanged: submit(Call, IdempotencyKey) returns CompletionStage<Submission>; it now broadcasts a signed transaction and creates UNKNOWN with its transaction hash. Declaration: public CompletionStage<Submission> submit(Call call, IdempotencyKey key) {"
+
+[row.r8-39.26]
+interface = "interface.8.go-sdkjvm-programsclient-receipt"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/ProgramsClient.java"
+line = 690
+symbol = "receipt"
+evidence = "Signature unchanged: receipt(Call, IdempotencyKey) returns CompletionStage<Submission>; it binds signed transaction calldata, retains the bytes and looks up their transaction hash. Declaration: public CompletionStage<Submission> receipt(Call call, IdempotencyKey key) {"
+
+[row.r8-39.27]
+interface = "interface.8.go-sdkjvm-programsclient-receipt-2"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/ProgramsClient.java"
+line = 696
+symbol = "receipt"
+evidence = "Parameter name expectedActivityId changes to expectedTransactionHash; receipt(IdempotencyKey, byte[]) retains CompletionStage<Submission> and defaults to receipted. Declaration: public CompletionStage<Submission> receipt(IdempotencyKey key, byte[] expectedTransactionHash) {"
+
+[row.r8-39.28]
+interface = "interface.8.go-sdkjvm-programsclient-receipt-3"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/ProgramsClient.java"
+line = 699
+symbol = "receipt"
+evidence = "Parameter name expectedActivityId changes to expectedTransactionHash; the overload also takes String verificationLevel and requires receipted plus retained signed transaction bytes. Declaration: public CompletionStage<Submission> receipt(IdempotencyKey key, byte[] expectedTransactionHash, String verificationLevel) {"
+
+[row.r8-39.29]
+interface = "interface.8.go-sdkjvm-programsclient-activity"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/ProgramsClient.java"
+line = 711
+symbol = "activity"
+evidence = "Return type changes from CompletionStage<Submission> to CompletionStage<JsonNode>; parameter activityId becomes transactionHash and the overload defaults to pending. Declaration: public CompletionStage<JsonNode> activity(byte[] transactionHash) { return activity(transactionHash, \"pending\"); }"
+
+[row.r8-39.30]
+interface = "interface.8.go-sdkjvm-programsclient-activity-2"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/ProgramsClient.java"
+line = 712
+symbol = "activity"
+evidence = "Return type changes from CompletionStage<Submission> to CompletionStage<JsonNode>; parameter activityId becomes transactionHash and eth_getTransactionByHash supplies the pending view. Declaration: public CompletionStage<JsonNode> activity(byte[] transactionHash, String verificationLevel) {"
+
+[row.r8-39.31]
+interface = "interface.8.go-sdkjvm-programsclient-verifyreceipt"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/ProgramsClient.java"
+line = 595
+symbol = "verifyReceipt"
+evidence = "Return type changes from LocalVerifier.ReceiptVerification to LocalVerifier.SequencerReceiptVerification; parameters now bind receipt bytes, signedTransaction, ReceiptKeys and a JsonNode view. Declaration: public static LocalVerifier.SequencerReceiptVerification verifyReceipt(byte[] receipt, byte[] signedTransaction,"
+
+[row.r8-39.32]
+interface = "interface.8.go-sdkjvm-programsclient-verifyterminalv5"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/ProgramsClient.java"
+line = 747
+symbol = "verifyTerminalV5"
+evidence = "Registered signature prefix unchanged: verifyTerminalV5 takes encoded, availableGraph and expectedProgram bytes; continuation takes ObjectNode documentOutcome and LocalVerifier.ProgramReceiptOutcome receipt. Declaration: public static String verifyTerminalV5(byte[] encoded, byte[] availableGraph, byte[] expectedProgram,"
+
+[row.r8-39.33]
+interface = "interface.8.go-sdkjvm-programsclient-verifyterminalv5capture"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/ProgramsClient.java"
+line = 753
+symbol = "verifyTerminalV5Capture"
+evidence = "Registered signature prefix unchanged: verifyTerminalV5Capture takes encoded, availableGraph and expectedProgram bytes plus LocalVerifier.ProgramReceiptOutcome receipt; capture mode supplies no document outcome. Declaration: public static String verifyTerminalV5Capture(byte[] encoded, byte[] availableGraph, byte[] expectedProgram,"
+
+[row.r8-39.34]
+interface = "interface.8.go-sdkjvm-generatedreceiptcontract"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/verify/GeneratedReceiptContract.java"
+line = 5
+symbol = "GeneratedReceiptContract"
+evidence = "Class signature unchanged: public final class GeneratedReceiptContract; its generated surface now contains sequencer receipt versions, domains, ReceiptCheck and program guest ABI support. Declaration: public final class GeneratedReceiptContract {"
+
+[row.r8-39.35]
+interface = "interface.8.go-sdkjvm-generatedreceiptcontract-programs-module-id"
+verdict = "retired"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/verify/GeneratedReceiptContract.java"
+line = 9
+symbol = "PROGRAMS_MODULE_ID"
+evidence = "PROGRAMS_MODULE_ID: The module-id constant is absent; the regenerated contract now declares receipt versions 2 and 3 and receipt/sequence domains. Repository-wide exact-identifier search excluding spec and docs found 5 other files; remaining lists one occurrence per file, including unrelated namesakes."
+remaining_refs = 5
+remaining = ["GOTCHA.kvx:11720", "programs/crates/layerx-programs-registry/src/account_state.rs:24", "programs/crates/layerx-programs-registry/src/chain_evidence.rs:4", "programs/crates/layerx-programs-registry/src/protocol_evidence.rs:13", "services/agent/crates/layerx-proof/src/receipt.rs:17"]
+
+[row.r8-39.36]
+interface = "interface.8.go-sdkjvm-generatedreceiptcontract-program-outcome-v1"
+verdict = "served_elsewhere"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/verify/LocalVerifier.java"
+line = 33
+symbol = "PROGRAM_OUTCOME_V1"
+evidence = "Constant moved out of the generated public contract into LocalVerifier as private static final long PROGRAM_OUTCOME_V1 = 0x50524731L; the legacy program-outcome decoder still uses this tag. Declaration: private static final long PROGRAM_OUTCOME_V1 = 0x50524731L;"
+
+[row.r8-39.37]
+interface = "interface.8.go-sdkjvm-generatedreceiptcontract-program-outcome-v2"
+verdict = "served_elsewhere"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/verify/LocalVerifier.java"
+line = 34
+symbol = "PROGRAM_OUTCOME_V2"
+evidence = "Constant moved out of the generated public contract into LocalVerifier as private static final long PROGRAM_OUTCOME_V2 = 0x50524732L; the legacy program-outcome decoder still uses this tag. Declaration: private static final long PROGRAM_OUTCOME_V2 = 0x50524732L;"
+
+[row.r8-39.38]
+interface = "interface.8.go-sdkjvm-generatedreceiptcontract-program-outcome-v3"
+verdict = "served_elsewhere"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/verify/LocalVerifier.java"
+line = 35
+symbol = "PROGRAM_OUTCOME_V3"
+evidence = "Constant moved out of the generated public contract into LocalVerifier as private static final long PROGRAM_OUTCOME_V3 = 0x50524733L; the legacy program-outcome decoder still uses this tag. Declaration: private static final long PROGRAM_OUTCOME_V3 = 0x50524733L;"
+
+[row.r8-39.39]
+interface = "interface.8.go-sdkjvm-generatedreceiptcontract-program-outcome-v4"
+verdict = "served_elsewhere"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/verify/LocalVerifier.java"
+line = 36
+symbol = "PROGRAM_OUTCOME_V4"
+evidence = "Constant moved out of the generated public contract into LocalVerifier as private static final long PROGRAM_OUTCOME_V4 = 0x50524734L; the legacy program-outcome decoder still uses this tag. Declaration: private static final long PROGRAM_OUTCOME_V4 = 0x50524734L;"
+
+[row.r8-39.40]
+interface = "interface.8.go-sdkjvm-generatedreceiptcontract-receiptcheck"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/verify/GeneratedReceiptContract.java"
+line = 12
+symbol = "ReceiptCheck"
+evidence = "Enum signature unchanged: public enum ReceiptCheck; its members now describe sequencer receipt version, key, transaction, field, log, sequence hash and signature checks. Declaration: public enum ReceiptCheck {"
+
+[row.r8-39.41]
+interface = "interface.8.go-sdkjvm-generatedreceiptcontract-receiptcheck-decode"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/verify/GeneratedReceiptContract.java"
+line = 13
+symbol = "DECODE"
+evidence = "Enum member signature unchanged: DECODE still maps to the decode wire literal in the regenerated sequencer ReceiptCheck enum. Declaration: DECODE(\"decode\"),"
+
+[row.r8-39.42]
+interface = "interface.8.go-sdkjvm-generatedreceiptcontract-receiptcheck-canonical-encoding"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/verify/GeneratedReceiptContract.java"
+line = 14
+symbol = "CANONICAL_ENCODING"
+evidence = "Enum member signature unchanged: CANONICAL_ENCODING still maps to canonical-encoding in the regenerated sequencer ReceiptCheck enum. Declaration: CANONICAL_ENCODING(\"canonical-encoding\"),"
+
+[row.r8-39.43]
+interface = "interface.8.go-sdkjvm-generatedreceiptcontract-receiptcheck-receipt-shape"
+verdict = "retired"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/verify/GeneratedReceiptContract.java"
+line = 18
+symbol = "RECEIPT_SHAPE"
+evidence = "RECEIPT_SHAPE: The old ReceiptCheck member is absent; sdk/platform/generators/receipt.kvx now defines sequencer receipt checks instead. Repository-wide exact-identifier search excluding spec and docs found 0 other files; remaining lists one occurrence per file, including unrelated namesakes."
+remaining_refs = 0
+remaining = []
+
+[row.r8-39.44]
+interface = "interface.8.go-sdkjvm-generatedreceiptcontract-receiptcheck-missing-signature"
+verdict = "retired"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/verify/GeneratedReceiptContract.java"
+line = 19
+symbol = "MISSING_SIGNATURE"
+evidence = "MISSING_SIGNATURE: The old ReceiptCheck member is absent; sdk/platform/generators/receipt.kvx now defines sequencer receipt checks instead. Repository-wide exact-identifier search excluding spec and docs found 0 other files; remaining lists one occurrence per file, including unrelated namesakes."
+remaining_refs = 0
+remaining = []
+
+[row.r8-39.45]
+interface = "interface.8.go-sdkjvm-generatedreceiptcontract-receiptcheck-protocol-version"
+verdict = "retired"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/verify/GeneratedReceiptContract.java"
+line = 20
+symbol = "PROTOCOL_VERSION"
+evidence = "PROTOCOL_VERSION: The old ReceiptCheck member is absent; sdk/platform/generators/receipt.kvx now defines sequencer receipt checks instead. Repository-wide exact-identifier search excluding spec and docs found 113 other files; remaining lists one occurrence per file, including unrelated namesakes."
+remaining_refs = 113
+remaining = ["GOTCHA.kvx:10477", "cmd/layerxctl/tests/files.rs:19", "contracts/libraries/Constants.sol:5", "programs/vendor/criterion-0.5.1/src/connection.rs:71", "services/agent/crates/layerx-agentd-host/tests/payer.rs:11", "services/agent/crates/layerx-agentd/host-tests/node_integration.rs:64", "services/agent/crates/layerx-agentd/src/human_runtime.rs:22087", "services/agent/crates/layerx-agentd/src/policy/approval.rs:1625", "services/agent/crates/layerx-agentd/src/prepare/mod.rs:460", "services/agent/crates/layerx-agentd/src/protocol_evidence.rs:20", "services/agent/crates/layerx-agentd/src/session_control.rs:3309", "services/agent/crates/layerx-agentd/tests/audit_export.rs:108", "services/agent/crates/layerx-agentd/tests/budget_durable_limits.rs:352", "services/agent/crates/layerx-agentd/tests/cache.rs:12", "services/agent/crates/layerx-agentd/tests/checkpoint.rs:16", "services/agent/crates/layerx-agentd/tests/degraded.rs:31", "services/agent/crates/layerx-agentd/tests/disclosure.rs:89", "services/agent/crates/layerx-agentd/tests/evm_signing.rs:97", "services/agent/crates/layerx-agentd/tests/export.rs:18", "services/agent/crates/layerx-agentd/tests/finality_rungs.rs:12", "services/agent/crates/layerx-agentd/tests/human_node_budgets.rs:22", "services/agent/crates/layerx-agentd/tests/human_node_receipts.rs:31", "services/agent/crates/layerx-agentd/tests/native_routes_rpc.rs:15", "services/agent/crates/layerx-agentd/tests/outbox_tx_hash.rs:156", "services/agent/crates/layerx-agentd/tests/prepare.rs:92", "services/agent/crates/layerx-agentd/tests/prepare_expiry.rs:92", "services/agent/crates/layerx-agentd/tests/proof_agentd.rs:115", "services/agent/crates/layerx-agentd/tests/protocol_evidence.rs:9", "services/agent/crates/layerx-agentd/tests/read_ops_rpc.rs:14", "services/agent/crates/layerx-agentd/tests/receipts.rs:46", "services/agent/crates/layerx-agentd/tests/signature_binding.rs:73", "services/agent/crates/layerx-agentd/tests/signing.rs:101", "services/agent/crates/layerx-agentd/tests/support/mod.rs:46", "services/agent/crates/layerx-agentd/tests/unknown_receipt_lookup.rs:26", "services/agent/crates/layerx-agentd/tests/w7_core_time.rs:102", "services/agent/crates/layerx-agentd/tests/w7_owner_binding.rs:112", "services/agent/crates/layerx-agentd/tests/write_path_evm.rs:382", "services/agent/crates/layerx-client/tests/ai_market_rpc.rs:19", "services/agent/crates/layerx-client/tests/receipt_rpc.rs:19", "services/agent/crates/layerx-crypto/src/remote.rs:19", "services/agent/crates/layerx-crypto/tests/disclosure.rs:13", "services/agent/crates/layerx-crypto/tests/signer.rs:17", "services/agent/crates/layerx-crypto/tests/support/mod.rs:10", "services/agent/crates/layerx-crypto/tests/verify.rs:10", "services/agent/crates/layerx-mcp/src/stdio.rs:17", "services/agent/crates/layerx-proof/src/sequencer_logs.rs:11", "services/agent/crates/layerx-proof/tests/checkpoint.rs:25", "services/agent/crates/layerx-proof/tests/export_complete.rs:22", "services/agent/crates/layerx-proof/tests/inclusion.rs:10", "services/agent/crates/layerx-proof/tests/maintained_outcome.rs:10", "services/agent/crates/layerx-proof/tests/receipt.rs:11", "services/agent/crates/layerx-proof/tests/resolution_receipt_key.rs:9", "services/agent/crates/layerx-proof/tests/sequencer_corpus.rs:10", "services/agent/crates/layerx-proof/tests/sequencer_logs.rs:11", "services/agent/crates/layerx-proof/tests/state.rs:11", "services/agent/crates/layerx-sdk/tests/offline_export.rs:10", "services/agent/crates/layerx-wire/src/limits.rs:19", "services/agent/crates/layerx-wire/src/receipt.rs:9", "services/agent/crates/layerx-wire/tests/structures.rs:383", "services/agent/qualification/pay2/pay2e_test.rs:473", "services/agent/tests/limits/exactly_once.rs:1061", "services/human/crates/layerx-human-service/src/event_producer_tls.rs:595", "services/human/crates/layerx-human-service/src/server/production_components.rs:3122", "services/human/crates/layerx-human-service/tests/activity.rs:35", "services/human/crates/layerx-human-service/tests/agent_controls_rungs.rs:1049", "services/human/crates/layerx-human-service/tests/custody.rs:91", "services/human/crates/layerx-human-service/tests/detail.rs:40", "services/human/crates/layerx-human-service/tests/detail_rungs.rs:39", "services/human/crates/layerx-human-service/tests/evidence_node.rs:29", "services/human/crates/layerx-human-service/tests/journey_faults.rs:131", "services/human/crates/layerx-human-service/tests/key_export.rs:81", "services/human/crates/layerx-human-service/tests/move_commit_bank_send.rs:249", "services/human/crates/layerx-human-service/tests/move_money.rs:694", "services/human/crates/layerx-human-service/tests/onboarding.rs:174", "services/human/crates/layerx-human-service/tests/reclaim.rs:48", "services/human/crates/layerx-human-service/tests/render.rs:94", "services/human/crates/layerx-human-service/tests/resolver.rs:54", "services/human/crates/layerx-human-service/tests/session_keys.rs:618", "services/human/crates/layerx-human-service/tests/spend.rs:343", "services/human/crates/layerx-human-service/tests/support/production_fixture.rs:547", "services/human/crates/layerx-human-service/tests/wallet_identity_e2e.rs:660", "services/human/crates/layerx-human-test-support/src/lib.rs:23", "services/human/crates/layerx-intents/fuzz/fuzz_targets/intent.rs:48", "services/human/crates/layerx-intents/src/canonical.rs:7", "services/human/crates/layerx-intents/src/vectors.rs:6", "services/human/crates/layerx-intents/tests/compile.rs:124", "services/human/crates/layerx-intents/tests/live_kinds.rs:121", "services/human/crates/layerx-intents/tests/proof_human_intents.rs:152", "services/human/crates/layerx-intents/tests/vectors_surface.rs:3", "services/interop/crates/layerx-gas-station/tests/rate.rs:88", "services/interop/crates/layerx-interop-gateway/tests/gateway.rs:21", "services/interop/crates/layerx-x402/src/seller.rs:734", "services/interop/crates/layerx-x402/tests/evidence_format.rs:16", "services/interop/crates/layerx-x402/tests/seller.rs:670", "services/interop/crates/x-websearch/src/main.rs:181", "services/interop/crates/x-websearch/src/payment.rs:32", "services/interop/crates/x-websearch/tests/binary.rs:793", "services/interop/crates/x-websearch/tests/payment.rs:23", "services/platform/hosted/agent-boundary/src/artifacts.rs:16", "services/platform/hosted/agent-boundary/src/main.rs:11", "services/platform/hosted/agent-boundary/tests/chain_receipt.rs:4", "services/platform/hosted/authority/src/human/budget_state.rs:4", "services/platform/hosted/authority/src/main.rs:13", "services/platform/hosted/authority/tests/budget_proof_exports.rs:413", "services/platform/hosted/authority/tests/chain_receipts.rs:682", "services/platform/hosted/human/material.py:676", "services/platform/hosted/paxeer/deploy-contracts.sh:198", "services/wallet/attestor/internal/policy/lx/testdata/kernelvectors/src/main.rs:32", "tests/agent/sdk/python/test_web_search.py:752", "tests/agent/sdk/python/test_x402.py:166", "tools/platform/cli/src/install/a2a.rs:18", "tools/platform/emulator/src/main.rs:1630", "tools/qualification/paxeer-x/movement-custody-profile.py:174"]
+
+[row.r8-39.46]
+interface = "interface.8.go-sdkjvm-generatedreceiptcontract-receiptcheck-result-code"
+verdict = "retired"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/verify/GeneratedReceiptContract.java"
+line = 21
+symbol = "RESULT_CODE"
+evidence = "RESULT_CODE: The old ReceiptCheck member is absent; sdk/platform/generators/receipt.kvx now defines sequencer receipt checks instead. Repository-wide exact-identifier search excluding spec and docs found 2 other files; remaining lists one occurrence per file, including unrelated namesakes."
+remaining_refs = 2
+remaining = ["tests/agent/sdk/python/test_x402.py:436", "tools/benchmark/benchmark-compare.sh:258"]
+
+[row.r8-39.47]
+interface = "interface.8.go-sdkjvm-generatedreceiptcontract-receiptcheck-operation"
+verdict = "retired"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/verify/GeneratedReceiptContract.java"
+line = 22
+symbol = "OPERATION"
+evidence = "OPERATION: The old ReceiptCheck member is absent; sdk/platform/generators/receipt.kvx now defines sequencer receipt checks instead. Repository-wide exact-identifier search excluding spec and docs found 30 other files; remaining lists one occurrence per file, including unrelated namesakes."
+remaining_refs = 30
+remaining = ["apps/launchpad/web/src/shell/platform-metrics.tsx:15", "contracts/launchpad/artifacts/build-info/8acf36d78a14c78ece67169a78128e3a.json:1", "contracts/launchpad/artifacts/build-info/bc99e434231fbb4fcd508bf2d04639d8.json:1", "contracts/launchpad/contracts/meta-ag/adapters/SidioraAdapter.sol:537", "contracts/launchpad/contracts/meta-ag/adapters/VaultAdapter.sol:517", "contracts/launchpad/contracts/meta-ag/analytics/TransactionTracker.sol:589", "contracts/launchpad/contracts/meta-ag/engine/PECOR.sol:1020", "contracts/launchpad/contracts/meta-ag/engine/PECOROrders.sol:890", "contracts/launchpad/contracts/meta-ag/interfaces/IDataFeedAdapter.sol:306", "contracts/launchpad/contracts/meta-ag/interfaces/IERC20Minimal.sol:249", "contracts/launchpad/contracts/meta-ag/interfaces/IMetaAGQuoter.sol:339", "contracts/launchpad/contracts/meta-ag/interfaces/IMetaAGRouter.sol:409", "contracts/launchpad/contracts/meta-ag/interfaces/IOracleHub.sol:431", "contracts/launchpad/contracts/meta-ag/interfaces/IPECOR.sol:399", "contracts/launchpad/contracts/meta-ag/interfaces/IPECOROrders.sol:416", "contracts/launchpad/contracts/meta-ag/interfaces/IPECORVault.sol:369", "contracts/launchpad/contracts/meta-ag/interfaces/IPriceOracle.sol:457", "contracts/launchpad/contracts/meta-ag/interfaces/IProtocolAdapter.sol:360", "contracts/launchpad/contracts/meta-ag/interfaces/ITransactionTracker.sol:468", "contracts/launchpad/contracts/meta-ag/interfaces/IWETH.sol:250", "contracts/launchpad/contracts/meta-ag/oracle/OracleHub.sol:624", "contracts/launchpad/contracts/meta-ag/oracle/PriceOracle.sol:741", "contracts/launchpad/contracts/meta-ag/oracle/adapters/PriceOracleAdapter.sol:318", "contracts/launchpad/contracts/meta-ag/oracle/adapters/SidioraFeedAdapter.sol:402", "contracts/launchpad/contracts/meta-ag/proxy/ERC1967Proxy.sol:269", "contracts/launchpad/contracts/meta-ag/quoter/MetaAGQuoter.sol:585", "contracts/launchpad/contracts/meta-ag/router/MetaAGRouter.sol:834", "contracts/launchpad/contracts/meta-ag/vault/PECORVault.sol:844", "services/agent/crates/layerx-proof/tests/sequencer_corpus.rs:23", "services/platform/ramps/toolkit/tests/custody_rungs.rs:14"]
+
+[row.r8-39.48]
+interface = "interface.8.go-sdkjvm-generatedreceiptcontract-receiptcheck-activity-id"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/verify/GeneratedReceiptContract.java"
+line = 16
+symbol = "ACTIVITY_ID"
+evidence = "Enum member signature unchanged: ACTIVITY_ID still maps to activity-id; it is retained in the regenerated sequencer ReceiptCheck enum. Declaration: ACTIVITY_ID(\"activity-id\"),"
+
+[row.r8-39.49]
+interface = "interface.8.go-sdkjvm-generatedreceiptcontract-receiptcheck-global-sequence"
+verdict = "retired"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/verify/GeneratedReceiptContract.java"
+line = 24
+symbol = "GLOBAL_SEQUENCE"
+evidence = "GLOBAL_SEQUENCE: The old ReceiptCheck member is absent; sdk/platform/generators/receipt.kvx now defines sequencer receipt checks instead. Repository-wide exact-identifier search excluding spec and docs found 1 other file; remaining lists one occurrence per file, including unrelated namesakes."
+remaining_refs = 1
+remaining = ["tests/state/lxp_test_allowance.c:20"]
+
+[row.r8-39.50]
+interface = "interface.8.go-sdkjvm-generatedreceiptcontract-receiptcheck-module-id"
+verdict = "retired"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/verify/GeneratedReceiptContract.java"
+line = 25
+symbol = "MODULE_ID"
+evidence = "MODULE_ID: The old ReceiptCheck member is absent; sdk/platform/generators/receipt.kvx now defines sequencer receipt checks instead. Repository-wide exact-identifier search excluding spec and docs found 4 other files; remaining lists one occurrence per file, including unrelated namesakes."
+remaining_refs = 4
+remaining = ["services/agent/crates/layerx-proof/tests/sequencer_corpus.rs:22", "services/agent/crates/layerx-proof/tests/sequencer_logs.rs:18", "services/agent/crates/layerx-types/build.rs:472", "services/agent/crates/layerx-types/src/programs_activity.rs:4"]
+
+[row.r8-39.51]
+interface = "interface.8.go-sdkjvm-generatedreceiptcontract-receiptcheck-module-version"
+verdict = "retired"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/verify/GeneratedReceiptContract.java"
+line = 26
+symbol = "MODULE_VERSION"
+evidence = "MODULE_VERSION: The old ReceiptCheck member is absent; sdk/platform/generators/receipt.kvx now defines sequencer receipt checks instead. Repository-wide exact-identifier search excluding spec and docs found 0 other files; remaining lists one occurrence per file, including unrelated namesakes."
+remaining_refs = 0
+remaining = []
+
+[row.r8-39.52]
+interface = "interface.8.go-sdkjvm-generatedreceiptcontract-receiptcheck-timestamp"
+verdict = "retired"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/verify/GeneratedReceiptContract.java"
+line = 27
+symbol = "TIMESTAMP"
+evidence = "TIMESTAMP: The old ReceiptCheck member is absent; sdk/platform/generators/receipt.kvx now defines sequencer receipt checks instead. Repository-wide exact-identifier search excluding spec and docs found 16 other files; remaining lists one occurrence per file, including unrelated namesakes."
+remaining_refs = 16
+remaining = ["contracts/launchpad/artifacts/build-info/051abb177f19a5e21b54c2619c9dc4bc.json:1", "contracts/launchpad/artifacts/build-info/8acf36d78a14c78ece67169a78128e3a.json:1", "contracts/launchpad/artifacts/build-info/bc99e434231fbb4fcd508bf2d04639d8.json:1", "core/deps/geth/cmd/evm/testdata/eof/results.initcode.txt:116", "core/deps/geth/cmd/evm/testdata/eof/results.regular.txt:116", "core/deps/geth/core/vm/jump_table.go:533", "core/deps/geth/core/vm/opcodes.go:96", "core/deps/geth/core/vm/runtime/runtime_test.go:79", "programs/vendor/windows-sys-0.52.0/src/Windows/Win32/System/Search/mod.rs:4224", "programs/vendor/windows-sys-0.61.2/src/Windows/Win32/System/Search/mod.rs:5653", "services/explorer/backend/apps/ethereum_jsonrpc/test/support/fixture/geth/trace/struct_logger.json:1", "services/explorer/backend/apps/explorer/priv/repo/migrations/scripts/insert_address_current_token_balances_in_batches.sql:10", "services/explorer/backend/apps/explorer/priv/repo/migrations/scripts/update_address_current_token_balances_in_batches.sql:10", "services/explorer/backend/apps/explorer/priv/repo/migrations/scripts/update_new_tokens_holder_count_in_batches.sql:12", "services/explorer/backend/apps/explorer/priv/repo/migrations/scripts/update_replaced_transaction.sql:10", "services/explorer/services/smart-contract-verifier/smart-contract-verifier/src/lookup_methods/opcodes.rs:58"]
+
+[row.r8-39.53]
+interface = "interface.8.go-sdkjvm-generatedreceiptcontract-receiptcheck-batch-id"
+verdict = "retired"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/verify/GeneratedReceiptContract.java"
+line = 28
+symbol = "BATCH_ID"
+evidence = "BATCH_ID: The old ReceiptCheck member is absent; sdk/platform/generators/receipt.kvx now defines sequencer receipt checks instead. Repository-wide exact-identifier search excluding spec and docs found 1 other file; remaining lists one occurrence per file, including unrelated namesakes."
+remaining_refs = 1
+remaining = ["services/agent/crates/layerx-proof/examples/offline_verify.rs:27"]
+
+[row.r8-39.54]
+interface = "interface.8.go-sdkjvm-generatedreceiptcontract-receiptcheck-asset"
+verdict = "retired"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/verify/GeneratedReceiptContract.java"
+line = 29
+symbol = "ASSET"
+evidence = "ASSET: The old ReceiptCheck member is absent; sdk/platform/generators/receipt.kvx now defines sequencer receipt checks instead. Repository-wide exact-identifier search excluding spec and docs found 148 other files; remaining lists one occurrence per file, including unrelated namesakes."
+remaining_refs = 148
+remaining = ["apps/perps/src/components/paxeer/TransfersHistory.tsx:24", "apps/wallet/src/proof_wallet_app.test.ts:61", "apps/web/e2e/explorer-account.test.ts:12", "core/deps/geth/signer/fourbyte/4byte.json:75548", "daemon/committed-fixture/vector_v4.go:173", "modules/layerxauth/keeper/shared_host_test.go:78", "modules/layerxledger/keeper/accounts_test.go:58", "modules/layerxledger/keeper/execute_test.go:56", "modules/layerxledger/keeper/mirror_test.go:45", "modules/layerxledger/keeper/pause_test.go:133", "modules/layerxledger/keeper/proof_layerxledger_keeper_test.go:155", "modules/layerxledger/keeper/retire_test.go:81", "modules/layerxledger/keeper/views_test.go:72", "modules/layerxledger/types/proof_payload_codec_test.go:153", "modules/layerxpay/integration/genesis_test.go:162", "modules/layerxpay/keeper/budget_create_test.go:137", "modules/layerxpay/keeper/budget_pull_test.go:69", "modules/layerxpay/keeper/budget_spend_test.go:25", "modules/layerxpay/keeper/budget_views_test.go:77", "modules/layerxpay/keeper/escrow_open_test.go:21", "modules/layerxpay/keeper/execute_test.go:76", "modules/layerxpay/keeper/proof_pay_keeper_test.go:121", "modules/layerxpay/keeper/stream_lifecycle_test.go:27", "modules/layerxpay/keeper/stream_open_test.go:21", "modules/layerxpay/keeper/stream_settle_test.go:25", "modules/layerxpay/types/proof_views_test.go:209", "modules/lxphost/binding_test.go:18", "modules/lxphost/execute_test.go:26", "modules/lxphost/host_test.go:589", "modules/lxphost/proof_lxphost_host_test.go:92", "modules/tokenfactory/keeper/ledger_issuer_bind_test.go:52", "node/proof_node_go_api_test.go:317", "node/sequencer/standby_role_test.go:163", "node/standby_recorder_replication_test.go:196", "precompiles/layerxagent/streams/harness_test.go:258", "precompiles/layerxledger/assets_test.go:66", "precompiles/layerxledger/client_test.go:164", "precompiles/layerxledger/gas_conformance_test.go:173", "precompiles/layerxledger/mirror_app_test.go:89", "precompiles/layerxledger/parity_test.go:117", "precompiles/layerxledger/pause_test.go:71", "precompiles/layerxledger/payments_test.go:74", "precompiles/layerxledger/proof_layerxledger_0x101a_test.go:220", "precompiles/layerxledger/transfers_test.go:47", "precompiles/layerxledger/views_test.go:88", "precompiles/layerxpay/budget_test.go:259", "precompiles/layerxpay/escrow_test.go:129", "precompiles/layerxpay/gas_bound_test.go:167", "precompiles/layerxpay/served/served_test.go:242", "precompiles/layerxprograms/method_account_test.go:24", "precompiles/layerxprograms/method_call_test.go:48", "precompiles/layerxprograms/method_quote_test.go:181", "precompiles/layerxprograms/method_sandbox_fund_test.go:38", "precompiles/layerxprograms/method_transfer_test.go:56", "precompiles/layerxprograms/method_winddown_test.go:66", "precompiles/layerxprograms/webreader_test.go:97", "precompiles/layerxprograms/xweb_test.go:154", "programs/benches/compiled-equivalent/src/lib.rs:12", "programs/crates/layerx-programs-ai-market/tests/artifact_binding.rs:73", "programs/crates/layerx-programs-ai-market/tests/f03_evaluator_admission.rs:73", "programs/crates/layerx-programs-ai-market/tests/f03_evaluator_host.rs:74", "programs/crates/layerx-programs-ai-market/tests/f04_recovery.rs:79", "programs/crates/layerx-programs-ai-market/tests/f04_windows.rs:66", "programs/crates/layerx-programs-ai-market/tests/f05_aggregation_runtime.rs:75", "programs/crates/layerx-programs-ai-market/tests/fuel_budget.rs:71", "programs/crates/layerx-programs-ai-market/tests/host_boundary.rs:24", "programs/crates/layerx-programs-ai-market/tests/identity_section_sharing.rs:36", "programs/crates/layerx-programs-ai-market/tests/market_epoch_open.rs:56", "programs/crates/layerx-programs-ai-market/tests/market_lifecycle.rs:16", "programs/crates/layerx-programs-ai-market/tests/market_protocol_boundary.rs:65", "programs/crates/layerx-programs-ai-market/tests/reputation_lifecycle.rs:86", "programs/crates/layerx-programs-ai-market/tests/rewards_native.rs:76", "programs/crates/layerx-programs-ai-market/tests/roster_transition.rs:51", "programs/crates/layerx-programs-ai-market/tests/task_admission_boundary.rs:55", "programs/crates/layerx-programs-ai-market/tests/task_state_boundary.rs:61", "programs/crates/layerx-programs-ai-market/tests/value_boundary.rs:73", "programs/crates/layerx-programs-ai-market/tests/view_binding.rs:34", "programs/crates/layerx-programs-arbiter/tests/proof_arbiter_crate.rs:76", "programs/crates/layerx-programs-runtime/src/schedule.rs:527", "programs/crates/layerx-programs-runtime/tests/composition.rs:15", "programs/crates/layerx-programs-runtime/tests/interpreter_program.rs:14", "programs/porting/evm/MIGRATION.md:379", "rpc/sequencer_receipt_vectors_test.go:523", "services/agent/crates/layerx-agentd-host/tests/payer.rs:23", "services/agent/crates/layerx-agentd/src/capability/binding.rs:1368", "services/agent/crates/layerx-agentd/src/capability/effects.rs:718", "services/agent/crates/layerx-agentd/src/human_runtime.rs:22722", "services/agent/crates/layerx-agentd/tests/budget_durable_limits.rs:55", "services/agent/crates/layerx-client/tests/ai_market_commit.rs:41", "services/agent/crates/layerx-client/tests/proof_client.rs:53", "services/agent/crates/layerx-crypto/src/payments.rs:4", "services/agent/crates/layerx-proof/examples/offline_verify.rs:27", "services/agent/schema/agent-api/golden/v1.kvx:885", "services/agent/schema/agent-api/v1.kvx:885", "services/agent/sdk/python/layerx_sdk/x402_receive.py:181", "services/agent/sdk/python/tests/test_web_search_sequencer.py:42", "services/agent/sdk/typescript/src/wallet.ts:126", "services/agent/sdk/typescript/src/x402/receive.ts:120", "services/agent/sdk/typescript/test/proof_x402_receive.test.ts:33", "services/agent/sdk/typescript/test/x402-ledger-calls.test.ts:78", "services/human/crates/layerx-human-service/src/journeys/observed.rs:404", "services/human/crates/layerx-human-service/src/journeys/router.rs:2140", "services/human/crates/layerx-human-service/tests/agent_controls.rs:56", "services/human/crates/layerx-human-service/tests/agent_controls_rungs.rs:58", "services/human/crates/layerx-human-service/tests/balance_rungs.rs:41", "services/human/crates/layerx-human-service/tests/intent_plan_evm.rs:30", "services/human/crates/layerx-human-service/tests/intent_submit.rs:102", "services/human/crates/layerx-human-service/tests/move_money.rs:61", "services/human/crates/layerx-human-service/tests/native_send_nonces.rs:50", "services/human/crates/layerx-human-service/tests/spend.rs:31", "services/human/crates/layerx-human-service/tests/support/production_fixture.rs:138", "services/human/crates/layerx-human-service/tests/wallet_identity_e2e.rs:73", "services/human/crates/layerx-intents/tests/budget_payloads.rs:21", "services/human/crates/layerx-intents/tests/proof_human_intents.rs:53", "services/interop/crates/layerx-bridge-relayer/tests/solana_release.rs:70", "services/interop/crates/layerx-interop-gateway/tests/gateway.rs:26", "services/interop/crates/layerx-migrate/src/ethereum.rs:23", "services/interop/crates/layerx-migrate/src/solana.rs:22", "services/interop/crates/layerx-x402/src/model.rs:626", "services/interop/crates/layerx-x402/tests/evidence_format.rs:28", "services/platform/hosted/ai-artifacts/tests/artifact_recovery.rs:70", "services/platform/hosted/ai-evaluator/tests/epoch.rs:90", "services/platform/hosted/gateway/src/history.rs:2108", "services/platform/hosted/indexer/tests/ai_reputation_finality.rs:49", "services/platform/hosted/indexer/tests/ai_snapshot_minimal.rs:45", "services/platform/hosted/node/tests/genesis-modules-test.py:16", "services/platform/hosted/node/tests/sequencer-seed-test.py:20", "services/platform/hosted/node/tests/signer-test.py:23", "services/platform/hosted/paxai-worker/tests/job_admission.rs:87", "services/platform/hosted/paxai-worker/tests/job_recovery.rs:86", "services/platform/hosted/paxai-worker/tests/membership_recovery.rs:67", "services/platform/hosted/paxai-worker/tests/real_workload.rs:109", "services/platform/hosted/paxai-worker/tests/task_chain_handoff.rs:67", "services/platform/hosted/paxai-worker/tests/transport_identity.rs:88", "src/modules/asset/lx_asset_execution.h:166", "src/modules/asset/lx_asset_registry.c:886", "tests/agent/sdk/python/test_ai_market.py:143", "tests/modules/test_asset_account_grant.c:191", "tests/modules/test_asset_registry.c:199", "tests/proof/lxp_proof_lx_asset_h.c:162", "tests/proof/lxp_proof_lxp_module_h.c:163", "tests/qualification/lxp_wallet_caps_discovery.c:597", "tests/test_beta_withdrawal_genesis.py:24", "tests/test_state_commitment_transition.c:654", "tools/bringup/check-live.sh:4856", "tools/bringup/check-live.test.sh:2384", "tools/bringup/value-loop.sh:6", "tools/platform/cli/tests/wallet_evm_writes.rs:29"]
+
+[row.r8-39.55]
+interface = "interface.8.go-sdkjvm-generatedreceiptcontract-receiptcheck-previous-state-root"
+verdict = "retired"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/verify/GeneratedReceiptContract.java"
+line = 30
+symbol = "PREVIOUS_STATE_ROOT"
+evidence = "PREVIOUS_STATE_ROOT: The old ReceiptCheck member is absent; sdk/platform/generators/receipt.kvx now defines sequencer receipt checks instead. Repository-wide exact-identifier search excluding spec and docs found 1 other file; remaining lists one occurrence per file, including unrelated namesakes."
+remaining_refs = 1
+remaining = ["services/human/crates/layerx-human-test-support/tests/receipt_evidence_key.rs:12"]
+
+[row.r8-39.56]
+interface = "interface.8.go-sdkjvm-generatedreceiptcontract-receiptcheck-resulting-state-root"
+verdict = "retired"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/verify/GeneratedReceiptContract.java"
+line = 31
+symbol = "RESULTING_STATE_ROOT"
+evidence = "RESULTING_STATE_ROOT: The old ReceiptCheck member is absent; sdk/platform/generators/receipt.kvx now defines sequencer receipt checks instead. Repository-wide exact-identifier search excluding spec and docs found 1 other file; remaining lists one occurrence per file, including unrelated namesakes."
+remaining_refs = 1
+remaining = ["services/human/crates/layerx-human-test-support/tests/receipt_evidence_key.rs:13"]
+
+[row.r8-39.57]
+interface = "interface.8.go-sdkjvm-generatedreceiptcontract-receiptcheck-debit-balance"
+verdict = "retired"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/verify/GeneratedReceiptContract.java"
+line = 32
+symbol = "DEBIT_BALANCE"
+evidence = "DEBIT_BALANCE: The old ReceiptCheck member is absent; sdk/platform/generators/receipt.kvx now defines sequencer receipt checks instead. Repository-wide exact-identifier search excluding spec and docs found 0 other files; remaining lists one occurrence per file, including unrelated namesakes."
+remaining_refs = 0
+remaining = []
+
+[row.r8-39.58]
+interface = "interface.8.go-sdkjvm-generatedreceiptcontract-receiptcheck-credit-balance"
+verdict = "retired"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/verify/GeneratedReceiptContract.java"
+line = 33
+symbol = "CREDIT_BALANCE"
+evidence = "CREDIT_BALANCE: The old ReceiptCheck member is absent; sdk/platform/generators/receipt.kvx now defines sequencer receipt checks instead. Repository-wide exact-identifier search excluding spec and docs found 0 other files; remaining lists one occurrence per file, including unrelated namesakes."
+remaining_refs = 0
+remaining = []
+
+[row.r8-39.59]
+interface = "interface.8.go-sdkjvm-generatedreceiptcontract-receiptcheck-program-outcome"
+verdict = "retired"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/verify/GeneratedReceiptContract.java"
+line = 34
+symbol = "PROGRAM_OUTCOME"
+evidence = "PROGRAM_OUTCOME: The old ReceiptCheck member is absent; sdk/platform/generators/receipt.kvx now defines sequencer receipt checks instead. Repository-wide exact-identifier search excluding spec and docs found 0 other files; remaining lists one occurrence per file, including unrelated namesakes."
+remaining_refs = 0
+remaining = []
+
+[row.r8-39.60]
+interface = "interface.8.go-sdkjvm-generatedreceiptcontract-receiptcheck-sequencer-signature"
+verdict = "retired"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/verify/GeneratedReceiptContract.java"
+line = 35
+symbol = "SEQUENCER_SIGNATURE"
+evidence = "SEQUENCER_SIGNATURE: The old ReceiptCheck member is absent; sdk/platform/generators/receipt.kvx now defines sequencer receipt checks instead. Repository-wide exact-identifier search excluding spec and docs found 1 other file; remaining lists one occurrence per file, including unrelated namesakes."
+remaining_refs = 1
+remaining = ["tests/agent/sdk/python/test_x402.py:427"]

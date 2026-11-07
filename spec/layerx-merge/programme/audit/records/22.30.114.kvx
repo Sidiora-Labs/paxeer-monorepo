@@ -1,0 +1,1767 @@
+# Pre-upgrade wallet and attestor TSS audit; source repairs are proposals.
+
+[audit.22.30.114]
+task = "22.30.114"
+revision = "2b99f88520e4e809ad5593f3bee2df74fe355d7b"
+files_reviewed = 158
+findings = 68
+docs_reviewed = 15
+upgrade_ready = false
+blocking = ["1", "2", "3", "4", "6", "52"]
+note = "Static pre-upgrade source/interface audit. Source tests were read, not run. Generated ABI members use the brief generated-file exception; source repairs are proposals only."
+
+[file.1]
+path = "apps/wallet/sentry.client.config.ts"
+lines = 24
+verdict = "clean"
+note = "Read in full: client monitoring configuration and sampling reviewed against wallet observability/redaction; no hardcoded private credential."
+
+[file.2]
+path = "apps/wallet/src/components/ConfirmDrawer.tsx"
+lines = 160
+verdict = "clean"
+note = "Read in full: approval summary preserves account, destination, network, fee and nonce context; no signing side effect is hidden in the presentation component."
+
+[file.3]
+path = "apps/wallet/src/components/NetworkSwitcher.test.tsx"
+lines = 147
+verdict = "clean"
+note = "Read in full: network creation/selection tests exercise the tenant RPC and persistence-facing UI contract; no source test was executed by this audit."
+
+[file.4]
+path = "apps/wallet/src/components/NetworkSwitcher.tsx"
+lines = 229
+verdict = "clean"
+note = "Read in full: creates and selects validated virtual-network configuration through the network provider; shows chain identity in the selection flow."
+
+[file.5]
+path = "apps/wallet/src/components/QrScanner.tsx"
+lines = 235
+verdict = "clean"
+note = "Read in full: camera/scanner lifecycle and decoded-input handoff reviewed against EIP-681 parsing; scanner resources are released on exit."
+
+[file.6]
+path = "apps/wallet/src/components/SplashScreen.tsx"
+lines = 67
+verdict = "clean"
+note = "Read in full: splash rendering/timer cleanup has no network, signing or persisted financial-state interface."
+
+[file.7]
+path = "apps/wallet/src/components/SwapSuccess.tsx"
+lines = 262
+verdict = "issues"
+note = "Read in full; findings 41 identify the observed contract/lifecycle defects and owning repair proposals."
+
+[file.8]
+path = "apps/wallet/src/components/TransferSuccess.test.tsx"
+lines = 126
+verdict = "clean"
+note = "Read in full: exercises the status presentation and retained observation identity, including committed/reverted/unknown states; endpoint-switch gap is recorded on the observer."
+
+[file.9]
+path = "apps/wallet/src/components/TransferSuccess.tsx"
+lines = 476
+verdict = "issues"
+note = "Read in full; findings 11 identify the observed contract/lifecycle defects and owning repair proposals."
+
+[file.10]
+path = "apps/wallet/src/components/nav/BottomNav.tsx"
+lines = 53
+verdict = "clean"
+note = "Read in full: navigation routes and shared icon use checked against the mounted wallet shell; no separate LayerX endpoint reference."
+
+[file.11]
+path = "apps/wallet/src/components/nav/UniversalHeader.tsx"
+lines = 125
+verdict = "clean"
+note = "Read in full: header callbacks and active account/network display agree with wallet shell inputs; no transaction authorization is inferred from labels."
+
+[file.12]
+path = "apps/wallet/src/components/onboarding/EmbeddedSignIn.tsx"
+lines = 169
+verdict = "clean"
+note = "Read in full: embedded sign-in delegates authorization to the wallet provider and surfaces errors through the existing onboarding lifecycle."
+
+[file.13]
+path = "apps/wallet/src/components/onboarding/Onboarding.tsx"
+lines = 157
+verdict = "clean"
+note = "Read in full: onboarding steps, recovery disclosure and completion callbacks checked against the wallet provider; no default secret or external RPC fallback introduced."
+
+[file.14]
+path = "apps/wallet/src/components/pwa/PWAComponents.tsx"
+lines = 313
+verdict = "clean"
+note = "Read in full: install/update/offline presentation consumes the PWA provider lifecycle without treating offline state as transaction success."
+
+[file.15]
+path = "apps/wallet/src/components/ui/BackgroundStatus.tsx"
+lines = 47
+verdict = "clean"
+note = "Read in full: subscribes to structured background failures and exposes retryability/availability rather than inventing a financial success state."
+
+[file.16]
+path = "apps/wallet/src/components/ui/EmptyState.tsx"
+lines = 88
+verdict = "issues"
+note = "Read in full; findings 37 identify the observed contract/lifecycle defects and owning repair proposals."
+
+[file.17]
+path = "apps/wallet/src/components/ui/ErrorBoundary.tsx"
+lines = 74
+verdict = "clean"
+note = "Read in full: UI exception containment/reset behavior checked; no failed operation is converted to a committed transaction."
+
+[file.18]
+path = "apps/wallet/src/components/ui/NetworkErrorScreen.tsx"
+lines = 135
+verdict = "clean"
+note = "Read in full: explicit network-unavailable presentation and retry callback preserve the distinction from an empty financial result."
+
+[file.19]
+path = "apps/wallet/src/components/ui/Skeletons.tsx"
+lines = 160
+verdict = "clean"
+note = "Read in full: loading placeholders carry no transaction, balance or persistence semantics."
+
+[file.20]
+path = "apps/wallet/src/components/ui/SlippageDrawer.tsx"
+lines = 172
+verdict = "issues"
+note = "Read in full; findings 40 identify the observed contract/lifecycle defects and owning repair proposals."
+
+[file.21]
+path = "apps/wallet/src/components/ui/SvgIcon.tsx"
+lines = 121
+verdict = "issues"
+note = "Read in full; findings 36 identify the observed contract/lifecycle defects and owning repair proposals."
+
+[file.22]
+path = "apps/wallet/src/components/ui/TransactionModals.tsx"
+lines = 343
+verdict = "clean"
+note = "Read in full: transaction and gas modal props/callbacks checked against preflight and external-navigation boundaries."
+
+[file.23]
+path = "apps/wallet/src/components/ui/WhatsNewModal.tsx"
+lines = 128
+verdict = "issues"
+note = "Read in full; findings 38 identify the observed contract/lifecycle defects and owning repair proposals."
+
+[file.24]
+path = "apps/wallet/src/components/ui/input-otp.tsx"
+lines = 70
+verdict = "clean"
+note = "Read in full: OTP slot/group context and forwarded input props preserve the input-otp interface; no OTP or secret is persisted here."
+
+[file.25]
+path = "apps/wallet/src/components/ui/primitives.tsx"
+lines = 409
+verdict = "clean"
+note = "Read in full: primitive prop forwarding, accessibility roles and variant classes are presentation-only and agree with their callers."
+
+[file.26]
+path = "apps/wallet/src/components/ui/toast.tsx"
+lines = 72
+verdict = "clean"
+note = "Read in full: ToastItem renders title/description/variant/action and close callback; failure to honor dismissed state is localized in the viewport finding."
+
+[file.27]
+path = "apps/wallet/src/components/ui/toaster.tsx"
+lines = 32
+verdict = "issues"
+note = "Read in full; findings 39 identify the observed contract/lifecycle defects and owning repair proposals."
+
+[file.28]
+path = "apps/wallet/src/components/ui/use-toast.tsx"
+lines = 154
+verdict = "clean"
+note = "Read in full: bounded toast count, open-state reducer and removal timers agree internally; viewport integration defect is recorded on toaster.tsx."
+
+[file.29]
+path = "apps/wallet/src/components/ui/visual-system.acceptance.test.ts"
+lines = 107
+verdict = "clean"
+note = "Read in full: visual assertions inspect shipped wallet files and token usage; these source tests were reviewed but not executed as an audit gate."
+
+[file.30]
+path = "apps/wallet/src/lib/api.ts"
+lines = 834
+verdict = "issues"
+note = "Read in full; findings 42, 43 identify the observed contract/lifecycle defects and owning repair proposals."
+
+[file.31]
+path = "apps/wallet/src/lib/avatar.ts"
+lines = 8
+verdict = "clean"
+note = "Read in full: avatar construction/fallback reviewed for stable input handling and media-policy integration."
+
+[file.32]
+path = "apps/wallet/src/lib/cn.ts"
+lines = 6
+verdict = "clean"
+note = "Read in full: class merging delegates to clsx/tailwind-merge with no stateful or network interface."
+
+[file.33]
+path = "apps/wallet/src/lib/constants.ts"
+lines = 210
+verdict = "issues"
+note = "Read in full; findings 9, 27, 28 identify the observed contract/lifecycle defects and owning repair proposals."
+
+[file.34]
+path = "apps/wallet/src/lib/contacts.ts"
+lines = 106
+verdict = "clean"
+note = "Read in full: contact operations use the versioned contacts repository and preserve validated address/name records across reload."
+
+[file.35]
+path = "apps/wallet/src/lib/currency.ts"
+lines = 201
+verdict = "issues"
+note = "Read in full; findings 21 identify the observed contract/lifecycle defects and owning repair proposals."
+
+[file.36]
+path = "apps/wallet/src/lib/data/api/addresses.ts"
+lines = 161
+verdict = "clean"
+note = "Read in full: lib/data/api/addresses.ts preserves the v2 endpoint, exact raw string fields and nullable/pagination response contract used by its data facade consumers; common tenant routing defects are recorded at configuration."
+
+[file.37]
+path = "apps/wallet/src/lib/data/api/index.ts"
+lines = 53
+verdict = "clean"
+note = "Read in full: barrel exports match the declared neighboring modules and preserve the existing public names; behavior findings are attached to their owning implementations."
+
+[file.38]
+path = "apps/wallet/src/lib/data/api/search.ts"
+lines = 32
+verdict = "clean"
+note = "Read in full: lib/data/api/search.ts preserves the v2 endpoint, exact raw string fields and nullable/pagination response contract used by its data facade consumers; common tenant routing defects are recorded at configuration."
+
+[file.39]
+path = "apps/wallet/src/lib/data/api/stats.ts"
+lines = 37
+verdict = "clean"
+note = "Read in full: lib/data/api/stats.ts preserves the v2 endpoint, exact raw string fields and nullable/pagination response contract used by its data facade consumers; common tenant routing defects are recorded at configuration."
+
+[file.40]
+path = "apps/wallet/src/lib/data/api/tokens.ts"
+lines = 48
+verdict = "clean"
+note = "Read in full: lib/data/api/tokens.ts preserves the v2 endpoint, exact raw string fields and nullable/pagination response contract used by its data facade consumers; common tenant routing defects are recorded at configuration."
+
+[file.41]
+path = "apps/wallet/src/lib/data/api/transactions.ts"
+lines = 36
+verdict = "clean"
+note = "Read in full: lib/data/api/transactions.ts preserves the v2 endpoint, exact raw string fields and nullable/pagination response contract used by its data facade consumers; common tenant routing defects are recorded at configuration."
+
+[file.42]
+path = "apps/wallet/src/lib/data/client.ts"
+lines = 82
+verdict = "clean"
+note = "Read in full: lib/data/client.ts preserves the v2 endpoint, exact raw string fields and nullable/pagination response contract used by its data facade consumers; common tenant routing defects are recorded at configuration."
+
+[file.43]
+path = "apps/wallet/src/lib/data/facades/index.ts"
+lines = 35
+verdict = "clean"
+note = "Read in full: barrel exports match the declared neighboring modules and preserve the existing public names; behavior findings are attached to their owning implementations."
+
+[file.44]
+path = "apps/wallet/src/lib/data/facades/wallet.ts"
+lines = 514
+verdict = "issues"
+note = "Read in full; findings 12, 14, 15 identify the observed contract/lifecycle defects and owning repair proposals."
+
+[file.45]
+path = "apps/wallet/src/lib/data/hooks/index.ts"
+lines = 14
+verdict = "clean"
+note = "Read in full: barrel exports match the declared neighboring modules and preserve the existing public names; behavior findings are attached to their owning implementations."
+
+[file.46]
+path = "apps/wallet/src/lib/data/hooks/useAddress.ts"
+lines = 50
+verdict = "issues"
+note = "Read in full; findings 46 identify the observed contract/lifecycle defects and owning repair proposals."
+
+[file.47]
+path = "apps/wallet/src/lib/data/hooks/useNfts.ts"
+lines = 77
+verdict = "issues"
+note = "Read in full; findings 50 identify the observed contract/lifecycle defects and owning repair proposals."
+
+[file.48]
+path = "apps/wallet/src/lib/data/hooks/useTokenBalances.ts"
+lines = 44
+verdict = "issues"
+note = "Read in full; findings 47 identify the observed contract/lifecycle defects and owning repair proposals."
+
+[file.49]
+path = "apps/wallet/src/lib/data/hooks/useTokenTransfers.ts"
+lines = 77
+verdict = "issues"
+note = "Read in full; findings 49 identify the observed contract/lifecycle defects and owning repair proposals."
+
+[file.50]
+path = "apps/wallet/src/lib/data/hooks/useTransactions.ts"
+lines = 77
+verdict = "issues"
+note = "Read in full; findings 48 identify the observed contract/lifecycle defects and owning repair proposals."
+
+[file.51]
+path = "apps/wallet/src/lib/data/index.ts"
+lines = 144
+verdict = "clean"
+note = "Read in full: barrel exports match the declared neighboring modules and preserve the existing public names; behavior findings are attached to their owning implementations."
+
+[file.52]
+path = "apps/wallet/src/lib/data/types/address.ts"
+lines = 94
+verdict = "clean"
+note = "Read in full: lib/data/types/address.ts preserves the v2 endpoint, exact raw string fields and nullable/pagination response contract used by its data facade consumers; common tenant routing defects are recorded at configuration."
+
+[file.53]
+path = "apps/wallet/src/lib/data/types/block.ts"
+lines = 41
+verdict = "clean"
+note = "Read in full: lib/data/types/block.ts preserves the v2 endpoint, exact raw string fields and nullable/pagination response contract used by its data facade consumers; common tenant routing defects are recorded at configuration."
+
+[file.54]
+path = "apps/wallet/src/lib/data/types/common.ts"
+lines = 107
+verdict = "clean"
+note = "Read in full: lib/data/types/common.ts preserves the v2 endpoint, exact raw string fields and nullable/pagination response contract used by its data facade consumers; common tenant routing defects are recorded at configuration."
+
+[file.55]
+path = "apps/wallet/src/lib/data/types/index.ts"
+lines = 57
+verdict = "clean"
+note = "Read in full: barrel exports match the declared neighboring modules and preserve the existing public names; behavior findings are attached to their owning implementations."
+
+[file.56]
+path = "apps/wallet/src/lib/data/types/token.ts"
+lines = 127
+verdict = "clean"
+note = "Read in full: lib/data/types/token.ts preserves the v2 endpoint, exact raw string fields and nullable/pagination response contract used by its data facade consumers; common tenant routing defects are recorded at configuration."
+
+[file.57]
+path = "apps/wallet/src/lib/data/types/transaction.ts"
+lines = 87
+verdict = "clean"
+note = "Read in full: lib/data/types/transaction.ts preserves the v2 endpoint, exact raw string fields and nullable/pagination response contract used by its data facade consumers; common tenant routing defects are recorded at configuration."
+
+[file.58]
+path = "apps/wallet/src/lib/eip681.test.ts"
+lines = 50
+verdict = "clean"
+note = "Read in full: EIP-681 examples cover the parser/encoder contract and rejection paths; no source tests were run for this record."
+
+[file.59]
+path = "apps/wallet/src/lib/eip681.ts"
+lines = 126
+verdict = "clean"
+note = "Read in full: payment-request parser/encoder validates supported chain/address/value shapes and rejects unsupported request forms."
+
+[file.60]
+path = "apps/wallet/src/lib/fees.ts"
+lines = 76
+verdict = "clean"
+note = "Read in full: gas-fee estimation and exact integer units checked against provider methods and preflight consumers."
+
+[file.61]
+path = "apps/wallet/src/lib/format.ts"
+lines = 68
+verdict = "clean"
+note = "Read in full: general display helpers checked for existing caller conventions; exact raw-value arithmetic remains separate from abbreviated display."
+
+[file.62]
+path = "apps/wallet/src/lib/locale/additional-messages.ts"
+lines = 893
+verdict = "clean"
+note = "Read in full: Italian, Hindi, Japanese and Korean catalog sections provide the MessageCatalog shape consumed by getMessages; no retired runtime endpoint."
+
+[file.63]
+path = "apps/wallet/src/lib/locale/formatters.ts"
+lines = 148
+verdict = "issues"
+note = "Read in full; findings 22, 23 identify the observed contract/lifecycle defects and owning repair proposals."
+
+[file.64]
+path = "apps/wallet/src/lib/locale/index.ts"
+lines = 70
+verdict = "clean"
+note = "Read in full: stable locale codes, migration, display names and RTL determination agree with the LocaleProvider and catalog keys."
+
+[file.65]
+path = "apps/wallet/src/lib/locale/locale.test.ts"
+lines = 177
+verdict = "issues"
+note = "Read in full; findings 24 identify the observed contract/lifecycle defects and owning repair proposals."
+
+[file.66]
+path = "apps/wallet/src/lib/locale/messages.ts"
+lines = 1579
+verdict = "issues"
+note = "Read in full; findings 25 identify the observed contract/lifecycle defects and owning repair proposals."
+
+[file.67]
+path = "apps/wallet/src/lib/locale/priority-messages.ts"
+lines = 573
+verdict = "issues"
+note = "Read in full; findings 26 identify the observed contract/lifecycle defects and owning repair proposals."
+
+[file.68]
+path = "apps/wallet/src/lib/mediaProxy.ts"
+lines = 20
+verdict = "clean"
+note = "Read in full: logo/media URL rewriting uses the same-origin media boundary and configured origins rather than exposing arbitrary upstream credentials."
+
+[file.69]
+path = "apps/wallet/src/lib/metaCache.ts"
+lines = 66
+verdict = "clean"
+note = "Read in full: cacheGet/cacheAge/cacheSet use the versioned metadata repository and matching epoch timestamps; token-list completeness is a producer finding."
+
+[file.70]
+path = "apps/wallet/src/lib/networks.test.ts"
+lines = 55
+verdict = "clean"
+note = "Read in full: network validation/persistence examples agree with root and virtual-chain configuration; reviewed only, not executed."
+
+[file.71]
+path = "apps/wallet/src/lib/networks.ts"
+lines = 52
+verdict = "clean"
+note = "Read in full: network identity and URL validation preserve virtual <rpc>/chain/<id> namespaces and root chain 125 configuration."
+
+[file.72]
+path = "apps/wallet/src/lib/notification-triggers.ts"
+lines = 162
+verdict = "issues"
+note = "Read in full; findings 18, 19, 20 identify the observed contract/lifecycle defects and owning repair proposals."
+
+[file.73]
+path = "apps/wallet/src/lib/observability.test.ts"
+lines = 65
+verdict = "clean"
+note = "Read in full: redaction/error-boundary assertions cover sensitive wallet reporting examples; source test execution is outside this task gate."
+
+[file.74]
+path = "apps/wallet/src/lib/observability.ts"
+lines = 255
+verdict = "clean"
+note = "Read in full: event/error redaction and correlation shapes checked against reporting consumers; secret-bearing wallet values are not an intended log payload."
+
+[file.75]
+path = "apps/wallet/src/lib/optimistic.ts"
+lines = 75
+verdict = "clean"
+note = "Read in full: pending-send session record is consumed once with a bounded age, and raw subtraction preserves integer units; fresh reconciliation wiring is recorded in api.ts."
+
+[file.76]
+path = "apps/wallet/src/lib/pns.indexer.test.ts"
+lines = 128
+verdict = "clean"
+note = "Read in full: indexer/proxy PNS behavior and authoritative unavailable outcomes reviewed against requirements 19005.1 and 19010.3."
+
+[file.77]
+path = "apps/wallet/src/lib/pns.test.ts"
+lines = 179
+verdict = "clean"
+note = "Read in full: name normalization, validation and unavailable-configuration examples reviewed against the PNS implementation."
+
+[file.78]
+path = "apps/wallet/src/lib/pns.ts"
+lines = 524
+verdict = "clean"
+note = "Read in full: PNS config, canonical label handling, contenthash resolution and unavailable behavior agree with requirements 19005/19010 and 181403/181404."
+
+[file.79]
+path = "apps/wallet/src/lib/portfolio-api/client.ts"
+lines = 91
+verdict = "clean"
+note = "Read in full: fetch transport preserves HTTP failure status/body and maps top-level camelCase keys to snake_case; unavailable mutations are findings on watch/webhooks."
+
+[file.80]
+path = "apps/wallet/src/lib/portfolio-api/index.ts"
+lines = 34
+verdict = "clean"
+note = "Read in full: barrel exports match the declared neighboring modules and preserve the existing public names; behavior findings are attached to their owning implementations."
+
+[file.81]
+path = "apps/wallet/src/lib/portfolio-api/types.ts"
+lines = 66
+verdict = "clean"
+note = "Read in full: watch/webhook request and response fields compared with their wrappers, including optional snake_case response fields and delivery records."
+
+[file.82]
+path = "apps/wallet/src/lib/portfolio-api/watch.ts"
+lines = 31
+verdict = "issues"
+note = "Read in full; findings 2 identify the observed contract/lifecycle defects and owning repair proposals."
+
+[file.83]
+path = "apps/wallet/src/lib/portfolio-api/webhooks.ts"
+lines = 60
+verdict = "issues"
+note = "Read in full; findings 3 identify the observed contract/lifecycle defects and owning repair proposals."
+
+[file.84]
+path = "apps/wallet/src/lib/portfolio-types.ts"
+lines = 524
+verdict = "clean"
+note = "Read in full: portfolio, market, candles, reward and health response declarations checked against API wrappers; partial/unavailable data bugs are on the corresponding adapters."
+
+[file.85]
+path = "apps/wallet/src/lib/priority-features.test.ts"
+lines = 51
+verdict = "clean"
+note = "Read in full: priority feature assertions reviewed against current UI and helper interfaces; no independent qualification claim is made here."
+
+[file.86]
+path = "apps/wallet/src/lib/push.ts"
+lines = 212
+verdict = "issues"
+note = "Read in full; findings 16, 17, 68 identify the observed contract/lifecycle defects and owning repair proposals."
+
+[file.87]
+path = "apps/wallet/src/lib/queries/index.ts"
+lines = 29
+verdict = "clean"
+note = "Read in full: barrel exports match the declared neighboring modules and preserve the existing public names; behavior findings are attached to their owning implementations."
+
+[file.88]
+path = "apps/wallet/src/lib/queries/keys.ts"
+lines = 38
+verdict = "issues"
+note = "Read in full; findings 10 identify the observed contract/lifecycle defects and owning repair proposals."
+
+[file.89]
+path = "apps/wallet/src/lib/queries/portfolio.ts"
+lines = 99
+verdict = "clean"
+note = "Read in full: enabled guards and reconcile/optimistic updates use centralized keys; tenant-key and cache-bypass defects are recorded at their owning definitions."
+
+[file.90]
+path = "apps/wallet/src/lib/queries/rankings.ts"
+lines = 18
+verdict = "clean"
+note = "Read in full: ranking query inputs and output types agree with the API wrappers; common tenant identity limitation is recorded in queryKeys and configuration."
+
+[file.91]
+path = "apps/wallet/src/lib/queries/tokenDetail.ts"
+lines = 186
+verdict = "issues"
+note = "Read in full; findings 44 identify the observed contract/lifecycle defects and owning repair proposals."
+
+[file.92]
+path = "apps/wallet/src/lib/queries/transactions.ts"
+lines = 74
+verdict = "issues"
+note = "Read in full; findings 13 identify the observed contract/lifecycle defects and owning repair proposals."
+
+[file.93]
+path = "apps/wallet/src/lib/queries/txCount.ts"
+lines = 30
+verdict = "clean"
+note = "Read in full: address-enabled count query preserves the wallet API count type; incorrect received-notification interpretation is owned by notification-triggers.ts."
+
+[file.94]
+path = "apps/wallet/src/lib/queries/txDetail.ts"
+lines = 26
+verdict = "issues"
+note = "Read in full; findings 45 identify the observed contract/lifecycle defects and owning repair proposals."
+
+[file.95]
+path = "apps/wallet/src/lib/railwayS3.ts"
+lines = 159
+verdict = "clean"
+note = "Read in full: S3 credential/configuration reads remain server-side, and object operations preserve the configured endpoint/bucket contract."
+
+[file.96]
+path = "apps/wallet/src/lib/rateLimit.ts"
+lines = 141
+verdict = "clean"
+note = "Read in full: persistent bounded limiter input and store-path configuration reviewed against same-origin route callers and atomic store behavior."
+
+[file.97]
+path = "apps/wallet/src/lib/recentRecipients.ts"
+lines = 23
+verdict = "clean"
+note = "Read in full: recipient normalization, bounded recent list and versioned storage agree with repository shape and UI consumers."
+
+[file.98]
+path = "apps/wallet/src/lib/safe-image-loader.ts"
+lines = 12
+verdict = "clean"
+note = "Read in full: image loader uses the media policy and configured safe URL treatment; no RPC host is repurposed as an image endpoint."
+
+[file.99]
+path = "apps/wallet/src/lib/security/browser-security.test.ts"
+lines = 48
+verdict = "clean"
+note = "Read in full: browser navigation/media boundary assertions reviewed for real helper usage and rejected unsafe URL cases."
+
+[file.100]
+path = "apps/wallet/src/lib/security/csp.test.ts"
+lines = 127
+verdict = "clean"
+note = "Read in full: CSP examples check configured connect/media sources and wallet runtime origins; no broader browser gate ran."
+
+[file.101]
+path = "apps/wallet/src/lib/security/csp.ts"
+lines = 88
+verdict = "clean"
+note = "Read in full: CSP assembly consumes configured origins and checks connect-src coverage; no inline private S3 credential or retired router URL."
+
+[file.102]
+path = "apps/wallet/src/lib/security/media-policy.ts"
+lines = 33
+verdict = "clean"
+note = "Read in full: permitted media origins/content types and URL transformations agree with the media proxy boundary."
+
+[file.103]
+path = "apps/wallet/src/lib/security/navigation.ts"
+lines = 41
+verdict = "clean"
+note = "Read in full: external navigation validates URL schemes and uses a safe browser window policy for wallet/explorer links."
+
+[file.104]
+path = "apps/wallet/src/lib/swap/constants.ts"
+lines = 161
+verdict = "issues"
+note = "Read in full; findings 29, 67 identify the observed contract/lifecycle defects and owning repair proposals."
+
+[file.105]
+path = "apps/wallet/src/lib/swap/executor.test.ts"
+lines = 405
+verdict = "issues"
+note = "Read in full; findings 7 identify the observed contract/lifecycle defects and owning repair proposals."
+
+[file.106]
+path = "apps/wallet/src/lib/swap/executor.ts"
+lines = 249
+verdict = "issues"
+note = "Read in full; findings 4, 5 identify the observed contract/lifecycle defects and owning repair proposals."
+
+[file.107]
+path = "apps/wallet/src/lib/swap/hlpmm-v2.ts"
+lines = 152
+verdict = "issues"
+note = "Read in full; findings 30, 31 identify the observed contract/lifecycle defects and owning repair proposals."
+
+[file.108]
+path = "apps/wallet/src/lib/swap/index.ts"
+lines = 6
+verdict = "clean"
+note = "Read in full: barrel exports match the declared neighboring modules and preserve the existing public names; behavior findings are attached to their owning implementations."
+
+[file.109]
+path = "apps/wallet/src/lib/swap/quoter.ts"
+lines = 255
+verdict = "issues"
+note = "Read in full; findings 8 identify the observed contract/lifecycle defects and owning repair proposals."
+
+[file.110]
+path = "apps/wallet/src/lib/swap/sdk/abis/Application.ts"
+lines = 34
+verdict = "issues"
+note = "Read in full; findings 1 identify the observed contract/lifecycle defects and owning repair proposals."
+
+[file.111]
+path = "apps/wallet/src/lib/swap/sdk/abis/OracleHub.ts"
+lines = 776
+verdict = "generated"
+note = "Generated SDK ABI artifact; generated by paxeer-spot-integration-kit, retained without a manual whole-file clean claim under the audit brief exception."
+
+[file.112]
+path = "apps/wallet/src/lib/swap/sdk/abis/PECOR.ts"
+lines = 1159
+verdict = "generated"
+note = "Generated SDK ABI artifact; generated by paxeer-spot-integration-kit, retained without a manual whole-file clean claim under the audit brief exception."
+
+[file.113]
+path = "apps/wallet/src/lib/swap/sdk/abis/PECOROrders.ts"
+lines = 1069
+verdict = "generated"
+note = "Generated SDK ABI artifact; generated by paxeer-spot-integration-kit, retained without a manual whole-file clean claim under the audit brief exception."
+
+[file.114]
+path = "apps/wallet/src/lib/swap/sdk/abis/PECORQuoter.ts"
+lines = 1260
+verdict = "generated"
+note = "Generated SDK ABI artifact; generated by paxeer-spot-integration-kit, retained without a manual whole-file clean claim under the audit brief exception."
+
+[file.115]
+path = "apps/wallet/src/lib/swap/sdk/abis/PECORRouter.ts"
+lines = 888
+verdict = "generated"
+note = "Generated SDK ABI artifact; generated by paxeer-spot-integration-kit, retained without a manual whole-file clean claim under the audit brief exception."
+
+[file.116]
+path = "apps/wallet/src/lib/swap/sdk/abis/PECORStopOrders.ts"
+lines = 1419
+verdict = "generated"
+note = "Generated SDK ABI artifact; generated by paxeer-spot-integration-kit, retained without a manual whole-file clean claim under the audit brief exception."
+
+[file.117]
+path = "apps/wallet/src/lib/swap/sdk/abis/PECORVault.ts"
+lines = 1170
+verdict = "generated"
+note = "Generated SDK ABI artifact; generated by paxeer-spot-integration-kit, retained without a manual whole-file clean claim under the audit brief exception."
+
+[file.118]
+path = "apps/wallet/src/lib/swap/sdk/abis/PECORVaultShare.ts"
+lines = 450
+verdict = "generated"
+note = "Generated SDK ABI artifact; generated by paxeer-spot-integration-kit, retained without a manual whole-file clean claim under the audit brief exception."
+
+[file.119]
+path = "apps/wallet/src/lib/swap/sdk/abis/PriceOracle.ts"
+lines = 901
+verdict = "generated"
+note = "Generated SDK ABI artifact; generated by paxeer-spot-integration-kit, retained without a manual whole-file clean claim under the audit brief exception."
+
+[file.120]
+path = "apps/wallet/src/lib/swap/sdk/abis/PriceOracleAdapter.ts"
+lines = 359
+verdict = "generated"
+note = "Generated SDK ABI artifact; generated by paxeer-spot-integration-kit, retained without a manual whole-file clean claim under the audit brief exception."
+
+[file.121]
+path = "apps/wallet/src/lib/swap/sdk/abis/SidioraAdapter.ts"
+lines = 501
+verdict = "generated"
+note = "Generated SDK ABI artifact; generated by paxeer-spot-integration-kit, retained without a manual whole-file clean claim under the audit brief exception."
+
+[file.122]
+path = "apps/wallet/src/lib/swap/sdk/abis/SidioraFeedAdapter.ts"
+lines = 416
+verdict = "generated"
+note = "Generated SDK ABI artifact; generated by paxeer-spot-integration-kit, retained without a manual whole-file clean claim under the audit brief exception."
+
+[file.123]
+path = "apps/wallet/src/lib/swap/sdk/abis/TransactionTracker.ts"
+lines = 1668
+verdict = "generated"
+note = "Generated SDK ABI artifact; generated by paxeer-spot-integration-kit, retained without a manual whole-file clean claim under the audit brief exception."
+
+[file.124]
+path = "apps/wallet/src/lib/swap/sdk/abis/VaultAdapter.ts"
+lines = 503
+verdict = "generated"
+note = "Generated SDK ABI artifact; generated by paxeer-spot-integration-kit, retained without a manual whole-file clean claim under the audit brief exception."
+
+[file.125]
+path = "apps/wallet/src/lib/swap/sdk/abis/index.ts"
+lines = 15
+verdict = "generated"
+note = "Generated SDK source/header reviewed; generated declaration/consumer glue. Generator-owned changes must preserve ABI, canonical chain/token identity and exact raw units."
+
+[file.126]
+path = "apps/wallet/src/lib/swap/sdk/addresses.test.ts"
+lines = 54
+verdict = "clean"
+note = "Read in full: canonical stablecoin/wrapped-native identity and generation-2 launchpad role-address examples agree with 18756.1/.2 and 18845.1."
+
+[file.127]
+path = "apps/wallet/src/lib/swap/sdk/addresses.ts"
+lines = 145
+verdict = "generated"
+note = "Generated SDK source/header reviewed; generated declaration/consumer glue. Generator-owned changes must preserve ABI, canonical chain/token identity and exact raw units."
+
+[file.128]
+path = "apps/wallet/src/lib/swap/sdk/contracts.ts"
+lines = 91
+verdict = "generated"
+note = "Generated SDK source/header reviewed; generated declaration/consumer glue. Generator-owned changes must preserve ABI, canonical chain/token identity and exact raw units."
+
+[file.129]
+path = "apps/wallet/src/lib/swap/sdk/hooks.ts"
+lines = 144
+verdict = "issues"
+note = "Read in full; findings 51 identify the observed contract/lifecycle defects and owning repair proposals."
+
+[file.130]
+path = "apps/wallet/src/lib/swap/sdk/index.ts"
+lines = 46
+verdict = "generated"
+note = "Generated SDK source/header reviewed; generated declaration/consumer glue. Generator-owned changes must preserve ABI, canonical chain/token identity and exact raw units."
+
+[file.131]
+path = "apps/wallet/src/lib/swap/sdk/pecor.ts"
+lines = 352
+verdict = "generated"
+note = "Generated SDK source/header reviewed; generated declaration/consumer glue. Generator-owned changes must preserve ABI, canonical chain/token identity and exact raw units. Its unconverted order enum Results are covered by the SDK types finding."
+
+[file.132]
+path = "apps/wallet/src/lib/swap/sdk/sidiora.ts"
+lines = 213
+verdict = "issues"
+note = "Read in full; findings 6 identify the observed contract/lifecycle defects and owning repair proposals."
+
+[file.133]
+path = "apps/wallet/src/lib/swap/sdk/types.ts"
+lines = 119
+verdict = "issues"
+note = "Read in full; findings 52 identify the observed contract/lifecycle defects and owning repair proposals."
+
+[file.134]
+path = "apps/wallet/src/lib/swap/sdk/utils.ts"
+lines = 46
+verdict = "issues"
+note = "Read in full; findings 53 identify the observed contract/lifecycle defects and owning repair proposals."
+
+[file.135]
+path = "apps/wallet/src/lib/swap/types.ts"
+lines = 28
+verdict = "clean"
+note = "Read in full: route protocol union and raw string amount fields agree with quoter/executor dispatch; missing route-network identity is recorded on the quoter."
+
+[file.136]
+path = "apps/wallet/src/lib/txValidation.test.ts"
+lines = 41
+verdict = "clean"
+note = "Read in full: transaction preflight examples assert amount, address, balance, slippage and impact rejection; no assertion was changed or executed."
+
+[file.137]
+path = "apps/wallet/src/lib/txValidation.ts"
+lines = 73
+verdict = "clean"
+note = "Read in full: exact raw amount parsing, balance/address checks, canonical slippage limit and high-impact rejection agree with execution preflight."
+
+[file.138]
+path = "apps/wallet/src/lib/wallet/adapters/SimpleEventBus.ts"
+lines = 32
+verdict = "clean"
+note = "Read in full: listener subscribe/unsubscribe and typed event emission agree with IEventBus; no network or persisted transaction state."
+
+[file.139]
+path = "apps/wallet/src/lib/wallet/adapters/index.ts"
+lines = 1
+verdict = "clean"
+note = "Read in full: barrel exports match the declared neighboring modules and preserve the existing public names; behavior findings are attached to their owning implementations."
+
+[file.140]
+path = "apps/wallet/src/lib/wallet/index.ts"
+lines = 10
+verdict = "clean"
+note = "Read in full: barrel exports match the declared neighboring modules and preserve the existing public names; behavior findings are attached to their owning implementations."
+
+[file.141]
+path = "apps/wallet/src/lib/wallet/ports/IEventBus.ts"
+lines = 11
+verdict = "clean"
+note = "Read in full: event-bus port types agree with SimpleEventBus and wallet event consumers."
+
+[file.142]
+path = "apps/wallet/src/lib/wallet/ports/IWallet.ts"
+lines = 29
+verdict = "clean"
+note = "Read in full: wallet operation/identity port types checked against the adapter/export surface and exact raw transaction inputs."
+
+[file.143]
+path = "apps/wallet/src/lib/wallet/ports/index.ts"
+lines = 2
+verdict = "clean"
+note = "Read in full: barrel exports match the declared neighboring modules and preserve the existing public names; behavior findings are attached to their owning implementations."
+
+[file.144]
+path = "apps/wallet/src/lib/wallet/types/index.ts"
+lines = 32
+verdict = "clean"
+note = "Read in full: wallet event/account/operation types agree with port exports and their consumers."
+
+[file.145]
+path = "apps/wallet/tailwind.config.ts"
+lines = 77
+verdict = "clean"
+note = "Read in full: theme tokens, content roots and animation declarations checked against the wallet visual primitives; no network or state interface."
+
+[file.146]
+path = "services/wallet/attestor/internal/tss/dealer/dealer.go"
+lines = 299
+verdict = "clean"
+note = "Read in full: five-participant/three-threshold splitting, curve/scalar checks, public-share interpolation, bundle cloning and explicit wipe reviewed against attestor callers."
+
+[file.147]
+path = "services/wallet/attestor/internal/tss/dealer/dealer_test.go"
+lines = 215
+verdict = "clean"
+note = "Read in full: known-key reconstruction and malformed-share rejection cover both curves and threshold bundles; tests were not executed by the audit."
+
+[file.148]
+path = "services/wallet/attestor/internal/tss/ecdsa/ecdsa.go"
+lines = 441
+verdict = "issues"
+note = "Read in full; findings 33, 34 identify the observed contract/lifecycle defects and owning repair proposals."
+
+[file.149]
+path = "services/wallet/attestor/internal/tss/ecdsa/ecdsa_test.go"
+lines = 473
+verdict = "clean"
+note = "Read in full: real key generation/signing, EIP-1559 recovery, encoding round-trip and below-threshold failure examples reviewed; in-memory transport is not claimed as restart proof."
+
+[file.150]
+path = "services/wallet/attestor/internal/tss/ecdsa/share.go"
+lines = 305
+verdict = "clean"
+note = "Read in full: ECDSA key-share serialization, public key/address derivation, validation and bounded decoding checked against stored server share callers."
+
+[file.151]
+path = "services/wallet/attestor/internal/tss/eddsa/eddsa.go"
+lines = 178
+verdict = "clean"
+note = "Read in full: participant selection, share validation, context-driven protocol lifecycle and strict signature bytes agree with attestor signing consumers."
+
+[file.152]
+path = "services/wallet/attestor/internal/tss/eddsa/eddsa_test.go"
+lines = 411
+verdict = "clean"
+note = "Read in full: real Ed25519 signing, binding/domain digest verification, share reload and strict-verifier rejection examples reviewed; current code calls Ed25519Digest rather than removed Ed25519Domain."
+
+[file.153]
+path = "services/wallet/attestor/internal/tss/eddsa/newshare_test.go"
+lines = 69
+verdict = "clean"
+note = "Read in full: dealer-bundle conversion exercises a valid reconstructed key share; malformed constructor handling is recorded on eddsa/share.go."
+
+[file.154]
+path = "services/wallet/attestor/internal/tss/eddsa/share.go"
+lines = 329
+verdict = "issues"
+note = "Read in full; findings 32 identify the observed contract/lifecycle defects and owning repair proposals."
+
+[file.155]
+path = "services/wallet/attestor/internal/tss/refresh/addshare.go"
+lines = 139
+verdict = "clean"
+note = "Read in full: membership checks, participant-specific share distribution, proof validation and accumulated-share checks reviewed against refresh network callers."
+
+[file.156]
+path = "services/wallet/attestor/internal/tss/refresh/ecdsa.go"
+lines = 288
+verdict = "issues"
+note = "Read in full; findings 35 identify the observed contract/lifecycle defects and owning repair proposals."
+
+[file.157]
+path = "services/wallet/attestor/internal/tss/refresh/eddsa.go"
+lines = 180
+verdict = "clean"
+note = "Read in full: refresh messages validate public points/scalars and protocol membership, and preserve the aggregate Ed25519 public identity through share changes."
+
+[file.158]
+path = "services/wallet/attestor/internal/tss/refresh/refresh_test.go"
+lines = 604
+verdict = "clean"
+note = "Read in full: both-curve refresh/add-share tests exercise real math, resulting signatures and restored bundle validation; no claim of an actual process restart follows from the in-memory hub."
+
+[finding.1]
+file = "apps/wallet/src/lib/swap/sdk/abis/Application.ts"
+line = 22
+class = "interface-mismatch"
+severity = "high"
+observed = "SIDIORA_ROUTER_ABI declares swapTokenToToken(address,address,uint256,uint256,uint256) with one uint256 return; executor.ts:158 encodes that selector for the generation-2 Router address."
+expected = "The served Router ABI in precompiles/launchpad/abi/Router.json:951 and contracts/launchpad/contracts/interfaces/IRouter.sol:110 declares swapTokenForToken with two uint256 returns, amountOut and intermediateUsdl."
+proposal = "Regenerate the wallet Application ABI from the generation-2 role ABI and update the executor call and return decoding together; domain 12 should prove a funded token-to-token swap through the domain-4 producer, committed receipt and received balance."
+owner_domain = 12
+interface = "12.ts-app-sidiora-router-abi"
+
+[finding.2]
+file = "apps/wallet/src/lib/portfolio-api/watch.ts"
+line = 17
+class = "interface-mismatch"
+severity = "high"
+observed = "watchAddress posts and unwatchAddress deletes /api/v2/watch through portfolioApiBase=/wallet/api/wallet; apps/wallet/src/app/api/wallet/[...path]/route.ts exports mutation handlers that return HTTP 405 before contacting the producer."
+expected = "The registered watchAddress and unwatchAddress interfaces must start and stop tracking at the indexer backend, with a successful response only after the requested tracking lifecycle change."
+proposal = "Domain 12 should provide explicit authenticated bounded watch mutation routes connected to the domain-14 watch service, preserve its status/error body, and prove create, read, delete and restart behavior through the real proxy."
+owner_domain = 12
+interface = "12.ts-app-lib-portfolio-api-watch-watch-address"
+
+[finding.3]
+file = "apps/wallet/src/lib/portfolio-api/webhooks.ts"
+line = 23
+class = "interface-mismatch"
+severity = "high"
+observed = "createWebhook, updateWebhook and deleteWebhook use POST, PATCH and DELETE through the same /wallet/api/wallet proxy; every mutation is answered locally with HTTP 405, so the advertised webhook lifecycle never reaches its producer."
+expected = "The registered webhook methods must round-trip their snake_case request and response through an authorized mutation transport to the backend that owns webhook persistence and delivery."
+proposal = "Domain 12 should wire dedicated authorized webhook mutation handlers to the domain-14 API, retaining endpoint validation and ownership checks; prove creation, update, deletion, delivery lookup and recovery after service restart."
+owner_domain = 12
+interface = "12.ts-app-lib-portfolio-api-webhooks-create-webhook"
+
+[finding.4]
+file = "apps/wallet/src/lib/swap/executor.ts"
+line = 190
+class = "runtime-risk"
+severity = "high"
+observed = "executeV4Multihop never uses quote.amountOut; it executes two transactions with helpers that obtain fresh per-leg quotes and compute new minimums. A moved second-leg price can settle below the final minimum the user confirmed."
+expected = "The final output protection must be derived from the confirmed route output and user slippage, including the Sidiora/PECOR bridge route; a fresh quote cannot silently replace that authorized economic bound."
+proposal = "Domain 12 should carry the immutable confirmed final minimum and expiry through execution and enforce them on the final leg; use a supported atomic route where available, or obtain an explicit staged confirmation and expose bridge-asset recovery."
+owner_domain = 12
+interface = "12.ts-app-lib-swap-executor-execute-swap"
+
+[finding.5]
+file = "apps/wallet/src/lib/swap/executor.ts"
+line = 214
+class = "restart-recovery"
+severity = "medium"
+observed = "The mixed-protocol path commits the first transaction, then holds only its receipt and USDL amount in memory. A rejected second signature, failed second transaction or reload leaves no persisted leg identity for safe continuation."
+expected = "A multi-transaction wallet operation must preserve committed progress and reconcile it before retry, so the user can resume from the bridge balance without repeating the initial conversion."
+proposal = "Domain 12 should persist wallet, chain, route, confirmed bounds, first-leg hash and exact received USDL before starting leg two; reconcile receipts on reload and offer a bounded resume or retain-bridge-assets action."
+owner_domain = 12
+interface = "12.ts-app-lib-swap-executor-execute-swap"
+
+[finding.6]
+file = "apps/wallet/src/lib/swap/sdk/sidiora.ts"
+line = 211
+class = "interface-mismatch"
+severity = "high"
+observed = "The exported swapTokenToToken SDK helper calls router.swapTokenToToken at CONTRACTS.Router, so direct SDK consumers encounter the same unsupported selector independently of the wallet executor."
+expected = "Generation-2 IRouter exposes swapTokenForToken and returns amountOut plus intermediateUsdl; the exported wallet helper must encode that method when targeting the configured generation-2 surface."
+proposal = "Domain 12 should change the SDK generator and helper to call the producer method with the confirmed bound, regenerate its ABI, and prove successful execution plus a below-minimum rejection against the generation-2 role."
+owner_domain = 12
+interface = "12.ts-app-sidiora-router-abi"
+
+[finding.7]
+file = "apps/wallet/src/lib/swap/executor.test.ts"
+line = 390
+class = "test-gap"
+severity = "medium"
+observed = "sidiora_multihop_min_out_uses_confirmed_quote expects CALL_EXCEPTION during estimateGas and then asserts calldata for the unsupported swapTokenToToken method; the test can pass while every multihop swap fails."
+expected = "Requirement 18755.1 needs confirmed minimum protection on an executable Sidiora multihop path; calldata recovered from an expected selector failure does not establish a successful producer/consumer round trip."
+proposal = "Domain 12 should retain the confirmed-minimum assertions and add a successful funded generation-2 multihop receipt and balance check, followed by an independently induced price move that fails specifically on the minimum-output condition."
+owner_domain = 12
+interface = "12.ts-app-sidiora-router-abi"
+
+[finding.8]
+file = "apps/wallet/src/lib/swap/quoter.ts"
+line = 16
+class = "wiring-gap"
+severity = "medium"
+observed = "getProvider creates one JsonRpcProvider from the build-time RPC_URL and retains it forever, while wallet signing follows the active network. Network changes can leave route discovery and price reads on the root or previous endpoint."
+expected = "Requirement 20007.1 requires active virtual-network reads and writes to agree on the selected tenant RPC namespace; a quote must identify the chain and endpoint that produced it."
+proposal = "Domain 12 should supply an active-network provider to the quoter, include chain identity and expiry in each quote, and invalidate outstanding quotes and pool discovery when the selected network changes."
+owner_domain = 12
+interface = "12.ts-app-get-swap-quotes"
+
+[finding.9]
+file = "apps/wallet/src/lib/constants.ts"
+line = 13
+class = "wiring-gap"
+severity = "medium"
+observed = "All indexer and portfolio bases are fixed root proxy paths, even though getActiveRpcUrl selects virtual networks. The proxy forwards path/query to one BLOCKSCOUT_UPSTREAM_BASE with no selected-tenant parameter."
+expected = "Requirement 20007.1 and brief fact 5 require virtual-chain reads to describe the same tenant as the selected <rpc>/chain/<id> write endpoint; root-chain portfolio data must not stand in for tenant balances."
+proposal = "Domain 12 should define an explicit tenant-aware wallet BFF contract with domain 14, route every address/token/history read with validated selected-chain identity and scope server caches to that identity."
+owner_domain = 12
+interface = "12.ts-app-lib-constants-tokens"
+
+[finding.10]
+file = "apps/wallet/src/lib/queries/keys.ts"
+line = 13
+class = "wiring-gap"
+severity = "medium"
+observed = "Portfolio, balance, holdings, history and transaction-detail query keys use address or hash without chain/tenant identity. The same account on two virtual networks reuses one cached result across network switches."
+expected = "The selected network must be part of cached financial-data identity under requirement 20007.1, so stale results from another tenant cannot appear as current balances or history."
+proposal = "Domain 12 should include chain/tenant identity in all query keys and their invalidation/reconcile callers, cancel in-flight reads on switch and prove that equal addresses on different tenants remain isolated."
+owner_domain = 12
+interface = "12.ts-app-query-keys"
+
+[finding.11]
+file = "apps/wallet/src/components/TransferSuccess.tsx"
+line = 165
+class = "restart-recovery"
+severity = "medium"
+observed = "useTransferObservation saves an immutable transfer.chainId but obtains the active RPC on every tick and listens to RPC_CHANGED_EVENT. TransferSuccess also derives its explorer link from activeNetwork instead of the submitted transfer network."
+expected = "Requirements 12046.1 and 12293.1 require receipt observation and recovery for the exact submitted transaction identity; switching networks must not move an existing transfer observer or explorer link to another chain."
+proposal = "Domain 12 should resolve and retain RPC and explorer configuration by transfer.chainId, persist enough origin identity for reload, and test network switching while the original transfer remains pending."
+owner_domain = 12
+interface = "12.ts-sdk-observe-transfer"
+
+[finding.12]
+file = "apps/wallet/src/lib/data/facades/wallet.ts"
+line = 162
+class = "runtime-risk"
+severity = "medium"
+observed = "computeUsdValue converts arbitrary raw integer balances through parseInt/Number and divides by Math.pow(10, decimals), losing exact units before multiplying the exchange rate and rounding the valuation."
+expected = "Wallet balance arithmetic must preserve the producer decimal-string integer and token decimals until an explicitly rounded display or valuation boundary; supported large balances cannot be silently rounded by binary floating point."
+proposal = "Domain 12 should use decimal or integer arithmetic for balance-times-price valuation and round once to the displayed currency precision; cover zero-decimal tokens and values above Number.MAX_SAFE_INTEGER."
+owner_domain = 12
+interface = "12.ts-app-get-wallet-portfolio"
+
+[finding.13]
+file = "apps/wallet/src/lib/queries/transactions.ts"
+line = 48
+class = "runtime-risk"
+severity = "medium"
+observed = "normalizeTransfer uses t.token_decimals || 18, so a valid zero-decimal token is displayed with eighteen decimal places even though the wallet facade provides token_decimals: 0."
+expected = "The indexer token-decimal value is authoritative and zero is valid; only an absent or invalid decimal field may trigger an explicit unavailable/default policy."
+proposal = "Domain 12 should preserve zero with null-aware validation, keep amount_raw as the integer source of truth and add a zero-decimal transfer example through the facade and transaction-history view."
+owner_domain = 12
+interface = "12.ts-app-wallet-token-transfer-item"
+
+[finding.14]
+file = "apps/wallet/src/lib/data/facades/wallet.ts"
+line = 256
+class = "runtime-risk"
+severity = "medium"
+observed = "getWalletPortfolio sums null holding valuations as zero and presents a partial sum as total_value_usd; getWalletBalance similarly turns unknown prices into 0.00 and always reports perps_value_usd as 0."
+expected = "A portfolio total must distinguish a complete priced balance from partial coverage, unavailable prices and unavailable perpetual exposure; unknown assets are not economically worth zero."
+proposal = "Domain 12 should return nullable totals with priced-coverage and freshness metadata, obtain perpetual exposure from its owner or mark it unavailable, and make the portfolio UI label incomplete valuation explicitly."
+owner_domain = 12
+interface = "12.ts-app-get-wallet-balance"
+
+[finding.15]
+file = "apps/wallet/src/lib/data/facades/wallet.ts"
+line = 338
+class = "runtime-risk"
+severity = "medium"
+observed = "getWalletTransactions catches every token-transfer fetch error and returns items: [] with no error or completeness marker, making a transport outage indistinguishable from a wallet with no transfers."
+expected = "The wallet history response must retain unavailable/partial state when a required producer fails, rather than making a factual claim that no token transfers exist."
+proposal = "Domain 12 should preserve the transfer error as structured partial-result metadata or fail the combined query, show a retry action and retain previously known transfers while refreshing."
+owner_domain = 12
+interface = "12.ts-app-get-wallet-transactions"
+
+[finding.16]
+file = "apps/wallet/src/lib/push.ts"
+line = 190
+class = "wiring-gap"
+severity = "medium"
+observed = "sendSubscriptionToServer swallows missing-wallet, signing, HTTP refusal and persistence failures; subscribeToPush still returns the browser subscription. The lifecycle catch reporting PUSH_SUBSCRIBE_FAILED cannot observe those backend failures."
+expected = "Requirement 18753.1 requires ownership-proven server registration; notification enablement must report failure when the signed subscription was not accepted and persisted by the server."
+proposal = "Domain 12 should propagate a typed registration result through subscribeToPush and heartbeat, report retryable background failure on refusal, and treat the subscription as enabled only after the server acknowledgment."
+owner_domain = 12
+interface = "12.err-app-push-subscribe-failed"
+
+[finding.17]
+file = "apps/wallet/src/lib/push.ts"
+line = 194
+class = "restart-recovery"
+severity = "medium"
+observed = "removeSubscriptionFromServer ignores non-success HTTP status and catches network errors; unsubscribeFromPush removes the browser subscription without retaining a durable retry for backend deletion."
+expected = "Disabling notifications should reconcile both the browser subscription and its stored server association, including network failures and application restart."
+proposal = "Domain 12 should check the deletion response, persist a bounded deletion intent before removing the browser endpoint and retry/reconcile it after connectivity or application recovery."
+owner_domain = 12
+interface = "12.ts-app-unsubscribe-from-push"
+
+[finding.18]
+file = "apps/wallet/src/lib/notification-triggers.ts"
+line = 41
+class = "runtime-risk"
+severity = "medium"
+observed = "handleTxCount compares one global persisted lastTxCount across wallets and networks, and labels any transaction-count increase as Transaction Received, including outbound transactions."
+expected = "A received-funds notification must correspond to incoming committed activity for the same account and tenant; account switching must not compare unrelated history counters."
+proposal = "Domain 12 should key notification cursors by chain and wallet, determine incoming direction from indexed committed transfers, and persist an event identity for duplicate-free delivery."
+owner_domain = 12
+interface = "12.key-app-paxport-v1-notification-state"
+
+[finding.19]
+file = "apps/wallet/src/lib/notification-triggers.ts"
+line = 20
+class = "runtime-risk"
+severity = "medium"
+observed = "FEATURE_ANNOUNCEMENT announces an airdrop as starting tomorrow whenever a user first sees version 2; there is no start date, eligibility source or expiry, so the same relative claim persists indefinitely."
+expected = "Time-sensitive financial announcements must be derived from an authoritative campaign schedule and stop being delivered after their relevance window."
+proposal = "Domain 12 should load a dated campaign announcement with start/end time and verified eligibility wording, suppress expired announcements and retain the seen campaign identifier."
+owner_domain = 12
+interface = "12.ts-app-start-notification-triggers"
+
+[finding.20]
+file = "apps/wallet/src/lib/notification-triggers.ts"
+line = 73
+class = "dead-code"
+severity = "low"
+observed = "checkInactivity implements the three-day nudge but is never called; the sole inactivityTimer interval only sends heartbeat, so the documented inactivity reminder has no running trigger."
+expected = "An advertised background notification feature needs an actual scheduled lifecycle entry point, or its unused code and product claim should be retired together."
+proposal = "Domain 12 should either schedule the inactivity check under the notification permission/lifecycle policy with a persisted deduplication marker, or remove the unused reminder and its claim."
+owner_domain = 12
+interface = "12.ts-app-start-notification-triggers"
+
+[finding.21]
+file = "apps/wallet/src/lib/currency.ts"
+line = 123
+class = "runtime-risk"
+severity = "medium"
+observed = "getRate accepts any positive cached rate regardless of fetchedAt, while getRatesFreshness reports unavailable once the stale TTL expires. Monetary conversion continues using arbitrarily old rates after that state."
+expected = "An unavailable FX rate must not continue producing apparently current converted balances; stale use must have a bounded age and an explicit freshness label."
+proposal = "Domain 12 should apply the same fresh/stale/unavailable policy to conversion and freshness reporting, returning unavailable after the bound and preserving USD as a clearly labeled alternative."
+owner_domain = 12
+interface = "12.ts-app-get-rates-freshness"
+
+[finding.22]
+file = "apps/wallet/src/lib/locale/formatters.ts"
+line = 61
+class = "runtime-risk"
+severity = "medium"
+observed = "formatTokenAmount converts the BigInt whole amount to Number and separately formats the fractional part; fractional rounding can carry to 1 and be concatenated onto the old whole, and Arabic zero is not removed by /^0/."
+expected = "Localized token amounts must retain large integer precision and apply rounding carry once; Arabic digits and separators must form one valid localized number."
+proposal = "Domain 12 should format a canonical exact decimal amount with one rounding operation and locale-aware parts, covering amounts above 2^53, fractions rounding up and ar-SA digit/separator output."
+owner_domain = 12
+interface = "12.ts-app-format-token-amount"
+
+[finding.23]
+file = "apps/wallet/src/lib/locale/formatters.ts"
+line = 52
+class = "runtime-risk"
+severity = "medium"
+observed = "formatTokenAmount treats an integer string as raw units divided by 10^decimals, but a decimal string or numeric argument as a human amount. The same economic input 1 and 1.0 can therefore display values differing by 10^decimals."
+expected = "A token formatting API must explicitly distinguish raw integer units from human decimal amounts; callers cannot infer a unit convention from the spelling of a value."
+proposal = "Domain 12 should expose separate raw-unit and human-decimal formatting inputs, migrate call sites to the explicit contract and retain exact decimal strings until display."
+owner_domain = 12
+interface = "12.ts-app-format-token-amount"
+
+[finding.24]
+file = "apps/wallet/src/lib/locale/locale.test.ts"
+line = 124
+class = "test-gap"
+severity = "medium"
+observed = "Token-formatting tests check that the result contains a symbol or a few digits, and use decimal strings only. They do not assert raw-unit scaling, exact large values, rounding carry or localized Arabic output."
+expected = "The tests must establish the declared formatter unit and locale contract with exact expected output; substring checks cannot detect the precision and fraction-assembly defects in formatTokenAmount."
+proposal = "Domain 12 should add exact boundary examples for explicit raw and human inputs, zero decimals, large integers, carry-to-next-unit rounding and Arabic digits, while retaining existing locale coverage."
+owner_domain = 12
+interface = "12.ts-app-format-token-amount"
+
+[finding.25]
+file = "apps/wallet/src/lib/locale/messages.ts"
+line = 771
+class = "runtime-risk"
+severity = "low"
+observed = "The Arabic catalog assigns the funded-trader action the Hebrew text הפוך לסוחר ממומן while adjacent funded-product explanations are Arabic, so Arabic readers receive an action in another language."
+expected = "Each selected locale should supply readable and consistent product actions in that locale, especially when the action enters a funded trading product."
+proposal = "Domain 12 should replace the Arabic becomeFunded value with a reviewed Arabic translation and perform a terminology review of funded trading labels across the catalogs."
+owner_domain = 12
+
+[finding.26]
+file = "apps/wallet/src/lib/locale/priority-messages.ts"
+line = 192
+class = "runtime-risk"
+severity = "low"
+observed = "The French transaction nonce label is translated as Occasionnellement and the Hindi label as गैर, neither of which identifies the transaction sequence number the user is editing."
+expected = "Advanced transaction controls must preserve precise financial/security terminology so users can identify nonce replacement and ordering behavior in their selected language."
+proposal = "Domain 12 should use reviewed technical nonce terminology in the French and Hindi catalogs and check the advanced transaction-control labels with native-language reviewers."
+owner_domain = 12
+
+[finding.27]
+file = "apps/wallet/src/lib/constants.ts"
+line = 178
+class = "config-drift"
+severity = "medium"
+observed = "Wallet TOKENS.SID defaults to 0x21f7b20a555199fa73A238B1a91FD0f549068fEe while swap/sdk/addresses.ts and api.ts SID_TOKEN_ADDRESS use 0x86949e4CdB89496490890B67C9cfF63eD8efB4b1, splitting SID identity between wallet features."
+expected = "The wallet, swap token picker and SID pricing/metadata path must use one explicitly selected token identity per chain, as already done for USDC, USDT, USDL and WPAX9."
+proposal = "Domain 12 should source SID from the canonical chain-scoped token registry, retire the conflicting default or document a distinct asset, and verify balance, swap and chart links address the same contract."
+owner_domain = 12
+interface = "12.env-app-next-public-sid"
+
+[finding.28]
+file = "apps/wallet/src/lib/constants.ts"
+line = 151
+class = "config-drift"
+severity = "low"
+observed = "Registry rows NEXT_PUBLIC_USDC, NEXT_PUBLIC_USDT, NEXT_PUBLIC_USDL and NEXT_PUBLIC_WPAX9 still advertise build-time environment reads in constants.ts, but the implementation now takes all four values from SWAP_SDK_TOKENS."
+expected = "The interface registry and deployment guidance must identify the configuration actually read, without suggesting ineffective overrides for the canonical token registry."
+proposal = "Domain 12 should retire or amend the four environment rows and document the SDK token registry as the source; preserve the now-shared canonical addresses rather than reintroducing conflicting overrides."
+owner_domain = 12
+interface = "12.env-app-next-public-usdc"
+
+[finding.29]
+file = "apps/wallet/src/lib/swap/constants.ts"
+line = 148
+class = "wiring-gap"
+severity = "medium"
+observed = "isSidioraToken classifies every ERC-20 outside the fixed PECOR set as a launchpad token, ignoring actual PoolRegistry membership and the isLaunchpad marker. Arbitrary imported assets are routed as Sidiora candidates."
+expected = "Launchpad protocol membership must come from the registry for the selected chain; being absent from another protocol token list is not evidence that a pool exists."
+proposal = "Domain 12 should resolve PoolRegistry membership into a chain-scoped token capability record and distinguish unsupported, undiscovered and launchpad assets before route selection."
+owner_domain = 12
+interface = "12.ts-app-is-sidiora-token"
+
+[finding.30]
+file = "apps/wallet/src/lib/swap/hlpmm-v2.ts"
+line = 118
+class = "wiring-gap"
+severity = "medium"
+observed = "fetchLaunchpadTokens lists all indexer ERC-20s outside PECOR_CORE and marks each isLaunchpad: true without consulting PoolRegistry, presenting unrelated tokens as launchpad markets."
+expected = "The launchpad token picker should contain verified launchpad pools, while general indexer token discovery may include ERC-20s with no supported swap market."
+proposal = "Domain 12 should join indexed tokens with the selected-chain pool registry or an authoritative pool index and retain a separate unsupported-token discovery state."
+owner_domain = 12
+interface = "14.http-get-api-v2-tokens"
+
+[finding.31]
+file = "apps/wallet/src/lib/swap/hlpmm-v2.ts"
+line = 137
+class = "runtime-risk"
+severity = "medium"
+observed = "Token-page fetch errors break the pagination loop and still cache the partial or empty result as a fresh one-hour sidiora-token-list; reaching MAX_PAGES likewise loses any completeness marker."
+expected = "A failed or bounded enumeration must remain distinguishable from a complete token inventory, and a failed refresh should not overwrite the last complete cached list."
+proposal = "Domain 12 should return pagination/completeness metadata, preserve the previous good cache on failed pages and provide an explicit continuation or truncated-results indication for the 500-token bound."
+owner_domain = 12
+interface = "12.key-app-list-cache-key"
+
+[finding.32]
+file = "services/wallet/attestor/internal/tss/eddsa/share.go"
+line = 68
+class = "runtime-risk"
+severity = "medium"
+observed = "NewKeyShare checks only publicKey and share for nil, then newKeyShare dereferences every bk, bk.GetX() and public-share point before validate can reject malformed entries; malformed restored material can panic the attestor."
+expected = "The public constructor returns ErrInconsistent for inconsistent material and must validate map members, scalar coordinates and curve identities before cloning or dereferencing them."
+proposal = "Domain 12 should validate all bundle entries before copying, reject nil BkParameter/X/point values with the typed error and exercise malformed imported bundle recovery without process panic."
+owner_domain = 12
+interface = "12.go-att-eddsa-new-key-share"
+
+[finding.33]
+file = "services/wallet/attestor/internal/tss/ecdsa/ecdsa.go"
+line = 372
+class = "runtime-risk"
+severity = "medium"
+observed = "router.AddMessage appends messages for an unattached DKG/refresh/sign phase to an unbounded slice. Transport queue bounds do not bound this slice after authenticated messages have been delivered to the bound receiver."
+expected = "An authenticated peer must not be able to grow per-ceremony memory without a phase/message budget while another expensive protocol phase is still running."
+proposal = "Domain 12 should enforce participant- and phase-specific pending limits, reject duplicates and unexpected future phases, and cancel the ceremony with a typed failure when the bound is exceeded."
+owner_domain = 12
+interface = "12.go-att-ecdsa-receiver"
+
+[finding.34]
+file = "services/wallet/attestor/internal/tss/ecdsa/ecdsa.go"
+line = 407
+class = "runtime-risk"
+severity = "medium"
+observed = "router.attach discards every error returned when replaying buffered messages, although direct AddMessage returns those errors. Invalid buffered input therefore loses its failure signal and can leave a ceremony waiting until timeout."
+expected = "Buffered and direct delivery must apply the same validation and error lifecycle so a rejected protocol message produces a deterministic failed ceremony."
+proposal = "Domain 12 should propagate or aggregate the first replay rejection, fail and clean up the ceremony, and exercise invalid messages arriving before and after phase attachment through the real receiver."
+owner_domain = 12
+interface = "12.go-att-ecdsa-receiver"
+
+[finding.35]
+file = "services/wallet/attestor/internal/tss/refresh/ecdsa.go"
+line = 89
+class = "security"
+severity = "medium"
+observed = "RefreshECDSA clones the secret bundle but wipes b.Share only on the success path; verification, constructor, run and result errors return early. out.Bundle().Validate() creates another secret clone without an explicit wipe."
+expected = "Temporary secret-share copies created for refresh must have an explicit cleanup lifecycle on success, cancellation and every error path, limiting unnecessary retention in attestor memory."
+proposal = "Domain 12 should defer wiping each temporary secret immediately after allocation, validate public material without unnecessary secret copies and review temporary refresh shares for all early returns."
+owner_domain = 12
+interface = "12.go-att-refresh-refresh-ecdsa"
+
+[finding.36]
+file = "apps/wallet/src/components/ui/SvgIcon.tsx"
+line = 117
+class = "runtime-risk"
+severity = "low"
+observed = "SvgIcon spreads the caller style and then overwrites filter with brightness(0) invert(1), so provided warning, muted and success tints are silently lost across callers."
+expected = "The shared icon component should honor an explicitly provided filter and apply its default tint only when the caller did not specify one."
+proposal = "Domain 12 should preserve caller styling precedence in SvgIcon and visually review muted, warning and success icons used by empty states and transaction controls."
+owner_domain = 12
+interface = "12.ts-app-svg-icon"
+
+[finding.37]
+file = "apps/wallet/src/components/ui/EmptyState.tsx"
+line = 18
+class = "wiring-gap"
+severity = "low"
+observed = "EmptyState maps activity, bell and chart to names absent from SvgIcon. SvgIcon returns an empty span for each, leaving those published empty-state variants without their intended icon."
+expected = "Every named EmptyState variant should resolve to an existing shared icon asset or an explicitly supported renderer."
+proposal = "Domain 12 should map these variants to supported assets or extend the canonical icon map, and type shared icon names so unsupported variants cannot be declared silently."
+owner_domain = 12
+interface = "12.ts-app-empty-state"
+
+[finding.38]
+file = "apps/wallet/src/components/ui/WhatsNewModal.tsx"
+line = 57
+class = "runtime-risk"
+severity = "medium"
+observed = "The WhatsNewModal backdrop has z-index 60 inside the modal stacking context, while its positioned sibling sheet has auto z-index. The full-screen backdrop paints above the sheet and intercepts its controls."
+expected = "The release-announcement sheet must remain visible and interactive above its dismiss backdrop on first launch."
+proposal = "Domain 12 should order backdrop and sheet within one explicit stacking scheme, then check first-launch content, close button and backdrop dismissal using the actual modal."
+owner_domain = 12
+interface = "12.ts-app-whats-new-modal"
+
+[finding.39]
+file = "apps/wallet/src/components/ui/toaster.tsx"
+line = 26
+class = "wiring-gap"
+severity = "low"
+observed = "The dismiss action sets toast.open=false, but Toaster renders all toasts and ToastItem ignores open. Clicking the close button leaves the toast visible until its scheduled 4500 ms removal."
+expected = "A dismissed notification should leave the viewport immediately with its exit animation; delayed removal may retain state for animation but should not retain visible content."
+proposal = "Domain 12 should render only open toasts or honor the open state in ToastItem while preserving bounded removal cleanup and AnimatePresence exit behavior."
+owner_domain = 12
+interface = "12.ts-app-toaster"
+
+[finding.40]
+file = "apps/wallet/src/components/ui/SlippageDrawer.tsx"
+line = 39
+class = "wiring-gap"
+severity = "medium"
+observed = "The custom drawer accepts values up to just below 50 percent, while validateSlippageBps rejects anything above 500 bps (5 percent). Users can save settings the execution flow always refuses."
+expected = "Swap settings and transaction preflight must share the same explicit slippage bounds and show invalid custom input before confirmation."
+proposal = "Domain 12 should import the canonical slippage limits into the drawer, validate and explain invalid input there, and ensure the confirmation and executor use the same basis-point value."
+owner_domain = 12
+interface = "12.ts-app-slippage-drawer"
+
+[finding.41]
+file = "apps/wallet/src/components/SwapSuccess.tsx"
+line = 225
+class = "runtime-risk"
+severity = "medium"
+observed = "SwapSuccess labels toAmount as You received, but SwapWidget supplies quotes.bestQuote.amountOutDisplay rather than the committed receipt output. Successful execution can differ within slippage, and the quote can refresh during execution."
+expected = "The completed swap view must report the actual committed received amount for the executed route, with the confirmed estimate labeled separately if retained."
+proposal = "Domain 12 should derive received token and exact amount from the verified swap receipt or reconciled balance delta, bind the success view to the executed quote identity and pass that immutable result into SwapSuccess."
+owner_domain = 12
+interface = "12.ts-app-swap-success"
+
+[finding.42]
+file = "apps/wallet/src/lib/api.ts"
+line = 183
+class = "wiring-gap"
+severity = "medium"
+observed = "fetchPortfolioFresh, fetchBalanceFresh and fetchHoldingsFresh call the same facade reads as normal requests, and fresh options are ignored. The wallet proxy can still serve its 45-90 second cached pre-transfer balance during reconciliation."
+expected = "The post-send reconciliation helper promises fresh producer state; it must either bypass/invalidate each cache layer or explicitly wait until indexed state covers the committed transaction."
+proposal = "Domain 12 should define a bounded cache-bypass or committed-height reconciliation contract through the facade, Blockscout client and same-origin proxy, then update the optimistic-balance flow to use it."
+owner_domain = 12
+interface = "12.ts-app-fetch-portfolio-fresh"
+
+[finding.43]
+file = "apps/wallet/src/lib/api.ts"
+line = 194
+class = "wiring-gap"
+severity = "medium"
+observed = "fetchPortfolioTransactions accepts limit and offset but ignores both and calls getWalletTransactions(address) without pagination. The public wallet history interface therefore returns the same first page regardless of the requested range."
+expected = "A history interface that accepts pagination must map those parameters to the producer cursor/limit contract or expose the actual cursor model explicitly."
+proposal = "Domain 12 should replace the ignored offset API with the indexer cursor contract, pass the requested bounded page size and propagate transaction and transfer continuation metadata to the caller."
+owner_domain = 12
+interface = "12.ts-app-fetch-portfolio-transactions"
+
+[finding.44]
+file = "apps/wallet/src/lib/queries/tokenDetail.ts"
+line = 84
+class = "runtime-risk"
+severity = "medium"
+observed = "useTokenMetaQuery catches all metadata transport errors as null and caches the resulting successful query with infinite stale/gc times and every automatic refetch disabled. A transient outage can hide pool discovery for the rest of the session."
+expected = "An unavailable metadata producer is a retryable failure, distinct from an authoritative not-found result; token discovery must recover after the producer becomes available."
+proposal = "Domain 12 should distinguish not-found from transport/decoding failure, give negative results a bounded lifetime and expose retry without discarding previously valid metadata."
+owner_domain = 12
+interface = "12.ts-app-use-token-meta-query"
+
+[finding.45]
+file = "apps/wallet/src/lib/queries/txDetail.ts"
+line = 18
+class = "runtime-risk"
+severity = "medium"
+observed = "useTxDetailQuery converts transfer-fetch failure into a successful empty list, so the detail view cannot distinguish a transaction without token transfers from an unavailable transfer producer."
+expected = "Transaction detail should report incomplete transfer indexing or retrieval rather than claiming the transfer list is empty when the request failed."
+proposal = "Domain 12 should retain a typed partial-transfer status or fail the query, preserve the last known transfer data and allow the transfer panel to retry independently."
+owner_domain = 12
+interface = "12.ts-app-fetch-tx-token-transfers"
+
+[finding.46]
+file = "apps/wallet/src/lib/data/hooks/useAddress.ts"
+line = 34
+class = "runtime-risk"
+severity = "medium"
+observed = "useAddress commits address/counters from any completed request without checking the captured account against lastHashRef or a request generation. If account A resolves after a newer account B request, the visible data can revert to A; pagination has the same race where present."
+expected = "Account-sensitive wallet hooks must commit data only for the current account/request identity and prevent stale page responses from joining another account history."
+proposal = "Domain 12 should add request cancellation or generation guards to useAddress, clear stale account state on identity changes and apply the same guard to page append, error and loading updates."
+owner_domain = 12
+interface = "12.ts-app-use-address"
+
+[finding.47]
+file = "apps/wallet/src/lib/data/hooks/useTokenBalances.ts"
+line = 29
+class = "runtime-risk"
+severity = "medium"
+observed = "useTokenBalances commits token balances from any completed request without checking the captured account against lastHashRef or a request generation. If account A resolves after a newer account B request, the visible data can revert to A; pagination has the same race where present."
+expected = "Account-sensitive wallet hooks must commit data only for the current account/request identity and prevent stale page responses from joining another account history."
+proposal = "Domain 12 should add request cancellation or generation guards to useTokenBalances, clear stale account state on identity changes and apply the same guard to page append, error and loading updates."
+owner_domain = 12
+interface = "12.ts-app-use-token-balances"
+
+[finding.48]
+file = "apps/wallet/src/lib/data/hooks/useTransactions.ts"
+line = 42
+class = "runtime-risk"
+severity = "medium"
+observed = "useTransactions commits transactions from any completed request without checking the captured account against lastHashRef or a request generation. If account A resolves after a newer account B request, the visible data can revert to A; pagination has the same race where present."
+expected = "Account-sensitive wallet hooks must commit data only for the current account/request identity and prevent stale page responses from joining another account history."
+proposal = "Domain 12 should add request cancellation or generation guards to useTransactions, clear stale account state on identity changes and apply the same guard to page append, error and loading updates."
+owner_domain = 12
+interface = "12.ts-app-use-transactions"
+
+[finding.49]
+file = "apps/wallet/src/lib/data/hooks/useTokenTransfers.ts"
+line = 42
+class = "runtime-risk"
+severity = "medium"
+observed = "useTokenTransfers commits token transfers from any completed request without checking the captured account against lastHashRef or a request generation. If account A resolves after a newer account B request, the visible data can revert to A; pagination has the same race where present."
+expected = "Account-sensitive wallet hooks must commit data only for the current account/request identity and prevent stale page responses from joining another account history."
+proposal = "Domain 12 should add request cancellation or generation guards to useTokenTransfers, clear stale account state on identity changes and apply the same guard to page append, error and loading updates."
+owner_domain = 12
+interface = "12.ts-app-use-token-transfers"
+
+[finding.50]
+file = "apps/wallet/src/lib/data/hooks/useNfts.ts"
+line = 42
+class = "runtime-risk"
+severity = "medium"
+observed = "useNfts commits NFT holdings from any completed request without checking the captured account against lastHashRef or a request generation. If account A resolves after a newer account B request, the visible data can revert to A; pagination has the same race where present."
+expected = "Account-sensitive wallet hooks must commit data only for the current account/request identity and prevent stale page responses from joining another account history."
+proposal = "Domain 12 should add request cancellation or generation guards to useNfts, clear stale account state on identity changes and apply the same guard to page append, error and loading updates."
+owner_domain = 12
+interface = "12.ts-app-use-nfts"
+
+[finding.51]
+file = "apps/wallet/src/lib/swap/sdk/hooks.ts"
+line = 72
+class = "runtime-risk"
+severity = "medium"
+observed = "useVaultReserves and useSidioraPool commit asynchronous results without cancellation or identity guards; useTokenPrice and quote hooks also retain prior values during failed replacement reads, allowing a prior asset value to appear under a new selection."
+expected = "Published financial hooks must bind data and errors to the current chain/asset/request, and must not present an old pool or price as the result for a new identity."
+proposal = "Domain 12 should update the SDK hook generator with identity-scoped state and cancellation/generation guards, reset stale asset values on change and propagate refresh failures visibly."
+owner_domain = 12
+interface = "12.ts-app-use-vault-reserves"
+
+[finding.52]
+file = "apps/wallet/src/lib/swap/sdk/types.ts"
+line = 66
+class = "interface-mismatch"
+severity = "high"
+observed = "LimitOrder and StopLimitOrder declare orderType/status as number and StopLossOrder declares status as number, but getLimitOrder/getStopLimitOrder/getStopLossOrder return ethers v6 decoded Results directly. uint8 enum fields are bigint, with no runtime conversion."
+expected = "The exported order return types must match the decoded ABI values: callers promised number must receive validated numbers, or the API must explicitly declare bigint consistently for these fields."
+proposal = "Domain 12 should map the decoded order tuples into validated domain records using bounded enum conversions, regenerate the types/helpers together and prove exact value/type round trips for all order statuses."
+owner_domain = 12
+interface = "12.ts-app-get-limit-order"
+
+[finding.53]
+file = "apps/wallet/src/lib/swap/sdk/utils.ts"
+line = 11
+class = "runtime-risk"
+severity = "medium"
+observed = "formatAmount converts arbitrary raw BigInt token units to Number before locale formatting; formatPrice similarly converts the oracle integer to Number. Large displayed amounts can lose integer precision despite an exact raw input."
+expected = "The wallet must display exact financially meaningful digits up to its selected rounding precision without silently changing large integer amounts in binary floating-point conversion."
+proposal = "Domain 12 should format canonical decimal strings or integer parts directly, round only the requested fractional precision and preserve exact large balances in swap estimates and token formatting."
+owner_domain = 12
+interface = "12.ts-app-format-amount"
+
+[finding.54]
+file = "README.md"
+line = 47
+class = "doc-drift"
+severity = "medium"
+observed = "The architecture overview describes layerxd as a separate daemon whose checkpoints settle through layerxAnchor, and later build/merge-status guidance continues to present the pre-merge system as active."
+expected = "The audit brief specifies one merged paxd BFT network, node JSON-RPC at the root, hosted px_ methods as a separate service contract, and finality at committed block; retired router/daemon interfaces are not current operator guidance."
+proposal = "The repository documentation owner should rewrite the runtime overview and build guidance around paxd with its integrated kernel, current node RPC names and committed-block finality; retain retired daemon details only as labeled history."
+owner_domain = 17
+
+[finding.55]
+file = "docs/wiki/UnifiedNetwork.md"
+line = 11
+class = "doc-drift"
+severity = "medium"
+observed = "The wiki architecture describes a separate C sequencer/consensus daemon and verification/custody/anchor precompiles as the live cross-domain settlement model, contradicting the merged runtime and finality model."
+expected = "The audit brief specifies one merged paxd BFT network, node JSON-RPC at the root, hosted px_ methods as a separate service contract, and finality at committed block; retired router/daemon interfaces are not current operator guidance."
+proposal = "The documentation owner should replace the two-domain architecture, live precompile and settlement descriptions with the merged paxd execution model and identify historical implementation references explicitly."
+owner_domain = 17
+
+[finding.56]
+file = "docs/MONOREPO.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The monorepo introduction names layerxd as a live subsystem alongside paxd and its trust-boundary description retains checkpoint/custody separation as the current operating model."
+expected = "The audit brief specifies one merged paxd BFT network, node JSON-RPC at the root, hosted px_ methods as a separate service contract, and finality at committed block; retired router/daemon interfaces are not current operator guidance."
+proposal = "The documentation owner should align the runtime inventory and trust boundaries with one paxd process and integrated kernel, distinguishing retained source/library directories from deployable retired services."
+owner_domain = 17
+
+[finding.57]
+file = "docs/site/docs/overview/unified-network.md"
+line = 129
+class = "doc-drift"
+severity = "medium"
+observed = "The published overview names api-mainnet-beta.paxeer.network/rpc as the router, advertises lx_* and /rpc/schema, and describes the old separate daemon and checkpoint/anchor finality ladder."
+expected = "The audit brief specifies one merged paxd BFT network, node JSON-RPC at the root, hosted px_ methods as a separate service contract, and finality at committed block; retired router/daemon interfaces are not current operator guidance."
+proposal = "The documentation owner should rewrite the architecture and endpoint sections for root node RPC and committed-block finality, and link px_ operations to the current hosted gateway contract rather than a unified router."
+owner_domain = 17
+
+[finding.58]
+file = "docs/site/docs/operators/beta-control.md"
+line = 5
+class = "doc-drift"
+severity = "medium"
+observed = "The beta-control introduction describes funding as custody credit submitted to the router, directing operators to a retired network entry point."
+expected = "The audit brief specifies one merged paxd BFT network, node JSON-RPC at the root, hosted px_ methods as a separate service contract, and finality at committed block; retired router/daemon interfaces are not current operator guidance."
+proposal = "Domain 8 should update the funding path and linked operator instructions to the current merged-network credit/admission contract while preserving the private beta-control authorization and quota behavior."
+owner_domain = 8
+
+[finding.59]
+file = "docs/site/docs/operators/beta-cluster.md"
+line = 50
+class = "doc-drift"
+severity = "medium"
+observed = "The cluster guide documents a layerxd custody profile and a separate LayerX daemon/sequencer topology as the target running deployment."
+expected = "The audit brief specifies one merged paxd BFT network, node JSON-RPC at the root, hosted px_ methods as a separate service contract, and finality at committed block; retired router/daemon interfaces are not current operator guidance."
+proposal = "Domain 8 should replace retired daemon/profile steps with the supported paxd merged-network topology, bootstrap inputs, root RPC probes and restart/recovery procedure."
+owner_domain = 8
+
+[finding.60]
+file = "docs/site/docs/platform/faucet.md"
+line = 23
+class = "doc-drift"
+severity = "medium"
+observed = "The faucet guide advertises lx_requestFunds and router-based custody credit as the public wallet funding path, instead of the merged network/hosted gateway contract."
+expected = "The audit brief specifies one merged paxd BFT network, node JSON-RPC at the root, hosted px_ methods as a separate service contract, and finality at committed block; retired router/daemon interfaces are not current operator guidance."
+proposal = "Domain 8 should rewrite public faucet invocation against the declared hosted gateway methods and current funding producer, preserving bounded grants, identity/session proof and durable quota semantics."
+owner_domain = 8
+
+[finding.61]
+file = "docs/site/docs/platform/cli.md"
+line = 8
+class = "doc-drift"
+severity = "medium"
+observed = "The CLI guide requires RPC URLs ending in /rpc, documents lx_ methods and describes the same token commands in both implemented and unimplemented behavior tables."
+expected = "The audit brief specifies one merged paxd BFT network, node JSON-RPC at the root, hosted px_ methods as a separate service contract, and finality at committed block; retired router/daemon interfaces are not current operator guidance."
+proposal = "Domain 8 should reconcile the command support matrix and document root node RPC versus hosted px_ operations with the actual current flags, request names and failure codes."
+owner_domain = 8
+
+[finding.62]
+file = "docs/site/docs/platform/hosted-node.md"
+line = 4
+class = "doc-drift"
+severity = "medium"
+observed = "The hosted-node page deploys the retired layerxd sequencer/replica supervisor and describes LNI sockets, checkpoint authorization and settlement environment as current node operation."
+expected = "The audit brief specifies one merged paxd BFT network, node JSON-RPC at the root, hosted px_ methods as a separate service contract, and finality at committed block; retired router/daemon interfaces are not current operator guidance."
+proposal = "Domain 8 should replace this deployment runbook with merged paxd kernel bootstrap, persistence, health, tenant and restart guidance; move retired LNI/daemon material into clearly labeled historical documentation."
+owner_domain = 8
+
+[finding.63]
+file = "docs/site/docs/platform/hosted-gateway.md"
+line = 40
+class = "doc-drift"
+severity = "medium"
+observed = "The gateway page says the router is the network only unified endpoint for eth_*, lx_* and px_*, and advertises POST /rpc plus /rpc/ws and /rpc/schema as the live public contract."
+expected = "The audit brief specifies one merged paxd BFT network, node JSON-RPC at the root, hosted px_ methods as a separate service contract, and finality at committed block; retired router/daemon interfaces are not current operator guidance."
+proposal = "Domain 8 should document the current hosted gateway px_ schema separately from node root JSON-RPC, remove the retired lx_/router routes and update authentication, examples and discovery links together."
+owner_domain = 8
+
+[finding.64]
+file = "docs/site/docs/platform/webhooks.md"
+line = 77
+class = "doc-drift"
+severity = "medium"
+observed = "The webhook deployment guide takes its network identifier from a router service reference and describes receipt-authority/agent-boundary dependencies using the retired network topology."
+expected = "The audit brief specifies one merged paxd BFT network, node JSON-RPC at the root, hosted px_ methods as a separate service contract, and finality at committed block; retired router/daemon interfaces are not current operator guidance."
+proposal = "Domain 8 should align webhook ingress network identity and committed-event sources with the merged node and current authority contract, preserving durable delivery, signature and replay semantics."
+owner_domain = 8
+
+[finding.65]
+file = "docs/site/docs/platform/webhooks.md"
+line = 249
+class = "doc-drift"
+severity = "medium"
+observed = "The credential section states inbound TLS has no client authentication, while the deployment section at lines 49-54 says ingress requires an internal-CA client certificate with webhook-role URI SAN."
+expected = "Operators need one unambiguous authentication contract for each public and ingress listener; role-specific mutual TLS requirements must not contradict a general credential statement."
+proposal = "Domain 8 should split inbound credentials by listener role and reconcile the section with the actual public/ingress TLS setup and role-SAN authorization checks."
+owner_domain = 8
+
+[finding.66]
+file = "spec/layerx-merge/contracts/clients.md"
+line = 20
+class = "doc-drift"
+severity = "medium"
+observed = "The operations table still directs state reads through router px_* methods even though the same client contract is intended to describe the post-merge first-party path."
+expected = "The audit brief specifies one merged paxd BFT network, node JSON-RPC at the root, hosted px_ methods as a separate service contract, and finality at committed block; retired router/daemon interfaces are not current operator guidance."
+proposal = "The client-contract owner should amend operation Q to distinguish root node state reads from hosted gateway joins and remove the retired router term in the versioned contract."
+owner_domain = 12
+
+[finding.67]
+file = "apps/wallet/src/lib/swap/constants.ts"
+line = 26
+class = "dead-code"
+severity = "low"
+observed = "HLPMM_V2_ROUTER, HLPMM_V2_QUOTER and HLPMM_V2_FACTORY still export the old launchpad deployment addresses, while actual route discovery/execution uses generation-2 CONTRACTS from sdk/addresses.ts; these aliases have no active role in that path."
+expected = "Requirement 18845.1 identifies the generation-2 PoolRegistry, Quoter and Router as the supported application targets; exported launchpad address names should not imply an alternative supported default."
+proposal = "Domain 12 should retire the unused HLPMM address exports and corresponding registry rows, or explicitly version and label any retained historical compatibility surface; keep active paths on the generation-2 role addresses."
+owner_domain = 12
+interface = "12.ts-app-hlpmm-v2-router"
+
+[finding.68]
+file = "apps/wallet/src/lib/push.ts"
+line = 155
+class = "config-drift"
+severity = "low"
+observed = "The registry signatures for setWalletAddressForPush and startNotificationTriggers advertise walletAddress alone, while the current functions require both the address and signMessage callback to produce the endpoint ownership proof."
+expected = "The registry must publish the current ownership-signing callback contract and its lifecycle so callers do not follow an obsolete unsigned registration interface; the running caller already supplies the callback."
+proposal = "Domain 12 should reconcile both TypeScript registry rows with the two-argument implementation and current callers, preserving the EIP-191 ownership proof and the existing server verification contract."
+owner_domain = 12
+interface = "12.ts-app-set-wallet-address-for-push"
+
+[doc.1]
+path = "README.md"
+status = "stale"
+notes = "Read in full. Architecture/build/merge-status sections retain separate layerxd and checkpoint settlement; the README finding proposes a merged-runtime rewrite."
+
+[doc.2]
+path = "docs/wiki/UnifiedNetwork.md"
+status = "stale"
+notes = "Read in full. Two-domain execution, live verification/custody/anchor and settlement descriptions conflict with the merged network."
+
+[doc.3]
+path = "docs/MONOREPO.md"
+status = "stale"
+notes = "Read in full. Runtime inventory and trust boundaries still name the separate daemon and checkpoint settlement."
+
+[doc.4]
+path = "docs/site/docs/overview/unified-network.md"
+status = "stale"
+notes = "Read in full. Architecture, unified /rpc endpoint, lx_ namespace and finality sections require a coordinated rewrite."
+
+[doc.5]
+path = "docs/site/docs/operators/beta-control.md"
+status = "stale"
+notes = "Read in full. Private control authentication/quota description is distinct from the stale introductory router/custody funding path."
+
+[doc.6]
+path = "docs/site/docs/operators/beta-cluster.md"
+status = "stale"
+notes = "Read in full. Separate daemon/custody-profile deployment instructions need the merged paxd topology and recovery procedure."
+
+[doc.7]
+path = "docs/site/docs/platform/faucet.md"
+status = "stale"
+notes = "Read in full. Bounded grant/identity behavior is described, but public lx_requestFunds and router funding guidance are retired."
+
+[doc.8]
+path = "docs/site/docs/platform/cli.md"
+status = "stale"
+notes = "Read in full. Mandatory /rpc URL, lx_ examples and contradictory implemented/unimplemented token command tables mislead users."
+
+[doc.9]
+path = "docs/site/docs/platform/hosted-node.md"
+status = "stale"
+notes = "Read in full. Deployable layerxd sequencer/replica, LNI sockets and old settlement configuration are not the finished merged node."
+
+[doc.10]
+path = "docs/site/docs/platform/identity.md"
+status = "accurate"
+notes = "Read in full. Principal/session authentication, credential persistence, revocation and recovery describe the internal identity service consistently; this page is not treated as the exhaustive public gateway method catalog."
+
+[doc.11]
+path = "docs/site/docs/platform/hosted-gateway.md"
+status = "stale"
+notes = "Read in full. Unified router and /rpc/ws/schema/lx_ public contract conflict with root node RPC and the current hosted px_ contract."
+
+[doc.12]
+path = "docs/site/docs/platform/webhooks.md"
+status = "stale"
+notes = "Read in full. Durable signed delivery description is retained, but retired router dependency and contradictory public/ingress client-auth guidance require correction."
+
+[doc.13]
+path = "spec/layerx-merge/contracts/clients.md"
+status = "stale"
+notes = "Read relevant operations, identity, receipt-verification and wallet-app/client-path-proof sections. Operation Q still advertises router reads; wallet-specific receipt and key-ownership clauses informed the review."
+
+[doc.14]
+path = "spec/layerx-merge/contracts/services.md"
+status = "accurate"
+notes = "Read the relevant s28 wallet-attestors TSS and s32 wallet-app-backends sections; threshold/signing, identity/transport and wallet service ownership contracts informed this slice review."
+
+[doc.15]
+path = "spec/layerx-merge/programme/audit/BRIEF.kvx"
+status = "accurate"
+notes = "Read in full. Defines the merged-network facts, complete-file/generated exception, severity policy and product-facing audit record used for this slice."

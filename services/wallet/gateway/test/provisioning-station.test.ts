@@ -1,15 +1,30 @@
 import { spawn, execFileSync, type ChildProcess } from 'node:child_process';
-import { createHash, generateKeyPairSync, randomBytes, randomUUID, sign, X509Certificate } from 'node:crypto';
+import {
+  createHash,
+  generateKeyPairSync,
+  randomBytes,
+  randomUUID,
+  sign,
+  X509Certificate,
+} from 'node:crypto';
 import { createServer as createHttpServer, type Server } from 'node:http';
 import { request as httpsRequest } from 'node:https';
-import { createServer as createNetServer } from 'node:net';
 import { mkdtempSync, openSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterAll, beforeAll, expect, test } from 'vitest';
 import type { FastifyInstance } from 'fastify';
-import { decodeFunctionData, recoverAddress, serializeSignature, type Hex } from 'viem';
+import {
+  decodeFunctionData,
+  recoverAddress,
+  recoverTransactionAddress,
+  parseTransaction,
+  keccak256,
+  toHex,
+  serializeSignature,
+  type Hex,
+} from 'viem';
 import Fastify from 'fastify';
 import type { WalletInventoryKey } from '../src/agent/authority.js';
 import type { SponsoredBindRequest } from '../src/provision/bind.js';
@@ -18,27 +33,160 @@ import { startPostgres, type EphemeralPostgres } from './support/postgres.js';
 import { startIdentityProvider, type IdentityProvider } from './support/identity.js';
 import { ADDR, BIND_SELECTOR, TestChain, type Receipt } from './support/chain.js';
 import { KERNEL_POLICY } from './e2e/attestors.js';
+import { reservePorts } from './support/ports.js';
 import type { SequencerReceiptResult } from '../src/rpc/pool.js';
+import { encodeSequencerReceipt } from '../../../agent/sdk/typescript/src/sequencer-receipt-codec.js';
+import { verifySequencerReceipt } from '../../../agent/sdk/typescript/src/verifier.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const attestorDir = resolve(here, '../../attestor');
 const CHAIN_ID = 125;
 const PAYMASTER = '0x4444444444444444444444444444444444444444' as const;
 const sponsoredHashes = new Set<Hex>();
+const rawTransactions = new Map<Hex, Hex>();
+const sequencerKey = generateKeyPairSync('ed25519');
+const sequencerPublicKey = sequencerKey.publicKey
+  .export({ type: 'spki', format: 'der' })
+  .subarray(-32);
+const sequencerKeyId = toHex(createHash('sha256').update(sequencerPublicKey).digest());
+const receiptPins = [
+  {
+    keyId: Buffer.from(sequencerKeyId.slice(2), 'hex'),
+    publicKey: sequencerPublicKey,
+    first_height: 1n,
+    last_height: (1n << 64n) - 1n,
+  },
+];
+const zeroAddress = '0x0000000000000000000000000000000000000000';
 let approveInventory: (keys: WalletInventoryKey[]) => void;
-const stationRpcRequests: Array<{method: string; params: unknown[]}> = [];
+const stationRpcRequests: Array<{ method: string; params: unknown[] }> = [];
 const LONG = 900_000;
 
-function freePort(): Promise<number> {
-  return new Promise((resolvePort, reject) => {
-    const srv = createNetServer();
-    srv.once('error', reject);
-    srv.listen(0, '127.0.0.1', () => {
-      const addr = srv.address();
-      if (!addr || typeof addr === 'string') return reject(new Error('no port'));
-      srv.close(() => resolvePort(addr.port));
-    });
-  });
+async function canonicalStationReceipt(raw: Hex, from: Hex, sequence: number, applied: Receipt) {
+  const vectors = JSON.parse(
+    readFileSync(
+      new URL(
+        '../../../../sdk/platform/conformance/fixtures/sequencer-receipt-v1.json',
+        import.meta.url
+      ),
+      'utf8'
+    )
+  );
+  const vector = vectors.cases.find((entry: { id: string }) => entry.id === 'V1-pax-transfer');
+  const bytes = (hex: string) => Buffer.from(hex.replace(/^0x/, ''), 'hex');
+  const original = await verifySequencerReceipt(
+    bytes(vector.signedReceipt),
+    bytes(vector.rawTransaction),
+    [
+      {
+        keyId: bytes(vector.pinnedKey.keyId),
+        publicKey: bytes(vector.pinnedKey.publicKey),
+        first_height: BigInt(vector.pinnedKey.firstHeight),
+        last_height: BigInt(vector.pinnedKey.lastHeight),
+      },
+    ]
+  );
+  const transaction = parseTransaction(raw);
+  const hash = keccak256(raw);
+  const addressWord = (hex: string) => Buffer.concat([Buffer.alloc(12), bytes(hex)]);
+  const globalSequence = BigInt(sequence);
+  const seq = Buffer.alloc(8);
+  seq.writeBigUInt64BE(globalSequence);
+  const denom = Buffer.from('PAX');
+  const summary = Buffer.alloc(109 + denom.length);
+  Buffer.from(
+    sponsoredHashes.has(keccak256(raw)) ? sponsorAddress.slice(2) : zeroAddress.slice(2),
+    'hex'
+  ).copy(summary, 48);
+  summary.writeBigUInt64BE(BigInt(applied.gasUsed), 0);
+  summary.writeBigUInt64BE(BigInt(applied.gasUsed), 8);
+  summary.writeBigUInt64BE(chain.baseFee + chain.tip, 16);
+  createHash('sha256')
+    .update(applied.status === '0x1' ? '' : 'execution reverted')
+    .digest()
+    .copy(summary, 68);
+  summary[108] = denom.length;
+  denom.copy(summary, 109);
+  const unsigned = {
+    ...original.receipt,
+    activityId: bytes(hash),
+    globalSequence,
+    previousStateRoot: Buffer.alloc(32),
+    resultingStateRoot: createHash('sha256')
+      .update('PAXEER/v1/sequence\0')
+      .update(Buffer.alloc(32))
+      .update(seq)
+      .update(bytes(hash))
+      .digest(),
+    activityRoot: createHash('sha256').update(Buffer.alloc(0)).digest(),
+    effects: [
+      {
+        moduleId: 12,
+        ordinal: 0,
+        eventType: 0,
+        kind: 1 as const,
+        monetary: false,
+        transferSetRoot: Buffer.alloc(32),
+        body: summary,
+      },
+    ],
+    feeCharged: BigInt(applied.gasUsed) * (chain.baseFee + chain.tip),
+    batchId: Buffer.concat([
+      Buffer.alloc(24),
+      Buffer.from(BigInt(applied.blockNumber).toString(16).padStart(16, '0'), 'hex'),
+    ]),
+    resultCode: applied.status === '0x1' ? 0 : 1,
+    operation: raw.startsWith('0x04') ? 4 : 2,
+    asset: createHash('sha256').update(denom).digest(),
+    amount: transaction.value ?? 0n,
+    from: addressWord(from),
+    fromSequence: BigInt(transaction.nonce!),
+    to: addressWord(transaction.to!),
+    contextHash: bytes(sequencerKeyId),
+    timestamp: BigInt(Date.now()),
+    sequencerSignature: Buffer.alloc(64),
+  };
+  const digest = createHash('sha256')
+    .update('LXP/v1/receipt\0')
+    .update(encodeSequencerReceipt(unsigned, false))
+    .digest();
+  const receipt = toHex(
+    encodeSequencerReceipt({
+      ...unsigned,
+      sequencerSignature: sign(null, digest, sequencerKey.privateKey),
+    })
+  );
+  const view = {
+    rung: 'receipted' as const,
+    txHash: hash,
+    nonce: toHex(transaction.nonce!),
+    seq: toHex(globalSequence),
+    height: applied.blockNumber,
+    index: '0x0' as Hex,
+    timestamp: toHex(unsigned.timestamp),
+    status: applied.status,
+    returnData: '0x' as Hex,
+    logs: [],
+    gasUsed: toHex(BigInt(applied.gasUsed)),
+    cumulativeGasUsed: toHex(BigInt(applied.gasUsed)),
+    effectiveGasPrice: toHex(chain.baseFee + chain.tip),
+    paymentDenom: 'PAX',
+    feeDenom: 'PAX',
+    feeAmount: toHex(unsigned.feeCharged),
+    sponsor: (sponsoredHashes.has(keccak256(raw)) ? sponsorAddress : zeroAddress) as Hex,
+    from,
+    to: transaction.to!,
+    contractAddress: zeroAddress,
+    vmError: applied.status === '0x1' ? '' : 'execution reverted',
+    keyId: sequencerKeyId,
+    signingKey: toHex(sequencerPublicKey),
+    receipt,
+  };
+  const verified = await verifySequencerReceipt(bytes(receipt), bytes(raw), receiptPins);
+  expect(toHex(verified.receipt.activityId)).toBe(hash);
+  expect(verified.receipt.fromSequence).toBe(BigInt(transaction.nonce!));
+  expect(toHex(verified.receiptKey.publicKey)).toBe(view.signingKey);
+  return view;
 }
 
 let idp: IdentityProvider;
@@ -65,32 +213,80 @@ function ossl(args: string[]): void {
 function issueCertificates(dir: string, names: string[]): void {
   const p = (n: string): string => join(dir, n);
   const ec = ['-newkey', 'ec', '-pkeyopt', 'ec_paramgen_curve:prime256v1', '-nodes'];
-  ossl(['req', '-x509', ...ec, '-keyout', p('ca.key'), '-out', p('ca.crt'), '-days', '1', '-subj', '/CN=provisioning-test-ca']);
-  writeFileSync(p('leaf.ext'), 'subjectAltName=IP:127.0.0.1\nextendedKeyUsage=serverAuth,clientAuth\n');
+  ossl([
+    'req',
+    '-x509',
+    ...ec,
+    '-keyout',
+    p('ca.key'),
+    '-out',
+    p('ca.crt'),
+    '-days',
+    '1',
+    '-subj',
+    '/CN=provisioning-test-ca',
+  ]);
+  writeFileSync(
+    p('leaf.ext'),
+    'subjectAltName=IP:127.0.0.1\nextendedKeyUsage=serverAuth,clientAuth\n'
+  );
   for (const name of names) {
-    ossl(['req', ...ec, '-keyout', p(`${name}.key`), '-out', p(`${name}.csr`), '-subj', `/CN=${name}`]);
-    ossl(['x509', '-req', '-in', p(`${name}.csr`), '-CA', p('ca.crt'), '-CAkey', p('ca.key'), '-CAcreateserial', '-out', p(`${name}.crt`), '-days', '1', '-extfile', p('leaf.ext')]);
+    ossl([
+      'req',
+      ...ec,
+      '-keyout',
+      p(`${name}.key`),
+      '-out',
+      p(`${name}.csr`),
+      '-subj',
+      `/CN=${name}`,
+    ]);
+    ossl([
+      'x509',
+      '-req',
+      '-in',
+      p(`${name}.csr`),
+      '-CA',
+      p('ca.crt'),
+      '-CAkey',
+      p('ca.key'),
+      '-CAcreateserial',
+      '-out',
+      p(`${name}.crt`),
+      '-days',
+      '1',
+      '-extfile',
+      p('leaf.ext'),
+    ]);
   }
 }
 
 function spkiPin(certPath: string): string {
   const cert = new X509Certificate(readFileSync(certPath));
-  return createHash('sha256').update(cert.publicKey.export({ type: 'spki', format: 'der' })).digest('hex');
+  return createHash('sha256')
+    .update(cert.publicKey.export({ type: 'spki', format: 'der' }))
+    .digest('hex');
 }
 
 function health(url: string): Promise<{ ready: boolean }> {
   return new Promise((resolveHealth) => {
-    const req = httpsRequest(new URL('/health', url), { method: 'GET', ...clientTls, timeout: 5_000 }, (res) => {
-      const chunks: Buffer[] = [];
-      res.on('data', (c: Buffer) => chunks.push(c));
-      res.on('end', () => {
-        try {
-          resolveHealth(JSON.parse(Buffer.concat(chunks).toString('utf8')) as { ready: boolean });
-        } catch {
-          resolveHealth({ ready: false });
-        }
-      });
-    });
+    const req = httpsRequest(
+      new URL('/health', url),
+      { method: 'GET', ...clientTls, timeout: 5_000 },
+      (res) => {
+        const chunks: Buffer[] = [];
+        res.on('data', (c: Buffer) => chunks.push(c));
+        res.on('end', () => {
+          try {
+            resolveHealth(
+              JSON.parse(Buffer.concat(chunks).toString('utf8')) as { ready: boolean }
+            );
+          } catch {
+            resolveHealth({ ready: false });
+          }
+        });
+      }
+    );
     req.on('error', () => resolveHealth({ ready: false }));
     req.on('timeout', () => req.destroy());
     req.end();
@@ -100,7 +296,11 @@ function health(url: string): Promise<{ ready: boolean }> {
 beforeAll(async () => {
   workDir = mkdtempSync(join(tmpdir(), 'provisioning-'));
   const bin = join(workDir, 'attestor');
-  execFileSync('go', ['build', '-o', bin, './cmd/attestor'], { cwd: attestorDir, stdio: 'pipe', timeout: 600_000 });
+  execFileSync('go', ['build', '-o', bin, './cmd/attestor'], {
+    cwd: attestorDir,
+    stdio: 'pipe',
+    timeout: 600_000,
+  });
 
   idp = await startIdentityProvider();
   chain = new TestChain(CHAIN_ID);
@@ -109,13 +309,28 @@ beforeAll(async () => {
     const chunks: Buffer[] = [];
     req.on('data', (chunk: Buffer) => chunks.push(chunk));
     req.on('end', async () => {
-      const body = JSON.parse(Buffer.concat(chunks).toString('utf8')) as { id: number; method: string; params: Hex[] };
+      const body = JSON.parse(Buffer.concat(chunks).toString('utf8')) as {
+        id: number;
+        method: string;
+        params: Hex[];
+      };
       sequencerRequests.push(body);
       stationRpcRequests.push(body);
-      if (body.method === 'eth_getCode' || (body.method === 'eth_call' && typeof body.params[0] === 'object' && body.params[0] !== null && (body.params[0] as unknown as {data: string}).data === '0xaffed0e0')) {
-        const result = body.method === 'eth_getCode' ? (body.params[0] === PAYMASTER ? '0x60005460005260206000f3' : '0x') : `0x${'00'.repeat(32)}`;
+      if (
+        body.method === 'eth_getCode' ||
+        (body.method === 'eth_call' &&
+          typeof body.params[0] === 'object' &&
+          body.params[0] !== null &&
+          (body.params[0] as unknown as { data: string }).data === '0xaffed0e0')
+      ) {
+        const result =
+          body.method === 'eth_getCode'
+            ? body.params[0] === PAYMASTER
+              ? '0x60005460005260206000f3'
+              : '0x'
+            : `0x${'00'.repeat(32)}`;
         res.writeHead(200, { 'content-type': 'application/json' });
-        res.end(JSON.stringify({jsonrpc:'2.0', id:body.id, result}));
+        res.end(JSON.stringify({ jsonrpc: '2.0', id: body.id, result }));
         return;
       }
       if (body.method === 'pax_sequencerReceipt') {
@@ -124,32 +339,21 @@ beforeAll(async () => {
         const tx = chain.sent.find((sent) => sent.hash === hash);
         let result: SequencerReceiptResult | null = null;
         if (receipt && tx) {
-          result = {
-            txHash: hash,
-            nonce: `0x${(chain.nonces.get(tx.from)! - 1).toString(16)}`,
-            rung: 'receipted',
-            seq: receipt.blockNumber,
-            height: receipt.blockNumber,
-            index: '0x0',
-            timestamp: '0x0',
-            status: receipt.status,
-            returnData: '0x',
-            logs: [],
-            gasUsed: receipt.gasUsed,
-            cumulativeGasUsed: receipt.gasUsed,
-            effectiveGasPrice: `0x${(chain.baseFee + chain.tip).toString(16)}`,
-            feeDenom: 'pax',
-            feeAmount: `0x${(BigInt(receipt.gasUsed) * (chain.baseFee + chain.tip)).toString(16)}`,
-            sponsor: sponsoredHashes.has(hash) ? sponsorAddress as Hex : `0x${'00'.repeat(20)}`,
-            from: tx.from as Hex,
-            to: tx.to as Hex,
-            contractAddress: `0x${'00'.repeat(20)}`,
-            vmError: receipt.status === '0x1' ? '' : 'execution reverted',
-            keyId: '0x',
-            receipt: '0x',
-          };
+          const raw = rawTransactions.get(hash);
+          if (!raw) throw new Error('executed station transaction has no retained raw bytes');
+          result = await canonicalStationReceipt(
+            raw,
+            await recoverTransactionAddress({ serializedTransaction: raw }),
+            Number(BigInt(receipt.blockNumber)),
+            receipt
+          );
           if (committedReceipts.has(hash)) {
-            result = { ...result, rung: 'committed', blockNumber: receipt.blockNumber, blockHash: `0x${'01'.repeat(32)}` };
+            result = {
+              ...result,
+              rung: 'committed',
+              blockNumber: receipt.blockNumber,
+              blockHash: `0x${'01'.repeat(32)}`,
+            };
           }
         }
         res.writeHead(200, { 'content-type': 'application/json' });
@@ -157,7 +361,13 @@ beforeAll(async () => {
         return;
       }
       try {
-        const response = await fetch(chain.url, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
+        if (body.method === 'eth_sendRawTransaction')
+          rawTransactions.set(keccak256(body.params[0]!), body.params[0]!);
+        const response = await fetch(chain.url, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify(body),
+        });
         res.writeHead(response.status, { 'content-type': 'application/json' });
         res.end(await response.text());
       } catch (err) {
@@ -166,15 +376,25 @@ beforeAll(async () => {
       }
     });
   });
-  await new Promise<void>((resolveSequencer) => sequencer.listen(0, '127.0.0.1', resolveSequencer));
+  await new Promise<void>((resolveSequencer) =>
+    sequencer.listen(0, '127.0.0.1', resolveSequencer)
+  );
   const sequencerAddress = sequencer.address();
-  if (!sequencerAddress || typeof sequencerAddress === 'string') throw new Error('sequencer did not bind');
+  if (!sequencerAddress || typeof sequencerAddress === 'string')
+    throw new Error('sequencer did not bind');
 
   const authority = generateKeyPairSync('ec', { namedCurve: 'prime256v1' });
   const authorityPrivateKeyFile = join(workDir, 'authority-private.pem');
   const authorityPublicKeyFile = join(workDir, 'authority-public.pem');
-  writeFileSync(authorityPrivateKeyFile, authority.privateKey.export({ type: 'pkcs8', format: 'pem' }), { mode: 0o600 });
-  writeFileSync(authorityPublicKeyFile, authority.publicKey.export({ type: 'spki', format: 'pem' }));
+  writeFileSync(
+    authorityPrivateKeyFile,
+    authority.privateKey.export({ type: 'pkcs8', format: 'pem' }),
+    { mode: 0o600 }
+  );
+  writeFileSync(
+    authorityPublicKeyFile,
+    authority.publicKey.export({ type: 'spki', format: 'pem' })
+  );
 
   const nodes = ['node-1', 'node-2', 'node-3', 'node-4', 'node-5'];
   issueCertificates(workDir, [...nodes, 'gateway']);
@@ -193,51 +413,71 @@ beforeAll(async () => {
         kinds: ['evm_tx', 'lx_bind', 'sponsored_batch', 'eip7702_authorization'],
         authorization_delegates: [PAYMASTER],
         rate_per_minute: 1000,
-        caps: { native: { per_transaction: '1000000000000000000', daily: '10000000000000000000' },
-          '0x21f7b20a555199fa73A238B1a91FD0f549068fEe': {per_transaction:'1000000', daily:'1000000'} },
+        caps: {
+          native: { per_transaction: '1000000000000000000', daily: '10000000000000000000' },
+          '0x21f7b20a555199fa73A238B1a91FD0f549068fEe': {
+            per_transaction: '1000000',
+            daily: '1000000',
+          },
+        },
         selectors: { [ADDR]: [BIND_SELECTOR] },
       },
-    }),
+    })
   );
   const kernelPolicyFile = join(workDir, 'kernel-policy.json');
   writeFileSync(kernelPolicyFile, JSON.stringify(KERNEL_POLICY));
-  const apiPorts = await Promise.all(nodes.map(() => freePort()));
-  const peerPorts = await Promise.all(nodes.map(() => freePort()));
+  const reservedPorts = await reservePorts(nodes.length * 2);
+  const apiPorts = reservedPorts.slice(0, nodes.length).map(({ port }) => port);
+  const peerPorts = reservedPorts.slice(nodes.length).map(({ port }) => port);
   const pins = nodes.map((n) => spkiPin(join(workDir, `${n}.crt`)));
   const inventoryFile = join(workDir, 'inventory.jwt');
   const issuedAt = Math.floor(Date.now() / 1000);
-  const inventoryHeader = Buffer.from(JSON.stringify({ alg: 'ES256', typ: 'wallet-custody-inventory+jwt' })).toString('base64url');
-  const inventoryPayload = Buffer.from(JSON.stringify({
-    version: 1,
-    iss: `${idp.url}/auth/v1`,
-    aud: 'wallet-custody-inventory',
-    tenant: 'provisioning-test',
-    sequence: '1',
-    iat: issuedAt,
-    exp: issuedAt + 3600,
-    protocol: 'wallet',
-    threshold: 3,
-    members: nodes.map((id, i) => ({ id, spki_sha256: pins[i]! })),
-    keys: [],
-  })).toString('base64url');
+  const inventoryHeader = Buffer.from(
+    JSON.stringify({ alg: 'ES256', typ: 'wallet-custody-inventory+jwt' })
+  ).toString('base64url');
+  const inventoryPayload = Buffer.from(
+    JSON.stringify({
+      version: 1,
+      iss: `${idp.url}/auth/v1`,
+      aud: 'wallet-custody-inventory',
+      tenant: 'provisioning-test',
+      sequence: '1',
+      iat: issuedAt,
+      exp: issuedAt + 3600,
+      protocol: 'wallet',
+      threshold: 3,
+      members: nodes.map((id, i) => ({ id, spki_sha256: pins[i]! })),
+      keys: [],
+    })
+  ).toString('base64url');
   const inventoryInput = `${inventoryHeader}.${inventoryPayload}`;
-  const inventorySignature = sign('sha256', Buffer.from(inventoryInput), { key: authority.privateKey, dsaEncoding: 'ieee-p1363' });
+  const inventorySignature = sign('sha256', Buffer.from(inventoryInput), {
+    key: authority.privateKey,
+    dsaEncoding: 'ieee-p1363',
+  });
   writeFileSync(inventoryFile, `${inventoryInput}.${inventorySignature.toString('base64url')}`);
   let inventorySequence = 1;
-  approveInventory = keys => {
+  approveInventory = (keys) => {
     const claims = JSON.parse(Buffer.from(inventoryPayload, 'base64url').toString('utf8'));
     claims.sequence = String(++inventorySequence);
     claims.keys = keys;
     const payload = Buffer.from(JSON.stringify(claims)).toString('base64url');
     const input = `${inventoryHeader}.${payload}`;
-    const signature = sign('sha256', Buffer.from(input), { key: authority.privateKey, dsaEncoding: 'ieee-p1363' });
+    const signature = sign('sha256', Buffer.from(input), {
+      key: authority.privateKey,
+      dsaEncoding: 'ieee-p1363',
+    });
     writeFileSync(inventoryFile, `${input}.${signature.toString('base64url')}`);
   };
-  nodes.forEach((node, i) => {
+  for (const [i, node] of nodes.entries()) {
     const others = nodes.map((n, j) => ({ n, j })).filter((x) => x.j !== i);
     const keyFile = join(workDir, `${node}.store`);
     writeFileSync(keyFile, randomBytes(32).toString('hex'));
     const log = openSync(join(workDir, `${node}.log`), 'w');
+    await Promise.all([
+      reservedPorts[i]!.release(),
+      reservedPorts[i + nodes.length]!.release(),
+    ]);
     const child = spawn(bin, [], {
       env: {
         PATH: process.env.PATH ?? '',
@@ -271,7 +511,7 @@ beforeAll(async () => {
     });
     daemons.push(child);
     endpoints.push(`https://127.0.0.1:${apiPorts[i]}`);
-  });
+  }
   const deadline = Date.now() + 120_000;
   for (;;) {
     const states = await Promise.all(endpoints.map((u) => health(u)));
@@ -325,21 +565,27 @@ afterAll(async () => {
   await poolModule?.closePool();
   await pg?.stop();
   for (const d of daemons) d.kill('SIGTERM');
-  if (sequencer) await new Promise<void>((resolveSequencer, reject) => sequencer.close((err) => err ? reject(err) : resolveSequencer()));
+  if (sequencer)
+    await new Promise<void>((resolveSequencer, reject) =>
+      sequencer.close((err) => (err ? reject(err) : resolveSequencer()))
+    );
   await chain?.stop();
   await idp?.stop();
   if (workDir) rmSync(workDir, { recursive: true, force: true });
 }, 120_000);
 
-
-async function exerciseStationProvisioning(scenario: 'response_lost' | 'expired' | 'unresolved'): Promise<void> {
+async function exerciseStationProvisioning(
+  scenario: 'response_lost' | 'expired' | 'unresolved'
+): Promise<void> {
   const { GasStationClient } = await import('../src/sponsor/station.js');
   const { constructionDigest, sponsorQuoteDigest } = await import('../src/attestor/client.js');
   const { env } = await import('../src/env.js');
   expect(env.WALLET_GAS_STATION_URL).toBeUndefined();
   const base = routesModule.provisionDepsFromEnv();
   if (!base) throw new Error('real attestor fixture is unavailable');
-  const sponsor = privateKeyToAccount(`0x${readFileSync(join(workDir, 'sponsor.key'), 'utf8')}`);
+  const sponsor = privateKeyToAccount(
+    `0x${readFileSync(join(workDir, 'sponsor.key'), 'utf8')}`
+  );
   const quoteRequests: Record<string, unknown>[] = [];
   const submitRequests: SponsoredBindRequest[] = [];
   const endpointErrors: unknown[] = [];
@@ -359,25 +605,69 @@ async function exerciseStationProvisioning(scenario: 'response_lost' | 'expired'
         expect(req.method).toBe('POST');
         expect(req.headers['content-type']).toBe('application/json');
         if (req.url === '/quote') {
-          expect(Object.keys(body).sort()).toEqual(['account', 'nonce', 'calls', 'maxTokenAmount', 'gasCost', 'chainId', 'token', 'decimals'].sort());
-          expect(body).toMatchObject({ chainId: '125', nonce: '0', token: bindModule.SIDIORA_TOKEN, decimals: 6, maxTokenAmount: '1000000' });
+          expect(Object.keys(body).sort()).toEqual(
+            [
+              'account',
+              'nonce',
+              'calls',
+              'maxTokenAmount',
+              'gasCost',
+              'chainId',
+              'token',
+              'decimals',
+            ].sort()
+          );
+          expect(body).toMatchObject({
+            chainId: '125',
+            nonce: '0',
+            token: bindModule.SIDIORA_TOKEN,
+            decimals: 6,
+            maxTokenAmount: '1000000',
+          });
           expect(body.calls).toHaveLength(1);
           expect(body.calls[0].to).toBe(ADDR);
           expect(body.calls[0].value).toBe('0');
-          expect(body.calls[0].data.slice(0,10)).toBe(BIND_SELECTOR);
+          expect(body.calls[0].data.slice(0, 10)).toBe(BIND_SELECTOR);
           if (quoteRequests.length > 0) {
             expect(scenario).toBe('expired');
-            const cleared = await base.pool.query(`select station_request, station_quote_nonce, station_batch_nonce,
+            const cleared = await base.pool.query(
+              `select station_request, station_quote_nonce, station_batch_nonce,
               bind_gas, bind_max_fee_wei from account_provisioning where wallet_id =
-              (select id from wallets where lower(address) = lower($1))`, [body.account]);
-            expect(cleared.rows).toEqual([{ station_request: null, station_quote_nonce: null,
-              station_batch_nonce: null, bind_gas: null, bind_max_fee_wei: null }]);
+              (select id from wallets where lower(address) = lower($1))`,
+              [body.account]
+            );
+            expect(cleared.rows).toEqual([
+              {
+                station_request: null,
+                station_quote_nonce: null,
+                station_batch_nonce: null,
+                bind_gas: null,
+                bind_max_fee_wei: null,
+              },
+            ]);
           }
           quoteRequests.push(body);
-          issued = { sponsor: sponsor.address, token: body.token, maxTokenAmount: body.maxTokenAmount,
-            tokenAmount: '100', deadline: String(stationNow+300), quoteNonce: String(6+quoteRequests.length), gasCost: body.gasCost, decimals: 6 };
-          const construction = { kind: 'sponsored_batch', chainId: body.chainId, account: body.account, nonce: body.nonce, calls: body.calls, quote: issued };
-          const relayerSignature = await sponsor.sign({ hash: sponsorQuoteDigest(construction) });
+          issued = {
+            sponsor: sponsor.address,
+            token: body.token,
+            maxTokenAmount: body.maxTokenAmount,
+            tokenAmount: '100',
+            deadline: String(stationNow + 300),
+            quoteNonce: String(6 + quoteRequests.length),
+            gasCost: body.gasCost,
+            decimals: 6,
+          };
+          const construction = {
+            kind: 'sponsored_batch',
+            chainId: body.chainId,
+            account: body.account,
+            nonce: body.nonce,
+            calls: body.calls,
+            quote: issued,
+          };
+          const relayerSignature = await sponsor.sign({
+            hash: sponsorQuoteDigest(construction),
+          });
           res.writeHead(200, { 'content-type': 'application/json' });
           res.end(JSON.stringify({ quote: issued, relayerSignature }));
           return;
@@ -385,46 +675,113 @@ async function exerciseStationProvisioning(scenario: 'response_lost' | 'expired'
         expect(req.url).toBe('/submit');
         const request: SponsoredBindRequest = body;
         submitRequests.push(request);
-        expect(Object.keys(request).sort()).toEqual(['call','authorization','batch','accountSignature','relayerSignature'].sort());
-        expect(Object.keys(request.batch).sort()).toEqual(['chainId','account','nonce','calls','quote'].sort());
+        expect(Object.keys(request).sort()).toEqual(
+          ['call', 'authorization', 'batch', 'accountSignature', 'relayerSignature'].sort()
+        );
+        expect(Object.keys(request.batch).sort()).toEqual(
+          ['chainId', 'account', 'nonce', 'calls', 'quote'].sort()
+        );
         expect(request.batch.quote).toEqual(issued);
         expect(request.batch.account).toBe(quoteRequests[0]!.account);
-        const construction = { kind:'sponsored_batch', ...request.batch };
-        expect(await recoverAddress({hash: constructionDigest(construction), signature:request.accountSignature})).toBe(request.batch.account);
-        expect(await recoverAddress({hash: sponsorQuoteDigest(construction), signature:request.relayerSignature as Hex})).toBe(sponsor.address);
+        const construction = { kind: 'sponsored_batch', ...request.batch };
+        expect(
+          await recoverAddress({
+            hash: constructionDigest(construction),
+            signature: request.accountSignature,
+          })
+        ).toBe(request.batch.account);
+        expect(
+          await recoverAddress({
+            hash: sponsorQuoteDigest(construction),
+            signature: request.relayerSignature as Hex,
+          })
+        ).toBe(sponsor.address);
         const authorization = request.authorization;
-        expect(authorization).toMatchObject({chainId:'125', address:PAYMASTER, nonce:'0'});
-        expect(await recoverAddress({hash:constructionDigest({kind:'eip7702_authorization', chainId:authorization.chainId, address:authorization.address, nonce:authorization.nonce}),
-          signature:serializeSignature(authorization)})).toBe(request.batch.account);
+        expect(authorization).toMatchObject({ chainId: '125', address: PAYMASTER, nonce: '0' });
+        expect(
+          await recoverAddress({
+            hash: constructionDigest({
+              kind: 'eip7702_authorization',
+              chainId: authorization.chainId,
+              address: authorization.address,
+              nonce: authorization.nonce,
+            }),
+            signature: serializeSignature(authorization),
+          })
+        ).toBe(request.batch.account);
         expect(request.accountSignature).toMatch(/^0x[0-9a-f]{130}$/i);
-        const decoded = decodeFunctionData({abi:bindModule.sponsoredBindAbi, data:request.call.data});
+        const decoded = decodeFunctionData({
+          abi: bindModule.sponsoredBindAbi,
+          data: request.call.data,
+        });
         expect(decoded.functionName).toBe('executeSponsored');
-        expect(decoded.args![0]).toEqual(request.batch.calls.map(call => ({...call,value:BigInt(call.value)})));
+        expect(decoded.args![0]).toEqual(
+          request.batch.calls.map((call) => ({ ...call, value: BigInt(call.value) }))
+        );
         expect(decoded.args![2]).toBe(request.accountSignature);
         expect(decoded.args![3]).toBe(request.relayerSignature);
         expect(request.call.to).toBe(request.batch.account);
         expect(request.call.value).toBe('0');
-        const persisted = await base.pool.query(`select station_quote_nonce::text, station_batch_nonce::text, station_request
-          from account_provisioning where wallet_id = (select id from wallets where lower(address) = lower($1))`, [request.batch.account]);
+        const persisted = await base.pool.query(
+          `select station_quote_nonce::text, station_batch_nonce::text, station_request
+          from account_provisioning where wallet_id = (select id from wallets where lower(address) = lower($1))`,
+          [request.batch.account]
+        );
         expect(persisted.rows).toHaveLength(1);
-        expect(persisted.rows[0]).toEqual({station_quote_nonce:request.batch.quote.quoteNonce,station_batch_nonce:'0',station_request:request});
+        expect(persisted.rows[0]).toEqual({
+          station_quote_nonce: request.batch.quote.quoteNonce,
+          station_batch_nonce: '0',
+          station_request: request,
+        });
         if (unavailable) {
-          res.writeHead(503, {'content-type':'application/json'});
-          res.end(JSON.stringify({error:'gas_station_unavailable'}));
+          res.writeHead(503, { 'content-type': 'application/json' });
+          res.end(JSON.stringify({ error: 'gas_station_unavailable' }));
           return;
         }
         if (!submittedHash && BigInt(request.batch.quote.deadline) < BigInt(stationNow)) {
-          res.writeHead(422, {'content-type':'application/json'});
-          res.end(JSON.stringify({error:'expired_quote'}));
+          res.writeHead(422, { 'content-type': 'application/json' });
+          res.end(JSON.stringify({ error: 'expired_quote' }));
           return;
         }
         if (!submittedHash) {
-          const raw = await sponsor.signTransaction({ type:'eip7702', chainId:CHAIN_ID, nonce:chain.nonces.get(sponsor.address.toLowerCase()) ?? 0, to:request.call.to, value:0n,
-            data:request.call.data, gas:200000n, maxFeePerGas:BigInt(request.batch.quote.gasCost)/200000n, maxPriorityFeePerGas:chain.tip,
-            authorizationList:[{...authorization,chainId:Number(authorization.chainId),nonce:Number(authorization.nonce)}] });
+          const raw = await sponsor.signTransaction({
+            type: 'eip7702',
+            chainId: CHAIN_ID,
+            nonce: chain.nonces.get(sponsor.address.toLowerCase()) ?? 0,
+            to: request.call.to,
+            value: 0n,
+            data: request.call.data,
+            gas: 200000n,
+            maxFeePerGas: BigInt(request.batch.quote.gasCost) / 200000n,
+            maxPriorityFeePerGas: chain.tip,
+            authorizationList: [
+              {
+                ...authorization,
+                chainId: Number(authorization.chainId),
+                nonce: Number(authorization.nonce),
+              },
+            ],
+          });
           submittedHash = await base.rpc.sendRawTransaction(raw);
           sponsoredHashes.add(submittedHash);
-          expect(chain['applyBind'](request.batch.account.toLowerCase(), request.batch.calls[0]!.data)).toBe(true);
+          expect(
+            chain['applyBind'](
+              request.batch.account.toLowerCase(),
+              request.batch.calls[0]!.data
+            )
+          ).toBe(true);
+          expect(
+            (await bindModule.readUnifiedAccount(base.rpc, request.batch.account)).didPublicKey
+          ).toBe(
+            bindModule.publicKeyFromDid(
+              (
+                await base.pool.query(
+                  'select p.did from account_provisioning p join wallets w on w.id=p.wallet_id where lower(w.address)=lower($1)',
+                  [request.batch.account]
+                )
+              ).rows[0].did
+            )
+          );
           if (scenario === 'expired') {
             heldReceipt = chain.receipts.get(submittedHash);
             expect(heldReceipt).toBeDefined();
@@ -433,50 +790,88 @@ async function exerciseStationProvisioning(scenario: 'response_lost' | 'expired'
         }
         if (scenario === 'response_lost' && failAfterSubmit) {
           failAfterSubmit = false;
-          res.writeHead(503, {'content-type':'application/json'});
-          res.end(JSON.stringify({error:'gas_station_unavailable'}));
+          res.writeHead(503, { 'content-type': 'application/json' });
+          res.end(JSON.stringify({ error: 'gas_station_unavailable' }));
           return;
         }
-        res.writeHead(200, {'content-type':'application/json'});
-        res.end(JSON.stringify({transactionHash:submittedHash}));
+        res.writeHead(200, { 'content-type': 'application/json' });
+        res.end(JSON.stringify({ transactionHash: submittedHash }));
       } catch (error) {
         endpointErrors.push(error);
-        res.writeHead(500, {'content-type':'application/json'});
-        res.end(JSON.stringify({error:'station_contract_violation'}));
+        res.writeHead(500, { 'content-type': 'application/json' });
+        res.end(JSON.stringify({ error: 'station_contract_violation' }));
       }
     });
   });
   const api = Fastify();
   try {
-    await new Promise<void>(resolve => server.listen(0,'127.0.0.1',resolve));
+    await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
     const address = server.address();
     if (!address || typeof address === 'string') throw new Error('station did not bind');
-    const deps = {...base, station:new GasStationClient(`http://127.0.0.1:${address.port}`)};
+    const deps = { ...base, station: new GasStationClient(`http://127.0.0.1:${address.port}`) };
     const userId = randomUUID();
     const evmId = `wallet:${userId}:standard:secp256k1:0`;
     const edId = `account:${userId}:standard:ed25519:0`;
     const keys: WalletInventoryKey[] = [
-      {key_id:evmId,owner:userId,curve:'secp256k1',epoch:0,public_key:'',operations:['generate']},
-      {key_id:edId,owner:userId,curve:'ed25519',epoch:0,public_key:'',operations:['generate']},
+      {
+        key_id: evmId,
+        owner: userId,
+        curve: 'secp256k1',
+        epoch: 0,
+        public_key: '',
+        operations: ['generate'],
+      },
+      {
+        key_id: edId,
+        owner: userId,
+        curve: 'ed25519',
+        epoch: 0,
+        public_key: '',
+        operations: ['generate'],
+      },
     ];
     approveInventory(keys);
-    const evmKey = await deps.attestors!.generate(evmId,'secp256k1',userId);
-    await deps.pool.query(`insert into wallets (user_id,address,encrypted_private_key,key_version,chain_id,kind,migrated_at,attestor_key_id)
-      values ($1,$2,null,1,$3,'standard',now(),$4)`,[userId,evmKey.address,CHAIN_ID,evmId]);
-    const pending = await stateModule.provisionAccount(deps,{kind:'standard',userId,token:null});
-    expect(pending).toMatchObject({state:'identity',awaiting:'owner'});
-    const rowBefore = (await deps.pool.query('select * from account_provisioning where user_id = $1',[userId])).rows[0]!;
-    approveInventory(keys.map(key => ({...key,public_key:key.curve==='secp256k1'?evmKey.publicKey:rowBefore.ed_public_key,operations:['sign']})));
-    await api.register(routesModule.walletRoutes,{provision:deps});
+    const evmKey = await deps.attestors!.generate(evmId, 'secp256k1', userId);
+    await deps.pool.query(
+      `insert into wallets (user_id,address,encrypted_private_key,key_version,chain_id,kind,migrated_at,attestor_key_id)
+      values ($1,$2,null,1,$3,'standard',now(),$4)`,
+      [userId, evmKey.address, CHAIN_ID, evmId]
+    );
+    const pending = await stateModule.provisionAccount(deps, {
+      kind: 'standard',
+      userId,
+      token: null,
+    });
+    expect(pending).toMatchObject({ state: 'identity', awaiting: 'owner' });
+    const rowBefore = (
+      await deps.pool.query('select * from account_provisioning where user_id = $1', [userId])
+    ).rows[0]!;
+    approveInventory(
+      keys.map((key) => ({
+        ...key,
+        public_key: key.curve === 'secp256k1' ? evmKey.publicKey : rowBefore.ed_public_key,
+        operations: ['sign'],
+      }))
+    );
+    await api.register(routesModule.walletRoutes, { provision: deps });
     const token = await idp.mintUserToken(userId);
-    const first = await api.inject({method:'POST',url:'/v1/wallet/provision',headers:{authorization:`Bearer ${token}`}});
+    const first = await api.inject({
+      method: 'POST',
+      url: '/v1/wallet/provision',
+      headers: { authorization: `Bearer ${token}` },
+    });
     expect(endpointErrors).toEqual([]);
-    expect(first.statusCode,first.body).toBe(503);
-    expect(first.json()).toMatchObject({error:'gas_station_unavailable'});
+    expect(first.statusCode, first.body).toBe(503);
+    expect(first.json()).toMatchObject({ error: 'gas_station_unavailable' });
     if (scenario !== 'response_lost') {
-      const saved = (await deps.pool.query(`select station_request::text, station_quote_nonce::text,
+      const saved = (
+        await deps.pool.query(
+          `select station_request::text, station_quote_nonce::text,
         station_batch_nonce::text, bind_gas::text, bind_max_fee_wei::text, state
-        from account_provisioning where user_id = $1`, [userId])).rows[0]!;
+        from account_provisioning where user_id = $1`,
+          [userId]
+        )
+      ).rows[0]!;
       expect(saved.state).toBe('bind_signed');
       expect(saved.station_request).toBeTruthy();
       expect(saved.station_quote_nonce).toBe('7');
@@ -484,43 +879,82 @@ async function exerciseStationProvisioning(scenario: 'response_lost' | 'expired'
       expect(saved.bind_gas).toBe('200000');
       expect(BigInt(saved.bind_max_fee_wei)).toBeGreaterThan(0n);
       expect(chain.sent).toHaveLength(sentBefore);
-      const auditFiles = endpoints.map((_, i) => join(workDir, `node-${i + 1}-data`, 'audit', 'audit.log'));
-      const signingBefore = auditFiles.map(path => readFileSync(path));
-      expect(signingBefore.some(log => log.includes(Buffer.from('sign.eth_sign_digest')))).toBe(true);
+      const auditFiles = endpoints.map((_, i) =>
+        join(workDir, `node-${i + 1}-data`, 'audit', 'audit.log')
+      );
+      const signingBefore = auditFiles.map((path) => readFileSync(path));
+      expect(
+        signingBefore.some((log) => log.includes(Buffer.from('sign.eth_sign_digest')))
+      ).toBe(true);
       const stationUrl = `http://127.0.0.1:${address.port}`;
-      const restarted = { ...routesModule.provisionDepsFromEnv()!, station: new GasStationClient(stationUrl), receiptTimeoutMs: 0 };
+      const restarted = {
+        ...routesModule.provisionDepsFromEnv()!,
+        station: new GasStationClient(stationUrl),
+        receiptTimeoutMs: 0,
+      };
       if (scenario === 'unresolved') {
-        await expect(stateModule.provisionAccount(restarted, { kind: 'standard', userId, token }))
-          .rejects.toMatchObject({ status: 503, code: 'gas_station_unavailable' });
+        await expect(
+          stateModule.provisionAccount(restarted, { kind: 'standard', userId, token })
+        ).rejects.toMatchObject({ status: 503, code: 'gas_station_unavailable' });
         expect(endpointErrors).toEqual([]);
-        expect((await deps.pool.query(`select station_request::text, station_quote_nonce::text,
+        expect(
+          (
+            await deps.pool.query(
+              `select station_request::text, station_quote_nonce::text,
           station_batch_nonce::text, bind_gas::text, bind_max_fee_wei::text, state
-          from account_provisioning where user_id = $1`, [userId])).rows[0]).toEqual(saved);
-        expect(auditFiles.map(path => readFileSync(path))).toEqual(signingBefore);
+          from account_provisioning where user_id = $1`,
+              [userId]
+            )
+          ).rows[0]
+        ).toEqual(saved);
+        expect(auditFiles.map((path) => readFileSync(path))).toEqual(signingBefore);
         expect(quoteRequests).toHaveLength(1);
         expect(submitRequests).toHaveLength(2);
         expect(submitRequests[1]).toEqual(submitRequests[0]);
         expect(chain.sent).toHaveLength(sentBefore);
         unavailable = false;
-        const completed = await stateModule.provisionAccount(restarted, { kind: 'standard', userId, token });
+        const completed = await stateModule.provisionAccount(restarted, {
+          kind: 'standard',
+          userId,
+          token,
+        });
         expect(completed.state).toBe('active');
         expect(endpointErrors).toEqual([]);
-        expect(auditFiles.map(path => readFileSync(path))).toEqual(signingBefore);
+        expect(auditFiles.map((path) => readFileSync(path))).toEqual(signingBefore);
         expect(quoteRequests).toHaveLength(1);
         expect(submitRequests).toHaveLength(3);
         expect(submitRequests[2]).toEqual(submitRequests[0]);
-        expect((await deps.pool.query('select station_request::text from account_provisioning where user_id = $1', [userId])).rows[0]!.station_request)
-          .toBe(saved.station_request);
+        expect(
+          (
+            await deps.pool.query(
+              'select station_request::text from account_provisioning where user_id = $1',
+              [userId]
+            )
+          ).rows[0]!.station_request
+        ).toBe(saved.station_request);
       } else {
         stationNow = Number(submitRequests[0]!.batch.quote.deadline) + 1;
         unavailable = false;
-        await new Promise<void>((resolveClose, reject) => server.close(error => error ? reject(error) : resolveClose()));
-        await new Promise<void>(resolveListen => server.listen(address.port, '127.0.0.1', resolveListen));
+        await new Promise<void>((resolveClose, reject) =>
+          server.close((error) => (error ? reject(error) : resolveClose()))
+        );
+        await new Promise<void>((resolveListen) =>
+          server.listen(address.port, '127.0.0.1', resolveListen)
+        );
         const currentToken = await idp.mintUserToken(userId);
-        await expect(stateModule.provisionAccount(restarted, { kind: 'standard', userId, token: currentToken }))
-          .rejects.toThrow('has no receipt after 0 ms');
+        await expect(
+          stateModule.provisionAccount(restarted, {
+            kind: 'standard',
+            userId,
+            token: currentToken,
+          })
+        ).rejects.toThrow('has no receipt after 0 ms');
         expect(endpointErrors).toEqual([]);
-        const requoted = (await deps.pool.query('select * from account_provisioning where user_id = $1', [userId])).rows[0]!;
+        const requoted = (
+          await deps.pool.query('select * from account_provisioning where user_id = $1', [
+            userId,
+          ])
+        ).rows[0]!;
         expect(requoted.state).toBe('bind_sent');
         expect(requoted.bind_tx_hash).toBe(submittedHash);
         expect(requoted.station_quote_nonce).toBe('8');
@@ -530,24 +964,43 @@ async function exerciseStationProvisioning(scenario: 'response_lost' | 'expired'
         expect(quoteRequests).toHaveLength(2);
         expect(submitRequests).toHaveLength(3);
         expect(submitRequests[1]).toEqual(submitRequests[0]);
-        expect(submitRequests[2]!.batch.quote.quoteNonce).not.toBe(submitRequests[0]!.batch.quote.quoteNonce);
-        expect(submitRequests[2]!.accountSignature).not.toBe(submitRequests[0]!.accountSignature);
+        expect(submitRequests[2]!.batch.quote.quoteNonce).not.toBe(
+          submitRequests[0]!.batch.quote.quoteNonce
+        );
+        expect(submitRequests[2]!.accountSignature).not.toBe(
+          submitRequests[0]!.accountSignature
+        );
         expect(submitRequests[2]!.batch.calls).toEqual(submitRequests[0]!.batch.calls);
-        expect(auditFiles.map(path => readFileSync(path))).not.toEqual(signingBefore);
+        expect(auditFiles.map((path) => readFileSync(path))).not.toEqual(signingBefore);
         chain.receipts.set(submittedHash!, heldReceipt!);
-        expect((await stateModule.provisionAccount(restarted, { kind: 'standard', userId, token: currentToken })).state).toBe('active');
+        expect(
+          (
+            await stateModule.provisionAccount(restarted, {
+              kind: 'standard',
+              userId,
+              token: currentToken,
+            })
+          ).state
+        ).toBe('active');
         expect(submitRequests).toHaveLength(3);
       }
       expect(chain.sent).toHaveLength(sentBefore + 1);
+      await assertRecoveredStationBinding(deps, userId);
       return;
     }
-    const response = await api.inject({method:'POST',url:'/v1/wallet/provision',headers:{authorization:`Bearer ${token}`}});
+    const response = await api.inject({
+      method: 'POST',
+      url: '/v1/wallet/provision',
+      headers: { authorization: `Bearer ${token}` },
+    });
     expect(endpointErrors).toEqual([]);
-    expect(response.statusCode,response.body).toBe(200);
+    expect(response.statusCode, response.body).toBe(200);
     const body = response.json();
-    expect(body.provisioning).toEqual({state:'active',awaiting:null});
+    expect(body.provisioning).toEqual({ state: 'active', awaiting: null });
     expect(body.wallet.binding_state).toBe('bound');
-    const row = (await deps.pool.query('select * from account_provisioning where user_id = $1',[userId])).rows[0]!;
+    const row = (
+      await deps.pool.query('select * from account_provisioning where user_id = $1', [userId])
+    ).rows[0]!;
     expect(row.bind_tx_hash).toBe(submittedHash);
     expect(row.station_quote_nonce).toBe('7');
     expect(row.station_batch_nonce).toBe('0');
@@ -555,7 +1008,13 @@ async function exerciseStationProvisioning(scenario: 'response_lost' | 'expired'
     expect(row.topup_raw_tx).toBeNull();
     expect(row.topup_tx_hash).toBeNull();
     expect(row.topup_value_wei).toBeNull();
-    expect(bindModule.verifyEd25519(row.ed_public_key,bindModule.bindMessage(CHAIN_ID,body.wallet.address,row.bind_nonce),row.bind_signature)).toBe(true);
+    expect(
+      bindModule.verifyEd25519(
+        row.ed_public_key,
+        bindModule.bindMessage(CHAIN_ID, body.wallet.address, row.bind_nonce),
+        row.bind_signature
+      )
+    ).toBe(true);
     expect(chain.bindings.get(body.wallet.address.toLowerCase())).toBe(row.ed_public_key);
     expect(chain.bindNonces.get(body.wallet.address.toLowerCase())).toBe(1n);
     expect(chain.balances.get(body.wallet.address.toLowerCase()) ?? 0n).toBe(0n);
@@ -567,16 +1026,56 @@ async function exerciseStationProvisioning(scenario: 'response_lost' | 'expired'
     expect(quoteRequests).toHaveLength(1);
     expect(submitRequests).toHaveLength(2);
     expect(submitRequests[1]).toEqual(submitRequests[0]);
-    expect((await deps.pool.query("select * from account_setup_audit where wallet_id = $1 and event = 'topup'",[body.wallet.id])).rows).toHaveLength(0);
-    expect(await deps.rpc.sequencerReceipt(row.bind_tx_hash)).toMatchObject({sponsor:sponsor.address.toLowerCase(),status:'0x1'});
-    const again = await stateModule.provisionAccount(deps,{kind:'standard',userId,token});
+    expect(
+      (
+        await deps.pool.query(
+          "select * from account_setup_audit where wallet_id = $1 and event = 'topup'",
+          [body.wallet.id]
+        )
+      ).rows
+    ).toHaveLength(0);
+    expect(await deps.rpc.sequencerReceipt(row.bind_tx_hash)).toMatchObject({
+      sponsor: sponsor.address.toLowerCase(),
+      status: '0x1',
+    });
+    const again = await stateModule.provisionAccount(deps, { kind: 'standard', userId, token });
     expect(again.state).toBe('active');
+    await assertRecoveredStationBinding(deps, userId);
     expect(submitRequests).toHaveLength(2);
     expect(chain.sent).toHaveLength(1);
   } finally {
     await api.close();
-    await new Promise<void>((resolve,reject) => server.close(error => error?reject(error):resolve()));
+    await new Promise<void>((resolve, reject) =>
+      server.close((error) => (error ? reject(error) : resolve()))
+    );
   }
+}
+
+async function assertRecoveredStationBinding(
+  deps: import('../src/provision/state.js').ProvisionDeps,
+  userId: string
+): Promise<void> {
+  const row = (
+    await deps.pool.query(
+      'select p.*,w.address from account_provisioning p join wallets w on w.id=p.wallet_id where p.user_id=$1',
+      [userId]
+    )
+  ).rows[0]!;
+  const binding = await bindModule.readUnifiedAccount(deps.rpc, row.address);
+  expect(binding.didPublicKey).toBe(row.ed_public_key);
+  expect(binding.mainAccountId).toBe(bindModule.mainAccountId(row.did));
+  const receipt = await deps.rpc.sequencerReceipt(row.bind_tx_hash);
+  expect(receipt?.rung).not.toBe('submitted');
+  if (!receipt || receipt.rung === 'submitted')
+    throw new Error('station bind must have executed evidence');
+  const raw = rawTransactions.get(row.bind_tx_hash)!;
+  const verified = await verifySequencerReceipt(
+    Buffer.from(receipt.receipt.slice(2), 'hex'),
+    Buffer.from(raw.slice(2), 'hex'),
+    receiptPins
+  );
+  expect(toHex(verified.receipt.activityId)).toBe(row.bind_tx_hash);
+  expect(verified.receipt.resultCode).toBe(0);
 }
 
 async function provisionBindIsStationSponsored(): Promise<void> {
@@ -598,22 +1097,40 @@ async function provisionRefusesWithoutStation(): Promise<void> {
   const base = routesModule.provisionDepsFromEnv();
   if (!base) throw new Error('attestor fixture unavailable');
   const pool = base.pool;
-  const before = (await pool.query('select count(*)::int as n from account_provisioning')).rows[0]!.n;
+  const before = (await pool.query('select count(*)::int as n from account_provisioning'))
+    .rows[0]!.n;
   const requests = stationRpcRequests.length;
   const userId = randomUUID();
-  for (const station of [null,new GasStationClient()]) {
-    await expect(stateModule.provisionAccount({...base,station},{kind:'standard',userId,token:null})).rejects.toMatchObject({status:503,code:'gas_station_unconfigured'});
+  for (const station of [null, new GasStationClient()]) {
+    await expect(
+      stateModule.provisionAccount(
+        { ...base, station },
+        { kind: 'standard', userId, token: null }
+      )
+    ).rejects.toMatchObject({ status: 503, code: 'gas_station_unconfigured' });
   }
   expect(stationRpcRequests).toHaveLength(requests);
-  expect((await pool.query('select count(*)::int as n from account_provisioning')).rows[0]!.n).toBe(before);
-  const response = await app.inject({method:'POST',url:'/v1/wallet/provision',headers:{authorization:`Bearer ${await idp.mintUserToken(userId)}`}});
-  expect(response.statusCode,response.body).toBe(503);
-  expect(response.json()).toMatchObject({error:'gas_station_unconfigured'});
-  expect((await pool.query('select * from wallets where user_id = $1',[userId])).rows).toHaveLength(0);
+  expect(
+    (await pool.query('select count(*)::int as n from account_provisioning')).rows[0]!.n
+  ).toBe(before);
+  const response = await app.inject({
+    method: 'POST',
+    url: '/v1/wallet/provision',
+    headers: { authorization: `Bearer ${await idp.mintUserToken(userId)}` },
+  });
+  expect(response.statusCode, response.body).toBe(503);
+  expect(response.json()).toMatchObject({ error: 'gas_station_unconfigured' });
+  expect(
+    (await pool.query('select * from wallets where user_id = $1', [userId])).rows
+  ).toHaveLength(0);
 }
 
 test(provisionBindIsStationSponsored, provisionBindIsStationSponsored, LONG);
 test(provisionRefusesWithoutStation, provisionRefusesWithoutStation);
 
-test(provisionRequotesAfterUnsubmittedQuoteExpires, provisionRequotesAfterUnsubmittedQuoteExpires, LONG);
+test(
+  provisionRequotesAfterUnsubmittedQuoteExpires,
+  provisionRequotesAfterUnsubmittedQuoteExpires,
+  LONG
+);
 test(provisionKeepsUnresolvedStationRequest, provisionKeepsUnresolvedStationRequest, LONG);

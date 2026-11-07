@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"math"
 	"os"
 	"os/signal"
 	"strings"
@@ -33,7 +34,7 @@ func syncCommand(ctx *cli.Context) error {
 		}
 	}
 
-	destinations := ctx.StringSlice("dest")
+	destinations := ctx.StringSlice(dstFlag.Name)
 	if len(destinations) == 0 {
 		return fmt.Errorf("no destinations provided")
 	}
@@ -58,8 +59,10 @@ func syncCommand(ctx *cli.Context) error {
 	threads := ctx.Uint64("threads")
 	verbose := !ctx.Bool("quiet")
 	throttleMB := ctx.Float64("throttle")
-	periodSeconds := ctx.Int64("period")
-	period := time.Duration(periodSeconds) * time.Second
+	period, err := syncPeriod(ctx)
+	if err != nil {
+		return err
+	}
 
 	maxAgeSeconds := ctx.Uint64("max-age")
 	remoteLittBinary := ctx.String("litt-binary")
@@ -71,7 +74,7 @@ func syncCommand(ctx *cli.Context) error {
 	}
 
 	return newSyncEngine(
-		context.Background(),
+		ctx.Context,
 		logger,
 		sources,
 		destinations,
@@ -88,6 +91,14 @@ func syncCommand(ctx *cli.Context) error {
 		maxAgeSeconds,
 		remoteLittBinary,
 		verbose).run()
+}
+
+func syncPeriod(ctx *cli.Context) (time.Duration, error) {
+	seconds := ctx.Uint64("period")
+	if seconds == 0 || seconds > uint64(math.MaxInt64/int64(time.Second)) {
+		return 0, fmt.Errorf("period must be between 1 and %d seconds", math.MaxInt64/int64(time.Second))
+	}
+	return time.Duration(seconds) * time.Second, nil
 }
 
 // A utility that periodically transfers data from a local database to a remote backup using rsync.
@@ -159,11 +170,20 @@ func newSyncEngine(
 
 // run the sync engine. This method blocks until the context is cancelled or an unrecoverable error occurs.
 func (s *syncEngine) run() error {
-	go s.syncLoop()
+	loopDone := make(chan struct{})
+	go func() {
+		defer close(loopDone)
+		s.syncLoop()
+	}()
+	defer func() {
+		s.cancel()
+		<-loopDone
+	}()
 
 	// Create a channel to listen for OS signals
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
+	defer signal.Stop(sigChan)
 
 	// Wait for signal
 	select {
@@ -225,7 +245,7 @@ func (s *syncEngine) sync() {
 
 	s.logger.Info("Pruning remote data", "max_age_seconds", s.maxAgeSeconds)
 
-	command := fmt.Sprintf("%s prune --max-age %d", s.remoteLittBinary, s.maxAgeSeconds)
+	command := s.pruneCommand()
 	sshSession, err := util.NewSSHSession(
 		s.logger,
 		s.user,
@@ -265,4 +285,17 @@ func (s *syncEngine) sync() {
 // Stop stops the sync engine by cancelling the context.
 func (s *syncEngine) Stop() {
 	s.cancel()
+}
+
+// pruneCommand preserves each path as one shell argument on the remote host.
+func (s *syncEngine) pruneCommand() string {
+	command := fmt.Sprintf("%s prune --max-age %d", quoteRemoteArgument(s.remoteLittBinary), s.maxAgeSeconds)
+	for _, destination := range s.destinations {
+		command += " --" + srcFlag.Name + " " + quoteRemoteArgument(destination)
+	}
+	return command
+}
+
+func quoteRemoteArgument(value string) string {
+	return "'" + strings.ReplaceAll(value, "'", "'\"'\"'") + "'"
 }

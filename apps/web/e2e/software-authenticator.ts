@@ -63,16 +63,35 @@ export class SoftwareAuthenticator {
     if (this.#publicKey.length !== 32) throw new Error("Public key length");
   }
 
+  publicKey(): string { return this.#publicKey.toString("base64url"); }
+
+  browserCredential(): Readonly<{
+    credentialId: string; privateKey: string; rpId: string; userHandle: string;
+    signCount: number; isResidentCredential: true;
+  }> {
+    if (this.#userHandle === undefined) throw new Error("Register the passkey before opening a browser device");
+    return {
+      credentialId: this.#credentialId.toString("base64"),
+      privateKey: this.#key.export({ format: "der", type: "pkcs8" }).toString("base64"),
+      rpId: this.#rpId,
+      userHandle: Buffer.from(this.#userHandle, "base64url").toString("base64"),
+      signCount: this.#counter,
+      isResidentCredential: true,
+    };
+  }
+
   #clientData(kind: string, challenge: unknown): Buffer {
-    return Buffer.from(JSON.stringify({ type: kind, challenge: text(challenge),
-      origin: this.#origin, crossOrigin: false }), "utf8");
+    return Buffer.from(JSON.stringify({
+      type: kind, challenge: text(challenge),
+      origin: this.#origin, crossOrigin: false
+    }), "utf8");
   }
 
   #authenticatorData(attested: boolean): Buffer {
     const counter = Buffer.alloc(4);
     counter.writeUInt32BE(this.#counter);
     const prefix = [createHash("sha256").update(this.#rpId).digest(),
-      Buffer.from([attested ? 0x45 : 0x05]), counter];
+    Buffer.from([attested ? 0x45 : 0x05]), counter];
     if (!attested) return Buffer.concat(prefix);
     const credentialLength = Buffer.alloc(2);
     credentialLength.writeUInt16BE(this.#credentialId.length);
@@ -91,9 +110,11 @@ export class SoftwareAuthenticator {
     const attestation = cbor(new Map<string | number, Cbor>([
       ["fmt", "none"], ["attStmt", new Map()], ["authData", this.#authenticatorData(true)],
     ]));
-    return encoded({ id: this.#credentialId.toString("base64url"), transports: ["internal"],
+    return encoded({
+      id: this.#credentialId.toString("base64url"), transports: ["internal"],
       attestationObject: attestation.toString("base64url"),
-      clientDataJSON: this.#clientData("webauthn.create", value.challenge).toString("base64url") });
+      clientDataJSON: this.#clientData("webauthn.create", value.challenge).toString("base64url")
+    });
   }
 
   assert(ceremony: string): string {
@@ -104,10 +125,12 @@ export class SoftwareAuthenticator {
     const authenticatorData = this.#authenticatorData(false);
     const clientData = this.#clientData("webauthn.get", value.challenge);
     const signed = Buffer.concat([authenticatorData, createHash("sha256").update(clientData).digest()]);
-    return encoded({ id: this.#credentialId.toString("base64url"),
+    return encoded({
+      id: this.#credentialId.toString("base64url"),
       authenticatorData: authenticatorData.toString("base64url"),
       signature: sign(null, signed, this.#key).toString("base64url"),
-      clientDataJSON: clientData.toString("base64url"), userHandle: this.#userHandle });
+      clientDataJSON: clientData.toString("base64url"), userHandle: this.#userHandle
+    });
   }
 }
 

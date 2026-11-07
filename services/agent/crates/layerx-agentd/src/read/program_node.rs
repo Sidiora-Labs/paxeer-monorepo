@@ -19,7 +19,7 @@ use layerx_programs::{
     ProgramLifecycle, ProtocolDeploymentVerifier, ProtocolEvidenceError, Registry,
     VerifiedChainHead, VerifiedDeploymentEvidence, VerifiedProgramBundle,
 };
-use serde_json::Value;
+use serde_json::{json, Value};
 
 use super::program_balances_impl::{
     CommittedProgramBalanceFreshness, ProgramBalanceRead, ProgramValueBalance,
@@ -83,12 +83,11 @@ pub struct LayerxdProgramBalanceReader {
     agent: ureq::Agent,
     endpoint: String,
     authorization: String,
-    authority_endpoint: String,
-    authority_authorization: String,
-    authority_replica_id: [u8; 32],
     verifier: ProtocolDeploymentVerifier,
     registry: Registry,
     staleness_limit: u64,
+    consensus: Option<super::NativeResultSource>,
+    program_state_keys: std::collections::BTreeMap<[u8; 32], (String, Vec<u8>)>,
 }
 
 /// Explicit independent authority identity and outbound trust for both read endpoints.
@@ -208,13 +207,74 @@ impl LayerxdProgramBalanceReader {
             agent: config.into(),
             endpoint: endpoint.to_owned(),
             authorization,
-            authority_endpoint: authority_endpoint.to_owned(),
-            authority_authorization,
-            authority_replica_id,
             staleness_limit: verifier.staleness_limit_ms(),
+            consensus: None,
+            program_state_keys: std::collections::BTreeMap::new(),
             verifier,
             registry,
         })
+    }
+
+    /// Connects directly to the merged node under protected chain trust.
+    pub fn connect_native(
+        endpoint: &str,
+        authorization: String,
+        ca_der: Option<&[u8]>,
+        source: super::NativeResultSource,
+        verifier: ProtocolDeploymentVerifier,
+        registry: Registry,
+    ) -> Result<Self, ProgramReadError> {
+        if authorization.is_empty()
+            || !secure_endpoint(endpoint)
+            || verifier.chain_trust().is_none()
+        {
+            return Err(ProgramReadError::NonCanonicalView);
+        }
+        let roots: Vec<_> = ca_der.into_iter().collect();
+        let sequencer = SequencerEndpoint::new(endpoint, &roots)
+            .map_err(|_| ProgramReadError::NonCanonicalView)?;
+        let tls = match ca_der {
+            Some(ca) => crate::outbound_tls::private_ca(ca),
+            None => crate::outbound_tls::system(endpoint),
+        }
+        .ok_or(ProgramReadError::NonCanonicalView)?;
+        let agent = ureq::Agent::config_builder()
+            .tls_config(tls)
+            .timeout_global(Some(Duration::from_secs(30)))
+            .max_redirects(0)
+            .build()
+            .into();
+        Ok(Self {
+            sequencer,
+            agent,
+            endpoint: endpoint.trim_end_matches('/').to_owned(),
+            authorization,
+            staleness_limit: verifier.staleness_limit_ms(),
+            verifier,
+            registry,
+            consensus: Some(source),
+            program_state_keys: std::collections::BTreeMap::new(),
+        })
+    }
+
+    pub fn with_consensus_source(mut self, source: super::NativeResultSource) -> Self {
+        self.consensus = Some(source);
+        self
+    }
+
+    /// Configures the Programs deployment's authenticated state-record key.
+    pub fn with_program_state_key(
+        mut self,
+        program: ProgramId,
+        store_name: String,
+        key: Vec<u8>,
+    ) -> Result<Self, ProgramReadError> {
+        if key.is_empty() || key.len() > 1024 || store_name.is_empty() || store_name.len() > 128 {
+            return Err(ProgramReadError::NonCanonicalView);
+        }
+        self.program_state_keys
+            .insert(program.bytes(), (store_name, key));
+        Ok(self)
     }
 
     /// Reads and locally re-verifies one complete current protocol state.
@@ -248,17 +308,10 @@ impl LayerxdProgramBalanceReader {
         if now == 0 {
             return Err(ProgramReadError::NonCanonicalView);
         }
-        let head_document = self.get(
-            &self.endpoint,
-            &self.authorization,
-            "/v1/protocol/account-state/head",
-        )?;
-        let chain = self
-            .verify_head(&head_document, now)
-            .map_err(|error| match error {
-                ChainHeadError::View(error) => error,
-                ChainHeadError::Evidence(_) => ProgramReadError::NonCanonicalView,
-            })?;
+        let chain = self.read_chain_head(now).map_err(|error| match error {
+            ChainHeadError::View(error) => error,
+            ChainHeadError::Evidence(_) => ProgramReadError::NonCanonicalView,
+        })?;
         let head = AccountStateHead {
             receipt_digest: chain.receipt_digest(),
             state_root: chain.state_root(),
@@ -271,21 +324,40 @@ impl LayerxdProgramBalanceReader {
                 .versions
                 .last()
                 .is_some_and(|version| matches!(version.abi_version, 3 | 4));
-        let path = format!(
-            "/v1/programs/{}/account-state?at={}{}",
-            hex::encode(&program.bytes()),
-            head.freshness.observed_sequence,
-            if profile2 { "&profile=2" } else { "" },
-        );
-        let document = self.get(&self.endpoint, &self.authorization, &path)?;
-        let bytes = hex::decode(field(&document, "record_hex")?)
+        let source = self
+            .consensus
+            .as_ref()
+            .ok_or(ProgramReadError::NonCanonicalView)?;
+        let (store_name, key) = self
+            .program_state_keys
+            .get(&program.bytes())
+            .ok_or(ProgramReadError::NonCanonicalView)?;
+        let trust = self
+            .verifier
+            .chain_trust()
+            .ok_or(ProgramReadError::NonCanonicalView)?;
+        let validators = trust
+            .validators
+            .validators()
+            .iter()
+            .map(|v| super::CommitValidator {
+                address: v.address,
+                public_key: v.public_key,
+                voting_power: v.voting_power,
+            })
+            .collect::<Vec<_>>();
+        let checkpoint = source
+            .checkpoint(
+                head.freshness.observed_sequence,
+                &trust.chain_id,
+                &validators,
+            )
+            .map_err(|_| ProgramReadError::NonCanonicalView)?;
+        let bytes = source
+            .program_state_record(program.bytes(), key, store_name, &checkpoint)
             .map_err(|_| ProgramReadError::CorruptRecord)?;
-        let declared = hex::decode_digest(field(&document, "record_digest")?)
-            .map_err(|_| ProgramReadError::CorruptRecord)?;
-        if digest(&bytes) != declared
-            || hex::decode_digest(field(&document, "receipt_digest")?)
-                .map_err(|_| ProgramReadError::CorruptRecord)?
-                != head.receipt_digest
+        if bytes.get(5..37) != Some(program.bytes().as_slice())
+            || !bytes.starts_with(if profile2 { b"LXPS2" } else { b"LXPS1" })
         {
             return Err(ProgramReadError::CorruptRecord);
         }
@@ -378,14 +450,81 @@ impl LayerxdProgramBalanceReader {
         if now == 0 {
             return Err(ChainHeadError::View(ProgramReadError::NonCanonicalView));
         }
-        let head_document = self
-            .get(
-                &self.endpoint,
-                &self.authorization,
-                "/v1/protocol/account-state/head",
+        let height = self
+            .sequencer
+            .block_number()
+            .map_err(|_| ChainHeadError::View(ProgramReadError::NonCanonicalView))?;
+        let evidence = self.native_head_evidence(height)?;
+        let head = self
+            .verifier
+            .verify_current_chain_head(
+                ProgramHeadKind::Ordinary,
+                &evidence.commitment,
+                &evidence.transaction,
+                &evidence.transaction_proof,
+                now,
             )
-            .map_err(ChainHeadError::View)?;
-        self.verify_head(&head_document, now)
+            .map_err(ChainHeadError::Evidence)?;
+        if self
+            .sequencer
+            .block_number()
+            .map_err(|_| ChainHeadError::View(ProgramReadError::NonCanonicalView))?
+            != height
+        {
+            return Err(ChainHeadError::Evidence(ProtocolEvidenceError::Stale));
+        }
+        Ok(head)
+    }
+
+    /// Verifies retained coordinates at an explicit native block height.
+    pub fn read_chain_head_at(
+        &self,
+        height: u64,
+        now: u64,
+    ) -> Result<VerifiedChainHead, ChainHeadError> {
+        if height == 0 || now == 0 {
+            return Err(ChainHeadError::View(ProgramReadError::NonCanonicalView));
+        }
+        let evidence = self.native_head_evidence(height)?;
+        self.verifier
+            .verify_current_chain_head(
+                ProgramHeadKind::Ordinary,
+                &evidence.commitment,
+                &evidence.transaction,
+                &evidence.transaction_proof,
+                now,
+            )
+            .map_err(ChainHeadError::Evidence)
+    }
+
+    fn native_head_evidence(&self, height: u64) -> Result<ChainHeadEvidence, ChainHeadError> {
+        let view = || ChainHeadError::View(ProgramReadError::NonCanonicalView);
+        let trust = self.verifier.chain_trust().ok_or(ChainHeadError::Evidence(
+            ProtocolEvidenceError::InvalidTrustAnchor,
+        ))?;
+        let source = self.consensus.as_ref().ok_or_else(view)?;
+        // A published set supplies proof material, never a new trust anchor.
+        // The protected verifier below authenticates it before admitting a head.
+        let validators = source.validators(height).map_err(|_| view())?;
+        let checkpoint = source
+            .checkpoint(height, &trust.chain_id, &validators)
+            .map_err(|_| view())?;
+        let block = self
+            .sequencer
+            .block_by_number(height)
+            .map_err(|_| view())?
+            .ok_or_else(view)?;
+        if checkpoint.block_hash != block.hash {
+            return Err(view());
+        }
+        let (transaction, transaction_proof) = source
+            .sequence_batch(height, checkpoint.header.data_hash.ok_or_else(view)?)
+            .map_err(|_| view())?;
+        Ok(ChainHeadEvidence {
+            commitment: source.host_commitment(&checkpoint).map_err(|_| view())?,
+            transaction,
+            transaction_proof,
+        })
     }
 
     pub fn verify_journal_admission(
@@ -396,14 +535,11 @@ impl LayerxdProgramBalanceReader {
         if now == 0 {
             return Err(ChainHeadError::View(ProgramReadError::NonCanonicalView));
         }
-        let head_document = self
-            .get(
-                &self.endpoint,
-                &self.authorization,
-                "/v1/protocol/account-state/head",
-            )
-            .map_err(ChainHeadError::View)?;
-        let head = chain_head_evidence(&head_document).map_err(ChainHeadError::View)?;
+        let height = self
+            .sequencer
+            .block_number()
+            .map_err(|_| ChainHeadError::View(ProgramReadError::NonCanonicalView))?;
+        let head = self.native_head_evidence(height)?;
         let trust = self.verifier.chain_trust().ok_or(ChainHeadError::Evidence(
             ProtocolEvidenceError::InvalidTrustAnchor,
         ))?;
@@ -424,13 +560,24 @@ impl LayerxdProgramBalanceReader {
                     .block_by_number(height)
                     .map_err(|_| ChainHeadError::View(ProgramReadError::NonCanonicalView))?
                     .ok_or(ChainHeadError::View(ProgramReadError::NonCanonicalView))?;
-                let checkpoint = super::ServedCheckpoint::acquire_at_committed_block(
-                    &self.sequencer,
-                    height,
-                    Some(block.hash),
-                    &trust.chain_id,
-                )
-                .map_err(refused)?;
+                let checkpoint = if let Some(source) = &self.consensus {
+                    let validators = source.validators(height).map_err(refused)?;
+                    let checkpoint = source
+                        .checkpoint(height, &trust.chain_id, &validators)
+                        .map_err(refused)?;
+                    if checkpoint.block_hash != block.hash {
+                        return Err(ChainHeadError::View(ProgramReadError::NonCanonicalView));
+                    }
+                    checkpoint
+                } else {
+                    super::ServedCheckpoint::acquire_at_committed_block(
+                        &self.sequencer,
+                        height,
+                        Some(block.hash),
+                        &trust.chain_id,
+                    )
+                    .map_err(refused)?
+                };
                 checkpoint_trust_step(checkpoint)
             });
         let bridge = historical_trust_chain(trust, admission_step, current_step, history)?;
@@ -440,7 +587,15 @@ impl LayerxdProgramBalanceReader {
             self.staleness_limit,
         )
         .map_err(ChainHeadError::Evidence)?;
-        self.verify_head_with_verifier(&head_document, now, &current_verifier)?;
+        current_verifier
+            .verify_current_chain_head(
+                ProgramHeadKind::Ordinary,
+                &head.commitment,
+                &head.transaction,
+                &head.transaction_proof,
+                now,
+            )
+            .map_err(ChainHeadError::Evidence)?;
         self.verifier
             .verify_historical_deployment(proof, &bridge.head, &bridge.steps, now)
             .map_err(ChainHeadError::Evidence)
@@ -467,85 +622,6 @@ impl LayerxdProgramBalanceReader {
     #[must_use]
     pub const fn staleness_limit(&self) -> u64 {
         self.staleness_limit
-    }
-
-    fn verify_head(&self, value: &Value, now_ms: u64) -> Result<VerifiedChainHead, ChainHeadError> {
-        self.verify_head_with_verifier(value, now_ms, &self.verifier)
-    }
-
-    fn verify_head_with_verifier(
-        &self,
-        value: &Value,
-        now_ms: u64,
-        verifier: &ProtocolDeploymentVerifier,
-    ) -> Result<VerifiedChainHead, ChainHeadError> {
-        let view = ChainHeadError::View;
-        if value["current"].as_bool() != Some(true) {
-            return Err(view(ProgramReadError::NonCanonicalView));
-        }
-        let evidence = chain_head_evidence(value).map_err(view)?;
-        let observed_sequence = value["observed_sequence"]
-            .as_u64()
-            .ok_or(view(ProgramReadError::NonCanonicalView))?;
-        let path = format!("/v1/protocol/account-state/head?height={observed_sequence}");
-        let authority_document = self
-            .get(
-                &self.authority_endpoint,
-                &self.authority_authorization,
-                &path,
-            )
-            .map_err(view)?;
-        if hex::decode_digest(field(&authority_document, "authority_replica_id").map_err(view)?)
-            .map_err(|_| view(ProgramReadError::NonCanonicalView))?
-            != self.authority_replica_id
-            || evidence != chain_head_evidence(&authority_document).map_err(view)?
-        {
-            return Err(view(ProgramReadError::NonCanonicalView));
-        }
-        let chain = verifier
-            .verify_current_chain_head(
-                ProgramHeadKind::Ordinary,
-                &evidence.commitment,
-                &evidence.transaction,
-                &evidence.transaction_proof,
-                now_ms,
-            )
-            .map_err(ChainHeadError::Evidence)?;
-        if hex::decode_digest(field(value, "receipt_digest").map_err(view)?)
-            .map_err(|_| view(ProgramReadError::NonCanonicalView))?
-            != chain.receipt_digest()
-            || hex::decode_digest(field(value, "state_root").map_err(view)?)
-                .map_err(|_| view(ProgramReadError::NonCanonicalView))?
-                != chain.state_root()
-            || observed_sequence != chain.freshness().observed_sequence
-            || value["observed_at"].as_u64() != Some(chain.freshness().observed_at)
-        {
-            return Err(view(ProgramReadError::NonCanonicalView));
-        }
-        Ok(chain)
-    }
-
-    fn get(
-        &self,
-        endpoint: &str,
-        authorization: &str,
-        path: &str,
-    ) -> Result<Value, ProgramReadError> {
-        let url = format!("{endpoint}{path}");
-        let mut response = self
-            .agent
-            .get(&url)
-            .header("Authorization", &format!("Bearer {authorization}"))
-            .call()
-            .map_err(|_| ProgramReadError::NonCanonicalView)?;
-        if !response.status().is_success() {
-            return Err(ProgramReadError::NonCanonicalView);
-        }
-        let body = response
-            .body_mut()
-            .read_to_string()
-            .map_err(|_| ProgramReadError::NonCanonicalView)?;
-        serde_json::from_str(&body).map_err(|_| ProgramReadError::NonCanonicalView)
     }
 }
 
@@ -838,15 +914,163 @@ mod historical_deployment_support;
 mod historical_deployment_tests {
     use super::*;
     use ed25519_dalek::{Signer, SigningKey};
-    use historical_deployment_support::{deploy_fixture, verifier_for_fixture, NOW, WASM_V1};
+    use historical_deployment_support::{verifier_for_fixture, NOW, WASM_V1};
     use layerx_programs::chain_proof::{
+        merkle::hash_from_byte_slices,
+        results::TxResult,
         validators::TrustedValidator,
         vote::{vote_sign_bytes, BlockIdFlag, CommitSig, Timestamp},
+    };
+    use layerx_programs::{
+        chain_evidence::{deployment::ChainDeploymentProof, programs_state_key},
+        DeploymentExecutionProof, ProgramInterface,
     };
 
     const SEEDS: [[u8; 32]; 4] = [[1; 32], [2; 32], [3; 32], [4; 32]];
     const ROTATED: [[u8; 32]; 4] = [[11; 32], [12; 32], [13; 32], [14; 32]];
     const DAY_SECONDS: i64 = 86_400;
+
+    fn sign_fixture(chain: &mut historical_deployment_support::chain::ChainFixture) {
+        chain.commit.height = chain.header.height;
+        chain.commit.block_id.hash = chain.header.hash().expect("canonical header").to_vec();
+        let timestamp = Timestamp {
+            seconds: chain.header.time.seconds,
+            nanos: chain.header.time.nanos,
+        };
+        let bytes = vote_sign_bytes(
+            &chain.header.chain_id,
+            chain.commit.height,
+            chain.commit.round,
+            Some(&chain.commit.block_id),
+            timestamp,
+        )
+        .expect("canonical precommit");
+        for signature in &mut chain.commit.signatures {
+            let key = SEEDS
+                .iter()
+                .map(SigningKey::from_bytes)
+                .find(|key| {
+                    TrustedValidator::new(key.verifying_key().to_bytes(), 1)
+                        .address
+                        .as_slice()
+                        == signature.validator_address
+                })
+                .expect("validator signing key");
+            signature.timestamp = timestamp;
+            signature.signature = key.sign(&bytes).to_bytes().to_vec();
+        }
+    }
+
+    fn historical_deployment_fixture() -> historical_deployment_support::ProtocolFixture {
+        let transcript = include_str!(
+            "../../../../../../programs/crates/layerx-programs-registry/src/repair_22_31_256.hex"
+        );
+        assert_eq!(
+            hex::encode(&digest(transcript.as_bytes())),
+            "5798c9304ce5dd774f153da4f4f3208f1205f4cbfd1854732a49636dc9d76c6e"
+        );
+        let producer = transcript
+            .lines()
+            .map(|line| {
+                let (key, value) = line.split_once('=').expect("producer recording row");
+                (key, hex::decode(value).expect("producer recording bytes"))
+            })
+            .collect::<std::collections::BTreeMap<_, _>>();
+        assert_eq!(producer["wasm.1"], WASM_V1);
+        let interface =
+            ProgramInterface::decode(&producer["interface.1"]).expect("producer interface");
+        let mut fixture = historical_deployment_support::deploy_fixture_with_interface(
+            WASM_V1,
+            layerx_programs::UpgradePolicy::Authority(historical_deployment_support::AUTHORITY),
+            100,
+            NOW,
+            &interface,
+        );
+        let program_key = fixture.proof.state.commitment.key.clone();
+        let interface_key = programs_state_key(&layerx_programs::interface_state_key(
+            fixture.proof.state.state.program,
+        ));
+        let transaction_root = hash_from_byte_slices(&[&digest(&producer["deploy"])]);
+        let account = &producer["host.account"];
+        let mut previous = historical_deployment_support::chain::ChainFixture::new(
+            &fixture.chain.verifier.chain_id,
+            &SEEDS,
+            vec![(account[..33].to_vec(), account[33..].to_vec())],
+        )
+        .expect("producer predecessor state");
+        previous.header.height = 100;
+        previous.header.time.seconds = (NOW / 1_000) as i64 - 1;
+        previous.header.time.nanos = 0;
+        previous.header.data_hash = transaction_root.to_vec();
+        sign_fixture(&mut previous);
+        let result_root = hash_from_byte_slices(&[&producer["success.leaf"]]);
+        assert_eq!(result_root.as_slice(), producer["success.root"]);
+        fixture.chain.header.last_block_id.hash = previous.commit.block_id.hash.clone();
+        fixture.chain.header.last_block_id.part_set_total =
+            previous.commit.block_id.part_set_header.total;
+        fixture.chain.header.last_block_id.part_set_hash =
+            previous.commit.block_id.part_set_header.hash.clone();
+        fixture.chain.header.last_results_hash = result_root.to_vec();
+        fixture.chain.header.data_hash = transaction_root.to_vec();
+        sign_fixture(&mut fixture.chain);
+        fixture.proof.state.commitment = decode_commitment_proof(
+            &fixture
+                .chain
+                .encode_key(&program_key)
+                .expect("program commitment"),
+        )
+        .expect("decode program commitment");
+        fixture.proof.deployment = ChainDeploymentProof::from_state_proofs(
+            fixture.proof.state.state.clone(),
+            WASM_V1.to_vec(),
+            &decode_commitment_proof(
+                &fixture
+                    .chain
+                    .encode_key(&interface_key)
+                    .expect("interface commitment"),
+            )
+            .expect("decode interface commitment"),
+        )
+        .expect("authenticated deployment interface");
+        fixture.proof.state.transaction_proof = SimpleProof {
+            total: 1,
+            index: 0,
+            leaf_hash: transaction_root,
+            aunts: Vec::new(),
+        };
+        fixture
+            .proof
+            .bind_execution(&DeploymentExecutionProof {
+                transaction: producer["deploy"].clone(),
+                previous: decode_commitment_proof(
+                    &previous
+                        .encode_key(&program_key)
+                        .expect("predecessor commitment"),
+                )
+                .expect("decode predecessor commitment"),
+                result: TxResult {
+                    code: 0,
+                    data: producer["success"].clone(),
+                    gas_wanted: 0,
+                    gas_used: 0,
+                },
+                result_proof: SimpleProof {
+                    total: 1,
+                    index: 0,
+                    leaf_hash: result_root,
+                    aunts: Vec::new(),
+                },
+                interface_ops: fixture
+                    .chain
+                    .prove(&interface_key)
+                    .expect("interface proof"),
+                migration: None,
+                migration_ops: Vec::new(),
+                migration_previous_ops: Vec::new(),
+            })
+            .expect("bind producer execution");
+        fixture
+    }
 
     #[test]
     fn historical_checkpoint_preserves_signed_header_commit_and_validators() {
@@ -946,7 +1170,7 @@ mod historical_deployment_tests {
 
     #[test]
     fn historical_deployment_bridges_a_twenty_day_old_admission() {
-        let fixture = deploy_fixture(WASM_V1, layerx_programs::UpgradePolicy::Immutable, 100, NOW);
+        let fixture = historical_deployment_fixture();
         let verifier = verifier_for_fixture(&fixture, 5_000);
         let original = verifier
             .verify_deployment(&fixture.proof, NOW)
@@ -1000,7 +1224,7 @@ mod historical_deployment_tests {
 
     #[test]
     fn historical_deployment_bridges_a_full_non_adjacent_validator_rotation() {
-        let fixture = deploy_fixture(WASM_V1, layerx_programs::UpgradePolicy::Immutable, 100, NOW);
+        let fixture = historical_deployment_fixture();
         let verifier = verifier_for_fixture(&fixture, 5_000);
         let original = verifier
             .verify_deployment(&fixture.proof, NOW)
@@ -1063,7 +1287,9 @@ mod historical_deployment_tests {
                 .verify_current_chain_head(
                     ProgramHeadKind::Ordinary,
                     &commitment,
-                    &fixture.proof.state.transaction,
+                    &DeploymentExecutionProof::decode(&fixture.proof.state.transaction)
+                        .expect("deployment execution")
+                        .transaction,
                     &fixture.proof.state.transaction_proof,
                     now
                 )

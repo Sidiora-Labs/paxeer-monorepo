@@ -2,8 +2,9 @@ package card_test
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
-	"strings"
+	"reflect"
 	"testing"
 
 	"github.com/Sidiora-Technologies/KindleLaunch/core/pnl-tracker/internal/card"
@@ -26,7 +27,7 @@ func TestMintCapturesSnapshotAndPersists(t *testing.T) {
 	ctx := context.Background()
 	svc, st := newService(t)
 
-	// A real position is required to mint.
+	// Retirement also applies to owners with a complete position and metadata.
 	if _, err := st.FoldTrade(ctx, store.TradeInput{
 		ID: "0xb-0", UserAddress: "0xOwner", PoolAddress: "0xPool", TokenAddress: "0xToken",
 		IsBuy: true, UsdlAmount: "1000000", TokenAmount: oneToken, Price: "0", Fee: "0",
@@ -46,44 +47,54 @@ func TestMintCapturesSnapshotAndPersists(t *testing.T) {
 	}
 
 	minted, err := svc.Mint(ctx, "0xowner", "0xpool")
-	if err != nil {
-		t.Fatalf("mint: %v", err)
+	if minted != nil || !errors.Is(err, card.ErrMintRetired) {
+		t.Fatalf("mint = %+v, %v; want nil, ErrMintRetired and no share URL", minted, err)
 	}
-	if minted.Snapshot.Version != 1 || minted.Snapshot.OwnerAddress != "0xowner" {
-		t.Errorf("snapshot = %+v", minted.Snapshot)
+	var cards, referrals int
+	if err := st.Pool().QueryRow(ctx, `SELECT (SELECT count(*) FROM pnl.pnl_cards), (SELECT count(*) FROM pnl.referrals)`).Scan(&cards, &referrals); err != nil {
+		t.Fatalf("read persisted publication counts: %v", err)
 	}
-	if minted.Snapshot.TokenSymbol != "DOGE" || minted.Snapshot.TokenName != "Dogecoin" {
-		t.Errorf("snapshot meta = %s/%s", minted.Snapshot.TokenSymbol, minted.Snapshot.TokenName)
+	if cards != 0 || referrals != 0 {
+		t.Fatalf("retired mint persisted cards=%d referrals=%d", cards, referrals)
 	}
-	if minted.Snapshot.Market.PriceWad == nil || *minted.Snapshot.Market.PriceWad != "2500000" {
-		t.Errorf("snapshot priceWad = %v", minted.Snapshot.Market.PriceWad)
-	}
-	if minted.Snapshot.CapturedAt != 1234 {
-		t.Errorf("capturedAt = %d, want 1234", minted.Snapshot.CapturedAt)
-	}
-	if !strings.HasPrefix(minted.ShareURL, "https://sidiora.fun/pnl/") || minted.ShortCode == "" {
-		t.Errorf("shareUrl = %s shortCode = %s", minted.ShareURL, minted.ShortCode)
-	}
-	wantOG := "https://og.example/pnl/cards/" + minted.CardID + "/og.png"
-	if minted.OgURL != wantOG {
-		t.Errorf("ogUrl = %s, want %s", minted.OgURL, wantOG)
+	position, err := st.GetPosition(ctx, "0xowner", "0xpool")
+	if err != nil || position == nil || position.CurrentHoldings != oneToken {
+		t.Fatalf("position after retired mint = %+v, %v", position, err)
 	}
 
-	// Hydrate by id returns an equivalent card.
-	got, err := svc.Get(ctx, minted.CardID)
-	if err != nil || got == nil {
-		t.Fatalf("get: %v %v", got, err)
+	// Authentic archived rows remain readable without reissuing a public link.
+	row, snapshot := repair45ArchiveRow(t)
+	if err := st.InsertCard(ctx, row); err != nil {
+		t.Fatalf("persist archived disclosure: %v", err)
 	}
-	if got.ShortCode != minted.ShortCode || got.Snapshot.TokenSymbol != "DOGE" {
-		t.Errorf("hydrated = %+v", got)
+	got, err := svc.Get(ctx, row.CardID)
+	if err != nil || got == nil {
+		t.Fatalf("get archived card = %+v, %v", got, err)
+	}
+	if got.CardID != row.CardID || got.ShortCode != row.ShortCode || got.CreatedAt != row.CreatedAt || !reflect.DeepEqual(got.Snapshot, snapshot) {
+		t.Fatalf("hydrated archive differs from stored disclosure: %+v", got)
+	}
+	if got.ShareURL != "" || got.OgURL != "https://og.example/pnl/cards/"+row.CardID+"/og.png" {
+		t.Fatalf("archive URLs = share %q, OG %q", got.ShareURL, got.OgURL)
+	}
+	persisted, err := st.GetCardByShortCode(ctx, row.ShortCode)
+	if err != nil || persisted == nil {
+		t.Fatalf("persisted archive changed: %+v, %v", persisted, err)
+	}
+	var persistedSnapshot card.Snapshot
+	if err := json.Unmarshal(persisted.Snapshot, &persistedSnapshot); err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(persistedSnapshot, snapshot) {
+		t.Fatalf("archive read mutated stored disclosure: %+v", persistedSnapshot)
 	}
 }
 
 func TestMintRejectsMissingPosition(t *testing.T) {
 	ctx := context.Background()
 	svc, _ := newService(t)
-	if _, err := svc.Mint(ctx, "0xnobody", "0xpool"); !errors.Is(err, card.ErrNoPosition) {
-		t.Fatalf("err = %v, want ErrNoPosition", err)
+	if minted, err := svc.Mint(ctx, "0xnobody", "0xpool"); minted != nil || !errors.Is(err, card.ErrMintRetired) {
+		t.Fatalf("mint = %+v, %v; want nil, ErrMintRetired and no share URL", minted, err)
 	}
 }
 
@@ -133,10 +144,11 @@ func TestBuildRenderInputLossNoMarket(t *testing.T) {
 	snap := card.Snapshot{
 		TokenSymbol: "LOSS",
 		Position: card.Position{
-			TotalUsdlSpent:  "10000000",
-			AvgCostBasis:    "10000000",
-			CurrentHoldings: "0",
-			RealizedPnlUsdl: "-6000000",
+			TotalUsdlSpent:    "10000000",
+			TotalUsdlReceived: "0",
+			AvgCostBasis:      "10000000",
+			CurrentHoldings:   "0",
+			RealizedPnlUsdl:   "-6000000",
 		},
 	}
 	in := card.BuildRenderInput(snap, "f")

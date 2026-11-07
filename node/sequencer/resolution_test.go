@@ -70,12 +70,17 @@ func resolutionTxRoot(ids [][32]byte) [32]byte {
 // processing an accepted proposal starts.
 func resolutionProposal(t *testing.T, a *app.App, height int64, at time.Time, txs [][]byte) abci.ResponseProcessProposal_ProposalStatus {
 	t.Helper()
+	return resolutionProposalFrom(t, a, height, at, txs, nil)
+}
+
+func resolutionProposalFrom(t *testing.T, a *app.App, height int64, at time.Time, txs [][]byte, proposer []byte) abci.ResponseProcessProposal_ProposalStatus {
+	t.Helper()
 	a.ClearOptimisticProcessingInfo()
 	hash := sha256.Sum256(bytes.Join(append([][]byte{[]byte(strconv.FormatInt(height, 10))}, txs...), []byte{0}))
 	resp, err := a.ProcessProposal(context.Background(), &abci.RequestProcessProposal{
 		Txs:    txs,
 		Hash:   hash[:],
-		Header: &tmproto.Header{ChainID: testChainID, Height: height, Time: at},
+		Header: &tmproto.Header{ChainID: testChainID, Height: height, Time: at, ProposerAddress: proposer},
 	})
 	require.NoError(t, err)
 	if info := a.GetOptimisticProcessingInfo(); info.Completion != nil {
@@ -182,19 +187,19 @@ func TestResolutionBatchInjection(t *testing.T) {
 	require.Error(t, err, "consumer must refuse a truncated real producer batch")
 
 	at := time.UnixMilli(batch.TimestampMs).UTC()
-	require.Equal(t, abci.ResponseProcessProposal_ACCEPT, resolutionProposal(t, rh.app, openHeight, at, block))
+	require.Equal(t, abci.ResponseProcessProposal_ACCEPT, resolutionProposalFrom(t, rh.app, openHeight, at, block, rh.proposer))
 
 	// A batch whose txRoot differs from the sealed sequence is refused, even when re-signed.
 	other := root
 	other[0] ^= 0xff
 	_, tampered := resolutionBatch(t, batch, other)
 	require.Equal(t, abci.ResponseProcessProposal_REJECT,
-		resolutionProposal(t, rh.app, openHeight, at, append([][]byte{tampered}, batch.Txs...)))
+		resolutionProposalFrom(t, rh.app, openHeight, at, append([][]byte{tampered}, batch.Txs...), rh.proposer))
 
 	// So is the sealed slice out of receipt order under the original batch.
 	swapped := append([][]byte{batchTx}, batch.Txs...)
 	swapped[1], swapped[2] = swapped[2], swapped[1]
-	require.Equal(t, abci.ResponseProcessProposal_REJECT, resolutionProposal(t, rh.app, openHeight, at, swapped))
+	require.Equal(t, abci.ResponseProcessProposal_REJECT, resolutionProposalFrom(t, rh.app, openHeight, at, swapped, rh.proposer))
 }
 
 func TestResolutionNonceQueue(t *testing.T) {
@@ -326,9 +331,28 @@ func TestResolutionStandbyReplay(t *testing.T) {
 
 	// A validator replica at the same committed state accepts the standby's proposal.
 	_, batchTx := resolutionBatch(t, batch, resolutionTxRoot(ids))
-	validator := newReceiptHarness(t, 0, resolutionMerged, sender)
-	require.Equal(t, abci.ResponseProcessProposal_ACCEPT, resolutionProposal(t, validator.app, openHeight,
-		time.UnixMilli(batch.TimestampMs).UTC(), append([][]byte{batchTx}, batch.Txs...)))
+	primaryPub, err := p.pv.GetPubKey(context.Background())
+	require.NoError(t, err)
+	standbyPub, err := sb.s.ConsensusKey().GetPubKey(context.Background())
+	require.NoError(t, err)
+	validator := newReceiptHarness(t, 0, func(ctx sdk.Context, a *app.App) {
+		resolutionMerged(ctx, a)
+		require.NoError(t, a.SequencerKeeper.InitGenesis(ctx, seqtypes.GenesisState{
+			Leaders: [][32]byte{[32]byte(primaryPub.Bytes()), [32]byte(standbyPub.Bytes())},
+			ReceiptKeys: []seqtypes.ReceiptKey{{
+				KeyId: testKeyID, PublicKey: publicOf(testKeySeed), FirstHeight: 1, LastHeight: 1000,
+			}},
+			LastSeq: startSeq, LastSeqHash: startSeqHash,
+		}))
+	}, sender)
+	lastSeq, err := validator.app.SequencerKeeper.LastSeq(validator.committedCtx())
+	require.NoError(t, err)
+	require.Equal(t, startSeq, lastSeq)
+	lastSeqHash, err := validator.app.SequencerKeeper.LastSeqHash(validator.committedCtx())
+	require.NoError(t, err)
+	require.Equal(t, startSeqHash, lastSeqHash)
+	require.Equal(t, abci.ResponseProcessProposal_ACCEPT, resolutionProposalFrom(t, validator.app, openHeight,
+		time.UnixMilli(batch.TimestampMs).UTC(), append([][]byte{batchTx}, batch.Txs...), standbyPub.Address()))
 }
 
 func TestResolutionActivationHeight(t *testing.T) {
@@ -373,6 +397,6 @@ func TestResolutionProposalSource(t *testing.T) {
 	require.Equal(t, abci.ResponseProcessProposal_REJECT, resolutionProposal(t, rh.app, openHeight, at, batch.Txs))
 	require.Equal(t, abci.ResponseProcessProposal_REJECT, resolutionProposal(t, rh.app, openHeight, at, nil))
 	require.Equal(t, abci.ResponseProcessProposal_ACCEPT,
-		resolutionProposal(t, rh.app, openHeight, at, append([][]byte{batchTx}, batch.Txs...)))
+		resolutionProposalFrom(t, rh.app, openHeight, at, append([][]byte{batchTx}, batch.Txs...), rh.proposer))
 
 }

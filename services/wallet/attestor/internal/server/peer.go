@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/binary"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -48,15 +49,17 @@ type SpendJSON struct {
 }
 
 type Announcement struct {
-	SessionID string      `json:"session_id"`
-	KeyID     string      `json:"key_id"`
-	Account   string      `json:"account"`
-	Spends    []SpendJSON `json:"spends"`
+	SessionID string             `json:"session_id"`
+	KeyID     string             `json:"key_id"`
+	Account   string             `json:"account"`
+	Spends    []SpendJSON        `json:"spends"`
+	Intent    *signIntentBinding `json:"intent,omitempty"`
 }
 
 type AnnounceAck struct {
-	NodeID   string `json:"node_id"`
-	Recorded bool   `json:"recorded"`
+	NodeID   string             `json:"node_id"`
+	Recorded bool               `json:"recorded"`
+	Intent   *signIntentBinding `json:"intent,omitempty"`
 }
 
 type RefreshVote struct {
@@ -191,6 +194,25 @@ func (s *Server) handleAnnounce(w http.ResponseWriter, r *http.Request) {
 		}
 		spends = append(spends, policy.Spend{Asset: sp.Asset, Amount: amount})
 	}
+	if a.Intent != nil {
+		digest, err := hex.DecodeString(a.Intent.Digest)
+		curve, known := kindCurves[a.Intent.Kind]
+		if a.Intent.KeyID != a.KeyID || a.Intent.SessionID != a.SessionID || a.Intent.Epoch != rec.Epoch || err != nil || len(digest) != 32 || hex.EncodeToString(digest) != a.Intent.Digest || !known || curveName(curve) != rec.Curve {
+			writeError(w, newError(CodeSessionBadRequest, "announced signing intent differs from the held key or session"))
+			return
+		}
+		if _, e := s.bindSignIntent(*a.Intent); e != nil {
+			writeError(w, e)
+			return
+		}
+	} else if _, err := s.loadSignIntent(a.KeyID, a.SessionID); !errors.Is(err, store.ErrNotFound) {
+		if err != nil {
+			writeError(w, newError(CodeStoreFailed, "signing intent record unavailable"))
+		} else {
+			writeError(w, newError(CodeSessionBadRequest, "announcement omits the durable signing intent"))
+		}
+		return
+	}
 	now, err := s.spends.Now()
 	if err != nil {
 		writeError(w, newError(CodeStoreFailed, "%v", err))
@@ -200,17 +222,23 @@ func (s *Server) handleAnnounce(w http.ResponseWriter, r *http.Request) {
 		writeError(w, newError(CodeStoreFailed, "%v", err))
 		return
 	}
-	writeJSON(w, http.StatusOK, AnnounceAck{NodeID: s.opts.NodeID, Recorded: true})
+	writeJSON(w, http.StatusOK, AnnounceAck{NodeID: s.opts.NodeID, Recorded: true, Intent: a.Intent})
 }
 
 func (s *Server) Announce(ctx context.Context, keyID, sessionID, account string, participants []string, spends []policy.Spend) (int, []string) {
 	a := Announcement{SessionID: sessionID, KeyID: keyID, Account: account, Spends: make([]SpendJSON, 0, len(spends))}
+	state, err := s.loadSignIntent(keyID, sessionID)
+	if err == nil {
+		a.Intent = &state.Binding
+	} else if !errors.Is(err, store.ErrNotFound) {
+		return 0, append([]string(nil), participants...)
+	}
 	for _, sp := range spends {
 		a.Spends = append(a.Spends, SpendJSON{Asset: sp.Asset, Amount: sp.Amount.String()})
 	}
 	body, err := json.Marshal(a)
 	if err != nil {
-		return 1, nil
+		return 0, append([]string(nil), participants...)
 	}
 	type answer struct {
 		peer string
@@ -229,7 +257,8 @@ func (s *Server) Announce(ctx context.Context, keyID, sessionID, account string,
 			defer cancel()
 			var ack AnnounceAck
 			err := s.peerCall(callCtx, p, PathPeerAnnounce, body, false, &ack)
-			answers <- answer{peer: p, ok: err == nil && ack.Recorded && ack.NodeID == p}
+			bound := a.Intent == nil || (ack.Intent != nil && *ack.Intent == *a.Intent)
+			answers <- answer{peer: p, ok: err == nil && ack.Recorded && ack.NodeID == p && bound}
 		}(p)
 	}
 	acked := 1

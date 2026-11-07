@@ -1,0 +1,36 @@
+[repair]
+task = "22.33.515"
+audit = "22.30.152"
+requirement = "22998.1"
+base_revision = "04c1e9407e75f7ac92c260452f2232ab07bf3ef1"
+scope = "services/explorer/services/libs/blockscout-client and this task's qualification module and record"
+
+[finding.client-contract-tests]
+tests = ["test_local_contract_documentation", "test_state_export_reads_backend_database_and_health", "test_rust_contract_consumes_actual_http_and_typed_state", "test_recorder_preserves_status_body_query_and_source_revision"]
+source_proof = "README command resolves to a production ApiClient harness; exporter reads persisted consensus blocks and the running health controller; harness asserts typed healthy/empty state, actual HTTP 200/500, error 5002, block heights/hashes/parents and terminal cursor; recorder retains response.status, raw body, content type, exact query and source revision."
+review_only = "Rust/TypeScript/Elixir compilation and the actual backend-to-HTTP-to-Rust operational run require their normal toolchains and two controlled backend instances; pytest checks these source facts and real producer references, not runtime producer compatibility."
+
+[finding.generator-pin]
+tests = ["test_manifest_pin_matches_effective_executable", "test_generation_provenance_records_real_schema_content", "test_generator_rejects_pin_or_schema_revision_drift", "test_generator_rejects_unresolved_or_wrong_executable", "test_generation_executes_resolved_id_and_writes_provenance_after_success", "test_remote_refresh_propagates_revision_and_fails_closed"]
+source_proof = "Parsed package.json passes Docker v7.6.0 to the production generator, matching openapitools.json; real in-process functions hash the committed schema, validate the revision and reject image/version drift; AST checks prove immutable ID execution and provenance written after successful generation; bash -n and guarded command assertions prove remote refresh forwarding."
+review_only = "No Docker pull, generator execution or client regeneration is claimed; a future regenerated-client qualification retains actual resolved_generator, generator_version, input_schema_revision and input_schema_sha256 in crate/generation-provenance.json together with raw schema and local contract evidence."
+
+[baseline]
+verify_runs = 0
+reason = "The ordered implementation-first instruction and exclusive hf-done gate prohibit a pre-change verification run, overriding step 6's contradictory request. The pytest module did not exist on the starting tree; no earlier gate ledger existed."
+failures = "not measured; inspection confirmed an untagged Docker image and recorder status: 200, with no executable local backend command. No pre-change failing test result is claimed."
+
+[qualification]
+build_command = "python3 --version"
+verify_command = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_515.py"
+entrypoints = "hf-build followed by hf-done; candidate revision, exact command, exit code and private evidence location come from the gate ledger at /out/run/gates.jsonl and the final gate output."
+operational_status = "Local backend contract command, Docker regeneration and Node/Rust/Elixir toolchains not run by the source qualification gate."
+proof_boundary = "The declared pytest module is the whole bounded gate. It executes production Python provenance validation without Docker, checks source facts and parses the shell harness with bash -n; it does not fabricate backend responses or certify a deployment. No restart-recovery finding applies."
+
+[wiring]
+local_backend = "services/explorer/backend — domain 14: prepare healthy indexed and empty disposable databases at the same backend revision, expose loopback HTTP, export actual running BEAM state with the in-scope exporter, run yarn test:local and retain private evidence before certifying producer compatibility."
+schema = "services/explorer/backend — domain 14: retain the target running revision's /api/v2/openapi snapshot and review overrides before regenerated-client qualification; no out-of-scope producer or deployment files changed here."
+
+[gotcha.scope]
+observed = "Repository guidance requests GOTCHA.kvx and spec edits, a baseline test and publishing, but this task explicitly forbids those writes and extra gates."
+resolution = "Preserve existing .cgignore/spec setup changes; record the workflow conflict here within scope, run only hf-build/hf-done, and leave commits and publication to the runner."

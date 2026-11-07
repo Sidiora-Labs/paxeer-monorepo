@@ -1,0 +1,622 @@
+[audit.22.30.123]
+task = "22.30.123"
+revision = "2b99f88520e4e809ad5593f3bee2df74fe355d7b"
+files_reviewed = 54
+findings = 22
+docs_reviewed = 13
+upgrade_ready = false
+blocking = ["001", "002"]
+
+[file.001]
+path = "api/layerxprograms/genesis.proto"
+lines = 23
+verdict = "clean"
+note = "Params, store entries and blobs preserve numbered byte fields and non-null collections in linked precompiles/layerxprograms/types descriptors; no separate live network service is implied."
+
+[file.002]
+path = "api/layerxprograms/query.proto"
+lines = 94
+verdict = "clean"
+note = "State, balances and events agree with generated Go descriptors on field numbers, proof bytes and pagination. Descriptor registration is distinct from live 0x101D reads."
+
+[file.003]
+path = "api/layerxprograms/tx.proto"
+lines = 108
+verdict = "clean"
+note = "Governance descriptors preserve authority strings, versioned schedules, activation heights and retirement/migration profile fields in generated Go messages."
+
+[file.004]
+path = "programs/Cargo.toml"
+lines = 63
+verdict = "issues"
+note = "Dependency pins and denied unsafe/float shortcuts are explicit; AI release optimization and registry workspace membership disagree with their declared configuration."
+
+[file.005]
+path = "programs/README.md"
+lines = 301
+verdict = "issues"
+note = "SDK, capability and 402LXP descriptions reflect implemented bounded authority, but checkpoint architecture and the protocol adapter descriptions remain stale."
+
+[file.006]
+path = "programs/benches/compiled-equivalent/Cargo.toml"
+lines = 24
+verdict = "clean"
+note = "The benchmark cdylib/rlib uses the real Rust guest SDK and its artifact is loaded by the interpreter comparison."
+
+[file.007]
+path = "programs/benches/compiled-equivalent/src/lib.rs"
+lines = 120
+verdict = "clean"
+note = "ABI-v2 arithmetic, storage and guarded transfer equivalents use canonical SDK dispatch and checked deterministic values."
+
+[file.008]
+path = "programs/benches/interpreter.rs"
+lines = 306
+verdict = "clean"
+note = "Comparisons load the real interpreter and compiled guest with declared capabilities and bounded loops; timings are local benchmark results."
+
+[file.009]
+path = "programs/clippy.toml"
+lines = 2
+verdict = "clean"
+note = "The MSRV matches workspace metadata; exported API lint compatibility does not change runtime admission or authority."
+
+[file.010]
+path = "programs/crates/layerx-programs-ai-market/tests/chain_domain.rs"
+lines = 172
+verdict = "issues"
+note = "Golden/build/CI equality assertions consistently pin chain 229, contrary to merged chain 125; strict wrong-domain refusal remains intact."
+
+[file.011]
+path = "programs/crates/layerx-programs-ai-market/tests/f03_evaluator_authority.rs"
+lines = 1274
+verdict = "clean"
+note = "Real Ed25519 grants/consent cover replay, pending admission, quorum floor, role exclusion, staged rekey and epoch snapshots while preserving unrelated state bytes."
+
+[file.012]
+path = "programs/crates/layerx-programs-ai-market/tests/f03_evaluator_codec.rs"
+lines = 1149
+verdict = "clean"
+note = "Independent preimages and exact grant/consent/report lengths agree with F03 codecs; omitted votes, zero votes, reserved fields and refusal codes remain distinct."
+
+[file.013]
+path = "programs/crates/layerx-programs-ai-market/tests/f04_canonical.rs"
+lines = 443
+verdict = "clean"
+note = "Independent commitment, salt and binding vectors enforce fixed layouts, exact lengths and overflow-safe epoch windows."
+
+[file.014]
+path = "programs/crates/layerx-programs-ai-market/tests/host_boundary.rs"
+lines = 1006
+verdict = "clean"
+note = "The subprocess manifest drives the actual C host and built Wasm guest across envelopes, terminal evidence, state, events and fee oracles. It does not claim durable restart coverage."
+
+[file.015]
+path = "programs/crates/layerx-programs-ai-market/tests/identity_section_sharing.rs"
+lines = 741
+verdict = "clean"
+note = "Real F01/F02/F03 transitions preserve unrelated state regions byte-for-byte; split queries and capacity failures respect shared envelope bounds."
+
+[file.016]
+path = "programs/crates/layerx-programs-ai-market/tests/market_epoch_open.rs"
+lines = 1129
+verdict = "clean"
+note = "Creation and signed evaluator admission feed atomic opening, staged policy, current/next roster activation and funding/readiness checks; direct setup is confined to explicit unit preconditions."
+
+[file.017]
+path = "programs/crates/layerx-programs-ai-market/tests/market_lifecycle.rs"
+lines = 1305
+verdict = "clean"
+note = "Real registry application checks owner roles, revision/request replay and bounded policy history; opaque fillers are limited to byte-preservation assertions."
+
+[file.018]
+path = "programs/crates/layerx-programs-ai-market/tests/market_policy_codec.rs"
+lines = 966
+verdict = "clean"
+note = "Independent 307-byte vectors, 16,335-byte worksheet bounds, reserved-bit refusals and real SDK reward-account derivation match producer encodings."
+
+[file.019]
+path = "programs/crates/layerx-programs-ai-market/tests/reputation_vectors.rs"
+lines = 630
+verdict = "clean"
+note = "Source-level math vectors cover count 32, quality decay and history pruning; their explicit scope does not claim native F05/F06 execution proof."
+
+[file.020]
+path = "programs/crates/layerx-programs-ai-market/tests/roster_transition.rs"
+lines = 1329
+verdict = "clean"
+note = "Worker/evaluator capacities 32/8, retained rights, replay slots, consent signatures and staged roster activation match admission state and canonical codecs."
+
+[file.021]
+path = "programs/crates/layerx-programs-ai-market/tests/state_contract.rs"
+lines = 540
+verdict = "clean"
+note = "Canonical state sections, replay metadata and envelopes enforce ordering, lengths and full byte consumption; malformed state is refused."
+
+[file.022]
+path = "programs/crates/layerx-programs-ai-market/tests/value_boundary.rs"
+lines = 751
+verdict = "clean"
+note = "Real SDK capability encodings and reward transitions enforce authority, amounts and rollback; the local settlement ledger is explicitly a model."
+
+[file.023]
+path = "programs/crates/layerx-programs-ai-market/tests/view_binding.rs"
+lines = 1017
+verdict = "clean"
+note = "Snapshot capture is bounded to 24 chunks of 8192 bytes; stable prefixes, scoped expiring cursors, finality fields and absent scores agree with view producers."
+
+[file.024]
+path = "programs/crates/layerx-programs-ai-market/tests/workers_lifecycle.rs"
+lines = 861
+verdict = "clean"
+note = "Nomination, signed consent, rotation/revocation and metadata windows enforce the 32-worker ceiling; URLs reject credentials, loopback, queries and fragments."
+
+[file.025]
+path = "programs/crates/layerx-programs-runtime/examples/capability_fixture.rs"
+lines = 173
+verdict = "clean"
+note = "Canonical encoders emit the supported language-harness capability set without adding a retired web execution case."
+
+[file.026]
+path = "programs/crates/layerx-programs-runtime/src/abi_policy.rs"
+lines = 99
+verdict = "clean"
+note = "The shared SDK policy admits ABI 1 through 5; revision conversion, capability encoding and unknown-version refusals agree across adapters."
+
+[file.027]
+path = "programs/crates/layerx-programs-runtime/src/accounts.rs"
+lines = 325
+verdict = "clean"
+note = "Domain-separated program account derivation caps seeds at 128 bytes and grants no spend authority merely by deriving an identity."
+
+[file.028]
+path = "programs/crates/layerx-programs-runtime/src/budget.rs"
+lines = 569
+verdict = "clean"
+note = "Checked resource/fee arithmetic, token-bound reservations and exact canonical fields preserve declared limits and refuse overflow."
+
+[file.029]
+path = "programs/crates/layerx-programs-runtime/src/cache.rs"
+lines = 1157
+verdict = "clean"
+note = "Code/ABI/runtime/meter identities select artifacts; deterministic bounded eviction and current-limit revalidation make cache state safely reconstructible."
+
+[file.030]
+path = "programs/crates/layerx-programs-runtime/src/crypto/bigint.rs"
+lines = 626
+verdict = "clean"
+note = "Fixed 256-bit operations bound operands and conversions with deterministic metering; multiplication accumulators fit their declared width."
+
+[file.031]
+path = "programs/crates/layerx-programs-runtime/src/crypto/hash.rs"
+lines = 270
+verdict = "clean"
+note = "Guest hashing enforces the explicit 1,048,576-byte limit and typed refusal; the incompatible host artifact use is recorded against qualification.rs."
+
+[file.032]
+path = "programs/crates/layerx-programs-runtime/src/crypto/mod.rs"
+lines = 13
+verdict = "clean"
+note = "Public reexports connect bounded hashing, signatures and integer arithmetic without a separate unmetered guest path."
+
+[file.033]
+path = "programs/crates/layerx-programs-runtime/src/crypto/signature.rs"
+lines = 386
+verdict = "clean"
+note = "Real Ed25519/secp256k1 verification and recovery check forms, lengths and bounded messages before metered execution."
+
+[file.034]
+path = "programs/crates/layerx-programs-runtime/src/dynamic_spend.rs"
+lines = 101
+verdict = "clean"
+note = "Canonical interface descriptors derive dynamic grants constrained by caller capability ceilings; descriptor parsing creates no balance authority."
+
+[file.035]
+path = "programs/crates/layerx-programs-runtime/src/engine.rs"
+lines = 452
+verdict = "clean"
+note = "Versioned validation and metering injection bind admitted revisions, cache identities and execution limits before instantiation."
+
+[file.036]
+path = "programs/crates/layerx-programs-runtime/src/entrypoint.rs"
+lines = 128
+verdict = "clean"
+note = "Required exports, fixed signatures and input/response reservations are checked with typed refusals for malformed guest surfaces."
+
+[file.037]
+path = "programs/crates/layerx-programs-runtime/src/fault.rs"
+lines = 347
+verdict = "clean"
+note = "Structured validation, resource and execution failures preserve bounded canonical evidence without converting failures to success."
+
+[file.038]
+path = "programs/crates/layerx-programs-runtime/src/ffi.rs"
+lines = 337
+verdict = "clean"
+note = "Scalar callback tokens and the fixed 140-byte result encoding preserve ABI, fee and usage checks; malformed payloads and unknown tokens refuse."
+
+[file.039]
+path = "programs/crates/layerx-programs-runtime/src/ffi_interface.rs"
+lines = 554
+verdict = "clean"
+note = "Published interface descriptors deliberately support ABI 1 through 4 in SDK, registry and host. General guest admission supports 1 through 5; these separate version domains are not assumed interchangeable."
+
+[file.040]
+path = "programs/crates/layerx-programs-runtime/src/ffi_transfer.rs"
+lines = 740
+verdict = "clean"
+note = "Call-scoped affine permits bind legs, seeds and roots to the token and prohibit reuse; thread-local reservations are ephemeral call state, not durable balances."
+
+[file.041]
+path = "programs/crates/layerx-programs-runtime/src/lib.rs"
+lines = 265
+verdict = "clean"
+note = "Exports link real modules and FFI functions; default ABI 4 is distinct from explicit admission of 1 through 5 under the canonical SDK policy."
+
+[file.042]
+path = "programs/crates/layerx-programs-runtime/src/lifecycle.rs"
+lines = 345
+verdict = "clean"
+note = "The in-memory lifecycle model checks code hash, authority, immutability and upgrades; migrations stage before replacement and callers own durable journal publication."
+
+[file.043]
+path = "programs/crates/layerx-programs-runtime/src/limits.rs"
+lines = 168
+verdict = "clean"
+note = "Explicit module, memory, stack, import, table and execution bounds remain typed and are applied before untrusted execution."
+
+[file.044]
+path = "programs/crates/layerx-programs-runtime/src/lxt20_tests.rs"
+lines = 472
+verdict = "clean"
+note = "Included from execute.rs, these tests load real ABI-v2 LXT20 fixtures for balances, allowances and refusals without direct guest balance-writing authority."
+
+[file.045]
+path = "programs/crates/layerx-programs-runtime/src/merchant_tests.rs"
+lines = 128
+verdict = "clean"
+note = "Included from execute.rs, these tests execute the actual pay5 guest and verify payment preparation and merchant transfer splits."
+
+[file.046]
+path = "programs/crates/layerx-programs-runtime/src/meter/inject.rs"
+lines = 930
+verdict = "clean"
+note = "Deterministic instrumentation validates Wasm forms, injects canonical tariffs and preserves schedule identities for execution and step replay."
+
+[file.047]
+path = "programs/crates/layerx-programs-runtime/src/portable_replay.rs"
+lines = 723
+verdict = "clean"
+note = "Strict hashes, roots, lengths and recomputed transitions bind replay evidence; decompression and trace collections are bounded."
+
+[file.048]
+path = "programs/crates/layerx-programs-runtime/src/qualification.rs"
+lines = 1017
+verdict = "issues"
+note = "Recorded replay omits admitted ABI 3 through 5, and host trace provenance/attestation hashing applies the smaller guest hash ceiling."
+
+[file.049]
+path = "programs/crates/layerx-programs-runtime/src/replay_record.rs"
+lines = 395
+verdict = "clean"
+note = "Canonical decoding preserves ABI/runtime/meter versions, code and evidence identities with exact field order and bounded complete consumption."
+
+[file.050]
+path = "programs/crates/layerx-programs-runtime/src/schedule.rs"
+lines = 845
+verdict = "clean"
+note = "Conflict planning includes actor/protocol state and conservative undeclared access; staged results are atomic with deterministic serial conflict fallback."
+
+[file.051]
+path = "programs/crates/layerx-programs-runtime/src/terminal.rs"
+lines = 1223
+verdict = "issues"
+note = "Canonical success/refusal and evidence bounds are explicit, but WrongVersion fields reject admitted ABI 3 through 5; the declared registry contract page is absent."
+
+[file.052]
+path = "programs/deny.toml"
+lines = 57
+verdict = "clean"
+note = "Advisory, source, license and duplicate dependency policies are explicit; enumerated exceptions do not relax runtime checks."
+
+[file.053]
+path = "programs/fuzz/Cargo.toml"
+lines = 18
+verdict = "clean"
+note = "The corpus executable links real runtime and registry decoder implementations."
+
+[file.054]
+path = "programs/fuzz/src/main.rs"
+lines = 430
+verdict = "clean"
+note = "Bounded mutation covers validation, instantiation, execution, chain proof, bundle and trust-root decoders; accepted canonical trust roots must re-encode identically."
+
+[finding.001]
+file = "programs/crates/layerx-programs-ai-market/tests/chain_domain.rs"
+line = 17
+class = "config-drift"
+severity = "high"
+observed = "MERGED_CHAIN_ID is 229 and the b69143b1...7f038d golden is asserted against Makefile:2903 PAXAI_CHAIN_DOMAIN, CI and deployment_chain_domain(). The default release guest binds market, state and request identities to chain 229."
+expected = "The finished network is Paxeer chain 125. The build-time domain must identify that network consistently across deployed guests, request producers and state consumers; foreign domains must still refuse."
+proposal = "Update Makefile, tests/ci/test_paxai_chain_domain.py and this test to derive the domain from chain 125 together with the deployment/request path in programs/crates/layerx-programs-ai-market/src/lib.rs; regenerate real host-boundary vectors and retain WRONG_DOMAIN refusal."
+owner_domain = 13
+
+[finding.002]
+file = "programs/crates/layerx-programs-runtime/src/terminal.rs"
+line = 630
+class = "interface-mismatch"
+severity = "high"
+observed = "calls.rs:1123 emits CompositionRefusal::WrongVersion for admitted ABI mismatches. ffi_call.rs:740 encodes expected/actual with revision_tag values 1 through 5, but decode_composition accepts only 1 or 2. Valid refusal receipts involving ABI 3, 4 or 5 become Malformed in layerx-proof/src/program.rs:412 and other consumers."
+expected = "The terminal producer, receipt transport and decode_terminal_payload consumer must round-trip every allocated revision tag, including failed cross-version calls, while refusing unallocated values."
+proposal = "Unify ABI revision encoding/decoding in programs/crates/layerx-programs-runtime/src/ffi_call.rs and terminal.rs with abi_policy.rs; exercise real mixed ABI 3/4 and 4/5 nested-call refusal receipts through host and proof consumers without weakening unknown-tag refusal."
+owner_domain = 13
+interface = "13.rs-rt-terminal-decode-terminal-payload"
+
+[finding.003]
+file = "programs/crates/layerx-programs-runtime/src/qualification.rs"
+line = 143
+class = "restart-recovery"
+severity = "medium"
+observed = "DECLARED_REVISIONS contains only ExecutorRevision::v1() and v2(). Both replay_recorded_execution entry points dispatch through it and return UnknownAbiVersion for ABI 3 through 5, although engine.rs and abi_policy.rs admit these executions."
+expected = "Qualification replay must recognize every admitted recorded ABI under its exact runtime, fee and metering history, while preserving strict refusal of unknown future revisions."
+proposal = "Extend the historical revision catalog in programs/crates/layerx-programs-runtime/src/qualification.rs for ABI 3 through 5 with their correct policies; produce and replay real evidence for each with governed fee history and retain unknown-version refusal."
+owner_domain = 13
+interface = "13.rs-rt-qualification-replay-recorded-execution"
+
+[finding.004]
+file = "programs/crates/layerx-programs-runtime/src/qualification.rs"
+line = 413
+class = "runtime-risk"
+severity = "medium"
+observed = "TraceRunnerArtifact decoding accepts canonical evidence up to 128 MiB, but attestation_digest uses crypto/hash.rs hash_bytes, which refuses inputs above 1 MiB. programs_trace_runner_artifact:441 also applies that guest ceiling to the whole executable, rejecting larger real runner binaries before provenance is produced."
+expected = "Host provenance and attestation must handle their declared artifact sizes consistently; bounded guest hashing must not accidentally impose a smaller incompatible host evidence limit."
+proposal = "Use a separately bounded host provenance hashing path in programs/crates/layerx-programs-runtime/src/qualification.rs for runner bytes and unsigned attestations; align artifact bounds and exercise real signing/verification across the boundary while retaining guest MAX_HASH_INPUT_BYTES."
+owner_domain = 13
+interface = "13.rs-rt-qualification-tracerunnerartifact-attestation-digest"
+
+[finding.005]
+file = "programs/Cargo.toml"
+line = 31
+class = "config-drift"
+severity = "medium"
+observed = "The workspace release profile sets opt-level = 3. The AI package and programs/.cargo/config.toml supply no opt-level z override, and Makefile:2915 invokes --release without choosing z. The declared AI build therefore inherits optimization level 3."
+expected = "Decision 2483 and requirement 13991.1 require release opt-level z for the AI guest and a deployment payload at most 524288 bytes including its 104-byte envelope. Static inspection alone does not establish the resulting artifact size."
+proposal = "Add an AI-specific release opt-level z override in programs/Cargo.toml or one equivalent canonical deployment profile, and make the real guest build and payload-size assertion consume it with the 104-byte envelope included."
+owner_domain = 13
+
+[finding.006]
+file = "programs/Cargo.toml"
+line = 2
+class = "config-drift"
+severity = "low"
+observed = "Registry row 13.cfg-programs-cargo-workspace-members still lists crates/layerx-programs-protocol-adapter in its signature, whereas the actual workspace removed that retired adapter."
+expected = "The configuration inventory must describe actual Cargo membership and the eth_call on 0x101D replacement required by 9973.1 without advertising retired adapter membership."
+proposal = "Regenerate the workspace membership row and associated obsolete adapter caller inventory in spec/layerx-merge/interfaces.kvx from programs/Cargo.toml and live 0x101D consumers; preserve retirement rather than restoring membership."
+owner_domain = 13
+interface = "13.cfg-programs-cargo-workspace-members"
+
+[finding.007]
+file = "programs/README.md"
+line = 27
+class = "doc-drift"
+severity = "medium"
+observed = "The settlement bullets say LayerX separately orders and executes activity and periodically settles checkpoints to Paxeer with its own trust/build boundary, presenting pre-merge architecture as current."
+expected = "The merged network is one BFT Paxeer chain 125 with the kernel proposing blocks and receipt finality at block commit; node RPC is at the root and px methods belong to the hosted gateway."
+proposal = "Rewrite the settlement section in programs/README.md around the kernel within paxd, committed blocks, chain 125 and current node/gateway RPC ownership; remove periodic-checkpoint deployment guidance."
+owner_domain = 13
+
+[finding.008]
+file = "programs/README.md"
+line = 47
+class = "doc-drift"
+severity = "medium"
+observed = "The workspace table and line 99 onward describe layerx-programs-protocol-adapter and read_program_state as a live read bridge, although workspace membership removed it and requirement 9973.1 moves agent balances to eth_call on 0x101D."
+expected = "Workspace guidance must identify live Programs precompile and chain-evidence read paths and distinguish any retained historical adapter sources from deployed interfaces."
+proposal = "Replace the adapter table row and core-crate paragraph in programs/README.md with precompiles/layerxprograms and registry chain-proof reads, including how callers obtain balances through eth_call at 0x101D."
+owner_domain = 13
+
+[finding.009]
+file = "docs/site/docs/programs/index.md"
+line = 17
+class = "doc-drift"
+severity = "medium"
+observed = "The introduction says LXT-20 codecs and the payments-merchant example are absent. programs/sdk/rust/src/lxt20.rs and examples/payments-merchant exist and runtime fixture tests execute them; the wiki also contradicts its own later LXT20 section."
+expected = "Integrators must be directed to implemented codecs, payments helpers and the merchant example with their real capability and native verification contracts."
+proposal = "Rewrite the absent-feature claims in docs/site/docs/programs/index.md to link programs/sdk/rust/src/lxt20.rs, src/payments.rs and examples/payments-merchant, preserving the guest-state/native-asset distinction and fixture guidance."
+owner_domain = 13
+
+[finding.010]
+file = "docs/site/docs/programs/index.md"
+line = 298
+class = "doc-drift"
+severity = "medium"
+observed = "The ABI section says crate-root ABI_VERSION is 2, admission accepts only 1 and 2 and C CALL caps at 2; the frozen section requires the root to remain 2. Runtime defaults to ABI 4, explicitly admits 1 through 5 and has five frozen vectors."
+expected = "Documentation must distinguish default guest ABI 4, explicit admission 1 through 5, published interface descriptors 1 through 4 and the separate module/protocol version domains."
+proposal = "Update the ABI matrix and frozen-vector guidance in docs/site/docs/programs/index.md from SDK abi_policy.rs, runtime lib.rs, ffi_interface.rs and programs/abi-frozen.sha256, including version-specific imports and actual registration constraints."
+owner_domain = 13
+
+[finding.011]
+file = "docs/site/docs/programs/index.md"
+line = 137
+class = "doc-drift"
+severity = "medium"
+observed = "The simulation section cites cmd/layerxd/lxp_daemon_lni.c, lxp_daemon_lni_simulate and send_simulate as live handlers and describes the retired daemon/LNI simulation flow."
+expected = "The merged network has no running layerxd or separate LayerX interface. Simulation instructions must identify an actually registered node or hosted gateway contract with its real fee and response semantics."
+proposal = "Replace the retired simulation walkthrough in docs/site/docs/programs/index.md with the supported Programs simulation path and registered contract; state explicitly when an operation is unsupported instead of routing callers to deleted daemon handlers."
+owner_domain = 13
+
+[finding.012]
+file = "docs/wiki/Programs.md"
+line = 17
+class = "doc-drift"
+severity = "medium"
+observed = "The introduction says LXT-20 codecs and the payments-merchant example are absent. programs/sdk/rust/src/lxt20.rs and examples/payments-merchant exist and runtime fixture tests execute them; the wiki also contradicts its own later LXT20 section."
+expected = "Integrators must be directed to implemented codecs, payments helpers and the merchant example with their real capability and native verification contracts."
+proposal = "Rewrite the absent-feature claims in docs/wiki/Programs.md to link programs/sdk/rust/src/lxt20.rs, src/payments.rs and examples/payments-merchant, preserving the guest-state/native-asset distinction and fixture guidance."
+owner_domain = 13
+
+[finding.013]
+file = "docs/wiki/Programs.md"
+line = 300
+class = "doc-drift"
+severity = "medium"
+observed = "The ABI section says crate-root ABI_VERSION is 2, admission accepts only 1 and 2 and C CALL caps at 2; the frozen section requires the root to remain 2. Runtime defaults to ABI 4, explicitly admits 1 through 5 and has five frozen vectors."
+expected = "Documentation must distinguish default guest ABI 4, explicit admission 1 through 5, published interface descriptors 1 through 4 and the separate module/protocol version domains."
+proposal = "Update the ABI matrix and frozen-vector guidance in docs/wiki/Programs.md from SDK abi_policy.rs, runtime lib.rs, ffi_interface.rs and programs/abi-frozen.sha256, including version-specific imports and actual registration constraints."
+owner_domain = 13
+
+[finding.014]
+file = "docs/wiki/Programs.md"
+line = 136
+class = "doc-drift"
+severity = "medium"
+observed = "The simulation section cites cmd/layerxd/lxp_daemon_lni.c, lxp_daemon_lni_simulate and send_simulate as live handlers and describes the retired daemon/LNI simulation flow."
+expected = "The merged network has no running layerxd or separate LayerX interface. Simulation instructions must identify an actually registered node or hosted gateway contract with its real fee and response semantics."
+proposal = "Replace the retired simulation walkthrough in docs/wiki/Programs.md with the supported Programs simulation path and registered contract; state explicitly when an operation is unsupported instead of routing callers to deleted daemon handlers."
+owner_domain = 13
+
+[finding.015]
+file = "docs/site/docs/programs/workspace.md"
+line = 15
+class = "doc-drift"
+severity = "medium"
+observed = "The guide lists the retired protocol-adapter as a member, claims the generator requires root ABI 2 at line 37, shows only two frozen baselines and describes programs-differential using cmd/layerxd/lxp_daemon_batch_wal.c at line 156."
+expected = "The workspace guide must reflect current Cargo membership, generator checks, five frozen vectors and actual qualification targets without a retired daemon dependency."
+proposal = "Rebuild the source-backed descriptions in docs/site/docs/programs/workspace.md from programs/Cargo.toml, scripts/programs/generate-abi-vectors.py, programs/abi-frozen.sha256 and current Makefile dependencies; replace adapter/daemon instructions with the merged host path."
+owner_domain = 13
+
+[finding.016]
+file = "docs/wiki/ProgramsWorkspace.md"
+line = 15
+class = "doc-drift"
+severity = "medium"
+observed = "The guide lists the retired protocol-adapter as a member, claims the generator requires root ABI 2 at line 37, shows only two frozen baselines and describes programs-differential using cmd/layerxd/lxp_daemon_batch_wal.c at line 156."
+expected = "The workspace guide must reflect current Cargo membership, generator checks, five frozen vectors and actual qualification targets without a retired daemon dependency."
+proposal = "Rebuild the source-backed descriptions in docs/wiki/ProgramsWorkspace.md from programs/Cargo.toml, scripts/programs/generate-abi-vectors.py, programs/abi-frozen.sha256 and current Makefile dependencies; replace adapter/daemon instructions with the merged host path."
+owner_domain = 13
+
+[finding.017]
+file = "docs/site/docs/index.md"
+line = 11
+class = "doc-drift"
+severity = "medium"
+observed = "The landing page describes ordinary LayerX execution periodically checkpointed to separate Paxeer custody/finality and presents their interface/deployment separation as current architecture."
+expected = "There is one BFT Paxeer chain 125, the kernel is inside the network, receipts are final at committed blocks and node root RPC is distinct from hosted gateway px methods."
+proposal = "Rewrite the architecture, finality and operation introduction in docs/site/docs/index.md around the merged paxd/kernel chain, committed receipt semantics and actual node/gateway endpoints; remove separate checkpoint and interface claims."
+owner_domain = 17
+
+[finding.018]
+file = "docs/wiki/Home.md"
+line = 7
+class = "doc-drift"
+severity = "medium"
+observed = "The landing page describes ordinary LayerX execution periodically checkpointed to separate Paxeer custody/finality and presents their interface/deployment separation as current architecture."
+expected = "There is one BFT Paxeer chain 125, the kernel is inside the network, receipts are final at committed blocks and node root RPC is distinct from hosted gateway px methods."
+proposal = "Rewrite the architecture, finality and operation introduction in docs/wiki/Home.md around the merged paxd/kernel chain, committed receipt semantics and actual node/gateway endpoints; remove separate checkpoint and interface claims."
+owner_domain = 17
+
+[finding.019]
+file = "docs/system/precompiles.md"
+line = 1172
+class = "doc-drift"
+severity = "medium"
+observed = "The generated catalog presents anchor 0x1014, custody 0x1013 and verification 0x1012 functions as ordinary callable interfaces, including checkpoint, forced-exit and sequencer-proof methods, without their post-plan retirement refusals."
+expected = "The catalog must state anchor ErrModuleRetired and custody/verification LXP_MODULE_DISABLED after the plan height, and direct callers to committed blocks, chain proofs and native funding/bridge operations."
+proposal = "Extend tools/docs/gen/gen_system_docs.py behind tools/docs/gen-system-docs.sh with authoritative retirement status and replacement guidance, then regenerate docs/system/precompiles.md with explicit post-plan behavior."
+owner_domain = 6
+
+[finding.020]
+file = "docs/system/precompiles.md"
+line = 40
+class = "doc-drift"
+severity = "medium"
+observed = "The summary gives layerxprograms address as a dash and its detailed section at line 1494 omits the address, although the merged Programs API is at fixed 0x000000000000000000000000000000000000101D."
+expected = "Developers must be able to find the actual 0x101D deploy, call and query endpoint from the precompile catalog and distinguish it from dynamic pointers."
+proposal = "Fix fixed-address discovery in tools/docs/gen/gen_system_docs.py to resolve Programs registration/constructor addresses, then regenerate docs/system/precompiles.md with 0x101D in summary and detail."
+owner_domain = 13
+
+[finding.021]
+file = "docs/system/sdk.md"
+line = 916
+class = "doc-drift"
+severity = "low"
+observed = "The Rust SDK table invents an item fn of kind const. programs/sdk/rust/src/lib.rs actually exports pub const fn programs_escrow_reference and programs_vault_reference; the generator regex misreads their modifiers."
+expected = "The public SDK catalog must name real functions and their kinds so reference interfaces can be discovered without a nonexistent item named fn."
+proposal = "Correct Rust item extraction in tools/docs/gen/gen_system_docs.py to handle const function modifiers and emit both reference function names, then regenerate docs/system/sdk.md from the SDK root."
+owner_domain = 17
+
+[finding.022]
+file = "programs/crates/layerx-programs-runtime/src/terminal.rs"
+line = 202
+class = "doc-drift"
+severity = "medium"
+observed = "Registry row 13.rs-rt-terminal-decode-terminal-payload and replay/trace rows target contracts/programs.md#runtime-crate, but contracts/programs.md is absent. Their stable encoding and recovery contract is unreadable at the declared registry location."
+expected = "Every stable runtime interface must resolve to an existing authoritative contract defining encodings, allocated versions, refusal fields and recovery/evidence behavior."
+proposal = "Restore contracts/programs.md or migrate the runtime contract targets in spec/layerx-merge/interfaces.kvx to an existing authoritative page with matching anchors and current ABI/refusal semantics."
+owner_domain = 13
+interface = "13.rs-rt-terminal-decode-terminal-payload"
+
+[doc.001]
+path = "docs/site/docs/programs/index.md"
+status = "stale"
+notes = "Lines 17-20 deny implemented features; 90-137 describe retired daemon simulation; 292-317 and 569 retain obsolete ABI root/admission values."
+
+[doc.002]
+path = "docs/wiki/Programs.md"
+status = "stale"
+notes = "Lines 17-19 contradict the later LXT20 section; line 136 cites retired simulation; 300-358 and 610 retain obsolete ABI root/admission guidance."
+
+[doc.003]
+path = "docs/site/docs/programs/workspace.md"
+status = "stale"
+notes = "Line 15 retains retired adapter membership, line 37 requires obsolete root ABI 2, and line 156 prescribes a daemon WAL gate; the baseline list omits ABI 3-5."
+
+[doc.004]
+path = "docs/wiki/ProgramsWorkspace.md"
+status = "stale"
+notes = "The mirror retains adapter membership at line 15, obsolete ABI generator guidance at line 37 and retired daemon gate inputs at line 156."
+
+[doc.005]
+path = "docs/system/precompiles.md"
+status = "misleading"
+notes = "Line 40 omits fixed Programs 0x101D. Lines 1172-1287 and 1554 onward list retired anchor/custody/verification functions without post-plan refusal behavior; repairs belong in the generator."
+
+[doc.006]
+path = "docs/site/docs/index.md"
+status = "stale"
+notes = "Lines 3 and 11-26 present separate interface and checkpoint settlement architecture instead of one BFT chain with commit finality."
+
+[doc.007]
+path = "docs/wiki/Home.md"
+status = "stale"
+notes = "Lines 3 and 7-22 present separate interface/checkpoint settlement; replace these with the merged chain and actual RPC ownership."
+
+[doc.008]
+path = "docs/site/docs/operators/porting.md"
+status = "accurate"
+notes = "Bounded EVM/Solana/CosmWasm translation, source verification, typed refusals and caller-supplied transfer/receipt boundaries agree with the qualification path; examples do not establish persistent node deployment."
+
+[doc.009]
+path = "docs/wiki/Porting.md"
+status = "accurate"
+notes = "The mirror preserves bounded translation and qualification contracts and explicitly leaves kernel transfer and receipt oracles to callers, without exposing a retired daemon route."
+
+[doc.010]
+path = "docs/site/docs/programs/sandbox.md"
+status = "accurate"
+notes = "Lease, fee/billing, trace snapshot, dispute replay and destruction semantics retain explicit resource limits and do not require a separate running daemon."
+
+[doc.011]
+path = "docs/wiki/Sandbox.md"
+status = "accurate"
+notes = "The mirror retains bounded leases and trace/replay evidence semantics; no conflicting live endpoint or retired service instruction was found."
+
+[doc.012]
+path = "docs/system/sdk.md"
+status = "stale"
+notes = "Line 916 invents a Rust item fn by misreading const function modifiers; regenerate with actual public item names and kinds."
+
+[doc.013]
+path = "contracts/programs.md"
+status = "missing"
+notes = "Stable runtime and other Programs registry anchors name this absent page; restore it or migrate the anchors to an existing authoritative contract."

@@ -417,6 +417,9 @@ func less(a, b [3]uint64) bool {
 	return false
 }
 
+// TestIndexer requires PERPS_DATA_TEST_DATABASE_URL for a disposable PostgreSQL
+// database and PERPS_DATA_TEST_RPC and PERPS_DATA_TEST_COMET for the same chain.
+// The chain must retain venue logs and more than 1200 blocks for catch-up.
 func TestIndexer(t *testing.T) {
 	perps, err := perpsabi.ABI()
 	if err != nil {
@@ -830,4 +833,129 @@ func TestIndexer(t *testing.T) {
 			t.Fatalf("market messages %v %v, want %v [index mark mark]", got, kinds, want)
 		}
 	})
+}
+
+// The recovery callback must restore populated persisted projections through
+// Follower continuity recovery, not merely record its Affected argument.
+func TestRepairM_1483_FollowerRecovery(t *testing.T) {
+	t.Setenv(testRPCEnv, "")
+	t.Setenv(testCometEnv, "")
+	db := repair209DB(t)
+	url, assertConsumed := repair209RPC(t)
+	ctx := context.Background()
+	ix, stop := repair209NewFollowerIndexer(t, db, url, "repair1483-follower")
+	if err := ix.acquire(ctx); err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if ix.held.Load() {
+			ix.release(ctx)
+		}
+	}()
+	header, err := ix.rpc.Block(ctx, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	one, fork := repair209Blocks()
+	one.Hash, one.ParentHash, fork.ParentHash = header.Hash, header.ParentHash, header.Hash
+	repair209Write(t, db, one, false)
+	canonical := repair209Snapshot(t, db)
+	unrelated := func(db *sql.DB) map[string]string {
+		t.Helper()
+		rows := make(map[string]string)
+		for _, table := range []string{"positions_current", "orders", "spot_orders", "account_margin", "user_stats", "user_pnl_daily", "leaderboard", "spot_account_legs", "spot_leaderboard"} {
+			var data string
+			if err := db.QueryRow(`SELECT COALESCE(jsonb_agg(v ORDER BY v::text), '[]'::jsonb)::text FROM (SELECT to_jsonb(t) v FROM perps.`+table+` t WHERE account=$1) rows`, repair209Other.Bytes()).Scan(&data); err != nil {
+				t.Fatal(err)
+			}
+			rows[table] = data
+		}
+		return rows
+	}
+	other := unrelated(db)
+	repair209Write(t, db, fork, true)
+	forkState := repair209Snapshot(t, db)
+	for _, table := range []string{"positions_current", "orders", "user_pnl_daily", "market_stats_rolling", "spot_account_legs", "spot_leaderboard"} {
+		if forkState[table] == "[]" {
+			t.Fatalf("fork fixture did not populate %s", table)
+		}
+		if forkState[table] == canonical[table] {
+			t.Fatalf("fork fixture did not change %s", table)
+		}
+	}
+	// Force the recovery to renew a lease that would otherwise expire soon.
+	if _, err := db.Exec(`UPDATE perps.writer_lease SET expires_at=clock_timestamp()+interval '2 seconds' WHERE name=$1 AND holder=$2`, leaseName, ix.holder); err != nil {
+		t.Fatal(err)
+	}
+	if next, err := ix.step(ctx, 3); err != nil || next != 2 {
+		t.Fatalf("rewind next=%d err=%v", next, err)
+	}
+	repair209Equal(t, repair209Snapshot(t, db), canonical)
+	assertOther := func(db *sql.DB) {
+		t.Helper()
+		for table, data := range unrelated(db) {
+			if data != other[table] {
+				t.Errorf("unrelated account changed in %s: got %s want %s", table, data, other[table])
+			}
+		}
+	}
+	assertOther(db)
+	var left float64
+	if err := db.QueryRow(`SELECT EXTRACT(EPOCH FROM expires_at-clock_timestamp()) FROM perps.writer_lease WHERE name=$1 AND holder=$2`, leaseName, ix.holder).Scan(&left); err != nil {
+		t.Fatal(err)
+	}
+	if left < (LeaseTTL - 5*time.Second).Seconds() {
+		t.Fatalf("recovery left only %.1fs on writer lease", left)
+	}
+	if err := ix.checkLease(ctx); err != nil {
+		t.Fatal(err)
+	}
+	var remaining int
+	if err := db.QueryRow(`SELECT count(*) FROM perps.blocks WHERE number>=2`).Scan(&remaining); err != nil || remaining != 0 {
+		t.Fatalf("fork blocks remaining=%d err=%v", remaining, err)
+	}
+	for _, table := range []string{"position_events", "order_events", "trade_settlements", "spot_swaps"} {
+		if err := db.QueryRow(`SELECT count(*) FROM perps.` + table + ` WHERE block>=2`).Scan(&remaining); err != nil || remaining != 0 {
+			t.Fatalf("fork facts in %s=%d err=%v", table, remaining, err)
+		}
+	}
+	var wire []byte
+	if err := db.QueryRow(`SELECT envelope FROM perps.delivery_outbox WHERE subject='perps.125.chain.rewind'`).Scan(&wire); err != nil {
+		t.Fatal(err)
+	}
+	var notification delivery.Envelope
+	if err := json.Unmarshal(wire, &notification); err != nil {
+		t.Fatal(err)
+	}
+	if string(notification.Payload) != `{"from":2}` || notification.PayloadHash != delivery.Hash(notification.Payload) {
+		t.Fatalf("invalid rewind notification: %+v", notification)
+	}
+	ix.release(ctx)
+	stop()
+	if err := db.Close(); err != nil {
+		t.Fatal(err)
+	}
+	reopened, err := store.Open(requireEnv(t, testDatabaseEnv))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer reopened.Close()
+	restarted, stopRestarted := repair209NewFollowerIndexer(t, reopened, url, "repair1483-restarted")
+	defer stopRestarted()
+	if err := restarted.acquire(ctx); err != nil {
+		t.Fatal(err)
+	}
+	defer restarted.release(ctx)
+	if next, err := restarted.resume(ctx); err != nil || next != 2 {
+		t.Fatalf("restart next=%d err=%v", next, err)
+	}
+	repair209Equal(t, repair209Snapshot(t, reopened), canonical)
+	assertOther(reopened)
+	if next, err := restarted.step(ctx, 2); err != nil || next != 4 {
+		t.Fatalf("canonical replay next=%d err=%v", next, err)
+	}
+	if err := reopened.QueryRow(`SELECT count(*) FROM perps.usdl_transfers WHERE block=3 AND account=$1 AND value=7 AND kind='in'`, repair209Other.Bytes()).Scan(&remaining); err != nil || remaining != 1 {
+		t.Fatalf("canonical transfer count=%d err=%v", remaining, err)
+	}
+	assertConsumed()
 }

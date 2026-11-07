@@ -14,6 +14,8 @@ fi
 
 : "${LAYERX_BIN:?set LAYERX_BIN to the built layerx executable}"
 : "${LAYERX_GATEWAY_URL:?set the hosted gateway URL}"
+: "${LAYERX_NODE_RPC_URL:?set the Ethereum node root RPC URL}"
+: "${LAYERX_EVM_KEY_FILE:?set the private wallet derive export for the funded source identity}"
 : "${LAYERX_NETWORK_ID:?set the hosted protocol network id}"
 : "${LAYERX_IDENTITY_TOKEN:?set a short-lived identity session}"
 : "${LAYERX_SIGNING_SEED:?set the funded source Ed25519 seed}"
@@ -34,7 +36,7 @@ case "$LAYERX_MCP_DAEMON_BINDING" in
   /*) ;;
   *) echo "LAYERX_MCP_DAEMON_BINDING must be absolute" >&2; exit 1 ;;
 esac
-for private_input in "$LAYERX_MCP_DAEMON_BINDING" "$LAYERX_MCP_PREPARE_REQUEST_FILE" "$LAYERX_MCP_SIGNER_SEED_FILE"; do
+for private_input in "$LAYERX_MCP_DAEMON_BINDING" "$LAYERX_MCP_PREPARE_REQUEST_FILE" "$LAYERX_MCP_SIGNER_SEED_FILE" "$LAYERX_EVM_KEY_FILE"; do
   if [ ! -f "$private_input" ] || [ -L "$private_input" ] \
     || [ "$(stat -c '%u' "$private_input")" != "$(id -u)" ] \
     || [ $((8#$(stat -c '%a' "$private_input") & 8#077)) -ne 0 ]; then
@@ -236,54 +238,229 @@ for _ in $(seq 1 50); do
 done
 test "$ready" = true
 
-now_ms=$(($(date +%s) * 1000))
-expires_ms=$((now_ms + 120000))
-a2a_idempotency=$(openssl rand -hex 32)
-a2a_request=$(jq -nc \
-  --arg destination "$LAYERX_PAYMENT_DESTINATION" \
-  --arg sequence "$LAYERX_A2A_SEQUENCE" \
-  --arg not_before "$now_ms" \
-  --arg expires "$expires_ms" \
-  --arg idempotency "$a2a_idempotency" \
-  '{jsonrpc:"2.0",id:1,method:"message/send",params:{message:{kind:"message",role:"user",messageId:"install-journey",parts:[{kind:"data",data:{skill:"activity.submit",arguments:{destination:$destination,amount:"1",account_sequence:$sequence,not_before_ms:$not_before,expires_at_ms:$expires,fee_limit:"1000",idempotency_key:$idempotency}}}]}}}')
+a2a_payment="$journey_root/a2a-payment.json"
+python3 - "$LAYERX_EVM_KEY_FILE" >"$a2a_payment" <<'A2A_SIGN'
+import hashlib
+import json
+import os
+import secrets
+import sys
+import time
+import urllib.parse
+import urllib.request
+from pathlib import Path
+
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
+from eth_account import Account
+
+
+def require(condition, reason):
+    if not condition:
+        raise SystemExit('a2a journey: ' + reason)
+
+
+def integer(value, width):
+    return int(value).to_bytes(width, 'big')
+
+
+node = os.environ['LAYERX_NODE_RPC_URL']
+parsed = urllib.parse.urlsplit(node)
+require(parsed.path in ('', '/') and not parsed.query and not parsed.fragment,
+        'the node RPC must be a root endpoint')
+
+
+def rpc(method, params):
+    body = json.dumps({'jsonrpc': '2.0', 'id': 1, 'method': method, 'params': params}).encode()
+    request = urllib.request.Request(node, body, {'Content-Type': 'application/json'})
+    with urllib.request.urlopen(request, timeout=15) as response:
+        value = json.load(response)
+    require(value.get('jsonrpc') == '2.0' and value.get('id') == 1
+            and 'error' not in value and 'result' in value, method + ' refused')
+    return value['result']
+
+
+export = json.loads(Path(sys.argv[1]).read_text())
+signer = Ed25519PrivateKey.from_private_bytes(bytes.fromhex(os.environ['LAYERX_SIGNING_SEED']))
+public = signer.public_key().public_bytes(Encoding.Raw, PublicFormat.Raw)
+require(export['layerx_seed'] == os.environ['LAYERX_SIGNING_SEED']
+        and export['did'] == 'did:layerx:' + public.hex(), 'EVM export belongs to another identity')
+account = Account.from_key(bytes.fromhex(export['evm_private_key']))
+require(account.address.lower() == export['evm_address'].lower(), 'EVM export address mismatch')
+require(int(rpc('eth_chainId', []), 16) == 125, 'expected chain 125')
+source = bytes.fromhex(os.environ['LAYERX_SOURCE_ACCOUNT'])
+destination = bytes.fromhex(os.environ['LAYERX_PAYMENT_DESTINATION'])
+asset = bytes.fromhex(os.environ['LAYERX_PAYMENT_ASSET'])
+require(source != destination, 'source and destination must differ')
+ledger = '0x000000000000000000000000000000000000101a'
+
+
+def read(selector, arguments):
+    result = rpc('eth_call', [{'to': ledger, 'data': '0x' + selector + arguments.hex()}, 'pending'])
+    decoded = bytes.fromhex(result.removeprefix('0x'))
+    require(len(decoded) == 32, 'ledger read returned a non-word result')
+    return decoded
+
+
+require(read('37955ab2', source) == public, 'source is not controlled by the installed signer')
+source_sequence = int.from_bytes(read('ce2f921f', source + asset), 'big')
+require(source_sequence == int(os.environ['LAYERX_A2A_SEQUENCE']), 'source sequence changed')
+require(int.from_bytes(read('b1ffc03e', source + asset), 'big') >= 1, 'source account is not funded')
+nonce = int(rpc('eth_getTransactionCount', [account.address, 'pending']), 16)
+expiry = int(time.time() * 1000) + 120000
+idempotency = secrets.token_bytes(32)
+context = hashlib.sha256(b'LXP/v1/context-hash\0' + source + destination + asset
+                         + integer(1, 16) + idempotency).digest()
+common = (source + destination + asset + integer(1, 16) + integer(source_sequence, 8)
+          + idempotency + integer(expiry, 8) + context + b'\0')
+network = int(os.environ['LAYERX_NETWORK_ID'])
+authority = b'\1' + source
+scope = context + integer(network, 4) + integer(3, 2)
+authorization = integer(0x5301, 2) + common + authority + scope
+digest = hashlib.sha256(b'LXP/v1/signature-preimage\0' + authorization).digest()
+signature = signer.sign(digest)
+signer.public_key().verify(signature, digest)
+payload = integer(0x5301, 2) + integer(10, 2) + common + authority + public + signature + scope
+calldata = (bytes.fromhex('2bb1ae7c') + integer(32, 32) + integer(len(payload), 32)
+            + payload + bytes((-len(payload)) % 32))
+gas_price = int(rpc('eth_gasPrice', []), 16)
+priority = int(rpc('eth_maxPriorityFeePerGas', []), 16)
+require(gas_price > 0, 'zero gas price')
+max_fee = gas_price * 2 + priority
+transaction = {'type': 2, 'chainId': 125, 'nonce': nonce, 'to': ledger, 'value': 0,
+               'data': '0x' + calldata.hex(), 'gas': 300000,
+               'maxPriorityFeePerGas': priority, 'maxFeePerGas': max_fee, 'accessList': []}
+estimate = dict(transaction)
+for field in ('type', 'chainId', 'nonce', 'value', 'gas', 'maxPriorityFeePerGas', 'maxFeePerGas'):
+    estimate[field] = hex(estimate[field])
+estimate['from'] = account.address
+estimated = int(rpc('eth_estimateGas', [estimate, 'pending']), 16)
+require(0 < estimated <= transaction['gas'], 'gas estimate exceeds the disclosed bound')
+transaction['gas'] = estimated
+require(int(rpc('eth_getBalance', [account.address, 'pending']), 16) >= estimated * max_fee,
+        'EVM sender is not funded for the maximum gas charge')
+disclosure = {'from': account.address, 'to': ledger, 'source': source.hex(),
+              'destination': destination.hex(), 'asset': asset.hex(), 'amount': '1',
+              'source_account_sequence': str(source_sequence), 'evm_nonce': str(nonce),
+              'expires_at_ms': str(expiry), 'idempotency_key': idempotency.hex(),
+              'chain_id': 125, 'gas': estimated, 'max_fee_per_gas': str(max_fee),
+              'max_priority_fee_per_gas': str(priority), 'data': transaction['data']}
+print(json.dumps({'a2a_disclosure': disclosure}), file=sys.stderr)
+signed = Account.sign_transaction(transaction, account.key)
+require(Account.recover_transaction(signed.raw_transaction).lower() == account.address.lower(),
+        'signed transaction sender differs from the disclosure')
+print(json.dumps({'raw_transaction': '0x' + signed.raw_transaction.hex(),
+                  'txHash': '0x' + signed.hash.hex(), 'disclosure': disclosure}))
+A2A_SIGN
+
+a2a_request=$(jq -nc --slurpfile payment "$a2a_payment" \
+  '{jsonrpc:"2.0",id:1,method:"message/send",params:{message:{kind:"message",role:"user",messageId:"install-journey",parts:[{kind:"data",data:{skill:"activity.submit",arguments:{raw_transaction:$payment[0].raw_transaction}}}]}}}')
+unauthorized=$(curl --silent --show-error --output "$journey_root/a2a-unauthorized.json" \
+  --write-out '%{http_code}' -H 'Content-Type: application/json' \
+  --data "$a2a_request" "http://127.0.0.1:$a2a_port/")
+test "$unauthorized" = 401
 a2a_response=$(curl --fail-with-body --silent --show-error \
   -H 'Content-Type: application/json' -H "Authorization: Bearer $a2a_authorization" \
   --data "$a2a_request" "http://127.0.0.1:$a2a_port/")
-a2a_activity=$(printf '%s' "$a2a_response" | \
-  jq -er '.result.artifacts[0].parts[0].data.result.gateway.result.activity_id')
-[[ "$a2a_activity" =~ $hex32 ]]
+a2a_transaction=$(printf '%s' "$a2a_response" | \
+  jq -er --slurpfile payment "$a2a_payment" '
+  select(.result.status.state == "submitted") | .result.artifacts[0].parts[0].data.result
+  | select(.rung == "submitted" and .txHash == $payment[0].txHash) | .txHash')
+[[ "$a2a_transaction" =~ ^0x[0-9a-f]{64}$ ]]
 
-receipt_request=$(jq -nc --arg activity "$a2a_activity" \
-  '{jsonrpc:"2.0",id:2,method:"message/send",params:{message:{kind:"message",role:"user",messageId:"install-journey-receipt",parts:[{kind:"data",data:{skill:"receipt.get",arguments:{activity_id:$activity}}}]}}}')
+receipt_request=$(jq -nc --arg transaction "$a2a_transaction" \
+  '{jsonrpc:"2.0",id:2,method:"message/send",params:{message:{kind:"message",role:"user",messageId:"install-journey-receipt",parts:[{kind:"data",data:{skill:"receipt.get",arguments:{activity_id:$transaction}}}]}}}')
 receipt_document=
 for _ in $(seq 1 90); do
   receipt_response=$(curl --fail-with-body --silent --show-error \
     -H 'Content-Type: application/json' -H "Authorization: Bearer $a2a_authorization" \
     --data "$receipt_request" "http://127.0.0.1:$a2a_port/")
-  if printf '%s' "$receipt_response" | jq -e '.result.status.state == "completed"' >/dev/null; then
-    receipt_document=$(printf '%s' "$receipt_response" | jq -ec '.result.artifacts[0].parts[0].data.result.result')
+  if printf '%s' "$receipt_response" | jq -e --arg transaction "$a2a_transaction" '
+    .result.status.state == "completed" and
+    (.result.artifacts[0].parts[0].data.result |
+      .txHash == $transaction and (.rung == "receipted" or .rung == "committed") and .status == "0x1")' >/dev/null; then
+    receipt_document=$(printf '%s' "$receipt_response" | jq -ec '.result.artifacts[0].parts[0].data.result')
     break
   fi
   sleep 2
 done
 test -n "$receipt_document"
-printf '%s' "$receipt_document" | jq -e \
-  --arg activity "$a2a_activity" --arg asset "$LAYERX_PAYMENT_ASSET" \
-  --arg sequencer "$LAYERX_SEQUENCER_PUBLIC_KEY" '
-  .activity_id == $activity and .authority.asset == $asset
-  and .authority.sequencer_public_key == $sequencer and (.receipt | test("^[0-9a-f]+$"))' >/dev/null
-printf '%s' "$receipt_document" | jq -er '.receipt' >"$journey_root/a2a-receipt.hex"
+printf '%s\n' "$receipt_document" >"$journey_root/a2a-served-receipt.json"
+python3 - "$a2a_payment" "$journey_root/a2a-served-receipt.json" "$journey_root" <<'A2A_RECEIPT'
+import hashlib
+import json
+import os
+import sys
+import time
+import urllib.request
+from pathlib import Path
+
+payment = json.loads(Path(sys.argv[1]).read_text())
+served = json.loads(Path(sys.argv[2]).read_text())
+root = Path(sys.argv[3])
+transaction = payment['txHash']
+disclosure = payment['disclosure']
+
+
+def rpc(method, params):
+    request = urllib.request.Request(os.environ['LAYERX_NODE_RPC_URL'],
+        json.dumps({'jsonrpc': '2.0', 'id': 1, 'method': method, 'params': params}).encode(),
+        {'Content-Type': 'application/json'})
+    with urllib.request.urlopen(request, timeout=15) as response:
+        result = json.load(response)
+    if result.get('jsonrpc') != '2.0' or result.get('id') != 1 or 'error' in result:
+        raise SystemExit('node receipt reconciliation refused: ' + method)
+    return result['result']
+
+
+actual = rpc('pax_sequencerReceipt', [transaction])
+if actual['txHash'] != transaction or actual['receipt'] != served['receipt'] or actual['status'] != '0x1':
+    raise SystemExit('A2A receipt differs from the actual node receipt')
+canonical = bytes.fromhex(actual['receipt'].removeprefix('0x'))
+if (canonical[:6] != b'\0\2R\1\0\2' or canonical[6:10] != b'\0\0\0\x20'
+        or canonical[10:42].hex() != transaction[2:]
+        or actual['from'].lower() != disclosure['from'].lower()
+        or int(actual['nonce'], 16) != int(disclosure['evm_nonce'])):
+    raise SystemExit('receipt does not bind the disclosed signed transaction')
+if actual['signingKey'].removeprefix('0x') != os.environ['LAYERX_SEQUENCER_PUBLIC_KEY']:
+    raise SystemExit('receipt does not use the independently pinned sequencer key')
+deadline = time.monotonic() + 180
+while True:
+    landed = rpc('eth_getTransactionReceipt', [transaction])
+    if landed is not None:
+        if landed['transactionHash'] != transaction or landed['status'] != '0x1':
+            raise SystemExit('node transaction receipt reports another transaction or a revert')
+        break
+    if time.monotonic() >= deadline:
+        raise SystemExit('transaction did not land before the receipt deadline')
+    time.sleep(2)
+source = bytes.fromhex(disclosure['source'])
+asset = bytes.fromhex(disclosure['asset'])
+sequence = rpc('eth_call', [{'to': disclosure['to'],
+    'data': '0xce2f921f' + (source + asset).hex()}, 'latest'])
+if int(sequence, 16) != int(disclosure['source_account_sequence']) + 1:
+    raise SystemExit('source account sequence did not advance independently')
+nonce = rpc('eth_getTransactionCount', [disclosure['from'], 'latest'])
+if int(nonce, 16) <= int(disclosure['evm_nonce']):
+    raise SystemExit('EVM sender nonce did not advance')
+(root / 'a2a-receipt.hex').write_text(canonical.hex())
+(root / 'a2a-receipt-authority.json').write_text(json.dumps({
+    'batch_id': int(actual['height'], 16).to_bytes(32, 'big').hex(),
+    'asset': hashlib.sha256(actual['paymentDenom'].encode()).hexdigest(),
+    'previous_state_root': canonical[54:86].hex(),
+    'resulting_state_root': canonical[90:122].hex()}))
+A2A_RECEIPT
 "$LAYERX_BIN" --json receipt verify --receipt "$journey_root/a2a-receipt.hex" \
-  --batch-id "$(printf '%s' "$receipt_document" | jq -er '.authority.batch_id')" \
-  --asset "$LAYERX_PAYMENT_ASSET" \
-  --previous-state-root "$(printf '%s' "$receipt_document" | jq -er '.authority.previous_state_root')" \
-  --resulting-state-root "$(printf '%s' "$receipt_document" | jq -er '.authority.resulting_state_root')" \
+  --batch-id "$(jq -er '.batch_id' "$journey_root/a2a-receipt-authority.json")" \
+  --asset "$(jq -er '.asset' "$journey_root/a2a-receipt-authority.json")" \
+  --previous-state-root "$(jq -er '.previous_state_root' "$journey_root/a2a-receipt-authority.json")" \
+  --resulting-state-root "$(jq -er '.resulting_state_root' "$journey_root/a2a-receipt-authority.json")" \
   --sequencer-public-key "$LAYERX_SEQUENCER_PUBLIC_KEY" \
-  | jq -e --arg activity "$a2a_activity" \
+  | jq -e --arg activity "${a2a_transaction#0x}" \
     '.data.verified == true and .data.activity_id == $activity and .data.result_code == 0' >/dev/null
 
 "$LAYERX_BIN" --json a2a status | jq -e '.data.state == "running"' >/dev/null
 "$LAYERX_BIN" --json a2a stop | jq -e '.data.state == "stopped"' >/dev/null
 
-jq -nrc --slurpfile mcp "$mcp_payment" --arg a2a "$a2a_activity" \
-  '"INSTALL_JOURNEY_RESULT " + ({tests: 7, skipped: 0, mcp_activity: $mcp[0].activity_id, a2a_activity: $a2a} | tojson)'
+jq -nrc --slurpfile mcp "$mcp_payment" --arg a2a "$a2a_transaction" \
+  '"INSTALL_JOURNEY_RESULT " + ({tests: 7, skipped: 0, mcp_activity: $mcp[0].activity_id, a2a_transaction: $a2a} | tojson)'

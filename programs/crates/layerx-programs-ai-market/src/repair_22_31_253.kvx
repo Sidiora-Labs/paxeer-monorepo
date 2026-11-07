@@ -1,0 +1,57 @@
+[meta]
+task = "22.31.253"
+audit = "22.30.122"
+acceptance = "22998.1"
+qualification = "hf-build then hf-done; exact candidate revision and private logs are recorded by the runner gate ledger"
+baseline = "NOT_RUN: the ordered BUILD instructions prohibit verification before implementation; no pre-change failing test result is claimed"
+
+[finding.header-omits-opened-epoch]
+test = "repair_22_31_253::header_omits_opened_epoch"
+path = "Routed CREATE/enrollment/OpenEpoch -> routed READ_HEADER/chunks -> StateCapture -> SnapshotBinding transport decoder -> persisted capture reopen; F08/F06 disagreement refuses WRONG_ROSTER"
+
+[finding.availability-hides-enabled-features]
+test = "repair_22_31_253::availability_hides_enabled_features"
+path = "Routed lifecycle/evidence/commit/reveal/aggregation/rewards -> shared indexer project_capture codec -> persisted availability/rows reopen; absent, unsupported and unavailable content are distinguished"
+
+[finding.participant-projection-drops-market-state]
+test = "repair_22_31_253::participant_projection_drops_market_state"
+path = "Opened and terminal producer state -> indexer project_capture -> canonical participant row transport -> persisted capture reopen; supplied rosters must match the opening"
+
+[finding.reputation-region-never-created]
+test = "repair_22_31_253::reputation_region_never_created"
+path = "Routed CREATE initializes RP07; authorized enrollment and two opened/scored/settled epochs accumulate durable history without fixture insertion; state and projected history reopen"
+
+[finding.aggregation-reconstructs-mutable-roster]
+test = "repair_22_31_253::aggregation_reconstructs_mutable_roster"
+path = "OpenEpoch persists complete worker entries in the F03 snapshot; routed metadata/delegate updates -> state reopen -> Begin/Process/reopen/Finalize retain the original roster and generation and settle the reserved budget"
+
+[finding.task-admission-uses-next-epoch-attributes]
+test = "repair_22_31_253::task_admission_uses_next_epoch_attributes"
+path = "Two real opened epochs -> next-epoch metadata/delegate publication -> admissions for unchanged and rotated workers before/after reopen use frozen metadata; live revocation still refuses"
+
+[finding.build-default-targets-chain-229]
+test = "repair_22_31_253::build_default_targets_chain_229"
+path = "Deployment defaults to merged_chain_domain(125), rejects foreign build overrides, and routed reads refuse a chain-229 envelope; chain_domain.rs retains external packaging assertions pinned to chain 125"
+
+[wiring.makefile]
+request = "Makefile: owning Programs/deployment domain must derive PAXAI_CHAIN_DOMAIN from chain-125 activation configuration and cross-check merged_chain_domain(125) before guest packaging."
+
+[wiring.packaging]
+request = "programs packaging targets in Makefile: owning Programs/deployment domain must pass the chain-125 activation domain; an explicit chain-229 override now refuses WRONG_DOMAIN."
+
+[wiring.ci]
+request = "tests/ci/test_paxai_chain_domain.py: owning CI/Programs domain must pin chain 125 and domain 62b6b14734fa769c3e0fbc94de495a3d038be49a2524b1c071d75d0a4eed71f6; the retained chain_domain.rs external assertions cannot pass until this and Makefile are updated."
+
+[wiring.indexer-qualification]
+request = "services/platform/hosted/indexer/Cargo.toml: owning hosted-indexer domain must qualify ProjectionStore SQLite reopen with its own dependency graph; this gate exercises the actual shared indexer projection/transport codec with persisted capture, availability and row reopen, without claiming a SQLite or HTTP gate."
+
+[compatibility]
+snapshot = "F03 snapshot tag 2 adds complete canonical WorkerRosterEntry values within existing identity/common state caps; legacy tag 1 decodes but cannot certify a missing immutable worker snapshot, so opening consumers refuse WRONG_ROSTER rather than reconstruct mutable identity."
+
+[qualification.initial]
+revision = "9f419a4e82011fdb59564b5484c495116e762845"
+command = "cg spec done 22.31.253 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "All seven regression cases refused a noncanonical shared read envelope before reaching their lifecycle assertions."
+repair = "Use canonical read binding fields; preserve immutable workers in report admission and reputation completion; validate slot-free no-score terminal snapshots and project their actual zero entitlement, with routed reopen/next-opening coverage."

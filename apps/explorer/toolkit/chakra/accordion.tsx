@@ -4,10 +4,18 @@ import { scroller } from 'react-scroll';
 
 import IndicatorIcon from 'icons/arrows/east-mini.svg';
 
+import { recipe as accordionRecipe } from '../theme/recipes/accordion.recipe';
+import { withRecipe, type WithRecipeProps } from './recipe-props';
+
+type RecipeRootProps = WithRecipeProps<Accordion.RootProps, typeof accordionRecipe>;
+const RecipeRoot = withRecipe(Accordion.Root, accordionRecipe);
+
+export interface AccordionRootProps extends RecipeRootProps {}
+
 interface AccordionItemTriggerProps extends Accordion.ItemTriggerProps {
   indicatorPlacement?: 'start' | 'end';
   noIndicator?: boolean;
-  variant?: Accordion.RootProps['variant'];
+  variant?: RecipeRootProps['variant'];
 }
 
 export const AccordionItemTrigger = React.forwardRef<
@@ -84,9 +92,9 @@ export const AccordionItemContent = React.forwardRef<
   );
 });
 
-export const AccordionRoot = (props: Accordion.RootProps) => {
+export const AccordionRoot = (props: AccordionRootProps) => {
   const { multiple = true, ...rest } = props;
-  return <Accordion.Root multiple={ multiple } { ...rest }/>;
+  return <RecipeRoot multiple={ multiple } { ...rest }/>;
 };
 
 export const AccordionItem = Accordion.Item;

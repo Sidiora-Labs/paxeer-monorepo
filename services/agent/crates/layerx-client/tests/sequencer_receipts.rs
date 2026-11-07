@@ -231,47 +231,29 @@ fn unknown_transaction_receipt_is_none_and_a_bad_status_is_malformed() {
 
 #[test]
 fn decode_receipt_reads_the_served_signing_key() {
-    let hash = [0xab; 32];
-    let signing_key = ed25519_dalek::SigningKey::from_bytes(&[8; 32])
-        .verifying_key()
-        .to_bytes();
-    let receipted = json!({
-        "rung": "receipted",
-        "txHash": hex(&hash),
-        "nonce": "0x7",
-        "seq": "0x2a",
-        "height": "0x3e8",
-        "index": "0x3",
-        "timestamp": "0x67a1b2c3",
-        "status": "0x1",
-        "returnData": "0x",
-        "logs": [],
-        "gasUsed": "0x5208",
-        "cumulativeGasUsed": "0xa410",
-        "effectiveGasPrice": "0x3b9aca00",
-        "feeDenom": "upax",
-        "feeAmount": "0x1312d00000000",
-        "sponsor": hex(&[0; 20]),
-        "from": hex(&[0x12; 20]),
-        "to": hex(&[0x34; 20]),
-        "contractAddress": hex(&[0; 20]),
-        "vmError": "",
-        "keyId": hex(&[1; 32]),
-        "receipt": "0x00025201000200aabbccdd",
-        "signingKey": hex(&signing_key)
-    });
-    assert_eq!(receipted.as_object().must().len(), 23);
+    let fixture: Value = serde_json::from_str(include_str!(
+        "../../../../../sdk/platform/conformance/fixtures/sequencer-receipt-v1.json"
+    ))
+    .must();
+    assert_eq!(
+        fixture["provenance"]["generator"],
+        "rpc/sequencer_receipt_vectors_test.go"
+    );
+    let receipted = fixture["cases"][0]["receiptJson"].clone();
+    let hash: [u8; 32] = decode_hex(&receipted["txHash"]).try_into().must();
+    let signing_key: [u8; 32] = decode_hex(&receipted["signingKey"]).try_into().must();
+    assert_eq!(receipted.as_object().must().len(), 24);
     let mut missing_key = receipted.clone();
     assert_eq!(
         missing_key.as_object_mut().must().remove("signingKey"),
         Some(json!(hex(&signing_key)))
     );
-    assert_eq!(missing_key.as_object().must().len(), 22);
+    assert_eq!(missing_key.as_object().must().len(), 23);
     let mut committed = receipted.clone();
     committed["rung"] = json!("committed");
     committed["blockNumber"] = json!("0x3e8");
     committed["blockHash"] = json!(hex(&[0xcd; 32]));
-    assert_eq!(committed.as_object().must().len(), 25);
+    assert_eq!(committed.as_object().must().len(), 26);
     let mut committed_missing_key = committed.clone();
     assert!(committed_missing_key
         .as_object_mut()
@@ -300,6 +282,8 @@ fn decode_receipt_reads_the_served_signing_key() {
     };
     assert_eq!(execution.tx_hash, hash);
     assert_eq!(execution.signing_key, signing_key);
+    assert_eq!(execution.payment_denom, "uhpx");
+    assert_eq!(execution.fee_denom, "uhpx");
     assert_eq!(
         endpoint.sequencer_receipt(&hash),
         Err(SequencerError::Malformed)
@@ -319,4 +303,145 @@ fn decode_receipt_reads_the_served_signing_key() {
         );
     }
     assert_eq!(server.join().must(), vec![json!([hex(&hash)]); 6]);
+}
+
+fn decode_hex(value: &Value) -> Vec<u8> {
+    let text = value.as_str().must().strip_prefix("0x").must();
+    assert_eq!(text.len() % 2, 0);
+    text.as_bytes()
+        .chunks_exact(2)
+        .map(|pair| u8::from_str_radix(std::str::from_utf8(pair).must(), 16).must())
+        .collect()
+}
+
+#[test]
+fn fee_token_receipt_preserves_payment_and_fee_denominations() {
+    use sha2::{Digest as _, Sha256};
+
+    let fixture: Value = serde_json::from_str(include_str!(
+        "../../../../../sdk/platform/conformance/fixtures/sequencer-receipt-v1.json"
+    ))
+    .must();
+    let fee_token_fixture: Value = serde_json::from_str(include_str!(
+        "../../../../../sdk/platform/conformance/fixtures/sequencer-receipt-fee-token-v1.json"
+    ))
+    .must();
+    assert_eq!(
+        fee_token_fixture["provenance"]["generator"],
+        "rpc/sequencer_receipt_vectors_test.go"
+    );
+    let case = &fee_token_fixture["cases"][0];
+    assert_eq!(case["id"], "V1-fee-token-payment");
+    let mut view = fixture["cases"][0]["receiptJson"].clone();
+    view["paymentDenom"] = case["paymentDenom"].clone();
+    view["feeDenom"] = case["feeDenom"].clone();
+    view["receipt"] = case["signedReceipt"].clone();
+    let hash = decode_hex(&view["txHash"]).try_into().must();
+    let (url, server) = serve("pax_sequencerReceipt", vec![view]);
+    let endpoint = SequencerEndpoint::new(&url, &[]).must();
+    let Some(SequencerReceipt::Receipted(execution)) = endpoint.sequencer_receipt(&hash).must()
+    else {
+        panic!("expected a receipted answer");
+    };
+    assert_eq!(execution.payment_denom(), "usid");
+    assert_eq!(execution.fee_denom, "uhpx");
+    assert_eq!(execution.receipt, decode_hex(&case["signedReceipt"]));
+    assert_eq!(
+        layerx_wire::receipt::decode(&execution.receipt)
+            .must()
+            .protocol()
+            .must()
+            .asset(),
+        <[u8; 32]>::from(Sha256::digest(b"usid"))
+    );
+    assert_eq!(server.join().must(), vec![json!([hex(&hash)])]);
+}
+
+#[test]
+fn payment_denom_is_required_bounded_and_matches_the_receipt_asset() {
+    use sha2::{Digest as _, Sha256};
+
+    let fixture: Value = serde_json::from_str(include_str!(
+        "../../../../../sdk/platform/conformance/fixtures/sequencer-receipt-v1.json"
+    ))
+    .must();
+    let view = fixture["cases"][0]["receiptJson"].clone();
+    let hash: [u8; 32] = decode_hex(&view["txHash"]).try_into().must();
+    let canonical = decode_hex(&view["receipt"]);
+    let asset: [u8; 32] = Sha256::digest(b"uhpx").into();
+    assert_eq!(
+        layerx_wire::receipt::decode(&canonical)
+            .must()
+            .protocol()
+            .must()
+            .asset(),
+        asset
+    );
+    let mut results = vec![view.clone()];
+    for rung in ["receipted", "committed"] {
+        let mut valid = view.clone();
+        valid["rung"] = json!(rung);
+        if rung == "committed" {
+            valid["blockNumber"] = json!("0x3e8");
+            valid["blockHash"] = json!(hex(&[0xcd; 32]));
+        }
+        let mut missing = valid.clone();
+        assert!(missing
+            .as_object_mut()
+            .must()
+            .remove("paymentDenom")
+            .is_some());
+        results.push(missing);
+        for value in [
+            Value::Null,
+            json!(7),
+            json!(""),
+            json!("x".repeat(65)),
+            json!("é".repeat(33)),
+            json!("usid"),
+        ] {
+            let mut invalid = valid.clone();
+            invalid["paymentDenom"] = value;
+            results.push(invalid);
+        }
+        let mut fee_asset = valid;
+        fee_asset["feeDenom"] = json!("usid");
+        let mut wrong_asset = canonical.clone();
+        let offset = wrong_asset
+            .windows(32)
+            .position(|bytes| bytes == asset)
+            .must();
+        wrong_asset[offset..offset + 32].copy_from_slice(&Sha256::digest(b"usid"));
+        assert_eq!(
+            layerx_wire::receipt::decode(&wrong_asset)
+                .must()
+                .protocol()
+                .must()
+                .asset(),
+            <[u8; 32]>::from(Sha256::digest(b"usid"))
+        );
+        fee_asset["receipt"] = json!(hex(&wrong_asset));
+        results.push(fee_asset);
+    }
+    let mut submitted = json!({"rung": "submitted", "txHash": hex(&hash), "nonce": "0x0"});
+    submitted["paymentDenom"] = json!("uhpx");
+    results.push(submitted);
+    let count = results.len();
+    let (url, server) = serve("pax_sequencerReceipt", results);
+    let endpoint = SequencerEndpoint::new(&url, &[]).must();
+    let Some(SequencerReceipt::Receipted(execution)) = endpoint.sequencer_receipt(&hash).must()
+    else {
+        panic!("expected a receipted answer");
+    };
+    assert_eq!(execution.payment_denom(), "uhpx");
+    assert_eq!(execution.fee_denom, "uhpx");
+    assert_eq!(execution.receipt, canonical);
+    for index in 1..count {
+        assert_eq!(
+            endpoint.sequencer_receipt(&hash),
+            Err(SequencerError::Malformed),
+            "response {index}"
+        );
+    }
+    assert_eq!(server.join().must(), vec![json!([hex(&hash)]); count]);
 }

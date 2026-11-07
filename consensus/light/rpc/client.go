@@ -6,12 +6,11 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
+	"sync"
 	"time"
 
-	"github.com/gogo/protobuf/proto"
-
-	abci "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/abci/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/crypto/merkle"
+	sm "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/internal/state"
 	tmbytes "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/libs/bytes"
 	tmmath "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/libs/math"
 	service "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/libs/service"
@@ -50,7 +49,20 @@ type Client struct {
 	prt       *merkle.ProofRuntime
 	keyPathFn KeyPathFunc
 
-	closers []func()
+	subscriptionsMu sync.Mutex
+	subscriptions   map[wsSubscriptionKey]*wsSubscription
+	closers         []func()
+	stopped         bool
+}
+
+type wsSubscriptionKey struct {
+	subscriber string
+	query      string
+}
+
+type wsSubscription struct {
+	cancel context.CancelFunc
+	done   chan struct{}
 }
 
 // Option allow you to tweak Client.
@@ -70,7 +82,7 @@ func KeyPathFn(fn KeyPathFunc) Option {
 // This merkle key paths are required when verifying /abci_query calls
 func DefaultMerkleKeyPathFn() KeyPathFunc {
 	// regexp for extracting store name from /abci_query path
-	storeNameRegexp := regexp.MustCompile(`\/store\/(.+)\/key`)
+	storeNameRegexp := regexp.MustCompile(`^/store/([^/]+)/key$`)
 
 	return func(path string, key []byte) (merkle.KeyPath, error) {
 		matches := storeNameRegexp.FindStringSubmatch(path)
@@ -101,6 +113,8 @@ func NewClient(next rpcclient.Client, lc LightClient, opts ...Option) *Client {
 }
 
 func (c *Client) OnStart(ctx context.Context) error {
+	c.subscriptionsMu.Lock()
+	defer c.subscriptionsMu.Unlock()
 	nctx, ncancel := context.WithCancel(ctx)
 	if err := c.next.Start(nctx); err != nil {
 		ncancel()
@@ -112,19 +126,31 @@ func (c *Client) OnStart(ctx context.Context) error {
 }
 
 func (c *Client) OnStop() {
+	c.subscriptionsMu.Lock()
+	c.stopped = true
+	var pending []*wsSubscription
+	for key, sub := range c.subscriptions {
+		sub.cancel()
+		delete(c.subscriptions, key)
+		pending = append(pending, sub)
+	}
 	for _, closer := range c.closers {
 		closer()
 	}
+	c.closers = nil
+	c.subscriptionsMu.Unlock()
+	for _, sub := range pending {
+		<-sub.done
+	}
 }
 
-// Returns the status of the light client. Previously this was querying the primary connected to the client
-// As a consequence of this change, running /status on the light client will return nil for SyncInfo, NodeInfo
-// and ValdiatorInfo.
+// Status reports the configured chain identity and local light-client trust state.
+// Full-node sync and validator information are not available from a light client.
 func (c *Client) Status(ctx context.Context) (*coretypes.ResultStatus, error) {
 	lightClientInfo := c.lc.Status(ctx)
 
 	return &coretypes.ResultStatus{
-		NodeInfo:        types.NodeInfo{},
+		NodeInfo:        types.NodeInfo{Network: c.lc.ChainID()},
 		SyncInfo:        coretypes.SyncInfo{},
 		ValidatorInfo:   coretypes.ValidatorInfo{},
 		LightClientInfo: *lightClientInfo,
@@ -177,11 +203,18 @@ func (c *Client) ABCIQueryWithOptions(ctx context.Context, path string, data tmb
 	if len(resp.Key) == 0 {
 		return nil, errors.New("empty key")
 	}
+	if !bytes.Equal(resp.Key, data) {
+		return nil, errors.New("response key does not match requested key")
+	}
 	if resp.ProofOps == nil || len(resp.ProofOps.Ops) == 0 {
 		return nil, errors.New("no proof ops")
 	}
 	if resp.Height <= 0 {
 		return nil, coretypes.ErrZeroOrNegativeHeight
+	}
+
+	if resp.Height != opts.Height {
+		return nil, fmt.Errorf("response height %d does not match requested height %d", resp.Height, opts.Height)
 	}
 
 	// Update the light client if we're behind.
@@ -194,12 +227,12 @@ func (c *Client) ABCIQueryWithOptions(ctx context.Context, path string, data tmb
 
 	// Validate the value proof against the trusted header.
 
-	// build a Merkle key path from path and resp.Key
+	// Derive the authenticated key path from the request, never provider fields.
 	if c.keyPathFn == nil {
 		return nil, errors.New("please configure Client with KeyPathFn option")
 	}
 
-	kp, err := c.keyPathFn(path, resp.Key)
+	kp, err := c.keyPathFn(path, data)
 	if err != nil {
 		return nil, fmt.Errorf("can't build merkle key path: %w", err)
 	}
@@ -315,19 +348,11 @@ func (c *Client) BlockchainInfo(ctx context.Context, minHeight, maxHeight int64)
 		}
 	}
 
-	// Update the light client if we're behind.
-	if len(res.BlockMetas) > 0 {
-		lastHeight := res.BlockMetas[len(res.BlockMetas)-1].Header.Height
-		if _, err := c.updateLightClientIfNeededTo(ctx, &lastHeight); err != nil {
-			return nil, err
-		}
-	}
-
-	// Verify each of the BlockMetas.
+	// Verify each returned height, including intermediate heights absent from a sparse store.
 	for _, meta := range res.BlockMetas {
-		h, err := c.lc.TrustedLightBlock(meta.Header.Height)
+		h, err := c.updateLightClientIfNeededTo(ctx, &meta.Header.Height)
 		if err != nil {
-			return nil, fmt.Errorf("trusted header %d: %w", meta.Header.Height, err)
+			return nil, fmt.Errorf("verify header %d: %w", meta.Header.Height, err)
 		}
 		if bmH, tH := meta.Header.Hash(), h.Hash(); !bytes.Equal(bmH, tH) {
 			return nil, fmt.Errorf("block meta header %X does not match with trusted header %X",
@@ -385,6 +410,10 @@ func (c *Client) BlockByHash(ctx context.Context, hash tmbytes.HexBytes) (*coret
 	res, err := c.next.BlockByHash(ctx, hash)
 	if err != nil {
 		return nil, err
+	}
+
+	if res.Block == nil && res.BlockID.IsNil() {
+		return res, nil
 	}
 
 	// Validate res.
@@ -447,20 +476,10 @@ func (c *Client) BlockResults(ctx context.Context, height *int64) (*coretypes.Re
 		return nil, err
 	}
 
-	// proto-encode FinalizeBlock events
-	bbeBytes, err := proto.Marshal(&abci.ResponseFinalizeBlock{
-		Events: res.FinalizeBlockEvents,
-	})
+	mh, err := sm.TxResultsHash(res.TxsResults)
 	if err != nil {
 		return nil, err
 	}
-
-	// Build a Merkle tree out of the slice.
-	rs, err := abci.MarshalTxResults(res.TxsResults)
-	if err != nil {
-		return nil, err
-	}
-	mh := merkle.HashFromByteSlices(append([][]byte{bbeBytes}, rs...))
 
 	// Verify block results.
 	if !types.SkipLastResultsHashValidation.Load() && !bytes.Equal(mh, trustedBlock.LastResultsHash) {
@@ -486,6 +505,10 @@ func (c *Client) HeaderByHash(ctx context.Context, hash tmbytes.HexBytes) (*core
 	res, err := c.next.HeaderByHash(ctx, hash)
 	if err != nil {
 		return nil, err
+	}
+
+	if res.Header == nil {
+		return res, nil
 	}
 
 	if err := res.Header.ValidateBasic(); err != nil {
@@ -530,6 +553,16 @@ func (c *Client) Tx(ctx context.Context, hash tmbytes.HexBytes, prove bool) (*co
 	// Validate res.
 	if res.Height <= 0 {
 		return nil, coretypes.ErrZeroOrNegativeHeight
+	}
+
+	if !bytes.Equal(res.Tx.Hash().Bytes(), hash) || !bytes.Equal(res.Hash, hash) {
+		return nil, errors.New("transaction hash does not match requested hash")
+	}
+	if !bytes.Equal(res.Proof.Data, res.Tx) {
+		return nil, errors.New("transaction proof data does not match returned transaction")
+	}
+	if res.Proof.Proof.Index != int64(res.Index) {
+		return nil, errors.New("transaction proof index does not match returned index")
 	}
 
 	// Update the light client if we're behind.
@@ -603,11 +636,25 @@ func (c *Client) Subscribe(ctx context.Context, subscriber, query string,
 }
 
 func (c *Client) Unsubscribe(ctx context.Context, subscriber, query string) error {
-	return c.next.Unsubscribe(ctx, subscriber, query) //nolint:staticcheck
+	c.subscriptionsMu.Lock()
+	err := c.next.Unsubscribe(ctx, subscriber, query) //nolint:staticcheck
+	pending := c.cancelSubscriptionsLocked(subscriber, &query)
+	c.subscriptionsMu.Unlock()
+	for _, sub := range pending {
+		<-sub.done
+	}
+	return err
 }
 
 func (c *Client) UnsubscribeAll(ctx context.Context, subscriber string) error {
-	return c.next.UnsubscribeAll(ctx, subscriber) //nolint:staticcheck
+	c.subscriptionsMu.Lock()
+	err := c.next.UnsubscribeAll(ctx, subscriber) //nolint:staticcheck
+	pending := c.cancelSubscriptionsLocked(subscriber, nil)
+	c.subscriptionsMu.Unlock()
+	for _, sub := range pending {
+		<-sub.done
+	}
+	return err
 }
 
 func (c *Client) updateLightClientIfNeededTo(ctx context.Context, height *int64) (*types.LightBlock, error) {
@@ -634,20 +681,44 @@ func (c *Client) RegisterOpDecoder(typ string, dec merkle.OpDecoder) {
 // a subscriber, but does not verify responses (UNSAFE)!
 // TODO: verify data
 func (c *Client) SubscribeWS(ctx context.Context, query string) (*coretypes.ResultSubscribe, error) {
-	bctx, bcancel := context.WithCancel(context.Background())
-	c.closers = append(c.closers, bcancel)
-
+	c.subscriptionsMu.Lock()
+	defer c.subscriptionsMu.Unlock()
+	if c.stopped {
+		return nil, errors.New("client is stopped")
+	}
 	callInfo := rpctypes.GetCallInfo(ctx)
-	out, err := c.next.Subscribe(bctx, callInfo.RemoteAddr(), query) //nolint:staticcheck
+	key := wsSubscriptionKey{subscriber: callInfo.RemoteAddr(), query: query}
+	if _, exists := c.subscriptions[key]; exists {
+		return nil, fmt.Errorf("already subscribed to %q", query)
+	}
+	bctx, bcancel := context.WithCancel(callInfo.WSConn.Context())
+	out, err := c.next.Subscribe(bctx, key.subscriber, query) //nolint:staticcheck
 	if err != nil {
 		bcancel()
 		return nil, err
 	}
+	sub := &wsSubscription{cancel: bcancel, done: make(chan struct{})}
+	if c.subscriptions == nil {
+		c.subscriptions = make(map[wsSubscriptionKey]*wsSubscription)
+	}
+	c.subscriptions[key] = sub
 
 	go func() {
+		defer func() {
+			bcancel()
+			c.subscriptionsMu.Lock()
+			if c.subscriptions[key] == sub {
+				delete(c.subscriptions, key)
+			}
+			close(sub.done)
+			c.subscriptionsMu.Unlock()
+		}()
 		for {
 			select {
-			case resultEvent := <-out:
+			case resultEvent, ok := <-out:
+				if !ok || bctx.Err() != nil {
+					return
+				}
 				// We should have a switch here that performs a validation
 				// depending on the event's type.
 				callInfo.WSConn.TryWriteRPCResponse(bctx, callInfo.RPCRequest.MakeResponse(resultEvent))
@@ -660,10 +731,24 @@ func (c *Client) SubscribeWS(ctx context.Context, query string) (*coretypes.Resu
 	return &coretypes.ResultSubscribe{}, nil
 }
 
+// cancelSubscriptionsLocked detaches forwarding state while subscription changes
+// are serialized with upstream calls. Callers wait for completion after unlocking.
+func (c *Client) cancelSubscriptionsLocked(subscriber string, query *string) []*wsSubscription {
+	var pending []*wsSubscription
+	for key, sub := range c.subscriptions {
+		if key.subscriber == subscriber && (query == nil || key.query == *query) {
+			sub.cancel()
+			delete(c.subscriptions, key)
+			pending = append(pending, sub)
+		}
+	}
+	return pending
+}
+
 // UnsubscribeWS calls original client's Unsubscribe using remote address as a
 // subscriber.
 func (c *Client) UnsubscribeWS(ctx context.Context, query string) (*coretypes.ResultUnsubscribe, error) {
-	err := c.next.Unsubscribe(context.Background(), rpctypes.GetCallInfo(ctx).RemoteAddr(), query) //nolint:staticcheck
+	err := c.Unsubscribe(ctx, rpctypes.GetCallInfo(ctx).RemoteAddr(), query)
 	if err != nil {
 		return nil, err
 	}
@@ -673,7 +758,7 @@ func (c *Client) UnsubscribeWS(ctx context.Context, query string) (*coretypes.Re
 // UnsubscribeAllWS calls original client's UnsubscribeAll using remote address
 // as a subscriber.
 func (c *Client) UnsubscribeAllWS(ctx context.Context) (*coretypes.ResultUnsubscribe, error) {
-	err := c.next.UnsubscribeAll(context.Background(), rpctypes.GetCallInfo(ctx).RemoteAddr()) //nolint:staticcheck
+	err := c.UnsubscribeAll(ctx, rpctypes.GetCallInfo(ctx).RemoteAddr())
 	if err != nil {
 		return nil, err
 	}

@@ -1,0 +1,43 @@
+{
+  "name": "hyperfide-plugin-provider-retry",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Retry turns after transient provider errors and when subscription limits reset.",
+  "engines": {
+    "hyperfide": ">=0.0",
+    "hyperfidePluginSdk": ">=0.4.102"
+  },
+  "hyperfide": {
+    "name": "Provider retry",
+    "description": "Retry turns after transient provider errors and when subscription limits reset.",
+    "branding": {
+      "icon": "ArrowReloadHorizontal"
+    },
+    "server": "./server.ts"
+  },
+  "keywords": [
+    "hyperfide-plugin"
+  ],
+  "scripts": {
+    "test": "vitest run --config vitest.config.ts",
+    "typecheck": "tsrs --noEmit",
+    "lint": "oxlint --ignore-pattern node_modules --ignore-pattern dist .",
+    "prepare:bundled": "hyperfide-plugin-build prepare-bundled"
+  },
+  "devDependencies": {
+    "@hyperfide/plugin-build": "workspace:*",
+    "@hyperfide/plugin-sdk": "workspace:*",
+    "@types/better-sqlite3": "^7.6.12",
+    "@types/node": "^22.0.0",
+    "better-sqlite3": "12.10.0",
+    "cron-parser": "^5.5.0",
+    "hono": "4.11.9",
+    "tsrs": "0.18.0-ts7.1.0-dev.20260929",
+    "typescript": "npm:@typescript/typescript6@^6.0.2",
+    "vitest": "^4.1.1"
+  },
+  "dependencies": {
+    "zod": "^4.3.6"
+  }
+}

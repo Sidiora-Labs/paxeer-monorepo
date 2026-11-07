@@ -1,0 +1,29 @@
+[repair.22.31.563]
+decision = "2650"
+gotcha = "3220, 3235"
+acceptance = "22998.1"
+base_revision = "2e0a668a793a7b5c0469b44950808547467f017e"
+implementation = "Wallet::wait_for_submitted and wait_for_submitted_with_commit require a submitted receipt, wait for its protocol activity id through RpcClient, and bind its exact canonical activity on the new verified receipt. Independent RPC receipts remain unbound; send and payment are unchanged."
+build = "hf-build: cargo build --locked --manifest-path services/agent/crates/layerx-sdk/Cargo.toml --tests"
+verify = "hf-done: cg spec done 22.31.563 -f layerx-merge --root $TASK_ROOT; cargo test --locked --manifest-path services/agent/crates/layerx-sdk/Cargo.toml --test repair_22_31_563"
+evidence = "Private evidence reference: /out/run/gates.jsonl, entries for task 22.31.563. The hf-build/hf-done gate ledger records the exact candidate revision, command, exit code and log location. This source record references those results without claiming an unrun gate or changing the qualified candidate afterward (gotcha 3142)."
+transport = "The existing repair_22_31_494 loopback peer fixtures produce canonical signed receipts from actual wallet submissions. A signed SequenceBatch, production Comet header hash and canonical validator vote provide real commitment evidence over SDK HTTP transport and an OS clock; no external endpoint or credentials are required."
+protocol_types = "The SDK dev-dependency layerx_programs_registry names the same pinned package and path as layerx-client, allowing the test to construct the SimpleProof and pinned Comet verifier exposed by ReceiptCommitEvidence. The layerx-sdk lockfile entry adds only layerx-programs-registry."
+
+[proof.submitted_payment_keeps_canonical_activity_through_batched_and_finalised_waits]
+criterion = "A real payment waited to Executed carries the exact submitted signed transaction. Batched and explicit-evidence Finalised waits preserve those bytes and activity identity, return the requested commitment, retain independently reverified batch inclusion and the authenticated committed block, and do not resubmit the transaction."
+
+[proof.independent_rpc_receipts_are_refused_before_either_submitted_wait_makes_a_request]
+criterion = "An independent RPC lookup has no canonical activity. Both receipt-based waits reject it as InvalidRequest before making any RPC request."
+
+[proof.submitted_waits_preserve_pending_and_refuse_invalid_commit_evidence]
+criterion = "Both waits preserve the original activity id on deadline expiry. A changed activity-coverage list and a corrupted batch signature are refused without mutating the source receipt or returning an unverified replacement."
+
+[gotcha.scope]
+observed = "The task's explicit scope and runner publication rule override workflow requests to edit GOTCHA/spec files or commit and push. Existing workflow changes are preserved."
+
+[gotcha.graph]
+observed = "The local graph omits layerx-client protocol sources, so targeted filesystem reads resolve those external types; the existing repair record is at the SDK crate root rather than tests/."
+
+[gotcha.protocol_import]
+observed = "Attempt 1 could not name the client's transitive registry dependency through extern crate. Gotcha 3235 resolves this by declaring the registry as an SDK dev-dependency with the client's alias and removing extern crate. Attempt 2 gate results are referenced by the private ledger above."

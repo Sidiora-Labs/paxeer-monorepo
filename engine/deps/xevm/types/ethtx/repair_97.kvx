@@ -1,0 +1,8 @@
+[task.22.31.97]
+finding = "22.30.49/016"
+repair = "SetCodeTx.Validate requires a present valid destination before Ethereum conversion."
+proof = ["TestRepair_97_AbsentDestination", "TestRepair_97_MalformedDestination", "TestRepair_97_ValidDestinationRoundTrip"]
+path = "Signed geth set-code transaction with signed authorization -> NewSetCodeTx -> NewMsgEVMTransaction -> protobuf marshal/unmarshal -> ValidateBasic -> AsTransaction, both with and without real SDK registry unpacking. Invalid destinations are rejected by validation; accepted destinations preserve the destination, authorization, transaction bytes, hash and sender."
+baseline = "Not run: the explicit gate order requires full implementation before testing and forbids a separate verify_cmd run; no prior gate ledger exists. No pre-change test failure is claimed."
+wiring_requests = []
+evidence = "The runner gate ledger records the verified candidate revision, exact commands, exits and private log paths. Qualification requires hf-done to pass."

@@ -1,0 +1,245 @@
+[reconcile.r8-121]
+revision = "53150198caf59defafffab36d79dbc66d921ae57"
+rows = 30
+
+[row.r8-121.1]
+interface = "interface.8.go-sdkcs-generatedplatformclientextensions-agentagentregisterasync"
+verdict = "served"
+path = "sdk/platform/dotnet/Generated/OperationCatalog.cs"
+line = 444
+symbol = "AgentAgentRegisterAsync"
+evidence = "GeneratedPlatformClientExtensions declaration moved from registered line 323 to 444; the registered signature is unchanged: public static Task<JsonValue> AgentAgentRegisterAsync(this PlatformClient client, JsonValue request, IdempotencyKey idempotencyKey, IReadOnlyDictionary<string, string>? pathParameters = null, CancellationToken cancellationToken = default) => Body: client.MutateAsync(PlatformOperation.AgentAgentRegister, request, idempotencyKey, pathParameters, cancellationToken);"
+
+[row.r8-121.2]
+interface = "interface.8.go-sdkcs-generatedplatformclientextensions-agentapprovalapproveasync"
+verdict = "served"
+path = "sdk/platform/dotnet/Generated/OperationCatalog.cs"
+line = 446
+symbol = "AgentApprovalApproveAsync"
+evidence = "GeneratedPlatformClientExtensions declaration moved from registered line 325 to 446; the registered signature is unchanged: public static Task<JsonValue> AgentApprovalApproveAsync(this PlatformClient client, JsonValue request, IdempotencyKey idempotencyKey, IReadOnlyDictionary<string, string>? pathParameters = null, CancellationToken cancellationToken = default) => Body: client.MutateAsync(PlatformOperation.AgentApprovalApprove, request, idempotencyKey, pathParameters, cancellationToken);"
+
+[row.r8-121.3]
+interface = "interface.8.go-sdkcs-generatedplatformclientextensions-agentapprovalgetasync"
+verdict = "served"
+path = "sdk/platform/dotnet/Generated/OperationCatalog.cs"
+line = 448
+symbol = "AgentApprovalGetAsync"
+evidence = "GeneratedPlatformClientExtensions declaration moved from registered line 327 to 448; the registered signature is unchanged: public static Task<JsonValue> AgentApprovalGetAsync(this PlatformClient client, JsonValue request, IReadOnlyDictionary<string, string>? pathParameters = null, CancellationToken cancellationToken = default) => Body: client.ReadAsync(PlatformOperation.AgentApprovalGet, request, pathParameters, cancellationToken);"
+
+[row.r8-121.4]
+interface = "interface.8.go-sdkcs-generatedplatformclientextensions-agentapprovallistasync"
+verdict = "served"
+path = "sdk/platform/dotnet/Generated/OperationCatalog.cs"
+line = 450
+symbol = "AgentApprovalListAsync"
+evidence = "GeneratedPlatformClientExtensions declaration moved from registered line 329 to 450; the registered signature is unchanged: public static Task<JsonValue> AgentApprovalListAsync(this PlatformClient client, JsonValue request, IReadOnlyDictionary<string, string>? pathParameters = null, CancellationToken cancellationToken = default) => Body: client.ReadAsync(PlatformOperation.AgentApprovalList, request, pathParameters, cancellationToken);"
+
+[row.r8-121.5]
+interface = "interface.8.go-sdkcs-generatedplatformclientextensions-agentapprovalrejectasync"
+verdict = "served"
+path = "sdk/platform/dotnet/Generated/OperationCatalog.cs"
+line = 452
+symbol = "AgentApprovalRejectAsync"
+evidence = "GeneratedPlatformClientExtensions declaration moved from registered line 331 to 452; the registered signature is unchanged: public static Task<JsonValue> AgentApprovalRejectAsync(this PlatformClient client, JsonValue request, IdempotencyKey idempotencyKey, IReadOnlyDictionary<string, string>? pathParameters = null, CancellationToken cancellationToken = default) => Body: client.MutateAsync(PlatformOperation.AgentApprovalReject, request, idempotencyKey, pathParameters, cancellationToken);"
+
+[row.r8-121.6]
+interface = "interface.8.go-sdkcs-generatedplatformclientextensions-agentavailabilityfetchasync"
+verdict = "served"
+path = "sdk/platform/dotnet/Generated/OperationCatalog.cs"
+line = 454
+symbol = "AgentAvailabilityFetchAsync"
+evidence = "GeneratedPlatformClientExtensions declaration moved from registered line 333 to 454; the registered signature is unchanged: public static Task<JsonValue> AgentAvailabilityFetchAsync(this PlatformClient client, JsonValue request, IReadOnlyDictionary<string, string>? pathParameters = null, CancellationToken cancellationToken = default) => Body: client.ReadAsync(PlatformOperation.AgentAvailabilityFetch, request, pathParameters, cancellationToken);"
+
+[row.r8-121.7]
+interface = "interface.8.go-sdkcs-generatedplatformclientextensions-agentbudgetcreateasync"
+verdict = "served"
+path = "sdk/platform/dotnet/Generated/OperationCatalog.cs"
+line = 456
+symbol = "AgentBudgetCreateAsync"
+evidence = "GeneratedPlatformClientExtensions declaration moved from registered line 335 to 456; the registered signature is unchanged: public static Task<JsonValue> AgentBudgetCreateAsync(this PlatformClient client, JsonValue request, IdempotencyKey idempotencyKey, IReadOnlyDictionary<string, string>? pathParameters = null, CancellationToken cancellationToken = default) => Body: client.MutateAsync(PlatformOperation.AgentBudgetCreate, request, idempotencyKey, pathParameters, cancellationToken);"
+
+[row.r8-121.8]
+interface = "interface.8.go-sdkcs-generatedplatformclientextensions-agentbudgetfundasync"
+verdict = "served"
+path = "sdk/platform/dotnet/Generated/OperationCatalog.cs"
+line = 458
+symbol = "AgentBudgetFundAsync"
+evidence = "GeneratedPlatformClientExtensions declaration moved from registered line 337 to 458; the registered signature is unchanged: public static Task<JsonValue> AgentBudgetFundAsync(this PlatformClient client, JsonValue request, IdempotencyKey idempotencyKey, IReadOnlyDictionary<string, string>? pathParameters = null, CancellationToken cancellationToken = default) => Body: client.MutateAsync(PlatformOperation.AgentBudgetFund, request, idempotencyKey, pathParameters, cancellationToken);"
+
+[row.r8-121.9]
+interface = "interface.8.go-sdkcs-generatedplatformclientextensions-agentbudgetlistasync"
+verdict = "served"
+path = "sdk/platform/dotnet/Generated/OperationCatalog.cs"
+line = 460
+symbol = "AgentBudgetListAsync"
+evidence = "GeneratedPlatformClientExtensions declaration moved from registered line 339 to 460; the registered signature is unchanged: public static Task<JsonValue> AgentBudgetListAsync(this PlatformClient client, JsonValue request, IReadOnlyDictionary<string, string>? pathParameters = null, CancellationToken cancellationToken = default) => Body: client.ReadAsync(PlatformOperation.AgentBudgetList, request, pathParameters, cancellationToken);"
+
+[row.r8-121.10]
+interface = "interface.8.go-sdkcs-generatedplatformclientextensions-agentbudgetreconciliationasync"
+verdict = "served"
+path = "sdk/platform/dotnet/Generated/OperationCatalog.cs"
+line = 462
+symbol = "AgentBudgetReconciliationAsync"
+evidence = "GeneratedPlatformClientExtensions declaration moved from registered line 341 to 462; the registered signature is unchanged: public static Task<JsonValue> AgentBudgetReconciliationAsync(this PlatformClient client, JsonValue request, IReadOnlyDictionary<string, string>? pathParameters = null, CancellationToken cancellationToken = default) => Body: client.ReadAsync(PlatformOperation.AgentBudgetReconciliation, request, pathParameters, cancellationToken);"
+
+[row.r8-121.11]
+interface = "interface.8.go-sdkcs-generatedplatformclientextensions-agentbudgetrevokeasync"
+verdict = "served"
+path = "sdk/platform/dotnet/Generated/OperationCatalog.cs"
+line = 464
+symbol = "AgentBudgetRevokeAsync"
+evidence = "GeneratedPlatformClientExtensions declaration moved from registered line 343 to 464; the registered signature is unchanged: public static Task<JsonValue> AgentBudgetRevokeAsync(this PlatformClient client, JsonValue request, IdempotencyKey idempotencyKey, IReadOnlyDictionary<string, string>? pathParameters = null, CancellationToken cancellationToken = default) => Body: client.MutateAsync(PlatformOperation.AgentBudgetRevoke, request, idempotencyKey, pathParameters, cancellationToken);"
+
+[row.r8-121.12]
+interface = "interface.8.go-sdkcs-generatedplatformclientextensions-agentbudgetstateasync"
+verdict = "served"
+path = "sdk/platform/dotnet/Generated/OperationCatalog.cs"
+line = 466
+symbol = "AgentBudgetStateAsync"
+evidence = "GeneratedPlatformClientExtensions declaration moved from registered line 345 to 466; the registered signature is unchanged: public static Task<JsonValue> AgentBudgetStateAsync(this PlatformClient client, JsonValue request, IReadOnlyDictionary<string, string>? pathParameters = null, CancellationToken cancellationToken = default) => Body: client.ReadAsync(PlatformOperation.AgentBudgetState, request, pathParameters, cancellationToken);"
+
+[row.r8-121.13]
+interface = "interface.8.go-sdkcs-generatedplatformclientextensions-agentcapabilityattenuateasync"
+verdict = "served"
+path = "sdk/platform/dotnet/Generated/OperationCatalog.cs"
+line = 468
+symbol = "AgentCapabilityAttenuateAsync"
+evidence = "GeneratedPlatformClientExtensions declaration moved from registered line 347 to 468; the registered signature is unchanged: public static Task<JsonValue> AgentCapabilityAttenuateAsync(this PlatformClient client, JsonValue request, IdempotencyKey idempotencyKey, IReadOnlyDictionary<string, string>? pathParameters = null, CancellationToken cancellationToken = default) => Body: client.MutateAsync(PlatformOperation.AgentCapabilityAttenuate, request, idempotencyKey, pathParameters, cancellationToken);"
+
+[row.r8-121.14]
+interface = "interface.8.go-sdkcs-generatedplatformclientextensions-agentcapabilitycreateasync"
+verdict = "served"
+path = "sdk/platform/dotnet/Generated/OperationCatalog.cs"
+line = 470
+symbol = "AgentCapabilityCreateAsync"
+evidence = "GeneratedPlatformClientExtensions declaration moved from registered line 349 to 470; the registered signature is unchanged: public static Task<JsonValue> AgentCapabilityCreateAsync(this PlatformClient client, JsonValue request, IdempotencyKey idempotencyKey, IReadOnlyDictionary<string, string>? pathParameters = null, CancellationToken cancellationToken = default) => Body: client.MutateAsync(PlatformOperation.AgentCapabilityCreate, request, idempotencyKey, pathParameters, cancellationToken);"
+
+[row.r8-121.15]
+interface = "interface.8.go-sdkcs-generatedplatformclientextensions-agentcapabilitylistasync"
+verdict = "served"
+path = "sdk/platform/dotnet/Generated/OperationCatalog.cs"
+line = 472
+symbol = "AgentCapabilityListAsync"
+evidence = "GeneratedPlatformClientExtensions declaration moved from registered line 351 to 472; the registered signature is unchanged: public static Task<JsonValue> AgentCapabilityListAsync(this PlatformClient client, JsonValue request, IReadOnlyDictionary<string, string>? pathParameters = null, CancellationToken cancellationToken = default) => Body: client.ReadAsync(PlatformOperation.AgentCapabilityList, request, pathParameters, cancellationToken);"
+
+[row.r8-121.16]
+interface = "interface.8.go-sdkcs-generatedplatformclientextensions-agentcapabilityrevokeasync"
+verdict = "served"
+path = "sdk/platform/dotnet/Generated/OperationCatalog.cs"
+line = 474
+symbol = "AgentCapabilityRevokeAsync"
+evidence = "GeneratedPlatformClientExtensions declaration moved from registered line 353 to 474; the registered signature is unchanged: public static Task<JsonValue> AgentCapabilityRevokeAsync(this PlatformClient client, JsonValue request, IdempotencyKey idempotencyKey, IReadOnlyDictionary<string, string>? pathParameters = null, CancellationToken cancellationToken = default) => Body: client.MutateAsync(PlatformOperation.AgentCapabilityRevoke, request, idempotencyKey, pathParameters, cancellationToken);"
+
+[row.r8-121.17]
+interface = "interface.8.go-sdkcs-generatedplatformclientextensions-agentexportofflineasync"
+verdict = "served"
+path = "sdk/platform/dotnet/Generated/OperationCatalog.cs"
+line = 476
+symbol = "AgentExportOfflineAsync"
+evidence = "GeneratedPlatformClientExtensions declaration moved from registered line 355 to 476; the registered signature is unchanged: public static Task<JsonValue> AgentExportOfflineAsync(this PlatformClient client, JsonValue request, IReadOnlyDictionary<string, string>? pathParameters = null, CancellationToken cancellationToken = default) => Body: client.ReadAsync(PlatformOperation.AgentExportOffline, request, pathParameters, cancellationToken);"
+
+[row.r8-121.18]
+interface = "interface.8.go-sdkcs-generatedplatformclientextensions-agentfaucetclaimasync"
+verdict = "retired"
+path = "sdk/platform/dotnet/Generated/OperationCatalog.cs"
+line = 357
+symbol = "AgentFaucetClaimAsync"
+evidence = "AgentFaucetClaimAsync is absent from the entire registered OperationCatalog.cs; repository-wide exact-identifier searches (including hidden files, excluding spec/ and docs/) found no remaining references or declaration in another file. Line 357 preserves the old registry location only."
+remaining_refs = 0
+remaining = []
+
+[row.r8-121.19]
+interface = "interface.8.go-sdkcs-generatedplatformclientextensions-agentmcpinvokeasync"
+verdict = "served"
+path = "sdk/platform/dotnet/Generated/OperationCatalog.cs"
+line = 478
+symbol = "AgentMcpInvokeAsync"
+evidence = "GeneratedPlatformClientExtensions declaration moved from registered line 359 to 478; the registered signature is unchanged: public static Task<JsonValue> AgentMcpInvokeAsync(this PlatformClient client, JsonValue request, IdempotencyKey idempotencyKey, IReadOnlyDictionary<string, string>? pathParameters = null, CancellationToken cancellationToken = default) => Body: client.MutateAsync(PlatformOperation.AgentMcpInvoke, request, idempotencyKey, pathParameters, cancellationToken);"
+
+[row.r8-121.20]
+interface = "interface.8.go-sdkcs-generatedplatformclientextensions-agentpolicydryrunasync"
+verdict = "served"
+path = "sdk/platform/dotnet/Generated/OperationCatalog.cs"
+line = 480
+symbol = "AgentPolicyDryRunAsync"
+evidence = "GeneratedPlatformClientExtensions declaration moved from registered line 361 to 480; the registered signature is unchanged: public static Task<JsonValue> AgentPolicyDryRunAsync(this PlatformClient client, JsonValue request, IReadOnlyDictionary<string, string>? pathParameters = null, CancellationToken cancellationToken = default) => Body: client.ReadAsync(PlatformOperation.AgentPolicyDryRun, request, pathParameters, cancellationToken);"
+
+[row.r8-121.21]
+interface = "interface.8.go-sdkcs-generatedplatformclientextensions-agentprepareasync"
+verdict = "served"
+path = "sdk/platform/dotnet/Generated/OperationCatalog.cs"
+line = 482
+symbol = "AgentPrepareAsync"
+evidence = "GeneratedPlatformClientExtensions declaration moved from registered line 363 to 482; the registered signature is unchanged: public static Task<JsonValue> AgentPrepareAsync(this PlatformClient client, JsonValue request, IdempotencyKey idempotencyKey, IReadOnlyDictionary<string, string>? pathParameters = null, CancellationToken cancellationToken = default) => Body: client.MutateAsync(PlatformOperation.AgentPrepare, request, idempotencyKey, pathParameters, cancellationToken);"
+
+[row.r8-121.22]
+interface = "interface.8.go-sdkcs-generatedplatformclientextensions-agentprojectasync"
+verdict = "served"
+path = "sdk/platform/dotnet/Generated/OperationCatalog.cs"
+line = 502
+symbol = "AgentProjectAsync"
+evidence = "GeneratedPlatformClientExtensions declaration moved from registered line 383 to 502; the registered signature is unchanged: public static Task<JsonValue> AgentProjectAsync(this PlatformClient client, JsonValue request, IReadOnlyDictionary<string, string>? pathParameters = null, CancellationToken cancellationToken = default) => Body: client.ReadAsync(PlatformOperation.AgentProject, request, pathParameters, cancellationToken);"
+
+[row.r8-121.23]
+interface = "interface.8.go-sdkcs-generatedplatformclientextensions-agentreadaccountasync"
+verdict = "served"
+path = "sdk/platform/dotnet/Generated/OperationCatalog.cs"
+line = 504
+symbol = "AgentReadAccountAsync"
+evidence = "GeneratedPlatformClientExtensions declaration moved from registered line 385 to 504; the registered signature is unchanged: public static Task<JsonValue> AgentReadAccountAsync(this PlatformClient client, JsonValue request, IReadOnlyDictionary<string, string>? pathParameters = null, CancellationToken cancellationToken = default) => Body: client.ReadAsync(PlatformOperation.AgentReadAccount, request, pathParameters, cancellationToken);"
+
+[row.r8-121.24]
+interface = "interface.8.go-sdkcs-generatedplatformclientextensions-agentreadbalanceasync"
+verdict = "served"
+path = "sdk/platform/dotnet/Generated/OperationCatalog.cs"
+line = 506
+symbol = "AgentReadBalanceAsync"
+evidence = "GeneratedPlatformClientExtensions declaration moved from registered line 387 to 506; the registered signature is unchanged: public static Task<JsonValue> AgentReadBalanceAsync(this PlatformClient client, JsonValue request, IReadOnlyDictionary<string, string>? pathParameters = null, CancellationToken cancellationToken = default) => Body: client.ReadAsync(PlatformOperation.AgentReadBalance, request, pathParameters, cancellationToken);"
+
+[row.r8-121.25]
+interface = "interface.8.go-sdkcs-generatedplatformclientextensions-agentreadbatchasync"
+verdict = "served"
+path = "sdk/platform/dotnet/Generated/OperationCatalog.cs"
+line = 508
+symbol = "AgentReadBatchAsync"
+evidence = "GeneratedPlatformClientExtensions declaration moved from registered line 389 to 508; the registered signature is unchanged: public static Task<JsonValue> AgentReadBatchAsync(this PlatformClient client, JsonValue request, IReadOnlyDictionary<string, string>? pathParameters = null, CancellationToken cancellationToken = default) => Body: client.ReadAsync(PlatformOperation.AgentReadBatch, request, pathParameters, cancellationToken);"
+
+[row.r8-121.26]
+interface = "interface.8.go-sdkcs-generatedplatformclientextensions-agentreadcheckpointasync"
+verdict = "served"
+path = "sdk/platform/dotnet/Generated/OperationCatalog.cs"
+line = 510
+symbol = "AgentReadCheckpointAsync"
+evidence = "GeneratedPlatformClientExtensions declaration moved from registered line 391 to 510; the registered signature is unchanged: public static Task<JsonValue> AgentReadCheckpointAsync(this PlatformClient client, JsonValue request, IReadOnlyDictionary<string, string>? pathParameters = null, CancellationToken cancellationToken = default) => Body: client.ReadAsync(PlatformOperation.AgentReadCheckpoint, request, pathParameters, cancellationToken);"
+
+[row.r8-121.27]
+interface = "interface.8.go-sdkcs-generatedplatformclientextensions-agentreadhistoryasync"
+verdict = "served"
+path = "sdk/platform/dotnet/Generated/OperationCatalog.cs"
+line = 512
+symbol = "AgentReadHistoryAsync"
+evidence = "GeneratedPlatformClientExtensions declaration moved from registered line 393 to 512; the registered signature is unchanged: public static Task<JsonValue> AgentReadHistoryAsync(this PlatformClient client, JsonValue request, IReadOnlyDictionary<string, string>? pathParameters = null, CancellationToken cancellationToken = default) => Body: client.ReadAsync(PlatformOperation.AgentReadHistory, request, pathParameters, cancellationToken);"
+
+[row.r8-121.28]
+interface = "interface.8.go-sdkcs-generatedplatformclientextensions-agentreadmodulestateasync"
+verdict = "served"
+path = "sdk/platform/dotnet/Generated/OperationCatalog.cs"
+line = 514
+symbol = "AgentReadModuleStateAsync"
+evidence = "GeneratedPlatformClientExtensions declaration moved from registered line 395 to 514; the registered signature is unchanged: public static Task<JsonValue> AgentReadModuleStateAsync(this PlatformClient client, JsonValue request, IReadOnlyDictionary<string, string>? pathParameters = null, CancellationToken cancellationToken = default) => Body: client.ReadAsync(PlatformOperation.AgentReadModuleState, request, pathParameters, cancellationToken);"
+
+[row.r8-121.29]
+interface = "interface.8.go-sdkcs-generatedplatformclientextensions-agentreadproofbundleasync"
+verdict = "served"
+path = "sdk/platform/dotnet/Generated/OperationCatalog.cs"
+line = 516
+symbol = "AgentReadProofBundleAsync"
+evidence = "GeneratedPlatformClientExtensions declaration moved from registered line 397 to 516; the registered signature is unchanged: public static Task<JsonValue> AgentReadProofBundleAsync(this PlatformClient client, JsonValue request, IReadOnlyDictionary<string, string>? pathParameters = null, CancellationToken cancellationToken = default) => Body: client.ReadAsync(PlatformOperation.AgentReadProofBundle, request, pathParameters, cancellationToken);"
+
+[row.r8-121.30]
+interface = "interface.8.go-sdkcs-generatedplatformclientextensions-agentsessioncloseasync"
+verdict = "served"
+path = "sdk/platform/dotnet/Generated/OperationCatalog.cs"
+line = 518
+symbol = "AgentSessionCloseAsync"
+evidence = "GeneratedPlatformClientExtensions declaration moved from registered line 399 to 518; the registered signature is unchanged: public static Task<JsonValue> AgentSessionCloseAsync(this PlatformClient client, JsonValue request, IdempotencyKey idempotencyKey, IReadOnlyDictionary<string, string>? pathParameters = null, CancellationToken cancellationToken = default) => Body: client.MutateAsync(PlatformOperation.AgentSessionClose, request, idempotencyKey, pathParameters, cancellationToken);"

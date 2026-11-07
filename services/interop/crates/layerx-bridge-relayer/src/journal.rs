@@ -1,4 +1,4 @@
-//! Append-only relay journal. Every decision that must survive a restart is
+//! Checkpointed relay journal. Every decision that must survive a restart is
 //! one JSON line, written and fsynced before the action it records takes
 //! effect outside the process: an item is observed before its scan cursor
 //! moves, and a transaction is journaled with its exact signed bytes before it
@@ -14,11 +14,12 @@
 
 use std::collections::BTreeMap;
 use std::fmt;
-use std::fs::{File, OpenOptions};
+use std::fs::{self, File, OpenOptions};
 use std::io::{BufRead as _, BufReader, Seek as _, SeekFrom, Write as _};
 use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
+use sha2::{Digest as _, Sha256};
 
 use crate::abi::LogPosition;
 use crate::attestation::{InboundAttestation, OutboundAttestation};
@@ -321,7 +322,7 @@ pub enum Entry {
     },
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Deserialize, Serialize)]
 pub enum SubmissionStatus {
     Pending,
     Receipted {
@@ -338,27 +339,30 @@ pub enum SubmissionStatus {
     Landed,
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, Deserialize, Serialize)]
 pub struct Submission {
     pub submitter: [u8; 20],
     pub nonce: u64,
     pub tx_hash: [u8; 32],
+    #[serde(with = "hex::bytes_serde")]
     pub raw: Vec<u8>,
     pub status: SubmissionStatus,
 }
 
 /// A signed Solana release transaction.
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, Deserialize, Serialize)]
 pub struct ReleaseSubmission {
     pub fee_payer: [u8; 32],
+    #[serde(with = "hex::fixed_serde")]
     pub signature: [u8; 64],
     pub last_valid_block_height: u64,
+    #[serde(with = "hex::bytes_serde")]
     pub raw: Vec<u8>,
     pub status: SubmissionStatus,
 }
 
 /// Where the lookup of a Solana recipient handle stands.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Deserialize, Serialize)]
 pub enum Recipient {
     /// The recipient PDA does not exist yet.
     Pending,
@@ -366,15 +370,20 @@ pub enum Recipient {
     Resolved([u8; 32]),
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, Deserialize, Serialize)]
 pub struct Item {
     pub observation: Observation,
+    #[serde(with = "optional_signature_serde")]
     pub signature: Option<[u8; 65]>,
     pub submissions: Vec<Submission>,
     pub completion: Option<Completion>,
     pub refusal: Option<String>,
     pub recipient: Option<Recipient>,
     pub releases: Vec<ReleaseSubmission>,
+    /// Volatile serving policy, populated only on a relayer snapshot. Journal
+    /// replay never authenticates a destination policy and leaves this absent.
+    #[serde(skip)]
+    pub attestation_policy: Option<crate::attestation_api::AuthenticatedPolicy>,
 }
 
 impl Item {
@@ -387,6 +396,7 @@ impl Item {
             refusal: None,
             recipient: None,
             releases: Vec::new(),
+            attestation_policy: None,
         }
     }
 
@@ -480,7 +490,7 @@ impl Item {
 }
 
 /// The state every journal line replays into.
-#[derive(Clone, Debug, Default, Eq, PartialEq)]
+#[derive(Clone, Debug, Default, Eq, PartialEq, Deserialize, Serialize)]
 pub struct State {
     pub cursors: BTreeMap<String, u64>,
     pub items: BTreeMap<String, Item>,
@@ -748,23 +758,124 @@ impl State {
     }
 }
 
-/// The journal file and the state it replays into.
+mod optional_signature_serde {
+    use serde::{Deserialize as _, Serialize as _};
+
+    pub fn serialize<S: serde::Serializer>(
+        value: &Option<[u8; 65]>,
+        serializer: S,
+    ) -> Result<S::Ok, S::Error> {
+        value
+            .as_ref()
+            .map(|bytes| crate::hex::prefixed(bytes))
+            .serialize(serializer)
+    }
+
+    pub fn deserialize<'de, D: serde::Deserializer<'de>>(
+        deserializer: D,
+    ) -> Result<Option<[u8; 65]>, D::Error> {
+        Option::<String>::deserialize(deserializer)?
+            .map(|text| crate::hex::fixed(&text).map_err(serde::de::Error::custom))
+            .transpose()
+    }
+}
+
+/// Completed records are addressed directly by a digest of their journal key.
+/// The contents retain the key's observation, signatures, nullifier outcome and
+/// transaction history. They are immutable once removed from the active log.
+#[derive(Clone, Debug)]
+pub struct History {
+    root: PathBuf,
+}
+
+impl History {
+    fn item_path(&self, key: &str) -> PathBuf {
+        self.root
+            .join(hex::prefixed(&Sha256::digest(key.as_bytes())))
+    }
+
+    pub fn lookup(&self, key: &str) -> Result<Option<Item>, JournalError> {
+        let bytes = match fs::read(self.item_path(key)) {
+            Ok(bytes) => bytes,
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+            Err(error) => return Err(io(&error)),
+        };
+        let item: Item =
+            serde_json::from_slice(&bytes).map_err(|_| JournalError::Corrupt { line: 0 })?;
+        if item.observation.key() != key || item.is_open() {
+            return Err(JournalError::Corrupt { line: 0 });
+        }
+        Ok(Some(item))
+    }
+
+    fn archive(&self, key: &str, item: &Item) -> Result<(), JournalError> {
+        if let Some(existing) = self.lookup(key)? {
+            if existing != *item {
+                return Err(JournalError::Conflict(format!("{key} history changed")));
+            }
+            return Ok(());
+        }
+        let path = self.item_path(key);
+        let temporary = path.with_extension("tmp");
+        let bytes =
+            serde_json::to_vec(item).map_err(|error| JournalError::Io(error.to_string()))?;
+        replace_synced(&temporary, &path, &bytes)
+    }
+}
+
+fn sync_directory(path: &Path) -> Result<(), JournalError> {
+    let parent = path
+        .parent()
+        .filter(|parent| !parent.as_os_str().is_empty())
+        .unwrap_or_else(|| Path::new("."));
+    File::open(parent)
+        .and_then(|directory| directory.sync_all())
+        .map_err(|error| io(&error))
+}
+
+fn replace_synced(temporary: &Path, path: &Path, bytes: &[u8]) -> Result<(), JournalError> {
+    let mut file = OpenOptions::new()
+        .write(true)
+        .create(true)
+        .truncate(true)
+        .open(temporary)
+        .map_err(|error| io(&error))?;
+    file.write_all(bytes)
+        .and_then(|()| file.sync_all())
+        .map_err(|error| io(&error))?;
+    fs::rename(temporary, path).map_err(|error| io(&error))?;
+    sync_directory(path)
+}
+
+#[derive(Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+struct Checkpoint {
+    checkpoint_version: u8,
+    state: State,
+}
+
+/// The maximum number of new records between automatic checkpoints. Closed
+/// records in memory and replay work are bounded by this interval, not uptime.
+pub const CHECKPOINT_INTERVAL: usize = 256;
+
+/// The active log contains a pending-state checkpoint followed by new entries.
+/// Archival files reach durable storage before atomic checkpoint replacement;
+/// until that replacement the old log remains the authority after a crash.
 pub struct Journal {
     path: PathBuf,
     file: File,
     state: State,
+    history: History,
+    entries: usize,
+    failed: bool,
 }
 
 impl Journal {
-    /// Opens or creates the journal and replays it. A final line without its
-    /// terminating newline is a write torn by a crash: it never took effect
-    /// outside the process and is truncated away. Any other malformed or
-    /// conflicting line is fatal.
-    ///
-    /// # Errors
-    ///
-    /// Refuses unreadable, corrupt or self-contradictory journals.
     pub fn open(path: &Path) -> Result<Self, JournalError> {
+        let history = History {
+            root: path.with_extension("history"),
+        };
+        let history_existed = history.root.is_dir();
         let mut file = OpenOptions::new()
             .read(true)
             .append(true)
@@ -775,42 +886,61 @@ impl Journal {
         let mut reader = BufReader::new(&file);
         let mut valid_length = 0_u64;
         let mut line_number = 0_usize;
+        let mut entries = 0;
         loop {
             let mut line = String::new();
             let read = reader.read_line(&mut line).map_err(|error| io(&error))?;
-            if read == 0 {
+            if read == 0 || !line.ends_with('\n') {
                 break;
             }
             line_number += 1;
-            if !line.ends_with('\n') {
-                break;
+            match serde_json::from_str::<Entry>(line.trim_end()) {
+                Ok(entry) => {
+                    state.apply(&entry)?;
+                    entries += 1;
+                }
+                Err(_) if line_number == 1 => {
+                    let checkpoint: Checkpoint = serde_json::from_str(line.trim_end())
+                        .map_err(|_| JournalError::Corrupt { line: line_number })?;
+                    if !history_existed
+                        || checkpoint.checkpoint_version != 1
+                        || checkpoint
+                            .state
+                            .items
+                            .iter()
+                            .any(|(key, item)| item.observation.key() != *key || !item.is_open())
+                    {
+                        return Err(JournalError::Corrupt { line: line_number });
+                    }
+                    state = checkpoint.state;
+                }
+                Err(_) => return Err(JournalError::Corrupt { line: line_number }),
             }
-            let entry: Entry = serde_json::from_str(line.trim_end())
-                .map_err(|_| JournalError::Corrupt { line: line_number })?;
-            state.apply(&entry)?;
             valid_length +=
                 u64::try_from(read).map_err(|_| JournalError::Corrupt { line: line_number })?;
         }
         drop(reader);
-        let length = file.metadata().map_err(|error| io(&error))?.len();
-        if length != valid_length {
-            file.set_len(valid_length).map_err(|error| io(&error))?;
-            file.sync_all().map_err(|error| io(&error))?;
-        }
-        file.seek(SeekFrom::End(0)).map_err(|error| io(&error))?;
-        if let Some(directory) = path
-            .parent()
-            .filter(|parent| !parent.as_os_str().is_empty())
-        {
-            File::open(directory)
-                .and_then(|directory| directory.sync_all())
+        if file.metadata().map_err(|error| io(&error))?.len() != valid_length {
+            file.set_len(valid_length)
+                .and_then(|()| file.sync_all())
                 .map_err(|error| io(&error))?;
         }
-        Ok(Self {
+        file.seek(SeekFrom::End(0)).map_err(|error| io(&error))?;
+        sync_directory(path)?;
+        fs::create_dir_all(&history.root).map_err(|error| io(&error))?;
+        sync_directory(&history.root)?;
+        let mut journal = Self {
             path: path.to_path_buf(),
             file,
             state,
-        })
+            history,
+            entries,
+            failed: false,
+        };
+        if entries >= CHECKPOINT_INTERVAL {
+            journal.checkpoint()?;
+        }
+        Ok(journal)
     }
 
     #[must_use]
@@ -823,21 +953,137 @@ impl Journal {
         &self.state
     }
 
-    /// Validates, writes, fsyncs and applies one entry, in that order.
-    ///
-    /// # Errors
-    ///
-    /// Refuses an entry that contradicts the journal, and any i/o failure.
+    #[must_use]
+    pub fn history(&self) -> History {
+        self.history.clone()
+    }
+
+    pub fn lookup(&self, key: &str) -> Result<Option<Item>, JournalError> {
+        match self.state.items.get(key) {
+            Some(item) => Ok(Some(item.clone())),
+            None => self.history.lookup(key),
+        }
+    }
+
+    /// Archives closed records, then atomically replaces the log with exactly
+    /// the remaining state. Uncommitted .tmp files are never used for recovery.
+    pub fn checkpoint(&mut self) -> Result<(), JournalError> {
+        if self.failed {
+            return Err(JournalError::Io("journal requires reopen".to_owned()));
+        }
+        let result = self.write_checkpoint();
+        if result.is_err() {
+            self.failed = true;
+        }
+        result
+    }
+
+    fn write_checkpoint(&mut self) -> Result<(), JournalError> {
+        for (key, item) in &self.state.items {
+            if !item.is_open() {
+                self.history.archive(key, item)?;
+            }
+        }
+        let state = State {
+            cursors: self.state.cursors.clone(),
+            items: self
+                .state
+                .items
+                .iter()
+                .filter(|(_, item)| item.is_open())
+                .map(|(key, item)| (key.clone(), item.clone()))
+                .collect(),
+        };
+        let mut bytes = serde_json::to_vec(&Checkpoint {
+            checkpoint_version: 1,
+            state: state.clone(),
+        })
+        .map_err(|error| JournalError::Io(error.to_string()))?;
+        bytes.push(b'\n');
+        replace_synced(
+            &self.path.with_extension("checkpoint.tmp"),
+            &self.path,
+            &bytes,
+        )?;
+        self.file = OpenOptions::new()
+            .read(true)
+            .append(true)
+            .open(&self.path)
+            .map_err(|error| io(&error))?;
+        self.state = state;
+        self.entries = 0;
+        Ok(())
+    }
+
+    /// Validate a single affected record, fsync its entry, then publish its new
+    /// state. No append clones unrelated pending records or historical items.
     pub fn append(&mut self, entry: &Entry) -> Result<(), JournalError> {
-        let mut next = self.state.clone();
+        if self.failed {
+            return Err(JournalError::Io("journal requires reopen".to_owned()));
+        }
+        let mut next = State::default();
+        match entry {
+            Entry::Cursor { stream, .. } => {
+                if let Some(cursor) = self.state.cursors.get(stream) {
+                    next.cursors.insert(stream.clone(), *cursor);
+                }
+            }
+            _ => {
+                let key = entry
+                    .item_key()
+                    .ok_or_else(|| JournalError::Conflict("missing item".to_owned()))?;
+                if let Some(item) = self.lookup(key)? {
+                    if !self.state.items.contains_key(key) {
+                        if matches!(entry, Entry::Observed { observation, .. } if *observation == item.observation)
+                        {
+                            return Ok(());
+                        }
+                        return Err(JournalError::Conflict(format!("{key} is archived")));
+                    }
+                    next.items.insert(key.to_owned(), item);
+                }
+            }
+        }
         next.apply(entry)?;
         let mut line =
             serde_json::to_vec(entry).map_err(|error| JournalError::Io(error.to_string()))?;
         line.push(b'\n');
-        self.file.write_all(&line).map_err(|error| io(&error))?;
-        self.file.sync_data().map_err(|error| io(&error))?;
-        self.state = next;
+        if let Err(error) = self
+            .file
+            .write_all(&line)
+            .and_then(|()| self.file.sync_data())
+        {
+            self.failed = true;
+            return Err(io(&error));
+        }
+        self.state.cursors.extend(next.cursors);
+        self.state.items.extend(next.items);
+        self.entries += 1;
+        if self.entries >= CHECKPOINT_INTERVAL {
+            self.checkpoint()?;
+        }
         Ok(())
+    }
+}
+
+impl Entry {
+    fn item_key(&self) -> Option<&str> {
+        match self {
+            Self::Cursor { .. } => None,
+            Self::Observed { item, .. }
+            | Self::Signed { item, .. }
+            | Self::Submitted { item, .. }
+            | Self::Receipted { item, .. }
+            | Self::Reverted { item, .. }
+            | Self::Dropped { item, .. }
+            | Self::Completed { item, .. }
+            | Self::Refused { item, .. }
+            | Self::RecipientPending { item }
+            | Self::RecipientResolved { item, .. }
+            | Self::ReleaseSubmitted { item, .. }
+            | Self::ReleaseExpired { item, .. }
+            | Self::ReleaseFailed { item, .. } => Some(item),
+        }
     }
 }
 

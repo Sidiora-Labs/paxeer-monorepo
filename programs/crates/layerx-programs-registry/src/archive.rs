@@ -42,14 +42,18 @@ impl SourceArchive {
         if files.len() > MAX_FILES {
             return Err(ArchiveError::TooLarge);
         }
-        let mut total = 0_usize;
+        let mut total = HEADER_BYTES;
         let mut ordered = BTreeMap::new();
         for file in files {
             validate_path(&file.path)?;
             if file.content.len() > MAX_FILE_BYTES {
                 return Err(ArchiveError::TooLarge);
             }
-            total = total.saturating_add(file.content.len());
+            total = total
+                .checked_add(7)
+                .and_then(|size| size.checked_add(file.path.len()))
+                .and_then(|size| size.checked_add(file.content.len()))
+                .ok_or(ArchiveError::TooLarge)?;
             if ordered.insert(file.path.clone(), file).is_some() {
                 return Err(ArchiveError::DuplicatePath);
             }

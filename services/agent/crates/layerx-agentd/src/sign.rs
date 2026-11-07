@@ -1,31 +1,47 @@
 //! External-by-default signing and bounded protocol session-key self-signing.
+//!
+//! Current EIP-1559 consumer contract (all errors are [`SigningError`]):
+//! * [`external`] takes `&SigningPreparation` and returns
+//!   `Result<ExternalSigningPackage, SigningError>`: exact unsigned type-2 bytes,
+//!   a 32-byte signing hash and disclosure digest, with no signing key.
+//! * [`attach_external_signature`] takes `&SigningPreparation` and `[u8; 65]`
+//!   (`r || s || yParity`) and returns `Result<Vec<u8>, SigningError>` containing
+//!   the exact signed type-2 transaction.
+//! * [`verify_before_submit`] takes `&[u8]`, `&SigningPreparation`, `&[u8; 20]`
+//!   recovered EVM sender, and `&ModuleRegistry`, returning
+//!   `Result<VerifiedSubmission, SigningError>`. The wrapper retains exact bytes
+//!   and their keccak256 hash for the durable outbox.
+//! * [`self_sign`] is async, taking `Option<&ProvisionedSessionKey>`,
+//!   `&SigningPreparation`, `&ModuleRegistry`, u64 protocol time in milliseconds,
+//!   and u64 current revocation sequence. Its future resolves to
+//!   `Result<SignedPreparation, SigningError>` with a 65-byte signature and
+//!   20-byte sender after scope, expiry and revocation checks.
+//!
+//! These functions do not accept the retired kernel `Prepared`, 64-byte Ed25519
+//! signature or 32-byte signer public key. Explicit kernel compatibility APIs
+//! are [`attach_kernel_signature`] and [`verify_kernel_before_submit`]; their
+//! artifacts cannot be submitted as EVM transactions. Retained preparations
+//! reopen via [`SigningPreparation::restore`] with call/disclosure binding intact.
 
 use std::collections::BTreeSet;
-use std::fs;
-use std::os::unix::fs::{MetadataExt, PermissionsExt};
-use std::path::PathBuf;
-
-use layerx_crypto::SignatureMessage;
-use layerx_types::activity::Signature;
-use layerx_wire::activity::{
-    decode_signed as decode_kernel_signed, encode_signed, encode_signed_envelope, encode_unsigned,
-};
-use layerx_wire::hash::{activity_id, Domain};
 
 use layerx_crypto::evm_transaction::{decode_signed, recover_sender};
 use layerx_crypto::session::{issue_session_key, IssuedSessionKey, SessionKeyRequest};
-use layerx_crypto::signer::{SignError, Signer};
-use layerx_types::activity::{ActivityBuildError, Authority};
+use layerx_crypto::signer::SignError;
+use layerx_types::activity::ActivityBuildError;
 use layerx_types::payload::{ActivityType, ModuleRegistry};
 use layerx_wire::WireError;
-use zeroize::Zeroizing;
 
 use crate::prepare::{
-    verify_disclosure_binding, DisclosureBindingError, DisclosureDigest, EvmPrepared, Prepared,
+    verify_call_binding, CallBindingError, DisclosureBindingError, DisclosureDigest, EvmPrepared,
 };
 
 #[path = "sign_verify.rs"]
 mod verification;
+
+#[path = "sign_legacy.rs"]
+mod legacy;
+pub use legacy::{attach_kernel_signature, verify_kernel_before_submit, VerifiedKernelArtifact};
 
 pub use verification::{SubmissionBindingAudit, VerifiedSubmission};
 
@@ -57,12 +73,11 @@ pub struct SelfSigningAudit {
     pub revocation_sequence: u64,
 }
 
-/// EVM preparation paired with the actor and the existing session authorization.
+/// EVM preparation paired with its signing actor.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct SigningPreparation {
     pub transaction: EvmPrepared,
     pub actor_address: [u8; 20],
-    pub authorization: Prepared,
 }
 
 /// Output from a bounded in-daemon protocol session key.
@@ -76,95 +91,8 @@ pub struct SignedPreparation {
     pub audit: SelfSigningAudit,
 }
 
-/// Provisioned signer whose scope is the exact issued protocol authority.
-pub struct ProvisionedSessionKey {
-    seed: Zeroizing<[u8; 32]>,
-    session_public_key: [u8; 32],
-    authority: Authority,
-    permitted_activity_types: BTreeSet<ActivityType>,
-    expires_at: u64,
-    revocation_sequence: u64,
-    revocation_marker: Option<(PathBuf, u32)>,
-}
-
-impl std::fmt::Debug for ProvisionedSessionKey {
-    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        formatter
-            .debug_struct("ProvisionedSessionKey")
-            .field("signer", &"[redacted]")
-            .field("expires_at", &self.expires_at)
-            .field("revocation_sequence", &self.revocation_sequence)
-            .finish_non_exhaustive()
-    }
-}
-
-impl ProvisionedSessionKey {
-    /// Reconstructs a provisioned signer while an encrypted keystore lends
-    /// its zeroizing plaintext seed to the caller.
-    ///
-    /// # Errors
-    ///
-    /// Returns the same exact-scope validation failures as [`Self::new`].
-    pub fn from_seed(seed: &[u8; 32], issued: IssuedSessionKey) -> Result<Self, SigningError> {
-        Self::new(*seed, issued)
-    }
-
-    /// Imports key material only when it matches an issued protocol session authority.
-    ///
-    /// # Errors
-    ///
-    /// Returns `KeyMismatch` when the seed derives a different public key, and
-    /// `InvalidProvisioning` for an empty permitted activity set or a zero expiry or revocation
-    /// sequence.
-    pub fn new(seed: [u8; 32], issued: IssuedSessionKey) -> Result<Self, SigningError> {
-        let signer = layerx_crypto::local::LocalSigner::new(seed);
-        if signer.public_key() != issued.session_public_key {
-            return Err(SigningError::KeyMismatch);
-        }
-        if issued.purpose != layerx_crypto::session::SessionPurpose::Activity
-            || issued.permitted_activity_types.is_empty()
-            || issued.expires_at == 0
-            || issued.revocation_sequence == 0
-        {
-            return Err(SigningError::InvalidProvisioning);
-        }
-        Ok(Self {
-            seed: Zeroizing::new(seed),
-            session_public_key: signer.public_key(),
-            authority: issued.authority,
-            permitted_activity_types: issued.permitted_activity_types.into_iter().collect(),
-            expires_at: issued.expires_at,
-            revocation_sequence: issued.revocation_sequence,
-            revocation_marker: None,
-        })
-    }
-
-    pub(crate) fn bind_revocation_marker(mut self, marker: PathBuf, owner_uid: u32) -> Self {
-        self.revocation_marker = Some((marker, owner_uid));
-        self
-    }
-
-    fn ensure_not_durably_revoked(&self) -> Result<(), SigningError> {
-        let Some((marker, owner_uid)) = &self.revocation_marker else {
-            return Ok(());
-        };
-        match fs::symlink_metadata(marker) {
-            Ok(metadata) => {
-                if !metadata.file_type().is_file()
-                    || metadata.file_type().is_symlink()
-                    || metadata.uid() != *owner_uid
-                    || metadata.permissions().mode() & 0o077 != 0
-                {
-                    return Err(SigningError::Revoked);
-                }
-                fs::read(marker).map_err(|_| SigningError::Revoked)?;
-                Err(SigningError::Revoked)
-            }
-            Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(()),
-            Err(_) => Err(SigningError::Revoked),
-        }
-    }
-}
+/// The provisioned secp256k1 signer returned by the durable session registry.
+pub use crate::session_keys::ProvisionedEvmSessionKey as ProvisionedSessionKey;
 
 /// Reconstructs and validates the exact issued session grant transferred by Human.
 ///
@@ -241,6 +169,20 @@ pub enum SigningError {
     SignerMismatch,
 }
 
+impl From<CallBindingError> for SigningError {
+    fn from(error: CallBindingError) -> Self {
+        match error {
+            CallBindingError::Disclosure(error) => {
+                Self::Disclosure(DisclosureBindingError::Decode(error))
+            }
+            CallBindingError::DigestMismatch => {
+                Self::Disclosure(DisclosureBindingError::DigestMismatch)
+            }
+            CallBindingError::SigningHashMismatch => Self::PreparedBytesChanged,
+        }
+    }
+}
+
 /// Returns the default key-free package for an external signer.
 ///
 /// # Errors
@@ -248,14 +190,14 @@ pub enum SigningError {
 /// Returns the disclosure binding failure when the preparation no longer re-encodes to its exact
 /// canonical bytes and digest.
 pub fn external(prepared: &SigningPreparation) -> Result<ExternalSigningPackage, SigningError> {
-    verify_disclosure_binding(&prepared.authorization).map_err(SigningError::Disclosure)?;
+    verify_call_binding(&prepared.transaction).map_err(SigningError::from)?;
     if prepared.transaction.signing_hash != prepared.transaction.call.signing_hash() {
         return Err(SigningError::PreparedBytesChanged);
     }
     Ok(ExternalSigningPackage {
-        canonical_bytes: prepared.authorization.canonical_bytes.clone(),
+        canonical_bytes: prepared.transaction.call.encode_unsigned(),
         signing_preimage: prepared.transaction.signing_hash,
-        disclosure_digest: prepared.authorization.disclosure_digest,
+        disclosure_digest: DisclosureDigest(prepared.transaction.disclosure_digest),
         mode: SigningMode::External,
     })
 }
@@ -275,41 +217,54 @@ pub async fn self_sign(
     current_revocation_sequence: u64,
 ) -> Result<SignedPreparation, SigningError> {
     let provisioned = provisioned.ok_or(SigningError::NotProvisioned)?;
-    provisioned.ensure_not_durably_revoked()?;
-    verify_disclosure_binding(&prepared.authorization).map_err(SigningError::Disclosure)?;
-    if protocol_time >= provisioned.expires_at {
+    provisioned
+        .with_secret(|_| ())
+        .map_err(|_| SigningError::Revoked)?;
+    verify_call_binding(&prepared.transaction).map_err(SigningError::from)?;
+    if protocol_time < provisioned.issued.not_before
+        || protocol_time >= provisioned.issued.expires_at
+    {
         return Err(SigningError::Expired);
     }
-    if current_revocation_sequence != provisioned.revocation_sequence {
+    if current_revocation_sequence != provisioned.issued.revocation_sequence {
         return Err(SigningError::Revoked);
     }
-    let activity_type = prepared.authorization.envelope.activity_type();
+    if provisioned
+        .network_id
+        .is_some_and(|network| u64::from(network) != prepared.transaction.call.chain_id)
+    {
+        return Err(SigningError::AuthorityMismatch);
+    }
+    let activity_type = prepared.transaction.disclosure.activity_type;
     if !provisioned
+        .issued
         .permitted_activity_types
         .contains(&activity_type)
     {
         return Err(SigningError::ScopeDenied);
     }
-    if prepared.authorization.envelope.authority().as_bytes() != provisioned.authority.as_bytes() {
-        return Err(SigningError::AuthorityMismatch);
-    }
     if prepared.transaction.signing_hash != prepared.transaction.call.signing_hash() {
         return Err(SigningError::PreparedBytesChanged);
     }
-    let raw = prepared
-        .transaction
-        .call
-        .sign(&provisioned.seed)
+    let raw = provisioned
+        .with_secret(|seed| prepared.transaction.call.sign(seed))
+        .map_err(|_| SigningError::Revoked)?
         .map_err(|_| SigningError::Crypto(SignError::KeyRejected))?;
     let (call, signature) = decode_signed(&raw).map_err(|_| SigningError::SignatureInvalid)?;
     let signer_address =
         recover_sender(&call, &signature).map_err(|_| SigningError::SignatureInvalid)?;
-    let public_key = provisioned.session_public_key;
-    let authority_bytes = provisioned.authority.as_bytes().to_vec();
+    if signer_address != provisioned.evm_address()
+        || signer_address != prepared.actor_address
+        || signer_address != prepared.transaction.from
+    {
+        return Err(SigningError::AuthorityMismatch);
+    }
+    let public_key = provisioned.issued.session_public_key;
+    let authority_bytes = provisioned.issued.authority.as_bytes().to_vec();
     let signature_bytes = *signature.as_bytes();
     let signed_canonical_bytes = verification::attach_signature(prepared, signature_bytes)?;
     Ok(SignedPreparation {
-        canonical_bytes: prepared.authorization.canonical_bytes.clone(),
+        canonical_bytes: prepared.transaction.call.encode_unsigned(),
         signed_canonical_bytes,
         signature: signature_bytes,
         signer_address,
@@ -318,10 +273,10 @@ pub async fn self_sign(
             mode: SigningMode::ProtocolSessionKey,
             session_public_key: public_key,
             activity_type,
-            disclosure_digest: prepared.authorization.disclosure_digest,
+            disclosure_digest: DisclosureDigest(prepared.transaction.disclosure_digest),
             authority_bytes,
-            expires_at: provisioned.expires_at,
-            revocation_sequence: provisioned.revocation_sequence,
+            expires_at: provisioned.issued.expires_at,
+            revocation_sequence: provisioned.issued.revocation_sequence,
         },
     })
 }
@@ -331,14 +286,17 @@ pub async fn self_sign(
 /// # Errors
 ///
 /// Refuses invalid signatures and signatures recovering to a different prepared actor.
-/// The authorization's typed envelope, cached preimage, canonical bytes and disclosure
-/// must still agree before accepting a signature from the external custodian.
+/// The call and retained disclosure must still agree before accepting the signature.
 pub fn attach_external_signature(
     prepared: &SigningPreparation,
     signature: [u8; 65],
 ) -> Result<Vec<u8>, SigningError> {
-    verify_disclosure_binding(&prepared.authorization).map_err(SigningError::Disclosure)?;
-    verification::attach_signature(prepared, signature)
+    let bytes = verification::attach_signature(prepared, signature)?;
+    verify_call_binding(&prepared.transaction).map_err(SigningError::from)?;
+    if prepared.actor_address != prepared.transaction.from {
+        return Err(SigningError::SignerMismatch);
+    }
+    Ok(bytes)
 }
 
 /// Verifies the exact signed bytes and returns the only submit-capable wrapper.
@@ -357,62 +315,87 @@ pub fn verify_before_submit(
     verification::verify_exact(signed_canonical_bytes, prepared, signer_address, registry)
 }
 
-/// Attaches an owner signature to the exact kernel preparation retained by Human.
-///
-/// # Errors
-/// Refuses inconsistent typed/canonical preparation state and malformed signatures.
-pub fn attach_kernel_signature(
-    prepared: &Prepared,
-    signature: [u8; 64],
-) -> Result<Vec<u8>, SigningError> {
-    verify_disclosure_binding(prepared).map_err(SigningError::Disclosure)?;
-    let signature = Signature::new(&signature).map_err(SigningError::SignatureEncoding)?;
-    let signed = prepared.envelope.clone().attach_signature(signature);
-    encode_signed_envelope(&signed).map_err(SigningError::Wire)
+impl SigningPreparation {
+    /// Retains the exact unsigned transaction, actor, and disclosure for crash recovery.
+    pub fn retain(
+        &self,
+        store: &mut crate::store::Store,
+        tenant: crate::store::TenantId,
+        reference: [u8; 32],
+    ) -> Result<(), SigningError> {
+        verify_call_binding(&self.transaction).map_err(SigningError::from)?;
+        if self.actor_address != self.transaction.from {
+            return Err(SigningError::SignerMismatch);
+        }
+        let key = signing_key(tenant, reference)?;
+        let bytes = serde_json::to_vec(&(
+            self.actor_address,
+            self.transaction.observed_head_height,
+            self.transaction.disclosure_digest,
+            self.transaction.call.encode_unsigned(),
+        ))
+        .map_err(|_| SigningError::PreparedBytesChanged)?;
+        if let Some(old) = store.get(&key) {
+            if old.bytes() != bytes {
+                return Err(SigningError::PreparedBytesChanged);
+            }
+            return Ok(());
+        }
+        store
+            .put_local(key, bytes)
+            .map_err(|_| SigningError::PreparedBytesChanged)
+    }
+
+    pub fn restore(
+        store: &crate::store::Store,
+        tenant: crate::store::TenantId,
+        reference: [u8; 32],
+    ) -> Result<Self, SigningError> {
+        let key = signing_key(tenant, reference)?;
+        let value = store.get(&key).ok_or(SigningError::PreparedBytesChanged)?;
+        if value.class() != crate::store::StorageClass::LocalOnly {
+            return Err(SigningError::PreparedBytesChanged);
+        }
+        let (actor_address, observed_head_height, digest, unsigned): (
+            [u8; 20],
+            u64,
+            [u8; 32],
+            Vec<u8>,
+        ) = serde_json::from_slice(value.bytes())
+            .map_err(|_| SigningError::PreparedBytesChanged)?;
+        let call = layerx_crypto::evm_transaction::decode_unsigned(&unsigned)
+            .map_err(|_| SigningError::PreparedBytesChanged)?;
+        let disclosure = layerx_crypto::disclosure::call::bind_call(&call, actor_address)
+            .map_err(|_| SigningError::PreparedBytesChanged)?;
+        if disclosure
+            .signing_digest()
+            .map_err(|_| SigningError::PreparedBytesChanged)?
+            != digest
+        {
+            return Err(SigningError::PreparedBytesChanged);
+        }
+        let prepared = Self {
+            transaction: EvmPrepared {
+                from: actor_address,
+                signing_hash: call.signing_hash(),
+                call,
+                disclosure,
+                disclosure_digest: digest,
+                observed_head_height,
+            },
+            actor_address,
+        };
+        verify_call_binding(&prepared.transaction).map_err(SigningError::from)?;
+        Ok(prepared)
+    }
 }
 
-pub fn verify_kernel_before_submit(
-    signed_canonical_bytes: &[u8],
-    prepared: &Prepared,
-    signer_public_key: &[u8; 32],
-    registry: &ModuleRegistry,
-) -> Result<VerifiedSubmission, SigningError> {
-    verify_disclosure_binding(prepared).map_err(SigningError::Disclosure)?;
-    let activity =
-        decode_kernel_signed(signed_canonical_bytes, registry).map_err(SigningError::Wire)?;
-    if encode_signed(&activity).map_err(SigningError::Wire)? != signed_canonical_bytes {
-        return Err(SigningError::PreparedBytesChanged);
-    }
-    let unsigned = encode_unsigned(&activity).map_err(SigningError::Wire)?;
-    if unsigned != prepared.canonical_bytes {
-        return Err(SigningError::PreparedBytesChanged);
-    }
-    let signature = activity.signature().ok_or(SigningError::SignatureInvalid)?;
-    let signature: &[u8; 64] = signature
-        .try_into()
-        .map_err(|_| SigningError::SignatureInvalid)?;
-    let message = SignatureMessage::new(
-        Domain::SignaturePreimage,
-        activity.protocol_version(),
-        activity.network_id(),
-        &unsigned,
-    )
-    .map_err(|_| SigningError::SignatureInvalid)?;
-    let Authority::Owner(owner) = prepared.envelope.authority() else {
-        return Err(SigningError::AuthorityMismatch);
-    };
-    if owner.as_ref() != signer_public_key.as_slice() {
-        return Err(SigningError::AuthorityMismatch);
-    }
-    layerx_crypto::ed25519::verify(signer_public_key, signature, message)
-        .map_err(|_| SigningError::SignatureInvalid)?;
-    let activity_id = activity_id(&activity).map_err(SigningError::Wire)?;
-    Ok(VerifiedSubmission {
-        signed_canonical_bytes: signed_canonical_bytes.to_vec(),
-        audit: SubmissionBindingAudit {
-            activity_id,
-            idempotency_key: activity.idempotency_key(),
-            signed_byte_length: signed_canonical_bytes.len(),
-        },
-    })
+fn signing_key(
+    tenant: crate::store::TenantId,
+    reference: [u8; 32],
+) -> Result<crate::store::TenantKey, SigningError> {
+    let mut id = b"evm-signing-preparation:".to_vec();
+    id.extend(reference);
+    crate::store::TenantKey::new(tenant, crate::store::ObjectKind::Configuration, id)
+        .map_err(|_| SigningError::PreparedBytesChanged)
 }

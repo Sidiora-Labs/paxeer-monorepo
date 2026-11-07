@@ -1,0 +1,27 @@
+[repair.22.33.1446]
+audit = "22.30.82"
+base_revision = "71ea2b5cfcf9fa483db0ed65d0630e08bca86d9f"
+baseline = "User-supplied attempt 1 evidence: cargo test --locked --manifest-path services/platform/hosted/indexer/Cargo.toml --test repair_22_33_1446 exited 101, four passed and daemon_observation_order_allows_disabled_index_evm_fallback failed with Comet transaction indexing is unavailable; no original private log path was supplied. No unchanged-tree gate rerun, per the explicit implementation-before-qualification order."
+qualification = "hf-build then hf-done; the runner records the exact candidate revision, command, exit code and private evidence location."
+reputation-proof-tests = "reputation_committed_membership_rollback_conflict_and_reopen"
+snapshot-proof-tests = "snapshot_membership_archive_transport_and_restart"
+backfill-path-tests = "tenant_backfill_preserves_chain_id_history_events_and_summary; daemon_observation_order_allows_disabled_index_evm_fallback"
+binding-proof-tests = "binding_consumes_authenticated_store_proof_and_refuses_wrong_keys"
+comet_fallback = "Use the prerequisite's production PaxeerIngester::daemon_step with recorded disabled-index status and tx_search refusal; assert callback order, EVM progress, Comet unavailability and durable history after reopen."
+native_membership = "Canonical one-leaf native namespace fixture encoded with production protobuf codecs authenticates real AI shared-state bytes under signed block commits; the committed keeper transcript independently proves wrong-program refusal."
+wiring_node = "modules/lxphost and modules/sequencer/keeper — node domain: publish an AI-market shared-state namespace proof transcript for the positive cases; the existing programs/tests/vectors/ics23-market-namespaces-app-hash.json native keeper transcript targets another program."
+archive_recovery = "Stop and reopen both the durable loopback archive peer and SQLite projection, retrieve the original state via production Endpoint, reject altered bytes, restore through ProjectionStore and reopen again."
+
+[continuation.attempt_4]
+base_revision = "fd358174e8bd4046a155f55e6696094db7beba24"
+baseline = "User-supplied attempt 3 evidence: the declared verify command exited 101; four cases passed and daemon_observation_order_allows_disabled_index_evm_fallback failed with chain update references an unknown chain. The prior gate's private log path was not supplied; no unchanged gate was rerun."
+repair = "Register the same persisted tenant inventory as the passing tenant backfill case before daemon_step; assert the fixture's status update is applied and survives reopen while retaining callback-order, EVM-progress and Comet-unavailable checks."
+gotcha = "A fixture carrying ChainStatusChanged requires the tenant inventory before ingestion; neither indexed nor disabled-index observation registers tenants. Seed that prerequisite through Store::insert_chain instead of changing production integrity checks."
+qualification = "The final hf-build and hf-done ledger records the exact candidate revision, command, exit code and private evidence location."
+
+[qualification.blocked]
+revision = "a0755e52552b6e7837e9ec8da105b23da947e266"
+command = "cargo check --locked --manifest-path /work/paxeer-monorepo/services/platform/Cargo.toml --all-targets -p layerx-platform-dashboard -p layerx-platform-gateway -p layerx-platform-registry -p layerx-platform-webhooks"
+exit = 101
+log = "/out/logs/dependents-1.log"
+observed = "hf-build passed; hf-done exited 7 before verification because gateway/tests/repair_22_31_345.rs:12 includes missing ../../paxeer/deployment.yaml and line 73 supplies two arguments to handle_connection, which requires ConnectionPermit and Instant as its third and fourth arguments; these unrelated gateway errors are outside scope and were not repaired or rerun."

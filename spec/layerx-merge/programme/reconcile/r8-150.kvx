@@ -1,0 +1,251 @@
+[reconcile.r8-150]
+revision = "53150198caf59defafffab36d79dbc66d921ae57"
+rows = 30
+
+[row.r8-150.1]
+interface = "interface.8.err-gateway-caps-clock-unavailable"
+verdict = "served"
+path = "services/platform/hosted/gateway/src/main.rs"
+line = 5515
+symbol = "caps_clock_unavailable"
+evidence = "wallet_caps still returns response(503, caps_clock_unavailable, Some(5)) when the initial clock sample fails. Line 5515 is the emitting return matching the registered signature; line 5567 independently emits the identical response for the completion sample."
+
+[row.r8-150.2]
+interface = "interface.8.err-gateway-caps-evidence-refused"
+verdict = "served"
+path = "services/platform/hosted/gateway/src/main.rs"
+line = 5546
+symbol = "caps_evidence_refused"
+evidence = "wallet_caps emits the registered response(502, caps_evidence_refused, None) on malformed wallet-caps JSON at line 5546. The same emitting signature also guards a missing result object at 5552 and mismatched snapshot identity or network at 5564."
+
+[row.r8-150.3]
+interface = "interface.8.err-gateway-caps-identity-evidence"
+verdict = "served"
+path = "services/platform/hosted/gateway/src/main.rs"
+line = 5494
+symbol = "caps_identity_evidence"
+evidence = "wallet_caps returns the registered HTTP 502 response with no retry delay when deserializing the identity bridge response body fails; the emitting literal is at line 5494."
+
+[row.r8-150.4]
+interface = "interface.8.err-gateway-caps-identity-unavailable"
+verdict = "served"
+path = "services/platform/hosted/gateway/src/main.rs"
+line = 5485
+symbol = "caps_identity_unavailable"
+evidence = "wallet_caps emits the registered HTTP 503 response with Some(5) when the identity bridge request fails at line 5485. Line 5491 emits the identical response for an unexpected upstream status or content type; both are producers of the same error code."
+
+[row.r8-150.5]
+interface = "interface.8.err-gateway-caps-issuer-unavailable"
+verdict = "served"
+path = "services/platform/hosted/gateway/src/main.rs"
+line = 5527
+symbol = "caps_issuer_unavailable"
+evidence = "The wallet_assertion match in wallet_caps retains the exact Err(503) arm returning response(503, caps_issuer_unavailable, Some(5)) at line 5527."
+
+[row.r8-150.6]
+interface = "interface.8.err-gateway-caps-network-refused"
+verdict = "served"
+path = "services/platform/hosted/gateway/src/main.rs"
+line = 5472
+symbol = "caps_network_refused"
+evidence = "wallet_caps returns the registered HTTP 403 response without a retry delay when the requested chain_id differs from caps.chain_id; the emitting return is at line 5472."
+
+[row.r8-150.7]
+interface = "interface.8.err-gateway-caps-not-configured"
+verdict = "served"
+path = "services/platform/hosted/gateway/src/main.rs"
+line = 5449
+symbol = "caps_not_configured"
+evidence = "The initial wallet_caps configuration guard still returns response(503, caps_not_configured, Some(5)) when config.wallet_caps is absent; its emitting line is now 5449."
+
+[row.r8-150.8]
+interface = "interface.8.err-gateway-caps-principal-refused"
+verdict = "served"
+path = "services/platform/hosted/gateway/src/main.rs"
+line = 5531
+symbol = "caps_principal_refused"
+evidence = "wallet_caps retains the registered HTTP 403 emitting return at line 5531 for a failed principal binding lookup. The identical return at 5534 covers a recorded DID or context DID mismatch, rather than being a reference or test assertion."
+
+[row.r8-150.9]
+interface = "interface.8.err-gateway-caps-session-expired"
+verdict = "served"
+path = "services/platform/hosted/gateway/src/main.rs"
+line = 5570
+symbol = "caps_session_expired"
+evidence = "After the completion clock sample, wallet_caps emits response(403, caps_session_expired, None) when expires_at is absent or no later than completed.unix_seconds(); the registered emitting signature is at line 5570."
+
+[row.r8-150.10]
+interface = "interface.8.err-gateway-caps-session-refused"
+verdict = "served"
+path = "services/platform/hosted/gateway/src/main.rs"
+line = 5488
+symbol = "caps_session_refused"
+evidence = "wallet_caps maps identity bridge HTTP 401 or 403 to the registered response(403, caps_session_refused, None); line 5488 is the actual emitting return."
+
+[row.r8-150.11]
+interface = "interface.8.err-gateway-caps-session-required"
+verdict = "served"
+path = "services/platform/hosted/gateway/src/main.rs"
+line = 5457
+symbol = "caps_session_required"
+evidence = "The authorization Bearer token guard in wallet_caps emits the registered HTTP 401 response with no retry delay when the token is missing or fails validation; the return is now at line 5457."
+
+[row.r8-150.12]
+interface = "interface.8.err-gateway-component-invalid"
+verdict = "served"
+path = "services/platform/hosted/gateway/src/main.rs"
+line = 1738
+symbol = "component_invalid"
+evidence = "Line 1738 exactly retains parse_hex32(activity_id).map_err with response(503, component_invalid, Some(5)). The occurrence at 1078 only classifies an existing code, 1740 handles receipt decoding instead of activity_id parsing, and 2785/2788 emit errors in another component-read branch."
+
+[row.r8-150.13]
+interface = "interface.8.err-gateway-component-unavailable"
+verdict = "served"
+path = "services/platform/hosted/gateway/src/main.rs"
+line = 1441
+symbol = "component_unavailable"
+evidence = "Line 1441 retains the registered map_err closure producing response(503, component_unavailable, Some(5)) for a failed upstream request. The other emitter at 2778 is a direct return, not the registered map_err signature."
+
+[row.r8-150.14]
+interface = "interface.8.err-gateway-insufficient-scope"
+verdict = "served"
+path = "services/platform/hosted/gateway/src/main.rs"
+line = 2057
+symbol = "insufficient_scope"
+evidence = "The production permissions guard now directly returns response(403, insufficient_scope, None) when permits rejects the authenticated record. This preserves the registered response code, status and retry semantics while replacing the registered let result binding. Line 4076 constructs a terminal response in a test and is not the production emitter."
+
+[row.r8-150.15]
+interface = "interface.8.err-gateway-invalid-caps-request"
+verdict = "served"
+path = "services/platform/hosted/gateway/src/main.rs"
+line = 5463
+symbol = "invalid_caps_request"
+evidence = "wallet_caps emits the registered response(400, invalid_caps_request, None) at line 5463 when params is not a one-element array. Identical emitting returns at 5466 and 5469 guard the request object shape and address type."
+
+[row.r8-150.16]
+interface = "interface.8.err-gateway-invalid-http-request"
+verdict = "served"
+path = "services/platform/hosted/gateway/src/main.rs"
+line = 2105
+symbol = "invalid_http_request"
+evidence = "The connection handler still passes the registered &response(400, invalid_http_request, None) to http::write_response_connection for an invalid HTTP request; the response construction is at line 2105."
+
+[row.r8-150.17]
+interface = "interface.8.err-gateway-invalid-key-request"
+verdict = "served"
+path = "services/platform/hosted/gateway/src/main.rs"
+line = 2195
+symbol = "invalid_key_request"
+evidence = "The IssueRequest JSON deserialization match retains the exact Err(_) arm returning response(400, invalid_key_request, None); the emitting arm moved to line 2195."
+
+[row.r8-150.18]
+interface = "interface.8.err-gateway-invalid-program-id"
+verdict = "served"
+path = "services/platform/hosted/gateway/src/main.rs"
+line = 2927
+symbol = "invalid_program_id"
+evidence = "read_program_registry emits the registered response(400, invalid_program_id, None) when parse_hex32(program) fails at line 2927. read_program_interface independently emits the identical signature at 3160 for its own program identifier guard."
+
+[row.r8-150.19]
+interface = "interface.8.err-gateway-invalid-program-lifecycle"
+verdict = "retired"
+path = "services/platform/hosted/gateway/src/main.rs"
+line = 2500
+symbol = "invalid_program_lifecycle"
+evidence = "The registered invalid_program_lifecycle literal and HTTP 400 return are absent from main.rs. The current parse_program_head lifecycle match instead rejects unknown values with program_registry_invalid and HTTP 503. Repository-wide searches excluding spec and docs found no remaining files mentioning the retired literal."
+remaining_refs = 0
+remaining = []
+
+[row.r8-150.20]
+interface = "interface.8.err-gateway-invalid-program-receipt-selector"
+verdict = "retired"
+path = "services/platform/hosted/gateway/src/main.rs"
+line = 3408
+symbol = "invalid_program_receipt_selector"
+evidence = "The registered Err(()) arm emitting invalid_program_receipt_selector is absent from main.rs, and no occurrence of that literal remains in the registered file. Repository-wide searches excluding spec and docs found no remaining files mentioning it, so there is no relocated emitter to register."
+remaining_refs = 0
+remaining = []
+
+[row.r8-150.21]
+interface = "interface.8.err-gateway-invalid-program-success"
+verdict = "served"
+path = "services/platform/hosted/gateway/src/main.rs"
+line = 1241
+symbol = "invalid_program_success"
+evidence = "agent_response still declares the JSON reason value invalid_program_success at line 1241 when a successful response lacks a value or result. This is the registered reason literal, not the generic reason field name; the enclosing InternalFault response produces HTTP 500."
+
+[row.r8-150.22]
+interface = "interface.8.err-gateway-invalid-program-u64"
+verdict = "served"
+path = "services/platform/hosted/gateway/src/main.rs"
+line = 1258
+symbol = "invalid_program_u64"
+evidence = "agent_response still declares the JSON reason value invalid_program_u64 at line 1258 when normalize_program_u64s rejects the response value. This matches the registered reason literal and remains an InternalFault response with HTTP 500."
+
+[row.r8-150.23]
+interface = "interface.8.err-gateway-invalid-quota"
+verdict = "served"
+path = "services/platform/hosted/gateway/src/main.rs"
+line = 2205
+symbol = "invalid_quota"
+evidence = "The Quota::new(issue.quota_requests, issue.quota_window_seconds) failure guard retains the registered response(400, invalid_quota, None); its emitting return is now at line 2205."
+
+[row.r8-150.24]
+interface = "interface.8.err-gateway-invalid-scopes"
+verdict = "served"
+path = "services/platform/hosted/gateway/src/main.rs"
+line = 2208
+symbol = "invalid_scopes"
+evidence = "The canonical_scopes(&issue.scopes) failure guard retains the registered response(400, invalid_scopes, None); line 2208 is the actual emitting return."
+
+[row.r8-150.25]
+interface = "interface.8.err-gateway-key-limit-reached"
+verdict = "served"
+path = "services/platform/hosted/gateway/src/main.rs"
+line = 2243
+symbol = "key_limit_reached"
+evidence = "The key issuance match emits the registered response(409, key_limit_reached, None) at line 2243 for KeyIssuance::Limit with no recorded idempotent result. Line 3363 emits the identical response for KeyRotation::Limit; the selected line is the issuance producer."
+
+[row.r8-150.26]
+interface = "interface.8.err-gateway-lxp-err"
+verdict = "served"
+path = "services/platform/hosted/gateway/src/main.rs"
+line = 1086
+symbol = "LXP_ERR_"
+evidence = "The error classification branch still uses code.starts_with(LXP_ERR_) at line 1086 and assigns CoreRejection. This is the registered prefix-matching signature, rather than an individual protocol error code or a test example."
+
+[row.r8-150.27]
+interface = "interface.8.err-gateway-program-activity-invalid"
+verdict = "retired"
+path = "services/platform/hosted/gateway/src/main.rs"
+line = 1941
+symbol = "program_activity_invalid"
+evidence = "The registered map_err response using program_activity_invalid is absent from main.rs, and the literal does not occur anywhere in that file. Repository-wide searches excluding spec and docs found no remaining files mentioning it and no relocated producer."
+remaining_refs = 0
+remaining = []
+
+[row.r8-150.28]
+interface = "interface.8.err-gateway-program-interface-absent"
+verdict = "served"
+path = "services/platform/hosted/gateway/src/main.rs"
+line = 3185
+symbol = "program_interface_absent"
+evidence = "read_program_interface retains the registered response(404, program_interface_absent, None) when the upstream interface request returns HTTP 404. Line 3185 emits the response; the occurrence at 4056 is only an error-classification test case."
+
+[row.r8-150.29]
+interface = "interface.8.err-gateway-program-receipt-selector-mismatch"
+verdict = "retired"
+path = "services/platform/hosted/gateway/src/main.rs"
+line = 4854
+symbol = "program_receipt_selector_mismatch"
+evidence = "The registered HTTP 409 return using program_receipt_selector_mismatch is absent from main.rs, with no occurrence of the literal left in that file. Repository-wide searches excluding spec and docs found no remaining files mentioning it and no relocated emitter."
+remaining_refs = 0
+remaining = []
+
+[row.r8-150.30]
+interface = "interface.8.err-gateway-program-registry-unverified"
+verdict = "served"
+path = "services/platform/hosted/gateway/src/main.rs"
+line = 2549
+symbol = "program_registry_unverified"
+evidence = "parse_program_head retains return Err(response(503, program_registry_unverified, Some(5))) at line 2549 when program_id or receipt verification fails. The return Err at 2662 guards a newer ABI without discovery proof; other occurrences construct errors in separate proof or read branches. Line 2549 is the initial registry-head verification emitter matching the registered signature."

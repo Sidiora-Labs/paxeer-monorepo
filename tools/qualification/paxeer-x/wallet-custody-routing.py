@@ -8,6 +8,7 @@ import pwd
 import shutil
 import signal
 import socket
+import stat
 import subprocess
 import tempfile
 import threading
@@ -26,6 +27,123 @@ PG_STOP = None
 def require(condition, message):
     if not condition:
         raise RuntimeError(message)
+
+
+def private_info(info, directory=False):
+    require((stat.S_ISDIR(info.st_mode) if directory else stat.S_ISREG(info.st_mode))
+            and info.st_uid == os.getuid() and info.st_mode & 0o077 == 0
+            and (directory or info.st_nlink == 1), 'private caller-owned ordinary bundle entry required')
+
+
+def bundle_path(bundle, relative):
+    require(isinstance(relative, str) and relative and not Path(relative).is_absolute()
+            and all(part not in ('', '.', '..') for part in relative.split('/')),
+            'bundle reference must be a contained relative path')
+    return bundle / relative
+
+
+def bundle_open(bundle, relative=None, directory=False):
+    """Open each component relative to an admitted directory, never following links."""
+    bundle = Path(bundle).absolute()
+    for parent in (*reversed(bundle.parents), bundle):
+        require(not parent.is_symlink(), 'bundle ancestor symlinks refused')
+    descriptor = os.open(bundle, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+    try:
+        private_info(os.fstat(descriptor), True)
+        if relative is not None:
+            bundle_path(bundle, relative)
+            parts = relative.split('/')
+            for index, part in enumerate(parts):
+                is_directory = index < len(parts) - 1 or directory
+                flags = os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK
+                if is_directory:
+                    flags |= os.O_DIRECTORY
+                child = os.open(part, flags, dir_fd=descriptor)
+                os.close(descriptor)
+                descriptor = child
+                private_info(os.fstat(descriptor), is_directory)
+        return descriptor
+    except BaseException:
+        os.close(descriptor)
+        raise
+
+
+def bundle_read(bundle, relative):
+    with os.fdopen(bundle_open(bundle, relative), 'rb') as stream:
+        return stream.read()
+
+
+def bundle_entries(bundle, relative=None):
+    descriptor = bundle_open(bundle, relative, directory=True)
+    try:
+        with os.scandir(descriptor) as entries:
+            for entry in sorted(entries, key=lambda item: item.name):
+                require(entry.name != '.env' and not entry.name.startswith('.env.'),
+                        'fixture bundles must not contain .env files')
+                name = entry.name if relative is None else relative + '/' + entry.name
+                info = entry.stat(follow_symlinks=False)
+                is_directory = stat.S_ISDIR(info.st_mode)
+                private_info(info, is_directory)
+                if is_directory:
+                    yield name, True
+                    yield from bundle_entries(bundle, name)
+                else:
+                    yield name, False
+    finally:
+        os.close(descriptor)
+
+
+def load_bundle(supplied):
+    bundle = Path(supplied).absolute()
+    # Admit the entire credential-bearing tree before reading even its manifest.
+    list(bundle_entries(bundle))
+    config = json.loads(bundle_read(bundle, 'wallet-custody-fixture.json'))
+    require(config.get('version') == 1 and config.get('isolated') is True,
+            'isolated fixture version 1 required')
+    for key in ('artifact_manifest', 'attestor_source_manifest', 'postgres_dump'):
+        with os.fdopen(bundle_open(bundle, config[key]), 'rb'):
+            pass
+    bundle_path(bundle, config['node_binary'])
+    for binary in ('initdb', 'pg_ctl', 'pg_restore'):
+        relative = str(Path(config['postgres_bin_dir']) / binary)
+        bundle_path(bundle, relative)
+    for service in config['services']:
+        bundle_path(bundle, service['executable'])
+    def references(value, key=''):
+        if isinstance(value, dict):
+            for name, item in value.items():
+                references(item, name)
+        elif isinstance(value, list):
+            for item in value:
+                references(item, key)
+        elif isinstance(value, str):
+            if '{fixture}' in value:
+                require(value.startswith('{fixture}/') and value.count('{fixture}') == 1,
+                        'fixture path must remain in bundle')
+                descriptor = bundle_open(bundle, value[len('{fixture}/'):], directory=key.endswith('_DIR'))
+                os.close(descriptor)
+            elif key.endswith(('_FILE', '_DIR')):
+                require(value.startswith('{state}/') and '..' not in Path(value).parts,
+                        'credential paths must remain in bundle or private generated state')
+    references(config.get('gateway_env', {}))
+    references(config['services'])
+    return bundle, config
+
+
+def copy_bundle(bundle, destination):
+    entries = list(bundle_entries(bundle))
+    destination.mkdir(mode=0o700)
+    for relative, directory in entries:
+        target = destination / relative
+        if directory:
+            target.mkdir(mode=0o700)
+        else:
+            descriptor = bundle_open(bundle, relative)
+            with os.fdopen(descriptor, 'rb') as source:
+                mode = stat.S_IMODE(os.fstat(source.fileno()).st_mode)
+                with target.open('xb') as output:
+                    os.fchmod(output.fileno(), mode)
+                    shutil.copyfileobj(source, output)
 
 
 def local_url(value):
@@ -64,13 +182,8 @@ def main():
     global STATE, PG_STOP
     bundle_arg = os.environ.get('WALLET_CUSTODY_FIXTURE_BUNDLE')
     require(bundle_arg, 'prerequisite: WALLET_CUSTODY_FIXTURE_BUNDLE with approved isolated real-service fixtures')
-    bundle = Path(bundle_arg).resolve()
-    require(bundle.is_dir(), 'prerequisite: fixture bundle directory missing')
-    require(not any(p.name == '.env' or p.name.startswith('.env.') for p in bundle.rglob('*')),
-            'fixture bundles must not contain .env files')
-    config = json.loads((bundle / 'wallet-custody-fixture.json').read_text())
-    require(config.get('version') == 1 and config.get('isolated') is True, 'isolated fixture version 1 required')
-    artifacts = json.loads((bundle / config['artifact_manifest']).read_text())
+    bundle, config = load_bundle(bundle_arg)
+    artifacts = json.loads(bundle_read(bundle, config['artifact_manifest']))
     for directory in ('src', 'dist'):
         actual = {str(p.relative_to(GATEWAY)) for p in (GATEWAY / directory).rglob('*') if p.is_file()}
         expected = {p for p in artifacts if p.startswith(directory + '/')}
@@ -80,13 +193,13 @@ def main():
         require(path.is_relative_to(GATEWAY) and '.env' not in path.name, 'invalid artifact manifest path')
         require(hashlib.sha256(path.read_bytes()).hexdigest() == digest, 'prebuilt artifact/source digest mismatch: ' + relative)
     require((GATEWAY / 'node_modules/tsx').is_dir(), 'prerequisite: installed tsx runtime; no install/build allowed')
-    attestor_sources = json.loads((bundle / config['attestor_source_manifest']).read_text())
+    attestor_sources = json.loads(bundle_read(bundle, config['attestor_source_manifest']))
     source_files = {str(p.relative_to(ROOT)) for p in (ROOT / 'services/wallet/attestor').rglob('*.go')}
     source_files.update({'services/wallet/attestor/go.mod', 'services/wallet/attestor/go.sum'})
     require(set(attestor_sources) == source_files, 'complete attestor source manifest required')
     for relative, digest in attestor_sources.items():
         require(hashlib.sha256((ROOT / relative).read_bytes()).hexdigest() == digest, 'attestor source digest mismatch: ' + relative)
-    require(hashlib.sha256(Path(config['node_binary']).read_bytes()).hexdigest() == config['node_sha256'], 'node artifact digest mismatch')
+    require(hashlib.sha256(bundle_read(bundle, config['node_binary'])).hexdigest() == config['node_sha256'], 'node artifact digest mismatch')
     services = config['services']
     require(sum(s['kind'] == 'attestor' for s in services) == 5, 'exactly five real attestor processes required')
     require(sum(s['kind'] == 'chain' for s in services) == 1, 'one real chain process required')
@@ -96,7 +209,11 @@ def main():
     STATE = Path(tempfile.mkdtemp(prefix='wallet-custody-routing-', dir=os.environ.get('WALLET_CUSTODY_EVIDENCE_ROOT')))
     STATE.chmod(0o700)
     copied = STATE / 'fixture'
-    shutil.copytree(bundle, copied)
+    copy_bundle(bundle, copied)
+    config['node_binary'] = str(bundle_path(copied, config['node_binary']))
+    config['postgres_bin_dir'] = str(bundle_path(copied, config['postgres_bin_dir']))
+    for service in services:
+        service['executable'] = str(bundle_path(copied, service['executable']))
     def expand(value):
         return value.replace('{state}', str(STATE)).replace('{fixture}', str(copied)).replace('{database_url}', env.get('DATABASE_URL', ''))
     env = {key: value for key, value in os.environ.items() if not key.startswith(('DATABASE_', 'ATTESTOR_', 'WALLET_', 'SUPABASE_', 'HYPERPAXEER_', 'RPC_', 'LAYER'))}

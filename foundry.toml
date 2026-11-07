@@ -29,6 +29,17 @@ fs_permissions = [
     { access = "write", path = "./build" },
 ]
 
+[profile.governance]
+src = "contracts/governance"
+test = "tests/solidity/governance"
+script = "contracts/governance"
+out = "build/forge-artifacts-governance"
+cache_path = "build/forge-cache-governance"
+fs_permissions = [
+    { access = "read-write", path = "./tests/vectors/names" },
+    { access = "write", path = "./build" },
+]
+
 [fmt]
 ignore = ["contracts/src/**/*.sol", "contracts/test/**/*.sol", "contracts/lib/**/*.sol", "contracts/node_modules/**/*.sol", "contracts/bridge/**", "contracts/launchpad/**/*.sol"]
 

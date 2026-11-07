@@ -133,7 +133,7 @@ impl ListQuotesRequestBuilder {
                 &query,
                 &headers,
                 body,
-                true,
+                crate::client::SecurityScheme::RestApiKey,
                 overrides,
             )
             .await
@@ -255,7 +255,7 @@ impl ListListingsRequestBuilder {
                 &query,
                 &headers,
                 body,
-                true,
+                crate::client::SecurityScheme::RestApiKey,
                 overrides,
             )
             .await
@@ -361,7 +361,7 @@ impl ListQuotesApiAliasRequestBuilder {
                 &query,
                 &headers,
                 body,
-                true,
+                crate::client::SecurityScheme::RestApiKey,
                 overrides,
             )
             .await
@@ -483,7 +483,7 @@ impl ListListingsApiAliasRequestBuilder {
                 &query,
                 &headers,
                 body,
-                true,
+                crate::client::SecurityScheme::RestApiKey,
                 overrides,
             )
             .await

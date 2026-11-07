@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/Sidiora-Technologies/KindleLaunch/media/social/internal/internaltest"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"os"
@@ -74,15 +75,13 @@ func TestPostgres(t *testing.T) {
 		t.Fatal(e)
 	}
 	defer db.Close()
-	for _, source := range schemaSources(t) {
-		ddl := strings.NewReplacer(
-			"chat.", pgx.Identifier{schema}.Sanitize()+".",
-			"CREATE SCHEMA IF NOT EXISTS chat;", "CREATE SCHEMA IF NOT EXISTS "+pgx.Identifier{schema}.Sanitize()+";",
-		).Replace(source.up)
+	for _, version := range []int{370000, 380000, 370001} {
+		ddl := internaltest.CoordinatorMigrationSQL(t, schema, version)
 		if _, e = db.Exec(ctx, ddl); e != nil {
-			t.Fatalf("apply %s: %v", source.name, e)
+			t.Fatalf("apply coordinator migration %d: %v", version, e)
 		}
 	}
+
 	s := Store{db, permit{}}
 	actor := "0x0000000000000000000000000000000000000001"
 	pool := "0x0000000000000000000000000000000000000002"

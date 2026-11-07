@@ -1,0 +1,1693 @@
+# Pre-upgrade audit: source snapshot and proposed owner-domain repairs.
+# This record does not modify the reviewed implementations.
+
+[audit.22.30.57]
+task = "22.30.57"
+revision = "6d2c32a65a1c7989a6a37abf5965929de9769ae4"
+files_reviewed = 177
+findings = 46
+docs_reviewed = 28
+upgrade_ready = false
+blocking = ["redelegation-shares"]
+notes = "All 177 member bodies were read, with identical historical ABI bodies compared structurally and historical Go snapshots reviewed against their exact predecessor/current differences. The 334 produced and 369 consumed registry rows were compared with the slice and relevant real keeper/core/node/generated transport paths. This record proposes repairs only; it does not claim execution of Go suites or a chain build. Historical replay behavior is distinguished from forward upgrade behavior."
+
+[file.001]
+path = "api/tokenfactory/authority_metadata.proto"
+lines = 19
+verdict = "clean"
+note = "Read in full: admin and issuer_did field numbers/types agree with generated metadata and admin-versus-issuer authority paths."
+
+[file.002]
+path = "api/tokenfactory/genesis.proto"
+lines = 33
+verdict = "issues"
+note = "Read in full: field 3 paused_denoms agrees with generated protobuf/JSON, keeper export/import and the existing real close/reopen proof; registry signature is stale."
+
+[file.003]
+path = "api/tokenfactory/params.proto"
+lines = 9
+verdict = "clean"
+note = "Read in full: denom_allowlist_max_size is uint32 field 1 and agrees with the generated Params type, validation and keeper allow-list consumers."
+
+[file.004]
+path = "api/tokenfactory/query.proto"
+lines = 129
+verdict = "clean"
+note = "Read in full: DenomPaused fields 1/2 and both query-string additional bindings agree with generated gateway ParseForm/PopulateQueryParameters and real query consumers, preserving slashes in factory denoms."
+
+[file.005]
+path = "api/tokenfactory/tx.proto"
+lines = 119
+verdict = "clean"
+note = "Read in full: service RPCs and request/response field tags agree with generated Go messages and real tokenfactory handler authorization, including issuer-bound pause refusal."
+
+[file.006]
+path = "interchain/modules/apps/27-interchain-accounts/client/cli/cli.go"
+lines = 26
+verdict = "clean"
+note = "Read in full: Cobra command composition and flags agree with the locally implemented child commands; chain availability follows module registration. No retired runtime reference found in this member."
+
+[file.007]
+path = "interchain/modules/apps/27-interchain-accounts/controller/client/cli/cli.go"
+lines = 22
+verdict = "clean"
+note = "Read in full: Cobra command composition and flags agree with the locally implemented child commands; chain availability follows module registration. No retired runtime reference found in this member."
+
+[file.008]
+path = "interchain/modules/apps/27-interchain-accounts/controller/client/cli/query.go"
+lines = 75
+verdict = "clean"
+note = "Read in full: Cobra argument counts, query requests, pagination and printed generated response types agree with the registered query contract. No retired runtime reference found in this member."
+
+[file.009]
+path = "interchain/modules/apps/27-interchain-accounts/controller/ibc_module.go"
+lines = 165
+verdict = "clean"
+note = "Read in full: ICA ordered-channel callback dispatch, supported/refused handshake directions, packet acknowledgement and timeout hooks agree with real core interfaces; absent mainnet ICA mounting is recorded on module.go."
+
+[file.010]
+path = "interchain/modules/apps/27-interchain-accounts/controller/ibc_module_test.go"
+lines = 686
+verdict = "clean"
+note = "Read in full: TestICATestSuite, TestOnChanOpenInit, TestChanOpenTry, TestOnChanOpenAck, TestChanOpenConfirm. Assertions and fixtures were compared with their real local producer/consumer types and refusal boundaries; this file is not claimed as a persistence or mainnet wiring proof beyond its actual test path."
+
+[file.011]
+path = "interchain/modules/apps/27-interchain-accounts/controller/keeper/account.go"
+lines = 72
+verdict = "clean"
+note = "Read in full: ICA registration, capability ownership, connection/port checks and deterministic account creation agree with the paired handshake and SDK account keeper. Runtime availability is recorded on module.go."
+
+[file.012]
+path = "interchain/modules/apps/27-interchain-accounts/controller/keeper/account_test.go"
+lines = 102
+verdict = "clean"
+note = "Read in full: TestRegisterInterchainAccount, TestRegisterSameOwnerMultipleConnections. Assertions and fixtures were compared with their real local producer/consumer types and refusal boundaries; this file is not claimed as a persistence or mainnet wiring proof beyond its actual test path."
+
+[file.013]
+path = "interchain/modules/apps/27-interchain-accounts/controller/keeper/genesis.go"
+lines = 42
+verdict = "clean"
+note = "Read in full: bound ports, active channels, registered remote accounts and params persist through keeper export/import; shared validation and stream risks are recorded at their owning functions."
+
+[file.014]
+path = "interchain/modules/apps/27-interchain-accounts/controller/keeper/genesis_test.go"
+lines = 71
+verdict = "clean"
+note = "Read in full: TestInitGenesis, TestExportGenesis. Assertions and fixtures were compared with their real local producer/consumer types and refusal boundaries; this file is not claimed as a persistence or mainnet wiring proof beyond its actual test path."
+
+[file.015]
+path = "interchain/modules/apps/27-interchain-accounts/controller/keeper/grpc_query.go"
+lines = 46
+verdict = "clean"
+note = "Read in full: query nil/input validation, request fields, keeper lookup, response envelopes and gRPC status codes agree with generated clients. No retired runtime reference found in this member."
+
+[file.016]
+path = "interchain/modules/apps/27-interchain-accounts/controller/keeper/grpc_query_test.go"
+lines = 83
+verdict = "clean"
+note = "Read in full: TestQueryInterchainAccount, TestQueryParams. Assertions and fixtures were compared with their real local producer/consumer types and refusal boundaries; this file is not claimed as a persistence or mainnet wiring proof beyond its actual test path."
+
+[file.017]
+path = "interchain/modules/apps/27-interchain-accounts/controller/keeper/handshake.go"
+lines = 123
+verdict = "clean"
+note = "Read in full: ORDERED channel, metadata negotiation, prior active-channel closure and remote account registration agree with core callbacks; imported state validation is tracked on shared genesis."
+
+[file.018]
+path = "interchain/modules/apps/27-interchain-accounts/controller/keeper/handshake_test.go"
+lines = 456
+verdict = "clean"
+note = "Read in full: TestOnChanOpenInit, TestOnChanOpenAck, TestOnChanCloseConfirm. Assertions and fixtures were compared with their real local producer/consumer types and refusal boundaries; this file is not claimed as a persistence or mainnet wiring proof beyond its actual test path."
+
+[file.019]
+path = "interchain/modules/apps/27-interchain-accounts/controller/keeper/keeper.go"
+lines = 195
+verdict = "issues"
+note = "Read in full: local public declarations, codec shapes and callers agree with the real module boundaries. No retired runtime reference found in this member."
+
+[file.020]
+path = "interchain/modules/apps/27-interchain-accounts/controller/keeper/keeper_test.go"
+lines = 255
+verdict = "clean"
+note = "Read in full: TestKeeperTestSuite, TestIsBound, TestGetAllPorts, TestGetInterchainAccountAddress, TestGetAllActiveChannels. Assertions and fixtures were compared with their real local producer/consumer types and refusal boundaries; this file is not claimed as a persistence or mainnet wiring proof beyond its actual test path."
+
+[file.021]
+path = "interchain/modules/apps/27-interchain-accounts/controller/keeper/params.go"
+lines = 25
+verdict = "clean"
+note = "Read in full: parameter key bytes, defaults, validation and concrete getter/setter shapes agree with the owning keeper and parameter subspace. No retired runtime reference found in this member."
+
+[file.022]
+path = "interchain/modules/apps/27-interchain-accounts/controller/keeper/params_test.go"
+lines = 15
+verdict = "clean"
+note = "Read in full: TestParams. Assertions and fixtures were compared with their real local producer/consumer types and refusal boundaries; this file is not claimed as a persistence or mainnet wiring proof beyond its actual test path."
+
+[file.023]
+path = "interchain/modules/apps/27-interchain-accounts/controller/keeper/relay.go"
+lines = 86
+verdict = "clean"
+note = "Read in full: capability/open-channel checks, relative timestamp timeout, packet protobuf bytes and timeout recovery agree with IBC core; node availability is tracked on module.go."
+
+[file.024]
+path = "interchain/modules/apps/27-interchain-accounts/controller/keeper/relay_test.go"
+lines = 232
+verdict = "clean"
+note = "Read in full: TestSendTx, TestOnTimeoutPacket. Assertions and fixtures were compared with their real local producer/consumer types and refusal boundaries; this file is not claimed as a persistence or mainnet wiring proof beyond its actual test path."
+
+[file.025]
+path = "interchain/modules/apps/27-interchain-accounts/controller/types/errors.go"
+lines = 10
+verdict = "clean"
+note = "Read in full: registered codespace/code/message constants are stable and their local refusal call sites agree with the registry. No retired runtime reference found in this member."
+
+[file.026]
+path = "interchain/modules/apps/27-interchain-accounts/controller/types/keys.go"
+lines = 9
+verdict = "clean"
+note = "Read in full: store prefixes, scoped identifiers and key construction agree with their readers, writers and registry declarations. No retired runtime reference found in this member."
+
+[file.027]
+path = "interchain/modules/apps/27-interchain-accounts/controller/types/params.go"
+lines = 57
+verdict = "clean"
+note = "Read in full: parameter key bytes, defaults, validation and concrete getter/setter shapes agree with the owning keeper and parameter subspace. No retired runtime reference found in this member."
+
+[file.028]
+path = "interchain/modules/apps/27-interchain-accounts/controller/types/params_test.go"
+lines = 14
+verdict = "clean"
+note = "Read in full: TestValidateParams. Assertions and fixtures were compared with their real local producer/consumer types and refusal boundaries; this file is not claimed as a persistence or mainnet wiring proof beyond its actual test path."
+
+[file.029]
+path = "interchain/modules/apps/27-interchain-accounts/host/client/cli/cli.go"
+lines = 22
+verdict = "clean"
+note = "Read in full: Cobra command composition and flags agree with the locally implemented child commands; chain availability follows module registration. No retired runtime reference found in this member."
+
+[file.030]
+path = "interchain/modules/apps/27-interchain-accounts/host/client/cli/query.go"
+lines = 101
+verdict = "clean"
+note = "Read in full: Cobra argument counts, query requests, pagination and printed generated response types agree with the registered query contract. No retired runtime reference found in this member."
+
+[file.031]
+path = "interchain/modules/apps/27-interchain-accounts/host/ibc_module.go"
+lines = 142
+verdict = "clean"
+note = "Read in full: ICA ordered-channel callback dispatch, supported/refused handshake directions, packet acknowledgement and timeout hooks agree with real core interfaces; absent mainnet ICA mounting is recorded on module.go."
+
+[file.032]
+path = "interchain/modules/apps/27-interchain-accounts/host/ibc_module_test.go"
+lines = 776
+verdict = "clean"
+note = "Read in full: TestICATestSuite, TestChanOpenInit, TestOnChanOpenTry, TestChanOpenAck, TestOnChanOpenConfirm. Assertions and fixtures were compared with their real local producer/consumer types and refusal boundaries; this file is not claimed as a persistence or mainnet wiring proof beyond its actual test path."
+
+[file.033]
+path = "interchain/modules/apps/27-interchain-accounts/host/keeper/account.go"
+lines = 52
+verdict = "clean"
+note = "Read in full: ICA registration, capability ownership, connection/port checks and deterministic account creation agree with the paired handshake and SDK account keeper. Runtime availability is recorded on module.go."
+
+[file.034]
+path = "interchain/modules/apps/27-interchain-accounts/host/keeper/account_test.go"
+lines = 33
+verdict = "clean"
+note = "Read in full: TestRegisterInterchainAccount. Assertions and fixtures were compared with their real local producer/consumer types and refusal boundaries; this file is not claimed as a persistence or mainnet wiring proof beyond its actual test path."
+
+[file.035]
+path = "interchain/modules/apps/27-interchain-accounts/host/keeper/events.go"
+lines = 29
+verdict = "clean"
+note = "Read in full: event type and attribute constants agree with their actual emitters; stale prose tables are separately recorded. No retired runtime reference found in this member."
+
+[file.036]
+path = "interchain/modules/apps/27-interchain-accounts/host/keeper/genesis.go"
+lines = 40
+verdict = "issues"
+note = "Read in full: host mapping/parameter import and export use real keeper state, but custom accepted ports are replaced by icahost on export."
+
+[file.037]
+path = "interchain/modules/apps/27-interchain-accounts/host/keeper/genesis_test.go"
+lines = 71
+verdict = "clean"
+note = "Read in full: TestInitGenesis, TestExportGenesis. Assertions and fixtures were compared with their real local producer/consumer types and refusal boundaries; this file is not claimed as a persistence or mainnet wiring proof beyond its actual test path."
+
+[file.038]
+path = "interchain/modules/apps/27-interchain-accounts/host/keeper/grpc_query.go"
+lines = 21
+verdict = "clean"
+note = "Read in full: query nil/input validation, request fields, keeper lookup, response envelopes and gRPC status codes agree with generated clients. No retired runtime reference found in this member."
+
+[file.039]
+path = "interchain/modules/apps/27-interchain-accounts/host/keeper/grpc_query_test.go"
+lines = 14
+verdict = "clean"
+note = "Read in full: TestQueryParams. Assertions and fixtures were compared with their real local producer/consumer types and refusal boundaries; this file is not claimed as a persistence or mainnet wiring proof beyond its actual test path."
+
+[file.040]
+path = "interchain/modules/apps/27-interchain-accounts/host/keeper/handshake.go"
+lines = 124
+verdict = "clean"
+note = "Read in full: ORDERED/icahost/metadata/capability checks and account reopening agree on canonical input; malformed accepted genesis can reach MustAccAddressFromBech32, recorded on types/genesis.go."
+
+[file.041]
+path = "interchain/modules/apps/27-interchain-accounts/host/keeper/handshake_test.go"
+lines = 418
+verdict = "clean"
+note = "Read in full: TestOnChanOpenTry, TestOnChanOpenConfirm, TestOnChanCloseConfirm. Assertions and fixtures were compared with their real local producer/consumer types and refusal boundaries; this file is not claimed as a persistence or mainnet wiring proof beyond its actual test path."
+
+[file.042]
+path = "interchain/modules/apps/27-interchain-accounts/host/keeper/keeper.go"
+lines = 184
+verdict = "issues"
+note = "Read in full: local public declarations, codec shapes and callers agree with the real module boundaries. No retired runtime reference found in this member."
+
+[file.043]
+path = "interchain/modules/apps/27-interchain-accounts/host/keeper/keeper_test.go"
+lines = 237
+verdict = "clean"
+note = "Read in full: TestKeeperTestSuite, TestIsBound, TestGetInterchainAccountAddress, TestGetAllActiveChannels, TestGetAllInterchainAccounts. Assertions and fixtures were compared with their real local producer/consumer types and refusal boundaries; this file is not claimed as a persistence or mainnet wiring proof beyond its actual test path."
+
+[file.044]
+path = "interchain/modules/apps/27-interchain-accounts/host/keeper/params.go"
+lines = 32
+verdict = "clean"
+note = "Read in full: parameter key bytes, defaults, validation and concrete getter/setter shapes agree with the owning keeper and parameter subspace. No retired runtime reference found in this member."
+
+[file.045]
+path = "interchain/modules/apps/27-interchain-accounts/host/keeper/params_test.go"
+lines = 16
+verdict = "clean"
+note = "Read in full: TestParams. Assertions and fixtures were compared with their real local producer/consumer types and refusal boundaries; this file is not claimed as a persistence or mainnet wiring proof beyond its actual test path."
+
+[file.046]
+path = "interchain/modules/apps/27-interchain-accounts/host/keeper/relay.go"
+lines = 132
+verdict = "clean"
+note = "Read in full: protobuf CosmosTx decode, allow-message list, ICA signer authentication, message routing and acknowledgement error mapping agree; actual node ICA availability is tracked on module.go."
+
+[file.047]
+path = "interchain/modules/apps/27-interchain-accounts/host/keeper/relay_test.go"
+lines = 492
+verdict = "clean"
+note = "Read in full: TestOnRecvPacket. Assertions and fixtures were compared with their real local producer/consumer types and refusal boundaries; this file is not claimed as a persistence or mainnet wiring proof beyond its actual test path."
+
+[file.048]
+path = "interchain/modules/apps/27-interchain-accounts/host/types/ack.go"
+lines = 27
+verdict = "clean"
+note = "Read in full: deterministic acknowledgement error serialization preserves the module refusal code without nondeterministic error text. No retired runtime reference found in this member."
+
+[file.049]
+path = "interchain/modules/apps/27-interchain-accounts/host/types/ack_test.go"
+lines = 100
+verdict = "clean"
+note = "Read in full: TestTypesTestSuite, TestABCICodeDeterminism, TestAcknowledgementError. Assertions and fixtures were compared with their real local producer/consumer types and refusal boundaries; this file is not claimed as a persistence or mainnet wiring proof beyond its actual test path."
+
+[file.050]
+path = "interchain/modules/apps/27-interchain-accounts/host/types/errors.go"
+lines = 10
+verdict = "clean"
+note = "Read in full: registered codespace/code/message constants are stable and their local refusal call sites agree with the registry. No retired runtime reference found in this member."
+
+[file.051]
+path = "interchain/modules/apps/27-interchain-accounts/host/types/keys.go"
+lines = 29
+verdict = "clean"
+note = "Read in full: store prefixes, scoped identifiers and key construction agree with their readers, writers and registry declarations. No retired runtime reference found in this member."
+
+[file.052]
+path = "interchain/modules/apps/27-interchain-accounts/host/types/params.go"
+lines = 83
+verdict = "clean"
+note = "Read in full: parameter key bytes, defaults, validation and concrete getter/setter shapes agree with the owning keeper and parameter subspace. No retired runtime reference found in this member."
+
+[file.053]
+path = "interchain/modules/apps/27-interchain-accounts/host/types/params_test.go"
+lines = 14
+verdict = "clean"
+note = "Read in full: TestValidateParams. Assertions and fixtures were compared with their real local producer/consumer types and refusal boundaries; this file is not claimed as a persistence or mainnet wiring proof beyond its actual test path."
+
+[file.054]
+path = "interchain/modules/apps/27-interchain-accounts/module.go"
+lines = 230
+verdict = "issues"
+note = "Read in full: codec/services/default genesis and optional controller/host composition agree locally; runtime availability and asynchronous export lifetime require proposals below."
+
+[file.055]
+path = "interchain/modules/apps/27-interchain-accounts/module_test.go"
+lines = 129
+verdict = "clean"
+note = "Read in full: TestICATestSuite, TestInitModule. Assertions and fixtures were compared with their real local producer/consumer types and refusal boundaries; this file is not claimed as a persistence or mainnet wiring proof beyond its actual test path."
+
+[file.056]
+path = "interchain/modules/apps/27-interchain-accounts/types/account.go"
+lines = 162
+verdict = "clean"
+note = "Read in full: deterministic derived account addresses and non-signing account behavior agree with host creation; generic address validation deliberately supports remote formats, so host recovery needs its own stricter boundary."
+
+[file.057]
+path = "interchain/modules/apps/27-interchain-accounts/types/account_test.go"
+lines = 175
+verdict = "clean"
+note = "Read in full: TestTypesTestSuite, TestGenerateUniqueAddress, TestValidateAccountAddress, TestInterchainAccount, TestGenesisAccountValidate. Assertions and fixtures were compared with their real local producer/consumer types and refusal boundaries; this file is not claimed as a persistence or mainnet wiring proof beyond its actual test path."
+
+[file.058]
+path = "interchain/modules/apps/27-interchain-accounts/types/codec.go"
+lines = 83
+verdict = "clean"
+note = "Read in full: registered account interface and protobuf CosmosTx Any packing/unpacking agree with authenticated host message execution."
+
+[file.059]
+path = "interchain/modules/apps/27-interchain-accounts/types/codec_test.go"
+lines = 151
+verdict = "clean"
+note = "Read in full: TestSerializeAndDeserializeCosmosTx, TestDeserializeAndSerializeCosmosTxWithAmino. Assertions and fixtures were compared with their real local producer/consumer types and refusal boundaries; this file is not claimed as a persistence or mainnet wiring proof beyond its actual test path."
+
+[file.060]
+path = "interchain/modules/apps/27-interchain-accounts/types/errors.go"
+lines = 26
+verdict = "clean"
+note = "Read in full: registered codespace/code/message constants are stable and their local refusal call sites agree with the registry. No retired runtime reference found in this member."
+
+[file.061]
+path = "interchain/modules/apps/27-interchain-accounts/types/events.go"
+lines = 10
+verdict = "clean"
+note = "Read in full: event type and attribute constants agree with their actual emitters; stale prose tables are separately recorded. No retired runtime reference found in this member."
+
+[file.062]
+path = "interchain/modules/apps/27-interchain-accounts/types/expected_keepers.go"
+lines = 37
+verdict = "clean"
+note = "Read in full: required keeper method signatures use the real SDK/core types and match concrete call sites and mounted dependency implementations. No retired runtime reference found in this member."
+
+[file.063]
+path = "interchain/modules/apps/27-interchain-accounts/types/genesis.go"
+lines = 139
+verdict = "issues"
+note = "Read in full: controller remote addresses are intentionally generic; host local recovery validation and canonical host port acceptance are insufficient."
+
+[file.064]
+path = "interchain/modules/apps/27-interchain-accounts/types/genesis_test.go"
+lines = 307
+verdict = "clean"
+note = "Read in full: TestValidateGenesisState, TestValidateControllerGenesisState, TestValidateHostGenesisState. Assertions and fixtures were compared with their real local producer/consumer types and refusal boundaries; this file is not claimed as a persistence or mainnet wiring proof beyond its actual test path."
+
+[file.065]
+path = "interchain/modules/apps/27-interchain-accounts/types/keys.go"
+lines = 57
+verdict = "clean"
+note = "Read in full: store prefixes, scoped identifiers and key construction agree with their readers, writers and registry declarations. No retired runtime reference found in this member."
+
+[file.066]
+path = "interchain/modules/apps/27-interchain-accounts/types/keys_test.go"
+lines = 15
+verdict = "clean"
+note = "Read in full: TestKeyActiveChannel, TestKeyOwnerAccount. Assertions and fixtures were compared with their real local producer/consumer types and refusal boundaries; this file is not claimed as a persistence or mainnet wiring proof beyond its actual test path."
+
+[file.067]
+path = "interchain/modules/apps/27-interchain-accounts/types/metadata.go"
+lines = 152
+verdict = "clean"
+note = "Read in full: negotiated version/encoding/tx type and connection/client checks agree in controller and host; no standalone LayerX service is involved."
+
+[file.068]
+path = "interchain/modules/apps/27-interchain-accounts/types/metadata_test.go"
+lines = 408
+verdict = "clean"
+note = "Read in full: TestIsPreviousMetadataEqual, TestValidateControllerMetadata, TestValidateHostMetadata. Assertions and fixtures were compared with their real local producer/consumer types and refusal boundaries; this file is not claimed as a persistence or mainnet wiring proof beyond its actual test path."
+
+[file.069]
+path = "interchain/modules/apps/27-interchain-accounts/types/packet.go"
+lines = 50
+verdict = "clean"
+note = "Read in full: execute-tx packet type, bounded data/memo validation and canonical bytes agree with controller packet creation and host decoding."
+
+[file.070]
+path = "interchain/modules/apps/27-interchain-accounts/types/packet_test.go"
+lines = 84
+verdict = "clean"
+note = "Read in full: TestValidateBasic. Assertions and fixtures were compared with their real local producer/consumer types and refusal boundaries; this file is not claimed as a persistence or mainnet wiring proof beyond its actual test path."
+
+[file.071]
+path = "interchain/modules/apps/27-interchain-accounts/types/port.go"
+lines = 17
+verdict = "clean"
+note = "Read in full: controller owner port prefix, syntax and maximum length agree with capability paths and handshake consumers. No retired runtime reference found in this member."
+
+[file.072]
+path = "interchain/modules/apps/27-interchain-accounts/types/port_test.go"
+lines = 59
+verdict = "clean"
+note = "Read in full: TestNewControllerPortID. Assertions and fixtures were compared with their real local producer/consumer types and refusal boundaries; this file is not claimed as a persistence or mainnet wiring proof beyond its actual test path."
+
+[file.073]
+path = "interchain/modules/apps/transfer/client/cli/cli.go"
+lines = 44
+verdict = "clean"
+note = "Read in full: Cobra command composition and flags agree with the locally implemented child commands; chain availability follows module registration. No retired runtime reference found in this member."
+
+[file.074]
+path = "interchain/modules/apps/transfer/client/cli/query.go"
+lines = 169
+verdict = "clean"
+note = "Read in full: Cobra argument counts, query requests, pagination and printed generated response types agree with the registered query contract. No retired runtime reference found in this member."
+
+[file.075]
+path = "interchain/modules/apps/transfer/client/cli/tx.go"
+lines = 135
+verdict = "clean"
+note = "Read in full: transfer message arguments, timeout/revision handling, amount/denom and client broadcast path agree with MsgTransfer validation. No retired runtime reference found in this member."
+
+[file.076]
+path = "interchain/modules/apps/transfer/ibc_module.go"
+lines = 290
+verdict = "clean"
+note = "Read in full: UNORDERED/channel bounds, capability ownership, canonical acknowledgement JSON equality, callback events and core cached execution agree; event documentation drift is recorded separately."
+
+[file.077]
+path = "interchain/modules/apps/transfer/ibc_module_test.go"
+lines = 578
+verdict = "clean"
+note = "Read in full: TestOnChanOpenInit, TestOnChanOpenTry, TestOnChanOpenAck, TestOnRecvPacket, TestOnAcknowledgePacket. Assertions and fixtures were compared with their real local producer/consumer types and refusal boundaries; this file is not claimed as a persistence or mainnet wiring proof beyond its actual test path."
+
+[file.078]
+path = "interchain/modules/apps/transfer/keeper/MBT_README.md"
+lines = 48
+verdict = "clean"
+note = "Read in full: Apalache counterexample and Jsonatr transformation provenance matches the generated trace fixtures and driver; negative-outcome proof limitations are recorded on mbt_relay_test.go."
+
+[file.079]
+path = "interchain/modules/apps/transfer/keeper/encoding.go"
+lines = 36
+verdict = "clean"
+note = "Read in full: protobuf marshal/unmarshal boundaries preserve the DenomTrace type and distinguish error-returning from Must panic helpers. No retired runtime reference found in this member."
+
+[file.080]
+path = "interchain/modules/apps/transfer/keeper/genesis.go"
+lines = 46
+verdict = "clean"
+note = "Read in full: port binding, denom trace restoration, parameters and deterministic trace export match keeper storage; the test producer/reopen gap is recorded on genesis_test.go."
+
+[file.081]
+path = "interchain/modules/apps/transfer/keeper/genesis_test.go"
+lines = 39
+verdict = "issues"
+note = "Read in full: TestGenesis. Assertions and fixtures were compared with their real local producer/consumer types and refusal boundaries; this file is not claimed as a persistence or mainnet wiring proof beyond its actual test path. The specific producer-shape or assertion defect is recorded below."
+
+[file.082]
+path = "interchain/modules/apps/transfer/keeper/grpc_query.go"
+lines = 123
+verdict = "clean"
+note = "Read in full: query nil/input validation, request fields, keeper lookup, response envelopes and gRPC status codes agree with generated clients. No retired runtime reference found in this member."
+
+[file.083]
+path = "interchain/modules/apps/transfer/keeper/grpc_query_test.go"
+lines = 263
+verdict = "issues"
+note = "Read in full: TestQueryDenomTrace, TestQueryDenomTraces, TestQueryParams, TestQueryDenomHash, TestEscrowAddress. Assertions and fixtures were compared with their real local producer/consumer types and refusal boundaries; this file is not claimed as a persistence or mainnet wiring proof beyond its actual test path. The specific producer-shape or assertion defect is recorded below."
+
+[file.084]
+path = "interchain/modules/apps/transfer/keeper/keeper.go"
+lines = 167
+verdict = "clean"
+note = "Read in full: raw port bytes, protobuf denom-trace storage, scoped capability operations, iterator closure and injected address handler agree with node/core consumers."
+
+[file.085]
+path = "interchain/modules/apps/transfer/keeper/keeper_test.go"
+lines = 61
+verdict = "clean"
+note = "Read in full: TestGetTransferAccount, TestKeeperTestSuite. Assertions and fixtures were compared with their real local producer/consumer types and refusal boundaries; this file is not claimed as a persistence or mainnet wiring proof beyond its actual test path."
+
+[file.086]
+path = "interchain/modules/apps/transfer/keeper/mbt_relay_test.go"
+lines = 381
+verdict = "issues"
+note = "Read in full: TestModelBasedRelay. Assertions and fixtures were compared with their real local producer/consumer types and refusal boundaries; this file is not claimed as a persistence or mainnet wiring proof beyond its actual test path. The specific producer-shape or assertion defect is recorded below."
+
+[file.087]
+path = "interchain/modules/apps/transfer/keeper/metrics.go"
+lines = 45
+verdict = "clean"
+note = "Read in full: OpenTelemetry gauges use last-value int64 amounts and denom_class; counters use bounded port/channel/source labels and coexist with legacy telemetry. Documentation is stale."
+
+[file.088]
+path = "interchain/modules/apps/transfer/keeper/migrations.go"
+lines = 58
+verdict = "clean"
+note = "Read in full: trace migration checks identity/hash preservation and refuses corruption; slash-bearing base denoms retain their canonical parser boundary."
+
+[file.089]
+path = "interchain/modules/apps/transfer/keeper/migrations_test.go"
+lines = 121
+verdict = "clean"
+note = "Read in full: TestMigratorMigrateTraces, TestMigratorMigrateTracesCorruptionDetection. Assertions and fixtures were compared with their real local producer/consumer types and refusal boundaries; this file is not claimed as a persistence or mainnet wiring proof beyond its actual test path."
+
+[file.090]
+path = "interchain/modules/apps/transfer/keeper/model_based_tests/Test5Packets.json"
+lines = 492
+verdict = "generated"
+note = "Generated Apalache/Jsonatr execution-trace fixture; full states, packets, pass flags and bank transitions read for provenance and driver compatibility. Model strings are adapted to real addresses by the driver; negative-outcome assertion defects are recorded on mbt_relay_test.go."
+
+[file.091]
+path = "interchain/modules/apps/transfer/keeper/model_based_tests/Test5PacketsAllDifferentPass.json"
+lines = 612
+verdict = "generated"
+note = "Generated Apalache/Jsonatr execution-trace fixture; full states, packets, pass flags and bank transitions read for provenance and driver compatibility. Model strings are adapted to real addresses by the driver; negative-outcome assertion defects are recorded on mbt_relay_test.go."
+
+[file.092]
+path = "interchain/modules/apps/transfer/keeper/model_based_tests/TestOnRecvAcknowledgementErrorFail.json"
+lines = 58
+verdict = "generated"
+note = "Generated Apalache/Jsonatr execution-trace fixture; full states, packets, pass flags and bank transitions read for provenance and driver compatibility. Model strings are adapted to real addresses by the driver; negative-outcome assertion defects are recorded on mbt_relay_test.go."
+
+[file.093]
+path = "interchain/modules/apps/transfer/keeper/model_based_tests/TestOnRecvAcknowledgementErrorPass.json"
+lines = 159
+verdict = "generated"
+note = "Generated Apalache/Jsonatr execution-trace fixture; full states, packets, pass flags and bank transitions read for provenance and driver compatibility. Model strings are adapted to real addresses by the driver; negative-outcome assertion defects are recorded on mbt_relay_test.go."
+
+[file.094]
+path = "interchain/modules/apps/transfer/keeper/model_based_tests/TestOnRecvAcknowledgementResultFail.json"
+lines = 58
+verdict = "generated"
+note = "Generated Apalache/Jsonatr execution-trace fixture; full states, packets, pass flags and bank transitions read for provenance and driver compatibility. Model strings are adapted to real addresses by the driver; negative-outcome assertion defects are recorded on mbt_relay_test.go."
+
+[file.095]
+path = "interchain/modules/apps/transfer/keeper/model_based_tests/TestOnRecvAcknowledgementResultPass.json"
+lines = 58
+verdict = "generated"
+note = "Generated Apalache/Jsonatr execution-trace fixture; full states, packets, pass flags and bank transitions read for provenance and driver compatibility. Model strings are adapted to real addresses by the driver; negative-outcome assertion defects are recorded on mbt_relay_test.go."
+
+[file.096]
+path = "interchain/modules/apps/transfer/keeper/model_based_tests/TestOnRecvPacketFail.json"
+lines = 58
+verdict = "generated"
+note = "Generated Apalache/Jsonatr execution-trace fixture; full states, packets, pass flags and bank transitions read for provenance and driver compatibility. Model strings are adapted to real addresses by the driver; negative-outcome assertion defects are recorded on mbt_relay_test.go."
+
+[file.097]
+path = "interchain/modules/apps/transfer/keeper/model_based_tests/TestOnRecvPacketPass.json"
+lines = 73
+verdict = "generated"
+note = "Generated Apalache/Jsonatr execution-trace fixture; full states, packets, pass flags and bank transitions read for provenance and driver compatibility. Model strings are adapted to real addresses by the driver; negative-outcome assertion defects are recorded on mbt_relay_test.go."
+
+[file.098]
+path = "interchain/modules/apps/transfer/keeper/model_based_tests/TestOnTimeoutFail.json"
+lines = 58
+verdict = "generated"
+note = "Generated Apalache/Jsonatr execution-trace fixture; full states, packets, pass flags and bank transitions read for provenance and driver compatibility. Model strings are adapted to real addresses by the driver; negative-outcome assertion defects are recorded on mbt_relay_test.go."
+
+[file.099]
+path = "interchain/modules/apps/transfer/keeper/model_based_tests/TestOnTimeoutPass.json"
+lines = 159
+verdict = "generated"
+note = "Generated Apalache/Jsonatr execution-trace fixture; full states, packets, pass flags and bank transitions read for provenance and driver compatibility. Model strings are adapted to real addresses by the driver; negative-outcome assertion defects are recorded on mbt_relay_test.go."
+
+[file.100]
+path = "interchain/modules/apps/transfer/keeper/model_based_tests/TestSendTransferFail.json"
+lines = 58
+verdict = "generated"
+note = "Generated Apalache/Jsonatr execution-trace fixture; full states, packets, pass flags and bank transitions read for provenance and driver compatibility. Model strings are adapted to real addresses by the driver; negative-outcome assertion defects are recorded on mbt_relay_test.go."
+
+[file.101]
+path = "interchain/modules/apps/transfer/keeper/model_based_tests/TestSendTransferPass.json"
+lines = 174
+verdict = "generated"
+note = "Generated Apalache/Jsonatr execution-trace fixture; full states, packets, pass flags and bank transitions read for provenance and driver compatibility. Model strings are adapted to real addresses by the driver; negative-outcome assertion defects are recorded on mbt_relay_test.go."
+
+[file.102]
+path = "interchain/modules/apps/transfer/keeper/model_based_tests/TestUnescrowTokens.json"
+lines = 305
+verdict = "generated"
+note = "Generated Apalache/Jsonatr execution-trace fixture; full states, packets, pass flags and bank transitions read for provenance and driver compatibility. Model strings are adapted to real addresses by the driver; negative-outcome assertion defects are recorded on mbt_relay_test.go."
+
+[file.103]
+path = "interchain/modules/apps/transfer/keeper/msg_server.go"
+lines = 47
+verdict = "clean"
+note = "Read in full: real sender resolution, module send gating and keeper send invocation preserve message response sequence and errors."
+
+[file.104]
+path = "interchain/modules/apps/transfer/keeper/msg_server_test.go"
+lines = 96
+verdict = "clean"
+note = "Read in full: TestMsgTransfer. Assertions and fixtures were compared with their real local producer/consumer types and refusal boundaries; this file is not claimed as a persistence or mainnet wiring proof beyond its actual test path."
+
+[file.105]
+path = "interchain/modules/apps/transfer/keeper/params.go"
+lines = 31
+verdict = "clean"
+note = "Read in full: parameter key bytes, defaults, validation and concrete getter/setter shapes agree with the owning keeper and parameter subspace. No retired runtime reference found in this member."
+
+[file.106]
+path = "interchain/modules/apps/transfer/keeper/params_test.go"
+lines = 15
+verdict = "clean"
+note = "Read in full: TestParams. Assertions and fixtures were compared with their real local producer/consumer types and refusal boundaries; this file is not claimed as a persistence or mainnet wiring proof beyond its actual test path."
+
+[file.107]
+path = "interchain/modules/apps/transfer/keeper/relay.go"
+lines = 491
+verdict = "issues"
+note = "Read in full: escrow/burn/mint/unescrow/refund, real address handler, packet trace hashing and disabled controls agree with IBC core cached commit behavior; stale metric registry rows are recorded below."
+
+[file.108]
+path = "interchain/modules/apps/transfer/keeper/relay_model/apalache-to-relay-test.json"
+lines = 100
+verdict = "clean"
+note = "Read in full: Jsonatr transformation specification maps Apalache packet, amount, bank and outcome fields into the driver trace shape. It is a model translator, not the live protocol encoder; driver outcome defects are recorded separately."
+
+[file.109]
+path = "interchain/modules/apps/transfer/keeper/relay_model/apalache-to-relay-test2.json"
+lines = 104
+verdict = "clean"
+note = "Read in full: Jsonatr transformation specification maps Apalache packet, amount, bank and outcome fields into the driver trace shape. It is a model translator, not the live protocol encoder; driver outcome defects are recorded separately."
+
+[file.110]
+path = "interchain/modules/apps/transfer/keeper/relay_test.go"
+lines = 443
+verdict = "clean"
+note = "Read in full: TestSendTransfer, TestOnRecvPacket, TestOnAcknowledgementPacket, TestOnTimeoutPacket. Assertions and fixtures were compared with their real local producer/consumer types and refusal boundaries; this file is not claimed as a persistence or mainnet wiring proof beyond its actual test path."
+
+[file.111]
+path = "interchain/modules/apps/transfer/module.go"
+lines = 207
+verdict = "clean"
+note = "Read in full: live transfer routes/services/migration registration and synchronous buffered genesis stream agree with mounted node keeper and core module lifecycle."
+
+[file.112]
+path = "interchain/modules/apps/transfer/simulation/decoder.go"
+lines = 34
+verdict = "clean"
+note = "Read in full: simulation store decoding agrees with the real port/trace key encodings and refuses unknown prefixes. No retired runtime reference found in this member."
+
+[file.113]
+path = "interchain/modules/apps/transfer/simulation/genesis.go"
+lines = 55
+verdict = "clean"
+note = "Read in full: randomized transfer parameters and state use the real GenesisState shape and SDK simulation codec; simulation generation is separate from live node genesis."
+
+[file.114]
+path = "interchain/modules/apps/transfer/simulation/params.go"
+lines = 30
+verdict = "clean"
+note = "Read in full: simulation parameter changes use SendEnabled and ReceiveEnabled keys and boolean values matching the real subspace."
+
+[file.115]
+path = "interchain/modules/apps/transfer/spec/01_concepts.md"
+lines = 117
+verdict = "issues"
+note = "Read in full: token tracing and multi-hop explanation; REST route/envelope and noncanonical channel examples need correction."
+
+[file.116]
+path = "interchain/modules/apps/transfer/spec/02_state.md"
+lines = 10
+verdict = "issues"
+note = "Read in full: port raw-byte encoding disagrees with the documented ProtocolBuffer(string) value."
+
+[file.117]
+path = "interchain/modules/apps/transfer/spec/03_state_transitions.md"
+lines = 36
+verdict = "clean"
+note = "Read in full: forward escrow/mint and backward burn/unescrow match the transfer keeper and real core callback transaction boundary."
+
+[file.118]
+path = "interchain/modules/apps/transfer/spec/04_messages.md"
+lines = 41
+verdict = "clean"
+note = "Read in full: MsgTransfer fields and refusal conditions match message validation and downstream core SendPacket checks, including nonzero timeout."
+
+[file.119]
+path = "interchain/modules/apps/transfer/spec/05_events.md"
+lines = 48
+verdict = "issues"
+note = "Read in full: timeout event type and refund attribute keys differ from the real callback emitter; receive sender is also omitted."
+
+[file.120]
+path = "interchain/modules/apps/transfer/spec/06_metrics.md"
+lines = 14
+verdict = "issues"
+note = "Read in full: last-value gauges, parallel legacy/OpenTelemetry names and the int64 recording limit are not described accurately."
+
+[file.121]
+path = "interchain/modules/apps/transfer/spec/07_params.md"
+lines = 27
+verdict = "issues"
+note = "Read in full: bank SendEnabled is incorrectly presented as a per-denom inbound IBC freeze; module ReceiveEnabled is the actual receive gate."
+
+[file.122]
+path = "interchain/modules/apps/transfer/spec/README.md"
+lines = 24
+verdict = "clean"
+note = "Read in full: ICS20 abstract and contents accurately index the local module specification; individual stale chapters are recorded separately."
+
+[file.123]
+path = "interchain/modules/apps/transfer/transfer_test.go"
+lines = 134
+verdict = "issues"
+note = "Read in full: TestHandleMsgTransfer, TestTransferTestSuite. Assertions and fixtures were compared with their real local producer/consumer types and refusal boundaries; this file is not claimed as a persistence or mainnet wiring proof beyond its actual test path. The specific producer-shape or assertion defect is recorded below."
+
+[file.124]
+path = "interchain/modules/apps/transfer/types/ack.go"
+lines = 27
+verdict = "clean"
+note = "Read in full: deterministic acknowledgement error serialization preserves the module refusal code without nondeterministic error text. No retired runtime reference found in this member."
+
+[file.125]
+path = "interchain/modules/apps/transfer/types/ack_test.go"
+lines = 100
+verdict = "clean"
+note = "Read in full: TestTypesTestSuite, TestABCICodeDeterminism, TestAcknowledgementError. Assertions and fixtures were compared with their real local producer/consumer types and refusal boundaries; this file is not claimed as a persistence or mainnet wiring proof beyond its actual test path."
+
+[file.126]
+path = "interchain/modules/apps/transfer/types/address.go"
+lines = 22
+verdict = "clean"
+note = "Read in full: default Pax address decoding matches the interface, and node uses the explicit EVM-aware injected handler where that behavior is required."
+
+[file.127]
+path = "interchain/modules/apps/transfer/types/address_test.go"
+lines = 58
+verdict = "clean"
+note = "Read in full: TestPaxAddressHandler_GetPaxAddressFromString. Assertions and fixtures were compared with their real local producer/consumer types and refusal boundaries; this file is not claimed as a persistence or mainnet wiring proof beyond its actual test path."
+
+[file.128]
+path = "interchain/modules/apps/transfer/types/codec.go"
+lines = 74
+verdict = "clean"
+note = "Read in full: legacy Amino/interface registration and canonical protobuf JSON serialization agree with packet/ack transport and callback byte equality checks."
+
+[file.129]
+path = "interchain/modules/apps/transfer/types/codec_test.go"
+lines = 26
+verdict = "clean"
+note = "Read in full: TestMustMarshalProtoJSON. Assertions and fixtures were compared with their real local producer/consumer types and refusal boundaries; this file is not claimed as a persistence or mainnet wiring proof beyond its actual test path."
+
+[file.130]
+path = "interchain/modules/apps/transfer/types/coin.go"
+lines = 47
+verdict = "clean"
+note = "Read in full: source/sink prefix direction and voucher coin derivation agree with the keeper escrow, mint, burn and refund branches."
+
+[file.131]
+path = "interchain/modules/apps/transfer/types/errors.go"
+lines = 18
+verdict = "clean"
+note = "Read in full: registered codespace/code/message constants are stable and their local refusal call sites agree with the registry. No retired runtime reference found in this member."
+
+[file.132]
+path = "interchain/modules/apps/transfer/types/events.go"
+lines = 22
+verdict = "clean"
+note = "Read in full: event type and attribute constants agree with their actual emitters; stale prose tables are separately recorded. No retired runtime reference found in this member."
+
+[file.133]
+path = "interchain/modules/apps/transfer/types/expected_keepers.go"
+lines = 54
+verdict = "clean"
+note = "Read in full: required keeper method signatures use the real SDK/core types and match concrete call sites and mounted dependency implementations. No retired runtime reference found in this member."
+
+[file.134]
+path = "interchain/modules/apps/transfer/types/genesis.go"
+lines = 35
+verdict = "clean"
+note = "Read in full: genesis defaults, validation and public state fields agree with their module and keeper consumers; host-specific issues are separately recorded. No retired runtime reference found in this member."
+
+[file.135]
+path = "interchain/modules/apps/transfer/types/genesis_test.go"
+lines = 47
+verdict = "clean"
+note = "Read in full: TestValidateGenesis. Assertions and fixtures were compared with their real local producer/consumer types and refusal boundaries; this file is not claimed as a persistence or mainnet wiring proof beyond its actual test path."
+
+[file.136]
+path = "interchain/modules/apps/transfer/types/keys.go"
+lines = 55
+verdict = "clean"
+note = "Read in full: transfer key prefixes and SHA256(version-NUL-port/channel) escrow address match real bank flows and the registry."
+
+[file.137]
+path = "interchain/modules/apps/transfer/types/keys_test.go"
+lines = 24
+verdict = "clean"
+note = "Read in full: TestGetEscrowAddress. Assertions and fixtures were compared with their real local producer/consumer types and refusal boundaries; this file is not claimed as a persistence or mainnet wiring proof beyond its actual test path."
+
+[file.138]
+path = "interchain/modules/apps/transfer/types/msgs.go"
+lines = 89
+verdict = "clean"
+note = "Read in full: message route/type/signers and ValidateBasic agree with real transfer dispatch and packet constraints. No retired runtime reference found in this member."
+
+[file.139]
+path = "interchain/modules/apps/transfer/types/msgs_test.go"
+lines = 120
+verdict = "clean"
+note = "Read in full: TestMsgTransferRoute, TestMsgTransferType, TestMsgTransferGetSignBytes, TestMsgTransferValidation, TestMsgTransferGetSigners. Assertions and fixtures were compared with their real local producer/consumer types and refusal boundaries; this file is not claimed as a persistence or mainnet wiring proof beyond its actual test path."
+
+[file.140]
+path = "interchain/modules/apps/transfer/types/packet.go"
+lines = 60
+verdict = "clean"
+note = "Read in full: packet JSON fields, string amount validation, receiver/memo bounds and deterministic encoding agree with send and receive consumers. No retired runtime reference found in this member."
+
+[file.141]
+path = "interchain/modules/apps/transfer/types/packet_test.go"
+lines = 42
+verdict = "clean"
+note = "Read in full: TestFungibleTokenPacketDataValidateBasic. Assertions and fixtures were compared with their real local producer/consumer types and refusal boundaries; this file is not claimed as a persistence or mainnet wiring proof beyond its actual test path."
+
+[file.142]
+path = "interchain/modules/apps/transfer/types/params.go"
+lines = 65
+verdict = "clean"
+note = "Read in full: parameter key bytes, defaults, validation and concrete getter/setter shapes agree with the owning keeper and parameter subspace. No retired runtime reference found in this member."
+
+[file.143]
+path = "interchain/modules/apps/transfer/types/params_test.go"
+lines = 12
+verdict = "clean"
+note = "Read in full: TestValidateParams. Assertions and fixtures were compared with their real local producer/consumer types and refusal boundaries; this file is not claimed as a persistence or mainnet wiring proof beyond its actual test path."
+
+[file.144]
+path = "interchain/modules/apps/transfer/types/trace.go"
+lines = 246
+verdict = "clean"
+note = "Read in full: canonical channel-N prefix parsing, slash-bearing base denoms, SHA256 IBC denom and duplicate validation agree with send/receive/query/migration consumers."
+
+[file.145]
+path = "interchain/modules/apps/transfer/types/trace_test.go"
+lines = 172
+verdict = "clean"
+note = "Read in full: TestParseDenomTrace, TestDenomTrace_IBCDenom, TestDenomTrace_Validate, TestTraces_Validate, TestValidatePrefixedDenom. Assertions and fixtures were compared with their real local producer/consumer types and refusal boundaries; this file is not claimed as a persistence or mainnet wiring proof beyond its actual test path."
+
+[file.146]
+path = "precompiles/staking/Staking.sol"
+lines = 394
+verdict = "clean"
+note = "Read in full: 19 method shapes and six event declarations agree with active ABI. The sharesDst field semantics and documented 64-character Ed25519 input reveal active implementation findings recorded on staking.go."
+
+[file.147]
+path = "precompiles/staking/abi.json"
+lines = 1
+verdict = "generated"
+note = "Generated Solidity ABI artifact: 19 method entries and 6 event entries parsed in full and compared with its versioned executor; historical selector sets are retained for replay. Active semantics findings belong to the Go mapping, not to a changed selector."
+
+[file.148]
+path = "precompiles/staking/abi_freeze_test.go"
+lines = 113
+verdict = "clean"
+note = "Read in full: real constructed GetABI/address, exact method/event counts and frozen selector/topic maps implement req.6020.1 without weakening ABI assertions; not executed by this audit gate."
+
+[file.149]
+path = "precompiles/staking/gas_golden_test.go"
+lines = 133
+verdict = "clean"
+note = "Read in full: all 19 real registered methods at merge height-1/height compare frozen gas, decoded outputs and results using cache-isolated real keeper state; implements req.6068.1. Not executed by this audit gate."
+
+[file.150]
+path = "precompiles/staking/legacy/v552/abi.json"
+lines = 1
+verdict = "generated"
+note = "Generated Solidity ABI artifact: 3 method entries and 0 event entries parsed in full and compared with its versioned executor; historical selector sets are retained for replay. Active semantics findings belong to the Go mapping, not to a changed selector."
+
+[file.151]
+path = "precompiles/staking/legacy/v552/staking.go"
+lines = 217
+verdict = "clean"
+note = "Read complete v552 historical executor through its full body or exact differences from the already-read matching snapshot, including shared ABI/payment/keeper consumers. Preserve frozen historical gas and replay behavior; its version-specific delegate/redelegate/undelegate and available query shapes agree with its embedded ABI."
+
+[file.152]
+path = "precompiles/staking/legacy/v555/abi.json"
+lines = 1
+verdict = "generated"
+note = "Generated Solidity ABI artifact: 3 method entries and 0 event entries parsed in full and compared with its versioned executor; historical selector sets are retained for replay. Active semantics findings belong to the Go mapping, not to a changed selector."
+
+[file.153]
+path = "precompiles/staking/legacy/v555/staking.go"
+lines = 223
+verdict = "clean"
+note = "Read complete v555 historical executor through its full body or exact differences from the already-read matching snapshot, including shared ABI/payment/keeper consumers. Preserve frozen historical gas and replay behavior; its version-specific delegate/redelegate/undelegate and available query shapes agree with its embedded ABI."
+
+[file.154]
+path = "precompiles/staking/legacy/v562/abi.json"
+lines = 1
+verdict = "generated"
+note = "Generated Solidity ABI artifact: 3 method entries and 0 event entries parsed in full and compared with its versioned executor; historical selector sets are retained for replay. Active semantics findings belong to the Go mapping, not to a changed selector."
+
+[file.155]
+path = "precompiles/staking/legacy/v562/staking.go"
+lines = 196
+verdict = "clean"
+note = "Read complete v562 historical executor through its full body or exact differences from the already-read matching snapshot, including shared ABI/payment/keeper consumers. Preserve frozen historical gas and replay behavior; its version-specific delegate/redelegate/undelegate and available query shapes agree with its embedded ABI."
+
+[file.156]
+path = "precompiles/staking/legacy/v580/abi.json"
+lines = 1
+verdict = "generated"
+note = "Generated Solidity ABI artifact: 4 method entries and 0 event entries parsed in full and compared with its versioned executor; historical selector sets are retained for replay. Active semantics findings belong to the Go mapping, not to a changed selector."
+
+[file.157]
+path = "precompiles/staking/legacy/v580/staking.go"
+lines = 254
+verdict = "clean"
+note = "Read complete v580 historical executor through its full body or exact differences from the already-read matching snapshot, including shared ABI/payment/keeper consumers. Preserve frozen historical gas and replay behavior; its version-specific delegate/redelegate/undelegate and available query shapes agree with its embedded ABI."
+
+[file.158]
+path = "precompiles/staking/legacy/v605/abi.json"
+lines = 1
+verdict = "generated"
+note = "Generated Solidity ABI artifact: 4 method entries and 0 event entries parsed in full and compared with its versioned executor; historical selector sets are retained for replay. Active semantics findings belong to the Go mapping, not to a changed selector."
+
+[file.159]
+path = "precompiles/staking/legacy/v605/staking.go"
+lines = 254
+verdict = "clean"
+note = "Read complete v605 historical executor through its full body or exact differences from the already-read matching snapshot, including shared ABI/payment/keeper consumers. Preserve frozen historical gas and replay behavior; its version-specific delegate/redelegate/undelegate and available query shapes agree with its embedded ABI."
+
+[file.160]
+path = "precompiles/staking/legacy/v606/abi.json"
+lines = 1
+verdict = "generated"
+note = "Generated Solidity ABI artifact: 4 method entries and 0 event entries parsed in full and compared with its versioned executor; historical selector sets are retained for replay. Active semantics findings belong to the Go mapping, not to a changed selector."
+
+[file.161]
+path = "precompiles/staking/legacy/v606/staking.go"
+lines = 254
+verdict = "clean"
+note = "Read complete v606 historical executor through its full body or exact differences from the already-read matching snapshot, including shared ABI/payment/keeper consumers. Preserve frozen historical gas and replay behavior; its version-specific delegate/redelegate/undelegate and available query shapes agree with its embedded ABI."
+
+[file.162]
+path = "precompiles/staking/legacy/v610/abi.json"
+lines = 1
+verdict = "generated"
+note = "Generated Solidity ABI artifact: 4 method entries and 0 event entries parsed in full and compared with its versioned executor; historical selector sets are retained for replay. Active semantics findings belong to the Go mapping, not to a changed selector."
+
+[file.163]
+path = "precompiles/staking/legacy/v610/staking.go"
+lines = 254
+verdict = "clean"
+note = "Read complete v610 historical executor through its full body or exact differences from the already-read matching snapshot, including shared ABI/payment/keeper consumers. Preserve frozen historical gas and replay behavior; its version-specific delegate/redelegate/undelegate and available query shapes agree with its embedded ABI."
+
+[file.164]
+path = "precompiles/staking/legacy/v614/abi.json"
+lines = 1
+verdict = "generated"
+note = "Generated Solidity ABI artifact: 6 method entries and 0 event entries parsed in full and compared with its versioned executor; historical selector sets are retained for replay. Active semantics findings belong to the Go mapping, not to a changed selector."
+
+[file.165]
+path = "precompiles/staking/legacy/v614/staking.go"
+lines = 426
+verdict = "issues"
+note = "Read complete v614 historical executor through its full body or exact differences from the already-read matching snapshot, including shared ABI/payment/keeper consumers. Preserve frozen historical gas and replay behavior; key-length/share mapping limitations are recorded below."
+
+[file.166]
+path = "precompiles/staking/legacy/v620/abi.json"
+lines = 1
+verdict = "generated"
+note = "Generated Solidity ABI artifact: 6 method entries and 0 event entries parsed in full and compared with its versioned executor; historical selector sets are retained for replay. Active semantics findings belong to the Go mapping, not to a changed selector."
+
+[file.167]
+path = "precompiles/staking/legacy/v620/staking.go"
+lines = 426
+verdict = "issues"
+note = "Read complete v620 historical executor through its full body or exact differences from the already-read matching snapshot, including shared ABI/payment/keeper consumers. Preserve frozen historical gas and replay behavior; key-length/share mapping limitations are recorded below."
+
+[file.168]
+path = "precompiles/staking/legacy/v630/abi.json"
+lines = 1
+verdict = "generated"
+note = "Generated Solidity ABI artifact: 19 method entries and 5 event entries parsed in full and compared with its versioned executor; historical selector sets are retained for replay. Active semantics findings belong to the Go mapping, not to a changed selector."
+
+[file.169]
+path = "precompiles/staking/legacy/v630/staking.go"
+lines = 1246
+verdict = "issues"
+note = "Read complete v630 historical executor through its full body or exact differences from the already-read matching snapshot, including shared ABI/payment/keeper consumers. Preserve frozen historical gas and replay behavior; key-length/share mapping limitations are recorded below."
+
+[file.170]
+path = "precompiles/staking/legacy/v640/abi.json"
+lines = 1
+verdict = "generated"
+note = "Generated Solidity ABI artifact: 19 method entries and 6 event entries parsed in full and compared with its versioned executor; historical selector sets are retained for replay. Active semantics findings belong to the Go mapping, not to a changed selector."
+
+[file.171]
+path = "precompiles/staking/legacy/v640/staking.go"
+lines = 1306
+verdict = "issues"
+note = "Read complete v640 historical executor through its full body or exact differences from the already-read matching snapshot, including shared ABI/payment/keeper consumers. Preserve frozen historical gas and replay behavior; key-length/share mapping limitations are recorded below."
+
+[file.172]
+path = "precompiles/staking/legacy/v65/abi.json"
+lines = 1
+verdict = "generated"
+note = "Generated Solidity ABI artifact: 19 method entries and 6 event entries parsed in full and compared with its versioned executor; historical selector sets are retained for replay. Active semantics findings belong to the Go mapping, not to a changed selector."
+
+[file.173]
+path = "precompiles/staking/legacy/v65/staking.go"
+lines = 1306
+verdict = "issues"
+note = "Read complete v65 historical executor through its full body or exact differences from the already-read matching snapshot, including shared ABI/payment/keeper consumers. Preserve frozen historical gas and replay behavior; key-length/share mapping limitations are recorded below."
+
+[file.174]
+path = "precompiles/staking/setup.go"
+lines = 43
+verdict = "generated"
+note = "Explicit scripts/bump_version generated version registry. Read its complete version map: v552 through v640 and the active constructor; legacy/v65 is not registered, as recorded on that source snapshot."
+
+[file.175]
+path = "precompiles/staking/staking.go"
+lines = 1306
+verdict = "issues"
+note = "Read in full: all 19 dispatch paths, value/static/delegatecall guards, keeper inputs, ABI outputs and six common event shapes compared; sharesDst mapping and public-key input length have findings."
+
+[file.176]
+path = "precompiles/staking/staking_events_test.go"
+lines = 492
+verdict = "clean"
+note = "Read in full: real EVM transactions exercise delegate/redelegate/undelegate/validator creation/edit and rewards-withdrawal log address/topics/data against actual keepers; no event schema drift found."
+
+[file.177]
+path = "precompiles/staking/staking_test.go"
+lines = 2603
+verdict = "issues"
+note = "Read in full: transaction and query suites cover ABI/error/value/static behavior, but redelegation fixtures mask units and two refusal/static-call assertions do not establish their claimed behavior."
+
+[finding.redelegation-shares]
+file = "precompiles/staking/staking.go"
+line = 1072
+class = "interface-mismatch"
+severity = "high"
+observed = "redelegations maps RedelegationEntryResponse.Balance.String() into SharesDst. The real staking query carries destination shares separately in entry.RedelegationEntry.SharesDst; a non-unit validator exchange rate makes these different quantities. ABI consumers receive token balances under the sharesDst name."
+expected = "The sharesDst string in the frozen RedelegationEntry tuple must preserve the staking producer's destination decimal shares, including fractional precision; Balance is a token amount, not a share count."
+proposal = "In precompiles/staking/staking.go map SharesDst from entry.RedelegationEntry.SharesDst.String(). Activate the semantic correction through the versioned upgrade policy, preserve historical replay implementations, and prove a real staking keeper response with fractional shares and a non-unit exchange rate through ABI encoding and decoding."
+owner_domain = 6
+interface = "6.pc-0x1005-redelegations"
+
+[finding.validator-key-length]
+file = "precompiles/staking/staking.go"
+line = 552
+class = "security"
+severity = "medium"
+observed = "createValidator accepts every hex-decodable pubKeyHex length and constructs ed25519.PubKey directly. MsgCreateValidator.ValidateBasic does not check key length; sdk/x/staking/keeper/msg_server.go:49 obtains its consensus address, whose ed25519 Address method panics unless the key is 32 bytes. The dynamic precompile wrapper does not convert this panic into its ordinary error return."
+expected = "Staking.sol:119 promises a 64-character Ed25519 public key. Invalid-length user input must be rejected with a bounded transaction refusal before payment handling or keeper invocation, even when the string is valid hex."
+proposal = "In precompiles/staking/staking.go require exactly 32 decoded bytes before HandlePaymentUhpx. Add real EVM transaction refusal cases for empty, 31-byte and 33-byte hex keys with otherwise valid inputs, and assert unchanged validator and balance state. Apply the correction only under the approved forward version policy."
+owner_domain = 6
+interface = "6.pc-0x1005-createvalidator"
+
+[finding.shares-test-fixture]
+file = "precompiles/staking/staking_test.go"
+line = 1510
+class = "test-gap"
+severity = "medium"
+observed = "TestPrecompile_Run_Redelegations supplies SharesDst sdk.NewDec(40) and Balance sdk.NewInt(40), then expects SharesDst \"40\". Its mocked query response makes the wrong token-balance projection look correct and never checks the producer's decimal share representation."
+expected = "The redelegation proof must distinguish tokens from shares and assert the real producer's decimal shares after the frozen ABI transport is decoded."
+proposal = "Replace the hand-built happy-path projection in precompiles/staking/staking_test.go with an additional real keeper-to-precompile case whose shares differ from balance, including fractional precision; compare decoded sharesDst with the persisted staking entry."
+owner_domain = 6
+interface = "6.pc-0x1005-redelegations"
+
+[finding.staking-error-assertion]
+file = "precompiles/staking/staking_test.go"
+line = 689
+class = "test-gap"
+severity = "medium"
+observed = "The validators error branch calls require.Contains(t, tt.wantErrMsg, tt.wantErrMsg), so the expected text is compared with itself. TestCreateValidator also declares wantErrMsg cases but at lines 2180-2182 only asserts a nonempty VmError and nil return data, allowing the wrong refusal reason to satisfy a case."
+expected = "Each negative case must establish that its intended validation path refused the real call and must compare an observable error or revert reason with that case's expected reason."
+proposal = "In precompiles/staking/staking_test.go compare the actual refusal with the expected reason through the version-appropriate error/revert transport. Give each negative transaction otherwise valid inputs so an unrelated early guard cannot satisfy it; retain all existing refusal cases."
+owner_domain = 6
+
+[finding.static-query-no-assertion]
+file = "precompiles/staking/staking_test.go"
+line = 2598
+class = "test-gap"
+severity = "medium"
+observed = "The final static-call query subtest invokes delegation with readOnly=true and discards err at line 2601. The test would pass if every query were rejected as a forbidden static call, contrary to its own stated purpose."
+expected = "Query methods must remain usable under STATICCALL, and a test of that permission must observe a successful, ABI-decodable query result on the real execution path."
+proposal = "In precompiles/staking/staking_test.go create a real delegation, invoke the registered precompile with readOnly=true, require success, decode the result and compare the amount and shares; also retain the write-method STATICCALL refusal checks."
+owner_domain = 6
+interface = "6.pc-0x1005-delegation"
+
+[finding.ica-runtime-availability]
+file = "interchain/modules/apps/27-interchain-accounts/module.go"
+line = 115
+class = "wiring-gap"
+severity = "medium"
+observed = "NewAppModule and ICA controller/host IBC modules are exercised by interchain/testing/simapp, but node/app.go mounts transfer and wasm routes without ICA keepers, stores, auth middleware or an interchainaccounts module. Registry 6.ibc-ica-host-port explicitly records this absence; the package is library functionality rather than a reachable mainnet feature."
+expected = "An operator or integrator must have an explicit merged-network availability decision for ICA. Exposing its library, CLI or registry surfaces must not imply that the running paxd accepts ICA channels or queries."
+proposal = "Have the chain/module owners decide ICA availability. If enabled, wire scoped capabilities, stores, module accounts, authentication middleware, module services, genesis order and IBC routes in node/app.go and prove controller-to-host transactions and recovery. Otherwise document the unsupported mainnet surface in the ICA contract and CLI guidance."
+owner_domain = 6
+interface = "15.go-interchain-modules-apps-27-interchain-accounts-new-app-module-j57"
+
+[finding.ica-export-context-lifetime]
+file = "interchain/modules/apps/27-interchain-accounts/module.go"
+line = 211
+class = "restart-recovery"
+severity = "medium"
+observed = "ExportGenesisStream starts an unbuffered goroutine that calls ExportGenesis using the captured sdk.Context after the function returns. A caller that closes or advances the source store before draining can export later state or use a closed store, and an abandoned stream leaves the sender blocked. The current module manager drains immediately, while transfer/module.go already captures synchronously."
+expected = "A genesis stream must capture a stable snapshot while its source context is valid and must finish producing its single module message without depending on a later consumer read."
+proposal = "In interchain/modules/apps/27-interchain-accounts/module.go capture and marshal ExportGenesis synchronously into a one-element buffered closed channel, as transfer/module.go does. Prove that changing and closing the producer store after obtaining the stream cannot alter the exported state, then reopen the imported real keeper."
+owner_domain = 6
+
+[finding.ica-host-genesis-validation]
+file = "interchain/modules/apps/27-interchain-accounts/types/genesis.go"
+line = 125
+class = "restart-recovery"
+severity = "medium"
+observed = "HostGenesisState.Validate uses the generic alphanumeric ValidateAccountAddress, which accepts \"a\", rather than a local account decoder. InitGenesis persists that mapping, but host/keeper/handshake.go:76 calls sdk.MustAccAddressFromBech32 when reopening it. Connection IDs and duplicate mapping keys are also unchecked, and an active-channel mapping can reference a missing channel that the handshake panics on at line 50."
+expected = "A host snapshot accepted for recovery must contain locally decodable ICA addresses, valid and unique connection/port mappings and channel references consistent with restored core state. Controller-side remote addresses must retain their intentionally chain-independent validation."
+proposal = "Strengthen the host-specific validation in interchain/modules/apps/27-interchain-accounts/types/genesis.go and import coordination in host/keeper/genesis.go: validate local bech32 addresses, identifiers, duplicates and restored core references before writes. Add malformed-genesis refusals and a persisted export/import/reopen handshake case."
+owner_domain = 6
+interface = "6.gen-ibc-ica-host-interchain-accounts"
+
+[finding.ica-host-port-roundtrip]
+file = "interchain/modules/apps/27-interchain-accounts/host/keeper/genesis.go"
+line = 37
+class = "config-drift"
+severity = "medium"
+observed = "InitGenesis binds state.Port and HostGenesisState.Validate accepts any syntactically valid port. ExportGenesis always emits icatypes.PortID, and OnChanOpenTry only accepts that canonical icahost port. A custom port accepted at import is therefore silently replaced on export and is unusable for host handshakes."
+expected = "The canonical icahost port contract must be enforced at the genesis boundary so accepted configuration is operational and remains stable across export and re-import."
+proposal = "In interchain/modules/apps/27-interchain-accounts/types/genesis.go reject a host Port other than icatypes.PortID before binding capabilities, retain the canonical export in host/keeper/genesis.go, and add a noncanonical-port refusal plus canonical export/import test."
+owner_domain = 6
+interface = "6.gen-ibc-ica-host-port"
+
+[finding.ica-controller-iterator]
+file = "interchain/modules/apps/27-interchain-accounts/controller/keeper/keeper.go"
+line = 173
+class = "runtime-risk"
+severity = "low"
+observed = "GetAllInterchainAccounts opens sdk.KVStorePrefixIterator for OwnerKeyPrefix and returns without closing it. Unlike neighboring enumeration functions, repeated exports can leave iterator resources and database snapshots retained."
+expected = "Every store iterator must be closed after enumeration, including an empty result, so repeated account exports release database resources promptly."
+proposal = "Add defer iterator.Close() immediately after iterator creation in interchain/modules/apps/27-interchain-accounts/controller/keeper/keeper.go, matching GetAllActiveChannels, and preserve enumeration ordering and returned mapping values."
+owner_domain = 6
+
+[finding.ica-host-iterator]
+file = "interchain/modules/apps/27-interchain-accounts/host/keeper/keeper.go"
+line = 162
+class = "runtime-risk"
+severity = "low"
+observed = "GetAllInterchainAccounts opens sdk.KVStorePrefixIterator for OwnerKeyPrefix and returns without closing it. Unlike neighboring enumeration functions, repeated exports can leave iterator resources and database snapshots retained."
+expected = "Every store iterator must be closed after enumeration, including an empty result, so repeated account exports release database resources promptly."
+proposal = "Add defer iterator.Close() immediately after iterator creation in interchain/modules/apps/27-interchain-accounts/host/keeper/keeper.go, matching GetAllActiveChannels, and preserve enumeration ordering and returned mapping values."
+owner_domain = 6
+
+[finding.transfer-genesis-fixture]
+file = "interchain/modules/apps/transfer/keeper/genesis_test.go"
+line = 16
+class = "test-gap"
+severity = "medium"
+observed = "TestGenesis injects paths such as transfer/channelToChain0 directly through SetDenomTrace, exports them and imports into the same live keeper. Real IBC channel IDs are channel-N; ParseDenomTrace treats the noncanonical pair differently, and the test bypasses genesis validation and persistence reopening."
+expected = "A recovery test must use traces emitted by real packet processing, pass the public genesis validation/transport path, and restore the same balances and trace mappings into a reopened consumer."
+proposal = "In interchain/modules/apps/transfer/keeper/genesis_test.go produce multi-hop traces through real channels, export via AppModule, validate and serialize the genesis, close/reopen distinct producer and consumer stores, then query the restored trace. Keep malformed trace refusal coverage separately."
+owner_domain = 6
+interface = "6.gen-ibc-transfer-denom-traces"
+
+[finding.transfer-query-fixture]
+file = "interchain/modules/apps/transfer/keeper/grpc_query_test.go"
+line = 27
+class = "test-gap"
+severity = "medium"
+observed = "Query success fixtures directly store DenomTrace.Path values transfer/channelToA/transfer/channelToB (also lines 40, 114, 115 and 161). Runtime ParseDenomTrace recognizes canonical channel-N identifiers, so the stored fixture is a third shape that real channel/packet producers do not emit."
+expected = "Query and denom-hash proofs must start from canonical packet-produced traces, preserve full slash-bearing base denoms, and verify the gRPC and REST response envelopes accepted by clients."
+proposal = "In interchain/modules/apps/transfer/keeper/grpc_query_test.go add real transfer-produced channel-N traces, including a factory denom containing slashes, then query by hash and through registered gateway handlers. Retain explicit invalid identifier cases as refusals."
+owner_domain = 6
+interface = "6.qry-ibc-transfer-denomtrace"
+
+[finding.transfer-mbt-negative-outcomes]
+file = "interchain/modules/apps/transfer/keeper/mbt_relay_test.go"
+line = 367
+class = "test-gap"
+severity = "medium"
+observed = "The model driver returns on any handler error after checking only tc.pass=false, before checking state changes. Conversely, a successful handler with an unexpected bank delta is accepted for tc.pass=false at lines 373-375. Thus the expected-failure flag can mean either a protocol refusal or an unrelated balance mismatch."
+expected = "A modeled refusal must assert the actual refusal independently of the resulting bank state; success must assert success and the exact state delta. Failed real IBC callbacks must leave committed balances unchanged."
+proposal = "In interchain/modules/apps/transfer/keeper/mbt_relay_test.go separate expected handler outcome from expected bank delta and assert both on every case. Drive atomic refusal cases through the real cached IBC callback path, verify unchanged committed state on refusal, and never treat a balance-comparison failure as the expected protocol failure."
+owner_domain = 6
+
+[finding.transfer-multihop-balance-proof]
+file = "interchain/modules/apps/transfer/transfer_test.go"
+line = 103
+class = "test-gap"
+severity = "medium"
+observed = "After B sends its A-origin voucher to C, the test checks B's balance using coinSentFromBToC.Denom, which belongs to C. Line 128 checks C using B's voucher denom after returning, and line 124 checks B's escrow in the native denom rather than its escrowed voucher. These zero balances do not establish that the actually held denominations were debited, burned or unescrowed."
+expected = "The multi-hop integration proof must check the exact denomination held at each hop and in each escrow, while preserving the 2^63 amount that exercises amounts beyond int64."
+proposal = "In interchain/modules/apps/transfer/transfer_test.go check B's coinSentFromAToB.Denom after forwarding, C's coinSentFromBToC.Denom after return, and the B-to-C escrow's voucher denomination before and after unescrow. Use sdk.Int equality/IsZero for these large amounts."
+owner_domain = 6
+
+[finding.transfer-metric-registry]
+file = "interchain/modules/apps/transfer/keeper/relay.go"
+line = 309
+class = "interface-mismatch"
+severity = "medium"
+observed = "Live go-metrics keys include types.ModuleName: ibc/transfer/packet/receive, ibc/transfer/receive and ibc/transfer/send. Registry rows 15.met-ibc-interchain-modules-apps-transfer-keeper-ibc-packet-receive-j57 and 15.met-ibc-interchain-modules-apps-transfer-keeper-ibc-packet-receive-2-j57 omit transfer; rows 15.met-ibc-interchain-modules-apps-transfer-keeper-ibc-receive-true-j57 and -false-j57 also turn the source label into key components; 15.met-ibc-interchain-modules-apps-transfer-keeper-ibc-send-j57 likewise omits transfer."
+expected = "The registry and telemetry contract must describe the exact emitted key components and labels for both source branches, separately from the newer OpenTelemetry meter instruments."
+proposal = "Update those five rows in spec/layerx-merge/interfaces.kvx and regenerate contracts/ibc.md with the actual legacy key components and source label. Check dashboard consumers against those keys, retain live series compatibility, and describe the concurrent OpenTelemetry instruments from keeper/metrics.go."
+owner_domain = 15
+interface = "15.met-ibc-interchain-modules-apps-transfer-keeper-ibc-packet-receive-j57"
+
+[finding.tokenfactory-genesis-registry]
+file = "api/tokenfactory/genesis.proto"
+line = 19
+class = "interface-mismatch"
+severity = "medium"
+observed = "The source and generated GenesisState encode repeated string paused_denoms at field 3, and the real keeper restores it. Registry 6.proto-tokenfactory-genesisstate still lists only fields 1 and 2; override.J35.1 still describes the old absence even though req.6241.1 is now implemented. The separate paused-denoms registry row does not correct this message signature."
+expected = "The complete GenesisState registry signature must include field 3 and distinguish a historical baseline defect from the current producer/consumer contract. Absent field 3 must continue to decode as an empty list."
+proposal = "Update 6.proto-tokenfactory-genesisstate and the resolved baseline annotation in spec/layerx-merge/interfaces.kvx/spec.kvx, then regenerate the tokenfactory and address-inventory contract views. Preserve field numbers and the existing real persistence proof in modules/tokenfactory/keeper/proof_genesis_test.go."
+owner_domain = 15
+interface = "6.proto-tokenfactory-genesisstate"
+
+[finding.historical-key-v614]
+file = "precompiles/staking/legacy/v614/staking.go"
+line = 300
+class = "security"
+severity = "medium"
+observed = "The v614 createValidator snapshot accepts arbitrary decoded Ed25519 key lengths before calling the staking keeper, retaining the same panic-prone input boundary as the active implementation. This is historical code; GetVersioned retains this snapshot for historical execution."
+expected = "Historical execution must remain deterministic, while newly accepted validator registrations must validate a 32-byte key before invoking consensus-address construction. Frozen historical behavior must not be silently rewritten."
+proposal = "Track this exposure with the active validator-key-length repair in precompiles/staking/staking.go. Preserve precompiles/staking/legacy/v614/staking.go for replay; enforce the corrected input boundary in the newly activated version and document which historical heights retain the old behavior."
+owner_domain = 6
+interface = "6.pc-0x1005-createvalidator"
+
+[finding.historical-key-v620]
+file = "precompiles/staking/legacy/v620/staking.go"
+line = 300
+class = "security"
+severity = "medium"
+observed = "The v620 createValidator snapshot accepts arbitrary decoded Ed25519 key lengths before calling the staking keeper, retaining the same panic-prone input boundary as the active implementation. This is historical code; GetVersioned retains this snapshot for historical execution."
+expected = "Historical execution must remain deterministic, while newly accepted validator registrations must validate a 32-byte key before invoking consensus-address construction. Frozen historical behavior must not be silently rewritten."
+proposal = "Track this exposure with the active validator-key-length repair in precompiles/staking/staking.go. Preserve precompiles/staking/legacy/v620/staking.go for replay; enforce the corrected input boundary in the newly activated version and document which historical heights retain the old behavior."
+owner_domain = 6
+interface = "6.pc-0x1005-createvalidator"
+
+[finding.historical-key-v630]
+file = "precompiles/staking/legacy/v630/staking.go"
+line = 492
+class = "security"
+severity = "medium"
+observed = "The v630 createValidator snapshot accepts arbitrary decoded Ed25519 key lengths before calling the staking keeper, retaining the same panic-prone input boundary as the active implementation. This is historical code; GetVersioned retains this snapshot for historical execution."
+expected = "Historical execution must remain deterministic, while newly accepted validator registrations must validate a 32-byte key before invoking consensus-address construction. Frozen historical behavior must not be silently rewritten."
+proposal = "Track this exposure with the active validator-key-length repair in precompiles/staking/staking.go. Preserve precompiles/staking/legacy/v630/staking.go for replay; enforce the corrected input boundary in the newly activated version and document which historical heights retain the old behavior."
+owner_domain = 6
+interface = "6.pc-0x1005-createvalidator"
+
+[finding.historical-key-v640]
+file = "precompiles/staking/legacy/v640/staking.go"
+line = 552
+class = "security"
+severity = "medium"
+observed = "The v640 createValidator snapshot accepts arbitrary decoded Ed25519 key lengths before calling the staking keeper, retaining the same panic-prone input boundary as the active implementation. This is historical code; GetVersioned retains this snapshot for historical execution."
+expected = "Historical execution must remain deterministic, while newly accepted validator registrations must validate a 32-byte key before invoking consensus-address construction. Frozen historical behavior must not be silently rewritten."
+proposal = "Track this exposure with the active validator-key-length repair in precompiles/staking/staking.go. Preserve precompiles/staking/legacy/v640/staking.go for replay; enforce the corrected input boundary in the newly activated version and document which historical heights retain the old behavior."
+owner_domain = 6
+interface = "6.pc-0x1005-createvalidator"
+
+[finding.historical-key-v65]
+file = "precompiles/staking/legacy/v65/staking.go"
+line = 552
+class = "security"
+severity = "medium"
+observed = "The v65 createValidator snapshot accepts arbitrary decoded Ed25519 key lengths before calling the staking keeper, retaining the same panic-prone input boundary as the active implementation. This is historical code; v65 has no registration in staking/setup.go."
+expected = "Historical execution must remain deterministic, while newly accepted validator registrations must validate a 32-byte key before invoking consensus-address construction. Frozen historical behavior must not be silently rewritten."
+proposal = "Track this exposure with the active validator-key-length repair in precompiles/staking/staking.go. Preserve precompiles/staking/legacy/v65/staking.go for replay; enforce the corrected input boundary in the newly activated version and document which historical heights retain the old behavior."
+owner_domain = 6
+interface = "6.pc-0x1005-createvalidator"
+
+[finding.historical-shares-v630]
+file = "precompiles/staking/legacy/v630/staking.go"
+line = 1012
+class = "runtime-risk"
+severity = "medium"
+observed = "The v630 redelegations snapshot also projects entry.Balance.String() into SharesDst instead of the embedded RedelegationEntry.SharesDst decimal. Historical queries selected by the version table retain this token-versus-share semantic error."
+expected = "Consumers need accurate share units on forward execution and an explicit historical compatibility statement. Historical snapshots must not change replay semantics without a deliberate version policy."
+proposal = "Preserve precompiles/staking/legacy/v630/staking.go, document the historical sharesDst limitation, and repair the active mapping under a new activation policy with a real non-unit-exchange-rate keeper-to-ABI proof. Do not change selectors or event topics."
+owner_domain = 6
+interface = "6.pc-0x1005-redelegations"
+
+[finding.historical-shares-v640]
+file = "precompiles/staking/legacy/v640/staking.go"
+line = 1072
+class = "runtime-risk"
+severity = "medium"
+observed = "The v640 redelegations snapshot also projects entry.Balance.String() into SharesDst instead of the embedded RedelegationEntry.SharesDst decimal. Historical queries selected by the version table retain this token-versus-share semantic error."
+expected = "Consumers need accurate share units on forward execution and an explicit historical compatibility statement. Historical snapshots must not change replay semantics without a deliberate version policy."
+proposal = "Preserve precompiles/staking/legacy/v640/staking.go, document the historical sharesDst limitation, and repair the active mapping under a new activation policy with a real non-unit-exchange-rate keeper-to-ABI proof. Do not change selectors or event topics."
+owner_domain = 6
+interface = "6.pc-0x1005-redelegations"
+
+[finding.historical-shares-v65]
+file = "precompiles/staking/legacy/v65/staking.go"
+line = 1072
+class = "runtime-risk"
+severity = "medium"
+observed = "The v65 redelegations snapshot also projects entry.Balance.String() into SharesDst instead of the embedded RedelegationEntry.SharesDst decimal. This copy is not selected by the generated version table."
+expected = "Consumers need accurate share units on forward execution and an explicit historical compatibility statement. Historical snapshots must not change replay semantics without a deliberate version policy."
+proposal = "Preserve precompiles/staking/legacy/v65/staking.go, document the historical sharesDst limitation, and repair the active mapping under a new activation policy with a real non-unit-exchange-rate keeper-to-ABI proof. Do not change selectors or event topics."
+owner_domain = 6
+interface = "6.pc-0x1005-redelegations"
+
+[finding.unused-v65-snapshot]
+file = "precompiles/staking/legacy/v65/staking.go"
+line = 86
+class = "dead-code"
+severity = "low"
+observed = "The v65 staking package and ABI duplicate the active snapshot apart from package/common imports, but staking/setup.go imports and registers snapshots only through v640 and then the active constructor. No Go importer selects legacy/v65."
+expected = "The historical version inventory should distinguish an intentionally retained archive from a version that can actually be selected by the chain; duplicate snapshots must not imply a missing runtime upgrade registration."
+proposal = "Have the precompile owner classify precompiles/staking/legacy/v65 as an archive in the version inventory, or remove it in a dedicated cleanup after confirming replay policy. Do not wire an extra version merely because a directory exists, and leave the frozen version selection intact."
+owner_domain = 6
+
+[finding.readme-network-model]
+file = "README.md"
+line = 44
+class = "doc-drift"
+severity = "medium"
+observed = "README describes two execution domains, a separate layerxd daemon and checkpoint settlement at lines 44-47, lists 0x1012/0x1013/0x1014 as active connectors at line 83, and at line 181 calls the merge a draft with the kernel still separate."
+expected = "The upgrade guide must describe one BFT paxd network with its kernel proposing blocks, EVM chain ID 125, block-commit receipt finality and retired connector addresses rather than a separately deployed sequencer."
+proposal = "Rewrite README.md network architecture, precompile availability and local-run guidance for the merged paxd lifecycle. Label any historical layerxd/checkpoint instructions as historical and link the current root-path RPC contract."
+owner_domain = 15
+
+[finding.network-guide-settlement]
+file = "docs/paxeer-network.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The opening presents Paxeer as the settlement/custody layer for another LayerX network and says ordinary activity stays on a separate sequencer with periodic checkpoints. Later module/layout guidance retains that boundary, although the tenant namespace discussion is compatible with the merged model."
+expected = "The network guide must present the kernel and chain as one BFT network, with tenant subchains as database namespaces and finality at committed blocks."
+proposal = "Rewrite docs/paxeer-network.md opening, module descriptions and protocol links around merged paxd operation, retain the tenant namespace explanation, and replace checkpoint/sequencer deployment assumptions with the merged lifecycle."
+owner_domain = 15
+
+[finding.monorepo-runtime-boundary]
+file = "docs/MONOREPO.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The repository guide introduces paxd and layerxd as separate runtime subsystems and its trust-boundary section at lines 71-72 retains custody/checkpoint/guarantor settlement semantics as the architecture."
+expected = "The source layout may retain historical trees, but the operational guide must distinguish source organization from the single merged paxd network and kernel lifecycle."
+proposal = "Update docs/MONOREPO.md introduction and operational boundaries to describe the kernel embedded in the network, mark retained standalone daemon and settlement trees as historical where applicable, and keep directory-move plans distinct from runtime availability."
+owner_domain = 15
+
+[finding.unified-network-finality]
+file = "docs/site/docs/overview/unified-network.md"
+line = 11
+class = "doc-drift"
+severity = "medium"
+observed = "The architecture page calls LayerX a separate C sequencer/consensus domain and explains signed batches, guarantor certificates, delayed checkpoint finality, custody withdrawals and forced exits as the running network lifecycle, including lines 106-124."
+expected = "The merged network has one BFT paxd lifecycle, the kernel proposes blocks, and receipts become final when their blocks commit; operators must not deploy a separate sequencer or checkpoint finality service."
+proposal = "Rewrite docs/site/docs/overview/unified-network.md runtime and finality sections around paxd block proposal/commit, shared recovery and tenant namespaces. Move the old checkpoint/custody explanation into an explicitly historical reference if retained."
+owner_domain = 15
+
+[finding.unified-network-retired-addresses]
+file = "docs/site/docs/overview/unified-network.md"
+line = 17
+class = "doc-drift"
+severity = "medium"
+observed = "The page advertises LayerXVerify 0x1012, LayerXCustody 0x1013 and LayerXAnchor 0x1014 as active proof-carrying connectors and gives callable method tables and lifecycle advice for them."
+expected = "At the merge those addresses are retired surfaces with defined refusal behavior, and integrators must use the merged ledger/auth/pay/program interfaces that own the replacement behavior."
+proposal = "Replace the active connector instructions in docs/site/docs/overview/unified-network.md with the merge address availability table, retirement/refusal semantics and links to the actual replacement contracts; keep historical ABI tables clearly labeled historical."
+owner_domain = 15
+
+[finding.unified-network-rpc-router]
+file = "docs/site/docs/overview/unified-network.md"
+line = 129
+class = "doc-drift"
+severity = "medium"
+observed = "The page directs clients to https://api-mainnet-beta.paxeer.network/rpc as a router URL, gives a sixteen-node model, and advertises GET /rpc/schema at line 171. It conflates the node JSON-RPC namespace with hosted gateway px_ methods."
+expected = "Public node JSON-RPC uses api1 through api14.mainnet-beta.paxeer.network plus api-mainnet-beta.paxeer.network at the root path, without a router or unified /rpc path. Hosted gateway px_ methods have their own declared OpenRPC contract."
+proposal = "Rewrite the RPC section of docs/site/docs/overview/unified-network.md with the fourteen numbered node hosts, root endpoint, node namespaces and hosted gateway distinction; remove /rpc, /rpc/ws and /rpc/schema instructions and link services/platform/hosted/gateway/openrpc.json."
+owner_domain = 15
+
+[finding.sidiora-interface-description]
+file = "docs/site/docs/protocol/sidiora.md"
+line = 5
+class = "doc-drift"
+severity = "medium"
+observed = "The introduction sends readers to Unified network for chain and LayerX kernel domains sitting behind one interface. That link currently teaches the retired router/checkpoint architecture, despite the page's useful token and fee-path details."
+expected = "The SID guide must describe its token and fee behavior within the single merged chain and direct readers to an accurate node/gateway API distinction."
+proposal = "Update docs/site/docs/protocol/sidiora.md introductory architecture sentence and its link context after correcting unified-network.md; preserve the separately specified SID denomination, mint authority and fee-path details."
+owner_domain = 15
+
+[finding.translated-network-pt-br]
+file = "docs/readme/README.pt-BR.md"
+line = 37
+class = "doc-drift"
+severity = "medium"
+observed = "The pt-BR README describes paxd and standalone layerxd as two execution domains at lines 37-41 and again in Architecture around line 125. The Mermaid flow retains sequencer receipts, guarantor attestations and checkpoint settlement, and the precompile discussion treats the old custody/anchor connection as active."
+expected = "Each supported language must explain the same merged paxd network, kernel block proposal, committed-block finality and current precompile availability as the canonical network guide."
+proposal = "Rewrite docs/readme/README.pt-BR.md network introduction, runtime instructions and architecture diagram from the corrected canonical guide; translate the merged lifecycle and retired connector warning, and align source-layout and API examples with the current monorepo."
+owner_domain = 15
+
+[finding.translated-network-fr]
+file = "docs/readme/README.fr.md"
+line = 37
+class = "doc-drift"
+severity = "medium"
+observed = "The fr README describes paxd and standalone layerxd as two execution domains at lines 37-41 and again in Architecture around line 125. The Mermaid flow retains sequencer receipts, guarantor attestations and checkpoint settlement, and the precompile discussion treats the old custody/anchor connection as active."
+expected = "Each supported language must explain the same merged paxd network, kernel block proposal, committed-block finality and current precompile availability as the canonical network guide."
+proposal = "Rewrite docs/readme/README.fr.md network introduction, runtime instructions and architecture diagram from the corrected canonical guide; translate the merged lifecycle and retired connector warning, and align source-layout and API examples with the current monorepo."
+owner_domain = 15
+
+[finding.translated-network-ja]
+file = "docs/readme/README.ja.md"
+line = 37
+class = "doc-drift"
+severity = "medium"
+observed = "The ja README describes paxd and standalone layerxd as two execution domains at lines 37-41 and again in Architecture around line 125. The Mermaid flow retains sequencer receipts, guarantor attestations and checkpoint settlement, and the precompile discussion treats the old custody/anchor connection as active."
+expected = "Each supported language must explain the same merged paxd network, kernel block proposal, committed-block finality and current precompile availability as the canonical network guide."
+proposal = "Rewrite docs/readme/README.ja.md network introduction, runtime instructions and architecture diagram from the corrected canonical guide; translate the merged lifecycle and retired connector warning, and align source-layout and API examples with the current monorepo."
+owner_domain = 15
+
+[finding.translated-network-ru]
+file = "docs/readme/README.ru.md"
+line = 37
+class = "doc-drift"
+severity = "medium"
+observed = "The ru README describes paxd and standalone layerxd as two execution domains at lines 37-41 and again in Architecture around line 125. The Mermaid flow retains sequencer receipts, guarantor attestations and checkpoint settlement, and the precompile discussion treats the old custody/anchor connection as active."
+expected = "Each supported language must explain the same merged paxd network, kernel block proposal, committed-block finality and current precompile availability as the canonical network guide."
+proposal = "Rewrite docs/readme/README.ru.md network introduction, runtime instructions and architecture diagram from the corrected canonical guide; translate the merged lifecycle and retired connector warning, and align source-layout and API examples with the current monorepo."
+owner_domain = 15
+
+[finding.translated-network-zh-cn]
+file = "docs/readme/README.zh-CN.md"
+line = 37
+class = "doc-drift"
+severity = "medium"
+observed = "The zh-CN README describes paxd and standalone layerxd as two execution domains at lines 37-41 and again in Architecture around line 125. The Mermaid flow retains sequencer receipts, guarantor attestations and checkpoint settlement, and the precompile discussion treats the old custody/anchor connection as active."
+expected = "Each supported language must explain the same merged paxd network, kernel block proposal, committed-block finality and current precompile availability as the canonical network guide."
+proposal = "Rewrite docs/readme/README.zh-CN.md network introduction, runtime instructions and architecture diagram from the corrected canonical guide; translate the merged lifecycle and retired connector warning, and align source-layout and API examples with the current monorepo."
+owner_domain = 15
+
+[finding.translated-network-de]
+file = "docs/readme/README.de.md"
+line = 37
+class = "doc-drift"
+severity = "medium"
+observed = "The de README describes paxd and standalone layerxd as two execution domains at lines 37-41 and again in Architecture around line 125. The Mermaid flow retains sequencer receipts, guarantor attestations and checkpoint settlement, and the precompile discussion treats the old custody/anchor connection as active."
+expected = "Each supported language must explain the same merged paxd network, kernel block proposal, committed-block finality and current precompile availability as the canonical network guide."
+proposal = "Rewrite docs/readme/README.de.md network introduction, runtime instructions and architecture diagram from the corrected canonical guide; translate the merged lifecycle and retired connector warning, and align source-layout and API examples with the current monorepo."
+owner_domain = 15
+
+[finding.translated-network-es]
+file = "docs/readme/README.es.md"
+line = 37
+class = "doc-drift"
+severity = "medium"
+observed = "The es README describes paxd and standalone layerxd as two execution domains at lines 37-41 and again in Architecture around line 125. The Mermaid flow retains sequencer receipts, guarantor attestations and checkpoint settlement, and the precompile discussion treats the old custody/anchor connection as active."
+expected = "Each supported language must explain the same merged paxd network, kernel block proposal, committed-block finality and current precompile availability as the canonical network guide."
+proposal = "Rewrite docs/readme/README.es.md network introduction, runtime instructions and architecture diagram from the corrected canonical guide; translate the merged lifecycle and retired connector warning, and align source-layout and API examples with the current monorepo."
+owner_domain = 15
+
+[finding.transfer-doc-query-shape]
+file = "interchain/modules/apps/transfer/spec/01_concepts.md"
+line = 61
+class = "doc-drift"
+severity = "medium"
+observed = "The worked REST example uses /ibc_transfer/v1beta1/denom_traces/<hash> and a flattened {path,base_denom} result. The registered gateway is /ibc/apps/transfer/v1/denom_traces/{hash} with a denom_trace envelope; channelToA/channelToB examples also differ from canonical channel-N identifiers."
+expected = "Client examples must match the real gateway route, response envelope and trace parser, so wallets can resolve actual packet-produced voucher denoms without inventing another shape."
+proposal = "Update interchain/modules/apps/transfer/spec/01_concepts.md with canonical channel-N examples and the real registered REST response, generated from a real query. Retain the external multi-hop chain explanation while distinguishing tenant namespaces from external IBC chains."
+owner_domain = 6
+
+[finding.transfer-doc-port-storage]
+file = "interchain/modules/apps/transfer/spec/02_state.md"
+line = 9
+class = "doc-drift"
+severity = "medium"
+observed = "The state table describes Port at key 0x01 as ProtocolBuffer(string). keeper/keeper.go SetPort actually writes []byte(portID), and GetPort decodes the raw byte string without a protobuf envelope."
+expected = "Storage documentation must state the exact byte encoding used by the real keeper so migrations and recovery tools do not misdecode the port key."
+proposal = "Correct interchain/modules/apps/transfer/spec/02_state.md to describe raw UTF-8 port bytes at 0x01, retain the protobuf DenomTrace value at 0x02, and cite the keeper encoding boundary."
+owner_domain = 6
+
+[finding.transfer-doc-timeout-event]
+file = "interchain/modules/apps/transfer/spec/05_events.md"
+line = 44
+class = "doc-drift"
+severity = "medium"
+observed = "The timeout table names event fungible_token_packet with denom and amount attributes. ibc_module.go emits EventTypeTimeout=\"timeout\" and refund_receiver, refund_denom, refund_amount and memo; the receive table also omits its emitted sender attribute."
+expected = "Event consumers must be able to subscribe to the exact emitted event type and attribute names for refunds and packet outcomes."
+proposal = "Rewrite the callback tables in interchain/modules/apps/transfer/spec/05_events.md from the real ibc_module.go events, explicitly using timeout/refund_denom/refund_amount and the receive sender; distinguish acknowledgement success/error events from the common packet attributes."
+owner_domain = 6
+
+[finding.transfer-doc-metrics]
+file = "interchain/modules/apps/transfer/spec/06_metrics.md"
+line = 11
+class = "doc-drift"
+severity = "medium"
+observed = "The metrics table calls both amount gauges total amounts and documents only tx_msg_ibc_transfer. The live OpenTelemetry instrument is ibc_transfer_tx_msg with a denom_class label and last-value semantics; the legacy tx_msg_ibc_transfer gauge still coexists with full-denom labels. Amounts outside int64 are not recorded by either amount gauge."
+expected = "Operators need the actual instrument names, gauge semantics, label dimensions and integer range, while counters remain cumulative transfer counts."
+proposal = "Update interchain/modules/apps/transfer/spec/06_metrics.md to distinguish concurrent legacy and OpenTelemetry series, document last representable packet/transfer amount rather than a sum, list denom_class and source/channel labels, and state the int64 amount-recording limit."
+owner_domain = 6
+
+[finding.transfer-doc-receive-gating]
+file = "interchain/modules/apps/transfer/spec/07_params.md"
+line = 25
+class = "doc-drift"
+severity = "medium"
+observed = "The ReceiveEnabled section says disabling a bank denomination's SendEnabled stops that denomination arriving through IBC. OnRecvPacket checks the transfer-wide ReceiveEnabled and then performs keeper bank flows; those SendCoins/module paths do not enforce the user MsgSend SendEnabled gate."
+expected = "The guide must describe the actual receive controls and must not promise a per-denom inbound freeze that the receive producer/consumer path does not implement."
+proposal = "Correct interchain/modules/apps/transfer/spec/07_params.md to document ReceiveEnabled as the module-wide inbound control and explain the bank message/module-flow distinction. If per-denom inbound policy is desired, specify and implement it as a separate domain-6 task with real receive/refund proofs rather than silently widening bank gating."
+owner_domain = 6
+
+[finding.ibc-contract-telemetry]
+file = "spec/layerx-merge/contracts/ibc.md"
+line = 2588
+class = "doc-drift"
+severity = "medium"
+observed = "The generated telemetry table repeats the registry's ibc/packet/receive keys without the transfer component and presents receive source booleans as key components. The actual relay.go legacy producer includes transfer and uses a source label."
+expected = "The generated current interface view must carry the exact producer metric key components and label shape, with its pinned source baseline distinguished from implemented changes."
+proposal = "Correct the five telemetry registry rows in spec/layerx-merge/interfaces.kvx and regenerate spec/layerx-merge/contracts/ibc.md. Link the separate OpenTelemetry instrument documentation rather than changing the live legacy metric producer to match the stale table."
+owner_domain = 15
+
+[doc.01]
+path = "README.md"
+status = "stale"
+notes = "Lines 44-47, 83 and 181 retain the standalone kernel/checkpoint model; see readme-network-model."
+
+[doc.02]
+path = "docs/paxeer-network.md"
+status = "stale"
+notes = "Opening settlement/sequencer boundary is stale; tenant namespaces remain compatible. See network-guide-settlement."
+
+[doc.03]
+path = "docs/MONOREPO.md"
+status = "stale"
+notes = "Runtime/trust boundary prose retains separate layerxd and checkpoint settlement; see monorepo-runtime-boundary."
+
+[doc.04]
+path = "docs/site/docs/overview/unified-network.md"
+status = "misleading"
+notes = "Separate finality, retired connectors and /rpc router instructions contradict the merge; see the three unified-network findings."
+
+[doc.05]
+path = "docs/site/docs/protocol/sidiora.md"
+status = "stale"
+notes = "Line 5 architecture/interface link is stale; detailed SID and fee-path content was read without treating it as authorization to change token policy."
+
+[doc.06]
+path = "docs/readme/README.pt-BR.md"
+status = "stale"
+notes = "Lines 37-41 and the architecture prose/diagram retain standalone layerxd, sequencer and checkpoint settlement; see the matching translated-network finding."
+
+[doc.07]
+path = "docs/readme/README.fr.md"
+status = "stale"
+notes = "Lines 37-41 and the architecture prose/diagram retain standalone layerxd, sequencer and checkpoint settlement; see the matching translated-network finding."
+
+[doc.08]
+path = "docs/readme/README.ja.md"
+status = "stale"
+notes = "Lines 37-41 and the architecture prose/diagram retain standalone layerxd, sequencer and checkpoint settlement; see the matching translated-network finding."
+
+[doc.09]
+path = "docs/readme/README.ru.md"
+status = "stale"
+notes = "Lines 37-41 and the architecture prose/diagram retain standalone layerxd, sequencer and checkpoint settlement; see the matching translated-network finding."
+
+[doc.10]
+path = "docs/readme/README.zh-CN.md"
+status = "stale"
+notes = "Lines 37-41 and the architecture prose/diagram retain standalone layerxd, sequencer and checkpoint settlement; see the matching translated-network finding."
+
+[doc.11]
+path = "docs/readme/README.de.md"
+status = "stale"
+notes = "Lines 37-41 and the architecture prose/diagram retain standalone layerxd, sequencer and checkpoint settlement; see the matching translated-network finding."
+
+[doc.12]
+path = "docs/readme/README.es.md"
+status = "stale"
+notes = "Lines 37-41 and the architecture prose/diagram retain standalone layerxd, sequencer and checkpoint settlement; see the matching translated-network finding."
+
+[doc.13]
+path = "interchain/modules/apps/transfer/spec/01_concepts.md"
+status = "stale"
+notes = "Read in full: token tracing and multi-hop explanation; REST route/envelope and noncanonical channel examples need correction."
+
+[doc.14]
+path = "interchain/modules/apps/transfer/spec/02_state.md"
+status = "stale"
+notes = "Read in full: port raw-byte encoding disagrees with the documented ProtocolBuffer(string) value."
+
+[doc.15]
+path = "interchain/modules/apps/transfer/spec/03_state_transitions.md"
+status = "accurate"
+notes = "Read in full: forward escrow/mint and backward burn/unescrow match the transfer keeper and real core callback transaction boundary."
+
+[doc.16]
+path = "interchain/modules/apps/transfer/spec/04_messages.md"
+status = "accurate"
+notes = "Read in full: MsgTransfer fields and refusal conditions match message validation and downstream core SendPacket checks, including nonzero timeout."
+
+[doc.17]
+path = "interchain/modules/apps/transfer/spec/05_events.md"
+status = "stale"
+notes = "Read in full: timeout event type and refund attribute keys differ from the real callback emitter; receive sender is also omitted."
+
+[doc.18]
+path = "interchain/modules/apps/transfer/spec/06_metrics.md"
+status = "stale"
+notes = "Read in full: last-value gauges, parallel legacy/OpenTelemetry names and the int64 recording limit are not described accurately."
+
+[doc.19]
+path = "interchain/modules/apps/transfer/spec/07_params.md"
+status = "misleading"
+notes = "Read in full: bank SendEnabled is incorrectly presented as a per-denom inbound IBC freeze; module ReceiveEnabled is the actual receive gate."
+
+[doc.20]
+path = "interchain/modules/apps/transfer/spec/README.md"
+status = "accurate"
+notes = "Read in full: ICS20 abstract and contents accurately index the local module specification; individual stale chapters are recorded separately."
+
+[doc.21]
+path = "interchain/modules/apps/transfer/keeper/MBT_README.md"
+status = "accurate"
+notes = "Read in full: Apalache counterexample and Jsonatr transformation provenance matches the generated trace fixtures and driver; negative-outcome proof limitations are recorded on mbt_relay_test.go."
+
+[doc.22]
+path = "spec/layerx-merge/contracts/ibc.md"
+status = "stale"
+notes = "Read the slice-relevant ICA, transfer, genesis, query and telemetry sections. ICA unavailability is explicitly documented; the generated metric key inventory is stale as recorded."
+
+[doc.23]
+path = "spec/layerx-merge/contracts/address-inventory.md"
+status = "stale"
+notes = "Read the staking 0x1005 ABI/method/event sections and tokenfactory message references. Staking selectors/types match the ABI; the tokenfactory GenesisState signature at line 4659 omits implemented field 3, as recorded on genesis.proto."
+
+[doc.24]
+path = "spec/layerx-merge/contracts/address-table.md"
+status = "accurate"
+notes = "Read the staking 0x1005 availability/version row and related merge address/gas context. Staking is retained with frozen selectors/topics; other planned rows are historical/specification context."
+
+[doc.25]
+path = "spec/layerx-merge/contracts/proto-api.md"
+status = "accurate"
+notes = "Read the applicable tokenfactory descriptor-parity criteria and consumed staking/IBC protobuf inventory as a pinned generated view. RedelegationEntryResponse separates embedded decimal destination shares from integer balance; the active projection defect is recorded on staking.go."
+
+[doc.26]
+path = "spec/layerx-merge/contracts/cosmos-fork.md"
+status = "accurate"
+notes = "Read the slice-consumed SDK keeper, message, codec, staking response and genesis surfaces. Decimal staking shares and integer token balances remain distinct fields; shared SDK types are not replaced by test fixture shapes."
+
+[doc.27]
+path = "spec/layerx-merge/contracts/tokenfactory.md"
+status = "stale"
+notes = "Read the relevant genesis, pause authority/storage and query sections as a pinned baseline with planned changes. The context specifies paused_denoms field 3 and the module-flow/user-send policy distinction, but its base GenesisState inventory at line 168 still omits implemented field 3; see tokenfactory-genesis-registry."
+
+[doc.28]
+path = "spec/layerx-merge/programme/audit/BRIEF.kvx"
+status = "accurate"
+notes = "Read in full: decisions, merged network facts, nine review checks and audit record grammar used for this review; generated artifacts and historical replay snapshots are identified separately."

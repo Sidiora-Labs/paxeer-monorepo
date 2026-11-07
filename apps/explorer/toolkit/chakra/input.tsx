@@ -1,8 +1,12 @@
 import type { InputProps as ChakraInputProps } from '@chakra-ui/react';
 import { Input as ChakraInput } from '@chakra-ui/react';
 
-export interface InputProps extends Omit<ChakraInputProps, 'size'> {
-  size?: 'sm' | 'md' | 'lg' | '2xl';
-}
+import { recipe as inputRecipe } from '../theme/recipes/input.recipe';
+import { withRecipe, type WithRecipeProps } from './recipe-props';
 
-export const Input = ChakraInput;
+type RecipeProps = WithRecipeProps<ChakraInputProps, typeof inputRecipe>;
+const RecipeComponent = withRecipe(ChakraInput, inputRecipe);
+
+export interface InputProps extends RecipeProps {}
+
+export const Input = RecipeComponent;

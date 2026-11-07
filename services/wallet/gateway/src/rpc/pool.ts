@@ -86,10 +86,10 @@ export class NonceConflictError extends RpcResponseError {
 }
 
 /**
- * A node answered nonce too low and no member knows our hash, but latest counts disagree about whether
- * the nonce was consumed, or a member could not answer the count or hash lookup. Classification read
- * failures also leave the outcome unknown: the caller polls eth_getTransactionReceipt by this hash
- * and never prepares again.
+ * A send lost its transport response, or a node answered nonce too low and no member knows our hash,
+ * but latest counts disagree about whether the nonce was consumed, or a member could not answer the
+ * count or hash lookup. Classification read failures also leave the outcome unknown: the caller
+ * polls eth_getTransactionReceipt by this hash and never prepares again.
  */
 export class BroadcastOutcomeUnknownError extends RpcResponseError {
   constructor(code: number, message: string, data: unknown, readonly hash: Hex, readonly nonce: number,
@@ -124,6 +124,58 @@ class RpcTransportError extends Error {
   constructor(message: string) {
     super(message);
     this.name = 'RpcTransportError';
+  }
+}
+
+function responseByteLimit(method: string): number {
+  switch (method) {
+    case 'eth_chainId':
+    case 'eth_blockNumber':
+    case 'eth_getBalance':
+    case 'eth_getStorageAt':
+    case 'eth_getTransactionCount':
+    case 'eth_gasPrice':
+    case 'eth_maxPriorityFeePerGas':
+    case 'eth_estimateGas':
+    case 'eth_sendRawTransaction':
+      return 64 * 1024;
+    case 'eth_call':
+    case 'eth_getCode':
+    case 'eth_getLogs':
+    case 'eth_getBlockByHash':
+    case 'eth_getBlockByNumber':
+    case 'eth_getTransactionReceipt':
+    case 'pax_sequencerReceipt':
+      return 8 * 1024 * 1024;
+    default:
+      return 1024 * 1024;
+  }
+}
+
+async function readResponse(res: Response, limit: number, checkDeadline: () => void): Promise<unknown> {
+  if (!res.body) throw new RpcTransportError('non-JSON answer');
+  const reader = res.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let bytes = 0;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      checkDeadline();
+      if (done) break;
+      bytes += value.byteLength;
+      if (bytes > limit) throw new RpcTransportError(`response exceeds ${limit} byte limit`);
+      chunks.push(value);
+    }
+    const text = new TextDecoder().decode(Buffer.concat(chunks, bytes));
+    const body: unknown = JSON.parse(text);
+    checkDeadline();
+    return body;
+  } catch (err) {
+    checkDeadline();
+    if (err instanceof RpcTransportError) throw err;
+    throw new RpcTransportError('non-JSON answer');
+  } finally {
+    reader.releaseLock();
   }
 }
 
@@ -416,7 +468,8 @@ export class RpcPool {
    * nonce mean NonceConflictError; unanimous counts past it mean NonceConflictError with consumed=true.
    * Either requires complete count and hash answers; split counts, unreachable members or failed
    * classification reads mean BroadcastOutcomeUnknownError. Replacement underpriced is a
-   * NonceConflictError; any other refusal is a TransactionRejectedError.
+   * NonceConflictError; any other refusal is a TransactionRejectedError. A transport failure leaves
+   * the broadcast outcome unknown and carries the signed hash and nonce for receipt polling.
    */
   async sendRawTransactionVia(signed: Hex): Promise<{ hash: Hex; member: string | null }> {
     const member = this.sequencerEndpoint();
@@ -425,7 +478,18 @@ export class RpcPool {
       const result = (await this.post(member, 'eth_sendRawTransaction', [signed])) as Hex;
       return { hash: result, member };
     } catch (err) {
-      if (!(err instanceof RpcResponseError)) throw err;
+      if (!(err instanceof RpcResponseError)) {
+        const urls = [...new Set([...this.endpoints.map((ep) => ep.url), member])];
+        throw new BroadcastOutcomeUnknownError(
+          -32000,
+          this.redact(err instanceof Error ? err.message : String(err)),
+          undefined,
+          hash,
+          parseTransaction(signed).nonce ?? 0,
+          urls.indexOf(member),
+          urls.length,
+        );
+      }
       if (ALREADY_KNOWN.test(err.message)) return { hash, member };
       const members = this.endpoints.length;
       if (NONCE_TOO_LOW.test(err.message)) {
@@ -478,35 +542,45 @@ export class RpcPool {
 
   private async postOnce(url: string, method: string, params: unknown[]): Promise<unknown> {
     const controller = new AbortController();
+    const deadline = performance.now() + this.opts.timeoutMs;
+    const checkDeadline = (): void => {
+      if (controller.signal.aborted || performance.now() >= deadline) {
+        throw new RpcTransportError(`RPC deadline exceeded after ${this.opts.timeoutMs}ms`);
+      }
+    };
     const timer = setTimeout(() => controller.abort(), this.opts.timeoutMs);
-    let res: Response;
     try {
-      res = await fetch(url, {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ jsonrpc: '2.0', id: ++requestId, method, params }),
-        signal: controller.signal,
-      });
-    } catch (err) {
-      throw new RpcTransportError(err instanceof Error ? err.message : String(err));
+      let res: Response;
+      try {
+        res = await fetch(url, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ jsonrpc: '2.0', id: ++requestId, method, params }),
+          signal: controller.signal,
+        });
+      } catch (err) {
+        checkDeadline();
+        throw new RpcTransportError(err instanceof Error ? err.message : String(err));
+      }
+      checkDeadline();
+      if (!res.ok) throw new RpcTransportError(`HTTP ${res.status}`);
+      const decoded = await readResponse(res, responseByteLimit(method), checkDeadline);
+      if (decoded === null || typeof decoded !== 'object' || Array.isArray(decoded)) {
+        throw new RpcTransportError('answer carries neither result nor error');
+      }
+      const body = decoded as { result?: unknown; error?: { code: number; message: string; data?: unknown } };
+      if (body.error) {
+        if (body.error.code === -32000 && params.includes('pending')) {
+          throw new PendingReadRefusedError(body.error.message, body.error.data);
+        }
+        throw new RpcResponseError(body.error.code, body.error.message, body.error.data);
+      }
+      if (!('result' in body)) throw new RpcTransportError('answer carries neither result nor error');
+      return body.result;
     } finally {
       clearTimeout(timer);
+      controller.abort();
     }
-    if (!res.ok) throw new RpcTransportError(`HTTP ${res.status}`);
-    let body: { result?: unknown; error?: { code: number; message: string; data?: unknown } };
-    try {
-      body = (await res.json()) as typeof body;
-    } catch {
-      throw new RpcTransportError('non-JSON answer');
-    }
-    if (body.error) {
-      if (body.error.code === -32000 && params.includes('pending')) {
-        throw new PendingReadRefusedError(body.error.message, body.error.data);
-      }
-      throw new RpcResponseError(body.error.code, body.error.message, body.error.data);
-    }
-    if (!('result' in body)) throw new RpcTransportError('answer carries neither result nor error');
-    return body.result;
   }
 }
 

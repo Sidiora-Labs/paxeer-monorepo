@@ -45,12 +45,12 @@ type Rule struct {
 	// Nested, if Some, is applied to the contents of this length-delimited
 	// field. Use for descending through wrapper layers on the way to a cap.
 	Nested utils.Option[*Schema]
-	// MaxCount, if non-zero, caps how many times this field may appear within
-	// one instance of the parent message. The cap is per-instance: each
-	// occurrence of the outer message gets its own independent counter for
-	// this field. Total memory at any nesting depth is therefore bounded by
-	// the product of the caps along the path, not by a single global sum.
+	// MaxCount, if non-zero, caps occurrences within one decoded parent
+	// instance, including occurrences merged from duplicate singular fields.
 	MaxCount int
+	// Repeated gives each nested occurrence independent counters. Singular
+	// message fields instead merge into the same child, just as protobuf does.
+	Repeated bool
 }
 
 // Scan walks bz once, applying schema. Returns nil on success, an error on
@@ -59,7 +59,7 @@ func Scan(bz []byte, schema *Schema) error {
 	if schema == nil {
 		return nil
 	}
-	return scan(bz, schema, map[counterKey]int{})
+	return scan(bz, schema, &scanState{})
 }
 
 // Scan is the method form of the package-level Scan. It's the shape a
@@ -69,14 +69,15 @@ func (s *Schema) Scan(bz []byte) error {
 	return Scan(bz, s)
 }
 
-// counterKey scopes a MaxCount accumulator to a (Schema, field number) pair
-// within one scan of a single message instance.
-type counterKey struct {
-	schema *Schema
-	num    Number
+// scanState belongs to one decoded message instance, not one wire occurrence.
+// Singular children retain their entire subtree across duplicate occurrences;
+// separate fields never share state even when they use the same schema.
+type scanState struct {
+	counts   map[Number]int
+	singular map[Number]*scanState
 }
 
-func scan(bz []byte, schema *Schema, counts map[counterKey]int) error {
+func scan(bz []byte, schema *Schema, state *scanState) error {
 	for len(bz) > 0 {
 		num, typ, tagLen := protowire.ConsumeTag(bz)
 		if tagLen < 0 {
@@ -91,20 +92,27 @@ func scan(bz []byte, schema *Schema, counts map[counterKey]int) error {
 			}
 			if hasRule {
 				if rule.MaxCount > 0 {
-					key := counterKey{schema, num}
-					counts[key]++
-					if counts[key] > rule.MaxCount {
+					if state.counts == nil {
+						state.counts = make(map[Number]int)
+					}
+					state.counts[num]++
+					if state.counts[num] > rule.MaxCount {
 						return fmt.Errorf("wireguard: field %d exceeds max %d entries", num, rule.MaxCount)
 					}
 				}
 				if nested, ok := rule.Nested.Get(); ok {
-					// Fresh counts for each nested-message occurrence so that
-					// MaxCount is checked per instance rather than summed
-					// globally. This keeps the semantics intuitive: a cap of N
-					// on an inner field means "at most N per outer element",
-					// which is easy to reason about and still bounds total
-					// memory: outer_cap × inner_cap × … at every level.
-					if err := scan(val, nested, map[counterKey]int{}); err != nil {
+					child := &scanState{}
+					if !rule.Repeated {
+						if state.singular == nil {
+							state.singular = make(map[Number]*scanState)
+						}
+						if existing := state.singular[num]; existing != nil {
+							child = existing
+						} else {
+							state.singular[num] = child
+						}
+					}
+					if err := scan(val, nested, child); err != nil {
 						return err
 					}
 				}

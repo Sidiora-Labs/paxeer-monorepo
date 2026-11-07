@@ -25,8 +25,8 @@ use core::cmp::Ordering;
 
 use crate::{
     admission::{AdmissionTable, Participant},
+    codec::ValidatedEnvelope,
     codec::{self, derive_market, domain_hash, Envelope, EventCommon, Reader, Writer},
-    codec::{Roster, ValidatedEnvelope},
     dispatch::{self, Operation},
     errors::{
         CodecResult, ARITHMETIC, CAPACITY, CONFLICT, F01_LIFECYCLE_CLOSED, F01_NO_TASK_CAPACITY,
@@ -38,9 +38,7 @@ use crate::{
         WRONG_ROSTER,
     },
     evaluators::{
-        authority::{self, split_identity_section},
-        codec::verify_digest,
-        model::VerificationError,
+        authority::split_identity_section, codec::verify_digest, model::VerificationError,
     },
     registry::{check_f01_capacity, market_clock, MarketHeader},
     registry_ops::{
@@ -53,12 +51,12 @@ use crate::{
         ReplayRequest, RetainedResult, Section, SharedState,
     },
     types::{
-        Authentication, Digest32, EpochPhase, EpochWindows, EvaluatorRosterEntry, MarketId,
-        MetadataDigest, PolicyDigest, Presence, PrincipalId, PublicKey32, RequestId, ResultDigest,
-        RosterDigest, Signature64, TaskId, Version, WorkerId, WorkerRosterEntry,
+        Authentication, Digest32, EpochPhase, EpochWindows, MarketId, MetadataDigest, PolicyDigest,
+        Presence, PrincipalId, PublicKey32, RequestId, ResultDigest, RosterDigest, Signature64,
+        TaskId, Version, WorkerId,
     },
-    workers::{check_new_admission, WorkerCurrent, WorkerState, WorkerTable},
-    MAX_EVALUATORS, MAX_TASKS, MAX_WORKERS,
+    workers::{WorkerCurrent, WorkerState, WorkerTable},
+    MAX_TASKS,
 };
 
 /// Canonical `TaskBinding` length.
@@ -80,7 +78,8 @@ pub const ADMIT_SUFFIX_BYTES: usize = TASK_BINDING_BYTES + 32;
 const ADMISSION_DOMAIN: &str = "PAXAI/task-admission/v1";
 const TASK_SET_DOMAIN: &[u8] = b"PAXAI/task-set/v1";
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub enum TaskStatus {
     Admitted = 1,
     Accepted = 2,
@@ -104,7 +103,8 @@ impl TaskStatus {
 }
 
 /// One compact task record; absent acknowledgement and result encode as zero.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct TaskBinding {
     pub task: TaskId,
     pub requester: PrincipalId,
@@ -121,6 +121,7 @@ impl TaskBinding {
     ///
     /// # Errors
     /// Returns `NON_CANONICAL` when the digests present do not match the status.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn validate(&self) -> CodecResult<()> {
         let valid = match self.status {
             TaskStatus::Admitted | TaskStatus::Cancelled => {
@@ -139,6 +140,7 @@ impl TaskBinding {
     ///
     /// # Errors
     /// Returns `NON_CANONICAL` for a record that fails [`TaskBinding::validate`].
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn encode(&self) -> CodecResult<[u8; TASK_BINDING_BYTES]> {
         self.validate()?;
         let mut out = [0; TASK_BINDING_BYTES];
@@ -159,18 +161,19 @@ impl TaskBinding {
     /// # Errors
     /// Returns `NON_CANONICAL` for a short or long input, a zero identity, input or admission
     /// digest, an unknown status or a status/digest mismatch.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn decode(input: &[u8]) -> CodecResult<Self> {
         let mut r = Reader::new(input);
         let value = Self {
-            task: TaskId::new(r.fixed()?)?,
-            requester: PrincipalId::new(r.fixed()?)?,
-            worker: WorkerId::new(r.fixed()?)?,
-            input: Digest32::new(r.fixed()?)?,
+            task: r.task_id()?,
+            requester: r.principal_id()?,
+            worker: r.worker_id()?,
+            input: r.digest32()?,
             deadline: r.u64()?,
             status: TaskStatus::from_u8(r.u8()?)?,
-            acknowledgement: Digest32::new(r.fixed()?).ok(),
-            result: Digest32::new(r.fixed()?).ok(),
-            admission: Digest32::new(r.fixed()?)?,
+            acknowledgement: r.digest32().ok(),
+            result: r.digest32().ok(),
+            admission: r.digest32()?,
         };
         r.finish()?;
         value.validate()?;
@@ -179,7 +182,8 @@ impl TaskBinding {
 }
 
 /// Borrowed, validated view of a task region.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct TaskSet<'a> {
     seal: Option<Digest32>,
     records: &'a [u8],
@@ -194,12 +198,13 @@ impl<'a> TaskSet<'a> {
     /// # Errors
     /// Returns `NON_CANONICAL` for a count above `MAX_TASKS`, a bad presence flag, a zero seal,
     /// short or trailing bytes, an invalid record or records not strictly ascending by `TaskId`.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn decode(region: &'a [u8]) -> CodecResult<Self> {
         let mut r = Reader::new(region);
         let count = usize::from(r.u16()?);
         let seal = match r.u8()? {
             0 => None,
-            1 => Some(Digest32::new(r.fixed()?)?),
+            1 => Some(r.digest32()?),
             _ => return Err(NON_CANONICAL),
         };
         if count > MAX_TASKS {
@@ -256,7 +261,8 @@ impl<'a> TaskSet<'a> {
 }
 
 /// The immutable binding every task of one opened epoch inherits.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct SetBinding {
     pub market: MarketId,
     pub epoch: u64,
@@ -285,7 +291,8 @@ pub fn task_set_digest(binding: &SetBinding, set: &TaskSet<'_>) -> CodecResult<D
 }
 
 /// The F01 receipt: market, committed revision, request id, action, config and policy digest.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct Receipt {
     bytes: [u8; RECEIPT_MAX_BYTES],
     pub digest: ResultDigest,
@@ -321,7 +328,8 @@ impl Receipt {
     }
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub enum Outcome {
     /// One revision increment was composed into `next` and its event into `event`.
     Applied {
@@ -520,6 +528,7 @@ impl Call<'_> {
         &self.envelope.envelope
     }
     /// Domain, expiry, market and the opened epoch's envelope binding.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     fn check_binding(&self) -> CodecResult<()> {
         let e = self.e();
         let market = derive_market(self.ctx.chain, self.ctx.program)?;
@@ -569,6 +578,7 @@ struct Buffers<'b> {
 }
 
 /// Writes `count:u16 || seal presence || [seal] || parts` into `out`.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 fn write_region(seal: Option<Digest32>, parts: [&[u8]; 3], out: &mut [u8]) -> CodecResult<usize> {
     let bytes = parts.iter().map(|p| p.len()).sum::<usize>();
     if bytes % TASK_BINDING_BYTES != 0 || bytes > MAX_TASKS * TASK_BINDING_BYTES {
@@ -586,6 +596,7 @@ fn write_region(seal: Option<Digest32>, parts: [&[u8]; 3], out: &mut [u8]) -> Co
 }
 
 /// Region of `set` with `binding` at `index`, inserted or replacing the record there.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 fn write_binding(
     set: &TaskSet<'_>,
     index: usize,
@@ -690,35 +701,18 @@ fn parse_admit(payload: &[u8]) -> CodecResult<AdmitBody> {
     let body = AdmitBody {
         epoch: r.u64()?,
         config: r.u64()?,
-        policy: PolicyDigest::new(r.fixed()?)?,
-        roster: RosterDigest::new(r.fixed()?)?,
-        requester: PrincipalId::new(r.fixed()?)?,
-        worker: WorkerId::new(r.fixed()?)?,
-        metadata: MetadataDigest::new(r.fixed()?)?,
+        policy: r.policy_digest()?,
+        roster: r.roster_digest()?,
+        requester: r.principal_id()?,
+        worker: r.worker_id()?,
+        metadata: r.metadata_digest()?,
         nonce: r.fixed()?,
-        input: Digest32::new(r.fixed()?)?,
+        input: r.digest32()?,
         deadline: r.u64()?,
         digest: domain_hash(ADMISSION_DOMAIN, payload)?,
     };
     r.finish()?;
     Ok(body)
-}
-
-fn evaluator_roster(
-    identity: &[u8],
-    epoch: u64,
-) -> CodecResult<([EvaluatorRosterEntry; MAX_EVALUATORS], usize)> {
-    let region = authority::evaluator_region(identity)?;
-    let snapshot = region
-        .snapshot()
-        .filter(|s| s.epoch == epoch)
-        .ok_or(NON_CANONICAL)?;
-    let first = snapshot.entries().next().ok_or(NON_CANONICAL)?.entry;
-    let mut roster = [first; MAX_EVALUATORS];
-    for (slot, frozen) in roster.iter_mut().zip(snapshot.entries()) {
-        *slot = frozen.entry;
-    }
-    Ok((roster, snapshot.len()))
 }
 
 /// R041 frozen-worker binding: the worker is frozen in the opened epoch, its operating
@@ -730,73 +724,39 @@ fn check_frozen_worker(
     body: &AdmitBody,
     height: u64,
 ) -> CodecResult<()> {
-    let row = rewards.row(binding.epoch)?;
-    let dictionary = rewards.dictionary();
-    let mut frozen = None;
-    for entry in row.entries() {
-        let slot = dictionary.slot(entry.slot)?;
-        if slot.worker == body.worker {
-            frozen = Some(slot);
-        }
+    let captured = crate::epoch::captured_roster(state)?.ok_or(WRONG_ROSTER)?;
+    if captured.binding.epoch != binding.epoch
+        || captured.binding.roster != binding.roster
+        || captured.binding.config != binding.config
+        || captured.binding.market != binding.market
+    {
+        return Err(WRONG_ROSTER);
     }
-    let frozen = frozen.ok_or(F01_UNKNOWN_WORKER)?;
+    // The reserve and captured roster were cross-checked together by captured_roster.
+    rewards.row(binding.epoch)?;
+    let target = captured
+        .workers()
+        .iter()
+        .find(|w| w.worker == body.worker)
+        .ok_or(F01_UNKNOWN_WORKER)?;
+    if body.metadata != target.metadata {
+        return Err(WRONG_ROSTER);
+    }
     let identity = state.feature_sections[Section::IdentityRoster.index()];
     let live = WorkerTable::decode(split_identity_section(identity)?.0)?;
     let record = live.get(body.worker).ok_or(NON_CANONICAL)?;
-    if body.metadata != record.metadata {
-        return Err(WRONG_ROSTER);
-    }
-    let target = WorkerRosterEntry {
-        worker: body.worker,
-        owner: record.owner,
-        recipient: frozen.recipient,
-        generation: Version::new(record.generation)?,
-        key_version: Version::new(record.key_version)?,
-        public_key: record.delegate,
-        metadata: body.metadata,
-    };
-    check_new_admission(&record, &target, height)?;
-    let admission =
-        AdmissionTable::decode(state.feature_sections[Section::ReputationAdmission.index()])?;
+    crate::workers::check_opened_admission(&record, target, binding.epoch, height)?;
+    let (_, table) = crate::reputation_transition::split_joint(
+        state.feature_sections[Section::ReputationAdmission.index()],
+    )?;
+    let admission = AdmissionTable::decode(table)?;
     if admission
         .get(Participant::Worker(body.worker))
         .is_none_or(|m| m.revoked())
     {
         return Err(REVOKED);
     }
-    let mut workers = [target; MAX_WORKERS];
-    let mut count = 0;
-    for entry in row.entries() {
-        let slot = dictionary.slot(entry.slot)?;
-        if slot.worker != body.worker {
-            let other = live.get(slot.worker).ok_or(NON_CANONICAL)?;
-            *workers.get_mut(count).ok_or(CAPACITY)? = WorkerRosterEntry {
-                worker: slot.worker,
-                owner: other.owner,
-                recipient: slot.recipient,
-                generation: Version::new(other.generation)?,
-                key_version: Version::new(other.key_version)?,
-                public_key: other.delegate,
-                metadata: other.metadata,
-            };
-        }
-        count += 1;
-    }
-    let workers = workers.get_mut(..count).ok_or(CAPACITY)?;
-    workers.sort_unstable_by_key(|w| w.worker);
-    let (evaluators, evaluator_count) = evaluator_roster(identity, binding.epoch)?;
-    let digest = codec::roster_digest(&Roster {
-        market: binding.market,
-        epoch: binding.epoch,
-        config: binding.config,
-        workers,
-        evaluators: evaluators.get(..evaluator_count).ok_or(CAPACITY)?,
-    })?;
-    if digest == binding.roster {
-        Ok(())
-    } else {
-        Err(WRONG_ROSTER)
-    }
+    Ok(())
 }
 
 /// `ADMIT_TASK` (0x010C): object-local by the requester principal.
@@ -838,6 +798,10 @@ fn admit(call: &Call<'_>, buffers: Buffers<'_>) -> CodecResult<Outcome> {
     let windows = call.check_work()?;
     let height = call.ctx.height;
     check_frozen_worker(&opened.state, &opened.rewards, binding, &body, height)?;
+    let (_, table) = crate::reputation_transition::split_joint(
+        opened.state.feature_sections[Section::ReputationAdmission.index()],
+    )?;
+    crate::roster::require_quorum(&AdmissionTable::decode(table)?)?;
     let policy = &opened.section.current;
     if opened.set.len() >= usize::from(policy.max_tasks_per_epoch) {
         return Err(F01_NO_TASK_CAPACITY);
@@ -871,7 +835,7 @@ fn admit(call: &Call<'_>, buffers: Buffers<'_>) -> CodecResult<Outcome> {
 
 fn task_id(payload: &[u8]) -> CodecResult<TaskId> {
     let mut r = Reader::new(payload);
-    let task = TaskId::new(r.fixed()?)?;
+    let task = r.task_id()?;
     r.finish()?;
     Ok(task)
 }
@@ -1012,8 +976,8 @@ fn worker_step(call: &Call<'_>, buffers: Buffers<'_>) -> CodecResult<Outcome> {
     let e = call.e();
     let mut r = Reader::new(e.payload);
     let expected = r.u64()?;
-    let task = TaskId::new(r.fixed()?)?;
-    let digest = Digest32::new(r.fixed()?)?;
+    let task = r.task_id()?;
+    let digest = r.digest32()?;
     r.finish()?;
     call.check_binding()?;
     let (index, record) = find(call, task)?;
@@ -1042,7 +1006,7 @@ fn seal(call: &Call<'_>, buffers: Buffers<'_>) -> CodecResult<Outcome> {
     let mut r = Reader::new(e.payload);
     let epoch = r.u64()?;
     let config = r.u64()?;
-    let expected = Digest32::new(r.fixed()?)?;
+    let expected = r.digest32()?;
     r.finish()?;
     codec::compare_native_principal(e, call.ctx.principal)?;
     call.check_binding()?;

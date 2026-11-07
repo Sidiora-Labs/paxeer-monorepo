@@ -41,15 +41,15 @@ describe('LayoutHome', () => {
   it('keeps the shell and the footer around the home page', () => {
     const { container } = render(<LayoutHome><div>home page</div></LayoutHome>);
 
-    expect(Array.from(container.querySelectorAll('[data-label="utility-bar"], [data-label="brand-row"], [data-label="footer-top"]'))
+    expect(Array.from(container.querySelectorAll('[data-label="desktop-header"], [data-label="footer-top"]'))
       .map((item) => item.getAttribute('data-label')))
-      .toEqual([ 'utility-bar', 'brand-row', 'footer-top' ]);
+      .toEqual([ 'desktop-header', 'footer-top' ]);
   });
 
-  it('leaves the search box to the hero band on the home page', () => {
+  it('keeps the compact header search available on the home page', () => {
     const { container } = render(<LayoutHome><div>home page</div></LayoutHome>);
 
-    expect(container.querySelector('[data-label="utility-bar-search"]')).toBeNull();
+    expect(container.querySelector('[data-label="header-search"] input')).toBeTruthy();
     expect(container.querySelector('[data-label="content-search"]')).toBeNull();
   });
 });

@@ -1,0 +1,17 @@
+[repair.22.31.142]
+finding = "gateway-receipt-key-provisioning"
+proof = "TestRepair_142_GatewayReceiptKeyProvisioning; TestRepair_142_RefusesMalformedReceiptKeys; TestRepair_142_WebhookContract"
+path = "Real sequencer keeper export -> atomic ReceiptKeyList provisioning -> Kubernetes Secret data and rendered volume/env projection -> gateway ReceiptKeyList parser and receipt verifier, fed receipts emitted by the real node ReceiptKey signer."
+recovery = "Stop the consumer, rotate governed pins, restart, then stop and reopen from retained material with the original export removed; primary and rotated receipts remain verifiable inside their inclusive windows."
+source = "Fresh beta material requires LAYERX_BETA_RECEIPT_KEYS_FILE, an owner-supplied JSON export of governed ReceiptKeys, with base64 key_id/public_key and integer first_height/last_height. The gateway format's camelCase aliases are also accepted. Rotate with sequencer-pins.py --gateway SOURCE SECRETS_DIR/receipt-keys.json, republish the secret and restart gateway pods."
+baseline = "No baseline verify was run: the explicit bounded gate order forbids testing before complete implementation and permits verification only through hf-done after hf-build; no pre-change failure is claimed."
+evidence = "The runner's private hf-build/hf-done ledger records the candidate revision, exact command, exit and log location; no gate is claimed before it runs."
+wiring_request = "services/platform/hosted/gateway/deployment.yaml — owner domain 8 (fm-platform): adopt the receipt-keys secret volume and LAYERX_GATEWAY_RECEIPT_KEYS_FILE projection emitted by sequencer-pins.py; retire the gateway-only legacy SEQUENCER_* env entries while preserving the webhook contract."
+
+[gotcha.1]
+observed = "The native gateway ReceiptKeyList and webhook trust history have distinct schemas; a legacy public-key pin cannot establish gateway key IDs or height ranges."
+resolution = "Require the governed native export for fresh gateway material and validate the persisted list during retained startup; do not infer it from webhook files."
+
+[gotcha.2]
+observed = "Task scope excludes spec/ and GOTCHA.kvx despite the general workflow's ledger instructions."
+resolution = "Keep the repair record, baseline-order conflict and wiring request in this scoped task record; the runner owns spec status and publication."

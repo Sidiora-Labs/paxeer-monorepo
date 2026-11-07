@@ -30,7 +30,7 @@ def run(args, sql=None):
     return result.stdout
 
 
-def validate_register(register):
+def validate_register(register, root=ROOT):
     policy = register["runtime_role_policy"]
     if policy != {
         "owns_business_objects": False,
@@ -64,8 +64,8 @@ def validate_register(register):
         raise ValueError("interface freeze must not apply future service migrations")
     for history in histories:
         for migration in history["current_migrations"]:
-            path = (ROOT / migration["path"]).resolve()
-            if not path.is_relative_to(ROOT) or hashlib.sha256(path.read_bytes()).hexdigest() != migration["sha256"]:
+            path = (root / migration["path"]).resolve()
+            if not path.is_relative_to(root.resolve()) or hashlib.sha256(path.read_bytes()).hexdigest() != migration["sha256"]:
                 raise ValueError("legacy migration source checksum mismatch")
             version = migration["version"]
             if type(version) is not int or version < 1 or version > 2**63 - 1 or version != int(path.name.split("_")[0]):
@@ -106,21 +106,28 @@ def denied(statement):
     END $check$;"""
 
 
-def main():
+def load_inputs(register_path, runtime_source, root=ROOT):
+    register_path = register_path.resolve()
+    runtime_source = runtime_source.resolve()
+    root = root.resolve()
+    if not register_path.is_relative_to(root) or not register_path.is_file():
+        raise ValueError("migration register must belong to this checkout")
+    if not runtime_source.is_relative_to(root) or not runtime_source.is_file():
+        raise ValueError("runtime persistence source must belong to source checkout")
+    register = json.loads(register_path.read_text())
+    histories = validate_register(register, root)
+    return register, histories, runtime_source
+
+
+def main(argv=None):
     parser = argparse.ArgumentParser()
     parser.add_argument("--compose", type=Path)
     parser.add_argument("--self-test", action="store_true")
-    parser.add_argument("--register", type=Path, default=ROOT / "launchpad/spec/production-system/integration/contracts/v1/migration-register.json")
-    parser.add_argument("--runtime-source", type=Path)
-    args = parser.parse_args()
+    parser.add_argument("--register", type=Path, required=True)
+    parser.add_argument("--runtime-source", type=Path, required=True)
+    args = parser.parse_args(argv)
     args.register = args.register.resolve()
-    if not args.register.is_relative_to(ROOT):
-        raise ValueError("migration register must belong to this checkout")
-    runtime_source=(args.runtime_source or ROOT / "sdk/launchpad/shared/interfaces/v1/persistence.go").resolve()
-    if not runtime_source.is_relative_to(ROOT) or not runtime_source.is_file():raise ValueError("runtime persistence source must belong to source checkout")
-    if args.register != (ROOT / "launchpad/spec/production-system/integration/contracts/v1/migration-register.json").resolve() and args.runtime_source is None:raise ValueError("revised register requires explicit authoritative runtime source")
-    register = json.loads(args.register.read_text())
-    histories = validate_register(register)
+    register, histories, runtime_source = load_inputs(args.register, args.runtime_source)
     if args.self_test:
         self_test(register)
         return

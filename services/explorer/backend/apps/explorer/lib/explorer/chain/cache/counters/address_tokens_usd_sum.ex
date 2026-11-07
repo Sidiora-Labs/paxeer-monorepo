@@ -6,10 +6,9 @@ defmodule Explorer.Chain.Cache.Counters.AddressTokensUsdSum do
   use Utils.CompileTimeEnvHelper, enable_consolidation: [:explorer, [__MODULE__, :enable_consolidation]]
 
   alias Explorer.Chain
-  alias Explorer.Chain.Cache.Counters.Helper
+  alias Explorer.Chain.Cache.Counters.BoundedCache
 
   @cache_name :address_tokens_fiat_value
-  @last_update_key "last_update"
 
   @spec start_link(term()) :: GenServer.on_start()
   def start_link(_) do
@@ -18,9 +17,9 @@ defmodule Explorer.Chain.Cache.Counters.AddressTokensUsdSum do
 
   @impl true
   def init(_args) do
-    Helper.create_cache_table(@cache_name)
+    BoundedCache.create(@cache_name, __MODULE__)
 
-    {:ok, %{consolidate?: enable_consolidation?()}, {:continue, :ok}}
+    {:ok, %{consolidate?: enable_consolidation?(), tasks: %{}}, {:continue, :ok}}
   end
 
   @impl true
@@ -38,14 +37,65 @@ defmodule Explorer.Chain.Cache.Counters.AddressTokensUsdSum do
     {:noreply, state}
   end
 
-  def fetch(address_hash_string, token_balances) do
-    if cache_expired?(address_hash_string) do
-      Task.start_link(fn ->
-        update_cache(address_hash_string, token_balances)
-      end)
-    end
+  @impl true
+  def handle_info(:prune_cache, state) do
+    BoundedCache.prune(@cache_name, __MODULE__)
+    BoundedCache.schedule(__MODULE__)
+    {:noreply, state}
+  end
 
-    fetch_from_cache("hash_#{address_hash_string}")
+  @impl true
+  def handle_info({:DOWN, ref, :process, _pid, _reason}, state) do
+    {:noreply, %{state | tasks: Map.delete(state.tasks, ref)}}
+  end
+
+  @impl true
+  def handle_cast({:store, key, value, pid}, state) do
+    case Enum.find(state.tasks, fn {_ref, {task_key, task_pid}} -> task_key == key and task_pid == pid end) do
+      {ref, _} ->
+        BoundedCache.put(@cache_name, __MODULE__, key, value)
+        Process.demonitor(ref, [:flush])
+        {:noreply, %{state | tasks: Map.delete(state.tasks, ref)}}
+
+      nil ->
+        {:noreply, state}
+    end
+  end
+
+  @impl true
+  def handle_call({:fetch, key, balances}, _from, state) do
+    case BoundedCache.lookup(@cache_name, __MODULE__, key) do
+      {:ok, value} ->
+        {:reply, value, state}
+
+      :miss ->
+        stale =
+          case :ets.lookup(@cache_name, key) do
+            [{^key, value, _}] -> value
+            [] -> nil
+          end
+
+        running? = Enum.any?(state.tasks, fn {_, {task_key, _}} -> task_key == key end)
+
+        if running? or map_size(state.tasks) >= BoundedCache.max_entries(__MODULE__) do
+          {:reply, stale, state}
+        else
+          server = self()
+
+          {:ok, pid} =
+            Task.start(fn ->
+              value = address_tokens_fiat_sum(balances)
+              GenServer.cast(server, {:store, key, value, self()})
+            end)
+
+          ref = Process.monitor(pid)
+          {:reply, stale, %{state | tasks: Map.put(state.tasks, ref, {key, pid})}}
+        end
+    end
+  end
+
+  def fetch(address_hash_string, token_balances) do
+    GenServer.call(__MODULE__, {:fetch, to_string(address_hash_string), token_balances})
   end
 
   @spec address_tokens_fiat_sum([{Address.CurrentTokenBalance, Explorer.Chain.Token}]) :: Decimal.t()
@@ -61,27 +111,6 @@ defmodule Explorer.Chain.Cache.Counters.AddressTokensUsdSum do
   end
 
   def cache_name, do: @cache_name
-
-  defp cache_expired?(address_hash_string) do
-    cache_period = Application.get_env(:explorer, __MODULE__)[:cache_period]
-    updated_at = fetch_from_cache("hash_#{address_hash_string}_#{@last_update_key}")
-
-    cond do
-      is_nil(updated_at) -> true
-      Helper.current_time() - updated_at > cache_period -> true
-      true -> false
-    end
-  end
-
-  defp update_cache(address_hash_string, token_balances) do
-    Helper.put_into_ets_cache(@cache_name, "hash_#{address_hash_string}_#{@last_update_key}", Helper.current_time())
-    new_data = address_tokens_fiat_sum(token_balances)
-    Helper.put_into_ets_cache(@cache_name, "hash_#{address_hash_string}", new_data)
-  end
-
-  defp fetch_from_cache(key) do
-    Helper.fetch_from_ets_cache(@cache_name, key)
-  end
 
   defp enable_consolidation?, do: @enable_consolidation
 end

@@ -1,0 +1,243 @@
+[reconcile.r8-132]
+revision = "53150198caf59defafffab36d79dbc66d921ae57"
+rows = 30
+
+[row.r8-132.1]
+interface = "interface.8.go-sdkjvm-generatedschema-humanmodels-notificationpage"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 1831
+symbol = "NotificationPage"
+evidence = "HumanModels record declaration retains groups, next_cursor and IntegerNumberDeserializer long unread_count and implements GeneratedResponse; the following occurrence is its compact constructor."
+
+[row.r8-132.2]
+interface = "interface.8.go-sdkjvm-generatedschema-humanmodels-notificationpreferences"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 1837
+symbol = "NotificationPreferences"
+evidence = "HumanModels record declaration retains ChannelPreference push, email and in_app plus NotificationDetailLevel detail and implements GeneratedResponse; the following occurrence is its compact constructor."
+
+[row.r8-132.3]
+interface = "interface.8.go-sdkjvm-generatedschema-humanmodels-notificationrecency"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 1845
+symbol = "NotificationRecency"
+evidence = "HumanModels enum declaration owns TODAY, YESTERDAY, THIS_WEEK and EARLIER wire variants; other occurrences are a record component, its constructor and fromWire conversion."
+
+[row.r8-132.4]
+interface = "interface.8.go-sdkjvm-generatedschema-humanmodels-notificationsummary"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 1858
+symbol = "NotificationSummary"
+evidence = "HumanModels record declaration retains notification_id, JsonProperty class, copy keys, deep_link, read, created_at, money, agent_id, approval_id, journey_id and action_copy_key; NotificationGroup and StreamEvent occurrences are uses."
+
+[row.r8-132.5]
+interface = "interface.8.go-sdkjvm-generatedschema-humanmodels-ownerrotationdisclosurerequest"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 1880
+symbol = "OwnerRotationDisclosureRequest"
+evidence = "HumanModels record declaration retains IntegerNumberDeserializer long delay_seconds and window_seconds plus String idempotency_key and implements GeneratedResponse; the following occurrence is its compact constructor."
+
+[row.r8-132.6]
+interface = "interface.8.go-sdkjvm-generatedschema-humanmodels-ownerrotationrequest"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 1885
+symbol = "OwnerRotationRequest"
+evidence = "HumanModels record declaration retains IntegerNumberDeserializer long delay_seconds and window_seconds plus HumanModels.StepUpEvidence step_up and implements GeneratedResponse; the following occurrence is its compact constructor."
+
+[row.r8-132.7]
+interface = "interface.8.go-sdkjvm-generatedschema-humanmodels-passkey"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 1890
+symbol = "Passkey"
+evidence = "HumanModels record declaration retains String passkey_id, label, created_at and last_used_at and implements GeneratedResponse; PasskeyList and security response records only reference the type."
+
+[row.r8-132.8]
+interface = "interface.8.go-sdkjvm-generatedschema-humanmodels-passkeyassertion"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 1897
+symbol = "PasskeyAssertion"
+evidence = "HumanModels record declaration retains String assertion_id, passkey_id, completed_at and expires_at and implements GeneratedResponse; the following occurrence is its compact constructor."
+
+[row.r8-132.9]
+interface = "interface.8.go-sdkjvm-generatedschema-humanmodels-passkeyassertionchallenge"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 1907
+symbol = "PasskeyAssertionChallenge"
+evidence = "HumanModels record declaration retains String assertion_id, ceremony and expires_at and implements GeneratedResponse; the following occurrence is its compact constructor."
+
+[row.r8-132.10]
+interface = "interface.8.go-sdkjvm-generatedschema-humanmodels-passkeyassertionfinish"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 1914
+symbol = "PasskeyAssertionFinish"
+evidence = "HumanModels record declaration retains String credential and implements GeneratedResponse; the following occurrence is its compact constructor, and its toString redacts the credential."
+
+[row.r8-132.11]
+interface = "interface.8.go-sdkjvm-generatedschema-humanmodels-passkeylist"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 1920
+symbol = "PasskeyList"
+evidence = "HumanModels record declaration retains List<HumanModels.Passkey> passkeys and implements GeneratedResponse; the following occurrence is its compact constructor that copies the list."
+
+[row.r8-132.12]
+interface = "interface.8.go-sdkjvm-generatedschema-humanmodels-passkeyregistrationbegin"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 1925
+symbol = "PasskeyRegistrationBegin"
+evidence = "HumanModels record declaration retains String account_id and implements GeneratedResponse; the following occurrence is its compact constructor."
+
+[row.r8-132.13]
+interface = "interface.8.go-sdkjvm-generatedschema-humanmodels-passkeyregistrationchallenge"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 1930
+symbol = "PasskeyRegistrationChallenge"
+evidence = "HumanModels record declaration retains String registration_id, ceremony and expires_at and implements GeneratedResponse; the following occurrence is its compact constructor."
+
+[row.r8-132.14]
+interface = "interface.8.go-sdkjvm-generatedschema-humanmodels-passkeyregistrationfinish"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 1937
+symbol = "PasskeyRegistrationFinish"
+evidence = "HumanModels record declaration retains String credential and implements GeneratedResponse; the following occurrence is its compact constructor, and its toString redacts the credential."
+
+[row.r8-132.15]
+interface = "interface.8.go-sdkjvm-generatedschema-humanmodels-profile"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 1952
+symbol = "Profile"
+evidence = "HumanModels record declaration retains String display_name and avatar_url and implements GeneratedResponse; the following occurrence is its compact constructor."
+
+[row.r8-132.16]
+interface = "interface.8.go-sdkjvm-generatedschema-humanmodels-programapprovaldecision"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 1977
+symbol = "ProgramApprovalDecision"
+evidence = "HumanModels record declaration preserves approval_id, held_digest, ProgramApprovalState state, state_copy_key, money_moved, moved_copy_key, evidence and release_ref, but now appends HumanModels.Rung rung to the registered signature; the next occurrence is its compact constructor."
+
+[row.r8-132.17]
+interface = "interface.8.go-sdkjvm-generatedschema-humanmodels-programapprovaldecisionrequest"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 1998
+symbol = "ProgramApprovalDecisionRequest"
+evidence = "HumanModels record declaration retains String held_digest and step_up_evidence and implements GeneratedResponse; the following occurrence is its compact constructor."
+
+[row.r8-132.18]
+interface = "interface.8.go-sdkjvm-generatedschema-humanmodels-programapprovaldetail"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 2004
+symbol = "ProgramApprovalDetail"
+evidence = "HumanModels record declaration retains approval and agent identifiers, state, copy keys, timestamps, held_digest, operation, semantics, authorized_limits, evidence, ProtocolAmount created_at_sequence and budget_expiry_sequence, release_ref and budget; the next occurrence is its compact constructor."
+
+[row.r8-132.19]
+interface = "interface.8.go-sdkjvm-generatedschema-humanmodels-programapprovaldisclosure"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 2023
+symbol = "ProgramApprovalDisclosure"
+evidence = "HumanModels record declaration retains String approval_id and held_digest, ProgramApprovalDecisionKind decision, String confirms and List<HumanModels.EvidenceRef> evidence and implements GeneratedResponse; the next occurrence is its compact constructor."
+
+[row.r8-132.20]
+interface = "interface.8.go-sdkjvm-generatedschema-humanmodels-programapprovaldisclosurerequest"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 2032
+symbol = "ProgramApprovalDisclosureRequest"
+evidence = "HumanModels record declaration retains ProgramApprovalDecisionKind decision, String held_digest and idempotency_key and implements GeneratedResponse; the following occurrence is its compact constructor."
+
+[row.r8-132.21]
+interface = "interface.8.go-sdkjvm-generatedschema-humanmodels-programapprovalmaterial"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 2039
+symbol = "ProgramApprovalMaterial"
+evidence = "HumanModels record declaration retains approval_id, held_digest, ProgramMaterialProvenance provenance, EvidenceRef canonical_unsigned, immutable_carrier and budget_reservation plus evidence and implements GeneratedResponse; the next occurrence is its compact constructor."
+
+[row.r8-132.22]
+interface = "interface.8.go-sdkjvm-generatedschema-humanmodels-programapprovaloperation"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 2050
+symbol = "ProgramApprovalOperation"
+evidence = "HumanModels record declaration retains ProgramOperationKind kind, String program_id, ProgramDeployFacts deploy, ProgramUpgradeFacts upgrade, ProgramCallFacts call and ProgramWindDownFacts wind_down; detail, summary and response occurrences are type uses."
+
+[row.r8-132.23]
+interface = "interface.8.go-sdkjvm-generatedschema-humanmodels-programapprovalpage"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 2056
+symbol = "ProgramApprovalPage"
+evidence = "HumanModels record declaration retains List<HumanModels.ProgramApprovalSummary> approvals and String next_cursor and implements GeneratedResponse; the following occurrence is its compact constructor."
+
+[row.r8-132.24]
+interface = "interface.8.go-sdkjvm-generatedschema-humanmodels-programapprovalsemantics"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 2062
+symbol = "ProgramApprovalSemantics"
+evidence = "HumanModels enum declaration owns OPERATION_ONLY and AUTHORIZED_LIMITS wire variants; remaining occurrences are constructor, fromWire conversion or record component uses."
+
+[row.r8-132.25]
+interface = "interface.8.go-sdkjvm-generatedschema-humanmodels-programapprovalstate"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 2073
+symbol = "ProgramApprovalState"
+evidence = "HumanModels enum declaration owns PENDING, APPROVED, REJECTED, EXPIRED, DEFECTIVE and NOT_REQUIRED; other occurrences are record component uses, its constructor or fromWire conversion."
+
+[row.r8-132.26]
+interface = "interface.8.go-sdkjvm-generatedschema-humanmodels-programapprovalstate-approved"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 2075
+symbol = "APPROVED"
+evidence = "APPROVED(\"approved\"), is declared inside HumanModels.ProgramApprovalState beginning at line 2073; the identically named member at line 1268 belongs to HumanModels.ApprovalState."
+
+[row.r8-132.27]
+interface = "interface.8.go-sdkjvm-generatedschema-humanmodels-programapprovalstate-defective"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 2078
+symbol = "DEFECTIVE"
+evidence = "DEFECTIVE(\"defective\"), is declared inside HumanModels.ProgramApprovalState beginning at line 2073; other occurrences belong to AgentModels states or HumanModels.ApprovalState, whose member ends with a semicolon."
+
+[row.r8-132.28]
+interface = "interface.8.go-sdkjvm-generatedschema-humanmodels-programapprovalstate-expired"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 2077
+symbol = "EXPIRED"
+evidence = "EXPIRED(\"expired\"), is declared inside HumanModels.ProgramApprovalState beginning at line 2073; other occurrences belong to AgentModels states or HumanModels.ApprovalState."
+
+[row.r8-132.29]
+interface = "interface.8.go-sdkjvm-generatedschema-humanmodels-programapprovalstate-pending"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 2074
+symbol = "PENDING"
+evidence = "PENDING(\"pending\"), is declared inside HumanModels.ProgramApprovalState beginning at line 2073; the identically named member at line 1267 belongs to HumanModels.ApprovalState."
+
+[row.r8-132.30]
+interface = "interface.8.go-sdkjvm-generatedschema-humanmodels-programapprovalstate-rejected"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 2076
+symbol = "REJECTED"
+evidence = "REJECTED(\"rejected\"), is declared inside HumanModels.ProgramApprovalState beginning at line 2073; other occurrences belong to AgentModels states or HumanModels.ApprovalState."

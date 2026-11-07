@@ -1,4 +1,5 @@
 #include "layerx/lx_perps.h"
+#include "lx_perps_internal.h"
 
 #include "layerx/lxp_crypto.h"
 #include "layerx/lxp_kernel.h"
@@ -16,6 +17,7 @@ lxp_result lx_perps_authority_check(const lx_account *account,
         origin_module_id != LXP_MODULE_PERPS ||
         (reason != LXP_REASON_MARGIN_RELEASE &&
          reason != LXP_REASON_TRADING_LOSS &&
+         reason != LXP_REASON_FUNDING &&
          reason != LXP_REASON_LIQUIDATION_FEE &&
          reason != LXP_REASON_ADL))
         return LXP_ERR_UNAUTHORIZED_DEBIT;
@@ -162,7 +164,8 @@ lxp_result lx_perps_position_open_execute(
     return LXP_OK;
 }
 
-/* Adds margin toward a larger position. The size and entry notional grow
+/* Adds margin, including a protective top-up with zero size delta.
+ * The size and entry notional grow
  * only through fills (lx_perps_position_apply_fill), so a caller-supplied
  * notional is refused. */
 lxp_result lx_perps_position_increase_execute(
@@ -172,7 +175,7 @@ lxp_result lx_perps_position_increase_execute(
     lx_perps_position *position;
     lxp_result status;
     if (ctx == NULL || request == NULL || request->store == NULL ||
-        receipt == NULL || lxp_u128_is_zero(request->size_delta) ||
+        receipt == NULL ||
         !lxp_u128_is_zero(request->notional_delta))
         return LXP_ERR_NON_CANONICAL;
     status = lx_perps_position_lookup(request->store,
@@ -258,16 +261,94 @@ lxp_result lx_perps_price_deviation_check(const lx_perps_market *market,
                                                     LXP_ERR_ORACLE_DEVIATION;
 }
 
+static bool trading_leg(const lxp_transfer_leg *leg)
+{
+    return leg->reason == LXP_REASON_TRADING_LOSS ||
+           leg->reason == LXP_REASON_TRADING_PROFIT;
+}
+
+static lxp_result fill_cash(const lx_perps_fill_request *request,
+                            lxp_u128 *cash)
+{
+    size_t i;
+    *cash = request->margin_account->balance;
+    for (i = 0U; i < request->settlement->funding_leg_count; ++i) {
+        const lxp_transfer_leg *leg = &request->settlement->funding_legs[i];
+        if (!trading_leg(leg) || lxp_u128_is_zero(leg->amount)) continue;
+        if (leg->from == request->margin_account) {
+            if (lxp_u128_cmp(*cash, leg->amount) < 0)
+                return LXP_ERR_MARGIN_INSUFFICIENT;
+            if (lxp_u128_sub(*cash, leg->amount, cash) != LXP_OK)
+                return LXP_ERR_OVERFLOW;
+        } else if (leg->to == request->margin_account &&
+                   lxp_u128_add(*cash, leg->amount, cash) != LXP_OK)
+            return LXP_ERR_OVERFLOW;
+    }
+    return LXP_OK;
+}
+
 static lxp_result fill_margin_check(const lx_perps_fill_request *request,
                                     lxp_u128 notional)
 {
     lxp_u128 required;
+    lxp_u128 cash;
+    lxp_result status = fill_cash(request, &cash);
+    if (status != LXP_OK) return status;
     if (lxp_u128_mul_bps_ceil(notional,
                               request->market->initial_margin_ratio_bps,
                               &required) != LXP_OK)
         return LXP_ERR_OVERFLOW;
-    return lxp_u128_cmp(request->margin_account->balance, required) < 0 ?
+    return lxp_u128_cmp(cash, required) < 0 ?
         LXP_ERR_MARGIN_INSUFFICIENT : LXP_OK;
+}
+
+/* Trading legs name the margin party here. Settlement resolves their other
+ * endpoint to the committed market liquidity account, and nets each party's
+ * realized P&L across every fill in this matching round. */
+static lxp_result fill_trading_settle(const lx_perps_fill_request *request,
+    const lx_perps_position *position, lxp_u128 quantity, lxp_u128 basis)
+{
+    lx_perps_position reduced = *position;
+    lx_perps_fill_settlement *settlement = request->settlement;
+    lxp_i128 pnl;
+    lxp_transfer_leg *leg = NULL;
+    size_t i;
+    lxp_result status;
+    reduced.size = quantity;
+    reduced.entry_notional = basis;
+    status = lx_perps_position_value(&reduced, request->price,
+                                     request->market->price_scale, &pnl);
+    if (status != LXP_OK) return status;
+    for (i = 0U; i < settlement->funding_leg_count; ++i) {
+        lxp_transfer_leg *candidate = &settlement->funding_legs[i];
+        if (trading_leg(candidate) &&
+            (candidate->from == request->margin_account ||
+             candidate->to == request->margin_account)) {
+            lxp_i128 previous = {
+                candidate->reason == LXP_REASON_TRADING_LOSS,
+                candidate->amount
+            };
+            status = lxp_i128_add(previous, pnl, &pnl);
+            if (status != LXP_OK) return status;
+            leg = candidate;
+            break;
+        }
+    }
+    if (leg == NULL) {
+        if (lxp_u128_is_zero(pnl.magnitude)) return LXP_OK;
+        if (settlement->funding_leg_count == LX_PERPS_FILL_PARTIES)
+            return LXP_ERR_LENGTH_LIMIT;
+        leg = &settlement->funding_legs[settlement->funding_leg_count++];
+    }
+    (void)memset(leg, 0, sizeof(*leg));
+    leg->from = pnl.negative ? request->margin_account : NULL;
+    leg->to = pnl.negative ? NULL : request->margin_account;
+    (void)memcpy(leg->asset_id, request->asset->asset_id, 32U);
+    leg->amount = pnl.magnitude;
+    leg->reason = pnl.negative ? LXP_REASON_TRADING_LOSS :
+                                 LXP_REASON_TRADING_PROFIT;
+    leg->supply_mode = LXP_TRANSFER_CONSERVED;
+    return LXP_OK;
 }
 
 static lxp_result fill_interest_add(lx_perps_funding_state *funding,
@@ -459,6 +540,9 @@ static lxp_result fill_reduce(const lx_perps_fill_request *request,
                          &next_notional) != LXP_OK ||
             lxp_u128_is_zero(next_notional))
             return LXP_FATAL_INVARIANT;
+        status = fill_trading_settle(request, position, request->quantity,
+                                      removed);
+        if (status != LXP_OK) return status;
         status = fill_funding_rebase(position,
                                      request->funding->funding_index,
                                      next_notional, &rebased);
@@ -473,6 +557,9 @@ static lxp_result fill_reduce(const lx_perps_fill_request *request,
         position->funding_index_at_entry = rebased;
         return fill_party_note(request, false);
     }
+    status = fill_trading_settle(request, position, position->size,
+                                  position->entry_notional);
+    if (status != LXP_OK) return status;
     status = fill_funding_settle(request, position);
     if (status != LXP_OK) return status;
     status = fill_interest_remove(request->funding, position->side,
@@ -535,59 +622,101 @@ lxp_result lx_perps_position_apply_fill(const lx_perps_fill_request *request)
 }
 
 lxp_result lx_perps_fill_settle(lxp_module_ctx *ctx,
-                                lx_perps_position_store *store,
-                                const uint8_t market_id[32],
-                                lx_perps_fill_settlement *settlement,
-                                const lxp_transfer_asset_state *asset,
-                                lxp_transfer_context context,
-                                lxp_receipt *receipt)
+    lx_perps_position_store *store, const uint8_t market_id[32],
+    lx_perps_fill_settlement *settlement,
+    const lxp_transfer_asset_state *asset, lxp_transfer_context context,
+    lxp_receipt *receipt)
 {
     lxp_transfer_set set;
     lxp_transfer_source_authority authorities[LX_PERPS_FILL_SOURCES];
+    lx_perps_market market;
+    lx_account *liquidity;
     size_t authority_count = 0U;
     size_t i;
+    unsigned pass;
     lxp_result status;
     if (ctx == NULL || store == NULL || market_id == NULL ||
         settlement == NULL || asset == NULL || receipt == NULL ||
         settlement->party_count > LX_PERPS_FILL_PARTIES ||
         settlement->funding_leg_count > LX_PERPS_FILL_PARTIES)
         return LXP_ERR_NON_CANONICAL;
+    status = lx_perps_market_lookup(ctx, market_id, &market);
+    if (status == LXP_OK)
+        status = lxp_ctx_account_find(ctx, market.liquidity_account_id,
+                                      &liquidity);
+    if (status != LXP_OK) return status;
+    if (liquidity->kind != LX_ACCOUNT_SYSTEM_LIQUIDITY)
+        return LXP_ERR_UNKNOWN_ACCOUNT_NAMESPACE;
     (void)memset(&set, 0, sizeof(set));
     (void)memset(authorities, 0, sizeof(authorities));
+    /* Losses fund the pool before profits draw on it. Both are in the same
+     * atomic set, followed by collateral releases and funding. */
+    for (pass = 0U; pass < 2U; ++pass) {
+        for (i = 0U; i < settlement->funding_leg_count; ++i) {
+            lxp_transfer_leg leg = settlement->funding_legs[i];
+            if (!trading_leg(&leg) || lxp_u128_is_zero(leg.amount) ||
+                (pass == 0U) != (leg.reason == LXP_REASON_TRADING_LOSS))
+                continue;
+            if (leg.from == NULL) leg.from = liquidity;
+            if (leg.to == NULL) leg.to = liquidity;
+            if (set.leg_count == LXP_MAX_TRANSFER_SET_LEGS)
+                return LXP_ERR_TOO_MANY_LEGS;
+            set.legs[set.leg_count++] = leg;
+        }
+    }
     for (i = 0U; i < settlement->party_count; ++i) {
         const lx_perps_fill_party *party = &settlement->parties[i];
         lx_perps_position *position = NULL;
-        lxp_transfer_leg *leg;
-        if (!party->closed) continue;
+        lx_perps_fill_request request;
+        lxp_u128 cash;
         status = lx_perps_position_lookup(store, party->margin_account->id,
                                           &position);
         if (status != LXP_OK) return status;
         if (memcmp(position->market_id, market_id, 32U) != 0)
             return LXP_ERR_NON_CANONICAL;
-        if (position->open ||
-            lxp_u128_is_zero(party->margin_account->balance))
-            continue;
-        leg = &set.legs[set.leg_count++];
-        leg->from = party->margin_account;
-        leg->to = party->owner_main;
-        (void)memcpy(leg->asset_id, asset->asset_id, 32U);
-        leg->amount = party->margin_account->balance;
-        leg->reason = LXP_REASON_MARGIN_RELEASE;
-        leg->supply_mode = LXP_TRANSFER_CONSERVED;
-        status = lx_perps_source_authority_add(
-            authorities, LX_PERPS_FILL_SOURCES, &authority_count,
-            party->margin_account->id, LXP_AUTH_PROTOCOL_MODULE, true);
+        (void)memset(&request, 0, sizeof(request));
+        request.margin_account = party->margin_account;
+        request.settlement = settlement;
+        status = fill_cash(&request, &cash);
         if (status != LXP_OK) return status;
+        if (position->open) {
+            lxp_u128 required;
+            if (lxp_u128_mul_bps_ceil(position->entry_notional,
+                market.initial_margin_ratio_bps, &required) != LXP_OK)
+                return LXP_ERR_OVERFLOW;
+            if (lxp_u128_cmp(cash, required) < 0)
+                return LXP_ERR_MARGIN_INSUFFICIENT;
+        } else if (party->closed && !lxp_u128_is_zero(cash)) {
+            lxp_transfer_leg *leg;
+            bool encumbered;
+            status = lx_perps_margin_encumbered(ctx, party->margin_account->id,
+                                                market_id, &encumbered);
+            if (status != LXP_OK) return status;
+            if (encumbered) continue;
+            if (set.leg_count == LXP_MAX_TRANSFER_SET_LEGS)
+                return LXP_ERR_TOO_MANY_LEGS;
+            leg = &set.legs[set.leg_count++];
+            leg->from = party->margin_account;
+            leg->to = party->owner_main;
+            (void)memcpy(leg->asset_id, asset->asset_id, 32U);
+            leg->amount = cash;
+            leg->reason = LXP_REASON_MARGIN_RELEASE;
+            leg->supply_mode = LXP_TRANSFER_CONSERVED;
+        }
     }
     for (i = 0U; i < settlement->funding_leg_count; ++i) {
-        const lxp_transfer_leg *funding = &settlement->funding_legs[i];
-        bool pool = funding->from->kind == LX_ACCOUNT_SYSTEM_FUNDING_LONG ||
-                    funding->from->kind == LX_ACCOUNT_SYSTEM_FUNDING_SHORT;
-        set.legs[set.leg_count++] = *funding;
-        status = lx_perps_source_authority_add(
-            authorities, LX_PERPS_FILL_SOURCES, &authority_count,
-            funding->from->id,
-            pool ? LXP_AUTH_PROTOCOL_MODULE : LXP_AUTH_OWNER, pool);
+        const lxp_transfer_leg *leg = &settlement->funding_legs[i];
+        if (trading_leg(leg) || lxp_u128_is_zero(leg->amount)) continue;
+        if (set.leg_count == LXP_MAX_TRANSFER_SET_LEGS)
+            return LXP_ERR_TOO_MANY_LEGS;
+        set.legs[set.leg_count++] = *leg;
+    }
+    for (i = 0U; i < set.leg_count; ++i) {
+        lx_account *from = set.legs[i].from;
+        bool protocol = from->kind != LX_ACCOUNT_AGENT_MAIN;
+        status = lx_perps_source_authority_add(authorities,
+            LX_PERPS_FILL_SOURCES, &authority_count, from->id,
+            protocol ? LXP_AUTH_PROTOCOL_MODULE : LXP_AUTH_OWNER, protocol);
         if (status != LXP_OK) return status;
     }
     if (set.leg_count != 0U) {
@@ -609,9 +738,13 @@ lxp_result lx_perps_fill_settle(lxp_module_ctx *ctx,
         if (position->open) {
             party->margin_account->has_open_reference = true;
         } else if (party->closed) {
-            if (!lxp_u128_is_zero(party->margin_account->balance))
+            bool encumbered;
+            status = lx_perps_margin_encumbered(ctx, party->margin_account->id,
+                                                market_id, &encumbered);
+            if (status != LXP_OK) return status;
+            if (!encumbered && !lxp_u128_is_zero(party->margin_account->balance))
                 return LXP_FATAL_INVARIANT;
-            party->margin_account->has_open_reference = false;
+            party->margin_account->has_open_reference = encumbered;
         }
     }
     return LXP_OK;

@@ -1,6 +1,6 @@
 #!/bin/sh
 # AI.F05-T03 aggregation runtime scenarios: one result line per acceptance case. Exits 1 when a
-# scenario fails, 2 when every run scenario passed but a scenario could not run, 0 otherwise.
+# scenario fails or its passing result is absent, 0 only when every required scenario passes.
 
 set -u
 
@@ -39,6 +39,7 @@ AI.F05-A13 f05_a13_cursor_retries_and_once_only_completion
 AI.F05-A14 f05_a14_revocation_orderings
 AI.F05-A15 f05_a15_worker_replacement_after_freeze
 AI.F05-A16 f05_a16_refused_steps_keep_committed_progress
+AI.F05-A16 f05_a16_native_fuel_refusal_keeps_committed_progress
 AI.F05-A17 f05_a17_colluding_low_reports_select_zero
 AI.F05-A18 f05_a18_settlement_reads_no_evidence
 AI.F04-A06 f04_a06_expired_commitments_supply_no_rows
@@ -48,10 +49,8 @@ AI.F04-A12 f05_a14_revocation_orderings
 AI.F04-A12 f05_a12_settlement_window_and_delayed_completion
 CASES
 
-echo "AI.F05-A16 NOT_RUN native fuel refusal during ProcessAggregation: no T-C02 host boundary guest harness"
-
 if [ "$cargo_status" -ne 0 ] || [ "$failed" -ne 0 ]; then
     cat "$log"
     exit 1
 fi
-exit 2
+exit 0

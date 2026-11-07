@@ -19,6 +19,8 @@ import SearchBarBackdrop from './SearchBarBackdrop';
 import SearchBarInput from './SearchBarInput';
 import SearchBarRecentKeywords from './SearchBarRecentKeywords';
 import SearchBarSuggest from './SearchBarSuggest/SearchBarSuggest';
+import useSearchShortcut from './useSearchShortcut';
+import { useSearchAssistant } from './useSearchQuery';
 import useSearchWithClusters from './useSearchWithClusters';
 import { getSearchRedirectRoute, useSearchRedirect, useSearchRequestGuard } from './utils';
 
@@ -26,10 +28,11 @@ const paxeerXFeature = config.features.paxeerXLists;
 
 type Props = {
   isHeroBanner?: boolean;
+  compact?: boolean;
   category?: Category;
 };
 
-const SearchBarDesktop = ({ isHeroBanner, category }: Props) => {
+const SearchBarDesktop = ({ isHeroBanner, category, compact }: Props) => {
   const inputRef = React.useRef<HTMLFormElement>(null);
   const menuWidth = React.useRef<number>(0);
 
@@ -39,7 +42,9 @@ const SearchBarDesktop = ({ isHeroBanner, category }: Props) => {
 
   const recentSearchKeywords = getRecentSearchKeywords();
 
-  const { searchTerm, debouncedSearchTerm, handleSearchTermChange, query, zetaChainCCTXQuery, externalSearchItem } = useSearchWithClusters();
+  const search = useSearchWithClusters();
+  const { searchTerm, debouncedSearchTerm, handleSearchTermChange, query, zetaChainCCTXQuery, externalSearchItem } = search;
+  const assistant = useSearchAssistant(search);
   const resolveSearchRoute = useSearchRedirect();
   const searchGuard = useSearchRequestGuard();
   const searchTermRef = React.useRef(searchTerm);
@@ -78,8 +83,14 @@ const SearchBarDesktop = ({ isHeroBanner, category }: Props) => {
 
   const handleSubmit = React.useCallback((event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (assistant.canAsk) {
+      searchGuard.discard();
+      void assistant.ask();
+      onOpen();
+      return;
+    }
     navigateToResults(true);
-  }, [ navigateToResults ]);
+  }, [ assistant, navigateToResults, searchGuard, onOpen ]);
 
   const handleViewAllResultsClick = React.useCallback(() => {
     navigateToResults(false);
@@ -88,6 +99,13 @@ const SearchBarDesktop = ({ isHeroBanner, category }: Props) => {
   const handleFocus = React.useCallback(() => {
     onOpen();
   }, [ onOpen ]);
+
+  const focusSearch = React.useCallback(() => {
+    inputRef.current?.querySelector('input')?.focus();
+    onOpen();
+  }, [ onOpen ]);
+
+  useSearchShortcut(inputRef, focusSearch);
 
   const handleDismiss = React.useCallback(() => {
     searchGuard.discard();
@@ -135,7 +153,7 @@ const SearchBarDesktop = ({ isHeroBanner, category }: Props) => {
     if (!isFocusInMenu && !isFocusInInput) {
       handleDismiss();
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+
   }, [ handleDismiss ]);
 
   const menuPaddingX = isMobile && !isHeroBanner ? 24 : 0;
@@ -146,7 +164,7 @@ const SearchBarDesktop = ({ isHeroBanner, category }: Props) => {
   // clear input on page change
   React.useEffect(() => {
     handleTermChange('');
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+
   }, [ router.asPath?.split('?')?.[0] ]);
 
   React.useEffect(() => {
@@ -182,7 +200,7 @@ const SearchBarDesktop = ({ isHeroBanner, category }: Props) => {
         lazyMount
         closeOnInteractOutside={ false }
       >
-        <PopoverTrigger asChild w="100%">
+        <PopoverTrigger asChild>
           <SearchBarInput
             ref={ inputRef }
             onChange={ handleTermChange }
@@ -192,12 +210,19 @@ const SearchBarDesktop = ({ isHeroBanner, category }: Props) => {
             onBlur={ handleBlur }
             onClear={ handleClear }
             isHeroBanner={ isHeroBanner }
+            compact={ compact }
             value={ searchTerm }
             isSuggestOpen={ open }
           />
         </PopoverTrigger>
         <PopoverContent
+          bg="raised"
+          color="text.primary"
+          borderColor="hairline"
+          borderRadius="8px"
+          boxShadow="none"
           maxW={{ base: 'calc(100vw - 8px)', lg: 'unset' }}
+          minW={{ base: 'unset', lg: '640px' }}
           w={ `${ menuWidth.current }px` }
           ref={ menuRef }
           overflow="hidden"
@@ -205,7 +230,7 @@ const SearchBarDesktop = ({ isHeroBanner, category }: Props) => {
         >
           <PopoverBody
             px={ 4 }
-            color="chakra-body-text"
+            color="text.primary"
             maxH="50vh"
             display="flex"
             flexDirection="column"
@@ -216,6 +241,7 @@ const SearchBarDesktop = ({ isHeroBanner, category }: Props) => {
             ) }
             { searchTerm.trim().length > 0 && (
               <SearchBarSuggest
+                assistant={ assistant }
                 query={ query }
                 searchTerm={ debouncedSearchTerm }
                 onItemClick={ handleItemClick }
@@ -226,7 +252,7 @@ const SearchBarDesktop = ({ isHeroBanner, category }: Props) => {
             ) }
           </PopoverBody>
           { showAllResultsLink && (
-            <PopoverFooter pt={ 2 } borderTopWidth={ 1 } borderColor="border.divider">
+            <PopoverFooter pt={ 2 } borderTopWidth={ 1 } borderColor="hairline">
               <Link
                 textStyle="sm"
                 onClick={ handleViewAllResultsClick }

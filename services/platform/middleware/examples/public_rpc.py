@@ -22,6 +22,27 @@ from layerx_sdk.verifier import ReceiptKey, verify_sequencer_receipt
 
 
 class PublicRpc(PaymentRpc):
+    def __init__(self, endpoint, headers=None, *, path="/"):
+        url = urllib.parse.urlsplit(endpoint)
+        if (
+            url.username
+            or url.password
+            or url.query
+            or url.fragment
+            or not url.hostname
+            or url.path not in (("", "/") if path == "/" else (path,))
+            or url.scheme != "https"
+            and not (
+                url.scheme == "http"
+                and url.hostname in ("localhost", "127.0.0.1", "::1")
+            )
+        ):
+            raise ValueError("invalid-rpc-endpoint")
+        self.endpoint = endpoint
+        self.headers = dict(headers or {})
+        self._id = 0
+        self._opener = urllib.request.build_opener(_NoRedirect())
+
     def call(self, method, params):
         self._id += 1
         request_id = self._id
@@ -217,7 +238,6 @@ def verify_rpc_payment(result, raw_transaction, expected_payer, offer, receipt_k
     ):
         raise ValueError("invalid-evm-summary")
     terms = offer.get("extra", {}).get("layerx", {})
-    purpose = receipt_hex(terms.get("purposeHash"), 32)
     data = receipt_hex(offer["asset"], 32) + int(offer["amount"]).to_bytes(32, "big")
     topic = keccak256(b"PaymentExact(bytes32,bytes32,bytes32,bytes32,uint128)")
     payments = []
@@ -239,7 +259,7 @@ def verify_rpc_payment(result, raw_transaction, expected_payer, offer, receipt_k
         raise ValueError("single-ledger-payment-required")
     payment = payments[0]
     if (
-        payment[53:85] != purpose
+        "purposeHash" in terms and payment[53:85] != receipt_hex(terms["purposeHash"], 32)
         or payment[117:149] != receipt_hex(offer["payTo"], 32)
         or "payer" in terms and payment[85:117] != receipt_hex(terms["payer"], 32)
     ):
@@ -253,6 +273,7 @@ def main():
     parser = argparse.ArgumentParser(
         description="Read public RPC sequence, claim faucet funding, or verify a raw EIP-1559 payment transaction."
     )
+    parser.add_argument("--gateway", default=os.environ.get("LAYERX_GATEWAY_URL"))
     parser.add_argument("--rpc", default=os.environ.get("LAYERX_RPC_URL"))
     parser.add_argument("--did", default=os.environ.get("LAYERX_DID"))
     parser.add_argument("--faucet", default=os.environ.get("LAYERX_FAUCET_URL"))
@@ -266,12 +287,21 @@ def main():
     )
     parser.add_argument("--payer")
     args = parser.parse_args()
-    if not args.rpc or not args.did:
-        parser.error("RPC URL and DID are required through arguments or environment")
-    if urllib.parse.urlsplit(args.rpc).port == 18545 or (
-        args.faucet and urllib.parse.urlsplit(args.faucet).port == 18545
+    if any(
+        urllib.parse.urlsplit(url).port == 18545
+        for url in (args.gateway, args.rpc, args.faucet) if url
     ):
         raise ValueError("persistent-host-chain-forbidden")
+    if not args.gateway or not args.rpc or not args.did:
+        parser.error(
+            "gateway URL, root node RPC URL and DID are required through arguments or environment"
+        )
+    gateway_token = os.environ.get("LAYERX_GATEWAY_TOKEN")
+    gateway = PublicRpc(
+        args.gateway,
+        {"Authorization": f"Bearer {gateway_token}"} if gateway_token else {},
+        path="/rpc",
+    )
     token = os.environ.get("LAYERX_RPC_TOKEN")
     rpc = PublicRpc(args.rpc, {"Authorization": f"Bearer {token}"} if token else {})
     if args.faucet:
@@ -309,7 +339,7 @@ def main():
             print(
                 f"Faucet HTTP status: {response.status}; confirm the account balance before spending."
             )
-    account = decode_px_resolved_identities(rpc.call("px_resolveAccount", [args.did]))
+    account = decode_px_resolved_identities(gateway.call("px_resolveAccount", [args.did]))
     if (
         not account.bound
         or account.layerx_did != args.did

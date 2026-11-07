@@ -1,0 +1,53 @@
+[disposition.22.10.7.3]
+finding = "22.10.7.3"
+status = "resolved"
+evidence = "120b02d31190267bb6c65a8edf59443841e51fd4 added the missing-input guard at services/platform/hosted/human/test_material.py:161 so absent operator evidence skips the integration test before required_path can fail, with independent custody component coverage at services/platform/hosted/human/test_material.py:247."
+follow_up = "closure"
+
+[disposition.22.4.5.2]
+finding = "22.4.5.2"
+status = "resolved"
+evidence = "84ed832c3 changed the Surface and Retired cases at modules/launchpad/module_services_test.go:71 and modules/launchpad/module_services_test.go:90 to check gRPC status through requireInvalidAddressStatus, whose modules/launchpad/module_services_test.go:301 implementation applies ErrorIs only to the direct querier error and compares its message with the transport error."
+follow_up = "closure"
+
+[disposition.22.12.7.1]
+finding = "22.12.7.1"
+status = "resolved"
+evidence = "a38f09f3d4f9c67aac07dcd90d78596c028ecdaa tidied the attestor manifest by promoting the directly imported Prometheus client_model and common modules into direct requirements, retained at services/wallet/attestor/go.mod:14 and services/wallet/attestor/go.mod:15 alongside the root-module requirement at services/wallet/attestor/go.mod:7."
+follow_up = "closure"
+
+[disposition.22.1.4.2]
+finding = "22.1.4.2"
+status = "resolved"
+evidence = "56f556472545ea743c63e954fe8f2e46efa3db04 replaced silent asset-registry failure returns with PAUSE_CHECK diagnostics naming file, line and expression at tests/modules/test_asset_registry.c:12 and throughout main, including the payload-suite call at tests/modules/test_asset_registry.c:811, while tests/modules/test_asset_payloads.h:7 provides the same diagnostic for payload failures."
+follow_up = "closure"
+
+[disposition.22.2.6.1]
+finding = "22.2.6.1"
+status = "resolved"
+evidence = "0ecd6928d77b72510067eff4f37843c52504a77a added agent_stream_metadata to the expected genesis JSON at modules/layerxpay/types/params_test.go:250, removed the deleted payer-grant C decoder from modules/layerxpay/types/payload_budget_test.go, asserted budgetPull retirement at precompiles/layerxpay/layerxpay_test.go:102, supplied estimator and store-read gas at precompiles/layerxpay/service_views_test.go:180, and excluded merge-only addresses below activation at precompiles/common/retire_test.go:109."
+follow_up = "closure"
+
+[disposition.22.9.23.2]
+finding = "22.9.23.2"
+status = "resolved"
+evidence = "8c8479abd94bc9750297a3fca4d828dc38a069de reconciled all four Python receipt fixture files, deriving the payment payer from the padded receipt sender at services/agent/sdk/python/tests/test_sequencer_receipt.py:42 and the verified receipt from_account at services/agent/sdk/python/tests/test_sequencer_receipt.py:202 to satisfy the unchanged sender binding at services/agent/sdk/python/layerx_sdk/x402.py:196."
+follow_up = "closure"
+
+[disposition.22.16.4.5]
+finding = "22.16.4.5"
+status = "resolved"
+evidence = "ff75a3d8a00ba84d6a93aa26e979d3d747cef368 replaced the live lxp_verified_receipt_authority_facts prohibition at tests/ci/test_requested_suites_absent.py:28 with a reference check for the retired lxp_test_arbiter_native_authority.c file while retaining its path-absence assertion."
+follow_up = "closure"
+
+[disposition.22.10.7.4]
+finding = "22.10.7.4"
+status = "resolved"
+evidence = "120b02d31190267bb6c65a8edf59443841e51fd4 implemented the replacement custody proof at services/platform/hosted/human/test_material.py:247 using protected minimal native and legacy deployment files and the production resolver, with native component assertions at services/platform/hosted/human/test_material.py:273 and a missing-input skip for the retained operator-evidence integration test at services/platform/hosted/human/test_material.py:164."
+follow_up = "closure"
+
+[disposition.22.6.7.3]
+finding = "22.6.7.3"
+status = "resolved"
+evidence = "ccd3b0d9d2af7c9b24f51389fa3343cc13d2fa25 made below-merge vectors assert permanently retired method reverts at precompiles/layerxverify/retire_gate_test.go:133, mapped -804 to LXP_DA_MISSING at precompiles/layerxexchange/errors.go:12, decoded revert reasons at precompiles/layerxexchange/layerxexchange_test.go:229, and made both margin-deposit tests assert the landed exchange retirement and unchanged state at precompiles/layerxexchange/layerxexchange_test.go:285 and precompiles/layerxexchange/layerxexchange_test.go:313."
+follow_up = "closure"

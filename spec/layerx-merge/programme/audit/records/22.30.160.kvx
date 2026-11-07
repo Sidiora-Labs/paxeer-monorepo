@@ -1,0 +1,1917 @@
+# Pre-upgrade static audit; decision 2515. Proposed repairs only.
+
+[audit.22.30.160]
+task = "22.30.160"
+revision = "2b99f88520e4e809ad5593f3bee2df74fe355d7b"
+files_reviewed = 161
+findings = 28
+docs_reviewed = 21
+upgrade_ready = false
+blocking = ["absolute-source-path", "selfdestruct-cancun"]
+
+[review.scope]
+method = "Full static read of every local implementation member and its declared interfaces; imported fixture/schema members are classified with provenance instead of a clean verdict. Documentation was read in full for all package pages and by relevant contract section for additional reference pages."
+requirements = ["22998.1", "22108.1", "14259.1", "14260.1"]
+produces_reviewed = 14
+consumes_reviewed = 52
+limits = "This record proposes repairs and changes no service implementation. The declared qualification is git rev-parse HEAD followed by the audit record checker and graph checks only. It does not assert that inventory runtime commands, frozen dependency installs, external deployments or service test suites passed."
+
+[requirement_review.22998-1]
+requirement = "22998.1"
+result = "Audit evidence only; the inventory sweep repair acceptance requires running its recorded service command in its owning repair task. This audit has no such runtime gate and does not claim its exit status."
+
+[requirement_review.22108-1]
+requirement = "22108.1"
+result = "Verifier dependencies are workspace-managed and Swagger declares Actix dependencies. No frozen install or alert-report check was authorized in this audit; dependency upgrade/disposition closure remains the responsibility of the existing dependency tasks."
+
+[requirement_review.14259-1]
+requirement = "14259.1"
+result = "Confirmed in block/fetcher.ex:402-405: do_import_options(:paxeer_x, ...) adds only paxeer_x_account_bindings and paxeer_x_market_events."
+
+[requirement_review.14260-1]
+requirement = "14260.1"
+result = "Confirmed in import/stage/chain_type_specific.ex:72-75: paxeer_x selects only Runner.PaxeerX.AccountBindings and Runner.PaxeerX.MarketEvents."
+
+[file.001]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/import/runner.ex"
+lines = 62
+verdict = "clean"
+note = "Runner behavior contracts, insertion result types and per-runner options agree with the staged Ecto import pipeline."
+
+[file.002]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/import/runner/address/coin_balances.ex"
+lines = 140
+verdict = "clean"
+note = "Historical coin balances use the address/height conflict key, deterministic ordering and timestamp-preserving updates."
+
+[file.003]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/import/runner/address/coin_balances_daily.ex"
+lines = 135
+verdict = "clean"
+note = "Daily coin balances derive the UTC date and preserve the latest available observation for each address/day."
+
+[file.004]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/import/runner/address/current_token_balances.ex"
+lines = 410
+verdict = "clean"
+note = "Current token balances retain the newest fetched block and use the token-type-specific conflict keys."
+
+[file.005]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/import/runner/address/token_balances.ex"
+lines = 162
+verdict = "clean"
+note = "Historical token balances retain address/token/block/token-id identity and deterministic import order."
+
+[file.006]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/import/runner/addresses.ex"
+lines = 314
+verdict = "clean"
+note = "Address insertion, balance/code/nonce merge rules and share-lock ordering were reviewed with staged imports."
+
+[file.007]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/import/runner/arbitrum/batch_blocks.ex"
+lines = 104
+verdict = "clean"
+note = "Optional arbitrum adapter: full batch blocks import/upsert code was read for identity, ordering, timestamp and error behavior. It is selected only for its chain type, not by the active paxeer_x stage; no retired merge interface call was found."
+
+[file.008]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/import/runner/arbitrum/batch_to_da_blobs.ex"
+lines = 102
+verdict = "clean"
+note = "Optional arbitrum adapter: full batch to da blobs import/upsert code was read for identity, ordering, timestamp and error behavior. It is selected only for its chain type, not by the active paxeer_x stage; no retired merge interface call was found."
+
+[file.009]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/import/runner/arbitrum/batch_transactions.ex"
+lines = 79
+verdict = "clean"
+note = "Optional arbitrum adapter: full batch transactions import/upsert code was read for identity, ordering, timestamp and error behavior. It is selected only for its chain type, not by the active paxeer_x stage; no retired merge interface call was found."
+
+[file.010]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/import/runner/arbitrum/da_multi_purpose_records.ex"
+lines = 106
+verdict = "clean"
+note = "Optional arbitrum adapter: full da multi purpose records import/upsert code was read for identity, ordering, timestamp and error behavior. It is selected only for its chain type, not by the active paxeer_x stage; no retired merge interface call was found."
+
+[file.011]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/import/runner/arbitrum/l1_batches.ex"
+lines = 114
+verdict = "clean"
+note = "Optional arbitrum adapter: full l1 batches import/upsert code was read for identity, ordering, timestamp and error behavior. It is selected only for its chain type, not by the active paxeer_x stage; no retired merge interface call was found."
+
+[file.012]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/import/runner/arbitrum/l1_executions.ex"
+lines = 102
+verdict = "clean"
+note = "Optional arbitrum adapter: full l1 executions import/upsert code was read for identity, ordering, timestamp and error behavior. It is selected only for its chain type, not by the active paxeer_x stage; no retired merge interface call was found."
+
+[file.013]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/import/runner/arbitrum/lifecycle_transactions.ex"
+lines = 107
+verdict = "clean"
+note = "Optional arbitrum adapter: full lifecycle transactions import/upsert code was read for identity, ordering, timestamp and error behavior. It is selected only for its chain type, not by the active paxeer_x stage; no retired merge interface call was found."
+
+[file.014]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/import/runner/arbitrum/messages.ex"
+lines = 117
+verdict = "clean"
+note = "Optional arbitrum adapter: full messages import/upsert code was read for identity, ordering, timestamp and error behavior. It is selected only for its chain type, not by the active paxeer_x stage; no retired merge interface call was found."
+
+[file.015]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/import/runner/beacon/blob_transactions.ex"
+lines = 115
+verdict = "clean"
+note = "Optional beacon adapter: full blob transactions import/upsert code was read for identity, ordering, timestamp and error behavior. It is selected only for its chain type, not by the active paxeer_x stage; no retired merge interface call was found."
+
+[file.016]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/import/runner/block/rewards.ex"
+lines = 84
+verdict = "clean"
+note = "Block reward imports preserve address/type/block identity and use the block-stage transaction for canonicality."
+
+[file.017]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/import/runner/block/second_degree_relations.ex"
+lines = 107
+verdict = "clean"
+note = "Second-degree block relations retain the nephew/uncle hash key and timestamp-preserving conflict handling."
+
+[file.018]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/import/runner/blocks.ex"
+lines = 1319
+verdict = "clean"
+note = "Canonical block insertion, recollation rollback, dependent cleanup and pending-operation scheduling were read together."
+
+[file.019]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/import/runner/celo/accounts.ex"
+lines = 82
+verdict = "clean"
+note = "Optional celo adapter: full accounts import/upsert code was read for identity, ordering, timestamp and error behavior. It is selected only for its chain type, not by the active paxeer_x stage; no retired merge interface call was found."
+
+[file.020]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/import/runner/celo/aggregated_election_rewards.ex"
+lines = 80
+verdict = "clean"
+note = "Optional celo adapter: full aggregated election rewards import/upsert code was read for identity, ordering, timestamp and error behavior. It is selected only for its chain type, not by the active paxeer_x stage; no retired merge interface call was found."
+
+[file.021]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/import/runner/celo/election_rewards.ex"
+lines = 93
+verdict = "clean"
+note = "Optional celo adapter: full election rewards import/upsert code was read for identity, ordering, timestamp and error behavior. It is selected only for its chain type, not by the active paxeer_x stage; no retired merge interface call was found."
+
+[file.022]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/import/runner/celo/epoch_rewards.ex"
+lines = 80
+verdict = "clean"
+note = "Optional celo adapter: full epoch rewards import/upsert code was read for identity, ordering, timestamp and error behavior. It is selected only for its chain type, not by the active paxeer_x stage; no retired merge interface call was found."
+
+[file.023]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/import/runner/celo/epochs.ex"
+lines = 104
+verdict = "clean"
+note = "Optional celo adapter: full epochs import/upsert code was read for identity, ordering, timestamp and error behavior. It is selected only for its chain type, not by the active paxeer_x stage; no retired merge interface call was found."
+
+[file.024]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/import/runner/celo/pending_account_operations.ex"
+lines = 82
+verdict = "clean"
+note = "Optional celo adapter: full pending account operations import/upsert code was read for identity, ordering, timestamp and error behavior. It is selected only for its chain type, not by the active paxeer_x stage; no retired merge interface call was found."
+
+[file.025]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/import/runner/celo/validator_group_votes.ex"
+lines = 93
+verdict = "clean"
+note = "Optional celo adapter: full validator group votes import/upsert code was read for identity, ordering, timestamp and error behavior. It is selected only for its chain type, not by the active paxeer_x stage; no retired merge interface call was found."
+
+[file.026]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/import/runner/helper.ex"
+lines = 39
+verdict = "clean"
+note = "Runner helper value selection, lock ordering helpers and timestamp propagation match their callers."
+
+[file.027]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/import/runner/internal_transactions.ex"
+lines = 1070
+verdict = "issues"
+note = "Normal and insert-only trace imports, pending-operation settlement and code cleanup were reviewed; Cancun code deletion is blocking."
+
+[file.028]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/import/runner/logs.ex"
+lines = 161
+verdict = "clean"
+note = "Log insertion preserves block/index identity and orders writes consistently; upstream renumbering is recorded on the fetcher."
+
+[file.029]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/import/runner/optimism/deposits.ex"
+lines = 106
+verdict = "clean"
+note = "Optional optimism adapter: full deposits import/upsert code was read for identity, ordering, timestamp and error behavior. It is selected only for its chain type, not by the active paxeer_x stage; no retired merge interface call was found."
+
+[file.030]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/import/runner/optimism/dispute_games.ex"
+lines = 110
+verdict = "clean"
+note = "Optional optimism adapter: full dispute games import/upsert code was read for identity, ordering, timestamp and error behavior. It is selected only for its chain type, not by the active paxeer_x stage; no retired merge interface call was found."
+
+[file.031]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/import/runner/optimism/eip1559_config_updates.ex"
+lines = 106
+verdict = "clean"
+note = "Optional optimism adapter: full eip1559 config updates import/upsert code was read for identity, ordering, timestamp and error behavior. It is selected only for its chain type, not by the active paxeer_x stage; no retired merge interface call was found."
+
+[file.032]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/import/runner/optimism/frame_sequence_blobs.ex"
+lines = 109
+verdict = "clean"
+note = "Optional optimism adapter: full frame sequence blobs import/upsert code was read for identity, ordering, timestamp and error behavior. It is selected only for its chain type, not by the active paxeer_x stage; no retired merge interface call was found."
+
+[file.033]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/import/runner/optimism/frame_sequences.ex"
+lines = 102
+verdict = "clean"
+note = "Optional optimism adapter: full frame sequences import/upsert code was read for identity, ordering, timestamp and error behavior. It is selected only for its chain type, not by the active paxeer_x stage; no retired merge interface call was found."
+
+[file.034]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/import/runner/optimism/interop_messages.ex"
+lines = 130
+verdict = "issues"
+note = "Optional Optimism interop message import has an export-state conflict-predicate omission; this is not the active Paxeer runner."
+
+[file.035]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/import/runner/optimism/output_roots.ex"
+lines = 108
+verdict = "clean"
+note = "Optional optimism adapter: full output roots import/upsert code was read for identity, ordering, timestamp and error behavior. It is selected only for its chain type, not by the active paxeer_x stage; no retired merge interface call was found."
+
+[file.036]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/import/runner/optimism/transaction_batches.ex"
+lines = 101
+verdict = "clean"
+note = "Optional optimism adapter: full transaction batches import/upsert code was read for identity, ordering, timestamp and error behavior. It is selected only for its chain type, not by the active paxeer_x stage; no retired merge interface call was found."
+
+[file.037]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/import/runner/optimism/withdrawal_events.ex"
+lines = 108
+verdict = "clean"
+note = "Optional optimism adapter: full withdrawal events import/upsert code was read for identity, ordering, timestamp and error behavior. It is selected only for its chain type, not by the active paxeer_x stage; no retired merge interface call was found."
+
+[file.038]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/import/runner/optimism/withdrawals.ex"
+lines = 104
+verdict = "clean"
+note = "Optional optimism adapter: full withdrawals import/upsert code was read for identity, ordering, timestamp and error behavior. It is selected only for its chain type, not by the active paxeer_x stage; no retired merge interface call was found."
+
+[file.039]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/import/runner/paxeer_x/account_bindings.ex"
+lines = 83
+verdict = "clean"
+note = "AccountBindings writes lx_account_bindings with its declared binary hash/account fields, conflict key and idempotent timestamp policy."
+
+[file.040]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/import/runner/paxeer_x/market_events.ex"
+lines = 83
+verdict = "clean"
+note = "MarketEvents writes lx_market_events with declared transaction/log identity, quantities and event fields, and replay-safe upserts."
+
+[file.041]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/import/runner/polygon_zkevm/batch_transactions.ex"
+lines = 79
+verdict = "clean"
+note = "Optional polygon_zkevm adapter: full batch transactions import/upsert code was read for identity, ordering, timestamp and error behavior. It is selected only for its chain type, not by the active paxeer_x stage; no retired merge interface call was found."
+
+[file.042]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/import/runner/polygon_zkevm/bridge_l1_tokens.ex"
+lines = 101
+verdict = "clean"
+note = "Optional polygon_zkevm adapter: full bridge l1 tokens import/upsert code was read for identity, ordering, timestamp and error behavior. It is selected only for its chain type, not by the active paxeer_x stage; no retired merge interface call was found."
+
+[file.043]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/import/runner/polygon_zkevm/bridge_operations.ex"
+lines = 115
+verdict = "clean"
+note = "Optional polygon_zkevm adapter: full bridge operations import/upsert code was read for identity, ordering, timestamp and error behavior. It is selected only for its chain type, not by the active paxeer_x stage; no retired merge interface call was found."
+
+[file.044]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/import/runner/polygon_zkevm/lifecycle_transactions.ex"
+lines = 103
+verdict = "clean"
+note = "Optional polygon_zkevm adapter: full lifecycle transactions import/upsert code was read for identity, ordering, timestamp and error behavior. It is selected only for its chain type, not by the active paxeer_x stage; no retired merge interface call was found."
+
+[file.045]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/import/runner/polygon_zkevm/transaction_batches.ex"
+lines = 114
+verdict = "clean"
+note = "Optional polygon_zkevm adapter: full transaction batches import/upsert code was read for identity, ordering, timestamp and error behavior. It is selected only for its chain type, not by the active paxeer_x stage; no retired merge interface call was found."
+
+[file.046]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/import/runner/scroll/batch_bundles.ex"
+lines = 106
+verdict = "clean"
+note = "Optional scroll adapter: full batch bundles import/upsert code was read for identity, ordering, timestamp and error behavior. It is selected only for its chain type, not by the active paxeer_x stage; no retired merge interface call was found."
+
+[file.047]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/import/runner/scroll/batches.ex"
+lines = 110
+verdict = "clean"
+note = "Optional scroll adapter: full batches import/upsert code was read for identity, ordering, timestamp and error behavior. It is selected only for its chain type, not by the active paxeer_x stage; no retired merge interface call was found."
+
+[file.048]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/import/runner/scroll/bridge_operations.ex"
+lines = 111
+verdict = "clean"
+note = "Optional scroll adapter: full bridge operations import/upsert code was read for identity, ordering, timestamp and error behavior. It is selected only for its chain type, not by the active paxeer_x stage; no retired merge interface call was found."
+
+[file.049]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/import/runner/scroll/l1_fee_params.ex"
+lines = 102
+verdict = "clean"
+note = "Optional scroll adapter: full l1 fee params import/upsert code was read for identity, ordering, timestamp and error behavior. It is selected only for its chain type, not by the active paxeer_x stage; no retired merge interface call was found."
+
+[file.050]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/import/runner/shibarium/bridge_operations.ex"
+lines = 119
+verdict = "clean"
+note = "Optional shibarium adapter: full bridge operations import/upsert code was read for identity, ordering, timestamp and error behavior. It is selected only for its chain type, not by the active paxeer_x stage; no retired merge interface call was found."
+
+[file.051]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/import/runner/signed_authorizations.ex"
+lines = 113
+verdict = "clean"
+note = "Signed authorizations retain transaction/index identity and update authority fields consistently with the authorization schema."
+
+[file.052]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/import/runner/stability/validators.ex"
+lines = 117
+verdict = "issues"
+note = "Optional Stability validator counter import is non-idempotent under replay and skips missing validators; inactive for Paxeer."
+
+[file.053]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/import/runner/stats/hot_smart_contracts.ex"
+lines = 82
+verdict = "clean"
+note = "Hot-contract statistics import uses the declared address/window identity and stage timing instrumentation."
+
+[file.054]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/import/runner/token_instances.ex"
+lines = 106
+verdict = "clean"
+note = "Token-instance insertion, metadata merges, owner updates and unique-token handling were read with their conflict targets."
+
+[file.055]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/import/runner/token_transfers.ex"
+lines = 165
+verdict = "clean"
+note = "Transfer insert/delete/consensus handling retains canonical block/log/token identity and deterministic lock ordering."
+
+[file.056]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/import/runner/tokens.ex"
+lines = 321
+verdict = "clean"
+note = "Token metadata updates preserve existing non-null fields and coordinate holder-count imports with token-reference stages."
+
+[file.057]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/import/runner/transaction/forks.ex"
+lines = 93
+verdict = "clean"
+note = "Transaction forks use the uncle/block transaction identity and deterministic timestamp merges."
+
+[file.058]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/import/runner/transaction_actions.ex"
+lines = 104
+verdict = "clean"
+note = "Transaction actions preserve hash/log/protocol identity with the declared action payload and conflict policy."
+
+[file.059]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/import/runner/transactions.ex"
+lines = 738
+verdict = "issues"
+note = "All chain-identity variants and the generic transaction upsert were read; error-only corrections are filtered out."
+
+[file.060]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/import/runner/withdrawals.ex"
+lines = 106
+verdict = "clean"
+note = "Withdrawal runner retains the withdrawal index key, address references and amount representation."
+
+[file.061]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/import/runner/zilliqa/aggregate_quorum_certificates.ex"
+lines = 79
+verdict = "clean"
+note = "Optional zilliqa adapter: full aggregate quorum certificates import/upsert code was read for identity, ordering, timestamp and error behavior. It is selected only for its chain type, not by the active paxeer_x stage; no retired merge interface call was found."
+
+[file.062]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/import/runner/zilliqa/nested_quorum_certificates.ex"
+lines = 86
+verdict = "clean"
+note = "Optional zilliqa adapter: full nested quorum certificates import/upsert code was read for identity, ordering, timestamp and error behavior. It is selected only for its chain type, not by the active paxeer_x stage; no retired merge interface call was found."
+
+[file.063]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/import/runner/zilliqa/quorum_certificates.ex"
+lines = 79
+verdict = "clean"
+note = "Optional zilliqa adapter: full quorum certificates import/upsert code was read for identity, ordering, timestamp and error behavior. It is selected only for its chain type, not by the active paxeer_x stage; no retired merge interface call was found."
+
+[file.064]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/import/runner/zilliqa/zrc2/token_adapters.ex"
+lines = 79
+verdict = "clean"
+note = "Optional zilliqa adapter: full token adapters import/upsert code was read for identity, ordering, timestamp and error behavior. It is selected only for its chain type, not by the active paxeer_x stage; no retired merge interface call was found."
+
+[file.065]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/import/runner/zilliqa/zrc2/token_transfers.ex"
+lines = 110
+verdict = "clean"
+note = "Optional zilliqa adapter: full token transfers import/upsert code was read for identity, ordering, timestamp and error behavior. It is selected only for its chain type, not by the active paxeer_x stage; no retired merge interface call was found."
+
+[file.066]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/import/runner/zksync/batch_blocks.ex"
+lines = 79
+verdict = "clean"
+note = "Optional zksync adapter: full batch blocks import/upsert code was read for identity, ordering, timestamp and error behavior. It is selected only for its chain type, not by the active paxeer_x stage; no retired merge interface call was found."
+
+[file.067]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/import/runner/zksync/batch_transactions.ex"
+lines = 79
+verdict = "clean"
+note = "Optional zksync adapter: full batch transactions import/upsert code was read for identity, ordering, timestamp and error behavior. It is selected only for its chain type, not by the active paxeer_x stage; no retired merge interface call was found."
+
+[file.068]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/import/runner/zksync/lifecycle_transactions.ex"
+lines = 103
+verdict = "clean"
+note = "Optional zksync adapter: full lifecycle transactions import/upsert code was read for identity, ordering, timestamp and error behavior. It is selected only for its chain type, not by the active paxeer_x stage; no retired merge interface call was found."
+
+[file.069]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/import/runner/zksync/transaction_batches.ex"
+lines = 122
+verdict = "clean"
+note = "Optional zksync adapter: full transaction batches import/upsert code was read for identity, ordering, timestamp and error behavior. It is selected only for its chain type, not by the active paxeer_x stage; no retired merge interface call was found."
+
+[file.070]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/import/stage.ex"
+lines = 78
+verdict = "clean"
+note = "Stage behavior, runner selection and chunked Ecto.Multi execution preserve caller options and error propagation."
+
+[file.071]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/import/stage/addresses.ex"
+lines = 26
+verdict = "clean"
+note = "Address stage writes referenced addresses before dependent block/transaction rows."
+
+[file.072]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/import/stage/block_transaction_referencing.ex"
+lines = 33
+verdict = "clean"
+note = "Block/transaction referencing stage orders dependent data after the main block and transaction imports."
+
+[file.073]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/import/stage/blocks.ex"
+lines = 27
+verdict = "clean"
+note = "Block stage groups canonical block writes and the data that depends on those blocks."
+
+[file.074]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/import/stage/chain_type_specific.ex"
+lines = 119
+verdict = "clean"
+note = "The paxeer_x runner list contains AccountBindings and MarketEvents only, satisfying 14260.1; retired tables have no runner here."
+
+[file.075]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/import/stage/internal_transactions.ex"
+lines = 27
+verdict = "clean"
+note = "Pending internal-transaction stage delegates trace imports after prerequisite transaction/block records."
+
+[file.076]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/import/stage/logs.ex"
+lines = 27
+verdict = "clean"
+note = "Log stage executes logs and their dependent events in the declared stage order."
+
+[file.077]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/import/stage/main.ex"
+lines = 30
+verdict = "clean"
+note = "Main stage ordering keeps addresses, blocks and transactions ahead of their referencing imports."
+
+[file.078]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/import/stage/stats.ex"
+lines = 27
+verdict = "clean"
+note = "Stats stage groups hot-contract statistics and preserves runner timing labels."
+
+[file.079]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/import/stage/token_instances.ex"
+lines = 27
+verdict = "clean"
+note = "Token-instance stage separates instance imports from their owner/metadata dependent operations."
+
+[file.080]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/import/stage/token_referencing.ex"
+lines = 34
+verdict = "clean"
+note = "Token referencing stage writes token-dependent data only after token/address prerequisites."
+
+[file.081]
+path = "services/explorer/backend/apps/indexer/lib/indexer/block/catchup/bound_interval_supervisor.ex"
+lines = 344
+verdict = "issues"
+note = "Catchup task scheduling and completion handlers have a missing monitor cleanup on error results."
+
+[file.082]
+path = "services/explorer/backend/apps/indexer/lib/indexer/block/catchup/fetcher.ex"
+lines = 312
+verdict = "issues"
+note = "Catchup range fetching/error handling was read in full; the massive-block handoff has a persistence gap."
+
+[file.083]
+path = "services/explorer/backend/apps/indexer/lib/indexer/block/catchup/massive_blocks_fetcher.ex"
+lines = 112
+verdict = "issues"
+note = "Massive block retry scheduling accepts a per-block-error result as success and deletes its durable marker."
+
+[file.084]
+path = "services/explorer/backend/apps/indexer/lib/indexer/block/catchup/missing_ranges_collector.ex"
+lines = 496
+verdict = "clean"
+note = "Collector finite/open ranges, batch scanning and rescan/restart logic were reviewed; finite scans do not repeatedly repair the retry gaps recorded elsewhere."
+
+[file.085]
+path = "services/explorer/backend/apps/indexer/lib/indexer/block/catchup/supervisor.ex"
+lines = 47
+verdict = "clean"
+note = "Catchup supervisor constructs the task supervisor, collector and bound-interval loop under the enabled configuration."
+
+[file.086]
+path = "services/explorer/backend/apps/indexer/lib/indexer/block/fetcher.ex"
+lines = 1013
+verdict = "issues"
+note = "Full block/receipt/log ingestion and chain-specific branches were read. Paxeer imports only bindings/market events (14259.1); log renumbering is separately recorded."
+
+[file.087]
+path = "services/explorer/backend/apps/indexer/lib/indexer/block/fetcher/receipts.ex"
+lines = 171
+verdict = "clean"
+note = "Receipt batching, concurrency and transaction-hash merging agree with the declared JSON-RPC named arguments and receipt transport."
+
+[file.088]
+path = "services/explorer/backend/apps/indexer/lib/indexer/block/realtime/fetcher.ex"
+lines = 657
+verdict = "clean"
+note = "newHeads number/hash/parentHash consumption, deduplication, gap fetching and polling fallback agree with the committed node header shape."
+
+[file.089]
+path = "services/explorer/backend/apps/indexer/lib/indexer/block/realtime/supervisor.ex"
+lines = 59
+verdict = "clean"
+note = "Realtime supervisor passes the configured RPC transport and subscription arguments and honors its enabled flag."
+
+[file.090]
+path = "services/explorer/services/libs/endpoints/swagger/Cargo.toml"
+lines = 15
+verdict = "clean"
+note = "Swagger endpoint crate dependencies and declared Actix integration match its library module; no dependency install is claimed."
+
+[file.091]
+path = "services/explorer/services/libs/endpoints/swagger/src/lib.rs"
+lines = 57
+verdict = "clean"
+note = "Swagger static-file service construction, configured path and index serving were reviewed against its endpoint options."
+
+[file.092]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier/Cargo.toml"
+lines = 57
+verdict = "clean"
+note = "Verifier dependencies use workspace-managed versions and declared async/compiler features; no frozen-install or dependency-alert closure is claimed by this audit."
+
+[file.093]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier/README.md"
+lines = 8
+verdict = "clean"
+note = "Library README correctly distinguishes the verification library from its server and describes source/bytecode verification."
+
+[file.094]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier/src/common_types.rs"
+lines = 111
+verdict = "clean"
+note = "Shared verification request/result structures preserve bytecode, metadata and compiler artifact representations."
+
+[file.095]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier/src/compiler/download_cache.rs"
+lines = 303
+verdict = "issues"
+note = "Per-version async cache coordination was read; persisted executable admission lacks restart integrity checks."
+
+[file.096]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier/src/compiler/fetcher.rs"
+lines = 184
+verdict = "issues"
+note = "Checksum and validator flow were read; executable creation relies on permissive mode and a predictable temporary pathname."
+
+[file.097]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier/src/compiler/fetcher_list.rs"
+lines = 513
+verdict = "issues"
+note = "Compiler-list parsing and artifact selection preserve version/checksum metadata; HTTP body and lifetime bounds are missing."
+
+[file.098]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier/src/compiler/fetcher_s3.rs"
+lines = 390
+verdict = "clean"
+note = "S3 compiler fetching propagates fetch/metadata errors and delegates executable integrity validation to the shared writer."
+
+[file.099]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier/src/compiler/fetcher_versions.rs"
+lines = 96
+verdict = "clean"
+note = "Version refresh scheduling and snapshot replacement keep failed refreshes from replacing the last available version list."
+
+[file.100]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier/src/compiler/mod.rs"
+lines = 14
+verdict = "clean"
+note = "Compiler module exports expose the concrete fetcher/cache/version types used by the verifier."
+
+[file.101]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier/src/compiler/version_compact.rs"
+lines = 97
+verdict = "clean"
+note = "Compact compiler-version parsing and display retain the version information required by callers."
+
+[file.102]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier/src/compiler/version_detailed.rs"
+lines = 525
+verdict = "clean"
+note = "All detailed-version parsing/display/conversion code and tests were read, including prerelease/commit handling and ordering."
+
+[file.103]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier/src/consts.rs"
+lines = 29
+verdict = "clean"
+note = "Default compiler distribution and verifier constants contain no retired network or router endpoint references."
+
+[file.104]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier/src/lib.rs"
+lines = 36
+verdict = "clean"
+note = "Crate public modules and reexports connect the verification, method lookup, compiler and language-specific paths."
+
+[file.105]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier/src/lookup_methods/disassemble.rs"
+lines = 57
+verdict = "clean"
+note = "Bytecode disassembly handles PUSH widths and preserves instruction byte offsets for method lookup."
+
+[file.106]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier/src/lookup_methods/find_methods.rs"
+lines = 135
+verdict = "clean"
+note = "Method extraction validates selector/control-flow patterns and returns instruction offsets through the lookup API."
+
+[file.107]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier/src/lookup_methods/method.rs"
+lines = 35
+verdict = "clean"
+note = "Method result representation and selector parsing agree with the disassembler and ABI lookup consumers."
+
+[file.108]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier/src/lookup_methods/mod.rs"
+lines = 6
+verdict = "clean"
+note = "Lookup module exports connect disassembly and method discovery to the crate public interface."
+
+[file.109]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier/src/lookup_methods/opcodes.rs"
+lines = 160
+verdict = "clean"
+note = "Opcode definitions and push/control-flow categories match their decoding uses."
+
+[file.110]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier/src/metrics.rs"
+lines = 62
+verdict = "clean"
+note = "All seven Prometheus definitions match the fourteen alias registry rows; timers are seconds and guarded gauges settle on drop."
+
+[file.111]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier/src/proto_conversions.rs"
+lines = 302
+verdict = "issues"
+note = "All request/proto conversions were read; invalid optional contract addresses are silently dropped rather than rejected."
+
+[file.112]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier/src/scheduler.rs"
+lines = 64
+verdict = "clean"
+note = "Scheduled refresh lifecycle and synchronization were reviewed with the compiler-version refresher."
+
+[file.113]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier/src/solidity/mod.rs"
+lines = 6
+verdict = "clean"
+note = "Solidity public verification exports connect multipart, standard JSON and compiler validation modules."
+
+[file.114]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier/src/solidity/multi_part.rs"
+lines = 232
+verdict = "clean"
+note = "Multipart sources/options become real SolcInput and delegate to the shared verifier; source pathname safety is recorded at the CLI writer."
+
+[file.115]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier/src/solidity/standard_json.rs"
+lines = 57
+verdict = "clean"
+note = "Standard-JSON verification retains compiler input fields and uses the same compilation/verification path as multipart."
+
+[file.116]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier/src/solidity/validator.rs"
+lines = 102
+verdict = "issues"
+note = "Solidity executable version validation normalizes prerelease metadata asymmetrically."
+
+[file.117]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier/src/sourcify/api.rs"
+lines = 212
+verdict = "clean"
+note = "Sourcify verification and Etherscan import paths were read with remote response/error conversion and source retrieval."
+
+[file.118]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier/src/sourcify/api_client.rs"
+lines = 105
+verdict = "clean"
+note = "Sourcify client URL construction, request/response transport and configured retry handling were read in full."
+
+[file.119]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier/src/sourcify/metadata.rs"
+lines = 213
+verdict = "issues"
+note = "Files-based Sourcify metadata conversion returns metadata-shaped compiler settings unlike the sibling import conversion."
+
+[file.120]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier/src/sourcify/mod.rs"
+lines = 8
+verdict = "clean"
+note = "Sourcify module exports make the API/client and result types reachable through the verifier library."
+
+[file.121]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier/src/sourcify/types.rs"
+lines = 259
+verdict = "clean"
+note = "Sourcify request/result schemas, source-path handling and library response conversion were read; metadata settings drift is recorded at its alternate producer."
+
+[file.122]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier/src/tests/data/large_smart_contract.sol"
+lines = 3874
+verdict = "vendored"
+note = "Vendored flattened Solidity 0.5.9 HomeWork/Etherscan compilation fixture (submission header 2019-06-05), used by can_compile_large_file. ERC721 signatures are fixture ABI text, not live calls to launchpad or CW721 contracts."
+
+[file.123]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier/src/tests/mod.rs"
+lines = 1
+verdict = "clean"
+note = "Test support module selection and common fixture loading were read; no tests were skipped or changed."
+
+[file.124]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier/src/tests/parse.rs"
+lines = 28
+verdict = "clean"
+note = "Parser fixture tests were read against the actual bytecode and metadata representations; none were executed under this audit gate."
+
+[file.125]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier/src/verify/cbor_auxdata.rs"
+lines = 278
+verdict = "issues"
+note = "Auxdata extraction and all tests were read; one invalid-length branch can cross the backward scan bound."
+
+[file.126]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier/src/verify/compilation.rs"
+lines = 263
+verdict = "clean"
+note = "Compilation artifacts, source mutation and metadata-difference extraction were reviewed with both language adapters."
+
+[file.127]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier/src/verify/compiler_output.rs"
+lines = 60
+verdict = "clean"
+note = "Compiler output normalization retains contract/source identifiers, bytecode artifacts and error information."
+
+[file.128]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier/src/verify/evm_compilers.rs"
+lines = 185
+verdict = "issues"
+note = "Compiler pool version selection, cache fetch and compile instrumentation were read; queue/process lifetimes are unbounded."
+
+[file.129]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier/src/verify/mod.rs"
+lines = 34
+verdict = "clean"
+note = "Verification module exports connect compiler adapters, artifacts and the comparison pipeline."
+
+[file.130]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier/src/verify/solc_compiler.rs"
+lines = 98
+verdict = "clean"
+note = "Solidity adapter selects CLI for pre-0.4.11 compilers and standard JSON otherwise; the old-path write escape is recorded at the writer."
+
+[file.131]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier/src/verify/solc_compiler_cli.rs"
+lines = 651
+verdict = "issues"
+note = "Old-solc arguments, source files, combined-output conversion and tests were read; absolute source filenames can overwrite service state."
+
+[file.132]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier/src/verify/test_compilation.rs"
+lines = 224
+verdict = "clean"
+note = "Compilation tests use actual compiler download/execute paths and cover the large vendored Solidity fixture; no compilation was run here."
+
+[file.133]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier/src/verify/verification.rs"
+lines = 107
+verdict = "clean"
+note = "Bytecode verification compares real creation/runtime artifacts, immutable/library regions and constructor argument suffixes."
+
+[file.134]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier/src/verify/verifier.rs"
+lines = 171
+verdict = "clean"
+note = "Verifier orchestration runs compilation and shared bytecode matching and propagates typed verification failures."
+
+[file.135]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier/src/verify/vyper_compiler.rs"
+lines = 103
+verdict = "clean"
+note = "Vyper compiler adapter and process input/output handling agree with the Vyper request types."
+
+[file.136]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier/src/verify/vyper_compiler_input.rs"
+lines = 287
+verdict = "clean"
+note = "Vyper compiler input version-dependent settings and JSON forms were reviewed with multipart/standard-JSON conversions."
+
+[file.137]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier/src/vyper/mod.rs"
+lines = 2
+verdict = "clean"
+note = "Vyper public verification exports connect multipart and standard-JSON entry points."
+
+[file.138]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier/src/vyper/multi_part.rs"
+lines = 72
+verdict = "clean"
+note = "Vyper multipart source/interface/settings conversion feeds the declared Vyper compiler input."
+
+[file.139]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier/src/vyper/standard_json.rs"
+lines = 34
+verdict = "clean"
+note = "Vyper standard-JSON entry point decodes the actual compiler input and delegates to common verification."
+
+[file.140]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier/src/zksync/implementation.rs"
+lines = 574
+verdict = "clean"
+note = "ZkSync compilation input/output conversion, compiler selection and artifact matching were read with the adapted JSON schema."
+
+[file.141]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier/src/zksync/mod.rs"
+lines = 4
+verdict = "clean"
+note = "ZkSync module exports connect implementation with the adapted compiler schema subtree."
+
+[file.142]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier/src/zksync/zksolc_standard_json/era_compiler_llvm_context/eravm_metadata_hash.rs"
+lines = 34
+verdict = "vendored"
+note = "Adapted Matter Labs era-compiler-solidity 1.4.1 standard-JSON schema, with provenance in src/zksync/zksolc_standard_json/mod.rs; retained as vendored schema rather than a clean local implementation claim."
+
+[file.143]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier/src/zksync/zksolc_standard_json/era_compiler_llvm_context/mod.rs"
+lines = 3
+verdict = "vendored"
+note = "Adapted Matter Labs era-compiler-solidity 1.4.1 standard-JSON schema, with provenance in src/zksync/zksolc_standard_json/mod.rs; retained as vendored schema rather than a clean local implementation claim."
+
+[file.144]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier/src/zksync/zksolc_standard_json/input/language.rs"
+lines = 25
+verdict = "vendored"
+note = "Adapted Matter Labs era-compiler-solidity 1.4.1 standard-JSON schema, with provenance in src/zksync/zksolc_standard_json/mod.rs; retained as vendored schema rather than a clean local implementation claim."
+
+[file.145]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier/src/zksync/zksolc_standard_json/input/mod.rs"
+lines = 36
+verdict = "vendored"
+note = "Adapted Matter Labs era-compiler-solidity 1.4.1 standard-JSON schema, with provenance in src/zksync/zksolc_standard_json/mod.rs; retained as vendored schema rather than a clean local implementation claim."
+
+[file.146]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier/src/zksync/zksolc_standard_json/input/settings/metadata.rs"
+lines = 35
+verdict = "vendored"
+note = "Adapted Matter Labs era-compiler-solidity 1.4.1 standard-JSON schema, with provenance in src/zksync/zksolc_standard_json/mod.rs; retained as vendored schema rather than a clean local implementation claim."
+
+[file.147]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier/src/zksync/zksolc_standard_json/input/settings/mod.rs"
+lines = 98
+verdict = "vendored"
+note = "Adapted Matter Labs era-compiler-solidity 1.4.1 standard-JSON schema, with provenance in src/zksync/zksolc_standard_json/mod.rs; retained as vendored schema rather than a clean local implementation claim."
+
+[file.148]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier/src/zksync/zksolc_standard_json/input/settings/optimizer/details.rs"
+lines = 66
+verdict = "vendored"
+note = "Adapted Matter Labs era-compiler-solidity 1.4.1 standard-JSON schema, with provenance in src/zksync/zksolc_standard_json/mod.rs; retained as vendored schema rather than a clean local implementation claim."
+
+[file.149]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier/src/zksync/zksolc_standard_json/input/settings/optimizer/mod.rs"
+lines = 92
+verdict = "vendored"
+note = "Adapted Matter Labs era-compiler-solidity 1.4.1 standard-JSON schema, with provenance in src/zksync/zksolc_standard_json/mod.rs; retained as vendored schema rather than a clean local implementation claim."
+
+[file.150]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier/src/zksync/zksolc_standard_json/input/settings/selection/file/flag.rs"
+lines = 45
+verdict = "vendored"
+note = "Adapted Matter Labs era-compiler-solidity 1.4.1 standard-JSON schema, with provenance in src/zksync/zksolc_standard_json/mod.rs; retained as vendored schema rather than a clean local implementation claim."
+
+[file.151]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier/src/zksync/zksolc_standard_json/input/settings/selection/file/mod.rs"
+lines = 24
+verdict = "vendored"
+note = "Adapted Matter Labs era-compiler-solidity 1.4.1 standard-JSON schema, with provenance in src/zksync/zksolc_standard_json/mod.rs; retained as vendored schema rather than a clean local implementation claim."
+
+[file.152]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier/src/zksync/zksolc_standard_json/input/settings/selection/mod.rs"
+lines = 19
+verdict = "vendored"
+note = "Adapted Matter Labs era-compiler-solidity 1.4.1 standard-JSON schema, with provenance in src/zksync/zksolc_standard_json/mod.rs; retained as vendored schema rather than a clean local implementation claim."
+
+[file.153]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier/src/zksync/zksolc_standard_json/input/source.rs"
+lines = 46
+verdict = "vendored"
+note = "Adapted Matter Labs era-compiler-solidity 1.4.1 standard-JSON schema, with provenance in src/zksync/zksolc_standard_json/mod.rs; retained as vendored schema rather than a clean local implementation claim."
+
+[file.154]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier/src/zksync/zksolc_standard_json/mod.rs"
+lines = 6
+verdict = "vendored"
+note = "Adapted Matter Labs era-compiler-solidity 1.4.1 standard-JSON schema, with provenance in src/zksync/zksolc_standard_json/mod.rs; retained as vendored schema rather than a clean local implementation claim."
+
+[file.155]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier/src/zksync/zksolc_standard_json/output/contract/evm/bytecode.rs"
+lines = 24
+verdict = "vendored"
+note = "Adapted Matter Labs era-compiler-solidity 1.4.1 standard-JSON schema, with provenance in src/zksync/zksolc_standard_json/mod.rs; retained as vendored schema rather than a clean local implementation claim."
+
+[file.156]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier/src/zksync/zksolc_standard_json/output/contract/evm/mod.rs"
+lines = 27
+verdict = "vendored"
+note = "Adapted Matter Labs era-compiler-solidity 1.4.1 standard-JSON schema, with provenance in src/zksync/zksolc_standard_json/mod.rs; retained as vendored schema rather than a clean local implementation claim."
+
+[file.157]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier/src/zksync/zksolc_standard_json/output/contract/mod.rs"
+lines = 49
+verdict = "vendored"
+note = "Adapted Matter Labs era-compiler-solidity 1.4.1 standard-JSON schema, with provenance in src/zksync/zksolc_standard_json/mod.rs; retained as vendored schema rather than a clean local implementation claim."
+
+[file.158]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier/src/zksync/zksolc_standard_json/output/error/mod.rs"
+lines = 176
+verdict = "vendored"
+note = "Adapted Matter Labs era-compiler-solidity 1.4.1 standard-JSON schema, with provenance in src/zksync/zksolc_standard_json/mod.rs; retained as vendored schema rather than a clean local implementation claim."
+
+[file.159]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier/src/zksync/zksolc_standard_json/output/error/source_location.rs"
+lines = 46
+verdict = "vendored"
+note = "Adapted Matter Labs era-compiler-solidity 1.4.1 standard-JSON schema, with provenance in src/zksync/zksolc_standard_json/mod.rs; retained as vendored schema rather than a clean local implementation claim."
+
+[file.160]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier/src/zksync/zksolc_standard_json/output/mod.rs"
+lines = 282
+verdict = "vendored"
+note = "Adapted Matter Labs era-compiler-solidity 1.4.1 standard-JSON schema, with provenance in src/zksync/zksolc_standard_json/mod.rs; retained as vendored schema rather than a clean local implementation claim."
+
+[file.161]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier/src/zksync/zksolc_standard_json/output/source.rs"
+lines = 17
+verdict = "vendored"
+note = "Adapted Matter Labs era-compiler-solidity 1.4.1 standard-JSON schema, with provenance in src/zksync/zksolc_standard_json/mod.rs; retained as vendored schema rather than a clean local implementation claim."
+
+[finding.absolute-source-path]
+file = "services/explorer/services/smart-contract-verifier/smart-contract-verifier/src/verify/solc_compiler_cli.rs"
+line = 162
+class = "security"
+severity = "high"
+observed = "InputFiles::try_from_compiler_input joins each submitted source name to files_dir, rejects only ParentDir components, then creates and truncates the resulting file. An absolute source name replaces the temporary-directory prefix. proto_conversions.rs:175-178 preserves such PathBuf names and SolcCompiler::compile selects this path for versions below 0.4.11. A verification request can therefore overwrite service-writable files before compilation fails, including persistent compiler or service state."
+expected = "Contract verification must treat source names as untrusted identifiers and keep every filesystem write inside the request temporary directory. Rejecting traversal must also reject rooted paths before any directory or file is created."
+proposal = "In src/verify/solc_compiler_cli.rs and the request conversion boundary, validate all source names before writes, reject absolute/root/prefix/parent components, and create files relative to a private directory without following symlinks. Add multipart and standard-JSON regressions with old compiler versions proving an outside sentinel file is untouched; retain the existing parent-directory test."
+owner_domain = 14
+
+[finding.selfdestruct-cancun]
+file = "services/explorer/backend/apps/explorer/lib/explorer/chain/import/runner/internal_transactions.ex"
+line = 1026
+class = "runtime-risk"
+severity = "high"
+observed = "empty_selfdestructed_contracts_bytecode excludes contracts created in the same transaction and clears contract_code on every remaining SELFDESTRUCT address. It runs in the normal internal-transaction Multi at line 210. Paxeer enables Cancun from timestamp zero in modules/evm/types/config.go:11,43-44; core/deps/geth/core/vm/instructions.go:923-939 still emits a SELFDESTRUCT trace for opSelfdestruct6780 when the existing contract code is retained. The importer consequently erases valid persisted explorer bytecode."
+expected = "Explorer contract code must agree with the committed EVM state under EIP-6780: a pre-existing contract keeps its code after SELFDESTRUCT. Same-transaction creation and destruction, failed traces and fork rules must be distinguished."
+proposal = "Replace the unconditional deletion rule in the internal-transactions runner with fork-aware committed-code reconciliation, respecting successful execution and transaction-local creation. Exercise a pre-existing contract, a contract created and destroyed in one transaction, reverted destruction and replay against the real node trace and eth_getCode producers; restore already misclassified address code."
+owner_domain = 14
+interface = "14.cfg-ethereum-jsonrpc-ethereumjsonrpc-geth"
+
+[finding.cache-restart-integrity]
+file = "services/explorer/services/smart-contract-verifier/smart-contract-verifier/src/compiler/download_cache.rs"
+line = 82
+class = "restart-recovery"
+severity = "medium"
+observed = "DownloadCache::add_versions accepts a version directory whenever path.join(\"solc\").exists(), then publishes it as a cache hit. It does not verify that the entry is a regular non-symlink executable, matches the advertised checksum, or reports the expected version. The server loads these directories at startup, bypassing the checks applied by write_executable to fresh downloads."
+expected = "A persisted compiler must retain the same integrity and identity guarantees after a service restart as a newly downloaded compiler. Corruption or a stale replaced binary must not become an executable cache hit."
+proposal = "In src/compiler/download_cache.rs, revalidate cached binaries against trusted version/checksum metadata before admitting them, reject unsafe file types and quarantine or redownload invalid entries. Cover restart with a valid cache, truncated executable, wrong-version binary and symlink using the actual cache loading path."
+owner_domain = 14
+
+[finding.compiler-install-permissions]
+file = "services/explorer/services/smart-contract-verifier/smart-contract-verifier/src/compiler/fetcher.rs"
+line = 61
+class = "security"
+severity = "medium"
+observed = "create_executable requests Unix mode 0777 and opens with create/truncate, while write_executable unlinks and recreates a predictable solc.tmp name. Actual permissions depend on the process umask, and the pathname open follows symlinks. With a group-writable cache or permissive umask another local writer can replace the executable between checksum validation of the downloaded bytes and execution/rename."
+expected = "Downloaded compiler installation must preserve the checked bytes in a private, non-writable-by-peers executable and must not follow an attacker-controlled temporary pathname. Security must not depend on an undocumented umask."
+proposal = "Install compilers in src/compiler/fetcher.rs through a randomly named create-new temporary file inside a private cache directory, use restrictive permissions such as 0700 or 0755 as policy requires, validate the installed bytes and atomically rename. Add permission and symlink-race regression coverage and document cache directory ownership."
+owner_domain = 14
+
+[finding.compiler-download-bounds]
+file = "services/explorer/services/smart-contract-verifier/smart-contract-verifier/src/compiler/fetcher_list.rs"
+line = 137
+class = "runtime-risk"
+severity = "medium"
+observed = "ListVersionFetcher::fetch_json_versions and ListFetcher::fetch_file use reqwest::get directly with no configured total deadline or response-size cap; the latter buffers the complete body before checking its SHA256. Neither request calls error_for_status. A stalled or oversized compiler distribution response can hold startup/fetch waiters or consume unbounded memory."
+expected = "Compiler discovery and downloads must terminate within configured limits, reject unsuccessful HTTP status codes and limit bytes before buffering or executing compiler content, while retaining checksum validation."
+proposal = "Use a shared configured client in src/compiler/fetcher_list.rs with connection/total deadlines, explicit status handling and bounded streaming for both list JSON and binary downloads. Hash the bounded binary stream and report a typed fetch failure on timeout, oversized body or HTTP error; exercise these real HTTP response conditions."
+owner_domain = 14
+
+[finding.compiler-execution-deadline]
+file = "services/explorer/services/smart-contract-verifier/smart-contract-verifier/src/verify/evm_compilers.rs"
+line = 137
+class = "runtime-risk"
+severity = "medium"
+observed = "EvmCompilersPool::compile waits for a semaphore permit without a queue deadline and awaits C::compile without an execution deadline. The old Solidity CLI at solc_compiler_cli.rs:22-28 awaits Command::output with no timeout or kill policy. A stuck compiler holds a finite compile permit indefinitely and queued verification requests continue to accumulate."
+expected = "Verification jobs must have bounded admission, queue wait and execution lifetimes, and cancellation must reap their child compiler processes and release capacity for other users."
+proposal = "Implement bounded admission and configured queue/execution deadlines in src/verify/evm_compilers.rs and all compiler subprocess adapters. On timeout or cancellation terminate and reap the process, release gauges/permits and return an explicit verification error. Cover permit recovery after a timed-out real child process."
+owner_domain = 14
+
+[finding.cbor-backward-bound]
+file = "services/explorer/services/smart-contract-verifier/smart-contract-verifier/src/verify/cbor_auxdata.rs"
+line = 124
+class = "runtime-risk"
+severity = "medium"
+observed = "next_cbor_auxdata_value checks start == already_processed only while CBOR parsing fails. When CBOR parsing succeeds but its encoded trailing length is invalid, the outer loop decrements start without checking that lower bound. A valid CBOR value with an invalid length at the lower boundary can cross into an already processed region or underflow usize at zero, followed by an out-of-bounds slice."
+expected = "Auxiliary-data extraction must return a normal verification error for malformed lengths and must never scan before already_processed or panic on malformed compiler bytecode."
+proposal = "Guard every backward step in src/verify/cbor_auxdata.rs, including the successful-parse/invalid-length branch, with the same lower-bound check and checked arithmetic. Add Solidity and Vyper cases for a parseable CBOR value at offset zero with missing/wrong length bytes and at a nonzero processed boundary."
+owner_domain = 14
+
+[finding.metadata-address-parse]
+file = "services/explorer/services/smart-contract-verifier/smart-contract-verifier/src/proto_conversions.rs"
+line = 279
+class = "runtime-risk"
+severity = "medium"
+observed = "decode_verification_metadata parses an explicitly supplied contract_address with Address::from_str but calls transpose().ok().flatten(), silently turning a malformed address into None. The chain_id remains present, so a supplied invalid contract identity becomes indistinguishable from intentionally omitted metadata."
+expected = "Verification metadata must preserve the distinction between absent optional identity and an invalid identity supplied by the caller. Malformed addresses must be reported through the request parse error boundary."
+proposal = "Make metadata decoding in src/proto_conversions.rs return a Result and propagate address parsing failures through RequestParseError in every Solidity and Vyper request conversion. Cover absent metadata, valid 20-byte addresses and malformed/short/overlong values through the public request conversion path."
+owner_domain = 14
+
+[finding.prerelease-validator]
+file = "services/explorer/services/smart-contract-verifier/smart-contract-verifier/src/solidity/validator.rs"
+line = 15
+class = "runtime-risk"
+severity = "medium"
+observed = "SolcValidator::validate strips the executable-reported prerelease and build identifiers using semver::Version::new, then compares it with ver.to_semver(), which retains prerelease identifiers for DetailedVersion. The server installs this validator for downloaded Solidity compilers, so an otherwise matching advertised prerelease is rejected solely because only one side was normalized."
+expected = "Compiler version validation must apply the same explicitly chosen prerelease/build identity policy to both the requested version and the executable-reported version, and accept a genuinely matching supported prerelease."
+proposal = "In src/solidity/validator.rs compare identically normalized identities, or preserve and verify prerelease/commit fields on both sides if that is the supported policy. Add matching and mismatching release/beta/rc cases using compiler version output and the actual DetailedVersion conversion, preserving rejection of a wrong compiler."
+owner_domain = 14
+
+[finding.massive-retry-discard]
+file = "services/explorer/backend/apps/indexer/lib/indexer/block/catchup/massive_blocks_fetcher.ex"
+line = 78
+class = "restart-recovery"
+severity = "medium"
+observed = "MassiveBlocksFetcher.process_block deletes the persistent MassiveBlock marker for every {:ok, _result}. Block.Fetcher.fetch_and_import_range explicitly returns {:ok, %{inserted: ..., errors: blocks_errors}}, including per-block RPC errors. A failed block can therefore be declared successfully processed and lose its dedicated retry marker; finite configured missing-range scans need not rescan it until restart."
+expected = "A massive-block retry marker must remain durable until that exact block was imported successfully without a per-block fetch error. Transport-level success alone does not prove block ingestion."
+proposal = "In block/catchup/massive_blocks_fetcher.ex inspect errors and the actual import result for the requested height before deleting its marker; keep/requeue failures. Exercise an HTTP-success batch containing a per-block RPC error and a restart with a finite block range, followed by successful retry."
+owner_domain = 14
+interface = "14.cfg-indexer-block-ranges"
+
+[finding.massive-range-handoff]
+file = "services/explorer/backend/apps/indexer/lib/indexer/block/catchup/fetcher.ex"
+line = 274
+class = "restart-recovery"
+severity = "medium"
+observed = "add_range_to_massive_blocks first clears MissingBlockRange entries and only then calls MassiveBlock.insert_block_numbers in a separate operation. A process crash or database failure between those steps leaves the timed-out range in neither durable retry store. A finite range collector performs its initial scan once, so it need not repair this gap during the same run."
+expected = "Moving work between the normal catchup queue and the massive-block queue must preserve a durable owner across failure and restart; a retry range must never be removed before the destination owns it."
+proposal = "Make the MissingBlockRange-to-MassiveBlock handoff in block/catchup/fetcher.ex one database transaction, or durably insert destination rows before idempotently clearing source rows. Cover failure between the two operations and recovery with finite configured ranges."
+owner_domain = 14
+interface = "14.cfg-indexer-block-ranges"
+
+[finding.catchup-monitor-cleanup]
+file = "services/explorer/backend/apps/indexer/lib/indexer/block/catchup/bound_interval_supervisor.ex"
+line = 273
+class = "runtime-risk"
+severity = "medium"
+observed = "The timeout/network-error task-result handlers enqueue :catchup_index and set task to nil without Process.demonitor(ref, [:flush]); the successful result handlers do demonitor. A normal subsequent DOWN notification reaches the task:nil handler at line 334 and enqueues another immediate retry, or arrives after a replacement task has started without a matching handler. Network failures can thus duplicate retries or restart the supervisor."
+expected = "Each completed catchup task must settle its monitor and schedule exactly one replacement, including error completion. Stale task notifications must not affect the current task."
+proposal = "In block/catchup/bound_interval_supervisor.ex require the current ref for every result, demonitor/flush it before clearing task, and safely ignore stale DOWN/result messages. Add a task-result-plus-DOWN sequence for timeout, unreachable and refused errors proving one replacement and no supervisor crash."
+owner_domain = 14
+interface = "14.cfg-indexer-indexer-block-catchup-supervisor"
+
+[finding.invented-log-indices]
+file = "services/explorer/backend/apps/indexer/lib/indexer/block/fetcher.ex"
+line = 983
+class = "runtime-risk"
+severity = "medium"
+observed = "maybe_set_new_log_index detects duplicate RPC log indices within a block, sorts logs and assigns fresh sequential indices to all of them. Those invented indices flow into logs and token/market-event imports, so the explorer can publish event identities that were never committed by the node and conceal an inconsistent or duplicate receipt response."
+expected = "Explorer log identities must retain the committed block/transaction/log indices. Malformed receipt sets must be rejected or reconciled with the authoritative node rather than silently renumbered."
+proposal = "In block/fetcher.ex validate receipt/log uniqueness and refetch or quarantine inconsistent blocks; deduplicate only byte-identical canonical duplicates under an explicit policy. Preserve committed indices and test duplicate-index responses against canonical receipts before importing token transfers or Paxeer market events."
+owner_domain = 14
+interface = "14.storage-lx-market-events-j54"
+
+[finding.transaction-error-only-update]
+file = "services/explorer/backend/apps/explorer/lib/explorer/chain/import/runner/transactions.ex"
+line = 614
+class = "runtime-risk"
+severity = "medium"
+observed = "The generic default_on_conflict sets error = EXCLUDED.error, but its IS DISTINCT FROM tuple omits error on both sides. The other chain-specific variants repeat the omission. Reimporting the same transaction with only a corrected error value therefore skips the UPDATE and preserves a stale explorer execution error."
+expected = "Conflict updates must apply corrections to every mutable execution-result field they claim to update, including an error-only correction, while preserving idempotence for identical rows."
+proposal = "Include error in the conflict-change predicate in runner/transactions.ex for every applicable variant, and compare the other SET fields with their predicates. Cover a transaction reimport whose only changed field is error, plus an identical replay that remains a no-op."
+owner_domain = 14
+
+[finding.interop-export-state-update]
+file = "services/explorer/backend/apps/explorer/lib/explorer/chain/import/runner/optimism/interop_messages.ex"
+line = 113
+class = "runtime-risk"
+severity = "medium"
+observed = "The Optimism InteropMessages conflict UPDATE assigns sent_to_multichain, but its IS DISTINCT FROM tuple omits that field. A replay changing only export state does not persist the correction and can leave the message eligible for duplicate multichain export. This adapter is not selected by the Paxeer chain-specific stage."
+expected = "When the optional Optimism adapter is used, durable export state must round-trip through its import runner and survive idempotent replay and restart."
+proposal = "Add sent_to_multichain to the conflict-change predicate in runner/optimism/interop_messages.ex, preserving the intended nullable/COALESCE behavior. Cover false-to-true export-state correction with all other columns unchanged and verify the stored value after reopening the repository."
+owner_domain = 14
+
+[finding.validator-replay-count]
+file = "services/explorer/backend/apps/explorer/lib/explorer/chain/import/runner/stability/validators.ex"
+line = 87
+class = "restart-recovery"
+severity = "medium"
+observed = "Stability.Validators.update_counters unconditionally increments blocks_validated for each incoming address/count change without a block identity or deduplication record. Reimporting the same range increments the durable total again, and a missing validator is logged and skipped while the runner still returns success. This optional chain adapter is not selected for Paxeer."
+expected = "When the Stability adapter is enabled, historical catchup and recovery must reproduce the same validation totals under replay and must not silently lose counts when validator metadata arrives late."
+proposal = "In runner/stability/validators.ex derive counts from canonical persisted block associations or store idempotent per-block contributions transactionally. Retain unresolved validator contributions for retry and cover duplicate range import, restart replay and validator metadata arriving after the block."
+owner_domain = 14
+
+[finding.sourcify-settings-shape]
+file = "services/explorer/services/smart-contract-verifier/smart-contract-verifier/src/sourcify/metadata.rs"
+line = 59
+class = "runtime-risk"
+severity = "medium"
+observed = "The Files-based Sourcify success conversion copies metadata.settings verbatim into compiler_settings, retaining compilationTarget and flat library metadata. Its parse_response_from_files test asserts that metadata shape. The GetSourceFilesResponse conversion in sourcify/types.rs:69-74 explicitly removes compilationTarget, so the two live verification routes return different settings shapes; compilationTarget is not a valid solc standard-JSON input setting."
+expected = "A verified contract must expose consistent compiler settings across direct Sourcify verification and import, with compilation target represented by the separate file_name/contract_name fields and settings normalized for reproducible compilation."
+proposal = "Normalize Sourcify metadata through one conversion in src/sourcify/metadata.rs and types.rs, removing metadata-only compilationTarget and converting libraries to the compiler-input shape. Replace the metadata-shaped expected fixture with the canonical response and prove recompilation of the returned sources/settings through both real conversion paths."
+owner_domain = 14
+
+[finding.doc-root-readme]
+file = "README.md"
+line = 44
+class = "doc-drift"
+severity = "medium"
+observed = "README still describes a separate LayerX kernel domain, a layerxd process anchored to the chain, and build/run instructions for that retired daemon at lines 141-146; line 181 repeats the separate-runtime model."
+expected = "The finished network has one BFT paxd chain with an integrated kernel and committed-block finality. It has no separate layerxd service, sequencer service, router or unified /rpc endpoint; hosted px_ methods follow the gateway OpenRPC contract."
+proposal = "Rewrite README.md architecture and operator commands around the single BFT paxd network, integrated kernel and committed-block finality, using the root node RPC and current hosted gateway contract."
+owner_domain = 17
+
+[finding.doc-route-catalogue]
+file = "docs/system/routes.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The generated catalogue calls itself Router routes, describes a Kernel sequencer and Paxeer settlement boundary at lines 31-35, and lists /rpc/evm/ws at line 908. It presents the retired routing topology as the public network surface."
+expected = "The finished network has one BFT paxd chain with an integrated kernel and committed-block finality. It has no separate layerxd service, sequencer service, router or unified /rpc endpoint; hosted px_ methods follow the gateway OpenRPC contract."
+proposal = "Correct the route-catalogue source and generator under tools/paxeer-x, then regenerate docs/system/routes.md with node root JSON-RPC separated from actual hosted service routes and current authentication/ownership."
+owner_domain = 17
+
+[finding.doc-quickstart]
+file = "docs/site/docs/overview/quickstart.md"
+line = 167
+class = "doc-drift"
+severity = "medium"
+observed = "The quickstart directs clients through unified /rpc and /rpc/ws routes and a separate public router at lines 167-219 and 597 onward. Its custody credit workflow at lines 298-302 also describes the retired pre-merge boundary."
+expected = "The finished network has one BFT paxd chain with an integrated kernel and committed-block finality. It has no separate layerxd service, sequencer service, router or unified /rpc endpoint; hosted px_ methods follow the gateway OpenRPC contract."
+proposal = "Rewrite the quickstart connection and value-transfer examples for paxd chain id 125, root node JSON-RPC and px_ methods only on the hosted gateway; replace custody-credit/router workflows with the merged account and asset flows."
+owner_domain = 17
+
+[finding.doc-boundary]
+file = "docs/site/docs/concepts/paxeer-boundary.md"
+line = 119
+class = "doc-drift"
+severity = "medium"
+observed = "The boundary page instructs deployment of settlement and guarantor contract suites at lines 119-129 and explains the network using separate node, kernel and hosted topology. The root node POST example is valid, but does not make the settlement model current."
+expected = "The finished network has one BFT paxd chain with an integrated kernel and committed-block finality. It has no separate layerxd service, sequencer service, router or unified /rpc endpoint; hosted px_ methods follow the gateway OpenRPC contract."
+proposal = "Rewrite paxeer-boundary.md around the integrated kernel, committed receipts, merged account/asset ownership and supported hosted services; remove separate settlement, guarantor and daemon deployment instructions."
+owner_domain = 17
+
+[finding.doc-beta-operations]
+file = "docs/site/docs/operators/beta-cluster.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The beta cluster guide describes a LayerX Network daemon, starts layerxd --custody-profile at line 50 and configures sequencer secrets at line 68. Those commands operate a retired separate service rather than the merged BFT node."
+expected = "The finished network has one BFT paxd chain with an integrated kernel and committed-block finality. It has no separate layerxd service, sequencer service, router or unified /rpc endpoint; hosted px_ methods follow the gateway OpenRPC contract."
+proposal = "Replace beta-cluster.md topology, startup, keys and readiness steps with paxd integrated-network operations and committed-block recovery; identify hosted-service credentials separately from validator/node configuration."
+owner_domain = 17
+
+[finding.doc-cli-endpoints]
+file = "docs/site/docs/platform/cli.md"
+line = 8
+class = "doc-drift"
+severity = "medium"
+observed = "The CLI guide requires /rpc and /rpc/ws endpoints and repeats the retired /rpc configuration at line 278, directing users to a unified router that the finished network does not provide."
+expected = "The finished network has one BFT paxd chain with an integrated kernel and committed-block finality. It has no separate layerxd service, sequencer service, router or unified /rpc endpoint; hosted px_ methods follow the gateway OpenRPC contract."
+proposal = "Update platform/cli.md endpoint configuration and examples to the node root JSON-RPC or the declared hosted px_ surface according to each command; remove the universal /rpc requirement and describe the matching credentials."
+owner_domain = 17
+
+[finding.doc-hosted-gateway]
+file = "docs/site/docs/platform/hosted-gateway.md"
+line = 39
+class = "doc-drift"
+severity = "medium"
+observed = "The gateway guide presents one router joining eth_, lx_ and px_ methods and advertises /rpc, /rpc/schema and /rpc/ws at lines 39-52 and 198-200. That architecture conflicts with root-path node namespaces and the gateway openrpc contract."
+expected = "The finished network has one BFT paxd chain with an integrated kernel and committed-block finality. It has no separate layerxd service, sequencer service, router or unified /rpc endpoint; hosted px_ methods follow the gateway OpenRPC contract."
+proposal = "Rewrite hosted-gateway.md from services/platform/hosted/gateway/openrpc.json and the actual hosted routes; document px_ ownership, authentication and failure behavior, and direct node JSON-RPC traffic to the chain root endpoint."
+owner_domain = 17
+
+[finding.doc-readme-pt-br]
+file = "docs/readme/README.pt-BR.md"
+line = 37
+class = "doc-drift"
+severity = "medium"
+observed = "This translated README retains the dual-domain layerxd architecture at lines 37-39, daemon build/run instructions near line 80, a separate kernel runtime at line 125 and a sequencer diagram near line 152. It repeats the same pre-merge operational model as the root README."
+expected = "Translated entry documentation must describe the same single paxd BFT network, integrated kernel, supported root RPC endpoint and final committed receipt semantics as the canonical merged-network brief."
+proposal = "After correcting the canonical README, update docs/readme/README.pt-BR.md prose, diagrams and command examples together for the integrated network; remove daemon, sequencer and anchor/checkpoint deployment instructions while retaining accurate service links."
+owner_domain = 17
+
+[finding.doc-readme-fr]
+file = "docs/readme/README.fr.md"
+line = 37
+class = "doc-drift"
+severity = "medium"
+observed = "This translated README retains the dual-domain layerxd architecture at lines 37-39, daemon build/run instructions near line 80, a separate kernel runtime at line 125 and a sequencer diagram near line 152. It repeats the same pre-merge operational model as the root README."
+expected = "Translated entry documentation must describe the same single paxd BFT network, integrated kernel, supported root RPC endpoint and final committed receipt semantics as the canonical merged-network brief."
+proposal = "After correcting the canonical README, update docs/readme/README.fr.md prose, diagrams and command examples together for the integrated network; remove daemon, sequencer and anchor/checkpoint deployment instructions while retaining accurate service links."
+owner_domain = 17
+
+[finding.doc-readme-de]
+file = "docs/readme/README.de.md"
+line = 37
+class = "doc-drift"
+severity = "medium"
+observed = "This translated README retains the dual-domain layerxd architecture at lines 37-39, daemon build/run instructions near line 80, a separate kernel runtime at line 125 and a sequencer diagram near line 152. It repeats the same pre-merge operational model as the root README."
+expected = "Translated entry documentation must describe the same single paxd BFT network, integrated kernel, supported root RPC endpoint and final committed receipt semantics as the canonical merged-network brief."
+proposal = "After correcting the canonical README, update docs/readme/README.de.md prose, diagrams and command examples together for the integrated network; remove daemon, sequencer and anchor/checkpoint deployment instructions while retaining accurate service links."
+owner_domain = 17
+
+[finding.doc-readme-es]
+file = "docs/readme/README.es.md"
+line = 37
+class = "doc-drift"
+severity = "medium"
+observed = "This translated README retains the dual-domain layerxd architecture at lines 37-39, daemon build/run instructions near line 80, a separate kernel runtime at line 125 and a sequencer diagram near line 152. It repeats the same pre-merge operational model as the root README."
+expected = "Translated entry documentation must describe the same single paxd BFT network, integrated kernel, supported root RPC endpoint and final committed receipt semantics as the canonical merged-network brief."
+proposal = "After correcting the canonical README, update docs/readme/README.es.md prose, diagrams and command examples together for the integrated network; remove daemon, sequencer and anchor/checkpoint deployment instructions while retaining accurate service links."
+owner_domain = 17
+
+[doc.01]
+path = "README.md"
+status = "stale"
+notes = "Read the complete page. Line 44: README still describes a separate LayerX kernel domain, a layerxd process anchored to the chain, and build/run instructions for that retired daemon at lines 141-146; line 181 repeats the separate-runtime model."
+
+[doc.02]
+path = "docs/system/routes.md"
+status = "stale"
+notes = "Read the complete page. Line 3: The generated catalogue calls itself Router routes, describes a Kernel sequencer and Paxeer settlement boundary at lines 31-35, and lists /rpc/evm/ws at line 908. It presents the retired routing topology as the public network surface."
+
+[doc.03]
+path = "docs/site/docs/overview/quickstart.md"
+status = "stale"
+notes = "Read the complete page. Line 167: The quickstart directs clients through unified /rpc and /rpc/ws routes and a separate public router at lines 167-219 and 597 onward. Its custody credit workflow at lines 298-302 also describes the retired pre-merge boundary."
+
+[doc.04]
+path = "docs/site/docs/concepts/paxeer-boundary.md"
+status = "stale"
+notes = "Read the complete page. Line 119: The boundary page instructs deployment of settlement and guarantor contract suites at lines 119-129 and explains the network using separate node, kernel and hosted topology. The root node POST example is valid, but does not make the settlement model current."
+
+[doc.05]
+path = "docs/site/docs/operators/porting.md"
+status = "accurate"
+notes = "Read the complete porting guide. Its guest ABI, native asset and compatibility migration model agrees with the merged-network requirements; no separate daemon or unified public /rpc deployment is prescribed."
+
+[doc.06]
+path = "docs/site/docs/operators/beta-cluster.md"
+status = "stale"
+notes = "Read the complete page. Line 3: The beta cluster guide describes a LayerX Network daemon, starts layerxd --custody-profile at line 50 and configures sequencer secrets at line 68. Those commands operate a retired separate service rather than the merged BFT node."
+
+[doc.07]
+path = "docs/site/docs/platform/cli.md"
+status = "stale"
+notes = "Read the complete page. Line 8: The CLI guide requires /rpc and /rpc/ws endpoints and repeats the retired /rpc configuration at line 278, directing users to a unified router that the finished network does not provide."
+
+[doc.08]
+path = "docs/site/docs/platform/hosted-gateway.md"
+status = "stale"
+notes = "Read the complete page. Line 39: The gateway guide presents one router joining eth_, lx_ and px_ methods and advertises /rpc, /rpc/schema and /rpc/ws at lines 39-52 and 198-200. That architecture conflicts with root-path node namespaces and the gateway openrpc contract."
+
+[doc.09]
+path = "docs/readme/README.pt-BR.md"
+status = "stale"
+notes = "Read the complete page. Line 37: This translated README retains the dual-domain layerxd architecture at lines 37-39, daemon build/run instructions near line 80, a separate kernel runtime at line 125 and a sequencer diagram near line 152. It repeats the same pre-merge operational model as the root README."
+
+[doc.10]
+path = "docs/readme/README.fr.md"
+status = "stale"
+notes = "Read the complete page. Line 37: This translated README retains the dual-domain layerxd architecture at lines 37-39, daemon build/run instructions near line 80, a separate kernel runtime at line 125 and a sequencer diagram near line 152. It repeats the same pre-merge operational model as the root README."
+
+[doc.11]
+path = "docs/readme/README.de.md"
+status = "stale"
+notes = "Read the complete page. Line 37: This translated README retains the dual-domain layerxd architecture at lines 37-39, daemon build/run instructions near line 80, a separate kernel runtime at line 125 and a sequencer diagram near line 152. It repeats the same pre-merge operational model as the root README."
+
+[doc.12]
+path = "docs/readme/README.es.md"
+status = "stale"
+notes = "Read the complete page. Line 37: This translated README retains the dual-domain layerxd architecture at lines 37-39, daemon build/run instructions near line 80, a separate kernel runtime at line 125 and a sequencer diagram near line 152. It repeats the same pre-merge operational model as the root README."
+
+[doc.13]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier/README.md"
+status = "accurate"
+notes = "Read in full: accurately describes the Rust verification library and separate server packaging; does not prescribe the retired network topology."
+
+[doc.14]
+path = "spec/layerx-merge/programme/audit/BRIEF.kvx"
+status = "accurate"
+notes = "Read in full: authoritative merged-network behavior, audit checks, severity and record grammar used for this review."
+
+[doc.15]
+path = "spec/layerx-merge/contracts/clients.md"
+status = "accurate"
+notes = "Reviewed the verifier metric rows and their transport notes, including all seven smart_contract_verifier metric names and seconds/counter/gauge units; these agree with the launcher default registry export."
+
+[doc.16]
+path = "spec/layerx-merge/contracts/explorer-config.md"
+status = "accurate"
+notes = "Reviewed cfg-ethereum-jsonrpc, cfg-explorer, cfg-indexer and cfg-logger rows relevant to this package. Their names and union of compile/runtime options match their producers; inventory atom matches are not treated as independent live configuration consumers."
+
+[doc.17]
+path = "spec/layerx-merge/contracts/explorer-indexer.md"
+status = "accurate"
+notes = "Read the ingestion contract: bindings and market events remain written; custody/deposit-root/guarantor ingestion is retired. Active fetcher/stage agree with requirements 14259.1 and 14260.1."
+
+[doc.18]
+path = "spec/layerx-merge/contracts/explorer-metrics.md"
+status = "accurate"
+notes = "Reviewed package metric definitions, units and exporters, including launcher enablement and rollup-only batch metrics; the package calls and definitions agree."
+
+[doc.19]
+path = "spec/layerx-merge/contracts/evm-rpc.md"
+status = "accurate"
+notes = "Reviewed ws-new-heads committed-header shape and finality contract against rpc/subscribe.go and the realtime consumer; hex quantities, block hashes and parentHash agree. Subscription loss is recoverable through canonical range fetching and polling."
+
+[doc.20]
+path = "spec/layerx-merge/contracts/launchpad.md"
+status = "accurate"
+notes = "Reviewed ERC721Base, ERC721Enumerable, IERC721Receiver and SidioraNFT sections for the package-listed ABI signatures. The fixture shares standard selectors/topics; it does not instantiate a live integration with these launchpad contracts."
+
+[doc.21]
+path = "spec/layerx-merge/contracts/address-inventory.md"
+status = "accurate"
+notes = "Reviewed ERC721, IERC165, IERC721Receiver and CW721ERC721Pointer rows for package-listed signatures. ABI widths/selectors match the vendored fixture, which does not invoke deployed domain-6 contracts."
+
+[interface_review.01]
+interface = "14.met-rs-smart-contract-verifier-smart-contract-verifier-compilation-queue-time-seconds"
+direction = "produces"
+status = "agrees"
+producer = "services/explorer/services/smart-contract-verifier/smart-contract-verifier/src/metrics.rs:34"
+signature = "register_histogram!(\"smart_contract_verifier_compilation_queue_time_seconds\", \"waiting for the compilation queue in seconds\") -> COMPILATION_QUEUE_TIME: Histogram"
+notes = "Registry aliases describe the same seven collectors in src/metrics.rs, not duplicate registrations. Timers record seconds, counters count cache access/hits, and guarded gauges count queued/in-flight jobs. Lazy collectors register with prometheus default_registry, which the launcher exports on configured /metrics (default port 6060) when metrics.enabled is true; enabled defaults false. Process-local metrics reset on restart, not durable job state."
+
+[interface_review.02]
+interface = "14.met-rs-smart-contract-verifier-smart-contract-verifier-compile-time-seconds"
+direction = "produces"
+status = "agrees"
+producer = "services/explorer/services/smart-contract-verifier/smart-contract-verifier/src/metrics.rs:24"
+signature = "register_histogram!(\"smart_contract_verifier_compile_time_seconds\", \"contract compilation time in seconds\") -> COMPILE_TIME: Histogram"
+notes = "Registry aliases describe the same seven collectors in src/metrics.rs, not duplicate registrations. Timers record seconds, counters count cache access/hits, and guarded gauges count queued/in-flight jobs. Lazy collectors register with prometheus default_registry, which the launcher exports on configured /metrics (default port 6060) when metrics.enabled is true; enabled defaults false. Process-local metrics reset on restart, not durable job state."
+
+[interface_review.03]
+interface = "14.met-rs-smart-contract-verifier-smart-contract-verifier-compiler-fetch-time-seconds"
+direction = "produces"
+status = "agrees"
+producer = "services/explorer/services/smart-contract-verifier/smart-contract-verifier/src/metrics.rs:18"
+signature = "register_histogram!(\"smart_contract_verifier_compiler_fetch_time_seconds\", \"download time for compilers in seconds\") -> COMPILER_FETCH_TIME: Histogram"
+notes = "Registry aliases describe the same seven collectors in src/metrics.rs, not duplicate registrations. Timers record seconds, counters count cache access/hits, and guarded gauges count queued/in-flight jobs. Lazy collectors register with prometheus default_registry, which the launcher exports on configured /metrics (default port 6060) when metrics.enabled is true; enabled defaults false. Process-local metrics reset on restart, not durable job state."
+
+[interface_review.04]
+interface = "14.met-rs-smart-contract-verifier-smart-contract-verifier-compiles-in-flight"
+direction = "produces"
+status = "agrees"
+producer = "services/explorer/services/smart-contract-verifier/smart-contract-verifier/src/metrics.rs:29"
+signature = "register_gauge!(\"smart_contract_verifier_compiles_in_flight\", \"number of compilations currently running\") -> COMPILATIONS_IN_FLIGHT: Gauge"
+notes = "Registry aliases describe the same seven collectors in src/metrics.rs, not duplicate registrations. Timers record seconds, counters count cache access/hits, and guarded gauges count queued/in-flight jobs. Lazy collectors register with prometheus default_registry, which the launcher exports on configured /metrics (default port 6060) when metrics.enabled is true; enabled defaults false. Process-local metrics reset on restart, not durable job state."
+
+[interface_review.05]
+interface = "14.met-rs-smart-contract-verifier-smart-contract-verifier-compiles-in-queue"
+direction = "produces"
+status = "agrees"
+producer = "services/explorer/services/smart-contract-verifier/smart-contract-verifier/src/metrics.rs:39"
+signature = "register_gauge!(\"smart_contract_verifier_compiles_in_queue\", \"number of compilations in queue\") -> COMPILATIONS_IN_QUEUE: Gauge"
+notes = "Registry aliases describe the same seven collectors in src/metrics.rs, not duplicate registrations. Timers record seconds, counters count cache access/hits, and guarded gauges count queued/in-flight jobs. Lazy collectors register with prometheus default_registry, which the launcher exports on configured /metrics (default port 6060) when metrics.enabled is true; enabled defaults false. Process-local metrics reset on restart, not durable job state."
+
+[interface_review.06]
+interface = "14.met-rs-smart-contract-verifier-smart-contract-verifier-download-cache-hits"
+direction = "produces"
+status = "agrees"
+producer = "services/explorer/services/smart-contract-verifier/smart-contract-verifier/src/metrics.rs:13"
+signature = "register_int_counter!(\"smart_contract_verifier_download_cache_hits\", \"number of cache hits in DownloadCache\") -> DOWNLOAD_CACHE_HITS: IntCounter"
+notes = "Registry aliases describe the same seven collectors in src/metrics.rs, not duplicate registrations. Timers record seconds, counters count cache access/hits, and guarded gauges count queued/in-flight jobs. Lazy collectors register with prometheus default_registry, which the launcher exports on configured /metrics (default port 6060) when metrics.enabled is true; enabled defaults false. Process-local metrics reset on restart, not durable job state."
+
+[interface_review.07]
+interface = "14.met-rs-smart-contract-verifier-smart-contract-verifier-download-cache-total"
+direction = "produces"
+status = "agrees"
+producer = "services/explorer/services/smart-contract-verifier/smart-contract-verifier/src/metrics.rs:8"
+signature = "register_int_counter!(\"smart_contract_verifier_download_cache_total\", \"total number of get calls in DownloadCache\") -> DOWNLOAD_CACHE_TOTAL: IntCounter"
+notes = "Registry aliases describe the same seven collectors in src/metrics.rs, not duplicate registrations. Timers record seconds, counters count cache access/hits, and guarded gauges count queued/in-flight jobs. Lazy collectors register with prometheus default_registry, which the launcher exports on configured /metrics (default port 6060) when metrics.enabled is true; enabled defaults false. Process-local metrics reset on restart, not durable job state."
+
+[interface_review.08]
+interface = "14.met-verifier-smart-contract-verifier-compilation-queue-time-seconds"
+direction = "produces"
+status = "agrees"
+producer = "services/explorer/services/smart-contract-verifier/smart-contract-verifier/src/metrics.rs:33"
+signature = "Histogram smart_contract_verifier_compilation_queue_time_seconds"
+notes = "Registry aliases describe the same seven collectors in src/metrics.rs, not duplicate registrations. Timers record seconds, counters count cache access/hits, and guarded gauges count queued/in-flight jobs. Lazy collectors register with prometheus default_registry, which the launcher exports on configured /metrics (default port 6060) when metrics.enabled is true; enabled defaults false. Process-local metrics reset on restart, not durable job state."
+
+[interface_review.09]
+interface = "14.met-verifier-smart-contract-verifier-compile-time-seconds"
+direction = "produces"
+status = "agrees"
+producer = "services/explorer/services/smart-contract-verifier/smart-contract-verifier/src/metrics.rs:23"
+signature = "Histogram smart_contract_verifier_compile_time_seconds"
+notes = "Registry aliases describe the same seven collectors in src/metrics.rs, not duplicate registrations. Timers record seconds, counters count cache access/hits, and guarded gauges count queued/in-flight jobs. Lazy collectors register with prometheus default_registry, which the launcher exports on configured /metrics (default port 6060) when metrics.enabled is true; enabled defaults false. Process-local metrics reset on restart, not durable job state."
+
+[interface_review.10]
+interface = "14.met-verifier-smart-contract-verifier-compiler-fetch-time-seconds"
+direction = "produces"
+status = "agrees"
+producer = "services/explorer/services/smart-contract-verifier/smart-contract-verifier/src/metrics.rs:17"
+signature = "Histogram smart_contract_verifier_compiler_fetch_time_seconds"
+notes = "Registry aliases describe the same seven collectors in src/metrics.rs, not duplicate registrations. Timers record seconds, counters count cache access/hits, and guarded gauges count queued/in-flight jobs. Lazy collectors register with prometheus default_registry, which the launcher exports on configured /metrics (default port 6060) when metrics.enabled is true; enabled defaults false. Process-local metrics reset on restart, not durable job state."
+
+[interface_review.11]
+interface = "14.met-verifier-smart-contract-verifier-compiles-in-flight"
+direction = "produces"
+status = "agrees"
+producer = "services/explorer/services/smart-contract-verifier/smart-contract-verifier/src/metrics.rs:28"
+signature = "Gauge smart_contract_verifier_compiles_in_flight"
+notes = "Registry aliases describe the same seven collectors in src/metrics.rs, not duplicate registrations. Timers record seconds, counters count cache access/hits, and guarded gauges count queued/in-flight jobs. Lazy collectors register with prometheus default_registry, which the launcher exports on configured /metrics (default port 6060) when metrics.enabled is true; enabled defaults false. Process-local metrics reset on restart, not durable job state."
+
+[interface_review.12]
+interface = "14.met-verifier-smart-contract-verifier-compiles-in-queue"
+direction = "produces"
+status = "agrees"
+producer = "services/explorer/services/smart-contract-verifier/smart-contract-verifier/src/metrics.rs:38"
+signature = "Gauge smart_contract_verifier_compiles_in_queue"
+notes = "Registry aliases describe the same seven collectors in src/metrics.rs, not duplicate registrations. Timers record seconds, counters count cache access/hits, and guarded gauges count queued/in-flight jobs. Lazy collectors register with prometheus default_registry, which the launcher exports on configured /metrics (default port 6060) when metrics.enabled is true; enabled defaults false. Process-local metrics reset on restart, not durable job state."
+
+[interface_review.13]
+interface = "14.met-verifier-smart-contract-verifier-download-cache-hits"
+direction = "produces"
+status = "agrees"
+producer = "services/explorer/services/smart-contract-verifier/smart-contract-verifier/src/metrics.rs:12"
+signature = "IntCounter smart_contract_verifier_download_cache_hits"
+notes = "Registry aliases describe the same seven collectors in src/metrics.rs, not duplicate registrations. Timers record seconds, counters count cache access/hits, and guarded gauges count queued/in-flight jobs. Lazy collectors register with prometheus default_registry, which the launcher exports on configured /metrics (default port 6060) when metrics.enabled is true; enabled defaults false. Process-local metrics reset on restart, not durable job state."
+
+[interface_review.14]
+interface = "14.met-verifier-smart-contract-verifier-download-cache-total"
+direction = "produces"
+status = "agrees"
+producer = "services/explorer/services/smart-contract-verifier/smart-contract-verifier/src/metrics.rs:7"
+signature = "IntCounter smart_contract_verifier_download_cache_total"
+notes = "Registry aliases describe the same seven collectors in src/metrics.rs, not duplicate registrations. Timers record seconds, counters count cache access/hits, and guarded gauges count queued/in-flight jobs. Lazy collectors register with prometheus default_registry, which the launcher exports on configured /metrics (default port 6060) when metrics.enabled is true; enabled defaults false. Process-local metrics reset on restart, not durable job state."
+
+[interface_review.15]
+interface = "14.cfg-ethereum-jsonrpc-ethereumjsonrpc-geth"
+direction = "consumes"
+status = "agrees"
+producer = "services/explorer/backend/config/runtime.exs:287"
+signature = "config :ethereum_jsonrpc, EthereumJSONRPC.Geth [block_traceable?, allow_empty_traces?, debug_trace_timeout, tracer]"
+notes = "runtime.exs:287-291 emits block_traceable?/allow_empty_traces? booleans, debug_trace_timeout string (5s) and call_tracer default; the catchup/trace readers use those same keys. The emitted trace event is retained under Cancun, so its downstream code-deletion policy is separately blocked."
+
+[interface_review.16]
+interface = "14.cfg-explorer-chain-identity"
+direction = "consumes"
+status = "agrees"
+producer = "services/explorer/backend/config/runtime.exs:325"
+signature = "config :explorer, :chain_identity"
+notes = "runtime.exs:325 derives chain_identity through ConfigHelper; importer dispatch uses atom paxeer_x or explicit composite identities, matching the stage keys."
+
+[interface_review.17]
+interface = "14.cfg-explorer-explorer-migrator-deletezerovalueinternaltransactions"
+direction = "consumes"
+status = "agrees"
+producer = "services/explorer/backend/config/runtime.exs:1101"
+signature = "config :explorer, Explorer.Migrator.DeleteZeroValueInternalTransactions [enabled]"
+notes = "runtime.exs:1101 supplies enabled=false by default from MIGRATION_DELETE_ZERO_VALUE_INTERNAL_TRANSACTIONS_ENABLED; trace filtering reads the same module option."
+
+[interface_review.18]
+interface = "14.cfg-explorer-json-rpc-named-arguments"
+direction = "consumes"
+status = "agrees"
+producer = "services/explorer/backend/apps/explorer/config/dev/anvil.exs:7"
+signature = "config :explorer, :json_rpc_named_arguments"
+notes = "Explorer per-variant configuration supplies keyword transport, transport_options and variant; receipt/block callers pass the named arguments through the EthereumJSONRPC API without a separate public /rpc URL assumption."
+
+[interface_review.19]
+interface = "14.cfg-explorer-transport"
+direction = "consumes"
+status = "agrees"
+producer = "services/explorer/backend/apps/explorer/config/test/besu.exs:3"
+signature = "config :explorer, :transport"
+notes = "This row includes a test Besu top-level transport atom and syntactic atom matches. Realtime.Supervisor actually consumes the transport inside named arguments; it is not a new direct production dependency on this test-only setting."
+
+[interface_review.20]
+interface = "14.cfg-indexer-block-interval"
+direction = "consumes"
+status = "agrees"
+producer = "services/explorer/backend/apps/indexer/config/dev/anvil.exs:7"
+signature = "config :indexer, :block_interval"
+notes = "Per-chain configuration derives INDEXER_CATCHUP_BLOCK_INTERVAL as a millisecond duration, default 0s in Anvil, and BoundIntervalSupervisor uses the duration to schedule catchup."
+
+[interface_review.21]
+interface = "14.cfg-indexer-block-ranges"
+direction = "consumes"
+status = "agrees"
+producer = "services/explorer/backend/config/runtime.exs:1231"
+signature = "config :indexer, :block_ranges"
+notes = "Runtime block_ranges is the configured range string and the collector parses finite/open ranges. Normal range parsing agrees; durable retry handoff and deletion findings describe recovery gaps, not a range syntax mismatch."
+
+[interface_review.22]
+interface = "14.cfg-indexer-fetch-rewards-way"
+direction = "consumes"
+status = "agrees"
+producer = "services/explorer/backend/config/runtime.exs:1231"
+signature = "config :indexer, :fetch_rewards_way"
+notes = "runtime.exs:1240 supplies FETCH_REWARDS_WAY default trace_block and the block fetcher dispatches trace_block/manual reward strategies by the same string."
+
+[interface_review.23]
+interface = "14.cfg-indexer-indexer-block-catchup-fetcher"
+direction = "consumes"
+status = "agrees"
+producer = "services/explorer/backend/config/runtime.exs:1467"
+signature = "config :indexer, Indexer.Block.Catchup.Fetcher [batch_size, concurrency]"
+notes = "runtime.exs:1467 supplies batch_size=100 and concurrency=20 from INDEXER_CATCHUP_BLOCKS_BATCH_SIZE/CONCURRENCY; catchup initialization reads the same keys."
+
+[interface_review.24]
+interface = "14.cfg-indexer-indexer-block-catchup-missingrangescollector"
+direction = "consumes"
+status = "agrees"
+producer = "services/explorer/backend/config/runtime.exs:1464"
+signature = "config :indexer, Indexer.Block.Catchup.MissingRangesCollector [batch_size, future_check_interval]"
+notes = "runtime.exs:1464 supplies batch_size=100000 and apps/indexer/config/config.exs:13 supplies compile-time future_check_interval=:timer.minutes(1). The collector uses the runtime batch size and compile-time interval in the matching units."
+
+[interface_review.25]
+interface = "14.cfg-indexer-indexer-block-catchup-supervisor"
+direction = "consumes"
+status = "agrees"
+producer = "services/explorer/backend/config/runtime.exs:1391"
+signature = "config :indexer, Indexer.Block.Catchup.Supervisor [enabled]"
+notes = "runtime.exs:1391 derives enabled as the inverse of DISABLE_CATCHUP_INDEXER; Catchup.Supervisor honors the boolean and starts the collector/bound loop. Error monitor lifecycle is separately recorded."
+
+[interface_review.26]
+interface = "14.cfg-indexer-indexer-block-realtime-fetcher"
+direction = "consumes"
+status = "agrees"
+producer = "services/explorer/backend/config/runtime.exs:1458"
+signature = "config :indexer, Indexer.Block.Realtime.Fetcher [max_gap, polling_period, batch_size, max_lag]"
+notes = "runtime.exs:1458 supplies max_gap=1000, optional millisecond polling_period, batch_size=64 and max_lag=5000 with the named INDEXER_REALTIME variables; the realtime fetcher reads the same keys and bounds its adaptive polling."
+
+[interface_review.27]
+interface = "14.cfg-indexer-indexer-block-realtime-supervisor"
+direction = "consumes"
+status = "agrees"
+producer = "services/explorer/backend/config/runtime.exs:1388"
+signature = "config :indexer, Indexer.Block.Realtime.Supervisor [enabled]"
+notes = "runtime.exs:1388 derives enabled as the inverse of DISABLE_REALTIME_INDEXER; Realtime.Supervisor honors the flag and constructs matching fetcher/subscription arguments."
+
+[interface_review.28]
+interface = "14.cfg-indexer-json-rpc-named-arguments"
+direction = "consumes"
+status = "agrees"
+producer = "services/explorer/backend/apps/indexer/config/dev/anvil.exs:7"
+signature = "config :indexer, :json_rpc_named_arguments"
+notes = "Indexer per-variant config supplies keyword transport/options/variant and independent subscribe_named_arguments with a WS root URL. Fetcher construction forwards those concrete values to block/receipt calls."
+
+[interface_review.29]
+interface = "14.cfg-indexer-last-block"
+direction = "consumes"
+status = "agrees"
+producer = "services/explorer/backend/config/runtime.exs:1231"
+signature = "config :indexer, :last_block"
+notes = "Runtime last_block is a parsed optional terminal height; catchup and collector use the same inclusive bound and stop/open-range distinction."
+
+[interface_review.30]
+interface = "14.cfg-indexer-receipts-batch-size"
+direction = "consumes"
+status = "agrees"
+producer = "services/explorer/backend/config/runtime.exs:1231"
+signature = "config :indexer, :receipts_batch_size"
+notes = "runtime.exs:1243 supplies INDEXER_RECEIPTS_BATCH_SIZE default 250 and both catchup/realtime fetcher constructors pass it to receipt batching as an integer count."
+
+[interface_review.31]
+interface = "14.cfg-indexer-receipts-concurrency"
+direction = "consumes"
+status = "agrees"
+producer = "services/explorer/backend/config/runtime.exs:1231"
+signature = "config :indexer, :receipts_concurrency"
+notes = "runtime.exs:1244 supplies INDEXER_RECEIPTS_CONCURRENCY default 10 and fetcher constructors pass the same integer to receipt task concurrency."
+
+[interface_review.32]
+interface = "14.cfg-logger-block-import-timings"
+direction = "consumes"
+status = "agrees"
+producer = "services/explorer/backend/apps/indexer/config/dev.exs:27"
+signature = "config :logger, :block_import_timings [path, metadata_filter, rotate]"
+notes = "Indexer dev/prod logger configuration uses metadata_filter fetcher:block_import_timings; block import messages emit that metadata and the backend owns optional path/rotation defaults."
+
+[interface_review.33]
+interface = "14.cfg-logger-ethereum-jsonrpc"
+direction = "consumes"
+status = "agrees"
+producer = "services/explorer/backend/apps/ethereum_jsonrpc/config/config.exs:24"
+signature = "config :logger, :ethereum_jsonrpc [metadata, metadata_filter, path, rotate]"
+notes = "EthereumJSONRPC logger configuration filters application:ethereum_jsonrpc and supplies common metadata; RPC code emits that application metadata. This is logging configuration, not an RPC payload interface."
+
+[interface_review.34]
+interface = "14.cfg-logger-token-instances"
+direction = "consumes"
+status = "agrees"
+producer = "services/explorer/backend/apps/explorer/config/dev.exs:48"
+signature = "config :logger, :token_instances [path, metadata_filter, rotate]"
+notes = "Explorer logger configuration uses fetcher:token_instances and a development log path; token instance runner messages use the same fetcher tag. Optional rotation is a backend configuration union, not a required request field."
+
+[interface_review.35]
+interface = "14.met-explorer-block-batch-fetch-request-duration-microseconds"
+direction = "consumes"
+status = "agrees"
+producer = "services/explorer/backend/apps/indexer/lib/indexer/prometheus/instrumenter.ex:29"
+signature = "histogram block_batch_fetch_request_duration_microseconds{fetcher} registry=default"
+notes = "Stage/runner timing uses :timer.tc and the fetcher records microsecond elapsed durations. Instrumenter functions and declarations agree on histogram name, microsecond units and fetcher or stage/runner/step or stats_type labels; default registry is exported by BlockScoutWeb.Prometheus.Exporter."
+
+[interface_review.36]
+interface = "14.met-explorer-block-full-processing-duration-microseconds"
+direction = "consumes"
+status = "agrees"
+producer = "services/explorer/backend/apps/indexer/lib/indexer/prometheus/instrumenter.ex:13"
+signature = "histogram block_full_processing_duration_microseconds{fetcher} registry=default"
+notes = "Stage/runner timing uses :timer.tc and the fetcher records microsecond elapsed durations. Instrumenter functions and declarations agree on histogram name, microsecond units and fetcher or stage/runner/step or stats_type labels; default registry is exported by BlockScoutWeb.Prometheus.Exporter."
+
+[interface_review.37]
+interface = "14.met-explorer-block-import-duration-microseconds"
+direction = "consumes"
+status = "agrees"
+producer = "services/explorer/backend/apps/indexer/lib/indexer/prometheus/instrumenter.ex:21"
+signature = "histogram block_import_duration_microseconds{fetcher} registry=default"
+notes = "Stage/runner timing uses :timer.tc and the fetcher records microsecond elapsed durations. Instrumenter functions and declarations agree on histogram name, microsecond units and fetcher or stage/runner/step or stats_type labels; default registry is exported by BlockScoutWeb.Prometheus.Exporter."
+
+[interface_review.38]
+interface = "14.met-explorer-block-import-stage-runner-duration-microseconds"
+direction = "consumes"
+status = "agrees"
+producer = "services/explorer/backend/apps/explorer/lib/explorer/prometheus/instrumenter.ex:8"
+signature = "histogram block_import_stage_runner_duration_microseconds{stage,runner,step} registry=default"
+notes = "Stage/runner timing uses :timer.tc and the fetcher records microsecond elapsed durations. Instrumenter functions and declarations agree on histogram name, microsecond units and fetcher or stage/runner/step or stats_type labels; default registry is exported by BlockScoutWeb.Prometheus.Exporter."
+
+[interface_review.39]
+interface = "14.met-explorer-delay-from-last-node-block"
+direction = "consumes"
+status = "agrees"
+producer = "services/explorer/backend/apps/indexer/lib/indexer/prometheus/instrumenter.ex:37"
+signature = "gauge delay_from_last_node_block registry=default"
+notes = "The block fetcher supplies the node-head delay in seconds to set_json_rpc_node_delay; the declaration/exported gauge uses the same units and default registry."
+
+[interface_review.40]
+interface = "14.met-explorer-import-errors-count"
+direction = "consumes"
+status = "agrees"
+producer = "services/explorer/backend/apps/indexer/lib/indexer/prometheus/instrumenter.ex:39"
+signature = "counter import_errors_count registry=default"
+notes = "Import failures increment the declared import_errors_count counter with the supplied integer count; the default Prometheus exporter reads the same registry. It is a process-lifetime counter, not persisted failure storage."
+
+[interface_review.41]
+interface = "14.met-explorer-latest-batch-number"
+direction = "consumes"
+status = "agrees"
+producer = "services/explorer/backend/apps/indexer/lib/indexer/prometheus/instrumenter.ex:153"
+signature = "gauge latest_batch_number registry=default"
+notes = "The Indexer instrumenter declares this gauge, but sets it only for the explicit rollup chain types. Paxeer does not invent an L2 batch number/timestamp; the contract expressly documents this restriction."
+
+[interface_review.42]
+interface = "14.met-explorer-latest-batch-timestamp"
+direction = "consumes"
+status = "agrees"
+producer = "services/explorer/backend/apps/indexer/lib/indexer/prometheus/instrumenter.ex:155"
+signature = "gauge latest_batch_timestamp registry=default"
+notes = "The Indexer instrumenter declares this gauge, but sets it only for the explicit rollup chain types. Paxeer does not invent an L2 batch number/timestamp; the contract expressly documents this restriction."
+
+[interface_review.43]
+interface = "14.met-explorer-latest-block-number"
+direction = "consumes"
+status = "agrees"
+producer = "services/explorer/backend/apps/indexer/lib/indexer/prometheus/instrumenter.ex:43"
+signature = "gauge latest_block_number registry=default"
+notes = "Realtime imports pass the actually imported block number and DateTime; instrumenter set_latest_block writes the integer height and DateTime.to_unix seconds to the matching gauges. Startup initializes gauges and subsequent imports refresh them."
+
+[interface_review.44]
+interface = "14.met-explorer-latest-block-timestamp"
+direction = "consumes"
+status = "agrees"
+producer = "services/explorer/backend/apps/indexer/lib/indexer/prometheus/instrumenter.ex:45"
+signature = "gauge latest_block_timestamp registry=default"
+notes = "Realtime imports pass the actually imported block number and DateTime; instrumenter set_latest_block writes the integer height and DateTime.to_unix seconds to the matching gauges. Startup initializes gauges and subsequent imports refresh them."
+
+[interface_review.45]
+interface = "14.met-explorer-stats-import-stage-runner-duration-microseconds"
+direction = "consumes"
+status = "agrees"
+producer = "services/explorer/backend/apps/explorer/lib/explorer/prometheus/instrumenter.ex:16"
+signature = "histogram stats_import_stage_runner_duration_microseconds{stats_type} registry=default"
+notes = "Stage/runner timing uses :timer.tc and the fetcher records microsecond elapsed durations. Instrumenter functions and declarations agree on histogram name, microsecond units and fetcher or stage/runner/step or stats_type labels; default registry is exported by BlockScoutWeb.Prometheus.Exporter."
+
+[interface_review.46]
+interface = "14.storage-lx-account-bindings-j54"
+direction = "consumes"
+status = "agrees"
+producer = "services/explorer/backend/apps/explorer/lib/explorer/chain/paxeer_x/account_binding.ex:42"
+signature = "table lx_account_bindings"
+notes = "Compared schema fields and changesets with the corresponding PaxeerX import runner, its conflict target and PaxeerXLogs parsed values. Hashes/accounts and numeric/event fields retain their declared types; persistent Ecto upserts make identical block delivery replay-safe. The stage and fetcher expose this row only for the active paxeer_x chain identity."
+
+[interface_review.47]
+interface = "14.storage-lx-custody-events-j54"
+direction = "consumes"
+status = "retired-as-declared"
+producer = "services/explorer/backend/apps/explorer/lib/explorer/chain/paxeer_x/custody_event.ex:52"
+signature = "table lx_custody_events"
+notes = "The schema/table remains for historical data, but the registry marks the row change and explorer-indexer contract retires ingestion. No package member writes or selects a runner for it; only bindings and market events are parsed/imported for paxeer_x. Retained historical state is not an active transport."
+
+[interface_review.48]
+interface = "14.storage-lx-deposit-roots-j54"
+direction = "consumes"
+status = "retired-as-declared"
+producer = "services/explorer/backend/apps/explorer/lib/explorer/chain/paxeer_x/deposit_root.ex:49"
+signature = "table lx_deposit_roots"
+notes = "The schema/table remains for historical data, but the registry marks the row change and explorer-indexer contract retires ingestion. No package member writes or selects a runner for it; only bindings and market events are parsed/imported for paxeer_x. Retained historical state is not an active transport."
+
+[interface_review.49]
+interface = "14.storage-lx-guarantor-events-j54"
+direction = "consumes"
+status = "retired-as-declared"
+producer = "services/explorer/backend/apps/explorer/lib/explorer/chain/paxeer_x/guarantor_event.ex:73"
+signature = "table lx_guarantor_events"
+notes = "The schema/table remains for historical data, but the registry marks the row change and explorer-indexer contract retires ingestion. No package member writes or selects a runner for it; only bindings and market events are parsed/imported for paxeer_x. Retained historical state is not an active transport."
+
+[interface_review.50]
+interface = "14.storage-lx-market-events-j54"
+direction = "consumes"
+status = "agrees"
+producer = "services/explorer/backend/apps/explorer/lib/explorer/chain/paxeer_x/market_event.ex:44"
+signature = "table lx_market_events"
+notes = "Compared schema fields and changesets with the corresponding PaxeerX import runner, its conflict target and PaxeerXLogs parsed values. Hashes/accounts and numeric/event fields retain their declared types; persistent Ecto upserts make identical block delivery replay-safe. The stage and fetcher expose this row only for the active paxeer_x chain identity."
+
+[interface_review.51]
+interface = "4.sevt-erc721base-approval-8c5be1e5"
+direction = "consumes"
+status = "fixture-only"
+producer = "contracts/launchpad/contracts/base/ERC721Base.sol:24"
+signature = "event Approval(address indexed owner, address indexed approved, uint256 indexed tokenId)"
+notes = "The only package match is the vendored large_smart_contract.sol compilation fixture. Its standard ERC721 Approval indexed address/address/uint256 topic, supportsInterface(bytes4)->bool, enumeration uint256 selectors and receiver(address,address,uint256,bytes)->bytes4 signatures agree with the listed ABI. There is no deployed address, network transport or live launchpad/CW721 consumer in this slice; fixture compilation is not evidence of those unrelated contracts round-tripping."
+
+[interface_review.52]
+interface = "4.sol-erc721base-supportsinterface-01ffc9a7"
+direction = "consumes"
+status = "fixture-only"
+producer = "contracts/launchpad/contracts/base/ERC721Base.sol:33"
+signature = "function supportsInterface(bytes4 interfaceId) public view virtual returns (bool)"
+notes = "The only package match is the vendored large_smart_contract.sol compilation fixture. Its standard ERC721 Approval indexed address/address/uint256 topic, supportsInterface(bytes4)->bool, enumeration uint256 selectors and receiver(address,address,uint256,bytes)->bytes4 signatures agree with the listed ABI. There is no deployed address, network transport or live launchpad/CW721 consumer in this slice; fixture compilation is not evidence of those unrelated contracts round-tripping."
+
+[interface_review.53]
+interface = "4.sol-erc721enumerable-supportsinterface-01ffc9a7"
+direction = "consumes"
+status = "fixture-only"
+producer = "contracts/launchpad/contracts/base/ERC721Enumerable.sol:17"
+signature = "function supportsInterface(bytes4 interfaceId) public view virtual override returns (bool)"
+notes = "The only package match is the vendored large_smart_contract.sol compilation fixture. Its standard ERC721 Approval indexed address/address/uint256 topic, supportsInterface(bytes4)->bool, enumeration uint256 selectors and receiver(address,address,uint256,bytes)->bytes4 signatures agree with the listed ABI. There is no deployed address, network transport or live launchpad/CW721 consumer in this slice; fixture compilation is not evidence of those unrelated contracts round-tripping."
+
+[interface_review.54]
+interface = "4.sol-erc721enumerable-tokenbyindex-4f6ccce7"
+direction = "consumes"
+status = "fixture-only"
+producer = "contracts/launchpad/contracts/base/ERC721Enumerable.sol:29"
+signature = "function tokenByIndex(uint256 index) external view returns (uint256)"
+notes = "The only package match is the vendored large_smart_contract.sol compilation fixture. Its standard ERC721 Approval indexed address/address/uint256 topic, supportsInterface(bytes4)->bool, enumeration uint256 selectors and receiver(address,address,uint256,bytes)->bytes4 signatures agree with the listed ABI. There is no deployed address, network transport or live launchpad/CW721 consumer in this slice; fixture compilation is not evidence of those unrelated contracts round-tripping."
+
+[interface_review.55]
+interface = "4.sol-erc721enumerable-tokenofownerbyindex-2f745c59"
+direction = "consumes"
+status = "fixture-only"
+producer = "contracts/launchpad/contracts/base/ERC721Enumerable.sol:35"
+signature = "function tokenOfOwnerByIndex(address owner_, uint256 index) external view returns (uint256)"
+notes = "The only package match is the vendored large_smart_contract.sol compilation fixture. Its standard ERC721 Approval indexed address/address/uint256 topic, supportsInterface(bytes4)->bool, enumeration uint256 selectors and receiver(address,address,uint256,bytes)->bytes4 signatures agree with the listed ABI. There is no deployed address, network transport or live launchpad/CW721 consumer in this slice; fixture compilation is not evidence of those unrelated contracts round-tripping."
+
+[interface_review.56]
+interface = "4.sol-erc721enumerable-totalsupply-18160ddd"
+direction = "consumes"
+status = "fixture-only"
+producer = "contracts/launchpad/contracts/base/ERC721Enumerable.sol:24"
+signature = "function totalSupply() public view returns (uint256)"
+notes = "The only package match is the vendored large_smart_contract.sol compilation fixture. Its standard ERC721 Approval indexed address/address/uint256 topic, supportsInterface(bytes4)->bool, enumeration uint256 selectors and receiver(address,address,uint256,bytes)->bytes4 signatures agree with the listed ABI. There is no deployed address, network transport or live launchpad/CW721 consumer in this slice; fixture compilation is not evidence of those unrelated contracts round-tripping."
+
+[interface_review.57]
+interface = "4.sol-ierc721receiver-onerc721received-150b7a02"
+direction = "consumes"
+status = "fixture-only"
+producer = "contracts/launchpad/contracts/base/ERC721Base.sol:134"
+signature = "function onERC721Received( address operator, address from, uint256 tokenId, bytes calldata data ) external returns (bytes4)"
+notes = "The only package match is the vendored large_smart_contract.sol compilation fixture. Its standard ERC721 Approval indexed address/address/uint256 topic, supportsInterface(bytes4)->bool, enumeration uint256 selectors and receiver(address,address,uint256,bytes)->bytes4 signatures agree with the listed ABI. There is no deployed address, network transport or live launchpad/CW721 consumer in this slice; fixture compilation is not evidence of those unrelated contracts round-tripping."
+
+[interface_review.58]
+interface = "4.sol-sidioranft-supportsinterface-01ffc9a7"
+direction = "consumes"
+status = "fixture-only"
+producer = "contracts/launchpad/contracts/core/SidioraNFT.sol:148"
+signature = "function supportsInterface(bytes4 interfaceId) public view virtual override returns (bool)"
+notes = "The only package match is the vendored large_smart_contract.sol compilation fixture. Its standard ERC721 Approval indexed address/address/uint256 topic, supportsInterface(bytes4)->bool, enumeration uint256 selectors and receiver(address,address,uint256,bytes)->bytes4 signatures agree with the listed ABI. There is no deployed address, network transport or live launchpad/CW721 consumer in this slice; fixture compilation is not evidence of those unrelated contracts round-tripping."
+
+[interface_review.59]
+interface = "6.sevt-erc721-approval-8c5be1e5"
+direction = "consumes"
+status = "fixture-only"
+producer = "contracts/src/ERC721.sol:47"
+signature = "event Approval(address indexed owner, address indexed spender, uint indexed id)"
+notes = "The only package match is the vendored large_smart_contract.sol compilation fixture. Its standard ERC721 Approval indexed address/address/uint256 topic, supportsInterface(bytes4)->bool, enumeration uint256 selectors and receiver(address,address,uint256,bytes)->bytes4 signatures agree with the listed ABI. There is no deployed address, network transport or live launchpad/CW721 consumer in this slice; fixture compilation is not evidence of those unrelated contracts round-tripping."
+
+[interface_review.60]
+interface = "6.sol-cw721erc721pointer-supportsinterface-01ffc9a7"
+direction = "consumes"
+status = "fixture-only"
+producer = "contracts/src/CW721ERC721Pointer.sol:34"
+signature = "function supportsInterface(bytes4 interfaceId) public pure override(ERC721, ERC2981) returns (bool)"
+notes = "The only package match is the vendored large_smart_contract.sol compilation fixture. Its standard ERC721 Approval indexed address/address/uint256 topic, supportsInterface(bytes4)->bool, enumeration uint256 selectors and receiver(address,address,uint256,bytes)->bytes4 signatures agree with the listed ABI. There is no deployed address, network transport or live launchpad/CW721 consumer in this slice; fixture compilation is not evidence of those unrelated contracts round-tripping."
+
+[interface_review.61]
+interface = "6.sol-cw721erc721pointer-totalsupply-18160ddd"
+direction = "consumes"
+status = "fixture-only"
+producer = "contracts/src/CW721ERC721Pointer.sol:146"
+signature = "function totalSupply() public view virtual returns (uint256)"
+notes = "The only package match is the vendored large_smart_contract.sol compilation fixture. Its standard ERC721 Approval indexed address/address/uint256 topic, supportsInterface(bytes4)->bool, enumeration uint256 selectors and receiver(address,address,uint256,bytes)->bytes4 signatures agree with the listed ABI. There is no deployed address, network transport or live launchpad/CW721 consumer in this slice; fixture compilation is not evidence of those unrelated contracts round-tripping."
+
+[interface_review.62]
+interface = "6.sol-erc721-supportsinterface-01ffc9a7"
+direction = "consumes"
+status = "fixture-only"
+producer = "contracts/src/ERC721.sol:69"
+signature = "function supportsInterface(bytes4 interfaceId) external pure returns (bool)"
+notes = "The only package match is the vendored large_smart_contract.sol compilation fixture. Its standard ERC721 Approval indexed address/address/uint256 topic, supportsInterface(bytes4)->bool, enumeration uint256 selectors and receiver(address,address,uint256,bytes)->bytes4 signatures agree with the listed ABI. There is no deployed address, network transport or live launchpad/CW721 consumer in this slice; fixture compilation is not evidence of those unrelated contracts round-tripping."
+
+[interface_review.63]
+interface = "6.sol-erc721-totalsupply-18160ddd"
+direction = "consumes"
+status = "fixture-only"
+producer = "contracts/src/ERC721.sol:85"
+signature = "function totalSupply() external view returns (uint256)"
+notes = "The only package match is the vendored large_smart_contract.sol compilation fixture. Its standard ERC721 Approval indexed address/address/uint256 topic, supportsInterface(bytes4)->bool, enumeration uint256 selectors and receiver(address,address,uint256,bytes)->bytes4 signatures agree with the listed ABI. There is no deployed address, network transport or live launchpad/CW721 consumer in this slice; fixture compilation is not evidence of those unrelated contracts round-tripping."
+
+[interface_review.64]
+interface = "6.sol-ierc165-supportsinterface-01ffc9a7"
+direction = "consumes"
+status = "fixture-only"
+producer = "contracts/src/ERC721.sol:5"
+signature = "function supportsInterface(bytes4 interfaceID) external view returns (bool)"
+notes = "The only package match is the vendored large_smart_contract.sol compilation fixture. Its standard ERC721 Approval indexed address/address/uint256 topic, supportsInterface(bytes4)->bool, enumeration uint256 selectors and receiver(address,address,uint256,bytes)->bytes4 signatures agree with the listed ABI. There is no deployed address, network transport or live launchpad/CW721 consumer in this slice; fixture compilation is not evidence of those unrelated contracts round-tripping."
+
+[interface_review.65]
+interface = "6.sol-ierc721receiver-onerc721received-150b7a02"
+direction = "consumes"
+status = "fixture-only"
+producer = "contracts/src/ERC721.sol:37"
+signature = "function onERC721Received( address operator, address from, uint tokenId, bytes calldata data ) external returns (bytes4)"
+notes = "The only package match is the vendored large_smart_contract.sol compilation fixture. Its standard ERC721 Approval indexed address/address/uint256 topic, supportsInterface(bytes4)->bool, enumeration uint256 selectors and receiver(address,address,uint256,bytes)->bytes4 signatures agree with the listed ABI. There is no deployed address, network transport or live launchpad/CW721 consumer in this slice; fixture compilation is not evidence of those unrelated contracts round-tripping."
+
+[interface_review.66]
+interface = "7.ws-eth-subscribe-newheads"
+direction = "consumes"
+status = "agrees"
+producer = "rpc/subscribe.go:185"
+signature = "func (a *SubscriptionAPI) NewHeads(ctx context.Context) (s *rpc.Subscription, err error)"
+notes = "rpc/subscribe.go emits committed newHeads over eth_subscription with hex number, 32-byte hash and parentHash and the full header. Realtime.Fetcher pattern-matches number/hash and accepts additional header fields, checks parentHash and refetches canonical blocks/receipts by range. Subscription errors retain polling; catchup reconstructs missing ranges from persistent blocks after restart. No separate sequencer or speculative head is required."

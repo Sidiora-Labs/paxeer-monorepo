@@ -1,0 +1,32 @@
+[repair.22.33.999]
+finding = "production-backfill-default"
+proof = ["TestRepairM_999_ProductionBackfillDefault", "TestRepairM_999_ReceiptQualifiedBackfill"]
+implementation = "BACKFILL_BATCH_SIZE defaults to 64 in both live and backfill configurations; explicit environment overrides remain explicit and the production lifecycle and receipt range bounds remain unchanged. The existing default test now requires 64."
+producer_transport_consumer = "The production runtime-document renderer and committed chain-125 producer packet supply digest-bound inline configuration. Config.Load and ReadBoundDocument carry it to the real receipt authority over a loopback transcript server; the final backfill batch qualifies authentic current native and tenant blocks and ValidateBindings checks the result. The real receipt authority rejects 65 and 2000 blocks before RPC."
+qualification_limit = "The service-free test covers production configuration startup and receipt admission, not app.New database, broker or deployment startup. The final recorded range is two blocks; the configured default is asserted to be exactly 64."
+baseline = "No unchanged-tree verify ran: the explicit ordered gate instructions require complete implementation before formatting, hf-build and hf-done and prohibit running verify_cmd by hand. No baseline test failure is claimed."
+evidence = "The runner records exact candidate revision, command, exit code and private log in /out/run/gates.jsonl; the final response copies its last gate result. No success is claimed without hf-done evidence."
+wiring_registry = "Domain 4 / fm-launchpad: update spec/layerx-merge/interfaces.kvx interface.4.env-indexer-backfill-batch-size to envDefault 64 and regenerate spec/layerx-merge/docs/architecture/markets-and-launchpad.md consistently."
+wiring_deployment = "Domain 4 / fm-launchpad: update the owning deployment contract spec/layerx-merge/contracts/services.md (launchpad-indexer) to advertise BACKFILL_BATCH_SIZE=64 and preserve the 64-block receipt-qualified limit."
+
+[qualification.inherited_workspace]
+revision = "ba15275f35297413e2082302d035d994ca89debd"
+command = "cd services/launchpad/indexer && go build ./internal/config/..."
+exit = 1
+log = "/out/logs/build-1.log"
+observed = "The inherited workspace declares Go 1.25 while its notifications module requires Go 1.27; compilation never reached config."
+assumption = "Run both bounded gates with GOWORK=off to use the indexer's declared module and local replacements; no workspace file is changed."
+
+[qualification.replay_matching_repair]
+revision = "361dea12f44be20083690eceb386cd80c48a8b76"
+command = "cg spec done 22.33.999 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Production default loading passed; receipt qualification failed because replay request normalization removed an explicit zero sender while some recorded keys retained it."
+repair = "Apply the same canonical request key function to recorded and incoming calls, rejecting conflicting recordings and preserving every nonzero sender, block binding and result."
+
+[continuation.22.33.999]
+review = "The inherited working tree already applies the replay matching repair after the supplied failed verification; retain it and the production-safe 64-block default."
+proof = "Receipt qualification additionally requires both distinct native and tenant swap transaction identities from the committed producer packet to appear in the qualified backfill result."
+baseline = "The supplied previous attempt passed TestRepairM_999_ProductionBackfillDefault and failed TestRepairM_999_ReceiptQualifiedBackfill on an explicit zero-sender request; no unchanged-tree gate is repeated."
+gotcha = "The resumed sandbox has no previous private gate logs or ledger; historical evidence paths refer to the supplied earlier attempt, and current bounded gates create fresh evidence."

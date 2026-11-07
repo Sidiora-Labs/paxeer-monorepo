@@ -23,7 +23,7 @@ export default function useChartDataQuery(indicatorId: ChainIndicatorId): UseFet
     queryOptions: {
       refetchOnMount: false,
       enabled: isStatsFeatureEnabled && indicatorId === 'daily_txs',
-      select: (data) => data.daily_new_transactions?.chart.map((item) => ({ date: new Date(item.date), value: Number(item.value) })) || [],
+      select: (data) => data.daily_new_transactions?.chart.map((item) => ({ date: new Date(item.date), value: item.value })) || [],
     },
   });
 
@@ -33,9 +33,9 @@ export default function useChartDataQuery(indicatorId: ChainIndicatorId): UseFet
       enabled: isStatsFeatureEnabled && indicatorId === 'daily_operational_txs',
       select: (data) => {
         if (isArbitrumRollup) {
-          return data.daily_new_operational_transactions?.chart.map((item) => ({ date: new Date(item.date), value: Number(item.value) })) || [];
+          return data.daily_new_operational_transactions?.chart.map((item) => ({ date: new Date(item.date), value: item.value })) || [];
         } else if (isOptimisticRollup) {
-          return data.op_stack_daily_new_operational_transactions?.chart.map((item) => ({ date: new Date(item.date), value: Number(item.value) })) || [];
+          return data.op_stack_daily_new_operational_transactions?.chart.map((item) => ({ date: new Date(item.date), value: item.value })) || [];
         }
         return [];
       },
@@ -73,17 +73,7 @@ export default function useChartDataQuery(indicatorId: ChainIndicatorId): UseFet
       select: (data) => data.chart_data.map((item) => (
         {
           date: new Date(item.date),
-          value: (() => {
-            if (item.market_cap !== undefined) {
-              return item.market_cap;
-            }
-
-            if (item.closing_price === null) {
-              return null;
-            }
-
-            return Number(item.closing_price) * Number(data.available_supply);
-          })(),
+          value: item.market_cap ?? null,
         })),
     },
   });
@@ -95,7 +85,7 @@ export default function useChartDataQuery(indicatorId: ChainIndicatorId): UseFet
       select: (data) => data.chart_data.map((item) => (
         {
           date: new Date(item.date),
-          value: item.tvl !== undefined ? item.tvl : 0,
+          value: item.tvl ?? null,
         })),
     },
   });

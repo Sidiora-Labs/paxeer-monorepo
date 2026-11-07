@@ -1,0 +1,8 @@
+[task.22.31.96]
+finding = "22.30.49/014"
+repair = "UnpackTxData dispatches by the canonical registered TypeUrl, rejects unknown URLs and cached type mismatches, and returns decoding errors without guessing another type."
+proof = ["TestRepair_96_RegisteredTransactionRoundTrip", "TestRepair_96_RejectUnknownAndMismatchedURLs", "TestRepair_96_RejectMalformedPayload"]
+path = "Signed geth transactions and NewAssociateTx -> PackTxData -> protobuf Any marshal/unmarshal -> UnpackTxData -> MsgEVMTransaction consumers, with and without real SDK registry unpacking."
+baseline = "Not run: the explicit gate order forbids testing before full implementation and forbids running verify_cmd by hand; no prior task gate ledger exists. No baseline failures are claimed."
+wiring_requests = []
+evidence = "The runner records the verified candidate revision, exact commands, exits and private log paths in its gate ledger; no qualification is claimed before hf-done passes."

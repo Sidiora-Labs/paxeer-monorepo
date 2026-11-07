@@ -13,7 +13,7 @@
     "yup": "^1.2.0",
     "dotenv-cli": "^7.2.1",
     "typescript": "5.4.2",
-    "vite": "6.4.4"
+    "vite": "6.4.5"
   },
   "resolutions": {
     "nanoid": "3.3.18",

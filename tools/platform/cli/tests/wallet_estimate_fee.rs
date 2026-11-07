@@ -68,7 +68,7 @@ fn quote_with_sender(
     from: &str,
 ) -> Result<(Output, Vec<Value>), Box<dyn std::error::Error>> {
     let listener = TcpListener::bind("127.0.0.1:0")?;
-    let endpoint = format!("http://{}/rpc", listener.local_addr()?);
+    let endpoint = format!("http://{}", listener.local_addr()?);
     listener.set_nonblocking(true)?;
     let server = std::thread::spawn(move || -> Result<Vec<Value>, String> {
         let mut requests = Vec::new();
@@ -95,7 +95,7 @@ fn quote_with_sender(
             let mut reader = BufReader::new(&stream);
             let mut line = String::new();
             reader.read_line(&mut line).map_err(|e| e.to_string())?;
-            assert_eq!(line, "POST /rpc HTTP/1.1\r\n");
+            assert_eq!(line, "POST / HTTP/1.1\r\n");
             let mut length = None;
             loop {
                 line.clear();
@@ -154,7 +154,7 @@ fn estimate_fee_sends_the_intended_sender() -> Result<(), Box<dyn std::error::Er
 
     let listener = TcpListener::bind("127.0.0.1:0")?;
     listener.set_nonblocking(true)?;
-    let endpoint = format!("http://{}/rpc", listener.local_addr()?);
+    let endpoint = format!("http://{}", listener.local_addr()?);
     for from in [
         None,
         Some("0x11"),
@@ -383,7 +383,7 @@ fn estimate_fee_accepts_unsigned_payment_call_and_refuses_kernel_activity_hex(
     .collect::<String>();
     let listener = TcpListener::bind("127.0.0.1:0")?;
     listener.set_nonblocking(true)?;
-    let endpoint = format!("http://{}/rpc", listener.local_addr()?);
+    let endpoint = format!("http://{}", listener.local_addr()?);
     for transaction in [
         kernel,
         signed,

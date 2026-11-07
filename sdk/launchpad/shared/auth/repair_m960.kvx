@@ -1,0 +1,8 @@
+[repair.22.33.960]
+finding = "audit-durable-fixture"
+proof = "TestRepairM_960_AuditDurableFixture; TestRepairM_960_UnprovisionedDurablesRefused; TestRepairM_960_ProvisioningFailures"
+change = "Both integration durables use BrokerConsumerConfig and CreateConsumer before the real NewConsumer attachment; sink failure, replay and immutable-state assertions are preserved."
+baseline = "Not executed: the explicit ordered gate instructions require complete implementation before the sole hf-build and hf-done runs; no prior gate ledger was present."
+wiring_requests = []
+evidence = "The runner records the candidate revision, exact commands, exits and private logs in its gate ledger."
+qualification_repair = "The pinned NATS client serializes num_replicas=0 even when it is unset; the exact protocol fixture must include that field (initial verification: revision 6a07b7ac47755165f214c9c9eea32a34912f796b, cg spec done 22.33.960 -f layerx-merge --root /work/paxeer-monorepo, exit 1, /out/logs/verify-1.log)."

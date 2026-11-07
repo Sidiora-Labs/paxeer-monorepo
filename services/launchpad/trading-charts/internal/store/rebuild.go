@@ -215,6 +215,8 @@ CREATE TABLE %[1]s.chart_rebuild_traders(run_id text NOT NULL REFERENCES %[1]s.c
 CREATE TABLE %[1]s.chart_rebuild_fills(run_id text NOT NULL REFERENCES %[1]s.chart_rebuild_runs,source_id text NOT NULL,digest text NOT NULL,payload jsonb NOT NULL,PRIMARY KEY(run_id,source_id));
 CREATE TABLE %[1]s.chart_archive_checkpoints(pool text NOT NULL,from_time bigint NOT NULL,to_time bigint NOT NULL,manifest_digest text NOT NULL,verified_at timestamptz NOT NULL DEFAULT clock_timestamp(),PRIMARY KEY(pool,from_time,to_time));
 CREATE TABLE %[1]s.chart_replay_references(reference_id text PRIMARY KEY,pool text NOT NULL,from_time bigint NOT NULL,to_time bigint NOT NULL,expires_at timestamptz NOT NULL);
+CREATE TABLE %[1]s.chart_rebuild_stream_sources(event_id text PRIMARY KEY REFERENCES %[1]s.chart_stream_sources(event_id),run_id text NOT NULL REFERENCES %[1]s.chart_rebuild_runs,manifest_digest text NOT NULL CHECK(manifest_digest ~ '^[0-9a-f]{64}$'),output_digest text NOT NULL CHECK(output_digest ~ '^[0-9a-f]{64}$'),owner_epoch bigint NOT NULL CHECK(owner_epoch>0));
+CREATE TRIGGER chart_rebuild_stream_source_immutable BEFORE UPDATE OR DELETE ON %[1]s.chart_rebuild_stream_sources FOR EACH ROW EXECUTE FUNCTION %[1]s.chart_stream_source_immutable();
 `, schema), nil
 }
 
@@ -289,6 +291,9 @@ func (s *ExactStore) PromoteRebuild(ctx context.Context, id string) (uint64, err
 	if status != "validated" || expected != output {
 		return 0, ErrIntegrity
 	}
+	if !archiveDigest.MatchString(manifest) || !archiveDigest.MatchString(expected) {
+		return 0, ErrIntegrity
+	}
 	rows, err := tx.Query(ctx, `SELECT payload FROM `+s.Schema+`.chart_rebuild_fills WHERE run_id=$1 ORDER BY source_id`, id)
 	if err != nil {
 		return 0, err
@@ -340,7 +345,10 @@ func (s *ExactStore) PromoteRebuild(ctx context.Context, id string) (uint64, err
 	if _, err = tx.Exec(ctx, `UPDATE `+s.Schema+`.chart_series_clock SET revision=$2 WHERE chain_id='125' AND pool=$1`, pool, revision); err != nil {
 		return 0, err
 	}
-	if _, err = tx.Exec(ctx, `UPDATE `+s.Schema+`.chart_rebuild_candles c SET snapshot=jsonb_set(jsonb_set(c.snapshot,'{revision}',to_jsonb(COALESCE((SELECT (e.snapshot->>'revision')::numeric FROM `+s.Schema+`.chart_exact e WHERE e.chain_id='125' AND e.pool=$2 AND e.interval=c.interval AND e.start=c.start),0)+1)),'{displayRevision}',to_jsonb($3::bigint)) WHERE c.run_id=$1`, id, pool, revision); err != nil {
+	if _, err = tx.Exec(ctx, `UPDATE `+s.Schema+`.chart_rebuild_candles c SET snapshot=jsonb_set(jsonb_set(c.snapshot,'{revision}',to_jsonb(GREATEST(COALESCE((SELECT (e.snapshot->>'revision')::numeric FROM `+s.Schema+`.chart_exact e WHERE e.chain_id='125' AND e.pool=$2 AND e.interval=c.interval AND e.start=c.start),0),COALESCE((SELECT max(p.revision) FROM `+s.Schema+`.chart_stream_sources p WHERE p.chain_id='125' AND p.pool=$2 AND p.interval=c.interval AND p.start=c.start),0))+1)),'{displayRevision}',to_jsonb($3::bigint)) WHERE c.run_id=$1`, id, pool, revision); err != nil {
+		return 0, err
+	}
+	if err = s.refreshRebuildSnapshotsTx(ctx, tx, id, pool); err != nil {
 		return 0, err
 	}
 	if _, err = tx.Exec(ctx, `INSERT INTO `+s.Schema+`.chart_exact SELECT '125',$2,interval,start,snapshot FROM `+s.Schema+`.chart_rebuild_candles WHERE run_id=$1 ON CONFLICT(chain_id,pool,interval,start) DO UPDATE SET snapshot=EXCLUDED.snapshot`, id, pool); err != nil {
@@ -356,6 +364,9 @@ func (s *ExactStore) PromoteRebuild(ctx context.Context, id string) (uint64, err
 		return 0, err
 	}
 	if _, err = tx.Exec(ctx, `INSERT INTO `+s.Schema+`.chart_outbox(chain_id,pool,interval,start,revision,payload) SELECT '125',$2,interval,start,(snapshot->>'revision')::numeric,snapshot FROM `+s.Schema+`.chart_rebuild_candles WHERE run_id=$1`, id, pool); err != nil {
+		return 0, err
+	}
+	if err = s.appendRebuildStreamsTx(ctx, tx, id, pool, manifest, output, epoch); err != nil {
 		return 0, err
 	}
 	if _, err = tx.Exec(ctx, `INSERT INTO `+s.Schema+`.chart_archive_checkpoints(pool,from_time,to_time,manifest_digest) VALUES($1,$2,$3,$4) ON CONFLICT(pool,from_time,to_time) DO UPDATE SET manifest_digest=EXCLUDED.manifest_digest,verified_at=clock_timestamp()`, pool, from, to, manifest); err != nil {

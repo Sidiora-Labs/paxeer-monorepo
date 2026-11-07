@@ -1,0 +1,32 @@
+[repair.22.31.235]
+audit = "22.30.114"
+base_revision = "9d1a06c7f3635f5556023760af7a75ee9755efdd"
+result = "implemented; qualification is determined only by the final hf-done receipt"
+product_change = "The registered Next proxy routes watch and webhook lifecycle requests to PORTFOLIO_UPSTREAM_BASE with the caller's bearer credential, explicit route/method/query admission, bounded JSON bodies and responses, a concurrency limit and timeout. Authenticated reads bypass shared caches. The producer retains credential validation, ownership and callback validation; its statuses and JSON bodies pass through unchanged."
+credential_contract = "Portfolio client functions retain their existing signal argument and accept an optional trailing accessToken; no administrator or service credential is substituted for the caller. Missing or malformed credentials return 401 before body handling; invalid supplied credentials are rejected by the producer."
+baseline = "Supplied attempts 2 and 3 ran the declared verify_cmd before the route change: finding_2_watch_mutations_require_authorization_at_the_real_proxy and finding_3_webhook_mutations_require_authorization_at_the_real_proxy failed because the registered handlers returned 405 instead of 401. No new baseline gate is claimed or run outside the permitted gate order."
+continued_attempt = "Retained both client authorization regression tests and their assertions. The previous 405 test retains its assertions against unsupported routes, because this attempt explicitly registers watch and webhook mutation routes. Added authorized lifecycle, recovery-read, ownership/error, validation and transport-bound tests."
+fixture_contract = "Decision 2520 permits the committed TypeScript transcript fixture to stand in for the indexer. Native HTTP connects the production portfolio clients to the production Next handlers and the strict loopback transcript peer. Restart tests stop and reopen that peer and read recorded recovered/deleted states through the real proxy; they prove transport recovery and cache freshness, not the out-of-scope indexer's storage implementation."
+qualification = "hf-build then hf-done run on the final unchanged source candidate. The private receipt records the exact candidate revision, command, exit and log. No completed status is asserted unless that receipt passes, and no source changes follow the passing gate."
+verified_revision = "Authoritative exact revision: final passing verify row in /out/run/gates.jsonl; this pointer avoids changing the candidate after its gate."
+evidence_ledger = "/out/run/gates.jsonl"
+implementation_gotcha = "HeadersInit needs explicit [string, string] tuples; Vitest test(function) registers TODO, so named functions are registered as test(function.name, function)."
+scope_gotcha = "The runner supplied changes to .cgignore and spec/layerx-merge/spec.kvx before this attempt; neither is edited by this repair. Gotchas are recorded here because the task forbids editing GOTCHA.kvx."
+legacy_caller_gotcha = "The out-of-scope proof_wallet_app.test.ts calls POST() synchronously without a request. An overload retains that explicit 405 refusal; real Next calls supply request/context and use the authenticated route."
+working_directory_gotcha = "Repository-relative edit paths fail when the command working directory is apps/wallet; use the repository root for edits and apps/wallet for formatter paths."
+formatter_gotcha = "Resolve formatter paths from apps/wallet when using its existing Prettier configuration."
+
+[finding.2]
+test = "finding_2_watch_mutations_require_authorization_at_the_real_proxy"
+lifecycle_test = "watch_lifecycle_round_trips_and_reads_after_indexer_restart"
+status = "implemented; requires final passing qualification receipt"
+proof = "Real watchAddress/getWatchStatus/unwatchAddress clients traverse the real registered proxy to the strict transcript peer, asserting create status 201, active status reads, restart reads, deletion status 204, inactive status reads after deletion/restart, credential forwarding and no-store responses. Missing credentials fail with 401; producer errors remain intact."
+wiring_request = "Domain 14: services/platform/hosted/indexer/src/api.rs must provide/deploy the authenticated /api/v2/watch producer with durable tracking and configure the wallet server PORTFOLIO_UPSTREAM_BASE to its trusted origin; producer persistence is outside this repair."
+
+[finding.3]
+test = "finding_3_webhook_mutations_require_authorization_at_the_real_proxy"
+lifecycle_test = "webhook_lifecycle_preserves_snake_case_ownership_and_restart_reads"
+status = "implemented; requires final passing qualification receipt"
+proof = "Real webhook clients traverse the real proxy for snake_case creation/update, address listing, direct lookup, delivery lookup, deletion and reads after peer restarts; producer 401/403/404/422 bodies and statuses survive, including callback validation and ownership denials. Reads do not reuse another credential's cached response."
+wiring_request = "Domain 14: services/platform/hosted/indexer/src/api.rs must provide/deploy the authenticated /api/v2/webhooks producer with ownership checks, callback validation, durable subscription/delivery state and recovery; the loopback transcript proves the wallet transport contract only."
+caller_wiring_request = "Domain 12: apps/wallet/src/lib/api.ts and authenticated application call sites must supply the caller's producer-issued accessToken when invoking these portfolio client functions; those paths are outside this task's scope."

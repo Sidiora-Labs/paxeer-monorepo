@@ -21,6 +21,8 @@ import {
   spotTradeHistory,
 } from "@/core/spot/trade-history";
 import { paxeerChain } from "@/core/perps/config";
+import { getTokenByAddress } from "@/core/spot/addresses";
+import { formatPrice } from "@/core/spot/slippage";
 import { classifyError } from "@/core/errors/classify";
 import { reportError } from "@/core/errors/report";
 
@@ -178,6 +180,7 @@ export function SpotPositionsPanel() {
             initial={portfolio.tradeHistory}
             initialError={portfolio.tradeHistoryError}
             refresh={portfolio.refresh}
+            tokenMetadata={portfolio.positions}
           />
         ) : (
           <ClosedLegsTab address={address ?? null} />
@@ -237,7 +240,9 @@ function HoldingsTab({
     });
   }
 
-  const erc20List = Array.isArray(portfolio.holdings.erc20) ? portfolio.holdings.erc20 : [];
+  const erc20List = Array.isArray(portfolio.holdings.erc20)
+    ? portfolio.holdings.erc20
+    : [];
   for (const e of erc20List) {
     if (!e || typeof e.token !== "string") continue;
     const dec =
@@ -256,9 +261,7 @@ function HoldingsTab({
       decimals: dec,
       qty,
       isStablecoin: !!pos?.isStablecoin,
-      avgEntry: pos
-        ? dStr(pos.derived.avgEntryPrice, 0)
-        : null,
+      avgEntry: pos ? dStr(pos.derived.avgEntryPrice, 0) : null,
       realizedUsd: pos ? dStrToUsd(pos.derived.realizedPnlUsd, 0) : null,
     });
   }
@@ -371,10 +374,16 @@ function OpenOrdersTab({ orders }: { orders: SpotOrder[] }) {
           {orders.map((o) => {
             const dec = o.decimals ?? 18;
             const amount = dStrToToken(o.amount, dec);
-            const price = dStr(o.limitPrice ?? o.targetPrice ?? o.triggerPrice, 0);
+            const price = dStr(
+              o.limitPrice ?? o.targetPrice ?? o.triggerPrice,
+              0,
+            );
             const isBuy = o.isBuy === true;
             return (
-              <tr key={String(o.id)} className="border-b border-white/[0.04] hover:bg-white/[0.02]">
+              <tr
+                key={String(o.id)}
+                className="border-b border-white/[0.04] hover:bg-white/[0.02]"
+              >
                 <td className="px-4 py-2.5 font-mono text-[11px] text-muted-foreground uppercase">
                   {o.type.replace("_", " ")}
                 </td>
@@ -435,7 +444,8 @@ function OrderHistoryTab({ address }: { address: string | null }) {
         if (!ctrl.signal.aborted) setOrders(res.items);
       })
       .catch((e) => {
-        if (!ctrl.signal.aborted) setError(classifyFetchError(e, "spot/orders"));
+        if (!ctrl.signal.aborted)
+          setError(classifyFetchError(e, "spot/orders"));
       })
       .finally(() => {
         if (!ctrl.signal.aborted) setLoading(false);
@@ -444,7 +454,8 @@ function OrderHistoryTab({ address }: { address: string | null }) {
   }, [address]);
 
   if (loading && !orders) return <LoadingRows />;
-  if (error) return <Empty title="Failed to load order history" subtitle={error} />;
+  if (error)
+    return <Empty title="Failed to load order history" subtitle={error} />;
   if (!orders || orders.length === 0) return <Empty title="No order history" />;
 
   return (
@@ -457,7 +468,9 @@ function OrderHistoryTab({ address }: { address: string | null }) {
             <th className="text-left px-4 py-2 font-medium">Side</th>
             <th className="text-left px-4 py-2 font-medium">Asset</th>
             <th className="text-right px-4 py-2 font-medium">Amount</th>
-            <th className="text-right px-4 py-2 font-medium">Limit / Trigger</th>
+            <th className="text-right px-4 py-2 font-medium">
+              Limit / Trigger
+            </th>
             <th className="text-right px-4 py-2 font-medium">Exec Px</th>
             <th className="text-right px-4 py-2 font-medium">When</th>
             <th className="text-right px-4 py-2 font-medium">Tx</th>
@@ -468,7 +481,10 @@ function OrderHistoryTab({ address }: { address: string | null }) {
             const dec = o.decimals ?? 18;
             const amount = dStrToToken(o.amount, dec);
             const isBuy = o.isBuy === true;
-            const trigger = dStr(o.limitPrice ?? o.targetPrice ?? o.triggerPrice, 0);
+            const trigger = dStr(
+              o.limitPrice ?? o.targetPrice ?? o.triggerPrice,
+              0,
+            );
             const exec = dStr(o.executionPrice, 0);
             const ts = o.executedAt ?? o.cancelledAt ?? o.placedAt;
             const tx = o.executedTxHash ?? o.placedTxHash;
@@ -479,9 +495,17 @@ function OrderHistoryTab({ address }: { address: string | null }) {
                   ? "text-muted-foreground bg-white/[0.04]"
                   : "text-amber-400 bg-amber-500/10";
             return (
-              <tr key={String(o.id)} className="border-b border-white/[0.04] hover:bg-white/[0.02]">
+              <tr
+                key={String(o.id)}
+                className="border-b border-white/[0.04] hover:bg-white/[0.02]"
+              >
                 <td className="px-4 py-2.5">
-                  <span className={cn("text-[10px] font-mono font-semibold px-2 py-0.5 rounded-full uppercase", statusColor)}>
+                  <span
+                    className={cn(
+                      "text-[10px] font-mono font-semibold px-2 py-0.5 rounded-full uppercase",
+                      statusColor,
+                    )}
+                  >
                     {o.status}
                   </span>
                 </td>
@@ -492,7 +516,9 @@ function OrderHistoryTab({ address }: { address: string | null }) {
                   <span
                     className={cn(
                       "text-[10px] font-mono font-semibold px-2 py-0.5 rounded-full",
-                      isBuy ? "bg-emerald-500/10 text-emerald-400" : "bg-red-500/10 text-red-400",
+                      isBuy
+                        ? "bg-emerald-500/10 text-emerald-400"
+                        : "bg-red-500/10 text-red-400",
                     )}
                   >
                     {isBuy ? "Buy" : "Sell"}
@@ -527,17 +553,28 @@ function OrderHistoryTab({ address }: { address: string | null }) {
 
 // ── Trade History tab ────────────────────────────────────────────────
 
-function TradeHistoryTab({
+export function TradeHistoryTab({
   address,
   initial,
   initialError,
   refresh,
+  tokenMetadata = [],
 }: {
   address: string | null;
   initial: SpotTradesResponse | null;
   initialError: Error | null;
   refresh: () => void;
+  tokenMetadata?: ReadonlyArray<Pick<SpotPosition, "token" | "decimals">>;
 }) {
+  const decimalsByToken = new Map(
+    tokenMetadata.map((token) => [token.token.toLowerCase(), token.decimals]),
+  );
+  const tokenAmount = (raw: string, token: string): number | null => {
+    const decimals =
+      decimalsByToken.get(token.toLowerCase()) ??
+      getTokenByAddress(token)?.decimals;
+    return decimals == null ? null : dStrToToken(raw, decimals);
+  };
   const [history, setHistory] = useState(() => spotTradeHistory(initial));
   const page = history.snapshot === initial ? history.page : initial;
   const trades = page?.items ?? [];
@@ -628,10 +665,10 @@ function TradeHistoryTab({
           </thead>
           <tbody>
             {trades.map((t) => {
-              const exec = dStr(t.executionPrice, 0);
+              const exec = Number(formatPrice(BigInt(t.executionPrice)));
               const vol = dStrToUsd(t.volumeUsd, 0);
-              const inAmt = dStr(t.amountIn, 0);
-              const outAmt = dStr(t.amountOut, 0);
+              const inAmt = tokenAmount(t.amountIn, t.tokenIn);
+              const outAmt = tokenAmount(t.amountOut, t.tokenOut);
               return (
                 <tr
                   key={String(t.id)}
@@ -644,18 +681,22 @@ function TradeHistoryTab({
                     {`${t.tokenIn.slice(0, 6)}… → ${t.tokenOut.slice(0, 6)}…`}
                   </td>
                   <td className="px-4 py-2.5 text-right tabular-nums font-mono">
-                    {inAmt > 0
-                      ? inAmt.toLocaleString("en-US", {
-                          maximumFractionDigits: 6,
-                        })
-                      : "—"}
+                    {inAmt == null
+                      ? "Amount unavailable"
+                      : inAmt > 0
+                        ? inAmt.toLocaleString("en-US", {
+                            maximumFractionDigits: 6,
+                          })
+                        : "—"}
                   </td>
                   <td className="px-4 py-2.5 text-right tabular-nums font-mono">
-                    {outAmt > 0
-                      ? outAmt.toLocaleString("en-US", {
-                          maximumFractionDigits: 6,
-                        })
-                      : "—"}
+                    {outAmt == null
+                      ? "Amount unavailable"
+                      : outAmt > 0
+                        ? outAmt.toLocaleString("en-US", {
+                            maximumFractionDigits: 6,
+                          })
+                        : "—"}
                   </td>
                   <td className="px-4 py-2.5 text-right tabular-nums font-mono">
                     {exec > 0 ? fmtUsd(exec) : "—"}
@@ -687,7 +728,16 @@ function TradeHistoryTab({
 
 // ── Closed Legs tab ──────────────────────────────────────────────────
 
-function ClosedLegsTab({ address }: { address: string | null }) {
+export function ClosedLegsTab({ address }: { address: string | null }) {
+  return (
+    <WalletClosedLegsTab
+      key={address?.toLowerCase() ?? "disconnected"}
+      address={address}
+    />
+  );
+}
+
+function WalletClosedLegsTab({ address }: { address: string | null }) {
   const [legs, setLegs] = useState<SpotClosedLeg[]>([]);
   const [cursor, setCursor] = useState<{ afterId: number } | null>(null);
   const [loading, setLoading] = useState(false);
@@ -695,49 +745,64 @@ function ClosedLegsTab({ address }: { address: string | null }) {
   const [exhausted, setExhausted] = useState(false);
   const [hasFetched, setHasFetched] = useState(false);
 
-  useEffect(() => {
-    if (!address) return;
-    const ctrl = new AbortController();
-    setLoading(true);
-    spotApi
-      .getClosedLegs(address, { limit: 50, signal: ctrl.signal })
-      .then((res) => {
-        if (ctrl.signal.aborted) return;
-        setLegs(res.items);
-        setCursor(res.nextCursor);
-        if (res.nextCursor === null) setExhausted(true);
-        setHasFetched(true);
-      })
-      .catch((e) => {
-        if (!ctrl.signal.aborted)
-          setError(classifyFetchError(e, "spot/closed-legs-initial"));
-      })
-      .finally(() => {
-        if (!ctrl.signal.aborted) setLoading(false);
-      });
-    return () => ctrl.abort();
-  }, [address]);
+  const request = useRef<AbortController | null>(null);
 
-  const loadMore = async () => {
-    if (!address || !cursor || loading || exhausted) return;
+  const loadPage = async (afterId?: number) => {
+    if (!address || request.current) return;
+    const ctrl = new AbortController();
+    request.current = ctrl;
     setLoading(true);
     setError(null);
     try {
       const res = await spotApi.getClosedLegs(address, {
         limit: 50,
-        afterId: cursor.afterId,
+        afterId,
+        signal: ctrl.signal,
       });
-      setLegs((prev) => [...prev, ...res.items]);
+      if (ctrl.signal.aborted || request.current !== ctrl) return;
+      setLegs((prev) =>
+        afterId === undefined ? res.items : [...prev, ...res.items],
+      );
       setCursor(res.nextCursor);
-      if (res.nextCursor === null) setExhausted(true);
+      setExhausted(res.nextCursor === null);
+      setHasFetched(true);
     } catch (e) {
-      setError(classifyFetchError(e, "spot/closed-legs"));
+      if (!ctrl.signal.aborted && request.current === ctrl)
+        setError(classifyFetchError(e, "spot/closed-legs"));
     } finally {
-      setLoading(false);
+      if (!ctrl.signal.aborted && request.current === ctrl) {
+        request.current = null;
+        setLoading(false);
+      }
     }
   };
 
+  useEffect(() => {
+    void loadPage();
+    return () => {
+      request.current?.abort();
+      request.current = null;
+    };
+  }, [address]);
+
+  const loadMore = () => {
+    if (cursor && !loading && !exhausted) void loadPage(cursor.afterId);
+  };
+
   if (loading && !hasFetched) return <LoadingRows />;
+  if (!hasFetched && error)
+    return (
+      <div role="alert" className="px-4 py-3">
+        <p>{error}</p>
+        <button
+          type="button"
+          onClick={() => void loadPage()}
+          disabled={loading}
+        >
+          Retry closed legs
+        </button>
+      </div>
+    );
   if (legs.length === 0) return <Empty title="No closed legs yet" />;
 
   return (
@@ -773,7 +838,10 @@ function ClosedLegsTab({ address }: { address: string | null }) {
                     ? parseInt(leg.holdingSeconds, 10) || 0
                     : 0;
               return (
-                <tr key={leg.id} className="border-b border-white/[0.04] hover:bg-white/[0.02]">
+                <tr
+                  key={leg.id}
+                  className="border-b border-white/[0.04] hover:bg-white/[0.02]"
+                >
                   <td className="px-4 py-2.5 tabular-nums font-mono text-muted-foreground">
                     {fmtTime(leg.closedAt)}
                   </td>
@@ -842,13 +910,7 @@ function ClosedLegsTab({ address }: { address: string | null }) {
 
 // ── Shared sub-components ────────────────────────────────────────────
 
-function Empty({
-  title,
-  subtitle,
-}: {
-  title: string;
-  subtitle?: string;
-}) {
+function Empty({ title, subtitle }: { title: string; subtitle?: string }) {
   return (
     <div className="flex-1 flex flex-col items-center justify-center gap-1 px-6 py-10 text-center">
       <span className="text-sm text-muted-foreground">{title}</span>
@@ -863,10 +925,7 @@ function LoadingRows() {
   return (
     <div className="flex-1 flex flex-col px-4 py-3 gap-2">
       {Array.from({ length: 6 }).map((_, i) => (
-        <div
-          key={i}
-          className="h-9 rounded bg-white/[0.04] animate-pulse"
-        />
+        <div key={i} className="h-9 rounded bg-white/[0.04] animate-pulse" />
       ))}
     </div>
   );
@@ -874,7 +933,9 @@ function LoadingRows() {
 
 function TxLink({ hash }: { hash: string | null | undefined }) {
   if (!hash) {
-    return <span className="text-muted-foreground/60 text-[10px] font-mono">—</span>;
+    return (
+      <span className="text-muted-foreground/60 text-[10px] font-mono">—</span>
+    );
   }
   return (
     <a

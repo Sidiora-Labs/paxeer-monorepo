@@ -86,7 +86,51 @@ pub struct CommittedCaps {
     accounts: BTreeMap<[u8; 32], CommittedAccount>,
     assets: BTreeMap<[u8; 32], CommittedAsset>,
     budgets: Vec<crate::budget::ProtocolBudgetRecord>,
+    budget_funding: BTreeMap<[u8; 32], CommittedBudgetFunding>,
     grants: Vec<CommittedGrant>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct CommittedBudgetFunding {
+    pub budget_id: [u8; 32],
+    pub account_id: [u8; 32],
+    pub asset_id: [u8; 32],
+    allowance: u128,
+    balance: u128,
+    remaining: u128,
+}
+
+impl CommittedBudgetFunding {
+    /// Checks the native budget view's funded amount against the independent
+    /// ledger balance. Authentication of both reads belongs to CommittedReads.
+    pub fn verify_values(
+        record: &crate::budget::ProtocolBudgetRecord,
+        balance: u128,
+        served_remaining: u128,
+    ) -> Result<Self, CommittedReadError> {
+        let allowance = record.remaining();
+        let remaining = allowance.min(balance);
+        if served_remaining != remaining {
+            return Err(CommittedReadError::Selector);
+        }
+        Ok(Self {
+            budget_id: record.budget_id,
+            account_id: record.budget_account,
+            asset_id: record.asset_id,
+            allowance,
+            balance,
+            remaining,
+        })
+    }
+    pub const fn allowance(&self) -> u128 {
+        self.allowance
+    }
+    pub const fn funded_balance(&self) -> u128 {
+        self.balance
+    }
+    pub const fn remaining(&self) -> u128 {
+        self.remaining
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -120,7 +164,7 @@ impl CommittedCaps {
         self.checkpoint.height
     }
     pub const fn level(&self) -> VerificationLevel {
-        VerificationLevel::CHECKPOINT_FINALISED
+        VerificationLevel::COMMITTED
     }
     pub const fn freshness(&self) -> Freshness {
         checkpoint_freshness(&self.checkpoint)
@@ -130,6 +174,51 @@ impl CommittedCaps {
     }
     pub fn budgets(&self) -> &[crate::budget::ProtocolBudgetRecord] {
         &self.budgets
+    }
+    pub fn budget_funding(
+        &self,
+        id: &[u8; 32],
+    ) -> Result<&CommittedBudgetFunding, CommittedReadError> {
+        self.budget_funding
+            .get(id)
+            .ok_or(CommittedReadError::Selector)
+    }
+
+    /// Selects only funded spending power at the inventory's held checkpoint.
+    pub fn budget_source(
+        &self,
+        id: &[u8; 32],
+        asset: [u8; 32],
+        amount: u128,
+    ) -> Result<&CommittedBudgetFunding, CommittedReadError> {
+        let record = self
+            .budgets
+            .iter()
+            .find(|record| &record.budget_id == id)
+            .ok_or(CommittedReadError::Selector)?;
+        let funding = self.budget_funding(id)?;
+        if record.owner != self.did
+            || record.asset_id != asset
+            || record.closed
+            || record.revoked
+            || record.expiry != 0
+                && self
+                    .checkpoint
+                    .header
+                    .time
+                    .seconds
+                    .checked_mul(1000)
+                    .and_then(|ms| {
+                        ms.checked_add(i64::from(self.checkpoint.header.time.nanos / 1_000_000))
+                    })
+                    .and_then(|ms| u64::try_from(ms).ok())
+                    .is_none_or(|ms| ms >= record.expiry)
+            || amount == 0
+            || amount > funding.remaining()
+        {
+            return Err(CommittedReadError::Selector);
+        }
+        Ok(funding)
     }
     pub fn grants(&self) -> &[CommittedGrant] {
         &self.grants
@@ -329,7 +418,7 @@ impl CommittedCall {
         self.checkpoint.app_hash
     }
     pub const fn level(&self) -> VerificationLevel {
-        VerificationLevel::CHECKPOINT_FINALISED
+        VerificationLevel::COMMITTED
     }
     pub const fn achieved(&self) -> VerificationLevel {
         self.level()
@@ -425,6 +514,7 @@ impl<'a> CommittedReads<'a> {
             accounts: BTreeMap::new(),
             assets: BTreeMap::new(),
             budgets: Vec::new(),
+            budget_funding: BTreeMap::new(),
             grants: Vec::new(),
         };
         let selected: std::collections::BTreeSet<_> =
@@ -496,6 +586,7 @@ impl<'a> CommittedReads<'a> {
             return Err(CommittedReadError::Selector);
         }
         let mut selected_budgets = Vec::new();
+        let mut selected_funding = BTreeMap::new();
         for id in budgets {
             let value =
                 self.budget_state(precompile(0x1b), &calldata(b"getBudget(bytes32)", id))?;
@@ -508,14 +599,31 @@ impl<'a> CommittedReads<'a> {
             let record = state.record();
             let remaining =
                 self.budget_state(precompile(0x1b), &calldata(b"budgetRemaining(bytes32)", id))?;
-            if record.owner != inventory.did
-                || uint(remaining.canonical_bytes(), 0, 16)? != record.remaining()
+            let balance = self.call(
+                precompile(0x1a),
+                &calldata(
+                    b"balanceOf(bytes32,bytes32)",
+                    &[record.budget_account, record.asset_id].concat(),
+                ),
+            )?;
+            if balance.canonical_bytes().len() != 32 {
+                return Err(CommittedReadError::Selector);
+            }
+            let balance = uint(balance.canonical_bytes(), 0, 16)?;
+            if remaining.canonical_bytes().len() != 32
+                || record.owner != inventory.did
                 || selected_budgets
                     .iter()
                     .any(|previous: &crate::budget::ProtocolBudgetRecord| previous.budget_id == *id)
             {
                 return Err(CommittedReadError::Selector);
             }
+            let funding = CommittedBudgetFunding::verify_values(
+                record,
+                balance,
+                uint(remaining.canonical_bytes(), 0, 16)?,
+            )?;
+            selected_funding.insert(*id, funding);
             selected_budgets.push(record.clone());
         }
         let mut selected_grants = Vec::new();
@@ -561,6 +669,7 @@ impl<'a> CommittedReads<'a> {
             selected_grants.push(grant);
         }
         inventory.budgets = selected_budgets;
+        inventory.budget_funding = selected_funding;
         inventory.grants = selected_grants;
         Ok(())
     }
@@ -607,6 +716,20 @@ impl<'a> CommittedReads<'a> {
         }
         Ok(())
     }
+    /// Resumes from the saved checkpoint, reacquiring its consensus material
+    /// and state root from the node before any committed read is served.
+    pub fn resume(
+        endpoint: &'a SequencerEndpoint,
+        checkpoint: &ServedCheckpoint,
+    ) -> Result<Self, CommittedReadError> {
+        Ok(Self {
+            endpoint,
+            checkpoint: checkpoint
+                .reacquire(endpoint)
+                .map_err(CommittedReadError::Checkpoint)?,
+        })
+    }
+
     pub fn open(endpoint: &'a SequencerEndpoint, height: u64) -> Result<Self, CommittedReadError> {
         let chain_id = endpoint
             .chain_id()

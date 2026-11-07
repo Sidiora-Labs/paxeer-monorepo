@@ -1,0 +1,59 @@
+[disposition.22.16.7.1]
+finding = "22.16.7.1"
+status = "environment"
+evidence = "tools/launchpad/production/interfaces/examples_check_test.py:12 imports jsonschema and tools/launchpad/production/load/README.md:26 explicitly requires its installation, so the recorded ModuleNotFoundError reflects the qualification environment's missing dependency."
+follow_up = "closure"
+
+[disposition.22.16.5.2]
+finding = "22.16.5.2"
+status = "resolved"
+evidence = "Commit c1b6cf18f adds all fourteen omitted Dockerfiles to OUT_OF_SCOPE with lane and retirement reasons and adds the git ls-files inventory equality assertion in tools/containers/test_check_all_services_scope.py:23."
+follow_up = "closure"
+
+[disposition.22.5.7.1]
+finding = "22.5.7.1"
+status = "environment"
+evidence = "storage/state_db/sc/memiavl/snapshot_methods_test.go:160 and storage/state_db/sc/memiavl/snapshot_pipeline_test.go:208 still expect errors from absolute /invalid paths that the qualification environment's root user can create, making the recorded failures properties of that environment."
+follow_up = "closure"
+
+[disposition.22.6.7.1]
+finding = "22.6.7.1"
+status = "resolved"
+evidence = "Commit ccd3b0d9d reconciles TestLayerXVerifyBelowTheMergeKeepsItsResults with the methods retired at every height, asserting their exact retirement revert while retaining legacy results for supported vectors and comparing both below-merge heights at precompiles/layerxverify/retire_gate_test.go:126."
+follow_up = "closure"
+
+[disposition.22.6.8.1]
+finding = "22.6.8.1"
+status = "resolved"
+evidence = "Commit 5bb4e3080 adds XWebProgramRequested to both Solidity interfaces, synchronizes the three selector comments, adds the consumer signature assertion and fourth event topic expectation, leaving precompiles/xweb/XWeb.sol and contracts/src/precompiles/IXWeb.sol byte-identical."
+follow_up = "closure"
+
+[disposition.22.8.12.1]
+finding = "22.8.12.1"
+status = "resolved"
+evidence = "Commit 4c405d397 makes services/platform/hosted/authority/tests/retired_client_modules.rs:56 search both budget_state.rs and main.rs for node interfaces and check both sources for retired client paths, covering main.rs's finalized-head and checkpoint reads."
+follow_up = "closure"
+
+[disposition.22.11.5.1]
+finding = "22.11.5.1"
+status = "resolved"
+evidence = "Commit 7d816c4c0 repairs the non-string commitment deserializer, receipt-key and restart fixtures, journal receipt handling, in-test operator inventory, real signer binary resolution and TypeScript consumer setup, and validates listener mode before requiring the sequencer URL."
+follow_up = "closure"
+
+[disposition.22.9.11.1]
+finding = "22.9.11.1"
+status = "resolved"
+evidence = "Commit 8c8479abd supplies the missing 0x-prefixed history tx_hash and reconciles all five receipt-key tests with prefixed transaction hashes, ledger-payment vectors, payer encodings and current commitment rungs while preserving the hash validators."
+follow_up = "closure"
+
+[disposition.22.12.4.1]
+finding = "22.12.4.1"
+status = "resolved"
+evidence = "Commit a38f09f3d calls configureAuthority in all three affected run tests, and services/wallet/attestor/cmd/attestor/main_test.go:448 supplies the generated authority public key, issuer, tenant and signed inventory before daemon startup."
+follow_up = "closure"
+
+[disposition.22.16.8.1]
+finding = "22.16.8.1"
+status = "resolved"
+evidence = "Commit 88ca008ec adds Makefile:1814's test-mcp-binding-receipt-keys target with the exact pytest module path and makes qualification-runner-test depend on it, supplying the build reference required by TestEveryPytestSuiteIsReferenced."
+follow_up = "closure"

@@ -1,0 +1,16 @@
+[repair.22.31.178]
+audit = "22.30.54"
+acceptance = "22998.1"
+baseline = "Not run: the task's explicit gate order prohibits verification before implementation and permits verification only through hf-done; no pre-change test failure is claimed."
+evidence = "hf-build and hf-done retain the exact candidate revision, command, exit code and private log path in the runner gate ledger."
+wiring_requests = []
+
+[finding.durable-head-regression]
+tests = ["TestRepair_178_DurableHeadRegression", "TestRepair_178_ConcurrentHeadRecovery", "TestRepair_178_ReceiptHeadRecovery"]
+repair = "Serialize database batch commits and explicit head resets, atomically commit the persisted maximum with data, and publish the in-memory head only after success."
+proof = "StateStore and composite writes at heights 10 then 5 preserve head and historical data across Close/OpenDB or the composite recovery opener; the real receipt producer, async writer, codec and recovery opener preserve both receipts and head; concurrent commits survive reopen; explicit rollback still lowers the head."
+
+[finding.legacy-reverse-visible-key]
+tests = ["TestRepair_178_LegacyReverseVisibleKey"]
+repair = "Resolve the current logical key to its newest visible version before moving backward, and stop safely when a visibility seek exhausts the bounded cursor."
+proof = "Real legacy batches create an unmarked ascending database; StateStore writes future versions, tombstones and resurrection; bounded and unbounded forward/reverse results match exact expected sets and Get at every written height before and after Close/OpenDB, while the legacy marker remains absent."

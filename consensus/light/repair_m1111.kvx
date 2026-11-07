@@ -1,0 +1,15 @@
+[task.22.33.1111]
+audit = "22.30.46"
+base_revision = "9d1a06c7f3635f5556023760af7a75ee9755efdd"
+mode = "BUILD"
+scope = "consensus/light"
+baseline = "Not run: the explicit ordered gate instructions forbid tests before the complete implementation and permit verify_cmd only through hf-done after hf-build, overriding the contradictory baseline request in step 5. No baseline failures are claimed."
+build = "hf-build: go build ./consensus/light/..."
+verify = "hf-done: cg spec done 22.33.1111 -f layerx-merge --root /work/paxeer-monorepo"
+verified_revision_record = "/out/run/gates.jsonl: the final hf-done row records the exact candidate revision, command, exit code and private evidence log; qualification requires exit zero and matching build and verify revisions."
+wiring_requests = []
+
+[finding.38]
+repair = "Replace the obsolete example with context, blacklistTTL, dbs.New(db) and TrustedLightBlock; document signed Tendermint/CometBFT commit and validator RPC requirements, the independent trust anchor and the Autobahn ErrCommitNotAvailable boundary."
+tests = ["TestRepairM_1111_PublishedExampleMatchesCompiledPath", "TestRepairM_1111_DocumentedHTTPClientRoundTrip"]
+proof = "Parse the published example and require its function and imports to match the compiled function executed by the proof. Production state and commit producers populate real stores; core.Commit and core.Validators serve separate loopback primary and witness HTTP servers into NewHTTPClient. Retrieve and cryptographically validate the trusted block, reopen LevelDB and assert persistence, and refuse a different independently supplied trust hash without persisting it."

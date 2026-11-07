@@ -11,14 +11,12 @@ const PAYMENT_DRAWN_TOPIC = signatureHash("PaymentDrawn(bytes32,bytes32,bytes32,
 const TRANSFER_TOPIC = signatureHash("Transfer(bytes32,bytes32,bytes32,uint128,uint8)");
 
 export interface LedgerDraw {
-  /** Legacy name for the draw ABI's recipient. */
-  readonly from: Uint8Array;
-  /** Legacy name for the draw ABI's purposeHash; the asset comes from the grant. */
-  readonly assetId: Uint8Array;
-  readonly amount: bigint;
   readonly grantId: Uint8Array;
-  readonly receiverSequence: bigint;
+  readonly recipient: Uint8Array;
+  readonly amount: bigint;
   readonly idempotencyKey: Uint8Array;
+  readonly sequence: bigint;
+  readonly purposeHash: Uint8Array;
   readonly contextHash: Uint8Array;
 }
 
@@ -60,11 +58,11 @@ export function encodeLedgerDraw(draw: LedgerDraw): Uint8Array {
   }
   const words = [
     draw.grantId,
-    draw.from,
+    draw.recipient,
     encodeUint(draw.amount, 128),
     draw.idempotencyKey,
-    encodeUint(draw.receiverSequence, 64),
-    draw.assetId,
+    encodeUint(draw.sequence, 64),
+    draw.purposeHash,
     draw.contextHash,
   ];
   const result = new Uint8Array(4 + 7 * 32);

@@ -432,3 +432,182 @@ func TestQuotesQuotePartialCloseMatchesExecution(t *testing.T) {
 	require.NoError(t, position.Unmarshal(bz))
 	require.Equal(t, fixedWord(t, "0.01181"), position.SizeBase)
 }
+
+func quotesCompatStoreHash(e *positionsEnv) [32]byte {
+	it := e.ctx().KVStore(e.perpsKey).Iterator(nil, nil)
+	defer it.Close()
+	digest := sha256.New()
+	for ; it.Valid(); it.Next() {
+		digest.Write(it.Key())
+		digest.Write(it.Value())
+	}
+	var result [32]byte
+	copy(result[:], digest.Sum(nil))
+	return result
+}
+
+func TestQuotesOpenPositionRealExecution(t *testing.T) {
+	for _, scenario := range []string{"unaligned_mark", "own_best_bid", "partial_fill", "fee_tier", "multiple_fills"} {
+		t.Run(scenario, func(t *testing.T) {
+			e := newPositionsEnv(t, 5_000_000_000)
+			isLong := scenario != "own_best_bid"
+			var ownID uint256.Int
+			if !isLong {
+				e.cancelAsk()
+				e.mustCall(positionsTraderA, "deposit", e.usdl, big.NewInt(4_000_000_000))
+				ownID = e.rest(e.ctx(), positionsTraderA, true, 60_100)
+				e.rest(e.ctx(), positionsBidderC, true, 60_000)
+			}
+			if scenario == "unaligned_mark" {
+				e.setMark(new(big.Int).Add(positionsE18(60_000), big.NewInt(1)))
+			}
+			if scenario == "partial_fill" || scenario == "multiple_fills" {
+				e.cancelAsk()
+				base := positionsWord(t, "5000000000000000")
+				if scenario == "multiple_fills" {
+					base = positionsWord(t, "10000000000000000")
+				}
+				notional := new(big.Int).Mul(base.ToBig(), positionsE18(60_000))
+				notional.Quo(notional, positionsE18(1))
+				_, err := e.k.PlaceOrder(e.ctx(), positionsMakerB, perpskeeper.OrderParams{MarketID: 0, IsLong: false,
+					OrderType: uint8(perpstypes.OrderTypeLimit), TimeInForce: uint8(perpstypes.TimeInForceGTC),
+					SizeUsd: *uint256.MustFromBig(notional), LimitPrice: *uint256.MustFromBig(positionsE18(60_000)),
+					Leverage: *uint256.MustFromBig(positionsE18(20))})
+				require.NoError(t, err)
+				if scenario == "multiple_fills" {
+					e.rest(e.ctx(), positionsBidderC, false, 60_100)
+					e.mustCall(positionsTraderA, "deposit", e.usdl, big.NewInt(1_000_000))
+				}
+			}
+			state, err := e.k.GetMarketState(e.ctx(), 0)
+			require.NoError(t, err)
+			if scenario != "unaligned_mark" {
+				state.MarkPrice = *uint256.MustFromBig(positionsE18(60_000))
+			}
+			state.IndexPrice = *uint256.MustFromBig(positionsE18(60_000))
+			state.HourlyRate = *uint256.NewInt(12_500_000_000_000)
+			e.k.SetMarketState(e.ctx(), state)
+			params, err := e.k.GetParams(e.ctx())
+			require.NoError(t, err)
+			if scenario == "fee_tier" {
+				volume := params.FeeTiers[1].MinVolumeUsd.Add(sdk.NewIntWithDecimal(1, 18))
+				require.NoError(t, e.k.RecordVolume(e.ctx(), positionsTraderA, positionsKeeperK, *uint256.MustFromBig(volume.BigInt())))
+			}
+			tier, err := e.k.FeeTier(e.ctx(), positionsTraderA)
+			require.NoError(t, err)
+			if scenario == "fee_tier" {
+				require.Equal(t, uint8(1), tier.Tier)
+				require.Equal(t, params.FeeTiers[1].TakerFeePpm, tier.TakerFeePpm)
+			} else {
+				require.Equal(t, uint8(0), tier.Tier)
+				require.Equal(t, uint64(450), tier.TakerFeePpm)
+			}
+
+			before := quotesCompatStoreHash(e)
+			wallet, module := e.usdlBalance(positionsTraderA), e.usdlBalance(e.k.ModuleEVMAddress())
+			logsBefore := len(e.stateDB.GetAllLogs())
+			collateralBefore := new(big.Int)
+			if account, err := e.k.GetAccount(e.ctx(), positionsTraderA); err == nil {
+				collateralBefore.Set(account.Collateral.ToBig())
+			} else {
+				require.ErrorIs(t, err, perpstypes.ErrNoAccount)
+			}
+			produced, err := e.k.QuoteOpen(e.ctx(), positionsTraderA, 0, e.usdl, *uint256.NewInt(100_000_000),
+				*uint256.MustFromBig(positionsE18(10)), isLong)
+			require.NoError(t, err)
+			quoteBytes := e.mustCall(positionsTraderA, "quoteOpenPosition", big.NewInt(0), e.usdl, big.NewInt(100_000_000), positionsE18(10), isLong)
+			quoteOut, err := e.perpsABI.Methods["quoteOpenPosition"].Outputs.Unpack(quoteBytes)
+			require.NoError(t, err)
+			require.Len(t, quoteOut, 1)
+			quote := *abi.ConvertType(quoteOut[0], new(openPositionQuote)).(*openPositionQuote)
+			require.Equal(t, produced.EntryPrice, quote.EntryPrice)
+			require.Equal(t, produced.SizeUsd, quote.SizeUsd)
+			require.Equal(t, produced.TradingFee, quote.TradingFee)
+			require.Equal(t, before, quotesCompatStoreHash(e))
+			require.Equal(t, wallet, e.usdlBalance(positionsTraderA))
+			require.Equal(t, module, e.usdlBalance(e.k.ModuleEVMAddress()))
+			require.Len(t, e.stateDB.GetAllLogs(), logsBefore)
+			ret := e.mustCall(positionsTraderA, "openPosition", big.NewInt(0), e.usdl, big.NewInt(100_000_000), positionsE18(10), isLong)
+			out, err := e.perpsABI.Methods["openPosition"].Outputs.Unpack(ret)
+			require.NoError(t, err)
+			position, ok := e.position(positionsTraderA)
+			require.True(t, ok)
+			require.Equal(t, out[0], position.ID.ToBig())
+			require.Equal(t, isLong, position.IsLong)
+			require.Equal(t, quote.EntryPrice, position.EntryPrice.ToBig())
+			require.Equal(t, quote.Leverage, position.Leverage.ToBig())
+			require.Equal(t, positionsE18(100), quote.CollateralUsd)
+			require.Equal(t, new(big.Int).Sub(wallet, big.NewInt(100_000_000)), e.usdlBalance(positionsTraderA))
+			require.Equal(t, new(big.Int).Add(module, big.NewInt(100_000_000)), e.usdlBalance(e.k.ModuleEVMAddress()))
+
+			_, fills := e.perpsLogs("Fill")
+			notional, fee, base := new(big.Int), new(big.Int), new(big.Int)
+			fillCount := 0
+			for _, fill := range fills {
+				if fill["taker"] != positionsTraderA {
+					continue
+				}
+				require.NotEqual(t, positionsTraderA, fill["maker"])
+				size, price := fill["sizeUsd"].(*big.Int), fill["price"].(*big.Int)
+				notional.Add(notional, size)
+				fee.Add(fee, fill["takerFeeUsd"].(*big.Int))
+				base.Add(base, new(big.Int).Quo(new(big.Int).Mul(size, positionsE18(1)), price))
+				expectedFee := new(big.Int).Quo(new(big.Int).Mul(size, new(big.Int).SetUint64(tier.TakerFeePpm)), big.NewInt(1_000_000))
+				require.Equal(t, expectedFee, fill["takerFeeUsd"])
+				fillCount++
+			}
+			wantFills := 1
+			if scenario == "multiple_fills" {
+				wantFills = 2
+			}
+			require.Equal(t, wantFills, fillCount)
+			require.Equal(t, quote.SizeUsd, notional)
+			require.Equal(t, quote.TradingFeeUsd, fee)
+			require.Equal(t, position.SizeBase.ToBig(), base)
+			if scenario == "partial_fill" {
+				require.Equal(t, positionsWord(t, "5000000000000000"), position.SizeBase)
+				require.Equal(t, positionsE18(300), quote.SizeUsd)
+			}
+			if scenario == "unaligned_mark" {
+				require.Equal(t, positionsWord(t, "16500000000000000"), position.SizeBase)
+			}
+			if !isLong {
+				own, err := e.k.GetOrder(e.ctx(), ownID)
+				require.NoError(t, err)
+				require.Equal(t, perpstypes.OrderStatusCancelled, own.Status)
+				require.True(t, own.FilledBase.IsZero())
+			}
+			feeTokens := new(big.Int)
+			feeLogs, collected := e.perpsLogs("FeeCollected")
+			for i, event := range collected {
+				if feeLogs[i].Topics[2] == common.BytesToHash(positionsTraderA.Bytes()) {
+					feeTokens.Add(feeTokens, event["feeTokens"].(*big.Int))
+				}
+			}
+			require.Equal(t, quote.TradingFee, feeTokens)
+			expectedCollateral := new(big.Int).Add(collateralBefore, big.NewInt(100_000_000))
+			expectedCollateral.Sub(expectedCollateral, feeTokens)
+			if scenario == "multiple_fills" {
+				expectedCollateral.Add(expectedCollateral, big.NewInt(1_000_000))
+			}
+			collateralAfter := e.collateral(positionsTraderA)
+			require.Equal(t, expectedCollateral, collateralAfter.ToBig())
+			liquidation, err := e.k.LiquidationPrice(e.ctx(), position.ID)
+			require.NoError(t, err)
+			require.Equal(t, quote.LiquidationPrice, liquidation.ToBig())
+			state, err = e.k.GetMarketState(e.ctx(), 0)
+			require.NoError(t, err)
+			impact := new(big.Int).Abs(new(big.Int).Sub(quote.EntryPrice, state.MarkPrice.ToBig()))
+			impact.Mul(impact, big.NewInt(10_000)).Quo(impact, state.MarkPrice.ToBig())
+			require.Equal(t, impact.String(), quote.PriceImpact.String())
+			require.Equal(t, big.NewInt(5), quote.MaintenanceMarginBps)
+			funding := new(big.Int).Mul(position.SizeBase.ToBig(), state.IndexPrice.ToBig())
+			funding.Mul(funding, state.HourlyRate.ToBig()).Mul(funding, big.NewInt(24))
+			funding.Quo(funding, new(big.Int).Mul(positionsE18(1), positionsE18(1)))
+			if isLong {
+				funding.Neg(funding)
+			}
+			require.Equal(t, funding.String(), quote.EstimatedFunding24h.String())
+		})
+	}
+}

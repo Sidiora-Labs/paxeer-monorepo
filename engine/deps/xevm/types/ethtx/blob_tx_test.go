@@ -24,7 +24,7 @@ func mockBlobTransaction(value *uint256.Int) *ethtypes.Transaction {
 		Data:       []byte{'b'},
 		AccessList: mockAccessList(),
 		BlobFeeCap: uint256.NewInt(30),
-		BlobHashes: []common.Hash{{'c', 'd'}},
+		BlobHashes: []common.Hash{{0x01, 'c', 'd'}},
 		Sidecar: &ethtypes.BlobTxSidecar{
 			Blobs:       []kzg4844.Blob{{'e', 'f'}},
 			Commitments: []kzg4844.Commitment{{'g', 'h'}},
@@ -95,7 +95,7 @@ func TestBlobTransaction(t *testing.T) {
 	require.Equal(t, cost(new(big.Int).Add(fee(EffectiveGasPrice(baseFee, tx.GasFeeCap.BigInt(), tx.GasTipCap.BigInt()), tx.GasLimit), fee(tx.BlobFeeCap.BigInt(), tx.BlobGas())), tx.Amount.BigInt()), tx.EffectiveCost(baseFee))
 
 	require.Equal(t, big.NewInt(30), tx.GetBlobFeeCap())
-	require.Equal(t, []common.Hash{{'c', 'd'}}, tx.GetBlobHashes())
+	require.Equal(t, []common.Hash{{0x01, 'c', 'd'}}, tx.GetBlobHashes())
 }
 
 func TestValidateBlobTransaction(t *testing.T) {

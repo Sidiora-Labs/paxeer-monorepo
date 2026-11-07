@@ -81,6 +81,7 @@ class CoinMarketCapResource(SyncAPIResource):
         return self._get(
             "/v1/cryptocurrency/quotes/latest",
             options=make_request_options(
+                security={"RestApiKey": True},
                 extra_headers=extra_headers,
                 extra_query=extra_query,
                 extra_body=extra_body,
@@ -139,6 +140,7 @@ class CoinMarketCapResource(SyncAPIResource):
         return self._get(
             "/v1/cryptocurrency/listings/latest",
             options=make_request_options(
+                security={"RestApiKey": True},
                 extra_headers=extra_headers,
                 extra_query=extra_query,
                 extra_body=extra_body,
@@ -189,6 +191,7 @@ class CoinMarketCapResource(SyncAPIResource):
         return self._get(
             "/api/v1/cryptocurrency/quotes/latest",
             options=make_request_options(
+                security={"RestApiKey": True},
                 extra_headers=extra_headers,
                 extra_query=extra_query,
                 extra_body=extra_body,
@@ -247,6 +250,7 @@ class CoinMarketCapResource(SyncAPIResource):
         return self._get(
             "/api/v1/cryptocurrency/listings/latest",
             options=make_request_options(
+                security={"RestApiKey": True},
                 extra_headers=extra_headers,
                 extra_query=extra_query,
                 extra_body=extra_body,
@@ -307,6 +311,7 @@ class AsyncCoinMarketCapResource(AsyncAPIResource):
         return await self._get(
             "/v1/cryptocurrency/quotes/latest",
             options=make_request_options(
+                security={"RestApiKey": True},
                 extra_headers=extra_headers,
                 extra_query=extra_query,
                 extra_body=extra_body,
@@ -365,6 +370,7 @@ class AsyncCoinMarketCapResource(AsyncAPIResource):
         return await self._get(
             "/v1/cryptocurrency/listings/latest",
             options=make_request_options(
+                security={"RestApiKey": True},
                 extra_headers=extra_headers,
                 extra_query=extra_query,
                 extra_body=extra_body,
@@ -415,6 +421,7 @@ class AsyncCoinMarketCapResource(AsyncAPIResource):
         return await self._get(
             "/api/v1/cryptocurrency/quotes/latest",
             options=make_request_options(
+                security={"RestApiKey": True},
                 extra_headers=extra_headers,
                 extra_query=extra_query,
                 extra_body=extra_body,
@@ -473,6 +480,7 @@ class AsyncCoinMarketCapResource(AsyncAPIResource):
         return await self._get(
             "/api/v1/cryptocurrency/listings/latest",
             options=make_request_options(
+                security={"RestApiKey": True},
                 extra_headers=extra_headers,
                 extra_query=extra_query,
                 extra_body=extra_body,

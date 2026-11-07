@@ -18,19 +18,25 @@ use std::sync::Arc;
 use std::thread::{self, JoinHandle};
 use std::time::Duration;
 
+#[path = "../../../../../platform/hosted/runtime-clock/src/server.rs"]
+mod runtime_clock_server;
+
 pub struct StepClock {
-    unix_milliseconds: u64,
-    ticks: AtomicU64,
+    clock: Arc<layerx_client::runtime_clock::RuntimeClock>,
+    authority: RunningClock,
 }
 
 impl StepClock {
     pub fn new() -> Result<Arc<Self>> {
-        let initial = layerx_client::runtime_clock::RuntimeClock::from_environment()?
-            .sample(Duration::from_secs(1))?;
-        Ok(Arc::new(Self {
-            unix_milliseconds: initial.unix_milliseconds,
-            ticks: AtomicU64::new(0),
-        }))
+        let authority = RunningClock::start()?;
+        let clock = layerx_client::runtime_clock::RuntimeClock::connect(
+            layerx_client::runtime_clock::ClockBinding {
+                socket: authority.socket.clone(),
+                process: std::process::id(),
+                user: rustix::process::geteuid().as_raw(),
+            },
+        )?;
+        Ok(Arc::new(Self { clock, authority }))
     }
 
     pub fn now(&self) -> Result<u64> {
@@ -39,74 +45,27 @@ impl StepClock {
 }
 
 impl Clock for StepClock {
-    fn sample(&self, _transport_budget: Duration) -> std::result::Result<ClockReading, ClockError> {
-        let ticks = self
-            .ticks
-            .fetch_update(Ordering::AcqRel, Ordering::Acquire, |ticks| {
-                ticks.checked_add(1)
-            })
-            .map_err(|_| ClockError::Overflow)?;
-        Ok(ClockReading {
-            generation: [0x51; 16],
-            unix_milliseconds: self
-                .unix_milliseconds
-                .checked_add(ticks)
-                .ok_or(ClockError::Overflow)?,
-            monotonic_nanoseconds: ticks.checked_mul(1_000_000).ok_or(ClockError::Overflow)?,
-        })
+    fn sample(&self, transport_budget: Duration) -> std::result::Result<ClockReading, ClockError> {
+        self.clock.sample(transport_budget)
     }
 }
 
-pub struct ClockAuthority {
-    pub socket: PathBuf,
+struct RunningClock {
+    socket: PathBuf,
     shutdown: Arc<AtomicBool>,
     worker: Option<JoinHandle<std::io::Result<()>>>,
-    root: PathBuf,
 }
 
-impl ClockAuthority {
-    pub fn start(clock: Arc<StepClock>) -> Result<Self> {
-        use std::os::unix::net::UnixListener;
-        let root = scratch("kms-step-clock")?;
-        let socket = root.join("clock.sock");
-        let listener = UnixListener::bind(&socket)?;
-        fs::set_permissions(&socket, fs::Permissions::from_mode(0o600))?;
-        listener.set_nonblocking(true)?;
+impl RunningClock {
+    fn start() -> Result<Self> {
+        let mut server = runtime_clock_server::Server::bind(&std::env::temp_dir())?;
+        let socket = server.socket().to_path_buf();
         let shutdown = Arc::new(AtomicBool::new(false));
         let stopped = Arc::clone(&shutdown);
         let worker = thread::spawn(move || {
-            use layerx_types::clock_protocol::{self, Request, REQUEST_BYTES};
             while !stopped.load(Ordering::Acquire) {
-                let (mut stream, _) = match listener.accept() {
-                    Ok(peer) => peer,
-                    Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
-                        thread::sleep(Duration::from_millis(1));
-                        continue;
-                    }
-                    Err(error) if error.kind() == std::io::ErrorKind::Interrupted => continue,
-                    Err(error) => return Err(error),
-                };
-                let peer = rustix::net::sockopt::socket_peercred(&stream)?;
-                if peer.uid != rustix::process::geteuid() {
-                    continue;
-                }
-                stream.set_read_timeout(Some(Duration::from_secs(1)))?;
-                stream.set_write_timeout(Some(Duration::from_secs(1)))?;
-                let mut bytes = [0; REQUEST_BYTES];
-                stream.read_exact(&mut bytes)?;
-                let mut trailing = [0];
-                if stream.read(&mut trailing)? != 0 {
-                    return Err(std::io::Error::other("clock request has trailing bytes"));
-                }
-                let request = Request::decode(&bytes).map_err(std::io::Error::other)?;
-                if request.wait_nanoseconds != 0 {
-                    thread::sleep(Duration::from_nanos(request.wait_nanoseconds));
-                }
-                stream.write_all(&clock_protocol::response(
-                    request.counter,
-                    clock.sample(Duration::from_secs(1)),
-                ))?;
-                stream.shutdown(std::net::Shutdown::Write)?;
+                server.poll()?;
+                thread::sleep(Duration::from_millis(1));
             }
             Ok(())
         });
@@ -114,18 +73,30 @@ impl ClockAuthority {
             socket,
             shutdown,
             worker: Some(worker),
-            root,
         })
     }
 }
 
-impl Drop for ClockAuthority {
+impl Drop for RunningClock {
     fn drop(&mut self) {
         self.shutdown.store(true, Ordering::Release);
         if let Some(worker) = self.worker.take() {
             let _ = worker.join();
         }
-        let _ = fs::remove_dir_all(&self.root);
+    }
+}
+
+pub struct ClockAuthority {
+    pub socket: PathBuf,
+    _clock: Arc<StepClock>,
+}
+
+impl ClockAuthority {
+    pub fn start(clock: Arc<StepClock>) -> Result<Self> {
+        Ok(Self {
+            socket: clock.authority.socket.clone(),
+            _clock: clock,
+        })
     }
 }
 

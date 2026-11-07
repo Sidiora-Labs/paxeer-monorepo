@@ -1,0 +1,6 @@
+[repair.go-modules.73]
+target = "modules/layerxledger/types"
+command = "CGO_ENABLED=1 go vet ./modules/layerxledger/types/ && CGO_ENABLED=1 go test -count=1 ./modules/layerxledger/types/"
+revision = "c69af8b6706e55a243bc0f3a0e184b872b900e14"
+result = "repaired"
+change = "modules/layerxledger/types/proof_payload_codec_test.go asserts payment-reference replay refusal after restart under decision 2337 and preserves the paused-asset assertion with a freshly signed send."

@@ -7,6 +7,7 @@ import (
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/launchpad/types"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
+	sdkerrors "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types/errors"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 )
@@ -79,7 +80,7 @@ func (l QuoteLedger) key(token common.Address) ([]byte, error) {
 	case ledgerTreasuryHeld:
 		return types.TreasuryHeldKey(token), nil
 	default:
-		return nil, fmt.Errorf("%w: unknown quote ledger %d", types.ErrInvalidConfiguration, l.kind)
+		return nil, types.ErrInvalidConfiguration.Wrapf("unknown quote ledger %d", l.kind)
 	}
 }
 
@@ -96,6 +97,14 @@ func (k *Keeper) GetQuoteLedger(ctx sdk.Context, ledger QuoteLedger) (sdk.Int, e
 	return k.getLedgerAmount(ctx, key)
 }
 
+type quoteLedgerOverflowError struct {
+	message string
+}
+
+func (e quoteLedgerOverflowError) Error() string { return e.message }
+func (e quoteLedgerOverflowError) Unwrap() error { return types.ErrOverflow }
+func (e quoteLedgerOverflowError) Cause() error  { return types.ErrOverflow }
+
 func (k *Keeper) getLedgerAmount(ctx sdk.Context, key []byte) (sdk.Int, error) {
 	bz := k.store(ctx).Get(key)
 	if bz == nil {
@@ -103,10 +112,10 @@ func (k *Keeper) getLedgerAmount(ctx sdk.Context, key []byte) (sdk.Int, error) {
 	}
 	var out sdk.Int
 	if err := out.Unmarshal(bz); err != nil {
-		return sdk.Int{}, fmt.Errorf("%w: quote ledger %x: %v", types.ErrOverflow, key, err)
+		return sdk.Int{}, quoteLedgerOverflowError{message: fmt.Sprintf("%s: quote ledger %x: %v", types.ErrOverflow, key, err)}
 	}
 	if !uint256Amount(out) {
-		return sdk.Int{}, fmt.Errorf("%w: quote ledger %x", types.ErrOverflow, key)
+		return sdk.Int{}, quoteLedgerOverflowError{message: fmt.Sprintf("%s: quote ledger %x", types.ErrOverflow, key)}
 	}
 	return out, nil
 }
@@ -141,7 +150,7 @@ func (k *Keeper) subLedgerAmount(ctx sdk.Context, key []byte, amount sdk.Int) er
 		return err
 	}
 	if current.LT(amount) {
-		return fmt.Errorf("%w: quote ledger %x holds %s, needs %s", types.ErrInsufficientBalance, key, current, amount)
+		return types.ErrInsufficientBalance.Wrapf("quote ledger %x holds %s, needs %s", key, current, amount)
 	}
 	return k.setLedgerAmount(ctx, key, current.Sub(amount))
 }
@@ -184,10 +193,10 @@ func (k *Keeper) quoteBalance(ctx sdk.Context, caller NestedCaller, token, holde
 	ret, err := caller.StaticCall(ctx, common.HexToAddress(types.LaunchpadAddress), token,
 		erc20Call(erc20BalanceOf, addressWord(holder)))
 	if err != nil {
-		return sdk.Int{}, fmt.Errorf("%w: balanceOf %s: %w", types.ErrInvalidBalance, holder, err)
+		return sdk.Int{}, types.ErrInvalidBalance.Wrapf("balanceOf %s: %v", holder, err)
 	}
 	if len(ret) != 32 {
-		return sdk.Int{}, fmt.Errorf("%w: balanceOf %s returned %d bytes", types.ErrInvalidBalance, holder, len(ret))
+		return sdk.Int{}, types.ErrInvalidBalance.Wrapf("balanceOf %s returned %d bytes", holder, len(ret))
 	}
 	return sdk.NewIntFromBigInt(new(big.Int).SetBytes(ret)), nil
 }
@@ -198,10 +207,10 @@ func callQuote(ctx sdk.Context, caller NestedCaller, from, token common.Address,
 	failure error) (sdk.Context, error) {
 	next, ret, err := caller.Call(ctx, from, token, input)
 	if err != nil {
-		return ctx, fmt.Errorf("%w: %v", failure, err)
+		return ctx, sdkerrors.Wrapf(failure, "%v", err)
 	}
 	if len(ret) != 32 || new(big.Int).SetBytes(ret).Cmp(big.NewInt(1)) != 0 {
-		return ctx, fmt.Errorf("%w: return data %x", failure, ret)
+		return ctx, sdkerrors.Wrapf(failure, "return data %x", ret)
 	}
 	return next, nil
 }
@@ -229,7 +238,7 @@ func (k *Keeper) receive(ctx sdk.Context, caller NestedCaller, from common.Addre
 		return ctx, sdk.Int{}, err
 	}
 	if !after.GT(before) {
-		return ctx, sdk.Int{}, fmt.Errorf("%w: custody balance %s did not rise", failure, after)
+		return ctx, sdk.Int{}, sdkerrors.Wrapf(failure, "custody balance %s did not rise", after)
 	}
 	received := after.Sub(before)
 	if err := k.addLedgerAmount(ctx, key, received); err != nil {
@@ -312,7 +321,7 @@ func (k *Keeper) MoveQuote(ctx sdk.Context, from, to QuoteLedger, amount sdk.Int
 		return err
 	}
 	if held.LT(amount) {
-		return fmt.Errorf("%w: quote ledger %x holds %s, needs %s", types.ErrInsufficientBalance, fromKey, held, amount)
+		return types.ErrInsufficientBalance.Wrapf("quote ledger %x holds %s, needs %s", fromKey, held, amount)
 	}
 	if bytes.Equal(fromKey, toKey) {
 		return nil

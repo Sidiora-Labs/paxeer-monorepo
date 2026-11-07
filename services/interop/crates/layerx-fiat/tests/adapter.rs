@@ -1016,3 +1016,11 @@ fn adapter_interfaces_are_rail_agnostic_and_provider_edge_only() {
         );
     }
 }
+
+#[path = "support/producer_path.rs"]
+mod producer_path;
+
+#[test]
+fn fiat_unit_path_uses_unchanged_producer_evidence() -> Result<(), Box<dyn std::error::Error>> {
+    producer_path::fiat_unit_path()
+}

@@ -1,0 +1,7 @@
+[repair.22.33.1308]
+finding = "sdk-test-probe"
+tests = ["TestRepairM_1308_ReachableServer", "TestRepairM_1308_ResponseBodyClosed", "TestRepairM_1308_ConnectionRefused", "TestRepairM_1308_InvalidURL", "TestRepairM_1308_DisconnectedServer", "TestRepairM_1308_Timeout", "TestRepairM_1308_RedirectError"]
+change = "Use a two-second HTTP client, close every successful probe response, and report every probe error through testing.T with false returned; remove the environment-controlled skip path."
+baseline = "Not run: the task's explicit ordered instructions prohibit verification before the entire implementation and require hf-build before hf-done; no baseline test failures are claimed."
+wiring_request = "Domain 15 (fm-cosmos-fork): wire CheckTestServer into intended SDK readiness consumers under sdk/chainflow/go when those consumers are owned by an SDK task; no existing caller was found in the current graph."
+evidence = "The runner's private gates.jsonl records the exact candidate revision, build command, verification command, exit codes and log paths; hf-done supplies the final evidence receipt."

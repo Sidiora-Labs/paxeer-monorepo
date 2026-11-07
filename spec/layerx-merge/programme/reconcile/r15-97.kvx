@@ -1,0 +1,413 @@
+# Retired rows retain their last registered path and line; evidence names current replacements.
+# remaining lists the first literal match per file, excluding spec/ and all docs/ directories.
+# Matches include tests, examples and similarly named surfaces; they do not imply relocation.
+
+[reconcile.r15-97]
+revision = "0b17e0748b8a5c1506383faf11209f4f35235885"
+rows = 41
+
+[row.r15-97.1]
+interface = "interface.15.met-legacy-baseapp-abci-111-j56"
+verdict = "retired"
+path = "sdk/baseapp/abci.go"
+line = 111
+symbol = "\"abci\", \"mid_block\""
+evidence = "Legacy telemetry.MeasureSince for MidBlock is absent from the registered file; sdk/baseapp/abci.go:108 now records baseappMetrics.midBlockDuration. No other file mentions the legacy key sequence."
+remaining_refs = 0
+remaining = []
+
+[row.r15-97.2]
+interface = "interface.15.met-legacy-baseapp-abci-128-j56"
+verdict = "retired"
+path = "sdk/baseapp/abci.go"
+line = 128
+symbol = "\"abci\", \"end_block\""
+evidence = "The SDK EndBlock legacy timing call is gone; sdk/baseapp/abci.go:123 records baseappMetrics.endBlockDuration instead. The remaining node/abci.go:96 call is the independent App.EndBlock emitter, not the retired SDK producer."
+remaining_refs = 1
+remaining = ["node/abci.go:96"]
+
+[row.r15-97.3]
+interface = "interface.15.met-legacy-baseapp-abci-188-j56"
+verdict = "retired"
+path = "sdk/baseapp/abci.go"
+line = 188
+symbol = "\"abci\", \"deliver_tx\""
+evidence = "The SDK DeliverTx legacy timing call is gone; sdk/baseapp/abci.go:181 records baseappMetrics.deliverTxDuration instead. The remaining node/abci.go:202 emitter belongs to App.DeliverTx."
+remaining_refs = 1
+remaining = ["node/abci.go:202"]
+
+[row.r15-97.4]
+interface = "interface.15.met-legacy-baseapp-abci-191-j56"
+verdict = "retired"
+path = "sdk/baseapp/abci.go"
+line = 191
+symbol = "telemetry.IncrCounter(1, \"tx\", \"count\")"
+evidence = "The SDK legacy transaction counter call is absent; sdk/baseapp/abci.go:182 uses baseappMetrics.txCount.Add. The independent App.DeliverTx legacy counter remains in node/abci.go:210."
+remaining_refs = 1
+remaining = ["node/abci.go:210"]
+
+[row.r15-97.5]
+interface = "interface.15.met-legacy-baseapp-abci-194-j56"
+verdict = "retired"
+path = "sdk/baseapp/abci.go"
+line = 194
+symbol = "telemetry.IncrCounter(1, \"tx\", resultStr)"
+evidence = "The SDK legacy transaction result counter is absent; sdk/baseapp/abci.go:183 uses baseappMetrics.txResult.Add with a result attribute. The independent node/abci.go:211 legacy counter remains."
+remaining_refs = 1
+remaining = ["node/abci.go:211"]
+
+[row.r15-97.6]
+interface = "interface.15.met-legacy-baseapp-abci-197-j56"
+verdict = "retired"
+path = "sdk/baseapp/abci.go"
+line = 197
+symbol = "\"tx\", \"gas\", \"used\""
+evidence = "The SDK legacy gas-used gauge key is absent; sdk/baseapp/abci.go:184 records int64 gas through baseappMetrics.txGasUsed. The remaining key occurrence is the independent App.DeliverTx gauge at node/abci.go:212."
+remaining_refs = 1
+remaining = ["node/abci.go:212"]
+
+[row.r15-97.7]
+interface = "interface.15.met-legacy-baseapp-abci-200-j56"
+verdict = "retired"
+path = "sdk/baseapp/abci.go"
+line = 200
+symbol = "\"tx\", \"gas\", \"wanted\""
+evidence = "The SDK legacy gas-wanted gauge key is absent; sdk/baseapp/abci.go:185 records int64 gas through baseappMetrics.txGasWanted. The remaining key occurrence is the independent App.DeliverTx gauge at node/abci.go:213."
+remaining_refs = 1
+remaining = ["node/abci.go:213"]
+
+[row.r15-97.8]
+interface = "interface.15.met-legacy-baseapp-abci-274-j56"
+verdict = "retired"
+path = "sdk/baseapp/abci.go"
+line = 274
+symbol = "\"abci\", \"commit\""
+evidence = "Commit no longer emits the registered legacy telemetry key; sdk/baseapp/abci.go:265 records baseappMetrics.commitDuration using the supplied context. No remaining file mentions the legacy key sequence."
+remaining_refs = 0
+remaining = []
+
+[row.r15-97.9]
+interface = "interface.15.met-legacy-baseapp-abci-440-j56"
+verdict = "retired"
+path = "sdk/baseapp/abci.go"
+line = 440
+symbol = "\"abci\", \"query\""
+evidence = "The legacy ABCI query timing key and req.Path label emission are absent; sdk/baseapp/abci.go:429 records baseappMetrics.abciQueryDuration with the bounded route attribute from abciQueryMetricRoute. No remaining file mentions the legacy key sequence."
+remaining_refs = 0
+remaining = []
+
+[row.r15-97.10]
+interface = "interface.15.met-legacy-baseapp-abci-991-j56"
+verdict = "retired"
+path = "sdk/baseapp/abci.go"
+line = 991
+symbol = "\"abci\", \"process_proposal\""
+evidence = "ProcessProposal no longer emits the legacy telemetry key; sdk/baseapp/abci.go:981 records baseappMetrics.processProposalDuration instead. No remaining file mentions the legacy key sequence."
+remaining_refs = 0
+remaining = []
+
+[row.r15-97.11]
+interface = "interface.15.met-legacy-baseapp-abci-1058-j56"
+verdict = "retired"
+path = "sdk/baseapp/abci.go"
+line = 1058
+symbol = "\"abci\", \"finalize_block\""
+evidence = "FinalizeBlock no longer emits the legacy telemetry key; sdk/baseapp/abci.go:1046 records baseappMetrics.finalizeBlockDuration instead. No remaining file mentions the legacy key sequence."
+remaining_refs = 0
+remaining = []
+
+[row.r15-97.12]
+interface = "interface.15.met-legacy-baseapp-abci-1121-j56"
+verdict = "retired"
+path = "sdk/baseapp/abci.go"
+line = 1121
+symbol = "\"abci\", \"get_tx_priority_hint\""
+evidence = "GetTxPriorityHint no longer emits the legacy telemetry key; sdk/baseapp/abci.go:1107 records baseappMetrics.getTxPriorityHintDuration instead. No remaining file mentions the legacy key sequence."
+remaining_refs = 0
+remaining = []
+
+[row.r15-97.13]
+interface = "interface.15.met-legacy-baseapp-baseapp-858-j56"
+verdict = "retired"
+path = "sdk/baseapp/baseapp.go"
+line = 858
+symbol = "telemetry.TxCount"
+evidence = "The registered runTx throughput emission and telemetry.TxCount reference are gone from sdk/baseapp/baseapp.go; line 854 records baseappMetrics.runTxDuration with a mode attribute. Two independent legacy ABCI throughput emitters still reference telemetry.TxCount."
+remaining_refs = 2
+remaining = ["node/legacyabci/check_tx.go:69", "node/legacyabci/deliver_tx.go:62"]
+
+[row.r15-97.14]
+interface = "interface.15.met-legacy-baseapp-baseapp-1019-j56"
+verdict = "retired"
+path = "sdk/baseapp/baseapp.go"
+line = 1019
+symbol = "telemetry.MessageCount"
+evidence = "The registered RunMsgs throughput emission and telemetry.MessageCount reference are gone; sdk/baseapp/baseapp.go:1009 records baseappMetrics.runMsgsDuration instead. No remaining file mentions telemetry.MessageCount."
+remaining_refs = 0
+remaining = []
+
+[row.r15-97.15]
+interface = "interface.15.met-legacy-baseapp-baseapp-1062-j56"
+verdict = "retired"
+path = "sdk/baseapp/baseapp.go"
+line = 1062
+symbol = "\"pax\", \"cosmos\", \"run\", \"msg\", \"latency\""
+evidence = "The legacy pax-prefixed message latency key is absent; the service-router branch at sdk/baseapp/baseapp.go:1044 records baseappMetrics.runMsgLatency with a type attribute. No remaining file mentions the legacy key sequence."
+remaining_refs = 0
+remaining = []
+
+[row.r15-97.16]
+interface = "interface.15.met-legacy-baseapp-baseapp-1082-j56"
+verdict = "retired"
+path = "sdk/baseapp/baseapp.go"
+line = 1082
+symbol = "\"cosmos\", \"run\", \"msg\", \"latency\""
+evidence = "The legacy Cosmos message latency key is absent; the legacy-router branch at sdk/baseapp/baseapp.go:1058 records baseappMetrics.runMsgLatency with a type attribute. No remaining file mentions the legacy key sequence."
+remaining_refs = 0
+remaining = []
+
+[row.r15-97.17]
+interface = "interface.15.go-crypto-keyring-type-ledger-j76"
+verdict = "served"
+path = "sdk/crypto/keyring/types.go"
+line = 49
+symbol = "TypeLedger"
+evidence = "TypeLedger remains declared as KeyType = 1 at sdk/crypto/keyring/types.go:49; its keyTypes entry at line 56 still maps it to ledger. The declaration spacing is aligned within the constant group."
+
+[row.r15-97.18]
+interface = "interface.15.go-crypto-keyring-type-multi-j76"
+verdict = "served"
+path = "sdk/crypto/keyring/types.go"
+line = 51
+symbol = "TypeMulti"
+evidence = "TypeMulti remains declared as KeyType = 3 at sdk/crypto/keyring/types.go:51; its keyTypes entry at line 58 still maps it to multi. The declaration spacing is aligned within the constant group."
+
+[row.r15-97.19]
+interface = "interface.15.ts-integrations-agents-wallet-approved-service-providers-j76"
+verdict = "retired"
+path = "sdk/integrations/agents/src/service-providers.ts"
+line = 30
+symbol = "WalletApprovedServiceProviders"
+evidence = "The registered WalletApprovedServiceProviders type is absent from service-providers.ts and the repository search. The current source declares AgentServiceProviderSource at line 27 and loadAgentServiceProviders at line 29 instead of a wallet-approved provider surface."
+remaining_refs = 0
+remaining = []
+
+[row.r15-97.20]
+interface = "interface.15.ts-integrations-agents-wallet-lx-disclosure-j76"
+verdict = "retired"
+path = "sdk/integrations/agents/src/service-providers.ts"
+line = 99
+symbol = "WalletLxDisclosure"
+evidence = "WalletLxDisclosure is absent from service-providers.ts and the repository search. The current file exposes AgentServiceProviders at line 11 and daemon-backed loading at line 29; the wallet disclosure interface is no longer declared."
+remaining_refs = 0
+remaining = []
+
+[row.r15-97.21]
+interface = "interface.15.ts-integrations-agents-wallet-lx-approval-j76"
+verdict = "retired"
+path = "sdk/integrations/agents/src/service-providers.ts"
+line = 109
+symbol = "WalletLxApproval"
+evidence = "WalletLxApproval is absent from service-providers.ts and the repository search. Current providers supply AgentSigner and AgentReceiptResolver through AgentServiceProviders; the former wallet approval interface is no longer declared."
+remaining_refs = 0
+remaining = []
+
+[row.r15-97.22]
+interface = "interface.15.ts-integrations-agents-wallet-lx-artifact-j76"
+verdict = "retired"
+path = "sdk/integrations/agents/src/service-providers.ts"
+line = 119
+symbol = "WalletLxArtifact"
+evidence = "WalletLxArtifact is absent from service-providers.ts and the repository search. Current provider declarations expose signer, receipt and budget services; no wallet artifact interface remains."
+remaining_refs = 0
+remaining = []
+
+[row.r15-97.23]
+interface = "interface.15.ts-integrations-agents-wallet-lx-signing-client-j76"
+verdict = "retired"
+path = "sdk/integrations/agents/src/service-providers.ts"
+line = 141
+symbol = "WalletLxSigningClient"
+evidence = "WalletLxSigningClient is absent from service-providers.ts and the repository search. AgentServiceProviders now uses AgentSigner at line 14, and loading checks providers.signer.sign at line 37; no wallet signing-client declaration remains."
+remaining_refs = 0
+remaining = []
+
+[row.r15-97.24]
+interface = "interface.15.go-integrations-ios-mobile-receipt-evidence-canonical-receipt-j76"
+verdict = "retired"
+path = "sdk/integrations/ios/Sources/LayerXMobile/ReceiptGate.swift"
+line = 5
+symbol = "canonicalReceipt"
+evidence = "MobileReceiptEvidence no longer declares canonicalReceipt in ReceiptGate.swift; lines 5-9 carry rawTransaction, signedReceipt, receiptKey, receiptJSON and prevSeqHash. The 23 remaining files mention the spelling in other SDK surfaces, examples, documentation or refusal tests, not a relocated MobileReceiptEvidence property."
+remaining_refs = 23
+remaining = ["sdk/integrations/agents/src/services.ts:206", "sdk/integrations/agents/test/daemon-providers-receipts.test.mjs:52", "sdk/integrations/agents/test/tools-receipts.test.mjs:208", "sdk/integrations/express/example/index.mjs:26", "sdk/integrations/spring/src/main/java/com/sidiora/layerx/spring/DurableStores.java:79", "sdk/integrations/spring/src/main/java/com/sidiora/layerx/spring/Fulfillments.java:11", "sdk/integrations/spring/src/main/java/com/sidiora/layerx/spring/SellerMiddleware.java:140", "sdk/integrations/spring/src/main/java/com/sidiora/layerx/spring/X402.java:454", "sdk/integrations/spring/src/test/java/com/sidiora/layerx/spring/SellerReceiptsTest.java:152", "sdk/platform/dotnet/Verifier.cs:418", "sdk/platform/jvm/README.md:101", "sdk/platform/jvm/examples/OfflineVerificationExample.java:16", "sdk/platform/swift/Sources/LayerXSDK/MirrorSource.swift:47", "sdk/platform/swift/Sources/LayerXSDK/Programs.swift:620", "sdk/platform/swift/Sources/LayerXSDK/Verifier.swift:257", "sdk/platform/swift/Tests/LayerXSDKTests/ProgramsEvmTests.swift:299", "services/agent/sdk/typescript/src/node-mirror.ts:23", "services/agent/sdk/typescript/src/verifier.ts:278", "services/agent/sdk/typescript/src/x402/draw.ts:42", "services/interop/PORTABILITY.md:33", "services/interop/crates/layerx-portable/FORMAT.md:10", "services/interop/crates/layerx-portable/tests/receipt_vectors.rs:15", "services/platform/middleware/buyer/test/portable-receipts.test.mjs:169"]
+
+[row.r15-97.25]
+interface = "interface.15.go-integrations-ios-mobile-receipt-evidence-authorized-batch-j76"
+verdict = "retired"
+path = "sdk/integrations/ios/Sources/LayerXMobile/ReceiptGate.swift"
+line = 6
+symbol = "authorizedBatch"
+evidence = "MobileReceiptEvidence no longer declares authorizedBatch in ReceiptGate.swift; ReceiptGate.verify at lines 90-98 verifies sequencer evidence with pinned receipt keys. The remaining files mention the spelling, including authorizedBatches identifiers and tests rejecting old batch fields; they do not implement this Swift property."
+remaining_refs = 10
+remaining = ["sdk/integrations/agents/src/services.ts:206", "sdk/integrations/agents/test/daemon-providers-receipts.test.mjs:51", "sdk/integrations/agents/test/tools-receipts.test.mjs:207", "sdk/integrations/express/test/receipt-keys.test.mjs:162", "sdk/integrations/next/test/receipt-keys.test.mjs:136", "sdk/integrations/spring/src/test/java/com/sidiora/layerx/spring/ReceiptKeysConfigTest.java:82", "sdk/integrations/spring/src/test/java/com/sidiora/layerx/spring/SellerReceiptsTest.java:165", "services/platform/middleware/buyer/test/evm-terms.test.mjs:26", "services/platform/middleware/buyer/test/portable-receipts.test.mjs:170", "services/platform/middleware/conformance/test/service-scenarios.test.mjs:30"]
+
+[row.r15-97.26]
+interface = "interface.15.go-integrations-spring-layer-x-auto-configuration-layer-x-authorized-batch-resolver-j76"
+verdict = "retired"
+path = "sdk/integrations/spring/src/main/java/com/sidiora/layerx/spring/LayerXAutoConfiguration.java"
+line = 30
+symbol = "layerXAuthorizedBatchResolver"
+evidence = "The registered bean factory is absent from LayerXAutoConfiguration.java. Lines 30-32 now define layerXPaymentAuthority returning ReceiptPayloadAuthority(config.receiptKeys()); the sole remaining file explicitly asserts that the old bean and method do not exist."
+remaining_refs = 1
+remaining = ["sdk/integrations/spring/src/test/java/com/sidiora/layerx/spring/ReceiptKeysConfigTest.java:110"]
+
+[row.r15-97.27]
+interface = "interface.15.go-integrations-spring-layer-x-properties-get-authorized-batch-j76"
+verdict = "retired"
+path = "sdk/integrations/spring/src/main/java/com/sidiora/layerx/spring/LayerXProperties.java"
+line = 39
+symbol = "getAuthorizedBatch"
+evidence = "LayerXProperties.java no longer declares getAuthorizedBatch or its Batch configuration surface. Line 42 exposes getReceiptKeys returning ReceiptKeys instead; the repository search found no remaining mention of the retired method."
+remaining_refs = 0
+remaining = []
+
+[row.r15-97.28]
+interface = "interface.15.go-integrations-spring-seller-middleware-static-authorized-batches-j76"
+verdict = "retired"
+path = "sdk/integrations/spring/src/main/java/com/sidiora/layerx/spring/SellerMiddleware.java"
+line = 80
+symbol = "staticAuthorizedBatches"
+evidence = "SellerMiddleware.java no longer declares staticAuthorizedBatches or AuthorizedBatchResolver. Lines 50-59 define PaymentAuthority and ReceiptPayloadAuthority using receipt keys; the repository search found no remaining mention of the retired factory."
+remaining_refs = 0
+remaining = []
+
+[row.r15-97.29]
+interface = "interface.15.met-legacy-store-gaskv-has-delete-j56"
+verdict = "retired"
+path = "sdk/store/gaskv/store.go"
+line = 98
+symbol = "\"store\", \"gaskv\""
+evidence = "Both registered legacy Has/Delete timing emissions are gone from sdk/store/gaskv/store.go. Lines 98-101 and 110-113 measure through traceStart and an optional tracer while retaining gas charges; no remaining file mentions the legacy store/gaskv key sequence."
+remaining_refs = 0
+remaining = []
+
+[row.r15-97.30]
+interface = "interface.15.met-legacy-store-types-cache-73-j56"
+verdict = "retired"
+path = "sdk/store/types/cache.go"
+line = 73
+symbol = "telemetry.NewLabel(\"type\", \"keys_evicted\")"
+evidence = "The legacy SetGaugeWithLabels emission carrying this label expression is absent from cache.go. Line 69 records storeMetrics.boundedCache with an OpenTelemetry type attribute instead; no remaining file mentions the legacy label expression."
+remaining_refs = 0
+remaining = []
+
+[row.r15-97.31]
+interface = "interface.15.met-legacy-store-types-gas-124-j56"
+verdict = "retired"
+path = "sdk/store/types/gas.go"
+line = 124
+symbol = "telemetry.NewLabel(\"error\", errorType)"
+evidence = "The legacy IncrCounterWithLabels emission carrying this label expression is absent from gas.go. Lines 117-120 use storeMetrics.gasExceeded.Add with error and descriptor attributes; no remaining file mentions the legacy label expression."
+remaining_refs = 0
+remaining = []
+
+[row.r15-97.32]
+interface = "interface.15.met-legacy-storev2-rootmulti-store-738-j56"
+verdict = "retired"
+path = "sdk/storev2/rootmulti/store.go"
+line = 738
+symbol = "\"historical\", \"abci\", \"query\""
+evidence = "The legacy historical-query counter key is absent from rootmulti/store.go. The permit-failure branch at lines 724-727 uses storev2Metrics.historicalAbciQuery.Add with success=false and a boolean proof attribute; no remaining file mentions the legacy key sequence."
+remaining_refs = 0
+remaining = []
+
+[row.r15-97.33]
+interface = "interface.15.met-legacy-storev2-rootmulti-store-751-j56"
+verdict = "retired"
+path = "sdk/storev2/rootmulti/store.go"
+line = 751
+symbol = "\"historical\", \"abci\", \"query\""
+evidence = "The legacy historical-query counter key is absent from rootmulti/store.go. The permit-success branch at lines 730-733 uses storev2Metrics.historicalAbciQuery.Add with success=true and a boolean proof attribute; no remaining file mentions the legacy key sequence."
+remaining_refs = 0
+remaining = []
+
+[row.r15-97.34]
+interface = "interface.15.met-legacy-storev2-rootmulti-store-1046-j56"
+verdict = "retired"
+path = "sdk/storev2/rootmulti/store.go"
+line = 1046
+symbol = "\"iavl\", \"store\", \"total_key_bytes\""
+evidence = "The legacy IAVL total-key-bytes gauge key is absent from rootmulti/store.go. Line 1021 records storev2Metrics.iavlTotalKeyBytes with a store_name attribute; no remaining file mentions the legacy key sequence."
+remaining_refs = 0
+remaining = []
+
+[row.r15-97.35]
+interface = "interface.15.met-legacy-storev2-rootmulti-store-1055-j56"
+verdict = "retired"
+path = "sdk/storev2/rootmulti/store.go"
+line = 1055
+symbol = "\"iavl\", \"store\", \"total_value_bytes\""
+evidence = "The legacy IAVL total-value-bytes gauge key is absent from rootmulti/store.go. Line 1024 records storev2Metrics.iavlTotalValueBytes with a store_name attribute; no remaining file mentions the legacy key sequence."
+remaining_refs = 0
+remaining = []
+
+[row.r15-97.36]
+interface = "interface.15.met-legacy-storev2-rootmulti-store-1064-j56"
+verdict = "retired"
+path = "sdk/storev2/rootmulti/store.go"
+line = 1064
+symbol = "\"iavl\", \"store\", \"total_num_keys\""
+evidence = "The legacy IAVL total-num-keys gauge key is absent from rootmulti/store.go. Line 1027 records storev2Metrics.iavlTotalNumKeys with a store_name attribute; no remaining file mentions the legacy key sequence."
+remaining_refs = 0
+remaining = []
+
+[row.r15-97.37]
+interface = "interface.15.met-legacy-tasks-scheduler-271-j56"
+verdict = "retired"
+path = "sdk/tasks/scheduler.go"
+line = 271
+symbol = "\"scheduler\", \"retries\""
+evidence = "The SDK scheduler legacy retries counter is absent from sdk/tasks/scheduler.go; line 268 uses taskMetrics.retries.Add. The remaining engine/deps/tasks/scheduler.go:283 occurrence is a separate engine scheduler legacy emitter."
+remaining_refs = 1
+remaining = ["engine/deps/tasks/scheduler.go:283"]
+
+[row.r15-97.38]
+interface = "interface.15.met-legacy-tasks-scheduler-274-j56"
+verdict = "retired"
+path = "sdk/tasks/scheduler.go"
+line = 274
+symbol = "\"scheduler\", \"incarnations\""
+evidence = "The SDK scheduler legacy incarnations counter is absent from sdk/tasks/scheduler.go; line 269 uses taskMetrics.incarnations.Add. The remaining engine/deps/tasks/scheduler.go:284 occurrence is a separate engine scheduler legacy emitter."
+remaining_refs = 1
+remaining = ["engine/deps/tasks/scheduler.go:284"]
+
+[row.r15-97.39]
+interface = "interface.15.met-tel-cosmos-upgrade-plan-height"
+verdict = "retired"
+path = "sdk/telemetry/metrics.go"
+line = 122
+symbol = "cosmos_upgrade_plan_height"
+evidence = "The predeclared legacy upgrade-height gauge is absent from sdk/telemetry/metrics.go; setupPrometheus at lines 113-124 supplies no GaugeDefinitions. Override decision J56.1 explicitly requires retirement after task 15.3.4 removes its writers. Both remaining files are retirement checks, not gauge declarations."
+remaining_refs = 2
+remaining = ["sdk/integrations/express/test/completion-gate.test.mjs:306", "sdk/telemetry/legacy_definitions_test.go:32"]
+
+[row.r15-97.40]
+interface = "interface.15.met-legacy-types-module-module-614-j56"
+verdict = "retired"
+path = "sdk/types/module/module.go"
+line = 614
+symbol = "\"module\", \"total_mid_block\""
+evidence = "The module-manager legacy total-mid-block timer is absent from module.go. Line 611 records moduleMetrics.totalMidBlockDuration using the SDK context instead; no remaining file mentions the legacy key sequence."
+remaining_refs = 0
+remaining = []
+
+[row.r15-97.41]
+interface = "interface.15.met-legacy-types-module-module-625-j56"
+verdict = "retired"
+path = "sdk/types/module/module.go"
+line = 625
+symbol = "telemetry.ModuleMeasureSince(moduleName, moduleStartTime, \"module\", \"mid_block\")"
+evidence = "The legacy per-module MidBlock timer call is absent from module.go. Line 620 records moduleMetrics.midBlockDuration with the cached module attributes instead; no remaining file mentions the legacy call."
+remaining_refs = 0
+remaining = []

@@ -36,18 +36,11 @@ fn report_error(error: ApplicationError) -> ApplicationError {
 ///
 /// # Errors
 /// Propagates `Writer` `ARITHMETIC`/`CAPACITY` refusals (unreachable for the fixed buffer).
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn encode_binding(binding: &EvaluatorBinding) -> CodecResult<[u8; BINDING_BYTES]> {
     let mut bytes = [0; BINDING_BYTES];
     let mut w = codec::Writer::new(&mut bytes);
-    w.put(binding.frozen.chain.as_bytes())?;
-    w.put(binding.frozen.program.as_bytes())?;
-    w.put(binding.frozen.market.as_bytes())?;
-    w.u64(binding.frozen.epoch)?;
-    w.u64(binding.frozen.config.get())?;
-    w.put(binding.frozen.roster.as_bytes())?;
-    w.put(binding.evaluator.as_bytes())?;
-    w.u64(binding.grant.get())?;
-    w.u64(binding.key_version.get())?;
+    codec::write_evaluator_binding(&mut w, binding)?;
     Ok(bytes)
 }
 
@@ -55,24 +48,13 @@ pub fn encode_binding(binding: &EvaluatorBinding) -> CodecResult<[u8; BINDING_BY
 ///
 /// # Errors
 /// Returns `NON_CANONICAL` when the input is not exactly `BINDING_BYTES` or for a zero identity, digest or version.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn decode_binding(bytes: &[u8]) -> CodecResult<EvaluatorBinding> {
     if bytes.len() != BINDING_BYTES {
         return Err(NON_CANONICAL);
     }
     let mut r = codec::Reader::new(bytes);
-    let binding = EvaluatorBinding {
-        frozen: FrozenBinding {
-            chain: ChainDomain::new(r.fixed()?)?,
-            program: ProgramId::new(r.fixed()?)?,
-            market: MarketId::new(r.fixed()?)?,
-            epoch: r.u64()?,
-            config: Version::new(r.u64()?)?,
-            roster: RosterDigest::new(r.fixed()?)?,
-        },
-        evaluator: EvaluatorId::new(r.fixed()?)?,
-        grant: Version::new(r.u64()?)?,
-        key_version: Version::new(r.u64()?)?,
-    };
+    let binding = codec::read_evaluator_binding(&mut r)?;
     r.finish()?;
     Ok(binding)
 }
@@ -81,6 +63,7 @@ pub fn decode_binding(bytes: &[u8]) -> CodecResult<EvaluatorBinding> {
 ///
 /// # Errors
 /// Returns `WRONG_DOMAIN`, `WRONG_PROGRAM`, `WRONG_MARKET`, `WRONG_EPOCH`, `WRONG_CONFIG`, `WRONG_ROSTER`, `UNAUTHORIZED` (evaluator or grant) or `KEY_MISMATCH` for the first mismatched field, in that order.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn check_binding(actual: &EvaluatorBinding, expected: &EvaluatorBinding) -> CodecResult<()> {
     let a = &actual.frozen;
     let e = &expected.frozen;
@@ -109,6 +92,7 @@ pub fn check_binding(actual: &EvaluatorBinding, expected: &EvaluatorBinding) -> 
 ///
 /// # Errors
 /// Returns `NON_CANONICAL` when the input is not 32 bytes; `F04_SALT_INVALID` for a zero salt.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn decode_salt(bytes: &[u8]) -> CodecResult<Salt32> {
     Salt32::new(bytes.try_into().map_err(|_| NON_CANONICAL)?)
 }
@@ -117,6 +101,7 @@ pub fn decode_salt(bytes: &[u8]) -> CodecResult<Salt32> {
 ///
 /// # Errors
 /// Returns `NON_CANONICAL` when the input is not 64 bytes.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn decode_signature(bytes: &[u8]) -> CodecResult<Signature64> {
     Ok(Signature64(bytes.try_into().map_err(|_| NON_CANONICAL)?))
 }
@@ -203,6 +188,7 @@ pub fn check_commitment(actual: CommitmentDigest, expected: CommitmentDigest) ->
 ///
 /// # Errors
 /// Propagates `codec::encode_commit_score`'s `CAPACITY` refusal (unreachable for the fixed buffer).
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn encode_commit_score(
     binding: EvaluatorBinding,
     commitment: CommitmentDigest,
@@ -222,6 +208,7 @@ pub fn encode_commit_score(
 ///
 /// # Errors
 /// Returns `NON_CANONICAL` when the input is not exactly `COMMIT_SCORE_BYTES`; propagates `codec::decode_commit_score` refusals.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn decode_commit_score(bytes: &[u8]) -> CodecResult<codec::CommitScorePayload> {
     if bytes.len() != COMMIT_SCORE_BYTES {
         return Err(NON_CANONICAL);
@@ -233,6 +220,7 @@ pub fn decode_commit_score(bytes: &[u8]) -> CodecResult<codec::CommitScorePayloa
 ///
 /// # Errors
 /// Propagates `decode_report`, `decode_signature`, `decode_salt` and `codec::encode_reveal_score` refusals, with `F03_NO_SCORES` mapped to `F04_NO_SCORES`.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn encode_reveal_score(
     body: &[u8],
     signature: &[u8],
@@ -257,12 +245,13 @@ pub fn encode_reveal_score(
 ///
 /// # Errors
 /// Propagates `codec::decode_reveal_score` refusals, with `F03_NO_SCORES` mapped to `F04_NO_SCORES`.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn decode_reveal_score(bytes: &[u8]) -> CodecResult<codec::RevealScorePayload<'_>> {
     codec::decode_reveal_score(bytes).map_err(report_error)
 }
 
 #[cfg(target_arch = "wasm32")]
-#[derive(Debug)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub enum CryptoError {
     Codec(ApplicationError),
     Sdk(layerx_program_sdk::ProgramError),

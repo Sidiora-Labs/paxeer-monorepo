@@ -1,5 +1,9 @@
 use ureq::tls::{Certificate, RootCerts, TlsConfig, TlsProvider};
 
+#[cfg(test)]
+#[path = "outbound_tls/tests.rs"]
+mod tests;
+
 pub(crate) fn private_ca(ca_der: &[u8]) -> Option<TlsConfig> {
     if ca_der.is_empty() {
         return None;
@@ -37,6 +41,11 @@ pub(crate) fn system(endpoint: &str) -> Option<TlsConfig> {
             .root_certs(RootCerts::new_with_certs(&certificates))
             .build(),
     )
+}
+
+#[test]
+fn private_ca_refuses_empty_trust_roots() {
+    assert!(private_ca(&[]).is_none());
 }
 
 #[cfg(test)]

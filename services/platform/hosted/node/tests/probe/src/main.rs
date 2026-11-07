@@ -141,25 +141,21 @@ fn balance(parsed: &BTreeMap<String, String>) -> Result<String, String> {
     ))
 }
 
-fn did_accounts(parsed: &BTreeMap<String, String>) -> Result<String, String> {
+/// List native bound accounts as JSON, following `did-accounts.schema.json`.
+/// Empty and unbound listings have `count: 0` and `accounts: []`; unavailable
+/// reads remain errors rather than being reported as empty listings.
+pub fn did_accounts(parsed: &BTreeMap<String, String>) -> Result<String, String> {
     let did = required(parsed, "did")?;
     Did::new(did.as_bytes()).map_err(|error| format!("--did: {error:?}"))?;
     let (_, px, _) = rpc_session(parsed)?;
     let values = history::did_accounts(&px, did)
         .map_err(|error| format!("did account listing failed: {error:?}"))?;
-    let mut names = Vec::with_capacity(values.len());
-    for value in &values {
-        let name = value
-            .get("name")
-            .and_then(|name| name.as_str())
-            .ok_or_else(|| "malformed account name in listing".to_owned())?;
-        names.push(public_json_string(name));
-    }
+    let accounts: Vec<String> = values.iter().map(ToString::to_string).collect();
     Ok(format!(
         "{{\"did\":{},\"count\":{},\"accounts\":[{}]}}",
         public_json_string(did),
         values.len(),
-        names.join(","),
+        accounts.join(","),
     ))
 }
 
@@ -212,16 +208,9 @@ fn write_send(parsed: &BTreeMap<String, String>) -> Result<String, String> {
     let source_did = layerx_platform_core::treasury_did(&seed);
     let (endpoint, px, network) = rpc_session(parsed)?;
     let address = layerx_platform_core::custody_source_address(&px, &source_did)?;
-    let state = rpc_account::account(
-        &endpoint,
-        address,
-        ReadContext {
-            committed_height: network.latest_committed_height,
-            requested: Requested::new(Rung::Committed)
-                .map_err(|error| format!("preparation rung: {error:?}"))?,
-        },
-    )
-    .map_err(|error| format!("preparation account: {error:?}"))?;
+    let nonce = endpoint
+        .nonce_at(&address, network.latest_committed_height)
+        .map_err(|error| format!("preparation account: {error:?}"))?;
     let timestamp = endpoint
         .block_by_number(network.latest_committed_height)
         .map_err(|error| format!("preparation block: {error:?}"))?
@@ -237,7 +226,7 @@ fn write_send(parsed: &BTreeMap<String, String>) -> Result<String, String> {
             destination_did: required(parsed, "destination-did")?.to_owned(),
             asset: hex32(required(parsed, "asset")?)?,
             amount: 1,
-            account_sequence: state.nonce.checked_add(1).ok_or("sequence exhausted")?,
+            account_sequence: nonce.checked_add(1).ok_or("sequence exhausted")?,
             idempotency_key: [0x61; 32],
             not_before_ms: timestamp,
             expires_at_ms: timestamp
@@ -282,10 +271,16 @@ fn custody_session(parsed: &BTreeMap<String, String>) -> Result<CustodySession, 
         .map_err(|error| format!("custody sequencer endpoint: {error:?}"))?;
     let network = PxEndpoint::new(url, &[&der])
         .map_err(|error| format!("custody network endpoint: {error:?}"))?;
-    let committed_height = network
+    let head = network
         .network()
-        .map_err(|error| format!("custody committed height: {error:?}"))?
-        .latest_committed_height;
+        .map_err(|error| format!("custody committed height: {error:?}"))?;
+    let chain_id = sequencer
+        .chain_id()
+        .map_err(|error| format!("custody chain id: {error:?}"))?;
+    if chain_id != u64::from(network_id) || head.paxeer.chain_id != chain_id {
+        return Err("network id mismatch".to_owned());
+    }
+    let committed_height = head.latest_committed_height;
     Ok(CustodySession {
         sequencer,
         network,
@@ -294,7 +289,19 @@ fn custody_session(parsed: &BTreeMap<String, String>) -> Result<CustodySession, 
     })
 }
 
-fn custody_preparation(session: &CustodySession, actor: &str) -> Result<(u64, u64, u64), String> {
+#[derive(Eq, PartialEq)]
+struct CustodyPreparation {
+    height: u64,
+    nonce: u64,
+    address: [u8; 20],
+    block: layerx_client::sequencer::SequencerBlock,
+    state_root: [u8; 32],
+}
+
+fn custody_preparation(
+    session: &CustodySession,
+    actor: &str,
+) -> Result<CustodyPreparation, String> {
     let height = session
         .network
         .network()
@@ -308,8 +315,15 @@ fn custody_preparation(session: &CustodySession, actor: &str) -> Result<(u64, u6
         .sequencer
         .pending_nonce(&address)
         .map_err(|error| format!("custody pending nonce: {error:?}"))?;
-    let batch = layerx_platform_core::custody_latest_finalized(&session.sequencer, height)?;
-    Ok((height, nonce, batch))
+    let (block, state_root) =
+        layerx_platform_core::native_committed_state(&session.sequencer, height)?;
+    Ok(CustodyPreparation {
+        height,
+        nonce,
+        address,
+        block,
+        state_root,
+    })
 }
 
 fn public_json_string(value: &str) -> String {
@@ -328,7 +342,7 @@ fn public_json_string(value: &str) -> String {
     output
 }
 
-fn custody_asset_profile(parsed: &BTreeMap<String, String>) -> Result<String, String> {
+pub fn custody_asset_profile(parsed: &BTreeMap<String, String>) -> Result<String, String> {
     let session = custody_session(parsed)?;
     let asset = hex32(required(parsed, "asset")?)?;
     let actors: Vec<_> = ["source-did", "destination-did"]
@@ -339,10 +353,8 @@ fn custody_asset_profile(parsed: &BTreeMap<String, String>) -> Result<String, St
         .iter()
         .map(|did| custody_preparation(&session, did))
         .collect::<Result<Vec<_>, _>>()?;
-    let batch_before = layerx_platform_core::custody_latest_finalized(
-        &session.sequencer,
-        session.committed_height,
-    )?;
+    let snapshot_before =
+        layerx_platform_core::native_committed_state(&session.sequencer, session.committed_height)?;
     let selected = layerx_platform_core::read_custody_profile(
         &session.sequencer,
         session.network_id,
@@ -358,13 +370,14 @@ fn custody_asset_profile(parsed: &BTreeMap<String, String>) -> Result<String, St
         .network()
         .map_err(|error| format!("custody committed height: {error:?}"))?
         .latest_committed_height;
-    let batch_after =
-        layerx_platform_core::custody_latest_finalized(&session.sequencer, height_after)?;
-    if before != after
-        || height_after != session.committed_height
-        || batch_before != batch_after
-        || selected.trusted_height() != batch_before
-    {
+    if before != after || height_after != session.committed_height {
+        return Err(
+            "custody preparation changed during profile reads; refresh required".to_owned(),
+        );
+    }
+    let snapshot_after =
+        layerx_platform_core::native_committed_state(&session.sequencer, height_after)?;
+    if snapshot_before != snapshot_after || selected.trusted_height() != session.committed_height {
         return Err(
             "custody preparation changed during profile reads; refresh required".to_owned(),
         );
@@ -408,14 +421,15 @@ fn custody_asset_profile(parsed: &BTreeMap<String, String>) -> Result<String, St
         );
     }
     Ok(format!(
-        "{{\"asset\":\"{}\",\"profile_sha256\":\"{}\",\"profile_hex\":\"{}\",\"trusted_height\":{},\"trust_source\":\"authenticated_initial_profile\",\"head_sequence\":{},\"global_sequence\":{},\"batch_number\":{},\"achieved\":\"STATE_PROVEN\"{accounts}}}",
+        "{{\"asset\":\"{}\",\"profile_sha256\":\"{}\",\"profile_hex\":\"{}\",\"trusted_height\":{},\"trust_source\":\"authenticated_native_bank_pointer\",\"head_sequence\":{},\"global_sequence\":{},\"committed_height\":{},\"block_hash\":\"{}\",\"app_hash\":\"{}\",\"achieved\":\"COMMITTED\"{accounts}}}",
         hex(&selected.asset()), hex(&selected.profile_hash()),
         hex(selected.profile()), selected.trusted_height(),
         session.committed_height, session.committed_height, selected.trusted_height(),
+        hex(&snapshot_after.0.hash), hex(&snapshot_after.1),
     ))
 }
 
-fn write_asset_send(parsed: &BTreeMap<String, String>) -> Result<String, String> {
+pub fn write_asset_send(parsed: &BTreeMap<String, String>) -> Result<String, String> {
     let seed_file = std::fs::OpenOptions::new()
         .read(true)
         .custom_flags(libc::O_NONBLOCK | libc::O_NOFOLLOW)
@@ -453,8 +467,9 @@ fn write_asset_send(parsed: &BTreeMap<String, String>) -> Result<String, String>
     )?;
     let after = custody_preparation(&session, &source_did)?;
     if before != after
-        || selected.account_sequence() != before.1
-        || selected.trusted_height() != before.2
+        || selected.account_sequence() != before.nonce
+        || selected.trusted_height() != before.height
+        || selected.state_root() != before.state_root
     {
         return Err(
             "custody preparation changed during asset proof reads; refresh required".to_owned(),
@@ -464,17 +479,14 @@ fn write_asset_send(parsed: &BTreeMap<String, String>) -> Result<String, String>
         .get("amount")
         .map_or(Ok(1), |value| value.parse::<u128>())
         .map_err(|error| format!("--amount: {error}"))?;
-    let timestamp = session
-        .sequencer
-        .block_by_number(before.0)
-        .map_err(|error| format!("custody block timestamp: {error:?}"))?
-        .ok_or("custody committed block unavailable")?
+    let timestamp = before
+        .block
         .timestamp
         .checked_mul(1000)
         .ok_or("timestamp exhausted")?;
     let signed = layerx_platform_core::build_asset_send_with_identity_sequence(
         &seed,
-        before.1,
+        before.nonce,
         &layerx_platform_core::SendRequest {
             network_id: session.network_id,
             source_did,

@@ -1,0 +1,41 @@
+[manifest]
+task = "22.32.78"
+domain = 8
+owner_role = "fm-platform"
+pages = 6
+
+[page.1]
+path = "sdk/chainflow/go/.claude/skills/chainflow-data-gateway-go-sdk/SKILL.md"
+status = "stale"
+bytes = 2474
+source_1 = "record 22.30.70 [doc.19] (stale): Read in full. The installation command uses a hostname-free Go module path with no publication or local replace setup; the installation finding names the concrete correction."
+
+[page.2]
+path = "sdk/chainflow/go/README.md"
+status = "stale"
+bytes = 5588
+source_1 = "record 22.30.70 [doc.17] (stale): Read in full. The installation command uses a hostname-free Go module path with no publication or local replace setup; the installation finding names the concrete correction."
+
+[page.3]
+path = "sdk/chainflow/go/SKILL.md"
+status = "stale"
+bytes = 2453
+source_1 = "record 22.30.70 [doc.18] (stale): Read in full. The installation command uses a hostname-free Go module path with no publication or local replace setup; the installation finding names the concrete correction."
+
+[page.4]
+path = "sdk/chainflow/go/api.md"
+status = "misleading"
+bytes = 19397
+source_1 = "record 22.30.70 [doc.21] (misleading): Read in full. The WebSocket minting section at 85-99 forbids logging the response but prints the credential-bearing WsToken; other operation descriptions were compared with the generated client surface."
+
+[page.5]
+path = "sdk/chainflow/python/.claude/skills/chainflow-data-gateway-python-sdk/SKILL.md"
+status = "stale"
+bytes = 2565
+source_1 = "record 22.30.71 [doc.16] (stale): Read as packaged SDK documentation in full; shares the missing transport/token example with the root skill. Its ../../../api.md and README relative links resolve correctly from this directory."
+
+[page.6]
+path = "sdk/chainflow/python/README.md"
+status = "stale"
+bytes = 4957
+source_1 = "record 22.30.71 [doc.13] (stale): Read in full; the authentication table correctly separates three credentials, but lines 28-30 and 77-85 omit the WebSocket extra and token setup and use an unsupported market placeholder."

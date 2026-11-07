@@ -1,0 +1,38 @@
+[meta]
+task = "22.33.718"
+audit = "22.30.170"
+status = "implemented-awaiting-qualification"
+source_revision = "5f6b5f0aad35a415da93671f70183d5e5688bda0"
+continued_revision = "592c00a088d279975c4384f4a15d47aaa350ee67"
+evidence = "The runner's /out/run/gates.jsonl binds each gate to its exact candidate revision, command, exit and private log."
+
+[finding.recovery_command_paths]
+test = "RepairM718.test_repair_m718_command_paths"
+repair = "Preserve the already-canonical checker invocation and safety conditions; explicitly bind provider, production and load source roots in README.md."
+
+[finding.recovery_opaque_version_id]
+test = "RepairM718.test_repair_m718_opaque_version_round_trip"
+repair = "Use a dedicated bounded UTF-8 opaque version validator without normalization; retain exact identifiers in canonical inventories and trusted manifest hashes."
+path = "deploy/launchpad/production/recovery/test_repair_m718.py"
+
+[finding.recovery_backup_format_contract]
+test = "RepairM718.test_repair_m718_plain_directory_round_trip"
+repair = "Declare the actual plain-directory pg_basebackup, pg_verifybackup and bounded pg_ctl vectors; document directory verification, copying and paused recovery."
+path = "deploy/launchpad/production/recovery/test_repair_m718.py"
+boundary = "Command-peer fixture tests prove provider adapter layout and identity checks, not native PostgreSQL PITR or production readiness."
+
+[baseline]
+run = "Not run: the explicit Order forbids testing before complete implementation and requires hf-build followed by hf-done; the separate unchanged-tree baseline request conflicts with that order."
+prior_failures = "Attempt 1 ended implemented_not_qualified: verify_passed, same_candidate, build_on_verified, spec_done and codex_evidence_matches were unmet; no unchanged-tree test failures were recorded."
+observed = "README already used deploy/launchpad/production/recovery/check.py at the source revision."
+
+[constraint]
+ruling = "do_11 supersedes the Go wrapper: proofs run in-process in test_repair_m718.py using the production Python interpreter and committed command-peer fixtures; doc.go and repair_m718_test.go were removed."
+gotcha = "Import test_recovery as a module so pytest collects only the three repair proofs rather than also collecting the imported unittest contract class."
+wiring = "None: all three production repairs and fixtures are inside deploy/launchpad/production/recovery."
+
+[qualification]
+build = "hf-build: python3 -m compileall -q deploy/launchpad/production/recovery"
+verify = "hf-done: cg spec done 22.33.718 -f layerx-merge --root $TASK_ROOT"
+verify_cmd = "python3 -m pytest -q deploy/launchpad/production/recovery/test_repair_m718.py"
+revision_record = "The verified candidate revision, command, exit and private evidence log are recorded by hf-done in /out/run/gates.jsonl; this record makes no gate-pass claim before that result."

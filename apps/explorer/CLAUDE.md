@@ -83,7 +83,7 @@ These are enforced by ESLint and must be followed:
 
 When adding, renaming, or removing an environment variable, all of the following must be updated:
 
-1. `docs/ENVS.md` — document name, type, whether required, default, and example
+1. `../../docs/explorer/ENVS.md` — document name, type, whether required, default, and example
 2. `configs/app/` — add to the appropriate section (`features/`, `ui.ts`, `api.ts`, etc.)
 3. `deploy/tools/envs-validator/schema.ts` — add/update validation schema
 4. `deploy/tools/envs-validator/test/.env.base` — add to test presets

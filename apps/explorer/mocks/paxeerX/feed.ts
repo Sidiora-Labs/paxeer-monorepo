@@ -59,8 +59,48 @@ export const priceUpdate: PriceUpdateItem = {
 export const failedPriceUpdate: PriceUpdateItem = {
   ...priceUpdate,
   hash: olderUpdateHash,
+  block_number: 34800137,
+  timestamp: '2026-01-02T03:04:19.000000Z',
+  confirmations: 1,
   status: 'error',
   result: 'failed',
+  price_update: {
+    ...priceUpdate.price_update,
+    observations: priceUpdate.price_update.observations
+      .map((observation) => ({ ...observation, accepted: false }))
+      .sort((a, b) => a.market_id - b.market_id),
+  },
+};
+
+export const refusedPriceUpdate: PriceUpdateItem = {
+  ...priceUpdate,
+  hash: '0x2222222222222222222222222222222222222222222222222222222222222222',
+  block_number: 34800136,
+  timestamp: '2026-01-02T03:04:18.000000Z',
+  confirmations: 1,
+  price_update: {
+    ...priceUpdate.price_update,
+    observations: [
+      {
+        accepted: false,
+        market_id: 0,
+        symbol: 'BTC-USD',
+        index_price: '67500000000000000000000',
+        mark_price: '67505000000000000000000',
+        source_timestamp_ms: 1767323057500,
+        sequence: 9003,
+      },
+      {
+        accepted: true,
+        market_id: 1,
+        symbol: 'ETH-USD',
+        index_price: '3500000000000000000000',
+        mark_price: '3501000000000000000000',
+        source_timestamp_ms: 1767323057500,
+        sequence: 9002,
+      },
+    ],
+  },
 };
 
 export const markets: FeedMarketsResponse = {
@@ -88,6 +128,14 @@ export const markets: FeedMarketsResponse = {
     },
   ],
   chain_head: 34800135,
+};
+
+export const refusalMarkets: FeedMarketsResponse = {
+  ...markets,
+  items: [
+    ...markets.items,
+    { market_id: 1, symbol: 'ETH-USD', chainflow_symbol: 'ETHUSDT', latest: null },
+  ],
 };
 
 export const marketUpdates: Array<MarketUpdate> = [

@@ -4,154 +4,211 @@ order: 5
 
 # Client
 
+The Paxeer node binary is `paxd`. Its authz commands are registered by
+[the authz module](../module/module.go) and implemented in
+[query.go](../client/cli/query.go) and [tx.go](../client/cli/tx.go).
+Accounts use `pax1...` Bech32 addresses; validators use `paxvaloper1...`.
+`uhpx` is the native base denomination. Protobuf type URLs retain their
+`/cosmos.*` spelling.
+
+These SDK commands and gRPC queries use the node's configured SDK services.
+Paxeer mainnet-beta's public EVM JSON-RPC uses chain id 125 (`0x7d`) at the root of
+`https://api1.mainnet-beta.paxeer.network` through
+`https://api14.mainnet-beta.paxeer.network`, and
+`https://api-mainnet-beta.paxeer.network`. Those addresses do not imply public
+exposure of the SDK gRPC or REST services. Configure the CLI's node connection and
+SDK chain-id string for your network; the EVM numeric chain id is not a substitute
+for that string.
+
 ## CLI
 
-A user can query and interact with the `authz` module using the CLI.
+The examples assume local keyring entries named `granter`, `grantee`, and
+`recipient`. Use the same keyring and home options throughout if yours differ.
+Set `CHAIN_ID` to your node's SDK chain-id string before the transaction examples.
+
+```bash
+GRANTER=$(paxd keys show granter -a)
+GRANTEE=$(paxd keys show grantee -a)
+RECIPIENT=$(paxd keys show recipient -a)
+EXPIRATION=$(date -u -d '+1 year' +%s)
+paxd query authz --help
+paxd tx authz --help
+```
 
 ### Query
 
-The `query` commands allow users to query `authz` state.
-
-```bash
-simd query authz --help
-```
-
 #### grants
 
-The `grants` command allows users to query grants for a granter-grantee pair. If the message type URL is set, it selects grants only for that message type.
+Query all grants for a granter and grantee, or select one message type:
 
 ```bash
-simd query authz grants [granter-addr] [grantee-addr] [msg-type-url]? [flags]
+paxd query authz grants "$GRANTER" "$GRANTEE"
+paxd query authz grants "$GRANTER" "$GRANTEE" /cosmos.bank.v1beta1.MsgSend
 ```
 
-Example:
+#### grants-by-granter
 
 ```bash
-simd query authz grants cosmos1.. cosmos1.. /cosmos.bank.v1beta1.MsgSend
+paxd query authz grants-by-granter "$GRANTER"
 ```
 
-Example Output:
+The alias is `granter-grants`.
+
+#### grants-by-grantee
 
 ```bash
-grants:
-- authorization:
-    '@type': /cosmos.bank.v1beta1.SendAuthorization
-    spend_limit:
-    - amount: "100"
-      denom: stake
-  expiration: "2022-01-01T00:00:00Z"
-pagination: null
+paxd query authz grants-by-grantee "$GRANTEE"
 ```
+
+The alias is `grantee-grants`. All three query commands accept pagination flags;
+use their `--help` output for supported flags. Pair queries return `Grant` entries
+with `authorization` and `expiration`; granter/grantee queries return
+`GrantAuthorization` entries that also include both account addresses.
+
+A query filtered by message type returns gRPC `NotFound` if the grant is missing
+or expired. List queries do not filter expired entries. Querying does not commit
+grant cleanup to chain state. See [Messages](03_messages.md#expiration-and-cleanup).
 
 ### Transactions
 
-The `tx` commands allow users to interact with the `authz` module.
+#### grant
+
+`grant` takes exactly two positional arguments: the grantee and authorization type.
+The granter is selected by `--from`.
 
 ```bash
-simd tx authz --help
+paxd tx authz grant "$GRANTEE" send --spend-limit=100uhpx \
+  --expiration="$EXPIRATION" --from=granter --chain-id="$CHAIN_ID"
 ```
+
+The supported authorization types and additional flags are:
+
+| Type | Flags and behavior |
+| --- | --- |
+| `send` | `--spend-limit` must contain positive coins, such as `100uhpx`. Authorizes `MsgSend`. |
+| `generic` | `--msg-type` selects the exact registered message type URL. No authorization-specific spend limit. |
+| `delegate` | Authorizes `MsgDelegate`; requires a validator policy. |
+| `unbond` | Authorizes `MsgUndelegate`; requires a validator policy. |
+| `redelegate` | Authorizes `MsgBeginRedelegate`; policy checks the destination validator. |
+
+For each staking type, supply exactly one non-empty comma-separated
+`--allowed-validators` or `--deny-validators` list of `paxvaloper1...` addresses.
+An optional `--spend-limit` supplies the staking token limit; pass one denomination,
+since this CLI uses the first parsed coin for `max_tokens`. See
+[Concepts](01_concepts.md#stakeauthorization) for validator policy semantics.
+
+`--expiration` is an integer Unix timestamp in seconds, not an RFC 3339 string.
+Its default is one year from command construction. The grant handler rejects an
+expiration at or before chain block time with codespace `authz`, code `3`, without
+storing a grant or emitting `EventGrant`. Reissuing a grant for the same pair and message type
+replaces the prior grant.
+
+For example, a generic grant for the bank send message is:
+
+```bash
+paxd tx authz grant "$GRANTEE" generic \
+  --msg-type=/cosmos.bank.v1beta1.MsgSend --expiration="$EXPIRATION" \
+  --from=granter --chain-id="$CHAIN_ID"
+```
+
+This replaces the earlier send grant for that same tuple with an unrestricted
+generic authorization for `MsgSend`; the bank handler still enforces its rules.
 
 #### exec
 
-The `exec` command allows a grantee to execute a transaction on behalf of granter.
+Generate an unsigned transaction whose message signer is the granter, then submit
+its messages inside `MsgExec` signed by the grantee:
 
 ```bash
-  simd tx authz exec [tx-json-file] --from [grantee] [flags]
+paxd tx bank send "$GRANTER" "$RECIPIENT" 10uhpx \
+  --chain-id="$CHAIN_ID" --generate-only > tx.json
+paxd tx authz exec tx.json --from=grantee --chain-id="$CHAIN_ID"
 ```
 
-Example:
-
-```bash
-simd tx authz exec tx.json --from=cosmos1..
-```
-
-#### grant
-
-The `grant` command allows a granter to grant an authorization to a grantee.
-
-```bash
-simd tx authz grant <grantee> <authorization_type="send"|"generic"|"delegate"|"unbond"|"redelegate"> --from <granter> [flags]
-```
-
-Example:
-
-```bash
-simd tx authz grant cosmos1.. send --spend-limit=100stake --from=cosmos1..
-```
+The file is a transaction JSON document, not a bare message array. `exec` reads its
+messages and constructs a new transaction; it does not broadcast the file's
+original signatures. This command rejects `--offline`. Authorization does not
+bypass [bank message checks](../../bank/spec/03_messages.md).
 
 #### revoke
 
-The `revoke` command allows a granter to revoke an authorization from a grantee.
-
 ```bash
-simd tx authz revoke [grantee] [msg-type-url] --from=[granter] [flags]
+paxd tx authz revoke "$GRANTEE" /cosmos.bank.v1beta1.MsgSend \
+  --from=granter --chain-id="$CHAIN_ID"
 ```
 
-Example:
-
-```bash
-simd tx authz revoke cosmos1.. /cosmos.bank.v1beta1.MsgSend --from=cosmos1..
-```
+Revocation fails if the specified grant does not exist.
 
 ## gRPC
 
-A user can query the `authz` module using gRPC endpoints.
+The query contract is [query.proto](../../../proto/cosmos/authz/v1beta1/query.proto).
+Use your node's configured `grpc.address` with `grpc.enable` enabled. The SDK
+default listener is port 9090; the following plaintext example is for a local node:
 
 ### Grants
 
-The `Grants` endpoint allows users to query grants for a granter-grantee pair. If the message type URL is set, it selects grants only for that message type.
-
-```bash
-cosmos.authz.v1beta1.Query/Grants
-```
-
-Example:
-
 ```bash
 grpcurl -plaintext \
-    -d '{"granter":"cosmos1..","grantee":"cosmos1..","msg_type_url":"/cosmos.bank.v1beta1.MsgSend"}' \
-    localhost:9090 \
-    cosmos.authz.v1beta1.Query/Grants
+  -d "{\"granter\":\"$GRANTER\",\"grantee\":\"$GRANTEE\",\"msg_type_url\":\"/cosmos.bank.v1beta1.MsgSend\"}" \
+  localhost:9090 cosmos.authz.v1beta1.Query/Grants
 ```
 
-Example Output:
+| Method | Request fields apart from optional `pagination` |
+| --- | --- |
+| `cosmos.authz.v1beta1.Query/Grants` | `granter`, `grantee`, optional `msg_type_url` |
+| `cosmos.authz.v1beta1.Query/GranterGrants` | `granter` |
+| `cosmos.authz.v1beta1.Query/GranteeGrants` | `grantee` |
 
-```bash
-{
-  "grants": [
-    {
-      "authorization": {
-        "@type": "/cosmos.bank.v1beta1.SendAuthorization",
-        "spendLimit": [
-          {
-            "denom":"uhpx",
-            "amount":"100"
-          }
-        ]
-      },
-      "expiration": "2022-01-01T00:00:00Z"
-    }
-  ]
-}
-```
+A send authorization is encoded with type URL
+`/cosmos.bank.v1beta1.SendAuthorization` and a `spend_limit` coin list (`spendLimit`
+in some protobuf JSON encoders; the CLI codec below uses `spend_limit`). Coin amounts are decimal strings; expiration is a timestamp.
 
 ## REST
 
-A user can query the `authz` module using REST endpoints.
+The authz query service registers these gRPC gateway GET routes:
+
+| Route | Parameters |
+| --- | --- |
+| `/cosmos/authz/v1beta1/grants` | Query: `granter`, `grantee`, optional `msg_type_url` |
+| `/cosmos/authz/v1beta1/grants/granter/{granter}` | Granter in path |
+| `/cosmos/authz/v1beta1/grants/grantee/{grantee}` | Grantee in path |
+
+Enable the node's SDK API with `api.enable` and use `api.address`. The SDK default
+API address is `tcp://0.0.0.0:1317`, with the API disabled by default. For a local
+node where it is enabled:
 
 ```bash
-/cosmos/authz/v1beta1/grants
+curl --get 'http://localhost:1317/cosmos/authz/v1beta1/grants' \
+  --data-urlencode "granter=$GRANTER" \
+  --data-urlencode "grantee=$GRANTEE" \
+  --data-urlencode 'msg_type_url=/cosmos.bank.v1beta1.MsgSend'
 ```
 
-Example:
+These are query routes. Submit grant, revoke, and execution transactions through
+the SDK transaction facilities, such as the CLI commands above.
+
+## Reproducible query responses
+
+The following accounts are generated from twenty bytes of `0x01` (granter) and
+`0x02` (grantee) with the configured `pax` Bech32 prefix. They are test fixtures;
+use your funded keyring accounts for transactions. `TestRepairM_691_ClientNetworkDoc`
+creates the `100uhpx` send grant through the real codec and message server at block
+time `2030-01-01T00:00:00Z`, then calls the generated query client through the SDK
+query router into the real keeper. Its logged responses are checked against these
+complete CLI-codec JSON examples. No public endpoint is needed.
 
 ```bash
-curl "localhost:1317/cosmos/authz/v1beta1/grants?granter=cosmos1..&grantee=cosmos1..&msg_type_url=/cosmos.bank.v1beta1.MsgSend"
+GRANTER=pax1qyqszqgpqyqszqgpqyqszqgpqyqszqgpwuux75
+GRANTEE=pax1qgpqyqszqgpqyqszqgpqyqszqgpqyqszlc6r4z
+paxd query authz grants "$GRANTER" "$GRANTEE" /cosmos.bank.v1beta1.MsgSend --output=json
+paxd query authz grants-by-granter "$GRANTER" --output=json
+paxd query authz grants-by-grantee "$GRANTEE" --output=json
 ```
 
-Example Output:
+Pair query:
 
-```bash
+<!-- repair-m691:pair -->
+```json
 {
   "grants": [
     {
@@ -164,9 +221,66 @@ Example Output:
           }
         ]
       },
-      "expiration": "2022-01-01T00:00:00Z"
+      "expiration": "2030-01-01T01:00:00Z"
     }
   ],
   "pagination": null
 }
 ```
+
+Grants by granter:
+
+<!-- repair-m691:granter -->
+```json
+{
+  "grants": [
+    {
+      "granter": "pax1qyqszqgpqyqszqgpqyqszqgpqyqszqgpwuux75",
+      "grantee": "pax1qgpqyqszqgpqyqszqgpqyqszqgpqyqszlc6r4z",
+      "authorization": {
+        "@type": "/cosmos.bank.v1beta1.SendAuthorization",
+        "spend_limit": [
+          {
+            "denom": "uhpx",
+            "amount": "100"
+          }
+        ]
+      },
+      "expiration": "2030-01-01T01:00:00Z"
+    }
+  ],
+  "pagination": {
+    "next_key": null,
+    "total": "0"
+  }
+}
+```
+
+Grants by grantee:
+
+<!-- repair-m691:grantee -->
+```json
+{
+  "grants": [
+    {
+      "granter": "pax1qyqszqgpqyqszqgpqyqszqgpqyqszqgpwuux75",
+      "grantee": "pax1qgpqyqszqgpqyqszqgpqyqszqgpqyqszlc6r4z",
+      "authorization": {
+        "@type": "/cosmos.bank.v1beta1.SendAuthorization",
+        "spend_limit": [
+          {
+            "denom": "uhpx",
+            "amount": "100"
+          }
+        ]
+      },
+      "expiration": "2030-01-01T01:00:00Z"
+    }
+  ],
+  "pagination": {
+    "next_key": null,
+    "total": "0"
+  }
+}
+```
+

@@ -49,6 +49,7 @@ func TestUpdateParamsEmitsConfigUpdated(t *testing.T) {
 	before := len(e.ctx.EVMEventManager().Events())
 	_, err := server.UpdateParams(sdk.WrapSDKContext(e.ctx), &types.MsgUpdateParams{Authority: outsider.String(), Params: params})
 	require.ErrorIs(t, err, types.ErrUnauthorized)
+	repair34RequireUnauthorized(t, err)
 	require.Equal(t, uint64(30), e.k.GetParams(e.ctx).BaseFeeBps)
 	require.Empty(t, evmLogsSince(e.ctx, before))
 

@@ -1,0 +1,21 @@
+[repair.22.33.688]
+audit = "22.30.168"
+qualification = "hf-build followed by hf-done; runner records the verified candidate revision and private log locations"
+baseline = "Not executed: the explicit implementation-first order and sole hf-done verification gate override the contradictory unchanged-tree baseline step; no pre-change failure execution is claimed."
+wiring_requests = []
+
+[finding.stake-limit-panics]
+tests = ["TestRepairM_688_StakeLimitPanics", "TestRepairM_688_InvalidStakeCoins"]
+proof = "Real grant/exec envelopes, production protobuf codec, authz and staking handlers and bank stores; rejection preserves all grants, balances and validator state; successful delegation reduces and exhausts the allowance."
+
+[finding.historical-sort-fixture]
+tests = ["TestRepairM_688_HistoricalSortFixture"]
+proof = "Distinct deterministic consensus keys, nonzero unequal powers and an equal-power tie with opposed operator order; NewHistoricalInfo and TrackHistoricalInfo through production keeper codec/store; reversed consensus tie rejected."
+
+[finding.validator-queue-key-bounds]
+tests = ["TestRepairM_688_ValidatorQueueKeyBounds"]
+proof = "Real queue producer and parser, all zero-to-seven-byte height truncations and malformed/trailing encodings, committed Go LevelDB close/reopen, unchanged recovered values and valid queue reads."
+
+[finding.nil-minimum-commission]
+tests = ["TestRepairM_688_NilMinimumCommission"]
+proof = "NewParams to Params.Validate and parameter validator; zero-value decimal rejected without panic; negative and above-one bounds retained, zero and one accepted."

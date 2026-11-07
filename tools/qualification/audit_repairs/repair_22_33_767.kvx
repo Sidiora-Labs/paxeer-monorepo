@@ -1,0 +1,39 @@
+[task.22.33.767]
+base_revision = "399c122802fbe3326c62ef9251760c3e53ee4060"
+verified_source_revision = "c27258d5023424d9619291dcc627e5a369726b61"
+repair = "Consume the root README corrections owned by task 22.31.470 under decision 2525. Add focused regression proof and the finding-to-test mapping for audit 22.30.173/doc-1. README.md is outside scope and remains unchanged."
+source_proof = "The Python-only module reads the real README and production sources. It checks one BFT network, kernel hosting and block proposal inside paxd, chain 125, the api1..api14 HTTPS node roots, the parsed curl JSON chain probe, submission through the node send path and durable WAL release, receipt RPC rungs and committed-block coverage, custody/checkpoint refusal gates, historical format labels, and the parsed Makefile prerequisite/recipe path to build/paxd. Build and release guidance must describe the merged runtime and finality at committed blocks."
+review_only = "Native compilation, execution, cryptographic verification, live RPC host availability, actual WAL durability and BFT commitment are not executed by this documentation gate. Producer, transport and consumer relationships are source assertions; runtime interface or restart-recovery proof is not claimed because this task changes neither. No shell script, unit file or manifest is changed; the gate needs no environment variable, credential, live endpoint, subprocess toolchain, native artifact or device."
+baseline = "No unchanged-tree verification was run: the explicit Order requires complete implementation before testing, hf-build before hf-done, and forbids manually running verify_cmd. No baseline test failure is claimed. Initial git diff contained only runner-prepared .cgignore and task status metadata; both scoped files were absent, gate counters were zero, and /out/run/gates.jsonl did not exist."
+build_cmd = "python3 --version"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_767.py"
+evidence_ledger = "/out/run/gates.jsonl"
+evidence = "The final hf-done JSON and private evidence ledger record the exact verified candidate revision, command, exit code and log location. hf-build and hf-done must pass on the same candidate revision. The immutable source revision above identifies the inherited README; the content-derived qualification revision is recorded externally because embedding it in its own candidate would change that revision. No edit follows a passing hf-done; the runner publishes the result."
+wiring_requests = []
+
+[finding.doc-1]
+audit = "22.30.173"
+file = "README.md"
+class = "doc-drift"
+severity = "medium"
+owner_domain = 16
+owner_task = "22.31.470"
+resolution = "The inherited README already supplies all expected architecture, root RPC, transaction/receipt, retirement, build and release facts. No historical standalone layerxd build instructions remain; retained kernel-library build instructions explicitly distinguish library tooling from the paxd network entry point. Historical checkpoint formats and archive-only reads are explicitly labelled. No missing fact requires an additional wiring request."
+tests = ["test_doc1_one_network_embeds_kernel_and_commits_finality", "test_doc1_root_node_rpc_hosts_and_chain_probe", "test_doc1_transaction_receipt_producer_transport_and_consumer", "test_doc1_custody_checkpoint_retirement_and_historical_labels", "test_doc1_build_and_release_describe_integrated_paxd", "test_doc1_repair_record_maps_finding_and_evidence_limits"]
+
+[wiring.readme]
+path = "README.md"
+owner_domain = 16
+owner_task = "22.31.470"
+request = "Architecture, build and release rewrite delegated to domain 16 task 22.31.470 by decision 2525; fulfilled in the inherited README, with this task consuming its source facts."
+
+[gotcha.1]
+observed = "The unchanged-tree baseline clause conflicts with the explicit implementation-first gate order."
+resolution = "Follow the explicit Order and record no baseline execution or failures."
+
+[gotcha.2]
+observed = "Codify searches exclude the production source paths under the runner's scoped .cgignore, and large combined reads exceeded output limits."
+resolution = "Use bounded direct source reads and rg after Codify returns no candidates; preserve runner bookkeeping and keep task notes here because GOTCHA.kvx and spec files are outside scope."
+
+[format]
+policy = "No Python or KVX formatter is configured for these paths. Apply the repository .editorconfig UTF-8, LF, final-newline and trailing-whitespace conventions to the two touched files after implementation."

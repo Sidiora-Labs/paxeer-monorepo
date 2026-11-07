@@ -14,15 +14,36 @@ import {
   rpcObject,
 } from "../seller/dist/index.js";
 
-class PublicRpc extends PaymentRpc {
+class PublicRpc {
   #id = 0;
   #endpoint;
   #headers;
 
-  constructor(endpoint, headers) {
-    super(endpoint, headers);
+  constructor(endpoint, headers, path = "/") {
     this.#endpoint = new URL(endpoint);
+    const url = this.#endpoint;
+    if (
+      url.username ||
+      url.password ||
+      url.search ||
+      url.hash ||
+      url.pathname !== path ||
+      (url.protocol !== "https:" &&
+        !(
+          url.protocol === "http:" &&
+          ["localhost", "127.0.0.1", "[::1]"].includes(url.hostname)
+        ))
+    )
+      throw new Error("invalid-rpc-endpoint");
     this.#headers = headers;
+  }
+
+  send(rawTransaction, commitment) {
+    return PaymentRpc.prototype.send.call(this, rawTransaction, commitment);
+  }
+
+  receipt(txHash) {
+    return PaymentRpc.prototype.receipt.call(this, txHash);
   }
 
   async call(method, params) {
@@ -137,6 +158,7 @@ function receiptHeight(value) {
 const { values } = parseArgs({
   options: {
     help: { type: "boolean" },
+    gateway: { type: "string" },
     rpc: { type: "string" },
     did: { type: "string" },
     faucet: { type: "string" },
@@ -148,20 +170,30 @@ const { values } = parseArgs({
     payer: { type: "string" },
   },
 });
+values.gateway ??= process.env.LAYERX_GATEWAY_URL;
 values.rpc ??= process.env.LAYERX_RPC_URL;
 values.faucet ??= process.env.LAYERX_FAUCET_URL;
 values.did ??= process.env.LAYERX_DID;
 if (values.help) {
   process.stdout.write(
-    "Usage: node public-rpc.mjs --rpc https://HOST/rpc --did DID [--faucet https://HOST/v1/faucet/claims --public-key HEX32 --claim-key KEY] [--activity RAW_EIP1559_HEX_FILE --offer PAYMENT_REQUIRED_HEADER_FILE --receipt-keys RECEIPT_KEYS_JSON --payer ACCOUNT_HEX32]\nURLs may come from LAYERX_RPC_URL and LAYERX_FAUCET_URL; DID from LAYERX_DID. Use LAYERX_RPC_TOKEN for submission and LAYERX_FAUCET_TOKEN for faucet authentication. The payment example verifies the receipted or committed rung selected by the offer. Receipt keys are a JSON array with keyId, publicKey (32-byte hex), firstHeight and lastHeight for each entry.\n",
+    "Usage: node public-rpc.mjs --gateway https://GATEWAY/rpc --rpc https://NODE/ --did DID [--faucet https://HOST/v1/faucet/claims --public-key HEX32 --claim-key KEY] [--activity RAW_EIP1559_HEX_FILE --offer PAYMENT_REQUIRED_HEADER_FILE --receipt-keys RECEIPT_KEYS_JSON --payer ACCOUNT_HEX32]\nURLs may come from LAYERX_GATEWAY_URL (including /rpc), LAYERX_RPC_URL (node root) and LAYERX_FAUCET_URL; DID from LAYERX_DID. Use LAYERX_GATEWAY_TOKEN for identity resolution, LAYERX_RPC_TOKEN for node submission and LAYERX_FAUCET_TOKEN for faucet authentication. The payment example verifies the receipted or committed rung selected by the offer. Receipt keys are a JSON array with keyId, publicKey (32-byte hex), firstHeight and lastHeight for each entry.\n",
   );
 } else {
-  if (!values.rpc || !values.did) throw new Error("rpc-and-did-required");
   if (
-    new URL(values.rpc).port === "18545" ||
-    (values.faucet && new URL(values.faucet).port === "18545")
+    [values.gateway, values.rpc, values.faucet].some(
+      (url) => url && new URL(url).port === "18545",
+    )
   )
     throw new Error("persistent-host-chain-forbidden");
+  if (!values.gateway || !values.rpc || !values.did)
+    throw new Error("gateway-rpc-and-did-required");
+  const gateway = new PublicRpc(
+    values.gateway,
+    process.env.LAYERX_GATEWAY_TOKEN
+      ? { authorization: `Bearer ${process.env.LAYERX_GATEWAY_TOKEN}` }
+      : {},
+    "/rpc",
+  );
   const rpc = new PublicRpc(
     values.rpc,
     process.env.LAYERX_RPC_TOKEN
@@ -207,7 +239,7 @@ if (values.help) {
     if (!response.ok) process.exitCode = 1;
   }
   const account = decodePxResolvedIdentities(
-    await rpc.call("px_resolveAccount", [values.did]),
+    await gateway.call("px_resolveAccount", [values.did]),
   );
   if (
     !account.bound ||

@@ -1,6 +1,8 @@
 use std::collections::BTreeMap;
 use std::fs;
+use std::os::unix::fs::DirBuilderExt as _;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicU64, Ordering};
 
 #[path = "support/chain.rs"]
 mod chain;
@@ -151,27 +153,57 @@ fn directory(variable: &str) -> PathBuf {
 
 #[test]
 fn emit_native_inputs() {
-    let root = directory("PAXEER_X_INTERFACE_INPUTS");
+    struct InputsDirectory(PathBuf);
+    impl Drop for InputsDirectory {
+        fn drop(&mut self) {
+            fs::remove_dir_all(&self.0).expect("remove test inputs");
+        }
+    }
+    static NEXT: AtomicU64 = AtomicU64::new(0);
+    let root = InputsDirectory(std::env::temp_dir().join(format!(
+        "registry-interface-inputs-{}-{}",
+        std::process::id(),
+        NEXT.fetch_add(1, Ordering::Relaxed)
+    )));
+    fs::DirBuilder::new()
+        .mode(0o700)
+        .create(&root.0)
+        .expect("create private test inputs");
+    emit_native_inputs_to(&root.0);
+    assert_eq!(fs::read_dir(&root.0).expect("read test cases").count(), 9);
+    if let Some(export) = std::env::var_os("PAXEER_X_INTERFACE_INPUTS") {
+        emit_native_inputs_to(Path::new(&export));
+    }
+}
+
+fn emit_native_inputs_to(root: &Path) {
     for (name, abi, dynamic) in CASES {
         let path = root.join(name);
-        fs::create_dir_all(&path).expect("create case inputs");
-        fs::write(path.join("module.wasm"), wasm(abi, dynamic)).expect("write actual module");
-        fs::write(
-            path.join("interface.bin"),
-            bound(abi, dynamic, 64, 64).canonical_encoding(),
-        )
-        .expect("write canonical interface");
+        write_native_input(&path, abi, dynamic, 64, 64);
     }
     for (name, input, output) in [("abi2-widening", 128, 32), ("abi2-narrowing", 32, 128)] {
         let path = root.join(name);
-        fs::create_dir_all(&path).expect("create upgrade input");
-        fs::write(path.join("module.wasm"), wasm(2, false)).expect("write upgrade module");
-        fs::write(
-            path.join("interface.bin"),
-            bound(2, false, input, output).canonical_encoding(),
-        )
-        .expect("write upgrade interface");
+        write_native_input(&path, 2, false, input, output);
     }
+}
+
+fn write_native_input(path: &Path, abi: u16, dynamic: bool, input: u32, output: u32) {
+    let module = wasm(abi, dynamic);
+    let interface = bound(abi, dynamic, input, output);
+    fs::create_dir_all(path).expect("create case inputs");
+    fs::write(path.join("module.wasm"), &module).expect("write actual module");
+    fs::write(path.join("interface.bin"), interface.canonical_encoding())
+        .expect("write canonical interface");
+    let saved_module = fs::read(path.join("module.wasm")).expect("read emitted module");
+    let saved_interface = fs::read(path.join("interface.bin")).expect("read emitted interface");
+    assert_eq!(saved_module, module);
+    assert_eq!(saved_interface, interface.canonical_encoding());
+    let decoded = ProgramInterface::decode(&saved_interface).expect("decode emitted interface");
+    assert_eq!(decoded, interface);
+    assert_eq!(
+        ProgramInterface::bind(&saved_module, abi, decoded.entries().to_vec()),
+        Ok(decoded)
+    );
 }
 
 fn unhex(text: &str) -> Vec<u8> {
@@ -768,4 +800,12 @@ fn verify_native_case(root: &Path, name: &str, expected: ProgramInterface) {
     let mut bad = ops.clone();
     bad[2].data[0] ^= 1;
     assert!(VerifiedInterfaceRead::verify_at_head(&chain_head, program, &witness, &bad).is_err());
+}
+
+#[path = "support/repair_22_33_221.rs"]
+mod repair_22_33_221;
+
+#[test]
+fn node_transaction_result_and_interface_transport() {
+    repair_22_33_221::native_interface_transport();
 }

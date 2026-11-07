@@ -1,0 +1,106 @@
+# Ten manifest-specific alerts share two advisory IDs; each input alert has its own block.
+# The service modules have no go.sum files; versions below are their unchanged go.mod pins.
+# Dependency edges: https://proxy.golang.org/github.com/ethereum/go-ethereum/@v/v1.17.3.mod
+# Dependency edges: https://proxy.golang.org/github.com/pion/stun/v2/@v/v2.0.0.mod
+# Removal release: https://proxy.golang.org/github.com/ethereum/go-ethereum/@v/v1.17.4.mod
+# Replacement edges: https://proxy.golang.org/github.com/pion/stun/v3/@v/v3.1.2.mod
+
+# Alert 2807
+[alert.GHSA-9f3f-wv7r-qc8r]
+package = "github.com/pion/dtls/v2"
+manifest = "services/launchpad/api/go.mod"
+verdict = "no-fix"
+version_before = "v2.2.7"
+version_after = "v2.2.7"
+pinned_by = "github.com/ethereum/go-ethereum@v1.17.3 -> github.com/pion/stun/v2@v2.0.0 -> github.com/pion/dtls/v2@v2.2.7; github.com/ethereum/go-ethereum@v1.17.4 removes this v2 dependency path, requiring github.com/pion/stun/v3@v3.1.2 -> github.com/pion/dtls/v3@v3.1.2. The manifest still explicitly pins github.com/pion/dtls/v2@v2.2.7 as indirect; its version remains unchanged. The advisory names no patched version."
+revision = "acb0ede973ea7d56086f9026bd71bd4d78145ae9"
+
+# Alert 2823
+[alert.GHSA-34rh-wp3j-6cxc]
+package = "github.com/pion/stun/v2"
+manifest = "services/launchpad/api/go.mod"
+verdict = "no-fix"
+version_before = "v2.0.0"
+version_after = "v2.0.0"
+pinned_by = "github.com/ethereum/go-ethereum@v1.17.3 -> github.com/pion/stun/v2@v2.0.0; github.com/ethereum/go-ethereum@v1.17.4 removes this v2 dependency path, requiring github.com/pion/stun/v3@v3.1.2. The manifest still explicitly pins github.com/pion/stun/v2@v2.0.0 as indirect; its version remains unchanged. The advisory names no patched version."
+revision = "acb0ede973ea7d56086f9026bd71bd4d78145ae9"
+
+# Alert 2825
+[alert.GHSA-9f3f-wv7r-qc8r]
+package = "github.com/pion/dtls/v2"
+manifest = "services/launchpad/gateway/go.mod"
+verdict = "no-fix"
+version_before = "v2.2.7"
+version_after = "v2.2.7"
+pinned_by = "github.com/ethereum/go-ethereum@v1.17.3 -> github.com/pion/stun/v2@v2.0.0 -> github.com/pion/dtls/v2@v2.2.7; github.com/ethereum/go-ethereum@v1.17.4 removes this v2 dependency path, requiring github.com/pion/stun/v3@v3.1.2 -> github.com/pion/dtls/v3@v3.1.2. The manifest still explicitly pins github.com/pion/dtls/v2@v2.2.7 as indirect; its version remains unchanged. The advisory names no patched version."
+revision = "acb0ede973ea7d56086f9026bd71bd4d78145ae9"
+
+# Alert 2841
+[alert.GHSA-34rh-wp3j-6cxc]
+package = "github.com/pion/stun/v2"
+manifest = "services/launchpad/gateway/go.mod"
+verdict = "no-fix"
+version_before = "v2.0.0"
+version_after = "v2.0.0"
+pinned_by = "github.com/ethereum/go-ethereum@v1.17.3 -> github.com/pion/stun/v2@v2.0.0; github.com/ethereum/go-ethereum@v1.17.4 removes this v2 dependency path, requiring github.com/pion/stun/v3@v3.1.2. The manifest still explicitly pins github.com/pion/stun/v2@v2.0.0 as indirect; its version remains unchanged. The advisory names no patched version."
+revision = "acb0ede973ea7d56086f9026bd71bd4d78145ae9"
+
+# Alert 2875
+[alert.GHSA-9f3f-wv7r-qc8r]
+package = "github.com/pion/dtls/v2"
+manifest = "services/launchpad/metadata/go.mod"
+verdict = "no-fix"
+version_before = "v2.2.7"
+version_after = "v2.2.7"
+pinned_by = "github.com/ethereum/go-ethereum@v1.17.3 -> github.com/pion/stun/v2@v2.0.0 -> github.com/pion/dtls/v2@v2.2.7; github.com/ethereum/go-ethereum@v1.17.4 removes this v2 dependency path, requiring github.com/pion/stun/v3@v3.1.2 -> github.com/pion/dtls/v3@v3.1.2. The manifest still explicitly pins github.com/pion/dtls/v2@v2.2.7 as indirect; its version remains unchanged. The advisory names no patched version."
+revision = "acb0ede973ea7d56086f9026bd71bd4d78145ae9"
+
+# Alert 2893
+[alert.GHSA-34rh-wp3j-6cxc]
+package = "github.com/pion/stun/v2"
+manifest = "services/launchpad/metadata/go.mod"
+verdict = "no-fix"
+version_before = "v2.0.0"
+version_after = "v2.0.0"
+pinned_by = "github.com/ethereum/go-ethereum@v1.17.3 -> github.com/pion/stun/v2@v2.0.0; github.com/ethereum/go-ethereum@v1.17.4 removes this v2 dependency path, requiring github.com/pion/stun/v3@v3.1.2. The manifest still explicitly pins github.com/pion/stun/v2@v2.0.0 as indirect; its version remains unchanged. The advisory names no patched version."
+revision = "acb0ede973ea7d56086f9026bd71bd4d78145ae9"
+
+# Alert 2895
+[alert.GHSA-9f3f-wv7r-qc8r]
+package = "github.com/pion/dtls/v2"
+manifest = "services/launchpad/pnl-tracker/go.mod"
+verdict = "no-fix"
+version_before = "v2.2.7"
+version_after = "v2.2.7"
+pinned_by = "github.com/ethereum/go-ethereum@v1.17.3 -> github.com/pion/stun/v2@v2.0.0 -> github.com/pion/dtls/v2@v2.2.7; github.com/ethereum/go-ethereum@v1.17.4 removes this v2 dependency path, requiring github.com/pion/stun/v3@v3.1.2 -> github.com/pion/dtls/v3@v3.1.2. The manifest still explicitly pins github.com/pion/dtls/v2@v2.2.7 as indirect; its version remains unchanged. The advisory names no patched version."
+revision = "acb0ede973ea7d56086f9026bd71bd4d78145ae9"
+
+# Alert 2913
+[alert.GHSA-34rh-wp3j-6cxc]
+package = "github.com/pion/stun/v2"
+manifest = "services/launchpad/pnl-tracker/go.mod"
+verdict = "no-fix"
+version_before = "v2.0.0"
+version_after = "v2.0.0"
+pinned_by = "github.com/ethereum/go-ethereum@v1.17.3 -> github.com/pion/stun/v2@v2.0.0; github.com/ethereum/go-ethereum@v1.17.4 removes this v2 dependency path, requiring github.com/pion/stun/v3@v3.1.2. The manifest still explicitly pins github.com/pion/stun/v2@v2.0.0 as indirect; its version remains unchanged. The advisory names no patched version."
+revision = "acb0ede973ea7d56086f9026bd71bd4d78145ae9"
+
+# Alert 2993
+[alert.GHSA-9f3f-wv7r-qc8r]
+package = "github.com/pion/dtls/v2"
+manifest = "services/launchpad/trading-charts/go.mod"
+verdict = "no-fix"
+version_before = "v2.2.7"
+version_after = "v2.2.7"
+pinned_by = "github.com/ethereum/go-ethereum@v1.17.3 -> github.com/pion/stun/v2@v2.0.0 -> github.com/pion/dtls/v2@v2.2.7; github.com/ethereum/go-ethereum@v1.17.4 removes this v2 dependency path, requiring github.com/pion/stun/v3@v3.1.2 -> github.com/pion/dtls/v3@v3.1.2. The manifest still explicitly pins github.com/pion/dtls/v2@v2.2.7 as indirect; its version remains unchanged. The advisory names no patched version."
+revision = "acb0ede973ea7d56086f9026bd71bd4d78145ae9"
+
+# Alert 3009
+[alert.GHSA-34rh-wp3j-6cxc]
+package = "github.com/pion/stun/v2"
+manifest = "services/launchpad/trading-charts/go.mod"
+verdict = "no-fix"
+version_before = "v2.0.0"
+version_after = "v2.0.0"
+pinned_by = "github.com/ethereum/go-ethereum@v1.17.3 -> github.com/pion/stun/v2@v2.0.0; github.com/ethereum/go-ethereum@v1.17.4 removes this v2 dependency path, requiring github.com/pion/stun/v3@v3.1.2. The manifest still explicitly pins github.com/pion/stun/v2@v2.0.0 as indirect; its version remains unchanged. The advisory names no patched version."
+revision = "acb0ede973ea7d56086f9026bd71bd4d78145ae9"

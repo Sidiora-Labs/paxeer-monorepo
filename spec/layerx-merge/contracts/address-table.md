@@ -195,6 +195,8 @@ These five constructs have no owning construct contract in 1.0.1; their ABI is o
 
 
 ## (b) Error code registry (D6)
+SDK registry snapshot: audit-22.30.101-v1 — 392 codes, 54 retryable; SHA-256 of the registry rows including trailing LF: `33b199cc9d053de8bf9753bacb5f9e34687a0fded7c15f051f27f5b62b9ec155`. Synchronize this snapshot and `services/agent/sdk/typescript/test/revert.test.ts` on registry changes; retain `scripts/ci/result-codes-gen.py --check` in CI.
+
 Encoding rules first, then every code; kernel codes are the lxp_result enum (include/layerx/lxp_result.h:29-157), Go codes are the registered module errors and precompile error sites.
 
 | Rule | Value | Source |
@@ -328,6 +330,8 @@ Encoding rules first, then every code; kernel codes are the lxp_result enum (inc
 | LXP_ARBITER_REQUIRED | arbiter required | layerxpay 0x101B serviceDisputeOpen, serviceDisputeResolve (linked escrow has no arbiter) | LXP_ERR_ARBITER_REQUIRED = -737, include/layerx/lxp_result.h:142; pay.md A.6 | no |
 | LXP_UNAUTHORIZED_ARBITER | unauthorized arbiter | layerxpay 0x101B serviceDisputeResolve (principal is not the linked escrow arbiter) | LXP_ERR_UNAUTHORIZED_ARBITER = -738, include/layerx/lxp_result.h:143; pay.md A.6 | no |
 | LXP_ESCROW_LINK_MISMATCH | escrow link mismatch | layerxpay 0x101B serviceDisputeOpen, serviceDisputeResolve (escrow `owner`, beneficiary or asset differ from the agreement) | LXP_ERR_ESCROW_LINK_MISMATCH = -739, include/layerx/lxp_result.h:144; pay.md A.6 | no |
+| LXP_REPLAY_BOUND | replay bound | layerxprograms 0x101D profiled CALL capture | LXP_ERR_REPLAY_BOUND = -740, include/layerx/lxp_result.h:150; programs/crates/layerx-programs-runtime/src/native_result.rs | no |
+| LXP_ENGINE_FAULT | engine fault | layerxprograms 0x101D CALL executor engine fault | LXP_ERR_ENGINE_FAULT = -741, include/layerx/lxp_result.h:151; programs/crates/layerx-programs-runtime/src/native_result.rs | no |
 | LXP_PAY_UNBOUND_CALLER | unbound caller | layerxpay 0x101B | PayRevertCode(ErrUnboundCaller), modules/layerxpay/types/errors.go:17-18; precompiles/layerxpay/errors.go:20-21 | no |
 | LXP_PAY_KERNEL_GATE_MISMATCH | kernel gate mismatch | layerxpay 0x101B | PayRevertCode(ErrKernelGateMismatch), modules/layerxpay/types/errors.go:21-22; precompiles/layerxpay/errors.go:20-21 | no |
 | LXP_BATCH_GAP | batch gap | layerxprograms 0x101D; shared cgo host (all kernel-backed precompiles) | LXP_ERR_BATCH_GAP = -800, include/layerx/lxp_result.h:145; emitted src/modules/programs/occupancy_evidence.c:673 | no |
@@ -371,6 +375,7 @@ Encoding rules first, then every code; kernel codes are the lxp_result enum (inc
 | LXP_XWEB_INVALID_API | invalid api payload | xweb 0x1019 | ErrInvalidApi (code 23), modules/xweb/types/errors.go:27 | no |
 | LXP_XWEB_INVALID_ENVELOPE | invalid credential envelope | xweb 0x1019 | ErrInvalidEnvelope (code 24), modules/xweb/types/errors.go:28 | no |
 | LXP_XWEB_INVALID_LEVEL | invalid attestation level | xweb 0x1019 | ErrInvalidLevel (code 25), modules/xweb/types/errors.go:29 | no |
+| LXP_XWEB_INVALID_PAYLOAD | invalid storage receipt payload | xweb 0x1019 | ErrInvalidPayload (code 26), modules/xweb/types/errors.go:91 | no |
 | LXP_XWEB_DELEGATECALL | cannot delegatecall xweb | xweb 0x1019 | precompile site precompiles/xweb/xweb.go:290 | no |
 | LXP_XWEB_STATICCALL | cannot call xweb <method> from staticcall | xweb 0x1019 | precompile site precompiles/xweb/xweb.go:293 | no |
 | LXP_XWEB_KEEPER_MISSING | xweb: the xweb keeper is not wired into this application | xweb 0x1019 | precompile site precompiles/xweb/xweb.go:296 | no |
@@ -606,6 +611,9 @@ Encoding rules first, then every code; kernel codes are the lxp_result enum (inc
 | LXP_PRICEFEED_DUPLICATE_MARKET | a submission carries one observation per market | pricefeed 0x1020 | ErrDuplicateMarket (code 14), modules/pricefeed/types/errors.go:24 | no |
 | LXP_PRICEFEED_SUBMISSION_ALONE | price submissions cannot be in the same tx as other messages | pricefeed 0x1020 | ErrSubmissionAlone (code 15), modules/pricefeed/types/errors.go:25 | no |
 | LXP_PRICEFEED_INVALID_OBSERVATION | invalid observation | pricefeed 0x1020 | ErrInvalidObservation (code 16), modules/pricefeed/types/errors.go:26 | no |
+
+A guest trap in a profiled CALL is a retained failure record with replay evidence.
+LXP_ENGINE_FAULT describes an executor engine fault of a CALL.
 
 ## (c) Activation
 One named plan for the merge; per-method gates read its done height through IsUpgradeActiveAtHeight (sdk/x/upgrade/keeper/keeper.go:296-299) as modules/layerxcustody/keeper/keeper.go:42 does.

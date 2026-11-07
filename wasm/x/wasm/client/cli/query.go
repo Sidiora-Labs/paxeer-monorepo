@@ -76,7 +76,11 @@ func GetCmdListCode() *cobra.Command {
 				return err
 			}
 
-			pageReq, err := client.ReadPageRequest(withPageKeyDecoded(cmd.Flags()))
+			pageFlags, err := withPageKeyDecoded(cmd.Flags())
+			if err != nil {
+				return err
+			}
+			pageReq, err := client.ReadPageRequest(pageFlags)
 			if err != nil {
 				return err
 			}
@@ -117,7 +121,11 @@ func GetCmdListContractByCode() *cobra.Command {
 				return err
 			}
 
-			pageReq, err := client.ReadPageRequest(withPageKeyDecoded(cmd.Flags()))
+			pageFlags, err := withPageKeyDecoded(cmd.Flags())
+			if err != nil {
+				return err
+			}
+			pageReq, err := client.ReadPageRequest(pageFlags)
 			if err != nil {
 				return err
 			}
@@ -290,7 +298,11 @@ func GetCmdGetContractStateAll() *cobra.Command {
 				return err
 			}
 
-			pageReq, err := client.ReadPageRequest(withPageKeyDecoded(cmd.Flags()))
+			pageFlags, err := withPageKeyDecoded(cmd.Flags())
+			if err != nil {
+				return err
+			}
+			pageReq, err := client.ReadPageRequest(pageFlags)
 			if err != nil {
 				return err
 			}
@@ -421,7 +433,11 @@ func GetCmdGetContractHistory() *cobra.Command {
 				return err
 			}
 
-			pageReq, err := client.ReadPageRequest(withPageKeyDecoded(cmd.Flags()))
+			pageFlags, err := withPageKeyDecoded(cmd.Flags())
+			if err != nil {
+				return err
+			}
+			pageReq, err := client.ReadPageRequest(pageFlags)
 			if err != nil {
 				return err
 			}
@@ -459,7 +475,11 @@ func GetCmdListPinnedCode() *cobra.Command {
 				return err
 			}
 
-			pageReq, err := client.ReadPageRequest(withPageKeyDecoded(cmd.Flags()))
+			pageFlags, err := withPageKeyDecoded(cmd.Flags())
+			if err != nil {
+				return err
+			}
+			pageReq, err := client.ReadPageRequest(pageFlags)
 			if err != nil {
 				return err
 			}
@@ -525,18 +545,18 @@ func asciiDecodeString(s string) ([]byte, error) {
 }
 
 // sdk ReadPageRequest expects binary but we encoded to base64 in our marshaller
-func withPageKeyDecoded(flagSet *flag.FlagSet) *flag.FlagSet {
+func withPageKeyDecoded(flagSet *flag.FlagSet) (*flag.FlagSet, error) {
 	encoded, err := flagSet.GetString(flags.FlagPageKey)
 	if err != nil {
-		panic(err.Error())
+		return nil, fmt.Errorf("page key: %w", err)
 	}
 	raw, err := base64.StdEncoding.DecodeString(encoded)
 	if err != nil {
-		panic(err.Error())
+		return nil, fmt.Errorf("page key: %w", err)
 	}
 	err = flagSet.Set(flags.FlagPageKey, string(raw))
 	if err != nil {
-		panic(err.Error())
+		return nil, fmt.Errorf("page key: %w", err)
 	}
-	return flagSet
+	return flagSet, nil
 }

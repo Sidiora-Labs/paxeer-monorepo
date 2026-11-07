@@ -1,12 +1,14 @@
 package memiavl
 
 import (
+	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"math"
 	"os"
 	"path/filepath"
-	"time"
+	"sync"
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/storage/proto"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/storage/state_db/sc/types"
@@ -35,6 +37,8 @@ type MultiTreeImporter struct {
 	importer    *TreeImporter
 	fileLock    FileLock
 	ctx         context.Context // Context for cancellation support
+	err         error
+	closed      bool
 }
 
 func NewMultiTreeImporter(dir string, height uint64) (*MultiTreeImporter, error) {
@@ -64,18 +68,27 @@ func (mti *MultiTreeImporter) tmpDir() string {
 func (mti *MultiTreeImporter) Add(item interface{}) error {
 	switch item := item.(type) {
 	case *types.SnapshotNode:
-		mti.AddNode(item)
-		return nil
+		return mti.addNode(item)
 	case string:
 		return mti.AddModule(item)
 	default:
-		return fmt.Errorf("unknown item type: %T", item)
+		if mti.err == nil {
+			mti.err = fmt.Errorf("unknown item type: %T", item)
+		}
+		return mti.err
 	}
 }
 
 func (mti *MultiTreeImporter) AddModule(name string) error {
+	if mti.closed {
+		return fmt.Errorf("importer is closed")
+	}
+	if mti.err != nil {
+		return mti.err
+	}
 	if mti.importer != nil {
 		if err := mti.importer.Close(); err != nil {
+			mti.err = err
 			return err
 		}
 	}
@@ -83,63 +96,117 @@ func (mti *MultiTreeImporter) AddModule(name string) error {
 	return nil
 }
 
+// AddNode preserves the Importer interface; errors are retained for Close.
 func (mti *MultiTreeImporter) AddNode(node *types.SnapshotNode) {
-	mti.importer.Add(node)
+	mti.addNode(node)
 }
 
-func (mti *MultiTreeImporter) Close() error {
-	if mti.importer != nil {
-		if err := mti.importer.Close(); err != nil {
-			return err
+func (mti *MultiTreeImporter) addNode(node *types.SnapshotNode) error {
+	if mti.closed {
+		return fmt.Errorf("importer is closed")
+	}
+	if mti.err != nil {
+		return mti.err
+	}
+	if mti.importer == nil {
+		mti.err = fmt.Errorf("snapshot node received before module")
+		return mti.err
+	}
+	mti.err = mti.importer.Add(node)
+	return mti.err
+}
+
+func (mti *MultiTreeImporter) Close() (returnErr error) {
+	if mti.closed {
+		return mti.err
+	}
+	mti.closed = true
+	defer func() {
+		if returnErr != nil {
+			returnErr = errors.Join(returnErr, os.RemoveAll(mti.tmpDir()))
 		}
+		returnErr = errors.Join(returnErr, mti.fileLock.Unlock(), mti.fileLock.Destroy())
+		mti.err = returnErr
+	}()
+	if mti.importer != nil {
+		err := mti.importer.Close()
 		mti.importer = nil
+		if mti.err == nil {
+			mti.err = err
+		}
+	}
+	if mti.err != nil {
+		return mti.err
 	}
 
 	tmpDir := mti.tmpDir()
 	if err := updateMetadataFile(tmpDir, mti.height); err != nil {
 		return err
 	}
-
 	if err := os.Rename(tmpDir, filepath.Join(mti.dir, mti.snapshotDir)); err != nil {
 		return err
 	}
-
-	if err := updateCurrentSymlink(mti.dir, mti.snapshotDir); err != nil {
-		return err
-	}
-	return mti.fileLock.Unlock()
+	return updateCurrentSymlink(mti.dir, mti.snapshotDir)
 }
 
-// TreeImporter import a single memiavl tree from state-sync snapshot
+// TreeImporter imports a single memiavl tree from a state-sync snapshot.
 type TreeImporter struct {
 	nodesChan chan *types.SnapshotNode
-	quitChan  chan error
+	done      chan struct{}
+	ctx       context.Context
+	mu        sync.RWMutex
+	closed    bool
+	err       error // Written before done is closed; read only after done.
 }
 
 func NewTreeImporter(ctx context.Context, dir string, version int64) *TreeImporter {
-	nodesChan := make(chan *types.SnapshotNode, nodeChanSize)
-	quitChan := make(chan error)
+	ai := &TreeImporter{
+		nodesChan: make(chan *types.SnapshotNode, nodeChanSize),
+		done:      make(chan struct{}),
+		ctx:       ctx,
+	}
 	go func() {
-		defer close(quitChan)
-		quitChan <- doImport(ctx, dir, version, nodesChan)
+		ai.err = doImport(ctx, dir, version, ai.nodesChan)
+		close(ai.done)
 	}()
-	return &TreeImporter{nodesChan, quitChan}
+	return ai
 }
 
-func (ai *TreeImporter) Add(node *types.SnapshotNode) {
-	ai.nodesChan <- node
+func (ai *TreeImporter) Add(node *types.SnapshotNode) error {
+	ai.mu.RLock()
+	defer ai.mu.RUnlock()
+	select {
+	case <-ai.done:
+		if ai.err != nil {
+			return ai.err
+		}
+		return fmt.Errorf("importer is closed")
+	case <-ai.ctx.Done():
+		return ai.ctx.Err()
+	default:
+	}
+	if ai.closed {
+		return fmt.Errorf("importer is closed")
+	}
+	select {
+	case <-ai.done:
+		return ai.err
+	case <-ai.ctx.Done():
+		return ai.ctx.Err()
+	case ai.nodesChan <- node:
+		return nil
+	}
 }
 
 func (ai *TreeImporter) Close() error {
-	var err error
-	// tolerate double close
-	if ai.nodesChan != nil {
+	ai.mu.Lock()
+	if !ai.closed {
+		ai.closed = true
 		close(ai.nodesChan)
-		err = <-ai.quitChan
 	}
-	ai.nodesChan = nil
-	ai.quitChan = nil
-	return err
+	ai.mu.Unlock()
+	<-ai.done
+	return ai.err
 }
 
 // doImport a stream of `types.SnapshotNode`s into a new snapshot.
@@ -149,46 +216,31 @@ func doImport(ctx context.Context, dir string, version int64, nodes <-chan *type
 	}
 
 	return writeSnapshot(ctx, dir, uint32(version), func(w *snapshotWriter) (uint32, error) {
+		ctx := w.ctx
 		i := &importer{
 			w:           w,
 			leavesStack: make([]uint32, 0),
 			nodeStack:   make([]*MemNode, 0),
 		}
 
-		// Check for context cancellation every 100k nodes or every 5 seconds to minimize overhead
-		// This provides ~1 second response time for EVM tree (1B nodes / 100k = 10k checks at 1M nodes/s)
-		// while guaranteeing max 5-second response time in case of slow imports
-		const cancelCheckInterval = 100000
-		const maxCheckInterval = 5 * time.Second
-		nodeCount := 0
-		lastCheck := time.Now()
-
-		for node := range nodes {
-			nodeCount++
-
-			// Check for cancellation periodically (every 100k nodes or every 5 seconds)
-			timeSinceLastCheck := time.Since(lastCheck)
-			if nodeCount%cancelCheckInterval == 0 || timeSinceLastCheck >= maxCheckInterval {
-				select {
-				case <-ctx.Done():
-					return 0, fmt.Errorf("import cancelled: %w", ctx.Err())
-				default:
+		i.version = uint32(version)
+		for {
+			if err := ctx.Err(); err != nil {
+				return 0, fmt.Errorf("import cancelled: %w", err)
+			}
+			select {
+			case <-ctx.Done():
+				return 0, fmt.Errorf("import cancelled: %w", ctx.Err())
+			case node, ok := <-nodes:
+				if !ok {
+					goto complete
 				}
-				lastCheck = time.Now()
-			}
-
-			if err := i.Add(node); err != nil {
-				return 0, err
+				if err := i.Add(node); err != nil {
+					return 0, err
+				}
 			}
 		}
-
-		// Final check for context cancellation after loop completes
-		// If context was cancelled, channel might be closed prematurely
-		select {
-		case <-ctx.Done():
-			return 0, fmt.Errorf("import cancelled: %w", ctx.Err())
-		default:
-		}
+	complete:
 
 		switch len(i.leavesStack) {
 		case 0:
@@ -202,7 +254,11 @@ func doImport(ctx context.Context, dir string, version int64, nodes <-chan *type
 }
 
 type importer struct {
-	w *snapshotWriter
+	w           *snapshotWriter
+	version     uint32
+	boundsStack [][2][]byte
+	lastKey     []byte
+	hasLeaf     bool
 
 	// keep track of how many leaves has been written before the pending nodes
 	leavesStack []uint32
@@ -211,12 +267,21 @@ type importer struct {
 }
 
 func (i *importer) Add(n *types.SnapshotNode) error {
-	if n.Version < 0 || n.Version > math.MaxUint32 {
+	if n == nil {
+		return fmt.Errorf("nil snapshot node")
+	}
+	if n.Height < 0 {
+		return fmt.Errorf("negative node height: %d", n.Height)
+	}
+	if n.Version < 0 || n.Version > math.MaxUint32 || n.Version > int64(i.version) {
 		return fmt.Errorf("node version under/overflows uint32: %d", n.Version)
 	}
 	version := uint32(n.Version)
 
 	if n.Height == 0 {
+		if i.hasLeaf && bytes.Compare(i.lastKey, n.Key) >= 0 {
+			return fmt.Errorf("snapshot leaves are not strictly ordered")
+		}
 		node := &MemNode{
 			height:  0,
 			size:    1,
@@ -230,16 +295,31 @@ func (i *importer) Add(n *types.SnapshotNode) error {
 		}
 		i.leavesStack = append(i.leavesStack, i.w.leafCounter)
 		i.nodeStack = append(i.nodeStack, node)
+		i.boundsStack = append(i.boundsStack, [2][]byte{n.Key, n.Key})
+		i.lastKey = n.Key
+		i.hasLeaf = true
 		return nil
 	}
 
-	// branch node
+	// Validate the complete post-order pair before indexing or constructing a branch.
+	if len(i.nodeStack) < 2 || len(i.leavesStack) != len(i.nodeStack) {
+		return fmt.Errorf("branch requires two child subtrees")
+	}
 	keyLeaf := i.leavesStack[len(i.leavesStack)-2]
 	leftNode := i.nodeStack[len(i.nodeStack)-2]
 	rightNode := i.nodeStack[len(i.nodeStack)-1]
 
-	if n.Height < 0 {
-		return fmt.Errorf("node height under/overflows uint8: %d", n.Height)
+	leftBounds := i.boundsStack[len(i.boundsStack)-2]
+	rightBounds := i.boundsStack[len(i.boundsStack)-1]
+	if int(n.Height) != 1+max(int(leftNode.height), int(rightNode.height)) ||
+		int(leftNode.height)-int(rightNode.height) > 1 || int(rightNode.height)-int(leftNode.height) > 1 {
+		return fmt.Errorf("invalid branch or child heights")
+	}
+	if bytes.Compare(leftBounds[1], n.Key) >= 0 || !bytes.Equal(n.Key, rightBounds[0]) {
+		return fmt.Errorf("invalid branch key ordering")
+	}
+	if version < leftNode.version || version < rightNode.version {
+		return fmt.Errorf("branch version precedes child version")
 	}
 
 	node := &MemNode{
@@ -273,6 +353,8 @@ func (i *importer) Add(n *types.SnapshotNode) error {
 
 	i.nodeStack = i.nodeStack[:len(i.nodeStack)-2]
 	i.nodeStack = append(i.nodeStack, node)
+	i.boundsStack = i.boundsStack[:len(i.boundsStack)-2]
+	i.boundsStack = append(i.boundsStack, [2][]byte{leftBounds[0], rightBounds[1]})
 	return nil
 }
 

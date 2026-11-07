@@ -8,8 +8,8 @@
 //     migrations create the fixed candles schema, so a schema per test would
 //     collide); it is dropped WITH (FORCE) on cleanup.
 //   - RedisEnv is a redis:// URL naming the logical database reserved for these
-//     tests. It is flushed before and after each test, so tests sharing it must
-//     not run concurrently.
+//     tests. It is flushed before and after each test; a file lock serializes
+//     access across package test processes.
 //
 // It is imported only by *_test.go files, so it adds nothing to the production
 // binary.
@@ -18,12 +18,17 @@ package internaltest
 import (
 	"context"
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/hex"
+	"fmt"
 	"net/url"
 	"os"
+	"path/filepath"
+	"sync"
 	"testing"
 	"time"
 
+	"github.com/gofrs/flock"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	goredis "github.com/redis/go-redis/v9"
@@ -35,6 +40,13 @@ const (
 	PostgresEnv = "CHARTS_TEST_POSTGRES_URL"
 	RedisEnv    = "CHARTS_TEST_REDIS_URL"
 )
+
+type redisFixture struct {
+	once sync.Once
+	uri  string
+}
+
+var redisFixtures sync.Map
 
 // NewDatabase creates a throwaway database on the PostgresEnv server and
 // returns its DSN. The database is dropped via t.Cleanup.
@@ -115,6 +127,17 @@ func NewPostgres(t *testing.T) (string, *pgxpool.Pool) {
 // the database is flushed again on cleanup.
 func NewRedisURL(t *testing.T) string {
 	t.Helper()
+	value, _ := redisFixtures.LoadOrStore(t, &redisFixture{})
+	fixture := value.(*redisFixture)
+	fixture.once.Do(func() {
+		fixture.uri = newRedisURL(t)
+		t.Cleanup(func() { redisFixtures.Delete(t) })
+	})
+	return fixture.uri
+}
+
+func newRedisURL(t *testing.T) string {
+	t.Helper()
 	uri := os.Getenv(RedisEnv)
 	if uri == "" {
 		t.Fatalf("%s must name the redis:// logical database reserved for these tests", RedisEnv)
@@ -123,6 +146,19 @@ func NewRedisURL(t *testing.T) string {
 	if err != nil {
 		t.Fatalf("parse %s: %v", RedisEnv, err)
 	}
+	identity := fmt.Sprintf("%s/%d", opt.Addr, opt.DB)
+	lock := flock.New(filepath.Join(os.TempDir(), fmt.Sprintf("trading-charts-redis-%x.lock", sha256.Sum256([]byte(identity)))))
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	locked, err := lock.TryLockContext(ctx, 10*time.Millisecond)
+	if err != nil || !locked {
+		t.Fatalf("lock Redis test database: acquired=%t: %v", locked, err)
+	}
+	t.Cleanup(func() {
+		if err := lock.Unlock(); err != nil {
+			t.Errorf("unlock Redis test database: %v", err)
+		}
+	})
 	flush := func() {
 		client := goredis.NewClient(opt)
 		defer client.Close()

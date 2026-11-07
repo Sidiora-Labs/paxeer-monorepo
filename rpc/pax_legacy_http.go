@@ -3,6 +3,7 @@ package evmrpc
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -39,10 +40,18 @@ type paxLegacyHTTPGate struct {
 func (g *paxLegacyHTTPGate) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// Read the body once; delegate JSON-RPC validation to the inner handler. We only intercept
 	// when we can parse JSON-RPC and the method is a gated pax_* / pax2_* name.
-	body, err := io.ReadAll(io.LimitReader(r.Body, paxLegacyHTTPMaxBody))
+	if r.ContentLength > paxLegacyHTTPMaxBody {
+		http.Error(w, fmt.Sprintf("content length too large (%d>%d)", r.ContentLength, paxLegacyHTTPMaxBody), http.StatusRequestEntityTooLarge)
+		return
+	}
+	body, err := io.ReadAll(io.LimitReader(r.Body, paxLegacyHTTPMaxBody+1))
 	_ = r.Body.Close()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	if len(body) > paxLegacyHTTPMaxBody {
+		http.Error(w, fmt.Sprintf("content length too large (%d>%d)", len(body), paxLegacyHTTPMaxBody), http.StatusRequestEntityTooLarge)
 		return
 	}
 	trim := bytes.TrimSpace(body)
@@ -72,14 +81,26 @@ func orNullID(id json.RawMessage) json.RawMessage {
 
 func (g *paxLegacyHTTPGate) handleSingle(w http.ResponseWriter, r *http.Request, body []byte) {
 	var msg struct {
-		Method string          `json:"method"`
-		ID     json.RawMessage `json:"id"`
+		Version string          `json:"jsonrpc"`
+		Method  string          `json:"method"`
+		ID      json.RawMessage `json:"id"`
 	}
 	if err := json.Unmarshal(body, &msg); err != nil {
 		g.serveInnerWithBody(w, r, body)
 		return
 	}
+	// Match the transport's call/notification shape before applying policy.
+	// Invalid requests must still reach its protocol validator.
+	id := jsonrpcMessage{ID: msg.ID}
+	if msg.Version != "2.0" || msg.Method == "" || (!isJSONRPCNotificationID(msg.ID) && !id.hasValidID()) {
+		g.serveInnerWithBody(w, r, body)
+		return
+	}
 	if err := paxLegacyGateError(msg.Method, g.allowlist); err != nil {
+		if isJSONRPCNotificationID(msg.ID) {
+			w.WriteHeader(http.StatusOK)
+			return
+		}
 		writePaxLegacyBlocked(w, orNullID(msg.ID), err)
 		return
 	}
@@ -152,11 +173,15 @@ func (g *paxLegacyHTTPGate) handleBatch(w http.ResponseWriter, r *http.Request, 
 	}
 
 	var forward []json.RawMessage
+	allForwarded := true
 	synthIDs := make([]json.RawMessage, len(msgs))
 	forwardLegacy := false
 	synthCounter := 0
 	for i := range msgs {
 		if invalidReq[i] || blocked[i] {
+			// Preserve admission cardinality without dispatching the original method.
+			forward = append(forward, json.RawMessage(`null`))
+			allForwarded = false
 			continue
 		}
 		msg := msgs[i]
@@ -185,7 +210,6 @@ func (g *paxLegacyHTTPGate) handleBatch(w http.ResponseWriter, r *http.Request, 
 	// Fast path: every element is forwarded (nothing blocked/invalid) and none
 	// are gated pax_*/pax2_* methods.  Skip the recorder so the gzip handler
 	// writes directly to the real http.ResponseWriter — same fix as handleSingle.
-	allForwarded := len(forward) == len(msgs)
 	if allForwarded && !forwardLegacy {
 		g.serveInnerWithBody(w, r, body)
 		return
@@ -202,6 +226,32 @@ func (g *paxLegacyHTTPGate) handleBatch(w http.ResponseWriter, r *http.Request, 
 		return io.NopCloser(bytes.NewReader(forwardBody)), nil
 	}
 	g.inner.ServeHTTP(rec, sub)
+	// Whole-batch admission errors belong to the original request, before
+	// synthesized per-entry legacy errors or request-ID restoration.
+	var admission []struct {
+		Error *struct {
+			Code    int    `json:"code"`
+			Message string `json:"message"`
+		} `json:"error"`
+	}
+	if json.Unmarshal(rec.Body.Bytes(), &admission) == nil && len(admission) == 1 &&
+		admission[0].Error != nil && admission[0].Error.Code == invalidRequestCode && admission[0].Error.Message == "batch too large" {
+		id := json.RawMessage(`null`)
+		for _, raw := range msgs {
+			var original struct {
+				JSONRPC string `json:"jsonrpc"`
+				jsonrpcMessage
+			}
+			if json.Unmarshal(raw, &original) == nil && original.JSONRPC == "2.0" && original.Method != "" && original.hasValidID() {
+				id = original.ID
+				break
+			}
+		}
+		copyHTTPHeader(w.Header(), rec.Header())
+		w.Header().Del("Content-Length")
+		writeJSONArrayResponse(w, rec.Code, []json.RawMessage{marshalJSONRPCError(id, invalidRequestCode, "batch too large")})
+		return
+	}
 	outArr := mergePaxLegacyHTTPBatch(invalidReq, blocked, blockedErr, ids, synthIDs, len(msgs), rec.Body.Bytes())
 	copyHTTPHeader(w.Header(), rec.Header())
 	if forwardLegacy {

@@ -1,0 +1,28 @@
+[repair.22.33.1025]
+audit = "22.30.38"
+base_revision = "caa8b41ee668274ee1e5c1df6691288455c46278"
+qualification = "hf-build followed by hf-done; the private runner ledger records the exact candidate revision, command, exit and log, with the final hf-done evidence copied to the task response."
+baseline = "The base README already contains the corrected discovery path, qualified tool baseline and CI publication prose. No baseline verification was run: the explicit implementation-first order and allowed gates prohibit pre-change testing or invoking verify_cmd by hand. No observed pre-change test failures are claimed."
+
+[finding.supplychain-readme-ci]
+tests = ["test_supplychain_readme_ci_dependencies_and_publication_authority", "test_supplychain_readme_paths_baseline_and_independent_constraints", "test_supplychain_readme_publication_jobs_do_not_grant_admission", "test_supplychain_readme_independent_actions_authority", "test_supplychain_readme_untrusted_actions_cannot_authorize"]
+change = "Make the existing corrected publication documentation's direct job dependencies explicit and distinguish manual publication from the independently required push evidence; preserve the services/launchpad/security/supplychain test path, Go 1.26.4/Node 24.16.0/pnpm 9.15.0 baseline and admission constraints."
+proof = "Compare README dependency rows, permissions, tags, triggers, digest handling, links and discovery command with committed source. The unmodified production GitHubChecks client consumes JSON emitted by an in-process Actions HTTP server over real sockets, including API headers and paths; publication-only jobs fail independent admission, complete independent jobs pass, and dispatch, source, fork, workflow, attempt and failed-run substitutions are rejected. Production admission also rejects publication job names in place of the six independent checks."
+boundary = "The test routes only the client's fixed GitHub origin to loopback HTTP; it does not qualify TLS, a live GitHub run, registry publication, signing, external release checks or deployment. No external binary, credential or endpoint is required."
+wiring = "None: the proposal requires no out-of-scope source change; spec task bookkeeping and exact evidence are owned by the qualification runner."
+
+[gotcha.baseline-order]
+observed = "The inherited do_5 requests pre-change verification, but the task's explicit gate order prohibits it."
+action = "Follow implementation-first and invoke verification only through hf-done; do not invent a baseline failure."
+
+[gotcha.bytecode-evidence]
+observed = "py_compile writes bytecode into source directories by default, while candidate evidence includes files under the scoped directory."
+action = "Route Python bytecode to a temporary directory outside the source tree for both gates so generated caches do not change the candidate between build and verification."
+
+[qualification.repair]
+revision = "4cfd2f1678015b890657e51e12aa8014c9373fd7"
+command = "cg spec done 22.33.1025 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Nine cases passed; the documentation dependency test required the missing-row sentence without Markdown list indentation."
+repair = "Move that sentence into a standalone paragraph without changing its meaning or the assertion; rebuild and verify the repaired candidate."

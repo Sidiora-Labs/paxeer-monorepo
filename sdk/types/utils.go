@@ -1,9 +1,11 @@
 package types
 
 import (
+	"bytes"
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
+	"io"
 	"time"
 
 	dbm "github.com/tendermint/tm-db"
@@ -25,12 +27,22 @@ func init() {
 // are removed.
 // This method can be used to canonicalize JSON to be returned by GetSignBytes,
 // e.g. for the ledger integration.
+// Numeric values retain their original JSON representation without conversion
+// to floating point.
 // If the passed JSON isn't valid it will return an error.
 func SortJSON(toSortJSON []byte) ([]byte, error) {
 	var c interface{}
-	err := json.Unmarshal(toSortJSON, &c)
-	if err != nil {
+	decoder := json.NewDecoder(bytes.NewReader(toSortJSON))
+	decoder.UseNumber()
+	if err := decoder.Decode(&c); err != nil {
 		return nil, err
+	}
+	var trailing interface{}
+	if err := decoder.Decode(&trailing); err != io.EOF {
+		if err != nil {
+			return nil, err
+		}
+		return nil, fmt.Errorf("unexpected trailing JSON value")
 	}
 	js, err := json.Marshal(c)
 	if err != nil {

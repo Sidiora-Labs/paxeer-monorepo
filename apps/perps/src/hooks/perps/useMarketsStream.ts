@@ -283,8 +283,14 @@ function teardownIfIdle(): void {
 // ── Normalisers ───────────────────────────────────────────────────────
 
 function num(v: unknown): number {
-  const n = typeof v === "number" ? v : Number(v);
-  return Number.isFinite(n) ? n : 0;
+  // Omitted optional metrics retain the feed's unavailable zero value. Present
+  // values must be numbers or decimal strings; coercing null, booleans, arrays,
+  // empty strings or invalid text would turn corrupt data into a valid zero.
+  if (v === undefined) return 0;
+  if (typeof v !== "number" &&
+      (typeof v !== "string" || !/^-?(?:\d+(?:\.\d*)?|\.\d+)$/.test(v))) return NaN;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : NaN;
 }
 
 /**
@@ -326,7 +332,7 @@ export function normalizeMarket(raw: unknown): MarketSnapshot | null {
   const r = raw as Record<string, unknown>;
   const symbol = typeof r.symbol === "string" ? r.symbol : null;
   if (!symbol) return null;
-  return {
+  const snapshot: MarketSnapshot = {
     symbol,
     symbol_full: typeof r.symbol_full === "string" ? r.symbol_full : symbol,
     price: num(r.price),
@@ -345,9 +351,14 @@ export function normalizeMarket(raw: unknown): MarketSnapshot | null {
     high_24h: num(r.high_24h),
     low_24h: num(r.low_24h),
     amount_24h: num(r.amount_24h),
-    reported_volume_24h: num(r.reported_volume_24h ?? r.volume_24h),
-    reported_open_interest: num(r.reported_open_interest ?? r.open_interest),
+    reported_volume_24h: num(r.reported_volume_24h === undefined ? r.volume_24h : r.reported_volume_24h),
+    reported_open_interest: num(r.reported_open_interest === undefined ? r.open_interest : r.reported_open_interest),
   };
+  for (const [field, value] of Object.entries(snapshot)) {
+    if (typeof value === "number" &&
+        (!Number.isFinite(value) || (field !== "change_24h" && value < 0))) return null;
+  }
+  return snapshot;
 }
 
 /** Every market of one markets@all frame; each row parses on its own, so a malformed row never drops its siblings. */
@@ -358,7 +369,7 @@ export function normalizeMarketsFrame(data: unknown[]): MarketSnapshot[] {
 function normalizeTotals(raw: unknown, ts: number): MarketsTotals | null {
   if (!raw || typeof raw !== "object") return null;
   const r = raw as Record<string, unknown>;
-  return {
+  const totals: MarketsTotals = {
     total_trades: num(r.total_trades),
     volume_24h: num(r.volume_24h),
     volume_7d: num(r.volume_7d),
@@ -366,6 +377,7 @@ function normalizeTotals(raw: unknown, ts: number): MarketsTotals | null {
     total_oi: num(r.total_oi),
     ts,
   };
+  return Object.values(totals).every((value) => Number.isFinite(value) && value >= 0) ? totals : null;
 }
 
 // ── React hooks ───────────────────────────────────────────────────────

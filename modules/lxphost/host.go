@@ -49,8 +49,11 @@ typedef struct lxphost_node {
     lx_asset_runtime asset_runtime;
     lx_escrow_runtime escrow_runtime;
     lx_programs_transfer_runtime programs_runtime;
+    lxp_module_iface programs_iface;
+    uint64_t programs_kernel_gas_used;
     uint64_t parameters;
     uint64_t epoch;
+    uint16_t programs_guest_abi;
     int store_ready;
     uint8_t arena_bytes[LXPHOST_ARENA_BYTES];
     lxp_verified_receipt_index verified_receipts;
@@ -72,6 +75,7 @@ typedef struct lxphost_kv_view {
 } lxphost_kv_view;
 
 typedef struct lxphost_outcome {
+    uint64_t kernel_gas_used;
     int32_t result_code;
     uint64_t global_sequence;
     uint64_t timestamp;
@@ -92,6 +96,59 @@ typedef struct lxphost_outcome {
     size_t encoded_length;
 } lxphost_outcome;
 
+static _Thread_local uint64_t lxphost_programs_kernel_gas_used;
+
+static lxp_result lxphost_programs_execute_metered(
+    lxp_module_ctx *ctx, const lxp_activity *activity,
+    const lxp_authority_resolved *authority, const void *decoded,
+    lxp_effect_buffer *effects)
+{
+    const lxp_module_registration *registration;
+    const lxp_module_iface *iface;
+    lxp_result status = lxp_kernel_module_by_id(
+        ctx->kernel, LXP_MODULE_PROGRAMS, ctx->epoch, &registration);
+    if (status != LXP_OK) return status;
+    iface = registration->abi_version == LX_PROGRAMS_GUEST_ABI_V5_VERSION ?
+        programs_module_registration_v5() :
+        programs_module_registration_v4_storage_retirement();
+    status = iface->execute(ctx, activity, authority, decoded, effects);
+    lxphost_programs_kernel_gas_used = ctx->gas_used;
+    return status;
+}
+
+static int32_t lxphost_receipt_authority_add(lxphost_node *node,
+    lxp_byte_span encoded, uint64_t height)
+{
+    lxp_receipt receipt;
+    lxp_verified_receipt_facts facts = {0};
+    lxp_verified_receipt_index *index = &node->verified_receipts;
+    size_t at;
+    int32_t status = lxp_verified_receipt_index_add_height_authority(
+        index, encoded, height, &node->arena);
+    if (status != LXP_OK) return status;
+    status = lxp_receipt_decode(encoded.bytes, encoded.length, false, &receipt);
+    if (status == LXP_OK)
+        status = lxp_receipt_digest(&receipt, &node->arena, facts.receipt_digest);
+    if (status != LXP_OK) return status;
+    facts.result_code = receipt.result_code;
+    facts.global_sequence = receipt.global_sequence;
+    facts.timestamp = receipt.timestamp;
+    memcpy(facts.asset, receipt.asset, 32);
+    facts.amount = receipt.amount;
+    memcpy(facts.resulting_state_root, receipt.resulting_state_root, 32);
+    for (at = 0; at < index->count; ++at) {
+        int order = memcmp(index->entries[at].receipt_digest, facts.receipt_digest, 32);
+        if (order == 0) return LXP_OK;
+        if (order > 0) break;
+    }
+    if (index->count == LXP_VERIFIED_RECEIPT_INDEX_MAX) return LXP_ERR_LENGTH_LIMIT;
+    memmove(&index->entries[at + 1], &index->entries[at],
+        (index->count - at) * sizeof(index->entries[0]));
+    index->entries[at] = facts;
+    ++index->count;
+    return LXP_OK;
+}
+
 static void lxphost_release_blobs(lxp_kernel *kernel)
 {
     size_t i;
@@ -102,7 +159,9 @@ static void lxphost_release_blobs(lxp_kernel *kernel)
     kernel->blob_count = 0U;
 }
 
-static lxphost_node *lxphost_node_new(uint64_t epoch, int32_t *status)
+static lxphost_node *lxphost_node_new(uint64_t epoch,
+                                       uint16_t programs_guest_abi,
+                                       int32_t *status)
 {
     lxphost_node *node = (lxphost_node *)calloc(1U, sizeof(lxphost_service_node));
     if (node == NULL) {
@@ -110,6 +169,7 @@ static lxphost_node *lxphost_node_new(uint64_t epoch, int32_t *status)
         return NULL;
     }
     node->epoch = epoch;
+    node->programs_guest_abi = programs_guest_abi;
     node->parameters = 1U;
     *status = lxp_kernel_create(&node->kernel, &node->store, &node->journal,
                                 &node->parameters, epoch);
@@ -137,6 +197,7 @@ static lxphost_envelope *lxphost_node_envelope(lxphost_node *node)
 static int32_t lxphost_reset(lxphost_node *node, uint64_t first_sequence)
 {
     uint64_t epoch = node->epoch;
+    uint16_t programs_guest_abi = node->programs_guest_abi;
     int32_t status;
     lxphost_release_blobs(&node->kernel);
     if (node->store_ready != 0) {
@@ -147,6 +208,7 @@ static int32_t lxphost_reset(lxphost_node *node, uint64_t first_sequence)
     lx_account_registry_release(&node->accounts);
     (void)memset(node, 0, sizeof(*node));
     node->epoch = epoch;
+    node->programs_guest_abi = programs_guest_abi;
     node->parameters = 1U;
     status = lxp_verified_receipt_index_init(&node->verified_receipts);
     if (status != LXP_OK) return status;
@@ -170,9 +232,13 @@ static int32_t lxphost_reset(lxphost_node *node, uint64_t first_sequence)
     if (status == LXP_OK)
         status = lxp_kernel_register_module(&node->kernel,
                                             lxp_governance_module_iface());
-    if (status == LXP_OK)
-        status = lxp_kernel_register_module(&node->kernel,
-                                            programs_module_registration_v4_storage_retirement());
+    if (status == LXP_OK) {
+        node->programs_iface = *(programs_guest_abi == LX_PROGRAMS_GUEST_ABI_V5_VERSION ?
+            programs_module_registration_v5() :
+            programs_module_registration_v4_storage_retirement());
+        node->programs_iface.execute = lxphost_programs_execute_metered;
+        status = lxp_kernel_register_module(&node->kernel, &node->programs_iface);
+    }
     if (status == LXP_OK)
         status = lxp_kernel_register_module(&node->kernel,
                                             lx_asset_module_iface());
@@ -266,8 +332,8 @@ static int32_t lxphost_bind_assets(lxphost_node *node, uint32_t network_id,
     node->programs_runtime.resolve_occupancy_parameters =
         lxp_programs_fee_governance_resolve_runtime;
     node->programs_runtime.occupancy_parameter_context = &node->kernel;
-    node->kernel.module_runtime[LXP_MODULE_PROGRAMS] = &node->programs_runtime;
-    return LXP_OK;
+    return lxp_kernel_bind_module_runtime(&node->kernel, LXP_MODULE_PROGRAMS,
+                                          &node->programs_runtime);
 }
 
 static int32_t lxphost_envelope_write(
@@ -569,12 +635,34 @@ static int32_t lxphost_execute(lxphost_node *node, uint32_t network_id,
             return status;
     }
     node->kernel.applied_transfers_out = &execution->applied_transfers;
+    lxphost_programs_kernel_gas_used = 0U;
     status = lxp_kernel_execute_activity(&node->kernel, &node->envelope.activity,
                                          execution, &node->receipt);
+    node->programs_kernel_gas_used = lxphost_programs_kernel_gas_used;
     node->kernel.applied_transfers_out = NULL;
     if (status != LXP_OK || node->receipt.result_code != LXP_OK)
         (void)memset(&execution->applied_transfers, 0,
                      sizeof(execution->applied_transfers));
+    return status;
+}
+
+static int32_t lxphost_finalize_programs_occupancy(
+    lxphost_node *node, uint16_t protocol_version, uint64_t batch_number,
+    uint64_t timestamp_ms, uint64_t sequence, uint32_t parameter_version,
+    lxp_byte_span *encoded)
+{
+    lx_programs_fee_schedule schedule;
+    lxp_programs_occupancy_receipt receipt;
+    int32_t status = node->programs_runtime.resolve_occupancy_parameters(
+        node->programs_runtime.occupancy_parameter_context, 0U, &schedule,
+        node->programs_runtime.occupancy_asset_id);
+    if (status == LXP_OK)
+        status = lxp_state_root(&node->kernel, node->kernel.current_state_root);
+    if (status == LXP_OK)
+        status = lxp_programs_finalize_occupancy_batch_selected(
+            &node->kernel, protocol_version, schedule.version, batch_number,
+            timestamp_ms, sequence, parameter_version, &node->arena,
+            &receipt, encoded);
     return status;
 }
 
@@ -703,6 +791,7 @@ static int32_t lxphost_outcome_read(lxphost_node *node, lxphost_outcome *outcome
     if (status == LXP_OK)
         status = lxp_receipt_encode(&receipt, false, &node->arena, &encoded);
     if (status != LXP_OK) return status;
+    outcome->kernel_gas_used = node->programs_kernel_gas_used;
     outcome->result_code = receipt.result_code;
     outcome->global_sequence = receipt.global_sequence;
     outcome->timestamp = receipt.timestamp;
@@ -859,7 +948,7 @@ func lxphost_bind_assets(node *C.lxphost_node, networkID uint32, bindingAuthorit
 	return result(C.lxphost_bind_assets(node, C.uint32_t(networkID), C.bool(bindingAuthority)))
 }
 
-func lxphost_execute(node *C.lxphost_node, cfg Config, branch *branchCtx, bindingAuthority bool, authorities ...ReceiptAuthority) error {
+func prepareReceiptAuthorities(node *C.lxphost_node, cfg Config, branch *branchCtx, authorities []ReceiptAuthority) error {
 	if err := result(C.lxp_verified_receipt_index_bind_authority_network(&node.verified_receipts, C.uint32_t(cfg.NetworkID))); err != nil {
 		return err
 	}
@@ -868,10 +957,16 @@ func lxphost_execute(node *C.lxphost_node, cfg Config, branch *branchCtx, bindin
 			return codeNonCanonical
 		}
 		encoded := C.lxp_byte_span{bytes: bytesPtr(authority.CanonicalReceipt), length: C.size_t(len(authority.CanonicalReceipt))}
-		if err := result(C.lxp_verified_receipt_index_add_height_authority(&node.verified_receipts, encoded,
-			C.uint64_t(authority.BlockHeight), &node.arena)); err != nil {
+		if err := result(C.lxphost_receipt_authority_add(node, encoded, C.uint64_t(authority.BlockHeight))); err != nil {
 			return err
 		}
+	}
+	return nil
+}
+
+func lxphost_execute(node *C.lxphost_node, cfg Config, branch *branchCtx, bindingAuthority bool, authorities ...ReceiptAuthority) error {
+	if err := prepareReceiptAuthorities(node, cfg, branch, authorities); err != nil {
+		return err
 	}
 	balance, err := fee_balance(node)
 	if err != nil {
@@ -913,6 +1008,7 @@ type Config struct {
 	NetworkID         uint32
 	Epoch             uint64
 	ParameterVersion  uint32
+	ProgramsGuestABI  uint16
 	TimestampWindowMs uint64
 	GasLimit          uint64
 }
@@ -968,6 +1064,7 @@ type TransferLeg struct {
 }
 
 type ProgramOutcome struct {
+	CPUFuel                 uint64
 	Status                  int32
 	Kind                    uint8
 	Response                []byte
@@ -977,6 +1074,7 @@ type ProgramOutcome struct {
 }
 
 type Receipt struct {
+	KernelGasUsed      uint64
 	ResultCode         Code
 	GlobalSequence     uint64
 	Timestamp          uint64
@@ -1003,6 +1101,9 @@ type kvEntry struct {
 }
 
 func NewHost(cfg Config) (*Host, error) {
+	if cfg.ProgramsGuestABI != 0 && cfg.ProgramsGuestABI != 4 && cfg.ProgramsGuestABI != 5 {
+		return nil, codeNonCanonical
+	}
 	if cfg.StoreKey == nil || cfg.NetworkID == 0 || cfg.ParameterVersion == 0 || cfg.GasLimit == 0 || cfg.Workers < 0 || cfg.Workers > 16 {
 		return nil, codeNonCanonical
 	}
@@ -1012,7 +1113,7 @@ func NewHost(cfg Config) (*Host, error) {
 	h := &Host{cfg: cfg, nodes: make(chan *C.lxphost_node, cfg.Workers)}
 	for i := 0; i < cfg.Workers; i++ {
 		var status C.int32_t
-		node := C.lxphost_node_new(C.uint64_t(cfg.Epoch), &status)
+		node := C.lxphost_node_new(C.uint64_t(cfg.Epoch), C.uint16_t(cfg.ProgramsGuestABI), &status)
 		if node == nil {
 			for len(h.nodes) != 0 {
 				C.lxphost_node_free(<-h.nodes)
@@ -1191,7 +1292,26 @@ func (h *Host) HostExecute(ctx sdk.Context, activity Activity, authority KernelA
 	if err := lxphost_outcome_read(h.node, &outcome); err != nil {
 		return Receipt{}, err
 	}
+	receipt := receiptFromOutcome(module, &outcome)
+	stagedBlobs, err := h.moduleBlobs()
+	if err != nil {
+		return Receipt{}, err
+	}
+	if err := branch.commit(h, did); err != nil {
+		return Receipt{}, err
+	}
+	commitBlobs(branch.store, loadedBlobs, stagedBlobs)
+	branch.commitPaymentReference(activity, receipt)
+	return receipt, nil
+}
+
+func releaseOutcome(outcome *lxphost_outcome) {
+	C.lxphost_outcome_release(outcome)
+}
+
+func receiptFromOutcome(module uint16, outcome *lxphost_outcome) Receipt {
 	receipt := Receipt{
+		KernelGasUsed:      uint64(outcome.kernel_gas_used),
 		FeeCharged:         readAmount(C.struct_lxp_u128{hi: outcome.fee_hi, lo: outcome.fee_lo}),
 		ResultCode:         Code(outcome.result_code),
 		GlobalSequence:     uint64(outcome.global_sequence),
@@ -1227,6 +1347,7 @@ func (h *Host) HostExecute(ctx sdk.Context, activity Activity, authority KernelA
 	}
 	if program := &outcome.program_outcome; program.present != C.bool(false) {
 		receipt.ProgramOutcome = &ProgramOutcome{
+			CPUFuel:                 uint64(program.cpu_fuel),
 			Status:                  int32(program.result_code),
 			Kind:                    uint8(program.terminal_kind),
 			Response:                C.GoBytes(unsafe.Pointer(program.terminal_payload.bytes), C.int(program.terminal_payload.length)),
@@ -1235,16 +1356,55 @@ func (h *Host) HostExecute(ctx sdk.Context, activity Activity, authority KernelA
 			Events:                  C.GoBytes(unsafe.Pointer(program.event_envelope_payload.bytes), C.int(program.event_envelope_payload.length)),
 		}
 	}
+	return receipt
+}
+
+// FinalizeProgramsOccupancy runs the kernel's block-end occupancy transition
+// and persists its account and module changes without advancing an actor nonce.
+func (h *Host) FinalizeProgramsOccupancy(ctx sdk.Context, protocolVersion uint16) ([]byte, error) {
+	node, err := h.borrowNode()
+	if err != nil {
+		return nil, err
+	}
+	defer h.returnNode(node)
+	h = &Host{cfg: h.cfg, node: node}
+	branch, err := newBranchCtx(ctx, h.cfg.StoreKey)
+	if err != nil {
+		return nil, err
+	}
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
+	if err := lxphost_reset(h.node, branch.sequence); err != nil {
+		return nil, err
+	}
+	modules := activityModules(C.LXP_MODULE_PROGRAMS)
+	if err := branch.load(h, modules); err != nil {
+		return nil, err
+	}
+	loadedBlobs, err := h.loadBlobs(branch.store, modules)
+	if err != nil {
+		return nil, err
+	}
+	if err := lxphost_bind_assets(h.node, h.cfg.NetworkID, false); err != nil {
+		return nil, err
+	}
+	var encoded C.lxp_byte_span
+	if err := result(C.lxphost_finalize_programs_occupancy(h.node,
+		C.uint16_t(protocolVersion), C.uint64_t(branch.batchNumber),
+		C.uint64_t(branch.timestampMs), C.uint64_t(branch.sequence),
+		C.uint32_t(h.cfg.ParameterVersion), &encoded)); err != nil {
+		return nil, err
+	}
 	stagedBlobs, err := h.moduleBlobs()
 	if err != nil {
-		return Receipt{}, err
+		return nil, err
 	}
-	if err := branch.commit(h, did); err != nil {
-		return Receipt{}, err
+	if err := branch.commitState(h); err != nil {
+		return nil, err
 	}
 	commitBlobs(branch.store, loadedBlobs, stagedBlobs)
-	branch.commitPaymentReference(activity, receipt)
-	return receipt, nil
+	branch.store.Set([]byte{lastSequenceKey}, binary.BigEndian.AppendUint64(nil, branch.sequence))
+	return C.GoBytes(unsafe.Pointer(encoded.bytes), C.int(encoded.length)), nil
 }
 
 func (h *Host) ServiceApplyDefaultOutcomes(ctx sdk.Context) (Receipt, error) {

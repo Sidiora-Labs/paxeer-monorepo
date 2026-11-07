@@ -1,0 +1,100 @@
+[repair.22.31.527]
+requirement = "22998.1"
+gotcha = "3094"
+decision = "2572"
+signatures = ["approval::{require,approve,reject,expire,decide}: clock: &dyn Clock", "WebApproval: clock: &dyn Clock", "WebAuthority::new: clock: Arc<dyn Clock>", "WebRoute::new: clock: Arc<dyn Clock>", "WebCall::{exact_terms,exact_terms_with_payer,exact_terms_with_view}: clock: &dyn Clock"]
+clock_sampling = "One-second Clock::sample; invalid zero generation or sampling failure is ApprovalError::Daemon(Unavailable); Unix seconds become TimestampSeconds; sequences remain ApprovalSequence."
+clock_sources = "WebAuthority owns the host-supplied runtime clock; WebRoute and WebApproval preserve the same authority. Deterministic test adapters use layerx_types::test_support::DeterministicClock at each case's explicit time."
+web_boundary = "hold_reserved_at receives the boundary clock; disclosure expiry and retry expiry checks sample that clock. SharedPayer forwards durable resources, prepare_transaction and submit_transaction to the actual payer. No ambient decision-time source remains in MCP production code."
+production_wiring = "Decision 2574: layerx-agentd/src/main.rs::attach_mcp_payers supplies SharedAgentOwner::mcp_clock() as the first WebAuthority::new argument and maps failure to MCP approval clock is unavailable. WebAuthority and WebRoute carry this same runtime clock. The environment-clock leg of decision 2572 is withdrawn; MCP constructs no clock and adds no production dependency."
+list_callers = ["tests/repair_22_33_1552.rs::OwnerTransport::consume", "tests/repair_22_33_1552.rs::approval_page_bound_authenticated_transport", "tests/support/session_transport.rs approval.list dispatch (ported in attempt 1, retained)"]
+list_time = "Each fifth list argument is TimestampSeconds from the case's layerx_types::test_support::DeterministicClock at HEIGHT; every assertion is retained."
+fixture_helpers = "TestClock remains a thin Mutex adapter over DeterministicClock. Advance and zero-generation constructors belong only to repair_22_31_527; session/approval/codec helpers used solely by repair_22_33_1551 live with those tests, preserving their assertions."
+proof = ["timed_hold_is_approved_through_the_binding_and_spend_completes", "restart_recovers_the_hold_and_advanced_runtime_clock_can_decide_it", "zero_generation_refuses_unavailable_without_a_hold"]
+path = "SDK encode_envelope -> daemon decode_mcp_invocation -> Binding::daemon_invocation -> Server -> WebRoute -> real EVM preparation -> durable approval registry -> served approval owner -> exact retained spend -> recorded signed receipt verification."
+restart = "Drop the binding, registry and approval resources; reopen the same store; replay the hold and budget reservation; advance the same deterministic clock and approve through the binding."
+existing_tests = "All six repair_22_33_1551 test functions and their assertions are retained. Their unchanged real recording/preparation fixture is shared with the new proof; timed entries receive an explicit deterministic clock."
+expectation_conflicts = []
+files_touched = ["services/agent/crates/layerx-mcp/src/boundary.rs", "services/agent/crates/layerx-agentd-host/tests/payer_evm.rs", "services/human/crates/layerx-human-service/tests/decide.rs", "services/agent/crates/layerx-agentd/src/main.rs", "services/agent/crates/layerx-mcp/tests/repair_22_33_1552.rs", "services/agent/crates/layerx-mcp/src/approval.rs", "services/agent/crates/layerx-mcp/src/binding.rs", "services/agent/crates/layerx-mcp/src/server.rs", "services/agent/crates/layerx-mcp/src/tools/web.rs", "services/agent/crates/layerx-mcp/src/tools/web/approval_state.rs", "services/agent/crates/layerx-mcp/tests/approval.rs", "services/agent/crates/layerx-mcp/tests/repair_22_31_223.rs", "services/agent/crates/layerx-mcp/tests/repair_22_31_224.rs", "services/agent/crates/layerx-mcp/tests/repair_22_31_527.rs", "services/agent/crates/layerx-mcp/tests/repair_22_33_1551.rs", "services/agent/crates/layerx-mcp/tests/session_tools_major_two.rs", "services/agent/crates/layerx-mcp/tests/support/clock.rs", "services/agent/crates/layerx-mcp/tests/support/seller_exchange.rs", "services/agent/crates/layerx-mcp/tests/support/session_transport.rs", "services/agent/crates/layerx-mcp/tests/support/web_hold.rs", "services/agent/crates/layerx-mcp/tests/web.rs", "services/agent/crates/layerx-mcp/tests/web_payments_layerxpay.rs", "services/agent/crates/layerx-mcp/tests/repair_22_31_527.kvx"]
+
+[qualification]
+build_command = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-mcp --tests && cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --bins"
+verify_command = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-mcp --test repair_22_31_527 --test repair_22_33_1551"
+build_gate = "hf-build"
+verify_gate = "hf-done"
+results = "Exact candidate revision, command, exit and private log are recorded by the gate wrappers in /out/run/gates.jsonl; final output copies the last applicable gate row. This record does not claim an unrun gate."
+
+[qualification.build_1]
+revision = "b74cc63dc19c6c5d8c317d98f929309060fc45cb"
+command = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-mcp --tests"
+exit = 101
+log = "/out/logs/build-1.log"
+observed = "The new decoder proof used Result::expect but AgentRpcResponse does not implement Debug (E0277)."
+repair = "Use the existing producer harness's unwrap_or_else panic pattern; no assertion or decoder behavior changes."
+
+[qualification.build_2]
+revision = "9c8efb627d61cc17da92cea3c53cbb10d811583c"
+command = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-mcp --tests"
+exit = 101
+log = "/out/logs/build-2.log"
+observed = "The shared session fixture still called ApprovalService::list without its fifth timestamp argument (E0061), blocking daemon_bound and session_tools_major_two."
+repair = "Pass the shared fixture's deterministic clock time to list; retain every assertion."
+
+[qualification.attempt_2]
+build_evidence = "/out/run/gates.jsonl build rows: exact candidate revision, build_command, exit and private log; daemon binary included."
+verify_evidence = "/out/run/gates.jsonl verify rows: exact candidate revision, cg spec done 22.31.527 -f layerx-merge --root /work/paxeer-monorepo, exit and private log."
+result_policy = "Read the gate-written evidence as the results for this record; final response copies the final gate row. This file is fixed before qualification so build and verify qualify the same candidate; no unrun gate is claimed."
+
+[qualification.attempt_2_build]
+revision = "49cc1814f382475e09f7e15c142b44ec10f75764"
+command = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-mcp --tests && cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --bins"
+exit = 0
+log = "/out/logs/build-1.log"
+observed = "All MCP test targets compile; the declared layerx-agentd --bins leg matches no targets because the binary belongs to layerx-agentd-host."
+
+[qualification.attempt_2_dependency_boundary]
+revision = "49cc1814f382475e09f7e15c142b44ec10f75764"
+command = "hf-done: cargo check --locked --manifest-path /work/paxeer-monorepo/services/agent/Cargo.toml --all-targets -p layerx-agentd-host; cargo check --locked --manifest-path /work/paxeer-monorepo/services/human/Cargo.toml --all-targets -p layerx-human-identity-provider -p layerx-human-kms -p layerx-human-security-provider -p layerx-human-service -p layerx-human-test-support -p layerx-intents"
+exit = 101
+log = "/out/logs/dependents-1.log"
+observed = "The daemon binary checks successfully, but host tests/payer_evm.rs:477 lacks exact_terms argument 4 (&dyn Clock); Human service tests/decide.rs:361,387,491 lack get argument 4 (TimestampSeconds) and :466,498 lack DecisionRequest.current_time."
+assumption = "These caller files are outside SCOPE; hf-done refused with exit 7 before cg spec done or verify_cmd ran and explicitly required stopping without editing those files."
+
+[qualification.attempt_2_verification]
+status = "not_run"
+reason = "hf-done dependency boundary refused; no verify row or spec-done evidence exists, so the task remains implemented-not-qualified."
+private_evidence = "/out/run/gates.jsonl and /out/logs/dependents-1.log"
+
+[continuation.attempt_3]
+dependent_host = "services/agent/crates/layerx-agentd-host/tests/payer_evm.rs::web_pay_exact_submits_a_signed_layerxpay_call passes the shared TestClock at 1800000000 seconds to exact_terms, matching repair_22_31_527. The adapter wraps layerx_types::test_support::DeterministicClock."
+dependent_human = "services/human/crates/layerx-human-service/tests/decide.rs::AgentdDecisions passes explicit TimestampSeconds(current_sequence), or TimestampSeconds(at_sequence), to all three get calls and both DecisionRequest.current_time fields, preserving the fixture's sequence-based decision times and every assertion."
+prior_boundary = "The attempt_2_dependency_boundary entry records the previous scope refusal; attempt 3 explicitly owns both caller files and ports their widened signatures."
+build_evidence = "/out/run/gates.jsonl build rows record the exact candidate revision, declared command, exit code and private log for this attempt."
+verify_evidence = "/out/run/gates.jsonl verify rows record the exact candidate revision, hf-done command, exit code and private log for this attempt; the final response copies the last row."
+result_policy = "Gate-written evidence supplies this attempt's results. This record is finalized before hf-build and hf-done so both gates qualify the same candidate."
+
+[qualification.attempt_3_first_verify]
+revision = "f3411575d909780b9a0498d5d3fd0d36b1ba927a"
+command = "cg spec done 22.31.527 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "All three binding proofs failed their first response assertion: the daemon invocation built WebBoundary with observed None and bypassed the stdio observation step, refusing before clock sampling or a hold."
+repair = "Binding::daemon_invocation explicitly supplies its authenticated core_sequence to the web boundary; stdio continues to obtain its observed sequence from its boundary. The assertions are unchanged and now print the actual response on failure."
+
+[continuation.attempt_4]
+decision = "2581"
+refusal_provenance = "ToolBoundary::preflight performs local checks without effects; WebBoundary samples the same runtime clock before Server::execute_for_release opens the durable invocation. DaemonBoundary and OwnerBoundary forward this check."
+durable_result = "For a new invocation, a preflight refusal bypasses boundary execution and is audited and settled with its refusal bytes. Unavailable remains the public refusal variant. Retained outcomes and reconciliation take precedence; errors after execution starts retain the existing unknown-outcome handling."
+proof = "All three binding tests and all six restart tests retain every assertion; the zero-generation case also asserts that no transaction preparation occurred."
+files_changed = ["services/agent/crates/layerx-mcp/src/boundary.rs", "services/agent/crates/layerx-mcp/src/binding.rs", "services/agent/crates/layerx-mcp/src/server.rs", "services/agent/crates/layerx-mcp/tests/repair_22_31_527.rs", "services/agent/crates/layerx-mcp/tests/repair_22_31_527.kvx"]
+build_results = "/out/run/gates.jsonl build rows contain the exact candidate revision, declared build command, exit code and private log; /out/logs/build-1.log is the initial build evidence."
+verify_results = "/out/run/gates.jsonl verify rows contain the exact candidate revision, cg spec done command, exit code and private log; /out/logs/verify-1.log is the initial verification evidence."
+result_policy = "Gate-written rows are the authoritative qualification results for this source revision, avoiding a self-referential revision in source. The final response copies the last gate's exact evidence row; no unrun or failed gate is claimed as passed."
+
+[qualification.attempt_4_initial_build]
+revision = "1754ce56a0356a17fe915c8bfdf487a74ceb2479"
+command = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-mcp --tests && cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --bins"
+exit = 0
+log = "/out/logs/build-1.log"
+observed = "The build passes but reports an imported retired hold call in tests/repair_22_31_223.rs::session_approval_result_keeps_major_two_fields, missed by a qualified-name search."
+repair = "Port the call to hold_at with ApprovalSequence and the case's deterministic decision time; provide that time to approval.get, retaining all assertions. Rebuild this changed candidate before hf-done."

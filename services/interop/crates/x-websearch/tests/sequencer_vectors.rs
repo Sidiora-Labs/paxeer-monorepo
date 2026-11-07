@@ -68,7 +68,8 @@ fn classify(case: &Case) -> Classification {
         "V1-pax-transfer"
         | "V1-erc20-approve"
         | "V1-layerxledger-pay-exact"
-        | "V1-layerxbridge-bridge-out" => ("V1", Classification::Answer, "accepts"),
+        | "V1-layerxbridge-bridge-out"
+        | "V1-layerxprograms-call" => ("V1", Classification::Answer, "accepts"),
         "V2-layerxledger-revert" => ("V2", Classification::Answer, "accepts"),
         "V3-key-not-pinned" | "V3-height-outside-key-range" => {
             ("V3", Classification::SignatureRefusal, "SequencerSignature")
@@ -94,7 +95,7 @@ fn shared_vectors() -> Outcome<Vectors> {
     let vectors: Vectors = serde_json::from_slice(&std::fs::read(path)?)?;
     assert_eq!(vectors.name, "sequencer-receipt-v1");
     assert_eq!(vectors.chain_id, 125);
-    assert_eq!(vectors.cases.len(), 11, "all shared cases must execute");
+    assert_eq!(vectors.cases.len(), 12, "all shared cases must execute");
     let mut ids = BTreeSet::new();
     for case in &vectors.cases {
         assert!(ids.insert(&case.id), "duplicate shared case: {}", case.id);
@@ -371,10 +372,10 @@ fn every_shared_answer_case_decodes_through_the_settlement_client() -> Outcome {
         }
         checked += 1;
     }
-    assert_eq!(checked, 11);
+    assert_eq!(checked, 12);
     assert_eq!(
-        verified_answers, 5,
-        "four successes and one execution revert"
+        verified_answers, 6,
+        "five successes and one execution revert"
     );
     Ok(())
 }

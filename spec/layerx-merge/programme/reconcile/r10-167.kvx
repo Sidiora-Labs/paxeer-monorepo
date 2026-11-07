@@ -1,0 +1,243 @@
+[reconcile.r10-167]
+revision = "751d6ff8dbcfeaec3fbdee7c8c9aac3813e83488"
+rows = 30
+
+[row.r10-167.1]
+interface = "interface.10.rs-human-kms-attestor-approval"
+verdict = "served"
+path = "services/human/crates/layerx-human-kms/src/attestor.rs"
+line = 1542
+symbol = "Approval"
+evidence = "pub struct Approval<'a> declares principal and session_id string references plus expires_at; the later impl and earlier approval parameters are uses of this type."
+
+[row.r10-167.2]
+interface = "interface.10.rs-human-kms-attestor-native-local-grant-signing-bytes"
+verdict = "served"
+path = "services/human/crates/layerx-human-kms/src/attestor.rs"
+line = 1957
+symbol = "native_local_grant_signing_bytes"
+evidence = "The public function takes &layerx_agent_api::identity::NativeLocalGrantConsentV1 and returns Result<Vec<u8>, AttestorError>; its earlier occurrence is a call, and the body validates the grant before encoding signing bytes."
+
+[row.r10-167.3]
+interface = "interface.10.rs-human-kms-attestor-preimage"
+verdict = "served"
+path = "services/human/crates/layerx-human-kms/src/attestor.rs"
+line = 1292
+symbol = "preimage"
+evidence = "pub fn preimage(canonical: &[u8]) -> [u8; 32] hashes PREIMAGE_DOMAIN and canonical bytes with Sha256; the later EVM signing preimage variable is a separate local binding."
+
+[row.r10-167.4]
+interface = "interface.10.rs-human-kms-attestor-validate-native-local-grant"
+verdict = "served"
+path = "services/human/crates/layerx-human-kms/src/attestor.rs"
+line = 1972
+symbol = "validate_native_local_grant"
+evidence = "The public declaration takes &layerx_agent_api::identity::NativeLocalGrantConsentV1 and returns Result<NativeGrantCoordinates, AttestorError>; earlier occurrences invoke it rather than define it."
+
+[row.r10-167.5]
+interface = "interface.10.rs-human-security-provider-state-store"
+verdict = "served"
+path = "services/human/crates/layerx-human-security-provider/src/state.rs"
+line = 239
+symbol = "Store"
+evidence = "pub struct Store declares root, trust, lock, root_identity, state, sequence, digest and healthy; the subsequent impl Store and Store::open call do not declare the type."
+
+[row.r10-167.6]
+interface = "interface.10.rs-human-security-provider-state-store-open"
+verdict = "served"
+path = "services/human/crates/layerx-human-security-provider/src/state.rs"
+line = 250
+symbol = "open"
+evidence = "Inside impl Store, pub fn open(root: &Path, trust: &Path) -> Result<Self> validates storage and trust before acquiring the writer lock; File::open and OpenOptions::open occurrences are calls to other types."
+
+[row.r10-167.7]
+interface = "interface.10.rs-human-service-activity-detail-detail-error"
+verdict = "served"
+path = "services/human/crates/layerx-human-service/src/activity/detail.rs"
+line = 499
+symbol = "DetailError"
+evidence = "pub enum DetailError declares six detail-assembly failure variants; earlier Result and error-construction occurrences and the later Display and Error impls reference this declaration."
+
+[row.r10-167.8]
+interface = "interface.10.rs-human-service-activity-export-bundle-report-verified-inclusions"
+verdict = "served"
+path = "services/human/crates/layerx-human-service/src/activity/export.rs"
+line = 607
+symbol = "verified_inclusions"
+evidence = "Inside impl BundleReport, pub const fn verified_inclusions(&self) -> usize returns self.verified_inclusions; the earlier same-named field and initializer entries are not this accessor."
+
+[row.r10-167.9]
+interface = "interface.10.rs-human-service-activity-export-bundle-report-verified-receipts"
+verdict = "served"
+path = "services/human/crates/layerx-human-service/src/activity/export.rs"
+line = 602
+symbol = "verified_receipts"
+evidence = "Inside impl BundleReport, pub const fn verified_receipts(&self) -> usize returns self.verified_receipts; the same-named struct field, aggregations and initializer entries are not this accessor."
+
+[row.r10-167.10]
+interface = "interface.10.rs-human-service-agents-create-agent-creation-contract"
+verdict = "served"
+path = "services/human/crates/layerx-human-service/src/agents/create.rs"
+line = 853
+symbol = "AgentCreationContract"
+evidence = "pub trait AgentCreationContract declares the submit_protocol, provision_session and narrow_capability boundary methods; the later ScopedAgentCreationContract supertrait and generic bounds reference it."
+
+[row.r10-167.11]
+interface = "interface.10.rs-human-service-agents-create-agent-creation-contract-narrow-capability"
+verdict = "served"
+path = "services/human/crates/layerx-human-service/src/agents/create.rs"
+line = 877
+symbol = "narrow_capability"
+evidence = "The declaration in trait AgentCreationContract takes &mut self and request: CapabilityProvision and returns Result<AgentEvidence, AgentFailure>; the later agent.narrow_capability(request) is a call."
+
+[row.r10-167.12]
+interface = "interface.10.rs-human-service-agents-create-agent-creation-contract-provision-session"
+verdict = "served"
+path = "services/human/crates/layerx-human-service/src/agents/create.rs"
+line = 867
+symbol = "provision_session"
+evidence = "The declaration in trait AgentCreationContract takes &mut self and request: SessionProvision and returns Result<AgentEvidence, AgentFailure>; provision_session_scoped later delegates to it."
+
+[row.r10-167.13]
+interface = "interface.10.rs-human-service-agents-create-agent-creation-contract-submit-protocol"
+verdict = "served"
+path = "services/human/crates/layerx-human-service/src/agents/create.rs"
+line = 859
+symbol = "submit_protocol"
+evidence = "The declaration in trait AgentCreationContract takes &mut self and action: ProtocolAction and returns Result<ProtocolEvidence, AgentFailure>; submit_protocol_scoped later delegates to it."
+
+[row.r10-167.14]
+interface = "interface.10.rs-human-service-agents-create-agent-evidence-expected-digest"
+verdict = "served"
+path = "services/human/crates/layerx-human-service/src/agents/create.rs"
+line = 831
+symbol = "expected_digest"
+evidence = "Inside impl AgentEvidence, pub fn expected_digest(&self, stage: CreationStage) -> [u8; 32] hashes the stage and evidence fields; the later evidence.expected_digest(stage) is its invocation."
+
+[row.r10-167.15]
+interface = "interface.10.rs-human-service-agents-create-capability-provision"
+verdict = "served"
+path = "services/human/crates/layerx-human-service/src/agents/create.rs"
+line = 799
+symbol = "CapabilityProvision"
+evidence = "pub struct CapabilityProvision declares action_key, did, capability_id and authority bounds including activity types, counterparties and assets; method parameters and the later request initializer use this type."
+
+[row.r10-167.16]
+interface = "interface.10.rs-human-service-agents-create-creation-journey"
+verdict = "served"
+path = "services/human/crates/layerx-human-service/src/agents/create.rs"
+line = 972
+symbol = "CreationJourney"
+evidence = "pub struct CreationJourney wraps a JourneyRecord; the following impl CreationJourney contains the load, agent_id and resume declarations rather than another type definition."
+
+[row.r10-167.17]
+interface = "interface.10.rs-human-service-agents-create-creation-journey-agent-id"
+verdict = "served"
+path = "services/human/crates/layerx-human-service/src/agents/create.rs"
+line = 1172
+symbol = "agent_id"
+evidence = "Inside impl CreationJourney, pub const fn agent_id(&self) -> [u8; 32] returns self.record.agent_id; earlier public fields, persisted record fields and load parameters are different bindings."
+
+[row.r10-167.18]
+interface = "interface.10.rs-human-service-agents-create-creation-journey-load"
+verdict = "served"
+path = "services/human/crates/layerx-human-service/src/agents/create.rs"
+line = 1102
+symbol = "load"
+evidence = "Inside impl CreationJourney, pub fn load(scope: &PrincipalScope<'_>, agent_id: [u8; 32]) -> Result<Option<Self>, AgentCreationError> decodes and validates the durable record; the earlier Self::load occurrence invokes it."
+
+[row.r10-167.19]
+interface = "interface.10.rs-human-service-agents-create-creation-journey-resume"
+verdict = "served"
+path = "services/human/crates/layerx-human-service/src/agents/create.rs"
+line = 1274
+symbol = "resume"
+evidence = "Inside impl CreationJourney, pub fn resume<C: ScopedAgentCreationContract> takes &mut self, mutable PrincipalScope, &Keystore, &ModuleRegistry, &mut C and now: u64, returning Result<CreationStatus, AgentCreationError>; the later documentation mention is not a declaration."
+
+[row.r10-167.20]
+interface = "interface.10.rs-human-service-agents-create-creation-stage"
+verdict = "served"
+path = "services/human/crates/layerx-human-service/src/agents/create.rs"
+line = 333
+symbol = "CreationStage"
+evidence = "pub enum CreationStage declares custody, registration, session, capability, budget and funding stages; its impl, record fields and later stage matches reference the enum."
+
+[row.r10-167.21]
+interface = "interface.10.rs-human-service-agents-create-creation-state"
+verdict = "served"
+path = "services/human/crates/layerx-human-service/src/agents/create.rs"
+line = 396
+symbol = "CreationState"
+evidence = "pub enum CreationState declares GettingReady, Partial and Active; the following CreationStatus.state field and later status-selection branches use these variants."
+
+[row.r10-167.22]
+interface = "interface.10.rs-human-service-agents-create-protocol-action"
+verdict = "served"
+path = "services/human/crates/layerx-human-service/src/agents/create.rs"
+line = 453
+symbol = "ProtocolAction"
+evidence = "pub struct ProtocolAction declares actor, stage, action_key, intent, compiled intent, disclosure, custody_key and started_at; trait parameters and the later initializer reference this submission type."
+
+[row.r10-167.23]
+interface = "interface.10.rs-human-service-agents-create-protocol-evidence-bound-activity"
+verdict = "served"
+path = "services/human/crates/layerx-human-service/src/agents/create.rs"
+line = 595
+symbol = "bound_activity"
+evidence = "Inside impl ProtocolEvidence, pub fn bound_activity(&self, expected: ActivityType) now returns Result<BoundLifecycleCall, AgentFailure>, replacing the registered Result<layerx_intents::canonical::Activity, AgentFailure>; its body decodes a signed EVM transaction and binds its disclosure. Other occurrences call the method."
+
+[row.r10-167.24]
+interface = "interface.10.rs-human-service-agents-create-protocol-evidence-verify-outcome"
+verdict = "served"
+path = "services/human/crates/layerx-human-service/src/agents/create.rs"
+line = 553
+symbol = "verify_outcome"
+evidence = "Inside impl ProtocolEvidence, pub fn verify_outcome(&self, expected: ActivityType) now returns Result<layerx_wire::receipt::Receipt, AgentFailure>, replacing the registered Result<layerx_proof::receipt::VerifiedReceipt, AgentFailure>; it decodes and checks the canonical native receipt against the bound transaction. The later occurrence invokes it."
+
+[row.r10-167.25]
+interface = "interface.10.rs-human-service-agents-create-scoped-agent-creation-contract"
+verdict = "served"
+path = "services/human/crates/layerx-human-service/src/agents/create.rs"
+line = 887
+symbol = "ScopedAgentCreationContract"
+evidence = "pub trait ScopedAgentCreationContract: AgentCreationContract declares scoped protocol and session operations; CreationJourney::resume and helper generic bounds refer to this extension trait."
+
+[row.r10-167.26]
+interface = "interface.10.rs-human-service-agents-create-session-provision"
+verdict = "served"
+path = "services/human/crates/layerx-human-service/src/agents/create.rs"
+line = 783
+symbol = "SessionProvision"
+evidence = "pub struct SessionProvision declares the bounded session request, including replacement, native_fee_budget, not_before, authority and expiry fields; CreationStage::SessionProvision is a separate enum variant, and later parameters and initializers use the struct."
+
+[row.r10-167.27]
+interface = "interface.10.rs-human-service-agents-create-stage-state"
+verdict = "served"
+path = "services/human/crates/layerx-human-service/src/agents/create.rs"
+line = 387
+symbol = "StageState"
+evidence = "pub enum StageState declares Pending, LocalComplete, Unavailable, Refused and ReceiptVerified; CreationStatus, StageRecord and later stage-transition expressions reference this enum."
+
+[row.r10-167.28]
+interface = "interface.10.rs-human-service-agents-reclaim-reclaim-advance"
+verdict = "served"
+path = "services/human/crates/layerx-human-service/src/agents/reclaim.rs"
+line = 391
+symbol = "advance"
+evidence = "Inside impl Reclaim, pub async fn advance<A: ReclaimAgentBoundary> takes mutable PrincipalScope, &AgentClient, &mut A, &CustodySigner, &ModuleRegistry, &TraceId and now: u64, returning Result<ReclaimStatus, ReclaimError>; the later self.engine.advance call delegates work to a different type."
+
+[row.r10-167.29]
+interface = "interface.10.rs-human-service-agents-reclaim-reclaim-load"
+verdict = "served"
+path = "services/human/crates/layerx-human-service/src/agents/reclaim.rs"
+line = 356
+symbol = "load"
+evidence = "Inside impl Reclaim, pub fn load(scope: &PrincipalScope<'_>, journey_id: &JourneyId) -> Result<Option<Self>, ReclaimError> validates reclaim records; the later JourneyEngine::load call loads the associated engine and is not this declaration."
+
+[row.r10-167.30]
+interface = "interface.10.rs-human-service-custody-gateway-gateway-policy"
+verdict = "served"
+path = "services/human/crates/layerx-human-service/src/custody/gateway.rs"
+line = 208
+symbol = "GatewayPolicy"
+evidence = "pub struct GatewayPolicy declares network_id: u32, protocol_version: u16, registry: ModuleRegistry and limits: GatewayLimits; the later constructor policy parameter refers to this struct."

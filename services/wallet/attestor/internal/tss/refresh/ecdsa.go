@@ -15,7 +15,7 @@ import (
 	paillierzkproof "github.com/getamis/alice/crypto/zkproof/paillier"
 	"github.com/getamis/alice/types"
 
-	"github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/attestor/internal/tss/dealer"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/attestor/internal/tss/dealershare"
 )
 
 const (
@@ -86,7 +86,12 @@ func RefreshECDSA(ctx context.Context, net Network, bundle dealer.ShareBundle, s
 	if err := checkMembership(net, bundle); err != nil {
 		return nil, err
 	}
-	b := bundle.Clone()
+	return refreshECDSA(ctx, net, bundle.Clone(), ssid)
+}
+
+// refreshECDSA owns b, including its secret share, until the ceremony exits.
+func refreshECDSA(ctx context.Context, net Network, b dealer.ShareBundle, ssid []byte) (*ECDSAShare, error) {
+	defer dealer.Wipe(b.Share)
 	d := newDispatcher(net.NumPeers())
 	net.Bind(d)
 	if err := verifyShares(ctx, net, d.proofs, b, ssid); err != nil {
@@ -94,17 +99,34 @@ func RefreshECDSA(ctx context.Context, net Network, bundle dealer.ShareBundle, s
 	}
 
 	listener := newStateListener()
-	r, err := cggmprefresh.NewRefresh(new(big.Int).Set(b.Share), b.PublicKey, net, b.Threshold, b.PartialPublicKeys, b.Bks, PaillierKeySize, ssid, listener)
+	r, err := cggmprefresh.NewRefresh(b.Share, b.PublicKey, net, b.Threshold, b.PartialPublicKeys, b.Bks, PaillierKeySize, ssid, listener)
 	if err != nil {
 		return nil, err
 	}
+	defer r.Stop()
 	d.attach(r)
 	if err := runMain(ctx, r, listener, r.Start); err != nil {
+		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+			// Stop cancels asynchronously; wait until no handler can read b.Share.
+			<-listener.ch
+		}
 		return nil, err
 	}
 	res, err := r.GetResult()
 	if err != nil {
 		return nil, err
+	}
+	return ecdsaRefreshResult(b, res)
+}
+
+func ecdsaRefreshResult(b dealer.ShareBundle, res *cggmprefresh.Result) (*ECDSAShare, error) {
+	defer dealer.Wipe(res.Share)
+	defer dealer.Wipe(res.YSecret)
+	// Validate borrowed result data before allocating the caller's secret copy.
+	b.Share = res.Share
+	b.PartialPublicKeys = res.PartialPubKey
+	if err := b.Validate(); err != nil {
+		return nil, fmt.Errorf("%w: %v", ErrProtocolFailed, err)
 	}
 	out := &ECDSAShare{
 		ParticipantID:     b.ParticipantID,
@@ -115,10 +137,6 @@ func RefreshECDSA(ctx context.Context, net Network, bundle dealer.ShareBundle, s
 		Threshold:         b.Threshold,
 		PaillierKey:       res.PaillierKey,
 		Pedersen:          res.PedParameter,
-	}
-	dealer.Wipe(b.Share)
-	if err := out.Bundle().Validate(); err != nil {
-		return nil, fmt.Errorf("%w: %v", ErrProtocolFailed, err)
 	}
 	return out, nil
 }

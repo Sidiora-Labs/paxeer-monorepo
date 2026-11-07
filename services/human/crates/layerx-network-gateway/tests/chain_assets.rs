@@ -1,31 +1,11 @@
 use layerx_network_gateway::{decode_assets, AssetEntry, Evidence, GatewayError};
 use serde_json::{json, Value};
 
+#[path = "support/hosted_gateway.rs"]
+mod hosted_gateway;
+
 fn recorded_chain_assets() -> Value {
-    json!({
-        "height": 16,
-        "assets": [
-            {
-                "asset_id": format!("0x{}", "11".repeat(32)),
-                "denom": null,
-                "kind": "layerx",
-                "name": "Ledger Asset",
-                "symbol": "LED",
-                "decimals": 18,
-                "supply": "340282366920938463463374607431768211454"
-            },
-            {
-                "asset_id": "paxeer:ulxp",
-                "denom": "ulxp",
-                "kind": "bank",
-                "name": "LayerX",
-                "symbol": "LXP",
-                "decimals": 18,
-                "supply": "1000000"
-            }
-        ],
-        "joined_limit": 16
-    })
+    hosted_gateway::assets()
 }
 
 #[test]
@@ -39,22 +19,22 @@ fn assets_decode_chain_metadata() {
         table.assets,
         vec![
             AssetEntry {
-                asset_id: format!("0x{}", "11".repeat(32)),
-                denom: None,
-                kind: "layerx".to_owned(),
-                name: Some("Ledger Asset".to_owned()),
-                symbol: Some("LED".to_owned()),
-                decimals: Some(18),
-                supply: Some(u128::MAX - 1),
-            },
-            AssetEntry {
                 asset_id: "paxeer:ulxp".to_owned(),
                 denom: Some("ulxp".to_owned()),
                 kind: "bank".to_owned(),
                 name: Some("LayerX".to_owned()),
                 symbol: Some("LXP".to_owned()),
                 decimals: Some(18),
-                supply: Some(1_000_000),
+                supply: Some(layerx_network_gateway::Quantity::from_be_bytes([0xff; 32])),
+            },
+            AssetEntry {
+                asset_id: format!("denom:{}", hosted_gateway::coins()[1].0),
+                denom: Some(hosted_gateway::coins()[1].0.clone()),
+                kind: "bank".to_owned(),
+                name: None,
+                symbol: None,
+                decimals: None,
+                supply: None,
             },
         ]
     );
@@ -65,8 +45,22 @@ fn assets_decode_chain_metadata() {
     boundary["assets"][0]["decimals"] = json!(255);
     let table = decode_assets(&boundary).expect("exact integer bounds decode");
     assert_eq!(table.height, u64::MAX);
-    assert_eq!(table.assets[0].supply, Some(u128::MAX));
+    assert_eq!(table.assets[0].supply, Some(u128::MAX.into()));
     assert_eq!(table.assets[0].decimals, Some(u8::MAX));
+
+    boundary["assets"][0]["supply"] = json!("340282366920938463463374607431768211456");
+    let large = decode_assets(&boundary).expect("uint256 supply read remains available");
+    let supply = large.assets[0].supply.expect("observed supply");
+    assert_eq!(
+        supply.to_string(),
+        "340282366920938463463374607431768211456"
+    );
+    assert_eq!(
+        supply.for_operation("asset-issuance"),
+        Err(GatewayError::AmountOutOfRange {
+            operation: "asset-issuance"
+        })
+    );
 
     for (field, invalid) in [
         ("asset_id", Value::Null),
@@ -79,9 +73,15 @@ fn assets_decode_chain_metadata() {
         ("decimals", json!(256)),
         ("decimals", json!(-1)),
         ("decimals", json!(1.5)),
-        ("supply", json!("340282366920938463463374607431768211456")),
+        (
+            "supply",
+            json!("115792089237316195423570985008687907853269984665640564039457584007913129639936"),
+        ),
         ("supply", json!("-1")),
         ("supply", json!("invalid")),
+        ("supply", json!(true)),
+        ("supply", json!([])),
+        ("supply", json!(1.5)),
     ] {
         let mut invalid_answer = answer.clone();
         invalid_answer["assets"][0][field] = invalid;
@@ -102,19 +102,17 @@ fn assets_decode_chain_metadata() {
         }
     }
 
-    let mut bounded = answer.clone();
-    bounded["assets"] = Value::Array(vec![answer["assets"][0].clone(); 1_024]);
+    let mut bounded = hosted_gateway::joined_page();
     assert_eq!(
         decode_assets(&bounded)
-            .expect("maximum row count decodes")
+            .expect("hosted producer joins sixteen rows")
             .assets
             .len(),
-        1_024
+        16
     );
-    bounded["assets"]
-        .as_array_mut()
-        .unwrap()
-        .push(answer["assets"][0].clone());
+    assert_eq!(decode_assets(&bounded).unwrap().joined_limit, 16);
+    // Preserve the client's independent absolute safety-bound refusal.
+    bounded["assets"] = Value::Array(vec![answer["assets"][0].clone(); 1_025]);
     assert_eq!(decode_assets(&bounded), Err(GatewayError::MalformedAnswer));
     bounded["assets"] = json!([]);
     assert!(decode_assets(&bounded)
@@ -152,8 +150,11 @@ fn assets_keep_null_metadata_rows() {
     assert_eq!(table.joined_limit, 16);
     assert_eq!(table.evidence, Evidence::GatewayReported);
     assert_eq!(table.assets.len(), 4);
-    assert_eq!(table.assets[0].supply, Some(u128::MAX - 1));
-    assert_eq!(table.assets[2].supply, Some(1_000_000));
+    assert_eq!(
+        table.assets[0].supply.unwrap().to_string(),
+        hosted_gateway::MAXIMUM
+    );
+    assert_eq!(table.assets[2].supply, None);
     assert_eq!(
         table.assets[1],
         AssetEntry {
@@ -188,5 +189,5 @@ fn assets_keep_null_metadata_rows() {
     assert_eq!(zero.assets[1].name.as_deref(), Some(""));
     assert_eq!(zero.assets[1].symbol.as_deref(), Some(""));
     assert_eq!(zero.assets[1].decimals, Some(0));
-    assert_eq!(zero.assets[1].supply, Some(0));
+    assert_eq!(zero.assets[1].supply, Some(0.into()));
 }

@@ -80,7 +80,7 @@ func genuineHistoricalNode(t *testing.T) (context.Context, *ethclient.Client, st
 }
 func historicalArtifact(t *testing.T) (abi.ABI, []byte, string, string) {
 	t.Helper()
-	path := filepath.Join("..", "..", "..", "..", "..", "contracts", "artifacts", "contracts", "core", "SidioraERC20.sol", "SidioraERC20.json")
+	path := filepath.Join("..", "..", "..", "..", "..", "contracts", "launchpad", "artifacts", "contracts", "core", "SidioraERC20.sol", "SidioraERC20.json")
 	data, err := os.ReadFile(path)
 	if err != nil {
 		t.Fatal(err)

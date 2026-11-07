@@ -11,6 +11,7 @@ public record NativeProgramUpgrade(byte[] programId, int guestAbi, byte[] oldHas
         code(programId, guestAbi, newHash, wasm); bytes32(oldHash);
         require(migrationHook != null && migrationHook.length <= 65535 && (!clearInterface || programInterface != null)
             && (programInterface == null || programInterface.length <= 952 && (programInterface.length > 0 || clearInterface)));
+        NativeProgramPayload.size(106L + (programInterface == null ? 0L : 4L + programInterface.length) + migrationHook.length + wasm.length);
         programId = programId.clone(); oldHash = oldHash.clone(); newHash = newHash.clone(); migrationHook = migrationHook.clone(); wasm = wasm.clone();
         programInterface = programInterface == null ? null : programInterface.clone();
     }
@@ -22,7 +23,7 @@ public record NativeProgramUpgrade(byte[] programId, int guestAbi, byte[] oldHas
     @Override public byte[] wasm() { return wasm.clone(); }
     @Override public int ordinal() { return 2; }
     @Override public byte[] encode() {
-        ByteBuffer output = ByteBuffer.allocate(106 + (programInterface == null ? 0 : 4 + programInterface.length) + migrationHook.length + wasm.length);
+        ByteBuffer output = ByteBuffer.allocate(NativeProgramPayload.size(106L + (programInterface == null ? 0L : 4L + programInterface.length) + migrationHook.length + wasm.length));
         output.put(programId).putShort((short) guestAbi).put((byte) ((migrationHook.length > 0 ? 1 : 0) | (clearInterface ? 2 : 0))).put((byte) 0)
             .put(oldHash).put(newHash).putShort((short) migrationHook.length).putInt(wasm.length);
         if (programInterface != null) output.putInt(programInterface.length);
@@ -30,7 +31,7 @@ public record NativeProgramUpgrade(byte[] programId, int guestAbi, byte[] oldHas
         return output.put(wasm).array();
     }
     public static NativeProgramUpgrade decode(byte[] payload) {
-        require(payload != null && payload.length >= 106 && payload[35] == 0 && (payload[34] & 0xfc) == 0);
+        require(payload != null && payload.length >= 106 && payload.length <= NativeProgramPayload.MAX_BYTES && payload[35] == 0 && (payload[34] & 0xfc) == 0);
         int hook = u16(payload, 100); long wasmLength = u32(payload, 102); boolean clear = (payload[34] & 2) != 0;
         require(((payload[34] & 1) == 0) == (hook == 0)); int offset = 106; int length = 0; byte[] programInterface = null;
         if (clear || hook + wasmLength != payload.length - 106L) {

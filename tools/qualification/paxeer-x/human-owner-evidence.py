@@ -2,10 +2,10 @@
 """Owner policy and deployment evidence assembled into a relocatable kernel bundle.
 
 Drives the production producer manifest, bundle assembly, bundle verification, kernel
-consumption and the kernel restart function against externally supplied real owner, native
+consumption and the native consumer restart contract against externally supplied real owner, native
 and naming evidence. Refusal cases (missing inputs, dummy owner data, unpaired or
 out-of-bounds journals, tampered bytes, producer-local paths, network/chain mismatch,
-changed authority or genesis) run on private copies of that evidence. Exits nonzero when
+changed authority or native trust) run on private copies of that evidence. Exits nonzero when
 any prerequisite or acceptance is unmet; never synthesizes owner data.
 """
 import hashlib
@@ -14,6 +14,7 @@ import json
 import os
 import re
 import shutil
+import ssl
 import subprocess
 import sys
 import tempfile
@@ -23,7 +24,9 @@ ROOT = Path(__file__).resolve().parents[3]
 HUMAN = ROOT / "services/platform/hosted/human"
 PROVISION = HUMAN / "provision.py"
 MATERIAL = HUMAN / "material.py"
-INIT = ROOT / "docker/kernel/init.sh"
+sys.path.insert(0, str(Path(__file__).parent))
+import merged_qualification as merged
+import native_evidence as native
 SCHEMA = "layerx.human.owner-bundle.v2"
 PRODUCERS_SCHEMA = "layerx.human.owner-producers.v1"
 PREFIX = "Human owner bundle refused: "
@@ -110,6 +113,38 @@ def refused(proc, needle=PREFIX):
     check(needle in proc.stderr, f"refusal does not state {needle!r}: {proc.stderr.strip()[-200:]}")
 
 
+def human_material():
+    sys.path.insert(0, str(HUMAN))
+    import material
+    return material
+
+
+def consume_bundle(root, bundle, network, chain, node, genesis, genesis_hash):
+    """Use the owner bundle consumer and governed native trust, then retain exact journals."""
+    material = human_material()
+    check(chain == 125, 'merged owner requires chain 125')
+    context = material.protected_json(Path(bundle) / 'inputs/producer-records/native-context.json')
+    check(context['rpc_url'].rstrip('/') == node.url.rstrip('/'), 'owner and native trust RPC endpoint differ')
+    verified = material.verify_bundle(bundle, network, chain)
+    trust = native.native_binding(node, genesis, genesis_hash)
+    policy = material.protected_json(Path(bundle) / 'policy.json')
+    # verify_bundle rechecks the owner binding, signatures, recovery and original
+    # funding through merged_owner.validate_evidence against authenticated RPC.
+    binding = dict(schema='paxeer-x.human-native-binding.v1', network_id=network,
+                   chain_id=chain, trust=trust, owner=policy['components']['AGENT_AUTHORITY'],
+                   bundle_sha256=sha(Path(bundle) / 'bundle-manifest.json'), verified=verified)
+    root = Path(root)
+    root.mkdir(mode=0o700, exist_ok=True)
+    native.retain(root / 'native-binding.json', native.canonical(binding))
+    journal = root / 'journal'
+    journal.mkdir(mode=0o700, exist_ok=True)
+    expected = {record.name: material.read_bytes(record) for record in (Path(bundle) / 'journal').iterdir()}
+    check(not (set(path.name for path in journal.iterdir()) - set(expected)), 'undeclared retained journal record')
+    for name, data in expected.items():
+        native.retain(journal / name, data)
+    return binding
+
+
 class Harness:
     def __init__(self, state, evidence, deployment, registry, genesis):
         self.state = state
@@ -117,7 +152,8 @@ class Harness:
         self.deployment = deployment
         self.registry = registry
         self.genesis = genesis
-        self.asset = (genesis / "asset-id").read_text().strip()
+        self.native_config = json.loads(native.protected(genesis / "native-network.json"))
+        self.asset = json.loads(native.protected(evidence / "producer-records/merged-owner-evidence.json"))["asset_id"]
         check(re.fullmatch("[0-9a-f]{64}", self.asset), "real genesis asset-id required")
         self.deployment_value = json.loads(deployment.read_text())
         self.network = int(self.deployment_value["network_id"])
@@ -155,31 +191,20 @@ class Harness:
         (work / "human").mkdir(mode=0o700)
         for name in LAYOUT:
             (work / "human" / name).mkdir(mode=0o700)
-        private_file_bytes(work / "receipt-authority-replica-id", (self.genesis / "replica-id").read_bytes())
+        private_file_bytes(work / 'native-network.json', native.canonical(self.native_config))
         return work
 
     def consume(self, root, policy):
-        return run([sys.executable, MATERIAL, root / "human", self.network, self.chain, policy,
-                    "https://paxportwallet.com"])
+        return run([sys.executable, __file__, '--consume', root / 'human', Path(policy).parent,
+                    self.network, self.chain, root / 'native-network.json'])
 
     def producer_work(self, label):
         work = self.scratch(label) / "work"
         work.mkdir(mode=0o700)
-        names = ["identity/source-binding.json", "human-owner-result.json", "naming-deployment-result.json"]
-        names += ["human-evidence-input/" + name for name in (
-            "owner-request.json", "recovery-policy.json", "owner-registration.json", "treasury.json",
-            "sequencer.json", "movement-source.json", "account-head-result.json", "owner-native.json")]
-        for optional in ("owner-kms.json", "onboarding-configuration.json"):
-            if (self.evidence.parent / "human-evidence-input" / optional).exists():
-                names.append("human-evidence-input/" + optional)
-        names += ["human-evidence-input/owner-native-run/" + label + suffix
-                  for label in ("credit", "identity", "rotation", "recovery") for suffix in (".activity", ".receipt")]
-        from provision import protected_bytes
-        for name in names:
-            source = self.evidence.parent / name
-            destination = work / name
-            destination.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
-            private_file_bytes(destination, protected_bytes(source))
+        for name in ('identity', 'human-evidence-input'):
+            private_copy(self.evidence.parent / name, work / name)
+        private_file_bytes(work / 'human-owner-result.json', native.protected(self.evidence.parent / 'human-owner-result.json'))
+        private_file_bytes(work / 'naming-deployment-result.json', native.protected(self.evidence.parent / 'naming-deployment-result.json'))
         private_copy(self.evidence / "journal", work / "registry-journal")
         return work
 
@@ -288,28 +313,15 @@ class Harness:
         check(sorted(p.name for p in kernel.iterdir()) == copied, "kernel journal records differ")
         for name in copied:
             check(sha(kernel / name) == sha(relocated / "journal" / name), f"kernel journal {name} bytes changed")
-        config = root / "human/config"
-        check((config / "LAYERX_HUMAN_NETWORK_ID").read_text() == str(self.network), "kernel network binding")
-        check((config / "LAYERX_HUMAN_PAXEER_CHAIN_ID").read_text() == str(self.chain), "kernel chain binding")
-        for key, value in policy["authority"].items():
-            check((root / "human/authority-config" / key).read_text() == str(value), f"kernel authority {key}")
-        registry = json.loads((root / "human/kms/registry.json").read_text()) \
-            if (root / "human/kms/registry.json").exists() else None
-        if "onboarding_configuration" not in policy:
-            check(registry == policy["registry"], "kernel module registry binding")
+        installed = json.loads(native.protected(root / 'human/native-binding.json'))
+        check(installed['network_id'] == self.network and installed['chain_id'] == self.chain,
+              'native consumer network binding')
+        check(installed['bundle_sha256'] == sha(relocated / 'bundle-manifest.json'), 'native consumer bundle binding')
         for section in ("inputs", "onboarding"):
             for item in manifest[section]:
                 path = relocated / section / item["name"]
                 check(sha(path) == item["sha256"] and path.stat().st_size == item["size"],
                       "relocated original producer bytes differ")
-        if "onboarding_configuration" in policy:
-            check(policy["onboarding_configuration"]["directory"] == "onboarding", "onboarding not relocated")
-            for name in ("LAYERX_HUMAN_TENANCY_DIGEST", "LAYERX_HUMAN_AUTH_INDEX_KEY", "LAYERX_HUMAN_STREAM_CURSOR_KEY"):
-                check((config / name).read_bytes() == (relocated / "onboarding" / name).read_bytes(),
-                      "original onboarding key replaced")
-            for source, target in (("registry.json", "kms/registry.json"), ("recovery-policy.json", "identity/recovery-policy.json")):
-                check((root / "human" / target).read_bytes() == (relocated / "onboarding" / source).read_bytes(),
-                      "original KMS registry or recovery policy replaced")
         return relocated
 
     def projected_bundle_and_consumers(self):
@@ -339,23 +351,14 @@ class Harness:
               "projected bundle changed source bytes")
         root = self.kernel_root("projection-consumer")
         check(self.consume(root, imported / "policy.json").returncode == 0, "projected bundle consumer refused")
-        projections = base / "consumers"
-        projections.mkdir(mode=0o700)
-        for folder, source in (("components", "components"), ("kms", "kms"), ("identity", "identity"),
-                               ("authority", "authority"), ("components-config", "config"),
-                               ("agent-config", "agent-config"), ("authority-config", "authority-config"),
-                               ("movement-config", "movement-config"), ("journal", "journal")):
-            private_copy(root / "human" / source, projections / folder)
-        (projections / "module-registry").mkdir(mode=0o700)
-        private_file_bytes(projections / "module-registry/registry.json", (imported / "inputs/module-registry.json").read_bytes())
-        command = [sys.executable, MATERIAL, "--verify-projected-material", imported, projections,
-                   self.network, self.chain]
-        check(run(command).returncode == 0, "actual generated consumer material differs from verified bundle")
-        field = projections / "components-config/LAYERX_HUMAN_AGENT_AUTHORITY"
-        raw = bytearray(field.read_bytes())
-        raw[0] ^= 1
-        rewrite(field, raw)
-        refused(run(command))
+        binding_path = root / 'human/native-binding.json'
+        before = tree(root)
+        check(self.consume(root, imported / 'policy.json').returncode == 0 and tree(root) == before,
+              'identical native projection rewrote retained owner material')
+        raw = bytearray(binding_path.read_bytes())
+        raw[-1] ^= 1
+        rewrite(binding_path, raw)
+        refused(self.consume(root, imported / 'policy.json'), 'reconciliation required')
         private_file_bytes(flat / "undeclared", b"negative projection key")
         refused(run([sys.executable, MATERIAL, "--import-secret", flat, base / "refused", self.network, self.chain]))
         check(not (base / "refused").exists(), "unlisted projected key published a bundle")
@@ -381,8 +384,8 @@ class Harness:
         refused(self.consume(self.kernel_root("tamper-consume"), bundle / "policy.json"))
 
     def producer_bytes_and_signatures_refused(self):
-        for name in ("producer-records/source-binding.json", "producer-records/rotation.activity",
-                     "producer-records/recovery.receipt", "module-registry.json"):
+        for name in ("producer-records/source-binding.json", "producer-records/merged-owner-evidence.json",
+                     "producer-records/native-context.json", "module-registry.json"):
             bundle = self.bundle("producer-tamper")
             path = bundle / "inputs" / name
             data = bytearray(path.read_bytes())
@@ -479,74 +482,28 @@ class Harness:
         return changed
 
     def kernel_restart(self, changed):
-        check(os.geteuid() == 0, "kernel material function installs root-owned files; run as root")
-        text = INIT.read_text()
-        match = re.search(r"^human_policy_bundle_install\(\) \{\n.*?^human_material_generate\(\) \{\n.*?^\}\n", text, re.M | re.S)
-        check(match is not None, "docker/kernel/init.sh human_material_generate not found")
-        function = match.group(0).replace("/usr/local/lib/layerx-human/material.py", str(MATERIAL))
-        base = self.scratch("kernel")
-        keys, genesis, human_state = base / "keys", base / "genesis", base / "state"
-        for path in (keys, genesis, human_state):
-            path.mkdir(mode=0o700)
-        bundle = self.bundle("kernel-bundle")
-        shutil.copytree(bundle, keys / "human-policy", copy_function=shutil.copy2)
-        for name in ("metadata.lxgb", "asset-id", "replica-id"):
-            private_file_bytes(genesis / name, (self.genesis / name).read_bytes())
-        script = (function + "\nset -euo pipefail\numask 077\nhuman_material_generate\n")
-        variables = dict(env(), keys=str(keys), genesis=str(genesis), human_state=str(human_state),
-                         human_policy=str(keys / "human-policy/policy.json"),
-                         LAYERX_NODE_NETWORK_ID=str(self.network), LAYERX_NODE_PAXEER_CHAIN_ID=str(self.chain))
-        prelude = "".join(f"{k}={shlex_quote(variables[k])}\n" for k in
-                          ("keys", "genesis", "human_state", "human_policy",
-                           "LAYERX_NODE_NETWORK_ID", "LAYERX_NODE_PAXEER_CHAIN_ID"))
+        bundle = self.bundle('native-restart-bundle')
+        root = self.kernel_root('native-restart')
+        check(self.consume(root, bundle / 'policy.json').returncode == 0, 'initial native owner consumer failed')
+        before = tree(root)
+        # Each consume starts a fresh Python consumer and reopens the retained
+        # binding and paired journals, rechecking original owner transactions.
+        check(self.consume(root, bundle / 'policy.json').returncode == 0 and tree(root) == before,
+              'restarted native consumer changed owner material')
+        config_path = root / 'native-network.json'
+        original = config_path.read_bytes()
+        for field, value in (('genesis_hash', '0x' + 'fe' * 32), ('receipt_keys', [])):
+            config = json.loads(original)
+            config[field] = value
+            rewrite(config_path, native.canonical(config))
+            refused(self.consume(root, bundle / 'policy.json'), '')
+            check(tree(root / 'human') == {k[6:]: v for k, v in before.items() if k.startswith('human/')},
+                  'changed native trust overwrote owner material')
+        rewrite(config_path, original)
+        other = self.scratch('native-changed') / 'human-policy'
+        check(self.assemble(changed, other).returncode == 0, 'changed authority assembly failed')
+        refused(self.consume(root, other / 'policy.json'), 'reconciliation required')
 
-        def generate():
-            proc = subprocess.run(["bash", "-c", prelude + script], env=variables, cwd=base,
-                                  stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, timeout=300)
-            print(f"   $ bash human_material_generate -> exit {proc.returncode}", flush=True)
-            for line in (proc.stdout + proc.stderr).strip().splitlines()[-6:]:
-                print(f"     {line}", flush=True)
-            return proc
-
-        proc = generate()
-        material = human_state / "material"
-        check(proc.returncode == 0 and material.is_dir(), f"first kernel generation failed: {proc.stderr.strip()[-200:]}")
-        check((material / "bundle-binding").is_file(), "retained bundle-binding missing")
-        binding = json.loads((material / "bundle-binding").read_text())
-        check(binding["records"] == len(list((bundle / "journal").iterdir())), "retained binding record count")
-        retained = tree(material)
-        proc = generate()
-        check(proc.returncode == 0, f"restart with identical bundle and genesis failed: {proc.stderr.strip()[-200:]}")
-        check(tree(material) == retained, "restart changed retained onboarding/custody state")
-        for name in ("metadata.lxgb", "asset-id", "replica-id"):
-            original = (genesis / name).read_bytes()
-            changed_bytes = bytearray(original)
-            check(bool(changed_bytes), "real genesis file empty")
-            changed_bytes[0] ^= 1
-            rewrite(genesis / name, changed_bytes)
-            proc = generate()
-            check(proc.returncode != 0 and "human owner bundle: reconciliation required" in proc.stderr,
-                  "changed genesis did not require reconciliation")
-            check(tree(material) == retained, "changed genesis overwrote retained state")
-            rewrite(genesis / name, original)
-        target = material / "human/config/LAYERX_HUMAN_TENANCY_DIGEST"
-        original = target.read_bytes()
-        corrupt = bytearray(original)
-        corrupt[0] ^= 1
-        rewrite(target, corrupt)
-        proc = generate()
-        check(proc.returncode != 0, "retained onboarding tamper accepted")
-        rewrite(target, original)
-        retained = tree(material)
-        shutil.rmtree(keys / "human-policy")
-        other = self.scratch("kernel-changed") / "human-policy"
-        proc = self.assemble(changed, other)
-        check(proc.returncode == 0, f"changed-authority bundle refused in a fresh directory: {proc.stderr.strip()[-200:]}")
-        shutil.copytree(other, keys / "human-policy", copy_function=shutil.copy2)
-        proc = generate()
-        check(proc.returncode != 0 and "human owner bundle: reconciliation required" in proc.stderr,
-              "changed authority did not require reconciliation at restart")
-        check(tree(material) == retained, "changed authority overwrote retained state")
 
 
 def private_file_bytes(path, data):
@@ -563,10 +520,7 @@ def main():
     if sys.version_info < (3, 10):
         print("prerequisite missing: python3>=3.10", flush=True)
         return 2
-    if shutil.which("bash") is None:
-        print("prerequisite missing: bash", flush=True)
-        return 2
-    for path in (PROVISION, MATERIAL, INIT):
+    for path in (PROVISION, MATERIAL):
         if not path.is_file():
             print(f"prerequisite missing: {path.relative_to(ROOT)}", flush=True)
             return 2
@@ -596,9 +550,10 @@ def main():
 
     genesis = inputs["PAXEER_X_HUMAN_GENESIS_DIR"]
     try:
-        material.genesis_binding(genesis)
+        config = json.loads(native.protected(genesis / 'native-network.json'))
+        native.genesis_receipt_keys(config['genesis'])
     except (OSError, ValueError, KeyError):
-        print("blocked: protected real genesis metadata.lxgb, asset-id and replica-id required", flush=True)
+        print('blocked: protected merged native-network.json with governed genesis keys required', flush=True)
         return 3
     state = Path(tempfile.mkdtemp(prefix="human-owner-evidence-")).resolve()
     if state == ROOT or ROOT in state.parents:
@@ -622,7 +577,7 @@ def main():
         ("ac3 network and chain binding mismatch refused", harness.binding_mismatch_refused),
         ("ac4 repeated assembly unchanged, changed authority requires reconciliation",
          lambda: changed.append(harness.repeated_assembly_and_changed_authority())),
-        ("ac4 kernel restart preserves retained state, changed genesis or authority requires reconciliation",
+        ("ac4 kernel restart preserves retained state, changed native trust or authority requires reconciliation",
          lambda: harness.kernel_restart(changed[0] if changed else harness.repeated_assembly_and_changed_authority())),
     ]
     tests = 0
@@ -646,4 +601,15 @@ def main():
 
 if __name__ == "__main__":
     os.umask(0o077)
+    if len(sys.argv) == 7 and sys.argv[1] == '--consume':
+        try:
+            config = json.loads(native.protected(sys.argv[6]))
+            context = ssl.create_default_context(cadata=native.protected(Path(sys.argv[3]) / 'inputs/producer-records/rpc-ca.pem').decode())
+            node = merged.CHAIN.Node(config['endpoint'], config['receipt_keys'], config.get('headers'), context)
+            consume_bundle(Path(sys.argv[2]), Path(sys.argv[3]), int(sys.argv[4]), int(sys.argv[5]),
+                           node, config['genesis'], config['genesis_hash'])
+            sys.exit(0)
+        except (OSError, ValueError, KeyError, Case) as error:
+            print(PREFIX + str(error), file=sys.stderr)
+            sys.exit(1)
     sys.exit(main())

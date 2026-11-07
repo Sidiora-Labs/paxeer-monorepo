@@ -122,13 +122,13 @@ fn flip_byte(value: &Value, index: usize) -> Result<Value, String> {
 #[test]
 fn independent_verifier_processes_all_vectors() -> Result<(), String> {
     let results = IndependentVerifier::new("all-vectors").verify_all_golden_vectors()?;
-    assert_eq!(results.len(), 5);
+    assert_eq!(results.len(), 6);
     assert_eq!(
         results
             .iter()
             .filter(|result| result.result_code == 0)
             .count(),
-        4
+        5
     );
     assert!(results.iter().any(|result| result.result_code != 0));
     Ok(())
@@ -157,7 +157,7 @@ fn portable_format_constant_is_stable() {
 #[test]
 fn independent_implementation_can_enumerate_vectors() -> Result<(), String> {
     let vectors = positive_vectors()?;
-    assert_eq!(vectors.len(), 5);
+    assert_eq!(vectors.len(), 6);
     for case in vectors {
         let bytes = export_vector(&case, &pinned_keys(&case)?)?;
         let document: Value = serde_json::from_slice(&bytes).map_err(|e| e.to_string())?;
@@ -172,7 +172,7 @@ fn independent_implementation_can_enumerate_vectors() -> Result<(), String> {
 fn independent_verifier_accepts_a_v2_proof_and_refuses_substitutions() -> Result<(), String> {
     let verifier = IndependentVerifier::new("independent-v2-verifier");
     let vectors = positive_vectors()?;
-    assert_eq!(vectors.len(), 5);
+    assert_eq!(vectors.len(), 6);
     for case in vectors {
         let keys = pinned_keys(&case)?;
         let height = u64::from_str_radix(
@@ -308,7 +308,7 @@ fn independent_verifier_accepts_a_v2_proof_and_refuses_substitutions() -> Result
 #[test]
 fn python_verifier_accepts_the_same_v2_proof() -> Result<(), String> {
     let vectors = positive_vectors()?;
-    assert_eq!(vectors.len(), 5);
+    assert_eq!(vectors.len(), 6);
     for case in vectors {
         verify_python_export(&export_vector(&case, &pinned_keys(&case)?)?, &case)?;
     }

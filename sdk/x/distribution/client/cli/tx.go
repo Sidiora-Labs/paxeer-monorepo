@@ -54,6 +54,9 @@ func NewSplitAndApply(
 	genOrBroadcastFn newGenerateOrBroadcastFunc, clientCtx client.Context,
 	fs *pflag.FlagSet, msgs []sdk.Msg, chunkSize int,
 ) error {
+	if chunkSize < 0 {
+		return fmt.Errorf("%s must be non-negative (0 for unlimited)", FlagMaxMessagesPerTx)
+	}
 
 	if chunkSize == 0 {
 		return genOrBroadcastFn(ctx, clientCtx, fs, msgs...)

@@ -19,7 +19,14 @@ import time
 from urllib.parse import urlsplit, urlencode
 import uuid
 
-ROOT = Path(__file__).resolve().parents[6]
+def repository_root():
+    for directory in Path(__file__).resolve().parents:
+        if (directory / 'codify.kvx').is_file():
+            return directory
+    raise RuntimeError('repository marker codify.kvx not found')
+
+
+ROOT = repository_root()
 GLOBAL = {
     'peak': {'connections': 100000, 'authenticated_connections': 50000, 'dynamic_rps': 10000, 'write_rps': 2000, 'fanout_fps': 250000},
     'surge': {'connections': 200000, 'authenticated_connections': 100000, 'dynamic_rps': 20000, 'write_rps': 4000, 'fanout_fps': 1000000},
@@ -78,12 +85,11 @@ def validate(config):
     require(config['duration_seconds'] > 0 and config['settle_seconds'] > 0, 'positive allocated duration and settlement deadline required')
     require(config['profile'] != 'surge' or config['duration_seconds'] >= 600, 'surge measurement must cover600 seconds')
     require(config['source_files'] and config['nodes'] and config['sessions'], 'source, topology and actual sessions required')
-    required_sources={'client/apps/web/src/hooks/chat/qualify-connected.py','media/social/internal/fanout/conn.go','media/social/internal/fanout/hub.go','media/social/internal/fanout/durable.go','media/social/internal/fanout/notification.go','client/apps/web/src/core/clients/chat-ws.ts','client/apps/web/src/hooks/chat/use-chat.ts'}
-    require(required_sources <= set(config['source_files']),'measurement source manifest omits a required actual code path')
+    subprocess.run(
+        ['node', str(Path(__file__).with_name('qualification-sources.mjs')), '--validate'],
+        input=json.dumps(config['source_files']), text=True, check=True, timeout=30,
+    )
     require(config['request_timeout_seconds'] > 0 and config['metrics_interval_seconds'] > 0 and config['privacy_observation_seconds'] > 0 and config['maximum_clock_skew_seconds'] > 0,'bounded request/measurement/ACL observation inputs required')
-    for name, expected in config['source_files'].items():
-        path = (ROOT / name).resolve()
-        require(path.is_relative_to(ROOT) and path.is_file() and digest(path) == expected, 'source candidate digest mismatch')
     require(re.fullmatch(r'[0-9a-f]{64}', config['interface_sha256']), 'admitted interface digest required')
     for name, maximum in GLOBAL[config['profile']].items():
         allocation = config['allocation'][name]

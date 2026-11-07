@@ -11,7 +11,9 @@ import (
 )
 
 func TestEpochCatchupPreservesElapsedPeriods(t *testing.T) {
+	t.Log("initializing application")
 	application := app.Setup(t, false, false, false)
+	t.Log("application initialized; checking epoch catchup")
 	start := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
 	duration := time.Minute
 	blockTime := start.Add(5*duration + time.Second)
@@ -19,6 +21,7 @@ func TestEpochCatchupPreservesElapsedPeriods(t *testing.T) {
 	initial := types.Epoch{GenesisTime: start, EpochDuration: duration, CurrentEpochStartTime: start, CurrentEpochHeight: 1, CurrentEpoch: 20}
 	application.EpochKeeper.SetEpoch(ctx, initial)
 	for offset := uint64(1); offset <= 5; offset++ {
+		t.Logf("advancing elapsed epoch %d", offset)
 		ctx = ctx.WithBlockHeight(10 + int64(offset))
 		application.EpochKeeper.BeginBlock(ctx)
 		current := application.EpochKeeper.GetEpoch(ctx)

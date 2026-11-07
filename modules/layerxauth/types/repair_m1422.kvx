@@ -1,0 +1,29 @@
+[task.22.33.1422]
+audit = "22.30.8"
+mode = "BUILD"
+qualification = "hf-build followed by hf-done; the gate runner records the exact candidate revision, command, exit code and private evidence location."
+baseline = "No earlier hf-build/hf-done ledger or in-scope edits existed. The requested unchanged-tree verification conflicts with the explicit implementation-first gate order and single hf-done allowance, so no baseline run occurred and no baseline failures are claimed."
+scope = "Only repair_m1422_test.go and this task record are added; production enforcement was supplied by prerequisite 22.31.193 and existing stateless validation cases remain intact."
+
+[finding.scope-tests-use-only-test-message]
+tests = ["TestRepairM_1422_RuntimeRefusal", "TestRepairM_1422_PersistedSpendingAndRollover", "TestRepairM_1422_PurposeRoutingAndAtomicity"]
+repair = "Signed SDK MsgGrant and MsgExec pass through the production encoder, decoder, signature verifier and MsgServiceRouter into the real authz and bank keepers. Decoded nested messages are concrete production bank messages and do not implement the test-only ScopedActivity wrapper."
+runtime = "Assert half-open validity boundaries, module, ordinal, asset, per-activity cap, purpose-bound amount and recipient, canonical denomination and single-asset refusals; refused actions preserve authorization bytes and balances."
+persistence = "Assert cumulative period spending, exact period and lifetime caps, boundary rollover and skipped whole periods; commit, close and reopen the real LevelDB-backed multistore and re-read counters and bank balances before executing again."
+routing = "Assert wrong-message grant lookup, missing and advanced revocation, matching payment purpose, multi-action cache rollback and real bank insufficient-funds rollback without persisting spending."
+wiring = "None: this test-gap finding needs no change outside modules/layerxauth/types; prerequisite 22.31.193's separate wiring requests remain owned by their respective tasks."
+
+[qualification.verify_1]
+revision = "db4fc2668871c34202dfe4adaea4a9e325cb4b11"
+command = "cg spec done 22.33.1422 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+repair = "Construct the fixture expiration in UTC, matching production protobuf timestamp decoding; preserve the exact expiration equality assertion."
+gotcha = "time.UnixMilli returns a local-location time, while protobuf timestamp decoding returns UTC; timestamp fixtures must use the decoder's canonical UTC representation."
+
+[qualification.continuation]
+seed_revision = "a7a0b0c261599b467d326cc1541864e17df17f83"
+previous_outcome = "The supplied attempt-1 evidence reports TestRepairM_1422_RuntimeRefusal, TestRepairM_1422_PersistedSpendingAndRollover and TestRepairM_1422_PurposeRoutingAndAtomicity failing; no unchanged-tree gate is repeated in this continuation."
+repair = "Compare every decoded MsgSend and MsgMultiSend address and amount, using Coins.IsEqual for all SDK coin sets and Int.Equal for bank balances; retain exact authorization, expiration, refusal, spending and recovery assertions."
+gotcha = "proto.Equal does not compare SDK custom integer amounts correctly; use the SDK coin and integer equality methods for amount-bearing messages."
+evidence = "The final hf-build and hf-done ledger under /out/run/gates.jsonl records the verified candidate revision and private logs without changing this candidate after qualification."

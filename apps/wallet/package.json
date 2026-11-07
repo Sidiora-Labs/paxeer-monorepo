@@ -56,6 +56,11 @@
     "ws": "^8.21.1"
   },
   "devDependencies": {
+    "@ethereumjs/block": "10.1.3",
+    "@ethereumjs/common": "10.1.3",
+    "@ethereumjs/tx": "10.1.3",
+    "@ethereumjs/util": "10.1.3",
+    "@ethereumjs/vm": "10.1.3",
     "@playwright/test": "1.62.0",
     "@tanstack/react-query-devtools": "^5.100.9",
     "@types/node": "22.18.1",
@@ -72,10 +77,11 @@
     "eslint-config-prettier": "^10.1.8",
     "jsdom": "^26.1.0",
     "postcss": "^8.5.23",
+    "solc": "0.8.27",
     "tailwindcss": "^3.4.17",
     "tinypool": "2.1.2",
     "typescript": "^5.9.3",
-    "vite": "6.4.4",
+    "vite": "6.4.5",
     "vitest": "4.1.12"
   },
   "overrides": {
@@ -87,7 +93,7 @@
     "sharp": "0.35.5",
     "tar": "7.5.22",
     "ws": "8.21.1",
-    "vite": "6.4.4"
+    "vite": "6.4.5"
   },
   "pnpm": {
     "overrides": {
@@ -108,7 +114,7 @@
       "sharp@<0.35.5": "0.35.5",
       "source-map-js@<1.2.2": "1.2.2",
       "tinypool@<2.1.2": "2.1.2",
-      "vite@<6.4.4": "6.4.4",
+      "vite@<6.4.5": "6.4.5",
       "vitest@<4.1.11": "4.1.11",
       "zod@<4.6.6": "4.6.6"
     }

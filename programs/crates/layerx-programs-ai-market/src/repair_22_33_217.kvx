@@ -1,0 +1,69 @@
+[meta]
+task = "22.33.217"
+audit = "22.30.122"
+acceptance = "22998.1"
+qualification = "hf-build then hf-done; the runner records the exact candidate revision, commands, exit codes and private evidence locations in its gate ledger"
+baseline_revision = "aefa91aa13a43dff9d0a27098f8280d43fd1ed42"
+baseline = "NOT_RUN: ordered BUILD instructions prohibit testing before complete implementation and require verification only through hf-done; no earlier gate ledger exists, the new repair target was absent, and no pre-change executed failure is claimed"
+baseline_observation = "Static audit identifies view_binding::a02_v2_finality_binds_block_commit_of_the_same_root as contradictory: rank 2 expected rank 4, lower and invalid ranks expected equal bindings; the replacement retains exact field/wire assertions and separately proves all valid lower ranks and invalid ranks"
+
+[continuation.attempt6]
+base_revision = "b18ff57f83f392de37c0f56c407bbf4f4df4ea6b"
+inherited_revision = "690219ddd6d391a1c13b2f2185444abbebde80a0"
+inherited_result = "Attempt 5 verify exited 101: 17 passed and 5 failed; the supplied continuation ruling is the baseline evidence, not a new unchanged-tree gate run."
+inherited_failures = "view_binding::header_reports_exact_state_identity_and_explicit_absence; view_binding::a03_score_and_reward_fields_never_fabricate_numbers; view_binding::a04_forty_rows_page_as_32_then_8_in_kind_then_id_order; view_binding::a04_malformed_inputs_refuse_before_row_work; view_binding::a04_cursor_is_authenticated_scoped_and_expiring"
+repair = "Enabled absent F06/rewards expect NotYetProduced with absent asset/earned/claimed fields preserved; disabled evaluator rewards remain NotEnabled. The shared a04 fixture now commits the F03/F06/F08 opening via production authority::open_epoch, RewardState::reserve_epoch and roster::open_epoch before projecting all 40 participants; an uncommitted supplied roster still refuses WRONG_ROSTER."
+gotcha = "ApplicationError(14) is WRONG_ROSTER: the three a04 cases shared a supplied roster without a committed opening; changing availability assertions alone cannot repair that refusal."
+
+[qualification.attempt6]
+revision_source = "/out/run/gates.jsonl: each build/verify row records its exact candidate revision; build and verify must name the same revision. This external ledger avoids changing the candidate after qualification."
+build_command = "cargo build --locked --manifest-path programs/crates/layerx-programs-ai-market/Cargo.toml --tests"
+verify_command = "cg spec done 22.33.217 -f layerx-merge --root /work/paxeer-monorepo"
+test_command = "cargo test --locked --manifest-path programs/crates/layerx-programs-ai-market/Cargo.toml --test repair_22_33_217"
+private_evidence = "/out/run/gates.jsonl; /out/logs/build-1.log; /out/logs/verify-1.log (repair reruns, if needed, use the final numbered log recorded by the ledger). Exit codes and verified revision are authoritative only in executed gate rows."
+
+[qualification.attempt6-blocker]
+revision = "dbfce8b11ade61c628dd32731c344b56affabf86"
+command = "cargo check --locked --manifest-path /work/paxeer-monorepo/services/human/Cargo.toml --all-targets -p layerx-human-identity-provider -p layerx-human-kms -p layerx-human-security-provider -p layerx-human-service -p layerx-human-test-support -p layerx-intents"
+exit = 101
+log = "/out/logs/dependents-1.log"
+observed = "hf-build passed (/out/logs/build-1.log); hf-done exited 7 before graph checks or verify_cmd because services/human/crates/layerx-human-service/tests/native_send_producer.rs:659 reads nonexistent NativeSendPurposeV2.owner_public_key (E0609); the compiler suggests consent_public_key. This unrelated out-of-scope failure is recorded without repair or rerun; the integration tests have not executed and the task is not qualified."
+
+[finding.authority-route-forgets-aggregate-seal]
+test = "repair_22_33_217::authority_route_forgets_aggregate_seal"
+path = "Real CREATE/ScheduleEvaluator/OpenEpoch/report commit/reveal/BeginAggregation -> routed RevokeEvaluator -> canonical result/event and F03 revocation codecs -> persisted state/event close and reopen; pre-opening, Unsealed, Processing and Terminal flags differ correctly, exact retries are unchanged, sealed F05/F06 bytes and all three report commitments remain unchanged and finalization retains three-vote support"
+
+[finding.guest-release-profile-differs-from-limit-contract]
+test = "repair_22_33_217::guest_payload_bound_and_routed_execution_are_retained"
+path = "Production envelope encoder/decoder retains MAX_PAYLOAD_BYTES=15965 and MAX_ENVELOPE_BYTES=16384, rejects their first disallowed byte, and real dispatch executes task admission while oversize refusal leaves state/events untouched"
+closure = "Profile selection and artifact measurement are outside scope and are delegated by the wiring requests below; the native integration gate does not claim Wasm size, release-profile or fuel qualification, and all existing payload/fuel assertions remain intact"
+
+[finding.finality-test-expects-rank-promotion]
+test = "repair_22_33_217::view_binding::a02_v2_finality_binds_block_commit_of_the_same_root; view_binding::a02_v2_preserves_lower_ranks_and_rejects_invalid_ranks; proof_ai_market_guest::proof_ai_market_guest_never_promotes_unfinalized_or_mismatched_evidence; proof_ai_market_guest::proof_ai_market_guest_saved_binding_reopens_with_exact_v2_evidence"
+path = "The repair gate imports the repaired view_binding suite and the unchanged real guest proof suite: dispatched CREATE/READ_STATE_CHUNK -> StateCapture -> bind_snapshot -> canonical SnapshotBinding transport consumer -> saved state/binding close and reopen with exact finalized-head evidence; queries.rs never promotes ranks"
+
+[finding.quorum-gate-has-no-production-caller]
+test = "repair_22_33_217::quorum_gate_has_no_production_caller"
+path = "Real routed enrollment/OpenEpoch -> task admitted at quorum three -> AdministrativeRemove with draining and security-revoked overlays -> task refusal with two/one/zero eligible evaluators over the same committed F08 table -> persisted state close/reopen repeats refusal; exact transport retries and fresh-envelope object retries still succeed without state/event writes or duplicate tasks"
+
+[wiring.release-profile]
+request = "programs/Cargo.toml: owning Programs domain 13 must set [profile.release] opt-level to z explicitly; this manifest is outside task scope."
+
+[wiring.guest-packaging]
+request = "Makefile paxai-host-boundary-build: owning Programs/deployment domain 13 must explicitly select release opt-level z for the AI guest packaging target, consistent with programs/Cargo.toml."
+
+[wiring.deployment-qualification]
+request = "Makefile paxai-host-boundary-build and tests/programs/test_ai_host_boundary.c: owning Programs/deployment domain 13 must measure the actual packaged Wasm bytes plus the 104-byte envelope against the unchanged 524288-byte payload ceiling, record the artifact revision and measured bytes, and retain existing ABI, execution and fuel assertions in tests/fuel_budget.rs."
+
+[qualification-boundary]
+execution = "The only qualification is hf-build and hf-done for this task; no live endpoint, credential, external executable, subprocess toolchain or native Wasm artifact is needed by the integration target."
+scope = "Task bookkeeping is recorded here inside the allowed src directory; spec files, GOTCHA.kvx, programs/Cargo.toml and Makefile are not edited under the explicit scope restriction."
+
+[continuation.attempt8]
+base_revision = "af70657ca53fda7264d7f337cdd542dd619a6dca"
+inherited_result = "Supplied attempt-7 evidence: 21 passed and one failed in view_binding::header_reports_exact_state_identity_and_explicit_absence; empty PolicyLifecycle was incorrectly reported ContentUnavailable. No new unchanged-tree verification is claimed."
+repair = "feature_availability checks section absence before decoding; all enabled features of an uncreated market report NotYetProduced, present malformed sections remain ContentUnavailable, and BAD_VERSION remains UnsupportedVersion. Existing header absence assertion and revision 1 fixture are retained."
+test = "repair_22_33_217::view_binding::availability_distinguishes_absent_malformed_and_unsupported_capture_content; repair_22_33_217::view_binding::header_reports_exact_state_identity_and_explicit_absence"
+gotcha = "policy_of intentionally refuses an absent market with NOT_FOUND; availability must inspect the empty section first rather than classify that refusal as malformed content."
+revision_source = "/out/run/gates.jsonl records the exact final candidate revision, command, exit and private log for this attempt; hf-build and hf-done must use the same candidate. The runner creates the candidate commit before gates; explicit task instructions prohibit manual commits."
+private_evidence = "/out/run/gates.jsonl; /out/logs/build-1.log; /out/logs/verify-1.log, or the final numbered repair logs named in the ledger. Only executed ledger rows establish gate outcomes."

@@ -30,6 +30,16 @@ func (fp *FeesParams) Validate() error {
 			return err
 		}
 	}
+	seen := map[string]struct{}{sdk.DefaultBondDenom: {}}
+	for _, denom := range fp.AllowedFeeDenoms {
+		if err := sdk.ValidateDenom(denom); err != nil {
+			return fmt.Errorf("invalid allowed fee denom %q: %w", denom, err)
+		}
+		if _, exists := seen[denom]; exists {
+			return fmt.Errorf("duplicate allowed fee denom %q (bond denom is automatically included)", denom)
+		}
+		seen[denom] = struct{}{}
+	}
 	return nil
 }
 

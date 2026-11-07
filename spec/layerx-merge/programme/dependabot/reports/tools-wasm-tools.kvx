@@ -1,0 +1,161 @@
+[alert.GHSA-hc7m-r6v8-hg9q]
+package = "wasmtime"
+manifest = "tools/wasm-tools/Cargo.lock"
+verdict = "upgraded"
+version_before = "34.0.2"
+version_after = "36.0.20"
+pinned_by = ""
+revision = "4a9dbd7408d98ec112b849894a0d4c9ed40a2aa9"
+
+[alert.GHSA-vc8c-j3xm-xj73]
+package = "wasmtime"
+manifest = "tools/wasm-tools/Cargo.lock"
+verdict = "upgraded"
+version_before = "34.0.2"
+version_after = "36.0.20"
+pinned_by = ""
+revision = "4a9dbd7408d98ec112b849894a0d4c9ed40a2aa9"
+
+[alert.GHSA-852m-cvvp-9p4w]
+package = "wasmtime"
+manifest = "tools/wasm-tools/Cargo.lock"
+verdict = "upgraded"
+version_before = "34.0.2"
+version_after = "36.0.20"
+pinned_by = ""
+revision = "4a9dbd7408d98ec112b849894a0d4c9ed40a2aa9"
+
+[alert.GHSA-243v-98vx-264h]
+package = "wasmtime"
+manifest = "tools/wasm-tools/Cargo.lock"
+verdict = "upgraded"
+version_before = "34.0.2"
+version_after = "36.0.20"
+pinned_by = ""
+revision = "4a9dbd7408d98ec112b849894a0d4c9ed40a2aa9"
+
+[alert.GHSA-hx6p-xpx3-jvvv]
+package = "wasmtime"
+manifest = "tools/wasm-tools/Cargo.lock"
+verdict = "upgraded"
+version_before = "34.0.2"
+version_after = "36.0.20"
+pinned_by = ""
+revision = "4a9dbd7408d98ec112b849894a0d4c9ed40a2aa9"
+
+[alert.GHSA-jxhv-7h78-9775]
+package = "wasmtime"
+manifest = "tools/wasm-tools/Cargo.lock"
+verdict = "upgraded"
+version_before = "34.0.2"
+version_after = "36.0.20"
+pinned_by = ""
+revision = "4a9dbd7408d98ec112b849894a0d4c9ed40a2aa9"
+
+[alert.GHSA-m758-wjhj-p3jq]
+package = "wasmtime"
+manifest = "tools/wasm-tools/Cargo.lock"
+verdict = "upgraded"
+version_before = "34.0.2"
+version_after = "36.0.20"
+pinned_by = ""
+revision = "4a9dbd7408d98ec112b849894a0d4c9ed40a2aa9"
+
+[alert.GHSA-qqfj-4vcm-26hv]
+package = "wasmtime"
+manifest = "tools/wasm-tools/Cargo.lock"
+verdict = "upgraded"
+version_before = "34.0.2"
+version_after = "36.0.20"
+pinned_by = ""
+revision = "4a9dbd7408d98ec112b849894a0d4c9ed40a2aa9"
+
+[alert.GHSA-m9w2-8782-2946]
+package = "wasmtime"
+manifest = "tools/wasm-tools/Cargo.lock"
+verdict = "upgraded"
+version_before = "34.0.2"
+version_after = "36.0.20"
+pinned_by = ""
+revision = "4a9dbd7408d98ec112b849894a0d4c9ed40a2aa9"
+
+[alert.GHSA-q49f-xg75-m9xw]
+package = "wasmtime"
+manifest = "tools/wasm-tools/Cargo.lock"
+verdict = "upgraded"
+version_before = "34.0.2"
+version_after = "36.0.20"
+pinned_by = ""
+revision = "4a9dbd7408d98ec112b849894a0d4c9ed40a2aa9"
+
+[alert.GHSA-jhxm-h53p-jm7w]
+package = "wasmtime"
+manifest = "tools/wasm-tools/Cargo.lock"
+verdict = "upgraded"
+version_before = "34.0.2"
+version_after = "36.0.20"
+pinned_by = ""
+revision = "4a9dbd7408d98ec112b849894a0d4c9ed40a2aa9"
+
+[alert.GHSA-6wgr-89rj-399p]
+package = "wasmtime"
+manifest = "tools/wasm-tools/Cargo.lock"
+verdict = "upgraded"
+version_before = "34.0.2"
+version_after = "36.0.20"
+pinned_by = ""
+revision = "4a9dbd7408d98ec112b849894a0d4c9ed40a2aa9"
+
+[alert.GHSA-394w-hwhg-8vgm]
+package = "wasmtime"
+manifest = "tools/wasm-tools/Cargo.lock"
+verdict = "upgraded"
+version_before = "34.0.2"
+version_after = "36.0.20"
+pinned_by = ""
+revision = "4a9dbd7408d98ec112b849894a0d4c9ed40a2aa9"
+
+[alert.GHSA-xx5w-cvp6-jv83]
+package = "wasmtime"
+manifest = "tools/wasm-tools/Cargo.lock"
+verdict = "upgraded"
+version_before = "34.0.2"
+version_after = "36.0.20"
+pinned_by = ""
+revision = "4a9dbd7408d98ec112b849894a0d4c9ed40a2aa9"
+
+[alert.GHSA-f984-pcp8-v2p7]
+package = "wasmtime"
+manifest = "tools/wasm-tools/Cargo.lock"
+verdict = "upgraded"
+version_before = "34.0.2"
+version_after = "36.0.20"
+pinned_by = ""
+revision = "4a9dbd7408d98ec112b849894a0d4c9ed40a2aa9"
+
+[alert.GHSA-p8xm-42r7-89xg]
+package = "wasmtime"
+manifest = "tools/wasm-tools/Cargo.lock"
+verdict = "upgraded"
+version_before = "34.0.2"
+version_after = "36.0.20"
+pinned_by = ""
+revision = "4a9dbd7408d98ec112b849894a0d4c9ed40a2aa9"
+
+[alert.GHSA-897f-g5gm-fmxm]
+package = "wasmtime"
+manifest = "tools/wasm-tools/Cargo.lock"
+verdict = "upgraded"
+version_before = "34.0.2"
+version_after = "36.0.20"
+pinned_by = ""
+revision = "4a9dbd7408d98ec112b849894a0d4c9ed40a2aa9"
+
+[alert.GHSA-mghf-wjfp-p5xm]
+package = "wasmtime"
+manifest = "tools/wasm-tools/Cargo.lock"
+verdict = "upgraded"
+version_before = "34.0.2"
+version_after = "36.0.20"
+pinned_by = ""
+revision = "4a9dbd7408d98ec112b849894a0d4c9ed40a2aa9"

@@ -1,0 +1,32 @@
+[req.22998]
+ac_1 = "Bind one eligible task to its exact qualification command."
+
+[task.426.0]
+status = "done"
+requires = []
+reqs = ["22998.1"]
+verify_cmd = "make beta-contract-check"
+
+[task.426.1]
+status = "pending"
+requires = ["426.0"]
+reqs = ["22998.1"]
+verify_cmd = "make beta-contract-check"
+
+[task.426.2]
+status = "in_progress"
+requires = []
+reqs = ["22998.1"]
+verify_cmd = "make test-result test-protocol"
+
+[task.426.3]
+status = "pending"
+requires = ["426.1"]
+reqs = ["22998.1"]
+verify_cmd = "make test-result"
+
+[task.426.4]
+status = "pending"
+requires = ["426.99"]
+reqs = ["22998.1"]
+verify_cmd = "make test-result"

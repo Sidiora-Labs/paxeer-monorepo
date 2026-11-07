@@ -381,6 +381,14 @@ func TestSubscriptions(t *testing.T) {
 			{"marketId":0,"price":"100","onchainTimestamp":%[1]d,"blockNumber":10,"updatedAt":%[2]q},
 			{"marketId":1,"price":"200","onchainTimestamp":%[1]d,"blockNumber":10,"updatedAt":%[2]q}]}`, subAt(10).Unix(), subStamp(10)))
 		c.quiet(t)
+		indexPrice(t, 0, 11, 0, "aggregate", "110")
+		publish(t, "0.index")
+		c.wantNext(t, "s", fmt.Sprintf(`{"latestPricesUpdated":[
+			{"marketId":0,"price":"110","onchainTimestamp":%d,"blockNumber":11,"updatedAt":%q},
+			{"marketId":1,"price":"200","onchainTimestamp":%d,"blockNumber":10,"updatedAt":%q}]}`, subAt(11).Unix(), subStamp(11), subAt(10).Unix(), subStamp(10)))
+		indexPrice(t, 0, 12, 0, "skipped", nil)
+		publish(t, "0.index")
+		c.quiet(t)
 	})
 
 	priceQuery := `subscription ($m: Int) { priceUpdated(marketId: $m) { id marketId price onchainTimestamp timestamp blockNumber txHash blockTimestamp updatedAt } }`

@@ -148,28 +148,73 @@ func OSArch() string {
 
 // SetCurrentUpgrade sets the named upgrade to be the current link, returns error if this binary doesn't exist
 func (cfg *Config) SetCurrentUpgrade(upgradeName string) error {
+	staged, err := cfg.stageCurrentUpgrade(upgradeName)
+	if err != nil {
+		return err
+	}
+	defer os.RemoveAll(filepath.Dir(staged))
+
+	// Both paths are on the same filesystem. Readers see either the old link
+	// or the replacement, including when publication is interrupted.
+	link := filepath.Join(cfg.Root(), currentLink)
+	if err := os.Rename(staged, link); err != nil {
+		return fmt.Errorf("publishing current symlink: %w", err)
+	}
+	return syncDirectory(cfg.Root())
+}
+
+func (cfg *Config) stageCurrentUpgrade(upgradeName string) (string, error) {
 	// ensure named upgrade exists
 	bin := cfg.UpgradeBin(upgradeName)
 
 	if err := EnsureBinary(bin); err != nil {
-		return err
+		return "", err
+	}
+	if err := cfg.markInitialized(); err != nil {
+		return "", err
 	}
 
-	// set a symbolic link
-	link := filepath.Join(cfg.Root(), currentLink)
-	safeName := url.PathEscape(upgradeName)
-	upgrade := filepath.Join(cfg.Root(), upgradesDir, safeName)
-
-	// remove link if it exists
-	if _, err := os.Stat(link); err == nil {
-		os.Remove(link)
+	dir, err := os.MkdirTemp(cfg.Root(), ".current-")
+	if err != nil {
+		return "", fmt.Errorf("staging current symlink: %w", err)
 	}
-
-	// point to the new directory
-	if err := os.Symlink(upgrade, link); err != nil {
-		return fmt.Errorf("creating current symlink: %w", err)
+	link := filepath.Join(dir, currentLink)
+	if err := os.Symlink(cfg.UpgradeDir(upgradeName), link); err != nil {
+		os.RemoveAll(dir)
+		return "", fmt.Errorf("creating current symlink: %w", err)
 	}
+	return link, nil
+}
 
+func (cfg *Config) markInitialized() error {
+	marker, err := os.OpenFile(filepath.Join(cfg.Root(), initializedFile), os.O_CREATE|os.O_WRONLY, 0600)
+	if err != nil {
+		return fmt.Errorf("recording initialization: %w", err)
+	}
+	err = marker.Sync()
+	closeErr := marker.Close()
+	if err != nil {
+		return fmt.Errorf("syncing initialization marker: %w", err)
+	}
+	if closeErr != nil {
+		return fmt.Errorf("closing initialization marker: %w", closeErr)
+	}
+	return syncDirectory(cfg.Root())
+}
+
+func syncDirectory(path string) error {
+	dir, err := os.Open(path)
+	if err != nil {
+		return fmt.Errorf("opening directory for sync: %w", err)
+	}
+	err = dir.Sync()
+	closeErr := dir.Close()
+	if err != nil {
+		return fmt.Errorf("syncing directory: %w", err)
+	}
+	if closeErr != nil {
+		return fmt.Errorf("closing directory after sync: %w", closeErr)
+	}
 	return nil
 }
 

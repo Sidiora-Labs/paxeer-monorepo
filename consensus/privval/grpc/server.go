@@ -2,6 +2,7 @@ package grpc
 
 import (
 	context "context"
+	"sync"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -16,6 +17,8 @@ import (
 type SignerServer struct {
 	chainID string
 	privVal types.PrivValidator
+	// signingMu covers the safety-state check, signing and persistence for both RPCs.
+	signingMu sync.Mutex
 }
 
 func NewSignerServer(chainID string, privVal types.PrivValidator) *SignerServer {
@@ -31,6 +34,12 @@ var _ privvalproto.PrivValidatorAPIServer = (*SignerServer)(nil)
 // returns the pubkey on success and error on failure
 func (ss *SignerServer) GetPubKey(ctx context.Context, req *privvalproto.PubKeyRequest) (
 	*privvalproto.PubKeyResponse, error) {
+	if req == nil {
+		return nil, status.Error(codes.InvalidArgument, "missing public key request")
+	}
+	if req.ChainId != ss.chainID {
+		return nil, status.Errorf(codes.InvalidArgument, "chain ID mismatch: got %q, want %q", req.ChainId, ss.chainID)
+	}
 	var pubKey crypto.PubKey
 
 	pubKey, err := ss.privVal.GetPubKey(ctx)
@@ -44,6 +53,15 @@ func (ss *SignerServer) GetPubKey(ctx context.Context, req *privvalproto.PubKeyR
 // SignVote receives a vote sign requests, attempts to sign it
 // returns SignedVoteResponse on success and error on failure
 func (ss *SignerServer) SignVote(ctx context.Context, req *privvalproto.SignVoteRequest) (*privvalproto.SignedVoteResponse, error) {
+	if req == nil || req.Vote == nil {
+		return nil, status.Error(codes.InvalidArgument, "missing vote payload")
+	}
+	if req.ChainId != ss.chainID {
+		return nil, status.Errorf(codes.InvalidArgument, "chain ID mismatch: got %q, want %q", req.ChainId, ss.chainID)
+	}
+	ss.signingMu.Lock()
+	defer ss.signingMu.Unlock()
+
 	vote := req.Vote
 
 	err := ss.privVal.SignVote(ctx, req.ChainId, vote)
@@ -59,6 +77,15 @@ func (ss *SignerServer) SignVote(ctx context.Context, req *privvalproto.SignVote
 // SignProposal receives a proposal sign requests, attempts to sign it
 // returns SignedProposalResponse on success and error on failure
 func (ss *SignerServer) SignProposal(ctx context.Context, req *privvalproto.SignProposalRequest) (*privvalproto.SignedProposalResponse, error) {
+	if req == nil || req.Proposal == nil {
+		return nil, status.Error(codes.InvalidArgument, "missing proposal payload")
+	}
+	if req.ChainId != ss.chainID {
+		return nil, status.Errorf(codes.InvalidArgument, "chain ID mismatch: got %q, want %q", req.ChainId, ss.chainID)
+	}
+	ss.signingMu.Lock()
+	defer ss.signingMu.Unlock()
+
 	proposal := req.Proposal
 
 	err := ss.privVal.SignProposal(ctx, req.ChainId, proposal)

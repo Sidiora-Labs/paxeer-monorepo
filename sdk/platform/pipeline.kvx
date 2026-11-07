@@ -17,7 +17,7 @@ digest = "de5e350540972ac952d0235bb0d27ce83f391457eee74178bda8642a044d2655"
 
 [generator.platform-sdkgen]
 root = "sdk/platform/generators"
-digest = "209df8cf8bb02a0e3fff9dc428d8901b3a1353ddf084df31235e3f2860704fa0"
+digest = "b06183f4a22fe794d9dd3890860745412a174a36215e33a687d70a9bdea5d7d9"
 
 [generator.agent-sdk-gen]
 root = "services/agent/tools/sdk-gen"
@@ -341,7 +341,7 @@ language = "jvm"
 root = "sdk/platform/jvm"
 
 [files.platform-jvm]
-"pom.xml" = "ab811eb52aa84017f380a031045b0be1c22973af35ae27ad64111058869390a1"
+"pom.xml" = "dabb82bf7a9b0cd81396e747e046b85a3efb83f93bbf086c1482a2a0ba585b60"
 "src/main/java/com/sidiora/layerx/sdk/HttpProductionTransport.java" = "c05aa3e779e6b43211d26b8ac9338f10b4e0e6869271b61a729b5e8f3cda6793"
 "src/main/java/com/sidiora/layerx/sdk/GeneratedContract.java" = "c8717feda31a337917d4209c212a2f906bab5a2b3a854731fb494e89f42efede"
 "src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java" = "1c86fbdc58b7d6ee1c1a462a079e1d8f1133b1edf95d68fe82f4f9af87cf6279"
@@ -437,6 +437,7 @@ root = "sdk/platform/conformance"
 "fixtures/native-program-wind-down-tombstone-v4.json" = "handwritten"
 "fixtures/occupancy-payment-accounts-v3.json" = "handwritten"
 "fixtures/receipt-sequencer-v1.json" = "handwritten"
+"fixtures/sequencer-receipt-fee-token-v1.json" = "handwritten"
 "fixtures/sequencer-receipt-v1.json" = "handwritten"
 "fixtures/vector-v1-receipted-positive.json" = "handwritten"
 "fixtures/vector-v2-receipted-revert.json" = "handwritten"

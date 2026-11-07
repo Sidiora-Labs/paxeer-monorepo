@@ -254,11 +254,6 @@ func (r *Replicator) Release(ctx context.Context, entries ...wal.Entry) (Ack, er
 	frames := make([]wal.Frame, len(entries))
 	var maxSeq uint64
 	for i, e := range entries {
-		if r.standalone {
-			if _, ok := e.(*wal.Lease); ok {
-				return Ack{}, ErrNoAck
-			}
-		}
 		f, err := wal.NewFrame(e)
 		if err != nil {
 			return Ack{}, err
@@ -630,6 +625,8 @@ type Standby struct {
 	refusal      error
 	failed       error
 	leader       bool
+	promoting    bool
+	serveDone    chan struct{}
 	ctx          context.Context
 }
 
@@ -729,6 +726,8 @@ func (s *Standby) TakeLease(l *wal.Lease) error {
 	if l == nil {
 		return fmt.Errorf("%w: missing lease", wal.ErrMalformed)
 	}
+	s.recvMu.Lock()
+	defer s.recvMu.Unlock()
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if l.Epoch <= s.cur.leaseEpoch {
@@ -742,6 +741,27 @@ func (s *Standby) TakeLease(l *wal.Lease) error {
 		return err
 	}
 	s.cur.advance(l)
+	// Fence ingress before waiting for the local application to commit and
+	// the pending worker to replay every durably acknowledged record.
+	s.promoting = true
+	for len(s.pending) != 0 && s.failed == nil {
+		s.mu.Unlock()
+		select {
+		case <-s.ctx.Done():
+			s.mu.Lock()
+			s.failed = s.ctx.Err()
+			return s.failed
+		case <-time.After(time.Millisecond):
+		}
+		s.mu.Lock()
+	}
+	if s.failed != nil {
+		return s.failed
+	}
+	if s.appliedSeq != s.cur.lastSeq {
+		s.failed = errors.New("sequencer: promotion has not replayed acknowledged tail")
+		return s.failed
+	}
 	s.leader = true
 	return nil
 }
@@ -834,7 +854,7 @@ func (s *Standby) receive(entries []wal.Entry) (ack Ack) {
 			ack.Reason = s.refusal.Error()
 		}
 	}()
-	if s.leader {
+	if s.leader || s.promoting {
 		s.refusal = fmt.Errorf("%w: standby holds leadership at epoch %d", ErrFenced, s.cur.leaseEpoch)
 		return Ack{Status: AckRefused, LastSeq: s.cur.lastSeq, Epoch: s.cur.leaseEpoch}
 	}

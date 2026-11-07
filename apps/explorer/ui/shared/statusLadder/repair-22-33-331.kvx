@@ -1,0 +1,19 @@
+[repair.22.33.331]
+audit = "22.30.137"
+ladder_test_retired_model = "rung_order_is_three_rungs, registered by rungs.spec.ts and imported into repair-22-33-331.spec.ts; ordering, labels, icons and colors are retained."
+ladder_retired_model = "ladder_retired_model checks both production descriptor families against node submission, receipt availability and committed-block finality."
+ladder_refresh = "ladder_refresh drives the real query hook, API URL builder, HTTP fetch and JSON consumer through a loopback transcript server from submitted through receipted to committed, then checks that polling stops."
+baseline = "Not run: the ordered task instructions prohibit testing before complete implementation and require the single verify invocation through hf-done after hf-build; no pre-change failure is claimed."
+fixture = "status-transcript.json preserves the three exact response payloads asserted by the named producer tests; the backend runtime is not required by this frontend gate."
+evidence = "The bounded hf-build and hf-done private evidence ledger records the verified candidate revision, command, exit code and log; no qualification is claimed in advance."
+test_registration = "Vitest requires both the declared function name and its body when registering named tests; function-only registrations became todo, so the repair explicitly registers both to execute every assertion."
+wiring_request = "Domain 14 explorer backend: coordinate services/explorer/backend/apps/explorer/lib/explorer/chain/paxeer_x/status.ex and services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api/v2/paxeer_x/transaction_status_controller.ex with committed-block receipt finality; their sequencer verification path is outside this task's scope."
+
+[qualification.previous_attempt_build_1]
+origin = "Retained evidence from attempt 1; the log path below belongs to that attempt, while this continuation uses its own runner-owned gate ledger."
+revision = "02c2a82fff9349d12170966f1ab910ec0392864e"
+command = "pnpm --dir apps/explorer exec tsc --noEmit -p tsconfig.json"
+exit = 2
+log = "/out/logs/build-1.log"
+observed = "Unrelated TS2307 in ui/marketplace/essentialDapps/revoke/hooks/repair-22-31-381.spec.ts:2: cannot find module ganache; the task-scoped node:events import error is repaired with the real server listen callback."
+assumption = "The marketplace test dependency belongs to its owning domain and is not changed or bypassed by this status ladder repair."

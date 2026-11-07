@@ -6,6 +6,7 @@ import { spawn } from "node:child_process";
 import { ed25519 } from "@noble/curves/ed25519.js";
 import { secp256k1 } from "@noble/curves/secp256k1.js";
 import { keccak_256 } from "@noble/hashes/sha3.js";
+import { sha256 } from "@noble/hashes/sha2.js";
 
 import {
   SIDIORA_TOKEN,
@@ -18,6 +19,7 @@ import {
   gasQuoteDigest,
   readNativeFeePreference,
   requestGasQuote,
+  requestSponsoredGasBatchStatus,
   submitSponsoredGasBatch,
   sponsoredBatchCall,
   sponsoredBatchDigest,
@@ -27,6 +29,173 @@ import {
   type GasStationConfig,
   type SponsoredBatch,
 } from "../src/index.js";
+
+async function gas_receipt_payment_denom(): Promise<void> {
+  const vectors: {
+    cases: {
+      receiptJson: Record<string, unknown> & {
+        txHash: string;
+        paymentDenom: string;
+        feeDenom: string;
+        receipt: string;
+      };
+      expected: { verifier: string; rung?: string };
+    }[];
+  } = JSON.parse(
+    readFileSync(
+      new URL(
+        "../../../../../../sdk/platform/conformance/fixtures/sequencer-receipt-v1.json",
+        import.meta.url,
+      ),
+      "utf8",
+    ),
+  );
+  const accepted = vectors.cases.filter(
+    (entry) => entry.expected.rung === "receipted",
+  );
+  assert.ok(accepted.length > 0);
+  let view: Record<string, unknown> | null = null;
+  const receiptServer = createServer(async (incoming, outgoing) => {
+    const chunks: Buffer[] = [];
+    for await (const chunk of incoming) chunks.push(Buffer.from(chunk));
+    const call = JSON.parse(Buffer.concat(chunks).toString("utf8"));
+    assert.equal(call.method, "pax_sequencerReceipt");
+    assert.deepEqual(call.params, [view?.txHash]);
+    outgoing.writeHead(200, { "content-type": "application/json" });
+    outgoing.end(JSON.stringify(view));
+  });
+  receiptServer.listen(0, "127.0.0.1");
+  await once(receiptServer, "listening");
+  const bound = receiptServer.address();
+  assert.ok(bound && typeof bound !== "string");
+  const request = async (args: {
+    readonly method: string;
+    readonly params: readonly unknown[];
+  }): Promise<unknown> => {
+    const response = await fetch(`http://127.0.0.1:${bound.port}`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(args),
+    });
+    assert.equal(response.status, 200);
+    return response.json();
+  };
+  try {
+    for (const entry of accepted) {
+      const source = entry.receiptJson;
+      view = source;
+      assert.deepEqual(
+        value(await requestSponsoredGasBatchStatus(source.txHash, request)),
+        {
+          transactionHash: source.txHash,
+          rung: "receipted",
+          paymentDenom: source.paymentDenom,
+          feeDenom: source.feeDenom,
+        },
+      );
+      view = { ...source, rung: "committed" };
+      assert.deepEqual(
+        value(await requestSponsoredGasBatchStatus(source.txHash, request)),
+        {
+          transactionHash: source.txHash,
+          rung: "committed",
+          paymentDenom: source.paymentDenom,
+          feeDenom: source.feeDenom,
+        },
+      );
+      for (const paymentDenom of [
+        undefined,
+        null,
+        1,
+        "",
+        "ab",
+        "a".repeat(65),
+        "uhpx ",
+        "uhpx\n",
+        "other",
+      ]) {
+        view = { ...source, paymentDenom };
+        refused(
+          await requestSponsoredGasBatchStatus(source.txHash, request),
+          "invalid_response",
+          "paymentDenom",
+        );
+      }
+      view = { ...source };
+      delete view.paymentDenom;
+      refused(
+        await requestSponsoredGasBatchStatus(source.txHash, request),
+        "invalid_response",
+        "paymentDenom",
+      );
+      view = { ...source, feeDenom: "other" };
+      refused(
+        await requestSponsoredGasBatchStatus(source.txHash, request),
+        "invalid_response",
+        "feeDenom",
+      );
+    }
+    const source = accepted[0]!.receiptJson;
+    const paymentDenom = "ufee";
+    assert.notEqual(paymentDenom, source.feeDenom);
+    const sourceHash = Buffer.from(
+      sha256(Buffer.from(source.paymentDenom)),
+    ).toString("hex");
+    const paymentHash = Buffer.from(sha256(Buffer.from(paymentDenom))).toString(
+      "hex",
+    );
+    const feeHash = Buffer.from(sha256(Buffer.from(source.feeDenom))).toString(
+      "hex",
+    );
+    const assetOffset = source.receipt.indexOf(sourceHash);
+    assert.ok(assetOffset >= 2);
+    assert.equal(source.receipt.lastIndexOf(sourceHash), assetOffset);
+    const withAsset = (asset: string): string =>
+      source.receipt.slice(0, assetOffset) +
+      asset +
+      source.receipt.slice(assetOffset + sourceHash.length);
+    const derived = {
+      ...source,
+      paymentDenom,
+      receipt: withAsset(paymentHash),
+    };
+    assert.notEqual(derived.receipt, source.receipt);
+    view = derived;
+    assert.deepEqual(
+      value(await requestSponsoredGasBatchStatus(source.txHash, request)),
+      {
+        transactionHash: source.txHash,
+        rung: "receipted",
+        paymentDenom,
+        feeDenom: source.feeDenom,
+      },
+    );
+    view = { ...derived, receipt: withAsset(feeHash) };
+    refused(
+      await requestSponsoredGasBatchStatus(source.txHash, request),
+      "invalid_response",
+      "paymentDenom",
+    );
+    view = { ...derived, paymentDenom: source.feeDenom };
+    refused(
+      await requestSponsoredGasBatchStatus(source.txHash, request),
+      "invalid_response",
+      "paymentDenom",
+    );
+    view = { ...derived };
+    delete view.paymentDenom;
+    refused(
+      await requestSponsoredGasBatchStatus(source.txHash, request),
+      "invalid_response",
+      "paymentDenom",
+    );
+  } finally {
+    const closed = once(receiptServer, "close");
+    receiptServer.close();
+    receiptServer.closeAllConnections();
+    await closed;
+  }
+}
 
 function value<T>(result: GasResult<T>): T {
   assert.equal(
@@ -804,17 +973,17 @@ async function paymaster_nonce_stream(): Promise<void> {
     );
     assert.deepEqual(requests, [
       { method: "eth_chainId", params: [] },
-      { method: "eth_getCode", params: [batch.account, "latest"] },
-      { method: "eth_getCode", params: [paymaster, "latest"] },
+      { method: "eth_getCode", params: [batch.account, "pending"] },
+      { method: "eth_getCode", params: [paymaster, "pending"] },
       {
         method: "eth_call",
         params: [
           { to: batch.account, data: abiSelector("nonce()") },
-          "latest",
+          "pending",
           { [batch.account]: { code: implementation } },
         ],
       },
-    ]);
+    ], "sponsored nonce discovery reads account code, paymaster code and nonce at pending");
     await rpc({
       method: "anvil_setCode",
       params: [batch.account, `0xef0100${paymaster.slice(2)}`],
@@ -830,10 +999,10 @@ async function paymaster_nonce_stream(): Promise<void> {
     assert.equal(nonce, 3n);
     assert.deepEqual(requests, [
       { method: "eth_chainId", params: [] },
-      { method: "eth_getCode", params: [batch.account, "latest"] },
+      { method: "eth_getCode", params: [batch.account, "pending"] },
       {
         method: "eth_call",
-        params: [{ to: batch.account, data: abiSelector("nonce()") }, "latest"],
+        params: [{ to: batch.account, data: abiSelector("nonce()") }, "pending"],
       },
     ]);
     const evmNonce = await rpc({
@@ -977,6 +1146,7 @@ async function paymaster_nonce_stream(): Promise<void> {
 }
 
 await paymaster_nonce_stream();
+await gas_receipt_payment_denom();
 console.log(
   "gas station: 1 suite passed, 0 failed; real paymaster nonce, quote DID, fee denomination and refusals",
 );

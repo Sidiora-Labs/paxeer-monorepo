@@ -3,13 +3,14 @@
   "path": "/v1/intents/plan",
   "body": {
     "source": {
-      "kind": "paxeer-wallet"
+      "kind": "human",
+      "account": "agent:did:layerx:alice:main"
     },
     "destination": {
       "kind": "agent",
       "account": "agent:did:layerx:bob:main"
     },
-    "asset_id": "9999999999999999999999999999999999999999999999999999999999999999",
+    "asset_id": "ff1dab81aa6e12a8d1fb690e37ca4ae5adcf5712000f972b652b44a3e65a8361",
     "money": {
       "amount": "500000",
       "currency": "LXP"
@@ -17,7 +18,7 @@
     "constraints": {
       "deadline": "2026-08-18T09:35:00Z",
       "max_fee": {
-        "amount": "250",
+        "amount": "250000",
         "currency": "LXP"
       },
       "allow_top_up": false

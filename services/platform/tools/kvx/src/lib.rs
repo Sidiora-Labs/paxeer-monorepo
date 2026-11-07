@@ -114,18 +114,30 @@ pub fn parse(source: &str) -> Result<Document, String> {
     Ok(Document { entries })
 }
 
-/// Strips the surrounding quotes from a kvx string value.
+/// Decodes a kvx string value, including escaped quotes and backslashes.
 ///
 /// # Errors
 ///
-/// Refuses unquoted values.
+/// Refuses unquoted values, unescaped quotes and invalid escape sequences.
 pub fn unquote(value: &str) -> Result<String, String> {
-    value
+    let invalid = || format!("expected quoted value, got {value}");
+    let inner = value
         .strip_prefix('"')
         .and_then(|inner| inner.strip_suffix('"'))
-        .filter(|inner| !inner.contains('"'))
-        .map(str::to_owned)
-        .ok_or_else(|| format!("expected quoted value, got {value}"))
+        .ok_or_else(invalid)?;
+    let mut decoded = String::with_capacity(inner.len());
+    let mut chars = inner.chars();
+    while let Some(ch) = chars.next() {
+        match ch {
+            '\\' => match chars.next() {
+                Some(escaped @ ('"' | '\\')) => decoded.push(escaped),
+                _ => return Err(invalid()),
+            },
+            '"' => return Err(invalid()),
+            _ => decoded.push(ch),
+        }
+    }
+    Ok(decoded)
 }
 
 /// Splits a kvx list value into its quoted items.
@@ -141,11 +153,35 @@ pub fn string_list(value: &str) -> Result<Vec<String>, String> {
     if inner.trim().is_empty() {
         return Ok(Vec::new());
     }
-    inner.split(',').map(|item| unquote(item.trim())).collect()
+    let mut items = Vec::new();
+    let mut start = 0;
+    let mut quoted = false;
+    let mut escaped = false;
+    for (index, ch) in inner.char_indices() {
+        if escaped {
+            escaped = false;
+        } else {
+            match ch {
+                '\\' if quoted => escaped = true,
+                '"' => quoted = !quoted,
+                ',' if !quoted => {
+                    items.push(unquote(inner[start..index].trim())?);
+                    start = index + 1;
+                }
+                _ => {}
+            }
+        }
+    }
+    if quoted || escaped {
+        return Err(format!("unterminated quoted list item, got {value}"));
+    }
+    items.push(unquote(inner[start..].trim())?);
+    Ok(items)
 }
 
 /// Quotes a value for a kvx document.
 #[must_use]
 pub fn quote(value: &str) -> String {
-    format!("\"{value}\"")
+    let escaped = value.replace('\\', "\\\\").replace('"', "\\\"");
+    format!("\"{escaped}\"")
 }

@@ -1,0 +1,35 @@
+[reconcile.r9-166]
+revision = "751d6ff8dbcfeaec3fbdee7c8c9aac3813e83488"
+rows = 4
+
+[row.r9-166.1]
+interface = "interface.9.ts-sdk-rpc-walletaccount"
+verdict = "served"
+path = "services/agent/sdk/typescript/src/rpc.ts"
+line = 274
+symbol = "walletAccount"
+evidence = "Line 274 declares export function walletAccount(did: string, asset: string, nativeAsset: string): string, matching the registered signature; line 68 is a call. The function validates selectors and derives the account hash."
+
+[row.r9-166.2]
+interface = "interface.9.ts-sdk-verifier-receipteffect"
+verdict = "served"
+path = "services/agent/sdk/typescript/src/verifier.ts"
+line = 41
+symbol = "ReceiptEffect"
+evidence = "Line 41 declares export interface ReceiptEffect, matching the registered signature, with moduleId, ordinal, eventType, kind, monetary, transferSetRoot and body fields. Lines 59 and 305 use the type for effect arrays."
+
+[row.r9-166.3]
+interface = "interface.9.ts-sdk-verifier-receiptverification"
+verdict = "served"
+path = "services/agent/sdk/typescript/src/verifier.ts"
+line = 100
+symbol = "ReceiptVerification"
+evidence = "Line 100 declares export interface ReceiptVerification, matching the registered signature, with level, receipt, canonicalBytes and receiptDigest fields. Line 443 uses it as the base interface for SequencerReceiptVerification."
+
+[row.r9-166.4]
+interface = "interface.9.ts-sdk-verifier-receiptverificationerror"
+verdict = "served"
+path = "services/agent/sdk/typescript/src/verifier.ts"
+line = 107
+symbol = "ReceiptVerificationError"
+evidence = "Line 107 declares export class ReceiptVerificationError extends PlatformSdkError, matching the registered signature. Its constructor accepts ReceiptFailureCode; line 112 sets the error name and line 118 constructs the error."

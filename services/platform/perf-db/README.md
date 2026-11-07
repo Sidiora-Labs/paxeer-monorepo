@@ -17,7 +17,7 @@ Time series storage · real-time state · relational data · event sourcing unif
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/Rust-1.75%2B-004CED?style=for-the-badge&amp;labelColor=000000&amp;logo=rust&amp;logoColor=white" alt="Rust 1.75+" />
+  <img src="https://img.shields.io/badge/Rust-1.85%2B-004CED?style=for-the-badge&amp;labelColor=000000&amp;logo=rust&amp;logoColor=white" alt="Rust 1.85+" />
   <img src="https://img.shields.io/badge/Engine-Zero_Network_Hops-00C896?style=for-the-badge&amp;labelColor=000000" alt="Zero network hops" />
   <img src="https://img.shields.io/badge/Concurrency-Lock--free-004CED?style=for-the-badge&amp;labelColor=000000" alt="Lock-free reads" />
 </p>
@@ -138,26 +138,35 @@ PerfDB
 ## Quick Start
 
 ```rust
-use perfdb::{PerfDb, PerfDbConfig};
+use perfdb::core::market::market_by_symbol;
 use perfdb::core::types::PriceTick;
+use perfdb::{PerfDb, PerfDbConfig};
 
-fn main() -> Result<(), perfdb::PerfDbError> {
-    let config = PerfDbConfig::new("/data/perfdb");
+pub fn ingest_btc(data_dir: impl AsRef<std::path::Path>) -> Result<(), perfdb::PerfDbError> {
+    let config = PerfDbConfig::new(data_dir);
     let db = PerfDb::open(config)?;
+    let btc = market_by_symbol("BTC").expect("BTC is a registered market");
 
     db.ingest_tick(&PriceTick {
         timestamp_ns: 1_699_900_000_000_000_000,
-        market_id: 1, // BTC
+        market_id: btc.id, // BTC = 0; ETH = 1
+        _pad: [0; 6],
         price: 43_250.50,
     })?;
 
-    let price = db.latest_price(1);
-    let recent_ticks = db.ticks(1);
+    assert_eq!(db.latest_price(btc.id), 43_250.50);
+    assert_eq!(db.ticks(btc.id).len(), 1);
 
     db.shutdown()?;
     Ok(())
 }
+
+fn main() -> Result<(), perfdb::PerfDbError> {
+    ingest_btc("./data")
+}
 ```
+
+The example creates `./data`; start with an empty directory for its single-tick assertion.
 
 ## Installation
 
@@ -178,7 +187,7 @@ cargo build --release
 
 ### System requirements
 
-- Rust 1.75 or newer (stable)
+- Rust 1.85 or newer (stable), with edition 2024 support
 - Linux (kernel 4.15+) or macOS 10.15+
 - SSD recommended for WAL and mmap performance
 

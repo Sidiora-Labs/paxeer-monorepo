@@ -1,0 +1,49 @@
+[repair.22.31.144]
+audit = "22.30.9"
+acceptance = "22998.1"
+qualification = "hf-build and hf-done record the exact candidate revision, command, exit and private evidence log; no independent gate result is claimed here."
+baseline = "Not run: the task's explicit gate order prohibits testing before the entire implementation and permits verification only through hf-done after hf-build; no baseline failures are claimed."
+
+[finding.1]
+test = "TestRepair_144_OpenAccountNextSequence"
+repair = "ABI nextSequence uses NextSequenceByAccountID, resolves the persisted canonical account with the kernel record decoder and shared host, validates its asset, and proves openAccount/accountId/balanceOf compatibility after closing and reopening the application database."
+compatibility = "Keeper.NextSequence remains the separately named owner-key convenience API used by native Keeper.PayExact; the ABI never calls it."
+
+[finding.3]
+test = "TestRepair_144_PayExactExpiresAtMs"
+repair = "ABI input and Go binding declare expiresAtMs: Unix epoch milliseconds strictly greater than the block timestamp. Keeper.PayExact automatically selects the source owner's asset-account sequence. Two payments, expiry refusals, persisted balances/sequences and a payment after reopening are asserted. The unchanged uint64 type preserves the selector."
+abi_freeze = "The byte-level ABI freeze digest is advanced for the required argument rename; equality and all selector, type, output and mutability assertions remain strict."
+wiring_solidity = "contracts/src/precompiles/ILayerXLedger.sol — contracts domain: publish payExact(..., uint64 expiresAtMs, ...) documenting Unix milliseconds and automatic account-sequence selection."
+wiring_sdk = "services/agent/sdk/python/layerx_sdk/x402.py and services/agent/sdk/typescript — agent SDK domain: expose/document expiresAtMs in ledger payment wrappers, matching precompiles/layerxledger/abi.json, with automatic account-sequence selection."
+
+[finding.4]
+test = "TestRepair_144_AssetAccountSend"
+repair = "Keeper.Send validates shared-host source ownership, the persisted asset and the canonical actor main/asset account name. Bind/register/openAccount/mint/send execute over EVM precompiles. Foreign ownership, mismatched asset and stale sequence refuse without host writes or logs; bank/kernel balances, global/identity/debit sequences and issuance supply survive closing and reopening."
+
+[gotcha.1]
+area = "scope"
+observed = "The shared host ReadAccount requires a canonical name and ID, but the ABI supplies only the ID."
+resolution = "Read the mounted host account row solely to recover its canonical name with lx_account_record_decode, then use Host.ReadAccount; retain the immutable store key from storage/common/keys and the existing account row prefix. No duplicate state or permissive fallback is introduced."
+
+[gotcha.2]
+area = "workflow"
+observed = "Spec and root gotcha ledger edits are excluded by the task's explicit scope."
+resolution = "Keep the finding-to-test mapping, wiring requests and gotchas in this scoped task record; runner-managed qualification evidence supplies the verified revision."
+
+[qualification.first_pass]
+revision = "d29df052210853d87063d97dcf531d9d02bfda9e"
+command = "cg spec done 22.31.144 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "ABI gas/mirror callers still supplied owner keys; new balance assertions compared big.Int zero allocation details instead of exact numeric values."
+repair = "Pass the producer's account ID in gas/mirror calls, assert exact numeric equality with Cmp/Equal, and derive send network ID from the actual EVM chain. No bound, criterion or check is removed."
+
+[qualification.previous_attempt]
+revision = "96e58f26d3e5191f5239dc8e92638d13d87bf442"
+observed = "The previous attempt's verification failed to compile gas_conformance_test.go because changing nextSequence to consume the openAccount output left payee unused."
+repair = "Use payee.DIDKey to assert the canonical recipient account ID returned by openAccount, retaining the actor resolution check and strengthening producer/consumer coverage."
+
+[gotcha.3]
+area = "go"
+observed = "Updating an ABI caller from an owner key to an account ID can leave its previously resolved actor unused and prevent the entire test package from compiling."
+resolution = "Use the resolved actor to verify the account producer's canonical output; hf-done compiles the entire package even though it runs only TestRepair_144_* functions."

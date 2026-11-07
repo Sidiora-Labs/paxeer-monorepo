@@ -17,7 +17,6 @@ use x_websearch::fetch::Fetcher;
 use x_websearch::index::WebIndex;
 use x_websearch::payment::{system_clock, PaymentGate};
 use x_websearch::program::{self, ProgramAttestor, ProgramExchange, ProgramRelay, Step};
-use x_websearch::settlement::SettlementRpc;
 
 #[derive(Clone, Copy, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "snake_case")]
@@ -203,13 +202,6 @@ fn directory_usable(path: &std::path::Path) -> bool {
             .is_ok()
 }
 
-fn settlement_usable(config: &Config, endpoint: &str) -> bool {
-    let Ok(rpc) = SettlementRpc::new(endpoint, config.evm.chain_id) else {
-        return false;
-    };
-    rpc.sequencer_receipt(&[0; 32]).is_ok()
-}
-
 fn peer_quorum_usable(
     config: &Config,
     network_id: u32,
@@ -341,7 +333,7 @@ impl ReadinessProbe {
         self.readiness.update(
             "paid_delivery",
             "settlement_authority",
-            settlement_usable(&self.config, &self.config.gateway.endpoint),
+            self.gate.settlement_usable(),
         );
         if let Some(signer) = self.signer {
             let rpc = EvmRpc::new(&self.config.evm.endpoint);
@@ -383,7 +375,7 @@ impl ReadinessProbe {
 use x_websearch::server::Stopper;
 use x_websearch::submit::{self, Outcome, Submitter};
 use x_websearch::watch::{
-    kernel_network_id, Canonical, EvmRpc, RequestWatcher, WebRequest, WorkStage,
+    kernel_network_id, Canonical, EvmRpc, RequestWatcher, WatchOwnership, WebRequest, WorkStage,
 };
 use x_websearch::{search, Config, KeyFiles, Keys, Limits, RouteTable, Server};
 
@@ -585,11 +577,20 @@ fn relay(
     )
     .map_err(|error| format!("program watcher: {error}"))?
     .with_chain_id(config.evm.chain_id)
-    .map_err(|error| format!("evm.chain_id: {error}"))?;
+    .map_err(|error| format!("evm.chain_id: {error}"))?
+    .with_ownership(WatchOwnership::Program)
+    .map_err(|error| format!("watch ownership: {error}"))?;
     let exchange = Arc::new(
         ProgramExchange::open(&config.data_dir.join("program-attest"), &config.peers)
             .map_err(|error| format!("peers or data_dir: {error}"))?,
     );
+    exchange
+        .bind_chain(
+            config.evm.chain_id,
+            network_id,
+            attest::signer_address(attestor_key),
+        )
+        .map_err(|error| format!("program exchange identity: {error}"))?;
     program::register(routes, &exchange)
         .map_err(|error| format!("route /program-attestations: {error}"))?;
     let attestor = ProgramAttestor::new(
@@ -651,7 +652,9 @@ fn pipeline(
     )
     .map_err(|error| format!("data_dir: {error}"))?
     .with_chain_id(config.evm.chain_id)
-    .map_err(|error| format!("evm.chain_id: {error}"))?;
+    .map_err(|error| format!("evm.chain_id: {error}"))?
+    .with_ownership(WatchOwnership::Ordinary)
+    .map_err(|error| format!("watch ownership: {error}"))?;
     let exchange = Arc::new(
         SignatureExchange::open(&config.data_dir.join("attest"), &config.peers)
             .map_err(|error| format!("peers or data_dir: {error}"))?,

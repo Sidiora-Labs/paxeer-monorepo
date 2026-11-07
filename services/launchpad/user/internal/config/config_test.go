@@ -30,6 +30,12 @@ func setEnv(t *testing.T, env map[string]string) {
 }
 
 func TestLoadDefaults(t *testing.T) {
+	for _, name := range []string{"PORT", "LOG_LEVEL", "S3_REGION", "MAX_AVATAR_SIZE_BYTES", "MAX_BANNER_SIZE_BYTES"} {
+		t.Setenv(name, "")
+		if err := os.Unsetenv(name); err != nil {
+			t.Fatal(err)
+		}
+	}
 	setEnv(t, baseEnv())
 	cfg, err := config.Load()
 	if err != nil {

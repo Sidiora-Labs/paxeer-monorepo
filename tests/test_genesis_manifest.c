@@ -109,6 +109,7 @@ static int zero_supply_accounts(const lxp_genesis_manifest *manifest,
     return has_fees && has_reserve && has_withdrawals ? 0 : 1;
 }
 
+/* v2 is historical compatibility; v3 exercises merged node initialization. */
 static int check_version(uint16_t protocol_version)
 {
     static const uint8_t signer_private_key[32] = {7U};
@@ -136,10 +137,17 @@ static int check_version(uint16_t protocol_version)
     lxp_genesis_module_plan plan;
     lxp_arena arena;
     bool enabled = false;
+    const bool merged = protocol_version == LXP_PROTOCOL_VERSION_STATE_COMMITMENT;
+    const lxp_genesis_bootstrap_registration *startup_registration =
+        merged ? NULL : &decoded_registration;
 
     REQUIRE(public_key_for(signer_private_key, signer_public_key) == 0);
     draft_manifest(&draft);
     draft.protocol_version = protocol_version;
+    if (merged) {
+        draft.guarantor_count = 0U;
+        (void)memset(draft.guarantors, 0, sizeof(draft.guarantors));
+    }
     programs_parameters(signer_public_key, asset_id, &metering,
                         &fee_parameters);
     REQUIRE(lxp_arena_init(&arena, arena_bytes, sizeof(arena_bytes)) == LXP_OK);
@@ -196,15 +204,16 @@ static int check_version(uint16_t protocol_version)
     if (protocol_version == LXP_PROTOCOL_VERSION_STATE_COMMITMENT) {
         static const uint32_t asset_activity_types[] = {
             LX_ASSET_REGISTER, LX_ASSET_PAUSE, LX_ASSET_UNPAUSE,
-            LX_ASSET_ACCOUNT_OPEN, LX_ASSET_SEND, LX_ASSET_WITHDRAW,
+            LX_ASSET_ACCOUNT_OPEN, LX_ASSET_SEND,
             LX_ASSET_MINT, LX_ASSET_BURN};
         static const uint32_t retired_asset_activity_types[] = {
-            LX_ASSET_RECEIVE, LX_ASSET_GRANT_ISSUE, LX_ASSET_GRANT_REVOKE};
+            LX_ASSET_RECEIVE, LX_ASSET_GRANT_ISSUE, LX_ASSET_GRANT_REVOKE,
+            LX_ASSET_WITHDRAW};
         const size_t asset_activity_count =
             sizeof(asset_activity_types) / sizeof(asset_activity_types[0]);
         const lxp_module_iface *asset_iface = lx_asset_module_iface();
         const lxp_module_registration *entry = NULL;
-        REQUIRE(asset_activity_count == 8U);
+        REQUIRE(asset_activity_count == 7U);
         REQUIRE(asset_iface->activity_type_count == asset_activity_count);
         REQUIRE(memcmp(asset_iface->activity_types, asset_activity_types,
                        sizeof(asset_activity_types)) == 0);
@@ -237,6 +246,8 @@ static int check_version(uint16_t protocol_version)
     REQUIRE(memcmp(kernel.current_state_root,
                    snapshot_manifest.receipt_state_root, 32U) == 0);
 
+    /* Historical registration codec compatibility only. Merged startup below
+     * consumes the signed genesis and committed snapshot without this record. */
     (void)memset(&registration, 0, sizeof(registration));
     registration.network_id = manifest.network_id;
     (void)memcpy(registration.settlement_anchor,
@@ -252,31 +263,32 @@ static int check_version(uint16_t protocol_version)
     REQUIRE(memcmp(&decoded_registration, &registration,
                    sizeof(registration)) == 0);
     REQUIRE(lxp_genesis_bootstrap_verify(
-        &manifest, &decoded_registration, 42U, true, &snapshot_manifest,
+        &manifest, startup_registration, 42U, true, &snapshot_manifest,
         &kernel, &arena, &enabled) == LXP_OK && enabled);
 
     REQUIRE(lxp_genesis_initialized_verify(
-        &manifest, &decoded_registration, 42U, &snapshot_manifest,
+        &manifest, startup_registration, 42U, &snapshot_manifest,
         &kernel, &arena, &enabled) == LXP_OK && enabled);
     REQUIRE(lxp_genesis_initialized_verify(
-        &manifest, &decoded_registration, 43U, &snapshot_manifest,
+        &manifest, startup_registration, 43U, &snapshot_manifest,
         &kernel, &arena, &enabled) != LXP_OK && !enabled);
     changed_snapshot = snapshot_manifest;
     changed_snapshot.global_sequence = 1U;
     REQUIRE(lxp_genesis_initialized_verify(
-        &manifest, &decoded_registration, 42U, &changed_snapshot,
+        &manifest, startup_registration, 42U, &changed_snapshot,
         &kernel, &arena, &enabled) != LXP_OK && !enabled);
     changed_snapshot = snapshot_manifest;
     changed_snapshot.receipt_state_root[0] ^= 1U;
     REQUIRE(lxp_genesis_initialized_verify(
-        &manifest, &decoded_registration, 42U, &changed_snapshot,
+        &manifest, startup_registration, 42U, &changed_snapshot,
         &kernel, &arena, &enabled) != LXP_OK && !enabled);
     changed = manifest;
     changed.signature[0] ^= 1U;
     REQUIRE(lxp_genesis_initialized_verify(
-        &changed, &decoded_registration, 42U, &snapshot_manifest,
+        &changed, startup_registration, 42U, &snapshot_manifest,
         &kernel, &arena, &enabled) != LXP_OK && !enabled);
     decoded_registration.finalised = false;
+    /* Explicit historical compatibility: unfinalised registrations refuse. */
     REQUIRE(lxp_genesis_initialized_verify(
         &manifest, &decoded_registration, 42U, &snapshot_manifest,
         &kernel, &arena, &enabled) != LXP_OK && !enabled);
@@ -284,23 +296,23 @@ static int check_version(uint16_t protocol_version)
 
     enabled = true;
     REQUIRE(lxp_genesis_bootstrap_verify(
-        &manifest, &decoded_registration, 42U, false, &snapshot_manifest,
+        &manifest, startup_registration, 42U, false, &snapshot_manifest,
         &kernel, &arena, &enabled) != LXP_OK && !enabled);
     enabled = true;
     REQUIRE(lxp_genesis_bootstrap_verify(
-        &manifest, &decoded_registration, 43U, true, &snapshot_manifest,
+        &manifest, startup_registration, 43U, true, &snapshot_manifest,
         &kernel, &arena, &enabled) != LXP_OK && !enabled);
     changed_snapshot = snapshot_manifest;
     changed_snapshot.receipt_state_root[0] ^= 1U;
     enabled = true;
     REQUIRE(lxp_genesis_bootstrap_verify(
-        &manifest, &decoded_registration, 42U, true, &changed_snapshot,
+        &manifest, startup_registration, 42U, true, &changed_snapshot,
         &kernel, &arena, &enabled) != LXP_OK && !enabled);
     changed_snapshot = snapshot_manifest;
     changed_snapshot.canonical_state_root[0] ^= 1U;
     enabled = true;
     REQUIRE(lxp_genesis_bootstrap_verify(
-        &manifest, &decoded_registration, 42U, true, &changed_snapshot,
+        &manifest, startup_registration, 42U, true, &changed_snapshot,
         &kernel, &arena, &enabled) != LXP_OK && !enabled);
 
     changed = manifest;
@@ -325,9 +337,23 @@ static int check_version(uint16_t protocol_version)
     return 0;
 }
 
-int main(void)
+#include "lxp_test_harness.c"
+
+static int test_merged_genesis_initialization(void)
 {
-    REQUIRE(check_version(LXP_PROTOCOL_VERSION_OCCUPANCY) == 0);
-    REQUIRE(check_version(LXP_PROTOCOL_VERSION_STATE_COMMITMENT) == 0);
-    return 0;
+    return check_version(LXP_PROTOCOL_VERSION_STATE_COMMITMENT);
+}
+
+static int test_historical_genesis_compatibility(void)
+{
+    return check_version(LXP_PROTOCOL_VERSION_OCCUPANCY);
+}
+
+int main(int argc, char **argv)
+{
+    REQUIRE(lxp_test_register("genesis.merged-initialization",
+        test_merged_genesis_initialization) == 0);
+    REQUIRE(lxp_test_register("genesis.historical-compatibility",
+        test_historical_genesis_compatibility) == 0);
+    return lxp_test_main(argc, argv);
 }

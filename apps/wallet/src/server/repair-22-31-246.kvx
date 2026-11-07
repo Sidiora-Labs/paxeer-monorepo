@@ -1,0 +1,7 @@
+[repair.22.31.246]
+finding = "push-corruption-reset"
+proof = "repair-22-31-246.test.ts: push_corruption_reset_remains_unavailable_after_push_store_reopen, push_corruption_reset_recovers_only_an_explicitly_verified_backup, push_corruption_reset_rejects_invalid_or_missing_backups_across_reopen, push_corruption_reset_keeps_interrupted_recovery_unavailable, push_corruption_reset_marks_schema_and_size_corruption, push_corruption_reset_preserves_fresh_store_initialization"
+baseline = "Not run: the prescribed implementation-first gate order forbids an unchanged-tree verification; no pre-change failing test execution is claimed."
+recovery = "AtomicJsonStore.recoverFromBackup explicitly validates the bounded backup with the store parser, publishes it without replacing the backup, then removes the persistent corruption marker."
+wiring_requests = []
+evidence = "The runner's private hf-build/hf-done ledger records the exact candidate revision, commands, exits and log locations; qualification is claimed only on hf-done success."

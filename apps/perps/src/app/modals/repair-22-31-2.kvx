@@ -1,0 +1,18 @@
+[repair.22.31.2]
+finding = "collateral-account-binding"
+proof = "apps/perps/tests/repair-22-31-2.test.ts::collateralAccountBinding"
+behavior = "Collateral operations bind address, chain and connector before asynchronous reads; a changed session permanently cancels remaining writes; the modal retains the operation identity."
+baseline = "No baseline gate was run: the task's ordered gate instructions prohibit verification before implementation and prohibit invoking verify_cmd by hand. No pre-change failure is claimed."
+evidence = "The runner records the exact candidate revision, command, exit code and private log through hf-build and hf-done; this record makes no independent gate claim."
+wiring = "Domain 3: apps/perps/src/hooks/perps/useContract.ts and apps/perps/src/core/viem/clients.ts should expose the same expected-address/chain/session binding to other write consumers; those paths are outside this task's scope."
+proof_environment = "Requires anvil (ANVIL_BIN) and solcjs (SOLC_BIN); compiles the production SidioraERC20/ERC20Base source and executes real approval transactions on a disposable chain 125. No Paxeer precompile success or restart recovery is claimed by this interface-mismatch proof."
+gotcha = "The singleton RPC fallback retains ranking timers; isolate the proof in a worker process and terminate only after assertions and resource cleanup."
+import_setup = "Initialize the gateway and all Paxscan URLs to the disposable local origin before dynamically importing any application module, including the operation identity component."
+
+[qualification.observed]
+revision = "62681c3dce57c69629c1457b5dce7229142d74fb"
+command = "cg spec done 22.31.2 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "The proof stopped at import because NEXT_PUBLIC_PERPS_GATEWAY_URL was unset; initialize the required local origin before importing the account hook."
+assumption = "No behavior assertion was reached, so the finding remains unqualified until the repaired proof passes."

@@ -64,6 +64,18 @@ func quoteResult(t *testing.T, ctx sdk.Context, p *PrecompileExecutor, budget [7
 	values, err := programsABI.Methods["quoteCallFee"].Outputs.Unpack(encoded)
 	require.NoError(t, err)
 	require.Len(t, values, 3)
+	record, err := p.host.ReadFeeSchedule(ctx)
+	require.NoError(t, err)
+	schedule, err := decodeFeeScheduleRecord(record)
+	require.NoError(t, err)
+	view := programsABI.Methods["getCurrentFeeSchedule"]
+	viewBytes, err := p.Execute(ctx, &view, common.Address{}, common.Address{}, nil, nil, true, nil, nil)
+	require.NoError(t, err)
+	viewValues, err := view.Outputs.Unpack(viewBytes)
+	require.NoError(t, err)
+	require.Equal(t, schedule.Version, values[0])
+	require.Equal(t, schedule.Asset, values[2])
+	require.Equal(t, viewValues[2], values[2])
 	return values[0].(uint32), values[1].(*big.Int), values[2].([32]byte)
 }
 
@@ -88,10 +100,10 @@ func TestProgramsQuoteCallFeeMatchesKernelCeiling(t *testing.T) {
 		{"wide product", [7]uint64{math.MaxUint64}, "36893488147419103230"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			version, ceiling, digest := quoteResult(t, ctx, p, tc.budget)
+			version, ceiling, asset := quoteResult(t, ctx, p, tc.budget)
 			require.Equal(t, uint32(0x01020304), version)
 			require.Equal(t, tc.want, ceiling.String())
-			require.Equal(t, sha256.Sum256(record), digest)
+			require.Equal(t, [32]byte{0x55}, asset)
 			require.Equal(t, record, ctx.KVStore(key).Get(activeKey))
 		})
 	}
@@ -103,10 +115,10 @@ func TestProgramsQuoteCallFeeMatchesKernelCeiling(t *testing.T) {
 	}
 	updated := quoteFeeRecord(0x01020305, [7]uint64{19, 23, 29, 31, 37, 41, 43}, [32]byte{0x56})
 	ctx.KVStore(key).Set(activeKey, updated)
-	version, ceiling, digest := quoteResult(t, ctx, p, [7]uint64{1, 1, 1, 1, 1, 1, 1})
+	version, ceiling, asset := quoteResult(t, ctx, p, [7]uint64{1, 1, 1, 1, 1, 1, 1})
 	require.Equal(t, uint32(0x01020305), version)
 	require.Equal(t, "223", ceiling.String())
-	require.Equal(t, sha256.Sum256(updated), digest)
+	require.Equal(t, [32]byte{0x56}, asset)
 
 	maximum := [7]uint64{math.MaxUint64, math.MaxUint64, math.MaxUint64, math.MaxUint64, math.MaxUint64, math.MaxUint64, math.MaxUint64}
 	ctx.KVStore(key).Set(activeKey, quoteFeeRecord(1, maximum, [32]byte{1}))

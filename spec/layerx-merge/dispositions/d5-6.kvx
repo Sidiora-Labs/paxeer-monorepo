@@ -1,0 +1,5 @@
+[disposition.5.0.9.1]
+finding = "5.0.9.1"
+status = "resolved"
+evidence = "Commit 91bc8bac17473c8d7563797fafbe1600b3812251 landed the corrected 159-entry retired-surface inventory excluding both kept anchor-store interfaces, and node/sequencer/completion_gate_test.go:185 retains that inventory on the current integration base."
+follow_up = "closure"

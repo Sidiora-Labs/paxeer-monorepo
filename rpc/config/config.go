@@ -1,6 +1,7 @@
 package config
 
 import (
+	"errors"
 	"fmt"
 	"net"
 	"runtime"
@@ -10,6 +11,8 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/spf13/cast"
 )
+
+var ErrInvalidRPCStatsInterval = errors.New("evm.rpc_stats_interval must be at least 1ns so the metrics ticker interval is positive")
 
 const (
 	// BatchRequestLimit is the default maximum number of requests in an RPC batch.
@@ -44,10 +47,16 @@ const (
 	// goroutine creation on high-core machines. Tasks are primarily I/O bound
 	// (fetching and processing block logs), so 2x CPU cores can be excessive.
 	MaxWorkerPoolSize = 64
+
+	// MinFilterTimeout keeps the half-timeout cleanup ticker positive.
+	MinFilterTimeout = 2 * time.Nanosecond
 )
 
 // EVMRPC Config defines configurations for EVM RPC server on this node
 type Config struct {
+	// PxIndexerURL supplies /v1/assets enumeration; empty means unavailable.
+	PxIndexerURL string `mapstructure:"px_indexer_url"`
+
 	// Maximum number of requests in an RPC batch.
 	BatchRequestLimit int `mapstructure:"batch_request_limit"`
 
@@ -307,6 +316,11 @@ func duration(value interface{}) (time.Duration, error) {
 func ReadConfig(opts servertypes.AppOptions) (Config, error) {
 	cfg := DefaultConfig // copy
 	var err error
+	if v := opts.Get("evm.px_indexer_url"); v != nil {
+		if cfg.PxIndexerURL, err = cast.ToStringE(v); err != nil {
+			return cfg, fmt.Errorf("evm.px_indexer_url: %w", err)
+		}
+	}
 	if v := opts.Get(flagBatchRequestLimit); v != nil {
 		if cfg.BatchRequestLimit, err = cast.ToIntE(v); err != nil {
 			return cfg, fmt.Errorf("%s: %w", flagBatchRequestLimit, err)
@@ -393,8 +407,11 @@ func ReadConfig(opts servertypes.AppOptions) (Config, error) {
 	}
 	if v := opts.Get(flagFilterTimeout); v != nil {
 		if cfg.FilterTimeout, err = cast.ToDurationE(v); err != nil {
-			return cfg, err
+			return cfg, fmt.Errorf("%s: %w", flagFilterTimeout, err)
 		}
+	}
+	if cfg.FilterTimeout < MinFilterTimeout {
+		return cfg, fmt.Errorf("%s must be at least 2ns so the cleanup ticker interval is positive", flagFilterTimeout)
 	}
 	if v := opts.Get(flagMaxTxPoolTxs); v != nil {
 		if cfg.MaxTxPoolTxs, err = cast.ToUint64E(v); err != nil {
@@ -468,8 +485,11 @@ func ReadConfig(opts servertypes.AppOptions) (Config, error) {
 	}
 	if v := opts.Get(flagRPCStatsInterval); v != nil {
 		if cfg.RPCStatsInterval, err = cast.ToDurationE(v); err != nil {
-			return cfg, err
+			return cfg, fmt.Errorf("%s: %w", flagRPCStatsInterval, err)
 		}
+	}
+	if cfg.RPCStatsInterval < time.Nanosecond {
+		return cfg, ErrInvalidRPCStatsInterval
 	}
 	if v := opts.Get(flagWorkerPoolSize); v != nil {
 		if cfg.WorkerPoolSize, err = cast.ToIntE(v); err != nil {
@@ -555,6 +575,9 @@ http_enabled = {{ .EVM.HTTPEnabled }}
 http_port = {{ .EVM.HTTPPort }}
 http_address = "{{ .EVM.HTTPAddress }}"
 
+# Optional indexer for px_listAssets; metadata comes from this node.
+px_indexer_url = "{{ .EVM.PxIndexerURL }}"
+
 # controls whether a websocket server is enabled
 ws_enabled = {{ .EVM.WSEnabled }}
 ws_port = {{ .EVM.WSPort }}
@@ -599,7 +622,7 @@ cors_origins = "{{ .EVM.CORSOrigins }}"
 # list of WS origins, separated by comma
 ws_origins = "{{ .EVM.WSOrigins }}"
 
-# timeout for filters
+# Timeout for filters. Minimum: 2ns; cleanup runs every half-timeout.
 filter_timeout = "{{ .EVM.FilterTimeout }}"
 
 max_tx_pool_txs = {{ .EVM.MaxTxPoolTxs }}
@@ -696,6 +719,7 @@ trace_timeout = "{{ .EVM.TraceTimeout }}"
 # Enable the parallelized default debug_traceBlock* path.
 enable_parallelized_block_trace = {{ .EVM.EnableParallelizedBlockTrace }}
 
+# Interval for reporting RPC stats. Minimum: 1ns (must be positive).
 rpc_stats_interval = "{{ .EVM.RPCStatsInterval }}"
 
 # WorkerPoolSize defines the number of workers in the worker pool.

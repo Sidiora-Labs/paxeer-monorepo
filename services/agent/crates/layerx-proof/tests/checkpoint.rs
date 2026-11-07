@@ -1,596 +1,355 @@
-use std::fs;
-use std::path::{Path, PathBuf};
+//! Historical certificates are refused at the retained codec boundary.
+//! Recorded signatures and freshness cases remain checked as archival data.
 
+#[path = "support/historical_checkpoint.rs"]
+mod historical;
+
+use historical::{assert_refused, certificate_record, configuration, fresh, must, repository_root};
 use k256::ecdsa::{Signature, SigningKey};
 use layerx_crypto::secp256k1;
-use layerx_proof::checkpoint::{
-    checkpoint_id, verify_certificate, verify_declared_certificate, Attestation, Certificate,
-    Checkpoint, CheckpointError, GuarantorKey, SettlementDomain,
-};
-use layerx_proof::settlement::{
-    declared, declared_domain, maximum_attestation_delay_ms, DeclaredDomain,
-    DECLARED_CHECKPOINT_SETTLEMENT,
-};
+use layerx_proof::level::achieved_rung;
+use layerx_types::rung::Rung;
 use layerx_types::settlement::{
     DeclaredCheckpointSettlement, SettlementError, CHECKPOINT_SETTLEMENT_PATH,
-    CHECKPOINT_SETTLEMENT_SCHEMA,
 };
 use layerx_types::vectors::checkpoint::{
     load_checkpoint_vectors, CheckpointOutcome, CheckpointRejection, CheckpointVector,
     CHECKPOINT_VECTOR_CASES,
 };
-use layerx_types::verify::VerificationLevel;
-use layerx_wire::encode::Encoder;
-use layerx_wire::hash::checkpoint_attestation_digest;
-use layerx_wire::limits::PROTOCOL_VERSION;
+use layerx_wire::hash::{checkpoint_attestation_digest, checkpoint_id};
+use layerx_wire::receipt::{decode_batch_header, encode_batch_header};
 
-fn header_bytes() -> Vec<u8> {
-    let mut encoder = Encoder::new(354);
-    assert_eq!(
-        encoder.structure_header_version(0x1701, PROTOCOL_VERSION),
-        Ok(())
-    );
-    assert_eq!(encoder.u8(15), Ok(()));
-    for field in 1..=15 {
-        assert_eq!(encoder.tag(field, 15), Ok(()));
-        match field {
-            1 => assert_eq!(encoder.u16(PROTOCOL_VERSION), Ok(())),
-            2 => assert_eq!(encoder.u32(42), Ok(())),
-            3 => assert_eq!(encoder.u64(7), Ok(())),
-            4 => assert_eq!(encoder.u64(8), Ok(())),
-            5 => assert_eq!(encoder.u64(11), Ok(())),
-            6 => assert_eq!(encoder.u64(19), Ok(())),
-            7..=13 => assert_eq!(encoder.bytes(&[field; 32], 32), Ok(())),
-            14 => assert_eq!(encoder.u64(1_000), Ok(())),
-            15 => assert_eq!(encoder.bytes(&[15; 32], 32), Ok(())),
-            _ => panic!("unreachable header field"),
-        }
+fn assert_recorded_signatures(vector: &CheckpointVector) {
+    let configuration = configuration();
+    let domain = must(configuration.domain(&vector.settlement_domain));
+    for captured in &vector.attestations {
+        let key = domain
+            .guarantor_set()
+            .iter()
+            .find(|key| key.guarantor_id() == captured.guarantor_id)
+            .expect("recorded guarantor membership");
+        assert_eq!(
+            must(checkpoint_attestation_digest(&captured.message)),
+            captured.digest
+        );
+        assert_eq!(
+            must(secp256k1::evm_address(&key.public_key())),
+            captured.signer
+        );
+        assert_eq!(
+            &captured.message[..2],
+            &vector.header.protocol_version.to_be_bytes()
+        );
+        assert_eq!(
+            &captured.message[2..6],
+            &vector.header.network_id.to_be_bytes()
+        );
+        assert_eq!(
+            &captured.message[6..14],
+            &domain.paxeer_chain_id().to_be_bytes()
+        );
+        assert_eq!(&captured.message[14..34], &domain.settlement_contract());
+        assert_eq!(&captured.message[42..74], &vector.expected_digest);
+        assert_eq!(&captured.message[74..106], &vector.expected_digest);
+        assert_eq!(&captured.message[106..138], &captured.guarantor_id);
+        assert_eq!(
+            &captured.message[181..],
+            &captured.attested_at_ms.to_be_bytes()
+        );
+        must(secp256k1::verify_recoverable_digest(
+            &key.public_key(),
+            &captured.signature,
+            captured.signature_v,
+            &captured.digest,
+        ));
     }
-    encoder.finish()
-}
-
-fn key(value: u8) -> (SigningKey, [u8; 33], [u8; 32]) {
-    let mut scalar = [0_u8; 32];
-    scalar[31] = value;
-    let signing = SigningKey::from_bytes((&scalar).into())
-        .unwrap_or_else(|error| panic!("invalid signing key: {error}"));
-    let encoded = signing.verifying_key().to_encoded_point(true);
-    let public_key: [u8; 33] = encoded
-        .as_bytes()
-        .try_into()
-        .unwrap_or_else(|_| panic!("invalid compressed key width"));
-    let mut id = [0_u8; 32];
-    id[0] = value;
-    (signing, public_key, id)
-}
-
-fn repository_root() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../..")
-}
-
-fn attestation(
-    checkpoint_id: [u8; 32],
-    guarantor_id: [u8; 32],
-    signing_key: &SigningKey,
-) -> Attestation {
-    attestation_at(
-        checkpoint_id,
-        guarantor_id,
-        signing_key,
-        1_000 + u64::from(guarantor_id[0]),
-    )
-}
-
-fn attestation_at(
-    checkpoint_id: [u8; 32],
-    guarantor_id: [u8; 32],
-    signing_key: &SigningKey,
-    attested_at_ms: u64,
-) -> Attestation {
-    let settlement_contract = [0x55; 20];
-    let mut message = [0_u8; 189];
-    message[..2].copy_from_slice(&PROTOCOL_VERSION.to_be_bytes());
-    message[2..6].copy_from_slice(&42_u32.to_be_bytes());
-    message[6..14].copy_from_slice(&31_337_u64.to_be_bytes());
-    message[14..34].copy_from_slice(&settlement_contract);
-    message[34..42].copy_from_slice(&7_u64.to_be_bytes());
-    message[42..74].copy_from_slice(&checkpoint_id);
-    message[74..106].copy_from_slice(&checkpoint_id);
-    message[106..138].copy_from_slice(&guarantor_id);
-    message[138..146].copy_from_slice(&8_u64.to_be_bytes());
-    message[146..178].copy_from_slice(&[12; 32]);
-    message[178] = 1;
-    message[179] = 1;
-    message[180] = 0x1f;
-    message[181..].copy_from_slice(&attested_at_ms.to_be_bytes());
-    let digest = checkpoint_attestation_digest(&message)
-        .unwrap_or_else(|error| panic!("attestation hash failed: {error:?}"));
-    let (signature, recovery_id): (Signature, _) = signing_key
-        .sign_prehash_recoverable(&digest)
-        .unwrap_or_else(|error| panic!("attestation signing failed: {error}"));
-    let signer = secp256k1::evm_address(
-        signing_key
-            .verifying_key()
-            .to_encoded_point(true)
-            .as_bytes(),
-    )
-    .unwrap_or_else(|error| panic!("attestation signer: {error:?}"));
-    Attestation::new(
-        PROTOCOL_VERSION,
-        42,
-        31_337,
-        settlement_contract,
-        7,
-        checkpoint_id,
-        checkpoint_id,
-        guarantor_id,
-        8,
-        [12; 32],
-        true,
-        true,
-        0x1f,
-        attested_at_ms,
-        signer,
-        signature.to_bytes().into(),
-        27 + u8::from(recovery_id),
-    )
-}
-
-fn vector_certificate(vector: &CheckpointVector, domain: &DeclaredDomain) -> Certificate {
-    let attestations = vector
-        .attestations
-        .iter()
-        .map(|attestation| {
-            Attestation::new(
-                vector.header.protocol_version,
-                vector.header.network_id,
-                domain.settlement().paxeer_chain_id(),
-                domain.settlement().settlement_contract(),
-                vector.header.epoch,
-                vector.expected_digest,
-                vector.expected_digest,
-                attestation.guarantor_id,
-                vector.header.batch_number,
-                vector.header.data_availability_root,
-                attestation.replayed,
-                attestation.data_possessed,
-                attestation.availability_class_mask,
-                attestation.attested_at_ms,
-                attestation.signer,
-                attestation.signature,
-                attestation.signature_v,
-            )
-        })
-        .collect();
-    Certificate::new(
-        Checkpoint::new(vector.header.bytes.clone(), vector.validity_proof.clone()),
-        attestations,
-        vector.threshold,
-        None,
-    )
-}
-
-fn fixture_with_settlement(
-    settlement_reference: Option<Vec<u8>>,
-) -> (Certificate, Vec<GuarantorKey>, [u8; 32]) {
-    let checkpoint = Checkpoint::new(header_bytes(), b"PROOF".to_vec());
-    let identifier = checkpoint_id(&checkpoint)
-        .unwrap_or_else(|error| panic!("checkpoint hash failed: {error:?}"));
-    let mut attestations = Vec::new();
-    let mut keys = Vec::new();
-    for value in 1..=3 {
-        let (signing, public, id) = key(value);
-        attestations.push(attestation(identifier, id, &signing));
-        keys.push(GuarantorKey::new(id, public, true));
-    }
-    (
-        Certificate::new(checkpoint, attestations, 2, settlement_reference),
-        keys,
-        identifier,
-    )
-}
-
-fn fixture() -> (Certificate, Vec<GuarantorKey>, [u8; 32]) {
-    fixture_with_settlement(None)
-}
-
-fn settlement_domain() -> SettlementDomain {
-    SettlementDomain::new(31_337, [0x55; 20])
 }
 
 #[test]
 fn transported_registration_never_invents_paxeer_chain_finality() {
-    let (certificate, keys, identifier) = fixture();
-    let finalised = verify_certificate(&certificate, &keys, &identifier, settlement_domain(), None)
-        .unwrap_or_else(|error| panic!("finalised certificate failed: {error:?}"));
-    assert_eq!(finalised.achieved, 3);
-    assert_eq!(finalised.required, 2);
-    assert_eq!(finalised.protocol_version(), PROTOCOL_VERSION);
-    assert_eq!(finalised.network_id(), 42);
-    assert_eq!(finalised.batch_number(), 8);
-    assert_eq!(finalised.first_sequence(), 11);
-    assert_eq!(finalised.last_sequence(), 19);
-    assert_eq!(finalised.data_availability_root(), [12; 32]);
-    assert_eq!(finalised.record_roots().activity, [9; 32]);
-    assert_eq!(finalised.record_roots().receipt, [10; 32]);
-    assert_eq!(finalised.record_roots().event, [11; 32]);
-    assert_eq!(finalised.record_roots().oracle, [13; 32]);
-    assert_eq!(finalised.resulting_state_root(), [8; 32]);
-    assert_eq!(finalised.level(), VerificationLevel::CHECKPOINT_FINALISED);
-    assert_eq!(finalised.evidence().checkpoint_id(), Some(identifier));
-    assert_eq!(finalised.evidence().settlement_reference(), None);
-
-    let (anchored, anchored_keys, anchored_identifier) =
-        fixture_with_settlement(Some(b"paxeer-registered-1".to_vec()));
-    let registered_report = verify_certificate(
-        &anchored,
-        &anchored_keys,
-        &anchored_identifier,
-        settlement_domain(),
-        Some(b"paxeer-registered-1"),
-    )
-    .unwrap_or_else(|error| panic!("registered certificate failed: {error:?}"));
-    assert_eq!(registered_report.achieved, 3);
-    assert_eq!(registered_report.required, 2);
+    let vector = fresh();
+    let header = must(decode_batch_header(&vector.header.bytes));
+    assert_eq!(must(encode_batch_header(&header)), vector.header.bytes);
+    assert_eq!(header.protocol_version(), vector.header.protocol_version);
+    assert_eq!(header.network_id(), vector.header.network_id);
+    assert_eq!(header.batch_number(), vector.header.batch_number);
     assert_eq!(
-        registered_report.level(),
-        VerificationLevel::CHECKPOINT_FINALISED
-    );
-    assert_ne!(
-        registered_report.level(),
-        VerificationLevel::SETTLEMENT_ANCHORED
+        (header.first_sequence(), header.last_sequence()),
+        (vector.header.first_sequence, vector.header.last_sequence)
     );
     assert_eq!(
-        registered_report.evidence().settlement_reference(),
-        Some(b"paxeer-registered-1".as_slice())
+        header.resulting_state_root(),
+        vector.header.resulting_state_root
     );
     assert_eq!(
-        verify_certificate(
-            &anchored,
-            &anchored_keys,
-            &anchored_identifier,
-            settlement_domain(),
-            None,
-        ),
-        Err(CheckpointError::Settlement)
+        header.activity_merkle_root(),
+        vector.header.activity_merkle_root
     );
     assert_eq!(
-        verify_certificate(
-            &anchored,
-            &anchored_keys,
-            &anchored_identifier,
-            settlement_domain(),
-            Some(b"different-reference"),
-        ),
-        Err(CheckpointError::Settlement)
+        header.receipt_merkle_root(),
+        vector.header.receipt_merkle_root
     );
+    assert_eq!(header.event_merkle_root(), vector.header.event_merkle_root);
+    assert_eq!(
+        header.data_availability_root(),
+        vector.header.data_availability_root
+    );
+    assert_eq!(header.oracle_root(), vector.header.oracle_root);
+    assert_eq!(
+        must(checkpoint_id(&vector.header.bytes, &vector.validity_proof)),
+        vector.expected_digest
+    );
+    assert_eq!(vector.attestations.len(), 3);
+    assert_eq!(vector.threshold, 2);
+    assert_recorded_signatures(&vector);
+    for reference in [
+        None,
+        Some(b"paxeer-registered-1".as_slice()),
+        Some(b"different-reference".as_slice()),
+    ] {
+        assert_refused(
+            certificate_record(&vector, reference),
+            vector.expected_digest,
+        );
+    }
 }
 
 #[test]
 fn rejects_threshold_duplicate_membership_and_signature_failures() {
-    let (_, keys, identifier) = fixture();
-    let (signing, _, first_id) = key(1);
-    let duplicate = attestation(identifier, first_id, &signing);
-    let duplicate_certificate = Certificate::new(
-        Checkpoint::new(header_bytes(), b"PROOF".to_vec()),
-        vec![duplicate.clone(), duplicate],
-        2,
-        None,
-    );
+    let vector = fresh();
+    let mut duplicate = vector.clone();
+    duplicate.attestations = vec![vector.attestations[0].clone(); 2];
     assert_eq!(
-        verify_certificate(
-            &duplicate_certificate,
-            &keys,
-            &identifier,
-            settlement_domain(),
-            None
-        ),
-        Err(CheckpointError::DuplicateSigner(first_id))
+        duplicate.attestations[0].guarantor_id,
+        duplicate.attestations[1].guarantor_id
     );
-
-    let (outsider_signing, _, outsider_id) = key(9);
-    let outsider = Certificate::new(
-        Checkpoint::new(header_bytes(), b"PROOF".to_vec()),
-        vec![attestation(identifier, outsider_id, &outsider_signing)],
-        1,
-        None,
-    );
-    assert_eq!(
-        verify_certificate(&outsider, &keys, &identifier, settlement_domain(), None),
-        Err(CheckpointError::SignerMembership(outsider_id))
-    );
-
-    let one_signature = Certificate::new(
-        Checkpoint::new(header_bytes(), b"PROOF".to_vec()),
-        vec![attestation(identifier, first_id, &signing)],
-        2,
-        None,
-    );
-    assert_eq!(
-        verify_certificate(
-            &one_signature,
-            &keys,
-            &identifier,
-            settlement_domain(),
-            None
-        ),
-        Err(CheckpointError::Threshold {
-            achieved: 1,
-            required: 2,
-        })
-    );
-
-    let bad_signature = Certificate::new(
-        Checkpoint::new(header_bytes(), b"PROOF".to_vec()),
-        vec![Attestation::new(
-            PROTOCOL_VERSION,
-            42,
-            31_337,
-            [0x55; 20],
-            7,
-            identifier,
-            identifier,
-            first_id,
-            8,
-            [12; 32],
-            true,
-            true,
-            0x1f,
-            1_001,
-            [1; 20],
-            [1; 64],
-            27,
-        )],
-        1,
-        None,
-    );
-    assert_eq!(
-        verify_certificate(
-            &bad_signature,
-            &keys,
-            &identifier,
-            settlement_domain(),
-            None
-        ),
-        Err(CheckpointError::Signature(first_id))
-    );
+    let mut outsider = vector.clone();
+    outsider.attestations[0].guarantor_id = [0xff; 32];
+    outsider.attestations[0].message[106..138].fill(0xff);
+    let configuration = configuration();
+    let domain = must(configuration.domain(&vector.settlement_domain));
+    assert!(!domain
+        .guarantor_set()
+        .iter()
+        .any(|key| key.guarantor_id() == outsider.attestations[0].guarantor_id));
+    let mut insufficient = vector.clone();
+    insufficient.attestations.truncate(1);
+    assert!(insufficient.attestations.len() < insufficient.threshold);
+    let mut bad_signature = vector.clone();
+    bad_signature.attestations[0].signature = [1; 64];
+    let key = domain
+        .guarantor_set()
+        .iter()
+        .find(|key| key.guarantor_id() == vector.attestations[0].guarantor_id)
+        .expect("recorded member");
+    assert!(secp256k1::verify_recoverable_digest(
+        &key.public_key(),
+        &bad_signature.attestations[0].signature,
+        vector.attestations[0].signature_v,
+        &vector.attestations[0].digest
+    )
+    .is_err());
+    for candidate in [duplicate, outsider, insufficient, bad_signature] {
+        assert_refused(
+            certificate_record(&candidate, None),
+            candidate.expected_digest,
+        );
+    }
 }
 
 #[test]
 fn rejects_checkpoint_identifier_and_settlement_domain_failures() {
-    let (certificate, keys, identifier) = fixture();
-    assert_eq!(
-        verify_certificate(&certificate, &keys, &[99; 32], settlement_domain(), None),
-        Err(CheckpointError::CheckpointIdentifier)
+    let vector = fresh();
+    let mut wrong_id = vector.clone();
+    wrong_id.expected_digest = [99; 32];
+    assert_ne!(
+        must(checkpoint_id(
+            &wrong_id.header.bytes,
+            &wrong_id.validity_proof
+        )),
+        wrong_id.expected_digest
     );
-    assert_eq!(
-        verify_certificate(
-            &certificate,
-            &keys,
-            &identifier,
-            SettlementDomain::new(31_338, [0x55; 20]),
-            None,
-        ),
-        Err(CheckpointError::CheckpointFields)
+    assert_refused(
+        certificate_record(&wrong_id, None),
+        wrong_id.expected_digest,
     );
-    assert_eq!(
-        verify_certificate(
-            &certificate,
-            &keys,
-            &identifier,
-            SettlementDomain::new(31_337, [0x56; 20]),
-            None,
-        ),
-        Err(CheckpointError::CheckpointFields)
-    );
-    assert_eq!(
-        verify_certificate(
-            &certificate,
-            &keys,
-            &identifier,
-            SettlementDomain::new(0, [0; 20]),
-            None,
-        ),
-        Err(CheckpointError::Settlement)
-    );
+    for (chain, contract) in [(31_338_u64, [0x55; 20]), (31_337, [0x56; 20]), (0, [0; 20])] {
+        let mut candidate = vector.clone();
+        for item in &mut candidate.attestations {
+            item.message[6..14].copy_from_slice(&chain.to_be_bytes());
+            item.message[14..34].copy_from_slice(&contract);
+        }
+        assert_refused(
+            certificate_record(&candidate, None),
+            candidate.expected_digest,
+        );
+    }
 }
 
 #[test]
-fn embedded_settlement_is_the_declared_document() {
-    let on_disk = fs::read_to_string(repository_root().join(CHECKPOINT_SETTLEMENT_PATH))
-        .unwrap_or_else(|error| panic!("declared settlement unreadable: {error}"));
-    assert_eq!(on_disk, DECLARED_CHECKPOINT_SETTLEMENT);
-    let parsed = DeclaredCheckpointSettlement::parse(&on_disk).unwrap_or_else(|error| {
-        panic!("{CHECKPOINT_SETTLEMENT_PATH} must satisfy {CHECKPOINT_SETTLEMENT_SCHEMA}: {error}")
-    });
-    let embedded =
-        declared().unwrap_or_else(|error| panic!("embedded settlement invalid: {error}"));
-    assert_eq!(*embedded, parsed);
+fn embedded_settlement_is_deprecated_and_archival_input_is_explicit() {
+    let on_disk = must(std::fs::read_to_string(
+        repository_root().join(CHECKPOINT_SETTLEMENT_PATH),
+    ));
+    let parsed = must(DeclaredCheckpointSettlement::parse(&on_disk));
+    assert_eq!(configuration(), parsed);
     assert_eq!(
-        maximum_attestation_delay_ms(),
-        Ok(parsed.finality_policy().maximum_attestation_delay_seconds() * 1_000)
+        parsed.finality_policy().maximum_attestation_delay_ms(),
+        parsed.finality_policy().maximum_attestation_delay_seconds() * 1_000
     );
     assert_eq!(
-        declared_domain("undeclared").map(|domain| domain.name().to_owned()),
+        parsed
+            .domain("undeclared")
+            .map(|domain| domain.name().to_owned()),
         Err(SettlementError::UnknownDomain("undeclared".to_owned()))
     );
-    let vectors = declared_domain("vectors")
-        .unwrap_or_else(|error| panic!("vectors domain undeclared: {error}"));
+    let vectors = must(parsed.domain("vectors"));
     assert_eq!(vectors.network_id(), 42);
-    assert_eq!(vectors.settlement().paxeer_chain_id(), 31_337);
+    assert_eq!(vectors.paxeer_chain_id(), 31_337);
     assert_eq!(vectors.guarantor_set().len(), 3);
-    assert_eq!(
-        vectors.certificate_threshold(),
-        parsed.finality_policy().certificate_threshold()
+    assert_eq!(parsed.finality_policy().certificate_threshold(), 2);
+    historical::assert_deprecated(
+        include_str!("../src/settlement.rs"),
+        "pub const DECLARED_CHECKPOINT_SETTLEMENT:",
     );
+    let vector = fresh();
+    assert_refused(certificate_record(&vector, None), vector.expected_digest);
 }
 
 #[test]
 fn checkpoint_vectors_apply_the_declared_freshness_window() {
-    let vectors = load_checkpoint_vectors(&repository_root())
-        .unwrap_or_else(|error| panic!("checkpoint vectors failed to load: {error:?}"));
+    let vectors = must(load_checkpoint_vectors(&repository_root()));
     assert_eq!(vectors.len(), CHECKPOINT_VECTOR_CASES.len());
-    let maximum_delay_ms = maximum_attestation_delay_ms()
-        .unwrap_or_else(|error| panic!("declared delay unavailable: {error}"));
+    let maximum_delay_ms = configuration()
+        .finality_policy()
+        .maximum_attestation_delay_ms();
     for vector in &vectors {
-        let domain = declared_domain(&vector.settlement_domain)
-            .unwrap_or_else(|error| panic!("{}: domain undeclared: {error}", vector.case_name));
-        let certificate = vector_certificate(vector, &domain);
         assert_eq!(
-            checkpoint_id(certificate.checkpoint()),
-            Ok(vector.expected_digest),
-            "{}",
-            vector.case_name
+            must(checkpoint_id(&vector.header.bytes, &vector.validity_proof)),
+            vector.expected_digest
         );
-        let declared_result = verify_declared_certificate(
-            &certificate,
-            &vector.settlement_domain,
-            &vector.expected_digest,
-            None,
-        );
-        let generic_result = verify_certificate(
-            &certificate,
-            domain.guarantor_set(),
-            &vector.expected_digest,
-            domain.settlement(),
-            None,
-        );
-        assert_eq!(declared_result, generic_result, "{}", vector.case_name);
+        assert_recorded_signatures(vector);
         let first = &vector.attestations[0];
         match vector.outcome {
             CheckpointOutcome::Accept => {
-                let report = declared_result.unwrap_or_else(|error| {
-                    panic!("{}: expected accept, got {error:?}", vector.case_name)
-                });
-                assert_eq!(report.achieved, vector.attestations.len());
-                assert_eq!(report.required, vector.threshold);
-                assert_eq!(report.level(), VerificationLevel::CHECKPOINT_FINALISED);
-                assert_eq!(report.batch_number(), vector.header.batch_number);
-                assert_eq!(report.network_id(), vector.header.network_id);
-                assert_eq!(
-                    report.resulting_state_root(),
-                    vector.header.resulting_state_root
-                );
-                assert_eq!(
-                    report.evidence().checkpoint_id(),
-                    Some(vector.expected_digest)
-                );
+                assert!(vector.attestations.len() >= vector.threshold);
+                for attestation in &vector.attestations {
+                    assert!((vector.header.timestamp_ms
+                        ..=vector.header.timestamp_ms + maximum_delay_ms)
+                        .contains(&attestation.attested_at_ms));
+                }
             }
-            CheckpointOutcome::Reject(CheckpointRejection::NotYetValid) => assert_eq!(
-                declared_result,
-                Err(CheckpointError::AttestationNotYetValid {
-                    guarantor_id: first.guarantor_id,
-                    attested_at_ms: first.attested_at_ms,
-                    header_timestamp_ms: vector.header.timestamp_ms,
-                }),
-                "{}",
-                vector.case_name
-            ),
-            CheckpointOutcome::Reject(CheckpointRejection::Expired) => assert_eq!(
-                declared_result,
-                Err(CheckpointError::AttestationExpired {
-                    guarantor_id: first.guarantor_id,
-                    attested_at_ms: first.attested_at_ms,
-                    deadline_ms: vector.header.timestamp_ms + maximum_delay_ms,
-                }),
-                "{}",
-                vector.case_name
-            ),
+            CheckpointOutcome::Reject(CheckpointRejection::NotYetValid) => {
+                assert!(first.attested_at_ms < vector.header.timestamp_ms);
+            }
+            CheckpointOutcome::Reject(CheckpointRejection::Expired) => {
+                assert!(first.attested_at_ms > vector.header.timestamp_ms + maximum_delay_ms);
+            }
         }
+        assert_refused(certificate_record(vector, None), vector.expected_digest);
     }
 }
 
 #[test]
 fn freshness_window_is_header_relative_and_closed_on_both_ends() {
-    let maximum_delay_ms = maximum_attestation_delay_ms()
-        .unwrap_or_else(|error| panic!("declared delay unavailable: {error}"));
-    let checkpoint = Checkpoint::new(header_bytes(), b"PROOF".to_vec());
-    let identifier = checkpoint_id(&checkpoint)
-        .unwrap_or_else(|error| panic!("checkpoint hash failed: {error:?}"));
-    let mut keys = Vec::new();
-    for value in 1..=3 {
-        let (_, public, id) = key(value);
-        keys.push(GuarantorKey::new(id, public, true));
+    let vector = fresh();
+    let maximum_delay_ms = configuration()
+        .finality_policy()
+        .maximum_attestation_delay_ms();
+    let start = vector.header.timestamp_ms;
+    let mut scalar = [0; 32];
+    scalar[31] = 1;
+    let signing = must(SigningKey::from_bytes((&scalar).into()));
+    let public = signing.verifying_key().to_encoded_point(true);
+    for time in [
+        start - 1,
+        start,
+        start + maximum_delay_ms,
+        start + maximum_delay_ms + 1,
+    ] {
+        let mut candidate = vector.clone();
+        candidate.threshold = 1;
+        candidate.attestations.truncate(1);
+        let attestation = &mut candidate.attestations[0];
+        attestation.attested_at_ms = time;
+        attestation.message[181..].copy_from_slice(&time.to_be_bytes());
+        attestation.digest = must(checkpoint_attestation_digest(&attestation.message));
+        let (signature, recovery): (Signature, _) =
+            must(signing.sign_prehash_recoverable(&attestation.digest));
+        attestation.signature = signature.to_bytes().into();
+        attestation.signature_v = 27 + u8::from(recovery);
+        attestation.signer = must(secp256k1::evm_address(public.as_bytes()));
+        assert_eq!(attestation.attested_at_ms, time);
+        must(secp256k1::verify_recoverable_digest(
+            public.as_bytes(),
+            &attestation.signature,
+            attestation.signature_v,
+            &attestation.digest,
+        ));
+        assert_refused(
+            certificate_record(&candidate, None),
+            candidate.expected_digest,
+        );
     }
-    let (signing, _, first_id) = key(1);
-    let certificate_at = |attested_at_ms: u64| {
-        Certificate::new(
-            checkpoint.clone(),
-            vec![attestation_at(
-                identifier,
-                first_id,
-                &signing,
-                attested_at_ms,
-            )],
-            1,
-            None,
-        )
-    };
-    for attested_at_ms in [1_000, 1_000 + maximum_delay_ms] {
-        let report = verify_certificate(
-            &certificate_at(attested_at_ms),
-            &keys,
-            &identifier,
-            settlement_domain(),
-            None,
-        )
-        .unwrap_or_else(|error| panic!("boundary {attested_at_ms} rejected: {error:?}"));
-        assert_eq!(report.achieved, 1);
-    }
-    assert_eq!(
-        verify_certificate(
-            &certificate_at(999),
-            &keys,
-            &identifier,
-            settlement_domain(),
-            None
-        ),
-        Err(CheckpointError::AttestationNotYetValid {
-            guarantor_id: first_id,
-            attested_at_ms: 999,
-            header_timestamp_ms: 1_000,
-        })
-    );
-    assert_eq!(
-        verify_certificate(
-            &certificate_at(1_001 + maximum_delay_ms),
-            &keys,
-            &identifier,
-            settlement_domain(),
-            None
-        ),
-        Err(CheckpointError::AttestationExpired {
-            guarantor_id: first_id,
-            attested_at_ms: 1_001 + maximum_delay_ms,
-            deadline_ms: 1_000 + maximum_delay_ms,
-        })
-    );
 }
 
 #[test]
 fn declared_domain_verification_rejects_foreign_contracts_and_weak_thresholds() {
-    let (certificate, _, identifier) = fixture();
-    assert_eq!(
-        verify_declared_certificate(&certificate, "vectors", &identifier, None),
-        Err(CheckpointError::CheckpointFields)
+    let vector = fresh();
+    for contract in [[0x55; 20], [0xff; 20]] {
+        for threshold in [0, 1, 2, 4] {
+            let mut candidate = vector.clone();
+            candidate.threshold = threshold;
+            for item in &mut candidate.attestations {
+                item.message[14..34].copy_from_slice(&contract);
+            }
+            assert_eq!(candidate.threshold, threshold);
+            assert_refused(
+                certificate_record(&candidate, None),
+                candidate.expected_digest,
+            );
+        }
+    }
+}
+
+#[test]
+fn retained_receipt_inclusion_achieves_receipted_without_committed_authority() {
+    use layerx_proof::inclusion::{verify_receipt, SequencerAuthorization};
+    use layerx_proof::merkle::Proof;
+    use layerx_wire::receipt::{decode_batch_header, decode_merkle_proof};
+    let receipt =
+        include_bytes!("../../../../../tests/fixtures/asset/bound-native-withdrawal/receipt");
+    let header =
+        include_bytes!("../../../../../tests/fixtures/asset/bound-native-withdrawal/header");
+    let signature = include_bytes!(
+        "../../../../../tests/fixtures/asset/bound-native-withdrawal/header.signature"
     );
-    let weak = Certificate::new(
-        certificate.checkpoint().clone(),
-        certificate.attestations().to_vec(),
-        1,
-        None,
+    let key = *include_bytes!(
+        "../../../../../tests/fixtures/asset/bound-native-withdrawal/sequencer.public"
     );
-    assert_eq!(
-        verify_declared_certificate(&weak, "vectors", &identifier, None),
-        Err(CheckpointError::Threshold {
-            achieved: 1,
-            required: 2,
-        })
+    let header_fields = decode_batch_header(header).unwrap_or_else(|error| panic!("{error:?}"));
+    let captured = decode_merkle_proof(include_bytes!(
+        "../../../../../tests/fixtures/asset/bound-native-withdrawal/receipt.proof"
+    ))
+    .unwrap_or_else(|error| panic!("{error:?}"));
+    let proof = Proof::new(
+        captured.leaf_index(),
+        captured.leaf_count(),
+        captured.siblings().to_vec(),
+    )
+    .unwrap_or_else(|error| panic!("{error:?}"));
+    let authorization = SequencerAuthorization::new(
+        header_fields.sequencer_id(),
+        key,
+        header_fields.batch_number(),
+        header_fields.batch_number(),
     );
+    let verified = verify_receipt(receipt, &proof, header, signature, &authorization)
+        .unwrap_or_else(|error| panic!("retained receipt proof: {error:?}"));
+    assert_eq!(achieved_rung(verified.evidence()), Rung::Receipted);
+    assert_ne!(achieved_rung(verified.evidence()), Rung::Committed);
     assert_eq!(
-        verify_declared_certificate(&certificate, "undeclared", &identifier, None),
-        Err(CheckpointError::Configuration(
-            SettlementError::UnknownDomain("undeclared".to_owned())
-        ))
+        verified.evidence().proof_root(),
+        Some(header_fields.receipt_merkle_root())
     );
 }

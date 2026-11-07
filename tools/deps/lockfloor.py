@@ -277,19 +277,34 @@ def lockfloor(floors_file):
     for manifest_name, floors in data["manifests"].items():
         if not isinstance(floors, dict):
             raise ValueError(f"{manifest_name}: floors must be an object")
+        parsed_floors = {}
         for package, floor in floors.items():
-            if not package or not isinstance(floor, str):
+            minimum = floor.get("minimum") if isinstance(floor, dict) else floor
+            applies_from = floor.get("applies_from") if isinstance(floor, dict) else None
+            if (
+                not package
+                or not isinstance(minimum, str)
+                or (isinstance(floor, dict) and not isinstance(applies_from, str))
+            ):
                 raise ValueError(f"{manifest_name}: package floors must be version strings")
-            _version_parts(floor)
+            _version_parts(minimum)
+            if applies_from is not None:
+                _version_parts(applies_from)
+            parsed_floors[package] = (minimum, applies_from)
         try:
             path = _lock_path(Path(manifest_name).resolve())
             versions = READERS[path.name](path, set(floors))
-            for package, floor in floors.items():
+            for package, (floor, applies_from) in parsed_floors.items():
                 resolved = versions.get(package, [])
                 if not resolved:
                     print(f"{manifest_name}\t{package}\t<unresolved>\t{floor}")
                     failed = True
                 for version in resolved:
+                    if (
+                        applies_from is not None
+                        and compare_versions(version, applies_from) < 0
+                    ):
+                        continue
                     if compare_versions(version, floor) < 0:
                         print(f"{manifest_name}\t{package}\t{version}\t{floor}")
                         failed = True

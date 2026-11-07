@@ -1,3 +1,9 @@
+#[path = "support/repair_22_33_44_kms.rs"]
+mod in_process_gateway;
+
+#[path = "support/repair_22_33_44_clock.rs"]
+mod runtime_clock;
+
 use std::error::Error;
 use std::fs;
 use std::net::{SocketAddr, TcpListener, TcpStream};
@@ -43,7 +49,7 @@ impl Drop for Process {
     }
 }
 
-struct Fixture(PathBuf, Arc<StepClock>);
+struct Fixture(PathBuf, Arc<StepClock>, runtime_clock::ClockAuthority);
 
 impl Drop for Fixture {
     fn drop(&mut self) {
@@ -62,7 +68,8 @@ impl Fixture {
         ));
         fs::create_dir(&root)?;
         fs::set_permissions(&root, fs::Permissions::from_mode(0o700))?;
-        let fixture = Self(root, Arc::new(StepClock::new(1_700_000_000_000)));
+        let authority = runtime_clock::ClockAuthority::start(&root)?;
+        let fixture = Self(root, Arc::new(StepClock::new(1_700_000_000_000)), authority);
         fixture.openssl(&[
             "req",
             "-x509",
@@ -174,6 +181,7 @@ impl Fixture {
     fn gateway(&self, address: SocketAddr, backend: SocketAddr) -> TestResult<Process> {
         let mut command = Command::new(env!("CARGO_BIN_EXE_layerx-human-kms-gateway"));
         command.env_clear();
+        self.2.bind_command(&mut command);
         for (suffix, value) in [
             ("PROVIDER_KIND", "remote-lxkp".to_owned()),
             ("LISTEN", address.to_string()),
@@ -245,6 +253,7 @@ impl Fixture {
         ] {
             command.env(format!("LAYERX_HUMAN_KMS_{suffix}"), self.0.join(file));
         }
+        self.2.bind_command(&mut command);
         self.spawn(command, "backend.log")
     }
 
@@ -344,7 +353,7 @@ fn kms_gateway_refuses_a_registry_document_with_modules() -> TestResult {
 #[test]
 fn kms_gateway_starts_with_a_chain_snapshot_document() -> TestResult {
     if std::env::var_os(BACKEND_PROCESS).is_some() {
-        let clock: Arc<dyn Clock> = Arc::new(StepClock::new(1_700_000_000_000));
+        let clock: Arc<dyn Clock> = layerx_client::runtime_clock::RuntimeClock::from_environment()?;
         return layerx_human_kms::run_from_environment(&clock).map_err(Into::into);
     }
     let fixture = Fixture::new()?;

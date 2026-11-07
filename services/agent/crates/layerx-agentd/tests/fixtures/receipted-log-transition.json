@@ -1,0 +1,175 @@
+{
+  "producer": "rpc/filter.go:FilterLog.MarshalJSON via receipt-feed eth_getFilterChanges and committed eth_getLogs",
+  "transactions": [
+    "0x1161ab8fb747073ba98a0f2094d909f135808534488a37bf977744b12c862851",
+    "0x7f4fca05db9959e4a4679c78266edb9c9f95d978c2d618e80d39785a06910a07"
+  ],
+  "receipted": [
+    {
+      "address": "0xdc86c0ed425d96cf91f0a86e022c81448785efdf",
+      "blockHash": null,
+      "blockNumber": "0x212263e",
+      "data": "0x01",
+      "logIndex": "0x0",
+      "removed": false,
+      "seq": "0xf1",
+      "topics": [],
+      "transactionHash": "0x1161ab8fb747073ba98a0f2094d909f135808534488a37bf977744b12c862851",
+      "transactionIndex": "0x1"
+    },
+    {
+      "address": "0xdc86c0ed425d96cf91f0a86e022c81448785efdf",
+      "blockHash": null,
+      "blockNumber": "0x212263e",
+      "data": "0x02",
+      "logIndex": "0x1",
+      "removed": false,
+      "seq": "0xf1",
+      "topics": [],
+      "transactionHash": "0x1161ab8fb747073ba98a0f2094d909f135808534488a37bf977744b12c862851",
+      "transactionIndex": "0x1"
+    },
+    {
+      "address": "0xdc86c0ed425d96cf91f0a86e022c81448785efdf",
+      "blockHash": null,
+      "blockNumber": "0x212263e",
+      "data": "0x01",
+      "logIndex": "0x2",
+      "removed": false,
+      "seq": "0xf2",
+      "topics": [],
+      "transactionHash": "0x7f4fca05db9959e4a4679c78266edb9c9f95d978c2d618e80d39785a06910a07",
+      "transactionIndex": "0x2"
+    },
+    {
+      "address": "0xdc86c0ed425d96cf91f0a86e022c81448785efdf",
+      "blockHash": null,
+      "blockNumber": "0x212263e",
+      "data": "0x02",
+      "logIndex": "0x3",
+      "removed": false,
+      "seq": "0xf2",
+      "topics": [],
+      "transactionHash": "0x7f4fca05db9959e4a4679c78266edb9c9f95d978c2d618e80d39785a06910a07",
+      "transactionIndex": "0x2"
+    }
+  ],
+  "committed": [
+    {
+      "address": "0xdc86c0ed425d96cf91f0a86e022c81448785efdf",
+      "topics": [],
+      "data": "0x01",
+      "blockNumber": "0x212263e",
+      "transactionHash": "0x1161ab8fb747073ba98a0f2094d909f135808534488a37bf977744b12c862851",
+      "transactionIndex": "0x0",
+      "blockHash": "0xb729e82c05a1e88fe3edfa2b57c4cf50253decbdcec02a297ec669b7d06dc33c",
+      "logIndex": "0x0",
+      "removed": false
+    },
+    {
+      "address": "0xdc86c0ed425d96cf91f0a86e022c81448785efdf",
+      "topics": [],
+      "data": "0x02",
+      "blockNumber": "0x212263e",
+      "transactionHash": "0x1161ab8fb747073ba98a0f2094d909f135808534488a37bf977744b12c862851",
+      "transactionIndex": "0x0",
+      "blockHash": "0xb729e82c05a1e88fe3edfa2b57c4cf50253decbdcec02a297ec669b7d06dc33c",
+      "logIndex": "0x1",
+      "removed": false
+    },
+    {
+      "address": "0xdc86c0ed425d96cf91f0a86e022c81448785efdf",
+      "topics": [],
+      "data": "0x01",
+      "blockNumber": "0x212263e",
+      "transactionHash": "0x7f4fca05db9959e4a4679c78266edb9c9f95d978c2d618e80d39785a06910a07",
+      "transactionIndex": "0x1",
+      "blockHash": "0xb729e82c05a1e88fe3edfa2b57c4cf50253decbdcec02a297ec669b7d06dc33c",
+      "logIndex": "0x2",
+      "removed": false
+    },
+    {
+      "address": "0xdc86c0ed425d96cf91f0a86e022c81448785efdf",
+      "topics": [],
+      "data": "0x02",
+      "blockNumber": "0x212263e",
+      "transactionHash": "0x7f4fca05db9959e4a4679c78266edb9c9f95d978c2d618e80d39785a06910a07",
+      "transactionIndex": "0x1",
+      "blockHash": "0xb729e82c05a1e88fe3edfa2b57c4cf50253decbdcec02a297ec669b7d06dc33c",
+      "logIndex": "0x3",
+      "removed": false
+    }
+  ],
+  "checkpoints": [
+    {
+      "height": 34743870,
+      "signed_header": {
+        "header": {
+          "version": {
+            "block": "11",
+            "app": "0"
+          },
+          "chain_id": "hyperpax_125-1",
+          "height": "34743870",
+          "time": "2026-11-03T07:59:35.876Z",
+          "last_block_id": {
+            "hash": "2A8D60E9C2758C326BA5F17FCAE7F0760DF3A613B0C4A7FAE0EFD6E5DF3C96B6",
+            "parts": {
+              "total": 1,
+              "hash": "F62CB86298FD4EE6FC2DBFBDB6CB4256137F43218DB43650CCEDA2D096B6B9C7"
+            }
+          },
+          "last_commit_hash": "02C9B1D61BFD76C6F2D29B76A7AAC1487F095ECD266A994E79AAEF4A7438FD84",
+          "data_hash": "C9C33C434C4CDD0547C25BB8960CC11F18ED37D995042DC7380E8F49C5F2E140",
+          "validators_hash": "D0DFA9F218AB3FB89387810B6F525A79D3182AF26248DD0DD79807FD5A358A99",
+          "next_validators_hash": "D0DFA9F218AB3FB89387810B6F525A79D3182AF26248DD0DD79807FD5A358A99",
+          "consensus_hash": "1E443E406B4190D5D3146B634FF09BE5E82A7E14E0D8B80211A3B46EDCBD0403",
+          "app_hash": "72D244170777655629FE26741FD0E4B2E9C00792FADC651486B3DA0C59F1C111",
+          "last_results_hash": "3F369DE81BC6CD803D5A964FD1F5D853CC18EFB36C40FB4DE4C54D9E0C1EC96D",
+          "evidence_hash": "E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855",
+          "proposer_address": "1721A5349514C7780C579B7E985A1505CDA76591"
+        },
+        "commit": {
+          "height": "34743870",
+          "round": 0,
+          "block_id": {
+            "hash": "B729E82C05A1E88FE3EDFA2B57C4CF50253DECBDCEC02A297EC669B7D06DC33C",
+            "parts": {
+              "total": 1,
+              "hash": "F1206ABB043E9BFC1ED57A850985696D885B7C8C4A9E1262B2339D7C48CB36C7"
+            }
+          },
+          "signatures": [
+            {
+              "block_id_flag": 2,
+              "validator_address": "1721A5349514C7780C579B7E985A1505CDA76591",
+              "timestamp": "2026-11-03T07:59:35.93560506Z",
+              "signature": "Xu5hziKIZ58CUi4Kpyc6gl8Oa9868OzHZgnT1je604V1DkWzhU4gCkik4PWDq4y3iSwgocZ0em4LQbUc7cdrDg=="
+            }
+          ]
+        }
+      },
+      "validators": [
+        {
+          "address": "1721A5349514C7780C579B7E985A1505CDA76591",
+          "pub_key": {
+            "type": "tendermint/PubKeyEd25519",
+            "value": "4BXuxY1yx8NDUggxz/YULsxXhzbY8HVNFE8uU7al50w="
+          },
+          "voting_power": "3000",
+          "proposer_priority": "0"
+        }
+      ],
+      "timestamps": {
+        "2026-11-03T07:59:35.876Z": {
+          "seconds": 1793692775,
+          "nanos": 876000000
+        },
+        "2026-11-03T07:59:35.93560506Z": {
+          "seconds": 1793692775,
+          "nanos": 935605060
+        }
+      }
+    }
+  ]
+}

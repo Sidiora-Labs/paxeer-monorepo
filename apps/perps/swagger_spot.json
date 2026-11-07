@@ -155,10 +155,8 @@
                                                                 {
                                                                     "type": "string",
                                                                     "format": "date-time",
-                                                                    "description": "ISO-8601 timestamp."
-                                                                },
-                                                                {
-                                                                    "type": "null"
+                                                                    "description": "ISO-8601 timestamp.",
+                                                                    "nullable": true
                                                                 }
                                                             ]
                                                         },
@@ -167,10 +165,8 @@
                                                                 {
                                                                     "type": "string",
                                                                     "format": "date-time",
-                                                                    "description": "ISO-8601 timestamp."
-                                                                },
-                                                                {
-                                                                    "type": "null"
+                                                                    "description": "ISO-8601 timestamp.",
+                                                                    "nullable": true
                                                                 }
                                                             ]
                                                         },
@@ -187,10 +183,8 @@
                                                             "type": "integer",
                                                             "minimum": 0
                                                         }
-                                                    }
-                                                },
-                                                {
-                                                    "type": "null"
+                                                    },
+                                                    "nullable": true
                                                 }
                                             ]
                                         },
@@ -226,10 +220,8 @@
                                                         {
                                                             "type": "string",
                                                             "format": "date-time",
-                                                            "description": "ISO-8601 timestamp."
-                                                        },
-                                                        {
-                                                            "type": "null"
+                                                            "description": "ISO-8601 timestamp.",
+                                                            "nullable": true
                                                         }
                                                     ]
                                                 },
@@ -238,10 +230,8 @@
                                                         {
                                                             "type": "string",
                                                             "format": "date-time",
-                                                            "description": "ISO-8601 timestamp."
-                                                        },
-                                                        {
-                                                            "type": "null"
+                                                            "description": "ISO-8601 timestamp.",
+                                                            "nullable": true
                                                         }
                                                     ]
                                                 },
@@ -320,10 +310,8 @@
                                                             "type": "integer",
                                                             "minimum": 0
                                                         }
-                                                    }
-                                                },
-                                                {
-                                                    "type": "null"
+                                                    },
+                                                    "nullable": true
                                                 }
                                             ]
                                         }
@@ -463,46 +451,36 @@
                                                             {
                                                                 "type": "string",
                                                                 "description": "Signed decimal string. Used for token raw amounts and full-precision USD values.",
-                                                                "pattern": "^-?\\d+(\\.\\d+)?$"
-                                                            },
-                                                            {
-                                                                "type": "null"
+                                                                "pattern": "^-?\\d+(\\.\\d+)?$",
+                                                                "nullable": true
                                                             }
                                                         ],
                                                         "description": "Block at which PAXSCAN reported the balance."
                                                     },
                                                     "symbol": {
-                                                        "type": [
-                                                            "null",
-                                                            "string"
-                                                        ]
+                                                        "type": "string",
+                                                        "nullable": true
                                                     },
                                                     "name": {
-                                                        "type": [
-                                                            "null",
-                                                            "string"
-                                                        ]
+                                                        "type": "string",
+                                                        "nullable": true
                                                     },
                                                     "decimals": {
                                                         "oneOf": [
                                                             {
                                                                 "type": "integer",
                                                                 "minimum": 0,
-                                                                "maximum": 36
+                                                                "maximum": 36,
+                                                                "nullable": true
                                                             },
                                                             {
                                                                 "type": "string"
-                                                            },
-                                                            {
-                                                                "type": "null"
                                                             }
                                                         ]
                                                     },
                                                     "holderCount": {
-                                                        "type": [
-                                                            "null",
-                                                            "integer"
-                                                        ]
+                                                        "type": "integer",
+                                                        "nullable": true
                                                     },
                                                     "type": {
                                                         "type": "string",
@@ -629,24 +607,18 @@
                                                         "example": "0xf263ab36de550bda08b52d43eb253b3c0387e2bc"
                                                     },
                                                     "symbol": {
-                                                        "type": [
-                                                            "null",
-                                                            "string"
-                                                        ]
+                                                        "type": "string",
+                                                        "nullable": true
                                                     },
                                                     "name": {
-                                                        "type": [
-                                                            "null",
-                                                            "string"
-                                                        ]
+                                                        "type": "string",
+                                                        "nullable": true
                                                     },
                                                     "decimals": {
-                                                        "type": [
-                                                            "null",
-                                                            "integer"
-                                                        ],
+                                                        "type": "integer",
                                                         "minimum": 0,
-                                                        "maximum": 36
+                                                        "maximum": 36,
+                                                        "nullable": true
                                                     },
                                                     "isStablecoin": {
                                                         "type": "boolean"
@@ -683,10 +655,8 @@
                                                                     {
                                                                         "type": "string",
                                                                         "description": "Signed decimal string. Used for token raw amounts and full-precision USD values.",
-                                                                        "pattern": "^-?\\d+(\\.\\d+)?$"
-                                                                    },
-                                                                    {
-                                                                        "type": "null"
+                                                                        "pattern": "^-?\\d+(\\.\\d+)?$",
+                                                                        "nullable": true
                                                                     }
                                                                 ]
                                                             },
@@ -729,10 +699,8 @@
                                                                     {
                                                                         "type": "string",
                                                                         "format": "date-time",
-                                                                        "description": "ISO-8601 timestamp."
-                                                                    },
-                                                                    {
-                                                                        "type": "null"
+                                                                        "description": "ISO-8601 timestamp.",
+                                                                        "nullable": true
                                                                     }
                                                                 ]
                                                             },
@@ -741,10 +709,8 @@
                                                                     {
                                                                         "type": "string",
                                                                         "format": "date-time",
-                                                                        "description": "ISO-8601 timestamp."
-                                                                    },
-                                                                    {
-                                                                        "type": "null"
+                                                                        "description": "ISO-8601 timestamp.",
+                                                                        "nullable": true
                                                                     }
                                                                 ]
                                                             }
@@ -900,12 +866,10 @@
                                                     "minimum": 0
                                                 },
                                                 "winRatePct": {
-                                                    "type": [
-                                                        "null",
-                                                        "number"
-                                                    ],
+                                                    "type": "number",
                                                     "minimum": 0,
-                                                    "maximum": 100
+                                                    "maximum": 100,
+                                                    "nullable": true
                                                 }
                                             }
                                         },
@@ -933,9 +897,7 @@
                                                             "type": "string",
                                                             "description": "EVM address. Always returned lower-cased (40 hex chars after the 0x prefix).",
                                                             "pattern": "^0x[a-f0-9]{40}$",
-                                                            "examples": [
-                                                                "0xf263ab36de550bda08b52d43eb253b3c0387e2bc"
-                                                            ]
+                                                            "example": "0xf263ab36de550bda08b52d43eb253b3c0387e2bc"
                                                         },
                                                         "snapshotAt": {
                                                             "type": "string",
@@ -976,10 +938,8 @@
                                                             "pattern": "^-?\\d+(\\.\\d+)?$"
                                                         }
                                                     },
-                                                    "additionalProperties": true
-                                                },
-                                                {
-                                                    "type": "null"
+                                                    "additionalProperties": true,
+                                                    "nullable": true
                                                 }
                                             ]
                                         },
@@ -1185,9 +1145,7 @@
                                                             "type": "string",
                                                             "description": "EVM address. Always returned lower-cased (40 hex chars after the 0x prefix).",
                                                             "pattern": "^0x[a-f0-9]{40}$",
-                                                            "examples": [
-                                                                "0xf263ab36de550bda08b52d43eb253b3c0387e2bc"
-                                                            ]
+                                                            "example": "0xf263ab36de550bda08b52d43eb253b3c0387e2bc"
                                                         },
                                                         "snapshotAt": {
                                                             "type": "string",
@@ -1228,10 +1186,8 @@
                                                             "pattern": "^-?\\d+(\\.\\d+)?$"
                                                         }
                                                     },
-                                                    "additionalProperties": true
-                                                },
-                                                {
-                                                    "type": "null"
+                                                    "additionalProperties": true,
+                                                    "nullable": true
                                                 }
                                             ]
                                         },
@@ -1441,40 +1397,32 @@
                                                         "pattern": "^-?\\d+(\\.\\d+)?$"
                                                     },
                                                     "feeBps": {
-                                                        "type": [
-                                                            "null",
-                                                            "integer"
-                                                        ],
+                                                        "type": "integer",
                                                         "minimum": 0,
-                                                        "maximum": 100000
+                                                        "maximum": 100000,
+                                                        "nullable": true
                                                     },
                                                     "feeAmount": {
                                                         "oneOf": [
                                                             {
                                                                 "type": "string",
                                                                 "description": "Signed decimal string. Used for token raw amounts and full-precision USD values.",
-                                                                "pattern": "^-?\\d+(\\.\\d+)?$"
-                                                            },
-                                                            {
-                                                                "type": "null"
+                                                                "pattern": "^-?\\d+(\\.\\d+)?$",
+                                                                "nullable": true
                                                             }
                                                         ]
                                                     },
                                                     "priceImpactBps": {
-                                                        "type": [
-                                                            "null",
-                                                            "integer"
-                                                        ]
+                                                        "type": "integer",
+                                                        "nullable": true
                                                     },
                                                     "priceImpactAmount": {
                                                         "oneOf": [
                                                             {
                                                                 "type": "string",
                                                                 "description": "Signed decimal string. Used for token raw amounts and full-precision USD values.",
-                                                                "pattern": "^-?\\d+(\\.\\d+)?$"
-                                                            },
-                                                            {
-                                                                "type": "null"
+                                                                "pattern": "^-?\\d+(\\.\\d+)?$",
+                                                                "nullable": true
                                                             }
                                                         ]
                                                     },
@@ -1483,24 +1431,18 @@
                                                             {
                                                                 "type": "string",
                                                                 "description": "Signed decimal string. Used for token raw amounts and full-precision USD values.",
-                                                                "pattern": "^-?\\d+(\\.\\d+)?$"
-                                                            },
-                                                            {
-                                                                "type": "null"
+                                                                "pattern": "^-?\\d+(\\.\\d+)?$",
+                                                                "nullable": true
                                                             }
                                                         ]
                                                     },
                                                     "contract": {
-                                                        "type": [
-                                                            "null",
-                                                            "string"
-                                                        ]
+                                                        "type": "string",
+                                                        "nullable": true
                                                     },
                                                     "routeAdapterId": {
-                                                        "type": [
-                                                            "null",
-                                                            "string"
-                                                        ]
+                                                        "type": "string",
+                                                        "nullable": true
                                                     },
                                                     "hops": {
                                                         "oneOf": [
@@ -1509,10 +1451,8 @@
                                                                 "items": {
                                                                     "type": "object",
                                                                     "additionalProperties": true
-                                                                }
-                                                            },
-                                                            {
-                                                                "type": "null"
+                                                                },
+                                                                "nullable": true
                                                             }
                                                         ]
                                                     },
@@ -1547,10 +1487,8 @@
                                                             "type": "integer",
                                                             "minimum": 0
                                                         }
-                                                    }
-                                                },
-                                                {
-                                                    "type": "null"
+                                                    },
+                                                    "nullable": true
                                                 }
                                             ]
                                         }
@@ -1645,10 +1583,8 @@
                                                         "type": "string"
                                                     },
                                                     "contract": {
-                                                        "type": [
-                                                            "null",
-                                                            "string"
-                                                        ]
+                                                        "type": "string",
+                                                        "nullable": true
                                                     },
                                                     "count": {
                                                         "type": "integer",
@@ -1826,18 +1762,20 @@
                                                             {
                                                                 "type": "string",
                                                                 "description": "Signed decimal string. Used for token raw amounts and full-precision USD values.",
-                                                                "pattern": "^-?\\d+(\\.\\d+)?$"
-                                                            },
-                                                            {
-                                                                "type": "null"
+                                                                "pattern": "^-?\\d+(\\.\\d+)?$",
+                                                                "nullable": true
                                                             }
                                                         ]
                                                     },
                                                     "holdingSeconds": {
-                                                        "type": [
-                                                            "null",
-                                                            "integer",
-                                                            "string"
+                                                        "oneOf": [
+                                                            {
+                                                                "type": "integer",
+                                                                "nullable": true
+                                                            },
+                                                            {
+                                                                "type": "string"
+                                                            }
                                                         ]
                                                     },
                                                     "openedAt": {
@@ -1845,10 +1783,8 @@
                                                             {
                                                                 "type": "string",
                                                                 "format": "date-time",
-                                                                "description": "ISO-8601 timestamp."
-                                                            },
-                                                            {
-                                                                "type": "null"
+                                                                "description": "ISO-8601 timestamp.",
+                                                                "nullable": true
                                                             }
                                                         ]
                                                     },
@@ -1866,22 +1802,16 @@
                                                         "type": "boolean"
                                                     },
                                                     "symbol": {
-                                                        "type": [
-                                                            "null",
-                                                            "string"
-                                                        ]
+                                                        "type": "string",
+                                                        "nullable": true
                                                     },
                                                     "name": {
-                                                        "type": [
-                                                            "null",
-                                                            "string"
-                                                        ]
+                                                        "type": "string",
+                                                        "nullable": true
                                                     },
                                                     "decimals": {
-                                                        "type": [
-                                                            "null",
-                                                            "integer"
-                                                        ]
+                                                        "type": "integer",
+                                                        "nullable": true
                                                     }
                                                 }
                                             }
@@ -1897,10 +1827,8 @@
                                                         "afterId": {
                                                             "type": "integer"
                                                         }
-                                                    }
-                                                },
-                                                {
-                                                    "type": "null"
+                                                    },
+                                                    "nullable": true
                                                 }
                                             ]
                                         }
@@ -2050,12 +1978,8 @@
                                                                 "type": "string",
                                                                 "description": "EVM address. Always returned lower-cased (40 hex chars after the 0x prefix).",
                                                                 "pattern": "^0x[a-f0-9]{40}$",
-                                                                "examples": [
-                                                                    "0xf263ab36de550bda08b52d43eb253b3c0387e2bc"
-                                                                ]
-                                                            },
-                                                            {
-                                                                "type": "null"
+                                                                "example": "0xf263ab36de550bda08b52d43eb253b3c0387e2bc",
+                                                                "nullable": true
                                                             }
                                                         ]
                                                     },
@@ -2065,12 +1989,8 @@
                                                                 "type": "string",
                                                                 "description": "EVM address. Always returned lower-cased (40 hex chars after the 0x prefix).",
                                                                 "pattern": "^0x[a-f0-9]{40}$",
-                                                                "examples": [
-                                                                    "0xf263ab36de550bda08b52d43eb253b3c0387e2bc"
-                                                                ]
-                                                            },
-                                                            {
-                                                                "type": "null"
+                                                                "example": "0xf263ab36de550bda08b52d43eb253b3c0387e2bc",
+                                                                "nullable": true
                                                             }
                                                         ]
                                                     },
@@ -2079,10 +1999,8 @@
                                                             {
                                                                 "type": "string",
                                                                 "description": "Signed decimal string. Used for token raw amounts and full-precision USD values.",
-                                                                "pattern": "^-?\\d+(\\.\\d+)?$"
-                                                            },
-                                                            {
-                                                                "type": "null"
+                                                                "pattern": "^-?\\d+(\\.\\d+)?$",
+                                                                "nullable": true
                                                             }
                                                         ]
                                                     },
@@ -2091,10 +2009,8 @@
                                                             {
                                                                 "type": "string",
                                                                 "description": "Signed decimal string. Used for token raw amounts and full-precision USD values.",
-                                                                "pattern": "^-?\\d+(\\.\\d+)?$"
-                                                            },
-                                                            {
-                                                                "type": "null"
+                                                                "pattern": "^-?\\d+(\\.\\d+)?$",
+                                                                "nullable": true
                                                             }
                                                         ]
                                                     },
@@ -2103,10 +2019,8 @@
                                                             {
                                                                 "type": "string",
                                                                 "description": "Signed decimal string. Used for token raw amounts and full-precision USD values.",
-                                                                "pattern": "^-?\\d+(\\.\\d+)?$"
-                                                            },
-                                                            {
-                                                                "type": "null"
+                                                                "pattern": "^-?\\d+(\\.\\d+)?$",
+                                                                "nullable": true
                                                             }
                                                         ]
                                                     },
@@ -2115,10 +2029,8 @@
                                                             {
                                                                 "type": "string",
                                                                 "description": "Signed decimal string. Used for token raw amounts and full-precision USD values.",
-                                                                "pattern": "^-?\\d+(\\.\\d+)?$"
-                                                            },
-                                                            {
-                                                                "type": "null"
+                                                                "pattern": "^-?\\d+(\\.\\d+)?$",
+                                                                "nullable": true
                                                             }
                                                         ]
                                                     },
@@ -2127,10 +2039,8 @@
                                                             {
                                                                 "type": "string",
                                                                 "description": "Signed decimal string. Used for token raw amounts and full-precision USD values.",
-                                                                "pattern": "^-?\\d+(\\.\\d+)?$"
-                                                            },
-                                                            {
-                                                                "type": "null"
+                                                                "pattern": "^-?\\d+(\\.\\d+)?$",
+                                                                "nullable": true
                                                             }
                                                         ]
                                                     },
@@ -2139,28 +2049,22 @@
                                                             {
                                                                 "type": "string",
                                                                 "description": "Signed decimal string. Used for token raw amounts and full-precision USD values.",
-                                                                "pattern": "^-?\\d+(\\.\\d+)?$"
-                                                            },
-                                                            {
-                                                                "type": "null"
+                                                                "pattern": "^-?\\d+(\\.\\d+)?$",
+                                                                "nullable": true
                                                             }
                                                         ]
                                                     },
                                                     "isBuy": {
-                                                        "type": [
-                                                            "null",
-                                                            "boolean"
-                                                        ]
+                                                        "type": "boolean",
+                                                        "nullable": true
                                                     },
                                                     "placedAt": {
                                                         "oneOf": [
                                                             {
                                                                 "type": "string",
                                                                 "format": "date-time",
-                                                                "description": "ISO-8601 timestamp."
-                                                            },
-                                                            {
-                                                                "type": "null"
+                                                                "description": "ISO-8601 timestamp.",
+                                                                "nullable": true
                                                             }
                                                         ]
                                                     },
@@ -2169,10 +2073,8 @@
                                                             {
                                                                 "type": "string",
                                                                 "format": "date-time",
-                                                                "description": "ISO-8601 timestamp."
-                                                            },
-                                                            {
-                                                                "type": "null"
+                                                                "description": "ISO-8601 timestamp.",
+                                                                "nullable": true
                                                             }
                                                         ]
                                                     },
@@ -2181,10 +2083,8 @@
                                                             {
                                                                 "type": "string",
                                                                 "format": "date-time",
-                                                                "description": "ISO-8601 timestamp."
-                                                            },
-                                                            {
-                                                                "type": "null"
+                                                                "description": "ISO-8601 timestamp.",
+                                                                "nullable": true
                                                             }
                                                         ]
                                                     },
@@ -2193,10 +2093,8 @@
                                                             {
                                                                 "type": "string",
                                                                 "description": "32-byte transaction hash.",
-                                                                "pattern": "^0x[a-fA-F0-9]{64}$"
-                                                            },
-                                                            {
-                                                                "type": "null"
+                                                                "pattern": "^0x[a-fA-F0-9]{64}$",
+                                                                "nullable": true
                                                             }
                                                         ]
                                                     },
@@ -2205,24 +2103,18 @@
                                                             {
                                                                 "type": "string",
                                                                 "description": "32-byte transaction hash.",
-                                                                "pattern": "^0x[a-fA-F0-9]{64}$"
-                                                            },
-                                                            {
-                                                                "type": "null"
+                                                                "pattern": "^0x[a-fA-F0-9]{64}$",
+                                                                "nullable": true
                                                             }
                                                         ]
                                                     },
                                                     "symbol": {
-                                                        "type": [
-                                                            "null",
-                                                            "string"
-                                                        ]
+                                                        "type": "string",
+                                                        "nullable": true
                                                     },
                                                     "decimals": {
-                                                        "type": [
-                                                            "null",
-                                                            "integer"
-                                                        ]
+                                                        "type": "integer",
+                                                        "nullable": true
                                                     }
                                                 },
                                                 "additionalProperties": true

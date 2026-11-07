@@ -1,3 +1,17 @@
+# Retirement inventory: symbols and deleted_trees preserve historical names for
+# migration and reference checks; they do not declare running components.
+# Replacement guidance targets one Paxeer mainnet-beta BFT network (paxd),
+# EVM chain id 125 (0x7d). The kernel is part of the node and proposes blocks;
+# receipts are final when their block is committed by consensus.
+# Public JSON-RPC uses the root path on https://api-mainnet-beta.paxeer.network
+# or https://api1.mainnet-beta.paxeer.network through api14.mainnet-beta.paxeer.network.
+# The former router, separate LayerX interface and /rpc routes are retired.
+# node.hyperpaxeer.com is only the hpx library mirror, never a JSON-RPC endpoint.
+# Hosted px_ methods have their own contract in services/platform/hosted/gateway/openrpc.json.
+# Sub-chains are tenant domains in the database, launchable without new infrastructure.
+# Network facts: ../audit/BRIEF.kvx. Public endpoint reference:
+# ../../../../docs/site/docs/reference/public-rpc.md.
+
 [meta]
 format_version = 1
 
@@ -52,15 +66,15 @@ symbols = ["layerx-guarantor", "lxp_guarantor", "LAYERX_GUARANTOR_"]
 owner_domain = 5
 refusal = "deleted"
 deleted_trees = ["cmd/layerx-guarantor", "src/guarantor", "src/paxeer/lxp_paxeer_client.c"]
-replacement = "validators commit the sequencer-proposed block, so the guarantor process, its secrets and its provisioning step are removed"
+replacement = "the kernel proposes blocks as part of paxd and validators commit them through BFT consensus; a receipt is final at block commit, and the guarantor process, its secrets and its provisioning step are removed"
 
 [component.finality-authority]
 req = "11009"
 symbols = ["finality_authority", "lxp_handover", "receipt_authority", "authority_replica", "handover_history", "layerx-handover", "lxp_daemon_evidence"]
 owner_domain = 5
 refusal = "deleted"
-deleted_trees = ["cmd/layerxd/lxp_daemon_finality_authority.c", "cmd/layerx-handover", "src/protocol/lxp_handover.c"]
-replacement = "handover becomes the pinned leader list with standby takeover on the sequencer WAL; the sequencer receipt key is a governed parameter read from chain state at the receipt height"
+deleted_trees = ["cmd/layerxd/lxp_daemon_finality_authority.c", "cmd/layerx-handover", "src/protocol/lxp_handover.c"] # retired pre-merge paths
+replacement = "leader selection and standby recovery belong to the node's integrated sequencing path and WAL; receipt keys are governed chain parameters valid over pinned height ranges, while finality comes from the committed block"
 
 [component.eth-relay]
 req = "11010"
@@ -68,7 +82,7 @@ symbols = ["hosted/paxeer/src", "paxeer-relay"]
 owner_domain = 8
 refusal = "deleted"
 deleted_trees = ["services/platform/hosted/paxeer"]
-replacement = "no relay is needed because the sequencer is the chain; the relay process and its configuration are removed"
+replacement = "kernel execution and block commitment happen in one network, so the cross-network relay process and its configuration are removed"
 
 [component.da]
 req = "11011"
@@ -76,7 +90,7 @@ symbols = ["lxp_da_", "LXP_DA_", "da_bundle", "lxp_da.h"]
 owner_domain = 1
 refusal = "deleted"
 deleted_trees = ["src/network/lxp_da_bundle.c", "src/storage/lxp_da_verified.c"]
-replacement = "block data is the availability record; the DA build and storage are removed with the kernel daemon"
+replacement = "committed block data is the availability record; the separate pre-merge daemon and its DA bundle build and storage are removed"
 
 [component.replica]
 req = "11012"
@@ -84,7 +98,7 @@ symbols = ["lxp_replica", "lxp_replay", "relay_archive", "relay-archive", "lxp_d
 owner_domain = 1
 refusal = "deleted"
 deleted_trees = ["src/replica", "services/platform/relay_archive"]
-replacement = "full and archive paxd nodes serve history; the standby follows the sequencer WAL; the relay archive entries are removed"
+replacement = "full and archive paxd nodes serve chain history; a configured standby follows the integrated node WAL for recovery, and the pre-merge relay archive entries are removed"
 
 [component.idempotency]
 req = "11013"
@@ -99,8 +113,8 @@ req = "11014"
 symbols = ["lxp_batch_seal", "batch_wal", "batch_publish", "batch_seal", "lxp_batch_publish"]
 owner_domain = 1
 refusal = "deleted"
-deleted_trees = ["src/sequencer/lxp_batch_seal.c", "src/network/lxp_batch_publish.c", "cmd/layerxd/lxp_daemon_batch_wal.c"]
-replacement = "the pinned sequencer proposes the block and signs the receipt; the node sequencer WAL replaces the batch WAL"
+deleted_trees = ["src/sequencer/lxp_batch_seal.c", "src/network/lxp_batch_publish.c", "cmd/layerxd/lxp_daemon_batch_wal.c"] # retired pre-merge paths
+replacement = "the integrated kernel proposes blocks and the node WAL replaces the pre-merge batch WAL; receipt signatures authenticate execution evidence, and consensus block commit establishes finality"
 
 [component.oracle-web-roots]
 req = "11015"
@@ -155,8 +169,8 @@ req = "11021"
 symbols = ["lni", "LNI", "layerx_lni", "LniArchiveSource", "LniFailure", "lxp_daemon_lni", "lni_"]
 owner_domain = 9
 refusal = "deleted"
-deleted_trees = ["services/agent/crates/layerx-client/src/lni", "services/agent/include/layerx_lni_abi.h", "cmd/layerxd/lxp_daemon_lni.c"]
-replacement = "writes are eth_sendRawTransaction through the unified router and reads are eth_call on the precompile views or gRPC queries at a height"
+deleted_trees = ["services/agent/crates/layerx-client/src/lni", "services/agent/include/layerx_lni_abi.h", "cmd/layerxd/lxp_daemon_lni.c"] # retired pre-merge paths
+replacement = "submit signed EVM transactions with eth_sendRawTransaction directly to a public node's root JSON-RPC endpoint on chain id 125; read precompile views with eth_call at an explicit committed height, or use native gRPC queries at that height where available"
 
 [component.paxeer-verifier]
 req = "11022"
@@ -172,7 +186,7 @@ symbols = ["HANDOVER_ACTIVITY", "fetch_next_with_finality", "handover_policy", "
 owner_domain = 9
 refusal = "deleted"
 deleted_trees = ["services/agent/crates/layerx-client/src/handover.rs"]
-replacement = "read the sequencer receipt key from chain state at the receipt height (governed parameter)"
+replacement = "read the governed receipt key list from chain state and verify the key's pinned range includes the receipt height; verify the block header and consensus commit for finality"
 
 [component.settlement-domain]
 req = "11024"
@@ -244,7 +258,7 @@ symbols = ["lni", "LNI"]
 owner_domain = 16
 refusal = "removed"
 deleted_trees = []
-replacement = "talk to the chain over EVM JSON-RPC through the router; the binary, its build target and its images stay"
+replacement = "configure layerxctl --rpc-url with a direct node root endpoint such as https://api1.mainnet-beta.paxeer.network on chain id 125; read-state uses eth_call and submit sends signed EIP-1559 transaction bytes through eth_sendRawTransaction; the binary, its build target and its images stay"
 
 [component.intent-ingester]
 req = "11033"
@@ -316,7 +330,7 @@ symbols = ["KernelWatcher", "KernelRelay", "SequencerTrust", "lx_getSequence", "
 owner_domain = 11
 refusal = "removed"
 deleted_trees = []
-replacement = "watch and submit for origin 2 through eth_sendRawTransaction to the sequencer with the signed receipt; one EVM nonce per sender"
+replacement = "watch native xweb events and submit origin 2 responses as signed EVM transactions through eth_sendRawTransaction to a node's root JSON-RPC endpoint; use one EVM account nonce per sender and block commit for finality"
 
 [component.account-naming]
 req = "11042"
@@ -348,7 +362,7 @@ symbols = ["px_getUnifiedHistory", "px_getNetwork", "px_listAssets"]
 owner_domain = 8
 refusal = "kernel joins removed; methods retained with chain-only answers"
 deleted_trees = []
-replacement = "keep the method names with one-source answers; response fields stay and kernel.available is derived true"
+replacement = "retain these hosted gateway method names with chain-only answers under services/platform/hosted/gateway/openrpc.json; they do not introduce a separate kernel RPC endpoint or make px_ methods public node methods"
 
 [component.wallet-two-domain]
 req = "11046"

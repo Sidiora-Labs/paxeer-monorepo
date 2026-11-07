@@ -1,0 +1,12 @@
+{
+  "name": "bridge-appenv-interface-proof",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
+  "devDependencies": {
+    "@noble/curves": "2.4.0",
+    "viem": "2.41.2"
+  }
+}

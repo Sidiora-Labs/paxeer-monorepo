@@ -1,0 +1,243 @@
+[reconcile.r13-181]
+revision = "751d6ff8dbcfeaec3fbdee7c8c9aac3813e83488"
+rows = 30
+
+[row.r13-181.1]
+interface = "interface.13.rs-aim-queries-availability"
+verdict = "served"
+path = "programs/crates/layerx-programs-ai-market/src/queries.rs"
+line = 502
+symbol = "Availability"
+evidence = "Signature matches pub enum Availability. Enum declaration with Available, NotEnabled, NotYetProduced, ContentUnavailable and UnsupportedVersion variants; later occurrences are type references or variant uses."
+
+[row.r13-181.2]
+interface = "interface.13.rs-aim-queries-bound-response"
+verdict = "served"
+path = "programs/crates/layerx-programs-ai-market/src/queries.rs"
+line = 1016
+symbol = "bound_response"
+evidence = "Signature matches pub fn bound_response(length: usize) -> QueryResult<usize>. Free function declaration taking length: usize and returning QueryResult<usize>; rejects lengths above PAGE_MAX_BYTES. The later occurrence is an encode_page call."
+
+[row.r13-181.3]
+interface = "interface.13.rs-aim-queries-cursorkey"
+verdict = "served"
+path = "programs/crates/layerx-programs-ai-market/src/queries.rs"
+line = 855
+symbol = "CursorKey"
+evidence = "Signature matches pub struct CursorKey<'k>. Struct declaration with lifetime 'k, secret: &'k [u8; 32] and generation: u32; later occurrences are function parameter types."
+
+[row.r13-181.4]
+interface = "interface.13.rs-aim-queries-cursorscope"
+verdict = "served"
+path = "programs/crates/layerx-programs-ai-market/src/queries.rs"
+line = 861
+symbol = "CursorScope"
+evidence = "Signature matches pub struct CursorScope. Struct declaration carrying visibility, market, snapshot, filter and active_only; later occurrences are borrowed parameter types."
+
+[row.r13-181.5]
+interface = "interface.13.rs-aim-queries-eligible-new-work"
+verdict = "served"
+path = "programs/crates/layerx-programs-ai-market/src/queries.rs"
+line = 648
+symbol = "ELIGIBLE_NEW_WORK"
+evidence = "Signature matches pub const ELIGIBLE_NEW_WORK: u8 = 2. Constant declaration retains type u8 and value 2; the other occurrence combines it into participant eligibility flags."
+
+[row.r13-181.6]
+interface = "interface.13.rs-aim-queries-eligible-serving"
+verdict = "served"
+path = "programs/crates/layerx-programs-ai-market/src/queries.rs"
+line = 647
+symbol = "ELIGIBLE_SERVING"
+evidence = "Signature matches pub const ELIGIBLE_SERVING: u8 = 1. Constant declaration retains type u8 and value 1; other occurrences test or construct participant eligibility flags."
+
+[row.r13-181.7]
+interface = "interface.13.rs-aim-queries-identity-state-unavailable"
+verdict = "served"
+path = "programs/crates/layerx-programs-ai-market/src/queries.rs"
+line = 650
+symbol = "IDENTITY_STATE_UNAVAILABLE"
+evidence = "Signature matches pub const IDENTITY_STATE_UNAVAILABLE: u8 = 0. Constant declaration retains type u8 and value 0; the other occurrence initializes an evaluator ParticipantRow field."
+
+[row.r13-181.8]
+interface = "interface.13.rs-aim-queries-kindfilter"
+verdict = "served"
+path = "programs/crates/layerx-programs-ai-market/src/queries.rs"
+line = 786
+symbol = "KindFilter"
+evidence = "Signature matches pub enum KindFilter. Enum declaration with All = 0, Worker = 1 and Evaluator = 2; later occurrences name the impl, CursorScope field or select_page parameter."
+
+[row.r13-181.9]
+interface = "interface.13.rs-aim-queries-participantkind"
+verdict = "served"
+path = "programs/crates/layerx-programs-ai-market/src/queries.rs"
+line = 532
+symbol = "ParticipantKind"
+evidence = "Signature matches pub enum ParticipantKind. Enum declaration with Worker = 1 and Evaluator = 2; other occurrences are a field type or variant uses in row construction and filtering."
+
+[row.r13-181.10]
+interface = "interface.13.rs-aim-queries-participantrow"
+verdict = "served"
+path = "programs/crates/layerx-programs-ai-market/src/queries.rs"
+line = 654
+symbol = "ParticipantRow"
+evidence = "Signature matches pub struct ParticipantRow. Struct declaration containing participant identity, membership, eligibility, metadata, score, reward and history; other occurrences are its impl, types or struct literals."
+
+[row.r13-181.11]
+interface = "interface.13.rs-aim-queries-participantrow-encode"
+verdict = "served"
+path = "programs/crates/layerx-programs-ai-market/src/queries.rs"
+line = 673
+symbol = "encode"
+evidence = "Signature matches pub fn encode(&self, w: &mut Writer<'_>) -> CodecResult<()>. Inherent ParticipantRow method taking &self and w: &mut Writer<'_>, returning CodecResult<()>; serializes row fields. SnapshotBinding::encode takes out: &mut [u8] instead."
+
+[row.r13-181.12]
+interface = "interface.13.rs-aim-queries-rewardfield"
+verdict = "served"
+path = "programs/crates/layerx-programs-ai-market/src/queries.rs"
+line = 596
+symbol = "RewardField"
+evidence = "Signature matches pub struct RewardField. Struct declaration with private status, asset, earned and claimed fields; other occurrences name its impl, a field type or constructor calls."
+
+[row.r13-181.13]
+interface = "interface.13.rs-aim-queries-rewardfield-asset"
+verdict = "served"
+path = "programs/crates/layerx-programs-ai-market/src/queries.rs"
+line = 634
+symbol = "asset"
+evidence = "Signature matches pub const fn asset(&self) -> Presence<AssetId>. Inherent RewardField const accessor returning Presence<AssetId> from self.asset; earlier occurrences are a field, constructor parameter or initialization."
+
+[row.r13-181.14]
+interface = "interface.13.rs-aim-queries-rewardfield-claimed"
+verdict = "served"
+path = "programs/crates/layerx-programs-ai-market/src/queries.rs"
+line = 642
+symbol = "claimed"
+evidence = "Signature matches pub const fn claimed(&self) -> Presence<u128>. Inherent RewardField const accessor returning Presence<u128> from self.claimed; other occurrences are fields, parameters, validation, initialization or encoding."
+
+[row.r13-181.15]
+interface = "interface.13.rs-aim-queries-rewardfield-earned"
+verdict = "served"
+path = "programs/crates/layerx-programs-ai-market/src/queries.rs"
+line = 638
+symbol = "earned"
+evidence = "Signature matches pub const fn earned(&self) -> Presence<u128>. Inherent RewardField const accessor returning Presence<u128> from self.earned; other occurrences are fields, parameters, validation, initialization or encoding."
+
+[row.r13-181.16]
+interface = "interface.13.rs-aim-queries-rewardfield-entitlement"
+verdict = "served"
+path = "programs/crates/layerx-programs-ai-market/src/queries.rs"
+line = 605
+symbol = "entitlement"
+evidence = "Signature matches pub fn entitlement(asset: AssetId, earned: u128, claimed: u128) -> CodecResult<Self>. Inherent RewardField constructor taking asset: AssetId, earned: u128 and claimed: u128, returning CodecResult<Self>; rejects claimed greater than earned."
+
+[row.r13-181.17]
+interface = "interface.13.rs-aim-queries-rewardfield-unavailable"
+verdict = "served"
+path = "programs/crates/layerx-programs-ai-market/src/queries.rs"
+line = 618
+symbol = "unavailable"
+evidence = "Signature matches pub fn unavailable(status: Availability) -> CodecResult<Self>. Inherent RewardField constructor taking status: Availability and returning CodecResult<Self>; rejects Available and stores absent reward values. Later occurrences call it."
+
+[row.r13-181.18]
+interface = "interface.13.rs-aim-queries-scorefield"
+verdict = "served"
+path = "programs/crates/layerx-programs-ai-market/src/queries.rs"
+line = 550
+symbol = "ScoreField"
+evidence = "Signature matches pub struct ScoreField. Struct declaration with private epoch: Presence<u64>, status: ScoreStatus and ppm: Presence<u32>; other occurrences are its impl, field type or constructor calls."
+
+[row.r13-181.19]
+interface = "interface.13.rs-aim-queries-scorefield-absent"
+verdict = "served"
+path = "programs/crates/layerx-programs-ai-market/src/queries.rs"
+line = 570
+symbol = "absent"
+evidence = "Signature matches pub fn absent(epoch: Presence<u64>, status: ScoreStatus) -> CodecResult<Self>. Inherent ScoreField constructor taking epoch: Presence<u64> and status: ScoreStatus, returning CodecResult<Self>; rejects Present. Later occurrences invoke this constructor."
+
+[row.r13-181.20]
+interface = "interface.13.rs-aim-queries-scorefield-epoch"
+verdict = "served"
+path = "programs/crates/layerx-programs-ai-market/src/queries.rs"
+line = 589
+symbol = "epoch"
+evidence = "Signature matches pub const fn epoch(&self) -> Presence<u64>. Inherent ScoreField const accessor taking &self and returning Presence<u64> from self.epoch; other occurrences are fields, parameters, locals or encoding."
+
+[row.r13-181.21]
+interface = "interface.13.rs-aim-queries-scorefield-ppm"
+verdict = "served"
+path = "programs/crates/layerx-programs-ai-market/src/queries.rs"
+line = 585
+symbol = "ppm"
+evidence = "Signature matches pub const fn ppm(&self) -> Presence<u32>. Inherent ScoreField const accessor taking &self and returning Presence<u32> from self.ppm; other occurrences are a field, constructor parameter, validation or encoding."
+
+[row.r13-181.22]
+interface = "interface.13.rs-aim-queries-scorefield-present"
+verdict = "served"
+path = "programs/crates/layerx-programs-ai-market/src/queries.rs"
+line = 558
+symbol = "present"
+evidence = "Signature matches pub fn present(epoch: u64, ppm: u32) -> CodecResult<Self>. Inherent ScoreField constructor taking epoch: u64 and ppm: u32, returning CodecResult<Self>; rejects ppm above 1000000. Other lowercase occurrences are documentation."
+
+[row.r13-181.23]
+interface = "interface.13.rs-aim-queries-scorefield-status"
+verdict = "served"
+path = "programs/crates/layerx-programs-ai-market/src/queries.rs"
+line = 581
+symbol = "status"
+evidence = "Signature matches pub const fn status(&self) -> ScoreStatus. Inherent ScoreField const accessor returning ScoreStatus from self.status; RewardField::status at line 630 returns Availability and does not match this signature."
+
+[row.r13-181.24]
+interface = "interface.13.rs-aim-queries-scorestatus"
+verdict = "served"
+path = "programs/crates/layerx-programs-ai-market/src/queries.rs"
+line = 539
+symbol = "ScoreStatus"
+evidence = "Signature matches pub enum ScoreStatus. Enum declaration with Present, NoAdmissibleScore, InsufficientCoverage, NotProduced, Unavailable and Unsupported; other occurrences are types or variant uses."
+
+[row.r13-181.25]
+interface = "interface.13.rs-arb-authority-verifiedreplayauthority"
+verdict = "served"
+path = "programs/crates/layerx-programs-arbiter/src/authority.rs"
+line = 95
+symbol = "VerifiedReplayAuthority"
+evidence = "Signature matches pub struct VerifiedReplayAuthority. Struct declaration containing private canonical_bytes, principal, payer, activity_binding and capabilities fields; the other occurrence opens its inherent impl."
+
+[row.r13-181.26]
+interface = "interface.13.rs-arb-authority-verifiedreplayauthority-activity-binding"
+verdict = "served"
+path = "programs/crates/layerx-programs-arbiter/src/authority.rs"
+line = 405
+symbol = "activity_binding"
+evidence = "Signature matches pub const fn activity_binding(&self) -> [u8; 32]. Inherent VerifiedReplayAuthority const accessor taking &self and returning [u8; 32] from self.activity_binding; other occurrences declare or initialize the private field."
+
+[row.r13-181.27]
+interface = "interface.13.rs-arb-authority-verifiedreplayauthority-canonical-bytes"
+verdict = "served"
+path = "programs/crates/layerx-programs-arbiter/src/authority.rs"
+line = 396
+symbol = "canonical_bytes"
+evidence = "Signature matches pub fn canonical_bytes(&self) -> &[u8]. Inherent VerifiedReplayAuthority accessor taking &self and returning &[u8] by borrowing self.canonical_bytes; other occurrences are fields, assignments, comparisons or calls."
+
+[row.r13-181.28]
+interface = "interface.13.rs-arb-authority-verifiedreplayauthority-principal"
+verdict = "served"
+path = "programs/crates/layerx-programs-arbiter/src/authority.rs"
+line = 399
+symbol = "principal"
+evidence = "Signature matches pub const fn principal(&self) -> [u8; 32]. Inherent VerifiedReplayAuthority const accessor taking &self and returning [u8; 32] from self.principal; other occurrences declare or initialize the private field."
+
+[row.r13-181.29]
+interface = "interface.13.rs-arb-authority-verifiedreplayauthority-verify-native"
+verdict = "served"
+path = "programs/crates/layerx-programs-arbiter/src/authority.rs"
+line = 390
+symbol = "verify_native"
+evidence = "Signature matches pub fn verify_native(&self, bytes: &[u8]) -> Result<(), ReplayError>. Inherent VerifiedReplayAuthority method taking &self and bytes: &[u8], returning Result<(), ReplayError>; compares canonical bytes and rejects mismatches. Earlier occurrence is documentation."
+
+[row.r13-181.30]
+interface = "interface.13.rs-arb-market-verifiedmarketsandbox-verify-step"
+verdict = "served"
+path = "programs/crates/layerx-programs-arbiter/src/market.rs"
+line = 575
+symbol = "verify_step"
+evidence = "Signature matches pub fn verify_step(&self, pre: &BoundaryProof, post: &BoundaryProof) -> MarketStepVerdict. Inherent VerifiedMarketSandbox method taking &self, pre: &BoundaryProof and post: &BoundaryProof, returning MarketStepVerdict; maps the step result. Earlier occurrence is an evaluate_step call."

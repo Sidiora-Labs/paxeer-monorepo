@@ -19,6 +19,7 @@ use serde_aux::prelude::*;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize, derive_new::new)]
 pub struct HealthCheckResponseMetadata {
+    pub blocks: models::BlockIndexingStatus,
     #[serde(default)]
-    pub latest_block: Option<models::LatestBlock>,
+    pub batches: Option<models::BatchIndexingStatus>,
 }

@@ -1,0 +1,301 @@
+[reconcile.r8-42]
+revision = "d6c341e59603faf9a28756df9aff6d45927fe392"
+rows = 35
+
+[row.r8-42.1]
+interface = "interface.8.go-sdkswift-programsclient-deploy"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Programs.swift"
+line = 472
+symbol = "deploy"
+evidence = "public func deploy(_ operation: NativeProgramDeploy, signedActivity: Data, idempotencyKey: IdempotencyKey) async throws -> UnsignedProgramTransaction now builds EVM calldata and an unsigned transaction instead of submitting an agent program operation; a direct NativeProgramDeploy overload also exists at line 458."
+
+[row.r8-42.2]
+interface = "interface.8.go-sdkswift-programsclient-upgrade"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Programs.swift"
+line = 481
+symbol = "upgrade"
+evidence = "public func upgrade(_ operation: NativeProgramUpgrade, signedActivity: Data, idempotencyKey: IdempotencyKey) async throws -> UnsignedProgramTransaction now returns an unsigned EVM transaction; the direct overload at line 461 accepts feeLimit: ProtocolAmount."
+
+[row.r8-42.3]
+interface = "interface.8.go-sdkswift-programsclient-winddown"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Programs.swift"
+line = 490
+symbol = "windDown"
+evidence = "public func windDown(_ operation: NativeProgramWindDown, signedActivity: Data, idempotencyKey: IdempotencyKey) async throws -> UnsignedProgramTransaction now builds an unsigned EVM transaction; the direct overload at line 467 omits the signed-activity wrapper."
+
+[row.r8-42.4]
+interface = "interface.8.go-sdkswift-programsclient-receiptmoduleid"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Programs.swift"
+line = 372
+symbol = "receiptModuleID"
+evidence = "public static let receiptModuleID: UInt16 = 9 retains its registered type and value; the signature is unchanged and its declaration moved from line 170 to 372 within ProgramsClient."
+
+[row.r8-42.5]
+interface = "interface.8.go-sdkswift-programsclient-calloperation"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Programs.swift"
+line = 373
+symbol = "callOperation"
+evidence = "public static let callOperation: UInt8 = 3 retains its registered type and value; the signature is unchanged and its declaration moved from line 171 to 373 within ProgramsClient."
+
+[row.r8-42.6]
+interface = "interface.8.go-sdkswift-programsclient-discover"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Programs.swift"
+line = 522
+symbol = "discover"
+evidence = "public func discover(programID: Data, verificationLevel: String = \"pending\") async throws -> ProgramRegistryRecord replaces the registered ProgramDiscovery result and adds a pending default; it decodes the on-chain registry via eth_call."
+
+[row.r8-42.7]
+interface = "interface.8.go-sdkswift-programsclient-interface"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Programs.swift"
+line = 541
+symbol = "interface"
+evidence = "public func interface(programID: Data, verificationLevel: String = \"pending\") async throws -> ProgramRegistryInterface replaces the registered ProgramInterface result and adds a pending default; it decodes the registry interface via eth_call."
+
+[row.r8-42.8]
+interface = "interface.8.go-sdkswift-programsclient-simulate"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Programs.swift"
+line = 445
+symbol = "simulate"
+evidence = "public func simulate(_ call: ProgramCall) async throws -> ProgramSimulation keeps the registered signature, moving from line 211 to 445; its body now uses EVM eth_call with simulate calldata and decodes terminalResult, terminalKind and response."
+
+[row.r8-42.9]
+interface = "interface.8.go-sdkswift-programsclient-submit"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Programs.swift"
+line = 432
+symbol = "submit"
+evidence = "public func submit(_ call: ProgramCall, idempotencyKey: IdempotencyKey) async throws -> UnsignedProgramTransaction replaces the registered ProgramSubmission return type; it validates the binding and builds the unsigned EVM transaction through call."
+
+[row.r8-42.10]
+interface = "interface.8.go-sdkswift-programsclient-receipt"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Programs.swift"
+line = 556
+symbol = "receipt"
+evidence = "public func receipt(idempotencyKey: IdempotencyKey, expectedActivityID: Data, verificationLevel: String) async throws -> ProgramSubmission keeps its signature, moving from line 239 to 556; it requires pending and uses expectedActivityID as the transaction hash for activity lookup."
+
+[row.r8-42.11]
+interface = "interface.8.go-sdkswift-programsclient-activity"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Programs.swift"
+line = 585
+symbol = "activity"
+evidence = "public func activity(activityID: Data, verificationLevel: String) async throws -> ProgramSubmission keeps its signature, moving from line 248 to 585; it delegates to the new activity(transactionHash: Data) overload, which reads pax_sequencerReceipt."
+
+[row.r8-42.12]
+interface = "interface.8.go-sdkswift-programsclient-verifyreceipt"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Programs.swift"
+line = 619
+symbol = "verifyReceipt"
+evidence = "public static func verifyReceipt(_ canonicalReceipt: Data, rawTransaction: Data, keys: [ReceiptKeys], receiptJSON: [String: JSONValue], prevSeqHash: Data) throws -> SequencerReceiptVerification replaces the AuthorizedReceiptBatch input and async ReceiptVerification result with transaction-bound sequencer verification."
+
+[row.r8-42.13]
+interface = "interface.8.go-sdkswift-programsclient-verifyrawv5receipt"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Programs.swift"
+line = 627
+symbol = "verifyRawV5Receipt"
+evidence = "public static func verifyRawV5Receipt(_ canonicalReceipt: Data, rawTransaction: Data, keys: [ReceiptKeys], receiptJSON: [String: JSONValue], prevSeqHash: Data) throws -> SequencerReceiptVerification replaces AuthorizedReceiptBatch inputs and delegates to verifyReceipt using the sequencer receipt API."
+
+[row.r8-42.14]
+interface = "interface.8.go-sdkswift-streamcursor-init"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Stream.swift"
+line = 6
+symbol = "init?(rawValue: String)"
+evidence = "public init?(rawValue: String) is present at the registered line 6 in StreamCursor; it rejects empty strings, more than 512 UTF-8 bytes and embedded NUL."
+
+[row.r8-42.15]
+interface = "interface.8.go-sdkswift-resumablestream"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Stream.swift"
+line = 49
+symbol = "ResumableStream"
+evidence = "public actor ResumableStream<Value: Sendable> remains at the registered line 49; accept checks cursor continuity and duplicate event IDs before advancing the cursor."
+
+[row.r8-42.16]
+interface = "interface.8.go-sdkswift-internal-programroutes-79"
+verdict = "retired"
+path = "sdk/platform/swift/Sources/LayerXSDK/Transport.swift"
+line = 79
+symbol = "programRoutes"
+evidence = "The private programRoutes dispatch table is absent from Transport.swift; program requests use the EVM ProgramsClient path. Repository-wide whole-identifier search excluding spec and docs directories finds only the listed other files, including retirement assertions in other SDKs."
+remaining_refs = 3
+remaining = ["sdk/platform/dotnet/tests/LayerX.Sdk.Tests/ProgramTransportRetiredTests.cs:33", "sdk/platform/go/program_transport_retired_test.go:23", "sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk/ProgramTransportRetiredTest.java:58"]
+
+[row.r8-42.17]
+interface = "interface.8.go-sdkswift-internal-enveloperequest-855"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Transport.swift"
+line = 589
+symbol = "\"version\": .integer(Self.version)"
+evidence = "The envelope literal now reads \"version\": .integer(Self.version), \"request_id\": .string(requestID), replacing the registered inline .integer(1); private static let version: Int64 = 1 is declared at line 436. The envelope includes operation, request, credential and idempotency_key."
+
+[row.r8-42.18]
+interface = "interface.8.go-sdkswift-merkleproof"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Verifier.swift"
+line = 37
+symbol = "MerkleProof"
+evidence = "public struct MerkleProof: Sendable keeps the registered declaration signature and leafIndex: UInt32, leafCount: UInt32, siblings: [Data] fields; the declaration moved from line 42 to 37. Generic Merkle inclusion remains available independently of the removed PB1 inputs."
+
+[row.r8-42.19]
+interface = "interface.8.go-sdkswift-merkleproof-init"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Verifier.swift"
+line = 42
+symbol = "init(leafIndex: UInt32, leafCount: UInt32, siblings: [Data])"
+evidence = "public init(leafIndex: UInt32, leafCount: UInt32, siblings: [Data]) keeps the registered signature exactly, moving from line 47 to 42; it assigns the three MerkleProof fields without adding sequencer authorization or checkpoint inputs."
+
+[row.r8-42.20]
+interface = "interface.8.go-sdkswift-sequencerauthorization-init"
+verdict = "retired"
+path = "sdk/platform/swift/Sources/LayerXSDK/Verifier.swift"
+line = 78
+symbol = "SequencerAuthorization"
+evidence = "SequencerAuthorization and its init(sequencerID:publicKey:firstBatchNumber:lastBatchNumber:) are absent from Verifier.swift; verifySequencerReceipt instead accepts keys: [ReceiptKeys]. Listed references are other files mentioning the type name, including distinct chain and Rust types, not a relocated Swift initializer."
+remaining_refs = 196
+remaining = ["GOTCHA.kvx:924", "api/layerxcustody/params.proto:8", "cmd/layerxctl/src/main.rs:11", "daemon/committed-fixture/vector_v4.go:71", "daemon/paxd/cmd/proof_node_cli_test.go:88", "daemon/paxd/cmd/sequencer_test.go:26", "layerxproof/verify/receipt.go:22", "modules/layerxanchor/keeper/custody_reader.go:15", "modules/layerxanchor/keeper/keeper.go:123", "modules/layerxanchor/keeper/keeper_test.go:154", "modules/layerxanchor/types/genesis.go:14", "modules/layerxanchor/types/state.go:41", "modules/layerxcustody/keeper/anchor.go:18", "modules/layerxcustody/keeper/anchor_reader_test.go:111", "modules/layerxcustody/keeper/deposit_root_test.go:76", "modules/layerxcustody/keeper/keeper_test.go:105", "modules/layerxcustody/keeper/proof_0x1013_layerxcustody_test.go:181", "modules/layerxcustody/keeper/retire_deposit_root_test.go:50", "modules/layerxcustody/types/anchor.go:19", "modules/layerxcustody/types/params.go:30", "modules/layerxcustody/types/params.pb.go:26", "modules/layerxcustody/types/proposal_test.go:52", "modules/sequencer/keeper/pins.go:8", "modules/sequencer/keeper/pins_test.go:27", "modules/sequencer/keeper/proof_sequencer_module_test.go:243", "node/gov_custody_test.go:77", "node/sequencer/accepter_test.go:117", "node/sequencer/consensus_source_fence_test.go:68", "node/sequencer/consensus_source_test.go:99", "node/sequencer/failover_rehearsal_test.go:53", "node/sequencer/failover_test.go:33", "node/sequencer/handover_test.go:270", "node/sequencer/position_test.go:74", "node/sequencer/proof_sequencer_config_test.go:152", "node/sequencer/proof_sequencer_wal_test.go:73", "node/sequencer/receipt_equality_test.go:145", "node/sequencer/receiptkey.go:35", "node/sequencer/receiptkey_pins_test.go:116", "node/sequencer/replay_test.go:19", "node/sequencer/standby_role.go:186", "node/sequencer/standby_role_test.go:480", "node/sequencer_rpc_option_test.go:118", "precompiles/layerxanchor/layerxanchor.go:236", "precompiles/layerxcustody/layerxcustody_test.go:94", "precompiles/utils/expected_keepers.go:286", "programs/crates/layerx-programs-arbiter/src/authority.rs:5", "programs/crates/layerx-programs-arbiter/tests/authority_from_prestate.rs:11", "programs/crates/layerx-programs-arbiter/tests/market_sandbox_profile.rs:22", "programs/crates/layerx-programs-arbiter/tests/verified_step.rs:10", "rpc/resolution_pending_test.go:148", "rpc/send_sequencer_test.go:188", "rpc/sequencer_options_integration_test.go:123", "rpc/sequencer_receipt_test.go:105", "rpc/sequencer_receipt_vectors_test.go:324", "rpc/subscribe_test.go:408", "sdk/platform/dotnet/tests/LayerX.Sdk.Tests/KernelVerifierRetiredTests.cs:96", "sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk/KernelVerifierRetiredTest.java:34", "services/agent/crates/layerx-agent-api/tests/proof_agent_api.rs:40", "services/agent/crates/layerx-agentd-host/src/payer.rs:14", "services/agent/crates/layerx-agentd/src/budget/execution_state.rs:8", "services/agent/crates/layerx-agentd/src/export.rs:17", "services/agent/crates/layerx-agentd/src/finality.rs:7", "services/agent/crates/layerx-agentd/src/human_runtime.rs:11", "services/agent/crates/layerx-agentd/src/protocol_evidence.rs:8", "services/agent/crates/layerx-agentd/src/protocol_evidence_native_tests.rs:2", "services/agent/crates/layerx-agentd/tests/audit_export.rs:16", "services/agent/crates/layerx-agentd/tests/checkpoint.rs:6", "services/agent/crates/layerx-agentd/tests/degraded.rs:11", "services/agent/crates/layerx-agentd/tests/managed_agent_evm_tx.rs:10", "services/agent/crates/layerx-agentd/tests/prepare_eip1559.rs:10", "services/agent/crates/layerx-agentd/tests/support/real_authority.rs:771", "services/agent/crates/layerx-client/src/rpc/history.rs:5", "services/agent/crates/layerx-client/src/rpc/receipt.rs:4", "services/agent/crates/layerx-mcp/src/binding.rs:267", "services/agent/crates/layerx-mcp/src/tools/read.rs:43", "services/agent/crates/layerx-mcp/src/tools/web.rs:25", "services/agent/crates/layerx-mcp/tests/read_tools_rungs.rs:7", "services/agent/crates/layerx-proof/src/export.rs:18", "services/agent/crates/layerx-proof/src/inclusion.rs:15", "services/agent/crates/layerx-proof/src/receipt.rs:24", "services/agent/crates/layerx-proof/src/signed_authority.rs:6", "services/agent/crates/layerx-proof/src/state.rs:8", "services/agent/crates/layerx-proof/tests/inclusion.rs:3", "services/agent/crates/layerx-proof/tests/maintained_outcome.rs:2", "services/agent/crates/layerx-proof/tests/native_terminal_outcome.rs:4", "services/agent/crates/layerx-proof/tests/offline_export.rs:6", "services/agent/crates/layerx-proof/tests/receipt.rs:2", "services/agent/crates/layerx-proof/tests/resolution_receipt_key.rs:2", "services/agent/crates/layerx-proof/tests/sequencer_corpus.rs:5", "services/agent/crates/layerx-proof/tests/sequencer_logs.rs:4", "services/agent/crates/layerx-proof/tests/sequencer_receipt_vectors.rs:3", "services/agent/crates/layerx-proof/tests/state.rs:4", "services/agent/crates/layerx-proof/tests/terminal_v4.rs:3", "services/agent/crates/layerx-proof/tests/withdrawal.rs:38", "services/agent/crates/layerx-sdk/src/bin/layerx-wallet-rpc.rs:10", "services/agent/crates/layerx-sdk/src/production.rs:15", "services/agent/crates/layerx-sdk/src/rpc_verification.rs:4", "services/agent/crates/layerx-sdk/tests/offline_export.rs:4", "services/agent/crates/layerx-sdk/tests/rpc_node.rs:7", "services/agent/crates/layerx-sdk/tests/sdk.rs:428", "services/agent/crates/layerx-sdk/tests/wallet_calls.rs:13", "services/agent/qualification/pay2/pay2e_test.rs:1030", "services/agent/sdk/python/tests/test_retired_kernel_receipts.py:25", "services/agent/sdk/typescript/src/ai_market.ts:31", "services/agent/sdk/typescript/src/verifier.ts:93", "services/human/crates/layerx-human-identity-provider/src/provision_head.rs:3", "services/human/crates/layerx-human-identity-provider/tests/account_head.rs:5", "services/human/crates/layerx-human-service/src/activity/export.rs:8", "services/human/crates/layerx-human-service/src/journeys/engine.rs:1779", "services/human/crates/layerx-human-service/src/onboarding/mod.rs:1099", "services/human/crates/layerx-human-service/src/server/production_reads.rs:334", "services/human/crates/layerx-human-service/tests/export.rs:26", "services/human/crates/layerx-human-service/tests/receipt_material_rungs.rs:5", "services/human/crates/layerx-human-service/tests/support/production_fixture.rs:600", "services/interop/crates/layerx-ap2/src/adapter.rs:15", "services/interop/crates/layerx-ap2/tests/mandates.rs:17", "services/interop/crates/layerx-ap2/tests/sequencer_settlement.rs:22", "services/interop/crates/layerx-bridge-relayer/src/config.rs:15", "services/interop/crates/layerx-bridge-relayer/src/receipt.rs:3", "services/interop/crates/layerx-bridge-relayer/src/relayer.rs:45", "services/interop/crates/layerx-bridge-relayer/tests/operator_config.rs:12", "services/interop/crates/layerx-bridge-relayer/tests/sequencer_receipt.rs:7", "services/interop/crates/layerx-bridge-relayer/tests/support/mod.rs:25", "services/interop/crates/layerx-fiat/src/lib.rs:16", "services/interop/crates/layerx-fiat/tests/adapter.rs:25", "services/interop/crates/layerx-fiat/tests/sequenced_vectors.rs:15", "services/interop/crates/layerx-fiat/tests/sequencer_settlement.rs:15", "services/interop/crates/layerx-gas-station/src/rate.rs:9", "services/interop/crates/layerx-interop-gateway/src/gateway.rs:12", "services/interop/crates/layerx-interop-gateway/tests/gateway.rs:16", "services/interop/crates/layerx-interop-gateway/tests/proof_gateway_sequencer_evidence.rs:30", "services/interop/crates/layerx-interop-gateway/tests/sequencer_evidence.rs:16", "services/interop/crates/layerx-interop-service/src/config.rs:21", "services/interop/crates/layerx-interop-service/src/relay.rs:3", "services/interop/crates/layerx-interop-service/src/server.rs:38", "services/interop/crates/layerx-migrate/src/lib.rs:29", "services/interop/crates/layerx-migrate/src/tests.rs:15", "services/interop/crates/layerx-mirror/src/bin/layerx-mirror-verify.rs:16", "services/interop/crates/layerx-mirror/src/committed.rs:1", "services/interop/crates/layerx-mirror/src/verify.rs:3", "services/interop/crates/layerx-mirror/tests/committed_source.rs:330", "services/interop/crates/layerx-mirror/tests/proof_mirror_archive.rs:30", "services/interop/crates/layerx-mirror/tests/sequencer_vectors.rs:12", "services/interop/crates/layerx-portable/src/receipt.rs:3", "services/interop/crates/layerx-ucp/src/lib.rs:16", "services/interop/crates/layerx-ucp/tests/conformance_vectors.rs:11", "services/interop/crates/layerx-ucp/tests/e2e_client_seller.rs:9", "services/interop/crates/layerx-ucp/tests/merchant_profile.rs:7", "services/interop/crates/layerx-ucp/tests/sequenced_vectors.rs:8", "services/interop/crates/layerx-ucp/tests/sequencer_checkout.rs:10", "services/interop/crates/layerx-visa-tap/src/lib.rs:16", "services/interop/crates/layerx-visa-tap/tests/conformance.rs:18", "services/interop/crates/layerx-visa-tap/tests/middleware.rs:7", "services/interop/crates/layerx-visa-tap/tests/sequencer_result.rs:5", "services/interop/crates/layerx-x402/src/buyer.rs:14", "services/interop/crates/layerx-x402/src/facilitator.rs:18", "services/interop/crates/layerx-x402/src/seller.rs:18", "services/interop/crates/layerx-x402/tests/buyer.rs:10", "services/interop/crates/layerx-x402/tests/buyer_sequencer.rs:23", "services/interop/crates/layerx-x402/tests/evidence_format.rs:12", "services/interop/crates/layerx-x402/tests/facilitator_evidence.rs:22", "services/interop/crates/layerx-x402/tests/layerx_evidence.rs:7", "services/interop/crates/layerx-x402/tests/seller.rs:15", "services/interop/crates/layerx-x402/tests/sequenced_vectors.rs:22", "services/interop/crates/layerx-x402/tests/transports.rs:23", "services/interop/crates/x-websearch/src/config.rs:1", "services/interop/crates/x-websearch/src/payment.rs:27", "services/interop/crates/x-websearch/tests/config.rs:362", "services/interop/crates/x-websearch/tests/payment.rs:17", "services/interop/crates/x-websearch/tests/proof_x_websearch_payment.rs:23", "services/interop/crates/x-websearch/tests/sequencer_vectors.rs:13", "services/platform/hosted/agent-boundary/src/artifacts.rs:1", "services/platform/hosted/agent-boundary/src/chain_receipt.rs:1", "services/platform/hosted/authority/src/chain_receipt.rs:2", "services/platform/hosted/authority/src/human.rs:4", "services/platform/hosted/authority/src/human/dynamic.rs:109", "services/platform/hosted/authority/src/lib.rs:8", "services/platform/hosted/authority/src/main.rs:12", "services/platform/hosted/authority/src/trust.rs:3", "services/platform/hosted/authority/tests/budget_proof_exports.rs:414", "services/platform/hosted/authority/tests/chain_receipts.rs:212", "services/platform/hosted/authority/tests/maintenance_identity.rs:6", "services/platform/hosted/authority/tests/support/lifecycle_dispatch.rs:34", "services/platform/hosted/authority/tests/support/native_module_outcomes.rs:3", "services/platform/hosted/gateway/src/authority_evidence.rs:1", "services/platform/hosted/gateway/src/lib.rs:3", "services/platform/hosted/gateway/src/main.rs:4179", "services/platform/hosted/gateway/src/state.rs:5", "services/platform/hosted/runtime-clock/tests/supervisor.rs:260", "services/platform/hosted/webhooks/src/trusted.rs:120", "services/platform/ramps/toolkit/src/clients.rs:1585", "services/platform/ramps/toolkit/src/lib.rs:12", "tests/platform/gateway_maintenance_head.rs:3", "tools/platform/cli/src/wallet.rs:944", "tools/platform/cli/tests/wallet_px_reads.rs:102", "tools/platform/emulator/src/main.rs:815"]
+
+[row.r8-42.21]
+interface = "interface.8.go-sdkswift-checkpointattestation-init"
+verdict = "retired"
+path = "sdk/platform/swift/Sources/LayerXSDK/Verifier.swift"
+line = 114
+symbol = "CheckpointAttestation"
+evidence = "CheckpointAttestation and its protocol/network/checkpoint/guarantor initializer are absent from Verifier.swift. Repository-wide whole-identifier search excluding spec and docs directories finds only the listed other files mentioning the removed type."
+remaining_refs = 3
+remaining = ["sdk/platform/dotnet/tests/LayerX.Sdk.Tests/KernelVerifierRetiredTests.cs:105", "sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk/KernelVerifierRetiredTest.java:40", "services/agent/sdk/python/tests/test_retired_kernel_receipts.py:27"]
+
+[row.r8-42.22]
+interface = "interface.8.go-sdkswift-guarantorkey-init"
+verdict = "retired"
+path = "sdk/platform/swift/Sources/LayerXSDK/Verifier.swift"
+line = 130
+symbol = "GuarantorKey"
+evidence = "GuarantorKey and init(guarantorID:publicKey:bonded:) are absent from Verifier.swift. Listed whole-identifier references outside spec and docs include same-named Go and Rust types and retirement assertions; they do not implement the removed Swift initializer."
+remaining_refs = 10
+remaining = ["modules/layerxanchor/keeper/bond_return_test.go:254", "modules/layerxanchor/keeper/guarantors.go:13", "modules/layerxanchor/types/keys.go:50", "sdk/platform/dotnet/tests/LayerX.Sdk.Tests/KernelVerifierRetiredTests.cs:105", "sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk/KernelVerifierRetiredTest.java:40", "services/agent/crates/layerx-proof/src/checkpoint.rs:169", "services/agent/crates/layerx-proof/src/settlement.rs:7", "services/agent/crates/layerx-proof/tests/checkpoint.rs:8", "services/agent/crates/layerx-sdk/tests/sdk.rs:382", "services/agent/sdk/python/tests/test_retired_kernel_receipts.py:28"]
+
+[row.r8-42.23]
+interface = "interface.8.go-sdkswift-checkpointcertificate-init"
+verdict = "retired"
+path = "sdk/platform/swift/Sources/LayerXSDK/Verifier.swift"
+line = 142
+symbol = "CheckpointCertificate"
+evidence = "CheckpointCertificate and init(canonicalHeader:validityProof:attestations:threshold:settlementReference:) are absent from Verifier.swift. Listed whole-identifier references outside spec and docs include other languages and retirement assertions, not a relocated Swift constructor."
+remaining_refs = 14
+remaining = ["layerxproof/codec/checkpoint.go:103", "layerxproof/exportcheck/checkpoint_exports_test.go:26", "sdk/platform/dotnet/tests/LayerX.Sdk.Tests/KernelVerifierRetiredTests.cs:105", "sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk/KernelVerifierRetiredTest.java:40", "services/agent/crates/layerx-crypto/tests/verify.rs:87", "services/agent/crates/layerx-types/src/checkpoint.rs:93", "services/agent/crates/layerx-types/src/receipt.rs:5", "services/agent/crates/layerx-types/src/vectors.rs:23", "services/agent/crates/layerx-wire/src/hash.rs:33", "services/agent/crates/layerx-wire/src/receipt.rs:1750", "services/agent/crates/layerx-wire/tests/hashing.rs:30", "services/agent/sdk/python/tests/test_retired_kernel_receipts.py:29", "services/interop/crates/layerx-mirror/src/publisher.rs:257", "tests/codec/lxp_test_kernel_complete.c:1433"]
+
+[row.r8-42.24]
+interface = "interface.8.go-sdkswift-checkpointverificationinput-init"
+verdict = "retired"
+path = "sdk/platform/swift/Sources/LayerXSDK/Verifier.swift"
+line = 157
+symbol = "CheckpointVerificationInput"
+evidence = "CheckpointVerificationInput and its certificate/bondedSet/registered-checkpoint initializer are absent from Verifier.swift. Listed references are repository-wide whole-identifier mentions outside spec and docs; the Swift checkpoint verification input is removed."
+remaining_refs = 3
+remaining = ["sdk/platform/dotnet/tests/LayerX.Sdk.Tests/KernelVerifierRetiredTests.cs:106", "sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk/KernelVerifierRetiredTest.java:41", "services/agent/sdk/python/tests/test_retired_kernel_receipts.py:30"]
+
+[row.r8-42.25]
+interface = "interface.8.go-sdkswift-receipteffect"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Verifier.swift"
+line = 54
+symbol = "ReceiptEffect"
+evidence = "public struct ReceiptEffect: Sendable keeps the registered type signature, moving from line 179 to 54; it declares moduleID, ordinal, eventType, kind, monetary, transferSetRoot and body for decoded receipt effects."
+
+[row.r8-42.26]
+interface = "interface.8.go-sdkswift-programreceiptoutcome"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Verifier.swift"
+line = 64
+symbol = "ProgramReceiptOutcome"
+evidence = "public struct ProgramReceiptOutcome: Sendable keeps the registered type signature, moving from line 189 to 64; its current fields include appliedLegsDigest, encodingVersion, terminalKind, occupancy evidence, feeUnits, callGraphRoot, terminalPayloadRoot and transferRoot."
+
+[row.r8-42.27]
+interface = "interface.8.go-sdkswift-protocolreceipt"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Verifier.swift"
+line = 91
+symbol = "ProtocolReceipt"
+evidence = "public struct ProtocolReceipt: Sendable keeps the registered type signature, moving from line 216 to 91; the current receipt carries globalSequence, state roots, effects, optional programOutcome and sequencerSignature and is decoded by the sequencer verifier."
+
+[row.r8-42.28]
+interface = "interface.8.go-sdkswift-authorizedreceiptbatch-init"
+verdict = "retired"
+path = "sdk/platform/swift/Sources/LayerXSDK/Verifier.swift"
+line = 255
+symbol = "AuthorizedReceiptBatch"
+evidence = "AuthorizedReceiptBatch and init(batchID:asset:previousStateRoot:resultingStateRoot:sequencerPublicKey:) are absent from Verifier.swift. The replacement sequencer verifier accepts [ReceiptKeys], raw transaction and receipt JSON; listed remaining type-name mentions outside spec and docs include other SDKs."
+remaining_refs = 25
+remaining = ["GOTCHA.kvx:11300", "sdk/platform/dotnet/tests/LayerX.Sdk.Tests/KernelVerifierRetiredTests.cs:116", "sdk/platform/jvm/README.md:99", "sdk/platform/jvm/examples/OfflineVerificationExample.java:25", "sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk/KernelVerifierRetiredTest.java:45", "services/agent/sdk/python/examples/offline_receipt_verification.py:2", "services/agent/sdk/python/layerx_sdk/__init__.py:197", "services/agent/sdk/python/layerx_sdk/__init__.pyi:170", "services/agent/sdk/python/layerx_sdk/programs.py:21", "services/agent/sdk/python/layerx_sdk/programs.pyi:8", "services/agent/sdk/python/layerx_sdk/verifier.py:188", "services/agent/sdk/python/layerx_sdk/verifier.pyi:71", "services/agent/sdk/python/layerx_sdk/web_search.pyi:5", "services/agent/sdk/python/tests/test_retired_kernel_receipts.py:67", "services/agent/sdk/typescript/src/verifier.ts:85", "services/agent/sdk/typescript/src/web-search.ts:81", "services/agent/sdk/typescript/test/web-search.test.ts:8", "services/platform/ramps/sandbox-journey.sh:47", "tests/agent/sdk/python/test_ai_market.py:110", "tests/agent/sdk/python/test_program_executed_v3.py:9", "tests/agent/sdk/python/test_program_pre_runtime.py:17", "tests/agent/sdk/python/test_program_response_code.py:11", "tests/agent/sdk/python/test_web_search.py:17", "tests/agent/sdk/python/test_x402.py:13", "tools/paxeer-x/retired_callers.json:343"]
+
+[row.r8-42.29]
+interface = "interface.8.go-sdkswift-receiptverification"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Verifier.swift"
+line = 123
+symbol = "ReceiptVerification"
+evidence = "public struct ReceiptVerification: Sendable keeps the registered type signature, moving from line 261 to 123; it carries level, receipt, canonicalBytes and receiptDigest. The new transaction-bound verifier returns the separate SequencerReceiptVerification type."
+
+[row.r8-42.30]
+interface = "interface.8.go-sdkswift-localverifier"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Verifier.swift"
+line = 130
+symbol = "LocalVerifier"
+evidence = "public enum LocalVerifier keeps its registered declaration signature, moving from line 268 to 130; it now exposes verifySequencerReceipt with rawTransaction, keys: [ReceiptKeys], receiptJSON and prevSeqHash, while the AuthorizedReceiptBatch verifier methods are absent."
+
+[row.r8-42.31]
+interface = "interface.8.go-sdkswift-localverifier-decodeprogramreceiptoutcome"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Verifier.swift"
+line = 187
+symbol = "decodeProgramReceiptOutcome"
+evidence = "public static func decodeProgramReceiptOutcome(_ canonicalOutcome: Data, protocolVersion: UInt16) throws -> ProgramReceiptOutcome remains present at line 187 instead of 269; the registered first parameter is retained and the explicit protocolVersion selects the outcome decoder."
+
+[row.r8-42.32]
+interface = "interface.8.go-sdkswift-localverifier-verifymerkleinclusion"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Verifier.swift"
+line = 206
+symbol = "verifyMerkleInclusion"
+evidence = "public static func verifyMerkleInclusion(canonicalLeaf: Data, proof: MerkleProof, expectedRoot: Data) throws keeps the registered signature, moving from line 286 to 206; it checks proof depth and hashes the leaf and siblings against expectedRoot."
+
+[row.r8-42.33]
+interface = "interface.8.go-sdkswift-localverifier-verifyreceiptoutcome"
+verdict = "retired"
+path = "sdk/platform/swift/Sources/LayerXSDK/Verifier.swift"
+line = 413
+symbol = "verifyReceiptOutcome"
+evidence = "LocalVerifier.verifyReceiptOutcome(_ canonicalReceipt: Data, authorized: AuthorizedReceiptBatch, protocolVersion: UInt16 = 2) async throws -> ReceiptVerification is absent from Verifier.swift. verifySequencerReceipt is its transaction-bound replacement; listed references mention the old method outside spec and docs."
+remaining_refs = 5
+remaining = ["sdk/platform/conformance/jvm.kvx:21", "sdk/platform/generators/src/main.rs:1579", "sdk/platform/jvm/examples/OfflineVerificationExample.java:29", "sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk/KernelVerifierRetiredTest.java:46", "services/agent/sdk/typescript/test/retired-kernel-receipts.test.ts:6"]
+
+[row.r8-42.34]
+interface = "interface.8.go-sdkswift-localverifier-verifyprogramlifecyclereceipt"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Verifier.swift"
+line = 229
+symbol = "verifyProgramLifecycleReceipt"
+evidence = "public static func verifyProgramLifecycleReceipt(_ canonical: Data, expectedActivity: Data, sequencer: Data) throws -> ReceiptVerification is the current full signature at line 229 instead of the registered opening at 508; it checks protocol 3, module 9/version 4, operation 0 and the sequencer signature."
+
+[row.r8-42.35]
+interface = "interface.8.go-sdkswift-localverifier-verifyreceipt"
+verdict = "retired"
+path = "sdk/platform/swift/Sources/LayerXSDK/Verifier.swift"
+line = 529
+symbol = "verifyReceipt"
+evidence = "LocalVerifier.verifyReceipt(_ canonicalReceipt: Data, authorized: AuthorizedReceiptBatch, protocolVersion: UInt16 = 2) async throws -> ReceiptVerification is absent from Verifier.swift. verifySequencerReceipt replaces it; remaining references include the distinct ProgramsClient.verifyReceipt and private PortableReceipt method, not a moved LocalVerifier declaration."
+remaining_refs = 14
+remaining = ["contracts/src/precompiles/ILayerXVerify.sol:17", "precompiles/layerxverify/LayerXVerify.sol:17", "precompiles/layerxverify/abi.json:1", "precompiles/layerxverify/layerxverify.go:17", "sdk/platform/conformance/jvm.kvx:20", "sdk/platform/generators/src/main.rs:1578", "sdk/platform/jvm/README.md:101", "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/ProgramsClient.java:592", "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/verify/PortableReceipt.java:103", "sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk/KernelVerifierRetiredTest.java:46", "sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk/ProgramsEvmTest.java:66", "sdk/platform/swift/Sources/LayerXSDK/PortableReceipt.swift:27", "sdk/platform/swift/Sources/LayerXSDK/Programs.swift:619", "services/agent/sdk/typescript/test/retired-kernel-receipts.test.ts:5"]

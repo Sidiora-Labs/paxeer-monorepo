@@ -98,7 +98,7 @@ func (p *PrecompileExecutor) nextSequence(ctx sdk.Context, method *abi.Method, _
 	if err := method.Inputs.Copy(&input, args); err != nil {
 		return nil, err
 	}
-	sequence, err := p.keeper.NextSequence(ctx, input.AccountID, input.AssetID)
+	sequence, err := p.keeper.NextSequenceByAccountID(ctx, input.AccountID, input.AssetID)
 	if err != nil {
 		return nil, RevertError(err)
 	}

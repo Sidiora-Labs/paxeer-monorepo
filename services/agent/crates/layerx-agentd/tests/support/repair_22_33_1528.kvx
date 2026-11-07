@@ -1,0 +1,38 @@
+[repair.22.33.1528]
+acceptance = "22998.1"
+baseline = "Attempt 2 continues the six in-scope files from attempt 1; its final verification reported 16 passing cases and the pre-existing evm_signing.rs:163 KeyMismatch. This attempt's initial runner ledger has zero builds and zero verification runs. No additional pre-change run is claimed: the ordered instructions prohibit direct verify_cmd invocation."
+evidence = "The qualified candidate revision, exact command, exit code and private evidence log are recorded by hf-build/hf-done in the runner ledger; completion is claimed only when hf-done passes."
+wiring_requests = ["Domain 9: services/agent/crates/layerx-agentd/tests/{signing,prepare,prepare_expiry,w7_core_time,w7_owner_binding,disclosure,signature_binding,evm_signing,human_node_budgets,budget_durable_limits,repair_22_31_368}.rs: migrate their remaining local hand-encoded input builders to SendDebit and typed preparation; assertions remain intact here through the typed compatibility adapter.", "Domain 9: services/agent/crates/layerx-agentd/src/prepare/expiry.rs: expose lifecycle registration for EVM SigningPreparation; current public registration accepts only the legacy Prepared envelope, so existing expiry/refusal assertions remain exercised unchanged.", "Node owner: rpc/sequencer_receipt_vectors_test.go and tools/qualification/localnode: add committed producer transcripts spanning key rotation and node storage reopen; this bounded Rust gate replays current node-produced intervals and receipts over actual HTTP and restarts the production Gate and Store without a subprocess or external node binary."]
+
+[finding.support-kernel-authorizations]
+proving_tests = ["support_kernel_authorizations_cross_transport_receipt_consumer_and_reopen"]
+repair = "Shared send fixtures compare ledger_payment_call with daemon prepare_bound, bind disclosure, sign real type-2 transactions, transport exact bytes through NodeRpc, authenticate signed receipts and reopen real outbox/finality stores. Budget fixtures call production BudgetRequest::create_protocol_budget directly, without protocol-3 envelope preparation; existing negative assertions are retained."
+
+[finding.send-authorization-retired-shape]
+proving_tests = ["send_authorization_restored_preparation_refuses_every_changed_binding"]
+repair = "Remove fixed-offset trailer patching and manually constructed signature digests. Shared fixtures use typed SendDebit::sign and ledger_payment_call; out-of-scope callers retain a strict field-decoding adapter that delegates to the same producer. Restore exact SigningPreparation from the production store and reject modified call, nonce, chain, fees, gas, disclosure, idempotency, actor and foreign signature."
+
+[finding.readiness-real-path-test-gap]
+proving_tests = ["readiness_node_transcript_receipts_and_authority_survive_consumer_restart", "readiness_wrong_chain_uncovered_and_rotated_trust_refuse_node_transcript", "node_produced_uncovered_and_unpinned_receipts_fail_after_transport", "focused_authority_decoder_retains_restart_coverage"]
+repair = "Retain focused decoder coverage with canonical current receipt-key response fields and no external chain-id variable. Replay Go node-produced ledger success/revert and signed out-of-range/unpinned receipts, preserving the producer's numeric key intervals and signed bytes through HTTP into NodeRpc, Gate and finality consumers. Stop the fixture server and production consumers, reopen Store and Gate, and require fresh readiness. Independent narrower or rotated policy and wrong chain refuse readiness without replacing node replies with constructed evidence. Live node-storage rotation/reopen is explicitly assigned to its owner above."
+
+[gotcha.readiness_shape]
+observed = "The focused readiness helper used an array of hexadecimal intervals; the production decoder requires a keys object containing numeric firstHeight and lastHeight."
+repair = "Keep the same key, height and authority assertions while using the declared current decoder shape."
+
+[qualification.repair_1]
+revision = "32d3d8fff507c2eabc191903e014b93afbc2eeee"
+command = "cg spec done 22.33.1528 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "15 of 17 cases passed; the new direct-root reopen test used a nonprivate directory, and the existing evm_signing.rs session fixture refused provisioning with KeyMismatch at line 163."
+repair = "Create the test root with mode 0700 and explicitly bind the loopback send endpoint to the prepared transaction chain; retain all existing refusal assertions."
+
+[wiring.preexisting_session_fixture]
+owner_domain = 9
+path = "services/agent/crates/layerx-agentd/tests/evm_signing.rs:163"
+request = "Port issued/session_public_key fixtures from Ed25519 LocalSigner public keys to the current production secp256k1 session-key registration format, preserving all three tests and every assertion; the existing KeyMismatch is recorded once and not repaired outside this task's scope."
+
+[continuation.attempt_2]
+ruling = "Remove every re-inclusion of out-of-scope test files from the repair binary; retain this task's own cases and tests/support modules unchanged."
+implementation = "Removed the signature_binding.rs, prepare_expiry.rs, prepare.rs and evm_signing.rs module inclusions. Their original test files and assertions remain unchanged; the repair gate executes its own producer, transport, consumer, refusal and reopen cases plus the in-scope support decoder test."

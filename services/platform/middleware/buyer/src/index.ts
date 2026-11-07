@@ -4,6 +4,7 @@ import {
   SecretBytes,
   idempotencyKey,
   decodeRawEip1559,
+  recoverEip1559Sender,
   keccak256,
   verifySequencerReceipt,
   type ProductionTransport,
@@ -238,7 +239,7 @@ export class BuyerMiddleware {
     const offer = this.parseOffer(paymentRequiredHeader);
     if (offer.accepted.scheme !== "exact") throw new MiddlewareError("unsupported-payment");
     const terms = paymentQuoteTerms(offer.accepted);
-    if (!(await accountNamesPayTo(terms.account, offer.accepted.payTo))) {
+    if (!(await accountNamesPayTo(terms.account, offer.accepted.payTo, offer.accepted.asset))) {
       throw new MiddlewareError("requirements-mismatch");
     }
     const mutationKey = idempotencyKey(callerIdempotencyKey);
@@ -370,12 +371,20 @@ export class BuyerMiddleware {
         && key.first_height === BigInt(evidence.receiptKey.firstHeight)
         && key.last_height === BigInt(evidence.receiptKey.lastHeight));
       if (keys.length === 0 || evidence.rawTransaction !== rawTransaction
-        || evidence.receiptDigest !== `0x${toHex(keccak256(signedReceipt))}`
         || (paymentCommitment(payload.accepted.extra) === "committed" && evidence.verificationLevel !== "committed")) {
         throw new MiddlewareError("verification-failure");
       }
       const verified = await verifySequencerReceipt(signedReceipt, raw, keys);
+      if (!constantTimeEqualText(evidence.receiptDigest, `0x${toHex(verified.receiptDigest)}`)) {
+        throw new MiddlewareError("verification-failure");
+      }
       const { receipt } = verified;
+      const transaction = decodeRawEip1559(raw);
+      const sender = recoverEip1559Sender(raw).slice(2).toLowerCase().padStart(64, "0");
+      if (toHex(receipt.from) !== sender
+        || !equalBytes(receipt.to, concatenate(new Uint8Array(12), transaction.to))) {
+        throw new MiddlewareError("verification-failure");
+      }
       const summary = receipt.effects[0];
       if (receipt.resultCode !== 0 || receipt.moduleId <= 11 || summary === undefined
         || summary.moduleId !== receipt.moduleId || summary.ordinal !== 0 || summary.kind !== 1
@@ -400,8 +409,8 @@ export class BuyerMiddleware {
         const payment = decodePaymentDrawnLog({ address, data: eventData,
           topics: Array.from({ length: count }, (_, i) => body.slice(21 + i * 32, 53 + i * 32)) });
         if (!equalBytes(payment.grantId, data.subarray(4, 36))
-          || !equalBytes(payment.from, data.subarray(36, 68))
-          || `0x${toHex(payment.to)}` !== payload.accepted.payTo
+          || toHex(payment.from) !== payer
+          || !equalBytes(payment.to, data.subarray(36, 68))
           || `0x${toHex(payment.assetId)}` !== payload.accepted.asset
           || payment.amount !== BigInt(payload.accepted.amount)
           || toHex(payment.idempotencyKey) !== payload.payload["idempotencyKey"]
@@ -415,6 +424,7 @@ export class BuyerMiddleware {
       let commitmentEvidence: PaymentCommitmentEvidence | undefined;
       await verifyPaymentCommitment(verified, payload.accepted.network, evidence.verificationLevel,
         this.#commitments === undefined ? undefined : {
+          resolveValidators: (network, height) => this.#commitments!.resolveValidators(network, height),
           resolve: async (transactionHash, network) => {
             commitmentEvidence = structuredClone(await this.#commitments!.resolve(transactionHash, network));
             return commitmentEvidence;
@@ -538,7 +548,7 @@ export class BuyerMiddleware {
         continue;
       }
       if (matched !== undefined) throw new MiddlewareError("verification-failure");
-      matched = { ...evidence, verification, txHash: verification.txHash };
+      matched = { ...evidence, receiptDigest: `0x${toHex(verification.receiptDigest)}`, verification, txHash: verification.txHash };
     }
     if (hasPortableEvidence && matched === undefined) throw new MiddlewareError("verification-failure");
     return matched;
@@ -949,13 +959,19 @@ export async function accountIdentifiers(account: string): Promise<readonly Uint
   ]);
 }
 
-async function accountNamesPayTo(account: string, payTo: string): Promise<boolean> {
+async function accountNamesPayTo(account: string, payTo: string, asset: string): Promise<boolean> {
   const digits = payTo.startsWith("0x") ? payTo.slice(2) : payTo;
   if (!/^[0-9a-fA-F]{64}$/u.test(digits)) return false;
   const expected = Uint8Array.from({ length: 32 }, (_, index) => Number.parseInt(digits.slice(index * 2, index * 2 + 2), 16));
   let matched = false;
   for (const candidate of await accountIdentifiers(account)) {
     matched = equalBytes(candidate, expected) || matched;
+  }
+  const did = /^agent:([a-z0-9._:-]+):main$/u.exec(account)?.[1];
+  const assetHex = asset.replace(/^0x/u, "").toLowerCase();
+  if (did !== undefined && /^[0-9a-f]{64}$/u.test(assetHex)) {
+    const [, nativeAssetAccount] = await accountIdentifiers(`agent:${did}:asset:${assetHex}`);
+    matched = equalBytes(nativeAssetAccount!, expected) || matched;
   }
   return matched;
 }
@@ -1032,13 +1048,14 @@ function grantDrawTransaction(accepted: PaymentRequirements, rawTransaction: str
     const grantId = requiredString(grant["grantId"]);
     const asset = requiredString(grant["asset"]);
     const contextHash = requiredString(layerx["contextHash"]);
+    paymentPayer(accepted.extra, true);
     if ((accepted.scheme !== "metered" && accepted.scheme !== "subscription")
       || `0x${toHex(transaction.to)}` !== LAYERX_LEDGER_ADDRESS || transaction.value !== 0n
       || accepted.network !== `eip155:${transaction.chainId}`
       || data.length !== 4 + 7 * 32 || !equalBytes(data.subarray(0, 4), LEDGER_DRAW_SELECTOR)
       || !/^[0-9a-f]{64}$/u.test(grantId) || /^0+$/u.test(grantId)
       || toHex(data.subarray(4, 36)) !== grantId
-      || toHex(data.subarray(36, 68)) !== paymentPayer(accepted.extra, true)
+      || `0x${toHex(data.subarray(36, 68))}` !== accepted.payTo
       || !/^0x[0-9a-f]{64}$/u.test(asset) || asset !== accepted.asset
       || !/^(0|[1-9][0-9]{0,38})$/u.test(accepted.amount)
       || BigInt(`0x${toHex(data.subarray(68, 100))}`) > MAX_U128

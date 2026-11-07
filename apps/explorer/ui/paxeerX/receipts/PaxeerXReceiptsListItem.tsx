@@ -49,12 +49,16 @@ const PaxeerXReceiptsListItem = ({ item, isLoading }: Props) => {
 
       <ListItemMobileGrid.Label isLoading={ isLoading }>Block</ListItemMobileGrid.Label>
       <ListItemMobileGrid.Value>
-        <BlockEntity
-          isLoading={ isLoading }
-          number={ item.block_number }
-          truncation="none"
-          noIcon
-        />
+        { item.block_number === null ? (
+          <Text color="text.secondary">Pending</Text>
+        ) : (
+          <BlockEntity
+            isLoading={ isLoading }
+            number={ item.block_number }
+            truncation="none"
+            noIcon
+          />
+        ) }
       </ListItemMobileGrid.Value>
 
     </ListItemMobileGrid.Container>

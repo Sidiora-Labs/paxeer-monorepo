@@ -8,7 +8,7 @@ use layerx_agentd::budget::{
 use layerx_agentd::human_node::HumanNode;
 use layerx_agentd::human_runtime::NodeBudgetPipeline;
 use layerx_agentd::node_rpc::{NodeRpc, NodeRpcConfig};
-use layerx_agentd::prepare::{restore_canonical, EvmPrepared};
+use layerx_agentd::prepare::EvmPrepared;
 use layerx_agentd::protocol_evidence::EvidenceAuthority;
 use layerx_agentd::sign::{verify_before_submit, SigningPreparation};
 use layerx_agentd::store::{Store, TenantId};
@@ -16,9 +16,6 @@ use layerx_client::sequencer::ReceiptKeyEntry;
 use layerx_crypto::evm_transaction::{
     decode_signed, recover_sender, transaction_hash, Eip1559Call,
 };
-use layerx_types::activity::{Authority, EnvelopeBuilder, TimestampBound};
-use layerx_types::amount::Amount;
-use layerx_types::ids::{Did, IdempotencyKey};
 use layerx_types::payload::{ActivityType, ModuleId, ModuleRegistration, ModuleRegistry};
 use layerx_wire::encode::Encoder;
 use layerx_wire::hash::receipt_digest;
@@ -204,22 +201,22 @@ fn signed_receipt(
             "topics": [rpc_hex(&transaction_hash(b"BudgetCreated(bytes32,bytes32,uint128)")), rpc_hex(&identity().budget_id)],
             "data": rpc_hex(&creation_log_data()), "logIndex": "0x0"}],
         "gasUsed": "0x5208", "cumulativeGasUsed": "0xa410", "effectiveGasPrice": "0x1",
-        "feeDenom": "upax", "feeAmount": "0x5208", "sponsor": rpc_hex(&[0; 20]),
+        "paymentDenom": "upax", "feeDenom": "upax", "feeAmount": "0x5208", "sponsor": rpc_hex(&[0; 20]),
         "from": rpc_hex(&sender), "to": rpc_hex(&layerx_agentd::prepare::evm::PrecompileTarget::Pay.address()), "contractAddress": rpc_hex(&[0; 20]),
         "vmError": if success { "" } else { "execution reverted" },
         "keyId": rpc_hex(&KEY_ID), "receipt": rpc_hex(&bytes),
-        "signingKey": rpc_hex(&signer.verifying_key().to_bytes())
+        "signingKey": rpc_hex(&key.public_key)
     });
     (view, bytes, key)
 }
 
 fn published_key(key: ReceiptKeyEntry) -> Value {
-    json!([{
+    json!({"keys": [{
         "keyId": rpc_hex(&key.key_id),
         "publicKey": rpc_hex(&key.public_key),
-        "firstHeight": format!("{:#x}", key.first_height),
-        "lastHeight": format!("{:#x}", key.last_height),
-    }])
+        "firstHeight": key.first_height,
+        "lastHeight": key.last_height,
+    }]})
 }
 
 pub fn request() -> BudgetRequest {
@@ -361,53 +358,38 @@ fn send_payload() -> Vec<u8> {
     send_authorization::sign(encoder.finish())
 }
 
-fn prepared(authority: Authority) -> SigningPreparation {
-    let payload = layerx_types::payload::Payload::new(&registry(), send_type(), &send_payload())
-        .unwrap_or_else(|error| panic!("payload: {error:?}"));
-    let payload_hash = layerx_wire::hash::payload_hash_for(&payload)
-        .unwrap_or_else(|error| panic!("payload hash: {error:?}"));
-    let mut builder = EnvelopeBuilder::new();
-    builder
-        .protocol_version(layerx_wire::limits::PROTOCOL_VERSION)
-        .and_then(|builder| builder.network_id(17))
-        .and_then(|builder| builder.activity_type(send_type()))
-        .and_then(|builder| builder.actor_did(Did::new(b"did:layerx:prepare-agent").unwrap()))
-        .and_then(|builder| builder.authority(authority.clone()))
-        .and_then(|builder| builder.account_sequence(5))
-        .and_then(|builder| builder.timestamp_bound(TimestampBound::new(995, 1_010).unwrap()))
-        .and_then(|builder| builder.idempotency_key(IdempotencyKey::new([4; 32])))
-        .and_then(|builder| builder.fee_limit(Amount::from_u128(7)))
-        .and_then(|builder| builder.payload_hash(payload_hash))
-        .and_then(|builder| builder.payload(payload))
-        .unwrap_or_else(|error| panic!("envelope: {error:?}"));
-    let envelope = builder
-        .build()
-        .unwrap_or_else(|error| panic!("envelope: {error:?}"));
-    let canonical = layerx_wire::activity::encode_unsigned_envelope(&envelope)
-        .unwrap_or_else(|error| panic!("encode: {error:?}"));
-    let authorization = restore_canonical(&canonical, 88, &registry(), Some(&authority))
-        .unwrap_or_else(|error| panic!("restore: {error:?}"));
-    let call = Eip1559Call {
-        chain_id: 17,
-        nonce: 5,
-        max_priority_fee_per_gas: 1,
-        max_fee_per_gas: 7,
-        gas_limit: 100_000,
-        to: [0x1a; 20],
-        data: send_payload(),
-    };
+fn prepared() -> SigningPreparation {
+    let key = k256::ecdsa::SigningKey::from_slice(&[0xa5; 32]).unwrap();
+    let actor_address = layerx_crypto::secp256k1::evm_address(
+        key.verifying_key().to_encoded_point(false).as_bytes(),
+    )
+    .unwrap();
+    let transaction = layerx_agentd::prepare::prepare_bound(
+        layerx_agentd::prepare::EvmPreparationState {
+            chain_id: 17,
+            pending_nonce: 5,
+            base_fee_per_gas: 3,
+            head_height: 88,
+        },
+        layerx_agentd::prepare::EvmPreparationDefaults {
+            max_priority_fee_per_gas: 1,
+            max_fee_per_gas: 7,
+            maximum_payload_bytes: 1_024,
+        },
+        layerx_agentd::prepare::EvmPrepareRequest {
+            from: actor_address,
+            call: layerx_agentd::prepare::PrecompileCall::ledger_transfer(send_payload()),
+            expected_nonce: Some(5),
+            max_priority_fee_per_gas: None,
+            max_fee_per_gas: None,
+            declared_payload_limit: 1_024,
+        },
+        100_000,
+    )
+    .unwrap();
     SigningPreparation {
-        transaction: EvmPrepared {
-            signing_hash: call.signing_hash(),
-            call: call.clone(),
-            observed_head_height: 88,
-        },
-        actor_address: {
-            let raw = call.sign(&[0xa5; 32]).unwrap();
-            let (c, sig) = decode_signed(&raw).unwrap();
-            recover_sender(&c, &sig).unwrap()
-        },
-        authorization,
+        transaction,
+        actor_address,
     }
 }
 
@@ -430,9 +412,12 @@ fn budget_pipeline_submits_raw_transaction_and_reads_get_budget() {
     assert_eq!(raw[0], 2);
     let (call, signature) = must(decode_signed(&raw));
     let sender = must(recover_sender(&call, &signature));
-    let authority = must(Authority::owner(&[0xa5; 32]));
-    let mut preparation = prepared(authority);
+    let mut preparation = prepared();
+    let disclosure = must(layerx_crypto::disclosure::call::bind_call(&call, sender));
     preparation.transaction = EvmPrepared {
+        from: sender,
+        disclosure_digest: must(disclosure.signing_digest()),
+        disclosure,
         signing_hash: call.signing_hash(),
         call,
         observed_head_height: HEIGHT,

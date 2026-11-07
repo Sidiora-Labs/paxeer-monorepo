@@ -1,25 +1,17 @@
-from http.server import HTTPServer, BaseHTTPRequestHandler
-import subprocess
-
+"""Launch the fixture's shared, bounded HTTP and bank-process implementation."""
 import os
+from pathlib import Path
 
 
-class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
-
-    def do_POST(self):
-        try:
-            content_len = int(self.headers.get('Content-Length'))
-            addr = self.rfile.read(content_len).decode("utf-8")
-            print("sending funds to " + addr)
-            subprocess.call(['sh', './send_funds.sh', addr])
-            self.send_response(200)
-            self.end_headers()
-        except Exception as e:
-            print("failed " + str(e))
-            os._exit(1)
+def main():
+    # One implementation serves Python, shell and native clients. A missing
+    # binary fails startup rather than silently serving an unfunded success.
+    os.execvp("rosetta-fixture", [
+        "rosetta-fixture", "serve",
+        "--config", str(Path(__file__).resolve().parent),
+        "--listen", "0.0.0.0:8000",
+    ])
 
 
 if __name__ == "__main__":
-    print("starting faucet server...")
-    httpd = HTTPServer(('0.0.0.0', 8000), SimpleHTTPRequestHandler)
-    httpd.serve_forever()
+    main()

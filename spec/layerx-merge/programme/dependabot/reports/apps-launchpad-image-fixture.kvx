@@ -1,0 +1,35 @@
+[alert.GHSA-qx2v-qp2m-jg93]
+package = "postcss"
+manifest = "apps/launchpad/qualification/image-dependencies/fixture/pnpm-lock.yaml"
+verdict = "upgraded"
+version_before = "8.4.31"
+version_after = "8.5.23"
+pinned_by = ""
+revision = "acb0ede973ea7d56086f9026bd71bd4d78145ae9"
+
+[alert.GHSA-6g55-p6wh-862q]
+package = "postcss"
+manifest = "apps/launchpad/qualification/image-dependencies/fixture/pnpm-lock.yaml"
+verdict = "upgraded"
+version_before = "8.4.31"
+version_after = "8.5.23"
+pinned_by = ""
+revision = "acb0ede973ea7d56086f9026bd71bd4d78145ae9"
+
+[alert.GHSA-r28c-9q8g-f849]
+package = "postcss"
+manifest = "apps/launchpad/qualification/image-dependencies/fixture/pnpm-lock.yaml"
+verdict = "upgraded"
+version_before = "8.4.31"
+version_after = "8.5.23"
+pinned_by = ""
+revision = "acb0ede973ea7d56086f9026bd71bd4d78145ae9"
+
+[alert.GHSA-fxqj-rqcc-2cmp]
+package = "postcss"
+manifest = "apps/launchpad/qualification/image-dependencies/fixture/pnpm-lock.yaml"
+verdict = "upgraded"
+version_before = "8.4.31"
+version_after = "8.5.23"
+pinned_by = ""
+revision = "acb0ede973ea7d56086f9026bd71bd4d78145ae9"

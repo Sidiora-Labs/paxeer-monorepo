@@ -20,6 +20,7 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/layerxagent/eip712"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/layerxagent/orob"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/layerxagent/pofq"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/layerxagent/scheduler"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/layerxchains"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/layerxpay"
 	precompiletest "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/testutil"
@@ -383,6 +384,23 @@ func TestPrecompileInfoResolvesWithoutMergeKeepers(t *testing.T) {
 	t.Cleanup(func() {
 		precompiles.Initialized, precompiles.PrecompileNamesToInfo = initialized, before
 	})
+	contractsBefore := make(map[*vm.PrecompiledContracts]vm.PrecompiledContracts)
+	for _, contracts := range []*vm.PrecompiledContracts{
+		&vm.PrecompiledContractsHomestead, &vm.PrecompiledContractsByzantium,
+		&vm.PrecompiledContractsIstanbul, &vm.PrecompiledContractsBerlin,
+		&vm.PrecompiledContractsCancun, &vm.PrecompiledContractsPrague,
+		&vm.PrecompiledContractsBLS, &vm.PrecompiledContractsVerkle,
+	} {
+		contractsBefore[contracts] = maps.Clone(*contracts)
+	}
+	addressesBefore := make(map[*[]common.Address][]common.Address)
+	for _, addresses := range []*[]common.Address{
+		&vm.PrecompiledAddressesHomestead, &vm.PrecompiledAddressesByzantium,
+		&vm.PrecompiledAddressesIstanbul, &vm.PrecompiledAddressesBerlin,
+		&vm.PrecompiledAddressesCancun, &vm.PrecompiledAddressesPrague,
+	} {
+		addressesBefore[addresses] = slices.Clone(*addresses)
+	}
 	payABI, err := layerxpay.GetABI()
 	require.NoError(t, err)
 	for _, tc := range []struct {
@@ -392,6 +410,7 @@ func TestPrecompileInfoResolvesWithoutMergeKeepers(t *testing.T) {
 	}{
 		{xweb.PrecompileName, xweb.XWebAddress, xweb.FeeMethod},
 		{layerxpay.PrecompileName, layerxpay.PayAddress, "getStream"},
+		{scheduler.PrecompileName, "0x0000000000000000000000000000000000000905", "schedule"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			info, err := precompiles.GetPrecompileInfoE(tc.name)
@@ -401,6 +420,12 @@ func TestPrecompileInfoResolvesWithoutMergeKeepers(t *testing.T) {
 			if tc.name == layerxpay.PrecompileName {
 				require.Equal(t, payABI.Methods, info.ABI.Methods)
 				require.Equal(t, payABI.Events, info.ABI.Events)
+			}
+			if tc.name == scheduler.PrecompileName {
+				require.Len(t, info.ABI.Events, 5)
+				for _, event := range []string{"JobScheduled", "JobCancelled", "JobRescheduled", "JobExecuted", "JobFailed"} {
+					require.Contains(t, info.ABI.Events, event)
+				}
 			}
 			require.False(t, precompiles.Initialized)
 			require.Empty(t, precompiles.PrecompileNamesToInfo)
@@ -416,6 +441,12 @@ func TestPrecompileInfoResolvesWithoutMergeKeepers(t *testing.T) {
 	}
 	require.False(t, precompiles.Initialized)
 	require.Empty(t, precompiles.PrecompileNamesToInfo)
+	for contracts, snapshot := range contractsBefore {
+		require.Equal(t, snapshot, *contracts)
+	}
+	for addresses, snapshot := range addressesBefore {
+		require.Equal(t, snapshot, *addresses)
+	}
 	a := app.Setup(t, false, true, false)
 	served, err := precompiles.GetCustomPrecompilesE(app.LatestUpgrade, precompiletest.Keepers(a))
 	require.NoError(t, err)

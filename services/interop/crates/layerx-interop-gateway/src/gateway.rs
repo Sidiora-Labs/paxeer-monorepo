@@ -565,7 +565,8 @@ impl GatewayCore {
     /// # Errors
     ///
     /// Submitted evidence returns `ReceiptPending` without writing state. Other
-    /// rungs apply the signature, log and payment checks of the receipt path.
+    /// rungs bind the evidence transaction hash to the signed receipt activity ID
+    /// and apply the signature, log and payment checks of the receipt path.
     #[allow(clippy::too_many_arguments)]
     pub fn settle_with_sequencer_evidence(
         &mut self,
@@ -579,12 +580,27 @@ impl GatewayCore {
         if evidence.rung == SettlementRung::Submitted {
             return Err(trace.wrap(SequencerSettlementError::from(GatewayError::ReceiptPending)));
         }
+        let reject = |failure| {
+            trace.wrap(SequencerSettlementError::from(
+                GatewayError::ReceiptRejected(failure),
+            ))
+        };
+        let receipt = verify_sequencer_signature(
+            &evidence.signed_receipt,
+            ReceiptKeys::HeightRanges(receipt_keys),
+        )
+        .map_err(reject)?;
+        let protocol = receipt.protocol().ok_or_else(|| {
+            reject(VerificationFailure {
+                check: ReceiptCheck::ReceiptShape,
+            })
+        })?;
+        if protocol.activity_id() != evidence.transaction_hash {
+            return Err(reject(VerificationFailure {
+                check: ReceiptCheck::ActivityId,
+            }));
+        }
         self.settle_verified(principal, idempotency_key, trace, now, || {
-            let receipt = verify_sequencer_signature(
-                &evidence.signed_receipt,
-                ReceiptKeys::HeightRanges(receipt_keys),
-            )
-            .map_err(GatewayError::ReceiptRejected)?;
             let verified = verify_logs(&receipt, evidence.logs.clone())
                 .map_err(SequencerSettlementError::Logs)?;
             let payment_exact = keccak256(PAYMENT_EXACT_EVENT);
@@ -770,10 +786,68 @@ impl GatewayCore {
 #[cfg(test)]
 mod ledger_producer_proof {
     use super::*;
+    use std::io::Read;
+    use std::process::Command;
 
     #[test]
     fn proof_layerxledger_0x101a() {
-        let proof: serde_json::Value = serde_json::from_reader(std::io::stdin().lock())
+        let mut input = Vec::new();
+        std::io::stdin()
+            .lock()
+            .read_to_end(&mut input)
+            .expect("read ledger producer input");
+        if input.is_empty() {
+            eprintln!("Building the real ledger producer's native programs library");
+            let output = Command::new("cargo")
+                .current_dir(concat!(env!("CARGO_MANIFEST_DIR"), "/../../../.."))
+                .args([
+                    "build",
+                    "--locked",
+                    "--manifest-path",
+                    "programs/Cargo.toml",
+                    "-p",
+                    "layerx-programs-sandbox",
+                    "--features",
+                    "host-ffi",
+                    "--target-dir",
+                    "programs/target",
+                ])
+                .output()
+                .expect("build the real ledger producer's native programs library");
+            assert!(
+                output.status.success(),
+                "ledger producer native programs library build failed: {}\n{}\n{}",
+                output.status,
+                String::from_utf8_lossy(&output.stdout),
+                String::from_utf8_lossy(&output.stderr)
+            );
+            eprintln!("Starting the real ledger producer and its gateway consumer");
+            let output = Command::new("go")
+                .current_dir(concat!(env!("CARGO_MANIFEST_DIR"), "/../../../.."))
+                .args([
+                    "test",
+                    "-count=1",
+                    "-v",
+                    "./precompiles/layerxledger",
+                    "-run",
+                    "^TestProofLayerxledger0x101a$/^gateway$",
+                ])
+                .output()
+                .expect("start the real ledger producer");
+            let stdout = String::from_utf8_lossy(&output.stdout);
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            assert!(
+                output.status.success(),
+                "ledger producer and gateway consumer failed: {}\n{stdout}\n{stderr}",
+                output.status
+            );
+            assert!(
+                stdout.contains("--- PASS: TestProofLayerxledger0x101a/gateway"),
+                "the real ledger producer must execute its gateway consumer: {stdout}"
+            );
+            return;
+        }
+        let proof: serde_json::Value = serde_json::from_slice(&input)
             .expect("precompiles/layerxledger/proof_layerxledger_0x101a_test.go producer");
         fn bytes<const N: usize>(value: &str) -> [u8; N] {
             let value = value.strip_prefix("0x").unwrap();

@@ -330,7 +330,6 @@ fn signing_preparation(
     Ok(SigningPreparation {
         transaction: prepare_bound(prepared, actor_address)?,
         actor_address,
-        authorization: prepared.clone(),
     })
 }
 
@@ -1478,4 +1477,12 @@ fn repeated_start_repairs_initial_progress_after_restart() {
         JourneyEngine::notification_events(&scope, &id).ok(),
         Some(expected)
     );
+}
+
+#[path = "support/repair_22_33_63_bank.rs"]
+mod repair_bank;
+
+#[test]
+fn producer_outbox_and_consumer_reopen_at_every_durable_phase() {
+    repair_bank::producer_outbox_and_consumer_reopen();
 }

@@ -4,10 +4,10 @@
 use base64::engine::general_purpose::STANDARD;
 use base64::Engine as _;
 use layerx_committed_proof::{
-    commit::{BlockIdFlag, Commit, CommitSig},
+    commit::{verify_commit, BlockIdFlag, Commit, CommitSig},
     committed::verify_committed,
     header::{BlockId, ConsensusVersion, Header, PartSetHeader, Timestamp, Validator},
-    CommittedProof,
+    verify_header, CommittedProof,
 };
 use layerx_interop_gateway::evidence::canonical_receipt_digest;
 use layerx_interop_gateway::trace::{TraceId, Traced};
@@ -19,15 +19,10 @@ use serde_json::Value;
 
 use crate::codec::{decode_header, encode_header};
 use crate::model::{
-    PaymentPayload, PaymentRequired, PaymentRequirements, SettlementResponse, X402Error,
-    X402_VERSION,
+    parse_hex32, PaymentPayload, PaymentRequired, PaymentRequirements, SettlementResponse,
+    X402Error, X402_VERSION,
 };
-use crate::seller::validate_network;
-
-const PAYMENT_DRAWN_TOPIC: [u8; 32] = [
-    0x13, 0x47, 0x3d, 0x10, 0x3a, 0x2d, 0x52, 0x17, 0x20, 0x16, 0xc8, 0x72, 0xee, 0xae, 0x01, 0x53,
-    0xe2, 0x54, 0xaf, 0x3c, 0x21, 0xa1, 0xd9, 0x87, 0x49, 0x2a, 0xb7, 0x37, 0xf1, 0xa3, 0x4f, 0xe1,
-];
+use crate::seller::{grant_purpose, settlement_payment, validate_network};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct SupportedKind {
@@ -53,6 +48,49 @@ pub trait BuyerPaymentPlane {
     fn construct(&mut self, request: PaymentBuildRequest) -> Result<Value, X402Error>;
 }
 
+/// Binds a caller-supplied scheme payload to the service's payment identity.
+pub struct BoundBuyerPaymentPlane {
+    payload: Option<Value>,
+}
+
+impl BoundBuyerPaymentPlane {
+    #[must_use]
+    pub fn new(payload: Value) -> Self {
+        Self {
+            payload: Some(payload),
+        }
+    }
+}
+
+impl BuyerPaymentPlane for BoundBuyerPaymentPlane {
+    fn construct(&mut self, request: PaymentBuildRequest) -> Result<Value, X402Error> {
+        let mut payload = self.payload.take().ok_or(X402Error::InvalidPayload)?;
+        let object = payload.as_object_mut().ok_or(X402Error::InvalidPayload)?;
+        if request.idempotency_key == [0; 32] {
+            return Err(X402Error::InvalidPayload);
+        }
+        if let Some(value) = object.get("idempotencyKey") {
+            validate_payment_identity(value, request.idempotency_key)?;
+        }
+        object.insert(
+            "idempotencyKey".to_owned(),
+            Value::String(hex(&request.idempotency_key)),
+        );
+        Ok(payload)
+    }
+}
+
+fn validate_payment_identity(value: &Value, expected: [u8; 32]) -> Result<(), X402Error> {
+    let actual = value
+        .as_str()
+        .and_then(|value| parse_hex32(value).ok())
+        .ok_or(X402Error::InvalidPayload)?;
+    if actual == [0; 32] || actual != expected {
+        return Err(X402Error::InvalidPayload);
+    }
+    Ok(())
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub struct BuiltPayment {
     pub header: String,
@@ -67,6 +105,106 @@ pub struct CapturedSettlement {
     pub receipt_digest: [u8; 32],
     pub transaction_hash: [u8; 32],
     pub rung: String,
+}
+
+/// A consensus checkpoint supplied by the caller's trusted network configuration,
+/// never extracted from PAYMENT-RESPONSE. Successors must be consecutive signed
+/// headers authorised by the preceding header's next-validator commitment.
+#[derive(Clone, Debug)]
+pub struct TrustedConsensusAnchor {
+    network: String,
+    header: Header,
+    validators: Vec<Validator>,
+}
+
+impl TrustedConsensusAnchor {
+    /// Pins an independently authenticated header and its validator set to a network.
+    /// The caller is responsible for obtaining this checkpoint out of band.
+    ///
+    /// # Errors
+    /// Refuses malformed network, header, validator set or next-set commitment.
+    pub fn new(
+        network: String,
+        header: Header,
+        validators: Vec<Validator>,
+    ) -> Result<Self, X402Error> {
+        validate_network(&network)?;
+        validate_consensus_header(&header, &validators)?;
+        Ok(Self {
+            network,
+            header,
+            validators,
+        })
+    }
+
+    /// Advances the checkpoint only after authenticating the next header and set.
+    /// A failure leaves the existing checkpoint intact.
+    ///
+    /// # Errors
+    /// Refuses skipped heights, forks, chain changes and unauthorised validators.
+    pub fn advance(
+        &mut self,
+        header: Header,
+        commit: &Commit,
+        validators: Vec<Validator>,
+    ) -> Result<(), X402Error> {
+        self.verify_successor(&header, commit, &validators)?;
+        self.header = header;
+        self.validators = validators;
+        Ok(())
+    }
+
+    fn verify_successor(
+        &self,
+        header: &Header,
+        commit: &Commit,
+        validators: &[Validator],
+    ) -> Result<(), X402Error> {
+        validate_consensus_header(header, validators)?;
+        if header.chain_id != self.header.chain_id
+            || self.header.height.checked_add(1) != Some(header.height)
+            || header.last_block_id.hash.as_slice() != self.header.hash()
+            || header.validators_hash.as_slice() != self.header.next_validators_hash
+            || (header.time.seconds, header.time.nanos)
+                <= (self.header.time.seconds, self.header.time.nanos)
+        {
+            return Err(X402Error::EvidenceMismatch);
+        }
+        verify_commit(
+            &self.header.chain_id,
+            validators,
+            header.hash(),
+            header.height as u64,
+            commit,
+        )
+        .map_err(|_| X402Error::EvidenceMismatch)?;
+        Ok(())
+    }
+}
+
+fn validate_consensus_header(header: &Header, validators: &[Validator]) -> Result<(), X402Error> {
+    if header.chain_id.is_empty()
+        || header.chain_id.len() > 50
+        || header.height <= 0
+        || header.next_validators_hash.len() != 32
+        || validators.is_empty()
+        || validators.len() > 1024
+    {
+        return Err(X402Error::EvidenceMismatch);
+    }
+    let mut keys = std::collections::BTreeSet::new();
+    let mut power = 0_u64;
+    for validator in validators {
+        if validator.voting_power <= 0 || !keys.insert(validator.pub_key) {
+            return Err(X402Error::EvidenceMismatch);
+        }
+        power = power
+            .checked_add(validator.voting_power as u64)
+            .filter(|power| *power <= (i64::MAX / 8) as u64)
+            .ok_or(X402Error::EvidenceMismatch)?;
+    }
+    verify_header(header, validators).map_err(|_| X402Error::EvidenceMismatch)?;
+    Ok(())
 }
 
 /// Receipt evidence carried by the seller's `layerx` settlement extension.
@@ -213,6 +351,7 @@ fn verify_committed_evidence(
     digest: [u8; 32],
     number: &str,
     hash: &str,
+    anchor: &TrustedConsensusAnchor,
 ) -> Result<(), X402Error> {
     let value = ProofValue(value);
     let batch = value.field("batchProof");
@@ -255,7 +394,18 @@ fn verify_committed_evidence(
             })
         })
         .collect::<Result<Vec<_>, X402Error>>()?;
-    let block = verify_committed(digest, &proof, &validators, value.field("chainId").text()?)
+    if value.field("chainId").text()? != anchor.header.chain_id {
+        return Err(X402Error::EvidenceMismatch);
+    }
+    if proof.header.height == anchor.header.height {
+        validate_consensus_header(&proof.header, &validators)?;
+        if proof.header.hash() != anchor.header.hash() || validators != anchor.validators {
+            return Err(X402Error::EvidenceMismatch);
+        }
+    } else {
+        anchor.verify_successor(&proof.header, &proof.commit, &validators)?;
+    }
+    let block = verify_committed(digest, &proof, &validators, &anchor.header.chain_id)
         .map_err(|_| X402Error::EvidenceMismatch)?;
     let number = number
         .strip_prefix("0x")
@@ -313,6 +463,7 @@ impl EvidenceLog {
 pub struct Buyer {
     supported: Vec<SupportedKind>,
     receipt_keys: Vec<SequencerAuthorization>,
+    consensus_anchors: Vec<TrustedConsensusAnchor>,
 }
 
 impl Buyer {
@@ -326,7 +477,7 @@ impl Buyer {
             return Err(X402Error::UnsupportedOffer);
         }
         for (index, kind) in supported.iter().enumerate() {
-            if kind.scheme.is_empty()
+            if !matches!(kind.scheme.as_str(), "exact" | "metered" | "subscription")
                 || validate_network(&kind.network).is_err()
                 || supported[..index].contains(kind)
             {
@@ -336,6 +487,7 @@ impl Buyer {
         Ok(Self {
             supported,
             receipt_keys: Vec::new(),
+            consensus_anchors: Vec::new(),
         })
     }
 
@@ -356,6 +508,57 @@ impl Buyer {
         let mut buyer = Self::new(supported)?;
         buyer.receipt_keys = receipt_keys;
         Ok(buyer)
+    }
+
+    /// Configures independently trusted consensus checkpoints for supported networks.
+    ///
+    /// # Errors
+    /// Refuses duplicate or unsupported network anchors.
+    pub fn with_consensus_anchors(
+        mut self,
+        anchors: Vec<TrustedConsensusAnchor>,
+    ) -> Result<Self, X402Error> {
+        if anchors.is_empty()
+            || anchors.len() > 64
+            || anchors.iter().enumerate().any(|(index, anchor)| {
+                !self
+                    .supported
+                    .iter()
+                    .any(|kind| kind.network == anchor.network)
+                    || anchors[..index]
+                        .iter()
+                        .any(|previous| previous.network == anchor.network)
+            })
+        {
+            return Err(X402Error::EvidenceMismatch);
+        }
+        self.consensus_anchors = anchors;
+        Ok(self)
+    }
+
+    /// Captures using this buyer's receipt and consensus trust configuration.
+    ///
+    /// # Errors
+    /// Refuses responses that cannot be authenticated against the configured trust.
+    pub fn capture(
+        &self,
+        response_header: &str,
+        expected: &BuiltPayment,
+        trace: &TraceId,
+    ) -> Result<CapturedSettlement, Traced<X402Error>> {
+        if !self.supported.iter().any(|kind| {
+            kind.scheme == expected.payload.accepted.scheme
+                && kind.network == expected.payload.accepted.network
+        }) {
+            return Err(trace.wrap(X402Error::UnsupportedOffer));
+        }
+        Self::capture_settlement_with_consensus(
+            response_header,
+            expected,
+            &self.receipt_keys,
+            &self.consensus_anchors,
+            trace,
+        )
     }
 
     #[must_use]
@@ -406,6 +609,16 @@ impl Buyer {
         if !scheme_payload.is_object() {
             return Err(fail(X402Error::InvalidPayload));
         }
+        let native_key = scheme_payload
+            .get("idempotencyKey")
+            .ok_or_else(|| fail(X402Error::PaymentIdentityMissing))?
+            .as_str()
+            .and_then(|value| parse_hex32(value).ok())
+            .filter(|key| *key != [0; 32])
+            .ok_or_else(|| fail(X402Error::PaymentIdentityMalformed))?;
+        if native_key != idempotency_key {
+            return Err(fail(X402Error::PaymentIdentityMismatch));
+        }
         let payload = PaymentPayload {
             x402_version: X402_VERSION,
             resource: Some(required.resource),
@@ -437,7 +650,30 @@ impl Buyer {
         receipt_keys: &[SequencerAuthorization],
         trace: &TraceId,
     ) -> Result<CapturedSettlement, Traced<X402Error>> {
+        Self::capture_settlement_with_consensus(response_header, expected, receipt_keys, &[], trace)
+    }
+
+    /// Captures committed evidence only under an independent checkpoint for the
+    /// offered network. Receipt-only capture refuses committed claims. For a
+    /// newer consensus history, advance the checkpoint through signed successors.
+    ///
+    /// # Errors
+    /// Refuses unanchored chains, validator changes, invalid receipts or inclusion.
+    pub fn capture_settlement_with_consensus(
+        response_header: &str,
+        expected: &BuiltPayment,
+        receipt_keys: &[SequencerAuthorization],
+        consensus_anchors: &[TrustedConsensusAnchor],
+        trace: &TraceId,
+    ) -> Result<CapturedSettlement, Traced<X402Error>> {
         let fail = |error| trace.wrap(error);
+        if !matches!(
+            expected.payload.accepted.scheme.as_str(),
+            "exact" | "metered" | "subscription"
+        ) {
+            return Err(fail(X402Error::UnsupportedOffer));
+        }
+
         let response: SettlementResponse = decode_header(response_header).map_err(fail)?;
         response.validate_wire().map_err(fail)?;
         if !response.success {
@@ -487,7 +723,8 @@ impl Buyer {
         };
         if !valid_rung
             || evidence.purpose_hash
-                != expected_purpose(&expected.payload.accepted).map_err(fail)?
+                != grant_purpose(&expected.payload.accepted)
+                    .map_err(|_| fail(X402Error::EvidenceMismatch))?
         {
             return Err(fail(X402Error::EvidenceMismatch));
         }
@@ -509,68 +746,13 @@ impl Buyer {
         if protocol.result_code() != 0 {
             return Err(fail(X402Error::EvidenceMismatch));
         }
-        let ledger: [u8; 20] = unhex("0x000000000000000000000000000000000000101a")
-            .map_err(fail)?
-            .try_into()
-            .map_err(|_| fail(X402Error::EvidenceMismatch))?;
-        let metered = expected.payload.accepted.scheme == "metered";
-        let topic: [u8; 32] = if metered {
-            PAYMENT_DRAWN_TOPIC
-        } else {
-            unhex("0xc4da5d6f757c251cd70947b752917e5671b677517e3d953f362a1df6648ef5b1")
-                .map_err(fail)?
-                .try_into()
-                .map_err(|_| fail(X402Error::EvidenceMismatch))?
-        };
-        let mut payments = logs
-            .logs()
-            .iter()
-            .filter(|log| log.address() == ledger && log.topics().first() == Some(&topic));
-        let payment = payments
-            .next()
-            .ok_or_else(|| fail(X402Error::EvidenceMismatch))?;
-        if payments.next().is_some()
-            || payment.topics().len() != 4
-            || payment.data().len() != if metered { 128 } else { 64 }
-            || expected.idempotency_key == [0; 32]
-            || payment.data()[32..48] != [0; 16]
-        {
-            return Err(fail(X402Error::EvidenceMismatch));
-        }
-        if metered {
-            let grant = payment_reference(
-                expected
-                    .payload
-                    .payload
-                    .get("grantId")
-                    .ok_or_else(|| fail(X402Error::EvidenceMismatch))?,
-            )
-            .map_err(fail)?;
-            if payment.topics()[1] != grant
-                || payment.data()[64..96] != expected.idempotency_key[..]
-            {
-                return Err(fail(X402Error::EvidenceMismatch));
-            }
-        } else if payment.topics()[1] != expected.idempotency_key {
-            return Err(fail(X402Error::EvidenceMismatch));
-        }
-        let asset: [u8; 32] = payment.data()[..32]
-            .try_into()
-            .map_err(|_| fail(X402Error::EvidenceMismatch))?;
-        let amount = u128::from_be_bytes(
-            payment.data()[48..64]
-                .try_into()
-                .map_err(|_| fail(X402Error::EvidenceMismatch))?,
-        );
-        let accepted = &expected.payload.accepted;
-        accepted.validate().map_err(fail)?;
-        if unhex(&accepted.asset).map_err(fail)?.as_slice() != asset
-            || unhex(&accepted.pay_to).map_err(fail)?.as_slice() != payment.topics()[3]
-            || accepted.amount.value() != amount
-        {
-            return Err(fail(X402Error::EvidenceMismatch));
-        }
-        let payer = hex(&payment.topics()[2]);
+        let payer = hex(&settlement_payment(
+            &expected.payload.accepted,
+            logs.logs(),
+            &expected.idempotency_key,
+            &expected.payload.payload,
+        )
+        .map_err(fail)?);
         if response.network != expected.payload.accepted.network
             || response.amount != Some(expected.payload.accepted.amount)
             || response.payer.as_deref() != Some(payer.as_str())
@@ -586,6 +768,15 @@ impl Buyer {
             return Err(fail(X402Error::EvidenceMismatch));
         }
         if evidence.verification_level == "committed" {
+            let mut anchors = consensus_anchors
+                .iter()
+                .filter(|anchor| anchor.network == expected.payload.accepted.network);
+            let anchor = anchors
+                .next()
+                .ok_or_else(|| fail(X402Error::EvidenceMismatch))?;
+            if anchors.next().is_some() {
+                return Err(fail(X402Error::EvidenceMismatch));
+            }
             verify_committed_evidence(
                 evidence
                     .proof
@@ -601,6 +792,7 @@ impl Buyer {
                     .block_hash
                     .as_deref()
                     .ok_or_else(|| fail(X402Error::EvidenceMismatch))?,
+                anchor,
             )
             .map_err(fail)?;
         }
@@ -614,56 +806,11 @@ impl Buyer {
     }
 }
 
-fn payment_reference(value: &Value) -> Result<[u8; 32], X402Error> {
-    let text = value.as_str().ok_or(X402Error::EvidenceMismatch)?;
-    let digits = text.strip_prefix("0x").unwrap_or(text);
-    if digits.len() != 64 || !digits.bytes().all(|byte| byte.is_ascii_hexdigit()) {
-        return Err(X402Error::EvidenceMismatch);
-    }
-    let mut reference = [0; 32];
-    for (index, byte) in reference.iter_mut().enumerate() {
-        *byte = u8::from_str_radix(&digits[index * 2..index * 2 + 2], 16)
-            .map_err(|_| X402Error::EvidenceMismatch)?;
-    }
-    if reference == [0; 32] {
-        return Err(X402Error::EvidenceMismatch);
-    }
-    Ok(reference)
-}
-
-/// The `purposeHash` a settlement of `accepted` must repeat: none for an
-/// exact offer, and for a metered or subscription grant offer the 64 lowercase
-/// hexadecimal characters of its challenge, which such an offer must carry.
-fn expected_purpose(accepted: &PaymentRequirements) -> Result<Option<String>, X402Error> {
-    if !matches!(accepted.scheme.as_str(), "metered" | "subscription") {
-        return Ok(None);
-    }
-    accepted
-        .extra
-        .as_ref()
-        .and_then(|extra| extra.pointer("/layerx/purposeHash"))
-        .and_then(Value::as_str)
-        .filter(|purpose| {
-            purpose.len() == 64
-                && purpose
-                    .bytes()
-                    .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
-        })
-        .map(|purpose| Some(purpose.to_owned()))
-        .ok_or(X402Error::EvidenceMismatch)
-}
-
 fn unhex(value: &str) -> Result<Vec<u8>, X402Error> {
-    let digits = match value.strip_prefix("0x") {
-        Some(digits) => digits,
-        None if value.len() == 64
-            && value
-                .bytes()
-                .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte)) =>
-        {
-            value
-        }
-        None => return Err(X402Error::EvidenceMismatch),
+    let Some(digits) = value.strip_prefix("0x") else {
+        return parse_hex32(value)
+            .map(|identifier| identifier.to_vec())
+            .map_err(|_| X402Error::EvidenceMismatch);
     };
     if digits.len() % 2 != 0 || !digits.bytes().all(|byte| byte.is_ascii_hexdigit()) {
         return Err(X402Error::EvidenceMismatch);

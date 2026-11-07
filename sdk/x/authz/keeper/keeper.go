@@ -136,7 +136,7 @@ func (k Keeper) DispatchActions(ctx sdk.Context, grantee sdk.AccAddress, msgs []
 func (k Keeper) SaveGrant(ctx sdk.Context, grantee, granter sdk.AccAddress, authorization authz.Authorization, expiration time.Time) error {
 	store := ctx.KVStore(k.storeKey)
 
-	grant, err := authz.NewGrant(authorization, expiration)
+	grant, err := authz.NewGrant(ctx.BlockTime(), authorization, expiration)
 	if err != nil {
 		return err
 	}
@@ -190,7 +190,7 @@ func (k Keeper) GetCleanAuthorization(ctx sdk.Context, grantee sdk.AccAddress, g
 	if !found {
 		return nil, time.Time{}
 	}
-	if grant.Expiration.Before(ctx.BlockHeader().Time) {
+	if !grant.Expiration.After(ctx.BlockTime()) {
 		_ = k.DeleteGrant(ctx, grantee, granter, msgType)
 		return nil, time.Time{}
 	}
@@ -234,19 +234,21 @@ func (k Keeper) ExportGenesis(ctx sdk.Context) *authz.GenesisState {
 	return authz.NewGenesisState(entries)
 }
 
-// InitGenesis new authz genesis
+// InitGenesis restores validated grants, including expired records from exports.
+// Expired records remain unusable; imports do not mint new grants or grant events.
 func (k Keeper) InitGenesis(ctx sdk.Context, data *authz.GenesisState) {
+	if data == nil {
+		panic("authz genesis is required")
+	}
+	if err := authz.ValidateGenesis(*data); err != nil {
+		panic(err)
+	}
+	store := ctx.KVStore(k.storeKey)
 	for _, entry := range data.Authorization {
 		grantee := sdk.MustAccAddressFromBech32(entry.Grantee)
 		granter := sdk.MustAccAddressFromBech32(entry.Granter)
-		a, ok := entry.Authorization.GetCachedValue().(authz.Authorization)
-		if !ok {
-			panic("expected authorization")
-		}
-
-		err := k.SaveGrant(ctx, grantee, granter, a, entry.Expiration)
-		if err != nil {
-			panic(err)
-		}
+		a := entry.Authorization.GetCachedValue().(authz.Authorization)
+		grant := authz.Grant{Authorization: entry.Authorization, Expiration: entry.Expiration}
+		store.Set(grantStoreKey(grantee, granter, a.MsgTypeURL()), k.cdc.MustMarshal(&grant))
 	}
 }

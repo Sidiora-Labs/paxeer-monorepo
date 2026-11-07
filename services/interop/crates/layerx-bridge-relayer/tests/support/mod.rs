@@ -206,10 +206,9 @@ impl Recording {
 }
 
 fn crate_receipt_check(value: &Value) {
-    layerx_bridge_relayer::receipt::SequencerReceipt::decode(value)
-        .unwrap()
-        .verify(&receipt_keys())
-        .unwrap();
+    let receipt = layerx_bridge_relayer::receipt::SequencerReceipt::decode(value).unwrap();
+    assert_eq!(receipt.view.as_ref().unwrap().payment_denom, "uhpx");
+    receipt.verify(&receipt_keys()).unwrap();
 }
 
 fn substitute(value: &Value, submitted: &[String]) -> Value {

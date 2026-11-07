@@ -1,0 +1,11 @@
+[manifest]
+task = "22.32.117"
+domain = 13
+owner_role = "fm-programs"
+pages = 1
+
+[page.1]
+path = "programs/sdk/rust/examples/swap-cpmm/README.md"
+status = "misleading"
+bytes = 3710
+source_1 = "record 22.30.129 [doc.015] (misleading): The composition claim at lines 4-6 conflicts with the supplied token's generic-entry and nested-call refusals. State the supported token contract and blocker."

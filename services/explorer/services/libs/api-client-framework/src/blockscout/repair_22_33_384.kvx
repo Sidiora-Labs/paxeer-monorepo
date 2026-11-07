@@ -1,0 +1,9 @@
+[repair.22.33.384]
+finding = "api-client-debug-credential"
+debug_proof = "api_client_debug_credential_redacts_programmatic_config"
+codec_transport_proof = "api_client_debug_credential_deserialization_marks_headers_sensitive"
+compatibility_proofs = ["api_client_debug_credential_null_remains_absent", "api_client_debug_credential_rejects_invalid_headers"]
+test_path = "services/explorer/services/libs/api-client-framework/tests/repair_22_33_384.rs"
+baseline = "Not run: the explicit gate order forbids verification before implementation and permits verification only through hf-done. No pre-change failure is claimed."
+wiring_requests = []
+evidence = "The runner gate ledger records the exact candidate revision, command, exit code and private log location."

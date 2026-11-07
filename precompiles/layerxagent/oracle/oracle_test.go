@@ -33,9 +33,10 @@ import (
 )
 
 type oracleFixture struct {
-	p           *agentcommon.Precompile
+	p           *oracle.Precompile
 	ctx         sdk.Context
 	exchange    *exchangekeeper.Keeper
+	upgrade     *upgradekeeper.Keeper
 	host        *lxphost.Host
 	hostKey     *sdk.KVStoreKey
 	exchangeKey *sdk.KVStoreKey
@@ -78,7 +79,7 @@ func fixture(t *testing.T) *oracleFixture {
 	app := testkeeper.EVMTestApp
 	ctx, _ := app.NewContext(false, tmtypes.Header{}).WithBlockHeight(11).WithBlockTime(time.Unix(1800000000, 987000000).UTC()).CacheContext()
 	exchangeKey := sdk.NewKVStoreKey(exchangetypes.StoreKey)
-	hostKey := sdk.NewKVStoreKey("oracle-precompile-host")
+	hostKey := sdk.NewKVStoreKey("lxphost")
 	upgradeKey := sdk.NewKVStoreKey("oracle-precompile-upgrade")
 	retirementKey := sdk.NewKVStoreKey("oracle-exchange-retirement")
 	ctx = withStores(t, ctx, exchangeKey, hostKey, upgradeKey, retirementKey)
@@ -87,12 +88,14 @@ func fixture(t *testing.T) *oracleFixture {
 	exchange := exchangekeeper.NewKeeper(app.AppCodec(), exchangeKey, nil, &app.EvmKeeper)
 	exchange.SetUpgradeKeeper(upgradekeeper.NewKeeper(nil, retirementKey, app.AppCodec(), t.TempDir(), nil))
 	exchange.InitGenesis(ctx, *exchangetypes.DefaultGenesis())
-	p, err := oracle.NewPrecompile(exchange, &app.EvmKeeper, &upgrade, "oracle-merge", 4, big.NewInt(10000))
-	require.NoError(t, err)
 	host, err := lxphost.NewHost(lxphost.Config{StoreKey: hostKey, NetworkID: 7, ParameterVersion: 1, TimestampWindowMs: 60000, GasLimit: 1000000})
 	require.NoError(t, err)
 	t.Cleanup(host.Close)
-	f := &oracleFixture{p: p, ctx: ctx, exchange: exchange, host: host, hostKey: hostKey, exchangeKey: exchangeKey, feed: [32]byte{0x93, 1}}
+	live, err := oracle.NewKeeper(host, hostKey.Name(), exchangeKey.Name())
+	require.NoError(t, err)
+	p, err := oracle.NewPrecompile(live, &app.EvmKeeper, &upgrade, "oracle-merge", 4, big.NewInt(10000))
+	require.NoError(t, err)
+	f := &oracleFixture{p: p, ctx: ctx, exchange: exchange, upgrade: &upgrade, host: host, hostKey: hostKey, exchangeKey: exchangeKey, feed: [32]byte{0x93, 1}}
 	for i := range f.private {
 		f.private[i] = ed25519.NewKeyFromSeed(bytes.Repeat([]byte{byte(0x39 + i)}, ed25519.SeedSize))
 		copy(f.public[i][:], f.private[i].Public().(ed25519.PublicKey))
@@ -204,7 +207,9 @@ func TestOracleAggregateWeightedMedian(t *testing.T) {
 		{"discard zero", []oracle.Feed{feed(10, 0), feed(44, 7)}, 44, 7},
 		{"weighted", []oracle.Feed{feed(100, 1), feed(30, 6), feed(10, 2)}, 30, 1},
 		{"even lower tie", []oracle.Feed{feed(30, 2), feed(10, 2)}, 10, 2},
-		{"odd floor", []oracle.Feed{feed(30, 3), feed(10, 2)}, 10, 2},
+		{"odd majority", []oracle.Feed{feed(30, 3), feed(10, 2)}, 30, 2},
+		{"floor one below half", []oracle.Feed{feed(10, 1), feed(30, 2)}, 30, 1},
+		{"multiple feeds reach floor below half", []oracle.Feed{feed(40, 4), feed(20, 2), feed(10, 1)}, 40, 1},
 		{"minimum across all kept", []oracle.Feed{feed(30, 8), feed(20, 1), feed(10, 2), feed(40, 0)}, 30, 1},
 		{"equal prices", []oracle.Feed{feed(20, 4), feed(20, 1), feed(10, 1)}, 20, 1},
 	} {

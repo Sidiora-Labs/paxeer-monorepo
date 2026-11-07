@@ -1,10 +1,10 @@
 [sweep.node-sdk-integrations]
-revision = "1fea7069e58b649760bb1afcabdb9c4caec5ea4c"
+revision = "ace3608260f2ec826292dab08cd058031efe2f46"
 command = "cd TARGET && npm ci && npm run build && npm test"
 test_policy = "Run npm test only when package.json declares a test script; otherwise record the install and build result alone."
 targets_total = 4
-targets_passed = 3
-targets_failed = 1
+targets_passed = 4
+targets_failed = 0
 targets_not_run = 0
 
 [target.node-sdk-integrations.1]
@@ -24,7 +24,5 @@ exit_code = 0
 
 [target.node-sdk-integrations.4]
 target = "sdk/integrations/next/example"
-result = "failed"
-exit_code = 1
-observed = "The Next.js production build failed at node_modules/@scure/bip32/index.ts (no line reported) with Turbopack error 'Unknown module type'; npm ci succeeded and npm test was not reached."
-assumption = "Turbopack likely resolves the dependency's TypeScript source through an export condition without a supported module type or loader in the current build configuration."
+result = "passed"
+exit_code = 0

@@ -1,0 +1,40 @@
+- name: prefix with trailing output
+  inputs:
+    - cmd: repair-m757:prefix
+      env: OUTPUT
+  verifiers:
+    - type: regex
+      result: OUTPUT
+      expr: PASS
+- name: leading unmatched output
+  inputs:
+    - cmd: repair-m757:leading
+      env: OUTPUT
+  verifiers:
+    - type: regex
+      result: OUTPUT
+      expr: PASS
+- name: unanchored alternative after leading output
+  inputs:
+    - cmd: repair-m757:leading
+      env: OUTPUT
+  verifiers:
+    - type: regex
+      result: OUTPUT
+      expr: 'READY|PASS'
+- name: multiline anchors still require offset zero
+  inputs:
+    - cmd: repair-m757:leading
+      env: OUTPUT
+  verifiers:
+    - type: regex
+      result: OUTPUT
+      expr: '(?m)^PASS'
+- name: explicit leading wildcard
+  inputs:
+    - cmd: repair-m757:leading
+      env: OUTPUT
+  verifiers:
+    - type: regex
+      result: OUTPUT
+      expr: '(?s).*PASS'
