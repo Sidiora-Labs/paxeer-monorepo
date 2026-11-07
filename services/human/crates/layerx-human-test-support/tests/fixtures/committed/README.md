@@ -2,7 +2,7 @@
 
 `vector-v4-committed.json` is fresh output from the repository's
 `daemon/committed-fixture` recorder at source revision
-`44823b0a8346dd793d93d2e438a7b4688d933eda` with the recorder changes from task `22.31.486`. It starts the production `paxd` nodes
+`44823b0a8346dd793d93d2e438a7b4688d933eda`. It starts the production `paxd` nodes
 with an isolated `committed-fixture` chain (EVM chain id 125, EIP-1559 type 2), executes a
 ledger payment, and captures the receipt, native sequence-batch transaction,
 inclusion proofs, linked execution/successor headers, commits and validators.
@@ -17,6 +17,11 @@ before replaying the receipt over loopback HTTP through `NodeRpc`, verifying
 the consensus and inclusion evidence, persisting it in `PrincipalStore`, and
 reopening and verifying the recovered evidence. Altered and foreign evidence
 remain refusal cases.
+
+The [committed proof and restart recovery test](../../repair_22_33_55.rs),
+`finding18_documented_committed_proof_uses_separate_real_node_recording`,
+uses the saved recording through that helper to check recovered committed
+evidence and refusal of malformed or foreign evidence.
 
 The recording SHA-256 is
 `76cfee5540d369ad93286723b81117ec90ca85f12b7b074afffb78456a4cc3c6`;

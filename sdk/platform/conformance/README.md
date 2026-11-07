@@ -25,6 +25,13 @@ and zero gas and fees. It proves this is the corpus's only preexecution refusal
 and that removing the case leaves none. The native terminal-outcome checker
 requires a separate proof.
 
+The [receipt corpus preexecution refusal test](../../../daemon/committed-fixture/repair_22_31_491_test.go)
+checks the authenticated failure fields and requires exactly one such case in
+the corpus. The [SDK preexecution refusal test](../go/sequencer_receipt_test.go)
+checks the receipted rung, canonical bytes, digest and kernel error text.
+These retained-receipt checks do not execute a new transfer or replace the
+separate native terminal-outcome proof.
+
 V1–V3 copy the sequencer fixture cases without changing receipt bytes, pinned
 keys, predecessor hashes or expectations. The daemon's V1 is a separate contract
 creation recording; its V3 uses a re-signed receipt. Those exports are linked for
@@ -103,7 +110,9 @@ account has `name` and `identifier`), `asset`, decimal-string `amount` and
 native `LX:ACCOUNT:v1` domain and four-byte big-endian name length. The payment
 settles into the asset account. The main account name identifies the payee in
 an offer's `extra.layerx.account`. These fields are consumed for the
-buyer human-evidence rung.
+buyer human-evidence rung. Buyer human-evidence verification binds the
+named payee to the payment's asset account; the committed payment checks below
+verify the payer, payee, asset, amount and reference.
 
 Generate V7 with the declared build's local node and recorder:
 
