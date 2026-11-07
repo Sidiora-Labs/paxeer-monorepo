@@ -1,8 +1,8 @@
 # LayerX private beta
 
 Private-network only. The beta control, faucet and status surfaces below have
-no public name on Paxeer X Network; the hostnames this contract records are
-the retired values its sources still carry. Public accounts are funded
+no public name on Paxeer X Network; the endpoint examples require
+operator-supplied private origins. Public accounts are funded
 through chain transfers on chain 125.
 
 This page describes the declared beta deployment, not a service that is currently promised available. The canonical beta contract records `readiness_claim: false` and every hosted surface at rung `source_present` without a release-bound gate record in that contract, so the endpoint, reset and parameter values below are what the beta deployment declares; the scheduled hosted journey is the gate that qualifies them. Do not read any address here as a live availability guarantee.
@@ -19,4 +19,4 @@ The scheduled hosted journey uses operator-provisioned private-network testnet, 
 
 Scheduled CI takes the three private HTTPS origins from operator-managed repository variables. The runner must reach that isolated network. Separate short-lived source and destination identity sessions, the source signing key, the independently pinned sequencer public key and the test asset are mandatory; missing inputs fail the journey. CI builds the canonical hosted-send encoder and reference escrow WASM, then verifies payment and Programs receipts through the retained hosted smoke path. These inputs do not publish or reset any mainnet service.
 
-Within the isolated deployment, control parameters and status are served by `https://layerx-testnet-public.layerx-testnet.svc.cluster.local/v1/parameters` and `/v1/status`; the gateway Service origin is `https://layerx-gateway.layerx-testnet.svc.cluster.local`, and the faucet Service origin is `https://layerx-faucet-public.layerx-testnet.svc.cluster.local`. These internal names require private network access and the provisioned test CA. Network ID is 402; package semantic version and wire version are separate pending-release gates, with wire version 3. The canonical parameters response and reset calendar remain the source for the selected test environment.
+Within the isolated deployment, supply operator-managed origins for control parameters and status, for example `https://OPERATOR-PARAMETERS-ORIGIN/v1/parameters` and `/v1/status`; use `https://OPERATOR-GATEWAY-ORIGIN` for the gateway and `https://OPERATOR-FAUCET-ORIGIN` for the faucet. Replace these placeholders with endpoints reachable over the private network using the provisioned test CA. Network ID is 402; package semantic version and wire version are separate pending-release gates, with wire version 3. The canonical parameters response and reset calendar remain the source for the selected test environment.
