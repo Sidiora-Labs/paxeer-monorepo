@@ -150942,7 +150942,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.46]
 title = "Refresh the launchpad lock file so the launchpad test install runs frozen"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -330976,7 +330976,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.45]
 title = "Make the explorer backend test step start without a pre-created test database"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -331005,7 +331005,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.44]
 title = "Let the explorer frontend image build see the environment reference it copies"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -331034,7 +331034,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.41]
 title = "Key every push-triggered concurrency group on the commit sha so main runs stop cancelling each other"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -331213,7 +331213,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.34]
 title = "Correct the wiki kernel pages that document removed governance, receive and error paths as current"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
