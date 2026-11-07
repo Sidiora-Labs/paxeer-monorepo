@@ -1602,8 +1602,8 @@ dependencies = [
  "layerx-indexer",
  "layerx-platform-authority",
  "layerx-platform-gateway",
- "layerx-proof",
  "layerx-programs-ai-market",
+ "layerx-proof",
  "native-tls",
  "rcgen",
  "rustls",
@@ -1729,10 +1729,12 @@ dependencies = [
 name = "layerx-sdk"
 version = "0.1.0"
 dependencies = [
+ "ed25519-dalek",
  "layerx-agent-api",
  "layerx-client",
  "layerx-crypto",
  "layerx-mirror",
+ "layerx-programs-registry",
  "layerx-proof",
  "layerx-types",
  "layerx-wire",

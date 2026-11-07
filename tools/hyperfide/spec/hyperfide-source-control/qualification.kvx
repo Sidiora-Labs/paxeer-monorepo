@@ -761,3 +761,10 @@ command = "BY_REFERENCE: final build.command and verify.command in /out/run/gate
 exit_code = "BY_REFERENCE: final build.exit and verify.exit in /out/run/gates.jsonl; both must be zero to qualify."
 log = "BY_REFERENCE: final build.log and verify.log in /out/run/gates.jsonl point to private /out/logs/build-*.log and /out/logs/verify-*.log."
 observed = "Post-restart lifecycle reads retry only typed OUTCOME_UNKNOWN with RETRY_SAME_OPERATION, preserving the exact input and operation id for at most five retries; assertions, SDK, listener and fixture restart are preserved."
+
+[qualification.task_22_37_13_source_2_2]
+revision = "BY_REFERENCE: private /out/run/gates.jsonl final build.revision and verify.revision must match; carried source-control task 2.2 in tools/hyperfide."
+command = "cd tools/hyperfide && corepack enable && python3 tests/hyperfide/cases/source_control/2_2.py"
+exit_code = "BY_REFERENCE: private /out/run/gates.jsonl final verify.exit; receipt build/source-control/2.2/receipt.json#/exit_code; only zero qualifies."
+receipt_digest = "BY_REFERENCE: build/source-control/2.2/receipt.sha256, SHA-256 of receipt.json including installed-entry and incomplete dependency-closure receipts."
+log = "BY_REFERENCE: private /out/run/gates.jsonl final build.log and verify.log; owned PostgreSQL and HTTP API with the existing SigV4 component backend, with no live-provider claim."
