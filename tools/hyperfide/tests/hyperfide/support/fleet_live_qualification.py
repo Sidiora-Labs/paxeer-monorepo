@@ -100,6 +100,9 @@ for(const entry of a.journals??[]){
  }else if(entry.case==='model_unavailability'){
   const input=decoded.payload.input,binding=input?.binding,reason=rows.fleet_reasoning.find(r=>r.id===pin.reasoning_id),profile=reason?.result?.model_profile,original=rows.fleet_observations.find(o=>o.id===pin.observation_id),observation=reason&&rows.fleet_observations.find(o=>o.id===reason.observation_id),ids=input?.context_observation_ids??[input?.observation_id];
   if(!['LEADER','FEATURE_MANAGER'].includes(principal.role)||pin.credential_id!==item.id||principal.actor_id!==pin.actor_id||decoded.payload.action!=='fleet.session.reason'||decoded.payload.component!=='fleet-orchestration'||!binding||binding.actor_id!==pin.actor_id||(principal.role==='LEADER'?binding.actor_role!=='PRIMARY':binding.actor_role!=='WAVE_MANAGER')||binding.authority_epoch!==principal.deployment_epoch||binding.authority_epoch!==a.target.authority_epoch||input.operation_id!==pin.reasoning_id||input.observation_id!==pin.observation_id||!reason||reason.actor_id!==pin.actor_id||reason.request_digest!==protocol.hash(canonical(input))||reason.state!=='WAITING_FOR_MANAGER'||reason.reason!==pin.expected_reason||!(/^FLEET_GATEWAY_HTTP_[45][0-9]{2}$/.test(reason.reason)||reason.reason==='FLEET_GATEWAY_OUTCOME_UNKNOWN')||!profile||profile.backend!=='gateway'||protocol.hash(canonical(profile))!==pin.model_profile_digest||!original||original.actor_id!==pin.actor_id||canonical(original.body.binding)!==canonical(binding)||protocol.hash(canonical(original.body))!==original.context_digest||!observation||observation.actor_id!==pin.actor_id||canonical(observation.body.binding)!==canonical(binding)||String(observation.cohort_generation)!==String(original.cohort_generation)||observation.body.source_revision!==original.body.source_revision||protocol.hash(canonical(observation.body))!==observation.context_digest||observation.body.source_revision!==(a.target.source_backend==='native'?a.target.native_source_revision_id:'git:'+a.target.accepted_source_object_id)||(ids.length===1?observation.id!==original.id:canonical(observation.body.context_observation_ids)!==canonical(ids))||rows.fleet_decisions.some(d=>d.reasoning_id===reason.id)||rows.fleet_effect_receipts.some(e=>[reason.id,journal.operation_id].includes(e.operation_id))||rows.runner_remote_jobs.some(j=>[reason.id,journal.operation_id].includes(j.operation_id))||rows.provider_remote_operations.some(p=>[reason.id,journal.operation_id].includes(p.id)))throw Error('MODEL_FAILURE_ACTOR_REQUEST_REQUIRED');
+ }else if(entry.case==='constraint_refusal'&&pin.producer_mode==='MODEL_SESSION_CAMPAIGN_V1'){
+  const decision=decoded.payload.input?.decision,original=rows.fleet_decisions.find(d=>d.id===pin.original_decision_id),reason=original&&rows.fleet_reasoning.find(r=>r.id===original.reasoning_id);
+  if(principal.role!=='LEADER'||principal.actor_id!==pin.actor_id||item.id!==pin.credential_id||decoded.payload.action!=='fleet.decision.apply'||decoded.payload.component!=='fleet-orchestration'||!original||original.action!=='DELEGATE_WAVE'||original.actor_id!==pin.actor_id||reason?.state!=='COMPLETED'||!reason.result?.model_receipt||!decision||decision.actor_id!==pin.actor_id||decision.action!=='DELEGATE_WAVE'||decision.input?.budget?.max_sandboxes!==10001||rows.fleet_decisions.some(d=>d.id===decision.decision_id||d.operation_id===decision.operation_id)||rows.fleet_effect_receipts.some(e=>e.operation_id===decision.operation_id||e.operation_id===journal.operation_id))throw Error('MODEL_BUDGET_REFUSAL_BINDING_REQUIRED');
  }else if(principal.role!=='OPERATOR'||item.id!==a.target.fault_operator_credential_id)throw Error('FAULT_JOURNAL_SCOPE_MISMATCH');
  protocol.verifyProof(principal.public_key_b64,item,journal.origin,'/v1/invoke',raw);
  const nonce=(await c.query('SELECT received_at FROM hyperfide.identity_request_nonces WHERE credential_id=$1 AND nonce=$2',[item.id,item.nonce])).rows[0];
@@ -597,9 +600,93 @@ def verified_stale_generation(rows,case,target,response):
   decision=one(rows['fleet_decisions'],'id',pin.get('decision_id'));reasoning=one(rows['fleet_reasoning'],'id',decision['reasoning_id']);observation=one(rows['fleet_observations'],'id',pin.get('original_observation_id'));cohort=one(rows['fleet_cohorts'],'id',actor['cohort_id'])
   require(response.get('error',{}).get('code')=='FLEET_OBSERVATION_STALE' and reasoning['observation_id']==observation['id'] and observation['actor_id']==actor['session_id']==pin['actor_id'] and digest(observation['body'])==observation['context_digest']==decision['body']['context_digest'] and str(observation['cohort_generation'])==str(pin.get('replayed_cohort_generation')) and int(cohort['cohort_generation'])>int(observation['cohort_generation']) and int(cohort['cohort_generation'])>=int(pin['minimum_current_cohort_generation']) and str(actor['cohort_generation'])==str(cohort['cohort_generation']),'STALE_COHORT_PROOF_REQUIRED')
 
+MODEL_CAMPAIGN='MODEL_SESSION_CAMPAIGN_V1'
+
+def private_reference(reference,evidence_root):
+ require(isinstance(reference,dict) and evidence_root is not None and DIGEST.fullmatch(reference.get('digest','')),'PRIVATE_CAPTURE_REFERENCE_REQUIRED')
+ relative=Path(reference.get('path',''))
+ require(not relative.is_absolute() and '..' not in relative.parts and str(relative) not in ('','.'),'CAPTURE_PATH_REFUSED')
+ filename=Path(evidence_root)/relative
+ value=private_json(filename)
+ require(digest(filename.read_bytes())==reference['digest'],'CAPTURE_DIGEST_MISMATCH')
+ return value
+
+def verified_model_transcript(index,rows,evidence_root):
+ events=private_reference(index.get('reason_transcript'),evidence_root)
+ require(isinstance(events,list) and events,'MODEL_REASON_TRANSCRIPT_REQUIRED')
+ requests={};completed=set()
+ for event in events:
+  require(isinstance(event,dict),'MODEL_REASON_TRANSCRIPT_REQUIRED')
+  if event.get('event')=='reason_request':
+   key=(event.get('actor_id'),event.get('command_operation_id'))
+   require(key not in requests or requests[key]==event.get('input'),'MODEL_REASON_REQUEST_CHANGED')
+   requests[key]=event.get('input')
+  elif event.get('event')=='reason_response':
+   key=(event.get('actor_id'),event.get('command_operation_id'));request=event.get('input');response=event.get('result')
+   require(requests.get(key)==request and isinstance(request,dict) and isinstance(response,dict),'MODEL_REASON_RESPONSE_UNBOUND')
+   reason=one(rows['fleet_reasoning'],'id',request.get('operation_id'))
+   require(reason['actor_id']==event['actor_id']==request.get('binding',{}).get('actor_id') and reason['request_digest']==digest({k:v for k,v in request.items() if k!='reconcile_only'}) and response.get('operation_id')==reason['id'],'MODEL_REASON_REQUEST_DIGEST_MISMATCH')
+   if response.get('state')=='COMPLETED':
+    require(reason['state']=='COMPLETED' and response.get('decision')==reason['result'].get('decision') and response.get('model_receipt')==reason['result'].get('model_receipt'),'MODEL_REASON_RESPONSE_MISMATCH')
+    decision=one(rows['fleet_decisions'],'id',response['decision']['decision_id']);effect=one(rows['fleet_effect_receipts'],'decision_id',decision['id'])
+    require(digest(decision['body'])==decision['payload_digest'] and {k:v for k,v in response.get('effect',{}).items() if k!='replayed'}==effect['result'],'MODEL_REASON_EFFECT_MISMATCH')
+    if request.get('reconcile_only') is not True:completed.add(event['actor_id'])
+ require(completed=={index['actors']['primary'],*index['actors']['managers']},'ALL_ACTORS_REASON_TRANSCRIPT_REQUIRED')
+
+def verified_budget_refusal(case,capture,rows,target):
+ pin=target.get('fault_drivers',{}).get('constraint_refusal',{})
+ require(pin.get('producer_mode')==MODEL_CAMPAIGN and capture.get('kind')=='hyperfide.authenticated-fault-step','MODEL_BUDGET_REFUSAL_CAPTURE_REQUIRED')
+ try:
+  wire=json.loads(base64.b64decode(capture['body_base64'],validate=True));payload=json.loads(base64.urlsafe_b64decode(wire['payload_b64']+'='*((-len(wire['payload_b64']))%4)));decision=payload['input']['decision']
+ except (ValueError,TypeError,KeyError):raise Refused('MODEL_BUDGET_REFUSAL_REQUEST_REQUIRED')
+ original=one(rows['fleet_decisions'],'id',pin.get('original_decision_id'));reason=one(rows['fleet_reasoning'],'id',original['reasoning_id'])
+ expected=json.loads(json.dumps(original['body']));expected['decision_id']=decision.get('decision_id');expected['operation_id']=decision.get('operation_id');expected['input']['budget']['max_sandboxes']=10001;expected['input_digest']=digest(expected['input'])
+ require(original['action']=='DELEGATE_WAVE' and reason['state']=='COMPLETED' and reason['result'].get('model_receipt') and decision==expected and decision['decision_id']!=original['id'] and decision['operation_id']!=original['operation_id'] and payload.get('action')=='fleet.decision.apply','MODEL_BUDGET_REFUSAL_MUTATION_REQUIRED')
+ require(case.get('decision_operation_id')==decision['operation_id'] and case.get('operation_id')==capture['operation_id'] and capture.get('response',{}).get('body',{}).get('error',{}).get('code')=='FLEET_BUDGET_INVALID','MODEL_BUDGET_TYPED_REFUSAL_REQUIRED')
+ require(not any(d['id']==decision['decision_id'] or d['operation_id'] in (decision['operation_id'],capture['operation_id']) for d in rows['fleet_decisions']) and not any(e['operation_id'] in (decision['operation_id'],capture['operation_id']) for e in rows['fleet_effect_receipts']),'REFUSED_DECISION_OR_EFFECT_PRESENT')
+
+def verified_replan_rounds(case,rows,index):
+ ids=case.get('reasoning_ids')
+ require(isinstance(ids,list) and len(ids)==2 and len(set(ids))==2,'TWO_MODEL_REPLAN_ROUNDS_REQUIRED')
+ rounds=[one(rows['fleet_reasoning'],'id',value) for value in ids]
+ require(all(r['actor_id']==index['actors']['primary'] and r['state']=='COMPLETED' and r['result'].get('model_receipt') for r in rounds) and evidence_time(rounds[0]['created_at'])<evidence_time(rounds[1]['created_at']),'ACTUAL_REPLAN_ROUNDS_REQUIRED')
+ observations=[one(rows['fleet_observations'],'id',r['observation_id']) for r in rounds]
+ require(all(digest(o['body'])==o['context_digest'] for o in observations),'REPLAN_OBSERVATION_DIGEST_MISMATCH')
+ fields=('spec_revision','spec_generation','tasks','delegations','provider_pools','capacity_accounts','replan_proposals')
+ require(any(observations[0]['body'].get(k)!=observations[1]['body'].get(k) for k in fields),'MODEL_REPLAN_OBSERVED_STATE_UNCHANGED')
+ require(rounds[1]['result']['decision']['operation_id']==case.get('operation_id') and rounds[1]['result']['decision']['action']=='REPLAN','SECOND_ROUND_REPLAN_REQUIRED')
+
+def verified_supervisor_restoration(case,capture,rows,target,evidence_root,index):
+ fault_driver('supervisor_box_loss',case,rows,target,evidence_root,capture)
+ before=one(rows['fleet_observations'],'id',case.get('before_observation_id'));after=one(rows['fleet_observations'],'id',case.get('after_observation_id'))
+ require(digest(before['body'])==before['context_digest'] and digest(after['body'])==after['context_digest'] and before['actor_id']==after['actor_id']==index['actors']['primary'] and evidence_time(before['created_at'])<evidence_time(after['created_at']) and int(after['cohort_generation'])>int(before['cohort_generation']),'IMMUTABLE_RECOVERY_OBSERVATIONS_REQUIRED')
+ physical=capture.get('process_observations',{})
+ provider_fault_custody(capture,rows,target,evidence_root)
+ bounds=railway_instance_absence(physical,capture,target,evidence_root)
+ provider_recovery_timeline(before,after,bounds)
+ restoration=capture.get('restoration',{})
+ require(capture.get('physical_proof',{}).get('restoration')==restoration and restoration,'SIGNED_RESTORATION_BINDING_REQUIRED')
+ old=private_reference(restoration.get('state_before'),evidence_root);new=private_reference(restoration.get('state_after'),evidence_root);events=private_reference(restoration.get('events'),evidence_root)
+ require(old.get('schema_version')==new.get('schema_version')==1 and old.get('config_digest')==new.get('config_digest') and int(new['cohort_generation'])>int(old['cohort_generation']) and old.get('pending') is None and new.get('pending') is None,'PERSISTED_SUPERVISOR_RESTORATION_REQUIRED')
+ accepted=old.get('accepted_decisions')
+ require(isinstance(accepted,dict) and accepted and accepted==new.get('accepted_decisions') and set(case.get('decision_ids',[]))==set(accepted),'SAME_ACCEPTED_DECISIONS_REQUIRED')
+ require(isinstance(events,list) and any(e.get('event')=='restored' and e.get('model_calls')==0 and set(e.get('decision_ids',[]))==set(accepted) for e in events),'RESTORE_ONLY_COMPLETION_REQUIRED')
+ restored=[e for e in events if e.get('event')=='decision_restored']
+ require(len(restored)==len(accepted) and {e.get('decision_id') for e in restored}==set(accepted) and not any(e.get('event') in ('reason_request','reason_response','reasoned') for e in events),'RESTORATION_MUST_NOT_REASON_REQUIRED')
+ for event in restored:
+  decision=one(rows['fleet_decisions'],'id',event['decision_id']);effect=one(rows['fleet_effect_receipts'],'decision_id',decision['id']);entry=accepted[decision['id']]
+  require(entry=={'actor_id':decision['actor_id'],'decision_digest':digest(decision['body']),'effect_digest':digest(effect['result'])} and event.get('body')==decision['body'] and event.get('effect_receipt',{}).get('result')==effect['result'] and event['effect_receipt'].get('result_digest')==entry['effect_digest'] and evidence_time(effect['created_at'])<=evidence_time(before['created_at']),'RESTORED_DECISION_EFFECT_MISMATCH')
+ kill=restoration.get('supervisor_kill',{});identity=restoration.get('supervisor_identity',{})
+ require(kill.get('signal')=='SIGKILL' and kill.get('identity')==identity and kill.get('observed_absence',{}).get('errno')=='ESRCH' and kill['observed_absence'].get('identity')==identity and isinstance(identity.get('pid'),int) and identity['pid']>0 and identity.get('kernel_boot_id') and identity.get('start_time') and evidence_time(kill['observed_at'])<=bounds['removed'],'SUPERVISOR_SIGKILL_ABSENCE_REQUIRED')
+ require(not any(evidence_time(before['created_at'])<evidence_time(r['created_at'])<=evidence_time(after['created_at']) for r in rows['fleet_reasoning']),'RESTORATION_NEW_MODEL_CALL_PRESENT')
+ require(capture.get('before_observation_id')==before['id'] and capture.get('after_observation_id')==after['id'],'RECOVERY_CAPTURE_BINDING_REQUIRED')
+
+
 def case_oracle(name,case,rows,target,evidence_root,index):
  capture=captured_case(name,case,target,evidence_root)
  # Captures retain fault provenance; authoritative effects and native outcomes come from PostgreSQL.
+ if case.get('producer_mode')==MODEL_CAMPAIGN and name=='supervisor_box_loss':
+  verified_supervisor_restoration(case,capture,rows,target,evidence_root,index);return
  if name in ('fresh_install','repeated_install','interrupted_install','concurrent_isolation','interface_subset','fetch_volume'):
   operations=case.get('install_operation_ids');require(isinstance(operations,list) and operations and len(set(operations))==len(operations),'INSTALL_CASE_OPERATIONS_REQUIRED')
   installs=[one(rows['fleet_environment_installs'],'operation_id',op) for op in operations]
@@ -631,6 +718,8 @@ def case_oracle(name,case,rows,target,evidence_root,index):
   body=capture.get('response',{}).get('body',{});operation=case.get('operation_id')
   require(body.get('operation_id')==operation and body.get('ok') is False and body.get('error',{}).get('code') in target.get('case_error_codes',{}).get(name,[]),'ACTUAL_EXPECTED_REFUSAL_REQUIRED')
   require(not any(e['operation_id']==operation for e in rows['fleet_effect_receipts']) and not any(j['operation_id']==operation for j in rows['runner_remote_jobs']),'REFUSED_OPERATION_EFFECT_PRESENT')
+  if name=='constraint_refusal' and case.get('producer_mode')==MODEL_CAMPAIGN:
+   verified_budget_refusal(case,capture,rows,target)
   if name=='stale_generation_replay':
    verified_stale_generation(rows,case,target,body)
  elif name in ('supervisor_box_loss','manager_replacement'):
@@ -694,6 +783,7 @@ def case_oracle(name,case,rows,target,evidence_root,index):
    require(result.get('old_budget_digest')!=result.get('new_budget_digest') and digest(result.get('old_budget'))==result.get('old_budget_digest') and digest(result.get('new_budget'))==result.get('new_budget_digest') and int(result['manager_plan_generation'])>int(result['previous_manager_plan_generation']) and result.get('added_profile_ids'),'APPLIED_PROFILE_REPLAN_REQUIRED')
    require(any(e['kind']=='DELEGATION_BUDGET_REPLANNED' and e['payload'].get('decision_id')==decision['id'] and e['payload'].get('new_budget_digest')==result['new_budget_digest'] for e in rows['hierarchy_ownership_events']),'IMMUTABLE_PROFILE_REPLAN_AUDIT_REQUIRED')
   else:require(result.get('admission',{}).get('decision')=='ACCEPTED' and result.get('task_definitions_changed') is True,'APPLIED_VERSIONED_REPLAN_REQUIRED')
+  if case.get('producer_mode')==MODEL_CAMPAIGN:verified_replan_rounds(case,rows,index)
  elif name=='provider_creation':
   require(case.get('intent_id')==index['provider_intent_id'],'CASE_PROVIDER_STAGE_MISMATCH');observation=one(rows['provider_observations'],'id',case.get('observation_id'));require(observation['intent_id']==case['intent_id'] and observation['observation']==capture,'CASE_PROVIDER_CAPTURE_MISMATCH')
  elif name=='coding_worker':
@@ -799,6 +889,7 @@ def verify(task,index,target,evidence_root=None):
   native=one(rows['source_fleet_runs'],'run_id',target['run_id']);require(native['revision_id']==target['native_source_revision_id'] and native['root_tree_id']==target['native_source_root_tree_id'] and native['authority_epoch']==target['authority_epoch'],'NATIVE_RUN_BINDING_MISMATCH')
  for name in required:case_oracle(name,cases[name],rows,target,evidence_root,index)
  if any(name in required for name in MODEL_CASES):
+  if index.get('producer_mode')==MODEL_CAMPAIGN:verified_model_transcript(index,rows,evidence_root)
   ids=index['actors'];primary=one(rows['fleet_actor_sessions'],'session_id',ids['primary']);managers=[one(rows['fleet_actor_sessions'],'session_id',v) for v in ids['managers']];require(primary['actor_role']=='PRIMARY' and len(managers)>=2 and all(m['actor_role']=='WAVE_MANAGER' and m['cohort_id']==primary['cohort_id'] for m in managers),'COLOCATED_ACTORS_REQUIRED')
   actors=[primary,*managers];require(len({a['native_session_id'] for a in actors})==len(actors) and all(a.get('native_session_id') and a.get('process_identity') for a in actors),'DISTINCT_ACTUAL_MODELS_REQUIRED')
   for actor in actors:

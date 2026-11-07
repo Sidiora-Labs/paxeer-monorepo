@@ -1100,3 +1100,26 @@ command = "BY_REFERENCE: final build.command and verify.command in /out/run/gate
 exit_code = "BY_REFERENCE: final build.exit and verify.exit in /out/run/gates.jsonl; both must be zero at the same candidate revision."
 log = "BY_REFERENCE: final build.log and verify.log in private /out/run/gates.jsonl."
 observed = "Gotcha 3521, decision 2850: match archive reads beneath any sandbox resource identifier or the direct filesystem route, including the SDK's absolute file path after /filesystem/, retaining measured status, size and digest and the complete receipt/stdout/stderr assertions for every actual process; live provider qualification remains UNRUN under decision 2700 with the exact owner command above."
+
+
+[qualification.model_sessions_live_22_37_5]
+revision = "BY_REFERENCE: final matching build.revision and verify.revision in private /out/run/gates.jsonl for task 22.37.5, carried source-control task 0.12."
+command = "cd tools/hyperfide && HF_NATIVE_AUTH_PROFILES_FILE=/private/hyperfide-model/native-profiles.json python3 tests/hyperfide/support/model_live_collect.py --plan /private/hyperfide-model/model-plan.json --output /private/hyperfide-model/capture && HF_NATIVE_AUTH_PROFILES_FILE=/private/hyperfide-model/native-profiles.json python3 tests/hyperfide/cases/source_control/0_12.py --live-evidence /private/hyperfide-model/capture/index.json --target /private/hyperfide-model/capture/target.json --receipt /private/hyperfide-model/capture/live-receipt.json"
+exit_code = "UNRUN"
+log = "/private/hyperfide-model/capture/collection.json; /private/hyperfide-model/capture/supervisor.stdout.log; /private/hyperfide-model/capture/live-receipt.json (UNRUN; reserved private owner evidence locations)."
+observed = "Task 0.12, decision 2700: this environment has no owner-supplied isolated campaign plan, trusted live target or provider/model/object-store credentials; all seven live model cases remain UNRUN and no live PASS is claimed; run the exact command above with the owner's private plan and credentials."
+
+[qualification.model_sessions_component_22_37_5]
+revision = "BY_REFERENCE: final matching build.revision and verify.revision in private /out/run/gates.jsonl for task 22.37.5 and source task spec/layerx-merge/source-control/source-spec.kvx task 0.12."
+command = "BY_REFERENCE: final build.command and verify.command in /out/run/gates.jsonl; hf-build runs the declared build and hf-done runs cg spec done 22.37.5 -f layerx-merge --root /work/paxeer-monorepo, including python3 tests/hyperfide/cases/source_control/0_12.py --component."
+exit_code = "BY_REFERENCE: final build.exit and verify.exit in /out/run/gates.jsonl; qualification requires both zero at the same candidate revision."
+log = "BY_REFERENCE: final build.log and verify.log in private /out/run/gates.jsonl; component details in tools/hyperfide/build/fleet/0.12/receipt.json and supervisor-restoration.log."
+observed = "The component retains signed cohort fencing and unavailable-model assertions, adds typed private-profile refusals, read-only reasoning reconciliation and real supervisor SIGKILL restoration, and explicitly declares the actual installed uncredentialed Codex ELF for transitive native factories; real provider host loss and accepted model reconstruction require the separate seven-case live campaign and remain UNRUN."
+
+
+[finding.model_component_native_layout_22_37_5]
+revision = "0d06e9d451baef155823a4c8026b28cdfe140af1"
+command = "cg spec done 22.37.5 -f layerx-merge --root /work/paxeer-monorepo"
+exit_code = 1
+log = "/out/logs/verify-1.log; matching build exit 0: /out/logs/build-1.log; final repair evidence by reference in private /out/run/gates.jsonl."
+observed = "The component reached its real installed native CLI declaration but looked beneath the obsolete vendor codex/codex directory; resolve the installed platform payload at vendor/<target>/bin/codex, retaining the ELF, version, digest, profile and unavailable-model assertions."
