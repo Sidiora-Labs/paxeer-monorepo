@@ -239,6 +239,17 @@ impl Controller {
         }
     }
 
+    pub fn guard_new_inference_deal<T>(
+        &self,
+        operation: impl FnOnce() -> T,
+    ) -> Result<T, OperationError> {
+        self.guard_preparation(operation)
+    }
+
+    pub fn serve_open_inference_deal<T>(&self, operation: impl FnOnce() -> T) -> T {
+        operation()
+    }
+
     /// Acknowledges a submission only while the core is live.
     ///
     /// # Errors
