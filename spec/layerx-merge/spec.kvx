@@ -153757,7 +153757,7 @@ do_11 = "Attempt 2 (continue, gotcha 3308, decision 2707): the attempt-1 tree st
 
 [task.22.37.8]
 title = "Complete pagination and replay contract checks for the native source contract"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 8
 requires = ["22.36.1", "22.37.7"]
@@ -181827,7 +181827,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.141]
 title = "Make the program call test assert the unknown-rung value the CLI returns for a lost node response"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -182195,7 +182195,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.74]
 title = "Run the whole interop test suite in CI"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
