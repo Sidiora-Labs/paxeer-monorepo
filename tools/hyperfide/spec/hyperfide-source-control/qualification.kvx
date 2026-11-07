@@ -1181,3 +1181,10 @@ command = "cg spec done 22.37.7 -f layerx-merge --root /work/paxeer-monorepo"
 exit_code = 1
 log = "/out/logs/verify-1.log; repaired build and verification evidence BY_REFERENCE: final build.log and verify.log in private /out/run/gates.jsonl."
 observed = "Cohort replacement automatically advances only the Primary actor row, so an unrebound manager first refuses FLEET_COHORT_STALE; the component now asserts that exact no-effect fence, explicitly rebinds the manager to the current cohort and retains the original FLEET_OBSERVATION_STALE assertion for every old observation."
+
+[qualification.native_contract_22_37_8]
+revision = "BY_REFERENCE: matching final build.revision and verify.revision in private /out/run/gates.jsonl for merge task 22.37.8; carried source task spec/layerx-merge/source-control/source-spec.kvx task 0.1."
+command = "BY_REFERENCE: final build.command and verify.command in /out/run/gates.jsonl; hf-build runs the declared control-plane and SDK build/typecheck and hf-done runs cg spec done 22.37.8 -f layerx-merge --root /work/paxeer-monorepo including cd tools/hyperfide && corepack enable && python3 tests/hyperfide/cases/source_control/0_1.py with HYPERFIDE_NODE unset and node on PATH."
+exit_code = "BY_REFERENCE: final build.exit and verify.exit in private /out/run/gates.jsonl; qualification requires both zero at the identical candidate revision."
+log = "BY_REFERENCE: final build.log and verify.log in private /out/run/gates.jsonl; tools/hyperfide/build/source-control/0.1/receipt.json retains assertion outcomes, exact input digests and Node resolution evidence."
+observed = "The bounded contract gate asserts page and opaque cursor parsing/refusals, independent integer/control/non-BMP vectors, SDK/server digest equality and the documented durable server replay-conflict rule; historical 22.37.7 component evidence is retained, while carried task 0.14 live qualification remains open and is not inferred from codec validity."

@@ -10227,6 +10227,12 @@ value = "A sweep repair of a program crate keeps only the changes that repair a 
 basis = "Task 22.99.77 attempt 24 at 7e4373f372a9 (gotcha 3525): the merged sweep tree measured 581212 bytes and 550520 bytes after size work against a 524184 byte bound while the main tree guest measures 508166 bytes in the size record of task 22.31.615. Extends decisions 2771 and 2792."
 affects = ["22.99.77"]
 
+[decision.2853]
+title = "A public workflow installs exactly the package manager release the manifest of its working directory declares, and the pins test covers workflow install lines"
+value = "Every line of a public workflow that installs or activates pnpm for a job serves the manifest of the working directory the job installs for, and installs exactly the packageManager release that manifest declares, hash included where the manifest carries one; a manifest pin change updates every such line in the same change. The pins test of task 22.39.106 covers the workflow install lines next to the container files, parsing each job for its install line and the working directory it serves, so a disagreement fails a public check before a consumer test finds it."
+basis = "Task 22.39.54 attempt 4 at 15fc2db91b06 (gotcha 3527): bridge-test.yml installs pnpm@12.15.0 while apps/bridge declares pnpm@10.34.9 since 22.39.106 changed the manifest, and four more workflow lines disagree with the services/wallet manifest. Extends decisions 2829, 3052 and 3053 of the gotcha record and decision 2762."
+affects = ["22.39.54", "22.39.139", "22.39.106"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -39117,6 +39123,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.139]
+title = "Make every public workflow install the pnpm release its working directory manifest declares and extend the pins test to workflow lines"
+reqs = ["22998.1"]
+touches = [".github/workflows/bridge-test.yml", ".github/workflows/ci.yml", ".github/workflows/wallet-go-test.yml", ".github/workflows/platform.yml", "tests/ci/test_package_manager_pins_agree.py"]
+tests = ["tools/ci/tests/test_bridge_workflow_app.py"]
+verification_contract = "python3 -m pytest -q tools/ci/tests/test_bridge_workflow_app.py tests/ci/test_package_manager_pins_agree.py"
+do_1 = "do_1 Decisions 2829, 2853 and 3052, gotcha 3527. Five public workflow lines install a pnpm release their manifests do not declare: .github/workflows/bridge-test.yml line 143 installs pnpm@12.15.0 for apps/bridge (manifest pnpm@10.34.9), ci.yml lines 267 and 298 install pnpm@10.15.1 and pnpm@9.15.9 for services/wallet jobs (manifest pnpm@10.34.9), wallet-go-test.yml line 74 installs pnpm@9.15.9 for services/wallet/gateway (its workspace manifest services/wallet declares pnpm@10.34.9) and platform.yml line 195 activates pnpm@9.15.9 for services/wallet. tools/ci/tests/test_bridge_workflow_app.py already asserts the bridge line against the manifest and fails on main."
+symbols = []
 
 [capability.22.39.138]
 title = "Make the sixteen node package tests that fail once the recorded failures are skipped pass alone and in any selection"
@@ -152059,6 +152074,37 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.39.139]
+title = "Make every public workflow install the pnpm release its working directory manifest declares and extend the pins test to workflow lines"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.139"]
+interfaces = []
+do_1 = "do_1 Decisions 2829, 2853 and 3052, gotcha 3527. Five public workflow lines install a pnpm release their manifests do not declare: .github/workflows/bridge-test.yml line 143 installs pnpm@12.15.0 for apps/bridge (manifest pnpm@10.34.9), ci.yml lines 267 and 298 install pnpm@10.15.1 and pnpm@9.15.9 for services/wallet jobs (manifest pnpm@10.34.9), wallet-go-test.yml line 74 installs pnpm@9.15.9 for services/wallet/gateway (its workspace manifest services/wallet declares pnpm@10.34.9) and platform.yml line 195 activates pnpm@9.15.9 for services/wallet. tools/ci/tests/test_bridge_workflow_app.py already asserts the bridge line against the manifest and fails on main."
+do_2 = "do_2 Correct each line to the exact packageManager value of the manifest of the working directory the job serves, the integrity hash included where the manifest carries one (the bridge test compares the whole value); for a job that installs several working directories with one pnpm, every one of those manifests must declare the same release, and the task record names the manifests it compared. Change nothing else in the workflows."
+do_3 = "do_3 Extend tests/ci/test_package_manager_pins_agree.py with a parametrised case over every workflow file under .github/workflows: for each job, pair every npm install --global pnpm@ line and every --package=pnpm@ activation with the working directories of the run steps of that job, resolve the manifest of each directory (walking up to the nearest package.json that declares packageManager) and assert the installed release equals the declared one; the parametrisation lists the five lines of do_1 explicitly so a later disagreement names its line."
+do_4 = "do_4 Record the five corrections with their lines and manifests in tests/ci/repair_22_39_139.kvx. Run the build once and the verification once at the final tree; the verification runs the bridge workflow test and the extended pins test."
+symbols = []
+touches = [".github/workflows/bridge-test.yml", ".github/workflows/ci.yml", ".github/workflows/wallet-go-test.yml", ".github/workflows/platform.yml", "tests/ci/test_package_manager_pins_agree.py"]
+tests = ["tools/ci/tests/test_bridge_workflow_app.py"]
+planned_paths = ["tests/ci/repair_22_39_139.kvx"]
+build_cmd = "python3 -m py_compile tests/ci/test_package_manager_pins_agree.py && python3 -m pytest -q --collect-only tools/ci/tests/test_bridge_workflow_app.py > /dev/null"
+verify_cmd = "python3 -m pytest -q tools/ci/tests/test_bridge_workflow_app.py tests/ci/test_package_manager_pins_agree.py"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-release"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 90
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.129]
 title = "Bring the lockfile of the vendored tree back in step with the plugin router manifest"
 status = "done"
@@ -153739,7 +153785,7 @@ do_9 = "Gotcha 3308, decision 2707. In 0_14_live.py (line 23) and 0_14_setup.py 
 
 [task.22.37.6]
 title = "Qualify manager led provisioning and agent assignment with live evidence"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = ["22.36.1", "22.37.5"]
@@ -182374,7 +182420,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.38.32]
 title = "Expose the market operations and reads in the Rust SDK"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = ["22.38.12", "22.31.620"]
@@ -332854,7 +332900,7 @@ symbols = []
 touches = ["services/agent/sdk/python/layerx_sdk/x402_rpc.py"]
 tests = ["services/platform/middleware/conformance/pay6/test_rpc.py", "services/agent/sdk/python/tests/test_x402_rpc_surface.py"]
 planned_paths = ["services/agent/sdk/python/tests/test_x402_rpc_surface.py", "services/agent/sdk/python/repair_22_39_137.kvx"]
-build_cmd = "python3 -m py_compile services/agent/sdk/python/layerx_sdk/x402_rpc.py"
+build_cmd = "npm ci --ignore-scripts --no-audit --no-fund --prefix services/agent/sdk/typescript && npm install --no-package-lock --ignore-scripts --no-audit --no-fund --prefix services/platform/middleware/seller && npm install --no-package-lock --ignore-scripts --no-audit --no-fund --prefix services/platform/middleware/conformance && python3 -m py_compile services/agent/sdk/python/layerx_sdk/x402_rpc.py"
 verify_cmd = "python3 -m pytest -q services/platform/middleware/conformance/pay6/test_rpc.py && cd services/agent/sdk/python && python3 -m pytest -q tests/test_x402_rpc_surface.py"
 gate_kind = "planned"
 sandbox_profile = "python"
@@ -332884,7 +332930,7 @@ symbols = []
 touches = ["services/agent/sdk/python/layerx_sdk/x402.py", "services/agent/sdk/python/layerx_sdk/x402_http.py", "services/agent/sdk/python/layerx_sdk/x402_agent.py", "services/agent/sdk/python/tests/test_x402_http_sequencer.py", "services/agent/sdk/python/tests/test_x402_draw_sequencer.py"]
 tests = ["services/platform/middleware/conformance/pay6/test_http.py", "services/platform/middleware/conformance/pay6/test_commitment.py", "services/platform/middleware/conformance/pay6/test_agent.py"]
 planned_paths = ["services/agent/sdk/python/repair_22_39_136.kvx"]
-build_cmd = "python3 -m py_compile services/agent/sdk/python/layerx_sdk/x402.py services/agent/sdk/python/layerx_sdk/x402_http.py services/agent/sdk/python/layerx_sdk/x402_agent.py"
+build_cmd = "npm ci --ignore-scripts --no-audit --no-fund --prefix services/agent/sdk/typescript && npm install --no-package-lock --ignore-scripts --no-audit --no-fund --prefix services/platform/middleware/seller && npm install --no-package-lock --ignore-scripts --no-audit --no-fund --prefix services/platform/middleware/conformance && python3 -m py_compile services/agent/sdk/python/layerx_sdk/x402.py services/agent/sdk/python/layerx_sdk/x402_http.py services/agent/sdk/python/layerx_sdk/x402_agent.py"
 verify_cmd = "python3 -m pytest -q services/platform/middleware/conformance/pay6/test_http.py services/platform/middleware/conformance/pay6/test_commitment.py services/platform/middleware/conformance/pay6/test_agent.py && cd services/agent/sdk/python && python3 -m pytest -q tests/test_x402_http_sequencer.py tests/test_x402_draw_sequencer.py"
 gate_kind = "planned"
 sandbox_profile = "python"
@@ -332897,6 +332943,7 @@ time_limit_minutes = 150
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "Attempt 3 (continue, gotcha 3526, decisions 2771 and 2849): the attempt-2 tree 2b9ed9cc02fa stands (the ported verifier, HTTP client and agent budget modules, the two local suites, the record). The build step of the task now installs the three Node dependency sets the pay6 peers need before the py_compile step; run the build once, then the verification once at the final revision, and record both by reference. If a pay6 case still fails after the peers start, it is a Python wire difference this task owns under decision 2849: repair it in the module the case names and rerun once."
 
 [task.22.39.134]
 title = "Bring the ramp dependency policy and ramp journey Python suites to green and retire their baseline entries"
@@ -334473,7 +334520,7 @@ title = "Settle the twenty tools/ci suite failures against the live rules"
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = []
+requires = ["22.39.139"]
 reqs = ["22998.1"]
 capabilities = ["22.39.54"]
 interfaces = []
@@ -334503,6 +334550,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 do_7 = "Attempt 2 (continue, gotcha 3445, decision 2800): the attempt-1 tree 799a0dafcb68 stands (the 18 settlements, the script repairs, the record). The ledger test test_ledger_check_reads_layerx_merge_ledger is repaired by 22.39.87 and stays out of this task: the verification now deselects it, and test_tools_ci_suite_passes reads the deselect list from tests/ci/data/tools_ci_deselect.txt (one test id per line, created by this task with that one entry) and passes it to the subprocess run, so 22.39.87 empties the file when the ledger parses. Record the deselection with the recorded 6448-violation output summary in tools/ci/tests/repair_22_39_54.kvx. Run the build and the narrowed verification at the final revision and record both by reference."
 do_8 = "Attempt 3 (continue, gotcha 3504, decision 2835): the attempt-2 tree f188e5ea648f stands (the eighteen settlements, the routed script jobs, the script repairs, the record). tests/ci/data/tools_ci_deselect.txt is now a planned path: create it with the single ledger test id, make test_tools_ci_suite_passes read it and pass the entries to the subprocess run, record the deselection in tools/ci/tests/repair_22_39_54.kvx as do_7 directs, then run the build and the narrowed verification at the final revision and record both by reference."
 do_9 = "Attempt 4 (continue, gotcha 3516, decisions 2771, 2812 and 2845): the attempt-3 tree c45e603564a2 stands (the deselection file, the runner test reading it, the eighteen settlements, the routed script jobs, the record). .github/workflows/paxeer-go-test.yml is now in touches: give its jobs tagged-tests, autobahn-integration and hpx-registry the runs-on line of the routed jobs of agent.yml byte for byte, change nothing else in that file, then run the build and the verification once at the final tree and record both by reference."
+do_10 = "Attempt 5 (continue, gotcha 3527, decisions 2762, 2771 and 2853, after 22.39.139 lands): the attempt-4 tree 15fc2db91b06 stands (the eighteen settlements, the routed script jobs, the paxeer-go-test runs-on lines, the deselection file, the record). Merge current main so the tree carries the workflow pin repair of 22.39.139 and keep the main form of every workflow line that task changed; do not edit bridge-test.yml. Then run the build once and the verification once at the final revision and record both by reference; if test_bridge_workflow_app still fails after the merge, record the assertion in tools/ci/tests/repair_22_39_54.kvx and stop without a repair cycle."
 
 [task.22.39.53]
 title = "Collect the websearch context module under pytest or move it beside its gate script"

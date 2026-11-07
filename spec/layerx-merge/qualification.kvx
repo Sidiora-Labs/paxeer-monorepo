@@ -34889,3 +34889,19 @@ symbol = "layerx-programs-ai-market"
 observed = "Attempt 24 at 7e4373f372a9: build exit 1 three times: the producer gate of 22.31.478 measured the merged guest at 581212 bytes, then 550520 bytes after two cycles of size work, against the 524184 byte bound; the second cycle also left two compile errors in the library; verification never ran."
 assumption = "The attempt tree duplicates code the main tree provides; the main guest leaves 16 KB of headroom."
 severity = "high"
+
+[finding.22.39.54.4]
+task = "22.39.54"
+file = "tests/ci/test_tools_ci_suite_passes.py"
+symbol = "test_tools_ci_suite_passes.py"
+observed = "Attempt 4 at 15fc2db91b06: build exit 0; verification exit 1: 110 passed, 1 deselected, and tools/ci/tests/test_bridge_workflow_app.py fails because bridge-test.yml installs pnpm@12.15.0 while apps/bridge declares pnpm@10.34.9."
+assumption = "The one failure is the workflow pin that 22.39.106 left behind, outside this task and carried by 22.39.139."
+severity = "high"
+
+[finding.22.39.136.1]
+task = "22.39.136"
+file = "services/platform/middleware/conformance/pay6/test_http.py"
+symbol = "test_http.py"
+observed = "Attempt 2 at 2b9ed9cc02fa: build exit 0; verification exit 1: 13 pay6 cases pass and 8 fail before any Python assertion because the TypeScript peer exits with ERR_MODULE_NOT_FOUND for @noble/hashes; attempt 1 at 2b5e3f351d63 failed the same way."
+assumption = "The peers need their dependencies installed by the build step; the task code was never exercised by the eight cases."
+severity = "high"
