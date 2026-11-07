@@ -9,7 +9,7 @@ use crate::{
     },
     evaluators::{admission::ChallengeRegion, codec::verify_digest, model::VerificationError},
     evidence::SealRegion,
-    policy::{RoomProfile, ROOM_PROFILE_BYTES},
+    policy::RoomProfile,
     registry::check_f01_capacity,
     registry_ops::{CallContext, PolicySection},
     state::{
@@ -17,8 +17,8 @@ use crate::{
         RetainedResult, Section, SharedState,
     },
     types::{
-        AccountId, Digest32, FrozenBinding, Presence, PrincipalId, RequestDigest, ResultDigest,
-        Signature64, WorkerId,
+        AccountId, Digest32, FrozenBinding, Presence, PrincipalId, RequestDigest, Signature64,
+        WorkerId,
     },
     value_adapter::ValueAction,
 };
@@ -43,6 +43,7 @@ pub struct CanaryRoomProfile {
     pub relative_tolerance_bps: u16,
 }
 impl CanaryRoomProfile {
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn validate(&self) -> CodecResult<()> {
         self.room.validate()?;
         if self.relative_tolerance_bps > 10_000 {
@@ -65,6 +66,7 @@ pub struct CanaryTask {
     pub peer_signature: Signature64,
 }
 impl CanaryTask {
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn encode(&self) -> CodecResult<[u8; CANARY_COMMIT_BYTES]> {
         self.profile.validate()?;
         let mut out = [0; CANARY_COMMIT_BYTES];
@@ -76,13 +78,12 @@ impl CanaryTask {
         w.put(self.prompt_digest.as_bytes())?;
         w.put(self.expected_logits_digest.as_bytes())?;
         w.put(self.answer_digest.as_bytes())?;
-        let mut profile = [0; ROOM_PROFILE_BYTES];
-        self.profile.room.encode(&mut profile)?;
-        w.put(&profile)?;
+        w.room_profile(&self.profile.room)?;
         w.u16(self.profile.relative_tolerance_bps)?;
         w.put(&self.peer_signature.0)?;
         Ok(out)
     }
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn decode(bytes: &[u8]) -> CodecResult<Self> {
         let mut r = Reader::new(bytes);
         if r.take(8)? != CANARY_TASK_KIND {
@@ -96,7 +97,7 @@ impl CanaryTask {
             expected_logits_digest: r.digest32()?,
             answer_digest: r.digest32()?,
             profile: CanaryRoomProfile {
-                room: RoomProfile::decode(r.take(ROOM_PROFILE_BYTES)?)?,
+                room: r.room_profile()?,
                 relative_tolerance_bps: r.u16()?,
             },
             peer_signature: Signature64(r.fixed()?),
@@ -105,19 +106,21 @@ impl CanaryTask {
         value.profile.validate()?;
         Ok(value)
     }
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn commitment(&self, binding: &FrozenBinding, host: PrincipalId) -> CodecResult<Digest32> {
         let mut out = [0; 160 + 32 + CANARY_COMMIT_BYTES];
         let mut w = Writer::new(&mut out);
-        write_binding(&mut w, binding)?;
+        codec::write_frozen_binding(&mut w, binding)?;
         w.put(host.as_bytes())?;
         w.put(&self.encode()?)?;
         let n = w.len();
         codec::domain_hash("PAXAI/canary-commit/v1", &out[..n])
     }
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn answer_attestation(&self, binding: &FrozenBinding) -> CodecResult<Digest32> {
         let mut out = [0; 160 + 32 + 8 + 32 + 32 + 32];
         let mut w = Writer::new(&mut out);
-        write_binding(&mut w, binding)?;
+        codec::write_frozen_binding(&mut w, binding)?;
         w.put(self.deal.as_bytes())?;
         w.u64(self.lap)?;
         w.put(self.peer.as_bytes())?;
@@ -127,15 +130,8 @@ impl CanaryTask {
         codec::domain_hash("PAXAI/canary-answer/v1", &out[..n])
     }
 }
-fn write_binding(w: &mut Writer<'_>, b: &FrozenBinding) -> CodecResult<()> {
-    w.put(b.chain.as_bytes())?;
-    w.put(b.program.as_bytes())?;
-    w.put(b.market.as_bytes())?;
-    w.u64(b.epoch)?;
-    w.u64(b.config.get())?;
-    w.put(b.roster.as_bytes())
-}
 
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn encode_logits(logits: &CanaryLogits) -> [u8; 32] {
     let mut bytes = [0; 32];
     for (chunk, value) in bytes.chunks_exact_mut(4).zip(logits) {
@@ -143,6 +139,7 @@ pub fn encode_logits(logits: &CanaryLogits) -> [u8; 32] {
     }
     bytes
 }
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn decode_logits(bytes: &[u8]) -> CodecResult<CanaryLogits> {
     if bytes.len() != 32 {
         return Err(NON_CANONICAL);
@@ -153,9 +150,11 @@ pub fn decode_logits(bytes: &[u8]) -> CodecResult<CanaryLogits> {
     }
     Ok(logits)
 }
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn logits_digest(logits: &CanaryLogits) -> CodecResult<Digest32> {
     codec::domain_hash("PAXAI/canary-logits/q16/v1", &encode_logits(logits))
 }
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn relative_tolerance_hit(
     expected: &CanaryLogits,
     answer: &CanaryLogits,
@@ -178,6 +177,7 @@ pub struct CanaryReveal {
     pub logits: CanaryLogits,
 }
 impl CanaryReveal {
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn encode(&self) -> CodecResult<[u8; CANARY_REVEAL_BYTES]> {
         let mut out = [0; CANARY_REVEAL_BYTES];
         let mut w = Writer::new(&mut out);
@@ -187,6 +187,7 @@ impl CanaryReveal {
         w.put(&encode_logits(&self.logits))?;
         Ok(out)
     }
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn decode(bytes: &[u8]) -> CodecResult<Self> {
         let mut r = Reader::new(bytes);
         if r.take(8)? != CANARY_TASK_KIND {
@@ -243,6 +244,7 @@ impl CanaryCommitment {
             0
         }
     }
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     fn encode(&self) -> CodecResult<[u8; RECORD_BYTES]> {
         let mut out = [0; RECORD_BYTES];
         let mut w = Writer::new(&mut out);
@@ -268,6 +270,7 @@ impl CanaryCommitment {
         }
         Ok(out)
     }
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     fn decode(bytes: &[u8]) -> CodecResult<Self> {
         let mut r = Reader::new(bytes);
         let id = r.digest32()?;
@@ -361,6 +364,7 @@ pub struct CanaryRegion<'a> {
     rest: &'a [u8],
 }
 impl<'a> CanaryRegion<'a> {
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn decode(features: &'a [u8]) -> CodecResult<Self> {
         let seals = SealRegion::decode(features)?;
         let challenges = ChallengeRegion::decode(seals.rest())?;
@@ -408,6 +412,7 @@ impl<'a> CanaryRegion<'a> {
             .chunks_exact(RECORD_BYTES)
             .map(CanaryCommitment::decode)
     }
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn get(&self, id: Digest32) -> CodecResult<Option<CanaryCommitment>> {
         for record in self.records() {
             let record = record?;
@@ -417,6 +422,7 @@ impl<'a> CanaryRegion<'a> {
         }
         Ok(None)
     }
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     fn write(&self, record: &CanaryCommitment, out: &mut [u8]) -> CodecResult<usize> {
         let exists = self.get(record.id)?.is_some();
         let count = self.records.len() / RECORD_BYTES + usize::from(!exists);
@@ -452,6 +458,7 @@ impl<'a> CanaryRegion<'a> {
         Ok(w.len())
     }
 }
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn commitment_from_state(current: &[u8], id: Digest32) -> CodecResult<CanaryCommitment> {
     let state = decode_shared_state(current)?;
     CanaryRegion::decode(state.control.feature_bytes)?
@@ -470,6 +477,7 @@ pub enum Outcome {
     AlreadyApplied,
 }
 
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub(crate) fn check_call<'a>(
     ctx: &CallContext,
     e: &Envelope<'_>,
@@ -494,6 +502,7 @@ pub(crate) fn check_call<'a>(
     }
     Ok(section)
 }
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub(crate) fn check_record(e: &Envelope<'_>, record: &CanaryCommitment) -> CodecResult<()> {
     if e.epoch != record.epoch {
         return Err(WRONG_EPOCH);
@@ -506,6 +515,7 @@ pub(crate) fn check_record(e: &Envelope<'_>, record: &CanaryCommitment) -> Codec
     }
     Ok(())
 }
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub(crate) fn commit_task(
     ctx: &CallContext,
     e: &Envelope<'_>,
@@ -581,6 +591,7 @@ pub(crate) fn commit_task(
         resolved_height: 0,
     })
 }
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub(crate) fn reveal_task(
     ctx: &CallContext,
     e: &Envelope<'_>,
@@ -694,6 +705,7 @@ pub struct ChallengeLapPayload {
     pub deposit: u128,
 }
 impl ChallengeLapPayload {
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn encode(&self) -> CodecResult<[u8; 88]> {
         let mut out = [0; 88];
         let mut w = Writer::new(&mut out);
@@ -703,6 +715,7 @@ impl ChallengeLapPayload {
         w.u128(self.deposit)?;
         Ok(out)
     }
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     fn decode(bytes: &[u8]) -> CodecResult<Self> {
         let mut r = Reader::new(bytes);
         let value = Self {
@@ -723,6 +736,7 @@ pub struct ResolveChallengePayload {
     pub answer: CanaryLogits,
 }
 impl ResolveChallengePayload {
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn encode(&self) -> CodecResult<[u8; 104]> {
         let mut out = [0; 104];
         let mut w = Writer::new(&mut out);
@@ -732,6 +746,7 @@ impl ResolveChallengePayload {
         w.put(&encode_logits(&self.answer))?;
         Ok(out)
     }
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     fn decode(bytes: &[u8]) -> CodecResult<Self> {
         let mut r = Reader::new(bytes);
         let value = Self {
@@ -744,6 +759,7 @@ impl ResolveChallengePayload {
         Ok(value)
     }
 }
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 fn named_record(
     state: &SharedState<'_>,
     e: &Envelope<'_>,
@@ -760,6 +776,7 @@ fn named_record(
     }
     Ok(record)
 }
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn challenge_window(origin: u64, record: &CanaryCommitment) -> CodecResult<HeightWindow> {
     let reveal = crate::commit_reveal::canary_window(origin, record.epoch, true)?;
     Ok(HeightWindow {

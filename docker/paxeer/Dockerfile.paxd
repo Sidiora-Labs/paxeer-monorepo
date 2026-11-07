@@ -1,4 +1,4 @@
-ARG PAXD_IMAGE=ghcr.io/sidiora-labs/paxd-node:0.1.0
+ARG PAXD_IMAGE=ghcr.io/sidiora-labs/paxd-node:v7.0.0
 FROM ${PAXD_IMAGE}
 USER root
 RUN apt-get update && apt-get install -y --no-install-recommends bash jq coreutils && rm -rf /var/lib/apt/lists/*
