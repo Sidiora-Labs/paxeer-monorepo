@@ -295,6 +295,19 @@ def validate_height(height, label):
     return height
 
 
+def node_plan_info(release_doc, plan_path, plan_height, name):
+    info = None if release_doc is None else read_plan_info(release_doc)
+    if plan_path is not None:
+        info = merge_plan_info({} if info is None else info, plan_path, plan_height)
+    if name == REGISTERED_PLAN_NAMES["MergeUpgrade"]:
+        if plan_path is None and (not isinstance(info, dict) or "leaders" not in info):
+            raise ValueError(
+                "--plan-info is required unless the release document carries merge plan info"
+            )
+        validate_plan_info(info, plan_height)
+    return info
+
+
 def node(args, identity):
     name = validate_name(
         identity["upgrade"] if args.name is None else args.name, identity
@@ -313,13 +326,8 @@ def node(args, identity):
         height = validate_height(halt + 1, "height")
     if height is None:
         raise ValueError("--height or --halt-height is required")
-    info = None
-    if args.release_doc is not None:
-        info = read_plan_info(args.release_doc)
-    if args.plan_info is not None:
-        info = merge_plan_info({} if info is None else info, args.plan_info, height)
-    if name == REGISTERED_PLAN_NAMES["MergeUpgrade"]:
-        validate_plan_info(info, height)
+    plan_height = args.halt_height if args.halt_height is not None else height
+    info = node_plan_info(args.release_doc, args.plan_info, plan_height, name)
     document = {"name": name, "height": height}
     if info is not None:
         document["info"] = json.dumps(info, separators=(",", ":"))
