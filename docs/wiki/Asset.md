@@ -12,7 +12,7 @@ Account names, issuance, and the named fee schedule are on
 [Assets and tokens](Assets.md). Fees are on [Fees](Fees.md).
 
 Sources: `include/layerx/lx_asset.h`, `src/modules/asset/`,
-`spec/layerx-protocol/spec.kvx` requirement 14.
+`docs/site/docs/concepts/assets.md`.
 
 ---
 
@@ -25,19 +25,13 @@ Sources: `include/layerx/lx_asset.h`, `src/modules/asset/`,
 | `LX_ASSET_UNPAUSE` | `0x00010003` | 3 |
 | `LX_ASSET_ACCOUNT_OPEN` | `0x00010004` | 4 |
 | `LX_ASSET_SEND` | `0x00010005` | 5 |
-| `LX_ASSET_RECEIVE` | `0x00010006` | 6 |
-| `LX_ASSET_GRANT_ISSUE` | `0x00010007` | 7 |
-| `LX_ASSET_GRANT_REVOKE` | `0x00010008` | 8 |
-| `LX_ASSET_WITHDRAW` | `0x00010009` | 9 |
 | `LX_ASSET_MINT` | `0x0001000a` | 10 |
 | `LX_ASSET_BURN` | `0x0001000b` | 11 |
 
-All eleven ordinals are registered on the module iface
-(`src/modules/asset/lx_asset_registry.c`). The authenticated public submit
-path admits register, pause, unpause, account_open, send, receive,
-grant_issue, grant_revoke, mint, and burn. Ordinal 9 is a real kernel
-transition and a reserved public operation: that path returns a
-reserved-operation refusal.
+These seven ordinals are registered on the module iface
+(`src/modules/asset/lx_asset_registry.c`). RECEIVE (6), GRANT_ISSUE (7),
+GRANT_REVOKE (8) and WITHDRAW (9) are not registered. Their retained
+constants do not make the historical payment paths available.
 
 Unknown ordinals decode as `LXP_ERR_UNKNOWN_ACTIVITY`.
 
@@ -106,56 +100,6 @@ such as `LXP_ERR_INSUFFICIENT_BALANCE` and `LXP_ERR_ZERO_AMOUNT`.
 
 ---
 
-## RECEIVE
-
-Canonical `lxp_receive` payload (`src/ledger/lxp_receive.c`): tag `0x5201`,
-ten fields, embedded payer grant. Requires a payer grant: one recipient, one
-account, caps, purpose, expiry. No wildcards.
-
-Refusals include `LXP_ERR_MALFORMED_RECEIVE`, `LXP_ERR_NO_PAYER_GRANT`,
-`LXP_ERR_GRANT_SCOPE_VIOLATION`, `LXP_ERR_GRANT_EXPIRED`,
-`LXP_ERR_GRANT_REVOKED`, `LXP_ERR_UNAUTHORIZED_DEBIT`.
-
----
-
-## GRANT_ISSUE / GRANT_REVOKE
-
-GRANT_ISSUE is a full payer-grant body (`lxp_payer_grant_decode`).
-GRANT_REVOKE is `version:u16=1 || grant_id32 || revocation_sequence:u64`
-(42 bytes).
-
-Refusals include `LXP_ERR_SEQUENCE_REUSED`, `LXP_ERR_NO_PAYER_GRANT`,
-`LXP_ERR_STALE_REVOCATION`, `LXP_ERR_UNAUTHORIZED_DEBIT`,
-`LXP_ERR_ASSET_PAUSED`.
-
----
-
-## WITHDRAW
-
-Kernel payload is 108 bytes with no version prefix
-(`src/modules/asset/lx_asset_registry.c`):
-
-```text
-asset_id32 || amount:u128 || payout_recipient20 || checkpoint_id32 || fee:u64
-```
-
-`fee` must equal the activity `fee_limit` low 64 bits. The actor's
-`agent:<did>:main` account for that asset is debited into
-`system:paxeer-withdrawals` under `LXP_REASON_WITHDRAWAL`. A second
-submission of the same request is `LXP_ERR_WITHDRAWAL_ALREADY_SETTLED`.
-A withdraw receipt does not bind supply (`lxp_receipt_validate_supply`
-does not describe operation 9).
-
-Refusals also include `LXP_ERR_NON_CANONICAL` (length ≠ 108),
-`LXP_ERR_UNAUTHORIZED_DEBIT`, `LXP_ERR_ASSET_MISMATCH`,
-`LXP_ERR_ASSET_PAUSED`, `LXP_ERR_GRANT_SCOPE_VIOLATION`,
-`LXP_ERR_CONTEXT_MISMATCH`.
-
-Payout on Paxeer is a [Bridge](Bridge.md) claim against a finalised
-checkpoint, not a second Asset ordinal.
-
----
-
 ## MINT / BURN
 
 Payload: `version:u16=1 || asset_id32 || account_id32 || amount:u128`
@@ -166,9 +110,61 @@ Refusals include `LXP_ERR_ASSET_PAUSED`, `LXP_ERR_ASSET_MISMATCH`,
 `LXP_ERR_UNAUTHORIZED_DEBIT`, `LXP_ERR_INSUFFICIENT_BALANCE`,
 `LXP_ERR_INVALID_AMOUNT`, `LXP_FATAL_SUPPLY_MISMATCH`.
 
-Every executed asset ordinal other than withdraw binds
+Every executed asset ordinal binds
 `total_units_before` / `total_units_after` on the receipt through
 `lxp_ctx_bind_asset_supply`.
+
+---
+
+## Historical payloads
+
+The following pre-merge layouts are retained only for decoding archived
+artifacts. They do not authorize current grant issuance, receive or submission.
+See [Historical payment payloads](../site/docs/concepts/assets.md#historical-payment-payloads).
+
+### RECEIVE
+
+The historical RECEIVE payload used tag `0x5201`, ten fields and an
+embedded payer grant binding one recipient, one account, caps, purpose and
+expiry, with no wildcards.
+
+Historical refusals included `LXP_ERR_MALFORMED_RECEIVE`, `LXP_ERR_NO_PAYER_GRANT`,
+`LXP_ERR_GRANT_SCOPE_VIOLATION`, `LXP_ERR_GRANT_EXPIRED`,
+`LXP_ERR_GRANT_REVOKED`, `LXP_ERR_UNAUTHORIZED_DEBIT`.
+
+---
+
+### GRANT_ISSUE / GRANT_REVOKE
+
+GRANT_ISSUE carried a full payer-grant body.
+GRANT_REVOKE used `version:u16=1 || grant_id32 || revocation_sequence:u64`
+(42 bytes).
+
+Historical refusals included `LXP_ERR_SEQUENCE_REUSED`, `LXP_ERR_NO_PAYER_GRANT`,
+`LXP_ERR_STALE_REVOCATION`, `LXP_ERR_UNAUTHORIZED_DEBIT`,
+`LXP_ERR_ASSET_PAUSED`.
+
+---
+
+### WITHDRAW
+
+The historical kernel payload was 108 bytes with no version prefix:
+
+```text
+asset_id32 || amount:u128 || payout_recipient20 || checkpoint_id32 || fee:u64
+```
+
+`fee` had to equal the activity `fee_limit` low 64 bits. The actor's
+`agent:<did>:main` account for that asset was debited into
+`system:paxeer-withdrawals` under `LXP_REASON_WITHDRAWAL`. A second
+submission of the same request was `LXP_ERR_WITHDRAWAL_ALREADY_SETTLED`.
+A withdraw receipt did not bind supply (`lxp_receipt_validate_supply`
+does not describe operation 9).
+
+Historical refusals also included `LXP_ERR_NON_CANONICAL` (length ≠ 108),
+`LXP_ERR_UNAUTHORIZED_DEBIT`, `LXP_ERR_ASSET_MISMATCH`,
+`LXP_ERR_ASSET_PAUSED`, `LXP_ERR_GRANT_SCOPE_VIOLATION`,
+`LXP_ERR_CONTEXT_MISMATCH`.
 
 ---
 
