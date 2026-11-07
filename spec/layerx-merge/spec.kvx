@@ -10149,6 +10149,12 @@ value = "A test that forbids tracked Git bundles reads the first line of each ca
 basis = "Gotcha 3509: the 22.39.60 test matched the human service export fixture by suffix."
 affects = ["22.39.60"]
 
+[decision.2840]
+title = "A vendored crate counts as patched by the registered list, never by a difference between Cargo.toml and Cargo.toml.orig"
+value = "Cargo vendor rewrites every published Cargo.toml, so a difference from Cargo.toml.orig proves nothing; the crates that carry local source changes are named in tests/ci/data/vendored_patched_crates.txt, each listed crate carries a PATCHES.md that names its changed files and the reason, and every PATCHES.md under programs/vendor belongs to a listed crate; the checksum manifest of a patched crate carries the digests of the changed files, so the image context check accepts it."
+basis = "Gotcha 3510: the manifest comparison of 22.39.121 flagged 221 unpatched crates."
+affects = ["22.39.121"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -332549,9 +332555,9 @@ interfaces = []
 do_1 = "do_1 Decision 2822, gotcha 3472. Commit b022d25a24 changed programs/vendor/wasm-instrument/Cargo.toml without updating programs/vendor/wasm-instrument/.cargo-checksum.json, so services/platform/hosted/registry/builder-environment/verify-vendor.py line 31 refuses the crate and every registry image context preparation fails. Compare Cargo.toml with Cargo.toml.orig: if the change is needed by the programs build, keep it, update the digest in the manifest and record the reason in programs/vendor/wasm-instrument/PATCHES.md; otherwise restore the upstream manifest. Check the programs build still resolves with cargo metadata --locked --manifest-path programs/Cargo.toml."
 do_2 = "do_2 Write tests/ci/test_vendored_checksums.py with test_every_vendored_crate_matches_its_manifest (every .cargo-checksum.json under programs/vendor and any other vendor directory matches the files it lists) and test_patched_vendored_crates_record_reasons (a crate whose Cargo.toml differs from Cargo.toml.orig has a PATCHES.md)."
 symbols = []
-touches = ["programs/vendor/wasm-instrument", "tests/ci"]
+touches = ["programs/vendor/wasm-instrument", "tests/ci", "programs/vendor/wasmi-0.31.2"]
 tests = ["tests/ci/test_vendored_checksums.py"]
-planned_paths = ["tests/ci/test_vendored_checksums.py", "programs/vendor/wasm-instrument/PATCHES.md"]
+planned_paths = ["tests/ci/test_vendored_checksums.py", "programs/vendor/wasm-instrument/PATCHES.md", "programs/vendor/wasmi-0.31.2/PATCHES.md", "tests/ci/data/vendored_patched_crates.txt"]
 build_cmd = "python3 -m py_compile tests/ci/test_vendored_checksums.py && cargo metadata --locked --manifest-path programs/Cargo.toml --format-version 1 > /dev/null"
 verify_cmd = "python3 -m pytest -q tests/ci/test_vendored_checksums.py"
 gate_kind = "planned"
@@ -332565,6 +332571,7 @@ time_limit_minutes = 45
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_3 = "Attempt 2 (continue, gotcha 3510, decisions 2812 and 2840): the attempt-1 tree efca69139cec stands (the reconciled wasm-instrument manifest, its PATCHES.md, the two tests). programs/vendor/wasmi-0.31.2 is now in touches: refresh the digests of src/engine/mod.rs, src/execution_trace.rs and src/store.rs in its .cargo-checksum.json to the files as they are, and write programs/vendor/wasmi-0.31.2/PATCHES.md naming the three files and the changes they carry (the execution snapshot restoration and single-step replay, the clippy repairs, the replay boundary charge). Create tests/ci/data/vendored_patched_crates.txt listing wasm-instrument and wasmi-0.31.2, and rewrite test_patched_vendored_crates_record_reasons to assert that every listed crate has a PATCHES.md naming each file whose digest the manifest was refreshed for and that every PATCHES.md under programs/vendor belongs to a listed crate; drop the comparison of Cargo.toml with Cargo.toml.orig. Keep test_every_vendored_crate_matches_its_manifest as it is. Run the build and the verification at the final revision and record both by reference."
 
 [task.22.39.120]
 title = "Repair the x402, web-search and ai-market payment tests of the agent SDK Python suite and retire their baseline entries"

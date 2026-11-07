@@ -34761,3 +34761,11 @@ assumption = "This pre-existing test/verifier disagreement is independent of rec
 evidence = "{\"revision\": \"e074b9a73aeb29ef355db1cd205396cee51b9344\", \"command\": \"cg spec done 22.31.622 -f layerx-merge --root /work/paxeer-monorepo\", \"exit\": 1, \"log\": \"/out/logs/verify-1.log\"}"
 observed = "The declared verify_cmd exited 101 in sequenced_vectors.rs:557: both sequenced_settlement_vectors_carry_the_recorded_receipt and x402_committed_vector_settles_as_committed compare the historical x402 snapshot transaction 0xf2cc445b433833da2cdc895138ec30725dba72171ae8267f010ed517ca7b2544 with the current recording transaction 0x0825b6d3abe886f04d91e13108cb78adfbe18f8a28204de0bae9901f910c64e2; the human-service target was not reached."
 assumption = "This gate confirms observation.22.31.622.snapshot: refreshing services/interop/specs/conformance/x402/sequenced-settlement.json requires a path outside the explicit scope, while changing either assertion or fabricating replacement snapshot values is forbidden; retain both assertions and do not rerun the unchanged failure."
+
+[finding.22.39.121.1]
+task = "22.39.121"
+file = "tests/ci/test_vendored_checksums.py"
+symbol = "test_vendored_checksums.py"
+observed = "Attempt 1 at efca69139cec: build exit 0; verification exit 1: the manifest test failed on two wasm-instrument digests since refreshed and on three wasmi-0.31.2 files outside touches; the patch-record test failed on 221 crates whose normalised manifests differ from Cargo.toml.orig."
+assumption = "wasm-instrument and wasmi-0.31.2 are the only vendored crates with local source changes; the manifest test proves it once it passes."
+severity = "high"
