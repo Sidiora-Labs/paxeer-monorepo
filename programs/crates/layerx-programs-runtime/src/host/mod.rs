@@ -71,6 +71,8 @@ pub(crate) struct RuntimeState {
     v2_host_identity: Option<crate::abi::HostStateIdentity>,
     boundary_capture: Option<BoundaryCapture>,
     supplement_refusal_site: core::cell::Cell<Option<&'static str>>,
+    supplement_retained_refusal: core::cell::Cell<Option<(u64, u64, u64)>>,
+    retained_supplement: Option<(Vec<u8>, SupplementOverlay)>,
 }
 
 #[derive(Debug)]
@@ -342,7 +344,16 @@ impl RuntimeState {
     pub(crate) fn execution_observer_reason(&self, error: wasmi::ExecutionObserverError) -> String {
         match (error, self.supplement_refusal_site.get()) {
             (wasmi::ExecutionObserverError::SupplementRejected, Some(site)) => {
-                format!("deterministic execution observer refused: {error:?} at {site}")
+                let mut reason =
+                    format!("deterministic execution observer refused: {error:?} at {site}");
+                if let Some((retained, remaining_bytes, remaining_work)) =
+                    self.supplement_retained_refusal.get()
+                {
+                    use core::fmt::Write;
+                    write!(&mut reason, " retained_bytes={retained} remaining_bytes={remaining_bytes} remaining_work={remaining_work}")
+                        .expect("writing a String cannot fail");
+                }
+                reason
             }
             _ => format!("deterministic execution observer refused: {error:?}"),
         }
@@ -563,6 +574,7 @@ impl RuntimeState {
         if maximum_snapshots == 0 || maximum_bytes == 0 || self.boundary_capture.is_some() {
             return Err(ReplayWitnessError::Bounds);
         }
+        self.reset_execution_supplement_retention();
         self.boundary_capture = Some(BoundaryCapture {
             code_hash,
             maximum_snapshots,
@@ -572,6 +584,10 @@ impl RuntimeState {
             snapshots: Vec::new(),
         });
         Ok(())
+    }
+
+    pub(crate) fn reset_execution_supplement_retention(&mut self) {
+        self.retained_supplement = None;
     }
 
     fn retain_boundary_capture(
@@ -726,6 +742,19 @@ impl RuntimeState {
         remaining_bytes: u64,
         remaining_work: u64,
     ) -> Result<wasmi::ExecutionSupplement, wasmi::ExecutionObserverError> {
+        if self.boundary_capture.is_some() {
+            return Err(self.reject_supplement("execution_supplement.module_start"));
+        }
+        self.execution_supplement_retained(*charge, charge, remaining_bytes, remaining_work)
+    }
+
+    pub(crate) fn execution_supplement_retained(
+        &mut self,
+        mut canonical_charge: wasmi::ObservationCharge,
+        charge: &mut wasmi::ObservationCharge,
+        remaining_bytes: u64,
+        remaining_work: u64,
+    ) -> Result<wasmi::ExecutionSupplement, wasmi::ExecutionObserverError> {
         if !charge.collect {
             return self.uncollected_supplement();
         }
@@ -739,28 +768,102 @@ impl RuntimeState {
                     self.reject_supplement("execution_supplement.isolated_storage_delta")
                 })?
         };
-        charge.storage_overlay_bytes = overlay_bytes;
+        canonical_charge.storage_overlay_bytes = overlay_bytes;
         let SupplementHostState {
             bytes: host_state_bytes,
             identity: host_identity,
             isolated: isolated_host_state,
-        } = self.measure_supplement_host(charge)?;
+        } = self.measure_supplement_host(&mut canonical_charge)?;
+        let host_preimage = if let Some(abi) = &self.abi {
+            use sha2::{Digest, Sha256};
+            let mut bytes = abi
+                .replay_host_preimage(crate::MAX_ARBITRATION_HOST_STATE_BYTES)
+                .map_err(|_| self.reject_supplement("execution_supplement.host_preimage"))?;
+            let abi_state = crate::abi::HostStateCommitment {
+                root: Sha256::digest(&bytes).into(),
+                canonical_bytes: bytes.len() as u64,
+            };
+            self.write_v2_runtime_state(&abi_state, &mut |part| {
+                if bytes
+                    .len()
+                    .checked_add(part.len())
+                    .is_none_or(|len| len > crate::MAX_ARBITRATION_HOST_STATE_BYTES)
+                {
+                    return Err(AbiError::InvalidEncoding);
+                }
+                bytes.extend_from_slice(part);
+                Ok(())
+            })
+            .map_err(|_| self.reject_supplement("execution_supplement.runtime_preimage"))?;
+            bytes
+        } else {
+            b"LayerX/programs/v2/isolated-host-state\0".to_vec()
+        };
+        if host_preimage.len() as u64 != host_state_bytes {
+            return Err(self.reject_supplement("execution_supplement.host_preimage_bytes"));
+        }
+        let storage_overlay = self.supplement_storage_overlay(overlay_entries);
+        charge.host_state_bytes = canonical_charge.host_state_bytes;
+        charge.storage_overlay_bytes = overlay_bytes;
+        if let Some((previous_host, previous_overlay)) = &self.retained_supplement {
+            charge.host_state_bytes =
+                wasmi::ObservationCharge::changed_bytes(previous_host, &host_preimage, 4096)
+                    .and_then(|bytes| bytes.checked_mul(3))
+                    .ok_or_else(|| self.reject_supplement("execution_supplement.host_delta"))?;
+            charge.storage_overlay_bytes = 0;
+            for (key, value) in &storage_overlay {
+                if !previous_overlay
+                    .iter()
+                    .any(|old| old.0 == *key && old.1 == *value)
+                {
+                    charge.storage_overlay_bytes = charge
+                        .storage_overlay_bytes
+                        .checked_add(key.len() as u64)
+                        .and_then(|bytes| {
+                            bytes.checked_add(value.as_ref().map_or(0, Vec::len) as u64)
+                        })
+                        .and_then(|bytes| bytes.checked_add(1))
+                        .ok_or_else(|| {
+                            self.reject_supplement("execution_supplement.overlay_delta")
+                        })?;
+                }
+            }
+            for (key, _) in previous_overlay {
+                if !storage_overlay.iter().any(|entry| entry.0 == *key) {
+                    charge.storage_overlay_bytes = charge
+                        .storage_overlay_bytes
+                        .checked_add(key.len() as u64)
+                        .and_then(|bytes| bytes.checked_add(1))
+                        .ok_or_else(|| {
+                            self.reject_supplement("execution_supplement.overlay_removal")
+                        })?;
+                }
+            }
+        }
         let retained_instruction_bytes = charge.retained_instruction_bytes;
-        let arbitration_instance_retained_bytes = charge.instance_state_bytes;
-        let snapshot_bytes = supplement_snapshot_bytes(self, charge)?;
-        let retained_bytes = snapshot_bytes
+        let arbitration_instance_retained_bytes = canonical_charge.instance_state_bytes;
+        let snapshot_bytes = supplement_snapshot_bytes(self, &canonical_charge)?;
+        let retained_snapshot_bytes = supplement_snapshot_bytes(self, charge)?;
+        let retained_bytes = retained_snapshot_bytes
             .checked_add(retained_instruction_bytes)
-            .and_then(|bytes| bytes.checked_add(arbitration_instance_retained_bytes))
+            .and_then(|bytes| bytes.checked_add(charge.instance_state_bytes))
             .and_then(|bytes| bytes.checked_add(charge.host_state_bytes))
-            .and_then(|bytes| bytes.checked_add(charge.arbitration_engine_canonical_bytes))
             .ok_or_else(|| self.reject_supplement("execution_supplement.retained_bytes"))?;
-        if retained_bytes > remaining_bytes || retained_bytes > remaining_work {
+        let retained_work = retained_bytes
+            .checked_add(charge.arbitration_engine_canonical_bytes)
+            .ok_or_else(|| self.reject_supplement("execution_supplement.retained_work"))?;
+        if retained_bytes > remaining_bytes || retained_work > remaining_work {
+            self.supplement_retained_refusal.set(Some((
+                retained_bytes,
+                remaining_bytes,
+                remaining_work,
+            )));
             return Err(self.record_supplement_refusal(
                 "execution_supplement.retained_limit",
                 wasmi::ExecutionObserverError::SnapshotLimitExceeded,
             ));
         }
-        let arbitration_engine_bytes = charge.arbitration_engine_canonical_bytes;
+        let arbitration_engine_bytes = canonical_charge.arbitration_engine_canonical_bytes;
         let (snapshot_fuel, arbitration_fuel) = crate::commit::replay_step_commitment_fuels(
             snapshot_bytes,
             arbitration_engine_bytes,
@@ -786,7 +889,7 @@ impl RuntimeState {
             }
             state
         };
-        charge.value_bytes = snapshot_bytes
+        charge.value_bytes = retained_snapshot_bytes
             .checked_add(retained_instruction_bytes)
             .ok_or_else(|| self.reject_supplement("execution_supplement.value_bytes"))?;
         charge.frame_bytes = 0;
@@ -800,9 +903,8 @@ impl RuntimeState {
             .meter
             .execution_trace_usage()
             .map_err(|_| self.reject_supplement("execution_supplement.usage"))?;
-        let storage_overlay = self.supplement_storage_overlay(overlay_entries);
         let supplement = wasmi::ExecutionSupplement {
-            storage_overlay,
+            storage_overlay: storage_overlay.clone(),
             authoritative_fuel: self.meter.cpu_remaining(),
             authoritative_usage: wasmi_usage(meter),
             canonical_state_bytes: snapshot_bytes,
@@ -825,6 +927,7 @@ impl RuntimeState {
             arbitration_commitment_fuel: arbitration_fuel,
         };
         self.retain_boundary_capture(total_fuel)?;
+        self.retained_supplement = Some((host_preimage, storage_overlay));
         Ok(supplement)
     }
 
@@ -845,6 +948,8 @@ impl RuntimeState {
             trace_storage_baseline: crate::storage::Storage::new(),
             boundary_capture: None,
             supplement_refusal_site: core::cell::Cell::new(None),
+            supplement_retained_refusal: core::cell::Cell::new(None),
+            retained_supplement: None,
             v2_host_identity: Some(crate::abi::HostStateIdentity {
                 base_state: Sha256::digest(b"LayerX/programs/v2/isolated-base-state\0").into(),
                 receipt_oracle: Sha256::digest(b"LayerX/programs/v2/isolated-receipt-oracle\0")
@@ -874,6 +979,8 @@ impl RuntimeState {
             v2_host_identity,
             boundary_capture: None,
             supplement_refusal_site: core::cell::Cell::new(None),
+            supplement_retained_refusal: core::cell::Cell::new(None),
+            retained_supplement: None,
         }
     }
 
@@ -909,6 +1016,8 @@ impl RuntimeState {
             v2_host_identity,
             boundary_capture: None,
             supplement_refusal_site: core::cell::Cell::new(None),
+            supplement_retained_refusal: core::cell::Cell::new(None),
+            retained_supplement: None,
         })
     }
 
@@ -1758,6 +1867,8 @@ impl RuntimeState {
             v2_host_identity,
             boundary_capture: None,
             supplement_refusal_site: core::cell::Cell::new(None),
+            supplement_retained_refusal: core::cell::Cell::new(None),
+            retained_supplement: None,
         };
         let mut canonical = Vec::new();
         let mut failure = None;
