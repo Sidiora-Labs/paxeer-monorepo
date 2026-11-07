@@ -10,7 +10,7 @@ COPY services/wallet/package.json services/wallet/pnpm-lock.yaml services/wallet
 COPY services/wallet/gateway/package.json /src/services/wallet/gateway/
 COPY services/wallet/demo/package.json /src/services/wallet/demo/
 COPY apps/perps/package.json /src/apps/perps/
-RUN npm exec --yes --package=pnpm@9.15.9 -- pnpm --dir /src/services/wallet install --frozen-lockfile --ignore-scripts --filter @paxeer/wallet
+RUN npm exec --yes --package=pnpm@10.34.9 -- pnpm --dir /src/services/wallet install --frozen-lockfile --ignore-scripts --filter @paxeer/wallet
 RUN npm ci --ignore-scripts --no-audit --no-fund
 ARG LAYERX_HUMAN_SERVICE_URL=https://layerx-human.layerx-testnet.svc:9443
 RUN LAYERX_HUMAN_SERVICE_URL="$LAYERX_HUMAN_SERVICE_URL" npm run build
