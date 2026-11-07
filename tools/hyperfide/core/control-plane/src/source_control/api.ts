@@ -26,6 +26,7 @@ import type { PersistentTree } from "./trees.js";
 import { SourceCursorCodec, type SourceCursorBinding } from "./cursors.js";
 import { SourceQueries, type QueryBudget } from "./queries.js";
 import { assertManagedObjectUploads } from "./managed-objects.js";
+import { readSourceLifecycle } from "./acceptance.js";
 
 export const SOURCE_API_ACTIONS = [
   "source.capabilities",
@@ -54,6 +55,7 @@ export const SOURCE_API_ACTIONS = [
   "source.subscriptions.create",
   "source.subscriptions.poll",
   "source.subscriptions.ack",
+  "source.lifecycle.read",
 ] as const;
 export type SourceApiPrincipal = (InvocationContext | SourcePrincipal) & {
   signal?: AbortSignal;
@@ -216,6 +218,7 @@ function requestPaths(
       "source.domains.",
       "source.candidates.",
       "source.acceptance.",
+      "source.lifecycle.",
       "source.assurance.",
       "source.publications.",
     ].some((prefix) => action.startsWith(prefix))
@@ -397,6 +400,17 @@ export function createSourceApi(dependencies: SourceApiDependencies) {
       };
       const queries = new SourceQueries(reader),
         scope = request.scope;
+      if (action === "source.lifecycle.read") {
+        fields(
+          input,
+          ["revision_id", "domain_id"],
+          ["revision_id", "domain_id"],
+        );
+        return readSourceLifecycle(dependencies.metadata, context, {
+          revision_id: parseObjectId(input.revision_id),
+          domain_id: parseUUID(input.domain_id),
+        });
+      }
       if (action === "source.capabilities") {
         fields(input, [], []);
         return {

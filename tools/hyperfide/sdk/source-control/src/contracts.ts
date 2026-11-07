@@ -648,6 +648,7 @@ export const SOURCE_ACTIONS = [
   "source.candidates.qualify",
   "source.acceptance.accept",
   "source.acceptance.read",
+  "source.lifecycle.read",
   "source.assurance.policy.register",
   "source.assurance.checker.register",
   "source.assurance.custody.create",
@@ -754,6 +755,22 @@ export type SourceLifecycle =
   | "QUALIFIED"
   | "ACCEPTED"
   | "REMOTELY_PUBLISHED";
+export interface SourceLifecycleReadRequest {
+  revision_id: string;
+  domain_id: string;
+}
+export interface SourceLifecycleStage {
+  state: SourceLifecycle;
+  receipt_id: string;
+}
+export interface SourceLifecycleProjection {
+  schema_version: 1;
+  scope: SourceScope;
+  revision_id: string;
+  root_tree_id: string;
+  domain_id: string;
+  stages: SourceLifecycleStage[];
+}
 export interface SourceAuthority {
   authority_epoch: string;
   generation: string;
