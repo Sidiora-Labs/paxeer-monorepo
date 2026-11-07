@@ -1,10 +1,8 @@
 import { parseHttpsUrl } from '@/domains/shared';
 
 export const ALLOWED_MEDIA_ORIGINS: ReadonlySet<string> = new Set([
-  'https://cdn.redixusercontent.ocfstudio.com',
   'https://img.logo.dev',
   'https://raw.githubusercontent.com',
-  'https://sidiora.fun',
 ]);
 
 const ALLOWED_MEDIA_TYPES: ReadonlySet<string> = new Set([

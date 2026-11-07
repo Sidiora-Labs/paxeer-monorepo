@@ -5,7 +5,6 @@ use layerx_types::ids::Did;
 use layerx_types::payload::Payload;
 use layerx_types::result::KnownResult;
 
-use crate::activity::{encode_signed, Activity};
 use crate::WireError;
 
 /// Every hashing purpose declared by `lxp_domain_tag_id`, in core order.
@@ -108,20 +107,47 @@ impl std::fmt::Debug for CanonicalBytes {
     }
 }
 
-/// Converts one successfully decoded activity back to canonical submitted bytes.
-///
-/// # Errors
-///
-/// Returns a typed encoding error if a protocol bound cannot be reproduced.
-pub fn canonical_activity(activity: &Activity) -> Result<CanonicalBytes, WireError> {
-    encode_signed(activity).map(CanonicalBytes::from_wire)
+/// Hashes used solely to check archived kernel activity envelopes.
+pub mod historical {
+    use super::{domain, CanonicalBytes, Domain};
+    use crate::historical::activity::{encode_signed, Activity};
+    use crate::WireError;
+
+    /// Reproduces canonical bytes from a decoded historical envelope.
+    ///
+    /// # Errors
+    /// Returns a typed encoding error if a protocol bound cannot be reproduced.
+    pub fn canonical_activity(activity: &Activity) -> Result<CanonicalBytes, WireError> {
+        encode_signed(activity).map(CanonicalBytes::from_wire)
+    }
+
+    /// Borrows canonical payload content from a decoded historical envelope.
+    #[must_use]
+    pub fn canonical_payload(activity: &Activity) -> CanonicalBytes {
+        CanonicalBytes::from_wire(activity.payload().to_vec())
+    }
+
+    /// Reproduces an archived activity identifier, never a native transaction hash.
+    ///
+    /// # Errors
+    /// Returns a typed encoding or hash length failure.
+    pub fn activity_id(activity: &Activity) -> Result<[u8; 32], WireError> {
+        domain(Domain::ActivityId, &canonical_activity(activity)?)
+    }
+
+    /// Reproduces the payload digest carried by an archived activity.
+    ///
+    /// # Errors
+    /// Returns a hash length failure when the input cannot be represented safely.
+    pub fn payload_hash(activity: &Activity) -> Result<[u8; 32], WireError> {
+        domain(Domain::PayloadHash, &canonical_payload(activity))
+    }
 }
 
-/// Marks the payload bytes of a successfully decoded activity as canonical.
-#[must_use]
-pub fn canonical_payload(activity: &Activity) -> CanonicalBytes {
-    CanonicalBytes::from_wire(activity.payload().to_vec())
-}
+#[deprecated(
+    note = "archive only; use historical::hash for archived activities and layerx_crypto::evm_transaction::transaction_hash for current transaction identity"
+)]
+pub use historical::{activity_id, canonical_activity, canonical_payload, payload_hash};
 
 /// Computes `SHA256(exact_domain_tag || canonical_bytes)` exactly as core.
 ///
@@ -140,25 +166,7 @@ pub fn domain(purpose: Domain, canonical: &CanonicalBytes) -> Result<[u8; 32], W
     sha256(&input)
 }
 
-/// Computes the core activity identifier over canonical signed bytes.
-///
-/// # Errors
-///
-/// Returns a typed encoding or hash length failure.
-pub fn activity_id(activity: &Activity) -> Result<[u8; 32], WireError> {
-    domain(Domain::ActivityId, &canonical_activity(activity)?)
-}
-
-/// Computes the core payload digest over canonical module payload bytes.
-///
-/// # Errors
-///
-/// Returns a hash length failure when the input cannot be represented safely.
-pub fn payload_hash(activity: &Activity) -> Result<[u8; 32], WireError> {
-    domain(Domain::PayloadHash, &canonical_payload(activity))
-}
-
-/// Computes the core payload digest before an envelope is constructed.
+/// Computes the payload commitment retained by supported authorization records.
 ///
 /// # Errors
 ///
@@ -773,7 +781,10 @@ mod account_asset_tests {
         issuance.extend_from_slice(format!("asset:{}:issuance", "ab".repeat(32)).as_bytes());
         assert_eq!(issuance.len(), 13 + 4 + 79);
         assert_eq!(asset_issuance_account_id(&[0xab; 32]), sha256(&issuance));
-        assert_ne!(asset_issuance_account_id(&[0xab; 32]), asset_issuance_account_id(&[0xac; 32]));
+        assert_ne!(
+            asset_issuance_account_id(&[0xab; 32]),
+            asset_issuance_account_id(&[0xac; 32])
+        );
         assert!(account_id_for_protocol(&account, 4).is_err());
         for did in ["did:layerx:Alice", "did::alice", "did:alice/other"] {
             let account = AccountId::parse(&format!("agent:{did}:asset:{}", "ab".repeat(32)))

@@ -11,9 +11,10 @@ The standalone `layerxd` daemon and its LNI/replica operating model are retired.
 Public node JSON-RPC uses the root HTTPS URL of `api1.mainnet-beta.paxeer.network`
 through `api14.mainnet-beta.paxeer.network`, or
 `api-mainnet-beta.paxeer.network`, with EVM chain id **125** (`0x7d`). The node
-namespaces are `debug`, `echo`, `eth`, `net`, `pax`, `test` and `txpool`.
-The hosted gateway implements the `px_` contract and accepts JSON-RPC at
-`POST /`; those methods are not an additional public node namespace. Its declared
+namespaces are `debug`, `echo`, `eth`, `net`, `pax`, `px`, `test` and `txpool`.
+The node answers the `px` namespace from node state; the hosted gateway
+also implements the `px_` contract, including the hosted `px_register` and
+`px_requestFunds` operations, and accepts JSON-RPC at `POST /`. Its declared
 contract is [openrpc.json](../../services/platform/hosted/gateway/openrpc.json),
 and its dispatch lives in
 [gateway main.rs](../../services/platform/hosted/gateway/src/main.rs) and its

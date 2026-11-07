@@ -2,8 +2,9 @@
 
 `POST /__registry/deployments` accepts a canonical signed Programs deploy or
 upgrade activity as an octet-stream body under the existing registry bearer
-policy. It submits those exact bytes through `LAYERX_REGISTRY_LNI_SOCKET` when configured,
-or through the authenticated `LAYERX_REGISTRY_NODE_ENDPOINT` boundary, and
+policy. It submits those exact bytes through the authenticated
+`LAYERX_REGISTRY_NODE_ENDPOINT` boundary (the service binary configures no
+local LNI socket), and
 requests native proof-bundle tag 16, payload version 1, selector 4, followed by
 the 32-byte activity ID. Tag 17 returns the canonical `DeploymentProof` as its
 payload and an empty proof-material field. Selectors 1–3 remain unchanged.

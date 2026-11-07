@@ -210,7 +210,8 @@ func escrowTestWrite(t *testing.T, f *escrowTestFixture, caller common.Address, 
 		disputeReceipt, err = h.keeper.EscrowDisputeOpen(branch, caller, args[0].([32]byte), key)
 		require.NoError(t, err)
 		var found bool
-		disputeRecord, found = h.keeper.GetEscrow(branch, args[0].([32]byte))
+		disputeRecord, found, err = h.keeper.GetEscrow(branch, args[0].([32]byte))
+		require.NoError(t, err)
 		require.True(t, found)
 		assert.Equal(t, beforeState, h.keeper.ExportGenesis(h.db.Ctx()))
 	}
@@ -219,7 +220,8 @@ func escrowTestWrite(t *testing.T, f *escrowTestFixture, caller common.Address, 
 	require.Empty(t, output)
 	assert.Equal(t, callOrdinal+1, h.db.GetTransientState(h.precompile.Address(), ordinalKey).Big().Uint64())
 	id := args[0].([32]byte)
-	record, found := h.keeper.GetEscrow(h.db.Ctx(), id)
+	record, found, err := h.keeper.GetEscrow(h.db.Ctx(), id)
+	require.NoError(t, err)
 	require.True(t, found)
 	assert.Equal(t, state, record.State)
 	assert.Zero(t, big.NewInt(captured).Cmp(lp.PayAmount(record.CapturedAmount)))
@@ -275,7 +277,8 @@ func TestPrecompileEscrowLifecycle(t *testing.T) {
 				escrowTestWrite(t, f, f.beneficiary.caller, "escrowDisputeOpen", "EscrowDisputed", 6, 5, 0, 100, id)
 				escrowTestWrite(t, f, f.arbiter.caller, "escrowDisputeResolve", "EscrowResolved", 7, 6, 33, 0, id, uint32(3333), [32]byte{0x25})
 			}
-			record, found := f.h.keeper.GetEscrow(f.h.db.Ctx(), id)
+			record, found, err := f.h.keeper.GetEscrow(f.h.db.Ctx(), id)
+			require.NoError(t, err)
 			require.True(t, found)
 			for _, balance := range []struct {
 				account [32]byte
@@ -336,7 +339,8 @@ func TestPrecompileEscrowViews(t *testing.T) {
 				raw := values[0].([]byte)
 				result, err := paytypes.DecodeEscrowResult(raw)
 				require.NoError(t, err)
-				expected, found := h.keeper.GetEscrowResult(h.db.Ctx(), key)
+				expected, found, err := h.keeper.GetEscrowResult(h.db.Ctx(), key)
+				require.NoError(t, err)
 				require.True(t, found)
 				assert.Equal(t, expected, result)
 				storageKey := paytypes.KernelKVKey(paytypes.EscrowModuleID, append([]byte("result:"), key[:]...))

@@ -60,8 +60,8 @@ pub const EPOCH_HEADERS_MAX: u64 = 4_096;
 pub const WORKER_ROWS_MAX: usize = 32;
 /// Frozen evaluator rows per market.
 pub const EVALUATOR_ROWS_MAX: usize = 8;
-/// Feature availability entries, F01..F10.
-pub const FEATURES: usize = 10;
+/// Feature availability entries, F01..F11.
+pub const FEATURES: usize = 11;
 /// `ai_event_tag` of the finalized snapshot fact in the existing program event family.
 pub const SNAPSHOT_EVENT_TAG: u16 = 0x0A10;
 /// Default authenticated query rate per principal.

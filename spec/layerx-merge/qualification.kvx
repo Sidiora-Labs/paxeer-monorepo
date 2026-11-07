@@ -33323,3 +33323,275 @@ symbol = "f11_family_table.rs"
 observed = "Attempt 1 at ab795ff9f885b93b572afde929f55b25fd79de9e: build 2 exit 101: tests/identity_section_sharing.rs line 624 cannot compare an eleven-entry Availability array with the ten-entry expected array; the task widened feature_availability and left the enumerating tests at ten."
 assumption = "The arity change of feature_availability is the task scope; the enumerating tests are its consumers and belong to the task."
 severity = "high"
+
+[finding.22.38.1.2]
+task = "22.38.1"
+file = "programs/crates/layerx-programs-ai-market/tests/f11_family_table.rs"
+symbol = "f11_family_table.rs"
+observed = "Attempt 2 at db395981948730c731f4876881507c64af8a6c7c: build 1 exit 101: tests/view_binding.rs line 351 cannot compare an eleven-entry Availability array with the ten-entry expected array; the two sites the attempt-2 ruling named were widened and three further sites remained."
+assumption = "The remaining sites are enumerating consumers of the producer the task widened and belong to the task; a search of the crate tests lists them all."
+severity = "high"
+
+[finding.22.31.586.1]
+task = "22.31.586"
+file = "tests/programs/test_ai_host_boundary.c"
+symbol = "test_ai_host_boundary.c"
+observed = "Attempt 1 at ee7494592804197259f5a42bb270b3eac9ef625e: build 2 exit 0, verify 2 exit 2: CALL execute type=0x90003 kernel_status=-3 receipt_status=0 replay_field=none, native bring-up failed; the parser recorder reports no refused field."
+assumption = "The refusal is raised in activity preparation at a site the attempt did not instrument; once the diagnostic names it the repair is one site."
+severity = "high"
+
+[finding.22.31.600.1]
+task = "22.31.600"
+file = "tools/qualification/audit_repairs/test_repair_22_31_600.py"
+symbol = "test_repair_22_31_600.py"
+observed = "Attempt 1 at 2acf3ca313215169c02ba07359f1854e90599cdb: build exit 0, verify exit 1: test_personal_settings_and_package_trees_are_untracked for .claude/settings.local.json found the path tracked; the five other cases passed."
+assumption = "The file-level declaration re-tracked the file at qualification; the directory-level declaration drops ignored untracked files."
+severity = "high"
+
+[finding.22.31.611.1]
+task = "22.31.611"
+file = "precompiles/layerxpay/escrow_test.go"
+symbol = "escrow_test.go"
+observed = "Attempt 1 at 5e65653502bfa9fb163063948aeb2587bbf15a09: build exit 0, verify exit 1: TestPayEscrowPathMatchesHostExecute/timeout failed at conformance_escrow_test.go line 28, an error is expected but got nil."
+assumption = "The helper asserts the pre-repair iterator behaviour; the exhausted iterator reports nil since the cachekv repair."
+severity = "high"
+
+[finding.22.38.16.1]
+task = "22.38.16"
+file = "services/agent/crates/layerx-agentd/tests/inference_signal.rs"
+symbol = "inference_signal.rs"
+observed = "Attempt 1 at 882ef8b2a60ed2e3bdd9c337a41b25fe73b8ebeb: build exit 0, verify exit 101: five cases passed and five chain-backed cases panicked at tests/inference_signal.rs line 24 with LAYERX_AGENT_INFERENCE_MODEL_DIGEST is required and must be nonblank."
+assumption = "The cases took their configuration from the process environment and read an enrolment that 22.38.8 serves and 22.38.15 writes; both land before the listener reruns."
+severity = "high"
+
+[finding.22.31.539.8]
+task = "22.31.539"
+file = "services/agent/crates/layerx-agentd/tests/repair_22_31_539.rs"
+symbol = "repair_22_31_539.rs"
+observed = "Attempt 8 at af99c3aa31c069bc0f342768e2dfa965dfc41113: build 2 exit 0, dependent-crate check exit 0, verify 1 exit 1: the library cases, admin_retry_rung, bootstrap_bind_layerx, identity, native_send_preview_evm and operator passed; tests/repair_22_31_219.rs failed four of eight: three cases at line 750 with Io PermissionDenied store root is not a canonical owned private directory and history_window_completeness_refuses_omission_end_empty_and_stale_after_restart at line 601 with Sequencer(Malformed); the later targets did not run."
+assumption = "Both failures are fixture drift of the target after it last passed and the production code paths are correct; the client request shape changed with 22.34.5."
+severity = "high"
+
+[finding.22.37.14.1]
+task = "22.37.14"
+file = "tools/hyperfide/core/control-plane/src/source_control/workspaces.ts"
+symbol = "workspaces.ts"
+observed = "Attempt 1 at 3751b1489e729f58e95ada9327b9064dd7997acb: build 2 exit 0, verify 2 exit 1: ten source-collection checks passed; the API verification failed at the workspace checkpoint (native_source_collection_api.mjs line 379) with SourceControlError SCOPE_DENIED, Source action is not authorized, retry NEVER, outcome KNOWN, operation d21be091-dae0-4d62-9141-8f4396ba9e5b; the evidence producer was outside the task paths and publication-side root acquisition stayed unwired."
+assumption = "The refusal is in the authorizer branches that decline a capability row silently and the fixture capability or the call options differ from the working checkpoint pattern; the evidence producer file is the only path missing from the touches."
+severity = "high"
+
+[finding.22.37.2.1]
+task = "22.37.2"
+file = "tools/hyperfide/tests/hyperfide/cases/source_control/layout_receipt_gate_test.py"
+symbol = "layout_receipt_gate_test.py"
+observed = "Attempt 1 at 0d4a11f8432daa8876fd30c430fd3ef136e4729d: build 2 exit 0, verify 2 exit 1: layout_receipt_gate_test.py passed twelve cases; 0_9.py printed status BLOCKED with checks 1, missing_evidence 1, regressions 0 and exit 2 because the imported 0_3.py producer refused with HISTORICAL_FILE_MISSING on build/layout/0.3-preserved-original/manifest.json."
+assumption = "The ignored evidence archive of the upstream project is absent from this repository by construction and the inventory capture against the pinned subtree is sufficient for the frozen baseline."
+severity = "high"
+
+[finding.22.38.15.1]
+task = "22.38.15"
+file = "services/agent/crates/layerx-agentd/tests/inference_enrol.rs"
+symbol = "inference_enrol.rs"
+observed = "Attempt 1 at 3913d9e82cb577085c1f93b7018da75d8d2312f1: build 2 exit 0, dependent-crate check exit 0, verify 2 exit 101: four of five cases passed and bond_lock_precedes_bid_requires_the_chain_operations panicked at tests/inference_enrol.rs line 36 with Client(MissingOperation(LockBond)); the operation table of the ai-market program on main has no PostBid and no LockBond."
+assumption = "The sending code is correct and only the program operations are missing; the pending producers are 22.38.3 and 22.38.7."
+severity = "high"
+
+[finding.22.37.12.1]
+task = "22.37.12"
+file = "tools/hyperfide/core/control-plane/src/source_control/queries.ts"
+symbol = "queries.ts"
+observed = "Attempt 1 at b2a2d77d5707572c44a8e0560be760c20737f396: build 2 exit 0; verify 1 at 677054ab5268ee509173c91359e8ff45d25b220d exit 1 with AssertionError ERR_ASSERTION in the redaction regression (actual null-prototype objects, expected object literals); the repaired expectation was built but never verified because the repair budget was spent."
+assumption = "The repair in the final tree is the right one and only the verify run is missing."
+severity = "high"
+
+[finding.9.98.4.11]
+task = "9.98.4"
+file = "services/agent/crates/layerx-agentd/src/ops/program.rs"
+symbol = "program.rs"
+observed = "Attempt 9 at d4dbf9224daf7a075c02769907cfbd7984b6931f: build 2 exit 0, verify 2 exit 1: nine library cases passed and the three retained settlement cases panicked at human_runtime.rs line 23791 with refused at lifecycle_settlement, stage Preparation; the diagnostic reads EIP-1559 Ok and signed activity WireError -101 at offset 0; the policy usage case passed."
+assumption = "The two lifecycle verifiers are the last kernel-form consumer on the retained settlement path and 22.31.217 attempt 11 ports them."
+severity = "high"
+
+[finding.22.31.611.2]
+task = "22.31.611"
+file = "precompiles/layerxpay/escrow_test.go"
+symbol = "escrow_test.go"
+observed = "Attempt 2 at 6d3cefa12f41fe0e090c5bce52aeca851f7e2b79: build exit 0, go vet ok, verify exit 1: TestPrecompileEscrowViews passed; the capture, partialCapture, release and timeout cases of TestPayEscrowPathMatchesHostExecute failed at line 109 with 22 precompile rows against 21 direct rows, the extra row keyed layerxpay/escrow-receipt/v1/ plus the sequence, 657 bytes."
+assumption = "The receipt binding at keeper execute.go line 80 is production behaviour of 22.31.131 and the raw host leg is the intended reference."
+severity = "high"
+
+[finding.22.37.17.1]
+task = "22.37.17"
+file = "tools/hyperfide/tests/hyperfide/cases/source_control/4_1.py"
+symbol = "4_1.py"
+observed = "Attempt 1 at ea113d70fbdcd488497348d03b7ebfcc17173958: build 2 exit 0, verify 2 exit 1: the batch suite, the retention race and the changed-tree receipt passed; the lifecycle read right after f.restart() at native_source_acceptance_actor.mjs line 181 threw SourceControlError (Source request lost its response; resolve the original operation), code OUTCOME_UNKNOWN, retry RETRY_SAME_OPERATION, operation db7de69a-1817-46c0-94ed-65f1cd12defe; verify 1 had failed on a null-prototype deep equality the attempt repaired."
+assumption = "The listener returns on the same port and the lost request is the first use of a kept-alive connection to the closed listener; a reissue on a fresh connection answers."
+severity = "high"
+
+[finding.22.38.1.3]
+task = "22.38.1"
+file = "programs/crates/layerx-programs-ai-market/tests/f11_family_table.rs"
+symbol = "f11_family_table.rs"
+observed = "Attempt 3 at 8b6461863258606e9ec3c93cac8cab71fdf965a6: crate build exit 0, the dependent-crate check exit 101: layerx-indexer fails at services/platform/hosted/indexer/src/ai_market.rs line 1465 (mismatched types) and line 2289 (cannot compare an eleven-entry Availability array with a ten-entry one); the verify did not run."
+assumption = "The three indexer sites and the F11 name are the only old-width consumers outside the crate; the hosted gateway, webhooks and client crates spell no width."
+severity = "high"
+
+[finding.22.31.586.2]
+task = "22.31.586"
+file = "tests/programs/test_ai_host_boundary.c"
+symbol = "test_ai_host_boundary.c"
+observed = "Attempt 2 at 9b375125bd3c918b1f99ef339636f346481b770f: build 2 exit 0, verify 2 exit 1: CALL execute type=0x90001 and 0x90002 answer kernel status 0 with no refusal; type 0x90003 answers kernel status -3, receipt status 0, field runtime.result, site lxp_programs_call_execute, stage execute, runtime status -741."
+assumption = "The runtime fault is one of the ExecutionFault variants that from_captured folds into -741 and the guest fuel of the short CALL is the first suspect."
+severity = "high"
+
+[finding.22.31.217.11]
+task = "22.31.217"
+file = "services/agent/crates/layerx-agentd/tests/repair_22_31_217.rs"
+symbol = "repair_22_31_217.rs"
+observed = "Attempt 11 at 9902a5e7bb58: build 3 exit 0, dependent-crate check exit 0, verify 1 exit 1 at the earlier revision aa510a73: fifteen cases passed and three failed, two with SummaryBody at line 494 and one with ReceiptSignature at budget_native_capture.rs line 217; the final tree was built but never verified because the repair budget was exhausted."
+assumption = "The two refusals are fixture encodings behind the proof decoders (the summary body layout and the historical kernel key), and the final tree may already have repaired them."
+severity = "high"
+
+[finding.22.31.611.3]
+task = "22.31.611"
+file = "precompiles/layerxpay/escrow_test.go"
+symbol = "escrow_test.go"
+observed = "Attempt 3 at b93e41f5b07e: build 1 exit 0, vet exit 0, verify 1 exit 1: TestPayEscrowPathMatchesHostExecute failed in all four cases at the stored-receipt equality with expected and actual differing only in bytes 0x220 to 0x23f; every other assertion of the case passed."
+assumption = "The keeper binding is production behaviour of the precompile leg and the field-wise comparison with the cross-check through the result record proves the same fact without asserting the unbound bytes."
+severity = "high"
+
+[finding.22.37.14.2]
+task = "22.37.14"
+file = "tools/hyperfide/core/control-plane/src/source_control/workspaces.ts"
+symbol = "workspaces.ts"
+observed = "Attempt 2 at 797babdc3139: build 2 exit 0, verify 2 exit 1: the source-collection checks passed through the retention and object stages; the API verification failed at native_source_collection_api.mjs line 521 with SourceControlError SCOPE_DENIED, Source action is not authorized, under action source.publications.create."
+assumption = "The refuser is the inner acceptance guard; the production authorizer and the handler chain are correct and only the case capability is short of one action."
+severity = "high"
+
+[finding.22.31.586.3]
+task = "22.31.586"
+file = "tests/programs/test_ai_host_boundary.c"
+symbol = "test_ai_host_boundary.c"
+observed = "Attempt 3 at edad3429f05d: build 1 exit 0, dependent-crate check exit 0, verify 1 exit 1: the host boundary proof stopped at CALL execute with kernel_status -3, runtime_status -741 and EngineFault execution trace exceeds commitment limit 128 at site lxp_programs_call_execute stage execute; the agent stopped rather than raise the declaration."
+assumption = "The 128 is the proof declaration and not a product bound, so raising it to the measured need is the same repair class as the fuel declaration of do_6."
+severity = "high"
+
+[finding.22.31.539.9]
+task = "22.31.539"
+file = "services/agent/crates/layerx-agentd/tests/repair_22_31_539.rs"
+symbol = "repair_22_31_539.rs"
+observed = "Attempt 9 at 0c1d2e1d97c1: build 1 exit 0, dependent-crate check exit 0, verify 1 exit 1: the library cases, the eight listed regression targets and the attempt-9 history case passed; tests/repair_22_31_219.rs failed three of eight, all on bare refusals (Refused at line 1104, operation.refused at line 914 twice)."
+assumption = "The refusals follow the store root repair that now lets the cases reach the lifecycle checks, and the refusing check is most likely a fixture shape behind a landed production rule or a level comparison within this task scope."
+severity = "high"
+
+[finding.22.37.12.2]
+task = "22.37.12"
+file = "tools/hyperfide/core/control-plane/src/source_control/queries.ts"
+symbol = "queries.ts"
+observed = "Attempt 2 at 42953af546cf: build 1 exit 0, verify 1 exit 0 (the API, causal-read, batch and graph checks passed); publication refused because the control-plane contracts module of the source_control directory changed outside touches and planned_paths; every other changed file is inside the scope."
+assumption = "The change to the control-plane contracts module is the other half of the SDK contract the task lists, and the tree is otherwise complete and green."
+severity = "high"
+
+[finding.22.37.2.2]
+task = "22.37.2"
+file = "tools/hyperfide/tests/hyperfide/cases/source_control/layout_receipt_gate_test.py"
+symbol = "layout_receipt_gate_test.py"
+observed = "Attempt 2 at d80dd7ef9388: build 1 exit 0, verify 1 exit 1: layout_receipt_gate_test.py passed twelve cases; 0_9.py printed status BLOCKED with checks 5, regressions 0 and missing_evidence 35 (one aggregation-input, 29 follow-on-authorization, five task-runtime-receipt) and exit 2."
+assumption = "The aggregation input and the follow-on allowlist are derivable from the repository history at the final revision; the five driver receipts are outside any task of this feature and the pending check keeps the case honest about them."
+severity = "high"
+
+[finding.22.31.612.1]
+task = "22.31.612"
+file = "tools/qualification/audit_repairs/test_repair_22_31_612.py"
+symbol = "test_repair_22_31_612.py"
+observed = "Attempt 1 at 217fb415fd43: build 1 exit 0 at 6990b432 and verify 1 exit 0 at 217fb415 (fifteen cases passed, every graph check green, drift of 23 generated paths named); publication refused because the built revision differs from the verified revision."
+assumption = "The lockfile was committed after the build; without it the tree is the attempt-1 work and the two steps run on one revision."
+severity = "high"
+
+[finding.22.37.18.1]
+task = "22.37.18"
+file = "tools/hyperfide/plugins/hyperfide-dispatch/src/integrate/queue.test.ts"
+symbol = "queue.test.ts"
+observed = "Attempt 1 at 7b7ced4f9328: build 2 exit 0, verify 2 exit 1: the routing module, runners and image builder suites and the native outage case failed to resolve the source-control SDK package (dist entries never built; the ssr resolve block is missing from the plugin vitest configuration), and the two legacy lockfile cases of queue.test.ts failed with status held and the reason Merge conflict: platform/pnpm-lock.yaml at the base tree as well as at the attempt tree."
+assumption = "The resolution failure is one configuration line proven by the graph plugin, and the legacy lockfile mismatch is pre-existing at the base tree and inside the touches of this task."
+severity = "high"
+
+[finding.22.38.5.1]
+task = "22.38.5"
+file = "programs/crates/layerx-programs-ai-market/tests/f11_canary_challenge.rs"
+symbol = "f11_canary_challenge.rs"
+observed = "Attempt 1 at 7926dcea0ed4: build 1 exit 0, verify 1 exit 0; held at publication with a merge conflict on the routing module source file of the ai-market program against 4e648d9573 (22.38.3), which rewrites the same import line and scratch maximum."
+assumption = "The two additions are disjoint in operation codes and the conflict is the union of two lines plus neighbouring arms."
+severity = "high"
+
+[finding.22.33.1135.2]
+task = "22.33.1135"
+file = "src/codec/lxp_codec.c"
+symbol = "lxp_codec.c"
+observed = "Attempt 1 at 5846420674: build exit 0, verify exit 0; held at publication because tests/repair_22_33_1135.kvx, tests/vectors/codec/NormalizationTest-15.0.0.txt and tests/vectors/codec/UNICODE-LICENSE.txt were outside the touches and planned paths of that spec revision."
+assumption = "The work is complete and only the path declaration was missing."
+severity = "high"
+
+[finding.22.33.1536.9]
+task = "22.33.1536"
+file = "services/agent/crates/layerx-agentd/tests/repair_22_33_1536.rs"
+symbol = "repair_22_33_1536.rs"
+observed = "Attempt 8 at 34a1e6edcd85: build 1 exit 0, verify green; held at publication with a merge conflict on services/agent/crates/layerx-agentd/tests/human_node_budgets.rs against dbd4e68ed9."
+assumption = "The sibling part changed four lines of a file the attempt rewrites; the union is the intended state of the file."
+severity = "high"
+
+[finding.22.37.2.3]
+task = "22.37.2"
+file = "tools/hyperfide/tests/hyperfide/cases/source_control/layout_receipt_gate_test.py"
+symbol = "layout_receipt_gate_test.py"
+observed = "Attempt 3 at b046a74dc9cf: build 2 exit 0, verify 2 exit 1: the fifteen gate fixtures passed and the pending aggregation check refused one unexpected missing evidence of kind follow-on-authorization naming the candidate revision itself with eight changed paths; zero regressions, the five driver receipts pending as expected."
+assumption = "The only refusal is the self-reference of the allowlist, which the ruling resolves by construction."
+severity = "high"
+
+[finding.22.38.9.2]
+task = "22.38.9"
+file = "precompiles/layerxpay/stream_ask_test.go"
+symbol = "stream_ask_test.go"
+observed = "Attempt 2 at 0ab010459bb7: build 2 exit 0, verify 2 exit 1: TestStreamAskOpenAndHostMeter and every TestStreamAskOpenValidation case failed with LXP_PRECOMPILE_UNKNOWN_METHOD: askStreamOf at budget_test.go line 133, because the entry point never routes the two new methods."
+assumption = "The handlers exist in stream.go; two switch arms in the entry point connect them."
+severity = "high"
+
+[finding.22.33.1523.1]
+task = "22.33.1523"
+file = "services/agent/crates/layerx-wire/tests/repair_22_33_1523.rs"
+symbol = "repair_22_33_1523.rs"
+observed = "Attempt 1 at 6511c613c254: build 1 exit 101, seven resolution errors in repair_22_33_1523.rs lines 36 to 48 (five custody-gated modules of layerx_crypto and the unlinked crate layerx_client); the verification never ran."
+assumption = "The errors are entirely in the manifest; the custody feature and the client crate build on the same tree for the other crates of services/agent."
+severity = "high"
+
+[finding.22.31.539.10]
+task = "22.31.539"
+file = "services/agent/crates/layerx-agentd/tests/repair_22_31_539.rs"
+symbol = "repair_22_31_539.rs"
+observed = "Attempt 10 at ed476ecc007e: build 2 exit 0, verify 2 exit 1: one case of tests/repair_22_33_1525.rs panicked at line 63 with the unit refusal Contract (six passed); every other suite of the verification passed."
+assumption = "The refusal comes from one producer check that the backtrace names; the base trees of attempts 9 and 10 carry no change under services/agent, so the cause is inside the attempt tree."
+severity = "high"
+
+[finding.22.37.18.2]
+task = "22.37.18"
+file = "tools/hyperfide/plugins/hyperfide-dispatch/src/integrate/queue.test.ts"
+symbol = "queue.test.ts"
+observed = "Attempt 2 at b34273fede: build 2 exit 0, verify 1 exit 1: fifteen cases failed in two legacy suites of the plugin (ten in the routing module test, five in src/server-backend.test.ts); the queue, runners, spec-source, builder and storage suites and the native outage case passed; the 4.2 case was not reached."
+assumption = "The two legacy suites predate the manager-decision default of the base tree and are outside the touches of this task; the narrowed gate covers every file the task changed."
+severity = "high"
+
+[finding.22.99.77.23]
+task = "22.99.77"
+file = "programs/crates/layerx-programs-ai-market"
+symbol = "layerx-programs-ai-market"
+observed = "Attempt 21 at dd94f1eed20d: build 3 exit 101 at tests/view_binding.rs line 332, the carried assertion expects ten availability entries while feature_availability returns eleven."
+assumption = "The stale width is an edit carried from the earlier base of the attempt; the main tree already asserts the eleven entries."
+severity = "high"
+
+[finding.22.37.2.4]
+task = "22.37.2"
+file = "tools/hyperfide/tests/hyperfide/cases/source_control/layout_receipt_gate_test.py"
+symbol = "layout_receipt_gate_test.py"
+observed = "Attempt 4 at 97407a1e9e: build 1 exit 0, verify 1 exit 1: seventeen gate fixtures passed, the aggregation report recorded zero regressions and the five pending driver receipts, and the pending aggregation check refused on the one failed check source.final-revision-clean."
+assumption = "The dirty state comes from the untracked lockfile and prepare outputs the dependency installation generates (gotcha 3397); with the check reading tracked content only the report is clean at the candidate revision."
+severity = "high"

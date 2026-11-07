@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "description": "Imports legacy embedded-wallet custody records into the new custody schema through the gateway admin API.",
-  "license": "UNLICENSED",
+  "license": "Apache-2.0",
   "bin": {
     "legacy-import": "dist/cli.js"
   },

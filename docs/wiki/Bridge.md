@@ -23,7 +23,7 @@ Sources: `include/layerx/lxp_bridge.h`,
 
 For the retirement notice, see [Custody](Custody.md). For current ledger
 payments, use the
-[Human service payment path](../site/docs/human/payments).
+[Human service payment path](PaymentsQuickstart.md).
 
 ---
 

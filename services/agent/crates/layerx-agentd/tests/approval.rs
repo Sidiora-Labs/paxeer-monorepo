@@ -1,3 +1,6 @@
+#[path = "support/send_authorization.rs"]
+mod send_authorization;
+
 use std::sync::Arc;
 use std::thread;
 
@@ -23,53 +26,122 @@ fn digest(bytes: &[u8]) -> [u8; 32] {
     hasher.finalize().into()
 }
 
-fn prepared(label: &[u8]) -> Prepared {
-    let id = label.last().copied().unwrap_or(1);
-    let call = layerx_crypto::evm_transaction::Eip1559Call {
-        chain_id: 125,
-        nonce: u64::from(id),
-        max_priority_fee_per_gas: 1,
-        max_fee_per_gas: 2,
-        gas_limit: 100_000,
-        to: [3; 20],
-        data: [
-            layerx_crypto::disclosure::call::ledger_selector("transfer(address,uint256)").to_vec(),
-            [vec![0; 12], vec![5; 20]].concat(),
-            [vec![0; 31], vec![50]].concat(),
-        ]
-        .concat(),
+pub mod fixture {
+    use super::*;
+    use layerx_agentd::policy::approval::{hold_at, ApprovalSequence, ApprovalTicket};
+    use layerx_agentd::prepare::{
+        prepare_bound, EvmPreparationDefaults, EvmPreparationState, EvmPrepareRequest,
+        PrecompileCall,
     };
-    let bytes = call.encode_unsigned();
-    let actor = AgentDid::new("0404040404040404040404040404040404040404")
-        .unwrap_or_else(|error| panic!("actor: {error:?}"));
-    Prepared {
-        preparation_ref: PreparationRef::new("prepared-1")
-            .unwrap_or_else(|error| panic!("preparation: {error:?}")),
-        unsigned_canonical_bytes: CanonicalBytes::new(bytes.to_vec())
-            .unwrap_or_else(|error| panic!("canonical: {error:?}")),
-        signing_preimage: SigningPreimage::new(call.signing_hash().to_vec())
-            .unwrap_or_else(|error| panic!("preimage: {error:?}")),
-        disclosure: Disclosure {
-            canonical_digest: digest(&bytes),
-            activity_type: ActivityType(7),
-            actor: actor.clone(),
-            authority: AuthorityRef::new("session-key-1")
-                .unwrap_or_else(|error| panic!("authority: {error:?}")),
-            counterparties: ExplicitSet::allow(vec![AgentDid::new("did:layerx:merchant")
-                .unwrap_or_else(|error| panic!("counterparty: {error:?}"))]),
-            amounts: ExplicitSet::allow(vec![DisclosedAmount {
-                counterparty: AgentDid::new("did:layerx:merchant")
-                    .unwrap_or_else(|error| panic!("counterparty: {error:?}")),
-                amount: Amount(50),
-            }]),
-            asset: Asset::new("LXP").unwrap_or_else(|error| panic!("asset: {error:?}")),
-            fee_limit: Amount(2),
-            expiry: TimestampSeconds(500),
-            idempotency_key: IdempotencyRef::new("idempotency-1")
-                .unwrap_or_else(|error| panic!("idempotency: {error:?}")),
-        },
-        expiry: TimestampSeconds(500),
+    use layerx_wire::encode::Encoder;
+
+    pub fn ledger_prepared(id: u8, expiry: u64) -> Prepared {
+        let mut payload = Encoder::new(512);
+        payload.u16(0x5301).unwrap();
+        payload.u16(10).unwrap();
+        payload.fixed(&[0x11; 32]).unwrap();
+        payload.fixed(&[0x22; 32]).unwrap();
+        payload.fixed(&[0x33; 32]).unwrap();
+        payload.u128(50).unwrap();
+        payload.u64(u64::from(id)).unwrap();
+        payload.fixed(&[id; 32]).unwrap();
+        payload.u64(expiry).unwrap();
+        payload.fixed(&[0x55; 32]).unwrap();
+        payload.u8(0).unwrap();
+        payload.u8(1).unwrap();
+        payload.fixed(&[0x11; 32]).unwrap();
+        payload.fixed(&[0x66; 32]).unwrap();
+        payload.fixed(&[0x77; 64]).unwrap();
+        payload.fixed(&[0x55; 32]).unwrap();
+        payload.u32(125).unwrap();
+        payload.u16(layerx_wire::limits::PROTOCOL_VERSION).unwrap();
+        let transaction = prepare_bound(
+            EvmPreparationState {
+                chain_id: 125,
+                pending_nonce: u64::from(id),
+                base_fee_per_gas: 1,
+                head_height: 10,
+            },
+            EvmPreparationDefaults {
+                max_priority_fee_per_gas: 1,
+                max_fee_per_gas: 3,
+                maximum_payload_bytes: 4096,
+            },
+            EvmPrepareRequest {
+                from: [4; 20],
+                call: PrecompileCall::ledger_transfer(send_authorization::sign(payload.finish())),
+                expected_nonce: Some(u64::from(id)),
+                max_priority_fee_per_gas: None,
+                max_fee_per_gas: None,
+                declared_payload_limit: 4096,
+            },
+            100_000,
+        )
+        .unwrap();
+        let source = &transaction.disclosure;
+        let canonical = transaction.call.encode_unsigned();
+        let recipient = source
+            .counterparties
+            .iter()
+            .find(|party| party.role == layerx_crypto::disclosure::CounterpartyRole::Recipient)
+            .unwrap();
+        let recipient = AgentDid::new(hex::encode(recipient.account)).unwrap();
+        let disclosure = Disclosure {
+            canonical_digest: digest(&canonical),
+            activity_type: ActivityType(source.activity_type.ordinal()),
+            actor: AgentDid::new(hex::encode(&source.actor)).unwrap(),
+            authority: AuthorityRef::new(hex::encode(&source.authority)).unwrap(),
+            counterparties: ExplicitSet::allow(
+                source
+                    .counterparties
+                    .iter()
+                    .map(|party| AgentDid::new(hex::encode(party.account)).unwrap())
+                    .collect(),
+            ),
+            amounts: ExplicitSet::allow(
+                source
+                    .amounts
+                    .iter()
+                    .map(|amount| DisclosedAmount {
+                        counterparty: recipient.clone(),
+                        amount: Amount(amount.value),
+                    })
+                    .collect(),
+            ),
+            asset: Asset::new(hex::encode(source.asset)).unwrap(),
+            fee_limit: Amount(source.fee_limit),
+            expiry: TimestampSeconds(source.expiry.payload_expires_at),
+            idempotency_key: IdempotencyRef::new(hex::encode(source.idempotency_key)).unwrap(),
+        };
+        Prepared {
+            preparation_ref: PreparationRef::new(format!("prepared-{id}")).unwrap(),
+            unsigned_canonical_bytes: CanonicalBytes::new(canonical).unwrap(),
+            signing_preimage: SigningPreimage::new(transaction.signing_hash.to_vec()).unwrap(),
+            expiry: disclosure.expiry,
+            disclosure,
+        }
     }
+
+    pub fn hold(
+        registry: &ApprovalRegistry,
+        context: ApprovalContext,
+        prepared: Prepared,
+        sequence: u64,
+        expiry: u64,
+    ) -> Result<ApprovalTicket, ApprovalError> {
+        hold_at(
+            registry,
+            context,
+            prepared,
+            ApprovalSequence(sequence),
+            ApprovalSequence(expiry),
+            TimestampSeconds(10),
+        )
+    }
+}
+
+fn prepared(label: &[u8]) -> Prepared {
+    fixture::ledger_prepared(label.last().copied().unwrap_or(1), 500)
 }
 
 fn context(id: u8) -> ApprovalContext {
@@ -138,7 +210,7 @@ fn approval_is_bound_to_the_disclosure_from_prepared_bytes() {
         TimestampSeconds(10),
     )
     .unwrap_or_else(|error| panic!("hold: {error:?}"));
-    assert_eq!(ticket.disclosure.activity_type, ActivityType(7));
+    assert_eq!(ticket.disclosure.activity_type, ActivityType(5));
     assert_eq!(ticket.disclosure.amounts.values()[0].amount, Amount(50));
     assert_eq!(
         decide_at(
@@ -171,7 +243,7 @@ fn approval_is_bound_to_the_disclosure_from_prepared_bytes() {
         audit.disclosure_digest,
         prepared(b"canonical-2").disclosure.canonical_digest
     );
-    assert_eq!(audit.idempotency_key, "idempotency-1");
+    assert_eq!(audit.idempotency_key, hex::encode([b'2'; 32]));
 }
 
 #[test]
@@ -257,8 +329,9 @@ fn replay_refuses_a_hold_whose_call_bytes_or_sender_changed() {
 
     for alteration in ["unchanged", "call", "sender", "previous", "previous-timed"] {
         let root = std::env::temp_dir().join(format!(
-            "layerx-approval-call-replay-{alteration}-{}",
-            std::process::id()
+            "layerx-approval-call-replay-{alteration}-{}-{}",
+            std::process::id(),
+            module_path!()
         ));
         let _ = std::fs::remove_dir_all(&root);
         let ctx = context(9);
@@ -385,4 +458,56 @@ fn replay_refuses_a_hold_whose_call_bytes_or_sender_changed() {
         }
         std::fs::remove_dir_all(root).unwrap_or_else(|error| panic!("remove fixture: {error}"));
     }
+}
+
+#[test]
+fn ledger_preparation_projects_real_call_and_refuses_semantic_changes() {
+    use layerx_crypto::disclosure::call::{bind_call, validate_call, validate_canonical};
+    let prepared = fixture::ledger_prepared(21, 500);
+    let call = layerx_crypto::evm_transaction::decode_unsigned(
+        prepared.unsigned_canonical_bytes.as_bytes(),
+    )
+    .unwrap();
+    let source = bind_call(&call, [4; 20]).unwrap();
+    assert_eq!(
+        call.to,
+        layerx_agentd::prepare::evm::PrecompileTarget::Ledger.address()
+    );
+    assert_eq!(
+        prepared.disclosure.asset.as_str(),
+        hex::encode(source.asset)
+    );
+    assert_eq!(prepared.disclosure.fee_limit, Amount(source.fee_limit));
+    assert_eq!(
+        prepared.disclosure.expiry,
+        TimestampSeconds(source.expiry.payload_expires_at)
+    );
+    assert_eq!(
+        prepared.disclosure.counterparties.values().len(),
+        source.counterparties.len()
+    );
+    assert_eq!(
+        prepared.disclosure.amounts.values()[0].amount,
+        Amount(source.amounts[0].value)
+    );
+    assert_eq!(
+        prepared.signing_preimage.as_bytes(),
+        source.signing_digest().unwrap()
+    );
+    assert_eq!(
+        validate_canonical(&source, prepared.unsigned_canonical_bytes.as_bytes()),
+        Ok(())
+    );
+    let mut changed_call = call.clone();
+    changed_call.nonce += 1;
+    assert!(validate_call(&changed_call, &source, [4; 20]).is_err());
+    assert!(validate_canonical(&source, &changed_call.encode_unsigned()).is_err());
+    let mut changed_disclosure = source.clone();
+    changed_disclosure.amounts[0].value += 1;
+    assert!(validate_call(&call, &changed_disclosure, [4; 20]).is_err());
+    assert!(validate_canonical(
+        &changed_disclosure,
+        prepared.unsigned_canonical_bytes.as_bytes()
+    )
+    .is_err());
 }
