@@ -33683,3 +33683,27 @@ symbol = "test_tests_ci_modules_collected.py"
 observed = "Attempt 1: build 1 exit 0 and verification 1 exit 1 at a91d8fab412e; the collection test failed on tests/ci/websearch-context.py while the script-reference test passed."
 assumption = "The third module is invoked by a gate script, a class the collection test did not admit; the test is widened, no module is retired."
 severity = "high"
+
+[finding.22.31.549.1]
+task = "22.31.549"
+file = "services/platform/hosted/authority/tests/repair_22_31_549.rs"
+symbol = "repair_22_31_549.rs"
+observed = "Attempt 1 at 4ab46ca425a3 (base 3a44daf7bbae): build 1 exit 0; the dependent-crate check failed compiling the gateway mirror test with the fourteen errors of gotcha 3417 (the canary and rooms modules unresolved in the crate root); the verification never ran."
+assumption = "The refusal comes from the mirror at main, not from the attempt tree; 22.31.620 removes it and the attempt tree needs no change."
+severity = "high"
+
+[finding.22.39.26.1]
+task = "22.39.26"
+file = "tests/ci/test_qualification_suites_have_ci_host.py"
+symbol = "test_qualification_suites_have_ci_host.py"
+observed = "Attempt 1 at 5f695f6fb627 (base 20f1f239c8): build 2 exit 0; verification exit 2, pytest interrupted at collection on tools/qualification/audit_repairs/test_repair_22_33_1395.py line 23 with KeyError value over the gateway container env items; both repair cycles spent."
+assumption = "The collection break is pre-existing since 8efee4ff17 and belongs to the repair task 22.31.621; the attempt tree needs no change."
+severity = "high"
+
+[finding.22.31.615.1]
+task = "22.31.615"
+file = "tests/ci/test_ai_market_guest_bound.py"
+symbol = "test_ai_market_guest_bound.py"
+observed = "Attempt 1 at 273d1905d0e1 (base 20f1f239c8): builds 1 to 3 exit 0 with the guest at 509009 bytes after the third (target 504184, bound 524184); the dependent-crate check refused the gateway mirror test with the canary and rooms errors of gotcha 3417; the verification never ran; both repair cycles spent."
+assumption = "The remaining 4825 bytes sit in dead helpers and formatted messages the first pass left; the mirror refusal is removed by 22.31.620 and the attempt tree needs no change for it."
+severity = "high"
