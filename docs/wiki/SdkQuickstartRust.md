@@ -3,9 +3,10 @@
 Package: `layerx-sdk` at `services/agent/crates/layerx-sdk`. There is no
 `sdk/platform/rust`.
 
-This crate is the only shipped SDK with typed public JSON-RPC
-wrappers for `px_register`, `lx_requestFunds`, and
-`lx_sendActivity` (`services/agent/crates/layerx-sdk/src/rpc.rs`,
+This crate ships typed public JSON-RPC wrappers for `px_register`,
+`px_requestFunds`, native `eth_sendRawTransaction` submission and
+`px_getBalances` / `px_getNetwork` reads
+(`services/agent/crates/layerx-sdk/src/rpc.rs`,
 `services/agent/crates/layerx-sdk/src/register.rs`).
 
 ---
@@ -35,65 +36,63 @@ same SHA-256 tagged constructions the gateway uses.
 
 ## Fund from faucet
 
-`RpcClient::request_funds` calls `lx_requestFunds` and accepts only
-a grant the faucet confirmed as `funded`.
+`RpcClient::request_funds` calls `px_requestFunds` and accepts only a grant
+confirmed as `funded`. A successful `FaucetGrant` exposes `funding_id`,
+`transaction_id`, `amount`, and `network`.
 
-The OpenRPC contract requires
-`Authorization: Bearer <identity session token>`
-(`services/platform/hosted/gateway/openrpc.json`). `RpcClient::connect`
-accepts only `Option<LayerXKeyCredential>`, which attaches
-`LayerX-Key` (`layerx_sdk::programs::LayerXKeyCredential`). This
-crate has no Bearer session constructor. The method exists; the
-session header the gateway requires is not something `RpcClient`
-can build today. The hosted HTTP claim
-`POST /v1/faucet/claims` with Bearer is on
-[Hosted faucet](HostedFaucet.md).
+The hosted operation requires `Authorization: Bearer <identity session token>`.
+`RpcClient::connect` accepts `Option<LayerXKeyCredential>`, which attaches
+`LayerX-Key`; it has no Bearer session constructor. Use HTTP for the hosted
+claim with the required session header:
 
-```rust
-use layerx_sdk::rpc::{FaucetGrant, RpcClient, RpcError};
+Send `px_requestFunds` to the configured hosted gateway with an identity
+session. Set `HOSTED_GATEWAY_URL`, `SESSION_TOKEN`, `DID`, and
+`SIGNER_PUBLIC_KEY` (the 32-byte public key as lowercase hex):
 
-fn request_funds(rpc: &RpcClient, did: &str, public_key: &[u8; 32])
-    -> Result<FaucetGrant, RpcError>
-{
-    rpc.request_funds(did, public_key)
-}
+```sh
+curl --fail-with-body "$HOSTED_GATEWAY_URL" \
+  -H 'Content-Type: application/json' \
+  -H "Authorization: Bearer $SESSION_TOKEN" \
+  --data "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"px_requestFunds\",\"params\":[\"$DID\",\"$SIGNER_PUBLIC_KEY\"]}"
 ```
 
-A successful `FaucetGrant` exposes `funding_id`, `transaction_id`,
-`amount`, and `network`.
+This is the hosted faucet operation; it is separate from node transaction
+submission. See [Hosted faucet](HostedFaucet.md).
 
 ---
 
 ## Send
 
-```rust
-use layerx_sdk::rpc::{Commitment, RpcClient, RpcError};
+Build and sign a native EVM transaction with your wallet, using the target
+network's chain ID, nonce, gas limit and fees. Connect to the node root
+(`/`), and submit the signed transaction bytes with
+`RpcClient::send_raw_transaction` (`eth_sendRawTransaction`):
 
-fn send(rpc: &RpcClient, canonical: &[u8]) -> Result<serde_json::Value, RpcError> {
-    rpc.send_activity(canonical, Commitment::Executed)
+```rust
+use layerx_sdk::rpc::{RpcClient, RpcError};
+
+fn send(node_root: &str, signed_transaction: &[u8]) -> Result<[u8; 32], RpcError> {
+    let rpc = RpcClient::connect(node_root, None)?;
+    rpc.send_raw_transaction(signed_transaction)
+}
+
+fn read_state(node_root: &str, did: &str) -> Result<(), RpcError> {
+    let rpc = RpcClient::connect(node_root, None)?;
+    let _balances = rpc.get_balances(did)?;
+    let _network = rpc.get_node_info()?;
+    Ok(())
 }
 ```
 
-`Commitment` is `Executed`, `Batched`, or `Finalised`. Canonical
-bytes must be non-empty and at most 524_288 bytes. Connect with a
-`LayerXKeyCredential` that holds `activity:write` or the gateway
-refuses the method. `RpcClient::send_activity` returns the RPC
-outcome, including pending; it is not itself a verified receipt.
+Signed bytes must be non-empty and at most 524_288 bytes. The returned
+32-byte hash identifies the submission; it does not prove execution or
+commit. `RpcClient::sequencer_receipt` reads `pax_sequencerReceipt` for that
+hash. Its submitted, receipted and committed rungs describe progress; the
+returned evidence still needs verification.
 
-`layerx_sdk::wallet::Wallet::send` is a higher-level Asset ordinal-5
-path that still ends in the same RPC submission.
-
-```rust
-use layerx_sdk::production::SecretBytes;
-use layerx_sdk::programs::LayerXKeyCredential;
-use layerx_sdk::rpc::RpcClient;
-
-fn connect(endpoint: &str, key_id: &str, secret: &[u8]) -> Result<RpcClient, layerx_sdk::rpc::RpcError> {
-    let secret = SecretBytes::new(secret).map_err(|_| layerx_sdk::rpc::RpcError::InvalidRequest)?;
-    let credential = LayerXKeyCredential::new(key_id, secret).map_err(layerx_sdk::rpc::RpcError::Configuration)?;
-    RpcClient::connect(endpoint, Some(credential))
-}
-```
+`get_balances` calls `px_getBalances`; `get_node_info` calls `px_getNetwork`.
+Both read from the same node root. Read responses alone are not verified
+receipts.
 
 ---
 
