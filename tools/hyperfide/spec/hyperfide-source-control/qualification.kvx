@@ -860,3 +860,65 @@ command = "cd tools/hyperfide && python3 tests/hyperfide/cases/source_control/0_
 exit_code = "UNRUN"
 log = "BY_REFERENCE: final verify.log in private /out/run/gates.jsonl records the prerequisite refusal, not a live aggregation PASS."
 observed = "Live aggregation is UNRUN because tools/hyperfide/build/layout/0.9/receipt.json is absent; decision 2797 qualifies the SDK types and compiled control-plane contract consumer independently while preserving LAYOUT_RECEIPT_REQUIRED."
+[qualification.task_22_37_18_source_4_2]
+revision = "BY_REFERENCE: final matching build.revision and verify.revision in private /out/run/gates.jsonl; task 22.37.18, tools/hyperfide carried source-control task 4.2."
+command = "BY_REFERENCE: final build.command and verify.command in /out/run/gates.jsonl; hf-done runs cg spec done 22.37.18 -f layerx-merge --root /work/paxeer-monorepo and the declared plugin test plus source_control/4_2.py."
+exit_code = "BY_REFERENCE: final build.exit and verify.exit in /out/run/gates.jsonl; both must be zero at one candidate revision to qualify."
+log = "BY_REFERENCE: final build.log and verify.log in /out/run/gates.jsonl name private /out/logs/build-*.log and /out/logs/verify-*.log; component assertions are in tools/hyperfide/build/source-control/4.2/receipt.json."
+observed = "Qualification requires real native SDK queue integration, source connection loss and service restart, independent authority outage, exactly one custody/task qualification/acceptance, API_ONLY manager without a materialized workspace, zero recorded Git calls in the native actor phase, and explicit publication with independent bare destination read-back."
+
+[finding.task_22_37_18_legacy_lockfile]
+revision = "1984e426f8cd9228a10971b45fc4f36d5e234b8a"
+command = "cg spec done 22.37.18 -f layerx-merge --root /work/paxeer-monorepo"
+exit_code = 1
+log = "/out/logs/verify-1.log"
+observed = "The existing legacy queue treats platform/pnpm-lock.yaml as a held merge conflict, so its unchanged regeneration and machine-failure assertions fail; the native actor was not reached."
+
+[qualification.task_22_37_18_workspace_lock_repair]
+revision = "4224248cd6a71c1c44a6f9f6a9a83e0c9136410d"
+command = "cd tools/hyperfide && corepack enable && pnpm install --frozen-lockfile && pnpm --filter @hyperfide/process-utils run generate:profile-worker && npm --prefix core/control-plane ci --ignore-scripts && npm --prefix core/control-plane run build && pnpm --filter @hyperfide/hyperfide-dispatch typecheck && make -j$(nproc) all"
+exit_code = 1
+log = "/out/logs/build-1.log"
+observed = "Frozen installation found the carried plugin manifest's source-control workspace dependency absent from pnpm-lock.yaml; regenerate the workspace lockfile before the next build and retain the generated lockfile with the task."
+
+[finding.task_22_37_18_inherited_manager_legacy_tests]
+revision = "b34273fede7fdfd22ee01e7a9eb86e07dc48f3cc"
+command = "cg spec done 22.37.18 -f layerx-merge --root /work/paxeer-monorepo"
+exit_code = 1
+log = "/out/logs/verify-1.log"
+observed = "Seven suites and 34 tests passed, including the unchanged lockfile cases and native queue outage case; 15 dispatcher/server-backend assertions failed before 4_2.py ran because tests expect implicit legacy dispatch, legacy controls and two RPC registrations while base 05002f9e4 already defaults to manager planning, requires authenticated manager decisions and registers three contracts. Assumption: repairing these inherited expectations requires separately scoped test/backend work; preserve the manager authority checks and record without rerunning."
+
+[finding.task_22_37_18_managed_workspace_retention]
+revision = "80191829197ac34c7333ab1125d46994ca483c68"
+command = "cg spec done 22.37.18 -f layerx-merge --root /work/paxeer-monorepo"
+exit_code = 1
+log = "/out/logs/verify-1.log"
+observed = "Build passed and all five plugin suites passed (23 tests); source_control/4_2.py failed at the first worker checkpoint with WORKSPACE_EXPIRED because the existing fleet-adapter.ts assignment producer inserts source_workspaces without the WORKSPACE position-0 retention pin required by workspaces.ts:788. Assumption: repair belongs to the out-of-scope fleet assignment producer; managed workers cannot call source.workspaces.open, so preserve authority, retention checks and actor assertions without fabricating a pin or rerunning the recorded failure."
+
+[qualification.task_22_37_18_retention_continuation]
+revision = "BY_REFERENCE: final matching build.revision and verify.revision in private /out/run/gates.jsonl; task 22.37.18, tools/hyperfide carried source-control task 4.2, on base 68628a27044d26a1f88a0811f752b1b0e92724c9 with task 22.37.30 landed."
+command = "BY_REFERENCE: final build.command and verify.command in /out/run/gates.jsonl; hf-build runs the declared build and hf-done runs cg spec done 22.37.18 -f layerx-merge --root /work/paxeer-monorepo with queue, runners, spec-source, builder and storage suites followed by source_control/4_2.py."
+exit_code = "BY_REFERENCE: final build.exit and verify.exit in /out/run/gates.jsonl; both must be zero at the same candidate revision to qualify."
+log = "BY_REFERENCE: final build.log and verify.log in private /out/run/gates.jsonl; component assertions are retained in tools/hyperfide/build/source-control/4.2/receipt.json."
+observed = "The carried native router, queue, outage, API_ONLY manager and default bare-destination publication assertions are preserved; the current base assignment producer pins workspace retention through pinWorkspaceRoot, with no retention-producer change in this task."
+
+[qualification.task_22_37_18_continuation_lock_repair]
+revision = "47000fc57848231faf5d9f12dc808799a0912f4e"
+command = "cd tools/hyperfide && corepack enable && pnpm install --frozen-lockfile && pnpm --filter @hyperfide/process-utils run generate:profile-worker && npm --prefix core/control-plane ci --ignore-scripts && npm --prefix core/control-plane run build && pnpm --filter @hyperfide/hyperfide-dispatch typecheck && make -j$(nproc) all"
+exit_code = 1
+log = "/out/logs/build-1.log; final repaired build and verification are recorded by reference in /out/run/gates.jsonl."
+observed = "Frozen install found the carried source-control dependency missing from the current base lockfile; regenerate the permitted lockfile with pnpm install --lockfile-only --no-frozen-lockfile --ignore-scripts before the bounded build repair."
+
+[qualification.task_22_37_18_api_only_readiness_repair]
+revision = "8cf8dd718c4f8fa84657edbf88652c120d85471e"
+command = "cg spec done 22.37.18 -f layerx-merge --root /work/paxeer-monorepo"
+exit_code = 1
+log = "/out/logs/verify-1.log; matching build exit 0: /out/logs/build-2.log; final bounded repair evidence is retained by reference in /out/run/gates.jsonl."
+observed = "All five suites and 23 tests passed, and the actor checkpointed and replayed submission; the manager API_ONLY assertion omitted the current SDK readiness receipt, so the repair retains exact result equality and adds the full workspace-bound receipt, fixed empty-entry and incomplete-closure digests, and receipt digest verification."
+
+[qualification.task_22_37_18_readiness_continuation]
+revision = "BY_REFERENCE: final matching build.revision and verify.revision in private /out/run/gates.jsonl; the preserved attempt-4 implementation is carried from e5ec1ae9d8508554f58ab109fd01a6287686d62a."
+command = "BY_REFERENCE: final build.command and verify.command in /out/run/gates.jsonl; hf-build runs the declared build and hf-done runs cg spec done 22.37.18 -f layerx-merge --root /work/paxeer-monorepo."
+exit_code = "BY_REFERENCE: final build.exit and verify.exit in /out/run/gates.jsonl; only zero for both at the same candidate revision qualifies."
+log = "BY_REFERENCE: final build.log and verify.log in private /out/run/gates.jsonl; initial frozen-install failure at revision 8675d151129a7310b8ee14c326339767f3e9b18a, exit 1, /out/logs/build-1.log."
+observed = "The carried plugin requires its source-control workspace dependency to be regenerated in pnpm-lock.yaml; the continuation preserves the full WORKSPACE_READINESS receipt equality and all native outage, manager, publication and zero-Git assertions."
