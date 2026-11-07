@@ -37,14 +37,6 @@ jobs:
       -
         name: Set up Docker Buildx
         uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
-      - name: Login to Docker Hub
-        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
-        if: env.DOCKERHUB_USERNAME != ''
-        env:
-          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
-        with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
       -
         name: Login Container Registry
         uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
@@ -52,6 +44,13 @@ jobs:
           registry: ghcr.io
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Resolve image namespace
+        id: image
+        env:
+          REPOSITORY_OWNER: ${{ github.repository_owner }}
+        run: |
+          set -euo pipefail
+          echo "IMAGE_NAME=ghcr.io/${REPOSITORY_OWNER,,}/pax" >> "$GITHUB_ENV"
       -
         name: Parse tag
         id: tag
@@ -103,10 +102,10 @@ jobs:
           push: true
           platforms: linux/amd64
           tags: |
-            ghcr.io/paxeer-network/pax:${{ env.MAJOR_VERSION }}
-            ghcr.io/paxeer-network/pax:${{ env.MAJOR_VERSION }}.${{ env.MINOR_VERSION }}
-            ghcr.io/paxeer-network/pax:${{ env.MAJOR_VERSION }}.${{ env.MINOR_VERSION }}.${{ env.PATCH_VERSION }}
-            ghcr.io/paxeer-network/pax:v${{ env.MAJOR_VERSION }}.${{ env.MINOR_VERSION }}.${{ env.PATCH_VERSION }}
+            ${{ env.IMAGE_NAME }}:${{ env.MAJOR_VERSION }}
+            ${{ env.IMAGE_NAME }}:${{ env.MAJOR_VERSION }}.${{ env.MINOR_VERSION }}
+            ${{ env.IMAGE_NAME }}:${{ env.MAJOR_VERSION }}.${{ env.MINOR_VERSION }}.${{ env.PATCH_VERSION }}
+            ${{ env.IMAGE_NAME }}:v${{ env.MAJOR_VERSION }}.${{ env.MINOR_VERSION }}.${{ env.PATCH_VERSION }}
       - name: Record image digest in release notes
         env:
           GH_TOKEN: ${{ github.token }}
@@ -117,11 +116,5 @@ jobs:
           [[ "$IMAGE_DIGEST" =~ ^sha256:[0-9a-f]{64}$ ]]
           notes="$RUNNER_TEMP/release-notes.md"
           gh release view "$RELEASE_TAG" --json body --jq '.body' > "$notes"
-          printf '\n### Container image\n\n`ghcr.io/paxeer-network/pax:v%s@%s`\n' "$VERSION" "$IMAGE_DIGEST" >> "$notes"
+          printf '\n### Container image\n\n`%s:v%s@%s`\n' "$IMAGE_NAME" "$VERSION" "$IMAGE_DIGEST" >> "$notes"
           gh release edit "$RELEASE_TAG" --notes-file "$notes"
-      -
-        name: Make Image Public
-        env:
-          GH_TOKEN: ${{ secrets.DOCKER_IMAGES }}
-        run: |
-          gh api -X PATCH "https://api.github.com/orgs/Paxeer-Network/packages/container/pax" --field visibility=public
