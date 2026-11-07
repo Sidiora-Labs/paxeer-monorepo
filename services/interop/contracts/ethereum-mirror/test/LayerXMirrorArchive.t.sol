@@ -63,6 +63,9 @@ contract LayerXMirrorArchiveTest {
             chain = keccak256(abi.encodePacked(chain, i, sha256(chunk), uint32(chunk.length)));
         }
         archive.begin(commitment, 1, 7, keccak256("block"), uint64(payload.length), count, digest, chain);
+        (uint64 totalBytes, uint32 totalChunks, bytes32 storedDigest, bool finalized) = archive.manifest(commitment);
+        require(totalBytes == payload.length && totalChunks == count, "opened manifest bounds");
+        require(storedDigest == digest && !finalized, "opened manifest state");
         for (uint32 i = 0; i < count; ++i) {
             bytes memory chunk = chunkOf(payload, uint256(i) * chunkBytes, chunkBytes);
             uint256 remainingGas = gasleft();
