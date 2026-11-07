@@ -17220,3 +17220,158 @@ fix = "Decision 2824: the task-level library run narrows to the four modules the
 title = "The CLI wallet test asserts a finality-trust refusal that a zero-timeout wait no longer reaches"
 symptom = "22.39.118 attempt 1 at 8aaa799401bd refreshed the embedded OpenRPC document and the two node URLs, built, and passed all 24 library tests and 79 of 80 binary tests; wallet::tests::policy_scope_and_sdk_wait_fail_closed (tools/platform/cli/src/wallet.rs line 2122) expects RpcError::MissingFinalityTrust from wait_for with Commitment::Finalised and a zero timeout, while the SDK producer (services/agent/crates/layerx-sdk/src/rpc_verification.rs wait_for_authority) returns RpcError::Pending for every commitment before any network read when the timeout is zero."
 fix = "Attempt 2 brings the consumer test to the producer contract (gotcha 3046): the Finalised zero-timeout call is asserted as Pending with the same activity id and the policy refusals stay."
+
+[gotcha.3480]
+title = "The perps type check fails on the agent SDK browser entry because the linked SDK is never built"
+symptom = "22.39.61 attempt 4 at 4b2b61b87edf (base ee355f88697c, after the lockfile repair of 22.39.105 landed) kept the asset changes, built and passed all seven asset tests and the frozen install of apps/perps; pnpm exec tsc then failed in sdk/wallet/src/receipt.ts line 3 with TS2307 Cannot find module @sidiora/layerx-sdk/browser and four implicit-any errors that follow from it: apps/perps links the wallet SDK, which links services/agent/sdk/typescript, whose package exports point at dist/src/browser.js, an output of its tsc build that nothing in the verification produced; the wallet test workflow runs npm ci --workspaces=false and npm run build --workspaces=false in that directory before any dependent install."
+fix = "Decision 2825: the verification builds the agent SDK first, as the wallet test workflow does; the asset tree of attempt 4 stands."
+
+[gotcha.3481]
+title = "The install status test is refused at the claim because the explicit grant tuple of the fixture omits the packet component"
+symptom = "22.37.4 attempt 3 at 3c30292c67f3 (base ee355f88697c) applied the declaration repair of gotcha 3470 and built green; the first verification failed at the start of the retained install fixture because the source service lacked its object-store and budget settings, and the repair supplied them in the SDK status fixture; the second verification failed in test/install-status.test.ts line 188 when the status process it spawns (fixtures/install/sdk_status.py) drove the interrupted-install case to its claim and the signed service refused hierarchy.packet.create with AUTH_SCOPE_DENIED Operation outside granted run/action: sdk_status.py narrows every fixture credential to the actions of an explicit component tuple (14.1, 3.1, 5.1 to 5.4, 15.2, the two install delivery components, 12.4, 12.4-executor, 10.3, 1.1, 8.3, 16.1, 16.2) and that tuple omits component 3.2, whose hierarchy.packet.create the claim path of cases/tasks/5_1.py calls with the manager key before any install action; the identity component compares the action against allowed_actions and refuses."
+fix = "Decision 2827: the explicit grant tuple adds component 3.2 and any other component whose action the claim path calls; attempt 4 reruns both gates on the final tree, live qualification stays UNRUN under decision 2700."
+
+[gotcha.3482]
+title = "The wallet drift task fails on fourteen tests in files it does not touch"
+symptom = "22.39.43 attempt 2 at 732101e6cd82 (base ee355f88697c) passed the scope test and 644 wallet tests; 16 tests in 14 files fail and only one file (lib/portfolio-api/repair-22-31-235.test.ts, two lifecycle tests meeting Portfolio API error 400) is inside the eleven files the task touches; the other fourteen failures sit in untouched files: wallet/signer.test.ts, wallet/session.test.ts and wallet/repair-22-31-248.test.ts expect transaction objects without the chainId 125 the signer now emits; server/push-ownership.test.ts answers 500 for a wallet-signed subscription (endpoint is invalid) and server/repair-22-31-246.test.ts and server/repair-22-33-168.test.ts fail on the same push store; platform/storage/storage-forensics.test.ts finds direct browser storage access in lib/swap/storage.ts; account/HistoryView.test.tsx expects the explorer status 404 text; account/repair-22-33-161.test.ts expects numeric height decoding and the hosted origin refusal text; proof_wallet_app.test.ts and repair-22-33-152.test.ts compute a different hosted intent plan digest after the producer store reopens (account/test/hostedIntentRecording.ts line 120); the wallet-test public check runs the whole apps/wallet suite."
+fix = "Decisions 2800 and 2824: 22.39.43 continues with its verification narrowed to its eleven files and repairs the two portfolio lifecycle tests; the fourteen other failures belong to the new repair task 22.39.123, which runs the whole apps/wallet suite."
+
+[gotcha.3483]
+title = "Wiring the whole interop workspace into the public check exposes 145 failing tests across twelve members"
+symptom = "22.39.74 attempt 1 at dd1e10e4b474 (base f90a43293b4a) added the workspace tests job, the recipe and three wiring tests that pass; the first verification stopped in the recipe parser on two identical INTEROP_MANIFEST assignments (repaired by removing the duplicate declarations beside the recipes); the second ran make interop-test with --no-fail-fast and Cargo reported 52 failed targets and 145 failed tests across 12 of the 15 members while 350 tests in the failing targets passed: layerx-bridge-relayer 8 targets (37 equality assertions in loops, Configuration multiple paxeer endpoints require explicit independent backend identities in paxeer_rpc, operator_config and operator_cosign_contract, a real EVM host exit in repair_22_31_160, an unclassified shared receipt case in sequencer_receipt), layerx-x402 7 (UnsupportedOffer and PaymentIdentityMissing), layerx-ucp 4, x-websearch 7, layerx-gas-station 6 (journal version and empty journal assertions, an index out of bounds in station), layerx-interop-service 5 (activity_time_window_refused in the settlement fixture and a poisoned lock), layerx-interop-gateway lib (ledger producer and gateway consumer exit 1), layerx-migrate 2 (a genuine protected fixture required), layerx-committed-proof 4, layerx-portable 5, layerx-mirror 2 and layerx-fiat 1; none is in a file the task touches, and the interop-x402 check only ever ran the x402 transport job so none of these ran publicly before."
+fix = "Decision 2826: attempt 2 records the 145 tests in tests/ci/data/interop_test_baseline.json with their retiring tasks 22.39.124 to 22.39.127 and runs the workspace through a runner that skips exactly those names; the four repair tasks remove their entries as they bring each member to green."
+
+[gotcha.3484]
+title = "The native send purpose test asks the attestor for a wallet identity the fixture never holds"
+symptom = "22.39.8 attempt 6 at 30ec04278493 (base 7358f14a6aff) built the native library and both Rust binaries, serialized the runtime clock observations behind the quorum transport (the first verification lost two native requests to clock regression refusals and global timeouts) and brought TestNativeCustodyRealProfiles to a pass; TestNativeSendPurposeRealProfiles still fails: producer and consumer agree on LayerX/native/send-purpose/v2, the Rust consumer generates the ed25519 primary through /v1/keys/generate on all five nodes, then its public_wallet_identity call (evm operation 6) posts /v1/keys/public-wallet and every node answers 404 key_not_found; the Go handler in public_identity.go resolves the held primary, then lists the store for a secp256k1 record whose identity owner is the same owner and refuses with key_not_found (owner has no held wallet identity) when none exists; the send fixture in native_purpose_test.go approves and generates only the ed25519 primary, while e2e_test.go holds a secp256k1 key in each node store and approves it in the inventory for the owner before any wallet lookup."
+fix = "The Go send fixture holds a secp256k1 wallet identity for the test owner in each node store with its inventory entry before launching the Rust consumer, as the end-to-end test does; the Rust consumer and the handler are unchanged."
+
+[gotcha.3485]
+title = "One CLI credential test bypasses the named skip guard and panics where dbus-daemon is absent"
+symptom = "22.39.118 attempt 2 at 2366732b3535 (base af7d8469e2d7) applied the ruling of gotcha 3479 (the wallet test asserts Pending with the same activity id, the read policy refusals stay) and the rpc tests, the CLI library suite and the wallet binary tests passed (24, 80, 8 and 20); make platform-test-tooling then failed in the credential integration target: the same-alias profiles test at line 261 of tests/credential.rs (the one that preserves the OS-held credential across a failed publication) constructs the credential environment directly and the helper panics at tests/common/credential_environment.rs line 82 (dbus-daemon must be installed for real credential tests) in an environment without dbus-daemon, while the other credential tests call the credential_environment guard that prints skipped: dbus-daemon is not installed unless LAYERX_CLI_TESTS_REQUIRE_DBUS is set, and the platform check installs dbus and gnome-keyring before the tooling tests; no repair cycle was used."
+fix = "Decision 2821: the test enters through the same guard as its siblings so it skips by name where the daemon is absent and runs where the public check installs it; the attempt-2 tree stands."
+
+[gotcha.3486]
+title = "The narrowed agent daemon gate names the committed documents consumer target without its producer"
+symptom = "22.31.542 attempt 3 at 9e1018dc32ac (base af7d8469e2d7) built with the boundary binary, passed the dependent checks and the 29 library tests of the four modules named by the gotcha 3478 ruling; the verification then stopped at the first integration target, repair_22_31_535, whose consumer test reads the committed authority corpus that the producer test of services/platform/hosted/authority (repair_22_31_535_producers_emit_committed_documents) writes, and the gate command set by decision 2824 named the consumer target without that producer step, so the corpus was missing (decision 2325: producer-input tests are qualified by their producers) and the five integration targets of the task were never reached; no repair cycle was used."
+fix = "Decision 2828: the gate runs the hosted authority producer target before the agent daemon integration targets; attempt 4 reruns on the unchanged tree."
+
+[gotcha.3487]
+title = "The subject identity label task refreshed the platform lockfile its record never listed"
+symptom = "22.31.549 attempt 2 at ba94e7d6bd05 built and verified with exit 0 (the authority emits the committed verification label for subject identity and context, the daemon requires it) and the collector held the result because services/platform/Cargo.lock changed outside the touches and planned_paths: the task edits services/platform/hosted/authority/Cargo.toml, a manifest the platform workspace resolves by path, and decision 2259 requires the lockfile refresh in the same change, yet the task record lists only the three crate directories as planned paths, so a correct refresh reads as an out-of-scope change."
+fix = "Decision 2829: the record lists services/platform/Cargo.lock among its planned paths and the held result is published as it stands; no rerun."
+
+[gotcha.3488]
+title = "The committed receipt vector refresh met a facilitator test red since the audit repair"
+symptom = "22.31.622 attempt 2 at 6943962d5cb6 refreshed the conformance copy, passed both copy checks and the four committed-proof targets, then facilitator_reports_committed_only_with_a_proof of layerx-x402 panicked with settlement evidence does not match in its no-proof iteration: the test sets the evidence rung to Committed before the loop and expects a receipted response without a proof, while Seller::settled since f2d44220a6 (the 22.30.111 audit repair) refuses committed-rung evidence that carries no proof. The same test fails in the 22.39.74 attempt-1 run, so it is red on main independent of the recording and is already assigned to 22.39.127 (the x402 baseline retirement)."
+fix = "Decision 2830: the task gate skips exactly that test name and 22.39.127 receives the fixture repair; the attempt-2 tree stands."
+
+[gotcha.3489]
+title = "The plugin router scheduler cases cannot reach the routing module through a manager decision"
+symptom = "22.37.29 attempt 1 at 85ff403ccf24: the five server cases pass and the ten scheduler cases of the routing module test (pause and cap controls, cancelled job, HTTP 429 backoff, membership claims, cap reservations, availability, single retry, backoff ceiling, interrupted ledgers, preparation cleanup) still fail with zero jobs: the routing module starts in manager mode unless its planning option is legacy-nonadaptive or native, writes WAITING_FOR_MANAGER to the planning record of the shared store and returns before scheduling, while manager.ts forwards every manager decision to the external authority client and nothing in the plugin feeds a decision back into the routing module. The do item asked the cases to drive the manager decision path, which does not exist in process."
+fix = "Decision 2831: the scheduler cases set the legacy planning option explicitly; the default-mode case added by the attempt covers the manager default."
+
+[gotcha.3490]
+title = "The CLI bootstrap test reads the install document at its pre-consolidation path"
+symptom = "22.39.118 attempt 3 at 39533d5aec16: the three RPC tests, the wallet test and the eight credential tests pass (the same-alias test now returns through the guard), then make platform-test-tooling fails in bootstrap::clean_bootstrap of tools/platform/cli/tests/emulator.rs because published_bootstrap_sequence joins ../../../services/platform/docs/content/install.md, a path removed when 0295d41349 folded the platform documentation into docs/platform; tools/platform/cli/tests/clean-bootstrap.sh line 56 already reads docs/platform/content/install.md, which carries the one bootstrap marker. The attempt recorded the file as out of scope although touches names the directory tools/platform/cli that contains it."
+fix = "Decision 2832: a directory in touches covers every file beneath it; attempt 4 corrects the path in emulator.rs."
+
+[gotcha.3491]
+title = "The wallet proxy refuses the chain identity the portfolio client sends on every read"
+symptom = "22.39.43 attempt 3 at 5e1842ada7db: eighty wallet tests pass and the two lifecycle tests of lib/portfolio-api/repair-22-31-235.test.ts fail with Portfolio API error 400: portfolio-api/client.ts (bc1c4f4e78, audit record 22.30.114) routes every GET through walletReadUrl, which appends chain_id, and checks the x-wallet-chain-id acknowledgment with assertWalletReadResponse, while forwardPortfolio in app/api/wallet/[...path]/route.ts (64bdee97c4, audit record 22.30.118) admits only the address and limit query keys and answers QUERY_INVALID for chain_id, and copies no acknowledgment header. Two audit repairs of the same day left the producer and its consumer disagreeing; the task touches named only test files, so the attempt could not fix the proxy."
+fix = "Decision 2833: the proxy admits and validates chain_id and acknowledges the served chain; the task touches gain the route and the read-contract module."
+
+[gotcha.3492]
+title = "The visitor asset weight test treats two empty vendored chart style files as budget offenders"
+symptom = "22.39.70 attempt 1 at 1cedcb49d76f: the eight assets shrank by 93 percent at their display sizes and the route catalogue check passes, but test_public_assets_under_weight_cap in tests/ci/test_web_asset_weight.py requires 0 < size <= budget and lists apps/launchpad/web/public/charting_library/bundles/3060.fbb750fd312778403036.css and its rtl twin (0 bytes, emitted empty by the vendored chart bundle and tracked that way on main) as offenders; two repair cycles went to source-mapping fixes and left the condition."
+fix = "Attempt 2 asserts the cap only (size <= budget); an empty vendored style is not weight."
+
+[gotcha.3493]
+title = "The schema coverage test counts a retired schema operation among the generated ones"
+symptom = "22.31.542 attempt 4 at fdbd181e8ff0: build exit 0, verification exit 101; the hosted authority target, the agent library filters and four of the five integration targets pass; the schema coverage test of rpc_surface_major_two fails with faucet.claim present only on the schema side (53 generated operations against 54 schema sections). The test body is identical on main; the section carries disposition retired since 5b4f53b03f and the routing module refuses the wire name, which retired_faucet_claim_wire_name_is_refused already asserts."
+fix = "The coverage test takes the sections whose disposition is retired out of the compared set (or asserts generated plus retired equals schema) and asserts each retired name is refused; no production change (decision 2762, gotcha 3046)."
+
+[gotcha.3494]
+title = "The budget verifier decodes the native carrier bytes as a typed transaction and refuses every retained native settlement"
+symptom = "9.98.4 attempt 11 at 9194e2966f44: build exit 0, verification exit 101; eight retained settlement tests pass and four panic with retained settlement: Preparation; refused at None. The approval carrier of the native program path keeps the wire envelope canonical bytes that prepare::restore_canonical reproduces; validate_retained_preparation in budget/native_binding.rs (landed with 22.31.217 at 75df69e084) decodes the same bytes with the EIP-1559 decoder, maps the failure to NativeBindingError::Preparation, and validate_prepared of program_sources.rs refuses the settlement before any budget source is read."
+fix = "Decision 2834 and task 22.39.128: the budget verifier binds the typed call through the retained signing preparation of the same preparation and never decodes the envelope bytes as a transaction; 9.98.4 requalifies after 22.39.128 lands."
+
+[gotcha.3495]
+title = "The interrupted-install case is refused on the provider pools action although its component holds the grant"
+symptom = "22.37.4 attempt 4 at 6db52be61634: two repair cycles; the install status test of the client SDK fails because the interrupted-install case module is refused with AUTH_SCOPE_DENIED on provider.pools.configure for component 8.2 under the provisioner key, after the fixture restarted with the provisioner role. The grant tuple of sdk_status.py lists 8.2 and the component record lists the action; the refusal text names neither the principal row nor the run identity it compared."
+fix = "The next attempt makes the refusal diagnosable from the case module (the principal row of the provisioner and the action and run identity of the invocation) and repairs the fixture side within touches; the live provider run stays UNRUN (decision 2700)."
+
+[gotcha.3496]
+title = "The ai-market suite carries thirty-four failures after the codec merge and the fuel budget test needs the Go producer"
+symptom = "22.99.77 attempt 23 at 9ba14541e3d9: two repair cycles, guest 497897 bytes under the 524184 bound; twelve targets and thirty-four tests fail: the selector freeze test expects 55 operations while the crate exposes 72, eleven availability entries return NotEnabled, four application error codes differ from the expected ones, the f03 to f07 cases and the reputation public key case fail, and fuel_budget cannot find programs/target/repair-478 because the Go gate of 22.31.478 that writes it did not run. The attempt resolved six conflict files between the landed 22.31.615 codec and its own section reuse."
+fix = "Decision 2828: the build command of the task runs the Go producer gate first; the attempt records the baseline of the unchanged merged main tree, repairs the failures the sweep owns and re-resolves the attempt-only ones with the landed producer shape winning; the freeze test asserts the live operation count."
+
+[gotcha.3497]
+title = "The qualification record names producers outside the touches of the record task"
+symptom = "22.31.623 attempt 2 at 2dea78a64748: two repair cycles; 22 failed and 4408 passed. Eighteen cases are recorded blocked-scope and five recorded-unrelated because the producer the record names lies outside touches: the release identity reader indexes a field 22.31.587 removed from the version file (ten cases of 22.33.806), the agent guidance file and the ignore file of the vendored project directory under tools/ (three cases of 22.36.1), the receipt refusal fixture drift of 22.33.849, the native binding fixture of 22.33.865, the Android receipt gate states of 22.31.418, the sig-provider precompile inventory of 22.33.312, the kernel launcher of 22.33.769, the human step-up golden of the beta driver, and the Node version, OpenAPI header and swagger header cases."
+fix = "Decision 2836: the producer modules the record names enter the touches of the record task; the next attempt repairs each named producer where it violates a live rule and rewrites the pin from the live producer where the pin is stale."
+
+[gotcha.3498]
+title = "Eighteen canonical repository links sit in files the link task does not touch"
+symptom = "22.39.64 attempt 1 at 4048a95975b9: the canonical link test finds eighteen noncanonical links in eleven files under docs/site/docs, docs/platform/content and consensus/spec/README.md, outside the nine package manifests, three pom files, the citation file and the version file the task touches."
+fix = "The three paths join touches; links pinned to old blob paths point at the current page of the canonical repository or the sentence is rewritten."
+
+[gotcha.3499]
+title = "The qualification host target fails while the qualification suite itself is red"
+symptom = "22.39.26 attempt 2 at a5906618a6b0: two repair cycles; make test-qualification-python runs the whole tools/qualification tree and reports 324 failures and one error (jsonschema absent in the first run), the same tree 22.31.623 is bringing to green."
+fix = "22.39.26 requires 22.31.623 and requalifies after it lands; the host target is not repaired twice."
+
+[gotcha.3500]
+title = "An attempt withheld the include edit its continuation note directed because the file was outside touches"
+symptom = "22.38.4 attempt 2 at c1f66a1b05b2: the native build passes at 495478 bytes, the module mirror check fails because the hosted gateway test include file lacks the laps module, and the attempt stopped for a scope clarification although do_5 named services/platform/hosted/gateway/tests/repair_22_33_1439.rs as the file to edit."
+fix = "Decision 2835: a file a continuation note directs an attempt to edit is listed in touches by the same batch; the file joins the touches of 22.38.4 and attempt 3 applies the include line."
+
+[gotcha.3501]
+title = "The faucet route tests invoke the faucet command without the service endpoint the command now requires"
+symptom = "22.39.118 attempt 4 at b9073eb05083: build exit 0, verification exit 2; the rpc tests, the wallet test, the credential tests and the bootstrap test pass; both tests of tools/platform/cli/tests/faucet_route.rs fail: the identity test receives invalid_arguments instead of identity_session_required and the route test sees the command exit before sending. 7884cd3f83 (22.33.1492) made --service-endpoint a required argument of the faucet command and the tests still pass only --key."
+fix = "The tests pass --service-endpoint with the listener address in both cases and keep their assertions; the file is inside the touched directory (gotcha 3046)."
+
+[gotcha.3502]
+title = "The x402 sequenced settlement document carries the transaction hash of the recording before the refresh"
+symptom = "22.31.622 attempt 3 at 61134f40bb83: build exit 0, verification exit 1; the copy checks, the committed-proof targets and the three enabled facilitator tests pass; two sequenced_vectors tests fail at line 557 because services/interop/specs/conformance/x402/sequenced-settlement.json still names the earlier transaction hash while the committed recording the copy test follows names the current one; the document is outside touches."
+fix = "The document joins the touches of 22.31.622; the next attempt refreshes its committed case from the same recording and keeps the assertion."
+
+[gotcha.3503]
+title = "The reverted swap test runs the in-process EVM without a time bound"
+symptom = "22.39.43 attempt 4 at fadf6bebf6d1: two repair cycles; the inventory check and 89 wallet tests pass; execute_swap_refuses_a_reverted_swap times out at the default 5000 ms after the executor test moved from a spawned node to an in-process EVM compiled with solc at suite start (84 s for the four tests), while the two confirmed-quote tests of the same file carry a 15000 ms bound."
+fix = "The reverted swap test carries the same bound as its siblings; the attempt-4 tree stands."
+
+[gotcha.3504]
+title = "A deselect list the continuation note directed was outside the planned paths"
+symptom = "22.39.54 attempt 2 at f188e5ea648f: the attempt moved seven script jobs of the continuous integration workflow to the routing expression and kept the eighteen settlements, then stopped before any gate because do_7 directed it to create tests/ci/data/tools_ci_deselect.txt and neither touches nor planned_paths listed the file."
+fix = "Decision 2835: the file joins planned_paths; attempt 3 creates it with the one ledger entry and runs the gates."
+
+[gotcha.3505]
+title = "The licence task was directed to set five authors in manifests outside its touches"
+symptom = "22.39.63 attempt 2 at 7e9bfc50b82d: build exit 0, verification exit 1; the two licence tests pass and test_first_party_authors_are_organisation fails on contracts/package.json, the three chainflow SDK manifests and tests/integration/dapp_tests/package.json, the five files do_4 named for the author change while touches listed none of them."
+fix = "Decision 2835: the three paths join touches (the chainflow directory covers its three manifests); attempt 3 sets the author and keeps the test."
+
+[gotcha.3506]
+title = "Eight regression suites folded into one test binary fail on shared state and a missing executable"
+symptom = "22.31.613 attempt 1 at 50812234f9c1: build exit 0, verification exit 1; the three new cases and the 22.31.219 target pass; tests/repair_22_31_613.rs includes eight landed regression files as path modules, so 41 tests run in one process: three preview cases fail because the anvil executable the preview test spawns is absent, two cases fail on poisoned locks left by those panics, and three assertions differ (a rung count of 6 against 2 in the 22.31.562 suite, an export count of 0 against 1 in the projection suite, and a PREPARE answer whose refusal byte is 1 against 0 in the 22.31.571 suite) that cannot be attributed while the suites share a process."
+fix = "Decision 2837: the regression suites run as their own targets; the next attempt removes the includes, runs each target alone and repairs any assertion that persists, since a typed refusal changes only the reason string and never the acceptance of a path."
+
+[gotcha.3507]
+title = "The budget verifier task could not reach the signing preparation from its three scoped files"
+symptom = "22.39.128 attempt 1 at base e4c5b9476591: no change inside scope and no gate ran; the attempt found that the settlement path of human_runtime.rs calls read_program_budget_sources with a wire carrier at line 5840 and that the retained settlement fixture of the same file calls it at line 24015 and validates the sources before it creates the preparation, so passing the retained signing preparation to the verifier needs edits in a file the touches did not list."
+fix = "Decision 2838: human_runtime.rs joins touches; attempt 2 passes the retained preparation from both callers and makes the fixture create it first."
+
+[gotcha.3508]
+title = "The node package behind the three-name skip failed sixteen tests and the time limit that the unskipped run had passed"
+symptom = "22.39.40 attempt 3 at 9f57ad7d6553: build exit 0, verification exit 1; the whole node package with the three-name skip failed TestSidioraFeeTokenUpgradeServesThePrecompileOnlyAfterIt, the five TestV6120 cases, TestAnteChainRunsRevocationDecoratorAfterAuthzNested, TestFeeTokenGigaBlockRefusesUnusableRate, TestDecodeFailureTxReportsZeroGas, TestEvmEventsForCw1155, TestProofNodeGoApi, TestRepair_102_SchedulerFailureAtomic and four TestApp cases, then hit the fifteen-minute limit in TestFinalizeAdoptedSealedBlockMatchesReexecution after six minutes; attempt 2 ran the same node Go sources without the skip in 177 seconds with only the three recorded failures, and no Go source changed on main between the two bases."
+fix = "The sixteen are not failures of the task sources; the next attempt runs the verification at the final tree first, runs a repeated failure alone, and traces a case that passes alone to the test whose state it needs."
+
+[gotcha.3509]
+title = "The keep-marker task was directed to delete sixteen launchpad markers outside its touches and its bundle test matched an export fixture"
+symptom = "22.39.60 attempt 1 at ac30b2418bbc: build exit 0, verification exit 1; the strays, the re-saved script, five markers and four tests landed, test_no_gitkeep_beside_content fails on the sixteen launchpad meta-ag markers do_2 named and on services/platform/middleware/.gitkeep because touches listed none of those directories, and test_no_tracked_git_bundles_or_patch_dirs fails on services/human/schema/human-api/golden/current/activity.evidence.bundle, an LXHEXPV3 export fixture the human service reads, matched by its suffix alone."
+fix = "Decision 2839: the five directories join touches; the test recognises a Git bundle by its signature line, and the export fixture stays."
+
+[gotcha.3510]
+title = "The vendored checksum guard found three unrecorded wasmi changes outside touches and flagged every crate whose manifest cargo normalised"
+symptom = "22.39.121 attempt 1 at efca69139cec: build exit 0, verification exit 1 twice; the attempt reconciled the wasm-instrument manifest, wrote its PATCHES.md and the two tests, and after the second gate also refreshed the digests of src/gas_metering/mod.rs and src/gas_metering/validation.rs, which match at the final tree. test_every_vendored_crate_matches_its_manifest also fails on programs/vendor/wasmi-0.31.2, where src/engine/mod.rs, src/execution_trace.rs and src/store.rs were changed by daf26db476, bb8ccc51d6 and 41f31ec2fc without a manifest refresh, a crate outside touches that the registry image context check of build-env.sh line 37 refuses in the same way; and test_patched_vendored_crates_record_reasons as do_2 specified fails on 221 crates, because cargo vendor normalises every published Cargo.toml so it always differs from Cargo.toml.orig."
+fix = "Decision 2812 puts wasmi in scope and decision 2840 defines a patched crate by a registered list; attempt 2 refreshes the three wasmi digests, records the crate, and rewrites the second test against the list."

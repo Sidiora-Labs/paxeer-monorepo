@@ -98,10 +98,11 @@ jobs:
           echo "CGO_LDFLAGS=-L${GITHUB_WORKSPACE}/build" >> "$GITHUB_ENV"
       - name: Test attestor (including TestABICopiesMatchRepository)
         env:
+          CGO_ENABLED: "1"
           CARGO_BUILD_JOBS: "4"
           CARGO_TARGET_DIR: ${{ runner.temp }}/wallet-rust
           RUSTUP_TOOLCHAIN: 1.91.1
-        run: sh ../../../tools/runtime/run-with-clock.sh go test ./...
+        run: sh ../../../tools/runtime/run-with-clock.sh go test -count=1 ./...
 
   ceremony:
     name: Ceremony

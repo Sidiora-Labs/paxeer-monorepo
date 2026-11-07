@@ -1,4 +1,6 @@
 {
+  "author": "Sidiora Labs",
+  "license": "Apache-2.0",
   "name": "@perps/resize-handle-test-support",
   "private": true,
   "packageManager": "pnpm@10.34.9",
