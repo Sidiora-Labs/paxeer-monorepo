@@ -182715,7 +182715,7 @@ do_4 = "Attempt 2 (continue, gotcha 3399, decision 2783): the attempt-1 tree sta
 
 [task.22.38.4]
 title = "Implement lap receipt batches settled through sealed evidence"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 3
 requires = ["22.38.3", "22.31.615", "22.31.620"]
@@ -332903,7 +332903,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.115]
 title = "Set the twelve first-party packages that are not at 0.1.0 to 0.1.0 and test the rule"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.39.63"]
@@ -333166,7 +333166,7 @@ do_3 = "Attempt 2 (continue, gotcha 3476): the attempt-1 tree 5302b6de0464 stand
 
 [task.22.39.106]
 title = "Activate one pnpm release per lockfile across manifests, container files and public checks"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.39.105", "22.39.63"]
@@ -334020,7 +334020,7 @@ do_4 = "Attempt 2 (continue, gotcha 3452, decision 2771, after 22.31.620 lands):
 
 [task.22.39.64]
 title = "Point every first-party manifest and documentation site link at the canonical repository and bring the citation to 7.0.0"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.39.56"]
