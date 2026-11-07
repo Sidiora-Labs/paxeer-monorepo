@@ -151271,7 +151271,7 @@ source_task = "3.2"
 
 [task.22.37.14]
 title = "Wire source producers to durable retention roots and verify backend lifecycle policy"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.36.1", "22.37.9", "22.37.10", "22.37.11"]
@@ -286451,7 +286451,7 @@ do_18 = "Attempt 35 (566d189c8) fails only because the kernel receipt projection
 
 [task.22.31.611]
 title = "Port the pay precompile tests to the three-value escrow views of the keeper"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
