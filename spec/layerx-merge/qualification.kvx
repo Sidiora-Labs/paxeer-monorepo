@@ -34769,3 +34769,43 @@ symbol = "test_vendored_checksums.py"
 observed = "Attempt 1 at efca69139cec: build exit 0; verification exit 1: the manifest test failed on two wasm-instrument digests since refreshed and on three wasmi-0.31.2 files outside touches; the patch-record test failed on 221 crates whose normalised manifests differ from Cargo.toml.orig."
 assumption = "wasm-instrument and wasmi-0.31.2 are the only vendored crates with local source changes; the manifest test proves it once it passes."
 severity = "high"
+
+[finding.22.39.122.1]
+task = "22.39.122"
+file = "services/agent/crates/layerx-agentd/src/approval/mod.rs"
+symbol = "mod.rs"
+observed = "Attempt 1 at a6a4e6f9ff57: build exit 0; verification exit 1 twice: 326 passed, six failed: four retained_settlement_tests cases (the budget verifier panics on a retained preparation, decision 2834) and two session_control durable-write cases whose fixture 22.31.555 rewrote after the attempt base."
+assumption = "Both groups pass at a tree that carries 22.31.555 and 22.39.128."
+severity = "high"
+
+[finding.22.37.4.5]
+task = "22.37.4"
+file = "tools/hyperfide/sdk/client/test/install-status.test.ts"
+symbol = "install-status.test.ts"
+observed = "Attempt 5 at d997a969d711: the first build failed with an outdated frozen lockfile against the plugin router manifest main holds (one repair cycle); verification exit 1: the install-status test failed because the interrupted-install case module exited 1 with the dependency stage not reached, job state UNKNOWN, last_error RUNNER_EXECUTION_PROVIDER:REMOTE_OUTPUT_INCOMPLETE."
+assumption = "The fixture provider returns an incomplete archive for the polled process; the retained subreaper repair is unverified until the stage is reached."
+severity = "high"
+
+[finding.22.39.118.5]
+task = "22.39.118"
+file = "tools/platform/cli::rpc::tests::positional_requests_match_published_contract"
+symbol = "cli::rpc::tests::positional_requests_match_published_contract"
+observed = "Attempt 5 at f6555c81fb83: build exit 0; verification exit 1: the rpc and faucet tests passed and make platform-test-tooling failed two mcp_daemon_bound tests, the retired core_sequence binding refused by the shape check before the retired-key code and the explicit binding path refused as not owner-only."
+assumption = "The two failures are defects of the binding loader and its publisher, not of the RPC work."
+severity = "high"
+
+[finding.22.39.83.1]
+task = "22.39.83"
+file = "tests/ci/test_python_suites_have_runner.py"
+symbol = "test_python_suites_have_runner.py"
+observed = "Attempt 1 at 284c0a10932c: build exit 0; verification exit 2: 366 passed and 88 failed in fourteen modules owned by done tasks, exposed for the first time by the aggregate target."
+assumption = "With the fourteen modules ignored by the baseline the target passes in the qualification environment; the retiring tasks remove the entries."
+severity = "high"
+
+[finding.22.39.123.1]
+task = "22.39.123"
+file = "apps/wallet/src/wallet/signer.test.ts"
+symbol = "signer.test.ts"
+observed = "Attempt 1 at 38aa1e8e41b6: build exit 0; verification exit 1 twice: 656 passed, two failed (storage forensics names src/widgets/swap/useSwapExecution.ts; token detail precision renders Unknown) and the surfaces receipt suite failed to load on a missing pnpm-workspace.yaml root marker."
+assumption = "The three remaining failures are the only ones outside the fourteen the task names, and each has a single producer."
+severity = "high"
