@@ -34088,3 +34088,16 @@ file = "services/platform/hosted/gateway/tests/repair_22_33_1439.rs:609"
 observed = "Revision e3909f381a34b1344c5b48e30dce92143ed4f4de, command cg spec done 22.31.620 -f layerx-merge --root /work/paxeer-monorepo, exit 1 (cargo test exit 101), private log /out/logs/verify-1.log: the unchanged node_root_and_explicit_chain_paths_reject_router_paths test received null instead of 0xb for eth_blockNumber, while the gateway target compiled and 39 tests passed."
 assumption = "The pre-existing node-path assertion is unrelated to module mirroring; retain it unchanged and do not chase or rerun the recorded failure."
 severity = "blocker"
+[finding.22.31.615.measurement]
+revision = "20f1f239c8bf8fa18b019bb5bc4b89bb11d76fb0"
+command = "make -s paxai-host-boundary-build"
+evidence = "exit=2; log=/out/logs/22.31.615-before.log"
+observed = "The starting guest is 526886 bytes, so the size check prevents reaching the native harness; bounded gates also do not provide isolated per-technique byte measurements."
+assumption = "Measure combined savings against this starting artifact and retain individual techniques without claiming unexecuted attribution runs."
+
+[finding.22.31.615.gateway-dependent]
+revision = "acd14813812e53b8a4265dba8e6bf63e87e90f0e"
+command = "cargo check --locked --manifest-path /work/paxeer-monorepo/services/platform/Cargo.toml --all-targets -p layerx-ai-evaluator -p layerx-indexer -p layerx-paxai-worker -p layerx-platform-agent-boundary -p layerx-platform-authority -p layerx-platform-core -p layerx-platform-dashboard -p layerx-platform-gateway -p layerx-platform-registry -p layerx-platform-webhooks -p layerx-ramp-toolkit -p layerx-reference-ramp -p layerx-runtime-clock"
+evidence = "exit=101; log=/out/logs/dependents-1.log; hf-done exit=7 before task verification"
+observed = "layerx-platform-gateway test repair_22_33_1439 fails with E0432 for crate::canary and crate::rooms in dispatch.rs and twelve E0433 missing crate::canary errors in commit_reveal.rs."
+assumption = "The out-of-scope gateway test omits existing guest modules from its crate root; record the failure without changing or re-running it."

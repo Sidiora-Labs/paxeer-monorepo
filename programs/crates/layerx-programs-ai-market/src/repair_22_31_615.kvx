@@ -1,0 +1,96 @@
+[meta]
+task = "22.31.615"
+acceptance = "22998.1"
+deployment_payload_bound_bytes = 524184
+qualification_payload_bound_bytes = 504184
+release_profile = "Unchanged; make paxai-host-boundary-build applies opt-level z and wasm-opt -Oz"
+revision_source = "The final matching hf-build/hf-done candidate revision in /out/run/gates.jsonl; the runner computes this revision over the allowed source paths, including this record"
+private_evidence = "/out/run/gates.jsonl and the numbered /out/logs/build-*.log and /out/logs/verify-*.log files it names"
+
+[before]
+revision = "20f1f239c8bf8fa18b019bb5bc4b89bb11d76fb0"
+command = "make -s paxai-host-boundary-build"
+exit = 2
+log = "/out/logs/22.31.615-before.log"
+bytes = 526886
+observed = "The deployment size assertion fails before the native harness can run"
+
+[techniques]
+shared_codecs = "Common normal/canary envelope framing, frozen bindings, room profiles and deal layer splits; keep substantial cursor, record, manifest, roster and authentication helpers as one guest function each"
+static_tables = "Derive a compact selector-to-metadata index from the unchanged operation inventory; use static discriminant and offchain-space tables"
+numeric_status = "Guest entrypoint bounds failures return the existing NON_CANONICAL application status; native diagnostics and const-evaluation invariant checks remain available"
+unused_code = "Remove unused in-scope imports and ineffective trait inlining attributes; consume ignored manifest digests without fixed-array copies; release never-used-function warnings name dependencies outside scope"
+attribution = "All techniques are qualified together under the bounded gate budget; no isolated per-technique builds or claimed isolated byte savings"
+
+[qualification.first_build]
+revision = "db0545287cd22e65a7e2fcb43742b388b9cd4b0e"
+command = "hf-build"
+exit = 0
+log = "/out/logs/build-1.log"
+bytes = 529371
+combined_bytes_saved = -2485
+observed = "Shared-codec and table changes plus guest inlining boundaries increased the packaged guest; the native test build passed, but the required size was not met"
+
+[techniques.numeric_status_representation]
+technique = "Represent the private application error as NonZeroU16, matching its already enforced nonzero wire registry; Result<(), ApplicationError> becomes the existing numeric status without a separate discriminant"
+unchanged = "Every public error constant, code(), named lookup, decoder refusal and wire field retains its previous numeric value"
+
+[qualification.second_build]
+revision = "9b1a5ad8dc37440a7a15df5282f6b46015bc5831"
+command = "hf-build"
+exit = 0
+log = "/out/logs/build-2.log"
+bytes = 508166
+numeric_status_bytes_saved = 21205
+combined_bytes_saved = 18720
+host_boundary = "Passed; all three execute types reached kernel status 0, replay boundary_count=227 and cpu_fuel=865"
+
+[techniques.compact_hash_rounds]
+technique = "Use the vendored sha2 soft_compact round algorithm with a shared constant table and one streaming block loop instead of its unrolled guest compressor"
+validation = "Every native debug software digest is compared against sha2; the declared f11 gate drives these real hashing paths, while the host boundary target drives the guest"
+bytes_saved_source = "/out/logs/22.31.615-after.json:compact_rounds_bytes_saved; measured against the 508166-byte second build"
+
+[after]
+bytes_source = "/out/logs/22.31.615-after.json:bytes; exact artifact measurement from the final candidate, retained privately to avoid changing the candidate after its build"
+revision_source = "/out/logs/22.31.615-after.json:revision; the matching final hf-build and hf-done candidate in /out/run/gates.jsonl"
+combined_bytes_saved_source = "/out/logs/22.31.615-after.json:combined_bytes_saved; 526886 minus the final packaged size"
+qualification = "Only a passing hf-done at the same candidate as the final build establishes the <=504184-byte result and the three native integration suites"
+
+[continuation]
+merged_base_revision = "f90a43293b4a301188919ac9ff10dc4471e31d0f"
+gateway_mirror_prerequisite = "22.31.620 is already merged in the supplied base; retain both current and seeded qualification findings"
+prior_attempt_revision = "273d1905d0e12edc29c1c46f3b96b09bc8713dac"
+prior_attempt_bytes = 509009
+merged_first_measurement_source = "/out/logs/22.31.615-merged.json; measured from the first bounded hf-build artifact in this continuation"
+final_measurement_source = "/out/logs/22.31.615-after.json; measured from the final bounded hf-build artifact and matched to the hf-done revision"
+build_command_source = "/out/run/gates.jsonl: final kind=build row"
+dependent_command_source = "/out/run/gates.jsonl: final kind=dependents row and the numbered private log it names"
+verify_command_source = "/out/run/gates.jsonl: final kind=verify row"
+measurement_constraint = "Only the declared hf-build/hf-done gates run; their combined artifact measurement does not establish isolated savings for each technique"
+
+[techniques.continuation]
+shared_deal_headers = "Stored deals and deal requests read and write their common fields through one header codec; their state byte, layer splits, padding and validations remain distinct"
+shared_frozen_checks = "Evidence sealing and commit/reveal share the domain and frozen binding checks and the live evaluator/grant/membership checks, retaining every refusal and their order"
+shared_guest_calls = "Keep repeated named-canary, evidence-claim, opened-state and deal-conversion helpers as single guest functions"
+bytes_saved_source = "/out/logs/22.31.615-after.json:continuation_bytes_saved; 509009 minus the final artifact, combined across continuation techniques and merged-main changes"
+unused_warning_scope = "Release never-used helper warnings name SDK bindgen and proof dependencies outside the authorized crate paths; preserve those definitions"
+
+[qualification.continuation_first]
+revision = "c564d51ce334d9387b008aa4e33176a50c60a0c5"
+build = "exit=0; command and log=/out/run/gates.jsonl:build:1, /out/logs/build-1.log"
+dependents = "exit=0; all 32 crates in five workspaces; exact commands=/out/logs/dependents-1.log"
+verify = "exit=1; cg spec done 22.31.615 -f layerx-merge --root /work/paxeer-monorepo; log=/out/logs/verify-1.log"
+bytes = 507437
+continuation_bytes_saved = 1572
+observed = "The host boundary target and native test compilation pass, but the 504184-byte assertion refuses the guest before the f11 suites run"
+
+[techniques.compact_status_indices]
+technique = "Store each registered application error as a private NonZeroU8 index into the unchanged u16 wire registry, removing per-Result padding and retaining numeric success zero"
+unchanged = "All constants, from_code accepted values, aliases, named lookup, code(), native Debug/Display and externally encoded refusal values are preserved"
+registry_guard = "Compile-time assertions require nonzero wire codes and at most 255 registry entries; unknown wire codes still refuse NON_CANONICAL"
+bytes_saved_source = "/out/logs/22.31.615-after.json:repair_bytes_saved; combined repair savings against the 507437-byte first continuation build"
+
+[techniques.checked_value_storage]
+technique = "Store Version in NonZeroU64 so enclosing bindings and roster Results can use its already-enforced zero exclusion; check typed digests directly once and decode identity arrays from the shared reader slice without a nested fixed-array Result"
+unchanged = "Version::new still rejects zero, Version::next still rejects overflow, all getters and wire widths are unchanged, and every digest constructor still rejects precisely the all-zero array"
+bytes_saved_source = "/out/logs/22.31.615-after.json:repair_bytes_saved; qualified together with compact status indices, without isolated attribution builds"
