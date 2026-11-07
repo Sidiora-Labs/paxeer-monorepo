@@ -1,0 +1,55 @@
+[repair.22.31.549]
+acceptance = "22998.1"
+mode = "BUILD"
+gotchas = [3142, 3159, 3160, 3417]
+decisions = [2601, 2615, 2616, 2762, 2794]
+base_revision = "f90a43293b4a301188919ac9ff10dc4471e31d0f"
+prerequisites = "The runner applied 22.31.535, 22.31.539, 22.31.545, 22.31.572 and 22.31.620 before this continuation; HEAD equals origin/main and contains the gateway mirror rooms and canary includes. The five existing COMMITTED identity floors and legacy decoding behavior are preserved."
+
+[helpers]
+path = "services/agent/crates/layerx-types/src/verify.rs"
+wire_label = "VerificationLevel::wire_label returns stable static labels for all five current levels and both retired archive ranks."
+from_wire_label = "VerificationLevel::from_wire_label decodes only the five current labels; InvalidVerificationLabel retains the exact offending string for retired and unknown spellings."
+tests = "wire_label_round_trips_current_levels and wire_label_names_archives_but_refuses_retired_and_unknown_labels execute under the wire_label gate filter."
+
+[producers]
+policy_identity = "services/platform/hosted/authority/src/human.rs: policy_route identity document emits VerificationLevel::COMMITTED.wire_label()."
+dynamic_context = "services/platform/hosted/authority/src/human/dynamic.rs: context emits VerificationLevel::COMMITTED.wire_label()."
+dynamic_identity = "services/platform/hosted/authority/src/human/dynamic.rs: dispatch identity document emits VerificationLevel::COMMITTED.wire_label()."
+labels = "No literal verification level label remains in the authority source."
+
+[consumer]
+parser = "services/agent/crates/layerx-agentd/src/human_runtime.rs: verification_level maps the two legacy spellings to the committed label before shared from_wire_label; unverified, absent, malformed and unknown observations remain IdentityError::Unverified."
+context_guard = "services/agent/crates/layerx-agentd/src/human_runtime/subject.rs: verify_context uses the existing identity decoder and requires COMMITTED."
+identity_guard_1 = "human_runtime.rs: native_purpose_owner retains the COMMITTED floor installed by 22.31.539."
+identity_guard_2 = "human_runtime.rs: validate_owner retains the COMMITTED floor installed by 22.31.539."
+identity_guard_3 = "human_runtime.rs: subject_bound_address retains the COMMITTED floor installed by 22.31.539."
+identity_guard_4 = "human_runtime.rs: subject_owner retains the COMMITTED floor installed by 22.31.539."
+identity_guard_5 = "human_runtime.rs: read_bound_address retains the COMMITTED floor installed by 22.31.539."
+
+[fixtures]
+bootstrap = "tests/bootstrap_bind_layerx.rs: identity and subject-context initialize labels from COMMITTED.wire_label(); shared configurable labels drive the transport regressions without changing other identity facts."
+native_send = "tests/native_send_preview_evm.rs: subject-context uses COMMITTED.wire_label(); identity uses COMMITTED.wire_label() or STATE_PROVEN.wire_label(), preserving the existing negative floor case and its bounds."
+approval_budget = "tests/human_approval_budget_actor.rs: identity uses COMMITTED.wire_label()."
+projection = "tests/human_projection_facts.rs: identity and subject-context use COMMITTED.wire_label()."
+repair_support = "tests/support/repair_22_33_1529.rs: identity uses COMMITTED.wire_label()."
+additional_inventory = "tests/repair_22_31_562.rs, tests/repair_22_31_570.rs and tests/repair_22_31_571.rs: additional stand-in identity producers found in the daemon directory use COMMITTED.wire_label()."
+authority_support = "authority/tests/support/committed_human_fixture.rs: the account-binding transcript asserts the fixture DID rather than a fixed key so rotated-owner dynamic documents use the real committed account proof."
+dependency_resolution = "Cargo metadata resolves the existing platform dependency graph and updates the lockfile for the test-only rustix dependency used by the production clock server; the empty sandbox registry could not resolve it offline."
+authority_binding = "authority/src/human.rs: cfg(test) Config::fixture_subject_binding installs the authenticated binding client; the authority test supplies its bounded Unix peer and uses the production runtime clock server."
+
+[tests]
+authority = "services/platform/hosted/authority/tests/repair_22_31_549.rs: real TLS handlers serve policy identity with and without a session capability, dynamic identity and subject context after reopening the retained evidence store; every emitted label equals COMMITTED.wire_label() and decodes through from_wire_label to COMMITTED."
+daemon_owner = "services/agent/crates/layerx-agentd/tests/repair_22_31_549.rs: the bootstrap harness drives session admission, the retained subject binding, TLS identity decoding and native_send_purpose_owner; committed and both legacy spellings succeed, lower current levels and unknown labels return HumanOperationError::Refused and agent.register returns owner.refused without outbox effects."
+daemon_context = "The real subject-context transport accepts committed and both legacy spellings, and refuses lower current, unknown, empty and noncanonical labels as HumanOperationError::Refused."
+daemon_parser = "The real RemoteHumanAuthority TLS identity parser decodes all positive current levels, normalizes both legacy spellings and refuses unverified, unknown, empty and noncanonical labels; the shared decoder independently refuses both retired spellings."
+credentials = "No external environment variable, credential or live endpoint is required; peers bind local ephemeral transports and the existing bootstrap harness starts its isolated Anvil node."
+
+[qualification]
+gate_ledger = "/out/run/gates.jsonl"
+verified_revision = "The passing verify row revision in the private gate ledger, required to equal the passing build row revision."
+build_command = "The build row command recorded by hf-build in the private gate ledger is the task build_cmd."
+dependent_check = "The dependents row recorded by hf-done in the private gate ledger names every dependent-crate check command by its private log, with revision and exit; its revision must equal the passing build and verify rows. This task adds no ai-market module and requires no mirror edit."
+verify_command = "The verify row command recorded by hf-done in the private gate ledger runs cg spec done 22.31.549 and the declared verify_cmd with graph checks."
+results = "Exact revision, command, exit and private log path are retained by the gate ledger and reported verbatim in the final evidence line."
+publication = "This record is written before qualification; no task file is amended after the final gates. The runner owns commits and publication."
