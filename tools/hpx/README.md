@@ -87,11 +87,13 @@ override, and its `commit` must equal the checkout's full `git rev-parse HEAD`.
 The `server_name` must be `paxd`.
 
 Supply a reviewed build provenance JSON file through `HPX_BUILD_PROVENANCE`
-(default `${SRC_BIN}.provenance.json`). It must contain these three fields:
+(default `${SRC_BIN}.provenance.json`).
+The `version` value is read from `tools/release/version.json`.
+It must contain these three fields:
 
 ```json
 {
-  "version": "v6.12.0",
+  "version": "v7.0.0",
   "source_revision": "<full 40-character build revision>",
   "paxd_sha256": "<64-character SHA-256 of the build artifact>"
 }
