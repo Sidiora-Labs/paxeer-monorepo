@@ -92,7 +92,8 @@ reads after a notification or stream closure. See
 The canonical activity envelopes, LXC/1 encoding, module ordinals, and
 older protocol-version rules remain useful when reading fixtures and kernel
 compatibility code. Their reference is [Protocol](../protocol/index.md)
-and `spec/layerx-protocol/spec.kvx`. These archival envelope descriptions
+and the declarations in `include/layerx/lxp_activity.h` and
+`include/layerx/lxp_module.h`. These archival envelope descriptions
 are not instructions for public transaction submission. In particular, the
 pre-merge execution/batch/checkpoint ladder is retired as a payment finality
 recipe; use the receipt rungs above and committed chain inclusion.
