@@ -229,7 +229,7 @@ pub fn peer() -> HumanPeer {
 pub fn identity_document(head: u64, frozen: bool, authorities: &[ProtocolAuthority]) -> Value {
     json!({"canonical_core_bytes":hex::encode(format!("verified-identity-at-{head}")),
         "head_sequence":head,"revocation_sequence":1,"frozen":frozen,
-        "verification_level":"checkpoint_finalised", "authorities":authorities.iter().map(|authority| {
+        "verification_level":layerx_types::verify::VerificationLevel::COMMITTED.wire_label(), "authorities":authorities.iter().map(|authority| {
             let (kind,id) = match authority { ProtocolAuthority::PrimaryKey(id)=>("primary_key",id),
                 ProtocolAuthority::SessionKey(id)=>("session_key",id), ProtocolAuthority::CapabilityGrant(id)=>("capability_grant",id) };
             json!({"kind":kind,"id":hex::encode(id)})
