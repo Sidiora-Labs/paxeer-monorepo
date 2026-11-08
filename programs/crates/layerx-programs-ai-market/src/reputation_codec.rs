@@ -1,3 +1,4 @@
+use crate::types::GuestIndex as _;
 use crate::{
     codec::{Reader, Writer},
     errors::{CodecResult, BAD_VERSION, CAPACITY, F07_RESOURCE_LIMIT, NON_CANONICAL},
@@ -230,7 +231,7 @@ pub fn reputation_root(
     if records.len() > LIMIT {
         return Err(CAPACITY);
     }
-    let mut bytes = [0; 24 + 32 + 8 + 2 + LIMIT * CURRENT_BYTES];
+    let mut bytes = [0; b"PAXAI/reputation-root/v1\0".len() + 32 + 8 + 2 + LIMIT * CURRENT_BYTES];
     let mut h = Writer::new(&mut bytes);
     h.put(b"PAXAI/reputation-root/v1\0")?;
     h.put(market.as_bytes())?;
@@ -245,7 +246,7 @@ pub fn reputation_root(
         previous = Some(record.worker);
     }
     let length = h.len();
-    Digest32::new(crate::codec::sha256([&bytes[..length]])?)
+    Digest32::new(crate::codec::sha256([bytes.guest_index(..length)])?)
 }
 #[allow(
     dead_code,
@@ -253,7 +254,7 @@ pub fn reputation_root(
 )]
 pub(crate) fn state_root(state: &ReputationState, epoch: u64) -> CodecResult<Digest32> {
     // During staging, records may already refer to the pending completion.
-    let mut bytes = [0; 24 + 32 + 8 + 2 + LIMIT * CURRENT_BYTES];
+    let mut bytes = [0; b"PAXAI/reputation-root/v1\0".len() + 32 + 8 + 2 + LIMIT * CURRENT_BYTES];
     let mut h = Writer::new(&mut bytes);
     h.put(b"PAXAI/reputation-root/v1\0")?;
     h.put(state.market.as_bytes())?;
@@ -268,7 +269,7 @@ pub(crate) fn state_root(state: &ReputationState, epoch: u64) -> CodecResult<Dig
         previous = Some(record.worker);
     }
     let length = h.len();
-    Digest32::new(crate::codec::sha256([&bytes[..length]])?)
+    Digest32::new(crate::codec::sha256([bytes.guest_index(..length)])?)
 }
 // F07 section framing: RP07, schema:u16, counts:u8/u8, market32,
 // completed-presence:u8, completed-epoch:u64, fifteen reserved zero bytes.

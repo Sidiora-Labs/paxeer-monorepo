@@ -401,7 +401,7 @@ impl LocalServer {
             "canonical_core_bytes":fixture.agent_did.strip_prefix("did:layerx:").unwrap(),
             "head_sequence":fixture.budget_state["observed_head_sequence"],
             "revocation_sequence":fixture.budget_state["revocation_sequence"],
-            "verification_level":"checkpoint_finalised", "frozen":false,
+            "verification_level":layerx_types::verify::VerificationLevel::COMMITTED.wire_label(), "frozen":false,
             "authorities":[{"kind":"primary_key","id":fixture.agent_did.strip_prefix("did:layerx:").unwrap()}]
         });
         let server = Self::spawn(listener, move |stream| {
@@ -1088,6 +1088,7 @@ fn budget_after(label: u8) {
     } else {
         assert_eq!(
             response,
+            // approval_budget_after owns the committed-state guard outside managed_agent.
             refusal_frame(b"operation.refused"),
             "label {label}"
         );

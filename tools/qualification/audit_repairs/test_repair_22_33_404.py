@@ -100,6 +100,7 @@ def test_finding_46_root_rpc_hosts_and_hosted_contract():
     assert {url.hostname for url in public_urls} == {
         "api-mainnet-beta.paxeer.network",
         "api1.mainnet-beta.paxeer.network",
+        "api2.mainnet-beta.paxeer.network",
         "api14.mainnet-beta.paxeer.network",
     }
     assert all(
@@ -251,7 +252,7 @@ def test_finding_46_build_entry_is_the_integrated_paxd():
     makefile = source("Makefile")
     targets = dict(re.findall(r"^([A-Za-z0-9_-]+):([^\n]*)$", makefile, re.M))
     assert targets["paxd-build"].split() == ["paxd-native-libs"]
-    assert targets["paxd-native-libs"].split() == ["$(LIBRARY)", "programs-release-build"]
+    assert targets["paxd-native-libs"].split() == ["$(LIBRARY)", "programs-release-build", "evmone-lib"]
     chain = source("chain.mk")
     target = re.search(r"^build:([^\n]*)\n(\t[^\n]+)", chain, re.M)
     assert target is not None

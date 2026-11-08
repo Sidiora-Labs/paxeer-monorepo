@@ -164,8 +164,35 @@ const EXPECTED_OPERATIONS: &[(u16, &str)] = &[
     (0x0901, "SealEvidence"),
     (0x0A01, "READ_HEADER"),
     (0x0A02, "READ_STATE_CHUNK"),
+    (0x0B01, "OpenRoom"),
+    (0x0B02, "PostAsk"),
+    (0x0B03, "PostBid"),
+    (0x0B04, "RecordDeal"),
+    (0x0B05, "SettleLaps"),
+    (0x0B06, "ChallengeLap"),
+    (0x0B07, "ResolveChallenge"),
+    (0x0B08, "SplitPayout"),
+    (0x0B09, "LockBond"),
+    (0x0B0A, "SlashBond"),
+    (0x0B0B, "RefundBond"),
+    (0x0B0C, "CloseRoom"),
+    (0x0B10, "RoomView"),
+    (0x0B11, "DealView"),
+    (0x0B12, "PeerView"),
+    (0x0B13, "ReceiptBatchView"),
+    (0x0B14, "BookView"),
 ];
 const EXPECTED_ERRORS: &[(&str, &str, u16)] = &[
+    ("F11", "RoomUnknown", 0x0B01),
+    ("F11", "RoomClosed", 0x0B02),
+    ("F11", "AskUnfunded", 0x0B03),
+    ("F11", "BidBelowFloor", 0x0B04),
+    ("F11", "RosterDigestMismatch", 0x0B05),
+    ("F11", "BatchUnsealed", 0x0B06),
+    ("F11", "ChallengeWindowClosed", 0x0B07),
+    ("F11", "BondLocked", 0x0B08),
+    ("F11", "BondInsufficient", 0x0B09),
+    ("F11", "SplitExceedsSettled", 0x0B0A),
     ("COMMON", "BAD_VERSION", 0x0001),
     ("COMMON", "NON_CANONICAL", 0x0002),
     ("COMMON", "WRONG_DOMAIN", 0x0003),
@@ -408,9 +435,9 @@ fn primitives_versions_ordering_and_decimal_boundaries() -> Checked {
 }
 
 #[test]
-fn all_fifty_five_selectors_and_entire_error_freeze() -> Checked {
-    assert_eq!(EXPECTED_OPERATIONS.len(), 55);
-    assert_eq!(OPERATIONS.len(), 55);
+fn all_seventy_two_selectors_and_entire_error_freeze() -> Checked {
+    assert_eq!(EXPECTED_OPERATIONS.len(), 72);
+    assert_eq!(OPERATIONS.len(), 72);
     for &(code, name) in EXPECTED_OPERATIONS {
         let op = Operation::decode(code)?;
         assert_eq!(op.selector(), code);

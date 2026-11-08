@@ -36,9 +36,9 @@ defmodule EthereumJSONRPC.HTTP.Throttle do
   their slots are released. No request is ever let through unmetered.
 
   Outstanding admissions and rate budgets live in an ETS ledger whose heir is the supervising
-  process. A replacement guard recovers the active executions before admitting new work, including
-  across a terminate/restart of its child. Completed tickets retain their unique references, so
-  delayed completion messages cannot release a replacement admission.
+  process. A replacement guard recovers active executions and waiting callers in arrival order
+  before admitting new work, including across a terminate/restart of its child. Completed tickets
+  retain their unique references, so delayed completion messages cannot release a replacement admission.
 
   Queue depth, in-flight counts and admission wait time are exported through
   `EthereumJSONRPC.HTTP.Throttle.Metrics`.
@@ -249,6 +249,8 @@ defmodule EthereumJSONRPC.HTTP.Throttle do
       weight: min(weight, state.config.rps),
       key: key,
       queued_at: monotonic_ms(),
+      sequence: System.unique_integer([:monotonic]),
+      url: url,
       deadline: deadline
     }
 
@@ -267,6 +269,7 @@ defmodule EthereumJSONRPC.HTTP.Throttle do
         ref = Process.monitor(pid)
         timer = Process.send_after(self(), {:expire, ref}, remaining(deadline))
         entry = Map.merge(entry, %{ref: ref, timer: timer})
+        :ets.insert(@ledger, {ref, pid, entry, :queued})
         state = %{state | entries: Map.put(state.entries, ref, entry), monitors: Map.put(state.monitors, ref, ref)}
 
         state =
@@ -385,10 +388,22 @@ defmodule EthereumJSONRPC.HTTP.Throttle do
   end
 
   defp acquire(url, class, weight, key, deadline) do
-    GenServer.call(__MODULE__, {:acquire, url, class, weight, key, deadline}, remaining(deadline))
-  catch
-    :exit, {:timeout, _} -> {:error, {:throttle, :deadline_exceeded}}
-    :exit, _reason -> {:error, {:throttle, :unavailable}}
+    case Process.whereis(__MODULE__) do
+      nil ->
+        {:error, {:throttle, :unavailable}}
+
+      guard ->
+        reference = make_ref()
+        # The persisted caller must remain reachable after the admitting guard exits.
+        # GenServer.call would discard its reply alias when that guard goes down.
+        send(guard, {:"$gen_call", {self(), reference}, {:acquire, url, class, weight, key, deadline}})
+
+        receive do
+          {^reference, result} -> result
+        after
+          remaining(deadline) -> {:error, {:throttle, :deadline_exceeded}}
+        end
+    end
   end
 
   defp run(ticket, fun) do
@@ -682,6 +697,8 @@ defmodule EthereumJSONRPC.HTTP.Throttle do
   end
 
   defp drop_waiter(state, ref) do
+    :ets.delete(@ledger, ref)
+
     case Map.get(state.entries, ref) do
       %{timer: timer} -> Process.cancel_timer(timer)
       nil -> :ok
@@ -731,42 +748,76 @@ defmodule EthereumJSONRPC.HTTP.Throttle do
           acc
       end)
 
-    Enum.reduce(rows, state, fn
-      {ref, pid, ticket, :running}, acc ->
-        if Process.alive?(pid) do
-          monitor = Process.monitor(pid)
-          timer = Process.send_after(self(), {:expire, ref}, remaining(ticket.deadline))
-          endpoint = endpoint(acc, ticket.url)
+    state =
+      Enum.reduce(rows, state, fn
+        {ref, pid, ticket, :running}, acc ->
+          if Process.alive?(pid) do
+            monitor = Process.monitor(pid)
+            timer = Process.send_after(self(), {:expire, ref}, remaining(ticket.deadline))
+            endpoint = endpoint(acc, ticket.url)
 
-          endpoint = %{
-            endpoint
-            | inflight_total: endpoint.inflight_total + 1,
-              inflight: Map.update!(endpoint.inflight, ticket.class, &(&1 + 1))
-          }
+            endpoint = %{
+              endpoint
+              | inflight_total: endpoint.inflight_total + 1,
+                inflight: Map.update!(endpoint.inflight, ticket.class, &(&1 + 1))
+            }
 
-          {endpoint, waiter} =
-            if is_nil(ticket.key) do
-              {endpoint, {:running, ticket.url, ticket.class, ticket.weight}}
-            else
-              {%{endpoint | leaders: Map.put(endpoint.leaders, ticket.key, %{ref: ref, followers: []})},
-               {:leader, ticket.url, ticket.key, ticket.class, ticket.weight}}
-            end
+            {endpoint, waiter} =
+              if is_nil(ticket.key) do
+                {endpoint, {:running, ticket.url, ticket.class, ticket.weight}}
+              else
+                {%{endpoint | leaders: Map.put(endpoint.leaders, ticket.key, %{ref: ref, followers: []})},
+                 {:leader, ticket.url, ticket.key, ticket.class, ticket.weight}}
+              end
 
-          entry = %{pid: pid, timer: timer, deadline: ticket.deadline, class: ticket.class}
-          acc = %{acc | entries: Map.put(acc.entries, ref, entry), monitors: Map.put(acc.monitors, monitor, ref)}
-          acc |> put_waiter(ref, waiter) |> put_endpoint(ticket.url, endpoint)
-        else
+            entry = %{pid: pid, timer: timer, deadline: ticket.deadline, class: ticket.class}
+            acc = %{acc | entries: Map.put(acc.entries, ref, entry), monitors: Map.put(acc.monitors, monitor, ref)}
+            acc |> put_waiter(ref, waiter) |> put_endpoint(ticket.url, endpoint)
+          else
+            :ets.delete(@ledger, ref)
+            acc
+          end
+
+        {ref, _pid, _ticket, :completed}, acc ->
           :ets.delete(@ledger, ref)
           acc
+
+        _rate, acc ->
+          acc
+      end)
+
+    state =
+      rows
+      |> Enum.flat_map(fn
+        {_ref, _pid, entry, :queued} -> [entry]
+        _ -> []
+      end)
+      |> Enum.sort_by(& &1.sequence)
+      |> Enum.reduce(state, fn entry, acc ->
+        if Process.alive?(entry.pid) and remaining(entry.deadline) > 0 do
+          monitor = Process.monitor(entry.pid)
+          timer = Process.send_after(self(), {:expire, entry.ref}, remaining(entry.deadline))
+          entry = %{entry | timer: timer}
+          :ets.insert(@ledger, {entry.ref, entry.pid, entry, :queued})
+          endpoint = endpoint(acc, entry.url)
+
+          acc = %{
+            acc
+            | entries: Map.put(acc.entries, entry.ref, entry),
+              monitors: Map.put(acc.monitors, monitor, entry.ref)
+          }
+
+          acc
+          |> put_endpoint(entry.url, %{endpoint | queue: [entry | endpoint.queue]})
+          |> put_waiter(entry.ref, {:queued, entry.url})
+        else
+          GenServer.reply(entry.from, {:error, {:throttle, :deadline_exceeded}})
+          :ets.delete(@ledger, entry.ref)
+          acc
         end
+      end)
 
-      {ref, _pid, _ticket, :completed}, acc ->
-        :ets.delete(@ledger, ref)
-        acc
-
-      _rate, acc ->
-        acc
-    end)
+    Enum.reduce(Map.keys(state.endpoints), state, fn url, acc -> pump(acc, url) end)
   end
 
   defp classify_method(request) when is_map(request) do

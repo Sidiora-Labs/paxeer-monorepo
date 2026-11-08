@@ -4,11 +4,8 @@ import unittest
 
 
 ROOT = Path(__file__).resolve().parents[2]
-PRODUCERS = (
-    "tools/qualification/paxeer-x/arbiter-admission.py",
-    "tools/qualification/paxeer-x/arbiter-native-authority.py",
-    "tools/qualification/paxeer-x/arbiter-prestate-transport.py",
-)
+RETIRED = ('tools/qualification/paxeer-x/arbiter-admission.py', 'tools/qualification/paxeer-x/arbiter-native-authority.py', 'tools/qualification/paxeer-x/arbiter-prestate-transport.py')
+PRODUCERS = ('tools/qualification/paxeer-x/native-programs-link.py',)
 COMPONENTS = (
     "wire-codec",
     "batch-seal",
@@ -19,6 +16,9 @@ COMPONENTS = (
 
 class RetiredCallers1Test(unittest.TestCase):
     def test_producers_name_no_retired_construct(self):
+        for producer in RETIRED:
+            self.assertFalse((ROOT / producer).exists(), producer)
+            self.assertFalse((ROOT / producer).is_symlink(), producer)
         command = ["python3", "tools/paxeer-x/tests/retired_callers_test.py"]
         for component in COMPONENTS:
             command.extend(("--component", component))

@@ -1,7 +1,7 @@
 # devtools
 
-The [Makefile](Makefile) in this directory is inherited from the Cosmos SDK and included by
-[`wasm/Makefile`](../../Makefile). Its `tools` target depends on `statik`, `runsim`, and
+The [Makefile](Makefile) in this directory is inherited from the Cosmos SDK and provides
+standalone development tools. Its `tools` target depends on `statik`, `runsim`, and
 `golangci-lint` through `tools-stamp`.
 
 ## Installation
@@ -29,15 +29,15 @@ Installing requires access to the Go module proxy or a populated module cache.
 From the repository root, install into a writable directory and put it on `PATH`:
 
 ```sh
-make -C wasm tools TOOLS_DESTDIR="$PWD/.devtools/bin"
+make -C wasm/contrib/devtools tools TOOLS_DESTDIR="$PWD/.devtools/bin"
 export PATH="$PWD/.devtools/bin:$PATH"
 ```
 
 Existing binaries satisfy Make's prerequisites. To refresh them after a pin changes,
-run `make -C wasm tools-clean TOOLS_DESTDIR="$PWD/.devtools/bin"` before installing
+run `make -C wasm/contrib/devtools tools-clean TOOLS_DESTDIR="$PWD/.devtools/bin"` before installing
 again, using the same destination. `tools-clean` removes the three binaries there
-and `tools-stamp`. Consumers such as `make -C wasm lint` find the installed commands
-through `PATH`.
+and `tools-stamp`. Invoke the installed commands through `PATH`, for example with
+`golangci-lint run`.
 
 These helpers belong to the vendored Wasm development tree. See the
 [upstream local scripts](../local/README.md) for their standalone `wasmd` prerequisites

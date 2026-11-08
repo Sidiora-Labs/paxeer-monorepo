@@ -8,10 +8,11 @@ use crate::evaluators::{admission as challenge, authority};
 use crate::registry::F01_SECTION_CAP;
 use crate::registry_ops::{self, CallContext, PolicySection};
 use crate::state::{self, RetainedResult, Section, SharedState};
+use crate::types::GuestIndex as _;
 use crate::types::{Presence, RequestDigest};
 use crate::{
-    admission, aggregation, canary, closure, commit_reveal, epoch, evidence, queries, rewards,
-    rooms, tasks, value_adapter, workers, MAX_STATE_BYTES,
+    admission, aggregation, canary, closure, commit_reveal, epoch, evidence, laps, queries,
+    rewards, rooms, tasks, value_adapter, workers, MAX_STATE_BYTES,
 };
 #[derive(Clone, Copy, Eq, PartialEq)]
 #[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
@@ -78,9 +79,7 @@ impl Operation {
     /// Returns `UNKNOWN_OPERATION` when the selector is not in the table.
     #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn decode(selector: u16) -> CodecResult<Self> {
-        OPERATIONS
-            .iter()
-            .find(|m| m.operation.0 == selector)
+        metadata_for_selector(selector)
             .map(|m| m.operation)
             .ok_or(UNKNOWN_OPERATION)
     }
@@ -89,22 +88,22 @@ impl Operation {
         self.0
     }
     #[must_use]
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn metadata(self) -> &'static OperationMetadata {
-        // The private constructor and static table make this branch unreachable.
-        for m in OPERATIONS {
-            if m.operation == self {
-                return m;
-            }
+        if let Some(metadata) = metadata_for_selector(self.0) {
+            return metadata;
         }
         #[cfg(target_arch = "wasm32")]
         core::arch::wasm32::unreachable();
         #[cfg(not(target_arch = "wasm32"))]
         unreachable!("Operation is constructed only by the frozen table")
     }
+
     /// Checks a payload length against the operation's bounds.
     ///
     /// # Errors
     /// Returns `NON_CANONICAL` when the length is outside the operation's bounds, or is neither 40 nor 48 for `0x0106`/`0x0107`.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn validate_payload_length(self, length: usize) -> CodecResult<()> {
         if self == CommitScore {
             return if length == 224 || length == canary::CANARY_COMMIT_BYTES {
@@ -943,8 +942,8 @@ pub const OPERATIONS: &[OperationMetadata] = &[
         boundary: CallBoundary::Mutation,
         sequence: SequencePolicy::Role,
         delegate_allowed: false,
-        payload_min: 92,
-        payload_max: 92,
+        payload_min: laps::SETTLE_FIXED_BYTES + evidence::MANIFEST_FIXED_BYTES,
+        payload_max: laps::SETTLE_FIXED_BYTES + evidence::MAX_MANIFEST_BYTES,
         authority: AuthorityClass::Host,
         sections: &[
             Section::PolicyLifecycle,
@@ -1135,9 +1134,27 @@ pub const OPERATIONS: &[OperationMetadata] = &[
         payload_min: 32,
         payload_max: 32,
         authority: AuthorityClass::PublicRead,
-        sections: &[Section::IdentityRoster],
+        sections: &[Section::PolicyLifecycle, Section::SettlementClaims],
     },
 ];
+
+static OPERATION_INDICES: [[u8; 32]; 12] = {
+    let mut indices = [[u8::MAX; 32]; 12];
+    let mut i = 0;
+    while i < OPERATIONS.len() {
+        let selector = OPERATIONS[i].operation.0 as usize;
+        indices[selector >> 8][selector & 0xff] = i as u8;
+        i += 1;
+    }
+    indices
+};
+
+#[cfg_attr(target_arch = "wasm32", inline(never))]
+fn metadata_for_selector(selector: u16) -> Option<&'static OperationMetadata> {
+    let family = OPERATION_INDICES.get(usize::from(selector >> 8))?;
+    let index = *family.get(usize::from(selector & 0xff))?;
+    OPERATIONS.get(usize::from(index))
+}
 
 const CONTROL_CAP: usize = Section::Control.payload_cap();
 const REBIND_SCRATCH_BYTES: usize = F01_SECTION_CAP + CONTROL_CAP + MAX_STATE_BYTES;
@@ -1158,6 +1175,7 @@ const fn max_of(values: &[usize]) -> usize {
 const TRANSITION_SCRATCH_BYTES: usize = max_of(&[
     tasks::SCRATCH_BYTES,
     canary::SCRATCH_BYTES,
+    laps::SCRATCH_BYTES,
     commit_reveal::SCRATCH_BYTES,
     evidence::SEAL_SCRATCH_BYTES,
     challenge::CHALLENGE_SCRATCH_BYTES,
@@ -1212,11 +1230,12 @@ enum Payload {
     Record([u8; RECORD_PAYLOAD_BYTES], usize),
 }
 impl Payload {
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     fn record(bytes: &[u8]) -> CodecResult<Self> {
         let mut out = [0; RECORD_PAYLOAD_BYTES];
         out.get_mut(..bytes.len())
             .ok_or(NON_CANONICAL)?
-            .copy_from_slice(bytes);
+            .guest_copy_from_slice(bytes);
         Ok(Self::Record(out, bytes.len()))
     }
 }
@@ -1242,12 +1261,19 @@ enum Step {
 ///
 /// # Errors
 /// Returns an error only when the result frame itself cannot be encoded into `result`.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn route(
     ctx: &CallContext,
     envelope_bytes: &[u8],
     current: Option<&[u8]>,
     buffers: Buffers<'_>,
 ) -> CodecResult<Routed> {
+    if matches!(envelope_bytes.get(8..10), Some([0x0b, 0x10..=0x13])) {
+        return route_f11_view(ctx, envelope_bytes, current, buffers);
+    }
+    if queries::placement::is_book_view(envelope_bytes) {
+        return route_book_view(ctx, envelope_bytes, current, buffers);
+    }
     if commit_reveal::is_canary_score(envelope_bytes) {
         return route_canary_score(ctx, envelope_bytes, current, buffers);
     }
@@ -1271,15 +1297,23 @@ pub fn route(
         event,
         result,
     } = buffers;
-    let step = transition(
-        ctx,
-        &envelope,
-        envelope_bytes,
-        current,
-        next,
-        scratch,
-        event,
-    );
+    let step = if operation == FUND {
+        present(current).and_then(|current| {
+            reward_step(rewards::apply_fund(
+                ctx, &envelope, request, current, next, scratch, event,
+            )?)
+        })
+    } else {
+        transition(
+            ctx,
+            &envelope,
+            envelope_bytes,
+            current,
+            next,
+            scratch,
+            event,
+        )
+    };
     let framed = match step {
         Ok(Step::Applied {
             revision,
@@ -1312,7 +1346,7 @@ pub fn route(
         Ok(Step::Unchanged(payload)) => {
             let bytes: &[u8] = match &payload {
                 Payload::Empty | Payload::Suffix => &[],
-                Payload::Record(bytes, n) => &bytes[..*n],
+                Payload::Record(bytes, n) => bytes.guest_index(..*n),
             };
             frame(
                 ApplicationResult::success(ResultStatus::AlreadyApplied, request, visible(), bytes),
@@ -1333,6 +1367,104 @@ pub fn route(
     }
 }
 
+#[cfg_attr(target_arch = "wasm32", inline(never))]
+fn route_book_view(
+    ctx: &CallContext,
+    input: &[u8],
+    current: Option<&[u8]>,
+    buffers: Buffers<'_>,
+) -> CodecResult<Routed> {
+    let visible = current
+        .and_then(|bytes| state::decode_shared_state(bytes).ok())
+        .map_or(0, |state| state.revision);
+    let request = match queries::placement::decode_book_envelope(input) {
+        Ok(request) => request,
+        Err(error) => return refuse(error, Presence::Absent, visible, buffers.result),
+    };
+    let digest = match request.request_digest() {
+        Ok(digest) => digest,
+        Err(error) => return refuse(error, Presence::Absent, visible, buffers.result),
+    };
+    let result = buffers.result;
+    let answer = answer_view(
+        ctx,
+        &request.envelope,
+        digest,
+        current,
+        buffers.scratch,
+        result,
+    );
+    match answer {
+        Ok(result_len) => Ok(Routed::Unchanged { result_len }),
+        Err(error) => refuse(error, Presence::Present(digest), visible, result),
+    }
+}
+
+#[cfg_attr(target_arch = "wasm32", inline(never))]
+fn route_f11_view(
+    ctx: &CallContext,
+    input: &[u8],
+    current: Option<&[u8]>,
+    buffers: Buffers<'_>,
+) -> CodecResult<Routed> {
+    let visible = current
+        .and_then(|bytes| state::decode_shared_state(bytes).ok())
+        .map_or(0, |state| state.revision);
+    let request = match queries::decode_view_envelope(input) {
+        Ok(request) => request,
+        Err(error) => return refuse(error, Presence::Absent, visible, buffers.result),
+    };
+    let digest = match request.request_digest() {
+        Ok(digest) => digest,
+        Err(error) => return refuse(error, Presence::Absent, visible, buffers.result),
+    };
+    let result = buffers.result;
+    let answer = answer_view(
+        ctx,
+        &request.envelope,
+        digest,
+        current,
+        buffers.scratch,
+        result,
+    );
+    match answer {
+        Ok(result_len) => Ok(Routed::Unchanged { result_len }),
+        Err(error) => refuse(error, Presence::Present(digest), visible, result),
+    }
+}
+
+#[cfg_attr(target_arch = "wasm32", inline(never))]
+fn answer_view(
+    ctx: &CallContext,
+    envelope: &codec::Envelope<'_>,
+    digest: RequestDigest,
+    current: Option<&[u8]>,
+    scratch: &mut [u8],
+    result: &mut [u8],
+) -> CodecResult<usize> {
+    codec::compare_native_principal(envelope, ctx.principal)?;
+    envelope.check_domain(
+        ctx.chain,
+        ctx.program,
+        codec::derive_market(ctx.chain, ctx.program)?,
+    )?;
+    envelope.check_expiry(ctx.height)?;
+    let current = present(current)?;
+    let shared = state::decode_shared_state(current)?;
+    bound_section(ctx, &shared)?;
+    let answer = match envelope.operation {
+        RoomView => queries::answer_room_view,
+        DealView => queries::answer_deal_view,
+        PeerView => queries::answer_peer_view,
+        ReceiptBatchView => queries::answer_receipt_batch_view,
+        BookView => queries::answer_book_view,
+        _ => return Err(UNKNOWN_OPERATION),
+    };
+    let len = answer(current, envelope.payload, scratch)?;
+    queries::frame_read_result(digest, shared.revision, scratch.guest_index(..len), result)
+}
+
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 fn route_canary_score(
     ctx: &CallContext,
     input: &[u8],
@@ -1375,7 +1507,7 @@ fn route_canary_score(
                 revision,
                 event,
                 event_len,
-                &Payload::record(&payload[..n])?,
+                &Payload::record(payload.guest_index(..n))?,
                 result,
             ) {
                 Ok(result_len) => Ok(Routed::Applied {
@@ -1420,6 +1552,7 @@ fn refuse(
     Ok(Routed::Refused { result_len })
 }
 
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 fn applied_frame(
     operation: Operation,
     request: RequestDigest,
@@ -1432,11 +1565,11 @@ fn applied_frame(
     let mut topic = [0; 64];
     let topic_len = codec::event_topic(operation, &mut topic)?;
     let body = event.get(..event_len).ok_or(NON_CANONICAL)?;
-    let (named, common, suffix) = codec::decode_event_frame(&topic[..topic_len], body)?;
+    let (named, common, suffix) = codec::decode_event_frame(topic.guest_index(..topic_len), body)?;
     let bytes = match payload {
         Payload::Empty => &[],
         Payload::Suffix => suffix,
-        Payload::Record(bytes, n) => &bytes[..*n],
+        Payload::Record(bytes, n) => bytes.guest_index(..*n),
     };
     let value = ApplicationResult::success(ResultStatus::Ok, request, revision, bytes)?;
     if named != operation
@@ -1449,6 +1582,7 @@ fn applied_frame(
     codec::encode_result(&value, out)
 }
 
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 fn transition(
     ctx: &CallContext,
     envelope: &ValidatedEnvelope<'_>,
@@ -1461,7 +1595,7 @@ fn transition(
     if current.is_none()
         || matches!(
             envelope.envelope.operation.0,
-            0x0105 | 0x0111 | 0x0501..=0x0503 | 0x0601 | 0x0701..=0x0703 | 0x0A01 | 0x0A02 | 0x0B01..=0x0B14
+            0x0105 | 0x0111 | 0x0401 | 0x0402 | 0x0501..=0x0503 | 0x0601 | 0x0701..=0x0703 | 0x0A01 | 0x0A02 | 0x0B01..=0x0B14
         )
     {
         return transition_inner(ctx, envelope, envelope_bytes, current, next, scratch, event);
@@ -1492,6 +1626,7 @@ fn transition(
     Ok(step)
 }
 
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 fn transition_inner(
     ctx: &CallContext,
     envelope: &ValidatedEnvelope<'_>,
@@ -1585,7 +1720,8 @@ fn transition_inner(
         }
         0x0A01 | 0x0A02 => read(ctx, envelope, present(current)?, scratch),
         0x0B01..=0x0B04 | 0x0B0C => {
-            match rooms::apply(ctx, envelope, present(current)?, next, scratch, event)? {
+            match queries::placement::apply(ctx, envelope, present(current)?, next, scratch, event)?
+            {
                 rooms::Outcome::Applied {
                     revision,
                     state_len,
@@ -1602,6 +1738,44 @@ fn transition_inner(
                 }
             }
         }
+        0x0B05 => {
+            match laps::apply_settle_laps(ctx, envelope, present(current)?, next, scratch, event)? {
+                laps::Outcome::Applied {
+                    revision,
+                    state_len,
+                    event_len,
+                } => Ok(Step::Applied {
+                    revision,
+                    state_len,
+                    event_len,
+                    payload: Payload::Suffix,
+                }),
+                laps::Outcome::Retained(retained) => Ok(Step::Retained(retained)),
+            }
+        }
+        0x0B08 => match rewards::apply_split_payout(
+            ctx,
+            envelope,
+            present(current)?,
+            next,
+            scratch,
+            event,
+        )? {
+            rooms::Outcome::Applied {
+                revision,
+                state_len,
+                event_len,
+            } => Ok(Step::Applied {
+                revision,
+                state_len,
+                event_len,
+                payload: Payload::Suffix,
+            }),
+            rooms::Outcome::AlreadyApplied(subject) => {
+                Ok(Step::Unchanged(Payload::record(subject.as_bytes())?))
+            }
+            rooms::Outcome::Retained(retained) => Ok(Step::Retained(retained)),
+        },
         0x0B06 | 0x0B07 => {
             let outcome = if operation == ChallengeLap {
                 canary::apply_challenge_lap(ctx, envelope, present(current)?, next, scratch, event)?
@@ -1635,6 +1809,7 @@ fn transition_inner(
     }
 }
 
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 fn close(
     ctx: &CallContext,
     envelope: &ValidatedEnvelope<'_>,
@@ -1675,6 +1850,28 @@ fn close(
     }
 }
 
+fn reward_step(outcome: rewards::Outcome) -> CodecResult<Step> {
+    match outcome {
+        rewards::Outcome::Applied {
+            response,
+            revision,
+            state_len,
+            event_len,
+            ..
+        } => Ok(Step::Applied {
+            revision,
+            state_len,
+            event_len,
+            payload: Payload::record(response.as_bytes())?,
+        }),
+        rewards::Outcome::AlreadyApplied { subject } => {
+            Ok(Step::Unchanged(Payload::record(&subject)?))
+        }
+        rewards::Outcome::Retained(retained) => Ok(Step::Retained(retained)),
+    }
+}
+
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 fn settlement(
     ctx: &CallContext,
     envelope: &ValidatedEnvelope<'_>,
@@ -1701,24 +1898,9 @@ fn settlement(
                 Ok(Step::Unchanged(Payload::record(response.as_bytes())?))
             }
         },
-        0x0601..=0x0605 => match rewards::apply(ctx, envelope, current, next, scratch, event)? {
-            rewards::Outcome::Applied {
-                response,
-                revision,
-                state_len,
-                event_len,
-                ..
-            } => Ok(Step::Applied {
-                revision,
-                state_len,
-                event_len,
-                payload: Payload::record(response.as_bytes())?,
-            }),
-            rewards::Outcome::AlreadyApplied { subject } => {
-                Ok(Step::Unchanged(Payload::record(&subject)?))
-            }
-            rewards::Outcome::Retained(retained) => Ok(Step::Retained(retained)),
-        },
+        0x0601..=0x0605 => reward_step(rewards::apply(
+            ctx, envelope, current, next, scratch, event,
+        )?),
         0x0701..=0x0703 => match epoch::history(ctx, envelope, current, next, scratch, event)? {
             epoch::HistoryOutcome::Applied {
                 revision,
@@ -1763,6 +1945,7 @@ fn read(
     Ok(Step::Read { payload_len })
 }
 
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 fn identity(
     ctx: &CallContext,
     operation: Operation,
@@ -1817,6 +2000,7 @@ fn identity(
     }
 }
 
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 fn assessment(
     ctx: &CallContext,
     envelope: &ValidatedEnvelope<'_>,
@@ -1897,6 +2081,7 @@ fn present(current: Option<&[u8]>) -> CodecResult<&[u8]> {
     current.ok_or(NOT_FOUND)
 }
 
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 fn registry(
     ctx: &CallContext,
     envelope: &ValidatedEnvelope<'_>,
@@ -1912,7 +2097,7 @@ fn registry(
     let (section_out, control) = scratch
         .get_mut(..F01_SECTION_CAP + CONTROL_CAP)
         .ok_or(NON_CANONICAL)?
-        .split_at_mut(F01_SECTION_CAP);
+        .guest_split_at_mut(F01_SECTION_CAP);
     match registry_ops::apply(ctx, decoded.as_ref(), envelope, section_out, event)? {
         registry_ops::Outcome::Applied {
             state,
@@ -1928,8 +2113,13 @@ fn registry(
     }
 }
 
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 fn bound_section<'a>(ctx: &CallContext, state: &SharedState<'a>) -> CodecResult<PolicySection<'a>> {
-    let section = PolicySection::decode(state.feature_sections[Section::PolicyLifecycle.index()])?;
+    let section = PolicySection::decode(
+        *state
+            .feature_sections
+            .guest_index(Section::PolicyLifecycle.index()),
+    )?;
     if section.header.state_revision != state.revision {
         return Err(NON_CANONICAL);
     }
@@ -1942,6 +2132,7 @@ fn bound_section<'a>(ctx: &CallContext, state: &SharedState<'a>) -> CodecResult<
     Ok(section)
 }
 
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 fn rebind(
     next: &mut [u8],
     state_len: usize,
@@ -1951,24 +2142,30 @@ fn rebind(
     let (section_out, rest) = scratch
         .get_mut(..REBIND_SCRATCH_BYTES)
         .ok_or(NON_CANONICAL)?
-        .split_at_mut(F01_SECTION_CAP);
-    let (control, staged) = rest.split_at_mut(CONTROL_CAP);
+        .guest_split_at_mut(F01_SECTION_CAP);
+    let (control, staged) = rest.guest_split_at_mut(CONTROL_CAP);
     let (revision, staged_len) = {
         let state = state::decode_shared_state(next.get(..state_len).ok_or(NON_CANONICAL)?)?;
-        let mut section =
-            PolicySection::decode(state.feature_sections[Section::PolicyLifecycle.index()])?;
+        let mut section = PolicySection::decode(
+            *state
+                .feature_sections
+                .guest_index(Section::PolicyLifecycle.index()),
+        )?;
         section.header.state_revision = state.revision;
         let section_len = section.encode(section_out)?;
-        let rebound =
-            state.replace_section(Section::PolicyLifecycle, &section_out[..section_len])?;
+        let revision = state.revision;
+        let rebound = state.with_section(
+            Section::PolicyLifecycle,
+            section_out.guest_index(..section_len),
+        )?;
         (
-            state.revision,
+            revision,
             state::encode_shared_state(&rebound, staged, control)?,
         )
     };
     next.get_mut(..staged_len)
         .ok_or(NON_CANONICAL)?
-        .copy_from_slice(&staged[..staged_len]);
+        .guest_copy_from_slice(staged.guest_index(..staged_len));
     Ok(Step::Applied {
         revision,
         state_len: staged_len,

@@ -70,10 +70,10 @@ the loaded and latest cursors is kept. After a stale-cursor 400,
 `recoverLoadedTimelineAfterStaleCursor` reloads from the latest page when the
 snapshot changed, and otherwise merges and takes the latest cursor.
 
-`apps/server/test/public/public-thread-timeline-scrollback.test.ts` pins this
+`core/server/test/public/public-thread-timeline-scrollback.test.ts` pins this
 by running the client merges over real pages and comparing them with a fresh
 walk. The Ladle story `thread/timeline/Scrollback` with
-`apps/app/.ladle/tests/timeline-scrollback.mjs` (run with dev-browser against
+`apps/web/.ladle/tests/timeline-scrollback.mjs` (run with dev-browser against
 the open story) checks that the scrolled-back row stays put while the latest
 window changes and that a full walk shows every row once, in order.
 

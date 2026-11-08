@@ -1,11 +1,12 @@
 import hashlib
 import json
+import os
 from pathlib import Path
 import subprocess
 
 
 ROOT = Path(__file__).resolve().parents[2]
-BINARY = ROOT / "build/bin/layerx-module-registry"
+BINARY = Path(os.environ.get("LAYERX_TEST_BUILD_DIR", ROOT / "build")) / "bin/layerx-module-registry"
 REFUSED = (
     "layerx-module-registry: refused: invalid input or unavailable canonical registry\n"
 )

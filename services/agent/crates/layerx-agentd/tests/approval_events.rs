@@ -4,6 +4,7 @@ use gap_integration::{HistoryServer, SubscriptionServer};
 
 use std::collections::BTreeSet;
 use std::fs;
+use std::os::unix::fs::DirBuilderExt;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 
@@ -31,7 +32,7 @@ use layerx_agentd::events::{
     backfill, deliver, DeliveryEngine, DeliveryError, DeliveryItem, EventAttributes, EventIngestor,
     RetryPolicy,
 };
-use layerx_agentd::read::HistoryLimits;
+use layerx_agentd::read::{Cursor as ChainCursor, HistoryLimits};
 use layerx_agentd::session::SessionId;
 use layerx_agentd::store::{Store, TenantId};
 use layerx_agentd::tenant::{Config, RedactionPolicy, Retention};
@@ -267,24 +268,7 @@ fn subscriptions_restored_after_gap(durable: Store) -> (SubscriptionStore, Vec<u
         )
         .unwrap_or_else(|error| panic!("close recovered block: {error}"));
     heads_server.finish();
-    let mut subscriptions = SubscriptionStore::open(ingestor.into_store(), tenant())
-        .unwrap_or_else(|error| panic!("subscriptions: {error}"));
-    subscriptions
-        .create(
-            target().subscription_id,
-            SubscriptionCreate {
-                scope: scope(),
-                filter: filter(),
-                start: ApiCursor {
-                    block_height: 0,
-                    tx_index: 0,
-                    log_index: 0,
-                },
-                delivery_target: DeliveryTarget::new("uds://approval-consumer")
-                    .unwrap_or_else(|error| panic!("target: {error:?}")),
-            },
-        )
-        .unwrap_or_else(|error| panic!("create: {error}"));
+    let mut subscriptions = stream_subscriptions(ingestor.into_store());
     let gap = detect(&mut subscriptions, &target(), 1, 2)
         .unwrap_or_else(|error| panic!("detect gap: {error}"))
         .unwrap_or_else(|| panic!("gap missing"));
@@ -307,11 +291,37 @@ fn subscriptions_restored_after_gap(durable: Store) -> (SubscriptionStore, Vec<u
     (subscriptions, recovered_bytes)
 }
 
+fn stream_subscriptions(durable: Store) -> SubscriptionStore {
+    let mut subscriptions = SubscriptionStore::open(durable, tenant())
+        .unwrap_or_else(|error| panic!("subscriptions: {error}"));
+    subscriptions
+        .create(
+            target().subscription_id,
+            SubscriptionCreate {
+                scope: scope(),
+                filter: filter(),
+                start: ApiCursor {
+                    block_height: 0,
+                    tx_index: 0,
+                    log_index: 0,
+                },
+                delivery_target: DeliveryTarget::new("uds://approval-consumer")
+                    .unwrap_or_else(|error| panic!("target: {error:?}")),
+            },
+        )
+        .unwrap_or_else(|error| panic!("create: {error}"));
+    subscriptions
+}
+
 fn delivery_engine(subscriptions: SubscriptionStore) -> DeliveryEngine {
+    delivery_engine_at(subscriptions, 4)
+}
+
+fn delivery_engine_at(subscriptions: SubscriptionStore, live_start: u64) -> DeliveryEngine {
     DeliveryEngine::open(
         subscriptions,
         target(),
-        4,
+        live_start,
         8,
         RetryPolicy {
             base_delay_ms: 10,
@@ -332,6 +342,7 @@ fn refill_backfill(delivery: &mut DeliveryEngine, label: &str) {
 
 fn drain_delivered(delivery: &mut DeliveryEngine) -> Vec<Vec<u8>> {
     let mut delivered = Vec::new();
+    let mut previous_cursor = None;
     refill_backfill(delivery, "backfill");
     while let Some(item) =
         deliver(delivery).unwrap_or_else(|error| panic!("delivery attempt: {error}"))
@@ -341,6 +352,8 @@ fn drain_delivered(delivery: &mut DeliveryEngine) -> Vec<Vec<u8>> {
             .unwrap_or_else(|error| panic!("accept: {error}"));
         assert_eq!(accepted, item);
         if let DeliveryItem::Event(event) = accepted {
+            assert!(previous_cursor.is_none_or(|previous| previous < event.delivery.cursor));
+            previous_cursor = Some(event.delivery.cursor);
             delivered.push(event.delivery.event_bytes.clone());
             delivery
                 .acknowledge(&CursorAcknowledgement {
@@ -401,7 +414,11 @@ fn assert_digest_evidence_exported(audit_path: &Path, lifecycles: &[ApprovalLife
 #[test]
 fn approval_lifecycle_stream_resumes_after_gap_and_exports_digest_evidence() {
     let root = directory();
-    fs::create_dir_all(&root).unwrap_or_else(|error| panic!("root: {error}"));
+    fs::DirBuilder::new()
+        .mode(0o700)
+        .create(&root)
+        .unwrap_or_else(|error| panic!("root: {error}"));
+    let root = fs::canonicalize(root).unwrap_or_else(|error| panic!("canonical root: {error}"));
     let durable = Store::open(&root).unwrap_or_else(|error| panic!("store: {error}"));
     let mut ingestor = EventIngestor::open(durable, tenant(), 16, 0)
         .unwrap_or_else(|error| panic!("ingestor: {error}"));
@@ -436,4 +453,185 @@ fn approval_lifecycle_stream_resumes_after_gap_and_exports_digest_evidence() {
 
     assert_digest_evidence_exported(&audit_path, &lifecycles);
     let _ = fs::remove_dir_all(root);
+}
+
+#[test]
+fn local_approval_between_closed_blocks_keeps_journal_order_after_restart() {
+    assert_approval_at_block_boundary(false);
+}
+
+#[test]
+fn local_approval_while_next_block_is_pending_keeps_journal_order_after_restart() {
+    assert_approval_at_block_boundary(true);
+}
+
+fn assert_approval_at_block_boundary(queue_next_block_first: bool) {
+    let root = directory();
+    let mut ingestor = EventIngestor::open(Store::open(&root).unwrap(), tenant(), 8, 0).unwrap();
+    let attributes = EventAttributes {
+        agent: "did:layerx:approval-events".into(),
+        account: "tenant-a".into(),
+        activity_type: 7,
+        module: "approval".into(),
+        asset: "LXP".into(),
+        counterparty: "human-approval".into(),
+        result_code: 0,
+    };
+    let first = [
+        gap_integration::log(12, 0, 0),
+        gap_integration::log(12, 0, 1),
+    ];
+    let second = [
+        gap_integration::log(13, 0, 0),
+        gap_integration::log(13, 0, 1),
+    ];
+    let history = HistoryServer::new(vec![]);
+    let source = history.connect();
+    let limits = HistoryLimits {
+        maximum_items: 8,
+        maximum_response_bytes: 1_048_576,
+    };
+    for log in &first {
+        ingestor.ingest_log(log, attributes.clone()).unwrap();
+    }
+    assert_eq!(ingestor.watermark().next_expected, 0);
+    ingestor
+        .new_head(13, &source, limits, 8, attributes.clone())
+        .unwrap();
+    assert_eq!(ingestor.watermark().next_expected, 2);
+    if queue_next_block_first {
+        for log in &second {
+            ingestor.ingest_log(log, attributes.clone()).unwrap();
+        }
+        assert_eq!(ingestor.watermark().next_expected, 2);
+    }
+    let mut audit = Log::open(&root, &tenant()).unwrap();
+    let emission = ApprovalEvents::emit(
+        &mut ingestor,
+        &mut audit,
+        &mut Coverage::default(),
+        &lifecycle(ApprovalEventKind::Created, 1, 100),
+    )
+    .unwrap();
+    assert_eq!(emission.global_sequence, 2);
+    drop(audit);
+    drop(ingestor);
+
+    let mut ingestor = EventIngestor::open(Store::open(&root).unwrap(), tenant(), 8, 0).unwrap();
+    assert_eq!(
+        ingestor.watermark().last_position,
+        Some(ChainCursor {
+            block_height: 12,
+            tx_index: 0,
+            log_index: 1,
+        })
+    );
+    let mut audit = Log::open(&root, &tenant()).unwrap();
+    let next_emission = ApprovalEvents::emit(
+        &mut ingestor,
+        &mut audit,
+        &mut Coverage::default(),
+        &lifecycle(ApprovalEventKind::Granted, 1, 101),
+    )
+    .unwrap();
+    assert_eq!(next_emission.global_sequence, 3);
+    if !queue_next_block_first {
+        for log in &second {
+            ingestor.ingest_log(log, attributes.clone()).unwrap();
+        }
+    }
+    assert_eq!(ingestor.watermark().next_expected, 4);
+    ingestor
+        .new_head(14, &source, limits, 8, attributes)
+        .unwrap();
+    history.finish();
+    assert_eq!(ingestor.watermark().next_expected, 6);
+    let final_emission = ApprovalEvents::emit(
+        &mut ingestor,
+        &mut audit,
+        &mut Coverage::default(),
+        &lifecycle(ApprovalEventKind::Created, 2, 102),
+    )
+    .unwrap();
+    drop(audit);
+    drop(ingestor);
+
+    let subscriptions = stream_subscriptions(Store::open(&root).unwrap());
+    let mut engine = delivery_engine_at(subscriptions, 7);
+    // 2985: raw log positions stay exact; local counters start at zero for each closed block.
+    let expected = [
+        (12, 0, 0),
+        (12, 0, 1),
+        (12, u32::MAX, 0),
+        (12, u32::MAX, 1),
+        (13, 0, 0),
+        (13, 0, 1),
+        (13, u32::MAX, 0),
+    ];
+    let mut delivered = Vec::new();
+    let mut previous = None;
+    for (sequence, (block_height, tx_index, log_index)) in expected.into_iter().enumerate() {
+        let item = deliver(&mut engine).unwrap().expect("ordered event");
+        let DeliveryItem::Event(event) = &item else {
+            panic!("event before seam")
+        };
+        assert_eq!(event.global_sequence, sequence as u64);
+        assert_eq!(
+            event.delivery.cursor,
+            ApiCursor {
+                block_height,
+                tx_index,
+                log_index
+            }
+        );
+        assert!(previous.is_none_or(|cursor| cursor < event.delivery.cursor));
+        previous = Some(event.delivery.cursor);
+        if sequence == 2 {
+            let original = event.clone();
+            assert_eq!(engine.accept_front(100).unwrap(), item);
+            drop(engine);
+            engine = delivery_engine_at(
+                SubscriptionStore::open(Store::open(&root).unwrap(), tenant()).unwrap(),
+                7,
+            );
+            let replay = deliver(&mut engine)
+                .unwrap()
+                .expect("unacknowledged approval");
+            assert_eq!(replay, DeliveryItem::Event(original));
+            assert_eq!(engine.accept_front(101).unwrap(), replay);
+        } else {
+            assert_eq!(engine.accept_front(100).unwrap(), item);
+        }
+        let DeliveryItem::Event(event) = item else {
+            unreachable!()
+        };
+        engine
+            .acknowledge(&CursorAcknowledgement {
+                scope: scope(),
+                subscription_id: target().subscription_id,
+                cursor: event.delivery.cursor,
+            })
+            .unwrap();
+        delivered.push(event.delivery.event_bytes);
+    }
+    assert_eq!(
+        delivered,
+        vec![
+            serde_json::to_vec(&first[0]).unwrap(),
+            serde_json::to_vec(&first[1]).unwrap(),
+            emission.canonical_event_bytes,
+            next_emission.canonical_event_bytes,
+            serde_json::to_vec(&second[0]).unwrap(),
+            serde_json::to_vec(&second[1]).unwrap(),
+            final_emission.canonical_event_bytes
+        ]
+    );
+    assert!(matches!(
+        deliver(&mut engine).unwrap(),
+        Some(DeliveryItem::BackfillComplete(_))
+    ));
+    engine.accept_front(102).unwrap();
+    assert!(deliver(&mut engine).unwrap().is_none());
+    drop(engine);
+    fs::remove_dir_all(root).unwrap();
 }

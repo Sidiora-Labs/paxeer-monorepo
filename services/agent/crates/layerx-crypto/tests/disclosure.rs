@@ -3,7 +3,7 @@ use layerx_crypto::disclosure::{
     AmountRole, CounterpartyRole, DisclosedWithdrawal, DisclosureError, Expiry,
 };
 use layerx_crypto::evm_transaction::{decode_unsigned, recover_sender, Eip1559Call};
-use layerx_crypto::signer::{sign_disclosed, sign_disclosed_call, SignError, Signer};
+use layerx_crypto::signer::{sign_disclosed_call, SignError, Signer};
 use layerx_wire::decode::Decoder;
 use sha2::{Digest as _, Sha256};
 
@@ -116,15 +116,17 @@ fn recorded_custody_credit_discloses_the_signed_activity() {
     assert_eq!(activity.signature().map(<[u8]>::len), Some(64));
     let payload = activity.payload();
     assert_eq!(payload.len(), 1495);
-    let old = support::signing::old_envelope(support::signer().public_key());
+    let produced = support::send_call(25, 7);
+    let mut substituted = produced.disclosure.clone();
+    substituted.actor = activity.actor_did().to_vec();
     assert_eq!(
-        ready(sign_disclosed(
-            &support::signer(),
-            &old.canonical,
-            &old.disclosure,
-            &old.registry
+        ready(sign_disclosed_call(
+            &support::evm_signer(),
+            &produced.call,
+            &substituted,
+            support::call_options(7).from
         )),
-        Err(SignError::InvalidDisclosure)
+        Err(SignError::DisclosureMismatch("call"))
     );
     assert_eq!(payload, &recorded[257..257 + payload.len()]);
     assert_eq!(&payload[..5], b"LXDC3");

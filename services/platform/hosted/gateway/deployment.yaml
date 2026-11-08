@@ -133,7 +133,12 @@ spec:
         - {name: events, secret: {secretName: layerx-gateway-event-producer, defaultMode: 0440}}
         - {name: server, secret: {secretName: layerx-gateway-server-tls}}
         - {name: trust, secret: {secretName: layerx-internal-ca}}
-        - {name: receipt-keys, secret: {secretName: layerx-gateway-receipt-keys, defaultMode: 0440, items: [{key: receipt-keys.json, path: receipt-keys.json}]}}
+        - name: receipt-keys
+          secret:
+            secretName: layerx-gateway-receipt-keys
+            optional: false
+            defaultMode: 0440
+            items: [{key: receipt-keys.json, path: receipt-keys.json}]
         - {name: client, secret: {secretName: layerx-gateway-client-identity}}
         - {name: faucet, secret: {secretName: layerx-gateway-faucet-client}}
         - {name: redis, secret: {secretName: layerx-gateway-redis-client}}

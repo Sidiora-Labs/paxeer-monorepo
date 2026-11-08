@@ -1,0 +1,257 @@
+[meta]
+format = "frontend-asset-renames-v1"
+app = "apps/launchpad/web"
+
+[rename.1]
+old = "public/fonts/Federation Kalin.ttf"
+new = "public/fonts/federation-kalin.ttf"
+sha256 = "ad1a6a62cd800560b302133c3397317a1fe56edfe239d939f4374c2d5a82e25f"
+
+[rename.2]
+old = "public/icons/Group 427320986.svg"
+new = "public/icons/lightning-purple.svg"
+sha256 = "3a87e97b88d8bbba8a2b4c662bf267c4d816e21fbf9e442fd2ee91074523aaec"
+
+[rename.3]
+old = "public/icons/Group 427320987.svg"
+new = "public/icons/activity-bubbles.svg"
+sha256 = "e1dc649a50b9ffd79cf5d7d5b95efcb1c8f18c207c6b594642310eed7c10ce79"
+
+[rename.4]
+old = "public/icons/Group 427320988.svg"
+new = "public/icons/sidebar-panel.svg"
+sha256 = "c6b03cc396235b74622d3dbc9f8a76a03e8c92585dec7b2bb8b0e49c1922ba0b"
+
+[rename.5]
+old = "public/icons/Group 427321040.svg"
+new = "public/icons/whale-cyan.svg"
+sha256 = "17ec1fbff9305e4e49241173cd25f7362b99087cd16df1fe4f4345473084b88b"
+
+[rename.6]
+old = "public/icons/Group 427321302.svg"
+new = "public/icons/chevron-down-white.svg"
+sha256 = "4de3928a8b6b3ecffa161174037f2239293019faff995214255fa9418f794219"
+
+[rename.7]
+old = "public/icons/Group 427321514.svg"
+new = "public/icons/airdrop-parachute.svg"
+sha256 = "e8d6923241710da38c5aba62336a62e6a651e61ff352fe7eec25302466612d74"
+
+[rename.8]
+old = "public/icons/Group 48097638.svg"
+new = "public/icons/users-purple.svg"
+sha256 = "5d42e1d59323ad909bee62dc33bce365f186f8dfd2cd9ed2f1adb3deb4eb54ec"
+
+[rename.9]
+old = "public/icons/Group 48097639.svg"
+new = "public/icons/lightning-cyan.svg"
+sha256 = "f6a46f6da359c93596b8a0e561b1f9b1adc0b639ea7009431cea8ce84e8581e9"
+
+[rename.10]
+old = "public/icons/Group 48097640.svg"
+new = "public/icons/document-green.svg"
+sha256 = "0459c43a011a88681e6326822ffd21931e406e1e9e4c18ca802e17d2a25dc831"
+
+[rename.11]
+old = "public/icons/Group 48097641.svg"
+new = "public/icons/trading-bot-pink.svg"
+sha256 = "582d9d2224fff6b13c85c09ddf36e869e86dcfab71f82447238095ed83c21b60"
+
+[rename.12]
+old = "public/icons/Group 48097642.svg"
+new = "public/icons/target-red.svg"
+sha256 = "ce04dc7f9badad8c645e8fd65c3aca743b18564ab4d010635ddba67624945855"
+
+[rename.13]
+old = "public/icons/Line 122.png"
+new = "public/icons/divider-vertical-dark.png"
+sha256 = "f92b26552c17bca261bbf28c60778982c50b71048f21e6d70fb66ce0505af2c6"
+
+[rename.14]
+old = "public/icons/Rectangle 12.png"
+new = "public/icons/divider-vertical-muted.png"
+sha256 = "9aa0145502e6b2ddb99311c044d11c7b6e6cfce753885a115b1d563299486fbd"
+
+[rename.15]
+old = "public/icons/airdrop/Group 427321514.svg"
+new = "public/icons/airdrop/airdrop-parachute.svg"
+sha256 = "e8d6923241710da38c5aba62336a62e6a651e61ff352fe7eec25302466612d74"
+
+[rename.16]
+old = "public/icons/airdrop/Rectangle 3941.svg"
+new = "public/icons/airdrop/tile-gradient-glow.svg"
+sha256 = "9ac88ba2d5ff13e3b5a1d51eb564c2104b3fbfd8bcb5457b5e6f8608807ae6b9"
+
+[rename.17]
+old = "public/icons/airdrop/Rectangle 3943.svg"
+new = "public/icons/airdrop/tile-gradient-border.svg"
+sha256 = "c787acb4f760c896461feeaac01af22d3491e0a8d72f64905b0ce09f3ccfe4e8"
+
+[rename.18]
+old = "public/icons/rectangle/Rectangle 4497.svg"
+new = "public/icons/rectangle/swatch-surface-dark.svg"
+sha256 = "c3ea97ebb7c1a548646260cfdda24fa1948282bdd733a1c9948fc470ee46971d"
+
+[rename.19]
+old = "public/icons/rectangle/Rectangle 4498.svg"
+new = "public/icons/rectangle/swatch-surface-medium.svg"
+sha256 = "3bbc139393804d5ae8d57bff1f737ce1b4cb630c87408c0365da8c3667c8a1fd"
+
+[rename.20]
+old = "public/icons/rectangle/Rectangle 4499.svg"
+new = "public/icons/rectangle/swatch-surface-muted.svg"
+sha256 = "4bf9ddd0e067d727bcd6c4e6146ad9df98d4ac7ebe0b3607f5528888fcbdc7d7"
+
+[rename.21]
+old = "public/icons/vertical line.png"
+new = "public/icons/divider-horizontal.png"
+sha256 = "d2e4dddf9dc305df4dc3fe3861f3ad259626c6f3058d1c42217c17a2d80dd92d"
+
+[rename.22]
+old = "src/assets/frame/Ellipse 1.png"
+new = "src/assets/frame/tilted-ellipse-fill.png"
+sha256 = "b4c16c6af05c68b4f5402e7ffbb988df9d3219ee7aa235be657915ccfd9fac83"
+
+[rename.23]
+old = "src/assets/frame/Ellipse line1.png"
+new = "src/assets/frame/tilted-ellipse-outline-inner.png"
+sha256 = "b3b0045faf70a31876ee61dbeb68608d2fb14791b1f324f4fecfeaf6c5ec24d6"
+
+[rename.24]
+old = "src/assets/frame/Ellipse line2.png"
+new = "src/assets/frame/tilted-ellipse-outline-outer.png"
+sha256 = "8e91a7d852d4cc605627daefd6224c9ac40be76f94bd4170d0a3d82149eeaf46"
+
+[rename.25]
+old = "src/assets/icons/Group 427320986.svg"
+new = "src/assets/icons/lightning-purple.svg"
+sha256 = "3a87e97b88d8bbba8a2b4c662bf267c4d816e21fbf9e442fd2ee91074523aaec"
+
+[rename.26]
+old = "src/assets/icons/Group 427320987.svg"
+new = "src/assets/icons/activity-bubbles.svg"
+sha256 = "e1dc649a50b9ffd79cf5d7d5b95efcb1c8f18c207c6b594642310eed7c10ce79"
+
+[rename.27]
+old = "src/assets/icons/Group 427320988.svg"
+new = "src/assets/icons/sidebar-panel.svg"
+sha256 = "c6b03cc396235b74622d3dbc9f8a76a03e8c92585dec7b2bb8b0e49c1922ba0b"
+
+[rename.28]
+old = "src/assets/icons/Group 427321040.svg"
+new = "src/assets/icons/whale-cyan.svg"
+sha256 = "17ec1fbff9305e4e49241173cd25f7362b99087cd16df1fe4f4345473084b88b"
+
+[rename.29]
+old = "src/assets/icons/Group 427321302.svg"
+new = "src/assets/icons/chevron-down-white.svg"
+sha256 = "4de3928a8b6b3ecffa161174037f2239293019faff995214255fa9418f794219"
+
+[rename.30]
+old = "src/assets/icons/Group 427321514.svg"
+new = "src/assets/icons/airdrop-parachute.svg"
+sha256 = "e8d6923241710da38c5aba62336a62e6a651e61ff352fe7eec25302466612d74"
+
+[rename.31]
+old = "src/assets/icons/Group 48097638.svg"
+new = "src/assets/icons/users-purple.svg"
+sha256 = "5d42e1d59323ad909bee62dc33bce365f186f8dfd2cd9ed2f1adb3deb4eb54ec"
+
+[rename.32]
+old = "src/assets/icons/Group 48097639.svg"
+new = "src/assets/icons/lightning-cyan.svg"
+sha256 = "f6a46f6da359c93596b8a0e561b1f9b1adc0b639ea7009431cea8ce84e8581e9"
+
+[rename.33]
+old = "src/assets/icons/Group 48097640.svg"
+new = "src/assets/icons/document-green.svg"
+sha256 = "0459c43a011a88681e6326822ffd21931e406e1e9e4c18ca802e17d2a25dc831"
+
+[rename.34]
+old = "src/assets/icons/Group 48097641.svg"
+new = "src/assets/icons/trading-bot-pink.svg"
+sha256 = "582d9d2224fff6b13c85c09ddf36e869e86dcfab71f82447238095ed83c21b60"
+
+[rename.35]
+old = "src/assets/icons/Group 48097642.svg"
+new = "src/assets/icons/target-red.svg"
+sha256 = "ce04dc7f9badad8c645e8fd65c3aca743b18564ab4d010635ddba67624945855"
+
+[rename.36]
+old = "src/assets/icons/Line 122.png"
+new = "src/assets/icons/divider-vertical-dark.png"
+sha256 = "f92b26552c17bca261bbf28c60778982c50b71048f21e6d70fb66ce0505af2c6"
+
+[rename.37]
+old = "src/assets/icons/Rectangle 12.png"
+new = "src/assets/icons/divider-vertical-muted.png"
+sha256 = "9aa0145502e6b2ddb99311c044d11c7b6e6cfce753885a115b1d563299486fbd"
+
+[rename.38]
+old = "src/assets/icons/airdrop/Group 427321514.svg"
+new = "src/assets/icons/airdrop/airdrop-parachute.svg"
+sha256 = "e8d6923241710da38c5aba62336a62e6a651e61ff352fe7eec25302466612d74"
+
+[rename.39]
+old = "src/assets/icons/airdrop/Rectangle 3941.svg"
+new = "src/assets/icons/airdrop/tile-gradient-glow.svg"
+sha256 = "9ac88ba2d5ff13e3b5a1d51eb564c2104b3fbfd8bcb5457b5e6f8608807ae6b9"
+
+[rename.40]
+old = "src/assets/icons/airdrop/Rectangle 3943.svg"
+new = "src/assets/icons/airdrop/tile-gradient-border.svg"
+sha256 = "c787acb4f760c896461feeaac01af22d3491e0a8d72f64905b0ce09f3ccfe4e8"
+
+[rename.41]
+old = "src/assets/icons/rectangle/Rectangle 4497.svg"
+new = "src/assets/icons/rectangle/swatch-surface-dark.svg"
+sha256 = "c3ea97ebb7c1a548646260cfdda24fa1948282bdd733a1c9948fc470ee46971d"
+
+[rename.42]
+old = "src/assets/icons/rectangle/Rectangle 4498.svg"
+new = "src/assets/icons/rectangle/swatch-surface-medium.svg"
+sha256 = "3bbc139393804d5ae8d57bff1f737ce1b4cb630c87408c0365da8c3667c8a1fd"
+
+[rename.43]
+old = "src/assets/icons/rectangle/Rectangle 4499.svg"
+new = "src/assets/icons/rectangle/swatch-surface-muted.svg"
+sha256 = "4bf9ddd0e067d727bcd6c4e6146ad9df98d4ac7ebe0b3607f5528888fcbdc7d7"
+
+[rename.44]
+old = "src/assets/icons/vertical line.png"
+new = "src/assets/icons/divider-horizontal.png"
+sha256 = "d2e4dddf9dc305df4dc3fe3861f3ad259626c6f3058d1c42217c17a2d80dd92d"
+
+[deduplicate.1]
+old = "src/assets/icons/airdrop_background.png"
+new = "public/icons/airdrop_background.png"
+sha256 = "9d62ed3ef490174cebb2499b5768cff26a3601a9bd83c1bdfbbad6a10aaabe6c"
+
+[deduplicate.2]
+old = "src/assets/icons/dollars_cyan.svg"
+new = "public/icons/dollars_cyan.svg"
+sha256 = "863910b9bb6ba0add7d07082df9ffbfbf3a76926641322654602a3ddfb334859"
+
+[deduplicate.3]
+old = "src/assets/icons/item.svg"
+new = "public/icons/item.svg"
+sha256 = "effc6853b6b38ea6ea38211ce9da4658fa36d532490e6d2a50850625d6b265cb"
+
+[deduplicate.4]
+old = "src/assets/icons/logo.svg"
+new = "public/icons/logo.svg"
+sha256 = "b3c3f3d1ad2212e596656915eb0386dce5e81d4bf02112aab670a3b68c989646"
+
+[deduplicate.5]
+old = "src/assets/icons/pump.svg"
+new = "public/icons/pump.svg"
+sha256 = "c40b2d4cd4637d623497df3c41b0b190e22785695b5b50a53ad2d31de2896aad"
+
+[deduplicate.6]
+old = "src/assets/icons/solana_color.svg"
+new = "public/icons/solana_color.svg"
+sha256 = "7176b39f651da976c6ac94a7fad85c54b7f12bd999d074e3c1910a32d4175e49"
+
+[shared.charting_library]
+source = "apps/perps/public/static/charting_library/charting_library.d.ts"
+reference = "public/charting_library/charting_library.d.ts"

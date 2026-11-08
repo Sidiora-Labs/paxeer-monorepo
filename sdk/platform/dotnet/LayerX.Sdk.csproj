@@ -1,10 +1,12 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>
+    <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <DefaultItemExcludes>$(DefaultItemExcludes);tests/**</DefaultItemExcludes>
+    <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
+    <Authors>Sidiora Labs</Authors>
     <PackageId>LayerX.Sdk</PackageId>
     <Version>0.1.0</Version>
     <Description>Production LayerX Agent and Human API SDK.</Description>

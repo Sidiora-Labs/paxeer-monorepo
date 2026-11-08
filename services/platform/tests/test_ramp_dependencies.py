@@ -8,6 +8,18 @@ import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 RETIRED_PACKAGES = {"layerx-paxeer-client", "layerx-intents"}
+FORBIDDEN_RAMP_PACKAGES = RETIRED_PACKAGES | {"rusqlite", "libsqlite3-sys"}
+
+
+def reachable_packages(metadata, package_id):
+    nodes = {node["id"]: node for node in metadata["resolve"]["nodes"]}
+    pending, seen = [package_id], set()
+    while pending:
+        current = pending.pop()
+        if current not in seen:
+            seen.add(current)
+            pending.extend(nodes[current]["dependencies"])
+    return seen
 
 
 @pytest.fixture(scope="module")
@@ -26,28 +38,44 @@ def platform_metadata():
         capture_output=True,
         text=True,
         check=True,
+        timeout=300,
     )
     return json.loads(result.stdout)
 
 
 def test_ramp_crates_do_not_depend_on_paxeer_client(platform_metadata):
     packages = {package["name"]: package for package in platform_metadata["packages"]}
+    names_by_id = {
+        package["id"]: package["name"] for package in platform_metadata["packages"]
+    }
     for name in ("layerx-ramp-toolkit", "layerx-reference-ramp"):
         dependencies = {dependency["name"] for dependency in packages[name]["dependencies"]}
-        assert dependencies.isdisjoint(RETIRED_PACKAGES), (name, dependencies)
+        assert dependencies.isdisjoint(FORBIDDEN_RAMP_PACKAGES), (name, dependencies)
+        reachable = {
+            names_by_id[package_id]
+            for package_id in reachable_packages(platform_metadata, packages[name]["id"])
+        }
+        assert reachable.isdisjoint(FORBIDDEN_RAMP_PACKAGES), (name, reachable)
 
 
 def assert_dependency_policy_refuses(
     platform_metadata, tmp_path, ramp_name, dependency_name, transitive
 ):
-    package_names = {package["name"] for package in platform_metadata["packages"]}
-    assert RETIRED_PACKAGES <= package_names
     metadata = deepcopy(platform_metadata)
     packages = {package["name"]: package for package in metadata["packages"]}
-    dependency_package = packages[dependency_name]
+    assert "layerx-paxeer-client" not in packages
+    assert {"layerx-intents", "rusqlite", "libsqlite3-sys"} <= packages.keys()
+    if dependency_name == "layerx-paxeer-client":
+        dependency_package = packages["layerx-intents"]
+        dependency_package["name"] = dependency_name
+    else:
+        dependency_package = packages[dependency_name]
     nodes = {node["id"]: node for node in metadata["resolve"]["nodes"]}
     ramp_node = nodes[packages[ramp_name]["id"]]
+    assert dependency_package["id"] not in reachable_packages(metadata, ramp_node["id"])
     parent_node = nodes[ramp_node["dependencies"][0]] if transitive else ramp_node
+    if transitive:
+        assert parent_node["id"] != ramp_node["id"]
     parent_node["dependencies"].append(dependency_package["id"])
     parent_node["deps"].append(
         {
@@ -70,8 +98,14 @@ def assert_dependency_policy_refuses(
         check=False,
     )
     assert result.returncode == 1, (result.stdout, result.stderr)
-    assert "platform dependency policy: forbidden ramp dependency" in result.stderr
-    assert f"{ramp_name} depends on {dependency_name}" in result.stderr
+    if dependency_name == "layerx-paxeer-client":
+        assert result.stderr.splitlines() == [
+            "platform dependency policy: forbidden boundary or global-initialisation crate",
+            dependency_name,
+        ]
+    else:
+        assert "platform dependency policy: forbidden ramp dependency" in result.stderr
+        assert f"{ramp_name} depends on {dependency_name}" in result.stderr
 
 
 @pytest.mark.parametrize("ramp_name", ("layerx-ramp-toolkit", "layerx-reference-ramp"))
@@ -98,7 +132,8 @@ def test_dependency_policy_bans_sqlite(
 
 def test_dependency_policy_passes_live_metadata(platform_metadata, tmp_path):
     package_names = {package["name"] for package in platform_metadata["packages"]}
-    assert RETIRED_PACKAGES | {"rusqlite", "libsqlite3-sys"} <= package_names
+    assert "layerx-paxeer-client" not in package_names
+    assert {"layerx-intents", "rusqlite", "libsqlite3-sys"} <= package_names
     metadata_path = tmp_path / "metadata.json"
     metadata_path.write_text(json.dumps(platform_metadata))
     result = subprocess.run(

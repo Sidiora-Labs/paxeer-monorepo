@@ -1,4 +1,5 @@
 {
+  "$comment": "Deployment data: launchpad values for the configured environment.",
   "RPC_URL": "https://api5.mainnet-beta.paxeer.network",
   "livestream": {
     "LIVEPEER_API_URL": "https://livepeer.studio/api"

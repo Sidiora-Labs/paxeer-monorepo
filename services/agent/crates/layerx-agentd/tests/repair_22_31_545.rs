@@ -6,7 +6,7 @@ use layerx_agentd::capability::binding::{
     verify_native_owner_send_purpose, BindingError, SignedNativeLocalGrantV1,
 };
 use layerx_agentd::capability::timed::NativeTimedCapabilityV1;
-use layerx_agentd::prepare::{self, ProductionCorePreparationBoundary};
+use layerx_agentd::prepare::{self, evm};
 use layerx_agentd::session::NativeSessionScopeV1;
 use layerx_agentd::sign::SigningPreparation;
 use layerx_agentd::store::{ObjectKind, TenantKey};
@@ -81,41 +81,38 @@ fn signed_consent(
     }
 }
 
-fn retained_authorization(fixture: &Fixture, human: &HumanPrepare) -> prepare::Prepared {
-    let activity = must(ActivityType::from_u32(human.activity_type));
-    let registry = must(layerx_types::payload::ModuleRegistry::new(&[must(
-        layerx_types::payload::ModuleRegistration::new(activity.module(), &[activity]),
-    )]));
-    let node = must(NodeRpc::connect(&must(NodeRpcConfig::from_environment())));
-    let mut boundary = ProductionCorePreparationBoundary::new(&node, registry);
-    must(prepare::prepare_activity_for_protocol(
-        &mut boundary,
-        prepare::PreparationDefaults {
-            timestamp_span: 30,
-            fee_limit: layerx_types::amount::Amount::from_u128(human.fee_limit),
+fn retained_authorization(fixture: &Fixture, human: &HumanPrepare) -> prepare::EvmPrepared {
+    let from = fixture.account.evm_address();
+    let config = must(NodeRpcConfig::from_environment());
+    let boundary = must(evm::ProductionEvmPreparationBoundary::new(&config.url, &[]));
+    let state = must(boundary.preparation_state(&from));
+    let call = evm::PrecompileCall::ledger_transfer(human.payload.clone());
+    let gas_limit = must(
+        fixture
+            .endpoint
+            .estimate_gas(&layerx_client::sequencer::CallRequest {
+                from: Some(from),
+                to: Some(call.target.address()),
+                value: 0,
+                data: must(call.encode()),
+            }),
+    );
+    must(evm::prepare_bound(
+        state,
+        evm::PreparationDefaults {
+            max_priority_fee_per_gas: 0,
+            max_fee_per_gas: human.fee_limit,
             maximum_payload_bytes: 1_048_576,
         },
-        prepare::PrepareRequest {
-            actor: must(Did::new(fixture.account.did().as_bytes())),
-            authority: must(layerx_types::activity::Authority::owner(
-                &fixture.account.layerx_public_key(),
-            )),
-            activity_type: activity,
-            expected_account_sequence: Some(human.nonce),
-            timestamp_bound: Some(must(layerx_types::activity::TimestampBound::new(
-                human.not_before_height,
-                human.not_after_height,
-            ))),
-            fee_limit: Some(layerx_types::amount::Amount::from_u128(human.fee_limit)),
-            idempotency_key: layerx_types::ids::IdempotencyKey::new(
-                must(hex::decode(&human.idempotency_key))
-                    .try_into()
-                    .expect("key32"),
-            ),
-            payload: human.payload.clone(),
+        evm::PrepareRequest {
+            from,
+            call,
+            expected_nonce: Some(human.nonce),
+            max_priority_fee_per_gas: None,
+            max_fee_per_gas: None,
             declared_payload_limit: 1_048_576,
         },
-        layerx_wire::limits::STATE_COMMITMENT_PROTOCOL_VERSION,
+        gas_limit,
     ))
 }
 
@@ -257,6 +254,7 @@ fn native_send_v2_unix_consent_binding_persists_and_reopens_with_current_owner_c
     let authorization = retained_authorization(&fixture, &human);
     let signing = ed25519_dalek::SigningKey::from_bytes(fixture.account.layerx_seed());
     let signed = signed_consent(purpose.clone(), &signing);
+    // The RPC envelope decoder owns this refusal; managed-agent reasons do not replace it.
     assert_v1_wire_refused(&fixture, &human, &purpose, signed.signature);
 
     let (control, owner) = {
@@ -317,7 +315,7 @@ fn native_send_v2_unix_consent_binding_persists_and_reopens_with_current_owner_c
             &registry,
             &session,
             &owner,
-            &authorization,
+            &transaction.transaction,
             &transaction,
             &preparation_id,
             &signed,
@@ -336,7 +334,7 @@ fn native_send_v2_unix_consent_binding_persists_and_reopens_with_current_owner_c
             layerx_agentd::capability::binding::inspect_native_send_capability(
                 &store,
                 &verified,
-                &authorization,
+                &transaction.transaction,
                 &transaction,
                 now,
                 &fee,
@@ -358,7 +356,7 @@ fn native_send_v2_unix_consent_binding_persists_and_reopens_with_current_owner_c
         ));
         must(store.put_local(
             authorization_key.clone(),
-            authorization.canonical_bytes.clone(),
+            authorization.call.encode_unsigned(),
         ));
         assert_eq!(
             must(restore_native_signed_send_purpose(
@@ -400,7 +398,7 @@ fn native_send_v2_unix_consent_binding_persists_and_reopens_with_current_owner_c
                     &registry,
                     &session,
                     &owner,
-                    &authorization,
+                    &transaction.transaction,
                     &transaction,
                     &preparation_id,
                     &changed,
@@ -420,7 +418,7 @@ fn native_send_v2_unix_consent_binding_persists_and_reopens_with_current_owner_c
                 &registry,
                 &session,
                 &owner,
-                &authorization,
+                &transaction.transaction,
                 &transaction,
                 &preparation_id,
                 &invalid,
@@ -444,7 +442,7 @@ fn native_send_v2_unix_consent_binding_persists_and_reopens_with_current_owner_c
                 &registry,
                 &session,
                 &owner,
-                &authorization,
+                &changed_call.transaction,
                 &changed_call,
                 &preparation_id,
                 &signed,
@@ -508,25 +506,33 @@ fn native_send_v2_unix_consent_binding_persists_and_reopens_with_current_owner_c
         fixture.credential.tenant().clone(),
         preparation_id,
     ));
-    let activity = authorization.envelope.activity_type();
-    let modules = must(layerx_types::payload::ModuleRegistry::new(&[must(
-        layerx_types::payload::ModuleRegistration::new(activity.module(), &[activity]),
-    )]));
-    let authorization = must(prepare::restore_canonical(
+    let call = must(layerx_crypto::evm_transaction::decode_unsigned(
         store
             .get(&authorization_key)
             .expect("retained authorization")
             .bytes(),
-        head,
-        &modules,
-        Some(authorization.envelope.authority()),
     ));
+    let disclosure = must(layerx_crypto::disclosure::call::bind_call(
+        &call,
+        authorization.from,
+    ));
+    let restored_authorization = prepare::EvmPrepared {
+        from: authorization.from,
+        signing_hash: call.signing_hash(),
+        disclosure_digest: must(disclosure.signing_digest()),
+        disclosure,
+        call,
+        observed_head_height: head,
+    };
+    must(evm::verify_call_binding(&restored_authorization));
+    assert_eq!(restored_authorization, authorization);
+    assert_eq!(restored_authorization, transaction.transaction);
     let verified = must(verify_native_owner_send_purpose(
         &store,
         &registry,
         &session,
         &owner,
-        &authorization,
+        &transaction.transaction,
         &transaction,
         &preparation_id,
         &restored,

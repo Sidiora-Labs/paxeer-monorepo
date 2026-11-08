@@ -8,28 +8,13 @@ use layerx_agentd::prepare::evm::{
     self, EvmPreparationState, PrecompileCall, PreparationDefaults, PrepareRequest,
 };
 use layerx_agentd::prepare::{
-    expire, retention_sweep, LifecycleError, LifecycleState, PayloadRedaction, PreparationLifecycle,
+    expire_elapsed, sweep_retention, LifecycleError, LifecycleState, PayloadRedaction,
+    PreparationLifecycle,
 };
-use layerx_types::activity::{Authority, EnvelopeBuilder, TimestampBound};
-use layerx_types::amount::Amount;
-use layerx_types::ids::{Did, IdempotencyKey};
-use layerx_types::payload::{ActivityType, ModuleId, ModuleRegistration, ModuleRegistry, Payload};
 use layerx_wire::encode::Encoder;
 
 fn must<T, E: std::fmt::Debug>(result: Result<T, E>) -> T {
     result.unwrap_or_else(|error| panic!("expiry: {error:?}"))
-}
-
-fn activity_type() -> ActivityType {
-    ActivityType::new(ModuleId::Asset, 5).unwrap_or_else(|error| panic!("activity: {error:?}"))
-}
-
-fn registry() -> ModuleRegistry {
-    ModuleRegistry::new(
-        &[ModuleRegistration::new(ModuleId::Asset, &[activity_type()])
-            .unwrap_or_else(|error| panic!("registration: {error:?}"))],
-    )
-    .unwrap_or_else(|error| panic!("registry: {error:?}"))
 }
 
 fn send_payload() -> Vec<u8> {
@@ -128,50 +113,8 @@ fn evm_prepared() -> evm::Prepared {
     prepared
 }
 
-// The retained lifecycle consumes canonical authorization envelopes. Reopen the
-// exact ledger payload through its production decoder, without legacy preparation.
-fn prepared() -> layerx_agentd::prepare::Prepared {
-    let evm = evm_prepared();
-    let payload_length = send_payload().len();
-    let payload = must(Payload::new(
-        &registry(),
-        activity_type(),
-        &evm.call.data[68..68 + payload_length],
-    ));
-    let authority = must(Authority::owner(b"external-authority"));
-    let mut builder = EnvelopeBuilder::new();
-    must(
-        builder
-            .protocol_version(layerx_wire::limits::PROTOCOL_VERSION)
-            .and_then(|b| b.network_id(17))
-            .and_then(|b| b.activity_type(activity_type()))
-            .and_then(|b| b.actor_did(must(Did::new(b"did:layerx:expiry"))))
-            .and_then(|b| b.authority(authority.clone()))
-            .and_then(|b| b.account_sequence(evm.call.nonce))
-            .and_then(|b| b.timestamp_bound(must(TimestampBound::new(995, 1010))))
-            .and_then(|b| b.idempotency_key(IdempotencyKey::new(evm.disclosure.idempotency_key)))
-            .and_then(|b| b.fee_limit(Amount::from_u128(evm.call.max_fee_per_gas)))
-            .and_then(|b| b.payload_hash(must(layerx_wire::hash::payload_hash_for(&payload))))
-            .and_then(|b| b.payload(payload)),
-    );
-    let envelope = must(builder.build());
-    let bytes = must(layerx_wire::activity::encode_unsigned_envelope(&envelope));
-    let retained = must(layerx_agentd::prepare::restore_canonical(
-        &bytes,
-        evm.observed_head_height,
-        &registry(),
-        Some(&authority),
-    ));
-    assert_eq!(
-        retained.envelope.payload().as_bytes(),
-        &evm.call.data[68..68 + payload_length]
-    );
-    assert_eq!(
-        retained.envelope.timestamp_bound().not_after(),
-        evm.disclosure.expiry.payload_expires_at
-    );
-    assert_eq!(retained.envelope.account_sequence(), evm.call.nonce);
-    retained
+fn prepared() -> evm::Prepared {
+    evm_prepared()
 }
 
 fn limiter() -> BudgetLimiter {
@@ -222,8 +165,8 @@ fn expiry_during_and_after_signing_releases_every_reservation() {
         .retain_signed_bytes([12; 32], vec![9; 64], [0x44; 32])
         .unwrap_or_else(|error| panic!("signed: {error:?}"));
 
-    let report = expire(&lifecycle, &limiter, 1_011, 1_011)
-        .unwrap_or_else(|error| panic!("expire: {error:?}"));
+    let report = expire_elapsed(&lifecycle, &limiter, 1_011, 1_011)
+        .unwrap_or_else(|error| panic!("expire_elapsed: {error:?}"));
     assert_eq!(report.expired_preparations, vec![[11; 32], [12; 32]]);
     assert_eq!(report.released_reservations, vec![[1; 32], [2; 32]]);
     assert_eq!(limiter.held_reservations(), Ok(0));
@@ -260,7 +203,7 @@ fn retention_discards_terminal_bytes_but_preserves_unknown_and_redacts_payload()
         .unwrap_or_else(|error| panic!("failed: {error:?}"));
 
     let report =
-        retention_sweep(&lifecycle, 110, 5).unwrap_or_else(|error| panic!("sweep: {error:?}"));
+        sweep_retention(&lifecycle, 110, 5).unwrap_or_else(|error| panic!("sweep: {error:?}"));
     assert_eq!(report.discarded_terminal_signed_bytes, 1);
     assert_eq!(report.preserved_unresolved_signed_bytes, 1);
     assert_eq!(lifecycle.has_signed_bytes([21; 32]), Ok(true));
@@ -282,7 +225,7 @@ fn expiry_equality_sequence_and_binding_refusals_preserve_preparation() {
     reserve_one(&limiter, [3; 32]);
     must(lifecycle.register([13; 32], &prepared, vec![[3; 32]]));
     assert_eq!(lifecycle.check_unexpired([13; 32], 1010), Ok(()));
-    let report = must(expire(&lifecycle, &limiter, 1010, 1010));
+    let report = must(expire_elapsed(&lifecycle, &limiter, 1010, 1010));
     assert!(report.expired_preparations.is_empty());
     assert_eq!(limiter.held_reservations(), Ok(1));
     assert_eq!(lifecycle.state([13; 32]), Ok(LifecycleState::Prepared));
@@ -292,7 +235,7 @@ fn expiry_equality_sequence_and_binding_refusals_preserve_preparation() {
     assert!(evm::verify_call_binding(&changed).is_err());
     assert_eq!(original, evm_prepared());
     assert_eq!(lifecycle.state([13; 32]), Ok(LifecycleState::Prepared));
-    let report = must(expire(&lifecycle, &limiter, 1011, 1011));
+    let report = must(expire_elapsed(&lifecycle, &limiter, 1011, 1011));
     assert_eq!(report.expired_preparations, vec![[13; 32]]);
     assert_eq!(report.released_reservations, vec![[3; 32]]);
     assert_eq!(limiter.held_reservations(), Ok(0));

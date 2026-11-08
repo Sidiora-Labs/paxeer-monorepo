@@ -185,9 +185,9 @@ fn open_binding(path: &Path) -> Result<(Binding, BindingDocument), String> {
     {
         return Err("the binding document changed or exceeded its bound".to_owned());
     }
+    let binding = Binding::parse(&source).map_err(|error| error.detail())?;
     let declaration = serde_json::from_str::<BindingDocument>(&source)
         .map_err(|error| format!("the enrolment shape is invalid: {error}"))?;
-    let binding = Binding::parse(&source).map_err(|error| error.detail())?;
     Ok((binding, declaration))
 }
 

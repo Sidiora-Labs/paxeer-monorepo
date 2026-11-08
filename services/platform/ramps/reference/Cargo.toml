@@ -5,6 +5,9 @@ edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 
+[package.metadata.test-fixtures]
+tls = "tests/fixtures/repair_fixtures"
+
 [dependencies]
 layerx-ramp-toolkit = { path = "../toolkit" }
 layerx-types.workspace = true

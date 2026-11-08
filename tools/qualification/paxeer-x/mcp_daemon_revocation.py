@@ -15,6 +15,9 @@ import subprocess
 import sys
 import time
 
+from cryptography.exceptions import InvalidSignature
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
+
 sys.dont_write_bytecode = True
 ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT / "services/agent/sdk/python"))
@@ -191,14 +194,19 @@ def recovered_receipt(response, submission):
     )
     receipt = value["receipt"]
     require(
-        set(receipt) == {"tx_hash", "canonical_bytes", "authorised_batch", "rung"}
+        set(receipt) == {
+            "tx_hash", "canonical_bytes", "authorised_batch", "rung",
+            "verification_level", "receipt_hash", "block_height", "signed_receipt",
+            "receipt_key_id", "public_key", "first_height", "last_height",
+            "inclusion_height",
+        }
         and receipt["tx_hash"] == submission["tx_hash"]
         and receipt["rung"] == rung == submission["rung"],
         "unknown reconciliation invented an executed receipt",
     )
     facts = READINESS.receipt_facts(receipt["canonical_bytes"], submission["tx_hash"])
     try:
-        _, unsigned = _decode_sequencer_receipt(bytes.fromhex(receipt["canonical_bytes"]))
+        decoded, unsigned = _decode_sequencer_receipt(bytes.fromhex(receipt["canonical_bytes"]))
     except PlatformSdkError:
         require(False, "recovered receipt is not a complete canonical signed receipt")
     domain = b"LXP/v1/receipt\0"
@@ -216,6 +224,28 @@ def recovered_receipt(response, submission):
         }, sort_keys=True),
     )
     batch = receipt["authorised_batch"]
+    heights = {}
+    for field in ("block_height", "first_height", "last_height", "inclusion_height"):
+        value = receipt[field]
+        require(
+            isinstance(value, str)
+            and re.fullmatch(r"0|[1-9][0-9]{0,19}", value) is not None
+            and u64(int(value)),
+            "recovered receipt has noncanonical uint64 metadata: " + field,
+        )
+        heights[field] = int(value)
+    height = int.from_bytes(decoded.batch_id, "big")
+    require(
+        receipt["signed_receipt"] == receipt["canonical_bytes"]
+        and receipt["receipt_hash"] == facts["receipt_sha256"]
+        and receipt["verification_level"] == "1"
+        and hex32(receipt["receipt_key_id"])
+        and receipt["receipt_key_id"] == decoded.context_hash.hex()
+        and hex32(receipt["public_key"])
+        and 0 < height == heights["block_height"] == heights["inclusion_height"]
+        and heights["first_height"] <= height <= heights["last_height"],
+        "recovered receipt metadata differs from canonical signed evidence",
+    )
     require(
         receipt_ref == submission["receipt_ref"]
         and isinstance(batch, dict)
@@ -224,10 +254,19 @@ def recovered_receipt(response, submission):
             "sequencer_public_key",
         }
         and all(hex32(value) for value in batch.values())
+        and batch["batch_id"] == decoded.batch_id.hex()
+        and batch["asset"] == decoded.asset.hex()
+        and batch["sequencer_public_key"] == receipt["public_key"]
         and batch["previous_state_root"] == facts["previous_state_root"]
         and batch["resulting_state_root"] == facts["resulting_state_root"],
         "recovered receipt digest or authorised header roots disagree",
     )
+    try:
+        Ed25519PublicKey.from_public_bytes(bytes.fromhex(receipt["public_key"])).verify(
+            decoded.sequencer_signature, bytes.fromhex(receipt_ref)
+        )
+    except (InvalidSignature, ValueError):
+        require(False, "recovered receipt signature differs from its authorised key")
     return dict(facts, receipt_ref=receipt_ref)
 
 

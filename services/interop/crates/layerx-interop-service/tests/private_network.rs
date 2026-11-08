@@ -262,7 +262,7 @@ fn arguments_are_refused_before_configuration() {
         assert_eq!(output.status.code(), Some(1), "{args:?}");
         assert_eq!(
             String::from_utf8_lossy(&output.stderr),
-            "layerx interoperability gateway refused startup: invalid interoperability gateway arguments\n",
+            "layerx interoperability gateway refused startup: invalid interoperability gateway arguments: configure startup through the environment; verify PortableReceiptV2 evidence with verify_receipted_json\n",
             "{args:?}"
         );
     }

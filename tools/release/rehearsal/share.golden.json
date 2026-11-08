@@ -1,0 +1,134 @@
+[
+  {
+    "kind": "function",
+    "name": "BankPrecompile",
+    "signature": "BankPrecompile()",
+    "id": "0x566732c1"
+  },
+  {
+    "kind": "function",
+    "name": "allowance",
+    "signature": "allowance(address,address)",
+    "id": "0xdd62ed3e"
+  },
+  {
+    "kind": "function",
+    "name": "approve",
+    "signature": "approve(address,uint256)",
+    "id": "0x095ea7b3"
+  },
+  {
+    "kind": "function",
+    "name": "balanceOf",
+    "signature": "balanceOf(address)",
+    "id": "0x70a08231"
+  },
+  {
+    "kind": "function",
+    "name": "ddecimals",
+    "signature": "ddecimals()",
+    "id": "0xa8ad11e4"
+  },
+  {
+    "kind": "function",
+    "name": "decimals",
+    "signature": "decimals()",
+    "id": "0x313ce567"
+  },
+  {
+    "kind": "function",
+    "name": "denom",
+    "signature": "denom()",
+    "id": "0xc370b042"
+  },
+  {
+    "kind": "function",
+    "name": "name",
+    "signature": "name()",
+    "id": "0x06fdde03"
+  },
+  {
+    "kind": "function",
+    "name": "nname",
+    "signature": "nname()",
+    "id": "0x8a0989f5"
+  },
+  {
+    "kind": "function",
+    "name": "ssymbol",
+    "signature": "ssymbol()",
+    "id": "0x9e10aa24"
+  },
+  {
+    "kind": "function",
+    "name": "symbol",
+    "signature": "symbol()",
+    "id": "0x95d89b41"
+  },
+  {
+    "kind": "function",
+    "name": "totalSupply",
+    "signature": "totalSupply()",
+    "id": "0x18160ddd"
+  },
+  {
+    "kind": "function",
+    "name": "transfer",
+    "signature": "transfer(address,uint256)",
+    "id": "0xa9059cbb"
+  },
+  {
+    "kind": "function",
+    "name": "transferFrom",
+    "signature": "transferFrom(address,address,uint256)",
+    "id": "0x23b872dd"
+  },
+  {
+    "kind": "event",
+    "name": "Approval",
+    "signature": "Approval(address,address,uint256)",
+    "id": "0x8c5be1e5ebec7d5bd14f71427d1e84f3dd0314c0f7b2291e5b200ac8c7c3b925"
+  },
+  {
+    "kind": "event",
+    "name": "Transfer",
+    "signature": "Transfer(address,address,uint256)",
+    "id": "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef"
+  },
+  {
+    "kind": "error",
+    "name": "ERC20InsufficientAllowance",
+    "signature": "ERC20InsufficientAllowance(address,uint256,uint256)",
+    "id": "0xfb8f41b2"
+  },
+  {
+    "kind": "error",
+    "name": "ERC20InsufficientBalance",
+    "signature": "ERC20InsufficientBalance(address,uint256,uint256)",
+    "id": "0xe450d38c"
+  },
+  {
+    "kind": "error",
+    "name": "ERC20InvalidApprover",
+    "signature": "ERC20InvalidApprover(address)",
+    "id": "0xe602df05"
+  },
+  {
+    "kind": "error",
+    "name": "ERC20InvalidReceiver",
+    "signature": "ERC20InvalidReceiver(address)",
+    "id": "0xec442f05"
+  },
+  {
+    "kind": "error",
+    "name": "ERC20InvalidSender",
+    "signature": "ERC20InvalidSender(address)",
+    "id": "0x96c6fd1e"
+  },
+  {
+    "kind": "error",
+    "name": "ERC20InvalidSpender",
+    "signature": "ERC20InvalidSpender(address)",
+    "id": "0x94280d62"
+  }
+]

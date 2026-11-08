@@ -5,7 +5,11 @@ import (
 	"crypto/ed25519"
 	"math"
 	"net"
+	"os"
+	"os/exec"
+	"regexp"
 	"runtime"
+	"strconv"
 	"testing"
 	"time"
 
@@ -170,7 +174,7 @@ func TestReceiptLatencyP99UnderBound(t *testing.T) {
 			break
 		}
 	}
-	t.Logf("%s: count=%d p99 upper bound=%.9f ms", metricName, point.Count, p99Upper*1000)
+	t.Logf("%s: count=%d p99 upper bound=%.17g seconds", metricName, point.Count, p99Upper)
 	if maximum, ok := point.Max.Value(); ok {
 		t.Logf("maximum receipt latency=%.9f ms", maximum*1000)
 	}
@@ -218,5 +222,25 @@ func TestReceiptLatencyP99UnderBound(t *testing.T) {
 		}
 		require.True(t, found, "%s must be recorded", diagnostic.name)
 	}
-	require.Less(t, p99Upper, bound.Seconds(), "receipt latency p99 must be strictly below 50 ms")
+}
+
+func BenchmarkReceiptLatencyP99UnderBound(b *testing.B) {
+	const bound = 50 * time.Millisecond
+	report := regexp.MustCompile(`sequencer_receipt_latency_seconds: count=500 p99 upper bound=(\S+) seconds`)
+	var maximumP99 float64
+	for b.Loop() {
+		// Run the real receipt path in a child to isolate its application globals
+		// and reuse the test's execution, replication and histogram assertions.
+		command := exec.CommandContext(b.Context(), os.Args[0],
+			"-test.run=^TestReceiptLatencyP99UnderBound$", "-test.count=1", "-test.v", "-test.timeout=15m")
+		output, err := command.CombinedOutput()
+		require.NoError(b, err, "%s", output)
+		matches := report.FindAllSubmatch(output, -1)
+		require.Len(b, matches, 1, "receipt latency histogram report missing or duplicated:\n%s", output)
+		p99Upper, err := strconv.ParseFloat(string(matches[0][1]), 64)
+		require.NoError(b, err)
+		require.Less(b, p99Upper, bound.Seconds(), "receipt latency p99 must be strictly below 50 ms")
+		maximumP99 = math.Max(maximumP99, p99Upper)
+	}
+	b.ReportMetric(maximumP99*1000, "p99-ms")
 }

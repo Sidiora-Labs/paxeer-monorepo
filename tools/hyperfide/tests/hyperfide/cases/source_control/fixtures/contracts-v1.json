@@ -1675,6 +1675,142 @@
         ],
         "count": 257
       }
+    },
+    {
+      "name": "integer-generation-bounds",
+      "kind": "manifest",
+      "canonical_value": [
+        -9007199254740991,
+        0,
+        9007199254740991,
+        "0",
+        "9007199254740991",
+        "9007199254740992",
+        "18446744073709551615"
+      ],
+      "payload_hex": "5b2d393030373139393235343734303939312c302c393030373139393235343734303939312c2230222c2239303037313939323534373430393931222c2239303037313939323534373430393932222c223138343436373434303733373039353531363135225d",
+      "envelope_hex": "6879706572666964652d736f757263652d636f6e74726f6c007631006d616e696665737400313033005b2d393030373139393235343734303939312c302c393030373139393235343734303939312c2230222c2239303037313939323534373430393931222c2239303037313939323534373430393932222c223138343436373434303733373039353531363135225d",
+      "object_id": "sha256:222e345588d14fdabd1941c666a00812e51a2d1523c5dda7df70763bf773e6aa"
+    },
+    {
+      "name": "escaped-control-characters",
+      "kind": "manifest",
+      "canonical_value": [
+        "\u0000\u0001\u0002\u0003\u0004\u0005\u0006\u0007\b\t\n\u000b\f\r\u000e\u000f\u0010\u0011\u0012\u0013\u0014\u0015\u0016\u0017\u0018\u0019\u001a\u001b\u001c\u001d\u001e\u001f",
+        "\"\\/"
+      ],
+      "payload_hex": "5b225c75303030305c75303030315c75303030325c75303030335c75303030345c75303030355c75303030365c75303030375c625c745c6e5c75303030625c665c725c75303030655c75303030665c75303031305c75303031315c75303031325c75303031335c75303031345c75303031355c75303031365c75303031375c75303031385c75303031395c75303031615c75303031625c75303031635c75303031645c75303031655c7530303166222c225c225c5c2f225d",
+      "envelope_hex": "6879706572666964652d736f757263652d636f6e74726f6c007631006d616e696665737400313834005b225c75303030305c75303030315c75303030325c75303030335c75303030345c75303030355c75303030365c75303030375c625c745c6e5c75303030625c665c725c75303030655c75303030665c75303031305c75303031315c75303031325c75303031335c75303031345c75303031355c75303031365c75303031375c75303031385c75303031395c75303031615c75303031625c75303031635c75303031645c75303031655c7530303166222c225c225c5c2f225d",
+      "object_id": "sha256:c9c62fbc62f1d807e0ab3d5986898d427033059f245c126fb899d2e2abe41e90"
+    },
+    {
+      "name": "non-bmp-strings",
+      "kind": "manifest",
+      "canonical_value": {
+        "𐀀": "😀",
+        "": "𝄞",
+        "text": ["𐀀", "雪😀", "é", "é"]
+      },
+      "payload_hex": "7b2274657874223a5b22f0908080222c22e99baaf09f9880222c22c3a9222c2265cc81225d2c22ee8080223a22f09d849e222c22f0908080223a22f09f9880227d",
+      "envelope_hex": "6879706572666964652d736f757263652d636f6e74726f6c007631006d616e6966657374003635007b2274657874223a5b22f0908080222c22e99baaf09f9880222c22c3a9222c2265cc81225d2c22ee8080223a22f09d849e222c22f0908080223a22f09f9880227d",
+      "object_id": "sha256:3a4e091e5042c2e89e460ec992d6b457d25baa7c20d49007c4241d1350d37274"
+    }
+  ],
+  "generation_vectors": [
+    {
+      "name": "minimum",
+      "value": "0"
+    },
+    {
+      "name": "one",
+      "value": "1"
+    },
+    {
+      "name": "safe-integer-bound",
+      "value": "9007199254740991"
+    },
+    {
+      "name": "above-safe-integer-bound",
+      "value": "9007199254740992"
+    },
+    {
+      "name": "u64-maximum",
+      "value": "18446744073709551615"
+    },
+    {
+      "name": "u64-overflow",
+      "value": "18446744073709551616",
+      "error": "INVALID_GENERATION"
+    },
+    {
+      "name": "too-many-digits",
+      "value": "100000000000000000000",
+      "error": "INVALID_GENERATION"
+    },
+    {
+      "name": "negative",
+      "value": "-1",
+      "error": "INVALID_GENERATION"
+    },
+    {
+      "name": "leading-zero",
+      "value": "01",
+      "error": "INVALID_GENERATION"
+    },
+    {
+      "name": "plus-sign",
+      "value": "+1",
+      "error": "INVALID_GENERATION"
+    },
+    {
+      "name": "decimal",
+      "value": "1.0",
+      "error": "INVALID_GENERATION"
+    },
+    {
+      "name": "exponent",
+      "value": "1e0",
+      "error": "INVALID_GENERATION"
+    },
+    {
+      "name": "whitespace",
+      "value": " 1",
+      "error": "INVALID_GENERATION"
+    },
+    {
+      "name": "empty",
+      "value": "",
+      "error": "INVALID_GENERATION"
+    },
+    {
+      "name": "numeric-zero",
+      "value": 0,
+      "error": "INVALID_GENERATION"
+    },
+    {
+      "name": "numeric-safe-bound",
+      "value": 9007199254740991,
+      "error": "INVALID_GENERATION"
+    },
+    {
+      "name": "null",
+      "value": null,
+      "error": "INVALID_GENERATION"
+    },
+    {
+      "name": "boolean",
+      "value": true,
+      "error": "INVALID_GENERATION"
+    },
+    {
+      "name": "array",
+      "value": [],
+      "error": "INVALID_GENERATION"
+    },
+    {
+      "name": "object",
+      "value": {},
+      "error": "INVALID_GENERATION"
     }
   ]
 }

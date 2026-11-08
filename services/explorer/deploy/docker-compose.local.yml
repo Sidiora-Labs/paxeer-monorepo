@@ -4,8 +4,7 @@ name: paxeer-x-explorer
 #
 # The four explorer services run the images the repository publishes from
 # .github/workflows/explorer-images.yml, so what runs here is what a deployment
-# runs. EXPLORER_IMAGE_TAG picks the tag: `latest` and `main` follow the main
-# branch and `sha-<short commit>` pins one build.
+# runs. EXPLORER_IMAGE_TAG is required; `sha-<short commit>` pins one build.
 #
 #   EXPLORER_IMAGE_TAG=sha-abc1234 \
 #   RPC_HTTP_URL=<your node http endpoint> \
@@ -93,7 +92,7 @@ services:
       start_period: 5s
 
   smart-contract-verifier:
-    image: ghcr.io/sidiora-labs/paxeer-x-explorer-smart-contract-verifier:${EXPLORER_IMAGE_TAG:-latest}
+    image: ghcr.io/sidiora-labs/paxeer-x-explorer-smart-contract-verifier:${EXPLORER_IMAGE_TAG:?Set EXPLORER_IMAGE_TAG to a published explorer tag}
     restart: unless-stopped
     environment:
       SMART_CONTRACT_VERIFIER__SERVER__HTTP__ENABLED: "true"
@@ -117,7 +116,7 @@ services:
       start_period: 30s
 
   sig-provider:
-    image: ghcr.io/sidiora-labs/paxeer-x-explorer-sig-provider:${EXPLORER_IMAGE_TAG:-latest}
+    image: ghcr.io/sidiora-labs/paxeer-x-explorer-sig-provider:${EXPLORER_IMAGE_TAG:?Set EXPLORER_IMAGE_TAG to a published explorer tag}
     restart: unless-stopped
     environment:
       SIG_PROVIDER__SERVER__HTTP__ENABLED: "true"
@@ -133,7 +132,7 @@ services:
       start_period: 30s
 
   backend:
-    image: ghcr.io/sidiora-labs/paxeer-x-explorer-backend:${EXPLORER_IMAGE_TAG:-latest}
+    image: ghcr.io/sidiora-labs/paxeer-x-explorer-backend:${EXPLORER_IMAGE_TAG:?Set EXPLORER_IMAGE_TAG to a published explorer tag}
     restart: unless-stopped
     stop_grace_period: 5m
     # The database has to be up before the release migrates it, and the
@@ -187,7 +186,7 @@ services:
       start_period: 120s
 
   frontend:
-    image: ghcr.io/sidiora-labs/paxeer-x-explorer-frontend:${EXPLORER_IMAGE_TAG:-latest}
+    image: ghcr.io/sidiora-labs/paxeer-x-explorer-frontend:${EXPLORER_IMAGE_TAG:?Set EXPLORER_IMAGE_TAG to a published explorer tag}
     restart: unless-stopped
     depends_on:
       backend:

@@ -72,6 +72,8 @@ export const nativeMetricsSchema = z.object({
       metadataRequests: measurement,
       contentHydrations: measurement,
       hydratedBytes: measurement,
+      rangeReads: measurement,
+      rangeFetchedBytes: measurement,
       requests: measurement,
     })
     .nullable(),

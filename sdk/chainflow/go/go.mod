@@ -1,6 +1,6 @@
 module chainflow-data-gateway
 
-go 1.22
+go 1.25
 
 require (
 	github.com/tidwall/gjson v1.18.0

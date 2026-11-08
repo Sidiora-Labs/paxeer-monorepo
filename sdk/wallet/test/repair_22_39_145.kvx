@@ -1,0 +1,234 @@
+[repair.22.39.145]
+base_revision = "6a1f86168db94add5295f21af0cb40bd420b1f5c"
+verified_revision = "HEAD candidate qualified by hf-done; exact immutable revision, command, exit and private log are recorded in /out/run/gates.jsonl and copied in the final evidence JSON."
+qualification = "Only hf-build and hf-done run the declared build and verification; no baseline or pre-change gate is claimed."
+inventory = 31
+scope = "sdk/wallet"
+baseline_scope_conflict = "Step do_3 names tests/ci/data/wallet_vitest_baseline.json outside the exclusive task scope; removal awaits the requested scope authorization. No baseline or verification filter is changed in this scope."
+
+[case.1]
+file = "sdk/wallet/test/agent.test.ts"
+name = "agent claim flow against the gateway claim route > agent_claim_counter_signature_accepted_by_gateway"
+producer = "services/wallet/gateway/src/routes/agents.ts:111"
+correction = "The real claim mutation is recorded before custody authority publication refuses with 503; assert the refusal body, persisted owner and replay conflict."
+
+[case.2]
+file = "sdk/wallet/test/client.test.ts"
+name = "PaxeerWallet > reads a public route without a bearer header and strips a trailing slash from the base"
+producer = "sdk/wallet/src/index.ts:500; sdk/wallet/src/index.ts:246"
+correction = "Assert funded retirement without transport; use live authenticated wallet reads for HTTP error mapping and trailing-slash normalization. Inline submitted acknowledgements retain strict decoding; signed results authenticate against keys and raw transactions."
+
+[case.3]
+file = "sdk/wallet/test/client.test.ts"
+name = "PaxeerWallet > maps a structured error body to the error code, message, status and detail"
+producer = "sdk/wallet/src/index.ts:500; sdk/wallet/src/index.ts:246"
+correction = "Assert funded retirement without transport; use live authenticated wallet reads for HTTP error mapping and trailing-slash normalization. Inline submitted acknowledgements retain strict decoding; signed results authenticate against keys and raw transactions."
+
+[case.4]
+file = "sdk/wallet/test/client.test.ts"
+name = "PaxeerWallet > maps a non-JSON error body to an HTTP status code"
+producer = "sdk/wallet/src/index.ts:500; sdk/wallet/src/index.ts:246"
+correction = "Assert funded retirement without transport; use live authenticated wallet reads for HTTP error mapping and trailing-slash normalization. Inline submitted acknowledgements retain strict decoding; signed results authenticate against keys and raw transactions."
+
+[case.5]
+file = "sdk/wallet/test/endpoint.test.ts"
+name = "EndpointClient > endpoint_batches_mixed_calls_in_one_request_with_per_call_errors"
+producer = "sdk/wallet/src/endpoint.ts:67; sdk/wallet/src/endpoint.ts:81; sdk/wallet/src/human.ts:396"
+correction = "Node reads share one ordered batch, every response answers its request id, receipt results include authenticated evidence, and journey stages preserve schema transaction metadata with strict validation."
+
+[case.6]
+file = "sdk/wallet/test/endpoint.test.ts"
+name = "KernelClient > endpoint_kernel_reads_run_when_the_kernel_is_available"
+producer = "sdk/wallet/src/endpoint.ts:67; sdk/wallet/src/endpoint.ts:81; sdk/wallet/src/human.ts:396"
+correction = "Node reads share one ordered batch, every response answers its request id, receipt results include authenticated evidence, and journey stages preserve schema transaction metadata with strict validation."
+
+[case.7]
+file = "sdk/wallet/test/endpoint.test.ts"
+name = "HumanClient > endpoint_human_client_plans_submits_and_reads_the_journey_from_goldens"
+producer = "sdk/wallet/src/endpoint.ts:67; sdk/wallet/src/endpoint.ts:81; sdk/wallet/src/human.ts:396"
+correction = "Node reads share one ordered batch, every response answers its request id, receipt results include authenticated evidence, and journey stages preserve schema transaction metadata with strict validation."
+
+[case.8]
+file = "sdk/wallet/test/kernel-reads.test.ts"
+name = "kernel_client_reads_the_pending_nonce_and_sequencer_receipt"
+producer = "sdk/wallet/src/kernel.ts; sdk/wallet/src/receipt.ts:626"
+correction = "Read nonce and one coherent transaction through submitted, receipted and committed rungs; serve governed key pins and raw transaction and assert exact authenticated views and transport order."
+
+[case.9]
+file = "sdk/wallet/test/ladder.test.ts"
+name = "statusLadder > ladder_journey_table_maps_every_journey_state_in_the_schema"
+producer = "services/human/schema/human-api/journeys.kvx:15; sdk/wallet/src/ladder.ts:33; sdk/wallet/src/human.ts:25"
+correction = "List all ten schema states including closed and awaiting-approval, both without completion rungs. Assert the current done journey and one done stage; receipt observations use one transaction and real pinned recordings."
+
+[case.10]
+file = "sdk/wallet/test/ladder.test.ts"
+name = "statusLadder > ladder_maps_the_golden_journey_and_its_stages"
+producer = "services/human/schema/human-api/journeys.kvx:15; sdk/wallet/src/ladder.ts:33; sdk/wallet/src/human.ts:25"
+correction = "List all ten schema states including closed and awaiting-approval, both without completion rungs. Assert the current done journey and one done stage; receipt observations use one transaction and real pinned recordings."
+
+[case.11]
+file = "sdk/wallet/test/modules.test.ts"
+name = "modules > acceptance 5.40.2: caps() reads xweb fee() and layerxledger getPayerGrant through eth_call only"
+producer = "sdk/wallet/src/modules/web-data.ts:56; sdk/wallet/src/modules/web-data.ts:226; sdk/wallet/src/modules/index.ts:82"
+correction = "Assert payer-grant retirement for all original inputs without grant transport, retain independent fee reads, decode every event against its precompile ABI, and verify full signed module receipts and fallback transport."
+
+[case.12]
+file = "sdk/wallet/test/modules.test.ts"
+name = "modules > caps() reads payer grants in bounded batches, never all ids at once"
+producer = "sdk/wallet/src/modules/web-data.ts:56; sdk/wallet/src/modules/web-data.ts:226; sdk/wallet/src/modules/index.ts:82"
+correction = "Assert payer-grant retirement for all original inputs without grant transport, retain independent fee reads, decode every event against its precompile ABI, and verify full signed module receipts and fallback transport."
+
+[case.13]
+file = "sdk/wallet/test/modules.test.ts"
+name = "modules > modules_events decode logs encoded from each precompile ABI"
+producer = "sdk/wallet/src/modules/web-data.ts:56; sdk/wallet/src/modules/web-data.ts:226; sdk/wallet/src/modules/index.ts:82"
+correction = "Assert payer-grant retirement for all original inputs without grant transport, retain independent fee reads, decode every event against its precompile ABI, and verify full signed module receipts and fallback transport."
+
+[case.14]
+file = "sdk/wallet/test/modules.test.ts"
+name = "send_module_transaction_receipted_answers_the_receipt_with_logs"
+producer = "sdk/wallet/src/modules/web-data.ts:56; sdk/wallet/src/modules/web-data.ts:226; sdk/wallet/src/modules/index.ts:82"
+correction = "Assert payer-grant retirement for all original inputs without grant transport, retain independent fee reads, decode every event against its precompile ABI, and verify full signed module receipts and fallback transport."
+
+[case.15]
+file = "sdk/wallet/test/modules.test.ts"
+name = "send_module_transaction_receipted_falls_back_for_an_injected_provider"
+producer = "sdk/wallet/src/modules/web-data.ts:56; sdk/wallet/src/modules/web-data.ts:226; sdk/wallet/src/modules/index.ts:82"
+correction = "Assert payer-grant retirement for all original inputs without grant transport, retain independent fee reads, decode every event against its precompile ABI, and verify full signed module receipts and fallback transport."
+
+[case.16]
+file = "sdk/wallet/test/provider.test.ts"
+name = "PaxeerProvider > provider_drops_accounts_when_the_gateway_rejects_the_session"
+producer = "sdk/wallet/src/provider.ts:239; sdk/wallet/src/provider.ts:349; sdk/wallet/src/provider.ts:551; sdk/wallet/src/provider.ts:302"
+correction = "Serve eth_accounts for injected parity; assert from and chainId in send payloads. Reject two-parameter eth_sign as invalid params and independently reject malformed digest and changed constructions. Replay a gateway refusal with a stable session so gateway rejection is exercised."
+
+[case.17]
+file = "sdk/wallet/test/provider.test.ts"
+name = "PaxeerProvider > provider_eth_sendTransaction_forwards_decimal_fields_and_returns_the_hash"
+producer = "sdk/wallet/src/provider.ts:239; sdk/wallet/src/provider.ts:349; sdk/wallet/src/provider.ts:551; sdk/wallet/src/provider.ts:302"
+correction = "Serve eth_accounts for injected parity; assert from and chainId in send payloads. Reject two-parameter eth_sign as invalid params and independently reject malformed digest and changed constructions. Replay a gateway refusal with a stable session so gateway rejection is exercised."
+
+[case.18]
+file = "sdk/wallet/test/provider.test.ts"
+name = "PaxeerProvider > provider_eth_sign_refuses_an_arbitrary_digest"
+producer = "sdk/wallet/src/provider.ts:239; sdk/wallet/src/provider.ts:349; sdk/wallet/src/provider.ts:551; sdk/wallet/src/provider.ts:302"
+correction = "Serve eth_accounts for injected parity; assert from and chainId in send payloads. Reject two-parameter eth_sign as invalid params and independently reject malformed digest and changed constructions. Replay a gateway refusal with a stable session so gateway rejection is exercised."
+
+[case.19]
+file = "sdk/wallet/test/provider.test.ts"
+name = "gas station through PaxeerProvider > provider_gas_station_sign_parameters_with_an_altered_digest_or_field_are_refused"
+producer = "sdk/wallet/src/provider.ts:239; sdk/wallet/src/provider.ts:349; sdk/wallet/src/provider.ts:551; sdk/wallet/src/provider.ts:302"
+correction = "Serve eth_accounts for injected parity; assert from and chainId in send payloads. Reject two-parameter eth_sign as invalid params and independently reject malformed digest and changed constructions. Replay a gateway refusal with a stable session so gateway rejection is exercised."
+
+[case.20]
+file = "sdk/wallet/test/provider.test.ts"
+name = "WalletInterface > provider_parity_between_the_embedded_and_an_injected_provider"
+producer = "sdk/wallet/src/provider.ts:239; sdk/wallet/src/provider.ts:349; sdk/wallet/src/provider.ts:551; sdk/wallet/src/provider.ts:302"
+correction = "Serve eth_accounts for injected parity; assert from and chainId in send payloads. Reject two-parameter eth_sign as invalid params and independently reject malformed digest and changed constructions. Replay a gateway refusal with a stable session so gateway rejection is exercised."
+
+[case.21]
+file = "sdk/wallet/test/receipt.test.ts"
+name = "wait_for_sequencer_receipt_returns_once_the_requested_rung_is_reached"
+producer = "sdk/wallet/src/receipt.ts:47; sdk/wallet/src/receipt.ts:327; sdk/wallet/src/receipt.ts:417; sdk/wallet/src/receipt.ts:672"
+correction = "Use unchanged producer recordings and one transaction across polling rungs, serve governed keys and raw transaction without advancing receipt polls, assert authentication metadata and exact exchanges, and preserve all strict malformed-field checks at the producer validation boundary."
+
+[case.22]
+file = "sdk/wallet/test/receipt.test.ts"
+name = "wait_for_sequencer_receipt_times_out_with_the_last_answer"
+producer = "sdk/wallet/src/receipt.ts:47; sdk/wallet/src/receipt.ts:327; sdk/wallet/src/receipt.ts:417; sdk/wallet/src/receipt.ts:672"
+correction = "Use unchanged producer recordings and one transaction across polling rungs, serve governed keys and raw transaction without advancing receipt polls, assert authentication metadata and exact exchanges, and preserve all strict malformed-field checks at the producer validation boundary."
+
+[case.23]
+file = "sdk/wallet/test/receipt.test.ts"
+name = "read_sequencer_receipt_calls_pax_sequencer_receipt_and_decodes_each_rung"
+producer = "sdk/wallet/src/receipt.ts:47; sdk/wallet/src/receipt.ts:327; sdk/wallet/src/receipt.ts:417; sdk/wallet/src/receipt.ts:672"
+correction = "Use unchanged producer recordings and one transaction across polling rungs, serve governed keys and raw transaction without advancing receipt polls, assert authentication metadata and exact exchanges, and preserve all strict malformed-field checks at the producer validation boundary."
+
+[case.24]
+file = "sdk/wallet/test/receipt.test.ts"
+name = "decode_sequencer_receipt_refuses_an_unknown_rung_or_a_foreign_hash"
+producer = "sdk/wallet/src/receipt.ts:47; sdk/wallet/src/receipt.ts:327; sdk/wallet/src/receipt.ts:417; sdk/wallet/src/receipt.ts:672"
+correction = "Use unchanged producer recordings and one transaction across polling rungs, serve governed keys and raw transaction without advancing receipt polls, assert authentication metadata and exact exchanges, and preserve all strict malformed-field checks at the producer validation boundary."
+
+[case.25]
+file = "sdk/wallet/test/receipt.test.ts"
+name = "decode_sequencer_receipt_preserves_strict_validation_before_commit"
+producer = "sdk/wallet/src/receipt.ts:47; sdk/wallet/src/receipt.ts:327; sdk/wallet/src/receipt.ts:417; sdk/wallet/src/receipt.ts:672"
+correction = "Use unchanged producer recordings and one transaction across polling rungs, serve governed keys and raw transaction without advancing receipt polls, assert authentication metadata and exact exchanges, and preserve all strict malformed-field checks at the producer validation boundary."
+
+[case.26]
+file = "sdk/wallet/test/receipt.test.ts"
+name = "wait_for_sequencer_receipt_polling_continues_through_the_unchanged_receipted_answer"
+producer = "sdk/wallet/src/receipt.ts:47; sdk/wallet/src/receipt.ts:327; sdk/wallet/src/receipt.ts:417; sdk/wallet/src/receipt.ts:672"
+correction = "Use unchanged producer recordings and one transaction across polling rungs, serve governed keys and raw transaction without advancing receipt polls, assert authentication metadata and exact exchanges, and preserve all strict malformed-field checks at the producer validation boundary."
+
+[case.27]
+file = "sdk/wallet/test/repair-22-31-238.test.ts"
+name = "receipt_fields_lost_preserves_complete_node_views"
+producer = "sdk/wallet/src/receipt.ts:417; sdk/wallet/src/endpoint.ts:81; rpc/server.go"
+correction = "Authenticate complete node views with pins and raw transactions, retain every tamper check and lossless uint64 boundary, use the node root for moved px reads, and assert hosted configuration only for hosted writes."
+
+[case.28]
+file = "sdk/wallet/test/repair-22-31-238.test.ts"
+name = "receipt_authentication_rejects_tampered_node_outputs"
+producer = "sdk/wallet/src/receipt.ts:417; sdk/wallet/src/endpoint.ts:81; rpc/server.go"
+correction = "Authenticate complete node views with pins and raw transactions, retain every tamper check and lossless uint64 boundary, use the node root for moved px reads, and assert hosted configuration only for hosted writes."
+
+[case.29]
+file = "sdk/wallet/test/repair-22-31-238.test.ts"
+name = "receipt_authentication_protects_module_provider_and_ladder_consumers"
+producer = "sdk/wallet/src/receipt.ts:417; sdk/wallet/src/endpoint.ts:81; rpc/server.go"
+correction = "Authenticate complete node views with pins and raw transactions, retain every tamper check and lossless uint64 boundary, use the node root for moved px reads, and assert hosted configuration only for hosted writes."
+
+[case.30]
+file = "sdk/wallet/test/repair-22-31-238.test.ts"
+name = "default_node_hosted_methods_require_hosted_configuration_and_use_producer_namespaces"
+producer = "sdk/wallet/src/receipt.ts:417; sdk/wallet/src/endpoint.ts:81; rpc/server.go"
+correction = "Authenticate complete node views with pins and raw transactions, retain every tamper check and lossless uint64 boundary, use the node root for moved px reads, and assert hosted configuration only for hosted writes."
+
+[case.31]
+file = "sdk/wallet/test/repair-22-33-135.test.ts"
+name = "react_auth_refresh_tracks_stable_client_and_discards_replaced_reads"
+producer = "sdk/wallet/src/react.ts; sdk/wallet/test/repair-22-33-135.test.ts:335"
+correction = "Resolve React DOM from the SDK package so hooks and renderer share React. Keep all refresh, replacement, stale-response and sign-out assertions with a live DOM renderer."
+
+[producer.journey]
+files = ["sdk/wallet/src/human.ts", "sdk/wallet/src/types.ts", "sdk/wallet/src/ladder.ts"]
+repair = "The decoder omitted schema states and stage tx_hash/nonce, so a valid producer golden could not survive decoding. Add the declared states and strictly validate optional metadata; preserve exact golden equality and negative bounds."
+
+[producer.xweb-event]
+file = "sdk/wallet/src/modules/web-data.ts:56"
+repair = "XWebProgramRequested now declares kind, payload and sequence exactly as precompiles/xweb/abi.json; the ABI-driven event test checks every field."
+
+[producer.submitted-acknowledgement]
+file = "sdk/wallet/src/index.ts:246"
+repair = "An inline submitted acknowledgement is not a signed receipt. Check its transaction identity and strict submitted fields directly, retaining authenticated keys/raw transaction checks for signed rungs. Existing source and client tests exercise this branch and foreign receipt rejection."
+
+[producer.module-fallback]
+file = "sdk/wallet/src/modules/index.ts:82"
+repair = "The fallback poll already returns a receipt authenticated by the production receipt reader. Require that authentication and match the transaction before returning, avoiding a redundant second keys/raw transaction read; direct provider answers still authenticate normally."
+
+[related.consumers]
+files = ["sdk/wallet/test/gas-station.test.ts", "sdk/wallet/test/proof_wallet_sdk.test.ts", "sdk/wallet/test/repair-22-33-143.test.ts", "sdk/wallet/test/support/receipt-recordings.ts", "sdk/wallet/test/fixtures/sequencer-receipt.json"]
+repair = "Update dependent consumers of the shared recordings for node routing and authenticated evidence. Copy committed bytes and block metadata unchanged from daemon/committed-fixture/vectors/vector-v4-committed.json; persist bigint metadata with an explicit JSON replacer where round-trip recovery is asserted. Expected authentication metadata comes from the conformance recording, never generated signatures or substitute state owners."
+
+[gotcha.receipt-identity]
+observed = "The receipted and committed entries in the shared fixture are different real transactions; projecting a committed rung onto the receipted hash cannot authenticate. Polling cases use the V4 receipted and committed views of one transaction."
+
+[gotcha.batch-id]
+observed = "A recorded JSON-RPC response id must be replaced after spreading the recorded response, otherwise batch replies cannot answer the active request."
+
+[gotcha.react-renderer]
+observed = "Standalone package installation separates the demo React installation from the wallet hooks; the renderer must resolve from the wallet package's declared dev dependencies."
+
+[qualification.repair-one]
+revision = "377612167d38c98e45c3ad2f4a49ae4325f4dcb9"
+command = "cg spec done 22.39.145 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Three task-related failures: decoded plan omitted current EVM fields, gas module foreign-account refusal is session_changed, and px methods are implemented in px_account.go rather than spelled out in server.go."
+repair = "Preserve and strictly validate every schema EVM leg field with malformed-field coverage and the current single layerx fee. Assert the module refusal plus retain direct provider account-mismatch coverage. Check the actual namespace registration and method declarations."
+producer = "services/human/schema/human-api/intent.kvx:38; sdk/wallet/src/modules/gas-station.ts:403; rpc/server.go:329; rpc/px_account.go:213; rpc/px_account.go:279"
+
+[gotcha.repair-edit]
+observed = "The account-mismatch assertion occurs twice in provider.test.ts; the edit guard rejected a whole-file replacement, so the repair targets only the gas-station case."

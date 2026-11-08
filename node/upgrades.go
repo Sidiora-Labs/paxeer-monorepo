@@ -484,8 +484,10 @@ func (app *App) continueMergeUpgradePlan(ctx sdk.Context, plan upgradetypes.Plan
 	if found && (scheduled.Name != plan.Name || scheduled.Height != plan.Height || scheduled.Info != plan.Info) {
 		return fromVM, fmt.Errorf("upgrade %s: executing plan differs from scheduled plan", MergeUpgrade)
 	}
-	if err := app.UpgradeKeeper.ScheduleUpgrade(cached, plan); err != nil {
-		return fromVM, fmt.Errorf("upgrade %s: executing plan: %w", MergeUpgrade, err)
+	if !found {
+		if err := app.UpgradeKeeper.ScheduleUpgrade(cached, plan); err != nil {
+			return fromVM, fmt.Errorf("upgrade %s: executing plan: %w", MergeUpgrade, err)
+		}
 	}
 	versions, err := app.migrateMergeState(cached, plan, fromVM)
 	if err != nil {
@@ -761,10 +763,14 @@ func (app *App) resolveNamedUpgradePlan(ctx sdk.Context, name string, height int
 }
 
 // activationModulesPresent reports whether the module version map of ctx already
-// carries every module the activation plan initialises.
+// carries every active module the activation plan initialises. Anchor's store
+// is retained for retirement reads, but its module no longer runs migrations.
 func (app *App) activationModulesPresent(ctx sdk.Context) bool {
 	versions := app.UpgradeKeeper.GetModuleVersionMap(ctx)
 	for _, name := range activationModules() {
+		if name == layerxanchortypes.ModuleName {
+			continue
+		}
 		if _, known := versions[name]; !known {
 			return false
 		}

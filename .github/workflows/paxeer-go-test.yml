@@ -6,6 +6,7 @@ on:
       - 'go.mod'
       - 'go.sum'
       - 'chain.mk'
+      - 'tests/ci/test_go_build_tags_wired.py'
       - 'docker/layerx/Dockerfile'
       - 'docker/layerx/Dockerfile.dockerignore'
       - 'foundry.paxeer.toml'
@@ -73,6 +74,7 @@ on:
       - 'go.mod'
       - 'go.sum'
       - 'chain.mk'
+      - 'tests/ci/test_go_build_tags_wired.py'
       - 'docker/layerx/Dockerfile'
       - 'docker/layerx/Dockerfile.dockerignore'
       - 'foundry.paxeer.toml'
@@ -151,17 +153,86 @@ permissions:
   contents: read
 
 jobs:
+  tagged-tests:
+    name: Go build tags (${{ matrix.tags }})
+    runs-on: ${{ (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && 'ubuntu-24.04' || vars.CI_LINUX_RUNNER || 'ubuntu-24.04' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - tags: mock_block_validation
+            packages: ./consensus/types/...
+          - tags: mock_chain_validation
+            packages: ./consensus/types/...
+          - tags: libsecp256k1_sdk
+            packages: ./sdk/crypto/keys/secp256k1/...
+          - tags: release
+            packages: ./consensus/rpc/jsonrpc/client/...
+          - tags: gofuzz
+            packages: ./consensus/test/fuzz/...
+    env:
+      CGO_ENABLED: '1'
+      GOFLAGS: -race -tags=ledger,test_ledger_mock,${{ matrix.tags }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: false
+      - name: Go test tagged packages and fuzz seed corpora
+        run: go test -count=1 -timeout=${{ env.GO_TEST_TIMEOUT }} ${{ matrix.packages }}
+
+  autobahn-integration:
+    name: Autobahn integration
+    runs-on: ${{ (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && 'ubuntu-24.04' || vars.CI_LINUX_RUNNER || 'ubuntu-24.04' }}
+    timeout-minutes: 60
+    env:
+      DOCKER_PLATFORM: linux/amd64
+      GIGA_EXECUTOR: 'true'
+      GIGA_STORAGE: 'true'
+      GIGA_OCC: 'true'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: false
+      - name: Autobahn integration tests
+        run: make -f chain.mk autobahn-integration-test AUTOBAHN_TEST_TIMEOUT=${{ env.GO_TEST_TIMEOUT }}
+
+  hpx-registry:
+    name: HPX registry
+    runs-on: ${{ (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && 'ubuntu-24.04' || vars.CI_LINUX_RUNNER || 'ubuntu-24.04' }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: tools/hpx/registry/go.mod
+          cache: false
+      - uses: actions/setup-python@7f4fc3e22c37d6ff65e88745f38bd3157c663f7c # v4
+        with:
+          python-version: '3.12'
+      - name: Install workflow test dependencies
+        run: python3 -m pip install pytest==8.3.5 PyYAML==6.0.2
+      - name: Check Go test wiring
+        run: python3 -m pytest -q tests/ci/test_go_build_tags_wired.py
+      - name: Go test registry module
+        working-directory: tools/hpx/registry
+        env:
+          GOWORK: 'off'
+        run: go test -count=1 -timeout=${{ env.GO_TEST_TIMEOUT }} ./...
+
   test:
     name: Race Detection
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     env:
       GOFLAGS: -race -tags=ledger,test_ledger_mock
     steps:
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 1
 
-      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version: ${{ env.GO_VERSION }}
           cache: false
@@ -196,7 +267,7 @@ jobs:
 
   coverage:
     name: Coverage
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: read
       id-token: write
@@ -206,7 +277,7 @@ jobs:
     env:
       GOFLAGS: -tags=ledger,test_ledger_mock
     steps:
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           # Depth 0 for PRs so merge-base diff against the base branch works.
           fetch-depth: ${{ github.event_name == 'pull_request' && '0' || '1' }}
@@ -215,7 +286,7 @@ jobs:
         if: github.event_name == 'merge_group'
         run: echo 'Coverage skipped in merge queue'
 
-      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         if: github.event_name != 'merge_group'
         with:
           go-version: ${{ env.GO_VERSION }}

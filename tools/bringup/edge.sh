@@ -75,7 +75,9 @@ Environment:
   EDGE_NGINX_DIR      nginx configuration root, default /etc/nginx
   EDGE_WEBROOT        ACME webroot, default /var/www/certbot
   EDGE_CERT_DIR       certbot live directory, default /etc/letsencrypt/live
-  EDGE_RESOLVER       resolver nginx uses for the upstreams, default 127.0.0.53
+  EDGE_RESOLVER       resolver nginx uses for the upstreams; set EDGE_RESOLVER to the
+                      operator DNS server (example 192.0.2.53); defaults to the
+                      local system resolver
   EDGE_CRON_DIR       where set installs the rpc-health entry, default /etc/cron.d
   EDGE_RPC_MAX_LAG    blocks a pool member may lag the highest, default 20
 

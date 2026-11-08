@@ -1,4 +1,6 @@
 {
+  "author": "Sidiora Labs",
+  "license": "Apache-2.0",
   "name": "@sidiora/layerx-example-marketplace",
   "version": "0.1.0",
   "private": true,
@@ -11,7 +13,8 @@
     "list:beta": "node index.mjs --environment beta --action list",
     "buy:emulator": "node index.mjs --environment emulator --action buy",
     "buy:beta": "node index.mjs --environment beta --action buy",
-    "test": "node --check index.mjs && node test/deploy-payload.test.mjs && node test/receipt-outcome.test.mjs"
+    "test": "node --check index.mjs && node test/deploy-payload.test.mjs && node test/receipt-outcome.test.mjs",
+    "pretest": "npm --prefix ../../../.. run build:dependencies -- @sidiora/layerx-example-marketplace"
   },
   "dependencies": {
     "@sidiora/layerx-sdk": "0.1.0"

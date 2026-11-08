@@ -11,7 +11,7 @@ use crate::approval::native_effect::NativeEffectApprovalCarrier;
 use crate::approval::native_program::NativeProgramApprovalCarrier;
 use crate::approval::CallApprovalState;
 use crate::human::HumanPeer;
-use crate::prepare::Prepared;
+use crate::prepare::EvmPrepared;
 use crate::sign::VerifiedSubmission;
 use crate::store::Store;
 
@@ -38,9 +38,16 @@ struct RetainedCarrier {
     call_bound: RetainedBinding,
 }
 
+pub(super) fn retained_actor_id(peer: &HumanPeer) -> Result<[u8; 32], Error> {
+    let subject = peer.subject.as_ref().ok_or(Error::Preparation)?;
+    let actor =
+        layerx_types::ids::Did::new(subject.owner.as_bytes()).map_err(|_| Error::Preparation)?;
+    layerx_wire::hash::did_id_for_protocol(&actor, 3).map_err(|_| Error::Preparation)
+}
+
 fn execution(
     endpoint: &SequencerEndpoint,
-    prepared: &Prepared,
+    prepared: &EvmPrepared,
     submission: &VerifiedSubmission,
     keys: &[SequencerAuthorization],
 ) -> Result<
@@ -88,7 +95,7 @@ fn execution(
         || executed.height != block_number
         || protocol.batch_id() != height_word
         || header.hash != block_hash
-        || block_number <= prepared.observed_head_sequence
+        || block_number <= prepared.observed_head_height
         || block_hash == [0; 32]
         || endpoint.chain_id().map_err(|_| Error::Receipt)? != call.chain_id
         || endpoint.block_number().map_err(|_| Error::Receipt)? < block_number
@@ -129,7 +136,7 @@ fn execution(
 pub fn committed_native_execution_state_with_account_proofs(
     node: &mut SequencerEndpoint,
     endpoint: &SequencerEndpoint,
-    prepared: &Prepared,
+    prepared: &EvmPrepared,
     submission: &VerifiedSubmission,
     caps: &crate::read::CommittedCaps,
     program: [u8; 32],
@@ -169,7 +176,7 @@ pub fn committed_native_execution_state_with_account_proofs(
 /// No unsigned, unqueued, mismatched or unreserved debit can settle.
 pub fn read_retained_native_call_debit_settlement(
     endpoint: &SequencerEndpoint,
-    prepared: &Prepared,
+    prepared: &EvmPrepared,
     submission: &VerifiedSubmission,
     store: &Store,
     peer: &HumanPeer,
@@ -177,7 +184,7 @@ pub fn read_retained_native_call_debit_settlement(
 ) -> Result<(ProgramBudgetReservation, VerifiedProgramDebitSettlement), Error> {
     super::native_binding::verify_retained_submission(prepared, submission)
         .map_err(|_| Error::Preparation)?;
-    let id: [u8; 32] = Sha256::digest(&prepared.canonical_bytes).into();
+    let id: [u8; 32] = Sha256::digest(&prepared.call.encode_unsigned()).into();
     let program =
         prepared.disclosure.activity_type.module() == layerx_types::payload::ModuleId::Programs;
     let (native, reservation, state, encoded) = if program {
@@ -204,11 +211,10 @@ pub fn read_retained_native_call_debit_settlement(
     if state != CallApprovalState::Queued
         || !binding.call_bound.queued
         || binding.call_bound.signed.as_deref() != Some(submission.exact_bytes())
-        || native.call.encode_unsigned() != prepared.canonical_bytes
-        || native.observed_head_height != prepared.observed_head_sequence
-        || peer.subject.as_ref().is_none_or(|subject| {
-            subject.owner.as_bytes() != prepared.envelope.actor_did().as_bytes()
-        })
+        || native.call.encode_unsigned() != prepared.call.encode_unsigned()
+        || native.observed_head_height != prepared.observed_head_height
+        || native != *prepared
+        || peer.subject.is_none()
     {
         return Err(Error::Preparation);
     }
@@ -220,13 +226,12 @@ pub fn read_retained_native_call_debit_settlement(
         .collect::<Vec<_>>();
     let (receipt, executed) = execution(endpoint, prepared, submission, &keys)?;
     let protocol = receipt.protocol().ok_or(Error::Receipt)?;
-    let actor = layerx_wire::hash::did_id_for_protocol(prepared.envelope.actor_did(), 3)
-        .map_err(|_| Error::Preparation)?;
+    let actor = retained_actor_id(peer)?;
     if reservation.id != id
         || reservation.allocation_actor() != Some(actor)
         || reservation.allocation_preparation_digest() != Some(id)
-        || reservation.allocation_sequence() != Some(prepared.observed_head_sequence)
-        || prepared.observed_head_sequence.checked_add(1) != Some(executed.height)
+        || reservation.allocation_sequence() != Some(prepared.observed_head_height)
+        || prepared.observed_head_height.checked_add(1) != Some(executed.height)
     {
         return Err(Error::Allocation);
     }
@@ -240,6 +245,7 @@ pub fn read_retained_native_call_debit_settlement(
             )?;
             super::program_lifecycle_settlement::native_lifecycle_debits(
                 prepared,
+                actor,
                 state,
                 protocol.global_sequence(),
                 &executed.logs,
@@ -297,7 +303,7 @@ pub fn read_retained_native_call_debit_settlement(
     };
     let fee = super::fee_policy::native_fee_policy_for(
         endpoint,
-        prepared.observed_head_sequence,
+        prepared.observed_head_height,
         native.from,
     )
     .map_err(|_| Error::FeeProvenance)?;

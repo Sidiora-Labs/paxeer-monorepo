@@ -243,7 +243,11 @@ pub fn invoke_task(
     tool: ToolDefinition,
     arguments: &Value,
 ) -> Result<Value, String> {
-    invoke(runtime, tool, arguments)
+    if tool.name == "activity.submit" {
+        layerx_platform_cli::rpc::submission_outcome(submit_classified(runtime, arguments))
+    } else {
+        invoke(runtime, tool, arguments)
+    }
 }
 
 fn claim_faucet(runtime: &Runtime, arguments: &Value) -> Result<Value, String> {
@@ -294,7 +298,7 @@ pub fn claim_faucet_at(
 pub use layerx_platform_cli::rpc::SubmissionFailure as SubmitFailure;
 
 fn submit(runtime: &Runtime, arguments: &Value) -> Result<Value, String> {
-    layerx_platform_cli::rpc::submission_outcome(submit_classified(runtime, arguments))
+    submit_classified(runtime, arguments).map_err(|failure| failure.to_string())
 }
 
 fn submit_classified(runtime: &Runtime, arguments: &Value) -> Result<Value, SubmitFailure> {

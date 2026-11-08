@@ -7,11 +7,11 @@ their acknowledgements and journals do not establish chain finality. See
 and committed inclusion, and [Payments](../overview/payments.md) for the
 merchant settlement boundary.
 
-`layerx-kms` serves `kms.layerx-internal.svc` and supports Ed25519 and
+`layerx-kms` serves the operator-supplied `<kms-origin>` and supports Ed25519 and
 secp256k1 signing. It generates keys from operating-system entropy, seals
 their private material at rest and returns only opaque handles, public keys
 and signatures. `layerx-event-source` serves the `journeys`, `payments`,
-`approvals`, and `programs.layerx-internal.svc` adapters. Both binaries belong
+`approvals`, and `programs` adapters. Both binaries belong
 to `services/platform/hosted/internal` (`layerx-platform-internal`).
 
 ## Namespace and apply
@@ -286,9 +286,9 @@ in mounted files.
 
 Manifest listeners use `0.0.0.0:9443` and state `/var/lib/layerx/state`.
 Source enrollment is under `/var/lib/layerx/enrollment`, with bootstrap
-material copied to `/var/lib/layerx/bootstrap`. Human sources use
-`https://layerx-human.layerx-testnet.svc:9443`; payment and program sources
-use `https://layerx-gateway.layerx-testnet.svc` for principal binding.
+material copied to `/var/lib/layerx/bootstrap`. The operator supplies
+`<human-service-origin>` for Human sources and `<gateway-origin>` for payment
+and program sources' principal binding. Both must be bare HTTPS origins.
 
 Producer clients have separate `LAYERX_EVENTS_{JOURNEY|APPROVAL|PAYMENT|PROGRAM}`
 upstream configuration and `LAYERX_EVENTS_WEBHOOKS` notification configuration.
@@ -302,6 +302,7 @@ Redis in the internal namespace uses TLS `6379`, `tls-auth-clients no`,
 `appendonly yes`, and `appendfsync always`. Applications still need their
 configured Redis authentication. Redis persistence and source PVCs cover
 different state and must both survive restart.
+The operator supplies `<redis-url>`, using the `rediss` scheme for TLS.
 
 ## Refusals
 

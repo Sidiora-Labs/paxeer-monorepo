@@ -5,13 +5,17 @@
   "type": "module",
   "private": true,
   "license": "Apache-2.0",
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "prebuild": "npm --prefix ../../../.. run build:dependencies -- @sidiora/layerx-middleware-conformance",
     "build": "tsc -p tsconfig.json",
     "conformance": "node run.mjs",
     "conformance:connected": "node connected.mjs",
-    "test": "npm run build && node --test test/*.test.mjs",
-    "test:payments": "node --test pay6/*.test.mjs"
+    "test": "node --test test/*.test.mjs pay6/*.test.mjs ../examples/test/*.test.mjs",
+    "test:payments": "node --test pay6/*.test.mjs",
+    "pretest": "npm run build"
   },
   "dependencies": {
     "@sidiora/layerx-agent-integrations": "file:../../../../sdk/integrations/agents",
@@ -23,8 +27,5 @@
   },
   "devDependencies": {
     "typescript": "5.9.2"
-  },
-  "engines": {
-    "node": ">=22"
   }
 }

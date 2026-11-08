@@ -1,0 +1,21 @@
+[meta]
+task = "22.39.132"
+base_revision = "01f2f5ac278b33a21e5104a1e1895f231c747548"
+qualification = "hf-build then hf-done; /out/run/gates.jsonl records both gates by candidate revision, exact command, exit code and private evidence log, with build evidence in /out/logs/build-1.log and verification evidence in /out/logs/verify-1.log."
+
+[repair.receipt-key]
+producer = "tools/qualification/paxeer-x/mcp_binding_listener.py:web_receipt_public_key"
+change = "Share the existing closed px_getReceiptKeys JSON-RPC transport with the public key reader, select the configured entry from the hosted keys result, and normalize its nonzero 32-byte 0x-prefixed publicKey to lowercase bare hex; preserve the full-index reader's metadata validation."
+tests = "tests/qualification/test_mcp_binding_receipt_keys.py retains every original assertion and covers invalid decimal selectors, oversized indexes, zero public keys and malformed entries."
+baseline = "Remove only the receipt-key module's baseline entry so the Python suite runner executes it."
+
+[repair.stale-exclusion]
+source_revision = "995a25e5af661ae8eb85ccdd9e43bccdc81849a4"
+change = "Remove the scripts/ci exclusion row because the source revision deleted scripts/ci/test_repair_22_31_317.py, the last tracked Python test below that root (gotcha 3598)."
+
+[repair.signer-deadline-baseline]
+file = "services/platform/hosted/node/signer/test_repair_22_33_1454.py"
+symbol = "test_signer_deadline_spans_provider_operations"
+retiring_task = "22.39.133"
+baseline = "services/platform/hosted/node/signer/test_repair_22_33_1454.py | 22.39.133 | The deadline test asserts wall-clock margins the full suite run misses, so no sign call is recorded before the busy refusal."
+change = "Record the exact module in tests/ci/data/python_suite_baseline.txt under gotcha 3610 and decisions 2820 and 2901; task 22.39.133 owns deterministic deadline qualification and retirement of this entry."

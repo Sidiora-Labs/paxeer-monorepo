@@ -2,7 +2,7 @@
 
 This document is the contract for HYPERFIDE's provider plugin surface — what "a
 provider is a plugin" means. Every change that touches this surface keeps it
-true, and a test (`packages/plugin-sdk/src/__tests__/provider-plugin-doc.test.ts`)
+true, and a test (`sdk/plugins/src/__tests__/provider-plugin-doc.test.ts`)
 checks its code blocks against the real types. Members that still carry the
 `experimental_` prefix are named with it here; each has an entry in
 [api_to_audit.md](api_to_audit.md) saying why. How to build, test, and ship a

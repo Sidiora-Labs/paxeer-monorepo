@@ -14,8 +14,8 @@ def test_sources_bind_the_frame_codec():
 
 def test_build_lists_both_targets():
     target_dir = Path("/tmp/native-program-human-peer-target")
-    assert driver.build_command(target_dir) == [
-        "/root/.cargo/bin/cargo",
+    assert driver.build_contract.test_build_command(driver.TARGETS, target_dir) == [
+        "cargo",
         "test",
         "--locked",
         "--manifest-path",
@@ -24,11 +24,12 @@ def test_build_lists_both_targets():
         "layerx-agentd",
         "--target-dir",
         str(target_dir),
+        "--no-run",
+        "--message-format=json",
         "--test",
         "native_program_human_peer",
         "--test",
         "human_frame",
-        "--no-run",
     ]
     assert driver.TESTS == (
         (

@@ -1,0 +1,42 @@
+[repair.22.39.151]
+decision = "2883"
+gotcha = "3578"
+acceptance = "22998.1"
+base_revision = "3f300e10cccba1383d5e78873c9bf376884694a5"
+repair = "Run the primary platform build, lint and test job without registry prerequisites; guard only the published quickstart benchmark and its line-count upload."
+verified_revision = "The private /out/run/gates.jsonl hf-done record names the exact candidate revision, command, exit code and log path; the final handoff copies that record."
+
+[change.primary_job]
+path = ".github/workflows/platform.yml:23"
+removed = "The job-level condition at base lines 24-25 requiring vars.LAYERX_TEN_LINE_REGISTRY_SNAPSHOT != '' || vars.LAYERX_TEN_LINE_REGISTRY_URL != '', and the registry environment at base lines 28-30."
+producer = ".github/workflows/platform.yml:8-10 triggers the primary job on push and pull_request; tools/paxeer-x/gates/104.16.5.sh:239-242 requires the registry only for benchmark verification."
+preserved = ".github/workflows/platform.yml:24 retains the exact routed runs-on expression; the middleware build at lines 101-102 has no condition."
+
+[change.benchmark]
+path = ".github/workflows/platform.yml:88"
+guard = ".github/workflows/platform.yml:89-90 tests whether either registry variable is present."
+environment = ".github/workflows/platform.yml:91-93 declares both registry variables on the benchmark step."
+producer = "tools/paxeer-x/gates/104.16.5.sh:239-242 reads the snapshot and URL and requires at least one before verifying the actual published packages; .github/workflows/platform.yml:100 invokes platform-build-ten-line."
+
+[change.line_counts_upload]
+path = ".github/workflows/platform.yml:103"
+guard = ".github/workflows/platform.yml:104-105 combines always() with the identical benchmark presence test."
+producer = ".github/workflows/platform.yml:96-100 creates the benchmark artifact and evidence directory before running platform-build-ten-line; the upload consumes that evidence at line 109."
+
+[change.guard_test]
+path = "tests/ci/test_workflow_live_inputs_guarded.py:52"
+repair = "job_inputs retains workflow and job inputs, then excludes a step input only when that step has a non-bypassable presence guard naming it; references in other steps remain job inputs."
+producer = "tests/ci/test_workflow_live_inputs_guarded.py:38 input_references finds actual expression inputs; line 100 can_run_without_inputs rejects conditions that can bypass a presence guard."
+test = "tests/ci/test_workflow_live_inputs_guarded.py:135 test_primary_platform_job_runs_unconditionally checks the real workflow, both registry guards, step environment, unconditional middleware and absence of unguarded job inputs."
+retained = "All existing scheduled-live-job, browser-real-stack and routed-runner assertions remain unchanged."
+
+[evidence.build]
+runner = "hf-build"
+command = "python3 -m py_compile tests/ci/test_workflow_live_inputs_guarded.py && python3 -c 'import sys, yaml; yaml.load(sys.stdin, Loader=yaml.BaseLoader)' < .github/workflows/platform.yml"
+reference = "Private /out/run/gates.jsonl record with kind=build and its referenced /out/logs/build-<n>.log; revision, command and exit are recorded by the runner."
+
+[evidence.verification]
+runner = "hf-done"
+command = "cg spec done 22.39.151 -f layerx-merge --root /work/paxeer-monorepo"
+verify_cmd = "test -s tests/ci/repair_22_39_151.kvx && python3 -m pytest -q tests/ci/test_workflow_live_inputs_guarded.py"
+reference = "Private /out/run/gates.jsonl record with kind=verify and its referenced /out/logs/verify-<n>.log; use the same candidate revision as the passing build."

@@ -33,29 +33,26 @@ def test_node_deployment_runs_no_guarantor():
                 "LAYERX_AUTHORITY_LNI_SOCKET",
                 "LAYERX_AGENT_BOUNDARY_LNI_SOCKET",
             }, (container["name"], name)
-    core = next(container for container in pod["containers"] if container["name"] == "core-boundary")
-    core_env = {entry["name"]: entry.get("value") for entry in core["env"]}
-    assert "LAYERX_CORE_LNI_SOCKET" not in core_env
-    assert core_env["LAYERX_CORE_CHAIN_RPC_URL"] == "http://127.0.0.1:8545"
-    assert '${LAYERX_CORE_TREASURY_SIGNER_SOCKET:?treasury signer socket is required}' in core["args"][0]
-    assert core_env["LAYERX_CORE_FUNDING_SENDER_KEY_FILE"] == "/run/funding-private/owner/sender.key"
-    assert "LAYERX_CORE_FUNDING_SENDER_KMS_KEY_ID" not in core_env
-    assert core_env["LAYERX_CORE_SEQUENCER_TRUST_ANCHOR_DER"] == "/run/layerx/trust/ca.crt.der"
-    config = next(document["data"] for document in documents
-                  if document.get("kind") == "ConfigMap"
-                  and document["metadata"]["name"] == "layerx-node-config")
-    endpoint = next(entry for entry in core["env"] if entry["name"] == "LAYERX_CORE_SEQUENCER_ENDPOINT")
-    reference = endpoint["valueFrom"]["configMapKeyRef"]
-    assert reference == {"name": "layerx-node-config", "key": "gateway-endpoint"}
-    assert config[reference["key"]] == "https://layerx-gateway.layerx-testnet.svc.cluster.local:9443"
-    assert "generation_client.py core --socket /run/layerx/node/generation.sock" in core["args"][0]
-    assert all("LNI" not in entry["name"] for container in containers
-               for entry in container.get("env", []))
-    native = next(container for container in pod["containers"] if container["name"] == "paxd")
-    args = native["args"]
-    assert args[args.index("--treasury-signer-socket") + 1] == "/run/layerx/node/treasury-signer.sock"
-    signer = next(container for container in pod["containers"] if container["name"] == "treasury-signer")
-    assert signer["args"][signer["args"].index("--socket") + 1] == "/run/layerx/node/treasury-signer.sock"
+    assert [container['name'] for container in pod['containers']] == ['paxd']
+    assert [container['name'] for container in pod['initContainers']] == ['native-home']
+    assert pod['shareProcessNamespace'] is False
+    assert pod['automountServiceAccountToken'] is False
+    assert all('LNI' not in entry['name'] and not entry['name'].startswith('LAYERX_CORE_')
+               for container in containers for entry in container.get('env', []))
+    native = pod['containers'][0]
+    assert native['command'] == [
+        'python3', '/opt/layerx/kernel_runtime.py', '--home', '/data/layerx/node']
+    config = next(document['data'] for document in documents
+                  if document.get('kind') == 'ConfigMap'
+                  and document['metadata']['name'] == 'layerx-node-config')
+    assert config['chain-id'] == 'hyperpax_125-1'
+    assert config['paxeer-chain-id'] == '125'
+    assert config['rpc-origin'] == 'http://layerx-native-chain.layerx-testnet.svc:8545'
+    assert {mount['name'] for mount in native['volumeMounts']} == {'data', 'tmp'}
+    init = pod['initContainers'][0]
+    assert init['command'] == ['python3', '-c']
+    assert "'receipt.key': 'config/receipt.key'" in init['args'][0]
+    assert "'treasury-policy.json': 'treasury-policy.json'" in init['args'][0]
     retired_secrets = {
         "layerx-guarantor-1-tls",
         "layerx-guarantor-2-tls",

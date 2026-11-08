@@ -1,14 +1,17 @@
 import hashlib
+import os
 import struct
 import subprocess
 from pathlib import Path
 
 
-BUILDER = Path(__file__).resolve().parents[2] / "build/bin/layerx-genesis-build"
+ROOT = Path(__file__).resolve().parents[2]
+BUILD_DIR = Path(os.environ.get("LAYERX_TEST_BUILD_DIR", ROOT / "build"))
+BUILDER = BUILD_DIR / "bin/layerx-genesis-build"
 
 
 def test_snapshot_issuance_with_bridge_profile_is_refused(tmp_path):
-    fixtures = BUILDER.parents[2] / "tests/fixtures"
+    fixtures = ROOT / "tests/fixtures"
     genesis = (fixtures / "pay1-retired-genesis.manifest").read_bytes()
     network_id = struct.unpack_from(">I", genesis, 6)[0]
     offset = 18

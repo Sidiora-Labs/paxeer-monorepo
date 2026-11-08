@@ -22,6 +22,7 @@ from layerx_sdk.ai_market import (  # noqa: E402
     PROGRAMS_PRECOMPILE,
     NativeTerms,
     _attach_signature,
+    _decode_programs_call,
     _encode_programs_call,
     _unsigned_activity,
 )
@@ -35,7 +36,7 @@ from layerx_sdk.evm_transaction import (  # noqa: E402
     encode_call,
 )
 from layerx_sdk.native_program_call import NativeProgramCall, encode_native_program_call  # noqa: E402
-from test_ai_market import B1, RESOURCES, claim_envelope, fixture_call, fund_envelope  # noqa: E402
+from test_ai_market import B1, RECEIPT_KEYS, RECEIPT_VECTOR, RESOURCES, claim_envelope, fixture_call, fund_envelope  # noqa: E402
 
 KEY = ec.derive_private_key(0x4C0883A69102937D6231471B5DBB6204FE5129617082792AE468D01A3F362318, ec.SECP256K1())
 NUMBERS = KEY.public_key().public_numbers()
@@ -92,9 +93,27 @@ class EvmTransactionCase(unittest.TestCase):
 
 
 class AiMarketVectorTests(EvmTransactionCase):
+    def test_recorded_program_transaction_matches_live_receipt_verification(self) -> None:
+        from layerx_sdk.verifier import verify_sequencer_receipt
+
+        raw = bytes.fromhex(RECEIPT_VECTOR["rawTransaction"][2:])
+        transaction, signature = decode_signed(raw)
+        verified = verify_sequencer_receipt(
+            bytes.fromhex(RECEIPT_VECTOR["signedReceipt"][2:]), raw, RECEIPT_KEYS,
+        )
+        self.assertEqual(verified.receipt.activity_id, activity_id(raw))
+        self.assertEqual(verified.receipt.to_account, bytes(12) + transaction.to)
+        self.assertEqual(
+            verified.receipt.from_account,
+            bytes(12) + bytes.fromhex(transaction.recover_signer(signature)[2:]),
+        )
+        self.assertEqual(verified.receipt.from_sequence, transaction.nonce)
+
     def test_codec_round_trips_the_ai_market_transaction_vectors_byte_for_byte(self) -> None:
         self.assertEqual(MAX_TRANSACTION_BYTES, _MAX_TRANSACTION_BYTES)
         fixture = fixture_call()
+        recorded, _ = decode_signed(bytes.fromhex(RECEIPT_VECTOR["rawTransaction"][2:]))
+        self.assertEqual(_decode_programs_call(recorded.data)[0], fixture)
         for name, envelope in (("claim", claim_envelope()), ("fund", fund_envelope())):
             with self.subTest(vector=name):
                 call = NativeProgramCall(
@@ -179,6 +198,7 @@ class AiMarketVectorTests(EvmTransactionCase):
         )
         self.assertEqual(data[:4].hex(), "54bd2b48")
         self.assertEqual(data, _encode_programs_call(call, FEE_LIMIT))
+        self.assertEqual(_decode_programs_call(data), (call, FEE_LIMIT))
 
 
 class SignatureTests(EvmTransactionCase):

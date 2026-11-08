@@ -1,5 +1,6 @@
 """Exercise bridge-all-rejected through the real CLI, runner and child script."""
 
+import importlib.util
 import json
 import os
 from pathlib import Path
@@ -53,6 +54,7 @@ def test_bridge_all_rejected_source_contract():
         assert parsed.returncode == 0, parsed.stderr
 
     source = DEPLOY.read_text()
+    assert source.index("check-attestor-manifest.py") < source.index("case ${1:-} in")
     parser = source.split("case ${1:-} in\n", 1)[1].split("\nesac", 1)[0]
     assert re.search(r"(?m)^--all\)\n\s*;;$", parser)
     assert parser.index("--all)") < parser.index("-*)")
@@ -81,6 +83,22 @@ def test_bridge_all_rejected_source_contract():
     )
 
 
+def assert_pending_governance_refusal(result):
+    path = DEPLOY.with_name("check-attestor-manifest.py")
+    spec = importlib.util.spec_from_file_location("bridge_manifest_guard_623", path)
+    checker = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(checker)
+    manifest = DEPLOY.with_name("attestors.json")
+    assert json.loads(manifest.read_text())["pending_governance"] is True
+    with pytest.raises(ValueError, match="awaiting governance signer-set approval") as refused:
+        checker.check_manifest(manifest)
+    assert result.returncode == 1, result.stderr
+    diagnostics = "\n".join(line for line in result.stderr.splitlines() if not line.startswith("+"))
+    assert diagnostics == f"attestor manifest: {manifest}: {refused.value}"
+    assert result.stdout == ""
+    assert not re.findall(r"(?m)^deploy-evm-chain\.sh: (\w+)$", result.stderr)
+
+
 @pytest.mark.parametrize("arguments", ALL_FORMS)
 @pytest.mark.parametrize("missing_directory", [False, True])
 def test_bridge_all_rejected_cli_record_guard(
@@ -88,14 +106,9 @@ def test_bridge_all_rejected_cli_record_guard(
 ):
     if missing_directory:
         environment["PAXEER_BRIDGE_DEPLOYMENT_RECORD_DIR"] = str(tmp_path / "missing")
-        reason = f"{tmp_path / 'missing'} does not exist"
-    else:
-        reason = (
-            "PAXEER_BRIDGE_DEPLOYMENT_RECORD_DIR is required with --all and is not set"
-        )
     result = cli(arguments, environment, tmp_path)
     assert result.returncode == 1, result.stderr
-    assert f"deploy-evm-chain: error: {reason}\n" == result.stderr
+    assert_pending_governance_refusal(result)
     assert result.stdout == ""
 
 
@@ -110,13 +123,7 @@ def test_bridge_all_rejected_cli_stops_first_failure(tmp_path, environment, argu
     )
     result = cli(arguments, environment, tmp_path)
     assert result.returncode == 1, result.stderr
-    assert result.stderr.splitlines() == [
-        "deploy-evm-chain.sh: ethereum",
-        f"deploy-evm-chain: error: {chains / 'ethereum/config.json'} is not readable; "
-        "ethereum is not a bridge EVM chain",
-        "deploy-evm-chain: error: ethereum failed; the chains after it were not run",
-    ]
-    assert result.stdout == ""
+    assert_pending_governance_refusal(result)
     assert list(records.iterdir()) == []
 
 
@@ -152,39 +159,8 @@ def test_bridge_all_rejected_preflight_all(tmp_path, environment, failure_chain)
         del environment[key_variables[failure_chain]]
 
     result = cli(("--preflight", "--all"), environment, tmp_path, trace=True)
-    count = len(CHAINS) if failure_chain is None else CHAINS.index(failure_chain) + 1
-    visited = CHAINS[:count]
-    assert re.findall(r"(?m)^deploy-evm-chain\.sh: (\w+)$", result.stderr) == list(
-        visited
-    )
-    assignments = re.findall(
-        r"(?m)^\+ PAXEER_BRIDGE_DEPLOYMENT_RECORD=(.*)$", result.stderr
-    )
-    assert [shlex.split(value)[0] for value in assignments] == [
-        str(records / f"{chain}.json") for chain in visited
-    ]
-    ready = re.findall(
-        r"(?m)^deploy-evm-chain: (\w+) \(chain \d+\) is ready to deploy:",
-        result.stderr,
-    )
-    if failure_chain is None:
-        assert result.returncode == 0, result.stderr
-        assert ready == list(CHAINS)
-        assert "deploy-evm-chain: error:" not in result.stderr
-    else:
-        assert result.returncode == 1, result.stderr
-        assert ready == list(visited[:-1])
-        assert (
-            f"deploy-evm-chain: error: {key_variables[failure_chain]} "
-            "is required and is not set\n"
-            in result.stderr
-        )
-        assert (
-            f"deploy-evm-chain: error: {failure_chain} failed; "
-            "the chains after it were not run\n"
-            in result.stderr
-        )
-    assert result.stdout == ""
+    assert_pending_governance_refusal(result)
+    assert not re.findall(r"(?m)^\+ PAXEER_BRIDGE_DEPLOYMENT_RECORD=(.*)$", result.stderr)
     assert list(records.iterdir()) == []
 
 
@@ -194,6 +170,5 @@ def test_bridge_all_rejected_preflight_all(tmp_path, environment, failure_chain)
 )
 def test_bridge_all_rejected_cli_usage(tmp_path, environment, arguments):
     result = cli(arguments, environment, tmp_path)
-    assert result.returncode == 2, result.stderr
-    assert result.stderr == "usage: deploy-evm-chain.sh [--preflight] <chain|--all>\n"
+    assert_pending_governance_refusal(result)
     assert result.stdout == ""

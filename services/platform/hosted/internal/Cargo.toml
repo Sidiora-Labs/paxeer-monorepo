@@ -5,6 +5,9 @@ edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 
+[package.metadata.test-fixtures]
+tls = "tests/fixtures/repair_22_33_1452_tls"
+
 [lib]
 path = "src/lib.rs"
 

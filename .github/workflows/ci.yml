@@ -10,7 +10,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: ci-${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.event_name == 'push' && github.sha || github.ref }}
   cancel-in-progress: true
 
 env:
@@ -29,14 +29,90 @@ jobs:
       - name: Install native test dependencies
         run: >-
           sudo apt-get update && sudo apt-get install --yes
-          build-essential libssl-dev libsqlite3-dev ripgrep python3-venv
+          build-essential libssl-dev libsqlite3-dev pkg-config ripgrep python3-venv jq openssl
       - name: Install Python test dependencies
         run: |
           python3 -m venv "$RUNNER_TEMP/tests-python"
-          "$RUNNER_TEMP/tests-python/bin/python3" -m pip install pytest cryptography PyYAML
+          "$RUNNER_TEMP/tests-python/bin/python3" -m pip install pytest PyYAML -r tests/bridge/requirements.txt
           echo "$RUNNER_TEMP/tests-python/bin" >> "$GITHUB_PATH"
+      - name: Install pinned native suite toolchain
+        run: rustup toolchain install 1.91.1 --profile minimal
       - name: Run Python repository tests
         run: make test-tests-python
+      - name: Run Python command, daemon, conformance and hosted suites
+        run: make test-python-suites
+
+  qualification-python:
+    runs-on: ${{ (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && 'ubuntu-24.04' || vars.CI_LINUX_RUNNER || 'ubuntu-24.04' }}
+    timeout-minutes: 30
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install qualification test dependencies
+        run: >-
+          sudo apt-get update && sudo apt-get install --yes
+          build-essential libssl-dev libsqlite3-dev pkg-config ripgrep python3-venv jq openssl
+      - name: Install Python qualification dependencies
+        run: |
+          python3 -m venv "$RUNNER_TEMP/qualification-python"
+          "$RUNNER_TEMP/qualification-python/bin/python3" -m pip install -r tools/qualification/requirements.txt
+          echo "$RUNNER_TEMP/qualification-python/bin" >> "$GITHUB_PATH"
+      - name: Run Python qualification tests
+        run: make test-qualification-python
+
+  tools-python:
+    runs-on: ${{ (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && 'ubuntu-24.04' || vars.CI_LINUX_RUNNER || 'ubuntu-24.04' }}
+    timeout-minutes: 30
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up Go
+        uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
+        with:
+          go-version-file: go.mod
+          cache-dependency-path: go.sum
+      - name: Install native tools suite dependencies
+        run: >-
+          sudo apt-get update && sudo apt-get install --yes
+          build-essential libssl-dev libsqlite3-dev pkg-config ripgrep python3-venv jq openssl openssh-server nginx libnginx-mod-stream zstd
+      - name: Install Python test dependencies
+        run: |
+          python3 -m venv "$RUNNER_TEMP/tools-python"
+          "$RUNNER_TEMP/tools-python/bin/python3" -m pip install pytest PyYAML requests -r tests/bridge/requirements.txt
+          echo "$RUNNER_TEMP/tools-python/bin" >> "$GITHUB_PATH"
+      - name: Install pinned tools suite toolchain
+        run: rustup toolchain install 1.91.1 --profile minimal
+      - name: Install Foundry for tools suites
+        uses: foundry-rs/foundry-toolchain@908c540300062bd5a7e473851cdb4282204cee09 # v1.9.1
+        with:
+          version: v1.8.1
+          cache: false
+      - name: Set up Docker buildx
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+      - name: Build native tools suite prerequisites
+        run: |
+          make build/liblayerx.a
+          make build-loadtest
+          forge build --root tools/benchmark/loadtest/contracts/evm
+          mkdir -p "$RUNNER_TEMP/tools-python-bin"
+          go build -o "$RUNNER_TEMP/tools-python-bin/bringup-inspect" ./tools/bringup/cmd/bringup-inspect
+          echo "$RUNNER_TEMP/tools-python-bin" >> "$GITHUB_PATH"
+          cargo build --locked --manifest-path tools/bringup/tests/xweb-loader/Cargo.toml
+      - name: Start localhost SSH for tools suites
+        run: |
+          install -d -m 700 "$HOME/.ssh"
+          ssh-keygen -q -t ed25519 -N '' -f "$HOME/.ssh/id_ed25519"
+          cat "$HOME/.ssh/id_ed25519.pub" >> "$HOME/.ssh/authorized_keys"
+          chmod 600 "$HOME/.ssh/authorized_keys"
+          sudo service ssh start
+          ssh-keyscan -H localhost 127.0.0.1 >> "$HOME/.ssh/known_hosts"
+          ssh -o BatchMode=yes localhost true
+      - name: Run Python tools suites
+        run: make test-tools-python
 
   programs-reference-fixtures:
     runs-on: ${{ (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && 'ubuntu-24.04' || vars.CI_LINUX_RUNNER || 'ubuntu-24.04' }}
@@ -67,6 +143,7 @@ jobs:
         run: make public-audit
 
   c17:
+    # Keep the sanitizer lane on its hosted runner (22.39.147).
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     strategy:
@@ -88,6 +165,17 @@ jobs:
         env:
           CC: ${{ matrix.compiler }}
         run: make build test scan-consensus
+      - name: Install Foundry for core suites
+        uses: foundry-rs/foundry-toolchain@908c540300062bd5a7e473851cdb4282204cee09 # v1.9.1
+        with:
+          version: v1.8.1
+          cache: false
+      - name: Install arithmetic proof tools for core suites
+        run: sudo apt-get update && sudo apt-get install --yes cbmc z3 clang
+      - name: Run all core C suites
+        env:
+          CC: ${{ matrix.compiler }}
+        run: make core-test-all
 
   solidity:
     runs-on: ${{ (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && 'ubuntu-24.04' || vars.CI_LINUX_RUNNER || 'ubuntu-24.04' }}
@@ -100,10 +188,12 @@ jobs:
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@908c540300062bd5a7e473851cdb4282204cee09 # v1.9.1
         with:
-          version: v1.7.1
+          version: v1.8.1
           cache: false
-      - name: Install state surface tooling
-        run: sudo apt-get update && sudo apt-get install --yes ripgrep
+      - name: Install Solidity and mirror test dependencies
+        run: sudo apt-get update && sudo apt-get install --yes ripgrep build-essential libssl-dev pkg-config python3 openssl
+      - name: Install pinned mirror toolchain
+        run: rustup toolchain install 1.91.1 --profile minimal
       - name: Check formatting and state surface
         run: forge fmt --check && scripts/ci/solidity-state-surface.sh
       - name: Bootstrap pinned Solidity libraries
@@ -111,7 +201,9 @@ jobs:
       - name: Build contracts
         run: forge build --sizes
       - name: Run contract and invariant suites
-        run: forge test -vvv
+        run: make test-contracts
+      - name: Run mirror suites
+        run: make interop-test-mirrors
 
   loadtest:
     runs-on: ${{ (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && 'ubuntu-24.04' || vars.CI_LINUX_RUNNER || 'ubuntu-24.04' }}
@@ -122,7 +214,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Set up Go
-        uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: tools/loadtest/go.mod
           cache-dependency-path: tools/loadtest/go.sum
@@ -130,3 +222,197 @@ jobs:
         run: go -C tools/loadtest build ./...
       - name: Test loadtest module
         run: go -C tools/loadtest test -count=1 ./...
+
+  js-suite-inventory:
+    runs-on: ${{ (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && 'ubuntu-24.04' || vars.CI_LINUX_RUNNER || 'ubuntu-24.04' }}
+    timeout-minutes: 10
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install inventory dependencies
+        run: |
+          python3 -m venv "$RUNNER_TEMP/js-suite-inventory"
+          "$RUNNER_TEMP/js-suite-inventory/bin/pip" install pytest PyYAML
+      - name: Check JavaScript suite runners and exclusions
+        run: >-
+          "$RUNNER_TEMP/js-suite-inventory/bin/python" -m pytest -q
+          tests/ci/test_js_suites_have_runner.py
+
+  js-node-tests:
+    runs-on: ${{ (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && 'ubuntu-24.04' || vars.CI_LINUX_RUNNER || 'ubuntu-24.04' }}
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - directory: apps/inference-peer
+            script: test
+          - directory: tools/codebase-map
+            script: test:portable
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v6
+        with:
+          node-version: '24.22.0'
+          package-manager-cache: false
+      - name: Run Node.js suite
+        working-directory: ${{ matrix.directory }}
+        run: npm run ${{ matrix.script }}
+
+  js-npm-tests:
+    runs-on: ${{ (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && 'ubuntu-24.04' || vars.CI_LINUX_RUNNER || 'ubuntu-24.04' }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        directory: [sdk/js, apps/web, contracts/launchpad]
+    defaults:
+      run:
+        working-directory: ${{ matrix.directory }}
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v6
+        with:
+          node-version: '24.22.0'
+          package-manager-cache: false
+      - name: Install package dependencies
+        run: npm ci --workspaces=false --no-audit --no-fund
+      - name: Run package suite
+        run: npm test
+
+  js-workspace-tests:
+    runs-on: ${{ (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && 'ubuntu-24.04' || vars.CI_LINUX_RUNNER || 'ubuntu-24.04' }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        directory:
+          - sdk/integrations/agents
+          - sdk/integrations/express
+          - sdk/integrations/next
+          - sdk/integrations/next/example
+          - services/agent/sdk/typescript
+          - services/platform/middleware/agent
+          - services/platform/middleware/buyer
+          - services/platform/middleware/conformance
+          - services/platform/middleware/merchant
+          - services/platform/middleware/seller
+          - services/platform/examples/marketplace
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v6
+        with:
+          node-version: '24.22.0'
+          package-manager-cache: false
+      - name: Install workspace dependencies
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Build suite prerequisites
+        run: >-
+          node sdk/integrations/build-dependencies.mjs
+          "$(node -p 'require("./${{ matrix.directory }}/package.json").name')"
+      - name: Run workspace suite
+        working-directory: ${{ matrix.directory }}
+        run: npm test
+      - name: Run payment conformance suite
+        if: matrix.directory == 'services/platform/middleware/conformance'
+        run: npm run test:payments --workspace @sidiora/layerx-middleware-conformance
+
+  js-pnpm-tests:
+    runs-on: ${{ (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && 'ubuntu-24.04' || vars.CI_LINUX_RUNNER || 'ubuntu-24.04' }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        directory: [sdk/names, services/wallet/ceremony/legacy-import]
+    defaults:
+      run:
+        working-directory: ${{ matrix.directory }}
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v6
+        with:
+          node-version: '24.22.0'
+          package-manager-cache: false
+      - name: Install pnpm
+        run: npm install --global "$(node -p 'require("./package.json").packageManager')"
+      - name: Install package dependencies
+        run: pnpm install --ignore-workspace --frozen-lockfile
+      - name: Run package suite
+        run: pnpm test
+
+  js-wallet-gateway-tests:
+    runs-on: ${{ (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && 'ubuntu-24.04' || vars.CI_LINUX_RUNNER || 'ubuntu-24.04' }}
+    timeout-minutes: 30
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v6
+        with:
+          node-version: '24.22.0'
+          package-manager-cache: false
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: services/wallet/attestor/go.mod
+          cache-dependency-path: services/wallet/attestor/go.sum
+      - name: Install local service prerequisites
+        run: sudo apt-get update && sudo apt-get install --yes postgresql openssl
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@908c540300062bd5a7e473851cdb4282204cee09 # v1.9.1
+        with:
+          version: v1.8.1
+      - name: Install pnpm
+        run: npm install --global pnpm@10.34.9+sha512.f49b5a8ea0fdedb44bb3c0c1d6575092a53c2950d95b7ad15df11f17974877a2de3a01c07e934e9b28ce716e51c09a94962c7306d09be2e1e4b18a8c8762fd32
+      - name: Install wallet dependencies
+        working-directory: services/wallet
+        run: pnpm install --frozen-lockfile
+      - name: Run gateway suite
+        working-directory: services/wallet/gateway
+        env:
+          PG_BIN_DIR: /usr/lib/postgresql/16/bin
+        run: pnpm test
+
+  js-explorer-env-tests:
+    runs-on: ${{ (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && 'ubuntu-24.04' || vars.CI_LINUX_RUNNER || 'ubuntu-24.04' }}
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: apps/explorer/deploy/tools/envs-validator
+    steps:
+      - name: Check out source and tags used by the validator
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v6
+        with:
+          node-version: '24.22.0'
+          package-manager-cache: false
+      - name: Install Yarn
+        run: npm install --global yarn@1.22.22
+      - name: Install validator dependencies
+        run: yarn install --frozen-lockfile
+      - name: Run validator suite
+        run: yarn test

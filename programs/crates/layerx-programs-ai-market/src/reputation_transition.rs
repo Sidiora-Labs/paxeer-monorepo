@@ -1,3 +1,4 @@
+use crate::types::GuestIndex as _;
 use crate::{
     codec::{Reader, Writer},
     errors::{
@@ -296,7 +297,7 @@ impl CompletionDraft {
                 return Err(F07_BINDING_MISMATCH);
             }
             previous = Some(worker.worker);
-            bounded_roster[i] = Some(*worker);
+            *bounded_roster.guest_index_mut(i) = Some(*worker);
         }
         Ok(CompletionStart::Pending(Self {
             staged: state.clone(),
@@ -329,7 +330,11 @@ impl CompletionDraft {
             .records()
             .position(|r| r.worker == worker.worker)
             .ok_or(F07_UNKNOWN_WORKER)?;
-        let old = self.staged.current[index].ok_or(NON_CANONICAL)?;
+        let old = self
+            .staged
+            .current
+            .guest_index(index)
+            .ok_or(NON_CANONICAL)?;
         let next = update_record(
             &old,
             key,
@@ -353,7 +358,7 @@ impl CompletionDraft {
             .covered
             .checked_add(u8::from(eligible > 0))
             .ok_or(ARITHMETIC)?;
-        self.staged.current[index] = Some(next);
+        *self.staged.current.guest_index_mut(index) = Some(next);
         self.cursor += 1;
         self.observed = observed;
         self.covered = covered;
@@ -450,7 +455,10 @@ pub fn split_joint(section: &[u8]) -> CodecResult<(Option<Region>, &[u8])> {
         return Ok((None, section));
     }
     let counts = section.get(6..8).ok_or(NON_CANONICAL)?;
-    let (current, history) = (usize::from(counts[0]), usize::from(counts[1]));
+    let (current, history) = (
+        usize::from(*counts.guest_index(0)),
+        usize::from(*counts.guest_index(1)),
+    );
     if current > LIMIT || history > LIMIT {
         return Err(CAPACITY);
     }
@@ -484,6 +492,15 @@ pub fn split_joint(section: &[u8]) -> CodecResult<(Option<Region>, &[u8])> {
         }),
         table,
     ))
+}
+
+/// Validated F08 suffix of the joint reputation/admission section.
+///
+/// # Errors
+/// Preserves every framing, reputation and history-seal refusal of `split_joint`.
+#[allow(dead_code, reason = "also compiled by reputation vector tests")]
+pub fn joint_table(section: &[u8]) -> CodecResult<&[u8]> {
+    split_joint(section).map(|(_, table)| table)
 }
 
 fn check_seal(state: &ReputationState, seal: HistorySeal) -> CodecResult<()> {
@@ -525,7 +542,7 @@ pub fn encode_joint(region: &Region, table: &[u8], out: &mut [u8]) -> CodecResul
     let end = len.checked_add(table.len()).ok_or(ARITHMETIC)?;
     out.get_mut(len..end)
         .ok_or(CAPACITY)?
-        .copy_from_slice(table);
+        .guest_copy_from_slice(table);
     Ok(end)
 }
 

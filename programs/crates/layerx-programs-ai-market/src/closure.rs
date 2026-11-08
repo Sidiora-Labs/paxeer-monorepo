@@ -19,6 +19,7 @@
 //! A waiting phase refuses `F01_OBLIGATIONS_OUTSTANDING`. Every success commits exactly one
 //! revision increment with `header.state_revision` equal to the shared revision; every
 //! refusal leaves `current` unchanged and the outputs must be discarded.
+use crate::types::GuestIndex as _;
 use crate::{
     admission::AdmissionTable,
     codec::{self, derive_market, EventCommon, Reader, ValidatedEnvelope, Writer},
@@ -84,9 +85,11 @@ impl Receipt {
         let e = &envelope.envelope;
         let mut bytes = [0; RECEIPT_MAX_BYTES];
         let mut w = Writer::new(&mut bytes);
-        w.put(section.header.market_id.as_bytes())?;
-        w.u64(revision)?;
-        w.put(e.request.as_bytes())?;
+        crate::codec::write_fields!(w;
+            id32: section.header.market_id.as_bytes();
+            u64: revision;
+            id32: e.request.as_bytes();
+        )?;
         w.u16(e.operation.selector())?;
         w.u64(section.header.active_config_version)?;
         w.presence(
@@ -134,7 +137,11 @@ struct Committed<'a> {
 
 fn committed(current: &[u8]) -> CodecResult<Committed<'_>> {
     let state = decode_shared_state(current)?;
-    let section = PolicySection::decode(state.feature_sections[Section::PolicyLifecycle.index()])?;
+    let section = PolicySection::decode(
+        *state
+            .feature_sections
+            .guest_index(Section::PolicyLifecycle.index()),
+    )?;
     if section.header.state_revision != state.revision {
         return Err(NON_CANONICAL);
     }
@@ -143,7 +150,9 @@ fn committed(current: &[u8]) -> CodecResult<Committed<'_>> {
 
 /// The F06 reward state and the F05 bytes after it; `None` before the first funding.
 fn rewards<'a>(state: &SharedState<'a>) -> CodecResult<Option<(RewardState<'a>, &'a [u8])>> {
-    let section = state.feature_sections[Section::SettlementClaims.index()];
+    let section = *state
+        .feature_sections
+        .guest_index(Section::SettlementClaims.index());
     if section.is_empty() {
         return Ok(None);
     }
@@ -230,9 +239,9 @@ impl Call<'_> {
         let policy = policy.get(..policy_len).ok_or(CAPACITY)?;
         PolicySection::decode(policy)?;
         let mut feature_sections = self.committed.state.feature_sections;
-        feature_sections[Section::PolicyLifecycle.index()] = policy;
+        *feature_sections.guest_index_mut(Section::PolicyLifecycle.index()) = policy;
         if let Some(n) = progress.settlement_len {
-            feature_sections[Section::SettlementClaims.index()] =
+            *feature_sections.guest_index_mut(Section::SettlementClaims.index()) =
                 settlement.get(..n).ok_or(CAPACITY)?;
         }
         let mut candidate = SharedState {
@@ -407,10 +416,12 @@ fn request_close(call: &Call<'_>, buffers: Buffers<'_>) -> CodecResult<Outcome> 
     };
     let mut suffix = [0; REQUEST_SUFFIX_BYTES];
     let mut w = Writer::new(&mut suffix);
-    w.u8(WINDING_DOWN)?;
-    w.u64(section.header.active_config_version)?;
-    w.u64(call.ctx.height)?;
-    w.put(&reason)?;
+    crate::codec::write_fields!(w;
+        u8: WINDING_DOWN;
+        u64: section.header.active_config_version;
+        u64: call.ctx.height;
+        put: &reason;
+    )?;
     let progress = Progress::to(WINDING_DOWN, FIRST_PHASE, reason);
     call.finish(
         next,
@@ -427,8 +438,11 @@ fn epoch_terminal(state: &SharedState<'_>, rewards: Option<&RewardState<'_>>) ->
     let Some(rewards) = rewards else {
         return Ok(true);
     };
-    let admission =
-        AdmissionTable::decode(state.feature_sections[Section::ReputationAdmission.index()])?;
+    let admission = AdmissionTable::decode(crate::reputation_transition::joint_table(
+        *state
+            .feature_sections
+            .guest_index(Section::ReputationAdmission.index()),
+    )?)?;
     let Some(epoch) = admission.current_epoch() else {
         return Ok(true);
     };
@@ -445,8 +459,11 @@ fn task_set_identity(
     state: &SharedState<'_>,
     section: &PolicySection<'_>,
 ) -> CodecResult<Option<[u8; 32]>> {
-    let admission =
-        AdmissionTable::decode(state.feature_sections[Section::ReputationAdmission.index()])?;
+    let admission = AdmissionTable::decode(crate::reputation_transition::joint_table(
+        *state
+            .feature_sections
+            .guest_index(Section::ReputationAdmission.index()),
+    )?)?;
     match admission.current_epoch() {
         Some(epoch) => match terminal_task_set(state, epoch) {
             Ok(digest) => Ok(Some(digest.bytes())),
@@ -471,9 +488,9 @@ fn write_settlement(
     let (head, rest) = out
         .get_mut(..total)
         .ok_or(CAPACITY)?
-        .split_at_mut(REWARD_STATE_BYTES);
+        .guest_split_at_mut(REWARD_STATE_BYTES);
     let effect = transition(head)?;
-    rest.copy_from_slice(tail);
+    rest.guest_copy_from_slice(tail);
     Ok((total, effect))
 }
 
@@ -557,7 +574,9 @@ fn settle(
         progress.effect = effect;
         progress.amount = amount;
         let mut subject = [0; 32];
-        subject[24..].copy_from_slice(&row.epoch.to_be_bytes());
+        subject
+            .guest_index_mut(24..)
+            .guest_copy_from_slice(&row.epoch.to_be_bytes());
         progress.subject = subject;
         return Ok(progress);
     }
@@ -635,11 +654,13 @@ fn advance_close(call: &Call<'_>, buffers: Buffers<'_>) -> CodecResult<Outcome> 
     }
     let mut suffix = [0; ADVANCE_SUFFIX_BYTES];
     let mut w = Writer::new(&mut suffix);
-    w.u8(progress.lifecycle)?;
-    w.u8(progress.phase)?;
-    w.u16(progress.cursor)?;
-    w.u128(progress.amount)?;
-    w.put(&progress.subject)?;
+    crate::codec::write_fields!(w;
+        u8: progress.lifecycle;
+        u8: progress.phase;
+        u16: progress.cursor;
+        u128: progress.amount;
+        put: &progress.subject;
+    )?;
     call.finish(
         next_section,
         None,

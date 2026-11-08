@@ -9,10 +9,8 @@ import { afterEach, expect, test, vi } from 'vitest';
 import type { StoredSubscription } from './push-store';
 
 const cleanup: (() => Promise<void>)[] = [];
-const originalAgent = https.globalAgent;
 
 afterEach(async () => {
-  https.globalAgent = originalAgent;
   for (const dispose of cleanup.splice(0).reverse()) await dispose();
   vi.unstubAllEnvs();
   vi.resetModules();
@@ -71,10 +69,17 @@ async function openComponents() {
   vi.stubEnv('VAPID_PRIVATE_KEY', vapid.privateKey);
   vi.stubEnv('VAPID_SUBJECT', 'mailto:push-test@example.test');
   vi.resetModules();
+  const store = await import('./push-store');
+  const { createPushService } = await import('./push-service');
   return {
     directory,
-    store: await import('./push-store'),
-    service: await import('./push-service'),
+    store,
+    createService(provider: Awaited<ReturnType<typeof pushProvider>>) {
+      return createPushService(store.pushStore, {
+        vapidDetails: { subject: 'mailto:push-test@example.test', ...vapid },
+        createAgent: provider.createAgent,
+      });
+    },
   };
 }
 
@@ -111,17 +116,18 @@ async function pushProvider(browser: ReturnType<typeof browserSubscription>) {
   const address = server.address();
   if (!address || typeof address === 'string') throw new Error('Missing fixture address');
   // Route real TLS sockets to the isolated provider; hostname verification stays enabled.
-  const agent = new https.Agent({
-    ca: cert,
-    port: address.port,
-    lookup: (_hostname, options, callback) => {
-      if (options.all) callback(null, [{ address: '127.0.0.1', family: 4 }]);
-      else callback(null, '127.0.0.1', 4);
-    },
-  });
-  https.globalAgent = agent;
+  function createAgent(options: https.AgentOptions): https.Agent {
+    return new https.Agent({
+      ...options,
+      ca: cert,
+      port: address.port,
+      lookup: (_hostname, options, callback) => {
+        if (options.all) callback(null, [{ address: '127.0.0.1', family: 4 }]);
+        else callback(null, '127.0.0.1', 4);
+      },
+    });
+  }
   cleanup.push(async () => {
-    agent.destroy();
     server.closeAllConnections();
     await new Promise<void>((resolve, reject) =>
       server.close((error) => (error ? reject(error) : resolve()))
@@ -130,6 +136,7 @@ async function pushProvider(browser: ReturnType<typeof browserSubscription>) {
   return {
     requests,
     errors,
+    createAgent,
     redirectTo(location: string, code: number) {
       redirect = location;
       status = code;
@@ -138,9 +145,10 @@ async function pushProvider(browser: ReturnType<typeof browserSubscription>) {
 }
 
 async function push_destination_egress_rejects_unsafe_origins_before_storage_and_delivery() {
-  const { store, service, directory } = await openComponents();
+  const { store, createService, directory } = await openComponents();
   const browser = browserSubscription();
   const provider = await pushProvider(browser);
+  const service = createService(provider);
   for (const endpoint of [
     'https://127.0.0.1/private',
     'https://[::1]/private',
@@ -181,9 +189,10 @@ async function push_destination_egress_rejects_unsafe_origins_before_storage_and
 }
 
 async function push_destination_egress_validates_browser_key_encodings_before_persistence() {
-  const { store, service } = await openComponents();
+  const { store, createService } = await openComponents();
   const browser = browserSubscription();
   const provider = await pushProvider(browser);
+  const service = createService(provider);
   const offCurve = Buffer.alloc(65);
   offCurve[0] = 4;
   const nonCanonicalAuth = browser.subscription.keys.auth.slice(0, -1) + 'B';
@@ -208,9 +217,10 @@ async function push_destination_egress_validates_browser_key_encodings_before_pe
 }
 
 async function push_destination_egress_never_follows_provider_redirects() {
-  const { store, service } = await openComponents();
+  const { store, createService } = await openComponents();
   const browser = browserSubscription();
   const provider = await pushProvider(browser);
+  const service = createService(provider);
   await store.upsertSubscription(browser.subscription);
   for (const [index, location] of [
     'https://127.0.0.1/private',
@@ -237,9 +247,10 @@ async function push_destination_egress_never_follows_provider_redirects() {
 }
 
 async function push_upsert_metadata_survives_notification_resubscription_and_reopen() {
-  let { store, service, directory } = await openComponents();
+  const { store, createService, directory } = await openComponents();
   const browser = browserSubscription();
   const provider = await pushProvider(browser);
+  const service = createService(provider);
   await store.upsertSubscription({
     ...browser.subscription,
     tags: ['browser-injected'],
@@ -262,15 +273,15 @@ async function push_upsert_metadata_survives_notification_resubscription_and_reo
   const refreshed = browserSubscription(browser.subscription.endpoint).subscription;
   // Release module instances, then re-import both the consumer and its durable store.
   vi.resetModules();
-  store = await import('./push-store');
-  service = await import('./push-service');
-  expect(await store.getSubscription(browser.subscription.endpoint)).toEqual(notified);
-  await store.upsertSubscription({
+  const restartedStore = await import('./push-store');
+  await import('./push-service');
+  expect(await restartedStore.getSubscription(browser.subscription.endpoint)).toEqual(notified);
+  await restartedStore.upsertSubscription({
     ...refreshed,
     walletAddress: browser.subscription.walletAddress.toUpperCase().replace('0X', '0x'),
     userAgent: 'refreshed-browser',
   });
-  await store.upsertSubscription({
+  await restartedStore.upsertSubscription({
     ...refreshed,
     userAgent: 'refreshed-browser',
     tags: ['replace-tag'],
@@ -318,22 +329,22 @@ async function push_upsert_metadata_rejects_owner_transfer_without_mutating_dura
 }
 
 test(
-  push_destination_egress_rejects_unsafe_origins_before_storage_and_delivery,
+  push_destination_egress_rejects_unsafe_origins_before_storage_and_delivery.name,
   push_destination_egress_rejects_unsafe_origins_before_storage_and_delivery
 );
 test(
-  push_destination_egress_validates_browser_key_encodings_before_persistence,
+  push_destination_egress_validates_browser_key_encodings_before_persistence.name,
   push_destination_egress_validates_browser_key_encodings_before_persistence
 );
 test(
-  push_destination_egress_never_follows_provider_redirects,
+  push_destination_egress_never_follows_provider_redirects.name,
   push_destination_egress_never_follows_provider_redirects
 );
 test(
-  push_upsert_metadata_survives_notification_resubscription_and_reopen,
+  push_upsert_metadata_survives_notification_resubscription_and_reopen.name,
   push_upsert_metadata_survives_notification_resubscription_and_reopen
 );
 test(
-  push_upsert_metadata_rejects_owner_transfer_without_mutating_durable_state,
+  push_upsert_metadata_rejects_owner_transfer_without_mutating_durable_state.name,
   push_upsert_metadata_rejects_owner_transfer_without_mutating_durable_state
 );

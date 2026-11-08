@@ -9,7 +9,8 @@ abstract: >-
   proposal and deterministic execution.
 authors:
   - name: Sidiora Labs
-version: v6.12.0
+version: v7.0.0
+date-released: 2026-11-07
 license: Apache-2.0
 repository-code: https://github.com/Sidiora-Labs/paxeer-monorepo
 url: https://paxeer.network

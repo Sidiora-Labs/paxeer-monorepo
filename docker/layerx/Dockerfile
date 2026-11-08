@@ -15,6 +15,7 @@ COPY tools/paxeer-x/build tools/paxeer-x/build/
 COPY services/platform/Makefile.inc services/platform/
 COPY include include/
 COPY spec/layerx-merge/contracts/address-table.md spec/layerx-merge/contracts/
+COPY contracts/config/checkpoint-settlement.json contracts/config/
 COPY services/agent services/agent/
 COPY programs programs/
 COPY src src/

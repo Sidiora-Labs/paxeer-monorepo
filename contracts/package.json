@@ -1,6 +1,6 @@
 {
   "name": "pax-chain",
-  "version": "1.0.0",
+  "version": "0.1.0",
   "description": "\"Contracts for Pax Chain\"",
   "main": "index.js",
   "directories": {
@@ -13,7 +13,7 @@
     "trigger:staking": "tsx test/staking-event-trigger.ts",
     "e2e:staking": "tsx test/run-staking-test.ts"
   },
-  "author": "",
+  "author": "Sidiora Labs",
   "license": "Apache-2.0",
   "devDependencies": {
     "@fastify/busboy": "^3.2.2",

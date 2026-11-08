@@ -5,8 +5,8 @@ sandboxes clone, integrate and push. The numbers set the targets for the interna
 object store (task 2.11), the bytes-per-sandbox metric (5.4) and the storage engine
 bake-off (5.6). Requirement: spec/hyperfide-v21 req 6, ac_5; task 1.11.
 
-The tool is `scripts/hyperfide/measure-source-day.sh`. It needs bash, git (2.38 or
-later for conflict replay), awk, du and, for GitHub sampling, curl with
+The tool is `tools/repository/hyperfide/measure-source-day.sh`. It needs bash,
+git (2.38 or later for conflict replay), awk, du and, for GitHub sampling, curl with
 `GITHUB_TOKEN` or an authenticated `gh`. It writes one JSON report and never writes
 provider env values into it.
 
@@ -16,7 +16,7 @@ Run it once, on a host with a current clone of the monorepo, at the end of a nor
 working day:
 
 ```sh
-scripts/hyperfide/measure-source-day.sh \
+tools/repository/hyperfide/measure-source-day.sh \
   --repo /path/to/monorepo --trunk origin/main --since "24 hours ago" \
   --provider railway --region <region> --provider-env /path/to/provider.env \
   --remote <the URL sandboxes clone from today> \
@@ -118,12 +118,12 @@ samples measure GitHub to this host and `provider.name` is `local`. No events
 export existed, so every `observed_*` field is `null`: nothing inside sandboxes
 was measured, only what the trunk history and the clone samples show.
 
-- 7-day window, history only, no clones: `source-measurement/source-7d.json`.
+- 7-day window, history only, no clones: `docs/hyperfide/source-measurement/source-7d.json`.
 - 24-hour window, two rounds of full, partial and sparse clones, with
-  `--maintenance`: `source-measurement/source-day.json`. Command:
+  `--maintenance`: `docs/hyperfide/source-measurement/source-day.json`. Command:
 
 ```sh
-scripts/hyperfide/measure-source-day.sh \
+tools/repository/hyperfide/measure-source-day.sh \
   --repo <scratch clone> --trunk origin/main --since "24 hours ago" \
   --provider local --region scratchpad-host \
   --clone-mode full,partial,sparse --samples 2 --interval 0 \

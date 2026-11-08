@@ -142,7 +142,10 @@ nav:
       - reference/index.md
       - Public RPC endpoints: reference/public-rpc.md
 validation:
-  omitted_files: warn
-  absolute_links: info
-  unrecognized_links: warn
-  anchors: warn
+  nav:
+    omitted_files: warn
+  links:
+    not_found: warn
+    absolute_links: info
+    unrecognized_links: warn
+    anchors: warn

@@ -32,6 +32,7 @@ export interface WorkspaceDescriptor {
   read_paths: string[];
   write_paths: string[];
   checkpoint_revision_id: string | null;
+  attempt_expires_at: string | null;
   budgets: WorkspaceBudgets;
   dependency_closure_manifest: DependencyClosureManifest;
 }
@@ -181,6 +182,17 @@ function validateDescriptor(value: WorkspaceDescriptor): WorkspaceDescriptor {
     !/^(0|[1-9]\d*)$/.test(value.authority_epoch)
   )
     workspaceError("WORKSPACE_DESCRIPTOR", "Unsupported workspace descriptor");
+  if (
+    value.attempt_expires_at !== null &&
+    (typeof value.attempt_expires_at !== "string" ||
+      !Number.isFinite(Date.parse(value.attempt_expires_at)) ||
+      new Date(value.attempt_expires_at).toISOString() !==
+        value.attempt_expires_at)
+  )
+    workspaceError(
+      "WORKSPACE_DESCRIPTOR",
+      "Canonical attempt deadline required",
+    );
   assertObjectId(value.base_revision_id);
   assertObjectId(value.root_tree_id);
   for (const p of [...value.read_paths, ...value.write_paths])
@@ -218,6 +230,7 @@ export class NativeWorkspaceClient {
       read_paths: string[];
       write_paths: string[];
       budgets?: WorkspaceBudgets;
+      attempt_expires_at?: string;
     },
     operationId: string = randomUUID(),
     signal?: AbortSignal,
@@ -271,7 +284,8 @@ export class NativeWorkspaceClient {
       current.authority_epoch !== descriptor.authority_epoch ||
       current.workspace_generation !== descriptor.workspace_generation ||
       current.scope_generation !== descriptor.scope_generation ||
-      current.base_revision_id !== descriptor.base_revision_id
+      current.base_revision_id !== descriptor.base_revision_id ||
+      current.attempt_expires_at !== descriptor.attempt_expires_at
     )
       workspaceError(
         "WORKSPACE_STALE",

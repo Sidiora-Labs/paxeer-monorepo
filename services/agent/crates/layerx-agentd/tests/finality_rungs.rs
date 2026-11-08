@@ -61,7 +61,8 @@ pub mod fixtures {
         )
         .into();
         let empty_digest: [u8; 32] = Sha256::digest([]).into();
-        let fee_asset: [u8; 32] = Sha256::digest(b"upax").into();
+        let payment_denom = "upax";
+        let fee_asset: [u8; 32] = Sha256::digest(payment_denom.as_bytes()).into();
         let mut from = [0; 32];
         from[12..].fill(6);
         let mut to = [0; 32];

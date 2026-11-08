@@ -1,3 +1,8 @@
+import {
+  authenticatedReceipt,
+  receiptRecording,
+  receiptWireKeys,
+} from './support/receipt-recordings.js';
 import { readdirSync, readFileSync } from 'node:fs';
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import type { AddressInfo } from 'node:net';
@@ -22,6 +27,7 @@ import {
   ChainDisconnectedError,
   DisconnectedError,
   GatewayRefusalError,
+  GasStationError,
   InvalidParamsError,
   PaxeerProvider,
   ProviderRpcError,
@@ -94,16 +100,13 @@ const fixtureKey = keccak256(toHex('paxeer-wallet-sdk-fixture'));
 const sequencerFixtures = JSON.parse(
   readFileSync(new URL('./fixtures/sequencer-receipt.json', import.meta.url), 'utf8')
 ) as Record<'submitted' | 'receipted' | 'committed', SequencerReceiptAnswer>;
-const sequencerReceipted: SequencerReceiptAnswer = {
-  ...sequencerFixtures.receipted,
-  blockNumber: sequencerFixtures.committed.blockNumber,
-  blockHash: sequencerFixtures.committed.blockHash,
-};
+const sequencerReceipted = sequencerFixtures.receipted;
 
 const seen: Seen[] = [];
 let server: Server;
 let base: string;
 let closedBase: string;
+let rejectSession = false;
 
 function bodyOf(name: string): Record<string, unknown> {
   const fixture = JSON.parse(readFileSync(`${fixtureDir}${name}.json`, 'utf8')) as Fixture;
@@ -136,6 +139,18 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
   });
   if (scenario === 'sequencer' && path === '/rpc') {
     const rpc = body as { method: string; id: number; params: unknown[] };
+    if (rpc.method === 'px_getReceiptKeys')
+      return send(res, 200, {
+        jsonrpc: '2.0',
+        id: rpc.id,
+        result: receiptWireKeys(sequencerReceipted),
+      });
+    if (rpc.method === 'eth_getRawTransactionByHash' && rpc.params[0] === sequencerReceipted.txHash)
+      return send(res, 200, {
+        jsonrpc: '2.0',
+        id: rpc.id,
+        result: receiptRecording(sequencerReceipted).rawTransaction,
+      });
     if (
       rpc.method !== 'pax_sequencerReceipt' ||
       rpc.params.length !== 1 ||
@@ -148,7 +163,10 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
       });
     }
     const reads = seen.filter(
-      (request) => request.scenario === 'sequencer' && request.path === '/rpc'
+      (request) =>
+        request.scenario === 'sequencer' &&
+        request.path === '/rpc' &&
+        (request.body as { method: string }).method === 'pax_sequencerReceipt'
     ).length;
     return send(res, 200, {
       jsonrpc: '2.0',
@@ -158,6 +176,22 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
   }
   if (scenario === 'rpc') {
     const rpc = body as { method: string; id: number };
+    if (rpc.method === 'px_getReceiptKeys' || rpc.method === 'eth_getRawTransactionByHash') {
+      const active = (
+        fixtures.find((fixture) => fixture.method === 'pax_sequencerReceipt')?.body as {
+          result?: SequencerReceiptAnswer;
+        }
+      )?.result;
+      if (active)
+        return send(res, 200, {
+          jsonrpc: '2.0',
+          id: rpc.id,
+          result:
+            rpc.method === 'px_getReceiptKeys'
+              ? receiptWireKeys(active)
+              : receiptRecording(active).rawTransaction,
+        });
+    }
     const fixture = fixtures.find((f) => f.scenario === 'rpc' && f.method === rpc.method);
     if (!fixture)
       return send(res, 200, {
@@ -169,6 +203,10 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
   }
   if (req.headers.authorization !== `Bearer ${TOKEN}`) {
     return send(res, 401, { error: 'unauthorized', detail: 'invalid token' });
+  }
+  if (rejectSession) {
+    const refusal = fixtures.find((fixture) => fixture.scenario === 'expired')!;
+    return send(res, refusal.status, refusal.body);
   }
   const kind = (body as { construction?: { kind?: string } } | undefined)?.construction?.kind;
   const matches = (s: string) =>
@@ -277,6 +315,7 @@ class LocalKeyProvider implements Eip1193Provider {
     const params = (args.params ?? []) as unknown[];
     switch (args.method) {
       case 'eth_requestAccounts':
+      case 'eth_accounts':
         return [this.account.address];
       case 'eth_chainId':
         return '0x7d';
@@ -453,10 +492,15 @@ describe('PaxeerProvider', () => {
     });
     await p.request({ method: 'eth_requestAccounts' });
     const events = record(p);
-    token = 'revoked-token';
-    const err = await failure(
-      p.request({ method: 'personal_sign', params: [vectors.message, vectors.address] })
-    );
+    rejectSession = true;
+    let err: unknown;
+    try {
+      err = await failure(
+        p.request({ method: 'personal_sign', params: [vectors.message, vectors.address] })
+      );
+    } finally {
+      rejectSession = false;
+    }
     expect(err).toMatchObject({ code: 4100, reason: 'unauthorized', status: 401 });
     expect(events).toEqual([{ event: 'accountsChanged', payload: [] }]);
     expect(await p.request({ method: 'eth_accounts' })).toEqual([]);
@@ -492,7 +536,7 @@ describe('PaxeerProvider', () => {
     expect(hash).toBe(bodyOf('wallet-send').tx_hash);
     const last = seen[seen.length - 1]!;
     expect(last.path).toBe('/v1/wallet/send');
-    expect(last.body).toEqual({ tx: t });
+    expect(last.body).toEqual({ tx: { ...t, from: vectors.address } });
   });
 
   it('provider_eth_sendTransaction_refuses_a_foreign_sender_and_a_foreign_chain', async () => {
@@ -593,8 +637,8 @@ describe('PaxeerProvider', () => {
     const bare = await failure(
       p.request({ method: 'eth_sign', params: [vectors.address, digest] })
     );
-    expect(bare).toBeInstanceOf(UnauthorizedError);
-    expect(bare).toMatchObject({ code: 4100, reason: 'missing_construction' });
+    expect(bare).toBeInstanceOf(InvalidParamsError);
+    expect(bare).toMatchObject({ code: -32602, field: 'params' });
     const mismatched = await failure(
       p.request({ method: 'eth_sign', params: [vectors.address, digest, vectors.sponsoredBatch] })
     );
@@ -1012,17 +1056,34 @@ describe('gas station through PaxeerProvider', () => {
     );
     expect(wrongCall).toMatchObject({ code: 4100, reason: 'digest_mismatch' });
     const bare = await failure(p.request({ method: 'eth_sign', params: [address, digest] }));
-    expect(bare).toMatchObject({ code: 4100, reason: 'missing_construction' });
+    expect(bare).toMatchObject({ code: -32602, field: 'params' });
     const reordered = await failure(
       p.request({ method: 'eth_sign', params: [address, construction] })
     );
     expect(reordered).toBeInstanceOf(InvalidParamsError);
-    expect(reordered).toMatchObject({ code: -32602, field: 'digest' });
+    expect(reordered).toMatchObject({ code: -32602, field: 'params' });
+    const malformedDigest = await failure(
+      p.request({ method: 'eth_sign', params: [address, construction, construction] })
+    );
+    expect(malformedDigest).toMatchObject({ code: -32602, field: 'digest' });
     expect(seen.length).toBe(before);
     const foreign = await failure(
       module.sign({ ...batch, account: '0x3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c' })
     );
-    expect(foreign).toMatchObject({ code: 4100, reason: 'account_mismatch' });
+    expect(foreign).toBeInstanceOf(GasStationError);
+    expect(foreign).toMatchObject({
+      code: 'refused',
+      field: 'session_changed',
+      refusal: { code: 'refused', field: 'session_changed' },
+    });
+    const foreignProvider = await failure(
+      p.request({
+        method: 'eth_sign',
+        params: ['0x3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c', digest, construction],
+      })
+    );
+    expect(foreignProvider).toBeInstanceOf(UnauthorizedError);
+    expect(foreignProvider).toMatchObject({ code: 4100, reason: 'account_mismatch' });
     expect(seen.length).toBe(before);
   });
 });
@@ -1091,10 +1152,20 @@ async function provider_sponsored_status_answers_the_sequencer_rung() {
       null,
     ];
     for (const [index, receipt] of receipts.entries()) {
+      const askedHash = receipt?.txHash ?? txHash;
+      const statusAnswer = {
+        ...submittedAnswer,
+        tx_hash: askedHash,
+        station: {
+          ...submittedAnswer.station,
+          submission: { sponsorNonce: '0', transactionHash: askedHash },
+        },
+      };
+      statusFixture.body = statusAnswer;
       receiptFixture.body = { jsonrpc: '2.0', result: receipt };
       const beforeRead = seen.length;
       expect(await p.request({ method: 'paxeer_sponsoredStatus', params: [status] })).toEqual({
-        ...submittedAnswer,
+        ...statusAnswer,
         rung: receipt === null ? null : receipt.rung,
       });
       expect(seen.slice(beforeRead)).toEqual([
@@ -1110,8 +1181,25 @@ async function provider_sponsored_status_answers_the_sequencer_rung() {
           path: '/',
           scenario: 'rpc',
           authorization: undefined,
-          body: { jsonrpc: '2.0', id: index + 1, method: 'pax_sequencerReceipt', params: [txHash] },
+          body: {
+            jsonrpc: '2.0',
+            id: index === 0 ? 1 : index === 1 ? 2 : index === 2 ? 5 : 8,
+            method: 'pax_sequencerReceipt',
+            params: [askedHash],
+          },
         },
+        ...(receipt && receipt.rung !== 'submitted'
+          ? [
+              { method: 'px_getReceiptKeys', params: [] },
+              { method: 'eth_getRawTransactionByHash', params: [askedHash] },
+            ].map((call, offset) => ({
+              method: 'POST',
+              path: '/',
+              scenario: 'rpc',
+              authorization: undefined,
+              body: { jsonrpc: '2.0', id: (index === 1 ? 3 : 6) + offset, ...call },
+            }))
+          : []),
       ]);
     }
 
@@ -1148,7 +1236,7 @@ async function provider_send_transaction_receipted_answers_the_receipted_sequenc
     method: 'paxeer_sendTransactionReceipted',
     params: [{ from: vectors.address, ...vectors.transaction }],
   });
-  expect(answer).toEqual(sequencerReceipted);
+  expect(answer).toEqual(authenticatedReceipt(sequencerReceipted));
   expect(answer).toMatchObject({ rung: 'receipted', txHash: sequencerFixtures.submitted.txHash });
   expect(confirmations).toEqual(['paxeer_sendTransactionReceipted']);
   expect(seen.slice(before)).toEqual([
@@ -1157,7 +1245,7 @@ async function provider_send_transaction_receipted_answers_the_receipted_sequenc
       path: '/v1/wallet/send',
       scenario: 'sequencer',
       authorization: `Bearer ${TOKEN}`,
-      body: { tx: vectors.transaction },
+      body: { tx: { ...vectors.transaction, from: vectors.address } },
     },
     ...[1, 2].map((id) => ({
       method: 'POST',
@@ -1170,6 +1258,16 @@ async function provider_send_transaction_receipted_answers_the_receipted_sequenc
         method: 'pax_sequencerReceipt',
         params: [sequencerFixtures.submitted.txHash],
       },
+    })),
+    ...[
+      { method: 'px_getReceiptKeys', params: [] },
+      { method: 'eth_getRawTransactionByHash', params: [sequencerReceipted.txHash] },
+    ].map((call, index) => ({
+      method: 'POST',
+      path: '/rpc',
+      scenario: 'sequencer',
+      authorization: undefined,
+      body: { jsonrpc: '2.0', id: index + 3, ...call },
     })),
   ]);
   const rejected = provider('sequencer', { confirm: () => false });
@@ -1194,7 +1292,7 @@ async function provider_eth_send_transaction_still_answers_only_the_hash() {
       path: '/v1/wallet/send',
       scenario: 'sequencer',
       authorization: `Bearer ${TOKEN}`,
-      body: { tx: vectors.transaction },
+      body: { tx: { ...vectors.transaction, from: vectors.address } },
     },
   ]);
 }
