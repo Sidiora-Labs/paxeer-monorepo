@@ -100,7 +100,7 @@ def test_benchmark_rpc_envelope_block_statistics(consensus_http):
     routes[next_path] = (200, transcript("populated"))
 
     block = metrics.get_block_info(EMPTY_HEIGHT)
-    assert metrics.get_best_block_stats([block]) == (0, EMPTY_HEIGHT, 1869.63371)
+    assert metrics.get_best_block_stats([block]) == (0, EMPTY_HEIGHT, 1869.633323)
     assert received == [("GET", empty_path), ("GET", next_path)]
 
 

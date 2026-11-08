@@ -453,55 +453,5 @@
     "nodeid": "tools/jev/tests/test_repair_22_33_705.py::test_dependency_capture_reaches_client_and_report_with_real_lockfile_anchors[RUSTSEC-2026-0285]",
     "reason": "The captured dependency anchors for paste or rustls point at stale Cargo.lock lines rather than the named crate declarations.",
     "retiring_task": "22.39.156"
-  },
-  {
-    "nodeid": "tools/bringup/tests/test_bringup_fixtures_retired.py::BringupFixturesRetiredTest::test_fixtures_name_no_retired_daemon",
-    "reason": "The foundation artifact check rejects the stale producer import graph and the bringup fixture still contains the retired LAYERX_INDEXER_RELAY_URL variable.",
-    "retiring_task": "22.39.164"
-  },
-  {
-    "nodeid": "tools/bringup/tests/test_repair_22_31_319.py::test_edge_manifest_roundtrip_both_consumers_over_ssh",
-    "reason": "The qualification environment lacks nginx, which the edge manifest integration test declares as a prerequisite package.",
-    "retiring_task": "22.39.164"
-  },
-  {
-    "nodeid": "tools/bringup/tests/test_repair_22_31_319.py::test_search_front_roundtrip_primary_backup_and_refusals",
-    "reason": "The search front render exits two because BRINGUP_HOSTS_FILE is unset.",
-    "retiring_task": "22.39.164"
-  },
-  {
-    "nodeid": "tools/bringup/tests/test_repair_22_31_319.py::test_xweb_config_roundtrip_rotation_and_refusals",
-    "reason": "The xweb render refuses because separate hosted gateway and node root transports are required.",
-    "retiring_task": "22.39.164"
-  },
-  {
-    "nodeid": "tools/bringup/tests/test_repair_22_31_319.py::test_internal_probe_kernel_identity_over_private_route_over_ssh",
-    "reason": "The kernel identity probe returns a ready response after credential corruption when the test requires refusal.",
-    "retiring_task": "22.39.164"
-  },
-  {
-    "nodeid": "tools/bringup/tests/test_repair_22_31_319.py::test_internal_probe_kernel_identity_over_private_route",
-    "reason": "The recorded private-route kernel probe receives a refused KMS response instead of ready and leaves unmatched session calls at teardown.",
-    "retiring_task": "22.39.164"
-  },
-  {
-    "nodeid": "tools/bringup/tests/test_spec_paths.py::BringupSpecPathsTest::test_docs_names_reads_existing_spec",
-    "reason": "The docs-names check refuses README.md as an unpublished public name.",
-    "retiring_task": "22.39.164"
-  },
-  {
-    "nodeid": "tools/bringup/tests/test_xweb_config.py::XwebConfigTest::test_render_emits_no_lx_route",
-    "reason": "The xweb config loader refuses the fixture because its seeds list is a placeholder.",
-    "retiring_task": "22.39.164"
-  },
-  {
-    "nodeid": "tools/benchmark/loadtest/contracts/evm/test_sources_match_bindings.py::test_my_nft_abi_matches_erc721_binding",
-    "reason": "The compiled MyNFT mint ABI names its uint256 parameter tokenId while the ERC721 binding names it id.",
-    "retiring_task": "22.39.164"
-  },
-  {
-    "nodeid": "tools/benchmark/loadtest/scripts/test_repair_22_31_431.py::test_benchmark_rpc_envelope_block_statistics",
-    "reason": "The benchmark block statistics tuples differ in their sixth decimal place.",
-    "retiring_task": "22.39.164"
   }
 ]

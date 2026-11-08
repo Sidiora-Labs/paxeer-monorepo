@@ -80,7 +80,7 @@ class XwebConfigTest(unittest.TestCase):
         }
         env.update(
             XWEB_SERVE_NAMES="api1.mainnet-beta.paxeer.network api2.mainnet-beta.paxeer.network",
-            XWEB_SEEDS="https://example.com/",
+            XWEB_SEEDS="https://paxeer.network/",
             XWEB_SID_PER_PAX="3.114",
             XWEB_PAX_USD_PRICE="13.44",
             NO_PROXY="127.0.0.1",

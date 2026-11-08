@@ -612,7 +612,7 @@ func TestRepairM_794_DocsNamePolicy(t *testing.T) {
 	if e != nil {
 		t.Fatal(e)
 	}
-	if len(inventory.Nodes) != 14 || !allowed["api-mainnet-beta.paxeer.network"] || allowed["api15.mainnet-beta.paxeer.network"] || allowed["api16.mainnet-beta.paxeer.network"] {
+	if len(inventory.Nodes) != 14 || !allowed["api-mainnet-beta.paxeer.network"] || !allowed["mainnet-beta.paxeer.network"] || allowed["api15.mainnet-beta.paxeer.network"] || allowed["api16.mainnet-beta.paxeer.network"] {
 		t.Fatal("merged public-name set differs")
 	}
 	var text strings.Builder
@@ -622,6 +622,26 @@ func TestRepairM_794_DocsNamePolicy(t *testing.T) {
 	text.WriteString("https://hooks.paxeer.network\nhttps://dev.paxeer.network\n")
 	if e = ValidateDocumentNames(inventory, allowed, text.String()); e != nil {
 		t.Fatal(e)
+	}
+	for _, good := range []string{"LAYERX_FAUCET_URL", "LAYERX_GATEWAY_FAUCET_URL", "LAYERX_SCHEDULED_FAUCET_URL", "FAUCET_URL_SUFFIX", "1FAUCET_URL", "FAUCET_URL1", "mainnet-beta.paxeer.network", "https://<node>.mainnet-beta.paxeer.network"} {
+		if e = ValidateDocumentNames(inventory, allowed, good); e != nil {
+			t.Fatalf("published documentation refused: %s: %v", good, e)
+		}
+	}
+	for _, good := range []string{"http://127.0.0.1:$COMET_RPC_PORT/status", "http://127.0.0.1:${COMET_RPC_PORT}/validators?page=1&per_page=100"} {
+		if e = ValidateDocumentNames(inventory, allowed, good); e != nil {
+			t.Fatalf("local shell URL refused: %s: %v", good, e)
+		}
+	}
+	for _, bad := range []string{inventory.Nodes[0] + ":$PORT", inventory.Nodes[0] + ":${PORT}/", inventory.Nodes[0] + ":$PORT/rpc", "http://127.0.0.1:invalid/status", "http://127.0.0.1:${}/status"} {
+		if e = ValidateDocumentNames(inventory, allowed, bad); e == nil {
+			t.Fatalf("routed or malformed documentation accepted: %s", bad)
+		}
+	}
+	for _, bad := range []string{"FAUCET_URL", "`FAUCET_URL`", "(FAUCET_URL)", "FAUCET_URL=value", "https://unpublished.mainnet-beta.paxeer.network"} {
+		if e = ValidateDocumentNames(inventory, allowed, bad); e == nil {
+			t.Fatalf("unpublished documentation accepted: %s", bad)
+		}
 	}
 	for _, bad := range []string{"https://api15.mainnet-beta.paxeer.network", "https://api16.mainnet-beta.paxeer.network", inventory.Canonical + "/rpc", inventory.Nodes[0] + "/rpc", inventory.Nodes[0] + ":443/rpc", inventory.Nodes[0] + "?route=rpc", "https://unpublished.paxeer.network", "FAUCET_URL=https://faucet.paxeer.network"} {
 		if e = ValidateDocumentNames(inventory, allowed, bad); e == nil {
