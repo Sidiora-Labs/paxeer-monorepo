@@ -183095,7 +183095,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.174]
 title = "Track the generated lock file of the bridge relayer EVM test dependencies so the crate test targets compile"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 3
 requires = ["22.39.124"]
