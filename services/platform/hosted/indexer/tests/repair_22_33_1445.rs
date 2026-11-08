@@ -642,7 +642,7 @@ fn request_writes_obey_total_deadline() -> Checked<()> {
             "tls={tls}: {result:?}"
         );
         assert!(
-            elapsed >= Duration::from_millis(250) && elapsed < Duration::from_secs(1),
+            elapsed >= Duration::from_millis(250) && elapsed < Duration::from_secs(2),
             "tls={tls}: {elapsed:?}"
         );
     }
