@@ -2396,20 +2396,16 @@ fn repair_native_carrier_validates_real_preparation_and_restores_after_store_res
 fn repair_wire_carrier_binds_the_retained_signing_preparation_after_restart() {
     let case = Case::open("native_effect_sources");
     let (call_carrier, _, registry) = restored(&case);
-    let canonical = layerx_wire::activity::encode_unsigned_envelope(&call_carrier.envelope)
-        .expect("real unsigned wire envelope producer");
-    let authority = call_carrier.envelope.authority();
-    let prepared = layerx_agentd::prepare::restore_canonical(
-        &canonical,
-        call_carrier.observed_head_sequence,
-        &registry,
-        Some(authority),
-    )
-    .expect("approval-path wire restoration");
-    assert_eq!(prepared.canonical_bytes, canonical);
-    assert_ne!(prepared.canonical_bytes, call_carrier.canonical_bytes);
     let signing = signing_preparation(&case);
-    let produced = layerx_agentd::budget::native_binding::restore_native_preparation(
+    let prepared = native_call_preparation(
+        &call_carrier.canonical_bytes,
+        signing.actor_address,
+        call_carrier.observed_head_sequence,
+    )
+    .expect("approval-path call restoration");
+    let canonical = prepared.call.encode_unsigned();
+    assert_eq!(canonical, call_carrier.canonical_bytes);
+    let wire_carrier = layerx_agentd::budget::native_binding::restore_native_preparation(
         &signing.transaction.call.encode_unsigned(),
         signing.actor_address,
         signing.transaction.observed_head_height,
@@ -2417,6 +2413,15 @@ fn repair_wire_carrier_binds_the_retained_signing_preparation_after_restart() {
         &registry,
     )
     .expect("native-to-wire approval carrier producer");
+    assert_ne!(wire_carrier.canonical_bytes, call_carrier.canonical_bytes);
+    let produced_call = validate_retained_preparation(&wire_carrier, Some(&signing))
+        .expect("native restoration retains the same signing preparation");
+    let produced = native_call_preparation(
+        &produced_call.encode_unsigned(),
+        signing.actor_address,
+        wire_carrier.observed_head_sequence,
+    )
+    .expect("call-bound authorization from native restoration");
     assert_eq!(produced, prepared);
     let root = temporary("wire-signing-binding");
     let tenant = case.tenant();
@@ -2430,11 +2435,11 @@ fn repair_wire_carrier_binds_the_retained_signing_preparation_after_restart() {
     let retained = SigningPreparation::restore(&reopened, tenant.clone(), id)
         .expect("restore same retained signing preparation");
     assert_eq!(
-        validate_retained_preparation(&prepared, Some(&retained)),
+        validate_retained_preparation(&wire_carrier, Some(&retained)),
         Ok(signing.transaction.call.clone())
     );
     assert_eq!(
-        validate_retained_preparation(&prepared, None),
+        validate_retained_preparation(&wire_carrier, None),
         Err(NativeBindingError::Preparation)
     );
     assert!(SigningPreparation::restore(&reopened, tenant, [0xff; 32]).is_err());
@@ -2449,7 +2454,7 @@ fn repair_wire_carrier_binds_the_retained_signing_preparation_after_restart() {
             _ => unreachable!(),
         }
         assert_eq!(
-            validate_retained_preparation(&prepared, Some(&disagrees)),
+            validate_retained_preparation(&wire_carrier, Some(&disagrees)),
             Err(NativeBindingError::Preparation),
             "refuse changed signing field {field}"
         );
@@ -2467,11 +2472,11 @@ fn repair_wire_carrier_binds_the_retained_signing_preparation_after_restart() {
     validate_native_preparation(&substituted.transaction)
         .expect("independently valid substituted preparation");
     assert_eq!(
-        validate_retained_preparation(&prepared, Some(&substituted)),
+        validate_retained_preparation(&wire_carrier, Some(&substituted)),
         Err(NativeBindingError::Preparation)
     );
     for field in 0..5 {
-        let mut altered = prepared.clone();
+        let mut altered = wire_carrier.clone();
         match field {
             0 => altered.disclosure_digest.0[0] ^= 1,
             1 => altered.signing_preimage[0] ^= 1,
@@ -2497,10 +2502,10 @@ fn repair_wire_carrier_binds_the_retained_signing_preparation_after_restart() {
             "refuse changed wire carrier field {field}"
         );
     }
-    let caps = case.caps(prepared.observed_head_sequence);
+    let caps = case.caps(prepared.observed_head_height);
     let sources = read_native_effect_budget_sources(
         &mut case.node(),
-        &prepared,
+        &wire_carrier,
         Some(&retained),
         &caps,
         case.value["now_ms"].as_u64().expect("core time"),

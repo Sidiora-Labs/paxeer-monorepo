@@ -10,26 +10,10 @@ use layerx_agentd::prepare::evm::{
 use layerx_agentd::prepare::{
     expire, retention_sweep, LifecycleError, LifecycleState, PayloadRedaction, PreparationLifecycle,
 };
-use layerx_types::activity::{Authority, EnvelopeBuilder, TimestampBound};
-use layerx_types::amount::Amount;
-use layerx_types::ids::{Did, IdempotencyKey};
-use layerx_types::payload::{ActivityType, ModuleId, ModuleRegistration, ModuleRegistry, Payload};
 use layerx_wire::encode::Encoder;
 
 fn must<T, E: std::fmt::Debug>(result: Result<T, E>) -> T {
     result.unwrap_or_else(|error| panic!("expiry: {error:?}"))
-}
-
-fn activity_type() -> ActivityType {
-    ActivityType::new(ModuleId::Asset, 5).unwrap_or_else(|error| panic!("activity: {error:?}"))
-}
-
-fn registry() -> ModuleRegistry {
-    ModuleRegistry::new(
-        &[ModuleRegistration::new(ModuleId::Asset, &[activity_type()])
-            .unwrap_or_else(|error| panic!("registration: {error:?}"))],
-    )
-    .unwrap_or_else(|error| panic!("registry: {error:?}"))
 }
 
 fn send_payload() -> Vec<u8> {
