@@ -165,7 +165,7 @@ fn signature_refusal() -> PortableReceiptError {
 #[test]
 fn proof_portable_receipt_producers_reach_the_consumer_twice() {
     let cases = recording();
-    assert_eq!(cases.len(), 6, "all real successful and reverted outcomes");
+    assert_eq!(cases.len(), 7, "all real successful and reverted outcomes");
     for _ in 0..2 {
         for case in &cases {
             let raw = bytes(&case.raw_transaction);

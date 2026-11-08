@@ -14,20 +14,39 @@ class KernelInitTest(unittest.TestCase):
             encoding="utf-8"
         )
         scheduled_roles = re.findall(
-            r"/usr/local/bin/human-entrypoint\s+([^\s;]+)",
+            r"\b(?:/usr/local/bin/)?human-entrypoint\s+([^\s;]+)",
             script.replace("\\\n", ""),
         )
-        self.assertTrue(scheduled_roles)
-        role_case = re.search(r'(?ms)^case "\$role" in\n(.*?)^esac$', entrypoint)
-        self.assertIsNotNone(role_case)
-        accepted_roles = {
-            role
-            for pattern in re.findall(
-                r"(?m)^    ([a-z][a-z0-9|-]*)\)", role_case.group(1)
-            )
-            for role in pattern.split("|")
+        self.assertEqual(scheduled_roles, [])
+        self.assertRegex(
+            script.replace("\\\n", ""),
+            r"(?m)^exec setpriv --reuid=4020 --regid=4020 --clear-groups --no-new-privs"
+            r'\s+python3 /opt/layerx/kernel_runtime\.py --home "\$node_home"\s*\Z',
+        )
+        recipe = (ROOT / "docker/kernel/Dockerfile").read_text(encoding="utf-8")
+        self.assertIn(
+            "COPY docker/kernel/kernel_runtime.py /opt/layerx/kernel_runtime.py", recipe
+        )
+        self.assertIn('ENTRYPOINT ["/usr/local/bin/kernel-init"]', recipe)
+        role_cases = re.findall(r'(?ms)^case "\$role" in\n(.*?)^esac$', entrypoint)
+        self.assertEqual(len(role_cases), 2)
+        expected_roles = {
+            "service",
+            "components",
+            "identity",
+            "security",
+            "agent",
+            "kms",
+            "onboarding-bootstrap",
+            "onboarding-signer",
         }
-        self.assertTrue(accepted_roles)
+        for role_case in role_cases:
+            accepted_roles = {
+                role
+                for pattern in re.findall(r"(?m)^    ([a-z][a-z0-9|-]*)\)", role_case)
+                for role in pattern.split("|")
+            }
+            self.assertEqual(accepted_roles, expected_roles)
         for role in scheduled_roles:
             with self.subTest(role=role):
                 self.assertIn(role, accepted_roles)

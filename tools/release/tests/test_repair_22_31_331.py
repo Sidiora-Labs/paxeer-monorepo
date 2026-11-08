@@ -93,7 +93,7 @@ class RollbackHome:
         dump(self.state, signing_state(31, 2))
         with sqlite3.connect(self.store) as db:
             db.execute("INSERT INTO commits VALUES(31, 'candidate-commit')")
-        dump(self.home / "data/upgrade-info.json", {"name": "v6.12.0", "height": 21})
+        dump(self.home / "data/upgrade-info.json", {"name": "v7.0", "height": 21})
 
     def write_env(self):
         fields = {
@@ -132,7 +132,7 @@ def test_validator_signing_rewind_refused_before_any_move(tmp_path, live):
     assert "post-halt signing" in result.stderr
     assert "same-chain snapshot restore refused" in result.stderr
     assert before == (node.state.read_bytes(), node.store.read_bytes(), node.app.read_bytes())
-    assert not (node.home / "data.v6.12.0-r1").exists()
+    assert not (node.home / "data.v7.0.0-r1").exists()
     assert not (node.home / ".rollback-r1").exists()
     assert node.commits() == [(20, "halt-commit"), (31, "candidate-commit")]
 
@@ -163,7 +163,7 @@ def test_forward_recovery_reopens_journal_without_rewinding(tmp_path):
     assert (node.home / "data/upgrade-info.json").is_file()
     assert node.app.read_text() == "halt-height = 0\n"
     assert digest(node.bin / "paxd") == digest(node.recovery)
-    assert not (node.home / "data.v6.12.0-r1").exists()
+    assert not (node.home / "data.v7.0.0-r1").exists()
     dump(node.state, signing_state(30))
     result = node.invoke("--forward", "--execute", "--phase", "restore", success=False)
     assert "high-water mark regressed" in result.stderr
@@ -190,7 +190,7 @@ def test_isolated_fork_rewind_requires_fresh_keys_and_network(tmp_path):
     node.invoke("--execute", "--phase", "restore")
     assert json.loads(node.state.read_text())["height"] == "20"
     assert node.commits() == [(20, "halt-commit")]
-    retained = node.home / "data.v6.12.0-r1/committer.db/history.sqlite"
+    retained = node.home / "data.v7.0.0-r1/committer.db/history.sqlite"
     with sqlite3.connect(retained) as db:
         assert db.execute("SELECT MAX(height) FROM commits").fetchone() == (31,)
     # Reopen the retained state with a new rollback process's readiness check.
@@ -316,7 +316,7 @@ def test_fresh_rehearsal_driver_handoff_consumer_and_final_receipt(tmp_path):
             fleet.load_config(env, "post")
         # Publish with the same final producer called after the driver's rollback
         # leg. No success receipt was seeded to unblock the earlier consumer.
-        run("bash", "-euc", 'source "$1"; receipt=$2; plan=v6.12.0; nodes=1; '
+        run("bash", "-euc", 'source "$1"; receipt=$2; plan=v7.0; release_version=v7.0.0; nodes=1; '
             'precompiles_served=8; pools=$3; markets=$4; oracle_fresh=18; feed_keys=1; '
             'new_sha=$5; write_receipt pass', "receipt", RELEASE / "rehearsal/receipt.sh",
             final, measured["pools"], measured["markets"], env["RELEASE_SHA256"])

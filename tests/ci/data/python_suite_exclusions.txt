@@ -1,5 +1,7 @@
 # Exact tracked Python test directory or file | reason. No glob exclusions.
 # Runtime suites in test-python-suites are never excluded here.
+# scripts/ci has no tracked Python tests since 995a25e5af; its stale row was retired.
+# Task 22.39.134 retains that retirement from 767e5757f2c3a5a38e354044c494f2ea158f01ec.
 apps/launchpad/qualification/account-ui | Launchpad application qualification uses its own release input schemas and application artifacts; the runtime Python job does not build the launchpad workspace.
 apps/launchpad/qualification/mobile | Launchpad application qualification uses its own release input schemas and application artifacts; the runtime Python job does not build the launchpad workspace.
 apps/launchpad/web/src/core/wallet-sdk/test-fixtures | Launchpad application qualification uses its own release input schemas and application artifacts; the runtime Python job does not build the launchpad workspace.
@@ -19,8 +21,7 @@ docs/platform/build | Documentation source contracts belong to the documentation
 layerxproof/retired | Retired proof-package absence checks belong to the kernel retirement gate, separately from retained daemon and hosted runtime qualification.
 programs/fixtures | Program fixture qualification requires its own Cargo workspace and generated guest fixture artifacts; the native command build does not produce that fixture corpus.
 programs/fixtures/pay5 | Payment fixture qualification invokes the pay5 fixture producers and their release inputs; those producers belong to the separate programs qualification gate.
-scripts | Release operator scripts have isolated qualification inventories and source-bound release inputs; they are outside the retained command and hosted suite target.
-scripts/ci | Publication command qualification needs the installed public Go module and its checksum-database records; the Python job does not provision that publication toolchain.
+scripts | Release operator scripts have isolated qualification inventories and source-bound release inputs; they are outside the retained command and hosted suite target (the retired scripts/ci directory has no Python tests).
 scripts/gates | Qualification gate self-tests exercise separate Git repositories and wave evidence lifecycle contracts; they belong to the qualification tooling gate rather than runtime suites.
 scripts/qualification/paxeer-x | Native migration script qualification belongs to the release evidence producer environment with its own committed migration inputs and SDK contract qualification.
 scripts/replica | Replica bootstrap qualification owns the state-sync and snapshot producer contracts; it is separate from the retained daemon client qualification target.

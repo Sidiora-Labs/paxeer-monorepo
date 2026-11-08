@@ -1192,7 +1192,14 @@ impl Envelope<'_> {
     #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn validate(&self) -> CodecResult<()> {
         let m = self.operation.metadata();
-        self.operation.validate_payload_length(self.payload.len())?;
+        if let Err(error) = self.operation.validate_payload_length(self.payload.len()) {
+            if self.operation == crate::dispatch::RevealScore
+                && self.payload.len() < crate::commit_reveal::commitment::REVEAL_MIN_BYTES
+            {
+                decode_reveal_score(self.payload)?;
+            }
+            return Err(error);
+        }
         if self.payload.len() > MAX_PAYLOAD_BYTES || self.expiry == 0 {
             return Err(NON_CANONICAL);
         }
@@ -1723,7 +1730,7 @@ pub fn decode_reveal_score(input: &[u8]) -> CodecResult<RevealScorePayload<'_>> 
         return Err(CAPACITY);
     }
     let mut r = Reader::new(input);
-    let report = decode_report(r.bytes(REPORT_MAX_BYTES)?)?;
+    let report = crate::evaluators::codec::decode_report_body(r.bytes(REPORT_MAX_BYTES)?)?;
     let signature = Signature64(r.fixed()?);
     let salt = r.salt32()?;
     r.finish()?;

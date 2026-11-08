@@ -14,9 +14,9 @@ use layerx_agentd::identity::{
     register, CoreIdentity, IdentityError, IdentityResolver, ProtocolAuthority,
 };
 use layerx_agentd::prepare::{
-    expire, prepare_bound, retention_sweep, verify_call_binding, DisclosureDigest,
-    EvmPreparationDefaults, EvmPreparationState, EvmPrepareRequest, EvmPrepared, LifecycleError,
-    LifecycleState, PrecompileCall, PreparationAuditEntry, PreparationLifecycle, Prepared,
+    expire, prepare_bound, retention_sweep, verify_call_binding, EvmPreparationDefaults,
+    EvmPreparationState, EvmPrepareRequest, EvmPrepared, LifecycleError, LifecycleState,
+    PrecompileCall, PreparationLifecycle,
 };
 use layerx_agentd::session::{open, OpenRequest, SessionId, SessionRef, SessionRegistry, Token};
 use layerx_agentd::session_control::{OperationPermit, SessionControl, SessionControlError};
@@ -25,10 +25,8 @@ use layerx_agentd::store::{Store, TenantId};
 use layerx_agentd::tenant::{AuthorizationError, Operation, Surface};
 use layerx_crypto::disclosure::call::bind_call;
 use layerx_crypto::evm_transaction::{decode_signed, recover_sender, transaction_hash};
-use layerx_types::activity::{Authority, EnvelopeBuilder, TimestampBound};
-use layerx_types::amount::Amount;
-use layerx_types::ids::{Did, IdempotencyKey};
-use layerx_types::payload::{ActivityType, ModuleId, ModuleRegistration, ModuleRegistry, Payload};
+use layerx_types::ids::Did;
+use layerx_types::payload::{ActivityType, ModuleId, ModuleRegistration, ModuleRegistry};
 use layerx_types::verify::VerificationLevel;
 use layerx_wire::encode::Encoder;
 
@@ -146,113 +144,8 @@ fn evm_prepared() -> EvmPrepared {
     prepared
 }
 
-fn prepared() -> Prepared {
-    let transaction = evm_prepared();
-    let disclosure = transaction.disclosure;
-    let payload = text(
-        Payload::new(&registry(), disclosure.activity_type, &send_payload()),
-        "payload",
-    );
-    let payload_hash = text(
-        layerx_wire::hash::payload_hash_for(&payload),
-        "payload hash",
-    );
-    // SessionControl's retained metadata adapter still takes a canonical envelope.
-    // Bind that metadata independently and check its expiry against the real EVM call.
-    // Only the verified EIP-1559 bytes from signed_bytes() are retained for submission.
-    let mut builder = EnvelopeBuilder::new();
-    text(
-        builder.protocol_version(layerx_wire::limits::PROTOCOL_VERSION),
-        "protocol",
-    );
-    text(
-        builder.network_id(u32::try_from(transaction.call.chain_id).unwrap()),
-        "chain",
-    );
-    text(builder.activity_type(disclosure.activity_type), "activity");
-    text(
-        builder.actor_did(text(Did::new(&disclosure.actor), "actor")),
-        "actor field",
-    );
-    text(
-        builder.authority(text(Authority::owner(&disclosure.authority), "authority")),
-        "authority field",
-    );
-    text(builder.account_sequence(transaction.call.nonce), "nonce");
-    text(
-        builder.timestamp_bound(text(
-            TimestampBound::new(
-                disclosure.expiry.not_before,
-                disclosure
-                    .expiry
-                    .not_after
-                    .min(disclosure.expiry.payload_expires_at),
-            ),
-            "expiry",
-        )),
-        "expiry field",
-    );
-    text(
-        builder.idempotency_key(IdempotencyKey::new(disclosure.idempotency_key)),
-        "idempotency",
-    );
-    text(
-        builder.fee_limit(Amount::from_u128(disclosure.fee_limit)),
-        "fee",
-    );
-    text(builder.payload_hash(payload_hash), "hash");
-    text(builder.payload(payload), "payload field");
-    let envelope = text(builder.build(), "retained metadata");
-    assert_eq!(envelope.timestamp_bound().not_after(), NOT_AFTER_MS);
-    let canonical_bytes = text(
-        layerx_wire::activity::encode_unsigned_envelope(&envelope),
-        "canonical retained metadata",
-    );
-    let retained_disclosure = text(
-        layerx_crypto::disclosure::bind(&canonical_bytes, &registry()),
-        "retained metadata disclosure",
-    );
-    assert_eq!(
-        retained_disclosure.expiry.not_before,
-        disclosure.expiry.not_before
-    );
-    assert_eq!(
-        retained_disclosure.expiry.not_after,
-        disclosure
-            .expiry
-            .not_after
-            .min(disclosure.expiry.payload_expires_at)
-    );
-    assert_eq!(
-        retained_disclosure.expiry.payload_expires_at,
-        disclosure.expiry.payload_expires_at
-    );
-    assert_eq!(retained_disclosure.activity_type, disclosure.activity_type);
-    assert_eq!(retained_disclosure.actor, disclosure.actor);
-    assert_eq!(retained_disclosure.authority, disclosure.authority);
-    assert_eq!(
-        retained_disclosure.idempotency_key,
-        disclosure.idempotency_key
-    );
-    let digest = DisclosureDigest(text(retained_disclosure.audit_digest(), "retained digest"));
-    let idempotency_key = envelope.idempotency_key().bytes();
-    let signing_preimage = text(
-        layerx_wire::sign::preimage_unsigned(&envelope),
-        "metadata preimage",
-    );
-    Prepared {
-        envelope,
-        canonical_bytes,
-        signing_preimage: *signing_preimage.as_bytes(),
-        observed_head_sequence: transaction.observed_head_height,
-        disclosure: retained_disclosure,
-        disclosure_digest: digest,
-        audit: PreparationAuditEntry {
-            idempotency_key,
-            observed_head_sequence: transaction.observed_head_height,
-            disclosure_digest: digest,
-        },
-    }
+fn prepared() -> EvmPrepared {
+    evm_prepared()
 }
 
 fn signed_bytes() -> Vec<u8> {

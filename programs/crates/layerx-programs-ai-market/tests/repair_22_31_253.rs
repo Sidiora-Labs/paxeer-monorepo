@@ -900,6 +900,8 @@ fn header_omits_opened_epoch() {
 
 #[test]
 fn availability_hides_enabled_features() {
+    let mut expected = [Availability::Available; 11];
+    expected[10] = Availability::NotEnabled;
     let mut w = World::first_open();
     let before = ok(queries::feature_availability(&w.bytes));
     assert_eq!(before[5], Availability::Available);
@@ -909,16 +911,13 @@ fn availability_hides_enabled_features() {
     w.score(800_000);
     w.settle();
     let capture = w.capture();
-    assert_eq!(capture.projection().0, [Availability::Available; 11]);
+    assert_eq!(capture.projection().0, expected);
     let saved = Saved::new();
     saved.save(&capture);
     let facts = capture.facts;
     drop(capture);
     drop(w);
-    assert_eq!(
-        saved.reopen(facts).projection().0,
-        [Availability::Available; 11]
-    );
+    assert_eq!(saved.reopen(facts).projection().0, expected);
     let recovered = saved.reopen(facts);
     let shared = ok(state::decode_shared_state(&recovered.state));
     let mut joint = shared.feature_sections[4].to_vec();

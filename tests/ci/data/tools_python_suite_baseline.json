@@ -1,0 +1,7 @@
+[
+  {
+    "nodeid": "tools/paxeer-x/tests/test_retired_catalogue_deleted.py::RetiredCatalogueDeletedTest::test_deleted_trees_absent_and_catalogue_valid",
+    "reason": "The LNI retiring_trees entry records task 9.24.7, but its directory still contains retained evidence and the unchanged --deleted scan must refuse until that tree is retired.",
+    "retiring_task": "22.39.144"
+  }
+]

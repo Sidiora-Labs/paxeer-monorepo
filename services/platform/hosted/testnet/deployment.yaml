@@ -255,6 +255,8 @@ spec:
   podSelector: {matchLabels: {app: layerx-testnet-control}}
   policyTypes: [Egress]
   egress:
+    - to: [{podSelector: {matchLabels: {app: layerx-node}}}]
+      ports: [{protocol: TCP, port: 8545}]
     - to: [{podSelector: {matchLabels: {layerx-plane: trusted-boundary}}}]
       ports: [{protocol: TCP, port: 9443}, {protocol: TCP, port: 9444}, {protocol: TCP, port: 9445}]
     - to: [{podSelector: {matchLabels: {app: layerx-gateway}}}]

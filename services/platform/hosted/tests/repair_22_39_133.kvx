@@ -1,0 +1,72 @@
+[task]
+id = "22.39.133"
+acceptance = "22998.1"
+base_revision = "8b994ac86f0962e181665c8b265fa8fac48e0947"
+revision_source = "The final hf-done row in private /out/run/gates.jsonl records the exact verified candidate revision, command, exit and private evidence location; hf-build records collection at the same candidate. This record alone claims no gate result."
+entry_state = "No scoped edits or gate ledger existed at entry; runner setup changes outside scope were preserved. No tests ran before implementation."
+
+[choice.node_topology]
+owners = ["22.33.1456", "22.31.355", "8.18.1"]
+repair = "The deployed kernel_runtime owns one paxd and a retained native home, with HTTP readiness, not the retired core and signer sidecars. Assert the exact command, ports, storage, native material mount, security contexts and absence of sidecars, guarantors and LNI variables. Explicitly disable the shared process namespace in the manifest. Keep all ten topology methods and their port, selector, listener and policy refusal scenarios, checking the advertised native ConfigMap RPC origin from the control workload through the production topology engine; this structural check does not claim the control binary consumes that ConfigMap. Restore its missing native RPC egress rule."
+
+[choice.projection_and_readiness]
+owner = "22.31.355"
+repair = "Retain both real AtomicWriter-to-private-file projection proofs, owner/mode/link checks and the real FileProvider/Signer signature exchange as helper contracts; assert that their former sidecars and private volumes are retired from deployment. Exercise the current kernel HTTP readiness handler with the committed native RPC peers, reopen its persisted checkpoint and refuse stale committed state. Legacy native owner, descriptor, reset and recovery proofs remain executed unchanged."
+
+[choice.journey]
+owner = "22.33.1447"
+architecture = "decision.2521"
+repair = "Route px_getBalances to the node root beside eth and pax reads; exactly px_register and px_requestFunds use hosted authentication. Strict TLS peers prove both roots, independent node credentials, exact request ids and hosted-credential refusal for native balance reads. Source assertions follow the maintained public_reads route and pxAccountAPI rather than the removed root branch in the gateway kernel backend."
+
+[choice.gateway_helpers]
+owner = "8.19.11"
+repair = "The entire gateway local harness has since retired under 8.101.4 (5c85898cdf); assert directory and symlink absence, retain every helper absence and reference scan, and require the maintained router surface test. Do not reconstruct the obsolete registry image helper."
+
+[choice.gateway_lifecycle]
+owner = "8.19.5"
+repair = "Assert the retired local directory, lifecycle files, module scans and manifest test declarations are absent; require the actual PAY2 owned Required trait and funded qualification sources and confirm its manifest and build script no longer compile the retired harness."
+
+[choice.sequencer_pins]
+repair = "Supply the actual webhooks deployment as developer.yaml to the pin renderer in the native receipt rotation test, as the existing webhook projection test and beta manifest generation do. Keep signature verification, rotation/reopen and inclusive height-window refusals intact."
+
+[choice.workspace_manifest]
+owner = "8.9.1"
+repair = "Keep member uniqueness, source usage and indexer dependency exclusions. The baseline's historical verifier-retention description is superseded by removal of layerx-paxeer-verifier and lock refresh 18.1481.1 (e8ef05d35f); assert its absence from all resolved package dependencies and the lock package table. The still-used layerx-proof package retention assertion remains."
+
+[choice.signer_deadline]
+owner = "22.33.1454"
+source = "gotcha.3610 and task do_4"
+repair = "A request-scoped clock accompanies the absolute deadline through server admission, lock acquisition, provider subprocess bounds and response writes. The existing command peer advances the same atomic clock file by 0.45 for public-key and 0.6 for sign. The 0.9 deadline deterministically refuses with busy after both operations, asserts exactly 1.05 elapsed below 1.2, reaps the process and proves valid signing recovery. Production defaults remain monotonic; no provider, transport, signature or busy response is replaced."
+
+[choice.inventory]
+repair = "Remove all nine module rows owned by this task, including the signer continuation. The stale scripts/ci exclusion is already absent at base 8b994ac86f0962e181665c8b265fa8fac48e0947; clarify that fact in the existing scripts exclusion reason without changing exclusion coverage."
+
+[choice.signer_binding_clock]
+source = "gotcha.3628, decision.2919 and task do_6"
+repair = "The binding test passes the same file-backed controllable clock used by the provider-operation deadline test into the real Unix signer server and command peer. Keep the 0.7 request deadline, the held-lock busy refusal, invalid-signature and unauthorized-network refusals, and valid Ed25519 binding verification; assert that the logical clock never advances during these requests. Only lock acquisition consumes wall time, through its existing timeout."
+
+[choice.socket_creation_mode]
+source = "gotcha.3622, decision.2914 and task do_5"
+repair = "Wrap listener.bind in generation_transport.Broker.serve with umask 0o117 and restore the previous umask in finally, including on bind failure; retain chown to the allowed gid and chmod 0o660. The supervisor.sock producer exercised by test_reset_state.py is reset_state.serve, which has its own listener bind, so protect that bind identically. Preserve both immediate mode and gid assertions unchanged. The reset-state baseline row is already absent from merged base 0a3c76a053748816607834a7a91201e6b8c103fd."
+
+[continuation]
+base_revision = "0a3c76a053748816607834a7a91201e6b8c103fd"
+seed_revision = "b1bfe1a0dc2ce55f2c1e101a22976628dbd5793e"
+entry_state = "The nineteen attempt-1 paths were already applied; no current-attempt gate ledger existed and runner setup changes outside scope were preserved. Keep the qualified-candidate evidence reference above; hf-done supplies the exact final revision without a post-build edit to this record."
+
+[gotcha.builtin_yaml]
+observed = "The topology engine's built-in YAML parser retains boolean and octal scalars as strings."
+action = "Assert normalized boolean text and the exact 0440 mode spelling in that engine; deployment tests using PyYAML assert actual false booleans."
+
+[qualification]
+build = "hf-build: python3 -m pytest -q --collect-only services/platform/hosted/node services/platform/hosted/testnet services/platform/hosted/tests > /dev/null"
+verify = "hf-done: cg spec done 22.39.133 -f layerx-merge --root $TASK_ROOT; declared verification is python3 -m pytest -q tests/ci/test_python_suites_have_runner.py && make test-python-suites"
+evidence = "Private /out/run/gates.jsonl and its referenced /out/logs gate logs bind qualification to the exact candidate revision; copy the final gate evidence line in the task response."
+
+[repair.first_verification]
+revision = "71b43b5948e1e64971e1ec380f2cda41df9ae938"
+command = "cg spec done 22.39.133 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "The inventory checks passed and the aggregate reported 371 passed, 19 subtests and one task-scoped AttributeError: the new deployed health proof referenced Readiness, while the production class is CommittedReadiness."
+repair = "Use CommittedReadiness at construction and checkpoint reopen; retain the HTTP success, chain identity, persisted height and stale-chain refusal assertions. Rerun collection and the declared verification on the repaired candidate."

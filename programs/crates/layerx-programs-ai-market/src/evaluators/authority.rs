@@ -1170,12 +1170,16 @@ pub fn open_epoch(
         let grant = record.grant;
         if grant.status == GrantStatus::Active
             && grant.rubric == ctx.approved_rubric
+            && (grant.principal == ctx.market.owner_principal
+                || ctx.workers.iter().any(|w| w.owner == grant.principal))
+        {
+            return Err(ROLE_CONFLICT);
+        }
+        if grant.status == GrantStatus::Active
+            && grant.rubric == ctx.approved_rubric
             && membership(ctx.admission, &grant, ctx.epoch).is_some()
         {
-            if grant.principal == ctx.market.owner_principal
-                || ctx.workers.iter().any(|w| w.owner == grant.principal)
-                || snapshot.entries().any(|f| f.entry.owner == grant.principal)
-            {
+            if snapshot.entries().any(|f| f.entry.owner == grant.principal) {
                 return Err(ROLE_CONFLICT);
             }
             if snapshot

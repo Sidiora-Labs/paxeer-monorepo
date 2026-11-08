@@ -135,17 +135,30 @@ func TestProofSequencerExecutorTransportRecovery(t *testing.T) {
 	v.Set(sequencer.FlagWALDir, f.cfg.WALDir)
 	v.Set(sequencer.FlagReceiptKeyFile, f.cfg.ReceiptKeyFile)
 	v.Set(sequencer.FlagStandbyAddress, f.cfg.StandbyAddress)
+	v.Set(sequencer.FlagReplicationTLSCert, f.cfg.ReplicationTLS.CertFile)
+	v.Set(sequencer.FlagReplicationTLSKey, f.cfg.ReplicationTLS.KeyFile)
+	v.Set(sequencer.FlagReplicationTLSCA, f.cfg.ReplicationTLS.CAFile)
+	v.Set(sequencer.FlagReplicationPeerName, f.cfg.ReplicationTLS.PeerName)
+	v.Set(sequencer.FlagReplicationPeerSPKI, f.cfg.ReplicationTLS.PeerSPKI)
 	v.Set(sequencer.FlagReplicationTimeout, f.cfg.ReplicationTimeout)
 	v.Set(sequencer.FlagLeaseDuration, f.cfg.LeaseDuration)
 	v.Set(sequencer.FlagNonceQueueMaxPerSender, f.cfg.NonceQueueMaxPerSender)
 	v.Set(sequencer.FlagNonceQueueMaxTotal, f.cfg.NonceQueueMaxTotal)
+	auth := f.cfg.ReplicationTLS
 	f.cfg, err = sequencer.ReadConfig(v)
+	require.NoError(t, err)
+	require.Equal(t, auth, f.cfg.ReplicationTLS)
+	_, err = f.cfg.ReplicationTLS.TLSConfig(false)
 	require.NoError(t, err)
 	v.Set(sequencer.FlagMode, "unknown-executor")
 	_, err = sequencer.ReadConfig(v)
 	require.ErrorIs(t, err, sequencer.ErrConfigMode)
 	sb := f.restart(t, nil)
 	require.NoError(t, f.n.Start(t.Context()))
+	started := driverEntries(t, f.cfg.WALDir)
+	require.Len(t, started, 2)
+	require.IsType(t, &wal.Open{}, started[0])
+	requireStartedLease(t, f, started[1], 1)
 	consensus := proofExecutorConsensus(t)
 	rpcClient := proofExecutorRPC(t, f, consensus)
 	initial, err := f.app.PendingSnapshot()
@@ -208,12 +221,13 @@ func TestProofSequencerExecutorTransportRecovery(t *testing.T) {
 	require.NoError(t, sb.Err())
 	// Ack traverses the real socket when the producer resends an existing frame.
 	entries := driverEntries(t, f.cfg.WALDir)
-	require.Len(t, entries, 3)
-	require.IsType(t, &wal.Open{}, entries[0])
+	require.Len(t, entries, len(started)+len(txs))
+	require.Equal(t, started, entries[:len(started)])
 	for i := range txs {
-		logged := entries[i+1].(*wal.Accept)
-		require.Equal(t, txs[i], logged.Tx)
-		require.Equal(t, receipts[i], logged.Receipt)
+		require.Equal(t, &wal.Accept{
+			Height: uint64(openHeight), Seq: sourceLastSeq + uint64(i) + 1,
+			Tx: txs[i], Receipt: receipts[i],
+		}, entries[i+len(started)])
 	}
 	ack, err := f.n.Replicator.Release(t.Context())
 	require.EqualError(t, err, "sequencer: empty release group")
@@ -241,8 +255,7 @@ func TestProofSequencerExecutorTransportRecovery(t *testing.T) {
 	beforeRestart := driverEntries(t, f.cfg.WALDir)
 	committed := f.app.CommitMultiStore().LastCommitID()
 	old := f.n
-	old.Replicator.Close()
-	old.WAL.Close()
+	require.NoError(t, old.Stop())
 	f.app.SetOpenBlock(nil)
 	f.app.SetSequencerSource(nil)
 	f.app.SetSequencerRPC(evmrpc.SequencerOption{}, evmrpc.SequencerReceiptOption{})
@@ -252,6 +265,10 @@ func TestProofSequencerExecutorTransportRecovery(t *testing.T) {
 	require.NoError(t, err)
 	require.NotSame(t, old.Executor, f.n.Executor)
 	require.NoError(t, f.n.Start(t.Context()))
+	afterRestart := driverEntries(t, f.cfg.WALDir)
+	require.Len(t, afterRestart, len(beforeRestart)+1)
+	require.Equal(t, beforeRestart, afterRestart[:len(beforeRestart)], "replay must preserve producer records")
+	requireStartedLease(t, f, afterRestart[len(beforeRestart)], 2)
 	require.NotSame(t, old.ReceiptKey, f.n.ReceiptKey)
 	require.Equal(t, old.ReceiptKey.PublicKey(), f.n.ReceiptKey.PublicKey())
 	recoveredFee, err := f.n.FeeFloor.BaseFeePerGas()
@@ -261,7 +278,7 @@ func TestProofSequencerExecutorTransportRecovery(t *testing.T) {
 	recoveredReceipts := proofExecutorReceiptRPC(t, f.n, consensus)
 	assertPending(recoveredClient)
 	require.Equal(t, committed, f.app.CommitMultiStore().LastCommitID())
-	require.Equal(t, beforeRestart, driverEntries(t, f.cfg.WALDir), "replay must not append producer records")
+	require.Equal(t, afterRestart, driverEntries(t, f.cfg.WALDir))
 	for i, hash := range hashes {
 		_, err := verify.ReceiptSignature(receipts[i], f.n.ReceiptKey.PublicKey())
 		require.NoError(t, err, "the reloaded signer must authenticate persisted receipts")
@@ -296,7 +313,7 @@ func TestProofSequencerExecutorTransportRecovery(t *testing.T) {
 	err = recoveredClient.CallContext(t.Context(), &duplicate, "eth_sendRawTransaction", hexutil.Bytes(conflictRaw))
 	require.ErrorContains(t, err, sdkerrors.ErrWrongSequence.Error())
 	assertPending(recoveredClient)
-	require.Equal(t, beforeRestart, driverEntries(t, f.cfg.WALDir))
+	require.Equal(t, afterRestart, driverEntries(t, f.cfg.WALDir))
 	require.NoError(t, sb.Err())
 	_, ok := f.n.Executor.PendingTx(common.HexToHash("0xff"))
 	require.False(t, ok)
@@ -304,7 +321,7 @@ func TestProofSequencerExecutorTransportRecovery(t *testing.T) {
 	require.ErrorContains(t, recoveredClient.CallContext(t.Context(), &block, "eth_getBlockByNumber", "pending", true), "pending block lists transaction hashes only")
 	var malformed common.Hash
 	require.Error(t, recoveredClient.CallContext(t.Context(), &malformed, "eth_sendRawTransaction", hexutil.Bytes{0xff}))
-	require.Equal(t, beforeRestart, driverEntries(t, f.cfg.WALDir))
+	require.Equal(t, afterRestart, driverEntries(t, f.cfg.WALDir))
 	var proof any
 	require.ErrorContains(t, recoveredClient.CallContext(t.Context(), &proof, "eth_getProof", recipient.EvmAddress, []string{}, "pending"), "pending state has no committed root")
 }

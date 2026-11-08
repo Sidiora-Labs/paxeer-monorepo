@@ -259,6 +259,9 @@ impl Drop for ProfileEnvironment {
 
 #[test]
 fn same_alias_profiles_preserve_os_seeds_and_failed_publication() {
+    if !common::credential_environment() {
+        return;
+    }
     use layerx_platform_cli::{config::Configuration, credential};
     let service = profile_credentials::CredentialEnvironment::new();
     let _restore = ProfileEnvironment(

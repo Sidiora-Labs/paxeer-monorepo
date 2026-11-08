@@ -2,6 +2,7 @@ package app
 
 import (
 	"bytes"
+	"context"
 	"crypto/ed25519"
 	"crypto/sha256"
 	"encoding/binary"
@@ -10,8 +11,10 @@ import (
 	"testing"
 	"time"
 
+	abci "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/abci/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/config"
 	tmproto "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/proto/tendermint/types"
+	tmtypes "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/layerxproof/codec"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/lxphost"
 	programs "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/layerxprograms"
@@ -75,6 +78,7 @@ func newHostedProgramsABIFixture(t *testing.T) *hostedProgramsABIFixture {
 	w := NewTestWrapper(t, time.UnixMilli(1700000000000).UTC(), valPub, true)
 	f := &hostedProgramsABIFixture{app: w.App, ctx: w.Ctx.WithBlockHeight(mergeHeight - 1), program: [32]byte{0x76}, proposer: sdk.ConsAddress(valPub.Address())}
 	t.Cleanup(func() { require.NoError(t, f.app.Close()) })
+	rewindBeforeMerge(t, f.app, f.ctx)
 	f.private = ed25519.NewKeyFromSeed(bytes.Repeat([]byte{0x75}, ed25519.SeedSize))
 	copy(f.authority.VerifiedKey[:], f.private.Public().(ed25519.PublicKey))
 	f.did = []byte("did:layerx:" + hex.EncodeToString(f.authority.VerifiedKey[:]))
@@ -194,7 +198,6 @@ func (f *hostedProgramsABIFixture) call(t *testing.T) lxphost.Receipt {
 func (f *hostedProgramsABIFixture) merge(t *testing.T) {
 	t.Helper()
 	f.ctx = f.ctx.WithBlockHeight(mergeHeight)
-	rewindBeforeMerge(t, f.app, f.ctx)
 	f.app.UpgradeKeeper.ApplyUpgrade(f.ctx, upgradetypes.Plan{Name: MergeUpgrade, Height: mergeHeight, Info: activationInfo(t)})
 	require.Equal(t, []byte{0, 5}, f.ctx.KVStore(f.app.GetKey(LayerXHostStoreKey)).Get([]byte(hostedProgramsGuestABIKey)))
 	require.Equal(t, mergeHeight, f.app.UpgradeKeeper.GetDoneHeight(f.ctx, MergeUpgrade))
@@ -244,12 +247,55 @@ func TestHostedKernelProgramsABIDefaultsToFourWithoutTheUpgrade(t *testing.T) {
 
 func TestHostedKernelProgramsABISurvivesRestart(t *testing.T) {
 	f := newHostedProgramsABIFixture(t)
-	f.merge(t)
 	info, err := f.app.UpgradeKeeper.GetUpgradeInfoPath()
 	require.NoError(t, err)
 	home := filepath.Dir(filepath.Dir(info))
-	f.app.SetDeliverStateToCommit()
-	f.app.WriteState().Commit(true)
+	validatorsHash := sha256.Sum256(f.proposer)
+	f.app.DistrKeeper.SetPreviousProposerConsAddr(f.ctx, f.proposer)
+	var blockHash []byte
+	for height := int64(1); height <= mergeHeight; height++ {
+		block := tmtypes.MakeBlock(height, nil, &tmtypes.Commit{}, nil)
+		block.ChainID = f.ctx.ChainID()
+		block.Time = f.ctx.BlockTime()
+		block.ProposerAddress = []byte(f.proposer)
+		block.ValidatorsHash = validatorsHash[:]
+		block.NextValidatorsHash = block.ValidatorsHash
+		block.AppHash = f.app.LastCommitID().Hash
+		block.LastBlockID.Hash = f.app.LastBlockID().Hash
+		blockHash = block.Hash()
+		_, err = f.app.FinalizeBlock(context.Background(), &abci.RequestFinalizeBlock{
+			Hash: blockHash, Header: block.Header.ToProto(),
+		})
+		require.NoError(t, err)
+		f.ctx = f.app.GetContextForDeliverTx(nil)
+		if height == mergeHeight-1 {
+			require.NoError(t, f.app.UpgradeKeeper.ScheduleUpgrade(f.ctx, upgradetypes.Plan{
+				Name: MergeUpgrade, Height: mergeHeight, Info: activationInfo(t),
+			}))
+		}
+		if height == mergeHeight {
+			require.Equal(t, uint16(5), f.app.hostedProgramsGuestABI)
+			require.Equal(t, mergeHeight, f.app.UpgradeKeeper.GetDoneHeight(f.ctx, MergeUpgrade))
+			before := f.call(t)
+			require.Zero(t, before.ResultCode, before.ResultCode.Error())
+			require.NotNil(t, before.ProgramOutcome)
+			require.Zero(t, before.ProgramOutcome.Status)
+			hostedProgramsABIReceiptVersion(t, before, 5)
+		}
+		last, err := f.app.LayerXHost.ReadLastSequence(f.ctx, f.did)
+		require.NoError(t, err)
+		occupancy, err := f.app.LayerXHost.FinalizeProgramsOccupancy(lxphost.WithSequence(f.ctx, last+1), codec.StateCommitmentProtocolVersion)
+		require.NoError(t, err, "finalize occupancy at height %d", height)
+		require.NotEmpty(t, occupancy)
+		f.app.SetDeliverStateToCommit()
+		_, err = f.app.Commit(context.Background())
+		require.NoError(t, err)
+	}
+	require.Equal(t, mergeHeight, f.app.LastBlockHeight())
+	committedID := f.app.LastBlockID()
+	require.Equal(t, blockHash, committedID.Hash)
+	committedSequence, err := lxphost.NextSequence(f.app.GetCheckCtx(), f.app.GetKey(LayerXHostStoreKey))
+	require.NoError(t, err)
 	require.NoError(t, f.app.Close())
 
 	f.app = New(dbm.NewMemDB(), nil, true, map[int64]bool{}, home, 1, true, config.TestConfig(),
@@ -257,6 +303,10 @@ func TestHostedKernelProgramsABISurvivesRestart(t *testing.T) {
 	f.ctx = f.app.NewUncachedContext(false, tmproto.Header{
 		Height: mergeHeight + 1, Time: f.ctx.BlockTime(), ChainID: f.ctx.ChainID(),
 	})
+	require.Equal(t, committedID, f.app.LastBlockID())
+	restoredSequence, err := lxphost.NextSequence(f.ctx, f.app.GetKey(LayerXHostStoreKey))
+	require.NoError(t, err)
+	require.Equal(t, committedSequence, restoredSequence)
 	require.Equal(t, []byte{0, 5}, f.ctx.KVStore(f.app.GetKey(LayerXHostStoreKey)).Get([]byte(hostedProgramsGuestABIKey)))
 	require.Equal(t, uint16(5), f.app.hostedProgramsGuestABI)
 	t.Log("Host construction precedes store loading; the restarted app selects ABI 5 after LoadLatestVersion and before its first block")
@@ -265,6 +315,8 @@ func TestHostedKernelProgramsABISurvivesRestart(t *testing.T) {
 	f.app.BeginBlock(f.ctx, f.ctx.BlockHeight(), nil, nil, false)
 	receipt := f.call(t)
 	require.Zero(t, receipt.ResultCode, receipt.ResultCode.Error())
+	require.NotNil(t, receipt.ProgramOutcome)
+	require.Zero(t, receipt.ProgramOutcome.Status)
 	hostedProgramsABIReceiptVersion(t, receipt, 5)
 	require.Equal(t, mergeHeight, f.app.UpgradeKeeper.GetDoneHeight(f.ctx, MergeUpgrade))
 }
