@@ -36178,3 +36178,11 @@ symbol = "history_served_contract.rs"
 observed = "Attempt 2 at dd47d3970a57 (base dd4addbf677b): build exit 0 twice; verification exit 1 twice, the second with 25 cases passing and read_account_decodes_a_served_gateway_page failing its exact response-size assertion (495 against 643) at tests/history_served_contract.rs line 157; log /out/logs/verify-2.log."
 assumption = "The producer measure is settled since 22.33.1521 and the oversized case already follows it; only the exact-count expectation of one case lags."
 severity = "high"
+
+[finding.22.39.95.7]
+task = "22.39.95"
+file = "apps/launchpad/web/src/core/wallet-sdk/runtime.integration.test.tsx"
+symbol = "runtime.integration.test.tsx"
+observed = "Attempt 7 at f9670ab45d4e: build exit 0; verification exit 1 before the suites: the snapshot readiness probe timed out after ninety seconds answering HTTP 429 RATE_LIMITED, and the api log recorded development stream projection degraded because stats.pool_stats does not exist on every stats sweep; log /out/logs/verify-1.log."
+assumption = "The api and its routes behave as designed; the preparation lacks the stats schema and floods the rate limit while waiting."
+severity = "high"
