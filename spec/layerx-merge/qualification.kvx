@@ -36218,3 +36218,11 @@ symbol = "evm"
 observed = "Attempt 1 at bc0483b770c3 (base f6511609fe): build exit 0, every test target compiled; verification exit 101: one target failed, repair_22_31_160 with two passed and five failed (one read ECONNRESET from the EVM host helper at line 123, four PoisonError at line 160); log /out/logs/verify-1.log."
 assumption = "The lock file is right; the remaining failure is one connection reset of the in-process EVM host amplified by the shared lock."
 severity = "high"
+
+[finding.22.39.75.14]
+task = "22.39.75"
+file = "tests/ci/test_launchpad_go_tests_wired.py"
+symbol = "test_launchpad_go_tests_wired.py"
+observed = "Attempt 14 at 1ab84c3c6b85 (record tree 16947cc1cf6f): build exit 0; verification exit 2: 40 wiring cases and fifteen modules passed, security failed one case, TestRequestParsing (policy denied at policy_test.go line 66), security/control not reached; log /out/logs/verify-1.log."
+assumption = "The security module was never surveyed after its manifest blocker fell; the one failing case belongs to the retiring owner and the baseline procedure covers it."
+severity = "high"
