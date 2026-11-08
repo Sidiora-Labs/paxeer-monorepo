@@ -22,7 +22,7 @@ jobs:
     permissions:
       contents: write
     name: Build and publish Paxeer release
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     env:
       RELEASE_TAG: ${{ github.event.inputs.tag || github.ref_name }}
     steps:

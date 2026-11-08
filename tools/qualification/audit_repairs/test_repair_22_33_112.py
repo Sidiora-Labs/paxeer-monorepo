@@ -199,7 +199,7 @@ def test_recorded_native_payment_crosses_production_relay():
     from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
     import threading
     sys.path.insert(0, str(ROOT / "services/agent/sdk/python"))
-    from layerx_sdk.x402_rpc import PaymentRpc
+    from layerx_sdk.x402_rpc import HostedGatewayRpc, PaymentRpc
 
     vectors = json.loads((ROOT / "sdk/platform/conformance/fixtures/sequencer-receipt-v1.json").read_text())
     assert vectors["provenance"]["generator"] == "rpc/sequencer_receipt_vectors_test.go"
@@ -212,8 +212,8 @@ def test_recorded_native_payment_crosses_production_relay():
 
         def do_POST(self):
             request = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
-            assert self.path == "/rpc"
             name, params = request["method"], request["params"]
+            assert self.path == ("/rpc" if name == "px_getReceiptKeys" else "/")
             observed.append((name, params))
             if name == "px_getReceiptKeys":
                 assert params == []
@@ -236,8 +236,9 @@ def test_recorded_native_payment_crosses_production_relay():
     worker = threading.Thread(target=peer.serve_forever, daemon=True)
     worker.start()
     try:
-        relay = PaymentRpc(f"http://127.0.0.1:{peer.server_port}/rpc")
-        pins = relay.receipt_keys()
+        relay = PaymentRpc(f"http://127.0.0.1:{peer.server_port}/")
+        gateway = HostedGatewayRpc(f"http://127.0.0.1:{peer.server_port}/rpc")
+        pins = gateway.receipt_keys()
         transaction = relay.send(case["rawTransaction"])
         receipt = relay.receipt(transaction)
         assert receipt == case["receiptJson"]
@@ -260,7 +261,9 @@ def docker_stages(path):
             assert len(fields) in (2, 4)
             if len(fields) == 4:
                 assert fields[2] == "AS"
-            assert re.fullmatch(r"[a-z0-9./-]+:[A-Za-z0-9._-]+@sha256:[a-f0-9]{64}", fields[1])
+            assert fields[1] in {stage[0] for stage in stages} or re.fullmatch(
+                r"[a-z0-9./-]+:[A-Za-z0-9._-]+@sha256:[a-f0-9]{64}", fields[1]
+            )
             assert ":latest@" not in fields[1]
             stages.append((fields[3] if len(fields) == 4 else "runtime", fields[1], [line]))
         elif stages:

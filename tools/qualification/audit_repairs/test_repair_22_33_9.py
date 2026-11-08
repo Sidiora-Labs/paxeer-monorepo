@@ -180,7 +180,7 @@ def test_f39_operator_build_uses_native_paxd_prerequisites():
     assert "running network entry point is `paxd`" in build
     assert not re.search(r"\bmake\b[^\n]*\blayerxd\b", README)
     makefile = source("Makefile")
-    assert re.search(r"^paxd-native-libs: \$\(LIBRARY\) programs-release-build$", makefile, re.M)
+    assert re.search(r"^paxd-native-libs: \$\(LIBRARY\) programs-release-build evmone-lib$", makefile, re.M)
     assert re.search(r"^paxd-build: paxd-native-libs$", makefile, re.M)
     recipe = makefile.split("\npaxd-build: paxd-native-libs\n", 1)[1].split("\n\n", 1)[0]
     assert "tools/release/version.json" in recipe

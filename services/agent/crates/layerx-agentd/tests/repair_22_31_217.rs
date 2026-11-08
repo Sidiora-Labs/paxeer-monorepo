@@ -1487,51 +1487,6 @@ fn repair_proof_revocation_counter_exports_and_verifies() {
     .is_err());
 }
 
-fn native_carrier_payload(
-    disclosure: &layerx_crypto::disclosure::Disclosure,
-    actor: &layerx_types::ids::Did,
-) -> Result<Vec<u8>, NativeBindingError> {
-    use layerx_crypto::disclosure::DisclosedNativeOperation;
-    Ok(match &disclosure.native_operation {
-        Some(DisclosedNativeOperation::ProgramCall(value)) => value
-            .native()
-            .encode()
-            .map_err(|_| NativeBindingError::Preparation)?,
-        Some(DisclosedNativeOperation::ProgramDeploy(value)) => value
-            .native()
-            .encode()
-            .map_err(|_| NativeBindingError::Preparation)?,
-        Some(DisclosedNativeOperation::ProgramUpgrade(value)) => value
-            .native()
-            .encode()
-            .map_err(|_| NativeBindingError::Preparation)?,
-        Some(DisclosedNativeOperation::ProgramWindDown(value)) => value
-            .native()
-            .encode()
-            .map_err(|_| NativeBindingError::Preparation)?,
-        None => disclosure
-            .payment
-            .as_ref()
-            .ok_or(NativeBindingError::Preparation)?
-            .encode(actor.as_bytes())
-            .map_err(|_| NativeBindingError::Preparation)?,
-        _ => return Err(NativeBindingError::Preparation),
-    })
-}
-
-fn native_carrier_authority(
-    actor: &layerx_types::ids::Did,
-) -> Result<layerx_types::activity::Authority, NativeBindingError> {
-    let actor_text =
-        std::str::from_utf8(actor.as_bytes()).map_err(|_| NativeBindingError::Preparation)?;
-    let public = actor_text
-        .strip_prefix("did:layerx:")
-        .and_then(|text| layerx_programs::hex::decode(text).ok())
-        .filter(|bytes| bytes.len() == 32)
-        .ok_or(NativeBindingError::Preparation)?;
-    layerx_types::activity::Authority::owner(&public).map_err(|_| NativeBindingError::Preparation)
-}
-
 fn native_call_preparation(
     canonical_bytes: &[u8],
     sender: [u8; 20],
@@ -1560,95 +1515,12 @@ fn native_call_carrier(
     canonical_bytes: &[u8],
     sender: [u8; 20],
     observed_height: u64,
-    actor: layerx_types::ids::Did,
-    registry: &layerx_types::payload::ModuleRegistry,
-) -> Result<layerx_agentd::prepare::Prepared, NativeBindingError> {
-    use layerx_crypto::disclosure::call::bind_call;
-    use layerx_types::activity::{EnvelopeBuilder, TimestampBound};
-    use layerx_types::amount::Amount;
-    use layerx_types::ids::IdempotencyKey;
-    use layerx_types::payload::Payload;
-    let call = layerx_crypto::evm_transaction::decode_unsigned(canonical_bytes)
-        .map_err(|_| NativeBindingError::Preparation)?;
-    let disclosure = bind_call(&call, sender).map_err(|_| NativeBindingError::Preparation)?;
-    let payload = native_carrier_payload(&disclosure, &actor)?;
-    let authority = native_carrier_authority(&actor)?;
-    let payload = Payload::new(registry, disclosure.activity_type, &payload)
-        .map_err(|_| NativeBindingError::Preparation)?;
-    let payload_hash = layerx_wire::hash::payload_hash_for(&payload)
-        .map_err(|_| NativeBindingError::Preparation)?;
-    let bound = TimestampBound::new(disclosure.expiry.not_before, disclosure.expiry.not_after)
-        .map_err(|_| NativeBindingError::Preparation)?;
-    let mut builder = EnvelopeBuilder::new();
-    builder
-        .protocol_version(3)
-        .map_err(|_| NativeBindingError::Preparation)?;
-    builder
-        .network_id(u32::try_from(call.chain_id).map_err(|_| NativeBindingError::Preparation)?)
-        .map_err(|_| NativeBindingError::Preparation)?;
-    builder
-        .activity_type(disclosure.activity_type)
-        .map_err(|_| NativeBindingError::Preparation)?;
-    builder
-        .actor_did(actor)
-        .map_err(|_| NativeBindingError::Preparation)?;
-    builder
-        .authority(authority)
-        .map_err(|_| NativeBindingError::Preparation)?;
-    builder
-        .account_sequence(call.nonce)
-        .map_err(|_| NativeBindingError::Preparation)?;
-    builder
-        .timestamp_bound(bound)
-        .map_err(|_| NativeBindingError::Preparation)?;
-    builder
-        .idempotency_key(IdempotencyKey::new(disclosure.idempotency_key))
-        .map_err(|_| NativeBindingError::Preparation)?;
-    builder
-        .fee_limit(Amount::from_u128(disclosure.fee_limit))
-        .map_err(|_| NativeBindingError::Preparation)?;
-    builder
-        .payload_hash(payload_hash)
-        .map_err(|_| NativeBindingError::Preparation)?;
-    builder
-        .payload(payload)
-        .map_err(|_| NativeBindingError::Preparation)?;
-    let digest = layerx_agentd::prepare::DisclosureDigest(
-        disclosure
-            .audit_digest()
-            .map_err(|_| NativeBindingError::Preparation)?,
-    );
-    let result = layerx_agentd::prepare::Prepared {
-        envelope: builder
-            .build()
-            .map_err(|_| NativeBindingError::Preparation)?,
-        canonical_bytes: canonical_bytes.to_vec(),
-        signing_preimage: call.signing_hash(),
-        observed_head_sequence: observed_height,
-        audit: layerx_agentd::prepare::PreparationAuditEntry {
-            idempotency_key: disclosure.idempotency_key,
-            observed_head_sequence: observed_height,
-            disclosure_digest: digest,
-        },
-        disclosure,
-        disclosure_digest: digest,
-    };
-    let signing = SigningPreparation {
-        actor_address: sender,
-        transaction: EvmPrepared {
-            from: sender,
-            signing_hash: call.signing_hash(),
-            disclosure_digest: result
-                .disclosure
-                .signing_digest()
-                .map_err(|_| NativeBindingError::Preparation)?,
-            disclosure: result.disclosure.clone(),
-            call,
-            observed_head_height: observed_height,
-        },
-    };
-    validate_retained_preparation(&result, Some(&signing))?;
-    Ok(result)
+) -> Result<EvmPrepared, NativeBindingError> {
+    layerx_agentd::budget::native_binding::restore_native_preparation(
+        canonical_bytes,
+        sender,
+        observed_height,
+    )
 }
 
 fn signing_preparation(case: &Case) -> SigningPreparation {
@@ -1671,8 +1543,6 @@ fn restored(
         &native.call.encode_unsigned(),
         native.from,
         native.observed_head_height,
-        case.did(),
-        &registry,
     )
     .expect("native bytes and disclosure restore into budget carrier");
     assert_eq!(
@@ -1810,7 +1680,7 @@ fn lifecycle(name: &str) -> Vec<program_settlement::ProgramExecutedDebit> {
     let (reservation, before) = settle(&store);
     assert_eq!(
         reservation.id,
-        <[u8; 32]>::from(Sha256::digest(&prepared.canonical_bytes))
+        <[u8; 32]>::from(Sha256::digest(&prepared.call.encode_unsigned()))
     );
     assert_eq!(before.activity_id(), submission.activity_id());
     assert_eq!(
@@ -1869,16 +1739,13 @@ fn repair_fee_payer_denom_selects_two_real_preferences_and_reservations() {
             .as_slice()
             .try_into()
             .expect("native payer");
-        let fee = fee_policy::native_fee_policy_for(
-            &case.endpoint,
-            prepared.observed_head_sequence,
-            payer,
-        )
-        .expect("real payer preference");
+        let fee =
+            fee_policy::native_fee_policy_for(&case.endpoint, prepared.observed_head_height, payer)
+                .expect("real payer preference");
         assert_eq!(fee.value.asset.asset_id, case.id("fee_asset"));
         assets.push(fee.value.asset.asset_id);
-        let caps = case.caps(prepared.observed_head_sequence);
-        assert_fee_snapshot(&case, prepared.observed_head_sequence);
+        let caps = case.caps(prepared.observed_head_height);
+        assert_fee_snapshot(&case, prepared.observed_head_height);
         let sources = read_native_effect_budget_sources(
             &mut case.node(),
             &prepared,
@@ -1901,7 +1768,7 @@ fn repair_fee_payer_denom_selects_two_real_preferences_and_reservations() {
         let reservation = case.reservation(&sources);
         assert_eq!(
             reservation.id,
-            <[u8; 32]>::from(Sha256::digest(&prepared.canonical_bytes))
+            <[u8; 32]>::from(Sha256::digest(&prepared.call.encode_unsigned()))
         );
         assert!(reservation
             .charges
@@ -1961,11 +1828,9 @@ fn repair_settlement_native_envelope_program_receipt_and_restart() {
         .expect("unknown transaction remains retained");
     assert_eq!(retained.bytes(), submission.exact_bytes());
     let native = native_call_carrier(
-        &prepared.canonical_bytes,
+        &prepared.call.encode_unsigned(),
         submission.recovered_sender(),
-        prepared.observed_head_sequence,
-        case.did(),
-        &registry,
+        prepared.observed_head_height,
     )
     .expect("real native restoration after reopening store");
     assert_eq!(
@@ -1981,8 +1846,8 @@ fn repair_settlement_native_envelope_program_receipt_and_restart() {
 fn repair_sources_native_envelope_allocates_and_restores_real_preparation() {
     let case = Case::open("native_effect_sources");
     let (prepared, _, registry) = restored(&case);
-    let caps = case.caps(prepared.observed_head_sequence);
-    assert_fee_snapshot(&case, prepared.observed_head_sequence);
+    let caps = case.caps(prepared.observed_head_height);
+    assert_fee_snapshot(&case, prepared.observed_head_height);
     let sources = read_native_effect_budget_sources(
         &mut case.node(),
         &prepared,
@@ -2027,7 +1892,7 @@ fn repair_sources_native_envelope_allocates_and_restores_real_preparation() {
     .expect("native preparation key");
     let mut store = Store::open(&root).expect("real store");
     store
-        .put_local(key.clone(), prepared.canonical_bytes.clone())
+        .put_local(key.clone(), prepared.call.encode_unsigned())
         .expect("persist real producer bytes");
     drop(store);
     let reopened = Store::open(&root).expect("restart consumer");
@@ -2040,17 +1905,18 @@ fn repair_sources_native_envelope_allocates_and_restores_real_preparation() {
     let recovered = native_call_carrier(
         reopened.get(&key).expect("retained native bytes").bytes(),
         sender,
-        prepared.observed_head_sequence,
-        case.did(),
-        &registry,
+        prepared.observed_head_height,
     )
     .expect("native durable restoration");
-    assert_eq!(recovered.canonical_bytes, prepared.canonical_bytes);
+    assert_eq!(
+        recovered.call.encode_unsigned(),
+        prepared.call.encode_unsigned()
+    );
     assert_eq!(recovered.disclosure_digest, prepared.disclosure_digest);
     let recovered_call = native_call_preparation(
-        &recovered.canonical_bytes,
+        &recovered.call.encode_unsigned(),
         sender,
-        recovered.observed_head_sequence,
+        recovered.observed_head_height,
     )
     .expect("rebind retained call after reopening store");
     assert!(sources.matches_prepared(&recovered_call));
@@ -2066,8 +1932,8 @@ fn repair_settlement_native_envelope_effect_receipt_and_restart() {
     let case = Case::open_execution("native_effect_settlement");
     let (native, _, _) = case.transaction();
     let (prepared, submission, registry) = restored(&case);
-    let caps = case.caps(prepared.observed_head_sequence);
-    assert_fee_snapshot(&case, prepared.observed_head_sequence);
+    let caps = case.caps(prepared.observed_head_height);
+    assert_fee_snapshot(&case, prepared.observed_head_height);
     let sources = read_native_effect_budget_sources(
         &mut case.node(),
         &prepared,
@@ -2095,7 +1961,7 @@ fn repair_settlement_native_envelope_effect_receipt_and_restart() {
     let (reservation, before) = settle(&store);
     assert_eq!(
         reservation.id,
-        <[u8; 32]>::from(Sha256::digest(&prepared.canonical_bytes))
+        <[u8; 32]>::from(Sha256::digest(&prepared.call.encode_unsigned()))
     );
     let debits = before.debits().to_vec();
     assert!(!debits.is_empty());
@@ -2109,7 +1975,7 @@ fn repair_settlement_native_envelope_effect_receipt_and_restart() {
     let reopened = Store::open_read_only(&path).expect("restart consumer");
     assert_eq!(settle(&reopened).1.debits(), debits);
     let mut altered = prepared.clone();
-    altered.canonical_bytes.push(0);
+    altered.call.data.push(0);
     assert_eq!(
         native_settlement::read_retained_native_call_debit_settlement(
             &case.endpoint,
@@ -2319,8 +2185,7 @@ fn repair_native_carrier_validates_real_preparation_and_restores_after_store_res
         transaction: prepared.clone(),
     };
     let retained =
-        native_call_carrier(&call.encode_unsigned(), sender, 7, actor.clone(), &registry)
-            .expect("native restoration");
+        native_call_carrier(&call.encode_unsigned(), sender, 7).expect("native restoration");
     assert_eq!(
         validate_retained_preparation(&retained, Some(&signing)),
         Ok(call.clone())
@@ -2329,12 +2194,12 @@ fn repair_native_carrier_validates_real_preparation_and_restores_after_store_res
     let key = TenantKey::new(
         TenantId::new("native-codec").expect("tenant"),
         ObjectKind::PreparedActivity,
-        Sha256::digest(&retained.canonical_bytes).to_vec(),
+        Sha256::digest(&retained.call.encode_unsigned()).to_vec(),
     )
     .expect("key");
     let mut store = Store::open(&root).expect("production store");
     store
-        .put_local(key.clone(), retained.canonical_bytes.clone())
+        .put_local(key.clone(), retained.call.encode_unsigned())
         .expect("persist producer bytes");
     drop(store);
     let reopened = Store::open(&root).expect("reopen component");
@@ -2342,11 +2207,12 @@ fn repair_native_carrier_validates_real_preparation_and_restores_after_store_res
         reopened.get(&key).expect("durable bytes").bytes(),
         sender,
         7,
-        actor.clone(),
-        &registry,
     )
     .expect("restore after restart");
-    assert_eq!(recovered.canonical_bytes, retained.canonical_bytes);
+    assert_eq!(
+        recovered.call.encode_unsigned(),
+        retained.call.encode_unsigned()
+    );
     assert_eq!(recovered.disclosure, retained.disclosure);
     assert_eq!(recovered.disclosure_digest, retained.disclosure_digest);
     assert_eq!(
@@ -2363,10 +2229,10 @@ fn repair_native_carrier_validates_real_preparation_and_restores_after_store_res
     }
     .encode()
     .expect("second real ABI producer");
-    let other = native_call_carrier(&other_call.encode_unsigned(), sender, 7, actor, &registry)
-        .expect("second real carrier");
+    let other =
+        native_call_carrier(&other_call.encode_unsigned(), sender, 7).expect("second real carrier");
     let mut substituted_payload = recovered.clone();
-    substituted_payload.envelope = other.envelope;
+    substituted_payload.call = other.call;
     assert!(
         validate_retained_preparation(&substituted_payload, Some(&signing)).is_err(),
         "reject a carrier payload from a different native call"
@@ -2374,12 +2240,12 @@ fn repair_native_carrier_validates_real_preparation_and_restores_after_store_res
     for field in 0..7 {
         let mut altered = recovered.clone();
         match field {
-            0 => altered.canonical_bytes.push(0),
-            1 => altered.signing_preimage[0] ^= 1,
-            2 => altered.audit.idempotency_key[0] ^= 1,
-            3 => altered.audit.disclosure_digest.0[0] ^= 1,
-            4 => altered.disclosure_digest.0[0] ^= 1,
-            5 => altered.observed_head_sequence += 1,
+            0 => altered.call.data.push(0),
+            1 => altered.signing_hash[0] ^= 1,
+            2 => altered.disclosure.idempotency_key[0] ^= 1,
+            3 => altered.call.to[0] ^= 1,
+            4 => altered.disclosure_digest[0] ^= 1,
+            5 => altered.observed_head_height += 1,
             6 => altered.disclosure.actor[0] ^= 1,
             _ => unreachable!(),
         }
@@ -2396,27 +2262,33 @@ fn repair_native_carrier_validates_real_preparation_and_restores_after_store_res
 fn repair_wire_carrier_binds_the_retained_signing_preparation_after_restart() {
     let case = Case::open("native_effect_sources");
     let (call_carrier, _, registry) = restored(&case);
-    let canonical = layerx_wire::activity::encode_unsigned_envelope(&call_carrier.envelope)
-        .expect("real unsigned wire envelope producer");
-    let authority = call_carrier.envelope.authority();
-    let prepared = layerx_agentd::prepare::restore_canonical(
-        &canonical,
-        call_carrier.observed_head_sequence,
-        &registry,
-        Some(authority),
-    )
-    .expect("approval-path wire restoration");
-    assert_eq!(prepared.canonical_bytes, canonical);
-    assert_ne!(prepared.canonical_bytes, call_carrier.canonical_bytes);
     let signing = signing_preparation(&case);
-    let produced = layerx_agentd::budget::native_binding::restore_native_preparation(
+    let prepared = native_call_preparation(
+        &call_carrier.call.encode_unsigned(),
+        signing.actor_address,
+        call_carrier.observed_head_height,
+    )
+    .expect("approval-path call restoration");
+    let canonical = prepared.call.encode_unsigned();
+    assert_eq!(canonical, call_carrier.call.encode_unsigned());
+    let wire_carrier = layerx_agentd::budget::native_binding::restore_native_preparation(
         &signing.transaction.call.encode_unsigned(),
         signing.actor_address,
         signing.transaction.observed_head_height,
-        case.did(),
-        &registry,
     )
     .expect("native-to-wire approval carrier producer");
+    assert_eq!(
+        wire_carrier.call.encode_unsigned(),
+        call_carrier.call.encode_unsigned()
+    );
+    let produced_call = validate_retained_preparation(&wire_carrier, Some(&signing))
+        .expect("native restoration retains the same signing preparation");
+    let produced = native_call_preparation(
+        &produced_call.encode_unsigned(),
+        signing.actor_address,
+        wire_carrier.observed_head_height,
+    )
+    .expect("call-bound authorization from native restoration");
     assert_eq!(produced, prepared);
     let root = temporary("wire-signing-binding");
     let tenant = case.tenant();
@@ -2430,11 +2302,11 @@ fn repair_wire_carrier_binds_the_retained_signing_preparation_after_restart() {
     let retained = SigningPreparation::restore(&reopened, tenant.clone(), id)
         .expect("restore same retained signing preparation");
     assert_eq!(
-        validate_retained_preparation(&prepared, Some(&retained)),
+        validate_retained_preparation(&wire_carrier, Some(&retained)),
         Ok(signing.transaction.call.clone())
     );
     assert_eq!(
-        validate_retained_preparation(&prepared, None),
+        validate_retained_preparation(&wire_carrier, None),
         Err(NativeBindingError::Preparation)
     );
     assert!(SigningPreparation::restore(&reopened, tenant, [0xff; 32]).is_err());
@@ -2449,7 +2321,7 @@ fn repair_wire_carrier_binds_the_retained_signing_preparation_after_restart() {
             _ => unreachable!(),
         }
         assert_eq!(
-            validate_retained_preparation(&prepared, Some(&disagrees)),
+            validate_retained_preparation(&wire_carrier, Some(&disagrees)),
             Err(NativeBindingError::Preparation),
             "refuse changed signing field {field}"
         );
@@ -2467,27 +2339,24 @@ fn repair_wire_carrier_binds_the_retained_signing_preparation_after_restart() {
     validate_native_preparation(&substituted.transaction)
         .expect("independently valid substituted preparation");
     assert_eq!(
-        validate_retained_preparation(&prepared, Some(&substituted)),
+        validate_retained_preparation(&wire_carrier, Some(&substituted)),
         Err(NativeBindingError::Preparation)
     );
     for field in 0..5 {
-        let mut altered = prepared.clone();
+        let mut altered = wire_carrier.clone();
         match field {
-            0 => altered.disclosure_digest.0[0] ^= 1,
-            1 => altered.signing_preimage[0] ^= 1,
-            2 => altered.audit.disclosure_digest.0[0] ^= 1,
-            3 => altered.canonical_bytes.push(0),
+            0 => altered.disclosure_digest[0] ^= 1,
+            1 => altered.signing_hash[0] ^= 1,
+            2 => altered.call.to[0] ^= 1,
+            3 => altered.call.data.push(0),
             4 => {
                 let other = native_call_carrier(
                     &retained.transaction.call.encode_unsigned(),
-                    retained.actor_address,
+                    [0x7b; 20],
                     retained.transaction.observed_head_height,
-                    Did::new(format!("did:layerx:{}", hex::encode([0x7b; 32])).as_bytes())
-                        .expect("other owner DID"),
-                    &registry,
                 )
                 .expect("other owner's envelope producer");
-                altered.envelope = other.envelope;
+                altered.from = other.from;
             }
             _ => unreachable!(),
         }
@@ -2497,10 +2366,10 @@ fn repair_wire_carrier_binds_the_retained_signing_preparation_after_restart() {
             "refuse changed wire carrier field {field}"
         );
     }
-    let caps = case.caps(prepared.observed_head_sequence);
+    let caps = case.caps(prepared.observed_head_height);
     let sources = read_native_effect_budget_sources(
         &mut case.node(),
-        &prepared,
+        &wire_carrier,
         Some(&retained),
         &caps,
         case.value["now_ms"].as_u64().expect("core time"),
@@ -2766,21 +2635,21 @@ fn repair_unsupported_binder_methods_preserve_real_native_lifecycle_binding() {
 fn repair_source_checkpoint_identifies_retired_caps_level() {
     let case = Case::open("native_effect_sources");
     let (prepared, _, _) = restored(&case);
-    let caps = case.caps(prepared.observed_head_sequence);
+    let caps = case.caps(prepared.observed_head_height);
     let freshness = caps.freshness();
-    let actor = layerx_wire::hash::did_id_for_protocol(prepared.envelope.actor_did(), 3).unwrap();
+    let actor = layerx_wire::hash::did_id_for_protocol(&case.did(), 3).unwrap();
     assert!(case.value["now_ms"].as_u64().unwrap() > 0);
     assert_eq!(caps.did(), actor);
     assert_ne!(caps.state_root(), [0; 32]);
-    assert_eq!(freshness.global_sequence, prepared.observed_head_sequence);
+    assert_eq!(freshness.global_sequence, prepared.observed_head_height);
     assert_eq!(
         freshness.observed_head_sequence,
-        prepared.observed_head_sequence
+        prepared.observed_head_height
     );
     assert_eq!(freshness.batch_number, caps.observed_height());
     assert_eq!(
         case.endpoint.block_number().unwrap(),
-        prepared.observed_head_sequence
+        prepared.observed_head_height
     );
     assert_eq!(
         case.endpoint.block_number().unwrap(),
@@ -2829,8 +2698,6 @@ fn repair_source_checkpoint_identifies_retired_caps_level() {
         &wrong_native.encode_unsigned(),
         native.from,
         native.observed_head_height,
-        case.did(),
-        &registry,
     )
     .expect("bound disclosure for substituted source account");
     assert_eq!(

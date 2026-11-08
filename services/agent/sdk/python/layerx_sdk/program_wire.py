@@ -92,6 +92,18 @@ def bind_signed_program_lifecycle(canonical: bytes, payload: bytes | None, ordin
                                   expected_idempotency_key: str | None = None) -> DecodedSignedProgramCall:
     from .evm_transaction import encode_call
     from .program_lifecycle import NativeProgramDeploy, NativeProgramUpgrade, NativeProgramWindDown
+    if type(ordinal) is not int or ordinal not in (1, 2, 7):
+        _fail("lifecycle ordinal")
+    if canonical[:2] == b"\x00\x03":
+        envelope = _historical_activity_envelope(canonical, ordinal)
+        decoders = {1: NativeProgramDeploy.decode, 2: NativeProgramUpgrade.decode,
+                    7: NativeProgramWindDown.decode}
+        retained = decoders[ordinal](envelope.payload).encode()
+        if (payload is not None and payload != retained
+                or expected_idempotency_key is not None
+                and expected_idempotency_key != envelope.idempotency.hex()):
+            _fail("lifecycle binding")
+        return _historical_binding(envelope)
     transaction, sender, identity = _program_transaction(canonical)
     from .program_lifecycle import decode_lifecycle_calldata
     retained = decode_lifecycle_calldata(transaction.data, ordinal)
@@ -116,6 +128,110 @@ class _SignedCallEnvelope:
     public_key: bytes
     signature: bytes
     signature_digest: bytes
+
+
+@dataclass(frozen=True)
+class _HistoricalActivityEnvelope:
+    canonical: bytes
+    protocol_version: int
+    network_id: int
+    actor: bytes
+    nonce: int
+    not_before: int
+    not_after: int
+    idempotency: bytes
+    fee_limit: int
+    payload_hash: bytes
+    payload: bytes
+
+
+def _historical_activity_envelope(canonical: bytes, ordinal: int = 3) -> _HistoricalActivityEnvelope:
+    """Decode retained kernel evidence; current submissions use EIP-1559 only."""
+    if type(canonical) is not bytes or not 0 < len(canonical) <= 1_048_576:
+        _fail("historical activity bounds")
+    reader = _Reader(canonical)
+    version = reader.u16()
+    if version not in (1, 2, 3) or ordinal != 3 and version != 3 or reader.u16() != 0x1001 or reader.byte() != 12:
+        _fail("signed activity header")
+    _field(reader, 1)
+    if reader.u16() != version:
+        _fail("signed activity protocol")
+    _field(reader, 2); network = reader.u32()
+    _field(reader, 3)
+    if reader.u32() != 0x0009_0000 + ordinal:
+        _fail("signed activity type")
+    _field(reader, 4); actor = reader.sized_u32(255)
+    _field(reader, 5); reader.sized_u32(524_288)
+    _field(reader, 6); nonce = reader.u64()
+    _field(reader, 7); not_before, not_after = reader.u64(), reader.u64()
+    _field(reader, 8); idempotency = reader.sized_u32(32, 32)
+    _field(reader, 9); fee_limit = reader.u128()
+    _field(reader, 10); payload_hash = reader.sized_u32(32, 32)
+    _field(reader, 11); payload = reader.sized_u32(524_288)
+    _field(reader, 12); reader.sized_u32(128)
+    reader.end()
+    if not_after < not_before or sha256(_PAYLOAD_DOMAIN + payload).digest() != payload_hash:
+        _fail("signed activity payload hash or validity")
+    return _HistoricalActivityEnvelope(canonical, version, network, actor, nonce,
+                                      not_before, not_after, idempotency, fee_limit, payload_hash, payload)
+
+
+def _historical_binding(envelope: _HistoricalActivityEnvelope) -> DecodedSignedProgramCall:
+    return DecodedSignedProgramCall(
+        sha256(_ACTIVITY_DOMAIN + envelope.canonical).hexdigest(), envelope.idempotency.hex(),
+        envelope.not_before, envelope.not_after, envelope.canonical,
+        envelope.actor.decode("utf-8", "strict"), envelope.nonce,
+    )
+
+
+def decode_historical_program_call(call: object, expected_idempotency_key: str | None = None) -> DecodedSignedProgramCall:
+    """Bind historical Activity fields without admitting them to a node transport."""
+    envelope = _historical_activity_envelope(bytes(call.signed_activity))
+    native = getattr(call, "native_call", None)
+    if native is None:
+        _decode_call_payload(envelope.payload, call)
+    elif (envelope.protocol_version != 3 or envelope.fee_limit != call.fee_limit
+          or native.program_id.hex() != call.program_id or native.calldata != call.calldata
+          or native.resources[0] != call.fuel or call.capabilities
+          or envelope.payload != encode_native_program_call(native)):
+        _fail("native signed activity binding")
+    if expected_idempotency_key is not None and envelope.idempotency.hex() != expected_idempotency_key:
+        _fail("signed activity idempotency")
+    return _historical_binding(envelope)
+
+
+def bind_historical_program_call(canonical: bytes, expected_activity: str,
+                                 expected_program: str, expected_protocol: int) -> tuple[bytes, int, str]:
+    envelope = _historical_activity_envelope(canonical)
+    if (type(expected_protocol) is not int or envelope.protocol_version != expected_protocol
+            or sha256(_ACTIVITY_DOMAIN + canonical).hexdigest() != expected_activity):
+        _fail("historical activity binding")
+    if envelope.protocol_version == 3 or envelope.protocol_version == 2 and not envelope.payload.startswith(_CALL_DOMAIN):
+        native = decode_native_program_call(envelope.payload)
+        if encode_native_program_call(native) != envelope.payload:
+            _fail("retained native call encoding")
+        program, abi = native.program_id.hex(), native.guest_abi
+    else:
+        reader = _Reader(envelope.payload)
+        if reader.fixed(len(_CALL_DOMAIN)) != _CALL_DOMAIN:
+            _fail("retained call domain")
+        program, abi = reader.fixed(32).hex(), 1
+        if not reader.u64():
+            _fail("retained call budget")
+        reader.u128()
+        count, prior = reader.u16(), 0
+        if count > 5:
+            _fail("retained call capabilities")
+        for _ in range(count):
+            tag = reader.byte()
+            if not prior < tag <= 5:
+                _fail("retained call capability tag")
+            prior = tag
+        reader.sized_u32(1_048_576)
+        reader.end()
+    if program != expected_program or program == "00" * 32:
+        _fail("retained native call program")
+    return envelope.payload_hash, abi, envelope.idempotency.hex()
 
 
 def _signed_call_envelope(canonical: bytes) -> _SignedCallEnvelope:

@@ -22,6 +22,7 @@ use layerx_wire::hash::receipt_digest;
 use layerx_wire::receipt::{decode, encode};
 use layerx_wire::WireError;
 use serde_json::{json, Value};
+use sha2::{Digest as _, Sha256};
 
 type TestResult = Result<(), Box<dyn std::error::Error>>;
 
@@ -79,6 +80,9 @@ fn signed_receipt(
     to: Address,
     status: u64,
     timestamp: u64,
+    gas_used: u64,
+    gas_price: u128,
+    rate: Word,
 ) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
     let (key_id, height, activity_id) = match tamper {
         Tamper::UnpinnedKeyId => ([0x5b; 32], BLOCK, activity_id),
@@ -91,6 +95,7 @@ fn signed_receipt(
         | Tamper::ViewStatus
         | Tamper::ViewUpdatedAt => (RECEIPT_KEY_ID, BLOCK, activity_id),
     };
+    let gas_price_u64 = u64::try_from(gas_price)?;
     let fields = |signature: Option<[u8; 64]>| -> Result<Vec<u8>, WireError> {
         let mut encoder = Encoder::new(4096);
         encoder.structure_header_version(0x5201, layerx_wire::limits::PROTOCOL_VERSION)?;
@@ -99,10 +104,39 @@ fn signed_receipt(
         encoder.u64(nonce + 1)?;
         encoder.bytes(&[0x21; 32], 32)?;
         encoder.bytes(&[0x22; 32], 32)?;
-        encoder.bytes(&[0x23; 32], 32)?;
+        encoder.bytes(&Sha256::digest([]), 32)?;
         encoder.i32(i32::from(status != 1))?;
-        encoder.sequence_length(0, 512)?;
-        encoder.u128(1_500_000_000 * 35_000)?;
+        // Match the sequencer's execution summary and per-log commitments.
+        let mut summary = Vec::new();
+        summary.extend(gas_used.to_be_bytes());
+        summary.extend(gas_used.to_be_bytes());
+        summary.extend(gas_price_u64.to_be_bytes());
+        summary.extend(1_u32.to_be_bytes());
+        summary.extend([0; 40]);
+        summary.extend(Sha256::digest([]));
+        summary.extend(0_u32.to_be_bytes());
+        summary.extend(u32::from(status == 1).to_be_bytes());
+        summary.push(4);
+        summary.extend(b"apax");
+        encoder.sequence_length(if status == 1 { 2 } else { 1 }, 512)?;
+        let mut effect = |ordinal: u16, kind: u8, body: &[u8]| -> Result<(), WireError> {
+            encoder.u16(12)?;
+            encoder.u16(ordinal)?;
+            encoder.u16(0)?;
+            encoder.u8(kind)?;
+            encoder.u8(0)?;
+            encoder.bytes(&[0; 32], 32)?;
+            encoder.bytes(body, 256)
+        };
+        effect(0, 1, &summary)?;
+        if status == 1 {
+            let mut log = to.to_vec();
+            log.push(1);
+            log.extend(keccak(b"RateUpdated(uint256,uint256)"));
+            log.extend(Sha256::digest([rate, word(timestamp.into())].concat()));
+            effect(1, 3, &log)?;
+        }
+        encoder.u128(gas_price * u128::from(gas_used))?;
         let mut batch_id = [0; 32];
         batch_id[24..].copy_from_slice(&height.to_be_bytes());
         encoder.bytes(&batch_id, 32)?;
@@ -110,11 +144,11 @@ fn signed_receipt(
         encoder.u32(1)?;
         encoder.u32(0)?;
         encoder.u8(2)?;
-        encoder.bytes(&[0x24; 32], 32)?;
+        encoder.bytes(&Sha256::digest(b"apax"), 32)?;
         encoder.u128(0)?;
         encoder.bytes(&account(&from), 32)?;
         encoder.u128(10_u128.pow(18))?;
-        encoder.u128(10_u128.pow(18) - 1_500_000_000 * 35_000)?;
+        encoder.u128(10_u128.pow(18) - gas_price * u128::from(gas_used))?;
         encoder.u64(nonce)?;
         encoder.bytes(&account(&to), 32)?;
         encoder.u128(0)?;
@@ -188,16 +222,20 @@ impl Chain {
                     json!([])
                 };
                 let mut receipt = json!({"rung": rung, "txHash": hex(hash),
-                    "seq": quantity(nonce.into()), "height": quantity(BLOCK.into()),
-                    "index": "0x1", "timestamp": quantity(self.clock.into()),
+                    "seq": quantity((nonce + 1).into()), "height": quantity(BLOCK.into()),
+                    "index": "0x1", "timestamp": quantity(u128::from(self.clock) * 1000),
                     "status": quantity(self.status.into()), "returnData": "0x",
                     "logs": logs, "gasUsed": quantity(self.gas_used.into()),
                     "cumulativeGasUsed": quantity(self.gas_used.into()),
                     "effectiveGasPrice": quantity(self.effective_gas_price),
-                    "from": hex(&from), "to": hex(&to), "contractAddress": Value::Null,
+                    "from": hex(&from), "to": hex(&to), "contractAddress": hex(&[0; 20]),
+                    "sponsor": hex(&[0; 20]), "feeDenom": "apax", "paymentDenom": "apax",
+                    "feeAmount": quantity(self.effective_gas_price * u128::from(self.gas_used)),
+                    "signingKey": hex(receipt_key().verifying_key().as_bytes()),
                     "nonce": quantity(nonce.into()), "vmError": ""});
                 if rung == "committed" {
                     receipt["blockHash"] = Value::String(hex(&BLOCK_HASH));
+                    receipt["blockNumber"] = quantity(BLOCK.into());
                 }
                 if !matches!(self.tamper, Tamper::Missing) {
                     let signed = signed_receipt(
@@ -208,6 +246,9 @@ impl Chain {
                         to,
                         self.status,
                         self.clock,
+                        self.gas_used,
+                        self.effective_gas_price,
+                        rate,
                     )
                     .map_err(|_| RpcFault::Malformed)?;
                     receipt["keyId"] = Value::String(hex(&RECEIPT_KEY_ID));

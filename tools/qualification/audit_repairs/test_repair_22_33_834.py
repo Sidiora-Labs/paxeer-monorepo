@@ -209,7 +209,7 @@ def test_f22_build_examples_produce_and_start_merged_paxd():
         assert fact in build, fact
     makefile = source("Makefile")
     native = re.search(r"^paxd-native-libs: ([^\n]+)$", makefile, re.M)
-    assert native and native.group(1).split() == ["$(LIBRARY)", "programs-release-build"]
+    assert native and native.group(1).split() == ["$(LIBRARY)", "programs-release-build", "evmone-lib"]
     node = re.search(r"^paxd-build: ([^\n]+)\n((?:\t[^\n]*\n)+)", makefile, re.M)
     assert node and node.group(1).split() == ["paxd-native-libs"]
     assert "tools/release/version.json" in node.group(2)

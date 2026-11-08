@@ -121,7 +121,11 @@ impl PreparationLifecycle {
                 call_bound: false,
                 durable_terminal: false,
                 state: LifecycleState::Prepared,
-                not_after: prepared.disclosure.expiry.not_after,
+                not_after: prepared
+                    .disclosure
+                    .expiry
+                    .not_after
+                    .min(prepared.disclosure.expiry.payload_expires_at),
                 reservation_ids,
                 signed_bytes: None,
                 activity_id: None,
@@ -784,7 +788,7 @@ fn require_authorization(
     }
 }
 
-pub(crate) fn expire_elapsed(
+pub fn expire_elapsed(
     lifecycle: &PreparationLifecycle,
     limiter: &BudgetLimiter,
     core_batch_time_ms: u64,
@@ -833,7 +837,7 @@ pub(crate) fn expire_elapsed(
     Ok(report)
 }
 
-pub(crate) fn sweep_retention(
+pub fn sweep_retention(
     lifecycle: &PreparationLifecycle,
     current_sequence: u64,
     retention_sequences: u64,

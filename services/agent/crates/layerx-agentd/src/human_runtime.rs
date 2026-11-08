@@ -43,16 +43,16 @@ use crate::human::{
     HumanOwnerInstall, HumanPeer, HumanPrepare, HumanResponse, HumanSubmit, MutationEnvelope,
 };
 use crate::human_node::HumanNode;
+use crate::human_node::{HumanNodePreparationReader, HumanNodePreparationState, HumanStateError};
 use crate::identity::{self, CoreIdentity, IdentityError, IdentityResolver, ProtocolAuthority};
 use crate::managed_agent::{self, ManagedAgent};
 use crate::outbox::{
     Outbox, RecoveredOutbox, RecoveryError, RecoveryInputs, SubmissionState, SubmissionStatus,
 };
 use crate::policy::approval::{ApprovalRegistry, ApprovalState, ApproverId};
-use crate::prepare::PreparationLifecycle;
 #[cfg(test)]
-use crate::prepare::Prepared;
-use crate::prepare::{CoreStateError, ProductionCorePreparationBoundary};
+use crate::prepare::EvmPrepared;
+use crate::prepare::PreparationLifecycle;
 use crate::protocol_evidence::{EvidenceAuthority, RawStateEvidence};
 use crate::receipt::{CurrentReceiptEvidenceRecord, ReceiptEvidenceRecord, ReceiptMetadata};
 use crate::session::{self, OpenRequest, SessionId, SessionRegistry};
@@ -1151,7 +1151,7 @@ pub type BalanceContext = (
 pub trait HumanAuthorityBoundary {
     /// # Errors
     /// Returns an error when the request is invalid, authority is refused, or required state is unavailable.
-    fn registry(&self, peer: &HumanPeer) -> Result<ModuleRegistry, CoreStateError>;
+    fn registry(&self, peer: &HumanPeer) -> Result<ModuleRegistry, HumanStateError>;
     /// # Errors
     /// Refuses subjects not bound by the configured provider and current native checkpoint.
     fn authorize_subject(&mut self, peer: &HumanPeer) -> Result<(), HumanOperationError>;
@@ -1793,7 +1793,7 @@ impl HumanAuthorityBoundary for RemoteHumanAuthority {
             hex_field(&value, "sequencer_public_key")?,
         ))
     }
-    fn registry(&self, peer: &HumanPeer) -> Result<ModuleRegistry, CoreStateError> {
+    fn registry(&self, peer: &HumanPeer) -> Result<ModuleRegistry, HumanStateError> {
         self.get(&format!(
             "/v1/agent/registry?tenant={}&principal={}",
             query(peer.transport_tenant()),
@@ -1801,13 +1801,13 @@ impl HumanAuthorityBoundary for RemoteHumanAuthority {
         ))
         .and_then(|value| Self::registry_from(&value))
         .map_err(|error| match error {
-            HumanOperationError::Unavailable => CoreStateError::Unavailable,
+            HumanOperationError::Unavailable => HumanStateError::Unavailable,
             HumanOperationError::Typed(crate::human::HumanRefusal::ManagedAgent(_)) => {
-                CoreStateError::Unverified
+                HumanStateError::Unverified
             }
             HumanOperationError::Refused
             | HumanOperationError::CapabilityRefused(_)
-            | HumanOperationError::Typed(_) => CoreStateError::Unverified,
+            | HumanOperationError::Typed(_) => HumanStateError::Unverified,
         })
     }
     fn authorized_batch(
@@ -15616,15 +15616,11 @@ impl<A: HumanAuthorityBoundary> HumanOperations for ProductionHumanOperations<A>
         let actor = Did::new(actor.as_bytes()).map_err(|_| HumanOperationError::Refused)?;
         let owner = decode_owner_authority(authority).map_err(|_| HumanOperationError::Refused)?;
         self.subject_owner(peer, &actor, &owner)?;
-        let mut boundary = ProductionCorePreparationBoundary::new(
+        let mut boundary = HumanNodePreparationReader::new(
             self.chain.as_ref(),
             self.authority.registry(peer).map_err(map_core)?,
         );
-        let state = crate::prepare::legacy::CorePreparationBoundary::preparation_state(
-            &mut boundary,
-            &actor,
-        )
-        .map_err(map_core)?;
+        let state = boundary.preparation_state(&actor).map_err(map_core)?;
         let mut out = Encoder::new();
         out.u64(state.account_sequence);
         out.finish()
@@ -18180,10 +18176,12 @@ fn outcome_code(value: ApprovalOutcome) -> u8 {
         ApprovalOutcome::Conflict => 5,
     }
 }
-fn map_core(error: CoreStateError) -> HumanOperationError {
+fn map_core(error: HumanStateError) -> HumanOperationError {
     match error {
-        CoreStateError::Unavailable => HumanOperationError::Unavailable,
-        CoreStateError::Unverified | CoreStateError::Refused { .. } => HumanOperationError::Refused,
+        HumanStateError::Unavailable => HumanOperationError::Unavailable,
+        HumanStateError::Unverified | HumanStateError::Refused { .. } => {
+            HumanOperationError::Refused
+        }
     }
 }
 fn core_preparation_snapshot(
@@ -18191,11 +18189,10 @@ fn core_preparation_snapshot(
     authority: &dyn HumanAuthorityBoundary,
     peer: &HumanPeer,
     actor: &Did,
-) -> Result<crate::prepare::legacy::CorePreparationState, HumanOperationError> {
+) -> Result<HumanNodePreparationState, HumanOperationError> {
     let registry = authority.registry(peer).map_err(map_core)?;
-    let mut boundary = ProductionCorePreparationBoundary::new(node, registry);
-    crate::prepare::legacy::CorePreparationBoundary::preparation_state(&mut boundary, actor)
-        .map_err(map_core)
+    let mut boundary = HumanNodePreparationReader::new(node, registry);
+    boundary.preparation_state(actor).map_err(map_core)
 }
 
 fn boundary_correlation(peer: &HumanPeer, actor: &[u8], purpose: &[u8]) -> u64 {
@@ -20158,20 +20155,6 @@ pub(crate) mod activity_submission_index_tests {
         must(builder.payload(payload));
         let envelope = must(builder.build());
         let canonical = must(layerx_wire::activity::encode_unsigned_envelope(&envelope));
-        let disclosure = must(crate::prepare::disclose(&canonical, &registry));
-        let prepared = crate::prepare::Prepared {
-            signing_preimage: *must(layerx_wire::sign::preimage_unsigned(&envelope)).as_bytes(),
-            envelope,
-            canonical_bytes: canonical,
-            observed_head_sequence: 0,
-            disclosure: disclosure.disclosure,
-            disclosure_digest: disclosure.digest,
-            audit: crate::prepare::PreparationAuditEntry {
-                idempotency_key: activity.idempotency_key(),
-                observed_head_sequence: 0,
-                disclosure_digest: disclosure.digest,
-            },
-        };
         let key: [u8; 32] = must(activity.authority().try_into());
         let signature: &[u8; 64] =
             must(activity.signature().expect("fixture signature").try_into());
@@ -20179,136 +20162,80 @@ pub(crate) mod activity_submission_index_tests {
             layerx_wire::hash::Domain::SignaturePreimage,
             activity.protocol_version(),
             activity.network_id(),
-            &prepared.canonical_bytes,
+            &canonical,
         ));
         must(layerx_crypto::ed25519::verify(&key, signature, message));
+        use crate::prepare::{
+            prepare_bound, AbiArgument, EvmPreparationDefaults, EvmPreparationState,
+            EvmPrepareRequest, PrecompileCall, PrecompileTarget,
+        };
+        let mut secret = [0xa5; 32];
+        let from = must(layerx_crypto::secp256k1::evm_address(
+            must(k256::ecdsa::SigningKey::from_slice(&secret))
+                .verifying_key()
+                .to_encoded_point(false)
+                .as_bytes(),
+        ));
+        let prepared = must(prepare_bound(
+            EvmPreparationState {
+                chain_id: u64::from(activity.network_id()),
+                pending_nonce: activity.account_sequence(),
+                base_fee_per_gas: 1,
+                head_height: 0,
+            },
+            EvmPreparationDefaults {
+                max_priority_fee_per_gas: 1,
+                max_fee_per_gas: 10,
+                maximum_payload_bytes: 1_048_576,
+            },
+            EvmPrepareRequest {
+                from,
+                call: PrecompileCall {
+                    target: PrecompileTarget::Auth,
+                    selector: layerx_crypto::disclosure::call::ledger_selector(
+                        "recordLifecycle(bytes,bytes32)",
+                    ),
+                    arguments: vec![
+                        AbiArgument::Bytes(activity.payload().to_vec()),
+                        AbiArgument::Word(activity.idempotency_key()),
+                    ],
+                },
+                expected_nonce: Some(activity.account_sequence()),
+                max_priority_fee_per_gas: None,
+                max_fee_per_gas: None,
+                declared_payload_limit: 1_048_576,
+            },
+            100_000,
+        ));
         let verified = transaction_submission(prepared, &registry);
+        secret.fill(0);
         (registry, verified)
     }
 
     pub(crate) fn transaction_submission(
-        prepared: crate::prepare::Prepared,
+        prepared: crate::prepare::EvmPrepared,
         registry: &ModuleRegistry,
     ) -> crate::sign::VerifiedSubmission {
-        use crate::prepare::evm::{AbiArgument, PrecompileCall, PrecompileTarget};
-        use layerx_crypto::disclosure::{AmountRole, CounterpartyRole};
-        use layerx_crypto::evm_transaction::{decode_signed, recover_sender, Eip1559Call};
-        use layerx_types::payload::ModuleId;
-        let kind = prepared.envelope.activity_type();
-        let (target, data) = match (kind.module(), kind.ordinal()) {
-            (ModuleId::Governance, 1) => (
-                PrecompileTarget::Auth,
-                must(
-                    PrecompileCall {
-                        target: PrecompileTarget::Auth,
-                        selector: layerx_crypto::disclosure::call::ledger_selector(
-                            "recordLifecycle(bytes,bytes32)",
-                        ),
-                        arguments: vec![
-                            AbiArgument::Bytes(prepared.envelope.payload().as_bytes().to_vec()),
-                            AbiArgument::Word(prepared.envelope.idempotency_key().bytes()),
-                        ],
-                    }
-                    .encode(),
-                ),
-            ),
-            (ModuleId::Programs, 1) => {
-                let Some(layerx_crypto::disclosure::DisclosedNativeOperation::ProgramDeploy(
-                    deploy,
-                )) = &prepared.disclosure.native_operation
-                else {
-                    panic!("disclosed program deploy required");
-                };
-                (
-                    PrecompileTarget::Programs,
-                    layerx_crypto::disclosure::call::encode_program_deploy(&deploy.native()),
-                )
-            }
-            (ModuleId::Bridge, 1) => {
-                let [amount] = prepared.disclosure.amounts.as_slice() else {
-                    panic!("one bridge credit amount");
-                };
-                assert_eq!(amount.role, AmountRole::Transfer);
-                let recipient = prepared
-                    .disclosure
-                    .counterparties
-                    .iter()
-                    .find(|party| party.role == CounterpartyRole::Recipient)
-                    .expect("bridge credit recipient");
-                let mut amount_word = [0; 32];
-                amount_word[16..].copy_from_slice(&amount.value.to_be_bytes());
-                (
-                    PrecompileTarget::Ledger,
-                    must(
-                        PrecompileCall {
-                            target: PrecompileTarget::Ledger,
-                            selector: layerx_crypto::disclosure::call::ledger_selector(
-                                "mint(bytes32,bytes32,uint128)",
-                            ),
-                            arguments: vec![
-                                AbiArgument::Word(prepared.disclosure.asset),
-                                AbiArgument::Word(recipient.account),
-                                AbiArgument::Word(amount_word),
-                            ],
-                        }
-                        .encode(),
-                    ),
-                )
-            }
-            _ => panic!("unsupported submission fixture activity: {kind:?}"),
-        };
-        let (gas_limit, max_fee_per_gas) = if kind.module() == ModuleId::Programs {
-            (must(u64::try_from(prepared.disclosure.fee_limit)), 1)
-        } else {
-            (100_000, 10)
-        };
-        let call = Eip1559Call {
-            chain_id: u64::from(prepared.envelope.network_id()),
-            nonce: prepared.envelope.account_sequence(),
-            max_priority_fee_per_gas: 1,
-            max_fee_per_gas,
-            gas_limit,
-            to: target.address(),
-            data,
-        };
-        let raw = must(call.sign(&[0xa5; 32]));
-        let (decoded, signature) = must(decode_signed(&raw));
-        assert_eq!(decoded, call);
-        let actor_address = must(recover_sender(&decoded, &signature));
+        must(crate::prepare::verify_call_binding(&prepared));
+        let raw = must(prepared.call.sign(&[0xa5; 32]));
+        let (call, signature) = must(layerx_crypto::evm_transaction::decode_signed(&raw));
+        assert_eq!(call, prepared.call);
+        let actor_address = must(layerx_crypto::evm_transaction::recover_sender(
+            &call, &signature,
+        ));
+        assert_eq!(actor_address, prepared.from);
+        assert_eq!(prepared.signing_hash, call.signing_hash());
         let disclosure = must(layerx_crypto::disclosure::call::bind_call(
             &call,
             actor_address,
         ));
-        if kind.module() == ModuleId::Programs {
-            assert_eq!(
-                disclosure.native_operation,
-                prepared.disclosure.native_operation
-            );
-            assert_eq!(disclosure.fee_limit, prepared.disclosure.fee_limit);
-        }
-        if kind.module() == ModuleId::Bridge {
-            assert_eq!(disclosure.asset, prepared.disclosure.asset);
-            assert_eq!(disclosure.amounts, prepared.disclosure.amounts);
-            assert_eq!(
-                disclosure.counterparties,
-                prepared
-                    .disclosure
-                    .counterparties
-                    .iter()
-                    .filter(|party| party.role == CounterpartyRole::Recipient)
-                    .copied()
-                    .collect::<Vec<_>>()
-            );
-        }
+        assert_eq!(disclosure, prepared.disclosure);
+        assert_eq!(
+            must(disclosure.signing_digest()),
+            prepared.disclosure_digest
+        );
         let preparation = crate::sign::SigningPreparation {
-            transaction: crate::prepare::EvmPrepared {
-                from: actor_address,
-                disclosure_digest: must(disclosure.signing_digest()),
-                disclosure,
-                signing_hash: call.signing_hash(),
-                call,
-                observed_head_height: 0,
-            },
+            transaction: prepared,
             actor_address,
         };
         must(crate::sign::verify_before_submit(
@@ -20905,7 +20832,7 @@ mod enrolment_expiry_boundary_tests {
 }
 
 #[cfg(test)]
-mod legacy_policy_purpose_tests {
+mod policy_purpose_tests {
     use super::{legacy_label_purpose, HumanOperationError};
     use crate::human::HumanRefusal;
     use crate::policy::Purpose;
@@ -21515,7 +21442,7 @@ fn native_send_preview_refused(site: &'static str) -> HumanOperationError {
 fn native_send_preview_authorization(
     human: &HumanPrepare,
     authority: Authority,
-    snapshot: &crate::prepare::legacy::CorePreparationState,
+    snapshot: &HumanNodePreparationState,
     timestamp_span: u64,
     maximum_payload_bytes: usize,
 ) -> Result<crate::prepare::EvmPrepared, HumanOperationError> {
@@ -23796,7 +23723,7 @@ mod retained_settlement_tests {
     }
 
     fn terminal(
-        prepared: &Prepared,
+        prepared: &EvmPrepared,
         activity: [u8; 32],
         failed: bool,
     ) -> (
@@ -23903,7 +23830,7 @@ mod retained_settlement_tests {
                 &raw, &authority, 3, 125,
             ),
         );
-        assert_eq!(prepared.observed_head_sequence, 8);
+        assert_eq!(prepared.observed_head_height, 8);
         (verified, authority, public)
     }
 
@@ -23942,39 +23869,9 @@ mod retained_settlement_tests {
                 interface: None,
                 wasm: WASM,
             };
-            let payload_bytes = must(deploy.encode());
-            let payload = must(Payload::new(&registry, kind, &payload_bytes));
-            let authority = must(Authority::owner(&public));
-            let mut builder = EnvelopeBuilder::new();
-            must(
-                builder
-                    .protocol_version(3)
-                    .and_then(|b| b.network_id(125))
-                    .and_then(|b| b.activity_type(kind))
-                    .and_then(|b| b.actor_did(actor.clone()))
-                    .and_then(|b| b.authority(authority.clone()))
-                    .and_then(|b| b.account_sequence(1))
-                    .and_then(|b| {
-                        b.timestamp_bound(must(TimestampBound::new(1, 1_800_000_000_000)))
-                    })
-                    .and_then(|b| b.idempotency_key(IdempotencyKey::new([6; 32])))
-                    .and_then(|b| b.fee_limit(Amount::from_u128(10)))
-                    .and_then(|b| {
-                        b.payload_hash(must(layerx_wire::hash::payload_hash_for(&payload)))
-                    })
-                    .and_then(|b| b.payload(payload)),
-            );
-            let envelope = must(builder.build());
-            let canonical = must(layerx_wire::activity::encode_unsigned_envelope(&envelope));
-            let prepared = must(crate::prepare::restore_canonical(
-                &canonical,
-                8,
-                &registry,
-                Some(&authority),
-            ));
             let call = layerx_crypto::evm_transaction::Eip1559Call {
-                chain_id: u64::from(envelope.network_id()),
-                nonce: envelope.account_sequence(),
+                chain_id: 125,
+                nonce: 1,
                 max_priority_fee_per_gas: 0,
                 max_fee_per_gas: 1,
                 gas_limit: 10,
@@ -23998,13 +23895,14 @@ mod retained_settlement_tests {
                     observed_head_height: 8,
                 },
             };
+            let prepared = transaction.transaction.clone();
             let rpc = Rpc::serve(public, actor.clone(), sender);
             let mut node = rpc.endpoint();
             let caps = must(committed_call_caps(
                 &node,
                 &transaction.transaction,
                 &actor,
-                prepared.observed_head_sequence,
+                prepared.observed_head_height,
             ));
             assert_eq!(caps.freshness().observed_head_sequence, 8);
             let mut programs = programs(&ServedCheckpoint::test_fixture(

@@ -1,0 +1,227 @@
+[meta]
+attempt = 2
+merged_starting_revision = "2b6ebb44422cd1ff9bd0cf3978c1f2ebec483ca4"
+prerequisite_revision = "f367b74df0a1dfb522309232d3829928c26d4ffc"
+task = "22.39.169"
+starting_revision = "0edc903b4a4120ea145e68acb1a9712c54d7976a"
+basis = "Decisions 2900, 2908, 2955, 2968 and 2973; restore the seed to the already merged 22.99.77 prerequisite and reapply only repairs whose cases still fail"
+deployment_bound_bytes = 524184
+
+[inventory]
+command = "cargo test --locked --manifest-path programs/Cargo.toml -p layerx-programs-ai-market --no-fail-fast"
+before = "The before.* sections preserve the historical attempt-1 first sweep; continuation_baseline references this attempt's first bounded whole-crate sweep on the prerequisite-merged tree"
+after = "/out/run/gates.jsonl: final verify row and its private log contain every executed target and case result"
+policy = "Record observed failures by target and test name after the first sweep; no existing test is removed, skipped, ignored or weakened"
+
+[regression]
+target = "repair_22_39_169"
+test = "read_header_preserves_ordered_fields_and_rejects_every_truncated_prefix"
+producer = "src/codec.rs: encode_read_header, Writer::fields, decode_read_header and read_fields"
+criterion = "Distinct identities and multibyte scalars retain their exact wire order, both presence forms round-trip through the real encoder and decoder, and every truncated prefix is refused"
+
+[qualification]
+build = "hf-build"
+verify = "hf-done"
+revision_source = "/out/run/gates.jsonl: matching final build and verify revision"
+build_evidence = "/out/run/gates.jsonl: final build row records revision, command, exit and private log"
+verify_evidence = "/out/run/gates.jsonl: final verify row records revision, command, exit and private log"
+guest_size_source = "/out/logs/22.39.169-size.json: packaged build/paxai-host-boundary/ai_market.wasm size and deployment headroom at each built revision"
+policy = "Only passing hf-done with a matching passing hf-build qualifies the task; final evidence is retained by reference without editing the built candidate"
+
+[attempt1_baseline]
+revision = "6d7e527537d539ebdd0d4f8db4ec22ac620389b3"
+command = "cg spec done 22.39.169 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+guest_size_bytes = 504494
+headroom_bytes = 19690
+failing_targets = 21
+failing_cases = 161
+
+[before.artifact_binding]
+failed = ["a06_r10_root_bindings_are_scoped_and_immutable", "a18_control_capacity_is_exact_and_trailing_bytes_survive", "a23_one_seal_per_evaluator_in_the_commit_window", "a23_repeat_retry_and_conflict_leave_the_seal", "a23_evaluator_authority_is_checked_at_sealing", "a24_tampered_evidence_fails_integrity_or_binding", "a25_seal_requires_the_explicit_task_set_seal", "clause_10_binding_mismatches_refuse_without_change", "f09_seal_stores_the_digest_bound_to_the_output_commitment", "a24_report_seal_and_policy_mismatches_fail_binding", "seal_payload_and_envelope_refusals", "a19_orphaned_composition_and_epoch_reset", "a20_minimal_proof_conclusions_stay_separate"]
+
+[before.canonical_contract]
+failed = ["all_fifty_five_selectors_and_entire_error_freeze"]
+
+[before.chain_domain]
+failed = ["chain_domain_is_derived_from_the_merged_chain_id"]
+
+[before.f03_evaluator_admission]
+failed = ["a01_a02_explicit_zero_is_a_vote_and_an_omitted_worker_is_none", "a03_a04_vector_structure_and_score_bounds", "a05_frozen_domain_epoch_config_and_roster", "a11_a12_sealed_evidence_root_and_a_recordable_challenge", "a06_versions_signature_and_requesting_principal", "a14_retransmission_recovers_the_receipt_and_the_slot_is_final", "a16_pending_grants_suspension_and_quality_challenges", "challenges_reference_admitted_reports_under_their_identity", "challenges_are_bounded_and_idempotent", "revoked_evaluators_cannot_reveal"]
+
+[before.f03_evaluator_host]
+failed = ["f03_a05_program_and_market_changes_refuse_wrong_domain", "f03_a03_unsorted_and_duplicate_vectors_consume_no_slot", "f03_a01_a02_explicit_zero_is_a_vote_and_an_omitted_worker_is_none", "f03_a09_a10_role_conflicts_refuse_scheduling_and_opening", "f03_a04_score_and_count_bounds", "f03_a07_a08_revocation_and_seal_orderings", "f03_a05_chain_change_keeps_the_signature_and_refuses_wrong_domain", "f03_a04_empty_vector_returns_no_scores", "f03_a09_corrupted_conflicting_roster_fails_report_admission", "f03_a14_a_different_digest_for_the_final_slot_is_already_final", "f03_a14_retransmission_and_restart_recover_the_receipt", "f03_a16_pending_grants_stay_ineligible_until_accepted", "f03_a16_suspension_rejects_new_grants_and_keeps_admitted_work", "f04_a12_rotation_revocation_and_rollover", "f03_a16_quality_challenge_changes_no_score_or_reward", "f03_a15_eight_maximum_reports_and_resource_rollback", "native_f03_schedule_capacity_role_conflicts_and_revocation"]
+
+[before.f04_windows]
+failed = ["a02_commit_boundaries_use_sequenced_execution_height", "a04_native_principals_and_a_relayed_delegate", "a04_each_binding_field_and_a_foreign_reveal", "a02_evidence_seal_uses_the_same_commit_boundaries", "a01_one_immutable_commitment_exact_retry_and_expiry", "a02_reveal_boundaries_use_sequenced_execution_height", "a10_window_arithmetic_overflow_refuses", "a03_malformed_vectors_refuse_before_admission", "a02_half_open_windows_and_a_single_reveal", "a08_concurrent_and_repeated_requests_settle_once", "a06_missing_commit_and_partial_reveals", "a12_revocation_and_rotation_across_the_epoch_boundary", "a05_signature_and_salt_refusals_keep_the_commitment", "a11_expiry_is_a_projection_without_writes", "a07_empty_vectors_refuse_and_explicit_zero_is_admitted", "suspension_refuses_new_commitments_and_keeps_reveals", "a10_largest_reports_at_both_identity_bounds"]
+
+[before.f05_aggregation_runtime]
+failed = ["f05_a04_absent_reports_add_no_observations", "f05_a05_arrival_order_never_changes_bytes_and_seal_height_does", "f05_a01_three_distinct_scores_select_the_median", "f05_a02_four_scores_select_the_lower_median", "f05_a03_zero_quorum_and_insufficient_quorum_stay_distinct", "f04_a11_stable_set_at_reveal_end", "f05_a11_self_assessment_and_unbacked_persisted_votes", "f05_a12_settlement_window_and_delayed_completion", "f05_a09_no_reports_settles_no_eligible_score", "f05_a10_refused_scores_and_tampered_persisted_records", "f05_a14_revocation_orderings", "f05_a15_worker_replacement_after_freeze", "f05_a17_colluding_low_reports_select_zero", "f05_a07_display_truncation_and_weight_settlement", "f05_a18_settlement_reads_no_evidence", "f05_a06_canonical_worker_order_and_display_shares", "f04_a06_expired_commitments_supply_no_rows", "f05_a13_cursor_retries_and_once_only_completion", "f05_a16_refused_steps_keep_committed_progress", "f05_a08_largest_roster_in_four_chunks"]
+
+[before.f11_lap_settlement]
+failed = ["settle_laps_64_fits_one_million_cpu_fuel"]
+
+[before.fuel_budget]
+failed = ["fund_entry_gas_for_committed_receipt_fixture_is_bounded", "fund_fits_the_protocol_cpu_fuel_cap", "every_routed_operation_fits_the_protocol_cpu_fuel_cap"]
+
+[before.host_boundary]
+failed = ["a09_native_policy_variants_and_maxima", "a01_native_create_binds_principal_origin_and_refuses_duplicates", "a16_native_policy_width_and_assessment_modes", "a19_native_treasury_presence_and_later_setters", "a02_native_activation_schedule_rebinds_worker_revision_and_needs_readiness", "a03_native_stage_open_refusal_cancel_and_restage", "native_context_binds_chain_program_and_height", "native_read_selectors_return_exact_snapshot_without_writes", "native_selectors_preserve_exact_routed_refusals"]
+
+[before.identity_section_sharing]
+failed = ["queries_read_the_worker_prefix_beside_the_region", "a_truncated_worker_prefix_is_refused_by_every_reader"]
+
+[before.market_epoch_open]
+failed = ["a04_evaluator_sharing_a_worker_key_is_not_independent", "a02_activation_refuses_fewer_than_three_evaluators", "a03_readiness_refusal_keeps_config1_and_pending2", "a02_activation_needs_work_window_and_complete_readiness", "a03_opening_freezes_the_due_pending_policy", "a04_worker_principal_cannot_also_evaluate", "advance_reads_an_already_opened_epoch", "a04_owner_cannot_evaluate_through_a_new_delegate", "open_freezes_roster_recipients_and_budget"]
+
+[before.market_lifecycle]
+failed = ["a01_create_registers_once_at_committed_origin"]
+
+[before.market_protocol_boundary]
+failed = ["request_close_refusals_leave_the_market_unchanged", "a07_expired_entitlements_return_to_the_fixed_recipient", "a36_routed_approve_admission_then_admit_worker_reads_admitted", "a08_close_waits_for_the_terminal_epoch_and_sealed_tasks_and_resumes_from_bytes", "a11_exact_retries_return_retained_results_without_new_effects", "unfunded_market_closes_through_every_phase", "a07_close_refunds_free_once_and_waits_for_live_claims"]
+
+[before.repair_22_31_253]
+failed = ["availability_hides_enabled_features"]
+
+[before.reputation_lifecycle]
+failed = ["f07_a01_qualified_observations_and_key_rotation", "f07_a07_rotation_seat_reuse_and_model_rollover", "f07_a05_coverage_and_quorum", "f07_a04_a11_count_cap_retention_and_pruning", "f07_a11_capacity_and_sizes"]
+
+[before.rewards_native]
+failed = ["reward_conservation_authority_and_rollback", "reward_finality_recovery_and_capacity"]
+
+[before.roster_transition]
+failed = ["a07_immunity_and_security_removal", "a06_selection_orders_activity_admission_then_id", "a12_exit_waits_for_retention_and_preserves_entitlements", "a10_rotation_freezes_only_from_its_effective_epoch", "a13_clock_phase_revision_and_lifecycle_gates", "a02_capacity_refuses_until_exit_frees_the_slot", "a01_enrollment_stages_then_one_rollover_installs", "a05_missed_epochs_count_opened_snapshots_only", "a17_bootstrap_freezes_epoch_zero_with_quorum", "a15_maximal_state_fits_and_short_buffers_refuse", "a18_skipped_epoch_installs_at_next_opening_and_drops_stale_approvals", "a19_only_accepted_evaluators_enter_the_roster", "identity_record_gates_installation", "identity_section_keeps_the_evaluator_region"]
+
+[before.task_admission_boundary]
+failed = ["a13_worker_step_refusals_leave_ack_and_result_unchanged", "a13_admission_refusals_take_no_slot", "a15_restart_from_committed_bytes_recovers_one_task_identity", "a13_commit_at_the_deadline_is_expired_and_keeps_the_acceptance", "a13_finalized_acceptance_then_one_result_commitment", "a13_routed_admission_binds_the_frozen_worker_commitments", "a18_routed_admission_checks_frozen_worker_commitments", "a15_expired_acceptance_and_late_result_leave_the_chain_unchanged"]
+
+[before.task_state_boundary]
+failed = ["a13_delegate_authority", "a12_admission_refuses_without_a_slot", "a13_acceptance_and_result_commitment", "a12_cancelled_slots_stay_occupied", "a12_admission_binds_one_immutable_task", "a13_refusals_leave_ack_and_result_unchanged", "a14_deadline_ends_at_work_end", "a14_seal_is_canonical_and_order_independent", "a17_next_opening_reads_only_a_sealed_set_as_empty", "a16_policy_mode_identity", "a17_open_epoch_resets_the_sealed_region", "a17_seal_phase_and_evidence_views", "a28_activation_uses_the_scheduled_execution_height", "a29_changed_metadata_refuses_admission_until_the_next_roster", "a29_enrollment_remains_routed_to_worker_identity", "a18_admission_checks_frozen_worker_commitments", "a28_execution_height_timeout_commits_at_105", "a28_execution_height_timeout_refuses_at_110_and_cancels", "a28_unaccepted_cancellation_keeps_its_deadline_and_work_guards"]
+
+[before.workers_lifecycle]
+failed = ["a13_manifest_grammar_refusals_before_mutation"]
+
+[attempt1_repair.joint_section_consumers]
+producer = "registry_ops::create writes RP07 followed by the strict F08 admission table; reputation_transition::split_joint defines the boundary"
+files = ["artifact_binding.rs", "f03_evaluator_admission.rs", "f03_evaluator_host.rs", "f04_windows.rs", "f05_aggregation_runtime.rs", "fuel_budget.rs", "market_epoch_open.rs", "market_protocol_boundary.rs", "rewards_native.rs", "roster_transition.rs", "task_admission_boundary.rs", "task_state_boundary.rs"]
+change = "Parts::load decodes only the F08 table and Parts::encode carries the original F07 prefix byte for byte; the reward envelope view also splits the joint section"
+precedent = "tests/f04_recovery.rs already preserves reputation_prefix around the admission producer"
+size_pass = "No size-pass attribution: the joint-section producer already initializes F07 in the starting tree"
+
+[attempt1_repair.shared_views]
+producer = "reputation_transition::split_joint and AdmissionTable::decode, as already used by aggregation::view and epoch::captured_roster"
+files = ["src/tasks.rs", "src/commit_reveal.rs", "src/evidence.rs", "src/evaluators/admission.rs", "src/closure.rs"]
+change = "Read the ordered F08 table from the real joint section before deriving epoch, membership and frozen bindings; leave the strict table decoder and wire contracts intact"
+
+[attempt1_repair.roster_adapter]
+producer = "epoch::carry_reputation, the production adapter used around F08-only producers"
+file = "tests/roster_transition.rs"
+change = "Run the real roster producer through the carry adapter with independent carry scratch and propagate its joined state length; retain every short-buffer assertion"
+
+[attempt1_repair.guest_copy]
+producer = "types::GuestIndex::guest_copy_from_slice, reached by codec::Writer::put and whole-state reward/carry copies"
+size_pass = "22.39.142, commit 075a770edbf33195cd9a37f5b9563d4dc0d3ab05"
+change = "Keep the explicit mismatched-length guest trap and use copy_from_slice instead of the element-by-element iterator loop, permitting the compiler's bulk copy intrinsic"
+criterion = "The existing one-million-fuel assertions and 524184-byte deployment bound remain unchanged"
+
+[attempt1_repair.contract_inventory]
+producer = "dispatch::OPERATIONS and errors::APPLICATION_ERRORS"
+file = "tests/canonical_contract.rs"
+change = "Extend the independent exact freeze with all seventeen already registered F11 selectors and ten F11 status codes, retaining every existing entry and asserting exactly 72 operations"
+
+[attempt1_repair.created_state]
+producer = "registry_ops::create initializes ReputationState::new(market) in the joint section"
+file = "tests/market_lifecycle.rs"
+change = "Assert the exact initialized reputation section alongside the three empty feature sections"
+
+[attempt1_repair.availability_expectations]
+producer = "queries::feature_availability and queries::participant_rows"
+files = ["tests/identity_section_sharing.rs", "tests/repair_22_31_253.rs"]
+change = "Keep exact equality checks and follow the real capture: initialized F03/F07 are Available, absent worker rewards are NotYetProduced, and F11 remains NotEnabled; assert the same exact vector after reopening"
+
+[attempt1_repair.manifest_version]
+producer = "workers::decode_manifest accepts schemas 1 and 2"
+file = "tests/workers_lifecycle.rs"
+change = "Exercise unsupported schema 3 while retaining the exact BAD_VERSION assertion and all canonicality refusals"
+
+[attempt1_repair.reputation_fixture]
+producer = "RotateDelegate publishes the replacement key and incremented key version; metadata publication must use its actual signing key"
+files = ["tests/repair_22_33_260.rs", "tests/reputation_lifecycle.rs"]
+change = "Accept an explicit delegate-key resolver for metadata refresh, retain the public-key equality assertion and real signature verification, and compare the crowded market's completion to its own frozen epoch"
+
+[attempt1_repair.chain_domain_configuration]
+producer = "Makefile PAXAI_CHAIN_DOMAIN default and merged_chain_domain(125)"
+change = "Export the existing merged-chain golden PAXAI_CHAIN_DOMAIN to both final gates; retain option_env and deployment-domain assertions"
+value = "62b6b14734fa769c3e0fbc94de495a3d038be49a2524b1c071d75d0a4eed71f6"
+
+[attempt1_finding.funding_fixture]
+task = "22.39.169"
+file = "tests/fuel_budget.rs"
+symbol = "fund_entry_gas_for_committed_receipt_fixture_is_bounded; fund_fits_the_protocol_cpu_fuel_cap"
+observed = "Revision 6d7e527537d539ebdd0d4f8db4ec22ac620389b3, cg spec done 22.39.169 -f layerx-merge --root /work/paxeer-monorepo, exit 1, /out/logs/verify-1.log: the externally produced programs/target/repair-478/owner fixture is absent."
+assumption = "The declared build omits the Go fixture gate, which is outside the allowed gates; retain the real fixture reads and assertions."
+severity = "blocker"
+
+[attempt1_finding.native_trace]
+task = "22.39.169"
+file = "tests/programs/test_ai_host_boundary.c"
+symbol = "native_f03_schedule_capacity_role_conflicts_and_revocation; host_boundary"
+observed = "Revision 6d7e527537d539ebdd0d4f8db4ec22ac620389b3, cg spec done 22.39.169 -f layerx-merge --root /work/paxeer-monorepo, exit 1, /out/logs/verify-1.log: the native harness returned kernel -3 / runtime -741 because the execution trace exceeded commitment limit 256."
+assumption = "The external C harness cap and all kernel-success assertions remain unchanged; final whole-crate evidence determines whether guest copy repair removes this failure."
+severity = "blocker"
+
+[attempt1_finding.availability_contract]
+task = "22.39.169"
+file = "tests/identity_section_sharing.rs"
+symbol = "a_truncated_worker_prefix_is_refused_by_every_reader"
+observed = "Revision 6d7e527537d539ebdd0d4f8db4ec22ac620389b3, cg spec done 22.39.169 -f layerx-merge --root /work/paxeer-monorepo, exit 1, /out/logs/verify-1.log: feature_availability returns explicit ContentUnavailable statuses for malformed identity content while the test requires an outer NON_CANONICAL refusal."
+assumption = "Keep both the exact refusal assertion and public query result unchanged because reconciling them would violate the task's no-weakening or no-query-change requirement."
+severity = "blocker"
+
+[attempt1_finding.reputation_capacity]
+task = "22.39.169"
+file = "tests/reputation_lifecycle.rs"
+symbol = "f07_a11_capacity_and_sizes"
+observed = "Revision 6d7e527537d539ebdd0d4f8db4ec22ac620389b3, cg spec done 22.39.169 -f layerx-merge --root /work/paxeer-monorepo, exit 1, /out/logs/verify-1.log: a 32-worker aggregation returned CAPACITY after producing event bytes."
+assumption = "No storage bound, capacity assertion or zero-event refusal check may be relaxed; retain this unresolved producer failure for the final bounded result."
+severity = "suspect"
+
+[after]
+source = "/out/logs/22.39.169-after.json"
+fields = "revision, command, exit, log, targets (each target's executed, failed and passed test names), total_failed, gate ledger and packaged guest measurements"
+policy = "Generated from the final hf-done log after the bounded result; the built record refers to that evidence without a post-build source edit"
+
+[gotcha.joint_section]
+area = "rust"
+symptom = "Older whole-crate fixture loaders fail with BAD_VERSION on the RP07 joint section"
+cause = "A strict F08 table decoder was given the F07 prefix too"
+do = "Split the joint section and preserve its prefix whenever rewriting the table"
+
+[gotcha.gate_budget]
+area = "build"
+symptom = "Each additional build or verification consumes one of the two shared repair slots"
+cause = "The runner counts extra gate invocations individually"
+do = "Finish the entire repair before the final matching build and verify pair"
+
+[continuation]
+restoration = "All 25 tracked seed files match the prerequisite-merged main version before qualification; the new real read-header regression test and historical repair record are retained"
+reason = "The 24 files with seed conflicts duplicate landed producers or fixture repairs; preserve the current source order, single bulk copy and strict assertions, and restore the two non-conflicting seed additions until their cases fail"
+production_sources = "No seed production repair is reapplied before the merged baseline sweep; the published 256-boundary replay profile remains unchanged"
+main_repairs = "22.99.77 already carries joint-table readers, twelve prefix-preserving loaders, created-state and availability expectations, delegate refresh and strict manifest-version tests"
+
+[continuation_baseline]
+source = "/out/logs/22.39.169-baseline.json"
+fields = "First hf-done revision, command, exit, private log and all failing names grouped by target, or an empty failure list on success"
+policy = "Read the actual first bounded gate; preserve the baseline inventory if a task-scoped repair is required"
+
+[fixture_provenance]
+producer = "rpc/repair_478_test.go: TestRepair478_ tests run by the declared build after make -s paxd-native-libs and before the packaged guest build"
+consumer = "tests/support/repair_478_fixture.rs and tests/fuel_budget.rs read the real committed receipt fixture in programs/target/repair-478"
+evidence = "/out/logs/22.39.169-fixture.json: generated fixture file paths, sizes and SHA-256 digests, tied to each passing build revision"
+policy = "No hand-built funding receipt or fallback; the declared build runs the real Go producer"
+
+[gotcha.seed_overlap]
+area = "rust"
+symptom = "The carried repair has conflict markers and duplicate joint-table bindings beside landed prerequisite repairs"
+cause = "Attempt 1 and prerequisite 22.99.77 repaired the same producers and fixtures"
+do = "Keep the merged main implementation and reapply only a repair proved necessary by the bounded whole-crate sweep"

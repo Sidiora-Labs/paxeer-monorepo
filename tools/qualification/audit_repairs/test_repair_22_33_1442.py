@@ -87,6 +87,7 @@ def test_doc_readme_root_rpc_hosts_and_chain_probe():
     ]
     assert {url.hostname for url in public_urls} == {
         "api-mainnet-beta.paxeer.network", "api1.mainnet-beta.paxeer.network",
+        "api2.mainnet-beta.paxeer.network",
         "api14.mainnet-beta.paxeer.network",
     }
     for url in public_urls:
@@ -218,7 +219,7 @@ def test_doc_readme_linked_node_build_start_and_upgrade():
     assert dependencies == ["paxd-native-libs"]
     assert "jq -er .version tools/release/version.json" in recipe
     assert "$(PAXEER_MAKE) build" in recipe
-    assert make_rule("Makefile", "paxd-native-libs")[0] == ["$(LIBRARY)", "programs-release-build"]
+    assert make_rule("Makefile", "paxd-native-libs")[0] == ["$(LIBRARY)", "programs-release-build", "evmone-lib"]
     assert make_rule("chain.mk", "build") == (
         ["paxd-native-libs"], "go build $(BUILD_FLAGS) -o ./build/paxd ./daemon/paxd",
     )

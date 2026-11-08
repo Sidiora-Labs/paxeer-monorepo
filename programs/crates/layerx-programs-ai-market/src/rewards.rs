@@ -2565,11 +2565,11 @@ fn view(current: &[u8]) -> CodecResult<View<'_>> {
     if section.header.state_revision != state.revision {
         return Err(NON_CANONICAL);
     }
-    let opened = AdmissionTable::decode(
+    let opened = AdmissionTable::decode(crate::reputation_transition::joint_table(
         *state
             .feature_sections
             .guest_index(Section::ReputationAdmission.index()),
-    )?
+    )?)?
     .current_epoch();
     Ok(View {
         state,
@@ -3002,9 +3002,10 @@ impl<'a> FundingView<'a> {
 }
 
 #[cfg_attr(target_arch = "wasm32", inline(never))]
-fn apply_fund(
+pub(crate) fn apply_fund(
     ctx: &CallContext,
     envelope: &ValidatedEnvelope<'_>,
+    digest: RequestDigest,
     current: &[u8],
     next: &mut [u8],
     scratch: &mut [u8],
@@ -3037,7 +3038,15 @@ fn apply_fund(
         .actor(slot)
         .ok_or(UNAUTHORIZED)?
         .authority_version;
-    let replay = ReplayRequest::from_envelope(slot, version, envelope)?;
+    let replay = ReplayRequest {
+        slot,
+        principal: e.actor,
+        authority_version: version,
+        sequence: e.sequence,
+        request_id: e.request,
+        digest,
+        expiry_height: e.expiry,
+    };
     FundingAuthority {
         owner: view.header.owner_principal,
         treasury: view.header.treasury_principal,
@@ -3122,7 +3131,7 @@ fn apply_fund(
             epoch: view.epoch,
             config: Version::new(header.active_config_version)?,
             revision: state.revision,
-            request: envelope.request_digest()?,
+            request: replay.digest,
             result,
         },
         response.as_bytes(),
@@ -3174,10 +3183,27 @@ pub fn apply(
 ) -> CodecResult<Outcome> {
     let e = &envelope.envelope;
     if e.operation == dispatch::FUND {
-        return apply_fund(ctx, envelope, current, next, scratch, event);
+        return apply_fund(
+            ctx,
+            envelope,
+            envelope.request_digest()?,
+            current,
+            next,
+            scratch,
+            event,
+        );
     }
     let kind = Kind::of(e.operation)?;
     let view = view(current)?;
+    if view
+        .state
+        .feature_sections
+        .guest_index(Section::ReputationAdmission.index())
+        .get(..4)
+        == Some(b"RP07".as_slice())
+    {
+        return Err(crate::errors::BAD_VERSION);
+    }
     let header = &view.section.header;
     authenticate(ctx, e, header)?;
     let (policy, rest) = scratch.split_at_mut_checked(POLICY_CAP).ok_or(CAPACITY)?;

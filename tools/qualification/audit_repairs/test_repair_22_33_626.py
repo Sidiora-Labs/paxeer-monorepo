@@ -26,10 +26,19 @@ TOKEN = re.compile(
     re.S,
 )
 DAEMON_TESTS = (
+    "daemonProviderConsumesCurrentProducerResponse",
+    "daemonServiceProviderWiresCurrentReceiptEvidence",
+    "daemonProviderBindsCurrentReceiptEvidence",
     "daemonProviderVerifiesSignedSequencerReceipt",
     "daemonFinalityStagesExcludeSettlementAnchored",
+    "daemonProviderRefusesObsoleteStatusFields",
 )
 TOOL_TESTS = (
+    "serviceTransportRefusesObsoleteStatusFields",
+    "paymentToolVerifiesCurrentProducerReceipt",
+    "trackingToolVerifiesCurrentProducerReceipt",
+    "trackingToolRefusesUntrustedCurrentProducerReceipt",
+    "trackingToolVerifiesExecutedReceiptAndRefusesSignedRevert",
     "paymentToolVerifiesSignedSequencerReceipt",
     "serviceClientReadsSignedReceiptFields",
     "trackToolReadsRecordedDaemonSubmissions",
@@ -106,23 +115,16 @@ def function(text, name):
 
 def test_039_package_command_executes_all_four_suites():
     manifest = json.loads(source(AGENTS + "package.json"))
-    command = shlex.split(manifest["scripts"]["test"])
-    commands = [[]]
-    for argument in command:
-        if argument == "&&":
-            commands.append([])
-        else:
-            commands[-1].append(argument)
-    assert commands == [
-        ["npm", "run", "build"],
-        ["node", "--test", "test/dependency-contracts.test.mjs",
-         "test/daemon-providers-receipts.test.mjs", "test/tools-receipts.test.mjs"],
-        ["node", "test/a2a-store.test.mjs"],
+    assert shlex.split(manifest["scripts"]["pretest"]) == ["npm", "run", "build"]
+    assert shlex.split(manifest["scripts"]["test"]) == [
+        "node", "--test", "test/*.test.mjs",
     ]
-    for command in commands[1:]:
-        for argument in command:
-            if argument.endswith(".test.mjs"):
-                assert (ROOT / AGENTS / argument).is_file()
+    suites = {path.name for path in (ROOT / AGENTS / "test").glob("*.test.mjs")}
+    assert {
+        "dependency-contracts.test.mjs", "daemon-providers-receipts.test.mjs",
+        "tools-receipts.test.mjs", "a2a-store.test.mjs",
+    } <= suites
+    assert all((ROOT / AGENTS / "test" / name).is_file() for name in suites)
     assert manifest["scripts"]["build"] == "node scripts/patch-dependencies.mjs && tsc -p tsconfig.json"
     config = json.loads(source(AGENTS + "tsconfig.json"))
     assert config["compilerOptions"]["strict"] is True
@@ -159,7 +161,7 @@ def test_039_daemon_status_and_portable_key_heights_match_consumers():
     }
     assert exact_fields(verification, "status") == {"state", "rung"}
     require_facts(text, (
-        'const status = (rung = "receipted") => ({ state: "achieved", rung });',
+        'const status = (rung = Rung.Receipted) => ({ state: receiptedStatus.state, rung });',
         'const height = (value) => `0x${BigInt(value).toString(16)}`;',
         "first_height: String(entry.pinnedKey.firstHeight)",
         "last_height: String(entry.pinnedKey.lastHeight)",
@@ -185,7 +187,7 @@ def test_039_daemon_status_and_portable_key_heights_match_consumers():
 
 def test_039_daemon_signature_binding_and_finality_refusals_remain():
     text = suite("daemon-providers-receipts")
-    body = function(text, DAEMON_TESTS[0])
+    body = function(text, "daemonProviderVerifiesSignedSequencerReceipt")
     require_facts(body, (
         "changedSignature[changedSignature.length - 1] ^= 1",
         "changedTransaction[changedTransaction.length - 1] ^= 1",
@@ -198,7 +200,7 @@ def test_039_daemon_signature_binding_and_finality_refusals_remain():
         'raw_transaction: ""', 'public_key: "00"',
         '["-1", "01", "18446744073709551616"]', 'first_height: "2000"',
     ))
-    levels = function(text, DAEMON_TESTS[1])
+    levels = function(text, "daemonFinalityStagesExcludeSettlementAnchored")
     require_facts(levels, (
         '["SequencerSigned", "BatchIncluded", "StateProven", "CheckpointFinalised"]',
         '["SettlementAnchored", "Unverified", "Unknown"]',
@@ -225,7 +227,7 @@ def test_039_real_portable_producer_flows_through_http_to_service_consumer():
     require_facts(middleware, (
         "export async function resolveDaemonReceipt(",
         "await verifySequencerReceipt(signedReceipt, raw, [key])",
-        "if (trusted === undefined) throw new PlatformSdkError",
+        "if (trusted === undefined || receiptDigest === undefined) throw new PlatformSdkError",
         'firstHeight: `0x${trusted.first_height.toString(16)}`',
         'lastHeight: `0x${trusted.last_height.toString(16)}`',
     ))
@@ -280,11 +282,17 @@ def test_039_payment_fixture_uses_the_recorded_native_payment_effect():
     body = function(text, "paymentToolVerifiesSignedSequencerReceipt")
     require_facts(text, ('entry.id === "V1-layerxledger-pay-exact"',))
     require_facts(body, (
-        "decodePaymentExactLog({ address: log.address, data: bytes(log.data), topics: log.topics.map(bytes) })",
-        "asset: hex(payment.assetId)", "amount: payment.amount.toString()", "recipient: hex(payment.to)",
-        "assert.deepEqual(renderOutcome(await tools.execute(",
+        "...paymentFacts(fixture.proof)",
+        'assert.deepEqual(renderOutcome(await tools.execute("layerx_verify_receipt", input)), expected);',
         "receiptDigest: hex(keccak256(bytes(vector.signedReceipt)))",
         'path: "/receipt", method: "POST", body: { receipt_ref: "payment-receipt" }',
+    ))
+    facts = source(AGENTS + "test/receipt-producer-fixture.mjs")
+    require_facts(function(facts, "paymentFacts"), (
+        "sdk.decodeRawEip1559(Buffer.from(proof.rawTransaction.slice(2), \"hex\"))",
+        "assert.equal(transaction.data.length, 196)",
+        "transaction.data.slice(68, 100)", "transaction.data.slice(100, 132)",
+        "transaction.data.slice(36, 68)",
     ))
     seller = block_after(source("services/platform/middleware/seller/src/index.ts"), "export async function verifyPaymentReceipt(")
     require_facts(seller, (
@@ -294,7 +302,10 @@ def test_039_payment_fixture_uses_the_recorded_native_payment_effect():
     ))
     require_facts(source(AGENTS + "src/tools.ts"), (
         "const network = `eip155:${decodeRawEip1559(receiptBytes(evidence.rawTransaction)).chainId}`",
-        "await verifyPaymentReceipt(evidence, {",
+        "verification = await verifyPaymentReceipt({",
+        "...evidence, receiptDigest: `0x${toHex(verified.receiptDigest)}`",
+        "await verifySequencerReceipt(signedReceipt, receiptBytes(evidence.rawTransaction), this.#config.receiptKeys)",
+        "evidence.receiptDigest !== `0x${toHex(keccak256(signedReceipt))}`",
     ))
 
 

@@ -3,7 +3,7 @@ task = "22.33.592"
 acceptance = "22998.1"
 base_revision = "04c1e9407e75f7ac92c260452f2232ab07bf3ef1"
 readme_owner_task = "22.31.470"
-readme_sha256 = "689aad1724d426309d059d9a3b0085214078d35f756e19b396142a751f84ba98"
+readme_sha256 = "188d8c138efd7e35992f0a390886bd129a05322d55cd00f9a3f1c43cc6e28d1b"
 implementation = "Decision 2525: consume the production README as task 22.31.470 left it. Add the focused offline pytest source checks and this finding-to-test record; do not edit README.md or any production source."
 source_proof = "Read the real README architecture, topology, operator commands and receipt sequence. Parse its root HTTPS URLs and curl JSON-RPC payload, and the linked hosted gateway OpenRPC methods. Check linked production host and consensus wiring, root RPC dispatch, transaction acceptance/forwarding, WAL release before receipt publication, committed receipt coverage, executor retirement guards and Makefile/chain.mk prerequisites and output. No shell script, unit file or manifest is repaired; shell examples are tokenized in process, not executed."
 review_only = "Native Go/C/Rust builds, node startup, transaction execution, endpoint availability, deployment activation, cryptographic validation, BFT commitment and WAL restart/recovery are not executed by this source gate. The module proves documented source facts along producer, transport and consumer connections, not runtime behavior. This documentation finding changes no production interface or stateful component, so restart and interface-driving tests are inapplicable."
@@ -35,3 +35,7 @@ resolution = "Keep notes here, leave all pre-existing changes intact, route the 
 [gotcha.context]
 observed = "Broad combined context reads exceeded output limits, and cg brief/context reflected stale graph data and unrelated tasks."
 resolution = "Use bounded task/finding sections, actual git status/diff and the private gate ledger for this task."
+
+[qualification_pin_22_31_623]
+source_revision = "89c8395f4e8340dfd9447c6d20f7065cede8e6b5"
+policy = "Refresh the retained full-content fingerprint from the live producer after authorized task repairs; original audit metadata remains historical. This is a source pin, not a claim that qualification passed."

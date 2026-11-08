@@ -4,7 +4,6 @@ use crate::types::GuestIndex as _;
 use crate::{
     admission::{
         AdmissionMeta, AdmissionTable, Participant, Role, FLAG_DRAINING, MAX_MEMBERS, POLICY_V1,
-        TABLE_MAX_BYTES,
     },
     codec::{self, Writer},
     errors::{
@@ -246,8 +245,9 @@ fn roll(
 
 /// Caller scratch for [`rollover_roster`]: the next admission table, the next identity
 /// section (F02 worker table followed by the F03 region) and the next control section.
-pub const ROLLOVER_SCRATCH_BYTES: usize =
-    TABLE_MAX_BYTES + Section::IdentityRoster.payload_cap() + Section::Control.payload_cap();
+pub const ROLLOVER_SCRATCH_BYTES: usize = Section::ReputationAdmission.payload_cap()
+    + Section::IdentityRoster.payload_cap()
+    + Section::Control.payload_cap();
 
 /// `RosterOpened` summary of one complete rollover over the shared state value.
 #[derive(Clone, Copy, Eq, PartialEq)]
@@ -388,15 +388,93 @@ pub(crate) fn rollover_roster_with<'c>(
     scratch: &mut [u8],
 ) -> CodecResult<(RosterOpened, &'c [u8], Option<RewardState<'c>>)> {
     let state = state::decode_shared_state(current)?;
+    rollover_roster_in_state(&state, height, expected_revision, next, scratch)
+}
+
+pub(crate) fn rollover_roster_in_state<'c>(
+    state: &SharedState<'c>,
+    height: u64,
+    expected_revision: u64,
+    next: &mut [u8],
+    scratch: &mut [u8],
+) -> CodecResult<(RosterOpened, &'c [u8], Option<RewardState<'c>>)> {
+    let (mut roster, opened, rewards, _, _, control_out) =
+        rollover_roster_parts(state, height, expected_revision, scratch)?;
+    roster.state_len = state::encode_shared_state(&opened, next, control_out)?;
+    Ok((
+        roster,
+        *state
+            .feature_sections
+            .guest_index(Section::SettlementClaims.index()),
+        rewards,
+    ))
+}
+
+/// Validated rollover sections, before the enclosing transaction encodes its final state.
+pub(crate) fn rollover_roster_parts<'c: 's, 's>(
+    state: &SharedState<'c>,
+    height: u64,
+    expected_revision: u64,
+    scratch: &'s mut [u8],
+) -> CodecResult<(
+    RosterOpened,
+    SharedState<'s>,
+    Option<RewardState<'c>>,
+    AdmissionTable,
+    WorkerTable,
+    &'s mut [u8],
+)> {
+    if state.revision != expected_revision {
+        return Err(F08_STALE_STATE);
+    }
+    let market = PolicySection::decode(
+        *state
+            .feature_sections
+            .guest_index(Section::PolicyLifecycle.index()),
+    )?
+    .header;
+    opening_epoch(&market, height)?;
+    let joint = *state
+        .feature_sections
+        .guest_index(Section::ReputationAdmission.index());
+    let table = crate::reputation_transition::joint_table(joint)?;
+    let admission = AdmissionTable::decode(table)?;
+    rollover_roster_prepared(
+        state,
+        &market,
+        admission,
+        height,
+        expected_revision,
+        scratch,
+    )
+}
+
+/// Reuses the enclosing opening's validated policy and admission table.
+pub(crate) fn rollover_roster_prepared<'c: 's, 's>(
+    state: &SharedState<'c>,
+    market: &MarketHeader,
+    mut admission: AdmissionTable,
+    height: u64,
+    expected_revision: u64,
+    scratch: &'s mut [u8],
+) -> CodecResult<(
+    RosterOpened,
+    SharedState<'s>,
+    Option<RewardState<'c>>,
+    AdmissionTable,
+    WorkerTable,
+    &'s mut [u8],
+)> {
     if state.revision != expected_revision {
         return Err(F08_STALE_STATE);
     }
     let sections = state.feature_sections;
-    let market =
-        PolicySection::decode(*sections.guest_index(Section::PolicyLifecycle.index()))?.header;
-    let epoch = opening_epoch(&market, height)?;
-    let mut admission =
-        AdmissionTable::decode(*sections.guest_index(Section::ReputationAdmission.index()))?;
+    let epoch = opening_epoch(market, height)?;
+    let joint = *sections.guest_index(Section::ReputationAdmission.index());
+    let table = crate::reputation_transition::joint_table(joint)?;
+    let prefix = joint
+        .get(..joint.len() - table.len())
+        .ok_or(NON_CANONICAL)?;
     let previous = admission.current_epoch();
     let skipped = match previous {
         Some(p) if epoch <= p => return Err(WRONG_EPOCH),
@@ -455,15 +533,19 @@ pub(crate) fn rollover_roster_with<'c>(
         }
     }
     let (table_out, rest) = scratch
-        .split_at_mut_checked(TABLE_MAX_BYTES)
+        .split_at_mut_checked(Section::ReputationAdmission.payload_cap())
         .ok_or(CAPACITY)?;
     let (identity_out, control_out) = rest
         .split_at_mut_checked(Section::IdentityRoster.payload_cap())
         .ok_or(CAPACITY)?;
     let mut feature_sections = sections;
-    let table_len = admission.encode(table_out)?;
+    let (prefix_out, admission_out) = table_out
+        .split_at_mut_checked(prefix.len())
+        .ok_or(CAPACITY)?;
+    prefix_out.guest_copy_from_slice(prefix);
+    let table_len = admission.encode(admission_out)?;
     *feature_sections.guest_index_mut(Section::ReputationAdmission.index()) =
-        table_out.guest_index(..table_len);
+        table_out.guest_index(..prefix.len().checked_add(table_len).ok_or(ARITHMETIC)?);
     if workers_changed {
         let workers_len = workers.encode(identity_out)?;
         let identity_len = workers_len.checked_add(region.len()).ok_or(ARITHMETIC)?;
@@ -479,7 +561,7 @@ pub(crate) fn rollover_roster_with<'c>(
         feature_sections,
         control,
     };
-    let state_len = state::encode_shared_state(&opened, next, control_out)?;
+    let state_len = opened.encoded_len()?;
     let roster = RosterOpened {
         rollover,
         previous,
@@ -493,11 +575,7 @@ pub(crate) fn rollover_roster_with<'c>(
         preserved_amount,
         state_len,
     };
-    Ok((
-        roster,
-        *sections.guest_index(Section::SettlementClaims.index()),
-        rewards,
-    ))
+    Ok((roster, opened, rewards, admission, workers, control_out))
 }
 
 /// Digest over the frozen roster sorted by role then stable participant ID.

@@ -22,7 +22,7 @@ owner_task = "22.31.470"
 observed = "The audit described standalone layerxd architecture/build guidance, checkpoint settlement and a draft-only merge paragraph."
 expected = "One paxd BFT network on chain 125 with embedded kernel/native libraries, root api1..api14 JSON-RPC, signed EVM transaction and committed receipt flows, retired custody/checkpoint executors, no live LNI, no separate daemon or checkpoint deployment, and current build/release guidance."
 resolution = "All required README facts are present in the inherited 22.31.470 rewrite; this task adds regression proof for doc-index-7 and makes no out-of-path edit. Closure is conditional on the declared hf-done evidence, not this declaration."
-readme_sha256 = "689aad1724d426309d059d9a3b0085214078d35f756e19b396142a751f84ba98"
+readme_sha256 = "188d8c138efd7e35992f0a390886bd129a05322d55cd00f9a3f1c43cc6e28d1b"
 tests = ["test_doc_index_7_one_paxd_embeds_native_execution", "test_doc_index_7_chain_125_root_rpc_and_gateway_contract", "test_doc_index_7_signed_transaction_to_committed_receipt_path", "test_doc_index_7_retired_executors_and_no_separate_deployment", "test_doc_index_7_build_and_release_inventory_match_paxd"]
 wiring_requests = []
 wiring_disposition = "README.md architecture/build/release changes belong to domain 17 task 22.31.470 under decision 2525; its inherited rewrite supplies every required fact, so no outstanding wiring request is necessary. Any future missing README fact must be requested from that owner, never repaired outside this task's paths."
@@ -49,3 +49,7 @@ repair = "Track Markdown fences before recognizing section boundaries; preserve 
 [gotcha.3]
 observed = "A regular expression that splits Markdown sections at heading-shaped lines also splits on the fenced curl example's # Expected result comment."
 resolution = "Track opening and closing code fences so only headings outside fences terminate a section."
+
+[qualification_pin_22_31_623]
+source_revision = "89c8395f4e8340dfd9447c6d20f7065cede8e6b5"
+policy = "Refresh the retained full-content fingerprint from the live producer after authorized task repairs; original audit metadata remains historical. This is a source pin, not a claim that qualification passed."
