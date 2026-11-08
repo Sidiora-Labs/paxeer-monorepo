@@ -36026,3 +36026,19 @@ symbol = "prepare.rs"
 observed = "Attempt 1 at bd82359bfca3 (base 097581705c2e): build exit 101 twice (the first because the deleted restore_tests.rs is the active fixture test_support.rs includes, the second with sixty-four errors in six consumer sources outside the touches); the verification never ran; log /out/logs/build-2.log."
 assumption = "The record named the wrong files and undersized the task; the deletion itself is a whole-crate migration."
 severity = "high"
+
+[finding.22.39.169.1]
+task = "22.39.169"
+file = "programs/crates/layerx-programs-ai-market/src"
+symbol = "src"
+observed = "Attempt 1 at 6b55e8a57398: build exit 0 twice (guest 504779 bytes); verification exit 1 twice: 21 targets and 161 cases failed at 6d7e527537d5 and 11 targets and 84 cases at the final tree, among them the fuel budget fixture reads, the nine native host boundary cases (commitment limit 256 exceeded) and the F03, F04 and F05 suites that 22.99.77 attempt 31 repairs in parallel; logs /out/logs/verify-1.log and /out/logs/verify-2.log."
+assumption = "The suite is green on main once 22.99.77 lands, so the requalification confirms it with the fixture produced and the trace within the profile."
+severity = "high"
+
+[finding.22.39.75.11]
+task = "22.39.75"
+file = "tests/ci/test_launchpad_go_tests_wired.py"
+symbol = "test_launchpad_go_tests_wired.py"
+observed = "Attempt 11 at 240a6b6d5fa9: build exit 1 at go vet in services/launchpad/api (updates to go.mod needed after the notifications module raised its directive to 1.27.0); the verification never ran; log /out/logs/build-1.log."
+assumption = "The api manifest is the only module blocker left; the port helper and the module repairs of the attempt are complete."
+severity = "high"
