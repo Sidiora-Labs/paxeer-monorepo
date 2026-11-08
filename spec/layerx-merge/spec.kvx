@@ -182849,7 +182849,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.122]
 title = "Bring the agent daemon library test suite to green in a fresh environment"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.31.555", "22.39.128"]
