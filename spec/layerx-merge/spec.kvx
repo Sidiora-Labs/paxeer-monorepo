@@ -10599,6 +10599,42 @@ value = "When a whole-suite gate of a task fails in a module another task owns b
 basis = "Task 22.39.131 attempt 3 at fe42850a8737 (gotcha 3622): test_reset_state.py observed supervisor.sock at 0o755 between the bind and the chmod of generation_transport.py serve. Extends decisions 2905 and 2908."
 affects = ["22.39.131", "22.39.133"]
 
+[decision.2915]
+title = "A consumer carries the digest a verifier returns and never recomputes it from the signed bytes"
+value = "When a verifier defines a digest (the receipt-signature digest verifySequencerReceipt returns, which the seller checks at verifyReceiptDigest), every producer of that digest, including a test fixture or an embedded script under tools/, obtains it from the verifier and carries it unchanged; a keccak-256 of the signed receipt bytes or any other recomputation is a stale producer. A repair that changes a digest contract enumerates every producer of the digest in the repository, test fixtures and tooling included, and puts them in its touches."
+basis = "Task 22.39.118 attempt 20 at 578dd31cdd2b (gotcha 3623): the emulator middleware path kept the keccak form after task 22.31.492 moved the seller to the verifier digest. Extends decisions 2771 and 2911 and gotcha 3046."
+affects = ["22.39.166", "22.39.118"]
+
+[decision.2916]
+title = "The actor of a call-bound disclosure is the call sender, and a consumer that needs the owner identity takes it from the record it holds"
+value = "A disclosure bound to an EVM call stores the twenty-byte call sender in its actor field (layerx-crypto src/disclosure/call.rs line 974, src/disclosure.rs line 1148); no consumer parses that field as a DID. A consumer that needs the owner DID takes it from the record it already holds: the committed capability snapshot DID in the budget sources family, the budget owner row or the approval carrier in the settlement family, where the carrier stores the owner DID the preparation was opened for beside the sender. The sender-to-owner binding is checked once, in the fee payer check, by resolving the owner DID through the address precompile and comparing the bound address with the sender."
+basis = "Task 9.35.19 attempt 11 at 07c500d028d5 (gotcha 3624): four retained settlement tests refused SourceOwnership because verify_fee_payer parsed the sender bytes as a DID. Extends decisions 2762 and 2771 and gotcha 3046."
+affects = ["9.35.19"]
+
+[decision.2917]
+title = "A gate that drives tests against fixture databases the public job provisions fresh recreates them before every gate run"
+value = "When a verification runs test packages against a fixture database server that the public job receives fresh from a service for every run, the qualification environment reproduces that freshness: before every gate run it drops the roles the tests create and drops and recreates the fixture databases with their owner, so a second run never meets a role or relation the first run left behind. A test that leaves a fixed-name role or relation behind is not a defect of the package the gate observes."
+basis = "Task 22.39.75 attempt 6 at e72144476b81 (gotcha 3626): the second run failed on the role l07_stats_owner and the relation l07_rollback the first run created. Extends decisions 2820, 2878 and 2893."
+affects = ["22.39.75"]
+
+[decision.2918]
+title = "A test that hard-codes a producer list follows the producer and belongs to the touches of the task that changes the list"
+value = "When a task changes an inventory a script declares (the out-of-scope recipe list of the container check, a baseline name list, a contract address table), every test module of the same package that hard-codes that inventory verbatim or by count is part of the change: the task carries those modules in its touches, updates them to the producer rows and count with the producer lines recorded in the task record, and never records them as a blocker outside scope. A whole-package gate under decision 2908 owns these failures."
+basis = "Task 22.39.158 attempt 1 (gotcha 3627) repaired tools/containers/check.sh and then failed in two package modules that assert the previous thirty-four rows; extends decisions 2907, 2908 and 2910."
+affects = ["22.39.158"]
+
+[decision.2919]
+title = "A test of a subprocess-backed deadline server drives every deadline from the controllable clock"
+value = "When a server bounds its requests by a deadline and the operation under the deadline spawns real subprocesses, a test of that server never leaves a deadline on the wall clock: the serving fixture takes the controllable clock for every case, the deadlines a case means to expire are advanced explicitly, and a busy refusal that comes from a held lock is asserted through the lock, whose own acquisition bound expires on its own. Elapsed wall time on a loaded host never decides a verification."
+basis = "Task 22.39.133 attempt 1 (gotcha 3628) made the deadline case clock-driven and left the binding case on a 0.7 second wall-clock timeout, which the full-suite run missed; extends decision 2901."
+affects = ["22.39.133"]
+
+[decision.2920]
+title = "A validator pinned to one approved candidate is tested with a fixture authority built from its own pinned constants"
+value = "When a producer validates records against constants it pins (an approved base revision, a branch, an issuance time, an interpreter version, contract digests), its test module builds the admission and approval fixture from those constants in a temporary private directory and exercises every structural rule on that fixture; the checks that need the approved workspace itself (the checkout at the pinned base, the exact interpreter) are asserted as the refusals the validator gives at main. The module never loads private records from the environment and never skips."
+basis = "Task 22.39.144 attempt 1 (gotcha 3629) found the twenty-four AI evidence cases loading the records of the approved candidate from environment variables that no environment but that workspace carries; extends decisions 2762 and 2901."
+affects = ["22.39.144"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -39489,6 +39525,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.166]
+title = "Carry the receipt digest the verifier returns through the emulator middleware path"
+reqs = ["22998.1"]
+touches = ["tools/platform/emulator/tests/repair_22_31_200.rs"]
+tests = ["emulator_settlement_v2_retirement_and_current_authority_survive_restart"]
+verification_contract = "cargo test --locked --manifest-path tools/platform/Cargo.toml -p layerx-platform-emulator --test repair_22_31_200"
+do_1 = "do_1 Decision 2915, gotcha 3623. In tools/platform/emulator/tests/repair_22_31_200.rs the embedded middleware script computes receiptDigest from the verifier, not from the signed receipt bytes: verify the vector with the SDK receipt verifier (verifySequencerReceipt over the signed receipt, the raw transaction and the pinned key, the form services/platform/middleware/conformance/src/receipts.ts line 208 records) and carry hex(verified.receiptDigest) in the proof, so the seller accepts it at verifyReceiptDigest; the negative case that replaces the digest with ff bytes stays as it is. Nothing under services/platform or sdk/platform changes."
+symbols = []
 
 [capability.22.39.165]
 title = "Build the evmone 0.12.0 shared library the Giga executor loads with a make target from the pinned upstream source and run it in the node build check"
@@ -173916,7 +173961,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.84]
 title = "Wire the tools Python suites into a make target and the main workflow"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.39.83"]
@@ -182424,6 +182469,35 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.39.166]
+title = "Carry the receipt digest the verifier returns through the emulator middleware path"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.166"]
+interfaces = []
+do_1 = "do_1 Decision 2915, gotcha 3623. In tools/platform/emulator/tests/repair_22_31_200.rs the embedded middleware script computes receiptDigest from the verifier, not from the signed receipt bytes: verify the vector with the SDK receipt verifier (verifySequencerReceipt over the signed receipt, the raw transaction and the pinned key, the form services/platform/middleware/conformance/src/receipts.ts line 208 records) and carry hex(verified.receiptDigest) in the proof, so the seller accepts it at verifyReceiptDigest; the negative case that replaces the digest with ff bytes stays as it is. Nothing under services/platform or sdk/platform changes."
+do_2 = "do_2 Record the corrected line with the producer it follows (task 22.31.492, the seller receipt-signature digest) in tools/platform/emulator/tests/repair_22_39_166.kvx. Run the build once and the verification once at the final revision and record both by reference."
+symbols = []
+touches = ["tools/platform/emulator/tests/repair_22_31_200.rs"]
+tests = ["emulator_settlement_v2_retirement_and_current_authority_survive_restart"]
+planned_paths = ["tools/platform/emulator/tests/repair_22_39_166.kvx"]
+build_cmd = "npm ci --ignore-scripts --no-audit --no-fund && cargo build --locked --manifest-path tools/platform/Cargo.toml -p layerx-platform-emulator --tests"
+verify_cmd = "cargo test --locked --manifest-path tools/platform/Cargo.toml -p layerx-platform-emulator --test repair_22_31_200"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 90
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.163]
 title = "Restore the three key fixtures the move left untracked, negate the ignore patterns for them and make the key-material test prove tracking"
 status = "done"
@@ -182897,7 +182971,7 @@ title = "Bring the three CLI RPC tests to the published contract and the root en
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.39.130", "22.39.135", "22.39.141"]
+requires = ["22.39.130", "22.39.135", "22.39.141", "22.39.166"]
 reqs = ["22998.1"]
 capabilities = ["22.39.118"]
 interfaces = []
@@ -182939,6 +183013,7 @@ do_18 = "Attempt 17 (continue, gotcha 3594, decisions 2521, 2857 and 2897): the 
 do_19 = "Attempt 18 (continue, gotcha 3606, decisions 2857 and 2771): the attempt-17 tree 0001759ad503 stands. The two failing cases of tools/platform/cli/tests/wallet_px_reads.rs follow the producer: wallet_balance_reads_px_get_balances (line 236) passes --gateway-rpc with the recording endpoint in every case that expects a hosted px_getBalances read, because wallet.rs line 710 refuses hosted balances without it since 22.33.1494 (3f380f6199), and gains one case that passes only --rpc and asserts the printed gateway_rpc_required error with ok false; token_list_reads_px_list_assets (line 296) asserts the kind token.read for both the info and the list command, because run_token routes both through read_asset, which prints token.read (wallet.rs line 929) since 8.48.3 (9456895dab), and keeps the data.asset and data.assets assertions. Record each corrected assertion with the producer line in tests/repair_22_39_118.kvx and replace the pre-existing entries written for them. Nothing under tools/platform/cli/src changes. Run the build once and the verification once at the final revision."
 do_20 = "Attempt 20 (continue, gotcha 3615, decisions 2771 and 2856): the attempt-18 tree a047230ba6a1 stands (the wallet read tests following the hosted gateway client and the read kinds, the record). The build step of the task now runs npm ci --ignore-scripts --no-audit --no-fund at the repository root before the cargo build, so the emulator target repair_22_31_200 resolves the TypeScript SDK dependencies when make platform-test-tooling runs it; nothing under services/platform or the SDK changes for that. Replace the record entry that calls the emulator failure unrelated with the root install fact. Run the build once and the verification once at the final revision and record both by reference; if a tooling case still fails, repair it within the one allowed cycle and rerun once."
 do_21 = "Attempt 20 (continue, gotchas 3615 and 3619, decisions 2771 and 2856): the attempt-19 tree bbb71aa07459 stands (the wallet read tests following the hosted gateway client and the read kinds, the record). The build step of the task runs npm ci --ignore-scripts --no-audit --no-fund at the repository root before the cargo build since the previous round, so the emulator target repair_22_31_200 resolves the TypeScript SDK dependencies when make platform-test-tooling runs it; nothing under services/platform or the SDK changes for that. Replace the record entry that calls the emulator failure unrelated with the root install fact. Run the build once and the verification once at the final revision and record both by reference; if a tooling case still fails, repair it within the one allowed cycle and rerun once."
+do_22 = "Attempt 21 (relaunch, gotcha 3623, decisions 2904 and 2915): the attempt-20 tree 578dd31cdd2b stands unchanged (the wallet read tests following the hosted gateway client and the read kinds, the record). Task 22.39.166 corrects the receipt digest of the emulator middleware path that the platform tooling target runs, and this task requires it from this round, so the target runs clean once it lands. Run the build once and the verification once at the final revision and record both by reference."
 
 [task.22.39.93]
 title = "Move the seven remaining key fixtures of the agent SDK and the ramps reference crate into test fixture directories"
@@ -183725,7 +183800,7 @@ do_3 = "Decision 2900: before the first change, run cargo test --locked --manife
 
 [task.22.38.6]
 title = "Split settled payouts into the reward ledger in deal proportions"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["22.38.4", "22.31.615", "22.31.620", "22.39.142", "22.39.163"]
@@ -204019,6 +204094,7 @@ do_11 = "Attempt 8 (requalify after 9.98.4): keep every attempt-8 change; the se
 do_12 = "Attempt 9 (continue): nine lib tests fail; the retained_settlement tests share one lock that a panicking test poisons (PoisonError), and two TLS tests check the actual server identity. Give each test its own state so no poison crosses tests, then fix the two TLS identity checks against the loopback server certificate the test generates."
 do_13 = "Attempt 10 (continue, gotcha 3608, decision 2771): the attempt-9 tree ed9425eba451 stands. The build fails at the callers of the changed signatures: nine sites in src/human_runtime.rs (lines 5868, 8244, 8256, 8263, 8273, 8465, 8477, 8484 and 8494 at the attempt revision) and four in tests/repair_22_31_217.rs (lines 1876, 2026, 2029 and 2481), which the touches now include. Migrate every caller to the new argument lists and result types (the consumer follows the producer), record each site in the task record, then run the build once and the verification once at the final revision; the do_12 lock isolation and TLS identity work stays."
 do_14 = "Attempt 11 (continue, gotcha 3618, decisions 2771, 2906 and 2911): the attempt-10 tree f64707374e5c stands (the thirteen migrated callers, the record). Migrate the six remaining sites of services/agent/crates/layerx-agentd/tests/repair_22_31_545.rs (lines 321, 340, 404, 424, 448 and 530) to the prepare::evm::Prepared reference the changed signatures take, in the form the migrated callers of src/human_runtime.rs use, and record each site in the task record. The tests directory of the crate is in touches from this round; if the all-targets build names any further caller, migrate it in the same attempt and record it. Run the build once and the verification once at the final revision and record both by reference."
+do_15 = "Attempt 12 (continue, gotcha 3624, decisions 2762, 2771 and 2916): the attempt-11 tree 07c500d028d5 stands (the restored preparations map, the configurable retained program call settlement, the twelve migrated callers, the record). The producer contract governs: a call-bound disclosure carries the twenty-byte call sender as its actor (layerx-crypto src/disclosure/call.rs line 974 and src/disclosure.rs line 1148; the producer test at call.rs line 1362 asserts it), so no consumer in the budget module parses prepared.disclosure.actor as a DID. In program_sources.rs the call-bound sources family (read_program_budget_sources_call, read_native_effect_budget_sources_call, the lifecycle variant, verify_fee_payer and the principal_source calls of the transfer and destruction effects at lines 608 and 641) takes the owner DID from the committed capability snapshot, caps.did(), and checks the disclosure actor against prepared.from; verify_fee_payer resolves that owner DID through getEvmAddrByLayerX exactly as it does now and compares the bound address with prepared.from, which is the one sender-to-owner binding. In program_settlement.rs the retained settlement at lines 1142 and 1193 and the owner comparisons at lines 181 and 278 take the DID the approval carrier stores: the carrier of approval/native_effect.rs stores the owner DID the preparation was opened for beside the sender (do_1), never the disclosure actor. Record every conversion site in tests/call_bound_preparation_9_35_19.kvx. Run the build once and the verification once at the final revision and record both by reference; if a retained settlement test still refuses, repair at the site the refusal names within the one allowed cycle and rerun once."
 
 [task.9.35.18]
 title = "Hold approvals over the unsigned EIP-1559 call and replay them through bind_call"
@@ -210447,7 +210523,7 @@ touches = ["node/sequencer_rpc_option_test.go", "node/standby_recorder_replicati
 tests = ["node::TestEVMServerServesSequencerReceiptOption", "node::TestStandbyReplicatesRecorderGroupsThroughOpenAccount", "node::TestV640ToV66UpgradeServesTheExchangeBridgeAndLaunchpadPrecompiles"]
 planned_paths = ["node/repair_22_39_155.kvx", "tests/ci/data/node_go_test_baseline.json"]
 build_cmd = "go vet ./node/"
-verify_cmd = "test $(grep -c TestEVMServerServesSequencerReceiptOption tests/ci/data/node_go_test_baseline.json) -eq 0 && test $(grep -c TestStandbyReplicatesRecorderGroupsThroughOpenAccount tests/ci/data/node_go_test_baseline.json) -eq 0 && test $(grep -c TestV640ToV66UpgradeServesTheExchangeBridgeAndLaunchpadPrecompiles .github/workflows/node-build.yml) -eq 0 && python3 -m pytest -q tests/ci/test_node_build_workflow_scope.py && go test -timeout 15m -count=1 -run TestEVMServerServesSequencerReceiptOption|TestStandbyReplicatesRecorderGroupsThroughOpenAccount|TestV640ToV66UpgradeServesTheExchangeBridgeAndLaunchpadPrecompiles ./node/"
+verify_cmd = "test $(grep -c TestEVMServerServesSequencerReceiptOption tests/ci/data/node_go_test_baseline.json) -eq 0 && test $(grep -c TestStandbyReplicatesRecorderGroupsThroughOpenAccount tests/ci/data/node_go_test_baseline.json) -eq 0 && test $(grep -c TestV640ToV66UpgradeServesTheExchangeBridgeAndLaunchpadPrecompiles .github/workflows/node-build.yml) -eq 0 && python3 -m pytest -q tests/ci/test_node_build_workflow_scope.py && go test -timeout 15m -count=1 -run '^(TestEVMServerServesSequencerReceiptOption|TestStandbyReplicatesRecorderGroupsThroughOpenAccount|TestV640ToV66UpgradeServesTheExchangeBridgeAndLaunchpadPrecompiles)$' ./node/"
 gate_kind = "planned"
 sandbox_profile = "go"
 owner_role = "fm-node-runtime"
@@ -210460,6 +210536,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Attempt 2 (continue, gotcha 3617, decisions 2857, 2906 and 2910): the attempt-1 tree f40645593a30 stands for the TLS fixtures of the two replication tests, the baseline deletions, the node-build.yml skip pattern and the record. In node/upgrade_test.go restore package app_test and the app.NewTestWrapper calls, remove the module manager registration of the anchor module and the OrderMigrations assertion, and make the version-map assertion after the v6.6 plan follow the producer: layerxcustody 2, layerxexchange 1, layerxbridge 1, launchpad 1, and no layerxanchor entry (node/upgrades.go line 769 skips the anchor; node/app.go line 1314 registers only its services), keeping the NotContains loop before the plan. The call at 0x1015 follows the contract the application serves there at its version: node/app.go v6120Contracts (line 4093 onward) places the perpetuals contract at 0x1015 (precompiles/perps/perps.go line 25), so the view takes the form node/repair_m1142_test.go lines 21 to 31 use, totalMarkets through the ABI selected for that address, and the exchange intentNonce assertion is replaced by that form with the producer line recorded. In tests/ci/test_node_build_workflow_scope.py (in touches from this round) BASELINE_TESTS lists the three 22.39.116 names only, so the check matches the retired baseline and the workflow. Record every corrected assertion with its producer line in node/repair_22_39_155.kvx and replace the inventory finding with the correction. Run the build once and the verification once at the final revision and record both by reference; if a case still fails, repair it within the one allowed cycle after the form of do_2 and rerun once."
+do_5 = "Attempt 3 (continue, gotcha 3625, decision 2857): the attempt-2 tree 5053a52d7a06 stands unchanged (the two replication fixtures, the v6.6 assertions following the producer, the inventory test and the record). The verification command of the task is corrected from this round: the three test names form one quoted, anchored alternation for go test -run, so the shell no longer treats the bars as pipes. Nothing in the tree changes. Run the build once and the verification once at the final revision and record both by reference; if a case fails, repair it within the one allowed cycle after the form of do_2 and rerun once."
 
 [task.22.39.154]
 title = "Follow the shared v2 receipt projection in the two log-free receipt tests of the launchpad API and retire their baseline entries"
@@ -210652,7 +210729,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.116]
 title = "Make the three merge-plan and hosted-program ABI node tests pass and retire their baseline"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.39.40"]
@@ -210775,6 +210852,7 @@ do_4 = "Attempt 3 (continue, gotcha 3537, decisions 2771, 2820 and 2859): the at
 do_5 = "Attempt 4 (continue, gotcha 3571, decisions 2771, 2820, 2859 and 2878): the attempt-3 tree bc20b425e5cf stands (the module matrix job with the Foundry install, the baseline file, the package-scoped skip derivation, the fifteen wiring tests, the record). Before the gates, reproduce the Go job environment of .github/workflows/launchpad-test.yml in the qualification environment exactly as the job does: export the env block of lines 104 to 118 over every inherited value (GOWORK off, the kindle_fixture DSNs at 127.0.0.1 port 25432, the schema name, L34_ANVIL_URL, the object storage values), create the kindle_fixture role with its password and the kindle_fixture and kindle_test databases on a local PostgreSQL server listening on that port, start anvil on 127.0.0.1 port 28545 with chain id 125 and wait for cast chain-id as the job step does, and provide the object storage endpoint the record already describes. Then add one entry to tests/ci/data/launchpad_go_test_baseline.json: package shared/db/production, test TestPhase3CancellationAndAuthorization, reason naming production_test.go line 421 (the cancelled SQL connection was neither reusable nor discarded within one second under the fixture database), retiring task 22.39.117, which owns that package; record the finding and the environment in services/launchpad/repair_22_39_75.kvx. Run the build once and the verification once at the final revision and record both by reference. If a test still fails under the complete job environment, record it in the baseline the same way in the one allowed repair cycle and rerun once; no test is weakened and no source under sdk/launchpad changes."
 do_6 = "Attempt 5 (continue, gotcha 3590, decisions 2771, 2820, 2878 and 2893): the attempt-4 tree f11cfdbbeabc stands (the module matrix job, the baseline file with its forty-one entries, the package-scoped skip derivation, the seventeen wiring tests, the record). Extend the env block of the Go job in .github/workflows/launchpad-test.yml with CORE_API_TEST_POSTGRES_URL and L11_POSTGRES_DSN set to the kindle_fixture DSN of the kindle_fixture database the job already defines, CORE_API_TEST_REDIS_URL set to logical database 11 of the job Redis service at 127.0.0.1 port 26379, and CORE_API_TEST_NATS_URL set to nats://127.0.0.1:24222; after the step that installs nats-server add a step that starts it in the background on 127.0.0.1 port 24222 and waits for the port; before the Go test step add a step that compiles the launchpad contracts in contracts/launchpad exactly as the js-npm-tests job of ci.yml installs that package (pnpm from the packageManager field, pnpm install --ignore-workspace --frozen-lockfile) followed by pnpm compile, so contracts/launchpad/artifacts exists for the two authority tests of the api app package. Add one wiring test asserting that the env block names those four variables and that the contracts compile step precedes the Go test step. Reproduce the extended job in the qualification environment on top of the attempt-4 reproduction (the kindle_fixture role may CREATE DATABASE, the NATS server runs on that port, the contracts are compiled), then run the build once and the verification once at the final revision and record both by reference. Tests that still fail under the complete environment enter the baseline with the failing assertion and the retiring task: the two log-free receipt tests TestDevelopmentTransactionStatusFromChainRPC and TestRepair_27_log_free_receipts name task 22.39.154, which follows the shared v2 receipt projection in them; an entry for any other package under services/launchpad names 22.39.154 as well and the record lists the package so the owner widens that task; protocol entries keep 22.39.117. The record names the modules that ran, because the test target stops at the first failing module; no test is weakened and no source under sdk/launchpad or services/launchpad/api changes."
 do_7 = "Attempt 6 (continue, gotcha 3602, decisions 2771, 2820, 2878, 2893 and 2901): the attempt-5 tree f5b177749477 stands (the module matrix job with its env block and services, the baseline file, the package-scoped skip derivation, the twenty-one wiring tests, the record). Three changes. First, extend the env block of the Go job in .github/workflows/launchpad-test.yml with INDEXER_TEST_POSTGRES_URL set to the kindle_fixture DSN (grant CREATEDB to the kindle_fixture role in the step that creates it, since the tests create databases), INDEXER_TEST_REDIS_URL set to logical database 6 of the job Redis service, and L06_POSTGRES_DSN and L06_COMMIT_CRASH_DSN set to that DSN, and reproduce the same values in the qualification environment before the gates; the wiring tests assert the four names. Second, run go mod tidy in services/launchpad/indexer so go.mod and go.sum require github.com/elliots/go-pglite that repair_m1000_test.go imports (81ce5e05f9) and the modernc.org/sqlite entries the source package needs, committing both files. Third, add to tests/ci/data/launchpad_go_test_baseline.json, with retiring task 22.39.162 and a reason each, the eleven receipt qualification cases (app TestRenderedProductionDocumentsBoot, TestRepair_55_RestartRecoversRealMarketBeyondLifetimeBounds and TestRepair_55_ReceiptHintsRejectTampering; config TestRepairM_999_ReceiptQualifiedBackfill; decode TestRepairM_995_NativeReceiptAttribution; runtimedocs TestPaxeerReportedIdentityQualifiesRealMarket, TestPaxeerRehydratedAuthorityQualifiesTradesOfEarlierMarket, TestPaxeerTamperedReceiptIsRejected and TestPaxeerLiveQualifiedSourceCoversDiscoveredEmitters; source TestRepair_56_ExplorerDynamicDiscoveries and TestRepair_56_DiscoveryEpochBounds), the httpapi case TestRepairM_996_NoCompatibilityDeadLetterEscape, and the three fixture-bound cases (chainreader TestActualNFTOwnerRemainsPinnedAfterTwoTransfers, source TestSourceCapacityCandidate and TestHistoricalRealRangeExplorerSuffixAndParity); no service-variable case enters the baseline. Run the build once and the verification once at the final revision under the reproduced environment and record both by reference."
+do_8 = "Attempt 7 (continue, gotcha 3626, decisions 2771, 2820, 2878, 2893 and 2917): the attempt-6 tree e72144476b81 stands (the Go 1.27.3 pin in the job and the Makefile, the four service variables, the tidied indexer module, the baseline entries, the record). Before every gate run in the qualification environment, reproduce the fresh database service of the public job: drop the roles the tests create (l07_stats_owner among them) and drop and recreate the kindle_fixture and kindle_test databases with the kindle_fixture owner, so a second verification run never meets the role or the relation l07_rollback a first run left behind in sdk/launchpad/shared/db/production; nothing in that package changes. Replace the attempt-6 note that calls the leftovers a repair budget matter with this fact. Run the build once and the verification once at the final revision and record both by reference."
 
 [task.22.39.40]
 title = "Make the node package tests pass again by repairing the four upgrade activation tests and the standby commit release hang"
@@ -334089,10 +334167,10 @@ do_2 = "The two benchmark cases follow their producers: the ERC721 binding of to
 do_3 = "Add nginx to the apt packages of the tools-python job of .github/workflows/ci.yml so test_repair_22_31_319.py line 213 finds its declared integration prerequisite in the public job, and record in tools/bringup/tests/repair_22_39_164.kvx that the qualification environment provides it the same way."
 do_4 = "Remove every tools/bringup and tools/benchmark entry from tests/ci/data/tools_python_suite_baseline.json, keep the family of this task in tests/ci/test_tools_python_suites_wired.py so an empty family stays valid, and write the record with the producer line of every corrected assertion."
 symbols = []
-touches = ["tools/bringup/tests", "tools/benchmark", ".github/workflows/ci.yml"]
+touches = ["tools/bringup/tests", "tools/benchmark", ".github/workflows/ci.yml", "tests/ci/data/tools_python_suite_baseline.json", "tests/ci/test_tools_python_suites_wired.py"]
 tests = ["test_repair_22_31_319", "test_bringup_fixtures_retired", "test_spec_paths", "test_xweb_config", "test_sources_match_bindings", "test_repair_22_31_431", "test_tools_python_suites_wired"]
 planned_paths = ["tools/bringup/tests/repair_22_39_164.kvx", "tests/ci/data/tools_python_suite_baseline.json", "tests/ci/test_tools_python_suites_wired.py"]
-build_cmd = "forge --version > /dev/null && command -v nginx > /dev/null && test -x build/loadtest && test -s build/liblayerx.a && command -v bringup-inspect > /dev/null && test -x tools/bringup/tests/xweb-loader/target/debug/bringup-xweb-config-loader && python3 -m py_compile tests/ci/test_tools_python_suites_wired.py"
+build_cmd = "zstd --version > /dev/null && docker buildx version > /dev/null && forge --version > /dev/null && command -v nginx > /dev/null && test -x build/loadtest && test -s build/liblayerx.a && command -v bringup-inspect > /dev/null && test -x tools/bringup/tests/xweb-loader/target/debug/bringup-xweb-config-loader && ssh -o BatchMode=yes localhost true && python3 -m py_compile tests/ci/test_tools_python_suites_wired.py"
 verify_cmd = "test $(grep -c tools/bringup/ tests/ci/data/tools_python_suite_baseline.json) -eq 0 && test $(grep -c tools/benchmark/ tests/ci/data/tools_python_suite_baseline.json) -eq 0 && python3 -m pytest -q tests/ci/test_tools_python_suites_wired.py && make test-tools-python"
 gate_kind = "planned"
 sandbox_profile = "python"
@@ -334108,7 +334186,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.159]
 title = "Make the system docs generator and its two tests agree on the precompiles page header and the nested ABI listing"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 3
 requires = ["22.39.84"]
@@ -334148,7 +334226,7 @@ do_1 = "do_1 Gotcha 3593, decision 2857. tools/containers/check.sh keeps the SER
 do_2 = "do_2 test_kernel_init.py line 15 looks for /usr/local/bin/human-entrypoint role lines in docker/kernel/init.sh and finds none: follow the current form of init.sh and docker/human-service/entrypoint.sh in the test (the pattern and the role set), recording the producer lines. The image check case of test_paxd_images.py fails because the reference scan of check.sh reads Dockerfile string literals in services/platform/hosted/tests/beta_runtime.go as recipe references: limit the scan to recipe paths, so the layerx and paxeer images pass the build check under buildx."
 do_3 = "do_3 Delete every entry under tools/containers/ from tests/ci/data/tools_python_suite_baseline.json, which task 22.39.84 lands, record the changes in tools/containers/repair_22_39_158.kvx, and run the build once and the verification once at the final tree with the docker buildx component present (decision 2896), recording both by reference."
 symbols = []
-touches = ["tools/containers/check.sh", "tools/containers/test_kernel_init.py", "tools/containers/test_check_all_services_scope.py", "tools/containers/test_paxd_images.py"]
+touches = ["tools/containers/check.sh", "tools/containers/test_kernel_init.py", "tools/containers/test_check_all_services_scope.py", "tools/containers/test_paxd_images.py", "tools/containers/test_out_of_scope_list.py", "tools/containers/test_repair_22_33_776.py"]
 tests = ["tools/containers/test_check_all_services_scope.py::test_check_all_services_scope", "tools/containers/test_check_all_services_scope.py::test_every_tracked_dockerfile_has_scope", "tools/containers/test_kernel_init.py::KernelInitTest::test_kernel_init_roles_supported_by_entrypoint", "tools/containers/test_paxd_images.py::PaxdImagesTest::test_layerx_and_paxeer_images_pass_build_check"]
 planned_paths = ["tools/containers/repair_22_39_158.kvx", "tests/ci/data/tools_python_suite_baseline.json"]
 build_cmd = "docker buildx version > /dev/null && bash -n tools/containers/check.sh && python3 -m py_compile tools/containers/test_kernel_init.py tools/containers/test_check_all_services_scope.py tools/containers/test_paxd_images.py"
@@ -334164,6 +334242,7 @@ time_limit_minutes = 120
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "Attempt 2 (continue, gotcha 3627, decisions 2907, 2908, 2910 and 2918): the attempt-1 tree 02ab95dc5e3d stands (the thirty-five row out-of-scope list, the audit record exemption, the root recipe reference pattern, the build boundary, the multi-stage copy handling, the record). The touches now carry tools/containers/test_out_of_scope_list.py and tools/containers/test_repair_22_33_776.py: make assert_reviewed_out_of_scope (test_out_of_scope_list.py line 20) assert the thirty-five rows of the current check.sh list in order, including the simd-env recipe, the two rosetta node recipes with the historical and paxd suffixes, the two recipes of the vendored tree and the redis recipe, and make test_container_inventory_decodes_the_real_shell_payload (test_repair_22_33_776.py line 43) assert thirty-five; keep the grammar-neutral case and the consensus exclusion. Record the two modules and the producer lines in tools/containers/repair_22_39_158.kvx and drop the blocker finding, then run the build and the verification once each."
 
 [task.22.39.157]
 title = "Move the release tooling and its suites to the v7.0.0 release that tools/release/version.json declares"
@@ -334178,7 +334257,7 @@ do_1 = "do_1 Gotcha 3593, decision 2857. tools/release/version.json declares v7.
 do_2 = "do_2 test_programme.py follows its producers: the protobuf query case asserts the v7.0 upgrade name the module encodes, and the spot share golden follows the current ABI of the precompile the case reads, regenerated from that ABI. In the release check test module the local chain class builds with the go binary on the PATH instead of /usr/local/go/bin/go (line 717), and the market phase case asserts the refusal the module raises first for an empty POOL_COUNT with no rehearsal (PRODUCTION_REQUIRES_ROLLBACK_RECEIPT at line 572 of the test) or supplies the receipt the module requires, whichever the module contract documents. Each corrected assertion is recorded with the producer line it follows."
 do_3 = "do_3 Delete every entry under tools/release/ from tests/ci/data/tools_python_suite_baseline.json, which task 22.39.84 lands, record the changes in tools/release/repair_22_39_157.kvx, and run the build once and the verification once at the final tree under the environment of decision 2896 (zstd, the native library, sshd for localhost), recording both by reference."
 symbols = []
-touches = ["tools/release"]
+touches = ["tools/release", "tests/ci/data/tools_python_suite_baseline.json"]
 tests = ["tools/release/tests/test_repair_22_33_889.py::test_build_distribution", "tools/release/tests/test_programme.py::test_protobuf_queries", "tools/release/tests/test_upgrade_info.py::test_release_accepts_merge_plan_and_uses_monorepo_asset", "tools/release/tests/test_repair_22_33_889.py::test_rehearsal_evidence_binding", "tools/release/rehearsal/test_repair_22_33_893.py::test_release_signing_without_relay_import"]
 planned_paths = ["tools/release/repair_22_39_157.kvx", "tests/ci/data/tools_python_suite_baseline.json"]
 build_cmd = "zstd --version > /dev/null && test -s build/liblayerx.a && bash -n tools/release/snapshot.sh && python3 -m py_compile tools/release/upgrade_info.py"
@@ -334326,7 +334405,7 @@ title = "Make the release candidate suite of tools/paxeer-x pass again following
 status = "pending"
 mode = "BUILD"
 wave = 3
-requires = ["22.39.84"]
+requires = ["22.39.84", "22.39.157", "22.39.158", "22.39.164"]
 reqs = ["22998.1"]
 capabilities = ["22.39.144"]
 interfaces = []
@@ -334335,10 +334414,10 @@ do_2 = "do_2 For each entry find the producer and make the consumer follow it: t
 do_3 = "do_3 Delete every baseline entry whose case passes and leave the file in place; the remaining entries each carry a wiring request in the record. Never delete, skip or weaken a test."
 do_4 = "do_4 Record every correction with its producer line in tools/paxeer-x/repair_22_39_144.kvx. Run the build once and the verification once at the final tree; the verification runs the make target, which honours the remaining baseline entries, and the wiring tests."
 symbols = []
-touches = ["tools/paxeer-x"]
+touches = ["tools/paxeer-x", "tests/ci/data/tools_python_suite_baseline.json", "tests/ci/test_tools_python_suites_wired.py"]
 tests = ["tools/paxeer-x/tests/ai_evidence_test.py", "tools/paxeer-x/tests/candidate_test.py", "tools/paxeer-x/tests/test_gov_templates.py", "tools/paxeer-x/tests/test_retired_catalogue_deleted.py", "tools/paxeer-x/tests/test_signature_route_catalogued.py"]
 planned_paths = ["tools/paxeer-x/repair_22_39_144.kvx"]
-build_cmd = "python3 -m py_compile tools/paxeer-x/candidate.py tools/paxeer-x/ai_evidence.py"
+build_cmd = "zstd --version > /dev/null && docker buildx version > /dev/null && forge --version > /dev/null && command -v nginx > /dev/null && test -x build/loadtest && test -s build/liblayerx.a && command -v bringup-inspect > /dev/null && test -x tools/bringup/tests/xweb-loader/target/debug/bringup-xweb-config-loader && ssh -o BatchMode=yes localhost true && python3 -m py_compile tools/paxeer-x/candidate.py tools/paxeer-x/ai_evidence.py"
 verify_cmd = "test -s tools/paxeer-x/repair_22_39_144.kvx && make test-tools-python && python3 -m pytest -q tests/ci/test_tools_python_suites_wired.py"
 gate_kind = "planned"
 sandbox_profile = "python"
@@ -334351,6 +334430,7 @@ time_limit_minutes = 180
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_5 = "Attempt 2 (continue, gotcha 3629, decisions 2762, 2878, 2906, 2908, 2918 and 2920): the attempt-1 tree 187162452818 stands (the repaired consumers, the record). Before the build gate, prepare the environment as the public tools-python job of .github/workflows/ci.yml does at lines 58 to 93: install zstd and nginx, Foundry and the buildx plugin, run make build/liblayerx.a and make build-loadtest, forge build the loadtest contracts, go build bringup-inspect onto the PATH, cargo build the xweb loader, and start an SSH service that accepts a key login to localhost; the build command now asserts each of them. Then rewrite the authority fixture of tools/paxeer-x/tests/ai_evidence_test.py: build the admission and approval records from the constants ai_evidence.py pins (validate_structure lines 370 to 379: the base, the branch, the issuance time, the contract version, the thirty-nine contract digests of the current files, the overlay and access values test_actual_approved_authority asserts) in a temporary private directory, run every structural case on that fixture, and assert for validate_workspace the refusals the validator gives at main (the stale checkout and the interpreter version) instead of loading records from the environment; keep every refusal case. Then delete from tests/ci/data/tools_python_suite_baseline.json (now in the touches) every tools/paxeer-x row whose case passes at the final tree, make the count at tests/ci/test_tools_python_suites_wired.py line 84 follow the remaining rows while the family stays valid when empty, record every change with the producer line in tools/paxeer-x/repair_22_39_144.kvx and drop the wiring requests the deletions resolve, then run the build and the verification once each."
 
 [task.22.39.137]
 title = "Give the Python payment RPC module the hosted gateway client and the submission refusal the conformance cases expect"
@@ -334481,6 +334561,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 do_3 = "Gotcha 3598: the row scripts/ci of tests/ci/data/python_suite_exclusions.txt is stale since 995a25e5af deleted the last test beneath it and fails test_exclusion_list_entries_exist of the runner test on main; task 22.39.131 removes it. If the row is still present in the merged tree when this attempt starts, remove that one row here as well and record the commit, before the first verification run."
 do_4 = "Attempt note (gotcha 3610, decision 2901): services/platform/hosted/node/signer/test_repair_22_33_1454.py enters tests/ci/data/python_suite_baseline.txt under this task from 22.39.132 attempt 2. Make test_signer_deadline_spans_provider_operations deterministic: it asserts at line 219 that a sign call was recorded before the busy refusal while a 0.45 second public-key delay runs against a 0.9 second server deadline on a loaded host; drive the server deadline and the backend delays from one controllable clock so the ordering of the public-key step, the sign step and the deadline decides and wall-clock speed does not, keep the busy refusal assertion, then remove the module line from the baseline and record the change in the task record."
 do_5 = "Decision 2914, gotcha 3622. In services/platform/hosted/node/generation_transport.py serve, create the supervisor socket with its final mode from the start: set a umask of 0o117 around the bind of the listener and restore the previous umask afterwards, keep the chown to the allowed gid and the chmod to 0o660 as they are, so the socket never exists with a wider mode. Leave the assertions of services/platform/hosted/node/tests/test_reset_state.py line 347 and 348 unchanged, delete the test_reset_state.py entry from tests/ci/data/python_suite_baseline.txt, and record the change in the task record."
+do_6 = "Attempt 2 (continue, gotcha 3628, decisions 2901, 2914 and 2919): the attempt-1 tree b1bfe1a0dc2c stands (the eight repaired suites, the retired baseline rows, the request-scoped signer clock, the record). Three changes. First, in services/platform/hosted/node/signer/test_repair_22_33_1454.py give test_signer_binding_deadline_and_signature_checks the same controllable clock the deadline test uses, so the 0.7 second request timeout of the serving fixture at line 243 never expires on wall time while the command backend spawns its two subprocesses; keep the busy assertion for the held lock, which times out on the lock acquisition bound. Second, implement do_5: the umask of 0o117 around the listener bind in services/platform/hosted/node/generation_transport.py serve, restored afterwards, and delete the services/platform/hosted/node/tests/test_reset_state.py row from tests/ci/data/python_suite_baseline.txt if the merged tree carries it. Third, record both in services/platform/hosted/tests/repair_22_39_133.kvx. Then run the build and the verification once each."
 
 [task.22.39.132]
 title = "Give the MCP binding listener its web receipt public key reader and retire the receipt-key baseline entry"

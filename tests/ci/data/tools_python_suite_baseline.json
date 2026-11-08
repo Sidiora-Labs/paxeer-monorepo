@@ -275,36 +275,6 @@
     "retiring_task": "22.39.157"
   },
   {
-    "nodeid": "tools/containers/test_check_all_services_scope.py::test_check_all_services_scope",
-    "reason": "The container checker finds stale scope entries, Dockerfile literals and unresolved layerx COPY sources in the declared context.",
-    "retiring_task": "22.39.158"
-  },
-  {
-    "nodeid": "tools/containers/test_check_all_services_scope.py::test_every_tracked_dockerfile_has_scope",
-    "reason": "The tracked Dockerfile inventory has four unscoped recipes and three stale scope entries.",
-    "retiring_task": "22.39.158"
-  },
-  {
-    "nodeid": "tools/containers/test_kernel_init.py::KernelInitTest::test_kernel_init_roles_supported_by_entrypoint",
-    "reason": "The kernel init script exposes no roles matching the test entrypoint role inventory.",
-    "retiring_task": "22.39.158"
-  },
-  {
-    "nodeid": "tools/containers/test_paxd_images.py::PaxdImagesTest::test_layerx_and_paxeer_images_pass_build_check",
-    "reason": "The layerx image check rejects unresolved COPY sources in its declared context.",
-    "retiring_task": "22.39.158"
-  },
-  {
-    "nodeid": "tools/docs/gen/test_gen_system_docs.py::test_precompiles_lists_nested_abi_dirs",
-    "reason": "The preserved precompiles document differs from the generated header and ABI documentation the test expects.",
-    "retiring_task": "22.39.159"
-  },
-  {
-    "nodeid": "tools/docs/gen/test_gen_system_docs_abis.py::test_generator_lists_nested_and_embedded_abis",
-    "reason": "The system documentation generator exits one when invoked against the isolated output directory.",
-    "retiring_task": "22.39.159"
-  },
-  {
     "nodeid": "tools/release/tests/test_fleet_check.py::LocalChainTests::test_frozen_before_halt_rejects_silent_nodes",
     "reason": "The local chain setup hard-codes /usr/local/go/bin/go, which is absent when Go is installed through the supported toolchain setup.",
     "retiring_task": "22.39.157"

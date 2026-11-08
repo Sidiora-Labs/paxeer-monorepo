@@ -35666,3 +35666,51 @@ symbol = "test_repair_22_33_886.py"
 observed = "Attempt 3 at fe42850a8737 (verified at cebafc5a10b6): build exit 0; verification exit 2: 5 runner cases passed, make test-python-suites recorded 313 passes and 1 failure in test_reset_state.py line 347 (mode 493 observed, 432 asserted)."
 assumption = "The failure is a creation-mode window of the hosted node supervisor, owned by 22.39.133; the task tree is sound."
 severity = "high"
+
+[finding.9.35.19.9]
+task = "9.35.19"
+file = "services/agent/crates/layerx-agentd/tests/native_send_preview_evm.rs"
+symbol = "native_send_preview_evm.rs"
+observed = "Attempt 11 at 07c500d028d5: build exit 1 at 46ff4affd7bd (two test targets named a removed registry binding), repaired, build exit 0; verification exit 101: 327 passed, 4 failed, all four retained settlement tests refusing SourceOwnership before settlement."
+assumption = "The disclosure actor contract changed under the call binding producer; the budget consumers still parse the field as a DID."
+severity = "high"
+
+[finding.22.39.155.2]
+task = "22.39.155"
+file = "node::TestEVMServerServesSequencerReceiptOption"
+symbol = "node::TestEVMServerServesSequencerReceiptOption"
+observed = "Attempt 2 at 5053a52d7a06: build exit 0; verification exit 127: the wiring suite passed (3 passed) and sh reported the second and third Go test names as commands not found."
+assumption = "The gate form was wrong, not the tree; the Go tests never reported."
+severity = "high"
+
+[finding.22.39.75.6]
+task = "22.39.75"
+file = "tests/ci/test_launchpad_go_tests_wired.py"
+symbol = "test_launchpad_go_tests_wired.py"
+observed = "Attempt 6 at e72144476b81: build exit 0 twice; verification exit 2 twice: the first run timed out in protocol/bindings after ten minutes, the second run passed every module except shared/db/production, where two tests found a role and a relation already present."
+assumption = "The leftovers come from the first run on the same server; the public job starts a fresh service every run."
+severity = "high"
+
+[finding.22.39.158.1]
+task = "22.39.158"
+file = "tools/containers/test_check_all_services_scope.py::test_check_all_services_scope"
+symbol = "test_check_all_services_scope.py::test_check_all_services_scope"
+observed = "Attempt 1 at 02ab95dc5e3d: build exit 0; verification exit 1: the four named tests passed, 51 passed and 4 failed in tools/containers/test_out_of_scope_list.py line 20 and tools/containers/test_repair_22_33_776.py lines 27, 43 and 53, all asserting the previous thirty-four rows."
+assumption = "The two inventory modules assert the previous list and nothing else in the package depends on the removed rows."
+severity = "high"
+
+[finding.22.39.133.1]
+task = "22.39.133"
+file = "services/platform/hosted/node/tests/test_repair_22_33_1456.py"
+symbol = "test_repair_22_33_1456.py"
+observed = "Attempt 1 at b1bfe1a0dc2c: build exit 0 twice; verification 1 at 71b43b5948e1 exit 2 (371 passed, test_repair_22_31_355.py line 763 Readiness attribute), verification 2 at b1bfe1a0dc2c exit 2 (371 passed, test_repair_22_33_1454.py line 258 busy refusal on the third bind)."
+assumption = "The binding test fails on wall time only, and the tree lacks the umask change because the attempt started before the do item landed."
+severity = "high"
+
+[finding.22.39.144.1]
+task = "22.39.144"
+file = "tools/paxeer-x/tests/ai_evidence_test.py"
+symbol = "ai_evidence_test.py"
+observed = "Attempt 1 at bd0358e55efa (final tree 187162452818): build exit 0; verification exit 2: make test-tools-python recorded 689 passed, 41 failed, 6 errors, 8 skipped and 125 deselected, every failure outside tools/paxeer-x for a missing public prerequisite."
+assumption = "With the public prerequisites present the other packages pass or fail only on cases their own retiring tasks own, which land first."
+severity = "high"
