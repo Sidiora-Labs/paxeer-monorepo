@@ -11,11 +11,12 @@ use layerx_types::activity::{Authority, EnvelopeBuilder, Signature, TimestampBou
 use layerx_types::amount::Amount;
 use layerx_types::ids::{Did, IdempotencyKey};
 use layerx_types::payload::{ActivityType, ModuleId, ModuleRegistration, ModuleRegistry, Payload};
-use layerx_wire::activity::{decode_signed, encode_signed_envelope, encode_unsigned_envelope};
 use layerx_wire::encode::Encoder;
-use layerx_wire::hash::{
-    activity_id, batch_header_digest, payload_hash_for, receipt_digest, Domain,
+use layerx_wire::hash::{batch_header_digest, payload_hash_for, receipt_digest, Domain};
+use layerx_wire::historical::activity::{
+    decode_signed, encode_signed_envelope, encode_unsigned_envelope,
 };
+use layerx_wire::historical::hash::activity_id;
 use layerx_wire::limits::PROTOCOL_VERSION;
 use layerx_wire::receipt::{
     decode, decode_batch_header, encode, encode_batch_header, encode_unsigned,

@@ -161,6 +161,7 @@ pub fn open_epoch(
 /// record authorizes at this snapshot, or `None` while that record is not yet (or no
 /// longer) valid: a staged member then stays staged and a frozen member keeps its frozen
 /// generation, so pending, current and frozen versions never merge early.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 fn roll(
     table: &mut AdmissionTable,
     epoch: u64,
@@ -265,6 +266,7 @@ pub struct RosterOpened {
 
 /// Committed F06 reward state at the head of the joint F05/F06 section, bound to the
 /// market reserve; an empty section means rewards were never initialized.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 fn reward_state<'a>(
     section: &'a [u8],
     market: &MarketHeader,
@@ -380,6 +382,7 @@ pub fn rollover_roster(
 
 /// [`rollover_roster`] that also returns the joint F05/F06 section of `current`, which the
 /// next value carries byte for byte, and its validated reward state when initialized.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub(crate) fn rollover_roster_with<'c>(
     current: &'c [u8],
     height: u64,

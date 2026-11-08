@@ -21,17 +21,6 @@ pub mod historical {
     pub use crate::hash::historical as hash;
 }
 
-/// Source compatibility while downstream archive readers migrate.
-#[deprecated(
-    note = "kernel envelopes are retired; use historical::activity for archives and layerx_crypto::evm_transaction for submissions"
-)]
-pub use historical::activity;
-/// Source compatibility while downstream archive signature readers migrate.
-#[deprecated(
-    note = "kernel signing is retired; use historical::sign for archives and Eip1559Call::signing_hash for transaction signing"
-)]
-pub use historical::sign;
-
 use layerx_types::result::{KnownResult, ResultCode};
 
 /// Typed canonical-codec failure with its exact protocol result and byte offset.

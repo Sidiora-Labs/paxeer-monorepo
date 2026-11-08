@@ -59,6 +59,14 @@ pub(crate) struct Sha256State {
     reference: Sha256,
 }
 
+#[inline(always)]
+fn copy_hash_bytes(destination: &mut [u8], source: &[u8]) {
+    #[cfg(target_arch = "wasm32")]
+    crate::guest_cell::copy_slice_inline(destination, source);
+    #[cfg(not(target_arch = "wasm32"))]
+    destination.copy_from_slice(source);
+}
+
 const SHA256_ROUNDS: [u32; 64] = [
     0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,
     0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3, 0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174,
@@ -98,9 +106,10 @@ impl Sha256State {
     fn absorb(&mut self, mut bytes: &[u8]) {
         while !bytes.is_empty() {
             let n = bytes.len().min(64 - self.used);
-            self.block
-                .guest_index_mut(self.used..self.used + n)
-                .guest_copy_from_slice(bytes.guest_index(..n));
+            copy_hash_bytes(
+                self.block.guest_index_mut(self.used..self.used + n),
+                bytes.guest_index(..n),
+            );
             self.used += n;
             bytes = bytes.guest_index(n..);
             if self.used == 64 {
@@ -127,7 +136,7 @@ impl Sha256State {
             .map(|chunk| chunk.as_mut_slice())
             .zip(self.state)
         {
-            chunk.guest_copy_from_slice(&word.to_be_bytes());
+            copy_hash_bytes(chunk, &word.to_be_bytes());
         }
         #[cfg(all(not(target_arch = "wasm32"), debug_assertions))]
         {
@@ -223,37 +232,38 @@ pub(crate) fn sort_by<T>(values: &mut [T], compare: impl FnMut(&T, &T) -> core::
 }
 
 impl crate::types::InitialField for crate::evaluators::admission::ChallengeCategory {
-    fn initial(_: &Digest32) -> Self {
+    fn initial(_: crate::types::CheckedIdentityBytes<'_>) -> Self {
         Self::SignatureOrDomain
     }
 }
 impl crate::types::InitialField for crate::evaluators::model::GrantStatus {
-    fn initial(_: &Digest32) -> Self {
+    fn initial(_: crate::types::CheckedIdentityBytes<'_>) -> Self {
         Self::Pending
     }
 }
 impl crate::types::InitialField for crate::workers::WorkerState {
-    fn initial(_: &Digest32) -> Self {
+    fn initial(_: crate::types::CheckedIdentityBytes<'_>) -> Self {
         Self::Enrolled
     }
 }
 impl crate::types::InitialField for crate::rooms::RoomState {
-    fn initial(_: &Digest32) -> Self {
+    fn initial(_: crate::types::CheckedIdentityBytes<'_>) -> Self {
         Self::Open
     }
 }
 impl crate::types::InitialField for crate::rooms::AskState {
-    fn initial(_: &Digest32) -> Self {
+    fn initial(_: crate::types::CheckedIdentityBytes<'_>) -> Self {
         Self::Open
     }
 }
 impl crate::types::InitialField for crate::rooms::DealState {
-    fn initial(_: &Digest32) -> Self {
+    fn initial(_: crate::types::CheckedIdentityBytes<'_>) -> Self {
         Self::Open
     }
 }
 impl crate::types::InitialField for crate::policy::RoomProfile {
-    fn initial(seed: &Digest32) -> Self {
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
+    fn initial(seed: crate::types::CheckedIdentityBytes<'_>) -> Self {
         Self {
             minimum_bond: 0,
             canary_ratio_bps: 0,
@@ -494,10 +504,10 @@ macro_rules! read_record {
      $($field:ident : $kind:ident),+ $(,)?) => {{
         $(let $prefix = $before;)*
         let $first = $read;
-        let seed = $crate::types::CheckedIdentity::seed($first);
+        let seed = $crate::types::CheckedIdentity::seed(&$first);
         let mut value = $record {
             $($prefix,)* $first,
-            $($field: $crate::types::InitialField::initial(&seed),)+
+            $($field: $crate::types::InitialField::initial(seed),)+
         };
         $crate::codec::read_fields($r, &mut [
             $($crate::codec::field_destination!($kind, &mut value.$field),)+
@@ -507,9 +517,16 @@ macro_rules! read_record {
 }
 pub(crate) use read_record;
 macro_rules! read_values {
+    ($r:expr; scalars; $($field:ident : $kind:ident),+ $(,)?) => {{
+        $(let mut $field = Default::default();)+
+        $crate::codec::read_fields($r, &mut [
+            $($crate::codec::field_destination!($kind, &mut $field),)+
+        ])?;
+        ($($field,)+)
+    }};
     ($r:expr; seed = $seed:expr; $($field:ident : $kind:ident),+ $(,)?) => {{
-        let seed = $crate::types::CheckedIdentity::seed($seed);
-        $(let mut $field = $crate::types::InitialField::initial(&seed);)+
+        let seed = $crate::types::CheckedIdentity::seed(&$seed);
+        $(let mut $field = $crate::types::InitialField::initial(seed);)+
         $crate::codec::read_fields($r, &mut [
             $($crate::codec::field_destination!($kind, &mut $field),)+
         ])?;
@@ -517,8 +534,8 @@ macro_rules! read_values {
     }};
     ($r:expr; $first:ident = $read:expr; $($field:ident : $kind:ident),+ $(,)?) => {{
         let $first = $read;
-        let seed = $crate::types::CheckedIdentity::seed($first);
-        $(let mut $field = $crate::types::InitialField::initial(&seed);)+
+        let seed = $crate::types::CheckedIdentity::seed(&$first);
+        $(let mut $field = $crate::types::InitialField::initial(seed);)+
         $crate::codec::read_fields($r, &mut [
             $($crate::codec::field_destination!($kind, &mut $field),)+
         ])?;
@@ -542,7 +559,8 @@ macro_rules! read_identity {
         ///
         /// # Errors
         /// Propagates the reader and the identity constructor's refusals.
-        #[inline(always)]
+        #[cfg_attr(target_arch = "wasm32", inline(always))]
+        #[cfg_attr(not(target_arch = "wasm32"), inline(always))]
         pub fn $method(&mut self) -> CodecResult<$ty> {
             Ok($ty::from_checked(self.checked_identity()?))
         }

@@ -36218,3 +36218,59 @@ symbol = "evm"
 observed = "Attempt 1 at bc0483b770c3 (base f6511609fe): build exit 0, every test target compiled; verification exit 101: one target failed, repair_22_31_160 with two passed and five failed (one read ECONNRESET from the EVM host helper at line 123, four PoisonError at line 160); log /out/logs/verify-1.log."
 assumption = "The lock file is right; the remaining failure is one connection reset of the in-process EVM host amplified by the shared lock."
 severity = "high"
+
+[finding.22.39.75.14]
+task = "22.39.75"
+file = "tests/ci/test_launchpad_go_tests_wired.py"
+symbol = "test_launchpad_go_tests_wired.py"
+observed = "Attempt 14 at 1ab84c3c6b85 (record tree 16947cc1cf6f): build exit 0; verification exit 2: 40 wiring cases and fifteen modules passed, security failed one case, TestRequestParsing (policy denied at policy_test.go line 66), security/control not reached; log /out/logs/verify-1.log."
+assumption = "The security module was never surveyed after its manifest blocker fell; the one failing case belongs to the retiring owner and the baseline procedure covers it."
+severity = "high"
+
+[finding.22.33.223.9]
+task = "22.33.223"
+file = "programs/crates/layerx-programs-ai-market/tests/repair_22_33_223.rs"
+symbol = "repair_22_33_223.rs"
+observed = "Attempt 10 at 8dba3555d904 (record tree 4554880b80e1): build exit 0; verification exit 101 twice: 15 cases passed, the all-selector fuel case failed, first on the 55-of-72 selector inventory, then on 66 maximum-state rows refused at the 1000000 CPU cap (OPEN_EPOCH, 64 ADMIT_TASK, READ_HEADER, READ_STATE_CHUNK); log /out/logs/verify-2.log."
+assumption = "The guest validates the whole shared state per operation; the coverage and fixtures of the tree are complete and only the maximum-state paths remain."
+severity = "high"
+
+[finding.9.29.1.1]
+task = "9.29.1"
+file = "services/agent/crates/layerx-wire/tests/structures.rs::every_published_receipt_round_trips_exactly"
+symbol = "structures.rs::every_published_receipt_round_trips_exactly"
+observed = "Attempt 1 at e5dc15a32e83 (base 153b9ea5ef): build exit 101; the wire test build compiles layerx-crypto, whose onboarding.rs lines 4 and 139 and disclosure.rs line 130 still name the root activity module and the root payload_hash alias; the verification never ran; log /out/logs/build-1.log."
+assumption = "The landed 22.33.1522 repair already made the historical module the home of the codec; the task text asked for a deletion that no longer fits, and no caller moved."
+severity = "high"
+
+[finding.9.27.4.1]
+task = "9.27.4"
+file = "services/agent/crates/layerx-proof/tests/inclusion.rs::proof_evidence_never_reaches_the_committed_rung"
+symbol = "inclusion.rs::proof_evidence_never_reaches_the_committed_rung"
+observed = "Attempt 1 at a191b6976d2f (base 29677b7f1b): build exit 0; the dependents check failed with exit 101 at layerx-agentd src/cache.rs line 5 (unresolved checkpoint::ThresholdReport) and the hosted paxeer test repair_22_33_1324.rs lines 68 and 130 name the deleted module; the verification never ran; log /out/logs/dependents-1.log."
+assumption = "The deletion is right under decision 928; the consumers that asserted the retired stub were never in the touches of the task."
+severity = "high"
+
+[finding.22.33.223.10]
+task = "22.33.223"
+file = "programs/crates/layerx-programs-ai-market/tests/repair_22_33_223.rs"
+symbol = "repair_22_33_223.rs"
+observed = "Attempt 11 at daa08d3a6167 (base a08f6e9ee622): build exit 0; dependent checks passed; verification exit 1: 15 cases passed and the all-selector fuel case failed at the maximum state with OPEN_EPOCH at height 1408 refused at 1000007 attempted and 64 ADMIT_TASK rows at height 1410 refused at 1000103 to 1081527 attempted; log /out/logs/verify-1.log."
+assumption = "The two software hashes over every preserved section per mutation are the remaining whole-state work; the bounded reads and cancels of attempt 11 hold."
+severity = "high"
+
+[finding.9.27.4.2]
+task = "9.27.4"
+file = "services/agent/crates/layerx-proof/tests/inclusion.rs::proof_evidence_never_reaches_the_committed_rung"
+symbol = "inclusion.rs::proof_evidence_never_reaches_the_committed_rung"
+observed = "Attempt 2 at ec05f76886216ee795457101c6742bd51d11432c: build exit 0; verification exit 101: inclusion, repair_22_31_226 and repair_22_33_1557 passed, repair_22_33_1562 failed one case (terminal_v4 line 99, two cases found where one is asserted); the hosted paxeer target and the grep never ran; log /out/logs/verify-1.log."
+assumption = "The deletion of the task is complete; a stale case count in an included test module is the only failure."
+severity = "high"
+
+[finding.22.39.176.1]
+task = "22.39.176"
+file = "sdk/platform/go/cmd/conformance/vectors_test.go"
+symbol = "vectors_test.go"
+observed = "Attempt 1 at a09f8e4d1a94f847e305dd3b9ba3eb3569e3d67c: build exit 0; verification exit 1: TestConformanceCommandPassesVectorFiles refused V2-pax-transfer-insufficient-funds with the message expected successful execution; log /out/logs/verify-1.log."
+assumption = "The count correction is right; the matcher lacks the refusal shape the SDK verifier already establishes."
+severity = "high"

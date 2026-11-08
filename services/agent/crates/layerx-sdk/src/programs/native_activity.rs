@@ -1,8 +1,9 @@
 use layerx_crypto::{ed25519, SignatureMessage};
 use layerx_types::payload::{ActivityType, ModuleId, ModuleRegistry};
 use layerx_types::result::KnownResult;
-use layerx_wire::activity::{decode_signed, signing_bytes, Activity};
-use layerx_wire::hash::{payload_hash, Domain};
+use layerx_wire::hash::Domain;
+use layerx_wire::historical::activity::{decode_signed, signing_bytes, Activity};
+use layerx_wire::historical::hash::payload_hash;
 use layerx_wire::WireError;
 
 pub(super) fn decode(raw: &[u8], registry: &ModuleRegistry) -> Result<Activity, WireError> {
