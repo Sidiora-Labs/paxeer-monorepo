@@ -173916,7 +173916,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.84]
 title = "Wire the tools Python suites into a make target and the main workflow"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.39.83"]
