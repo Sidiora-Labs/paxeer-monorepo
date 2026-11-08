@@ -118,6 +118,7 @@ jobs:
         env:
           CGO_ENABLED: '1'
         # Known failures and retiring task: tests/ci/data/node_go_test_baseline.json
+        # Retired baseline cases run in the full node suite.
         run: go test -timeout 15m -count=1 ./node/...
 
   node-build-gate:

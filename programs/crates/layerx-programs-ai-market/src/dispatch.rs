@@ -1745,6 +1745,29 @@ fn transition_inner(
                 laps::Outcome::Retained(retained) => Ok(Step::Retained(retained)),
             }
         }
+        0x0B08 => match rewards::apply_split_payout(
+            ctx,
+            envelope,
+            present(current)?,
+            next,
+            scratch,
+            event,
+        )? {
+            rooms::Outcome::Applied {
+                revision,
+                state_len,
+                event_len,
+            } => Ok(Step::Applied {
+                revision,
+                state_len,
+                event_len,
+                payload: Payload::Suffix,
+            }),
+            rooms::Outcome::AlreadyApplied(subject) => {
+                Ok(Step::Unchanged(Payload::record(subject.as_bytes())?))
+            }
+            rooms::Outcome::Retained(retained) => Ok(Step::Retained(retained)),
+        },
         0x0B06 | 0x0B07 => {
             let outcome = if operation == ChallengeLap {
                 canary::apply_challenge_lap(ctx, envelope, present(current)?, next, scratch, event)?

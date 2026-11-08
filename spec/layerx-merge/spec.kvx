@@ -182453,7 +182453,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.166]
 title = "Carry the receipt digest the verifier returns through the emulator middleware path"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -183782,7 +183782,7 @@ do_3 = "Decision 2900: before the first change, run cargo test --locked --manife
 
 [task.22.38.6]
 title = "Split settled payouts into the reward ledger in deal proportions"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["22.38.4", "22.31.615", "22.31.620", "22.39.142", "22.39.163"]
@@ -210711,7 +210711,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.116]
 title = "Make the three merge-plan and hosted-program ABI node tests pass and retire their baseline"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.39.40"]
