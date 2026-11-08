@@ -35650,3 +35650,11 @@ symbol = "test_tools_python_suites_wired.py"
 observed = "Attempt 4 at dbfdb5affdcf (verified at 37b951f36d76): build exit 1 with zstd absent, then exit 0; verification exit 2: the four wiring cases passed and make test-tools-python recorded 733 passes, 8 skips and one setup error in test_sources_match_bindings.py, forge build --offline unable to install solc 0.8.20."
 assumption = "The build step lacked the online contract build the workflow job runs; the task tree is sound."
 severity = "high"
+
+[finding.22.39.116.2]
+task = "22.39.116"
+file = "node/upgrades_merge_bonds_test.go::TestMergePlanReturnsGuarantorBonds"
+symbol = "upgrades_merge_bonds_test.go::TestMergePlanReturnsGuarantorBonds"
+observed = "Attempt 2 at 23e73a8366a8: build exit 0 twice; verification exit 1 twice: the restart test failed at line 312 with LXP_ERR_PROGRAM_REFUSED at height 43, then at line 287 with LXP_ERR_CONTEXT_MISMATCH from the hand-placed occupancy call."
+assumption = "The occupancy precedent of the host tests applies to this fixture; the single call with a store-read sequence does not."
+severity = "high"

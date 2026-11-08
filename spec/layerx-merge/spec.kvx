@@ -10587,6 +10587,12 @@ value = "When a verification runs a suite whose fixture compiles Solidity source
 basis = "Task 22.39.84 attempt 4 (gotcha 3620): the workflow job the attempt wrote fills the cache and the build step did not. Extends decisions 2856 and 2905."
 affects = ["22.39.84"]
 
+[decision.2913]
+title = "A test that drives the kernel host directly across blocks settles occupancy the way the host precedent tests do"
+value = "When a Go test executes hosted-program activities through the kernel host directly rather than through a sequenced batch, and a later block refuses a program with LXP_ERR_PROGRAM_REFUSED, the test finalizes occupancy the way rpc/repair_478_test.go lines 302 to 311 do: through Host.FinalizeProgramsOccupancy for every block from the fee record onward, before that block is committed, with the sequence read through host.ReadLastSequence for the fixture DID plus one, never a single hand-placed call, never a synthesized occupancy or pricing cursor, and never a sequence taken from the store key directly. When the kernel still refuses with LXP_ERR_CONTEXT_MISMATCH, the record names the kernel site (src/modules/programs) that returned it before any further change. Nothing in modules/lxphost or the kernel changes for such a test."
+basis = "Task 22.39.116 attempt 2 at 23e73a8366a8 (gotcha 3621): one hand-placed call with a store-read sequence was refused as a context mismatch. Extends decisions 2820 and 2857."
+affects = ["22.39.116"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -210652,7 +210658,7 @@ do_2 = "do_2 Delete the three entries from the baseline file and the -skip patte
 symbols = []
 touches = ["node/upgrades_merge_bonds_test.go", "node/upgrades_merge_programs_abi_test.go", "node/upgrades.go", ".github/workflows/node-build.yml", "tests/ci/data/node_go_test_baseline.json", "tests/ci/test_node_build_workflow_scope.py"]
 tests = ["node/upgrades_merge_bonds_test.go::TestMergePlanReturnsGuarantorBonds", "node/upgrades_merge_programs_abi_test.go::TestHostedKernelProgramsABIFollowsTheMergeUpgrade", "node/upgrades_merge_programs_abi_test.go::TestHostedKernelProgramsABISurvivesRestart"]
-planned_paths = []
+planned_paths = ["node/repair_22_39_116.kvx"]
 build_cmd = "go build ./node/... && go vet ./node/"
 verify_cmd = "go test -timeout 15m -count=1 -run 'TestMergePlanReturnsGuarantorBonds|TestHostedKernelProgramsABIFollowsTheMergeUpgrade|TestHostedKernelProgramsABISurvivesRestart' ./node/ && python3 -m pytest -q tests/ci/test_node_build_workflow_scope.py"
 gate_kind = "planned"
@@ -210667,6 +210673,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_3 = "Attempt 2 (continue, gotcha 3611, decision 2820): the attempt-1 tree c8f1f9e1cf2a stands, including the restart test setup that commits the preceding blocks and schedules the merge at height 42. The touches now include tests/ci/data/node_go_test_baseline.json: delete its three entries for this task and leave the file in place with an empty list, keep the node test step of .github/workflows/node-build.yml without the skip pattern, and make no other change before the gates. Run the build once and the verification once at the final revision (the three named tests and tests/ci/test_node_build_workflow_scope.py) and record both by reference in the task record; a further failure of the restart test is repaired in the one allowed repair cycle in the test setup, not in node/upgrades.go."
+do_4 = "Attempt 3 (continue, gotchas 3611 and 3621, decisions 2820, 2857 and 2913): the attempt-2 tree 23e73a8366a8 stands for the two passing tests, the emptied baseline list and the node test step. In TestHostedKernelProgramsABISurvivesRestart remove the single occupancy call at height 42 and follow the precedent of rpc/repair_478_test.go lines 302 to 311 instead: in the block loop, after each FinalizeBlock and before the Commit of that height, read the sequence through host.ReadLastSequence for the fixture DID and finalize that block through Host.FinalizeProgramsOccupancy with that sequence plus one, from the first block of the loop to height 42, asserting a non-empty receipt each time; keep the height-43 call and its ABI 5 assertion unchanged after the restart. If the kernel still refuses the finalization with LXP_ERR_CONTEXT_MISMATCH, name in the record the site of src/modules/programs that returned it, with the field it compared, and leave the test at that revision. Write node/repair_22_39_116.kvx (planned path from this round) with every corrected assertion and the two gate results by reference. Run the build once and the verification once at the final revision; a further failure is repaired in the one allowed cycle in the test setup, never in node/upgrades.go, modules/lxphost or the kernel."
 
 [task.22.39.86]
 title = "Repair the six node sequencer test failures the standby commit hang masked"
