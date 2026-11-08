@@ -43,9 +43,10 @@ ifneq ($(filter x86_64 i386 i486 i586 i686 aarch64 arm64,$(C_TARGET_ARCH)),)
 CONSENSUS_CFLAGS := -mgeneral-regs-only
 endif
 
-LIB_SOURCES := $(filter-out src/storage/lxp_projection.c \
+LIB_EXCLUDED_SOURCES := src/storage/lxp_projection.c \
 	src/network/lx_oracle_adapter.c src/sequencer/lx_oracle_root.c \
-	src/paxeer/lxp_da_challenge_record.c src/guarantor/lxp_da_challenge.c, \
+	src/paxeer/lxp_da_challenge_record.c src/guarantor/lxp_da_challenge.c
+LIB_SOURCES := $(filter-out $(LIB_EXCLUDED_SOURCES), \
 	$(shell find src -type f -name '*.c' -print | LC_ALL=C sort))
 LIB_OBJECTS := $(patsubst %.c,$(BUILD_DIR)/obj/%.o,$(LIB_SOURCES))
 LIB_SOURCE_MEMBERSHIP := $(BUILD_DIR)/liblayerx.sources
@@ -187,9 +188,8 @@ $(LIB_OBJECTS) $(TEST_LIB_OBJECTS): Makefile
 force-lib-source-membership:
 
 $(LIB_SOURCE_MEMBERSHIP): force-lib-source-membership
-	@mkdir -p $(@D)
-	@set -eu; \
-		tmp=$$(mktemp "$@.XXXXXX"); \
+	@set -eu; mkdir -p "$(@D)"; \
+		tmp=$$(mktemp "$(@D)/liblayerx.sources.XXXXXX"); \
 		trap 'rm -f "$$tmp"' EXIT HUP INT TERM; \
 		printf '%s\n' $(LIB_SOURCES) > "$$tmp"; \
 		if ! cmp -s "$$tmp" "$@"; then mv -f "$$tmp" "$@"; fi
