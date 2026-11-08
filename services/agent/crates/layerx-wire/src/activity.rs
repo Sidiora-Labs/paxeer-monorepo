@@ -19,7 +19,7 @@ const MAX_DID_BYTES: usize = 255;
 const MAX_PAYLOAD_BYTES: usize = 524_288;
 const MAX_SIGNATURE_BYTES: usize = 128;
 
-/// Timestamp interval carried by a canonical activity.
+/// Timestamp interval carried by a historical activity envelope.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct TimestampBound {
     /// Inclusive lower bound.

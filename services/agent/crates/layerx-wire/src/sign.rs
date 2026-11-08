@@ -10,7 +10,7 @@ use crate::hash::{domain, CanonicalBytes, Domain};
 use crate::historical::activity::{encode_unsigned, encode_unsigned_envelope, Activity};
 use crate::WireError;
 
-/// The exact 32-byte domain-separated digest a signer covers.
+/// The exact 32-byte domain-separated digest an archived envelope signer covered.
 #[derive(Clone, Copy, Eq, PartialEq)]
 pub struct SigningPreimage([u8; 32]);
 

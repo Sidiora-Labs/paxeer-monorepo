@@ -11140,6 +11140,18 @@ value = "Decision 2947 surveys every remaining launchpad module before the first
 basis = "Gotcha 3701, decisions 2947 and 2948, gotcha 3046"
 affects = ["22.39.75", "22.39.168"]
 
+[decision.3005]
+title = "The CPU fuel of an ai-market guest operation is bounded by the sections it reads and writes, never by the size of the whole shared state, and every routed operation fits the protocol cap at the maximum state"
+value = "The protocol CPU cap of 1000000 fuel per execution stays as it is. An operation of programs/crates/layerx-programs-ai-market validates and decodes only the sections it reads or writes through the joint-section readers of 22.99.77, checks the remaining sections by their length and digest only, and writes back only the sections it changed; READ_HEADER and READ_STATE_CHUNK return their bytes from the stored state without decoding any section. The all-selector fuel case proves every routed operation at the maximum journey (the full 32/8 roster, the task set filled to the policy lifecycle capacity, the scored and sealed epoch) under the cap, and the task record states the measured fuel of every maximum-state row before and after the change, measured with a four-fold budget in a measurement run so that the true cost of a refused row is known. A task that finds a maximum-state row over the cap repairs the path of that row inside the crate and never raises the cap, shrinks the maximum journey or skips the row."
+basis = "Gotcha 3702, decisions 2729 and 2900, task 22.99.77"
+affects = ["22.33.223"]
+
+[decision.3006]
+title = "The kernel activity codec stays only behind the historical module of layerx-wire, and the task that retires the root paths moves every caller in the same change"
+value = "The activity envelope codec, the envelope signing preimage and the activity hash helpers of services/agent/crates/layerx-wire live only under historical (activity, sign and hash), the explicitly historical interface the repair of 22.33.1522 placed them behind for reading and checking archived evidence; no current submission or signing digest uses them, which is what decision 921 retires. Retiring the root paths means removing the root pub mod declarations, the deprecated root re-exports of lib.rs and the deprecated root aliases of hash.rs (payload_hash_for and the receipt, batch, checkpoint and account hashes stay at the root), never deleting the historical files. Per the producer to consumer rule of gotcha 3046 the task that removes a root path owns every caller: each call site moves to the historical path with its behaviour and its assertions unchanged, the caller files are in the touches of the task, the build of the task compiles every consumer crate with its tests, and the verification adds a repository grep that no Rust file outside the crate and the retired-name sweep tests names a root path. A call site that encodes an envelope for a new submission rather than reading archived evidence is listed in the task record as a wiring request naming the owning domain, as 22.33.1522 do_3 does, and keeps the historical path until that domain ports it."
+basis = "Gotcha 3703, decisions 921, 2253 and 2729, gotcha 3046, task 22.33.1522"
+affects = ["9.29.1"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -183095,7 +183107,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.174]
 title = "Track the generated lock file of the bridge relayer EVM test dependencies so the crate test targets compile"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 3
 requires = ["22.39.124"]
@@ -194262,7 +194274,7 @@ rollback = "Revert the task's commit."
 max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
-time_limit_minutes = 90
+time_limit_minutes = 240
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
@@ -194275,6 +194287,7 @@ do_15 = "Attempt 8 (requalify after 22.31.550, gotcha 3172, decision 2623): the 
 do_16 = "Attempt 9 (requalify, gotcha 3222): the attempt-8 tree stands; the task now requires 22.31.478, whose repair brings Fund under the 1000000 CPU cap. Re-run the gates as they stand once 478 lands; if a case still fails, the record names the attempted fuel per case."
 do_17 = "Attempt 10 (requalify after 22.99.77, gotcha 3344, decision 2729): the attempt-9 tree stands (the 55-selector coverage, the opt-level z guest profile check, the compiled close journey). The task now sits in wave 2 and requires 22.99.77, whose tree brings the over-cap operations under the 1000000 CPU cap through the joint-section readers and carries the crate-wide fuel suite. Once 22.99.77 is on main, re-run the gates on the attempt-9 tree merged over it; if maximum-state rows of its own coverage still exceed the cap, record the attempted fuel per row and repair only those rows inside the crate routing of the maximum-state path, with no cap change and no second repair of the operations 22.99.77 landed."
 do_18 = "Decision 2900: before the first change, run cargo test --locked --manifest-path programs/Cargo.toml -p layerx-programs-ai-market --no-fail-fast once on the unchanged merged main tree and record the failing names by target in the task record; run it again at the final tree and record that list; no name fails at the end that passed at the start. The declared verification stays the gate."
+do_19 = "Attempt 11 (continue, gotcha 3702, decisions 2729, 2900 and 3005): the attempt-10 tree 4554880b80e1 is the starting point (the 72-selector inventory with the three reserved bond refusals, the F11 fixtures, the compiled maximum journey, the roster and reward path changes, the record). Merge main first, taking the guest source of main wherever the size work of 22.39.167 changed a function this tree also changed, and regenerate the fixture guest with build-guest.sh at the merged tree. Before any gate run, run the fuel case once as a measurement with a four-fold budget in the support module (the budgeted execution of tests/support/guest.rs takes the budget; the assertions keep the protocol cap) and record the measured fuel of every maximum-state row, so the gap of each refused row is a number and not the cap. Then per decision 3005 remove the whole-state work from the refused paths: READ_HEADER and READ_STATE_CHUNK return bytes from the stored state without decoding a section; OPEN_EPOCH and ADMIT_TASK decode and validate only the admission, roster and task sections they read and write and check the other sections by length and digest; apply the same bound to CANCEL_TASK and SEAL_TASK_SET, which measure within seven percent of the cap. The cap, the maximum journey and every assertion stay unchanged; the packaged guest stays under the deployment bound of decision 2675. Record the per-row fuel before and after in tests/repair_22_33_223.kvx. Run the build once and the verification once at the final revision and record both by reference; if rows still exceed the cap, record their measured fuel and stop without a second repair."
 
 [task.22.33.222]
 title = "Repair audit record 22.30.124 medium findings in programs/crates/layerx-programs-registry/tests/support (part 1 of 1): test-gap"
@@ -201164,7 +201177,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.91.98]
 title = "Inventory every test run of the services/platform/Cargo.toml Rust workspace a third time at the closure revision"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.99.69", "22.99.70", "22.99.71", "22.99.72", "22.99.73", "22.99.102", "22.99.155"]
@@ -209045,7 +209058,7 @@ do_4 = "Finding 9.24.8.1: the verify passes both test names after one --exact fl
 
 [task.9.35.7]
 title = "Remove the kernel activity codec items from layerx-crypto once the kernel path has migrated"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 40
 requires = ["9.35.1", "12.95.2", "9.27.10", "10.21.9", "9.35.13", "8.47.12", "8.51.3", "9.24.9", "8.101.3", "8.101.4", "8.101.5", "22.9.24", "9.35.14", "9.35.15", "9.35.16", "9.35.17", "9.35.18", "9.35.19", "9.35.20", "9.35.21", "9.35.22", "9.35.23", "9.35.24", "22.99.160", "22.31.572", "22.31.620", "22.39.174"]
@@ -274563,11 +274576,11 @@ do_4 = "In services/agent/crates/layerx-wire/tests/rejection.rs remove the decod
 do_5 = "In services/agent/crates/layerx-wire/tests/structures.rs:6 remove the activity import (:6-8), unknown_version_activity_and_field_are_deterministic_rejections (:316) and all_nine_module_payload_tags_are_preserved (:214), and split the receipt half of every_published_activity_and_receipt_round_trips_exactly (:176) into every_published_receipt_round_trips_exactly."
 do_6 = "Every out-of-domain caller of the activity codec and preimage is listed in wiring.J44.15 to wiring.J44.19; agentd callers no J43 task removes, starting with services/agent/crates/layerx-agentd/src/protocol_evidence.rs:22, are reported as unresolved by this job."
 symbols = ["every_published_receipt_round_trips_exactly", "checkpoint_vectors_pin_header_encoding_and_identities", "checkpoint_domain_tags_are_the_declared_version_two_tags"]
-touches = ["services/agent/crates/layerx-wire/src/lib.rs", "services/agent/crates/layerx-wire/src/activity.rs", "services/agent/crates/layerx-wire/src/sign.rs", "services/agent/crates/layerx-wire/src/hash.rs", "services/agent/crates/layerx-wire/tests/hashing.rs", "services/agent/crates/layerx-wire/tests/rejection.rs", "services/agent/crates/layerx-wire/tests/structures.rs", "services/agent/crates/layerx-wire/tests/wallet_vectors.rs"]
+touches = ["services/agent/crates/layerx-wire/src/lib.rs", "services/agent/crates/layerx-wire/src/activity.rs", "services/agent/crates/layerx-wire/src/sign.rs", "services/agent/crates/layerx-wire/src/hash.rs", "services/agent/crates/layerx-wire/tests/hashing.rs", "services/agent/crates/layerx-wire/tests/rejection.rs", "services/agent/crates/layerx-wire/tests/structures.rs", "services/agent/crates/layerx-wire/tests/wallet_vectors.rs", "services/agent/crates/layerx-crypto/src/disclosure.rs", "services/agent/crates/layerx-crypto/src/onboarding.rs", "services/agent/crates/layerx-crypto/tests/disclosure.rs", "services/agent/crates/layerx-crypto/tests/repair_22_33_1561.rs", "services/agent/crates/layerx-crypto/tests/support/mod.rs", "services/agent/crates/layerx-agentd/src/human_runtime.rs", "services/agent/crates/layerx-agentd/src/human_runtime/native_receipt.rs", "services/agent/crates/layerx-agentd/src/human_runtime/subject/tests.rs", "services/agent/crates/layerx-agentd/src/approval/native_effect.rs", "services/agent/crates/layerx-agentd/src/ops/program.rs", "services/agent/crates/layerx-agentd/src/protocol_evidence.rs", "services/agent/crates/layerx-agentd/src/protocol_evidence_native_tests.rs", "services/agent/crates/layerx-agentd/tests/repair_22_31_366.rs", "services/agent/crates/layerx-agentd/tests/repair_22_31_568.rs", "services/agent/crates/layerx-agentd/tests/repair_22_31_575.rs", "services/agent/crates/layerx-agentd/tests/repair_22_33_1550.rs", "services/agent/crates/layerx-agentd/tests/support/repair_22_33_1529.rs", "services/agent/crates/layerx-sdk/src/program_http.rs", "services/agent/crates/layerx-sdk/src/programs/native_activity.rs", "services/agent/crates/layerx-sdk/tests/sdk.rs", "services/human/crates/layerx-intents/src/canonical.rs", "services/platform/hosted/authority/src/human/dynamic.rs"]
 tests = ["services/agent/crates/layerx-wire/tests/structures.rs::every_published_receipt_round_trips_exactly", "services/agent/crates/layerx-wire/tests/hashing.rs::checkpoint_vectors_pin_header_encoding_and_identities", "services/agent/crates/layerx-wire/tests/hashing.rs::checkpoint_domain_tags_are_the_declared_version_two_tags"]
 planned_paths = []
-build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-wire --test structures --test hashing"
-verify_cmd = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-wire --test structures --test hashing -- --exact every_published_receipt_round_trips_exactly checkpoint_vectors_pin_header_encoding_and_identities checkpoint_domain_tags_are_the_declared_version_two_tags"
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-wire -p layerx-crypto -p layerx-sdk -p layerx-agentd --tests && cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-intents --tests && cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-authority --tests"
+verify_cmd = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-wire --test structures --test hashing -- --exact every_published_receipt_round_trips_exactly checkpoint_vectors_pin_header_encoding_and_identities checkpoint_domain_tags_are_the_declared_version_two_tags && test 0 -eq $(grep -rlE 'layerx_wire::(activity|sign)([^_a-zA-Z0-9]|$)|layerx_wire::hash::(payload_hash|activity_id|canonical_activity|canonical_payload)([^_a-zA-Z0-9]|$)' services --include=*.rs | grep -vE 'crates/layerx-wire/|boundary-check|api-gen|no_kernel_codec' | wc -l)"
 gate_kind = "planned"
 sandbox_profile = "rust"
 owner_role = "fm-agent"
@@ -274575,7 +274588,7 @@ rollback = "Restore the two modules, hash.rs and the four test files from the wa
 max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
-time_limit_minutes = 30
+time_limit_minutes = 300
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
@@ -274585,6 +274598,7 @@ do_8 = "Decision 2253: blocked until the kernel-path migration family exists and
 do_9 = "Decision 2261: part 1 of the kernel-path family (12.95.2, 9.27.10, 10.21.9, 9.35.13, 8.47.12, 8.51.3, 9.24.9, 8.101.3, 8.101.4, 8.101.5) is in requires; part 2 (layerx-agentd, the hosted authority registration binding and the human service native onboarding stages) is added before do_8 runs."
 do_10 = "Decision 2253: the task is pending again; it launches when 9.35.7 is done."
 do_11 = "Decision 2357 (2026-11-02): the agentd callers do_6 reports as unresolved (services/agent/crates/layerx-agentd/src/protocol_evidence.rs:22 and the prepare::legacy module) are removed by task 9.35.24, which this task now requires; after it publishes, do_6 reports nothing unresolved for the agent daemon."
+do_12 = "Attempt 2 (continue, gotcha 3703, decisions 921, 2253, 2729 and 3006): start again from main, not from the attempt-1 tree, because do_1 and do_2 are superseded by decision 3006. In services/agent/crates/layerx-wire/src/lib.rs remove the deprecated root re-exports of historical::activity and historical::sign and keep pub mod historical with activity, sign and hash exactly as the repair of 22.33.1522 left them; in src/hash.rs remove the deprecated root aliases of activity_id, canonical_activity, canonical_payload and payload_hash while payload_hash_for and the receipt, batch, checkpoint and account hashes stay at the root; activity.rs and sign.rs stay in place as historical modules. Apply do_3 to do_5 to the wire tests as written, with every retired-name assertion checking the root paths rather than the historical ones. Then move every caller to the historical path with its behaviour and its assertions unchanged: in layerx-crypto src/disclosure.rs (the Activity alias at line 130 and the encode and decode calls in its tests), src/onboarding.rs (the import at line 4 and the payload hash at line 139), tests/disclosure.rs, tests/repair_22_33_1561.rs and tests/support/mod.rs; in layerx-agentd src/human_runtime.rs (decode_signed, encode_unsigned, encode_signed, encode_unsigned_envelope and the activity id at its six sites), src/human_runtime/native_receipt.rs, src/human_runtime/subject/tests.rs, src/approval/native_effect.rs, src/ops/program.rs (the decode import and the three payload hashes), src/protocol_evidence.rs, src/protocol_evidence_native_tests.rs, tests/repair_22_31_366.rs, tests/repair_22_31_568.rs, tests/repair_22_31_575.rs, tests/repair_22_33_1550.rs and tests/support/repair_22_33_1529.rs; in layerx-sdk src/program_http.rs (the activity id at line 135), src/programs/native_activity.rs and tests/sdk.rs; in layerx-intents src/canonical.rs (activity_id and payload_hash of the pub use list move to historical::hash, the other names stay); and in the platform authority src/human/dynamic.rs (the import at line 12, the payload hash at line 186 and the activity ids at lines 206 and 432). The string-literal sweeps of boundary-check, api-gen and the attestor kernel vectors stay unchanged. In the task record list every call site with whether it reads archived evidence or encodes an envelope; a site that encodes an envelope for a new submission is listed as a wiring request naming the owning domain and keeps the historical path. do_7 has nothing left to change and is recorded as such. The build and the verification of this round compile every consumer crate and add the repository grep; run the build once and the verification once at the final revision and record both by reference; if a consumer fails to compile, repair the path within the one allowed cycle and rerun once."
 
 [task.9.30.1]
 title = "Drop the lni_frame fuzz target and fuzz the EIP-1559 transaction codec"
