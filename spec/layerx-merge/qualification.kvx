@@ -36154,3 +36154,11 @@ symbol = "test_repair_22_36_1.py"
 observed = "Attempt 1 at 761a7c479bd4 (base dd4addbf677b): build exit 0 twice; verification exit 1 twice, 92 passed and one failed, test_code_specs_dot_directories_and_assets_are_preserved stopping at apps/desktop/assets/icon-dev.png; log /out/logs/verify-2.log."
 assumption = "The six scripts are restored correctly; the seventeen image assets are the remaining absent files and nothing else of the snapshot is missing."
 severity = "high"
+
+[finding.22.39.75.13]
+task = "22.39.75"
+file = "tests/ci/test_launchpad_go_tests_wired.py"
+symbol = "test_launchpad_go_tests_wired.py"
+observed = "Attempt 13 at 6fd12004277d (base c92013249283): build exit 0 twice; first verification exit 2 with the protocol bindings package timed out at ten minutes during the cold overlay proof; second verification exit 2 with every module green except services/launchpad/user/internal/app, two cases failing; log /out/logs/verify-2.log."
+assumption = "The launchpad target is green apart from two user profile cases whose producers landed on 2026-11-04; the baseline procedure of the task covers them."
+severity = "high"
