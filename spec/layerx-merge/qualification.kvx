@@ -35850,3 +35850,19 @@ symbol = "test_launchpad_go_tests_wired.py"
 observed = "Attempt 8 at 9621d9237eec (base d996be5f0c2c): build exit 0 twice; verification exit 2 twice, the wiring tests, both SDK modules and the api module passing and the indexer module failing the same eighteen cases on PostgreSQL 18 and on postgres 16; the thirteen later modules never ran; logs /out/logs/verify-1.log and /out/logs/verify-2.log."
 assumption = "The eighteen cases belong to the indexer module the retiring task owns; the job wiring of this task is complete."
 severity = "high"
+
+[finding.22.99.77.32]
+task = "22.99.77"
+file = "programs/crates/layerx-programs-ai-market"
+symbol = "layerx-programs-ai-market"
+observed = "Attempt 30 at 42fc4308cf0d: build exit 1 in every build at TestRepair478_FundWithinProductionAllowance (Fund refused at attempted 1000018 then 1000008 against the 1000000 allowance, kernel gas 635); the verification never ran; logs /out/logs/build-1.log and /out/logs/build-2.log."
+assumption = "The overrun entered main through the guest changes landed without the allowance test; the restored sources of the attempt are otherwise sound."
+severity = "high"
+
+[finding.9.35.22.2]
+task = "9.35.22"
+file = "services/agent/crates/layerx-agentd/tests/w7_owner_binding.rs::a_foreign_key_signature_over_the_owner_preimage_is_refused"
+symbol = "w7_owner_binding.rs::a_foreign_key_signature_over_the_owner_preimage_is_refused"
+observed = "Attempt 2 at 3e725f8c5739: build exit 0; verification exit 101 twice: first three budget_durable_limits cases (repaired), then preparation_state_reads_chain_id_pending_nonce_and_block_time of human_node_preparation.rs line 116 (left 1700000000000, right 1700000000); the four later targets did not run; logs /out/logs/verify-1.log and /out/logs/verify-2.log."
+assumption = "The port is complete; only the second-resolution expectation of the legacy era remains."
+severity = "high"
