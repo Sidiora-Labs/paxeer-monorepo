@@ -652,7 +652,8 @@ mod tests {
         let mut state_root = answers[1].clone();
         state_root["params"][1] = json!(false);
         answers.as_array_mut().expect("answers").push(state_root);
-        let address = [[0; 12].as_slice(), &[0x11; 20]].concat();
+        let mut address = [0; 32];
+        address[12..].copy_from_slice(&[0x11; 20]);
         let mut offset = [0; 32];
         offset[31] = 128;
         let owner = Did::new(OWNER.as_bytes()).expect("owner DID");
@@ -666,8 +667,8 @@ mod tests {
                 "data":prefixed(&calldata(b"getEvmAddrByLayerX(bytes32)", [0x0a;32]))},"0x8"],
                 "result":prefixed(&address)}),
             json!({"method":"eth_call", "params":[{"to":prefixed(&addr),
-                "data":prefixed(&calldata(b"getUnifiedAccount(address)", address.as_slice().try_into().expect("address word")))},"0x8"],
-                "result":prefixed(&[address, offset.to_vec(), vec![0x0a;32], vec![2;32], vec![0;32]].concat())}),
+                "data":prefixed(&calldata(b"getUnifiedAccount(address)", address))},"0x8"],
+                "result":prefixed(&[address, offset, [0x0a;32], [2;32], [0;32]].concat())}),
             json!({"method":"eth_call", "params":[{"to":prefixed(&ledger),
                 "data":prefixed(&calldata(b"accountOwner(bytes32)", [2;32]))},"0x8"],
                 "result":owner_quantity}),
