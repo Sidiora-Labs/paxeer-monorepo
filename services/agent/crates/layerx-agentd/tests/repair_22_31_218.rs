@@ -630,7 +630,18 @@ impl LocalNode {
                             count += 1;
                         }
                         let next = (count < rows.len()).then(|| position(rows[count - 1]).to_hex());
-                        json!({"items":rows[..count],"next_cursor":next,"indexedHeight":HEIGHT+1})
+                        let transcript: Value = serde_json::from_str(include_str!(
+                            "../../../../../apps/web/e2e/fixtures/px-get-unified-history.json"
+                        ))
+                        .unwrap();
+                        json!({
+                            "account": params[0],
+                            "items": rows[..count],
+                            "next_cursor": next,
+                            "indexedHeight": HEIGHT + 1,
+                            "chainHeight": HEIGHT + 1,
+                            "freshness": transcript["result"]["freshness"]
+                        })
                     }
                     "eth_getTransactionReceipt" => Value::Null,
                     "eth_getBlockByNumber" => match params[0].as_str().unwrap() {

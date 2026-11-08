@@ -438,11 +438,11 @@ fn epoch_terminal(state: &SharedState<'_>, rewards: Option<&RewardState<'_>>) ->
     let Some(rewards) = rewards else {
         return Ok(true);
     };
-    let admission = AdmissionTable::decode(
+    let admission = AdmissionTable::decode(crate::reputation_transition::joint_table(
         *state
             .feature_sections
             .guest_index(Section::ReputationAdmission.index()),
-    )?;
+    )?)?;
     let Some(epoch) = admission.current_epoch() else {
         return Ok(true);
     };
@@ -459,11 +459,11 @@ fn task_set_identity(
     state: &SharedState<'_>,
     section: &PolicySection<'_>,
 ) -> CodecResult<Option<[u8; 32]>> {
-    let admission = AdmissionTable::decode(
+    let admission = AdmissionTable::decode(crate::reputation_transition::joint_table(
         *state
             .feature_sections
             .guest_index(Section::ReputationAdmission.index()),
-    )?;
+    )?)?;
     match admission.current_epoch() {
         Some(epoch) => match terminal_task_set(state, epoch) {
             Ok(digest) => Ok(Some(digest.bytes())),

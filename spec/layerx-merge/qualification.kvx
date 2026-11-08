@@ -36138,3 +36138,43 @@ symbol = "history_served_contract.rs"
 observed = "Attempt 1 at 4a9a0751ef1b (base 6eeea3b075): build exit 0; verification exit 1 (test exit 101): repair_22_33_1506 and repair_22_33_1521 passed, seven read_account cases of history_served_contract failed with Sequencer(Malformed), and the reverse window case of repair_22_31_218 failed at line 976 with Connection(Malformed); no repair cycle used; log /out/logs/verify-1.log."
 assumption = "The cursor update of the attempt is right and the envelope of the two fixtures is the remaining producer mismatch."
 severity = "high"
+
+[finding.22.39.26.3]
+task = "22.39.26"
+file = "tests/ci/test_qualification_suites_have_ci_host.py"
+symbol = "test_qualification_suites_have_ci_host.py"
+observed = "Attempt 3 at 2fba7fe3796d (base 563d285011): build exit 0; the first verification stopped on a missing jsonschema module (make exit 2), and after the one repair the second verification (make test-qualification-python) exited 2 with 111 failed, 4339 passed and 13 skipped in 1196 seconds; log /out/logs/verify-2.log."
+assumption = "The directory is sound apart from the dropped vendored scripts and one undetermined upgrade fixture case; the failures are the dependency set, the pins and the job layout of the check."
+severity = "high"
+
+[finding.22.39.173.1]
+task = "22.39.173"
+file = "tools/qualification/audit_repairs/test_repair_22_36_1.py"
+symbol = "test_repair_22_36_1.py"
+observed = "Attempt 1 at 761a7c479bd4 (base dd4addbf677b): build exit 0 twice; verification exit 1 twice, 92 passed and one failed, test_code_specs_dot_directories_and_assets_are_preserved stopping at apps/desktop/assets/icon-dev.png; log /out/logs/verify-2.log."
+assumption = "The six scripts are restored correctly; the seventeen image assets are the remaining absent files and nothing else of the snapshot is missing."
+severity = "high"
+
+[finding.22.39.75.13]
+task = "22.39.75"
+file = "tests/ci/test_launchpad_go_tests_wired.py"
+symbol = "test_launchpad_go_tests_wired.py"
+observed = "Attempt 13 at 6fd12004277d (base c92013249283): build exit 0 twice; first verification exit 2 with the protocol bindings package timed out at ten minutes during the cold overlay proof; second verification exit 2 with every module green except services/launchpad/user/internal/app, two cases failing; log /out/logs/verify-2.log."
+assumption = "The launchpad target is green apart from two user profile cases whose producers landed on 2026-11-04; the baseline procedure of the task covers them."
+severity = "high"
+
+[finding.9.35.7.2]
+task = "9.35.7"
+file = "services/agent/crates/layerx-crypto/tests/signer.rs::keystore_signer_refuses_activity_preimages_and_signs_the_bind_message"
+symbol = "signer.rs::keystore_signer_refuses_activity_preimages_and_signs_the_bind_message"
+observed = "Attempt 5 at d6ead3a72927 (base dd4addbf677b): build exit 101 twice, the first with decode_session_key out of scope in the call module, the second with the library compiling and every test target failing on unresolved imports of the retired items in tests/support/signing.rs, tests/support/mod.rs and tests/repair_22_33_1560.rs; the verification never ran; log /out/logs/build-2.log."
+assumption = "The deletion of attempt 5 is exact; only the unlisted test consumers, the lost import and the census exclusion block the task."
+severity = "high"
+
+[finding.22.39.172.2]
+task = "22.39.172"
+file = "services/agent/crates/layerx-agentd/tests/history_served_contract.rs"
+symbol = "history_served_contract.rs"
+observed = "Attempt 2 at dd47d3970a57 (base dd4addbf677b): build exit 0 twice; verification exit 1 twice, the second with 25 cases passing and read_account_decodes_a_served_gateway_page failing its exact response-size assertion (495 against 643) at tests/history_served_contract.rs line 157; log /out/logs/verify-2.log."
+assumption = "The producer measure is settled since 22.33.1521 and the oversized case already follows it; only the exact-count expectation of one case lags."
+severity = "high"

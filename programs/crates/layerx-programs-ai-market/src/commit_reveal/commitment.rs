@@ -21,6 +21,7 @@ pub const COMMITMENT_PREIMAGE_BYTES: usize = 278;
 pub const ATTESTATION_PREIMAGE_BYTES: usize = 59;
 pub const REPORT_PREIMAGE_MAX_BYTES: usize = 1402;
 pub const REVEAL_MAX_BYTES: usize = 1480;
+pub const REVEAL_MIN_BYTES: usize = 4 + codec::REPORT_FIXED_BYTES + 36 + 96;
 pub const REPORT_DOMAIN: &[u8; 22] = b"PAXAI/score-report/v1\0";
 pub const ATTESTATION_DOMAIN: &[u8; 27] = b"PAXAI/score-attestation/v1\0";
 pub const COMMITMENT_DOMAIN: &[u8; 22] = b"PAXAI/score-commit/v1\0";

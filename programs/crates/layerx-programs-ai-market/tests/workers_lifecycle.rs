@@ -604,6 +604,8 @@ fn a13_manifest_grammar_refusals_before_mutation() -> Checked {
     assert!(decode_manifest(&base.encode()?).is_ok());
     let mut schema = ManifestSpec::for_record(&r, 5, 300, 428);
     schema.schema = 2;
+    assert_eq!(decode_manifest(&schema.encode()?), Err(NON_CANONICAL));
+    schema.schema = 3;
     assert_eq!(decode_manifest(&schema.encode()?), Err(BAD_VERSION));
     let mut reserved = ManifestSpec::for_record(&r, 5, 300, 428);
     reserved.reserved = 1;
