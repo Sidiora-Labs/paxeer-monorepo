@@ -428,6 +428,7 @@ impl<'a> BookView<'a> {
     }
 }
 
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn apply(
     ctx: &CallContext,
     envelope: &ValidatedEnvelope<'_>,
