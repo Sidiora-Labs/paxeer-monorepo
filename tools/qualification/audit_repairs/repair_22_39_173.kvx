@@ -1,0 +1,218 @@
+[task]
+id = "22.39.173"
+mode = "BUILD"
+acceptance = "22998.1"
+gotcha = "3690"
+continuation_gotcha = "3692"
+decision = "2991"
+continuation_decision = "2992"
+snapshot_revision = "2e0a668a793a7b5c0469b44950808547467f017e"
+implementation = "Preserve the six restored editor integration scripts with their snapshot bytes and executable mode 100755; restore the seventeen missing image assets with their snapshot bytes and mode 100644. Explicitly stage all twenty-three paths with git add -f before each gate, preserving every other vendored file, including its ignore file."
+paths = ["tools/hyperfide/.codify/hooks/claude.sh", "tools/hyperfide/.codify/hooks/codex.sh", "tools/hyperfide/.codify/hooks/copilot.sh", "tools/hyperfide/.codify/hooks/cursor.sh", "tools/hyperfide/.codify/hooks/event.sh", "tools/hyperfide/.codify/hooks/gemini.sh", "tools/hyperfide/apps/desktop/assets/icon-dev.png", "tools/hyperfide/apps/desktop/assets/icon-nightly.icns", "tools/hyperfide/apps/desktop/assets/icon-nightly.png", "tools/hyperfide/apps/desktop/assets/icon.icns", "tools/hyperfide/apps/desktop/assets/icon.png", "tools/hyperfide/apps/mobile/assets/android-icon-background.png", "tools/hyperfide/apps/mobile/assets/android-icon-foreground-dev.png", "tools/hyperfide/apps/mobile/assets/android-icon-foreground.png", "tools/hyperfide/apps/mobile/assets/icon-dev.png", "tools/hyperfide/apps/mobile/assets/icon.png", "tools/hyperfide/apps/mobile/assets/ios-icon-dark.png", "tools/hyperfide/apps/web/public/icon-512-maskable.png", "tools/hyperfide/apps/web/public/icon-512.png", "tools/hyperfide/assets/hyperfide-logo-black-white-bg-discord.png", "tools/hyperfide/assets/hyperfide-logo-dev.png", "tools/hyperfide/assets/hyperfide-logo.png", "tools/hyperfide/extensions/vscode/media/icon.png"]
+source_blob_ids = ["5bc730ac69c531d1b40ced2ac19f3c270381db67", "7151b5fd986a227ebacf2507730540e314bc62d0", "31c0f4f88ad409d0b70195bfd40f7c78c198dcbe", "dd67860a968e36835efac99d914ea6074e8b0a28", "f6571b8898eb1eb3591446295d94dde0dc5e01fa", "915b8511f0666a90ff08f05cca4921ed4416dc06"]
+ignore_file = "tools/hyperfide/.gitignore"
+ignore_line = 24
+ignore_rule = "/.codify/"
+cause = "The relocation preserved the scripts on disk but ordinary staging omitted their ignored directory; the published tree therefore lost the six snapshot files."
+proof = "The declared build checks that all six paths are tracked; the existing relocation pytest suite asserts the snapshot bytes and executable modes and preserves its full assertions."
+
+[qualification]
+build_cmd = "git ls-files tools/hyperfide/.codify | grep -c . | grep -qx 6"
+verify_cmd = "test -s tools/qualification/audit_repairs/repair_22_39_173.kvx && python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_36_1.py"
+done_cmd = "cg spec done 22.39.173 -f layerx-merge --root /work/paxeer-monorepo"
+gate_ledger = "/out/run/gates.jsonl"
+verified_revision_source = "The final passing kind=verify row in the private gate ledger names the verified revision, command, exit and log; its revision must equal the final passing kind=build revision. The final hf-done JSON repeats those four fields."
+build_log_source = "log in the final kind=build row of /out/run/gates.jsonl"
+verify_log_source = "log in the final kind=verify row of /out/run/gates.jsonl"
+evidence_binding = "Finalize this record before hf-build and hf-done; bind results by reference so no post-gate edit changes the qualified candidate. The runner commits."
+
+[gotcha.inspection]
+observed = "The Codify graph reports stale repository state and broad context reads exceed tool output limits."
+resolution = "Use bounded source reads and the snapshot Git inventory; leave runner-owned bookkeeping intact. Root GOTCHA.kvx and spec files are outside the authorized edit scope, so record this finding here."
+
+[finding.preexisting_desktop_asset]
+task = "22.39.173"
+file = "tools/hyperfide/apps/desktop/assets/icon-dev.png"
+symbol = "test_code_specs_dot_directories_and_assets_are_preserved"
+observed = "At revision 6aca7049ba77a99b49ac91f1778a9f18651e5e94, cg spec done 22.39.173 -f layerx-merge --root /work/paxeer-monorepo exited 1 with log /out/logs/verify-1.log because apps/desktop/assets/icon-dev.png is absent; 92 tests passed and one failed, and the asset is also absent from the supplied base dd4addbf677b3c65e139efa6b4f44c2858fdedbd."
+assumption = "Restoring unrelated desktop assets belongs to a separate task because this task expressly permits changing only the six scripts within the vendored tree."
+severity = "blocker"
+
+[continuation]
+source_attempt_revision = "761a7c479bd4d3d14cac2f13b35e862bbb03322b"
+snapshot_revision = "2e0a668a793a7b5c0469b44950808547467f017e"
+restored_count = 23
+script_count = 6
+image_count = 17
+staging = "Explicitly git add -f all twenty-three paths before hf-build and again before hf-done, then confirm each path with git ls-files --stage."
+prior_finding_resolution = "Decision 2992 explicitly brings the seventeen missing images into this task; restoring their original blobs resolves finding.preexisting_desktop_asset without changing any test."
+qualification_reference = "The final passing build and verify rows of /out/run/gates.jsonl provide revision, command, exit and private log; both rows must name the same revision."
+
+[gotcha.continuation_index]
+observed = "The continued attempt preserved the six executable scripts on disk, but they were absent from the index because the vendored ignore rule still excludes their directory."
+resolution = "Preserve their bytes and executable mode and explicitly stage each restored path past ignore rules; do not change the vendored ignore file."
+
+[gotcha.partial_clone_inventory]
+observed = "A recursive git ls-tree with byte sizes fetched unrelated promised blobs in this partial checkout; the metadata read was stopped before any implementation mutation."
+resolution = "Request metadata only for the twenty-three required snapshot paths and use git show for their contents."
+
+[restored.1]
+path = "tools/hyperfide/.codify/hooks/claude.sh"
+bytes = 86
+mode = "100755"
+source_blob = "5bc730ac69c531d1b40ced2ac19f3c270381db67"
+snapshot_revision = "2e0a668a793a7b5c0469b44950808547467f017e"
+
+[restored.2]
+path = "tools/hyperfide/.codify/hooks/codex.sh"
+bytes = 84
+mode = "100755"
+source_blob = "7151b5fd986a227ebacf2507730540e314bc62d0"
+snapshot_revision = "2e0a668a793a7b5c0469b44950808547467f017e"
+
+[restored.3]
+path = "tools/hyperfide/.codify/hooks/copilot.sh"
+bytes = 88
+mode = "100755"
+source_blob = "31c0f4f88ad409d0b70195bfd40f7c78c198dcbe"
+snapshot_revision = "2e0a668a793a7b5c0469b44950808547467f017e"
+
+[restored.4]
+path = "tools/hyperfide/.codify/hooks/cursor.sh"
+bytes = 86
+mode = "100755"
+source_blob = "dd67860a968e36835efac99d914ea6074e8b0a28"
+snapshot_revision = "2e0a668a793a7b5c0469b44950808547467f017e"
+
+[restored.5]
+path = "tools/hyperfide/.codify/hooks/event.sh"
+bytes = 120
+mode = "100755"
+source_blob = "f6571b8898eb1eb3591446295d94dde0dc5e01fa"
+snapshot_revision = "2e0a668a793a7b5c0469b44950808547467f017e"
+
+[restored.6]
+path = "tools/hyperfide/.codify/hooks/gemini.sh"
+bytes = 86
+mode = "100755"
+source_blob = "915b8511f0666a90ff08f05cca4921ed4416dc06"
+snapshot_revision = "2e0a668a793a7b5c0469b44950808547467f017e"
+
+[restored.7]
+path = "tools/hyperfide/apps/desktop/assets/icon-dev.png"
+bytes = 968206
+mode = "100644"
+source_blob = "0995c9a3beff923a7e831dcc00330f08a93b5016"
+snapshot_revision = "2e0a668a793a7b5c0469b44950808547467f017e"
+
+[restored.8]
+path = "tools/hyperfide/apps/desktop/assets/icon-nightly.icns"
+bytes = 1349746
+mode = "100644"
+source_blob = "b7a585b61659c2173c466580ece34c89644adf1f"
+snapshot_revision = "2e0a668a793a7b5c0469b44950808547467f017e"
+
+[restored.9]
+path = "tools/hyperfide/apps/desktop/assets/icon-nightly.png"
+bytes = 968206
+mode = "100644"
+source_blob = "0995c9a3beff923a7e831dcc00330f08a93b5016"
+snapshot_revision = "2e0a668a793a7b5c0469b44950808547467f017e"
+
+[restored.10]
+path = "tools/hyperfide/apps/desktop/assets/icon.icns"
+bytes = 1349746
+mode = "100644"
+source_blob = "b7a585b61659c2173c466580ece34c89644adf1f"
+snapshot_revision = "2e0a668a793a7b5c0469b44950808547467f017e"
+
+[restored.11]
+path = "tools/hyperfide/apps/desktop/assets/icon.png"
+bytes = 968206
+mode = "100644"
+source_blob = "0995c9a3beff923a7e831dcc00330f08a93b5016"
+snapshot_revision = "2e0a668a793a7b5c0469b44950808547467f017e"
+
+[restored.12]
+path = "tools/hyperfide/apps/mobile/assets/android-icon-background.png"
+bytes = 968206
+mode = "100644"
+source_blob = "0995c9a3beff923a7e831dcc00330f08a93b5016"
+snapshot_revision = "2e0a668a793a7b5c0469b44950808547467f017e"
+
+[restored.13]
+path = "tools/hyperfide/apps/mobile/assets/android-icon-foreground-dev.png"
+bytes = 968206
+mode = "100644"
+source_blob = "0995c9a3beff923a7e831dcc00330f08a93b5016"
+snapshot_revision = "2e0a668a793a7b5c0469b44950808547467f017e"
+
+[restored.14]
+path = "tools/hyperfide/apps/mobile/assets/android-icon-foreground.png"
+bytes = 968206
+mode = "100644"
+source_blob = "0995c9a3beff923a7e831dcc00330f08a93b5016"
+snapshot_revision = "2e0a668a793a7b5c0469b44950808547467f017e"
+
+[restored.15]
+path = "tools/hyperfide/apps/mobile/assets/icon-dev.png"
+bytes = 866762
+mode = "100644"
+source_blob = "cc9da6bb2eaa181ab2b48d7a8789656dbd67990d"
+snapshot_revision = "2e0a668a793a7b5c0469b44950808547467f017e"
+
+[restored.16]
+path = "tools/hyperfide/apps/mobile/assets/icon.png"
+bytes = 866762
+mode = "100644"
+source_blob = "cc9da6bb2eaa181ab2b48d7a8789656dbd67990d"
+snapshot_revision = "2e0a668a793a7b5c0469b44950808547467f017e"
+
+[restored.17]
+path = "tools/hyperfide/apps/mobile/assets/ios-icon-dark.png"
+bytes = 968206
+mode = "100644"
+source_blob = "0995c9a3beff923a7e831dcc00330f08a93b5016"
+snapshot_revision = "2e0a668a793a7b5c0469b44950808547467f017e"
+
+[restored.18]
+path = "tools/hyperfide/apps/web/public/icon-512-maskable.png"
+bytes = 265500
+mode = "100644"
+source_blob = "85dac20fcc3d838136bacb3a47ddb7a5411e98c4"
+snapshot_revision = "2e0a668a793a7b5c0469b44950808547467f017e"
+
+[restored.19]
+path = "tools/hyperfide/apps/web/public/icon-512.png"
+bytes = 265500
+mode = "100644"
+source_blob = "85dac20fcc3d838136bacb3a47ddb7a5411e98c4"
+snapshot_revision = "2e0a668a793a7b5c0469b44950808547467f017e"
+
+[restored.20]
+path = "tools/hyperfide/assets/hyperfide-logo-black-white-bg-discord.png"
+bytes = 968206
+mode = "100644"
+source_blob = "0995c9a3beff923a7e831dcc00330f08a93b5016"
+snapshot_revision = "2e0a668a793a7b5c0469b44950808547467f017e"
+
+[restored.21]
+path = "tools/hyperfide/assets/hyperfide-logo-dev.png"
+bytes = 318524
+mode = "100644"
+source_blob = "6eac0c008a14d74ee08ea04b8824b6fe29a63e8d"
+snapshot_revision = "2e0a668a793a7b5c0469b44950808547467f017e"
+
+[restored.22]
+path = "tools/hyperfide/assets/hyperfide-logo.png"
+bytes = 516363
+mode = "100644"
+source_blob = "4a81b0c25df8313218ca2903f0e284fb2db14cbb"
+snapshot_revision = "2e0a668a793a7b5c0469b44950808547467f017e"
+
+[restored.23]
+path = "tools/hyperfide/extensions/vscode/media/icon.png"
+bytes = 978337
+mode = "100644"
+source_blob = "e3d44faa491dd5776816f1aaa778d04c41a27dcb"
+snapshot_revision = "2e0a668a793a7b5c0469b44950808547467f017e"
