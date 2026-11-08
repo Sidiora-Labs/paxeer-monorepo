@@ -199,7 +199,7 @@ def test_repository_topology_paxd_build_and_historical_source_boundary():
     makefile = source("Makefile")
     prerequisites = dict(re.findall(r"^(paxd-native-libs|paxd-build): ([^\n]+)$", makefile, re.M))
     assert prerequisites == {
-        "paxd-native-libs": "$(LIBRARY) programs-release-build",
+        "paxd-native-libs": "$(LIBRARY) programs-release-build evmone-lib",
         "paxd-build": "paxd-native-libs",
     }
     recipe = makefile.split("\npaxd-build: paxd-native-libs\n", 1)[1].split("\n\n", 1)[0]

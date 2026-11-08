@@ -25,10 +25,8 @@ use layerx_agentd::store::{Store, TenantId};
 use layerx_agentd::tenant::{AuthorizationError, Operation, Surface};
 use layerx_crypto::disclosure::call::bind_call;
 use layerx_crypto::evm_transaction::{decode_signed, recover_sender, transaction_hash};
-use layerx_types::activity::{Authority, EnvelopeBuilder, TimestampBound};
-use layerx_types::amount::Amount;
-use layerx_types::ids::{Did, IdempotencyKey};
-use layerx_types::payload::{ActivityType, ModuleId, ModuleRegistration, ModuleRegistry, Payload};
+use layerx_types::ids::Did;
+use layerx_types::payload::{ActivityType, ModuleId, ModuleRegistration, ModuleRegistry};
 use layerx_types::verify::VerificationLevel;
 use layerx_wire::encode::Encoder;
 

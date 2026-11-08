@@ -35978,3 +35978,115 @@ symbol = "w7_owner_binding.rs::a_foreign_key_signature_over_the_owner_preimage_i
 observed = "Attempt 11 at 390327c4ad89: build exit 0; verification exit 1 twice, the final run passing every target except proof_agentd, where pending_attempt_recovers_original_hash_height_and_exact_request panicked with Corrupt when the idempotency store opened on the root the outbox had written; log /out/logs/verify-2.log."
 assumption = "The expiry alignment and the directory repair of attempt 11 are complete; the shared root of the ported case is the only failure."
 severity = "high"
+
+[finding.22.39.75.10]
+task = "22.39.75"
+file = "tests/ci/test_launchpad_go_tests_wired.py"
+symbol = "test_launchpad_go_tests_wired.py"
+observed = "Attempt 10 at 5bc20d955595: build exit 0; verification exit 1 then 2: the second run passed every module from shared to trading-charts and the gateway module failed TestRepair_48_export_capability (PostgreSQL and Redis handed the same port 33641); notifications, security and user cannot list or compile; log /out/logs/verify-2.log."
+assumption = "The port helper and the three stale manifests are the failures; the tested code of every module that ran is green."
+severity = "high"
+
+[finding.22.99.77.33]
+task = "22.99.77"
+file = "programs/crates/layerx-programs-ai-market"
+symbol = "layerx-programs-ai-market"
+observed = "Attempt 31 at 568123b3f048 (base 7dc80ac4fc2f): build exit 2 at 0a1746a443bf (dependency archive download HTTP 504) then exit 0 at e24f0abd2ec7 and exit 0 at 568123b3; verification exit 1 at e24f0abd2ec7 with seventeen failing targets; no verification budget remained after the reader repair; log /out/logs/verify-1.log."
+assumption = "The fuel work is complete and right; the remaining mismatches are four classified refusal and replay-support defects."
+severity = "high"
+
+[finding.9.35.22.7]
+task = "9.35.22"
+file = "services/agent/crates/layerx-agentd/tests/w7_owner_binding.rs::a_foreign_key_signature_over_the_owner_preimage_is_refused"
+symbol = "w7_owner_binding.rs::a_foreign_key_signature_over_the_owner_preimage_is_refused"
+observed = "Attempt 12 at c96ee7ed4414 (base 7d49f6b87c): build exit 0; verification exit 101: every target through proof_agentd passed and repair_22_31_217 failed two wind-down cases at line 1807 with Err(Preparation) from settle(&store); log /out/logs/verify-1.log."
+assumption = "The test helper is identical to main; the settlement reads two different actors for one call."
+severity = "high"
+
+[finding.22.39.161.2]
+task = "22.39.161"
+file = "tools/qualification/test_beta_driver.py::BetaDriverTests::test_multichain_inventory_reports_absent_infrastructure_as_failed"
+symbol = "test_beta_driver.py::BetaDriverTests::test_multichain_inventory_reports_absent_infrastructure_as_failed"
+observed = "Attempt 2 at d85c25147bc4 (verified revision c2899bf12994): build exit 0; verification exit 1: the schema check and every crate test passed and two beta driver inventory cases failed after 279 seconds with the real_stack flag false; log /out/logs/verify-1.log."
+assumption = "The schema work is complete; the failing inventory belongs to the qualification suite owner."
+severity = "high"
+
+[finding.22.39.95.5]
+task = "22.39.95"
+file = "apps/launchpad/web/src/core/wallet-sdk/runtime.integration.test.tsx"
+symbol = "runtime.integration.test.tsx"
+observed = "Attempt 5 at 9cac716c3d5e (base 1d56709c2764): build exit 0 twice; verification exit 1 at ed4c35130cf9 (indexer refused RPC_URL for the rpc-getlogs source) and exit 1 at 9cac716c3d5e (an unnamed joined role exited 1 before readiness on port 39843); neither Vitest suite ran; log /out/logs/verify-2.log."
+assumption = "The producer repairs of the attempt are right as far as they go; the failing role is unknown only because the producer discards its evidence."
+severity = "high"
+
+[finding.9.35.24.1]
+task = "9.35.24"
+file = "services/agent/crates/layerx-agentd/tests/prepare.rs"
+symbol = "prepare.rs"
+observed = "Attempt 1 at bd82359bfca3 (base 097581705c2e): build exit 101 twice (the first because the deleted restore_tests.rs is the active fixture test_support.rs includes, the second with sixty-four errors in six consumer sources outside the touches); the verification never ran; log /out/logs/build-2.log."
+assumption = "The record named the wrong files and undersized the task; the deletion itself is a whole-crate migration."
+severity = "high"
+
+[finding.22.39.169.1]
+task = "22.39.169"
+file = "programs/crates/layerx-programs-ai-market/src"
+symbol = "src"
+observed = "Attempt 1 at 6b55e8a57398: build exit 0 twice (guest 504779 bytes); verification exit 1 twice: 21 targets and 161 cases failed at 6d7e527537d5 and 11 targets and 84 cases at the final tree, among them the fuel budget fixture reads, the nine native host boundary cases (commitment limit 256 exceeded) and the F03, F04 and F05 suites that 22.99.77 attempt 31 repairs in parallel; logs /out/logs/verify-1.log and /out/logs/verify-2.log."
+assumption = "The suite is green on main once 22.99.77 lands, so the requalification confirms it with the fixture produced and the trace within the profile."
+severity = "high"
+
+[finding.22.39.75.11]
+task = "22.39.75"
+file = "tests/ci/test_launchpad_go_tests_wired.py"
+symbol = "test_launchpad_go_tests_wired.py"
+observed = "Attempt 11 at 240a6b6d5fa9: build exit 1 at go vet in services/launchpad/api (updates to go.mod needed after the notifications module raised its directive to 1.27.0); the verification never ran; log /out/logs/build-1.log."
+assumption = "The api manifest is the only module blocker left; the port helper and the module repairs of the attempt are complete."
+severity = "high"
+
+[finding.9.35.24.2]
+task = "9.35.24"
+file = "services/agent/crates/layerx-agentd/tests/prepare.rs"
+symbol = "prepare.rs"
+observed = "Attempt 2 at 95fa8138cbb6 (build revision 5186826b1866): build exit 0 without repair; the cross-root dependents check exit 101 at two test targets outside the crate (the SDK test repair_22_31_547 and the human intents compile test import the removed core preparation names); the verification never ran; logs /out/logs/build-1.log and /out/logs/dependents-1.log."
+assumption = "The in-crate migration is complete; only the two out-of-crate test targets stand between the attempt and its verification."
+severity = "high"
+
+[finding.9.35.24.3]
+task = "9.35.24"
+file = "services/agent/crates/layerx-agentd/tests/prepare.rs"
+symbol = "prepare.rs"
+observed = "Attempt 3 at 622839667701 (build revision 63965127afc7): build exit 0 without repair; the cross-root dependents check exit 101 at the human service test target session_keys (the removed core preparation names); the verification never ran; logs /out/logs/build-1.log and /out/logs/dependents-1.log."
+assumption = "The seven human service journey tests are the last consumers of the removed names outside the crate; the production sources of the human service already follow the EVM path."
+severity = "high"
+
+[finding.22.99.77.34]
+task = "22.99.77"
+file = "programs/crates/layerx-programs-ai-market"
+symbol = "layerx-programs-ai-market"
+observed = "Attempt 32 at 4206f461379d (base 81f0e5a93ff9): first build exit 0 at 0bcb816315a0; verification exit 1 at 0bcb816315a0 with twelve failing targets (F03 evaluator host, F04 windows, F05 aggregation runtime, fuel budget, host boundary, repair_22_33_261, reputation lifecycle, reputation vectors, native rewards, task state boundary); second build exit 1 (Fund 802525 against 802503); third build exit 0 at the final tree; the second verification was refused; log /out/logs/verify-1.log."
+assumption = "The final tree repairs most of the list but no run shows it; local iteration before the gate pair closes the gap."
+severity = "high"
+
+[finding.9.35.24.4]
+task = "9.35.24"
+file = "services/agent/crates/layerx-agentd/tests/prepare.rs"
+symbol = "prepare.rs"
+observed = "Attempt 4 at base 20cf44679e3f (tree fffb576516ea): no gate ran; the attempt stopped under the legacy-only-field clause after inspecting agent_controls_rungs.rs lines 2611 to 2632 and disclosure/call.rs lines 1158 to 1194; record src/prepare/repair_9_35_24.kvx (finding at its line 452), no gate log."
+assumption = "The stop was the ruled behaviour; the field has an EVM-branch reading through the call disclosure and the budget record, so the case migrates."
+severity = "high"
+
+[finding.22.39.75.12]
+task = "22.39.75"
+file = "tests/ci/test_launchpad_go_tests_wired.py"
+symbol = "test_launchpad_go_tests_wired.py"
+observed = "Attempt 12 at f5056671f0c6 (base 1d8f18989ce7): build exit 0 twice; verification exit 2 twice: the first in the proxy package of the gateway module (four callers of a removed port helper), the second at the final tree in the two gateway proofs that build the social daemon, refused because services/launchpad/social/go.mod needs an update; log /out/logs/verify-2.log."
+assumption = "The social manifest is the same class as the api manifest; a local build across the work file shows every remaining one."
+severity = "high"
+
+[finding.22.31.623.5]
+task = "22.31.623"
+file = "tests/ci/test_qualification_suites_collect.py"
+symbol = "test_qualification_suites_collect.py"
+observed = "Attempt 5 at aa2a06c06db1 (base 1d8f18989ce7): build exit 0 twice; verification exit 1 twice (89 then 86 failed of about 4450 cases, 535 seconds at the final tree): eighty-odd cases assert the former paxd-native-libs recipe, one the node go test command, one the wallet vitest command, one a workflow digest baseline, one the wallet manifest dependency set, one indexes a shortened container check list; log /out/logs/verify-2.log."
+assumption = "Every failure is a producer that moved on main after the attempt tree was cut; the settled cases of the attempt hold."
+severity = "high"

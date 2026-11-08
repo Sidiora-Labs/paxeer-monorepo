@@ -171,7 +171,7 @@ def test_registry_trust_bootstrap_guards_producer_transport_consumer():
     assert "nonzero-32-byte-receipt-authority-id" in SCRIPT
     assert SCRIPT.index("generation=$(python3") < SCRIPT.index("exec unshare")
     docker = [shlex.split(line) for line in (DIRECTORY / "Dockerfile").read_text().splitlines() if line.startswith("COPY ")]
-    assert ["COPY", "docker/platform-registry/chain-trust.py", "/usr/local/lib/layerx-registry/chain-trust.py"] in docker
+    assert ["COPY", "--chmod=0444", "docker/platform-registry/chain-trust.py", "/usr/local/lib/layerx-registry/chain-trust.py"] in docker
     assert not any("/usr/local/lib/layerx-human/" in line for line in docker)
     journal = (ROOT / "services/platform/hosted/registry/src/journal.rs").read_text()
     main = (ROOT / "services/platform/hosted/registry/src/main.rs").read_text()

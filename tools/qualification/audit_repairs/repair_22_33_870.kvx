@@ -28,7 +28,7 @@ resolution = "Remove the complete retired image recipe, including standalone lay
 tests = ["test_f001_standalone_image_recipe_is_removed", "test_f001_retains_real_paxd_producer_and_runtime_consumer", "test_f001_catalogue_routes_only_to_retained_paxd_recipes", "test_f001_record_binds_proofs_preserved_packaging_and_wiring_request"]
 
 [preserved_packaging]
-"docker/paxeer/Dockerfile.paxd" = "6138436b068673ad9149440ab90cec88e0dbcffa74327cc38e544aa9a5ef1ac4"
+"docker/paxeer/Dockerfile.paxd" = "a4c63548b0ec19834038218f19449b86a46239bf27cf0ca4c5a5147f832dbd4f"
 "docker/paxeer/Dockerfile.paxd-node" = "e1d77c0df1bdcaa540ab85b48ac6faa110967699be95669c736d9f94bdb2e339"
 
 [gotcha.scope_and_order]
@@ -38,3 +38,7 @@ resolution = "Record the baseline limitation and gotchas here, retain runner-pre
 [gotcha.context]
 observed = "Combined broad context reads exceeded output limits, and cg brief reported graph paths that differ from git status because graph auto-sync is disabled."
 resolution = "Use bounded exact finding/source reads and git status/diff as working-tree evidence; do not infer gate success or source facts from truncated graph context."
+
+[qualification_pin_22_31_623]
+source_revision = "89c8395f4e8340dfd9447c6d20f7065cede8e6b5"
+policy = "Refresh the retained full-content fingerprint from the live producer after authorized task repairs; original audit metadata remains historical. This is a source pin, not a claim that qualification passed."

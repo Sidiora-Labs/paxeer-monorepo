@@ -98,7 +98,7 @@ def test_pages_discovery_builds_actual_standalone_image_and_transports_it():
     dockerfile = (ROOT / build["file"]).read_text()
     instructions = [shlex.split(line) for line in dockerfile.splitlines()
                     if line.startswith(("FROM ", "WORKDIR ", "COPY ", "CMD "))]
-    assert ["FROM", "node:22-alpine", "AS", "runner"] in instructions
+    assert ["FROM", "node:22.22.0-alpine3.22@sha256:7aa86fa052f6e4b101557ccb56717cb4311be1334381f526fe013418fe157384", "AS", "runner"] in instructions
     assert ["WORKDIR", "/src/apps/wallet"] in instructions
     for source, destination in (
         ("/src/apps/wallet/.next/standalone", "./"),

@@ -121,7 +121,11 @@ impl PreparationLifecycle {
                 call_bound: false,
                 durable_terminal: false,
                 state: LifecycleState::Prepared,
-                not_after: prepared.disclosure.expiry.not_after,
+                not_after: prepared
+                    .disclosure
+                    .expiry
+                    .not_after
+                    .min(prepared.disclosure.expiry.payload_expires_at),
                 reservation_ids,
                 signed_bytes: None,
                 activity_id: None,

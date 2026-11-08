@@ -219,7 +219,7 @@ def test_readme_topology_build_and_launch_use_the_merged_paxd_entry_point():
     ):
         assert fact in build, fact
     makefile = source("Makefile")
-    assert "\npaxd-native-libs: $(LIBRARY) programs-release-build\n" in makefile
+    assert "\npaxd-native-libs: $(LIBRARY) programs-release-build evmone-lib\n" in makefile
     assert "\npaxd-build: paxd-native-libs\n" in makefile
     assert "-o ./build/paxd ./daemon/paxd" in source("chain.mk")
     assert "server.AddCommands(" in source("daemon/paxd/cmd/root.go")

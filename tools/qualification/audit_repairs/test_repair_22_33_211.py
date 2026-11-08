@@ -183,7 +183,7 @@ def test_build_examples_target_linked_paxd_and_node_start():
     assert "operator-provided genesis and consensus chain identifier" in build
     assert "running network entry point is `paxd`" in build
     makefile = source("Makefile")
-    assert "\npaxd-native-libs: $(LIBRARY) programs-release-build\n" in makefile
+    assert "\npaxd-native-libs: $(LIBRARY) programs-release-build evmone-lib\n" in makefile
     assert "\npaxd-build: paxd-native-libs\n" in makefile
     assert "-o ./build/paxd ./daemon/paxd" in source("chain.mk")
     assert "server.AddCommands(" in source("daemon/paxd/cmd/root.go")

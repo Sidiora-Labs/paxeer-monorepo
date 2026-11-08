@@ -45,7 +45,9 @@ def test_openrpc_retired_server_alias_is_not_advertised():
 def test_openrpc_introduction_describes_merged_hosted_namespace_contract():
     document = openrpc()
     names = [method["name"] for method in document["methods"]]
-    assert len(names) == len(set(names)) == 17
+    assert len(names) == len(set(names)) == 22
+    assert {"px_getInferenceRooms", "px_getInferenceRoom", "px_getInferenceDeal",
+            "px_getInferencePeer", "px_getInferenceReceipts"} <= set(names)
     assert "pax_sequencerReceipt" in names
     assert "px_getRouteCatalogue" in names
     assert all(name.startswith("px_") or name == "pax_sequencerReceipt" for name in names)
@@ -105,10 +107,12 @@ def test_openrpc_locations_match_production_catalogue_and_transport_source():
     transport = source("main.rs").split("fn route_with_peer(", 1)[1]
     retired = transport.index('if path == "/rpc"')
     refusal = transport.index('return response(404, "not_found", None);', retired)
-    dispatch = transport.index('if request.path == "/" && request.method == "POST"')
+    dispatch = transport.index("public_reads::route(config, request)")
     assert retired < refusal < dispatch
     assert 'path.starts_with("/rpc/")' in transport[retired:refusal]
-    assert "return rpc::route(config, request);" in transport[dispatch:]
+    public = source("public_reads.rs")
+    assert 'matches!(request.path.as_str(), "/" | "/openrpc.json")' in public
+    assert "return Some(super::rpc::route(config, request));" in public
     consumer = source("routes.rs")
     assert "layerx_platform_gateway::unified_service_catalogue()" in consumer
     discovery = consumer.split('if request.path == "/v1/routes" ||', 1)[1]
@@ -117,7 +121,7 @@ def test_openrpc_locations_match_production_catalogue_and_transport_source():
     assert "return Some(json_response(200, &document));" in discovery
     rpc = source("rpc.rs")
     assert 'if method == "px_getRouteCatalogue"' in rpc
-    assert 'crate::routes::rpc_catalogue(config, request, &id, value.get("params"))' in rpc
+    assert 'super::routes::rpc_catalogue(config, request, &id, value.get("params"))' in rpc
 
 
 def test_openrpc_repair_record_maps_finding_and_proof_limits():

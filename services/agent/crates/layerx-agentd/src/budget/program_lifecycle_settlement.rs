@@ -1909,12 +1909,7 @@ pub(super) fn native_lifecycle_debits(
 ) -> Result<Vec<ProgramExecutedDebit>, ProgramSettlementError> {
     use layerx_crypto::disclosure::DisclosedNativeOperation as Operation;
     use layerx_crypto::evm_transaction::transaction_hash;
-    let actor = layerx_wire::hash::did_id_for_protocol(
-        &layerx_types::ids::Did::new(&prepared.disclosure.actor)
-            .map_err(|_| ProgramSettlementError::Preparation)?,
-        3,
-    )
-    .map_err(|_| ProgramSettlementError::Preparation)?;
+    let actor = super::native_settlement::retained_actor_id(prepared)?;
     let [log] = logs else {
         return Err(ProgramSettlementError::Terminal);
     };

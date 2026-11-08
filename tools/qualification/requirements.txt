@@ -1,0 +1,19 @@
+# Match the maintained launchpad load lock, whose installed versions are audited.
+attrs==26.1.0
+cffi==2.1.1
+cryptography==50.0.0
+iniconfig==2.3.1
+jsonschema==4.25.1
+jsonschema-specifications==2025.9.1
+packaging==26.3
+pluggy==1.7.0
+pycparser==3.12
+pygments==2.21.0
+pytest==9.0.3
+referencing==0.37.0
+rpds-py==2026.9.1
+typing-extensions==4.16.0
+pycryptodome
+PyYAML
+eth-hash[pycryptodome]
+fastapi

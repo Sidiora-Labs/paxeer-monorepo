@@ -28,9 +28,15 @@ def test_no_digest_of_deleted_node_tests():
 
     winddown = (QUALIFICATION / "paxeer-x/programs_accounts_winddown.py").read_text()
     assert "'services/platform/hosted/agent-boundary'," not in winddown
-    assert "services/platform/hosted/agent-boundary/src" in winddown
+    assert "'node', 'rpc', 'precompiles'" in winddown
+    assert "'core', 'programs', 'modules', 'src', 'include'" in winddown
     producer = (ROOT / "scripts/qualification/paxeer-x/program-http-producer.py").read_text()
-    assert ":(exclude)**/agent-boundary/tests/**" in producer
+    identity = next(node for node in ast.parse(producer).body
+                    if isinstance(node, ast.FunctionDef) and node.name == "source_identity")
+    assert "services/platform/hosted/agent-boundary" not in ast.unparse(identity)
+    assert "set(source) == {'revision', 'tree'}" in ast.unparse(identity)
+    assert "source['revision'] == revision" in ast.unparse(identity)
+    assert "return dict(source)" in ast.unparse(identity)
 
 
 def test_custody_profile_omits_owner_custody():
@@ -38,8 +44,10 @@ def test_custody_profile_omits_owner_custody():
     source = path.read_text()
     ast.parse(source, filename=str(path))
     assert "owner_custody.py" not in source
-    assert "layerx-human-movement-provider" in source
-    assert "services/platform/hosted/human/material.py" in source
+    assert "class BankMovement:" in source
+    assert "profile['module'] == 'bank'" in source
+    assert "merged_qualification as merged" in source
+    assert "retained bank authority or committed proof changed" in source
 
 
 def test_no_paxeer_client_crate_listed():
