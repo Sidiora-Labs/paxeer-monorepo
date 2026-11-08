@@ -36202,3 +36202,19 @@ symbol = "signer.rs::keystore_signer_refuses_activity_preimages_and_signs_the_bi
 observed = "Attempt 6 at 21576b957f45 (base 29e8b1130a): build exit 0; the verification never ran because the compile check of the dependent crates exited 101 at the bridge relayer test target repair_22_31_160 (evm/package-lock.json missing on main); the local crate suite failed one case, auth_lifecycle_call_discloses_the_governance_payload at tests/disclosure_call.rs line 411; log /out/logs/dependents-1.log."
 assumption = "Both failures predate the attempt: the missing lock file since 22.39.124 and the stale malformed row since 22.31.496."
 severity = "high"
+
+[finding.22.39.26.4]
+task = "22.39.26"
+file = "tests/ci/test_qualification_suites_have_ci_host.py"
+symbol = "test_qualification_suites_have_ci_host.py"
+observed = "Attempt 4 at af2711cdcd84 (base d27e49f022): build exit 0 twice; verification exit 2 twice, 4448 passed and test_finding_7_final_bytes_are_bounded_deployed_and_then_published failed, first at line 105 (consumer fact), then at line 119 (harness fact); log /out/logs/verify-2.log."
+assumption = "The one stale quotation is the whole remaining failure; the host, the job and the make target are complete."
+severity = "high"
+
+[finding.22.39.174.1]
+task = "22.39.174"
+file = "services/interop/crates/layerx-bridge-relayer/tests/support/evm"
+symbol = "evm"
+observed = "Attempt 1 at bc0483b770c3 (base f6511609fe): build exit 0, every test target compiled; verification exit 101: one target failed, repair_22_31_160 with two passed and five failed (one read ECONNRESET from the EVM host helper at line 123, four PoisonError at line 160); log /out/logs/verify-1.log."
+assumption = "The lock file is right; the remaining failure is one connection reset of the in-process EVM host amplified by the shared lock."
+severity = "high"
