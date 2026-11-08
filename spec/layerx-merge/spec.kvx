@@ -210773,7 +210773,7 @@ do_4 = "Attempt 3 (continue, gotchas 3611 and 3621, decisions 2820, 2857 and 291
 
 [task.22.39.86]
 title = "Repair the six node sequencer test failures the standby commit hang masked"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.39.40", "22.39.165"]
@@ -334545,7 +334545,7 @@ do_4 = "Attempt 2 (continue, gotcha 3604, decision 2771): the attempt-1 tree eac
 
 [task.22.39.133]
 title = "Bring the hosted node, testnet and platform manifest Python suites to the current deployment contract and retire their baseline entries"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.39.83"]
