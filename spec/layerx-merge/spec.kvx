@@ -183248,7 +183248,7 @@ do_3 = "Decision 2830, gotcha 3488. In crates/layerx-x402/tests/facilitator_evid
 
 [task.22.39.126]
 title = "Bring the gas station, interop gateway, interop service and migrate test suites to green and retire their baseline entries"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.39.74"]
