@@ -72,7 +72,7 @@ def test_finding_61_hosted_methods_have_an_explicit_server_contract():
     assert "deployment URL and credentials from the operator" in quickstart
     assert "does not establish method availability at public node URLs" in quickstart
     assert "`px_getReceiptKeys` is registered by the node" in quickstart
-    assert "Use each server's declared methods" in quickstart
+    assert "`px_register` and `px_requestFunds` are operations of the hosted identity and faucet services" in quickstart
     contract = json.loads((ROOT / contract_path).read_text(encoding="utf-8"))
     methods = {method["name"] for method in contract["methods"]}
     assert {"px_getReceiptKeys", "px_getAccount", "px_getBalances"} <= methods

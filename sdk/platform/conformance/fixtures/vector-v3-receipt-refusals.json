@@ -291,10 +291,9 @@
   "chainId": 125,
   "name": "vector-v3-receipt-refusals",
   "provenance": {
-    "source": "daemon/committed-fixture/vectors/vector-v3-receipt-refusals.json",
+    "generator": "rpc/sequencer_receipt_vectors_test.go",
     "section": "cases",
-    "generator": "daemon/committed-fixture/vector_v3.go",
-    "sourceSha256": "480ed0e242f16cd5064ba8a7a613ef24e96e9119d9327da3ffd67563ca12df5e",
-    "daemonSource": "daemon/committed-fixture/vectors/vector-v3-receipt-refusals.json"
+    "source": "sdk/platform/conformance/fixtures/sequencer-receipt-v1.json",
+    "sourceSha256": "2b16fbfed024f168c0f05295e11a34d61345c4d112ec51ebc502ab593bdc1541"
   }
 }

@@ -5,6 +5,7 @@ from fnmatch import fnmatch
 from hashlib import sha256
 from importlib.util import module_from_spec, spec_from_file_location
 from pathlib import Path
+import re
 import tomllib
 
 
@@ -83,8 +84,13 @@ def test_documented_gate_covers_the_complete_discovery_inventory():
         for path in (SDK / root).rglob("*.py")
         if fnmatch(path.name, "test_*.py") or fnmatch(path.name, "*_test.py")
     }
-    for name in record()["baseline"]["local_sha256"]:
-        assert f"`{name}`" in documentation
+    baseline = record()["baseline"]
+    documented = set(re.findall(r"^- `([^`]+\.py)`$", documentation, re.M))
+    extensions = set(baseline["discovery_extensions"])
+    assert extensions == {"test_x402_rpc_surface.py"}
+    assert not documented & extensions
+    assert documented | extensions == set(baseline["local_sha256"])
+    for name in baseline["local_sha256"]:
         assert (SDK / "tests" / name).resolve() in inventory
     assert inventory >= {
         path.resolve()

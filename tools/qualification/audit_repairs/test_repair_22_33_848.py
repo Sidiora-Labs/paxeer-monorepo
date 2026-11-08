@@ -321,16 +321,20 @@ def test_f062_services_and_protected_profile_keep_all_connected_acceptance_cases
     text = embedded("104.33.7")
     assert "inputs=load_profile(profile_path,revision,root)" in text
     assert "os.environ['LAYERX_" not in text
-    for fact in ("PAXEER_X_HOSTED_PROGRAM_PROFILE", "inputs['LAYERX_GATEWAY_KEY_SECRET']",
-                 "inputs['LAYERX_PROGRAM_CALL_ACTIVITY_FILE']", "inputs['LAYERX_RECEIPT_VERIFY_BIN']",
-                 "actual discovery failed", "actual code-bound interface failed", "interface digest mismatch",
-                 "actual noncommitting simulation failed", "missing idempotency must refuse", "actual call failed",
-                 "independent real receipt verification failed", "exact idempotent receipt replay failed",
-                 "tampered signed activity must refuse", "tuple(map(int,summary[0]))==(len(names),0,0)",
-                 "'rust','typescript','python','go','java','swift','csharp'"):
-        assert fact in text
-    assert "tools/paxeer-x/gates/hosted_profile.py" in assignment(text, "sources")
-    assert "tools/paxeer-x/gates/compiler_manifest.py" in assignment(text, "sources")
+    assert "owner.qualify(root,inputs)" in text
+    operations = (ROOT / "tools/paxeer-x/gates/program_operations.py").read_text()
+    for fact in ('inputs["LAYERX_PROGRAM_RPC_URL"]', 'inputs["LAYERX_PROGRAM_CALL_ARGUMENTS"]',
+                 '"registry", "get", program', '"interface", "get", program',
+                 '"interface digest mismatch"', '"successful noncommitting eth_call simulation required"',
+                 '"actual EVM transaction producer result required"',
+                 '"independent genuine signed receipt verification required"',
+                 '"duplicate committed transaction must refuse"', '"tampered signed envelope must refuse"',
+                 '"duplicate/tamper changed committed receipt"',
+                 'tuple(map(int, summary[0])) == (len(names), 0, 0)',
+                 '{"rust", "typescript", "python", "go", "java", "swift", "csharp"}'):
+        assert fact in operations
+    assert '"tools/paxeer-x/gates/hosted_profile.py"' in operations
+    assert '"tools/paxeer-x/gates/compiler_manifest.py"' in operations
 
 
 def test_f062_real_profile_producer_private_transport_consumer_and_reopen(tmp_path):

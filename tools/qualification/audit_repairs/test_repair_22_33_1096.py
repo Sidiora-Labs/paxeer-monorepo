@@ -177,7 +177,7 @@ def test_build_boundaries_produce_and_start_paxd():
     ):
         assert fact in build, fact
     makefile = source("Makefile")
-    assert re.search(r"^paxd-native-libs: \$\(LIBRARY\) programs-release-build$", makefile, re.M)
+    assert re.search(r"^paxd-native-libs: \$\(LIBRARY\) programs-release-build evmone-lib$", makefile, re.M)
     assert re.search(r"^paxd-build: paxd-native-libs$", makefile, re.M)
     assert "-o ./build/paxd ./daemon/paxd" in source("chain.mk")
     assert "server.AddCommands(" in source("daemon/paxd/cmd/root.go")

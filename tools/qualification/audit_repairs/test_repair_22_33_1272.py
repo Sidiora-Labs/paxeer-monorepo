@@ -117,15 +117,14 @@ def test_wasm_help_points_to_real_root_paxd_build_and_native_prerequisites():
     assert prerequisites == [commands[1][1]]
     assert len(recipe) == 1
     assert "version=$$(jq -er .version tools/release/version.json) &&" in recipe[0]
-    assert 'GOPROXY=off $(PAXEER_MAKE) build LDFLAGS="-X ' in recipe[0]
-    assert (
-        "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/version.Version=$$version"
-    ) in recipe[0]
+    assert 'GOPROXY=off $(PAXEER_MAKE) build VERSION="$$version"' in recipe[0]
+    assert "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/version.Version=$(VERSION)" in source("chain.mk")
+    assert "BUILD_FLAGS = -tags \"$(build_tags)\" -ldflags '$(paxd_ldflags)'" in source("chain.mk")
     root_makefile = source("Makefile")
     assert "PAXEER_DIR := $(CURDIR)" in root_makefile
     assert "PAXEER_MAKE := $(MAKE) -f $(PAXEER_DIR)/chain.mk" in root_makefile
     prerequisites, recipe = make_rule("Makefile", commands[1][1])
-    assert prerequisites == ["$(LIBRARY)", "programs-release-build"]
+    assert prerequisites == ["$(LIBRARY)", "programs-release-build", "evmone-lib"]
     assert recipe == []
     assert make_rule("Makefile", "programs-release-build")[1]
     prerequisites, recipe = make_rule("chain.mk", "build")

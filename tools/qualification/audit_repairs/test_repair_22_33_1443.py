@@ -87,8 +87,18 @@ def test_publication_and_manifest_describe_the_production_method_inventory():
     library = (GATEWAY / "src/lib.rs").read_text()
     inventory = library.split("pub const ROUTER_METHODS:", 1)[1].split("];", 1)[0]
     names = re.findall(r'"([a-zA-Z_]+)"', inventory)
-    assert len(names) == len(set(names)) == len(document["methods"]) == 17
-    assert set(names) == set(methods())
+    assert len(names) == len(set(names)) == 17
+    assert len(document["methods"]) == 22
+    inference = {
+        "px_getInferenceRooms", "px_getInferenceRoom", "px_getInferenceDeal",
+        "px_getInferencePeer", "px_getInferenceReceipts",
+    }
+    assert set(names) == set(methods()) - inference
+    assert set(methods()) - set(names) == inference
+    node = source("rpc/server.go")
+    assert node.count('Service: &pxInferenceAPI{account: pxAPI}') == 2
+    dispatch = rust_function("src/rpc.rs", "dispatch")
+    assert 'error(&id, -32601, "Method not found")' in dispatch
     description = document["info"]["description"]
     for retired in ("authenticated activity submission", "scoped subscriptions", "native core reads"):
         assert retired not in description
@@ -106,10 +116,12 @@ def test_registration_documents_tenant_binding_and_the_current_pin():
     method = methods()["px_register"]
     description = method["description"]
     registration = (GATEWAY / "src/rpc_register.rs").read_text()
-    tenant, = re.findall(r'const TENANT: &str = "([a-z]+)";', registration)
-    assert tenant == "beta"
-    assert f"current gateway pins tenant to {tenant}" in description
-    assert "no positional argument selects a tenant" in description
+    configured = rust_function("src/rpc_register.rs", "configured_tenant")
+    assert 'std::env::var("LAYERX_GATEWAY_TENANT")' in configured
+    assert 'registration requires trusted LAYERX_GATEWAY_TENANT' in configured
+    assert "LAYERX_GATEWAY_TENANT" in description
+    assert "operator configures the trusted tenant" in description
+    assert "no positional argument or request header selects a tenant" in description
     assert "<tenant>.<first 16 bytes" in description
     for domain in ("layerx-register-binding-v1", "layerx-register-subject-v1"):
         assert domain in description and f'b"{domain}"' in registration
@@ -119,12 +131,12 @@ def test_registration_documents_tenant_binding_and_the_current_pin():
     assert "hash.update(part);" in tagged
     subject = rust_function("src/rpc_register.rs", "subject")
     assert '"{tenant}.{}"' in subject and "[..32]" in subject
-    assert "&binding(TENANT, signer_public_key)" in rust_function("src/rpc_register.rs", "proven")
+    assert "&binding(tenant, signer_public_key)" in rust_function("src/rpc_register.rs", "proven")
     register = rust_function("src/rpc_register.rs", "register")
-    assert "let sub = subject(TENANT, &signer_public_key);" in register
+    assert "let sub = subject(tenant, &signer_public_key);" in register
     for path in ("/v1/principals", "/v1/signup", "/v1/signup/verify"):
         assert f'"{path}"' in register
-    assert '"tenant": TENANT' in register
+    assert '"tenant": tenant' in register
     assert [p["name"] for p in method["params"]] == [
         "signer_public_key", "registration_signature", "email_or_verification_token"
     ]
@@ -166,7 +178,7 @@ def test_history_selection_transport_and_consumers_match_the_documentation():
     sdk = source("sdk/wallet/src/endpoint.ts")
     assert 'historyPage(await rpc("px_getUnifiedHistory", historyParams(lowered, options)), true)' in web
     assert "txId: textOf(value.tx_id)" in web
-    assert "await this.hosted().call('px_getUnifiedHistory', [address, cursor, query.limit ?? null, null])" in sdk
+    assert "await this.rpc.call('px_getUnifiedHistory', [address, cursor, query.limit ?? null, null])" in sdk
     assert "account: page.account.evm_address" in sdk
     for name in ("px_getHistory", "px_getUnifiedHistory"):
         description = methods()[name]["description"]

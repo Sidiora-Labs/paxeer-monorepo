@@ -191,7 +191,7 @@ def test_doc_01_source_names_are_distinct_from_running_components():
     ):
         assert fact in build, fact
     makefile = source("Makefile")
-    assert "\npaxd-native-libs: $(LIBRARY) programs-release-build\n" in makefile
+    assert "\npaxd-native-libs: $(LIBRARY) programs-release-build evmone-lib\n" in makefile
     assert "\npaxd-build: paxd-native-libs\n" in makefile
     assert "-o ./build/paxd ./daemon/paxd" in source("chain.mk")
     release = section("Releases and Network Upgrades")

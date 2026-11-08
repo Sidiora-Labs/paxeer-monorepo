@@ -185,7 +185,7 @@ def test_root_readme_builds_and_starts_current_paxd_target():
     assert "tools/release/version.json" in recipe
     assert "$(PAXEER_MAKE) build" in recipe
     native_dependencies, _ = make_rule(makefile, "paxd-native-libs")
-    assert native_dependencies == ["$(LIBRARY)", "programs-release-build"]
+    assert native_dependencies == ["$(LIBRARY)", "programs-release-build", "evmone-lib"]
     dependencies, recipe = make_rule(source("chain.mk"), "build")
     assert dependencies == ["paxd-native-libs"]
     assert shlex.split(recipe) == [
