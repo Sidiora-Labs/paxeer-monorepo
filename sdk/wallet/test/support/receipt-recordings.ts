@@ -9,8 +9,14 @@ export interface ReceiptRecording {
   id: string;
   vector: string;
   rawTransaction: Hex;
+  receiptDigest: Hex;
   receiptJson: SequencerReceiptAnswer;
-  pinnedKey: { keyId: Hex; publicKey: Hex; firstHeight: string; lastHeight: string };
+  pinnedKey: {
+    keyId: Hex;
+    publicKey: Hex;
+    firstHeight: string | number;
+    lastHeight: string | number;
+  };
 }
 
 export const nodeVectors = recording<{
@@ -30,11 +36,32 @@ export function nodeVector(id: string): ReceiptRecording {
   return entry;
 }
 
-export function receiptPins(answer: SequencerReceiptAnswer): readonly ReceiptKeyPin[] {
+export function receiptRecording(answer: Pick<SequencerReceiptAnswer, 'txHash'>): ReceiptRecording {
   const entry = [...nodeVectors.cases, committedVector].find(
     (entry) => entry.receiptJson.txHash === answer.txHash
   );
   if (!entry) throw new Error(`missing governed key recording ${answer.txHash}`);
+  return entry;
+}
+
+export function authenticatedReceipt(answer: SequencerReceiptAnswer) {
+  if (answer.rung === 'submitted') return answer;
+  const entry = receiptRecording(answer);
+  return {
+    ...answer,
+    authentication: {
+      level: 'sequencer-signed' as const,
+      keyId: entry.pinnedKey.keyId,
+      signingKey: entry.pinnedKey.publicKey,
+      height: BigInt(answer.height!),
+      receiptDigest: entry.receiptDigest,
+      rawTransaction: entry.rawTransaction,
+    },
+  };
+}
+
+export function receiptPins(answer: SequencerReceiptAnswer): readonly ReceiptKeyPin[] {
+  const entry = receiptRecording(answer);
   return [
     {
       ...entry.pinnedKey,

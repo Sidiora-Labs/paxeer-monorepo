@@ -17,9 +17,7 @@ import { useStandardAccount, useWallet } from '../src/react.js';
 import { JsonRpcClient, JsonRpcTimeoutError } from '../src/rpc.js';
 import { readSequencerReceipt, waitForSequencerReceipt } from '../src/receipt.js';
 
-const requireDemo = createRequire(
-  new URL('../../../services/wallet/demo/package.json', import.meta.url)
-);
+const requireWallet = createRequire(import.meta.url);
 const recordedWallet = fixture('./fixtures/gateway/wallet-me.json').body;
 const receiptVector = fixture('../../platform/conformance/fixtures/sequencer-receipt-v1.json')
   .cases[0];
@@ -335,7 +333,7 @@ async function review_storage_environment_serializes_shared_clients_and_refuses_
 }
 
 async function react_auth_refresh_tracks_stable_client_and_discards_replaced_reads(): Promise<void> {
-  const { JSDOM } = requireDemo('jsdom');
+  const { JSDOM } = requireWallet('jsdom');
   const dom = new JSDOM('<!doctype html><div id="root"></div>', { url: 'http://localhost/' });
   const globals = new Map<string, PropertyDescriptor | undefined>();
   for (const [key, value] of Object.entries({
@@ -346,7 +344,7 @@ async function react_auth_refresh_tracks_stable_client_and_discards_replaced_rea
     globals.set(key, Object.getOwnPropertyDescriptor(globalThis, key));
     Object.defineProperty(globalThis, key, { configurable: true, writable: true, value });
   }
-  const { createRoot } = requireDemo('react-dom/client');
+  const { createRoot } = requireWallet('react-dom/client');
   const root = createRoot(dom.window.document.getElementById('root'));
   let heldPrincipal: string | null = null;
   const pending: { res: ServerResponse; principal: string }[] = [];

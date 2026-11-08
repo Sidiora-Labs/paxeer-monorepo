@@ -1,5 +1,6 @@
 """Keep first-party key material in documented test fixture directories."""
 
+import json
 from pathlib import Path, PurePosixPath
 import subprocess
 import tomllib
@@ -52,6 +53,19 @@ def test_key_like_files_live_under_fixtures():
 def test_key_material_baseline_is_empty():
     baseline = ROOT / "tests/ci/data/key_material_baseline.txt"
     assert baseline.read_bytes() == b"", "Key material has no baseline exceptions"
+
+
+def test_key_material_only_in_fixtures():
+    inventory = ROOT / "tests/ci/data/key_material_fixture_paths.json"
+    paths = json.loads(inventory.read_text(encoding="utf-8"))
+    assert paths, "Expected an inventory of key fixtures"
+    tracked = set(_tracked_key_paths())
+    for name in paths:
+        path = PurePosixPath(name)
+        assert not path.is_absolute() and ".." not in path.parts, name
+        assert ("tests", "fixtures") in zip(path.parts[:-1], path.parts[1:-1]), name
+        assert path in tracked, f"Key fixture is not tracked: {name}"
+        assert (ROOT / path).is_file(), f"Key fixture is missing: {name}"
 
 
 def test_fixture_key_dirs_have_test_only_readme():

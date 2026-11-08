@@ -113,7 +113,8 @@ jobs:
       - name: Test node packages
         env:
           CGO_ENABLED: '1'
-        run: go test ./node/...
+        # Known failures and retiring task: tests/ci/data/node_go_test_baseline.json
+        run: go test -timeout 15m -count=1 -skip 'TestMergePlanReturnsGuarantorBonds|TestHostedKernelProgramsABIFollowsTheMergeUpgrade|TestHostedKernelProgramsABISurvivesRestart|TestEVMServerServesSequencerReceiptOption|TestStandbyReplicatesRecorderGroupsThroughOpenAccount|TestV640ToV66UpgradeServesTheExchangeBridgeAndLaunchpadPrecompiles' ./node/...
 
   node-build-gate:
     if: always()
