@@ -52,6 +52,7 @@ node_modules/
 # Runtime state and logs
 /.logs/
 *.log
+!tools/jev/tests/fixtures/failures/*.log
 *.db
 *.db-*
 *.sqlite

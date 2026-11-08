@@ -58,11 +58,11 @@ jobs:
       - name: Install native tools suite dependencies
         run: >-
           sudo apt-get update && sudo apt-get install --yes
-          build-essential libssl-dev libsqlite3-dev pkg-config ripgrep python3-venv jq openssl openssh-server zstd
+          build-essential libssl-dev libsqlite3-dev pkg-config ripgrep python3-venv jq openssl openssh-server nginx libnginx-mod-stream zstd
       - name: Install Python test dependencies
         run: |
           python3 -m venv "$RUNNER_TEMP/tools-python"
-          "$RUNNER_TEMP/tools-python/bin/python3" -m pip install pytest PyYAML -r tests/bridge/requirements.txt
+          "$RUNNER_TEMP/tools-python/bin/python3" -m pip install pytest PyYAML requests -r tests/bridge/requirements.txt
           echo "$RUNNER_TEMP/tools-python/bin" >> "$GITHUB_PATH"
       - name: Install pinned tools suite toolchain
         run: rustup toolchain install 1.91.1 --profile minimal

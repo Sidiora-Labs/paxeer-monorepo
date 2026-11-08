@@ -1,0 +1,7 @@
+PASS authority.valid-signature
+tests/test_authority_multisig.c:214 expected=3 produced=4
+FAIL authority.multisig-resolution
+tests/test_authority_multisig.c:388 expected=LXP_RESULT_AUTHORITY_TIMELOCK(19) produced=LXP_RESULT_OK(0)
+FAIL authority.timelock-resolution
+tests/codec/lxp_test_codec_vectors.c:141 expected=9f2c4b7d1e08a3560b7c2d9e4f108a3b produced=00000000000000000000000000000000
+FAIL codec.vector-roundtrip
