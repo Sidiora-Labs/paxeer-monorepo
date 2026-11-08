@@ -226,7 +226,7 @@ func TestFinalizeAdoptedSealedBlockMatchesReexecution(t *testing.T) {
 
 	var snapshot bytes.Buffer
 	require.NoError(t, h.w.App.CommitMultiStore().Snapshot(1, protoio.NewDelimitedWriter(&snapshot)))
-	follower := app.Setup(t, true, false, false, func(ba *baseapp.BaseApp) {
+	follower := app.SetupWithSc(t, true, false, app.TestAppOpts{ImportNumWorkers: 1}, func(ba *baseapp.BaseApp) {
 		ba.SetOccEnabled(false)
 		ba.SetStoreLoader(func(ms sdk.CommitMultiStore) error {
 			if err := ms.LoadLatestVersion(); err != nil {

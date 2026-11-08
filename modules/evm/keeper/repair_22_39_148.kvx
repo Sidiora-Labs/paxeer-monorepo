@@ -1,0 +1,54 @@
+[repair.22.39.148]
+mode = "BUILD"
+acceptance = "22998.1"
+source_revision = "03eb3ce720bdce48270c8dba2496f6c04b50c5cc"
+decision = "2865"
+gotcha = "3556"
+test = "TestFeeTokenRateErrorsCarryTheirCodeAndMessage"
+evidence = "The hf-build and hf-done entries in /out/run/gates.jsonl name the candidate revision, exact command, exit code and private log; qualification requires both gates to pass at the same revision."
+
+[change.imports]
+path = "modules/evm/keeper/params.go"
+source_lines = "4, 9 (insert after)"
+producer_fact = "Remove the now-unused fmt import and import sdk/types/errors as sdkerrors, whose Wrapf exposes Cause for ABCIInfo."
+
+[change.invalid_rate]
+path = "modules/evm/keeper/params.go"
+source_lines = "323"
+producer_fact = "GetFeeTokenRate returns sdkerrors.Wrapf of ErrFeeTokenRateInvalid for a nil or nonpositive rate, preserving rate and denom details and ABCI identity."
+
+[change.invalid_height]
+path = "modules/evm/keeper/params.go"
+source_lines = "327"
+producer_fact = "GetFeeTokenRate returns sdkerrors.Wrapf of ErrFeeTokenRateInvalid for a negative or future update height, preserving update height, block height and denom details."
+
+[change.invalid_age]
+path = "modules/evm/keeper/params.go"
+source_lines = "331"
+producer_fact = "GetFeeTokenRate returns sdkerrors.Wrapf of ErrFeeTokenRateInvalid for a nonpositive maximum age, preserving the maximum-age detail."
+
+[change.stale_rate]
+path = "modules/evm/keeper/params.go"
+source_lines = "334"
+producer_fact = "GetFeeTokenRate returns sdkerrors.Wrapf of ErrFeeTokenRateStale, retaining update height, block height, maximum age and denom details."
+
+[change.unavailable_rate]
+path = "modules/evm/keeper/params.go"
+source_lines = "338"
+producer_fact = "GetFeeTokenRate returns sdkerrors.Wrapf of ErrFeeTokenRateUnavailable, retaining the requested denom detail."
+
+[change.invalid_update]
+path = "modules/evm/keeper/params.go"
+source_lines = "356"
+producer_fact = "ValidateFeeTokenRateUpdate returns sdkerrors.Wrapf of ErrFeeTokenRateInvalid, retaining rate and denom details."
+
+[change.spread_update]
+path = "modules/evm/keeper/params.go"
+source_lines = "359"
+producer_fact = "ValidateFeeTokenRateUpdate returns sdkerrors.Wrapf of ErrFeeTokenRateSpread, retaining denom, previous rate, new rate and spread details."
+
+[change.producer_assertions]
+path = "modules/evm/keeper/params_test.go"
+source_lines = "58 (insert after)"
+producer_fact = "Extend the existing test with three real parameter-store cases driving GetFeeTokenRate: zero rate, future update height and zero maximum age; assert a nil rate, errors.Is identity, registered evm code 102 and the full contextual ABCI log with debug disabled."
+preserved = "Existing bare-error and SDK-wrapped assertions stay intact; keeper validation order and contextual message formats stay intact."

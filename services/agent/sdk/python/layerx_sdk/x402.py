@@ -21,9 +21,9 @@ if TYPE_CHECKING:
     from .committed import CommitTrust
 
 
-PaymentCommitment = Literal["submitted", "receipted", "committed"]
+PaymentCommitment = Literal["receipted", "committed"]
 PAYMENT_RECEIPT_PROTOCOL_VERSIONS = (2, 3)
-PAYMENT_RUNGS = ("submitted", "receipted", "committed")
+PAYMENT_RUNGS = ("receipted", "committed")
 LAYERX_LEDGER_ADDRESS = bytes.fromhex("000000000000000000000000000000000000101a")
 LEDGER_DRAW_TYPES = ("bytes32", "bytes32", "uint128", "bytes32", "uint64", "bytes32", "bytes32")
 
@@ -96,18 +96,19 @@ def payment_commitment(extra: object = None) -> PaymentCommitment:
 def _layerx_terms(extra: object) -> Mapping | None:
     if not isinstance(extra, Mapping):
         return None
-    layerx = extra.get("layerx")
-    if layerx is None:
+    if "layerx" not in extra:
         return None
+    layerx = extra["layerx"]
     if not isinstance(layerx, Mapping):
         _failure()
     return layerx
 
 
 def payment_payer(extra: object = None, *, required: bool = False) -> str | None:
-    payer = (_layerx_terms(extra) or {}).get("payer")
-    if payer is None and not required:
+    terms = _layerx_terms(extra) or {}
+    if "payer" not in terms and not required:
         return None
+    payer = terms.get("payer")
     if (
         not isinstance(payer, str)
         or len(payer) != 64
@@ -119,9 +120,10 @@ def payment_payer(extra: object = None, *, required: bool = False) -> str | None
 
 
 def payment_purpose(extra: object = None, *, required: bool = False) -> str | None:
-    purpose = (_layerx_terms(extra) or {}).get("purposeHash")
-    if purpose is None and not required:
+    terms = _layerx_terms(extra) or {}
+    if "purposeHash" not in terms and not required:
         return None
+    purpose = terms.get("purposeHash")
     if (
         not isinstance(purpose, str)
         or len(purpose) != 64
@@ -154,6 +156,15 @@ def verify_sequencer_receipt(
     return verified
 
 
+def payment_identifier(value: object) -> bytes:
+    if not isinstance(value, str):
+        _failure()
+    digits = value[2:] if value.startswith("0x") else value
+    if len(digits) != 64 or any(c not in "0123456789abcdefABCDEF" for c in digits):
+        _failure()
+    return bytes.fromhex(digits)
+
+
 def verify_payment_receipt(
     signed_receipt: bytes,
     raw_transaction: bytes,
@@ -163,6 +174,8 @@ def verify_payment_receipt(
     asset: str,
     pay_to: str,
     payer: str | None = None,
+    ledger_payer: str | None = None,
+    purpose_hash: str | None = None,
     return_data: bytes | None = None,
     commitment: PaymentCommitment = "receipted",
     finality=None,
@@ -180,14 +193,11 @@ def verify_payment_receipt(
         or not 0 < int(amount) < 1 << 128
     ):
         _failure()
-    for identifier in (asset, pay_to) + (() if payer is None else (payer,)):
-        if (
-            not isinstance(identifier, str)
-            or len(identifier) != 64
-            or any(c not in "0123456789abcdef" for c in identifier)
-        ):
-            _failure()
-    if payer == "0" * 64:
+    asset_bytes, recipient = payment_identifier(asset), payment_identifier(pay_to)
+    sender = None if payer is None else payment_identifier(payer)
+    ledger_from = None if ledger_payer is None else payment_identifier(ledger_payer)
+    reference = None if purpose_hash is None else payment_identifier(purpose_hash)
+    if sender == bytes(32) or ledger_from == bytes(32) or reference == bytes(32):
         _failure()
     verified = verify_sequencer_receipt(
         signed_receipt,
@@ -197,9 +207,14 @@ def verify_payment_receipt(
     )
     receipt = verified.receipt
     try:
-        transaction, _ = decode_signed_transaction(raw_transaction)
+        transaction, signature = decode_signed_transaction(raw_transaction)
+        recovered = bytes.fromhex(transaction.recover_signer(signature)[2:]).rjust(32, b"\0")
     except EvmTransactionError as error:
         raise PlatformSdkError(SdkErrorCode.VERIFICATION_FAILURE, "never") from error
+    if (verified.receipt.from_account != recovered
+            or verified.receipt.to_account != transaction.to.rjust(32, b"\0")
+            or sender is not None and recovered != sender):
+        _failure("payer")
     transaction_operation = 2 if raw_transaction[0] == 2 else 0
     if receipt.module_id != 12 or receipt.operation != transaction_operation or not receipt.effects:
         _failure()
@@ -224,14 +239,15 @@ def verify_payment_receipt(
         selector = encode_call("payExact", ("bytes32", "bytes32", "bytes32", "uint128", "uint64", "bytes32"),
                                (bytes(32), bytes(32), bytes(32), 0, 0, bytes(32)))[:4]
         if (len(calldata) != 196 or calldata[:4] != selector
-                or calldata[36:68].hex() != pay_to or calldata[68:100].hex() != asset
+                or calldata[36:68] != recipient or calldata[68:100] != asset_bytes
                 or int.from_bytes(calldata[100:132], "big") != int(amount)
                 or int.from_bytes(calldata[132:164], "big") >= 1 << 64
-                or payer is not None and calldata[4:36].hex() != payer):
+                or ledger_from is not None and calldata[4:36] != ledger_from
+                or reference is not None and calldata[164:196] != reference):
             _failure()
         topic = keccak256(b"PaymentExact(bytes32,bytes32,bytes32,bytes32,uint128)")
-        data_digest = sha256(bytes.fromhex(asset) + int(amount).to_bytes(32, "big")).digest()
-        indexed = (calldata[164:196], calldata[4:36], bytes.fromhex(pay_to))
+        data_digest = sha256(asset_bytes + int(amount).to_bytes(32, "big")).digest()
+        indexed = (calldata[164:196], calldata[4:36], recipient)
     else:
         _failure()
     payments = 0
@@ -264,7 +280,6 @@ def verify_payment_receipt(
     if payments != 1:
         _failure()
     if commitment == "committed":
-        from .committed import verify_committed_transaction
         if finality is None:
             _failure()
         if not isinstance(finality, tuple) or len(finality) != 2:
@@ -283,4 +298,7 @@ def ledger_payment_payer(verified: SequencerReceiptVerification, raw_transaction
         refuse_payer_grant()
     if scheme != "exact":
         _failure()
-    return decode_payment_transaction(raw_transaction).data[4:36].hex()
+    transaction = decode_payment_transaction(raw_transaction)
+    if transaction.sender.rjust(32, b"\0") != verified.receipt.from_account:
+        _failure("payer")
+    return verified.receipt.from_account.hex()

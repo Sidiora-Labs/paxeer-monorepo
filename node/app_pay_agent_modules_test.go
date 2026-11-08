@@ -7,6 +7,7 @@ import (
 	abci "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/abci/types"
 	agenttypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxagent/types"
 	authtypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxauth/types"
+	chainstypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxchains/types"
 	govtypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxgov/types"
 	paytypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxpay/types"
 	app "github.com/Sidiora-Labs/Paxeer-X-Network/node"
@@ -31,7 +32,9 @@ func TestAppBuildsPayKeeperOverSharedHost(t *testing.T) {
 	var stored paytypes.Params
 	require.NoError(t, json.Unmarshal(encoded, &stored))
 	require.Equal(t, params, stored)
-	record := kv.Pair{Key: paytypes.KernelKVKey(paytypes.EscrowModuleID, []byte("shared-host-probe")), Value: []byte{1, 2, 3}}
+	gate, err := paytypes.KernelModuleEnableKey(paytypes.EscrowModuleID)
+	require.NoError(t, err)
+	record := kv.Pair{Key: gate, Value: make([]byte, 32)}
 	require.NoError(t, w.App.LayerXPayKeeper.InitGenesis(w.Ctx, paytypes.GenesisState{Params: params, KernelRecords: []kv.Pair{record}}))
 	require.Equal(t, record.Value, w.Ctx.KVStore(w.App.GetKey(app.LayerXHostStoreKey)).Get(record.Key))
 	require.Contains(t, w.App.LayerXPayKeeper.ExportGenesis(w.Ctx).KernelRecords, record)
@@ -39,7 +42,7 @@ func TestAppBuildsPayKeeperOverSharedHost(t *testing.T) {
 
 func TestAppRegistersPayAndAgentModulesInGenesisOrder(t *testing.T) {
 	w := mergedAppWrapper(t)
-	order := mergedModuleOrder(t, w.App, authtypes.ModuleName, paytypes.ModuleName, agenttypes.ModuleName)
+	order := mergedModuleOrder(t, w.App, authtypes.ModuleName, paytypes.ModuleName, chainstypes.ModuleName, agenttypes.ModuleName)
 	authAt := -1
 	for i, name := range order {
 		if name == authtypes.ModuleName {
@@ -47,8 +50,8 @@ func TestAppRegistersPayAndAgentModulesInGenesisOrder(t *testing.T) {
 		}
 	}
 	require.GreaterOrEqual(t, authAt, 0)
-	require.GreaterOrEqual(t, len(order), authAt+3)
-	require.Equal(t, []string{paytypes.ModuleName, agenttypes.ModuleName}, order[authAt+1:authAt+3])
+	require.GreaterOrEqual(t, len(order), authAt+4)
+	require.Equal(t, []string{paytypes.ModuleName, chainstypes.ModuleName, agenttypes.ModuleName}, order[authAt+1:authAt+4])
 	pay := paytypes.DefaultGenesis()
 	pay.Params.Paused = false
 	pay.KernelRecords = []kv.Pair{{Key: paytypes.KernelKVKey(paytypes.BudgetModuleID, []byte("genesis-probe")), Value: []byte{4, 5}}}

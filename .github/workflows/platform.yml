@@ -18,8 +18,6 @@ permissions:
 
 env:
   CARGO_TERM_COLOR: always
-  LAYERX_TEN_LINE_REGISTRY_SNAPSHOT: ${{ vars.LAYERX_TEN_LINE_REGISTRY_SNAPSHOT }}
-  LAYERX_TEN_LINE_REGISTRY_URL: ${{ vars.LAYERX_TEN_LINE_REGISTRY_URL }}
 
 jobs:
   build-lint-test:
@@ -53,6 +51,10 @@ jobs:
         uses: swift-actions/setup-swift@7ca6abe6b3b0e8b5421b88be48feee39cbf52c6a # v2.4.0
         with:
           swift-version: "6.0.3"
+      - name: Install .NET for the C sharp SDK and sample
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          dotnet-version: "10.0.x"
       - name: Install locked platform JavaScript dependencies
         run: make platform-js-install
       - name: Install Java 21 for JVM dependencies and conformance
@@ -88,6 +90,11 @@ jobs:
       - name: Exercise the developer CLI end to end against the emulator
         run: make platform-test-tooling
       - name: Build the source-bound published quickstart benchmark
+        if: >-
+          (vars.LAYERX_TEN_LINE_REGISTRY_SNAPSHOT != '' || vars.LAYERX_TEN_LINE_REGISTRY_URL != '')
+        env:
+          LAYERX_TEN_LINE_REGISTRY_SNAPSHOT: ${{ vars.LAYERX_TEN_LINE_REGISTRY_SNAPSHOT }}
+          LAYERX_TEN_LINE_REGISTRY_URL: ${{ vars.LAYERX_TEN_LINE_REGISTRY_URL }}
         run: |
           umask 077
           ten_line_directory=$(mktemp -d "$RUNNER_TEMP/layerx-ten-line.XXXXXXXX")
@@ -98,7 +105,8 @@ jobs:
       - name: Build the framework integrations and scan client bundles for secrets
         run: make platform-test-middleware
       - name: Retain the actual published-package integration line counts
-        if: always()
+        if: >-
+          always() && (vars.LAYERX_TEN_LINE_REGISTRY_SNAPSHOT != '' || vars.LAYERX_TEN_LINE_REGISTRY_URL != '')
         uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
         with:
           name: ten-line-counts-${{ github.job }}-${{ github.run_attempt }}
@@ -176,7 +184,9 @@ jobs:
             sdk/integrations/ios/.derived/Build/Products/Release-iphonesimulator/LayerXWallet.app
 
   connected-middleware:
-    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    if: >-
+      vars.LAYERX_CONNECTED_MIDDLEWARE_FIXTURE != ''
+      && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
     runs-on: ${{ (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && 'ubuntu-24.04' || vars.CI_LINUX_RUNNER || 'ubuntu-24.04' }}
     timeout-minutes: 30
     steps:
@@ -236,7 +246,9 @@ jobs:
         run: make platform-test-connected-middleware
 
   real-agent-framework-journeys:
-    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    if: >-
+      vars.LAYERX_SCHEDULED_AGENT_SERVICES_MODULE != ''
+      && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
     runs-on: ${{ (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && 'ubuntu-24.04' || vars.CI_LINUX_RUNNER || 'ubuntu-24.04' }}
     timeout-minutes: 20
     strategy:
@@ -312,7 +324,9 @@ jobs:
           LAYERX_WEBHOOK_EXPECT=duplicate node sdk/integrations/agents/examples/agent-runtime/webhook-conformance.mjs
 
   real-ios-journey:
-    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    if: >-
+      vars.LAYERX_SCHEDULED_HUMAN_SERVICE_URL != ''
+      && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
     runs-on: macos-15
     timeout-minutes: 20
     steps:
@@ -353,7 +367,9 @@ jobs:
           make platform-real-ios-integration
 
   real-android-journey:
-    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    if: >-
+      vars.LAYERX_SCHEDULED_HUMAN_SERVICE_URL != ''
+      && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
     runs-on: ${{ (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && 'ubuntu-24.04' || vars.CI_LINUX_RUNNER || 'ubuntu-24.04' }}
     timeout-minutes: 20
     steps:
@@ -558,7 +574,9 @@ jobs:
           if-no-files-found: error
 
   publish-crates-io:
-    if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/sdk-v')
+    if: >-
+      vars.LAYERX_RELEASE_CRATES_IO_INDEX != ''
+      && (github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/sdk-v'))
     needs: [release-pipeline]
     runs-on: ubuntu-24.04
     timeout-minutes: 90
@@ -720,7 +738,9 @@ jobs:
           if-no-files-found: error
 
   publish-npm:
-    if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/sdk-v')
+    if: >-
+      vars.LAYERX_RELEASE_NPM_REGISTRY != ''
+      && (github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/sdk-v'))
     needs: [release-pipeline]
     runs-on: ubuntu-24.04
     timeout-minutes: 45
@@ -846,7 +866,9 @@ jobs:
           if-no-files-found: error
 
   publish-pypi:
-    if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/sdk-v')
+    if: >-
+      vars.LAYERX_RELEASE_PYPI_INDEX_URL != ''
+      && (github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/sdk-v'))
     needs: [release-pipeline]
     runs-on: ubuntu-24.04
     timeout-minutes: 45
@@ -960,7 +982,9 @@ jobs:
           if-no-files-found: error
 
   publish-go-modules:
-    if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/sdk-v')
+    if: >-
+      vars.LAYERX_RELEASE_GO_PROXY != ''
+      && (github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/sdk-v'))
     needs: [release-pipeline]
     runs-on: ubuntu-24.04
     timeout-minutes: 45
@@ -1082,7 +1106,9 @@ jobs:
           if-no-files-found: error
 
   publish-maven-central:
-    if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/sdk-v')
+    if: >-
+      vars.LAYERX_RELEASE_MAVEN_REPOSITORY_URL != ''
+      && (github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/sdk-v'))
     needs: [release-pipeline]
     runs-on: ubuntu-24.04
     timeout-minutes: 120
@@ -1229,7 +1255,9 @@ jobs:
           if-no-files-found: error
 
   publish-swiftpm:
-    if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/sdk-v')
+    if: >-
+      vars.LAYERX_RELEASE_SWIFTPM_URL != ''
+      && (github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/sdk-v'))
     needs: [release-pipeline]
     runs-on: ubuntu-24.04
     timeout-minutes: 45
@@ -1367,7 +1395,9 @@ jobs:
           if-no-files-found: error
 
   publish-nuget:
-    if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/sdk-v')
+    if: >-
+      vars.LAYERX_RELEASE_NUGET_SOURCE != ''
+      && (github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/sdk-v'))
     needs: [release-pipeline]
     runs-on: ubuntu-24.04
     timeout-minutes: 60
@@ -1389,7 +1419,7 @@ jobs:
       - name: Install .NET
         uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
         with:
-          dotnet-version: "8.0.x"
+          dotnet-version: "10.0.x"
       - name: Install cosign
         uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
       - name: Install syft
@@ -1463,7 +1493,7 @@ jobs:
           dotnet new nugetconfig
           dotnet nuget remove source nuget.org --configfile nuget.config
           dotnet nuget add source "$LAYERX_RELEASE_TARGET" --name release --configfile nuget.config
-          dotnet new console --framework net8.0 --name check --output .
+          dotnet new console --framework net10.0 --name check --output .
           for attempt in $(seq 1 30); do
             if dotnet add package LayerX.Sdk --version "$LAYERX_RELEASE_VERSION" --source "$LAYERX_RELEASE_TARGET"; then
               break
@@ -1497,13 +1527,17 @@ jobs:
           if-no-files-found: error
 
   release-verification:
-    if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/sdk-v')
+    if: >-
+      (vars.LAYERX_TEN_LINE_REGISTRY_SNAPSHOT != '' || vars.LAYERX_TEN_LINE_REGISTRY_URL != '')
+      && (github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/sdk-v'))
     needs: [release-pipeline, publish-crates-io, publish-npm, publish-pypi, publish-go-modules, publish-maven-central, publish-swiftpm, publish-nuget]
     runs-on: ${{ (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && 'ubuntu-24.04' || vars.CI_LINUX_RUNNER || 'ubuntu-24.04' }}
     timeout-minutes: 45
     permissions:
       contents: read
     env:
+      LAYERX_TEN_LINE_REGISTRY_SNAPSHOT: ${{ vars.LAYERX_TEN_LINE_REGISTRY_SNAPSHOT }}
+      LAYERX_TEN_LINE_REGISTRY_URL: ${{ vars.LAYERX_TEN_LINE_REGISTRY_URL }}
       LAYERX_RELEASE_VERSION: ${{ needs.release-pipeline.outputs.version }}
     steps:
       - name: Check out source with every release tag for the rollback identity
@@ -1610,7 +1644,9 @@ jobs:
           if-no-files-found: error
 
   hosted-testnet-journey:
-    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    if: >-
+      vars.LAYERX_SCHEDULED_TESTNET_URL != ''
+      && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
     runs-on: ${{ (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && 'ubuntu-24.04' || vars.CI_LINUX_RUNNER || 'ubuntu-24.04' }}
     timeout-minutes: 15
     steps:
