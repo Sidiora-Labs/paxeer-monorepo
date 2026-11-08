@@ -1,10 +1,9 @@
 //! Native call and disclosure bindings shared by source selection and settlement.
 
 use crate::prepare::{EvmPrepared, Prepared};
-use crate::sign::VerifiedSubmission;
-use layerx_crypto::disclosure::call::{validate_call, validate_canonical};
+use crate::sign::{SigningPreparation, VerifiedSubmission};
 use layerx_crypto::evm_transaction::{
-    decode_signed, decode_unsigned, recover_sender, transaction_hash, Eip1559Call,
+    decode_signed, recover_sender, transaction_hash, Eip1559Call,
 };
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -23,50 +22,103 @@ pub fn validate_native_preparation(prepared: &EvmPrepared) -> Result<(), NativeB
     Ok(())
 }
 
-/// Verifies native bytes retained in the durable preparation carrier.
+/// Binds a wire carrier to the signing preparation retained under its preparation identity.
 pub fn validate_retained_preparation(
     prepared: &Prepared,
+    signing: Option<&SigningPreparation>,
 ) -> Result<Eip1559Call, NativeBindingError> {
-    let call =
-        decode_unsigned(&prepared.canonical_bytes).map_err(|_| NativeBindingError::Preparation)?;
-    let sender = prepared
+    let signing = signing.ok_or(NativeBindingError::Preparation)?;
+    validate_native_preparation(&signing.transaction)?;
+    if signing.actor_address != signing.transaction.from
+        || signing.transaction.observed_head_height != prepared.observed_head_sequence
+    {
+        return Err(NativeBindingError::Preparation);
+    }
+    validate_retained_call(prepared, &signing.transaction.call, signing.actor_address)?;
+    Ok(signing.transaction.call.clone())
+}
+
+/// Checks the wire representation independently of the native transaction representation.
+pub(super) fn validate_retained_carrier(prepared: &Prepared) -> Result<(), NativeBindingError> {
+    let native_carrier = prepared
         .disclosure
-        .actor
-        .as_slice()
-        .try_into()
-        .map_err(|_| NativeBindingError::Sender)?;
-    validate_call(&call, &prepared.disclosure, sender)
-        .map_err(|_| NativeBindingError::Preparation)?;
-    validate_canonical(&prepared.disclosure, &prepared.canonical_bytes)
+        .construct_method()
+        .map_err(|_| NativeBindingError::Preparation)?
+        .is_some();
+    prepared
+        .disclosure
+        .validate_canonical(&prepared.canonical_bytes)
         .map_err(|_| NativeBindingError::Preparation)?;
     let digest = prepared
         .disclosure
         .audit_digest()
         .map_err(|_| NativeBindingError::Preparation)?;
-    if call.signing_hash() != prepared.signing_preimage
-        || prepared.observed_head_sequence == 0
+    if native_carrier {
+        // Call-bound approvals retain a typed transaction disclosure. Its producer
+        // re-encodes the call; the wire carrier is never sent to a transaction decoder.
+        if prepared
+            .disclosure
+            .signing_digest()
+            .map_err(|_| NativeBindingError::Preparation)?
+            != prepared.signing_preimage
+            || prepared.envelope.payload().as_bytes()
+                != retained_payload(&prepared.disclosure, prepared.envelope.actor_did())?
+        {
+            return Err(NativeBindingError::Preparation);
+        }
+    } else {
+        crate::prepare::verify_disclosure_binding(prepared)
+            .map_err(|_| NativeBindingError::Preparation)?;
+    }
+    if prepared.observed_head_sequence == 0
         || prepared.audit.observed_head_sequence != prepared.observed_head_sequence
         || prepared.audit.idempotency_key != prepared.disclosure.idempotency_key
         || prepared.disclosure_digest.0 != digest
         || prepared.audit.disclosure_digest.0 != digest
         || prepared.envelope.protocol_version() != 3
-        || u64::from(prepared.envelope.network_id()) != call.chain_id
         || prepared.envelope.idempotency_key().bytes() != prepared.disclosure.idempotency_key
         || prepared.envelope.timestamp_bound().not_before() != prepared.disclosure.expiry.not_before
         || prepared.envelope.timestamp_bound().not_after() != prepared.disclosure.expiry.not_after
         || prepared.envelope.activity_type() != prepared.disclosure.activity_type
-        || prepared.envelope.account_sequence() != call.nonce
         || prepared.envelope.fee_limit().value() != prepared.disclosure.fee_limit
         || prepared.envelope.authority() != &retained_authority(prepared.envelope.actor_did())?
-        || prepared.envelope.payload().as_bytes()
-            != retained_payload(&prepared.disclosure, prepared.envelope.actor_did())?
         || prepared.envelope.payload_hash()
             != layerx_wire::hash::payload_hash_for(prepared.envelope.payload())
                 .map_err(|_| NativeBindingError::Preparation)?
     {
         return Err(NativeBindingError::Preparation);
     }
-    Ok(call)
+    Ok(())
+}
+
+fn validate_retained_call(
+    prepared: &Prepared,
+    call: &Eip1559Call,
+    sender: [u8; 20],
+) -> Result<(), NativeBindingError> {
+    validate_retained_carrier(prepared)?;
+    let native = crate::prepare::disclose::bind(call, sender)
+        .map_err(|_| NativeBindingError::Preparation)?;
+    if prepared
+        .disclosure
+        .construct_method()
+        .map_err(|_| NativeBindingError::Preparation)?
+        .is_some()
+        && (prepared.disclosure != native.disclosure
+            || prepared.signing_preimage != call.signing_hash())
+    {
+        return Err(NativeBindingError::Preparation);
+    }
+    if u64::from(prepared.envelope.network_id()) != call.chain_id
+        || prepared.envelope.account_sequence() != call.nonce
+        || prepared.envelope.activity_type() != native.disclosure.activity_type
+        || prepared.envelope.fee_limit().value() != native.disclosure.fee_limit
+        || prepared.envelope.payload().as_bytes()
+            != retained_payload(&native.disclosure, prepared.envelope.actor_did())?
+    {
+        return Err(NativeBindingError::Preparation);
+    }
+    Ok(())
 }
 
 pub fn verify_native_budget_submission(
@@ -92,21 +144,17 @@ pub(super) fn verify_retained_submission(
     prepared: &Prepared,
     submission: &VerifiedSubmission,
 ) -> Result<Eip1559Call, NativeBindingError> {
-    let expected = validate_retained_preparation(prepared)?;
     let (call, signature) =
         decode_signed(submission.exact_bytes()).map_err(|_| NativeBindingError::Submission)?;
-    if call != expected
-        || transaction_hash(submission.exact_bytes()) != submission.activity_id()
-        || submission.idempotency_key() != prepared.disclosure.idempotency_key
+    let sender = recover_sender(&call, &signature).map_err(|_| NativeBindingError::Sender)?;
+    validate_retained_call(prepared, &call, sender)?;
+    let native = crate::prepare::disclose::bind(&call, sender)
+        .map_err(|_| NativeBindingError::Preparation)?;
+    if transaction_hash(submission.exact_bytes()) != submission.activity_id()
+        || submission.idempotency_key() != native.disclosure.idempotency_key
+        || submission.recovered_sender() != sender
     {
         return Err(NativeBindingError::Submission);
-    }
-    if recover_sender(&call, &signature)
-        .map_err(|_| NativeBindingError::Sender)?
-        .as_slice()
-        != prepared.disclosure.actor
-    {
-        return Err(NativeBindingError::Sender);
     }
     Ok(call)
 }
@@ -156,8 +204,8 @@ fn retained_authority(
     layerx_types::activity::Authority::owner(&public).map_err(|_| NativeBindingError::Preparation)
 }
 
-/// Restores a native preparation into the budget carrier without a kernel signing envelope.
-/// The actor DID is joined to the native sender by source selection at the held checkpoint.
+/// Builds the approval path's wire carrier from a validated native transaction.
+/// Callers must retain and supply the corresponding signing preparation separately.
 pub fn restore_native_preparation(
     canonical_bytes: &[u8],
     sender: [u8; 20],
@@ -170,7 +218,8 @@ pub fn restore_native_preparation(
     use layerx_types::amount::Amount;
     use layerx_types::ids::IdempotencyKey;
     use layerx_types::payload::Payload;
-    let call = decode_unsigned(canonical_bytes).map_err(|_| NativeBindingError::Preparation)?;
+    let call = layerx_crypto::evm_transaction::decode_unsigned(canonical_bytes)
+        .map_err(|_| NativeBindingError::Preparation)?;
     let disclosure = bind_call(&call, sender).map_err(|_| NativeBindingError::Preparation)?;
     let payload = retained_payload(&disclosure, &actor)?;
     let authority = retained_authority(&actor)?;
@@ -214,26 +263,18 @@ pub fn restore_native_preparation(
     builder
         .payload(payload)
         .map_err(|_| NativeBindingError::Preparation)?;
-    let digest = crate::prepare::DisclosureDigest(
-        disclosure
-            .audit_digest()
-            .map_err(|_| NativeBindingError::Preparation)?,
-    );
-    let result = Prepared {
-        envelope: builder
-            .build()
-            .map_err(|_| NativeBindingError::Preparation)?,
-        canonical_bytes: canonical_bytes.to_vec(),
-        signing_preimage: call.signing_hash(),
-        observed_head_sequence: observed_height,
-        audit: crate::prepare::PreparationAuditEntry {
-            idempotency_key: disclosure.idempotency_key,
-            observed_head_sequence: observed_height,
-            disclosure_digest: digest,
-        },
-        disclosure,
-        disclosure_digest: digest,
-    };
-    validate_retained_preparation(&result)?;
+    let envelope = builder
+        .build()
+        .map_err(|_| NativeBindingError::Preparation)?;
+    let canonical = layerx_wire::activity::encode_unsigned_envelope(&envelope)
+        .map_err(|_| NativeBindingError::Preparation)?;
+    let result = crate::prepare::restore_canonical(
+        &canonical,
+        observed_height,
+        registry,
+        Some(envelope.authority()),
+    )
+    .map_err(|_| NativeBindingError::Preparation)?;
+    validate_retained_call(&result, &call, sender)?;
     Ok(result)
 }

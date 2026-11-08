@@ -2,6 +2,9 @@
 #include "../programs/test_call_activity.c"
 #undef main
 
+#include "layerx/lxp_batch_identity.h"
+#include "layerx/lxp_genesis.h"
+
 #include "lxp_kernel_case.h"
 
 enum {
@@ -26,7 +29,8 @@ typedef struct prepare_workers_fixture {
     lxp_transfer_asset_state asset;
     lxp_fee_params fees;
     lxp_authority_resolved authorities[PREPARE_WORKERS_BATCH_SIZE];
-    lxp_authority_scope scopes[PREPARE_WORKERS_BATCH_SIZE];
+    lxp_authority_grant grants[PREPARE_WORKERS_BATCH_SIZE];
+    lxp_transfer_allowance allowances[PREPARE_WORKERS_BATCH_SIZE];
     uint8_t dids[PREPARE_WORKERS_BATCH_SIZE][40];
     size_t did_lengths[PREPARE_WORKERS_BATCH_SIZE];
     uint8_t payers[PREPARE_WORKERS_BATCH_SIZE][32];
@@ -82,26 +86,47 @@ static int prepare_workers_genesis(lxp_genesis_manifest *manifest)
     return 0;
 }
 
-static void prepare_workers_execution(prepare_workers_fixture *fixture,
-                                      size_t actor, lxp_arena *arena,
-                                      lxp_kernel_execution *execution)
+static int prepare_workers_execution(prepare_workers_fixture *fixture,
+                                     size_t actor, const lxp_activity *activity,
+                                     uint64_t sequence, uint64_t batch_number,
+                                     lxp_arena *arena,
+                                     lxp_kernel_execution *execution)
 {
+    lxp_identity *identity;
+    lx_account *payer;
+
+    LXP_CASE_CHECK(lxp_identity_resolve(&fixture->identities,
+        fixture->dids[actor], fixture->did_lengths[actor], &identity) == LXP_OK);
+    LXP_CASE_CHECK(activity->account_sequence == identity->next_sequence);
+    LXP_CASE_CHECK(lxp_authority_resolve_activity(&fixture->kernel, identity,
+        activity, true, true, 20U, 100U, sequence, &fixture->grants[actor],
+        &fixture->authorities[actor]) == LXP_OK);
+    lxp_authority_allowance_bind(&fixture->grants[actor],
+        &fixture->authorities[actor], &fixture->allowances[actor]);
+    LXP_CASE_CHECK(lxp_kernel_program_payment_account(&fixture->accounts,
+        fixture->authorities[actor].principal, prepare_workers_asset,
+        activity->protocol_version, &payer) == LXP_OK);
     (void)memset(execution, 0, sizeof(*execution));
     execution->network_id = 7U;
     execution->epoch = fixture->kernel.epoch;
-    execution->batch_number = 1U;
+    execution->batch_number = batch_number;
     execution->batch_timestamp_ms = 20U;
     execution->maximum_timestamp_window = 100U;
+    execution->global_sequence = sequence;
     execution->recorded_module_version = LX_PROGRAMS_SANDBOX_DESTROY_ABI_VERSION;
+    execution->recorded_metering_schedule_version = 1U;
+    execution->recorded_fee_schedule_version = 1U;
     execution->parameter_version = 1U;
     execution->signature_valid = true;
     execution->identities = &fixture->identities;
     execution->authority = &fixture->authorities[actor];
+    execution->allowance = &fixture->allowances[actor];
     execution->fee_parameters = &fixture->fees;
-    execution->fee_balance = (lxp_u128){0U, UINT64_MAX};
+    execution->fee_balance = payer->balance;
     execution->gas_limit = 1000000U;
     execution->arena = arena;
     execution->sequencer_private_key = executed_sequencer_seed;
+    return 0;
 }
 
 static int prepare_workers_fixture_init(prepare_workers_fixture *fixture,
@@ -133,8 +158,6 @@ static int prepare_workers_fixture_init(prepare_workers_fixture *fixture,
         uint8_t name[64], actor_id[32];
         lx_account *actor;
         lxp_identity *identity;
-        lxp_authority_resolved *authority = &fixture->authorities[index];
-        lxp_authority_scope *scope = &fixture->scopes[index];
         int length = snprintf((char *)fixture->dids[index],
                               sizeof(fixture->dids[index]),
                               "did:lxp:prepare-worker-%02zu", index);
@@ -154,20 +177,6 @@ static int prepare_workers_fixture_init(prepare_workers_fixture *fixture,
         (void)memcpy(fixture->payers[index], actor->id, 32U);
         LXP_CASE_CHECK(lxp_ledger_bootstrap_balance(actor, prepare_workers_asset,
             (lxp_u128){0U, UINT64_MAX}, index + 1U) == LXP_OK);
-        scope->module_mask = UINT64_C(1) << LXP_MODULE_PROGRAMS;
-        scope->activity_ordinal_min = 1U;
-        scope->activity_ordinal_max = 9U;
-        scope->maximum_per_activity = (lxp_u128){UINT64_MAX, UINT64_MAX};
-        scope->maximum_total = scope->maximum_per_activity;
-        scope->maximum_per_period = scope->maximum_per_activity;
-        authority->kind = LXP_AUTHORITY_OWNER;
-        authority->scope = scope;
-        (void)memcpy(authority->actor, identity->did_id, 32U);
-        (void)memcpy(authority->principal, identity->did_id, 32U);
-        (void)memcpy(authority->verified_key, fixture->public_key, 32U);
-        LXP_CASE_CHECK(lxp_authority_hash(authority->kind,
-            (const uint8_t[32]){0U}, fixture->public_key,
-            authority->authority_hash) == LXP_OK);
         fixture->programs[index][0] = 0x31U;
         fixture->programs[index][31] = (uint8_t)(index + 1U);
     }
@@ -196,20 +205,23 @@ static int prepare_workers_fixture_init(prepare_workers_fixture *fixture,
         lxp_activity activity;
         lxp_kernel_execution execution;
         lxp_receipt receipt;
+        lxp_identity *identity;
+        LXP_CASE_CHECK(lxp_identity_resolve(&fixture->identities,
+            fixture->dids[index], fixture->did_lengths[index], &identity) == LXP_OK);
         size_t length = deploy_payload(payload, fixture->programs[index],
-            fixture->authorities[index].principal, wasm, wasm_length,
+            identity->did_id, wasm, wasm_length,
             code_hash, LX_PROGRAMS_ABI_VERSION, INTERFACE_CAPABILITIES_NONE);
         fill_activity(&activity, LX_PROGRAMS_DEPLOY, payload, length,
             fixture->dids[index], fixture->did_lengths[index], fixture->public_key);
         activity.protocol_version = LXP_PROTOCOL_VERSION_STATE_COMMITMENT;
+        activity.account_sequence = identity->next_sequence;
+        activity.fee_limit = (lxp_u128){0U, 67108864U};
         LXP_CASE_CHECK(lxp_arena_reset(arena, 0U) == LXP_OK);
-        prepare_workers_execution(fixture, index, arena, &execution);
-        execution.global_sequence = fixture->state.next_sequence;
+        LXP_CASE_CHECK(prepare_workers_execution(fixture, index, &activity,
+            fixture->state.next_sequence, 1U, arena, &execution) == 0);
         LXP_CASE_CHECK(execute_artifact_fixture_activity(&fixture->kernel,
             &activity, &execution, &receipt) == LXP_OK);
         LXP_CASE_CHECK(receipt.result_code == LXP_OK);
-        (void)memcpy(fixture->authorities[index].principal,
-                     fixture->payers[index], 32U);
     }
     return 0;
 }
@@ -246,26 +258,46 @@ static size_t prepare_workers_payload(uint8_t *payload,
         sizeof(capabilities), declaration, offset, data, length);
 }
 
-static int prepare_workers_independent(prepare_workers_fixture *fixture,
-                                       const lxp_activity *activities,
-                                       const lxp_kernel_execution *executions)
+static int prepare_workers_schedule(prepare_workers_fixture *fixture,
+                                    const lxp_activity *activities,
+                                    const lxp_kernel_execution *executions)
 {
     lxp_kernel_batch_snapshot *snapshot = NULL;
     lxp_programs_schedule_item *items = calloc(PREPARE_WORKERS_BATCH_SIZE,
                                                sizeof(*items));
     uint16_t levels[PREPARE_WORKERS_BATCH_SIZE] = {0};
     uint16_t maximum_level = UINT16_MAX;
+    lx_account *treasury;
     lxp_result status;
     size_t index;
 
     if (items == NULL) return 1;
+    LXP_CASE_CHECK(lxp_fee_treasury_account(&fixture->accounts,
+        &treasury) == LXP_OK);
     status = lxp_kernel_batch_snapshot_create(&fixture->kernel,
         &fixture->identities, NULL, &executions[0], &snapshot);
     for (index = 0U; status == LXP_OK && index < PREPARE_WORKERS_BATCH_SIZE;
          ++index) {
         size_t mark = lxp_arena_mark(executions[index].arena);
+        lx_account *payer = NULL;
         status = lxp_kernel_batch_schedule_item(snapshot, &activities[index],
             &executions[index], executions[index].arena, &items[index]);
+        if (status == LXP_OK)
+            status = lxp_kernel_program_payment_account(&fixture->accounts,
+                executions[index].authority->principal, prepare_workers_asset,
+                activities[index].protocol_version, &payer);
+        if (status == LXP_OK &&
+            (items[index].protocol_effects_complete != 1U ||
+             items[index].account_effect_count != 2U ||
+             memcmp(items[index].account_effects[0].account,
+                    payer->id, 32U) != 0 ||
+             memcmp(items[index].account_effects[1].account,
+                    treasury->id, 32U) != 0 ||
+             memcmp(items[index].account_effects[1].asset,
+                    prepare_workers_asset, 32U) != 0 ||
+             items[index].account_effects[0].mode != 1U ||
+             items[index].account_effects[1].mode != 1U))
+            status = LXP_FATAL_INVARIANT;
         if (lxp_arena_reset(executions[index].arena, mark) != LXP_OK)
             status = LXP_FATAL_INVARIANT;
     }
@@ -275,9 +307,9 @@ static int prepare_workers_independent(prepare_workers_fixture *fixture,
     free(items);
     lxp_kernel_batch_snapshot_destroy(snapshot);
     LXP_CASE_CHECK(status == LXP_OK);
-    LXP_CASE_CHECK(maximum_level == 0U);
+    LXP_CASE_CHECK(maximum_level == PREPARE_WORKERS_BATCH_SIZE - 1U);
     for (index = 0U; index < PREPARE_WORKERS_BATCH_SIZE; ++index)
-        LXP_CASE_CHECK(levels[index] == 0U);
+        LXP_CASE_CHECK(levels[index] == index);
     return 0;
 }
 
@@ -367,7 +399,7 @@ static int prepare_workers_sample(prepare_workers_fixture *serial,
     uint8_t signatures[PREPARE_WORKERS_BATCH_SIZE][64];
     lxp_byte_span encoded[PREPARE_WORKERS_BATCH_SIZE];
     lxp_batch_roots roots;
-    uint8_t preimage[88], initial_root[32];
+    uint8_t activity_id[32], batch_id[32], initial_root[32];
     lxp_kernel_prepared_batch *prepared[2] = {NULL, NULL};
     size_t retry[2] = {SIZE_MAX, SIZE_MAX};
     lxp_result status = LXP_OK;
@@ -384,14 +416,17 @@ static int prepare_workers_sample(prepare_workers_fixture *serial,
         size_t length = 1U + (size_t)(prepare_workers_random(random) % sizeof(data));
         size_t offset;
         uint8_t public_key[32];
+        lxp_identity *identity;
+        LXP_CASE_CHECK(lxp_identity_resolve(&serial->identities,
+            serial->dids[actor], serial->did_lengths[actor], &identity) == LXP_OK);
         for (offset = 0U; offset < length; ++offset)
             data[offset] = (uint8_t)prepare_workers_random(random);
         length = prepare_workers_payload(payloads[index], serial->programs[actor],
                                           data, length);
         fill_activity(&activities[index], LX_PROGRAMS_CALL, payloads[index], length,
             serial->dids[actor], serial->did_lengths[actor], serial->public_key);
-        activities[index].protocol_version = LXP_PROTOCOL_VERSION_LEGACY;
-        activities[index].account_sequence = 1U;
+        activities[index].protocol_version = LXP_PROTOCOL_VERSION_STATE_COMMITMENT;
+        activities[index].account_sequence = identity->next_sequence;
         activities[index].fee_limit = (lxp_u128){0U, 67108864U};
         activities[index].idempotency_key[30] = (uint8_t)(sample + 1U);
         activities[index].idempotency_key[31] = (uint8_t)(index + 2U);
@@ -401,33 +436,31 @@ static int prepare_workers_sample(prepare_workers_fixture *serial,
         LXP_CASE_CHECK(lxp_activity_verify_signature(&activities[index]) == LXP_OK);
         LXP_CASE_CHECK(lxp_activity_encode(&activities[index], encode_arena,
                                            &encoded[index]) == LXP_OK);
-        prepare_workers_execution(serial, actor, scratch, &executions[0][index]);
-        prepare_workers_execution(parallel, actor, scratch, &executions[1][index]);
-        executions[0][index].global_sequence = serial->state.next_sequence + index;
-        executions[1][index].global_sequence = parallel->state.next_sequence + index;
-        executions[0][index].batch_number = sample + 2U;
-        executions[1][index].batch_number = sample + 2U;
+        LXP_CASE_CHECK(prepare_workers_execution(serial, actor, &activities[index],
+            serial->state.next_sequence + index, sample + 2U, scratch,
+            &executions[0][index]) == 0);
+        LXP_CASE_CHECK(prepare_workers_execution(parallel, actor, &activities[index],
+            parallel->state.next_sequence + index, sample + 2U, scratch,
+            &executions[1][index]) == 0);
     }
     LXP_CASE_CHECK(lxp_batch_roots_compute(
         &(lxp_batch_root_inputs){encoded, PREPARE_WORKERS_BATCH_SIZE,
                                  NULL, 0U, NULL, 0U, NULL, 0U, NULL, 0U},
         encode_arena, &roots) == LXP_OK);
-    (void)memcpy(preimage, initial_root, 32U);
-    (void)memcpy(preimage + 32U, roots.activity_merkle_root, 32U);
-    write_u64(preimage + 64U, executions[0][0].global_sequence);
-    write_u64(preimage + 72U,
-               executions[0][PREPARE_WORKERS_BATCH_SIZE - 1U].global_sequence);
-    write_u64(preimage + 80U, executions[0][0].batch_number);
+    LXP_CASE_CHECK(lxp_activity_id(encoded[0].bytes, encoded[0].length,
+        activity_id) == LXP_OK);
+    LXP_CASE_CHECK(lxp_batch_identity_activity(initial_root, activity_id,
+        executions[0][0].global_sequence, executions[0][0].batch_number,
+        batch_id) == LXP_OK);
     for (index = 0U; index < PREPARE_WORKERS_BATCH_SIZE; ++index) {
         size_t run;
         for (run = 0U; run < 2U; ++run) {
-            LXP_CASE_CHECK(lxp_hash_context_value(preimage, sizeof(preimage),
-                executions[run][index].batch_id) == LXP_OK);
+            (void)memcpy(executions[run][index].batch_id, batch_id, 32U);
             (void)memcpy(executions[run][index].activity_root,
                          roots.activity_merkle_root, 32U);
         }
     }
-    LXP_CASE_CHECK(prepare_workers_independent(serial, activities, executions[0]) == 0);
+    LXP_CASE_CHECK(prepare_workers_schedule(serial, activities, executions[0]) == 0);
     status = lxp_kernel_prepare_activity_batch(&serial->kernel, activities,
         executions[0], PREPARE_WORKERS_BATCH_SIZE, 1U, &prepared[0], &retry[0]);
     if (status != LXP_OK) goto done;

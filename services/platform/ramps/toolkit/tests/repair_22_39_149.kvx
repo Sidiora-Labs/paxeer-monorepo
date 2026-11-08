@@ -1,0 +1,57 @@
+[repair.22.39.149]
+base = "03eb3ce720bdce48270c8dba2496f6c04b50c5cc"
+test = "submit_prepared_sends_raw_transaction_once"
+baseline = "The initial working tree contained only runner bookkeeping changes to .cgignore and the task status; no scoped repairs or prior gate ledger existed."
+decisions = [2857, 2866]
+gotcha = 3559
+
+[assertion.off-ramp-preparation]
+change = "Matching native-receive calldata returns PayerGrantRequired, as does the retained mismatched-calldata case; preserve every on-ramp transaction, signature and submission assertion."
+producer = "services/platform/ramps/toolkit/src/clients.rs:1043-1047 compiles and checks the payload before delegating to prepare_payment; lines 1067-1068 refuse every off-ramp order with PayerGrantRequired."
+
+[assertion.off-ramp-transport]
+change = "Assert the recorded RPC server received zero off-ramp requests, including zero eth_sendRawTransaction requests; only the on-ramp branch starts the signer that preparation actually invokes."
+producer = "services/platform/ramps/toolkit/src/clients.rs:1067-1068 returns before pending_nonce at lines 1073-1076, estimate_gas at lines 1077-1085 and sign at line 1102; no PreparedLayerx exists to submit."
+
+[qualification]
+build_reference = "/out/run/gates.jsonl: the passing build record for the final candidate names its verified revision, exact command, exit code and private log."
+verify_reference = "/out/run/gates.jsonl: the final verify record for that same candidate names its revision, exact command, exit code and private log; qualification requires exit zero, and the final response copies the last gate evidence."
+coverage = "The declared cargo test --tests --no-fail-fast gate reports every test binary and retains its three declared recovery exclusions plus the protected source-contract exclusion authorized by decision 2873."
+
+[qualification.first-run]
+revision = "db4b17ac72a9374f671ec37e5bc8e41d4c608d52"
+command = "cg spec done 22.39.149 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Every binary reported: Vec in proof_precompile_1_layerxledger_0x101a refused its overflowing expiry at order binding, and genuine_source_finality_binds_orders_and_claims_before_any_funded_transition in source_settlement lacked its external contract; all other cases passed."
+
+[assertion.proof-expiry]
+change = "Use the maximum seconds value representable in native milliseconds for successful calls; explicitly assert refusal of the first overflowing seconds value and u64::MAX at quote validation and order binding for both directions and at on-ramp compilation, retaining all u128 amount boundaries. Assert payExact expiresAtMs and its exact multiplied value."
+producer = "services/platform/ramps/toolkit/src/lib.rs:98 rejects seconds-to-milliseconds overflow, line 150 applies quote validation at binding, and lines 392-396 compile checked milliseconds; precompiles/layerxledger/abi.json payExact names this field expiresAtMs."
+
+[assertion.proof-account-hash]
+change = "Derive expected payer and recipient hashes with the active state commitment protocol rather than the historical account_id hash; the off-ramp recipient is the operator main account rather than an asset subaccount."
+producer = "services/platform/ramps/toolkit/src/lib.rs:297-303 selects account_id_for_protocol with STATE_COMMITMENT_PROTOCOL_VERSION; lines 316-323 select the operator account as the off-ramp recipient."
+
+[assertion.proof-customer-budget]
+change = "Observe the exact budgetSpend ABI from the native payment authority: destination 0x101b, selector and all three words (budgetId, recipient, amount); retain real signing, decoding, sender recovery, truncation refusal, malformed-order and fresh-owned-result checks. Assert purpose authorization and identical calldata at compatibility sequences zero and u64::MAX."
+producer = "services/platform/ramps/toolkit/src/lib.rs:357-373 delegates the compatibility entry point to compile_customer_payment, validates customer authorization and compiles encode_budget_spend at PAY_ADDRESS; evm.rs:15-18 defines its three exact words."
+
+[assertion.proof-on-ramp-draw-refusal]
+change = "Expect InvalidOrder when the compatibility customer draw compiler receives an on-ramp order."
+producer = "services/platform/ramps/toolkit/src/lib.rs:339-340 refuses the wrong direction; lines 361 and 366 propagate that error through compile_payer_grant_draw."
+
+[qualification.external-source-contract]
+revision = "db4b17ac72a9374f671ec37e5bc8e41d4c608d52"
+command = "cg spec done 22.39.149 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "source_settlement.rs:77-79 requires LAYERX_RAMP_SOURCE_CONTRACT_FILE and panics because no genuine finalized Ethereum and Solana source contract was supplied; this is an external prerequisite, not a stale assertion, so the case is unchanged."
+assumption = "Keep the declared gate and all its assertions intact; record this unrelated failure here because the task prohibits editing spec/ qualification files, and do not investigate or manufacture external source evidence."
+
+[qualification.decision-2873]
+decision = 2873
+continued_from = "2206b5ecde000887e169d4ba8efe5334c894bfea"
+exclusion = "genuine_source_finality_binds_orders_and_claims_before_any_funded_transition"
+reason = "services/platform/ramps/toolkit/tests/source_settlement.rs:77-84 reads protected genuine source-contract material through LAYERX_RAMP_SOURCE_CONTRACT_FILE, which the qualification environment never carries; the declared gate excludes this case by name while its source and assertions remain unchanged and no contract file is invented."
+evidence_reference = "/out/run/gates.jsonl: the passing build and verify records must name the same final candidate revision, exact commands, exit codes and private logs; the final response copies the last verify record."

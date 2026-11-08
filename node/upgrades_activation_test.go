@@ -8,6 +8,8 @@ import (
 	"time"
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/config"
+	tmproto "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/proto/tendermint/types"
+	tmtypes "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/state"
 	launchpadtypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/launchpad/types"
 	layerxagenttypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxagent/types"
@@ -23,8 +25,11 @@ import (
 	pcommon "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/common"
 	anchorprecompile "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/layerxanchor"
 	verifyprecompile "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/layerxverify"
+	cryptocodec "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/crypto/codec"
+	sdked25519 "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/crypto/keys/ed25519"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/crypto/keys/secp256k1"
 	cryptotypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/crypto/types"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/storev2/commitment"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
 	upgradetypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/upgrade/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/storage/common/keys"
@@ -226,6 +231,7 @@ func TestActivationUpgradeInitialisesEveryForkModuleOnce(t *testing.T) {
 	testWrapper := NewTestWrapper(t, time.Now().UTC(), secp256k1.GenPrivKey().PubKey(), true)
 	a, ctx := testWrapper.App, testWrapper.Ctx
 	rewindBeforeActivation(t, a, ctx)
+	anchorBefore := a.LayerXAnchorKeeper.GetParams(ctx)
 
 	plan := upgradetypes.Plan{Name: ActivationUpgrade, Height: ctx.BlockHeight()}
 	require.True(t, a.UpgradeKeeper.HasHandler(plan.Name))
@@ -233,12 +239,13 @@ func TestActivationUpgradeInitialisesEveryForkModuleOnce(t *testing.T) {
 
 	require.Equal(t, plan.Height, a.UpgradeKeeper.GetDoneHeight(ctx, ActivationUpgrade))
 	require.Equal(t, a.mm.GetVersionMap(), a.UpgradeKeeper.GetModuleVersionMap(ctx))
+	require.NotContains(t, a.UpgradeKeeper.GetModuleVersionMap(ctx), layerxanchortypes.ModuleName)
 	require.True(t, a.activationModulesPresent(ctx))
 
 	custody := a.LayerXCustodyKeeper.GetParams(ctx)
 	requireSameState(t, layerxcustodytypes.ModuleName, &layerxcustodytypes.DefaultGenesis().Params, &custody)
 	anchor := a.LayerXAnchorKeeper.GetParams(ctx)
-	requireSameState(t, layerxanchortypes.ModuleName, &layerxanchortypes.DefaultGenesis().Params, &anchor)
+	requireSameState(t, layerxanchortypes.ModuleName, &anchorBefore, &anchor)
 	exchange := a.LayerXExchangeKeeper.GetParams(ctx)
 	requireSameState(t, layerxexchangetypes.ModuleName, &layerxexchangetypes.DefaultGenesis().Params, &exchange)
 	bridge := a.LayerXBridgeKeeper.GetParams(ctx)
@@ -423,8 +430,12 @@ func TestActivationAppliesThePlanInTheBlockTheUpgradeInfoNames(t *testing.T) {
 	recordPreviousProposer(a, at, valPub)
 
 	gate := activationPrecompileGate()
-	for addr := range gate.Modules {
-		require.NotContains(t, a.EvmKeeper.CustomPrecompiles(at), addr, addr.Hex())
+	for addr, dependencies := range gate.Modules {
+		if dependencies[0] == upgradetypes.ModuleName {
+			require.Contains(t, a.EvmKeeper.CustomPrecompiles(at), addr, addr.Hex())
+		} else {
+			require.NotContains(t, a.EvmKeeper.CustomPrecompiles(at), addr, addr.Hex())
+		}
 	}
 
 	a.BeginBlock(at, height, nil, nil, false)
@@ -435,7 +446,11 @@ func TestActivationAppliesThePlanInTheBlockTheUpgradeInfoNames(t *testing.T) {
 	versions := a.UpgradeKeeper.GetModuleVersionMap(at)
 	require.Equal(t, a.mm.GetVersionMap(), versions)
 	for _, name := range activationModules() {
-		require.Contains(t, versions, name)
+		if name == layerxanchortypes.ModuleName {
+			require.NotContains(t, versions, name)
+		} else {
+			require.Contains(t, versions, name)
+		}
 	}
 	require.True(t, a.activationModulesPresent(at))
 	_, found := a.UpgradeKeeper.GetUpgradePlan(at)
@@ -487,8 +502,12 @@ func TestActivationIgnoresAnUpgradeInfoThatNamesAnotherHeight(t *testing.T) {
 	require.False(t, a.activationModulesPresent(at))
 	_, found := a.UpgradeKeeper.GetUpgradePlan(at)
 	require.False(t, found)
-	for addr := range activationPrecompileGate().Modules {
-		require.NotContains(t, a.EvmKeeper.CustomPrecompiles(at), addr, addr.Hex())
+	for addr, dependencies := range activationPrecompileGate().Modules {
+		if dependencies[0] == upgradetypes.ModuleName {
+			require.Contains(t, a.EvmKeeper.CustomPrecompiles(at), addr, addr.Hex())
+		} else {
+			require.NotContains(t, a.EvmKeeper.CustomPrecompiles(at), addr, addr.Hex())
+		}
 	}
 	for _, name := range activationStoreUpgrades().Added {
 		iter := at.KVStore(a.GetKey(name)).Iterator(nil, nil)
@@ -549,7 +568,7 @@ func TestActivationStopsTheBlockTheStoreLoaderMountedNoActivationStoresFor(t *te
 }
 
 func TestActivationStopsTheBlockWhoseStateCommitmentStoreServesAPlanStoreAsPending(t *testing.T) {
-	valPub := secp256k1.GenPrivKey().PubKey()
+	valPub := sdked25519.GenPrivKey().PubKey()
 	testWrapper := NewTestWrapper(t, time.Now().UTC(), valPub, true)
 	before, ctx := testWrapper.App, testWrapper.Ctx
 	rewindBeforeActivation(t, before, ctx)
@@ -570,8 +589,25 @@ func TestActivationStopsTheBlockWhoseStateCommitmentStoreServesAPlanStoreAsPendi
 	_, err = sc.LoadVersion(0, false)
 	require.NoError(t, err)
 	require.NoError(t, sc.ApplyUpgrades([]*storageproto.TreeNameUpgrade{{Name: xwebtypes.StoreKey, Delete: true}}))
-	_, err = sc.Commit()
+	validator, err := cryptocodec.ToTmPubKeyInterface(valPub)
 	require.NoError(t, err)
+	block := tmtypes.MakeBlock(2, nil, &tmtypes.Commit{}, nil)
+	block.ChainID, block.Time = ctx.ChainID(), ctx.BlockTime()
+	block.ProposerAddress = validator.Address()
+	block.ValidatorsHash = tmtypes.NewValidatorSet([]*tmtypes.Validator{tmtypes.NewValidator(validator, 1)}).Hash()
+	block.NextValidatorsHash = block.ValidatorsHash
+	require.NoError(t, block.Header.ValidateBasic())
+	identity := tmproto.BlockID{Hash: block.Hash()}
+	identityBytes, err := identity.Marshal()
+	require.NoError(t, err)
+	require.NotEmpty(t, identity.Hash)
+	require.NoError(t, sc.ApplyChangeSets([]*storageproto.NamedChangeSet{{
+		Name:      upgradetypes.StoreKey,
+		Changeset: storageproto.ChangeSet{Pairs: []*storageproto.KVPair{{Key: committedBlockIdentityKey, Value: identityBytes}}},
+	}}))
+	commit, err := sc.Commit()
+	require.NoError(t, err)
+	require.Equal(t, int64(2), commit)
 	require.NoError(t, sc.Close())
 
 	// A process the upgrade store loader never ran in mounts every store, and its
@@ -579,6 +615,7 @@ func TestActivationStopsTheBlockWhoseStateCommitmentStoreServesAPlanStoreAsPendi
 	a := New(dbm.NewMemDB(), nil, true, map[int64]bool{}, home, 1, true, config.TestConfig(), MakeEncodingConfig(),
 		wasm.EnableAllProposals, TestAppOpts{}, EmptyWasmOpts, nil)
 	t.Cleanup(func() { _ = a.Close() })
+	require.Equal(t, identity, a.LastBlockID())
 	key := a.GetKey(xwebtypes.StoreKey)
 	require.NotNil(t, key)
 	require.NotNil(t, a.CommitMultiStore().GetCommitKVStore(key))
@@ -589,7 +626,8 @@ func TestActivationStopsTheBlockWhoseStateCommitmentStoreServesAPlanStoreAsPendi
 
 	height := a.LastBlockHeight() + 1
 	writeActivationUpgradeInfo(t, a, height)
-	at := ctx.WithMultiStore(a.CommitMultiStore().CacheMultiStore()).WithBlockHeight(height)
+	cache := a.CommitMultiStore().CacheMultiStore()
+	at := ctx.WithMultiStore(cache).WithBlockHeight(height)
 	recordPreviousProposer(a, at, valPub)
 	versions := a.UpgradeKeeper.GetModuleVersionMap(at)
 	for _, name := range activationModules() {
@@ -613,7 +651,19 @@ func TestActivationStopsTheBlockWhoseStateCommitmentStoreServesAPlanStoreAsPendi
 	require.False(t, a.activationModulesPresent(at))
 	_, found := a.UpgradeKeeper.GetUpgradePlan(at)
 	require.False(t, found)
+	// Flush the block cache to inspect every attempted write, including writes
+	// to the pending store, before the commitment layer can discard them.
+	cache.Write()
 	for _, name := range activationStoreUpgrades().Added {
+		store, ok := a.CommitMultiStore().GetCommitKVStore(a.GetKey(name)).(*commitment.Store)
+		require.True(t, ok, name)
+		require.Empty(t, store.PopChangeSet().Pairs, name)
+		if reporter.IsPendingStore(name) {
+			// The missing tree has no committed entries and cannot be iterated.
+			// Its empty changeset proves the refused block left it empty.
+			require.Equal(t, xwebtypes.StoreKey, name)
+			continue
+		}
 		iter := at.KVStore(a.GetKey(name)).Iterator(nil, nil)
 		require.False(t, iter.Valid(), name)
 		require.NoError(t, iter.Close())

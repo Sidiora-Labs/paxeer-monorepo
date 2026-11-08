@@ -43,6 +43,7 @@ import (
 	pcommon "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/common"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/baseapp"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
+	sdkerrors "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types/errors"
 	authtypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/auth/types"
 	banktypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/bank/types"
 	paramstypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/params/types"
@@ -460,7 +461,10 @@ func TestRepair_102_SchedulerFailureAtomic(t *testing.T) {
 	// Establish the actual producer failure, with the real V2 handler and codec.
 	failed, _ := ctx.CacheContext()
 	v2 := h.a.DeliverTxWithResult(failed, cosmos, typed[1])
-	require.Contains(t, v2.Log, "marshalling cosmosGasParams")
+	require.Equal(t, sdkerrors.ErrPanic.Codespace(), v2.Codespace)
+	require.Equal(t, sdkerrors.ErrPanic.ABCICode(), v2.Code)
+	require.Equal(t, "internal error", v2.Log)
+	require.NotContains(t, v2.Log, "marshalling cosmosGasParams")
 	results, _, err := h.a.ExecuteTxsConcurrently(ctx, txs, typed, 0)
 	require.ErrorContains(t, err, "infrastructure failure")
 	require.Nil(t, results)

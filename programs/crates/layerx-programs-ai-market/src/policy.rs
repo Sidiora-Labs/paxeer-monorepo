@@ -1,3 +1,4 @@
+use crate::types::GuestIndex as _;
 use crate::{
     codec::{domain_hash, Reader, Writer},
     errors::{
@@ -127,30 +128,32 @@ impl TaskPolicyV1 {
             return Err(CAPACITY);
         }
         let mut w = Writer::new(output);
-        w.u64(self.config_version)?;
-        w.u8(self.task_kind)?;
-        w.u8(self.assessment_mode)?;
-        w.put(self.commitments.model_artifact.as_bytes())?;
-        w.put(&self.commitments.dataset_artifact)?;
-        w.put(self.commitments.benchmark_suite.as_bytes())?;
-        w.put(self.commitments.rubric.as_bytes())?;
-        w.put(self.commitments.task_schema.as_bytes())?;
-        w.put(self.commitments.result_schema.as_bytes())?;
-        w.put(self.commitments.service_terms.as_bytes())?;
-        w.u8(self.max_workers)?;
-        w.u8(self.max_evaluators)?;
-        w.u16(self.max_tasks_per_epoch)?;
-        w.u32(self.max_input_bytes)?;
-        w.u32(self.max_output_bytes)?;
-        w.u16(self.task_timeout_heights)?;
-        w.u32(self.score_min)?;
-        w.u32(self.score_max)?;
-        w.u128(self.epoch_budget_cap)?;
-        w.u128(self.minimum_epoch_funding)?;
-        w.u8(self.minimum_worker_count)?;
-        w.u8(self.minimum_evaluator_count)?;
-        w.u8(self.owner_affiliation_policy)?;
-        w.put(&self.reserved)?;
+        crate::codec::write_fields!(w;
+            u64: self.config_version;
+            u8: self.task_kind;
+            u8: self.assessment_mode;
+            id32: self.commitments.model_artifact.as_bytes();
+            put: &self.commitments.dataset_artifact;
+            id32: self.commitments.benchmark_suite.as_bytes();
+            id32: self.commitments.rubric.as_bytes();
+            id32: self.commitments.task_schema.as_bytes();
+            id32: self.commitments.result_schema.as_bytes();
+            id32: self.commitments.service_terms.as_bytes();
+            u8: self.max_workers;
+            u8: self.max_evaluators;
+            u16: self.max_tasks_per_epoch;
+            u32: self.max_input_bytes;
+            u32: self.max_output_bytes;
+            u16: self.task_timeout_heights;
+            u32: self.score_min;
+            u32: self.score_max;
+            u128: self.epoch_budget_cap;
+            u128: self.minimum_epoch_funding;
+            u8: self.minimum_worker_count;
+            u8: self.minimum_evaluator_count;
+            u8: self.owner_affiliation_policy;
+            put: &self.reserved;
+        )?;
         Ok(w.len())
     }
 
@@ -165,15 +168,14 @@ impl TaskPolicyV1 {
             config_version: r.u64()?,
             task_kind: r.u8()?,
             assessment_mode: r.u8()?,
-            commitments: PolicyCommitments {
-                model_artifact: Digest32::new(r.fixed()?).map_err(|_| F01_INVALID_POLICY)?,
-                dataset_artifact: r.fixed()?,
-                benchmark_suite: Digest32::new(r.fixed()?).map_err(|_| F01_INVALID_POLICY)?,
-                rubric: RubricDigest::new(r.fixed()?).map_err(|_| F01_INVALID_POLICY)?,
-                task_schema: Digest32::new(r.fixed()?).map_err(|_| F01_INVALID_POLICY)?,
-                result_schema: Digest32::new(r.fixed()?).map_err(|_| F01_INVALID_POLICY)?,
-                service_terms: Digest32::new(r.fixed()?).map_err(|_| F01_INVALID_POLICY)?,
-            },
+            commitments: crate::codec::read_record!(&mut r, PolicyCommitments {  }; model_artifact = r.policy_digest32()?;
+                dataset_artifact: Fixed,
+                benchmark_suite: PolicyDigest32,
+                rubric: PolicyRubric,
+                task_schema: PolicyDigest32,
+                result_schema: PolicyDigest32,
+                service_terms: PolicyDigest32
+            ),
             max_workers: r.u8()?,
             max_evaluators: r.u8()?,
             max_tasks_per_epoch: r.u16()?,
@@ -243,11 +245,14 @@ impl PendingPolicy {
         if output.len() < PENDING_POLICY_BYTES {
             return Err(CAPACITY);
         }
-        self.policy.encode(&mut output[..TASK_POLICY_BYTES])?;
-        let mut w = Writer::new(&mut output[TASK_POLICY_BYTES..]);
-        w.put(self.digest.as_bytes())?;
-        w.u64(self.effective_epoch)?;
-        w.put(self.proposer.as_bytes())?;
+        self.policy
+            .encode(output.guest_index_mut(..TASK_POLICY_BYTES))?;
+        let mut w = Writer::new(output.guest_index_mut(TASK_POLICY_BYTES..));
+        crate::codec::write_fields!(w;
+            id32: self.digest.as_bytes();
+            u64: self.effective_epoch;
+            id32: self.proposer.as_bytes();
+        )?;
         Ok(TASK_POLICY_BYTES + w.len())
     }
     /// Reads a pending policy from its exact canonical bytes.
@@ -300,10 +305,12 @@ impl PolicyHistoryHeader {
             return Err(CAPACITY);
         }
         let mut w = Writer::new(output);
-        w.u64(self.config_version)?;
-        w.put(self.digest.as_bytes())?;
-        w.u64(self.effective_epoch)?;
-        w.u8(self.disposition)?;
+        crate::codec::write_fields!(w;
+            u64: self.config_version;
+            id32: self.digest.as_bytes();
+            u64: self.effective_epoch;
+            u8: self.disposition;
+        )?;
         Ok(w.len())
     }
     /// Reads a header from its exact canonical bytes.
@@ -351,11 +358,13 @@ pub fn fold_policy_history(
         }
         let mut preimage = [0; 81];
         let mut w = Writer::new(&mut preimage);
-        w.put(root.as_bytes())?;
-        w.u8(header.disposition)?;
-        w.u64(header.config_version)?;
-        w.put(header.digest.as_bytes())?;
-        w.u64(header.effective_epoch)?;
+        crate::codec::write_fields!(w;
+            id32: root.as_bytes();
+            u8: header.disposition;
+            u64: header.config_version;
+            id32: header.digest.as_bytes();
+            u64: header.effective_epoch;
+        )?;
         root = domain_hash("PAXAI/policy-history/v1", &preimage)?;
         last = header.config_version;
     }
@@ -446,14 +455,16 @@ impl RoomProfile {
             return Err(CAPACITY);
         }
         let mut w = Writer::new(output);
-        w.u128(self.minimum_bond)?;
-        w.u16(self.canary_ratio_bps)?;
-        w.u64(self.lap_size_tokens)?;
-        w.u64(self.challenge_window_blocks)?;
-        w.u16(self.slash_fraction_bps)?;
-        w.u16(self.host_share_bps)?;
-        w.u16(self.protocol_share_bps)?;
-        w.put(self.settlement_account.as_bytes())?;
+        crate::codec::write_fields!(w;
+            u128: self.minimum_bond;
+            u16: self.canary_ratio_bps;
+            u64: self.lap_size_tokens;
+            u64: self.challenge_window_blocks;
+            u16: self.slash_fraction_bps;
+            u16: self.host_share_bps;
+            u16: self.protocol_share_bps;
+            id32: self.settlement_account.as_bytes();
+        )?;
         Ok(w.len())
     }
 
@@ -467,7 +478,7 @@ impl RoomProfile {
             slash_fraction_bps: r.u16()?,
             host_share_bps: r.u16()?,
             protocol_share_bps: r.u16()?,
-            settlement_account: AccountId::new(r.fixed()?).map_err(|_| F01_INVALID_POLICY)?,
+            settlement_account: r.policy_account()?,
         };
         r.finish()?;
         value.validate()?;

@@ -1,0 +1,61 @@
+[meta]
+task = "22.39.103"
+scope_note = "The requested tests/ci/repair_22_39_103.kvx is outside the explicit scope; this record lives under the allowed tools/ci/tests directory."
+build_evidence = "/out/run/gates.jsonl: last kind=build record (revision, command, exit, log)"
+verify_evidence = "/out/run/gates.jsonl: last kind=verify record (revision, command, exit, log)"
+verified_revision = "/out/run/gates.jsonl: last kind=verify record revision; qualification requires exit zero and the same revision as build"
+
+[repair.dependency-install]
+test = "tests/ci/test_workflow_duplicate_jobs.py::test_no_make_target_duplicated_across_automatic_workflows"
+producer = [".github/workflows/paxeer-cross-arch-build.yml:184", ".github/workflows/paxeer-cross-arch-build.yml:230", ".github/workflows/paxeer-eth-blocktests.yml:201"]
+change = "Allow only chain.mk install as a shared dependency prerequisite, and assert its two owning workflows; paxd-native-libs remains allowlisted."
+
+[repair.gate-ordinal]
+test = "tests/ci/test_platform_release_gate_calls.py::test_platform_workflow_does_not_pass_ordinal_to_release_gate"
+producer = [".github/workflows/platform.yml:419", ".github/workflows/platform.yml:425", ".github/workflows/platform.yml:431"]
+change = "Inspect every called release gate step for ordinal and release-gate.sh prohibitions, preserving the checks of inline Platform steps."
+
+[repair.gate-artifacts]
+test = "tests/ci/test_platform_release_gate_calls.py::test_platform_release_gate_upload_paths_are_runner_temp"
+producer = [".github/workflows/programs-conformance.yml:93", ".github/workflows/programs-conformance.yml:94", ".github/workflows/agent.yml:211", ".github/workflows/agent.yml:212", ".github/workflows/agent.yml:239", ".github/workflows/agent.yml:240"]
+change = "Resolve each caller to its owning job; retain exactly one unconditional always upload, runner.temp paths, strict pipefail logging, producer ordering and error handling, and additionally assert artifact names."
+
+[repair.gate-targets]
+test = "tests/ci/test_platform_release_gate_calls.py::test_platform_release_gate_jobs_run_existing_make_targets"
+producer = [".github/workflows/agent.yml:204", ".github/workflows/agent.yml:211", ".github/workflows/agent.yml:239", ".github/workflows/programs-conformance.yml:93"]
+change = "Retain the direct Make invocation, token ordering and existing Makefile rule assertions in the called job; preserve the current sanitizer prepare followed by the direct target and native binary directory."
+
+[repair.push-concurrency]
+test = "tests/ci/test_workflow_push_concurrency.py::test_push_workflows_key_concurrency_on_sha"
+producer = [".github/workflows/agent.yml:19", ".github/workflows/programs-conformance.yml:61"]
+change = "Assert exact lane-specific keys with workflow identity, event, push SHA and otherwise ref; retain push trigger and cancellation coverage for every original workflow."
+
+[repair.pr-concurrency]
+test = "tests/ci/test_workflow_push_concurrency.py::test_pull_request_concurrency_still_cancels"
+producer = [".github/workflows/agent.yml:19", ".github/workflows/programs-conformance.yml:61"]
+change = "Preserve exact ref-based PR cancellation for both lane-specific templates and every original workflow; additionally prove all three release calls have distinct keys from each other and Platform."
+
+[repair.recipe-paths]
+test = "tests/ci/test_make_recipe_paths_exist.py::test_workflow_reached_recipes_name_existing_paths"
+producer = [".github/workflows/platform.yml:417", ".github/workflows/platform.yml:423", ".github/workflows/platform.yml:429"]
+change = "Include the actual called jobs in recipe reachability and explicitly require all four moved targets; preserve every existing source path and prerequisite assertion."
+
+[repair.pin-producers]
+test = "tests/ci/test_package_manager_pins_agree.py::test_workflow_pnpm_matches_package_manager"
+producer = [".github/workflows/bridge-test.yml:149", ".github/workflows/ci.yml:283", ".github/workflows/ci.yml:314", ".github/workflows/wallet-go-test.yml:78", ".github/workflows/wallet-go-test.yml:129", ".github/workflows/platform.yml:205"]
+change = "Identify all five recorded activations by workflow and owning job instead of stale inventory line numbers; require exactly one activation per recorded job and retain all exact release, matrix, manifest and lockfile comparisons."
+
+[repair.live-inputs]
+test = "tests/ci/test_workflow_live_inputs_guarded.py::test_every_automatic_job_guards_secrets; test_guard_names_an_input_the_job_reads; test_live_input_workflows_keep_runner_routing"
+producer = [".github/workflows/platform.yml:419", ".github/workflows/platform.yml:425", ".github/workflows/platform.yml:431"]
+change = "Expand input and runner checks through the local workflow closure, explicitly require both callees, and preserve every existing live input, presence guard and routed runner assertion."
+
+[repair.unchanged-contracts]
+test = "tests/ci/test_platform_workflow_maven.py; tools/ci/tests/test_replay_golden_ci.py; tools/ci/tests/test_wire_codec_ci.py"
+producer = [".github/workflows/platform.yml:81", ".github/workflows/platform.yml:435"]
+change = "All original assertions still apply and stay; additionally require the Maven job to remain inline and unconditional. Replay and wire codec checks are unchanged."
+
+[repair.lane-selection]
+test = "tests/ci/test_workflow_duplicate_jobs.py::test_no_make_target_duplicated_across_automatic_workflows"
+producer = [".github/workflows/agent.yml:85", ".github/workflows/agent.yml:117"]
+change = "Preserve the SDK jobs added since the seed and restrict them to the full workspace so called release lanes execute only their selected owning job."

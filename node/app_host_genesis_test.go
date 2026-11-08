@@ -10,6 +10,7 @@ import (
 	abci "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/abci/types"
 	agenttypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxagent/types"
 	authtypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxauth/types"
+	chainstypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxchains/types"
 	ledgertypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxledger/types"
 	paytypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxpay/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/lxphost"
@@ -20,7 +21,7 @@ import (
 
 func TestAppOrdersStoreGenesisBeforeHostWriters(t *testing.T) {
 	w := mergedAppWrapper(t)
-	names := []string{keys.LayerXHostStoreKey, ledgertypes.ModuleName, authtypes.ModuleName, paytypes.ModuleName, agenttypes.ModuleName}
+	names := []string{keys.LayerXHostStoreKey, ledgertypes.ModuleName, authtypes.ModuleName, paytypes.ModuleName, chainstypes.ModuleName, agenttypes.ModuleName}
 	order := mergedModuleOrder(t, w.App, names...)
 	hostAt := -1
 	for i, name := range order {

@@ -7,6 +7,8 @@ import subprocess
 
 import yaml
 
+from tools.ci.tests.workflow_graph import RELEASE_GATE_CALLS, release_gate_job
+
 
 ROOT = Path(__file__).resolve().parents[2]
 MAKEFILES = (ROOT / "Makefile", ROOT / "services/platform/Makefile.inc")
@@ -111,6 +113,15 @@ def workflow_targets():
         }
         assert reached, f"No Make targets found in {path}"
         targets.update(reached)
+    for name in RELEASE_GATE_CALLS:
+        _, job = release_gate_job(ROOT, name)
+        reached = {
+            target
+            for step in job["steps"]
+            for target in shell_make_targets(step.get("run", ""))
+        }
+        assert reached, f"No Make targets found in called release gate {name}"
+        targets.update(reached)
     return targets
 
 
@@ -164,6 +175,10 @@ def test_workflow_reached_recipes_name_existing_paths():
         "platform-verify-sdks",
         "platform-beta-cluster-up",
         "build/bin/layerx-genesis-build",
+        "programs-js-install",
+        "programs-test",
+        "agent-test-sanitize",
+        "agent-fuzz-long",
     } <= targets
     assert_recipe_paths_exist(targets, make_rules())
 

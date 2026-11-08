@@ -7,6 +7,7 @@ on:
       - apps/launchpad/**
       - .github/workflows/launchpad-test.yml
       - tests/ci/test_launchpad_test_workflow.py
+      - tests/ci/test_pnpm_workspace_roots.py
   push:
     branches: [main]
     paths:
@@ -14,6 +15,7 @@ on:
       - apps/launchpad/**
       - .github/workflows/launchpad-test.yml
       - tests/ci/test_launchpad_test_workflow.py
+      - tests/ci/test_pnpm_workspace_roots.py
 
 permissions:
   contents: read
@@ -25,7 +27,7 @@ concurrency:
 jobs:
   launchpad-test:
     name: Test ${{ matrix.package }}
-    runs-on: ubuntu-latest
+    runs-on: ${{ (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && 'ubuntu-24.04' || vars.CI_LINUX_RUNNER || 'ubuntu-24.04' }}
     timeout-minutes: 30
     strategy:
       fail-fast: false
@@ -62,5 +64,5 @@ jobs:
       - name: Build SDK packages
         run: pnpm run build:packages
       - name: Test package
-        working-directory: ${{ matrix.package }}
-        run: pnpm run test
+        working-directory: .
+        run: pnpm --dir apps/launchpad --filter "./../../${{ matrix.package }}" --fail-if-no-match run test

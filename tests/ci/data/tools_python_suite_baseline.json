@@ -1,0 +1,517 @@
+[
+  {
+    "nodeid": "tools/paxeer-x/tests/ai_evidence_test.py::EvidenceTests::test_actual_approved_authority",
+    "reason": "Authority setup fails with ai_evidence.Invalid: path: string because the authority loader passes Path objects to the string-only safe_path validator.",
+    "retiring_task": "22.39.144"
+  },
+  {
+    "nodeid": "tools/paxeer-x/tests/ai_evidence_test.py::EvidenceTests::test_bounds_and_hash_types",
+    "reason": "Authority setup fails with ai_evidence.Invalid: path: string because the authority loader passes Path objects to the string-only safe_path validator.",
+    "retiring_task": "22.39.144"
+  },
+  {
+    "nodeid": "tools/paxeer-x/tests/ai_evidence_test.py::EvidenceTests::test_changed_bytes_and_pin",
+    "reason": "Authority setup fails with ai_evidence.Invalid: path: string because the authority loader passes Path objects to the string-only safe_path validator.",
+    "retiring_task": "22.39.144"
+  },
+  {
+    "nodeid": "tools/paxeer-x/tests/ai_evidence_test.py::EvidenceTests::test_cli_argument_rejection",
+    "reason": "Authority setup fails with ai_evidence.Invalid: path: string because the authority loader passes Path objects to the string-only safe_path validator.",
+    "retiring_task": "22.39.144"
+  },
+  {
+    "nodeid": "tools/paxeer-x/tests/ai_evidence_test.py::EvidenceTests::test_contract_hash_and_coverage",
+    "reason": "Authority setup fails with ai_evidence.Invalid: path: string because the authority loader passes Path objects to the string-only safe_path validator.",
+    "retiring_task": "22.39.144"
+  },
+  {
+    "nodeid": "tools/paxeer-x/tests/ai_evidence_test.py::EvidenceTests::test_duplicate_and_nonobject_json",
+    "reason": "Authority setup fails with ai_evidence.Invalid: path: string because the authority loader passes Path objects to the string-only safe_path validator.",
+    "retiring_task": "22.39.144"
+  },
+  {
+    "nodeid": "tools/paxeer-x/tests/ai_evidence_test.py::EvidenceTests::test_evidence_and_log_identity",
+    "reason": "Authority setup fails with ai_evidence.Invalid: path: string because the authority loader passes Path objects to the string-only safe_path validator.",
+    "retiring_task": "22.39.144"
+  },
+  {
+    "nodeid": "tools/paxeer-x/tests/ai_evidence_test.py::EvidenceTests::test_future_fact_refusal",
+    "reason": "Authority setup fails with ai_evidence.Invalid: path: string because the authority loader passes Path objects to the string-only safe_path validator.",
+    "retiring_task": "22.39.144"
+  },
+  {
+    "nodeid": "tools/paxeer-x/tests/ai_evidence_test.py::EvidenceTests::test_future_selector_missing_or_empty_evidence",
+    "reason": "Authority setup fails with ai_evidence.Invalid: path: string because the authority loader passes Path objects to the string-only safe_path validator.",
+    "retiring_task": "22.39.144"
+  },
+  {
+    "nodeid": "tools/paxeer-x/tests/ai_evidence_test.py::EvidenceTests::test_identity_and_stale_base",
+    "reason": "Authority setup fails with ai_evidence.Invalid: path: string because the authority loader passes Path objects to the string-only safe_path validator.",
+    "retiring_task": "22.39.144"
+  },
+  {
+    "nodeid": "tools/paxeer-x/tests/ai_evidence_test.py::EvidenceTests::test_missing_files",
+    "reason": "Authority setup fails with ai_evidence.Invalid: path: string because the authority loader passes Path objects to the string-only safe_path validator.",
+    "retiring_task": "22.39.144"
+  },
+  {
+    "nodeid": "tools/paxeer-x/tests/ai_evidence_test.py::EvidenceTests::test_missing_unknown_fields",
+    "reason": "Authority setup fails with ai_evidence.Invalid: path: string because the authority loader passes Path objects to the string-only safe_path validator.",
+    "retiring_task": "22.39.144"
+  },
+  {
+    "nodeid": "tools/paxeer-x/tests/ai_evidence_test.py::EvidenceTests::test_nonregular_and_ownership_files",
+    "reason": "Authority setup fails with ai_evidence.Invalid: path: string because the authority loader passes Path objects to the string-only safe_path validator.",
+    "retiring_task": "22.39.144"
+  },
+  {
+    "nodeid": "tools/paxeer-x/tests/ai_evidence_test.py::EvidenceTests::test_overlay_pending_partial_wrong_paths",
+    "reason": "Authority setup fails with ai_evidence.Invalid: path: string because the authority loader passes Path objects to the string-only safe_path validator.",
+    "retiring_task": "22.39.144"
+  },
+  {
+    "nodeid": "tools/paxeer-x/tests/ai_evidence_test.py::EvidenceTests::test_ownership_and_fence",
+    "reason": "Authority setup fails with ai_evidence.Invalid: path: string because the authority loader passes Path objects to the string-only safe_path validator.",
+    "retiring_task": "22.39.144"
+  },
+  {
+    "nodeid": "tools/paxeer-x/tests/ai_evidence_test.py::EvidenceTests::test_real_contract_overlay_runtime_file_tampering",
+    "reason": "Authority setup fails with ai_evidence.Invalid: path: string because the authority loader passes Path objects to the string-only safe_path validator.",
+    "retiring_task": "22.39.144"
+  },
+  {
+    "nodeid": "tools/paxeer-x/tests/ai_evidence_test.py::EvidenceTests::test_runtime_producer_control_binding",
+    "reason": "Authority setup fails with ai_evidence.Invalid: path: string because the authority loader passes Path objects to the string-only safe_path validator.",
+    "retiring_task": "22.39.144"
+  },
+  {
+    "nodeid": "tools/paxeer-x/tests/ai_evidence_test.py::EvidenceTests::test_safe_refusal_labels",
+    "reason": "Authority setup fails with ai_evidence.Invalid: path: string because the authority loader passes Path objects to the string-only safe_path validator.",
+    "retiring_task": "22.39.144"
+  },
+  {
+    "nodeid": "tools/paxeer-x/tests/ai_evidence_test.py::EvidenceTests::test_safe_testcase_failure_identities",
+    "reason": "Authority setup fails with ai_evidence.Invalid: path: string because the authority loader passes Path objects to the string-only safe_path validator.",
+    "retiring_task": "22.39.144"
+  },
+  {
+    "nodeid": "tools/paxeer-x/tests/ai_evidence_test.py::EvidenceTests::test_sandbox_and_parent_limits",
+    "reason": "Authority setup fails with ai_evidence.Invalid: path: string because the authority loader passes Path objects to the string-only safe_path validator.",
+    "retiring_task": "22.39.144"
+  },
+  {
+    "nodeid": "tools/paxeer-x/tests/ai_evidence_test.py::EvidenceTests::test_secret_escape_and_public_directory",
+    "reason": "Authority setup fails with ai_evidence.Invalid: path: string because the authority loader passes Path objects to the string-only safe_path validator.",
+    "retiring_task": "22.39.144"
+  },
+  {
+    "nodeid": "tools/paxeer-x/tests/ai_evidence_test.py::EvidenceTests::test_selector_rejection",
+    "reason": "Authority setup fails with ai_evidence.Invalid: path: string because the authority loader passes Path objects to the string-only safe_path validator.",
+    "retiring_task": "22.39.144"
+  },
+  {
+    "nodeid": "tools/paxeer-x/tests/ai_evidence_test.py::EvidenceTests::test_strict_types",
+    "reason": "Authority setup fails with ai_evidence.Invalid: path: string because the authority loader passes Path objects to the string-only safe_path validator.",
+    "retiring_task": "22.39.144"
+  },
+  {
+    "nodeid": "tools/paxeer-x/tests/ai_evidence_test.py::EvidenceTests::test_symlink_public_hardlink_files",
+    "reason": "Authority setup fails with ai_evidence.Invalid: path: string because the authority loader passes Path objects to the string-only safe_path validator.",
+    "retiring_task": "22.39.144"
+  },
+  {
+    "nodeid": "tools/paxeer-x/tests/candidate_test.py::CandidateTest::test_production_cli_preserves_absent_pending_and_null_inventory",
+    "reason": "Candidate create refuses the inventory fixture because it names kernel, which is absent from the maintained 40-service catalogue.",
+    "retiring_task": "22.39.144"
+  },
+  {
+    "nodeid": "tools/paxeer-x/tests/candidate_test.py::CandidateTest::test_real_shell_selector_and_unknown_input_refusal",
+    "reason": "The runtime inventory selector refuses kernel because that service is absent from the maintained 40-service catalogue.",
+    "retiring_task": "22.39.144"
+  },
+  {
+    "nodeid": "tools/paxeer-x/tests/gate_dispatch_test.py::GateDispatchTest::test_absent_gate_refuses",
+    "reason": "Candidate create refuses the 31-service dispatch fixture because catalogue requires 40 services before calling Go; replaying its contract request with stderr visible exits zero with no stderr.",
+    "retiring_task": "22.39.144"
+  },
+  {
+    "nodeid": "tools/paxeer-x/tests/gate_dispatch_test.py::GateDispatchTest::test_dirty_source_refuses_credit",
+    "reason": "Candidate create refuses the 31-service dispatch fixture because catalogue requires 40 services before calling Go; replaying its contract request with stderr visible exits zero with no stderr.",
+    "retiring_task": "22.39.144"
+  },
+  {
+    "nodeid": "tools/paxeer-x/tests/gate_dispatch_test.py::GateDispatchTest::test_empty_corpus_refuses",
+    "reason": "Candidate create refuses the 31-service dispatch fixture because catalogue requires 40 services before calling Go; replaying its contract request with stderr visible exits zero with no stderr.",
+    "retiring_task": "22.39.144"
+  },
+  {
+    "nodeid": "tools/paxeer-x/tests/gate_dispatch_test.py::GateDispatchTest::test_fabricated_evidence_refuses",
+    "reason": "Candidate create refuses the 31-service dispatch fixture because catalogue requires 40 services before calling Go; replaying its contract request with stderr visible exits zero with no stderr.",
+    "retiring_task": "22.39.144"
+  },
+  {
+    "nodeid": "tools/paxeer-x/tests/gate_dispatch_test.py::GateDispatchTest::test_gate_that_dirties_source_refuses_credit",
+    "reason": "Candidate create refuses the 31-service dispatch fixture because catalogue requires 40 services before calling Go; replaying its contract request with stderr visible exits zero with no stderr.",
+    "retiring_task": "22.39.144"
+  },
+  {
+    "nodeid": "tools/paxeer-x/tests/gate_dispatch_test.py::GateDispatchTest::test_mismatched_manifest_identities_refuse",
+    "reason": "Candidate create refuses the 31-service dispatch fixture because catalogue requires 40 services before calling Go; replaying its contract request with stderr visible exits zero with no stderr.",
+    "retiring_task": "22.39.144"
+  },
+  {
+    "nodeid": "tools/paxeer-x/tests/gate_dispatch_test.py::GateDispatchTest::test_non_executable_gate_and_missing_interpreter_refuse",
+    "reason": "Candidate create refuses the 31-service dispatch fixture because catalogue requires 40 services before calling Go; replaying its contract request with stderr visible exits zero with no stderr.",
+    "retiring_task": "22.39.144"
+  },
+  {
+    "nodeid": "tools/paxeer-x/tests/gate_dispatch_test.py::GateDispatchTest::test_pass_writes_private_bound_evidence",
+    "reason": "Candidate create refuses the 31-service dispatch fixture because catalogue requires 40 services before calling Go; replaying its contract request with stderr visible exits zero with no stderr.",
+    "retiring_task": "22.39.144"
+  },
+  {
+    "nodeid": "tools/paxeer-x/tests/gate_dispatch_test.py::GateDispatchTest::test_release_deduplicates_identical_identities",
+    "reason": "Candidate create refuses the 31-service dispatch fixture because catalogue requires 40 services before calling Go; replaying its contract request with stderr visible exits zero with no stderr.",
+    "retiring_task": "22.39.144"
+  },
+  {
+    "nodeid": "tools/paxeer-x/tests/gate_dispatch_test.py::GateDispatchTest::test_release_refuses_empty_scope_and_incomplete_coverage",
+    "reason": "Candidate create refuses the 31-service dispatch fixture because catalogue requires 40 services before calling Go; replaying its contract request with stderr visible exits zero with no stderr.",
+    "retiring_task": "22.39.144"
+  },
+  {
+    "nodeid": "tools/paxeer-x/tests/gate_dispatch_test.py::GateDispatchTest::test_release_runs_distinct_identities_and_reports_failure",
+    "reason": "Candidate create refuses the 31-service dispatch fixture because catalogue requires 40 services before calling Go; replaying its contract request with stderr visible exits zero with no stderr.",
+    "retiring_task": "22.39.144"
+  },
+  {
+    "nodeid": "tools/paxeer-x/tests/gate_dispatch_test.py::GateDispatchTest::test_skipped_requirements_and_failures_refuse",
+    "reason": "Candidate create refuses the 31-service dispatch fixture because catalogue requires 40 services before calling Go; replaying its contract request with stderr visible exits zero with no stderr.",
+    "retiring_task": "22.39.144"
+  },
+  {
+    "nodeid": "tools/paxeer-x/tests/gate_dispatch_test.py::GateDispatchTest::test_stale_evidence_refuses",
+    "reason": "Candidate create refuses the 31-service dispatch fixture because catalogue requires 40 services before calling Go; replaying its contract request with stderr visible exits zero with no stderr.",
+    "retiring_task": "22.39.144"
+  },
+  {
+    "nodeid": "tools/paxeer-x/tests/gate_dispatch_test.py::GateDispatchTest::test_unknown_and_malformed_selectors_refuse",
+    "reason": "Candidate create refuses the 31-service dispatch fixture because catalogue requires 40 services before calling Go; replaying its contract request with stderr visible exits zero with no stderr.",
+    "retiring_task": "22.39.144"
+  },
+  {
+    "nodeid": "tools/paxeer-x/tests/gate_dispatch_test.py::GateDispatchTest::test_unsafe_evidence_directory_refuses",
+    "reason": "Candidate create refuses the 31-service dispatch fixture because catalogue requires 40 services before calling Go; replaying its contract request with stderr visible exits zero with no stderr.",
+    "retiring_task": "22.39.144"
+  },
+  {
+    "nodeid": "tools/paxeer-x/tests/test_gov_templates.py::GovTemplatesTest::test_gov_suite_passes_without_retired_templates",
+    "reason": "The governance suite expects a release name that is absent from tools/hpx/publish.sh.",
+    "retiring_task": "22.39.144"
+  },
+  {
+    "nodeid": "tools/paxeer-x/tests/test_retired_catalogue_deleted.py::RetiredCatalogueDeletedTest::test_deleted_trees_absent_and_catalogue_valid",
+    "reason": "The retired catalogue declares services/agent/crates/layerx-client/src/lni deleted while that tree still exists.",
+    "retiring_task": "22.39.144"
+  },
+  {
+    "nodeid": "tools/paxeer-x/tests/test_signature_route_catalogued.py::test_explorer_gate_runs_sig_provider",
+    "reason": "The explorer gate does not run the signature provider suite declared by the catalogue test.",
+    "retiring_task": "22.39.144"
+  },
+  {
+    "nodeid": "tools/containers/test_check_all_services_scope.py::test_check_all_services_scope",
+    "reason": "The container checker finds stale scope entries, Dockerfile literals and unresolved layerx COPY sources in the declared context.",
+    "retiring_task": "22.39.158"
+  },
+  {
+    "nodeid": "tools/containers/test_check_all_services_scope.py::test_every_tracked_dockerfile_has_scope",
+    "reason": "The tracked Dockerfile inventory has four unscoped recipes and three stale scope entries.",
+    "retiring_task": "22.39.158"
+  },
+  {
+    "nodeid": "tools/containers/test_kernel_init.py::KernelInitTest::test_kernel_init_roles_supported_by_entrypoint",
+    "reason": "The kernel init script exposes no roles matching the test entrypoint role inventory.",
+    "retiring_task": "22.39.158"
+  },
+  {
+    "nodeid": "tools/containers/test_paxd_images.py::PaxdImagesTest::test_layerx_and_paxeer_images_pass_build_check",
+    "reason": "The layerx image check rejects unresolved COPY sources in its declared context.",
+    "retiring_task": "22.39.158"
+  },
+  {
+    "nodeid": "tools/deps/tests/test_go_root_checksums.py::test_go_root_nested_checksums",
+    "reason": "go list -mod=readonly -deps -test ./... in tools/paxctl exits one because go.mod requires updates.",
+    "retiring_task": "22.39.160"
+  },
+  {
+    "nodeid": "tools/docs/gen/test_gen_system_docs.py::test_precompiles_lists_nested_abi_dirs",
+    "reason": "The preserved precompiles document differs from the generated header and ABI documentation the test expects.",
+    "retiring_task": "22.39.159"
+  },
+  {
+    "nodeid": "tools/docs/gen/test_gen_system_docs_abis.py::test_generator_lists_nested_and_embedded_abis",
+    "reason": "The system documentation generator exits one when invoked against the isolated output directory.",
+    "retiring_task": "22.39.159"
+  },
+  {
+    "nodeid": "tools/jev/tests/test_deps.py::DependencyScanTests::test_captured_anchors_resolve_to_the_real_lockfile_crate_lines",
+    "reason": "The captured dependency anchors for paste or rustls point at stale Cargo.lock lines rather than the named crate declarations.",
+    "retiring_task": "22.39.156"
+  },
+  {
+    "nodeid": "tools/jev/tests/test_docs.py::SectionSplitterTests::test_bodies_hold_the_content_below_each_heading",
+    "reason": "The current README headings and command examples differ from the documentation fixtures expected by this check.",
+    "retiring_task": "22.39.156"
+  },
+  {
+    "nodeid": "tools/jev/tests/test_docs.py::SectionSplitterTests::test_real_readme_splits_into_a_preamble_and_every_heading",
+    "reason": "The current README headings and command examples differ from the documentation fixtures expected by this check.",
+    "retiring_task": "22.39.156"
+  },
+  {
+    "nodeid": "tools/jev/tests/test_docs.py::SanitizeTests::test_code_fence_commands_and_prose_survive",
+    "reason": "The current README headings and command examples differ from the documentation fixtures expected by this check.",
+    "retiring_task": "22.39.156"
+  },
+  {
+    "nodeid": "tools/jev/tests/test_docs.py::PairingTests::test_dropped_translation_sections_are_code_level_findings",
+    "reason": "The current README headings and command examples differ from the documentation fixtures expected by this check.",
+    "retiring_task": "22.39.156"
+  },
+  {
+    "nodeid": "tools/jev/tests/test_docs.py::PairingTests::test_real_german_readme_reports_the_current_structural_difference",
+    "reason": "The current README headings and command examples differ from the documentation fixtures expected by this check.",
+    "retiring_task": "22.39.156"
+  },
+  {
+    "nodeid": "tools/jev/tests/test_docs.py::PublishedCatalogTests::test_both_maintained_trees_have_explicit_sources_and_separate_anchors",
+    "reason": "The current README headings and command examples differ from the documentation fixtures expected by this check.",
+    "retiring_task": "22.39.156"
+  },
+  {
+    "nodeid": "tools/jev/tests/test_failures.py::CargoExtractionTests::test_backtrace_notes_and_summary_lines_stay_out_of_the_message",
+    "reason": "The required failure log fixtures are absent from tools/jev/tests/fixtures/failures at this revision.",
+    "retiring_task": "22.39.156"
+  },
+  {
+    "nodeid": "tools/jev/tests/test_failures.py::CargoExtractionTests::test_stdout_blocks_yield_name_location_and_message",
+    "reason": "The required failure log fixtures are absent from tools/jev/tests/fixtures/failures at this revision.",
+    "retiring_task": "22.39.156"
+  },
+  {
+    "nodeid": "tools/jev/tests/test_failures.py::HarnessExtractionTests::test_assertion_lines_attach_to_the_following_fail_line",
+    "reason": "The required failure log fixtures are absent from tools/jev/tests/fixtures/failures at this revision.",
+    "retiring_task": "22.39.156"
+  },
+  {
+    "nodeid": "tools/jev/tests/test_failures.py::ForgeExtractionTests::test_both_fail_syntaxes_carry_reason_and_suite_path",
+    "reason": "The required failure log fixtures are absent from tools/jev/tests/fixtures/failures at this revision.",
+    "retiring_task": "22.39.156"
+  },
+  {
+    "nodeid": "tools/jev/tests/test_failures.py::PytestExtractionTests::test_short_summary_lines_split_path_name_and_message",
+    "reason": "The required failure log fixtures are absent from tools/jev/tests/fixtures/failures at this revision.",
+    "retiring_task": "22.39.156"
+  },
+  {
+    "nodeid": "tools/jev/tests/test_failures.py::FuzzExtractionTests::test_divergence_and_sanitizer_reports_are_both_records",
+    "reason": "The required failure log fixtures are absent from tools/jev/tests/fixtures/failures at this revision.",
+    "retiring_task": "22.39.156"
+  },
+  {
+    "nodeid": "tools/jev/tests/test_failures.py::SniffTests::test_every_fixture_is_recognised_without_a_format_flag",
+    "reason": "The required failure log fixtures are absent from tools/jev/tests/fixtures/failures at this revision.",
+    "retiring_task": "22.39.156"
+  },
+  {
+    "nodeid": "tools/jev/tests/test_failures.py::RedactionTests::test_collect_redacts_and_truncates_every_record",
+    "reason": "The required failure log fixtures are absent from tools/jev/tests/fixtures/failures at this revision.",
+    "retiring_task": "22.39.156"
+  },
+  {
+    "nodeid": "tools/jev/tests/test_failures.py::NormalisationTests::test_two_failures_differing_only_in_numbers_normalise_equal",
+    "reason": "The required failure log fixtures are absent from tools/jev/tests/fixtures/failures at this revision.",
+    "retiring_task": "22.39.156"
+  },
+  {
+    "nodeid": "tools/jev/tests/test_failures.py::CollectTests::test_a_repeated_forge_failure_is_collected_once",
+    "reason": "The required failure log fixtures are absent from tools/jev/tests/fixtures/failures at this revision.",
+    "retiring_task": "22.39.156"
+  },
+  {
+    "nodeid": "tools/jev/tests/test_failures.py::CollectTests::test_an_explicit_format_overrides_the_sniffer",
+    "reason": "The required failure log fixtures are absent from tools/jev/tests/fixtures/failures at this revision.",
+    "retiring_task": "22.39.156"
+  },
+  {
+    "nodeid": "tools/jev/tests/test_failures.py::CollectTests::test_records_carry_identifier_format_and_source",
+    "reason": "The required failure log fixtures are absent from tools/jev/tests/fixtures/failures at this revision.",
+    "retiring_task": "22.39.156"
+  },
+  {
+    "nodeid": "tools/jev/tests/test_failures.py::CollectTests::test_several_logs_share_one_identifier_sequence",
+    "reason": "The required failure log fixtures are absent from tools/jev/tests/fixtures/failures at this revision.",
+    "retiring_task": "22.39.156"
+  },
+  {
+    "nodeid": "tools/jev/tests/test_failures.py::AnchorTests::test_a_file_and_line_location_is_the_anchor",
+    "reason": "The required failure log fixtures are absent from tools/jev/tests/fixtures/failures at this revision.",
+    "retiring_task": "22.39.156"
+  },
+  {
+    "nodeid": "tools/jev/tests/test_failures.py::AnchorTests::test_a_location_without_a_line_falls_back_to_the_record_id",
+    "reason": "The required failure log fixtures are absent from tools/jev/tests/fixtures/failures at this revision.",
+    "retiring_task": "22.39.156"
+  },
+  {
+    "nodeid": "tools/jev/tests/test_failures.py::CandidatePairTests::test_a_shared_file_or_a_shared_normalised_message_is_a_candidate",
+    "reason": "The required failure log fixtures are absent from tools/jev/tests/fixtures/failures at this revision.",
+    "retiring_task": "22.39.156"
+  },
+  {
+    "nodeid": "tools/jev/tests/test_failures.py::CandidatePairTests::test_unrelated_failures_are_never_paired",
+    "reason": "The required failure log fixtures are absent from tools/jev/tests/fixtures/failures at this revision.",
+    "retiring_task": "22.39.156"
+  },
+  {
+    "nodeid": "tools/jev/tests/test_failures.py::ClusterTests::test_a_link_at_the_threshold_merges_and_a_weak_link_does_not",
+    "reason": "The required failure log fixtures are absent from tools/jev/tests/fixtures/failures at this revision.",
+    "retiring_task": "22.39.156"
+  },
+  {
+    "nodeid": "tools/jev/tests/test_failures.py::ClusterTests::test_clustering_is_transitive",
+    "reason": "The required failure log fixtures are absent from tools/jev/tests/fixtures/failures at this revision.",
+    "retiring_task": "22.39.156"
+  },
+  {
+    "nodeid": "tools/jev/tests/test_failures.py::ClusterTests::test_no_links_leaves_every_failure_on_its_own",
+    "reason": "The required failure log fixtures are absent from tools/jev/tests/fixtures/failures at this revision.",
+    "retiring_task": "22.39.156"
+  },
+  {
+    "nodeid": "tools/jev/tests/test_failures.py::FindingTests::test_a_cluster_reports_the_representative_with_its_members",
+    "reason": "The required failure log fixtures are absent from tools/jev/tests/fixtures/failures at this revision.",
+    "retiring_task": "22.39.156"
+  },
+  {
+    "nodeid": "tools/jev/tests/test_failures.py::FindingTests::test_a_missing_answer_drops_only_its_own_finding",
+    "reason": "The required failure log fixtures are absent from tools/jev/tests/fixtures/failures at this revision.",
+    "retiring_task": "22.39.156"
+  },
+  {
+    "nodeid": "tools/jev/tests/test_failures.py::FindingTests::test_a_representative_with_an_anchor_leads_its_cluster",
+    "reason": "The required failure log fixtures are absent from tools/jev/tests/fixtures/failures at this revision.",
+    "retiring_task": "22.39.156"
+  },
+  {
+    "nodeid": "tools/jev/tests/test_failures.py::DryRunTests::test_dry_run_exits_zero_and_sends_nothing",
+    "reason": "The required failure log fixtures are absent from tools/jev/tests/fixtures/failures at this revision.",
+    "retiring_task": "22.39.156"
+  },
+  {
+    "nodeid": "tools/jev/tests/test_ledger.py::ParserTests::test_records_without_observed_text_are_not_judged",
+    "reason": "The ledger parser returns no records, so the expected record without observed text is absent.",
+    "retiring_task": "22.39.156"
+  },
+  {
+    "nodeid": "tools/jev/tests/test_ledger.py::ParserTests::test_the_real_beta_ledger_parses_into_the_severity_vocabulary",
+    "reason": "The current beta ledger parses to zero records while the test requires more than 1700.",
+    "retiring_task": "22.39.156"
+  },
+  {
+    "nodeid": "tools/jev/tests/test_pr.py::ConfidenceTests::test_choice_confidence_falls_back_to_the_reported_confidence",
+    "reason": "The choice fixture supplies reported confidence without the token probability distribution required by the answer parser.",
+    "retiring_task": "22.39.156"
+  },
+  {
+    "nodeid": "tools/jev/tests/test_repair_22_33_705.py::test_jev_deps_test_roots[DependencyScanTests.test_captured_anchors_resolve_to_the_real_lockfile_crate_lines]",
+    "reason": "The captured dependency anchors for paste or rustls point at stale Cargo.lock lines rather than the named crate declarations.",
+    "retiring_task": "22.39.156"
+  },
+  {
+    "nodeid": "tools/jev/tests/test_repair_22_33_705.py::test_jev_doc_test_headings[SectionSplitterTests.test_bodies_hold_the_content_below_each_heading]",
+    "reason": "The current README headings and command examples differ from the documentation fixtures expected by this check.",
+    "retiring_task": "22.39.156"
+  },
+  {
+    "nodeid": "tools/jev/tests/test_repair_22_33_705.py::test_jev_doc_test_headings[SectionSplitterTests.test_real_readme_splits_into_a_preamble_and_every_heading]",
+    "reason": "The current README headings and command examples differ from the documentation fixtures expected by this check.",
+    "retiring_task": "22.39.156"
+  },
+  {
+    "nodeid": "tools/jev/tests/test_repair_22_33_705.py::test_jev_doc_test_headings[PairingTests.test_dropped_translation_sections_are_code_level_findings]",
+    "reason": "The current README headings and command examples differ from the documentation fixtures expected by this check.",
+    "retiring_task": "22.39.156"
+  },
+  {
+    "nodeid": "tools/jev/tests/test_repair_22_33_705.py::test_jev_doc_test_headings[PairingTests.test_real_german_readme_reports_the_current_structural_difference]",
+    "reason": "The current README headings and command examples differ from the documentation fixtures expected by this check.",
+    "retiring_task": "22.39.156"
+  },
+  {
+    "nodeid": "tools/jev/tests/test_repair_22_33_705.py::test_jev_doc_test_headings[PublishedCatalogTests.test_both_maintained_trees_have_explicit_sources_and_separate_anchors]",
+    "reason": "The current README headings and command examples differ from the documentation fixtures expected by this check.",
+    "retiring_task": "22.39.156"
+  },
+  {
+    "nodeid": "tools/jev/tests/test_repair_22_33_705.py::test_dependency_capture_reaches_client_and_report_with_real_lockfile_anchors[RUSTSEC-2024-0436]",
+    "reason": "The captured dependency anchors for paste or rustls point at stale Cargo.lock lines rather than the named crate declarations.",
+    "retiring_task": "22.39.156"
+  },
+  {
+    "nodeid": "tools/jev/tests/test_repair_22_33_705.py::test_dependency_capture_reaches_client_and_report_with_real_lockfile_anchors[RUSTSEC-2026-0285]",
+    "reason": "The captured dependency anchors for paste or rustls point at stale Cargo.lock lines rather than the named crate declarations.",
+    "retiring_task": "22.39.156"
+  },
+  {
+    "nodeid": "tools/bringup/tests/test_bringup_fixtures_retired.py::BringupFixturesRetiredTest::test_fixtures_name_no_retired_daemon",
+    "reason": "The foundation artifact check rejects the stale producer import graph and the bringup fixture still contains the retired LAYERX_INDEXER_RELAY_URL variable.",
+    "retiring_task": "22.39.164"
+  },
+  {
+    "nodeid": "tools/bringup/tests/test_repair_22_31_319.py::test_edge_manifest_roundtrip_both_consumers_over_ssh",
+    "reason": "The qualification environment lacks nginx, which the edge manifest integration test declares as a prerequisite package.",
+    "retiring_task": "22.39.164"
+  },
+  {
+    "nodeid": "tools/bringup/tests/test_repair_22_31_319.py::test_search_front_roundtrip_primary_backup_and_refusals",
+    "reason": "The search front render exits two because BRINGUP_HOSTS_FILE is unset.",
+    "retiring_task": "22.39.164"
+  },
+  {
+    "nodeid": "tools/bringup/tests/test_repair_22_31_319.py::test_xweb_config_roundtrip_rotation_and_refusals",
+    "reason": "The xweb render refuses because separate hosted gateway and node root transports are required.",
+    "retiring_task": "22.39.164"
+  },
+  {
+    "nodeid": "tools/bringup/tests/test_repair_22_31_319.py::test_internal_probe_kernel_identity_over_private_route_over_ssh",
+    "reason": "The kernel identity probe returns a ready response after credential corruption when the test requires refusal.",
+    "retiring_task": "22.39.164"
+  },
+  {
+    "nodeid": "tools/bringup/tests/test_repair_22_31_319.py::test_internal_probe_kernel_identity_over_private_route",
+    "reason": "The recorded private-route kernel probe receives a refused KMS response instead of ready and leaves unmatched session calls at teardown.",
+    "retiring_task": "22.39.164"
+  },
+  {
+    "nodeid": "tools/bringup/tests/test_spec_paths.py::BringupSpecPathsTest::test_docs_names_reads_existing_spec",
+    "reason": "The docs-names check refuses README.md as an unpublished public name.",
+    "retiring_task": "22.39.164"
+  },
+  {
+    "nodeid": "tools/bringup/tests/test_xweb_config.py::XwebConfigTest::test_render_emits_no_lx_route",
+    "reason": "The xweb config loader refuses the fixture because its seeds list is a placeholder.",
+    "retiring_task": "22.39.164"
+  },
+  {
+    "nodeid": "tools/benchmark/loadtest/contracts/evm/test_sources_match_bindings.py::test_my_nft_abi_matches_erc721_binding",
+    "reason": "The compiled MyNFT mint ABI names its uint256 parameter tokenId while the ERC721 binding names it id.",
+    "retiring_task": "22.39.164"
+  },
+  {
+    "nodeid": "tools/benchmark/loadtest/scripts/test_repair_22_31_431.py::test_benchmark_rpc_envelope_block_statistics",
+    "reason": "The benchmark block statistics tuples differ in their sixth decimal place.",
+    "retiring_task": "22.39.164"
+  }
+]

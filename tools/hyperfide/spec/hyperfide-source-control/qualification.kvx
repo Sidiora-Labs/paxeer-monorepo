@@ -1144,3 +1144,47 @@ command = "BY_REFERENCE: final build.command and verify.command in /out/run/gate
 exit_code = "BY_REFERENCE: final build.exit and verify.exit in /out/run/gates.jsonl; qualification requires both zero at the same candidate revision."
 log = "BY_REFERENCE: final build.log and verify.log in private /out/run/gates.jsonl; component receipt tools/hyperfide/build/fleet/0.13/receipt.json retains typed refusal codes and operation identities."
 observed = "The bounded component gate retains every unjournalled proposal assertion and exercises current-manager journal admission, stale manager generation and cross-package selection for assignment and destruction through signed HTTPS and real PostgreSQL; full durable-state snapshots must remain unchanged on every manager refusal, with no effect receipts; all live qualification remains UNRUN."
+
+
+[qualification.final_prerequisite_component_22_37_7]
+revision = "BY_REFERENCE: matching final build.revision and verify.revision in private /out/run/gates.jsonl for merge task 22.37.7; carried source task spec/layerx-merge/source-control/source-spec.kvx task 0.14."
+command = "BY_REFERENCE: final build.command and verify.command in /out/run/gates.jsonl; hf-build runs the declared frozen install/profile-worker/control-plane build and hf-done runs cg spec done 22.37.7 -f layerx-merge --root /work/paxeer-monorepo including withpg.py -- python3 tests/hyperfide/cases/source_control/0_14.py --component."
+exit_code = "BY_REFERENCE: final build.exit and verify.exit in /out/run/gates.jsonl; both must be zero at the identical candidate revision."
+log = "BY_REFERENCE: final build.log and verify.log in private /out/run/gates.jsonl; tools/hyperfide/build/fleet/0.14/component-receipt.json, receipt.json and supervisor-restoration.log contain private component evidence."
+observed = "Decision 2700: component qualification measures signed actor identity and unavailable-model replay, stale-cohort fencing, actual local supervisor SIGKILL/restoration, pinned environment registration and fail-closed fault evidence checks; provider host loss, actual ambiguous provider outcome, interrupted installation, failed native implementation and accepted model execution remain live UNRUN, and native task 0.1 remains gated on live PASS."
+
+[qualification.final_prerequisite_journey_live_22_37_7]
+revision = "BY_REFERENCE: final matching build.revision and verify.revision in private /out/run/gates.jsonl for merge task 22.37.7, carried source task 0.14."
+command = "cd tools/hyperfide && python3 tests/hyperfide/cases/source_control/0_14_live.py run --task 0.14 --config /private/hyperfide-prerequisite/0_14-live-config.json && python3 tests/hyperfide/cases/source_control/0_14_live.py qualification --task 0.14 --config /private/hyperfide-prerequisite/0_14-live-config.json && python3 tests/hyperfide/cases/source_control/0_14_live.py evidence-index --task 0.14 --config /private/hyperfide-prerequisite/0_14-live-config.json"
+exit_code = "UNRUN"
+log = "tools/hyperfide/build/fleet/integration/private/0_14-run-receipt.json; 0_14-qualification-receipt.json; 0_14-evidence-index-receipt.json (UNRUN; reserved private owner evidence)."
+observed = "No owner campaign configuration, trusted provider database target or provider/model/object-store credentials were supplied; supply the private configured pool/backend and versioned signed request producers, then retain all TASK_CASES[0.14] captures beside pinned 0_14-index-input.json and 0_14-target-input.json; all six required live faults remain UNRUN and no live PASS is claimed."
+
+[qualification.final_prerequisite_handoff_live_22_37_7]
+revision = "BY_REFERENCE: final matching build.revision and verify.revision in private /out/run/gates.jsonl for merge task 22.37.7, carried source task 0.14."
+command = "cd tools/hyperfide && python3 tests/hyperfide/support/withpg.py -- python3 tests/hyperfide/cases/source_control/0_14.py --live-evidence build/fleet/integration/private/0_14-index.json --target build/fleet/integration/private/0_14-target.json --receipt build/fleet/integration/private/0_14-live-receipt.json"
+exit_code = "UNRUN"
+log = "tools/hyperfide/build/fleet/0.14/actor-receipt.json; tools/hyperfide/build/fleet/integration/private/0_14-live-receipt.json (UNRUN; reserved private owner receipts)."
+observed = "After the real actor checks the verifier requires all live case captures and authoritative signed native/provider evidence; its inventory classifies every contract/source/toolchain/manifest/interface/provider assertion, missing evidence stays BLOCKED exit 2, and only live PASS releases native task 0.1; set the target database_url_env to a distinct read-only owner connection variable preserved by withpg.py."
+
+[gotcha.final_prerequisite_node_22_37_7]
+revision = "BY_REFERENCE: final build.revision and verify.revision in private /out/run/gates.jsonl."
+command = "BY_REFERENCE: hf-build and hf-done final commands in private /out/run/gates.jsonl."
+exit_code = "BY_REFERENCE: final build.exit and verify.exit; no gate result inferred."
+log = "BY_REFERENCE: final build.log and verify.log in private /out/run/gates.jsonl."
+observed = "Gotcha 3308/decision 2707: setup retained an author-specific Node path and live resolution silently selected an unresolved literal; both drivers and the final component now resolve HYPERFIDE_FLEET_NODE or shutil.which(node) and explicitly refuse a missing executable."
+
+
+[gotcha.final_prerequisite_cohort_order_22_37_7]
+revision = "4fca9b5851a58182982399c6a8107bb6a6793c18; repaired revision BY_REFERENCE: matching final build.revision and verify.revision in private /out/run/gates.jsonl."
+command = "cg spec done 22.37.7 -f layerx-merge --root /work/paxeer-monorepo"
+exit_code = 1
+log = "/out/logs/verify-1.log; repaired build and verification evidence BY_REFERENCE: final build.log and verify.log in private /out/run/gates.jsonl."
+observed = "Cohort replacement automatically advances only the Primary actor row, so an unrebound manager first refuses FLEET_COHORT_STALE; the component now asserts that exact no-effect fence, explicitly rebinds the manager to the current cohort and retains the original FLEET_OBSERVATION_STALE assertion for every old observation."
+
+[qualification.native_contract_22_37_8]
+revision = "BY_REFERENCE: matching final build.revision and verify.revision in private /out/run/gates.jsonl for merge task 22.37.8; carried source task spec/layerx-merge/source-control/source-spec.kvx task 0.1."
+command = "BY_REFERENCE: final build.command and verify.command in /out/run/gates.jsonl; hf-build runs the declared control-plane and SDK build/typecheck and hf-done runs cg spec done 22.37.8 -f layerx-merge --root /work/paxeer-monorepo including cd tools/hyperfide && corepack enable && python3 tests/hyperfide/cases/source_control/0_1.py with HYPERFIDE_NODE unset and node on PATH."
+exit_code = "BY_REFERENCE: final build.exit and verify.exit in private /out/run/gates.jsonl; qualification requires both zero at the identical candidate revision."
+log = "BY_REFERENCE: final build.log and verify.log in private /out/run/gates.jsonl; tools/hyperfide/build/source-control/0.1/receipt.json retains assertion outcomes, exact input digests and Node resolution evidence."
+observed = "The bounded contract gate asserts page and opaque cursor parsing/refusals, independent integer/control/non-BMP vectors, SDK/server digest equality and the documented durable server replay-conflict rule; historical 22.37.7 component evidence is retained, while carried task 0.14 live qualification remains open and is not inferred from codec validity."

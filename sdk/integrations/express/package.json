@@ -27,7 +27,8 @@
   "scripts": {
     "prebuild": "npm --prefix ../../.. run build:dependencies -- @sidiora/layerx-express",
     "build": "tsc -p tsconfig.json",
-    "test": "npm run build && node --test test/*.test.mjs && npm --prefix example test"
+    "test": "node --test test/*.test.mjs && npm --prefix example test",
+    "pretest": "npm run build"
   },
   "dependencies": {
     "@sidiora/layerx-buyer-middleware": "file:../../../services/platform/middleware/buyer",

@@ -15,7 +15,7 @@ from layerx_sdk.ai_market import (
     decode_programs_call_result,
 )
 from layerx_sdk.evm_transaction import _sequence, decode_signed
-from layerx_sdk.verifier import SequencerReceiptVerificationError
+from layerx_sdk.verifier import SequencerReceiptVerification, SequencerReceiptVerificationError
 from layerx_sdk.x402_rpc import PaymentRpc
 
 from program_receipt_evidence import ProgramReceiptEvidence
@@ -82,6 +82,8 @@ def recorded_programs_rpc(evidence, terminal_output):
 @pytest.fixture
 def recorded_execution():
     evidence = ProgramReceiptEvidence()
+    assert type(evidence.verified) is SequencerReceiptVerification
+    assert evidence.verified.canonical_bytes == evidence.encoded
     transaction, _ = decode_signed(evidence.signed)
     native, fee = _decode_programs_call(transaction.data)
     assert transaction.to == bytes.fromhex("000000000000000000000000000000000000101d")

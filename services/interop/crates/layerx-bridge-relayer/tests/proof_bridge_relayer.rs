@@ -36,7 +36,7 @@ use layerx_bridge_relayer::attestation::{
     ethereum_address, InboundAttestation, OutboundAttestation,
 };
 use layerx_bridge_relayer::attestation_api::{
-    deposit_answer, release_answer, serve, AttestationView,
+    deposit_answer, release_answer, serve, AttestationView, AuthenticatedPolicy, PolicyDestination,
 };
 use layerx_bridge_relayer::config::RelayerConfig;
 use layerx_bridge_relayer::cosign::CosignDirectory;
@@ -572,11 +572,39 @@ fn runs() {
         );
         assert_eq!(expected.len(), 3);
     }
-    let snapshot = AttestationView {
-        items: reopened.state().items.clone(),
-        signatures,
-        thresholds: BTreeMap::from([(inbound.chain_id, 3)]),
-    };
+    let attestors: Vec<_> = (1..=3)
+        .map(|seed| {
+            let key = SigningKey::from_bytes((&[seed; 32]).into()).expect("real signing key");
+            ethereum_address(key.verifying_key())
+        })
+        .collect();
+    let policies = [
+        PolicyDestination::Inbound {
+            chain_id: config.paxeer.chain_id,
+            bridge: layerx_bridge_relayer::abi::LAYERX_BRIDGE_PRECOMPILE,
+            source_chain_id: inbound.chain_id,
+            source_vault: inbound.vault,
+        },
+        PolicyDestination::EvmRelease {
+            chain_id: outbound.chain_id,
+            vault: outbound.vault,
+        },
+    ]
+    .into_iter()
+    .map(|destination| {
+        (
+            destination,
+            AuthenticatedPolicy {
+                destination,
+                threshold: 3,
+                attestors: attestors.clone(),
+            },
+        )
+    })
+    .collect();
+    let snapshot = AttestationView::from_journal(&reopened, Some(&cosign), &policies);
+    assert_eq!(snapshot.signatures, signatures);
+    assert_eq!(snapshot.thresholds, BTreeMap::from([(inbound.chain_id, 3)]));
     let deposit = deposit_answer(
         &snapshot,
         inbound.chain_id,

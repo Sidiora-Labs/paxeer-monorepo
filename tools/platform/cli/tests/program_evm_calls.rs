@@ -258,7 +258,15 @@ fn program_call_submits_raw_transaction() -> Result<(), String> {
     .is_err());
     let (endpoint, recorded) = capture();
     let client = http::Client::new(&endpoint, None)?;
-    assert!(programs::submit_program_transaction(&client, &raw).is_err());
+    let outcome = programs::submit_program_transaction(&client, &raw)?;
+    let expected_hash = format!("0x{}", encoding::hex_encode(&transaction_hash(&raw)));
+    assert_eq!(outcome["tx_hash"], expected_hash);
+    assert_eq!(outcome["txHash"], expected_hash);
+    assert_eq!(outcome["rung"], "unknown");
+    assert!(!outcome["detail"]
+        .as_str()
+        .ok_or("missing submission detail")?
+        .is_empty());
     let request = recorded.join().map_err(|_| "capture thread failed")?;
     assert_eq!(request["method"], "eth_sendRawTransaction");
     assert_eq!(

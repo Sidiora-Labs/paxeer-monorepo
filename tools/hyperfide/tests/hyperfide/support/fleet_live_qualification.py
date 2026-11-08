@@ -858,6 +858,70 @@ def verified_contract_status_derivation(declaration,pin,current,evidence_root):
    return {'schema_version':1,'kind':'SPEC_STATUS_ONLY_DERIVATION_V1','path':path,'baseline':archive,'baseline_digest':pin['digest'],'current_digest':digest(current),'allowed_transitions_digest':digest(allowed),'transitions':[{**t,'line':n+1} for t,n in zip(allowed[:count],positions[:count])]}
  raise Refused('STATUS_ONLY_CONTRACT_DERIVATION_MISMATCH')
 
+
+def assertion_inventory(task, index=None, target=None, *, verified=False, component=None,
+                        reason='LIVE_EVIDENCE_UNRUN', refused_case=None):
+ """Classify every declared pin and case without promoting component evidence to live proof."""
+ index = index if isinstance(index, dict) else {}
+ target = target if isinstance(target, dict) else {}
+ entries = []
+ def add(category, identity, references):
+  entry = {'category': category, 'id': identity, 'status': 'PASS' if verified else 'UNRUN',
+           'classification': 'LIVE_VERIFIED' if verified else 'MISSING_LIVE_COVERAGE',
+           'evidence': references if verified else [],
+           'required_evidence': references}
+  if not verified:
+   entry['missing_coverage'] = reason
+   if component is not None:
+    entry['component_evidence'] = 'component-receipt.json'
+    entry['classification'] = 'COMPONENT_ONLY'
+  entries.append(entry)
+ contracts = target.get('contract_files')
+ if not isinstance(contracts, list) or not contracts:
+  contracts = [{'path': 'contracts/fleet/index.mjs'}, {'path': 'spec/hyperfide-source-control/spec.kvx'}]
+ for n, pin in enumerate(contracts):
+  identity = pin.get('path', 'missing-contract-path') if isinstance(pin, dict) else 'invalid-contract-pin'
+  add('contract', identity, ['target#/contract_files/' + str(n), 'live-receipt.json#/contract_derivations'])
+ for key in ('accepted_source_object_id', 'installed_source_tree_id'):
+  add('source', key, ['target#/' + key, 'index#/cases/fresh_install/capture'])
+ if target.get('source_backend') == 'native':
+  for key in ('native_source_revision_id', 'native_source_root_tree_id', 'security_domain_id'):
+   add('source', key, ['target#/' + key, 'index#/cases/fresh_install/capture'])
+ toolchains = target.get('toolchains')
+ if not isinstance(toolchains, list) or not toolchains:
+  toolchains = [{'name': 'required-pinned-toolchains'}]
+ for n, tool in enumerate(toolchains):
+  identity = tool.get('name', 'missing-toolchain-name') if isinstance(tool, dict) else 'invalid-toolchain-pin'
+  add('toolchain', identity, ['target#/toolchains/' + str(n), 'index#/cases/fresh_install/capture'])
+ for role in ('install', 'coding', 'test'):
+  add('toolchain', 'native-binary-' + role, ['target#/native_binary_pins/' + role,
+      'index#/cases/' + {'install': 'fresh_install', 'coding': 'coding_worker', 'test': 'independent_test'}[role] + '/capture'])
+ for identity in ('package_spec', 'source_config', 'install_plan', 'dependency-lockfiles', 'configuration-versions'):
+  add('manifest', identity, ['target#/input_digest', 'index#/install_operation_id', 'index#/cases/fresh_install/capture'])
+ for identity in ('selected-fragment', 'publication-and-consumer-proof'):
+  add('interface', identity, ['target#/interface_digest', 'index#/cases/interface_subset/capture'])
+ for name in TASK_CASES[task]:
+  category = 'provider' if name in WORKER_CASES or name in ('supervisor_box_loss', 'manager_replacement') else 'contract'
+  add(category, name, ['index#/cases/' + name + '/capture'])
+  entry = entries[-1]
+  if component is not None and name in component.get('fault_cases', {}):
+   entry['component_evidence'] = 'component-receipt.json#/fault_cases/' + name
+   entry['component_coverage'] = component['fault_cases'][name]['coverage']
+  if not verified and refused_case == name:
+   entry.update(status='REFUSED', classification='EVIDENCE_REFUSED', refusal_code=reason)
+ return entries
+
+
+def write_qualification_receipt(destination, report):
+ destination = Path(destination)
+ destination.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+ # Restrict permissions before writing, including when replacing an existing receipt.
+ descriptor = os.open(destination, os.O_WRONLY | os.O_CREAT | os.O_TRUNC | os.O_NOFOLLOW, 0o600)
+ with os.fdopen(descriptor, 'w') as stream:
+  os.fchmod(stream.fileno(), 0o600)
+  stream.write(json.dumps(report, indent=2) + '\n')
+
+
 def verify(task,index,target,evidence_root=None):
  require(isinstance(index,dict) and isinstance(target,dict),'LIVE_EVIDENCE_OBJECT_REQUIRED')
  require(target.get('source_backend','git') in ('git','native'),'SOURCE_BACKEND_REQUIRED')
@@ -923,19 +987,52 @@ def verify(task,index,target,evidence_root=None):
   assigned=[e for e in rows['fleet_effect_receipts'] if e['result'].get('kind')=='ASSIGN_WORKER' and e['result'].get('assignment',{}).get('worker_id')==plan['agent_session_id'] and any(t.get('attempt_id')==plan['attempt_id'] for t in e['result'].get('tasks',[]))];require(len(assigned)==1,'MODEL_WORKER_ASSIGNMENT_REQUIRED');choice=one(rows['fleet_decisions'],'id',assigned[0]['decision_id']);require(choice['actor_id'] in index['actors']['managers'] and choice['body'].get('actor_role')=='WAVE_MANAGER' and assigned[0]['result'].get('install_binding',{}).get('operation_id')==index['install_operation_id'],'MODEL_INSTALLED_WORKER_BINDING_REQUIRED')
   require(launch['result'].get('request_digest')==launch['request_digest'] and launch['launch_id']==plan['launch_id'],'CODING_INPUT_CHAIN_MISMATCH')
   test,custody=verified_qualification(rows,index['native_qualification_id'] if target.get('source_backend')=='native' else index['independent_test_job_id'],target);require(custody['source_attempt_id']==plan['attempt_id'] and custody['repository_id']==target['repository_id'] and custody['source_object_id']==target.get('result_source_object_id') and test['source_object_id']==custody['source_object_id'],'INDEPENDENT_TEST_OF_CODING_RESULT_REQUIRED')
- return {'schema_version':1,'task':task,'status':'PASS','qualified':True,'source_backend':target.get('source_backend','git'),'scope':'actual read-only PostgreSQL, signed native execution and pinned scenario captures','assertions':list(required),'target_digest':digest(target),'evidence_digest':digest(index),'contract_derivations':derivations,'observed_at':observed['identity']['observed_at']}
+ report = {'schema_version':1,'task':task,'status':'PASS','qualified':True,'source_backend':target.get('source_backend','git'),'scope':'actual read-only PostgreSQL, signed native execution and pinned scenario captures','assertions':list(required),'target_digest':digest(target),'evidence_digest':digest(index),'contract_derivations':derivations,'observed_at':observed['identity']['observed_at']}
+ if task == '0.14':
+  report['snapshot_digest'] = digest(observed)
+  report['assertion_inventory'] = assertion_inventory(task, index, target, verified=True)
+ return report
 
-def main(task,component,output):
+def main(task,component,output,*,actors=None):
  parser=argparse.ArgumentParser();parser.add_argument('--component',action='store_true');parser.add_argument('--live-evidence',default=os.environ.get('HF_FLEET_QUALIFICATION_EVIDENCE'));parser.add_argument('--target',default=os.environ.get('HF_FLEET_QUALIFICATION_TARGET'));parser.add_argument('--receipt');parser.add_argument('--inventory',action='store_true');args=parser.parse_args()
- if args.inventory:print(json.dumps({'task':task,'cases':TASK_CASES[task],'qualified':False}));return 0
+ if args.inventory:
+  print(json.dumps({'task':task,'cases':TASK_CASES[task],'qualified':False,
+                    'assertion_inventory':assertion_inventory(task)}));return 0
  if args.component:
-  require(not args.live_evidence and not args.target,'COMPONENT_AND_LIVE_MODES_CONFLICT');result=component();print(json.dumps({'task':task,'mode':'COMPONENT','qualified':False}));return result
- report={'schema_version':1,'task':task,'status':'UNQUALIFIED','qualified':False};code=77
+  # Explicit component mode never consumes ambient live credentials or evidence.
+  require(not args.live_evidence and not args.target,'COMPONENT_AND_LIVE_MODES_CONFLICT')
+  result=component()
+  if args.receipt:
+   report=private_json(Path(output)/'component-receipt.json' if task=='0.14' else Path(output)/'receipt.json')
+   require(report.get('qualified') is not True,'COMPONENT_CANNOT_QUALIFY_LIVE')
+   write_qualification_receipt(args.receipt,report)
+  print(json.dumps({'task':task,'mode':'COMPONENT','qualified':False}));return result
+ report={'schema_version':1,'task':task,'status':'BLOCKED' if actors else 'UNQUALIFIED','qualified':False}
+ code=2 if actors else 77
+ index=target=None
  try:
-  require(args.live_evidence and args.target,'LIVE_EVIDENCE_REQUIRED');report=verify(task,private_json(args.live_evidence),private_json(args.target),Path(args.live_evidence).parent);code=0
+  require(args.live_evidence and args.target,'LIVE_EVIDENCE_REQUIRED')
+  index=private_json(args.live_evidence);target=private_json(args.target)
+  require(isinstance(index,dict) and isinstance(target,dict),'LIVE_EVIDENCE_OBJECT_REQUIRED')
+  require(index.get('schema_version')==1 and index.get('kind')=='hyperfide.fleet-live-evidence'
+          and index.get('target_digest')==digest(target),'EVIDENCE_TARGET_MISMATCH')
+  if actors:
+   report['actor_receipt']=str(Path(output)/'actor-receipt.json')
+   require(actors()==0,'ACTOR_CHECKS_BLOCKED')
+  report=verify(task,index,target,Path(args.live_evidence).parent)
+  require(report.get('status')=='PASS' and report.get('qualified') is True,'LIVE_PASS_REQUIRED')
+  code=0
  except (Refused,OSError,ValueError,KeyError,TypeError,subprocess.SubprocessError) as error:
   report['reason']=str(error) if isinstance(error,Refused) else 'LIVE_EVIDENCE_INVALID'
   report['refusal_code']=report['reason']
   if isinstance(error,CaseRefused):report['refused_case']=error.case
- destination=Path(args.receipt) if args.receipt else Path(output)/'live-receipt.json';destination.parent.mkdir(parents=True,exist_ok=True);destination.write_text(json.dumps(report,indent=2)+'\n');destination.chmod(0o600)
+ if task=='0.14':
+  report['actor_receipt']=str(Path(output)/'actor-receipt.json')
+  report['evidence_index']=args.live_evidence
+  report['target']=args.target
+  report['assertion_inventory']=assertion_inventory(task,index,target,verified=code==0,
+      reason=report.get('reason','LIVE_EVIDENCE_UNRUN'),refused_case=report.get('refused_case'))
+  report['live_cases']={name:('PASS' if code==0 else 'UNRUN') for name in TASK_CASES[task]}
+ destination=Path(args.receipt) if args.receipt else Path(output)/'live-receipt.json'
+ write_qualification_receipt(destination,report)
  print(json.dumps(report));return code

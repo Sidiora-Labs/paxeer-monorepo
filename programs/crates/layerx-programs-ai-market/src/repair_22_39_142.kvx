@@ -1,0 +1,893 @@
+[meta]
+task = "22.39.142"
+acceptance = "22998.1"
+deployment_payload_bound_bytes = 524184
+qualification_payload_bound_bytes = 484184
+release_profile = "Unchanged; opt-level z and the existing host-boundary wasm-opt -Oz packaging"
+revision_source = "Final matching hf-build/hf-done candidate in /out/run/gates.jsonl"
+private_evidence = "/out/run/gates.jsonl and its numbered /out/logs/build-*.log and /out/logs/verify-*.log files"
+
+[before]
+revision = "3d1eff197f5a931feb5afc3e595d856f9f57e02b"
+command = "make -s paxai-host-boundary-build"
+exit = 0
+log = "/out/logs/22.39.142-before.log"
+bytes = 511946
+measurement = "Starting-tree artifact measured before Rust edits; /out/logs/22.39.142-before.json retains the measurement"
+
+[first_candidate]
+revision = "853d7ece98d5516b78fa828daa26a293ea8e7dd7"
+bytes = 523935
+build_exit = 0
+verify_exit = 1
+verify_log = "/out/logs/verify-1.log"
+observed = "Size assertion failed before the four f11 binaries or mirror test could execute"
+repair = "Restore original identity comparisons, Score storage, and operation representation; share field traversal and compact rewards-account hashing instead"
+
+[after]
+implementation_profile_bytes = 483154
+implementation_profile_headroom_bytes = 41030
+implementation_profile_qualification_margin_bytes = 1030
+implementation_profile_saved_from_carried_tree_bytes = 17740
+bytes_source = "/out/logs/22.39.142-after.json:bytes"
+revision_source = "/out/logs/22.39.142-after.json:revision; matching final build and verification ledger candidate"
+combined_bytes_saved_source = "/out/logs/22.39.142-after.json:combined_bytes_saved; 511946 minus final packaged bytes"
+qualification = "Only passing hf-done establishes the bound and declared behavior checks; the private size record is populated from the final build without editing its qualified source tree"
+
+[techniques.codec]
+technique = "Common typed field writer keeps endian conversion and refusal propagation in one loop; fixed-width identity entries avoid repeated lengths; ordered destination reader shares checked field decoding across 24 records and seven local field groups"
+safety = "Every decoder destination is overwritten in original wire order before exposure; initialization uses a real checked input identity and never substitutes for a missing or malformed field"
+errors = "Policy-specific reader helpers retain truncated-field errors before the original F01 invalid-value mapping; all semantic validations remain at their original boundaries"
+bytes_saved_source = "/out/logs/22.39.142-after.json:modules.codec.code_bytes_saved; includes shared helper costs"
+
+[techniques.types]
+technique = "Private initialization of decoder scratch from a checked input identity; original public representations, ordering, equality, score range and constructors retained"
+bytes_saved_source = "/out/logs/22.39.142-after.json:modules.types.code_bytes_saved"
+
+[techniques.registry]
+technique = "Derive the rewards account with the existing compact streaming SHA-256 and exact SDK preimage; cache the checked account per guest call; native debug derivations additionally compare against SDK preparation"
+unchanged = "Program-account domain, program bytes, big-endian seed length, fixed seed, nonzero account check and all refusal codes"
+bytes_saved_source = "/out/logs/22.39.142-after.json:modules.registry.code_bytes_saved; eliminated SDK and sha2 code is included in modules.other"
+
+[techniques.value_adapter]
+technique = "Store checked program, account and asset once; build deposits and payments through the same public checked SDK constructors; prepare the SDK object only in client registration and grant helpers"
+unchanged = "Account and asset binding, zero-amount checks, self-payment refusal, public grants, balances, actions and error mappings"
+bytes_saved_source = "/out/logs/22.39.142-after.json:modules.value_adapter.code_bytes_saved"
+
+[techniques.state]
+technique = "Replay success checkpoints only the changed actor and revision and restores both on post-update size refusal, avoiding a full SharedState clone; shared replay codecs preserve wire order"
+bytes_saved_source = "/out/logs/22.39.142-after.json:modules.state.code_bytes_saved"
+
+[techniques.epoch]
+technique = "Move owned control values into opening/history candidates instead of cloning; shared field writers and history-request decoder retain the original formats"
+bytes_saved_source = "/out/logs/22.39.142-after.json:modules.epoch.code_bytes_saved"
+
+[techniques.admission]
+technique = "Route ordered field writes through the shared typed writer, retaining all validation, bounds, statuses and output fields; share eligible consecutive checked field reads without crossing semantic checks"
+bytes_saved_source = "/out/logs/22.39.142-after.json:modules.admission.code_bytes_saved"
+
+[techniques.aggregation_codec]
+technique = "Route ordered field writes through the shared typed writer, retaining all validation, bounds, statuses and output fields; reuse the common frozen-binding writer; remove unused imports"
+bytes_saved_source = "/out/logs/22.39.142-after.json:modules.aggregation_codec.code_bytes_saved"
+
+[techniques.canary]
+technique = "Route ordered field writes through the shared typed writer, retaining all validation, bounds, statuses and output fields; share eligible consecutive checked field reads without crossing semantic checks"
+bytes_saved_source = "/out/logs/22.39.142-after.json:modules.canary.code_bytes_saved"
+
+[techniques.closure]
+technique = "Route ordered field writes through the shared typed writer, retaining all validation, bounds, statuses and output fields"
+bytes_saved_source = "/out/logs/22.39.142-after.json:modules.closure.code_bytes_saved"
+
+[techniques.commit_reveal]
+technique = "Route ordered field writes through the shared typed writer, retaining all validation, bounds, statuses and output fields; share eligible consecutive checked field reads without crossing semantic checks"
+bytes_saved_source = "/out/logs/22.39.142-after.json:modules.commit_reveal.code_bytes_saved"
+
+[techniques.evaluators]
+technique = "Route ordered field writes through the shared typed writer, retaining all validation, bounds, statuses and output fields; share eligible consecutive checked field reads without crossing semantic checks"
+bytes_saved_source = "/out/logs/22.39.142-after.json:modules.evaluators.code_bytes_saved"
+
+[techniques.evidence]
+technique = "Route ordered field writes through the shared typed writer, retaining all validation, bounds, statuses and output fields; share eligible consecutive checked field reads without crossing semantic checks"
+bytes_saved_source = "/out/logs/22.39.142-after.json:modules.evidence.code_bytes_saved"
+
+[techniques.host_adapter]
+technique = "Route ordered field writes through the shared typed writer, retaining all validation, bounds, statuses and output fields"
+bytes_saved_source = "/out/logs/22.39.142-after.json:modules.host_adapter.code_bytes_saved"
+
+[techniques.laps]
+technique = "Route ordered field writes through the shared typed writer, retaining all validation, bounds, statuses and output fields; share eligible consecutive checked field reads without crossing semantic checks"
+bytes_saved_source = "/out/logs/22.39.142-after.json:modules.laps.code_bytes_saved"
+
+[techniques.placement]
+technique = "Route ordered field writes through the shared typed writer, retaining all validation, bounds, statuses and output fields"
+bytes_saved_source = "/out/logs/22.39.142-after.json:modules.placement.code_bytes_saved"
+
+[techniques.policy]
+technique = "Route ordered field writes through the shared typed writer, retaining all validation, bounds, statuses and output fields; share eligible consecutive checked field reads without crossing semantic checks"
+bytes_saved_source = "/out/logs/22.39.142-after.json:modules.policy.code_bytes_saved"
+
+[techniques.queries]
+technique = "Route ordered field writes through the shared typed writer, retaining all validation, bounds, statuses and output fields; share eligible consecutive checked field reads without crossing semantic checks"
+bytes_saved_source = "/out/logs/22.39.142-after.json:modules.queries.code_bytes_saved"
+
+[techniques.registry_ops]
+technique = "Route ordered field writes through the shared typed writer, retaining all validation, bounds, statuses and output fields; share eligible consecutive checked field reads without crossing semantic checks"
+bytes_saved_source = "/out/logs/22.39.142-after.json:modules.registry_ops.code_bytes_saved"
+
+[techniques.reputation_codec]
+technique = "Retain the original public Reader/Writer calls: reputation_vectors includes these sources across a crate boundary, where private macros are unavailable"
+bytes_saved_source = "/out/logs/22.39.142-after.json:modules.reputation_codec.code_bytes_saved"
+
+[techniques.reputation_transition]
+technique = "Retain the original public Reader/Writer calls: reputation_vectors includes these sources across a crate boundary, where private macros are unavailable"
+bytes_saved_source = "/out/logs/22.39.142-after.json:modules.reputation_transition.code_bytes_saved"
+
+[techniques.rewards]
+technique = "Route ordered field writes through the shared typed writer, retaining all validation, bounds, statuses and output fields; reuse the common frozen-binding writer"
+bytes_saved_source = "/out/logs/22.39.142-after.json:modules.rewards.code_bytes_saved"
+
+[techniques.rooms]
+technique = "Route ordered field writes through the shared typed writer, retaining all validation, bounds, statuses and output fields; share eligible consecutive checked field reads without crossing semantic checks; retain diagnostics derives only in native builds"
+bytes_saved_source = "/out/logs/22.39.142-after.json:modules.rooms.code_bytes_saved"
+
+[techniques.roster]
+technique = "Route ordered field writes through the shared typed writer, retaining all validation, bounds, statuses and output fields"
+bytes_saved_source = "/out/logs/22.39.142-after.json:modules.roster.code_bytes_saved"
+
+[techniques.tasks]
+technique = "Route ordered field writes through the shared typed writer, retaining all validation, bounds, statuses and output fields"
+bytes_saved_source = "/out/logs/22.39.142-after.json:modules.tasks.code_bytes_saved"
+
+[techniques.workers]
+technique = "Route ordered field writes through the shared typed writer, retaining all validation, bounds, statuses and output fields; share eligible consecutive checked field reads without crossing semantic checks"
+bytes_saved_source = "/out/logs/22.39.142-after.json:modules.workers.code_bytes_saved"
+
+[measurement]
+method = "Signed code-section function-body differences per module between starting and final unstripped Wasm, before wasm-opt; the packaged total is measured separately"
+attribution = "Per-module values include shared helper costs and compiler effects, not isolated causal packaged savings; no extra attribution builds are run"
+other = "/out/logs/22.39.142-after.json:modules.other.code_bytes_saved includes eliminated SDK/unrolled SHA-256 functions and compiler helpers"
+tests = "All existing crate test sources, including inline tests, remain unchanged; hf-done executes the four declared f11 binaries and module mirror test"
+status_codes = "Existing numeric guest application registry and native formatted diagnostics retained"
+
+[gotcha.failed_representation_reduction]
+symptom = "The initial identity/score/operation representation changes increased the packaged guest to 523935 bytes"
+fix = "Restore those original representations and use shared wire-field traversal plus the existing compact hashing implementation"
+
+[gotcha.candidate_base]
+symptom = "The gate wrapper advances HEAD to its candidate, so restoring from HEAD preserves the first attempt's changes"
+fix = "Compare against and selectively restore the original 3d1eff197f5a931feb5afc3e595d856f9f57e02b source"
+
+[gotcha.operation_inventory]
+symptom = "An early source-edit precondition assumed 69 operations and refused before writing; the inventory has 72"
+fix = "The final repair retains the entire original operation table"
+
+[gotcha.typed_writer_literals]
+symptom = "Source review of pre-encoded writer tables found lost literal-width context at three fields"
+fix = "Use typed shared writer variants and preserve the original u64/u32 literal widths; endian conversion stays shared"
+
+[repair.build_two]
+revision = "3a919e463b5b924130eb026efae2619575de0b71"
+command = "hf-build"
+exit = 101
+log = "/out/logs/build-2.log"
+observed = "Guest and host-boundary checks succeeded at 504811 bytes, but reputation_vectors could not access private macros through its external codec import"
+fix = "Restore the two directly included reputation source modules to their original shared Reader/Writer calls; leave all tests unchanged"
+
+[continuation]
+starting_revision = "4140d2b8a2f5"
+starting_bytes = 504844
+measurement_source = "GOTCHA.kvx gotcha.3549 and the supplied attempt-1 qualification evidence; the carried tree is retained"
+implementation = "Extend shared destination decoding in rewards and evidence; replace generic response-building closures with one typed field writer per family; consume owned shared states when replacing sections; share view authentication and dispatch; keep larger guest helpers out of callers"
+qualification_policy = "Only hf-build and hf-done run builds or tests; no intermediate attribution builds or manual verification commands"
+module_attribution = "The continuation's coupled changes are measured together. Individual packaged module savings are not additive under LTO/wasm-opt and are not independently claimed; the private after record retains the aggregate measurement and exact candidate"
+
+[techniques.dispatch]
+technique = "Share the authenticated view answer path for all five F11 views, retaining their separate strict envelope decoders and error framing; consume the decoded state when rebinding the F01 revision"
+bytes_saved_source = "/out/logs/22.39.142-after.json:continuation_combined_bytes_saved (coupled with shared state, readers and family writers)"
+
+[techniques.aggregation]
+technique = "Replace generic response-building closures with the typed shared field list; keep larger validation and transition bodies shared in the guest"
+bytes_saved_source = "/out/logs/22.39.142-after.json:continuation_combined_bytes_saved (coupled measurement)"
+
+[gotcha.continuation_evidence]
+symptom = "The continuation sandbox carries the source edits but no prior /out/run/gates.jsonl or starting Wasm artifact"
+fix = "Retain the supplied measured baseline of 504844 bytes, run only the newly authorized bounded gates, and record the new artifact and gate ledger by reference"
+
+[repair.continuation_size]
+revision = "b180faa3a3cd9dd02e0d3993ef0cb9e80a65e146"
+bytes = 505440
+bound_excess_bytes = 21256
+build_command = "hf-build"
+build_exit = 0
+build_log = "/out/logs/build-1.log"
+verify_command = "cg spec done 22.39.142 -f layerx-merge --root /work/paxeer-monorepo"
+verify_exit = 1
+verify_log = "/out/logs/verify-1.log"
+observed = "All 32 dependent crates compile; verification stops at the packaged-size assertion before behavioral tests"
+fix = "Carry checked identity bytes by a borrowed proof, inline only the typed copying wrapper, merge identity destinations into one checked reader arm, and copy fixed-width fields directly after bounds validation"
+
+[techniques.borrowed_identity_decoding]
+modules = "codec.rs and types.rs; all family decoders using their Reader methods benefit without source duplication"
+technique = "A private CheckedIdentityBytes proof returns a wire reference after the existing nonzero check; typed wrappers copy it directly into the final identity instead of propagating padded array-bearing Results through multiple functions"
+safety = "No unsafe code, altered public representation, unchecked constructor, skipped validation or substitute value; the proof can only be produced by the shared nonzero check"
+order = "take still advances only after its overflow and input-bound checks; identity nonzero validation follows take; salt retains its distinct F04 code and policy-specific invalid-value remapping remains after the short-input check"
+destinations = "All checked identity destinations share one validated copy; fixed-width destinations share one bounds-checked copy; unused private Signature64 and DealState reader arms removed"
+bytes_saved_source = "/out/logs/22.39.142-after.json:repair_combined_bytes_saved; 505440 minus final packaged bytes"
+module_bytes_saved_source = "/out/logs/22.39.142-after.json:repair_modules; signed object-function body deltas against the first continuation build, including compiler and inlining attribution"
+
+[gotcha.borrowed_decode_baseline]
+symptom = "A read-only attribution counter initially matched the evaluator codec module as the common codec and stopped before producing a count"
+fix = "Match the full common-codec path; no source or gate was affected"
+
+[attempt3.before]
+carried_revision = "77bfba6a279be09fc90f7172b752ba9290e372d2"
+base_revision = "02e58faceab2e7241a323ab4d5bf386ad3da1336"
+bytes = 500894
+gap_bytes = 16710
+command = "make -s paxai-host-boundary-build"
+exit = 0
+log = "/out/logs/22.39.142-attempt3-before.log"
+metrics_command = "wasm-opt build/paxai-host-boundary/ai_market.wasm --func-metrics -o /tmp/ai-market-baseline-metrics.wasm"
+metrics_log = "/out/logs/22.39.142-attempt3-before-func-metrics.log"
+measurement = "Actual code-body bytes in the packaged artifact; func-metrics also reports re-encoded binary bytes. Names come from identical code sections packaged with debug names retained."
+
+[attempt3.before.function.1]
+name = "layerx_programs_ai_market::dispatch::transition_inner"
+index = 509
+body_bytes = 195620
+metrics_binary_bytes = 195736
+
+[attempt3.before.function.2]
+name = "layerx_call"
+index = 559
+body_bytes = 22017
+metrics_binary_bytes = 22033
+
+[attempt3.before.function.3]
+name = "layerx_programs_ai_market::epoch::compose"
+index = 361
+body_bytes = 21074
+metrics_binary_bytes = 21094
+
+[attempt3.before.function.4]
+name = "layerx_programs_ai_market::epoch::aggregate::{{closure}}"
+index = 366
+body_bytes = 20573
+metrics_binary_bytes = 20597
+
+[attempt3.before.function.5]
+name = "layerx_programs_ai_market::evaluators::authority::EvaluatorRegion::decode"
+index = 131
+body_bytes = 5064
+metrics_binary_bytes = 5072
+
+[attempt3.before.function.6]
+name = "layerx_programs_ai_market::reputation_transition::split_joint"
+index = 192
+body_bytes = 4567
+metrics_binary_bytes = 4567
+
+[attempt3.before.function.7]
+name = "layerx_programs_ai_market::canary::persist"
+index = 261
+body_bytes = 3723
+metrics_binary_bytes = 3723
+
+[attempt3.before.function.8]
+name = "layerx_programs_ai_market::aggregation_codec::decode_current"
+index = 190
+body_bytes = 3503
+metrics_binary_bytes = 3507
+
+[attempt3.before.function.9]
+name = "layerx_programs_ai_market::canary::CanaryCommitment::decode"
+index = 19
+body_bytes = 3243
+metrics_binary_bytes = 3243
+
+[attempt3.before.function.10]
+name = "layerx_programs_ai_market::registry_ops::PolicySection::decode"
+index = 125
+body_bytes = 3232
+metrics_binary_bytes = 3232
+
+[attempt3.before.function.11]
+name = "layerx_programs_ai_market::value_adapter::settle"
+index = 279
+body_bytes = 3035
+metrics_binary_bytes = 3035
+
+[attempt3.before.function.12]
+name = "layerx_programs_ai_market::rewards::decode_reward_state"
+index = 203
+body_bytes = 2856
+metrics_binary_bytes = 2864
+
+[attempt3.before.function.13]
+name = "layerx_programs_ai_market::epoch::captured_roster"
+index = 104
+body_bytes = 2804
+metrics_binary_bytes = 2804
+
+[attempt3.before.function.14]
+name = "layerx_programs_ai_market::aggregation::view"
+index = 195
+body_bytes = 2673
+metrics_binary_bytes = 2677
+
+[attempt3.before.function.15]
+name = "layerx_programs_ai_market::closure::Call::finish"
+index = 451
+body_bytes = 2631
+metrics_binary_bytes = 2631
+
+[attempt3.before.function.16]
+name = "layerx_programs_ai_market::admission::AdmissionTable::decode"
+index = 122
+body_bytes = 2588
+metrics_binary_bytes = 2588
+
+[attempt3.before.function.17]
+name = "layerx_programs_ai_market::codec::decode_envelope_fields"
+index = 262
+body_bytes = 2544
+metrics_binary_bytes = 2544
+
+[attempt3.before.function.18]
+name = "layerx_programs_ai_market::reputation_transition::reset_segment"
+index = 304
+body_bytes = 2533
+metrics_binary_bytes = 2533
+
+[attempt3.before.function.19]
+name = "layerx_programs_ai_market::queries::answer_room_view"
+index = 462
+body_bytes = 2275
+metrics_binary_bytes = 2275
+
+[attempt3.before.function.20]
+name = "layerx_programs_ai_market::rooms::RoomBook::decode"
+index = 313
+body_bytes = 2166
+metrics_binary_bytes = 2166
+
+[attempt3.before.function.21]
+name = "layerx_programs_ai_market::queries::answer_book_view"
+index = 456
+body_bytes = 2110
+metrics_binary_bytes = 2114
+
+[attempt3.before.function.22]
+name = "layerx_programs_ai_market::rewards::EpochRows::get"
+index = 492
+body_bytes = 2042
+metrics_binary_bytes = 2042
+
+[attempt3.before.function.23]
+name = "layerx_programs_ai_market::commit_reveal::Call::admit"
+index = 265
+body_bytes = 2020
+metrics_binary_bytes = 2020
+
+[attempt3.before.function.24]
+name = "layerx_programs_ai_market::queries::placement::PlacementBook::decode"
+index = 457
+body_bytes = 1975
+metrics_binary_bytes = 1975
+
+[attempt3.before.function.25]
+name = "layerx_programs_ai_market::policy::TaskPolicyV1::decode"
+index = 219
+body_bytes = 1916
+metrics_binary_bytes = 1916
+
+[attempt3.step.tasks]
+before_bytes = 500894
+after_bytes = 500691
+bytes_saved = 203
+technique = "Never-inline task binding, lifecycle, task-set view, authentication and transition helpers; preserve all operations, wire formats, validation and tests"
+log = "/out/logs/22.39.142-attempt3-tasks.log"
+
+[attempt3.step.shared_attributes]
+before_bytes = 500691
+after_bytes = 501729
+bytes_saved = -1038
+technique = "Measured additional never-inline annotations on reputation and arithmetic helpers used by epoch composition"
+observed = "The extra boundaries grew the packaged guest by 1038 bytes; restore only these new annotations and retain every carried helper and both existing shared codec never-inline boundaries"
+log = "/out/logs/22.39.142-attempt3-shared.log"
+
+[attempt3.step.indexing]
+before_bytes = 500691
+after_bytes = 489599
+bytes_saved = 11092
+technique = "Bounds-checked guest slice access traps invariant failures through the SDK panic handler's Wasm unreachable instruction, avoiding formatted panic arguments and source-location payloads; native indexing and every input validation remain unchanged"
+modules = "Common types helper plus guest indexing across codecs, records, routing, handlers and queries; /out/logs/22.39.142-attempt3-index-counts.json records the substitutions per module"
+log = "/out/logs/22.39.142-attempt3-index.log"
+metrics_log = "/out/logs/22.39.142-attempt3-index-func-metrics.log"
+functions = "/out/logs/22.39.142-attempt3-index-functions.json"
+safety = "Safe slice get/get_mut retain every bounds check; a failed invariant still traps and discards the call, never returns a substitute value or continues execution"
+tests = "All existing inline test functions are byte-identical; external tests are unchanged"
+
+[attempt3.step.slice_operations]
+before_bytes = 489599
+after_bytes = 484317
+bytes_saved = 5282
+technique = "Checked guest copies, splits, swaps and chunk traversal retain bounds, length, zero-width and overlap checks without formatted panic arguments; fixed-size chunks use the existing as_chunks APIs"
+log = "/out/logs/22.39.142-attempt3-slice.log"
+
+[attempt3.step.epoch_ownership]
+before_bytes = 484317
+after_bytes = 484257
+bytes_saved = 60
+technique = "Move the owned decoded state into the reputation-section replacement during opening and after an epoch region update, retaining every validation and the replay checkpoint"
+log = "/out/logs/22.39.142-attempt3-ownership.log"
+
+[attempt3.step.shared_copy]
+before_bytes = 484257
+after_bytes = 483345
+bytes_saved = 912
+technique = "Keep one never-inline checked guest copying body; equal-length copies traverse all elements and overlapping copies retain their original directional semantics; native copies retain the standard library paths"
+log = "/out/logs/22.39.142-attempt3-copy.log"
+
+[attempt3.step.error_code]
+before_bytes = 483345
+after_bytes = 483154
+bytes_saved = 191
+technique = "The guest error-code lookup uses checked access and the SDK panic handler trap instruction; native const lookup and diagnostics remain available"
+log = "/out/logs/22.39.142-attempt3-error-code.log"
+
+[attempt3.after]
+bytes = 483154
+qualification_bound_bytes = 484184
+qualification_margin_bytes = 1030
+deployment_headroom_bytes = 41030
+saved_from_carried_tree_bytes = 17740
+saved_from_original_task_baseline_bytes = 28792
+metrics_log = "/out/logs/22.39.142-attempt3-final-func-metrics.log"
+functions = "/out/logs/22.39.142-attempt3-final-functions.json"
+final_candidate_bytes_source = "/out/logs/22.39.142-after.json:bytes"
+qualification_revision_source = "/out/run/gates.jsonl: matching final build and verify revision"
+build_evidence = "/out/run/gates.jsonl: final build entry names its exact command, exit and private log"
+verification_evidence = "/out/run/gates.jsonl: final verify entry names its exact command, exit and private log"
+policy = "The final hf-build and hf-done references are populated without changing the candidate after its build; only passing matching gate entries qualify the task"
+
+[attempt3.formatting]
+panic_functions = 0
+panic_call_sites = 0
+debug_implementations = 0
+observed = "Two core numeric formatter functions survive as table/data references, with no direct calls from guest functions; guest indirect calls return no value while both formatter signatures return i32, so neither formatter is reachable from the guest exports"
+evidence = "/out/logs/22.39.142-attempt3-final.wat; function metrics and direct/indirect call signatures"
+constant_checks = "All seven compile-time assertions and constant-construction refusal checks remain intact and emit no guest panic path; native Display/Debug implementations remain excluded from Wasm"
+
+[attempt3.attribution]
+method = "Signed function-body bytes by declaring module in the unstripped Wasm, before wasm-opt, comparing the carried tree with the completed implementation; compiler-generated bodies are assigned to other"
+limitation = "These module deltas include helper costs and compiler effects. Packaged per-step savings above are measured separately; individual module object deltas are not claimed as isolated packaged savings"
+private_evidence = "/out/logs/22.39.142-attempt3-module-deltas.json"
+
+[attempt3.module.admission]
+before_code_bytes = 34170
+after_code_bytes = 34084
+code_bytes_saved = 86
+technique = "Checked guest storage access and applicable copy, split, swap or fixed-chunk operations; all carried codecs, validations, operations and test bodies retained"
+
+[attempt3.module.aggregation]
+before_code_bytes = 26310
+after_code_bytes = 26334
+code_bytes_saved = -24
+technique = "Checked guest storage access and applicable copy, split, swap or fixed-chunk operations; all carried codecs, validations, operations and test bodies retained"
+
+[attempt3.module.aggregation_codec]
+before_code_bytes = 12805
+after_code_bytes = 12701
+code_bytes_saved = 104
+technique = "Checked guest storage access and applicable copy, split, swap or fixed-chunk operations; all carried codecs, validations, operations and test bodies retained"
+
+[attempt3.module.canary]
+before_code_bytes = 27451
+after_code_bytes = 26740
+code_bytes_saved = 711
+technique = "Checked guest storage access and applicable copy, split, swap or fixed-chunk operations; all carried codecs, validations, operations and test bodies retained"
+
+[attempt3.module.closure]
+before_code_bytes = 12587
+after_code_bytes = 12515
+code_bytes_saved = 72
+technique = "Checked guest storage access and applicable copy, split, swap or fixed-chunk operations; all carried codecs, validations, operations and test bodies retained"
+
+[attempt3.module.codec]
+before_code_bytes = 33007
+after_code_bytes = 32447
+code_bytes_saved = 560
+technique = "Checked guest storage access and applicable copy, split, swap or fixed-chunk operations; all carried codecs, validations, operations and test bodies retained"
+
+[attempt3.module.commit_reveal]
+before_code_bytes = 15759
+after_code_bytes = 15590
+code_bytes_saved = 169
+technique = "Checked guest storage access and applicable copy, split, swap or fixed-chunk operations; all carried codecs, validations, operations and test bodies retained"
+
+[attempt3.module.deployment]
+before_code_bytes = 55
+after_code_bytes = 55
+code_bytes_saved = 0
+technique = "Checked guest storage access and applicable copy, split, swap or fixed-chunk operations; all carried codecs, validations, operations and test bodies retained"
+
+[attempt3.module.deployment_chain_domain]
+before_code_bytes = 15
+after_code_bytes = 15
+code_bytes_saved = 0
+technique = "Checked guest storage access and applicable copy, split, swap or fixed-chunk operations; all carried codecs, validations, operations and test bodies retained"
+
+[attempt3.module.deployment_chain_domain_from_setting]
+before_code_bytes = 751
+after_code_bytes = 751
+code_bytes_saved = 0
+technique = "Checked guest storage access and applicable copy, split, swap or fixed-chunk operations; all carried codecs, validations, operations and test bodies retained"
+
+[attempt3.module.dispatch]
+before_code_bytes = 18807
+after_code_bytes = 18580
+code_bytes_saved = 227
+technique = "Checked guest storage access and applicable copy, split, swap or fixed-chunk operations; all carried codecs, validations, operations and test bodies retained"
+
+[attempt3.module.epoch]
+before_code_bytes = 40460
+after_code_bytes = 39813
+code_bytes_saved = 647
+technique = "Checked guest storage access, fixed chunks and owned section replacement"
+
+[attempt3.module.errors]
+before_code_bytes = 53
+after_code_bytes = 43
+code_bytes_saved = 10
+technique = "Checked guest numeric error lookup; preserve registry, statuses, native const API and native diagnostic formatting"
+
+[attempt3.module.evaluators]
+before_code_bytes = 46369
+after_code_bytes = 45672
+code_bytes_saved = 697
+technique = "Checked guest storage access and applicable copy, split, swap or fixed-chunk operations; all carried codecs, validations, operations and test bodies retained"
+
+[attempt3.module.evidence]
+before_code_bytes = 23204
+after_code_bytes = 22737
+code_bytes_saved = 467
+technique = "Checked guest storage access and applicable copy, split, swap or fixed-chunk operations; all carried codecs, validations, operations and test bodies retained"
+
+[attempt3.module.guest]
+before_code_bytes = 296
+after_code_bytes = 284
+code_bytes_saved = 12
+technique = "Checked guest storage access and applicable copy, split, swap or fixed-chunk operations; all carried codecs, validations, operations and test bodies retained"
+
+[attempt3.module.host_adapter]
+before_code_bytes = 2951
+after_code_bytes = 2786
+code_bytes_saved = 165
+technique = "Checked guest storage access and applicable copy, split, swap or fixed-chunk operations; all carried codecs, validations, operations and test bodies retained"
+
+[attempt3.module.laps]
+before_code_bytes = 9950
+after_code_bytes = 9875
+code_bytes_saved = 75
+technique = "Checked guest storage access and applicable copy, split, swap or fixed-chunk operations; all carried codecs, validations, operations and test bodies retained"
+
+[attempt3.module.other]
+before_code_bytes = 25066
+after_code_bytes = 21304
+code_bytes_saved = 3762
+technique = "Compiler-generated iterators, comparison/copy helpers and unreachable panic support; shared helper attribution is included"
+
+[attempt3.module.placement]
+before_code_bytes = 5639
+after_code_bytes = 5179
+code_bytes_saved = 460
+technique = "Checked guest storage access and applicable copy, split, swap or fixed-chunk operations; all carried codecs, validations, operations and test bodies retained"
+
+[attempt3.module.policy]
+before_code_bytes = 7201
+after_code_bytes = 7162
+code_bytes_saved = 39
+technique = "Checked guest storage access and applicable copy, split, swap or fixed-chunk operations; all carried codecs, validations, operations and test bodies retained"
+
+[attempt3.module.queries]
+before_code_bytes = 9494
+after_code_bytes = 9329
+code_bytes_saved = 165
+technique = "Checked guest storage access and applicable copy, split, swap or fixed-chunk operations; all carried codecs, validations, operations and test bodies retained"
+
+[attempt3.module.registry]
+before_code_bytes = 4992
+after_code_bytes = 4917
+code_bytes_saved = 75
+technique = "Checked guest storage access and applicable copy, split, swap or fixed-chunk operations; all carried codecs, validations, operations and test bodies retained"
+
+[attempt3.module.registry_ops]
+before_code_bytes = 18913
+after_code_bytes = 18654
+code_bytes_saved = 259
+technique = "Checked guest storage access and applicable copy, split, swap or fixed-chunk operations; all carried codecs, validations, operations and test bodies retained"
+
+[attempt3.module.reputation]
+before_code_bytes = 3270
+after_code_bytes = 3195
+code_bytes_saved = 75
+technique = "Checked guest storage access and applicable copy, split, swap or fixed-chunk operations; all carried codecs, validations, operations and test bodies retained"
+
+[attempt3.module.reputation_codec]
+before_code_bytes = 7575
+after_code_bytes = 7568
+code_bytes_saved = 7
+technique = "Checked guest storage access and applicable copy, split, swap or fixed-chunk operations; all carried codecs, validations, operations and test bodies retained"
+
+[attempt3.module.reputation_transition]
+before_code_bytes = 6976
+after_code_bytes = 6970
+code_bytes_saved = 6
+technique = "Checked guest storage access and applicable copy, split, swap or fixed-chunk operations; all carried codecs, validations, operations and test bodies retained"
+
+[attempt3.module.reward_math]
+before_code_bytes = 2656
+after_code_bytes = 2568
+code_bytes_saved = 88
+technique = "Checked guest storage access and applicable copy, split, swap or fixed-chunk operations; all carried codecs, validations, operations and test bodies retained"
+
+[attempt3.module.rewards]
+before_code_bytes = 45417
+after_code_bytes = 44134
+code_bytes_saved = 1283
+technique = "Checked guest storage access and applicable copy, split, swap or fixed-chunk operations; all carried codecs, validations, operations and test bodies retained"
+
+[attempt3.module.rooms]
+before_code_bytes = 26614
+after_code_bytes = 26136
+code_bytes_saved = 478
+technique = "Checked guest storage access and applicable copy, split, swap or fixed-chunk operations; all carried codecs, validations, operations and test bodies retained"
+
+[attempt3.module.roster]
+before_code_bytes = 6338
+after_code_bytes = 6175
+code_bytes_saved = 163
+technique = "Checked guest storage access and applicable copy, split, swap or fixed-chunk operations; all carried codecs, validations, operations and test bodies retained"
+
+[attempt3.module.state]
+before_code_bytes = 8303
+after_code_bytes = 7858
+code_bytes_saved = 445
+technique = "Checked guest storage access and applicable copy, split, swap or fixed-chunk operations; all carried codecs, validations, operations and test bodies retained"
+
+[attempt3.module.tasks]
+before_code_bytes = 27017
+after_code_bytes = 26738
+code_bytes_saved = 279
+technique = "Shared never-inline task helpers and checked guest access, copies and task-record chunk traversal"
+
+[attempt3.module.types]
+before_code_bytes = 870
+after_code_bytes = 998
+code_bytes_saved = -128
+technique = "Shared checked guest access and copying; preserve identity representations, derives and all constructor invariants"
+
+[attempt3.module.value_adapter]
+before_code_bytes = 4843
+after_code_bytes = 4774
+code_bytes_saved = 69
+technique = "Checked guest storage access and applicable copy, split, swap or fixed-chunk operations; all carried codecs, validations, operations and test bodies retained"
+
+[attempt3.module.workers]
+before_code_bytes = 24228
+after_code_bytes = 24104
+code_bytes_saved = 124
+technique = "Checked guest storage access and applicable copy, split, swap or fixed-chunk operations; all carried codecs, validations, operations and test bodies retained"
+
+[attempt3.after.function.1]
+name = "layerx_programs_ai_market::dispatch::transition_inner"
+index = 478
+body_bytes = 193351
+metrics_binary_bytes = 193455
+
+[attempt3.after.function.2]
+name = "layerx_call"
+index = 521
+body_bytes = 21387
+metrics_binary_bytes = 21407
+
+[attempt3.after.function.3]
+name = "layerx_programs_ai_market::epoch::compose"
+index = 339
+body_bytes = 20747
+metrics_binary_bytes = 20775
+
+[attempt3.after.function.4]
+name = "layerx_programs_ai_market::epoch::aggregate::{{closure}}"
+index = 344
+body_bytes = 20279
+metrics_binary_bytes = 20307
+
+[attempt3.after.function.5]
+name = "layerx_programs_ai_market::evaluators::authority::EvaluatorRegion::decode"
+index = 125
+body_bytes = 5052
+metrics_binary_bytes = 5060
+
+[attempt3.after.function.6]
+name = "layerx_programs_ai_market::reputation_transition::split_joint"
+index = 179
+body_bytes = 4567
+metrics_binary_bytes = 4567
+
+[attempt3.after.function.7]
+name = "layerx_programs_ai_market::canary::persist"
+index = 243
+body_bytes = 3682
+metrics_binary_bytes = 3682
+
+[attempt3.after.function.8]
+name = "layerx_programs_ai_market::aggregation_codec::decode_current"
+index = 177
+body_bytes = 3468
+metrics_binary_bytes = 3472
+
+[attempt3.after.function.9]
+name = "layerx_programs_ai_market::canary::CanaryCommitment::decode"
+index = 12
+body_bytes = 3240
+metrics_binary_bytes = 3240
+
+[attempt3.after.function.10]
+name = "layerx_programs_ai_market::registry_ops::PolicySection::decode"
+index = 119
+body_bytes = 3232
+metrics_binary_bytes = 3232
+
+[attempt3.after.function.11]
+name = "layerx_programs_ai_market::value_adapter::settle"
+index = 260
+body_bytes = 3035
+metrics_binary_bytes = 3035
+
+[attempt3.after.function.12]
+name = "layerx_programs_ai_market::epoch::captured_roster"
+index = 99
+body_bytes = 2903
+metrics_binary_bytes = 2903
+
+[attempt3.after.function.13]
+name = "layerx_programs_ai_market::aggregation::view"
+index = 182
+body_bytes = 2673
+metrics_binary_bytes = 2677
+
+[attempt3.after.function.14]
+name = "layerx_programs_ai_market::admission::AdmissionTable::decode"
+index = 116
+body_bytes = 2588
+metrics_binary_bytes = 2588
+
+[attempt3.after.function.15]
+name = "layerx_programs_ai_market::closure::Call::finish"
+index = 426
+body_bytes = 2563
+metrics_binary_bytes = 2563
+
+[attempt3.after.function.16]
+name = "layerx_programs_ai_market::reputation_transition::reset_segment"
+index = 283
+body_bytes = 2533
+metrics_binary_bytes = 2533
+
+[attempt3.after.function.17]
+name = "layerx_programs_ai_market::codec::decode_envelope_fields"
+index = 244
+body_bytes = 2530
+metrics_binary_bytes = 2530
+
+[attempt3.after.function.18]
+name = "layerx_programs_ai_market::rewards::decode_reward_state"
+index = 190
+body_bytes = 2511
+metrics_binary_bytes = 2523
+
+[attempt3.after.function.19]
+name = "layerx_programs_ai_market::queries::answer_room_view"
+index = 437
+body_bytes = 2286
+metrics_binary_bytes = 2286
+
+[attempt3.after.function.20]
+name = "layerx_programs_ai_market::rooms::RoomBook::decode"
+index = 292
+body_bytes = 2142
+metrics_binary_bytes = 2142
+
+[attempt3.after.function.21]
+name = "layerx_programs_ai_market::commit_reveal::Call::admit"
+index = 247
+body_bytes = 2020
+metrics_binary_bytes = 2020
+
+[attempt3.after.function.22]
+name = "layerx_programs_ai_market::queries::placement::PlacementBook::decode"
+index = 432
+body_bytes = 1943
+metrics_binary_bytes = 1943
+
+[attempt3.after.function.23]
+name = "layerx_programs_ai_market::policy::TaskPolicyV1::decode"
+index = 205
+body_bytes = 1916
+metrics_binary_bytes = 1916
+
+[attempt3.after.function.24]
+name = "layerx_programs_ai_market::tasks::finish"
+index = 390
+body_bytes = 1910
+metrics_binary_bytes = 1910
+
+[attempt3.after.function.25]
+name = "layerx_programs_ai_market::queries::answer_peer_view"
+index = 434
+body_bytes = 1826
+metrics_binary_bytes = 1826
+
+[attempt3.gotcha.formatting_roots]
+symptom = "The supplied assertion and panic inventory was compile-time/native-only; packaged metrics instead identified runtime formatting retained by implicit slice and iterator panics"
+fix = "Preserve the compile-time checks and native diagnostic API, replace implicit guest panics with equally checked traps, and verify the remaining numeric formatter table entries cannot be reached by guest call signatures"
+
+[attempt4.consumer_row]
+test = "tests/f11_family_table.rs:f11_selectors_route_to_their_operation_metadata"
+correction = "SettleLaps payload bounds follow laps::SETTLE_FIXED_BYTES + evidence::MANIFEST_FIXED_BYTES and laps::SETTLE_FIXED_BYTES + evidence::MAX_MANIFEST_BYTES, replacing the stale 92-byte pair"
+producer = "src/dispatch.rs:945-946 declares both bounds; src/laps.rs:15-16 defines BATCH_BYTES = 92 and SETTLE_FIXED_BYTES = BATCH_BYTES + 2; src/evidence.rs:72,79 defines MAX_MANIFEST_BYTES = 4096 and MANIFEST_FIXED_BYTES = 386"
+expected_min_bytes = 480
+expected_max_bytes = 4190
+unchanged = "All other test rows, production sources, guest size bound, deployment bound, release profile and host-boundary target retain the carried attempt-3 implementation"
+
+[attempt4.qualification]
+revision_source = "/out/run/gates.jsonl: matching final build and verify revision"
+build_evidence = "/out/run/gates.jsonl: final build entry records exact revision, command, exit and private log"
+verification_evidence = "/out/run/gates.jsonl: final verify entry records exact revision, command, exit and private log"
+policy = "Run hf-build and hf-done on the same final candidate; retain evidence by reference without editing the candidate after its build; only passing hf-done qualifies the task"
+
+[attempt4.qualification_failure]
+revision = "146d4fa84434edd205e990531cffc540e3d86b71"
+command = "cg spec done 22.39.142 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Build and dependent checks passed at this revision and the packaged guest measured 483154 bytes; verification passed the size check and 19 canary tests, then f11_selectors_route_to_their_operation_metadata failed at tests/f11_family_table.rs:235 because BookView declares [PolicyLifecycle, SettlementClaims] but the test expects [IdentityRoster], a mismatch also present at base 5eec969fb07bda52928ba4476772a5998713bc93"
+assumption = "The attempt-4 ruling authorizes only the SettleLaps payload row and prohibits other row or production changes; preserve the BookView assertions, record the unrelated failure without rerunning it, and leave the task unqualified; rooms/views binaries and mirror test were not reached"
+
+[attempt5.consumer_row]
+test = "tests/f11_family_table.rs:f11_selectors_route_to_their_operation_metadata"
+correction = "BookView (0x0B14) expects PolicyLifecycle then SettlementClaims; the roster-membership assertion now requires IdentityRoster exactly for selectors other than 0x0B14, including explicitly requiring its absence for BookView"
+producer = "src/dispatch.rs:1128-1137 declares BookView as a PublicRead with PolicyLifecycle and SettlementClaims only; src/dispatch.rs:875-1125 declares IdentityRoster for every other F11 selector"
+basis = "Attempt-5 ruling, gotcha 3576 and decisions 2857, 2877 and 2882 authorize the consumer expectations to follow the existing producer"
+unchanged = "All production sources, other selector rows, test cases, payload and deployment bounds, release profile and make target retain the carried implementation"
+
+[attempt5.qualification]
+revision_source = "/out/run/gates.jsonl: matching final build and verify revision"
+build_evidence = "/out/run/gates.jsonl: final build row records exact revision, command, exit and private log"
+verification_evidence = "/out/run/gates.jsonl: final verify row records exact revision, command, exit and private log"
+artifact_size_source = "/out/logs/22.39.142-after.json: bytes and revision measured from the final bounded build artifact"
+policy = "Only passing hf-done on the same candidate as hf-build qualifies the task; retain final evidence by reference without editing the candidate after its build"
+
+[attempt6.continuation]
+carried_revision = "81922d66a65c612142b8b43ba2858096a86d0887"
+carried_guest_bytes = 483154
+merged_revision = "33db3d4357f46f467d760e6641aa5b5558f5dd4a"
+prerequisite_revision = "1dbcff9f5b21a8ea23c6cd359d77cadc5dc36663"
+basis = "Attempt-6 ruling, gotcha 3585 and decisions 2771, 2857 and 2888; the runner already merged the qualified task 22.39.153 into this branch before applying the complete attempt-5 tree"
+preserved = "Every carried production source, shared codec, measured optimization and family-table correction remains intact; this continuation changes no Rust source or test"
+capacity_producer = "src/placement.rs:14,90-91 retains SIDE_CAPACITY = 64 per model side; merged tests/f11_rooms_and_deals.rs:1047-1110 fills two model digests while asserting per-model and aggregate refusals, as recorded by tests/repair_22_39_153.kvx"
+
+[attempt6.qualification]
+build = "hf-build"
+verify = "hf-done"
+revision_source = "/out/run/gates.jsonl: matching final build and verify revision"
+build_evidence = "/out/run/gates.jsonl: final build row records exact revision, command, exit and private log"
+verification_evidence = "/out/run/gates.jsonl: final verify row records exact revision, command, exit and private log"
+artifact_size_source = "/out/logs/22.39.142-after.json: revision, bytes, qualification_margin_bytes and deployment_headroom_bytes measured from the merged-tree bounded build artifact"
+policy = "Only executed matching passing hf-build and hf-done rows qualify this continuation; record the final size and gate evidence privately by reference without editing the built candidate"
+
+[attempt6.gotcha.private_evidence]
+symptom = "The continuation carries historical evidence references but no prior gate ledger or Wasm artifact in this sandbox"
+fix = "Keep historical measurements attributed to their attempts; generate this continuation's measurement and evidence only from its new bounded gates"

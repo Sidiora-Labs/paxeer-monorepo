@@ -71,6 +71,79 @@ Catalog-70 inventory maintenance requires a coordinated database and runtime rol
 
 A process/cohort replacement requires explicit current operator bootstrap authority and matching expected generations. On startup, the supervisor observes retained authority before renewing credentials and routes a stale control host through that replacement path. Rebind the current hierarchy and manager identities through the supported bootstrap path; old model observations and credentials cannot authorize replacement-generation effects. Existing installation recovery uses model-selected `fleet.install.adopt` and immutable receipts, with an acknowledged hierarchy handoff when ownership changes. See [recovery and adoption](fleet.md#recovery-and-adoption). Missing models, incomplete bounded observations and uncertain installation results remain waiting or refused states; they do not grant task or publication readiness.
 
+## Prerequisite handoff
+
+The final prerequisite is carried source-control task 0.14, implemented by merge task
+22.37.7. The bounded gate uses the throwaway database:
+
+```sh
+cd tools/hyperfide
+corepack enable
+python3 tests/hyperfide/support/withpg.py -- python3 tests/hyperfide/cases/source_control/0_14.py --component
+```
+
+Read `build/fleet/0.14/component-receipt.json`, its `receipt.json` alias and
+`supervisor-restoration.log` as private component evidence. The component receipt
+marks every live section UNRUN and distinguishes actual local recovery from
+missing-execution refusals. `build/fleet/0.14/live-receipt.json` is explicitly UNRUN
+in component mode. The matching final build and verification revisions, commands,
+exit codes and private logs are referenced from
+`tools/hyperfide/spec/hyperfide-source-control/qualification.kvx` through the task
+runner's `/out/run/gates.jsonl`; source task identity is
+`spec/layerx-merge/source-control/source-spec.kvx` task 0.14.
+
+The owner campaign needs an approved provider pool, model backend, object store,
+operator credentials and protected runtime inputs. Keep configuration and captures
+owner-only; never publish their contents. `HYPERFIDE_FLEET_NODE` selects an executable
+override; otherwise the journey and setup resolve `node` on PATH and refuse a missing
+binary. The actor check also needs its declared native binary/profile under
+`build/fleet/worker/private` and configured model authorization. Apply the trusted
+migrations separately before the live campaign.
+
+Once the campaign has been configured and enrolled, run the following from
+`tools/hyperfide`. `run` starts the actual supervisor/provisioner; `qualification`
+executes the owner's versioned signed request list and must finish before indexing.
+Retain actual signed captures for every `TASK_CASES['0.14']` entry, including
+supervisory box loss, stale generation replay, ambiguous provider outcome,
+interrupted install, failed implementing agent and unavailable model. Supply
+`build/fleet/integration/private/0_14-index-input.json` and `0_14-target-input.json`
+with the case capture digests, exact campaign scope, contract/source/toolchain pins,
+install and worker operation IDs and authenticated fault-driver bindings. Captures
+remain beside the index; indexing validates their pins and grants no live PASS.
+
+```sh
+python3 tests/hyperfide/cases/source_control/0_14_live.py run --task 0.14 --config /private/hyperfide-prerequisite/0_14-live-config.json
+python3 tests/hyperfide/cases/source_control/0_14_live.py qualification --task 0.14 --config /private/hyperfide-prerequisite/0_14-live-config.json
+python3 tests/hyperfide/cases/source_control/0_14_live.py evidence-index --task 0.14 --config /private/hyperfide-prerequisite/0_14-live-config.json
+python3 tests/hyperfide/support/withpg.py -- python3 tests/hyperfide/cases/source_control/0_14.py --live-evidence build/fleet/integration/private/0_14-index.json --target build/fleet/integration/private/0_14-target.json --receipt build/fleet/integration/private/0_14-live-receipt.json
+```
+
+The final command runs real-model actor checks in an owned database, then the live
+verifier reads the separate database named by the trusted target's `database_url_env`.
+Use a distinct environment variable for that live read-only connection; `withpg.py`
+replaces `DATABASE_URL` and `HYPERFIDE_*_DATABASE_URL` for isolation. The
+`actor-receipt.json` remains separate from the final live receipt. Only a live
+receipt with `status = PASS`, `qualified = true` and the classified assertion inventory
+permits a zero exit; missing credentials or evidence remain BLOCKED with exit 2.
+A failed assertion is retained, never converted to PASS by a component result.
+
+Recovery preserves the private `0_14-live-journal.json`, supervisor state, original
+operation IDs and receipts. After supervisory host loss, rebind current cohort and
+manager authority and prove the original instance absent. Reject stale generation
+replays without effects. Reconcile an ambiguous provider operation and retain its
+capacity hold until exact absence is proven. Resume interrupted installation only
+through the signed FAILED/quiescence recovery chain; preserve source and stage pins.
+Retain a failed implementing agent's terminal native result and cleanup proof, and
+independently verify any replacement result. Unavailable models remain waiting;
+restore their configured backend before requesting new reasoning. Do not erase
+journals or relaunch uncertain execution with a new identity.
+
+The source adapter migration preserves install and result evidence while replacing
+Git revisions/manifests with native revision, root-tree and security-domain pins.
+It must preserve authority, scope, modes, content digests, interface selection and
+boot/generation fences. Native task 0.1 is released only after this prerequisite
+qualification passes live; decision 2700's bounded component gate alone cannot release it.
+
 ## Source and qualification states
 
 A source branch, successful compiler run, authoring check or task-component receipt does not qualify a full acceptance case. The canonical runner records the selected variant, exact input hashes, source inventory, process outcome, assertion inventory and cleanup. The independent checker revalidates those records.

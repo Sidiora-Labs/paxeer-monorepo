@@ -47,7 +47,12 @@ class AgentBudgetTests(CommitmentTests):
         self.assertEqual(typescript["amount"], offer["amount"])
         self.assertEqual(typescript["asset"], offer["asset"])
         self.assertEqual(typescript["payTo"], offer["payTo"])
-        self.assertEqual(typescript["receiptDigest"], "0x" + keccak256(self.wire).hex())
+        self.assertEqual(
+            typescript["receiptDigest"],
+            "0x" + verify_sequencer_receipt(
+                self.wire, self.raw_transaction, self.receipt_keys
+            ).receipt_digest.hex(),
+        )
         evidence = PaymentEvidence(self.wire, self.raw_transaction)
         with tempfile.TemporaryDirectory() as directory:
             path = str(Path(directory) / "budgets.sqlite")
