@@ -7,7 +7,7 @@ license = "Apache-2.0"
 authors = [
   { name = "Sidiora Labs" },
 ]
-requires-python = ">= 3.9"
+requires-python = ">= 3.11"
 dependencies = [
   "httpx>=0.23.0, <1",
   "pydantic>=1.9.0, <3",

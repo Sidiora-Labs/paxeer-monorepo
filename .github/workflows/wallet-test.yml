@@ -22,6 +22,11 @@ jobs:
       fail-fast: false
       matrix:
         directory: [apps/wallet, sdk/wallet]
+        include:
+          - directory: apps/wallet
+            command: pnpm exec vitest run
+          - directory: sdk/wallet
+            command: python3 ../../tools/ci/run_wallet_vitest.py
     steps:
       - name: Check out source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -48,7 +53,7 @@ jobs:
         run: pnpm install --frozen-lockfile
       - name: Run Vitest suite
         working-directory: ${{ matrix.directory }}
-        run: pnpm exec vitest run
+        run: ${{ matrix.command }}
 
   gateway:
     name: Gateway Vitest

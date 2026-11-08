@@ -1,3 +1,4 @@
+use crate::types::GuestIndex as _;
 use crate::{
     codec::{self, derive_market, EventCommon, Reader, ValidatedEnvelope, Writer},
     dispatch::{self, Operation},
@@ -65,16 +66,17 @@ pub struct PolicySection<'a> {
 impl<'a> PolicySection<'a> {
     #[must_use]
     pub fn recent(&self) -> &[PolicyHistoryHeader] {
-        &self.recent[..self.recent_len]
+        self.recent.guest_index(..self.recent_len)
     }
     #[cfg_attr(target_arch = "wasm32", inline(never))]
     fn push_history(&mut self, header: PolicyHistoryHeader) -> CodecResult<()> {
         if self.recent_len == MAX_RECENT_POLICY_HEADERS {
-            self.history_root = fold_policy_history(self.history_root, 0, &self.recent[..1])?;
-            self.recent.copy_within(1.., 0);
-            self.recent[MAX_RECENT_POLICY_HEADERS - 1] = header;
+            self.history_root =
+                fold_policy_history(self.history_root, 0, self.recent.guest_index(..1))?;
+            self.recent.guest_copy_within(1.., 0);
+            *self.recent.guest_index_mut(MAX_RECENT_POLICY_HEADERS - 1) = header;
         } else {
-            self.recent[self.recent_len] = header;
+            *self.recent.guest_index_mut(self.recent_len) = header;
             self.recent_len += 1;
         }
         Ok(())
@@ -172,7 +174,7 @@ impl<'a> PolicySection<'a> {
             return Err(CAPACITY);
         }
         let h = self.header.encode(output)?;
-        let mut w = Writer::new(&mut output[h..n]);
+        let mut w = Writer::new(output.guest_index_mut(h..n));
         w.presence(&self.operator, |w, grant| {
             let mut b = [0; OPERATOR_GRANT_BYTES];
             grant.encode(&mut b)?;
@@ -299,7 +301,7 @@ pub struct Receipt {
 impl Receipt {
     #[must_use]
     pub fn bytes(&self) -> &[u8] {
-        &self.bytes[..self.len]
+        self.bytes.guest_index(..self.len)
     }
 }
 
@@ -376,9 +378,11 @@ fn build_receipt(
 ) -> CodecResult<Receipt> {
     let mut bytes = [0; RECEIPT_MAX_BYTES];
     let mut w = Writer::new(&mut bytes);
-    w.put(market.as_bytes())?;
-    w.u64(revision)?;
-    w.put(request.as_bytes())?;
+    crate::codec::write_fields!(w;
+        id32: market.as_bytes();
+        u64: revision;
+        id32: request.as_bytes();
+    )?;
     w.u16(operation.selector())?;
     w.u64(config)?;
     w.presence(&policy, |w, digest| w.put(digest.as_bytes()))?;
@@ -386,7 +390,7 @@ fn build_receipt(
     Ok(Receipt {
         bytes,
         len,
-        digest: codec::result_digest(&bytes[..len])?,
+        digest: codec::result_digest(bytes.guest_index(..len))?,
     })
 }
 
@@ -409,10 +413,12 @@ fn emit(
 ) -> CodecResult<usize> {
     let mut suffix = [0; EVENT_SUFFIX_BYTES];
     let mut w = Writer::new(&mut suffix);
-    w.u8(section.header.lifecycle)?;
-    w.u64(effect.config)?;
-    w.u64(effect.aux)?;
-    w.put(&effect.subject)?;
+    crate::codec::write_fields!(w;
+        u8: section.header.lifecycle;
+        u64: effect.config;
+        u64: effect.aux;
+        put: &effect.subject;
+    )?;
     codec::encode_event_frame(
         operation,
         &EventCommon {
@@ -443,23 +449,27 @@ fn created_replay(
         1
     })?;
     w.u16(ActorSlot::OWNER.index())?;
-    w.put(owner.as_bytes())?;
-    w.u64(OWNER_AUTHORITY)?;
-    w.boolean(true)?;
-    w.u64(request.sequence)?;
-    w.put(request.request_id.as_bytes())?;
-    w.put(request.digest.as_bytes())?;
-    w.put(result.as_bytes())?;
-    w.u64(1)?;
-    w.u64(request.expiry_height)?;
+    crate::codec::write_fields!(w;
+        id32: owner.as_bytes();
+        u64: OWNER_AUTHORITY;
+        u8: u8::from(true);
+        u64: request.sequence;
+        id32: request.request_id.as_bytes();
+        id32: request.digest.as_bytes();
+        id32: result.as_bytes();
+        u64: 1_u64;
+        u64: request.expiry_height;
+    )?;
     if let Presence::Present(treasury) = treasury {
         w.u16(ActorSlot::TREASURY.index())?;
-        w.put(treasury.as_bytes())?;
-        w.u64(OWNER_AUTHORITY)?;
-        w.boolean(false)?;
+        crate::codec::write_fields!(w;
+            id32: treasury.as_bytes();
+            u64: OWNER_AUTHORITY;
+            u8: u8::from(false);
+        )?;
     }
     let n = w.len();
-    decode_replay(&bytes[..n])
+    decode_replay(bytes.guest_index(..n))
 }
 
 /// A create payload after field decoding, before binding checks.
@@ -477,10 +487,11 @@ impl CreateRequest {
     #[cfg_attr(target_arch = "wasm32", inline(never))]
     fn parse(payload: &[u8]) -> CodecResult<Self> {
         let mut r = Reader::new(payload);
-        let owner = r.principal_id()?;
-        let asset = r.asset_id()?;
-        let rewards = r.account_id()?;
-        let refund = r.account_id()?;
+        let (owner, asset, rewards, refund) = crate::codec::read_values!(&mut r; owner = r.principal_id()?;
+            asset: AssetId,
+            rewards: AccountId,
+            refund: AccountId,
+        );
         let treasury = r.presence(|r| r.principal_id())?;
         let policy = TaskPolicyV1::decode(r.take(TASK_POLICY_BYTES)?)?;
         let metadata = r.metadata_digest()?;
@@ -604,7 +615,7 @@ fn create<'a>(
         return Err(NON_CANONICAL);
     }
     let n = section.encode(section_out)?;
-    let (policy_out, reputation_out) = section_out.split_at_mut(n);
+    let (policy_out, reputation_out) = section_out.guest_split_at_mut(n);
     let region = crate::reputation_transition::Region {
         state: crate::reputation::ReputationState::new(market),
         seal: Presence::Absent,
@@ -622,11 +633,11 @@ fn create<'a>(
     let state = SharedState {
         revision: 1,
         feature_sections: [
-            &frozen[..n],
+            frozen.guest_index(..n),
             &[],
             &[],
             &[],
-            &reputation_out[..reputation_len],
+            reputation_out.guest_index(..reputation_len),
         ],
         control: Control {
             replay: created_replay(owner, treasury, &request, receipt.digest)?,
@@ -725,7 +736,7 @@ pub fn apply<'a>(
         effect.policy,
     )?;
     let mut feature_sections = state.feature_sections;
-    feature_sections[Section::PolicyLifecycle.index()] = &frozen[..n];
+    *feature_sections.guest_index_mut(Section::PolicyLifecycle.index()) = frozen.guest_index(..n);
     let mut candidate = SharedState {
         revision: state.revision,
         feature_sections,

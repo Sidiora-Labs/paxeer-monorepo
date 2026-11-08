@@ -34,11 +34,11 @@
     "src"
   ],
   "scripts": {
-    "build": "pnpm run build:agent-sdk && tsc -p tsconfig.json",
+    "build": "pnpm --ignore-workspace run build:agent-sdk && tsc -p tsconfig.json",
     "build:agent-sdk": "npm --prefix ../../services/agent/sdk/typescript ci --no-audit --no-fund && npm --prefix ../../services/agent/sdk/typescript run build",
     "dev": "tsc -p tsconfig.json --watch",
-    "test": "pnpm run build:agent-sdk && vitest run",
-    "typecheck": "pnpm run build:agent-sdk && tsc -p tsconfig.json --noEmit",
+    "test": "pnpm --ignore-workspace run build:agent-sdk && vitest run",
+    "typecheck": "pnpm --ignore-workspace run build:agent-sdk && tsc -p tsconfig.json --noEmit",
     "lint": "echo 'lint: TODO (eslint config)'"
   },
   "peerDependencies": {

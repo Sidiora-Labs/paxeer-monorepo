@@ -7,6 +7,7 @@ use layerx_programs_ai_market::{
     dispatch::{self, Buffers, Operation, Routed, SequencePolicy},
     errors::*,
     evaluators::authority::split_identity_section,
+    placement::SIDE_CAPACITY,
     policy::{PolicyCommitments, RoomProfile, TaskPolicyV1, TASK_POLICY_BYTES},
     registry::{derive_rewards_account, MarketHeader},
     registry_ops::{CallContext, PolicySection},
@@ -1044,7 +1045,20 @@ fn all_room_ask_and_bid_capacities_fit_together_in_the_shared_state_budget() {
         .unwrap()
         .to_vec();
     for i in (0..ROOM_CAPACITY).rev() {
-        h.open(digest(100 + i as u8));
+        let request = OpenRoomRequest {
+            model_digest: if i < ROOM_CAPACITY / 2 {
+                digest(50)
+            } else {
+                digest(52)
+            },
+            ..open_request(digest(100 + i as u8))
+        };
+        h.apply(
+            dispatch::OpenRoom,
+            HOST,
+            &payload(168, |out| request.encode(out)),
+            Presence::Absent,
+        );
     }
     h.refuse(
         dispatch::OpenRoom,
@@ -1065,10 +1079,12 @@ fn all_room_ask_and_bid_capacities_fit_together_in_the_shared_state_budget() {
         Presence::Absent,
         CAPACITY,
     );
-    for i in (0..BID_CAPACITY).rev() {
+    for i in (0..SIDE_CAPACITY).rev() {
         h.bid(digest(100), digest(1 + i as u8), PEER_A);
     }
-    let bid = h.bid_request(digest(100), digest(129), PEER_A);
+    assert_eq!(h.book().counts(), [16, 64, 64, 0]);
+    assert!(h.book().counts()[2] < BID_CAPACITY);
+    let bid = h.bid_request(digest(100), digest(65), PEER_A);
     h.refuse(
         dispatch::PostBid,
         PEER_A,
@@ -1076,6 +1092,19 @@ fn all_room_ask_and_bid_capacities_fit_together_in_the_shared_state_budget() {
         Presence::Absent,
         CAPACITY,
     );
+    for i in (SIDE_CAPACITY..BID_CAPACITY).rev() {
+        h.bid(digest(108), digest(1 + i as u8), PEER_A);
+    }
+    for room in [digest(100), digest(108)] {
+        let bid = h.bid_request(room, digest(129), PEER_A);
+        h.refuse(
+            dispatch::PostBid,
+            PEER_A,
+            &payload(130, |out| bid.encode(out)),
+            Presence::Absent,
+            CAPACITY,
+        );
+    }
     assert_eq!(h.book().counts(), [16, 64, 128, 0]);
     assert!(h.current.len() <= 196608);
     assert_eq!(h.state().room_market().unwrap().0, legacy);
