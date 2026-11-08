@@ -12,7 +12,7 @@ use layerx_types::verify::VerificationLevel;
 use sha2::{Digest as _, Sha256};
 
 use crate::ops::program::ProgramOperations;
-use crate::prepare::Prepared;
+use crate::prepare::{verify_call_binding, EvmPrepared};
 use crate::protocol_evidence::VerifiedReceiptEvidence;
 use crate::sign::VerifiedSubmission;
 use crate::store::{Store, TenantId};
@@ -282,7 +282,7 @@ pub fn read_owned_native_effect_budget(
     };
     if owner.active_budget_id != proof.budget_id()
         || owner.agent_did != proof.owner()
-        || prepared.envelope.actor_did().as_bytes() != held.actor()
+        || prepared.disclosure.actor.as_slice() != prepared.from
     {
         return Err(ProgramPresentationBudgetError::Binding);
     }
@@ -419,7 +419,7 @@ type DebitKey = ([u8; 32], [u8; 32], ProgramChargeKind, Option<[u8; 32]>);
 /// An unknown transaction cannot supply receipt evidence or release a reservation.
 pub fn read_native_execution_observation(
     node: &layerx_client::sequencer::SequencerEndpoint,
-    prepared: &Prepared,
+    prepared: &crate::prepare::Prepared,
     submission: &VerifiedSubmission,
 ) -> Result<layerx_client::sequencer::SequencerReceipt, ProgramSettlementError> {
     super::native_binding::verify_retained_submission(prepared, submission)
@@ -465,7 +465,7 @@ pub fn read_signed_native_execution_observation(
 pub fn read_program_debit_settlement(
     programs: &ProgramOperations,
     registry: &ModuleRegistry,
-    prepared: &Prepared,
+    prepared: &EvmPrepared,
     submission: &VerifiedSubmission,
     receipt: &VerifiedReceiptEvidence,
     authority: &AuthorizedBatch,
@@ -503,13 +503,14 @@ pub fn read_program_debit_settlement(
         receipt,
         authority,
         reservation,
+        sources.owner_did(),
     )
 }
 
 pub fn read_retained_program_debit_settlement(
     programs: &ProgramOperations,
     registry: &ModuleRegistry,
-    prepared: &Prepared,
+    prepared: &EvmPrepared,
     submission: &VerifiedSubmission,
     receipt: &VerifiedReceiptEvidence,
     authority: &AuthorizedBatch,
@@ -523,7 +524,7 @@ pub fn read_retained_program_debit_settlement(
 
 pub fn read_retained_wind_down_debit_settlement_at_execution(
     registry: &ModuleRegistry,
-    prepared: &Prepared,
+    prepared: &EvmPrepared,
     submission: &VerifiedSubmission,
     receipt: &VerifiedReceiptEvidence,
     store: &Store,
@@ -531,7 +532,7 @@ pub fn read_retained_wind_down_debit_settlement_at_execution(
     prestate: &execution_state::CommittedExecutionState,
 ) -> Result<(ProgramBudgetReservation, VerifiedProgramDebitSettlement), ProgramSettlementError> {
     use crate::prepare::{DurablePreparation, LifecycleState};
-    let id: [u8; 32] = Sha256::digest(&prepared.canonical_bytes).into();
+    let id: [u8; 32] = Sha256::digest(&prepared.call.encode_unsigned()).into();
     let key = DurablePreparation::store_key(tenant, id)
         .map_err(|_| ProgramSettlementError::Preparation)?;
     let stored = store
@@ -543,7 +544,8 @@ pub fn read_retained_wind_down_debit_settlement_at_execution(
     let durable = DurablePreparation::decode(tenant.clone(), stored.bytes())
         .map_err(|_| ProgramSettlementError::Preparation)?;
     if durable.preparation_id != id
-        || durable.payload_hash != prepared.envelope.payload_hash()
+        || durable.payload_hash
+            != layerx_crypto::evm_transaction::transaction_hash(&prepared.call.data)
         || durable.activity_id != Some(submission.activity_id())
         || !durable.holds.is_empty()
         || !matches!(
@@ -581,9 +583,9 @@ pub fn read_retained_wind_down_debit_settlement_at_execution(
     let restored = carrier
         .restore_prepared(registry)
         .map_err(|_| ProgramSettlementError::Preparation)?;
-    if restored.canonical_bytes != prepared.canonical_bytes
-        || restored.observed_head_sequence != prepared.observed_head_sequence
-        || restored.envelope.authority() != prepared.envelope.authority()
+    if restored.call.encode_unsigned() != prepared.call.encode_unsigned()
+        || restored.observed_head_height != prepared.observed_head_height
+        || &restored.disclosure.authority != &prepared.disclosure.authority
         || carrier
             .budget()
             .map_err(|_| ProgramSettlementError::Allocation)?
@@ -598,6 +600,8 @@ pub fn read_retained_wind_down_debit_settlement_at_execution(
         registry,
         prestate,
         &reservation,
+        &layerx_types::ids::Did::new(carrier.retained_actor())
+            .map_err(|_| ProgramSettlementError::Preparation)?,
     )?;
     let witness = VerifiedProgramDebitSettlement {
         reservation_id: reservation.id,
@@ -614,7 +618,7 @@ pub fn read_retained_wind_down_debit_settlement_at_execution(
 
 pub fn read_retained_lifecycle_debit_settlement_at_execution(
     registry: &ModuleRegistry,
-    prepared: &Prepared,
+    prepared: &EvmPrepared,
     submission: &VerifiedSubmission,
     receipt: &VerifiedReceiptEvidence,
     store: &Store,
@@ -622,7 +626,7 @@ pub fn read_retained_lifecycle_debit_settlement_at_execution(
     prestate: &execution_state::CommittedExecutionState,
 ) -> Result<(ProgramBudgetReservation, VerifiedProgramDebitSettlement), ProgramSettlementError> {
     use crate::prepare::{DurablePreparation, LifecycleState};
-    let id: [u8; 32] = Sha256::digest(&prepared.canonical_bytes).into();
+    let id: [u8; 32] = Sha256::digest(&prepared.call.encode_unsigned()).into();
     let key = DurablePreparation::store_key(tenant, id)
         .map_err(|_| ProgramSettlementError::Preparation)?;
     let stored = store
@@ -634,7 +638,8 @@ pub fn read_retained_lifecycle_debit_settlement_at_execution(
     let durable = DurablePreparation::decode(tenant.clone(), stored.bytes())
         .map_err(|_| ProgramSettlementError::Preparation)?;
     if durable.preparation_id != id
-        || durable.payload_hash != prepared.envelope.payload_hash()
+        || durable.payload_hash
+            != layerx_crypto::evm_transaction::transaction_hash(&prepared.call.data)
         || durable.activity_id != Some(submission.activity_id())
         || !durable.holds.is_empty()
         || !matches!(
@@ -672,9 +677,9 @@ pub fn read_retained_lifecycle_debit_settlement_at_execution(
     let restored = carrier
         .restore_prepared(registry)
         .map_err(|_| ProgramSettlementError::Preparation)?;
-    if restored.canonical_bytes != prepared.canonical_bytes
-        || restored.observed_head_sequence != prepared.observed_head_sequence
-        || restored.envelope.authority() != prepared.envelope.authority()
+    if restored.call.encode_unsigned() != prepared.call.encode_unsigned()
+        || restored.observed_head_height != prepared.observed_head_height
+        || &restored.disclosure.authority != &prepared.disclosure.authority
         || carrier
             .budget()
             .map_err(|_| ProgramSettlementError::Allocation)?
@@ -689,6 +694,8 @@ pub fn read_retained_lifecycle_debit_settlement_at_execution(
         registry,
         prestate,
         &reservation,
+        &layerx_types::ids::Did::new(carrier.retained_actor())
+            .map_err(|_| ProgramSettlementError::Preparation)?,
     )?;
     let witness = VerifiedProgramDebitSettlement {
         reservation_id: reservation.id,
@@ -706,7 +713,7 @@ pub fn read_retained_lifecycle_debit_settlement_at_execution(
 fn read_retained_program_debit_settlement_inner(
     programs: &ProgramOperations,
     registry: &ModuleRegistry,
-    prepared: &Prepared,
+    prepared: &EvmPrepared,
     submission: &VerifiedSubmission,
     receipt: &VerifiedReceiptEvidence,
     authority: &AuthorizedBatch,
@@ -714,7 +721,7 @@ fn read_retained_program_debit_settlement_inner(
     tenant: &TenantId,
 ) -> Result<(ProgramBudgetReservation, VerifiedProgramDebitSettlement), ProgramSettlementError> {
     use crate::prepare::{DurablePreparation, LifecycleState};
-    let id: [u8; 32] = Sha256::digest(&prepared.canonical_bytes).into();
+    let id: [u8; 32] = Sha256::digest(&prepared.call.encode_unsigned()).into();
     let key = DurablePreparation::store_key(tenant, id)
         .map_err(|_| ProgramSettlementError::Preparation)?;
     let stored = store
@@ -726,7 +733,8 @@ fn read_retained_program_debit_settlement_inner(
     let durable = DurablePreparation::decode(tenant.clone(), stored.bytes())
         .map_err(|_| ProgramSettlementError::Preparation)?;
     if durable.preparation_id != id
-        || durable.payload_hash != prepared.envelope.payload_hash()
+        || durable.payload_hash
+            != layerx_crypto::evm_transaction::transaction_hash(&prepared.call.data)
         || durable.activity_id != Some(submission.activity_id())
         || !durable.holds.is_empty()
         || !matches!(
@@ -764,9 +772,9 @@ fn read_retained_program_debit_settlement_inner(
     let restored = carrier
         .restore_prepared(registry)
         .map_err(|_| ProgramSettlementError::Preparation)?;
-    if restored.canonical_bytes != prepared.canonical_bytes
-        || restored.observed_head_sequence != prepared.observed_head_sequence
-        || restored.envelope.authority() != prepared.envelope.authority()
+    if restored.call.encode_unsigned() != prepared.call.encode_unsigned()
+        || restored.observed_head_height != prepared.observed_head_height
+        || &restored.disclosure.authority != &prepared.disclosure.authority
         || carrier
             .budget()
             .map_err(|_| ProgramSettlementError::Allocation)?
@@ -782,13 +790,15 @@ fn read_retained_program_debit_settlement_inner(
         receipt,
         authority,
         &reservation,
+        &layerx_types::ids::Did::new(carrier.retained_actor())
+            .map_err(|_| ProgramSettlementError::Preparation)?,
     )?;
     Ok((reservation, witness))
 }
 
 pub fn read_retained_native_effect_debit_settlement(
     registry: &ModuleRegistry,
-    prepared: &Prepared,
+    prepared: &EvmPrepared,
     submission: &VerifiedSubmission,
     receipt: &VerifiedReceiptEvidence,
     authority: &AuthorizedBatch,
@@ -802,7 +812,7 @@ pub fn read_retained_native_effect_debit_settlement(
 
 fn read_retained_native_effect_debit_settlement_inner(
     registry: &ModuleRegistry,
-    prepared: &Prepared,
+    prepared: &EvmPrepared,
     submission: &VerifiedSubmission,
     receipt: &VerifiedReceiptEvidence,
     authority: &AuthorizedBatch,
@@ -810,19 +820,19 @@ fn read_retained_native_effect_debit_settlement_inner(
     tenant: &TenantId,
 ) -> Result<(ProgramBudgetReservation, VerifiedProgramDebitSettlement), ProgramSettlementError> {
     use crate::prepare::{DurablePreparation, LifecycleState};
-    super::native_binding::verify_retained_submission(prepared, submission)
+    super::native_binding::verify_native_budget_submission(prepared, submission)
         .map_err(|_| ProgramSettlementError::Preparation)?;
     if prepared.disclosure.activity_type.module() != ModuleId::Asset {
         return Err(ProgramSettlementError::UnsupportedOperation);
     }
-    let id: [u8; 32] = Sha256::digest(&prepared.canonical_bytes).into();
+    let id: [u8; 32] = Sha256::digest(&prepared.call.encode_unsigned()).into();
     let carrier =
         crate::approval::native_effect::NativeEffectApprovalCarrier::read(store, tenant, id)
             .map_err(|_| ProgramSettlementError::Preparation)?;
     let restored = carrier
         .restore_prepared(registry)
         .map_err(|_| ProgramSettlementError::Preparation)?;
-    if restored.canonical_bytes != prepared.canonical_bytes
+    if restored.call.encode_unsigned() != prepared.call.encode_unsigned()
         || restored.disclosure_digest != prepared.disclosure_digest
     {
         return Err(ProgramSettlementError::Preparation);
@@ -871,7 +881,7 @@ fn read_retained_native_effect_debit_settlement_inner(
         return Err(ProgramSettlementError::Receipt);
     }
     if reservation.allocation_state_root() != Some(protocol.previous_state_root())
-        || prepared.observed_head_sequence.checked_add(1) != Some(protocol.global_sequence())
+        || prepared.observed_head_height.checked_add(1) != Some(protocol.global_sequence())
     {
         return Err(ProgramSettlementError::SourceSnapshot);
     }
@@ -998,7 +1008,13 @@ fn read_retained_native_effect_debit_settlement_inner(
     {
         return Err(ProgramSettlementError::Terminal);
     }
-    if protocol.fee_charged() > prepared.disclosure.fee_limit {
+    if protocol.fee_charged()
+        > prepared
+            .call
+            .max_fee_per_gas
+            .checked_mul(u128::from(prepared.call.gas_limit))
+            .ok_or(ProgramSettlementError::Preparation)?
+    {
         return Err(ProgramSettlementError::FeeProvenance);
     }
     if protocol.fee_charged() != 0 {
@@ -1060,13 +1076,14 @@ pub struct NativeProgramArtifacts {
 fn verify_program_debit_settlement(
     programs: &ProgramOperations,
     registry: &ModuleRegistry,
-    prepared: &Prepared,
+    prepared: &EvmPrepared,
     submission: &VerifiedSubmission,
     receipt: &VerifiedReceiptEvidence,
     authority: &AuthorizedBatch,
     reservation: &ProgramBudgetReservation,
+    owner: &layerx_types::ids::Did,
 ) -> Result<VerifiedProgramDebitSettlement, ProgramSettlementError> {
-    super::native_binding::verify_retained_submission(prepared, submission)
+    super::native_binding::verify_native_budget_submission(prepared, submission)
         .map_err(|_| ProgramSettlementError::Preparation)?;
     let artifacts = programs
         .activity_execution(
@@ -1087,22 +1104,24 @@ fn verify_program_debit_settlement(
             terminal_payload: artifacts.terminal_payload,
             call_graph: artifacts.execution.call_graph().to_vec(),
         },
+        owner,
     )
 }
 
 /// Settles a native program call from its bound disclosure and authenticated artifacts.
 pub fn verify_native_program_debit_settlement(
     registry: &ModuleRegistry,
-    prepared: &Prepared,
+    prepared: &EvmPrepared,
     submission: &VerifiedSubmission,
     receipt: &VerifiedReceiptEvidence,
     authority: &AuthorizedBatch,
     reservation: &ProgramBudgetReservation,
     artifacts: &NativeProgramArtifacts,
+    owner: &layerx_types::ids::Did,
 ) -> Result<VerifiedProgramDebitSettlement, ProgramSettlementError> {
-    super::native_binding::verify_retained_submission(prepared, submission)
+    super::native_binding::verify_native_budget_submission(prepared, submission)
         .map_err(|_| ProgramSettlementError::Preparation)?;
-    if !matches!(prepared.envelope.authority(), Authority::Owner(_)) {
+    if prepared.disclosure.authority.as_slice() != prepared.from {
         return Err(ProgramSettlementError::Preparation);
     }
     if prepared.disclosure.activity_type.module() != ModuleId::Programs
@@ -1130,14 +1149,14 @@ pub fn verify_native_program_debit_settlement(
     {
         return Err(ProgramSettlementError::Receipt);
     }
-    let actor = layerx_wire::hash::did_id_for_protocol(prepared.envelope.actor_did(), 3)
+    let actor = layerx_wire::hash::did_id_for_protocol(owner, 3)
         .map_err(|_| ProgramSettlementError::Preparation)?;
     reservation
         .validate()
         .map_err(|_| ProgramSettlementError::Allocation)?;
-    let preparation_digest: [u8; 32] = Sha256::digest(&prepared.canonical_bytes).into();
+    let preparation_digest: [u8; 32] = Sha256::digest(&prepared.call.encode_unsigned()).into();
     if reservation.id != preparation_digest
-        || reservation.allocation_sequence() != Some(prepared.observed_head_sequence)
+        || reservation.allocation_sequence() != Some(prepared.observed_head_height)
         || reservation.allocation_actor() != Some(actor)
         || reservation.allocation_preparation_digest() != Some(preparation_digest)
     {
@@ -1145,7 +1164,7 @@ pub fn verify_native_program_debit_settlement(
     }
     let expected = retained_allocations(reservation)?;
     if reservation.allocation_state_root() != Some(protocol.previous_state_root())
-        || prepared.observed_head_sequence.checked_add(1) != Some(protocol.global_sequence())
+        || prepared.observed_head_height.checked_add(1) != Some(protocol.global_sequence())
     {
         return Err(ProgramSettlementError::SourceSnapshot);
     }
@@ -1177,7 +1196,7 @@ pub fn verify_native_program_debit_settlement(
             guest_abi_version: call.guest_abi,
         },
         &[OccupancyPayer {
-            did: prepared.envelope.actor_did().as_bytes(),
+            did: owner.as_bytes(),
             account: None,
         }],
     )
