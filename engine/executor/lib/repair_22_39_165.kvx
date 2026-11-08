@@ -1,0 +1,28 @@
+[repair.22.39.165]
+mode = "BUILD"
+decision = "2909"
+gotcha = "3614"
+acceptance = "22998.1"
+base_revision = "2d472ea939657e5533d589495b5ef2110d089274"
+upstream = "https://github.com/ethereum/evmone.git"
+upstream_tag = "v0.12.0"
+build_directory = "build/evmone-0.12.0"
+source_directory = "build/evmone-0.12.0/source"
+dependencies = "The tag-pinned evmc submodule and the upstream Hunter configuration fetch intx and ethash; Hunter sources and artifacts live in build/evmone-0.12.0/hunter."
+copied_file = "engine/executor/lib/libevmone.0.12.0_linux_amd64.so"
+unbuilt_platforms = ["libevmone.0.12.0_linux_arm64.so", "libevmone.0.12.0_darwin_arm64.dylib"]
+behavior = "Build a Release shared evmone library for the host with tests and tools disabled; reuse the copied library when it exists. The root paxd-native-libs target depends on evmone-lib."
+ci = "Native dependencies include cmake; native-libs and node-tests explicitly build evmone before the node test step."
+tests = ["TestInitEvmoneVMLoadsThePinnedLibrary", "test_node_build_runs_evmone_lib_before_node_tests"]
+abi = "The real loaded VM reports version 0.12.0 and EVMC ABI 12, matching github.com/ethereum/evmc/v12 v12.1.0; evmc.Load also enforces ABI compatibility."
+
+[evidence]
+build_cmd = "command -v cmake > /dev/null && command -v c++ > /dev/null && command -v git > /dev/null && go vet ./engine/executor/lib/"
+verify_cmd = "make -s evmone-lib && test -s engine/executor/lib/libevmone.0.12.0_linux_amd64.so && go test -count=1 ./engine/executor/lib/ && python3 -m pytest -q tests/ci/test_node_build_workflow_scope.py"
+verified_revision = "The hf-done row in /out/run/gates.jsonl records the exact candidate revision, command, exit code and private log; this repair record is part of that candidate."
+build_reference = "/out/run/gates.jsonl: kind=build; private logs /out/logs/build-<n>.log"
+verify_reference = "/out/run/gates.jsonl: kind=verify; private logs /out/logs/verify-<n>.log"
+publication = "The external runner publishes the qualified candidate; the worker does not commit or push."
+
+[implementation_notes]
+cmake_bootstrap = "The sandbox lacked cmake; install cmake 3.31.10 with uv tool install before hf-build. Public jobs install cmake through apt with their other native dependencies."
