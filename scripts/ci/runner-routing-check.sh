@@ -20,7 +20,6 @@ docs-site.yml                   deploy                           publishing-cred
 scorecard.yml                   analysis                         scorecard         ubuntu-24.04
 explorer-build.yml              explorer-backend                 container         ubuntu-24.04
 explorer-build.yml              explorer-lint-backend            docker-command    ubuntu-24.04
-explorer-images.yml             explorer-backend-test            docker-command    ubuntu-24.04
 explorer-images.yml             publish                          docker-action     ubuntu-24.04
 human.yml                       browser-performance              docker-command    ubuntu-24.04
 mirror-live.yml                 publish-retrieve                 layerx-testnet    [self-hosted, layerx-testnet]
@@ -80,6 +79,13 @@ CONTAINER_RUNTIME = re.compile(
     re.MULTILINE,
 )
 MATRIX_REFERENCE = re.compile(r"\$\{\{\s*matrix\.([A-Za-z0-9_-]+)\s*\}\}")
+# A routed job may provision its runtime explicitly before its first use.
+# Match the whole setup so a name, partial install or conditional cannot excuse it.
+CONTAINER_SETUP = """sudo apt-get update
+sudo apt-get install --yes docker.io acl
+sudo systemctl start docker
+sudo setfacl -m "u:$(id -u):rw" /var/run/docker.sock
+docker version --format '{{.Server.Version}}'"""
 SHELL_REFERENCE = re.compile(r"\$(?:\{([A-Za-z_][A-Za-z0-9_]*)\}|([A-Za-z_][A-Za-z0-9_]*))")
 
 ROUTED = re.compile(
@@ -114,6 +120,7 @@ def render_matrix(text, combination):
 def container_runtime_use(body):
     job_env = body.get("env") if isinstance(body.get("env"), dict) else {}
     for combination in matrix_combinations(body):
+        runtime_ready = False
         for step in body.get("steps") or []:
             if not isinstance(step, dict) or "run" not in step:
                 continue
@@ -123,7 +130,12 @@ def container_runtime_use(body):
                 lambda match: env.get(match.group(1) or match.group(2), match.group(0)),
                 render_matrix(step["run"], combination),
             )
-            if CONTAINER_RUNTIME.search(command):
+            if (command.strip() == CONTAINER_SETUP and "if" not in step
+                    and not step.get("continue-on-error") and "if" not in body
+                    and not body.get("continue-on-error")):
+                runtime_ready = True
+                continue
+            if CONTAINER_RUNTIME.search(command) and not runtime_ready:
                 return combination, step.get("name", command.strip())
     return None
 
