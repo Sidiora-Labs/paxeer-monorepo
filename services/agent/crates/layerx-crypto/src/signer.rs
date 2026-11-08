@@ -14,8 +14,7 @@ pub use crate::binding::BindMessage;
 use crate::disclosure::call::validate_call;
 use crate::disclosure::{Disclosure, DisclosureError};
 use crate::evm_transaction::Eip1559Call;
-use crate::{ct, ed25519, SignatureMessage, VerifyError};
-use layerx_types::payload::ModuleRegistry;
+use crate::{ed25519, SignatureMessage, VerifyError};
 
 pub use crate::local::LocalSigner;
 
@@ -57,12 +56,16 @@ impl<'a> SigningRequest<'a> {
         message: SignatureMessage<'a>,
         disclosure: &'a Disclosure,
     ) -> Result<Self, SignError> {
-        let digest = disclosure.validated_digest().map_err(SignError::from)?;
-        if !ct::eq_fixed(&digest, &message.digest()) {
-            return Err(SignError::DisclosureMismatch("canonical_bytes"));
+        if message.domain != layerx_wire::hash::Domain::SignaturePreimage {
+            return Err(SignError::InvalidDisclosure);
         }
-        // A matching legacy disclosure is evidence for audit, never signing authority.
-        Err(SignError::InvalidDisclosure)
+        disclosure
+            .validate_canonical(message.canonical())
+            .map_err(SignError::from)?;
+        Ok(Self {
+            message: Some(message),
+            disclosure: SigningDisclosure::Activity(disclosure),
+        })
     }
 
     pub(crate) const fn send_debit(
@@ -345,25 +348,6 @@ pub fn sign_disclosed_call<'a>(
             return Err(SignError::ReturnedSignatureInvalid);
         }
         Ok(signature)
-    })
-}
-
-/// Validates legacy evidence and refuses retired activity signing before key or transport access.
-#[deprecated(
-    note = "Use sign_disclosed_call for transactions or SigningRequest::bind for DID consent"
-)]
-#[must_use]
-pub fn sign_disclosed<'a>(
-    _signer: &'a dyn Signer,
-    canonical: &'a [u8],
-    disclosure: &'a Disclosure,
-    registry: &'a ModuleRegistry,
-) -> SignFuture<'a> {
-    Box::pin(async move {
-        disclosure
-            .validate_bytes(canonical, registry)
-            .map_err(SignError::from)?;
-        Err(SignError::InvalidDisclosure)
     })
 }
 

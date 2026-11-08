@@ -295,6 +295,10 @@ include tools/paxeer-x/tests/python-tests.mk
 test-tools-python:
 	python3 -c 'import json, os, sys; cases = json.load(open("tests/ci/data/tools_python_suite_baseline.json")); os.execvp("python3", ["python3", "-m", "pytest", "-q", *sys.argv[1:], *["--deselect=" + case["nodeid"] for case in cases]])' $(TOOLS_PYTHON_SUITES)
 
+.PHONY: test-qualification-python
+test-qualification-python:
+	python3 -m pytest -q tools/qualification -m 'not native'
+
 list-tests: $(BUILD_DIR)/tests/lxp_test_harness
 	$(BUILD_DIR)/tests/lxp_test_harness --list
 
