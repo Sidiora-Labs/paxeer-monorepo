@@ -209052,7 +209052,7 @@ do_4 = "Finding 9.24.8.1: the verify passes both test names after one --exact fl
 
 [task.9.35.7]
 title = "Remove the kernel activity codec items from layerx-crypto once the kernel path has migrated"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 40
 requires = ["9.35.1", "12.95.2", "9.27.10", "10.21.9", "9.35.13", "8.47.12", "8.51.3", "9.24.9", "8.101.3", "8.101.4", "8.101.5", "22.9.24", "9.35.14", "9.35.15", "9.35.16", "9.35.17", "9.35.18", "9.35.19", "9.35.20", "9.35.21", "9.35.22", "9.35.23", "9.35.24", "22.99.160", "22.31.572", "22.31.620", "22.39.174"]
