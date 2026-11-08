@@ -1,0 +1,362 @@
+[repair.22.39.152]
+decision = "2887"
+gotcha = "3583"
+continuation_decisions = ["2771", "2887", "2894", "2898"]
+continuation_gotcha = "3596"
+acceptance = "22998.1"
+base_revision = "8f21858e000218f3a283fe439a98496a1ccfa003"
+continuation_base_revision = "ad045b706f73240dd117c8e2e75ca0a2a99fa57d"
+continued_attempt_revision = "e5efb803e2b4c9bbb41b954d5e915baabba9a4d5"
+repair = "Preserve removed.1 through removed.18 and the three added rows from attempt 2; remove the charting declaration re-export relationship and the relationship between different logo artworks introduced by the same rename commit. Preserve the five matching perps public artwork relationships and every other matching row."
+removed_rows = 20
+preserved_rows = 71
+added_rows = 3
+final_rows = 74
+verified_revision = "The private /out/run/gates.jsonl hf-done record names the exact candidate revision, command, exit code and log path; the final handoff copies that record."
+test_policy = "tests/ci/test_copied_artifacts_in_sync.py is unchanged, including the missing-file and byte-identical-copy assertions."
+
+[references]
+search = "git grep -n -E '(src/assets/(icons/)?|apps/launchpad/web/src/assets/icons/|apps/perps/src/assets/)(airdrop_background[.]png|dollars_cyan[.]svg|item[.]svg|logo[.]svg|pump[.]svg|solana_color[.]svg)' -- apps tests tools ':(exclude)tests/ci/repair_22_39_152.kvx'"
+result = "After removing the stale inventory rows, only the historical rename records reference the removed paths; this repair record documents those paths and is excluded from the consumer search."
+launchpad_record = "apps/launchpad/web/asset-renames.kvx:226-251, deduplicate.1 through deduplicate.6"
+perps_record = "apps/perps/asset-renames.kvx:176-201, deduplicate.1 through deduplicate.6"
+launchpad_consumer = "apps/launchpad/web/src/assets/index.ts publicAssetUrls resolves the six assets under /icons/."
+perps_consumer = "apps/perps/src/assets/index.ts publicAssetUrls resolves the six assets under /assets/."
+
+[removed.1]
+original_line = 17
+row = "apps/launchpad/web/public/icons/airdrop_background.png | apps/launchpad/web/src/assets/icons/airdrop_background.png | bytes | test_other_intentional_copies_match_sources | Shared app artwork is packaged for public URLs and source imports"
+source = "apps/launchpad/web/public/icons/airdrop_background.png"
+copy = "apps/launchpad/web/src/assets/icons/airdrop_background.png"
+removed_by_commit = "637c9c63da15d53eae493665591a26bcb2799d6c"
+producer = "apps/launchpad/web/asset-renames.kvx:226"
+
+[removed.2]
+original_line = 19
+row = "apps/launchpad/web/public/icons/airdrop_background.png | apps/perps/src/assets/airdrop_background.png | bytes | test_other_intentional_copies_match_sources | Shared app artwork is packaged for public URLs and source imports"
+source = "apps/launchpad/web/public/icons/airdrop_background.png"
+copy = "apps/perps/src/assets/airdrop_background.png"
+removed_by_commit = "637c9c63da15d53eae493665591a26bcb2799d6c"
+producer = "apps/perps/asset-renames.kvx:176"
+
+[removed.3]
+original_line = 20
+row = "apps/launchpad/web/public/icons/dollars_cyan.svg | apps/launchpad/web/src/assets/icons/dollars_cyan.svg | bytes | test_other_intentional_copies_match_sources | Shared app artwork is packaged for public URLs and source imports"
+source = "apps/launchpad/web/public/icons/dollars_cyan.svg"
+copy = "apps/launchpad/web/src/assets/icons/dollars_cyan.svg"
+removed_by_commit = "637c9c63da15d53eae493665591a26bcb2799d6c"
+producer = "apps/launchpad/web/asset-renames.kvx:231"
+
+[removed.4]
+original_line = 22
+row = "apps/launchpad/web/public/icons/dollars_cyan.svg | apps/perps/src/assets/dollars_cyan.svg | bytes | test_other_intentional_copies_match_sources | Shared app artwork is packaged for public URLs and source imports"
+source = "apps/launchpad/web/public/icons/dollars_cyan.svg"
+copy = "apps/perps/src/assets/dollars_cyan.svg"
+removed_by_commit = "637c9c63da15d53eae493665591a26bcb2799d6c"
+producer = "apps/perps/asset-renames.kvx:181"
+
+[removed.5]
+original_line = 23
+row = "apps/launchpad/web/public/icons/item.svg | apps/launchpad/web/src/assets/icons/item.svg | bytes | test_other_intentional_copies_match_sources | Shared app artwork is packaged for public URLs and source imports"
+source = "apps/launchpad/web/public/icons/item.svg"
+copy = "apps/launchpad/web/src/assets/icons/item.svg"
+removed_by_commit = "637c9c63da15d53eae493665591a26bcb2799d6c"
+producer = "apps/launchpad/web/asset-renames.kvx:236"
+
+[removed.6]
+original_line = 25
+row = "apps/launchpad/web/public/icons/item.svg | apps/perps/src/assets/item.svg | bytes | test_other_intentional_copies_match_sources | Shared app artwork is packaged for public URLs and source imports"
+source = "apps/launchpad/web/public/icons/item.svg"
+copy = "apps/perps/src/assets/item.svg"
+removed_by_commit = "637c9c63da15d53eae493665591a26bcb2799d6c"
+producer = "apps/perps/asset-renames.kvx:186"
+
+[removed.7]
+original_line = 26
+row = "apps/launchpad/web/public/icons/logo.svg | apps/launchpad/web/src/assets/icons/logo.svg | bytes | test_other_intentional_copies_match_sources | Shared app artwork is packaged for public URLs and source imports"
+source = "apps/launchpad/web/public/icons/logo.svg"
+copy = "apps/launchpad/web/src/assets/icons/logo.svg"
+removed_by_commit = "637c9c63da15d53eae493665591a26bcb2799d6c"
+producer = "apps/launchpad/web/asset-renames.kvx:241"
+
+[removed.8]
+original_line = 28
+row = "apps/launchpad/web/public/icons/logo.svg | apps/perps/src/assets/logo.svg | bytes | test_other_intentional_copies_match_sources | Shared app artwork is packaged for public URLs and source imports"
+source = "apps/launchpad/web/public/icons/logo.svg"
+copy = "apps/perps/src/assets/logo.svg"
+removed_by_commit = "637c9c63da15d53eae493665591a26bcb2799d6c"
+producer = "apps/perps/asset-renames.kvx:191"
+
+[removed.9]
+original_line = 29
+row = "apps/launchpad/web/public/icons/pump.svg | apps/launchpad/web/src/assets/icons/pump.svg | bytes | test_other_intentional_copies_match_sources | Shared app artwork is packaged for public URLs and source imports"
+source = "apps/launchpad/web/public/icons/pump.svg"
+copy = "apps/launchpad/web/src/assets/icons/pump.svg"
+removed_by_commit = "637c9c63da15d53eae493665591a26bcb2799d6c"
+producer = "apps/launchpad/web/asset-renames.kvx:246"
+
+[removed.10]
+original_line = 31
+row = "apps/launchpad/web/public/icons/pump.svg | apps/perps/src/assets/pump.svg | bytes | test_other_intentional_copies_match_sources | Shared app artwork is packaged for public URLs and source imports"
+source = "apps/launchpad/web/public/icons/pump.svg"
+copy = "apps/perps/src/assets/pump.svg"
+removed_by_commit = "637c9c63da15d53eae493665591a26bcb2799d6c"
+producer = "apps/perps/asset-renames.kvx:196"
+
+[removed.11]
+original_line = 32
+row = "apps/launchpad/web/public/icons/solana_color.svg | apps/launchpad/web/src/assets/icons/solana_color.svg | bytes | test_other_intentional_copies_match_sources | Shared app artwork is packaged for public URLs and source imports"
+source = "apps/launchpad/web/public/icons/solana_color.svg"
+copy = "apps/launchpad/web/src/assets/icons/solana_color.svg"
+removed_by_commit = "637c9c63da15d53eae493665591a26bcb2799d6c"
+producer = "apps/launchpad/web/asset-renames.kvx:251"
+
+[removed.12]
+original_line = 34
+row = "apps/launchpad/web/public/icons/solana_color.svg | apps/perps/src/assets/solana_color.svg | bytes | test_other_intentional_copies_match_sources | Shared app artwork is packaged for public URLs and source imports"
+source = "apps/launchpad/web/public/icons/solana_color.svg"
+copy = "apps/perps/src/assets/solana_color.svg"
+removed_by_commit = "637c9c63da15d53eae493665591a26bcb2799d6c"
+producer = "apps/perps/asset-renames.kvx:201"
+
+[removed.13]
+original_line = 4
+row = "apps/explorer/.scss/base.css | apps/perps/src/styles/.scss/base.css | bytes | test_other_intentional_copies_match_sources | Explorer and perps independently bundle the shared responsive stylesheet"
+source = "apps/explorer/.scss/base.css"
+copy = "apps/perps/src/styles/.scss/base.css"
+removed_by_commit = "637c9c63da15d53eae493665591a26bcb2799d6c"
+reason = "The perps stylesheet now imports the explorer stylesheet instead of storing a byte-identical copy."
+producer = "apps/perps/asset-renames.kvx shared.stylesheets"
+
+[removed.14]
+original_line = 5
+row = "apps/explorer/.scss/media-media-max-width-767px.css | apps/perps/src/styles/.scss/media-media-max-width-767px.css | bytes | test_other_intentional_copies_match_sources | Explorer and perps independently bundle the shared responsive stylesheet"
+source = "apps/explorer/.scss/media-media-max-width-767px.css"
+copy = "apps/perps/src/styles/.scss/media-media-max-width-767px.css"
+removed_by_commit = "637c9c63da15d53eae493665591a26bcb2799d6c"
+reason = "The perps stylesheet now imports the explorer stylesheet instead of storing a byte-identical copy."
+producer = "apps/perps/asset-renames.kvx shared.stylesheets"
+
+[removed.15]
+original_line = 6
+row = "apps/explorer/.scss/media-media-min-width-1024px.css | apps/perps/src/styles/.scss/media-media-min-width-1024px.css | bytes | test_other_intentional_copies_match_sources | Explorer and perps independently bundle the shared responsive stylesheet"
+source = "apps/explorer/.scss/media-media-min-width-1024px.css"
+copy = "apps/perps/src/styles/.scss/media-media-min-width-1024px.css"
+removed_by_commit = "637c9c63da15d53eae493665591a26bcb2799d6c"
+reason = "The perps stylesheet now imports the explorer stylesheet instead of storing a byte-identical copy."
+producer = "apps/perps/asset-renames.kvx shared.stylesheets"
+
+[removed.16]
+original_line = 7
+row = "apps/explorer/.scss/media-media-min-width-1280px.css | apps/perps/src/styles/.scss/media-media-min-width-1280px.css | bytes | test_other_intentional_copies_match_sources | Explorer and perps independently bundle the shared responsive stylesheet"
+source = "apps/explorer/.scss/media-media-min-width-1280px.css"
+copy = "apps/perps/src/styles/.scss/media-media-min-width-1280px.css"
+removed_by_commit = "637c9c63da15d53eae493665591a26bcb2799d6c"
+reason = "The perps stylesheet now imports the explorer stylesheet instead of storing a byte-identical copy."
+producer = "apps/perps/asset-renames.kvx shared.stylesheets"
+
+[removed.17]
+original_line = 8
+row = "apps/explorer/.scss/media-media-min-width-1728px.css | apps/perps/src/styles/.scss/media-media-min-width-1728px.css | bytes | test_other_intentional_copies_match_sources | Explorer and perps independently bundle the shared responsive stylesheet"
+source = "apps/explorer/.scss/media-media-min-width-1728px.css"
+copy = "apps/perps/src/styles/.scss/media-media-min-width-1728px.css"
+removed_by_commit = "637c9c63da15d53eae493665591a26bcb2799d6c"
+reason = "The perps stylesheet now imports the explorer stylesheet instead of storing a byte-identical copy."
+producer = "apps/perps/asset-renames.kvx shared.stylesheets"
+
+[removed.18]
+original_line = 9
+row = "apps/explorer/.scss/media-media-min-width-768px.css | apps/perps/src/styles/.scss/media-media-min-width-768px.css | bytes | test_other_intentional_copies_match_sources | Explorer and perps independently bundle the shared responsive stylesheet"
+source = "apps/explorer/.scss/media-media-min-width-768px.css"
+copy = "apps/perps/src/styles/.scss/media-media-min-width-768px.css"
+removed_by_commit = "637c9c63da15d53eae493665591a26bcb2799d6c"
+reason = "The perps stylesheet now imports the explorer stylesheet instead of storing a byte-identical copy."
+producer = "apps/perps/asset-renames.kvx shared.stylesheets"
+
+[added.1]
+row = "precompiles/layerxpay/abi.json | services/wallet/attestor/internal/policy/evm/abi/layerxpay.json | bytes | test_other_intentional_copies_match_sources | The attestor embeds the LayerXPay precompile ABI it decodes"
+source = "precompiles/layerxpay/abi.json"
+copy = "services/wallet/attestor/internal/policy/evm/abi/layerxpay.json"
+source_added_by_commit = "10faef10aff98890ac031ef178311fc68357c2a1"
+copy_added_by_commit = "1bc3ccadad689d5e767068df8f7cccaeed38081e"
+consumer = "services/wallet/attestor/internal/policy/evm/decode.go embeds abi/*.json and decodes LayerXPay at 0x101B."
+
+[added.2]
+row = "tools/bringup/tests/fixtures/repair_m793/committed.json | services/human/crates/layerx-human-service/tests/fixtures/repair_22_33_50/conformance-v4-committed.json | bytes | test_other_intentional_copies_match_sources | Human service conformance tests replay the committed conformance vectors fixed by the bringup repair"
+source = "tools/bringup/tests/fixtures/repair_m793/committed.json"
+copy = "services/human/crates/layerx-human-service/tests/fixtures/repair_22_33_50/conformance-v4-committed.json"
+source_added_by_commit = "cc9d6e18fe9b1ccab8e94d081e3548bea4fb8dac"
+copy_added_by_commit = "1c1fb2c68cece895cce12dec3886661abc69a8ae"
+consumer = "services/human/crates/layerx-human-service/tests/support/committed_controls.rs includes the committed conformance fixture as COMMITTED."
+
+[added.3]
+row = "services/platform/hosted/gateway/tests/fixtures/repair_22_31_202/node-committed.json | services/human/crates/layerx-human-service/tests/fixtures/repair_22_33_50/paxd-v4-committed.json | bytes | test_other_intentional_copies_match_sources | Human service conformance tests replay the committed paxd vectors fixed by the gateway repair"
+source = "services/platform/hosted/gateway/tests/fixtures/repair_22_31_202/node-committed.json"
+copy = "services/human/crates/layerx-human-service/tests/fixtures/repair_22_33_50/paxd-v4-committed.json"
+source_added_by_commit = "44a718e948745ae6be5af2d636e634de08ac0c7a"
+copy_added_by_commit = "1c1fb2c68cece895cce12dec3886661abc69a8ae"
+consumer = "services/human/crates/layerx-human-service/tests/support/committed_controls.rs includes the committed paxd fixture as RECORDED."
+
+[evidence.build]
+runner = "hf-build"
+command = "python3 -m py_compile tests/ci/test_copied_artifacts_in_sync.py"
+reference = "The final private /out/run/gates.jsonl record with kind=build and its referenced /out/logs/build-<n>.log names the exact candidate revision, command and exit; it must match the final verification candidate."
+
+[evidence.verification]
+runner = "hf-done"
+command = "cg spec done 22.39.152 -f layerx-merge --root /work/paxeer-monorepo"
+verify_cmd = "test -s tests/ci/repair_22_39_152.kvx && python3 -m pytest -q tests/ci/test_copied_artifacts_in_sync.py"
+reference = "The final private /out/run/gates.jsonl record with kind=verify and its referenced /out/logs/verify-<n>.log names the exact candidate revision, command and exit; the final handoff copies that record without editing the qualified tree."
+
+[attempt.1.qualification]
+status = "implemented-not-qualified"
+revision = "06701596943a5d66eacd2e4d399dd99874bfdbff"
+build_command = "python3 -m py_compile tests/ci/test_copied_artifacts_in_sync.py"
+build_exit = 0
+build_log = "/out/logs/build-1.log"
+verify_command = "cg spec done 22.39.152 -f layerx-merge --root /work/paxeer-monorepo"
+verify_exit = 1
+verify_log = "/out/logs/verify-1.log"
+result = "Seven tests passed and two failed on unrelated existing relationships; no task-scoped repair can resolve these failures while preserving every remaining inventory row and the unchanged assertions."
+record_policy = "This section records the bounded gate result after qualification; the named revision identifies the implementation actually built and tested, before this evidence-only addition."
+
+[finding.stylesheet]
+task = "22.39.152"
+file = "apps/perps/src/styles/.scss/base.css"
+symbol = "test_other_intentional_copies_match_sources"
+observed = "At revision 06701596943a5d66eacd2e4d399dd99874bfdbff, cg spec done 22.39.152 -f layerx-merge --root /work/paxeer-monorepo exited 1 (/out/logs/verify-1.log): the existing perps stylesheet imports its source and differs from apps/explorer/.scss/base.css."
+assumption = "The stylesheet relationship predates this task and cannot be repaired by removing the twelve deleted asset-copy rows while preserving all remaining rows."
+severity = "blocker"
+resolution = "Decision 2894 authorizes removing this relationship in attempt 2; see removed.13 and the final gate references."
+
+[finding.unlisted_copies]
+task = "22.39.152"
+file = "tests/ci/data/intentional_copies.txt"
+symbol = "test_no_unlisted_byte_identical_copies_over_20kb"
+observed = "At revision 06701596943a5d66eacd2e4d399dd99874bfdbff, cg spec done 22.39.152 -f layerx-merge --root /work/paxeer-monorepo exited 1 (/out/logs/verify-1.log): the unchanged test found three unrelated unlisted byte-identical pairs."
+assumption = "Adding declarations for existing unrelated copies would broaden the instructed reconciliation beyond exactly the twelve stale asset rows."
+severity = "blocker"
+resolution = "Decision 2894 authorizes declaring these existing intentional copies in attempt 2; see added.1 through added.3 and the final gate references."
+
+[finding_pairs]
+layerxpay = "precompiles/layerxpay/abi.json | services/wallet/attestor/internal/policy/evm/abi/layerxpay.json"
+conformance = "services/human/crates/layerx-human-service/tests/fixtures/repair_22_33_50/conformance-v4-committed.json | tools/bringup/tests/fixtures/repair_m793/committed.json"
+paxd = "services/human/crates/layerx-human-service/tests/fixtures/repair_22_33_50/paxd-v4-committed.json | services/platform/hosted/gateway/tests/fixtures/repair_22_31_202/node-committed.json"
+
+[attempt.2.initial_qualification]
+revision = "d19d70f22abe3fa14aaccb9792df934b27e94d17"
+build_command = "python3 -m py_compile tests/ci/test_copied_artifacts_in_sync.py"
+build_exit = 0
+build_log = "/out/logs/build-1.log"
+verify_command = "cg spec done 22.39.152 -f layerx-merge --root /work/paxeer-monorepo"
+verify_exit = 1
+verify_log = "/out/logs/verify-1.log"
+result = "Eight tests passed; test_other_intentional_copies_match_sources reported the next media stylesheet relationship replaced by an import."
+repair = "The five remaining inventoried media stylesheets are one-line imports introduced by 637c9c63da; remove those stale relationships together as removed.14 through removed.18 under the authorized further-row repair cycle, then rebuild and verify the final candidate once."
+final_evidence = "The evidence.build and evidence.verification references identify the final bounded gate result at one candidate revision."
+
+[attempt.3.inventory_scan]
+base_revision = "3a0f70d0fce59d96719043d5294b98aa3718e3bd"
+continued_attempt_revision = "722ed1a6cbfc"
+phase = "Read-only comparison of all inventory rows before the first attempt-3 edit; this scan does not execute the test suite."
+method = "One pass in inventory order: check both paths exist, compare bytes for bytes rows, and compare parsed JSON values for json rows. Row numbers below identify the input inventory, including its three header lines."
+input_rows = 76
+matching_rows = 74
+differing_rows = 2
+missing_rows = 0
+result = "Exactly the two relationships named by decision 2898 differ; no further differing or missing pair was found. All 74 matching relationships are retained."
+row_4 = "apps/explorer/icons/tokens/xdai.svg | apps/wallet/public/ui_icons/tokens/xdai.svg | bytes | match | source_bytes=45606, copy_bytes=45606"
+row_5 = "apps/explorer/ui/shared/nft/__screenshots__/NftMedia.pw.tsx_default_image-preview-dark-mode-1.png | apps/explorer/ui/shared/nft/__screenshots__/NftMedia.pw.tsx_default_no-url-non-media-url-and-fallback-1.png | bytes | match | source_bytes=21472, copy_bytes=21472"
+row_6 = "apps/explorer/ui/shared/nft/__screenshots__/NftMedia.pw.tsx_default_image-preview-dark-mode-1.png | apps/explorer/ui/shared/nft/__screenshots__/NftMedia.pw.tsx_default_no-url-with-fallback-1.png | bytes | match | source_bytes=21472, copy_bytes=21472"
+row_7 = "apps/explorer/ui/snippets/navigation/vertical/__screenshots__/NavigationDesktop.pw.tsx_dark-color-mode_hover-xl-screen-dark-mode-1.png | apps/explorer/ui/snippets/navigation/vertical/__screenshots__/NavigationDesktop.pw.tsx_dark-color-mode_no-auth-xl-screen-dark-mode-1.png | bytes | match | source_bytes=22138, copy_bytes=22138"
+row_8 = "apps/explorer/ui/snippets/navigation/vertical/__screenshots__/NavigationDesktop.pw.tsx_default_hover-xl-screen-dark-mode-1.png | apps/explorer/ui/snippets/navigation/vertical/__screenshots__/NavigationDesktop.pw.tsx_default_no-auth-xl-screen-dark-mode-1.png | bytes | match | source_bytes=21854, copy_bytes=21854"
+row_9 = "apps/explorer/ui/tx/details/fixtures/vector-v4-committed.json | daemon/committed-fixture/vectors/vector-v4-committed.json | bytes | match | source_bytes=39213, copy_bytes=39213"
+row_10 = "apps/launchpad/web/public/charting_library/charting_library.d.ts | apps/perps/public/static/charting_library/charting_library.d.ts | bytes | different | source_bytes=116, copy_bytes=1023620"
+row_11 = "apps/launchpad/web/public/icons/airdrop_background.png | apps/perps/public/assets/airdrop_background.png | bytes | match | source_bytes=787624, copy_bytes=787624"
+row_12 = "apps/launchpad/web/public/icons/dollars_cyan.svg | apps/perps/public/assets/dollars_cyan.svg | bytes | match | source_bytes=32745, copy_bytes=32745"
+row_13 = "apps/launchpad/web/public/icons/item.svg | apps/perps/public/assets/item.svg | bytes | match | source_bytes=303212, copy_bytes=303212"
+row_14 = "apps/launchpad/web/public/icons/logo.svg | apps/perps/public/assets/logo.svg | bytes | different | source_bytes=38350, copy_bytes=1626439"
+row_15 = "apps/launchpad/web/public/icons/pump.svg | apps/perps/public/assets/pump.svg | bytes | match | source_bytes=144261, copy_bytes=144261"
+row_16 = "apps/launchpad/web/public/icons/solana_color.svg | apps/perps/public/assets/solana_color.svg | bytes | match | source_bytes=23530, copy_bytes=23530"
+row_17 = "apps/perps/public/Paxeer_Sans_Rounded/PPPangramSansRounded-Bold.otf | apps/wallet/public/Paxeer_Sans_Rounded/PPPangramSansRounded-Bold.otf | bytes | match | source_bytes=99136, copy_bytes=99136"
+row_18 = "apps/perps/public/Paxeer_Sans_Rounded/PPPangramSansRounded-CompactExtralightReclined.otf | apps/wallet/public/Paxeer_Sans_Rounded/PPPangramSansRounded-CompactExtralightReclined.otf | bytes | match | source_bytes=109968, copy_bytes=109968"
+row_19 = "apps/perps/public/Paxeer_Sans_Rounded/PPPangramSansRounded-CompactRegular.otf | apps/wallet/public/Paxeer_Sans_Rounded/PPPangramSansRounded-CompactRegular.otf | bytes | match | source_bytes=100324, copy_bytes=100324"
+row_20 = "apps/perps/public/Paxeer_Sans_Rounded/PPPangramSansRounded-CompactThinItalic.otf | apps/wallet/public/Paxeer_Sans_Rounded/PPPangramSansRounded-CompactThinItalic.otf | bytes | match | source_bytes=103368, copy_bytes=103368"
+row_21 = "apps/perps/public/Paxeer_Sans_Rounded/PPPangramSansRounded-CompressedExtrabold.otf | apps/wallet/public/Paxeer_Sans_Rounded/PPPangramSansRounded-CompressedExtrabold.otf | bytes | match | source_bytes=87568, copy_bytes=87568"
+row_22 = "apps/perps/public/Paxeer_Sans_Rounded/PPPangramSansRounded-CompressedMediumReclined.otf | apps/wallet/public/Paxeer_Sans_Rounded/PPPangramSansRounded-CompressedMediumReclined.otf | bytes | match | source_bytes=111252, copy_bytes=111252"
+row_23 = "apps/perps/public/Paxeer_Sans_Rounded/PPPangramSansRounded-CondensedThin.otf | apps/wallet/public/Paxeer_Sans_Rounded/PPPangramSansRounded-CondensedThin.otf | bytes | match | source_bytes=92868, copy_bytes=92868"
+row_24 = "apps/perps/public/Paxeer_Sans_Rounded/PPPangramSansRounded-ExtraboldItalic.otf | apps/wallet/public/Paxeer_Sans_Rounded/PPPangramSansRounded-ExtraboldItalic.otf | bytes | match | source_bytes=95028, copy_bytes=95028"
+row_25 = "apps/perps/public/Paxeer_Sans_Rounded/PPPangramSansRounded-Light.otf | apps/wallet/public/Paxeer_Sans_Rounded/PPPangramSansRounded-Light.otf | bytes | match | source_bytes=99156, copy_bytes=99156"
+row_26 = "apps/perps/public/Paxeer_Sans_Rounded/PPPangramSansRounded-Medium.otf | apps/wallet/public/Paxeer_Sans_Rounded/PPPangramSansRounded-Medium.otf | bytes | match | source_bytes=98796, copy_bytes=98796"
+row_27 = "apps/perps/public/Paxeer_Sans_Rounded/PPPangramSansRounded-NarrowExtraboldItalic.otf | apps/wallet/public/Paxeer_Sans_Rounded/PPPangramSansRounded-NarrowExtraboldItalic.otf | bytes | match | source_bytes=106568, copy_bytes=106568"
+row_28 = "apps/perps/public/Paxeer_Sans_Rounded/PPPangramSansRounded-NarrowExtralightReclined.otf | apps/wallet/public/Paxeer_Sans_Rounded/PPPangramSansRounded-NarrowExtralightReclined.otf | bytes | match | source_bytes=111624, copy_bytes=111624"
+row_29 = "apps/perps/public/Paxeer_Sans_Rounded/PPPangramSansRounded-NarrowSemibold.otf | apps/wallet/public/Paxeer_Sans_Rounded/PPPangramSansRounded-NarrowSemibold.otf | bytes | match | source_bytes=100156, copy_bytes=100156"
+row_30 = "apps/perps/public/Paxeer_Sans_Rounded/PPPangramSansRounded-NarrowSemiboldItalic.otf | apps/wallet/public/Paxeer_Sans_Rounded/PPPangramSansRounded-NarrowSemiboldItalic.otf | bytes | match | source_bytes=110132, copy_bytes=110132"
+row_31 = "apps/perps/public/Paxeer_Sans_Rounded/PPPangramSansRounded-Semibold.otf | apps/wallet/public/Paxeer_Sans_Rounded/PPPangramSansRounded-Semibold.otf | bytes | match | source_bytes=99136, copy_bytes=99136"
+row_32 = "apps/perps/public/Paxeer_Sans_Rounded/PPPangramSansRounded-SlimExtralight.otf | apps/wallet/public/Paxeer_Sans_Rounded/PPPangramSansRounded-SlimExtralight.otf | bytes | match | source_bytes=98616, copy_bytes=98616"
+row_33 = "apps/perps/public/Paxeer_Sans_Rounded/PPPangramSansRounded-SlimMediumReclined.otf | apps/wallet/public/Paxeer_Sans_Rounded/PPPangramSansRounded-SlimMediumReclined.otf | bytes | match | source_bytes=111640, copy_bytes=111640"
+row_34 = "apps/perps/public/Paxeer_Sans_Rounded/PPPangramSansRounded-SlimSemiboldItalic.otf | apps/wallet/public/Paxeer_Sans_Rounded/PPPangramSansRounded-SlimSemiboldItalic.otf | bytes | match | source_bytes=109344, copy_bytes=109344"
+row_35 = "apps/perps/public/Paxeer_Sans_Rounded/PPPangramSansRounded-Thin.otf | apps/wallet/public/Paxeer_Sans_Rounded/PPPangramSansRounded-Thin.otf | bytes | match | source_bytes=85284, copy_bytes=85284"
+row_36 = "apps/perps/public/windows/SplashScreen.scale-200.png | apps/perps/public/windows/Wide310x150Logo.scale-400.png | bytes | match | source_bytes=21773, copy_bytes=21773"
+row_37 = "apps/wallet/public/icons/android/launchericon-192x192.png | apps/wallet/public/icons/ios/192.png | bytes | match | source_bytes=27582, copy_bytes=27582"
+row_38 = "apps/wallet/public/icons/android/launchericon-512x512.png | apps/wallet/public/icons/ios/512.png | bytes | match | source_bytes=156433, copy_bytes=156433"
+row_39 = "apps/wallet/public/icons/app/icon-512.png | apps/wallet/public/icons/app/maskable-512.png | bytes | match | source_bytes=30442, copy_bytes=30442"
+row_40 = "apps/wallet/public/icons/ios/256.png | apps/wallet/public/icons/windows/Square44x44Logo.altform-lightunplated_targetsize-256.png | bytes | match | source_bytes=44632, copy_bytes=44632"
+row_41 = "apps/wallet/public/icons/ios/256.png | apps/wallet/public/icons/windows/Square44x44Logo.altform-unplated_targetsize-256.png | bytes | match | source_bytes=44632, copy_bytes=44632"
+row_42 = "apps/wallet/public/icons/ios/256.png | apps/wallet/public/icons/windows/Square44x44Logo.targetsize-256.png | bytes | match | source_bytes=44632, copy_bytes=44632"
+row_43 = "apps/wallet/public/icons/windows/SplashScreen.scale-100.png | apps/wallet/public/icons/windows/Wide310x150Logo.scale-200.png | bytes | match | source_bytes=63021, copy_bytes=63021"
+row_44 = "apps/wallet/public/icons/windows/SplashScreen.scale-200.png | apps/wallet/public/icons/windows/Wide310x150Logo.scale-400.png | bytes | match | source_bytes=218743, copy_bytes=218743"
+row_45 = "consensus/spec/consensus/light-client/assets/light-node-image.png | consensus/spec/light-client/assets/light-node-image.png | bytes | match | source_bytes=122270, copy_bytes=122270"
+row_46 = "contracts/launchpad/deployments/paxeer-x-network-addresses.json | services/launchpad/indexer/internal/receipt/deployment_source.json | json | match | source_bytes=54463, copy_bytes=54463"
+row_47 = "contracts/wasm/cw20_base.wasm | tests/integration/dapp_tests/uniswap/cw20_base.wasm | bytes | match | source_bytes=376689, copy_bytes=376689"
+row_48 = "contracts/wasm/cw20_base.wasm | tests/integration/rpc_tests/contracts/cw20_base.wasm | bytes | match | source_bytes=376689, copy_bytes=376689"
+row_49 = "contracts/wasm/cw721_base.wasm | tests/integration/dapp_tests/nftMarketplace/cw721_base.wasm | bytes | match | source_bytes=377539, copy_bytes=377539"
+row_50 = "contracts/wasm/cwerc1155.wasm | modules/evm/artifacts/erc1155/cwerc1155.wasm | bytes | match | source_bytes=381230, copy_bytes=381230"
+row_51 = "contracts/wasm/cwerc1155.wasm | tests/fixtures/example/cosmwasm/cw1155/artifacts/cwerc1155.wasm | bytes | match | source_bytes=381230, copy_bytes=381230"
+row_52 = "daemon/committed-fixture/vectors/vector-v6-sponsored-bind.json | sdk/platform/conformance/fixtures/vector-v6-sponsored-bind.json | bytes | match | source_bytes=63453, copy_bytes=63453"
+row_53 = "daemon/committed-fixture/vectors/vector-v7-named-payee.json | sdk/platform/conformance/fixtures/vector-v7-named-payee.json | bytes | match | source_bytes=40279, copy_bytes=40279"
+row_54 = "engine/deps/xevm/types/query.pb.gw.go | modules/evm/types/query.pb.gw.go | bytes | match | source_bytes=24650, copy_bytes=24650"
+row_55 = "modules/evm/artifacts/erc20/cwerc20.wasm | tests/fixtures/example/cosmwasm/cw20/artifacts/cwerc20.wasm | bytes | match | source_bytes=254963, copy_bytes=254963"
+row_56 = "modules/evm/artifacts/erc721/cwerc721.wasm | tests/fixtures/example/cosmwasm/cw721/artifacts/cwerc721.wasm | bytes | match | source_bytes=316171, copy_bytes=316171"
+row_57 = "precompiles/launchpad/abi.json | services/wallet/attestor/internal/policy/evm/abi/launchpad.json | bytes | match | source_bytes=69140, copy_bytes=69140"
+row_58 = "precompiles/launchpad/abi/FeeAccumulator.json | services/launchpad/pnl-tracker/internal/production/l18/FeeAccumulator.json | bytes | match | source_bytes=27941, copy_bytes=27941"
+row_59 = "precompiles/layerxpay/abi.json | services/wallet/attestor/internal/policy/evm/abi/layerxpay.json | bytes | match | source_bytes=42534, copy_bytes=42534"
+row_60 = "precompiles/layerxprograms/abi.json | services/wallet/attestor/internal/policy/evm/abi/layerxprograms.json | bytes | match | source_bytes=36587, copy_bytes=36587"
+row_61 = "precompiles/perps/abi/abi.json | services/wallet/attestor/internal/policy/evm/abi/perps.json | bytes | match | source_bytes=70965, copy_bytes=70965"
+row_62 = "sdk/chainflow/python/scalar-sdk.manifest.json | sdk/chainflow/rust/scalar-sdk.manifest.json | bytes | match | source_bytes=359245, copy_bytes=359245"
+row_63 = "sdk/chainflow/python/scalar-sdk.manifest.json | sdk/chainflow/typescript/scalar-sdk.manifest.json | bytes | match | source_bytes=359245, copy_bytes=359245"
+row_64 = "sdk/launchpad/packages/production-contracts-v2/src/schemas.gen.json | sdk/launchpad/packages/sdk-v2/src/schemas.gen.json | bytes | match | source_bytes=676228, copy_bytes=676228"
+row_65 = "sdk/launchpad/packages/production-contracts-v2/src/types.gen.ts | sdk/launchpad/packages/sdk-v2/src/types.gen.ts | bytes | match | source_bytes=149477, copy_bytes=149477"
+row_66 = "sdk/launchpad/packages/production-contracts/src/schemas.gen.json | sdk/launchpad/packages/sdk/src/schemas.gen.json | bytes | match | source_bytes=483602, copy_bytes=483602"
+row_67 = "sdk/launchpad/packages/production-contracts/src/types.gen.ts | sdk/launchpad/packages/sdk/src/types.gen.ts | bytes | match | source_bytes=100694, copy_bytes=100694"
+row_68 = "services/agent/crates/layerx-wire/tests/support/wallet_vectors/activities.json | services/wallet/attestor/internal/lxwire/testdata/activities.json | bytes | match | source_bytes=24586, copy_bytes=24586"
+row_69 = "services/agent/schema/agent-api/golden/v1.kvx | services/agent/schema/agent-api/v1.kvx | bytes | match | source_bytes=70613, copy_bytes=70613"
+row_70 = "services/launchpad/indexer/internal/internaltest/chainfixture/testdata/paxeer125-market.jsonl.gz | services/launchpad/indexer/internal/receipt/testdata/repair53-historical.jsonl.gz | bytes | match | source_bytes=131369, copy_bytes=131369"
+row_71 = "services/platform/hosted/gateway/tests/fixtures/repair_22_31_202/node-committed.json | services/human/crates/layerx-human-service/tests/fixtures/repair_22_33_50/paxd-v4-committed.json | bytes | match | source_bytes=38702, copy_bytes=38702"
+row_72 = "tools/bringup/tests/fixtures/repair_m793/committed.json | services/human/crates/layerx-human-service/tests/fixtures/repair_22_33_50/conformance-v4-committed.json | bytes | match | source_bytes=102850, copy_bytes=102850"
+row_73 = "tools/launchpad/production/feature-acceptance/fixtures/retired-inventory.json | tools/launchpad/production/feature-acceptance/inventory.json | json | match | source_bytes=169629, copy_bytes=131817"
+row_74 = "wasm-runtime/internal/api/libwasmvm_muslc.aarch64.part02.a | wasm/x/wasm/artifacts/v155/api/libwasmvm155_muslc.aarch64.part02.a | bytes | match | source_bytes=24459420, copy_bytes=24459420"
+row_75 = "wasm-runtime/internal/api/libwasmvm_muslc.aarch64.part03.a | wasm/x/wasm/artifacts/v155/api/libwasmvm155_muslc.aarch64.part03.a | bytes | match | source_bytes=999216, copy_bytes=999216"
+row_76 = "wasm-runtime/internal/api/libwasmvm_muslc.part02.a | wasm/x/wasm/artifacts/v152/api/libwasmvm152_muslc.part02.a | bytes | match | source_bytes=22425506, copy_bytes=22425506"
+row_77 = "wasm-runtime/internal/api/libwasmvm_muslc.part02.a | wasm/x/wasm/artifacts/v155/api/libwasmvm155_muslc.part02.a | bytes | match | source_bytes=22425506, copy_bytes=22425506"
+row_78 = "wasm-runtime/testdata/floaty_2.0.wasm | wasm/x/wasm/keeper/testdata/floaty_2.0.wasm | bytes | match | source_bytes=181603, copy_bytes=181603"
+row_79 = "wasm-runtime/testdata/queue.wasm | wasm/x/wasm/keeper/testdata/queue.wasm | bytes | match | source_bytes=146302, copy_bytes=146302"
+
+[removed.19]
+attempt_2_line = 10
+row = "apps/launchpad/web/public/charting_library/charting_library.d.ts | apps/perps/public/static/charting_library/charting_library.d.ts | bytes | test_other_intentional_copies_match_sources | Both trading apps ship the same charting library declarations"
+source = "apps/launchpad/web/public/charting_library/charting_library.d.ts"
+copy = "apps/perps/public/static/charting_library/charting_library.d.ts"
+removed_by_commit = "637c9c63da15d53eae493665591a26bcb2799d6c"
+reason = "The launchpad declaration is a 116-byte re-export of the perps declaration, not a byte-identical stored copy."
+
+[removed.20]
+attempt_2_line = 14
+row = "apps/launchpad/web/public/icons/logo.svg | apps/perps/public/assets/logo.svg | bytes | test_other_intentional_copies_match_sources | Shared app artwork is packaged for public URLs and source imports"
+source = "apps/launchpad/web/public/icons/logo.svg"
+copy = "apps/perps/public/assets/logo.svg"
+removed_by_commit = "637c9c63da15d53eae493665591a26bcb2799d6c"
+reason = "The launchpad and perps logos are different artworks (38350 and 1626439 bytes respectively)."
+
+[attempt.3.qualification]
+policy = "Run hf-build once, then hf-done once at the final unchanged candidate; repair reruns only if a task-scoped failure requires them. The evidence.build and evidence.verification references identify both exact private ledger records and logs, and the final handoff copies the last hf-done record without editing this qualified tree."
