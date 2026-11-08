@@ -10443,6 +10443,12 @@ value = "The placement book admits at most 64 open asks and 64 open bids per mod
 basis = "Task 22.39.142 attempt 5 at 81922d66a65c (gotcha 3585): the capacity test of 22.38.3 fills 128 bids under one model digest that the placement book of 22.38.11 caps at 64. Owner ruling between two landed producer constants, flagged for review; extends decisions 2800 and 2857 and gotcha 3046."
 affects = ["22.39.153", "22.39.142", "22.38.3", "22.38.11"]
 
+[decision.2889]
+title = "A test that persists receipt evidence builds it through the authenticated ingress capability and asserts the raw ingress only for its refusals"
+value = "Since task 22.33.1513 the receipt store of the agent daemon persists transaction receipt evidence only through AuthenticatedTransactionReceipt::from_authenticated over a receipt the node verifier returned as verified; a raw TransactionReceiptEvidence passed to store_verified_if_absent is refused with BelowReceipted below the receipted rung and UnauthenticatedIngress otherwise. A test that needs stored evidence obtains the verified receipt from the recorded node transcript and wraps it in the capability, as tests/repair_22_33_1513.rs does, and asserts the raw ingress only for those two refusals; the ingress itself is never loosened for a test."
+basis = "Task 9.98.4 attempt 13 at fc2cdfba14aa (gotcha 3586): the two receipt store cases of 9.4.2 submit raw evidence and have been red at main since bfc86ded84. Extends decisions 2857 and 2866 and gotcha 3046."
+affects = ["9.98.4", "9.4.2", "22.33.1513"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -199794,9 +199800,9 @@ do_3 = "The task record lists every fixture changed with its file and line and s
 symbols = []
 touches = ["services/agent/crates/layerx-agentd/src/ops/program.rs", "services/agent/crates/layerx-agentd/src/human_runtime.rs", "services/agent/crates/layerx-agentd/tests/support/mod.rs", "services/agent/crates/layerx-agentd/tests/human_node_receipts.rs", "services/agent/crates/layerx-agentd/tests/human_node_budgets.rs", "services/agent/crates/layerx-agentd/tests/node_rpc.rs", "services/agent/crates/layerx-agentd/tests/recovery.rs", "services/agent/crates/layerx-agentd/tests/unknown.rs", "services/agent/crates/layerx-agentd/tests/unknown_receipt_lookup.rs", "services/agent/crates/layerx-agentd/tests/native_routes_rpc.rs", "services/agent/crates/layerx-agentd/tests/finality_rungs.rs", "services/agent/crates/layerx-agentd/tests/receipt_store_v2.rs", "services/agent/crates/layerx-agentd/tests/program_adapters_rungs.rs", "services/agent/crates/layerx-agentd/tests/read_ops_rpc.rs", "services/agent/crates/layerx-agentd/tests/fixtures/receipted-log-transition.json"]
 tests = ["services/agent/crates/layerx-agentd/src/ops/program.rs", "services/agent/crates/layerx-agentd/src/human_runtime.rs", "services/agent/crates/layerx-agentd/tests/human_node_receipts.rs", "services/agent/crates/layerx-agentd/tests/node_rpc.rs", "services/agent/crates/layerx-agentd/tests/recovery.rs"]
-planned_paths = ["services/agent/Cargo.lock"]
+planned_paths = ["services/agent/Cargo.lock", "services/agent/crates/layerx-agentd/tests/repair_9_98_4.kvx"]
 build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --tests"
-verify_cmd = "sh tools/runtime/run-with-clock.sh cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib -- ops::program::evm_program_tests human_runtime::retained_settlement_tests human_runtime::tests::policy_usage_sums_only_proven_receipts_in_the_window human_runtime::tests::native_policy_usage_refuses_a_page_without_a_proof --skip checks_the_actual_server_identity && sh tools/runtime/run-with-clock.sh cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test human_node_receipts --test human_node_budgets --test node_rpc --test recovery --test unknown --test unknown_receipt_lookup --test native_routes_rpc --test finality_rungs --test receipt_store_v2 --test program_adapters_rungs --test read_ops_rpc"
+verify_cmd = "test -s services/agent/crates/layerx-agentd/tests/repair_9_98_4.kvx && sh tools/runtime/run-with-clock.sh cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib -- ops::program::evm_program_tests human_runtime::retained_settlement_tests human_runtime::tests::policy_usage_sums_only_proven_receipts_in_the_window human_runtime::tests::native_policy_usage_refuses_a_page_without_a_proof --skip checks_the_actual_server_identity && sh tools/runtime/run-with-clock.sh cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --no-fail-fast --test human_node_receipts --test human_node_budgets --test node_rpc --test recovery --test unknown --test unknown_receipt_lookup --test native_routes_rpc --test finality_rungs --test receipt_store_v2 --test program_adapters_rungs --test read_ops_rpc"
 gate_kind = "planned"
 sandbox_profile = "rust"
 owner_role = "fm-agent"
@@ -199822,6 +199828,7 @@ do_14 = "Attempt 10 (requalify, gotcha 3377, decision 2762, after 22.31.217 land
 do_15 = "Attempt 11 (requalify, gotcha 3410, decision 2790, after 22.31.614 lands): the attempt-10 tree stands (the paymentDenom fixtures, the module-9 arm, the site recorder, the decoder diagnostics and the single eth_blockNumber arm). Carry it onto main once 22.31.614 has landed so that the clock helper builds the runtime clock with the locked flag, run the build and the verify once and record them by reference in the task record. A refusal at a site inside the task touches is repaired once and the verify rerun once; a refusal elsewhere is recorded as a finding in the task record and the attempt stops."
 do_16 = "Attempt 12 (requalify, gotcha 3494, decision 2834, after 22.39.128 lands): the attempt-11 tree 9194e2966f44 stands. Merge current main so the budget verifier binds the retained native preparation through the signing preparation, then run the build and the verification first, before any change; repair only what the merged tree still fails within touches. Record both by reference."
 do_17 = "Attempt 13 (continue, gotcha 3577, decisions 2762, 2800 and 2857): the attempt-12 tree 53bcaadeeacf stands (the paymentDenom fixtures, the merged main, the module-9 arm, the site recorder, the decoder diagnostics, the single store directory of program_adapters_rungs.rs). The one remaining failure is a consumer assertion: tests/read_ops_rpc.rs line 201 expects the freshness relative_to of the receipt proof bundle to be the string pending, while proof_bundle_operation_value (src/human_runtime.rs, task 21.29.1) encodes the verified read through VerifiedRead::encode_json, whose freshness encoding at layerx-agent-api src/read.rs line 1028 writes relative_to as the object with height and hash. Change that assertion to the object the response carries: height as the decimal string 150 and hash as the hex string of the 0x09 block the fixture serves, built the same way the test builds the other expected values; the pending assertion at line 51 of the same file belongs to the ordinary_read helper and stays. Record the corrected assertion with the producer line in the task record. Nothing in the daemon sources changes. Run the build once and the verification once at the final revision and record both by reference; if a further assertion of the read operations test disagrees with the agent api encoding, correct it the same way in the one allowed repair cycle and rerun once."
+do_18 = "Attempt 14 (continue, gotcha 3586, decisions 2762, 2857, 2866 and 2889): the attempt-13 tree fc2cdfba14aa stands (the paymentDenom fixtures, the merged main, the module-9 arm, the site recorder, the decoder diagnostics, the single store directory, the corrected freshness assertion). The two cases of tests/receipt_store_v2.rs follow the producer of 22.33.1513: build the evidence each case stores through AuthenticatedTransactionReceipt::from_authenticated over the verified receipt of a recorded node transcript, as tests/repair_22_33_1513.rs lines 446 to 460 do, and store that capability; the BelowReceipted assertion on the submitted-rung record stays against the raw ingress, the weaker-rung, duplicate-store and evidence_version assertions are made against the authenticated path, and every assertion the producer still satisfies stays. Record each corrected assertion with the producer line it follows in services/agent/crates/layerx-agentd/tests/repair_9_98_4.kvx, together with the read_ops_rpc correction of attempt 13. Nothing in the daemon sources changes. The gate now passes --no-fail-fast so every binary reports; run the build once and the verification once at the final revision and record both by reference, and correct a further stale assertion the run reports the same way in the one allowed repair cycle."
 
 [task.22.99.159]
 title = "Restore the provider-subject consent fixture the agent daemon tests include"
@@ -334816,7 +334823,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.78]
 title = "Run the platform middleware, integration and example suites from the platform workflow"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.39.72", "22.39.136", "22.39.137", "22.39.151"]
@@ -335553,7 +335560,7 @@ do_4 = "Attempt 2 (continue, gotcha 3431, decision 2801): the attempt-1 tree 8ff
 
 [task.22.39.47]
 title = "Wire the tools/ci test suites into a public check and repair or delete the stale ones"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 3
 requires = ["22.39.54", "22.39.87"]

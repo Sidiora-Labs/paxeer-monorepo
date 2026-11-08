@@ -1,5 +1,6 @@
 //! F06 exact integer reward arithmetic over immutable F05 raw weights. No floating
 //! point, saturation, random ties or traversal-order ties; every step is checked.
+use crate::types::GuestIndex as _;
 use crate::{
     aggregation_codec::{EpochAggregation, WorkerAggregate, MAX_TOTAL_WEIGHT},
     errors::{
@@ -27,13 +28,13 @@ pub fn lower_median(scores: &[Score]) -> CodecResult<Presence<Score>> {
         return Ok(Presence::Absent);
     }
     let mut sorted = [0u32; MAX_EVALUATORS];
-    let sorted = &mut sorted[..scores.len()];
+    let sorted = sorted.guest_index_mut(..scores.len());
     for (slot, score) in sorted.iter_mut().zip(scores) {
         *slot = score.get();
     }
     crate::codec::sort_by(sorted, Ord::cmp);
     Ok(Presence::Present(Score::new(
-        sorted[(scores.len() - 1) / 2],
+        *sorted.guest_index((scores.len() - 1) / 2),
     )?))
 }
 
@@ -67,12 +68,12 @@ pub fn mul_div_rem(b: u128, s: u64, t: u64) -> CodecResult<(u128, u64)> {
         *q = u64::try_from(current / t).map_err(|_| ARITHMETIC)?;
         rem = current % t;
     }
-    if quotient[0] != 0 {
+    if *quotient.guest_index(0) != 0 {
         return Err(ARITHMETIC);
     }
     let rem = u64::try_from(rem).map_err(|_| ARITHMETIC)?;
     Ok((
-        (u128::from(quotient[1]) << 64) | u128::from(quotient[2]),
+        (u128::from(*quotient.guest_index(1)) << 64) | u128::from(*quotient.guest_index(2)),
         rem,
     ))
 }
@@ -121,8 +122,11 @@ impl Allocation {
         if index >= self.count {
             return Err(F06_UNKNOWN_WORKER_ENTITLEMENT);
         }
-        let worker = self.workers[index].ok_or(F06_LEDGER_INVARIANT_VIOLATION)?;
-        Ok((worker, self.amounts[index]))
+        let worker = self
+            .workers
+            .guest_index(index)
+            .ok_or(F06_LEDGER_INVARIANT_VIOLATION)?;
+        Ok((worker, *self.amounts.guest_index(index)))
     }
 }
 
@@ -140,16 +144,19 @@ pub fn allocate(budget: Amount, outputs: &[WorkerAggregate]) -> CodecResult<Allo
         return Err(CAPACITY);
     }
     let mut order = [0usize; MAX_WORKERS];
-    for (i, slot) in order[..n].iter_mut().enumerate() {
+    for (i, slot) in order.guest_index_mut(..n).iter_mut().enumerate() {
         *slot = i;
     }
-    crate::codec::sort_by(&mut order[..n], |&a, &b| {
-        outputs[a].worker().cmp(&outputs[b].worker())
+    crate::codec::sort_by(order.guest_index_mut(..n), |&a, &b| {
+        outputs
+            .guest_index(a)
+            .worker()
+            .cmp(&outputs.guest_index(b).worker())
     });
-    if order[..n]
-        .windows(2)
-        .any(|p| outputs[p[0]].worker() == outputs[p[1]].worker())
-    {
+    if order.guest_index(..n).windows(2).any(|p| {
+        outputs.guest_index(*p.guest_index(0)).worker()
+            == outputs.guest_index(*p.guest_index(1)).worker()
+    }) {
         return Err(NON_CANONICAL);
     }
     let mut total = 0u64;
@@ -175,37 +182,44 @@ pub fn allocate(budget: Amount, outputs: &[WorkerAggregate]) -> CodecResult<Allo
     let mut weights = [0u64; MAX_WORKERS];
     let mut remainders = [0u64; MAX_WORKERS];
     let mut base_sum = 0u128;
-    for (k, &i) in order[..n].iter().enumerate() {
-        let weight = u64::from(outputs[i].weight());
+    for (k, &i) in order.guest_index(..n).iter().enumerate() {
+        let weight = u64::from(outputs.guest_index(i).weight());
         let (q, r) = mul_div_rem(budget, weight, total)?;
-        allocation.workers[k] = Some(outputs[i].worker());
-        allocation.amounts[k] = q;
-        weights[k] = weight;
-        remainders[k] = r;
+        *allocation.workers.guest_index_mut(k) = Some(outputs.guest_index(i).worker());
+        *allocation.amounts.guest_index_mut(k) = q;
+        *weights.guest_index_mut(k) = weight;
+        *remainders.guest_index_mut(k) = r;
         base_sum = base_sum.checked_add(q).ok_or(ARITHMETIC)?;
     }
     let mut left = budget
         .checked_sub(base_sum)
         .ok_or(F06_LEDGER_INVARIANT_VIOLATION)?;
     let mut rank = [0usize; MAX_WORKERS];
-    for (k, slot) in rank[..n].iter_mut().enumerate() {
+    for (k, slot) in rank.guest_index_mut(..n).iter_mut().enumerate() {
         *slot = k;
     }
-    crate::codec::sort_by(&mut rank[..n], |&a, &b| {
-        remainders[b].cmp(&remainders[a]).then(a.cmp(&b))
+    crate::codec::sort_by(rank.guest_index_mut(..n), |&a, &b| {
+        remainders
+            .guest_index(b)
+            .cmp(remainders.guest_index(a))
+            .then(a.cmp(&b))
     });
-    for &k in &rank[..n] {
+    for &k in rank.guest_index(..n) {
         if left == 0 {
             break;
         }
-        if weights[k] == 0 || remainders[k] == 0 {
+        if *weights.guest_index(k) == 0 || *remainders.guest_index(k) == 0 {
             return Err(F06_LEDGER_INVARIANT_VIOLATION);
         }
-        allocation.amounts[k] = allocation.amounts[k].checked_add(1).ok_or(ARITHMETIC)?;
+        *allocation.amounts.guest_index_mut(k) = allocation
+            .amounts
+            .guest_index(k)
+            .checked_add(1)
+            .ok_or(ARITHMETIC)?;
         left -= 1;
     }
     let mut sum = 0u128;
-    for amount in &allocation.amounts[..n] {
+    for amount in allocation.amounts.guest_index(..n) {
         sum = sum.checked_add(*amount).ok_or(ARITHMETIC)?;
     }
     if left != 0 || sum != budget {

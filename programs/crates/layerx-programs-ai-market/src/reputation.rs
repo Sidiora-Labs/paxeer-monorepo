@@ -1,3 +1,4 @@
+use crate::types::GuestIndex as _;
 use crate::{
     errors::{
         CodecResult, ARITHMETIC, CAPACITY, CONFLICT, F07_BINDING_MISMATCH, F07_GENERATION_MISMATCH,
@@ -408,9 +409,9 @@ impl ReputationState {
             .position(|r| r.worker > record.worker)
             .unwrap_or(n);
         for i in (index..n).rev() {
-            self.current[i + 1] = self.current[i];
+            *self.current.guest_index_mut(i + 1) = *self.current.guest_index(i);
         }
-        self.current[index] = Some(record);
+        *self.current.guest_index_mut(index) = Some(record);
         self.current_len += 1;
         Ok(())
     }
@@ -431,7 +432,7 @@ impl ReputationState {
                 return Err(NON_CANONICAL);
             }
         }
-        self.history[self.history_len as usize] = Some(record);
+        *self.history.guest_index_mut(self.history_len as usize) = Some(record);
         self.history_len += 1;
         self.completed_through = Presence::Present(record.epoch);
         Ok(())
@@ -443,15 +444,15 @@ impl ReputationState {
     )]
     pub(crate) fn prune_oldest(&mut self, epoch: u64) -> CodecResult<()> {
         self.validate()?;
-        let first = self.history[0].ok_or(NOT_FOUND)?;
+        let first = self.history.guest_index(0).ok_or(NOT_FOUND)?;
         if first.epoch != epoch {
             return Err(WRONG_EPOCH);
         }
         let n = self.history_len as usize;
         for i in 1..n {
-            self.history[i - 1] = self.history[i];
+            *self.history.guest_index_mut(i - 1) = *self.history.guest_index(i);
         }
-        self.history[n - 1] = None;
+        *self.history.guest_index_mut(n - 1) = None;
         self.history_len -= 1;
         Ok(())
     }

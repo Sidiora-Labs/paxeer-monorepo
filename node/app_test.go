@@ -928,10 +928,12 @@ func TestDecodeFailureTxReportsZeroGas(t *testing.T) {
 	valSet := tmtypes.NewValidatorSet([]*tmtypes.Validator{tmtypes.NewValidator(tmPub, 1)})
 
 	testApp := app.SetupWithGenesisValSet(t, valSet, []authtypes.GenesisAccount{genAcc}, balance)
+	t.Cleanup(func() { require.NoError(t, testApp.Close()) })
 	txCfg := testApp.GetTxConfig()
 
 	// Look up the account from committed state so we have the right sequence
 	ctx := testApp.NewUncachedContext(false, types.Header{Height: testApp.LastBlockHeight()})
+	ctx = ctx.WithConsensusParams(testApp.GetConsensusParams(ctx))
 	acc := testApp.AccountKeeper.GetAccount(ctx, senderAddr)
 	require.NotNil(t, acc)
 
@@ -948,9 +950,8 @@ func TestDecodeFailureTxReportsZeroGas(t *testing.T) {
 	normalTx := signCosmosTx(t, txCfg, txBuilder, senderPriv, acc)
 
 	// Build a tx that will decode and pass ante handler but fail in message
-	// execution (insufficient funds). Use same sequence since OCC may run
-	// this tx before tx 0 commits.
-	failAcc := authtypes.NewBaseAccount(senderAddr, senderPub, acc.GetAccountNumber(), acc.GetSequence())
+	// execution (insufficient funds), following the successful send's sequence.
+	failAcc := authtypes.NewBaseAccount(senderAddr, senderPub, acc.GetAccountNumber(), acc.GetSequence()+1)
 	failTxBuilder := txCfg.NewTxBuilder()
 	err = failTxBuilder.SetMsgs(&banktypes.MsgSend{
 		FromAddress: senderAddr.String(),
@@ -974,7 +975,7 @@ func TestDecodeFailureTxReportsZeroGas(t *testing.T) {
 	req := &abci.RequestFinalizeBlock{
 		Header: &types.Header{ChainID: "pax-test", Height: height},
 	}
-	_, txResults, _, _ := testApp.ProcessBlock(
+	_, txResults, _, processErr := testApp.ProcessBlock(
 		ctx.WithBlockHeight(height).WithChainID("pax-test"),
 		txs,
 		finalizeToBlockProcessReq(req),
@@ -982,6 +983,7 @@ func TestDecodeFailureTxReportsZeroGas(t *testing.T) {
 		false,
 		nil,
 	)
+	require.NoError(t, processErr)
 
 	require.Equal(t, 3, len(txResults))
 
