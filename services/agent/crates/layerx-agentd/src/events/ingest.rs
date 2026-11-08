@@ -15,6 +15,24 @@ const WATERMARK_ID: &[u8] = b"event-ingestion-watermark";
 const WATERMARK_MAGIC: &[u8; 4] = b"LXEW";
 const METADATA_PREFIX: &[u8] = b"event-evidence:";
 const METADATA_MAGIC: &[u8; 4] = b"LXEM";
+const ANCHOR_MAGIC: &[u8; 4] = b"LXA2";
+
+/// Immutable block boundary and local counter captured when an event is journaled.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(super) struct CursorAnchor {
+    block_height: u64,
+    counter: u32,
+}
+
+impl CursorAnchor {
+    pub(super) fn cursor(self) -> Cursor {
+        Cursor {
+            block_height: self.block_height,
+            tx_index: u32::MAX,
+            log_index: self.counter,
+        }
+    }
+}
 
 /// Durable position of the strict global event stream.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -308,6 +326,31 @@ fn ingest_with_class(
         next_expected,
         last_position: event.position().or(ingestor.watermark.last_position),
     };
+    let anchor = if event.position().is_none() {
+        let block_height = ingestor
+            .watermark
+            .last_position
+            .map_or(0, |p| p.block_height);
+        let previous = ingestor
+            .watermark
+            .last_ingested
+            .map(|sequence| durable_anchor(&ingestor.store, &ingestor.tenant, sequence))
+            .transpose()?
+            .flatten();
+        let counter = match previous {
+            Some(previous) if previous.block_height == block_height => previous
+                .counter
+                .checked_add(1)
+                .ok_or(IngestError::SequenceExhausted)?,
+            _ => 0,
+        };
+        Some(CursorAnchor {
+            block_height,
+            counter,
+        })
+    } else {
+        None
+    };
     let event_key = event_key(ingestor.tenant.clone(), expected)?;
     let metadata_key = metadata_key(ingestor.tenant.clone(), expected)?;
     let watermark_key = watermark_key(ingestor.tenant.clone())?;
@@ -315,7 +358,7 @@ fn ingest_with_class(
         event_key,
         event_bytes: event.canonical_bytes.clone(),
         metadata_key,
-        metadata: encode_metadata(&event),
+        metadata: encode_anchored_metadata(&event, anchor),
         watermark_key,
         watermark: encode_watermark(next_watermark),
     };
@@ -361,7 +404,7 @@ pub(super) fn durable_event(
     if metadata.class() != StorageClass::LocalOnly {
         return Err(IngestError::CorruptEvent);
     }
-    let (receipt_reference, receipt_verification_level, attributes) =
+    let (receipt_reference, receipt_verification_level, attributes, _) =
         decode_metadata(metadata.bytes())?;
     let mut event = CoreEvent {
         global_sequence: sequence,
@@ -387,6 +430,21 @@ pub(super) fn durable_event(
     }
     validate_event(&event).map_err(|_| IngestError::CorruptEvent)?;
     Ok(event)
+}
+
+pub(super) fn durable_anchor(
+    store: &Store,
+    tenant: &TenantId,
+    sequence: u64,
+) -> Result<Option<CursorAnchor>, IngestError> {
+    let metadata = store
+        .get(&metadata_key(tenant.clone(), sequence)?)
+        .ok_or(IngestError::CorruptEvent)?;
+    if metadata.class() != StorageClass::LocalOnly {
+        return Err(IngestError::CorruptEvent);
+    }
+    let (_, _, _, anchor) = decode_metadata(metadata.bytes())?;
+    Ok(anchor)
 }
 
 fn validate_event(event: &CoreEvent) -> Result<(), IngestError> {
@@ -516,9 +574,27 @@ fn encode_metadata(event: &CoreEvent) -> Vec<u8> {
     bytes
 }
 
+fn encode_anchored_metadata(event: &CoreEvent, anchor: Option<CursorAnchor>) -> Vec<u8> {
+    let mut bytes = encode_metadata(event);
+    if let Some(anchor) = anchor {
+        bytes.extend_from_slice(ANCHOR_MAGIC);
+        bytes.extend_from_slice(&anchor.block_height.to_be_bytes());
+        bytes.extend_from_slice(&anchor.counter.to_be_bytes());
+    }
+    bytes
+}
+
 fn decode_metadata(
     bytes: &[u8],
-) -> Result<(Option<[u8; 32]>, legacy::VerificationLevel, EventAttributes), IngestError> {
+) -> Result<
+    (
+        Option<[u8; 32]>,
+        legacy::VerificationLevel,
+        EventAttributes,
+        Option<CursorAnchor>,
+    ),
+    IngestError,
+> {
     if bytes.len() < 38 || &bytes[..4] != METADATA_MAGIC || bytes[5] > 1 {
         return Err(IngestError::CorruptEvent);
     }
@@ -549,9 +625,21 @@ fn decode_metadata(
         counterparty: decoder.string()?,
         result_code: decoder.i32()?,
     };
-    if !decoder.is_empty() {
-        return Err(IngestError::CorruptEvent);
-    }
+    let anchor = if decoder.is_empty() {
+        None
+    } else {
+        if decoder.take(4)? != ANCHOR_MAGIC {
+            return Err(IngestError::CorruptEvent);
+        }
+        let anchor = CursorAnchor {
+            block_height: decoder.u64()?,
+            counter: decoder.u32()?,
+        };
+        if !decoder.is_empty() {
+            return Err(IngestError::CorruptEvent);
+        }
+        Some(anchor)
+    };
     let event = CoreEvent {
         global_sequence: 0,
         canonical_bytes: vec![1],
@@ -564,7 +652,7 @@ fn decode_metadata(
         validation.receipt_verification_level = legacy::VerificationLevel::UNVERIFIED;
     }
     validate_event(&validation).map_err(|_| IngestError::CorruptEvent)?;
-    Ok((receipt_reference, level, attributes))
+    Ok((receipt_reference, level, attributes, anchor))
 }
 
 fn push_metadata_string(bytes: &mut Vec<u8>, value: &str) {
@@ -600,6 +688,22 @@ impl<'a> MetadataDecoder<'a> {
         let mut value = [0_u8; 2];
         value.copy_from_slice(self.take(2)?);
         Ok(u16::from_be_bytes(value))
+    }
+
+    fn u32(&mut self) -> Result<u32, IngestError> {
+        Ok(u32::from_be_bytes(
+            self.take(4)?
+                .try_into()
+                .map_err(|_| IngestError::CorruptEvent)?,
+        ))
+    }
+
+    fn u64(&mut self) -> Result<u64, IngestError> {
+        Ok(u64::from_be_bytes(
+            self.take(8)?
+                .try_into()
+                .map_err(|_| IngestError::CorruptEvent)?,
+        ))
     }
 
     fn i32(&mut self) -> Result<i32, IngestError> {
@@ -1014,10 +1118,10 @@ impl EventIngestor {
                         return Err(IngestError::InvalidLog);
                     }
                     event.receipt_verification_level = legacy::VerificationLevel::COMMITTED;
-                    updates.push((
-                        metadata_key(self.tenant.clone(), sequence)?,
-                        encode_metadata(&event),
-                    ));
+                    let key = metadata_key(self.tenant.clone(), sequence)?;
+                    let stored = self.store.get(&key).ok_or(IngestError::CorruptEvent)?;
+                    let (_, _, _, anchor) = decode_metadata(stored.bytes())?;
+                    updates.push((key, encode_anchored_metadata(&event, anchor)));
                 }
             }
         }
@@ -1165,7 +1269,7 @@ fn decode_pending(bytes: &[u8]) -> Result<CoreEvent, IngestError> {
         .checked_add(length)
         .ok_or(IngestError::CorruptEvent)?;
     let canonical_bytes = bytes.get(4..end).ok_or(IngestError::CorruptEvent)?.to_vec();
-    let (receipt_reference, receipt_verification_level, attributes) =
+    let (receipt_reference, receipt_verification_level, attributes, _) =
         decode_metadata(bytes.get(end..).ok_or(IngestError::CorruptEvent)?)?;
     let event = CoreEvent {
         global_sequence: 0,

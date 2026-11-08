@@ -155,7 +155,7 @@ def test_readme_paxd_build_and_deployment_commands_match_producers():
         "running network entry point is `paxd`",
     ))
     makefile = source("Makefile")
-    assert "\npaxd-native-libs: $(LIBRARY) programs-release-build\n" in makefile
+    assert "\npaxd-native-libs: $(LIBRARY) programs-release-build evmone-lib\n" in makefile
     assert "\npaxd-build: paxd-native-libs\n" in makefile
     recipe = makefile.split("\npaxd-build: paxd-native-libs\n", 1)[1].split("\n\n", 1)[0]
     assert_facts(recipe, ("tools/release/version.json", "$(PAXEER_MAKE) build"))

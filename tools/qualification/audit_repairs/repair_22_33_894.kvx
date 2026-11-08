@@ -1,6 +1,6 @@
 [task.22.33.894]
 base_revision = "7988614413df79a83ae525988b7636ae368938a2"
-readme_sha256 = "01d315dec3aab8bc3772bbd07d00522aa0ef68d12cbdcdc6a705e518afb8e809"
+readme_sha256 = "188d8c138efd7e35992f0a390886bd129a05322d55cd00f9a3f1c43cc6e28d1b"
 repair = "Decision 2525 delegates the root README rewrite to 22.31.470. Preserve its existing merged-network guidance and add focused regression proofs for audit 22.30.184/readme-two-domains, plus this finding-to-test and evidence record. No production file changes."
 source_proof = "Offline assertions read the actual README architecture, diagrams, directory/build/release guidance, HTTPS root RPC hosts and parsed curl JSON chain probe; bind node registrations to transaction acceptance/forwarding, WAL acknowledgement before receipt publication and committed MsgSequenceBatch coverage; parse the hosted OpenRPC contract and ledger ABI; check native bank/program entry points, executor retirement guards and literal Makefile prerequisites/recipes. These prove documented source facts, not runtime behavior."
 review_only = "Go/C/Rust compilation, linked paxd execution, live endpoints, signing, BFT consensus, WAL recovery and runtime producer/transport/consumer behavior are not executed. They require owning-domain qualification and review. This doc-drift task changes no interface or persistent component; no restart-recovery or interface-mismatch runtime proof is claimed. No shell script, unit file or manifest is changed; shell examples use shlex and JSON parsing, build rules use an in-process literal parser, without a subprocess toolchain, external binary, environment variable, credential, live endpoint, native artifact or device."
@@ -42,3 +42,7 @@ resolution = "Follow the explicit order and claim no baseline run or failures; G
 [gotcha.2]
 observed = "Broad Codify survey and combined ledger/document reads exceed output budgets; cg brief also reports unrelated cached task and change counts."
 resolution = "Use exact Git status/diff, bounded task/finding/source reads and the private gate ledger as authority; preserve runner bookkeeping."
+
+[qualification_pin_22_31_623]
+source_revision = "89c8395f4e8340dfd9447c6d20f7065cede8e6b5"
+policy = "Refresh the retained full-content fingerprint from the live producer after authorized task repairs; original audit metadata remains historical. This is a source pin, not a claim that qualification passed."

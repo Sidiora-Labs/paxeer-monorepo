@@ -231,7 +231,7 @@ def test_f54_build_guidance_links_the_kernel_into_paxd():
     assert "jq -er .version tools/release/version.json" in recipe
     assert "$(PAXEER_MAKE) build" in recipe
     prerequisites, _ = make_rule("Makefile", "paxd-native-libs")
-    assert prerequisites == ["$(LIBRARY)", "programs-release-build"]
+    assert prerequisites == ["$(LIBRARY)", "programs-release-build", "evmone-lib"]
     _, recipe = make_rule("Makefile", "paxeer-build")
     assert "$(PAXEER_MAKE) build" in recipe
     prerequisites, recipe = make_rule("chain.mk", "build")

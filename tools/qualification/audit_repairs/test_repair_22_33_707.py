@@ -235,9 +235,11 @@ def test_doc_index_7_build_and_release_inventory_match_paxd():
     assert prerequisites == ["paxd-native-libs"]
     assert "jq -er .version tools/release/version.json" in recipe
     assert "$(PAXEER_MAKE) build" in recipe
-    assert "sdk/version.Version=$$version" in recipe
+    assert 'VERSION="$$version"' in recipe
+    assert "sdk/version.Version=$(VERSION)" in source("chain.mk")
+    assert "BUILD_FLAGS = -tags \"$(build_tags)\" -ldflags '$(paxd_ldflags)'" in source("chain.mk")
     prerequisites, _ = make_rule(makefile, "paxd-native-libs")
-    assert prerequisites == ["$(LIBRARY)", "programs-release-build"]
+    assert prerequisites == ["$(LIBRARY)", "programs-release-build", "evmone-lib"]
     assert re.search(r"^LIBRARY := \$\(BUILD_DIR\)/liblayerx\.a$", makefile, re.M)
     assert "PAXEER_MAKE := $(MAKE) -f $(PAXEER_DIR)/chain.mk" in makefile
     chain = source("chain.mk")
@@ -252,8 +254,9 @@ def test_doc_index_7_build_and_release_inventory_match_paxd():
     ]
     identity = json.loads(source("tools/release/version.json"))
     assert re.fullmatch(r"v\d+\.\d+\.\d+", identity["version"])
-    assert identity["upgrade"] == identity["version"]
-    assert f"The `{identity['version']}` set" in section("EVM and Native Precompiles")
+    assert identity["upgrade"] == "v7.0"
+    assert 'const MergeUpgrade = "v7.0"' in source("precompiles/common/precompiles.go")
+    assert f"merge plan is `{identity['upgrade']}`" in section("EVM and Native Precompiles")
     release = section("Releases and Network Upgrades")
     for fact in (
         "executes kernel activity inside `paxd`",

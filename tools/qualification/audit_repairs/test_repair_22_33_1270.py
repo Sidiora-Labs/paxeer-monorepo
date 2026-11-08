@@ -175,7 +175,7 @@ def test_readme_build_and_launch_use_paxd_with_linked_native_libraries():
     makefile = source("Makefile")
     targets = dict(re.findall(r"^([\w-]+):([^\n]*)$", makefile, re.M))
     assert targets["paxd-build"].split() == ["paxd-native-libs"]
-    assert targets["paxd-native-libs"].split() == ["$(LIBRARY)", "programs-release-build"]
+    assert targets["paxd-native-libs"].split() == ["$(LIBRARY)", "programs-release-build", "evmone-lib"]
     assert "-o ./build/paxd ./daemon/paxd" in source("chain.mk")
     assert "server.AddCommands(" in source("daemon/paxd/cmd/root.go")
 
