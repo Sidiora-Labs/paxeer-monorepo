@@ -334948,7 +334948,7 @@ do_6 = "Attempt 3: the closure check is a gate over the whole issue programme; i
 
 [task.22.39.173]
 title = "Restore the six editor integration scripts of the vendored tree that the relocation left uncommitted"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.36.1"]
