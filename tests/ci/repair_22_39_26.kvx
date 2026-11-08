@@ -1,0 +1,191 @@
+[repair.22.39.26]
+decision = "2787"
+requirement = "22998.1"
+base_revision = "ba5b590bec869934fee4c115b3888b5ff1d376cc"
+previous_attempt_revision = "5f695f6fb6278ffa9bd8cfdf47ee2ce3725936f8"
+verified_revision = "The exact candidate revision, command, exit and private log are recorded by hf-done in /out/run/gates.jsonl; qualification is claimed only if that gate passes."
+build_evidence = "The build entry in /out/run/gates.jsonl records the exact candidate revision, command, exit and private log; it must match the hf-done revision."
+build_cmd = "python3 -m pip install -q -r tools/qualification/requirements.txt && make -n test-qualification-python > /dev/null && python3 -m py_compile tests/ci/test_qualification_suites_have_ci_host.py"
+verify_cmd = "make test-qualification-python && python3 -m pytest -q tests/ci/test_qualification_suites_have_ci_host.py"
+
+[case.public_qualification_host]
+paths = ["Makefile", ".github/workflows/ci.yml"]
+cause = "The qualification Python suites had no public CI host; the existing runner and beta driver targets were not called by CI."
+repair = "Add the phony test-qualification-python target running python3 -m pytest -q tools/qualification, and call it immediately after make test-tests-python in the tests-python CI job."
+coverage = "Recursive discovery includes audit_repairs, retired callers, service catalogues, native program human peer, program market attestation, registry router bootstrap, runner and beta driver tests, localnode/tests, tests and paxeer-x tests."
+preserved = "No existing test is deleted, skipped, ignored, marked as expected to fail or weakened."
+
+[case.host_regressions]
+path = "tests/ci/test_qualification_suites_have_ci_host.py"
+tests = ["test_every_qualification_test_dir_is_in_a_make_target", "test_ci_workflow_calls_test_qualification_python"]
+criterion = "Expand the real Make target and require every discovered qualification test directory to be selected without filtering, then parse the real CI workflow and require the adjacent unconditional qualification step to propagate failures."
+
+[finding.scope_conflict]
+file = "tools/qualification"
+observed = "Step do_2 requests repairs in tools/qualification, but the explicit task scope permits changes only to the Makefile, CI workflow and two tests/ci files; the order also forbids deleting or weakening tests."
+assumption = "Preserve all existing qualification cases and record any gate failures requiring out-of-scope edits instead of changing those files."
+
+[repair.jsonschema_dependency]
+file = ".github/workflows/ci.yml"
+cause = "The newly hosted audit suites import jsonschema in test_repair_22_33_1022.py:16, test_repair_22_33_1443.py:15, test_repair_22_33_358.py:14 and test_repair_22_33_360.py:16, but the existing CI dependency installation omitted it."
+repair = "Install jsonschema alongside pytest, cryptography and PyYAML in CI and install the same package into the qualification gate interpreter."
+
+[finding.gateway_environment_collection]
+revision = "bb23e55656d99a8282955fcdcb783b9dae9da403"
+command = "cg spec done 22.39.26 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "tools/qualification/audit_repairs/test_repair_22_33_1395.py:23 raises KeyError: 'value' while collecting ENV from services/platform/hosted/gateway/deployment.yaml; the existing test assumes every environment entry has a literal value."
+assumption = "This pre-existing test is outside the four-file scope; preserve the test and production manifest and report the collection blocker without claiming qualification."
+resolved_by = "Task 22.31.621, commit 78547df161, reads literal and projected environment entries from their current producer; this repair is already included in the current main base."
+
+[continuation.current_main]
+decision = "2796"
+base_revision = "ba5b590bec869934fee4c115b3888b5ff1d376cc"
+observed = "HEAD and origin/main are already the same revision and include task 22.31.621, so the previous attempt's four paths are continued on current main without another merge."
+preserved = "The Make target still runs the entire tools/qualification directory, and the CI host and both regression tests from attempt 1 are retained."
+qualification = "Run hf-build followed by hf-done on the same candidate and retain both results by reference to /out/run/gates.jsonl."
+
+[repair.continuation_interpreter_dependency]
+revision = "6b1cf24e71dfcf1321d752003690c35326aac82d"
+command = "cg spec done 22.39.26 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+cause = "The fresh sandbox interpreter lacked jsonschema, so the four audit modules named in repair.jsonschema_dependency could not collect; the CI installation already includes this dependency."
+repair = "Install jsonschema into the qualification interpreter with uv pip install --python, then rerun hf-build and hf-done on the final candidate without changing suite coverage or assertions."
+
+[finding.continuation_suite_failures]
+revision = "85e4e01ce0476d3a01df98a7069bc478432930ce"
+command = "cg spec done 22.39.26 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-2.log"
+observed = "The unchanged qualification suites report 324 failed, 4115 passed, 5 skipped and 1 error; examples are the OpenRPC contract comparison at tools/qualification/audit_repairs/test_px_node_root_design.py:138 and server teardown at tools/qualification/tests/test_repair_22_33_809.py:199."
+assumption = "These failures require work outside the four-file scope; preserve every case and assertion, stop with the repair budget spent, and leave the task unqualified; the chained CI-host regression command did not execute because Make failed."
+
+[continuation.requalification]
+previous_attempt_revision = "a5906618a6b0e3d7180b3a3f241877e3378d8aac"
+merged_revision = "007663ea2b51b46a7fc5013fa7d0fc0f513b70a1"
+prerequisite_revision = "5abcb88fa49f4a1e375d7b8961c4ca8fe01693c2"
+observed = "The supplied tree already merges task 22.31.623; resolve the two seeded CI conflict hunks by preserving current jobs and bridge requirements, adding jsonschema and cryptography, and inserting the qualification step immediately after repository tests."
+qualification = "Run the first build and verification before further changes; both results and the final matching candidate are retained by reference in /out/run/gates.jsonl."
+
+[repair.requalification_interpreter_dependency]
+revision = "b105b63afdeda1c07ba8c98cd38329b8a344fda6"
+command = "cg spec done 22.39.26 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+cause = "The sandbox interpreter lacks jsonschema, preventing collection of the four audit modules already named in repair.jsonschema_dependency; the resolved CI installation includes it."
+repair = "Install jsonschema into the gate interpreter with uv pip install --python, preserving every qualification case and assertion, then rerun hf-build and hf-done on the same final candidate."
+
+[finding.requalification_workflow_dependency_contract]
+task = "22.39.26"
+file = "tools/qualification/audit_repairs/test_repair_22_31_605.py:103"
+symbol = "test_ci_runs_both_make_targets_in_separate_jobs"
+observed = "At revision 3b513acc911c28167804c7fad6bea86034b5044e, cg spec done 22.39.26 -f layerx-merge --root /work/paxeer-monorepo exited 1 (verify_cmd exited 2), logged in /out/logs/verify-2.log, because the combined CI dependency command no longer contains the exact original pip command asserted by this case."
+assumption = "Preserve the assertion; a subsequent authorized repair must keep the original bridge dependency installation command and install qualification dependencies in a separate command, then qualify the resulting candidate."
+severity = "blocker"
+
+[continuation.attempt_4]
+previous_attempt_revision = "2fba7fe3796d7c10109ec1992ecdb0579827a08f"
+base_revision = "d27e49f022cce6957d415794f4fb0feeb54ba67c"
+merged_revision = "c3dd8785a284c7b55a9154d17422dafaf051f2c7"
+prerequisite_revision = "421d6f506dbe577c142f59c4d982ced3e3862b09"
+decisions = ["2900", "2989", "2990", "2991", "2992"]
+observed = "The runner already merged the qualified 22.39.173 prerequisite before applying the four attempt-3 paths. The expanded scope now includes tools/qualification, tests/ci and both workflows, resolving the historical scope findings above."
+qualification = "Only hf-build and hf-done execute gates; /out/run/gates.jsonl records both commands, exact candidate revisions, exits and private logs. The verified revision is the final matching build/verify pair, conditional on hf-done passing."
+
+[repair.isolated_qualification_interpreter]
+files = [".github/workflows/ci.yml", "Makefile"]
+cause = "The tests-python interpreter and dependency command do not satisfy the qualification suite's pinned-package contract; widening that command also breaks test_ci_runs_both_make_targets_in_separate_jobs."
+repair = "Restore the exact repository-suite pip command and put test-qualification-python in the adjacent, unconditional qualification-python job. Its dedicated RUNNER_TEMP interpreter installs only tools/qualification/requirements.txt, including the maintained lock versions, jsonschema and pycryptodome. The build gate installs that same requirements file."
+preserved = "Keep the entire recursive qualification directory selected and leave test-tests-python and test-python-suites in their existing job."
+
+[repair.native_qualification_host]
+files = ["tools/qualification/conftest.py", "tools/qualification/test_beta_driver.py", ".github/workflows/node-build.yml", "Makefile"]
+cause = "BetaDriverTests.test_multichain_inventory_reports_absent_infrastructure_as_failed reaches beta_driver.one_ledger and native_test, whose Go node test needs the native libraries."
+repair = "Register the native pytest marker and apply it to this case; test-qualification-python selects not native and the node-tests job runs tools/qualification -m native immediately after go test with the same requirements installed in an isolated interpreter."
+coverage = "The other run_driver caller executes platform-qualify-adoption, whose cases do not reach native_test. The existing-evidence refusal returns before dispatch. Other qualification consumers inspect native_test_command or drive receipt transport without executing native_test. No case or assertion is deleted, skipped, ignored, marked xfail or weakened; both marker partitions have unconditional public hosts."
+
+[repair.host_regressions_attempt_4]
+file = "tests/ci/test_qualification_suites_have_ci_host.py"
+cause = "The prior host regression required a step in tests-python and treated marker options as directory arguments."
+repair = "Require full-directory selection with precisely the not native marker expression, the isolated adjacent job and its exact requirements installation, the registered and applied native marker, and the node step's ordering, native prerequisites, interpreter and command. Retain the two original test function names."
+
+[inspection.stalled_peer_contract]
+file = "tests/integration/upgrade_module/scripts/fixtures/committed_peer.py:82"
+consumer = "tools/qualification/audit_repairs/test_repair_22_33_761.py:215"
+observed = "The current committed fixture still prints opened durable peer with flush=True after binding its durable HTTP server, including for --stalled; the consumer still requires that line in both retained attempt logs. Neither side has a changed logging contract."
+action = "Preserve the assertion and fixture. Any remaining gate failure is recorded from its actual attempt logs rather than weakening the expectation or extending its bounds."
+
+[inventory.attempt_3_before]
+target = "make test-qualification-python"
+revision = "3b513acc911c28167804c7fad6bea86034b5044e"
+evidence = "Previous attempt 3 /out/logs/verify-2.log, recorded in finding.requalification_suite_failures; the runner seed identifies the final attempt tree as 2fba7fe3796d7c10109ec1992ecdb0579827a08f."
+result = "111 failed, 4339 passed, 13 skipped, 52 subtests passed; the chained CI-host command did not execute. The complete failing node IDs belong to that attempt's private verify log."
+known_failing_names = ["test_advisory_patched_manifest_lock_and_install", "test_restart_failure_preserves_every_attempt_and_rejects_living_stall", "test_code_specs_dot_directories_and_assets_are_preserved", "test_ci_runs_both_make_targets_in_separate_jobs", "test_f016_rejects_missing_role_and_changed_saved_capture", "BetaDriverTests.test_multichain_inventory_reports_absent_infrastructure_as_failed"]
+causes = "Missing Crypto imports, installed-versus-locked packages, changed CI dependency text, relocated assets, native libraries unavailable in the Python job, and a missing peer startup line."
+
+[inventory.attempt_4_after]
+targets = ["make test-qualification-python", "python3 -m pytest -q tests/ci/test_qualification_suites_have_ci_host.py"]
+evidence = "The current attempt's /out/run/gates.jsonl verify entries reference the private logs containing every failing node ID and the per-target summaries. On a passing hf-done, both targets exit zero with no failing names at its exact candidate revision."
+native_target = "python3 -m pytest -q tools/qualification -m native"
+native_evidence = "Hosted by node-tests after its native build and Go test; not run or claimed by this Python-only task gate."
+
+[inventory.attempt_4_first_gate]
+target = "make test-qualification-python"
+revision = "c088adf8cc5b9be4efd26f0ecb0c0bc5ec34c560"
+command = "cg spec done 22.39.26 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+verify_cmd_exit = 2
+log = "/out/logs/verify-1.log"
+result = "1 failed, 4448 passed, 13 pre-existing skips, 1 native case deselected, 52 subtests passed. The chained CI-host command did not run because make failed. The stalled-peer case and relocated-file preservation case passed without changes."
+failing_names = ["tools/qualification/audit_repairs/test_repair_22_33_788.py::test_finding_7_final_bytes_are_bounded_deployed_and_then_published"]
+build_evidence = "The matching passing build at this revision is recorded in /out/run/gates.jsonl and /out/logs/build-1.log."
+
+[repair.manifest_consumer_path_resolution]
+file = "tools/qualification/audit_repairs/test_repair_22_33_788.py:100"
+producer = "programs/crates/layerx-programs-ai-market/tests/host_boundary.rs:114"
+moving_task = "22.99.77"
+cause = "The offline source proof still expects wasm.to_owned() and binary.to_owned(), while the current manifest consumer resolves and canonicalizes both artifacts, checks they are files and propagates errors before constructing the same Manifest fields."
+repair = "Assert wasm: resolve(wasm)? and harness: resolve(binary)?, and require the actual resolver's absolute-path handling, manifest-relative join, canonicalization, file check and returned path. Preserve every artifact-size bound, deployment, publication-order, harness invocation and chain-domain assertion."
+qualification = "The final build and verification are rerun only through hf-build and hf-done; their matching candidate, commands, exits, logs and complete failing-name lists are referenced by /out/run/gates.jsonl."
+
+[repair.harness_deploy_buffer_attempt_5]
+file = "tools/qualification/audit_repairs/test_repair_22_33_788.py:119"
+producer = "tests/programs/test_ai_host_boundary.c:768"
+moving_task = "22.99.77"
+cause = "The harness now allocates and reads a separate wasm buffer in deploy before passing its bytes to deploy_bytes; the audit still quotes a direct read into payload+104U."
+repair = "Require wasm = malloc((size_t)length), the exact fread(wasm, 1U, (size_t)length, artifact) != (size_t)length guard and deploy_bytes(f, wasm, (size_t)length). Preserve fopen, hashing, deploy and upgrade execution, bring-up and the LXP_MAX_ACTIVITY_BYTES-106U bound."
+focused_command = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_788.py"
+focused_log = "/out/logs/qualification-audit-22_33_788.log"
+focused_result = "Exit 0: 9 passed; the final candidate revision is recorded by reference in the matching hf-build and hf-done entries below."
+
+[continuation.attempt_5]
+previous_attempt_revision = "af2711cdcd8400da234a1149317c9bc8c2199f39"
+base_revision = "0b7aed09433587389ce449e13b22a54219baaa71"
+decisions = ["2900", "2908", "2989", "3001"]
+preserved = "Continue the inherited eight paths, including the isolated qualification-python CI job, full-directory Make target, native node host and host regressions. No test is removed, skipped, ignored, marked xfail or weakened."
+qualification = "The attempt-5 hf-build and hf-done entries in /out/run/gates.jsonl record exact revisions, commands, exits and private logs; claim qualification only for a passing hf-done at the same revision as its passing build."
+inventory = "The final hf-done private log records all failing node IDs and results for make test-qualification-python and the chained CI-host module; a passing gate has no failing names in either target. Historical attempt-4 evidence and its bounded stop above remain historical."
+
+[inventory.attempt_4_bounded_stop]
+target = "make test-qualification-python"
+revision = "34c081953c138fa9fab848ba2da87fe78503bc54"
+command = "cg spec done 22.39.26 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+verify_cmd_exit = 2
+log = "/out/logs/verify-2.log"
+result = "1 failed, 4448 passed, 13 pre-existing skips, 1 native case deselected, 52 subtests passed in 620.23 seconds; the chained CI-host command did not execute."
+failing_names = ["tools/qualification/audit_repairs/test_repair_22_33_788.py::test_finding_7_final_bytes_are_bounded_deployed_and_then_published"]
+observed = "The repaired consumer-path assertions pass; line 119 now fails because tests/programs/test_ai_host_boundary.c does not contain the previously asserted fread(payload+104U, 1U, length, artifact) != length expression. This later source expectation was hidden by the first gate's earlier assertion failure."
+assumption = "The remaining pre-existing harness source expectation needs a separately authorized repair after inspecting its current producer; no assertion is removed or weakened here."
+build_evidence = "The matching build passed at this revision, recorded in /out/run/gates.jsonl and /out/logs/build-2.log."
+stop = "Both permitted gate reruns are spent: hf-build run 2 and hf-done run 2. Stop implemented-not-qualified without further investigation, implementation changes or gate runs. This post-gate entry records the failure only and makes no qualification claim for the evidence-record edit."
+
+[finding.requalification_suite_failures]
+task = "22.39.26"
+file = "tools/qualification/audit_repairs/test_repair_22_31_451.py:62; tools/qualification/audit_repairs/test_repair_22_33_761.py:215; tools/qualification/audit_repairs/test_repair_22_36_1.py:133; tools/qualification/test_beta_driver.py:324"
+symbol = "test_advisory_patched_manifest_lock_and_install; test_restart_failure_preserves_every_attempt_and_rejects_living_stall; test_multichain_inventory_reports_absent_infrastructure_as_failed"
+observed = "At revision 3b513acc911c28167804c7fad6bea86034b5044e, cg spec done 22.39.26 -f layerx-merge --root /work/paxeer-monorepo exited 1 (verify_cmd exited 2), logged in /out/logs/verify-2.log, with 111 failed, 4339 passed, 13 skipped and 52 subtests passed, including installed-versus-locked package mismatches, missing durable-peer log content, an absent relocated hook and missing layerx native libraries."
+assumption = "Retain all cases and assertions, record the remaining out-of-scope suite and environment failures without chasing them, and leave the task unqualified because the gate budget is exhausted and the chained CI-host tests did not execute."
+severity = "blocker"
