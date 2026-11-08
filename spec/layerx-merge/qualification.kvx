@@ -35666,3 +35666,27 @@ symbol = "test_repair_22_33_886.py"
 observed = "Attempt 3 at fe42850a8737 (verified at cebafc5a10b6): build exit 0; verification exit 2: 5 runner cases passed, make test-python-suites recorded 313 passes and 1 failure in test_reset_state.py line 347 (mode 493 observed, 432 asserted)."
 assumption = "The failure is a creation-mode window of the hosted node supervisor, owned by 22.39.133; the task tree is sound."
 severity = "high"
+
+[finding.9.35.19.9]
+task = "9.35.19"
+file = "services/agent/crates/layerx-agentd/tests/native_send_preview_evm.rs"
+symbol = "native_send_preview_evm.rs"
+observed = "Attempt 11 at 07c500d028d5: build exit 1 at 46ff4affd7bd (two test targets named a removed registry binding), repaired, build exit 0; verification exit 101: 327 passed, 4 failed, all four retained settlement tests refusing SourceOwnership before settlement."
+assumption = "The disclosure actor contract changed under the call binding producer; the budget consumers still parse the field as a DID."
+severity = "high"
+
+[finding.22.39.155.2]
+task = "22.39.155"
+file = "node::TestEVMServerServesSequencerReceiptOption"
+symbol = "node::TestEVMServerServesSequencerReceiptOption"
+observed = "Attempt 2 at 5053a52d7a06: build exit 0; verification exit 127: the wiring suite passed (3 passed) and sh reported the second and third Go test names as commands not found."
+assumption = "The gate form was wrong, not the tree; the Go tests never reported."
+severity = "high"
+
+[finding.22.39.75.6]
+task = "22.39.75"
+file = "tests/ci/test_launchpad_go_tests_wired.py"
+symbol = "test_launchpad_go_tests_wired.py"
+observed = "Attempt 6 at e72144476b81: build exit 0 twice; verification exit 2 twice: the first run timed out in protocol/bindings after ten minutes, the second run passed every module except shared/db/production, where two tests found a role and a relation already present."
+assumption = "The leftovers come from the first run on the same server; the public job starts a fresh service every run."
+severity = "high"
