@@ -35882,3 +35882,35 @@ symbol = "runtime.integration.test.tsx"
 observed = "Attempt 4 at fc0aaaac88dc: build exit 0 twice; verification exit 1 twice: the first stopped before Vitest when the joined readiness probe exited 1, the second ran the web suite with 1267 passed, 10 failed in 6 files (chart recovery 4, creation journey 2, advanced lifecycle 1, wallet challenge 1, trade journey 1, social deadline 1) and mobile not reached; log /out/logs/verify-2.log."
 assumption = "The development stream, the split deployment, the challenge producer and the approval spender are producer defects of the owned fixtures; the social deadline case is a budget matter under the full run."
 severity = "high"
+
+[finding.22.39.75.9]
+task = "22.39.75"
+file = "tests/ci/test_launchpad_go_tests_wired.py"
+symbol = "test_launchpad_go_tests_wired.py"
+observed = "Attempt 9 at 0e4c9cbbabfc: build exit 0 twice; verification exit 2 twice: the first stopped in pnl-tracker with 114 cases, the second passed pnl-tracker and stopped in ranking-algo (vet refusal in internal/app, unset documented variables in httpapi, ranker and store); logs /out/logs/verify-1.log and /out/logs/verify-2.log."
+assumption = "Eleven modules remain unexercised and the per-module discovery is the only reason the gate has not closed."
+severity = "high"
+
+[finding.9.35.22.3]
+task = "9.35.22"
+file = "services/agent/crates/layerx-agentd/tests/w7_owner_binding.rs::a_foreign_key_signature_over_the_owner_preimage_is_refused"
+symbol = "w7_owner_binding.rs::a_foreign_key_signature_over_the_owner_preimage_is_refused"
+observed = "Attempt 8 at 4a9d044d4868 (base 2b62d97c5a): build exit 0; verification exit 101: budget_durable_limits, disclosure and human_node_preparation passed and limits-exactly-once failed two node_recovery cases at exactly_once.rs line 1640 (left 0, right 1); the targets after it did not run; log /out/logs/verify-1.log."
+assumption = "The assertion predates the receipt store change and no gate ran the target since; the port itself is complete."
+severity = "high"
+
+[finding.22.39.126.1]
+task = "22.39.126"
+file = "services/interop/crates/layerx-gas-station"
+symbol = "layerx-gas-station"
+observed = "Attempt 1 at 5f8324a70466 (base 78d0581353): build exit 0 twice; verification exit 101 twice, the second failing only the station target in two real-HTTPS cases that read absent protected material (NotPresent); log /out/logs/verify-2.log."
+assumption = "The two cases need owner-held material no public job can carry; everything else in the four members is green."
+severity = "high"
+
+[finding.22.39.167.2]
+task = "22.39.167"
+file = "programs/crates/layerx-programs-ai-market/tests/f11_views.rs"
+symbol = "f11_views.rs"
+observed = "Attempt 2 at 3445279503f3 (base c26e4bd47049): build exit 0; verification exit 1 at the size test, 500500 bytes against 484184 after the routing split; log /out/logs/verify-1.log and the tables in src/repair_22_39_167.kvx."
+assumption = "The four handler families still inline their arms and the entry wrapper and the two epoch bodies duplicate an epilogue; one more outlining level is the remaining table-driven step."
+severity = "high"
