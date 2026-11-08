@@ -182453,7 +182453,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.166]
 title = "Carry the receipt digest the verifier returns through the emulator middleware path"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
