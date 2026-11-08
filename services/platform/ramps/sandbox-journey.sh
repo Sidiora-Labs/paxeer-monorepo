@@ -19,7 +19,9 @@ Required environment:
 The on-ramp send reads its pending nonce from the merged node.
 Off-ramp inputs bind customer_budget_id and customer_budget_purpose plus the
 customer-signed raw_transaction (canonical hex EIP-1559 bytes, no 0x prefix).
+The off-ramp nonce is bound inside raw_transaction; no separate sequence is accepted.
 The service verifies the payer, purpose, nonce and exact payment before broadcast.
+Both journeys verify by --transaction-hash and require authenticated committed receipts.
 PAXEER_X_RAMP_FULL_CONTRACT=1 selects the protected full-contract journey inputs.
 HELP
   exit 0
