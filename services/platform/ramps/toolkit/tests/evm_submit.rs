@@ -455,22 +455,31 @@ fn submit_prepared_sends_raw_transaction_once() {
         let raw = call.sign(&[1; 32]).expect("signed transaction");
         let tx_hash = transaction_hash(&raw);
         let mut rpc = RpcServer::new(tx_hash);
+        let registry = layerx_types::payload::ModuleRegistry::new(&[]).expect("empty EVM registry");
+        if direction == RampDirection::OffRamp {
+            let client = client(&files, &rpc, "https://localhost:1".into(), &call);
+            let mut changed = call.data.clone();
+            changed[4] ^= 1;
+            assert_eq!(
+                client.prepare_native_receive(&order, &changed, 9, 1_000, &registry),
+                Err(RampError::PayerGrantRequired)
+            );
+            assert_eq!(
+                client.prepare_native_receive(&order, &call.data, 9, 1_000, &registry),
+                Err(RampError::PayerGrantRequired)
+            );
+            let requests = rpc.finish();
+            assert!(
+                requests.is_empty(),
+                "off-ramp preparation must refuse before any RPC, including eth_sendRawTransaction: {requests:?}"
+            );
+            continue;
+        }
         let (endpoint, signer) = signer(&files, call.clone(), [1; 32]);
         let client = client(&files, &rpc, endpoint, &call);
-        let registry = layerx_types::payload::ModuleRegistry::new(&[]).expect("empty EVM registry");
-        let prepared = match direction {
-            RampDirection::OnRamp => client.prepare_payment(&order, 9, 1_000, &registry),
-            RampDirection::OffRamp => {
-                let mut changed = call.data.clone();
-                changed[4] ^= 1;
-                assert_eq!(
-                    client.prepare_native_receive(&order, &changed, 9, 1_000, &registry),
-                    Err(RampError::PayerGrantRequired)
-                );
-                client.prepare_native_receive(&order, &call.data, 9, 1_000, &registry)
-            }
-        }
-        .expect("prepare and authenticate transaction");
+        let prepared = client
+            .prepare_payment(&order, 9, 1_000, &registry)
+            .expect("prepare and authenticate transaction");
         signer.join().expect("signer checked digest");
         assert_eq!(prepared.tx_hash(), tx_hash);
         assert_eq!(prepared.raw_transaction(), raw);

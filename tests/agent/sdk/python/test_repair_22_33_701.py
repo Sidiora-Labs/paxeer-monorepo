@@ -21,6 +21,7 @@ from layerx_sdk.evm_transaction import activity_id, decode_signed
 from layerx_sdk.native_program_call import encode_native_program_call
 from layerx_sdk.production import ProductionClient, SecretBytes
 from layerx_sdk.programs import _verify_program_transaction
+from layerx_sdk.verifier import SequencerReceiptVerification
 from layerx_sdk.x402_rpc import PaymentRpc
 
 from program_receipt_evidence import ProgramReceiptEvidence
@@ -144,6 +145,7 @@ def test_program_account_current_identity_over_recorded_rpc():
                 bytes.fromhex(result["receipt"][2:]), evidence.signed,
                 (evidence.key,), transaction.chain_id, evidence.execution["program_id"],
             )
+            assert type(verified) is SequencerReceiptVerification
             assert verified.receipt.from_account == bytes(12) + bytes.fromhex(transaction.recover_signer(signature)[2:])
             assert verified.receipt.to_account == bytes(12) + transaction.to
             assert verified.receipt.activity_id == expected

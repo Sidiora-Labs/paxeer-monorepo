@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import base64
+from copy import deepcopy
 import json
 import sqlite3
 from dataclasses import replace
@@ -38,10 +38,10 @@ def _required(vector):
         "accepts": [
             {
                 "scheme": "exact",
-                "network": "layerx:125",
+                "network": "eip155:125",
                 "amount": terms["amount"],
-                "asset": terms["asset"],
-                "payTo": terms["pay_to"],
+                "asset": "0x" + terms["asset"],
+                "payTo": "0x" + terms["pay_to"],
                 "maxTimeoutSeconds": 30,
             }
         ],
@@ -49,15 +49,25 @@ def _required(vector):
 
 
 def _payment_header(required, signed):
+    vector = _payment_vector()
+    key = vector["pinnedKey"]
     return encode_header(
         {
             "x402Version": 2,
             "resource": required["resource"],
             "accepted": required["accepts"][0],
             "payload": {
-                "receipt": base64.b64encode(signed).decode(),
-                "receiptDigest": sha256(b"LXP/v1/merkle-leaf\0" + signed).hexdigest(),
-                "verificationLevel": "sequencer-signed",
+                "format": "layerx-receipt-proof-v2",
+                "verificationLevel": "receipted",
+                "rawTransaction": vector["rawTransaction"],
+                "signedReceipt": "0x" + signed.hex(),
+                "receiptDigest": vector["receiptDigest"],
+                "receiptKey": {
+                    "keyId": key["keyId"],
+                    "publicKey": key["publicKey"],
+                    "firstHeight": hex(key["firstHeight"]),
+                    "lastHeight": hex(key["lastHeight"]),
+                },
             },
         }
     )
@@ -99,11 +109,11 @@ def test_seller_verifies_a_sequencer_receipt_through_receipt_keys(tmp_path):
     assert paid[0] == 200
     assert paid[2] == b"paid resource"
     settlement = decode_header(paid[1]["PAYMENT-RESPONSE"])
-    receipt_digest = sha256(b"LXP/v1/merkle-leaf\0" + signed).hexdigest()
+    receipt_digest = _bytes(vector["receiptDigest"]).hex()
     assert settlement == {
         "success": True,
-        "transaction": "lxp:" + receipt_digest,
-        "network": "layerx:125",
+        "transaction": vector["receiptJson"]["txHash"],
+        "network": "eip155:125",
         "amount": terms["amount"],
         "payer": terms["payer"],
         "extensions": {"layerx": decode_header(payment_header)["payload"]},
@@ -193,7 +203,7 @@ def _verify_buyer_receipt(tmp_path, vector, rpc, exchanges):
     activity = vector["receiptJson"]["txHash"]
     assert activity == "0x" + keccak256(raw).hex()
     authority = ConfiguredReceiptAuthority(raw)
-    buyer = BuyerMiddleware(rpc, [key], authority, [("exact", "layerx:125")])
+    buyer = BuyerMiddleware(rpc, [key], authority, [("exact", "eip155:125")])
     payment_header = buyer.prepare(
         encode_header(required), "0x" + raw.hex(), activity, "0x" + terms["payer"]
     )
@@ -258,7 +268,6 @@ def _verify_buyer_receipt(tmp_path, vector, rpc, exchanges):
     with pytest.raises(RevertReasonError, match="LXP_NO_PAYER_GRANT"):
         recovered_draw("buyer", grant_digest, body, offer)
     grant_settlement = decode_header(headers["PAYMENT-RESPONSE"])
-    grant_settlement["extensions"]["layerx"]["purposeHash"] = offer["extra"]["layerx"]["purposeHash"]
     grant_response = encode_header(grant_settlement)
     with pytest.raises(RevertReasonError, match="LXP_NO_PAYER_GRANT") as raised:
         buyer.capture_grant_settlement(grant_response, grant_header, activity)
@@ -276,7 +285,7 @@ def _verify_buyer_receipt(tmp_path, vector, rpc, exchanges):
         ([replace(key, key_id=b"\x2a" * 32)], "unpinned_key"),
         ([replace(key, public_key=b"\x2a" * 32)], "bad_signature"),
     ):
-        refused = BuyerMiddleware(rpc, keys, authority, [("exact", "layerx:125")])
+        refused = BuyerMiddleware(rpc, keys, authority, [("exact", "eip155:125")])
         for verify in (
             lambda: refused.prepare(
                 encode_header(required), "0x" + raw.hex(), activity, "0x" + terms["payer"]
@@ -332,19 +341,21 @@ def test_http_committed_offer_waits_for_verified_inclusion_after_restart(tmp_pat
                 node.receipts[activity].pop("blockNumber")
                 node.receipts[activity].pop("blockHash")
                 assert node.receipts[activity]["receipt"] == vector["signedReceipt"]
-            buyer = BuyerMiddleware(rpc, (key,), authority, [("exact", "layerx:125")], journal_path=path)
+            buyer = BuyerMiddleware(rpc, (key,), authority, [("exact", "eip155:125")], journal_path=path)
             assert buyer.prepare(encode_header(required), vector["rawTransaction"], activity, "0x" + terms["payer"]) is None
             buyer._submissions.close()
             with sqlite3.connect(path) as db:
                 assert db.execute("SELECT tx_hash, canonical FROM buyer_submissions").fetchall() == [(activity, raw)]
         seller = SellerMiddleware(required, (key,), ConfiguredReceiptAuthority(raw), FulfillmentStore(fulfilled))
+        committed_payload = decode_header(_payment_header(required, signed))
+        committed_payload["payload"]["verificationLevel"] = "committed"
         with pytest.raises(PaymentBindingError):
-            seller.handle("buyer", _payment_header(required, signed), release)
+            seller.handle("buyer", encode_header(committed_payload), release)
         assert releases == []
         with sqlite3.connect(fulfilled) as db:
             assert db.execute("SELECT * FROM payment_fulfillments").fetchall() == []
         node.receipts[activity] = {**vector["receiptJson"], "rung": "committed", "blockHash": "0x" + produced["header_hash"]}
-        buyer = BuyerMiddleware(rpc, (key,), authority, [("exact", "layerx:125")], journal_path=path)
+        buyer = BuyerMiddleware(rpc, (key,), authority, [("exact", "eip155:125")], journal_path=path)
         header = buyer.prepare(encode_header(required), vector["rawTransaction"], activity, "0x" + terms["payer"])
         assert header is not None
         for reopen in range(2):
@@ -382,3 +393,98 @@ def test_http_emitted_receive_registration_cannot_release_retired_grant(tmp_path
         assert node.requests == []
         with sqlite3.connect(tmp_path / "grant-buyer.sqlite") as db:
             assert db.execute("SELECT * FROM payment_fulfillments").fetchall() == []
+
+
+@pytest.mark.parametrize("field,value", (
+    ("format", "layerx-receipt-proof-v1"),
+    ("verificationLevel", "submitted"),
+    ("verificationLevel", "executed"),
+    ("verificationLevel", "batched"),
+    ("verificationLevel", "finalised"),
+    ("verificationLevel", "finalized"),
+    ("verificationLevel", "committed"),
+    ("receiptDigest", "0x" + "2a" * 32),
+    ("receiptDigest", "0x" + keccak256(_bytes(_payment_vector()["signedReceipt"])).hex()),
+    ("rawTransaction", "0x02"),
+    ("signedReceipt", "0x02"),
+    ("receiptKey.keyId", "0x" + "2a" * 32),
+    ("receiptKey.publicKey", "0x" + "2a" * 32),
+    ("receiptKey.firstHeight", "0x0"),
+    ("receiptKey.lastHeight", "0x0"),
+))
+def test_http_portable_proof_mutations_never_release(tmp_path, field, value):
+    vector = _payment_vector()
+    signed, raw, key = _bytes(vector["signedReceipt"]), _bytes(vector["rawTransaction"]), _key(vector)
+    required = _required(vector)
+    payment = decode_header(_payment_header(required, signed))
+    proof = payment["payload"]
+    if "." in field:
+        parent, child = field.split(".")
+        proof[parent][child] = value
+    else:
+        proof[field] = value
+    path = tmp_path / "refused.sqlite"
+    seller = SellerMiddleware(required, (key,), ConfiguredReceiptAuthority(raw), FulfillmentStore(path))
+    releases = []
+    with pytest.raises((ValueError, PlatformSdkError)):
+        seller.handle("buyer", encode_header(payment), lambda: releases.append(True))
+    assert releases == []
+    with sqlite3.connect(path) as db:
+        assert db.execute("SELECT * FROM payment_fulfillments").fetchall() == []
+
+
+def test_http_offer_ledger_payer_and_reference_are_bound(tmp_path):
+    vector = _payment_vector()
+    signed, raw, key = _bytes(vector["signedReceipt"]), _bytes(vector["rawTransaction"]), _key(vector)
+    required = _required(vector)
+    terms = _payment_terms(vector)
+    payment_log = next(log for log in vector["receiptJson"]["logs"]
+                       if log["topics"][0] == "0x" + keccak256(b"PaymentExact(bytes32,bytes32,bytes32,bytes32,uint128)").hex())
+    required["accepts"][0]["extra"] = {"layerx": {
+        "commitment": "receipted", "payer": terms["ledger_payer"],
+        "purposeHash": payment_log["topics"][1][2:],
+    }}
+    authority = ConfiguredReceiptAuthority(raw)
+    for field in ("payer", "purposeHash"):
+        changed = deepcopy(required)
+        changed["accepts"][0]["extra"]["layerx"][field] = "2a" * 32
+        path = tmp_path / (field + ".sqlite")
+        seller = SellerMiddleware(changed, (key,), authority, FulfillmentStore(path))
+        releases = []
+        with pytest.raises(PaymentBindingError):
+            seller.handle("buyer", _payment_header(changed, signed), lambda: releases.append(True))
+        assert releases == []
+        with sqlite3.connect(path) as db:
+            assert db.execute("SELECT * FROM payment_fulfillments").fetchall() == []
+
+
+def test_http_portable_node_json_authenticates_every_producer_field(tmp_path):
+    vector = _payment_vector()
+    signed, raw, key = _bytes(vector["signedReceipt"]), _bytes(vector["rawTransaction"]), _key(vector)
+    required = _required(vector)
+    payload = decode_header(_payment_header(required, signed))
+    payload["payload"]["receiptJson"] = deepcopy(vector["receiptJson"])
+    path = tmp_path / "node-json.sqlite"
+    seller = SellerMiddleware(required, (key,), ConfiguredReceiptAuthority(raw), FulfillmentStore(path))
+    releases = []
+
+    def release():
+        releases.append(True)
+        return b"node resource"
+
+    paid = seller.handle("buyer", encode_header(payload), release)
+    assert (paid[0], paid[2]) == (200, b"node resource")
+    for field, value in (("nonce", "0xffff"), ("from", "0x" + "2a" * 20),
+                         ("returnData", "0x01"), ("feeAmount", "0xffff"),
+                         ("paymentDenom", "altered"), ("signingKey", "0x" + "2a" * 32)):
+        changed = deepcopy(payload)
+        changed["payload"]["receiptJson"][field] = value
+        with pytest.raises(ValueError, match="node-receipt-mismatch"):
+            seller.handle("buyer", encode_header(changed), release)
+    changed = deepcopy(payload)
+    changed["payload"]["receiptJson"]["logs"][0]["data"] = "0x01"
+    with pytest.raises(ValueError, match="node-receipt-mismatch"):
+        seller.handle("buyer", encode_header(changed), release)
+    assert releases == [True]
+    with sqlite3.connect(path) as db:
+        assert db.execute("SELECT count(*) FROM payment_fulfillments").fetchone() == (1,)

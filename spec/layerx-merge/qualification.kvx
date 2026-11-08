@@ -35177,3 +35177,115 @@ symbol = "test_core_test_all_wired.py"
 observed = "Attempt 4 at 1ab4401a1dc7e419f0b75677eda2a3b80897f8c0: build exit 0; verification exit 1: both wiring tests and the four ported suites passed, qualify-arith refused for the unavailable clang after forge, cbmc and z3 answered."
 assumption = "The gate named the tools of the last failure instead of the tools the proof script resolves; clang completes the set."
 severity = "high"
+
+[finding.22.39.142.2]
+task = "22.39.142"
+file = "programs/crates/layerx-programs-ai-market/tests/f11_views.rs"
+symbol = "f11_views.rs"
+observed = "Attempt 2 at 77bfba6a279be09fc90f7172b752ba9290e372d2: build exit 0; verification exit 1 at the size assertion, 500894 bytes against 484184, before the four f11 binaries ran; attempt 1 measured 504844 and the starting tree 511946."
+assumption = "The remaining gap is found by measuring the artifact, not by reading more sources; the two structural techniques are the ones not yet applied."
+severity = "high"
+
+[finding.22.39.147.1]
+task = "22.39.147"
+file = "tests/ci/test_workflow_live_inputs_guarded.py"
+symbol = "test_workflow_live_inputs_guarded.py"
+observed = "Attempt 1 at 94f1769f81b7be0ae0070751721ff5075a9ad9d8: build exit 0; verification exit 1 at the routing check with thirteen refusals in four workflows outside the touches; the pytest step never ran."
+assumption = "The seven restored lines are right; the check sees the whole repository and every refusal belongs to this repair."
+severity = "high"
+
+[finding.22.33.50.8]
+task = "22.33.50"
+file = "services/human/crates/layerx-human-service/tests/repair_22_33_50.rs"
+symbol = "repair_22_33_50.rs"
+observed = "Attempt 9 at 25a24db46b439d58676e672db44e5f371bfcffa8: build exit 0; verification exit 101 twice: 1 passed, 2 failed, the helper asserting CHECKPOINT_FINALISED against Committed and the control case receiving the typed AgentLookup refusal where the generic Refused was asserted."
+assumption = "Both failures are test-side: one stale level in a helper the attempt-8 ruling did not name, and a control case that never installed the agent it finalizes."
+severity = "high"
+
+[finding.22.39.118.11]
+task = "22.39.118"
+file = "tools/platform/cli::rpc::tests::positional_requests_match_published_contract"
+symbol = "cli::rpc::tests::positional_requests_match_published_contract"
+observed = "Attempt 11 at 281da58eedc4: build exit 0; verification exit 1: 24 library tests, the lifecycle suite and 55 of 56 command-boundary cases passed; the cursor step of the emulator boundary test expected hex and received InvalidRequest from the decimal cursor parser."
+assumption = "The parser is correct and the test expectation is older than the parser; the consumer follows it."
+severity = "high"
+
+[finding.22.39.136.6]
+task = "22.39.136"
+file = "services/platform/middleware/conformance/pay6/test_http.py"
+symbol = "test_http.py"
+observed = "Attempt 7 at 61093e3df534: build exit 0; verification exit 1: 20 passed, 1 failed, test_budget_receipt_commit_and_replay at test_agent.py line 42 comparing the SHA-256 verifier digest of the produced proof with the Keccak-256 digest of the Python FIXTURE; the local suites did not run."
+assumption = "The Python mirror of the fixture was left behind by the digest repair of 22.39.146; the consumer task takes it into scope and follows the verifier."
+severity = "high"
+
+[finding.22.39.149.1]
+task = "22.39.149"
+file = "services/platform/ramps/toolkit/tests/evm_submit.rs"
+symbol = "evm_submit.rs"
+observed = "Attempt 1 at 2206b5ecde00: build exit 0; verification exit 1 twice: every binary passed except source_settlement, whose genuine source finality case panicked at line 78 for the absent protected contract file; both repair cycles corrected real assertion differences in the proof test."
+assumption = "The remaining red case is gated on protected material, not on the repaired tree; the gate names the exclusion."
+severity = "high"
+
+[finding.22.39.147.2]
+task = "22.39.147"
+file = "tests/ci/test_workflow_live_inputs_guarded.py"
+symbol = "test_workflow_live_inputs_guarded.py"
+observed = "Attempt 2 at 06d1b91e2627: build exit 0; routing check exit 0; verification exit 1: 29 passed, 1 failed, test_root_workflow_runs_loadtest_module at tools/ci/tests/test_ci_loadtest_job.py line 16 comparing the routed loadtest expression with the ubuntu-24.04 pin of c17."
+assumption = "The reference job of the test changed disposition when the sanitizer pin was recorded; the test follows a routed sibling."
+severity = "high"
+
+[finding.22.39.138.3]
+task = "22.39.138"
+file = "tests/ci/test_copied_artifacts_in_sync.py"
+symbol = "test_copied_artifacts_in_sync.py"
+observed = "Attempt 3 at 733e82e76991: build exit 0; verification exit 1 twice: 16 of 17 selected tests passed, TestEvmEventsForCw1155 failed at the burn-on-behalf step with undefined/1 internal error; the trace option exposed nothing because the node response is built with debug=false."
+assumption = "The redaction sits in the node response, not in the base application; the keeper and the translator return the raw error when called directly."
+severity = "high"
+
+[finding.22.39.118.12]
+task = "22.39.118"
+file = "tools/platform/cli::rpc::tests::positional_requests_match_published_contract"
+symbol = "cli::rpc::tests::positional_requests_match_published_contract"
+observed = "Attempt 12 at 07484f057fd9: build exit 0; verification exit 1: 24 library tests and 56 command-boundary cases passed; make platform-test-tooling failed at wallet_bind_rpc of tests/repair_22_31_212.rs with node RPC URL must name the root endpoint."
+assumption = "The fixture path is older than the root-endpoint contract; the fixture follows it and the sibling tests accept the root path."
+severity = "high"
+
+[finding.22.39.142.3]
+task = "22.39.142"
+file = "programs/crates/layerx-programs-ai-market/tests/f11_views.rs"
+symbol = "f11_views.rs"
+observed = "Attempt 3 at 4e3940dd51bf: build exit 0, guest 483154 bytes; verification exit 101 in f11_family_table at line 191, SettleLaps expected (92, 92) against the table (480, 4190); the base tree fails the same assertion."
+assumption = "The row is a producer-to-consumer defect of 22.38.4, not of the size reduction; correcting it to the producer constants is the whole remaining work."
+severity = "high"
+
+[finding.22.39.75.3]
+task = "22.39.75"
+file = "tests/ci/test_launchpad_go_tests_wired.py"
+symbol = "test_launchpad_go_tests_wired.py"
+observed = "Attempt 3 at c2a82f8b0c7e: build exit 0; wiring tests 15 passed; make ci exit 2 with auth refusing the absent local chain, delivery refusing the inherited DSN and db/production failing the cancellation assertion at line 421; the second verification was refused for budget."
+assumption = "The auth and delivery failures are the missing job environment; the cancellation failure is a module behaviour of the package 22.39.117 owns and is recorded, not repaired, here."
+severity = "high"
+
+[finding.22.33.50.9]
+task = "22.33.50"
+file = "services/human/crates/layerx-human-service/tests/repair_22_33_50.rs"
+symbol = "repair_22_33_50.rs"
+observed = "Attempt 10 at 3db4141c19ba: build exit 0; verification exit 101: 2 passed, 1 failed at line 644 comparing rung rank 2 with verification level rank 6."
+assumption = "The field carries the rung rank by producer contract; the assertion compared two wire domains and is the last stale assertion of the test."
+severity = "high"
+
+[finding.22.39.137.1]
+task = "22.39.137"
+file = "services/platform/middleware/conformance/pay6/test_rpc.py"
+symbol = "test_rpc.py"
+observed = "Attempt 1 at 73ee319e281b: build exit 0; verification exit 1 twice: first the committed candidate at line 44 was accepted, then after the repair a malformed receipt raised SequencerReceiptVerificationError at line 65 where ValueError is asserted; 7 passed, 5 subtests passed, the local suite did not run."
+assumption = "The exemption clause is the only remaining difference from the reference mapping on this path."
+severity = "high"
+
+[finding.22.39.138.4]
+task = "22.39.138"
+file = "tests/ci/test_copied_artifacts_in_sync.py"
+symbol = "test_copied_artifacts_in_sync.py"
+observed = "Attempt 4 at 1f95eb51246e: build exit 0; verification 16 passed, 1 failed, TestEvmEventsForCw1155 status 0x1 with the raw keeper error logged by the localization: the CW721 owner lookup refused the CW1155 burn."
+assumption = "The producer defect lives in the wasm keeper, outside the task paths; once 22.39.150 lands the direct delivery passes and the diagnostic has served its purpose."
+severity = "high"

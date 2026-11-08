@@ -2405,7 +2405,7 @@ agent-test-sdk-ts:
 
 agent-test-sdk-py:
 	$(MAKE) agent-test-sdk-generate
-	PYTHONPATH=services/agent/sdk/python python3 -m unittest discover -s tests/agent/sdk/python -p 'test_*.py'
+	PYTHONPATH=services/agent/sdk/python python3 -m pytest -q tests/agent/sdk/python services/agent/sdk/python/tests
 	PYTHONPATH=services/agent/sdk/python python3 -m compileall -q services/agent/sdk/python/layerx_sdk services/agent/sdk/python/examples
 
 agent-test-sdk-parity:
@@ -2633,7 +2633,25 @@ specgen-lint:
 	go vet ./tools/specgen
 	go run ./tools/specgen -root . -check
 
-core-test-all: test test-kernel test-module-ctx test-dispatch test-receipts \
+.PHONY: test-core-ports core-test-all
+
+test-core-ports: $(BUILD_DIR)/tests/kernel/codec/lxp_test_handover_retired \
+	$(BUILD_DIR)/tests/kernel/codec/lxp_test_state_feed_unbound \
+	$(BUILD_DIR)/tests/kernel/fuzz/lxp_prop_payer_grant \
+	$(BUILD_DIR)/tests/kernel/fuzz/lxp_prop_prepare_workers
+	$(RUN_PREFIX) $(BUILD_DIR)/tests/kernel/codec/lxp_test_handover_retired \
+		handover_activity_refused governance_fee_keeps_key
+	$(RUN_PREFIX) $(BUILD_DIR)/tests/kernel/codec/lxp_test_state_feed_unbound \
+		programs_runtime_without_feed feed_does_not_change_roots retired_feed_symbols_absent
+	$(RUN_PREFIX) $(BUILD_DIR)/tests/kernel/fuzz/lxp_prop_payer_grant \
+		payer_grant_roundtrip payer_grant_mutation_canonical
+	$(RUN_PREFIX) $(BUILD_DIR)/tests/kernel/fuzz/lxp_prop_prepare_workers \
+		prepare_one_vs_four_workers_equal
+
+$(BUILD_DIR)/tests/kernel/codec/lxp_test_state_feed_unbound \
+$(BUILD_DIR)/tests/kernel/fuzz/lxp_prop_prepare_workers: tests/programs/test_call_activity.c
+
+core-test-all: test-core-ports test test-kernel test-module-ctx test-dispatch test-receipts \
 	test-state-root test-ledger-accounts test-ledger-transfer test-ledger-set \
 	test-ledger-send test-ledger-receive test-ledger-send-allowance \
 	test-ledger-receipt test-asset-registry \

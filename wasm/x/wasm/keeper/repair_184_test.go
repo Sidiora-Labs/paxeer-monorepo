@@ -826,3 +826,104 @@ func TestRepair_184_CW721OwnerFailures(t *testing.T) {
 	require.Error(t, err)
 	require.Nil(t, receipt)
 }
+
+func TestRepair_184_CW1155BurnSkipsCW721Lookup(t *testing.T) {
+	for _, tc := range []struct {
+		name       string
+		message    string
+		tokenID    string
+		applicable bool
+		invalid    bool
+	}{
+		{name: "CW1155 burn", message: `{"burn":{"from":"owner","token_id":"1","amount":"1"}}`},
+		{name: "amount on transfer", message: `{"transfer_nft":{"recipient":"recipient","token_id":"1","amount":"1"}}`},
+		{name: "amount on send nft", message: `{"send_nft":{"contract":"receiver","token_id":"1","amount":"1","msg":""}}`},
+		{name: "null amount", message: `{"burn":{"token_id":"1","amount":null}}`},
+		{name: "zero amount", message: `{"burn":{"token_id":"1","amount":0}}`},
+		{name: "amount precedes token validation", message: `{"burn":{"token_id":null,"amount":"1"}}`},
+		{name: "send", message: `{"send":{"from":"owner","to":"recipient","token_id":"1","amount":"1","msg":""}}`},
+		{name: "send batch", message: `{"send_batch":{"from":"owner","to":"recipient","batch":[["1","1"]],"msg":""}}`},
+		{name: "burn batch", message: `{"burn_batch":{"from":"owner","batch":[["1","1"]]}}`},
+		{name: "mint batch", message: `{"mint_batch":{"to":"recipient","batch":[["1","1"]]}}`},
+		{name: "CW1155 action excludes lookup", message: `{"burn":{"token_id":"1"},"send_batch":{}}`},
+		{name: "CW721 transfer", message: `{"transfer_nft":{"recipient":"recipient","token_id":"1"}}`, tokenID: "1", applicable: true},
+		{name: "CW721 send", message: `{"send_nft":{"contract":"receiver","token_id":"1","msg":""}}`, tokenID: "1", applicable: true},
+		{name: "CW721 burn", message: `{"burn":{"token_id":"1"}}`, tokenID: "1", applicable: true},
+		{name: "escaped token", message: `{"burn":{"token_id":"\u0031"}}`, tokenID: "1", applicable: true},
+		{name: "numeric token", message: `{"burn":{"token_id":1}}`, applicable: true, invalid: true},
+		{name: "null token", message: `{"burn":{"token_id":null}}`, applicable: true, invalid: true},
+		{name: "empty token", message: `{"burn":{"token_id":""}}`, applicable: true, invalid: true},
+		{name: "invalid transfer", message: `{"transfer_nft":[]}`, applicable: true, invalid: true},
+		{name: "missing token", message: `{"burn":{}}`},
+		{name: "unrelated action", message: `{"mint":{"token_id":"1","owner":"owner"}}`},
+		{name: "invalid JSON", message: `{"burn":`},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			tokenID, applicable, err := keeper.CW721TransferTokenID([]byte(tc.message))
+			if tc.invalid {
+				require.ErrorIs(t, err, keeper.ErrCW721OwnerLookup)
+			} else {
+				require.NoError(t, err)
+			}
+			require.Equal(t, tc.tokenID, tokenID)
+			require.Equal(t, tc.applicable, applicable)
+		})
+	}
+
+	a, ctx, address, owner, recipient := repair184CW721(t)
+	contracts := keeper.NewDefaultPermissionKeeper(&a.WasmKeeper)
+	for _, tc := range []struct {
+		name    string
+		mint    bool
+		allowed bool
+	}{
+		{name: "missing token"},
+		{name: "unauthorized burn", mint: true},
+		{name: "successful burn", mint: true, allowed: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			callCtx, _ := ctx.CacheContext()
+			callCtx = callCtx.WithEventManager(sdk.NewEventManager())
+			contractAddress := address
+			if tc.allowed {
+				code, err := contracts.Create(callCtx, owner, repair184Code(t, "../../../../contracts/wasm/cw1155_base.wasm"), nil)
+				require.NoError(t, err)
+				contractAddress, _, err = contracts.Instantiate(callCtx, code, owner, owner, repair184JSON(t, map[string]string{"name": "repair 150", "symbol": "R150", "minter": owner.String()}), "real CW1155 burn", nil)
+				require.NoError(t, err)
+				_, err = contracts.Execute(callCtx, contractAddress, owner, repair184JSON(t, map[string]interface{}{"mint": map[string]interface{}{"recipient": owner.String(), "msg": map[string]string{"token_id": "1", "amount": "1"}}}), nil)
+				require.NoError(t, err)
+				response, err := a.WasmKeeper.QuerySmart(callCtx, contractAddress, repair184JSON(t, map[string]interface{}{"balance_of": map[string]string{"owner": owner.String(), "token_id": "1"}}))
+				require.NoError(t, err)
+				require.JSONEq(t, `{"balance":"1"}`, string(response))
+			} else if tc.mint {
+				_, err := contracts.Execute(callCtx, contractAddress, owner, repair184JSON(t, map[string]interface{}{"mint": map[string]string{"token_id": "1", "owner": owner.String()}}), nil)
+				require.NoError(t, err)
+			}
+			sender := owner
+			if tc.mint && !tc.allowed {
+				sender = recipient
+			}
+			message := repair184JSON(t, map[string]interface{}{"burn": map[string]string{"from": sender.String(), "token_id": "1", "amount": "1"}})
+			_, err := contracts.Execute(callCtx, contractAddress, sender, message, nil)
+			require.NotErrorIs(t, err, keeper.ErrCW721OwnerLookup)
+			if tc.allowed {
+				require.NoError(t, err)
+				_, err = a.WasmKeeper.QuerySmart(callCtx, contractAddress, []byte(`{"owner_of":{"token_id":"1"}}`))
+				require.Error(t, err, "the real CW1155 contract rejects owner_of")
+				response, queryErr := a.WasmKeeper.QuerySmart(callCtx, contractAddress, repair184JSON(t, map[string]interface{}{"balance_of": map[string]string{"owner": owner.String(), "token_id": "1"}}))
+				require.NoError(t, queryErr)
+				require.JSONEq(t, `{"balance":"0"}`, string(response), "the real contract must have burned the token")
+			} else {
+				require.ErrorIs(t, err, types.ErrExecuteFailed)
+				if tc.mint {
+					response, queryErr := a.WasmKeeper.QuerySmart(callCtx, contractAddress, []byte(`{"owner_of":{"token_id":"1"}}`))
+					require.NoError(t, queryErr)
+					require.Contains(t, string(response), owner.String())
+				}
+			}
+			for _, event := range callCtx.EventManager().Events() {
+				require.NotEqual(t, types.EventTypeCW721PreTransferOwner, event.Type)
+			}
+		})
+	}
+}

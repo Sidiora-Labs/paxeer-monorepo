@@ -1,14 +1,13 @@
-import hashlib
 import sqlite3
 
-from .x402 import payment_commitment, payment_payer, refuse_payer_grant, verify_payment_receipt
+from .x402 import payment_commitment, payment_identifier, payment_payer, payment_purpose, refuse_payer_grant, verify_payment_receipt
 from .x402_http import validate_requirements
 from .x402_rpc import rpc_hex
 
 
 class PaymentBudget:
     def __init__(self, path, tenant, asset, limit):
-        rpc_hex(asset, 32)
+        asset = payment_identifier(asset).hex()
         if not isinstance(tenant, str) or not 0 < len(tenant) <= 512 or "\0" in tenant:
             raise ValueError("invalid-budget-tenant")
         if type(limit) is not int or not 0 < limit < 2**128:
@@ -36,7 +35,7 @@ class PaymentBudget:
         validate_requirements(offer)
         rpc_hex(key, 32)
         rpc_hex(digest, 32)
-        if offer["asset"] != self.asset:
+        if payment_identifier(offer["asset"]).hex() != self.asset:
             raise ValueError("budget-asset-mismatch")
         amount = int(offer["amount"])
         with sqlite3.connect(self.path, timeout=30) as db:
@@ -74,17 +73,16 @@ class PaymentBudget:
             amount=offer["amount"],
             asset=offer["asset"],
             pay_to=offer["payTo"],
-            payer=payment_payer(
+            ledger_payer=payment_payer(
                 offer.get("extra"), required=offer["scheme"] != "exact"
             ),
+            purpose_hash=payment_purpose(offer.get("extra")),
             commitment=payment_commitment(offer.get("extra")),
             finality=evidence.finality,
             scheme=offer["scheme"],
             grant_binding=evidence.grant_binding,
         )
-        receipt_digest = hashlib.sha256(
-            b"LXP/v1/merkle-leaf\0" + evidence.canonical_receipt
-        ).hexdigest()
+        receipt_digest = verified.receipt_digest.hex()
         with sqlite3.connect(self.path, timeout=30) as db:
             db.execute("BEGIN IMMEDIATE")
             current = db.execute(
@@ -92,7 +90,7 @@ class PaymentBudget:
                 (self.tenant, self.asset, key),
             ).fetchone()
             if (
-                offer["asset"] != self.asset
+                payment_identifier(offer["asset"]).hex() != self.asset
                 or current is None
                 or current[:2] != (digest, offer["amount"])
                 or current[2] not in (None, receipt_digest)

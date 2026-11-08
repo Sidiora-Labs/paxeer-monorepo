@@ -58,8 +58,76 @@ jobs:
             "GOMODCACHE=$(go env GOMODCACHE)" "GOPATH=$(go env GOPATH)" \
             "CARGO_TARGET_DIR=$PWD/.lane-target" \
             sh services/agent/tools/run-real-node-tests.sh test
+      - name: Test standalone agent crates
+        env:
+          CARGO_TARGET_DIR: ${{ github.workspace }}/.lane-target
+          PAXD: ${{ github.workspace }}/build/paxd
+          LAYERX_TEST_NATIVE_BIN_DIR: ${{ github.workspace }}/build/bin
+          LAYERX_TEST_NATIVE_BUILD_DIR: ${{ github.workspace }}/build
+          LAYERX_PAXEER_BOUNDARY_BIN: ${{ github.workspace }}/.lane-target/debug/layerx-paxeer-boundary
+          LAYERX_RUNTIME_CLOCK_BIN: ${{ github.workspace }}/.lane-target/debug/layerx-runtime-clock
+          LAYERX_TEST_RUNTIME_CLOCK_BIN: ${{ github.workspace }}/.lane-target/debug/layerx-runtime-clock
+        run: |
+          for crate in tests/parity tests/qualify tests/boundary qualification/pay2 tests/isolation tools/sdk-gen tools/policy-harness tools/doc-check; do
+            sh tools/runtime/run-with-clock.sh cargo +1.91.1 test --locked --manifest-path "services/agent/$crate/Cargo.toml"
+          done
       - name: Audit advisories, licenses, sources, and bans
         run: cargo install cargo-deny --locked --version 0.19.0 && cargo deny --manifest-path services/agent/Cargo.toml check
+
+  sdk-python:
+    runs-on: ${{ (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && 'ubuntu-24.04' || vars.CI_LINUX_RUNNER || 'ubuntu-24.04' }}
+    timeout-minutes: 30
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install pinned Rust toolchain
+        run: rustup toolchain install 1.91.1 --profile minimal
+      - name: Install settlement test tools
+        uses: foundry-rs/foundry-toolchain@908c540300062bd5a7e473851cdb4282204cee09 # v1.9.1
+        with:
+          version: v1.8.1
+      - name: Install pinned Go toolchain
+        uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
+        with:
+          go-version-file: go.mod
+          cache: false
+      - name: Install Python SDK test dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends python3-venv
+          python3 -m venv .sdk-venv
+          .sdk-venv/bin/python -m pip install pytest cryptography PyYAML
+          echo "$PWD/.sdk-venv/bin" >> "$GITHUB_PATH"
+      - name: Check SDK suite wiring
+        run: python3 -m pytest -q tests/ci/test_agent_sdk_suites_wired.py
+      - name: Test both Python SDK trees
+        run: make agent-test-sdk-py
+
+  sdk-typescript:
+    runs-on: ${{ (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && 'ubuntu-24.04' || vars.CI_LINUX_RUNNER || 'ubuntu-24.04' }}
+    timeout-minutes: 30
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install pinned Rust toolchain
+        run: rustup toolchain install 1.91.1 --profile minimal
+      - name: Set up Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v6
+        with:
+          node-version: 24.22.0
+      - name: Install settlement test tools
+        uses: foundry-rs/foundry-toolchain@908c540300062bd5a7e473851cdb4282204cee09 # v1.9.1
+        with:
+          version: v1.8.1
+      - name: Install TypeScript SDK dependencies
+        working-directory: services/agent/sdk/typescript
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Test TypeScript SDK suite
+        run: make agent-test-sdk-ts
 
   fuzz-smoke:
     runs-on: ${{ (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && 'ubuntu-24.04' || vars.CI_LINUX_RUNNER || 'ubuntu-24.04' }}

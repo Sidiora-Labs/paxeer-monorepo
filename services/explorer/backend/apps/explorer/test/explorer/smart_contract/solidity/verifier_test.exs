@@ -86,6 +86,8 @@ defmodule Explorer.SmartContract.Solidity.VerifierTest do
     end
 
     describe "evaluate_authenticity/2" do
+      @describetag :compiler
+
       setup do
         {:ok, contract_code_info: Factory.contract_code_info()}
       end
@@ -440,6 +442,7 @@ defmodule Explorer.SmartContract.Solidity.VerifierTest do
       end
 
       # https://solidity.readthedocs.io/en/v0.6.6/contracts.html?highlight=immutable#constant-and-immutable-state-variables
+      @tag :compiler
       test "verifies smart-contract with `immutable` assignment" do
         bytecode =
           "0x6080604052348015600f57600080fd5b506004361060285760003560e01c8063fb49908514602d575b600080fd5b605060048036036020811015604157600080fd5b50356001600160a01b03166064565b604080519115158252519081900360200190f35b7f0000000000000000000000000000000000000000000000056b3977a93ae7c2006001600160a01b038216311191905056fea2646970667358221220b4fbf35809f2d1b85699a897ebb75d00c8c26b29b72decc53db18ddbd853352164736f6c63430006070033"
@@ -492,6 +495,7 @@ defmodule Explorer.SmartContract.Solidity.VerifierTest do
         assert abi != nil
       end
 
+      @tag :compiler
       test "verifies smart-contract created from another contract" do
         path = File.cwd!() <> "/test/support/fixture/smart_contract/contract_from_factory.sol"
         contract = File.read!(path)
@@ -542,6 +546,7 @@ defmodule Explorer.SmartContract.Solidity.VerifierTest do
         assert abi != nil
       end
 
+      @tag :compiler
       test "verifies smart-contract created from another contract using successful transaction" do
         path = File.cwd!() <> "/test/support/fixture/smart_contract/contract_from_factory.sol"
         contract = File.read!(path)
@@ -617,6 +622,8 @@ defmodule Explorer.SmartContract.Solidity.VerifierTest do
     end
 
     describe "compiler version tests" do
+      @describetag :compiler
+
       # flaky test
       test "verification is failed if wrong version of compiler" do
         bytecode_0_5_10 =
@@ -676,6 +683,8 @@ defmodule Explorer.SmartContract.Solidity.VerifierTest do
     end
 
     describe "verification with nightly builds" do
+      @describetag :compiler
+
       test "verification is successful if proper nightly version of compiler ~0.4" do
         bytecode_v0_4_24_nightly_2018_4_26_commit_ef2111a2 =
           "0x608060405234801561001057600080fd5b5060405160208061023d833981018060405281019080805190602001909291905050508060008190555033600160006101000a81548173ffffffffffffffffffffffffffffffffffffffff021916908373ffffffffffffffffffffffffffffffffffffffff160217905550506101b28061008b6000396000f300608060405260043610610057576000357c0100000000000000000000000000000000000000000000000000000000900463ffffffff168063256fec881461005c5780633fa4f245146100b3578063812600df146100de575b600080fd5b34801561006857600080fd5b5061007161010b565b604051808273ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff16815260200191505060405180910390f35b3480156100bf57600080fd5b506100c8610131565b6040518082815260200191505060405180910390f35b3480156100ea57600080fd5b5061010960048036038101908080359060200190929190505050610137565b005b600160009054906101000a900473ffffffffffffffffffffffffffffffffffffffff1681565b60005481565b806000540160008190555033600160006101000a81548173ffffffffffffffffffffffffffffffffffffffff021916908373ffffffffffffffffffffffffffffffffffffffff160217905550505600a165627a7a723058202d622d653be0a507f7ac0bc89d8934ccdbaf5e127abd603c3864a462149885070029"
@@ -846,6 +855,8 @@ defmodule Explorer.SmartContract.Solidity.VerifierTest do
     end
 
     describe "regression tests for https://github.com/blockscout/blockscout/pull/5166" do
+      @describetag :compiler
+
       test "issue 5114" do
         contract_source_code =
           "#{File.cwd!()}/test/support/fixture/smart_contract/issue_5114.sol"
@@ -1008,6 +1019,8 @@ defmodule Explorer.SmartContract.Solidity.VerifierTest do
     end
 
     describe "another regression tests" do
+      @describetag :compiler
+
       test "accepting correct constructor args" do
         contract_source_code =
           "#{File.cwd!()}/test/support/fixture/smart_contract/issue_5114.sol"
@@ -1160,6 +1173,8 @@ defmodule Explorer.SmartContract.Solidity.VerifierTest do
     end
 
     describe "cover new functionality from https://github.com/blockscout/blockscout/pull/5479" do
+      @describetag :compiler
+
       test "return {:error, :no_creation_data} when there is no contract creation code" do
         contract_source_code =
           "#{File.cwd!()}/test/support/fixture/smart_contract/issue_5431.sol"
@@ -1213,6 +1228,8 @@ defmodule Explorer.SmartContract.Solidity.VerifierTest do
     end
 
     describe "tests from constructor_arguments_test.exs" do
+      @describetag :compiler
+
       test "verifies with require messages" do
         source_code =
           "#{File.cwd!()}/test/support/fixture/smart_contract/home_bridge.sol"
