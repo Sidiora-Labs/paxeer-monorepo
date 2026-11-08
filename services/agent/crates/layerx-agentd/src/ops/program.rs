@@ -2554,6 +2554,13 @@ mod evm_program_tests {
             .sign(&layerx_wire::hash::receipt_digest(&unsigned).unwrap())
             .to_bytes();
         let bytes = encode(Some(signature));
+        let authorization = layerx_proof::inclusion::SequencerAuthorization::new(
+            [1; 32],
+            signer.verifying_key().to_bytes(),
+            7,
+            7,
+        );
+        layerx_proof::receipt::verify_sequencer_signature(&bytes, &[authorization]).unwrap();
         let mut value = json!({"rung":"receipted", "txHash":hex(&layerx_crypto::evm_transaction::transaction_hash(raw)),
             "nonce":"0x7", "seq":"0x2a", "height":"0x7", "index":"0x0", "timestamp":"0x64",
             "status":if success {"0x1"} else {"0x0"}, "returnData":"0xaabb", "logs":[],
@@ -2619,6 +2626,12 @@ mod evm_program_tests {
             );
             assert_eq!(execution.tx_hash, hash);
             assert_eq!(execution.from, sender);
+            assert_eq!(execution.payment_denom, "upax");
+            let receipt = layerx_wire::receipt::decode(&execution.receipt).unwrap();
+            let protocol = receipt.protocol().unwrap();
+            assert_eq!(protocol.activity_id(), hash);
+            assert_eq!(protocol.result_code(), i32::from(!success));
+            assert_eq!(protocol.asset(), <[u8; 32]>::from(Sha256::digest(b"upax")));
             let requests = server.join().unwrap();
             assert_eq!(requests[0]["params"], json!([hex(&raw)]));
             assert_eq!(requests[1]["params"], json!([hex(&hash)]));

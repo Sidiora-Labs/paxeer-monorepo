@@ -1670,6 +1670,11 @@ pub(crate) mod tests {
         .bytes();
         let proof =
             super::program_account_fixture::committed_account(&mut checkpoint, account, asset, 50);
+        assert_eq!(
+            proof.header().header().resulting_state_root(),
+            checkpoint.app_hash
+        );
+        assert!(!proof.account().frozen);
         let proofs = BTreeMap::from([(account, proof)]);
         let integer = |value: u64| {
             let mut word = [0; 32];

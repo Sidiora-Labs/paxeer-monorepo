@@ -66,6 +66,19 @@ fn assert_terminal_approvals(
         Ok(expected.len())
     );
     for (id, state) in expected {
+        let key = crate::store::TenantKey::new(
+            tenant.clone(),
+            crate::store::ObjectKind::PreparedActivity,
+            [b"approval-terminal-v1:".as_slice(), id].concat(),
+        )
+        .expect("terminal key");
+        assert!(!store
+            .lock()
+            .unwrap_or_else(|_| panic!("store lock"))
+            .get(&key)
+            .expect("retained terminal record")
+            .bytes()
+            .is_empty());
         assert_eq!(
             recovered
                 .ticket(*id)
