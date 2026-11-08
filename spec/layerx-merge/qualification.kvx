@@ -35522,3 +35522,35 @@ symbol = "test_ramp_dependencies.py"
 observed = "Attempt 1 at eac6fce0c1f6: build exit 0; verification exit 1 with 31 passed and 1 failed, test_exclusion_list_entries_exist on the stale scripts/ci row."
 assumption = "The task tree is complete; the one failing case is the row that round 256 assigned to this task after the attempt had started."
 severity = "high"
+
+[finding.22.38.6.2]
+task = "22.38.6"
+file = "programs/crates/layerx-programs-ai-market/tests/f11_payout_split.rs"
+symbol = "f11_payout_split.rs"
+observed = "Attempt 2 at 842c354bb012: build exit 0 (guest 503968 bytes); the dependents check compiled 32 crates and exited 101 at the ramps reference test target repair_22_33_1487, whose include_bytes lines name localhost.pem and localhost.p12 that main does not track since 70fb314c8d; the verification never ran."
+assumption = "Nothing in the attempt-2 tree caused the dependents failure; the target fails on main for every crate the ramps reference crate consumes."
+severity = "high"
+
+[finding.22.39.118.17]
+task = "22.39.118"
+file = "tools/platform/cli::rpc::tests::positional_requests_match_published_contract"
+symbol = "cli::rpc::tests::positional_requests_match_published_contract"
+observed = "Attempt 17 at 0001759ad503: build exit 0; verification exit 1: the lib rpc tests passed and make platform-test-tooling failed in wallet_px_reads.rs at line 251 (the CLI printed gateway_rpc_required: provide --gateway-rpc for hosted px_ balances) and at line 311 (left token.read, right token.list)."
+assumption = "Both assertions have been stale since 2026-11-05 and the module is in no baseline, so the tooling gate was red on main before this task."
+severity = "high"
+
+[finding.22.39.120.2]
+task = "22.39.120"
+file = "services/agent/sdk/python/tests/test_repair_22_33_702.py"
+symbol = "test_repair_22_33_702.py"
+observed = "Attempt 2 at 8173d0a942f1: build exit 0; verification exit 1 with six failures (test_market_node_receipt_summary_events_and_return_binding, test_payment_recording_binds_the_production_ledger_transaction, test_verify_rpc_payment_uses_receipt_keys, test_buyer_verifies_sequencer_receipts_through_receipt_keys, test_rpc_submission_and_receipt_use_the_typescript_producer, test_malformed_submissions_are_refused_before_a_request); publication refused for a file outside the paths (services/agent/sdk/python/tests/conftest.py)."
+assumption = "The six cases are consumer drift behind producer changes landed between 2026-11-05 and 2026-11-08, not defects of the attempt tree."
+severity = "high"
+
+[finding.9.35.19.7]
+task = "9.35.19"
+file = "services/agent/crates/layerx-agentd/tests/native_send_preview_evm.rs"
+symbol = "native_send_preview_evm.rs"
+observed = "Attempt 9 at ed9425eba451 (base 67b4aa3287): three builds, exit 101 each, E0061 and E0308 at the thirteen caller sites; the verification never ran."
+assumption = "The signature changes are the intended task work; only the callers were left behind, and one of the two files was outside the paths."
+severity = "high"
