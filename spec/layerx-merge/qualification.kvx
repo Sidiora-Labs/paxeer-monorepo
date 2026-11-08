@@ -35297,3 +35297,27 @@ symbol = "cli::rpc::tests::positional_requests_match_published_contract"
 observed = "Attempt 13 at 31157b57e4d8: build exit 0; verification exit 1 after two cycles: readme_receipt_policy_and_watch passes, readme_retired_endpoint and readme_operator_contract fail at tests/repair_22_33_1499.rs line 72 with the gateway_rpc_required refusal for hosted px_ balances and for hosted px_ account queries."
 assumption = "The producer contract routes hosted methods through the explicit option; eight README examples predate it and the test runs them verbatim."
 severity = "high"
+
+[finding.22.39.142.4]
+task = "22.39.142"
+file = "programs/crates/layerx-programs-ai-market/tests/f11_views.rs"
+symbol = "f11_views.rs"
+observed = "Attempt 4 at 146d4fa84434: build exit 0; verification exit 101: 6 passed, 1 failed, f11_selectors_route_to_their_operation_metadata at line 235 expecting IdentityRoster alone for 0x0B14 where the operation table declares PolicyLifecycle and SettlementClaims."
+assumption = "The BookView row and the roster invariant predate the placement book change of 22.38.11; the round-245 note was too narrow, as in gotcha 3534."
+severity = "high"
+
+[finding.9.98.4.14]
+task = "9.98.4"
+file = "services/agent/crates/layerx-agentd/src/ops/program.rs"
+symbol = "program.rs"
+observed = "Attempt 12 at 53bcaadeeacf: build exit 0 twice; verification 1 failed at tests/program_adapters_rungs.rs line 50 (store directory created twice), repaired; verification 2 failed only read_proof_bundle_operation_returns_receipt_proof_v2 at tests/read_ops_rpc.rs line 201, pending versus the block coordinate object; every other declared target passed."
+assumption = "The assertion predates the agent api encoding of 21.29.1 and the test file is inside the task paths; the fixtures and the daemon stand."
+severity = "high"
+
+[finding.22.39.78.2]
+task = "22.39.78"
+file = "tests/ci/test_platform_middleware_suites_wired.py"
+symbol = "test_platform_middleware_suites_wired.py"
+observed = "Attempt 2 at 9ef4fa446c98: build exit 0; verification exit 1: test_platform_middleware_runs_package_tests and test_platform_integrations_tests_wired fail at line 32 because the build-lint-test job carries the job-level registry condition of 22.39.98; test_fastapi_integration_declares_test_deps passed; the pay6 and examples suites did not run."
+assumption = "The wiring test asserts the right contract; the workflow job condition is the defect and lives outside the task paths, so a producer task removes it first."
+severity = "high"
