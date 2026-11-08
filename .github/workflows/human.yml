@@ -41,6 +41,8 @@ jobs:
           cargo install cargo-deny --locked --version 0.19.0
       - name: Install pinned Foundry toolchain
         uses: foundry-rs/foundry-toolchain@908c540300062bd5a7e473851cdb4282204cee09 # v1.9.1
+        with:
+          version: v1.8.1
       - name: Install pinned settlement compiler
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
@@ -131,6 +133,8 @@ jobs:
           npm --prefix apps/web exec playwright install --with-deps chromium
       - name: Install the settlement tools and production TLS prerequisites
         uses: foundry-rs/foundry-toolchain@908c540300062bd5a7e473851cdb4282204cee09 # v1.9.1
+        with:
+          version: v1.8.1
       - name: Prepare the disposable cluster host
         run: |
           sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc
