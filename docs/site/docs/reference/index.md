@@ -16,7 +16,7 @@ hosted service APIs and historical protocol encodings have different contracts.
 
 ## Specifications
 
-This index and [CONTRIBUTING.md](https://github.com/Sidiora-Labs/paxeer-monorepo/blob/main/CONTRIBUTING.md)
+This index and the [contribution guide](https://github.com/Sidiora-Labs/paxeer-monorepo/blob/main/CONTRIBUTING.md)
 provide the contributor specification references. Product guides explain behavior
 and link tests by what they check; numbered development history belongs in
 contributor records.
@@ -54,6 +54,6 @@ receipt finality is BFT block commitment.
 
 ## Contributing and security
 
-- [CONTRIBUTING.md](https://github.com/Sidiora-Labs/paxeer-monorepo/blob/main/CONTRIBUTING.md)
+- [Contribution guide](https://github.com/Sidiora-Labs/paxeer-monorepo/blob/main/CONTRIBUTING.md)
 - [SECURITY.md](https://github.com/Sidiora-Labs/paxeer-monorepo/blob/main/SECURITY.md)
 - [LICENSE](https://github.com/Sidiora-Labs/paxeer-monorepo/blob/main/LICENSE)

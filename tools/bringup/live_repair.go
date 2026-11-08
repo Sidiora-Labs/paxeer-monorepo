@@ -438,6 +438,15 @@ func DocumentationNames(inventory PublicInventory, spec io.Reader) (map[string]b
 		}
 		allowed[u.Hostname()] = true
 	}
+	for _, endpoint := range inventory.Nodes {
+		u, e := url.Parse(endpoint)
+		if e != nil {
+			return nil, e
+		}
+		if _, parent, ok := strings.Cut(u.Hostname(), "."); ok {
+			allowed[parent] = true
+		}
+	}
 	section := ""
 	s := bufio.NewScanner(spec)
 	host := regexp.MustCompile(`(?:[a-z0-9-]+\.)+paxeer\.network`)
@@ -458,11 +467,16 @@ func DocumentationNames(inventory PublicInventory, spec io.Reader) (map[string]b
 	return allowed, s.Err()
 }
 func ValidateDocumentNames(inventory PublicInventory, allowed map[string]bool, text string) error {
-	if strings.Contains(text, "FAUCET_URL") {
+	decoded := regexp.MustCompile(`(?:%[0-9a-fA-F]{2})+`).ReplaceAllStringFunc(text, func(encoded string) string {
+		// The pattern admits only complete percent escapes, so decoding cannot fail.
+		value, _ := url.PathUnescape(encoded)
+		return value
+	})
+	if regexp.MustCompile(`(^|[^[:alnum:]_])FAUCET_URL([^[:alnum:]_]|$)`).MatchString(text) {
 		return errors.New("unpublished faucet configuration")
 	}
 	host := regexp.MustCompile(`(?:[a-z0-9-]+\.)+paxeer\.network`)
-	for _, name := range host.FindAllString(strings.ToLower(text), -1) {
+	for _, name := range host.FindAllString(strings.ToLower(decoded), -1) {
 		if !allowed[name] {
 			return errors.New("unpublished public name")
 		}
@@ -475,12 +489,15 @@ func ValidateDocumentNames(inventory PublicInventory, allowed map[string]bool, t
 		}
 		nodes[strings.ToLower(u.Hostname())] = true
 	}
+	templatePort := regexp.MustCompile(`^((?i:https?)://[^/?#]+):\$(?:[A-Za-z_][A-Za-z0-9_]*|\{[A-Za-z_][A-Za-z0-9_]*\})([/?#]|$)`)
 	for _, match := range regexp.MustCompile(`(?i)https?://[^\s`+"`"+`<>"')\],;]+`).FindAllString(text, -1) {
-		u, e := url.Parse(match)
+		// Shell examples declare a port separately; retain that fact for node-root validation.
+		withoutTemplatePort := templatePort.ReplaceAllString(match, "${1}${2}")
+		u, e := url.Parse(withoutTemplatePort)
 		if e != nil {
 			return errors.New("malformed documentation URL")
 		}
-		if nodes[strings.ToLower(u.Hostname())] && (u.Scheme != "https" || u.Port() != "" || (u.EscapedPath() != "" && u.EscapedPath() != "/") || u.RawQuery != "" || u.Fragment != "") {
+		if nodes[strings.ToLower(u.Hostname())] && (withoutTemplatePort != match || u.Scheme != "https" || u.Port() != "" || (u.EscapedPath() != "" && u.EscapedPath() != "/") || u.RawQuery != "" || u.Fragment != "") {
 			return errors.New("node RPC must use its declared HTTPS root")
 		}
 	}

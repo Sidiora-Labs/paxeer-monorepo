@@ -1,6 +1,2 @@
 # Exact failing module | retiring task | observed failure (gotcha 3514).
-tests/conformance/test_repair_22_33_886.py | 22.39.131 | Committed receipt copies drift, explorer fixture path no longer matches, and RPC or SDK receipt validation refuses the transaction.
-cmd/layerx-module-registry/test_registry.py | 22.39.131 | The generated module registry schema document differs from the expected module ordinals.
-tests/daemon/test_repair_22_33_1076.py | 22.39.131 | Native program admission exits with invalid_transaction for the recorded transaction.
-services/platform/tests/test_ramp_dependencies.py | 22.39.134 | Live ramp crates depend on layerx-intents, paxeer-client and rusqlite while the dependency policy bans them.
-services/platform/tests/test_ramp_sandbox_journey.py | 22.39.134 | Journey help omits LAYERX_RAMP_OFF_RECEIVER_SEQUENCE and transaction hash verification finds no match.
+services/platform/hosted/node/tests/test_reset_state.py | 22.39.133 | The supervisor socket is visible with its creation mode between the bind and the chmod of generation_transport.py serve, so the 0o660 assertion at line 347 races the server.
