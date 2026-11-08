@@ -2,7 +2,6 @@
 
 use std::collections::BTreeMap;
 
-use layerx_proof::checkpoint::ThresholdReport;
 use layerx_proof::inclusion::InclusionEvidence;
 use layerx_proof::merkle::{verify_path, Proof};
 use layerx_proof::receipt::VerifiedReceipt;
@@ -118,25 +117,6 @@ impl CacheValue {
             observed_head_sequence,
             observed_checkpoint,
         })
-    }
-
-    /// Retired compatibility path: `ThresholdReport` is uninhabited, so no value
-    /// or cached payload can be constructed through this signature.
-    #[must_use]
-    pub fn from_checkpoint(
-        core_bytes: Vec<u8>,
-        evidence: &ThresholdReport,
-        observed_head_sequence: u64,
-        observed_checkpoint: [u8; 32],
-    ) -> Self {
-        Self {
-            level: evidence.level(),
-            core_bytes: core_bytes.into_boxed_slice(),
-            evidence_kind: EvidenceKind::Checkpoint,
-            evidence_id: evidence.evidence().checkpoint_id().unwrap_or([0; 32]),
-            observed_head_sequence,
-            observed_checkpoint,
-        }
     }
 
     #[must_use]

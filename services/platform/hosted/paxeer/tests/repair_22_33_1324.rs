@@ -65,12 +65,11 @@ fn relay_retirement_26_chain_height_and_validator_set_evidence() {
 
 #[test]
 fn relay_retirement_26_migration_v1_preserves_archive_without_finality() {
-    use layerx_proof::checkpoint::{
-        checkpoint_id, Attestation, Certificate, Checkpoint, CheckpointError, GuarantorKey,
-        SettlementDomain,
-    };
+    use layerx_types::historical::checkpoint::GUARANTOR_ATTESTATION_FIELDS;
     use layerx_types::historical::settlement::DeclaredCheckpointSettlement;
     use layerx_types::vectors::checkpoint::load_checkpoint_vector;
+    use sha2::{Digest, Sha256};
+
     let archive =
         DeclaredCheckpointSettlement::parse(ARCHIVE).expect("version-one historical export reader");
     assert_eq!(archive.protocol_version(), 2);
@@ -84,57 +83,78 @@ fn relay_retirement_26_migration_v1_preserves_archive_without_finality() {
         "fresh",
     )
     .expect("recorded historical export");
-    let checkpoint = Checkpoint::new(vector.header.bytes.clone(), vector.validity_proof.clone());
+    let mut checkpoint_digest = Sha256::new();
+    checkpoint_digest.update(b"LXP/v2/checkpoint-certificate\0");
+    checkpoint_digest.update(&vector.header.bytes);
+    checkpoint_digest.update(
+        u32::try_from(vector.validity_proof.len())
+            .expect("archived proof length")
+            .to_be_bytes(),
+    );
+    checkpoint_digest.update(&vector.validity_proof);
     assert_eq!(
-        checkpoint_id(&checkpoint).expect("historical canonical checkpoint codec"),
+        <[u8; 32]>::from(checkpoint_digest.finalize()),
         vector.expected_digest
     );
-    let attestations: Vec<_> = vector
-        .attestations
-        .iter()
-        .map(|item| {
-            let attestation = Attestation::new(
-                vector.header.protocol_version,
-                vector.header.network_id,
-                domain.paxeer_chain_id(),
-                domain.settlement_contract(),
-                vector.header.epoch,
-                vector.expected_digest,
-                vector.expected_digest,
-                item.guarantor_id,
-                vector.header.batch_number,
-                vector.header.data_availability_root,
-                item.replayed,
-                item.data_possessed,
-                item.availability_class_mask,
-                item.attested_at_ms,
-                item.signer,
-                item.signature,
-                item.signature_v,
-            );
-            assert_eq!(
-                attestation.canonical_statement(),
-                item.message,
-                "historical statements retain every exact exported byte"
-            );
-            attestation
-        })
-        .collect();
-    let certificate = Certificate::new(checkpoint, attestations, vector.threshold, None);
-    let keys: Vec<_> = domain
-        .guarantor_set()
-        .iter()
-        .map(|key| GuarantorKey::new(key.guarantor_id(), key.public_key(), true))
-        .collect();
-    #[allow(deprecated)]
-    let outcome = layerx_proof::checkpoint::verify_certificate(
-        &certificate,
-        &keys,
-        &vector.expected_digest,
-        SettlementDomain::new(domain.paxeer_chain_id(), domain.settlement_contract()),
-        None,
-    );
-    assert_eq!(outcome, Err(CheckpointError::RetiredCertificateVerifier));
+    assert!(!vector.attestations.is_empty());
+    for item in &vector.attestations {
+        let fields = [
+            (
+                "protocol_version",
+                vector.header.protocol_version.to_be_bytes().to_vec(),
+            ),
+            (
+                "network_id",
+                vector.header.network_id.to_be_bytes().to_vec(),
+            ),
+            (
+                "paxeer_chain_id",
+                domain.paxeer_chain_id().to_be_bytes().to_vec(),
+            ),
+            (
+                "paxeer_settlement_contract",
+                domain.settlement_contract().to_vec(),
+            ),
+            ("epoch", vector.header.epoch.to_be_bytes().to_vec()),
+            ("checkpoint_id", vector.expected_digest.to_vec()),
+            ("checkpoint_hash", vector.expected_digest.to_vec()),
+            ("guarantor_id", item.guarantor_id.to_vec()),
+            (
+                "batch_number",
+                vector.header.batch_number.to_be_bytes().to_vec(),
+            ),
+            (
+                "data_availability_root",
+                vector.header.data_availability_root.to_vec(),
+            ),
+            ("replayed", vec![u8::from(item.replayed)]),
+            ("da_possessed", vec![u8::from(item.data_possessed)]),
+            (
+                "availability_class_mask",
+                vec![item.availability_class_mask],
+            ),
+            ("attested_at_ms", item.attested_at_ms.to_be_bytes().to_vec()),
+            ("signer", item.signer.to_vec()),
+            ("signature", item.signature.to_vec()),
+            ("signature_v", vec![item.signature_v]),
+        ];
+        assert_eq!(
+            fields.each_ref().map(|(name, _)| *name),
+            GUARANTOR_ATTESTATION_FIELDS
+        );
+        let statement: Vec<u8> = fields[..14]
+            .iter()
+            .flat_map(|(_, bytes)| bytes.iter().copied())
+            .collect();
+        assert_eq!(
+            statement, item.message,
+            "historical statements retain every exact exported byte"
+        );
+        let mut digest = Sha256::new();
+        digest.update(b"LXP/v2/guarantor-attestation\0");
+        digest.update(&statement);
+        assert_eq!(<[u8; 32]>::from(digest.finalize()), item.digest);
+    }
     assert!(ValidatorSetTrust::parse(ARCHIVE).is_err());
 }
 
