@@ -209913,7 +209913,7 @@ do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete ap
 
 [task.22.39.150]
 title = "Limit the CW721 pre-transfer owner lookup to CW721 transfer shapes so CW1155 burns execute"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
