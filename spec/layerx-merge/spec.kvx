@@ -274435,7 +274435,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.9.27.4]
 title = "Delete the guarantor certificate verifier and the embedded settlement document"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 42
 requires = ["9.27.3", "9.27.5", "9.28.2", "9.29.1", "9.5.4", "9.5.5", "9.6.1", "9.4.1", "9.1.4", "9.12.6", "9.25.2", "9.35.2", "8.7.3", "8.8.4", "8.12.3", "8.19.5", "8.19.6", "8.19.7", "8.20.1", "8.20.2", "10.21.3", "10.21.4", "10.27.5", "10.27.6", "10.27.7", "11.26.4", "9.27.8", "8.1.6", "18.1304.1", "9.25.16", "13.8.3", "22.9.24", "22.99.160", "22.31.572", "22.31.620"]
