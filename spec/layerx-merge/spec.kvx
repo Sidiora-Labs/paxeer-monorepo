@@ -183100,7 +183100,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.172]
 title = "Align the history contract test and the cross-UID receiver case with the exclusive cursor and the protected store root their producers introduced"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.33.1521", "22.33.1506"]
@@ -183165,7 +183165,7 @@ do_5 = "Attempt 2 (continue, gotchas 3686 and 3687, decisions 2900, 2985 and 298
 
 [task.22.39.169]
 title = "Requalify the ai-market guest with the whole crate test suite before the bond operations land"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.39.142", "22.99.77"]
