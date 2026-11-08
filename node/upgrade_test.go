@@ -1,9 +1,7 @@
 package app_test
 
 import (
-	"bytes"
 	"math/big"
-	"os"
 	"testing"
 	"time"
 
@@ -19,7 +17,6 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/precompiles"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/launchpad"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/layerxbridge"
-	"github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/layerxexchange"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/crypto/keys/secp256k1"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/store/rootmulti"
 	storetypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/store/types"
@@ -214,9 +211,17 @@ func TestV640ToV66UpgradeServesTheExchangeBridgeAndLaunchpadPrecompiles(t *testi
 	require.True(t, a.UpgradeKeeper.HasHandler(plan.Name))
 	a.UpgradeKeeper.ApplyUpgrade(ctx, plan)
 	after := a.UpgradeKeeper.GetModuleVersionMap(ctx)
-	for _, name := range v66Modules {
-		require.Equal(t, uint64(1), after[name], name)
+	expectedVersions := map[string]uint64{
+		layerxcustodytypes.StoreKey:  2,
+		layerxexchangetypes.StoreKey: 1,
+		layerxbridgetypes.StoreKey:   1,
+		launchpadtypes.StoreKey:      1,
 	}
+	for name, version := range expectedVersions {
+		require.Contains(t, after, name)
+		require.Equal(t, version, after[name], name)
+	}
+	require.NotContains(t, after, layerxanchortypes.StoreKey)
 	require.Equal(t, layerxbridgetypes.DefaultAuthority(), a.LayerXBridgeKeeper.GetParams(ctx).Authority)
 	require.Empty(t, a.LayerXBridgeKeeper.GetAttestorSet(ctx).Attestors)
 	require.Empty(t, a.LayerXBridgeKeeper.GetCaps(ctx))
@@ -241,21 +246,32 @@ func TestV640ToV66UpgradeServesTheExchangeBridgeAndLaunchpadPrecompiles(t *testi
 		return call(info.ABI, name, address, method, args...)
 	}
 
-	nonce := view(layerxexchange.PrecompileName, "0x0000000000000000000000000000000000001015",
-		"intentNonce", common.HexToAddress("0x00000000000000000000000000000000000000a1"))
-	require.Equal(t, uint64(0), nonce[0])
+	venueAddress := common.HexToAddress("0x0000000000000000000000000000000000001015")
+	venue := a.EvmKeeper.CustomPrecompiles(ctx)[venueAddress]
+	require.NotNil(t, venue)
+	typedVenue, ok := venue.(interface {
+		Address() common.Address
+		GetABI() abi.ABI
+	})
+	require.True(t, ok)
+	require.Equal(t, venueAddress, typedVenue.Address())
+	perpsMarkets := call(typedVenue.GetABI(), "perps", venueAddress.Hex(), "totalMarkets")
+	require.Equal(t, 0, perpsMarkets[0].(*big.Int).Sign())
 
 	attestors := view(layerxbridge.PrecompileName, "0x0000000000000000000000000000000000001016", "getAttestors")
 	require.Empty(t, attestors[0])
 	require.Empty(t, attestors[1])
 	require.Equal(t, uint32(0), attestors[2])
 
-	// Until v6.12.0 is done the address serves the v6.10 launchpad, whose ABI
-	// is not the registered one.
-	legacyJSON, err := os.ReadFile("../precompiles/launchpad/legacy/v610/abi.json")
-	require.NoError(t, err)
-	legacyLaunchpad, err := abi.JSON(bytes.NewReader(legacyJSON))
-	require.NoError(t, err)
-	markets := call(legacyLaunchpad, launchpad.PrecompileName, "0x0000000000000000000000000000000000001017", "getMarketCount")
-	require.Equal(t, 0, markets[0].(*big.Int).Sign())
+	launchpadAddress := common.HexToAddress("0x0000000000000000000000000000000000001017")
+	servedLaunchpad := a.EvmKeeper.CustomPrecompiles(ctx)[launchpadAddress]
+	require.NotNil(t, servedLaunchpad)
+	typedLaunchpad, ok := servedLaunchpad.(interface {
+		Address() common.Address
+		GetABI() abi.ABI
+	})
+	require.True(t, ok)
+	require.Equal(t, launchpadAddress, typedLaunchpad.Address())
+	pools := call(typedLaunchpad.GetABI(), launchpad.PrecompileName, launchpadAddress.Hex(), "getPoolCount")
+	require.Equal(t, 0, pools[0].(*big.Int).Sign())
 }
