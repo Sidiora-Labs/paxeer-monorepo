@@ -337710,7 +337710,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.26]
 title = "Give the qualification Python suites a public check that runs them"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 3
 requires = ["22.31.621", "22.31.623", "22.39.173"]
