@@ -210609,7 +210609,7 @@ do_7 = "Attempt 6 (continue, gotcha 3602, decisions 2771, 2820, 2878, 2893 and 2
 
 [task.22.39.40]
 title = "Make the node package tests pass again by repairing the four upgrade activation tests and the standby commit release hang"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.138"]
