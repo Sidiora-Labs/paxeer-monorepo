@@ -35,7 +35,16 @@ for file in tools/paxeer-x/gov/templates/01-software-upgrade.json \
   tools/paxeer-x/gov/README.md tools/paxeer-x/gov/test.sh \
   tools/paxeer-x/sid-snapshot/README.md tools/bringup/sync-fleet.test.sh \
   tools/hpx/publish.sh RELEASE.md contracts/src/SidioraNativeERC20.sol; do
-  grep -Fq 'v6.12.0' "$ROOT/$file" || fail "release name missing in $file"
+  if [ "$file" = tools/hpx/publish.sh ]; then
+    grep -Fq 'VERSION_MANIFEST="${MONOREPO_ROOT}/tools/release/version.json"' "$ROOT/$file" \
+      || fail "release manifest missing in $file"
+    grep -Fq 'PAXD_VERSION="${HPX_PAXD_VERSION:-$(jq -er '\''.version'\'' "$VERSION_MANIFEST")}"' "$ROOT/$file" \
+      || fail "release version does not follow the manifest in $file"
+    jq -e '.version | type == "string" and test("^v[0-9]+\\.[0-9]+\\.[0-9]+$")' \
+      "$ROOT/tools/release/version.json" >/dev/null || fail "invalid published release version"
+  else
+    grep -Fq 'v6.12.0' "$ROOT/$file" || fail "release name missing in $file"
+  fi
   if grep -Eq 'v6[.]11\b' "$ROOT/$file"; then
     fail "retired release name in $file"
   fi
