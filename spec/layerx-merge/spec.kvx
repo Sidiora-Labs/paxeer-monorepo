@@ -183277,7 +183277,7 @@ do_4 = "Attempt 2 (continue after 22.99.77 lands; gotcha 3674, decisions 2900, 2
 
 [task.22.39.167]
 title = "Bring the ai-market guest back under 484184 bytes a second time so the bond and remaining reward operations fit"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["22.39.142", "22.38.5"]
@@ -274605,7 +274605,7 @@ do_5 = "Finding 9.28.1.5: the hosted authority's dependency on the crate is port
 
 [task.9.29.1]
 title = "Retire the kernel activity envelope and signing preimage from layerx-wire"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 41
 requires = ["9.30.1", "9.27.3", "9.27.5", "9.27.6", "9.1.5", "9.2.1", "9.2.2", "9.2.3", "9.2.4", "9.4.1", "9.5.5", "9.5.6", "9.5.7", "9.9.2", "9.9.3", "9.10.1", "9.10.2", "9.18.1", "9.18.2", "9.25.1", "9.25.2", "9.35.1", "9.35.2", "8.7.3", "8.8.4", "8.12.3", "8.19.5", "8.19.6", "8.19.7", "8.20.1", "8.20.2", "10.21.3", "10.21.4", "10.27.5", "10.27.6", "10.27.7", "11.26.4", "12.18.2", "13.4.6", "13.6.5", "13.8.2", "13.30.2", "18.1304.1", "8.4.5", "9.25.16", "13.8.3", "9.35.7", "12.95.2", "9.27.10", "10.21.9", "9.35.13", "8.47.12", "8.51.3", "9.24.9", "8.101.3", "8.101.4", "8.101.5", "22.9.24", "9.35.24", "22.99.160", "22.31.572", "22.31.620"]
