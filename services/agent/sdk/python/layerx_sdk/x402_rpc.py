@@ -234,6 +234,16 @@ class HostedGatewayRpc(_BoundedRpc):
         return decode_receipt_keys(self.call("px_getReceiptKeys", []))
 
 
+class CometRpc(_BoundedRpc):
+    def __init__(self, endpoint: str, headers: Mapping[str, str] | None = None):
+        super().__init__(endpoint, headers, path="/")
+
+    def call(self, method: str, params: list) -> dict | str | None:
+        if method not in ("commit", "validators"):
+            raise ValueError("invalid-comet-method")
+        return super().call(method, params)
+
+
 class PaymentRpc(_BoundedRpc):
     def __init__(self, endpoint: str, headers: Mapping[str, str] | None = None):
         super().__init__(endpoint, headers, path="/")

@@ -1,5 +1,6 @@
 # Exact tracked Python test directory or file | reason. No glob exclusions.
 # Runtime suites in test-python-suites are never excluded here.
+# scripts/ci has no tracked Python tests since 995a25e5af; its stale row was retired.
 apps/launchpad/qualification/account-ui | Launchpad application qualification uses its own release input schemas and application artifacts; the runtime Python job does not build the launchpad workspace.
 apps/launchpad/qualification/mobile | Launchpad application qualification uses its own release input schemas and application artifacts; the runtime Python job does not build the launchpad workspace.
 apps/launchpad/web/src/core/wallet-sdk/test-fixtures | Launchpad application qualification uses its own release input schemas and application artifacts; the runtime Python job does not build the launchpad workspace.
