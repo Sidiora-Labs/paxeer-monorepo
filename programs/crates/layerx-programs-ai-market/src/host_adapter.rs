@@ -58,7 +58,7 @@ mod wasm {
     impl DirectCall {
         #[cfg_attr(target_arch = "wasm32", inline(never))]
         pub fn read_context() -> AdapterResult<Self> {
-            if Context::immediate_caller()?.is_some() {
+            if crate::guest_cell::immediate_caller()?.is_some() {
                 return Err(UNAUTHORIZED.into());
             }
             Ok(Self {

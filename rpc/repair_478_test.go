@@ -51,6 +51,7 @@ type repair478Guest struct {
 	RawBytes       int    `json:"raw_bytes"`
 	OptimizedBytes int    `json:"optimized_bytes"`
 	raw, packaged  []byte
+	modulePath     string
 }
 
 func repair478RawGuest(t *testing.T, revision string) repair478Guest {
@@ -132,23 +133,23 @@ strip = true
 		"PAXAI_CHAIN_DOMAIN=62b6b14734fa769c3e0fbc94de495a3d038be49a2524b1c071d75d0a4eed71f6",
 		"CARGO_ENCODED_RUSTFLAGS=-C\x1ftarget-feature=-reference-types\x1f-C\x1flink-arg=--compress-relocations",
 	}, "cargo", "build", "--release", "--target", "wasm32-unknown-unknown")
-	raw, err := os.ReadFile(filepath.Join(target, "wasm32-unknown-unknown/release/layerx_programs_ai_market.wasm"))
+	modulePath := filepath.Join(target, "wasm32-unknown-unknown/release/layerx_programs_ai_market.wasm")
+	raw, err := os.ReadFile(modulePath)
 	require.NoError(t, err)
 	label := revision
 	if label == "" {
 		label = "working-tree"
 	}
-	return repair478Guest{Revision: label, RawBytes: len(raw), raw: raw}
+	return repair478Guest{Revision: label, RawBytes: len(raw), raw: raw, modulePath: modulePath}
 }
 
 func repair478PackageGuest(t *testing.T, guest repair478Guest) repair478Guest {
 	t.Helper()
 	wasmOpt, err := exec.LookPath("wasm-opt")
 	require.NoError(t, err, "paxai-host-boundary: wasm-opt is required")
-	dir := t.TempDir()
-	rawPath := filepath.Join(dir, "ai_market.wasm")
-	optimizedPath := filepath.Join(dir, "ai_market.optimized.wasm")
-	require.NoError(t, os.WriteFile(rawPath, guest.raw, 0600))
+	dir := filepath.Dir(guest.modulePath)
+	rawPath := guest.modulePath
+	optimizedPath := filepath.Join(dir, "ai_market.packaged.wasm")
 	repair478Command(t, dir, nil, wasmOpt, "-Oz", "--strip-debug", "--strip-producers", rawPath, "-o", optimizedPath)
 	guest.packaged, err = os.ReadFile(optimizedPath)
 	require.NoError(t, err)

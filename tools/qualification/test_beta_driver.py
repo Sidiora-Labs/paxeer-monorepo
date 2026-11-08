@@ -14,6 +14,8 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from threading import Thread
 
+import pytest
+
 from tools.qualification.release_runner import EVIDENCE_SPECS, SCHEMA
 
 
@@ -313,6 +315,7 @@ class BetaDriverTests(unittest.TestCase):
             self.assertIn(f"case {case_id}: failed: ", completed.stdout)
         self.assertIn("case rust/first-payment: failed:", completed.stdout)
 
+    @pytest.mark.native
     def test_multichain_inventory_reports_absent_infrastructure_as_failed(self) -> None:
         gate = "multichain-qualify"
         output = self.work / gate

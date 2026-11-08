@@ -839,6 +839,7 @@ pub fn challenge_window(origin: u64, record: &CanaryCommitment) -> CodecResult<H
             .ok_or(ARITHMETIC)?,
     })
 }
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn apply_challenge_lap(
     ctx: &CallContext,
     envelope: &ValidatedEnvelope<'_>,
@@ -893,6 +894,7 @@ pub fn apply_challenge_lap(
         event,
     )
 }
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn apply_resolve_challenge(
     ctx: &CallContext,
     envelope: &ValidatedEnvelope<'_>,
@@ -998,6 +1000,7 @@ pub fn value_action(
 }
 
 #[cfg(target_arch = "wasm32")]
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn stage_value(
     operation: dispatch::Operation,
     before: &[u8],
