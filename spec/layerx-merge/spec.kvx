@@ -334081,7 +334081,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.112]
 title = "Retarget the .NET SDK, its tests and the C# sample to net10.0"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.39.51"]
