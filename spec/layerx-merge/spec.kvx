@@ -152578,7 +152578,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.145]
 title = "Make the 31 recorded wallet SDK cases follow their producers and retire the wallet suite baseline"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 3
 requires = ["22.39.94"]
