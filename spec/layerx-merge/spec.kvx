@@ -204421,7 +204421,7 @@ do_4 = "Attempt 2 (continue, gotcha 3643, decisions 2325, 2908, 2936 and gotcha 
 
 [task.9.35.22]
 title = "Build the agent daemon test authorizations from the ledger payment call instead of the activity envelope"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 7
 requires = ["9.35.21", "22.99.159", "22.99.160", "22.31.572", "22.31.614", "22.31.620"]
