@@ -182715,7 +182715,7 @@ do_3 = "Attempt 2 (continue, gotcha 3483, decisions 2820 and 2826): the attempt-
 
 [task.22.39.68]
 title = "Move the tracked certificate and key fixtures out of src into test fixture directories"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.140", "22.39.149"]
@@ -334404,7 +334404,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.103]
 title = "Factor the release toolchain block into a local action and run each lane in one workflow"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.39.51"]
