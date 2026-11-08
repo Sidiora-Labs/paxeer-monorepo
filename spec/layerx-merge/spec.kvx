@@ -11176,6 +11176,12 @@ value = "The receipt vector files of sdk/platform/conformance/fixtures are the p
 basis = "Gotcha 3707, decision 2908, gotcha 3046, the record rpc/repair_22_31_491.kvx"
 affects = ["9.27.4", "22.39.176"]
 
+[decision.3011]
+title = "The Go conformance command classifies a receipted case by the three shapes the SDK verifier establishes, and a preexecution refusal is accepted as a failed receipt without a ledger code"
+value = "matchVectorReceipt of sdk/platform/go/cmd/conformance/main.go accepts a receipted case in one of three shapes, following the verification the SDK returns: a case with lxpCode is a receipted revert (status zero, a decoded revert carrying that code); a case without lxpCode whose verification has status zero, no revert, receipt result code one, empty return data and no logs, and whose receipt view carries a non-empty vmError, is a preexecution refusal; every other case without lxpCode is a successful execution (status one, no revert). A failed receipt whose return data, logs or vmError disagree with the refusal shape is refused, the byte and digest checks apply to all three shapes, and the shapes are never widened to accept a case by its description alone. The producer of each shape is the SDK test that asserts it (TestSequencerReceiptPreexecutionRefusal for the refusal), and the command record names it."
+basis = "Gotcha 3708, decision 3010, gotcha 3046, the record rpc/repair_22_31_491.kvx"
+affects = ["22.39.176"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -211349,6 +211355,7 @@ time_limit_minutes = 120
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "Attempt 2 (continue, gotcha 3708, decisions 3010 and 3011): the attempt-1 tree a09f8e4d1a94f847e305dd3b9ba3eb3569e3d67c stands (the count two at line 227, the record). In matchVectorReceipt of sdk/platform/go/cmd/conformance/main.go add the third shape of decision 3011 before the successful-execution branch: when the case carries no lxpCode and the verification has status zero, no revert, receipt result code one, empty return data and no logs, decode the vmError field of the receipt view of the case and accept the case as a preexecution refusal only when that field is non-empty; refuse with a message naming the refusal shape otherwise. The revert branch, the successful-execution branch, the byte and digest checks, the refusal table of the V3 group and the other counts stay unchanged, and no fixture changes. Record the three shapes with the producer each follows (TestSequencerReceiptPreexecutionRefusal of sdk/platform/go/sequencer_receipt_test.go for the refusal) in sdk/platform/go/cmd/conformance/repair_22_39_176.kvx. Run the build once and the verification once at the final revision and record both by reference; if the test still fails, repair the matcher at the site the message names within the one allowed cycle and rerun once."
 
 [task.22.39.170]
 title = "Bring the remaining stages of the launchpad Makefile ci target to green and run them from the public launchpad workflow"

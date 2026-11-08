@@ -36266,3 +36266,11 @@ symbol = "inclusion.rs::proof_evidence_never_reaches_the_committed_rung"
 observed = "Attempt 2 at ec05f76886216ee795457101c6742bd51d11432c: build exit 0; verification exit 101: inclusion, repair_22_31_226 and repair_22_33_1557 passed, repair_22_33_1562 failed one case (terminal_v4 line 99, two cases found where one is asserted); the hosted paxeer target and the grep never ran; log /out/logs/verify-1.log."
 assumption = "The deletion of the task is complete; a stale case count in an included test module is the only failure."
 severity = "high"
+
+[finding.22.39.176.1]
+task = "22.39.176"
+file = "sdk/platform/go/cmd/conformance/vectors_test.go"
+symbol = "vectors_test.go"
+observed = "Attempt 1 at a09f8e4d1a94f847e305dd3b9ba3eb3569e3d67c: build exit 0; verification exit 1: TestConformanceCommandPassesVectorFiles refused V2-pax-transfer-insufficient-funds with the message expected successful execution; log /out/logs/verify-1.log."
+assumption = "The count correction is right; the matcher lacks the refusal shape the SDK verifier already establishes."
+severity = "high"
