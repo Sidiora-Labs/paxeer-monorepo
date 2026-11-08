@@ -10888,6 +10888,18 @@ value = "A page whose prose states that its commands run from a named directory 
 basis = "Gotcha 3664, decisions 2521, 2809 and 2944"
 affects = ["22.39.92"]
 
+[decision.2963]
+title = "The idempotency store of the agent daemon opens on a directory of its own, and a test that enqueues through the outbox gives it one beside the shared root"
+value = "The daemon opens the idempotency store once per tenant under the idempotency root, separate from the shared durable store whose Idempotency kind the outbox pending marker, the human action keys and the session control invocation ids also use, and idempotency::Store::open keeps refusing an object of that kind that does not decode as an idempotency record. A test that enqueues through the outbox and opens the idempotency store gives the idempotency store a canonical private directory of its own beside the shared root, the form the sibling proof case already uses; the gate owner whose targets run such a test corrects its setup in the same attempt with the test file in its touches, and src/idempotency.rs and src/outbox/mod.rs stay as they are."
+basis = "Gotcha 3665, decisions 2908 and 2931, src/human_runtime.rs line 2621"
+affects = ["9.35.22"]
+
+[decision.2964]
+title = "A task whose touches cover a crate directory lists the lockfile of every workspace that resolves the crate among its planned paths"
+value = "When the touches of a task cover a crate directory, and so its manifest, rather than naming the manifest, the record lists the lockfile of every workspace that resolves that crate among its planned paths, as decision 2829 requires for a named manifest, so the refresh that decisions 2513 and 2790 require is never read as a change outside scope. A held result whose only finding is such a lockfile is published once the record is corrected, without a rerun, after the lockfile change is checked to follow the manifest change of the attempt."
+basis = "Gotcha 3666, decisions 2513, 2790 and 2829"
+affects = ["22.39.126"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -153010,7 +153022,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.37.31]
 title = "Run the object-store cases of the source-control live campaign and inventory the inputs of every remaining registry case"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.36.1"]
@@ -183236,7 +183248,7 @@ do_3 = "Decision 2830, gotcha 3488. In crates/layerx-x402/tests/facilitator_evid
 
 [task.22.39.126]
 title = "Bring the gas station, interop gateway, interop service and migrate test suites to green and retire their baseline entries"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.39.74"]
@@ -183249,7 +183261,7 @@ do_3 = "do_3 Remove the entries of these four members from tests/ci/data/interop
 symbols = []
 touches = ["services/interop/crates/layerx-gas-station", "services/interop/crates/layerx-interop-gateway", "services/interop/crates/layerx-interop-service", "services/interop/crates/layerx-migrate", "tests/ci/data/interop_test_baseline.json"]
 tests = []
-planned_paths = ["services/interop/repair_22_39_126.kvx"]
+planned_paths = ["services/interop/repair_22_39_126.kvx", "services/interop/Cargo.lock"]
 build_cmd = "cargo test --locked --manifest-path services/interop/Cargo.toml -p layerx-gas-station -p layerx-interop-gateway -p layerx-interop-service -p layerx-migrate --no-run"
 verify_cmd = "python3 -m pytest -q tests/ci/test_interop_workspace_tests_wired.py && cargo test --locked --manifest-path services/interop/Cargo.toml -p layerx-gas-station -p layerx-interop-gateway -p layerx-interop-service -p layerx-migrate --no-fail-fast"
 gate_kind = "planned"
@@ -204397,6 +204409,7 @@ do_8 = "Attempt 5 (relaunch, gotcha 3652, decisions 2942 and 2946): the attempt-
 do_9 = "Attempt 9 (continue, gotcha 3654, decisions 2908, 2946 and the consumer rule of gotcha 3046): the attempt-8 tree 4a9d044d4868 stands unchanged (the ported preparation tests on the existing ports, both protocol timestamp assertions in milliseconds, the record); the qualification environment installs Foundry from the registry image when the installer fails, as attempt 8 showed. In services/agent/tests/limits/exactly_once.rs read the existing-record path of receipt::store_verified_if_absent in services/agent/crates/layerx-agentd/src/receipt.rs as it stands since the restart-recovery repair of 22.30.91 and correct the assertion at line 1640 in both node_recovery cases to the value the producer defines for a repeated store of the same verified receipt, keeping the assertions that follow (one outbox object id, one inventory entry without evidence, the served canonical receipt) exactly as they stand; no source file changes. If the producer returns a different observation for the same key rather than the existing record, record that as a finding in the task record with the two return values and stop without a repair cycle. Record the correction with its producer in the task record. Run the build once and the verification once at the final revision and record both by reference; if a case still fails, repair it within the one allowed cycle and rerun once."
 do_10 = "Attempt 10 (continue, gotcha 3660, decisions 2908, 2958 and the consumer rule of gotcha 3046): the attempt-9 tree 63ef7855ac5c stands unchanged (the ported preparation tests, the millisecond protocol timestamps, the corrected repeated-store assertion, the record). In services/agent/tests/limits/exactly_once.rs, in both node_recovery cases, replace the two inventory assertions at lines 1649 and 1650 with the bucket the ingress the test uses writes: inventory.with_current_evidence has exactly one record whose idempotency_key equals the hash and whose activity_id equals the activity id of the served receipt, and inventory.with_evidence and inventory.without_evidence are both empty; the producer AuthenticatedTransactionReceipt::store_if_absent, evidence_inventory and every other assertion of the test (the one outbox object id, the served canonical receipt, the served evidence) stay exactly as they stand, and no source file changes. Record the correction with its producer (src/receipt.rs lines 971 to 1007 and 513 to 600, the consumer tests/outbox_recover.rs line 381) in the task record. Run the build once and the verification once at the final revision and record both by reference; if a case still fails, repair it within the one allowed cycle and rerun once."
 do_11 = "Attempt 11 (continue, gotcha 3663, decisions 2908, 2958 and 2961): the attempt-10 tree 3456c981b1be stands (the call-bound preparations in the test files, the support helpers, the exactly-once cases asserting with_current_evidence). In services/agent/crates/layerx-agentd/src/prepare/expiry.rs register_inner records not_after as the earlier of prepared.disclosure.expiry.not_after and prepared.disclosure.expiry.payload_expires_at, the expression the durable preparation record and its restore check in the same file already use; nothing else in the source changes, tests/prepare_expiry.rs keeps its assertions, and the source file is in the touches from this round. Record the alignment with the producer change it follows (9.35.19) in the task record. Run the build once and the verification once at the final revision and record both by reference; if a case still fails, repair it within the one allowed cycle and rerun once."
+do_12 = "Attempt 12 (continue, gotcha 3665, decisions 2908, 2931, 2961 and 2963): the attempt-11 tree 390327c4ad89 stands (the register_inner bound aligned with the durable record, the canonical private test directory, the call-bound preparations, the raw submit helper of the human API, the record). In services/agent/crates/layerx-agentd/tests/proof_agentd.rs the case pending_attempt_recovers_original_hash_height_and_exact_request opens the idempotency store at its three sites (lines 475, 482 and 504) on a second Directory of its own, the form the sibling case prepared_signatures_cross_the_human_api_and_recover_exact_outbox_bytes uses at lines 271 and 321 and the daemon uses with its per-tenant directory under the idempotency root (src/human_runtime.rs line 2621), while the outbox enqueue and the outbox restore keep the first root; no assertion changes, and src/idempotency.rs and src/outbox/mod.rs stay as they are. Record the corrected setup with the producer it follows in the task record. Run the build once and the verification once at the final revision and record both by reference; if a case still fails, repair it within the one allowed cycle and rerun once."
 
 [task.9.35.21]
 title = "Attach external secp256k1 signatures to the prepared call in every Human API submit variant and verify before submission"
@@ -335134,7 +335147,7 @@ do_4 = "Attempt 3 (continue, gotcha 3607, decisions 2856, 2857 and 2901): the at
 
 [task.22.39.119]
 title = "Repair the transport, EVM and program tests of the agent SDK Python suite and retire their baseline entries"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.39.73"]

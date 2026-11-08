@@ -35970,3 +35970,11 @@ symbol = "test_docs_shell_commands_resolve.py"
 observed = "Attempt 2 at 3b492a1345: build exit 0; verification exit 1 twice, the final run 8 passed and 2 failed (test_doc_package_scripts_exist on the rpc tests page scripts, test_doc_public_rpc_hosts_use_root_path on the comma-joined explorer endpoint value); log /out/logs/verify-2.log."
 assumption = "Both remaining failures are guard-side resolution gaps; the documented commands and endpoints are correct."
 severity = "high"
+
+[finding.9.35.22.6]
+task = "9.35.22"
+file = "services/agent/crates/layerx-agentd/tests/w7_owner_binding.rs::a_foreign_key_signature_over_the_owner_preimage_is_refused"
+symbol = "w7_owner_binding.rs::a_foreign_key_signature_over_the_owner_preimage_is_refused"
+observed = "Attempt 11 at 390327c4ad89: build exit 0; verification exit 1 twice, the final run passing every target except proof_agentd, where pending_attempt_recovers_original_hash_height_and_exact_request panicked with Corrupt when the idempotency store opened on the root the outbox had written; log /out/logs/verify-2.log."
+assumption = "The expiry alignment and the directory repair of attempt 11 are complete; the shared root of the ported case is the only failure."
+severity = "high"
