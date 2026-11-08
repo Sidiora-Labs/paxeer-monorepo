@@ -36042,3 +36042,11 @@ symbol = "test_launchpad_go_tests_wired.py"
 observed = "Attempt 11 at 240a6b6d5fa9: build exit 1 at go vet in services/launchpad/api (updates to go.mod needed after the notifications module raised its directive to 1.27.0); the verification never ran; log /out/logs/build-1.log."
 assumption = "The api manifest is the only module blocker left; the port helper and the module repairs of the attempt are complete."
 severity = "high"
+
+[finding.9.35.24.2]
+task = "9.35.24"
+file = "services/agent/crates/layerx-agentd/tests/prepare.rs"
+symbol = "prepare.rs"
+observed = "Attempt 2 at 95fa8138cbb6 (build revision 5186826b1866): build exit 0 without repair; the cross-root dependents check exit 101 at two test targets outside the crate (the SDK test repair_22_31_547 and the human intents compile test import the removed core preparation names); the verification never ran; logs /out/logs/build-1.log and /out/logs/dependents-1.log."
+assumption = "The in-crate migration is complete; only the two out-of-crate test targets stand between the attempt and its verification."
+severity = "high"
