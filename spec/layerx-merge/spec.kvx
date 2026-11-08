@@ -11038,6 +11038,12 @@ value = "The read_account cases of tests/history_served_contract.rs expect, for 
 basis = "Gotcha 3687, gotcha 3046, decisions 2908 and 2931, the record of 22.31.218"
 affects = ["22.39.172", "22.39.171"]
 
+[decision.2988]
+title = "Every history fixture of the agent daemon tests serves the hosted page envelope the client decoder requires"
+value = "A test that serves px_getHistory to HistoryPage::read_account or read_newest answers with the envelope the hosted page decoder of layerx-client accepts: account (the requested account), items, next_cursor, indexedHeight, chainHeight and freshness, taking the freshness value from the result of apps/web/e2e/fixtures/px-get-unified-history.json as the own test of 22.33.1521 does, and the chain height at or above the indexed height. The page helper of tests/history_served_contract.rs and the local node fixture of tests/repair_22_31_218.rs follow it; every page, cursor, bound, grouping and refusal assertion of the cases stays as it is, and the decoder and the client stay unchanged. The task whose gate runs the targets owns the fixture update in the same attempt and uses its repair cycle for an envelope refusal instead of stopping."
+basis = "Gotcha 3688, gotcha 3046, decisions 2908 and 2987, the record of 22.33.1521"
+affects = ["22.39.172"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -174530,7 +174536,7 @@ do_7 = "Attempt 5 (continue, gotcha 3560, decisions 2771, 2859, 2862 and 2867): 
 
 [task.22.31.623]
 title = "Settle the two hundred and sixty-seven qualification suite failures against the live rules"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.31.621", "22.39.161"]
@@ -182986,7 +182992,7 @@ do_2 = "do_2 In tests/history_served_contract.rs change the expected params of e
 do_3 = "do_3 In tests/repair_22_33_1506.rs keep the store root at mode 0700 and create a sibling directory under the temporary directory, world-accessible, for the receiver sockets of the cross-UID case, removed with the store root on drop; the receiver process, the identity assertions, the frame exchange and the engine assertions stay unchanged, and the other cases of the target keep their setup."
 do_4 = "do_4 Record the two updates with the producers they follow (the record of 22.31.218 for the exclusive cursor, the protected root check of 22.30.91) and the failing names by target before and after in src/read/repair_22_39_172.kvx. Run the build once and the verification once at the final revision and record both by reference; if a case still fails, repair it within the one allowed cycle and rerun once."
 symbols = []
-touches = ["services/agent/crates/layerx-agentd/tests/history_served_contract.rs", "services/agent/crates/layerx-agentd/tests/repair_22_33_1506.rs"]
+touches = ["services/agent/crates/layerx-agentd/tests/history_served_contract.rs", "services/agent/crates/layerx-agentd/tests/repair_22_33_1506.rs", "services/agent/crates/layerx-agentd/tests/repair_22_31_218.rs"]
 tests = ["services/agent/crates/layerx-agentd/tests/history_served_contract.rs", "services/agent/crates/layerx-agentd/tests/repair_22_33_1506.rs"]
 planned_paths = ["services/agent/crates/layerx-agentd/src/read/repair_22_39_172.kvx"]
 build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --tests"
@@ -183002,6 +183008,7 @@ time_limit_minutes = 180
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_5 = "Attempt 2 (continue, gotcha 3688, decisions 2900, 2987 and 2988): the attempt-1 tree 4a9a0751ef1b stands (the exclusive first-page cursors, the receiver sockets of the cross-UID case in a sibling directory, the record). Update the page helper of tests/history_served_contract.rs (line 86) to serve the hosted envelope of decision 2988: account equal to the requested account, items, next_cursor, indexedHeight, chainHeight at or above the indexed height and freshness read from the result of apps/web/e2e/fixtures/px-get-unified-history.json as tests/repair_22_33_1521.rs (line 128) reads it; the case that preserves a null indexed height keeps it null with the other fields present. Update the px_getHistory arm of the local node fixture of tests/repair_22_31_218.rs (line 633) to the same envelope with the account the route requests, and add that test file to the touches from this round; every page, cursor, bound, grouping and refusal assertion stays as it is, and src/read and layerx-client stay unchanged. Record the envelope with the producers it follows (the decoder of layerx-client, the account check of 22.33.1521) in the repair record. Keep the decision 2900 record of failing names by target before and after. Run the build once and the verification once at the final revision and record both by reference; if a case still fails, repair it within the one allowed cycle and rerun once."
 
 [task.22.39.171]
 title = "Anchor the cursors of local-only daemon events to the chain position so one subscription stream stays strictly increasing across approval events and recovered logs"

@@ -601,8 +601,8 @@ impl Surface {
         &mut self,
         context: &OperatorContext,
         request: PrepareRequest,
+        idempotency_key: [u8; 32],
     ) -> Result<ClientWritePlan, AdminError> {
-        let idempotency_key = request.idempotency_key.bytes();
         let route = self.dispatch(context, OperatorCommand::SubmitActivity(idempotency_key))?;
         if route != ActionPlan::OrdinaryClientWrite(ORDINARY_CLIENT_WRITE) {
             return Err(AdminError::RouteInvariant);

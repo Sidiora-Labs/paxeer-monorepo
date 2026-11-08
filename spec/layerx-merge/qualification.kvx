@@ -36130,3 +36130,11 @@ symbol = "approval_events.rs"
 observed = "Attempt 1 at af91dcafa5a4 (base 996b8669da): build exit 0 twice; verification exit 1 twice (test exit 101): approval_events and the six new cases passed with delivery, gaps, history_block_cursor, subscription_ops_cursor, w7_subscription_permit and repair_22_31_215, while subscription (line 360), subscription_cursor_v3 (line 205), history_served_contract (eight read_account cases) and repair_22_33_1506 (the cross-UID case, line 750) failed on cases the attempt did not change; log /out/logs/verify-2.log."
 assumption = "The departure from decision 2984 answered an order the ingestor never admits, and the four other failures are consumer tests behind producers that changed after their last gate."
 severity = "high"
+
+[finding.22.39.172.1]
+task = "22.39.172"
+file = "services/agent/crates/layerx-agentd/tests/history_served_contract.rs"
+symbol = "history_served_contract.rs"
+observed = "Attempt 1 at 4a9a0751ef1b (base 6eeea3b075): build exit 0; verification exit 1 (test exit 101): repair_22_33_1506 and repair_22_33_1521 passed, seven read_account cases of history_served_contract failed with Sequencer(Malformed), and the reverse window case of repair_22_31_218 failed at line 976 with Connection(Malformed); no repair cycle used; log /out/logs/verify-1.log."
+assumption = "The cursor update of the attempt is right and the envelope of the two fixtures is the remaining producer mismatch."
+severity = "high"

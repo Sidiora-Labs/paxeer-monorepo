@@ -3258,17 +3258,6 @@ mod tests {
         let _ = std::fs::remove_dir_all(root);
     }
 
-    struct RecordedCore(crate::prepare::CorePreparationState);
-
-    impl crate::prepare::CorePreparationBoundary for RecordedCore {
-        fn preparation_state(
-            &mut self,
-            _actor: &Did,
-        ) -> Result<crate::prepare::CorePreparationState, crate::prepare::CoreStateError> {
-            Ok(self.0.clone())
-        }
-    }
-
     fn activity_type() -> layerx_types::payload::ActivityType {
         must(layerx_types::payload::ActivityType::new(
             layerx_types::payload::ModuleId::Asset,

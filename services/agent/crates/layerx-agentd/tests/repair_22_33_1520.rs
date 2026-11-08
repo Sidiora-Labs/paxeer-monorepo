@@ -632,8 +632,6 @@ fn execution_state_uses_receipt_prestate_and_authenticated_account_status() {
             &native.call.encode_unsigned(),
             native.from,
             native.observed_head_height,
-            case.did(),
-            &registry,
         )
         .unwrap();
         native_capture::execute(&case);
@@ -724,8 +722,6 @@ fn fee_preferences_reach_preparation_and_reservation_at_historical_height() {
             &native.call.encode_unsigned(),
             native.from,
             native.observed_head_height,
-            case.did(),
-            &registry,
         )
         .unwrap();
         let signing = SigningPreparation {
