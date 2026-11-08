@@ -300,16 +300,6 @@
     "retiring_task": "22.39.160"
   },
   {
-    "nodeid": "tools/docs/gen/test_gen_system_docs.py::test_precompiles_lists_nested_abi_dirs",
-    "reason": "The preserved precompiles document differs from the generated header and ABI documentation the test expects.",
-    "retiring_task": "22.39.159"
-  },
-  {
-    "nodeid": "tools/docs/gen/test_gen_system_docs_abis.py::test_generator_lists_nested_and_embedded_abis",
-    "reason": "The system documentation generator exits one when invoked against the isolated output directory.",
-    "retiring_task": "22.39.159"
-  },
-  {
     "nodeid": "tools/jev/tests/test_deps.py::DependencyScanTests::test_captured_anchors_resolve_to_the_real_lockfile_crate_lines",
     "reason": "The captured dependency anchors for paste or rustls point at stale Cargo.lock lines rather than the named crate declarations.",
     "retiring_task": "22.39.156"
