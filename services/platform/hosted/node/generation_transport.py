@@ -245,7 +245,11 @@ class Broker:
             if metadata.st_uid != os.geteuid() or metadata.st_mode & 0o002:
                 raise StoreError('unsafe_run_directory')
             with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as listener:
-                listener.bind(path)
+                previous_umask = os.umask(0o117)
+                try:
+                    listener.bind(path)
+                finally:
+                    os.umask(previous_umask)
                 os.chown(path, os.geteuid(), self.allowed_gid)
                 os.chmod(path, 0o660)
                 listener.listen(16)

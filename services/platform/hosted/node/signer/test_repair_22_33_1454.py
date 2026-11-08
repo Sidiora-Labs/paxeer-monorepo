@@ -63,10 +63,10 @@ def command_backend(tmp_path, timeout=0.8):
 
 
 @contextmanager
-def serving(tmp_path, backend, timeout=3, maximum=3, policy=None):
+def serving(tmp_path, backend, timeout=3, maximum=3, policy=None, clock=time.monotonic):
     signer = Signer(backend, [os.geteuid()], policy)
     path = str(tmp_path / 'signer.sock')
-    server = Server(path, Handler, max_active_requests=maximum, request_timeout=timeout)
+    server = Server(path, Handler, max_active_requests=maximum, request_timeout=timeout, clock=clock)
     server.signer = signer
     thread = threading.Thread(target=server.serve_forever, kwargs={'poll_interval': 0.01})
     thread.start()
@@ -209,28 +209,44 @@ def test_signer_deadline_covers_read_and_lock_wait(tmp_path, file_backend):
 
 
 def test_signer_deadline_spans_provider_operations(tmp_path):
+    clock_path = tmp_path / 'operation-clock'
+    clock_path.write_text('100.0')
+
+    def clock():
+        return float(clock_path.read_text())
+
     with command_backend(tmp_path, timeout=3) as (backend, state):
-        with serving(tmp_path, backend, timeout=0.9) as (server, client):
-            configure(state, **{'public-key_delay': 0.45, 'sign_delay': 0.6})
-            started = time.monotonic()
+        with serving(tmp_path, backend, timeout=0.9, clock=clock) as (server, client):
+            previous = calls(state)
+            configure(state, clock=str(clock_path), **{'public-key_delay': 0.45, 'sign_delay': 0.6})
+            started = clock()
             with pytest.raises(SignerError, match='busy'):
                 client.sign(DIGEST)
-            assert time.monotonic() - started < 1.2
+            assert clock() - started == pytest.approx(1.05)
+            assert 0.9 < clock() - started < 1.2
+            assert [operation for _, operation in calls(state)[len(previous):]] == ['public-key', 'sign']
             assert any(operation == 'sign' for _, operation in calls(state))
             wait_until(lambda: not server.deadlines)
             assert_reaped(state)
-            configure(state)
+            configure(state, clock=str(clock_path))
             assert verify(client.public_key(), DIGEST, client.sign(DIGEST))
+            assert clock() - started == pytest.approx(1.05)
 
 
 def test_signer_binding_deadline_and_signature_checks(tmp_path):
+    clock_path = tmp_path / 'operation-clock'
+    clock_path.write_text('100.0')
+
+    def clock():
+        return float(clock_path.read_text())
+
     policy_path = tmp_path / 'policy.json'
     policy_path.write_text(json.dumps({'version': 1, 'network_id': 125,
                                        'asset_id': '11' * 32, 'recipient': '22' * 20}))
     policy_path.chmod(0o600)
     policy = BindingPolicy(str(policy_path))
     with command_backend(tmp_path) as (backend, state):
-        with serving(tmp_path, backend, timeout=0.7, policy=policy) as (server, client):
+        with serving(tmp_path, backend, timeout=0.7, policy=policy, clock=clock) as (server, client):
             signer = server.signer
             arguments = (125, signer._binding_account, bytes.fromhex('11' * 32),
                          bytes.fromhex('22' * 20), bytes([3]) * 32)
@@ -241,15 +257,16 @@ def test_signer_binding_deadline_and_signature_checks(tmp_path):
             finally:
                 signer._lock.release()
             wait_until(lambda: not server.deadlines)
-            configure(state, bind='bad-signature')
+            configure(state, clock=str(clock_path), bind='bad-signature')
             with pytest.raises(SignerError, match='binding_refused'):
                 client.bind(*arguments)
-            configure(state)
+            configure(state, clock=str(clock_path))
             signature = client.bind(*arguments)
             binding = arguments[0].to_bytes(4, 'big') + b''.join(arguments[1:])
             assert verify_binding(signer.public_key, binding, signature)
             with pytest.raises(SignerError, match='binding_refused'):
                 client.bind(126, *arguments[1:])
+            assert clock() == 100.0
 
 
 def test_signer_slow_reader_releases_capacity(tmp_path, file_backend):

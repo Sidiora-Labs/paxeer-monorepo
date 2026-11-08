@@ -1,0 +1,79 @@
+[task]
+id = "22.39.155"
+acceptance = "22998.1"
+base_revision = "63b5b8c00d2be3a7cd6c722fb2c92b1a7326c9fa"
+decisions = ["2857", "2820", "2906", "2910"]
+gotchas = ["3595", "3617", "3625"]
+
+[repair.replication_tls]
+producer = "node/sequencer/dial.go:28 TLSConfig requires certificate, key, roots, DNS peer identity and SHA-256 SPKI pin; DialStandby at line 75 authenticates the primary connection"
+fixture_producer = "node/sequencer/replication_tls_test.go:24 Repair103TLSFixture issues CA-signed Ed25519 certificates with client/server EKUs and cross-pinned peer identities"
+helper = "node/standby_recorder_replication_test.go:replicationTLSFixture supplies the equivalent real certificates in package app_test; another package's test-only helper cannot be imported"
+rpc = "TestEVMServerServesSequencerReceiptOption serves its real standby through a TLS listener from standbyTLS.TLSConfig(true), and the replicator dials with primaryTLS; receipt, replay, balances, nonces and WAL equality assertions remain"
+recorder = "TestStandbyReplicatesRecorderGroupsThroughOpenAccount passes standbyTLS in Config.ReplicationTLS and primaryTLS to DialStandby, including the reconnect; every recorded execution, commit identity, account and stale-lease refusal assertion remains"
+
+[repair.module_versions]
+test = "TestV640ToV66UpgradeServesTheExchangeBridgeAndLaunchpadPrecompiles"
+assertion = "After the production v6.6 plan, require each active module entry and its exact declared version; preserve the pre-plan NotContains loop for all five stores"
+layerxcustody = "2 follows modules/layerxcustody/module.go:122 AppModule.ConsensusVersion"
+layerxanchor = "No version-map entry follows node/upgrades.go:769 activationModulesPresent skipping anchor and node/app.go:1314 registering only its services; node/app.go:1169 constructs the module manager without anchor, so sdk/types/module/module.go:683 RunMigrations does not initialise or version it"
+layerxexchange = "1 follows modules/layerxexchange/module.go:117 AppModule.ConsensusVersion"
+layerxbridge = "1 follows modules/layerxbridge/module.go:122 AppModule.ConsensusVersion"
+launchpad = "1 follows modules/launchpad/module.go:136 AppModule.ConsensusVersion"
+
+[repair.baseline]
+change = "Remove the three repaired tests from tests/ci/data/node_go_test_baseline.json and from .github/workflows/node-build.yml's skip pattern; recursive node coverage, timeout and count remain. The current base has also retired the three 22.39.116 entries, so preserve its empty baseline and full command without a skip pattern"
+
+[repair.workflow_test_inventory]
+file = "tests/ci/test_node_build_workflow_scope.py:node_test_command"
+correction = "Preserve the current empty inventory following tests/ci/data/node_go_test_baseline.json:4 and the full suite command in .github/workflows/node-build.yml:118; the current base already retired 22.39.116. Keep the exact empty baseline, absence of -skip, full package command, timeout and count assertions rather than restoring stale seed exclusions"
+
+[repair.served_venue]
+test = "TestV640ToV66UpgradeServesTheExchangeBridgeAndLaunchpadPrecompiles"
+producer = "node/app.go:4098 v6120Contracts constructs perps and node/app.go:4125 pairs it with the historical exchange at the exchange address; precompiles/perps/perps.go:25 declares that address as 0x1015"
+abi_selection = "node/repair_m1142_test.go:85 selects totalMarkets for ordinary execution, and lines 92-115 obtain GetABI from the contract in EvmKeeper.CustomPrecompiles(ctx)"
+assertion = "Require the served 0x1015 contract and its address, call totalMarkets through its selected ABI via StaticCallEVM, and assert the returned uint256 market count is exactly zero; replace the stale exchange intentNonce call without changing bridge assertions; the launchpad assertion is corrected below after qualification exposed its historical ABI mismatch"
+
+[evidence.build]
+command = "go vet ./node/"
+reference = "/out/run/gates.jsonl: final kind=build row supplies revision, command, exit and private log"
+
+[evidence.verify]
+command = "cg spec done 22.39.155 -f layerx-merge --root /work/paxeer-monorepo"
+reference = "/out/run/gates.jsonl: final kind=verify row supplies verified revision, command, exit and private log"
+qualification = "Only hf-done passing after hf-build on the identical candidate revision establishes qualification; this record makes no independent success claim"
+
+[qualification.first]
+revision = "880ac81a49988c8cd4ac800c15737656c16501b6"
+command = "cg spec done 22.39.155 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Both replication tests passed; the v6.6 test reached the anchor version assertion, whose expected 1 was absent from the migration result"
+
+[repair.module_lifecycle]
+producer = "node/app.go:1169 builds the module manager without anchor; node/app.go:1314 retains only its retirement-gated service registration"
+correction = "Restore package app_test and app.NewTestWrapper calls; use the production module inventory and assert the anchor version remains absent after the plan, without reconstructing retired module membership or checking private migration order"
+
+[finding.verify_command]
+task = "22.39.155"
+file = "spec/layerx-merge/spec.kvx"
+symbol = "task.22.39.155.verify_cmd"
+observed = "At revision 9ba039e018524de4542a077b8e15ba28c78dc6c9, cg spec done 22.39.155 -f layerx-merge --root /work/paxeer-monorepo exited 1 (private log /out/logs/verify-1.log): three Python CI checks passed, but the unquoted -run regex was interpreted as shell pipelines, so the verification shell exited 127 before any declared Go test executed."
+assumption = "The gate owner must quote the Go -run regex in the declared verification command before qualification can execute the three node tests; spec edits are outside this task's allowed scope."
+resolution = "The task owner corrected the declared verify_cmd to one quoted, anchored alternation before this continuation; hf-done now invokes that corrected command. Preserve the historical failure above without treating it as current gate evidence."
+severity = "note"
+
+[repair.seed_conflicts]
+observed = "The seed conflicted with the current workflow, empty baseline and scope test because the current base had already retired task 22.39.116; preserve the current side in all three files and retain the seeded TLS and upgrade repairs."
+
+[qualification.continuation]
+revision = "caab9fc819be79e611455e6b3b06863ed6117c5c"
+command = "cg spec done 22.39.155 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "The three Python checks and both replication tests passed; the upgrade test reached the launchpad view, where historical getMarketCount reverted against the current served contract"
+
+[repair.served_launchpad]
+producer = "modules/evm/keeper/keeper.go:258-265 selects the latest eligible contract during ordinary execution; node/app.go:4108 constructs generation 2 launchpad and node/app.go:4126 pairs it first at 0x1017"
+method_producer = "precompiles/launchpad/views.go:420-425 serves getPoolCount as the uint256 registry count; node/repair_m1142_test.go:74 and 78-84 likewise expect getPoolCount during ordinary execution and reserve getMarketCount for tracing"
+assertion = "Require the served 0x1017 contract and its exact address, pack getPoolCount using its own ABI, execute through StaticCallEVM, and require the returned uint256 pool count to be exactly zero; this replaces the stale legacy ABI call while preserving a successful view and exact zero inventory assertion"
