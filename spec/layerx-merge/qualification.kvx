@@ -35722,3 +35722,11 @@ symbol = "test_repair_22_33_886.py"
 observed = "Attempt 4 at 3468ec6ceca2: build exit 0; verification exit 2: the five runner cases passed, make test-python-suites recorded 289 passed and 1 failed at tests/integration/scripts/test_repair_22_33_758.py line 245 asserting Z and reading R."
 assumption = "The case races the kernel teardown and passes with a bounded wait; nothing else in the suite is affected."
 severity = "high"
+
+[finding.22.99.77.30]
+task = "22.99.77"
+file = "programs/crates/layerx-programs-ai-market"
+symbol = "layerx-programs-ai-market"
+observed = "Attempt 28 at d4a3a88fab8f, cecd8f3607ca and ffd215bdea94: build exit 1 three times at rpc/repair_478_test.go line 127, raw guest 536740, 537201 and 536580 bytes against 524184; verification not run."
+assumption = "The optimised artifact of the attempt tree at the merged base fits the bound as the 22.38.6 gate and the attempt-27 record indicate."
+severity = "high"
