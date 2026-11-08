@@ -35842,3 +35842,11 @@ symbol = "f11_views.rs"
 observed = "Attempt 1 at 35bc97a9686d (base d996be5f0c2c): build exit 1 at acc558b80f88 (a borrowed administration state moved, repaired), then exit 0; verification exit 1 at the size test, 505461 bytes against 484184, after two repair cycles that saved 250 bytes; the five f11 targets never ran; record src/repair_22_39_167.kvx of the attempt tree, logs /out/logs/verify-1.log and /out/logs/22.39.167-size.json."
 assumption = "The metrics table points at the routing transition, which the attempt never touched; the measurement runs were withheld on a wrong reading of the gate bound."
 severity = "high"
+
+[finding.22.39.75.8]
+task = "22.39.75"
+file = "tests/ci/test_launchpad_go_tests_wired.py"
+symbol = "test_launchpad_go_tests_wired.py"
+observed = "Attempt 8 at 9621d9237eec (base d996be5f0c2c): build exit 0 twice; verification exit 2 twice, the wiring tests, both SDK modules and the api module passing and the indexer module failing the same eighteen cases on PostgreSQL 18 and on postgres 16; the thirteen later modules never ran; logs /out/logs/verify-1.log and /out/logs/verify-2.log."
+assumption = "The eighteen cases belong to the indexer module the retiring task owns; the job wiring of this task is complete."
+severity = "high"
