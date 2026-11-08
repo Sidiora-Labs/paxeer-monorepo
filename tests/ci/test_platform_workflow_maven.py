@@ -12,7 +12,11 @@ def test_platform_job_installs_maven_before_mvn():
     workflow = yaml.safe_load(
         (ROOT / ".github/workflows/platform.yml").read_text(encoding="utf-8")
     )
-    steps = workflow["jobs"]["build-lint-test"]["steps"]
+    job = workflow["jobs"]["build-lint-test"]
+    # The release workflow calls must preserve the primary job's Maven setup.
+    assert "uses" not in job
+    assert "if" not in job
+    steps = job["steps"]
     updates = []
     installs = []
     versions = []

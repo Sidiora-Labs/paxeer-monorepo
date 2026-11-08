@@ -29,6 +29,7 @@ RETAINED = (
     "vector-v2-receipted-revert.json",
     "vector-v3-receipt-refusals.json",
 )
+RETAINED_SOURCE = "sdk/platform/conformance/fixtures/sequencer-receipt-v1.json"
 
 
 def load(path, root=ROOT):
@@ -196,6 +197,18 @@ def explorer_cases(source, sdk, negative):
     return [case, below, mismatch], [unrelated]
 
 
+def refresh_explorer_copy(root=ROOT):
+    source_bytes = (root / SOURCE).read_bytes()
+    source = json.loads(source_bytes)
+    converter = runpy.run_path(str(root / CONVERTER))
+    sdk = converter["_committed"](source)
+    document = load(EXPLORER, root)
+    document["source"]["positive"] = SOURCE
+    document["source"]["sha256"] = sha256(source_bytes).hexdigest()
+    document["cases"], document["refusals"] = explorer_cases(source, sdk, load(COMET, root))
+    (root / EXPLORER).write_text(json.dumps(document, indent=2) + "\n", encoding="utf-8")
+
+
 def compare_settlements(vectors, source, sdk, root):
     receipt = source["settlement"]["receipt"]
     log = receipt["logs"][0]
@@ -210,7 +223,7 @@ def compare_settlements(vectors, source, sdk, root):
                          "receiptDigest": sdk["receiptDigest"], "verificationLevel": "committed",
                          "blockNumber": receipt["blockNumber"], "blockHash": receipt["blockHash"]}}},
     }
-    retained = load("daemon/committed-fixture/vectors/" + RETAINED[0], root)
+    retained = load(RETAINED_SOURCE, root)
     payment = next(case for case in retained["cases"] if case["id"] == "V1-layerxledger-pay-exact")
     receipted = {
         "name": "receipted_settlement", "valid": True,
@@ -233,30 +246,23 @@ def compare_settlements(vectors, source, sdk, root):
 
 
 def compare_retained(root):
+    recorded = load(RETAINED_SOURCE, root)
+    compare(recorded["chainId"], 125, RETAINED_SOURCE + ":chainId")
+    compare(recorded["provenance"]["generator"], "rpc/sequencer_receipt_vectors_test.go",
+            RETAINED_SOURCE + ":generator")
     count = 0
-    for name in RETAINED:
+    for name, group, size in zip(RETAINED, ("V1", "V2", "V3"), (5, 2, 6)):
         path = "sdk/platform/conformance/fixtures/" + name
         copied = load(path, root)
-        recorded = load("daemon/committed-fixture/vectors/" + name, root)
-        if name == RETAINED[0]:
-            compare(copied["cases"], recorded["cases"], path)
-        elif name == RETAINED[1]:
-            require(len(copied["cases"]) == 1, path, "missing reverted receipt")
-            case = copied["cases"][0]
-            for field in ("rawTransaction", "receiptJson", "lxpCode"):
-                compare(case[field], recorded[field], path + ":" + field)
-            compare(case["signedReceipt"], recorded["receiptJson"]["receipt"], path + ":signedReceipt")
-        else:
+        expected = [case for case in recorded["cases"] if case["vector"] == group]
+        require(len(expected) == size, RETAINED_SOURCE, f"{group} coverage differs")
+        if group == "V3":
             ids = ["V3-key-not-pinned", "V3-height-outside-key-range", "V3-activity-id-not-raw-hash",
                    "V3-seq-hash-mismatch", "V3-tampered-log", "V3-non-canonical-bytes"]
-            compare([case["id"] for case in copied["cases"]], ids, path + ":refusal coverage")
-            require(len(recorded["cases"]) == len(ids), path, "recorded refusal coverage differs")
-            for case, original, rung in zip(copied["cases"], recorded["cases"], ("R3", "R3", "R4", "R6", "R5", "R2")):
-                location = path + ":" + case["id"]
-                compare(case["receiptJson"], original["receiptJson"], location)
-                compare(case["signedReceipt"], original["receiptJson"]["receipt"], location + ".signedReceipt")
-                compare(case["rawTransaction"], recorded["rawTransaction"], location + ".rawTransaction")
-                compare(case["expected"]["refusedAt"], rung, location + ".expected.refusedAt")
+            compare([case["id"] for case in expected], ids, RETAINED_SOURCE + ":refusal coverage")
+            compare([case["expected"]["refusedAt"] for case in expected],
+                    ["R3", "R3", "R4", "R6", "R5", "R2"], RETAINED_SOURCE + ":refusedAt")
+        compare(copied["cases"], expected, path + ":cases")
         count += len(copied["cases"])
     return count
 

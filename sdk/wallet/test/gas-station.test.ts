@@ -1,4 +1,9 @@
-import { nodeVector, receiptWireKeys } from './support/receipt-recordings.js';
+import {
+  authenticatedReceipt,
+  nodeVector,
+  receiptRecording,
+  receiptWireKeys,
+} from './support/receipt-recordings.js';
 import { readFileSync } from 'node:fs';
 import { createServer } from 'node:http';
 import type { AddressInfo } from 'node:net';
@@ -220,6 +225,21 @@ async function gas_station_status_evidence_carries_the_matching_sequencer_receip
         response.end(JSON.stringify({ jsonrpc: '2.0', id: rpc.id, result: receipt }));
         return;
       }
+      if (rpc.method === 'eth_getRawTransactionByHash') {
+        const original = [
+          recorded.committed,
+          recorded.receipted,
+          nodeVector('V2-layerxledger-revert').receiptJson,
+        ].find((answer) => answer.txHash === rpc.params[0])!;
+        response.end(
+          JSON.stringify({
+            jsonrpc: '2.0',
+            id: rpc.id,
+            result: receiptRecording(original).rawTransaction,
+          })
+        );
+        return;
+      }
       if (rpc.method === 'px_getReceiptKeys') {
         const original = [
           recorded.committed,
@@ -356,7 +376,10 @@ async function gas_station_status_evidence_carries_the_matching_sequencer_receip
         });
       } else {
         const evidence = await result;
-        expect(evidence).toEqual({ ...report, receipt: terminal ? receipt : null });
+        expect(evidence).toEqual({
+          ...report,
+          receipt: terminal && receipt ? authenticatedReceipt(receipt) : null,
+        });
         expect(Object.isFrozen(evidence)).toBe(true);
       }
       expect(stored.get(pendingKey)).toBe(
@@ -368,16 +391,21 @@ async function gas_station_status_evidence_carries_the_matching_sequencer_receip
         body: { account, sponsor, quoteNonce: '7', relayerSignature },
       });
       if (terminal && !scenario.nullHash) {
-        const keyReads =
+        const authenticationReads =
           receipt !== null && receipt.rung !== 'submitted'
             ? scenario.error === 'authentication' || scenario.error === 'hash'
-              ? 1
-              : 2
-            : 0;
-        expect(requests).toHaveLength(2 + keyReads);
+              ? ['px_getReceiptKeys']
+              : [
+                  'px_getReceiptKeys',
+                  'eth_getRawTransactionByHash',
+                  'px_getReceiptKeys',
+                  'eth_getRawTransactionByHash',
+                ]
+            : [];
+        expect(requests).toHaveLength(2 + authenticationReads.length);
         expect(
           requests.slice(2).map((request) => (request.body as { method: string }).method)
-        ).toEqual(Array(keyReads).fill('px_getReceiptKeys'));
+        ).toEqual(authenticationReads);
         expect(requests[1]).toMatchObject({
           path: '/rpc',
           body: { jsonrpc: '2.0', method: 'pax_sequencerReceipt', params: [terminalHash] },

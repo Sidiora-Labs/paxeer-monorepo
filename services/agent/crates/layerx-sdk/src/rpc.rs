@@ -1729,13 +1729,30 @@ mod tests {
             .unwrap_or_else(|| panic!("gateway does not publish {REGISTER_METHOD}"));
         assert!(!methods.iter().any(|entry| entry["name"] == "lx_register"));
         assert_eq!(served["paramStructure"], "by-position");
-        let names: Vec<&str> = served["params"]
+        let params = served["params"]
             .as_array()
-            .unwrap_or_else(|| panic!("{REGISTER_METHOD} lists no params"))
+            .unwrap_or_else(|| panic!("{REGISTER_METHOD} lists no params"));
+        let names: Vec<&str> = params
             .iter()
-            .filter_map(|param| param["name"].as_str())
+            .map(|param| param["name"].as_str().expect("published parameter name"))
             .collect();
-        assert_eq!(names, ["signer_public_key", "registration_signature"]);
+        assert_eq!(
+            names,
+            [
+                "signer_public_key",
+                "registration_signature",
+                "email_or_verification_token"
+            ]
+        );
+        let required: Vec<bool> = params
+            .iter()
+            .map(|param| {
+                param["required"]
+                    .as_bool()
+                    .expect("published required flag")
+            })
+            .collect();
+        assert_eq!(required, [true, true, false]);
     }
 
     #[test]

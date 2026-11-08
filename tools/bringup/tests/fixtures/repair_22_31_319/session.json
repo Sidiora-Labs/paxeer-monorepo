@@ -156,9 +156,10 @@
         "BatchMode=yes",
         "--",
         "kernel.bringup.test",
-        "'tls={TLS_DIR}/human-event-client' app=internal-kms group=kms limit=10 url=https://internal-kms.railway.internal:9443/readyz 'connect=internal-kms.railway.internal:9443:{PRIVATE_TARGET}' sh -c 'for group in \"$group\"; do\n\tstatus=0\n\tanswer=$(curl -sS -m \"$limit\" --cacert \"$tls/ca.pem\" --cert \"$tls/cert.pem\" --key \"$tls/key.pem\" -w \"\\n%{http_code}\" \"${url}\" ${connect:+--connect-to \"$connect\"} 2>&1) || status=$?\n\techo \"@@$group $status $(printf \"%s\" \"$answer\" | tail -n 1) $(printf \"%s\" \"$answer\" | head -n 1 | tr -d \" \" | cut -c1-120)\"\ndone'"
+        "{INSPECTOR} internal-readiness https://internal-kms.railway.internal:9443/readyz {TLS_DIR}/human-event-client {PRIVATE_TARGET}"
       ],
-      "stdout": "@@kms 0 200 {\"ready\":true}\n"
+      "stdout": "pass readiness http=200 ready=true identity=human-event-client\n",
+      "exit": 0
     },
     {
       "id": "internal-journeys",
@@ -169,9 +170,10 @@
         "BatchMode=yes",
         "--",
         "kernel.bringup.test",
-        "'tls={TLS_DIR}/human-event-client' app=internal-journeys group=journeys limit=10 url=https://internal-journeys.railway.internal:9443/readyz 'connect=internal-journeys.railway.internal:9443:{PRIVATE_TARGET}' sh -c 'for group in \"$group\"; do\n\tstatus=0\n\tanswer=$(curl -sS -m \"$limit\" --cacert \"$tls/ca.pem\" --cert \"$tls/cert.pem\" --key \"$tls/key.pem\" -w \"\\n%{http_code}\" \"${url}\" ${connect:+--connect-to \"$connect\"} 2>&1) || status=$?\n\techo \"@@$group $status $(printf \"%s\" \"$answer\" | tail -n 1) $(printf \"%s\" \"$answer\" | head -n 1 | tr -d \" \" | cut -c1-120)\"\ndone'"
+        "{INSPECTOR} internal-readiness https://internal-journeys.railway.internal:9443/readyz {TLS_DIR}/human-event-client {PRIVATE_TARGET}"
       ],
-      "stdout": "@@journeys 0 200 {\"ready\":true}\n"
+      "stdout": "pass readiness http=200 ready=true identity=human-event-client\n",
+      "exit": 0
     },
     {
       "id": "internal-payments",
@@ -182,9 +184,10 @@
         "BatchMode=yes",
         "--",
         "kernel.bringup.test",
-        "'tls={TLS_DIR}/human-event-client' app=internal-payments group=payments limit=10 url=https://internal-payments.railway.internal:9443/readyz 'connect=internal-payments.railway.internal:9443:{PRIVATE_TARGET}' sh -c 'for group in \"$group\"; do\n\tstatus=0\n\tanswer=$(curl -sS -m \"$limit\" --cacert \"$tls/ca.pem\" --cert \"$tls/cert.pem\" --key \"$tls/key.pem\" -w \"\\n%{http_code}\" \"${url}\" ${connect:+--connect-to \"$connect\"} 2>&1) || status=$?\n\techo \"@@$group $status $(printf \"%s\" \"$answer\" | tail -n 1) $(printf \"%s\" \"$answer\" | head -n 1 | tr -d \" \" | cut -c1-120)\"\ndone'"
+        "{INSPECTOR} internal-readiness https://internal-payments.railway.internal:9443/readyz {TLS_DIR}/human-event-client {PRIVATE_TARGET}"
       ],
-      "stdout": "@@payments 0 200 {\"ready\":true}\n"
+      "stdout": "pass readiness http=200 ready=true identity=human-event-client\n",
+      "exit": 0
     },
     {
       "id": "internal-approvals",
@@ -195,9 +198,10 @@
         "BatchMode=yes",
         "--",
         "kernel.bringup.test",
-        "'tls={TLS_DIR}/human-event-client' app=internal-approvals group=approvals limit=10 url=https://internal-approvals.railway.internal:9443/readyz 'connect=internal-approvals.railway.internal:9443:{PRIVATE_TARGET}' sh -c 'for group in \"$group\"; do\n\tstatus=0\n\tanswer=$(curl -sS -m \"$limit\" --cacert \"$tls/ca.pem\" --cert \"$tls/cert.pem\" --key \"$tls/key.pem\" -w \"\\n%{http_code}\" \"${url}\" ${connect:+--connect-to \"$connect\"} 2>&1) || status=$?\n\techo \"@@$group $status $(printf \"%s\" \"$answer\" | tail -n 1) $(printf \"%s\" \"$answer\" | head -n 1 | tr -d \" \" | cut -c1-120)\"\ndone'"
+        "{INSPECTOR} internal-readiness https://internal-approvals.railway.internal:9443/readyz {TLS_DIR}/human-event-client {PRIVATE_TARGET}"
       ],
-      "stdout": "@@approvals 0 200 {\"ready\":true}\n"
+      "stdout": "pass readiness http=200 ready=true identity=human-event-client\n",
+      "exit": 0
     },
     {
       "id": "internal-programs",
@@ -208,9 +212,10 @@
         "BatchMode=yes",
         "--",
         "kernel.bringup.test",
-        "'tls={TLS_DIR}/human-event-client' app=internal-programs group=programs limit=10 url=https://internal-programs.railway.internal:9443/readyz 'connect=internal-programs.railway.internal:9443:{PRIVATE_TARGET}' sh -c 'for group in \"$group\"; do\n\tstatus=0\n\tanswer=$(curl -sS -m \"$limit\" --cacert \"$tls/ca.pem\" --cert \"$tls/cert.pem\" --key \"$tls/key.pem\" -w \"\\n%{http_code}\" \"${url}\" ${connect:+--connect-to \"$connect\"} 2>&1) || status=$?\n\techo \"@@$group $status $(printf \"%s\" \"$answer\" | tail -n 1) $(printf \"%s\" \"$answer\" | head -n 1 | tr -d \" \" | cut -c1-120)\"\ndone'"
+        "{INSPECTOR} internal-readiness https://internal-programs.railway.internal:9443/readyz {TLS_DIR}/human-event-client {PRIVATE_TARGET}"
       ],
-      "stdout": "@@programs 0 200 {\"ready\":true}\n"
+      "stdout": "pass readiness http=200 ready=true identity=human-event-client\n",
+      "exit": 0
     },
     {
       "id": "internal-missing-identity",
@@ -221,9 +226,24 @@
         "BatchMode=yes",
         "--",
         "kernel.bringup.test",
-        "'tls={MISSING_TLS_DIR}/human-event-client' app=internal-kms group=kms limit=10 url=https://internal-kms.railway.internal:9443/readyz 'connect=internal-kms.railway.internal:9443:{PRIVATE_TARGET}' sh -c 'for group in \"$group\"; do\n\tstatus=0\n\tanswer=$(curl -sS -m \"$limit\" --cacert \"$tls/ca.pem\" --cert \"$tls/cert.pem\" --key \"$tls/key.pem\" -w \"\\n%{http_code}\" \"${url}\" ${connect:+--connect-to \"$connect\"} 2>&1) || status=$?\n\techo \"@@$group $status $(printf \"%s\" \"$answer\" | tail -n 1) $(printf \"%s\" \"$answer\" | head -n 1 | tr -d \" \" | cut -c1-120)\"\ndone'"
+        "{INSPECTOR} internal-readiness https://internal-kms.railway.internal:9443/readyz {MISSING_TLS_DIR}/human-event-client {PRIVATE_TARGET}"
       ],
-      "stdout": "@@kms 58 000 curl:(58)couldnotloadPEMclientcertificate\n"
+      "stdout": "",
+      "exit": 1
+    },
+    {
+      "id": "internal-invalid-route",
+      "tool": "ssh",
+      "argv": [
+        "-n",
+        "-o",
+        "BatchMode=yes",
+        "--",
+        "kernel.bringup.test",
+        "{INSPECTOR} internal-readiness https://internal-kms.railway.internal:9443/readyz {TLS_DIR}/human-event-client 'bad route;exit 0'"
+      ],
+      "stdout": "",
+      "exit": 1
     }
   ]
 }

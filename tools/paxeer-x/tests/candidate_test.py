@@ -239,7 +239,7 @@ class CandidateTest(unittest.TestCase):
         routes = json.loads(PROGRAM.with_name('route-catalogue.json').read_text())
         expected = ['api' + str(i) for i in range(1, 15)] + ['api-mainnet-beta']
         self.assertEqual(routes['rpc_records'], expected)
-        self.assertEqual(candidate.FOUNDATION['rpc_records'], expected)
+        self.assertEqual(candidate.foundation()['rpc_records'], expected)
         self.assertEqual(self.manifest['foundation']['rpc_records'], expected)
         for records in (expected[:-1], expected + ['api15'],
                         ['api' + str(i) for i in range(1, 17)]):

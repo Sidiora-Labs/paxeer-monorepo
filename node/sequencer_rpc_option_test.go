@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/ed25519"
+	"crypto/tls"
 	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
@@ -149,13 +150,16 @@ func TestEVMServerServesSequencerReceiptOption(t *testing.T) {
 		PrimaryConsensusKey: primaryPub, PrimaryReceiptKey: public, CommittedHeight: 1,
 	})
 	require.NoError(t, err)
-	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	primaryTLS, standbyTLS := replicationTLSFixture(t)
+	serverTLS, err := standbyTLS.TLSConfig(true)
+	require.NoError(t, err)
+	listener, err := tls.Listen("tcp", "127.0.0.1:0", serverTLS)
 	require.NoError(t, err)
 	serveDone := make(chan error, 1)
 	go func() { serveDone <- standby.Serve(listener) }()
 	t.Cleanup(func() { _ = listener.Close(); <-serveDone })
 	replicator, err := sequencer.NewReplicator(sequencer.ReplicatorConfig{
-		WAL: primaryWAL, Dial: sequencer.DialStandby(listener.Addr().String(), 5*time.Second), ReplicationTimeout: 5 * time.Second,
+		WAL: primaryWAL, Dial: sequencer.DialStandby(listener.Addr().String(), 5*time.Second, primaryTLS), ReplicationTimeout: 5 * time.Second,
 	})
 	require.NoError(t, err)
 	t.Cleanup(replicator.Close)

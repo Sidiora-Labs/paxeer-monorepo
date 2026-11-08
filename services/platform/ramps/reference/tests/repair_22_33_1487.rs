@@ -34,9 +34,9 @@ use serde_json::{json, Value};
 mod reference;
 use reference::repair_support::Server;
 
-const CERT: &[u8] = include_bytes!("../src/repair_fixtures/localhost.pem");
-const IDENTITY: &[u8] = include_bytes!("../src/repair_fixtures/localhost.p12");
-const ANCHOR: &[u8] = include_bytes!("../src/repair_fixtures/localhost.der");
+const CERT: &[u8] = include_bytes!("fixtures/repair_fixtures/localhost.pem");
+const IDENTITY: &[u8] = include_bytes!("fixtures/repair_fixtures/localhost.p12");
+const ANCHOR: &[u8] = include_bytes!("fixtures/repair_fixtures/localhost.der");
 const PASSWORD: &str = "repair-fixture";
 const OPERATOR: &str = "agent:did:layerx:repair-operator:main";
 static NEXT_WORKSPACE: AtomicUsize = AtomicUsize::new(0);

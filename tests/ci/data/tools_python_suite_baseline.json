@@ -1,0 +1,222 @@
+[
+  {
+    "nodeid": "tools/paxeer-x/tests/ai_evidence_test.py::EvidenceTests::test_actual_approved_authority",
+    "reason": "Authority setup fails with ai_evidence.Invalid: path: string because the authority loader passes Path objects to the string-only safe_path validator.",
+    "retiring_task": "22.39.144"
+  },
+  {
+    "nodeid": "tools/paxeer-x/tests/ai_evidence_test.py::EvidenceTests::test_bounds_and_hash_types",
+    "reason": "Authority setup fails with ai_evidence.Invalid: path: string because the authority loader passes Path objects to the string-only safe_path validator.",
+    "retiring_task": "22.39.144"
+  },
+  {
+    "nodeid": "tools/paxeer-x/tests/ai_evidence_test.py::EvidenceTests::test_changed_bytes_and_pin",
+    "reason": "Authority setup fails with ai_evidence.Invalid: path: string because the authority loader passes Path objects to the string-only safe_path validator.",
+    "retiring_task": "22.39.144"
+  },
+  {
+    "nodeid": "tools/paxeer-x/tests/ai_evidence_test.py::EvidenceTests::test_cli_argument_rejection",
+    "reason": "Authority setup fails with ai_evidence.Invalid: path: string because the authority loader passes Path objects to the string-only safe_path validator.",
+    "retiring_task": "22.39.144"
+  },
+  {
+    "nodeid": "tools/paxeer-x/tests/ai_evidence_test.py::EvidenceTests::test_contract_hash_and_coverage",
+    "reason": "Authority setup fails with ai_evidence.Invalid: path: string because the authority loader passes Path objects to the string-only safe_path validator.",
+    "retiring_task": "22.39.144"
+  },
+  {
+    "nodeid": "tools/paxeer-x/tests/ai_evidence_test.py::EvidenceTests::test_duplicate_and_nonobject_json",
+    "reason": "Authority setup fails with ai_evidence.Invalid: path: string because the authority loader passes Path objects to the string-only safe_path validator.",
+    "retiring_task": "22.39.144"
+  },
+  {
+    "nodeid": "tools/paxeer-x/tests/ai_evidence_test.py::EvidenceTests::test_evidence_and_log_identity",
+    "reason": "Authority setup fails with ai_evidence.Invalid: path: string because the authority loader passes Path objects to the string-only safe_path validator.",
+    "retiring_task": "22.39.144"
+  },
+  {
+    "nodeid": "tools/paxeer-x/tests/ai_evidence_test.py::EvidenceTests::test_future_fact_refusal",
+    "reason": "Authority setup fails with ai_evidence.Invalid: path: string because the authority loader passes Path objects to the string-only safe_path validator.",
+    "retiring_task": "22.39.144"
+  },
+  {
+    "nodeid": "tools/paxeer-x/tests/ai_evidence_test.py::EvidenceTests::test_future_selector_missing_or_empty_evidence",
+    "reason": "Authority setup fails with ai_evidence.Invalid: path: string because the authority loader passes Path objects to the string-only safe_path validator.",
+    "retiring_task": "22.39.144"
+  },
+  {
+    "nodeid": "tools/paxeer-x/tests/ai_evidence_test.py::EvidenceTests::test_identity_and_stale_base",
+    "reason": "Authority setup fails with ai_evidence.Invalid: path: string because the authority loader passes Path objects to the string-only safe_path validator.",
+    "retiring_task": "22.39.144"
+  },
+  {
+    "nodeid": "tools/paxeer-x/tests/ai_evidence_test.py::EvidenceTests::test_missing_files",
+    "reason": "Authority setup fails with ai_evidence.Invalid: path: string because the authority loader passes Path objects to the string-only safe_path validator.",
+    "retiring_task": "22.39.144"
+  },
+  {
+    "nodeid": "tools/paxeer-x/tests/ai_evidence_test.py::EvidenceTests::test_missing_unknown_fields",
+    "reason": "Authority setup fails with ai_evidence.Invalid: path: string because the authority loader passes Path objects to the string-only safe_path validator.",
+    "retiring_task": "22.39.144"
+  },
+  {
+    "nodeid": "tools/paxeer-x/tests/ai_evidence_test.py::EvidenceTests::test_nonregular_and_ownership_files",
+    "reason": "Authority setup fails with ai_evidence.Invalid: path: string because the authority loader passes Path objects to the string-only safe_path validator.",
+    "retiring_task": "22.39.144"
+  },
+  {
+    "nodeid": "tools/paxeer-x/tests/ai_evidence_test.py::EvidenceTests::test_overlay_pending_partial_wrong_paths",
+    "reason": "Authority setup fails with ai_evidence.Invalid: path: string because the authority loader passes Path objects to the string-only safe_path validator.",
+    "retiring_task": "22.39.144"
+  },
+  {
+    "nodeid": "tools/paxeer-x/tests/ai_evidence_test.py::EvidenceTests::test_ownership_and_fence",
+    "reason": "Authority setup fails with ai_evidence.Invalid: path: string because the authority loader passes Path objects to the string-only safe_path validator.",
+    "retiring_task": "22.39.144"
+  },
+  {
+    "nodeid": "tools/paxeer-x/tests/ai_evidence_test.py::EvidenceTests::test_real_contract_overlay_runtime_file_tampering",
+    "reason": "Authority setup fails with ai_evidence.Invalid: path: string because the authority loader passes Path objects to the string-only safe_path validator.",
+    "retiring_task": "22.39.144"
+  },
+  {
+    "nodeid": "tools/paxeer-x/tests/ai_evidence_test.py::EvidenceTests::test_runtime_producer_control_binding",
+    "reason": "Authority setup fails with ai_evidence.Invalid: path: string because the authority loader passes Path objects to the string-only safe_path validator.",
+    "retiring_task": "22.39.144"
+  },
+  {
+    "nodeid": "tools/paxeer-x/tests/ai_evidence_test.py::EvidenceTests::test_safe_refusal_labels",
+    "reason": "Authority setup fails with ai_evidence.Invalid: path: string because the authority loader passes Path objects to the string-only safe_path validator.",
+    "retiring_task": "22.39.144"
+  },
+  {
+    "nodeid": "tools/paxeer-x/tests/ai_evidence_test.py::EvidenceTests::test_safe_testcase_failure_identities",
+    "reason": "Authority setup fails with ai_evidence.Invalid: path: string because the authority loader passes Path objects to the string-only safe_path validator.",
+    "retiring_task": "22.39.144"
+  },
+  {
+    "nodeid": "tools/paxeer-x/tests/ai_evidence_test.py::EvidenceTests::test_sandbox_and_parent_limits",
+    "reason": "Authority setup fails with ai_evidence.Invalid: path: string because the authority loader passes Path objects to the string-only safe_path validator.",
+    "retiring_task": "22.39.144"
+  },
+  {
+    "nodeid": "tools/paxeer-x/tests/ai_evidence_test.py::EvidenceTests::test_secret_escape_and_public_directory",
+    "reason": "Authority setup fails with ai_evidence.Invalid: path: string because the authority loader passes Path objects to the string-only safe_path validator.",
+    "retiring_task": "22.39.144"
+  },
+  {
+    "nodeid": "tools/paxeer-x/tests/ai_evidence_test.py::EvidenceTests::test_selector_rejection",
+    "reason": "Authority setup fails with ai_evidence.Invalid: path: string because the authority loader passes Path objects to the string-only safe_path validator.",
+    "retiring_task": "22.39.144"
+  },
+  {
+    "nodeid": "tools/paxeer-x/tests/ai_evidence_test.py::EvidenceTests::test_strict_types",
+    "reason": "Authority setup fails with ai_evidence.Invalid: path: string because the authority loader passes Path objects to the string-only safe_path validator.",
+    "retiring_task": "22.39.144"
+  },
+  {
+    "nodeid": "tools/paxeer-x/tests/ai_evidence_test.py::EvidenceTests::test_symlink_public_hardlink_files",
+    "reason": "Authority setup fails with ai_evidence.Invalid: path: string because the authority loader passes Path objects to the string-only safe_path validator.",
+    "retiring_task": "22.39.144"
+  },
+  {
+    "nodeid": "tools/paxeer-x/tests/candidate_test.py::CandidateTest::test_production_cli_preserves_absent_pending_and_null_inventory",
+    "reason": "Candidate create refuses the inventory fixture because it names kernel, which is absent from the maintained 40-service catalogue.",
+    "retiring_task": "22.39.144"
+  },
+  {
+    "nodeid": "tools/paxeer-x/tests/candidate_test.py::CandidateTest::test_real_shell_selector_and_unknown_input_refusal",
+    "reason": "The runtime inventory selector refuses kernel because that service is absent from the maintained 40-service catalogue.",
+    "retiring_task": "22.39.144"
+  },
+  {
+    "nodeid": "tools/paxeer-x/tests/gate_dispatch_test.py::GateDispatchTest::test_absent_gate_refuses",
+    "reason": "Candidate create refuses the 31-service dispatch fixture because catalogue requires 40 services before calling Go; replaying its contract request with stderr visible exits zero with no stderr.",
+    "retiring_task": "22.39.144"
+  },
+  {
+    "nodeid": "tools/paxeer-x/tests/gate_dispatch_test.py::GateDispatchTest::test_dirty_source_refuses_credit",
+    "reason": "Candidate create refuses the 31-service dispatch fixture because catalogue requires 40 services before calling Go; replaying its contract request with stderr visible exits zero with no stderr.",
+    "retiring_task": "22.39.144"
+  },
+  {
+    "nodeid": "tools/paxeer-x/tests/gate_dispatch_test.py::GateDispatchTest::test_empty_corpus_refuses",
+    "reason": "Candidate create refuses the 31-service dispatch fixture because catalogue requires 40 services before calling Go; replaying its contract request with stderr visible exits zero with no stderr.",
+    "retiring_task": "22.39.144"
+  },
+  {
+    "nodeid": "tools/paxeer-x/tests/gate_dispatch_test.py::GateDispatchTest::test_fabricated_evidence_refuses",
+    "reason": "Candidate create refuses the 31-service dispatch fixture because catalogue requires 40 services before calling Go; replaying its contract request with stderr visible exits zero with no stderr.",
+    "retiring_task": "22.39.144"
+  },
+  {
+    "nodeid": "tools/paxeer-x/tests/gate_dispatch_test.py::GateDispatchTest::test_gate_that_dirties_source_refuses_credit",
+    "reason": "Candidate create refuses the 31-service dispatch fixture because catalogue requires 40 services before calling Go; replaying its contract request with stderr visible exits zero with no stderr.",
+    "retiring_task": "22.39.144"
+  },
+  {
+    "nodeid": "tools/paxeer-x/tests/gate_dispatch_test.py::GateDispatchTest::test_mismatched_manifest_identities_refuse",
+    "reason": "Candidate create refuses the 31-service dispatch fixture because catalogue requires 40 services before calling Go; replaying its contract request with stderr visible exits zero with no stderr.",
+    "retiring_task": "22.39.144"
+  },
+  {
+    "nodeid": "tools/paxeer-x/tests/gate_dispatch_test.py::GateDispatchTest::test_non_executable_gate_and_missing_interpreter_refuse",
+    "reason": "Candidate create refuses the 31-service dispatch fixture because catalogue requires 40 services before calling Go; replaying its contract request with stderr visible exits zero with no stderr.",
+    "retiring_task": "22.39.144"
+  },
+  {
+    "nodeid": "tools/paxeer-x/tests/gate_dispatch_test.py::GateDispatchTest::test_pass_writes_private_bound_evidence",
+    "reason": "Candidate create refuses the 31-service dispatch fixture because catalogue requires 40 services before calling Go; replaying its contract request with stderr visible exits zero with no stderr.",
+    "retiring_task": "22.39.144"
+  },
+  {
+    "nodeid": "tools/paxeer-x/tests/gate_dispatch_test.py::GateDispatchTest::test_release_deduplicates_identical_identities",
+    "reason": "Candidate create refuses the 31-service dispatch fixture because catalogue requires 40 services before calling Go; replaying its contract request with stderr visible exits zero with no stderr.",
+    "retiring_task": "22.39.144"
+  },
+  {
+    "nodeid": "tools/paxeer-x/tests/gate_dispatch_test.py::GateDispatchTest::test_release_refuses_empty_scope_and_incomplete_coverage",
+    "reason": "Candidate create refuses the 31-service dispatch fixture because catalogue requires 40 services before calling Go; replaying its contract request with stderr visible exits zero with no stderr.",
+    "retiring_task": "22.39.144"
+  },
+  {
+    "nodeid": "tools/paxeer-x/tests/gate_dispatch_test.py::GateDispatchTest::test_release_runs_distinct_identities_and_reports_failure",
+    "reason": "Candidate create refuses the 31-service dispatch fixture because catalogue requires 40 services before calling Go; replaying its contract request with stderr visible exits zero with no stderr.",
+    "retiring_task": "22.39.144"
+  },
+  {
+    "nodeid": "tools/paxeer-x/tests/gate_dispatch_test.py::GateDispatchTest::test_skipped_requirements_and_failures_refuse",
+    "reason": "Candidate create refuses the 31-service dispatch fixture because catalogue requires 40 services before calling Go; replaying its contract request with stderr visible exits zero with no stderr.",
+    "retiring_task": "22.39.144"
+  },
+  {
+    "nodeid": "tools/paxeer-x/tests/gate_dispatch_test.py::GateDispatchTest::test_stale_evidence_refuses",
+    "reason": "Candidate create refuses the 31-service dispatch fixture because catalogue requires 40 services before calling Go; replaying its contract request with stderr visible exits zero with no stderr.",
+    "retiring_task": "22.39.144"
+  },
+  {
+    "nodeid": "tools/paxeer-x/tests/gate_dispatch_test.py::GateDispatchTest::test_unknown_and_malformed_selectors_refuse",
+    "reason": "Candidate create refuses the 31-service dispatch fixture because catalogue requires 40 services before calling Go; replaying its contract request with stderr visible exits zero with no stderr.",
+    "retiring_task": "22.39.144"
+  },
+  {
+    "nodeid": "tools/paxeer-x/tests/gate_dispatch_test.py::GateDispatchTest::test_unsafe_evidence_directory_refuses",
+    "reason": "Candidate create refuses the 31-service dispatch fixture because catalogue requires 40 services before calling Go; replaying its contract request with stderr visible exits zero with no stderr.",
+    "retiring_task": "22.39.144"
+  },
+  {
+    "nodeid": "tools/paxeer-x/tests/test_gov_templates.py::GovTemplatesTest::test_gov_suite_passes_without_retired_templates",
+    "reason": "The governance suite expects a release name that is absent from tools/hpx/publish.sh.",
+    "retiring_task": "22.39.144"
+  },
+  {
+    "nodeid": "tools/paxeer-x/tests/test_retired_catalogue_deleted.py::RetiredCatalogueDeletedTest::test_deleted_trees_absent_and_catalogue_valid",
+    "reason": "The retired catalogue declares services/agent/crates/layerx-client/src/lni deleted while that tree still exists.",
+    "retiring_task": "22.39.144"
+  },
+  {
+    "nodeid": "tools/paxeer-x/tests/test_signature_route_catalogued.py::test_explorer_gate_runs_sig_provider",
+    "reason": "The explorer gate does not run the signature provider suite declared by the catalogue test.",
+    "retiring_task": "22.39.144"
+  }
+]

@@ -11,9 +11,10 @@ use layerx_proof::inclusion::SequencerAuthorization;
 use layerx_proof::receipt::verify_sequencer_signature;
 use layerx_proof::sequencer_logs::SequencerLog;
 use layerx_ucp::{
-    ucp_adapter_descriptor, verify_sequencer_receipt, CheckoutStatus, CheckoutSubmission,
-    ExecutedUcpPayment, MerchantProfile, NegotiatedCapabilities, OrderMetadata, PaymentHandler,
-    PlatformProfile, UcpAdapter, UcpError, UcpIdempotencyKey, UCP_CHECKOUT_SPEC_SHA256,
+    ucp_adapter_descriptor, verify_sequencer_receipt_with_config, CheckoutStatus,
+    CheckoutSubmission, ExecutedUcpPayment, MerchantCurrencyBinding, MerchantProfile,
+    NegotiatedCapabilities, OrderMetadata, PaymentHandler, PlatformProfile, UcpAdapter, UcpError,
+    UcpIdempotencyKey, UcpServiceConfig, UCP_CHECKOUT_SPEC_SHA256,
 };
 use serde_json::Value;
 use sha2::{Digest as _, Sha256};
@@ -223,7 +224,7 @@ fn ucp_order_digest_is_the_recorded_receipt_digest() {
         &mut gateway,
         &principal,
         &submission,
-        &mut payment,
+        &mut currency_config(&submission).bind_plane(&mut payment),
         &keys,
         &trace,
         2,
@@ -239,7 +240,10 @@ fn ucp_order_digest_is_the_recorded_receipt_digest() {
         .stored_order
         .unwrap_or_else(|| panic!("missing stored order"));
     assert_eq!(stored.signed_receipt, payment.evidence.signed_receipt);
-    assert_eq!(UcpAdapter::read_order(&stored, &keys), Ok(order));
+    assert_eq!(
+        UcpAdapter::read_order_with_config(&stored, &keys, &currency_config(&stored.submission)),
+        Ok(order)
+    );
 }
 
 #[test]
@@ -259,14 +263,18 @@ fn complete_checkout_stores_the_transaction_hash() {
         let mut gateway = registered_gateway(&trace);
         let mut payment = checkout_payment(&case, &submission);
         payment.evidence.rung = rung;
-        let receipt_digest =
-            verify_sequencer_receipt(&submission, &payment.evidence.signed_receipt, &keys)
-                .unwrap_or_else(|error| panic!("checkout receipt: {error}"));
+        let receipt_digest = verify_sequencer_receipt_with_config(
+            &submission,
+            &payment.evidence.signed_receipt,
+            &keys,
+            &currency_config(&submission),
+        )
+        .unwrap_or_else(|error| panic!("checkout receipt: {error}"));
         let outcome = UcpAdapter::complete_checkout(
             &mut gateway,
             &principal,
             &submission,
-            &mut payment,
+            &mut currency_config(&submission).bind_plane(&mut payment),
             &keys,
             &trace,
             2,
@@ -284,12 +292,19 @@ fn complete_checkout_stores_the_transaction_hash() {
         assert_eq!(stored.logs, payment.evidence.logs);
         assert_eq!(stored.rung, rung);
         assert_eq!(order.receipt_digest, receipt_digest);
-        assert_eq!(UcpAdapter::read_order(&stored, &keys), Ok(order.clone()));
+        assert_eq!(
+            UcpAdapter::read_order_with_config(
+                &stored,
+                &keys,
+                &currency_config(&stored.submission)
+            ),
+            Ok(order.clone())
+        );
         let replay = UcpAdapter::complete_checkout(
             &mut gateway,
             &principal,
             &submission,
-            &mut payment,
+            &mut currency_config(&submission).bind_plane(&mut payment),
             &keys,
             &trace,
             3,
@@ -303,18 +318,26 @@ fn complete_checkout_stores_the_transaction_hash() {
             Some(TranslationStatus::ReceiptVerified { receipt_digest })
         );
         assert_eq!(
-            UcpAdapter::read_order(&stored, &[]),
+            UcpAdapter::read_order_with_config(&stored, &[], &currency_config(&stored.submission)),
             Err(UcpError::ReceiptMismatch)
         );
         stored.transaction_hash[0] ^= 1;
         assert_eq!(
-            UcpAdapter::read_order(&stored, &keys),
+            UcpAdapter::read_order_with_config(
+                &stored,
+                &keys,
+                &currency_config(&stored.submission)
+            ),
             Err(UcpError::ReceiptMismatch)
         );
         stored.transaction_hash = transaction_hash;
         stored.rung = SettlementRung::Submitted;
         assert_eq!(
-            UcpAdapter::read_order(&stored, &keys),
+            UcpAdapter::read_order_with_config(
+                &stored,
+                &keys,
+                &currency_config(&stored.submission)
+            ),
             Err(UcpError::ReceiptRequired)
         );
     }
@@ -341,7 +364,7 @@ fn read_order_refuses_an_unpinned_receipt() {
             &mut gateway,
             &principal,
             &submission,
-            &mut payment,
+            &mut currency_config(&submission).bind_plane(&mut payment),
             &keys,
             &trace,
             2,
@@ -352,14 +375,29 @@ fn read_order_refuses_an_unpinned_receipt() {
             .stored_order
             .unwrap_or_else(|| panic!("missing stored order"));
         let order = outcome.order.unwrap_or_else(|| panic!("missing UCP order"));
-        assert_eq!(UcpAdapter::read_order(&stored, &keys), Ok(order.clone()));
+        assert_eq!(
+            UcpAdapter::read_order_with_config(
+                &stored,
+                &keys,
+                &currency_config(&stored.submission)
+            ),
+            Ok(order.clone())
+        );
         keys.clear();
         assert_eq!(
-            UcpAdapter::read_order(&stored, &keys),
+            UcpAdapter::read_order_with_config(
+                &stored,
+                &keys,
+                &currency_config(&stored.submission)
+            ),
             Err(UcpError::ReceiptMismatch)
         );
         assert_eq!(
-            UcpAdapter::read_order(&stored, &receipt_keys(&case)),
+            UcpAdapter::read_order_with_config(
+                &stored,
+                &receipt_keys(&case),
+                &currency_config(&stored.submission)
+            ),
             Ok(order)
         );
     }
@@ -381,7 +419,7 @@ fn complete_checkout_on_a_submitted_rung_stays_open() {
             &mut gateway,
             &principal,
             &submission,
-            &mut payment,
+            &mut currency_config(&submission).bind_plane(&mut payment),
             &[],
             &trace,
             now,
@@ -431,7 +469,12 @@ fn payment_exact_native_topics_preserve_reference_and_identity_checks() {
             original_topics[permutation[2]],
         ];
         let payment = with_signed_log(&original, topics, original_log.data().to_vec());
-        let result = verify_sequencer_receipt(&submission, &payment.evidence.signed_receipt, &keys);
+        let result = verify_sequencer_receipt_with_config(
+            &submission,
+            &payment.evidence.signed_receipt,
+            &keys,
+            &currency_config(&submission),
+        );
         if permutation == [1, 2, 3] {
             assert!(result.is_ok());
         } else {
@@ -459,7 +502,12 @@ fn payment_exact_native_topics_preserve_reference_and_identity_checks() {
         }
         let payment = with_signed_log(&original, topics, data);
         assert_eq!(
-            verify_sequencer_receipt(&submission, &payment.evidence.signed_receipt, &keys),
+            verify_sequencer_receipt_with_config(
+                &submission,
+                &payment.evidence.signed_receipt,
+                &keys,
+                &currency_config(&submission)
+            ),
             Err(UcpError::ReceiptMismatch),
             "{mutation}",
         );
@@ -513,4 +561,11 @@ mod producer_checkout;
 #[test]
 fn ucp_checkout_producer() {
     producer_checkout::producer_checkout("ucp-checkout-producer");
+}
+
+fn currency_config(submission: &CheckoutSubmission) -> UcpServiceConfig {
+    UcpServiceConfig::new(
+        MerchantCurrencyBinding::new(submission.currency, submission.layerx_asset, 2, 2)
+            .unwrap_or_else(|error| panic!("merchant currency binding: {error}")),
+    )
 }

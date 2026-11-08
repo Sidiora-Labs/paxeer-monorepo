@@ -40,7 +40,7 @@ def test_container_inventory_decodes_the_real_shell_payload():
     assert "" in rows
     expected = [row for row in rows if row and not row.lstrip().startswith("#")]
     assert parse_out_of_scope(script) == expected
-    assert len(expected) == 34
+    assert len(expected) == 35
     assert "consensus/test/docker/Dockerfile" not in expected
 
 

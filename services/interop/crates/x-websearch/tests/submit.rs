@@ -802,9 +802,15 @@ fn a_program_fulfil_is_journalled_by_program_and_request() -> Checked {
     assert_eq!(on_disk["raw"], records[0]["raw"]);
     assert_eq!(on_disk["hash"], records[0]["hash"]);
     assert_eq!(on_disk["nonce"], records[0]["nonce"]);
-    // A different key on restart proves that the stored envelope is reused.
-    let mut restarted = Submitter::open(node.rpc()?, secp(0x5a, 2)?, CHAIN_ID, &scratch.journal())?
-        .with_confirmations(2);
+    assert_eq!(
+        Submitter::open(node.rpc()?, secp(0x5a, 2)?, CHAIN_ID, &scratch.journal())
+            .err()
+            .map(|error| error.kind()),
+        Some(std::io::ErrorKind::InvalidData),
+    );
+    let mut restarted =
+        Submitter::open(node.rpc()?, submitter_key()?, CHAIN_ID, &scratch.journal())?
+            .with_confirmations(2);
     assert_eq!(restarted.resume_program(key)?, Some(Outcome::Sent { hash }));
     assert_eq!(
         node.params("eth_sendRawTransaction"),

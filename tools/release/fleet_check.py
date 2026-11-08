@@ -15,7 +15,9 @@ import urllib.error
 import urllib.parse
 import urllib.request
 
-VERSION = "v6.12.0"
+RELEASE_IDENTITY = json.loads(Path(__file__).with_name("version.json").read_text())
+VERSION = RELEASE_IDENTITY["version"]
+UPGRADE = RELEASE_IDENTITY["upgrade"]
 PHASES = (
     "inputs",
     "preflight",
@@ -324,7 +326,7 @@ def validate_receipt(receipt):
         else:
             allowed = {
                 "version": {VERSION},
-                "plan": {VERSION},
+                "plan": {UPGRADE},
                 "tag": {"paxeer-network/" + VERSION},
                 "result": {"pass", "fail"},
             }
@@ -518,7 +520,7 @@ class Node:
 
 class Outcome:
     def __init__(self):
-        self.receipt = {"version": VERSION, "plan": VERSION, "result": "fail"}
+        self.receipt = {"version": VERSION, "plan": UPGRADE, "result": "fail"}
         self.errors = []
 
     def attempt(self, label, action):
@@ -1059,7 +1061,7 @@ def run_phase(
 
             def applied():
                 check_applied_height_and_sync(
-                    node.query("upgrade", "applied", VERSION), status, halt + 1
+                    node.query("upgrade", "applied", UPGRADE), status, halt + 1
                 )
 
             outcome.attempt(label + " applied", applied)
@@ -1096,7 +1098,7 @@ def run_phase(
 def main(argv=None):
     parser = argparse.ArgumentParser(
         description="Verify Paxeer X Network rollout phases without changing chain state.",
-        epilog="INVENTORY_FILE is JSON with nodes [{role, consensus_rpc, evm_rpc}] and previous_version for preflight/frozen, either a vX.Y.Z tag or the 7-12 character lowercase hex commit that abci_info reports. In frozen, every validator must itself report height HALT_HEIGHT with catching_up false; an unreachable validator fails naming its host, and full nodes never stand in for a validator. Roles: validator, full, archive, edge. Relative paths resolve from the working directory. List env values must be quoted. --check validates local inputs without contacting services, nodes or hosts. --phase inputs needs every key of env/rollout.env.example (VALIDATOR_HOMES, VALIDATOR_UNITS, OPERATOR_KEY_NAMES, FULLNODE_HOMES, FULLNODE_UNITS and POOL_COUNT may be empty), the release binaries paxd-v6.12.0-linux-amd64 and price-sidecar-v6.12.0-linux-amd64 in the working directory and ssh BatchMode access to every host. markets/full/post read expected values from the rehearsal receipt, --rehearsal or else RECEIPT_DIR/rehearsal.json; --rehearsal-handoff admits the driver's measured pool count only for isolated loopback markets; --no-rehearsal is limited to diagnostic phases and takes expected values from the env file (POOL_COUNT, RELEASE_SHA256 against BIN_DIR/paxd) and records no rollback_rehearsed.",
+        epilog=f"INVENTORY_FILE is JSON with nodes [{{role, consensus_rpc, evm_rpc}}] and previous_version for preflight/frozen, either a vX.Y.Z tag or the 7-12 character lowercase hex commit that abci_info reports. In frozen, every validator must itself report height HALT_HEIGHT with catching_up false; an unreachable validator fails naming its host, and full nodes never stand in for a validator. Roles: validator, full, archive, edge. Relative paths resolve from the working directory. List env values must be quoted. --check validates local inputs without contacting services, nodes or hosts. --phase inputs needs every key of env/rollout.env.example (VALIDATOR_HOMES, VALIDATOR_UNITS, OPERATOR_KEY_NAMES, FULLNODE_HOMES, FULLNODE_UNITS and POOL_COUNT may be empty), the release binaries paxd-{VERSION}-linux-amd64 and price-sidecar-{VERSION}-linux-amd64 in the working directory and ssh BatchMode access to every host. markets/full/post read expected values from the rehearsal receipt, --rehearsal or else RECEIPT_DIR/rehearsal.json; --rehearsal-handoff admits the driver's measured pool count only for isolated loopback markets; --no-rehearsal is limited to diagnostic phases and takes expected values from the env file (POOL_COUNT, RELEASE_SHA256 against BIN_DIR/paxd) and records no rollback_rehearsed.",
     )
     parser.add_argument("--env-file", required=True, type=Path)
     parser.add_argument("--phase", choices=PHASES, default="post")

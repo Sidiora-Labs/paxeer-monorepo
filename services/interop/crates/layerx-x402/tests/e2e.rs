@@ -11,7 +11,9 @@ use layerx_interop_gateway::adapter::{AdapterId, ConformanceSuite};
 use layerx_interop_gateway::principal::PrincipalId;
 use layerx_interop_gateway::trace::TraceId;
 use layerx_interop_gateway::GatewayCore;
-use layerx_x402::buyer::{Buyer, BuyerPaymentPlane, PaymentBuildRequest, SupportedKind};
+use layerx_x402::buyer::{
+    BoundBuyerPaymentPlane, Buyer, BuyerPaymentPlane, PaymentBuildRequest, SupportedKind,
+};
 use layerx_x402::model::{
     account_identifiers, AtomicAmount, PaymentPayload, PaymentRequired, PaymentRequirements,
     ResourceInfo, X402Error, LAYERX_NETWORK, X402_VERSION,
@@ -52,8 +54,8 @@ struct MockBuyerPlane {
 }
 
 impl BuyerPaymentPlane for MockBuyerPlane {
-    fn construct(&mut self, _request: PaymentBuildRequest) -> Result<Value, X402Error> {
-        Ok(self.scheme_payload.clone())
+    fn construct(&mut self, request: PaymentBuildRequest) -> Result<Value, X402Error> {
+        BoundBuyerPaymentPlane::new(self.scheme_payload.clone()).construct(request)
     }
 }
 
@@ -112,7 +114,7 @@ fn create_payment_required() -> PaymentRequired {
                 extra: Some(layerx_terms(TESTNET_ACCOUNT)),
             },
             PaymentRequirements {
-                scheme: "402lxp".to_owned(),
+                scheme: "metered".to_owned(),
                 network: LAYERX_NETWORK.to_owned(),
                 amount: AtomicAmount::from_u128(950),
                 asset: "0x".to_owned() + &"cc".repeat(32),
@@ -142,7 +144,7 @@ fn buyer_and_seller_complete_payment_flow_over_http() {
             network: LAYERX_NETWORK.to_owned(),
         },
         SupportedKind {
-            scheme: "402lxp".to_owned(),
+            scheme: "metered".to_owned(),
             network: LAYERX_NETWORK.to_owned(),
         },
     ])
@@ -203,7 +205,7 @@ fn buyer_selects_first_supported_scheme_from_seller_accepts() {
     let required = create_payment_required();
 
     let buyer = Buyer::new(vec![SupportedKind {
-        scheme: "402lxp".to_owned(),
+        scheme: "metered".to_owned(),
         network: LAYERX_NETWORK.to_owned(),
     }])
     .unwrap_or_else(|error| panic!("buyer created: {error:?}"));
@@ -212,7 +214,7 @@ fn buyer_selects_first_supported_scheme_from_seller_accepts() {
         serde_json::to_vec(&required).unwrap_or_else(|error| panic!("test input: {error:?}")),
     );
     let mut plane = MockBuyerPlane {
-        scheme_payload: json!({"scheme": "402lxp"}),
+        scheme_payload: json!({"scheme": "metered"}),
     };
     let trace = TraceId::mint([0xab; 16]);
 
@@ -220,7 +222,7 @@ fn buyer_selects_first_supported_scheme_from_seller_accepts() {
         .build_payment(&encoded, [1; 32], &mut plane, &trace)
         .unwrap_or_else(|error| panic!("payment built: {error:?}"));
 
-    assert_eq!(payment.payload.accepted.scheme, "402lxp");
+    assert_eq!(payment.payload.accepted.scheme, "metered");
     assert_eq!(payment.payload.accepted.network, LAYERX_NETWORK);
     assert_eq!(payment.payload.accepted.amount.value(), 950);
 }

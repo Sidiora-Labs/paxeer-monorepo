@@ -144,6 +144,7 @@ func NewTestWrapperWithSc(t *testing.T, tm time.Time, valPub cryptotypes.PubKey,
 
 func NewGigaTestWrapper(t *testing.T, tm time.Time, valPub cryptotypes.PubKey, enableEVMCustomPrecompiles bool, useOcc bool, baseAppOptions ...func(*bam.BaseApp)) *TestWrapper {
 	wrapper := newTestWrapper(t, tm, valPub, enableEVMCustomPrecompiles, true, TestAppOpts{UseSc: true, EnableGiga: true, EnableGigaOCC: useOcc}, baseAppOptions...)
+	require.NotNil(t, wrapper.App.GigaEvmKeeper.EvmoneVM, "Giga tests require the VM built by make evmone-lib")
 	genState := evmtypes.DefaultGenesis()
 	wrapper.App.EvmKeeper.InitGenesis(wrapper.Ctx, *genState)
 	return wrapper
