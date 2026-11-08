@@ -46,7 +46,6 @@ fn program_call_returns_tx_hash_and_rung() {
     let raw = transaction.sign(&[0xa5; 32]).unwrap();
     let hash = transaction_hash(&raw);
     let root = std::env::temp_dir().join(format!("program-adapters-rungs-{}", std::process::id()));
-    std::fs::create_dir(&root).unwrap();
     let mut store = Store::open(&root).unwrap();
     let tenant = TenantId::new("program-adapters").unwrap();
     let mut outbox = Outbox::default();
@@ -59,6 +58,7 @@ fn program_call_returns_tx_hash_and_rung() {
     assert!(accept_raw_write(&mut outbox, &mut store, hash, [9; 32]).is_err());
     let status = accept_raw_write(&mut outbox, &mut store, hash, hash).unwrap();
     assert_eq!(status.state, SubmissionState::Submitted);
+    // A submitted answer has no executed receipt or paymentDenom yet.
     let answer = || write_submission(&status, None).unwrap();
     let (value, rung) = program_call_answer(RequestId(1), &raw, answer()).unwrap();
     assert_eq!(value["tx_hash"], hex::encode(hash));
