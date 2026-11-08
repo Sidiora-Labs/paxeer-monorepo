@@ -494,6 +494,15 @@ pub fn split_joint(section: &[u8]) -> CodecResult<(Option<Region>, &[u8])> {
     ))
 }
 
+/// Validated F08 suffix of the joint reputation/admission section.
+///
+/// # Errors
+/// Preserves every framing, reputation and history-seal refusal of `split_joint`.
+#[allow(dead_code, reason = "also compiled by reputation vector tests")]
+pub fn joint_table(section: &[u8]) -> CodecResult<&[u8]> {
+    split_joint(section).map(|(_, table)| table)
+}
+
 fn check_seal(state: &ReputationState, seal: HistorySeal) -> CodecResult<()> {
     if seal.eligible > MAX_ELIGIBLE {
         return Err(F07_BINDING_MISMATCH);

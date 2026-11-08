@@ -1,0 +1,627 @@
+[meta]
+task = "9.35.24"
+base = "81f0e5a93ff980826998fb9b41c495ae81bb90c8"
+prior_attempt = "bd82359bfca306e4889e98d8309ab188014bc4c4"
+restoration = "The seven seeded files were first restored to the task base, the main tree used by the ruling; active EVM disclose.rs and restore_tests.rs are retained."
+build_evidence = "/out/run/gates.jsonl: final build row (revision, command, exit, log)"
+verify_evidence = "/out/run/gates.jsonl: final verify row (revision, command, exit, log)"
+
+[failures.before]
+build = "Previous attempt: layerx-agentd library compilation failed with 54 errors; missing retired core types, carrier fields and disclosure functions. Prior output is retained in /out/run/gate.json seed.reason."
+lib = "Not executed: prior library compilation failed."
+prepare = "Not executed: prior library compilation failed."
+prepare_expiry = "Not executed: prior library compilation failed."
+proof_agentd = "Not executed: prior library compilation failed."
+disclosure = "Not executed: prior library compilation failed."
+approval_events = "Not executed: prior library compilation failed."
+approval_ops = "Not executed: prior library compilation failed."
+approval_semantics = "Not executed: prior library compilation failed."
+repair_22_31_217 = "Not executed: prior library compilation failed."
+repair_22_33_1532 = "Not executed: prior library compilation failed."
+repair_22_33_1539 = "Not executed: prior library compilation failed."
+repair_22_33_1550 = "Not executed: prior library compilation failed."
+human_node_preparation = "Not executed: prior library compilation failed."
+w7_owner_binding = "Not executed: prior library compilation failed."
+
+[failures.after]
+source = "/out/run/gates.jsonl build row and dependents row at 5186826b18668e94ba0caa2995c973b66b43470c; hf-done exited 7 before cg spec done/verify_cmd, so no declared behavior target executed."
+layerx_agentd_all_test_targets = "Compiled: cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --tests, exit 0, /out/logs/build-1.log."
+layerx_sdk_repair_22_31_547 = "E0432: unresolved imports CorePreparationBoundary and ProductionCorePreparationBoundary at services/agent/crates/layerx-sdk/tests/repair_22_31_547.rs:16."
+layerx_intents_compile = "E0432: unresolved imports verify_disclosure_binding, CorePreparationBoundary, CorePreparationState, CoreStateError and DisclosureBindingError at services/human/crates/layerx-intents/tests/compile.rs:2-3."
+lib = "Not executed: dependent check failed before verification."
+prepare = "Not executed: dependent check failed before verification."
+prepare_expiry = "Not executed: dependent check failed before verification."
+proof_agentd = "Not executed: dependent check failed before verification."
+disclosure = "Not executed: dependent check failed before verification."
+approval_events = "Not executed: dependent check failed before verification."
+approval_ops = "Not executed: dependent check failed before verification."
+approval_semantics = "Not executed: dependent check failed before verification."
+repair_22_31_217 = "Not executed: dependent check failed before verification."
+repair_22_33_1532 = "Not executed: dependent check failed before verification."
+repair_22_33_1539 = "Not executed: dependent check failed before verification."
+repair_22_33_1550 = "Not executed: dependent check failed before verification."
+human_node_preparation = "Not executed: dependent check failed before verification."
+w7_owner_binding = "Not executed: dependent check failed before verification."
+
+[consumer.1]
+path = "budget/native_binding.rs"
+legacy_item = "Prepared envelope/canonical_bytes, signing_preimage, observed_head_sequence, audit and digest wrapper"
+evm_source = "EvmPrepared call.encode_unsigned(), signing_hash, observed_head_height, disclosure and disclosure_digest"
+producer = "prepare::prepare_bound / prepare_activity and disclose::restore_call; SigningPreparation::restore retains the same call and sender"
+
+[consumer.2]
+path = "budget/native_settlement.rs"
+legacy_item = "Prepared envelope actor, canonical_bytes and observed_head_sequence"
+evm_source = "EvmPrepared call and observed_head_height; HumanPeer subject owner is the DID"
+producer = "NativeProgramApprovalCarrier::read_call and NativeEffectApprovalCarrier::read_call validate RetainedNativeCall owner_did/sender from the Human registration; retained_actor_id hashes that owner for both allocation and lifecycle checks"
+
+[consumer.3]
+path = "budget/program_lifecycle_settlement.rs"
+legacy_item = "Prepared and retained envelope actor DID"
+evm_source = "EvmPrepared; explicit actor argument shared with the allocation check"
+producer = "read_retained_native_call_debit_settlement supplies the registered Human owner hash to native_lifecycle_debits and committed_exit_debit"
+
+[consumer.4]
+path = "budget/program_settlement.rs"
+legacy_item = "Prepared parameter"
+evm_source = "EvmPrepared exact signed call"
+producer = "verify_retained_submission checks the EVM producer and its recovered sender before reading the sequencer observation"
+
+[consumer.5]
+path = "budget/program_sources.rs"
+legacy_item = "Prepared parameter"
+evm_source = "EvmPrepared matched with SigningPreparation.transaction"
+producer = "validate_retained_preparation checks exact equality and verify_call_binding before the existing native source allocation producer"
+
+[consumer.6]
+path = "human_runtime.rs"
+legacy_item = "CorePreparationState/Boundary, Prepared test carriers and signing_preimage"
+evm_source = "HumanNodePreparationReader supplies node chain/nonce/time/head reads; EvmPrepared provides signing_hash, call and observed_head_height"
+producer = "HumanNode authenticates address binding and node state; subject_bound_address follows the registered identity; activity submission and retained settlement fixtures now retain the native call they sign"
+
+[consumer.7]
+path = "human_node.rs"
+legacy_item = "ProductionCorePreparationBoundary and CoreStateError"
+evm_source = "HumanNodePreparationReader, HumanNodePreparationState and HumanStateError outside the preparation module"
+producer = "Existing HumanNode chain_id/bound_address/pending_nonce/head producer; millisecond conversion, overflow, malformed identity and unavailable-state refusals are retained"
+
+[consumer.8]
+path = "session_control.rs"
+legacy_item = "unused RecordedCore legacy preparation test adapter"
+evm_source = "Existing EvmPrepared register/restore lifecycle paths"
+producer = "Production prepare_bound fixtures and durable call lifecycle; no replacement test double"
+
+[consumer.9]
+path = "policy/approval.rs"
+legacy_item = "unused RecordedCore legacy preparation test adapter/imports"
+evm_source = "Existing typed EVM API preparation"
+producer = "Approval API fixtures already encode calls and signing hashes; obsolete adapter removed"
+
+[consumer.10]
+path = "admin.rs"
+legacy_item = "PrepareRequest.idempotency_key"
+evm_source = "EVM PrepareRequest plus explicit human request idempotency key argument"
+producer = "Human API HumanPrepare.idempotency_key / MutationEnvelope key must be supplied by the caller; route_activity has no in-crate callers and does not invent a transaction-derived key"
+
+[consumer.11]
+path = "capability/effects.rs"
+legacy_item = "send envelope encoder and hand-encoded registration envelope"
+evm_source = "PrecompileCall, prepare_bound and bind_call"
+producer = "Signed native send payload and ABI registration arguments feed the real EVM preparation producer"
+
+[consumer.12]
+path = "protocol_evidence_native_tests.rs"
+legacy_item = "prepare disclose function and legacy Prepared names"
+evm_source = "prepare_bound and EvmPrepared in native_fixture"
+producer = "Committed sequencer-receipt-v1 producer transcript; preparation/signing must reproduce exact transaction bytes"
+
+[consumer.13]
+path = "tests/approval_events.rs"
+legacy_item = "shared approval preparation consumer"
+evm_source = "Existing EVM API Prepared"
+producer = "tests/approval.rs and tests/support produce EVM call bytes and signing hashes; no legacy item references remain in this target"
+
+[consumer.14]
+path = "tests/approval_ops.rs"
+legacy_item = "shared approval preparation consumer"
+evm_source = "Existing EVM API Prepared"
+producer = "tests/approval.rs::fixtures::ledger_prepared uses prepare_bound"
+
+[consumer.15]
+path = "tests/approval_semantics.rs"
+legacy_item = "shared approval preparation consumer"
+evm_source = "Existing EVM API Prepared"
+producer = "tests/approval.rs::fixtures::ledger_prepared uses prepare_bound"
+
+[consumer.16]
+path = "tests/repair_22_31_217.rs"
+legacy_item = "wire carrier, audit fields and envelope actor"
+evm_source = "EvmPrepared and native restoration; actor from Case DID registration"
+producer = "Case transaction producer, retained SigningPreparation and Human owner registration; mutation assertions target the corresponding call/hash/disclosure/sender fields"
+
+[consumer.17]
+path = "tests/repair_22_33_1532.rs"
+legacy_item = "prepare legacy CoreStateError"
+evm_source = "human_node HumanStateError"
+producer = "RemoteHumanAuthority registry response validation"
+
+[consumer.18]
+path = "tests/repair_22_33_1539.rs"
+legacy_item = "shared approval fixture consumer"
+evm_source = "Existing EVM API Prepared"
+producer = "tests/approval.rs::fixtures::ledger_prepared uses prepare_bound; no legacy item migration needed"
+
+[consumer.19]
+path = "tests/repair_22_33_1550.rs"
+legacy_item = "shared approval fixture consumer"
+evm_source = "Existing EvmPrepared and EVM API Prepared"
+producer = "Fixture already uses prepare_bound and real EVM signing; no legacy item migration needed"
+
+[consumer.20]
+path = "tests/human_node_preparation.rs"
+legacy_item = "CorePreparationBoundary/State/Error"
+evm_source = "HumanNodePreparationReader and HumanStateError"
+producer = "Real NodeRpc loopback exchanges retain all chain, pending nonce, millisecond timestamp, malformed DID and overflow assertions"
+
+[consumer.21]
+path = "tests/prepare.rs"
+legacy_item = "legacy-shadowed root types"
+evm_source = "EVM root PrepareRequest, PreparationDefaults, PrepareError and EvmPrepared"
+producer = "prepare_bound and ProductionEvmPreparationBoundary"
+
+[consumer.22]
+path = "tests/prepare_expiry.rs"
+legacy_item = "legacy expire and retention_sweep exports"
+evm_source = "expire_elapsed and sweep_retention under direct lifecycle module"
+producer = "EvmPrepared from prepare_bound; unchanged reservation, expiry and retention criteria"
+
+[consumer.23]
+path = "tests/proof_agentd.rs"
+legacy_item = "DisclosureBindingError and digest wrapper"
+evm_source = "CallBindingError and byte-array digest"
+producer = "ledger_payment_call -> EVM preparation/signing -> durable outbox, idempotency and approval events"
+
+[consumer.24]
+path = "tests/repair_22_33_1520.rs"
+legacy_item = "restore_native_preparation wire-only identity arguments"
+evm_source = "EvmPrepared restoration with canonical call, sender and observed height"
+producer = "Recorded native execution producer and authenticated account witnesses"
+
+[consumer.25]
+path = "tests/signing.rs, tests/w7_owner_binding.rs, tests/repair_22_33_1535.rs"
+legacy_item = "SigningPreparation digest wrapper"
+evm_source = "byte-array disclosure digest"
+producer = "external and self_sign read EvmPrepared disclosure_digest"
+
+[consumer.26]
+path = "tests/w7_core_time.rs, tests/repair_22_33_1543.rs"
+legacy_item = "legacy expire/retention_sweep exports"
+evm_source = "expire_elapsed and sweep_retention"
+producer = "Direct preparation lifecycle module retains real expiry and durable recovery semantics"
+
+[consumer.27]
+path = "services/agent/tests/limits/exactly_once.rs"
+legacy_item = "nested lifecycle module location"
+evm_source = "prepare::lifecycle imports"
+producer = "Existing EVM preparation and durable call lifecycle producer"
+
+
+[finding.sdk_consumer]
+task = "9.35.24"
+file = "services/agent/crates/layerx-sdk/tests/repair_22_31_547.rs"
+symbol = "CorePreparationBoundary, ProductionCorePreparationBoundary"
+observed = "Revision 5186826b18668e94ba0caa2995c973b66b43470c: cargo check --locked --manifest-path /work/paxeer-monorepo/services/agent/Cargo.toml --all-targets -p layerx-agentd-host -p layerx-mcp -p layerx-sdk exited 101 with E0432 unresolved imports in /out/logs/dependents-1.log; hf-done exited 7 before verification."
+assumption = "The SDK test must migrate to the live Human node reader or EVM preparation in a scope that owns that file; restoring the removed exports contradicts this task."
+severity = "blocker"
+
+[finding.intents_consumer]
+task = "9.35.24"
+file = "services/human/crates/layerx-intents/tests/compile.rs"
+symbol = "verify_disclosure_binding, CorePreparationBoundary, CorePreparationState, CoreStateError, DisclosureBindingError"
+observed = "Revision 5186826b18668e94ba0caa2995c973b66b43470c: cargo check --locked --manifest-path /work/paxeer-monorepo/services/human/Cargo.toml --all-targets -p layerx-human-identity-provider -p layerx-human-kms -p layerx-human-security-provider -p layerx-human-service -p layerx-human-test-support -p layerx-intents exited 101 with E0432 unresolved imports in /out/logs/dependents-1.log; hf-done exited 7 before verification."
+assumption = "The Human intents compile test must consume the EVM preparation interface in a scope that owns that file; retaining the retired preparation interface contradicts this task."
+severity = "blocker"
+
+
+[continuation.attempt3]
+prior_attempt = "95fa8138cbb620505e389d7596918327aa9285a4"
+ruling = "Attempt-2 implementation retained; the two downstream test consumers now follow the EVM preparation producer under the expanded scope."
+build_evidence = "/out/run/gates.jsonl: final build row (revision, command, exit, log)"
+verify_evidence = "/out/run/gates.jsonl: final verify row (revision, command, exit, log); /out/logs/verify-1.log and any bounded repair log contain test names and results by target."
+before = "The previous attempt compiled all daemon test targets but stopped on the SDK and intents imports recorded in failures.after before executing the declared behavior targets."
+after = "Read the final verify row and its private log for the SDK/intents test-target compilation and the lib, prepare, prepare_expiry, proof_agentd, disclosure, approval_events, approval_ops, approval_semantics, repair_22_31_217, repair_22_33_1532, repair_22_33_1539, repair_22_33_1550, human_node_preparation and w7_owner_binding failing names by target; no gate result is claimed in advance."
+
+[consumer.28]
+path = "services/agent/crates/layerx-sdk/tests/repair_22_31_547.rs"
+legacy_item = "CorePreparationBoundary, ProductionCorePreparationBoundary and observed_head_sequence"
+evm_source = "ProductionEvmPreparationBoundary::preparation_state returns EvmPreparationState.head_height for the fixture's EVM sender"
+producer = "NodeRpcConfig supplies the same node URL; the production boundary cross-checks the latest header hash against its numbered block and reads chain ID and pending nonce. The existing addr-precompile, owner, credential, permit, context and head assertions are retained."
+
+[consumer.29]
+path = "services/human/crates/layerx-intents/tests/compile.rs"
+legacy_item = "RecordedCoreBoundary, CorePreparationState, PrepareRequest, PreparationDefaults, PrepareError, envelope.payload_hash and verify_disclosure_binding"
+evm_source = "EvmPreparationState, EvmPrepareRequest, EvmPreparationDefaults, EvmPrepareError, prepare_bound, verify_call_binding and CallBindingError"
+producer = "compile emits the signed SEND payload; PrecompileCall::ledger_transfer transports those bytes through prepare_bound to the real call disclosure. construct_method returns the LedgerSend payload for the unchanged domain-separated payload commitment assertion. The malformed authorization refusal, every semantic assertion and all existing test names are retained; an altered call disclosure is also refused by verify_call_binding."
+
+[finding.attempt3_scope]
+task = "9.35.24"
+file = "services/agent/crates/layerx-agentd/src/prepare/repair_9_35_24.kvx"
+symbol = "continuation.attempt3"
+observed = "The task forbids changing GOTCHA.kvx and spec files; the continuation and downstream consumer resolution are recorded in this in-scope task record."
+assumption = "The bounded gate ledger is the authoritative final evidence reference and records the candidate without changing its source revision."
+severity = "note"
+
+
+[finding.human_session_keys_consumer]
+task = "9.35.24"
+file = "services/human/crates/layerx-human-service/tests/session_keys.rs"
+symbol = "CorePreparationBoundary, CorePreparationState, CoreStateError"
+observed = "Revision 63965127afc7d7f38bd75ce2cdf04c5c9b79e254: cargo check --locked --manifest-path /work/paxeer-monorepo/services/human/Cargo.toml --all-targets -p layerx-human-identity-provider -p layerx-human-kms -p layerx-human-security-provider -p layerx-human-service -p layerx-human-test-support exited 101 with E0432 unresolved imports at session_keys.rs:19 in /out/logs/dependents-1.log; hf-done exited 7 before verification, so no declared behavior target or SDK/intents verify_cmd check ran."
+assumption = "This additional downstream test consumer needs a scope that owns session_keys.rs; restoring the removed preparation exports contradicts the task and no permitted source repair resolves its imports."
+severity = "blocker"
+
+[continuation.attempt4]
+prior_attempt = "622839667701a55497ecf27f65d2c0eb245a6849"
+base = "20cf44679e3fd2d5307f0d5812a7d9d0348936f9"
+outcome = "Stopped at the explicit legacy-only-field condition before implementation changes or qualification; all attempt-3 source changes and every test assertion are preserved."
+search = "rg -n --glob *.rs \\b(CorePreparationBoundary|ProductionCorePreparationBoundary|CorePreparationState|CoreStateError|DisclosureBindingError|verify_disclosure_binding|restore_canonical|prepare_activity_for_protocol|attach_kernel_signature|verify_kernel_before_submit|VerifiedKernelArtifact|EnvelopeOptions|encode_send_envelope|sign_disclosed)\\b services sdk apps tools --glob !services/agent/crates/layerx-agentd/**"
+search_exit = 0
+search_evidence = "/out/logs/codex-1.jsonl: retired-name inspection tool output"
+gate_evidence = "No hf-build or hf-done executed in this continuation; the gate ledger does not exist and no qualification result is claimed."
+
+[search.attempt4.1]
+path = "services/agent/crates/layerx-crypto/src/send.rs"
+lines = [220, 247, 249]
+names = ["EnvelopeOptions", "encode_send_envelope"]
+
+[search.attempt4.2]
+path = "services/agent/crates/layerx-crypto/src/signer.rs"
+lines = [356]
+names = ["sign_disclosed"]
+
+[search.attempt4.3]
+path = "services/agent/crates/layerx-crypto/tests/disclosure.rs"
+lines = [6, 121]
+names = ["sign_disclosed"]
+
+[search.attempt4.4]
+path = "services/agent/crates/layerx-crypto/tests/proof_crypto.rs"
+lines = [347, 372]
+names = ["sign_disclosed"]
+
+[search.attempt4.5]
+path = "services/agent/crates/layerx-crypto/tests/repair_22_33_1558.rs"
+lines = [148, 162, 369, 371, 376, 378, 568, 595, 606]
+names = ["EnvelopeOptions", "encode_send_envelope", "sign_disclosed"]
+
+[search.attempt4.6]
+path = "services/agent/crates/layerx-crypto/tests/repair_22_33_1560.rs"
+lines = [18, 22, 87, 89, 170, 360, 395, 418, 509, 608, 640]
+names = ["EnvelopeOptions", "encode_send_envelope", "sign_disclosed"]
+
+[search.attempt4.7]
+path = "services/agent/crates/layerx-crypto/tests/signer.rs"
+lines = [12, 63, 228]
+names = ["sign_disclosed"]
+
+[search.attempt4.8]
+path = "services/agent/crates/layerx-crypto/tests/support/mod.rs"
+lines = [145, 147]
+names = ["EnvelopeOptions", "encode_send_envelope"]
+
+[search.attempt4.9]
+path = "services/agent/crates/layerx-crypto/tests/support/signing.rs"
+lines = [3, 40, 42]
+names = ["EnvelopeOptions", "encode_send_envelope"]
+
+[search.attempt4.10]
+path = "services/human/crates/layerx-human-kms/tests/retired_crypto_codec.rs"
+lines = [44, 48]
+names = ["encode_send_envelope", "sign_disclosed"]
+
+[search.attempt4.11]
+path = "services/human/crates/layerx-human-kms/tests/retired_crypto_codec_w3.rs"
+lines = [44, 48]
+names = ["encode_send_envelope", "sign_disclosed"]
+
+[search.attempt4.12]
+path = "services/human/crates/layerx-human-service/tests/agent_controls_rungs.rs"
+lines = [945, 946, 1112, 1114, 1118, 1473]
+names = ["CorePreparationBoundary", "CorePreparationState", "CoreStateError"]
+
+[search.attempt4.13]
+path = "services/human/crates/layerx-human-service/tests/custody.rs"
+lines = [19, 242, 245, 246, 264]
+names = ["CorePreparationBoundary", "CorePreparationState", "CoreStateError"]
+
+[search.attempt4.14]
+path = "services/human/crates/layerx-human-service/tests/journey_faults.rs"
+lines = [24, 25, 191, 193, 194, 613]
+names = ["CorePreparationBoundary", "CorePreparationState", "CoreStateError"]
+
+[search.attempt4.15]
+path = "services/human/crates/layerx-human-service/tests/key_export.rs"
+lines = [13, 128, 131, 132, 142, 311, 313]
+names = ["CorePreparationBoundary", "CorePreparationState", "CoreStateError", "restore_canonical", "verify_disclosure_binding"]
+
+[search.attempt4.16]
+path = "services/human/crates/layerx-human-service/tests/move_money.rs"
+lines = [24, 128, 130, 131, 403]
+names = ["CorePreparationBoundary", "CorePreparationState", "CoreStateError"]
+
+[search.attempt4.17]
+path = "services/human/crates/layerx-human-service/tests/retired_crypto_codec_1.rs"
+lines = [87, 91]
+names = ["encode_send_envelope", "sign_disclosed"]
+
+[search.attempt4.18]
+path = "services/human/crates/layerx-human-service/tests/retired_crypto_codec_2.rs"
+lines = [15, 19]
+names = ["encode_send_envelope", "sign_disclosed"]
+
+[search.attempt4.19]
+path = "services/human/crates/layerx-human-service/tests/session_keys.rs"
+lines = [19, 131, 133, 134, 679]
+names = ["CorePreparationBoundary", "CorePreparationState", "CoreStateError"]
+
+[search.attempt4.20]
+path = "services/human/crates/layerx-human-service/tests/wallet_identity_e2e.rs"
+lines = [34, 38, 346, 348, 349, 442, 449, 527, 529]
+names = ["CorePreparationBoundary", "CorePreparationState", "CoreStateError", "attach_kernel_signature", "prepare_activity_for_protocol", "verify_kernel_before_submit"]
+
+[search.attempt4.21]
+path = "services/human/crates/layerx-human-test-support/tests/retired_crypto_codec.rs"
+lines = [6, 8]
+names = ["encode_send_envelope", "sign_disclosed"]
+
+[search.attempt4.22]
+path = "services/human/crates/layerx-intents/tests/retired_crypto_codec.rs"
+lines = [14, 18]
+names = ["encode_send_envelope", "sign_disclosed"]
+
+[search.attempt4.23]
+path = "services/human/crates/layerx-intents/tests/retired_crypto_codec_w3.rs"
+lines = [12, 16]
+names = ["encode_send_envelope", "sign_disclosed"]
+
+[search.attempt4.24]
+path = "services/platform/hosted/agent-boundary/tests/retired_client_modules.rs"
+lines = [69]
+names = ["sign_disclosed"]
+
+[search.attempt4.25]
+path = "services/platform/hosted/agent-boundary/tests/retired_client_modules_w2.rs"
+lines = [32]
+names = ["sign_disclosed"]
+
+[search.attempt4.26]
+path = "services/platform/hosted/core/tests/no_kernel_disclosure_codec.rs"
+lines = [25]
+names = ["sign_disclosed"]
+
+[search.attempt4.27]
+path = "services/wallet/attestor/internal/policy/lx/testdata/kernelvectors/tests/no_kernel_codec.rs"
+lines = [11, 14]
+names = ["EnvelopeOptions", "encode_send_envelope"]
+
+[consumer.30]
+path = "services/human/crates/layerx-human-service/tests/agent_controls_rungs.rs"
+legacy_item = "RecordedCore, legacy Prepared envelope and budget-context disclosure"
+evm_source = "EvmPrepared call, signing_hash and observed_head_height; API PrepareRequest payload, actor, authority, account sequence and idempotent mutation key"
+producer = "The existing prepare_bound EVM branch now consumes API inputs directly and retains EvmPrepared; signing_preparation checks verify_call_binding and sender equality. Reclaim binds the decoded transaction with bind_call, asserting Payer and Transfer. The fixture serves a ProtocolBudgetRecord and BalanceEntry independently of the call; activity receipt actuals assert asset and amount."
+status = "Migrated in attempt 5; bounded gate evidence is referenced by continuation.attempt5."
+
+[consumer.31]
+path = "services/human/crates/layerx-human-service/tests/custody.rs"
+legacy_item = "PreparedCore, kernel_prepared and DisclosureDigest"
+evm_source = "Compiled payload, ledger_payment_call, bind_call and [u8; 32] audit digest"
+producer = "compile emits the signed SEND payload directly for the existing EVM custody branch; ledger_payment_call and bind_call supply its call disclosure and digest. The signature, durable submission and audit assertions keep their expectations."
+status = "Migrated in attempt 5; bounded gate evidence is referenced by continuation.attempt5."
+
+[consumer.32]
+path = "services/human/crates/layerx-human-service/tests/journey_faults.rs"
+legacy_item = "RecordedCore, legacy Prepared and budget mutation preparation"
+evm_source = "EvmPrepared and API PrepareRequest with head_height 88 in EvmPreparationState"
+producer = "The existing prepare_bound branch consumes the request payload and sequence directly; the retained EvmPrepared supplies call nonce, signing_hash and observed_head_height. Fault recovery and receipt storage retain the same signatures, names and outcomes."
+status = "Migrated in attempt 5; bounded gate evidence is referenced by continuation.attempt5."
+
+[consumer.33]
+path = "services/human/crates/layerx-human-service/tests/key_export.rs"
+legacy_item = "PreparedCore, legacy canonical restore and disclosure verification"
+evm_source = "ProductionEvmPreparationBoundary, EvmPrepared, verify_call_binding and disclose::restore_call"
+producer = "The configured node supplies pending state and gas estimate through ProductionEvmPreparationBoundary; PrecompileCall::ledger_transfer carries the compiled SEND payload. verify_call_binding checks original and restored EVM preparations; custody and key export assertions retain their expectations."
+status = "Migrated in attempt 5; bounded gate evidence is referenced by continuation.attempt5."
+
+[consumer.34]
+path = "services/human/crates/layerx-human-service/tests/move_money.rs"
+legacy_item = "RecordedCore and legacy Prepared envelope"
+evm_source = "EvmPrepared call, signing_hash, observed_head_height and API request metadata"
+producer = "The existing prepare_bound helper consumes API payload and account sequence for SEND and budget calls directly; retained EvmPrepared supplies signing and verification. The human request remains the producer of actor, authority, payload hash and idempotency metadata."
+status = "Migrated in attempt 5; bounded gate evidence is referenced by continuation.attempt5."
+
+[consumer.35]
+path = "services/human/crates/layerx-human-service/tests/session_keys.rs"
+legacy_item = "PreparationBoundary and legacy prepared_send"
+evm_source = "Compiled SEND payload, ledger_payment_call, bind_call and EvmPrepared"
+producer = "compile feeds the existing EVM session signing branch directly; self_sign still enforces the provisioned sender, scopes, expiry and revocation with every case name and assertion retained."
+status = "Migrated in attempt 5; bounded gate evidence is referenced by continuation.attempt5."
+
+[consumer.36]
+path = "services/human/crates/layerx-human-service/tests/wallet_identity_e2e.rs"
+legacy_item = "RecordedCore, legacy Prepared and kernel signature attachment/verification"
+evm_source = "ProductionEvmPreparationBoundary, EvmPrepared signing_hash and external EVM signature verification"
+producer = "The agent adapter follows the configured node boundary and binds the sender supplied by the human journey. attach_external_signature and verify_before_submit validate the exact submitted type-2 transaction and its signing_hash; the existing signed_actions journey and all transaction assertions remain."
+status = "Migrated in attempt 5; bounded gate evidence is referenced by continuation.attempt5."
+
+[finding.attempt4_budget_context]
+task = "9.35.24"
+file = "services/human/crates/layerx-human-service/tests/agent_controls_rungs.rs"
+symbol = "every_reclaim_mechanism_uses_real_agent_receipts_and_projects_activity"
+observed = "Revision 20cf44679e3fd2d5307f0d5812a7d9d0348936f9 with the attempt-3 working tree retained: source inspection (sed -n '2550,2642p' services/human/crates/layerx-human-service/tests/agent_controls_rungs.rs and sed -n '1158,1194p' services/agent/crates/layerx-crypto/src/disclosure/call.rs, exit 0, /out/logs/codex-1.jsonl) finds assertions on DisclosedNativeOperation::BudgetDefund.context balance, asset, budget_account, owner and source_account at lines 2611-2632, while ConstructMethod::PayBudgetDefund exposes only budget and amount and bind_call leaves native_operation and budget_context unset."
+assumption = "These assertions require budget state absent from the EVM preparation producer; removing them, inventing state or changing the out-of-scope crypto producer would violate the task, whose attempt-4 ruling explicitly requires recording this finding and stopping."
+severity = "blocker"
+
+[continuation.attempt5]
+prior_attempt = "fffb576516eafdeed4ef86a7bf564922469b87fb"
+base = "c92013249283d4c0d7e1e9c227b113569f5edcdd"
+main = "main is already an ancestor of the supplied task base; no merge changes are required."
+before = "Attempt 4 stopped before qualification on the legacy reclaim context block; the historical failures.before, failures.after and attempt4 search inventories above are preserved."
+after = "The final verify entry and private log in /out/run/gates.jsonl give failing case names by target for the declared lib and integration targets, plus SDK and human test-target compilation; no result is claimed before the gate runs."
+build_evidence = "/out/run/gates.jsonl: final build entry with revision, command, exit and log"
+verify_evidence = "/out/run/gates.jsonl: final verify entry with revision, command, exit and log"
+
+[finding.attempt5_human_budget_path]
+task = "9.35.24"
+file = "services/agent/crates/layerx-agentd/src/human_runtime.rs"
+symbol = "prepared_budget_context, budget_mutation_context"
+observed = "At c92013249283d4c0d7e1e9c227b113569f5edcdd with the carried task tree, rg -n 'budget_mutation_context|prepared_budget_context|DisclosedNativeOperation::Budget(Fund|Defund|Revoke)|PayBudget(Fund|Defund)|native_operation:|budget_context:' services/agent/crates/layerx-agentd/src/human_runtime.rs services/agent/crates/layerx-crypto/src/disclosure/call.rs exits 0 in /out/logs/task-9.35.24-budget-inspection.log: prepared_budget_context reads BudgetFund, BudgetDefund or BudgetRevoke native_operation, while bind_call initializes native_operation and budget_context to None and PayBudgetFund/PayBudgetDefund only set Payer and Transfer; budget_mutation_context appears only at its declaration."
+assumption = "Decision 2978 leaves the human runtime budget production path unchanged in this task and treats its missing native-operation producer as a separate suspect finding."
+severity = "suspect"
+
+[finding.attempt5_scope]
+task = "9.35.24"
+file = "services/agent/crates/layerx-agentd/src/prepare/repair_9_35_24.kvx"
+symbol = "continuation.attempt5"
+observed = "The task forbids editing GOTCHA.kvx and spec files; source-inspection corrections and the required suspect finding are recorded here within scope instead."
+assumption = "The runner owns task qualification and publishing, so no manual spec mutation, commit or push is performed."
+severity = "note"
+
+[qualification.attempt5]
+revision = "1c8c961ddb288264a990cffb92f689a4a91ca4ce"
+build = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --tests; exit 0; /out/logs/build-1.log"
+dependents = "Cross-root dependent test-target checks; exit 0; /out/logs/dependents-1.log; /out/run/gates.jsonl dependents row"
+verify = "cg spec done 9.35.24 -f layerx-merge --root /work/paxeer-monorepo; exit 1 (verify_cmd cargo test exit 101); /out/logs/verify-1.log"
+lib_failing_names = ["outbound_tls::private_ca_checks_the_actual_server_identity", "ops::program::simulation_tls_checks_the_actual_server_identity"]
+approval_events_failing_names = ["approval_lifecycle_stream_resumes_after_gap_and_exports_digest_evidence"]
+passing_targets = ["prepare", "prepare_expiry", "proof_agentd", "disclosure", "approval_ops", "approval_semantics", "repair_22_31_217", "repair_22_33_1532", "repair_22_33_1539", "repair_22_33_1550", "human_node_preparation", "w7_owner_binding"]
+compilation = "Retired-name searches, layerx-agentd build of every test target, SDK test-target check and intents/human-service test-target check passed inside the declared verification."
+outcome = "Implemented, not qualified; task remains in_progress because unrelated fixture prerequisites failed. No test assertion or check is weakened, and the recorded unrelated failures are not rerun. This evidence-only record was appended after the failed gate and is not claimed to be part of the verified revision."
+
+[finding.attempt5_tls_producer]
+task = "9.35.24"
+file = "services/platform/tests/support/tls_boundary.rs"
+symbol = "start; outbound_tls::private_ca_checks_the_actual_server_identity; ops::program::simulation_tls_checks_the_actual_server_identity"
+observed = "Revision 1c8c961ddb288264a990cffb92f689a4a91ca4ce: cg spec done 9.35.24 -f layerx-merge --root /work/paxeer-monorepo exits 1 (verify_cmd exits 101), /out/logs/verify-1.log: both lib TLS cases panic at tls_boundary.rs:186 because the layerx-paxeer-boundary producer executable is absent; its source and fixture are unchanged by this task."
+assumption = "Building the platform binary requires an undeclared build gate, so the missing producer is recorded without expanding the allowed gates or changing the unchanged TLS checks."
+severity = "blocker"
+
+[finding.attempt5_approval_directory]
+task = "9.35.24"
+file = "services/agent/crates/layerx-agentd/tests/approval_events.rs"
+symbol = "approval_lifecycle_stream_resumes_after_gap_and_exports_digest_evidence"
+observed = "Revision 1c8c961ddb288264a990cffb92f689a4a91ca4ce: cg spec done 9.35.24 -f layerx-merge --root /work/paxeer-monorepo exits 1 (verify_cmd exits 101), /out/logs/verify-1.log: the case panics at approval_events.rs:405 when Store::open rejects its create_dir_all directory as not a canonical owned private directory; this test file is unchanged by the task."
+assumption = "This pre-existing directory setup failure is independent of legacy preparation deletion and is recorded without repairing or rerunning it, as the task requires."
+severity = "blocker"
+
+[continuation.attempt6]
+base = "403a6bf491d54a718e861cd75daffd070dd89767"
+prior_attempt = "05d2264af3a885ccbdc6f866af533781e76ff5a4"
+ruling = "Decision 2982 authorizes correcting the approval store root and supplies the missing boundary executable through the declared gates; the attempt-5 migration and assertions stand."
+corrected_setup = "tests/approval_events.rs::approval_lifecycle_stream_resumes_after_gap_and_exports_digest_evidence creates its temporary store root through std::fs::DirBuilder with mode 0700 and canonicalizes it before Store::open."
+producer = "src/store/protected.rs::ProtectedRoot::open and validate enforce the canonical owned private directory contract of 22.30.91, following decision 2931; the boundary executable follows the TLS producer prerequisite of decision 2325."
+sweep = "The named verification targets contain no other root created through create_dir_all or create_dir before Store::open. Existing private roots and Store-created roots are retained; repair_22_33_1550 create_dir calls inject store.bin.tmp faults and remain unchanged. No assertion, TLS identity case, support module or executable changes."
+local_build_evidence = "/out/logs/attempt6-local-boundary.log and /out/logs/attempt6-local-results.json: boundary producer build command and exit"
+local_suite_evidence = "/out/logs/attempt6-local-suite.log and /out/logs/attempt6-local-results.json: declared crate suite command and exit before the gate pair"
+build_evidence = "/out/run/gates.jsonl: final build row with exact revision, command, exit and log"
+verify_evidence = "/out/run/gates.jsonl: final verify row with exact revision, command, exit and log; its private log contains failing names by target"
+
+[failures.attempt6.before]
+source = "qualification.attempt5 and /out/run/gate.json seed.reason preserve the prior failing target names."
+lib = ["outbound_tls::private_ca_checks_the_actual_server_identity", "ops::program::simulation_tls_checks_the_actual_server_identity"]
+approval_events = ["approval_lifecycle_stream_resumes_after_gap_and_exports_digest_evidence"]
+prepare = []
+prepare_expiry = []
+proof_agentd = []
+disclosure = []
+approval_ops = []
+approval_semantics = []
+repair_22_31_217 = []
+repair_22_33_1532 = []
+repair_22_33_1539 = []
+repair_22_33_1550 = []
+human_node_preparation = []
+w7_owner_binding = []
+
+[failures.attempt6.after]
+source = "The final verify row in /out/run/gates.jsonl and its private log record results and any failing names for every target listed in failures.attempt6.before; no gate outcome is claimed in advance."
+
+[qualification.attempt6.local]
+revision = "403a6bf491d54a718e861cd75daffd070dd89767 with the preserved task working tree and the private canonical approval root correction"
+boundary_build = "cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-paxeer-boundary --bin layerx-paxeer-boundary; exit 0; /out/logs/attempt6-local-boundary.log"
+suite_command = "LAYERX_PAXEER_BOUNDARY_BIN=${CARGO_TARGET_DIR:-$PWD/services/platform/target}/debug/layerx-paxeer-boundary sh tools/runtime/run-with-clock.sh cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --no-fail-fast --lib --test prepare --test prepare_expiry --test proof_agentd --test disclosure --test approval_events --test approval_ops --test approval_semantics --test repair_22_31_217 --test repair_22_33_1532 --test repair_22_33_1539 --test repair_22_33_1550 --test human_node_preparation --test w7_owner_binding"
+suite_exit = 101
+suite_log = "/out/logs/attempt6-local-suite.log"
+lib = []
+approval_events = ["approval_lifecycle_stream_resumes_after_gap_and_exports_digest_evidence"]
+prepare = []
+prepare_expiry = []
+proof_agentd = []
+disclosure = []
+approval_ops = []
+approval_semantics = []
+repair_22_31_217 = []
+repair_22_33_1532 = []
+repair_22_33_1539 = []
+repair_22_33_1550 = []
+human_node_preparation = []
+w7_owner_binding = []
+outcome = "Both TLS identity cases pass and the private store root opens; the approval stream then exposes the pre-existing mixed cursor ordering conflict recorded below. No assertion or producer check changes. Final gate evidence remains the ledger reference above."
+
+[finding.attempt6_approval_cursor]
+task = "9.35.24"
+file = "services/agent/crates/layerx-agentd/tests/approval_events.rs"
+symbol = "approval_lifecycle_stream_resumes_after_gap_and_exports_digest_evidence; subscriptions_restored_after_gap; drain_delivered"
+observed = "Base revision 403a6bf491d54a718e861cd75daffd070dd89767 with the task working tree: the exact suite_command in qualification.attempt6.local exits 101 at /out/logs/attempt6-local-suite.log because accept_front refuses recovered log cursor (1, 0, 0) after expected (4, 0, 1); the recovered block-1 log fixture, ApprovalEvents::emit and events/deliver.rs cursor producer are unchanged from the base."
+assumption = "The root correction exposes an independent pre-existing ordering conflict between daemon event ordinals and log positions; the instruction to record unrelated failures without chasing them prevents changing this fixture or its producer to obtain green qualification."
+severity = "blocker"
+
+[continuation.attempt7]
+base = "80fee432cdb8a5b894afd795a4eff277da437953"
+prior_attempt = "92818149c7316712db3363f1a01fc2f2baf3530c"
+prerequisite = "22.39.171 is merged through 55a869acc7f7238eafc830efff7ddaed03d08621; its durable local-event chain anchors and approval regression cases are preserved."
+implementation = "Retain the attempt-6 EVM migration and canonical private store root; resolve only the seed conflict markers around the DirBuilder mode 0700 setup, keeping the current assertions and all merged approval cases. No src/events or cursor derivation changes."
+local_boundary_evidence = "/out/logs/attempt7-local-boundary.log and /out/logs/attempt7-local-results.json: prerequisite executable build command, base revision and exit."
+local_suite_evidence = "/out/logs/attempt7-local-suite.log and /out/logs/attempt7-local-results.json: declared crate suite command, base revision, exit and failing names by target before the final gate pair."
+build_evidence = "/out/run/gates.jsonl: final build row contains the exact candidate revision, command, exit and private log."
+verify_evidence = "/out/run/gates.jsonl: final verify row contains the exact candidate revision, command, exit and private log at the same candidate as the final build."
+
+[failures.attempt7.before]
+source = "qualification.attempt6.local; finding.attempt6_approval_cursor."
+lib = []
+approval_events = ["approval_lifecycle_stream_resumes_after_gap_and_exports_digest_evidence"]
+prepare = []
+prepare_expiry = []
+proof_agentd = []
+disclosure = []
+approval_ops = []
+approval_semantics = []
+repair_22_31_217 = []
+repair_22_33_1532 = []
+repair_22_33_1539 = []
+repair_22_33_1550 = []
+human_node_preparation = []
+w7_owner_binding = []
+
+[failures.attempt7.after]
+source = "/out/logs/attempt7-local-results.json records failing names by target from the preflight suite; the final verify row of /out/run/gates.jsonl and its private log record the bounded verification result without claiming any unexecuted gate."
+lib = []
+approval_events = []
+approval_ops = []
+approval_semantics = []
+disclosure = []
+human_node_preparation = []
+prepare = []
+prepare_expiry = []
+proof_agentd = []
+repair_22_31_217 = []
+repair_22_33_1532 = []
+repair_22_33_1539 = []
+repair_22_33_1550 = []
+w7_owner_binding = []
+
+[qualification.attempt7.local]
+revision = "80fee432cdb8a5b894afd795a4eff277da437953 with the preserved task working tree and resolved private-root conflict"
+command = "LAYERX_PAXEER_BOUNDARY_BIN=${CARGO_TARGET_DIR:-$PWD/services/platform/target}/debug/layerx-paxeer-boundary sh tools/runtime/run-with-clock.sh cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --no-fail-fast --lib --test prepare --test prepare_expiry --test proof_agentd --test disclosure --test approval_events --test approval_ops --test approval_semantics --test repair_22_31_217 --test repair_22_33_1532 --test repair_22_33_1539 --test repair_22_33_1550 --test human_node_preparation --test w7_owner_binding"
+exit = 0
+log = "/out/logs/attempt7-local-suite.log"
+outcome = "All fourteen targets pass, including the formerly failing approval stream case, both TLS identity cases, and the merged block-boundary approval cases; no assertions, cursor derivation or event sources changed in this task. Final qualification remains the matching build and verify ledger rows."

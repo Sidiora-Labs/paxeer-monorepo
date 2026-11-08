@@ -15,7 +15,7 @@ use layerx_agentd::audit::{Coverage, Log};
 use layerx_agentd::events::{ingest_local_restriction, CoreEvent, EventIngestor, IngestError};
 use layerx_agentd::idempotency::{EconomicResult, IdempotencyError, Outcome, RetentionPolicy};
 use layerx_agentd::outbox::{Outbox, OutboxError, SubmissionState};
-use layerx_agentd::prepare::{evm, verify_call_binding, CallBindingError, DisclosureBindingError};
+use layerx_agentd::prepare::{evm, verify_call_binding, CallBindingError};
 use layerx_agentd::session::SessionId;
 use layerx_agentd::sign::{
     attach_external_signature, external, verify_before_submit, SigningError, SigningPreparation,
@@ -201,7 +201,7 @@ fn prepared_signatures_cross_the_human_api_and_recover_exact_outbox_bytes() {
         prepared.transaction.call.signing_hash()
     );
     assert_eq!(
-        package.disclosure_digest.0,
+        package.disclosure_digest,
         prepared.transaction.disclosure_digest
     );
     {
@@ -382,9 +382,7 @@ fn inconsistent_prepared_call_and_disclosure_are_refused() {
     stale_digest.transaction.disclosure_digest[0] ^= 1;
     assert!(matches!(
         verify_before_submit(&raw, &stale_digest, &stale_digest.actor_address, &registry),
-        Err(SigningError::Disclosure(
-            DisclosureBindingError::DigestMismatch
-        ))
+        Err(SigningError::CallBinding(CallBindingError::DigestMismatch))
     ));
     let mut stale_call = signing.clone();
     stale_call.transaction.call.data[68 + 4 + 32] ^= 1;
@@ -401,7 +399,7 @@ fn inconsistent_prepared_call_and_disclosure_are_refused() {
             &stale_disclosure.actor_address,
             &registry
         ),
-        Err(SigningError::Disclosure(_))
+        Err(SigningError::CallBinding(_))
     ));
     let mut stale_actor = signing.clone();
     stale_actor.actor_address[0] ^= 1;
@@ -432,7 +430,7 @@ fn inconsistent_prepared_call_and_disclosure_are_refused() {
     ));
     assert!(matches!(
         external(&stale_disclosure),
-        Err(SigningError::Disclosure(_))
+        Err(SigningError::CallBinding(_))
     ));
     let mut changed_call = signing.clone();
     changed_call.transaction.call.nonce += 1;
@@ -443,7 +441,7 @@ fn inconsistent_prepared_call_and_disclosure_are_refused() {
     ));
     assert!(matches!(
         external(&changed_call),
-        Err(SigningError::Disclosure(_))
+        Err(SigningError::CallBinding(_))
     ));
     assert_eq!(
         verify_before_submit(&raw, &changed_call, &changed_call.actor_address, &registry),

@@ -13,7 +13,7 @@ use layerx_sdk::native_effect::{
 
 fn assert_native_owner_resolution(fixture: &mut Fixture, observed_head: u64) {
     use layerx_agentd::human_node::HumanNode;
-    use layerx_agentd::prepare::{CorePreparationBoundary, ProductionCorePreparationBoundary};
+    use layerx_agentd::prepare::ProductionEvmPreparationBoundary;
     use layerx_agentd::tenant::{Operation, Surface};
 
     assert_eq!(observed_head, HEAD);
@@ -23,15 +23,11 @@ fn assert_native_owner_resolution(fixture: &mut Fixture, observed_head: u64) {
         Some(fixture.account.evm_address()),
         "native_send_purpose_owner: pending addr-precompile lookup"
     );
-    let activity = must(ActivityType::new(ModuleId::Asset, 5));
-    let registry = must(layerx_types::payload::ModuleRegistry::new(&[must(
-        layerx_types::payload::ModuleRegistration::new(ModuleId::Asset, &[activity]),
-    )]));
-    let mut boundary = ProductionCorePreparationBoundary::new(&chain, registry);
-    let snapshot =
-        must(boundary.preparation_state(&must(Did::new(fixture.account.did().as_bytes()))));
-    assert_eq!(snapshot.observed_head_sequence, observed_head);
-    assert_eq!(must(chain.head()).number, snapshot.observed_head_sequence);
+    let config = must(NodeRpcConfig::from_environment());
+    let boundary = must(ProductionEvmPreparationBoundary::new(&config.url, &[]));
+    let snapshot = must(boundary.preparation_state(&fixture.account.evm_address()));
+    assert_eq!(snapshot.head_height, observed_head);
+    assert_eq!(must(chain.head()).number, snapshot.head_height);
 
     let mut daemon = must(fixture.owner.lock());
     let control = daemon.session_control.clone();
@@ -69,7 +65,7 @@ fn assert_native_owner_resolution(fixture: &mut Fixture, observed_head: u64) {
             .native_send_purpose_owner(
                 &context,
                 fixture.account.layerx_public_key(),
-                snapshot.observed_head_sequence,
+                snapshot.head_height,
             )
             .is_ok(),
         "native_purpose_owner and native_send_purpose_owner must accept the authenticated fixture owner"

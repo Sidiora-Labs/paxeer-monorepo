@@ -419,7 +419,7 @@ type DebitKey = ([u8; 32], [u8; 32], ProgramChargeKind, Option<[u8; 32]>);
 /// An unknown transaction cannot supply receipt evidence or release a reservation.
 pub fn read_native_execution_observation(
     node: &layerx_client::sequencer::SequencerEndpoint,
-    prepared: &crate::prepare::Prepared,
+    prepared: &crate::prepare::EvmPrepared,
     submission: &VerifiedSubmission,
 ) -> Result<layerx_client::sequencer::SequencerReceipt, ProgramSettlementError> {
     super::native_binding::verify_retained_submission(prepared, submission)

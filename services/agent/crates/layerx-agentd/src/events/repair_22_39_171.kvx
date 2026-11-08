@@ -1,0 +1,152 @@
+[repair.22.39.171]
+acceptance = "22998.1"
+base_revision = "6eeea3b0755ea285d12cdb7556cbd536e3a912d9"
+continued_tree = "af91dcafa5a4a349dcbda0d02e8e1fc3682e878b"
+qualified_revision = "The candidate revision in the final passing build and verify rows of /out/run/gates.jsonl; both rows must match. This record does not claim a gate result before execution."
+baseline_execution = "The supplied attempt-1 evidence is the before inventory. No reproduction was rerun: the continuation permits only hf-build and hf-done after complete implementation."
+identity = "Local identity already hashes global sequence and canonical bytes independently of the cursor. Chain identity, receipt evidence, deduplication, strict subscription refusal, LXS3 encoding and acknowledgement rules stay unchanged."
+
+[derivation]
+decision = "2985 amends 2984; 2986 updates the two legacy subscription consumer assertions."
+anchor_source = "The durable ingestion watermark supplies last_position.block_height, or zero before any journaled chain log. Pending logs never change that watermark. Each local event captures that height and its own counter in its evidence metadata in the same atomic record_event or record_local_event write as the bytes and watermark. Delivery reads that immutable metadata, never the latest watermark."
+local_cursor = "(captured block height, u32::MAX, per-anchor counter). The first local event under an anchor uses counter zero. The previous journaled event's durable metadata supplies the counter for checked increment; a preceding chain log or no previous anchored event starts a new counter at zero. Counter overflow refuses ingestion with SequenceExhausted before any write; it never carries into transaction or block height."
+chain_cursor = "Every chain log uses its exact block height, transaction index and log index with no insertion offset, including mixed streams and recovered logs."
+ordering = "new_head journals all pending logs of a closed block in position order. Local events occupy the suffix of the last journaled block, before any later block, and consecutive locals follow journal sequence order. The attempt-1 flush_pending_through admission function is removed; new_head retains its original block journaling path."
+recovery = "The last local counter survives ingestion restart without needing retained event bytes; delivery restart retains the exact cursor, event identity and replay bytes even after newer chain blocks have been journaled. Legacy metadata without an anchor keeps the original (global_sequence + 1, 0, 0) local delivery cursor by explicit decision 2985."
+
+[encoding]
+format = "LXEM evidence and attributes remain unchanged. A local event has an optional 16-byte LXA2 trailer: magic (4), anchor block height (8), counter (4), all integers big-endian. Chain and pending log metadata need no trailer. The unpublished attempt-1 37-byte LXA1 insertion-offset encoding is replaced because decision 2985 removes that derivation; the deployed LXEM-only encoding remains readable."
+atomicity = "The existing store EventIngestion transaction persists bytes, metadata (including both anchor and counter), and watermark atomically, restoring the map on persist failure. Metadata is LocalOnly. Receipt promotion preserves an existing anchor. Malformed, truncated or trailing metadata is refused; absence alone selects the explicitly required legacy ordinal contract."
+
+[literal.delivery]
+case = "loaded_seam_is_ordered_observable_and_has_no_duplicate"
+change = "Attempt-1 (0, 0, global_sequence + 1) becomes (0, MAX, global_sequence) for the genesis fixture; an adjacent comment records it. The shared start remains zero before all locals, with a nonzero ordinal N represented by (0, MAX, N - 1)."
+
+[literal.delivery_filtered]
+case = "start_before_filter_subject_genesis_transitions_before_first_live_match"
+change = "Original (6, 0, 0), attempt-1 (0, 0, 6), becomes (0, MAX, 5); recorded beside the assertion."
+
+[literal.delivery_large_sequence]
+case = "genesis_anchor_counter_starts_at_zero_for_large_sequences_and_survives_reopen"
+change = "The high global sequences MAX-1, MAX, MAX+1 now produce (0, MAX, 0), (0, MAX, 1), (0, MAX, 2), replacing attempt-1 transaction carry. The case keeps ordered delivery and identical replay across reopen, and explicitly proves counter zero is independent of initial journal sequence."
+
+[literal.delivery_legacy]
+case = "legacy_local_event_without_a_durable_anchor_keeps_its_ordinal_cursor"
+change = "The attempt-1 CursorAnchorUnavailable refusal is replaced by the decision-2985 legacy contract: exact original bytes at (1, 0, 0) for sequence zero, accepted and acknowledged. The persisted fixture removes only the new trailer to represent deployed LXEM-only metadata."
+
+[literal.subscription]
+case = "anchored_local_cursors_keep_strict_delivery_and_exact_acknowledgements"
+change = "Attempt-1 (0, 0, 1) and (0, 0, 2) become (0, MAX, 0) and (0, MAX, 1); adjacent comments record both changes. Duplicate delivery refusal, never-delivered acknowledgement refusal and exact durable acknowledgement survive unchanged."
+
+[literal.subscription_cursor_v3]
+case = "anchored_local_counters_use_the_same_lxs3_record"
+change = "Attempt-1 (0, 0, MAX) and (0, 1, 0) become (0, MAX, MAX-1) and (0, MAX, MAX), with adjacent comments, exercising the top of the counter space without a transaction carry. The full LXS3 restart and exact outstanding acknowledgement assertions remain."
+
+[literal.history_block_cursor]
+case = "history_cursor_is_the_block_position_triple"
+change = "Attempt-1 local carry triples become (0, MAX, 0) and (0, MAX, MAX), with unchanged sixteen-byte round trips and all original raw-position checks. The ordering assertion proves the greatest local counter precedes (1, 0, 0)."
+
+[literal.legacy_upgrade]
+cases = ["legacy_subscription_without_a_session_generation_requires_cursor_reset", "lxs2_subscription_record_requires_cursor_reset"]
+change = "Per 2986, CursorResetRequired becomes UpgradeRequired with exact tenant and subscription identifier plus the full display text directing Store::recover_legacy. Every legacy-byte preservation assertion remains; no production mapping changes."
+
+[proof.approval_events]
+replaced = "The unadmitted same-block prefix case is replaced by local_approval_between_closed_blocks_keeps_journal_order_after_restart and local_approval_while_next_block_is_pending_keeps_journal_order_after_restart."
+assertions = "Both cases use real EventIngestor log ingestion, new_head block journaling, ApprovalEvents emission and DeliveryEngine delivery/accept/ack. They prove a two-log block stays together; pending next-block logs leave the anchor unchanged; the counter increments across ingestor restart; seven journaled events have exact, strictly increasing cursors; unacknowledged approval replay after delivery restart preserves identity and bytes; a later anchor resets its local counter to zero."
+restore = "approval_lifecycle_stream_resumes_after_gap_and_exports_digest_evidence keeps every finding-18.1150.1.1 assertion: four approval bytes then the recovered log exactly once, strictly increasing cursors, digest-only evidence export and all lifecycle decisions. Store::open still creates the private root from the carried attempt."
+
+[before.approval_events]
+failing_names = ["approval_lifecycle_stream_resumes_after_gap_and_exports_digest_evidence"]
+evidence = "Gotcha 3685 inventory at 92818149c731: recovered block 1 refused after four ordinal approvals. In the carried af91dcafa5a4 tree the restore case passed after its protected-root fixture repair; all attempt-1 new cases passed (gotcha 3686)."
+
+[before.subscription]
+failing_names = ["legacy_subscription_without_a_session_generation_requires_cursor_reset"]
+evidence = "Supplied af91dcafa5a4 attempt-1 gate and gotcha 3687: obsolete CursorResetRequired assertion."
+
+[before.subscription_cursor_v3]
+failing_names = ["lxs2_subscription_record_requires_cursor_reset"]
+evidence = "Supplied af91dcafa5a4 attempt-1 gate and gotcha 3687: obsolete CursorResetRequired assertion."
+
+[before.passing_targets]
+targets = ["delivery", "gaps", "history_block_cursor", "subscription_ops_cursor", "w7_subscription_permit", "repair_22_31_215"]
+failing_names = []
+evidence = "Supplied attempt-1 results and gotcha 3686, not a new execution."
+
+[after]
+targets = ["approval_events", "delivery", "subscription", "subscription_cursor_v3", "subscription_ops_cursor", "gaps", "history_block_cursor", "w7_subscription_permit", "repair_22_31_215"]
+failing_names_by_target = "Reference: each target's test result and failures subsection in the final verify log named by /out/run/gates.jsonl. A passing hf-done row means the failing-name set is empty for every listed target; otherwise the log is authoritative and qualification is not claimed."
+excluded_targets = "history_served_contract and repair_22_33_1506 belong to 22.39.172 per decision 2987; their attempt-1 failing names and findings are retained below, without re-investigation."
+
+[evidence]
+ledger = "/out/run/gates.jsonl (private; final build and verify rows name exact candidate revision, command, exit and log)"
+build = "hf-build; cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --tests; /out/logs/build-1.log, or the final repair build log identified by the ledger."
+verify = "hf-done; cg spec done 22.39.171 -f layerx-merge --root /work/paxeer-monorepo; declared nine-target verify_cmd plus graph checks; /out/logs/verify-1.log, or the final repair verification log identified by the ledger."
+policy = "Build and verify must qualify the same candidate. No tests run before the implementation is complete, no direct verify_cmd run, no gates rerun after success, no commit or push by this worker."
+
+[gotcha.continuation_evidence]
+symptom = "The carried record names first-attempt private evidence paths, but this continuation begins with no /out/run/gates.jsonl and zero gate runs used in gate.json."
+resolution = "Preserve supplied historical outcomes below and use only the new final gate ledger for this continuation's qualification."
+
+[qualification.first_attempt]
+revision = "ffc1899964c0b17a552c24a88c014ae41ddbf437"
+build = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --tests; exit 0; /out/logs/build-1.log"
+verify = "cg spec done 22.39.171 -f layerx-merge --root /work/paxeer-monorepo; exit 1 (nested verify_cmd exit 101); /out/logs/verify-1.log"
+new_cases = "All six added cases passed, including adjacent same-block approval insertion and restart replay."
+repair = "The original approval restore case failed before ingestion because create_dir_all made a non-private directory. Let the real Store::open create its owned private root; keep every restore, delivery and digest-export assertion."
+
+[after.first_attempt.approval_events]
+failing_names = ["approval_lifecycle_stream_resumes_after_gap_and_exports_digest_evidence"]
+classification = "In-scope fixture setup repair; no cursor assertion executed in this case on this attempt."
+
+[after.first_attempt.history_served_contract]
+failing_names = ["read_account_accepts_a_self_transfer_pair_that_closes_the_page", "read_account_accepts_equal_positions_within_the_limit", "read_account_continues_after_a_shared_position_group", "read_account_decodes_a_served_gateway_page", "read_account_preserves_response_and_cursor_bounds", "read_account_propagates_a_served_refusal", "read_account_refuses_a_descending_row", "read_account_refuses_overflow_at_a_later_position"]
+classification = "Pre-existing request-cursor mismatch in an out-of-scope target; not repaired or separately rerun."
+
+[after.first_attempt.repair_22_33_1506]
+failing_names = ["outbound_peer_authenticates_cross_uid_and_refuses_wrong_uid_processes"]
+classification = "Pre-existing protected store-root refusal in an out-of-scope target; not repaired or separately rerun."
+
+[after.first_attempt.subscription]
+failing_names = ["legacy_subscription_without_a_session_generation_requires_cursor_reset"]
+classification = "Pre-existing legacy reset expectation; production subscription.rs and the assertion are unchanged."
+
+[after.first_attempt.subscription_cursor_v3]
+failing_names = ["lxs2_subscription_record_requires_cursor_reset"]
+classification = "Pre-existing legacy reset expectation; production subscription.rs and the assertion are unchanged."
+
+[after.first_attempt.passing_targets]
+targets = ["delivery", "gaps", "history_block_cursor", "repair_22_31_215", "subscription_ops_cursor", "w7_subscription_permit"]
+failing_names = []
+
+[finding.history_served_contract]
+task = "22.39.171"
+file = "services/agent/crates/layerx-agentd/tests/history_served_contract.rs"
+symbol = "read_account_decodes_a_served_gateway_page"
+observed = "At ffc1899964c0b17a552c24a88c014ae41ddbf437, cg spec done 22.39.171 -f layerx-merge --root /work/paxeer-monorepo exited 1 (nested test exit 101), /out/logs/verify-1.log: all eight history cases expected a null request cursor but the existing producer sent 0000000000000063ffffffffffffffff."
+assumption = "The independent history read request contract needs its owning task; this repair changes neither its producer nor its test."
+severity = "blocker"
+
+[finding.cross_uid_store_root]
+task = "22.39.171"
+file = "services/agent/crates/layerx-agentd/tests/repair_22_33_1506.rs"
+symbol = "outbound_peer_authenticates_cross_uid_and_refuses_wrong_uid_processes"
+observed = "At ffc1899964c0b17a552c24a88c014ae41ddbf437, cg spec done 22.39.171 -f layerx-merge --root /work/paxeer-monorepo exited 1 (nested test exit 101), /out/logs/verify-1.log: delivery at line 750 was refused because the store root was not a canonical owned private directory."
+assumption = "The independent cross-UID fixture must meet protected-store ownership requirements in its owning task without relaxing that check."
+severity = "blocker"
+
+[finding.legacy_subscription_reset]
+task = "22.39.171"
+file = "services/agent/crates/layerx-agentd/tests/subscription.rs"
+symbol = "legacy_subscription_without_a_session_generation_requires_cursor_reset"
+observed = "At ffc1899964c0b17a552c24a88c014ae41ddbf437, cg spec done 22.39.171 -f layerx-merge --root /work/paxeer-monorepo exited 1 (nested test exit 101), /out/logs/verify-1.log: the unchanged legacy error assertion at line 360 did not match CursorResetRequired."
+assumption = "Legacy subscription migration and its error expectation are independent of anchored event derivation and are left intact."
+severity = "blocker"
+
+[finding.lxs2_cursor_reset]
+task = "22.39.171"
+file = "services/agent/crates/layerx-agentd/tests/subscription_cursor_v3.rs"
+symbol = "lxs2_subscription_record_requires_cursor_reset"
+observed = "At ffc1899964c0b17a552c24a88c014ae41ddbf437, cg spec done 22.39.171 -f layerx-merge --root /work/paxeer-monorepo exited 1 (nested test exit 101), /out/logs/verify-1.log: the unchanged LXS2 error assertion at line 205 did not match CursorResetRequired."
+assumption = "The legacy LXS2 migration contract requires its owning task; this task preserves both the producer and its strict assertion."
+severity = "blocker"
+

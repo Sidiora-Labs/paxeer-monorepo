@@ -1297,15 +1297,23 @@ pub fn route(
         event,
         result,
     } = buffers;
-    let step = transition(
-        ctx,
-        &envelope,
-        envelope_bytes,
-        current,
-        next,
-        scratch,
-        event,
-    );
+    let step = if operation == FUND {
+        present(current).and_then(|current| {
+            reward_step(rewards::apply_fund(
+                ctx, &envelope, request, current, next, scratch, event,
+            )?)
+        })
+    } else {
+        transition(
+            ctx,
+            &envelope,
+            envelope_bytes,
+            current,
+            next,
+            scratch,
+            event,
+        )
+    };
     let framed = match step {
         Ok(Step::Applied {
             revision,
@@ -1587,7 +1595,7 @@ fn transition(
     if current.is_none()
         || matches!(
             envelope.envelope.operation.0,
-            0x0105 | 0x0111 | 0x0501..=0x0503 | 0x0601 | 0x0701..=0x0703 | 0x0A01 | 0x0A02 | 0x0B01..=0x0B14
+            0x0105 | 0x0111 | 0x0401 | 0x0402 | 0x0501..=0x0503 | 0x0601 | 0x0701..=0x0703 | 0x0A01 | 0x0A02 | 0x0B01..=0x0B14
         )
     {
         return transition_inner(ctx, envelope, envelope_bytes, current, next, scratch, event);
@@ -1842,6 +1850,27 @@ fn close(
     }
 }
 
+fn reward_step(outcome: rewards::Outcome) -> CodecResult<Step> {
+    match outcome {
+        rewards::Outcome::Applied {
+            response,
+            revision,
+            state_len,
+            event_len,
+            ..
+        } => Ok(Step::Applied {
+            revision,
+            state_len,
+            event_len,
+            payload: Payload::record(response.as_bytes())?,
+        }),
+        rewards::Outcome::AlreadyApplied { subject } => {
+            Ok(Step::Unchanged(Payload::record(&subject)?))
+        }
+        rewards::Outcome::Retained(retained) => Ok(Step::Retained(retained)),
+    }
+}
+
 #[cfg_attr(target_arch = "wasm32", inline(never))]
 fn settlement(
     ctx: &CallContext,
@@ -1869,24 +1898,9 @@ fn settlement(
                 Ok(Step::Unchanged(Payload::record(response.as_bytes())?))
             }
         },
-        0x0601..=0x0605 => match rewards::apply(ctx, envelope, current, next, scratch, event)? {
-            rewards::Outcome::Applied {
-                response,
-                revision,
-                state_len,
-                event_len,
-                ..
-            } => Ok(Step::Applied {
-                revision,
-                state_len,
-                event_len,
-                payload: Payload::record(response.as_bytes())?,
-            }),
-            rewards::Outcome::AlreadyApplied { subject } => {
-                Ok(Step::Unchanged(Payload::record(&subject)?))
-            }
-            rewards::Outcome::Retained(retained) => Ok(Step::Retained(retained)),
-        },
+        0x0601..=0x0605 => reward_step(rewards::apply(
+            ctx, envelope, current, next, scratch, event,
+        )?),
         0x0701..=0x0703 => match epoch::history(ctx, envelope, current, next, scratch, event)? {
             epoch::HistoryOutcome::Applied {
                 revision,
