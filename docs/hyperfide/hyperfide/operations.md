@@ -71,6 +71,79 @@ Catalog-70 inventory maintenance requires a coordinated database and runtime rol
 
 A process/cohort replacement requires explicit current operator bootstrap authority and matching expected generations. On startup, the supervisor observes retained authority before renewing credentials and routes a stale control host through that replacement path. Rebind the current hierarchy and manager identities through the supported bootstrap path; old model observations and credentials cannot authorize replacement-generation effects. Existing installation recovery uses model-selected `fleet.install.adopt` and immutable receipts, with an acknowledged hierarchy handoff when ownership changes. See [recovery and adoption](fleet.md#recovery-and-adoption). Missing models, incomplete bounded observations and uncertain installation results remain waiting or refused states; they do not grant task or publication readiness.
 
+## Prerequisite handoff
+
+The final prerequisite is carried source-control task 0.14, implemented by merge task
+22.37.7. The bounded gate uses the throwaway database:
+
+```sh
+cd tools/hyperfide
+corepack enable
+python3 tests/hyperfide/support/withpg.py -- python3 tests/hyperfide/cases/source_control/0_14.py --component
+```
+
+Read `build/fleet/0.14/component-receipt.json`, its `receipt.json` alias and
+`supervisor-restoration.log` as private component evidence. The component receipt
+marks every live section UNRUN and distinguishes actual local recovery from
+missing-execution refusals. `build/fleet/0.14/live-receipt.json` is explicitly UNRUN
+in component mode. The matching final build and verification revisions, commands,
+exit codes and private logs are referenced from
+`tools/hyperfide/spec/hyperfide-source-control/qualification.kvx` through the task
+runner's `/out/run/gates.jsonl`; source task identity is
+`spec/layerx-merge/source-control/source-spec.kvx` task 0.14.
+
+The owner campaign needs an approved provider pool, model backend, object store,
+operator credentials and protected runtime inputs. Keep configuration and captures
+owner-only; never publish their contents. `HYPERFIDE_FLEET_NODE` selects an executable
+override; otherwise the journey and setup resolve `node` on PATH and refuse a missing
+binary. The actor check also needs its declared native binary/profile under
+`build/fleet/worker/private` and configured model authorization. Apply the trusted
+migrations separately before the live campaign.
+
+Once the campaign has been configured and enrolled, run the following from
+`tools/hyperfide`. `run` starts the actual supervisor/provisioner; `qualification`
+executes the owner's versioned signed request list and must finish before indexing.
+Retain actual signed captures for every `TASK_CASES['0.14']` entry, including
+supervisory box loss, stale generation replay, ambiguous provider outcome,
+interrupted install, failed implementing agent and unavailable model. Supply
+`build/fleet/integration/private/0_14-index-input.json` and `0_14-target-input.json`
+with the case capture digests, exact campaign scope, contract/source/toolchain pins,
+install and worker operation IDs and authenticated fault-driver bindings. Captures
+remain beside the index; indexing validates their pins and grants no live PASS.
+
+```sh
+python3 tests/hyperfide/cases/source_control/0_14_live.py run --task 0.14 --config /private/hyperfide-prerequisite/0_14-live-config.json
+python3 tests/hyperfide/cases/source_control/0_14_live.py qualification --task 0.14 --config /private/hyperfide-prerequisite/0_14-live-config.json
+python3 tests/hyperfide/cases/source_control/0_14_live.py evidence-index --task 0.14 --config /private/hyperfide-prerequisite/0_14-live-config.json
+python3 tests/hyperfide/support/withpg.py -- python3 tests/hyperfide/cases/source_control/0_14.py --live-evidence build/fleet/integration/private/0_14-index.json --target build/fleet/integration/private/0_14-target.json --receipt build/fleet/integration/private/0_14-live-receipt.json
+```
+
+The final command runs real-model actor checks in an owned database, then the live
+verifier reads the separate database named by the trusted target's `database_url_env`.
+Use a distinct environment variable for that live read-only connection; `withpg.py`
+replaces `DATABASE_URL` and `HYPERFIDE_*_DATABASE_URL` for isolation. The
+`actor-receipt.json` remains separate from the final live receipt. Only a live
+receipt with `status = PASS`, `qualified = true` and the classified assertion inventory
+permits a zero exit; missing credentials or evidence remain BLOCKED with exit 2.
+A failed assertion is retained, never converted to PASS by a component result.
+
+Recovery preserves the private `0_14-live-journal.json`, supervisor state, original
+operation IDs and receipts. After supervisory host loss, rebind current cohort and
+manager authority and prove the original instance absent. Reject stale generation
+replays without effects. Reconcile an ambiguous provider operation and retain its
+capacity hold until exact absence is proven. Resume interrupted installation only
+through the signed FAILED/quiescence recovery chain; preserve source and stage pins.
+Retain a failed implementing agent's terminal native result and cleanup proof, and
+independently verify any replacement result. Unavailable models remain waiting;
+restore their configured backend before requesting new reasoning. Do not erase
+journals or relaunch uncertain execution with a new identity.
+
+The source adapter migration preserves install and result evidence while replacing
+Git revisions/manifests with native revision, root-tree and security-domain pins.
+It must preserve authority, scope, modes, content digests, interface selection and
+boot/generation fences. Native task 0.1 is released only after this prerequisite
+qualification passes live; decision 2700's bounded component gate alone cannot release it.
+
 ## Source and qualification states
 
 A source branch, successful compiler run, authoring check or task-component receipt does not qualify a full acceptance case. The canonical runner records the selected variant, exact input hashes, source inventory, process outcome, assertion inventory and cleanup. The independent checker revalidates those records.
@@ -179,7 +252,7 @@ $ node core/control-plane/dist/control.js --policy /nonexistent --spec-revision 
 
 Authenticated startup, refusal of a request that claims its own approval, refusal of a request for another run and service restart are exercised against PostgreSQL by tests/hyperfide/cases/tasks/28_1.py; the recorded outcome is artifacts/hyperfide/tasks/28.1/evidence-index.json (local, force-added evidence; not a full-case receipt).
 
-An installed release launches its own runtimes directly: runtime/node, bin/hyperfide, bin/hyperfide-native and runtime/python/bin/python3 (a wrapper over python3.bin) run under the host dynamic loader /lib64/ld-linux-x86-64.so.2 with the host glibc, and take every other native library from the release (bin/hyperfide and bin/hyperfide-native through RUNPATH $ORIGIN/../lib/hyperfide, the service units and the migration job through LD_LIBRARY_PATH=<release>/lib/hyperfide, Python through runtime/python/lib). glibc itself is never bundled, so a host needs a glibc no older than the one on the release build host; scripts/release.sh refuses to construct a release that stages a glibc member or whose node does not run both plainly and under the bundled library path.
+An installed release launches its own runtimes directly: runtime/node, bin/hyperfide, bin/hyperfide-native and runtime/python/bin/python3 (a wrapper over python3.bin) run under the host dynamic loader /lib64/ld-linux-x86-64.so.2 with the host glibc, and take every other native library from the release (bin/hyperfide and bin/hyperfide-native through RUNPATH $ORIGIN/../lib/hyperfide, the service units and the migration job through LD_LIBRARY_PATH=<release>/lib/hyperfide, Python through runtime/python/lib). glibc itself is never bundled, so a host needs a glibc no older than the one on the release build host; tools/repository/release.sh refuses to construct a release that stages a glibc member or whose node does not run both plainly and under the bundled library path.
 
 ## Host bootstrap
 
@@ -250,7 +323,7 @@ The local-first CLI is the hyperfide executable. cg is a deprecated compatibilit
 | hyperfide fleet up\|down [--drain] [--wait SECONDS]\|pause\|resume\|runs\|status | Local run supervision; fleet down releases claims and keeps branches.                                             |
 | hyperfide journal list\|apply\|drop                                              | Writes queued while the local database was busy.                                                                  |
 
-The configuration file is hyperfide.kvx (src/config.c); a tree that has only the legacy codify.kvx keeps reading it, and a tree with both is refused unless .hyperfide/names.json records a completed names migration. The 26.3 component migrates codify.kvx to hyperfide.kvx with a backup (docs/config.md). The installer (scripts/install.sh) is not advertised as a Hyperfide release until tasks 25.4 and 26.2 close.
+The configuration file is hyperfide.kvx (core/native/src/config.c); a tree that has only the legacy codify.kvx keeps reading it, and a tree with both is refused unless .hyperfide/names.json records a completed names migration. The 26.3 component migrates codify.kvx to hyperfide.kvx with a backup (docs/config.md). The installer (tools/repository/install.sh) is not advertised as a Hyperfide release until tasks 25.4 and 26.2 close.
 
 ## PostgreSQL and migrations
 
@@ -442,7 +515,7 @@ Reading needs only s3:GetObject on the evidence prefix. Publishing runs in the c
 
 Publishing from the host. One command publishes every local task directory: `python3 tests/hyperfide/publish-evidence.py --all`. For a single task run `qualify.py --publish <id>`, or give publish-evidence.py `--task <id>` (repeatable); publish-evidence.py `--dry-run` prints the plan without publishing. For each task the command bundles the directory and calls the compiled publishEvidenceBundle (core/control-plane/dist/artifacts/objects.js, so build first). The store calls (artifact.object.put, artifact.manifest.commit, artifact.manifest.read) go to component 15.2 of the control service through `hyperfide authority invoke`. The command then reads the receipted bundle back from the store with signed GETs. Only after that does it write tests/hyperfide/evidence-receipts/<id>.json, which you commit. The record also carries the bundle's evidence-index commits (`evidence_commits`), and resolution refuses a record whose commits differ from the bundle. A task whose tracked receipt already names the current bundle is reported CURRENT and skipped unless you pass `--force`. Required variables: the five HF_ARTIFACT_S3_* read variables above, HF_ARTIFACT_ORGANISATION_ID, and HYPERFIDE_TRANSPORT_CONFIG. The transport configuration must be an operator credential whose run is in the control service's HF_ARTIFACT_ALLOWED_RUN_IDS. If the configuration has no run_id, set HF_EVIDENCE_RUN_ID. When any of these is missing, the command refuses with exit 2, lists every missing name and states what it would publish. It never skips silently.
 
-Release marker. scripts/release.sh takes the 26.4 unit receipt from the first of these that exists:
+Release marker. tools/repository/release.sh takes the 26.4 unit receipt from the first of these that exists:
 
 1. HYPERFIDE_RELEASE_UNIT_RECEIPT.
 2. The local artifacts/hyperfide/tasks/26.4 cache, verified against its receipt when one is tracked.
@@ -558,14 +631,14 @@ reports extracted symbols and therefore has a lower symbol count.
 
 The post-0.7 rerun used the real merged modules and passed
 `tests/hyperfide/cases/v22/1_6.sh` on 2026-10-23. It indexed 767 files and
-9,993 symbols under `platform/apps/server/`. An audit of task 1.6's changes
+9,993 symbols under `core/server/`. An audit of task 1.6's changes
 found no stand-ins, projection modules, copied identity gates or SDK accessor
 call sites requiring replacement.
 
 The fixed snapshot preserves the initial r2 source inventory and ignore rules
 for comparison; the qualification copy additionally excludes its pnpm lockfile.
 The three earlier completed runs include 765 files and 9,988 symbols under
-`platform/apps/server/` and finish below the 2,700-second limit. The paired
+`core/server/` and finish below the 2,700-second limit. The paired
 nested measurement includes SQL profiling overhead. Init with `--nested` uses
 the same indexing pipeline as plain init; it changes project-root selection.
 

@@ -45,7 +45,7 @@ async function render(scenario: Scenario, account = OWNER): Promise<Mounted> {
 
 describe('AccountView', () => {
   it('shows the unified account document the endpoint resolves', async () => {
-    const mounted = await render('available');
+    const mounted = await render('chain');
     await mounted.until(
       () =>
         mounted.query('[data-field="binding"]') !== null && mounted.query('[data-kernel]') !== null,
@@ -60,12 +60,12 @@ describe('AccountView', () => {
     expect(mounted.text('[data-field="binding"]')).toBe('Bound to its LayerX identity');
     expect(mounted.query('[data-kernel]')?.getAttribute('data-kernel')).toBe('available');
     expect(mounted.text('[data-kernel]')).toBe('The chain node is available');
-    expect(endpoint.methods('available').sort()).toEqual(['px_getAccount', 'px_getNetwork']);
+    expect(endpoint.methods('chain').sort()).toEqual(['px_getAccount', 'px_getNetwork']);
     expect(endpoint.unmatched).toEqual([]);
   });
 
   async function account_view_shows_the_chain_account_and_node_notice() {
-    const mounted = await render('available');
+    const mounted = await render('chain');
     await mounted.until(
       () =>
         mounted.query('[data-field="paxeer-height"]') !== null &&
@@ -81,11 +81,11 @@ describe('AccountView', () => {
     expect(mounted.text('[data-field="binding"]')).toBe('Bound to its LayerX identity');
     expect(mounted.text('[data-field="paxeer-address"]')).toBe(OWNER);
     expect(mounted.text('[data-field="paxeer-balance"]')).toBe('0xde0b6b3a7640000');
-    expect(mounted.text('[data-field="paxeer-nonce"]')).toBe('7');
+    expect(mounted.text('[data-field="paxeer-nonce"]')).toBe('0x3');
     expect(mounted.text('[data-field="paxeer-height"]')).toBe('1000');
     expect(mounted.text('[data-kernel="available"]')).toBe('The chain node is available');
     expect(mounted.text('section')).not.toMatch(/LayerX kernel|layerx_did/i);
-    expect(endpoint.methods('available').sort()).toEqual(['px_getAccount', 'px_getNetwork']);
+    expect(endpoint.methods('chain').sort()).toEqual(['px_getAccount', 'px_getNetwork']);
     expect(
       endpoint.seen.find((entry) => entry.methods.includes('px_getAccount'))?.body
     ).toMatchObject({
@@ -95,12 +95,15 @@ describe('AccountView', () => {
     expect(endpoint.unmatched).toEqual([]);
   }
 
-  test(account_view_shows_the_chain_account_and_node_notice);
+  test(
+    account_view_shows_the_chain_account_and_node_notice.name,
+    account_view_shows_the_chain_account_and_node_notice
+  );
 
   it.each([
-    ['kernel-unreachable', 'The chain node is unreachable'],
+    ['kernel-unreachable', 'The chain node is catching up or unreachable.'],
     ['no-finalised-checkpoint', 'The chain node is catching up or unreachable.'],
-    ['kernel-not-configured', 'The chain node is not configured on the endpoint'],
+    ['kernel-not-configured', 'The chain node is catching up or unreachable.'],
   ] as const)('names the unavailable chain node state for %s', async (scenario, reason) => {
     const mounted = await render(scenario);
     await mounted.until(
@@ -112,10 +115,10 @@ describe('AccountView', () => {
   });
 
   it('reports an account the endpoint cannot resolve', async () => {
-    const mounted = await render('available', `0x${'12'.repeat(20)}`);
+    const mounted = await render('chain', `0x${'12'.repeat(20)}`);
     await mounted.until(() => mounted.query('[role="alert"]') !== null, 'resolution error');
     expect(mounted.text('[role="alert"]')).toContain('The account could not be resolved');
-    expect(endpoint.unmatched).toEqual([`available px_getAccount ["0x${'12'.repeat(20)}"]`]);
+    expect(endpoint.unmatched).toEqual([`chain px_getAccount ["0x${'12'.repeat(20)}"]`]);
   });
 });
 

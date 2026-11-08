@@ -1,4 +1,4 @@
-name: Paxeer X Network CodeQL config
+name: paxeer-monorepo CodeQL config
 
 queries:
   - uses: security-extended

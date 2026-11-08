@@ -2,7 +2,7 @@ services:
   node0:
     platform: ${DOCKER_PLATFORM:-linux/amd64}
     container_name: pax-node-0
-    image: "pax-chain/localnode"
+    image: "ghcr.io/sidiora-labs/localnode:${LOCALNODE_IMAGE_TAG:?Set LOCALNODE_IMAGE_TAG to a published localnode tag}"
     user: "${USERID}:${GROUPID}"
     ports:
       - "26656-26658:26656-26658"
@@ -34,7 +34,7 @@ services:
   node1:
     platform: ${DOCKER_PLATFORM:-linux/amd64}
     container_name: pax-node-1
-    image: "pax-chain/localnode"
+    image: "ghcr.io/sidiora-labs/localnode:${LOCALNODE_IMAGE_TAG:?Set LOCALNODE_IMAGE_TAG to a published localnode tag}"
     user: "${USERID}:${GROUPID}"
     ports:
       - "26659-26661:26656-26658"
@@ -65,7 +65,7 @@ services:
   node2:
     platform: ${DOCKER_PLATFORM:-linux/amd64}
     container_name: pax-node-2
-    image: "pax-chain/localnode"
+    image: "ghcr.io/sidiora-labs/localnode:${LOCALNODE_IMAGE_TAG:?Set LOCALNODE_IMAGE_TAG to a published localnode tag}"
     user: "${USERID}:${GROUPID}"
     environment:
       - ID=2
@@ -96,7 +96,7 @@ services:
   node3:
     platform: ${DOCKER_PLATFORM:-linux/amd64}
     container_name: pax-node-3
-    image: "pax-chain/localnode"
+    image: "ghcr.io/sidiora-labs/localnode:${LOCALNODE_IMAGE_TAG:?Set LOCALNODE_IMAGE_TAG to a published localnode tag}"
     user: "${USERID}:${GROUPID}"
     environment:
       - ID=3
@@ -127,7 +127,7 @@ services:
   x-websearch:
     platform: ${DOCKER_PLATFORM:-linux/amd64}
     container_name: pax-x-websearch
-    image: "pax-chain/x-websearch"
+    image: "ghcr.io/sidiora-labs/x-websearch:${X_WEBSEARCH_IMAGE_TAG:?Set X_WEBSEARCH_IMAGE_TAG to a published x-websearch tag}"
     build:
       context: ..
       dockerfile: docker/x-websearch/Dockerfile

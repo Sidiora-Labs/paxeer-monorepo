@@ -8,6 +8,9 @@
   <version>0.1.0</version>
   <name>LayerX first payment quickstart for Android</name>
   <description>Brokered-session payment against the LayerX Android binding, runnable on the JVM</description>
+  <licenses>
+    <license><name>Apache-2.0</name><url>https://github.com/Sidiora-Labs/paxeer-monorepo/blob/main/LICENSE</url></license>
+  </licenses>
   <properties>
     <maven.compiler.release>21</maven.compiler.release>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>

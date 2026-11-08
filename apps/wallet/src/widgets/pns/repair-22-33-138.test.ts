@@ -18,6 +18,8 @@ import { usePnsRegistration } from './usePnsRegistration';
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
+const locks: unknown = Reflect.get(workerThreads, 'locks');
+
 const fixtureWallet = new ethers.Wallet(`0x${'01'.padStart(64, '0')}`);
 const account = fixtureWallet.address;
 const deployment = {
@@ -222,9 +224,18 @@ async function rpc(method: string, params: unknown[]): Promise<unknown> {
 }
 
 beforeAll(async () => {
-  const locks: unknown = Reflect.get(workerThreads, 'locks');
-  if (!locks) throw new Error('PNS recovery tests require Node Web Locks');
+  if (
+    typeof locks !== 'object' ||
+    locks === null ||
+    !('request' in locks) ||
+    typeof locks.request !== 'function' ||
+    !('query' in locks) ||
+    typeof locks.query !== 'function'
+  )
+    throw new Error('PNS recovery tests require Node Web Locks');
   Object.defineProperty(navigator, 'locks', { value: locks, configurable: true });
+  expect(navigator.locks).toBe(locks);
+  expect(typeof navigator.locks.request).toBe('function');
   server = createServer(async (request, response) => {
     const chunks: Buffer[] = [];
     for await (const chunk of request) chunks.push(Buffer.from(chunk));
@@ -476,6 +487,15 @@ async function pns_registration_journal_recovers_original_secret_after_component
   expect(original.status).toBe('waiting');
   expect(original.countdown).toBe(60);
   expect(original.transactions[0].hash).toMatch(/^0x[0-9a-f]{64}$/);
+  const receipt = await provider.getTransactionReceipt(original.transactions[0].hash!);
+  expect(receipt).toMatchObject({
+    hash: original.transactions[0].hash,
+    blockHash,
+    blockNumber: 1,
+    status: 1,
+    from: account,
+    to: ethers.getAddress(deployment.controller),
+  });
   await stop();
   currentAccount = '0x0000000000000000000000000000000000000002';
   await mount();

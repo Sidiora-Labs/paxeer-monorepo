@@ -1,0 +1,40 @@
+[repair.22.39.97]
+finding = "Decision 2800; gotcha 3462: explorer image backend tests without compiler tools"
+starting_revision = "6ffba81cbe63f3fde76e10dd21a1030474a47fd2"
+inventory_base = "e7d1456b92559a3e8e97a00f26ce219bcc69aebb"
+starting_command = "MIX_ENV=test services/explorer/deploy/tools/mix-in-builder.sh test"
+starting_explorer = "160 failures and 33 invalid cases reported by the inventory; mostly compiler :enoent in CodeCompiler, Verifier and Publisher tests. This task does not claim a new baseline run."
+starting_ethereum_jsonrpc = ["web_socket_client_test.exs:68", "web_socket_client_test.exs:81", "http/throttle_test.exs:286", "http/throttle_test.exs:352", "http/throttle_test.exs:382", "paxeer_x_test.exs:137", "repair/repair_22_33_432_test.exs:9", "repair/repair_22_31_397_test.exs:66"]
+compiler_selection = "Compiler invocations carry :compiler tags; the builder excludes that tag explicitly when Node/SolcJS or Vyper is absent, with a diagnostic. Detection runs inside the builder. Recorded-output/schema cases, bytecode parsing and pre-compilation validation retain their checks without the tag."
+throttle = "Release the actual execution worker, retain recovered in-flight work across guard restart, and replay a traced real completion to prove that it cannot release a newer slot; all concurrency, order, queue and response assertions remain."
+websocket = "Assert the documented websocket_terminated error envelope and the deadline-bearing call envelope for retired PIDs; TLS uses the same named RetryWorker participant configuration as the production supervisor. Loopback recovery and cancellation assertions remain active."
+paxeer_x = "Exercise a configurable stored type inside the production 127..2147483647 range and reject supported EVM types, overflow, the wire marker and invalid values without changing production bounds."
+proving_tests = ["tests/ci/test_explorer_test_step.py::test_mix_test_excludes_compiler_tag_without_binaries", "tests/ci/test_explorer_test_step.py::test_explorer_test_step_runs_both_umbrella_apps", "apps/ethereum_jsonrpc/test/ethereum_jsonrpc/http/throttle_test.exs", "apps/ethereum_jsonrpc/test/ethereum_jsonrpc/web_socket/web_socket_client_test.exs", "apps/ethereum_jsonrpc/test/repair/repair_22_33_432_test.exs", "apps/ethereum_jsonrpc/test/repair/repair_22_31_397_test.exs", "apps/ethereum_jsonrpc/test/ethereum_jsonrpc/paxeer_x_test.exs"]
+build_command = "hf-build"
+verify_command = "hf-done"
+verified_revision = "The immutable candidate revision on the passing hf-done ledger entry for task 22.39.97; no passing revision is claimed before that entry exists."
+evidence = "The runner retains exact revision, command, exit code and private log in /out/run/gates.jsonl. Build and verification must name the same candidate revision. Explorer runs in the public umbrella check; local verification runs ethereum_jsonrpc."
+wiring_requests = []
+
+[qualification.initial]
+revision = "42e3beebdaf2ba4f9cd7e92ff679b148a8277c11"
+command = "cg spec done 22.39.97 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Both Python tests passed; ExUnit reported 19 failures: queued admission lost on guard crash, recovered-primary subscription timeout, and 17 missing Tesla.Adapter.Mint failures."
+
+[qualification.umbrella_dependency_context]
+revision = "42e3beebdaf2ba4f9cd7e92ff679b148a8277c11"
+command = "cg spec done 22.39.97 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "The app-directory run lacked Tesla.Adapter.Mint in 17 repair_22_33_436/442/443/445 cases; decision 2863 verifies through mix-in-builder.sh test apps/ethereum_jsonrpc/test from the backend root, whose umbrella dependency set carries mint as in the earlier repairs."
+
+[repair.guard_restart]
+implementation = "Persist queued admissions with their real caller, original absolute deadline and arrival sequence, recover their timers/monitors before pumping, and retain reply references across guard replacement; unavailable initial guards still fail closed."
+proof = "The existing waiting-call restart test holds the actual execution worker until the replacement reports one active and one queued request, then asserts both original replies, exact call count and concurrency of one."
+websocket_sync = "The lifecycle requests recovery and asserts the recovered primary subscription before observing the retired client exit, following the production supervisor order asserted by repair_22_33_431; it does not wait for a retry checkpoint before subscribing, and all fallback, replacement, header and cancellation checks remain."
+
+[qualification.attempt_2]
+build = "The final build row for task 22.39.97 in /out/run/gates.jsonl records hf-build's exact candidate revision, declared build command, exit code and private log path."
+verify = "The final verify row for task 22.39.97 in /out/run/gates.jsonl records hf-done's exact candidate revision, cg spec done command, exit code and private log path; qualification requires a passing row at the same revision as the build."

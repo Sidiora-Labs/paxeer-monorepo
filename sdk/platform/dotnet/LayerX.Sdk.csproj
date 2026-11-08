@@ -5,6 +5,8 @@
     <Nullable>enable</Nullable>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <DefaultItemExcludes>$(DefaultItemExcludes);tests/**</DefaultItemExcludes>
+    <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
+    <Authors>Sidiora Labs</Authors>
     <PackageId>LayerX.Sdk</PackageId>
     <Version>0.1.0</Version>
     <Description>Production LayerX Agent and Human API SDK.</Description>

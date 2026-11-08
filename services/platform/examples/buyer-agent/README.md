@@ -1,10 +1,10 @@
 # Buyer agent deployment
 
 The beta profile sends Human payment requests to
-`https://layerx-human.layerx-testnet.svc:9443`, the HTTPS Service declared in
-`services/platform/hosted/human/deployment.yaml`. Its `/v1/moves/quote`,
-`/v1/moves`, journey and evidence routes belong to the Human HTTP API.
-`rpcUrl` remains the public node JSON-RPC root for chain receipts.
+`<human-service-origin>`, an operator-supplied HTTPS origin for the Human
+Service declared in `services/platform/hosted/human/deployment.yaml`. Its
+`/v1/moves/quote`, `/v1/moves`, journey and evidence routes belong to the Human
+HTTP API. `rpcUrl` remains the public node JSON-RPC root for chain receipts.
 
 For a buyer outside that cluster, set `LAYERX_TESTNET_HUMAN_URL` to the
 operator's reachable HTTPS Human service origin, with no path, query or user

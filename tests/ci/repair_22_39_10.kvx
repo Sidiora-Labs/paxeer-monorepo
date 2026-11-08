@@ -1,0 +1,24 @@
+[repair.22.39.10]
+requirement = "22998.1"
+decision = "2787"
+base_revision = "c1c16a3682cc8a2685b1ee7e9c2901866bd40732"
+baseline = "No baseline gate run: implementation precedes the bounded build and verification gates; no earlier gate ledger existed."
+evidence = "The private hf-build/hf-done ledger names the verified candidate revision, exact command, exit code and log; the final response copies the final gate record."
+qualification = "The Python gate verifies the real workflow and manifests; it does not execute the Node SDK or application suites locally. Those suites execute in the new GitHub Actions matrix."
+
+[case.matrix]
+test = "test_launchpad_workflow_covers_every_package_with_a_test_script"
+criterion = "Recursively collect SDK package manifests and both app manifests with test scripts; assert exact, duplicate-free matrix coverage and unconditional, failure-propagating test execution after install and SDK builds."
+targets = ["candles-sdk", "indexer-sdk", "metadata-sdk", "production-contracts", "ranking-algo-sdk", "sdk", "sidiora-launchpad-v3", "stats-sdk", "users-sdk", "web", "mobile"]
+manager = "All targets are members of apps/launchpad/pnpm-workspace.yaml and apps/launchpad/pnpm-lock.yaml; the workspace pnpm manager takes precedence over the SDK's historical local npm lock."
+checks = "Node 22, ubuntu-latest, SHA-pinned actions, read-only permissions, frozen pnpm install, SDK build before test, and per-package test working directory."
+
+[case.triggers]
+test = "test_launchpad_workflow_triggers_on_launchpad_paths"
+criterion = "Pull requests and pushes to main include sdk/launchpad/**, apps/launchpad/** and the workflow itself, with the workflow regression test also triggering CI."
+
+[installation]
+observed = "The existing shared pnpm lock omits the SDK pyodide and mobile development @babel/runtime declarations and still records the SDK v2 link as workspace:* instead of file:../sdk-v2."
+action = "Refresh the shared lock from the existing in-scope manifests through a lockfile-only pnpm install before qualification; retain a frozen install in CI."
+tooling = "Run pnpm from apps/launchpad: the repository root declares npm and rejects a root pnpm invocation."
+publication = "The generated apps/launchpad/pnpm-lock.yaml belongs to the in-scope app and SDK manifests and must be published with them under the task's lockfile policy; the supplied runner's carried() implementation only recognizes a same-directory manifest and omits this shared workspace lock from its candidate."

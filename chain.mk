@@ -4,22 +4,24 @@
 # - Extract vX.Y.Z (+ any suffix) from the branch name when present.
 # - Compare only the base vX.Y.Z (strip any suffix) between branch/tag.
 # - Prefer tag if bases are equal; otherwise use whichever base is newer.
+# - Use the release version file when no matching release tag is available.
+PAXEER_PROJECT_HOME := $(abspath $(dir $(lastword $(MAKEFILE_LIST))))
+RELEASE_VERSION := $(shell jq -er .version "$(PAXEER_PROJECT_HOME)/tools/release/version.json")
 BRANCH_NAME := $(shell git rev-parse --abbrev-ref HEAD)
 BRANCH_VERSION := $(shell echo "$(BRANCH_NAME)" | sed -E -n 's|.*(v[0-9]+\.[0-9]+\.[0-9]+[-A-Za-z0-9._]*).*|\1|p')
-TAG_VERSION := $(shell git describe --tags --always --match 'paxeer-network/v*' | sed 's|^paxeer-network/||')
+TAG_VERSION := $(shell git describe --tags --match 'paxeer-network/v*' 2>/dev/null | sed 's|^paxeer-network/||')
 VERSION := $(shell \
 	bv="$(BRANCH_VERSION)"; tv="$(TAG_VERSION)"; \
 	bb=$$(echo "$$bv" | sed 's/^\(v[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\).*/\1/'); \
 	tb=$$(echo "$$tv" | sed 's/^\(v[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\).*/\1/'); \
-	if [ -z "$$bv" ]; then echo "$$tv"; \
-	elif [ -z "$$tv" ] || [ "$$bb" = "$$tb" ]; then echo "$$tv"; \
+	if [ -z "$$tv" ]; then echo "$(RELEASE_VERSION)"; \
+	elif [ -z "$$bv" ] || [ "$$bb" = "$$tb" ]; then echo "$$tv"; \
 	elif [ "$$(printf '%s\n%s\n' "$$tb" "$$bb" | sort -V | tail -n 1)" = "$$bb" ]; then echo "$$bv"; \
 	else echo "$$tv"; fi)
 COMMIT := $(shell git log -1 --format='%H')
 
 BUILDDIR ?= $(CURDIR)/build
 INVARIANT_CHECK_INTERVAL ?= $(INVARIANT_CHECK_INTERVAL:-0)
-PAXEER_PROJECT_HOME := $(abspath $(dir $(lastword $(MAKEFILE_LIST))))
 export PROJECT_HOME := $(PAXEER_PROJECT_HOME)
 export GO_PKG_PATH=$(HOME)/go/pkg
 export GO111MODULE = on
@@ -105,6 +107,9 @@ all: lint install
 .PHONY: paxd-native-libs
 paxd-native-libs:
 	$(MAKE) -C $(PAXEER_PROJECT_HOME) -f Makefile paxd-native-libs
+	@for archive in $(NATIVE_ARCHIVES); do \
+		test -f "$$archive" || { echo "Missing native archive: $$archive" >&2; exit 1; }; \
+	done
 
 install: go.sum paxd-native-libs
 		go install $(BUILD_FLAGS) ./daemon/paxd
@@ -490,11 +495,12 @@ giga-integration-test:
 .PHONY: giga-integration-test
 
 # Run Autobahn integration tests with an Autobahn-enabled cluster.
+AUTOBAHN_TEST_TIMEOUT ?= 30m
 autobahn-integration-test:
 	@# The test drives cluster start/stop itself via TestMain — see
 	@# tests/integration/autobahn/autobahn_test.go. GOWORK=off: ignore ambient
-	@# go.work; this target only needs stdlib + pax-tendermint.
-	@GOWORK=off go test -tags autobahn_integration -v -count=1 -timeout 30m ./tests/integration/autobahn/...
+	@# go.work; compile the integration package in the repository-root module.
+	@GOWORK=off go -C "$(PAXEER_PROJECT_HOME)" test -tags autobahn_integration -v -count=1 -timeout "$(AUTOBAHN_TEST_TIMEOUT)" ./tests/integration/autobahn/...
 .PHONY: autobahn-integration-test
 
 # Run a mixed-mode cluster: node 0 uses GIGA_EXECUTOR with OCC, nodes 1-3 use standard V2.

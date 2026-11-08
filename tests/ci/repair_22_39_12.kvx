@@ -1,0 +1,18 @@
+[repair.22.39.12]
+decision = "2787"
+base_revision = "c1c16a3682cc8a2685b1ee7e9c2901866bd40732"
+implementation = "Replace retired quickstart RPC names with hosted px_requestFunds, native signed eth_sendRawTransaction submission and px_ node-root reads; document only existing SDK helpers or direct HTTP where no SDK client ships."
+build_command = "python3 -m py_compile tests/ci/test_sdk_quickstart_rpc_methods.py"
+verify_command = "python3 -m pytest -q tests/ci/test_sdk_quickstart_rpc_methods.py"
+verified_revision_source = "/out/run/gates.jsonl records the exact candidate revision, command, exit and private log for hf-build and hf-done; the final response copies the last gate record."
+baseline = "No prior gate ledger exists; no baseline test run is claimed."
+
+[case.no_retired_methods]
+test = "tests/ci/test_sdk_quickstart_rpc_methods.py::test_quickstarts_name_no_retired_lx_methods"
+pages = ["SdkQuickstartGo.md", "SdkQuickstartJvm.md", "SdkQuickstartPython.md", "SdkQuickstartRust.md", "SdkQuickstartSwift.md", "SdkQuickstarts.md"]
+assertion = "Read all six real wiki pages and reject every lx_ method name, including retired names in prose, code and tables."
+
+[case.hosted_faucet]
+test = "tests/ci/test_sdk_quickstart_rpc_methods.py::test_quickstarts_name_px_request_funds_for_faucet"
+pages = ["SdkQuickstartGo.md", "SdkQuickstartJvm.md", "SdkQuickstartPython.md", "SdkQuickstartRust.md", "SdkQuickstartSwift.md", "SdkQuickstarts.md"]
+assertion = "Every page must contain a faucet section, and every faucet section must itself name px_requestFunds; a mention elsewhere on the page cannot satisfy the check."

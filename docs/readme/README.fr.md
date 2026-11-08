@@ -234,4 +234,4 @@ Signalez les vulnérabilités via le signalement privé de GitHub, comme décrit
 
 Distribué sous Apache License, version 2.0. Voir [`LICENSE`](../../LICENSE) et [`NOTICE`](../../NOTICE).
 
-Paxeer X Network est développé par Sidiora Labs. Code source : [github.com/Sidiora-Labs/paxeer-monorepo](https://github.com/Sidiora-Labs/paxeer-monorepo).
+Paxeer X Network est développé par Sidiora Labs. Code source du monorepo : [github.com/Sidiora-Labs/paxeer-monorepo](https://github.com/Sidiora-Labs/paxeer-monorepo).

@@ -15,6 +15,7 @@ use layerx_crypto::disclosure::{
 use layerx_crypto::evm_transaction::Eip1559Call;
 use layerx_crypto::payments::Payment;
 use layerx_crypto::signer::SignError;
+use layerx_types::clock::{Clock, ClockError, ClockReading, Deadline};
 use layerx_types::payload::ModuleId;
 use rustls::pki_types::CertificateDer;
 use serde::{Deserialize, Serialize};
@@ -208,10 +209,36 @@ impl AttestorSignature {
     }
 }
 
+pub struct AttestorClock {
+    clock: Mutex<std::sync::Arc<dyn Clock>>,
+}
+
+impl AttestorClock {
+    pub fn new(clock: std::sync::Arc<dyn Clock>) -> Self {
+        Self {
+            clock: Mutex::new(clock),
+        }
+    }
+}
+
+impl Clock for AttestorClock {
+    fn sample(&self, transport_budget: Duration) -> Result<ClockReading, ClockError> {
+        let clock = self.clock.lock().map_err(|_| ClockError::Unavailable)?;
+        let result = clock.sample(transport_budget);
+        if native_consumer_trace() {
+            if let Err(error) = &result {
+                eprintln!("native attestor clock error={error:?}");
+            }
+        }
+        result
+    }
+}
+
 pub struct AttestorClient {
     agent: ureq::Agent,
     nodes: BTreeMap<String, SocketAddr>,
     deadline: Duration,
+    clock: Option<std::sync::Arc<dyn Clock>>,
 }
 
 impl fmt::Debug for AttestorClient {
@@ -293,7 +320,13 @@ impl AttestorClient {
             agent,
             nodes: table,
             deadline,
+            clock: None,
         })
+    }
+
+    pub fn with_clock(mut self, clock: std::sync::Arc<dyn Clock>) -> Self {
+        self.clock = Some(std::sync::Arc::new(AttestorClock::new(clock)));
+        self
     }
 
     #[must_use]
@@ -472,25 +505,58 @@ impl AttestorClient {
         budget: Option<Duration>,
     ) -> Result<Vec<u8>, AttestorError> {
         let address = self.address(node)?;
-        let mut request = self
-            .agent
-            .post(format!("https://{address}{path}"))
-            .header("content-type", "application/json")
-            .header("accept", "application/json");
-        if let Some(token) = bearer {
-            request = request.header("authorization", format!("Bearer {token}"));
+        let budget = budget.unwrap_or(self.deadline).min(self.deadline);
+        if budget.is_zero() {
+            return Err(AttestorError::Timeout {
+                node: node.to_owned(),
+            });
         }
-        let response = request
-            .config()
-            .timeout_global(Some(budget.unwrap_or(self.deadline).min(self.deadline)))
-            .build()
-            .send(body)
-            .map_err(|error| transport_error(node, &error))?;
-        let (status, body) = read_body(node, response)?;
-        if status == 200 {
-            Ok(body)
+        let runtime;
+        let clock = if let Some(clock) = &self.clock {
+            clock.as_ref()
         } else {
-            Err(refusal(node, status, &body))
+            runtime = layerx_client::runtime_clock::RuntimeClock::from_environment()
+                .map_err(|_| AttestorError::Configuration("attestor transport clock"))?;
+            runtime.as_ref()
+        };
+        let mut deadline = Deadline::start(clock, budget)
+            .map_err(|_| AttestorError::Configuration("attestor transport clock"))?;
+        loop {
+            let remaining = deadline
+                .remaining(clock)
+                .map_err(|_| AttestorError::Configuration("attestor transport clock"))?;
+            if remaining.is_zero() {
+                return Err(AttestorError::Timeout {
+                    node: node.to_owned(),
+                });
+            }
+            if native_consumer_trace() {
+                eprintln!("native attestor post node={node} path={path} budget={remaining:?}");
+            }
+            let mut request = self
+                .agent
+                .post(format!("https://{address}{path}"))
+                .header("content-type", "application/json")
+                .header("accept", "application/json");
+            if let Some(token) = bearer {
+                request = request.header("authorization", format!("Bearer {token}"));
+            }
+            let response = request
+                .config()
+                .timeout_global(Some(remaining))
+                .build()
+                .send(body)
+                .map_err(|error| transport_error(node, &error))
+                .and_then(|response| read_body(node, response));
+            let (status, body) = match response {
+                Err(AttestorError::Timeout { .. }) if path == PATH_SIGN_NATIVE => continue,
+                result => result?,
+            };
+            return if status == 200 {
+                Ok(body)
+            } else {
+                Err(refusal(node, status, &body))
+            };
         }
     }
 
@@ -527,6 +593,13 @@ impl AttestorClient {
                     let result = handle
                         .join()
                         .unwrap_or_else(|_| Err(AttestorError::Unavailable { node: node.clone() }));
+                    if native_consumer_trace() {
+                        if let Err(error) = &result {
+                            eprintln!(
+                                "native attestor response node={node} path={path} error={error:?}"
+                            );
+                        }
+                    }
                     (node.clone(), result)
                 })
                 .collect()
@@ -1384,6 +1457,8 @@ impl AttestorSigner {
             }
         }
         self.native_replays = Mutex::new(records);
+        let clock: std::sync::Arc<dyn Clock> = std::sync::Arc::new(AttestorClock::new(clock));
+        self.client.clock = Some(std::sync::Arc::clone(&clock));
         self.native_clock = Some(clock);
         self.native_journal = Some(NativeJournal { path, _lock: lock });
         {
@@ -2056,9 +2131,25 @@ fn refusal(node: &str, status: u16, body: &[u8]) -> AttestorError {
 }
 
 fn transport_error(node: &str, error: &ureq::Error) -> AttestorError {
+    if native_consumer_trace() {
+        eprintln!("native attestor transport node={node} error={error:?}");
+        let mut source = std::error::Error::source(error);
+        while let Some(error) = source {
+            eprintln!("native attestor transport source={error:?}");
+            source = error.source();
+        }
+    }
     let node = node.to_owned();
     match error {
         ureq::Error::Timeout(_) => AttestorError::Timeout { node },
+        ureq::Error::Io(io)
+            if matches!(
+                io.kind(),
+                std::io::ErrorKind::WouldBlock | std::io::ErrorKind::TimedOut
+            ) =>
+        {
+            AttestorError::Timeout { node }
+        }
         ureq::Error::Tls(_) | ureq::Error::Pem(_) | ureq::Error::Rustls(_) => {
             AttestorError::Authentication { node }
         }
@@ -2074,6 +2165,11 @@ fn transport_error(node: &str, error: &ureq::Error) -> AttestorError {
         }
         _ => AttestorError::Unavailable { node },
     }
+}
+
+fn native_consumer_trace() -> bool {
+    std::env::var_os("PAXEER_X_NATIVE_CUSTODY_LIVE_FIXTURE").is_some()
+        || std::env::var_os("PAXEER_X_NATIVE_SEND_LIVE_FIXTURE").is_some()
 }
 
 fn malformed(node: &str) -> AttestorError {

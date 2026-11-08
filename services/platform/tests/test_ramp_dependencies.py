@@ -26,6 +26,7 @@ def platform_metadata():
         capture_output=True,
         text=True,
         check=True,
+        timeout=300,
     )
     return json.loads(result.stdout)
 

@@ -16,6 +16,11 @@ import (
 )
 
 func FuzzRPCJSONRPCServer(f *testing.F) {
+	f.Add([]byte{})
+	f.Add([]byte(`{"jsonrpc":"2.0","id":1,"method":"c","params":{"s":"hello","i":1}}`))
+	f.Add([]byte(`[{"jsonrpc":"2.0","id":1,"method":"c","params":{"s":"hello","i":1}}]`))
+	f.Add([]byte(`{"jsonrpc":"2.0","method":"c","params":{"s":"hello","i":1}}`))
+	f.Add([]byte(`{`))
 	type args struct {
 		S string `json:"s"`
 		I int    `json:"i"`

@@ -1,0 +1,117 @@
+[repair.22.39.76]
+mode = "BUILD"
+decision = "2804"
+gotcha = "3438"
+acceptance = "22998.1"
+base_revision = "40f92a32c38790f329c639bd27e7c87ca3521824"
+build_cmd = "python3 -m py_compile tests/ci/test_core_test_all_wired.py && make -n core-test-all > /dev/null"
+verify_cmd = "clang --version > /dev/null && forge --version > /dev/null && cbmc --version > /dev/null && z3 --version > /dev/null && python3 -m pytest -q tests/ci/test_core_test_all_wired.py && make core-test-all"
+verified_revision = "The hf-done entry in /out/run/gates.jsonl names the exact candidate revision, command, exit and private log; the final handoff copies that entry. This file participates in that candidate and makes no advance claim that either gate passed."
+publication = "The external runner publishes the qualified candidate."
+
+[repair.workflow]
+path = ".github/workflows/ci.yml"
+change = "Run make core-test-all after make build test scan-consensus in the existing gcc/clang C17 matrix, with the same compiler selection and normal failure propagation. Install Foundry beforehand in that same job using the solidity job's pinned foundry-toolchain action and v1.7.1 toolchain. Install cbmc, z3 and clang with sudo apt-get update && sudo apt-get install --yes cbmc z3 clang before the core suites."
+
+[repair.makefile]
+path = "Makefile"
+change = "Keep every existing core-test-all prerequisite and add the phony test-core-ports target, using the existing kernel C build rule to compile the four sources and execute every registered case. Track the included program-call fixture as a prerequisite for the two consumers."
+
+[repair.handover]
+path = "tests/codec/lxp_test_handover_retired.c"
+observed = "The kernel handover member and LXP_GOVERNANCE_HANDOVER enum were retired; governance_authority is the live genesis key and network record (requirements 1061 and 1062)."
+change = "Probe the five retired handover entry points as null weak references, and use the recorded retired wire ordinal 0x00070009 to prove module registration and governance classification refuse it. Preserve both registered cases, enabled/disabled genesis key checks and fee/migration proposal authorization, signature, staging and epoch assertions against governance_authority."
+
+[repair.state_feed]
+path = "tests/codec/lxp_test_state_feed_unbound.c"
+observed = "The included call fixture no longer provides the complete genesis manifest type transitively."
+change = "Include layerx/lxp_genesis.h directly. Preserve all three cases, the seven retired-feed symbol probes, durable receipt publication, snapshot restart and exact root, balance, sequence and receipt-byte comparisons."
+
+[repair.payer_grant]
+path = "tests/fuzz/lxp_prop_payer_grant.c"
+observed = "The payer-grant type and its encode/decode and authorization surfaces were retired with RECEIVE; there is no current grant codec to round-trip or mutate."
+change = "Retain the source and both registered case names as absence probes: encode and decode must resolve to null weak references, as must the authorization message and signature verifier. Do not restore a retired type, invent a replacement codec or claim seeded grant executions."
+
+[repair.prepare_workers]
+path = "tests/fuzz/lxp_prop_prepare_workers.c"
+observed = "The included call fixture no longer provides the complete genesis manifest type transitively; the sample still used the legacy protocol, a fixed account sequence, hand-built owner authority and an 88-byte batch identity preimage (gotcha 3519)."
+change = "Include layerx/lxp_genesis.h and layerx/lxp_batch_identity.h directly. Port deployment and sampled call executions to the test_metered_call.c contract: state-commitment protocol, identity next_sequence, signed fee limit, resolved owner authority, bound allowance, current payer balance and explicit execution versions, timestamps, sequence and arena. Derive the shared batch identity from the first encoded activity through lxp_batch_identity_activity and retain the aggregate activity root. Preserve 50 batches of 16 calls, one-versus-four worker execution, exact encoded receipt/event/terminal/root comparisons and unchanged input kernels. Assert every payer and shared treasury write and the exact canonical dependency chain required by the current occupancy scheduler."
+
+[qualification.continued_attempt]
+base_revision = "b6e2f6e6651adca8c5d3364f68555178a8369e6c"
+reference = "tests/programs/test_metered_call.c:195-252"
+build_evidence = "The build entry in /out/run/gates.jsonl records the final candidate revision, declared build command, exit and private log."
+verify_evidence = "The following verify entry in /out/run/gates.jsonl records that same candidate revision, cg spec done command, exit and private log; no passing result is asserted in advance."
+
+[qualification.occupancy_schedule_repair]
+revision = "3521922e1af99ec13cde06b4d5d93ac142aafc83"
+command = "cg spec done 22.39.76 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "The state-commitment fixture reaches scheduling but its legacy maximum_level == 0 assertion conflicts with src/modules/programs/call.c:2783-2794: every occupancy-active call declares a write to the same fee treasury and asset."
+repair = "Assert complete payer and treasury effects, then require maximum_level == 15 and levels[index] == index for all 16 calls. Keep all 50 one-worker versus four-worker prepared-batch comparisons; the current protocol serializes these calls through the shared treasury, so this case does not claim simultaneous worker execution."
+
+[qualification.final_gate]
+revision = "14561ef844843bf768a6e293f92227ff8c7b1185"
+command = "cg spec done 22.39.76 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-2.log"
+observed = "Build passed at this revision (/out/logs/build-2.log); both CI tests and all four ported suites passed, including 50 batches of 16 worker comparisons, before core-test-all failed at Makefile:1135 because scripts/ci/solidity-state-surface.sh could not find forge."
+assumption = "The missing external tool is an environment blocker outside the source repair; the bounded gate budget is spent, the task remains implemented-not-qualified, and this evidence entry is the only post-gate edit."
+
+[repair.ci_tests]
+path = "tests/ci/test_core_test_all_wired.py"
+change = "Assert unconditional workflow ordering and compiler propagation, preceding unconditional Foundry and apt cbmc/z3/clang installs in the same job with the solidity job's pinned action and toolchain, retention and existence of every aggregate prerequisite, actual build rules for all four ported sources, and execution of every registered C case without filters or omitted cases."
+
+[qualification.foundry_continuation]
+seed_revision = "d887ecbc3a8c0023bde05cc2a1be4155cdadeec8"
+gotcha = "3538"
+decision = "2859"
+change = "Preserve all four source ports and every registered case; provide Foundry in the existing C17 job and assert its presence and ordering."
+build_evidence = "The final build entry in /out/run/gates.jsonl records the candidate revision, declared command, exit and private log."
+verify_evidence = "The final verify entry in /out/run/gates.jsonl records the same candidate revision, cg spec done command, exit and private log; the final handoff copies it, with no file edits after qualification."
+
+[qualification.make_includes_repair]
+revision = "99cc48eb1a545e9f00c00a5fc5a2829db3ec4001"
+command = "cg spec done 22.39.76 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "The prerequisite inventory read only the root Makefile, so it did not see test-sanitizers defined by tools/build/sanitizers.mk."
+repair = "Read required Make includes recursively, assert every included file exists and preserve all aggregate prerequisite assertions; distinguish variable assignments from target rules."
+
+[qualification.foundry_continuation_result]
+revision = "230d5e312987e1cc6746cea94fe074003c1b10c0"
+command = "cg spec done 22.39.76 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Build passed at this revision (/out/logs/build-1.log), both CI tests and all four ported sources passed, including 50 batches of 16 worker comparisons; verification then failed at Makefile:1233, qualify-arith, because cbmc is unavailable. docs/QUALIFICATION.md:85 declares CBMC and Z3 requirements, and tools/lxp_arith_proof.sh:23-24 resolves both tools before running its proofs; these are prerequisites of the core suite producer."
+
+[qualification.proof_tools_continuation]
+seed_revision = "230d5e312987e1cc6746cea94fe074003c1b10c0"
+gotcha = "3550"
+decisions = ["2771", "2859", "2862"]
+change = "Preserve the Foundry installation and four ported sources; install CBMC and Z3 in the core suite job and assert their unconditional installation precedes make core-test-all."
+build_evidence = "The final build entry in /out/run/gates.jsonl records the candidate revision, declared build command, exit and private log."
+verify_evidence = "The final verify entry in /out/run/gates.jsonl records the same candidate revision, cg spec done command, exit and private log; the final handoff copies it, with no file edits after qualification."
+
+[qualification.proof_tools_compiler_prerequisite]
+revision = "241427cee64a53632941347b0a16e3e5580a62a3"
+command = "cg spec done 22.39.76 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Build passed (/out/logs/build-1.log), both CI tests and all four ported suites passed, and forge, cbmc and z3 were available; tools/lxp_arith_proof.sh:25 resolves clang before compiling the sanitizer builds at lines 68-96, making clang a prerequisite of the core suite producer."
+
+[qualification.clang_continuation]
+seed_revision = "1ab4401a1dc7e419f0b75677eda2a3b80897f8c0"
+gotcha = "3560"
+decisions = ["2771", "2859", "2862", "2867"]
+change = "Preserve the existing workflow wiring, Makefile targets and four source ports; install clang beside cbmc and z3 and require all three in the unconditional proof-tool step before make core-test-all. The declared verification opens with clang --version."
+build_evidence = "The final build entry in /out/run/gates.jsonl records the candidate revision, declared command, exit and private log."
+verify_evidence = "The final verify entry in /out/run/gates.jsonl records the same candidate revision, cg spec done command, exit and private log; the final handoff copies it without claiming a passing result in advance. A core suite failure beyond tool resolution is recorded with its producer line and ends this attempt without a repair cycle."
+
+[qualification.clang_environment_repair]
+revision = "7bd587ffbaf9c141502c0ecfd2ca792695905aca"
+command = "cg spec done 22.39.76 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "The declared verification stopped at its opening clang --version with shell exit 127 because the sandbox lacked clang, the compiler resolved by tools/lxp_arith_proof.sh:25; install the real clang package with apt-get, then run hf-build and hf-done at the updated candidate recorded by their final ledger entries."

@@ -195,6 +195,7 @@ impl CapturedRoster {
 
 /// Reads F08 epoch presence and cross-checks the F03 immutable snapshot against F06.
 /// Missing or disagreeing opening producers refuse instead of inventing a live roster.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn captured_roster(state: &SharedState<'_>) -> CodecResult<Option<CapturedRoster>> {
     let (_, table) = split_joint(state.feature_sections[ADMISSION])?;
     let admission = AdmissionTable::decode(table)?;
@@ -294,6 +295,7 @@ pub struct Activated {
     pub event_len: usize,
 }
 
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 fn committed(current: &[u8]) -> CodecResult<(SharedState<'_>, PolicySection<'_>)> {
     let state = decode_shared_state(current)?;
     let section = PolicySection::decode(state.feature_sections[Section::PolicyLifecycle.index()])?;
@@ -325,6 +327,7 @@ fn opening_epoch(header: &MarketHeader, height: u64) -> CodecResult<u64> {
     }
 }
 
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 fn authenticate(
     ctx: &CallContext,
     envelope: &ValidatedEnvelope<'_>,
@@ -355,6 +358,7 @@ fn select_policy<'a>(
 }
 
 /// Frozen core worker entry of an F08 member eligible at this opening.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 fn worker_entry(
     m: &AdmissionMeta,
     workers: &WorkerTable,
@@ -386,6 +390,7 @@ fn worker_entry(
     }))
 }
 
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 fn worker_roster(
     admission: &AdmissionTable,
     workers: &WorkerTable,
@@ -408,6 +413,7 @@ fn worker_roster(
     Ok((roster, count))
 }
 
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 fn evaluator_roster(
     identity: &[u8],
     epoch: u64,
@@ -426,6 +432,7 @@ fn evaluator_roster(
 }
 
 /// F01-R015 at epoch opening over declared principals and keys.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 fn check_independence(
     market_owner: PrincipalId,
     workers: &[WorkerRosterEntry],
@@ -443,6 +450,7 @@ fn check_independence(
     Ok(())
 }
 
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 fn check_readiness(policy: &TaskPolicyV1, workers: usize, evaluators: usize) -> CodecResult<()> {
     let workers_ready = (usize::from(policy.minimum_worker_count)
         ..=usize::from(policy.max_workers))
@@ -457,6 +465,7 @@ fn check_readiness(policy: &TaskPolicyV1, workers: usize, evaluators: usize) -> 
     }
 }
 
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 fn epoch_budget(policy: &TaskPolicyV1, free: Amount) -> CodecResult<Amount> {
     let budget = policy.epoch_budget_cap.min(free);
     if budget < policy.minimum_epoch_funding {
@@ -470,6 +479,7 @@ fn epoch_budget(policy: &TaskPolicyV1, free: Amount) -> CodecResult<Amount> {
 /// `out`, carrying any F05 bytes after the reward state unchanged; returns the budget, the
 /// section length and the validated reserved state.
 #[allow(clippy::too_many_arguments)]
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 fn reserve<'o>(
     section: &[u8],
     rewards: Option<RewardState<'_>>,
@@ -509,6 +519,7 @@ impl FrozenRoster {
 
 /// Freezes the rosters over the rolled-over sections: F03 snapshot into `identity_out`,
 /// independence, readiness and the core roster hash.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 fn freeze(
     sections: &[&[u8]; 5],
     selected: &PolicySection<'_>,
@@ -558,6 +569,7 @@ fn freeze(
 }
 
 /// The segment binding of `section`'s active config and policy.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 fn segment_binding(section: &PolicySection<'_>) -> CodecResult<SegmentBinding> {
     Ok(SegmentBinding {
         config: Version::new(section.header.active_config_version)?,
@@ -569,6 +581,7 @@ fn segment_binding(section: &PolicySection<'_>) -> CodecResult<SegmentBinding> {
 /// The F07 phase of one opening: segment rollover from the committed binding to the selected
 /// one, retirement of workers that left the F02 table, bootstrap of the frozen workers, and
 /// release of the completed summaries the reserved F06 ring (`rewards`) no longer retains.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 fn open_reputation(
     region: &Region,
     committed: &PolicySection<'_>,
@@ -615,6 +628,7 @@ struct Composed {
 }
 
 /// The whole opening of the clock epoch of `height` over `current`, written into `next`.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 fn compose(
     current: &[u8],
     height: u64,
@@ -726,6 +740,7 @@ pub fn preview_open(
     Ok(compose(current, height, next, scratch)?.frozen)
 }
 
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 fn check_roster(
     claimed: Presence<RosterDigest>,
     epoch: u64,
@@ -739,6 +754,7 @@ fn check_roster(
 }
 
 /// Object-local repeat: the clock epoch is already open with an F06 reservation.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 fn already_opened(
     state: &SharedState<'_>,
     header: &MarketHeader,
@@ -765,6 +781,7 @@ fn already_opened(
     Ok(Some(row.roster))
 }
 
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 fn open_suffix(f: &Frozen) -> CodecResult<[u8; OPEN_SUFFIX_BYTES]> {
     let mut suffix = [0; OPEN_SUFFIX_BYTES];
     let mut w = Writer::new(&mut suffix);
@@ -853,6 +870,7 @@ pub fn open_epoch(
 
 /// Readiness of an epoch that is already open: its reserved F06 row and the F03 snapshot
 /// without evaluators revoked since.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 fn opened_readiness(
     state: &SharedState<'_>,
     policy: &TaskPolicyV1,
@@ -890,6 +908,7 @@ fn opened_readiness(
 /// Writes the activated state (lifecycle ACTIVE, schedule cleared, one revision increment)
 /// into `next`, then proves readiness against it: an already opened clock epoch must still
 /// be ready, otherwise a complete trial opening must succeed. The trial is discarded.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 fn probe(
     current: &[u8],
     height: u64,
@@ -1108,6 +1127,7 @@ pub fn carry_reputation<T>(
 }
 
 /// The immutable opening roster also supplies the F07 seal and completion consumer.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 fn frozen_workers(
     state: &SharedState<'_>,
     rewards: &RewardState<'_>,
@@ -1124,6 +1144,7 @@ fn frozen_workers(
 }
 
 /// The opened epoch's F06 row in `state`.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 fn epoch_row<'a>(
     state: &SharedState<'a>,
     epoch: u64,
@@ -1135,6 +1156,7 @@ fn epoch_row<'a>(
 }
 
 /// `history_allowed` frozen at the F05 seal of `epoch` from the sealed `produced` state.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 fn seal_region(region: &Region, produced: &SharedState<'_>, epoch: u64) -> CodecResult<Region> {
     if region.seal != Presence::Absent {
         return Err(NON_CANONICAL);
@@ -1178,6 +1200,7 @@ fn seal_region(region: &Region, produced: &SharedState<'_>, epoch: u64) -> Codec
 }
 
 /// Byte length of the F05 current record at the start of `tail`.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 fn f05_record_len(tail: &[u8]) -> CodecResult<usize> {
     let mut r = Reader::new(tail);
     r.u8()?;
@@ -1203,6 +1226,7 @@ fn f05_record_len(tail: &[u8]) -> CodecResult<usize> {
 /// F06 row `before` terminalization (a no-score terminal releases its slots), every frozen
 /// worker's sealed F05 output from the terminalized `produced` state under the sealed `history_allowed` bits, one
 /// completed summary bound to the aggregate `root`, and the seal cleared.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 fn complete_region(
     region: &Region,
     before: &SharedState<'_>,

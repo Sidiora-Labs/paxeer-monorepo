@@ -1,6 +1,6 @@
 # hpx-registry — tiny stdlib-only Go service behind nginx. Artifacts and registry data live on the volume
 # at /srv/hpx (not baked), so re-publishing is just a file copy.
-FROM golang:1.22-alpine AS build
+FROM golang:1.25.8-alpine3.22@sha256:6b7607461f105ccaa0615b6f7932dfd5b36c5d827a0770b5578e565107cc3adb AS build
 ARG SOURCE_REVISION=unknown
 WORKDIR /src
 COPY tools/hpx/registry/go.mod ./
@@ -9,7 +9,7 @@ RUN CGO_ENABLED=0 go build -trimpath -ldflags "-s -w -X main.sourceRevision=${SO
 
 # The landing page fonts, checksum-bound by tools/hpx/hosting/fonts.sha256 as
 # tools/hpx/hosting/deploy.sh fetches them.
-FROM alpine:3.20 AS fonts
+FROM alpine:3.22.2@sha256:4b7ce07002c69e8f3d704a9c5d6fd3053be500b7f1c69fc0d80990c2ad8dd412 AS fonts
 WORKDIR /fonts
 COPY tools/hpx/hosting/fonts.sha256 ./
 RUN apk add --no-cache curl \
@@ -19,7 +19,7 @@ RUN apk add --no-cache curl \
     && sha256sum -c fonts.sha256 \
     && rm fonts.sha256
 
-FROM alpine:3.20
+FROM alpine:3.22.2@sha256:4b7ce07002c69e8f3d704a9c5d6fd3053be500b7f1c69fc0d80990c2ad8dd412
 ARG SOURCE_REVISION=unknown
 LABEL org.opencontainers.image.source="https://github.com/Sidiora-Labs/Paxeer-X-Network" \
       org.opencontainers.image.revision="${SOURCE_REVISION}" \

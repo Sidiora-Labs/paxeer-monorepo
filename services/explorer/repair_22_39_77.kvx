@@ -1,0 +1,13 @@
+[repair.22.39.77]
+decision = "2804"
+gotcha = "3438"
+acceptance = "22998.1"
+base_revision = "c6a45ed6d0f1f5ee8cf4a80ea804efdef8e8d9c4"
+observed = "The starting workflow only runs cargo check for two service workspaces, omits libs and never runs the frontend Vitest suite; the local test gate only covers sig-provider among the Rust workspaces."
+repair = "Run cargo test --locked --workspace for libs, smart-contract-verifier and sig-provider in the workflow and local gate; give CI a healthy PostgreSQL service and native build dependencies; add a dedicated frontend job calling the unfiltered vitest run script."
+resource_policy = "Disable test-profile debug information in all three Rust workspaces to reduce CI artifact storage without changing test discovery, assertions or execution."
+baseline_suite_status = "Not executed: this BUILD task authorizes only the Python wiring gate and shell syntax check, not the Rust or frontend suites; no baseline suite exit or repaired suite pass is claimed."
+build_cmd = "python3 -m py_compile tests/ci/test_explorer_suites_wired.py && bash -n scripts/explorer/gate-test.sh"
+verify_cmd = "python3 -m pytest -q tests/ci/test_explorer_suites_wired.py"
+verified_revision_source = "The verify row in the runner's private /out/run/gates.jsonl names the exact verified candidate revision, command, exit and private log; the final task handoff copies that row."
+verification_scope = "The declared gate checks real workflow jobs, matrix coverage, commands, setup, manifests and local-gate parity; execution of the newly wired full suites belongs to the workflow."

@@ -99,7 +99,7 @@ fn runtime_decodes_finalization_evidence_with_a_65_byte_signature() {
             batch_fields[3],
             batch_fields[4],
         ),
-        verification_level: VerificationLevel::CHECKPOINT_FINALISED,
+        verification_level: VerificationLevel::COMMITTED,
         tx_hash,
         receipt_hash,
         block_height: observed_height,

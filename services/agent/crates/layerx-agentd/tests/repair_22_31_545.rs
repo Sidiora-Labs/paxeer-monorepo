@@ -257,6 +257,7 @@ fn native_send_v2_unix_consent_binding_persists_and_reopens_with_current_owner_c
     let authorization = retained_authorization(&fixture, &human);
     let signing = ed25519_dalek::SigningKey::from_bytes(fixture.account.layerx_seed());
     let signed = signed_consent(purpose.clone(), &signing);
+    // The RPC envelope decoder owns this refusal; managed-agent reasons do not replace it.
     assert_v1_wire_refused(&fixture, &human, &purpose, signed.signature);
 
     let (control, owner) = {

@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { parseWalletReadRequest, walletReadResponseHeaders } from '@/lib/wallet-read-contract';
 import { createServer, type Server, type ServerResponse } from 'node:http';
 import { once } from 'node:events';
 import { act, createElement, useLayoutEffect } from 'react';
@@ -10,7 +11,8 @@ import { announceRpcChanged, PAXEER_CONFIG } from '@/lib/constants';
 import { initBlockscout, type TokenBalance } from '@/lib/data';
 import { fetchPortfolio } from '@/lib/api';
 import { queryKeys } from '@/lib/queries';
-import { consumePendingSend, subtractFromRawBalance } from '@/lib/optimistic';
+import { subtractFromRawBalance } from '@/lib/optimistic';
+import { pendingSendKey, scopedPendingSendsRepository } from '@/widgets/portfolio/pendingSends';
 import { rootNetwork, virtualNetwork, VIRTUAL_CHAIN_ID_BASE } from '@/lib/networks';
 import {
   custodyChoiceRepository,
@@ -110,7 +112,11 @@ beforeEach(async () => {
   root = null;
   selectedChain = ROOT;
   server = createServer((request, response) => {
-    const path = new URL(request.url ?? '/', 'http://localhost').pathname;
+    const url = new URL(request.url ?? '/', 'http://localhost');
+    const read = parseWalletReadRequest(url);
+    for (const [key, value] of Object.entries(walletReadResponseHeaders(read)))
+      response.setHeader(key, value);
+    const path = url.pathname;
     requests.push(path);
     const match = path.match(/^\/api\/v2\/addresses\/(0x[0-9a-fA-F]{40})(.*)$/);
     if (!match) {
@@ -496,7 +502,12 @@ async function send_zero_decimals_real_portfolio_qr_signing_optimistic_and_recov
   expect(signed.value).toBe(0n);
   expect(transferCodec.decodeFunctionData('transfer', signed.data)[1]).toBe(1n);
   expect(current().form.transfer?.intent?.amountRaw).toBe('1');
-  const pending = consumePendingSend()!;
+  const entries = Object.values(scopedPendingSendsRepository.read());
+  expect(entries).toHaveLength(1);
+  const pending = entries[0].event;
+  expect(pending.sender).toBe(peer.wallet.address);
+  expect(pending.chainId).toBe(ROOT);
+  expect(scopedPendingSendsRepository.read()[pendingSendKey(pending)]).toEqual(entries[0]);
   expect(pending).toMatchObject({
     tokenAddress: WHOLE,
     amount: '1',

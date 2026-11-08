@@ -822,6 +822,78 @@ export interface SourcePage<T> {
   index_generation?: string;
   index_complete?: boolean;
 }
+export function parseSourceCursor(value: unknown): string {
+  if (
+    typeof value !== "string" ||
+    value.length === 0 ||
+    value.length > 65536 ||
+    /[^\x21-\x7e]/.test(value)
+  )
+    sourceError("INVALID_CURSOR", "Cursor must be bounded opaque ASCII text");
+  return value;
+}
+export function parseSourcePage(value: unknown): SourcePage<unknown>;
+export function parseSourcePage<T>(
+  value: unknown,
+  parseItem: (value: unknown) => T,
+): SourcePage<T>;
+export function parseSourcePage(
+  value: unknown,
+  parseItem: (value: unknown) => unknown = (item) => item,
+): SourcePage<unknown> {
+  const x = record(value, "source page");
+  fields(
+    x,
+    [
+      "items",
+      "next_cursor",
+      "coverage",
+      "snapshot",
+      "index_generation",
+      "index_complete",
+    ],
+    ["items", "next_cursor", "coverage", "snapshot"],
+    "source page",
+  );
+  if (!Array.isArray(x.items))
+    sourceError("INVALID_REQUEST", "Page items must be an array");
+  if (x.items.length > SOURCE_CAPABILITIES.limits.page_items)
+    sourceError("LIMIT_EXCEEDED", "Page exceeds its item limit");
+  canonicalJSON(x.items);
+  if (
+    x.coverage !== "COMPLETE" &&
+    x.coverage !== "PARTIAL" &&
+    x.coverage !== "REDACTED" &&
+    x.coverage !== "INDEX_PENDING"
+  )
+    sourceError("INVALID_REQUEST", "Page coverage is unsupported");
+  const next_cursor =
+    x.next_cursor === null ? null : parseSourceCursor(x.next_cursor);
+  if (x.coverage === "PARTIAL" && next_cursor === null)
+    sourceError(
+      "INVALID_CURSOR",
+      "Partial pages require a continuation cursor",
+    );
+  if (x.coverage === "COMPLETE" && next_cursor !== null)
+    sourceError(
+      "INVALID_CURSOR",
+      "Complete pages cannot carry a continuation cursor",
+    );
+  const result: SourcePage<unknown> = {
+    items: x.items.map((item) => parseItem(item)),
+    next_cursor,
+    coverage: x.coverage,
+    snapshot: parseObjectId(x.snapshot),
+  };
+  if (Object.hasOwn(x, "index_generation"))
+    result.index_generation = parseGeneration(x.index_generation);
+  if (Object.hasOwn(x, "index_complete")) {
+    if (typeof x.index_complete !== "boolean")
+      sourceError("INVALID_REQUEST", "Index completeness must be boolean");
+    result.index_complete = x.index_complete;
+  }
+  return result;
+}
 export function parseSourceAuthority(value: unknown): SourceAuthority {
   const x = record(value, "authority");
   fields(

@@ -1,0 +1,106 @@
+[repair.22.39.66]
+status = "qualification_by_reference"
+source_revision = "deb2deb978c0804f7876e36fe9f6896fc1e616bf"
+continued_revision = "83e936a7ccc3a3f33955e1a7ae91bc527bb1bd0a"
+implementation = "State product behavior and proof limits directly; describe linked tests by their checks and centralize contributor specification references."
+coverage = "Every tracked README and documentation page, excluding the spec engineering record, CONTRIBUTING.md, docs/site/docs/reference/index.md, vendor components, VENDOR.kvx-pinned trees and the upstream Hyperfide source/documentation snapshots; filename-only code spans remain allowed."
+tests = ["test_docs_have_no_task_numbers", "test_docs_have_no_gotcha_or_decision_numbers", "test_docs_have_no_repair_record_prose"]
+build_command = "python3 -m py_compile tests/ci/test_docs_free_of_process_numbering.py"
+verify_command = "python3 -m pytest -q tests/ci/test_docs_free_of_process_numbering.py"
+evidence = "hf-build and hf-done retain the exact candidate revision, command, exit code and private log location; qualification is not claimed before their bounded result."
+verified_revision = "By reference: the matching revision fields of the final successful build and verify rows in the private hf-build/hf-done ledger; source_revision and continued_revision are provenance, not qualification claims."
+build_evidence = "Private runner gates.jsonl: final build row for this candidate, recording revision, python3 -m py_compile tests/ci/test_docs_free_of_process_numbering.py, exit and log."
+verify_evidence = "Private runner gates.jsonl: final verify row for this candidate, recording revision, cg spec done 22.39.66 -f layerx-merge --root /work/paxeer-monorepo, exit and log; that command runs the declared pytest verification and graph checks."
+qualification_limit = "Qualification requires both declared gates to pass at the same candidate revision; no other build, test, cluster or live-service result is claimed."
+
+[page.contributing]
+path = "CONTRIBUTING.md"
+rewrite = "Define direct behavior prose, descriptive test links and the two contributor locations for specification references."
+
+[page.account_ui]
+path = "apps/launchpad/qualification/account-ui/README.md"
+rewrite = "Describe pending load/restore measurements and path, command, import and qualification-boundary checks without audit or repair history."
+
+[page.monorepo]
+path = "docs/MONOREPO.md"
+rewrite = "Describe current and planned layout directly and route contributor specification guidance through CONTRIBUTING.md."
+
+[page.reference_index]
+path = "docs/site/docs/reference/index.md"
+rewrite = "Identify the contributor specification entry points and keep product behavior separate from numbered development history."
+
+[page.routes]
+path = "docs/system/routes.md"
+rewrite = "Describe catalogue generation and dispatch authority directly, including admission, authentication and unavailable backend refusals."
+
+[page.swap_cpmm]
+path = "programs/sdk/rust/examples/swap-cpmm/README.md"
+rewrite = "Describe missing token/registry wiring and name wire, authority and compatibility tests by their checks while retaining native rollback/restart proof limits."
+
+[page.sdk_conformance]
+path = "sdk/platform/conformance/README.md"
+rewrite = "Preserve the current committed refusal and named-payee descriptions while integrating the continued corpus/SDK test links and native terminal-outcome proof boundary."
+
+[page.receipt_authority]
+path = "services/platform/hosted/authority/README.md"
+rewrite = "Name configuration, receipt transport, protected key, retention/replay and budget TLS tests by behavior; remove audit/task/spec process prose while retaining Human integration requirements."
+
+[page.hosted_human]
+path = "services/platform/hosted/human/README.md"
+rewrite = "Link committed observation and migration barrier checks descriptively and state registry generation's missing authenticated producer input directly."
+
+[page.readiness_checklist]
+path = "docs/release/7.0.0-readiness-checklist.md"
+rewrite = "State the single chain, fourteen root endpoints and no router path; describe candidate release evidence directly and source RPC behavior from implementation."
+
+[page.service_operator_runbook]
+path = "docs/release/7.0.0-service-operator-runbook.md"
+rewrite = "Describe root-path native reads, chain identity, gateway upstream selection and pending agent release evidence without numbered development history."
+
+[page.upgrade_plan]
+path = "docs/release/7.0.0-upgrade-plan.md"
+rewrite = "State one execution domain, fourteen chain-125 root endpoints and no router path; replace numbered programme references with behavioral release checks and implementation sources."
+
+[page.jvm_sdk]
+path = "sdk/platform/jvm/README.md"
+rewrite = "Link verifier, transaction binding, evidence level and independent trust tests instead of contributor specification contracts."
+
+[page.migration]
+path = "services/interop/crates/layerx-migrate/README.md"
+rewrite = "Name genuine funded-operator and authenticated mapping/settlement tests, their protected inputs and their refusal without those inputs."
+
+[page.rosetta_node]
+path = "sdk/contrib/rosetta/node/README.md"
+rewrite = "Name root-chain image, runtime configuration and archived-key boundary tests while retaining their source-only proof limit."
+
+[page.production_load]
+path = "tools/launchpad/production/load/README.md"
+rewrite = "Name accounting, loopback, schema authority and final-admission tests; retain coordinator admission and measured-capacity requirements without a numbered repair command."
+
+[page.custody_fixture]
+path = "tests/fixtures/custody/paxeer-light-v1/README"
+rewrite = "State that the Go verifier is retired and that the named live reader compares retained fixtures without reinstating it."
+
+[page.human_committed_fixture]
+path = "services/human/crates/layerx-human-test-support/tests/fixtures/committed/README.md"
+rewrite = "Preserve real recorder provenance and name the committed evidence, restart recovery and malformed/foreign refusal test."
+
+[page.mirror]
+path = "services/interop/crates/layerx-mirror/README.md"
+rewrite = "State migration ownership and the current first_height configuration field directly, without repair-history links."
+
+[page.a2a_transport]
+path = "services/interop/specs/conformance/transport-a2a/README.md"
+rewrite = "State missing runtime expectation coverage and profile-policy resolution requirements directly."
+
+[page.hosted_gateway]
+path = "services/platform/hosted/gateway/README.md"
+rewrite = "State Docker file-staging requirements and provisioning proof limits directly; match the current eight-root deployment configuration."
+
+[page.contract_verifier]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/README.md"
+rewrite = "Replace the repair/audit trace with behavioral configuration, startup, request, response and library coverage; retain deployed-service and compiler-run limits."
+
+[continuation_notes]
+conflicts = "The SDK conformance README contained two seed conflict blocks; preserve current-side receipt and named-payee behavior and integrate descriptive test links beside it."
+implementation_edit = "One release-page replacement anchor differed on the current base; read the actual text and apply the intended scoped edit before qualification."

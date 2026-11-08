@@ -6,6 +6,7 @@ import { NextRequest } from 'next/server';
 import { afterAll, beforeAll, expect, test } from 'vitest';
 import { HttpBoundaryError } from './http';
 import { pushOwnershipMessage, verifyPushOwnership } from './push-ownership';
+import { browserPushKeys } from './test/browser-push-keys';
 
 let directory: string;
 let post: typeof import('../app/api/push/subscribe/route').POST;
@@ -30,7 +31,7 @@ function subscriptionRequest(input: Record<string, unknown>): NextRequest {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      keys: { p256dh: 'a'.repeat(87), auth: 'b'.repeat(22) },
+      keys: browserPushKeys(),
       ...input,
     }),
   });
@@ -38,7 +39,7 @@ function subscriptionRequest(input: Record<string, unknown>): NextRequest {
 
 async function acceptsSubscriptionSignedByWallet(): Promise<void> {
   const wallet = Wallet.createRandom();
-  const endpoint = 'https://push.example/subscriptions/owned';
+  const endpoint = 'https://fcm.googleapis.com/fcm/send/owned';
   const now = Math.floor(Date.now() / 1_000);
   for (const issuedAt of [now, now - 300, now + 60]) {
     const input = {
@@ -81,7 +82,7 @@ async function refusesSubscriptionSignedByAnotherKey(): Promise<void> {
     ['stale', wallet, now - 301],
     ['future', wallet, now + 120],
   ] as const) {
-    const endpoint = `https://push.example/subscriptions/${kind}`;
+    const endpoint = `https://fcm.googleapis.com/fcm/send/${kind}`;
     const input = {
       endpoint,
       walletAddress: wallet.address,
@@ -100,7 +101,7 @@ async function refusesSubscriptionSignedByAnotherKey(): Promise<void> {
     expect(await response.json()).toMatchObject({ error: { code: 'SUBSCRIPTION_UNPROVEN' } });
     expect(await getSubscription(endpoint)).toBeNull();
   }
-  const endpoint = 'https://push.example/subscriptions/tampered';
+  const endpoint = 'https://fcm.googleapis.com/fcm/send/tampered';
   const signature = await wallet.signMessage(pushOwnershipMessage(endpoint, wallet.address, now));
   for (const proof of [
     { signature, issuedAt: now, endpoint: `${endpoint}/changed` },
