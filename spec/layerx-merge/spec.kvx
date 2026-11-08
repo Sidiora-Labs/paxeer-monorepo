@@ -334623,7 +334623,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.87]
 title = "Normalise the public qualification ledger so it parses and guard it with a test"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.39.54"]
