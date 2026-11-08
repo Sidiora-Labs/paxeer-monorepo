@@ -184521,7 +184521,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.554]
 title = "Prove the whole layerx-agentd library target green under the runtime clock and record it as a gate again"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 3
 requires = ["22.31.551", "22.31.552", "22.31.553", "22.31.555", "9.98.4", "22.31.545", "22.31.572", "22.31.614", "22.31.620"]
@@ -333928,7 +333928,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.152]
 title = "Reconcile the intentional-copy inventory with the launchpad and perps asset tree after the rename task"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
