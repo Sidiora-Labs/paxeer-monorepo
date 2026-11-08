@@ -35353,3 +35353,11 @@ symbol = "test_tools_ci_suites_collected.py"
 observed = "Attempt 2 at dac8a1270116: build exit 0; verification failed two cases: test_makefile_wave6 test_aggregates_dry_run_clean at line 118 (the two explicit tests/ci paths missing) and test_beta_ledger_paths test_ledger_check_reads_layerx_merge_ledger (the ledger severities 22.39.87 maps); every other tools/ci case and the collected-suites test passed."
 assumption = "Both failures are external to the wiring the task owns: one settlement landed after the task text, one ledger repair in flight."
 severity = "blocker"
+
+[finding.22.39.138.5]
+task = "22.39.138"
+file = "tests/ci/test_copied_artifacts_in_sync.py"
+symbol = "test_copied_artifacts_in_sync.py"
+observed = "Attempt 5 at f01c678451d5: build exit 0; verification exit 1: all seventeen selected node tests passed and the trailing python step failed seven of nine cases of the copy inventory sync test on apps/launchpad/web/src/assets/icons/airdrop_background.png missing since 637c9c63da."
+assumption = "The node repair is complete; the failure is a foreign gate step over an inventory another task owns."
+severity = "blocker"
