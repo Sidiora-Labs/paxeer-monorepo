@@ -247,18 +247,6 @@
   },
   {
     "package": "github.com/Sidiora-Technologies/KindleLaunch/core/api/internal/app",
-    "test": "TestDevelopmentTransactionStatusFromChainRPC",
-    "reason": "dev_network_reads_test.go line 279: log-free reversion must refuse an invented event position expected HTTP 503 INTEGRITY_QUARANTINED, but the shared v2 receipt projection returns HTTP 200 included_reverted with a receipt.",
-    "retiring_task": "22.39.154"
-  },
-  {
-    "package": "github.com/Sidiora-Technologies/KindleLaunch/core/api/internal/app",
-    "test": "TestRepair_27_log_free_receipts",
-    "reason": "repair_27_test.go line 240: SDK log-free evidence/position refusal expects ErrReceiptPosition and no receipt, but the shared v2 receipt projection returns included_success, a receipt and no error.",
-    "retiring_task": "22.39.154"
-  },
-  {
-    "package": "github.com/Sidiora-Technologies/KindleLaunch/core/api/internal/app",
     "test": "TestDevelopmentStreamTerminalFramesCarryCloseCode",
     "reason": "dev_stream_close_test.go line 36: app.New: chain reference unavailable",
     "retiring_task": "22.39.154"

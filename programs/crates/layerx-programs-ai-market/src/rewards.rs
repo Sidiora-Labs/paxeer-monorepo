@@ -356,17 +356,13 @@ pub fn encode_ledger(v: &RewardLedger, out: &mut [u8]) -> CodecResult<usize> {
         id32: v.refund_recipient.as_bytes();
         u64: FUNDING_POLICY_VERSION;
     )?;
-    for counter in [
-        v.tracked_deposits,
-        v.total_claimed,
-        v.tracked_refunds,
-        v.free,
-        v.reserved,
-        v.liability,
-    ] {
-        w.u128(counter)?;
-    }
     crate::codec::write_fields!(w;
+        u128: v.tracked_deposits;
+        u128: v.total_claimed;
+        u128: v.tracked_refunds;
+        u128: v.free;
+        u128: v.reserved;
+        u128: v.liability;
         u16: v.recipient_count;
         u8: v.retained_epochs;
         u8: u8::from(v.active_reserve);
@@ -812,6 +808,7 @@ impl RewardEpoch {
     ///
     /// # Errors
     /// Any row validation error, a dictionary slot error, or `F06_LEDGER_INVARIANT_VIOLATION` for unordered workers.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn check_dictionary(&self, dictionary: &RecipientDictionary<'_>) -> CodecResult<()> {
         self.validate()?;
         let mut previous: Option<WorkerId> = None;
@@ -916,15 +913,19 @@ pub fn decode_epoch(bytes: &[u8]) -> CodecResult<RewardEpoch> {
     let status = EpochStatus::decode(r.u8()?)?;
     let outcome = RewardOutcome::decode(r.u8()?)?;
     r.reserved(2)?;
+    let (terminal_height, expiry_height, budget, paid_sum, expired_sum) = crate::codec::read_values!(&mut r; scalars;
+        terminal_height: U64, expiry_height: U64, budget: U128,
+        paid_sum: U128, expired_sum: U128
+    );
     let mut v = RewardEpoch {
         epoch,
         status,
         outcome,
-        terminal_height: r.u64()?,
-        expiry_height: r.u64()?,
-        budget: r.u128()?,
-        paid_sum: r.u128()?,
-        expired_sum: r.u128()?,
+        terminal_height,
+        expiry_height,
+        budget,
+        paid_sum,
+        expired_sum,
         roster: r.roster_digest()?,
         aggregation: read_digest(&mut r)?,
         allocation: read_digest(&mut r)?,
@@ -1300,12 +1301,11 @@ impl PayoutCredit {
             return Ok(None);
         }
         let mut r = Reader::new(bytes);
+        let (epoch, slot, amount, paid, last_paid) = crate::codec::read_values!(&mut r;
+            scalars; epoch: U64, slot: U16, amount: U128, paid: U128, last_paid: U128
+        );
         let value = crate::codec::read_record!(&mut r, Self {
-            epoch = r.u64()?;
-            slot = r.u16()?;
-            amount = r.u128()?;
-            paid = r.u128()?;
-            last_paid = r.u128()?;
+            epoch = epoch; slot = slot; amount = amount; paid = paid; last_paid = last_paid;
         }; allocation = r.digest32()?; expiry: U64, expired: Boolean);
         r.finish()?;
         if value.amount == 0 || value.paid > value.amount || value.last_paid == 0 && value.paid != 0
@@ -1375,6 +1375,7 @@ impl PayoutCursor {
     }
 }
 
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 fn unused(bytes: &[u8]) -> bool {
     let (blocks, tail) = bytes.as_chunks::<32>();
     blocks.iter().all(|block| {
@@ -1397,11 +1398,13 @@ pub struct EpochRows<'a> {
     bytes: &'a [u8],
 }
 impl<'a> EpochRows<'a> {
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     fn has_payouts(&self) -> bool {
         self.bytes
             .guest_index(PAYOUT_REGION_AT - ROWS_AT..PAYOUT_AT - ROWS_AT)
             == PAYOUT_TAG
     }
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     fn row_capacity(&self) -> usize {
         if self.has_payouts() {
             PAYOUT_ROW_LIMIT
@@ -2579,6 +2582,7 @@ fn view(current: &[u8]) -> CodecResult<View<'_>> {
 }
 
 /// Native principal, domain, expiry and market.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 fn authenticate(ctx: &CallContext, e: &Envelope<'_>, header: &MarketHeader) -> CodecResult<()> {
     codec::compare_native_principal(e, ctx.principal)?;
     let market = codec::derive_market(ctx.chain, ctx.program)?;
@@ -2591,6 +2595,7 @@ fn authenticate(ctx: &CallContext, e: &Envelope<'_>, header: &MarketHeader) -> C
 }
 
 /// The ledger's immutable asset, account and refund recipient are the header's.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 fn check_bindings(ledger: &RewardLedger, header: &MarketHeader) -> CodecResult<()> {
     if ledger.asset != header.funding_asset {
         return Err(F06_WRONG_ASSET);
@@ -2640,6 +2645,7 @@ fn bind(
 /// Binds the transition to the current Program's rewards account and asset and
 /// checks the counters move by exactly the effect; inside the Program activity
 /// it also reads the sight balance, checks cover and stages the one transfer.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 fn stage_value(
     ctx: &CallContext,
     before: &RewardLedger,

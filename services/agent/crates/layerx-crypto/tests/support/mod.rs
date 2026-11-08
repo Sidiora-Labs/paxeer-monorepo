@@ -187,8 +187,10 @@ fn archived_activity(payload: &[u8], kind: ActivityType, action_key: [u8; 32]) -
     builder
         .payload(Payload::new(&registry, kind, payload).expect("payload"))
         .expect("payload field");
-    layerx_wire::activity::encode_unsigned_envelope(&builder.build().expect("archive envelope"))
-        .expect("archive bytes")
+    layerx_wire::historical::activity::encode_unsigned_envelope(
+        &builder.build().expect("archive envelope"),
+    )
+    .expect("archive bytes")
 }
 
 pub fn archived_bridge_credit(amount: u128) -> Vec<u8> {

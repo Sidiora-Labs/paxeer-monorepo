@@ -127,7 +127,7 @@ use std::fmt;
 use sha2::{Digest as _, Sha256};
 
 use layerx_types::payload::{ActivityType, ModuleId};
-type Activity = layerx_wire::activity::Activity;
+type Activity = layerx_wire::historical::activity::Activity;
 use layerx_wire::decode::Decoder;
 use layerx_wire::encode::Encoder;
 use layerx_wire::hash;
@@ -896,7 +896,7 @@ mod tests {
     use layerx_types::amount::Amount;
     use layerx_types::ids::{Did, IdempotencyKey};
     use layerx_types::payload::{ModuleRegistration, ModuleRegistry, Payload};
-    use layerx_wire::activity::encode_unsigned_envelope;
+    use layerx_wire::historical::activity::encode_unsigned_envelope;
 
     fn custody_credit_payload(length: usize) -> Vec<u8> {
         let mut payload = vec![0; length];
@@ -957,8 +957,9 @@ mod tests {
                 let mut payload = custody_credit_payload(length);
                 payload[41..43].copy_from_slice(&protocol.to_be_bytes());
                 let (canonical, registry) = custody_credit_envelope(&payload, protocol)?;
-                let activity = layerx_wire::activity::decode_unsigned(&canonical, &registry)
-                    .map_err(|e| format!("{e:?}"))?;
+                let activity =
+                    layerx_wire::historical::activity::decode_unsigned(&canonical, &registry)
+                        .map_err(|e| format!("{e:?}"))?;
                 let disclosure = decode_bridge_deposit_credit(activity.payload(), &activity)
                     .map_err(|e| format!("{e:?}"))?;
                 let mut payer = [0; 32];
@@ -974,7 +975,7 @@ mod tests {
                 assert_eq!(disclosure.sequence, 7);
                 assert_eq!(disclosure.expires_at, 100);
                 assert_eq!(
-                    layerx_wire::activity::encode_unsigned(&activity),
+                    layerx_wire::historical::activity::encode_unsigned(&activity),
                     Ok(canonical)
                 );
             }
@@ -990,10 +991,10 @@ mod tests {
             let (canonical, registry) = custody_credit_envelope(&payload, 3)?;
             assert_eq!(
                 decode_bridge_deposit_credit(
-                    layerx_wire::activity::decode_unsigned(&canonical, &registry)
+                    layerx_wire::historical::activity::decode_unsigned(&canonical, &registry)
                         .map_err(|e| format!("{e:?}"))?
                         .payload(),
-                    &layerx_wire::activity::decode_unsigned(&canonical, &registry)
+                    &layerx_wire::historical::activity::decode_unsigned(&canonical, &registry)
                         .map_err(|e| format!("{e:?}"))?,
                 )
                 .err(),
@@ -1007,10 +1008,10 @@ mod tests {
             let (canonical, registry) = custody_credit_envelope(&payload, 3)?;
             assert_eq!(
                 decode_bridge_deposit_credit(
-                    layerx_wire::activity::decode_unsigned(&canonical, &registry)
+                    layerx_wire::historical::activity::decode_unsigned(&canonical, &registry)
                         .map_err(|e| format!("{e:?}"))?
                         .payload(),
-                    &layerx_wire::activity::decode_unsigned(&canonical, &registry)
+                    &layerx_wire::historical::activity::decode_unsigned(&canonical, &registry)
                         .map_err(|e| format!("{e:?}"))?,
                 )
                 .err(),
@@ -1023,10 +1024,10 @@ mod tests {
             let (canonical, registry) = custody_credit_envelope(&payload[..length], 3)?;
             assert_eq!(
                 decode_bridge_deposit_credit(
-                    layerx_wire::activity::decode_unsigned(&canonical, &registry)
+                    layerx_wire::historical::activity::decode_unsigned(&canonical, &registry)
                         .map_err(|e| format!("{e:?}"))?
                         .payload(),
-                    &layerx_wire::activity::decode_unsigned(&canonical, &registry)
+                    &layerx_wire::historical::activity::decode_unsigned(&canonical, &registry)
                         .map_err(|e| format!("{e:?}"))?,
                 )
                 .err(),
@@ -1052,10 +1053,10 @@ mod tests {
         let (canonical, registry) = custody_credit_envelope(&payload, 3)?;
         assert_eq!(
             decode_bridge_deposit_credit(
-                layerx_wire::activity::decode_unsigned(&canonical, &registry)
+                layerx_wire::historical::activity::decode_unsigned(&canonical, &registry)
                     .map_err(|e| format!("{e:?}"))?
                     .payload(),
-                &layerx_wire::activity::decode_unsigned(&canonical, &registry)
+                &layerx_wire::historical::activity::decode_unsigned(&canonical, &registry)
                     .map_err(|e| format!("{e:?}"))?,
             )
             .err(),
@@ -1069,10 +1070,10 @@ mod tests {
         let (mut canonical, registry) = custody_credit_envelope(&custody_credit_payload(368), 3)?;
         let last = canonical.last_mut().ok_or("empty canonical envelope")?;
         *last ^= 1;
-        let activity = layerx_wire::activity::decode_unsigned(&canonical, &registry)
+        let activity = layerx_wire::historical::activity::decode_unsigned(&canonical, &registry)
             .map_err(|e| format!("{e:?}"))?;
         assert_ne!(
-            hash::payload_hash(&activity).map_err(|e| format!("{e:?}"))?,
+            layerx_wire::historical::hash::payload_hash(&activity).map_err(|e| format!("{e:?}"))?,
             activity.payload_hash()
         );
         assert_eq!(
