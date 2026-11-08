@@ -335169,7 +335169,7 @@ do_4 = "Attempt 2 (continue, gotcha 3442): the attempt-1 tree 016a2f12a44b stand
 
 [task.22.39.54]
 title = "Settle the twenty tools/ci suite failures against the live rules"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.139", "22.39.147"]
