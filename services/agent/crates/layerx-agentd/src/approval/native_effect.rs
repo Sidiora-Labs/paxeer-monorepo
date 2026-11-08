@@ -676,7 +676,7 @@ impl NativeEffectApprovalCarrier {
         let exact = outbox
             .exact_signed_bytes(queued.submission_id)
             .map_err(|_| NativeEffectError::Corrupt)?;
-        let signed = layerx_wire::activity::decode_signed(exact, &self.registry()?)
+        let signed = layerx_wire::historical::activity::decode_signed(exact, &self.registry()?)
             .map_err(|_| NativeEffectError::Corrupt)?;
         if origin.session.tenant != tenant
             || origin.session.session_id.0 != self.session
@@ -689,13 +689,14 @@ impl NativeEffectApprovalCarrier {
                 crate::outbox::SubmissionState::Prepared | crate::outbox::SubmissionState::Signed
             )
             || Sha256::digest(exact).as_slice() != queued.signed_digest.as_slice()
-            || layerx_wire::activity::encode_signed(&signed)
+            || layerx_wire::historical::activity::encode_signed(&signed)
                 .map_err(|_| NativeEffectError::Corrupt)?
                 != exact
-            || layerx_wire::activity::encode_unsigned(&signed)
+            || layerx_wire::historical::activity::encode_unsigned(&signed)
                 .map_err(|_| NativeEffectError::Corrupt)?
                 != self.canonical_bytes
-            || layerx_wire::hash::activity_id(&signed).map_err(|_| NativeEffectError::Corrupt)?
+            || layerx_wire::historical::hash::activity_id(&signed)
+                .map_err(|_| NativeEffectError::Corrupt)?
                 != queued.activity_id
             || durable
                 .extensions
