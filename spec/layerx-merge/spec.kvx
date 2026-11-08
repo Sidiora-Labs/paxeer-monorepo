@@ -335560,7 +335560,7 @@ do_4 = "Attempt 2 (continue, gotcha 3431, decision 2801): the attempt-1 tree 8ff
 
 [task.22.39.47]
 title = "Wire the tools/ci test suites into a public check and repair or delete the stale ones"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 3
 requires = ["22.39.54", "22.39.87"]
