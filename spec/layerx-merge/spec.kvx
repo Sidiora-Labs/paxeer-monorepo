@@ -10485,6 +10485,24 @@ value = "When a task retires baseline entries, the nodeids of the baseline file 
 basis = "Task 22.39.119 attempt 1 (gotcha 3592): the named tests moved to tests/agent/sdk/python at ec75ccbc59 and the task still named services/agent/sdk/python/tests. Extends decisions 2838 and 2890."
 affects = ["22.39.119", "22.39.120"]
 
+[decision.2896]
+title = "A Python suite job and its qualification provide every toolchain, service and build output the suites document before the run"
+value = "When a job of the public workflow runs Python suites of the tools tree, its steps install every binary the suites call (Foundry through the pinned toolchain action, zstd, the docker buildx component through the pinned setup action), produce every build output a suite reads (the native library through make build/liblayerx.a, the load test binary through make build-loadtest, the bringup inspector built from tools/bringup/cmd/bringup-inspect onto the PATH, the xweb loader built with cargo from tools/bringup/tests/xweb-loader) and start every service a suite probes (sshd with an authorized key for localhost), all before the suite step; the qualification of the task reproduces the same environment, and a baseline entry is written only for a name that still fails under that complete environment, against a retiring task. A failure for a missing binary, output or service is a configuration gap of the job, never a baseline entry."
+basis = "Task 22.39.84 attempt 2 at 1f802c791b33 (gotcha 3593): five of seven failure families were missing toolchains, outputs or services the suites document. Extends decisions 2859, 2878 and 2893."
+affects = ["22.39.84", "22.39.156", "22.39.157", "22.39.158", "22.39.159", "22.39.160"]
+
+[decision.2897]
+title = "A CLI test that drives hosted px_ account reads passes the hosted URL the command requires and asserts the refusal the hosted client returns"
+value = "When a test of the platform CLI drives a command that reads px_ accounts through the hosted client (wallet send, open-account, the token writes, the balance reads), the test passes --gateway-rpc with the address of its own recording server beside --rpc, answers the hosted methods there, and asserts the refusal text the hosted client returns through rpc_error for a tampered answer, each assertion recorded with the producer line it follows; the hosted URL requirement of the write path and the lowercase address form it sends are producer facts the test follows, never changes."
+basis = "Task 22.39.118 attempt 16 at f081b1c8ccf8 (gotcha 3594): four write tests passed --rpc alone and met the gateway_rpc_required refusal that 3f380f6199 introduced. Extends decisions 2521, 2857 and 2891."
+affects = ["22.39.118"]
+
+[decision.2898]
+title = "An inventory reconciliation compares every row against the tree in one pass before its first edit"
+value = "When a task reconciles a copy inventory or another list that a sync test walks in order, the attempt first compares every row of the inventory against the current tree in one pass (bytes or parsed JSON as the row says) and lists every differing or missing pair, then repairs all of them in one change, each with the commit that changed the source; the sync test stops at the first differing pair and never serves as the enumerator."
+basis = "Task 22.39.152 attempt 2 at 722ed1a6cbfc (gotcha 3596): six rows were repaired one per verification and two remained when the repair budget ended. Extends decision 2894."
+affects = ["22.39.152"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -39375,6 +39393,60 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.160]
+title = "Make the nested Go module tools/paxctl pass the read-only dependency listing the checksum test runs"
+reqs = ["22998.1"]
+touches = ["tools/paxctl/go.mod", "tools/paxctl/go.sum"]
+tests = ["tools/deps/tests/test_go_root_checksums.py::test_go_root_nested_checksums"]
+verification_contract = "test $(grep -c tools/deps/ tests/ci/data/tools_python_suite_baseline.json) -eq 0 && python3 -m pytest -q tools/deps/tests/test_go_root_checksums.py"
+do_1 = "do_1 Gotcha 3593. tools/deps/tests/test_go_root_checksums.py runs go list -mod=readonly -deps -test ./... in every nested module and tools/paxctl exits 1 after the toolchain download (the module needs updates to go.mod or go.sum that read-only mode refuses). In tools/paxctl run go mod tidy with the toolchain the module declares, commit go.mod and go.sum, and keep the declared go and toolchain lines at versions the public workflow installs; nothing outside tools/paxctl changes."
+symbols = []
+
+[capability.22.39.159]
+title = "Make the system docs generator and its two tests agree on the precompiles page header and the nested ABI listing"
+reqs = ["22998.1"]
+touches = ["tools/docs/gen/gen_system_docs.py", "tools/docs/gen/test_gen_system_docs.py", "tools/docs/gen/test_gen_system_docs_abis.py"]
+tests = ["tools/docs/gen/test_gen_system_docs.py::test_precompiles_lists_nested_abi_dirs", "tools/docs/gen/test_gen_system_docs_abis.py::test_generator_lists_nested_and_embedded_abis"]
+verification_contract = "test $(grep -c tools/docs/gen/ tests/ci/data/tools_python_suite_baseline.json) -eq 0 && python3 -m pytest -q tools/docs/gen"
+do_1 = "do_1 Gotcha 3593, decision 2857. tools/docs/gen/test_gen_system_docs.py expects the precompiles page to open with the generated-by header of the generator script while gen_system_docs.py now emits a preserve note first, and tools/docs/gen/test_gen_system_docs_abis.py runs gen_system_docs.py against a fixture directory where it exits non-zero. Read the generator contract: where the generator is right (the preserve note is part of its output) the tests follow it with the producer line recorded; where the generator fails on the nested or embedded ABI layout the tests document, repair gen_system_docs.py so the listing covers nested ABI directories and embedded ABIs without an error exit."
+symbols = []
+
+[capability.22.39.158]
+title = "Bring the container scope lists, the kernel init role check and the image reference scan to the current tree"
+reqs = ["22998.1"]
+touches = ["tools/containers/check.sh", "tools/containers/test_kernel_init.py", "tools/containers/test_check_all_services_scope.py", "tools/containers/test_paxd_images.py"]
+tests = ["tools/containers/test_check_all_services_scope.py::test_check_all_services_scope", "tools/containers/test_check_all_services_scope.py::test_every_tracked_dockerfile_has_scope", "tools/containers/test_kernel_init.py::KernelInitTest::test_kernel_init_roles_supported_by_entrypoint", "tools/containers/test_paxd_images.py::PaxdImagesTest::test_layerx_and_paxeer_images_pass_build_check"]
+verification_contract = "docker buildx version > /dev/null && test $(grep -c tools/containers/ tests/ci/data/tools_python_suite_baseline.json) -eq 0 && python3 -m pytest -q tools/containers"
+do_1 = "do_1 Gotcha 3593, decision 2857. tools/containers/check.sh keeps the SERVICES and OUT_OF_SCOPE lists that test_check_all_services_scope.py reads; four tracked recipes have no entry: sdk/contrib/rosetta/node/Dockerfile.historical, sdk/contrib/rosetta/node/Dockerfile.paxd and the two recipes of the vendored tree under tools (the deploy control image and the environment plugin image). Place each in the list its purpose warrants (out of scope unless a service of this repository builds it) so both scope cases pass."
+symbols = []
+
+[capability.22.39.157]
+title = "Move the release tooling and its suites to the v7.0.0 release that tools/release/version.json declares"
+reqs = ["22998.1"]
+touches = ["tools/release"]
+tests = ["tools/release/tests/test_repair_22_33_889.py::test_build_distribution", "tools/release/tests/test_programme.py::test_protobuf_queries", "tools/release/tests/test_upgrade_info.py::test_release_accepts_merge_plan_and_uses_monorepo_asset", "tools/release/tests/test_repair_22_33_889.py::test_rehearsal_evidence_binding", "tools/release/rehearsal/test_repair_22_33_893.py::test_release_signing_without_relay_import"]
+verification_contract = "zstd --version > /dev/null && test -s build/liblayerx.a && test $(grep -c tools/release/ tests/ci/data/tools_python_suite_baseline.json) -eq 0 && python3 -m pytest -q tools/release/tests tools/release/rehearsal"
+do_1 = "do_1 Gotcha 3593, decision 2857. tools/release/version.json declares v7.0.0 and the release suites assert it (test_repair_22_33_889.py expects the paxeer-network/v7.0.0 tag, test_upgrade_info.py the v7.0 plan name, tools/release/tests/identity.test.sh wants v7.0.0) while the release check module line 18 still declares VERSION v6.12.0 and tools/release/snapshot.sh line 253 names a pre-v6.12.0 archive: the module and the script derive the release from version.json (or declare v7.0.0 the way the suites do), so test_repair_22_33_889.py, test_upgrade_info.py and test_repair_22_33_893.py (whose copied tree gains version.json) pass."
+symbols = []
+
+[capability.22.39.156]
+title = "Make the jev suites pass again by committing the failure log fixtures and following the README, lockfile and client answer producers"
+reqs = ["22998.1"]
+touches = ["tools/jev/tests", ".gitignore"]
+tests = ["tools/jev/tests/test_failures.py::CollectTests", "tools/jev/tests/test_docs.py::SectionSplitterTests::test_real_readme_splits_into_a_preamble_and_every_heading", "tools/jev/tests/test_ledger.py::ParserTests::test_the_real_beta_ledger_parses_into_the_severity_vocabulary", "tools/jev/tests/test_pr.py::ConfidenceTests::test_choice_confidence_falls_back_to_the_reported_confidence", "tools/jev/tests/test_repair_22_33_705.py"]
+verification_contract = "test $(grep -c tools/jev/ tests/ci/data/tools_python_suite_baseline.json) -eq 0 && ! git check-ignore -q tools/jev/tests/fixtures/failures/cargo.log && test -s tools/jev/tests/fixtures/failures/cargo.log && python3 -m pytest -q tools/jev/tests"
+do_1 = "do_1 Gotcha 3593, decisions 2857 and 2820. tools/jev/tests/test_failures.py lines 37 to 42 name cargo.log, ctest.log, forge.log, pytest.log and fuzz.log under tools/jev/tests/fixtures/failures, which the root .gitignore rule for *.log kept out of every commit (the directory holds conformance.json only). Add a negation for tools/jev/tests/fixtures/failures/*.log to .gitignore below that rule and commit the five fixtures: restore them from history where a commit ever added them, otherwise write them so every extraction, anchor, redaction and dry run assertion of the file passes against the real extractors."
+symbols = []
+
+[capability.22.39.155]
+title = "Bring the two standby replication tests and the v6.6 module version assertion of the node package to their producers and retire their baseline entries"
+reqs = ["22998.1"]
+touches = ["node/sequencer_rpc_option_test.go", "node/standby_recorder_replication_test.go", "node/upgrade_test.go", ".github/workflows/node-build.yml"]
+tests = ["node::TestEVMServerServesSequencerReceiptOption", "node::TestStandbyReplicatesRecorderGroupsThroughOpenAccount", "node::TestV640ToV66UpgradeServesTheExchangeBridgeAndLaunchpadPrecompiles"]
+verification_contract = "test $(grep -c TestEVMServerServesSequencerReceiptOption tests/ci/data/node_go_test_baseline.json) -eq 0 && test $(grep -c TestStandbyReplicatesRecorderGroupsThroughOpenAccount tests/ci/data/node_go_test_baseline.json) -eq 0 && test $(grep -c TestV640ToV66UpgradeServesTheExchangeBridgeAndLaunchpadPrecompiles .github/workflows/node-build.yml) -eq 0 && go test -timeout 15m -count=1 -run 'TestEVMServerServesSequencerReceiptOption|TestStandbyReplicatesRecorderGroupsThroughOpenAccount|TestV640ToV66UpgradeServesTheExchangeBridgeAndLaunchpadPrecompiles' ./node/"
+do_1 = "do_1 Gotcha 3595, decisions 2857 and 2820. TestEVMServerServesSequencerReceiptOption (node/sequencer_rpc_option_test.go line 165) and TestStandbyReplicatesRecorderGroupsThroughOpenAccount (node/standby_recorder_replication_test.go line 127) build their standby and replicator without replication TLS, which node/sequencer/dial.go requires since 26d76c1236 (lines 30 and 87). Give both tests mutual TLS configurations (certificate, key, roots and peer identity for the standby ReplicationTLS and for the replicator dial authentication) built the way Repair103TLSFixture in node/sequencer/replication_tls_test.go builds them, through a helper in the node test files because test files of another package cannot be imported; nothing under node/sequencer changes."
+symbols = []
 
 [capability.22.39.154]
 title = "Follow the shared v2 receipt projection in the two log-free receipt tests of the launchpad API and retire their baseline entries"
@@ -152644,7 +152716,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.94]
 title = "Run the launchpad and sdk/wallet test jobs under their own pnpm workspace roots"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.39.51"]
@@ -173714,8 +173786,8 @@ do_2 = "do_2 Write tests/ci/test_tools_python_suites_wired.py with test_tools_py
 symbols = []
 touches = ["Makefile", ".github/workflows/ci.yml", "tools/release/tests", "tools/release/rehearsal", "tools/bringup/tests", "tools/containers", "tools/deps/tests", "tools/rollout", "tools/deploy", "tools/docs/gen", "tools/spec", "tools/benchmark", "tools/jev/tests", "tools/jev/checks", "tools/paxeer-x/tests", "tools/paxeer-x/candidate.py"]
 tests = ["tests/ci/test_tools_python_suites_wired.py"]
-planned_paths = ["tests/ci/test_tools_python_suites_wired.py", "tests/ci/data/tools_python_suite_baseline.json"]
-build_cmd = "python3 -m py_compile tests/ci/test_tools_python_suites_wired.py tools/paxeer-x/candidate.py"
+planned_paths = ["tests/ci/test_tools_python_suites_wired.py", "tests/ci/data/tools_python_suite_baseline.json", "tests/ci/repair_22_39_84.kvx"]
+build_cmd = "forge --version > /dev/null && zstd --version > /dev/null && docker buildx version > /dev/null && test -x build/loadtest && test -s build/liblayerx.a && command -v bringup-inspect > /dev/null && test -x tools/bringup/tests/xweb-loader/target/debug/bringup-xweb-config-loader && python3 -m py_compile tests/ci/test_tools_python_suites_wired.py tools/paxeer-x/candidate.py"
 verify_cmd = "python3 -m pytest -q tests/ci/test_tools_python_suites_wired.py && make test-tools-python"
 gate_kind = "planned"
 sandbox_profile = "mixed"
@@ -173729,6 +173801,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_3 = "Attempt 2 (continue, gotcha 3536, decisions 2762, 2771 and 2820): the attempt-1 tree c3d9e7cd1bb1 stands (the make target, the workflow job with Go, the per-suite make fragments, the deferred contract read of candidate.py, the wiring tests). Three corrections: first, test_paxeer_x_collects_without_go at tests/ci/test_tools_python_suites_wired.py line 105 asserts that the substring skipped is absent from the collect-only output, which a test name contains; assert instead that the collect-only run exits 0 and that no output line begins with ERROR. Second, record the cases of tools/paxeer-x/tests that fail at the base in tests/ci/data/tools_python_suite_baseline.json (test id, one-sentence reason, retiring task 22.39.144): the 24 ai_evidence_test.py setup errors, the three catalogue cases and the candidate refusals; make the paxeer-x recipe of the make target derive its deselect arguments from that file and name the file in a comment beside it. Before recording the candidate refusals run one refused create with the contract program stderr visible (candidate.py line 51 discards it; run go run tools/paxeer-x/candidate_contract.go once with the request the test builds) and write the cause in the record; the candidate cases stay in the baseline whatever the cause, and nothing in tools/paxeer-x changes beyond candidate.py. Third, the verification of the task now runs the wiring tests and the make target only, so a baseline entry is exercised through the recipe. Run the build once and the verification once at the final revision and record both by reference."
+do_4 = "Attempt 3 (continue, gotcha 3593, decisions 2771, 2820, 2893 and 2896): the attempt-2 tree 1f802c791b33 stands (the thirteen suite fragments, the make target, the tools-python job, the wiring tests, the candidate module, the baseline with the paxeer-x entries). The tools-python job gains, before the suite step: the Foundry toolchain action at the pin the other jobs of ci.yml use; apt zstd beside the existing packages; the docker buildx setup action at the pin the image workflows use; make build/liblayerx.a and make build-loadtest; go build of tools/bringup/cmd/bringup-inspect to a directory on the PATH; cargo build of tools/bringup/tests/xweb-loader so the default loader path exists; an ssh key for the runner user written to its authorized_keys and sshd started so localhost answers. The qualification environment of this attempt provides the same before the verification, and the build step of the task now opens with those binaries and outputs. Then run the whole suite once. Under that environment record in tests/ci/data/tools_python_suite_baseline.json, with reason and retiring task, every name that still fails in these families: the jev suites under tools/jev/tests against 22.39.156; the release suites (test_repair_22_33_889.py, test_programme.py, test_upgrade_info.py, rehearsal/test_repair_22_33_893.py, the local chain class and the market phase case of the release check test module) against 22.39.157; the container scope, kernel init and image check cases against 22.39.158; the two generator tests of tools/docs/gen against 22.39.159; test_go_root_checksums.py against 22.39.160. A name that still fails outside those families is recorded in tests/ci/repair_22_39_84.kvx with its assertion and the attempt stops without a baseline entry for it. Run the build once and the verification once at the final revision and record both by reference; the record names the suites that ran and the toolchain steps the job carries."
 
 [task.22.39.76]
 title = "Wire the core-test-all C suites into the main workflow and port the four drifted sources"
@@ -182552,7 +182625,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.124]
 title = "Bring the bridge relayer test suite to green and retire its baseline entries"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.39.74"]
@@ -182653,10 +182726,11 @@ do_14 = "Attempt 13 (continue, gotcha 3569, decisions 2521, 2771 and 2876): the 
 do_15 = "Attempt 14 (continue, gotcha 3575, decisions 2771, 2876 and 2881): the attempt-13 tree 31157b57e4d8 stands (the root-path README text, the root-path test server, the public root acceptance, the retired rpc suffix refusal, the five inference methods in the published method assertion). The remaining failures are documentation: src/wallet.rs lines 709 and 1025 (task 22.33.1494) send every hosted px_ read and every account query of a write through the --gateway-rpc URL and refuse without it. In tools/platform/cli/README.md add the line --gateway-rpc with the hosted service URL variable followed by a slash, exactly as the wallet send example at line 233 carries it, to the token create, wallet open-account, token mint and token burn examples (lines 215 to 227) and to the four read examples at lines 320 to 324 (both wallet balance forms, token info, token list), and state in the surrounding prose that --rpc names a node root while hosted methods travel through --gateway-rpc. The test file keeps its assertions: the loopback server answers both URLs, so the four-request count of readme_retired_endpoint and the captured sequence of readme_operator_contract hold. Nothing under src changes. Run the build once and the verification once at the final revision and record both by reference; if a README test still fails, correct the example it names the same way in the one allowed repair cycle and rerun once."
 do_16 = "Attempt 15 (continue, gotcha 3580, decisions 2771, 2857, 2881 and 2885): the attempt-14 tree 27007fa945cf stands (the eight README examples with the explicit hosted URL option). Two assertions of tools/platform/cli/tests/repair_22_33_1499.rs follow their producers: at line 397 readme_retired_endpoint expects the hosted balance read to carry verification equal to unverified_node_observation, which wallet.rs line 720 sets for every hosted balance read outside the emulator since 22.31.212; and the closing refusal of readme_operator_contract expects the stderr of wallet send without --evm-key-file to contain the handler text provide --evm-key-file from wallet derive --export-private-keys of wallet.rs line 1504, with the recorded server request count unchanged, because the option is optional at the parser and the handler refuses before any transport. State the verification marker in the README paragraph that names units base and evidence committed_eth_call for the hosted balance read, so the documentation follows the producer as well. Nothing under tools/platform/cli/src changes. Run the build once and the verification once at the final revision and record both by reference; if a further assertion of either test still disagrees with the producer, correct it the same way in the one allowed repair cycle and rerun once."
 do_17 = "Attempt 16 (continue, gotcha 3588, decisions 2771, 2871, 2885 and 2891): the attempt-15 tree 8b84628f5540 stands (the root transport in the fixture server and the connect helper, the hosted verification assertion, the faucet endpoint, the README changes). The wallet watch run against the retired path at tests/repair_22_33_1499.rs lines 411 to 427 is refused by RpcClient::new at src/rpc.rs line 49 before any request, so its expected text follows the producer: node RPC URL must name the root endpoint, the same text the assertion at lines 361 to 366 already expects; the request count assertion at line 432 stays at 4 because the refused run reaches no server. Change nothing else. Run the build once and the verification once at the final revision and record both by reference."
+do_18 = "Attempt 17 (continue, gotcha 3594, decisions 2521, 2857 and 2897): the attempt-16 tree f081b1c8ccf8 stands (the readme assertion, the inference room methods, the root endpoint in the library tests). In tools/platform/cli/tests/wallet_evm_writes.rs the WalletFixture command passes --gateway-rpc with the same recording server address it passes to --rpc, so the hosted px_ account reads of the write path (wallet.rs lines 1023 to 1030) reach the recorder, and the recorder answers whatever hosted method the client sends as it answers px_getAccount today. Then the four assertions follow the producer: the eth_getTransactionCount parameters and the estimate from field assert the lowercase hexadecimal address the command sends; the mismatched account cases assert the refusal detail the hosted client returns through rpc_error for each tampered field at the final tree; the submit and revert cases pass once the reads succeed. Every corrected assertion is recorded in the task record with the producer line it follows, and nothing under tools/platform/cli/src changes for this. Run the build once and the whole verification once at the final revision and record both by reference."
 
 [task.22.39.93]
 title = "Move the seven remaining key fixtures of the agent SDK and the ramps reference crate into test fixture directories"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.39.68"]
@@ -182715,7 +182789,7 @@ do_3 = "Attempt 2 (continue, gotcha 3483, decisions 2820 and 2826): the attempt-
 
 [task.22.39.68]
 title = "Move the tracked certificate and key fixtures out of src into test fixture directories"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.140", "22.39.149"]
@@ -199834,7 +199908,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.9.98.4]
 title = "Carry paymentDenom in every daemon receipt fixture so the exact receipted and committed field sets of the receipt decoder accept them"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.23.11", "22.31.443", "22.31.485", "22.31.497", "22.31.558", "22.31.572", "22.31.560", "22.31.585", "22.31.217", "22.31.614", "22.31.620", "22.39.128"]
@@ -210046,6 +210120,65 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete apart from the pins. Add the {'recordLifecycle', true, 36680} row to the expected list in gas_test.go and move the three require.Len pins at surface_test.go:28-30 to 10, adding the recordLifecycle signature to any frozen listing the test holds. Build once and verify once."
 
+[task.22.39.160]
+title = "Make the nested Go module tools/paxctl pass the read-only dependency listing the checksum test runs"
+status = "pending"
+mode = "BUILD"
+wave = 3
+requires = ["22.39.84"]
+reqs = ["22998.1"]
+capabilities = ["22.39.160"]
+interfaces = []
+do_1 = "do_1 Gotcha 3593. tools/deps/tests/test_go_root_checksums.py runs go list -mod=readonly -deps -test ./... in every nested module and tools/paxctl exits 1 after the toolchain download (the module needs updates to go.mod or go.sum that read-only mode refuses). In tools/paxctl run go mod tidy with the toolchain the module declares, commit go.mod and go.sum, and keep the declared go and toolchain lines at versions the public workflow installs; nothing outside tools/paxctl changes."
+do_2 = "do_2 Delete the entry under tools/deps/ from tests/ci/data/tools_python_suite_baseline.json, which task 22.39.84 lands, record the change in tools/paxctl/repair_22_39_160.kvx, and run the build once and the verification once at the final tree, recording both by reference."
+symbols = []
+touches = ["tools/paxctl/go.mod", "tools/paxctl/go.sum"]
+tests = ["tools/deps/tests/test_go_root_checksums.py::test_go_root_nested_checksums"]
+planned_paths = ["tools/paxctl/repair_22_39_160.kvx", "tests/ci/data/tools_python_suite_baseline.json"]
+build_cmd = "go -C tools/paxctl list -mod=readonly -deps -test ./... > /dev/null"
+verify_cmd = "test $(grep -c tools/deps/ tests/ci/data/tools_python_suite_baseline.json) -eq 0 && python3 -m pytest -q tools/deps/tests/test_go_root_checksums.py"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 90
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.155]
+title = "Bring the two standby replication tests and the v6.6 module version assertion of the node package to their producers and retire their baseline entries"
+status = "pending"
+mode = "BUILD"
+wave = 2
+requires = ["22.39.40"]
+reqs = ["22998.1"]
+capabilities = ["22.39.155"]
+interfaces = []
+do_1 = "do_1 Gotcha 3595, decisions 2857 and 2820. TestEVMServerServesSequencerReceiptOption (node/sequencer_rpc_option_test.go line 165) and TestStandbyReplicatesRecorderGroupsThroughOpenAccount (node/standby_recorder_replication_test.go line 127) build their standby and replicator without replication TLS, which node/sequencer/dial.go requires since 26d76c1236 (lines 30 and 87). Give both tests mutual TLS configurations (certificate, key, roots and peer identity for the standby ReplicationTLS and for the replicator dial authentication) built the way Repair103TLSFixture in node/sequencer/replication_tls_test.go builds them, through a helper in the node test files because test files of another package cannot be imported; nothing under node/sequencer changes."
+do_2 = "do_2 TestV640ToV66UpgradeServesTheExchangeBridgeAndLaunchpadPrecompiles (node/upgrade_test.go line 218) expects module version 1 for every v6.6 module while modules/layerxcustody/module.go line 122 declares consensus version 2 since e3d6107cb9; assert the version each module declares (2 for layerxcustody, the declared value for every other name), each corrected assertion recorded with the producer line it follows."
+do_3 = "do_3 Delete the three entries from tests/ci/data/node_go_test_baseline.json, which task 22.39.40 lands, remove the three names from the -skip pattern of the node test step in .github/workflows/node-build.yml, and record the corrections in node/repair_22_39_155.kvx. Run the build once and the verification once at the final tree and record both by reference."
+symbols = []
+touches = ["node/sequencer_rpc_option_test.go", "node/standby_recorder_replication_test.go", "node/upgrade_test.go", ".github/workflows/node-build.yml"]
+tests = ["node::TestEVMServerServesSequencerReceiptOption", "node::TestStandbyReplicatesRecorderGroupsThroughOpenAccount", "node::TestV640ToV66UpgradeServesTheExchangeBridgeAndLaunchpadPrecompiles"]
+planned_paths = ["node/repair_22_39_155.kvx", "tests/ci/data/node_go_test_baseline.json"]
+build_cmd = "go vet ./node/"
+verify_cmd = "test $(grep -c TestEVMServerServesSequencerReceiptOption tests/ci/data/node_go_test_baseline.json) -eq 0 && test $(grep -c TestStandbyReplicatesRecorderGroupsThroughOpenAccount tests/ci/data/node_go_test_baseline.json) -eq 0 && test $(grep -c TestV640ToV66UpgradeServesTheExchangeBridgeAndLaunchpadPrecompiles .github/workflows/node-build.yml) -eq 0 && go test -timeout 15m -count=1 -run 'TestEVMServerServesSequencerReceiptOption|TestStandbyReplicatesRecorderGroupsThroughOpenAccount|TestV640ToV66UpgradeServesTheExchangeBridgeAndLaunchpadPrecompiles' ./node/"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-node-runtime"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.154]
 title = "Follow the shared v2 receipt projection in the two log-free receipt tests of the launchpad API and retire their baseline entries"
 status = "pending"
@@ -210374,7 +210507,7 @@ touches = ["node/upgrades_activation_test.go", "node/upgrades.go", "node/sequenc
 tests = ["tests/ci/test_node_build_workflow_scope.py"]
 planned_paths = ["tests/ci/test_node_build_workflow_scope.py", "node/repair_22_39_40.kvx", "tests/ci/data/node_go_test_baseline.json"]
 build_cmd = "go build ./node/... && go vet ./node/ ./node/sequencer/ && python3 -m py_compile tests/ci/test_node_build_workflow_scope.py"
-verify_cmd = "go test -timeout 15m -count=1 -skip 'TestMergePlanReturnsGuarantorBonds|TestHostedKernelProgramsABIFollowsTheMergeUpgrade|TestHostedKernelProgramsABISurvivesRestart' ./node/ && go test -timeout 15m -count=1 -run TestDriverReleasesNextOpenAcrossStandbyCommit ./node/sequencer/ && python3 -m pytest -q tests/ci/test_node_build_workflow_scope.py"
+verify_cmd = "go test -timeout 15m -count=1 -skip 'TestMergePlanReturnsGuarantorBonds|TestHostedKernelProgramsABIFollowsTheMergeUpgrade|TestHostedKernelProgramsABISurvivesRestart|TestEVMServerServesSequencerReceiptOption|TestStandbyReplicatesRecorderGroupsThroughOpenAccount|TestV640ToV66UpgradeServesTheExchangeBridgeAndLaunchpadPrecompiles' ./node/ && go test -timeout 15m -count=1 -run TestDriverReleasesNextOpenAcrossStandbyCommit ./node/sequencer/ && python3 -m pytest -q tests/ci/test_node_build_workflow_scope.py"
 gate_kind = "planned"
 sandbox_profile = "go"
 owner_role = "fm-node-runtime"
@@ -210390,6 +210523,7 @@ do_4 = "Attempt 2 (continue, gotcha 3441, decision 2800): the attempt-1 tree 2eb
 do_5 = "Attempt 3 (continue, gotcha 3464, decision 2820): the attempt-2 tree d51cd029d92d stands (activation tests and standby release). Record TestMergePlanReturnsGuarantorBonds, TestHostedKernelProgramsABIFollowsTheMergeUpgrade and TestHostedKernelProgramsABISurvivesRestart in tests/ci/data/node_go_test_baseline.json with repair task 22.39.116 as the retiring task and the failing assertion as the reason, pass the same -skip pattern in the node test step of .github/workflows/node-build.yml beside a comment naming the file, and run the replaced verification (the whole package with the skip, the standby test and the Python check) at the final revision, recording build and verification by reference."
 do_6 = "Attempt 4 (continue, gotcha 3508, decision 2771): the attempt-3 tree 9f57ad7d6553 stands (the baseline record, the skip in the node test step, the Python check, the activation and standby repairs). Run the verification once at the final tree before any repair. If the whole-package run passes, record it by reference and finish. If names of gotcha 3508 fail again, run each failing name alone with -run: a name that fails alone is repaired in this task only when it reads the changed sources of this task, otherwise it is recorded in node/repair_22_39_40.kvx with its assertion; a name that passes alone fails through state another test leaves, so find that test (the three skipped names ran in attempt 2 and are the first candidates) and make the dependent test set up its own state. Never widen the skip. If TestFinalizeAdoptedSealedBlockMatchesReexecution exceeds the limit again, run it alone and record its duration in the record. Run the build and the verification at the final revision and record both by reference."
 do_7 = "Attempt 5 (continue, gotcha 3523, decisions 2771, 2821 and 2851, after 22.39.138 lands): the attempt-4 tree d96e5a9eefb2 stands (the four activation test repairs, the standby commit release repair, the node build scope test and the attempt record). Merge current main so the tree carries the repair of 22.39.138, run the build once and the verification once at the final revision, and record both by reference. Do not edit the sixteen test files that 22.39.138 owns; if any of the sixteen still fails after the merge, record the failing names with their assertion lines in node/repair_22_39_40.kvx and stop without a repair cycle."
+do_8 = "Attempt 6 (continue, gotcha 3595, decisions 2771, 2820 and 2821): the attempt-5 tree fb5eda5a2e03 stands (the activation and standby release repairs, the public check test, the baseline file, the attempt records). The three names of gotcha 3595 belong to retiring task 22.39.155: add TestEVMServerServesSequencerReceiptOption, TestStandbyReplicatesRecorderGroupsThroughOpenAccount and TestV640ToV66UpgradeServesTheExchangeBridgeAndLaunchpadPrecompiles to tests/ci/data/node_go_test_baseline.json with 22.39.155 as the retiring task and the assertion of each as the reason, extend the -skip pattern of the node test step in .github/workflows/node-build.yml with the three names beside the comment that names the file, and run the verification named now (the same six-name skip) once at the final revision after one build; record both by reference. Do not edit the three test files."
 
 [task.22.39.4]
 title = "Make the golangci job pass at the tip"
@@ -333655,6 +333789,125 @@ do_4 = "Finding 18.0.1.1: attempt 1 (943ca6eff) implemented both files and its t
 do_5 = "Decision 2456 (attempt 2, 26e5df6d3, re-qualify unchanged once eligible): the three programme tests pass and the closure gate exits 1 only because 29 issue tasks are not done; the task now requires every one of them and is re-qualified without change when the last publishes."
 do_6 = "Attempt 3: the closure check is a gate over the whole issue programme; it now requires every open issue task, so it is launched only when all of them are done and its verify can pass. Keep the superseded-task handling and the three regression cases of attempt 2."
 
+[task.22.39.159]
+title = "Make the system docs generator and its two tests agree on the precompiles page header and the nested ABI listing"
+status = "pending"
+mode = "BUILD"
+wave = 3
+requires = ["22.39.84"]
+reqs = ["22998.1"]
+capabilities = ["22.39.159"]
+interfaces = []
+do_1 = "do_1 Gotcha 3593, decision 2857. tools/docs/gen/test_gen_system_docs.py expects the precompiles page to open with the generated-by header of the generator script while gen_system_docs.py now emits a preserve note first, and tools/docs/gen/test_gen_system_docs_abis.py runs gen_system_docs.py against a fixture directory where it exits non-zero. Read the generator contract: where the generator is right (the preserve note is part of its output) the tests follow it with the producer line recorded; where the generator fails on the nested or embedded ABI layout the tests document, repair gen_system_docs.py so the listing covers nested ABI directories and embedded ABIs without an error exit."
+do_2 = "do_2 Delete the two entries under tools/docs/gen/ from tests/ci/data/tools_python_suite_baseline.json, which task 22.39.84 lands, record the changes in tools/docs/gen/repair_22_39_159.kvx, and run the build once and the verification once at the final tree, recording both by reference."
+symbols = []
+touches = ["tools/docs/gen/gen_system_docs.py", "tools/docs/gen/test_gen_system_docs.py", "tools/docs/gen/test_gen_system_docs_abis.py"]
+tests = ["tools/docs/gen/test_gen_system_docs.py::test_precompiles_lists_nested_abi_dirs", "tools/docs/gen/test_gen_system_docs_abis.py::test_generator_lists_nested_and_embedded_abis"]
+planned_paths = ["tools/docs/gen/repair_22_39_159.kvx", "tests/ci/data/tools_python_suite_baseline.json"]
+build_cmd = "python3 -m py_compile tools/docs/gen/gen_system_docs.py tools/docs/gen/test_gen_system_docs.py tools/docs/gen/test_gen_system_docs_abis.py"
+verify_cmd = "test $(grep -c tools/docs/gen/ tests/ci/data/tools_python_suite_baseline.json) -eq 0 && python3 -m pytest -q tools/docs/gen"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-docs"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 90
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.158]
+title = "Bring the container scope lists, the kernel init role check and the image reference scan to the current tree"
+status = "pending"
+mode = "BUILD"
+wave = 3
+requires = ["22.39.84"]
+reqs = ["22998.1"]
+capabilities = ["22.39.158"]
+interfaces = []
+do_1 = "do_1 Gotcha 3593, decision 2857. tools/containers/check.sh keeps the SERVICES and OUT_OF_SCOPE lists that test_check_all_services_scope.py reads; four tracked recipes have no entry: sdk/contrib/rosetta/node/Dockerfile.historical, sdk/contrib/rosetta/node/Dockerfile.paxd and the two recipes of the vendored tree under tools (the deploy control image and the environment plugin image). Place each in the list its purpose warrants (out of scope unless a service of this repository builds it) so both scope cases pass."
+do_2 = "do_2 test_kernel_init.py line 15 looks for /usr/local/bin/human-entrypoint role lines in docker/kernel/init.sh and finds none: follow the current form of init.sh and docker/human-service/entrypoint.sh in the test (the pattern and the role set), recording the producer lines. The image check case of test_paxd_images.py fails because the reference scan of check.sh reads Dockerfile string literals in services/platform/hosted/tests/beta_runtime.go as recipe references: limit the scan to recipe paths, so the layerx and paxeer images pass the build check under buildx."
+do_3 = "do_3 Delete every entry under tools/containers/ from tests/ci/data/tools_python_suite_baseline.json, which task 22.39.84 lands, record the changes in tools/containers/repair_22_39_158.kvx, and run the build once and the verification once at the final tree with the docker buildx component present (decision 2896), recording both by reference."
+symbols = []
+touches = ["tools/containers/check.sh", "tools/containers/test_kernel_init.py", "tools/containers/test_check_all_services_scope.py", "tools/containers/test_paxd_images.py"]
+tests = ["tools/containers/test_check_all_services_scope.py::test_check_all_services_scope", "tools/containers/test_check_all_services_scope.py::test_every_tracked_dockerfile_has_scope", "tools/containers/test_kernel_init.py::KernelInitTest::test_kernel_init_roles_supported_by_entrypoint", "tools/containers/test_paxd_images.py::PaxdImagesTest::test_layerx_and_paxeer_images_pass_build_check"]
+planned_paths = ["tools/containers/repair_22_39_158.kvx", "tests/ci/data/tools_python_suite_baseline.json"]
+build_cmd = "docker buildx version > /dev/null && bash -n tools/containers/check.sh && python3 -m py_compile tools/containers/test_kernel_init.py tools/containers/test_check_all_services_scope.py tools/containers/test_paxd_images.py"
+verify_cmd = "docker buildx version > /dev/null && test $(grep -c tools/containers/ tests/ci/data/tools_python_suite_baseline.json) -eq 0 && python3 -m pytest -q tools/containers"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.157]
+title = "Move the release tooling and its suites to the v7.0.0 release that tools/release/version.json declares"
+status = "pending"
+mode = "BUILD"
+wave = 3
+requires = ["22.39.84"]
+reqs = ["22998.1"]
+capabilities = ["22.39.157"]
+interfaces = []
+do_1 = "do_1 Gotcha 3593, decision 2857. tools/release/version.json declares v7.0.0 and the release suites assert it (test_repair_22_33_889.py expects the paxeer-network/v7.0.0 tag, test_upgrade_info.py the v7.0 plan name, tools/release/tests/identity.test.sh wants v7.0.0) while the release check module line 18 still declares VERSION v6.12.0 and tools/release/snapshot.sh line 253 names a pre-v6.12.0 archive: the module and the script derive the release from version.json (or declare v7.0.0 the way the suites do), so test_repair_22_33_889.py, test_upgrade_info.py and test_repair_22_33_893.py (whose copied tree gains version.json) pass."
+do_2 = "do_2 test_programme.py follows its producers: the protobuf query case asserts the v7.0 upgrade name the module encodes, and the spot share golden follows the current ABI of the precompile the case reads, regenerated from that ABI. In the release check test module the local chain class builds with the go binary on the PATH instead of /usr/local/go/bin/go (line 717), and the market phase case asserts the refusal the module raises first for an empty POOL_COUNT with no rehearsal (PRODUCTION_REQUIRES_ROLLBACK_RECEIPT at line 572 of the test) or supplies the receipt the module requires, whichever the module contract documents. Each corrected assertion is recorded with the producer line it follows."
+do_3 = "do_3 Delete every entry under tools/release/ from tests/ci/data/tools_python_suite_baseline.json, which task 22.39.84 lands, record the changes in tools/release/repair_22_39_157.kvx, and run the build once and the verification once at the final tree under the environment of decision 2896 (zstd, the native library, sshd for localhost), recording both by reference."
+symbols = []
+touches = ["tools/release"]
+tests = ["tools/release/tests/test_repair_22_33_889.py::test_build_distribution", "tools/release/tests/test_programme.py::test_protobuf_queries", "tools/release/tests/test_upgrade_info.py::test_release_accepts_merge_plan_and_uses_monorepo_asset", "tools/release/tests/test_repair_22_33_889.py::test_rehearsal_evidence_binding", "tools/release/rehearsal/test_repair_22_33_893.py::test_release_signing_without_relay_import"]
+planned_paths = ["tools/release/repair_22_39_157.kvx", "tests/ci/data/tools_python_suite_baseline.json"]
+build_cmd = "zstd --version > /dev/null && test -s build/liblayerx.a && bash -n tools/release/snapshot.sh && python3 -m py_compile tools/release/upgrade_info.py"
+verify_cmd = "zstd --version > /dev/null && test -s build/liblayerx.a && test $(grep -c tools/release/ tests/ci/data/tools_python_suite_baseline.json) -eq 0 && python3 -m pytest -q tools/release/tests tools/release/rehearsal"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-release"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.156]
+title = "Make the jev suites pass again by committing the failure log fixtures and following the README, lockfile and client answer producers"
+status = "pending"
+mode = "BUILD"
+wave = 3
+requires = ["22.39.84"]
+reqs = ["22998.1"]
+capabilities = ["22.39.156"]
+interfaces = []
+do_1 = "do_1 Gotcha 3593, decisions 2857 and 2820. tools/jev/tests/test_failures.py lines 37 to 42 name cargo.log, ctest.log, forge.log, pytest.log and fuzz.log under tools/jev/tests/fixtures/failures, which the root .gitignore rule for *.log kept out of every commit (the directory holds conformance.json only). Add a negation for tools/jev/tests/fixtures/failures/*.log to .gitignore below that rule and commit the five fixtures: restore them from history where a commit ever added them, otherwise write them so every extraction, anchor, redaction and dry run assertion of the file passes against the real extractors."
+do_2 = "do_2 The expected heading lists of test_docs.py (the preamble and heading cases, the pairing cases, the published catalog case, the sanitize case that looks for curl --max-time 10) and the heading cases of test_repair_22_33_705.py follow the current README.md and docs/readme/README.de.md; the lockfile anchors of test_ledger.py, test_deps.py line 212 and the dependency capture cases of test_repair_22_33_705.py follow the current Cargo.lock lines of the crates they name; the fake answers of test_ledger.py and test_pr.py carry the probability distribution tools/jev/client.py requires (the answer q has no probability distribution refusal); the real ledger case of test_ledger.py reads a ledger path that exists in the tree. Each corrected assertion is recorded with the producer line it follows; nothing under tools/jev outside tests changes."
+do_3 = "do_3 Delete every entry under tools/jev/ from tests/ci/data/tools_python_suite_baseline.json, which task 22.39.84 lands, record the corrections in tools/jev/tests/repair_22_39_156.kvx, and run the build once and the verification once at the final tree, recording both by reference."
+symbols = []
+touches = ["tools/jev/tests", ".gitignore"]
+tests = ["tools/jev/tests/test_failures.py::CollectTests", "tools/jev/tests/test_docs.py::SectionSplitterTests::test_real_readme_splits_into_a_preamble_and_every_heading", "tools/jev/tests/test_ledger.py::ParserTests::test_the_real_beta_ledger_parses_into_the_severity_vocabulary", "tools/jev/tests/test_pr.py::ConfidenceTests::test_choice_confidence_falls_back_to_the_reported_confidence", "tools/jev/tests/test_repair_22_33_705.py"]
+planned_paths = ["tools/jev/tests/repair_22_39_156.kvx", "tests/ci/data/tools_python_suite_baseline.json", "tools/jev/tests/fixtures/failures/cargo.log", "tools/jev/tests/fixtures/failures/ctest.log", "tools/jev/tests/fixtures/failures/forge.log", "tools/jev/tests/fixtures/failures/pytest.log", "tools/jev/tests/fixtures/failures/fuzz.log"]
+build_cmd = "python3 -m py_compile tools/jev/tests/test_failures.py tools/jev/tests/test_docs.py tools/jev/tests/test_ledger.py tools/jev/tests/test_pr.py tools/jev/tests/test_deps.py tools/jev/tests/test_repair_22_33_705.py"
+verify_cmd = "test $(grep -c tools/jev/ tests/ci/data/tools_python_suite_baseline.json) -eq 0 && ! git check-ignore -q tools/jev/tests/fixtures/failures/cargo.log && test -s tools/jev/tests/fixtures/failures/cargo.log && python3 -m pytest -q tools/jev/tests"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.152]
 title = "Reconcile the intentional-copy inventory with the launchpad and perps asset tree after the rename task"
 status = "pending"
@@ -333685,6 +333938,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Attempt 2 (continue, gotcha 3591, decisions 2771, 2887 and 2894): the attempt-1 tree e5efb803e2b4 stands (the twelve rows removed, the record). Remove the first row of tests/ci/data/intentional_copies.txt as well, apps/explorer/.scss/base.css paired with apps/perps/src/styles/.scss/base.css, because commit 637c9c63da replaced the perps file with an import of the explorer stylesheet; record it in tests/ci/repair_22_39_152.kvx as removed.13 with that commit. Add three rows in the inventory format (source, copy, bytes, test_other_intentional_copies_match_sources, purpose): precompiles/layerxpay/abi.json as source and services/wallet/attestor/internal/policy/evm/abi/layerxpay.json as copy (the attestor embeds the LayerXPay precompile ABI it decodes); tools/bringup/tests/fixtures/repair_m793/committed.json as source and services/human/crates/layerx-human-service/tests/fixtures/repair_22_33_50/conformance-v4-committed.json as copy; services/platform/hosted/gateway/tests/fixtures/repair_22_31_202/node-committed.json as source and services/human/crates/layerx-human-service/tests/fixtures/repair_22_33_50/paxd-v4-committed.json as copy (the human service conformance tests replay the committed vectors those records fixed). Record each added row with the commits that added both files. The test file and every artifact stay unchanged. Run the build once and the verification once at the final revision and record both by reference; if the sync test reports a further row or pair, treat it the same way in the one allowed repair cycle and rerun once."
+do_5 = "Attempt 3 (continue, gotcha 3596, decisions 2894 and 2898): the attempt-2 tree 722ed1a6cbfc stands (removed.1 to removed.18, the three added rows). Two rows remain stale, both from commit 637c9c63da of task 22.39.61: remove the row apps/launchpad/web/public/charting_library/charting_library.d.ts to apps/perps/public/static/charting_library/charting_library.d.ts as removed.19 (the launchpad file is a re-export of the perps copy) and the row apps/launchpad/web/public/icons/logo.svg to apps/perps/public/assets/logo.svg as removed.20 (two different artworks), each with that commit in tests/ci/repair_22_39_152.kvx. Before editing, compare every row of the inventory against the tree in one pass and list the result in the record; if that pass shows a further differing pair, repair it in the same change the same way. Run the build once and the verification once at the final revision and record both by reference."
 
 [task.22.39.151]
 title = "Run the primary platform job unconditionally and guard only the quickstart benchmark step on its registry variables"
@@ -333859,7 +334113,7 @@ interfaces = []
 do_1 = "do_1 Decision 2842, gotcha 3514. The baseline names this task for services/platform/tests/test_ramp_dependencies.py (17 cases: the ramp toolkit and reference crates depend on layerx-intents, paxeer-client and rusqlite, which the dependency policy bans, so the live metadata case and every parametrised policy case fail) and for the ramp journey test module of services/platform/tests (2 cases: the journey script help names no LAYERX_RAMP_OFF_RECEIVER_SEQUENCE and the transaction-hash verification finds no match)."
 do_2 = "do_2 Decide from the owning record 8.31.2 whether the policy or the crates are right and repair the producer accordingly (the ramp crates and their manifests, or the policy with its recorded reason); repair the journey script help and its transaction-hash verification; delete the two entries from the baseline; the runner test and make test-python-suites are the gate."
 symbols = []
-touches = ["services/platform/tests", "services/platform/ramps", "tests/ci/data/python_suite_baseline.txt"]
+touches = ["services/platform/tests", "services/platform/ramps", "tests/ci/data/python_suite_baseline.txt", "tests/ci/data/python_suite_exclusions.txt"]
 tests = ["services/platform/tests/test_ramp_dependencies.py"]
 planned_paths = []
 build_cmd = "python3 -m pytest -q --collect-only services/platform/tests > /dev/null && cargo metadata --locked --manifest-path services/platform/ramps/toolkit/Cargo.toml --format-version 1 > /dev/null"
@@ -333875,6 +334129,7 @@ time_limit_minutes = 240
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_3 = "Gotcha 3598: the row scripts/ci of tests/ci/data/python_suite_exclusions.txt is stale since 995a25e5af deleted the last test beneath it and fails test_exclusion_list_entries_exist of the runner test on main; task 22.39.131 removes it. If the row is still present in the merged tree when this attempt starts, remove that one row here as well and record the commit, before the first verification run."
 
 [task.22.39.133]
 title = "Bring the hosted node, testnet and platform manifest Python suites to the current deployment contract and retire their baseline entries"
@@ -333888,7 +334143,7 @@ interfaces = []
 do_1 = "do_1 Decision 2842, gotcha 3514. The baseline names this task for services/platform/hosted/node/tests/test_repair_22_33_1456.py (10 cases, topology roles and the retirement case), test_repair_22_31_355.py (4 cases: the treasury projected secret container, the shareProcessNamespace and exec keys of the retired topology), test_node_without_guarantor.py (1), services/platform/hosted/testnet/tests/test_repair_22_33_1447.py (the journey router path check against the kernel backend source), services/platform/hosted/tests/test_retired_gateway_helpers.py and test_retired_gateway_lifecycle.py (the hosted-gateway local harness directory the tests expect is gone), test_sequencer_pins.py (the developer manifest fixture is missing) and test_workspace_manifest.py (the verifier package remains for dependent crates)."
 do_2 = "do_2 For each module compare the asserted contract with the owning record (22.33.1456, 22.31.355, 8.18.1, 22.33.1447, 8.19.11, 8.19.5, 8.9.1) and the architecture of decision 2521 (one network, node names at the root path, no router); repair the deployment manifests or scripts where they drifted and the test where it asserts a retired contract, recording each choice; delete the eight entries from the baseline; the runner test and make test-python-suites are the gate."
 symbols = []
-touches = ["services/platform/hosted/node", "services/platform/hosted/testnet", "services/platform/hosted/tests", "tests/ci/data/python_suite_baseline.txt"]
+touches = ["services/platform/hosted/node", "services/platform/hosted/testnet", "services/platform/hosted/tests", "tests/ci/data/python_suite_baseline.txt", "tests/ci/data/python_suite_exclusions.txt"]
 tests = ["services/platform/hosted/node/tests/test_repair_22_33_1456.py", "services/platform/hosted/node/tests/test_repair_22_31_355.py", "services/platform/hosted/node/tests/test_node_without_guarantor.py", "services/platform/hosted/testnet/tests/test_repair_22_33_1447.py", "services/platform/hosted/tests/test_retired_gateway_helpers.py", "services/platform/hosted/tests/test_retired_gateway_lifecycle.py", "services/platform/hosted/tests/test_sequencer_pins.py", "services/platform/hosted/tests/test_workspace_manifest.py"]
 planned_paths = []
 build_cmd = "python3 -m pytest -q --collect-only services/platform/hosted/node services/platform/hosted/testnet services/platform/hosted/tests > /dev/null"
@@ -333904,6 +334159,7 @@ time_limit_minutes = 240
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_3 = "Gotcha 3598: the row scripts/ci of tests/ci/data/python_suite_exclusions.txt is stale since 995a25e5af deleted the last test beneath it and fails test_exclusion_list_entries_exist of the runner test on main; task 22.39.131 removes it. If the row is still present in the merged tree when this attempt starts, remove that one row here as well and record the commit, before the first verification run."
 
 [task.22.39.132]
 title = "Give the MCP binding listener its web receipt public key reader and retire the receipt-key baseline entry"
@@ -333917,7 +334173,7 @@ interfaces = []
 do_1 = "do_1 Decision 2842, gotcha 3514. tests/qualification/test_mcp_binding_receipt_keys.py (16 cases) imports web_receipt_public_key from tools/qualification/paxeer-x/mcp_binding_listener.py, which has no such attribute: the consumer test is ahead of its producer (record 18.1498.1)."
 do_2 = "do_2 Implement web_receipt_public_key in the listener module as the test specifies (accepts the hosted result key, refuses a bare list and malformed keys), delete the baseline entry, and keep the runner green; the test asserts the producer names (gotcha 3046)."
 symbols = []
-touches = ["tools/qualification/paxeer-x", "tests/qualification", "tests/ci/data/python_suite_baseline.txt"]
+touches = ["tools/qualification/paxeer-x", "tests/qualification", "tests/ci/data/python_suite_baseline.txt", "tests/ci/data/python_suite_exclusions.txt"]
 tests = ["tests/qualification/test_mcp_binding_receipt_keys.py"]
 planned_paths = []
 build_cmd = "python3 -m py_compile tools/qualification/paxeer-x/mcp_binding_listener.py"
@@ -333933,6 +334189,7 @@ time_limit_minutes = 120
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_3 = "Gotcha 3598: the row scripts/ci of tests/ci/data/python_suite_exclusions.txt is stale since 995a25e5af deleted the last test beneath it and fails test_exclusion_list_entries_exist of the runner test on main; task 22.39.131 removes it. If the row is still present in the merged tree when this attempt starts, remove that one row here as well and record the commit, before the first verification run."
 
 [task.22.39.131]
 title = "Repair the conformance copy checker, module registry and daemon admission Python suites and retire their baseline entries"
@@ -333946,7 +334203,7 @@ interfaces = []
 do_1 = "do_1 Decisions 2820 and 2842, gotcha 3514. The baseline tests/ci/data/python_suite_baseline.txt names this task for tests/conformance/test_repair_22_33_886.py (31 cases: the committed copy checker reports drift, the explorer fixture path pattern no longer matches, the real RPC transport case raises invalid-transaction-receipt and the SDK raises invalid_transaction), cmd/layerx-module-registry/test_registry.py (the registry schema document differs from the expected one) and tests/daemon/test_repair_22_33_1076.py (the native program admission case exits 1 with invalid_transaction)."
 do_2 = "do_2 Repair each producer, or the test where the record of the owning task (22.33.886, 22.1.9, 22.33.1076) shows it asserts a retired contract, recording the choice; the committed copies must match their recorded producer; delete the three entries from the baseline; the runner test and make test-python-suites are the gate."
 symbols = []
-touches = ["tests/conformance", "cmd/layerx-module-registry", "tests/daemon", "tests/ci/data/python_suite_baseline.txt", "services/agent/sdk/python/layerx_sdk"]
+touches = ["tests/conformance", "cmd/layerx-module-registry", "tests/daemon", "tests/ci/data/python_suite_baseline.txt", "services/agent/sdk/python/layerx_sdk", "tests/ci/data/python_suite_exclusions.txt"]
 tests = ["tests/conformance/test_repair_22_33_886.py", "cmd/layerx-module-registry/test_registry.py", "tests/daemon/test_repair_22_33_1076.py"]
 planned_paths = []
 build_cmd = "python3 -m pytest -q --collect-only tests/conformance cmd/layerx-module-registry tests/daemon > /dev/null"
@@ -333962,6 +334219,7 @@ time_limit_minutes = 240
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_3 = "Attempt 2 (continue, gotcha 3598, decisions 2771 and 2820): the attempt-1 tree 199d2c9c2940 stands (the copy checker, registry and admission repairs, the three baseline deletions, the record). Remove the row scripts/ci from tests/ci/data/python_suite_exclusions.txt, whose only tracked test left at 995a25e5af, and record the removal with that commit in tests/conformance/repair_22_39_131.kvx. Then run the build once and the verification once at the final revision and record both by reference; if make test-python-suites fails in one of the three suites this task names, repair that suite or its producer within the one allowed cycle after the form of do_2 and rerun once. The explorer fixture refresh the attempt-1 record calls out of scope is in scope where test_repair_22_33_886.py asserts it: follow the producer path and record the line."
 
 [task.22.39.121]
 title = "Reconcile the vendored wasm-instrument crate with its checksum manifest and guard every vendored crate"
@@ -334021,6 +334279,7 @@ time_limit_minutes = 180
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_3 = "Attempt 2 (continue, gotcha 3597, decisions 2855, 2857 and 2895): attempt 1 at 424d36488609 ran under the task text before round 255. Keep from its tree the layerx_sdk changes (web_search.py, web_search.pyi) only where services/agent/sdk/python/layerx_sdk/repair_22_39_120.kvx names the x402 producer line each follows, and the conftest change; delete the copies it wrote under services/agent/sdk/python/tests (test_ai_market.py, test_web_search.py, test_x402.py, test_repair_22_33_16.py, test_repair_22_33_702.py, payment_receipt_evidence.py, test_receipt_fixture.py, __init__.py), because the suites live in tests/agent/sdk/python (gotcha 3592) and the touches of this task name the five files there. Apply the same corrections to those five files. For the five cases that still failed, the web-search client reads the payer account through eth_call at the address precompile 0x101a; the replay server of the tests answers that read as the ledger does, after the form of the other recorded answers, and the HTTP replay stays unchanged otherwise (decision 2855). Delete from tests/ci/data/agent_sdk_python_baseline.json only the entries of the cases this task makes pass and keep the entries of 22.39.119. Run the build once and the verification named now once at the final revision and record both by reference."
 
 [task.22.39.119]
 title = "Repair the transport, EVM and program tests of the agent SDK Python suite and retire their baseline entries"
@@ -334112,7 +334371,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.113]
 title = "Raise the Node, Python and Go floors that name end-of-life releases"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 3
 requires = ["22.39.112"]
@@ -334404,7 +334663,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.103]
 title = "Factor the release toolchain block into a local action and run each lane in one workflow"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.39.51"]

@@ -508,7 +508,8 @@ fn the_shared_sequencer_receipt_vector_decodes_and_verifies() {
             | "V1-layerxledger-pay-exact"
             | "V1-layerxbridge-bridge-out"
             | "V1-layerxprograms-call"
-            | "V2-layerxledger-revert" => ("accepts", None),
+            | "V2-layerxledger-revert"
+            | "V2-pax-transfer-insufficient-funds" => ("accepts", None),
             "V3-key-not-pinned" | "V3-height-outside-key-range" => {
                 ("SequencerSignature", Some("R3"))
             }
@@ -548,6 +549,12 @@ fn the_shared_sequencer_receipt_vector_decodes_and_verifies() {
                 must(hex::parse_quantity(expected)),
                 "{}: {field}",
                 case.id
+            );
+        }
+        if case.id == "V2-pax-transfer-insufficient-funds" {
+            assert_eq!(
+                view.status, 0,
+                "insufficient funds must remain an execution refusal"
             );
         }
         let verification = receipt.verify(&[pin]);
