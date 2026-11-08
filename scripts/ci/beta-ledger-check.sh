@@ -979,6 +979,9 @@ PY
     fi
 
     if [ "${#violations[@]}" -gt 0 ]; then
+        # Report the input before its violations so a path regression never hides
+        # behind a schema or source-evidence error. Findings confer no gate credit.
+        printf 'beta-ledger-check: ledger %s\n' "${ledger#"$root"/}" >&2
         printf 'beta-ledger-check: %d violation(s)\n' "${#violations[@]}" >&2
         printf '  %s\n' "${violations[@]}" >&2
         return 1

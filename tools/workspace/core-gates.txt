@@ -1,4 +1,5 @@
 # target|classification
+# Kept gates only; covered-by names a declared target, environment-blocked names its required input.
 test|core-test-all
 test-wave-8|core-test-all
 test-wave-9|core-test-all

@@ -192,7 +192,7 @@ summary = (
     f"beta-report: {decision}; {len(gates)} gate records ({count(gates, 'outcome', OUTCOMES)}); "
     f"{len(observations)} observations ({count(observations, 'severity', SEVERITIES)}); "
     f"{len(findings)} findings ({count(findings, 'severity', SEVERITIES)}); "
-    f"candidate {candidate or 'undeclared'}"
+    f"candidate {candidate or 'undeclared'}; ledger {path}"
 )
 
 if mode == "check":
