@@ -71,3 +71,32 @@ def test_node_build_sets_go_test_timeout():
     assert command.count("-timeout") == 1
     assert command[command.index("-timeout") + 1] == "15m"
     assert "-count=1" in command
+
+
+def test_node_build_runs_evmone_lib_before_node_tests():
+    workflow = yaml.load(WORKFLOW.read_text(), Loader=yaml.BaseLoader)
+    for job_name in ("native-libs", "node-tests"):
+        steps = workflow["jobs"][job_name]["steps"]
+        (build_index,) = [
+            index
+            for index, step in enumerate(steps)
+            if shlex.split(step.get("run", "")) == ["make", "-s", "evmone-lib"]
+        ]
+        build_step = steps[build_index]
+        assert "if" not in build_step
+        assert "continue-on-error" not in build_step
+        assert build_step.get("working-directory", ".") == "."
+        (install_index,) = [
+            index
+            for index, step in enumerate(steps)
+            if step.get("name") == "Install native dependencies"
+        ]
+        assert install_index < build_index
+        assert "cmake" in shlex.split(steps[install_index]["run"])
+        if job_name == "node-tests":
+            (test_index,) = [
+                index
+                for index, step in enumerate(steps)
+                if step.get("name") == "Test node packages"
+            ]
+            assert build_index < test_index
