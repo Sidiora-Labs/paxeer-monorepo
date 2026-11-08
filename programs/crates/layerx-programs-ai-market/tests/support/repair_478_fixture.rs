@@ -215,6 +215,19 @@ impl layerx_programs_runtime::ReceiptOracle for KernelBalanceEvidence {
 /// these inputs before Fund, so a guest refusal can be diagnosed too. This proves
 /// CPU completion and staged effects; it applies no native ledger leg.
 pub fn execute_kernel_fund(dir: &std::path::Path) -> Result<(u64, Result<(), String>), String> {
+    execute_kernel_fund_with_budget(dir, None)
+}
+
+pub fn measure_kernel_fund(dir: &std::path::Path, allowance: u64) -> Result<u64, String> {
+    let (fuel, verdict) = execute_kernel_fund_with_budget(dir, Some(allowance))?;
+    verdict?;
+    Ok(fuel)
+}
+
+fn execute_kernel_fund_with_budget(
+    dir: &std::path::Path,
+    diagnostic_allowance: Option<u64>,
+) -> Result<(u64, Result<(), String>), String> {
     use layerx_programs_runtime::{self as rt, *};
     let read = |name| std::fs::read(dir.join(name)).map_err(|e| format!("{name}: {e}"));
     let owner: [u8; 32] = read("owner")?.try_into().map_err(|_| "owner length")?;
@@ -287,6 +300,19 @@ pub fn execute_kernel_fund(dir: &std::path::Path) -> Result<(u64, Result<(), Str
     ])
     .map_err(|e| e.to_string())?;
     let declaration = AccessDeclaration::absent();
+    let maximum = DeclaredBudget::protocol_maximum().resource_budget();
+    let budget = match diagnostic_allowance {
+        Some(cpu) => ResourceBudget::new_complete(
+            cpu,
+            maximum.memory_bytes(),
+            maximum.storage_read_bytes(),
+            maximum.storage_write_bytes(),
+            maximum.output_values(),
+            maximum.output_bytes(),
+            maximum.table_elements(),
+        ),
+        None => maximum,
+    };
     let canonical_call = rt::native_contract::CanonicalCall {
         program,
         abi: ABI_V5_VERSION,
@@ -295,14 +321,14 @@ pub fn execute_kernel_fund(dir: &std::path::Path) -> Result<(u64, Result<(), Str
         capabilities: &caps,
         declaration: &declaration,
         response_capacity: u32::try_from(MAX_RESULT_BYTES).unwrap(),
-        budget: DeclaredBudget::protocol_maximum().resource_budget(),
+        budget,
     }
     .canonical_bytes(None)
     .map_err(|e| format!("canonical Fund CALL: {e:?}"))?;
     if read("call")? != canonical_call {
         return Err("kernel Fund CALL differs from executor profile, budget or inputs".into());
     }
-    let executor = Executor::declared();
+    let executor = Executor::new(budget, FeeSchedule::declared());
     let binding = ActivityBudgetBinding::new(
         codec::decode_envelope(&f.fund)
             .map_err(|e| e.to_string())?
@@ -311,38 +337,38 @@ pub fn execute_kernel_fund(dir: &std::path::Path) -> Result<(u64, Result<(), Str
             .bytes(),
     )
     .map_err(|e| e.to_string())?;
-    let admitted = executor
-        .admit_activity_budget_for_qualification(
-            DeclaredBudget::protocol_maximum(),
-            actor,
-            binding,
-            u128::MAX,
-        )
-        .map_err(|e| e.to_string())?;
     let oracle = KernelBalanceEvidence { view };
-    let request = BudgetedAuthorizedExecutionRequest::new(
-        AuthorizedExecutionRequest {
-            module: &module,
-            program,
-            authorization: AuthorizationContext::new(actor, caps),
-            receipts: &oracle,
-            entrypoint: CALL_ENTRY_EXPORT,
-            calldata: &f.fund,
-            composition: CompositionContext::isolated(),
-            response_capacity: MAX_RESULT_BYTES,
-        },
-        admitted,
-        actor,
-        binding,
-    );
-    let record = executor
-        .execute_authorized_v5_budgeted_for_qualification(
+    let request = AuthorizedExecutionRequest {
+        module: &module,
+        program,
+        authorization: AuthorizationContext::new(actor, caps),
+        receipts: &oracle,
+        entrypoint: CALL_ENTRY_EXPORT,
+        calldata: &f.fund,
+        composition: CompositionContext::isolated(),
+        response_capacity: MAX_RESULT_BYTES,
+    };
+    let record = if diagnostic_allowance.is_some() {
+        // The explicit-budget qualification interface meters the same guest and
+        // transported kernel facts without admitting an over-cap native CALL.
+        executor.execute_authorized_versioned_for_qualification(&mut storage, request)
+    } else {
+        let admitted = executor
+            .admit_activity_budget_for_qualification(
+                DeclaredBudget::protocol_maximum(),
+                actor,
+                binding,
+                u128::MAX,
+            )
+            .map_err(|e| e.to_string())?;
+        executor.execute_authorized_v5_budgeted_for_qualification(
             &mut storage,
-            request,
+            BudgetedAuthorizedExecutionRequest::new(request, admitted, actor, binding),
             prior.global_sequence() + 1,
             HEIGHT + 1,
         )
-        .map_err(|e| format!("Fund ExecutionError: {e:?}"))?;
+    }
+    .map_err(|e| format!("Fund ExecutionError: {e:?}"))?;
     let fuel = record.execution().usage().cpu_fuel;
     let verdict = match record.outcome() {
         V2ActivityOutcome::Success { response, effects } => {

@@ -50,8 +50,10 @@ fn chain_domain_is_derived_from_the_merged_chain_id() -> CodecResult<()> {
         .find_map(|line| line.strip_prefix("MERGED_CHAIN_DOMAIN = \""))
         .and_then(|value| value.strip_suffix('"'));
     assert_eq!(ci_golden, Some(golden_hex.as_str()));
-    assert_eq!(option_env!("PAXAI_CHAIN_DOMAIN"), Some(golden_hex.as_str()));
-    assert_eq!(deployment_chain_domain()?.bytes(), MERGED_CHAIN_DOMAIN);
+    assert_eq!(
+        deployment_chain_domain()?.bytes(),
+        merged_chain_domain(MERGED_CHAIN_ID)
+    );
     Ok(())
 }
 

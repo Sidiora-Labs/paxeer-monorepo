@@ -504,6 +504,16 @@ pub fn evaluator(
 /// Refresh each expiring worker through its delegate-signed metadata producer before
 /// opening; enrollment consent and service metadata have separate bounded lifetimes.
 pub fn refresh_workers(bytes: &mut Vec<u8>, opening: u64) -> CodecResult<()> {
+    refresh_workers_with(bytes, opening, |record| {
+        fixture_delegate(record.owner.bytes()[0])
+    })
+}
+
+pub fn refresh_workers_with(
+    bytes: &mut Vec<u8>,
+    opening: u64,
+    delegate: impl Fn(&workers::WorkerCurrent) -> SigningKey,
+) -> CodecResult<()> {
     fixture_step(
         "refresh_workers",
         "decode_manifest -> PublishMetadata",
@@ -527,7 +537,7 @@ pub fn refresh_workers(bytes: &mut Vec<u8>, opening: u64) -> CodecResult<()> {
                 let at = opening
                     .checked_sub(workers::METADATA_COOLDOWN)
                     .ok_or(NON_CANONICAL)?;
-                let key = fixture_delegate(record.owner.bytes()[0]);
+                let key = delegate(record);
                 assert_eq!(PublicKey32(key.verifying_key().to_bytes()), record.delegate);
                 let mut manifest = 1u16.to_be_bytes().to_vec();
                 manifest.extend_from_slice(market.market_id.as_bytes());
@@ -585,6 +595,7 @@ pub fn refresh_workers(bytes: &mut Vec<u8>, opening: u64) -> CodecResult<()> {
                     next_sequence(bytes, record.owner)?,
                 )?;
                 let mut call = decode_envelope(&encoded)?.envelope;
+                call.expiry = opening;
                 call.authentication = Authentication::Delegate {
                     key: record.delegate,
                     signature: Signature64([0; 64]),
