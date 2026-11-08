@@ -35490,3 +35490,35 @@ symbol = "layerx-programs-ai-market"
 observed = "Attempt 26 at c7bbaef169b0: build exit 0 at the third cycle (483167 bytes, Fund at 858358 CPU fuel); verification exit 101 with 411 passed and 129 failed across 18 of 49 targets; no main baseline recorded."
 assumption = "Part of the failures is the attempt changing refusal codes, part is the main rewrite of 22.39.142 that a four-target gate let through; the baseline run separates them."
 severity = "high"
+
+[finding.22.31.623.4]
+task = "22.31.623"
+file = "tests/ci/test_qualification_suites_collect.py"
+symbol = "test_qualification_suites_collect.py"
+observed = "Attempt 4 at fd32601f860e: build exit 0; verification exit 1 with 5 failed and 4445 passed after the second cycle (22 failed at the first)."
+assumption = "Four cases are stale consumer copies with identified producers; the fifth is a producer defect of the human API schema that a task of its own repairs first."
+severity = "high"
+
+[finding.22.39.75.5]
+task = "22.39.75"
+file = "tests/ci/test_launchpad_go_tests_wired.py"
+symbol = "test_launchpad_go_tests_wired.py"
+observed = "Attempt 5 at f5b177749477: build exit 0; verification exit 2 with 21 wiring cases passed, 42 packages passed and nine indexer packages failed (thirteen service-variable cases, eleven receipt cases, one panic, three fixture-bound cases, one package that does not build)."
+assumption = "The service variables and the module manifest are the job and tree side; the receipt rule, the retired delivery path and the fixture inputs are producer work that the retiring task owns."
+severity = "high"
+
+[finding.22.39.95.1]
+task = "22.39.95"
+file = "apps/launchpad/web/src/core/wallet-sdk/runtime.integration.test.tsx"
+symbol = "runtime.integration.test.tsx"
+observed = "Attempt 1 at 535cb99c795a: build exit 0; verification exit 1 with 23 failed and 1239 passed in the web suite after the second cycle (25 failed at the first); the mobile suite did not run."
+assumption = "The suite is designed around generated chain fixtures that no job produces; the public web job is red on main for the same reason."
+severity = "high"
+
+[finding.22.39.134.1]
+task = "22.39.134"
+file = "services/platform/tests/test_ramp_dependencies.py"
+symbol = "test_ramp_dependencies.py"
+observed = "Attempt 1 at eac6fce0c1f6: build exit 0; verification exit 1 with 31 passed and 1 failed, test_exclusion_list_entries_exist on the stale scripts/ci row."
+assumption = "The task tree is complete; the one failing case is the row that round 256 assigned to this task after the attempt had started."
+severity = "high"
