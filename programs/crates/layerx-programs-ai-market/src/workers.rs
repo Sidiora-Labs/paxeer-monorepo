@@ -1,5 +1,6 @@
 //! F02 worker identity and enrollment lifecycle over the common shared state cell.
 //! Transitions are pure over authenticated host values supplied by the adapter.
+use crate::types::GuestIndex as _;
 use crate::{
     codec::{self, Reader, Writer},
     dispatch::{self, Operation},
@@ -113,10 +114,12 @@ impl WorkerCurrent {
     }
     #[cfg_attr(target_arch = "wasm32", inline(never))]
     fn write(&self, w: &mut Writer<'_>) -> CodecResult<()> {
-        w.put(self.worker.as_bytes())?;
-        w.put(self.owner.as_bytes())?;
-        w.put(&self.delegate.0)?;
-        w.put(self.metadata.as_bytes())?;
+        crate::codec::write_fields!(w;
+            id32: self.worker.as_bytes();
+            id32: self.owner.as_bytes();
+            put: &self.delegate.0;
+            id32: self.metadata.as_bytes();
+        )?;
         for v in [
             self.generation,
             self.key_version,
@@ -129,35 +132,36 @@ impl WorkerCurrent {
         ] {
             w.u64(v)?;
         }
-        w.put(&self.last_request_id)?;
-        w.put(&self.last_request_digest)?;
-        w.put(&self.last_result_digest)?;
-        w.u8(self.state as u8)?;
-        w.u8(self.slot)?;
+        crate::codec::write_fields!(w;
+            put: &self.last_request_id;
+            put: &self.last_request_digest;
+            put: &self.last_result_digest;
+            u8: self.state as u8;
+            u8: self.slot;
+        )?;
         w.u64(self.last_metadata_height)
     }
     #[cfg_attr(target_arch = "wasm32", inline(never))]
     fn read(r: &mut Reader<'_>) -> CodecResult<Self> {
-        let v = Self {
-            worker: r.worker_id()?,
-            owner: r.principal_id()?,
-            delegate: PublicKey32(r.fixed()?),
-            metadata: r.metadata_digest()?,
-            generation: r.u64()?,
-            key_version: r.u64()?,
-            metadata_revision: r.u64()?,
-            valid_from: r.u64()?,
-            expiry: r.u64()?,
-            revocation_sequence: r.u64()?,
-            effective_epoch: r.u64()?,
-            last_sequence: r.u64()?,
-            last_request_id: r.fixed()?,
-            last_request_digest: r.fixed()?,
-            last_result_digest: r.fixed()?,
-            state: WorkerState::from_u8(r.u8()?)?,
-            slot: r.u8()?,
-            last_metadata_height: r.u64()?,
-        };
+        let v = crate::codec::read_record!(r, Self {  }; worker = r.worker_id()?;
+            owner: PrincipalId,
+            delegate: PublicKey32,
+            metadata: MetadataDigest,
+            generation: U64,
+            key_version: U64,
+            metadata_revision: U64,
+            valid_from: U64,
+            expiry: U64,
+            revocation_sequence: U64,
+            effective_epoch: U64,
+            last_sequence: U64,
+            last_request_id: Fixed,
+            last_request_digest: Fixed,
+            last_result_digest: Fixed,
+            state: WorkerState,
+            slot: U8,
+            last_metadata_height: U64
+        );
         v.validate()?;
         Ok(v)
     }
@@ -169,19 +173,21 @@ impl WorkerCurrent {
     pub fn proposal_digest(&self, market: &MarketHeader) -> CodecResult<Digest32> {
         let mut buf = [0u8; 288];
         let mut w = Writer::new(&mut buf);
-        w.put(market.deployment_chain_domain.as_bytes())?;
-        w.put(market.program_id.as_bytes())?;
-        w.put(market.market_id.as_bytes())?;
-        w.put(self.worker.as_bytes())?;
-        w.put(self.owner.as_bytes())?;
-        w.put(&self.delegate.0)?;
-        w.put(self.metadata.as_bytes())?;
-        w.u64(self.generation)?;
-        w.u64(self.key_version)?;
-        w.u64(self.valid_from)?;
-        w.u64(self.expiry)?;
+        crate::codec::write_fields!(w;
+            id32: market.deployment_chain_domain.as_bytes();
+            id32: market.program_id.as_bytes();
+            id32: market.market_id.as_bytes();
+            id32: self.worker.as_bytes();
+            id32: self.owner.as_bytes();
+            put: &self.delegate.0;
+            id32: self.metadata.as_bytes();
+            u64: self.generation;
+            u64: self.key_version;
+            u64: self.valid_from;
+            u64: self.expiry;
+        )?;
         let n = w.len();
-        codec::domain_hash("PAXAI/worker-enrollment-proposal/v1", &buf[..n])
+        codec::domain_hash("PAXAI/worker-enrollment-proposal/v1", buf.guest_index(..n))
     }
 }
 
@@ -214,7 +220,7 @@ impl WorkerTable {
         self.count == 0
     }
     pub fn iter(&self) -> impl Iterator<Item = &WorkerCurrent> {
-        self.records[..self.count].iter().flatten()
+        self.records.guest_index(..self.count).iter().flatten()
     }
     #[must_use]
     #[cfg_attr(target_arch = "wasm32", inline(never))]
@@ -222,7 +228,8 @@ impl WorkerTable {
         self.iter().find(|r| r.worker == worker).copied()
     }
     fn position(&self, worker: WorkerId) -> CodecResult<usize> {
-        self.records[..self.count]
+        self.records
+            .guest_index(..self.count)
             .iter()
             .position(|r| r.is_some_and(|r| r.worker == worker))
             .ok_or(NOT_FOUND)
@@ -243,12 +250,14 @@ impl WorkerTable {
         {
             return Err(CONFLICT);
         }
-        let at = self.records[..self.count]
+        let at = self
+            .records
+            .guest_index(..self.count)
             .iter()
             .position(|r| r.is_some_and(|r| r.worker > record.worker))
             .unwrap_or(self.count);
-        self.records.copy_within(at..self.count, at + 1);
-        self.records[at] = Some(*record);
+        self.records.guest_copy_within(at..self.count, at + 1);
+        *self.records.guest_index_mut(at) = Some(*record);
         self.count += 1;
         Ok(())
     }
@@ -260,7 +269,7 @@ impl WorkerTable {
     pub fn replace(&mut self, record: &WorkerCurrent) -> CodecResult<()> {
         record.validate()?;
         let at = self.position(record.worker)?;
-        self.records[at] = Some(*record);
+        *self.records.guest_index_mut(at) = Some(*record);
         Ok(())
     }
     /// Removes and returns the worker's record.
@@ -270,10 +279,10 @@ impl WorkerTable {
     #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn remove(&mut self, worker: WorkerId) -> CodecResult<WorkerCurrent> {
         let at = self.position(worker)?;
-        let record = self.records[at].ok_or(NOT_FOUND)?;
-        self.records.copy_within(at + 1..self.count, at);
+        let record = self.records.guest_index(at).ok_or(NOT_FOUND)?;
+        self.records.guest_copy_within(at + 1..self.count, at);
         self.count -= 1;
-        self.records[self.count] = None;
+        *self.records.guest_index_mut(self.count) = None;
         Ok(record)
     }
     /// Returns the lowest slot not held by any record.
@@ -300,7 +309,7 @@ impl WorkerTable {
         if out.len() < n {
             return Err(CAPACITY);
         }
-        let mut w = Writer::new(&mut out[..n]);
+        let mut w = Writer::new(out.guest_index_mut(..n));
         w.u8(u8::try_from(self.count).map_err(|_| ARITHMETIC)?)?;
         for r in self.iter() {
             r.write(&mut w)?;
@@ -328,7 +337,10 @@ impl WorkerTable {
         for _ in 0..count {
             let record = WorkerCurrent::read(&mut r)?;
             if table.count > 0
-                && table.records[table.count - 1].is_some_and(|p| p.worker >= record.worker)
+                && table
+                    .records
+                    .guest_index(table.count - 1)
+                    .is_some_and(|p| p.worker >= record.worker)
             {
                 return Err(NON_CANONICAL);
             }
@@ -388,18 +400,20 @@ pub fn consent_digest(
 ) -> CodecResult<Digest32> {
     let mut buf = [0u8; 264];
     let mut w = Writer::new(&mut buf);
-    w.put(market.deployment_chain_domain.as_bytes())?;
-    w.put(market.program_id.as_bytes())?;
-    w.put(market.market_id.as_bytes())?;
-    w.put(worker.as_bytes())?;
-    w.put(owner.as_bytes())?;
-    w.put(&key.0)?;
-    w.u64(generation)?;
-    w.u64(key_version)?;
-    w.put(metadata.as_bytes())?;
-    w.u64(expiry)?;
+    crate::codec::write_fields!(w;
+        id32: market.deployment_chain_domain.as_bytes();
+        id32: market.program_id.as_bytes();
+        id32: market.market_id.as_bytes();
+        id32: worker.as_bytes();
+        id32: owner.as_bytes();
+        put: &key.0;
+        u64: generation;
+        u64: key_version;
+        id32: metadata.as_bytes();
+        u64: expiry;
+    )?;
     let n = w.len();
-    codec::domain_hash("PAXAI/worker-delegate-consent/v1", &buf[..n])
+    codec::domain_hash("PAXAI/worker-delegate-consent/v1", buf.guest_index(..n))
 }
 
 fn verify(key: PublicKey32, signature: Signature64, digest: Digest32) -> CodecResult<()> {
@@ -469,11 +483,13 @@ impl CapabilityFields {
     #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub(crate) fn write(&self, w: &mut Writer<'_>) -> CodecResult<()> {
         self.validate()?;
-        w.u32(self.accelerator_memory_mib)?;
-        w.u32(self.system_memory_mib)?;
-        w.u8(self.bandwidth_class)?;
-        w.put(&self.region_code)?;
-        w.u8(self.attestation_family)?;
+        crate::codec::write_fields!(w;
+            u32: self.accelerator_memory_mib;
+            u32: self.system_memory_mib;
+            u8: self.bandwidth_class;
+            put: &self.region_code;
+            u8: self.attestation_family;
+        )?;
         w.u8(self.runtime_kind)
     }
 }
@@ -503,8 +519,8 @@ fn check_host(host: &[u8]) -> CodecResult<()> {
     for label in host.split(|b| *b == b'.') {
         if label.is_empty()
             || label.len() > 63
-            || label[0] == b'-'
-            || label[label.len() - 1] == b'-'
+            || *label.guest_index(0) == b'-'
+            || *label.guest_index(label.len() - 1) == b'-'
             || !label
                 .iter()
                 .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || *b == b'-')
@@ -536,14 +552,17 @@ pub fn check_uri(uri: &[u8]) -> CodecResult<()> {
     }
     let authority = rest.strip_suffix(b"/paxai/v1").ok_or(NON_CANONICAL)?;
     let (host, port) = match authority.iter().position(|b| *b == b':') {
-        Some(i) => (&authority[..i], Some(&authority[i + 1..])),
+        Some(i) => (
+            authority.guest_index(..i),
+            Some(authority.guest_index(i + 1..)),
+        ),
         None => (authority, None),
     };
     check_host(host)?;
     if let Some(port) = port {
         if port.is_empty()
             || port.len() > 5
-            || port[0] == b'0'
+            || *port.guest_index(0) == b'0'
             || !port.iter().all(u8::is_ascii_digit)
         {
             return Err(NON_CANONICAL);
@@ -570,14 +589,15 @@ pub fn decode_manifest(input: &[u8]) -> CodecResult<ManifestSummary> {
     if !matches!(version, 1 | 2) {
         return Err(BAD_VERSION);
     }
-    let market = r.market_id()?;
-    let worker = r.worker_id()?;
-    let owner = r.principal_id()?;
-    let generation = r.u64()?;
-    let key_version = r.u64()?;
-    let revision = r.u64()?;
-    let valid_from = r.u64()?;
-    let expiry = r.u64()?;
+    let (market, worker, owner, generation, key_version, revision, valid_from, expiry) = crate::codec::read_values!(&mut r; market = r.market_id()?;
+        worker: WorkerId,
+        owner: PrincipalId,
+        generation: U64,
+        key_version: U64,
+        revision: U64,
+        valid_from: U64,
+        expiry: U64,
+    );
     r.digest32()?;
     if generation == 0 || key_version == 0 || revision == 0 {
         return Err(NON_CANONICAL);
@@ -836,10 +856,10 @@ fn finish(
     section
         .get_mut(workers..total)
         .ok_or(CAPACITY)?
-        .copy_from_slice(call.region);
+        .guest_copy_from_slice(call.region);
     let mut next = call
         .state
-        .replace_section(Section::IdentityRoster, &section[..total])?;
+        .replace_section(Section::IdentityRoster, section.guest_index(..total))?;
     match commit.slot_change {
         SlotChange::None => {}
         SlotChange::Bind(slot, principal) => {
@@ -999,12 +1019,14 @@ fn enroll_worker(
     };
     let mut suffix = [0u8; 168];
     let mut w = Writer::new(&mut suffix);
-    w.put(worker.as_bytes())?;
-    w.put(nominee.as_bytes())?;
-    w.u64(1)?;
-    w.u64(call.next_epoch)?;
-    w.put(metadata.as_bytes())?;
-    w.put(&nonce)?;
+    crate::codec::write_fields!(w;
+        id32: worker.as_bytes();
+        id32: nominee.as_bytes();
+        u64: 1_u64;
+        u64: call.next_epoch;
+        id32: metadata.as_bytes();
+        put: &nonce;
+    )?;
     let n = w.len();
     table.insert(&record)?;
     finish(
@@ -1013,7 +1035,7 @@ fn enroll_worker(
         &Commit {
             table,
             slot_change: SlotChange::Bind(ActorSlot::worker(usize::from(slot))?, nominee),
-            suffix: &suffix[..n],
+            suffix: suffix.guest_index(..n),
         },
         buffers,
     )
@@ -1050,9 +1072,11 @@ fn expire_enrollment(
     }
     let mut suffix = [0u8; 168];
     let mut w = Writer::new(&mut suffix);
-    w.put(worker.as_bytes())?;
-    w.put(digest.as_bytes())?;
-    w.u64(record.expiry)?;
+    crate::codec::write_fields!(w;
+        id32: worker.as_bytes();
+        id32: digest.as_bytes();
+        u64: record.expiry;
+    )?;
     let n = w.len();
     table.remove(worker)?;
     finish(
@@ -1061,7 +1085,7 @@ fn expire_enrollment(
         &Commit {
             table,
             slot_change: SlotChange::Retire(slot),
-            suffix: &suffix[..n],
+            suffix: suffix.guest_index(..n),
         },
         buffers,
     )
@@ -1095,13 +1119,15 @@ fn apply_record(
     transition(call, &mut record, pending)?;
     let mut suffix = [0u8; 57];
     let mut w = Writer::new(&mut suffix);
-    w.put(record.worker.as_bytes())?;
-    w.u8(record.state as u8)?;
-    w.u64(record.generation)?;
-    w.u64(record.metadata_revision)?;
-    w.u64(record.effective_epoch)?;
+    crate::codec::write_fields!(w;
+        id32: record.worker.as_bytes();
+        u8: record.state as u8;
+        u64: record.generation;
+        u64: record.metadata_revision;
+        u64: record.effective_epoch;
+    )?;
     let n = w.len();
-    stamp(&mut record, &replay, &suffix[..n])?;
+    stamp(&mut record, &replay, suffix.guest_index(..n))?;
     table.replace(&record)?;
     finish(
         call,
@@ -1109,7 +1135,7 @@ fn apply_record(
         &Commit {
             table,
             slot_change: SlotChange::None,
-            suffix: &suffix[..n],
+            suffix: suffix.guest_index(..n),
         },
         buffers,
     )

@@ -10467,6 +10467,24 @@ value = "When a recorded vector under tests/vectors is compared byte for byte ag
 basis = "Task 22.39.122 attempt 2 at 5d5c4a51b325 (gotcha 3589): commit ba761d6c5d of 22.31.540 appended three answers for the human service replay without the generator. Extends decision 2855."
 affects = ["22.39.122", "22.31.540", "22.33.1520"]
 
+[decision.2893]
+title = "A Go job names every test service variable its module tests document and produces every build output a test reads"
+value = "When a module test tree documents the environment variables that name its already running test services (the internaltest helpers of the launchpad api module name CORE_API_TEST_POSTGRES_URL, CORE_API_TEST_REDIS_URL and CORE_API_TEST_NATS_URL; the broker package reads L11_POSTGRES_DSN), the env block of the workflow job that runs the tree defines every one of them from the job fixtures (the service containers, a server the job installs and starts), and a test that reads a build output of another package (compiled contract artifacts) gets a job step that produces it before the test step; the qualification environment reproduces the extended job exactly (decision 2878). A test that fails because such a variable is unset or such an output is absent is a configuration gap of the job, never a baseline entry. A module recipe that stops at the first failing module leaves the later modules unexercised, and the attempt record names the modules that ran."
+basis = "Task 22.39.75 attempt 4 at f11cfdbbeabc (gotcha 3590): some forty tests of the api module stopped at undefined variables the module documents, two read an uncompiled artifact, and the fourteen modules after api never ran. Extends decisions 2820, 2859 and 2878."
+affects = ["22.39.75", "22.39.117", "22.39.154"]
+
+[decision.2894]
+title = "An inventory reconciliation task follows the producer commit through every row and unlisted pair the sync test reports"
+value = "When a task reconciles a reviewed inventory (the intentional-copy file, a baseline, a manifest) after a producer commit, the attempt corrects every row the sync tests report against that inventory in the same change, not only the rows the task text enumerates: a row whose copy the producer commit turned into an import or removed is deleted with that commit recorded, and a byte-identical pair the test reports as unlisted gets a row naming the older file as source, the newer as copy, the comparison, the executing sync test and the purpose. The sync test and the artifacts never change for such a task."
+basis = "Task 22.39.152 attempt 1 at e5efb803e2b4 (gotcha 3591): the twelve named rows were removed and the verification failed on a thirteenth row the same commit 637c9c63da made stale and on three unlisted pairs. Extends decisions 2857 and 2887."
+affects = ["22.39.152"]
+
+[decision.2895]
+title = "A repair task touches the tree that holds the tests its baseline names and its gate collects that tree with the baseline conftest"
+value = "When a task retires baseline entries, the nodeids of the baseline file decide where the tests live and the touches of the task name those test files; the build and verification commands collect that tree, and when the conftest that applies the baseline lives in a sibling tree, the command collects both trees as the public workflow does. A task whose touches name a directory the named tests left makes no change, and the next round corrects its paths instead of its instruction."
+basis = "Task 22.39.119 attempt 1 (gotcha 3592): the named tests moved to tests/agent/sdk/python at ec75ccbc59 and the task still named services/agent/sdk/python/tests. Extends decisions 2838 and 2890."
+affects = ["22.39.119", "22.39.120"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -39357,6 +39375,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.154]
+title = "Follow the shared v2 receipt projection in the two log-free receipt tests of the launchpad API and retire their baseline entries"
+reqs = ["22998.1"]
+touches = ["services/launchpad/api/internal/app/dev_network_reads_test.go", "services/launchpad/api/internal/app/repair_27_test.go"]
+tests = ["services/launchpad/api/internal/app::TestDevelopmentTransactionStatusFromChainRPC", "services/launchpad/api/internal/app::TestRepair_27_log_free_receipts"]
+verification_contract = "anvil --version > /dev/null && test -s services/launchpad/api/repair_22_39_154.kvx && test $(grep -c TestRepair_27_log_free_receipts tests/ci/data/launchpad_go_test_baseline.json) -eq 0 && test $(grep -c TestDevelopmentTransactionStatusFromChainRPC tests/ci/data/launchpad_go_test_baseline.json) -eq 0 && cd services/launchpad/api && go test -count=1 -run 'TestDevelopmentTransactionStatusFromChainRPC|TestRepair_27_log_free_receipts' ./internal/app/"
+do_1 = "do_1 Decision 2893, gotcha 3590. sdk/launchpad/shared/chain/client.go line 1123 marks ErrReceiptPosition deprecated: valid log-free receipts use the shared v2 receipt projection (the repair 26 record of that package and receipt.go line 47), and Client.ReceiptState, the API TransactionStatus adapter and RPCReceipt.TxStatus share that projection. Two tests of services/launchpad/api/internal/app still assert the retired refusal: TestDevelopmentTransactionStatusFromChainRPC at dev_network_reads_test.go line 279 expects 503 INTEGRITY_QUARANTINED for a log-free reverted transaction and receives 200 with the projected receipt, and TestRepair_27_log_free_receipts at repair_27_test.go line 240 expects chain.ErrReceiptPosition from sdk.ReceiptState and a nil receipt view for both log-free fixtures."
+symbols = []
 
 [capability.22.39.153]
 title = "Settle the shared-budget capacity test of the rooms binary against the per-model placement cap"
@@ -182242,7 +182269,7 @@ do_5 = "Attempt 2 (continue, gotcha 3566, decisions 2771, 2866 and 2873): the at
 
 [task.22.39.142]
 title = "Bring the ai-market guest forty thousand bytes under its deployment bound so the pending reward operations fit"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.153"]
@@ -210019,6 +210046,36 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete apart from the pins. Add the {'recordLifecycle', true, 36680} row to the expected list in gas_test.go and move the three require.Len pins at surface_test.go:28-30 to 10, adding the recordLifecycle signature to any frozen listing the test holds. Build once and verify once."
 
+[task.22.39.154]
+title = "Follow the shared v2 receipt projection in the two log-free receipt tests of the launchpad API and retire their baseline entries"
+status = "pending"
+mode = "BUILD"
+wave = 2
+requires = ["22.39.75"]
+reqs = ["22998.1"]
+capabilities = ["22.39.154"]
+interfaces = []
+do_1 = "do_1 Decision 2893, gotcha 3590. sdk/launchpad/shared/chain/client.go line 1123 marks ErrReceiptPosition deprecated: valid log-free receipts use the shared v2 receipt projection (the repair 26 record of that package and receipt.go line 47), and Client.ReceiptState, the API TransactionStatus adapter and RPCReceipt.TxStatus share that projection. Two tests of services/launchpad/api/internal/app still assert the retired refusal: TestDevelopmentTransactionStatusFromChainRPC at dev_network_reads_test.go line 279 expects 503 INTEGRITY_QUARANTINED for a log-free reverted transaction and receives 200 with the projected receipt, and TestRepair_27_log_free_receipts at repair_27_test.go line 240 expects chain.ErrReceiptPosition from sdk.ReceiptState and a nil receipt view for both log-free fixtures."
+do_2 = "do_2 Correct both tests to assert the projection the producer returns for a log-free included transaction (the status and receipt fields of the v2 projection for the transfer and for the reverted fixture, the state the SDK reports, no error), each corrected assertion recorded with the producer line it follows (decision 2857); nothing under sdk/launchpad changes and no assertion of the other receipt integrity cases changes."
+do_3 = "do_3 Delete the two entries of these tests from tests/ci/data/launchpad_go_test_baseline.json, which task 22.39.75 lands, and leave the file in place. Record the corrections in services/launchpad/api/repair_22_39_154.kvx. Run the build once and the verification once at the final tree and record both by reference."
+symbols = []
+touches = ["services/launchpad/api/internal/app/dev_network_reads_test.go", "services/launchpad/api/internal/app/repair_27_test.go"]
+tests = ["services/launchpad/api/internal/app::TestDevelopmentTransactionStatusFromChainRPC", "services/launchpad/api/internal/app::TestRepair_27_log_free_receipts"]
+planned_paths = ["services/launchpad/api/repair_22_39_154.kvx", "tests/ci/data/launchpad_go_test_baseline.json"]
+build_cmd = "anvil --version > /dev/null && cd services/launchpad/api && go vet ./internal/app/"
+verify_cmd = "anvil --version > /dev/null && test -s services/launchpad/api/repair_22_39_154.kvx && test $(grep -c TestRepair_27_log_free_receipts tests/ci/data/launchpad_go_test_baseline.json) -eq 0 && test $(grep -c TestDevelopmentTransactionStatusFromChainRPC tests/ci/data/launchpad_go_test_baseline.json) -eq 0 && cd services/launchpad/api && go test -count=1 -run 'TestDevelopmentTransactionStatusFromChainRPC|TestRepair_27_log_free_receipts' ./internal/app/"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 90
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.150]
 title = "Limit the CW721 pre-transfer owner lookup to CW721 transfer shapes so CW1155 burns execute"
 status = "done"
@@ -210161,9 +210218,9 @@ interfaces = []
 do_1 = "do_1 Decision 2820, gotcha 3468. The 35 tests recorded in tests/ci/data/launchpad_go_test_baseline.json span sdk/launchpad/shared/chain, db/production, delivery, delivery/natsdriver and storage, whose tests open NATS, Postgres and object-storage services, and shared/auth, whose six tests read launchpad/spec/production-system/handoffs/L33/schema-proposal.sql, a file the repository does not track. For the five service packages start the service in process where the module already carries a fixture (the testpki package is the pattern) or skip with t.Skip naming the environment variable that configures the service when it is unset, so the tests pass in the public check without a live service and run in full where one is configured."
 do_2 = "do_2 Delete the entries of the five service packages from the baseline file; the six auth entries stay with the untracked schema file named as the reason until the owner tracks the production specification pair, and the recipe keeps deriving its skip pattern from the file."
 symbols = []
-touches = ["sdk/launchpad/shared", "services/launchpad/Makefile"]
+touches = ["sdk/launchpad/shared", "sdk/launchpad/protocol", "services/launchpad/Makefile"]
 tests = ["sdk/launchpad/shared/chain::TestPhase2ReadAdapterRealRegisteredPool", "sdk/launchpad/shared/db/production::TestPhase2ReaderCompatibility", "sdk/launchpad/shared/storage::TestArchiveActualCanonicalPostgresAndObjectStorage", "sdk/launchpad/shared/delivery/natsdriver"]
-planned_paths = []
+planned_paths = ["tests/ci/data/launchpad_go_test_baseline.json"]
 build_cmd = "cd sdk/launchpad/shared && go vet ./..."
 verify_cmd = "cd sdk/launchpad/shared && go test -count=1 ./chain/... ./db/... ./delivery/... ./storage/... && cd ../../.. && make -C services/launchpad ci"
 gate_kind = "planned"
@@ -210298,6 +210355,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 do_3 = "Attempt 2 (continue, gotcha 3468, decision 2820): the attempt-1 tree ae29c05be4d5 stands (17 modules wired, wiring tests). Record the 35 failing tests of the six sdk/launchpad/shared packages in tests/ci/data/launchpad_go_test_baseline.json (package, test name, reason, retiring task 22.39.117; the untracked schema file is the reason of the six auth entries), make the test, race and cover-check targets of services/launchpad/Makefile derive a per-package -skip pattern from that file, and run the wiring tests and make -C services/launchpad ci at the final revision, recording build and verification by reference."
 do_4 = "Attempt 3 (continue, gotcha 3537, decisions 2771, 2820 and 2859): the attempt-2 tree 6188bc589702 stands (the module matrix job, the baseline file, the package-scoped skip derivation, the record). Two causes remain. The shared/config/capabilities and shared/config/deployment packages start a private Anvil process and wait ten minutes when the executable is absent: the verification of the task now opens with anvil --version so the qualification environment provides the Foundry binaries, and the matrix job installs the Foundry toolchain with the pinned action ci.yml line 105 uses before go test for every module, with the wiring test asserting the install and the test step share the job. TestPhase3ActualRelayCrashAndConsumerRestart and TestPhase3ActualOrderedPoisonAndHundredDuplicates of shared/delivery/natsdriver fail because the embedded NATS server refuses a duplicates window below 100 ms, a defect of the driver test configuration: add both to tests/ci/data/launchpad_go_test_baseline.json with that reason and 22.39.117 as retiring task. Then run the build once and the verification once at the final revision and record both by reference; a capabilities or deployment test that still fails with anvil present enters the baseline with its reason the same way in the one allowed repair cycle."
 do_5 = "Attempt 4 (continue, gotcha 3571, decisions 2771, 2820, 2859 and 2878): the attempt-3 tree bc20b425e5cf stands (the module matrix job with the Foundry install, the baseline file, the package-scoped skip derivation, the fifteen wiring tests, the record). Before the gates, reproduce the Go job environment of .github/workflows/launchpad-test.yml in the qualification environment exactly as the job does: export the env block of lines 104 to 118 over every inherited value (GOWORK off, the kindle_fixture DSNs at 127.0.0.1 port 25432, the schema name, L34_ANVIL_URL, the object storage values), create the kindle_fixture role with its password and the kindle_fixture and kindle_test databases on a local PostgreSQL server listening on that port, start anvil on 127.0.0.1 port 28545 with chain id 125 and wait for cast chain-id as the job step does, and provide the object storage endpoint the record already describes. Then add one entry to tests/ci/data/launchpad_go_test_baseline.json: package shared/db/production, test TestPhase3CancellationAndAuthorization, reason naming production_test.go line 421 (the cancelled SQL connection was neither reusable nor discarded within one second under the fixture database), retiring task 22.39.117, which owns that package; record the finding and the environment in services/launchpad/repair_22_39_75.kvx. Run the build once and the verification once at the final revision and record both by reference. If a test still fails under the complete job environment, record it in the baseline the same way in the one allowed repair cycle and rerun once; no test is weakened and no source under sdk/launchpad changes."
+do_6 = "Attempt 5 (continue, gotcha 3590, decisions 2771, 2820, 2878 and 2893): the attempt-4 tree f11cfdbbeabc stands (the module matrix job, the baseline file with its forty-one entries, the package-scoped skip derivation, the seventeen wiring tests, the record). Extend the env block of the Go job in .github/workflows/launchpad-test.yml with CORE_API_TEST_POSTGRES_URL and L11_POSTGRES_DSN set to the kindle_fixture DSN of the kindle_fixture database the job already defines, CORE_API_TEST_REDIS_URL set to logical database 11 of the job Redis service at 127.0.0.1 port 26379, and CORE_API_TEST_NATS_URL set to nats://127.0.0.1:24222; after the step that installs nats-server add a step that starts it in the background on 127.0.0.1 port 24222 and waits for the port; before the Go test step add a step that compiles the launchpad contracts in contracts/launchpad exactly as the js-npm-tests job of ci.yml installs that package (pnpm from the packageManager field, pnpm install --ignore-workspace --frozen-lockfile) followed by pnpm compile, so contracts/launchpad/artifacts exists for the two authority tests of the api app package. Add one wiring test asserting that the env block names those four variables and that the contracts compile step precedes the Go test step. Reproduce the extended job in the qualification environment on top of the attempt-4 reproduction (the kindle_fixture role may CREATE DATABASE, the NATS server runs on that port, the contracts are compiled), then run the build once and the verification once at the final revision and record both by reference. Tests that still fail under the complete environment enter the baseline with the failing assertion and the retiring task: the two log-free receipt tests TestDevelopmentTransactionStatusFromChainRPC and TestRepair_27_log_free_receipts name task 22.39.154, which follows the shared v2 receipt projection in them; an entry for any other package under services/launchpad names 22.39.154 as well and the record lists the package so the owner widens that task; protocol entries keep 22.39.117. The record names the modules that ran, because the test target stops at the first failing module; no test is weakened and no source under sdk/launchpad or services/launchpad/api changes."
 
 [task.22.39.40]
 title = "Make the node package tests pass again by repairing the four upgrade activation tests and the standby commit release hang"
@@ -333626,6 +333684,7 @@ time_limit_minutes = 60
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "Attempt 2 (continue, gotcha 3591, decisions 2771, 2887 and 2894): the attempt-1 tree e5efb803e2b4 stands (the twelve rows removed, the record). Remove the first row of tests/ci/data/intentional_copies.txt as well, apps/explorer/.scss/base.css paired with apps/perps/src/styles/.scss/base.css, because commit 637c9c63da replaced the perps file with an import of the explorer stylesheet; record it in tests/ci/repair_22_39_152.kvx as removed.13 with that commit. Add three rows in the inventory format (source, copy, bytes, test_other_intentional_copies_match_sources, purpose): precompiles/layerxpay/abi.json as source and services/wallet/attestor/internal/policy/evm/abi/layerxpay.json as copy (the attestor embeds the LayerXPay precompile ABI it decodes); tools/bringup/tests/fixtures/repair_m793/committed.json as source and services/human/crates/layerx-human-service/tests/fixtures/repair_22_33_50/conformance-v4-committed.json as copy; services/platform/hosted/gateway/tests/fixtures/repair_22_31_202/node-committed.json as source and services/human/crates/layerx-human-service/tests/fixtures/repair_22_33_50/paxd-v4-committed.json as copy (the human service conformance tests replay the committed vectors those records fixed). Record each added row with the commits that added both files. The test file and every artifact stay unchanged. Run the build once and the verification once at the final revision and record both by reference; if the sync test reports a further row or pair, treat it the same way in the one allowed repair cycle and rerun once."
 
 [task.22.39.151]
 title = "Run the primary platform job unconditionally and guard only the quickstart benchmark step on its registry variables"
@@ -333946,11 +334005,11 @@ interfaces = []
 do_1 = "do_1 Decision 2820, gotcha 3471. The baseline tests/ci/data/agent_sdk_python_baseline.json lists the failing cases of services/agent/sdk/python/tests in test_repair_22_33_702.py (x402 RPC payment refusals, current receipts, web-search receipts), test_repair_22_33_16.py (exact amounts reaching the real intermediary), test_ai_market.py, test_web_search.py (offer-account-mismatch, unpaid refusal, metered side, version threshold) and test_x402.py (payment binding mismatch, supported verification): the payment producers (the x402 module, the web-search client, the ai-market program ABI and the receipt format) changed and the consumers did not follow; one web-search case calls verify_web_search_payment without its two new keyword-only arguments. Bring each test to the current producer contract, repairing the producer only where it regressed, and never loosen an assertion to pass."
 do_2 = "do_2 Delete the retired entries from the baseline file, leaving the entries of 22.39.119 in place, and keep the conftest reading the file."
 symbols = []
-touches = ["services/agent/sdk/python/tests", "services/agent/sdk/python/layerx_sdk", "tests/ci/data/agent_sdk_python_baseline.json"]
+touches = ["tests/agent/sdk/python/test_repair_22_33_702.py", "tests/agent/sdk/python/test_repair_22_33_16.py", "tests/agent/sdk/python/test_ai_market.py", "tests/agent/sdk/python/test_web_search.py", "tests/agent/sdk/python/test_x402.py", "services/agent/sdk/python/layerx_sdk", "tests/ci/data/agent_sdk_python_baseline.json"]
 tests = ["services/agent/sdk/python/tests/test_repair_22_33_702.py", "services/agent/sdk/python/tests/test_web_search.py", "services/agent/sdk/python/tests/test_ai_market.py", "services/agent/sdk/python/tests/test_x402.py"]
 planned_paths = []
-build_cmd = "python3 -m pytest -q --collect-only services/agent/sdk/python/tests > /dev/null"
-verify_cmd = "python3 -m pytest -q services/agent/sdk/python/tests/test_repair_22_33_702.py services/agent/sdk/python/tests/test_repair_22_33_16.py services/agent/sdk/python/tests/test_ai_market.py services/agent/sdk/python/tests/test_web_search.py services/agent/sdk/python/tests/test_x402.py"
+build_cmd = "python3 -m pytest -q --collect-only tests/agent/sdk/python services/agent/sdk/python/tests > /dev/null"
+verify_cmd = "python3 -m pytest -q tests/agent/sdk/python/test_repair_22_33_702.py tests/agent/sdk/python/test_repair_22_33_16.py tests/agent/sdk/python/test_ai_market.py tests/agent/sdk/python/test_web_search.py tests/agent/sdk/python/test_x402.py services/agent/sdk/python/tests"
 gate_kind = "planned"
 sandbox_profile = "python"
 owner_role = "fm-agent"
@@ -333975,11 +334034,11 @@ interfaces = []
 do_1 = "do_1 Decisions 2521 and 2820, gotcha 3471. The baseline tests/ci/data/agent_sdk_python_baseline.json lists the failing cases of services/agent/sdk/python/tests in test_repair_22_33_701.py, test_repair_22_33_15.py, test_repair_22_31_312.py, test_program_trust.py, test_program_typed_responses.py, test_program_response_code.py, test_program_executed_v3.py, test_program_pre_runtime.py, test_program_account_bound.py, test_program_http.py, test_account_derivation.py, test_evm_transaction.py, test_precompile_calls.py, test_native_program_binding.py, test_revert.py, test_px.py and test_mirror_process.py: 23 raise ValueError invalid-rpc-endpoint because they build node URLs with a path (the SDK requires the root endpoint of a node name on chain 125), 37 raise EvmTransactionError invalid_transaction because their transaction vectors predate the current producer format, and the rest assert program document fields, the stale program head message and mirror verification codes that the producers changed. Bring each test to the current producer (the SDK module, the node RPC document and the agent API golden files), repairing the producer only where it regressed, and never loosen an assertion to pass."
 do_2 = "do_2 Delete the retired entries from the baseline file, leaving the payment entries of 22.39.120 in place, and keep the conftest reading the file."
 symbols = []
-touches = ["services/agent/sdk/python/tests", "services/agent/sdk/python/layerx_sdk", "tests/ci/data/agent_sdk_python_baseline.json"]
+touches = ["tests/agent/sdk/python/test_repair_22_33_701.py", "tests/agent/sdk/python/test_repair_22_33_15.py", "tests/agent/sdk/python/test_repair_22_31_312.py", "tests/agent/sdk/python/test_program_trust.py", "tests/agent/sdk/python/test_program_typed_responses.py", "tests/agent/sdk/python/test_program_response_code.py", "tests/agent/sdk/python/test_program_executed_v3.py", "tests/agent/sdk/python/test_program_pre_runtime.py", "tests/agent/sdk/python/test_program_account_bound.py", "tests/agent/sdk/python/test_program_http.py", "tests/agent/sdk/python/test_account_derivation.py", "tests/agent/sdk/python/test_evm_transaction.py", "tests/agent/sdk/python/test_precompile_calls.py", "tests/agent/sdk/python/test_native_program_binding.py", "tests/agent/sdk/python/test_revert.py", "tests/agent/sdk/python/test_px.py", "tests/agent/sdk/python/test_mirror_process.py", "services/agent/sdk/python/layerx_sdk", "tests/ci/data/agent_sdk_python_baseline.json"]
 tests = ["services/agent/sdk/python/tests/test_evm_transaction.py", "services/agent/sdk/python/tests/test_account_derivation.py", "services/agent/sdk/python/tests/test_repair_22_33_701.py", "services/agent/sdk/python/tests/test_program_pre_runtime.py"]
-planned_paths = []
-build_cmd = "python3 -m pytest -q --collect-only services/agent/sdk/python/tests > /dev/null"
-verify_cmd = "python3 -m pytest -q services/agent/sdk/python/tests"
+planned_paths = ["tests/agent/sdk/python/repair_22_39_119.kvx"]
+build_cmd = "python3 -m pytest -q --collect-only tests/agent/sdk/python services/agent/sdk/python/tests > /dev/null"
+verify_cmd = "python3 -m pytest -q tests/agent/sdk/python services/agent/sdk/python/tests"
 gate_kind = "planned"
 sandbox_profile = "python"
 owner_role = "fm-agent"
@@ -333991,6 +334050,7 @@ time_limit_minutes = 240
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_3 = "Attempt 2 (relaunch, gotcha 3592, decision 2895): attempt 1 made no change because the seventeen test files of do_1 live in tests/agent/sdk/python; those files, the SDK package and the baseline file are now the touches, and the build and verification collect tests/agent/sdk/python together with services/agent/sdk/python/tests so the baseline conftest applies. Repair the tests and the SDK as do_1 and do_2 say, delete the retired entries, leave the entries of 22.39.120 in place, and record each corrected test with the producer line it follows in tests/agent/sdk/python/repair_22_39_119.kvx. Run the build once and the verification once at the final revision and record both by reference."
 
 [task.22.39.115]
 title = "Set the twelve first-party packages that are not at 0.1.0 to 0.1.0 and test the rule"
@@ -334081,7 +334141,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.112]
 title = "Retarget the .NET SDK, its tests and the C# sample to net10.0"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.39.51"]

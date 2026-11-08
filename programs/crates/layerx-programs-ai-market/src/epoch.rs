@@ -44,6 +44,7 @@
 //!   F05 seal and applies the completed epoch inside the F05 terminal transition; [`history`]
 //!   runs `ResetHistory`/`SuspendHistory`/`ResumeHistory`; [`carry_reputation`] keeps the region
 //!   byte-identical across every other producer, which reads the F08 table only.
+use crate::types::GuestIndex as _;
 use crate::{
     admission::{AdmissionMeta, AdmissionTable, Participant},
     aggregation::{self, Outcome as Aggregated},
@@ -177,10 +178,10 @@ pub struct CapturedRoster {
 }
 impl CapturedRoster {
     pub fn workers(&self) -> &[WorkerRosterEntry] {
-        &self.workers[..self.worker_count]
+        self.workers.guest_index(..self.worker_count)
     }
     pub fn evaluators(&self) -> &[EvaluatorRosterEntry] {
-        &self.evaluators[..self.evaluator_count]
+        self.evaluators.guest_index(..self.evaluator_count)
     }
     pub fn view(&self) -> Roster<'_> {
         Roster {
@@ -197,15 +198,20 @@ impl CapturedRoster {
 /// Missing or disagreeing opening producers refuse instead of inventing a live roster.
 #[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn captured_roster(state: &SharedState<'_>) -> CodecResult<Option<CapturedRoster>> {
-    let (_, table) = split_joint(state.feature_sections[ADMISSION])?;
+    let (_, table) = split_joint(*state.feature_sections.guest_index(ADMISSION))?;
     let admission = AdmissionTable::decode(table)?;
-    let region =
-        authority::evaluator_region(state.feature_sections[Section::IdentityRoster.index()])?;
+    let region = authority::evaluator_region(
+        *state
+            .feature_sections
+            .guest_index(Section::IdentityRoster.index()),
+    )?;
     let Some(epoch) = admission.current_epoch() else {
         if region.snapshot().is_some() {
             return Err(WRONG_ROSTER);
         }
-        let settlement = state.feature_sections[Section::SettlementClaims.index()];
+        let settlement = *state
+            .feature_sections
+            .guest_index(Section::SettlementClaims.index());
         if !settlement.is_empty() {
             let rewards =
                 decode_reward_state(settlement.get(..REWARD_STATE_BYTES).ok_or(NON_CANONICAL)?)?;
@@ -231,8 +237,14 @@ pub fn captured_roster(state: &SharedState<'_>) -> CodecResult<Option<CapturedRo
     for (slot, entry) in evaluators.iter_mut().zip(snapshot.entries()) {
         *slot = entry.entry;
     }
-    let policy = PolicySection::decode(state.feature_sections[Section::PolicyLifecycle.index()])?;
-    let settlement = state.feature_sections[Section::SettlementClaims.index()];
+    let policy = PolicySection::decode(
+        *state
+            .feature_sections
+            .guest_index(Section::PolicyLifecycle.index()),
+    )?;
+    let settlement = *state
+        .feature_sections
+        .guest_index(Section::SettlementClaims.index());
     let rewards = decode_reward_state(settlement.get(..REWARD_STATE_BYTES).ok_or(WRONG_ROSTER)?)?;
     let row = rewards.row(epoch)?;
     let binding = FrozenBinding {
@@ -298,7 +310,11 @@ pub struct Activated {
 #[cfg_attr(target_arch = "wasm32", inline(never))]
 fn committed(current: &[u8]) -> CodecResult<(SharedState<'_>, PolicySection<'_>)> {
     let state = decode_shared_state(current)?;
-    let section = PolicySection::decode(state.feature_sections[Section::PolicyLifecycle.index()])?;
+    let section = PolicySection::decode(
+        *state
+            .feature_sections
+            .guest_index(Section::PolicyLifecycle.index()),
+    )?;
     if section.header.state_revision != state.revision {
         return Err(NON_CANONICAL);
     }
@@ -404,12 +420,14 @@ fn worker_roster(
             count += 1;
         }
     }
-    let first = found[0].ok_or(READINESS_BLOCKED)?;
+    let first = found.guest_index(0).ok_or(READINESS_BLOCKED)?;
     let mut roster = [first; MAX_WORKERS];
     for (slot, entry) in roster.iter_mut().zip(found.iter().flatten()) {
         *slot = *entry;
     }
-    codec::sort_by(&mut roster[..count], |a, b| a.worker.cmp(&b.worker));
+    codec::sort_by(roster.guest_index_mut(..count), |a, b| {
+        a.worker.cmp(&b.worker)
+    });
     Ok((roster, count))
 }
 
@@ -499,7 +517,7 @@ fn reserve<'o>(
     let (reserved, _) = rewards.reserve_epoch(epoch, budget, roster, workers, height, head)?;
     rest.get_mut(..tail.len())
         .ok_or(CAPACITY)?
-        .copy_from_slice(tail);
+        .guest_copy_from_slice(tail);
     Ok((budget, section.len(), reserved))
 }
 
@@ -513,7 +531,7 @@ struct FrozenRoster {
 }
 impl FrozenRoster {
     fn workers(&self) -> &[WorkerRosterEntry] {
-        &self.workers[..self.worker_count]
+        self.workers.guest_index(..self.worker_count)
     }
 }
 
@@ -527,11 +545,12 @@ fn freeze(
     height: u64,
     identity_out: &mut [u8],
 ) -> CodecResult<FrozenRoster> {
-    let admission = AdmissionTable::decode(sections[Section::ReputationAdmission.index()])?;
-    let identity = sections[Section::IdentityRoster.index()];
+    let admission =
+        AdmissionTable::decode(*sections.guest_index(Section::ReputationAdmission.index()))?;
+    let identity = *sections.guest_index(Section::IdentityRoster.index());
     let workers = WorkerTable::decode(authority::split_identity_section(identity)?.0)?;
     let (worker_roster, worker_count) = worker_roster(&admission, &workers, height)?;
-    let frozen_workers = &worker_roster[..worker_count];
+    let frozen_workers = worker_roster.guest_index(..worker_count);
     let snapshot = authority::open_epoch(
         identity,
         &SnapshotContext {
@@ -545,7 +564,7 @@ fn freeze(
     )?;
     let identity_next = identity_out.get(..snapshot.section_len).ok_or(CAPACITY)?;
     let (evaluators, evaluator_count) = evaluator_roster(identity_next, epoch)?;
-    let frozen_evaluators = &evaluators[..evaluator_count];
+    let frozen_evaluators = evaluators.guest_index(..evaluator_count);
     check_independence(
         selected.header.owner_principal,
         frozen_workers,
@@ -596,7 +615,7 @@ fn open_reputation(
     if region.seal != Presence::Absent {
         return Err(NON_CANONICAL);
     }
-    let identity = sections[Section::IdentityRoster.index()];
+    let identity = *sections.guest_index(Section::IdentityRoster.index());
     let workers = WorkerTable::decode(split_identity_section(identity)?.0)?;
     let departed = |worker: WorkerId| !matches!(workers.get(worker), Some(record) if record.state != WorkerState::Retired);
     let opened = open_segments(
@@ -636,6 +655,7 @@ fn compose(
     scratch: &mut [u8],
 ) -> CodecResult<Composed> {
     let (state, section) = committed(current)?;
+    let current_revision = state.revision;
     let epoch = opening_epoch(&section.header, height)?;
     let (selected, policy_activated) = select_policy(&section, epoch)?;
     let (rolled, rest) = scratch
@@ -649,16 +669,16 @@ fn compose(
     let (policy_out, rest) = rest.split_at_mut_checked(POLICY_CAP).ok_or(CAPACITY)?;
     let (control_out, rest) = rest.split_at_mut_checked(CONTROL_CAP).ok_or(CAPACITY)?;
     let (stripped_out, joint_out) = rest.split_at_mut_checked(MAX_STATE_BYTES).ok_or(CAPACITY)?;
-    let (region, table) = split_joint(state.feature_sections[ADMISSION])?;
+    let (region, table) = split_joint(*state.feature_sections.guest_index(ADMISSION))?;
     let source: &[u8] = if region.is_some() {
-        let stripped = state.replace_section(Section::ReputationAdmission, table)?;
+        let stripped = state.with_section(Section::ReputationAdmission, table)?;
         let len = encode_shared_state(&stripped, stripped_out, control_out)?;
         stripped_out.get(..len).ok_or(CAPACITY)?
     } else {
         current
     };
     let (opened, settlement, rewards) =
-        roster::rollover_roster_with(source, height, state.revision, rolled, work)?;
+        roster::rollover_roster_with(source, height, current_revision, rolled, work)?;
     let rolled = decode_shared_state(rolled.get(..opened.state_len).ok_or(CAPACITY)?)?;
     let sections = rolled.feature_sections;
     let frozen = freeze(&sections, &selected, epoch, height, identity_out)?;
@@ -673,7 +693,7 @@ fn compose(
         settlement_out,
     )?;
     let admission_next = match region {
-        None => sections[ADMISSION],
+        None => *sections.guest_index(ADMISSION),
         Some(region) => {
             let reputation = open_reputation(
                 &region,
@@ -684,11 +704,11 @@ fn compose(
                 &reserved,
                 height,
             )?;
-            let len = encode_joint(&reputation, sections[ADMISSION], joint_out)?;
+            let len = encode_joint(&reputation, *sections.guest_index(ADMISSION), joint_out)?;
             joint_out.get(..len).ok_or(CAPACITY)?
         }
     };
-    let revision = state.revision.checked_add(1).ok_or(ARITHMETIC)?;
+    let revision = current_revision.checked_add(1).ok_or(ARITHMETIC)?;
     let mut next_policy = selected;
     next_policy.task_region = tasks::region_after_open(selected.task_region)?;
     next_policy.header.state_revision = revision;
@@ -696,13 +716,13 @@ fn compose(
     let next_state = SharedState {
         revision,
         feature_sections: [
-            &policy_out[..policy_len],
-            &identity_out[..frozen.identity_len],
-            sections[Section::CurrentReports.index()],
-            &settlement_out[..settlement_len],
+            policy_out.guest_index(..policy_len),
+            identity_out.guest_index(..frozen.identity_len),
+            *sections.guest_index(Section::CurrentReports.index()),
+            settlement_out.guest_index(..settlement_len),
             admission_next,
         ],
-        control: rolled.control.clone(),
+        control: rolled.control,
     };
     check_f01_capacity(policy_len, next_state.encoded_len()?)?;
     let state_len = encode_shared_state(&next_state, next, control_out)?;
@@ -761,11 +781,14 @@ fn already_opened(
     e: &Envelope<'_>,
     epoch: u64,
 ) -> CodecResult<Option<RosterDigest>> {
-    let admission = AdmissionTable::decode(split_joint(state.feature_sections[ADMISSION])?.1)?;
+    let admission =
+        AdmissionTable::decode(split_joint(*state.feature_sections.guest_index(ADMISSION))?.1)?;
     if admission.current_epoch() != Some(epoch) {
         return Ok(None);
     }
-    let section = state.feature_sections[Section::SettlementClaims.index()];
+    let section = *state
+        .feature_sections
+        .guest_index(Section::SettlementClaims.index());
     if section.is_empty() {
         return Err(WRONG_EPOCH);
     }
@@ -785,13 +808,15 @@ fn already_opened(
 fn open_suffix(f: &Frozen) -> CodecResult<[u8; OPEN_SUFFIX_BYTES]> {
     let mut suffix = [0; OPEN_SUFFIX_BYTES];
     let mut w = Writer::new(&mut suffix);
-    w.put(f.policy.as_bytes())?;
-    w.put(f.roster.as_bytes())?;
-    w.u128(f.budget)?;
-    w.u8(f.workers)?;
-    w.u8(f.evaluators)?;
-    w.boolean(f.policy_activated)?;
-    w.boolean(f.previous.is_some())?;
+    crate::codec::write_fields!(w;
+        id32: f.policy.as_bytes();
+        id32: f.roster.as_bytes();
+        u128: f.budget;
+        u8: f.workers;
+        u8: f.evaluators;
+        u8: u8::from(f.policy_activated);
+        u8: u8::from(f.previous.is_some());
+    )?;
     w.u64(f.previous.unwrap_or(0))?;
     w.u64(f.skipped)?;
     Ok(suffix)
@@ -814,6 +839,7 @@ fn open_suffix(f: &Frozen) -> CodecResult<[u8; OPEN_SUFFIX_BYTES]> {
 /// config and roster; `ROLE_CONFLICT`; `READINESS_BLOCKED`; `INSUFFICIENT_FREE`;
 /// `ACCOUNT_BINDING`; and every rollover, F03 snapshot, F06 reserve, capacity and codec
 /// refusal. On any error `current` is unchanged and the outputs must be discarded.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn open_epoch(
     ctx: &CallContext,
     envelope: &ValidatedEnvelope<'_>,
@@ -876,7 +902,9 @@ fn opened_readiness(
     policy: &TaskPolicyV1,
     epoch: u64,
 ) -> CodecResult<Readiness> {
-    let section = state.feature_sections[Section::SettlementClaims.index()];
+    let section = *state
+        .feature_sections
+        .guest_index(Section::SettlementClaims.index());
     let rewards = decode_reward_state(section.get(..REWARD_STATE_BYTES).ok_or(READINESS_BLOCKED)?)?;
     let row = rewards.row(epoch)?;
     if row.status != EpochStatus::Reserved {
@@ -885,8 +913,11 @@ fn opened_readiness(
     if row.budget < policy.minimum_epoch_funding {
         return Err(INSUFFICIENT_FREE);
     }
-    let region =
-        authority::evaluator_region(state.feature_sections[Section::IdentityRoster.index()])?;
+    let region = authority::evaluator_region(
+        *state
+            .feature_sections
+            .guest_index(Section::IdentityRoster.index()),
+    )?;
     let snapshot = region
         .snapshot()
         .filter(|s| s.epoch == epoch)
@@ -927,7 +958,8 @@ fn probe(
     active.header.state_revision = revision;
     let policy_len = active.encode(policy_out)?;
     let mut feature_sections = state.feature_sections;
-    feature_sections[Section::PolicyLifecycle.index()] = &policy_out[..policy_len];
+    *feature_sections.guest_index_mut(Section::PolicyLifecycle.index()) =
+        policy_out.guest_index(..policy_len);
     let candidate = SharedState {
         revision,
         feature_sections,
@@ -936,7 +968,8 @@ fn probe(
     check_f01_capacity(policy_len, candidate.encoded_len()?)?;
     let state_len = encode_shared_state(&candidate, next, control_out)?;
     let epoch = work_epoch(&active.header, height)?;
-    let admission = AdmissionTable::decode(split_joint(state.feature_sections[ADMISSION])?.1)?;
+    let admission =
+        AdmissionTable::decode(split_joint(*state.feature_sections.guest_index(ADMISSION))?.1)?;
     let readiness = if admission.current_epoch() == Some(epoch) {
         opened_readiness(&state, &active.current, epoch)?
     } else {
@@ -989,6 +1022,7 @@ fn parse_advance(payload: &[u8]) -> CodecResult<(u64, u64)> {
 /// epoch; `WRONG_EPOCH`/`ARITHMETIC`/`WRONG_PHASE` from the clock;
 /// `F01_ACTIVATION_TOO_EARLY`; `F01_ACTIVATION_NOT_READY` for any failed prerequisite (see
 /// [`activation_readiness`]). The schedule, funds and `current` are unchanged on refusal.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn advance_activation(
     ctx: &CallContext,
     envelope: &ValidatedEnvelope<'_>,
@@ -1030,9 +1064,11 @@ pub fn advance_activation(
         probe(current, ctx.height, next, scratch).map_err(|_| F01_ACTIVATION_NOT_READY)?;
     let mut suffix = [0; ACTIVATION_SUFFIX_BYTES];
     let mut w = Writer::new(&mut suffix);
-    w.u64(header.activation_epoch)?;
-    w.u64(epoch)?;
-    w.u64(ctx.height)?;
+    crate::codec::write_fields!(w;
+        u64: header.activation_epoch;
+        u64: epoch;
+        u64: ctx.height;
+    )?;
     let result = codec::result_digest(&suffix)?;
     let event_len = codec::encode_event_frame(
         dispatch::ADVANCE_ACTIVATION,
@@ -1061,6 +1097,7 @@ pub fn advance_activation(
 /// the produced state. `produce` receives the region-free state and `next`, and returns its
 /// outcome with the written state length (`None` when it wrote nothing). Without an F07 region
 /// `produce` runs over `current` unchanged. The returned length is the length in `next`.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 fn with_region<T>(
     current: &[u8],
     next: &mut [u8],
@@ -1069,7 +1106,7 @@ fn with_region<T>(
     update: impl FnOnce(&Region, &SharedState<'_>, &SharedState<'_>, &T) -> CodecResult<Region>,
 ) -> CodecResult<(T, Option<usize>)> {
     let state = decode_shared_state(current)?;
-    let (region, table) = split_joint(state.feature_sections[ADMISSION])?;
+    let (region, table) = split_joint(*state.feature_sections.guest_index(ADMISSION))?;
     let Some(region) = region else {
         return produce(current, next);
     };
@@ -1084,20 +1121,23 @@ fn with_region<T>(
         return Ok((value, None));
     };
     let produced = stripped.get_mut(..written).ok_or(CAPACITY)?;
-    produced.copy_from_slice(next.get(..written).ok_or(CAPACITY)?);
+    produced.guest_copy_from_slice(next.get(..written).ok_or(CAPACITY)?);
     let produced = decode_shared_state(produced)?;
-    let (again, table) = split_joint(produced.feature_sections[ADMISSION])?;
+    let (again, table) = split_joint(*produced.feature_sections.guest_index(ADMISSION))?;
     if again.is_some() {
         return Err(NON_CANONICAL);
     }
     let region = update(&region, &state, &produced, &value)?;
     let joint_len = encode_joint(&region, table, joint)?;
-    let candidate = produced.replace_section(
+    let candidate = produced.with_section(
         Section::ReputationAdmission,
         joint.get(..joint_len).ok_or(CAPACITY)?,
     )?;
     check_f01_capacity(
-        candidate.feature_sections[Section::PolicyLifecycle.index()].len(),
+        candidate
+            .feature_sections
+            .guest_index(Section::PolicyLifecycle.index())
+            .len(),
         candidate.encoded_len()?,
     )?;
     let state_len = encode_shared_state(&candidate, next, control)?;
@@ -1149,7 +1189,9 @@ fn epoch_row<'a>(
     state: &SharedState<'a>,
     epoch: u64,
 ) -> CodecResult<(RewardState<'a>, RewardEpoch)> {
-    let settlement = state.feature_sections[Section::SettlementClaims.index()];
+    let settlement = *state
+        .feature_sections
+        .guest_index(Section::SettlementClaims.index());
     let rewards = decode_reward_state(settlement.get(..REWARD_STATE_BYTES).ok_or(WRONG_EPOCH)?)?;
     let row = rewards.row(epoch)?;
     Ok((rewards, row))
@@ -1163,13 +1205,16 @@ fn seal_region(region: &Region, produced: &SharedState<'_>, epoch: u64) -> Codec
     }
     let (rewards, row) = epoch_row(produced, epoch)?;
     let (roster, count) = frozen_workers(produced, &rewards, &row)?;
-    let mut workers = [roster[0].worker; MAX_WORKERS];
+    let mut workers = [roster.guest_index(0).worker; MAX_WORKERS];
     for (slot, entry) in workers.iter_mut().zip(roster.get(..count).ok_or(CAPACITY)?) {
         *slot = entry.worker;
     }
-    let admission = AdmissionTable::decode(produced.feature_sections[ADMISSION])?;
-    let identity =
-        authority::evaluator_region(produced.feature_sections[Section::IdentityRoster.index()])?;
+    let admission = AdmissionTable::decode(*produced.feature_sections.guest_index(ADMISSION))?;
+    let identity = authority::evaluator_region(
+        *produced
+            .feature_sections
+            .guest_index(Section::IdentityRoster.index()),
+    )?;
     let snapshot = identity
         .snapshot()
         .filter(|s| s.epoch == epoch)
@@ -1235,8 +1280,11 @@ fn complete_region(
     root: Digest32,
     height: u64,
 ) -> CodecResult<Region> {
-    let section =
-        PolicySection::decode(produced.feature_sections[Section::PolicyLifecycle.index()])?;
+    let section = PolicySection::decode(
+        *produced
+            .feature_sections
+            .guest_index(Section::PolicyLifecycle.index()),
+    )?;
     let header = &section.header;
     let (rewards, row) = epoch_row(before, epoch)?;
     let frozen = FrozenBinding {
@@ -1249,7 +1297,9 @@ fn complete_region(
     };
     let (roster, count) = frozen_workers(before, &rewards, &row)?;
     let roster = roster.get(..count).ok_or(CAPACITY)?;
-    let settlement = produced.feature_sections[Section::SettlementClaims.index()];
+    let settlement = *produced
+        .feature_sections
+        .guest_index(Section::SettlementClaims.index());
     let tail = settlement.get(REWARD_STATE_BYTES..).ok_or(NON_CANONICAL)?;
     let record = tail.get(..f05_record_len(tail)?).ok_or(NON_CANONICAL)?;
     let current = decode_current(record, frozen, roster)?;
@@ -1302,6 +1352,7 @@ fn complete_region(
 /// `F07_UNKNOWN_WORKER`, `RETENTION_FULL`, `WRONG_EPOCH` and `F07_RESOURCE_LIMIT` from the F07
 /// completion; capacity and codec refusals. On any error `current` is unchanged and the outputs
 /// must be discarded.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn aggregate(
     ctx: &CallContext,
     envelope: &ValidatedEnvelope<'_>,
@@ -1390,23 +1441,24 @@ struct HistoryRequest {
     reason: u8,
 }
 
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 fn parse_history(payload: &[u8]) -> CodecResult<HistoryRequest> {
     if payload.len() != HISTORY_PAYLOAD_BYTES {
         return Err(NON_CANONICAL);
     }
     let mut r = Reader::new(payload);
-    let request = HistoryRequest {
-        worker: r.worker_id()?,
-        segment: r.digest32()?,
-        generation: r.u64()?,
-        reason: r.u8()?,
-    };
+    let request = crate::codec::read_record!(&mut r, HistoryRequest {  }; worker = r.worker_id()?;
+        segment: Digest32,
+        generation: U64,
+        reason: U8
+    );
     r.finish()?;
     Ok(request)
 }
 
 /// The authorized principal and replay slot of a history request: the worker owner for
 /// `OWNER_RESET`, the market owner otherwise.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 fn history_authority(
     operation: dispatch::Operation,
     request: &HistoryRequest,
@@ -1436,6 +1488,7 @@ fn history_authority(
 
 /// The authorized role-sequenced replay request of a history call, or the retained result of
 /// its exact repetition.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 fn history_replay(
     envelope: &ValidatedEnvelope<'_>,
     state: &SharedState<'_>,
@@ -1444,7 +1497,9 @@ fn history_replay(
     height: u64,
 ) -> CodecResult<Result<ReplayRequest, RetainedResult>> {
     let e = &envelope.envelope;
-    let identity = state.feature_sections[Section::IdentityRoster.index()];
+    let identity = *state
+        .feature_sections
+        .guest_index(Section::IdentityRoster.index());
     let (principal, slot) = history_authority(e.operation, body, header, identity)?;
     if e.actor != principal {
         return Err(UNAUTHORIZED);
@@ -1463,6 +1518,7 @@ fn history_replay(
 }
 
 /// Refuses a reset while the opened, nonterminal epoch's frozen roster binds `worker`.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 fn check_not_frozen(state: &SharedState<'_>, table: &[u8], worker: WorkerId) -> CodecResult<()> {
     let Some(epoch) = AdmissionTable::decode(table)?.current_epoch() else {
         return Ok(());
@@ -1483,6 +1539,7 @@ fn check_not_frozen(state: &SharedState<'_>, table: &[u8], worker: WorkerId) -> 
 /// The record a checked history request produces and its event suffix written into `suffix`:
 /// the reset closes the segment into the next generation under `binding`; suspension and
 /// resumption change only the status.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 fn history_transition(
     operation: dispatch::Operation,
     (record, key): (ReputationCurrent, SegmentKey),
@@ -1502,11 +1559,13 @@ fn history_transition(
             latest,
             height,
         )?;
-        w.put(body.worker.as_bytes())?;
-        w.put(record.segment.as_bytes())?;
-        w.put(updated.segment.as_bytes())?;
-        w.u64(updated.reset_generation.get())?;
-        w.u8(body.reason)?;
+        crate::codec::write_fields!(w;
+            id32: body.worker.as_bytes();
+            id32: record.segment.as_bytes();
+            id32: updated.segment.as_bytes();
+            u64: updated.reset_generation.get();
+            u8: body.reason;
+        )?;
         return Ok((updated, RESET_SUFFIX_BYTES));
     }
     let status = if operation == dispatch::SuspendHistory {
@@ -1515,11 +1574,13 @@ fn history_transition(
         HistoryStatus::Active
     };
     let updated = set_status(&record, key, status, height)?;
-    w.put(body.worker.as_bytes())?;
-    w.put(updated.segment.as_bytes())?;
-    w.u64(updated.reset_generation.get())?;
-    w.u8(status as u8)?;
-    w.u8(body.reason)?;
+    crate::codec::write_fields!(w;
+        id32: body.worker.as_bytes();
+        id32: updated.segment.as_bytes();
+        u64: updated.reset_generation.get();
+        u8: status as u8;
+        u8: body.reason;
+    )?;
     Ok((updated, STATUS_SUFFIX_BYTES))
 }
 
@@ -1546,6 +1607,7 @@ fn history_transition(
 /// retired record or an unchanged status; `F07_BINDING_MISMATCH` for a model/policy reason
 /// without that change; capacity and codec refusals. On any error `current` is unchanged and
 /// the outputs must be discarded.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn history(
     ctx: &CallContext,
     envelope: &ValidatedEnvelope<'_>,
@@ -1567,7 +1629,7 @@ pub fn history(
         return Err(WRONG_CONFIG);
     }
     let body = parse_history(e.payload)?;
-    let (region, table) = split_joint(state.feature_sections[ADMISSION])?;
+    let (region, table) = split_joint(*state.feature_sections.guest_index(ADMISSION))?;
     let region = region.ok_or(F07_UNKNOWN_WORKER)?;
     let request = match history_replay(envelope, &state, &section.header, &body, ctx.height)? {
         Ok(request) => request,
@@ -1609,13 +1671,13 @@ pub fn history(
     section.header.state_revision = revision;
     let policy_len = section.encode(policy_out)?;
     let mut feature_sections = state.feature_sections;
-    feature_sections[Section::PolicyLifecycle.index()] =
+    *feature_sections.guest_index_mut(Section::PolicyLifecycle.index()) =
         policy_out.get(..policy_len).ok_or(CAPACITY)?;
-    feature_sections[ADMISSION] = joint_out.get(..joint_len).ok_or(CAPACITY)?;
+    *feature_sections.guest_index_mut(ADMISSION) = joint_out.get(..joint_len).ok_or(CAPACITY)?;
     let mut candidate = SharedState {
         revision: state.revision,
         feature_sections,
-        control: state.control.clone(),
+        control: state.control,
     };
     let result = codec::result_digest(suffix)?;
     if candidate.record_success(&request, ctx.height, result)? != ReplayDecision::Apply
