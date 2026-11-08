@@ -1,1 +1,0 @@
-tools/ci/tests/test_beta_ledger_paths.py::BetaLedgerPathsTest::test_ledger_check_reads_layerx_merge_ledger

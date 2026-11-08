@@ -27,7 +27,7 @@ Parsing rules:
     scalar; a value containing ${...} is a violation because ledger values must
     be literal
   * a section is gate.<task>.<n>, observation.<task>.<n>, or a layerx-merge
-    finding.<N>.<k>.<m>[.<n>]; any other section name is a violation
+    finding.<N>.<k>.<m>[.<n>][.a<attempt>]; any other section name is a violation
 
 Gate records ([gate.<task>.<n>]) must satisfy:
   * keys task, reqs, revision, command, environment, started_at, outcome,
@@ -69,8 +69,11 @@ Observation records ([observation.<task>.<n>]) must satisfy:
     severity is blocker, suspect, assumption or note
   * no gate key (reqs, revision, command, environment, started_at, outcome,
     evidence, note) and no other unknown key is present
+  * a three-component layerx-merge task uses the same exact six non-empty
+    strings, matching task and feature-spec membership checks as a finding
 
-Finding records ([finding.<N>.<k>.<m>] or [finding.<N>.<k>.<m>.<n>]) must satisfy:
+Finding records ([finding.<N>.<k>.<m>[.<n>][.a<attempt>]]) must satisfy:
+  * a repeated finding uses an attempt suffix starting at .a2
   * exactly task, file, symbol, observed, assumption and severity, all non-empty
     quoted strings; task matches <N>.<k>.<m> and exists in the feature spec
   * severity is blocker, suspect, assumption or note; findings confer no gate credit
@@ -945,9 +948,14 @@ PY
                 *) violations+=("$line_ref: [$section] severity '${value[$section$'\037'severity]}' is not blocker, suspect, assumption or note") ;;
                 esac
             fi
-        elif [[ $section =~ ^finding\.([0-9]+\.[0-9]+\.[0-9]+)(\.[1-9][0-9]*)?$ ]]; then
-            findings=$((findings + 1))
+        elif [[ $section =~ ^finding\.([0-9]+\.[0-9]+\.[0-9]+)(\.[1-9][0-9]*)?(\.a([2-9]|[1-9][0-9]+))?$ ]] ||
+             [[ $section =~ ^observation\.([0-9]+\.[0-9]+\.[0-9]+)\.([1-9][0-9]*)$ ]]; then
             task_part=${BASH_REMATCH[1]}
+            if [[ $section == finding.* ]]; then
+                findings=$((findings + 1))
+            else
+                observations=$((observations + 1))
+            fi
             for key in $observation_keys; do
                 if [ -z "${value[$section$'\037'$key]+x}" ]; then
                     violations+=("$line_ref: [$section] lacks key '$key'")
