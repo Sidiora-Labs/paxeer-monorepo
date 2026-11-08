@@ -5,7 +5,7 @@ use std::thread::{self, JoinHandle};
 use std::time::{Duration, Instant};
 
 use layerx_agentd::node_rpc::{NodeRpc, NodeRpcConfig, NodeRpcError};
-use layerx_client::sequencer::CallRequest;
+use layerx_client::sequencer::{CallRequest, ReceiptKeyEntry};
 use serde_json::{json, Value};
 
 fn must<T, E: std::fmt::Debug>(result: Result<T, E>) -> T {
@@ -227,10 +227,18 @@ fn node_rpc_config_requires_both_variables() {
 }
 
 fn published_keys() -> Value {
+    let key = ReceiptKeyEntry {
+        key_id: [1; 32],
+        public_key: ed25519_dalek::SigningKey::from_bytes(&[8; 32])
+            .verifying_key()
+            .to_bytes(),
+        first_height: 100,
+        last_height: 199,
+    };
     json!({"keys": [{
-        "keyId": format!("0x{}", "01".repeat(32)),
-        "publicKey": format!("0x{}", hex::encode(ed25519_dalek::SigningKey::from_bytes(&[8;32]).verifying_key().as_bytes())),
-        "firstHeight": 100, "lastHeight": 199
+        "keyId": format!("0x{}", hex::encode(key.key_id)),
+        "publicKey": format!("0x{}", hex::encode(key.public_key)),
+        "firstHeight": key.first_height, "lastHeight": key.last_height
     }]})
 }
 
