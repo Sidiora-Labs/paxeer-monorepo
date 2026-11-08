@@ -37,7 +37,13 @@ while IFS='|' read -r target classification; do
                 *) echo "core-test-all omits declared gate: $target" >&2; exit 1 ;;
             esac
             ;;
-        covered-by-*|environment-blocked-*) ;;
+        covered-by-*)
+            covering=${classification#covered-by-}
+            grep -Eq "^${covering}:" "$makefile" "$sanitizer_makefile" || {
+                echo "core gate covering target is absent: $covering" >&2; exit 1;
+            }
+            ;;
+        environment-blocked-?*) ;;
         *) echo "unknown core gate classification: $classification" >&2; exit 1 ;;
     esac
 done < "$inventory"

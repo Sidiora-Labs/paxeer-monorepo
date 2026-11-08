@@ -1,5 +1,38 @@
 #![allow(dead_code)]
 
+// Task 9.35.22: repair_22_31_545::retained_authorization follows the call-bound
+// preparation producer of 9.35.17; its consent-reopen restoration and
+// repair_22_31_217::repair_wire_carrier_binds_the_retained_signing_preparation_after_restart
+// follow 9.35.19's retained-call restoration (decode_unsigned, bind_call and the
+// observed head). The latter also checks the legacy native carrier through its
+// retained signing preparation while the production carrier interface remains.
+// human_node_preparation follows ProductionCorePreparationBoundary in
+// src/prepare/mod.rs: protocol_timestamp converts the head's seconds to
+// milliseconds (decision 2704), retaining the served blocks unchanged.
+// The node_recovery cases in limits/exactly_once.rs follow the authenticated
+// receipt ingress in src/human_runtime.rs and src/receipt.rs: repeated storage
+// returns the same ServedReceipt, including canonical bytes and metadata.
+// Their inventory follows src/receipt.rs's authenticated ingress and
+// evidence_inventory (lines 971-1007 and 513-600), as tests/outbox_recover.rs:381
+// does: one current evidence entry for the receipt, no legacy or absent evidence
+// entries (decision 2958).
+// PreparationLifecycle::register_inner follows 9.35.19's durable preparation
+// record and restore check: expire at the earlier of not_after and
+// payload_expires_at, preserving the prepare_expiry assertions (decision 2961).
+// The proof_agentd store directory is canonical and created with mode 0700,
+// as required by Store's ProtectedRoot; the first verification's refusal is
+// retained in /out/logs/verify-1.log and /out/run/gates.jsonl.
+// proof_agentd's pending-attempt recovery uses a separate private idempotency
+// directory at all three opens, following the sibling recovery test and
+// src/human_runtime.rs's per-tenant idempotency store layout (decision 2963);
+// the outbox continues to enqueue and restore in the shared store directory.
+// native_lifecycle_debits follows read_retained_native_call_debit_settlement's
+// owner and allocation checks: both settlement paths derive the actor from the
+// retained envelope actor DID through retained_actor_id, including the actor
+// passed to committed_exit_debit (decision 2969).
+// Qualification references: the final matching build and verify entries in
+// /out/run/gates.jsonl contain the revision, command, exit and private log.
+
 use std::collections::{BTreeMap, BTreeSet};
 use std::future::Future;
 use std::io::{BufRead, BufReader, Read, Write};
@@ -17,7 +50,9 @@ use ed25519_dalek::{Signer as _, SigningKey};
 use layerx_agentd::boot::{Gate, GateError};
 use layerx_agentd::config::{ReceiptKeySource, StartupConfig};
 use layerx_agentd::protocol_evidence::{EvidenceAuthority, RawReceiptEvidence, RawStateEvidence};
-use layerx_agentd::sign::{verify_before_submit, SigningPreparation, VerifiedSubmission};
+use layerx_agentd::sign::{
+    attach_external_signature, verify_before_submit, SigningPreparation, VerifiedSubmission,
+};
 use layerx_agentd::store::TenantId;
 use layerx_client::sequencer::{ReceiptKeyEntry, SequencerEndpoint};
 use layerx_crypto::evm_transaction::{
@@ -86,14 +121,13 @@ pub fn signed_transaction(id: u8) -> Vec<u8> {
 }
 
 pub fn verified_submission(id: u8) -> VerifiedSubmission {
-    let prepared = send_authorization::preparation(id);
-    let signed = must(prepared.transaction.call.sign(&[0xa5; 32]));
-    must(verify_before_submit(
-        &signed,
-        &prepared,
-        &prepared.actor_address,
+    verified_evm_call(
+        layerx_agentd::prepare::PrecompileCall::ledger_transfer(send_authorization::signed_debit(
+            &send_authorization::debit(id),
+        )),
+        5,
         &registry(),
-    ))
+    )
 }
 
 fn evm_sender() -> [u8; 20] {
@@ -136,7 +170,13 @@ fn verified_evm_call(
         transaction,
         actor_address,
     };
-    let signed = must(prepared.transaction.call.sign(&[0xa5; 32]));
+    let key = must(k256::ecdsa::SigningKey::from_slice(&[0xa5; 32]));
+    let (signature, recovery) =
+        must(key.sign_prehash_recoverable(&prepared.transaction.signing_hash));
+    let mut external_signature = [0; 65];
+    external_signature[..64].copy_from_slice(&signature.to_bytes());
+    external_signature[64] = 27 + recovery.to_byte();
+    let signed = must(attach_external_signature(&prepared, external_signature));
     must(verify_before_submit(
         &signed,
         &prepared,
@@ -744,6 +784,8 @@ pub fn rpc_hex(bytes: &[u8]) -> String {
     format!("0x{}", hex::encode(bytes))
 }
 
+pub const PAYMENT_DENOM: &str = "upax";
+
 const HEIGHT: u64 = 150;
 const KEY_ID: [u8; 32] = [1; 32];
 
@@ -784,7 +826,7 @@ fn encoded_receipt(
     must(summary.u32(2));
     must(summary.u32(1));
     must(summary.u8(4));
-    must(summary.fixed(b"upax"));
+    must(summary.fixed(PAYMENT_DENOM.as_bytes()));
     let mut log = vec![8; 20];
     log.push(1);
     log.extend_from_slice(&[9; 32]);
@@ -815,7 +857,7 @@ fn encoded_receipt(
     must(encoder.u32(1));
     must(encoder.u32(0));
     must(encoder.u8(2));
-    must(encoder.bytes(&sha256(b"upax"), 32));
+    must(encoder.bytes(&sha256(PAYMENT_DENOM.as_bytes()), 32));
     must(encoder.u128(amount));
     must(encoder.bytes(&from, 32));
     must(encoder.u128(21_001 + amount));
@@ -902,7 +944,7 @@ pub fn sequencer_receipt_with_details(
         "logs": [{"address": rpc_hex(&[8; 20]), "topics": [rpc_hex(&[9; 32])],
             "data": "0x0a0b", "logIndex": "0x0"}],
         "gasUsed": "0x5208", "cumulativeGasUsed": "0xa410", "effectiveGasPrice": "0x1",
-        "paymentDenom": "upax", "feeDenom": "upax", "feeAmount": "0x5208", "sponsor": rpc_hex(&[0; 20]),
+        "paymentDenom": PAYMENT_DENOM, "feeDenom": PAYMENT_DENOM, "feeAmount": "0x5208", "sponsor": rpc_hex(&[0; 20]),
         "from": rpc_hex(&sender), "to": rpc_hex(&transaction.to), "contractAddress": rpc_hex(&[0; 20]),
         "vmError": if success { "" } else { "execution reverted" },
         "keyId": rpc_hex(&KEY_ID), "receipt": rpc_hex(&bytes),

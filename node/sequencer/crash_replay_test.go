@@ -64,22 +64,22 @@ func TestCrashAfterReceiptReplaysIdenticalReceipt(t *testing.T) {
 			require.NoError(t, sb.Err())
 			require.Nil(t, f.n.ConsensusSource.Sealed())
 			entries := driverEntries(t, f.cfg.WALDir)
-			require.Len(t, entries, len(txs)+2)
+			require.Len(t, entries, len(txs)+3)
 			require.Equal(t, committed, entries[0])
 			require.IsType(t, &wal.Open{}, entries[1])
+			requireStartedLease(t, f, entries[2], 1)
 			for i := range txs {
 				require.Equal(t, &wal.Accept{
 					Height: uint64(openHeight), Seq: sourceLastSeq + uint64(i) + 1,
 					Tx: txs[i], Receipt: receipts[i],
-				}, entries[i+2])
+				}, entries[i+3])
 			}
 			require.Equal(t, commitID, f.app.CommitMultiStore().LastCommitID())
 			requireStoredSequence(t, f.app, f.app.GetCheckCtx(), sourceLastSeq, sourcePrevSeqHash)
 			require.Zero(t, f.app.EvmKeeper.GetNonce(f.app.GetCheckCtx(), sender.EvmAddress))
 
 			dropRuntime := func() {
-				f.n.Replicator.Close()
-				f.n.WAL.Close()
+				require.NoError(t, f.n.Stop())
 				f.app.SetOpenBlock(nil)
 				f.app.SetSequencerSource(nil)
 				f.app.SetSequencerRPC(evmrpc.SequencerOption{}, evmrpc.SequencerReceiptOption{})
@@ -101,11 +101,16 @@ func TestCrashAfterReceiptReplaysIdenticalReceipt(t *testing.T) {
 			require.Equal(t, len(receipts), replayed.Accepts)
 			require.Equal(t, receipts, replayer.receipts)
 			require.Equal(t, entries[len(entries)-1], replayed.LastAccept)
+			require.Equal(t, entries[2], replayed.Lease)
 			require.Nil(t, replayed.Tail)
+			require.Equal(t, entries, driverEntries(t, f.cfg.WALDir), "replay must not append records")
 			replayer = nil
 			dropRuntime()
 			require.NoError(t, f.n.Start(t.Context()))
-			require.Equal(t, entries, driverEntries(t, f.cfg.WALDir), "Start must recover the existing open block")
+			restarted := driverEntries(t, f.cfg.WALDir)
+			require.Len(t, restarted, len(entries)+1)
+			require.Equal(t, entries, restarted[:len(entries)], "Start must recover the existing open block and receipts")
+			requireStartedLease(t, f, restarted[len(entries)], 2)
 			pending, err := f.app.PendingSnapshot()
 			require.NoError(t, err)
 			require.Equal(t, openHeight, pending.BlockHeight())

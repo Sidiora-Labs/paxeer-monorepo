@@ -18,7 +18,6 @@ fn refusal(arguments: &[&str], code: &str) {
     assert!(!String::from_utf8_lossy(&output.stdout).contains("private-fixture-marker"));
 }
 
-#[test]
 fn funded_operator_refuses_malformed_order_before_source_io() {
     refusal(
         &["migrate-asset", "--order-digest", "private-fixture-marker"],
@@ -26,7 +25,6 @@ fn funded_operator_refuses_malformed_order_before_source_io() {
     );
 }
 
-#[test]
 fn funded_operator_refuses_duplicate_parameters() {
     refusal(
         &["migrate-asset", "--chain", "ethereum", "--chain", "solana"],
@@ -34,7 +32,6 @@ fn funded_operator_refuses_duplicate_parameters() {
     );
 }
 
-#[test]
 fn funded_operator_refuses_caller_supplied_customer_identity() {
     for field in ["--principal", "--identity"] {
         refusal(
@@ -44,7 +41,6 @@ fn funded_operator_refuses_caller_supplied_customer_identity() {
     }
 }
 
-#[test]
 fn funded_operator_refuses_receipt_and_credit_authority_overrides() {
     for field in ["--receipt", "--layerx-receipt", "--layerx-credit-verified"] {
         refusal(
@@ -54,12 +50,10 @@ fn funded_operator_refuses_receipt_and_credit_authority_overrides() {
     }
 }
 
-#[test]
 fn funded_operator_refuses_missing_required_contract() {
     refusal(&["migrate-asset"], "configuration_invalid");
 }
 
-#[test]
 fn funded_operator_runs_real_gateway_source_and_independent_funded_receipts() {
     let fixture = std::env::var_os("LAYERX_MIGRATION_FUNDED_OPERATOR_FIXTURE")
         .filter(|value| !value.is_empty())
@@ -113,4 +107,52 @@ fn funded_operator_runs_real_gateway_source_and_independent_funded_receipts() {
         .unwrap_or_else(|| panic!("complete nonzero real cases with no skips required"));
     println!("{COMPLETE}");
     println!("MIGRATION_FUNDED_OPERATOR_CORPUS tests={count} skipped=0");
+}
+
+fn main() {
+    let arguments = libtest_mimic::Arguments::from_args();
+    let missing_fixture = std::env::var_os("LAYERX_MIGRATION_FUNDED_OPERATOR_FIXTURE").is_none();
+    if missing_fixture {
+        eprintln!("SKIP funded_operator_runs_real_gateway_source_and_independent_funded_receipts: genuine protected fixture requires LAYERX_MIGRATION_FUNDED_OPERATOR_FIXTURE; no funded coverage was executed");
+    }
+    let tests = vec![
+        libtest_mimic::Trial::test(
+            "funded_operator_refuses_malformed_order_before_source_io",
+            || {
+                funded_operator_refuses_malformed_order_before_source_io();
+                Ok(())
+            },
+        ),
+        libtest_mimic::Trial::test("funded_operator_refuses_duplicate_parameters", || {
+            funded_operator_refuses_duplicate_parameters();
+            Ok(())
+        }),
+        libtest_mimic::Trial::test(
+            "funded_operator_refuses_caller_supplied_customer_identity",
+            || {
+                funded_operator_refuses_caller_supplied_customer_identity();
+                Ok(())
+            },
+        ),
+        libtest_mimic::Trial::test(
+            "funded_operator_refuses_receipt_and_credit_authority_overrides",
+            || {
+                funded_operator_refuses_receipt_and_credit_authority_overrides();
+                Ok(())
+            },
+        ),
+        libtest_mimic::Trial::test("funded_operator_refuses_missing_required_contract", || {
+            funded_operator_refuses_missing_required_contract();
+            Ok(())
+        }),
+        libtest_mimic::Trial::test(
+            "funded_operator_runs_real_gateway_source_and_independent_funded_receipts",
+            || {
+                funded_operator_runs_real_gateway_source_and_independent_funded_receipts();
+                Ok(())
+            },
+        )
+        .with_ignored_flag(missing_fixture),
+    ];
+    libtest_mimic::run(&arguments, tests).exit();
 }

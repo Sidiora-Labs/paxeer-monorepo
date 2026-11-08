@@ -9,6 +9,7 @@ import { recoverTransferObservation, statusLadder, submittedTransfer } from '../
 import { readSequencerReceipt } from '../src/receipt.js';
 import type { Hex } from '../src/types.js';
 import {
+  authenticatedReceipt,
   committedReceipt,
   committedVector,
   recording,
@@ -28,6 +29,11 @@ async function proof_wallet_sdk_producer_transport_consumer() {
     { path: send.path, method: send.method, authorization, request: { tx }, response: send.body },
     rpcExchange('pax_sequencerReceipt', [committedReceipt.txHash], committedReceipt),
     rpcExchange('px_getReceiptKeys', [], receiptWireKeys(committedReceipt)),
+    rpcExchange(
+      'eth_getRawTransactionByHash',
+      [committedReceipt.txHash],
+      committedVector.rawTransaction
+    ),
   ]);
   const temporary = mkdtempSync(join(tmpdir(), 'wallet-sdk-recovery-'));
   const path = join(temporary, 'observation.json');
@@ -63,7 +69,7 @@ async function proof_wallet_sdk_producer_transport_consumer() {
     expect(committedReceipt.txHash).not.toBe(hash);
     const rpc = (method: string, params: readonly unknown[]) => active.request({ method, params });
     const receipt = await readSequencerReceipt(rpc, committedReceipt.txHash);
-    expect(receipt).toEqual(committedReceipt);
+    expect(receipt).toEqual(authenticatedReceipt(committedReceipt));
     const identity = { hash: committedReceipt.txHash, chainId: 125 };
     const observation = recoverTransferObservation(
       identity,

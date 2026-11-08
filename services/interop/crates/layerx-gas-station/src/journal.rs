@@ -1671,7 +1671,22 @@ mod tests {
             serde_json::to_writer(&mut legacy, &retired)?;
             legacy.push(b'\n');
             std::fs::write(&path, &legacy)?;
-            assert!(matches!(Journal::open(&path), Err(JournalError::Version)));
+            assert!(matches!(Journal::open(&path), Err(JournalError::Corrupt)));
+            let legacy_path = path.with_extension("legacy");
+            use std::os::unix::fs::OpenOptionsExt as _;
+            let mut file = OpenOptions::new()
+                .write(true)
+                .create(true)
+                .truncate(true)
+                .mode(0o600)
+                .open(&legacy_path)?;
+            serde_json::to_writer(&mut file, &retired)?;
+            file.write_all(b"\n")?;
+            drop(file);
+            assert!(matches!(
+                Journal::open(&legacy_path),
+                Err(JournalError::Version)
+            ));
         }
         let mut unknown = durable;
         unknown.extend_from_slice(b"{\"kind\":\"withdrawn\"}\n");

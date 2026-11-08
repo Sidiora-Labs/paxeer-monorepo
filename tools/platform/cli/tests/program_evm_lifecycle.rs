@@ -1,3 +1,6 @@
+//! Task 22.39.118: ProgramLifecycleArgs requires --receipt-policy (src/main.rs:366-368).
+//! Pinned policy follows tests/repair_22_33_1494.rs:403-405.
+
 use layerx_platform_cli::{encoding, http};
 #[path = "../src/programs.rs"]
 mod programs;
@@ -147,10 +150,15 @@ fn submit_calldata(data: Vec<u8>) -> Result<String, String> {
     );
     let (endpoint, recorded) = capture();
     let client = http::Client::new(&endpoint, None)?;
-    assert!(
-        programs::submit_lifecycle_transaction(&client, &raw).is_err(),
-        "capture never supplies a node response"
-    );
+    let outcome = programs::submit_lifecycle_transaction(&client, &raw)?;
+    let expected_hash = format!("0x{}", encoding::hex_encode(&transaction_hash(&raw)));
+    assert_eq!(outcome["tx_hash"], expected_hash);
+    assert_eq!(outcome["txHash"], expected_hash);
+    assert_eq!(outcome["rung"], "unknown");
+    assert!(!outcome["detail"]
+        .as_str()
+        .ok_or("missing submission detail")?
+        .is_empty());
     let request = recorded.join().map_err(|_| "capture thread failed")?;
     assert_eq!(request["method"], "eth_sendRawTransaction");
     assert_eq!(
@@ -203,13 +211,36 @@ fn assert_cli_rpc(directory: &std::path::Path, operation: &[&str]) -> Result<(),
         "evm_address":format!("0x{}", encoding::hex_encode(&account.evm_address())),
         "evm_private_key":encoding::hex_encode(account.evm_secret().ok_or("missing EVM secret")?),
     })).map_err(|error| error.to_string())?.as_bytes()).map_err(|error| error.to_string())?;
+    let policy_file = directory.join("policy.json");
+    let sequencer = ed25519_dalek::SigningKey::from_bytes(&[0x51; 32]);
+    std::fs::write(
+        &policy_file,
+        json!({
+            "protocol_version": 2,
+            "network_id": 125,
+            "sequencer_id": encoding::hex_encode(&[0xa1; 32]),
+            "sequencer_key": encoding::hex_encode(&sequencer.verifying_key().to_bytes()),
+            "first_batch": 1,
+            "last_batch": 100,
+        })
+        .to_string(),
+    )
+    .map_err(|error| error.to_string())?;
     let (endpoint, recorded) = capture();
     let url = endpoint.clone();
     let program = "11".repeat(32);
     let key_path = key_file.to_str().ok_or("key path is not UTF-8")?;
+    let policy_path = policy_file.to_str().ok_or("policy path is not UTF-8")?;
     let mut args = vec!["--json", "--rpc", &url, "program"];
     args.extend_from_slice(operation);
-    args.extend(["--program-id", &program, "--evm-key-file", key_path]);
+    args.extend([
+        "--program-id",
+        &program,
+        "--evm-key-file",
+        key_path,
+        "--receipt-policy",
+        policy_path,
+    ]);
     let result = cli(directory, &args);
     assert!(
         !result.status.success(),

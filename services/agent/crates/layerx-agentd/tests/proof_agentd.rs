@@ -4,6 +4,7 @@
 
 use std::fmt::Debug;
 use std::future::Future;
+use std::os::unix::fs::DirBuilderExt;
 use std::path::PathBuf;
 use std::pin::pin;
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -51,13 +52,13 @@ impl Directory {
     fn new() -> Self {
         let mut random = [0; 16];
         checked(getrandom::fill(&mut random));
-        let path = std::env::temp_dir().join(format!(
+        let path = checked(std::fs::canonicalize(std::env::temp_dir())).join(format!(
             "proof-agentd-{}-{}-{}",
             std::process::id(),
             NEXT.fetch_add(1, Ordering::Relaxed),
             hex::encode(random)
         ));
-        checked(std::fs::create_dir(&path));
+        checked(std::fs::DirBuilder::new().mode(0o700).create(&path));
         Self(path)
     }
 }
@@ -137,6 +138,13 @@ fn producer() -> (SigningPreparation, ModuleRegistry) {
     ));
     assert_eq!(transaction.call, produced.call);
     assert_eq!(transaction.disclosure, produced.disclosure);
+    assert_eq!(
+        checked(layerx_crypto::disclosure::call::bind_call(
+            &transaction.call,
+            actor
+        )),
+        transaction.disclosure
+    );
     checked(verify_call_binding(&transaction));
     (
         SigningPreparation {
@@ -145,6 +153,40 @@ fn producer() -> (SigningPreparation, ModuleRegistry) {
         },
         checked(ModuleRegistry::new(&[])),
     )
+}
+
+fn human_enqueue(
+    store: &mut Store,
+    outbox: &mut Outbox,
+    prepared: &SigningPreparation,
+    registry: &ModuleRegistry,
+    raw: &[u8],
+) -> [u8; 32] {
+    let request = serde_json::json!({"raw_transaction": format!("0x{}", hex::encode(raw))});
+    let (answer, rung) = checked(layerx_agentd::agent_rpc_dispatch::dispatch_raw_submit(
+        request.as_object().expect("submit request"),
+        layerx_agent_api::error::RequestId(7),
+        |bytes| {
+            assert_eq!(bytes, raw);
+            let verified =
+                verify_before_submit(&bytes, prepared, &prepared.actor_address, registry)
+                    .map_err(|_| layerx_agentd::human::HumanOperationError::Refused)?;
+            let hash = outbox
+                .enqueue(store, tenant(), verified.into_exact_bytes())
+                .map_err(|_| layerx_agentd::human::HumanOperationError::Unavailable)?;
+            layerx_agentd::human_runtime::write_submission(
+                outbox.status(hash).expect("durable submission"),
+                None,
+            )
+        },
+    ));
+    let hash = transaction_hash(raw);
+    assert_eq!(answer["tx_hash"], hex::encode(hash));
+    assert_eq!(answer["submission_ref"], hex::encode(hash));
+    assert_eq!(answer["state"], "Queued");
+    assert_eq!(rung, layerx_types::rung::Rung::Submitted);
+    assert_eq!(checked(outbox.exact_signed_bytes(hash)), raw);
+    hash
 }
 
 #[test]
@@ -236,12 +278,16 @@ fn prepared_signatures_cross_the_human_api_and_recover_exact_outbox_bytes() {
         response_bytes: hash.to_vec(),
         receipt_ref: None,
     };
-    let first = checked(idempotency.execute(KEY, &canonical, 88, |attempt| {
+    let first = checked(idempotency.execute(KEY, &raw, 88, |attempt| {
         assert!(!attempt.retry);
-        assert_eq!(attempt.exact_request_bytes, canonical);
-        let id = outbox
-            .enqueue(&mut store, tenant(), verified.into_exact_bytes())
-            .map_err(|e| format!("{e:?}"))?;
+        assert_eq!(attempt.exact_request_bytes, raw);
+        let id = human_enqueue(
+            &mut store,
+            &mut outbox,
+            &signing,
+            &registry,
+            verified.exact_bytes(),
+        );
         assert_eq!(id, hash);
         Ok(result.clone())
     }));
@@ -278,13 +324,15 @@ fn prepared_signatures_cross_the_human_api_and_recover_exact_outbox_bytes() {
         retention(),
     ));
     assert_eq!(
-        checked(idempotency.execute(KEY, &canonical, 89, |_| panic!(
+        checked(idempotency.execute(KEY, &raw, 89, |_| panic!(
             "settled effect repeated after restart"
         ))),
         Outcome::RepeatedOriginal(result)
     );
     assert!(matches!(
-        idempotency.execute(KEY, &raw, 89, |_| panic!("conflicting effect executed")),
+        idempotency.execute(KEY, &canonical, 89, |_| panic!(
+            "conflicting effect executed"
+        )),
         Err(IdempotencyError::Conflict(_))
     ));
     let submitted = checked(outbox.transition(
@@ -406,19 +454,34 @@ fn inconsistent_prepared_call_and_disclosure_are_refused() {
 #[test]
 fn pending_attempt_recovers_original_hash_height_and_exact_request() {
     let root = Directory::new();
-    let (signing, _) = producer();
+    let idempotency_root = Directory::new();
+    let (signing, registry) = producer();
     let raw = checked(signing.transaction.call.sign(&SEED));
     let hash = transaction_hash(&raw);
     {
+        let mut durable = checked(Store::open(&root.0));
+        let mut outbox = Outbox::default();
+        assert_eq!(
+            human_enqueue(&mut durable, &mut outbox, &signing, &registry, &raw),
+            hash
+        );
+    }
+    {
+        let durable = checked(Store::open(&root.0));
+        let mut outbox = Outbox::default();
+        checked(outbox.restore(&durable, tenant(), hash));
+        assert_eq!(checked(outbox.exact_signed_bytes(hash)), raw);
+    }
+    {
         let store = checked(layerx_agentd::idempotency::Store::open(
-            &root.0,
+            &idempotency_root.0,
             tenant(),
             retention(),
         ));
         checked(store.record_attempt(KEY, &raw, 88, hash));
     }
     let store = checked(layerx_agentd::idempotency::Store::open(
-        &root.0,
+        &idempotency_root.0,
         tenant(),
         retention(),
     ));
@@ -440,7 +503,7 @@ fn pending_attempt_recovers_original_hash_height_and_exact_request() {
     );
     drop(store);
     let store = checked(layerx_agentd::idempotency::Store::open(
-        &root.0,
+        &idempotency_root.0,
         tenant(),
         retention(),
     ));
@@ -453,7 +516,25 @@ fn pending_attempt_recovers_original_hash_height_and_exact_request() {
 #[test]
 fn real_approval_event_survives_restart_with_evidence_and_rejects_duplicate() {
     let root = Directory::new();
-    let (prepared, _) = producer();
+    let (prepared, registry) = producer();
+    let raw = checked(prepared.transaction.call.sign(&SEED));
+    let hash = {
+        let mut durable = checked(Store::open(&root.0));
+        human_enqueue(
+            &mut durable,
+            &mut Outbox::default(),
+            &prepared,
+            &registry,
+            &raw,
+        )
+    };
+    {
+        let durable = checked(Store::open(&root.0));
+        let mut outbox = Outbox::default();
+        checked(outbox.restore(&durable, tenant(), hash));
+        assert_eq!(hash, transaction_hash(&raw));
+        assert_eq!(checked(outbox.exact_signed_bytes(hash)), raw);
+    }
     let lifecycle = ApprovalLifecycle {
         tenant: tenant(),
         agent: checked(Did::new(b"did:layerx:human-proof")),

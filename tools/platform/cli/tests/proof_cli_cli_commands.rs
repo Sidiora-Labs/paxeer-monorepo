@@ -10,6 +10,10 @@
 //! consumer contract using committed producer output; it does not count emulator
 //! refusal as evidence that the merged network command path succeeds.
 //! Wallet/core recovery still uses real commands and snapshots.
+//!
+//! Task 22.39.118: token list --cursor "bad id" follows the decimal registration
+//! cursor parser at services/agent/crates/layerx-sdk/src/rpc.rs:1693 and asserts
+//! InvalidRequest, rendered by src/wallet.rs:932, separately from hex IDs.
 #![allow(dead_code)]
 
 mod common;
@@ -409,11 +413,14 @@ fn emulator_rpc_route_absence_is_a_negative_boundary() -> Result<(), Box<dyn std
             "--evm-key-file",
             export.to_str().ok_or("export path")?,
         ],
-        vec!["token", "list", "--cursor", "bad id"],
         vec!["wallet", "balance", "--asset", "bad id"],
     ] {
         refusal(&run(root, &args), "hex");
     }
+    refusal(
+        &run(root, &["token", "list", "--cursor", "bad id"]),
+        "InvalidRequest",
+    );
     let invalid = run(root, &["token", "list", "--limit", "0"]);
     assert_eq!(invalid.status.code(), Some(2));
     assert_eq!(

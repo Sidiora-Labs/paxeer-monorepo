@@ -5,7 +5,7 @@ use std::time::{Duration, Instant};
 
 use layerx_agentd::human_node::HumanNode;
 use layerx_agentd::node_rpc::{NodeRpc, NodeRpcConfig};
-use layerx_agentd::prepare::legacy::{
+use layerx_agentd::prepare::{
     CorePreparationBoundary, CoreStateError, ProductionCorePreparationBoundary,
 };
 use layerx_client::sequencer::{ADDR_PRECOMPILE, GET_EVM_ADDR_BY_LAYERX};
@@ -113,14 +113,14 @@ fn preparation_state_reads_chain_id_pending_nonce_and_block_time() {
     let state = must(boundary.preparation_state(&actor));
     assert_eq!(state.network_id, 229);
     assert_eq!(state.account_sequence, 7);
-    assert_eq!(state.protocol_timestamp, 1_700_000_000);
+    assert_eq!(state.protocol_timestamp, 1_700_000_000_000);
     assert_eq!(state.observed_head_sequence, 150);
     assert_eq!(state.module_registry, registry);
     assert_eq!(boundary.last_state(), Some(&state));
     let next = must(boundary.preparation_state(&actor));
     assert_eq!(next.network_id, 229);
     assert_eq!(next.account_sequence, 0);
-    assert_eq!(next.protocol_timestamp, 1_700_000_012);
+    assert_eq!(next.protocol_timestamp, 1_700_000_012_000);
     assert_eq!(next.observed_head_sequence, 151);
     assert_eq!(next.module_registry, registry);
     assert_eq!(boundary.last_state(), Some(&next));

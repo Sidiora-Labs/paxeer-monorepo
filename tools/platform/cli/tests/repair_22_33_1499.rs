@@ -8,6 +8,15 @@
 //! Wiring: rpc/sequencer_receipt_vectors_test.go and precompiles/layerxledger — domain 2:
 //! retain merged-node execution coverage; this gate uses committed Go receipts, real codecs and loopback peers.
 //! Evidence: hf-build/hf-done retain the candidate revision, commands, exits and private logs.
+//! Task 22.39.118 continuation: root transport follows src/rpc.rs:47-49 and
+//! src/wallet.rs:229; faucet endpoint follows src/faucet.rs:157; finalised is
+//! a committed alias at src/wallet.rs:104; WebSocket URL is unchanged at
+//! src/rpc_subscription.rs:49-57. Hosted account queries use --gateway-rpc
+//! (src/wallet.rs:1025-1032), independently of the node origin.
+//! Hosted balance verification follows src/wallet.rs:720; missing send signing
+//! input follows the handler refusal at src/wallet.rs:1504 before transport.
+//! Token info/list have no gateway_rpc option (src/wallet.rs:206-216) and
+//! read_asset passes their --rpc endpoint to sdk_rpc (src/wallet.rs:908).
 
 use std::collections::BTreeMap;
 use std::io::{Read as _, Write as _};
@@ -223,7 +232,9 @@ impl Cli {
         self.variables
             .insert("HOSTED_SERVICE_URL".into(), server.base.clone());
         self.variables
-            .insert("CLI_RPC_URL".into(), format!("{}/rpc", server.base));
+            .insert("CLI_RPC_URL".into(), format!("{}/", server.base));
+        self.variables
+            .insert("HOSTED_FAUCET_URL".into(), format!("{}/", server.base));
         successful(self.documented("environment use beta", None));
         let key: Value =
             serde_json::from_slice(&std::fs::read(&self.variables["EVM_KEY_FILE"]).unwrap())
@@ -277,7 +288,7 @@ impl Server {
                     header.push(byte[0]);
                 }
                 let header = std::str::from_utf8(&header).unwrap();
-                assert!(header.starts_with("POST /rpc HTTP/1.1\r\n"));
+                assert!(header.starts_with("POST / HTTP/1.1\r\n"));
                 let length = header
                     .lines()
                     .find_map(|line| {
@@ -344,8 +355,15 @@ fn readme_retired_endpoint() {
     assert_eq!(public, "https://api1.mainnet-beta.paxeer.network/");
     assert!(README.contains("https://api-mainnet-beta.paxeer.network/"));
     assert!(!README.contains("/rpc/ws"));
-    assert!(README.contains("Direct public root-node URLs are rejected"));
-    assert!(layerx_platform_cli::rpc::RpcClient::new(public, None).is_err());
+    assert!(README.contains("origin at the root path (`/`)"));
+    assert!(layerx_platform_cli::rpc::RpcClient::new(public, None).is_ok());
+    let retired = format!("{public}rpc");
+    assert_eq!(
+        layerx_platform_cli::rpc::RpcClient::new(&retired, None)
+            .err()
+            .as_deref(),
+        Some("node RPC URL must name the root endpoint")
+    );
     let mut cli = Cli::new();
     let server = Server::start(|request, header| {
         assert!(header
@@ -380,7 +398,10 @@ fn readme_retired_endpoint() {
     assert_eq!(balance["data"]["height"], 7);
     assert_eq!(balance["data"]["balances"][0]["amount"], "1000");
     assert_eq!(balance["data"]["evidence"], "committed_eth_call");
-    assert!(balance["data"].get("verification").is_none());
+    assert_eq!(
+        balance["data"]["verification"],
+        "unverified_node_observation"
+    );
     let filtered = successful(cli.documented("--did \"$WALLET_DID\" --asset", None));
     assert_eq!(filtered["data"]["balances"], balance["data"]["balances"]);
     let listed = successful(cli.documented("token list --limit", None));
@@ -391,17 +412,18 @@ fn readme_retired_endpoint() {
         cli.run(
             &[
                 "--rpc",
-                public,
+                &retired,
                 "--gateway-credential",
                 "beta",
                 "wallet",
-                "balance",
-                "--did",
-                &cli.variables["WALLET_DID"],
+                "watch",
+                "account",
+                "--account-id",
+                &cli.variables["WATCH_ADDRESS"],
             ],
             None,
         ),
-        "RPC URL must end in /rpc",
+        "node RPC URL must name the root endpoint",
     );
     refused(
         cli.run(&["token", "list", "--limit", "17"], None),
@@ -630,14 +652,14 @@ fn readme_operator_contract() {
     });
     cli.connect(&server);
     refused(
-        cli.documented("faucet --key payments", None),
+        cli.documented("faucet --service-endpoint", None),
         "identity_session_required",
     );
     successful(cli.documented(
         "auth set --environment beta",
         Some("readme-identity-session"),
     ));
-    let grant = successful(cli.documented("faucet --key payments", None));
+    let grant = successful(cli.documented("faucet --service-endpoint", None));
     assert_eq!(grant["data"]["claim"]["txHash"], "cd".repeat(32));
     assert_eq!(grant["data"]["claim"]["amount"], "1000");
     let mut hashes = Vec::new();
@@ -674,7 +696,7 @@ fn readme_operator_contract() {
     let before = server.requests.lock().unwrap().len();
     refused(
         cli.run(&args.iter().map(String::as_str).collect::<Vec<_>>(), None),
-        "provide --evm-key-file",
+        "provide --evm-key-file from wallet derive --export-private-keys",
     );
     assert_eq!(server.requests.lock().unwrap().len(), before);
 }
@@ -759,13 +781,23 @@ fn readme_receipt_policy_and_watch() {
     std::fs::write(&cli.variables["RECEIPT_POLICY"], valid.to_string()).unwrap();
     let mut finalised = example("wallet receipt", &cli.variables);
     *finalised.last_mut().unwrap() = "finalised".into();
+    let finalised = successful(cli.run(
+        &finalised.iter().map(String::as_str).collect::<Vec<_>>(),
+        None,
+    ));
+    assert_eq!(finalised["data"]["receipt"], case["signedReceipt"]);
+    assert_eq!(finalised["data"]["rung"], "committed");
+    let mut invalid_wait = example("wallet receipt", &cli.variables);
+    *invalid_wait.last_mut().unwrap() = "unknown".into();
+    let before = server.requests.lock().unwrap().len();
     refused(
         cli.run(
-            &finalised.iter().map(String::as_str).collect::<Vec<_>>(),
+            &invalid_wait.iter().map(String::as_str).collect::<Vec<_>>(),
             None,
         ),
-        "MissingFinalityTrust",
+        "invalid value",
     );
+    assert_eq!(server.requests.lock().unwrap().len(), before);
     watch(&mut cli);
 }
 
@@ -776,7 +808,7 @@ fn watch(cli: &mut Cli) {
     listener.set_nonblocking(true).unwrap();
     cli.variables.insert(
         "CLI_RPC_URL".into(),
-        format!("http://{}/rpc", listener.local_addr().unwrap()),
+        format!("http://{}/", listener.local_addr().unwrap()),
     );
     let address = cli.variables["WATCH_ADDRESS"].clone();
     let expected = address.clone();
@@ -800,7 +832,7 @@ fn watch(cli: &mut Cli) {
             .unwrap();
         let mut socket =
             tungstenite::accept_hdr(stream, |request: &Request, response: Response| {
-                assert_eq!(request.uri().path(), "/rpc/ws");
+                assert_eq!(request.uri().path(), "/");
                 assert_eq!(
                     request.headers()["Authorization"],
                     format!("LayerX-Key beta:lxp_live_{}", "a".repeat(64))

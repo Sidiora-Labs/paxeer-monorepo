@@ -1,3 +1,4 @@
+import { authenticatedReceipt, receiptRecording } from './support/receipt-recordings.js';
 import { readFileSync } from 'node:fs';
 import { createServer, type IncomingMessage } from 'node:http';
 import type { AddressInfo } from 'node:net';
@@ -90,6 +91,13 @@ const server = createServer(async (req, res) => {
           call.method === 'paxeer_sendTransactionReceipted'
         )
           result = activeReceipt;
+        else if (
+          call.method === 'eth_getRawTransactionByHash' &&
+          call.params[0] === activeReceipt.txHash
+        )
+          result = receiptRecording(activeReceipt).rawTransaction;
+        else if (call.method === 'px_resolveAccount') result = accountExchange.response.result;
+        else if (call.method === 'px_getNetwork') result = legacyNetworkExchange.response.result;
         else if (call.method === 'px_getReceiptKeys') result = { keys: [activePin] };
         else if (call.method === 'eth_chainId') return { ...chainExchange.body, id: call.id };
         else throw new Error(`unrecorded node method ${call.method}`);
@@ -143,18 +151,28 @@ async function receipt_fields_lost_preserves_complete_node_views(): Promise<void
     activePin = entry.pinnedKey;
     expect(keccak256(entry.rawTransaction)).toBe(activeReceipt.txHash);
     const answer = await readSequencerReceipt(rpc(), activeReceipt.txHash);
-    expect(answer).toEqual(activeReceipt);
+    expect(answer).toEqual(authenticatedReceipt(activeReceipt));
     expect(answer!.paymentDenom).toBe(activeReceipt.paymentDenom);
     expect(answer!.signingKey).toBe(activePin.publicKey);
     expect(
-      decodeSequencerReceipt(JSON.parse(JSON.stringify(answer)), activeReceipt.txHash, pins(entry))
+      decodeSequencerReceipt(
+        JSON.parse(
+          JSON.stringify(answer, (_key, value) =>
+            typeof value === 'bigint' ? value.toString() : value
+          )
+        ),
+        activeReceipt.txHash,
+        pins(entry)
+      )
     ).toEqual(activeReceipt);
     expect(Object.isFrozen(answer)).toBe(true);
   }
   activeReceipt = committedRecording.settlement.receipt;
   activePin = committedVector.pinnedKey;
   expect(activeReceipt.rung).toBe('committed');
-  expect(await readSequencerReceipt(rpc(), activeReceipt.txHash)).toEqual(activeReceipt);
+  expect(await readSequencerReceipt(rpc(), activeReceipt.txHash)).toEqual(
+    authenticatedReceipt(activeReceipt)
+  );
 }
 
 async function receipt_authentication_rejects_tampered_node_outputs(): Promise<void> {
@@ -271,7 +289,7 @@ async function receipt_authentication_rejects_tampered_node_outputs(): Promise<v
       rung: 'committed',
       attempts: 1,
     })
-  ).toEqual(committed);
+  ).toEqual(authenticatedReceipt(committed));
   expect(() =>
     decodeSequencerReceipt(
       { ...committed, blockNumber: '0x0' },
@@ -308,7 +326,7 @@ async function receipt_authentication_protects_module_provider_and_ladder_consum
   expect(transaction.to).toBe(activeReceipt.to);
   const tx = { to: activeReceipt.to, data: transaction.data!, value: 0n };
   expect(await sendModuleTransactionReceipted(provider, activeReceipt.from, tx)).toEqual(
-    activeReceipt
+    authenticatedReceipt(activeReceipt)
   );
   expect(
     seen.filter(({ body }) => body?.method === 'paxeer_sendTransactionReceipted').at(-1)!.body
@@ -578,15 +596,22 @@ async function provider_session_binding_recovers_message_and_typed_data_signers(
 async function default_node_hosted_methods_require_hosted_configuration_and_use_producer_namespaces(): Promise<void> {
   const defaultClient = new EndpointClient();
   expect(defaultClient.rpc.url).toBe(DEFAULT_ENDPOINT_URL);
-  await expect(defaultClient.resolveAccount(constructions.address)).rejects.toThrow(/hostedUrl/);
-  await expect(defaultClient.getNetwork()).rejects.toThrow(/hostedUrl/);
+  expect(defaultClient.hostedRpc).toBeNull();
+  await expect(defaultClient.batch([{ method: 'px_register', params: [] }])).rejects.toThrow(
+    /hostedUrl/
+  );
   const openrpc = fixture('../../../services/platform/hosted/gateway/openrpc.json');
   const methods = openrpc.methods.map((entry: any) => entry.name);
   expect(methods).toContain('px_resolveAccount');
   expect(methods).toContain('px_getNetwork');
   const nodeSource = readFileSync(new URL('../../../rpc/server.go', import.meta.url), 'utf8');
-  expect(nodeSource).not.toContain('px_getNetwork');
-  expect(nodeSource).not.toContain('px_resolveAccount');
+  expect(nodeSource).toContain('{Namespace: "px", Service: pxAPI}');
+  const accountSource = readFileSync(
+    new URL('../../../rpc/px_account.go', import.meta.url),
+    'utf8'
+  );
+  expect(accountSource).toContain('func (a *pxAccountAPI) GetNetwork(');
+  expect(accountSource).toContain('func (a *pxAccountAPI) ResolveAccount(');
   const client = new EndpointClient({
     nodeUrl: `${base}/node`,
     hostedUrl: `${base}/hosted`,
@@ -595,11 +620,11 @@ async function default_node_hosted_methods_require_hosted_configuration_and_use_
     accountExchange.response.result
   );
   // The committed legacy capture lacks the merged consensus view. Reaching the
-  // hosted producer must not silently accept its retired network interface.
+  // node producer must not silently accept the retired network interface.
   const networkStart = seen.length;
   await expect(client.getNetwork()).rejects.toThrow(/consensus head/);
   expect(seen.slice(networkStart).map(({ path, body }) => ({ path, method: body.method }))).toEqual(
-    [{ path: '/hosted', method: 'px_getNetwork' }]
+    [{ path: '/node', method: 'px_getNetwork' }]
   );
   expect(await client.rpc.call('eth_chainId', [])).toBe(chainExchange.body.result);
   expect(
@@ -618,7 +643,7 @@ async function default_node_hosted_methods_require_hosted_configuration_and_use_
   await expect(
     noHosted.batch([
       { method: 'eth_chainId', params: [] },
-      { method: 'px_getNetwork', params: [] },
+      { method: 'px_register', params: [] },
     ])
   ).rejects.toThrow(/hostedUrl/);
   expect(seen.slice(start)).toEqual([]);

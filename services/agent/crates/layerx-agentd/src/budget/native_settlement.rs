@@ -38,6 +38,11 @@ struct RetainedCarrier {
     call_bound: RetainedBinding,
 }
 
+pub(super) fn retained_actor_id(prepared: &Prepared) -> Result<[u8; 32], Error> {
+    layerx_wire::hash::did_id_for_protocol(prepared.envelope.actor_did(), 3)
+        .map_err(|_| Error::Preparation)
+}
+
 fn execution(
     endpoint: &SequencerEndpoint,
     prepared: &Prepared,
@@ -220,8 +225,7 @@ pub fn read_retained_native_call_debit_settlement(
         .collect::<Vec<_>>();
     let (receipt, executed) = execution(endpoint, prepared, submission, &keys)?;
     let protocol = receipt.protocol().ok_or(Error::Receipt)?;
-    let actor = layerx_wire::hash::did_id_for_protocol(prepared.envelope.actor_did(), 3)
-        .map_err(|_| Error::Preparation)?;
+    let actor = retained_actor_id(prepared)?;
     if reservation.id != id
         || reservation.allocation_actor() != Some(actor)
         || reservation.allocation_preparation_digest() != Some(id)

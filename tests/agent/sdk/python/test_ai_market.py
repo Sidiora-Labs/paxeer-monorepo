@@ -806,7 +806,10 @@ def native_terms(owner: bytes, capabilities: bytes, access: bytes) -> NativeTerm
 
 
 def fixture_call() -> NativeProgramCall:
-    return decode_native_program_call(_signed_call_envelope((MULTICALL / "activity-0").read_bytes()).payload)
+    vector = next(case for case in json.loads(
+        (ROOT / "sdk/platform/conformance/fixtures/sequencer-receipt-v1.json").read_text()
+    )["cases"] if case["id"] == "V1-layerxprograms-call")
+    return decode_native_program_call(_signed_call_envelope(bytes.fromhex(vector["rawTransaction"][2:])).payload)
 
 
 class ApprovalTests(ViewTestCase):

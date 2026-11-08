@@ -1532,6 +1532,30 @@ fn native_carrier_authority(
     layerx_types::activity::Authority::owner(&public).map_err(|_| NativeBindingError::Preparation)
 }
 
+fn native_call_preparation(
+    canonical_bytes: &[u8],
+    sender: [u8; 20],
+    observed_height: u64,
+) -> Result<EvmPrepared, NativeBindingError> {
+    let call = layerx_crypto::evm_transaction::decode_unsigned(canonical_bytes)
+        .map_err(|_| NativeBindingError::Preparation)?;
+    let disclosure = layerx_crypto::disclosure::call::bind_call(&call, sender)
+        .map_err(|_| NativeBindingError::Preparation)?;
+    let prepared = EvmPrepared {
+        from: sender,
+        signing_hash: call.signing_hash(),
+        disclosure_digest: disclosure
+            .signing_digest()
+            .map_err(|_| NativeBindingError::Preparation)?,
+        disclosure,
+        call,
+        observed_head_height: observed_height,
+    };
+    layerx_agentd::prepare::verify_call_binding(&prepared)
+        .map_err(|_| NativeBindingError::Preparation)?;
+    Ok(prepared)
+}
+
 fn native_call_carrier(
     canonical_bytes: &[u8],
     sender: [u8; 20],
@@ -1873,7 +1897,7 @@ fn repair_fee_payer_denom_selects_two_real_preferences_and_reservations() {
             .iter()
             .any(|charge| charge.source.kind() == ProgramChargeKind::Fee
                 && charge.asset == fee.value.asset.asset_id));
-        assert!(sources.matches_prepared(&prepared));
+        assert!(sources.matches_prepared(&signing_preparation(&case).transaction));
         let reservation = case.reservation(&sources);
         assert_eq!(
             reservation.id,
@@ -2023,9 +2047,15 @@ fn repair_sources_native_envelope_allocates_and_restores_real_preparation() {
     .expect("native durable restoration");
     assert_eq!(recovered.canonical_bytes, prepared.canonical_bytes);
     assert_eq!(recovered.disclosure_digest, prepared.disclosure_digest);
-    assert!(sources.matches_prepared(&recovered));
-    let mut substituted = recovered;
-    substituted.canonical_bytes.push(0);
+    let recovered_call = native_call_preparation(
+        &recovered.canonical_bytes,
+        sender,
+        recovered.observed_head_sequence,
+    )
+    .expect("rebind retained call after reopening store");
+    assert!(sources.matches_prepared(&recovered_call));
+    let mut substituted = recovered_call;
+    substituted.call.data.push(0);
     assert!(!sources.matches_prepared(&substituted));
     drop(reopened);
     std::fs::remove_dir_all(root).expect("remove isolated store");
@@ -2366,20 +2396,16 @@ fn repair_native_carrier_validates_real_preparation_and_restores_after_store_res
 fn repair_wire_carrier_binds_the_retained_signing_preparation_after_restart() {
     let case = Case::open("native_effect_sources");
     let (call_carrier, _, registry) = restored(&case);
-    let canonical = layerx_wire::activity::encode_unsigned_envelope(&call_carrier.envelope)
-        .expect("real unsigned wire envelope producer");
-    let authority = call_carrier.envelope.authority();
-    let prepared = layerx_agentd::prepare::restore_canonical(
-        &canonical,
-        call_carrier.observed_head_sequence,
-        &registry,
-        Some(authority),
-    )
-    .expect("approval-path wire restoration");
-    assert_eq!(prepared.canonical_bytes, canonical);
-    assert_ne!(prepared.canonical_bytes, call_carrier.canonical_bytes);
     let signing = signing_preparation(&case);
-    let produced = layerx_agentd::budget::native_binding::restore_native_preparation(
+    let prepared = native_call_preparation(
+        &call_carrier.canonical_bytes,
+        signing.actor_address,
+        call_carrier.observed_head_sequence,
+    )
+    .expect("approval-path call restoration");
+    let canonical = prepared.call.encode_unsigned();
+    assert_eq!(canonical, call_carrier.canonical_bytes);
+    let wire_carrier = layerx_agentd::budget::native_binding::restore_native_preparation(
         &signing.transaction.call.encode_unsigned(),
         signing.actor_address,
         signing.transaction.observed_head_height,
@@ -2387,6 +2413,15 @@ fn repair_wire_carrier_binds_the_retained_signing_preparation_after_restart() {
         &registry,
     )
     .expect("native-to-wire approval carrier producer");
+    assert_ne!(wire_carrier.canonical_bytes, call_carrier.canonical_bytes);
+    let produced_call = validate_retained_preparation(&wire_carrier, Some(&signing))
+        .expect("native restoration retains the same signing preparation");
+    let produced = native_call_preparation(
+        &produced_call.encode_unsigned(),
+        signing.actor_address,
+        wire_carrier.observed_head_sequence,
+    )
+    .expect("call-bound authorization from native restoration");
     assert_eq!(produced, prepared);
     let root = temporary("wire-signing-binding");
     let tenant = case.tenant();
@@ -2400,11 +2435,11 @@ fn repair_wire_carrier_binds_the_retained_signing_preparation_after_restart() {
     let retained = SigningPreparation::restore(&reopened, tenant.clone(), id)
         .expect("restore same retained signing preparation");
     assert_eq!(
-        validate_retained_preparation(&prepared, Some(&retained)),
+        validate_retained_preparation(&wire_carrier, Some(&retained)),
         Ok(signing.transaction.call.clone())
     );
     assert_eq!(
-        validate_retained_preparation(&prepared, None),
+        validate_retained_preparation(&wire_carrier, None),
         Err(NativeBindingError::Preparation)
     );
     assert!(SigningPreparation::restore(&reopened, tenant, [0xff; 32]).is_err());
@@ -2419,7 +2454,7 @@ fn repair_wire_carrier_binds_the_retained_signing_preparation_after_restart() {
             _ => unreachable!(),
         }
         assert_eq!(
-            validate_retained_preparation(&prepared, Some(&disagrees)),
+            validate_retained_preparation(&wire_carrier, Some(&disagrees)),
             Err(NativeBindingError::Preparation),
             "refuse changed signing field {field}"
         );
@@ -2437,11 +2472,11 @@ fn repair_wire_carrier_binds_the_retained_signing_preparation_after_restart() {
     validate_native_preparation(&substituted.transaction)
         .expect("independently valid substituted preparation");
     assert_eq!(
-        validate_retained_preparation(&prepared, Some(&substituted)),
+        validate_retained_preparation(&wire_carrier, Some(&substituted)),
         Err(NativeBindingError::Preparation)
     );
     for field in 0..5 {
-        let mut altered = prepared.clone();
+        let mut altered = wire_carrier.clone();
         match field {
             0 => altered.disclosure_digest.0[0] ^= 1,
             1 => altered.signing_preimage[0] ^= 1,
@@ -2467,10 +2502,10 @@ fn repair_wire_carrier_binds_the_retained_signing_preparation_after_restart() {
             "refuse changed wire carrier field {field}"
         );
     }
-    let caps = case.caps(prepared.observed_head_sequence);
+    let caps = case.caps(prepared.observed_head_height);
     let sources = read_native_effect_budget_sources(
         &mut case.node(),
-        &prepared,
+        &wire_carrier,
         Some(&retained),
         &caps,
         case.value["now_ms"].as_u64().expect("core time"),
@@ -2478,7 +2513,7 @@ fn repair_wire_carrier_binds_the_retained_signing_preparation_after_restart() {
         layerx_agentd::capability::NativeAdmissionProfile::Effect,
     )
     .expect("wire carrier reaches production source selection through retained signer");
-    assert!(sources.matches_prepared(&prepared));
+    assert!(sources.matches_prepared(&retained.transaction));
     drop(reopened);
     std::fs::remove_dir_all(root).expect("remove isolated preparation store");
 }

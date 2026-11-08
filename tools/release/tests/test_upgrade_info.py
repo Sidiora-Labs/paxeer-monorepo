@@ -80,6 +80,40 @@ def test_release_accepts_merge_plan_and_uses_monorepo_asset(tmp_path):
         assert upgrade_info.release_document_name(
             output, checksums.split()[0], upgrade_info.release_identity()
         ) == "v7.0"
+    example = json.loads(
+        (TOOL.parent / "upgradeinfo/merge-plan-info.example.json").read_text()
+    )
+    receipt_key = {**example["receipt_keys"][0], "first_height": 21}
+    plan = tmp_path / "plan-info.json"
+    generated = subprocess.run(
+        [
+            sys.executable,
+            str(TOOL),
+            "plan-info",
+            "--leader",
+            example["leaders"][0],
+            "--receipt-key",
+            json.dumps(receipt_key),
+            "--plan-height",
+            "20",
+            "--activation-height",
+            "21",
+            "--release-doc",
+            str(output),
+            "--out",
+            str(plan),
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert generated.returncode == 0, generated.stderr
+    plan_document = json.loads(plan.read_text())
+    assert plan_document["leaders"] == [example["leaders"][0]]
+    assert plan_document["receipt_keys"] == [receipt_key]
+    assert plan_document["plan_height"] == 20
+    assert plan_document["activation_height"] == 21
+    assert plan_document["binaries"] == json.loads(document["info"])["binaries"]
     home = tmp_path / "home"
     result = subprocess.run(
         [
@@ -94,15 +128,19 @@ def test_release_accepts_merge_plan_and_uses_monorepo_asset(tmp_path):
             str(output),
             "--sha256",
             checksums.split()[0],
+            "--plan-info",
+            str(plan),
         ],
         capture_output=True,
         text=True,
         check=False,
     )
     assert result.returncode == 0, result.stderr
-    assert json.loads((home / "data/upgrade-info.json").read_text()) == {
+    node_document = json.loads((home / "data/upgrade-info.json").read_text())
+    assert node_document == {
         "name": "v7.0",
         "height": 21,
+        "info": json.dumps(plan_document, separators=(",", ":")),
     }
 
 

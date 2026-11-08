@@ -42,6 +42,58 @@ jobs:
       - name: Run Python command, daemon, conformance and hosted suites
         run: make test-python-suites
 
+  tools-python:
+    runs-on: ${{ (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && 'ubuntu-24.04' || vars.CI_LINUX_RUNNER || 'ubuntu-24.04' }}
+    timeout-minutes: 30
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up Go
+        uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
+        with:
+          go-version-file: go.mod
+          cache-dependency-path: go.sum
+      - name: Install native tools suite dependencies
+        run: >-
+          sudo apt-get update && sudo apt-get install --yes
+          build-essential libssl-dev libsqlite3-dev pkg-config ripgrep python3-venv jq openssl openssh-server nginx libnginx-mod-stream zstd
+      - name: Install Python test dependencies
+        run: |
+          python3 -m venv "$RUNNER_TEMP/tools-python"
+          "$RUNNER_TEMP/tools-python/bin/python3" -m pip install pytest PyYAML requests -r tests/bridge/requirements.txt
+          echo "$RUNNER_TEMP/tools-python/bin" >> "$GITHUB_PATH"
+      - name: Install pinned tools suite toolchain
+        run: rustup toolchain install 1.91.1 --profile minimal
+      - name: Install Foundry for tools suites
+        uses: foundry-rs/foundry-toolchain@908c540300062bd5a7e473851cdb4282204cee09 # v1.9.1
+        with:
+          version: v1.8.1
+          cache: false
+      - name: Set up Docker buildx
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+      - name: Build native tools suite prerequisites
+        run: |
+          make build/liblayerx.a
+          make build-loadtest
+          forge build --root tools/benchmark/loadtest/contracts/evm
+          mkdir -p "$RUNNER_TEMP/tools-python-bin"
+          go build -o "$RUNNER_TEMP/tools-python-bin/bringup-inspect" ./tools/bringup/cmd/bringup-inspect
+          echo "$RUNNER_TEMP/tools-python-bin" >> "$GITHUB_PATH"
+          cargo build --locked --manifest-path tools/bringup/tests/xweb-loader/Cargo.toml
+      - name: Start localhost SSH for tools suites
+        run: |
+          install -d -m 700 "$HOME/.ssh"
+          ssh-keygen -q -t ed25519 -N '' -f "$HOME/.ssh/id_ed25519"
+          cat "$HOME/.ssh/id_ed25519.pub" >> "$HOME/.ssh/authorized_keys"
+          chmod 600 "$HOME/.ssh/authorized_keys"
+          sudo service ssh start
+          ssh-keyscan -H localhost 127.0.0.1 >> "$HOME/.ssh/known_hosts"
+          ssh -o BatchMode=yes localhost true
+      - name: Run Python tools suites
+        run: make test-tools-python
+
   programs-reference-fixtures:
     runs-on: ${{ (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && 'ubuntu-24.04' || vars.CI_LINUX_RUNNER || 'ubuntu-24.04' }}
     timeout-minutes: 30
@@ -71,6 +123,7 @@ jobs:
         run: make public-audit
 
   c17:
+    # Keep the sanitizer lane on its hosted runner (22.39.147).
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     strategy:
@@ -95,7 +148,7 @@ jobs:
       - name: Install Foundry for core suites
         uses: foundry-rs/foundry-toolchain@908c540300062bd5a7e473851cdb4282204cee09 # v1.9.1
         with:
-          version: v1.7.1
+          version: v1.8.1
           cache: false
       - name: Install arithmetic proof tools for core suites
         run: sudo apt-get update && sudo apt-get install --yes cbmc z3 clang
@@ -115,7 +168,7 @@ jobs:
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@908c540300062bd5a7e473851cdb4282204cee09 # v1.9.1
         with:
-          version: v1.7.1
+          version: v1.8.1
           cache: false
       - name: Install Solidity and mirror test dependencies
         run: sudo apt-get update && sudo apt-get install --yes ripgrep build-essential libssl-dev pkg-config python3 openssl

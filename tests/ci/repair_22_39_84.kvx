@@ -1,0 +1,182 @@
+[repair.22.39.84]
+base_revision = "3a0f70d0fce59d96719043d5294b98aa3718e3bd"
+continued_revision = "dbfdb5affdcf022bf7ab21aa40d332fc8f21ec7f"
+decisions = ["2771", "2820", "2893", "2896", "2905", "2912"]
+implementation = "Keep all thirteen suite fragments and the test-tools-python target, defer candidate policy execution until foundation() is called, and run the target in the unconditional tools-python CI job with its native prerequisites."
+suites = ["tools/release/tests", "tools/release/rehearsal", "tools/bringup/tests", "tools/containers", "tools/deps/tests", "tools/rollout", "tools/deploy", "tools/docs/gen", "tools/spec", "tools/benchmark", "tools/jev/tests", "tools/jev/checks", "tools/paxeer-x/tests"]
+ci_prerequisites = ["Go from go.mod", "Rust 1.91.1", "Foundry v1.8.1 with the existing pinned action", "zstd", "Docker buildx with the image workflow action pin", "make build/liblayerx.a", "make build-loadtest", "forge build of the EVM loadtest contracts installs solc for their offline binding checks", "go build ./tools/bringup/cmd/bringup-inspect onto PATH", "cargo build --locked --manifest-path tools/bringup/tests/xweb-loader/Cargo.toml", "runner SSH key in authorized_keys and localhost sshd started"]
+baseline = "tests/ci/data/tools_python_suite_baseline.json lists exact inherited nodeids, reasons and retiring tasks; the make recipe reads its deselections and the wiring test restricts entries to the families explicitly authorized by decisions 2896 and 2905 and the prior paxeer-x ruling."
+verified_revision_source = "The last successful build and verify entries of /out/run/gates.jsonl name the final candidate revision, exact commands, exit codes and private logs; qualification is claimed only when both records have the same revision and verify exits zero."
+build_evidence = "/out/run/gates.jsonl, kind=build; private command output /out/logs/build-*.log"
+verify_evidence = "/out/run/gates.jsonl, kind=verify; private command output /out/logs/verify-*.log"
+
+[case.wiring]
+test = "tests/ci/test_tools_python_suites_wired.py"
+assertion = "The make target passes all thirteen real suite directories to pytest, consumes only documented baseline entries, runs on pushes to main and pull requests after all native prerequisites, and collects every paxeer-x module with no Go on PATH while real policy calls still require Go."
+
+[case.candidate_refusals]
+retiring_task = "22.39.144"
+observed = "The continued baseline records that candidate create refuses the 31-service dispatch fixture because catalogue requires 40 services before calling Go; the prior direct contract replay exited zero with no stderr, and these refusals remain baselined under the prior ruling."
+
+[gotcha.xweb_loader_lock]
+observed = "The standalone xweb-loader crate has no committed Cargo.lock at the base, so its first --locked build refuses before compilation."
+resolution = "Generate and carry its Cargo.lock with the task, then use the locked build in CI."
+
+[gotcha.offline_solc]
+observed = "The EVM binding suite invokes forge build --offline with solc 0.8.20, so a fresh Foundry installation also needs that compiler before the suite."
+resolution = "Build the real EVM loadtest contracts in the prerequisite step, allowing Foundry to fetch the pinned compiler before offline checks run."
+
+[qualification.attempt3]
+status = "implemented_not_qualified"
+revision = "068cca699aa8d3aa7f9be5663e2b6cd81a6fdd35"
+build_command = "forge --version > /dev/null && zstd --version > /dev/null && docker buildx version > /dev/null && test -x build/loadtest && test -s build/liblayerx.a && command -v bringup-inspect > /dev/null && test -x tools/bringup/tests/xweb-loader/target/debug/bringup-xweb-config-loader && python3 -m py_compile tests/ci/test_tools_python_suites_wired.py tools/paxeer-x/candidate.py"
+build_exit = 0
+build_log = "/out/logs/build-1.log"
+verify_command = "cg spec done 22.39.84 -f layerx-merge --root /work/paxeer-monorepo"
+verify_exit = 1
+verify_log = "/out/logs/verify-1.log"
+executed_verification = "python3 -m pytest -q tests/ci/test_tools_python_suites_wired.py && make test-tools-python"
+result = "4 wiring tests passed; tools suites: 79 failed, 736 passed, 8 pre-existing skips, 44 pre-existing deselections, 7 errors, 463 subtests passed in 814.39 seconds."
+baseline_additions = "66 exact nodeids observed failing in the authorized families; these data additions have not been requalified."
+continued_by = "Attempt 4 follows decision 2905: task 22.39.157 covers every nodeid under tools/release/tests/ and tools/release/rehearsal/; task 22.39.164 covers every nodeid under tools/bringup/tests/ and tools/benchmark/."
+final_revision_note = "Only the baseline and this repair record changed after the failed gate; no passing qualification is claimed for those changes and no unrelated repairs or gate reruns were attempted."
+
+[finding.attempt3.1]
+task = "22.39.84"
+file = "tools/release/tests/test_repair_22_31_331.py"
+symbol = "test_validator_signing_rewind_refused_before_any_move[live0]"
+observed = "Revision 068cca699aa8d3aa7f9be5663e2b6cd81a6fdd35, command `cg spec done 22.39.84 -f layerx-merge --root /work/paxeer-monorepo`, exit 1, private log /out/logs/verify-1.log: Line 132 expects 'post-halt signing' in stderr but receives 'rollback: no snapshot for <validator>'."
+assumption = "This existing suite failure is outside the explicit baseline families and is recorded without repair or deselection under decision 2896."
+severity = "blocker"
+
+[finding.attempt3.2]
+task = "22.39.84"
+file = "tools/release/tests/test_repair_22_31_331.py"
+symbol = "test_validator_signing_rewind_refused_before_any_move[live1]"
+observed = "Revision 068cca699aa8d3aa7f9be5663e2b6cd81a6fdd35, command `cg spec done 22.39.84 -f layerx-merge --root /work/paxeer-monorepo`, exit 1, private log /out/logs/verify-1.log: Line 132 expects 'post-halt signing' in stderr but receives 'rollback: no snapshot for <validator>'."
+assumption = "This existing suite failure is outside the explicit baseline families and is recorded without repair or deselection under decision 2896."
+severity = "blocker"
+
+[finding.attempt3.3]
+task = "22.39.84"
+file = "tools/release/tests/test_repair_22_31_331.py"
+symbol = "test_validator_signing_rewind_refused_before_any_move[live2]"
+observed = "Revision 068cca699aa8d3aa7f9be5663e2b6cd81a6fdd35, command `cg spec done 22.39.84 -f layerx-merge --root /work/paxeer-monorepo`, exit 1, private log /out/logs/verify-1.log: Line 132 expects 'post-halt signing' in stderr but receives 'rollback: no snapshot for <validator>'."
+assumption = "This existing suite failure is outside the explicit baseline families and is recorded without repair or deselection under decision 2896."
+severity = "blocker"
+
+[finding.attempt3.4]
+task = "22.39.84"
+file = "tools/release/tests/test_repair_22_31_331.py"
+symbol = "test_isolated_fork_rewind_requires_fresh_keys_and_network"
+observed = "Revision 068cca699aa8d3aa7f9be5663e2b6cd81a6fdd35, command `cg spec done 22.39.84 -f layerx-merge --root /work/paxeer-monorepo`, exit 1, private log /out/logs/verify-1.log: Line 179 expects 'fresh consensus identities' in stderr but receives 'rollback: no snapshot for <validator>'."
+assumption = "This existing suite failure is outside the explicit baseline families and is recorded without repair or deselection under decision 2896."
+severity = "blocker"
+
+[finding.attempt3.5]
+task = "22.39.84"
+file = "tools/release/tests/test_repair_22_31_331.py"
+symbol = "test_isolated_flag_cannot_authorize_same_chain_rewind"
+observed = "Revision 068cca699aa8d3aa7f9be5663e2b6cd81a6fdd35, command `cg spec done 22.39.84 -f layerx-merge --root /work/paxeer-monorepo`, exit 1, private log /out/logs/verify-1.log: Line 206 expects 'different consensus chain identity' in stderr but receives 'rollback: no snapshot for <validator>'."
+assumption = "This existing suite failure is outside the explicit baseline families and is recorded without repair or deselection under decision 2896."
+severity = "blocker"
+
+[finding.attempt3.6]
+task = "22.39.84"
+file = "tools/bringup/tests/test_bringup_fixtures_retired.py"
+symbol = "BringupFixturesRetiredTest::test_fixtures_name_no_retired_daemon"
+observed = "Revision 068cca699aa8d3aa7f9be5663e2b6cd81a6fdd35, command `cg spec done 22.39.84 -f layerx-merge --root /work/paxeer-monorepo`, exit 1, private log /out/logs/verify-1.log: The line 39 subtest requires foundation-artifacts.py to exit zero but runtime-sources refuses the stale producer import graph at docs/swagger/statik.go; the line 52 subtest rejects LAYERX_INDEXER_RELAY_URL still present in tools/bringup/check-live.test.sh."
+assumption = "This existing suite failure is outside the explicit baseline families and is recorded without repair or deselection under decision 2896."
+severity = "blocker"
+
+[finding.attempt3.7]
+task = "22.39.84"
+file = "tools/bringup/tests/test_repair_22_31_319.py"
+symbol = "test_edge_manifest_roundtrip_both_consumers_over_ssh"
+observed = "Revision 068cca699aa8d3aa7f9be5663e2b6cd81a6fdd35, command `cg spec done 22.39.84 -f layerx-merge --root /work/paxeer-monorepo`, exit 1, private log /out/logs/verify-1.log: Line 213 requires shutil.which('nginx') and fails with 'nginx is a declared integration prerequisite'."
+assumption = "This existing suite failure is outside the explicit baseline families and is recorded without repair or deselection under decision 2896."
+severity = "blocker"
+
+[finding.attempt3.8]
+task = "22.39.84"
+file = "tools/bringup/tests/test_repair_22_31_319.py"
+symbol = "test_search_front_roundtrip_primary_backup_and_refusals"
+observed = "Revision 068cca699aa8d3aa7f9be5663e2b6cd81a6fdd35, command `cg spec done 22.39.84 -f layerx-merge --root /work/paxeer-monorepo`, exit 1, private log /out/logs/verify-1.log: Line 44 requires search-front.sh render to exit zero but it exits two with 'check-live: BRINGUP_HOSTS_FILE is unset'."
+assumption = "This existing suite failure is outside the explicit baseline families and is recorded without repair or deselection under decision 2896."
+severity = "blocker"
+
+[finding.attempt3.9]
+task = "22.39.84"
+file = "tools/bringup/tests/test_repair_22_31_319.py"
+symbol = "test_xweb_config_roundtrip_rotation_and_refusals"
+observed = "Revision 068cca699aa8d3aa7f9be5663e2b6cd81a6fdd35, command `cg spec done 22.39.84 -f layerx-merge --root /work/paxeer-monorepo`, exit 1, private log /out/logs/verify-1.log: Line 44 requires xweb-config.sh render to exit zero but it exits one with 'xweb requires separate hosted gateway and node root transports'."
+assumption = "This existing suite failure is outside the explicit baseline families and is recorded without repair or deselection under decision 2896."
+severity = "blocker"
+
+[finding.attempt3.10]
+task = "22.39.84"
+file = "tools/bringup/tests/test_repair_22_31_319.py"
+symbol = "test_internal_probe_kernel_identity_over_private_route_over_ssh"
+observed = "Revision 068cca699aa8d3aa7f9be5663e2b6cd81a6fdd35, command `cg spec done 22.39.84 -f layerx-merge --root /work/paxeer-monorepo`, exit 1, private log /out/logs/verify-1.log: Line 565 rejects ' 0 200 ' after a credential corruption but receives '@@kms 0 200 {\"ready\":true}'."
+assumption = "This existing suite failure is outside the explicit baseline families and is recorded without repair or deselection under decision 2896."
+severity = "blocker"
+
+[finding.attempt3.11]
+task = "22.39.84"
+file = "tools/bringup/tests/test_repair_22_31_319.py"
+symbol = "test_internal_probe_kernel_identity_over_private_route"
+observed = "Revision 068cca699aa8d3aa7f9be5663e2b6cd81a6fdd35, command `cg spec done 22.39.84 -f layerx-merge --root /work/paxeer-monorepo`, exit 1, private log /out/logs/verify-1.log: Line 770 expects '@@kms 0 200 {\"ready\":true}' but receives '@@kms 1 000 refused'; teardown line 641 also fails all(item['matched'] for item in calls)."
+assumption = "This existing suite failure is outside the explicit baseline families and is recorded without repair or deselection under decision 2896."
+severity = "blocker"
+
+[finding.attempt3.12]
+task = "22.39.84"
+file = "tools/bringup/tests/test_spec_paths.py"
+symbol = "BringupSpecPathsTest::test_docs_names_reads_existing_spec"
+observed = "Revision 068cca699aa8d3aa7f9be5663e2b6cd81a6fdd35, command `cg spec done 22.39.84 -f layerx-merge --root /work/paxeer-monorepo`, exit 1, private log /out/logs/verify-1.log: Line 26 requires docs-names to exit zero but it exits one with 'docs-names: README.md: unpublished public name'."
+assumption = "This existing suite failure is outside the explicit baseline families and is recorded without repair or deselection under decision 2896."
+severity = "blocker"
+
+[finding.attempt3.13]
+task = "22.39.84"
+file = "tools/bringup/tests/test_xweb_config.py"
+symbol = "XwebConfigTest::test_render_emits_no_lx_route"
+observed = "Revision 068cca699aa8d3aa7f9be5663e2b6cd81a6fdd35, command `cg spec done 22.39.84 -f layerx-merge --root /work/paxeer-monorepo`, exit 1, private log /out/logs/verify-1.log: Line 38 requires config loader exit zero but it exits one with 'configuration refused: seeds is a placeholder'."
+assumption = "This existing suite failure is outside the explicit baseline families and is recorded without repair or deselection under decision 2896."
+severity = "blocker"
+
+[finding.attempt3.14]
+task = "22.39.84"
+file = "tools/benchmark/loadtest/contracts/evm/test_sources_match_bindings.py"
+symbol = "test_my_nft_abi_matches_erc721_binding"
+observed = "Revision 068cca699aa8d3aa7f9be5663e2b6cd81a6fdd35, command `cg spec done 22.39.84 -f layerx-merge --root /work/paxeer-monorepo`, exit 1, private log /out/logs/verify-1.log: Line 60 requires the compiled MyNFT ABI to equal the ERC721 binding ABI, but mint names its uint256 parameter tokenId in the artifact and id in the binding."
+assumption = "This existing suite failure is outside the explicit baseline families and is recorded without repair or deselection under decision 2896."
+severity = "blocker"
+
+[finding.attempt3.15]
+task = "22.39.84"
+file = "tools/benchmark/loadtest/scripts/test_repair_22_31_431.py"
+symbol = "test_benchmark_rpc_envelope_block_statistics"
+observed = "Revision 068cca699aa8d3aa7f9be5663e2b6cd81a6fdd35, command `cg spec done 22.39.84 -f layerx-merge --root /work/paxeer-monorepo`, exit 1, private log /out/logs/verify-1.log: Line 103 requires equal statistics tuples, but observes (0, 33716908, 1869.633323) versus (0, 33716908, 1869.63371)."
+assumption = "This existing suite failure is outside the explicit baseline families and is recorded without repair or deselection under decision 2896."
+severity = "blocker"
+
+[qualification.attempt4]
+continued_findings = "The fifteen attempt-3 findings above now have exact baseline entries with their recorded causes: five rewind refusals retire under 22.39.157 and eight bringup plus two benchmark cases retire under 22.39.164; the nginx entry records the missing declared package."
+verified_revision_source = "Use /out/run/gates.jsonl entries kind=build and kind=verify for the final candidate revision, command, exit and private log; this reference records qualification only when both pass at the same revision."
+verification = "hf-build followed by hf-done runs the declared build and python3 -m pytest -q tests/ci/test_tools_python_suites_wired.py && make test-tools-python; no tests under tools are changed during this continuation."
+
+[gotcha.attempt4_environment]
+observed = "Revision 96d26d653e98ddd525cfa4ac9f0f816de45eab0b, hf-build declared build command, exit 127, private log /out/logs/build-1.log: zstd is absent; the native library, loadtest, bringup-inspect, xweb loader and localhost SSH prerequisites also were not prepared in the sandbox."
+resolution = "Prepare the same declared prerequisites carried by the tools-python CI job before the repair build; private preparation logs are /out/logs/prerequisite-*.log."
+
+[qualification.attempt5]
+build_prerequisite = "The declared hf-build command runs forge build --root tools/benchmark/loadtest/contracts/evm online before its other checks, installing the pinned solc 0.8.20 in the compiler cache for the binding fixture's offline build under decision 2912."
+preserved = "The offline binding fixture, pinned compiler version, tools-python workflow job, thirteen suite fragments and authorized baseline families remain as continued from attempt 4."
+build_evidence = "/out/run/gates.jsonl, kind=build; the final passing entry names the candidate revision, exact build command, exit code and private log."
+verify_evidence = "/out/run/gates.jsonl, kind=verify; the final passing entry names the same candidate revision, cg spec done command, exit code and private log for the wiring tests and make test-tools-python."
+qualification_rule = "Qualification is claimed only when hf-done passes and the referenced build and verify entries both pass at the same candidate revision."
+
+[gotcha.attempt5_environment]
+observed = "Revision 7d99b5bc7ecd4013df2f1bf48e0f77fd5de7096e, declared hf-build command, exit 127, private log /out/logs/build-1.log: the online EVM contract build succeeds, then zstd is absent; the sandbox also lacks the native library, loadtest, bringup-inspect, xweb loader and localhost SSH prerequisites declared by CI."
+resolution = "Prepare those existing CI prerequisites before the repair build; private preparation logs are /out/logs/prerequisite-*.log, and final qualification remains referenced by the same-revision passing build and verify entries in /out/run/gates.jsonl."

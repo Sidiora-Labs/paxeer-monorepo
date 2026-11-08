@@ -296,7 +296,10 @@ func TestV6120IsAppliedOnlyInTheNamedBlock(t *testing.T) {
 }
 
 func TestV6120ModulesAreWired(t *testing.T) {
-	a := NewTestWrapper(t, time.Now().UTC(), secp256k1.GenPrivKey().PubKey(), true).App
+	w := NewTestWrapper(t, time.Now().UTC(), secp256k1.GenPrivKey().PubKey(), true)
+	a := w.App
+	preparePreV6120TestChain(t, a, w.Ctx)
+	t.Cleanup(func() { require.NoError(t, a.Close()) })
 	added := []string{perpstypes.ModuleName, spottypes.ModuleName, pricefeedtypes.ModuleName}
 	for _, name := range added {
 		require.Contains(t, ModuleBasics, name)
@@ -341,6 +344,8 @@ func TestV6120ModulesAreWired(t *testing.T) {
 func TestV6120ServesTheNewSetFromTheHandler(t *testing.T) {
 	w := NewTestWrapper(t, time.Now().UTC(), secp256k1.GenPrivKey().PubKey(), true)
 	a, ctx := w.App, w.Ctx
+	preparePreV6120TestChain(t, a, ctx)
+	t.Cleanup(func() { require.NoError(t, a.Close()) })
 	require.False(t, a.v6120Live)
 	require.Len(t, a.v6120Next, 2+len(v6120TestGated))
 	before := a.EvmKeeper.CustomPrecompiles(ctx)
@@ -352,8 +357,9 @@ func TestV6120ServesTheNewSetFromTheHandler(t *testing.T) {
 
 	// The handler serves the set before the upgrade keeper records the plan.
 	bindNilV6120Hooks(a)
-	_, err := a.runV6120Upgrade(ctx, upgradetypes.Plan{Name: V6120Upgrade}, a.UpgradeKeeper.GetModuleVersionMap(ctx))
+	migrated, err := a.runV6120Upgrade(ctx, upgradetypes.Plan{Name: V6120Upgrade}, a.UpgradeKeeper.GetModuleVersionMap(ctx))
 	require.NoError(t, err)
+	a.UpgradeKeeper.SetModuleVersionMap(ctx, migrated)
 	require.Zero(t, a.UpgradeKeeper.GetDoneHeight(ctx, V6120Upgrade))
 	require.True(t, a.v6120Live)
 	served := a.EvmKeeper.CustomPrecompiles(ctx)
@@ -371,6 +377,8 @@ func TestV6120ServesTheNewSetFromTheHandler(t *testing.T) {
 	versions := a.EvmKeeper.GetCustomPrecompilesVersions(ctx)
 	loaded := NewTestWrapper(t, time.Now().UTC(), secp256k1.GenPrivKey().PubKey(), true)
 	b, bctx := loaded.App, loaded.Ctx.WithBlockHeight(ctx.BlockHeight())
+	preparePreV6120TestChain(t, b, bctx)
+	t.Cleanup(func() { require.NoError(t, b.Close()) })
 	b.UpgradeKeeper.SetDone(bctx, V6120Upgrade)
 	require.False(t, b.v6120Live)
 	b.RefreshPrecompiles(bctx)
@@ -441,6 +449,8 @@ func perpsEndBlockErrors(ctx sdk.Context) int {
 func TestV6120EndBlockOrder(t *testing.T) {
 	w := NewTestWrapper(t, time.Now().UTC(), secp256k1.GenPrivKey().PubKey(), true)
 	a := w.App
+	preparePreV6120TestChain(t, a, w.Ctx)
+	t.Cleanup(func() { require.NoError(t, a.Close()) })
 	height := w.Ctx.BlockHeight()
 
 	// With a params record that does not decode a perps end block emits a
@@ -481,6 +491,8 @@ func seedGigaV6120FromExport(t *testing.T, path string) *TestWrapper {
 	})
 	require.NoError(t, err)
 	w.Ctx = a.NewContext(false, tmproto.Header{Height: halt, ChainID: doc.ChainID, Time: doc.GenesisTime})
+	preparePreV6120TestChain(t, a, w.Ctx)
+	t.Cleanup(func() { require.NoError(t, a.Close()) })
 	for _, name := range []string{ActivationUpgrade, V610Upgrade} {
 		require.LessOrEqual(t, heights[name], halt, name)
 		a.UpgradeKeeper.SetDone(w.Ctx.WithBlockHeight(heights[name]), name)
@@ -601,6 +613,8 @@ func TestV6120AppliesThePlanOnTheHaltExport(t *testing.T) {
 func TestV6120InitialisesTheNewModulesOnAPreUpgradeChain(t *testing.T) {
 	w := seedV6120FromExport(t, v6120HaltExportPath)
 	a, ctx := w.App, w.Ctx
+	preparePreV6120TestChain(t, a, ctx)
+	t.Cleanup(func() { require.NoError(t, a.Close()) })
 	halt := v6120HaltHeight(t, v6120HaltExportPath)
 
 	// A chain built before v6.12.0 records no version for the modules the plan
@@ -630,7 +644,8 @@ func TestV6120InitialisesTheNewModulesOnAPreUpgradeChain(t *testing.T) {
 
 	after := a.UpgradeKeeper.GetModuleVersionMap(next)
 	for _, name := range v6120NewModules {
-		require.Equal(t, uint64(1), after[name], name)
+		require.Contains(t, after, name)
+		require.Equal(t, a.mm.Modules[name].ConsensusVersion(), after[name], name)
 	}
 	for name, version := range before {
 		require.Equal(t, version, after[name], name)
