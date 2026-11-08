@@ -195011,7 +195011,7 @@ do_9 = "Attempt 3 (continue): 4 of 6 cases pass. finding13_node_heights_multiple
 
 [task.22.33.50]
 title = "Repair audit record 22.30.106 medium findings in services/human/crates/layerx-human-service/tests (part 1 of 1): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.155", "22.31.156", "22.31.443", "22.31.539", "22.31.540", "22.31.572"]
@@ -333496,7 +333496,7 @@ do_6 = "Attempt 3: the closure check is a gate over the whole issue programme; i
 
 [task.22.39.151]
 title = "Run the primary platform job unconditionally and guard only the quickstart benchmark step on its registry variables"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
