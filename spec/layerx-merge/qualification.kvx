@@ -35618,3 +35618,11 @@ symbol = "layerx-programs-ai-market"
 observed = "Attempt 27 at 83bfb74875a2: build exit 0; the dependents check exit 101 in the layerx-reference-ramp test repair_22_33_1487 (missing localhost.pem and localhost.p12 at lines 37 and 38); the verification never ran."
 assumption = "The dependents failure belongs to the main tree, repaired by 22.39.163; the task tree is untested at this revision."
 severity = "high"
+
+[finding.22.39.155.1]
+task = "22.39.155"
+file = "node::TestEVMServerServesSequencerReceiptOption"
+symbol = "node::TestEVMServerServesSequencerReceiptOption"
+observed = "Attempt 1 at f40645593a30: build exit 0 twice; verification exit 1 twice: the replication tests passed, the v6.6 test failed at line 226 (anchor version 1 expected, absent) and, after the package move, at line 246 (intentNonce at 0x1015 reverted)."
+assumption = "Both failures are stale assertions of the test the task owns; the inventory check test was outside touches."
+severity = "high"
