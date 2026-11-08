@@ -36090,3 +36090,11 @@ symbol = "test_qualification_suites_collect.py"
 observed = "Attempt 5 at aa2a06c06db1 (base 1d8f18989ce7): build exit 0 twice; verification exit 1 twice (89 then 86 failed of about 4450 cases, 535 seconds at the final tree): eighty-odd cases assert the former paxd-native-libs recipe, one the node go test command, one the wallet vitest command, one a workflow digest baseline, one the wallet manifest dependency set, one indexes a shortened container check list; log /out/logs/verify-2.log."
 assumption = "Every failure is a producer that moved on main after the attempt tree was cut; the settled cases of the attempt hold."
 severity = "high"
+
+[finding.22.39.95.6]
+task = "22.39.95"
+file = "apps/launchpad/web/src/core/wallet-sdk/runtime.integration.test.tsx"
+symbol = "runtime.integration.test.tsx"
+observed = "Attempt 6 at 30d180caaaa2 (base 8e8996fbd8): build exit 0; verification exit 1: the mobile suite passed and the web suite stopped in the trade journey at the joined-services step, the api process started with the rest role answering 404 page not found to GET /v2/snapshots, so the setup refused with the required public snapshot route is not mounted; log /out/logs/verify-1.log."
+assumption = "The role split of the setup is the failure; the test repairs of the tree never ran against the joined services."
+severity = "high"
