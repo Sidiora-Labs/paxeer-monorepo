@@ -201668,7 +201668,7 @@ do_6 = "Attempt 1 (continue): test_build_control_flow_graph panics at validation
 
 [task.22.99.155]
 title = "Repair the inventory sweep target layerx-indexer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.99.160", "22.99.77"]
