@@ -80,8 +80,13 @@ def test_tools_python_baseline_tracks_exact_cases():
     })
     paxeer_cases = [case for case in cases
                     if case["nodeid"].startswith("tools/paxeer-x/tests/")]
-    assert len(paxeer_cases) == len(expected) == 44
-    assert {case["nodeid"] for case in paxeer_cases} == expected
+    remaining = {
+        "tools/paxeer-x/tests/test_retired_catalogue_deleted.py::RetiredCatalogueDeletedTest::test_deleted_trees_absent_and_catalogue_valid",
+    }
+    retired = expected - remaining
+    assert not retired & {case["nodeid"] for case in cases}
+    assert {case["nodeid"] for case in paxeer_cases} <= remaining
+    assert len(paxeer_cases) == sum(case["retiring_task"] == "22.39.144" for case in cases)
     assert len(cases) == len({case["nodeid"] for case in cases})
     families = {
         "22.39.144": lambda nodeid: nodeid in expected,
