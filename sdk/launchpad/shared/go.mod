@@ -7,6 +7,8 @@ module github.com/Sidiora-Technologies/KindleLaunch/shared
 
 go 1.25.0
 
+toolchain go1.25.8
+
 require (
 	github.com/Sidiora-Technologies/KindleLaunch/protocol v0.0.0-00010101000000-000000000000
 	github.com/aws/aws-sdk-go-v2 v1.41.5
