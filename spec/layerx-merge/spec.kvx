@@ -11044,6 +11044,24 @@ value = "A test that serves px_getHistory to HistoryPage::read_account or read_n
 basis = "Gotcha 3688, gotcha 3046, decisions 2908 and 2987, the record of 22.33.1521"
 affects = ["22.39.172"]
 
+[decision.2989]
+title = "The public Python qualification check runs in its own job that installs the pinned qualification requirements, and the gate of its owner installs the same file"
+value = "The make target test-qualification-python (python3 -m pytest -q tools/qualification, deselecting the marker native of decision 2990) runs from a job of ci.yml named qualification-python with its own interpreter under RUNNER_TEMP that installs tools/qualification/requirements.txt and nothing else; that file stays the pinned mirror of tools/launchpad/production/load/requirements.lock plus pycryptodome, PyYAML, eth-hash and fastapi, so the advisory and frozen-lock cases of test_repair_22_31_451.py hold. The tests-python job keeps the exact pip line test_repair_22_31_605.py asserts and runs no qualification step. The task whose gate runs the target installs tools/qualification/requirements.txt into the gate interpreter in its build command before anything else, and runs the target locally to green before the gate as decision 2977 requires."
+basis = "Gotcha 3689, decisions 2787, 2796, 2908 and 2977, the contracts of test_repair_22_31_451.py and test_repair_22_31_605.py"
+affects = ["22.39.26"]
+
+[decision.2990]
+title = "Qualification cases that compile the Go node carry the marker native, the Python check deselects them, and the node build job runs them"
+value = "A case under tools/qualification whose execution compiles the Go node (every case that reaches native_test of beta_driver.py) carries the pytest marker native, registered in a conftest.py at tools/qualification. The make target test-qualification-python deselects the marker, which is the one admitted narrowing of the directory under the do_4 ruling of 22.39.26 because the marked cases keep a public host: the node job of .github/workflows/node-build.yml, after its go test step, installs tools/qualification/requirements.txt into its interpreter and runs python3 -m pytest -q tools/qualification -m native; tests/ci/test_qualification_suites_have_ci_host.py asserts both the deselection and the node step. No case is skipped by a runtime check for the libraries."
+basis = "Gotcha 3691, decision 2787, gotcha 3052"
+affects = ["22.39.26"]
+
+[decision.2991]
+title = "The vendored tree carries every file of its base snapshot outside the removed set, added explicitly where its own ignore file excludes it"
+value = "Every path of the base snapshot 2e0a668a793a7b5c0469b44950808547467f017e outside docs and the removed set of test_repair_22_36_1.py exists under tools with its original bytes and mode, the six executable scripts of the .codify directory included; where the ignore file of the vendored tree excludes a path, the path is added explicitly and the ignore file stays as upstream ships it. A later refresh of the vendored tree repeats the explicit add for the excluded paths."
+basis = "Gotcha 3690, decision 2663, the docs consolidation ruling"
+affects = ["22.39.173", "22.39.26"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -39934,6 +39952,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.173]
+title = "Restore the six editor integration scripts of the vendored tree that the relocation left uncommitted"
+reqs = ["22998.1"]
+touches = ["tools/hyperfide"]
+tests = ["tools/qualification/audit_repairs/test_repair_22_36_1.py"]
+verification_contract = "test -s tools/qualification/audit_repairs/repair_22_39_173.kvx && python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_36_1.py"
+do_1 = "do_1 Gotcha 3690, decision 2991. The base snapshot 2e0a668a793a7b5c0469b44950808547467f017e carries six executable scripts in the .codify directory of the vendored tree, and the ignore file of that tree excludes the directory at its line 24, so the relocation of 22.36.1 moved the files on disk and never committed them; test_code_specs_dot_directories_and_assets_are_preserved of tools/qualification/audit_repairs/test_repair_22_36_1.py line 133 requires each present under tools with its original bytes. Restore the six files from the base snapshot with their original bytes and executable mode, adding them explicitly past the ignore rule; change no other file of the vendored tree and leave its ignore file as upstream ships it."
+symbols = []
 
 [capability.22.39.172]
 title = "Align the history contract test and the cross-UID receiver case with the exclusive cursor and the protected store root their producers introduced"
@@ -334891,6 +334918,35 @@ do_4 = "Finding 18.0.1.1: attempt 1 (943ca6eff) implemented both files and its t
 do_5 = "Decision 2456 (attempt 2, 26e5df6d3, re-qualify unchanged once eligible): the three programme tests pass and the closure gate exits 1 only because 29 issue tasks are not done; the task now requires every one of them and is re-qualified without change when the last publishes."
 do_6 = "Attempt 3: the closure check is a gate over the whole issue programme; it now requires every open issue task, so it is launched only when all of them are done and its verify can pass. Keep the superseded-task handling and the three regression cases of attempt 2."
 
+[task.22.39.173]
+title = "Restore the six editor integration scripts of the vendored tree that the relocation left uncommitted"
+status = "pending"
+mode = "BUILD"
+wave = 2
+requires = ["22.36.1"]
+reqs = ["22998.1"]
+capabilities = ["22.39.173"]
+interfaces = []
+do_1 = "do_1 Gotcha 3690, decision 2991. The base snapshot 2e0a668a793a7b5c0469b44950808547467f017e carries six executable scripts in the .codify directory of the vendored tree, and the ignore file of that tree excludes the directory at its line 24, so the relocation of 22.36.1 moved the files on disk and never committed them; test_code_specs_dot_directories_and_assets_are_preserved of tools/qualification/audit_repairs/test_repair_22_36_1.py line 133 requires each present under tools with its original bytes. Restore the six files from the base snapshot with their original bytes and executable mode, adding them explicitly past the ignore rule; change no other file of the vendored tree and leave its ignore file as upstream ships it."
+do_2 = "do_2 Record the six paths, the snapshot revision and the ignore line that dropped them in tools/qualification/audit_repairs/repair_22_39_173.kvx. Run the build once and the verification once at the final revision and record both by reference."
+symbols = []
+touches = ["tools/hyperfide"]
+tests = ["tools/qualification/audit_repairs/test_repair_22_36_1.py"]
+planned_paths = ["tools/qualification/audit_repairs/repair_22_39_173.kvx"]
+build_cmd = "git ls-files tools/hyperfide/.codify | grep -c . | grep -qx 6"
+verify_cmd = "test -s tools/qualification/audit_repairs/repair_22_39_173.kvx && python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_36_1.py"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 90
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.164]
 title = "Make the bringup and benchmark Python suites pass again following their producers, provide nginx in the tools-python job and retire their baseline entries"
 status = "done"
@@ -337537,8 +337593,8 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 title = "Give the qualification Python suites a public check that runs them"
 status = "pending"
 mode = "BUILD"
-wave = 2
-requires = ["22.31.621", "22.31.623"]
+wave = 3
+requires = ["22.31.621", "22.31.623", "22.39.173"]
 reqs = ["22998.1"]
 capabilities = ["22.39.26"]
 interfaces = []
@@ -337546,10 +337602,10 @@ do_1 = "do_1 Decision 2787, gotcha 3052. No public check runs the Python suites 
 do_2 = "do_2 Run the new target at the current tree. Repair each failing case inside tools/qualification whose cause is a stale expectation of the 7.0.0 tree, and delete a case whose subject no longer exists; record every repair or deletion with its cause in tests/ci/repair_22_39_26.kvx. A failure whose cause lies outside tools/qualification is recorded there as a finding with the file and line and is not repaired here."
 do_3 = "do_3 Write tests/ci/test_qualification_suites_have_ci_host.py with test_every_qualification_test_dir_is_in_a_make_target and test_ci_workflow_calls_test_qualification_python."
 symbols = []
-touches = ["Makefile", ".github/workflows/ci.yml"]
+touches = ["Makefile", ".github/workflows/ci.yml", ".github/workflows/node-build.yml", "tools/qualification", "tests/ci"]
 tests = ["tests/ci/test_qualification_suites_have_ci_host.py"]
 planned_paths = ["tests/ci/test_qualification_suites_have_ci_host.py", "tests/ci/repair_22_39_26.kvx"]
-build_cmd = "make -n test-qualification-python > /dev/null && python3 -m py_compile tests/ci/test_qualification_suites_have_ci_host.py"
+build_cmd = "python3 -m pip install -q -r tools/qualification/requirements.txt && make -n test-qualification-python > /dev/null && python3 -m py_compile tests/ci/test_qualification_suites_have_ci_host.py"
 verify_cmd = "make test-qualification-python && python3 -m pytest -q tests/ci/test_qualification_suites_have_ci_host.py"
 gate_kind = "planned"
 sandbox_profile = "python"
@@ -337558,12 +337614,13 @@ rollback = "Revert the task's commit."
 max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
-time_limit_minutes = 240
+time_limit_minutes = 360
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Attempt 2 (continue, gotcha 3420, decisions 2762 and 2796, after 22.31.621 lands): the attempt-1 tree at 5f695f6fb627 stands (the make target, the public check host and the tests/ci module). Merge current main before the first build so tools/qualification carries the repairs of 22.31.621, then run the build and the verification at the merged revision and record both by reference. If the collection still stops on a module, repair that module to the current names of its producer in the same commit and name it in the task record; never delete a module and never narrow the make target to a subset of the directory."
 do_5 = "Attempt 3 (requalify, gotcha 3499, after 22.31.623 lands): the attempt-2 tree a5906618a6b0 stands (the make target, the public check host, the host test and the record). Merge current main so the qualification tree is green, then run the build and the verification first, before any change; repair only what the merged tree still fails within touches. Record both by reference."
+do_6 = "Attempt 4 (continue after 22.39.173 lands; gotchas 3689 to 3691, decisions 2762, 2787, 2796, 2900, 2908, 2977, 2989, 2990 and 2991): the attempt-3 tree 2fba7fe3796d is the starting point (the make target, the record, tests/ci/test_qualification_suites_have_ci_host.py). Merge main once 22.39.173 is on it. Per decision 2989 move the qualification step out of the tests-python job into its own job qualification-python of ci.yml with its own interpreter under RUNNER_TEMP that installs tools/qualification/requirements.txt and nothing else, restore the pip line of the tests-python job to the exact text test_ci_runs_both_make_targets_in_separate_jobs of tools/qualification/audit_repairs/test_repair_22_31_605.py line 79 asserts, and keep the two other make targets out of the new job. Per decision 2990 register the pytest marker native in a conftest.py at tools/qualification, mark test_multichain_inventory_reports_absent_infrastructure_as_failed of tools/qualification/test_beta_driver.py and any other case that reaches native_test of beta_driver.py, let the make target deselect the marker, and add a step to the node job of .github/workflows/node-build.yml after its go test step (line 122) that installs the same requirements file and runs python3 -m pytest -q tools/qualification -m native; extend tests/ci/test_qualification_suites_have_ci_host.py with cases asserting the deselection and the node step. The build command now installs tools/qualification/requirements.txt into the gate interpreter first. Run make test-qualification-python locally to green before the gate per decision 2977: with pycryptodome present the 85 Crypto import failures across tools/qualification/paxeer-x/tests and audit_repairs resolve, the eight advisory cases and the frozen-lock case of test_repair_22_31_451.py pass once the pinned versions are the installed ones, and test_code_specs_dot_directories_and_assets_are_preserved passes once 22.39.173 is on main. For test_restart_failure_preserves_every_attempt_and_rejects_living_stall of test_repair_22_33_761.py line 215 (the stalled peer log lacks the opened durable peer line) determine whether the committed peer fixture of tests/integration/upgrade_module/scripts/fixtures/committed_peer.py or the test expectation changed; repair the test inside tools/qualification when the expectation is stale, otherwise record a finding naming the fixture path per do_2. Repair any further case the missing module hid at the site its assertion names, never deleting a module; keep the decision 2900 record of failing names by target before and after in tests/ci/repair_22_39_26.kvx. Run the build once and the verification once at the final revision and record both by reference; if a case still fails, repair it within the one allowed cycle and rerun once."
 
 [task.22.39.25]
 title = "Retire the two tests/ci modules that pytest never collects and whose inputs are gone"

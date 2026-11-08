@@ -36138,3 +36138,11 @@ symbol = "history_served_contract.rs"
 observed = "Attempt 1 at 4a9a0751ef1b (base 6eeea3b075): build exit 0; verification exit 1 (test exit 101): repair_22_33_1506 and repair_22_33_1521 passed, seven read_account cases of history_served_contract failed with Sequencer(Malformed), and the reverse window case of repair_22_31_218 failed at line 976 with Connection(Malformed); no repair cycle used; log /out/logs/verify-1.log."
 assumption = "The cursor update of the attempt is right and the envelope of the two fixtures is the remaining producer mismatch."
 severity = "high"
+
+[finding.22.39.26.3]
+task = "22.39.26"
+file = "tests/ci/test_qualification_suites_have_ci_host.py"
+symbol = "test_qualification_suites_have_ci_host.py"
+observed = "Attempt 3 at 2fba7fe3796d (base 563d285011): build exit 0; the first verification stopped on a missing jsonschema module (make exit 2), and after the one repair the second verification (make test-qualification-python) exited 2 with 111 failed, 4339 passed and 13 skipped in 1196 seconds; log /out/logs/verify-2.log."
+assumption = "The directory is sound apart from the dropped vendored scripts and one undetermined upgrade fixture case; the failures are the dependency set, the pins and the job layout of the check."
+severity = "high"
