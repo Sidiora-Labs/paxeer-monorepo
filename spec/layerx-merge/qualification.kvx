@@ -36234,3 +36234,11 @@ symbol = "repair_22_33_223.rs"
 observed = "Attempt 10 at 8dba3555d904 (record tree 4554880b80e1): build exit 0; verification exit 101 twice: 15 cases passed, the all-selector fuel case failed, first on the 55-of-72 selector inventory, then on 66 maximum-state rows refused at the 1000000 CPU cap (OPEN_EPOCH, 64 ADMIT_TASK, READ_HEADER, READ_STATE_CHUNK); log /out/logs/verify-2.log."
 assumption = "The guest validates the whole shared state per operation; the coverage and fixtures of the tree are complete and only the maximum-state paths remain."
 severity = "high"
+
+[finding.9.29.1.1]
+task = "9.29.1"
+file = "services/agent/crates/layerx-wire/tests/structures.rs::every_published_receipt_round_trips_exactly"
+symbol = "structures.rs::every_published_receipt_round_trips_exactly"
+observed = "Attempt 1 at e5dc15a32e83 (base 153b9ea5ef): build exit 101; the wire test build compiles layerx-crypto, whose onboarding.rs lines 4 and 139 and disclosure.rs line 130 still name the root activity module and the root payload_hash alias; the verification never ran; log /out/logs/build-1.log."
+assumption = "The landed 22.33.1522 repair already made the historical module the home of the codec; the task text asked for a deletion that no longer fits, and no caller moved."
+severity = "high"
