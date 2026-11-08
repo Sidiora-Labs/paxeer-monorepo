@@ -334547,7 +334547,7 @@ do_3 = "Attempt 2 (continue, gotcha 3510, decisions 2812 and 2840): the attempt-
 
 [task.22.39.120]
 title = "Repair the x402, web-search and ai-market payment tests of the agent SDK Python suite and retire their baseline entries"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.39.73"]
