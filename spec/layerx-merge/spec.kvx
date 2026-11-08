@@ -182234,7 +182234,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.128]
 title = "Bind the budget verifier of retained native preparations through the signing preparation"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.217"]
@@ -333486,7 +333486,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.136]
 title = "Port the Python payment verifier, HTTP client and agent budget modules to the wire of the TypeScript seller and buyer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.146"]
