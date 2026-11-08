@@ -1,0 +1,167 @@
+[repair.9.98.4]
+mode = "BUILD"
+attempt = 14
+base_revision = "5e5bb731595b38793c106ea5d02629f64ea534a3"
+carried_revision = "fc2cdfba14aac92fe7d4c6f580358d8ce5822c21"
+implementation = "Continue all fifteen carried paths; this attempt changes only receipt_store_v2.rs and this record. No daemon-source semantics are changed in attempt 14."
+baseline = "No fresh unchanged-tree gate was run: the supplied continuation already records attempt 13, and the current bounded order permits gates only after implementation. Unknown baseline outcomes remain unknown rather than being claimed as observed."
+
+[evidence]
+ledger = "/out/run/gates.jsonl"
+build = "The final build row in the private ledger records revision, exact cargo build command, exit and log; expected first log /out/logs/build-1.log."
+dependents = "hf-done records its dependent-crate check in the private ledger; no separate check is run by hand."
+verify = "The final verify row in the private ledger records revision, exact cg spec done command, exit and log; expected first log /out/logs/verify-1.log."
+policy = "These are references to gate evidence, not assertions that an unrun gate passed. The final response copies the last gate evidence verbatim."
+
+[correction.read_proof_bundle_freshness]
+consumer = "services/agent/crates/layerx-agentd/tests/read_ops_rpc.rs:202"
+producer = "services/agent/crates/layerx-agent-api/src/read.rs:1028 Freshness::encode_json; services/agent/crates/layerx-agentd/src/human_runtime.rs proof_bundle_operation_value"
+assertion = "The proof bundle relative_to is the object with decimal height 150 and hex hash of [9; 32], exactly as VerifiedRead::encode_json emits. The ordinary_read pending assertion at line 51 stays."
+
+[correction.receipt_store_duplicate]
+consumer = "services/agent/crates/layerx-agentd/tests/receipt_store_v2.rs receipt_evidence_round_trips_by_transaction_hash"
+producer = "services/agent/crates/layerx-agentd/tests/repair_22_33_1513.rs:446-480; services/agent/crates/layerx-agentd/src/receipt.rs:57-68,971-987,1009-1020"
+assertion = "Both duplicate stores use AuthenticatedTransactionReceipt::from_authenticated over a node-verified recorded receipt, and still return the exact expected evidence. Success and revert transcripts retain their real outcome; an additional real committed transcript covers the committed rung."
+
+[correction.receipt_store_weaker_and_upgrade]
+consumer = "services/agent/crates/layerx-agentd/tests/receipt_store_v2.rs receipt_evidence_round_trips_by_transaction_hash"
+producer = "services/agent/crates/layerx-agentd/tests/repair_22_33_1513.rs:897-1009; services/agent/crates/layerx-agentd/src/receipt.rs:1009-1020"
+assertion = "The recorded node batch, transaction proof, validator set and commit authenticate the committed capability. The same transcript without commit evidence authenticates its receipted capability; weaker writes preserve committed evidence and the separate upgrade tenant proves receipted-to-committed promotion. No claimed committed rung is manufactured by mutating metadata."
+
+[correction.receipt_store_conflict_and_binding]
+consumer = "services/agent/crates/layerx-agentd/tests/receipt_store_v2.rs receipt_evidence_round_trips_by_transaction_hash"
+producer = "services/agent/crates/layerx-agentd/src/receipt.rs:1000-1014,1044-1046; services/agent/crates/layerx-agentd/tests/repair_22_33_1513.rs:483-501"
+assertion = "Wrong hash and wrong bytes still return Corrupt through authenticated ingress. The metadata-conflict check changes the persisted gas field and submits the intact authenticated capability, retaining the Store conflict refusal and restoring exact persisted bytes afterward. The raw submitted evidence continues to return BelowReceipted before and after storing."
+
+[correction.receipt_store_version]
+consumer = "services/agent/crates/layerx-agentd/tests/receipt_store_v2.rs version_one_receipt_evidence_is_refused"
+producer = "services/agent/crates/layerx-agentd/tests/repair_22_33_1513.rs:446-460; services/agent/crates/layerx-agentd/src/receipt.rs:934-943,1008-1009"
+assertion = "The valid current receipt comes from authenticated producer evidence, so storing against legacy evidence reaches receipt.evidence_version; serving, reason, unchanged legacy bytes and absent receipt indexes assertions stay. All existing malformed, submitted-rung, tenant, transaction hash, encoded-version and restart checks remain."
+
+[gotcha.raw_ingress]
+symptom = "The carried receipt store tests passed raw evidence to ingress hardened by 22.33.1513; only submitted-rung raw evidence retains its BelowReceipted rejection."
+resolution = "Use opaque authenticated capabilities derived through the real node receipt and commit verifiers, matching producer tests. Recorded here because GOTCHA.kvx is outside the user scope."
+
+[fixture.1]
+file = "services/agent/crates/layerx-agentd/src/ops/program.rs"
+line = 2473
+change = "Signed EVM program receipt now includes paymentDenom upax and signs the canonical asset hash."
+
+[fixture.2]
+file = "services/agent/crates/layerx-agentd/src/human_runtime.rs"
+line = 23255
+change = "History receipt view includes paymentDenom upax; linked results and checkpoint wiring are carried unchanged."
+
+[fixture.3]
+file = "services/agent/crates/layerx-agentd/src/human_runtime.rs"
+line = 24389
+change = "Retained native receipt fixture uses its canonical payment asset usid; feeDenom upax describes the separate execution fee."
+
+[fixture.4]
+file = "services/agent/crates/layerx-agentd/tests/support/mod.rs"
+line = 747
+change = "Shared receipt JSON, summary and canonical signing asset all use PAYMENT_DENOM upax."
+
+[fixture.5]
+file = "services/agent/crates/layerx-agentd/tests/human_node_receipts.rs"
+line = 120
+change = "Recorded node producer receipts carry uhpx and their exact signatures; assertions expose refusal reasons."
+
+[fixture.6]
+file = "services/agent/crates/layerx-agentd/tests/human_node_budgets.rs"
+line = 186
+change = "Committed budget receipt carries paymentDenom upax."
+
+[fixture.7]
+file = "services/agent/crates/layerx-agentd/tests/node_rpc.rs"
+line = 229
+change = "Receipt key publication uses the real key entry type; receipt fixtures are shared or recorded producer inputs."
+
+[fixture.8]
+file = "services/agent/crates/layerx-agentd/tests/recovery.rs"
+line = 2
+change = "Recovery receipt views inherit shared paymentDenom and canonical signing binding."
+
+[fixture.9]
+file = "services/agent/crates/layerx-agentd/tests/unknown.rs"
+line = 3
+change = "Unknown resolution receipt views inherit shared paymentDenom and canonical signing binding."
+
+[fixture.10]
+file = "services/agent/crates/layerx-agentd/tests/unknown_receipt_lookup.rs"
+line = 219
+change = "Unknown lookup receipt view carries PAYMENT_DENOM matching the signed asset."
+
+[fixture.11]
+file = "services/agent/crates/layerx-agentd/tests/native_routes_rpc.rs"
+line = 123
+change = "Native route receipt view carries paymentDenom upax."
+
+[fixture.12]
+file = "services/agent/crates/layerx-agentd/tests/finality_rungs.rs"
+line = 64
+change = "Finality canonical receipt asset derives from payment denomination upax."
+
+[fixture.13]
+file = "services/agent/crates/layerx-agentd/tests/receipt_store_v2.rs"
+line = 60
+change = "Replaced hand-signed RLP evidence with authenticated recorded node receipt capabilities; both recorded producers already carry paymentDenom."
+
+[fixture.14]
+file = "services/agent/crates/layerx-agentd/tests/program_adapters_rungs.rs"
+line = 49
+change = "Carried single store directory correction; submitted-rung answer has no executed receipt denomination."
+
+[fixture.15]
+file = "services/agent/crates/layerx-agentd/tests/read_ops_rpc.rs"
+line = 115
+change = "Canonical receipt asset derives from payment denomination upax; freshness correction recorded separately."
+
+[fixture.16]
+file = "services/agent/crates/layerx-agentd/tests/fixtures/receipted-log-transition.json"
+line = 2
+change = "Log-only receipt-feed fixture has no sequencer receipt literal; producer description documents denomination ownership."
+
+[baseline.human_node_receipts]
+observed = "Original unchanged-tree outcome was not supplied; no additional baseline gate is authorized in this continuation."
+current_gate = "/out/run/gates.jsonl final verify row"
+
+[baseline.human_node_budgets]
+observed = "Original unchanged-tree outcome was not supplied; no additional baseline gate is authorized in this continuation."
+current_gate = "/out/run/gates.jsonl final verify row"
+
+[baseline.node_rpc]
+observed = "Original unchanged-tree outcome was not supplied; no additional baseline gate is authorized in this continuation."
+current_gate = "/out/run/gates.jsonl final verify row"
+
+[baseline.recovery]
+observed = "Original unchanged-tree outcome was not supplied; no additional baseline gate is authorized in this continuation."
+current_gate = "/out/run/gates.jsonl final verify row"
+
+[baseline.unknown]
+observed = "Original unchanged-tree outcome was not supplied; no additional baseline gate is authorized in this continuation."
+current_gate = "/out/run/gates.jsonl final verify row"
+
+[baseline.unknown_receipt_lookup]
+observed = "Original unchanged-tree outcome was not supplied; no additional baseline gate is authorized in this continuation."
+current_gate = "/out/run/gates.jsonl final verify row"
+
+[baseline.native_routes_rpc]
+observed = "Original unchanged-tree outcome was not supplied; no additional baseline gate is authorized in this continuation."
+current_gate = "/out/run/gates.jsonl final verify row"
+
+[baseline.finality_rungs]
+observed = "Original unchanged-tree outcome was not supplied; no additional baseline gate is authorized in this continuation."
+current_gate = "/out/run/gates.jsonl final verify row"
+
+[baseline.receipt_store_v2]
+observed = "Supplied attempt-13 evidence reports both tests failed with unauthenticated raw ingress."
+current_gate = "/out/run/gates.jsonl final verify row"
+
+[baseline.program_adapters_rungs]
+observed = "Original unchanged-tree outcome was not supplied; no additional baseline gate is authorized in this continuation."
+current_gate = "/out/run/gates.jsonl final verify row"
+
+[baseline.read_ops_rpc]
+observed = "Supplied attempt-13 evidence reports the corrected read_ops_rpc target passed; original unchanged-tree baseline was not supplied."
+current_gate = "/out/run/gates.jsonl final verify row"

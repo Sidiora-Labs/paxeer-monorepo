@@ -1,0 +1,84 @@
+[meta]
+task = "22.31.554"
+requirement = "22998.1"
+base_revision = "1ce9fc95866b46b2118939a99bd88a2d4557b670"
+gotchas = [3142, 3168, 3169]
+decisions = [2325, 2602, 2621]
+prerequisites = ["22.31.551", "22.31.552", "22.31.553", "22.31.555", "9.98.4", "22.31.545", "22.31.572", "22.31.614", "22.31.620"]
+
+[implementation.store_fixture]
+file = "services/agent/crates/layerx-agentd/src/store/mod.rs"
+case = "store::batch_removing_tests::update_local_batch_removing_rolls_back_both_lists_on_failed_persist"
+diagnosis = "Gotcha 3169 requires the rollback test to reach the intended failed persistence through a canonical, owned, private directory. The prerequisite already repairs its directory and writer lifetime."
+change = "Assert that the actual fixture root is a directory, has exactly mode 0o700, belongs to the effective uid and equals its canonical path before opening the real Store. Retain every corruption, rollback, retry and restart assertion."
+repaired_cases = "The eight cases exposed by the first full-library gate are diagnosed below; every existing test and assertion remains, with additional terminal replay and durable audit assertions."
+
+[qualification]
+ledger = "/out/run/gates.jsonl"
+revision = "The identical revision of the final passing build and verify ledger rows is the verified revision of this record."
+build_command = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --tests"
+verify_command = "cg spec done 22.31.554 -f layerx-merge --root /work/paxeer-monorepo"
+test_command = "sh tools/runtime/run-with-clock.sh cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib -- --skip checks_the_actual_server_identity"
+results = "The final build and verify ledger rows supply exact revision, command, exit code and private log path. This record is written before those gates and does not predict their outcome."
+immutability = "No task file is amended after the final build and verify; the runner owns publication."
+
+[qualification.counts]
+source = "The final verify log test result summary is authoritative; the counts below are qualified only when the final matching build and verify ledger rows both exit zero."
+collected = 333
+run = 331
+passed = 331
+failed = 0
+skipped = 2
+ignored = 0
+scope = "No test functions are added or removed in this task. Only the two named TLS producer-input cases are filtered by the declared command."
+
+[qualification.tls_producers]
+cases = ["outbound_tls::private_ca_checks_the_actual_server_identity", "ops::program::simulation_tls_checks_the_actual_server_identity"]
+producer = "make agent-test builds the real layerx-paxeer-boundary; services/platform/tests/support/tls_boundary.rs generates certificates and launches real boundary servers and exact-name child probes, using LAYERX_PAXEER_BOUNDARY_BIN when supplied."
+exclusion = "Only the declared checks_the_actual_server_identity substring excludes these two cases, as required by decision 2325."
+
+[qualification.library_gate]
+status = "On the final matching build and hf-done exits of zero, the layerx-agentd library target is a qualification gate again so later daemon tasks may name it whole under tools/runtime/run-with-clock.sh, with only the decision 2325 TLS pair excluded. Until those exits exist this statement is unqualified."
+
+[qualification.first_pass]
+revision = "e96b9b4dc6b9052aab23b9c8f870c3e262cc960d"
+build_command = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --tests"
+build_exit = 0
+build_log = "/out/logs/build-1.log"
+verify_command = "cg spec done 22.31.554 -f layerx-merge --root /work/paxeer-monorepo"
+verify_exit = 1
+verify_log = "/out/logs/verify-1.log"
+test_exit = 101
+run = 331
+passed = 323
+failed = 8
+skipped = 2
+ignored = 0
+
+[diagnosis.approval_records]
+file = "services/agent/crates/layerx-agentd/src/approval/mod.rs"
+cases = ["lock_order_tests::reject_and_receipt_settlement_under_one_limit_complete_concurrently", "reject_persist_tests::reject_under_an_unknown_limit_leaves_every_record_identical_and_retry_is_fresh", "defective_persist_tests::defective_approval_releases_every_held_limit_once_and_leaves_only_the_decision", "defective_persist_tests::defective_approval_under_an_unknown_limit_leaves_every_record_identical_and_retry_is_fresh"]
+cause = "The three hold_records test helpers classify every PreparedActivity object as a live hold. The real registry now durably replaces rejected and defective holds with approval-terminal-v1 replay records in the same object namespace."
+repair = "Select actual approval-hold-v1 records in those helpers. Preserve every empty-hold, byte-identical rollback, retry, queue, concurrent completion, budget and decision assertion. At each of the four affected success assertions additionally require the complete PreparedActivity key list to equal the exact expected terminal key, replay it through a fresh ApprovalRegistry, and require its exact terminal state, zero recovered reservation ids and zero held reservations."
+
+[diagnosis.session_audit_roots]
+file = "services/agent/crates/layerx-agentd/src/session_control.rs"
+cases = ["tests::admit_write_with_a_failed_durable_write_releases_its_hold", "tests::submit_rewrite_with_a_failed_durable_write_leaves_the_limiter_as_it_was"]
+cause = "The failed-write fixture deletes the store root to provoke real persistence failure, but the real authorization audit sink shares that root and recreates it during admission. The store still refuses the detached inode; only the fixture's unrelated directory assumption fails."
+repair = "Give these two fixtures a separate nonce-qualified sibling directory for real durable observability before authorizing. Retain deletion of the store root, the exact Unavailable result, every lifecycle and accounting assertion and both original root-nonexistence assertions. Also assert that authorization audits were delivered, then remove their separate directory."
+
+[diagnosis.budget_generator]
+file = "services/agent/crates/layerx-agentd/src/budget/budget_proof.rs"
+case = "tests::budget_proof_v2_node_answers_fixture_is_current"
+cause = "The committed transcript already contains three ownership queries, but generated_answers ends before getEvmAddrByLayerX, getUnifiedAccount and accountOwner. The byte-equality assertion detects those omitted rows."
+repair = "Extend generated_answers with the exact address and ledger calls, including the dynamic empty Pax address tail and the protocol-three DID identity computed through did_id_for_protocol. Keep the committed transcript outside this task unchanged and retain full byte equality and all DID-format checks."
+
+[diagnosis.program_account]
+files = ["services/agent/crates/layerx-agentd/src/read/committed.rs", "services/agent/crates/layerx-agentd/src/read/program_account_fixture.rs"]
+case = "tests::program_views_decode_one_program_and_one_account_and_refuse_changed_settlement"
+cause = "The old getValueAccount reply encodes balance 50 with exists=false, which decode_program_value_observation correctly refuses. The old reader entry also supplies no independently authenticated account status, which is now mandatory for populated accounts."
+repair = "Encode exists=true and call read_program_records_with_account_proofs with a genuinely verified nested account proof. Produce the canonical account and all state-root commitments through the production Programs registry types, construct and sign the account snapshot receipt and batch header with the existing account-proof fixture encoding, and verify through verify_nested_account. Bind and re-sign the Comet checkpoint to that same root. Preserve all program, account, asset, registration, balance, unfrozen and changed-settlement refusal assertions."
+
+[gotcha.fixture_namespaces]
+observed = "PreparedActivity contains both live approval holds and terminal replay evidence; authorization audit delivery can recreate its directory independently of the Store's inode-anchored writer."
+repair = "Assert exact record kinds and durable replay state, and isolate intentional store-root failure from the real audit sink."

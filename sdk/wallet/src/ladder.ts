@@ -39,6 +39,8 @@ const JOURNEY_TABLE: Readonly<Record<JourneyState, LadderRung | null>> = Object.
   'still-checking': null,
   refused: null,
   'waiting-for-you': null,
+  closed: null,
+  'awaiting-approval': null,
 });
 
 function lookup<K extends string>(

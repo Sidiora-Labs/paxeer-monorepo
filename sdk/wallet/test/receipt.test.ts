@@ -1,4 +1,3 @@
-import { readFileSync } from 'node:fs';
 import { createServer } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { afterAll, beforeAll, expect, test } from 'vitest';
@@ -10,21 +9,32 @@ import {
   readSequencerReceipt,
   waitForSequencerReceipt,
   type SequencerRung,
+  type SequencerReceiptAnswer,
   type TransferRpc,
 } from '../src/index.js';
 
-const recorded = JSON.parse(
-  readFileSync(new URL('./fixtures/sequencer-receipt.json', import.meta.url), 'utf8')
-) as Record<'submitted' | 'receipted' | 'committed', Record<string, unknown>>;
+import {
+  authenticatedReceipt,
+  committedReceipt,
+  committedVector,
+  receiptPins,
+  receiptWireKeys,
+} from './support/receipt-recordings.js';
+
+const recorded = {
+  submitted: { rung: 'submitted', txHash: committedReceipt.txHash, nonce: committedReceipt.nonce },
+  receipted: committedVector.receiptJson,
+  committed: committedReceipt,
+} satisfies Record<SequencerRung, SequencerReceiptAnswer>;
 const transactionHash = String(recorded.submitted.txHash);
 const foreignHash = `0x${'ff'.repeat(32)}`;
-const answers: Record<string, unknown> = {
+const answers: Record<string, SequencerReceiptAnswer | null> = {
   submitted: recorded.submitted,
   receipted: recorded.receipted,
   committed: recorded.committed,
   missing: null,
   foreign: { ...recorded.submitted, txHash: foreignHash },
-  unknown: { ...recorded.submitted, rung: 'final' },
+  unknown: { ...recorded.submitted, rung: 'final' as SequencerRung },
 };
 const requests: { method: string; params: unknown[] }[] = [];
 const sequences = new Map<
@@ -37,6 +47,28 @@ const server = createServer(async (req, res) => {
   for await (const chunk of req) body += chunk;
   const request = JSON.parse(body);
   requests.push({ method: request.method, params: request.params });
+  if (request.method === 'px_getReceiptKeys' && request.params.length === 0) {
+    res.writeHead(200, { 'content-type': 'application/json' });
+    res.end(
+      JSON.stringify({
+        jsonrpc: '2.0',
+        id: request.id,
+        result: receiptWireKeys(recorded.committed),
+      })
+    );
+    return;
+  }
+  if (
+    request.method === 'eth_getRawTransactionByHash' &&
+    request.params.length === 1 &&
+    request.params[0] === transactionHash
+  ) {
+    res.writeHead(200, { 'content-type': 'application/json' });
+    res.end(
+      JSON.stringify({ jsonrpc: '2.0', id: request.id, result: committedVector.rawTransaction })
+    );
+    return;
+  }
   const name = req.url?.slice(1) ?? '';
   const sequence = sequences.get(name);
   res.writeHead(200, { 'content-type': 'application/json' });
@@ -77,7 +109,7 @@ afterAll(async () => {
 
 function receiptRpc(name: string): TransferRpc {
   const client = new JsonRpcClient({ url: `${base}/${name}` });
-  return (method, params) => client.call(method, params);
+  return (method, params, options) => client.call(method, params, options);
 }
 
 function receiptSequenceRpc(values: readonly unknown[], onRequest?: () => void): TransferRpc {
@@ -86,13 +118,31 @@ function receiptSequenceRpc(values: readonly unknown[], onRequest?: () => void):
   return receiptRpc(name);
 }
 
+function receiptRequests(values: readonly unknown[]) {
+  return values.flatMap((value) => [
+    { method: 'pax_sequencerReceipt', params: [transactionHash] },
+    ...(value && typeof value === 'object' && 'rung' in value && value.rung !== 'submitted'
+      ? [
+          { method: 'px_getReceiptKeys', params: [] },
+          { method: 'eth_getRawTransactionByHash', params: [transactionHash] },
+        ]
+      : []),
+  ]);
+}
+
+function expectedAnswer(value: unknown) {
+  return value === null ? null : authenticatedReceipt(value as SequencerReceiptAnswer);
+}
+
 async function read_sequencer_receipt_calls_pax_sequencer_receipt_and_decodes_each_rung() {
   const start = requests.length;
   for (const rung of ['submitted', 'receipted', 'committed'] as const) {
     const answer = await readSequencerReceipt(receiptRpc(rung), transactionHash);
-    expect(answer).toEqual(answers[rung]);
+    expect(answer).toEqual(expectedAnswer(answers[rung]));
     expect(answer?.rung).toBe(rung);
-    expect(decodeSequencerReceipt(answers[rung])).toEqual(answer);
+    expect(
+      decodeSequencerReceipt(answers[rung], transactionHash, receiptPins(recorded[rung]))
+    ).toEqual(recorded[rung]);
     if (rung !== 'committed') {
       expect(answer).not.toHaveProperty('blockNumber');
       expect(answer).not.toHaveProperty('blockHash');
@@ -100,10 +150,7 @@ async function read_sequencer_receipt_calls_pax_sequencer_receipt_and_decodes_ea
   }
   expect(await readSequencerReceipt(receiptRpc('missing'), transactionHash)).toBeNull();
   expect(requests.slice(start)).toEqual(
-    Array.from({ length: 4 }, () => ({
-      method: 'pax_sequencerReceipt',
-      params: [transactionHash],
-    }))
+    receiptRequests([recorded.submitted, recorded.receipted, recorded.committed, null])
   );
   const beforeInvalidHash = requests.length;
   await expect(readSequencerReceipt(receiptRpc('submitted'), 'invalid')).rejects.toThrow(
@@ -133,7 +180,11 @@ async function decode_sequencer_receipt_refuses_an_unknown_rung_or_a_foreign_has
   for (const field of ['blockNumber', 'blockHash'] as const) {
     for (const invalid of [undefined, null, '', 1, '0x', '0x00']) {
       expect(() =>
-        decodeSequencerReceipt({ ...recorded.committed, [field]: invalid })
+        decodeSequencerReceipt(
+          { ...recorded.committed, [field]: invalid },
+          undefined,
+          receiptPins(recorded.committed)
+        )
       ).toThrow(field);
     }
   }
@@ -146,7 +197,9 @@ async function decode_sequencer_receipt_refuses_an_unknown_rung_or_a_foreign_has
   for (const nonce of [undefined, null, 0, '0x00', '0x', '1']) {
     expect(() => decodeSequencerReceipt({ ...recorded.submitted, nonce })).toThrow('nonce');
   }
-  expect(decodeSequencerReceipt(recorded.receipted)).toEqual(recorded.receipted);
+  expect(
+    decodeSequencerReceipt(recorded.receipted, undefined, receiptPins(recorded.receipted))
+  ).toEqual(recorded.receipted);
   expect(() => decodeSequencerReceipt({ ...recorded.committed, logs: [null] })).toThrow('log');
   expect(() => decodeSequencerReceipt({ ...recorded.committed, receipt: '0x1' })).toThrow(
     'receipt'
@@ -168,41 +221,93 @@ function decode_sequencer_receipt_preserves_strict_validation_before_commit() {
       'feeAmount',
     ] as const) {
       for (const invalid of [null, 1, '0x', '0x00', '0x-1']) {
-        expect(() => decodeSequencerReceipt({ ...recorded[rung], [field]: invalid })).toThrow(
-          field
+        expect(() =>
+          decodeSequencerReceipt(
+            { ...recorded[rung], [field]: invalid },
+            undefined,
+            receiptPins(recorded[rung])
+          )
+        ).toThrow(
+          rung === 'submitted'
+            ? 'submitted fields'
+            : rung === 'receipted' && (field === 'blockNumber' || field === 'blockHash')
+              ? 'receipted block'
+              : field
         );
       }
     }
     for (const field of ['blockHash', 'keyId'] as const) {
       for (const invalid of [null, 1, '0x', `0x${'aa'.repeat(31)}`, `0x${'aa'.repeat(33)}`]) {
-        expect(() => decodeSequencerReceipt({ ...recorded[rung], [field]: invalid })).toThrow(
-          field
+        expect(() =>
+          decodeSequencerReceipt(
+            { ...recorded[rung], [field]: invalid },
+            undefined,
+            receiptPins(recorded[rung])
+          )
+        ).toThrow(
+          rung === 'submitted'
+            ? 'submitted fields'
+            : rung === 'receipted' && (field === 'blockNumber' || field === 'blockHash')
+              ? 'receipted block'
+              : field
         );
       }
     }
     for (const field of ['returnData', 'receipt'] as const) {
       for (const invalid of [null, 1, '0x1', '0xgg']) {
-        expect(() => decodeSequencerReceipt({ ...recorded[rung], [field]: invalid })).toThrow(
-          field
+        expect(() =>
+          decodeSequencerReceipt(
+            { ...recorded[rung], [field]: invalid },
+            undefined,
+            receiptPins(recorded[rung])
+          )
+        ).toThrow(
+          rung === 'submitted'
+            ? 'submitted fields'
+            : rung === 'receipted' && (field === 'blockNumber' || field === 'blockHash')
+              ? 'receipted block'
+              : field
         );
       }
     }
     for (const field of ['sponsor', 'from', 'to', 'contractAddress'] as const) {
       for (const invalid of [null, 1, '0x', `0x${'aa'.repeat(19)}`, `0x${'aa'.repeat(21)}`]) {
-        expect(() => decodeSequencerReceipt({ ...recorded[rung], [field]: invalid })).toThrow(
-          field
+        expect(() =>
+          decodeSequencerReceipt(
+            { ...recorded[rung], [field]: invalid },
+            undefined,
+            receiptPins(recorded[rung])
+          )
+        ).toThrow(
+          rung === 'submitted'
+            ? 'submitted fields'
+            : rung === 'receipted' && (field === 'blockNumber' || field === 'blockHash')
+              ? 'receipted block'
+              : field
         );
       }
     }
     for (const field of ['feeDenom', 'vmError'] as const) {
       for (const invalid of [null, 1, []]) {
-        expect(() => decodeSequencerReceipt({ ...recorded[rung], [field]: invalid })).toThrow(
-          field
+        expect(() =>
+          decodeSequencerReceipt(
+            { ...recorded[rung], [field]: invalid },
+            undefined,
+            receiptPins(recorded[rung])
+          )
+        ).toThrow(
+          rung === 'submitted'
+            ? 'submitted fields'
+            : rung === 'receipted' && (field === 'blockNumber' || field === 'blockHash')
+              ? 'receipted block'
+              : field
         );
       }
     }
     for (const logs of [null, {}, [null], [{ topics: [] }]]) {
-      expect(() => decodeSequencerReceipt({ ...recorded[rung], logs })).toThrow('log');
+      expect(() =>
+        decodeSequencerReceipt({ ...recorded[rung], logs }, undefined, receiptPins(recorded[rung]))
+      ).toThrow(rung === 'submitted' ? 'submitted fields' : 'log');
     }
   }
 }
@@ -214,12 +319,9 @@ async function wait_for_sequencer_receipt_polling_continues_through_the_unchange
     transactionHash,
     { rung: 'committed', attempts: 3, intervalMs: 0 }
   );
-  expect(answer).toEqual(recorded.committed);
+  expect(answer).toEqual(authenticatedReceipt(recorded.committed));
   expect(requests.slice(start)).toEqual(
-    Array.from({ length: 3 }, () => ({
-      method: 'pax_sequencerReceipt',
-      params: [transactionHash],
-    }))
+    receiptRequests([recorded.submitted, recorded.receipted, recorded.committed])
   );
 }
 
@@ -237,11 +339,13 @@ async function wait_for_sequencer_receipt_refuses_malformed_bounds_before_pollin
     ).rejects.toThrow('intervalMs');
   }
   await expect(
-    waitForSequencerReceipt(rpc, transactionHash, { rung: 'final' as SequencerRung })
+    waitForSequencerReceipt(rpc, transactionHash, {
+      rung: 'final' as SequencerRung as SequencerRung,
+    })
   ).rejects.toThrow('unknown sequencer receipt rung');
-  await expect(
-    waitForSequencerReceipt(rpc, 'invalid', { rung: 'committed' })
-  ).rejects.toThrow('transaction hash');
+  await expect(waitForSequencerReceipt(rpc, 'invalid', { rung: 'committed' })).rejects.toThrow(
+    'transaction hash'
+  );
   expect(requests).toHaveLength(start);
 }
 
@@ -264,21 +368,16 @@ async function wait_for_sequencer_receipt_returns_once_the_requested_rung_is_rea
       attempts: values.length,
       intervalMs: 0,
     });
-    expect(result).toEqual(expected);
-    expect(requests.slice(start)).toEqual(
-      Array.from({ length: values.length - 1 }, () => ({
-        method: 'pax_sequencerReceipt',
-        params: [transactionHash],
-      }))
-    );
+    expect(result).toEqual(expectedAnswer(expected));
+    expect(requests.slice(start)).toEqual(receiptRequests(values.slice(0, -1)));
   }
   const start = requests.length;
   expect(
     await waitForSequencerReceipt(receiptRpc('committed'), transactionHash, {
       rung: 'committed',
     })
-  ).toEqual(answers.committed);
-  expect(requests).toHaveLength(start + 1);
+  ).toEqual(expectedAnswer(answers.committed));
+  expect(requests).toHaveLength(start + 3);
   await expect(
     waitForSequencerReceipt(receiptRpc('foreign'), transactionHash, {
       rung: 'committed',
@@ -293,7 +392,7 @@ async function wait_for_sequencer_receipt_returns_once_the_requested_rung_is_rea
       intervalMs: 0,
     })
   ).rejects.toBeInstanceOf(JsonRpcError);
-  expect(requests).toHaveLength(start + 3);
+  expect(requests).toHaveLength(start + 5);
 }
 
 async function wait_for_sequencer_receipt_times_out_with_the_last_answer() {
@@ -311,8 +410,11 @@ async function wait_for_sequencer_receipt_times_out_with_the_last_answer() {
       intervalMs: 0,
     }).catch((error: unknown) => error);
     expect(error).toBeInstanceOf(ReceiptTimeoutError);
-    expect(error).toMatchObject({ name: 'ReceiptTimeoutError', lastAnswer: values.at(-1) ?? null });
-    expect(requests).toHaveLength(start + values.length);
+    expect(error).toMatchObject({
+      name: 'ReceiptTimeoutError',
+      lastAnswer: expectedAnswer(values.at(-1) ?? null),
+    });
+    expect(requests.slice(start)).toEqual(receiptRequests(values));
   }
   const defaultStart = requests.length;
   await expect(

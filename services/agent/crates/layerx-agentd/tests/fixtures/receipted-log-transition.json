@@ -1,5 +1,5 @@
 {
-  "producer": "rpc/filter.go:FilterLog.MarshalJSON via receipt-feed eth_getFilterChanges and committed eth_getLogs",
+  "producer": "rpc/filter.go:FilterLog.MarshalJSON via receipt-feed eth_getFilterChanges and committed eth_getLogs (log-only views; paymentDenom is carried by the sequencer receipt)",
   "transactions": [
     "0x1161ab8fb747073ba98a0f2094d909f135808534488a37bf977744b12c862851",
     "0x7f4fca05db9959e4a4679c78266edb9c9f95d978c2d618e80d39785a06910a07"
