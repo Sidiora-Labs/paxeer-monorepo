@@ -35818,3 +35818,11 @@ symbol = "layerx-programs-ai-market"
 observed = "Attempt 29 at 3588221d01e2 (base 95c2388776a4): build exit 1 at 6ebb141df125 (wasm-opt refused the historical guest for undeclared bulk memory, repaired), then exit 0 at the final tree; verification exit 101: 12 of the crate targets failed with about sixty cases; log /out/logs/verify-1.log."
 assumption = "The size changes of the attempt caused the regressions; the base already met the guest bound."
 severity = "high"
+
+[finding.9.35.23.1]
+task = "9.35.23"
+file = "services/agent/crates/layerx-sdk/src/agent_envelope.rs"
+symbol = "agent_envelope.rs"
+observed = "Attempt 1 at eccc16297056 (base cb96b80a5c25): build exit 0 twice; verification exit 101 twice, the second run failing four cases of the layerx-sdk lib suite (the registration parameter names and the three TLS identity cases refusing for the missing boundary binary) with 47 passed; log /out/logs/verify-2.log."
+assumption = "The disclosure work of the task is complete; the four failures belong to the suite the gate runs."
+severity = "high"
