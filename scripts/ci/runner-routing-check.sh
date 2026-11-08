@@ -14,11 +14,13 @@ import yaml
 
 # Jobs that keep their runs-on line byte for byte: workflow file, job, reason class, original runs-on.
 EXCLUDED = """
+ci.yml                          c17                              sanitizer         ubuntu-24.04
 codeql.yml                      analyze                          codeql            ubuntu-24.04
 docs-site.yml                   deploy                           publishing-credential ubuntu-24.04
 scorecard.yml                   analysis                         scorecard         ubuntu-24.04
 explorer-build.yml              explorer-backend                 container         ubuntu-24.04
 explorer-build.yml              explorer-lint-backend            docker-command    ubuntu-24.04
+explorer-images.yml             explorer-backend-test            docker-command    ubuntu-24.04
 explorer-images.yml             publish                          docker-action     ubuntu-24.04
 human.yml                       browser-performance              docker-command    ubuntu-24.04
 mirror-live.yml                 publish-retrieve                 layerx-testnet    [self-hosted, layerx-testnet]
@@ -67,7 +69,7 @@ runner-canary.yml               canary
 REASONS = {
     "codeql", "scorecard", "container", "services", "docker-action", "docker-command",
     "ecr", "ko", "cosign", "provenance", "macos", "windows", "matrix-runner",
-    "layerx-testnet", "publish", "release-pipeline", "publishing-credential",
+    "layerx-testnet", "publish", "release-pipeline", "publishing-credential", "sanitizer",
 }
 
 # Commands that need a container runtime, which the routed runner image does not carry.

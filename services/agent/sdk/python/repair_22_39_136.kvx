@@ -1,0 +1,153 @@
+[meta]
+task = "22.39.136"
+requirement = "22998.1"
+base_revision = "83246ad5676945addcbf4dd6eae86cf6f55b6ded"
+qualification_revision = "refs/heads/task/22.39.136"
+revision_evidence = "The bounded gates record the exact candidate revision, command, exit code and private log in /out/run/gates.jsonl; hf-done advances the task ref to that candidate. A failed gate does not qualify this repair."
+build = "hf-build"
+verify = "hf-done"
+
+[wire]
+reference = "services/platform/middleware/seller/src/index.ts; services/platform/middleware/seller/src/commitment.ts; services/platform/middleware/conformance/pay6/node-fixtures.mjs"
+changes = "Accept eip155 network names and prefixed asset/account bytes; authenticate receipt-proof-v2 raw transaction, signature, pinned key metadata, digest and optional node JSON; bind the EVM sender separately from the ledger payer and payment reference; refuse submitted and retired commitment values; retain committed inclusion verification, replay protection and durable reservations."
+digest = "After 22.39.146, the pay6 portable proof and agent peer emit receiptDigest from verifySequencerReceipt: the authenticated SHA-256 signing digest. HTTP proof generation, verification, fulfillment rows and agent budget reservations use that verified digest."
+
+[assertion.1]
+test = "test_x402_draw_verifies_the_sequencer_receipt"
+edited = "The calldata payer word equals terms.ledger_payer; successful verify_payment_receipt calls receive terms.payer from the recorded EVM from address and the separate ledger_payer."
+reason = "The producer's PaymentExact.from topic identifies the ledger account, while the signed receipt from field identifies the recovered EVM sender. Both accounts remain asserted and mismatches of either are rejected."
+
+[assertion.2]
+test = "test_seller_verifies_a_sequencer_receipt_through_receipt_keys"
+edited = "The entire settlement equality now expects the producer transaction hash, eip155:125 network, padded EVM sender and full receipt-proof-v2 extension."
+reason = "The TypeScript seller emits txHash and PortableReceiptV2, replacing the retired lxp receipt URI and base64 receipt extension. The full dictionary assertion remains exact."
+
+[assertion.3]
+test = "test_seller_verifies_a_sequencer_receipt_through_receipt_keys"
+edited = "The exact persisted fulfillment row uses the authenticated receiptDigest from the recorded sequencer vector, retaining the same request-key and request-digest assertions."
+reason = "The seller stores the portable proof's verified signing digest; 22.39.146 corrected the pay6 producer to emit that digest, replacing the attempt-5 Keccak identifier for HTTP proofs."
+
+[assertion.4]
+test = "test_buyer_verifies_sequencer_receipts_through_receipt_keys"
+edited = "The exact prepared payload equality compares all six receipt-proof-v2 fields, including prefixed rawTransaction, signedReceipt and receiptDigest and the full receiptKey range; buyer support is eip155:125 and its payer argument is the recorded EVM sender."
+reason = "These are the producer's public payload names and payer binding. Signature, key-refusal, transaction-hash, receipt-digest and RPC exchange assertions remain intact."
+
+[assertion.5]
+test = "test_http_committed_offer_waits_for_verified_inclusion_after_restart"
+edited = "Pending and successful prepare assertions select eip155:125 with the recorded EVM sender; the missing-finality refusal explicitly supplies a committed receipt-proof-v2 payload."
+reason = "A receipted proof is a rung mismatch for a committed offer; a committed proof without finality must still reach and fail the existing PaymentBindingError check. Restart, single-submission, no-release and committed-inclusion assertions are retained."
+
+[assertion.6]
+test = "test_payment_commitment_refuses_the_retired_executed_rung; grant refusal cases in both local suites"
+edited = "Shared grant offers use eip155:125 and preserve the ledger payer in receive and grant authorization bytes. The retired purposeHash extension is removed from the portable settlement proof supplied to grant-refusal assertions."
+reason = "PortableReceiptV2 carries the actual transaction and receipt rather than an invented purposeHash proof field; the grant path still refuses with LXP_NO_PAYER_GRANT, including after restart, with empty journals and no release."
+
+[coverage]
+added = "Invalid proof format, rung, raw transaction, signed receipt, digest and pin metadata cannot release; optional producer node JSON fields and logs are authenticated; sender and ledger payer are independently bound; payment references are bound; every invalid commitment is refused."
+preserved = "All existing tests and assertions remain active; no skip, expected failure, relaxed bound or disabled check is introduced."
+
+[observation.1]
+revision = "83246ad5676945addcbf4dd6eae86cf6f55b6ded"
+observed = "The pay6 node-fixtures.mjs producer emits Keccak-256(signedReceipt), while the current TypeScript verifier.ts returns the SHA-256 receipt signing digest and seller/index.ts compares that value to proof.receiptDigest."
+scope = "Those producer and TypeScript verifier paths are outside this task's scope; the declared hf-done gate must report their actual behavior without modifying them or accepting alternative digests."
+
+[observation.2]
+revision = "426a6a4aca0fe34eae258ba478d64f9a1cedc021"
+command = "npm ci --ignore-scripts --no-audit --no-fund --prefix services/agent/sdk/typescript && npm install --no-package-lock --ignore-scripts --no-audit --no-fund --prefix services/platform/middleware/seller && npm install --no-package-lock --ignore-scripts --no-audit --no-fund --prefix services/platform/middleware/conformance && python3 -m py_compile services/agent/sdk/python/layerx_sdk/x402.py services/agent/sdk/python/layerx_sdk/x402_http.py services/agent/sdk/python/layerx_sdk/x402_agent.py"
+exit = 1
+log = "/out/logs/build-1.log"
+observed = "Attempt 3 installed the TypeScript SDK dependencies, then the seller install failed with npm E404 for https://registry.npmjs.org/@sidiora%2flayerx-sdk; its manifest requests version 0.1.0 from the registry, so the build never reached conformance installation or Python compilation."
+assumption = "Decisions 2771 and 2856 require npm ci --ignore-scripts --no-audit --no-fund at the repository root before Python compilation; the seller manifest is correct, and the superseded per-directory install is not the task build. The continued implementation is qualified only by the current bounded gates recorded by reference above."
+
+[qualification.attempt_5_build]
+revision = "fc0b73e9b64ca7ce0b068ae6cf10e7b4a6da904f"
+command = "npm ci --ignore-scripts --no-audit --no-fund && python3 -m py_compile services/agent/sdk/python/layerx_sdk/x402.py services/agent/sdk/python/layerx_sdk/x402_http.py services/agent/sdk/python/layerx_sdk/x402_agent.py"
+exit = 0
+log = "/out/logs/build-1.log"
+observed = "The root workspace install and Python compilation passed on the candidate used by verification."
+
+[qualification.attempt_5_verify]
+revision = "fc0b73e9b64ca7ce0b068ae6cf10e7b4a6da904f"
+command = "cg spec done 22.39.136 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "pay6 reported 4 failed, 17 passed and 3 teardown errors; the subsequent two local suites did not execute because the command uses &&."
+assumption = "This candidate is implemented, not qualified; no passing verification or completion is claimed."
+
+[observation.3]
+revision = "fc0b73e9b64ca7ce0b068ae6cf10e7b4a6da904f"
+command = "cg spec done 22.39.136 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "The TypeScript seller, buyer capture and agent endpoints fail in seller verifyReceiptDigest before Python can affect their result, confirming observation.1: node-fixtures.mjs:18 emits Keccak-256(signedReceipt), while sdk/typescript/src/verifier.ts:558-565 returns the SHA-256 signing digest."
+assumption = "Preserve both digest checks and the producer bytes; repairing these TypeScript paths is outside the six allowed files, and rerunning this recorded conflict cannot qualify the task."
+
+[observation.4]
+revision = "fc0b73e9b64ca7ce0b068ae6cf10e7b4a6da904f"
+command = "cg spec done 22.39.136 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "test_http.py:122 requires validate_required to reject a metered offer retaining valid payer and purposeHash, while seller/src/index.ts:819-847 explicitly accepts those terms without windowSeconds; local grant-refusal suites also require valid metered offers to reach the retired-grant refusal."
+assumption = "Keep the pay6 assertion, local grant assertions and producer-compatible validation intact; changing one to satisfy the other would introduce an unrequested wire restriction or weaken a check."
+
+[continuation.attempt_6]
+prerequisite = "22.39.146 is merged at c883a706f5f74749f4ec197fbaa5739b1c251fd5; the historical observations above describe attempt 5 and are not new gate results."
+changes = "Align the Python HTTP proof digest with the corrected TypeScript producer and verifier; preserve the TypeScript agent's Keccak reservation digest, payer binding, all commitment refusals and every existing assertion."
+evidence = "The current build and verification evidence is recorded by reference in /out/run/gates.jsonl at the candidate revision named by the gate; qualification_revision resolves to the successful candidate only after hf-done passes."
+
+[assertion.7]
+test = "test_buyer_verifies_sequencer_receipts_through_receipt_keys; test_http_portable_proof_mutations_never_release"
+edited = "The complete proof equality now expects the recorded vector receiptDigest, as the merged pay6 producer does; the mutation suite also refuses Keccak-256(signedReceipt) as a portable proof digest."
+reason = "node-fixtures.mjs now obtains receiptDigest from verifySequencerReceipt; accepting the old digest would silently support a wire shape the seller rejects. Existing proof field mutations, pin checks and full dictionary equality remain active."
+
+[qualification.attempt_6_build]
+revision = "64215035d88ffcc9e8f5eb008f1a095363c35d44"
+command = "npm ci --ignore-scripts --no-audit --no-fund && python3 -m py_compile services/agent/sdk/python/layerx_sdk/x402.py services/agent/sdk/python/layerx_sdk/x402_http.py services/agent/sdk/python/layerx_sdk/x402_agent.py"
+exit = 0
+log = "/out/logs/build-1.log"
+
+[qualification.attempt_6_verify]
+revision = "64215035d88ffcc9e8f5eb008f1a095363c35d44"
+command = "cg spec done 22.39.136 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "pay6 reported 20 passed, 1 failed and 2 subtests passed; the local suites did not execute because the command uses &&."
+
+[observation.5]
+revision = "64215035d88ffcc9e8f5eb008f1a095363c35d44"
+command = "cg spec done 22.39.136 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "test_agent.py:42 compares the TypeScript proof to test_commitment.FIXTURE before invoking PaymentBudget; the merged node producer emits the authenticated signing digest beginning 0x3f63045f1bcd3b2e, while that fixture still computes Keccak-256(signedReceipt), beginning 0x51588b5a4d3588be."
+assumption = "The remaining fixture correction is outside the six allowed files; preserve its assertion and both digest contracts, do not rerun the recorded external failure, and leave this task implemented-not-qualified. This evidence-only append follows the failed gate and is not a newly qualified candidate."
+
+[continuation.attempt_7]
+base_revision = "bde55cd44e77056aafdb67bb74ec69e63470e0c0"
+prerequisite = "The supplied checkout already contains acd8cd6831 and its 22.39.146 conformance digest derivation; the six attempt-6 paths are preserved."
+changes = "Review the existing payment verifier, HTTP client, agent budget and local suites against the current producer without discarding the prior port or changing conformance assertions."
+evidence = "Both bounded gates record the exact candidate revision, command, exit code and private log by reference in /out/run/gates.jsonl; only a passing hf-done result qualifies this continuation."
+
+[qualification.attempt_7_build]
+revision = "cd51326798ec72c0e2a8b13dfd312e0409c6049e"
+command = "npm ci --ignore-scripts --no-audit --no-fund && python3 -m py_compile services/agent/sdk/python/layerx_sdk/x402.py services/agent/sdk/python/layerx_sdk/x402_http.py services/agent/sdk/python/layerx_sdk/x402_agent.py"
+exit = 0
+log = "/out/logs/build-1.log"
+
+[qualification.attempt_7_verify]
+revision = "cd51326798ec72c0e2a8b13dfd312e0409c6049e"
+command = "cg spec done 22.39.136 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "On the base containing acd8cd6831, pay6 reported 20 passed, 1 failed and 2 subtests passed; the local suites did not execute because the command uses &&."
+
+[assertion.8]
+test = "test_budget_receipt_commit_and_replay; shared test_commitment.FIXTURE"
+edited = "test_commitment.py derives FIXTURE.receipt.receiptDigest as 0x plus verify_sequencer_receipt(signed receipt bytes, raw transaction bytes, ReceiptKey built from _PIN).receipt_digest.hex(); test_agent.py asserts the agent peer receiptDigest equals that same verifier digest."
+producer = "node-fixtures.mjs:15-19 verifies the signed receipt and sets proof.receiptDigest to hex(verified.receiptDigest); peers.mjs:54-58 returns hex(verifyAgentPayment(...).receiptDigest), following agent/src/index.ts:923-933 and the seller verification."
+reason = "Decision 2872 extends this task to both Python fixture mirrors: the authenticated SHA-256 domain digest of the unsigned receipt encoding replaces Keccak-256 of the signed bytes. The full proof equality and every other conformance assertion remain unchanged."
+
+[continuation.attempt_8]
+base_revision = "e0a89071cae75b2aabdc9cb6aa4f273eab8f6bb2"
+changes = "Preserve the carried-over port and align both Python conformance digest expectations with the current TypeScript producer through the pinned Python verifier; PaymentBudget.verify_and_commit persists verified.receipt_digest.hex() as the TypeScript budget does at agent/src/index.ts:494 and :1013."
+build_evidence = "The build record in /out/run/gates.jsonl names the exact final candidate revision, build command, exit code and private build log."
+verify_evidence = "The verification record in /out/run/gates.jsonl names the same candidate revision, cg spec done command, exit code and private verification log; only a passing hf-done qualifies this repair."

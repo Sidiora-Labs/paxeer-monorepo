@@ -11,6 +11,7 @@ on:
       - 'tools/release/version.json'
       - 'precompiles/**'
       - '.github/workflows/explorer-images.yml'
+      - 'tests/ci/test_explorer_test_step.py'
   pull_request:
     paths:
       - 'apps/explorer/**'
@@ -19,6 +20,7 @@ on:
       - 'precompiles/**'
       - 'tools/release/version.json'
       - '.github/workflows/explorer-images.yml'
+      - 'tests/ci/test_explorer_test_step.py'
   workflow_dispatch:
 
 permissions:
@@ -28,6 +30,7 @@ concurrency:
   group: explorer-images-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: false
 
+# These jobs require a hosted container runtime; see runner-routing-check.sh exclusions.
 jobs:
   explorer-backend-test:
     name: Explorer backend tests
@@ -38,7 +41,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - name: Run mix test in the explorer builder
+      - name: Run umbrella tests (explorer and ethereum_jsonrpc) in the builder
         env:
           MIX_ENV: test
         run: services/explorer/deploy/tools/mix-in-builder.sh test

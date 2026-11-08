@@ -11,6 +11,30 @@
 
 #include <openssl/evp.h>
 
+enum { RETIRED_GOVERNANCE_HANDOVER = 0x00070009U };
+
+extern void lxp_handover_prepare(void);
+extern void lxp_handover_stage(void);
+extern void lxp_handover_evidence_decode(void);
+extern void lxp_handover_history_resolve(void);
+extern void lxp_handover_genesis_authority(void);
+
+#pragma weak lxp_handover_prepare
+#pragma weak lxp_handover_stage
+#pragma weak lxp_handover_evidence_decode
+#pragma weak lxp_handover_history_resolve
+#pragma weak lxp_handover_genesis_authority
+
+static int handover_symbols_absent(void)
+{
+    LXP_CASE_CHECK(lxp_handover_prepare == NULL);
+    LXP_CASE_CHECK(lxp_handover_stage == NULL);
+    LXP_CASE_CHECK(lxp_handover_evidence_decode == NULL);
+    LXP_CASE_CHECK(lxp_handover_history_resolve == NULL);
+    LXP_CASE_CHECK(lxp_handover_genesis_authority == NULL);
+    return 0;
+}
+
 static const uint8_t sequencer_seed[32] = {7U};
 static const uint8_t governor_seed[32] = {9U};
 static const uint8_t governor_did[] = "did:lxp:retired-handover-governor";
@@ -114,7 +138,7 @@ static int initialize(bool enabled)
     LXP_CASE_CHECK(lxp_genesis_materialize(&manifest, &arena, &kernel) == LXP_OK);
     LXP_CASE_CHECK(kernel.governance_authority.enabled == enabled);
     LXP_CASE_CHECK(kernel.governance_authority.network_id == manifest.network_id);
-    LXP_CASE_CHECK(!kernel.handover.enabled && !kernel.handover.pending);
+    LXP_CASE_CHECK(handover_symbols_absent() == 0);
     if (enabled)
         LXP_CASE_CHECK(memcmp(kernel.governance_authority.governance_public_key,
                               governor_key, 32U) == 0);
@@ -140,10 +164,10 @@ static int handover_activity_refused(void)
             LXP_CASE_CHECK(iface == lxp_governance_module_iface());
             LXP_CASE_CHECK(iface->activity_type_count == 8U);
             for (size_t i = 0U; i < iface->activity_type_count; ++i)
-                LXP_CASE_CHECK(iface->activity_types[i] != LXP_GOVERNANCE_HANDOVER);
+                LXP_CASE_CHECK(iface->activity_types[i] != RETIRED_GOVERNANCE_HANDOVER);
         }
-        LXP_CASE_CHECK(!lxp_governance_activity(LXP_GOVERNANCE_HANDOVER));
-        LXP_CASE_CHECK(lxp_kernel_module_for_activity(&kernel, LXP_GOVERNANCE_HANDOVER,
+        LXP_CASE_CHECK(!lxp_governance_activity(RETIRED_GOVERNANCE_HANDOVER));
+        LXP_CASE_CHECK(lxp_kernel_module_for_activity(&kernel, RETIRED_GOVERNANCE_HANDOVER,
             kernel.epoch, &registration) == LXP_ERR_UNKNOWN_ACTIVITY);
         LXP_CASE_CHECK(lxp_kernel_module_for_activity(&kernel, LXP_GOVERNANCE_PROGRAMS_FEE,
             kernel.epoch, &registration) == LXP_OK);
@@ -213,9 +237,7 @@ static int governance_fee_keeps_key(void)
     const uint32_t types[] = {LXP_GOVERNANCE_PROGRAMS_FEE, LXP_GOVERNANCE_MIGRATION_BUDGET};
     LXP_CASE_CHECK(initialize(true) == 0);
     original = kernel.governance_authority;
-    kernel.handover.enabled = true;
-    kernel.handover.network_id = 999U;
-    memcpy(kernel.handover.governance_public_key, manifest.signer_public_key, 32U);
+    LXP_CASE_CHECK(handover_symbols_absent() == 0);
     LXP_CASE_CHECK(lxp_identity_register(&identities, governor_did, sizeof(governor_did) - 1U,
         original.governance_public_key, &governor) == LXP_OK);
     LXP_CASE_CHECK(lxp_identity_register(&identities, other_did, sizeof(other_did) - 1U,
@@ -275,7 +297,8 @@ static int governance_fee_keeps_key(void)
         LXP_CASE_CHECK(kernel.governance_authority.network_id == original.network_id);
         LXP_CASE_CHECK(memcmp(kernel.governance_authority.governance_public_key,
                               original.governance_public_key, 32U) == 0);
-        LXP_CASE_CHECK(kernel.epoch == 1U && !kernel.handover.pending);
+        LXP_CASE_CHECK(kernel.epoch == 1U);
+        LXP_CASE_CHECK(handover_symbols_absent() == 0);
     }
     LXP_CASE_CHECK(release() == 0);
     return 0;

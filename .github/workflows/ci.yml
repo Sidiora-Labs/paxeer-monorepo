@@ -92,6 +92,17 @@ jobs:
         env:
           CC: ${{ matrix.compiler }}
         run: make build test scan-consensus
+      - name: Install Foundry for core suites
+        uses: foundry-rs/foundry-toolchain@908c540300062bd5a7e473851cdb4282204cee09 # v1.9.1
+        with:
+          version: v1.7.1
+          cache: false
+      - name: Install arithmetic proof tools for core suites
+        run: sudo apt-get update && sudo apt-get install --yes cbmc z3 clang
+      - name: Run all core C suites
+        env:
+          CC: ${{ matrix.compiler }}
+        run: make core-test-all
 
   solidity:
     runs-on: ${{ (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && 'ubuntu-24.04' || vars.CI_LINUX_RUNNER || 'ubuntu-24.04' }}
@@ -140,7 +151,7 @@ jobs:
         run: go -C tools/loadtest test -count=1 ./...
 
   js-suite-inventory:
-    runs-on: ubuntu-24.04
+    runs-on: ${{ (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && 'ubuntu-24.04' || vars.CI_LINUX_RUNNER || 'ubuntu-24.04' }}
     timeout-minutes: 10
     steps:
       - name: Check out source
@@ -157,7 +168,7 @@ jobs:
           tests/ci/test_js_suites_have_runner.py
 
   js-node-tests:
-    runs-on: ubuntu-24.04
+    runs-on: ${{ (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && 'ubuntu-24.04' || vars.CI_LINUX_RUNNER || 'ubuntu-24.04' }}
     timeout-minutes: 10
     strategy:
       fail-fast: false
@@ -182,7 +193,7 @@ jobs:
         run: npm run ${{ matrix.script }}
 
   js-npm-tests:
-    runs-on: ubuntu-24.04
+    runs-on: ${{ (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && 'ubuntu-24.04' || vars.CI_LINUX_RUNNER || 'ubuntu-24.04' }}
     timeout-minutes: 30
     strategy:
       fail-fast: false
@@ -207,7 +218,7 @@ jobs:
         run: npm test
 
   js-workspace-tests:
-    runs-on: ubuntu-24.04
+    runs-on: ${{ (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && 'ubuntu-24.04' || vars.CI_LINUX_RUNNER || 'ubuntu-24.04' }}
     timeout-minutes: 30
     strategy:
       fail-fast: false
@@ -248,7 +259,7 @@ jobs:
         run: npm run test:payments --workspace @sidiora/layerx-middleware-conformance
 
   js-pnpm-tests:
-    runs-on: ubuntu-24.04
+    runs-on: ${{ (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && 'ubuntu-24.04' || vars.CI_LINUX_RUNNER || 'ubuntu-24.04' }}
     timeout-minutes: 30
     strategy:
       fail-fast: false
@@ -275,7 +286,7 @@ jobs:
         run: pnpm test
 
   js-wallet-gateway-tests:
-    runs-on: ubuntu-24.04
+    runs-on: ${{ (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && 'ubuntu-24.04' || vars.CI_LINUX_RUNNER || 'ubuntu-24.04' }}
     timeout-minutes: 30
     steps:
       - name: Check out source
@@ -310,7 +321,7 @@ jobs:
         run: pnpm test
 
   js-explorer-env-tests:
-    runs-on: ubuntu-24.04
+    runs-on: ${{ (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && 'ubuntu-24.04' || vars.CI_LINUX_RUNNER || 'ubuntu-24.04' }}
     timeout-minutes: 10
     defaults:
       run:

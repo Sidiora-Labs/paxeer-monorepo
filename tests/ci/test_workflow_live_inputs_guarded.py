@@ -3,6 +3,12 @@ import re
 
 import yaml
 
+from test_workflow_runs_on_routed import (
+    ROUTED,
+    assert_runner_routing,
+    assert_workflow_runs_on_routed,
+)
+
 
 ROOT = Path(__file__).resolve().parents[2]
 WORKFLOWS = ("platform.yml", "human.yml")
@@ -47,6 +53,9 @@ def job_inputs(workflow, job):
     # A guard must name an input consumed outside the guard itself. Include
     # workflow env because GitHub passes it to every job, including matrix jobs.
     body = {key: value for key, value in job.items() if key != "if"}
+    # The exact routed form has a hosted-runner fallback and its own shape check.
+    if body.get("runs-on") == ROUTED:
+        del body["runs-on"]
     return input_references([workflow.get("env", {}), body])
 
 
@@ -150,3 +159,9 @@ def test_guard_names_an_input_the_job_reads():
             )
             checked.add(name)
     assert checked, "No live job guards were inspected"
+
+
+def test_live_input_workflows_keep_runner_routing():
+    assert_runner_routing()
+    for name in WORKFLOWS:
+        assert_workflow_runs_on_routed(name, load_workflow(name))
