@@ -204583,7 +204583,7 @@ do_3 = "Decision 2358: requires gains 22.9.33 because the build of the KMS test 
 
 [task.9.35.24]
 title = "Delete the agent daemon's legacy activity preparation module and the kernel signing helpers"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 8
 requires = ["9.35.22", "9.35.23", "22.99.159", "22.99.160", "22.31.572", "22.31.614", "22.31.620", "22.39.171"]
