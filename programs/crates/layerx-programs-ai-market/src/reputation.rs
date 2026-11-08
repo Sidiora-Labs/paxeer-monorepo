@@ -103,6 +103,7 @@ impl ReputationCurrent {
     ///
     /// # Errors
     /// Returns `F07_GENERATION_MISMATCH` when the key's reset generation is not 1; propagates `segment_digest`'s `NON_CANONICAL` refusal.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn bootstrap(key: SegmentKey, owner: PrincipalId, height: u64) -> CodecResult<Self> {
         if key.reset_generation.get() != 1 {
             return Err(F07_GENERATION_MISMATCH);
@@ -350,6 +351,7 @@ impl ReputationState {
     ///
     /// # Errors
     /// Propagates `validate`'s `CAPACITY`/`NON_CANONICAL` refusals; returns `CONFLICT` when the retained row for `epoch` has another result; `WRONG_EPOCH` when `epoch` is not retained and not after the latest completed epoch.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn assess_completion(
         &self,
         epoch: u64,
@@ -388,6 +390,7 @@ impl ReputationState {
         dead_code,
         reason = "crate-internal F07 primitive: its F05/F06 bridge caller is not in tree; tests/reputation_vectors.rs drives it via #[path]"
     )]
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub(crate) fn insert(&mut self, record: ReputationCurrent) -> CodecResult<()> {
         self.validate()?;
         record.validate()?;
@@ -419,6 +422,7 @@ impl ReputationState {
         dead_code,
         reason = "crate-internal F07 primitive: its F05/F06 bridge caller is not in tree; tests/reputation_vectors.rs drives it via #[path]"
     )]
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub(crate) fn append(&mut self, record: CompletedHistory) -> CodecResult<()> {
         record.validate()?;
         if self.assess_completion(record.epoch, record.result)? != CompletionIdentity::New {
@@ -442,6 +446,7 @@ impl ReputationState {
         dead_code,
         reason = "crate-internal F07 primitive: its F05/F06 bridge caller is not in tree; tests/reputation_vectors.rs drives it via #[path]"
     )]
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub(crate) fn prune_oldest(&mut self, epoch: u64) -> CodecResult<()> {
         self.validate()?;
         let first = self.history.guest_index(0).ok_or(NOT_FOUND)?;
@@ -505,6 +510,7 @@ pub fn confidence(count: u32) -> CodecResult<Score> {
 ///
 /// # Errors
 /// Returns `F07_BINDING_MISMATCH` when `eligible` exceeds 8 or `support` exceeds `eligible`; `ARITHMETIC` when the product overflows; propagates `Score::new`'s `F03_SCORE_RANGE` refusal.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn evidence_coverage(eligible: u8, support: u8) -> CodecResult<Presence<Score>> {
     if eligible > 8 || support > eligible {
         return Err(F07_BINDING_MISMATCH);

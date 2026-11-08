@@ -692,6 +692,7 @@ fn advance_close(call: &Call<'_>, buffers: Buffers<'_>) -> CodecResult<Outcome> 
 /// `F01_OBLIGATIONS_OUTSTANDING` while a phase waits; F06 ledger refusals;
 /// `F01_CAPACITY_UNAVAILABLE`, `CAPACITY` and `ARITHMETIC`. On any error `current` is
 /// unchanged and the outputs must be discarded.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn apply(
     ctx: &CallContext,
     envelope: &ValidatedEnvelope<'_>,
