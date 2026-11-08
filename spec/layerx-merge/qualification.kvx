@@ -35474,3 +35474,195 @@ symbol = "test_repair_22_33_886.py"
 observed = "Attempt 1 at 199d2c9c2940: build exit 0; verification exit 1 at the runner test (1 failed, 4 passed) before make test-python-suites ran; the stale exclusion row predates the attempt."
 assumption = "The stale row is a producer side effect of 22.39.47 that no pending task owned; the suites of this task were never exercised."
 severity = "high"
+
+[finding.22.39.122.3]
+task = "22.39.122"
+file = "services/agent/crates/layerx-agentd/src/approval/mod.rs"
+symbol = "mod.rs"
+observed = "Attempt 3 at 9391a017048e: build exit 0; verification exit 101 with 331 passed and 2 failed, both on the root-exists assertion after every store assertion held."
+assumption = "The audit sink writes under the root by contract since bfc86ded84; the two assertions are the stale side."
+severity = "high"
+
+[finding.22.99.77.28]
+task = "22.99.77"
+file = "programs/crates/layerx-programs-ai-market"
+symbol = "layerx-programs-ai-market"
+observed = "Attempt 26 at c7bbaef169b0: build exit 0 at the third cycle (483167 bytes, Fund at 858358 CPU fuel); verification exit 101 with 411 passed and 129 failed across 18 of 49 targets; no main baseline recorded."
+assumption = "Part of the failures is the attempt changing refusal codes, part is the main rewrite of 22.39.142 that a four-target gate let through; the baseline run separates them."
+severity = "high"
+
+[finding.22.31.623.4]
+task = "22.31.623"
+file = "tests/ci/test_qualification_suites_collect.py"
+symbol = "test_qualification_suites_collect.py"
+observed = "Attempt 4 at fd32601f860e: build exit 0; verification exit 1 with 5 failed and 4445 passed after the second cycle (22 failed at the first)."
+assumption = "Four cases are stale consumer copies with identified producers; the fifth is a producer defect of the human API schema that a task of its own repairs first."
+severity = "high"
+
+[finding.22.39.75.5]
+task = "22.39.75"
+file = "tests/ci/test_launchpad_go_tests_wired.py"
+symbol = "test_launchpad_go_tests_wired.py"
+observed = "Attempt 5 at f5b177749477: build exit 0; verification exit 2 with 21 wiring cases passed, 42 packages passed and nine indexer packages failed (thirteen service-variable cases, eleven receipt cases, one panic, three fixture-bound cases, one package that does not build)."
+assumption = "The service variables and the module manifest are the job and tree side; the receipt rule, the retired delivery path and the fixture inputs are producer work that the retiring task owns."
+severity = "high"
+
+[finding.22.39.95.1]
+task = "22.39.95"
+file = "apps/launchpad/web/src/core/wallet-sdk/runtime.integration.test.tsx"
+symbol = "runtime.integration.test.tsx"
+observed = "Attempt 1 at 535cb99c795a: build exit 0; verification exit 1 with 23 failed and 1239 passed in the web suite after the second cycle (25 failed at the first); the mobile suite did not run."
+assumption = "The suite is designed around generated chain fixtures that no job produces; the public web job is red on main for the same reason."
+severity = "high"
+
+[finding.22.39.134.1]
+task = "22.39.134"
+file = "services/platform/tests/test_ramp_dependencies.py"
+symbol = "test_ramp_dependencies.py"
+observed = "Attempt 1 at eac6fce0c1f6: build exit 0; verification exit 1 with 31 passed and 1 failed, test_exclusion_list_entries_exist on the stale scripts/ci row."
+assumption = "The task tree is complete; the one failing case is the row that round 256 assigned to this task after the attempt had started."
+severity = "high"
+
+[finding.22.38.6.2]
+task = "22.38.6"
+file = "programs/crates/layerx-programs-ai-market/tests/f11_payout_split.rs"
+symbol = "f11_payout_split.rs"
+observed = "Attempt 2 at 842c354bb012: build exit 0 (guest 503968 bytes); the dependents check compiled 32 crates and exited 101 at the ramps reference test target repair_22_33_1487, whose include_bytes lines name localhost.pem and localhost.p12 that main does not track since 70fb314c8d; the verification never ran."
+assumption = "Nothing in the attempt-2 tree caused the dependents failure; the target fails on main for every crate the ramps reference crate consumes."
+severity = "high"
+
+[finding.22.39.118.17]
+task = "22.39.118"
+file = "tools/platform/cli::rpc::tests::positional_requests_match_published_contract"
+symbol = "cli::rpc::tests::positional_requests_match_published_contract"
+observed = "Attempt 17 at 0001759ad503: build exit 0; verification exit 1: the lib rpc tests passed and make platform-test-tooling failed in wallet_px_reads.rs at line 251 (the CLI printed gateway_rpc_required: provide --gateway-rpc for hosted px_ balances) and at line 311 (left token.read, right token.list)."
+assumption = "Both assertions have been stale since 2026-11-05 and the module is in no baseline, so the tooling gate was red on main before this task."
+severity = "high"
+
+[finding.22.39.120.2]
+task = "22.39.120"
+file = "services/agent/sdk/python/tests/test_repair_22_33_702.py"
+symbol = "test_repair_22_33_702.py"
+observed = "Attempt 2 at 8173d0a942f1: build exit 0; verification exit 1 with six failures (test_market_node_receipt_summary_events_and_return_binding, test_payment_recording_binds_the_production_ledger_transaction, test_verify_rpc_payment_uses_receipt_keys, test_buyer_verifies_sequencer_receipts_through_receipt_keys, test_rpc_submission_and_receipt_use_the_typescript_producer, test_malformed_submissions_are_refused_before_a_request); publication refused for a file outside the paths (services/agent/sdk/python/tests/conftest.py)."
+assumption = "The six cases are consumer drift behind producer changes landed between 2026-11-05 and 2026-11-08, not defects of the attempt tree."
+severity = "high"
+
+[finding.9.35.19.7]
+task = "9.35.19"
+file = "services/agent/crates/layerx-agentd/tests/native_send_preview_evm.rs"
+symbol = "native_send_preview_evm.rs"
+observed = "Attempt 9 at ed9425eba451 (base 67b4aa3287): three builds, exit 101 each, E0061 and E0308 at the thirteen caller sites; the verification never ran."
+assumption = "The signature changes are the intended task work; only the callers were left behind, and one of the two files was outside the paths."
+severity = "high"
+
+[finding.22.39.84.3]
+task = "22.39.84"
+file = "tests/ci/test_tools_python_suites_wired.py"
+symbol = "test_tools_python_suites_wired.py"
+observed = "Attempt 3 at 581f4166326e (verified at 068cca699aa8): build exit 0; verification exit 1: the four wiring tests passed, make test-tools-python reported 79 failed, 736 passed, 7 errors; 66 entries recorded, 15 names outside every family."
+assumption = "The fifteen names are inherited failures of suites the target runs; only the family table was too narrow."
+severity = "high"
+
+[finding.22.39.132.1]
+task = "22.39.132"
+file = "tests/qualification/test_mcp_binding_receipt_keys.py"
+symbol = "test_mcp_binding_receipt_keys.py"
+observed = "Attempt 1 at 26ad9e4f4845 (verified at f0867e7ba859): build exit 0; verification exit 1: the 29 focused tests passed and make test-python-suites failed test_signer_deadline_spans_provider_operations (1 failed, 255 passed, 318 seconds)."
+assumption = "The failing case is a timing-dependent test of a module outside the task paths, inherited from 22.33.1454 and owned by 22.39.133."
+severity = "high"
+
+[finding.22.39.116.1]
+task = "22.39.116"
+file = "node/upgrades_merge_bonds_test.go::TestMergePlanReturnsGuarantorBonds"
+symbol = "upgrades_merge_bonds_test.go::TestMergePlanReturnsGuarantorBonds"
+observed = "Attempt 1 at c8f1f9e1cf2a (verified at e26283413c3a): three builds, exit 0 at the last; verification exit 1: two of the three tests passed and TestHostedKernelProgramsABISurvivesRestart failed at line 269 with ProcessBlock panic invalid height 42 expected 1; the repaired tree was never verified."
+assumption = "The restart repair in the attempt-1 tree is sound and only the baseline file was outside the paths."
+severity = "high"
+
+[finding.22.39.122.4]
+task = "22.39.122"
+file = "services/agent/crates/layerx-agentd/src/approval/mod.rs"
+symbol = "mod.rs"
+observed = "Attempt 4 at 545af8953d2a (verified at 919231dd61d2): build exit 0; verification exit 101: 331 passed, 2 failed, both at session_control.rs line 3530 with the left side holding tenant-authorization and tenant-traces and the right side tenant-authorization alone."
+assumption = "The instruction of round 257 transcribed one of the two sinks; the attempt tree is otherwise green."
+severity = "high"
+
+[finding.22.39.131.2]
+task = "22.39.131"
+file = "tests/conformance/test_repair_22_33_886.py"
+symbol = "test_repair_22_33_886.py"
+observed = "Attempt 2 at f13f810b7948 (verified at 456110947bf3): build exit 0; verification exit 2: the five inventory tests passed, make test-python-suites 22 failed and 283 passed, all 22 in test_repair_22_33_886.py and all reporting the explorer copy drift or the receipt refusal it causes."
+assumption = "The explorer copy is the one stale consumer; the instruction that named it left it outside touches."
+severity = "high"
+
+[finding.22.39.86.1]
+task = "22.39.86"
+file = "node/sequencer/config_bounds_test.go"
+symbol = "config_bounds_test.go"
+observed = "Attempt 1 at b4feb369d1cd (verified at f6629b5bd988): build exit 0; verification exit 1: the six named tests passed and TestReceiptLatencyP99UnderBound, TestDriverReleasesNextOpenAcrossStandbyCommit, TestProofSequencerWal and TestSealBatchEqualsGigaProcessBlock failed."
+assumption = "The four were masked by the same standby commit hang and have no other owner; the evmone library is the only environmental cause among them."
+severity = "high"
+
+[finding.22.39.118.18]
+task = "22.39.118"
+file = "tools/platform/cli::rpc::tests::positional_requests_match_published_contract"
+symbol = "cli::rpc::tests::positional_requests_match_published_contract"
+observed = "Attempt 18 at a047230ba6a1 (verified at 4fa9f049aafd): build exit 0; verification exit 2: every CLI test passed and make platform-test-tooling failed in repair_22_31_200 line 121 with the TypeScript SDK unable to resolve @noble/hashes."
+assumption = "The build step form was wrong, not the task tree; the root workspace install is the only supported form."
+severity = "high"
+
+[finding.22.99.77.29]
+task = "22.99.77"
+file = "programs/crates/layerx-programs-ai-market"
+symbol = "layerx-programs-ai-market"
+observed = "Attempt 27 at 83bfb74875a2: build exit 0; the dependents check exit 101 in the layerx-reference-ramp test repair_22_33_1487 (missing localhost.pem and localhost.p12 at lines 37 and 38); the verification never ran."
+assumption = "The dependents failure belongs to the main tree, repaired by 22.39.163; the task tree is untested at this revision."
+severity = "high"
+
+[finding.22.39.155.1]
+task = "22.39.155"
+file = "node::TestEVMServerServesSequencerReceiptOption"
+symbol = "node::TestEVMServerServesSequencerReceiptOption"
+observed = "Attempt 1 at f40645593a30: build exit 0 twice; verification exit 1 twice: the replication tests passed, the v6.6 test failed at line 226 (anchor version 1 expected, absent) and, after the package move, at line 246 (intentNonce at 0x1015 reverted)."
+assumption = "Both failures are stale assertions of the test the task owns; the inventory check test was outside touches."
+severity = "high"
+
+[finding.9.35.19.8]
+task = "9.35.19"
+file = "services/agent/crates/layerx-agentd/tests/native_send_preview_evm.rs"
+symbol = "native_send_preview_evm.rs"
+observed = "Attempt 10 at f64707374e5c: build exit 101 at six E0308 sites in tests/repair_22_31_545.rs; the verification never ran."
+assumption = "The remaining callers sit in one test target the previous continuation did not enumerate and the touches did not cover."
+severity = "high"
+
+[finding.22.39.118.19]
+task = "22.39.118"
+file = "tools/platform/cli::rpc::tests::positional_requests_match_published_contract"
+symbol = "cli::rpc::tests::positional_requests_match_published_contract"
+observed = "Attempt 19 at bbb71aa07459: build exit 0 with the previous build step; verification exit 2: every CLI test passed and make platform-test-tooling failed in repair_22_31_200 line 121 with the TypeScript SDK unable to resolve @noble/hashes."
+assumption = "The attempt began before the corrected build step landed; the task tree is sound."
+severity = "high"
+
+[finding.22.39.84.4]
+task = "22.39.84"
+file = "tests/ci/test_tools_python_suites_wired.py"
+symbol = "test_tools_python_suites_wired.py"
+observed = "Attempt 4 at dbfdb5affdcf (verified at 37b951f36d76): build exit 1 with zstd absent, then exit 0; verification exit 2: the four wiring cases passed and make test-tools-python recorded 733 passes, 8 skips and one setup error in test_sources_match_bindings.py, forge build --offline unable to install solc 0.8.20."
+assumption = "The build step lacked the online contract build the workflow job runs; the task tree is sound."
+severity = "high"
+
+[finding.22.39.116.2]
+task = "22.39.116"
+file = "node/upgrades_merge_bonds_test.go::TestMergePlanReturnsGuarantorBonds"
+symbol = "upgrades_merge_bonds_test.go::TestMergePlanReturnsGuarantorBonds"
+observed = "Attempt 2 at 23e73a8366a8: build exit 0 twice; verification exit 1 twice: the restart test failed at line 312 with LXP_ERR_PROGRAM_REFUSED at height 43, then at line 287 with LXP_ERR_CONTEXT_MISMATCH from the hand-placed occupancy call."
+assumption = "The occupancy precedent of the host tests applies to this fixture; the single call with a store-read sequence does not."
+severity = "high"
+
+[finding.22.39.131.3]
+task = "22.39.131"
+file = "tests/conformance/test_repair_22_33_886.py"
+symbol = "test_repair_22_33_886.py"
+observed = "Attempt 3 at fe42850a8737 (verified at cebafc5a10b6): build exit 0; verification exit 2: 5 runner cases passed, make test-python-suites recorded 313 passes and 1 failure in test_reset_state.py line 347 (mode 493 observed, 432 asserted)."
+assumption = "The failure is a creation-mode window of the hosted node supervisor, owned by 22.39.133; the task tree is sound."
+severity = "high"

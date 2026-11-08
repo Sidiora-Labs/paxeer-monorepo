@@ -21,8 +21,14 @@ import {
   signAgentRequest,
   signBinding,
 } from '../src/index.js';
-import { startPostgres, type EphemeralPostgres } from '../../../services/wallet/gateway/test/support/postgres.js';
-import { startIdentityProvider, type IdentityProvider } from '../../../services/wallet/gateway/test/support/identity.js';
+import {
+  startPostgres,
+  type EphemeralPostgres,
+} from '../../../services/wallet/gateway/test/support/postgres.js';
+import {
+  startIdentityProvider,
+  type IdentityProvider,
+} from '../../../services/wallet/gateway/test/support/identity.js';
 
 interface BindVector {
   name: string;
@@ -48,7 +54,12 @@ interface TestAgent {
 }
 
 const bindFixture = JSON.parse(
-  readFileSync(fileURLToPath(new URL('../../../layerxproof/testdata/paxeer_bind_vectors.json', import.meta.url)), 'utf8'),
+  readFileSync(
+    fileURLToPath(
+      new URL('../../../layerxproof/testdata/paxeer_bind_vectors.json', import.meta.url)
+    ),
+    'utf8'
+  )
 ) as BindFixture;
 
 let idp: IdentityProvider;
@@ -99,7 +110,12 @@ function newAgent(): TestAgent {
   const publicKey = agentPublicKey(privateKey);
   const publicKeyHex = hex(publicKey);
   labelCounter += 1;
-  return { privateKey, publicKey, publicKeyHex, gatewayDid: `did:matrix:sdk${labelCounter}:${publicKeyHex.slice(0, 16)}` };
+  return {
+    privateKey,
+    publicKey,
+    publicKeyHex,
+    gatewayDid: `did:matrix:sdk${labelCounter}:${publicKeyHex.slice(0, 16)}`,
+  };
 }
 
 async function registeredAgent(): Promise<TestAgent> {
@@ -118,7 +134,12 @@ function nowSeconds(): number {
   return Math.floor(Date.now() / 1000);
 }
 
-async function verifySigned(headers: Record<string, string>, method: string, path: string, body: string) {
+async function verifySigned(
+  headers: Record<string, string>,
+  method: string,
+  path: string,
+  body: string
+) {
   return verifyModule.verifyAgentRequest({
     method: verifyModule.agentRequestMethod({ method, url: path }),
     headers,
@@ -129,17 +150,27 @@ async function verifySigned(headers: Record<string, string>, method: string, pat
 describe('agent request signing against the gateway verifier', () => {
   it('agent_request_digest_matches_gateway_bytes', () => {
     const nonce = Uint8Array.from({ length: 16 }, (_, i) => i + 1);
-    const input = { method: 'POST /v1/agent/wallet/send', keyId: 'did:matrix:sdk:0011223344556677', expiry: 1_900_000_120n };
+    const input = {
+      method: 'POST /v1/agent/wallet/send',
+      keyId: 'did:matrix:sdk:0011223344556677',
+      expiry: 1_900_000_120n,
+    };
     for (const body of ['', '{"to":"0x01","value":"1"}']) {
       const sdk = agentRequestDigest({ ...input, nonce, body });
-      const gateway = verifyModule.agentRequestDigest({ ...input, nonce: Buffer.from(nonce), body: Buffer.from(body, 'utf8') });
+      const gateway = verifyModule.agentRequestDigest({
+        ...input,
+        nonce: Buffer.from(nonce),
+        body: Buffer.from(body, 'utf8'),
+      });
       expect(hex(sdk)).toBe(gateway.toString('hex'));
     }
     expect(agentRequestMethod('post', 'http://127.0.0.1:1/v1/agent/wallet/send?x=1')).toBe(
-      verifyModule.agentRequestMethod({ method: 'post', url: '/v1/agent/wallet/send?x=1' }),
+      verifyModule.agentRequestMethod({ method: 'post', url: '/v1/agent/wallet/send?x=1' })
     );
     expect(agentRequestMethod('get', '/v1/agent/me?a=b#c')).toBe('GET /v1/agent/me');
-    expect(() => agentRequestDigest({ ...input, nonce: new Uint8Array(15), body: '' })).toThrow(InvalidParamsError);
+    expect(() => agentRequestDigest({ ...input, nonce: new Uint8Array(15), body: '' })).toThrow(
+      InvalidParamsError
+    );
   });
 
   it('agent_request_valid_signature_accepted', async () => {
@@ -157,7 +188,12 @@ describe('agent request signing against the gateway verifier', () => {
     expect(headers['x-agent-nonce']).toMatch(/^[0-9a-f]{32}$/);
     expect(headers['x-agent-expires']).toMatch(/^\d+$/);
     expect(headers['x-agent-signature']).toMatch(/^[0-9a-f]{128}$/);
-    const verdict = await verifySigned({ ...headers }, 'POST', '/v1/agent/wallet/send?trace=1', body);
+    const verdict = await verifySigned(
+      { ...headers },
+      'POST',
+      '/v1/agent/wallet/send?trace=1',
+      body
+    );
     expect(verdict.ok).toBe(true);
     if (verdict.ok) expect(verdict.principal.did).toBe(agent.gatewayDid);
   });
@@ -221,7 +257,12 @@ describe('agent request signing against the gateway verifier', () => {
       url: '/v1/agent/wallet/send',
       body: '{"value":"1"}',
     });
-    const verdict = await verifySigned({ ...headers }, 'POST', '/v1/agent/wallet/send', '{"value":"2"}');
+    const verdict = await verifySigned(
+      { ...headers },
+      'POST',
+      '/v1/agent/wallet/send',
+      '{"value":"2"}'
+    );
     expect(verdict.ok).toBe(false);
     if (!verdict.ok) expect(verdict.refusal.code).toBe('agent_bad_signature');
   });
@@ -242,7 +283,11 @@ describe('agent identity and binding', () => {
     const fixtureKey = Buffer.from(bindFixture.public_key, 'hex');
     expect(bindFixture.binds.length).toBeGreaterThan(0);
     for (const vector of bindFixture.binds) {
-      const message = bindingMessage(BigInt(vector.chain_id), `0x${vector.evm_address}`, BigInt(vector.nonce));
+      const message = bindingMessage(
+        BigInt(vector.chain_id),
+        `0x${vector.evm_address}`,
+        BigInt(vector.nonce)
+      );
       expect(message.length).toBe(AGENT_BIND_MESSAGE_LENGTH);
       expect(AGENT_BIND_MESSAGE_LENGTH).toBe(77);
       expect(hex(message)).toBe(vector.message);
@@ -269,17 +314,33 @@ describe('agent claim flow against the gateway claim route', () => {
   it('agent_claim_counter_signature_accepted_by_gateway', async () => {
     const agent = await registeredAgent();
     const owner = randomUUID();
-    const claim = buildClaim({ privateKey: agent.privateKey, did: agent.gatewayDid, ownerUserId: owner });
+    const claim = buildClaim({
+      privateKey: agent.privateKey,
+      did: agent.gatewayDid,
+      ownerUserId: owner,
+    });
     expect(hex(agentClaimDigest(agent.gatewayDid, owner, BigInt(claim.expires)))).toBe(
-      claimsModule.agentClaimDigest(agent.gatewayDid, owner, BigInt(claim.expires)).toString('hex'),
+      claimsModule.agentClaimDigest(agent.gatewayDid, owner, BigInt(claim.expires)).toString('hex')
     );
     const token = await idp.mintUserToken(owner);
-    const result = await claimAgent(globalThis.fetch, base, token, agent.gatewayDid, claim);
-    expect(result).toEqual({ did: agent.gatewayDid, owner_user_id: owner });
+    const result = await claimAgent(globalThis.fetch, base, token, agent.gatewayDid, claim).catch(
+      (error: unknown) => error
+    );
+    expect(result).toBeInstanceOf(GatewayRefusalError);
+    expect(result).toMatchObject({
+      status: 503,
+      body: {
+        error: 'custody_authority_unavailable',
+        replication_pending: true,
+        mutation_recorded: true,
+      },
+    });
     const principal = await agentsDb.findPrincipal(agent.gatewayDid);
     expect(principal!.owner_user_id).toBe(owner);
 
-    const again = await claimAgent(globalThis.fetch, base, token, agent.gatewayDid, claim).catch((err: unknown) => err);
+    const again = await claimAgent(globalThis.fetch, base, token, agent.gatewayDid, claim).catch(
+      (err: unknown) => err
+    );
     expect(again).toBeInstanceOf(GatewayRefusalError);
     expect((again as GatewayRefusalError).status).toBe(409);
   });
@@ -288,12 +349,20 @@ describe('agent claim flow against the gateway claim route', () => {
     const agent = await registeredAgent();
     const impostor = newAgent();
     const owner = randomUUID();
-    const claim = buildClaim({ privateKey: impostor.privateKey, did: agent.gatewayDid, ownerUserId: owner });
+    const claim = buildClaim({
+      privateKey: impostor.privateKey,
+      did: agent.gatewayDid,
+      ownerUserId: owner,
+    });
     const token = await idp.mintUserToken(owner);
-    const refused = await claimAgent(globalThis.fetch, base, token, agent.gatewayDid, claim).catch((err: unknown) => err);
+    const refused = await claimAgent(globalThis.fetch, base, token, agent.gatewayDid, claim).catch(
+      (err: unknown) => err
+    );
     expect(refused).toBeInstanceOf(GatewayRefusalError);
     expect((refused as GatewayRefusalError).status).toBe(401);
-    expect(((refused as GatewayRefusalError).body as { error: string }).error).toBe('bad_claim_signature');
+    expect(((refused as GatewayRefusalError).body as { error: string }).error).toBe(
+      'bad_claim_signature'
+    );
     const principal = await agentsDb.findPrincipal(agent.gatewayDid);
     expect(principal!.owner_user_id).toBeNull();
   });

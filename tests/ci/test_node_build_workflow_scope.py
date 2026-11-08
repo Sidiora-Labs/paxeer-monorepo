@@ -9,14 +9,6 @@ import yaml
 
 WORKFLOW = Path(__file__).resolve().parents[2] / ".github/workflows/node-build.yml"
 BASELINE = Path(__file__).resolve().parent / "data/node_go_test_baseline.json"
-BASELINE_TESTS = {
-    "TestMergePlanReturnsGuarantorBonds": "22.39.116",
-    "TestHostedKernelProgramsABIFollowsTheMergeUpgrade": "22.39.116",
-    "TestHostedKernelProgramsABISurvivesRestart": "22.39.116",
-    "TestEVMServerServesSequencerReceiptOption": "22.39.155",
-    "TestStandbyReplicatesRecorderGroupsThroughOpenAccount": "22.39.155",
-    "TestV640ToV66UpgradeServesTheExchangeBridgeAndLaunchpadPrecompiles": "22.39.155",
-}
 
 
 def node_test_command():
@@ -33,20 +25,14 @@ def node_test_command():
     assert not {"-run", "||", ";", "&"}.intersection(command)
     baseline = json.loads(BASELINE.read_text())
     assert baseline["package"] == "./node/"
-    assert [entry["name"] for entry in baseline["tests"]] == list(BASELINE_TESTS)
-    for entry in baseline["tests"]:
-        assert entry["retiring_task"] == BASELINE_TESTS[entry["name"]]
-        assert entry["reason"].strip()
-    assert command.count("-skip") == 1
-    assert command[command.index("-skip") + 1] == "|".join(BASELINE_TESTS)
+    assert baseline["tests"] == []
+    assert "-skip" not in command
     assert command == [
         "go",
         "test",
         "-timeout",
         "15m",
         "-count=1",
-        "-skip",
-        "|".join(BASELINE_TESTS),
         "./node/...",
     ]
     assert (

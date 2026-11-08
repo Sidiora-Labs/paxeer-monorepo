@@ -188,10 +188,34 @@ def test_seller_verifies_a_sequencer_receipt_through_receipt_keys(tmp_path):
 
 def test_buyer_verifies_sequencer_receipts_through_receipt_keys(tmp_path):
     vector = _payment_vector()
+    raw = _bytes(vector["rawTransaction"])
+    activity = vector["receiptJson"]["txHash"]
     with recorded_payment_rpc(
         vector, raw_transaction=vector["rawTransaction"]
     ) as (rpc, exchanges):
-        _verify_buyer_receipt(tmp_path, vector, rpc, exchanges)
+        buyer = BuyerMiddleware(
+            rpc, [_key(vector)], ConfiguredReceiptAuthority(raw),
+            [("exact", "eip155:125")],
+        )
+        with pytest.raises(ValueError, match="^missing-committed-evidence$"):
+            buyer.prepare(
+                encode_header(_required(vector)), vector["rawTransaction"],
+                activity, "0x" + _payment_terms(vector)["payer"],
+            )
+        assert exchanges == [
+            ("eth_sendRawTransaction", [vector["rawTransaction"]]),
+            ("pax_sequencerReceipt", [activity]),
+        ]
+    # The recorder's receipted view is independently usable without claiming
+    # committed finality; its canonical signed receipt and transaction are equal.
+    receipted = _payment_vector(committed=False)
+    assert receipted["rawTransaction"] == vector["rawTransaction"]
+    assert receipted["signedReceipt"] == vector["signedReceipt"]
+    assert receipted["receiptJson"]["rung"] == "receipted"
+    with recorded_payment_rpc(
+        receipted, raw_transaction=receipted["rawTransaction"]
+    ) as (rpc, exchanges):
+        _verify_buyer_receipt(tmp_path, receipted, rpc, exchanges)
 
 
 def _verify_buyer_receipt(tmp_path, vector, rpc, exchanges):
@@ -286,18 +310,17 @@ def _verify_buyer_receipt(tmp_path, vector, rpc, exchanges):
         ([replace(key, public_key=b"\x2a" * 32)], "bad_signature"),
     ):
         refused = BuyerMiddleware(rpc, keys, authority, [("exact", "eip155:125")])
-        for verify in (
-            lambda: refused.prepare(
+        with pytest.raises(ValueError, match="^payment-binding-mismatch$") as raised:
+            refused.prepare(
                 encode_header(required), "0x" + raw.hex(), activity, "0x" + terms["payer"]
-            ),
-            lambda: refused.capture_settlement(
-                headers["PAYMENT-RESPONSE"], payment_header
-            ),
-        ):
-            with pytest.raises(SequencerReceiptVerificationError) as raised:
-                verify()
-            assert raised.value.check == check
-            assert raised.value.code == SdkErrorCode.VERIFICATION_FAILURE
+            )
+        assert isinstance(raised.value.__cause__, SequencerReceiptVerificationError)
+        assert raised.value.__cause__.check == check
+        assert raised.value.__cause__.code == SdkErrorCode.VERIFICATION_FAILURE
+        with pytest.raises(SequencerReceiptVerificationError) as raised:
+            refused.capture_settlement(headers["PAYMENT-RESPONSE"], payment_header)
+        assert raised.value.check == check
+        assert raised.value.code == SdkErrorCode.VERIFICATION_FAILURE
         with pytest.raises(RevertReasonError, match="LXP_NO_PAYER_GRANT") as raised:
             refused.capture_grant_settlement(grant_response, grant_header, activity)
         assert raised.value.retryable is False

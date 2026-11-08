@@ -10,6 +10,8 @@ import { bridge } from '../src/modules/bridge.js';
 import { sendModuleTransactionReceipted } from '../src/modules/index.js';
 import type { AssetPage, SequencerReceiptAnswer } from '../src/types.js';
 import {
+  authenticatedReceipt,
+  receiptRecording,
   committedReceipt,
   nodeVector,
   recording,
@@ -28,12 +30,13 @@ async function endpoint_tests_retired_shapes_use_merged_transport() {
   const source = nodeVector('V1-pax-transfer');
   const address = merged.account.account.evm_address;
   const transport = await replay([
-    rpcExchange('px_getNetwork', [], merged.network, '/hosted'),
-    rpcExchange('px_getAccount', [address], merged.account, '/hosted'),
-    rpcExchange('px_getBalances', [address], merged.balances, '/hosted'),
+    rpcExchange('px_getNetwork', [], merged.network),
+    rpcExchange('px_getAccount', [address], merged.account),
+    rpcExchange('px_getBalances', [address], merged.balances),
     rpcExchange('eth_getTransactionCount', [address, 'pending'], '0x2a'),
     rpcExchange('pax_sequencerReceipt', [source.receiptJson.txHash], source.receiptJson),
     rpcExchange('px_getReceiptKeys', [], receiptWireKeys(source.receiptJson)),
+    rpcExchange('eth_getRawTransactionByHash', [source.receiptJson.txHash], source.rawTransaction),
   ]);
   try {
     const endpoint = new EndpointClient({
@@ -56,20 +59,21 @@ async function endpoint_tests_retired_shapes_use_merged_transport() {
     expect(await kernel.getSequence(address)).toEqual({ available: true, result: '42' });
     expect(await kernel.getReceipt(source.receiptJson.txHash)).toEqual({
       available: true,
-      result: source.receiptJson,
+      result: authenticatedReceipt(source.receiptJson),
     });
     expect(Reflect.get(kernel, 'getActivityStatus')).toBeUndefined();
     expect(() => kernel.getAccount('7c'.repeat(32))).toThrow(/address/);
     expect(
       transport.seen.map(({ path, body }) => [path, (body as { method: string }).method])
     ).toEqual([
-      ['/hosted', 'px_getNetwork'],
-      ['/hosted', 'px_getNetwork'],
-      ['/hosted', 'px_getAccount'],
-      ['/hosted', 'px_getBalances'],
+      ['/node', 'px_getNetwork'],
+      ['/node', 'px_getNetwork'],
+      ['/node', 'px_getAccount'],
+      ['/node', 'px_getBalances'],
       ['/node', 'eth_getTransactionCount'],
       ['/node', 'pax_sequencerReceipt'],
       ['/node', 'px_getReceiptKeys'],
+      ['/node', 'eth_getRawTransactionByHash'],
     ]);
     expect(transport.errors).toEqual([]);
   } finally {
@@ -85,12 +89,17 @@ async function receipt_fixture_third_shape_authenticates_every_rung() {
     const transport = await replay([
       rpcExchange('pax_sequencerReceipt', [answer.txHash], answer),
       rpcExchange('px_getReceiptKeys', [], receiptWireKeys(answer)),
+      rpcExchange(
+        'eth_getRawTransactionByHash',
+        [answer.txHash],
+        receiptRecording(answer).rawTransaction
+      ),
     ]);
     try {
       const rpc = new JsonRpcClient({ url: `${transport.url}/node` });
       expect(
         await readSequencerReceipt((method, params) => rpc.call(method, params), answer.txHash)
-      ).toEqual(answer);
+      ).toEqual(authenticatedReceipt(answer));
       if (answer.rung !== 'submitted') {
         expect(answer.paymentDenom).toBe('uhpx');
         expect(answer.signingKey).toBe(receiptPins(answer)[0]!.publicKey);
@@ -140,9 +149,9 @@ async function bank_types_test_nullability_keeps_zero_and_rejects_invalid_metada
     supply: '0',
   };
   const page: AssetPage = { height: '16', joined_limit: 16, assets: [empty, zero] };
-  const transport = await replay([rpcExchange('px_listAssets', [], page, '/hosted')]);
+  const transport = await replay([rpcExchange('px_listAssets', [], page)]);
   try {
-    const client = new EndpointClient({ hostedUrl: `${transport.url}/hosted` });
+    const client = new EndpointClient({ nodeUrl: `${transport.url}/node` });
     expect(await client.listBankAssets()).toEqual(page);
     const decoded = await client.listBankAssets();
     expect(decoded.assets[0]).toEqual({
@@ -175,16 +184,11 @@ async function bank_types_test_nullability_keeps_zero_and_rejects_invalid_metada
     ['denom', undefined],
   ] as const) {
     const invalid = await replay([
-      rpcExchange(
-        'px_listAssets',
-        [],
-        { ...page, assets: [{ ...zero, [field]: value }] },
-        '/hosted'
-      ),
+      rpcExchange('px_listAssets', [], { ...page, assets: [{ ...zero, [field]: value }] }),
     ]);
     try {
       await expect(
-        new EndpointClient({ hostedUrl: `${invalid.url}/hosted` }).listBankAssets()
+        new EndpointClient({ nodeUrl: `${invalid.url}/node` }).listBankAssets()
       ).rejects.toThrow(/malformed bank asset/);
       expect(invalid.errors).toEqual([]);
     } finally {
@@ -214,6 +218,11 @@ async function module_fixture_invalid_signed_view_uses_captured_bridge_outputs()
       answer
     ),
     rpcExchange('px_getReceiptKeys', [], receiptWireKeys(answer)),
+    rpcExchange(
+      'eth_getRawTransactionByHash',
+      [answer.txHash],
+      receiptRecording(answer).rawTransaction
+    ),
   ]);
   try {
     const rpc = new JsonRpcClient({ url: `${transport.url}/node` });
@@ -230,7 +239,7 @@ async function module_fixture_invalid_signed_view_uses_captured_bridge_outputs()
     );
     expect(tx.data).toBe(raw.data);
     const receipt = await sendModuleTransactionReceipted(provider, answer.from!, tx);
-    expect(receipt).toEqual(answer);
+    expect(receipt).toEqual(authenticatedReceipt(answer));
     expect(receipt).not.toHaveProperty('blockNumber');
     expect(receipt).not.toHaveProperty('blockHash');
     expect(receipt.logs).toHaveLength(1);
@@ -264,6 +273,11 @@ async function module_fixture_invalid_signed_view_uses_captured_bridge_outputs()
         tampered
       ),
       rpcExchange('px_getReceiptKeys', [], receiptWireKeys(answer)),
+      rpcExchange(
+        'eth_getRawTransactionByHash',
+        [answer.txHash],
+        receiptRecording(answer).rawTransaction
+      ),
     ]);
     try {
       const rpc = new JsonRpcClient({ url: `${invalid.url}/node` });

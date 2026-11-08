@@ -3516,6 +3516,42 @@ mod tests {
         }
     }
 
+    fn assert_only_tenant_observability_artifacts(root: &std::path::Path) {
+        use sha2::{Digest as _, Sha256};
+
+        fn entries(path: &std::path::Path) -> Vec<std::path::PathBuf> {
+            let mut entries = must(std::fs::read_dir(path))
+                .map(|entry| must(entry).path())
+                .collect::<Vec<_>>();
+            entries.sort();
+            entries
+        }
+        let authorization = root.join("tenant-authorization");
+        let traces = root.join("tenant-traces");
+        assert_eq!(entries(root), vec![authorization.clone(), traces.clone()]);
+        let tenant_hash =
+            layerx_programs::hex::encode(&Sha256::digest(tenant().as_str().as_bytes()));
+        for sink in [authorization, traces] {
+            assert!(must(std::fs::symlink_metadata(&sink)).file_type().is_dir());
+            let audit = sink.join("audit");
+            assert_eq!(entries(&sink), vec![audit.clone()]);
+            let chain = audit.join(&tenant_hash);
+            assert_eq!(entries(&audit), vec![chain.clone()]);
+            assert_eq!(
+                entries(&chain),
+                vec![
+                    chain.join("audit.anchor"),
+                    chain.join("audit.chain"),
+                    chain.join("audit.lock")
+                ]
+            );
+            for file in entries(&chain) {
+                assert!(must(std::fs::symlink_metadata(file)).file_type().is_file());
+            }
+            must(crate::audit::verify_chain(chain.join("audit.chain")));
+        }
+    }
+
     #[test]
     fn admit_write_with_a_failed_durable_write_releases_its_hold() {
         let (root, control, token) = control("admit-io-failure");
@@ -3534,10 +3570,13 @@ mod tests {
         ));
         let key = must(DurablePreparation::store_key(&tenant(), [8; 32]));
         assert!(must(control.store.lock()).get(&key).is_none());
-        assert!(!root.exists());
+        assert_only_tenant_observability_artifacts(&root);
         assert!(must(control.registry().read())
             .get(&tenant(), SESSION)
             .is_some());
+        assert!(must(control.observability_stats()).audits_delivered > 0);
+        drop(control);
+        must(std::fs::remove_dir_all(root));
     }
 
     #[test]
@@ -3634,7 +3673,10 @@ mod tests {
                 .map(|value| value.bytes().to_vec()),
             before
         );
-        assert!(!root.exists());
+        assert_only_tenant_observability_artifacts(&root);
+        assert!(must(control.observability_stats()).audits_delivered > 0);
+        drop(control);
+        must(std::fs::remove_dir_all(root));
     }
 
     #[test]

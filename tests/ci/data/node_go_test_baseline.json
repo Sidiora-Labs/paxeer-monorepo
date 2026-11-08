@@ -1,36 +1,5 @@
 {
   "package": "./node/",
   "decision": "2820",
-  "tests": [
-    {
-      "name": "TestMergePlanReturnsGuarantorBonds",
-      "retiring_task": "22.39.116",
-      "reason": "The custody release fails case expects custodytypes.ErrModuleRetired from continueMergeUpgradePlan, but the call succeeds."
-    },
-    {
-      "name": "TestHostedKernelProgramsABIFollowsTheMergeUpgrade",
-      "retiring_task": "22.39.116",
-      "reason": "The post-merge program call requires a zero ResultCode but returns LXP_ERR_VERSION_UNSUPPORTED."
-    },
-    {
-      "name": "TestHostedKernelProgramsABISurvivesRestart",
-      "retiring_task": "22.39.116",
-      "reason": "Reopening the committed application panics with committed block identity missing at height 1 before the persisted ABI and successful program call assertions."
-    },
-    {
-      "name": "TestEVMServerServesSequencerReceiptOption",
-      "retiring_task": "22.39.155",
-      "reason": "node/sequencer_rpc_option_test.go:165 requires no error, but the standby dial returns sequencer: standby did not acknowledge: sequencer config: invalid value: replication TLS configuration is required."
-    },
-    {
-      "name": "TestStandbyReplicatesRecorderGroupsThroughOpenAccount",
-      "retiring_task": "22.39.155",
-      "reason": "node/standby_recorder_replication_test.go:127 requires no error from StartStandby, but receives sequencer config: invalid value: replication TLS certificate, key, roots and peer identity are required."
-    },
-    {
-      "name": "TestV640ToV66UpgradeServesTheExchangeBridgeAndLaunchpadPrecompiles",
-      "retiring_task": "22.39.155",
-      "reason": "node/upgrade_test.go:218 requires layerxcustody module version 1 after the v6.6 plan, but the module consensus version is 2."
-    }
-  ]
+  "tests": []
 }
