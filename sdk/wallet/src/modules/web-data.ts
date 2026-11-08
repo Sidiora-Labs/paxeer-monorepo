@@ -35,7 +35,9 @@ export const WEB_DATA_KIND_SEARCH = 2;
 export const WEB_DATA_KIND_API = XWEB_KIND_API;
 
 export type WebDataKind =
-  typeof WEB_DATA_KIND_FETCH | typeof WEB_DATA_KIND_SEARCH | typeof WEB_DATA_KIND_API;
+  | typeof WEB_DATA_KIND_FETCH
+  | typeof WEB_DATA_KIND_SEARCH
+  | typeof WEB_DATA_KIND_API;
 
 export const WEB_DATA_EVENTS: readonly ModuleEventSpec[] = [
   {
@@ -55,9 +57,9 @@ export const WEB_DATA_EVENTS: readonly ModuleEventSpec[] = [
     inputs: [
       { name: 'programId', type: 'bytes32', indexed: true },
       { name: 'requestId', type: 'uint64', indexed: true },
-      { name: 'origin', type: 'uint8', indexed: false },
-      { name: 'input', type: 'bytes', indexed: false },
-      { name: 'deadline', type: 'uint64', indexed: false },
+      { name: 'kind', type: 'uint8', indexed: false },
+      { name: 'payload', type: 'bytes', indexed: false },
+      { name: 'sequence', type: 'uint64', indexed: false },
     ],
   },
   {
