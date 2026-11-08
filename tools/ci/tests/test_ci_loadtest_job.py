@@ -13,7 +13,7 @@ class CiLoadtestJobTest(unittest.TestCase):
 
         jobs = workflow["jobs"]
         job = jobs["loadtest"]
-        self.assertEqual(job["runs-on"], jobs["c17"]["runs-on"])
+        self.assertEqual(job["runs-on"], jobs["repository-audit"]["runs-on"])
         self.assertEqual(job["timeout-minutes"], 20)
         self.assertEqual(job["steps"][0], jobs["repository-audit"]["steps"][0])
         setup_go = [

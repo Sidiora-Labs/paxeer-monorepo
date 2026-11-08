@@ -30,6 +30,7 @@ concurrency:
   group: explorer-images-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: false
 
+# These jobs require a hosted container runtime; see runner-routing-check.sh exclusions.
 jobs:
   explorer-backend-test:
     name: Explorer backend tests
