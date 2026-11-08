@@ -1613,6 +1613,18 @@ impl ProjectionStore {
         if record.read != ReadVerification::SequencerSigned {
             return Err(ViewError::BindingMismatch);
         }
+        if proof.header.chain_id != authority.chain_id {
+            let verified = verify_block_commit(proof, authority)
+                .map_err(|_| ViewError::FinalityUnavailable)?;
+            let error = ViewError::WrongDomain;
+            record_alert(
+                &conn,
+                record.market.as_bytes(),
+                &verified.block_hash,
+                &error,
+            )?;
+            return Err(error);
+        }
         let authenticated =
             verify_program_state(proof, authority, record.chain, record.program, &state)
                 .map_err(|_| ViewError::FinalityUnavailable)?;

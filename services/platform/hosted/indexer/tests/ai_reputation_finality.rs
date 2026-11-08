@@ -30,7 +30,10 @@ use layerx_programs_ai_market::{
     },
     registry::{derive_rewards_account, F01_SECTION_CAP},
     registry_ops::{self, Outcome},
-    reputation::{CompletedHistory, Observation, ReputationCurrent, SegmentKey, SECTION_CAP},
+    reputation::{
+        CompletedHistory, Observation, ReputationCurrent, SegmentKey, CURRENT_BYTES, HEADER_BYTES,
+        HISTORY_BYTES, LIMIT, SECTION_CAP,
+    },
     reputation_codec::{
         decode_section, encode_current, encode_history, encode_section, reputation_root,
     },
@@ -128,11 +131,17 @@ fn market() -> Checked<MarketId> {
 fn worker(nonce: u8) -> Checked<WorkerId> {
     Ok(derive_worker(market()?, principal(OWNER)?, [nonce; 32])?)
 }
-/// A nonzero digest distinct per (height, variant).
-fn root(height: u64, variant: u8) -> Checked<Digest32> {
-    let mut bytes = [variant; 32];
-    bytes[..8].copy_from_slice(&height.to_be_bytes());
-    Ok(Digest32::new(bytes)?)
+fn membership(state: &[u8], height: u64, variant: u8) -> (Vec<u8>, [u8; 32]) {
+    repair_paths::native_membership_version(
+        state,
+        PROGRAM,
+        layerx_programs_ai_market::SHARED_STATE_KEY,
+        height * 256 + u64::from(variant),
+    )
+}
+
+fn root(state: &[u8], height: u64, variant: u8) -> Checked<Digest32> {
+    Ok(Digest32::new(membership(state, height, variant).1)?)
 }
 
 fn policy() -> Checked<TaskPolicyV1> {
@@ -454,16 +463,15 @@ fn header(height: u64, root: Digest32) -> Header {
     }
 }
 
-fn store_proof(height: u64, root: Digest32) -> Vec<u8> {
-    let mut proof = root.bytes().to_vec();
-    proof.extend_from_slice(&height.to_be_bytes());
-    proof
-}
-
-fn certify_by(height: u64, root: Digest32, signers: &[(u8, bool)]) -> Checked<Certified> {
-    let header = header(height, root);
+fn certify_by(
+    height: u64,
+    state: &[u8],
+    variant: u8,
+    signers: &[(u8, bool)],
+) -> Checked<Certified> {
+    let (store_proof, native_root) = membership(state, height, variant);
+    let header = header(height, Digest32::new(native_root)?);
     let commit = signed(&header, signers);
-    let store_proof = store_proof(height, root);
     let id = Sha256::digest(&store_proof).into();
     Ok((
         CommitMaterial {
@@ -475,8 +483,13 @@ fn certify_by(height: u64, root: Digest32, signers: &[(u8, bool)]) -> Checked<Ce
     ))
 }
 
-fn certify(height: u64, root: Digest32) -> Checked<Certified> {
-    certify_by(height, root, &[(1, false), (2, false), (3, false)])
+fn certify(height: u64, state: &[u8], variant: u8) -> Checked<Certified> {
+    certify_by(
+        height,
+        state,
+        variant,
+        &[(1, false), (2, false), (3, false)],
+    )
 }
 
 fn offer(
@@ -567,8 +580,8 @@ fn a09(name: &str) -> Checked<A09> {
 }
 
 fn advance(fixture: &mut A09, height: u64) -> Checked<(Digest32, Certified)> {
-    let native_root = root(height, 1)?;
-    let certified = certify(height, native_root)?;
+    let native_root = root(&fixture.state_bytes, height, 1)?;
+    let certified = certify(height, &fixture.state_bytes, 1)?;
     assert_eq!(
         offer(
             &mut fixture.projector,
@@ -620,7 +633,7 @@ fn a09_freshness_is_measured_at_the_authenticated_finalized_height() -> Checked 
     assert_eq!(stale.current, observed(a, 3, 10_000)?);
     assert_eq!(stale.history, fixture.history);
 
-    let r9999 = root(9_999, 1)?;
+    let r9999 = root(&fixture.state_bytes, 9_999, 1)?;
     let early = ReputationError::InvalidProof {
         finalized_height: 9_999,
         committed_height: 10_000,
@@ -630,7 +643,7 @@ fn a09_freshness_is_measured_at_the_authenticated_finalized_height() -> Checked 
             &mut fixture.projector,
             &fixture.state_bytes,
             proof(9_999, r9999)?,
-            &certify(9_999, r9999)?
+            &certify(9_999, &fixture.state_bytes, 1)?
         )?,
         Err(early.clone())
     );
@@ -709,8 +722,8 @@ fn a09_cursor_is_monotonic_and_recovers_from_its_persisted_point() -> Checked {
 fn a09_invalid_certificates_never_move_the_cursor() -> Checked {
     let mut fixture = a09("a09-invalid")?;
     let (_, c15000) = advance(&mut fixture, 15_000)?;
-    let r16000 = root(16_000, 1)?;
-    let valid = certify(16_000, r16000)?;
+    let r16000 = root(&fixture.state_bytes, 16_000, 1)?;
+    let valid = certify(16_000, &fixture.state_bytes, 1)?;
     let mut unpinned = valid.clone();
     let mut other_validators = validators();
     other_validators[3].pub_key = SigningKey::from_bytes(&[5; 32]).verifying_key().to_bytes();
@@ -724,12 +737,17 @@ fn a09_invalid_certificates_never_move_the_cursor() -> Checked {
     let invalid = [
         (
             proof(16_000, r16000)?,
-            certify_by(16_000, r16000, &[(1, false), (2, true), (3, false)])?,
+            certify_by(
+                16_000,
+                &fixture.state_bytes,
+                1,
+                &[(1, false), (2, true), (3, false)],
+            )?,
             ReputationError::Commit(ProofError::InvalidCommitSignature),
         ),
         (
             proof(16_000, r16000)?,
-            certify_by(16_000, r16000, &[(1, false), (2, false)])?,
+            certify_by(16_000, &fixture.state_bytes, 1, &[(1, false), (2, false)])?,
             ReputationError::Commit(ProofError::InsufficientVotingPower),
         ),
         (
@@ -744,12 +762,12 @@ fn a09_invalid_certificates_never_move_the_cursor() -> Checked {
         ),
         (
             proof(16_000, r16000)?,
-            certify(16_000, root(16_000, 2)?)?,
+            certify(16_000, &fixture.state_bytes, 2)?,
             ReputationError::Refused(F07_BINDING_MISMATCH),
         ),
         (
             proof(16_000, r16000)?,
-            certify(16_001, r16000)?,
+            certify(16_001, &fixture.state_bytes, 1)?,
             ReputationError::Refused(F07_BINDING_MISMATCH),
         ),
         (
@@ -802,8 +820,8 @@ fn a09_same_height_root_conflict_halts_the_projection_durably() -> Checked {
     let mut fixture = a09("a09-conflict")?;
     let a = fixture.observed;
     let (r15000, _) = advance(&mut fixture, 15_000)?;
-    let other = root(15_000, 2)?;
-    let conflicting = certify(15_000, other)?;
+    let other = root(&fixture.state_bytes, 15_000, 2)?;
+    let conflicting = certify(15_000, &fixture.state_bytes, 2)?;
     let conflict = ReputationError::Conflict(Box::new(RootConflict {
         market: market()?,
         height: 15_000,
@@ -820,13 +838,13 @@ fn a09_same_height_root_conflict_halts_the_projection_durably() -> Checked {
         )?,
         Err(conflict.clone())
     );
-    let r16000 = root(16_000, 1)?;
+    let r16000 = root(&fixture.state_bytes, 16_000, 1)?;
     assert_eq!(
         offer(
             &mut fixture.projector,
             &fixture.state_bytes,
             proof(16_000, r16000)?,
-            &certify(16_000, r16000)?
+            &certify(16_000, &fixture.state_bytes, 1)?
         )?,
         Err(conflict.clone())
     );
@@ -851,13 +869,15 @@ struct A11 {
 
 fn a11() -> Checked<A11> {
     let observer = worker(1)?;
+    let capacity = u8::try_from(LIMIT).map_err(|_| Failure::Unexpected("retention capacity"))?;
+    let last_epoch = u64::from(capacity);
     let ring = |epochs: std::ops::RangeInclusive<u64>| {
         epochs
             .map(|epoch| completion(epoch, 19_000 + epoch * 10))
             .collect::<Checked<Vec<_>>>()
     };
     let records = |observed_epoch| -> Checked<Vec<ReputationCurrent>> {
-        let mut records = (2..=32)
+        let mut records = (2..=capacity)
             .map(|nonce| unobserved(worker(nonce)?, 1_000))
             .collect::<Checked<Vec<_>>>()?;
         records.push(observed(
@@ -867,17 +887,18 @@ fn a11() -> Checked<A11> {
         )?);
         Ok(records)
     };
-    let (first_section, _) = frame(records(32)?, &ring(1..=32)?)?;
-    assert_eq!(first_section.len(), 8_896);
-    let retained = ring(2..=33)?;
-    let (second_section, _) = frame(records(33)?, &retained)?;
+    let (first_section, _) = frame(records(last_epoch)?, &ring(1..=last_epoch)?)?;
+    assert_eq!(
+        first_section.len(),
+        HEADER_BYTES + LIMIT * (CURRENT_BYTES + HISTORY_BYTES)
+    );
+    let retained = ring(2..=last_epoch + 1)?;
+    let (second_section, _) = frame(records(last_epoch + 1)?, &retained)?;
     let certified = |height, section: &[u8]| -> Checked<Offered> {
-        let native_root = root(height, 1)?;
-        Ok((
-            state_with(section)?,
-            proof(height, native_root)?,
-            certify(height, native_root)?,
-        ))
+        let state = state_with(section)?;
+        let native_root = root(&state, height, 1)?;
+        let certified = certify(height, &state, 1)?;
+        Ok((state, proof(height, native_root)?, certified))
     };
     Ok(A11 {
         observer,
@@ -907,6 +928,11 @@ fn a11_finalized_eviction_reports_history_outside_retention_with_archive_locator
     let path = fresh_store("a11")?;
     let mut projector = open(&path)?;
     admit_all(&mut projector, &[&fixture.first, &fixture.second])?;
+    let (second_state, second_read, second_certified) = &fixture.second;
+    assert_eq!(
+        offer(&mut projector, second_state, *second_read, second_certified)?,
+        Ok(Admission::AlreadyAccepted { height: 20_100 })
+    );
 
     let (first_state, first_read, (_, first_id)) = &fixture.first;
     let (first_snapshot, _) = expected_binding(first_state, *first_read, *first_id)?;
@@ -950,6 +976,14 @@ fn a11_finalized_eviction_reports_history_outside_retention_with_archive_locator
     assert_eq!(
         projector.read_history(&request(reader, Some(1))?),
         Err(evicted)
+    );
+    assert_eq!(
+        projector.read_history(&request(reader, Some(2))?)?,
+        retained
+    );
+    assert_eq!(
+        projector.read_history(&request(fixture.observer, None)?)?,
+        all
     );
     Ok(())
 }
