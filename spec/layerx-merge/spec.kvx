@@ -333524,7 +333524,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.137]
 title = "Give the Python payment RPC module the hosted gateway client and the submission refusal the conformance cases expect"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.39.136"]
