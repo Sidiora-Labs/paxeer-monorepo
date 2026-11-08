@@ -335732,7 +335732,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.92]
 title = "Add the repository-wide command accuracy guard over README and docs shell blocks"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.39.88", "22.39.89", "22.39.90", "22.39.91"]
