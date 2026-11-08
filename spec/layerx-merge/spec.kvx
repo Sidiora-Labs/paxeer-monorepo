@@ -334858,7 +334858,7 @@ do_6 = "Attempt 3 (continue, gotcha 3567, decisions 2771, 2869 and 2874): the at
 
 [task.22.39.144]
 title = "Make the release candidate suite of tools/paxeer-x pass again following its producers and retire its baseline entries"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 3
 requires = ["22.39.84", "22.39.157", "22.39.158", "22.39.164"]
