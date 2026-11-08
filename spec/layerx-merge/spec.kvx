@@ -211819,7 +211819,7 @@ do_4 = "Attempt 3 (continue, gotcha 3474, decision 2817): the attempt-2 tree ddb
 
 [task.22.39.75]
 title = "Run the launchpad Go backend tests from the launchpad workflow"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
