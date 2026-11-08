@@ -1,0 +1,4 @@
+=========================== short test summary info ============================
+FAILED tests/test_beta_withdrawal_genesis.py::test_genesis_allocations_match_the_manifest - AssertionError: genesis allocations differ from manifest
+FAILED tests/test_beta_withdrawal_genesis.py::test_missing_artifact_is_rejected - KeyError: 'receipt'
+============================== 2 failed in 0.12s ===============================

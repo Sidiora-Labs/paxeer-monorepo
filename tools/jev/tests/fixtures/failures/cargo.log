@@ -1,0 +1,28 @@
+running 3 tests
+failures:
+
+---- delivery::tests::replayed_delivery_is_a_duplicate stdout ----
+thread 'delivery::tests::replayed_delivery_is_a_duplicate' panicked at platform/webhooks/src/delivery.rs:214:9:
+assertion `left == right` failed: a replayed delivery must release exactly once
+  left: 2
+ right: 1
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+   0: rust_begin_unwind
+   1: core::panicking::assert_failed
+
+---- delivery::tests::conflicting_digest_is_rejected stdout ----
+thread 'delivery::tests::conflicting_digest_is_rejected' panicked at platform/webhooks/src/delivery.rs:271:9:
+assertion `left == right` failed: a replayed delivery must release exactly once
+  left: 3
+ right: 1
+
+---- signature::tests::rejects_unauthorised_sequencer stdout ----
+thread 'signature::tests::rejects_unauthorised_sequencer' panicked at platform/webhooks/src/signature.rs:97:5:
+assertion failed: verify_header(&header, &authority).is_err()
+
+failures:
+    delivery::tests::replayed_delivery_is_a_duplicate
+    delivery::tests::conflicting_digest_is_rejected
+    signature::tests::rejects_unauthorised_sequencer
+
+test result: FAILED. 0 passed; 3 failed; 0 ignored

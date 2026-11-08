@@ -54,7 +54,13 @@ def choice_answer(value: str, confidence: float) -> Answer:
             "type": "choice",
             "choice": value,
             "confidence": confidence,
-            "probabilities": {value: confidence},
+            "probabilities": {
+                category: (
+                    confidence if category == value
+                    else (1.0 - confidence) / (len(CATEGORIES) - 1)
+                )
+                for category in CATEGORIES
+            },
         },
     )
 

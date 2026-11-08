@@ -40,7 +40,7 @@ from tools.jev.client import API_KEY_ENV, DEFAULT_MODEL, Evaluation, JevClient, 
 from tools.jev.report import Report
 
 
-LEDGER = "spec/layerx-beta/qualification.kvx"
+LEDGER = "tools/jev/tests/fixtures/ledger/beta-qualification.kvx"
 USAGE = {"input_tokens": 512, "output_tokens": 0, "cost": 0.0000215}
 AGREEING_SEVERITY = {
     "type": "choice",
@@ -169,7 +169,13 @@ class ParserTests(unittest.TestCase):
         self.assertTrue(all(record.anchor().startswith(f"{LEDGER}:") for record in parsed))
 
     def test_records_without_observed_text_are_not_judged(self) -> None:
-        parsed = load_records(sorted(ROOT.glob("spec/*/qualification.kvx")))
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "qualification.kvx"
+            path.write_text(
+                EXCERPT + '\n[observation.missing]\ntask = "1.1"\nseverity = "note"\n',
+                encoding="utf-8",
+            )
+            parsed = load_records([ROOT / LEDGER, path])
         self.assertTrue(any(not record.observed for record in parsed))
         self.assertLess(len(judgeable(parsed)), len(parsed))
         self.assertTrue(all(record.observed for record in judgeable(parsed)))
