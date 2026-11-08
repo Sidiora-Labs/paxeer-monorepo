@@ -35754,3 +35754,11 @@ symbol = "prepare_eip1559.rs"
 observed = "Attempt 1 at 25a272675293: build exit 101: cargo build -p layerx-agentd --tests reported E0425 cannot find function read_program_budget_sources_call and read_native_effect_budget_sources_call in module crate::budget; verification not run; log /out/logs/build-1.log."
 assumption = "The two readers exist at program_sources.rs lines 413 and 552 at main 41390400af with the signatures the consumers call."
 severity = "high"
+
+[finding.22.39.95.2]
+task = "22.39.95"
+file = "apps/launchpad/web/src/core/wallet-sdk/runtime.integration.test.tsx"
+symbol = "runtime.integration.test.tsx"
+observed = "Attempt 2 at 9857111ec409 and 4078ebdbf4a0: verify exit 1 twice; at 4078ebdbf4a0 the web suite reported 10 failed and 1266 passed: Bound actual chain125 deployment fixture required (trade journey line 43), Bound actual phase4 measurement inputs required (measurement line 14), Missing actual joined configuration field (chart recovery line 84, four cases), absent L25, L27 and L28 inputs (three wallet runtime cases, creation, connected journeys) and the embedded sign-in setup step timed out at 10000 ms; the mobile suite did not run; log /out/logs/verify-2.log."
+assumption = "The generators the repository carries produce their inputs on owned Anvil children and the three new producers follow the same pattern; the mobile suite passes as in attempt 1."
+severity = "high"
