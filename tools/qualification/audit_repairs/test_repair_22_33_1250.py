@@ -182,7 +182,7 @@ def test_readme_retired_runtime_paxd_build_and_start_replace_daemon():
     makefile = source("Makefile")
     dependencies = dict(re.findall(r"^([\w-]+):[ \t]*([^\n]*)$", makefile, re.M))
     assert dependencies["paxd-build"].split() == ["paxd-native-libs"]
-    assert dependencies["paxd-native-libs"].split() == ["$(LIBRARY)", "programs-release-build"]
+    assert dependencies["paxd-native-libs"].split() == ["$(LIBRARY)", "programs-release-build", "evmone-lib"]
     assert "-o ./build/paxd ./daemon/paxd" in source("chain.mk")
     assert "server.AddCommands(" in source("daemon/paxd/cmd/root.go")
 

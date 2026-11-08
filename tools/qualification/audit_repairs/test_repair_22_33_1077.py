@@ -217,7 +217,7 @@ def test_f025_supported_build_tools_and_layout_match_the_merged_tree():
     assert ["make", "build"] in commands
     makefile = source("Makefile")
     assert re.search(r"^paxd-build: paxd-native-libs$", makefile, re.M)
-    assert re.search(r"^paxd-native-libs: \$\(LIBRARY\) programs-release-build$", makefile, re.M)
+    assert re.search(r"^paxd-native-libs: \$\(LIBRARY\) programs-release-build evmone-lib$", makefile, re.M)
     chain = source("chain.mk")
     assert re.search(r"^build: paxd-native-libs$", chain, re.M)
     assert "go build $(BUILD_FLAGS) -o ./build/paxd ./daemon/paxd" in chain

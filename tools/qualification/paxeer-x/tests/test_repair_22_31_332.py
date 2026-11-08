@@ -212,7 +212,8 @@ def test_binding_web_authority_producer_consumer_contract():
     assert 'const MAX_WEB_RECEIPT_KEYS: usize = 64;' in publisher
     retained = rust_impl(publisher, 'BindingPublisher')
     assert 'existing != document' in retained and 'self.check_secrets(enrolment)?' in retained
-    assert 'Some(&self.document(&enrolment)?)' in retained
+    assert 'let document = self.document(enrolment)?;' in retained
+    assert 'if let Some(existing) = read_document(&binding)?' in retained
     assert 'Err(EnrolmentError::AlreadyPublished(binding))' in retained
 
 

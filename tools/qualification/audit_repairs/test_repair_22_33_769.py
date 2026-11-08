@@ -42,7 +42,8 @@ def script(name):
 def test_rpc_root_permissions_dedicated_nonroot_identity():
     instructions = docker_instructions()
     assert [value for key, value in instructions if key == "FROM"] == [
-        "golang:1.25.8-bookworm AS go-dist", "ubuntu:latest"
+        "golang:1.25.8-bookworm@sha256:4557cf171e3cdf5053a298d5171b1a5f5734d920260c25f22c79e94760eb2084 AS go-dist",
+        "ubuntu:24.04@sha256:fe81560990fae86dc4743202b2cb4d3df98d0bcf949173cecef15ce1127ef852"
     ]
     assert instructions[-1] == ("USER", "pax:pax")
     assert [value for key, value in instructions if key == "USER"] == ["pax:pax"]
@@ -134,10 +135,13 @@ def test_rpc_root_permissions_root_owned_executable_launch_scripts():
 
 
 def test_rpc_root_permissions_launcher_build_init_start_path():
+    kernel = ast.parse((ROOT / "docker/kernel/kernel_runtime.py").read_text())
+    main = next(node for node in kernel.body if isinstance(node, ast.FunctionDef) and node.name == "main")
+    assert ast.unparse(main.body[0]) == "os.umask(63)"
     deploy = script("deploy.sh")
     lines = [line.strip() for line in deploy.splitlines()
              if line.strip() and not line.startswith("#")]
-    assert lines[0] == "umask 077"
+    assert lines[:2] == ["set -eu", "umask 077"]
     assert lines.count("umask 077") == 1
     assert 'export GOPATH="$HOME/go"' in lines
     assert 'export GOBIN="$GOPATH/bin"' in lines
@@ -145,11 +149,13 @@ def test_rpc_root_permissions_launcher_build_init_start_path():
     assert 'export PATH="$GOBIN:$PATH:/usr/local/go/bin:$BUILD_PATH"' in lines
     assert 'mkdir -p "$GOBIN"' in lines
     assert re.search(
-        r'if \[ -z "\$SKIP_BUILD" \]\s+then\s+/usr/bin/build\.sh\s+fi', deploy
+        r'if \[ -z "\$SKIP_BUILD" \]; then\n'
+        r'  \[ -r /usr/bin/build\.sh \] \|\| \{ echo "Missing build script" >&2; exit 1; \}\n'
+        r'  sh -e /usr/bin/build\.sh\nfi', deploy
     )
     stages = [
-        '/usr/bin/build.sh', 'cp build/paxd "$GOBIN"/',
-        '/usr/bin/configure_init.sh', '/usr/bin/start_pax.sh',
+        'sh -e /usr/bin/build.sh', 'cp build/paxd "$GOBIN"/',
+        '\n/usr/bin/configure_init.sh', 'exec /usr/bin/start_pax.sh',
     ]
     offsets = [deploy.index(stage) for stage in stages]
     assert offsets == sorted(offsets)
@@ -157,11 +163,8 @@ def test_rpc_root_permissions_launcher_build_init_start_path():
         content = path.read_text(encoding="utf-8")
         assert "/root" not in content
         assert ".bashrc" not in content
-        assert not re.search(r"\b(?:sudo|su|chmod|chown|umask)\b", content) or (
-            path.name == "deploy.sh" and re.findall(
-                r"\b(?:sudo|su|chmod|chown|umask)\b", content
-            ) == ["umask"]
-        )
+        tokens = re.findall(r"\b(?:sudo|su|chmod|chown|umask)\b", content)
+        assert tokens == (["umask"] if path.name in ("deploy.sh", "step1_configure_init.sh") else []), path
     build = script("step0_build.sh")
     assert "make -f chain.mk install" in build
     assert "mkdir -p build/generated" in build
@@ -170,14 +173,18 @@ def test_rpc_root_permissions_launcher_build_init_start_path():
     assert 'paxd init --chain-id pax "$MONIKER"' in init
     for source, dest in [
         ("docker/rpcnode/config/app.toml", "app.toml"),
-        ("docker/rpcnode/config/config.toml", "config.toml"),
+        ('"$INIT_DIR/config.toml"', "config.toml"),
         ("build/generated/genesis.json", "genesis.json"),
     ]:
-        assert f"cp {source} ~/.pax/config/{dest}" in init
+        assert f'cp {source} "$HOME/.pax/config/{dest}"' in init
+    assert init.index("python3 docker/rpcnode/scripts/state_sync.py") < init.index('\npaxd init --chain-id pax "$MONIKER"')
+    assert '--output "$INIT_DIR/config.toml"' in init
     start = script("step2_start_pax.sh")
-    assert 'LOG_DIR="build/generated/logs"' in start
-    assert 'paxd start --chain-id pax > "$LOG_DIR/rpc-node.log" 2>&1 &' in start
-    assert 'echo "Done" >> build/generated/rpc-launch.complete' in start
+    assert 'command -v paxd >/dev/null 2>&1' in start
+    assert '[ -s "$HOME/.pax/config/$file" ] && [ -r "$HOME/.pax/config/$file" ]' in start
+    assert start.rstrip().endswith("exec paxd start --chain-id pax")
+    assert deploy.rstrip().endswith("exec /usr/bin/start_pax.sh")
+    assert "rpc-launch.complete" not in start
 
 
 def test_rpc_root_permissions_record_maps_proof_and_limits():

@@ -194,7 +194,8 @@ public final class ReceiptGate {
         return switch (state) {
             case "done", "done-finalised" -> null;
             case "refused" -> new Refused(state);
-            case "getting-ready", "sending", "processing", "still-checking", "waiting-for-you" ->
+            case "closed" -> new Refused(state);
+            case "getting-ready", "sending", "processing", "still-checking", "waiting-for-you", "awaiting-approval" ->
                 new Pending(journey.path("journey_id").textValue());
             default -> throw MobileIntegrationException.of(MobileIntegrationException.Code.DECODE_FAILURE);
         };

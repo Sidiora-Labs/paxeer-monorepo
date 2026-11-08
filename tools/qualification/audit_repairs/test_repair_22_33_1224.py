@@ -200,7 +200,7 @@ def test_readme_retired_topology_linked_node_build_and_commands():
     makefile = source("Makefile")
     dependencies = dict(re.findall(r"^([\w-]+):([^\n]*)$", makefile, re.M))
     assert dependencies["paxd-build"].split() == ["paxd-native-libs"]
-    assert dependencies["paxd-native-libs"].split() == ["$(LIBRARY)", "programs-release-build"]
+    assert dependencies["paxd-native-libs"].split() == ["$(LIBRARY)", "programs-release-build", "evmone-lib"]
     chain = source("chain.mk")
     assert re.search(r"^build: paxd-native-libs\n\tgo build .* -o ./build/paxd ./daemon/paxd$", chain, re.M)
     assert "server.AddCommands(" in source("daemon/paxd/cmd/root.go")

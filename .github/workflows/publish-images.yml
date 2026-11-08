@@ -44,9 +44,9 @@ on:
       runner:
         description: Runner label for the gate and image build jobs
         required: false
-        default: ubuntu-latest
+        default: ubuntu-24.04
         type: choice
-        options: [ubuntu-latest, lx-runner]
+        options: [ubuntu-24.04, lx-runner]
 
 permissions:
   contents: read
@@ -67,7 +67,7 @@ env:
 jobs:
   plan:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     outputs:
       images: ${{ steps.plan.outputs.images }}
@@ -107,7 +107,7 @@ jobs:
 
   images:
     needs: [plan]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 180
     permissions:
       contents: read
@@ -152,7 +152,7 @@ jobs:
 
   images-dependent:
     needs: [plan, images]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 180
     permissions:
       contents: read
@@ -197,7 +197,7 @@ jobs:
 
   gate:
     if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/')
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 60
     outputs:
       revision: ${{ steps.revision.outputs.revision }}

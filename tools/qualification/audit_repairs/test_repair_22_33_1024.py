@@ -234,7 +234,7 @@ def test_root_network_model_supported_build_and_source_links():
         assert fact in build, fact
     makefile = source("Makefile")
     targets = dict(re.findall(r"^([A-Za-z0-9_-]+):([^\n]*)$", makefile, re.M))
-    assert targets["paxd-native-libs"].split() == ["$(LIBRARY)", "programs-release-build"]
+    assert targets["paxd-native-libs"].split() == ["$(LIBRARY)", "programs-release-build", "evmone-lib"]
     assert targets["paxd-build"].split() == ["paxd-native-libs"]
     recipe = makefile.split("\npaxd-build: paxd-native-libs\n", 1)[1].split("\n\n", 1)[0]
     assert "tools/release/version.json" in recipe

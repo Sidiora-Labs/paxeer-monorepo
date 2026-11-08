@@ -12,9 +12,13 @@ from pathlib import Path
 from layerx_sdk import AgentHttpTransport, ProductionClient
 from layerx_sdk.program_wire import (
     assert_fresh_simulation_observation,
+    decode_historical_program_call,
     decode_signed_program_call,
 )
-from layerx_sdk.programs import ProgramCall, ProgramOperations, ProgramTrustContext
+from layerx_sdk.programs import NativeProgramRequest, ProgramCall, ProgramOperations, ProgramTrustContext
+from layerx_sdk.ai_market import _decode_programs_call
+from layerx_sdk.evm_transaction import decode_signed
+from program_receipt_evidence import ProgramReceiptEvidence
 
 _REPO_ROOT = Path(__file__).resolve().parents[4]
 _SIGNATURES_PATH = (
@@ -87,13 +91,21 @@ def canonical_program_call(not_before: int = 10, not_after: int = 20) -> bytes:
     ))
 
 
-def call(not_before: int = 10, not_after: int = 20) -> ProgramCall:
+def historical_call(not_before: int = 10, not_after: int = 20) -> ProgramCall:
     return ProgramCall(PROGRAM_ID, b"\xaa", 1, 0, (), canonical_program_call(not_before, not_after))
 
 
-def discovery(sequence: int, observed_at: int, valid_through: int, state_root: str) -> dict[str, object]:
+def call() -> NativeProgramRequest:
+    evidence = ProgramReceiptEvidence()
+    transaction, _ = decode_signed(evidence.signed)
+    native, fee = _decode_programs_call(transaction.data)
+    return NativeProgramRequest(native, fee, evidence.signed)
+
+
+def discovery(sequence: int, observed_at: int, valid_through: int, state_root: str,
+              program_id: str = PROGRAM_ID) -> dict[str, object]:
     return {
-        "program_id": PROGRAM_ID,
+        "program_id": program_id,
         "lifecycle": "active",
         "version": 1,
         "code_hash": "22" * 32,
@@ -136,15 +148,18 @@ def reply(handler: BaseHTTPRequestHandler, value: object, *, achieved: bool) -> 
 
 class ProgramTrustTests(unittest.TestCase):
     def test_signed_validity_and_maximum_simulation_age_are_enforced(self) -> None:
-        binding = decode_signed_program_call(call())
+        binding = decode_historical_program_call(historical_call())
         self.assertEqual((binding.not_before, binding.not_after), (10, 20))
-        mismatched = bytearray(call().signed_activity)
+        mismatched = bytearray(historical_call().signed_activity)
         mismatched[1] = 1
         with self.assertRaisesRegex(ValueError, "protocol"):
-            decode_signed_program_call(
+            decode_historical_program_call(
                 ProgramCall(PROGRAM_ID, b"\xaa", 1, 0, (), bytes(mismatched))
             )
         assert_fresh_simulation_observation(15, binding, 15, 5)
+        current = decode_signed_program_call(call())
+        self.assertEqual((current.not_before, current.not_after), (0, (1 << 64) - 1))
+        self.assertEqual(current.idempotency_key, current.activity_id)
         for observed_at, now, maximum_age in (
             (9, 15, 10),
             (21, 21, 10),
@@ -199,11 +214,12 @@ class ProgramTrustTests(unittest.TestCase):
             thread.join()
 
     def test_simulation_rechecks_head_freshness_after_http(self) -> None:
+        request = call()
         now = [15]
 
         class Handler(BaseHTTPRequestHandler):
             def do_GET(self) -> None:
-                reply(self, discovery(1, 10, 20, "44" * 32), achieved=False)
+                reply(self, discovery(1, 10, 20, "44" * 32, request.program_id), achieved=False)
 
             def do_POST(self) -> None:
                 now[0] = 21
@@ -219,17 +235,18 @@ class ProgramTrustTests(unittest.TestCase):
             programs = ProgramOperations(
                 ProductionClient(AgentHttpTransport(f"http://127.0.0.1:{server.server_port}")),
                 LayerXSignatureVerifier(),
-                ProgramTrustContext(SEQUENCER_KEY, lambda: now[0], 5),
+                ProgramTrustContext(SEQUENCER_KEY, lambda: now[0], 5, protocol_version=3, network_id=125),
             )
-            programs.discover(PROGRAM_ID)
+            programs.discover(request.program_id)
             with self.assertRaisesRegex(ValueError, "stale program head"):
-                programs.simulate(call(10, 20))
+                programs.simulate(request)
         finally:
             server.shutdown()
             server.server_close()
             thread.join()
 
     def test_concurrent_head_change_invalidates_inflight_simulation(self) -> None:
+        request = call()
         simulation_entered = threading.Event()
         release_simulation = threading.Event()
         discovery_count = [0]
@@ -238,7 +255,8 @@ class ProgramTrustTests(unittest.TestCase):
             def do_GET(self) -> None:
                 discovery_count[0] += 1
                 sequence = discovery_count[0]
-                reply(self, discovery(sequence, 10 + sequence, 30, f"{sequence + 0x43:02x}" * 32), achieved=False)
+                reply(self, discovery(sequence, 10 + sequence, 30, f"{sequence + 0x43:02x}" * 32,
+                                      request.program_id), achieved=False)
 
             def do_POST(self) -> None:
                 simulation_entered.set()
@@ -256,14 +274,14 @@ class ProgramTrustTests(unittest.TestCase):
             programs = ProgramOperations(
                 ProductionClient(AgentHttpTransport(f"http://127.0.0.1:{server.server_port}")),
                 LayerXSignatureVerifier(),
-                ProgramTrustContext(SEQUENCER_KEY, lambda: 15, 5),
+                ProgramTrustContext(SEQUENCER_KEY, lambda: 15, 5, protocol_version=3, network_id=125),
             )
-            programs.discover(PROGRAM_ID)
+            programs.discover(request.program_id)
             with ThreadPoolExecutor(max_workers=1) as pool:
-                simulation = pool.submit(programs.simulate, call(10, 20))
+                simulation = pool.submit(programs.simulate, request)
                 try:
                     self.assertTrue(simulation_entered.wait(5), "simulation did not reach the HTTP boundary")
-                    programs.discover(PROGRAM_ID)
+                    programs.discover(request.program_id)
                 finally:
                     release_simulation.set()
                 failure = simulation.exception(5)

@@ -2,7 +2,7 @@
 
 use layerx_agentd::budget::{reserve, restore, LimitId, ReservationRequest};
 use layerx_agentd::prepare::{
-    disclose, prepare_bound, retention_sweep, verify_call_binding, CallBindingError,
+    disclose, prepare_bound, sweep_retention, verify_call_binding, CallBindingError,
     DurablePreparation, EvmPrepareError, LifecycleError, LifecycleState, PreparationLifecycle,
     EXTENSION_CALL,
 };
@@ -510,13 +510,13 @@ fn f16_shared_sweep_evicts_only_durably_recorded_terminal_history() {
         )
         .unwrap();
     assert_eq!(
-        retention_sweep(&lifecycle, 109, 10)
+        sweep_retention(&lifecycle, 109, 10)
             .unwrap()
             .evicted_terminal_preparations,
         0
     );
     assert_eq!(
-        retention_sweep(&lifecycle, 110, 10)
+        sweep_retention(&lifecycle, 110, 10)
             .unwrap()
             .evicted_terminal_preparations,
         1

@@ -248,6 +248,7 @@ def supervise(home):
 
 
 def main():
+    os.umask(0o077)
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--home', required=True, type=Path)
     args = parser.parse_args()

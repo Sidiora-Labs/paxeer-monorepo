@@ -187,10 +187,21 @@ fn verification_level_retires_settlement_values_and_maps_rungs() {
     }
 
     assert_retired_variants(&report, "type.EvidenceClass", &["paxeer-finality"]);
-    for section in [EvidenceRef, "type.EvidenceMaterial"] {
+    for (section, optional) in [
+        (EvidenceRef, &["settlement_domain:SettlementDomain"][..]),
+        (
+            "type.EvidenceMaterial",
+            &[
+                "settlement_domain:SettlementDomain",
+                "rung:Rung",
+                "inclusion_height:integer",
+            ][..],
+        ),
+    ] {
         assert_eq!(
             string_list(section, "optional"),
-            ["settlement_domain:SettlementDomain"]
+            optional,
+            "{section} optional fields"
         );
         assert_eq!(
             declaration(section, "settlement_domain.retired"),

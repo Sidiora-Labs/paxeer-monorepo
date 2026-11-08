@@ -167,7 +167,7 @@ def test_readme_two_domains_build_and_release_use_integrated_paxd():
     assert './build/paxd start --home "$PAXD_HOME"' in build
     assert "running network entry point is `paxd`" in build
     makefile = source("Makefile")
-    assert re.search(r"^paxd-native-libs: \$\(LIBRARY\) programs-release-build$", makefile, re.M)
+    assert re.search(r"^paxd-native-libs: \$\(LIBRARY\) programs-release-build evmone-lib$", makefile, re.M)
     assert re.search(r"^paxd-build: paxd-native-libs$", makefile, re.M)
     recipe = makefile.split("\npaxd-build: paxd-native-libs\n", 1)[1].split("\n\n", 1)[0]
     assert "$(PAXEER_MAKE) build" in recipe

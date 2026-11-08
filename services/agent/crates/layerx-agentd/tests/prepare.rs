@@ -1,7 +1,7 @@
 #[path = "support/send_authorization.rs"]
 mod send_authorization;
 
-use layerx_agentd::prepare::evm::{
+use layerx_agentd::prepare::{
     prepare_bound, EvmPreparationState, PrecompileCall, PreparationDefaults, PrepareError,
     PrepareRequest,
 };
@@ -96,8 +96,9 @@ pub fn send_payload() -> Vec<u8> {
 
 #[test]
 fn canonical_bytes_and_preimage_come_only_from_layerx_wire() {
-    let prepared = prepare_bound(state(), defaults(), request(), 100_000)
-        .unwrap_or_else(|error| panic!("prepare: {error:?}"));
+    let prepared: layerx_agentd::prepare::EvmPrepared =
+        prepare_bound(state(), defaults(), request(), 100_000)
+            .unwrap_or_else(|error| panic!("prepare: {error:?}"));
     assert_eq!(prepared.call.chain_id, 17);
     assert_eq!(prepared.call.nonce, 5);
     assert_eq!(prepared.call.gas_limit, 100_000);

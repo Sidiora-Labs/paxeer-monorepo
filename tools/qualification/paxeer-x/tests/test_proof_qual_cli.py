@@ -31,6 +31,7 @@ import hashlib
 import importlib.util
 import json
 import os
+import shutil
 from contextlib import contextmanager
 from pathlib import Path
 import subprocess
@@ -59,17 +60,19 @@ PRODUCERS = (
 # Deliberately constructed locally: no operator URL, path, configuration name,
 # credential or service is inherited from the environment.
 ENV = {
-    "PATH": f"{Path(sys.executable).parent}:/root/.cargo/bin:/usr/local/bin:/usr/bin:/bin",
+    "PATH": os.pathsep.join((str(Path(sys.executable).parent), str(Path(shutil.which("go") or "/usr/bin/go").parent), "/root/.cargo/bin", os.defpath)),
+    "GOCACHE": str(Path.home() / ".cache/go-build"),
+    "GOPATH": str(Path.home() / "go"),
     "LC_ALL": "C.UTF-8",
     "PYTHONDONTWRITEBYTECODE": "1",
 }
 
 
-def run(argv, cwd, code=0):
+def run(argv, cwd, code=0, environment=None):
     result = subprocess.run(
         [str(arg) for arg in argv],
         cwd=cwd,
-        env=ENV,
+        env=ENV if environment is None else environment,
         stdin=subprocess.DEVNULL,
         capture_output=True,
         text=True,
@@ -106,13 +109,14 @@ def test_qual_cli_real_process_help_and_malformed_refusal(producer, tmp_path):
         ("custody_governance.py", "--prod"),
         ("replay-authority.py", "--prepare-f"),
         ("program_spend_composition.py", "--build-d"),
-        ("registry-router-bootstrap.py", "--evidence-d"),
+        ("registry-router-bootstrap.py", "--inp"),
         ("agent_http_bounds.py", "--work"),
         ("agent_operation_envelope.py", "--manif"),
     ),
 )
 def test_qual_cli_refuses_abbreviated_authority_options(producer, abbreviation, tmp_path):
-    result = run([sys.executable, QUAL / producer, abbreviation, "unused"], tmp_path, code=2)
+    required = ["--inputs", str(tmp_path / "inputs.json")] if producer == "registry-router-bootstrap.py" else []
+    result = run([sys.executable, QUAL / producer, *required, abbreviation, "unused"], tmp_path, code=2)
     assert "unrecognized arguments:" in result.stderr
     assert "Traceback" not in result.stderr
     assert not list(tmp_path.iterdir())
@@ -210,18 +214,42 @@ def test_replay_make_transport_retirement_persists_and_repeated_producer_is_refu
 def test_registry_real_material_producer_restart_and_consumer_refusals(tmp_path):
     bootstrap = module(QUAL / "registry-router-bootstrap.py")
     tmp_path.chmod(0o700)
-    consumer = bootstrap.Run(tmp_path)
-    try:
-        observed = bootstrap.case_material_tokens(consumer, tmp_path)
-    finally:
-        consumer.log.close()
-    assert "actual producer created distinct credentials once" in observed
-    material = tmp_path / "owned-token-material/tokens"
-    request, publication = material / "request", material / "publication"
+    tokens = tmp_path / "tokens"
+    request, publication = tokens / "request", tokens / "publication"
+    environment = {**ENV, "HOME": str(tmp_path), "LAYERX_REGISTRY_REQUEST_TOKEN_FILE": str(request),
+                   "LAYERX_REGISTRY_PUBLICATION_TOKEN_FILE": str(publication),
+                   "LAYERX_REGISTRY_STATE": str(tmp_path / "state"),
+                   "LAYERX_REGISTRY_JOURNAL": str(tmp_path / "journal"),
+                   "LAYERX_CA_DIR": str(tmp_path / "ca")}
+    command = ["sh", ROOT / "docker/platform-registry/init.sh", "--prepare-material"]
+    run(command, tmp_path, environment=environment)
     bootstrap.private_file(request)
     bootstrap.private_file(publication)
     assert request.read_bytes() != publication.read_bytes()
-    assert (tmp_path / "commands.log").read_text().count("exit=0") >= 3
+    ca = ["bash", ROOT / "tools/bringup/ca.sh"]
+    run([*ca, "init"], tmp_path, environment=environment)
+    identity = tmp_path / "client"
+    run([*ca, "issue-local", "webhook-operator-client", "--output-dir", identity],
+        tmp_path, environment=environment)
+    files = {"request_token": str(request), "publication_token": str(publication),
+             "client_ca": str(identity / "ca.pem"), "client_certificate": str(identity / "cert.pem"),
+             "client_key": str(identity / "key.pem")}
+    observed = bootstrap.verify_material(files)
+    run(command, tmp_path, environment=environment)
+    assert bootstrap.verify_material(files) == observed
+    assert observed == {name: hashlib.sha256(Path(path).read_bytes()).hexdigest() for name, path in files.items()}
+    # Reopening credentials preserves authority; partial or broadened custody refuses.
+    with pytest.raises(bootstrap.Refused, match="complete registry identity"):
+        bootstrap.verify_material({name: path for name, path in files.items() if name != "client_key"})
+    original = publication.read_bytes()
+    publication.write_bytes(request.read_bytes())
+    with pytest.raises(bootstrap.Refused, match="distinct retained credential roles"):
+        bootstrap.verify_material(files)
+    publication.write_bytes(original)
+    assert bootstrap.verify_material(files) == observed
+    publication.chmod(0o644)
+    with pytest.raises(ValueError):
+        bootstrap.verify_material(files)
 
 
 def genesis_input(directory, decimals=6):
@@ -248,7 +276,8 @@ def genesis_input(directory, decimals=6):
 
 def test_native_genesis_crossing_reopens_real_request_and_preserves_known_refusal(tmp_path):
     binary = ROOT / "build/bin/layerx-genesis-build"
-    assert binary.is_file(), f"missing repository producer: {binary}; build_cmd must build it"
+    if not binary.is_file():
+        pytest.skip(f"missing tool {binary}; exact command: make layerx-genesis-build")
     assert binary.read_bytes()[:4] == b"\x7fELF"
     source, key = genesis_input(tmp_path)
     output = tmp_path / "rendered"

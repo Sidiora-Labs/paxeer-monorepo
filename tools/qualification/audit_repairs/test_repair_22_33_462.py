@@ -114,6 +114,7 @@ def test_public_rpc_urls_and_chain_probe_use_the_root():
     assert {url.hostname for url in public_urls} == {
         "api-mainnet-beta.paxeer.network",
         "api1.mainnet-beta.paxeer.network",
+        "api2.mainnet-beta.paxeer.network",
         "api14.mainnet-beta.paxeer.network",
     }
     blocks = re.findall(r"```sh\n(.*?)\n```", quickstart, re.S)
@@ -217,7 +218,7 @@ def test_build_and_development_guidance_matches_make_targets():
     assert dependencies == ["paxd-native-libs"]
     require_facts(recipe, ("tools/release/version.json", "$(PAXEER_MAKE) build"))
     dependencies, _ = make_target("Makefile", "paxd-native-libs")
-    assert dependencies == ["$(LIBRARY)", "programs-release-build"]
+    assert dependencies == ["$(LIBRARY)", "programs-release-build", "evmone-lib"]
     require_facts(source("Makefile"), (
         "LIBRARY := $(BUILD_DIR)/liblayerx.a",
         "PAXEER_MAKE := $(MAKE) -f $(PAXEER_DIR)/chain.mk",

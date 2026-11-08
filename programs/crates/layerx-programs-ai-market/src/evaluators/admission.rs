@@ -37,12 +37,12 @@ use crate::{
         UNKNOWN_OPERATION, WRONG_CONFIG, WRONG_EPOCH, WRONG_MARKET, WRONG_ROSTER,
     },
     evaluators::{
-        authority::{evaluator_region, FrozenEvaluator},
+        authority::{evaluator_region, EvaluatorRegion, FrozenEvaluator},
         codec::{check_binding, decode_signed_report, encode_signed_report, verify_signed_report},
         model::SIGNED_REPORT_MIN_BYTES,
         model::{ReportContext, SignedReport, VerificationError, SIGNED_REPORT_MAX_BYTES},
     },
-    evidence::{sealed_evidence_with, SealRegion},
+    evidence::SealRegion,
     registry::check_f01_capacity,
     registry_ops::{CallContext, PolicySection},
     rewards::{RewardEpoch, RewardState},
@@ -152,6 +152,19 @@ impl<'a> AdmittedReport<'a> {
     }
     #[cfg_attr(target_arch = "wasm32", inline(never))]
     fn read(r: &mut Reader<'a>, epoch: u64) -> CodecResult<Self> {
+        let row = Self::read_validated(r)?;
+        let body = decode_signed_report(row.signed)?.body;
+        if body.binding.evaluator != row.receipt.evaluator
+            || body.binding.frozen.epoch != epoch
+            || codec::report_digest(&body)? != row.receipt.report
+        {
+            return Err(NON_CANONICAL);
+        }
+        Ok(row)
+    }
+    /// Parses only rows whose body and receipt were checked by ReportRegion::decode.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
+    fn read_validated(r: &mut Reader<'a>) -> CodecResult<Self> {
         let receipt = crate::codec::read_record!(r, AdmissionReceipt {  }; evaluator = r.evaluator_id()?;
             report: ReportDigest,
             height: U64,
@@ -162,13 +175,6 @@ impl<'a> AdmittedReport<'a> {
             return Err(NON_CANONICAL);
         }
         let signed = r.take(length)?;
-        let body = decode_signed_report(signed)?.body;
-        if body.binding.evaluator != receipt.evaluator
-            || body.binding.frozen.epoch != epoch
-            || codec::report_digest(&body)? != receipt.report
-        {
-            return Err(NON_CANONICAL);
-        }
         Ok(Self { receipt, signed })
     }
     #[cfg_attr(target_arch = "wasm32", inline(never))]
@@ -187,7 +193,6 @@ impl<'a> AdmittedReport<'a> {
 /// Rows of one admitted-report region, already validated by [`ReportRegion::decode`].
 pub struct Rows<'a> {
     reader: Reader<'a>,
-    epoch: u64,
 }
 impl<'a> Iterator for Rows<'a> {
     type Item = CodecResult<AdmittedReport<'a>>;
@@ -195,7 +200,7 @@ impl<'a> Iterator for Rows<'a> {
         if self.reader.remaining() == 0 {
             return None;
         }
-        Some(AdmittedReport::read(&mut self.reader, self.epoch))
+        Some(AdmittedReport::read_validated(&mut self.reader))
     }
 }
 
@@ -265,7 +270,6 @@ impl<'a> ReportRegion<'a> {
     pub const fn rows(&self, epoch: u64) -> Rows<'a> {
         Rows {
             reader: Reader::new(self.of(epoch).1),
-            epoch,
         }
     }
     /// The admitted row of `evaluator` in `epoch`.
@@ -306,7 +310,11 @@ impl<'a> ReportRegion<'a> {
         let mut reader = Reader::new(current);
         while reader.remaining() > 0 {
             let offset = reader.offset();
-            if AdmittedReport::read(&mut reader, epoch)?.receipt.evaluator > row.receipt.evaluator {
+            if AdmittedReport::read_validated(&mut reader)?
+                .receipt
+                .evaluator
+                > row.receipt.evaluator
+            {
                 at = offset;
                 break;
             }
@@ -367,11 +375,21 @@ struct Opened<'a> {
 #[cfg_attr(target_arch = "wasm32", inline(never))]
 fn view<'a>(state: &SharedState<'a>, known: Option<RewardState<'a>>) -> CodecResult<Opened<'a>> {
     let section = committed(state)?;
-    let admission = AdmissionTable::decode(
+    let admission = AdmissionTable::decode(crate::reputation_transition::joint_table(
         *state
             .feature_sections
             .guest_index(Section::ReputationAdmission.index()),
-    )?;
+    )?)?;
+    view_in_state(state, section, known, &admission, None)
+}
+
+fn view_in_state<'a>(
+    state: &SharedState<'a>,
+    section: PolicySection<'a>,
+    known: Option<RewardState<'a>>,
+    admission: &AdmissionTable,
+    known_reports: Option<ReportRegion<'a>>,
+) -> CodecResult<Opened<'a>> {
     let epoch = admission.current_epoch().ok_or(WRONG_EPOCH)?;
     let rewards = settlement_rewards(state, known)?;
     let row = match rewards.row(epoch) {
@@ -387,11 +405,14 @@ fn view<'a>(state: &SharedState<'a>, known: Option<RewardState<'a>>) -> CodecRes
         config: Version::new(header.active_config_version)?,
         roster: row.roster,
     };
-    let reports = ReportRegion::decode(
-        *state
-            .feature_sections
-            .guest_index(Section::CurrentReports.index()),
-    )?;
+    let reports = match known_reports {
+        Some(reports) => reports,
+        None => ReportRegion::decode(
+            *state
+                .feature_sections
+                .guest_index(Section::CurrentReports.index()),
+        )?,
+    };
     if reports.epoch > epoch && reports.count > 0 {
         return Err(NON_CANONICAL);
     }
@@ -407,11 +428,13 @@ fn view<'a>(state: &SharedState<'a>, known: Option<RewardState<'a>>) -> CodecRes
 /// The complete immutable worker set shared by report admission and settlement.
 #[cfg_attr(target_arch = "wasm32", inline(never))]
 fn frozen_workers(
-    state: &SharedState<'_>,
+    admission: &AdmissionTable,
+    policy: &PolicySection<'_>,
+    region: &EvaluatorRegion,
     rewards: &RewardState<'_>,
     row: &RewardEpoch,
 ) -> CodecResult<([WorkerRosterEntry; MAX_WORKERS], usize)> {
-    let captured = crate::epoch::captured_roster(state)?.ok_or(WRONG_ROSTER)?;
+    let captured = crate::epoch::captured_roster_with(admission, policy, region, *rewards)?;
     if captured.binding.epoch != row.epoch
         || captured.binding.roster != row.roster
         || rewards.row(row.epoch)?.roster != row.roster
@@ -460,12 +483,7 @@ pub enum Admission {
 }
 
 /// F08 membership of the frozen evaluator remains admitted under its owner.
-fn check_membership(state: &SharedState<'_>, frozen: &FrozenEvaluator) -> CodecResult<()> {
-    let admission = AdmissionTable::decode(
-        *state
-            .feature_sections
-            .guest_index(Section::ReputationAdmission.index()),
-    )?;
+fn check_membership(admission: &AdmissionTable, frozen: &FrozenEvaluator) -> CodecResult<()> {
     match admission.get(Participant::Evaluator(frozen.entry.evaluator)) {
         Some(meta) if meta.revoked() => Err(REVOKED),
         Some(meta) if meta.admitted() && meta.owner == frozen.entry.owner => Ok(()),
@@ -509,6 +527,7 @@ fn verify(
     opened: &Opened<'_>,
     frozen: &FrozenEvaluator,
     report: &SignedReport<'_>,
+    admission: &AdmissionTable,
 ) -> Result<ReportDigest, VerificationError> {
     let evaluator = frozen.entry.evaluator;
     let region = evaluator_region(
@@ -516,7 +535,13 @@ fn verify(
             .feature_sections
             .guest_index(Section::IdentityRoster.index()),
     )?;
-    let (workers, count) = frozen_workers(state, &opened.rewards, &opened.row)?;
+    let (workers, count) = frozen_workers(
+        admission,
+        &opened.section,
+        &region,
+        &opened.rewards,
+        &opened.row,
+    )?;
     let context = ReportContext {
         binding: EvaluatorBinding {
             frozen: opened.frozen,
@@ -529,14 +554,23 @@ fn verify(
         approved_rubric: opened.section.current.commitments.rubric,
         market_owner: opened.section.header.owner_principal,
         workers: workers.get(..count).ok_or(CAPACITY)?,
-        evidence: sealed_evidence_with(
-            state,
-            opened.frozen.epoch,
-            evaluator,
-            Some(opened.rewards),
-        )?,
+        evidence: crate::evidence::sealed_evidence_for_binding(state, opened.frozen, evaluator)?,
     };
-    verify_signed_report(report, &context)
+    let digest = verify_signed_report(report, &context)?;
+    // Worker ownership is also a live role constraint; the captured roster
+    // remains the immutable source of report keys and metadata.
+    let (workers, _) = crate::evaluators::authority::split_identity_section(
+        *state
+            .feature_sections
+            .guest_index(Section::IdentityRoster.index()),
+    )?;
+    if crate::workers::WorkerTable::decode(workers)?
+        .iter()
+        .any(|worker| worker.owner == frozen.entry.owner)
+    {
+        return Err(crate::errors::ROLE_CONFLICT.into());
+    }
+    Ok(digest)
 }
 
 /// Commits `row` at the next revision under the reveal request.
@@ -615,10 +649,65 @@ pub(crate) fn admit_report_with<'a>(
     let mut signed = [0; SIGNED_REPORT_MAX_BYTES];
     let signed_len = encode_signed_report(&reveal.report, &mut signed)?;
     let signed = signed.get(..signed_len).ok_or(CAPACITY)?;
-    let body = &reveal.report.body;
     let state = decode_shared_state(current)?;
-    let opened = view(&state, known)?;
-    let frozen = frozen_evaluator(&state, &opened, &body.binding)?;
+    admit_encoded_report(
+        &state, reveal, signed, next, scratch, event, known, None, None,
+    )
+}
+
+pub(crate) fn admit_report_in_state<'a>(
+    state: &SharedState<'a>,
+    admission: &AdmissionTable,
+    reports: ReportRegion<'a>,
+    reveal: &RevealAdmission<'_>,
+    next: &mut [u8],
+    scratch: &mut [u8],
+    event: &mut [u8],
+    known: Option<RewardState<'a>>,
+) -> Result<Admission, VerificationError> {
+    let mut signed = [0; SIGNED_REPORT_MAX_BYTES];
+    let signed_len = encode_signed_report(&reveal.report, &mut signed)?;
+    let signed = signed.get(..signed_len).ok_or(CAPACITY)?;
+    admit_encoded_report(
+        state,
+        reveal,
+        signed,
+        next,
+        scratch,
+        event,
+        known,
+        Some(admission),
+        Some(reports),
+    )
+}
+
+fn admit_encoded_report<'a>(
+    state: &SharedState<'a>,
+    reveal: &RevealAdmission<'_>,
+    signed: &[u8],
+    next: &mut [u8],
+    scratch: &mut [u8],
+    event: &mut [u8],
+    known: Option<RewardState<'a>>,
+    known_admission: Option<&AdmissionTable>,
+    known_reports: Option<ReportRegion<'a>>,
+) -> Result<Admission, VerificationError> {
+    let body = &reveal.report.body;
+    let section = committed(state)?;
+    let decoded;
+    let admission = match known_admission {
+        Some(admission) => admission,
+        None => {
+            decoded = AdmissionTable::decode(crate::reputation_transition::joint_table(
+                *state
+                    .feature_sections
+                    .guest_index(Section::ReputationAdmission.index()),
+            )?)?;
+            &decoded
+        }
+    };
+    let opened = view_in_state(state, section, known, admission, known_reports)?;
+    let frozen = frozen_evaluator(state, &opened, &body.binding)?;
     if reveal.request.principal != frozen.entry.owner {
         return Err(UNAUTHORIZED.into());
     }
@@ -635,8 +724,8 @@ pub(crate) fn admit_report_with<'a>(
             Err(F03_REPORT_ALREADY_FINAL.into())
         };
     }
-    check_membership(&state, &frozen)?;
-    let report = verify(&state, &opened, &frozen, &reveal.report)?;
+    check_membership(admission, &frozen)?;
+    let report = verify(&state, &opened, &frozen, &reveal.report, admission)?;
     let row = AdmittedReport {
         receipt: AdmissionReceipt {
             evaluator: frozen.entry.evaluator,

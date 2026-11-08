@@ -15,10 +15,7 @@ use std::sync::Arc;
 use std::task::{Context, Poll, Wake, Waker};
 use std::thread::{self, JoinHandle};
 
-use layerx_agentd::prepare::{
-    prepare_activity, CorePreparationBoundary, CorePreparationState, CoreStateError,
-    DisclosureDigest, EvmPrepared, PreparationDefaults, PrepareRequest, Prepared,
-};
+use layerx_agentd::prepare::EvmPrepared;
 use layerx_agentd::sign::{attach_external_signature, verify_before_submit, SigningPreparation};
 use layerx_crypto::disclosure::{call::bind_call, Disclosure};
 use layerx_crypto::evm_transaction::decode_signed;
@@ -36,9 +33,8 @@ use layerx_human_service::store::{PrincipalId, PrincipalStore, TenancyDigest};
 use layerx_human_service::trace::TraceId;
 use layerx_intents::{compile, Intent, IntentKind, LxpSend};
 use layerx_types::account::AccountId;
-use layerx_types::activity::{Authority, TimestampBound};
 use layerx_types::amount::Amount;
-use layerx_types::ids::{AssetId, Did, IdempotencyKey};
+use layerx_types::ids::{AssetId, IdempotencyKey};
 use layerx_types::intent::{
     AuthorizationSignature, ContextHash, NetworkId, ProtocolVersion, PublicKey, SendAuthorization,
     SendAuthorizationKind, Sequence, TimestampSeconds,
@@ -238,68 +234,10 @@ fn send_intent(
     Intent::v1(IntentKind::LxpSend(send))
 }
 
-struct PreparedCore {
-    state: CorePreparationState,
-}
-
-impl CorePreparationBoundary for PreparedCore {
-    fn preparation_state(&mut self, _actor: &Did) -> Result<CorePreparationState, CoreStateError> {
-        Ok(self.state.clone())
-    }
-}
-
-fn kernel_prepared(
-    public_key: [u8; 32],
-    seed: [u8; 32],
-    amount: u128,
-    idempotency: u8,
-) -> Prepared {
-    let registry = registry();
-    let compiled = compile(
-        &send_intent(public_key, seed, amount, idempotency),
-        &registry,
-    )
-    .unwrap_or_else(|error| panic!("compile: {error:?}"));
-    let mut core = PreparedCore {
-        state: CorePreparationState {
-            network_id: NETWORK_ID,
-            account_sequence: 7,
-            protocol_timestamp: 1_000,
-            observed_head_sequence: 88,
-            module_registry: registry,
-        },
-    };
-    prepare_activity(
-        &mut core,
-        PreparationDefaults {
-            timestamp_span: 30,
-            fee_limit: Amount::from_u128(12),
-            maximum_payload_bytes: 1_024,
-        },
-        PrepareRequest {
-            actor: Did::new(b"did:layerx:human-custody")
-                .unwrap_or_else(|error| panic!("DID: {error:?}")),
-            authority: Authority::owner(&public_key)
-                .unwrap_or_else(|error| panic!("authority: {error:?}")),
-            activity_type: compiled.activity_type(),
-            expected_account_sequence: Some(7),
-            timestamp_bound: Some(
-                TimestampBound::new(995, 1_010)
-                    .unwrap_or_else(|error| panic!("timestamp: {error:?}")),
-            ),
-            fee_limit: Some(Amount::from_u128(7)),
-            idempotency_key: IdempotencyKey::new([idempotency; 32]),
-            payload: compiled.payload().as_bytes().to_vec(),
-            declared_payload_limit: 1_024,
-        },
-    )
-    .unwrap_or_else(|error| panic!("prepare: {error:?}"))
-}
-
 struct EvmSigningSubject {
     canonical_bytes: Vec<u8>,
     disclosure: Disclosure,
-    disclosure_digest: DisclosureDigest,
+    disclosure_digest: [u8; 32],
 }
 
 fn prepared(
@@ -336,11 +274,9 @@ fn prepared(
     assert_eq!(disclosure, disclosed.disclosure);
     EvmSigningSubject {
         canonical_bytes: unsigned_evm_transaction(&disclosed.call),
-        disclosure_digest: DisclosureDigest(
-            disclosure
-                .audit_digest()
-                .unwrap_or_else(|error| panic!("EVM disclosure digest: {error:?}")),
-        ),
+        disclosure_digest: disclosure
+            .audit_digest()
+            .unwrap_or_else(|error| panic!("EVM disclosure digest: {error:?}")),
         disclosure,
     }
 }
@@ -487,7 +423,8 @@ fn real_kms_envelope_signs_only_the_exact_disclosed_bytes_and_audits_the_grant()
     );
 
     let prepared = prepared(public_key, seed, 25, 4);
-    let authorization = kernel_prepared(public_key, seed, 25, 4);
+    let authorization = compile(&send_intent(public_key, seed, 25, 4), &registry())
+        .unwrap_or_else(|error| panic!("compile signing payload: {error:?}"));
     let signer = CustodySigner::new(
         keystore,
         fixture.store(),
@@ -505,12 +442,12 @@ fn real_kms_envelope_signs_only_the_exact_disclosed_bytes_and_audits_the_grant()
     )))
     .unwrap_or_else(|error| panic!("custody sign: {error}"));
     assert_eq!(grant.signer_public_key(), public_key);
-    assert_eq!(grant.disclosure_digest(), prepared.disclosure_digest.0);
+    assert_eq!(grant.disclosure_digest(), prepared.disclosure_digest);
     let from = signer
         .evm_wallet(&fixture.alice, &key)
         .unwrap_or_else(|error| panic!("EVM wallet: {error}"));
     let call = ledger_payment_call(
-        authorization.envelope.payload().as_bytes(),
+        authorization.payload().as_bytes(),
         &CallOptions {
             from,
             chain_id: u64::from(NETWORK_ID),
@@ -551,7 +488,7 @@ fn real_kms_envelope_signs_only_the_exact_disclosed_bytes_and_audits_the_grant()
         .unwrap_or_else(|error| panic!("plan time: {error}"))
         .unix_seconds();
     let authorization = EvmPlanAuthorization {
-        plan_id: prepared.disclosure_digest.0,
+        plan_id: prepared.disclosure_digest,
         action_key: preparation.transaction.signing_hash,
         tenant: "tenant-a".into(),
         principal: fixture.alice.as_str().into(),
@@ -620,7 +557,7 @@ fn real_kms_envelope_signs_only_the_exact_disclosed_bytes_and_audits_the_grant()
         audits,
         vec![AuditEvent::SigningDecision {
             operation: SigningOperation::ProtocolMutation,
-            disclosure_digest: prepared.disclosure_digest.0,
+            disclosure_digest: prepared.disclosure_digest,
             step_up: AuditStepUpEvidence::NotRequired,
             outcome: Decision::Granted,
         }]
@@ -660,7 +597,7 @@ fn step_up_and_disclosure_mismatches_are_typed_and_every_decision_is_audited() {
     let wrong_operation = StepUpEvidence::new(
         "ceremony-operation",
         Operation::Withdrawal,
-        original.disclosure_digest.0,
+        original.disclosure_digest,
         90,
         110,
     )
@@ -701,7 +638,7 @@ fn step_up_and_disclosure_mismatches_are_typed_and_every_decision_is_audited() {
     let future = StepUpEvidence::new(
         "ceremony-future",
         Operation::Withdrawal,
-        original.disclosure_digest.0,
+        original.disclosure_digest,
         101,
         110,
     )
@@ -720,7 +657,7 @@ fn step_up_and_disclosure_mismatches_are_typed_and_every_decision_is_audited() {
     let expired = StepUpEvidence::new(
         "ceremony-expired",
         Operation::WalletRebinding,
-        original.disclosure_digest.0,
+        original.disclosure_digest,
         90,
         100,
     )
@@ -739,7 +676,7 @@ fn step_up_and_disclosure_mismatches_are_typed_and_every_decision_is_audited() {
     let fresh = StepUpEvidence::new(
         "ceremony-fresh",
         Operation::WalletRebinding,
-        original.disclosure_digest.0,
+        original.disclosure_digest,
         90,
         110,
     )

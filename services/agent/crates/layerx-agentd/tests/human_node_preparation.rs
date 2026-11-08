@@ -4,10 +4,8 @@ use std::thread::{self, JoinHandle};
 use std::time::{Duration, Instant};
 
 use layerx_agentd::human_node::HumanNode;
+use layerx_agentd::human_node::{HumanNodePreparationReader, HumanStateError};
 use layerx_agentd::node_rpc::{NodeRpc, NodeRpcConfig};
-use layerx_agentd::prepare::legacy::{
-    CorePreparationBoundary, CoreStateError, ProductionCorePreparationBoundary,
-};
 use layerx_client::sequencer::{ADDR_PRECOMPILE, GET_EVM_ADDR_BY_LAYERX};
 use layerx_types::ids::Did;
 use layerx_types::payload::{ActivityType, ModuleId, ModuleRegistration, ModuleRegistry};
@@ -108,25 +106,25 @@ fn preparation_state_reads_chain_id_pending_nonce_and_block_time() {
         chain_id: 229,
         deadline: Duration::from_secs(2),
     })));
-    let mut boundary = ProductionCorePreparationBoundary::new(node.as_ref(), registry.clone());
+    let mut boundary = HumanNodePreparationReader::new(node.as_ref(), registry.clone());
     assert!(boundary.last_state().is_none());
     let state = must(boundary.preparation_state(&actor));
     assert_eq!(state.network_id, 229);
     assert_eq!(state.account_sequence, 7);
-    assert_eq!(state.protocol_timestamp, 1_700_000_000);
+    assert_eq!(state.protocol_timestamp, 1_700_000_000_000);
     assert_eq!(state.observed_head_sequence, 150);
     assert_eq!(state.module_registry, registry);
     assert_eq!(boundary.last_state(), Some(&state));
     let next = must(boundary.preparation_state(&actor));
     assert_eq!(next.network_id, 229);
     assert_eq!(next.account_sequence, 0);
-    assert_eq!(next.protocol_timestamp, 1_700_000_012);
+    assert_eq!(next.protocol_timestamp, 1_700_000_012_000);
     assert_eq!(next.observed_head_sequence, 151);
     assert_eq!(next.module_registry, registry);
     assert_eq!(boundary.last_state(), Some(&next));
     assert_eq!(
         boundary.preparation_state(&must(Did::new(b"did:layerx:invalid"))),
-        Err(CoreStateError::Unverified)
+        Err(HumanStateError::Unverified)
     );
     assert!(boundary.last_state().is_none());
 
@@ -157,10 +155,10 @@ fn preparation_state_reads_chain_id_pending_nonce_and_block_time() {
         chain_id: u64::from(u32::MAX) + 1,
         deadline: Duration::from_secs(2),
     }));
-    let mut boundary = ProductionCorePreparationBoundary::new(&node, registry);
+    let mut boundary = HumanNodePreparationReader::new(&node, registry);
     assert_eq!(
         boundary.preparation_state(&actor),
-        Err(CoreStateError::Refused {
+        Err(HumanStateError::Refused {
             class: 1,
             result: KnownResult::Overflow.into(),
         })

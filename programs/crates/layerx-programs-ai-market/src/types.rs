@@ -72,8 +72,7 @@ impl<T> GuestIndex<T> for [T] {
         self.split_at_mut(mid)
     }
 
-    #[cfg_attr(target_arch = "wasm32", inline(never))]
-    #[cfg_attr(not(target_arch = "wasm32"), inline(always))]
+    #[inline(always)]
     fn guest_copy_from_slice(&mut self, source: &[T])
     where
         T: Copy,
@@ -83,11 +82,7 @@ impl<T> GuestIndex<T> for [T] {
             if self.len() != source.len() {
                 core::arch::wasm32::unreachable();
             }
-            for (dest, source) in self.iter_mut().zip(source) {
-                *dest = *source;
-            }
         }
-        #[cfg(not(target_arch = "wasm32"))]
         self.copy_from_slice(source);
     }
 

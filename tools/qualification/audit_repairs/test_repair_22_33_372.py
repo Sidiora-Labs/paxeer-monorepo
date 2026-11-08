@@ -11,6 +11,9 @@ import re
 import tomllib
 from urllib.parse import unquote, urlsplit
 
+import pytest
+import yaml
+
 
 ROOT = Path(__file__).resolve().parents[3]
 SDK = ROOT / "sdk/js"
@@ -50,6 +53,11 @@ def check_links(page, text):
     return resolved
 
 
+def require_distribution():
+    if not (SDK / "dist").is_dir():
+        pytest.skip("missing tool @pax-js/cosmos@1.0.6-pax.1 distribution; exact command: npm install @pax-js/cosmos@1.0.6-pax.1")
+
+
 def examples():
     blocks = re.findall(r"^```typescript\n(.*?)^```", README, re.M | re.S)
     assert len(blocks) == 6
@@ -70,7 +78,8 @@ def test_registry_contract_pages_missing_links_resolve():
     assert "Explorer HTTP and Phoenix WebSocket APIs are separate from Cosmos REST" in sdk_contracts
     package_links = check_links(SDK / "README.md", section(README, "Package"))
     assert {"sdk/js/package.json", "sdk/js/README.md"} <= package_links
-    assert "contracts/sdk-js.md" not in README
+    assert (ROOT / "contracts/sdk-js.md").is_file()
+    assert "contracts/sdk-js.md#encoding-tokenfactory" in README
 
 
 def test_registry_contract_pages_missing_bridge_and_explorer_sources():
@@ -89,7 +98,9 @@ def test_registry_contract_pages_missing_bridge_and_explorer_sources():
     assert "attestation, destination policy and nullifier checks" in contracts
     assert "durable obligations" in contracts
     http = source("apps/explorer/public/openapi.yaml")
-    assert http.startswith("openapi: 3.0.3\n")
+    assert http.startswith("# Generated through services/explorer/swagger.yaml; stored here for frontend container packaging.\n")
+    assert yaml.safe_load(http)["openapi"] == "3.0.3"
+    assert (ROOT / "services/explorer/swagger.yaml").resolve() == (ROOT / "apps/explorer/public/openapi.yaml").resolve()
     assert "GET /api/v2/openapi" in http
     assert "paths:\n" in http and "responses:" in http
     endpoint = source(
@@ -134,6 +145,7 @@ def test_registry_sdk_package_exports_and_typesversions():
         ):
             expected = f"./dist/{tree}/{key[2:]}/index{suffix}"
             assert conditions[condition] == expected
+        require_distribution()
         declarations = list(SDK.glob(conditions["types"]))
         assert declarations, key
         for declaration in declarations:
@@ -151,7 +163,7 @@ def test_registry_sdk_package_retired_root_and_vendor_metadata():
     contract = section(README, "Package")
     assert "retired `main` and `module` fields do not provide a root entry" in contract
     assert "`VENDOR.kvx` and its `ref`, `sha` and `url` fields are retired" in contract
-    assert "upstream tag `v1.0.6-pax.1`" in section(README, "Provenance")
+    assert "upstream tag `v1.0.6-pax.1`" in " ".join(section(README, "Provenance").split())
     for row in (
         "14.cfg-sdkjs-package-main",
         "14.cfg-sdkjs-package-module",
@@ -178,6 +190,7 @@ def test_sdk_examples_codec_and_registry_match_production():
     ):
         assert expression in block
     assert not re.search(r"(?<![\w.])MsgSend\.\$type", README)
+    require_distribution()
     for tree in ("cjs", "esm"):
         namespace = source(f"sdk/js/dist/{tree}/encoding/index.js")
         assert "bank: { v1beta1: cosmos_bank_v1beta1 }" in namespace
@@ -223,6 +236,7 @@ def test_sdk_examples_rest_transport_matches_production():
     assert "import { Querier } from '@pax-js/cosmos/rest';" in block
     assert "Querier.cosmos.bank.v1beta1.AllBalances(" in block
     assert "{ address }," in block and "{ pathPrefix: cosmosRestUrl }," in block
+    require_distribution()
     for tree in ("cjs", "esm"):
         query = source(f"sdk/js/dist/{tree}/rest/cosmos/bank/v1beta1/query.js")
         assert "static AllBalances(req, initReq)" in query

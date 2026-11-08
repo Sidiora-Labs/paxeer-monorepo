@@ -51,7 +51,9 @@ def test_readme_split_execution_one_embedded_paxd_network():
         "C17 kernel", "runs inside `paxd`", "modules/lxphost",
         "A receipt is final once its block is committed",
         "no separate kernel daemon, sequencer service or checkpoint deployment",
-        "Full and archive nodes serve committed history",
+        "archive node `api2.mainnet-beta.paxeer.network` keeps full history",
+        "other thirteen numbered public nodes prune",
+        "retention return JSON-RPC error `-32000`",
     ):
         assert fact in overview, fact
     topology = re.findall(r"```mermaid\n(.*?)\n```", overview, re.S)
@@ -185,7 +187,7 @@ def test_readme_split_execution_examples_use_paxd_and_library_tools():
     assert "build/liblayerx.a" in build
     assert "programs/target/release/liblayerx_programs_sandbox.a" in build
     assert "\npaxd-build: paxd-native-libs\n" in source("Makefile")
-    assert "\npaxd-native-libs: $(LIBRARY) programs-release-build\n" in source("Makefile")
+    assert "\npaxd-native-libs: $(LIBRARY) programs-release-build evmone-lib\n" in source("Makefile")
     assert "-o ./build/paxd ./daemon/paxd" in source("chain.mk")
     for stale in (
         r"\blayerxd\b", r"two (?:execution )?domains",

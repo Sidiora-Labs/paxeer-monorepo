@@ -379,11 +379,11 @@ fn set_binding<'a>(
     section: &PolicySection<'_>,
     known: Option<RewardState<'a>>,
 ) -> CodecResult<(SetBinding, RewardState<'a>)> {
-    let admission = AdmissionTable::decode(
+    let admission = AdmissionTable::decode(crate::reputation_transition::joint_table(
         *state
             .feature_sections
             .guest_index(Section::ReputationAdmission.index()),
-    )?;
+    )?)?;
     let epoch = admission.current_epoch().ok_or(WRONG_EPOCH)?;
     let rewards = settlement_rewards(state, known)?;
     let row = match rewards.row(epoch) {
@@ -783,7 +783,7 @@ fn check_frozen_worker(
     let live = WorkerTable::decode(split_identity_section(identity)?.0)?;
     let record = live.get(body.worker).ok_or(NON_CANONICAL)?;
     crate::workers::check_opened_admission(&record, target, binding.epoch, height)?;
-    let (_, table) = crate::reputation_transition::split_joint(
+    let table = crate::reputation_transition::joint_table(
         *state
             .feature_sections
             .guest_index(Section::ReputationAdmission.index()),
@@ -838,7 +838,7 @@ fn admit(call: &Call<'_>, buffers: Buffers<'_>) -> CodecResult<Outcome> {
     let windows = call.check_work()?;
     let height = call.ctx.height;
     check_frozen_worker(&opened.state, &opened.rewards, binding, &body, height)?;
-    let (_, table) = crate::reputation_transition::split_joint(
+    let table = crate::reputation_transition::joint_table(
         *opened
             .state
             .feature_sections

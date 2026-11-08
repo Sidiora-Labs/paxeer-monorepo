@@ -63,8 +63,8 @@ def test_f008_internal_prometheus_transport_and_provisioning_are_preserved():
     config = monitoring_config()
     grafana = config["services"]["grafana"]
     prometheus = config["services"]["prometheus"]
-    assert grafana["image"] == "grafana/grafana:latest"
-    assert prometheus["image"] == "prom/prometheus:latest"
+    assert grafana["image"] == "grafana/grafana:11.3.0"
+    assert prometheus["image"] == "prom/prometheus:v2.55.1"
     assert grafana["depends_on"] == ["prometheus"]
     assert grafana["volumes"] == [
         "./docker_compose_monitoring/grafana-datasource.yaml:"
