@@ -35554,3 +35554,19 @@ symbol = "native_send_preview_evm.rs"
 observed = "Attempt 9 at ed9425eba451 (base 67b4aa3287): three builds, exit 101 each, E0061 and E0308 at the thirteen caller sites; the verification never ran."
 assumption = "The signature changes are the intended task work; only the callers were left behind, and one of the two files was outside the paths."
 severity = "high"
+
+[finding.22.39.84.3]
+task = "22.39.84"
+file = "tests/ci/test_tools_python_suites_wired.py"
+symbol = "test_tools_python_suites_wired.py"
+observed = "Attempt 3 at 581f4166326e (verified at 068cca699aa8): build exit 0; verification exit 1: the four wiring tests passed, make test-tools-python reported 79 failed, 736 passed, 7 errors; 66 entries recorded, 15 names outside every family."
+assumption = "The fifteen names are inherited failures of suites the target runs; only the family table was too narrow."
+severity = "high"
+
+[finding.22.39.132.1]
+task = "22.39.132"
+file = "tests/qualification/test_mcp_binding_receipt_keys.py"
+symbol = "test_mcp_binding_receipt_keys.py"
+observed = "Attempt 1 at 26ad9e4f4845 (verified at f0867e7ba859): build exit 0; verification exit 1: the 29 focused tests passed and make test-python-suites failed test_signer_deadline_spans_provider_operations (1 failed, 255 passed, 318 seconds)."
+assumption = "The failing case is a timing-dependent test of a module outside the task paths, inherited from 22.33.1454 and owned by 22.39.133."
+severity = "high"
