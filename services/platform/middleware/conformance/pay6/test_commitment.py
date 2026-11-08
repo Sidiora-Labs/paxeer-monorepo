@@ -9,18 +9,29 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[4] / "agent/sdk/python")
 from layerx_sdk.x402 import payment_commitment, verify_payment_receipt
 from layerx_sdk.verifier import ReceiptKey, verify_sequencer_receipt
 from layerx_sdk.production import PlatformSdkError
-from layerx_sdk.account_derivation import keccak256
 
 _ROOT = Path(__file__).resolve().parents[5]
 _VECTORS = json.loads((_ROOT / "sdk/platform/conformance/fixtures/sequencer-receipt-v1.json").read_text())
 _NODE = next(row for row in _VECTORS["cases"] if row["id"] == "V1-layerxledger-pay-exact")
 _LOG = _NODE["receiptJson"]["logs"][0]
 _PIN = _NODE["pinnedKey"]
+_VERIFIED = verify_sequencer_receipt(
+    bytes.fromhex(_NODE["signedReceipt"][2:]),
+    bytes.fromhex(_NODE["rawTransaction"][2:]),
+    (
+        ReceiptKey(
+            key_id=bytes.fromhex(_PIN["keyId"][2:]),
+            public_key=bytes.fromhex(_PIN["publicKey"][2:]),
+            first_height=_PIN["firstHeight"],
+            last_height=_PIN["lastHeight"],
+        ),
+    ),
+)
 FIXTURE = {
     "receipt": {
         "format": "layerx-receipt-proof-v2", "verificationLevel": "receipted",
         "rawTransaction": _NODE["rawTransaction"], "signedReceipt": _NODE["signedReceipt"],
-        "receiptDigest": "0x" + keccak256(bytes.fromhex(_NODE["signedReceipt"][2:])).hex(),
+        "receiptDigest": "0x" + _VERIFIED.receipt_digest.hex(),
         "receiptKey": {**_PIN, "firstHeight": hex(_PIN["firstHeight"]), "lastHeight": hex(_PIN["lastHeight"])},
     },
     "txHash": _NODE["receiptJson"]["txHash"],
