@@ -36274,3 +36274,35 @@ symbol = "vectors_test.go"
 observed = "Attempt 1 at a09f8e4d1a94f847e305dd3b9ba3eb3569e3d67c: build exit 0; verification exit 1: TestConformanceCommandPassesVectorFiles refused V2-pax-transfer-insufficient-funds with the message expected successful execution; log /out/logs/verify-1.log."
 assumption = "The count correction is right; the matcher lacks the refusal shape the SDK verifier already establishes."
 severity = "high"
+
+[finding.22.38.7.2]
+task = "22.38.7"
+file = "programs/crates/layerx-programs-ai-market/tests/f11_bonds.rs"
+symbol = "f11_bonds.rs"
+observed = "Attempt 2 at c40704964dbd: build exit 2 at the host boundary target, which does not compile programs/crates/layerx-programs-arbiter (layerx_wire::activity and layerx_wire::hash::activity_id not found); the size test and the verification never ran; log /out/logs/build-1.log."
+assumption = "The programs workspace is red on main independently of the bond work; the arbiter move is owned by 22.39.177."
+severity = "high"
+
+[finding.9.26.3.1]
+task = "9.26.3"
+file = "services/agent/crates/layerx-types/tests/vectors.rs::checkpoint_vectors_load_without_the_settlement_document"
+symbol = "vectors.rs::checkpoint_vectors_load_without_the_settlement_document"
+observed = "Attempt 1 at 7d7ba04f1018: build exit 0; the dependents check exit 101 with E0432 at services/agent/crates/layerx-proof/tests/support/historical_checkpoint.rs line 8 (unresolved import layerx_types::settlement); the verification never ran; log /out/logs/dependents-1.log."
+assumption = "The two proof tests are the only consumers left; the deletion itself is complete."
+severity = "high"
+
+[finding.22.39.117.1]
+task = "22.39.117"
+file = "sdk/launchpad/shared/chain::TestPhase2ReadAdapterRealRegisteredPool"
+symbol = "chain::TestPhase2ReadAdapterRealRegisteredPool"
+observed = "Attempt 1 at 655ec01cf294: build exit 0; verification exit 1: the chain, db and storage packages passed and five cases of the delivery and natsdriver packages refused the database variables they received (host, port or database outside the pinned fixture values); log /out/logs/verify-1.log."
+assumption = "The guards match the public job and the environment did not; the tree needs no change."
+severity = "high"
+
+[finding.22.33.223.11]
+task = "22.33.223"
+file = "programs/crates/layerx-programs-ai-market/tests/repair_22_33_223.rs"
+symbol = "repair_22_33_223.rs"
+observed = "Attempt 12 at 013e3cee50c3: build exit 0; verification exit 1: every ADMIT_TASK and SealEvidence row within the cap, OPEN_EPOCH refused at 1000006 attempted fuel from a constant 63175-byte state input at every task count, eight RevealScore rows and six aggregation rows over the cap; record sections of the final sweep in the task record; log /out/logs/verify-1.log."
+assumption = "The three handlers read roster-bounded or whole-state inputs that the task count does not move; the admission bounding is complete."
+severity = "high"
