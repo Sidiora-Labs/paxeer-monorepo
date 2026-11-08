@@ -11062,6 +11062,12 @@ value = "Every path of the base snapshot 2e0a668a793a7b5c0469b44950808547467f017
 basis = "Gotcha 3690, decision 2663, the docs consolidation ruling"
 affects = ["22.39.173", "22.39.26"]
 
+[decision.2992]
+title = "The vendored tree restoration covers the seventeen image assets beside the six scripts, each staged explicitly and recorded with its size"
+value = "The restoring task of decision 2991 restores every file of the base snapshot 2e0a668a793a7b5c0469b44950808547467f017e that is absent under tools outside docs and the removed set of test_repair_22_36_1.py: the six scripts of the .codify directory and the seventeen image assets (apps/desktop/assets, apps/mobile/assets, apps/web/public, assets, extensions/vscode/media), each with the bytes and mode of the base snapshot so the audit test compares equal. Every restored file is staged explicitly with git add -f before the build and the verification run, whatever its size or the ignore rules say, and the record lists the twenty-three paths with their byte sizes and the snapshot revision. The audit test is the only verification; no file of the vendored tree other than the twenty-three changes."
+basis = "Gotcha 3692, decision 2991, gotcha 3690"
+affects = ["22.39.173"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -334946,6 +334952,7 @@ time_limit_minutes = 90
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_3 = "Attempt 2 (continue, gotchas 3690 and 3692, decisions 2991 and 2992): the attempt-1 tree 761a7c479bd4 stands (the six scripts of the .codify directory with their original bytes and executable mode, the record). Restore the seventeen image assets the relocation dropped from the base snapshot 2e0a668a793a7b5c0469b44950808547467f017e with git show of each blob at its old path under the former top-level directory into the same relative path under tools: apps/desktop/assets (icon-dev.png, icon-nightly.icns, icon-nightly.png, icon.icns, icon.png), apps/mobile/assets (android-icon-background.png, android-icon-foreground-dev.png, android-icon-foreground.png, icon-dev.png, icon.png, ios-icon-dark.png), apps/web/public (icon-512-maskable.png, icon-512.png), assets (the three logo images of the snapshot that are absent) and extensions/vscode/media/icon.png; mode 100644 as the snapshot records. Stage all twenty-three restored files explicitly with git add -f before the build and before the verification run, and confirm with git ls-files that each is in the index. Extend tools/qualification/audit_repairs/repair_22_39_173.kvx with the twenty-three paths, their byte sizes and the snapshot revision. Run the build once and the verification once at the final revision and record both by reference; if the audit test names a further absent path, restore it the same way within the one allowed cycle and rerun once."
 
 [task.22.39.164]
 title = "Make the bringup and benchmark Python suites pass again following their producers, provide nginx in the tools-python job and retire their baseline entries"

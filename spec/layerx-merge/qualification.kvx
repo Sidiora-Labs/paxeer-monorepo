@@ -36146,3 +36146,11 @@ symbol = "test_qualification_suites_have_ci_host.py"
 observed = "Attempt 3 at 2fba7fe3796d (base 563d285011): build exit 0; the first verification stopped on a missing jsonschema module (make exit 2), and after the one repair the second verification (make test-qualification-python) exited 2 with 111 failed, 4339 passed and 13 skipped in 1196 seconds; log /out/logs/verify-2.log."
 assumption = "The directory is sound apart from the dropped vendored scripts and one undetermined upgrade fixture case; the failures are the dependency set, the pins and the job layout of the check."
 severity = "high"
+
+[finding.22.39.173.1]
+task = "22.39.173"
+file = "tools/qualification/audit_repairs/test_repair_22_36_1.py"
+symbol = "test_repair_22_36_1.py"
+observed = "Attempt 1 at 761a7c479bd4 (base dd4addbf677b): build exit 0 twice; verification exit 1 twice, 92 passed and one failed, test_code_specs_dot_directories_and_assets_are_preserved stopping at apps/desktop/assets/icon-dev.png; log /out/logs/verify-2.log."
+assumption = "The six scripts are restored correctly; the seventeen image assets are the remaining absent files and nothing else of the snapshot is missing."
+severity = "high"
