@@ -334455,7 +334455,7 @@ do_4 = "Attempt note (gotcha 3610, decision 2901): services/platform/hosted/node
 
 [task.22.39.132]
 title = "Give the MCP binding listener its web receipt public key reader and retire the receipt-key baseline entry"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.39.83"]
