@@ -1,0 +1,37 @@
+[meta]
+task = "22.39.75"
+module = "services/launchpad/metadata"
+package_prefix = "github.com/Sidiora-Technologies/KindleLaunch/media/metadata"
+
+[producer]
+workflow = ".github/workflows/launchpad-test.yml"
+job = "launchpad-go-test"
+runner = "tests/ci/data/launchpad_go_tests.py"
+toolchain = "go1.27.3"
+
+[measurement]
+revision = "2dc1f6cff2c54413d495eb33434338370e71e448"
+command = "make -C services/launchpad test"
+exit = 0
+log = "/out/logs/verify-1.log"
+result = "The baseline-aware module runner returned zero within the declared make test target; every package result is retained in the private log."
+aggregate_command = "cg spec done 22.39.75 -f layerx-merge --root /work/paxeer-monorepo"
+aggregate_exit = 1
+aggregate_result = "The wiring suite and all seventeen module test targets passed; five required directory touches were absent, so the task remained unqualified at this measured revision."
+
+[baseline]
+retiring_task = "22.39.168"
+count = 10
+tests = [
+  "github.com/Sidiora-Technologies/KindleLaunch/media/metadata/internal/app::TestDevelopmentCreationMediaFlow",
+  "github.com/Sidiora-Technologies/KindleLaunch/media/metadata/internal/app::TestDevelopmentCreatorUpload",
+  "github.com/Sidiora-Technologies/KindleLaunch/media/metadata/internal/app::TestDevelopmentV2Reads",
+  "github.com/Sidiora-Technologies/KindleLaunch/media/metadata/internal/app::TestRepairM_1006_FactoryReceiptChainBinding",
+  "github.com/Sidiora-Technologies/KindleLaunch/media/metadata/internal/image::TestProductionActualIsolatedDimensionBomb",
+  "github.com/Sidiora-Technologies/KindleLaunch/media/metadata/internal/metadata::TestProductionActualScannerMidstreamDisconnect",
+  "github.com/Sidiora-Technologies/KindleLaunch/media/metadata/internal/metadata::TestProductionAdversarialActualStorageRecovery",
+  "github.com/Sidiora-Technologies/KindleLaunch/media/metadata/internal/metadata::TestProductionReportedCommittedProofVerifierOnPaxeer",
+  "github.com/Sidiora-Technologies/KindleLaunch/media/metadata/internal/metadata::TestPublicationRealCreatorQueueRecovery",
+  "github.com/Sidiora-Technologies/KindleLaunch/media/metadata/internal/metadata::TestRepairM_1007_CanonicalRetentionRestart",
+]
+policy = "These exact package-scoped exclusions are the reviewed temporary baseline, not passing tests; their reasons remain in tests/ci/data/launchpad_go_test_baseline.json. No module source, assertion or test selection changed for this qualification record."
