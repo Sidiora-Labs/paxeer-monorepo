@@ -36010,3 +36010,11 @@ symbol = "test_beta_driver.py::BetaDriverTests::test_multichain_inventory_report
 observed = "Attempt 2 at d85c25147bc4 (verified revision c2899bf12994): build exit 0; verification exit 1: the schema check and every crate test passed and two beta driver inventory cases failed after 279 seconds with the real_stack flag false; log /out/logs/verify-1.log."
 assumption = "The schema work is complete; the failing inventory belongs to the qualification suite owner."
 severity = "high"
+
+[finding.22.39.95.5]
+task = "22.39.95"
+file = "apps/launchpad/web/src/core/wallet-sdk/runtime.integration.test.tsx"
+symbol = "runtime.integration.test.tsx"
+observed = "Attempt 5 at 9cac716c3d5e (base 1d56709c2764): build exit 0 twice; verification exit 1 at ed4c35130cf9 (indexer refused RPC_URL for the rpc-getlogs source) and exit 1 at 9cac716c3d5e (an unnamed joined role exited 1 before readiness on port 39843); neither Vitest suite ran; log /out/logs/verify-2.log."
+assumption = "The producer repairs of the attempt are right as far as they go; the failing role is unknown only because the producer discards its evidence."
+severity = "high"
