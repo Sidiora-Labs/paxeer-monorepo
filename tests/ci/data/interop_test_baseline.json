@@ -140,27 +140,6 @@
     "retiring_task": "22.39.124"
   },
   {
-    "member": "layerx-committed-proof",
-    "target": "--test receipted",
-    "qualified_test_name": "committed_fixture_view_verifies_and_binds_block_fields_and_rung",
-    "first_error_line": "assertion `left == right` failed",
-    "retiring_task": "22.39.125"
-  },
-  {
-    "member": "layerx-fiat",
-    "target": "--test sequenced_vectors",
-    "qualified_test_name": "fiat_sequenced_journey_vectors_replay",
-    "first_error_line": "assertion `left == right` failed: card_receipted_credit",
-    "retiring_task": "22.39.125"
-  },
-  {
-    "member": "layerx-fiat",
-    "target": "--test sequenced_vectors",
-    "qualified_test_name": "resigned_mutations_are_not_producer_recordings",
-    "first_error_line": "called `Option::unwrap()` on a `None` value",
-    "retiring_task": "22.39.125"
-  },
-  {
     "member": "layerx-gas-station",
     "target": "--lib",
     "qualified_test_name": "journal::tests::refusal_frees_the_nonce_and_retired_replacement_records_refuse_replay",
@@ -502,104 +481,6 @@
     "qualified_test_name": "migration_v2_connected_runs_authenticated_mapping_and_funded_settlement",
     "first_error_line": "genuine protected migration V2 fixture required",
     "retiring_task": "22.39.126"
-  },
-  {
-    "member": "layerx-mirror",
-    "target": "--test repair_22_33_103",
-    "qualified_test_name": "sequencer::every_shared_receipted_case_verifies_in_the_mirror",
-    "first_error_line": "assertion `left == right` failed",
-    "retiring_task": "22.39.125"
-  },
-  {
-    "member": "layerx-mirror",
-    "target": "--test repair_22_33_103",
-    "qualified_test_name": "sequencer::every_shared_v3_case_is_classified_at_the_signature_only_boundary",
-    "first_error_line": "assertion `left == right` failed",
-    "retiring_task": "22.39.125"
-  },
-  {
-    "member": "layerx-mirror",
-    "target": "--test repair_22_33_103",
-    "qualified_test_name": "sequencer::shared_signature_and_decode_refusals_reach_the_mirror_consumer",
-    "first_error_line": "assertion `left == right` failed",
-    "retiring_task": "22.39.125"
-  },
-  {
-    "member": "layerx-mirror",
-    "target": "--test sequencer_vectors",
-    "qualified_test_name": "every_shared_receipted_case_verifies_in_the_mirror",
-    "first_error_line": "assertion `left == right` failed",
-    "retiring_task": "22.39.125"
-  },
-  {
-    "member": "layerx-mirror",
-    "target": "--test sequencer_vectors",
-    "qualified_test_name": "every_shared_v3_case_is_classified_at_the_signature_only_boundary",
-    "first_error_line": "assertion `left == right` failed",
-    "retiring_task": "22.39.125"
-  },
-  {
-    "member": "layerx-mirror",
-    "target": "--test sequencer_vectors",
-    "qualified_test_name": "shared_signature_and_decode_refusals_reach_the_mirror_consumer",
-    "first_error_line": "assertion `left == right` failed",
-    "retiring_task": "22.39.125"
-  },
-  {
-    "member": "layerx-portable",
-    "target": "--test independent_verifier",
-    "qualified_test_name": "independent_implementation_can_enumerate_vectors",
-    "first_error_line": "assertion `left == right` failed",
-    "retiring_task": "22.39.125"
-  },
-  {
-    "member": "layerx-portable",
-    "target": "--test independent_verifier",
-    "qualified_test_name": "independent_verifier_accepts_a_v2_proof_and_refuses_substitutions",
-    "first_error_line": "assertion `left == right` failed",
-    "retiring_task": "22.39.125"
-  },
-  {
-    "member": "layerx-portable",
-    "target": "--test independent_verifier",
-    "qualified_test_name": "independent_verifier_processes_all_vectors",
-    "first_error_line": "assertion `left == right` failed",
-    "retiring_task": "22.39.125"
-  },
-  {
-    "member": "layerx-portable",
-    "target": "--test independent_verifier",
-    "qualified_test_name": "python_verifier_accepts_the_same_v2_proof",
-    "first_error_line": "assertion `left == right` failed",
-    "retiring_task": "22.39.125"
-  },
-  {
-    "member": "layerx-portable",
-    "target": "--test proof_portable_receipt",
-    "qualified_test_name": "proof_portable_receipt_producers_reach_the_consumer_twice",
-    "first_error_line": "assertion `left == right` failed: all real successful and reverted outcomes",
-    "retiring_task": "22.39.125"
-  },
-  {
-    "member": "layerx-portable",
-    "target": "--test repair_22_31_167",
-    "qualified_test_name": "portable_json_budget",
-    "first_error_line": "write independent verifier input: Os { code: 32, kind: BrokenPipe, message: \"Broken pipe\" }",
-    "retiring_task": "22.39.125"
-  },
-  {
-    "member": "layerx-portable",
-    "target": "--test repair_22_33_95",
-    "qualified_test_name": "portable_v1_instructions_recorded_producer_transport_consumer",
-    "first_error_line": "assertion `left == right` failed: all recorded successful and reverted receipts",
-    "retiring_task": "22.39.125"
-  },
-  {
-    "member": "layerx-portable",
-    "target": "--test sequencer_vectors",
-    "qualified_test_name": "every_valid_shared_case_exports_from_its_receipt_answer",
-    "first_error_line": "assertion `left == right` failed: all valid shared cases executed",
-    "retiring_task": "22.39.125"
   },
   {
     "member": "layerx-ucp",
