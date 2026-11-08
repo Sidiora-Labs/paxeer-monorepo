@@ -1057,11 +1057,13 @@ fn supplied_paxeer_endpoints_build_a_relayer_rpc() {
     value["paxeer"]["endpoints"] = serde_json::json!([
         {
             "url": "https://paxeer.example.invalid/",
+            "independent_backend": "pinned-test-node",
             "trust_anchor_der": anchor,
             "request_timeout_ms": 1234,
         },
         {
             "url": "http://127.0.0.1:8545",
+            "independent_backend": "local-test-node",
             "local_emulator": true,
             "request_timeout_ms": 5678,
         },
@@ -1091,7 +1093,7 @@ fn supplied_paxeer_endpoints_build_a_relayer_rpc() {
     );
     assert_eq!(endpoints[1].trust_anchor_der, None);
     assert!(
-        PaxeerRpc::new(endpoints).is_ok(),
+        relayer.paxeer_rpc().is_ok(),
         "configured Paxeer RPC adapter"
     );
     fs::remove_dir_all(root).expect("remove endpoint config fixture");

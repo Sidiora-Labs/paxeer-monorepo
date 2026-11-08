@@ -16,7 +16,9 @@ on:
       - 'services/wallet/deploy/attestor-kernel-policy.json'
       - 'services/agent/crates/layerx-crypto/**'
       - 'services/agent/crates/layerx-types/**'
+      - 'services/agent/crates/layerx-wire/tests/support/wallet_vectors/**'
       - 'Makefile'
+      - 'chain.mk'
       - 'layerxproof/**'
       - 'go.mod'
       - 'go.sum'
@@ -40,7 +42,9 @@ on:
       - 'services/wallet/deploy/attestor-kernel-policy.json'
       - 'services/agent/crates/layerx-crypto/**'
       - 'services/agent/crates/layerx-types/**'
+      - 'services/agent/crates/layerx-wire/tests/support/wallet_vectors/**'
       - 'Makefile'
+      - 'chain.mk'
       - 'layerxproof/**'
       - 'go.mod'
       - 'go.sum'
@@ -60,10 +64,10 @@ jobs:
       run:
         working-directory: services/wallet/attestor
     steps:
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: services/wallet/attestor/go.mod
           cache-dependency-path: services/wallet/attestor/go.sum
@@ -71,7 +75,7 @@ jobs:
         with:
           node-version: 22
       - name: Install pnpm
-        run: npm install --global pnpm@9.15.9
+        run: npm install --global pnpm@10.34.9+sha512.f49b5a8ea0fdedb44bb3c0c1d6575092a53c2950d95b7ad15df11f17974877a2de3a01c07e934e9b28ce716e51c09a94962c7306d09be2e1e4b18a8c8762fd32
       - name: Install gateway dependencies
         working-directory: services/wallet/gateway
         run: pnpm install --frozen-lockfile
@@ -91,10 +95,10 @@ jobs:
           CARGO_TARGET_DIR: ${{ runner.temp }}/wallet-rust
           RUSTUP_TOOLCHAIN: 1.91.1
         run: python3 tools/qualification/paxeer-x/wallet_go_consumers.py --output "$RUNNER_TEMP/wallet-rust-consumers"
-      - name: Build native attestor library
+      - name: Build native attestor libraries
         working-directory: .
         run: |
-          make build/liblayerx.a
+          make paxd-native-libs
           echo "CGO_LDFLAGS=-L${GITHUB_WORKSPACE}/build" >> "$GITHUB_ENV"
       - name: Test attestor (including TestABICopiesMatchRepository)
         env:
@@ -111,10 +115,10 @@ jobs:
       run:
         working-directory: services/wallet/ceremony
     steps:
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: services/wallet/ceremony/go.mod
           cache-dependency-path: services/wallet/ceremony/go.sum
@@ -122,7 +126,7 @@ jobs:
         with:
           node-version: 22
       - name: Install pnpm
-        run: npm install --global pnpm@9.15.9
+        run: npm install --global pnpm@10.34.9+sha512.f49b5a8ea0fdedb44bb3c0c1d6575092a53c2950d95b7ad15df11f17974877a2de3a01c07e934e9b28ce716e51c09a94962c7306d09be2e1e4b18a8c8762fd32
       - name: Install gateway dependencies
         working-directory: services/wallet/gateway
         run: pnpm install --frozen-lockfile

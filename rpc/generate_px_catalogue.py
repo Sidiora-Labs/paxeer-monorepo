@@ -26,4 +26,19 @@ catalogue = {
         for route in source["routes"] if route.get("service") in public_ids
     ],
 }
+# These methods are served by the node itself, independently of hosted discovery.
+catalogue["services"].append({
+    "id": "node_rpc", "purpose": "Committed inference market reads",
+    "exposure": "product", "discovery_path": "/", "transport": "json-rpc",
+    "authentication": "none", "version": "1",
+})
+for name in (
+    "px_getInferenceRooms", "px_getInferenceRoom", "px_getInferenceDeal",
+    "px_getInferencePeer", "px_getInferenceReceipts",
+):
+    catalogue["routes"].append({
+        "id": "node_rpc:" + name, "service": "node_rpc", "method": name,
+        "path": "/", "transport": "json-rpc", "authentication": "none",
+        "version": "1", "consumers": ["wallet", "explorer", "developer"],
+    })
 (root / "rpc/px_route_catalogue.json").write_text(json.dumps(catalogue, indent=2) + "\n")

@@ -2,6 +2,7 @@ use layerx_programs_ai_market::{
     codec::{self, Envelope},
     dispatch::{self, AuthorityClass, CallBoundary, Operation, SequencePolicy, OPERATIONS},
     errors::{self, ApplicationError, CodecResult, APPLICATION_ALIASES, APPLICATION_ERRORS},
+    evidence, laps,
     policy::{
         MarketPolicy, PolicyCommitments, RoomProfile, TaskPolicyV1, MARKET_POLICY_BYTES,
         MARKET_POLICY_VERSION, ROOM_PROFILE_BYTES, TASK_POLICY_BYTES,
@@ -64,8 +65,8 @@ fn f11_selectors_route_to_their_operation_metadata() -> CodecResult<()> {
             dispatch::SettleLaps,
             0x0B05,
             "SettleLaps",
-            92,
-            92,
+            laps::SETTLE_FIXED_BYTES + evidence::MANIFEST_FIXED_BYTES,
+            laps::SETTLE_FIXED_BYTES + evidence::MAX_MANIFEST_BYTES,
             Host,
         ),
         (
@@ -228,11 +229,14 @@ fn f11_selectors_route_to_their_operation_metadata() -> CodecResult<()> {
             ],
             0x0B10 => &[PolicyLifecycle, IdentityRoster],
             0x0B11 | 0x0B12 | 0x0B13 => &[IdentityRoster, SettlementClaims],
-            0x0B14 => &[IdentityRoster],
+            0x0B14 => &[PolicyLifecycle, SettlementClaims],
             _ => unreachable!(),
         };
         assert_eq!(metadata.sections, sections);
-        assert!(metadata.sections.contains(&Section::IdentityRoster));
+        assert_eq!(
+            metadata.sections.contains(&Section::IdentityRoster),
+            selector != 0x0B14
+        );
         assert_eq!(metadata.sections.contains(&Section::Control), !read);
         for (i, section) in metadata.sections.iter().enumerate() {
             assert!(!metadata.sections[..i].contains(section));

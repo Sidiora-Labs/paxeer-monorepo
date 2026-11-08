@@ -12,7 +12,7 @@ defmodule EthereumJSONRPC.HTTP.ThrottleTest.CountingTransport do
   @latest_block_parameters ~w(latest pending)
 
   def start_link do
-    Agent.start_link(fn -> %{current: %{}, max: %{}, calls: 0, served: []} end, name: __MODULE__)
+    Agent.start_link(fn -> %{current: %{}, max: %{}, calls: 0, served: [], held: %{}} end, name: __MODULE__)
   end
 
   @doc """
@@ -33,10 +33,20 @@ defmodule EthereumJSONRPC.HTTP.ThrottleTest.CountingTransport do
   @spec served() :: [term()]
   def served, do: Agent.get(__MODULE__, &Enum.reverse(&1.served))
 
+  def release(reference) do
+    worker = Agent.get(__MODULE__, &Map.fetch!(&1.held, reference))
+    send(worker, {:release, reference})
+  end
+
   @impl EthereumJSONRPC.HTTP
   def json_rpc(_url, json, _headers, options) do
     decoded = json |> IO.iodata_to_binary() |> Jason.decode!()
     kind = kind(decoded)
+
+    if reference = options[:test_release] do
+      worker = self()
+      Agent.update(__MODULE__, &%{&1 | held: Map.put(&1.held, reference, worker)})
+    end
 
     enter(kind, request_ids(decoded))
 
@@ -294,34 +304,39 @@ defmodule EthereumJSONRPC.HTTP.ThrottleTest do
 
     release_a = make_ref()
 
-    request_a =
-      Task.async(fn ->
-        result = block_request(1, test_release: release_a)
-        {result, Throttle.stats(@url)}
-      end)
-
+    request_a = Task.async(fn -> block_request(1, test_release: release_a) end)
     wait_until(fn -> CountingTransport.served() == [1] end)
 
     restart_guard()
+    assert %{inflight_total: 1, queue_depth: 0} = Throttle.stats(@url)
+
+    guard = Process.whereis(Throttle)
+    :erlang.trace(guard, true, [:receive])
+    on_exit(fn -> if Process.alive?(guard), do: :erlang.trace(guard, false, [:receive]) end)
 
     release_b = make_ref()
     request_b = Task.async(fn -> block_request(2, test_release: release_b) end)
+    wait_until(fn -> Throttle.stats(@url).queue_depth == 1 end)
+    assert CountingTransport.served() == [1]
+
+    CountingTransport.release(release_a)
+    assert {:ok, "0x1"} = Task.await(request_a, 30_000)
+    assert_receive {:trace, ^guard, :receive, {:"$gen_cast", {:release, _ticket} = completion}}
     wait_until(fn -> CountingTransport.served() == [1, 2] end)
 
     request_c = Task.async(fn -> block_request(3, test_delay: 0) end)
     wait_until(fn -> Throttle.stats(@url).queue_depth == 1 end)
 
-    send(request_a.pid, {:release, release_a})
-
-    assert {{:ok, "0x1"}, %{inflight_total: 1, queue_depth: 1}} = Task.await(request_a, 30_000)
+    GenServer.cast(Throttle, completion)
     assert %{inflight_total: 1, queue_depth: 1} = Throttle.stats(@url)
     assert CountingTransport.served() == [1, 2]
 
-    send(request_b.pid, {:release, release_b})
+    CountingTransport.release(release_b)
 
     assert {:ok, "0x1"} = Task.await(request_b, 30_000)
     assert {:ok, "0x1"} = Task.await(request_c, 30_000)
     assert CountingTransport.served() == [1, 2, 3]
+    assert CountingTransport.max_concurrency(:default) == 1
     wait_until(fn -> Throttle.stats(@url).inflight_total == 0 end)
     assert Throttle.stats(@url).queue_depth == 0
   end
@@ -371,7 +386,7 @@ defmodule EthereumJSONRPC.HTTP.ThrottleTest do
           task
         end)
 
-      send(holder.pid, {:release, release})
+      CountingTransport.release(release)
 
       assert {:ok, "0x1"} = Task.await(holder, 30_000)
       assert Enum.all?(Task.await_many(queued, 30_000), &match?({:ok, "0x1"}, &1))
@@ -388,8 +403,9 @@ defmodule EthereumJSONRPC.HTTP.ThrottleTest do
         coalesce?: false
       )
 
-      holder = Task.async(fn -> block_request(1, test_delay: 500) end)
-      wait_until(fn -> Throttle.stats(@url).inflight_total == 1 end)
+      release = make_ref()
+      holder = Task.async(fn -> block_request(1, test_release: release) end)
+      wait_until(fn -> CountingTransport.served() == [1] end)
 
       queued = Task.async(fn -> block_request(2, test_delay: 50) end)
       wait_until(fn -> Throttle.stats(@url).queue_depth == 1 end)
@@ -399,9 +415,15 @@ defmodule EthereumJSONRPC.HTTP.ThrottleTest do
       Process.exit(guard, :kill)
       assert_receive {:DOWN, ^reference, :process, ^guard, :killed}, 5_000
 
+      wait_until(fn -> is_pid(Process.whereis(Throttle)) and Process.whereis(Throttle) != guard end)
+      assert %{inflight_total: 1, queue_depth: 1} = Throttle.stats(@url)
+      assert CountingTransport.served() == [1]
+      CountingTransport.release(release)
+
       assert {:ok, "0x1"} = Task.await(holder, 30_000)
       assert {:ok, "0x1"} = Task.await(queued, 30_000)
       assert CountingTransport.calls() == 2
+      assert CountingTransport.max_concurrency(:default) == 1
 
       wait_until(fn -> is_pid(Process.whereis(Throttle)) end)
       assert {:ok, "0x1"} = block_request(3)

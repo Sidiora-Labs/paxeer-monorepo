@@ -1,0 +1,57 @@
+[task]
+id = "22.39.124"
+acceptance = "22998.1"
+base_revision = "8f21858e000218f3a283fe439a98496a1ccfa003"
+decisions = ["2800", "2826"]
+gotchas = ["3483", "3046"]
+build_cmd = "cargo test --locked --manifest-path services/interop/Cargo.toml -p layerx-bridge-relayer --no-run"
+verify_cmd = "python3 -m pytest -q tests/ci/test_interop_workspace_tests_wired.py && cargo test --locked --manifest-path services/interop/Cargo.toml -p layerx-bridge-relayer --no-fail-fast"
+verified_revision = "The successful verify row in the private /out/run/gates.jsonl ledger names the exact candidate revision; hf-done prints its revision, command, exit and private log. This source record is part of that candidate and does not claim an unexecuted result."
+baseline = "Gotcha 3483 and the 20 layerx-bridge-relayer entries recorded by 22.39.74 cover eight targets; the starting working tree had no relayer edits and no prior hf-build/hf-done ledger. No baseline execution was repeated."
+
+[decision.loops]
+side = "test"
+producer = "src/journal.rs Item::attestation_policy is volatile and absent on replay; src/attestation_api.rs AttestationView::from_journal attaches destination policy and collects peer signatures, while signatures combines the local journal share with peers for the answer."
+repair = "Compare every durable item field plus the exact authenticated destination, membership and threshold against the recorded policy. Assert the exact local signature in the served inbound/outbound bundle and the empty peer collection when no cosign directory exists. Keep all readiness, snapshot isolation, refusal, transaction, restart and completion assertions."
+
+[decision.paxeer_rpc]
+side = "test"
+producer = "src/rpc.rs PaxeerRpc::new deliberately accepts one endpoint; with_backends validates explicit independent backend identities, normalized authorities, chain ids, TLS public keys and the eight-endpoint limit (22.33.66)."
+repair = "Name each independent loopback backend in multi-endpoint fixtures and call with_backends. Preserve strict majority, unavailable/refused results, exact request methods and params, alias refusal, eight accepted and nine refused endpoints, mixed-chain refusal and deliberate single-endpoint operation. Also assert the new constructor refuses eight endpoints without identities."
+
+[decision.operator_config]
+side = "test"
+producer = "src/config.rs RelayerConfig::validate_paxeer_backends and paxeer_rpc require explicit independent_backend values for multi-endpoint configurations and carry them to with_backends."
+repair = "Declare distinct pinned and local test backend identities, build the RPC through the production configuration consumer, and assert missing or repeated backend identities are refused. Keep every endpoint URL, timeout, chain id, certificate and insecure transport assertion."
+
+[decision.operator_cosign_contract]
+side = "test"
+producer = "src/config.rs RelayerConfig::validate_paxeer_backends and paxeer_rpc; same producer as operator_config."
+repair = "The two-endpoint supplied fixture declares distinct backend identities and uses relayer.paxeer_rpc instead of the deliberately single-endpoint constructor. Keep its exact endpoint and trust-anchor assertions and the operator transport and inventory cases."
+
+[decision.repair_22_31_160]
+side = "test setup"
+producer = "src/repair_22_31_160_vault.cjs loads actual ganache, solc, ethers and OpenZeppelin contracts, but no manifest or provisioning supplied these dependencies in a fresh workspace. contracts/bridge/evm/foundry.toml pins solc 0.8.30 and bootstrap-libs.sh pins OpenZeppelin v5.3.0."
+repair = "Declare and lock the real EVM test dependencies under tests/support/evm; provision them once per test process into an exclusive temporary directory with npm ci and pass its node_modules through NODE_PATH. Match the vault compiler and OpenZeppelin pins; retain actual deployment, on-chain deposit, live policy reads, rotation, static-call refusals and successful release. Missing tools and dependency-install errors fail explicitly."
+
+[decision.sequencer_receipt]
+side = "test"
+producer = "sdk/platform/conformance/fixtures/sequencer-receipt-v1.json includes V2-pax-transfer-insufficient-funds as an accepted signed receipted answer with execution status zero."
+repair = "Classify that case explicitly and run it through every existing decode, signature authorization, JSON/receipt binding, raw-transaction hash and sequence-hash assertion. Also assert its status is zero. No catch-all acceptance or case omission is introduced."
+
+[decision.proof_bridge_relayer]
+side = "test"
+producer = "src/attestation_api.rs AttestationView::from_journal supplies per-item destination membership and readiness; a thresholds summary alone never authorizes a bundle."
+repair = "Use the production snapshot constructor with the fixture's directional policies and actual signer public addresses after reopening the journal and cosign directory. Assert the exact persisted peer signatures and threshold summary. Preserve all maximum integer and amount vectors, real signer socket and HTTP-to-TypeScript consumer assertions, cache/CORS checks and ready-to-attesting transition. This fixture tests snapshot and consumer behavior; live policy authentication remains exercised by repair_22_31_160 and the production-relayer policy tests."
+
+[decision.repair_22_33_68]
+side = "test"
+producer = "src/rpc.rs PaxeerRpc::with_backends is required for multi-endpoint reads; this target also includes the original paxeer_rpc tests."
+repair = "Update the shared TLS coverage helper to explicit backend identities for both the successful independent quorum and the authority/certificate alias refusals. Negative cases now reach the actual authority and public-key checks instead of failing merely for using the single-endpoint constructor. The included paxeer_rpc consumers inherit their repairs."
+
+[baseline_retirement]
+path = "tests/ci/data/interop_test_baseline.json"
+member = "layerx-bridge-relayer"
+removed_entries = 20
+remaining_members = "All other members and their baseline entries remain unchanged."
+qualification = "hf-done runs the wiring pytest suite and the whole relayer member with --no-fail-fast; no test is deleted, skipped, ignored, marked expected to fail or weakened by this task."

@@ -154,8 +154,8 @@ fn paxeer_endpoints_are_built_without_the_verifier_crate() {
     let anchor = file.directory.join("paxeer-ca.der");
     std::fs::write(&anchor, &der).expect("write configured trust anchor");
     value["paxeer"]["endpoints"] = json!([
-        {"url": "https://paxeer.example.invalid/", "trust_anchor_der": anchor, "request_timeout_ms": 1234},
-        {"url": "http://127.0.0.1:8545", "local_emulator": true, "request_timeout_ms": 5678}
+        {"url": "https://paxeer.example.invalid/", "independent_backend": "pinned-test-node", "trust_anchor_der": anchor, "request_timeout_ms": 1234},
+        {"url": "http://127.0.0.1:8545", "independent_backend": "local-test-node", "local_emulator": true, "request_timeout_ms": 5678}
     ]);
     std::fs::write(
         file.directory.join("relayer.json"),
@@ -163,6 +163,12 @@ fn paxeer_endpoints_are_built_without_the_verifier_crate() {
     )
     .expect("write endpoint config");
     let mut config = file.load().expect("load endpoint config");
+    assert!(config.paxeer_rpc().is_ok());
+    for identity in [Value::Null, json!("pinned-test-node")] {
+        let mut invalid = value.clone();
+        invalid["paxeer"]["endpoints"][1]["independent_backend"] = identity;
+        assert!(ConfigFile::new(&invalid).load().is_err());
+    }
     let endpoints: Vec<PaxeerEndpoint> = config.paxeer_endpoints().expect("build native endpoints");
     assert_eq!(endpoints.len(), 2);
     assert_eq!(endpoints[0].url, "https://paxeer.example.invalid/");

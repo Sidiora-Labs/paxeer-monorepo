@@ -744,6 +744,8 @@ pub fn rpc_hex(bytes: &[u8]) -> String {
     format!("0x{}", hex::encode(bytes))
 }
 
+pub const PAYMENT_DENOM: &str = "upax";
+
 const HEIGHT: u64 = 150;
 const KEY_ID: [u8; 32] = [1; 32];
 
@@ -784,7 +786,7 @@ fn encoded_receipt(
     must(summary.u32(2));
     must(summary.u32(1));
     must(summary.u8(4));
-    must(summary.fixed(b"upax"));
+    must(summary.fixed(PAYMENT_DENOM.as_bytes()));
     let mut log = vec![8; 20];
     log.push(1);
     log.extend_from_slice(&[9; 32]);
@@ -815,7 +817,7 @@ fn encoded_receipt(
     must(encoder.u32(1));
     must(encoder.u32(0));
     must(encoder.u8(2));
-    must(encoder.bytes(&sha256(b"upax"), 32));
+    must(encoder.bytes(&sha256(PAYMENT_DENOM.as_bytes()), 32));
     must(encoder.u128(amount));
     must(encoder.bytes(&from, 32));
     must(encoder.u128(21_001 + amount));
@@ -902,7 +904,7 @@ pub fn sequencer_receipt_with_details(
         "logs": [{"address": rpc_hex(&[8; 20]), "topics": [rpc_hex(&[9; 32])],
             "data": "0x0a0b", "logIndex": "0x0"}],
         "gasUsed": "0x5208", "cumulativeGasUsed": "0xa410", "effectiveGasPrice": "0x1",
-        "paymentDenom": "upax", "feeDenom": "upax", "feeAmount": "0x5208", "sponsor": rpc_hex(&[0; 20]),
+        "paymentDenom": PAYMENT_DENOM, "feeDenom": PAYMENT_DENOM, "feeAmount": "0x5208", "sponsor": rpc_hex(&[0; 20]),
         "from": rpc_hex(&sender), "to": rpc_hex(&transaction.to), "contractAddress": rpc_hex(&[0; 20]),
         "vmError": if success { "" } else { "execution reverted" },
         "keyId": rpc_hex(&KEY_ID), "receipt": rpc_hex(&bytes),

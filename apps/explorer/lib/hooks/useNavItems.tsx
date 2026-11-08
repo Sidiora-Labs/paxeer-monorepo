@@ -373,6 +373,10 @@ export default function useNavItems(): ReturnType {
 
     const paxeerXNavItems: Array<NavItem> = paxeerXListsFeature.isEnabled ? [
       {
+        text: 'Inference',
+        url: '/explorer/paxeer-x/inference',
+      },
+      {
         text: 'Anchor checkpoints',
         nextRoute: { pathname: '/paxeer-x/anchors' as const },
         icon: 'navigation/output_roots',
@@ -442,9 +446,9 @@ export default function useNavItems(): ReturnType {
         subItems: tokensNavItems,
       },
       paxeerXNavItems.length > 0 ? {
-        text: 'Kernel archive',
+        text: 'Paxeer X',
         icon: 'navigation/blockchain',
-        isActive: paxeerXNavItems.some(item => isInternalItem(item) && item.isActive),
+        isActive: pathname.startsWith('/paxeer-x/') || paxeerXNavItems.some(item => isInternalItem(item) && item.isActive),
         subItems: paxeerXNavItems,
       } : null,
       marketplaceFeature.isEnabled ? {
@@ -490,7 +494,6 @@ export default function useNavItems(): ReturnType {
         blocks, txs, topAccounts, verifiedContracts, validators, epochs,
       ].some((primaryItem) => primaryItem === item)),
       ...tokensNavItems.slice(1),
-      ...paxeerXNavItems,
       marketplaceFeature.isEnabled ? {
         text: marketplaceFeature.titles.menu_item,
         nextRoute: { pathname: '/apps' as const },
@@ -514,13 +517,14 @@ export default function useNavItems(): ReturnType {
 
     const groups: Array<NavGroupItem> = [
       { text: 'Explore', icon: 'navigation/blockchain', subItems: exploreItems },
+      ...(paxeerXNavItems.length > 0 ? [ { text: 'Paxeer X', subItems: paxeerXNavItems.filter((item) => item.text === 'Inference') } ] : []),
       { text: 'Network', icon: 'navigation/stats', subItems: networkItems },
       { text: 'Developers', icon: 'navigation/api_docs', subItems: developerItems },
     ];
     const shellNavItems = groups.map((item) => ({
       ...item,
       subItems: item.subItems.flat().map(shellLink),
-      isActive: item.subItems.flat().some((link) => isInternalItem(link) && link.isActive),
+      isActive: item.text === 'Paxeer X' ? pathname.startsWith('/paxeer-x/') : item.subItems.flat().some((link) => isInternalItem(link) && link.isActive),
     }));
 
     return { mainNavItems, accountNavItems, shellNavItems };

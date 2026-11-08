@@ -1,4 +1,4 @@
-//! Proves: RampOrder + encode_pay_exact/encode_draw -> LedgerCall -> Eip1559Call::sign/decode_signed; SequencerLog + decode_ledger_payment -> LedgerPayment -> public Rust consumer.
+//! Proves: RampOrder + encode_pay_exact/encode_budget_spend -> LedgerCall -> Eip1559Call::sign/decode_signed; SequencerLog + decode_ledger_payment -> LedgerPayment -> public Rust consumer.
 //!
 //! This contract's consumer is this integration crate, importing the public
 //! items exactly as a ramp caller does. Native ABI entries define the input
@@ -7,17 +7,14 @@
 //! or signature authentication from an unauthenticated SequencerLog. There is
 //! no persistent state here: fresh calls must produce fresh, owned results.
 //!
-//! Cross-contract finding: precompiles/layerxledger/abi.json::payExact names
-//! its fifth argument `sequence`, while the frozen Rust encode_pay_exact API
-//! names it `expires_at` and compile_operator_send supplies quote.expires_at.
-//! The native contract expects a payer sequence. This proof asserts the current
-//! public encoding, including that exact value; it does not assert native
-//! authorization or alter the out-of-scope ABI to hide the disagreement.
+//! The on-ramp ABI carries checked Unix milliseconds; off-ramp compilation
+//! targets the customer's maintained budget authority at 0x101b.
 
 use layerx_client::sequencer::SequencerLog;
 use layerx_crypto::evm_transaction::{decode_signed, recover_sender, Eip1559Call};
 use layerx_ramp_toolkit::evm::{
-    decode_ledger_payment, encode_draw, encode_pay_exact, LedgerPayment, LEDGER_ADDRESS,
+    decode_ledger_payment, encode_budget_spend, encode_pay_exact, LedgerPayment, LEDGER_ADDRESS,
+    PAY_ADDRESS,
 };
 use layerx_ramp_toolkit::{
     compile_operator_send, compile_payer_grant_draw, AuthenticatedPrincipal, CreateOrder,
@@ -36,10 +33,16 @@ fn maintained_customer_authority_refuses_retired_draw_before_broadcast() {
 }
 
 fn abi_entry(kind: &str, name: &str) -> Value {
-    let abi: Value = serde_json::from_str(include_str!(
-        "../../../../../precompiles/layerxledger/abi.json"
-    ))
-    .expect("native ledger ABI");
+    let document = match (kind, name) {
+        ("function", "budgetSpend") => {
+            include_str!("../../../../../precompiles/layerxpay/abi.json")
+        }
+        ("function", "payExact") | ("event", "PaymentExact" | "PaymentDrawn") => {
+            include_str!("../../../../../precompiles/layerxledger/abi.json")
+        }
+        _ => panic!("unexpected ABI entry: {kind} {name}"),
+    };
+    let abi: Value = serde_json::from_str(document).expect("native payment ABI");
     abi.as_array()
         .expect("ABI entries")
         .iter()
@@ -70,8 +73,11 @@ fn word(value: u128) -> [u8; 32] {
 }
 
 fn account(value: &str) -> [u8; 32] {
-    layerx_wire::hash::account_id(&AccountId::parse(value).expect("account"))
-        .expect("ledger account hash")
+    layerx_wire::hash::account_id_for_protocol(
+        &AccountId::parse(value).expect("account"),
+        layerx_wire::limits::STATE_COMMITMENT_PROTOCOL_VERSION,
+    )
+    .expect("ledger account hash")
 }
 
 fn order(direction: RampDirection, amount: u128) -> RampOrder {
@@ -96,7 +102,7 @@ fn order(direction: RampDirection, amount: u128) -> RampOrder {
             context: [0x73; 32],
             provider_token: "product-eur".into(),
             payout_token: "beneficiary-proof".into(),
-            expires_at: u64::MAX,
+            expires_at: u64::MAX / 1_000,
         },
         AuthenticatedPrincipal {
             principal_id: "customer-proof".into(),
@@ -116,10 +122,15 @@ fn observe_call(call: &LedgerCall, name: &str, fields: &[(&str, [u8; 32])]) {
     let abi = abi_entry("function", name);
     let inputs = abi["inputs"].as_array().expect("function inputs");
     assert_eq!(inputs.len(), fields.len());
-    assert_eq!(call.to, LEDGER_ADDRESS);
+    let (address, suffix) = match name {
+        "payExact" => (LEDGER_ADDRESS, 0x1a),
+        "budgetSpend" => (PAY_ADDRESS, 0x1b),
+        _ => panic!("unexpected payment call: {name}"),
+    };
+    assert_eq!(call.to, address);
     assert_eq!(
         call.to,
-        [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x10, 0x1a]
+        [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x10, suffix]
     );
     let transaction = Eip1559Call {
         chain_id: 125,
@@ -167,6 +178,33 @@ fn Vec() {
         for amount in [1, (1_u128 << 100) + 19, u128::MAX] {
             let bound = order(direction, amount);
             let sequence = u64::MAX;
+            for expires_at in [u64::MAX / 1_000 + 1, u64::MAX] {
+                let mut invalid = bound.clone();
+                invalid.quote.expires_at = expires_at;
+                invalid.order_digest = invalid.digest();
+                assert_eq!(invalid.quote.validate(1_000), Err(RampError::InvalidOrder));
+                assert_eq!(
+                    RampOrder::bind(
+                        CreateOrder {
+                            order_id: invalid.order_id.clone(),
+                            quote_id: invalid.quote.quote_id.clone(),
+                            payer_grant: invalid.payer_grant,
+                            payer_grant_purpose: invalid.payer_grant_purpose,
+                        },
+                        invalid.quote.clone(),
+                        invalid.customer.clone(),
+                        invalid.operator.clone(),
+                        1_000,
+                    ),
+                    Err(RampError::InvalidOrder)
+                );
+                if direction == RampDirection::OnRamp {
+                    assert_eq!(
+                        compile_operator_send(&invalid),
+                        Err(RampError::InvalidOrder)
+                    );
+                }
+            }
             for _ in 0..2 {
                 let mut call = match direction {
                     RampDirection::OnRamp => compile_operator_send(&bound),
@@ -177,6 +215,7 @@ fn Vec() {
                     RampDirection::OnRamp => {
                         let from = account(&bound.operator.account);
                         let to = account(&bound.customer.account);
+                        let expires_at_ms = bound.quote.expires_at * 1_000;
                         assert_eq!(
                             call.data,
                             encode_pay_exact(
@@ -184,7 +223,7 @@ fn Vec() {
                                 to,
                                 bound.quote.layerx_asset,
                                 amount,
-                                bound.quote.expires_at,
+                                expires_at_ms,
                                 bound.order_digest
                             )
                         );
@@ -196,46 +235,38 @@ fn Vec() {
                                 ("to", to),
                                 ("assetId", bound.quote.layerx_asset),
                                 ("amount", word(amount)),
-                                ("sequence", word(u128::from(bound.quote.expires_at))),
+                                ("expiresAtMs", word(u128::from(expires_at_ms))),
                                 ("paymentReference", bound.order_digest),
                             ],
                         );
                         assert_eq!(
                             compile_payer_grant_draw(&bound, sequence),
-                            Err(RampError::PayerGrantRequired)
+                            Err(RampError::InvalidOrder)
                         );
                     }
                     RampDirection::OffRamp => {
                         let grant = bound.payer_grant.expect("grant");
-                        let recipient = account(&format!(
-                            "agent:did:layerx:operator-proof:asset:{}",
-                            "33".repeat(32)
-                        ));
+                        let recipient = account(&bound.operator.account);
                         let purpose = bound.payer_grant_purpose.expect("purpose");
-                        assert_eq!(
-                            call.data,
-                            encode_draw(
-                                grant,
-                                recipient,
-                                amount,
-                                bound.order_digest,
-                                sequence,
-                                purpose,
-                                bound.context
-                            )
-                        );
+                        let authorization = bound
+                            .customer_payment_authorization()
+                            .expect("customer budget authorization");
+                        assert_eq!(authorization.budget_id, grant);
+                        assert_eq!(authorization.purpose_hash, purpose);
+                        assert_eq!(call.data, encode_budget_spend(grant, recipient, amount));
                         observe_call(
                             &call,
-                            "draw",
+                            "budgetSpend",
                             &[
-                                ("grantId", grant),
+                                ("budgetId", grant),
                                 ("recipient", recipient),
                                 ("amount", word(amount)),
-                                ("idempotencyKey", bound.order_digest),
-                                ("sequence", word(u128::from(sequence))),
-                                ("purposeHash", purpose),
-                                ("contextHash", bound.context),
                             ],
+                        );
+                        assert_eq!(
+                            compile_payer_grant_draw(&bound, 0),
+                            Ok(call.clone()),
+                            "the compatibility sequence is an EVM nonce, outside budgetSpend calldata"
                         );
                         assert_eq!(compile_operator_send(&bound), Err(RampError::InvalidOrder));
                     }

@@ -179,6 +179,9 @@ fn mcp_submit_tool_sends_raw_transaction() -> Result<(), Box<dyn std::error::Err
     recover_sender(&call, &signature)?;
 
     let hash = format!("0x{}", encoding::hex_encode(&transaction_hash(&raw)));
+    assert!(outcome
+        .unwrap_err()
+        .starts_with(&format!("submission_indeterminate: {hash}: ")));
     let (endpoint, returned) = capture(Some(json!({"jsonrpc":"2.0", "id":1, "result":hash})))?;
     let accepted = toolset::invoke(&toolset::runtime(&endpoint)?, tool, &arguments)?;
     assert_eq!(accepted, json!({"txHash":hash,"rung":"submitted"}));

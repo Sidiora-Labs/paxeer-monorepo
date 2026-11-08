@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Checks that the shared beta image table covers every image Dockerfile in the repository and that
+# Checks that the shared beta image table covers active image Dockerfiles, excludes retired services and that
 # the publish-images workflow builds the table as a matrix with GHCR write permission.
 set -euo pipefail
 
@@ -9,6 +9,7 @@ errors=0
 fail() { printf 'publish-images.test: %s\n' "$*" >&2; errors=$((errors + 1)); }
 
 source services/platform/hosted/tests/beta-images.sh
+[ "${#IMAGE_NAMES[@]}" -gt 0 ] || fail "image table is empty"
 
 image_contexts_match_dockerfile_inputs() {
     local name
@@ -66,6 +67,10 @@ image_contexts_match_dockerfile_inputs
 
 declare -A table_paths=()
 for name in "${IMAGE_NAMES[@]}"; do
+    case "$name" in
+        layerx-node|layerx-core-boundary|layerx-receipt-authority)
+            fail "retired service $name is selected for publication" ;;
+    esac
     read -r canonical dockerfile <<<"$(image_source "$name")"
     [ "$canonical" = "ghcr.io/sidiora-labs/$name:${canonical##*:}" ] || fail "$name: canonical image $canonical is not ghcr.io/sidiora-labs/$name"
     case "$dockerfile" in
@@ -79,7 +84,11 @@ done
 
 for dockerfile in docker/*/Dockerfile services/platform/hosted/feeder/Dockerfile; do
     [ -f "$dockerfile" ] || continue
-    [ -n "${table_paths[$dockerfile]+present}" ] || fail "no beta-images.sh row for $dockerfile"
+    case "$dockerfile" in
+        docker/platform-authority/Dockerfile|docker/platform-core/Dockerfile)
+            [ -z "${table_paths[$dockerfile]+present}" ] || fail "retired Dockerfile $dockerfile is selected for publication" ;;
+        *) [ -n "${table_paths[$dockerfile]+present}" ] || fail "no beta-images.sh row for $dockerfile" ;;
+    esac
 done
 while IFS= read -r -d '' dockerfile; do
     dockerfile=${dockerfile#./}

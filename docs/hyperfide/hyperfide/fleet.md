@@ -28,13 +28,13 @@ Shared Blaxel accounts can declare positive external ownership rules in `HF_BLAX
 
 Requests use authenticated `POST /v1/invoke` with the existing signed operation envelope and an explicit component. The native source-control design has a separate API namespace; it is not the fleet invocation endpoint.
 
-| Component | Operations |
-| --- | --- |
-| `fleet-orchestration` | `fleet.identity.bootstrap`, `fleet.cohort.bind`, `fleet.session.bind`, `fleet.observe`, `fleet.session.reason`, `fleet.decision.inspect`, `fleet.decision.apply` |
-| `fleet-install` | `fleet.install.register`, `fleet.install.admit`, `fleet.install.status`, `fleet.install.complete`, `fleet.install.adopt` |
-| `fleet-install-delivery` | `fleet.install.delivery.register`, `fleet.install.delivery.pending`, `fleet.install.delivery.schedule`, `fleet.install.delivery.collect` |
-| `fleet-test-executor` | `fleet.test.pending`, `fleet.test.executor.pending`, `fleet.test.executor.retire` |
-| `16.1` | `submission.archive.register`, `submission.inspect` |
+| Component                | Operations                                                                                                                                                       |
+| ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `fleet-orchestration`    | `fleet.identity.bootstrap`, `fleet.cohort.bind`, `fleet.session.bind`, `fleet.observe`, `fleet.session.reason`, `fleet.decision.inspect`, `fleet.decision.apply` |
+| `fleet-install`          | `fleet.install.register`, `fleet.install.admit`, `fleet.install.status`, `fleet.install.complete`, `fleet.install.adopt`                                         |
+| `fleet-install-delivery` | `fleet.install.delivery.register`, `fleet.install.delivery.pending`, `fleet.install.delivery.schedule`, `fleet.install.delivery.collect`                         |
+| `fleet-test-executor`    | `fleet.test.pending`, `fleet.test.executor.pending`, `fleet.test.executor.retire`                                                                                |
+| `16.1`                   | `submission.archive.register`, `submission.inspect`                                                                                                              |
 
 The authoritative action registrations are the [orchestration component](../../../tools/hyperfide/core/control-plane/components/fleet-orchestration.json), [install component](../../../tools/hyperfide/core/control-plane/components/fleet-install.json) and [delivery component](../../../tools/hyperfide/core/control-plane/components/fleet-install-delivery.json). Manager observations include the effect API's current input contracts; callers should use these contracts rather than infer fields from prose.
 
@@ -125,3 +125,38 @@ Catalog 70 adds automatic provisioner maintenance over retained inventory and un
 The executable prerequisite uses [Git source manifests](../../../tools/hyperfide/core/control-plane/src/preparation/fleet_source.ts): immutable Git revisions, selected paths, file modes, content digests and bounded inventories. The current adapter supports regular files with Git modes `100644` and `100755`; unsupported source kinds are refused. It does not implement the proposed virtual native SCM working copy.
 
 The fleet environment contract keeps source selection and revision pins separate from task assignments. A future native source-control adapter must supply equivalent pinned inventory and installation evidence through that contract while preserving authority, scopes and generation fencing. The [source-control specification](../../../tools/hyperfide/spec/hyperfide-source-control/README.md) describes that target; remote Git publication and native source storage remain separate concerns.
+
+## Prerequisite handoff
+
+Carried source-control task 0.14 is qualified in two scopes. Decision 2700 makes the
+bounded merge gate run `0_14.py --component` through `support/withpg.py`. Its private
+`build/fleet/0.14/component-receipt.json` (also `receipt.json`) records the measured
+signed actor, PostgreSQL, registration and local supervisor recovery checks. All live
+cases remain UNRUN. Missing execution evidence is tested as a refusal; that check
+does not establish provider ambiguity, an interrupted installation or a failed
+implementing agent run. Local SIGKILL restoration does not establish provider host loss.
+
+The owner supplies a configured provider pool, model backend, object-store credentials,
+private native profile and the trusted live database target. Follow the exact journey
+commands and input requirements in [operations](operations.md#prerequisite-handoff).
+`build/fleet/0.14/actor-receipt.json` retains the real three-model actor checks;
+`build/fleet/0.14/live-receipt.json` requires the complete live evidence index and
+read-only database verification. An explicit `--receipt` selects a private owner
+location. The live receipt inventories every contract, source, toolchain, manifest,
+interface and provider assertion with evidence references or an explicit missing
+coverage/refusal classification. A component PASS never becomes a live PASS.
+
+Retain the original provider, install, worker and reasoning operation IDs and private
+journals during recovery. Reconcile UNKNOWN outcomes before resubmitting effects;
+rebind a replacement cohort under current authority, recover interrupted installation
+only with signed failure/quiescence evidence, and independently qualify an implementing
+agent's captured result before acceptance. Model unavailability remains waiting without
+an invented decision. The [recovery contract](#recovery-and-adoption) applies throughout.
+
+The migration boundary is the source adapter: the existing Git adapter supplies pinned
+source inventories and captured result archives, while native source must supply its
+own revision/root-tree and security-domain pins through the same install and result
+contracts. Preserve source scopes, modes, content digests, interface selections,
+boot/generation fencing and independent verification at that boundary. Native task 0.1
+is released only after this prerequisite qualification has a live PASS; a bounded
+component receipt or UNRUN owner campaign does not release it.

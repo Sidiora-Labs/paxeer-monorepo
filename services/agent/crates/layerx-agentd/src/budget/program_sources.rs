@@ -12,6 +12,7 @@ use sha2::{Digest as _, Sha256};
 use crate::capability::{derive_effects, ProgramValueSource, VerifiedInputs};
 use crate::ops::program::ProgramOperations;
 use crate::prepare::Prepared;
+use crate::sign::SigningPreparation;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum ProgramSourceError {
@@ -113,6 +114,7 @@ pub struct VerifiedResolvedProgramCharges {
     batch_number: u64,
     global_sequence: u64,
     preparation_digest: [u8; 32],
+    envelope_digest: [u8; 32],
     charges: Vec<ResolvedProgramCharge>,
 }
 
@@ -139,7 +141,9 @@ impl VerifiedResolvedProgramCharges {
     }
     #[must_use]
     pub fn matches_prepared(&self, prepared: &Prepared) -> bool {
-        validate_prepared(prepared).is_ok()
+        super::native_binding::validate_retained_carrier(prepared).is_ok()
+            && layerx_wire::activity::encode_unsigned_envelope(&prepared.envelope)
+                .is_ok_and(|bytes| self.envelope_digest == <[u8; 32]>::from(Sha256::digest(bytes)))
             && self.global_sequence == prepared.observed_head_sequence
             && self.preparation_digest
                 == <[u8; 32]>::from(Sha256::digest(&prepared.canonical_bytes))
@@ -234,6 +238,7 @@ pub(super) fn presentation_budget_reservation(
         batch_number: proof.committed_height(),
         global_sequence: sequence,
         preparation_digest: proof.digest(),
+        envelope_digest: proof.digest(),
         charges: vec![ResolvedProgramCharge {
             source: ResolvedProgramSource::Principal {
                 account: proof.source_account(),
@@ -407,12 +412,13 @@ pub fn read_program_budget_sources(
     node: &mut layerx_client::sequencer::SequencerEndpoint,
     programs: &mut ProgramOperations,
     prepared: &Prepared,
+    signing: Option<&SigningPreparation>,
     caps: &CommittedCaps,
     now: u64,
     _fee_correlation_id: u64,
 ) -> Result<VerifiedResolvedProgramCharges, ProgramSourceError> {
-    validate_prepared(prepared)?;
-    verify_fee_payer(node, prepared, caps.state_root())?;
+    let signing = validate_prepared(prepared, signing)?;
+    verify_fee_payer(node, prepared, signing.actor_address, caps.state_root())?;
     if !matches!(
         prepared.disclosure.native_operation,
         Some(
@@ -519,12 +525,7 @@ pub fn read_program_budget_sources(
         prepared.observed_head_sequence,
         caps.state_root(),
         maximum_fee,
-        prepared
-            .disclosure
-            .actor
-            .as_slice()
-            .try_into()
-            .map_err(|_| ProgramSourceError::Preparation)?,
+        signing.actor_address,
         None,
     )? {
         charges.push(charge);
@@ -546,6 +547,11 @@ pub fn read_program_budget_sources(
         batch_number: caps.observed_height(),
         global_sequence: prepared.observed_head_sequence,
         preparation_digest: Sha256::digest(&prepared.canonical_bytes).into(),
+        envelope_digest: Sha256::digest(
+            layerx_wire::activity::encode_unsigned_envelope(&prepared.envelope)
+                .map_err(|_| ProgramSourceError::Preparation)?,
+        )
+        .into(),
         charges,
     })
 }
@@ -553,13 +559,14 @@ pub fn read_program_budget_sources(
 pub fn read_native_effect_budget_sources(
     node: &mut layerx_client::sequencer::SequencerEndpoint,
     prepared: &Prepared,
+    signing: Option<&SigningPreparation>,
     caps: &CommittedCaps,
     now: u64,
     _fee_correlation_id: u64,
     profile: crate::capability::NativeAdmissionProfile,
 ) -> Result<VerifiedResolvedProgramCharges, ProgramSourceError> {
-    validate_prepared(prepared)?;
-    verify_fee_payer(node, prepared, caps.state_root())?;
+    let signing = validate_prepared(prepared, signing)?;
+    verify_fee_payer(node, prepared, signing.actor_address, caps.state_root())?;
     if prepared.envelope.activity_type().module() == layerx_types::payload::ModuleId::Programs {
         return Err(ProgramSourceError::Unsupported);
     }
@@ -695,12 +702,7 @@ pub fn read_native_effect_budget_sources(
         prepared.observed_head_sequence,
         caps.state_root(),
         maximum_fee,
-        prepared
-            .disclosure
-            .actor
-            .as_slice()
-            .try_into()
-            .map_err(|_| ProgramSourceError::Preparation)?,
+        signing.actor_address,
         match profile {
             crate::capability::NativeAdmissionProfile::Registration { fee_asset } => {
                 Some(fee_asset)
@@ -727,6 +729,11 @@ pub fn read_native_effect_budget_sources(
         batch_number: caps.observed_height(),
         global_sequence: prepared.observed_head_sequence,
         preparation_digest: Sha256::digest(&prepared.canonical_bytes).into(),
+        envelope_digest: Sha256::digest(
+            layerx_wire::activity::encode_unsigned_envelope(&prepared.envelope)
+                .map_err(|_| ProgramSourceError::Preparation)?,
+        )
+        .into(),
         charges,
     })
 }
@@ -766,10 +773,13 @@ fn read_fee_charge_for<A: SourceAccount>(
     }))
 }
 
-fn validate_prepared(prepared: &Prepared) -> Result<(), ProgramSourceError> {
-    super::native_binding::validate_retained_preparation(prepared)
-        .map(|_| ())
-        .map_err(|_| ProgramSourceError::Preparation)
+fn validate_prepared<'a>(
+    prepared: &Prepared,
+    signing: Option<&'a SigningPreparation>,
+) -> Result<&'a SigningPreparation, ProgramSourceError> {
+    super::native_binding::validate_retained_preparation(prepared, signing)
+        .map_err(|_| ProgramSourceError::Preparation)?;
+    signing.ok_or(ProgramSourceError::Preparation)
 }
 
 pub(super) fn principal_source<A: SourceAccount>(
@@ -906,6 +916,7 @@ mod tests {
             &mut layerx_client::sequencer::SequencerEndpoint,
             &mut ProgramOperations,
             &Prepared,
+            Option<&SigningPreparation>,
             &CommittedCaps,
             u64,
             u64,
@@ -1302,16 +1313,11 @@ mod tests {
 fn verify_fee_payer(
     node: &layerx_client::sequencer::SequencerEndpoint,
     prepared: &Prepared,
+    payer: [u8; 20],
     state_root: [u8; 32],
 ) -> Result<(), ProgramSourceError> {
     let height = prepared.observed_head_sequence;
     let actor = prepared.envelope.actor_did();
-    let payer: [u8; 20] = prepared
-        .disclosure
-        .actor
-        .as_slice()
-        .try_into()
-        .map_err(|_| ProgramSourceError::Preparation)?;
     let reads = crate::read::CommittedReads::open(node, height)
         .map_err(|_| ProgramSourceError::Snapshot)?;
     let actor_text =
@@ -1369,11 +1375,12 @@ fn read_fee_charge<A: SourceAccount>(
 pub fn read_native_lifecycle_budget_sources(
     node: &mut layerx_client::sequencer::SequencerEndpoint,
     prepared: &Prepared,
+    signing: Option<&SigningPreparation>,
     caps: &CommittedCaps,
     proofs: &BTreeMap<[u8; 32], layerx_proof::state::VerifiedAccountState>,
 ) -> Result<VerifiedResolvedProgramCharges, ProgramSourceError> {
-    validate_prepared(prepared)?;
-    verify_fee_payer(node, prepared, caps.state_root())?;
+    let signing = validate_prepared(prepared, signing)?;
+    verify_fee_payer(node, prepared, signing.actor_address, caps.state_root())?;
     let actor = did_id_for_protocol(prepared.envelope.actor_did(), 3)
         .map_err(|_| ProgramSourceError::Preparation)?;
     if caps.did() != actor
@@ -1467,12 +1474,7 @@ pub fn read_native_lifecycle_budget_sources(
         prepared.observed_head_sequence,
         caps.state_root(),
         prepared.disclosure.fee_limit,
-        prepared
-            .disclosure
-            .actor
-            .as_slice()
-            .try_into()
-            .map_err(|_| ProgramSourceError::Preparation)?,
+        signing.actor_address,
         None,
     )? {
         charges.push(fee);
@@ -1483,6 +1485,11 @@ pub fn read_native_lifecycle_budget_sources(
         batch_number: caps.observed_height(),
         global_sequence: prepared.observed_head_sequence,
         preparation_digest: Sha256::digest(&prepared.canonical_bytes).into(),
+        envelope_digest: Sha256::digest(
+            layerx_wire::activity::encode_unsigned_envelope(&prepared.envelope)
+                .map_err(|_| ProgramSourceError::Preparation)?,
+        )
+        .into(),
         charges,
     })
 }

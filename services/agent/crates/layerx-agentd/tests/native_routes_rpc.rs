@@ -120,7 +120,7 @@ fn signed_receipt() -> (Value, Vec<u8>, ReceiptKeyEntry) {
         "logs": [{"address": rpc_hex(&[8; 20]), "topics": [rpc_hex(&[9; 32])],
             "data": "0x0a0b", "logIndex": "0x0"}],
         "gasUsed": "0x5208", "cumulativeGasUsed": "0xa410", "effectiveGasPrice": "0x1",
-        "paymentDenom": "upax", "feeDenom": "upax", "feeAmount": "0x5208", "sponsor": rpc_hex(&[0; 20]),
+        "feeDenom": "upax", "paymentDenom": "upax", "feeAmount": "0x5208", "sponsor": rpc_hex(&[0; 20]),
         "from": rpc_hex(&[6; 20]), "to": rpc_hex(&[7; 20]), "contractAddress": rpc_hex(&[0; 20]),
         "vmError": "", "keyId": rpc_hex(&KEY_ID), "receipt": rpc_hex(&bytes),
         "signingKey": rpc_hex(&key.public_key)

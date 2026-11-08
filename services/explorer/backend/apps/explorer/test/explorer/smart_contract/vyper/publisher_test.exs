@@ -24,6 +24,8 @@ if Application.compile_env(:explorer, :chain_type) !== :zksync do
     end
 
     describe "publish/2" do
+      @describetag :compiler
+
       test "with valid data creates a smart_contract" do
         contract_code_info = Factory.contract_code_info_vyper()
 

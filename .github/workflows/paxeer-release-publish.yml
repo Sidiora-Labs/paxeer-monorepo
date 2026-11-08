@@ -27,7 +27,7 @@ jobs:
       RELEASE_TAG: ${{ github.event.inputs.tag || github.ref_name }}
     steps:
       - name: Checkout tag
-        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: refs/tags/${{ env.RELEASE_TAG }}
           fetch-depth: 0
@@ -44,41 +44,12 @@ jobs:
             echo "Tag $RELEASE_TAG does not match tools/release/version.json $version"
             exit 1
           fi
-      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: go.mod
           cache: false
       - name: Install native build dependencies
-        run: |
-          set -euo pipefail
-          . tools/release/toolchain.env
-          : "${CC_VERSION:?tools/release/toolchain.env must pin CC_VERSION}"
-          cc_package="gcc-${CC_VERSION%%.*}"
-          sudo apt-get update
-          cc_package_version=$(apt-cache madison "$cc_package" | awk -v version="$CC_VERSION" '
-            { candidate = $3; sub(/^[0-9]+:/, "", candidate) }
-            index(candidate, version "-") == 1 { print $3; exit }
-          ')
-          if [[ -z "$cc_package_version" ]]; then
-            echo "No package for $cc_package at CC_VERSION $CC_VERSION" >&2
-            exit 1
-          fi
-          sudo apt-get install -y --no-install-recommends build-essential libssl-dev libsqlite3-dev \
-            "$cc_package=$cc_package_version" "g++-${CC_VERSION%%.*}=$cc_package_version"
-          compiler_bin="$RUNNER_TEMP/release-toolchain/bin"
-          mkdir -p "$compiler_bin"
-          ln -sf "/usr/bin/$cc_package" "$compiler_bin/cc"
-          ln -sf "/usr/bin/$cc_package" "$compiler_bin/gcc"
-          ln -sf "/usr/bin/g++-${CC_VERSION%%.*}" "$compiler_bin/c++"
-          ln -sf "/usr/bin/g++-${CC_VERSION%%.*}" "$compiler_bin/g++"
-          export PATH="$compiler_bin:$PATH"
-          echo "$compiler_bin" >> "$GITHUB_PATH"
-          have_cc=$(cc -dumpfullversion)
-          printf '%s\n' "$have_cc"
-          if [[ "$have_cc" != "$CC_VERSION" ]]; then
-            echo "build-paxd: toolchain.env pins cc $CC_VERSION, found $have_cc" >&2
-            exit 1
-          fi
+        uses: ./.github/actions/release-toolchain
       - name: Install pinned Rust toolchain
         run: rustup toolchain install 1.91.1 --profile minimal --no-self-update
       - name: Build release binaries

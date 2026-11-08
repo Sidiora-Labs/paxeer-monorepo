@@ -13,6 +13,8 @@ class XwebWorkflowCheckTest(unittest.TestCase):
             text=True,
             check=False,
         )
+        self.assertIn("refuses every mutation", result.stderr)
+        self.assertIn("builds make paxd-native-libs before its Go test", result.stderr)
         self.assertEqual(
             result.returncode,
             0,

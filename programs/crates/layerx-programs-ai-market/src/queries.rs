@@ -1,6 +1,7 @@
 //! F10 read-only selectors, exact snapshot binding and bounded off-chain page framing.
 //! Selectors read one captured common state value; they never write, emit, pay or stage blobs.
 //! Host `ProgramRead` facts and finality evidence are inputs; nothing here establishes them.
+use crate::types::GuestIndex as _;
 #[path = "placement.rs"]
 pub mod placement;
 #[cfg(target_arch = "wasm32")]
@@ -48,6 +49,385 @@ pub fn answer_book_view(state_bytes: &[u8], payload: &[u8], out: &mut [u8]) -> C
     reader.finish()?;
     let shared = state::decode_shared_state(state_bytes)?;
     placement::PlacementBook::decode(shared.room_market()?.1, model)?.encode_view(out)
+}
+
+pub const ROOM_VIEW_BYTES: usize = crate::rooms::ROOM_RECORD_BYTES
+    + 32 * (crate::rooms::ASK_CAPACITY + crate::rooms::BID_CAPACITY);
+pub const DEAL_VIEW_BYTES: usize = crate::rooms::DEAL_RECORD_BYTES + 8 + 16;
+pub const PEER_VIEW_BYTES: usize =
+    32 * 4 + 8 * 5 + 2 + 1 + crate::workers::CapabilityFields::ENCODED_BYTES + 1 + 4;
+pub const RECEIPT_BATCH_VIEW_BYTES: usize = crate::laps::BATCH_BYTES;
+const _: () = assert!(ROOM_VIEW_BYTES <= crate::MAX_RESULT_PAYLOAD_BYTES);
+
+#[derive(Clone, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
+pub struct RoomView {
+    pub room: crate::rooms::RoomRecord,
+    pub open_asks: [Option<Digest32>; crate::rooms::ASK_CAPACITY],
+    pub open_bids: [Option<Digest32>; crate::rooms::BID_CAPACITY],
+}
+
+#[cfg_attr(target_arch = "wasm32", inline(never))]
+fn read_order_ids<const N: usize>(r: &mut Reader<'_>) -> CodecResult<[Option<Digest32>; N]> {
+    let mut ids = [None; N];
+    let mut previous = None;
+    let mut ended = false;
+    for id in &mut ids {
+        let bytes = r.fixed()?;
+        if bytes == [0; 32] {
+            ended = true;
+        } else {
+            let value = Digest32::new(bytes)?;
+            if ended || previous.is_some_and(|p| p >= value) {
+                return Err(NON_CANONICAL);
+            }
+            *id = Some(value);
+            previous = Some(value);
+        }
+    }
+    Ok(ids)
+}
+impl RoomView {
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
+    pub fn decode(bytes: &[u8]) -> CodecResult<Self> {
+        let mut r = Reader::new(bytes);
+        let value = Self {
+            room: crate::rooms::RoomRecord::decode(r.take(crate::rooms::ROOM_RECORD_BYTES)?)?,
+            open_asks: read_order_ids(&mut r)?,
+            open_bids: read_order_ids(&mut r)?,
+        };
+        r.finish()?;
+        if value.room.state == crate::rooms::RoomState::Closed
+            && (value.open_asks.iter().any(Option::is_some)
+                || value.open_bids.iter().any(Option::is_some))
+        {
+            return Err(NON_CANONICAL);
+        }
+        Ok(value)
+    }
+}
+
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
+pub struct DealView {
+    pub deal: crate::rooms::DealRecord,
+    pub settled_tokens: u64,
+    pub settled_amount_owed: u128,
+}
+impl DealView {
+    pub fn decode(bytes: &[u8]) -> CodecResult<Self> {
+        let mut r = Reader::new(bytes);
+        let value = Self {
+            deal: crate::rooms::DealRecord::decode(r.take(crate::rooms::DEAL_RECORD_BYTES)?)?,
+            settled_tokens: r.u64()?,
+            settled_amount_owed: r.u128()?,
+        };
+        r.finish()?;
+        Ok(value)
+    }
+}
+
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
+pub struct PeerView {
+    pub peer_key: PrincipalId,
+    pub worker: crate::types::WorkerId,
+    pub delegate: crate::types::PublicKey32,
+    pub metadata: MetadataDigest,
+    pub generation: u64,
+    pub key_version: u64,
+    pub metadata_revision: u64,
+    pub valid_from: u64,
+    pub expiry: u64,
+    pub state: WorkerState,
+    pub enrolled: bool,
+    pub capabilities: Option<crate::workers::CapabilityFields>,
+    pub bond_status: Availability,
+    pub fault_count: u32,
+}
+impl PeerView {
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
+    pub fn decode(bytes: &[u8]) -> CodecResult<Self> {
+        let mut r = Reader::new(bytes);
+        let peer_key = r.principal_id()?;
+        let worker = r.worker_id()?;
+        let delegate = crate::types::PublicKey32(r.fixed()?);
+        let (metadata, generation, key_version, metadata_revision, valid_from, expiry) = crate::codec::read_values!(&mut r; metadata = r.metadata_digest()?;
+            generation: U64,
+            key_version: U64,
+            metadata_revision: U64,
+            valid_from: U64,
+            expiry: U64,
+        );
+        let state = WorkerState::from_u8(r.u8()?)?;
+        let enrolled = match r.u8()? {
+            0 => false,
+            1 => true,
+            _ => return Err(NON_CANONICAL),
+        };
+        let capabilities = match r.u8()? {
+            1 => Some(crate::workers::CapabilityFields::read(&mut r)?),
+            4 => {
+                if r.take(crate::workers::CapabilityFields::ENCODED_BYTES)?
+                    != [0; crate::workers::CapabilityFields::ENCODED_BYTES]
+                {
+                    return Err(NON_CANONICAL);
+                }
+                None
+            }
+            _ => return Err(NON_CANONICAL),
+        };
+        let bond_status = match r.u8()? {
+            2 => Availability::NotEnabled,
+            _ => return Err(NON_CANONICAL),
+        };
+        let fault_count = r.u32()?;
+        r.finish()?;
+        if delegate.0 == [0; 32]
+            || generation == 0
+            || key_version == 0
+            || metadata_revision == 0
+            || valid_from >= expiry
+        {
+            return Err(NON_CANONICAL);
+        }
+        Ok(Self {
+            peer_key,
+            worker,
+            delegate,
+            metadata,
+            generation,
+            key_version,
+            metadata_revision,
+            valid_from,
+            expiry,
+            state,
+            enrolled,
+            capabilities,
+            bond_status,
+            fault_count,
+        })
+    }
+}
+
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
+pub struct ReceiptBatchView {
+    pub batch: crate::laps::ReceiptBatch,
+}
+impl ReceiptBatchView {
+    pub fn decode(bytes: &[u8]) -> CodecResult<Self> {
+        Ok(Self {
+            batch: crate::laps::ReceiptBatch::decode(bytes)?,
+        })
+    }
+}
+
+pub struct ViewRequest<'a> {
+    pub envelope: codec::Envelope<'a>,
+    unsigned: &'a [u8],
+}
+impl ViewRequest<'_> {
+    pub fn request_digest(&self) -> CodecResult<RequestDigest> {
+        RequestDigest::new(codec::domain_hash("PAXAI/request/v1", self.unsigned)?.bytes())
+    }
+}
+#[cfg_attr(target_arch = "wasm32", inline(never))]
+fn validate_view_envelope(e: &codec::Envelope<'_>) -> CodecResult<()> {
+    if !(0x0b10..=0x0b13).contains(&e.operation.selector()) {
+        return Err(crate::errors::UNKNOWN_OPERATION);
+    }
+    e.operation.validate_payload_length(e.payload.len())?;
+    if e.authentication != crate::types::Authentication::Native
+        || e.epoch != 0
+        || e.config != 0
+        || e.roster != Presence::Absent
+        || e.sequence != 0
+        || e.expiry == 0
+    {
+        return Err(NON_CANONICAL);
+    }
+    let mut r = Reader::new(e.payload);
+    r.digest32()?;
+    if e.operation == dispatch::ReceiptBatchView {
+        r.digest32()?;
+    }
+    r.finish()
+}
+pub fn encode_view_envelope(e: &codec::Envelope<'_>, out: &mut [u8]) -> CodecResult<usize> {
+    validate_view_envelope(e)?;
+    codec::encode_envelope_fields(e, out)
+}
+pub fn decode_view_envelope(input: &[u8]) -> CodecResult<ViewRequest<'_>> {
+    let (envelope, unsigned) = codec::decode_envelope_fields(input, false)?;
+    validate_view_envelope(&envelope)?;
+    Ok(ViewRequest { envelope, unsigned })
+}
+
+#[cfg_attr(target_arch = "wasm32", inline(never))]
+pub fn answer_room_view(state_bytes: &[u8], payload: &[u8], out: &mut [u8]) -> CodecResult<usize> {
+    use crate::rooms::*;
+    let mut r = Reader::new(payload);
+    let id = r.digest32()?;
+    r.finish()?;
+    let shared = state::decode_shared_state(state_bytes)?;
+    let bytes = shared.room_market()?.1;
+    let book = RoomBook::decode(bytes)?;
+    let room = book.room(id)?.ok_or(crate::errors::F11_ROOM_UNKNOWN)?;
+    let counts = book.counts();
+    let mut r = Reader::new(bytes);
+    r.take(14 + *counts.guest_index(0) * ROOM_RECORD_BYTES)?;
+    let asks = r.take(*counts.guest_index(1) * ASK_RECORD_BYTES)?;
+    let bids = r.take(*counts.guest_index(2) * BID_RECORD_BYTES)?;
+    let deals = r.take(*counts.guest_index(3) * DEAL_RECORD_BYTES)?;
+    r.finish()?;
+    let mut consumed = [false; BID_CAPACITY];
+    for row in deals
+        .as_chunks::<{ DEAL_RECORD_BYTES }>()
+        .0
+        .iter()
+        .map(|chunk| chunk.as_slice())
+    {
+        for split in DealRecord::decode(row)?.layers.iter().flatten() {
+            let index = bids
+                .as_chunks::<{ BID_RECORD_BYTES }>()
+                .0
+                .iter()
+                .map(|chunk| chunk.as_slice())
+                .position(|b| b.guest_index(32..64) == split.bid_id.as_bytes())
+                .ok_or(NON_CANONICAL)?;
+            *consumed.guest_index_mut(index) = true;
+        }
+    }
+    let out = out.get_mut(..ROOM_VIEW_BYTES).ok_or(CAPACITY)?;
+    room.encode(out)?;
+    let mut w = Writer::new(out.guest_index_mut(ROOM_RECORD_BYTES..));
+    let mut count = 0;
+    for row in asks
+        .as_chunks::<{ ASK_RECORD_BYTES }>()
+        .0
+        .iter()
+        .map(|chunk| chunk.as_slice())
+    {
+        let ask = AskRecord::decode(row)?;
+        if room.state == RoomState::Open && ask.room_id == id && ask.state == AskState::Open {
+            w.put(ask.ask_id.as_bytes())?;
+            count += 1;
+        }
+    }
+    for _ in count..ASK_CAPACITY {
+        w.put(&[0; 32])?;
+    }
+    count = 0;
+    for (index, row) in bids
+        .as_chunks::<{ BID_RECORD_BYTES }>()
+        .0
+        .iter()
+        .map(|chunk| chunk.as_slice())
+        .enumerate()
+    {
+        let bid = BidRecord::decode(row)?;
+        if room.state == RoomState::Open && bid.room_id == id && !*consumed.guest_index(index) {
+            w.put(bid.bid_id.as_bytes())?;
+            count += 1;
+        }
+    }
+    for _ in count..BID_CAPACITY {
+        w.put(&[0; 32])?;
+    }
+    Ok(ROOM_VIEW_BYTES)
+}
+
+#[cfg_attr(target_arch = "wasm32", inline(never))]
+pub fn answer_deal_view(state_bytes: &[u8], payload: &[u8], out: &mut [u8]) -> CodecResult<usize> {
+    let mut r = Reader::new(payload);
+    let id = r.digest32()?;
+    r.finish()?;
+    let shared = state::decode_shared_state(state_bytes)?;
+    let deal = crate::rooms::RoomBook::decode(shared.room_market()?.1)?
+        .deal(id)?
+        .ok_or(crate::errors::F11_ROOM_UNKNOWN)?;
+    let settlement = crate::laps::settlement_from_state(state_bytes, id)?;
+    let out = out.get_mut(..DEAL_VIEW_BYTES).ok_or(CAPACITY)?;
+    let n = deal.encode(out)?;
+    let mut w = Writer::new(out.guest_index_mut(n..));
+    w.u64(settlement.map_or(0, |s| s.meter_reading()))?;
+    w.u128(settlement.map_or(0, |s| s.settled_amount_owed))?;
+    Ok(DEAL_VIEW_BYTES)
+}
+
+#[cfg_attr(target_arch = "wasm32", inline(never))]
+pub fn answer_peer_view(state_bytes: &[u8], payload: &[u8], out: &mut [u8]) -> CodecResult<usize> {
+    let mut r = Reader::new(payload);
+    let key = r.principal_id()?;
+    r.finish()?;
+    let shared = state::decode_shared_state(state_bytes)?;
+    let workers = worker_table(&shared)?;
+    let worker = workers
+        .iter()
+        .find(|w| w.owner == key)
+        .ok_or(crate::errors::F11_ROOM_UNKNOWN)?;
+    let table = crate::admission::AdmissionTable::decode(
+        crate::reputation_transition::split_joint(shared.section(Section::ReputationAdmission)?)?.1,
+    )?;
+    let enrolled = table
+        .get(crate::admission::Participant::Worker(worker.worker))
+        .is_some_and(|m| m.admitted() && !m.revoked())
+        && matches!(
+            worker.state,
+            WorkerState::Enrolled | WorkerState::Available | WorkerState::Draining
+        );
+    let mut faults = 0u32;
+    for record in crate::canary::CanaryRegion::decode(shared.control.feature_bytes)?.records() {
+        let record = record?;
+        if record.task.peer == worker.worker && record.peer_at_fault() {
+            faults = faults.checked_add(1).ok_or(ARITHMETIC)?;
+        }
+    }
+    let mut w = Writer::new(out.get_mut(..PEER_VIEW_BYTES).ok_or(CAPACITY)?);
+    crate::codec::write_fields!(w;
+        id32: worker.owner.as_bytes();
+        id32: worker.worker.as_bytes();
+        put: &worker.delegate.0;
+        id32: worker.metadata.as_bytes();
+    )?;
+    for value in [
+        worker.generation,
+        worker.key_version,
+        worker.metadata_revision,
+        worker.valid_from,
+        worker.expiry,
+    ] {
+        w.u64(value)?;
+    }
+    crate::codec::write_fields!(w;
+        u8: worker.state as u8;
+        u8: u8::from(enrolled);
+        u8: Availability::ContentUnavailable as u8;
+    )?;
+    w.put(&[0; crate::workers::CapabilityFields::ENCODED_BYTES])?;
+    w.u8(Availability::NotEnabled as u8)?;
+    w.u32(faults)?;
+    Ok(w.len())
+}
+
+#[cfg_attr(target_arch = "wasm32", inline(never))]
+pub fn answer_receipt_batch_view(
+    state_bytes: &[u8],
+    payload: &[u8],
+    out: &mut [u8],
+) -> CodecResult<usize> {
+    let mut r = Reader::new(payload);
+    let deal = r.digest32()?;
+    let digest = r.digest32()?;
+    r.finish()?;
+    let record = crate::laps::settlement_from_state(state_bytes, deal)?
+        .filter(|s| s.batch.batch_digest == digest)
+        .ok_or(crate::errors::F11_ROOM_UNKNOWN)?;
+    out.get_mut(..RECEIPT_BATCH_VIEW_BYTES)
+        .ok_or(CAPACITY)?
+        .guest_copy_from_slice(&record.batch.encode()?);
+    Ok(RECEIPT_BATCH_VIEW_BYTES)
 }
 
 /// Off-chain view failures keep their own names, separate from on-chain application codes.
@@ -234,6 +614,7 @@ impl<'a> StateCapture<'a> {
         self.failed = outcome.is_err();
         outcome
     }
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     fn append(&mut self, proof: &ReadProof, body: &[u8]) -> QueryResult<()> {
         let chunk = codec::decode_chunk_response(body)?;
         let total = usize::try_from(chunk.total_bytes).map_err(|_| ARITHMETIC)?;
@@ -264,7 +645,7 @@ impl<'a> StateCapture<'a> {
         self.buffer
             .get_mut(offset..end)
             .ok_or(CAPACITY)?
-            .copy_from_slice(chunk.bytes);
+            .guest_copy_from_slice(chunk.bytes);
         self.next_offset = end;
         self.facts = Some(CaptureFacts {
             chunks: facts.chunks + 1,
@@ -276,6 +657,7 @@ impl<'a> StateCapture<'a> {
     ///
     /// # Errors
     /// `IntegrityFailure` for a failed, empty or incomplete capture or a digest mismatch.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn finish(self) -> QueryResult<(&'a [u8], CaptureFacts)> {
         let facts = self
             .facts
@@ -336,6 +718,7 @@ pub struct SnapshotBinding {
 /// `BindingMismatch` when the evidence names another root or the state differs from the
 /// capture size/count, `NON_CANONICAL` for a zero block or app hash or a rank above
 /// finalized, and header refusals of [`read_header`]. Evidence rank is preserved.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn bind_snapshot(
     state_bytes: &[u8],
     facts: &CaptureFacts,
@@ -429,6 +812,7 @@ impl SnapshotBinding {
     ///
     /// # Errors
     /// Binding refusals or `BindingMismatch` if any saved content field differs.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn verify_capture(&self, state: &[u8], facts: &CaptureFacts) -> QueryResult<()> {
         let evidence = FinalityEvidence {
             native_state_root: self.native_state_root,
@@ -463,16 +847,18 @@ impl SnapshotBinding {
 
     #[cfg_attr(target_arch = "wasm32", inline(never))]
     fn write_prefix(&self, w: &mut Writer<'_>) -> CodecResult<()> {
-        w.u16(SCHEMA_VERSION)?;
-        w.put(self.chain.as_bytes())?;
-        w.put(self.program.as_bytes())?;
-        w.put(self.market.as_bytes())?;
-        w.u64(self.observed_sequence)?;
-        w.u64(self.execution_height)?;
-        w.put(self.batch_id.as_bytes())?;
-        w.put(self.native_state_root.as_bytes())?;
-        w.u64(self.revision)?;
-        w.put(self.state_digest.as_bytes())?;
+        crate::codec::write_fields!(w;
+            u16: SCHEMA_VERSION;
+            id32: self.chain.as_bytes();
+            id32: self.program.as_bytes();
+            id32: self.market.as_bytes();
+            u64: self.observed_sequence;
+            u64: self.execution_height;
+            id32: self.batch_id.as_bytes();
+            id32: self.native_state_root.as_bytes();
+            u64: self.revision;
+            id32: self.state_digest.as_bytes();
+        )?;
         w.presence(&self.epoch, |w, e| w.u64(*e))?;
         w.u64(self.config.get())?;
         w.put(self.policy.as_bytes())?;
@@ -489,12 +875,14 @@ impl SnapshotBinding {
         }
         let mut w = Writer::new(out);
         self.write_prefix(&mut w)?;
-        w.u64(self.block_height)?;
-        w.put(self.block_hash.as_bytes())?;
-        w.put(self.app_hash.as_bytes())?;
-        w.put(self.store_proof_digest.as_bytes())?;
-        w.u8(self.rank)?;
-        w.u64(self.publication_time_ms)?;
+        crate::codec::write_fields!(w;
+            u64: self.block_height;
+            id32: self.block_hash.as_bytes();
+            id32: self.app_hash.as_bytes();
+            id32: self.store_proof_digest.as_bytes();
+            u8: self.rank;
+            u64: self.publication_time_ms;
+        )?;
         w.put(&[0; 8])?;
         Ok(w.len())
     }
@@ -538,6 +926,7 @@ pub enum Availability {
 
 /// Availability of content actually decoded from the exact capture, in F01..F11 order.
 /// Unknown codec versions and malformed content remain explicit to consumers.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn feature_availability(state_bytes: &[u8]) -> CodecResult<[Availability; 11]> {
     fn decoded<T>(bytes: &[u8], decode: impl FnOnce() -> CodecResult<T>) -> Availability {
         if bytes.is_empty() {
@@ -552,16 +941,16 @@ pub fn feature_availability(state_bytes: &[u8]) -> CodecResult<[Availability; 11
     let shared = state::decode_shared_state(state_bytes)?;
     let mut out = [Availability::NotYetProduced; 11];
     let policy = shared.section(Section::PolicyLifecycle)?;
-    out[0] = decoded(policy, || policy_of(&shared));
-    out[10] = match out[0] {
+    *out.guest_index_mut(0) = decoded(policy, || policy_of(&shared));
+    *out.guest_index_mut(10) = match *out.guest_index(0) {
         Availability::Available => Availability::NotEnabled,
         availability => availability,
     };
-    out[1] = decoded(shared.section(Section::IdentityRoster)?, || {
+    *out.guest_index_mut(1) = decoded(shared.section(Section::IdentityRoster)?, || {
         worker_table(&shared)
     });
     let identity = split_identity_section(shared.section(Section::IdentityRoster)?);
-    out[2] = match identity {
+    *out.guest_index_mut(2) = match identity {
         Ok((_, bytes)) => decoded(bytes, || {
             crate::evaluators::authority::EvaluatorRegion::decode(bytes)
         }),
@@ -571,7 +960,7 @@ pub fn feature_availability(state_bytes: &[u8]) -> CodecResult<[Availability; 11
     let reports = crate::evaluators::admission::ReportRegion::decode(
         shared.section(Section::CurrentReports)?,
     );
-    out[3] = match reports {
+    *out.guest_index_mut(3) = match reports {
         Ok(reports) => decoded(reports.rest(), || {
             crate::commit_reveal::CommitRegion::decode(reports.rest())
         }),
@@ -580,41 +969,43 @@ pub fn feature_availability(state_bytes: &[u8]) -> CodecResult<[Availability; 11
     };
     let settlement = shared.section(Section::SettlementClaims)?;
     if !settlement.is_empty() {
-        out[5] = decoded(settlement, || {
+        *out.guest_index_mut(5) = decoded(settlement, || {
             settlement
                 .get(..crate::rewards::REWARD_STATE_BYTES)
                 .ok_or(NON_CANONICAL)
                 .and_then(crate::rewards::decode_reward_state)
         });
         if settlement.len() > crate::rewards::REWARD_STATE_BYTES {
-            out[4] = decoded(&settlement[crate::rewards::REWARD_STATE_BYTES..], || {
-                crate::aggregation::progress(state_bytes)
-            });
+            *out.guest_index_mut(4) = decoded(
+                settlement.guest_index(crate::rewards::REWARD_STATE_BYTES..),
+                || crate::aggregation::progress(state_bytes),
+            );
         }
     }
     match crate::reputation_transition::split_joint(shared.section(Section::ReputationAdmission)?) {
         Ok((region, table)) => {
-            out[6] = if region.is_some() {
+            *out.guest_index_mut(6) = if region.is_some() {
                 Availability::Available
             } else {
                 Availability::NotYetProduced
             };
-            out[7] = decoded(table, || crate::admission::AdmissionTable::decode(table));
+            *out.guest_index_mut(7) =
+                decoded(table, || crate::admission::AdmissionTable::decode(table));
         }
         Err(BAD_VERSION) => {
-            out[6] = Availability::UnsupportedVersion;
-            out[7] = Availability::ContentUnavailable;
+            *out.guest_index_mut(6) = Availability::UnsupportedVersion;
+            *out.guest_index_mut(7) = Availability::ContentUnavailable;
         }
         Err(_) => {
-            out[6] = Availability::ContentUnavailable;
-            out[7] = Availability::ContentUnavailable;
+            *out.guest_index_mut(6) = Availability::ContentUnavailable;
+            *out.guest_index_mut(7) = Availability::ContentUnavailable;
         }
     }
-    out[8] = decoded(shared.control.feature_bytes, || {
+    *out.guest_index_mut(8) = decoded(shared.control.feature_bytes, || {
         crate::evidence::SealRegion::decode(shared.control.feature_bytes)
     });
     if !policy.is_empty() {
-        out[9] = Availability::Available;
+        *out.guest_index_mut(9) = Availability::Available;
     }
     Ok(out)
 }
@@ -769,12 +1160,14 @@ impl ParticipantRow {
     /// `CAPACITY` when the writer is full.
     #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn encode(&self, w: &mut Writer<'_>) -> CodecResult<()> {
-        w.u8(self.kind as u8)?;
-        w.put(&self.id)?;
-        w.put(self.owner.as_bytes())?;
-        w.u64(self.generation)?;
-        w.u8(self.identity_state)?;
-        w.boolean(self.frozen_member)?;
+        crate::codec::write_fields!(w;
+            u8: self.kind as u8;
+            put: &self.id;
+            id32: self.owner.as_bytes();
+            u64: self.generation;
+            u8: self.identity_state;
+            u8: u8::from(self.frozen_member);
+        )?;
         w.presence(&self.frozen_generation, |w, g| w.u64(*g))?;
         w.u8(self.eligibility)?;
         w.presence(&self.metadata, |w, m| w.put(m.as_bytes()))?;
@@ -796,6 +1189,7 @@ impl ParticipantRow {
 
 /// Complete projection from the captured F02/F03/F05/F06/F07/F08 producers.
 /// An optional transported roster must bind exactly to the persisted opening.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn participant_rows(
     state_bytes: &[u8],
     supplied: Option<&RosterView<'_>>,
@@ -838,7 +1232,7 @@ pub fn participant_rows(
     };
     let total = workers.len() + evaluators.len();
     let slots = out.get_mut(..total).ok_or(CAPACITY)?;
-    let (worker_slots, evaluator_slots) = slots.split_at_mut(workers.len());
+    let (worker_slots, evaluator_slots) = slots.guest_split_at_mut(workers.len());
     for (slot, record) in worker_slots.iter_mut().zip(workers.iter()) {
         let frozen = opened
             .as_ref()
@@ -951,6 +1345,7 @@ pub fn participant_rows(
 
 /// The indexer's complete projection, pinned to the transported captured binding.
 /// Used both when observing content and when serving a reopened persisted capture.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn project_capture(
     state_bytes: &[u8],
     binding: &SnapshotBinding,
@@ -1022,8 +1417,13 @@ fn hex_decode(text: &[u8], out: &mut [u8]) -> CodecResult<()> {
     if text.len() != out.len() * 2 {
         return Err(NON_CANONICAL);
     }
-    for (o, pair) in out.iter_mut().zip(text.chunks_exact(2)) {
-        *o = (nibble(pair[0])? << 4) | nibble(pair[1])?;
+    for (o, pair) in out.iter_mut().zip(
+        text.as_chunks::<{ 2 }>()
+            .0
+            .iter()
+            .map(|chunk| chunk.as_slice()),
+    ) {
+        *o = (nibble(*pair.guest_index(0))? << 4) | nibble(*pair.guest_index(1))?;
     }
     Ok(())
 }
@@ -1059,6 +1459,7 @@ pub struct CursorScope {
     pub filter: KindFilter,
     pub active_only: bool,
 }
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 fn hmac(secret: &[u8; 32], payload: &[u8]) -> [u8; 32] {
     let mut ipad = [0x36u8; 64];
     let mut opad = [0x5cu8; 64];
@@ -1075,6 +1476,7 @@ fn hmac(secret: &[u8; 32], payload: &[u8]) -> [u8; 32] {
     outer.update(&inner);
     outer.finalize().into()
 }
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 fn cursor_payload(
     key: &CursorKey<'_>,
     scope: &CursorScope,
@@ -1087,14 +1489,16 @@ fn cursor_payload(
     )?;
     let mut p = [0u8; CURSOR_PAYLOAD_BYTES];
     let mut w = Writer::new(&mut p);
-    w.u16(SCHEMA_VERSION)?;
-    w.put(scope.visibility.as_bytes())?;
-    w.put(scope.market.as_bytes())?;
-    w.put(scope.snapshot.as_bytes())?;
-    w.put(filter.as_bytes())?;
-    w.u16(next_ordinal)?;
-    w.u64(expiry_ms)?;
-    w.u32(key.generation)?;
+    crate::codec::write_fields!(w;
+        u16: SCHEMA_VERSION;
+        id32: scope.visibility.as_bytes();
+        id32: scope.market.as_bytes();
+        id32: scope.snapshot.as_bytes();
+        id32: filter.as_bytes();
+        u16: next_ordinal;
+        u64: expiry_ms;
+        u32: key.generation;
+    )?;
     Ok(p)
 }
 
@@ -1112,9 +1516,15 @@ pub fn issue_cursor<'o>(
     let expiry = now_ms.checked_add(CURSOR_LIFETIME_MS).ok_or(ARITHMETIC)?;
     let payload = cursor_payload(key, scope, next_ordinal, expiry)?;
     let tag = hmac(key.secret, &payload);
-    for (pair, b) in out.chunks_exact_mut(2).zip(payload.iter().chain(&tag)) {
-        pair[0] = HEX[usize::from(b >> 4)];
-        pair[1] = HEX[usize::from(b & 15)];
+    for (pair, b) in out
+        .as_chunks_mut::<{ 2 }>()
+        .0
+        .iter_mut()
+        .map(|chunk| chunk.as_mut_slice())
+        .zip(payload.iter().chain(&tag))
+    {
+        *pair.guest_index_mut(0) = *HEX.guest_index(usize::from(b >> 4));
+        *pair.guest_index_mut(1) = *HEX.guest_index(usize::from(b & 15));
     }
     core::str::from_utf8(out).map_err(|_| NON_CANONICAL)
 }
@@ -1125,6 +1535,7 @@ pub fn issue_cursor<'o>(
 /// `NON_CANONICAL` for a token that is not exactly one canonical cursor encoding,
 /// `CursorMismatch` for a bad tag, another scope/key generation or an ordinal outside the
 /// rows, `CursorExpired` at or after its expiry.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn open_cursor(
     key: &CursorKey<'_>,
     scope: &CursorScope,
@@ -1134,7 +1545,7 @@ pub fn open_cursor(
 ) -> QueryResult<u16> {
     let mut raw = [0u8; CURSOR_PAYLOAD_BYTES + CURSOR_TAG_BYTES];
     hex_decode(token.as_bytes(), &mut raw)?;
-    let (payload, tag) = raw.split_at(CURSOR_PAYLOAD_BYTES);
+    let (payload, tag) = raw.guest_split_at(CURSOR_PAYLOAD_BYTES);
     let expected = hmac(key.secret, payload);
     if expected.iter().zip(tag).fold(0u8, |a, (x, y)| a | (x ^ y)) != 0 {
         return Err(QueryError::CursorMismatch);
@@ -1145,7 +1556,7 @@ pub fn open_cursor(
     let expiry = r.u64()?;
     r.u32()?;
     r.finish()?;
-    if payload[..] != cursor_payload(key, scope, next, expiry)?[..] {
+    if *payload.guest_index(..) != *(cursor_payload(key, scope, next, expiry)?).guest_index(..) {
         return Err(QueryError::CursorMismatch);
     }
     if expiry <= now_ms {
@@ -1162,6 +1573,7 @@ pub fn open_cursor(
 ///
 /// # Errors
 /// `NON_CANONICAL` for a limit outside 1..=32 or rows not strictly in kind-then-ID order.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn select_page(
     rows: &[ParticipantRow],
     filter: KindFilter,
@@ -1173,10 +1585,9 @@ pub fn select_page(
     if limit == 0 || usize::from(limit) > PAGE_MAX_ROWS {
         return Err(NON_CANONICAL);
     }
-    if rows
-        .windows(2)
-        .any(|p| (p[0].kind, p[0].id) >= (p[1].kind, p[1].id))
-    {
+    if rows.windows(2).any(|p| {
+        (p.guest_index(0).kind, p.guest_index(0).id) >= (p.guest_index(1).kind, p.guest_index(1).id)
+    }) {
         return Err(NON_CANONICAL);
     }
     let mut written = 0usize;

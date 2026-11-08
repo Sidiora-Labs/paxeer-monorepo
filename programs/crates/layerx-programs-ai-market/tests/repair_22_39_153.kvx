@@ -1,0 +1,42 @@
+[repair]
+task = "22.39.153"
+acceptance = "22998.1"
+decision = "2888"
+gotcha = "3585"
+base_revision = "79b47a737349e1796cd52c212508b021c49b1c2d"
+test = "programs/crates/layerx-programs-ai-market/tests/f11_rooms_and_deals.rs::all_room_ask_and_bid_capacities_fit_together_in_the_shared_state_budget"
+baseline = "The supplied gotcha records the sixty-fifth bid failing with CAPACITY when all rooms use digest(50); no baseline gate is rerun. No previous gate ledger or in-scope edits existed at inspection."
+
+[assertion.room_opening]
+change = "Retain Applied assertions through Harness::apply for all sixteen OpenRoom operations, using an OpenRoomRequest variant of open_request: rooms 100 through 107 carry digest(50), rooms 108 through 115 carry digest(52)."
+producer = "programs/crates/layerx-programs-ai-market/src/rooms.rs:841-857 reads the request model into RoomRecord and writes it into the bounded room table."
+
+[assertion.first_model_fill]
+change = "Replace the impossible 128 Applied PostBid assertions for one model with 64 Applied assertions for room digest(100); assert counts [16, 64, 64, 0] and that the aggregate bid count is below BID_CAPACITY."
+producer = "programs/crates/layerx-programs-ai-market/src/placement.rs:14 defines SIDE_CAPACITY as 64; :165-179 inserts unconsumed open bids only for the room's model; src/rooms.rs:21 defines BID_CAPACITY as 128 and :907 writes the bid table."
+
+[assertion.model_refusal]
+change = "Assert PostBid for bid digest(65) in room digest(100) refuses with CAPACITY while aggregate space remains; Harness::refuse also asserts Refused routing and unchanged committed state."
+producer = "programs/crates/layerx-programs-ai-market/src/placement.rs:90-91 refuses insertion after SIDE_CAPACITY entries; :399-407 validates the resulting model book after rooms::apply."
+
+[assertion.second_model_fill]
+change = "Assert the remaining 64 PostBid operations apply in room digest(108) under digest(52), using distinct bid ids 65 through 128."
+producer = "programs/crates/layerx-programs-ai-market/src/placement.rs:167-170 selects bids by room model, giving digest(52) its own side capacity; src/rooms.rs:592-597 admits aggregate counts up to BID_CAPACITY."
+
+[assertion.aggregate_refusal]
+change = "Extend the existing aggregate PostBid refusal for bid digest(129) to both room digest(100) and room digest(108); each must refuse CAPACITY and preserve committed state."
+producer = "programs/crates/layerx-programs-ai-market/src/rooms.rs:907 invokes RoomBook::write for the bid table; :592-597 refuses the 129th bid against CAPS[2], defined at :486 from BID_CAPACITY (:21). This refusal occurs before placement.rs:407."
+
+[preserved]
+assertions = "The ask fill and refusal, room overflow refusal, final counts [16, 64, 128, 0], state size <= 196608, legacy section, row lookups and malformed-book refusal remain unchanged. Every other test case and all production sources remain unchanged."
+
+[qualification]
+build = "hf-build"
+build_command = "cargo build --locked --manifest-path programs/Cargo.toml -p layerx-programs-ai-market --tests"
+verify = "hf-done"
+done_command = "cg spec done 22.39.153 -f layerx-merge --root /work/paxeer-monorepo"
+verify_command = "test -s programs/crates/layerx-programs-ai-market/tests/repair_22_39_153.kvx && cargo test --locked --manifest-path programs/Cargo.toml -p layerx-programs-ai-market --test f11_rooms_and_deals --test f11_placement_book"
+private_ledger = "/out/run/gates.jsonl"
+private_build_log = "/out/logs/build-1.log"
+private_verify_log = "/out/logs/verify-1.log"
+revision_reference = "The executed build and verify rows in /out/run/gates.jsonl record the exact candidate revision, command, exit code and private log; their revisions must match. Final numbered rows supersede earlier runs if a bounded repair is needed. This reference records evidence without changing the candidate after its build; only executed rows establish qualification."

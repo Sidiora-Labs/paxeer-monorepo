@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { secp256k1 } from "@noble/curves/secp256k1.js";
 import { readFileSync } from "node:fs";
-import { keccak256 } from "@sidiora/layerx-sdk";
+import { verifySequencerReceipt } from "@sidiora/layerx-sdk";
 import { decodePaymentExactLog } from "../../seller/dist/index.js";
 
 export const bytes = (value) => Uint8Array.from(Buffer.from(value.replace(/^0x/u, ""), "hex"));
@@ -12,10 +12,11 @@ export const exact = vectors.cases.find((entry) => entry.id === "V1-layerxledger
 export const pinsFor = (vector) => [{ keyId: bytes(vector.pinnedKey.keyId), publicKey: bytes(vector.pinnedKey.publicKey),
   first_height: BigInt(vector.pinnedKey.firstHeight), last_height: BigInt(vector.pinnedKey.lastHeight) }];
 export const keys = pinsFor(exact);
+const verified = await verifySequencerReceipt(bytes(exact.signedReceipt), bytes(exact.rawTransaction), keys);
 export const proof = {
   format: "layerx-receipt-proof-v2", verificationLevel: "receipted",
   rawTransaction: exact.rawTransaction, signedReceipt: exact.signedReceipt,
-  receiptDigest: hex(keccak256(bytes(exact.signedReceipt))),
+  receiptDigest: hex(verified.receiptDigest),
   receiptKey: { keyId: exact.pinnedKey.keyId, publicKey: exact.pinnedKey.publicKey,
     firstHeight: `0x${keys[0].first_height.toString(16)}`, lastHeight: `0x${keys[0].last_height.toString(16)}` },
 };
