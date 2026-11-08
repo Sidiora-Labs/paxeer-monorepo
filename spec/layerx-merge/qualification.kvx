@@ -36050,3 +36050,11 @@ symbol = "prepare.rs"
 observed = "Attempt 2 at 95fa8138cbb6 (build revision 5186826b1866): build exit 0 without repair; the cross-root dependents check exit 101 at two test targets outside the crate (the SDK test repair_22_31_547 and the human intents compile test import the removed core preparation names); the verification never ran; logs /out/logs/build-1.log and /out/logs/dependents-1.log."
 assumption = "The in-crate migration is complete; only the two out-of-crate test targets stand between the attempt and its verification."
 severity = "high"
+
+[finding.9.35.24.3]
+task = "9.35.24"
+file = "services/agent/crates/layerx-agentd/tests/prepare.rs"
+symbol = "prepare.rs"
+observed = "Attempt 3 at 622839667701 (build revision 63965127afc7): build exit 0 without repair; the cross-root dependents check exit 101 at the human service test target session_keys (the removed core preparation names); the verification never ran; logs /out/logs/build-1.log and /out/logs/dependents-1.log."
+assumption = "The seven human service journey tests are the last consumers of the removed names outside the crate; the production sources of the human service already follow the EVM path."
+severity = "high"
