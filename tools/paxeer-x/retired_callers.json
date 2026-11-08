@@ -272,11 +272,13 @@
         "lni_"
       ],
       "deleted_trees": [
-        "services/agent/crates/layerx-client/src/lni",
         "services/agent/include/layerx_lni_abi.h",
         "cmd/layerxd/lxp_daemon_lni.c",
         "cmd/layerxd"
       ],
+      "retiring_trees": {
+        "services/agent/crates/layerx-client/src/lni": "9.24.7"
+      },
       "replacement": "Submit writes with eth_sendRawTransaction directly to the public node root JSON-RPC on the one Paxeer network (chain ID 125); read precompile views with eth_call or gRPC queries pinned to a committed block height. Block commitment is final."
     },
     "paxeer-verifier": {
