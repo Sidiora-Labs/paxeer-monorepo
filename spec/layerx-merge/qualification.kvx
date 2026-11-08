@@ -36162,3 +36162,11 @@ symbol = "test_launchpad_go_tests_wired.py"
 observed = "Attempt 13 at 6fd12004277d (base c92013249283): build exit 0 twice; first verification exit 2 with the protocol bindings package timed out at ten minutes during the cold overlay proof; second verification exit 2 with every module green except services/launchpad/user/internal/app, two cases failing; log /out/logs/verify-2.log."
 assumption = "The launchpad target is green apart from two user profile cases whose producers landed on 2026-11-04; the baseline procedure of the task covers them."
 severity = "high"
+
+[finding.9.35.7.2]
+task = "9.35.7"
+file = "services/agent/crates/layerx-crypto/tests/signer.rs::keystore_signer_refuses_activity_preimages_and_signs_the_bind_message"
+symbol = "signer.rs::keystore_signer_refuses_activity_preimages_and_signs_the_bind_message"
+observed = "Attempt 5 at d6ead3a72927 (base dd4addbf677b): build exit 101 twice, the first with decode_session_key out of scope in the call module, the second with the library compiling and every test target failing on unresolved imports of the retired items in tests/support/signing.rs, tests/support/mod.rs and tests/repair_22_33_1560.rs; the verification never ran; log /out/logs/build-2.log."
+assumption = "The deletion of attempt 5 is exact; only the unlisted test consumers, the lost import and the census exclusion block the task."
+severity = "high"
