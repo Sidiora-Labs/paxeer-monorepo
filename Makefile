@@ -2507,7 +2507,7 @@ PAXEER_FORWARDED_TARGETS := autobahn-integration-test build-docker-node \
 	docker-cluster-start-ci docker-cluster-start-giga-mixed \
 	docker-cluster-start-monitoring docker-cluster-start-skipbuild \
 	docker-cluster-stop docker-cluster-stop-monitoring \
-	ensure-integration-ci-images giga-integration-test \
+	ensure-integration-ci-images evmone-lib giga-integration-test \
 	giga-mixed-integration-test install install-bench install-mock-balances \
 	install-rocksdb install-with-race-detector kill-pax-node kill-rpc-node \
 	lint loadtest rocksdb-source-check run-local-node run-rpc-node \
@@ -2524,7 +2524,7 @@ paxeer-build:
 	GOPROXY=off $(PAXEER_MAKE) build
 
 .PHONY: paxd-native-libs paxd-build test-lxphost test-paxd-domain paxd-version-check
-paxd-native-libs: $(LIBRARY) programs-release-build
+paxd-native-libs: $(LIBRARY) programs-release-build evmone-lib
 
 paxd-build: paxd-native-libs
 	version=$$(jq -er .version tools/release/version.json) && \

@@ -4,8 +4,9 @@ from pathlib import Path
 def test_gateway_local_harness_ships_no_kernel_helper():
     hosted = Path(__file__).resolve().parents[1]
     local = hosted / "gateway" / "tests" / "local"
-    assert local.is_dir(), "Gateway local harness must exist"
-    assert (local / "registry_image.py").is_file(), "Registry image helper must remain"
+    assert not local.exists(), "Retired gateway local harness remains"
+    assert not local.is_symlink(), "Retired gateway local harness symlink remains"
+    assert (hosted / "gateway/tests/router_surface.rs").is_file()
 
     retired_names = tuple(
         stem + ".py"
