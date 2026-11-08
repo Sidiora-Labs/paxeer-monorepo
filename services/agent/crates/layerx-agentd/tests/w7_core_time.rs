@@ -14,7 +14,7 @@ use layerx_agentd::identity::{
     register, CoreIdentity, IdentityError, IdentityResolver, ProtocolAuthority,
 };
 use layerx_agentd::prepare::{
-    expire, prepare_bound, retention_sweep, verify_call_binding, EvmPreparationDefaults,
+    expire_elapsed, prepare_bound, sweep_retention, verify_call_binding, EvmPreparationDefaults,
     EvmPreparationState, EvmPrepareRequest, EvmPrepared, LifecycleError, LifecycleState,
     PrecompileCall, PreparationLifecycle,
 };
@@ -469,13 +469,13 @@ fn external_submission_checks_time_before_mutation_and_keeps_sequences_as_sequen
     );
 
     let early = text(
-        retention_sweep(&harness.lifecycle, OBSERVED_HEAD_SEQUENCE + 6, 5),
+        sweep_retention(&harness.lifecycle, OBSERVED_HEAD_SEQUENCE + 6, 5),
         "early sweep",
     );
     assert_eq!(early.discarded_terminal_signed_bytes, 0);
     assert_eq!(harness.lifecycle.has_signed_bytes([5; 32]), Ok(true));
     let due = text(
-        retention_sweep(&harness.lifecycle, OBSERVED_HEAD_SEQUENCE + 7, 5),
+        sweep_retention(&harness.lifecycle, OBSERVED_HEAD_SEQUENCE + 7, 5),
         "due sweep",
     );
     assert_eq!(due.discarded_terminal_signed_bytes, 1);
@@ -514,7 +514,7 @@ fn expiry_sweep_decides_on_milliseconds_and_records_only_sequences() {
     );
 
     let unexpired = text(
-        expire(&lifecycle, &limiter, NOT_AFTER_MS, CURRENT_SEQUENCE),
+        expire_elapsed(&lifecycle, &limiter, NOT_AFTER_MS, CURRENT_SEQUENCE),
         "equality sweep",
     );
     assert!(unexpired.expired_preparations.is_empty());
@@ -523,7 +523,7 @@ fn expiry_sweep_decides_on_milliseconds_and_records_only_sequences() {
     assert_eq!(limiter.held_reservations(), Ok(1));
 
     let expired = text(
-        expire(&lifecycle, &limiter, NOT_AFTER_MS + 1, CURRENT_SEQUENCE),
+        expire_elapsed(&lifecycle, &limiter, NOT_AFTER_MS + 1, CURRENT_SEQUENCE),
         "elapsed sweep",
     );
     assert_eq!(expired.expired_preparations, vec![[6; 32]]);
@@ -532,13 +532,13 @@ fn expiry_sweep_decides_on_milliseconds_and_records_only_sequences() {
     assert_eq!(lifecycle.state([6; 32]), Ok(LifecycleState::Expired));
 
     let early = text(
-        retention_sweep(&lifecycle, CURRENT_SEQUENCE + 4, 5),
+        sweep_retention(&lifecycle, CURRENT_SEQUENCE + 4, 5),
         "early sweep",
     );
     assert_eq!(early.discarded_terminal_signed_bytes, 0);
     assert_eq!(lifecycle.has_signed_bytes([6; 32]), Ok(true));
     let due = text(
-        retention_sweep(&lifecycle, CURRENT_SEQUENCE + 5, 5),
+        sweep_retention(&lifecycle, CURRENT_SEQUENCE + 5, 5),
         "due sweep",
     );
     assert_eq!(due.discarded_terminal_signed_bytes, 1);

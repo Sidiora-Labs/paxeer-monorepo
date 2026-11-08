@@ -201,19 +201,20 @@ def test_finding_22_release_script_syntax_guards_and_merged_artifacts():
     assert parsed.returncode == 0, parsed.stderr
     script = RELEASE_SCRIPT.read_text(encoding="utf-8")
     legacy_guard = re.search(
-        r'^if \[ "\$\{PAXD_RELEASE_LAYERXD:-0\}" != 0 \]; then\n(.*?)\nfi',
+        r'^  if \[ "\$\{PAXD_RELEASE_LAYERXD:-0\}" != 0 \]; then\n(.*?)\n  fi',
         script, re.M | re.S,
     )
-    assert legacy_guard and "exit 2" in legacy_guard[1]
+    assert legacy_guard and "return 2" in legacy_guard[1]
     assert "is retired; release the merged paxd package" in legacy_guard[1]
-    assert script.index(legacy_guard[0]) < script.index("have_go=$(go env GOVERSION)")
-    assert script.index(legacy_guard[0]) < script.index('rm -rf -- "$out"')
+    assert script.index("\nrelease_assets\n") < script.index("have_go=$(go env GOVERSION)")
+    assert script.index("\nrelease_assets\n") < script.index('rm -rf -- "$out"')
     assert not re.search(r"\blayerxd\b", script)
     for fact in (
         "version=$(jq -er '.version' tools/release/version.json)",
         'tag="paxeer-network/$version"', 'out=${PAXD_DIST_DIR:-$root/dist/$tag}',
         'export GOTOOLCHAIN=local', 'if [ "$have_go" != "$want_go" ]; then',
-        'rust_pin\ncc_pin', 'export CGO_ENABLED=1 CC=gcc CXX=g++',
+        'rust_pin\ncc_pin', 'export CGO_ENABLED=1', 'export CC CXX',
+        'CC=$(type -P -- "${CC:-gcc}")', 'CXX=$(type -P -- "${CXX:-g++}")',
         'export GOFLAGS="-mod=readonly"', 'export LC_ALL=C TZ=UTC',
         'native_libs=(build/liblayerx.a programs/target/release/liblayerx_programs_sandbox.a)',
         'paxd-native-libs', 'sha256sum "${native_libs[@]}" > "$out/native-libs.sha256"',
@@ -229,11 +230,12 @@ def test_finding_22_release_script_syntax_guards_and_merged_artifacts():
         assert fact in script
     manifest = json.loads(read("tools/release/version.json"))
     assert set(manifest) == {"version", "upgrade"}
-    for value in manifest.values():
-        assert re.fullmatch(r"v\d+\.\d+\.\d+", value)
+    assert manifest == {"version": "v7.0.0", "upgrade": "v7.0"}
+    assert re.fullmatch(r"v\d+\.\d+\.\d+", manifest["version"])
+    assert 'const MergeUpgrade = "v7.0"' in read("precompiles/common/precompiles.go")
     guide = read("RELEASE.md")
     for key, value in manifest.items():
-        assert f"`{key}`" in guide and f"`{value}`" in guide
+        assert f"`{key}`" in guide and f"`{key} = {value}`" in guide
     for name in ("libwasmvm.x86_64.so", "libwasmvm152.x86_64.so", "libwasmvm155.x86_64.so"):
         assert name in script and name in guide
 
@@ -242,7 +244,7 @@ def test_finding_22_guide_matches_builder_verification_and_recovery():
     guide = read("RELEASE.md")
     for fact in (
         "`PAXD_DIST_DIR`", "`PAXD_COMMIT`", "`SOURCE_DATE_EPOCH`",
-        "no separate kernel-daemon artifact", "nonzero legacy `PAXD_RELEASE_LAYERXD` setting is refused",
+        "no separate kernel-daemon artifact", "built or published. Build the merged package:",
         "paxd-vX.Y.Z-<os>-<arch>", "price-sidecar-vX.Y.Z-<os>-<arch>",
         "`native-libs.sha256`", "`upgrade-info.json`", "`SHA256SUMS`",
         "tools/release/verify-release.sh --tag", "sha256sum --check SHA256SUMS",
@@ -250,7 +252,7 @@ def test_finding_22_guide_matches_builder_verification_and_recovery():
         "refuses a same-chain snapshot restore", "`ROLLBACK_ISOLATED_FORK=true`",
         "rollback.sh --env-file <file> --forward --execute", "`RECOVERY_BIN`", "`RECOVERY_SHA256`",
         "journals the validator signing high-water mark", "`--forward --verify`",
-        "still enable the retired daemon option", "refused by the builder",
+        "script and asset list first; its package may include retired components",
     ):
         assert fact in guide
     assert "PAXD_RELEASE_LAYERXD=1" not in guide

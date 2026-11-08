@@ -165,7 +165,7 @@ def _receipted_copies(fixtures):
             position += 1
     for name, vector, count in (
         ("vector-v1-receipted-positive", "V1", 5),
-        ("vector-v2-receipted-revert", "V2", 1),
+        ("vector-v2-receipted-revert", "V2", 2),
         ("vector-v3-receipt-refusals", "V3", 6),
     ):
         selected = [(case, raw) for case, raw in cases if case["vector"] == vector]
@@ -179,7 +179,19 @@ def _receipted_copies(fixtures):
         _, end = decoder.raw_decode(text, start)
         # Preserve the producer's raw case bytes, including JSON escapes.
         array = "[\n    " + ",\n    ".join(raw for _, raw in selected) + "\n  ]"
-        path.write_text(text[:start] + array + text[end:])
+        text = text[:start] + array + text[end:]
+        if vector == "V3":
+            provenance = {
+                "source": "sdk/platform/conformance/fixtures/sequencer-receipt-v1.json",
+                "section": "cases",
+                "generator": source["provenance"]["generator"],
+                "sourceSha256": hashlib.sha256(source_text.encode()).hexdigest(),
+            }
+            start = text.index('"provenance": ') + len('"provenance": ')
+            _, end = decoder.raw_decode(text, start)
+            encoded = json.dumps(provenance, indent=2, sort_keys=True).replace("\n", "\n  ")
+            text = text[:start] + encoded + text[end:]
+        path.write_text(text)
 
 
 def main():

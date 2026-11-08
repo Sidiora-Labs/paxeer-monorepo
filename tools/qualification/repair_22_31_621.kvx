@@ -2809,3 +2809,22 @@ case = "tools/qualification/tests/test_repair_22_33_809.py::test_f45_verificatio
 reason = "AssertionError: [AssertionError(\"assert b'\\\\n\\\\xb8\\\\x03\\\\n\\\\xb5\\\\x03\\\\n+/paxprotocol.paxchain.evm.MsgEVMTransaction\\\\x12\\\\x85\\\\x03\\\\n\\\\x82\\\\x03\\\\n&/paxprotocol.paxchain.eth...8b \\\\x02M\\\\xe6\\\\xf5\\\\x08C\\\\xe0\\\\xa2)\\\\x0b\\\\x84 \\\\x0c\\\\\\\\\\\\x87\\\\xd0\\\\xd4c\\\\x89\\\\x85\\\\xbf\\\\xce\\\\xe1\\\\xbc\\\\xdf\\\\xc7]\\\\x8akz\\\\xceU\\\\x12\\\\x02\\\\x12\\..."
 source = "tools/qualification/tests/test_repair_22_33_809.py:199"
 disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[handoff.22-31-623]
+record = "tools/qualification/repair_22_31_623.kvx"
+baseline_policy = "Preserve all 268 original case identities and observations; the successor record groups every entry and requires successful whole-suite evidence before a settlement counts."
+qualification_policy = "No baseline rerun outside hf-done; no passing revision is inferred from the prior collection gate."
+
+[handoff.22-31-623.first-gate]
+revision = "311a97d78a08ba3d8f1d300b9ff6c6b4375dbfdb"
+command = "cg spec done 22.31.623 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "The successor whole-suite gate reports 167 failures and one error, all matching the baseline; 100 baseline entries are not listed among failures, and the CI regressions did not execute because the first pytest command failed."
+assumption = "Unsettled cases remain outside the six-file scope; no assertion, collection entry or check is weakened to manufacture a settlement."
+
+[handoff.22-31-623.continue]
+record = "tools/qualification/repair_22_31_623.kvx"
+seed_revision = "3d7128cbbf39b658ab142c6e3e9e0efa3bbbadc5"
+evidence_ref = "tools/qualification/repair_22_31_623.kvx:evidence.final_gate"
+policy = "Expanded qualification-directory repairs preserve all baseline identities and assertions; current build and verify evidence is resolved from the final runner ledger at one revision."

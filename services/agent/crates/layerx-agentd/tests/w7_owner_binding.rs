@@ -120,7 +120,7 @@ pub(crate) fn signed_by(prepared: &SigningPreparation, seed: &[u8; 32]) -> Vec<u
         prepared.transaction.call.signing_hash()
     );
     assert_eq!(
-        package.disclosure_digest.0,
+        package.disclosure_digest,
         prepared.transaction.disclosure_digest
     );
     let key = must(SigningKey::from_slice(seed));

@@ -130,7 +130,7 @@ def test_agent_readme_topology_crates_and_root_rpc_match_current_inputs():
     assert "one BFT network, run by `paxd`" in document
     assert "A receipt is final when its block is committed" in document
     assert "Sub-chains are tenant\ndomains in the database" in document
-    assert "Signed transactions are submitted as exact\nbytes" in document
+    assert "Signed transactions are submitted as exact bytes" in " ".join(document.split())
     assert "EVM chain ID is **125** (`0x7d`)" in document
     endpoint = re.search(r"\]\((https://api-mainnet-beta[^)]+)\)", document)
     assert endpoint

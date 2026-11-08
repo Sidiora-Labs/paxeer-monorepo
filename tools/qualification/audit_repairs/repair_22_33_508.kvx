@@ -1,6 +1,6 @@
 [task.22.33.508]
 verified_source_revision = "c2ff8c424e3d66a1fc57e4e6cbb26ce61367da13"
-readme_sha256 = "689aad1724d426309d059d9a3b0085214078d35f756e19b396142a751f84ba98"
+readme_sha256 = "188d8c138efd7e35992f0a390886bd129a05322d55cd00f9a3f1c43cc6e28d1b"
 repair = "Qualify the README rewrite already supplied by 22.31.470 for audit 22.30.151/doc-root-two-domains, without changing the out-of-scope README. The finished architecture, execution flow, native accounts, root RPC, historical-only settlement references and upgrade roadmap use one chain-125 paxd BFT network."
 source_proof = "The focused Python module asserts production README source facts: embedded block-proposing kernel, BFT block-commit finality, no separate daemon/interface/checkpoint deployment, api1 through api14 root HTTPS JSON-RPC and parsed eth_chainId example, transaction submission and ordered signed/committed receipt flow, native account funding ABI signatures, retired custody/checkpoint executors and historical-only witness formats. It corroborates the documented producer, root transport and receipt consumer against node host wiring, RPC dispatch, transaction acceptance/forwarding, WAL-before-publication ordering and committed coverage; parses the real ledger ABI; checks retirement guards and repository links."
 review_only = "Native Go/C/Rust execution and builds, endpoint availability, transaction signing/execution, cryptographic proof verification, node startup/restart/recovery and BFT consensus are not executed by this documentation gate. Source checks do not certify runtime behavior or deployment. No stateful component or runtime interface changes, restart-recovery finding, shell script, unit, manifest or build-file repair applies. The gate needs no environment variable, credential, live endpoint, external binary, subprocess toolchain, native artifact or device. Review establishes the overall editorial consistency and historical framing; assertions cover the enumerated facts."
@@ -35,3 +35,7 @@ resolution = "Use bounded reads of the exact finding, task and relevant source s
 
 [format]
 policy = "No Python or KVX formatter is configured for these paths. After complete implementation, apply .editorconfig UTF-8, LF, trailing-whitespace and final-newline conventions only to the two touched files."
+
+[qualification_pin_22_31_623]
+source_revision = "89c8395f4e8340dfd9447c6d20f7065cede8e6b5"
+policy = "Refresh the retained full-content fingerprint from the live producer after authorized task repairs; original audit metadata remains historical. This is a source pin, not a claim that qualification passed."

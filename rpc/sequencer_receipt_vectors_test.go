@@ -1656,6 +1656,7 @@ func TestVectorFilesV1ToV3MatchSequencerReceiptFixture(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, json.Unmarshal(stored, &source))
 	require.Len(t, source.Cases, 13)
+	storedSource := bytes.Clone(stored)
 	for _, group := range []struct {
 		name, vector string
 		count        int
@@ -1688,12 +1689,33 @@ func TestVectorFilesV1ToV3MatchSequencerReceiptFixture(t *testing.T) {
 				if *updateSequencerReceiptVectors {
 					var document map[string]json.RawMessage
 					require.NoError(t, json.Unmarshal(stored, &document))
+					if group.vector == "V3" {
+						document["provenance"], err = json.Marshal(map[string]string{
+							"source":       "sdk/platform/conformance/fixtures/sequencer-receipt-v1.json",
+							"section":      "cases",
+							"generator":    seqVecGenerator,
+							"sourceSha256": fmt.Sprintf("%x", sha256.Sum256(storedSource)),
+						})
+						require.NoError(t, err)
+					}
 					document["cases"], err = json.Marshal(expected)
 					require.NoError(t, err)
 					stored, err = json.MarshalIndent(document, "", "  ")
 					require.NoError(t, err)
 					stored = append(stored, '\n')
 					require.NoError(t, os.WriteFile(path, stored, 0o644))
+				}
+				if group.vector == "V3" {
+					var document struct {
+						Provenance map[string]string `json:"provenance"`
+					}
+					require.NoError(t, json.Unmarshal(stored, &document))
+					require.Equal(t, map[string]string{
+						"source":       "sdk/platform/conformance/fixtures/sequencer-receipt-v1.json",
+						"section":      "cases",
+						"generator":    seqVecGenerator,
+						"sourceSha256": fmt.Sprintf("%x", sha256.Sum256(storedSource)),
+					}, document.Provenance)
 				}
 				require.NoError(t, json.Unmarshal(stored, &copy))
 				require.Equal(t, group.name, copy.Name)

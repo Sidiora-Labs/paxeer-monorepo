@@ -36106,3 +36106,51 @@ symbol = "prepare.rs"
 observed = "Attempt 5 at 1c8c961ddb28 (record tree 05d2264af3a8): build exit 0; verification exit 101: every migration target passed, the lib target failed the two TLS identity cases for a missing boundary executable (producer input of decision 2325) and approval_events failed one case whose store root is not a canonical owned private directory; log /out/logs/verify-1.log."
 assumption = "The gate omitted the boundary producer and the approval test setup predates the protected root check; the deletion itself is complete."
 severity = "high"
+
+[finding.22.39.167.3]
+task = "22.39.167"
+file = "programs/crates/layerx-programs-ai-market/tests/f11_views.rs"
+symbol = "f11_views.rs"
+observed = "Attempt 3 at d59fd29efb2f (base 20cf44679e): build exit 1 at the Fund production allowance test, rpc/repair_478_test.go line 127, the raw candidate guest at 536267 bytes against 524184 while the packaged guest measures 498845; the verification never ran; log /out/logs/build-1.log."
+assumption = "The helper omits the packaging pass the deployment applies; the size work of the attempt is complete under the staged bound."
+severity = "high"
+
+[finding.9.35.24.6]
+task = "9.35.24"
+file = "services/agent/crates/layerx-agentd/tests/prepare.rs"
+symbol = "prepare.rs"
+observed = "Attempt 6 at 92818149c731 (base 403a6bf491): build exit 0; verification exit 101: every target passed except approval_events, whose restore case was refused at line 342 with delivery cursor (1, 0, 0) arrived out of order, expected (4, 0, 1); log /out/logs/verify-1.log."
+assumption = "The cursor derivation of the delivery engine is the failure and belongs to 22.39.171; the deletion itself is complete and qualified in every other target."
+severity = "high"
+
+[finding.22.39.171.1]
+task = "22.39.171"
+file = "services/agent/crates/layerx-agentd/tests/approval_events.rs"
+symbol = "approval_events.rs"
+observed = "Attempt 1 at af91dcafa5a4 (base 996b8669da): build exit 0 twice; verification exit 1 twice (test exit 101): approval_events and the six new cases passed with delivery, gaps, history_block_cursor, subscription_ops_cursor, w7_subscription_permit and repair_22_31_215, while subscription (line 360), subscription_cursor_v3 (line 205), history_served_contract (eight read_account cases) and repair_22_33_1506 (the cross-UID case, line 750) failed on cases the attempt did not change; log /out/logs/verify-2.log."
+assumption = "The departure from decision 2984 answered an order the ingestor never admits, and the four other failures are consumer tests behind producers that changed after their last gate."
+severity = "high"
+
+[finding.22.39.172.1]
+task = "22.39.172"
+file = "services/agent/crates/layerx-agentd/tests/history_served_contract.rs"
+symbol = "history_served_contract.rs"
+observed = "Attempt 1 at 4a9a0751ef1b (base 6eeea3b075): build exit 0; verification exit 1 (test exit 101): repair_22_33_1506 and repair_22_33_1521 passed, seven read_account cases of history_served_contract failed with Sequencer(Malformed), and the reverse window case of repair_22_31_218 failed at line 976 with Connection(Malformed); no repair cycle used; log /out/logs/verify-1.log."
+assumption = "The cursor update of the attempt is right and the envelope of the two fixtures is the remaining producer mismatch."
+severity = "high"
+
+[finding.22.39.26.3]
+task = "22.39.26"
+file = "tests/ci/test_qualification_suites_have_ci_host.py"
+symbol = "test_qualification_suites_have_ci_host.py"
+observed = "Attempt 3 at 2fba7fe3796d (base 563d285011): build exit 0; the first verification stopped on a missing jsonschema module (make exit 2), and after the one repair the second verification (make test-qualification-python) exited 2 with 111 failed, 4339 passed and 13 skipped in 1196 seconds; log /out/logs/verify-2.log."
+assumption = "The directory is sound apart from the dropped vendored scripts and one undetermined upgrade fixture case; the failures are the dependency set, the pins and the job layout of the check."
+severity = "high"
+
+[finding.22.39.173.1]
+task = "22.39.173"
+file = "tools/qualification/audit_repairs/test_repair_22_36_1.py"
+symbol = "test_repair_22_36_1.py"
+observed = "Attempt 1 at 761a7c479bd4 (base dd4addbf677b): build exit 0 twice; verification exit 1 twice, 92 passed and one failed, test_code_specs_dot_directories_and_assets_are_preserved stopping at apps/desktop/assets/icon-dev.png; log /out/logs/verify-2.log."
+assumption = "The six scripts are restored correctly; the seventeen image assets are the remaining absent files and nothing else of the snapshot is missing."
+severity = "high"

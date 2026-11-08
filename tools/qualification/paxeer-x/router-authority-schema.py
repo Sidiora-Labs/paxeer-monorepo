@@ -18,6 +18,10 @@ HOSTED_METHODS = frozenset({
     "px_getAccount", "px_getBalances", "px_listAssets", "px_getNetwork", "px_getHistory",
     "px_getUnifiedHistory", "px_listHolderRecords", "px_getCapabilities", "px_getRouteCatalogue",
 })
+INFERENCE_METHODS = frozenset({
+    "px_getInferenceRooms", "px_getInferenceRoom", "px_getInferenceDeal",
+    "px_getInferencePeer", "px_getInferenceReceipts",
+})
 NODE_METHODS = ("eth_chainId", "eth_call", "eth_sendRawTransaction", "pax_sequencerReceipt")
 
 
@@ -80,7 +84,8 @@ def hosted_schema(schema):
                                             for item in methods), "hosted method schema fields differ")
     names = [item["name"] for item in methods]
     require(len(names) == len(set(names)), "duplicate hosted schema method")
-    require(HOSTED_METHODS == set(names), "retained hosted method inventory differs")
+    require(HOSTED_METHODS | INFERENCE_METHODS == set(names),
+            "retained hosted and node inference contract inventory differs")
     require(all(name.startswith("px_") or name == "pax_sequencerReceipt" for name in names),
             "node methods must be qualified separately")
     for item in methods:
