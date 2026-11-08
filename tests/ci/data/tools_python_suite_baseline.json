@@ -295,11 +295,6 @@
     "retiring_task": "22.39.158"
   },
   {
-    "nodeid": "tools/deps/tests/test_go_root_checksums.py::test_go_root_nested_checksums",
-    "reason": "go list -mod=readonly -deps -test ./... in tools/paxctl exits one because go.mod requires updates.",
-    "retiring_task": "22.39.160"
-  },
-  {
     "nodeid": "tools/docs/gen/test_gen_system_docs.py::test_precompiles_lists_nested_abi_dirs",
     "reason": "The preserved precompiles document differs from the generated header and ABI documentation the test expects.",
     "retiring_task": "22.39.159"
