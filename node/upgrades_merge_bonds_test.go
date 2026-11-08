@@ -8,6 +8,8 @@ import (
 	custodytypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxcustody/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/crypto/keys/secp256k1"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
+	sdkerrors "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types/errors"
+	authtypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/auth/types"
 	upgradetypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/upgrade/types"
 	"github.com/stretchr/testify/require"
 )
@@ -45,6 +47,10 @@ func TestMergePlanReturnsGuarantorBonds(t *testing.T) {
 					sdk.NewCoins(sdk.NewInt64Coin(params.BondDenom, 1))))
 			}
 			authority := operators[1]
+			if name == "custody release fails" {
+				authority = authtypes.NewModuleAddress("evm")
+				require.True(t, a.BankKeeper.BlockedAddr(authority))
+			}
 			custodyParams := a.LayerXCustodyKeeper.GetParams(ctx)
 			custodyParams.Authority = authority.String()
 			require.NoError(t, a.LayerXCustodyKeeper.SetParams(ctx, custodyParams))
@@ -60,6 +66,7 @@ func TestMergePlanReturnsGuarantorBonds(t *testing.T) {
 			}
 			before := a.LayerXAnchorKeeper.ExportGenesis(ctx)
 			anchorBalance := a.LayerXAnchorKeeper.ModuleBalance(ctx)
+			custodyBefore := a.LayerXCustodyKeeper.ExportGenesis(ctx)
 			ctx = ctx.WithEventManager(sdk.NewEventManager())
 			_, err = a.continueMergeUpgradePlan(ctx, plan, a.UpgradeKeeper.GetModuleVersionMap(ctx))
 			if name == "bond return fails" {
@@ -74,11 +81,16 @@ func TestMergePlanReturnsGuarantorBonds(t *testing.T) {
 				return
 			}
 			if name == "custody release fails" {
-				require.ErrorIs(t, err, custodytypes.ErrModuleRetired)
+				require.ErrorIs(t, err, sdkerrors.ErrUnauthorized)
 				require.ErrorContains(t, err, "release custody")
 				require.Equal(t, before, a.LayerXAnchorKeeper.ExportGenesis(ctx))
 				require.Equal(t, anchorBalance, a.LayerXAnchorKeeper.ModuleBalance(ctx))
 				require.Equal(t, custodyCoins, a.BankKeeper.GetAllBalances(ctx, a.LayerXCustodyKeeper.ModuleAddress()))
+				require.Equal(t, custodyBefore, a.LayerXCustodyKeeper.ExportGenesis(ctx))
+				_, scheduled := a.UpgradeKeeper.GetUpgradePlan(ctx)
+				require.False(t, scheduled)
+				require.Nil(t, ctx.KVStore(a.GetKey(LayerXHostStoreKey)).Get([]byte(hostedProgramsGuestABIKey)))
+				require.Empty(t, ctx.EventManager().Events())
 				state, exportErr := a.SequencerKeeper.ExportGenesis(ctx)
 				require.NoError(t, exportErr)
 				require.Empty(t, state.Leaders)
