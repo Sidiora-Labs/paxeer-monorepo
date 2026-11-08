@@ -35233,3 +35233,11 @@ symbol = "test_workflow_live_inputs_guarded.py"
 observed = "Attempt 2 at 06d1b91e2627: build exit 0; routing check exit 0; verification exit 1: 29 passed, 1 failed, test_root_workflow_runs_loadtest_module at tools/ci/tests/test_ci_loadtest_job.py line 16 comparing the routed loadtest expression with the ubuntu-24.04 pin of c17."
 assumption = "The reference job of the test changed disposition when the sanitizer pin was recorded; the test follows a routed sibling."
 severity = "high"
+
+[finding.22.39.138.3]
+task = "22.39.138"
+file = "tests/ci/test_copied_artifacts_in_sync.py"
+symbol = "test_copied_artifacts_in_sync.py"
+observed = "Attempt 3 at 733e82e76991: build exit 0; verification exit 1 twice: 16 of 17 selected tests passed, TestEvmEventsForCw1155 failed at the burn-on-behalf step with undefined/1 internal error; the trace option exposed nothing because the node response is built with debug=false."
+assumption = "The redaction sits in the node response, not in the base application; the keeper and the translator return the raw error when called directly."
+severity = "high"
