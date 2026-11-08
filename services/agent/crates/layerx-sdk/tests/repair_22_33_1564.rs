@@ -30,7 +30,7 @@ use serde_json::{json, Value};
 use sha2::{Digest as _, Sha256};
 
 const RECORDED: &str = include_str!("../src/repair_22_31_227_fixture/committed.json");
-const CA: &[u8] = include_bytes!("../src/repair_22_33_1564_fixture/ca.der");
+const CA: &[u8] = include_bytes!("fixtures/repair_22_33_1564_fixture/ca.der");
 
 fn hex(bytes: &[u8]) -> String {
     bytes.iter().map(|byte| format!("{byte:02x}")).collect()
@@ -71,10 +71,10 @@ impl Server {
                 .with_no_client_auth()
                 .with_single_cert(
                     vec![CertificateDer::from(
-                        include_bytes!("../src/repair_22_31_227_fixture/server.der").to_vec(),
+                        include_bytes!("fixtures/repair_22_31_227_fixture/server.der").to_vec(),
                     )],
                     PrivateKeyDer::Pkcs8(PrivatePkcs8KeyDer::from(
-                        include_bytes!("../src/repair_22_31_227_fixture/server-key.der").to_vec(),
+                        include_bytes!("fixtures/repair_22_31_227_fixture/server-key.der").to_vec(),
                     )),
                 )
                 .expect("committed test certificate"),
