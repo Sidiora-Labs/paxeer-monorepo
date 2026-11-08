@@ -1,0 +1,22 @@
+[repair.22.39.68]
+mode = "BUILD"
+acceptance = "22998.1"
+base_revision = "8f21858e000218f3a283fe439a98496a1ccfa003"
+continued_tree = "d2643125cac128bd9176209e847f232348df2ee8"
+decisions = [2803, 2800, 2819, 2771, 2873, 2886]
+change = "Retain the eleven fixture moves into the hosted internal and ramp toolkit tests/fixtures directories, their generated-test-data notices, manifest metadata, updated consumers and the tracked-key-material checks."
+baseline_mapping = "tests/ci/data/key_material_baseline.txt is superseded by tests/ci/data/key_material_fixture_paths.json under decision 2819; the test reads exactly its seven remaining paths until task 22.39.93 relocates them."
+continuation_repair = "Restore the three PKCS12 files and toolkit PEM file omitted from the continued tree using their unchanged tracked source bytes; stage the ignored fixture destinations so the qualified candidate retains all eleven moves."
+
+[gap.protected-source-contract]
+case = "genuine_source_finality_binds_orders_and_claims_before_any_funded_transition"
+producer = "services/platform/ramps/toolkit/tests/source_settlement.rs:77-79"
+decision = 2886
+sibling_record = "services/platform/ramps/toolkit/tests/repair_22_39_149.kvx [qualification.decision-2873]"
+observed = "The producer requires LAYERX_RAMP_SOURCE_CONTRACT_FILE, which the qualification environment never carries; the declared verification excludes this case by name under decision 2886, carrying forward decision 2873 from the sibling gate."
+coverage = "This gate does not qualify the protected genuine source-contract case; its source and assertions remain unchanged and no contract file is invented."
+
+[qualification]
+build_reference = "/out/run/gates.jsonl: the final passing build record names the candidate revision, exact declared build command, exit code and private log."
+verify_reference = "/out/run/gates.jsonl: the final hf-done verify record names the same candidate revision, cg spec done command, exit code and private log; completion requires exit zero and matching build and verify revisions."
+publication = "The external runner commits and publishes the qualified candidate; the worker makes no commit or push."
