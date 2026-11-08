@@ -25,6 +25,7 @@
 //!   digest of a frozen evaluator of the opened epoch, else `NOT_FOUND`.
 //! - The evaluator replay slot is supplied by the reveal caller; no producer binds
 //!   `ActorSlot::evaluator(i)` yet (F08 evaluator acceptance must).
+use crate::types::GuestIndex as _;
 use crate::{
     admission::{AdmissionTable, Participant},
     codec::{self, compare_native_principal, derive_market, EventCommon, Reader, Writer},
@@ -104,14 +105,17 @@ impl AdmissionReceipt {
     ///
     /// # Errors
     /// Returns `NON_CANONICAL` when the payload does not fill exactly 81 bytes.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn payload(&self) -> CodecResult<[u8; REVEAL_RESULT_BYTES]> {
         let mut out = [0; REVEAL_RESULT_BYTES];
         let mut w = Writer::new(&mut out);
-        w.u8(REVEAL_RESULT_KIND)?;
-        w.put(self.evaluator.as_bytes())?;
-        w.put(self.report.as_bytes())?;
-        w.u64(self.height)?;
-        w.u64(self.activity)?;
+        crate::codec::write_fields!(w;
+            u8: REVEAL_RESULT_KIND;
+            id32: self.evaluator.as_bytes();
+            id32: self.report.as_bytes();
+            u64: self.height;
+            u64: self.activity;
+        )?;
         if w.len() != REVEAL_RESULT_BYTES {
             return Err(NON_CANONICAL);
         }
@@ -148,12 +152,11 @@ impl<'a> AdmittedReport<'a> {
     }
     #[cfg_attr(target_arch = "wasm32", inline(never))]
     fn read(r: &mut Reader<'a>, epoch: u64) -> CodecResult<Self> {
-        let receipt = AdmissionReceipt {
-            evaluator: r.evaluator_id()?,
-            report: r.report_digest()?,
-            height: r.u64()?,
-            activity: r.u64()?,
-        };
+        let receipt = crate::codec::read_record!(r, AdmissionReceipt {  }; evaluator = r.evaluator_id()?;
+            report: ReportDigest,
+            height: U64,
+            activity: U64
+        );
         let length = usize::from(r.u16()?);
         if !(SIGNED_REPORT_MIN_BYTES..=SIGNED_REPORT_MAX_BYTES).contains(&length) {
             return Err(NON_CANONICAL);
@@ -170,10 +173,12 @@ impl<'a> AdmittedReport<'a> {
     }
     #[cfg_attr(target_arch = "wasm32", inline(never))]
     fn write(&self, w: &mut Writer<'_>) -> CodecResult<()> {
-        w.put(self.receipt.evaluator.as_bytes())?;
-        w.put(self.receipt.report.as_bytes())?;
-        w.u64(self.receipt.height)?;
-        w.u64(self.receipt.activity)?;
+        crate::codec::write_fields!(w;
+            id32: self.receipt.evaluator.as_bytes();
+            id32: self.receipt.report.as_bytes();
+            u64: self.receipt.height;
+            u64: self.receipt.activity;
+        )?;
         w.u16(u16::try_from(self.signed.len()).map_err(|_| ARITHMETIC)?)?;
         w.put(self.signed)
     }
@@ -337,7 +342,11 @@ pub fn admitted_report<'a>(
 
 /// Committed F01 section of `state`; its header revision must equal the shared revision.
 fn committed<'a>(state: &SharedState<'a>) -> CodecResult<PolicySection<'a>> {
-    let section = PolicySection::decode(state.feature_sections[Section::PolicyLifecycle.index()])?;
+    let section = PolicySection::decode(
+        *state
+            .feature_sections
+            .guest_index(Section::PolicyLifecycle.index()),
+    )?;
     if section.header.state_revision != state.revision {
         return Err(NON_CANONICAL);
     }
@@ -355,10 +364,14 @@ struct Opened<'a> {
 
 /// The opened epoch: F08 epoch presence, F01 domain and config and the F06 frozen roster row,
 /// reusing the reward state `known` when it is the one `state` holds.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 fn view<'a>(state: &SharedState<'a>, known: Option<RewardState<'a>>) -> CodecResult<Opened<'a>> {
     let section = committed(state)?;
-    let admission =
-        AdmissionTable::decode(state.feature_sections[Section::ReputationAdmission.index()])?;
+    let admission = AdmissionTable::decode(
+        *state
+            .feature_sections
+            .guest_index(Section::ReputationAdmission.index()),
+    )?;
     let epoch = admission.current_epoch().ok_or(WRONG_EPOCH)?;
     let rewards = settlement_rewards(state, known)?;
     let row = match rewards.row(epoch) {
@@ -374,7 +387,11 @@ fn view<'a>(state: &SharedState<'a>, known: Option<RewardState<'a>>) -> CodecRes
         config: Version::new(header.active_config_version)?,
         roster: row.roster,
     };
-    let reports = ReportRegion::decode(state.feature_sections[Section::CurrentReports.index()])?;
+    let reports = ReportRegion::decode(
+        *state
+            .feature_sections
+            .guest_index(Section::CurrentReports.index()),
+    )?;
     if reports.epoch > epoch && reports.count > 0 {
         return Err(NON_CANONICAL);
     }
@@ -388,6 +405,7 @@ fn view<'a>(state: &SharedState<'a>, known: Option<RewardState<'a>>) -> CodecRes
 }
 
 /// The complete immutable worker set shared by report admission and settlement.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 fn frozen_workers(
     state: &SharedState<'_>,
     rewards: &RewardState<'_>,
@@ -403,7 +421,9 @@ fn frozen_workers(
     let entries = captured.workers();
     let first = *entries.first().ok_or(WRONG_ROSTER)?;
     let mut workers = [first; MAX_WORKERS];
-    workers[..entries.len()].copy_from_slice(entries);
+    workers
+        .guest_index_mut(..entries.len())
+        .guest_copy_from_slice(entries);
     Ok((workers, entries.len()))
 }
 
@@ -441,8 +461,11 @@ pub enum Admission {
 
 /// F08 membership of the frozen evaluator remains admitted under its owner.
 fn check_membership(state: &SharedState<'_>, frozen: &FrozenEvaluator) -> CodecResult<()> {
-    let admission =
-        AdmissionTable::decode(state.feature_sections[Section::ReputationAdmission.index()])?;
+    let admission = AdmissionTable::decode(
+        *state
+            .feature_sections
+            .guest_index(Section::ReputationAdmission.index()),
+    )?;
     match admission.get(Participant::Evaluator(frozen.entry.evaluator)) {
         Some(meta) if meta.revoked() => Err(REVOKED),
         Some(meta) if meta.admitted() && meta.owner == frozen.entry.owner => Ok(()),
@@ -452,6 +475,7 @@ fn check_membership(state: &SharedState<'_>, frozen: &FrozenEvaluator) -> CodecR
 
 /// The frozen evaluator of `binding` in the opened epoch, after the frozen domain, epoch,
 /// config and roster comparison.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 fn frozen_evaluator(
     state: &SharedState<'_>,
     opened: &Opened<'_>,
@@ -464,7 +488,11 @@ fn frozen_evaluator(
             ..*binding
         },
     )?;
-    let region = evaluator_region(state.feature_sections[Section::IdentityRoster.index()])?;
+    let region = evaluator_region(
+        *state
+            .feature_sections
+            .guest_index(Section::IdentityRoster.index()),
+    )?;
     let snapshot = region.snapshot().ok_or(crate::errors::F03_NO_GRANT)?;
     if snapshot.epoch != opened.frozen.epoch {
         return Err(NON_CANONICAL);
@@ -475,6 +503,7 @@ fn frozen_evaluator(
 }
 
 /// Verifies the report against the complete frozen context and the evaluator signature.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 fn verify(
     state: &SharedState<'_>,
     opened: &Opened<'_>,
@@ -482,7 +511,11 @@ fn verify(
     report: &SignedReport<'_>,
 ) -> Result<ReportDigest, VerificationError> {
     let evaluator = frozen.entry.evaluator;
-    let region = evaluator_region(state.feature_sections[Section::IdentityRoster.index()])?;
+    let region = evaluator_region(
+        *state
+            .feature_sections
+            .guest_index(Section::IdentityRoster.index()),
+    )?;
     let (workers, count) = frozen_workers(state, &opened.rewards, &opened.row)?;
     let context = ReportContext {
         binding: EvaluatorBinding {
@@ -507,6 +540,7 @@ fn verify(
 }
 
 /// Commits `row` at the next revision under the reveal request.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 fn commit_report(
     state: &SharedState<'_>,
     opened: &Opened<'_>,
@@ -527,7 +561,7 @@ fn commit_report(
     let policy = policy.get(..policy_len).ok_or(CAPACITY)?;
     let reports = reports.get(..reports_len).ok_or(CAPACITY)?;
     let with_policy = state.replace_section(Section::PolicyLifecycle, policy)?;
-    let mut candidate = with_policy.replace_section(Section::CurrentReports, reports)?;
+    let mut candidate = with_policy.with_section(Section::CurrentReports, reports)?;
     let result = row.receipt.result()?;
     if candidate.record_success(&reveal.request, reveal.height, result)? != ReplayDecision::Apply
         || candidate.revision != revision
@@ -569,6 +603,7 @@ pub fn admit_report(
 
 /// [`admit_report`] reusing the reward state `known` the caller already validated in
 /// `current`.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub(crate) fn admit_report_with<'a>(
     current: &'a [u8],
     reveal: &RevealAdmission<'_>,
@@ -684,14 +719,16 @@ impl ChallengeRecord {
     pub fn encode(&self) -> CodecResult<[u8; CHALLENGE_RECORD_BYTES]> {
         let mut out = [0; CHALLENGE_RECORD_BYTES];
         let mut w = Writer::new(&mut out);
-        w.put(self.id.as_bytes())?;
-        w.put(self.evaluator.as_bytes())?;
-        w.put(self.report.as_bytes())?;
-        w.u8(self.category as u8)?;
-        w.put(self.evidence.as_bytes())?;
-        w.put(self.requester.as_bytes())?;
-        w.u64(self.height)?;
-        w.u8(RECORDED)?;
+        crate::codec::write_fields!(w;
+            id32: self.id.as_bytes();
+            id32: self.evaluator.as_bytes();
+            id32: self.report.as_bytes();
+            u8: self.category as u8;
+            id32: self.evidence.as_bytes();
+            id32: self.requester.as_bytes();
+            u64: self.height;
+            u8: RECORDED;
+        )?;
         if w.len() != CHALLENGE_RECORD_BYTES {
             return Err(NON_CANONICAL);
         }
@@ -705,15 +742,14 @@ impl ChallengeRecord {
     #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn decode(input: &[u8]) -> CodecResult<Self> {
         let mut r = Reader::new(input);
-        let record = Self {
-            id: r.digest32()?,
-            evaluator: r.evaluator_id()?,
-            report: r.report_digest()?,
-            category: ChallengeCategory::decode(r.u8()?)?,
-            evidence: r.digest32()?,
-            requester: r.principal_id()?,
-            height: r.u64()?,
-        };
+        let record = crate::codec::read_record!(&mut r, Self {  }; id = r.digest32()?;
+            evaluator: EvaluatorId,
+            report: ReportDigest,
+            category: ChallengeCategory,
+            evidence: Digest32,
+            requester: PrincipalId,
+            height: U64
+        );
         if r.u8()? != RECORDED {
             return Err(NON_CANONICAL);
         }
@@ -765,12 +801,23 @@ impl<'a> ChallengeRegion<'a> {
         if count == 0 && rest.is_empty() {
             return Err(NON_CANONICAL);
         }
-        for (index, record) in records.chunks_exact(CHALLENGE_RECORD_BYTES).enumerate() {
+        for (index, record) in records
+            .as_chunks::<{ CHALLENGE_RECORD_BYTES }>()
+            .0
+            .iter()
+            .map(|chunk| chunk.as_slice())
+            .enumerate()
+        {
             let id = ChallengeRecord::decode(record)?.id;
             let earlier = records
                 .get(..index * CHALLENGE_RECORD_BYTES)
                 .ok_or(NON_CANONICAL)?;
-            for other in earlier.chunks_exact(CHALLENGE_RECORD_BYTES) {
+            for other in earlier
+                .as_chunks::<{ CHALLENGE_RECORD_BYTES }>()
+                .0
+                .iter()
+                .map(|chunk| chunk.as_slice())
+            {
                 if ChallengeRecord::decode(other)?.id == id {
                     return Err(NON_CANONICAL);
                 }
@@ -795,7 +842,10 @@ impl<'a> ChallengeRegion<'a> {
         epoch: u64,
     ) -> impl Iterator<Item = CodecResult<ChallengeRecord>> + 'a {
         self.of(epoch)
-            .chunks_exact(CHALLENGE_RECORD_BYTES)
+            .as_chunks::<{ CHALLENGE_RECORD_BYTES }>()
+            .0
+            .iter()
+            .map(|chunk| chunk.as_slice())
             .map(ChallengeRecord::decode)
     }
     /// The challenge `id` recorded in `epoch`.
@@ -855,34 +905,37 @@ struct Allegation {
     evidence: Digest32,
 }
 impl Allegation {
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     fn parse(payload: &[u8]) -> CodecResult<Self> {
         if payload.len() != CHALLENGE_PAYLOAD_BYTES {
             return Err(NON_CANONICAL);
         }
         let mut r = Reader::new(payload);
-        let value = Self {
-            evaluator: r.evaluator_id()?,
-            report: r.report_digest()?,
-            category: ChallengeCategory::decode(r.u8()?)?,
-            evidence: r.digest32()?,
-        };
+        let value = crate::codec::read_record!(&mut r, Self {  }; evaluator = r.evaluator_id()?;
+            report: ReportDigest,
+            category: ChallengeCategory,
+            evidence: Digest32
+        );
         r.finish()?;
         Ok(value)
     }
     /// `H('PAXAI/evaluator-challenge/v1', chain || program || market || epoch || evaluator ||
     /// report || category || evidence || requester)`.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     fn identity(&self, frozen: &FrozenBinding, requester: PrincipalId) -> CodecResult<Digest32> {
         let mut bytes = [0; CHALLENGE_PREIMAGE_BYTES];
         let mut w = Writer::new(&mut bytes);
-        w.put(frozen.chain.as_bytes())?;
-        w.put(frozen.program.as_bytes())?;
-        w.put(frozen.market.as_bytes())?;
-        w.u64(frozen.epoch)?;
-        w.put(self.evaluator.as_bytes())?;
-        w.put(self.report.as_bytes())?;
-        w.u8(self.category as u8)?;
-        w.put(self.evidence.as_bytes())?;
-        w.put(requester.as_bytes())?;
+        crate::codec::write_fields!(w;
+            id32: frozen.chain.as_bytes();
+            id32: frozen.program.as_bytes();
+            id32: frozen.market.as_bytes();
+            u64: frozen.epoch;
+            id32: self.evaluator.as_bytes();
+            id32: self.report.as_bytes();
+            u8: self.category as u8;
+            id32: self.evidence.as_bytes();
+            id32: requester.as_bytes();
+        )?;
         if w.len() != CHALLENGE_PREIMAGE_BYTES {
             return Err(NON_CANONICAL);
         }
@@ -907,6 +960,7 @@ pub enum ChallengeOutcome {
 }
 
 /// Domain, expiry, market and the exact frozen epoch, config and roster of the envelope.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 fn check_envelope(
     ctx: &CallContext,
     envelope: &ValidatedEnvelope<'_>,
@@ -932,12 +986,17 @@ fn check_envelope(
 }
 
 /// The allegation must name the admitted report of a frozen evaluator of the opened epoch.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 fn check_reference(
     state: &SharedState<'_>,
     opened: &Opened<'_>,
     allegation: &Allegation,
 ) -> CodecResult<()> {
-    let region = evaluator_region(state.feature_sections[Section::IdentityRoster.index()])?;
+    let region = evaluator_region(
+        *state
+            .feature_sections
+            .guest_index(Section::IdentityRoster.index()),
+    )?;
     let snapshot = region.snapshot().ok_or(NOT_FOUND)?;
     if snapshot.epoch != opened.frozen.epoch {
         return Err(NON_CANONICAL);
@@ -953,6 +1012,7 @@ fn check_reference(
 }
 
 /// Commits `record` at the next revision (object-local; no role sequence) and emits it.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 fn commit_challenge(
     state: &SharedState<'_>,
     opened: &Opened<'_>,
@@ -1039,6 +1099,7 @@ fn commit_challenge(
 /// `F03_CHALLENGE_CAPACITY` for a ninth distinct challenge; `CAPACITY`, `ARITHMETIC` and
 /// `F01_CAPACITY_UNAVAILABLE`. On any error `current` is unchanged and the outputs must be
 /// discarded.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn apply_challenge(
     ctx: &CallContext,
     envelope: &ValidatedEnvelope<'_>,

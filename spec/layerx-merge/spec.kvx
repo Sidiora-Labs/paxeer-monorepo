@@ -182242,7 +182242,7 @@ do_5 = "Attempt 2 (continue, gotcha 3566, decisions 2771, 2866 and 2873): the at
 
 [task.22.39.142]
 title = "Bring the ai-market guest forty thousand bytes under its deployment bound so the pending reward operations fit"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.153"]

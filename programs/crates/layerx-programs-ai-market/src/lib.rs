@@ -227,7 +227,7 @@ mod guest {
     use crate::dispatch::{self, Buffers, Routed, SCRATCH_BYTES};
     use crate::host_adapter::{AdapterError, ApplicationEvent, DirectCall};
     use crate::registry_ops::CallContext;
-    use crate::types::Presence;
+    use crate::types::{GuestIndex as _, Presence};
     use crate::{codec, ApplicationError, MAX_EVENT_BYTES, MAX_RESULT_BYTES, MAX_STATE_BYTES};
     use layerx_program_sdk::{
         CallResult, EntryResponse, ProgramRefusal, RefusalClass, RefusalReason,
@@ -273,7 +273,7 @@ mod guest {
         match codec::ApplicationResult::failure(error, Presence::Absent, 0)
             .and_then(|value| codec::encode_result(&value, result))
         {
-            Ok(n) => rejected(&result[..n]),
+            Ok(n) => rejected(result.guest_index(..n)),
             Err(_) => EMPTY_REFUSAL,
         }
     }
@@ -315,7 +315,7 @@ mod guest {
         let routed = dispatch::route(
             &ctx,
             input,
-            current_len.map(|n| &current[..n]),
+            current_len.map(|n| current.guest_index(..n)),
             Buffers {
                 next,
                 scratch,
@@ -341,7 +341,11 @@ mod guest {
                     let Some(n) = current_len else {
                         return Err(EMPTY_REFUSAL);
                     };
-                    match crate::canary::stage_value(operation, &current[..n], &next[..state_len]) {
+                    match crate::canary::stage_value(
+                        operation,
+                        current.guest_index(..n),
+                        next.guest_index(..state_len),
+                    ) {
                         Ok(()) => {}
                         Err(AdapterError::Application(error)) => {
                             return Err(failure(error, result))
@@ -351,10 +355,13 @@ mod guest {
                 }
                 let events = [ApplicationEvent {
                     operation,
-                    body: &event[..event_len],
+                    body: event.guest_index(..event_len),
                 }];
-                match call.stage_state_and_events(&next[..state_len], &events) {
-                    Ok(()) => Ok(EntryResponse::new(CallResult::OK, &result[..result_len])),
+                match call.stage_state_and_events(next.guest_index(..state_len), &events) {
+                    Ok(()) => Ok(EntryResponse::new(
+                        CallResult::OK,
+                        result.guest_index(..result_len),
+                    )),
                     Err(AdapterError::Application(error)) => Err(failure(error, result)),
                     Err(AdapterError::Host(_)) => Err(EMPTY_REFUSAL),
                 }
@@ -363,13 +370,16 @@ mod guest {
                 if result_len > result.len() {
                     return Err(failure(crate::errors::NON_CANONICAL, result));
                 }
-                Ok(EntryResponse::new(CallResult::OK, &result[..result_len]))
+                Ok(EntryResponse::new(
+                    CallResult::OK,
+                    result.guest_index(..result_len),
+                ))
             }
             Ok(Routed::Refused { result_len }) => {
                 if result_len > result.len() {
                     return Err(failure(crate::errors::NON_CANONICAL, result));
                 }
-                Err(rejected(&result[..result_len]))
+                Err(rejected(result.guest_index(..result_len)))
             }
             Err(error) => Err(failure(error, result)),
         }
