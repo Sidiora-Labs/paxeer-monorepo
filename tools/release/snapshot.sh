@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-exec python3 - "$@" <<'PY'
+release_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+exec python3 - "$release_dir/version.json" "$@" <<'PY'
 import argparse
 import json
 import os
@@ -16,6 +17,7 @@ import tempfile
 
 # Application commit store of storage/common/utils/path.go GetCosmosSCStorePath.
 STORES = ("data/committer.db", "data/state_commit/memiavl")
+RELEASE_VERSION = json.loads(Path(sys.argv.pop(1)).read_text())["version"]
 
 
 class Refusal(Exception):
@@ -250,7 +252,7 @@ def main():
     result = "fail"
     try:
         homes, validator_count, directory, height = load_env(args.env_file)
-        archives = [directory / f"{home.name}-pre-v6.12.0.tar.zst" for home in homes]
+        archives = [directory / f"{home.name}-pre-{RELEASE_VERSION}.tar.zst" for home in homes]
         if args.receipt is not None:
             require(
                 args.receipt.resolve() != args.env_file.resolve(),

@@ -220,61 +220,6 @@
     "retiring_task": "22.39.144"
   },
   {
-    "nodeid": "tools/release/tests/test_fleet_check.py::FleetUnitTests::test_market_phases_read_rehearsal_receipt_by_default",
-    "reason": "The market phase raises PRODUCTION_REQUIRES_ROLLBACK_RECEIPT before the expected empty POOL_COUNT refusal.",
-    "retiring_task": "22.39.157"
-  },
-  {
-    "nodeid": "tools/release/tests/test_programme.py::test_spot_abis_match_golden",
-    "reason": "The current spot share ABI selectors differ from the golden share ABI.",
-    "retiring_task": "22.39.157"
-  },
-  {
-    "nodeid": "tools/release/tests/test_programme.py::test_protobuf_queries",
-    "reason": "The upgrade query returns v7.0 while the test expects the v6.12.0 protobuf value.",
-    "retiring_task": "22.39.157"
-  },
-  {
-    "nodeid": "tools/release/tests/test_repair_22_33_889.py::test_build_distribution",
-    "reason": "The fixture supplies paxeer-network/v6.12.0 while the release validator requires paxeer-network/v7.0.0.",
-    "retiring_task": "22.39.157"
-  },
-  {
-    "nodeid": "tools/release/tests/test_repair_22_33_889.py::test_reproducible_distribution",
-    "reason": "The fixture supplies paxeer-network/v6.12.0 while the release validator requires paxeer-network/v7.0.0.",
-    "retiring_task": "22.39.157"
-  },
-  {
-    "nodeid": "tools/release/tests/test_repair_22_33_889.py::test_fresh_handoff_reaches_markets",
-    "reason": "The fresh handoff shell exits on an unbound release_version variable before it reaches the market checks.",
-    "retiring_task": "22.39.157"
-  },
-  {
-    "nodeid": "tools/release/tests/test_repair_22_33_889.py::test_rehearsal_requires_fresh_driver",
-    "reason": "The rehearsal now requires --plan-info for v7.0 before the fixture can reach its expected SOURCE_DATA refusal.",
-    "retiring_task": "22.39.157"
-  },
-  {
-    "nodeid": "tools/release/tests/test_repair_22_33_889.py::test_rehearsal_evidence_binding",
-    "reason": "The handoff shell exits on an unbound release_version variable before it can produce rehearsal evidence.",
-    "retiring_task": "22.39.157"
-  },
-  {
-    "nodeid": "tools/release/tests/test_repair_22_33_889.py::test_programme_driver_consumes_rpc_evidence",
-    "reason": "The programme driver fails check_plan_and_version and exits on an unbound plan variable.",
-    "retiring_task": "22.39.157"
-  },
-  {
-    "nodeid": "tools/release/tests/test_upgrade_info.py::test_release_accepts_merge_plan_and_uses_monorepo_asset",
-    "reason": "The release document lacks merge plan info and the CLI now requires --plan-info.",
-    "retiring_task": "22.39.157"
-  },
-  {
-    "nodeid": "tools/release/rehearsal/test_repair_22_33_893.py::test_release_signing_without_relay_import",
-    "reason": "The isolated rehearsal fixture omits tools/release/version.json and its signing loader raises FileNotFoundError.",
-    "retiring_task": "22.39.157"
-  },
-  {
     "nodeid": "tools/containers/test_check_all_services_scope.py::test_check_all_services_scope",
     "reason": "The container checker finds stale scope entries, Dockerfile literals and unresolved layerx COPY sources in the declared context.",
     "retiring_task": "22.39.158"
@@ -508,61 +453,6 @@
     "nodeid": "tools/jev/tests/test_repair_22_33_705.py::test_dependency_capture_reaches_client_and_report_with_real_lockfile_anchors[RUSTSEC-2026-0285]",
     "reason": "The captured dependency anchors for paste or rustls point at stale Cargo.lock lines rather than the named crate declarations.",
     "retiring_task": "22.39.156"
-  },
-  {
-    "nodeid": "tools/release/tests/test_fleet_check.py::LocalChainTests::test_frozen_before_halt_rejects_silent_nodes",
-    "reason": "The local chain setup hard-codes /usr/local/go/bin/go, which is absent when Go is installed through the supported toolchain setup.",
-    "retiring_task": "22.39.157"
-  },
-  {
-    "nodeid": "tools/release/tests/test_fleet_check.py::LocalChainTests::test_frozen_needs_every_validator_at_halt",
-    "reason": "The local chain setup hard-codes /usr/local/go/bin/go, which is absent when Go is installed through the supported toolchain setup.",
-    "retiring_task": "22.39.157"
-  },
-  {
-    "nodeid": "tools/release/tests/test_fleet_check.py::LocalChainTests::test_full_phase_reads_env_with_no_rehearsal",
-    "reason": "The local chain setup hard-codes /usr/local/go/bin/go, which is absent when Go is installed through the supported toolchain setup.",
-    "retiring_task": "22.39.157"
-  },
-  {
-    "nodeid": "tools/release/tests/test_fleet_check.py::LocalChainTests::test_preflight_on_local_paxd",
-    "reason": "The local chain setup hard-codes /usr/local/go/bin/go, which is absent when Go is installed through the supported toolchain setup.",
-    "retiring_task": "22.39.157"
-  },
-  {
-    "nodeid": "tools/release/tests/test_fleet_check.py::LocalChainTests::test_services_phase",
-    "reason": "The local chain setup hard-codes /usr/local/go/bin/go, which is absent when Go is installed through the supported toolchain setup.",
-    "retiring_task": "22.39.157"
-  },
-  {
-    "nodeid": "tools/release/tests/test_fleet_check.py::LocalChainTests::test_version_mismatch_on_local_paxd",
-    "reason": "The local chain setup hard-codes /usr/local/go/bin/go, which is absent when Go is installed through the supported toolchain setup.",
-    "retiring_task": "22.39.157"
-  },
-  {
-    "nodeid": "tools/release/tests/test_repair_22_31_331.py::test_validator_signing_rewind_refused_before_any_move[live0]",
-    "reason": "The rewind refusal expects post-halt signing but rollback refuses first because no snapshot exists for the validator.",
-    "retiring_task": "22.39.157"
-  },
-  {
-    "nodeid": "tools/release/tests/test_repair_22_31_331.py::test_validator_signing_rewind_refused_before_any_move[live1]",
-    "reason": "The rewind refusal expects post-halt signing but rollback refuses first because no snapshot exists for the validator.",
-    "retiring_task": "22.39.157"
-  },
-  {
-    "nodeid": "tools/release/tests/test_repair_22_31_331.py::test_validator_signing_rewind_refused_before_any_move[live2]",
-    "reason": "The rewind refusal expects post-halt signing but rollback refuses first because no snapshot exists for the validator.",
-    "retiring_task": "22.39.157"
-  },
-  {
-    "nodeid": "tools/release/tests/test_repair_22_31_331.py::test_isolated_fork_rewind_requires_fresh_keys_and_network",
-    "reason": "The isolated fork rewind expects a fresh consensus identities refusal but rollback refuses first because no snapshot exists for the validator.",
-    "retiring_task": "22.39.157"
-  },
-  {
-    "nodeid": "tools/release/tests/test_repair_22_31_331.py::test_isolated_flag_cannot_authorize_same_chain_rewind",
-    "reason": "The same-chain rewind expects a different consensus chain identity refusal but rollback refuses first because no snapshot exists for the validator.",
-    "retiring_task": "22.39.157"
   },
   {
     "nodeid": "tools/bringup/tests/test_bringup_fixtures_retired.py::BringupFixturesRetiredTest::test_fixtures_name_no_retired_daemon",
