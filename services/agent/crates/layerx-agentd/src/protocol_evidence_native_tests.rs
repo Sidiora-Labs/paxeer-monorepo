@@ -37,10 +37,15 @@ fn daemon_terminal_fixture_carries_the_credit_and_maintenance_the_platform_write
         &registry,
     ));
     assert_eq!(activity.payload(), credit.as_slice());
-    checked(crate::prepare::disclose(
-        &checked(layerx_wire::activity::encode_unsigned(&activity)),
-        &registry,
-    ));
+    let (prepared, _, _, _, _) = native_fixture();
+    checked(crate::prepare::verify_call_binding(&prepared.transaction));
+    assert_eq!(
+        prepared.transaction.disclosure,
+        checked(layerx_crypto::disclosure::call::bind_call(
+            &prepared.transaction.call,
+            prepared.actor_address,
+        )),
+    );
     assert!(matches!(
         checked(layerx_wire::batch_maintenance::decode_maintenance(&read(
             &root,
@@ -164,7 +169,7 @@ pub(super) fn native_fixture() -> (
 ) {
     use crate::prepare::{
         evm::{AbiArgument, PrecompileCall, PrecompileTarget},
-        prepare_bound, EvmPreparationDefaults, EvmPreparationState, EvmPrepareRequest,
+        prepare_bound, EvmPreparationDefaults, EvmPreparationState, EvmPrepareRequest, EvmPrepared,
     };
     use layerx_crypto::evm_transaction::{decode_signed, recover_sender};
     use layerx_types::payload::{ActivityType, ModuleId, ModuleRegistration, ModuleRegistry};
@@ -187,7 +192,7 @@ pub(super) fn native_fixture() -> (
             "payExact(bytes32,bytes32,bytes32,uint128,uint64,bytes32)"
         )
     );
-    let transaction = checked(prepare_bound(
+    let transaction: EvmPrepared = checked(prepare_bound(
         EvmPreparationState {
             chain_id: 125,
             pending_nonce: 2,

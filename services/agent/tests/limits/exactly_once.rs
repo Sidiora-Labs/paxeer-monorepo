@@ -1178,7 +1178,9 @@ mod node_recovery {
         resolve_unknown, Outbox, OutboxError, ResendObservation, ResolutionObservation,
         SubmissionState,
     };
-    use layerx_agentd::prepare::{DurablePreparation, LifecycleState, PreparationLifecycle};
+    use layerx_agentd::prepare::lifecycle::{
+        DurablePreparation, LifecycleState, PreparationLifecycle,
+    };
     use layerx_agentd::receipt;
     use layerx_agentd::session::SessionRegistry;
     use layerx_agentd::session_control::SessionControl;

@@ -8,7 +8,8 @@ use layerx_agentd::prepare::evm::{
     self, EvmPreparationState, PrecompileCall, PreparationDefaults, PrepareRequest,
 };
 use layerx_agentd::prepare::{
-    expire, retention_sweep, LifecycleError, LifecycleState, PayloadRedaction, PreparationLifecycle,
+    expire_elapsed, sweep_retention, LifecycleError, LifecycleState, PayloadRedaction,
+    PreparationLifecycle,
 };
 use layerx_wire::encode::Encoder;
 
@@ -164,8 +165,8 @@ fn expiry_during_and_after_signing_releases_every_reservation() {
         .retain_signed_bytes([12; 32], vec![9; 64], [0x44; 32])
         .unwrap_or_else(|error| panic!("signed: {error:?}"));
 
-    let report = expire(&lifecycle, &limiter, 1_011, 1_011)
-        .unwrap_or_else(|error| panic!("expire: {error:?}"));
+    let report = expire_elapsed(&lifecycle, &limiter, 1_011, 1_011)
+        .unwrap_or_else(|error| panic!("expire_elapsed: {error:?}"));
     assert_eq!(report.expired_preparations, vec![[11; 32], [12; 32]]);
     assert_eq!(report.released_reservations, vec![[1; 32], [2; 32]]);
     assert_eq!(limiter.held_reservations(), Ok(0));
@@ -202,7 +203,7 @@ fn retention_discards_terminal_bytes_but_preserves_unknown_and_redacts_payload()
         .unwrap_or_else(|error| panic!("failed: {error:?}"));
 
     let report =
-        retention_sweep(&lifecycle, 110, 5).unwrap_or_else(|error| panic!("sweep: {error:?}"));
+        sweep_retention(&lifecycle, 110, 5).unwrap_or_else(|error| panic!("sweep: {error:?}"));
     assert_eq!(report.discarded_terminal_signed_bytes, 1);
     assert_eq!(report.preserved_unresolved_signed_bytes, 1);
     assert_eq!(lifecycle.has_signed_bytes([21; 32]), Ok(true));
@@ -224,7 +225,7 @@ fn expiry_equality_sequence_and_binding_refusals_preserve_preparation() {
     reserve_one(&limiter, [3; 32]);
     must(lifecycle.register([13; 32], &prepared, vec![[3; 32]]));
     assert_eq!(lifecycle.check_unexpired([13; 32], 1010), Ok(()));
-    let report = must(expire(&lifecycle, &limiter, 1010, 1010));
+    let report = must(expire_elapsed(&lifecycle, &limiter, 1010, 1010));
     assert!(report.expired_preparations.is_empty());
     assert_eq!(limiter.held_reservations(), Ok(1));
     assert_eq!(lifecycle.state([13; 32]), Ok(LifecycleState::Prepared));
@@ -234,7 +235,7 @@ fn expiry_equality_sequence_and_binding_refusals_preserve_preparation() {
     assert!(evm::verify_call_binding(&changed).is_err());
     assert_eq!(original, evm_prepared());
     assert_eq!(lifecycle.state([13; 32]), Ok(LifecycleState::Prepared));
-    let report = must(expire(&lifecycle, &limiter, 1011, 1011));
+    let report = must(expire_elapsed(&lifecycle, &limiter, 1011, 1011));
     assert_eq!(report.expired_preparations, vec![[13; 32]]);
     assert_eq!(report.released_reservations, vec![[3; 32]]);
     assert_eq!(limiter.held_reservations(), Ok(0));
