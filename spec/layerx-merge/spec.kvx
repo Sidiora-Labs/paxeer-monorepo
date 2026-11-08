@@ -336160,7 +336160,7 @@ do_4 = "Attempt 2 (continue, gotcha 3509, decision 2839): the attempt-1 tree ac3
 
 [task.22.39.59]
 title = "Add the repository-wide Markdown link guard"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.39.56", "22.39.58"]
