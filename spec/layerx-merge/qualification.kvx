@@ -35770,3 +35770,19 @@ symbol = "f11_bonds.rs"
 observed = "Attempt 1 at 3964ef3fa398: build exit 1 three times at the size test of the gate (529219, 529219 and 529811 bytes against 524184); the verification never ran; the crate suite at the final tree showed 36 previously passing cases failing across the f04, f05 and f11 targets and four f11_bonds cases failing; record /out/logs/22.38.7-task-record.json."
 assumption = "The guest headroom, the private region format and the unchanged bid setups are the failure; the bond logic itself is sound apart from the countersign identity the batch does not carry."
 severity = "high"
+
+[finding.22.39.118.21]
+task = "22.39.118"
+file = "tools/platform/cli::rpc::tests::positional_requests_match_published_contract"
+symbol = "cli::rpc::tests::positional_requests_match_published_contract"
+observed = "Attempt 22 at 6f42e123e276: build exit 0; verification exit 2: the CLI rpc tests passed and the platform tooling target failed one case, doc_testnet_readme_native_smoke_inputs (undocumented required input LAYERX_TEST_ACCOUNTS_FILE); log /out/logs/verify-1.log."
+assumption = "The README omits two inputs the script asserts; nothing in the tree of the task is at fault."
+severity = "high"
+
+[finding.9.35.20.2]
+task = "9.35.20"
+file = "services/agent/crates/layerx-agentd/tests/prepare_eip1559.rs"
+symbol = "prepare_eip1559.rs"
+observed = "Attempt 2 at 2fc5394b7570: build exit 0; verification exit 101: four targets passed and write_path_evm failed four cases, each refusing the store root as not a canonical owned private directory; log /out/logs/verify-1.log."
+assumption = "The test setup predates the protected root check and no gate ran it since; the re-exports of the task are complete."
+severity = "high"
