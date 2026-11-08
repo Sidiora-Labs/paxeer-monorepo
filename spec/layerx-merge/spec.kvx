@@ -335134,7 +335134,7 @@ do_4 = "Attempt 3 (continue, gotcha 3607, decisions 2856, 2857 and 2901): the at
 
 [task.22.39.119]
 title = "Repair the transport, EVM and program tests of the agent SDK Python suite and retire their baseline entries"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.39.73"]
