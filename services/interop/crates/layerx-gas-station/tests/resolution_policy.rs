@@ -1,3 +1,6 @@
+#[path = "support/journal_entries.rs"]
+mod journal_entries;
+
 use std::cell::Cell;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -85,8 +88,7 @@ fn journal_path() -> Result<PathBuf, Box<dyn std::error::Error>> {
 }
 
 fn remove_journal(path: &Path) -> TestResult {
-    std::fs::remove_file(path)?;
-    std::fs::remove_dir(path.parent().ok_or("journal directory missing")?)?;
+    std::fs::remove_dir_all(path.parent().ok_or("journal directory missing")?)?;
     Ok(())
 }
 
@@ -562,7 +564,9 @@ fn journal_carries_did() -> TestResult {
     let entries = saved
         .split(|byte| *byte == b'\n')
         .filter(|line| !line.is_empty())
-        .map(serde_json::from_slice::<Entry>)
+        .map(|line| -> Result<Entry, Box<dyn std::error::Error>> {
+            Ok(journal_entries::entry(std::str::from_utf8(line)?)?)
+        })
         .collect::<Result<Vec<_>, _>>()?;
     assert!(entries.iter().any(|entry| matches!(entry, Entry::Prepared { key, submission: saved } if *key == batch.record.key && saved.did == batch.record.did && saved == &submission)));
     assert_eq!(std::fs::read(&path)?, saved);
@@ -581,7 +585,25 @@ fn assert_retired_kinds_refused(path: &Path, bytes: &[u8], key: Key) -> TestResu
         serde_json::to_writer(&mut legacy, &retired)?;
         legacy.push(b'\n');
         std::fs::write(path, &legacy)?;
-        assert!(matches!(Journal::open(path), Err(JournalError::Version)));
+        // A plaintext suffix cannot be spliced into an authenticated journal.
+        assert!(matches!(Journal::open(path), Err(JournalError::Corrupt)));
+        // A genuine legacy record is still classified as a version refusal.
+        let legacy_path = path.with_extension("legacy");
+        use std::io::Write as _;
+        use std::os::unix::fs::OpenOptionsExt as _;
+        let mut file = std::fs::OpenOptions::new()
+            .write(true)
+            .create(true)
+            .truncate(true)
+            .mode(0o600)
+            .open(&legacy_path)?;
+        serde_json::to_writer(&mut file, &retired)?;
+        file.write_all(b"\n")?;
+        drop(file);
+        assert!(matches!(
+            Journal::open(&legacy_path),
+            Err(JournalError::Version)
+        ));
     }
     Ok(())
 }
