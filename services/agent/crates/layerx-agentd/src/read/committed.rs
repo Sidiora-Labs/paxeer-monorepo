@@ -952,6 +952,10 @@ impl<'a> CommittedReads<'a> {
 }
 
 #[cfg(test)]
+#[path = "program_account_fixture.rs"]
+mod program_account_fixture;
+
+#[cfg(test)]
 pub(crate) mod tests {
     use super::*;
     use crate::read::BlockId;
@@ -1653,8 +1657,8 @@ pub(crate) mod tests {
 
     #[test]
     fn program_views_decode_one_program_and_one_account_and_refuse_changed_settlement() {
-        use crate::budget::execution_state::read_program_records;
-        let checkpoint = ServedCheckpoint::test_fixture(8, 1_700_000_000, 123_000_000);
+        use crate::budget::execution_state::read_program_records_with_account_proofs;
+        let mut checkpoint = ServedCheckpoint::test_fixture(8, 1_700_000_000, 123_000_000);
         let program = [3; 32];
         let asset = [7; 32];
         let seed = [1, 2, 3];
@@ -1664,6 +1668,9 @@ pub(crate) mod tests {
         )
         .expect("derived account")
         .bytes();
+        let proof =
+            super::program_account_fixture::committed_account(&mut checkpoint, account, asset, 50);
+        let proofs = BTreeMap::from([(account, proof)]);
         let integer = |value: u64| {
             let mut word = [0; 32];
             word[24..].copy_from_slice(&value.to_be_bytes());
@@ -1704,7 +1711,7 @@ pub(crate) mod tests {
         binding.extend(seed);
         binding.resize(160, 0);
         let registered = [account, asset, integer(2)].concat();
-        let value = [integer(50), integer(0)].concat();
+        let value = [integer(50), integer(1)].concat();
         let mut account_arguments = [program, asset, integer(96), integer(3)].concat();
         account_arguments.extend(seed);
         account_arguments.resize(160, 0);
@@ -1751,7 +1758,13 @@ pub(crate) mod tests {
             }
             let (endpoint, worker) = endpoint(answers);
             let reads = CommittedReads::open(&endpoint, 8).expect("checkpoint");
-            let result = read_program_records(&endpoint, reads.checkpoint(), program, &[account]);
+            let result = read_program_records_with_account_proofs(
+                &endpoint,
+                reads.checkpoint(),
+                program,
+                &[account],
+                &proofs,
+            );
             if changed {
                 assert!(matches!(
                     result,
