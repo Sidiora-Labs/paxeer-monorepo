@@ -39,6 +39,9 @@ use openssl::x509::extension::{BasicConstraints, SubjectAlternativeName};
 use openssl::x509::{X509NameBuilder, X509};
 use serde_json::{json, Value};
 
+#[path = "support/evm_dependencies.rs"]
+mod evm_dependencies;
+
 const TIMEOUT: Duration = Duration::from_secs(5);
 const CONTRACT: &str = include_str!(concat!(
     env!("CARGO_MANIFEST_DIR"),
@@ -89,6 +92,7 @@ impl VaultNode {
         let mut child = Command::new("node")
             .arg(Path::new(env!("CARGO_MANIFEST_DIR")).join("src/repair_22_31_160_vault.cjs"))
             .arg(root())
+            .env("NODE_PATH", evm_dependencies::node_modules())
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::inherit())

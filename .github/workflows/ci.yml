@@ -71,6 +71,7 @@ jobs:
         run: make public-audit
 
   c17:
+    # Keep the sanitizer lane on its hosted runner (22.39.147).
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     strategy:
@@ -92,6 +93,17 @@ jobs:
         env:
           CC: ${{ matrix.compiler }}
         run: make build test scan-consensus
+      - name: Install Foundry for core suites
+        uses: foundry-rs/foundry-toolchain@908c540300062bd5a7e473851cdb4282204cee09 # v1.9.1
+        with:
+          version: v1.8.1
+          cache: false
+      - name: Install arithmetic proof tools for core suites
+        run: sudo apt-get update && sudo apt-get install --yes cbmc z3 clang
+      - name: Run all core C suites
+        env:
+          CC: ${{ matrix.compiler }}
+        run: make core-test-all
 
   solidity:
     runs-on: ${{ (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && 'ubuntu-24.04' || vars.CI_LINUX_RUNNER || 'ubuntu-24.04' }}
@@ -104,7 +116,7 @@ jobs:
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@908c540300062bd5a7e473851cdb4282204cee09 # v1.9.1
         with:
-          version: v1.7.1
+          version: v1.8.1
           cache: false
       - name: Install Solidity and mirror test dependencies
         run: sudo apt-get update && sudo apt-get install --yes ripgrep build-essential libssl-dev pkg-config python3 openssl
@@ -130,7 +142,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Set up Go
-        uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: tools/loadtest/go.mod
           cache-dependency-path: tools/loadtest/go.sum
@@ -140,7 +152,7 @@ jobs:
         run: go -C tools/loadtest test -count=1 ./...
 
   js-suite-inventory:
-    runs-on: ubuntu-24.04
+    runs-on: ${{ (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && 'ubuntu-24.04' || vars.CI_LINUX_RUNNER || 'ubuntu-24.04' }}
     timeout-minutes: 10
     steps:
       - name: Check out source
@@ -157,7 +169,7 @@ jobs:
           tests/ci/test_js_suites_have_runner.py
 
   js-node-tests:
-    runs-on: ubuntu-24.04
+    runs-on: ${{ (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && 'ubuntu-24.04' || vars.CI_LINUX_RUNNER || 'ubuntu-24.04' }}
     timeout-minutes: 10
     strategy:
       fail-fast: false
@@ -182,7 +194,7 @@ jobs:
         run: npm run ${{ matrix.script }}
 
   js-npm-tests:
-    runs-on: ubuntu-24.04
+    runs-on: ${{ (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && 'ubuntu-24.04' || vars.CI_LINUX_RUNNER || 'ubuntu-24.04' }}
     timeout-minutes: 30
     strategy:
       fail-fast: false
@@ -207,7 +219,7 @@ jobs:
         run: npm test
 
   js-workspace-tests:
-    runs-on: ubuntu-24.04
+    runs-on: ${{ (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && 'ubuntu-24.04' || vars.CI_LINUX_RUNNER || 'ubuntu-24.04' }}
     timeout-minutes: 30
     strategy:
       fail-fast: false
@@ -248,7 +260,7 @@ jobs:
         run: npm run test:payments --workspace @sidiora/layerx-middleware-conformance
 
   js-pnpm-tests:
-    runs-on: ubuntu-24.04
+    runs-on: ${{ (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && 'ubuntu-24.04' || vars.CI_LINUX_RUNNER || 'ubuntu-24.04' }}
     timeout-minutes: 30
     strategy:
       fail-fast: false
@@ -268,14 +280,14 @@ jobs:
           node-version: '24.22.0'
           package-manager-cache: false
       - name: Install pnpm
-        run: npm install --global pnpm@10.15.1
+        run: npm install --global "$(node -p 'require("./package.json").packageManager')"
       - name: Install package dependencies
         run: pnpm install --ignore-workspace --frozen-lockfile
       - name: Run package suite
         run: pnpm test
 
   js-wallet-gateway-tests:
-    runs-on: ubuntu-24.04
+    runs-on: ${{ (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && 'ubuntu-24.04' || vars.CI_LINUX_RUNNER || 'ubuntu-24.04' }}
     timeout-minutes: 30
     steps:
       - name: Check out source
@@ -288,7 +300,7 @@ jobs:
           node-version: '24.22.0'
           package-manager-cache: false
       - name: Set up Go
-        uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: services/wallet/attestor/go.mod
           cache-dependency-path: services/wallet/attestor/go.sum
@@ -299,7 +311,7 @@ jobs:
         with:
           version: v1.8.1
       - name: Install pnpm
-        run: npm install --global pnpm@9.15.9
+        run: npm install --global pnpm@10.34.9+sha512.f49b5a8ea0fdedb44bb3c0c1d6575092a53c2950d95b7ad15df11f17974877a2de3a01c07e934e9b28ce716e51c09a94962c7306d09be2e1e4b18a8c8762fd32
       - name: Install wallet dependencies
         working-directory: services/wallet
         run: pnpm install --frozen-lockfile
@@ -310,7 +322,7 @@ jobs:
         run: pnpm test
 
   js-explorer-env-tests:
-    runs-on: ubuntu-24.04
+    runs-on: ${{ (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && 'ubuntu-24.04' || vars.CI_LINUX_RUNNER || 'ubuntu-24.04' }}
     timeout-minutes: 10
     defaults:
       run:

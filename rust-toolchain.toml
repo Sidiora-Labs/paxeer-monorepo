@@ -1,4 +1,4 @@
 [toolchain]
-channel = "1.91.1"
+channel = "1.91.1" # Keep .github/workflows Rust action inputs at this exact version.
 profile = "minimal"
 components = ["clippy", "rustfmt"]

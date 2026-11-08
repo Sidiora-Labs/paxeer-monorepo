@@ -1,0 +1,477 @@
+[
+  {
+    "nodeid": "tests/agent/sdk/python/test_account_derivation.py::AccountDerivationTest::test_mnemonic_vectors_and_bind_calls",
+    "first_error_line": "AssertionError: '0x9858EfFD232B4033E47d90003D41EC34EcaEda94' != '0x9858effd232b4033e47d90003d41ec34ecaeda94'",
+    "retiring_task": "22.39.119"
+  },
+  {
+    "nodeid": "tests/agent/sdk/python/test_account_derivation.py::AccountDerivationTest::test_wallet_signature_vectors",
+    "first_error_line": "AssertionError: '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266' != '0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266'",
+    "retiring_task": "22.39.119"
+  },
+  {
+    "nodeid": "tests/agent/sdk/python/test_ai_market.py::ApprovalGateTests::test_approval_binds_the_owner_key_freshness_and_a_verified_signature",
+    "first_error_line": "layerx_sdk.evm_transaction.EvmTransactionError: invalid_transaction",
+    "retiring_task": "22.39.120"
+  },
+  {
+    "nodeid": "tests/agent/sdk/python/test_ai_market.py::ApprovalGateTests::test_first_difference_reports_the_earliest_schema_field",
+    "first_error_line": "layerx_sdk.evm_transaction.EvmTransactionError: invalid_transaction",
+    "retiring_task": "22.39.120"
+  },
+  {
+    "nodeid": "tests/agent/sdk/python/test_ai_market.py::ApprovalGateTests::test_review_refuses_a_call_that_is_not_the_ai_market_native_call",
+    "first_error_line": "layerx_sdk.evm_transaction.EvmTransactionError: invalid_transaction",
+    "retiring_task": "22.39.120"
+  },
+  {
+    "nodeid": "tests/agent/sdk/python/test_ai_market.py::ApprovalTests::test_a07_claim_is_reviewed_approved_and_signed_as_a_native_program_call",
+    "first_error_line": "layerx_sdk.evm_transaction.EvmTransactionError: invalid_transaction",
+    "retiring_task": "22.39.120"
+  },
+  {
+    "nodeid": "tests/agent/sdk/python/test_ai_market.py::ApprovalTests::test_a07_prepare_refuses_stale_authority_unfinalized_reads_and_program_preview_codes",
+    "first_error_line": "layerx_sdk.evm_transaction.EvmTransactionError: invalid_transaction",
+    "retiring_task": "22.39.120"
+  },
+  {
+    "nodeid": "tests/agent/sdk/python/test_ai_market.py::EnvelopeTests::test_unsigned_activity_reproduces_the_signed_program_call_fixture",
+    "first_error_line": "layerx_sdk.evm_transaction.EvmTransactionError: invalid_transaction",
+    "retiring_task": "22.39.120"
+  },
+  {
+    "nodeid": "tests/agent/sdk/python/test_ai_market.py::JournalTests::test_lost_acknowledgment_recovers_and_resends_exact_bytes_over_rpc",
+    "first_error_line": "layerx_sdk.evm_transaction.EvmTransactionError: invalid_transaction",
+    "retiring_task": "22.39.120"
+  },
+  {
+    "nodeid": "tests/agent/sdk/python/test_ai_market.py::JournalTests::test_pre_send_refusal_restores_and_a_foreign_hash_leaves_the_record_unknown",
+    "first_error_line": "layerx_sdk.evm_transaction.EvmTransactionError: invalid_transaction",
+    "retiring_task": "22.39.120"
+  },
+  {
+    "nodeid": "tests/agent/sdk/python/test_ai_market.py::JournalTests::test_records_refuse_corruption_and_foreign_keys",
+    "first_error_line": "layerx_sdk.evm_transaction.EvmTransactionError: invalid_transaction",
+    "retiring_task": "22.39.120"
+  },
+  {
+    "nodeid": "tests/agent/sdk/python/test_ai_market.py::JournalTests::test_signed_records_fail_only_after_their_validity_window",
+    "first_error_line": "layerx_sdk.evm_transaction.EvmTransactionError: invalid_transaction",
+    "retiring_task": "22.39.120"
+  },
+  {
+    "nodeid": "tests/agent/sdk/python/test_ai_market.py::SchemaContractTests::test_constants_enums_transitions_and_errors_match_the_frozen_schema",
+    "first_error_line": "layerx_sdk.evm_transaction.EvmTransactionError: invalid_transaction",
+    "retiring_task": "22.39.120"
+  },
+  {
+    "nodeid": "tests/agent/sdk/python/test_evm_transaction.py::AiMarketVectorTests::test_codec_round_trips_the_ai_market_transaction_vectors_byte_for_byte",
+    "first_error_line": "layerx_sdk.evm_transaction.EvmTransactionError: invalid_transaction",
+    "retiring_task": "22.39.119"
+  },
+  {
+    "nodeid": "tests/agent/sdk/python/test_evm_transaction.py::AiMarketVectorTests::test_programs_call_calldata_matches_the_ai_market_encoder",
+    "first_error_line": "layerx_sdk.evm_transaction.EvmTransactionError: invalid_transaction",
+    "retiring_task": "22.39.119"
+  },
+  {
+    "nodeid": "tests/agent/sdk/python/test_mirror_process.py::MirrorProcessTests::test_process_exit_and_requested_batch_bind_success",
+    "first_error_line": "ValueError: invalid verification response",
+    "retiring_task": "22.39.119"
+  },
+  {
+    "nodeid": "tests/agent/sdk/python/test_native_program_binding.py::NativeProgramBindingTest::test_real_signed_native_binding_and_mismatches",
+    "first_error_line": "layerx_sdk.evm_transaction.EvmTransactionError: invalid_transaction",
+    "retiring_task": "22.39.119"
+  },
+  {
+    "nodeid": "tests/agent/sdk/python/test_precompile_calls.py::PrecompileCallsTest::test_launchpad_generated_write_mutability_matches_abi",
+    "first_error_line": "AssertionError: {'buy[864 chars]s)': False, 'createMarketFor(address,string,st[1480 chars]alse} != {'buy[864 chars]s)': True, 'createMarketFor(address,string,str[1479 chars]alse}",
+    "retiring_task": "22.39.119"
+  },
+  {
+    "nodeid": "tests/agent/sdk/python/test_program_account_bound.py::ProgramAccountBoundTest::test_account_bound_authority_rejects_changed_names_and_shape",
+    "first_error_line": "layerx_sdk.evm_transaction.EvmTransactionError: invalid_transaction",
+    "retiring_task": "22.39.119"
+  },
+  {
+    "nodeid": "tests/agent/sdk/python/test_program_account_bound.py::ProgramAccountBoundTest::test_current_transaction_binds_hash_sender_and_precompile",
+    "first_error_line": "layerx_sdk.evm_transaction.EvmTransactionError: invalid_transaction",
+    "retiring_task": "22.39.119"
+  },
+  {
+    "nodeid": "tests/agent/sdk/python/test_program_account_bound.py::ProgramAccountBoundTest::test_real_native_call_verifies_with_principal_account_binding",
+    "first_error_line": "layerx_sdk.evm_transaction.EvmTransactionError: invalid_transaction",
+    "retiring_task": "22.39.119"
+  },
+  {
+    "nodeid": "tests/agent/sdk/python/test_program_account_bound.py::ProgramAccountBoundTest::test_signed_native_call_commitments_remain_bound",
+    "first_error_line": "layerx_sdk.evm_transaction.EvmTransactionError: invalid_transaction",
+    "retiring_task": "22.39.119"
+  },
+  {
+    "nodeid": "tests/agent/sdk/python/test_program_executed_v3.py::ProgramExecutedV3Test::test_actual_kernel_runtime_receipt_and_module_binding",
+    "first_error_line": "ValueError: invalid program document fields",
+    "retiring_task": "22.39.119"
+  },
+  {
+    "nodeid": "tests/agent/sdk/python/test_program_lifecycle.py::ProgramLifecycleTest::test_c_signed_fixtures_and_refusals",
+    "first_error_line": "layerx_sdk.evm_transaction.EvmTransactionError: invalid_transaction",
+    "retiring_task": "22.39.119"
+  },
+  {
+    "nodeid": "tests/agent/sdk/python/test_program_pre_runtime.py::ProgramPreRuntimeTest::test_call_identity_abi_idempotency_and_signature_bindings",
+    "first_error_line": "layerx_sdk.evm_transaction.EvmTransactionError: invalid_transaction",
+    "retiring_task": "22.39.119"
+  },
+  {
+    "nodeid": "tests/agent/sdk/python/test_program_pre_runtime.py::ProgramPreRuntimeTest::test_every_pre_runtime_receipt_invariant_is_enforced",
+    "first_error_line": "layerx_sdk.evm_transaction.EvmTransactionError: invalid_transaction",
+    "retiring_task": "22.39.119"
+  },
+  {
+    "nodeid": "tests/agent/sdk/python/test_program_pre_runtime.py::ProgramPreRuntimeTest::test_native_protocol_two_codec_preserves_historical_failure_layout",
+    "first_error_line": "layerx_sdk.evm_transaction.EvmTransactionError: invalid_transaction",
+    "retiring_task": "22.39.119"
+  },
+  {
+    "nodeid": "tests/agent/sdk/python/test_program_pre_runtime.py::ProgramPreRuntimeTest::test_original_layout_bounds_and_wrapper_refusal",
+    "first_error_line": "layerx_sdk.evm_transaction.EvmTransactionError: invalid_transaction",
+    "retiring_task": "22.39.119"
+  },
+  {
+    "nodeid": "tests/agent/sdk/python/test_program_pre_runtime.py::ProgramPreRuntimeTest::test_original_native_refusal_and_submission_recovery",
+    "first_error_line": "layerx_sdk.evm_transaction.EvmTransactionError: invalid_transaction",
+    "retiring_task": "22.39.119"
+  },
+  {
+    "nodeid": "tests/agent/sdk/python/test_program_pre_runtime.py::ProgramPreRuntimeTest::test_resigned_terminal_fields_cannot_rebind_refusal",
+    "first_error_line": "layerx_sdk.evm_transaction.EvmTransactionError: invalid_transaction",
+    "retiring_task": "22.39.119"
+  },
+  {
+    "nodeid": "tests/agent/sdk/python/test_program_response_code.py::ProgramResponseCodeTest::test_original_executed_guest_response_seven_has_protocol_success_zero",
+    "first_error_line": "ValueError: invalid program document fields",
+    "retiring_task": "22.39.119"
+  },
+  {
+    "nodeid": "tests/agent/sdk/python/test_program_trust.py::ProgramTrustTests::test_concurrent_head_change_invalidates_inflight_simulation",
+    "first_error_line": "AssertionError: False is not true : simulation did not reach the HTTP boundary",
+    "retiring_task": "22.39.119"
+  },
+  {
+    "nodeid": "tests/agent/sdk/python/test_program_trust.py::ProgramTrustTests::test_signed_validity_and_maximum_simulation_age_are_enforced",
+    "first_error_line": "layerx_sdk.evm_transaction.EvmTransactionError: invalid_transaction",
+    "retiring_task": "22.39.119"
+  },
+  {
+    "nodeid": "tests/agent/sdk/python/test_program_trust.py::ProgramTrustTests::test_simulation_rechecks_head_freshness_after_http",
+    "first_error_line": "AssertionError: \"stale program head\" does not match \"invalid_transaction\"",
+    "retiring_task": "22.39.119"
+  },
+  {
+    "nodeid": "tests/agent/sdk/python/test_program_typed_responses.py::TypedProgramResponseTests::test_discovery_and_interface_are_typed_and_honest_about_server_verification",
+    "first_error_line": "layerx_sdk.production.PlatformSdkError: The service response did not match the contract.",
+    "retiring_task": "22.39.119"
+  },
+  {
+    "nodeid": "tests/agent/sdk/python/test_px.py::UnifiedNetworkReadTest::test_quantities_decode_exactly_and_never_as_floats",
+    "first_error_line": "AssertionError: ValueError not raised",
+    "retiring_task": "22.39.119"
+  },
+  {
+    "nodeid": "tests/agent/sdk/python/test_receipt_fixture.py::ReceiptFixtureTest::test_core_fixture_receipt_verifies_positively",
+    "first_error_line": "layerx_sdk.production.PlatformSdkError: The service response did not match the contract.",
+    "retiring_task": "22.39.120"
+  },
+  {
+    "nodeid": "tests/agent/sdk/python/test_repair_22_31_312.py::test_programs_terminal_response_recorded_call_survives_transport_reopen[]",
+    "first_error_line": "ValueError: invalid-rpc-endpoint",
+    "retiring_task": "22.39.119"
+  },
+  {
+    "nodeid": "tests/agent/sdk/python/test_repair_22_31_312.py::test_programs_terminal_response_recorded_call_survives_transport_reopen[gggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg]",
+    "first_error_line": "ValueError: invalid-rpc-endpoint",
+    "retiring_task": "22.39.119"
+  },
+  {
+    "nodeid": "tests/agent/sdk/python/test_repair_22_31_312.py::test_programs_terminal_response_recorded_call_survives_transport_reopen[guest response]",
+    "first_error_line": "ValueError: invalid-rpc-endpoint",
+    "retiring_task": "22.39.119"
+  },
+  {
+    "nodeid": "tests/agent/sdk/python/test_repair_22_33_15.py::test_offline_example_installed_receipt_round_trip[V1-erc20-approve]",
+    "first_error_line": "ValueError: invalid-rpc-endpoint",
+    "retiring_task": "22.39.119"
+  },
+  {
+    "nodeid": "tests/agent/sdk/python/test_repair_22_33_15.py::test_offline_example_installed_receipt_round_trip[V1-layerxbridge-bridge-out]",
+    "first_error_line": "ValueError: invalid-rpc-endpoint",
+    "retiring_task": "22.39.119"
+  },
+  {
+    "nodeid": "tests/agent/sdk/python/test_repair_22_33_15.py::test_offline_example_installed_receipt_round_trip[V1-layerxledger-pay-exact]",
+    "first_error_line": "ValueError: invalid-rpc-endpoint",
+    "retiring_task": "22.39.119"
+  },
+  {
+    "nodeid": "tests/agent/sdk/python/test_repair_22_33_15.py::test_offline_example_installed_receipt_round_trip[V1-layerxprograms-call]",
+    "first_error_line": "ValueError: invalid-rpc-endpoint",
+    "retiring_task": "22.39.119"
+  },
+  {
+    "nodeid": "tests/agent/sdk/python/test_repair_22_33_15.py::test_offline_example_installed_receipt_round_trip[V1-pax-transfer]",
+    "first_error_line": "ValueError: invalid-rpc-endpoint",
+    "retiring_task": "22.39.119"
+  },
+  {
+    "nodeid": "tests/agent/sdk/python/test_repair_22_33_16.py::test_exact_amounts_reach_real_intent_transport_without_loss[0_0]",
+    "first_error_line": "layerx_sdk.production.PlatformSdkError: The service response did not match the contract.",
+    "retiring_task": "22.39.120"
+  },
+  {
+    "nodeid": "tests/agent/sdk/python/test_repair_22_33_16.py::test_exact_amounts_reach_real_intent_transport_without_loss[0_1]",
+    "first_error_line": "layerx_sdk.production.PlatformSdkError: The service response did not match the contract.",
+    "retiring_task": "22.39.120"
+  },
+  {
+    "nodeid": "tests/agent/sdk/python/test_repair_22_33_16.py::test_exact_amounts_reach_real_intent_transport_without_loss[1_0]",
+    "first_error_line": "layerx_sdk.production.PlatformSdkError: The service response did not match the contract.",
+    "retiring_task": "22.39.120"
+  },
+  {
+    "nodeid": "tests/agent/sdk/python/test_repair_22_33_16.py::test_exact_amounts_reach_real_intent_transport_without_loss[1_1]",
+    "first_error_line": "layerx_sdk.production.PlatformSdkError: The service response did not match the contract.",
+    "retiring_task": "22.39.120"
+  },
+  {
+    "nodeid": "tests/agent/sdk/python/test_repair_22_33_16.py::test_exact_amounts_reach_real_intent_transport_without_loss[340282366920938463463374607431768211455_0]",
+    "first_error_line": "layerx_sdk.production.PlatformSdkError: The service response did not match the contract.",
+    "retiring_task": "22.39.120"
+  },
+  {
+    "nodeid": "tests/agent/sdk/python/test_repair_22_33_16.py::test_exact_amounts_reach_real_intent_transport_without_loss[340282366920938463463374607431768211455_1]",
+    "first_error_line": "layerx_sdk.production.PlatformSdkError: The service response did not match the contract.",
+    "retiring_task": "22.39.120"
+  },
+  {
+    "nodeid": "tests/agent/sdk/python/test_repair_22_33_16.py::test_legacy_exchange_writes_are_historical_and_current_calls_use_perps",
+    "first_error_line": "ValueError: invalid-rpc-endpoint",
+    "retiring_task": "22.39.120"
+  },
+  {
+    "nodeid": "tests/agent/sdk/python/test_repair_22_33_16.py::test_retired_public_exports_preserve_recorded_receipt_path",
+    "first_error_line": "ValueError: invalid-rpc-endpoint",
+    "retiring_task": "22.39.120"
+  },
+  {
+    "nodeid": "tests/agent/sdk/python/test_repair_22_33_701.py::test_program_account_current_identity_over_recorded_rpc",
+    "first_error_line": "ValueError: invalid-rpc-endpoint",
+    "retiring_task": "22.39.119"
+  },
+  {
+    "nodeid": "tests/agent/sdk/python/test_repair_22_33_701.py::test_program_account_legacy_identity[test_account_bound_authority_rejects_changed_names_and_shape]",
+    "first_error_line": "layerx_sdk.evm_transaction.EvmTransactionError: invalid_transaction",
+    "retiring_task": "22.39.119"
+  },
+  {
+    "nodeid": "tests/agent/sdk/python/test_repair_22_33_701.py::test_program_account_legacy_identity[test_current_transaction_binds_hash_sender_and_precompile]",
+    "first_error_line": "layerx_sdk.evm_transaction.EvmTransactionError: invalid_transaction",
+    "retiring_task": "22.39.119"
+  },
+  {
+    "nodeid": "tests/agent/sdk/python/test_repair_22_33_701.py::test_program_account_legacy_identity[test_real_native_call_verifies_with_principal_account_binding]",
+    "first_error_line": "layerx_sdk.evm_transaction.EvmTransactionError: invalid_transaction",
+    "retiring_task": "22.39.119"
+  },
+  {
+    "nodeid": "tests/agent/sdk/python/test_repair_22_33_701.py::test_program_account_legacy_identity[test_signed_native_call_commitments_remain_bound]",
+    "first_error_line": "layerx_sdk.evm_transaction.EvmTransactionError: invalid_transaction",
+    "retiring_task": "22.39.119"
+  },
+  {
+    "nodeid": "tests/agent/sdk/python/test_repair_22_33_701.py::test_program_http_current_ingress_and_protected_inputs",
+    "first_error_line": "ValueError: invalid-rpc-endpoint",
+    "retiring_task": "22.39.119"
+  },
+  {
+    "nodeid": "tests/agent/sdk/python/test_repair_22_33_701.py::test_program_lifecycle_historical_internal_coverage[test_c_signed_fixtures_and_refusals]",
+    "first_error_line": "layerx_sdk.evm_transaction.EvmTransactionError: invalid_transaction",
+    "retiring_task": "22.39.119"
+  },
+  {
+    "nodeid": "tests/agent/sdk/python/test_repair_22_33_701.py::test_program_trust_envelope_shape_and_freshness[test_concurrent_head_change_invalidates_inflight_simulation]",
+    "first_error_line": "AssertionError: False is not true : simulation did not reach the HTTP boundary",
+    "retiring_task": "22.39.119"
+  },
+  {
+    "nodeid": "tests/agent/sdk/python/test_repair_22_33_701.py::test_program_trust_envelope_shape_and_freshness[test_signed_validity_and_maximum_simulation_age_are_enforced]",
+    "first_error_line": "layerx_sdk.evm_transaction.EvmTransactionError: invalid_transaction",
+    "retiring_task": "22.39.119"
+  },
+  {
+    "nodeid": "tests/agent/sdk/python/test_repair_22_33_701.py::test_program_trust_envelope_shape_and_freshness[test_simulation_rechecks_head_freshness_after_http]",
+    "first_error_line": "AssertionError: \"stale program head\" does not match \"invalid_transaction\"",
+    "retiring_task": "22.39.119"
+  },
+  {
+    "nodeid": "tests/agent/sdk/python/test_repair_22_33_701.py::test_px_recorded_chain_125_root_answers_over_sdk_rpc",
+    "first_error_line": "ValueError: invalid-rpc-endpoint",
+    "retiring_task": "22.39.119"
+  },
+  {
+    "nodeid": "tests/agent/sdk/python/test_repair_22_33_701.py::test_typed_program_verification_state[test_discovery_and_interface_are_typed_and_honest_about_server_verification]",
+    "first_error_line": "layerx_sdk.production.PlatformSdkError: The service response did not match the contract.",
+    "retiring_task": "22.39.119"
+  },
+  {
+    "nodeid": "tests/agent/sdk/python/test_repair_22_33_702.py::test_px_retired_rpc_path_matches_gateway_contract",
+    "first_error_line": "assert 'if request.path == \"/\" && request.method == \"POST\"' in 'mod backend_availability;\\nuse backend_availability::{BackendAvailability, KernelBackend};\\nmod authority_readiness;\\...           ]\\n        );\\n        count += 1;\\n        println!(\"PAXEER_X_ROUTER_CONTRACT_CASES={count}\");\\n    }\\n}\\n'",
+    "retiring_task": "22.39.120"
+  },
+  {
+    "nodeid": "tests/agent/sdk/python/test_repair_22_33_702.py::test_recorded_eip155_decoder_preserves_canonical_and_signature_refusals",
+    "first_error_line": "Failed: DID NOT RAISE EvmTransactionError",
+    "retiring_task": "22.39.120"
+  },
+  {
+    "nodeid": "tests/agent/sdk/python/test_repair_22_33_702.py::test_search_payer_address_binds_the_recorded_offer_over_http",
+    "first_error_line": "ValueError: invalid-rpc-endpoint",
+    "retiring_task": "22.39.120"
+  },
+  {
+    "nodeid": "tests/agent/sdk/python/test_repair_22_33_702.py::test_web_search_authorized_batch_cannot_replace_raw_payment_binding",
+    "first_error_line": "TypeError: verify_web_search_payment() missing 2 required keyword-only arguments: 'raw_transaction' and 'receipt_keys'",
+    "retiring_task": "22.39.120"
+  },
+  {
+    "nodeid": "tests/agent/sdk/python/test_repair_22_33_702.py::test_web_search_current_receipt_and_refusal_contracts[test_untrusted_sequencer_receipt_is_never_sent]",
+    "first_error_line": "AssertionError: 'offer-account-mismatch' != 'receipt-unverified'",
+    "retiring_task": "22.39.120"
+  },
+  {
+    "nodeid": "tests/agent/sdk/python/test_repair_22_33_702.py::test_web_search_current_receipt_and_refusal_contracts[test_version_three_layouts_and_unsupported_versions_are_refused]",
+    "first_error_line": "AssertionError: 'offer-account-mismatch' != 'receipt-unverified'",
+    "retiring_task": "22.39.120"
+  },
+  {
+    "nodeid": "tests/agent/sdk/python/test_repair_22_33_702.py::test_x402_committed_recording_keeps_the_actual_block_identity",
+    "first_error_line": "AssertionError: assert False",
+    "retiring_task": "22.39.120"
+  },
+  {
+    "nodeid": "tests/agent/sdk/python/test_repair_22_33_702.py::test_x402_current_receipts_and_retained_protocol_refusals[VerifyPaymentReceiptTest-test_sequencer_receipt_verifies_with_raw_transaction_and_governed_key]",
+    "first_error_line": "layerx_sdk.x402.PaymentBindingError: Local verification failed: payment binding payment mismatch.",
+    "retiring_task": "22.39.120"
+  },
+  {
+    "nodeid": "tests/agent/sdk/python/test_repair_22_33_702.py::test_x402_current_receipts_and_retained_protocol_refusals[VerifyPaymentReceiptTest-test_supported_versions]",
+    "first_error_line": "layerx_sdk.x402.PaymentBindingError: Local verification failed: payment binding payment mismatch.",
+    "retiring_task": "22.39.120"
+  },
+  {
+    "nodeid": "tests/agent/sdk/python/test_repair_22_33_702.py::test_x402_retired_receipt_proof_real_rpc",
+    "first_error_line": "ValueError: invalid-rpc-endpoint",
+    "retiring_task": "22.39.120"
+  },
+  {
+    "nodeid": "tests/agent/sdk/python/test_repair_22_33_702.py::test_x402_rpc_payment_refuses_rebinding[amount]",
+    "first_error_line": "ValueError: invalid-rpc-endpoint",
+    "retiring_task": "22.39.120"
+  },
+  {
+    "nodeid": "tests/agent/sdk/python/test_repair_22_33_702.py::test_x402_rpc_payment_refuses_rebinding[asset]",
+    "first_error_line": "ValueError: invalid-rpc-endpoint",
+    "retiring_task": "22.39.120"
+  },
+  {
+    "nodeid": "tests/agent/sdk/python/test_repair_22_33_702.py::test_x402_rpc_payment_refuses_rebinding[height]",
+    "first_error_line": "ValueError: invalid-rpc-endpoint",
+    "retiring_task": "22.39.120"
+  },
+  {
+    "nodeid": "tests/agent/sdk/python/test_repair_22_33_702.py::test_x402_rpc_payment_refuses_rebinding[key]",
+    "first_error_line": "ValueError: invalid-rpc-endpoint",
+    "retiring_task": "22.39.120"
+  },
+  {
+    "nodeid": "tests/agent/sdk/python/test_repair_22_33_702.py::test_x402_rpc_payment_refuses_rebinding[pay_to]",
+    "first_error_line": "ValueError: invalid-rpc-endpoint",
+    "retiring_task": "22.39.120"
+  },
+  {
+    "nodeid": "tests/agent/sdk/python/test_repair_22_33_702.py::test_x402_rpc_payment_refuses_rebinding[payer]",
+    "first_error_line": "ValueError: invalid-rpc-endpoint",
+    "retiring_task": "22.39.120"
+  },
+  {
+    "nodeid": "tests/agent/sdk/python/test_repair_22_33_702.py::test_x402_rpc_payment_refuses_rebinding[raw]",
+    "first_error_line": "ValueError: invalid-rpc-endpoint",
+    "retiring_task": "22.39.120"
+  },
+  {
+    "nodeid": "tests/agent/sdk/python/test_repair_22_33_702.py::test_x402_rpc_payment_refuses_rebinding[signature]",
+    "first_error_line": "ValueError: invalid-rpc-endpoint",
+    "retiring_task": "22.39.120"
+  },
+  {
+    "nodeid": "tests/agent/sdk/python/test_revert.py::RevertRegistryTest::test_retryable_table_is_the_registry_column",
+    "first_error_line": "AssertionError: 395 != 274",
+    "retiring_task": "22.39.119"
+  },
+  {
+    "nodeid": "tests/agent/sdk/python/test_web_search.py::WebSearchClientTest::test_digest_mismatches",
+    "first_error_line": "AssertionError: 'offer-account-mismatch' != 'content-digest-mismatch'",
+    "retiring_task": "22.39.120"
+  },
+  {
+    "nodeid": "tests/agent/sdk/python/test_web_search.py::WebSearchClientTest::test_exact_fetch_settles_in_every_asset",
+    "first_error_line": "layerx_sdk.web_search.WebSearchError: offer-account-mismatch",
+    "retiring_task": "22.39.120"
+  },
+  {
+    "nodeid": "tests/agent/sdk/python/test_web_search.py::WebSearchClientTest::test_metered_sid_settlement_repeats_the_purpose",
+    "first_error_line": "layerx_sdk.web_search.WebSearchError: offer-account-mismatch",
+    "retiring_task": "22.39.120"
+  },
+  {
+    "nodeid": "tests/agent/sdk/python/test_web_search.py::WebSearchClientTest::test_offers_are_checked_per_asset",
+    "first_error_line": "AssertionError: 'offer-account-mismatch' != 'payment-refused:unrecorded_request'",
+    "retiring_task": "22.39.120"
+  },
+  {
+    "nodeid": "tests/agent/sdk/python/test_web_search.py::WebSearchClientTest::test_refused_settlements",
+    "first_error_line": "AssertionError: 'offer-account-mismatch' != 'settlement-payer-mismatch'",
+    "retiring_task": "22.39.120"
+  },
+  {
+    "nodeid": "tests/agent/sdk/python/test_web_search.py::WebSearchClientTest::test_unconfigured_client_verifies_by_the_carried_version",
+    "first_error_line": "layerx_sdk.web_search.WebSearchError: offer-account-mismatch",
+    "retiring_task": "22.39.120"
+  },
+  {
+    "nodeid": "tests/agent/sdk/python/test_web_search.py::WebSearchClientTest::test_unpaid_refusals",
+    "first_error_line": "AssertionError: 'offer-account-mismatch' != 'grant-offer-mismatch'",
+    "retiring_task": "22.39.120"
+  },
+  {
+    "nodeid": "tests/agent/sdk/python/test_web_search.py::WebSearchClientTest::test_untrusted_sequencer_receipt_is_never_sent",
+    "first_error_line": "AssertionError: 'offer-account-mismatch' != 'receipt-unverified'",
+    "retiring_task": "22.39.120"
+  },
+  {
+    "nodeid": "tests/agent/sdk/python/test_web_search.py::WebSearchClientTest::test_version_three_layouts_and_unsupported_versions_are_refused",
+    "first_error_line": "AssertionError: 'offer-account-mismatch' != 'receipt-unverified'",
+    "retiring_task": "22.39.120"
+  },
+  {
+    "nodeid": "tests/agent/sdk/python/test_x402.py::VerifyPaymentReceiptTest::test_sequencer_receipt_verifies_with_raw_transaction_and_governed_key",
+    "first_error_line": "layerx_sdk.x402.PaymentBindingError: Local verification failed: payment binding payment mismatch.",
+    "retiring_task": "22.39.120"
+  },
+  {
+    "nodeid": "tests/agent/sdk/python/test_x402.py::VerifyPaymentReceiptTest::test_supported_versions",
+    "first_error_line": "layerx_sdk.x402.PaymentBindingError: Local verification failed: payment binding payment mismatch.",
+    "retiring_task": "22.39.120"
+  }
+]

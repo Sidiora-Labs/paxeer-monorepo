@@ -47,6 +47,7 @@ func TestAppMountsMergedModuleStores(t *testing.T) {
 	names := []string{keys.LayerXLedgerStoreKey, keys.LayerXAuthStoreKey, keys.LayerXPayStoreKey,
 		keys.LayerXProgramsStoreKey, keys.LayerXAgentStoreKey, app.LayerXHostStoreKey}
 	for i, name := range names {
+		require.Contains(t, keys.MemIAVLStoreKeys, name)
 		key := w.App.GetKey(name)
 		require.NotNil(t, key, name)
 		store := w.Ctx.KVStore(key)
@@ -58,7 +59,7 @@ func TestAppMountsMergedModuleStores(t *testing.T) {
 		require.Equal(t, []byte{byte(i + 1)}, w.Ctx.KVStore(w.App.GetKey(name)).Get([]byte("mounted-store-probe")), name)
 	}
 	mounted := reflect.ValueOf(w.App).Elem().FieldByName("keys")
-	require.Equal(t, len(keys.MemIAVLStoreKeys)+len(names), mounted.Len())
+	require.Equal(t, len(keys.MemIAVLStoreKeys), mounted.Len())
 	for _, name := range keys.MemIAVLStoreKeys {
 		require.NotNil(t, w.App.GetKey(name), name)
 	}
