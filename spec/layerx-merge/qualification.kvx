@@ -35866,3 +35866,19 @@ symbol = "w7_owner_binding.rs::a_foreign_key_signature_over_the_owner_preimage_i
 observed = "Attempt 2 at 3e725f8c5739: build exit 0; verification exit 101 twice: first three budget_durable_limits cases (repaired), then preparation_state_reads_chain_id_pending_nonce_and_block_time of human_node_preparation.rs line 116 (left 1700000000000, right 1700000000); the four later targets did not run; logs /out/logs/verify-1.log and /out/logs/verify-2.log."
 assumption = "The port is complete; only the second-resolution expectation of the legacy era remains."
 severity = "high"
+
+[finding.22.39.92.1]
+task = "22.39.92"
+file = "tests/ci/test_docs_shell_commands_resolve.py"
+symbol = "test_docs_shell_commands_resolve.py"
+observed = "Attempt 1 at 5220cd82bc6b: build exit 0 twice; verification exit 1 twice: eight of ten tests failed on incomplete shell command at line 91 of the Jev command page of the vendored tree documentation and one on the /ws upgrade documented at docs/readme/PUBLIC-RPC.md line 59; log /out/logs/verify-2.log."
+assumption = "The parser rule for prompt-led blocks and one documentation line are the whole failure; the guard otherwise resolves every command of the tree."
+severity = "high"
+
+[finding.22.39.95.4]
+task = "22.39.95"
+file = "apps/launchpad/web/src/core/wallet-sdk/runtime.integration.test.tsx"
+symbol = "runtime.integration.test.tsx"
+observed = "Attempt 4 at fc0aaaac88dc: build exit 0 twice; verification exit 1 twice: the first stopped before Vitest when the joined readiness probe exited 1, the second ran the web suite with 1267 passed, 10 failed in 6 files (chart recovery 4, creation journey 2, advanced lifecycle 1, wallet challenge 1, trade journey 1, social deadline 1) and mobile not reached; log /out/logs/verify-2.log."
+assumption = "The development stream, the split deployment, the challenge producer and the approval spender are producer defects of the owned fixtures; the social deadline case is a budget matter under the full run."
+severity = "high"
