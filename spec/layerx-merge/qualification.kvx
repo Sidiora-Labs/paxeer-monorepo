@@ -35762,3 +35762,11 @@ symbol = "runtime.integration.test.tsx"
 observed = "Attempt 2 at 9857111ec409 and 4078ebdbf4a0: verify exit 1 twice; at 4078ebdbf4a0 the web suite reported 10 failed and 1266 passed: Bound actual chain125 deployment fixture required (trade journey line 43), Bound actual phase4 measurement inputs required (measurement line 14), Missing actual joined configuration field (chart recovery line 84, four cases), absent L25, L27 and L28 inputs (three wallet runtime cases, creation, connected journeys) and the embedded sign-in setup step timed out at 10000 ms; the mobile suite did not run; log /out/logs/verify-2.log."
 assumption = "The generators the repository carries produce their inputs on owned Anvil children and the three new producers follow the same pattern; the mobile suite passes as in attempt 1."
 severity = "high"
+
+[finding.22.38.7.1]
+task = "22.38.7"
+file = "programs/crates/layerx-programs-ai-market/tests/f11_bonds.rs"
+symbol = "f11_bonds.rs"
+observed = "Attempt 1 at 3964ef3fa398: build exit 1 three times at the size test of the gate (529219, 529219 and 529811 bytes against 524184); the verification never ran; the crate suite at the final tree showed 36 previously passing cases failing across the f04, f05 and f11 targets and four f11_bonds cases failing; record /out/logs/22.38.7-task-record.json."
+assumption = "The guest headroom, the private region format and the unchanged bid setups are the failure; the bond logic itself is sound apart from the countersign identity the batch does not carry."
+severity = "high"

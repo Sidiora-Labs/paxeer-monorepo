@@ -10672,6 +10672,24 @@ value = "The preparation script of the launchpad web suite runs the wallet fixtu
 basis = "Task 22.39.95 attempt 2 (gotcha 3635): the script waited for eleven operator-admitted variables and ten cases threw for absent inputs; extends decisions 2902 and 2920."
 affects = ["22.39.95"]
 
+[decision.2927]
+title = "Every feature that adds operations to the ai-market guest lands on a tree with at least twenty thousand bytes of headroom, recovered by a dedicated size task whenever the previous feature consumed it"
+value = "The packaged guest of programs/crates/layerx-programs-ai-market keeps the bound 524184 of decision 2675 and the release profile and make target of decision 2792. After a feature task lands that leaves fewer than twenty thousand bytes under the bound, the next feature task that adds operations requires a size task of the programs owner that brings the guest to at most 484184 bytes with the techniques of 22.39.142 driven by the function metrics table of wasm-opt (shared helpers kept to one body with the never-inline attribute, status codes instead of formatting, static tables, shared region decoders and writers, dead code removal), changing no public operation, status code, query result or test. A feature task budgets its own additions by reusing the shared typed field writer, the ordered destination reader and the existing region decoders instead of a private region format, and its record states the bytes it added as measured by the host boundary target."
+basis = "Gotcha 3636, decision 2792, task 22.39.142"
+affects = ["22.39.167", "22.38.7", "22.38.13"]
+
+[decision.2928]
+title = "PostBid requires a persisted bond lock, and the task that introduces the refusal owns the setup of every existing test that posts a bid"
+value = "A bid in a room whose profile minimum bond is greater than zero is admitted only when the bidding peer holds a persisted lock of at least the minimum bond for that room (LockBond, 0x0B09); a room profile with a zero minimum bond needs no lock. The task that introduces the refusal owns the setup of every existing test target of the crate that posts a bid: each such setup locks the bond before it bids, its assertions keep their names and expectations, and the tests directory of the crate is in the touches of the task; no assertion is weakened and the refusal is never made conditional on a test."
+basis = "Gotcha 3636, decision 2900, gotcha 3046"
+affects = ["22.38.7"]
+
+[decision.2929]
+title = "A sealed lap batch records the peers that did not countersign, so the guest slashes a missed countersign deadline without the native room host"
+value = "The lap batch record of laps.rs carries, beside its quorum count, the identity of every peer of the deal that did not countersign before the deadline. SlashBond after a missed countersign deadline reads the missing peer from the committed batch record and refuses when the batch is complete or the named peer countersigned; the native room host identifies nothing the guest needs, and the batch encoding change is recorded with its consumer test in the task record."
+basis = "Gotcha 3636, interface.22.inference-bond-record"
+affects = ["22.38.7"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -39562,6 +39580,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.167]
+title = "Bring the ai-market guest back under 484184 bytes a second time so the bond and remaining reward operations fit"
+reqs = ["22998.1"]
+touches = ["programs/crates/layerx-programs-ai-market/src"]
+tests = ["programs/crates/layerx-programs-ai-market/tests/f11_views.rs", "programs/crates/layerx-programs-ai-market/tests/f11_family_table.rs", "programs/crates/layerx-programs-ai-market/tests/f11_rooms_and_deals.rs", "programs/crates/layerx-programs-ai-market/tests/f11_canary_challenge.rs", "programs/crates/layerx-programs-ai-market/tests/f11_payout_split.rs"]
+verification_contract = "test -s programs/crates/layerx-programs-ai-market/src/repair_22_39_167.kvx && test $(wc -c < build/paxai-host-boundary/ai_market.wasm) -le 484184 && cargo test --locked --manifest-path programs/Cargo.toml -p layerx-programs-ai-market --test f11_family_table --test f11_rooms_and_deals --test f11_canary_challenge --test f11_views --test f11_payout_split && python3 -m pytest -q tests/ci/test_ai_market_module_mirror.py"
+do_1 = "do_1 Decisions 2792 and 2927, gotcha 3636. The payout split of 22.38.6 brought the size-optimised guest of programs/crates/layerx-programs-ai-market from 483154 to 504494 bytes, and the bond operations of 22.38.7 alone add about twenty-five thousand bytes, so the deployment bound 524184 cannot hold the pending 22.38 operations. Build the guest with the host boundary target at the starting tree and record the number first."
+symbols = []
 
 [capability.22.39.166]
 title = "Carry the receipt digest the verifier returns through the emulator middleware path"
@@ -182507,6 +182534,37 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.39.167]
+title = "Bring the ai-market guest back under 484184 bytes a second time so the bond and remaining reward operations fit"
+status = "pending"
+mode = "BUILD"
+wave = 4
+requires = ["22.39.142", "22.38.5"]
+reqs = ["22998.1"]
+capabilities = ["22.39.167"]
+interfaces = []
+do_1 = "do_1 Decisions 2792 and 2927, gotcha 3636. The payout split of 22.38.6 brought the size-optimised guest of programs/crates/layerx-programs-ai-market from 483154 to 504494 bytes, and the bond operations of 22.38.7 alone add about twenty-five thousand bytes, so the deployment bound 524184 cannot hold the pending 22.38 operations. Build the guest with the host boundary target at the starting tree and record the number first."
+do_2 = "do_2 Run the function metrics pass of wasm-opt on the packaged ai_market.wasm and record the twenty-five largest functions with their sizes in src/repair_22_39_167.kvx; then, driven by that table, reduce the guest to at most 484184 bytes working only inside the crate: keep every shared helper the table shows duplicated into its callers to one body with the never-inline attribute, route the payout split, the reward ledger and the placement book encoders and decoders through the shared typed field writer and the ordered destination reader, replace any formatting or Debug path reachable from the guest exports with status codes or the SDK abort, make per-call tables static, remove dead code and unused derives, and avoid cloned state copies in the handlers, re-measuring after each step and recording the bytes it saved; the bound, the release profile and the make target stay unchanged, and no public operation, status code or query result changes. If the guest is still above 484184 bytes after the table-driven steps, record the final table and the remaining gap and stop the attempt without a further repair cycle."
+do_3 = "do_3 Keep every existing test of the crate as it stands and run the five f11 test binaries named by the verification after the reduction; a changed test is a defect of this task."
+do_4 = "do_4 Record the guest size before and after and the techniques applied per module with the bytes each saved in src/repair_22_39_167.kvx. Run the build once and the verification once at the final tree and record both by reference."
+symbols = []
+touches = ["programs/crates/layerx-programs-ai-market/src"]
+tests = ["programs/crates/layerx-programs-ai-market/tests/f11_views.rs", "programs/crates/layerx-programs-ai-market/tests/f11_family_table.rs", "programs/crates/layerx-programs-ai-market/tests/f11_rooms_and_deals.rs", "programs/crates/layerx-programs-ai-market/tests/f11_canary_challenge.rs", "programs/crates/layerx-programs-ai-market/tests/f11_payout_split.rs"]
+planned_paths = ["programs/crates/layerx-programs-ai-market/src/repair_22_39_167.kvx"]
+build_cmd = "mkdir -p build && (make -s paxai-host-boundary-build > build/paxai-host-boundary.log 2>&1 || true) && test -s build/paxai-host-boundary/ai_market.wasm && cargo build --locked --manifest-path programs/Cargo.toml -p layerx-programs-ai-market --tests"
+verify_cmd = "test -s programs/crates/layerx-programs-ai-market/src/repair_22_39_167.kvx && test $(wc -c < build/paxai-host-boundary/ai_market.wasm) -le 484184 && cargo test --locked --manifest-path programs/Cargo.toml -p layerx-programs-ai-market --test f11_family_table --test f11_rooms_and_deals --test f11_canary_challenge --test f11_views --test f11_payout_split && python3 -m pytest -q tests/ci/test_ai_market_module_mirror.py"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-programs"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.166]
 title = "Carry the receipt digest the verifier returns through the emulator middleware path"
 status = "done"
@@ -183812,14 +183870,14 @@ title = "Lock, slash and refund peer bonds"
 status = "pending"
 mode = "BUILD"
 wave = 5
-requires = ["22.38.5", "22.38.6", "22.31.615", "22.31.620", "22.39.142"]
+requires = ["22.38.5", "22.38.6", "22.31.615", "22.31.620", "22.39.142", "22.39.167"]
 reqs = ["22380.1"]
 capabilities = ["22.38.7"]
 interfaces = ["interface.22.inference-bond-record"]
 do_1 = "do_1 Implement LockBond (a peer locks the room profile minimum bond against its bid; PostBid refuses without a lock), SlashBond (after a resolved canary miss or a missed countersign deadline the bond is slashed by the room profile slash fraction in basis points into the reward ledger of the other peers of the deal) and RefundBond (after the last deal of the peer closes and the challenge window passes)."
 do_2 = "do_2 Write tests/f11_bonds.rs: lock then bid passes, bid without lock refuses, slash after miss moves the fraction, double slash for one lap refuses, refund before window refuses and refund after window returns the remainder."
 symbols = ["BondRecord", "apply_lock_bond", "apply_slash_bond", "apply_refund_bond"]
-touches = ["programs/crates/layerx-programs-ai-market/src/lib.rs", "programs/crates/layerx-programs-ai-market/src/dispatch.rs", "programs/crates/layerx-programs-ai-market/src/rewards.rs"]
+touches = ["programs/crates/layerx-programs-ai-market/src", "programs/crates/layerx-programs-ai-market/tests"]
 tests = ["programs/crates/layerx-programs-ai-market/tests/f11_bonds.rs"]
 planned_paths = ["programs/crates/layerx-programs-ai-market/src/bonds.rs", "programs/crates/layerx-programs-ai-market/tests/f11_bonds.rs"]
 build_cmd = "mkdir -p build && (make -s paxai-host-boundary-build > build/paxai-host-boundary.log 2>&1 || true) && test $(wc -c < build/paxai-host-boundary/ai_market.wasm) -le 524184 && cargo build --locked --manifest-path programs/Cargo.toml -p layerx-programs-ai-market --tests && python3 -m pytest -q tests/ci/test_ai_market_module_mirror.py"
@@ -183836,6 +183894,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_3 = "Decision 2900: before the first change, run cargo test --locked --manifest-path programs/Cargo.toml -p layerx-programs-ai-market --no-fail-fast once on the unchanged merged main tree and record the failing names by target in the task record; run it again at the final tree and record that list; no name fails at the end that passed at the start. The declared verification stays the gate."
+do_4 = "Attempt 2 (continue after 22.39.167 lands; gotcha 3636, decisions 2792, 2900, 2927, 2928 and 2929): the attempt-1 tree 3964ef3fa398 is the starting point (the three bond operations, the bid check, the close-room path, the reward ledger changes, tests/f11_bonds.rs). Merge main once 22.39.167 is on it, then fit the bond module into the shared helpers per decision 2927: bond records live as rows of the placement book region beside the bids they lock, encoded through the shared typed field writer and read through the ordered destination reader, so src/bonds.rs keeps no private region decoder, writer, footer or fault table; the double-slash guard reads the lap settlement record of laps.rs, which already names the deal, the peer and the lap; the three request decoders share one validation path; the record states the bytes the module adds as measured by the host boundary target, and the packaged guest satisfies the build gate. Per decision 2928, every existing test target of the crate whose setup posts a bid (f11_family_table.rs, f11_lap_settlement.rs, f11_payout_split.rs, f11_placement_book.rs, f11_rooms_and_deals.rs, f11_views.rs and the f04 and f05 targets the attempt-1 record lists) locks the room minimum bond for the bidding peer before it bids; assertions keep their names and expectations, and the tests directory of the crate is in the touches from this round. Per decision 2929, the lap batch record in laps.rs carries the identity of every peer that did not countersign before the deadline, the missed-countersign slash reads it from the committed batch, and the f11_bonds case for that path asserts the batch field. Repair the three other failing f11_bonds cases (slash after a resolved miss, double slash for one lap, refund after the window) at the sites their assertions name. Keep the decision 2900 record of failing names by target before and after. Run the build once and the verification once at the final revision and record both by reference; if a case still fails, repair it within the one allowed cycle and rerun once."
 
 [task.22.38.6]
 title = "Split settled payouts into the reward ledger in deal proportions"
