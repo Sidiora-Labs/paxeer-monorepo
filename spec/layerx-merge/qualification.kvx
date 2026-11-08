@@ -36242,3 +36242,11 @@ symbol = "structures.rs::every_published_receipt_round_trips_exactly"
 observed = "Attempt 1 at e5dc15a32e83 (base 153b9ea5ef): build exit 101; the wire test build compiles layerx-crypto, whose onboarding.rs lines 4 and 139 and disclosure.rs line 130 still name the root activity module and the root payload_hash alias; the verification never ran; log /out/logs/build-1.log."
 assumption = "The landed 22.33.1522 repair already made the historical module the home of the codec; the task text asked for a deletion that no longer fits, and no caller moved."
 severity = "high"
+
+[finding.9.27.4.1]
+task = "9.27.4"
+file = "services/agent/crates/layerx-proof/tests/inclusion.rs::proof_evidence_never_reaches_the_committed_rung"
+symbol = "inclusion.rs::proof_evidence_never_reaches_the_committed_rung"
+observed = "Attempt 1 at a191b6976d2f (base 29677b7f1b): build exit 0; the dependents check failed with exit 101 at layerx-agentd src/cache.rs line 5 (unresolved checkpoint::ThresholdReport) and the hosted paxeer test repair_22_33_1324.rs lines 68 and 130 name the deleted module; the verification never ran; log /out/logs/dependents-1.log."
+assumption = "The deletion is right under decision 928; the consumers that asserted the retired stub were never in the touches of the task."
+severity = "high"
