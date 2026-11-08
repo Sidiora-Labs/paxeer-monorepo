@@ -35826,3 +35826,11 @@ symbol = "agent_envelope.rs"
 observed = "Attempt 1 at eccc16297056 (base cb96b80a5c25): build exit 0 twice; verification exit 101 twice, the second run failing four cases of the layerx-sdk lib suite (the registration parameter names and the three TLS identity cases refusing for the missing boundary binary) with 47 passed; log /out/logs/verify-2.log."
 assumption = "The disclosure work of the task is complete; the four failures belong to the suite the gate runs."
 severity = "high"
+
+[finding.9.35.22.1]
+task = "9.35.22"
+file = "services/agent/crates/layerx-agentd/tests/w7_owner_binding.rs::a_foreign_key_signature_over_the_owner_preimage_is_refused"
+symbol = "w7_owner_binding.rs::a_foreign_key_signature_over_the_owner_preimage_is_refused"
+observed = "Attempt 1 at 7e0e122f6a7b (base c1cec79b2794): build exit 0; verification exit 1 at the retired-name search, which found restore_canonical in tests/repair_22_31_217.rs line 2402 and prepare_activity_for_protocol and restore_canonical in tests/repair_22_31_545.rs lines 91 and 516; the test targets never ran; log /out/logs/verify-1.log."
+assumption = "The nine ported files are complete; the two repair targets were outside the touches although the search of the task covers them."
+severity = "high"
