@@ -36,6 +36,27 @@ const (
 
 var sourcePrevSeqHash = sha256.Sum256([]byte("consensus source previous seq hash"))
 
+func requireConsensusSealRetry(t *testing.T, h *sourceHarness, block tmtypes.SealedBlock) {
+	t.Helper()
+	sealed := h.src.Sealed()
+	require.NotNil(t, sealed)
+	for range 2 {
+		retried, err := h.src.Seal(t.Context(), openHeight)
+		require.NoError(t, err)
+		require.Equal(t, block, retried)
+		require.Same(t, sealed, h.src.Sealed())
+		// Task 22.31.89 gives proposal retries owned copies of the cached block.
+		retried.Batch[0] ^= 0xff
+		for _, tx := range retried.Txs {
+			tx[0] ^= 0xff
+		}
+		_, err = h.exec.Snapshot()
+		require.ErrorIs(t, err, sequencer.ErrLayerNotOpen)
+	}
+	_, err := h.src.Seal(t.Context(), openHeight+1)
+	require.ErrorIs(t, err, sequencer.ErrLayerNotOpen)
+}
+
 type sourceHarness struct {
 	*harness
 	r   *sequencer.Receipter
@@ -172,8 +193,7 @@ func TestConsensusSourceRetriesSealBatchFailure(t *testing.T) {
 	require.NotNil(t, sealed)
 	require.Equal(t, append([][]byte{block.Batch}, txs.ToSliceOfBytes()...), sealed.Txs)
 	requireStoredSequence(t, h.app, sealed.Context(), sourceLastSeq+3, head)
-	_, err = h.src.Seal(context.Background(), openHeight)
-	require.ErrorIs(t, err, sequencer.ErrLayerNotOpen)
+	requireConsensusSealRetry(t, h, block)
 }
 
 func TestConsensusSourceDecodeFailureKeepsBatch(t *testing.T) {
@@ -232,8 +252,7 @@ func TestConsensusSourceDecodeFailureKeepsBatch(t *testing.T) {
 		require.Equal(t, uint32(0), result.Code, result.Log)
 	}
 	requireStoredSequence(t, h.app, sealed.Context(), sourceLastSeq+3, head)
-	_, err = h.src.Seal(context.Background(), openHeight)
-	require.ErrorIs(t, err, sequencer.ErrLayerNotOpen)
+	requireConsensusSealRetry(t, h, block)
 }
 
 func TestConsensusSourceTxZeroBatch(t *testing.T) {
@@ -293,8 +312,7 @@ func TestConsensusSourceTxZeroBatch(t *testing.T) {
 	require.Equal(t, uint64(42), sealed.Batch.ToSeq)
 	requireStoredSequence(t, h.app, sealed.Context(), 42, head)
 
-	_, err = h.src.Seal(context.Background(), openHeight)
-	require.ErrorIs(t, err, sequencer.ErrLayerNotOpen)
+	requireConsensusSealRetry(t, h, block)
 }
 
 func TestConsensusSourceOpenTime(t *testing.T) {

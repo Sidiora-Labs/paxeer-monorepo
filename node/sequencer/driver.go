@@ -60,6 +60,8 @@ func (d *Driver) OnCommit(height int64, appHash []byte) error {
 // OnCommitContext releases COMMITTED and the following OPEN without waiting for
 // the standby's local consensus commit. Each release is bounded by the caller
 // and the configured replication timeout, including the local WAL sync wait.
+// The lease holder independently replicates LEASE records through RenewAt; they
+// do not advance the committed sequence or replace the OPEN of the next block.
 func (d *Driver) OnCommitContext(ctx context.Context, height int64, appHash []byte) (err error) {
 	d.mu.Lock()
 	defer d.mu.Unlock()

@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"reflect"
 	"syscall"
 	"testing"
 	"time"
@@ -199,7 +200,7 @@ func TestDriverReleasesNextOpenAcrossStandbyCommit(t *testing.T) {
 	cfg.NonceQueueMaxPerSender, cfg.NonceQueueMaxTotal = 4, 8
 	n, err := sequencer.NewNode(cfg, primary)
 	require.NoError(t, err)
-	t.Cleanup(func() { n.Replicator.Close(); n.WAL.Close() })
+	t.Cleanup(func() { require.NoError(t, n.Stop()) })
 	require.NoError(t, n.Start(ctx))
 	cancelled, cancelRelease := context.WithCancel(ctx)
 	cancelRelease()
@@ -257,11 +258,29 @@ func TestDriverReleasesNextOpenAcrossStandbyCommit(t *testing.T) {
 			require.Equal(t, height, a.LastBlockHeight())
 			if a == primary {
 				require.Equal(t, height-1, backup.LastBlockHeight())
-				entries := driverEntries(t, standbyWAL)
-				opened, ok := entries[len(entries)-1].(*wal.Open)
+				// RenewAt appends locally before waiting for its standby ACK. Drain
+				// waits behind that release; compare only after the logs converge.
+				ack, err := n.Replicator.Drain(ctx)
+				require.NoError(t, err)
+				require.Equal(t, sequencer.AckOK, ack.Status)
+				var entries, primaryEntries []wal.Entry
+				require.Eventually(t, func() bool {
+					primaryEntries = driverEntries(t, cfg.WALDir)
+					entries = driverEntries(t, standbyWAL)
+					return reflect.DeepEqual(primaryEntries, entries)
+				}, replicationTimeout, time.Millisecond, "all records, including renewed leases, must be acknowledged")
+				require.Equal(t, primaryEntries, entries)
+				tail := len(entries) - 1
+				for tail >= 0 {
+					if _, lease := entries[tail].(*wal.Lease); !lease {
+						break
+					}
+					tail--
+				}
+				require.GreaterOrEqual(t, tail, 0)
+				opened, ok := entries[tail].(*wal.Open)
 				require.True(t, ok)
 				require.Equal(t, uint64(height+1), opened.Height)
-				require.Equal(t, entries, driverEntries(t, cfg.WALDir))
 			}
 		}
 		require.Equal(t, primary.LastCommitID().Hash, backup.LastCommitID().Hash, "committed state diverged at height %d", height)
