@@ -182374,7 +182374,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.163]
 title = "Restore the three key fixtures the move left untracked, negate the ignore patterns for them and make the key-material test prove tracking"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
