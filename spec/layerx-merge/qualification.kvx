@@ -35786,3 +35786,11 @@ symbol = "prepare_eip1559.rs"
 observed = "Attempt 2 at 2fc5394b7570: build exit 0; verification exit 101: four targets passed and write_path_evm failed four cases, each refusing the store root as not a canonical owned private directory; log /out/logs/verify-1.log."
 assumption = "The test setup predates the protected root check and no gate ran it since; the re-exports of the task are complete."
 severity = "high"
+
+[finding.22.39.75.7]
+task = "22.39.75"
+file = "tests/ci/test_launchpad_go_tests_wired.py"
+symbol = "test_launchpad_go_tests_wired.py"
+observed = "Attempt 7 at 357e916cb654 (record tree dec46c1d7c43): build exit 0; verification exit 2: 26 wiring tests passed, every launchpad module passed except protocol/bindings, where the overlay proof of TestRepair_37_native_family_events failed to compile github.com/cockroachdb/swiss under Go 1.27.3 (seven undefined symbols); log /out/logs/verify-1.log."
+assumption = "The node module compiles under the toolchain its go.mod declares; only the inherited launchpad pin breaks the overlay proof."
+severity = "high"
