@@ -81,7 +81,7 @@ def test_rosetta_node_image_source_builds_root_chain_and_native_dependencies():
     assert "$(MAKE) -C $(PAXEER_PROJECT_HOME) -f Makefile paxd-native-libs" in chain
     assert "NativeArchiveDigest=$(native_archive_digest)" in chain
     makefile = (ROOT / "Makefile").read_text()
-    assert "paxd-native-libs: $(LIBRARY) programs-release-build" in makefile
+    assert "paxd-native-libs: $(LIBRARY) programs-release-build evmone-lib" in makefile
     assert "LIBRARY := $(BUILD_DIR)/liblayerx.a" in makefile
     assert 'build --locked --release --config \'profile.release.panic="unwind"\'' in makefile
     assert "-p layerx-programs-sandbox --features layerx-programs-sandbox/host-ffi" in makefile

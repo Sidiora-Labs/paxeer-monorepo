@@ -159,7 +159,7 @@ def test_015_existing_endpoint_cases_reach_real_embedded_consumer(name):
     consume = embedded_judge()
     lines = []
     for method in ("eth_chainId", "px_resolveAccount", "px_getNetwork", "px_getAccount"):
-        assert f"run {method} " in CHECKER
+        assert re.search(r'(?m)^\s*run node "\$node_rpc_url" ' + re.escape(method) + r"[ \t]", CHECKER)
         answer = profiles[profile].get(method, base[method])
         wire = json.dumps({"jsonrpc": "2.0", "id": 1, **answer})
         output = io.StringIO()

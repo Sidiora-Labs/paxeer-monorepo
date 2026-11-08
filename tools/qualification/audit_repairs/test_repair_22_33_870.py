@@ -84,8 +84,9 @@ def test_f001_retains_real_paxd_producer_and_runtime_consumer():
     assert [json.loads(value) for value in entrypoints] == [["/usr/bin/paxd"]]
 
     consumer = docker_instructions(PAXD)
+    version = json.loads(source("tools/release/version.json"))["version"]
     assert consumer[0] == (
-        "ARG", "PAXD_IMAGE=ghcr.io/sidiora-labs/paxd-node:0.1.0"
+        "ARG", f"PAXD_IMAGE=ghcr.io/sidiora-labs/paxd-node:{version}"
     )
     assert consumer[1] == ("FROM", "${PAXD_IMAGE}")
     assert ("USER", "4020:4020") in consumer
@@ -104,16 +105,33 @@ def test_f001_catalogue_routes_only_to_retained_paxd_recipes():
     assert {"paxd-node", "paxd"} <= set(names)
     assert not {"platform-node", "layerx-node"}.intersection(names)
     assert "platform-node" not in catalogue
+    version = json.loads(source("tools/release/version.json"))["version"]
+    version_producer = catalogue.split("core_image_version() {\n", 1)[1].split("\n}\n", 1)[0]
+    assert 'jq -er .version' in version_producer
+    assert '/tools/release/version.json"' in version_producer
     mappings = {}
     function = catalogue.split("image_source() {\n", 1)[1].split("\n}\n", 1)[0]
-    for name, payload in re.findall(r"^\s*([\w-]+)\) printf ('[^']*') ;;$", function, re.M):
+    versioned = set()
+    for name, payload in re.findall(r"^\s*([\w-]+)\) printf (.+) ;;$", function, re.M):
         assert name not in mappings
-        words = shlex.split(shlex.split(payload)[0])
+        arguments = shlex.split(payload)
+        if len(arguments) == 2:
+            assert arguments[1] == "$core_version"
+            assert arguments[0].count("%s") == 1
+            value = arguments[0] % version
+            versioned.add(name)
+        else:
+            assert len(arguments) == 1
+            assert "%" not in arguments[0]
+            value = arguments[0]
+        words = shlex.split(value)
         assert len(words) == 2
         mappings[name] = words
     assert set(names) == set(mappings)
-    assert mappings["paxd-node"] == ["ghcr.io/sidiora-labs/paxd-node:0.1.0", NODE]
-    assert mappings["paxd"] == ["ghcr.io/sidiora-labs/paxd:0.1.0", PAXD]
+    assert versioned == {"paxd-node", "paxd", "kernel", "layerx", "localnode", "rpcnode"}
+    assert 'core_version=$(core_image_version) || return' in function
+    assert mappings["paxd-node"] == [f"ghcr.io/sidiora-labs/paxd-node:{version}", NODE]
+    assert mappings["paxd"] == [f"ghcr.io/sidiora-labs/paxd:{version}", PAXD]
     assert RETIRED not in {recipe for _, recipe in mappings.values()}
 
 

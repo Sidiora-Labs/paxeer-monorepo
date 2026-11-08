@@ -1,6 +1,7 @@
 """Check the V3 SDK copy against the retained sequencer receipt producer output."""
 
 import argparse
+import hashlib
 import json
 from pathlib import Path
 
@@ -21,13 +22,21 @@ def expected_cases(root):
     return cases
 
 
+def expected_provenance(root):
+    return {
+        "source": SOURCE,
+        "section": "cases",
+        "generator": PRODUCER,
+        "sourceSha256": hashlib.sha256((root / SOURCE).read_bytes()).hexdigest(),
+    }
+
+
 def check(root):
     expected = expected_cases(root)
     output = json.loads((root / OUTPUT).read_text())
     if (output["name"] != "vector-v3-receipt-refusals"
             or output["chainId"] != 125
-            or output["provenance"]["source"] != SOURCE
-            or output["provenance"]["generator"] != PRODUCER
+            or output["provenance"] != expected_provenance(root)
             or output["cases"] != expected):
         raise ValueError("receipt refusal fixture drift; regenerate with " + PRODUCER)
     return len(expected)

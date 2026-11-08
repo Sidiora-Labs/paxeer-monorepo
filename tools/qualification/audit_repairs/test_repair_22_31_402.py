@@ -171,7 +171,7 @@ def test_proposal_source_checks_manifest_before_emitting_attestors():
     assert "Generate(cfg, manifest)" in run
     assert run.index("LoadAttestorManifest(*manifestPath)") < run.index(
         "Generate(cfg, manifest)"
-    ) < run.index("bundle.Write(flags.Arg(1))")
+    ) < run.index("bundle.Files()") < run.index("stagePublication(outputs)") < run.index("publication.publish()")
     conversion = go_declaration(proposals_source, "FromChainConfig")
     assert "cfg.RequireDeployable()" in conversion
     assert "append([]string(nil), cfg.Attestors...)" in conversion

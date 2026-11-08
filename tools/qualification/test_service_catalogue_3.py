@@ -45,11 +45,17 @@ class ServiceCatalogueReaders3Test(unittest.TestCase):
                     self.assertNotIn("spec/paxeer-x", line, f"{path}:{number}")
 
                 self.assertEqual(module.ROOT, ROOT)
-                self.assertEqual(module.SERVICE_CATALOGUE, candidate.SERVICE_CATALOGUE)
-                catalogue_path = module.ROOT / module.SERVICE_CATALOGUE
-                self.assertTrue(catalogue_path.is_file(), str(catalogue_path))
-                if relative == "fixtures/xweb_attestation.py":
-                    self.assertEqual(module.SPEC, catalogue_path)
+                if relative == "registry-router-bootstrap.py":
+                    self.assertEqual(Path(module.registry_contract.__file__).resolve(), path.with_name("registry-contract.py"))
+                    self.assertEqual(module.STAGES, ("material", "registry-bootstrap", "paxd-gateway-activation", "committed-proof"))
+                    self.assertIn("registry_contract.NativeRegistryDiscovery(node, registry)", path.read_text())
+                    self.assertNotIn("SERVICE_CATALOGUE", path.read_text())
+                else:
+                    self.assertEqual(module.SERVICE_CATALOGUE, candidate.SERVICE_CATALOGUE)
+                    catalogue_path = module.ROOT / module.SERVICE_CATALOGUE
+                    self.assertTrue(catalogue_path.is_file(), str(catalogue_path))
+                    if relative == "fixtures/xweb_attestation.py":
+                        self.assertEqual(module.SPEC, catalogue_path)
 
                 result = subprocess.run(
                     [sys.executable, str(path), "--help"],

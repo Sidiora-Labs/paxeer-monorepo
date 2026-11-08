@@ -245,7 +245,13 @@ def test_deployment_egress_disagreement_private_services_select_actual_ports_in_
         name, namespace, suffix = url.hostname.split('.', 2)
         assert namespace == 'layerx-testnet' and suffix == 'svc.cluster.local'
         service = resource(services, 'Service', name)
-        assert service['metadata']['namespace'] == namespace
+        live_namespace = service['metadata']['namespace']
+        assert live_namespace == ('layerx-mainnet-beta' if name == 'layerx-gateway' else namespace)
+        # The retired testnet ramp still pins its original testnet policies.
+        # Those policies must not grant access to the current mainnet gateway.
+        if name == 'layerx-gateway':
+            assert not any(peers_allow(rule, live_namespace, name, 9443, 'to')
+                           for rule in policy['egress'])
         app = service['spec']['selector']['app']
         apps.add(app)
         port = next(item for item in service['spec']['ports'] if item['port'] == (url.port or 443))
@@ -282,7 +288,11 @@ def test_deployment_egress_disagreement_private_services_select_actual_ports_in_
 
 def test_merged_relay_producer_route_and_native_service_are_documented_without_public_provider_egress():
     assert_facts(hosted('gateway/src/main.rs'),
-                 'request.path == "/" && request.method == "POST"', 'return rpc::route(config, request)')
+                 'public_reads::route(config, request)'
+    )
+    assert_facts(hosted('gateway/src/public_reads.rs'),
+                 'matches!(request.path.as_str(), "/" | "/openrpc.json")',
+                 'return Some(super::rpc::route(config, request))')
     assert_facts(hosted('gateway/src/evm.rs'), 'pax_sequencerReceipt')
     docs = documents(hosted('node/deployment.yaml'))
     native = resource(docs, 'Service', 'layerx-native-chain')

@@ -223,7 +223,7 @@ def test_finding_016_build_and_start_use_the_integrated_node():
     assert ["./build/paxd", "version"] in commands
     assert ["./build/paxd", "start", "--home", "$PAXD_HOME"] in commands
     assert "\npaxd-build: paxd-native-libs\n" in source("Makefile")
-    assert "\npaxd-native-libs: $(LIBRARY) programs-release-build\n" in source("Makefile")
+    assert "\npaxd-native-libs: $(LIBRARY) programs-release-build evmone-lib\n" in source("Makefile")
     assert "-o ./build/paxd ./daemon/paxd" in source("chain.mk")
 
 

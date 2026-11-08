@@ -165,7 +165,7 @@ def test_finding_22_build_and_upgrade_instructions_target_merged_paxd():
         "./build/paxd version", './build/paxd start --home "$PAXD_HOME"',
         "running network entry point is `paxd`",
     ))
-    assert "\npaxd-native-libs: $(LIBRARY) programs-release-build\n" in source("Makefile")
+    assert "\npaxd-native-libs: $(LIBRARY) programs-release-build evmone-lib\n" in source("Makefile")
     assert "\npaxd-build: paxd-native-libs\n" in source("Makefile")
     assert "-o ./build/paxd ./daemon/paxd" in source("chain.mk")
     upgrades = section("Releases and Network Upgrades")
