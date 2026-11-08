@@ -152644,7 +152644,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.94]
 title = "Run the launchpad and sdk/wallet test jobs under their own pnpm workspace roots"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.39.51"]
@@ -182552,7 +182552,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.124]
 title = "Bring the bridge relayer test suite to green and retire its baseline entries"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.39.74"]
@@ -334112,7 +334112,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.113]
 title = "Raise the Node, Python and Go floors that name end-of-life releases"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 3
 requires = ["22.39.112"]
