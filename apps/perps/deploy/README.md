@@ -55,10 +55,12 @@ The nginx service publishes ports 80 and 443. It reaches the frontend using
 The bridge allows outbound access to the data gateway and candle feed.
 nginx waits for the app's image health check on initial startup. After an app
 recreation, nginx must resolve its new address. In the operator-supplied TLS
-server's `location /`, use Docker DNS and a variable upstream, for example:
+server's `location /`, use the DNS resolver reachable from nginx and a variable
+upstream. The documentation address below must be replaced with your resolver
+(for Docker, read the nameserver from the nginx container's `/etc/resolv.conf`):
 
 ```nginx
-resolver 127.0.0.11 valid=5s ipv6=off;
+resolver 192.0.2.53 valid=5s ipv6=off;
 set $perps_upstream app:3000;
 proxy_pass http://$perps_upstream;
 proxy_set_header Host $host;

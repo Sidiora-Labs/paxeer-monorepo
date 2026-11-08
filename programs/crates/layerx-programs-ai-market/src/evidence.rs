@@ -30,7 +30,7 @@ use crate::{
         CodecResult, ARITHMETIC, BAD_VERSION, CAPACITY, CONFLICT, EVIDENCE_BINDING, EXPIRED,
         F03_GRANT_VERSION_CONFLICT, F03_KEY_VERSION_CONFLICT, F03_NO_GRANT,
         F09_EVIDENCE_SEAL_CONFLICT, KEY_MISMATCH, NON_CANONICAL, NOT_FOUND, REVOKED, UNAUTHORIZED,
-        UNKNOWN_OPERATION, WRONG_CONFIG, WRONG_EPOCH, WRONG_MARKET, WRONG_PHASE, WRONG_ROSTER,
+        UNKNOWN_OPERATION, WRONG_EPOCH, WRONG_PHASE,
     },
     evaluators::{
         authority::{evaluator_region, FrozenEvaluator},
@@ -169,10 +169,9 @@ macro_rules! u8_enum {
             #[doc = concat!("Returns `", stringify!($unknown), "` when `value` is not a defined discriminant.")]
             #[cfg_attr(target_arch = "wasm32", inline(never))]
             pub fn decode(value: u8) -> ArtifactResult<Self> {
-                match value {
-                    $($value => Ok(Self::$variant),)+
-                    _ => Err($unknown),
-                }
+                const VALUES: &[(u8, $name)] = &[$(($value, $name::$variant)),+];
+                VALUES.iter().find(|(code, _)| *code == value)
+                    .map(|(_, variant)| *variant).ok_or($unknown)
             }
         }
     };
@@ -205,13 +204,11 @@ pub trait Item<'a>: Copy {
     ///
     /// # Errors
     /// Returns `Malformed` when the bytes are truncated or not a canonical item.
-    #[cfg_attr(target_arch = "wasm32", inline(never))]
     fn read(r: &mut Reader<'a>) -> ArtifactResult<Self>;
     /// Writes this item to `w`.
     ///
     /// # Errors
     /// Returns `Malformed` when `w` lacks space or a length does not fit its field.
-    #[cfg_attr(target_arch = "wasm32", inline(never))]
     fn write(&self, w: &mut Writer<'_>) -> ArtifactResult<()>;
 }
 #[derive(Clone, Copy)]
@@ -1736,6 +1733,7 @@ impl EvidenceSeal {
 pub struct SealRegion<'a> {
     pub epoch: u64,
     records: &'a [u8],
+    laps: &'a [u8],
     rest: &'a [u8],
 }
 impl<'a> SealRegion<'a> {
@@ -1750,6 +1748,7 @@ impl<'a> SealRegion<'a> {
             return Ok(Self {
                 epoch: 0,
                 records: &[],
+                laps: &[],
                 rest: &[],
             });
         }
@@ -1761,7 +1760,9 @@ impl<'a> SealRegion<'a> {
         }
         let records = r.take(count * SEAL_RECORD_BYTES)?;
         let rest = feature_bytes.get(r.offset()..).ok_or(NON_CANONICAL)?;
-        if count == 0 && rest.is_empty() {
+        let lap_len = crate::laps::region_length(rest)?;
+        let (laps, rest) = rest.split_at(lap_len);
+        if count == 0 && rest.is_empty() && laps.is_empty() {
             return Err(NON_CANONICAL);
         }
         let mut previous = None;
@@ -1775,8 +1776,19 @@ impl<'a> SealRegion<'a> {
         Ok(Self {
             epoch,
             records,
+            laps,
             rest,
         })
+    }
+    pub(crate) const fn lap_settlements(&self) -> &'a [u8] {
+        self.laps
+    }
+    pub(crate) fn write_lap_prefix(&self, out: &mut [u8]) -> CodecResult<usize> {
+        let mut w = Writer::new(out);
+        w.u64(self.epoch)?;
+        w.u8((self.records.len() / SEAL_RECORD_BYTES) as u8)?;
+        w.put(self.records)?;
+        Ok(w.len())
     }
     const fn of(&self, epoch: u64) -> &'a [u8] {
         if self.epoch == epoch {
@@ -1830,12 +1842,14 @@ impl<'a> SealRegion<'a> {
         w.put(&current[..at])?;
         w.put(&seal.encode()?)?;
         w.put(&current[at..])?;
+        w.put(self.laps)?;
         w.put(self.rest)?;
         Ok(w.len())
     }
 }
 
 /// Committed F01 section whose header revision equals the shared revision.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 fn committed<'a>(state: &SharedState<'a>) -> CodecResult<PolicySection<'a>> {
     let section = PolicySection::decode(state.feature_sections[Section::PolicyLifecycle.index()])?;
     if section.header.state_revision != state.revision {
@@ -1846,6 +1860,7 @@ fn committed<'a>(state: &SharedState<'a>) -> CodecResult<PolicySection<'a>> {
 
 /// The frozen context of the opened epoch: F08 epoch presence, F01 config and F06 roster, with
 /// the validated reward state recording that roster, reusing `known` when it is that state.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 fn frozen_binding<'a>(
     state: &SharedState<'a>,
     section: &PolicySection<'_>,
@@ -1960,6 +1975,7 @@ struct Opened<'a> {
     frozen: FrozenBinding,
     region: SealRegion<'a>,
 }
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 fn opened(current: &[u8]) -> CodecResult<Opened<'_>> {
     let state = decode_shared_state(current)?;
     let section = committed(&state)?;
@@ -1986,27 +2002,11 @@ impl Call<'_> {
     /// Domain, expiry, market and the exact frozen epoch, config and roster.
     #[cfg_attr(target_arch = "wasm32", inline(never))]
     fn check_binding(&self) -> CodecResult<()> {
-        let e = &self.envelope.envelope;
-        let frozen = &self.opened.frozen;
-        let market = wire::derive_market(self.ctx.chain, self.ctx.program)?;
-        e.check_domain(self.ctx.chain, self.ctx.program, market)?;
-        e.check_expiry(self.ctx.height)?;
-        if frozen.market != market {
-            return Err(WRONG_MARKET);
-        }
-        if e.epoch != frozen.epoch {
-            return Err(WRONG_EPOCH);
-        }
-        if e.config != frozen.config.get() {
-            return Err(WRONG_CONFIG);
-        }
-        if e.roster != Presence::Present(frozen.roster) {
-            return Err(WRONG_ROSTER);
-        }
-        Ok(())
+        wire::check_frozen_envelope(&self.envelope.envelope, self.ctx, &self.opened.frozen)
     }
     /// The frozen evaluator the envelope authenticates as, natively by its owner or by its
     /// frozen delegate key.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     fn authenticate(&self) -> CodecResult<FrozenEvaluator> {
         let e = &self.envelope.envelope;
         let identity = self.opened.state.feature_sections[Section::IdentityRoster.index()];
@@ -2039,43 +2039,16 @@ impl Call<'_> {
                 frozen
             }
         };
-        let evaluator = frozen.entry.evaluator;
-        let live = region.get(evaluator).ok_or(NON_CANONICAL)?;
-        if live.grant.status == GrantStatus::Revoked || region.excluded(evaluator) {
-            return Err(REVOKED);
-        }
-        if live.grant.status == GrantStatus::Expired
-            || self.opened.frozen.epoch >= frozen.expiry_epoch_exclusive
-        {
-            return Err(EXPIRED);
-        }
-        if live.grant.status != GrantStatus::Active {
-            return Err(F03_NO_GRANT);
-        }
-        if live.grant.grant_version != frozen.entry.grant {
-            return Err(F03_GRANT_VERSION_CONFLICT);
-        }
-        if live.grant.key_version != frozen.entry.key_version {
-            return Err(F03_KEY_VERSION_CONFLICT);
-        }
-        if live.grant.signing_key != frozen.entry.public_key {
-            return Err(KEY_MISMATCH);
-        }
-        self.check_admission(&frozen)?;
-        Ok(frozen)
-    }
-    /// F08 membership of the frozen evaluator remains admitted under its owner.
-    fn check_admission(&self, frozen: &FrozenEvaluator) -> CodecResult<()> {
-        let admission = AdmissionTable::decode(
+        check_frozen_evaluator(
+            &region,
+            &frozen,
+            self.opened.frozen.epoch,
             self.opened.state.feature_sections[Section::ReputationAdmission.index()],
         )?;
-        match admission.get(Participant::Evaluator(frozen.entry.evaluator)) {
-            Some(meta) if meta.revoked() => Err(REVOKED),
-            Some(meta) if meta.admitted() && meta.owner == frozen.entry.owner => Ok(()),
-            _ => Err(UNAUTHORIZED),
-        }
+        Ok(frozen)
     }
     /// Role replay request under the evaluator slot bound to the evaluator owner.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     fn request(&self, owner: PrincipalId) -> CodecResult<ReplayRequest> {
         let replay = &self.opened.state.control.replay;
         for index in 0..MAX_EVALUATORS {
@@ -2087,6 +2060,7 @@ impl Call<'_> {
         Err(NOT_FOUND)
     }
     /// The claim of `payload` against the frozen policy and the explicit F01 task-set seal.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     fn claim(&self, frozen: &FrozenEvaluator, payload: &SealPayload) -> CodecResult<EvidenceSeal> {
         let policy = &self.opened.section.current;
         let rubric = policy.commitments.rubric;
@@ -2116,6 +2090,41 @@ impl Call<'_> {
             mode: payload.mode,
             height: self.ctx.height,
         })
+    }
+}
+
+#[cfg_attr(target_arch = "wasm32", inline(never))]
+pub(crate) fn check_frozen_evaluator(
+    region: &crate::evaluators::authority::EvaluatorRegion,
+    frozen: &FrozenEvaluator,
+    epoch: u64,
+    membership: &[u8],
+) -> CodecResult<()> {
+    let evaluator = frozen.entry.evaluator;
+    let live = region.get(evaluator).ok_or(NON_CANONICAL)?;
+    if live.grant.status == GrantStatus::Revoked || region.excluded(evaluator) {
+        return Err(REVOKED);
+    }
+    if live.grant.status == GrantStatus::Expired || epoch >= frozen.expiry_epoch_exclusive {
+        return Err(EXPIRED);
+    }
+    if live.grant.status != GrantStatus::Active {
+        return Err(F03_NO_GRANT);
+    }
+    if live.grant.grant_version != frozen.entry.grant {
+        return Err(F03_GRANT_VERSION_CONFLICT);
+    }
+    if live.grant.key_version != frozen.entry.key_version {
+        return Err(F03_KEY_VERSION_CONFLICT);
+    }
+    if live.grant.signing_key != frozen.entry.public_key {
+        return Err(KEY_MISMATCH);
+    }
+    let admission = AdmissionTable::decode(membership)?;
+    match admission.get(Participant::Evaluator(evaluator)) {
+        Some(meta) if meta.revoked() => Err(REVOKED),
+        Some(meta) if meta.admitted() && meta.owner == frozen.entry.owner => Ok(()),
+        _ => Err(UNAUTHORIZED),
     }
 }
 
@@ -2451,4 +2460,73 @@ pub fn verify_evidence_proof(proof: &EvidenceProof<'_>) -> Conclusions {
         reproduction: Conclusion::Unproven,
         quality: Conclusion::Unproven,
     }
+}
+
+pub fn require_sealed_artifact_chunk_root(
+    state: &SharedState<'_>,
+    epoch: u64,
+    manifest_bytes: &[u8],
+    batch: &crate::laps::ReceiptBatch,
+) -> CodecResult<Digest32> {
+    let (_, admission) =
+        crate::reputation_transition::split_joint(state.section(Section::ReputationAdmission)?)?;
+    let view = state.replace_section(Section::ReputationAdmission, admission)?;
+    let state = &view;
+    let unsealed = crate::errors::F11_BATCH_UNSEALED;
+    let manifest = decode_manifest(manifest_bytes).map_err(|_| unsealed)?;
+    let section = committed(state)?;
+    let (frozen, rewards) = frozen_binding(state, &section, None)?;
+    if frozen.epoch != epoch {
+        return Err(WRONG_EPOCH);
+    }
+    let task_set = tasks::sealed_task_set_with(state, epoch, Some(rewards))?;
+    let chunk_root = wire::sha256([
+        CONTENT_DOMAIN,
+        &manifest.byte_length.to_be_bytes(),
+        &manifest.chunk_count.to_be_bytes(),
+        batch.batch_digest.as_bytes(),
+    ])?;
+    let policy_digest = section.current.digest()?;
+    if manifest.kind != ArtifactKind::EvaluationEvidence
+        || manifest.epoch != epoch
+        || manifest.context.chain != frozen.chain
+        || manifest.context.program != frozen.program
+        || manifest.context.market != frozen.market
+        || manifest.context.policy != policy_digest
+        || manifest.subject != task_set.bytes()
+        || manifest.byte_length == 0
+        || manifest.content_root != chunk_root
+    {
+        return Err(unsealed);
+    }
+    let summary = batch.summary_digest()?;
+    let mut summary_bound = false;
+    for parent in &manifest.parents {
+        let parent = parent.map_err(|_| unsealed)?;
+        if parent.purpose == ParentPurpose::Execution && parent.root == summary.bytes() {
+            summary_bound = true;
+        }
+    }
+    if !summary_bound {
+        return Err(unsealed);
+    }
+    let root = ArtifactManifestRoot::new(wire::sha256([
+        MANIFEST_DOMAIN,
+        &manifest.context.bytes(),
+        &length_u32(manifest_bytes.len()).map_err(|_| unsealed)?,
+        manifest_bytes,
+    ])?)
+    .map_err(|_| unsealed)?;
+    for seal in SealRegion::decode(state.control.feature_bytes)?.seals(epoch) {
+        let seal = seal?;
+        if seal.root.bytes() == root.bytes()
+            && seal.task_set == task_set
+            && seal.task_policy == manifest.context.policy
+            && seal.rubric == section.current.commitments.rubric
+            && seal.mode as u8 == section.current.assessment_mode
+        {
+            return Ok(task_set);
+        }
+    }
+    Err(unsealed)
 }

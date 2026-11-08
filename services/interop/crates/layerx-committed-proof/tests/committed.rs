@@ -181,6 +181,14 @@ fn committed_vectors_verify_end_to_end() {
     let vectors: Value = serde_json::from_str(VECTORS).unwrap();
     assert_eq!(string(&vectors, "name"), "vector-v4-committed");
     assert_eq!(number(&vectors, "version"), 4);
+    let recording: Value = serde_json::from_str(include_str!(
+        "../../../../../daemon/committed-fixture/vectors/vector-v4-committed.json"
+    ))
+    .unwrap();
+    assert_eq!(
+        vectors["cases"][0]["signedReceipt"],
+        recording["positive"]["receipt"]
+    );
     let chain_id = string(&vectors["provenance"], "chainId");
     let cases = array(&vectors, "cases");
     let mut seen = BTreeSet::new();

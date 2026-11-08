@@ -1,4 +1,6 @@
 {
+  "author": "Sidiora Labs",
+  "license": "Apache-2.0",
   "name": "@sidiora/layerx-doc-first-payment-typescript",
   "version": "0.1.0",
   "private": true,

@@ -51,6 +51,10 @@ The paths are operator-supplied examples. Configuration must declare schema vers
 
 The runner reconciles UI accounting and watchlists with authoritative snapshots, observes account recovery and supported reward-claim outcomes, and checks concurrent web/native watchlist edits. Unsupported reward settlement remains explicitly unavailable. Raw responses, screenshots, logs and artifact digests belong in the private output directory; preserve credentials and account data in access-controlled evidence storage.
 
-Runner availability is not a passing result. Even a successful phase-four result leaves `qualificationCapacityClaim` false and shared load/restore acceptance deferred to serial task 9.1. The [market UI guide](../market-ui/README.md) describes the corresponding market presentation and measurement boundaries.
+Runner availability is not a passing result. Even a successful phase-four result leaves `qualificationCapacityClaim` false and shared load and restore acceptance pending separate measurements. The [market UI guide](../market-ui/README.md) describes the corresponding market presentation and measurement boundaries.
 
-The path and command regression proof for audit finding `account-readme-path` is [test_repair_22_33_1026.py](test_repair_22_33_1026.py); its [repair record](repair_22_33_1026.kvx) describes the proof and its limits. Loopback checks of documentation and configuration do not run the service journeys, browser or physical-device qualification above.
+The [README path, runner command, import and qualification-boundary tests](test_repair_22_33_1026.py)
+check that linked files are served, documented commands match the owned runners,
+disclosure imports resolve and runner discovery retains the stated limits.
+Loopback checks of documentation and configuration do not run the service
+journeys, browser or physical-device qualification above.

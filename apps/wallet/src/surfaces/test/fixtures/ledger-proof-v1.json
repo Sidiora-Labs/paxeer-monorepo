@@ -1,0 +1,44 @@
+{
+  "provenance": {
+    "kind": "documented-node-receipt-model",
+    "generator": "apps/wallet/src/surfaces/test/fixtures/generate-surface-receipts.mjs",
+    "command": "node apps/wallet/src/surfaces/test/fixtures/generate-surface-receipts.mjs",
+    "receiptModel": "spec/layerx-merge/contracts/sequencer.md#sequencer-receipt",
+    "ledgerModel": "spec/layerx-merge/contracts/ledger-auth.md#layerxledger-0x101a",
+    "encoder": "services/agent/sdk/typescript/src/sequencer-receipt-codec.ts#encodeSequencerReceipt",
+    "callSource": "sdk/wallet/test/fixtures/modules/calls.json and surface input scenarios",
+    "eventSource": "sdk/wallet/test/fixtures/modules/events.json and precompile ABIs",
+    "seedSource": "rpc/sequencer_receipt_vectors_test.go#seqVecReceiptSeed",
+    "sourceFixture": "sdk/platform/conformance/fixtures/sequencer-receipt-v1.json"
+  },
+  "paymentReceiptId": "ledger-pay-exact",
+  "grantReceiptId": "ledger-grant-retired",
+  "paymentLogs": [
+    {
+      "address": "0x000000000000000000000000000000000000101a",
+      "topics": [
+        "0x3c136bc6b05877456edd6c1baed12a9d44c364ad7301478c948e7d70dd4b1ca0",
+        "0x1fb0082aa4aa4ce1eb67568a7d8f67798f3b008c254e0929dfe5eabb1dc0d769",
+        "0x112b929c0d6cb01c57eaad307e6d0a094c6c6e58f2e0ce3c62856cf815c0fba4",
+        "0x4e366c1f82bbcb0cfc80b6168346024ca11db454d4b5e93dc7cac57bc5292f28"
+      ],
+      "data": "0x00000000000000000000000000000000000000000000000000000000000f42400000000000000000000000000000000000000000000000000000000000000005",
+      "logIndex": "0x0",
+      "transactionHash": "0x3b6a6f39c47dbb2462fc2b6645e4616edd28c9a97de9b3effa6440a393ee1d17"
+    },
+    {
+      "address": "0x000000000000000000000000000000000000101a",
+      "topics": [
+        "0xc4da5d6f757c251cd70947b752917e5671b677517e3d953f362a1df6648ef5b1",
+        "0x26fde3dedb14662268bff5bb3ab6560550a0dc3938b0c9d5ed717932c75b9839",
+        "0x1fb0082aa4aa4ce1eb67568a7d8f67798f3b008c254e0929dfe5eabb1dc0d769",
+        "0x112b929c0d6cb01c57eaad307e6d0a094c6c6e58f2e0ce3c62856cf815c0fba4"
+      ],
+      "data": "0x4e366c1f82bbcb0cfc80b6168346024ca11db454d4b5e93dc7cac57bc5292f2800000000000000000000000000000000000000000000000000000000000f4240",
+      "logIndex": "0x1",
+      "transactionHash": "0x3b6a6f39c47dbb2462fc2b6645e4616edd28c9a97de9b3effa6440a393ee1d17"
+    }
+  ],
+  "grantLogs": [],
+  "grantId": "0x9d458ec2d2567fd8ed0f52c8788b3ae17f3e4f40978a991bd1786d14b2db8808"
+}

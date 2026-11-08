@@ -6,7 +6,8 @@ use crate::store::{Store, TenantId, TenantKey};
 use layerx_proof::receipt::AuthorizedBatch;
 use layerx_types::payload::ModuleRegistry;
 
-pub(crate) struct Projection<'a> {
+#[doc(hidden)]
+pub struct Projection<'a> {
     pub custody_key: &'a str,
     pub signed_activity: &'a [u8],
     pub evidence: FinalizationEvidence,
@@ -15,7 +16,8 @@ pub(crate) struct Projection<'a> {
     pub registry: &'a ModuleRegistry,
 }
 
-pub(crate) enum Prepared {
+#[doc(hidden)]
+pub enum Prepared {
     Replay(HumanResponse),
     Commit {
         event: RevocationEvent,
@@ -25,13 +27,14 @@ pub(crate) enum Prepared {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub(crate) enum OwnerRotation {
+#[doc(hidden)]
+pub enum OwnerRotation {
     Unsupported,
 }
 
 impl OwnerRotation {
     #[must_use]
-    pub(crate) const fn reason(self) -> &'static str {
+    pub const fn reason(self) -> &'static str {
         match self {
             Self::Unsupported => "rotation_unsupported",
         }
@@ -46,7 +49,8 @@ impl std::fmt::Display for OwnerRotation {
 
 impl std::error::Error for OwnerRotation {}
 
-pub(crate) fn prepare(
+#[doc(hidden)]
+pub fn prepare(
     _store: &Store,
     _sessions: &SessionRegistry,
     _tenant: &TenantId,

@@ -1,4 +1,5 @@
 import json
+import importlib.util
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 import re
@@ -10,7 +11,13 @@ import time
 import pytest
 import yaml
 
-from runner import CommandExecutionError, TestRunner as IntegrationRunner
+RUNNER_PATH = Path(__file__).with_name("runner.py")
+RUNNER_SPEC = importlib.util.spec_from_file_location("integration_suite_runner", RUNNER_PATH)
+assert RUNNER_SPEC is not None and RUNNER_SPEC.loader is not None
+RUNNER = importlib.util.module_from_spec(RUNNER_SPEC)
+RUNNER_SPEC.loader.exec_module(RUNNER)
+CommandExecutionError = RUNNER.CommandExecutionError
+IntegrationRunner = RUNNER.TestRunner
 
 
 @pytest.fixture

@@ -1,6 +1,6 @@
 <!-- GENERATED FILE — do not edit by hand.
-     Source: packages/domain/src/thread-lifecycle.ts and
-     packages/domain/src/environment-lifecycle.ts.
+     Source: lib/domain/src/thread-lifecycle.ts and
+     lib/domain/src/environment-lifecycle.ts.
      Regenerate: pnpm --filter @hyperfide/domain exec vitest run test/lifecycle-diagram.test.ts -u -->
 
 # Lifecycle state machines

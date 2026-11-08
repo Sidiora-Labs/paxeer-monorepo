@@ -161,7 +161,7 @@ railway_bin="${LAYERX_RAILWAY_BIN:-$HOME/.railway/bin/railway}"
 # ca_services: every certificate the bring-up issues, after the issue_cert
 # calls of services/platform/hosted/tests/beta-cluster.sh: service, target, custody,
 # common name, extended key usage, fixed SAN list. The network names of a row
-# (<service>.railway.internal, the box names) come from the names file; a
+# (private network hosts and box names) come from the names file; a
 # service reached on loopback carries localhost and 127.0.0.1.
 ca_services() {
 	cat "$repo_root/tools/bringup/ca-services.tsv"
@@ -475,7 +475,7 @@ certificate_usage_matches() {
 			openssl verify -no_check_time -purpose sslclient -CAfile "$row_ca/ca.pem" <<<"$cert" >/dev/null 2>&1
 		;;
 	developer)
-		host="$(service_row developer | awk '{print $6}' | tr ',' '\n' | sed -n 's/^DNS:\(.*\.railway\.internal\)$/\1/p' | head -n 1)"
+		host="$(awk -F= '$1 == "DEVELOPER" {print $2}' "$names_file" | tr ',' '\n' | sed -n 's/^DNS://p' | head -n 1)"
 		[ -n "$host" ] && openssl verify -no_check_time -purpose sslserver -verify_hostname "$host" \
 			-CAfile "$row_ca/ca.pem" <<<"$cert" >/dev/null 2>&1
 		;;

@@ -1,8 +1,1 @@
-@media(max-aspect-ratio: 21/9) {
-    .section-cover--full-page:not(.section-cover--full-page-small-text) .cover__buttons--bottom {
-        position: absolute;
-        bottom: var(--spacer-xl);
-        left: 50%;
-        transform: translateX(-50%)
-    }
-}
+@import "../../../../explorer/.scss/media-media-max-aspect-ratio-21-9.css";

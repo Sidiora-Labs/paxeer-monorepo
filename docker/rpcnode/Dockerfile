@@ -1,6 +1,6 @@
-FROM golang:1.25.8-bookworm AS go-dist
+FROM golang:1.25.8-bookworm@sha256:4557cf171e3cdf5053a298d5171b1a5f5734d920260c25f22c79e94760eb2084 AS go-dist
 
-FROM ubuntu:latest
+FROM ubuntu:24.04@sha256:fe81560990fae86dc4743202b2cb4d3df98d0bcf949173cecef15ce1127ef852
 ENV HOME="/home/pax" GOPATH="/home/pax/go" GOCACHE="/home/pax/.cache/go-build" PATH="/home/pax/go/bin:/usr/local/go/bin:$PATH"
 RUN apt-get update && \
     apt-get install -y make git build-essential jq python3 curl vim uuid-runtime

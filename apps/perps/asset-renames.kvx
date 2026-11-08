@@ -1,0 +1,207 @@
+[meta]
+format = "frontend-asset-renames-v1"
+app = "apps/perps"
+
+[rename.1]
+old = "public/assets/Group 427320986.svg"
+new = "public/assets/lightning-purple.svg"
+sha256 = "3a87e97b88d8bbba8a2b4c662bf267c4d816e21fbf9e442fd2ee91074523aaec"
+
+[rename.2]
+old = "public/assets/Group 427320987.svg"
+new = "public/assets/activity-bubbles.svg"
+sha256 = "e1dc649a50b9ffd79cf5d7d5b95efcb1c8f18c207c6b594642310eed7c10ce79"
+
+[rename.3]
+old = "public/assets/Group 427320988.svg"
+new = "public/assets/sidebar-panel.svg"
+sha256 = "c6b03cc396235b74622d3dbc9f8a76a03e8c92585dec7b2bb8b0e49c1922ba0b"
+
+[rename.4]
+old = "public/assets/Group 427321040.svg"
+new = "public/assets/whale-cyan.svg"
+sha256 = "17ec1fbff9305e4e49241173cd25f7362b99087cd16df1fe4f4345473084b88b"
+
+[rename.5]
+old = "public/assets/Group 427321302.svg"
+new = "public/assets/chevron-down-white.svg"
+sha256 = "4de3928a8b6b3ecffa161174037f2239293019faff995214255fa9418f794219"
+
+[rename.6]
+old = "public/assets/Group 427321514.svg"
+new = "public/assets/airdrop-parachute.svg"
+sha256 = "e8d6923241710da38c5aba62336a62e6a651e61ff352fe7eec25302466612d74"
+
+[rename.7]
+old = "public/assets/Group 48097638.svg"
+new = "public/assets/users-purple.svg"
+sha256 = "5d42e1d59323ad909bee62dc33bce365f186f8dfd2cd9ed2f1adb3deb4eb54ec"
+
+[rename.8]
+old = "public/assets/Group 48097639.svg"
+new = "public/assets/lightning-cyan.svg"
+sha256 = "f6a46f6da359c93596b8a0e561b1f9b1adc0b639ea7009431cea8ce84e8581e9"
+
+[rename.9]
+old = "public/assets/Group 48097640.svg"
+new = "public/assets/document-green.svg"
+sha256 = "0459c43a011a88681e6326822ffd21931e406e1e9e4c18ca802e17d2a25dc831"
+
+[rename.10]
+old = "public/assets/Group 48097641.svg"
+new = "public/assets/trading-bot-pink.svg"
+sha256 = "582d9d2224fff6b13c85c09ddf36e869e86dcfab71f82447238095ed83c21b60"
+
+[rename.11]
+old = "public/assets/Group 48097642.svg"
+new = "public/assets/target-red.svg"
+sha256 = "ce04dc7f9badad8c645e8fd65c3aca743b18564ab4d010635ddba67624945855"
+
+[rename.12]
+old = "public/assets/Line 122.png"
+new = "public/assets/divider-vertical-dark.png"
+sha256 = "f92b26552c17bca261bbf28c60778982c50b71048f21e6d70fb66ce0505af2c6"
+
+[rename.13]
+old = "public/assets/Rectangle 12.png"
+new = "public/assets/divider-vertical-muted.png"
+sha256 = "9aa0145502e6b2ddb99311c044d11c7b6e6cfce753885a115b1d563299486fbd"
+
+[rename.14]
+old = "public/assets/vertical line.png"
+new = "public/assets/divider-horizontal.png"
+sha256 = "d2e4dddf9dc305df4dc3fe3861f3ad259626c6f3058d1c42217c17a2d80dd92d"
+
+[rename.15]
+old = "src/assets/Group 427320986.svg"
+new = "src/assets/lightning-purple.svg"
+sha256 = "3a87e97b88d8bbba8a2b4c662bf267c4d816e21fbf9e442fd2ee91074523aaec"
+
+[rename.16]
+old = "src/assets/Group 427320987.svg"
+new = "src/assets/activity-bubbles.svg"
+sha256 = "e1dc649a50b9ffd79cf5d7d5b95efcb1c8f18c207c6b594642310eed7c10ce79"
+
+[rename.17]
+old = "src/assets/Group 427320988.svg"
+new = "src/assets/sidebar-panel.svg"
+sha256 = "c6b03cc396235b74622d3dbc9f8a76a03e8c92585dec7b2bb8b0e49c1922ba0b"
+
+[rename.18]
+old = "src/assets/Group 427321040.svg"
+new = "src/assets/whale-cyan.svg"
+sha256 = "17ec1fbff9305e4e49241173cd25f7362b99087cd16df1fe4f4345473084b88b"
+
+[rename.19]
+old = "src/assets/Group 427321302.svg"
+new = "src/assets/chevron-down-white.svg"
+sha256 = "4de3928a8b6b3ecffa161174037f2239293019faff995214255fa9418f794219"
+
+[rename.20]
+old = "src/assets/Group 427321514.svg"
+new = "src/assets/airdrop-parachute.svg"
+sha256 = "e8d6923241710da38c5aba62336a62e6a651e61ff352fe7eec25302466612d74"
+
+[rename.21]
+old = "src/assets/Group 48097638.svg"
+new = "src/assets/users-purple.svg"
+sha256 = "5d42e1d59323ad909bee62dc33bce365f186f8dfd2cd9ed2f1adb3deb4eb54ec"
+
+[rename.22]
+old = "src/assets/Group 48097639.svg"
+new = "src/assets/lightning-cyan.svg"
+sha256 = "f6a46f6da359c93596b8a0e561b1f9b1adc0b639ea7009431cea8ce84e8581e9"
+
+[rename.23]
+old = "src/assets/Group 48097640.svg"
+new = "src/assets/document-green.svg"
+sha256 = "0459c43a011a88681e6326822ffd21931e406e1e9e4c18ca802e17d2a25dc831"
+
+[rename.24]
+old = "src/assets/Group 48097641.svg"
+new = "src/assets/trading-bot-pink.svg"
+sha256 = "582d9d2224fff6b13c85c09ddf36e869e86dcfab71f82447238095ed83c21b60"
+
+[rename.25]
+old = "src/assets/Group 48097642.svg"
+new = "src/assets/target-red.svg"
+sha256 = "ce04dc7f9badad8c645e8fd65c3aca743b18564ab4d010635ddba67624945855"
+
+[rename.26]
+old = "src/assets/Line 122.png"
+new = "src/assets/divider-vertical-dark.png"
+sha256 = "f92b26552c17bca261bbf28c60778982c50b71048f21e6d70fb66ce0505af2c6"
+
+[rename.27]
+old = "src/assets/Rectangle 12.png"
+new = "src/assets/divider-vertical-muted.png"
+sha256 = "9aa0145502e6b2ddb99311c044d11c7b6e6cfce753885a115b1d563299486fbd"
+
+[rename.28]
+old = "src/assets/airdrop/Group 427321514.svg"
+new = "src/assets/airdrop/airdrop-parachute.svg"
+sha256 = "e8d6923241710da38c5aba62336a62e6a651e61ff352fe7eec25302466612d74"
+
+[rename.29]
+old = "src/assets/airdrop/Rectangle 3941.svg"
+new = "src/assets/airdrop/tile-gradient-glow.svg"
+sha256 = "9ac88ba2d5ff13e3b5a1d51eb564c2104b3fbfd8bcb5457b5e6f8608807ae6b9"
+
+[rename.30]
+old = "src/assets/airdrop/Rectangle 3943.svg"
+new = "src/assets/airdrop/tile-gradient-border.svg"
+sha256 = "c787acb4f760c896461feeaac01af22d3491e0a8d72f64905b0ce09f3ccfe4e8"
+
+[rename.31]
+old = "src/assets/rectangle/Rectangle 4497.svg"
+new = "src/assets/rectangle/swatch-surface-dark.svg"
+sha256 = "c3ea97ebb7c1a548646260cfdda24fa1948282bdd733a1c9948fc470ee46971d"
+
+[rename.32]
+old = "src/assets/rectangle/Rectangle 4498.svg"
+new = "src/assets/rectangle/swatch-surface-medium.svg"
+sha256 = "3bbc139393804d5ae8d57bff1f737ce1b4cb630c87408c0365da8c3667c8a1fd"
+
+[rename.33]
+old = "src/assets/rectangle/Rectangle 4499.svg"
+new = "src/assets/rectangle/swatch-surface-muted.svg"
+sha256 = "4bf9ddd0e067d727bcd6c4e6146ad9df98d4ac7ebe0b3607f5528888fcbdc7d7"
+
+[rename.34]
+old = "src/assets/vertical line.png"
+new = "src/assets/divider-horizontal.png"
+sha256 = "d2e4dddf9dc305df4dc3fe3861f3ad259626c6f3058d1c42217c17a2d80dd92d"
+
+[deduplicate.1]
+old = "src/assets/airdrop_background.png"
+new = "public/assets/airdrop_background.png"
+sha256 = "9d62ed3ef490174cebb2499b5768cff26a3601a9bd83c1bdfbbad6a10aaabe6c"
+
+[deduplicate.2]
+old = "src/assets/dollars_cyan.svg"
+new = "public/assets/dollars_cyan.svg"
+sha256 = "863910b9bb6ba0add7d07082df9ffbfbf3a76926641322654602a3ddfb334859"
+
+[deduplicate.3]
+old = "src/assets/item.svg"
+new = "public/assets/item.svg"
+sha256 = "effc6853b6b38ea6ea38211ce9da4658fa36d532490e6d2a50850625d6b265cb"
+
+[deduplicate.4]
+old = "src/assets/logo.svg"
+new = "public/assets/logo.svg"
+sha256 = "b3c3f3d1ad2212e596656915eb0386dce5e81d4bf02112aab670a3b68c989646"
+
+[deduplicate.5]
+old = "src/assets/pump.svg"
+new = "public/assets/pump.svg"
+sha256 = "c40b2d4cd4637d623497df3c41b0b190e22785695b5b50a53ad2d31de2896aad"
+
+[deduplicate.6]
+old = "src/assets/solana_color.svg"
+new = "public/assets/solana_color.svg"
+sha256 = "7176b39f651da976c6ac94a7fad85c54b7f12bd999d074e3c1910a32d4175e49"
+
+[shared.stylesheets]
+source = "apps/explorer/.scss"
+reference = "src/styles/.scss"

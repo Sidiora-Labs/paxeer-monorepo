@@ -1,3 +1,4 @@
+import { parseWalletReadRequest, walletReadResponseHeaders } from '@/lib/wallet-read-contract';
 import { once } from 'node:events';
 import { createServer, type Server } from 'node:http';
 import { QueryClient } from '@tanstack/react-query';
@@ -152,6 +153,11 @@ beforeEach(async () => {
   });
   server = createServer(async (request, response) => {
     const url = new URL(request.url ?? '/', 'http://localhost');
+    const read = parseWalletReadRequest(url);
+    expect(read.chainId).toBe(125);
+    for (const [key, value] of Object.entries(walletReadResponseHeaders(read)))
+      response.setHeader(key, value);
+    url.searchParams.delete('chain_id');
     requests.push(url.pathname + url.search);
     response.setHeader('content-type', 'application/json');
     const base = `/api/v2/addresses/${WALLET}`;

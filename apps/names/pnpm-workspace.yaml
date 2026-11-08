@@ -1,2 +1,3 @@
 packages:
-  - '.'
+  - "."
+sharedWorkspaceLockfile: true

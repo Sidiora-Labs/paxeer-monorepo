@@ -1,4 +1,5 @@
 # deploy
+# ${NAME} denotes a required operator-supplied deployment variable; no host default.
 NODE_ENV - runtime mode of the wallet gateway process, production on the platform
 PORT - port the wallet gateway listens on behind the platform proxy
 ATTESTOR_NODE_KEY - platform secret holding this attestor's node key, written to the file named by ATTESTOR_NODE_KEY_FILE
@@ -23,21 +24,21 @@ LAYERX_GATEWAY_TLS_KEY_DER - path to the shared endpoint's DER PKCS8 server key
 LAYERX_GATEWAY_OUTBOUND_CA_DER - path to the DER CA that authenticates the endpoint's upstream services
 LAYERX_GATEWAY_CLIENT_IDENTITY_PKCS12 - path to the PKCS12 client identity the endpoint presents upstream
 LAYERX_GATEWAY_CLIENT_IDENTITY_PASSWORD_FILE - path to the password of the PKCS12 client identity
-LAYERX_GATEWAY_COMPONENT_URL - agent boundary base URL, the kernel app's .internal name on 9446 in services/wallet/deploy/endpoint.toml
+LAYERX_GATEWAY_COMPONENT_URL - agent boundary base URL, the kernel app's private network host on 9446 in services/wallet/deploy/endpoint.toml
 LAYERX_GATEWAY_COMPONENT_TOKEN_FILE - path to the agent boundary bearer token
-LAYERX_GATEWAY_AUTHORITY_URL - receipt authority base URL, the kernel app's .internal name on 9445 in services/wallet/deploy/endpoint.toml
+LAYERX_GATEWAY_AUTHORITY_URL - receipt authority base URL, the kernel app's private network host on 9445 in services/wallet/deploy/endpoint.toml
 LAYERX_GATEWAY_AUTHORITY_TOKEN_FILE - path to the receipt authority bearer token
-LAYERX_GATEWAY_IDENTITY_URL - identity service base URL, the identity app's .internal name on 9443 in services/wallet/deploy/endpoint.toml
+LAYERX_GATEWAY_IDENTITY_URL - identity service base URL, the identity app's private network host on 9443 in services/wallet/deploy/endpoint.toml
 LAYERX_GATEWAY_IDENTITY_TOKEN_FILE - path to the identity service bearer token
 LAYERX_GATEWAY_IDENTITY_PROVISIONING_TOKEN_FILE - path to the identity provisioning token used by registration
-LAYERX_GATEWAY_PROGRAM_REGISTRY_URL - program registry base URL, the registry app's .internal name on 9420 in services/wallet/deploy/endpoint.toml; configured_kernel requires it in kernel mode
+LAYERX_GATEWAY_PROGRAM_REGISTRY_URL - program registry base URL, the registry app's private network host on 9420 in services/wallet/deploy/endpoint.toml; configured_kernel requires it in kernel mode
 LAYERX_GATEWAY_PROGRAM_REGISTRY_TOKEN_FILE - path to the program registry bearer token
-LAYERX_GATEWAY_PUBLIC_CORE_URL - public core read base URL, the kernel app's .internal name on 9443 in services/wallet/deploy/endpoint.toml; px_getNetwork reports kernel.available only when it is set
+LAYERX_GATEWAY_PUBLIC_CORE_URL - public core read base URL, the kernel app's private network host on 9443 in services/wallet/deploy/endpoint.toml; px_getNetwork reports kernel.available only when it is set
 LAYERX_GATEWAY_PAXEER_RPC_URLS - JSON array of two to eight chain RPC https urls tried in order for eth_ relay, set in services/wallet/deploy/endpoint.toml to the serving RPC names api1 and api12 of the network domain
 LAYERX_GATEWAY_INDEXER_URL - indexer base URL for unified history, optional, set as a platform secret
 LAYERX_GATEWAY_FAUCET_URL - faucet service base URL, optional, set as a platform secret
 LAYERX_GATEWAY_FAUCET_SERVICE_TOKEN_FILE - path to the faucet service token
-LAYERX_GATEWAY_REDIS_URL - Redis URL of the endpoint's shared store, rediss:// at the Redis app's .internal name, set as a platform secret
+LAYERX_GATEWAY_REDIS_URL - Redis URL of the endpoint's shared store, rediss:// at the Redis app's private network host, set as a platform secret
 LAYERX_GATEWAY_REDIS_USERNAME_FILE - path to the Redis username
 LAYERX_GATEWAY_REDIS_PASSWORD_FILE - path to the Redis password
 LAYERX_GATEWAY_SEQUENCER_PUBLIC_KEY_FILE - path to the trusted sequencer public key
@@ -54,7 +55,7 @@ LAYERX_GATEWAY_WALLET_IDENTITY_UID - uid the binding and issuer sockets must be 
 LAYERX_GATEWAY_WALLET_IDENTITY_GID - gid the binding and issuer sockets must be owned by
 LAYERX_GATEWAY_WALLET_TENANT - wallet tenant identifier, at most 255 characters
 LAYERX_GATEWAY_WALLET_CHAIN_ID - EVM chain id of the wallet caps, 125
-ENDPOINT_ROUTE_BINDINGS - platform secret written to the file named by LAYERX_GATEWAY_ROUTE_BINDINGS_FILE: schema, chain_id 125, network_id, wire_version, allowed_origins, services bindings for wallet-gateway (paxeer-wallet-gateway.internal:8080), gas (paxeer-gas-station.internal:8080), human intents (paxeer-human-service.internal:8080), wallet-ui and agentd, and the agentd passthrough to paxeer-human-service.internal:9454 served at machine.paxeer.network:9454
+ENDPOINT_ROUTE_BINDINGS - platform secret written to the file named by LAYERX_GATEWAY_ROUTE_BINDINGS_FILE: schema, chain_id 125, network_id, wire_version, allowed_origins, services bindings for wallet-gateway (${WALLET_GATEWAY_HOST}:8080), gas (${GAS_STATION_HOST}:8080), human intents (${HUMAN_SERVICE_HOST}:8080), wallet-ui and agentd, and the agentd passthrough to ${HUMAN_SERVICE_HOST}:9454 served at machine.paxeer.network:9454
 ENDPOINT_UI_BINDINGS - platform secret written to the file named by LAYERX_GATEWAY_UI_BINDINGS_FILE
 ENDPOINT_OUTBOUND_CA - platform secret written to the file named by LAYERX_GATEWAY_OUTBOUND_CA_DER
 ENDPOINT_CLIENT_CERT - platform secret holding the PEM client certificate of the gateway-client row of tools/bringup/ca.sh, mounted for its expiry check
@@ -291,7 +292,7 @@ LAYERX_HUMAN_SECURITY_PROVIDER_DEADLINE_SECONDS - deadline of one security provi
 LAYERX_HUMAN_MOVEMENT_PROVIDER_SOCKET - absolute path of the socket the movement provider serves the components on
 LAYERX_HUMAN_MOVEMENT_PROVIDER_STATE_ROOT - directory of the movement provider's state
 LAYERX_HUMAN_MOVEMENT_PROVIDER_ALLOWED_UID - uid allowed on the movement provider socket
-LAYERX_HUMAN_MOVEMENT_PROVIDER_PAXEER_RPC_URLS - JSON array of the two Paxeer boundaries the movement provider reads, https://localhost:9447 and https://127.0.0.1:9448 inside the kernel machine
+LAYERX_HUMAN_MOVEMENT_PROVIDER_PAXEER_RPC_URLS - JSON array of independently operated production Paxeer HTTPS RPC origins supplied by the operator; use distinct hosts and configure the minimum agreement below
 LAYERX_HUMAN_MOVEMENT_PROVIDER_PAXEER_MINIMUM_AGREEMENT - Paxeer boundaries that must agree on a movement observation, two
 LAYERX_AGENT_HUMAN_AUTHORITY_ENDPOINT - https url of the receipt authority the human owner daemon reaches, https://localhost:9445 inside the kernel machine
 LAYERX_AGENT_AUTHORITY_ENDPOINT - https url of the receipt authority the owner daemon reads receipts from, https://localhost:9445 inside the kernel machine
@@ -352,22 +353,22 @@ LAYERX_HUMAN_RETENTION_AUDIT_SECONDS - retention of audit records in seconds
 LAYERX_HUMAN_RETENTION_TELEMETRY_SECONDS - retention of telemetry in seconds
 LAYERX_HUMAN_RETENTION_CACHE_SECONDS - retention of cached reads in seconds
 # event producers
-LAYERX_EVENTS_PAYMENT_UPSTREAM_URL - https origin of the payments event source the router's payment producer posts to, https://payments.process.paxeer-internal.internal:9443
+LAYERX_EVENTS_PAYMENT_UPSTREAM_URL - https origin of the payments event source the router's payment producer posts to, https://${PAYMENTS_HOST}:9443
 LAYERX_EVENTS_PAYMENT_UPSTREAM_CA_DER - path to the DER internal CA root that authenticates the payments event source
 LAYERX_EVENTS_PAYMENT_UPSTREAM_TOKEN_FILE - path to the producer token of the payments event source
 LAYERX_EVENTS_PAYMENT_UPSTREAM_CLIENT_IDENTITY_PKCS12 - path to the PKCS12 client identity the payment producer presents
 LAYERX_EVENTS_PAYMENT_UPSTREAM_CLIENT_IDENTITY_PASSWORD_FILE - path to the password of that PKCS12 client identity
-LAYERX_EVENTS_JOURNEY_UPSTREAM_URL - https origin of the journeys event source the human components' journey producer posts to, https://journeys.process.paxeer-internal.internal:9443
+LAYERX_EVENTS_JOURNEY_UPSTREAM_URL - https origin of the journeys event source the human components' journey producer posts to, https://${JOURNEYS_HOST}:9443
 LAYERX_EVENTS_JOURNEY_UPSTREAM_CA_DER - path to the DER internal CA root that authenticates the journeys event source
 LAYERX_EVENTS_JOURNEY_UPSTREAM_TOKEN_FILE - path to the producer token of the journeys event source
 LAYERX_EVENTS_JOURNEY_UPSTREAM_CLIENT_IDENTITY_PKCS12 - path to the PKCS12 client identity the journey producer presents
 LAYERX_EVENTS_JOURNEY_UPSTREAM_CLIENT_IDENTITY_PASSWORD_FILE - path to the password of that PKCS12 client identity
-LAYERX_EVENTS_APPROVAL_UPSTREAM_URL - https origin of the approvals event source the human components' approval producer posts to, https://approvals.process.paxeer-internal.internal:9443
+LAYERX_EVENTS_APPROVAL_UPSTREAM_URL - https origin of the approvals event source the human components' approval producer posts to, https://${APPROVALS_HOST}:9443
 LAYERX_EVENTS_APPROVAL_UPSTREAM_CA_DER - path to the DER internal CA root that authenticates the approvals event source
 LAYERX_EVENTS_APPROVAL_UPSTREAM_TOKEN_FILE - path to the producer token of the approvals event source
 LAYERX_EVENTS_APPROVAL_UPSTREAM_CLIENT_IDENTITY_PKCS12 - path to the PKCS12 client identity the approval producer presents
 LAYERX_EVENTS_APPROVAL_UPSTREAM_CLIENT_IDENTITY_PASSWORD_FILE - path to the password of that PKCS12 client identity
-LAYERX_EVENTS_WEBHOOKS_UPSTREAM_URL - https origin of the webhooks ingress every producer notifies, https://ingress.process.paxeer-webhooks.internal
+LAYERX_EVENTS_WEBHOOKS_UPSTREAM_URL - https origin of the webhooks ingress every producer notifies, https://${WEBHOOKS_HOST}
 LAYERX_EVENTS_WEBHOOKS_UPSTREAM_CA_DER - path to the DER internal CA root that authenticates the webhooks ingress
 LAYERX_EVENTS_WEBHOOKS_UPSTREAM_TOKEN_FILE - path to the webhooks source trigger token
 LAYERX_EVENTS_WEBHOOKS_UPSTREAM_CLIENT_IDENTITY_PKCS12 - path to the PKCS12 client identity presented to the webhooks ingress

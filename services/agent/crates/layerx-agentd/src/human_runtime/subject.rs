@@ -1,7 +1,7 @@
 use super::{hex, query, HumanOperationError, HumanPeer, ObjectKind, Store, TenantId, TenantKey};
 use crate::human::HumanSubject;
 use crate::store::StorageClass;
-use layerx_types::{account::AccountId, ids::Did};
+use layerx_types::{account::AccountId, ids::Did, verify::VerificationLevel};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::{BTreeMap, BTreeSet};
@@ -51,10 +51,7 @@ pub(super) fn verify_context(peer: &HumanPeer, value: &Value) -> Result<(), Huma
         || value["owner_did"].as_str() != Some(subject.owner.as_str())
         || value["account_id"].as_str() != Some(hex(&account_id).as_str())
         || value["asset_id"].as_str() != Some(hex(&subject.asset).as_str())
-        || !matches!(
-            value["verification_level"].as_str(),
-            Some("committed" | "checkpoint_finalised" | "settlement_anchored")
-        )
+        || super::verification_level(value) != Ok(VerificationLevel::COMMITTED)
         || value["observed_head_sequence"]
             .as_u64()
             .is_none_or(|sequence| sequence == 0)

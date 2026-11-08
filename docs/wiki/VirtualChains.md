@@ -138,7 +138,7 @@ Feature 20 supplies the following SDK modules (repository paths):
 | Go | `sdk/platform/go/chains.go` | `ChainsClient`, `VirtualChainID`, `ChainRPCURL` |
 | JVM | `sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/Chains.java` | `encodeCall`, `decodeGetChain`, `decodeParams`, `decodeEvent`, `virtualChainId`, `chainRpcUrl` |
 | .NET | `sdk/platform/dotnet/Chains.cs` | `EncodeCall`, `DecodeGetChain`, `DecodeParams`, `DecodeEvent`, `VirtualChainId`, `ChainRpcUrl` |
-| Swift | `sdk/platform/swift/Sources/LayerXSdk/Chains.swift` | `encodeCall`, `decodeGetChain`, `decodeParams`, `decodeEvent`, `virtualChainId`, `chainRpcUrl` |
+| Swift | `sdk/platform/swift/Sources/LayerXSDK/Chains.swift` | `encodeCall`, `decodeGetChain`, `decodeParams`, `decodeEvent`, `virtualChainId`, `chainRpcUrl` |
 | Rust | `services/agent/crates/layerx-client/src/chains.rs` | `ChainsReads`, `encode_call`, `decode_get_chain`, `decode_params`, `decode_event`, `virtual_chain_id`, `chain_rpc_url` |
 
 Every SDK encodes all twelve methods, decodes both return tuples and all four events, and checks selectors, calldata and event topics against `tests/vectors/chains/abi-vectors.json`. That vector file is generated from the precompile ABI, so all languages share one wire contract.

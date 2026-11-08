@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest';
 import ts from 'typescript';
 
 const SOURCE_FILES = [
+  'src/account',
   'src/app',
   'src/components',
   'src/hooks',
@@ -14,14 +15,16 @@ const SOURCE_FILES = [
   'src/widgets',
 ];
 
-const APPROVED_DIRECT_STORAGE = new Set([
-  'src/platform/storage/registry.ts',
-]);
+const APPROVED_DIRECT_STORAGE = new Set(['src/platform/storage/registry.ts']);
 
 function sourceFiles(): string[] {
-  return execFileSync('find', [...SOURCE_FILES, '-type', 'f', '(', '-name', '*.ts', '-o', '-name', '*.tsx', ')'], {
-    encoding: 'utf8',
-  })
+  return execFileSync(
+    'find',
+    [...SOURCE_FILES, '-type', 'f', '(', '-name', '*.ts', '-o', '-name', '*.tsx', ')'],
+    {
+      encoding: 'utf8',
+    }
+  )
     .trim()
     .split('\n')
     .filter(Boolean);
@@ -32,14 +35,11 @@ function accessesBrowserStorage(file: string): boolean {
     file,
     readFileSync(file, 'utf8'),
     ts.ScriptTarget.Latest,
-    true,
+    true
   );
   let found = false;
   const visit = (node: ts.Node) => {
-    if (
-      ts.isIdentifier(node) &&
-      (node.text === 'localStorage' || node.text === 'sessionStorage')
-    ) {
+    if (ts.isIdentifier(node) && (node.text === 'localStorage' || node.text === 'sessionStorage')) {
       found = true;
       return;
     }

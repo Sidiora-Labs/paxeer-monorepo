@@ -46,6 +46,7 @@ export interface WorkspaceDescriptor {
   base_revision_id: string;
   root_tree_id: string;
   checkpoint_revision_id: string | null;
+  attempt_expires_at: string | null;
   mode: "API_ONLY" | "SPARSE" | "MATERIALIZED" | "VIRTUAL";
   read_paths: string[];
   write_paths: string[];
@@ -120,6 +121,10 @@ function descriptor(row: Row): WorkspaceDescriptor {
     base_revision_id: row.base_revision_id,
     root_tree_id: row.root_tree_id,
     checkpoint_revision_id: row.checkpoint_revision_id,
+    attempt_expires_at:
+      row.attempt_expires_at === null
+        ? null
+        : new Date(row.attempt_expires_at).toISOString(),
     mode: row.mode,
     read_paths: row.read_paths,
     write_paths: row.write_paths,
@@ -138,6 +143,49 @@ function derivedOperation(scope: SourceScope, operation: string): string {
   bytes[8] = (bytes[8]! & 63) | 128;
   const hex = bytes.toString("hex");
   return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+}
+export async function pinWorkspaceRoot(
+  tx: SourceSQL,
+  context: SourceContext,
+  id: string,
+  root: string,
+  position: number,
+  expires: string,
+): Promise<void> {
+  const object = await lockSourcePlacement(tx, context.scope, root);
+  if (
+    !["VERIFIED", "QUARANTINED"].includes(object.state) ||
+    !object.verified_at
+  )
+    throw new SourceControlError(
+      "OBJECT_NOT_READY",
+      "Workspace root must be verified",
+    );
+  const valid = (
+    await tx.query("SELECT $1::timestamptz>clock_timestamp() AS valid", [
+      expires,
+    ])
+  ).rows[0]?.valid;
+  if (!valid)
+    throw new SourceControlError(
+      "WORKSPACE_EXPIRED",
+      "Workspace retention has expired",
+    );
+  await tx.query(
+    "DELETE FROM hyperfide.source_object_pins WHERE organisation_id=$1 AND repository_id=$2 AND security_domain_id=$3 AND owner_kind='WORKSPACE' AND owner_id=$4 AND position=$5",
+    [...sourceScopeValues(context.scope), id, position],
+  );
+  await tx.query(
+    "INSERT INTO hyperfide.source_object_pins(organisation_id,repository_id,security_domain_id,object_id,incarnation_id,owner_kind,owner_id,position,expires_at) VALUES($1,$2,$3,$4,$5,'WORKSPACE',$6,$7,$8)",
+    [
+      ...sourceScopeValues(context.scope),
+      root,
+      object.incarnation_id,
+      id,
+      position,
+      expires,
+    ],
+  );
 }
 export class SourceWorkspaceService {
   readonly budgets: WorkspaceBudgets;
@@ -161,49 +209,6 @@ export class SourceWorkspaceService {
     )
       invalid("Explicit positive workspace budgets are required");
     this.budgets = Object.freeze({ ...budgets });
-  }
-  private async pin(
-    tx: SourceSQL,
-    context: SourceContext,
-    id: string,
-    root: string,
-    position: number,
-    expires: string,
-  ): Promise<void> {
-    const object = await lockSourcePlacement(tx, context.scope, root);
-    if (
-      !["VERIFIED", "QUARANTINED"].includes(object.state) ||
-      !object.verified_at
-    )
-      throw new SourceControlError(
-        "OBJECT_NOT_READY",
-        "Workspace root must be verified",
-      );
-    const valid = (
-      await tx.query("SELECT $1::timestamptz>clock_timestamp() AS valid", [
-        expires,
-      ])
-    ).rows[0]?.valid;
-    if (!valid)
-      throw new SourceControlError(
-        "WORKSPACE_EXPIRED",
-        "Workspace retention has expired",
-      );
-    await tx.query(
-      "DELETE FROM hyperfide.source_object_pins WHERE organisation_id=$1 AND repository_id=$2 AND security_domain_id=$3 AND owner_kind='WORKSPACE' AND owner_id=$4 AND position=$5",
-      [...sourceScopeValues(context.scope), id, position],
-    );
-    await tx.query(
-      "INSERT INTO hyperfide.source_object_pins(organisation_id,repository_id,security_domain_id,object_id,incarnation_id,owner_kind,owner_id,position,expires_at) VALUES($1,$2,$3,$4,$5,'WORKSPACE',$6,$7,$8)",
-      [
-        ...sourceScopeValues(context.scope),
-        root,
-        object.incarnation_id,
-        id,
-        position,
-        expires,
-      ],
-    );
   }
   async expire(
     context: SourceContext,
@@ -274,6 +279,18 @@ export class SourceWorkspaceService {
       );
     return row;
   }
+  private async assertAttempt(tx: SourceSQL, row: Row): Promise<void> {
+    const expired = (
+      await tx.query("SELECT $1::timestamptz<=clock_timestamp() AS expired", [
+        row.attempt_expires_at,
+      ])
+    ).rows[0]?.expired;
+    if (expired)
+      throw new SourceControlError(
+        "ATTEMPT_EXPIRED",
+        "Workspace attempt deadline has passed",
+      );
+  }
   async open(
     context: SourceContext,
     input: unknown,
@@ -284,6 +301,17 @@ export class SourceWorkspaceService {
     boundWorkspace(context, id);
     const read = paths(value.read_paths),
       write = paths(value.write_paths);
+    const attemptDeadline = value.attempt_expires_at;
+    if (
+      attemptDeadline !== undefined &&
+      (typeof attemptDeadline !== "string" ||
+        !Number.isFinite(Date.parse(attemptDeadline)) ||
+        new Date(attemptDeadline).toISOString() !== attemptDeadline ||
+        Date.parse(attemptDeadline) > Date.parse(context.expires_at))
+    )
+      invalid(
+        "Attempt deadline must be canonical and bounded by current authority",
+      );
     if (
       !["API_ONLY", "SPARSE", "MATERIALIZED", "VIRTUAL"].includes(
         String(value.mode),
@@ -314,17 +342,22 @@ export class SourceWorkspaceService {
       read_paths: read,
       write_paths: write,
       budgets,
+      ...(attemptDeadline === undefined
+        ? {}
+        : { attempt_expires_at: attemptDeadline }),
     });
     return this.metadata.transaction(async (tx) => {
       await this.metadata.guard(tx, context, "source.workspaces.open");
+      const deadline = attemptDeadline ?? context.expires_at;
+      await this.assertAttempt(tx, { attempt_expires_at: deadline });
       const revision = await this.metadata.readRevisionInTransaction(
         tx,
         context,
         base,
       );
       await tx.query(
-        `INSERT INTO hyperfide.source_workspaces(organisation_id,repository_id,security_domain_id,workspace_id,principal_id,authority_epoch,base_revision_id,root_tree_id,mode,read_paths,write_paths,budgets,open_request_digest)
-    VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) ON CONFLICT DO NOTHING`,
+        `INSERT INTO hyperfide.source_workspaces(organisation_id,repository_id,security_domain_id,workspace_id,principal_id,authority_epoch,base_revision_id,root_tree_id,mode,read_paths,write_paths,budgets,open_request_digest,attempt_expires_at)
+    VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14) ON CONFLICT DO NOTHING`,
         [
           ...sourceScopeValues(context.scope),
           id,
@@ -337,6 +370,7 @@ export class SourceWorkspaceService {
           JSON.stringify(write),
           JSON.stringify(budgets),
           digest,
+          deadline,
         ],
       );
       const current = await this.row(tx, context, id);
@@ -357,7 +391,7 @@ export class SourceWorkspaceService {
           "Workspace retention has expired",
         );
       if (!prior)
-        await this.pin(
+        await pinWorkspaceRoot(
           tx,
           context,
           id,
@@ -639,6 +673,7 @@ export class SourceWorkspaceService {
       if (previous) return { previous, row: null };
       await this.metadata.guard(tx, context, "source.workspaces.checkpoint");
       const row = await this.row(tx, context, id);
+      await this.assertAttempt(tx, row);
       if (
         String(row.workspace_generation) !== generation ||
         String(row.scope_generation) !== scopeGeneration ||
@@ -723,6 +758,7 @@ export class SourceWorkspaceService {
       const row = await this.row(tx, context, id, true);
       const raced = await replay(tx);
       if (raced) return raced;
+      await this.assertAttempt(tx, row);
       if (
         String(row.workspace_generation) !== generation ||
         String(row.scope_generation) !== scopeGeneration ||
@@ -772,7 +808,7 @@ export class SourceWorkspaceService {
       const updated = (
         await tx.query(
           `UPDATE hyperfide.source_workspaces SET base_revision_id=$6,root_tree_id=$7,checkpoint_revision_id=$6,workspace_generation=workspace_generation+1,updated_at=clock_timestamp()
-    WHERE organisation_id=$1 AND repository_id=$2 AND security_domain_id=$3 AND workspace_id=$4 AND workspace_generation=$5 RETURNING *`,
+    WHERE organisation_id=$1 AND repository_id=$2 AND security_domain_id=$3 AND workspace_id=$4 AND workspace_generation=$5 AND (attempt_expires_at IS NULL OR attempt_expires_at>clock_timestamp()) RETURNING *`,
           [
             ...sourceScopeValues(context.scope),
             id,
@@ -782,7 +818,10 @@ export class SourceWorkspaceService {
           ],
         )
       ).rows[0];
-      if (!updated) stale();
+      if (!updated) {
+        await this.assertAttempt(tx, row);
+        stale();
+      }
       const lifetime = (
         await tx.query(
           "SELECT expires_at,expires_at>clock_timestamp() AS live FROM hyperfide.source_object_pins WHERE organisation_id=$1 AND repository_id=$2 AND security_domain_id=$3 AND owner_kind='WORKSPACE' AND owner_id=$4 AND position=0",
@@ -794,7 +833,7 @@ export class SourceWorkspaceService {
           "WORKSPACE_EXPIRED",
           "Workspace base retention is unavailable",
         );
-      await this.pin(
+      await pinWorkspaceRoot(
         tx,
         context,
         id,

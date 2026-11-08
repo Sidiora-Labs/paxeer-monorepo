@@ -14,7 +14,7 @@ Sources:
 - `programs/crates/layerx-programs-runtime/src/host/storage.rs`
 - `programs/crates/layerx-programs-runtime/src/storage/scan.rs`
 - `programs/crates/layerx-programs-runtime/tests/storage_scan.rs`
-- `spec/layerx-platform/spec.kvx` `[req.36]` `ac_3`, `[task.29.3]`
+- `programs/crates/layerx-programs-runtime/src/abi/storage_ops.rs`
 
 ---
 
@@ -32,10 +32,8 @@ Sources:
 | `max_bytes` | `nonnegative` then `u32::try_from`, then `ScanLimits::new` (`programs/crates/layerx-programs-runtime/src/host/scan.rs:66-75`) |
 | `output_pointer`, `output_capacity` | `validate_output` before any prefix or cursor read (`programs/crates/layerx-programs-runtime/src/host/scan.rs:38-41`, `programs/crates/layerx-programs-runtime/src/host/memory.rs:12-28`) |
 
-`[task.29.3]` `do_1` names a host function taking a namespace selector, a
-bounded key prefix, and a cursor
-(`spec/layerx-platform/spec.kvx:3004`). The host also decodes
-`max_entries`, `max_bytes`, `output_pointer`, and `output_capacity`
+The host takes a namespace selector, a bounded key prefix, and a cursor.
+It also decodes `max_entries`, `max_bytes`, `output_pointer`, and `output_capacity`
 (`programs/crates/layerx-programs-runtime/src/host/scan.rs:23-32`).
 
 Selector `1` binds `CapabilityKey::StorageRead` and the principal
@@ -103,11 +101,10 @@ the same `(64, 101)` limits return the 101-byte two-entry continuation
 page. `(64, 100)` returns the 93-byte one-entry continuation page
 (`programs/crates/layerx-programs-runtime/tests/storage_scan.rs:448-519`).
 
-`[req.36]` `ac_3` names one declared per-call ceiling
-(`spec/layerx-platform/spec.kvx:526`). `[task.29.3]` `do_2` names an
-entry ceiling and a byte ceiling
-(`spec/layerx-platform/spec.kvx:3005`). The runtime has both, enforced
-independently as above.
+Each call declares both an entry ceiling and a byte ceiling through
+`ScanLimits`. The ABI passes both bounds to the storage scan
+(`programs/crates/layerx-programs-runtime/src/abi/storage_ops.rs:176-195`);
+the runtime enforces them independently as above.
 
 ---
 
@@ -220,9 +217,9 @@ repeats the grant, selector, capacity, and pointer cases with
 `response_write` of the `keep` data bytes and `storage_read_bytes == 0`
 (`programs/crates/layerx-programs-runtime/tests/storage_scan.rs:522-563`).
 
-`[req.36]` `ac_3` says the scan is metered per byte returned
-(`spec/layerx-platform/spec.kvx:526`). The host meters
-`encode_for_guest` length, including the 5-byte empty page, and only
+`charge_storage_scan` charges the storage-read meter per encoded byte
+returned (`programs/crates/layerx-programs-runtime/src/abi/storage_ops.rs:199-208`).
+The host meters `encode_for_guest` length, including the 5-byte empty page, and only
 after the output-capacity check
 (`programs/crates/layerx-programs-runtime/src/host/scan.rs:87-95`,
 `programs/crates/layerx-programs-runtime/tests/storage_scan.rs:354-362`).
@@ -292,7 +289,8 @@ program-major, scope-tagged, then key
 Seeding `(b,b)` then `(a,a)` versus `(a,a)` then `(b,b)` produces equal
 first-page responses, equal usage, and equal canonical evidence
 (`programs/crates/layerx-programs-runtime/tests/storage_scan.rs:388-408`).
-`[task.29.3]` `do_4` requires insertion-order independence
-(`spec/layerx-platform/spec.kvx:3007`).
+Scan output is independent of insertion order because `scan_cells` visits
+keys in their `BTreeMap` order
+(`programs/crates/layerx-programs-runtime/src/storage/scan.rs:267-294`).
 
 [Home](../index.md)

@@ -13,6 +13,8 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"io"
+	"math/big"
 	"net/http"
 	"os"
 	"os/exec"
@@ -26,6 +28,8 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/attestor/internal/auth/agent"
 	nativepolicy "github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/attestor/internal/policy/native"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/attestor/internal/tss/dealershare"
+	"github.com/ethereum/go-ethereum/common"
+	gethcrypto "github.com/ethereum/go-ethereum/crypto"
 )
 
 func nativeText(out *bytes.Buffer, value string, width int) {
@@ -53,12 +57,16 @@ func nativePurposeBytes(expiry uint64) []byte {
 }
 
 func nativeGrantRecords(owner []byte, expiry uint64) ([]byte, []byte) {
+	return nativeGrantRecordsForAgent(owner, expiry, "did:layerx:alice")
+}
+
+func nativeGrantRecordsForAgent(owner []byte, expiry uint64, agentDID string) ([]byte, []byte) {
 	var record bytes.Buffer
 	record.WriteByte(1)
 	record.Write(bytes.Repeat([]byte{0x22}, 32))
 	record.WriteByte(0)
 	nativeText(&record, "tenant-a", 2)
-	nativeText(&record, "did:layerx:alice", 2)
+	nativeText(&record, agentDID, 2)
 	record.WriteByte(1)
 	record.Write(owner)
 	for i := 0; i < 6; i++ {
@@ -80,7 +88,7 @@ func nativeGrantRecords(owner []byte, expiry uint64) ([]byte, []byte) {
 	var session bytes.Buffer
 	session.WriteString("LXNS01")
 	nativeText(&session, "tenant-a", 2)
-	nativeText(&session, "did:layerx:alice", 2)
+	nativeText(&session, agentDID, 2)
 	session.Write(bytes.Repeat([]byte{0x11}, 32))
 	_ = binary.Write(&session, binary.BigEndian, uint64(1))
 	_ = binary.Write(&session, binary.BigEndian, uint16(1))
@@ -211,6 +219,44 @@ func verifyNativeResponses(t *testing.T, pub []byte, digest [32]byte, operation 
 	}
 }
 
+func verifyNativeInventoryRequired(t *testing.T, c *testCluster, request NativeSignRequest) {
+	t.Helper()
+	node := c.byID(request.Signers[0])[0]
+	inventory := node.server.opts.Inventory
+	if inventory == nil {
+		t.Fatal("real signed owner inventory must be installed before native signing")
+	}
+	node.server.opts.Inventory = nil
+	defer func() { node.server.opts.Inventory = inventory }()
+	request.SessionID += "-missing-inventory"
+	result := c.call(t, node, PathNativeSign, request, c.idp.mint(t, c.idp.key, testOwner))
+	refusal := expectError(t, "native consent without owner inventory", result, CodeTokenUnavailable)
+	if result.status != http.StatusUnauthorized || refusal.Message != "owner-approved key inventory unavailable for native consent" {
+		t.Fatalf("unexpected native inventory refusal: status %d error %+v", result.status, refusal)
+	}
+	t.Logf("native inventory refusal: %s", refusal.Code)
+}
+
+func nativeRustCommand(t *testing.T, binary, test string) *exec.Cmd {
+	t.Helper()
+	supervisor := filepath.Join("..", "..", "..", "..", "..", "tools", "runtime", "run-with-clock.sh")
+	command := exec.Command("sh", supervisor, binary, "--exact", test, "--nocapture", "--test-threads=1")
+	command.Stdout = os.Stdout
+	command.Stderr = os.Stderr
+	if evidence := os.Getenv("HF_OUT_DIR"); evidence != "" {
+		path := filepath.Join(evidence, "logs", test+".log")
+		log, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600)
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() { _ = log.Close() })
+		command.Stdout = io.MultiWriter(os.Stdout, log)
+		command.Stderr = io.MultiWriter(os.Stderr, log)
+		t.Logf("private Rust consumer evidence: %s", path)
+	}
+	return command
+}
+
 func TestNativeCustodyRealProfiles(t *testing.T) {
 	seed := sha256.Sum256([]byte("native custody disposable owner"))
 	pub := ed25519.NewKeyFromSeed(seed[:]).Public().(ed25519.PublicKey)
@@ -229,6 +275,7 @@ func TestNativeCustodyRealProfiles(t *testing.T) {
 		t.Fatal(err)
 	}
 	request := NativeSignRequest{Profile: 2, SessionID: "native-purpose", KeyID: "native-owner", Operation: NativePreparationPurpose, Signers: signers, Purpose: hex.EncodeToString(purpose)}
+	verifyNativeInventoryRequired(t, c, request)
 	sign := func(req NativeSignRequest, subject string) []apiResult {
 		return c.callAll(t, c.byID(req.Signers...), PathNativeSign, func(*testNode) any { return req }, c.idp.mint(t, c.idp.key, subject))
 	}
@@ -353,10 +400,8 @@ func runNativeRustConsumer(t *testing.T, c *testCluster, authority *nativeInvent
 	if err = os.WriteFile(path, raw, 0o600); err != nil {
 		t.Fatal(err)
 	}
-	command := exec.Command(binary, "--exact", "native_provider_and_sdk_real_cluster", "--nocapture", "--test-threads=1")
+	command := nativeRustCommand(t, binary, "native_provider_and_sdk_real_cluster")
 	command.Env = append(os.Environ(), "PAXEER_X_NATIVE_CUSTODY_LIVE_FIXTURE="+path)
-	command.Stdout = os.Stdout
-	command.Stderr = os.Stderr
 	if err = command.Start(); err != nil {
 		t.Fatal(err)
 	}
@@ -414,19 +459,24 @@ func runNativeRustConsumer(t *testing.T, c *testCluster, authority *nativeInvent
 }
 
 func nativeSendPurposeBytes(owner []byte, expiry uint64) []byte {
+	return nativeSendPurposeBytesForSender(owner, expiry, common.HexToAddress("0x9999999999999999999999999999999999999999"))
+}
+
+func nativeSendPurposeBytesForSender(owner []byte, expiry uint64, sender common.Address) []byte {
 	var out bytes.Buffer
-	out.WriteString(nativepolicy.SendPurposeDomain)
-	out.WriteByte(1)
+	out.WriteString(nativeSendPurposeV2Domain)
+	out.WriteByte(2)
 	nativeText(&out, "tenant-a", 4)
-	nativeText(&out, "did:layerx:alice", 4)
-	nativeText(&out, "did:layerx:"+hex.EncodeToString(owner), 4)
+	nativeText(&out, "did:layerx:"+strings.Repeat("aa", 32), 4)
+	nativeText(&out, "did:layerx:"+strings.Repeat("cc", 32), 4)
 	out.Write(owner)
+	out.Write(sender[:])
 	out.Write(bytes.Repeat([]byte{0x11}, 32))
 	_ = binary.Write(&out, binary.BigEndian, uint64(1))
 	_ = binary.Write(&out, binary.BigEndian, expiry)
 	out.Write(bytes.Repeat([]byte{0x22}, 32))
-	_ = binary.Write(&out, binary.BigEndian, uint16(3))
-	_ = binary.Write(&out, binary.BigEndian, uint32(125))
+	out.WriteByte(2)
+	_ = binary.Write(&out, binary.BigEndian, uint64(125))
 	out.Write([]byte{1, 0, 1, 0, 5})
 	for _, value := range []byte{3, 4, 6, 7, 5} {
 		out.Write(bytes.Repeat([]byte{value}, 32))
@@ -491,7 +541,7 @@ func importNativeSendOwner(t *testing.T, c *testCluster, keyID, label, account s
 func TestNativeSendPurposeRealProfiles(t *testing.T) {
 	seed := sha256.Sum256([]byte("native-send-disposable-owner"))
 	pub := ed25519.NewKeyFromSeed(seed[:]).Public().(ed25519.PublicKey)
-	document := &nativepolicy.Document{Version: 2, Rules: []nativepolicy.Rule{{KeyID: "native-owner", Owner: testOwner, Tenant: "tenant-a", AgentDID: "did:layerx:alice", OwnerPublicKey: hex.EncodeToString(pub), Operations: []string{NativeSendPurpose, NativeLocalGrantConsent}, Capabilities: []string{strings.Repeat("22", 32)}, MaximumValidityMS: 700000, RatePerMinute: 1000}}}
+	document := &nativepolicy.Document{Version: 2, Rules: []nativepolicy.Rule{{KeyID: "native-owner", Owner: testOwner, Tenant: "tenant-a", AgentDID: "did:layerx:" + strings.Repeat("aa", 32), OwnerPublicKey: hex.EncodeToString(pub), Operations: []string{NativeSendPurpose, NativeLocalGrantConsent}, Capabilities: []string{strings.Repeat("22", 32)}, MaximumValidityMS: 700000, RatePerMinute: 1000}}}
 	c := newTestClusterWith(t, 5, true, testPolicy(), func(o *Options) { o.NativePolicy = document })
 	imported, authority := importNativeSendOwner(t, c, "native-owner", "native-send-disposable-owner", "0x9999999999999999999999999999999999999999")
 	if !bytes.Equal(imported, pub) {
@@ -500,11 +550,12 @@ func TestNativeSendPurposeRealProfiles(t *testing.T) {
 	signers := []string{"node-1", "node-2", "node-3"}
 	expiry := uint64(time.Now().Add(10 * time.Minute).UnixMilli())
 	purpose := nativeSendPurposeBytes(pub, expiry)
-	digest, _, err := nativepolicy.SendPurposeDigest(purpose, pub)
+	digest, _, err := nativeSendPurposeV2Digest(purpose, pub, "0x9999999999999999999999999999999999999999")
 	if err != nil {
 		t.Fatal(err)
 	}
 	request := NativeSignRequest{Profile: 2, SessionID: "native-purpose", KeyID: "native-owner", Operation: NativeSendPurpose, Signers: signers, Purpose: hex.EncodeToString(purpose)}
+	verifyNativeInventoryRequired(t, c, request)
 	sign := func(req NativeSignRequest, subject string) []apiResult {
 		return c.callAll(t, c.byID(req.Signers...), PathNativeSign, func(*testNode) any { return req }, c.idp.mint(t, c.idp.key, subject))
 	}
@@ -531,17 +582,17 @@ func TestNativeSendPurposeRealProfiles(t *testing.T) {
 	for _, result := range sign(altered, testOwner) {
 		expectError(t, "same session changed purpose", result, CodeSessionBadRequest)
 	}
-	parsed, parseErr := nativepolicy.ParseSendPurpose(purpose)
-	if parseErr != nil || parsed.OwnerDID != "did:layerx:"+hex.EncodeToString(pub) || parsed.NetworkID != 125 || parsed.ModuleID != 1 || parsed.Ordinal != 5 {
+	parsed, parseErr := parseNativeSendPurposeV2(purpose)
+	if parseErr != nil || parsed.OwnerDID != "did:layerx:"+strings.Repeat("cc", 32) || !bytes.Equal(parsed.ConsentPublicKey[:], pub) || !bytes.Equal(parsed.EVMSender[:], bytes.Repeat([]byte{0x99}, 20)) || parsed.TransactionType != 2 || parsed.ChainID != 125 || parsed.ModuleID != 1 || parsed.Ordinal != 5 {
 		t.Fatal("actual closed send parser coordinates")
 	}
-	if _, _, err = nativepolicy.SendPurposeDigest(purpose, bytes.Repeat([]byte{9}, 32)); err == nil {
+	if _, _, err = nativeSendPurposeV2Digest(purpose, bytes.Repeat([]byte{9}, 32), "0x9999999999999999999999999999999999999999"); err == nil {
 		t.Fatal("encoded owner must match real held-share owner")
 	}
 	if _, err = nativepolicy.ParsePurpose(purpose); err == nil {
 		t.Fatal("old preparation profile cannot parse send purpose")
 	}
-	if _, err = nativepolicy.ParseSendPurpose(nativePurposeBytes(expiry)); err == nil {
+	if _, err = parseNativeSendPurposeV2(nativePurposeBytes(expiry)); err == nil {
 		t.Fatal("old preparation purpose cannot parse as send consent")
 	}
 	oldAsSend := request
@@ -556,8 +607,51 @@ func TestNativeSendPurposeRealProfiles(t *testing.T) {
 	for _, result := range sign(sendAsOld, testOwner) {
 		expectError(t, "send purpose under old kind", result, CodeSessionBadRequest)
 	}
-	fixed := len(purpose) - 283
-	for _, offset := range []int{len(nativepolicy.SendPurposeDomain), len(nativepolicy.SendPurposeDomain) + 5, fixed, fixed + 32, fixed + 64, fixed + 72, fixed + 80, fixed + 112, fixed + 114, fixed + 118, fixed + 119, fixed + 121, fixed + 123, fixed + 155, fixed + 187, fixed + 219, fixed + 251} {
+	if digest != sha256.Sum256(purpose) {
+		t.Fatal("V2 signature digest must cover the exact canonical bytes")
+	}
+	if _, _, err = nativeSendPurposeV2Digest(purpose, pub, "0x8888888888888888888888888888888888888888"); err == nil {
+		t.Fatal("encoded EVM sender must match the independently stored account")
+	}
+	fixed := len(purpose) - 306
+	invalid := map[string][]byte{}
+	legacy := append([]byte(nil), purpose...)
+	copy(legacy, nativepolicy.SendPurposeDomain)
+	legacy[len(nativeSendPurposeV2Domain)] = 1
+	invalid["legacy-domain"] = legacy
+	invalid["oversized"] = append(append([]byte(nil), purpose...), make([]byte, 2049-len(purpose))...)
+	for name, span := range map[string][2]int{
+		"consent-key": {fixed, 32}, "sender": {fixed + 32, 20},
+		"generation": {fixed + 84, 8}, "expiry": {fixed + 92, 8},
+		"preparation": {fixed + 146, 32}, "canonical-digest": {fixed + 178, 32},
+		"economic-action": {fixed + 210, 32}, "idempotency": {fixed + 242, 32},
+		"commitment": {fixed + 274, 32},
+	} {
+		raw := append([]byte(nil), purpose...)
+		clear(raw[span[0] : span[0]+span[1]])
+		invalid["zero-"+name] = raw
+	}
+	for name, offset := range map[string]int{
+		"version": len(nativeSendPurposeV2Domain), "transaction-type": fixed + 132,
+		"chain": fixed + 140, "activity-version": fixed + 141,
+		"module": fixed + 143, "ordinal": fixed + 145,
+	} {
+		raw := append([]byte(nil), purpose...)
+		raw[offset] ^= 1
+		invalid[name] = raw
+	}
+	for name, raw := range invalid {
+		if _, err = parseNativeSendPurposeV2(raw); err == nil {
+			t.Fatalf("invalid V2 %s accepted", name)
+		}
+		refused := request
+		refused.SessionID = "native-invalid-" + name
+		refused.Purpose = hex.EncodeToString(raw)
+		for _, result := range sign(refused, testOwner) {
+			expectError(t, "invalid V2 "+name, result, CodeSessionBadRequest)
+		}
+	}
+	for _, offset := range []int{len(nativeSendPurposeV2Domain), len(nativeSendPurposeV2Domain) + 5, fixed, fixed + 32, fixed + 52, fixed + 84, fixed + 92, fixed + 100, fixed + 132, fixed + 133, fixed + 141, fixed + 142, fixed + 144, fixed + 146, fixed + 178, fixed + 210, fixed + 242, fixed + 274} {
 		changed := append([]byte(nil), purpose...)
 		changed[offset] ^= 1
 		changedRequest := request
@@ -566,8 +660,8 @@ func TestNativeSendPurposeRealProfiles(t *testing.T) {
 			expectError(t, "same session changed send field", result, CodeSessionBadRequest)
 		}
 	}
-	for _, cut := range []int{0, 1, len(nativepolicy.SendPurposeDomain), fixed, fixed + 282} {
-		if _, err = nativepolicy.ParseSendPurpose(purpose[:cut]); err == nil {
+	for cut := 0; cut < len(purpose); cut++ {
+		if _, err = parseNativeSendPurposeV2(purpose[:cut]); err == nil {
 			t.Fatal("truncated send purpose accepted")
 		}
 	}
@@ -590,7 +684,7 @@ func TestNativeSendPurposeRealProfiles(t *testing.T) {
 	tenant := request
 	tenant.SessionID = "native-foreign-tenant"
 	raw := append([]byte(nil), purpose...)
-	raw[len(nativepolicy.SendPurposeDomain)+5] ^= 1
+	raw[len(nativeSendPurposeV2Domain)+5] ^= 1
 	tenant.Purpose = hex.EncodeToString(raw)
 	expectPolicyCode(t, "foreign tenant coordinates", sign(tenant, testOwner), "destination_denied")
 	few := request
@@ -599,7 +693,7 @@ func TestNativeSendPurposeRealProfiles(t *testing.T) {
 	for _, result := range sign(few, testOwner) {
 		expectError(t, "insufficient quorum", result, CodeQuorumTooFew)
 	}
-	capability, session := nativeGrantRecords(pub, expiry)
+	capability, session := nativeGrantRecordsForAgent(pub, expiry, "did:layerx:"+strings.Repeat("aa", 32))
 	grantDigest, _, err := nativepolicy.GrantDigest(capability, session, expiry, pub)
 	if err != nil {
 		t.Fatal(err)
@@ -630,6 +724,44 @@ func runNativeSendRustConsumer(t *testing.T, c *testCluster, authority *nativeIn
 	if binary == "" {
 		t.Fatal("prebuilt real Rust custody consumer is required")
 	}
+	walletSeed := sha256.Sum256([]byte("native send consumer secp256k1 wallet identity"))
+	walletKey, err := gethcrypto.ToECDSA(walletSeed[:])
+	if err != nil {
+		t.Fatal(err)
+	}
+	sender := gethcrypto.PubkeyToAddress(walletKey.PublicKey)
+	walletPublic := gethcrypto.FromECDSAPub(&walletKey.PublicKey)
+	const walletKeyID = "native-send-wallet"
+	secret := new(big.Int).SetBytes(walletSeed[:])
+	defer dealer.Wipe(secret)
+	bundles, _, err := dealer.Split(dealer.Secp256k1, secret, c.ids)
+	if err != nil {
+		t.Fatal(err)
+	}
+	shares := make(map[string]ShareBundleJSON, len(bundles))
+	for _, bundle := range bundles {
+		shares[bundle.ParticipantID] = EncodeBundle(bundle)
+	}
+	authority.keys = append(authority.keys, InventoryKey{KeyID: walletKeyID, Epoch: 0, Curve: "secp256k1", PublicKey: hex.EncodeToString(walletPublic), Owner: testOwner, Operations: []string{"import", "sign"}})
+	authority.publish(t)
+	responses := decodeOK[KeyResponse](t, "native send wallet ceremony import", c.callAll(t, c.nodes, PathImport, func(node *testNode) any {
+		return ImportRequest{CeremonyID: "native-send-wallet-import", SessionID: "import-" + walletKeyID,
+			KeyID: walletKeyID, Owner: testOwner, PublicKey: hex.EncodeToString(walletPublic),
+			Participants: c.ids, Threshold: dealer.Threshold, Account: sender.Hex(), Share: shares[node.id]}
+	}, ""))
+	if len(responses) != len(c.nodes) {
+		t.Fatal("wallet identity must be held by every node")
+	}
+	for i, node := range c.nodes {
+		record, payload, failure := node.server.loadShare(walletKeyID)
+		if failure != nil || record.Curve != "secp256k1" || record.Epoch != 0 || !bytes.Equal(record.PublicKey, walletPublic) ||
+			!sameIDs(record.Participants, c.ids) || payload.Owner != testOwner || common.HexToAddress(payload.Account) != sender ||
+			responses[i].NodeID != node.id || common.HexToAddress(responses[i].Address) != sender || responses[i].AuditSequence == 0 {
+			t.Fatal("held wallet identity must match the real owner, public key, sender and membership")
+		}
+	}
+	authority.keys[len(authority.keys)-1].Operations = []string{"sign"}
+	authority.publish(t)
 	dir := t.TempDir()
 	pair := c.client.Transport.(*http.Transport).TLSClientConfig.Certificates[0]
 	private, err := x509.MarshalPKCS8PrivateKey(pair.PrivateKey)
@@ -641,7 +773,7 @@ func runNativeSendRustConsumer(t *testing.T, c *testCluster, authority *nativeIn
 		nodes = append(nodes, map[string]string{"id": node.id, "address": node.apiAddr})
 	}
 	fixture := map[string]any{"schema": "layerx-human-native-send-live.v1", "directory": dir, "nodes": nodes, "signers": []string{"node-1", "node-2", "node-3"},
-		"root_der": c.ca.cert.Raw, "client_der": pair.Certificate[0], "client_pkcs8": private, "owner": testOwner, "account": "0x9999999999999999999999999999999999999999",
+		"root_der": c.ca.cert.Raw, "client_der": pair.Certificate[0], "client_pkcs8": private, "owner": testOwner, "account": sender.Hex(),
 		"owner_assertion": c.idp.mint(t, c.idp.key, testOwner), "second_assertion": c.idp.mint(t, c.idp.key, testOwner), "foreign_assertion": c.idp.mint(t, c.idp.key, "user-0002")}
 	path := filepath.Join(dir, "fixture.json")
 	raw, err := json.Marshal(fixture)
@@ -651,10 +783,8 @@ func runNativeSendRustConsumer(t *testing.T, c *testCluster, authority *nativeIn
 	if err = os.WriteFile(path, raw, 0o600); err != nil {
 		t.Fatal(err)
 	}
-	command := exec.Command(binary, "--exact", "native_send_provider_and_sdk_real_cluster", "--nocapture", "--test-threads=1")
+	command := nativeRustCommand(t, binary, "native_send_provider_and_sdk_real_cluster")
 	command.Env = append(os.Environ(), "PAXEER_X_NATIVE_SEND_LIVE_FIXTURE="+path)
-	command.Stdout = os.Stdout
-	command.Stderr = os.Stderr
 	if err = command.Start(); err != nil {
 		t.Fatal(err)
 	}
@@ -686,13 +816,18 @@ func runNativeSendRustConsumer(t *testing.T, c *testCluster, authority *nativeIn
 	}
 	authority.keys[len(authority.keys)-1] = InventoryKey{KeyID: provision.KeyID, Epoch: 0, Curve: "ed25519", PublicKey: hex.EncodeToString(generated.Public), Owner: testOwner, Operations: []string{"sign"}}
 	authority.publish(t)
-	document.Rules = append(document.Rules, nativepolicy.Rule{KeyID: provision.KeyID, Owner: testOwner, Tenant: "tenant-a", AgentDID: "did:layerx:alice", OwnerPublicKey: hex.EncodeToString(generated.Public), Operations: []string{NativeSendPurpose, NativeLocalGrantConsent}, Capabilities: []string{strings.Repeat("22", 32)}, MaximumValidityMS: 700000, RatePerMinute: 1000})
+	document.Rules = append(document.Rules, nativepolicy.Rule{KeyID: provision.KeyID, Owner: testOwner, Tenant: "tenant-a", AgentDID: "did:layerx:" + strings.Repeat("aa", 32), OwnerPublicKey: hex.EncodeToString(generated.Public), Operations: []string{NativeSendPurpose, NativeLocalGrantConsent}, Capabilities: []string{strings.Repeat("22", 32)}, MaximumValidityMS: 700000, RatePerMinute: 1000})
 	if err = document.Validate(); err != nil {
 		t.Fatal(err)
 	}
 	expiry := uint64(time.Now().Add(10 * time.Minute).UnixMilli())
-	capability, session := nativeGrantRecords(generated.Public, expiry)
-	material := map[string]any{"purpose": nativeSendPurposeBytes(generated.Public, expiry), "capability": capability, "native_session": session, "expiry_ms": expiry}
+	capability, session := nativeGrantRecordsForAgent(generated.Public, expiry, "did:layerx:"+strings.Repeat("aa", 32))
+	purpose := nativeSendPurposeBytesForSender(generated.Public, expiry, sender)
+	parsed, err := parseNativeSendPurposeV2(purpose)
+	if err != nil || common.Address(parsed.EVMSender) != sender {
+		t.Fatal("canonical send purpose must encode the held wallet sender")
+	}
+	material := map[string]any{"purpose": purpose, "capability": capability, "native_session": session, "expiry_ms": expiry}
 	raw, err = json.Marshal(material)
 	if err != nil {
 		t.Fatal(err)

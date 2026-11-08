@@ -31,8 +31,8 @@ use `layerx --help` for the current command catalogue.
 
 Public node JSON-RPC uses the root path. Hosted gateway `px_*` methods are
 additional service APIs; a node URL does not supply human-payment credentials
-or every hosted method. See the [gateway source guide](https://github.com/Sidiora-Labs/Paxeer-X-Network/blob/5c65ff650b571b5294048762896e896aa35d11ae/services/platform/hosted/gateway/README.md)
-and [reference applications](https://github.com/Sidiora-Labs/Paxeer-X-Network/blob/5c65ff650b571b5294048762896e896aa35d11ae/services/platform/examples/README.md)
+or every hosted method. See the [gateway source guide](https://github.com/Sidiora-Labs/paxeer-monorepo/blob/main/services/platform/hosted/gateway/README.md)
+and [reference applications](https://github.com/Sidiora-Labs/paxeer-monorepo/blob/main/services/platform/examples/README.md)
 for the distinct service bindings.
 
 The emulator exercises local protocol transitions. A successful emulator
@@ -100,7 +100,7 @@ unknown and refused results distinctly; a submission acknowledgement alone is
 not a committed payment.
 
 Native wallet and token commands are documented in the
-[CLI wallet quickstart](https://github.com/Sidiora-Labs/Paxeer-X-Network/blob/main/tools/platform/cli/README.md#wallet-quickstart).
+[CLI wallet quickstart](https://github.com/Sidiora-Labs/paxeer-monorepo/blob/main/tools/platform/cli/README.md#wallet-quickstart).
 Use its signing, receipt-policy and fee-limit requirements for the selected
 transport. Emulator and hosted registration paths have different prerequisites.
 
@@ -168,6 +168,11 @@ again, because a fresh send invocation generates a new native idempotency key.
 Receipt verification requires independently pinned keys with height ranges;
 fetched bytes alone are not a verification or finality claim.
 
+A receipt is final once its block is committed. For independent finality
+verification, authenticate the block header and CometBFT commit, then verify
+transaction or state inclusion at the relevant height. See
+[Committed block evidence](https://github.com/Sidiora-Labs/paxeer-monorepo/blob/abc81fd2cead6b2b9d5612c6e09a6ab56f13c1ed/docs/site/docs/concepts/checkpoints.md#committed-block-evidence).
+
 The installation result names an owner-only `authorization.credential_file`.
 Send its value as `Authorization: Bearer <value>` on every loopback JSON-RPC
 POST. The Agent Card is readable without that bearer. Installation JSON exposes
@@ -190,7 +195,7 @@ Human-payment samples use `LAYERX_API_URL` for the deployed human service and
 `LAYERX_API_TOKEN` for its bearer credential. These values do not configure a
 native transaction signer or receipt trust policy. The reference applications
 use per-profile environment bindings, including receipt keys; follow their
-[configuration guide](https://github.com/Sidiora-Labs/Paxeer-X-Network/blob/5c65ff650b571b5294048762896e896aa35d11ae/services/platform/examples/README.md).
+[configuration guide](https://github.com/Sidiora-Labs/paxeer-monorepo/blob/main/services/platform/examples/README.md).
 
 Mobile and browser clients use a broker for short-lived sessions. See
 [iOS](framework/ios.md) and [Android](framework/android.md).

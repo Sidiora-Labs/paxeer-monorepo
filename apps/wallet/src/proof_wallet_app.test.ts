@@ -274,7 +274,9 @@ async function wallet_app_plan_bindings_and_fees_observe_the_same_producer_twice
 test(wallet_app_plan_bindings_and_fees_observe_the_same_producer_twice);
 
 async function wallet_app_hosted_intent_plan_survives_producer_store_reopen() {
-  await proveHostedIntentReopen();
+  const recoveredPlan = await proveHostedIntentReopen();
+  expect(recoveredPlan.plan_digest).toMatch(/^[0-9a-f]{64}$/);
+  expect(recoveredPlan.legs.length).toBeGreaterThan(0);
 }
 test(
   wallet_app_hosted_intent_plan_survives_producer_store_reopen.name,
