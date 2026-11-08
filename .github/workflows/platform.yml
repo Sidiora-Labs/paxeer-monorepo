@@ -51,6 +51,10 @@ jobs:
         uses: swift-actions/setup-swift@7ca6abe6b3b0e8b5421b88be48feee39cbf52c6a # v2.4.0
         with:
           swift-version: "6.0.3"
+      - name: Install .NET for the C sharp SDK and sample
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          dotnet-version: "10.0.x"
       - name: Install locked platform JavaScript dependencies
         run: make platform-js-install
       - name: Install Java 21 for JVM dependencies and conformance
@@ -1415,7 +1419,7 @@ jobs:
       - name: Install .NET
         uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
         with:
-          dotnet-version: "8.0.x"
+          dotnet-version: "10.0.x"
       - name: Install cosign
         uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
       - name: Install syft
@@ -1489,7 +1493,7 @@ jobs:
           dotnet new nugetconfig
           dotnet nuget remove source nuget.org --configfile nuget.config
           dotnet nuget add source "$LAYERX_RELEASE_TARGET" --name release --configfile nuget.config
-          dotnet new console --framework net8.0 --name check --output .
+          dotnet new console --framework net10.0 --name check --output .
           for attempt in $(seq 1 30); do
             if dotnet add package LayerX.Sdk --version "$LAYERX_RELEASE_VERSION" --source "$LAYERX_RELEASE_TARGET"; then
               break
