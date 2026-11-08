@@ -1,0 +1,225 @@
+[task]
+id = "22.39.40"
+acceptance = "22998.1"
+base_revision = "02ddcc7855a3d36583a42cf4a77eab474ca646ae"
+continued_revision = "d51cd029d92d479014144b8c0fa6ed396205aebe"
+build_cmd = "go build ./node/... && go vet ./node/ ./node/sequencer/ && python3 -m py_compile tests/ci/test_node_build_workflow_scope.py"
+verify_cmd = "go test -timeout 15m -count=1 -skip 'TestMergePlanReturnsGuarantorBonds|TestHostedKernelProgramsABIFollowsTheMergeUpgrade|TestHostedKernelProgramsABISurvivesRestart|TestEVMServerServesSequencerReceiptOption|TestStandbyReplicatesRecorderGroupsThroughOpenAccount|TestV640ToV66UpgradeServesTheExchangeBridgeAndLaunchpadPrecompiles' ./node/ && go test -timeout 15m -count=1 -run TestDriverReleasesNextOpenAcrossStandbyCommit ./node/sequencer/ && python3 -m pytest -q tests/ci/test_node_build_workflow_scope.py"
+evidence = "The private runner ledger /out/run/gates.jsonl names the exact built and verified candidate revision, command, exit code and log. Qualification is claimed only when hf-done passes on the built revision."
+
+[activation]
+source = "docs/release/7.0.0-upgrade-plan.md sections 1 and 2"
+decision = "Keep the 7.0 module and precompile set: anchor is absent from the module manager and version map, its historical store is preserved, and verify and anchor retirement interfaces depend on the live upgrade module. The activation tests must assert those interfaces remain registered before activation when their dependency exists, while every active fork module remains gated."
+repair = "Activation readiness checks the active modules, preserving the historical anchor store list. Tests assert the exact module version map, retained anchor parameters, both precompile states and unchanged activation-height bounds. The pending-store fixture commits a consensus block identity with the height-2 tree deletion and asserts that identity after reopening."
+pending_store_repair = "Keep the real xweb pending placeholder and the activation refusal. Flush the block cache and assert every activation store's commitment changeset is empty before pending writes can be discarded; iterate only stores with committed trees. The missing xweb tree has no committed entries and its empty changeset proves the block added none, without invoking the unsupported missing-tree iterator."
+
+[standby]
+repair = "Propagate the caller context through the driver's two ordered releases and bound WAL acknowledgement waits by the configured replication timeout. The real primary/standby scenario keeps both consensus commits, receipt and WAL equality assertions, and the requirement that the next OPEN is acknowledged before the standby commits. A context deadline bounds the entire scenario in a child process, including synchronous snapshot restore."
+
+[workflow]
+repair = "Keep recursive node package coverage and explicitly pass -timeout 15m -count=1. Three Python tests read the actual workflow and assert node coverage, sequencer coverage and the declared timeout."
+baseline = "Decision 2820 and gotcha 3464 authorize exactly the three named node failures in tests/ci/data/node_go_test_baseline.json until retiring task 22.39.116 repairs them. Each entry names the failing assertion; the public workflow uses the identical skip pattern as the task verification, and the Python tests assert the exact command, baseline names, reasons and retiring task."
+
+[qualification.first_run]
+revision = "a981cacf0b289718ba69d85bccd3e4aa48f94882"
+command = "cg spec done 22.39.40 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "The other three activation repairs ran without failure. The pending-store fixture rejected an unsupported secp256k1 consensus key; the standby deadline produced stacks showing snapshot restore blocked on the SS importer, whose configured worker count was zero."
+repair = "Use an ed25519 validator for the height-2 identity, configure one real SS import worker for the standby application, and assert a cancelled driver release writes no WAL entries. Keep the 30-second deadline and every cross-commit assertion."
+
+[qualification.unrelated]
+revision = "a981cacf0b289718ba69d85bccd3e4aa48f94882"
+command = "cg spec done 22.39.40 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Out-of-scope failures: TestMergePlanReturnsGuarantorBonds accepts a retired custody call; hosted-program ABI tests return LXP_ERR_VERSION_UNSUPPORTED and panic on missing height-1 identity; sequencer flag defaults, three seal tests, crash-replay entry counts and transport-recovery TLS tests also fail. The Go failure prevents the chained pytest command from executing."
+assumption = "These failures lie outside the seven authorized paths and are recorded without repair or further investigation. The bounded rerun is solely to qualify the task-scoped repairs."
+
+[qualification.recorded_sequencer_failures]
+source = "GOTCHA.kvx gotcha.3441; decision 2800; continued revision 2ebcae0995a41cfb8602f41ca07d045a932b4e7d"
+owner_task = "22.39.86"
+status = "Recorded, not repaired; excluded only from this task's focused sequencer verification. The public workflow retains recursive package coverage."
+tests = ["TestAddStartFlagsRegistersSequencerFlags", "TestConsensusSourceRetriesSealBatchFailure", "TestConsensusSourceDecodeFailureKeepsBatch", "TestConsensusSourceTxZeroBatch", "TestCrashAfterReceiptReplaysIdenticalReceipt", "TestProofSequencerExecutorTransportRecovery"]
+observed = "Flag registration expects 14 flags and finds 19; the three consensus source tests expect no block is open and get nil; crash replay differs by one receipt in sequential and microbatch modes; transport recovery omits required replication TLS configuration and dereferences its nil harness in cleanup."
+
+[qualification.continued_build]
+reference = "/out/run/gates.jsonl: final kind=build record; exact candidate revision, build command, exit and private log path"
+
+[qualification.continued_verify]
+reference = "/out/run/gates.jsonl: final kind=verify record; exact candidate revision, cg spec done command, exit and private log path; must match the final build revision"
+
+[qualification.attempt5]
+base_revision = "8f21858e000218f3a283fe439a98496a1ccfa003"
+carried_revision = "d96e5a9eefb24874ee90ce09a9ab07b35f5f9e70"
+prerequisite_revision = "d34556bc8a893abe2d27750dee3e93cf33f1b04e"
+decision = "Decisions 2771, 2821 and 2851 / gotcha 3523: the supplied base already contains the merged 22.39.138 repair. Preserve the attempt-4 implementation and the three-name skip; change none of the prerequisite task's files. If any of its sixteen cases still fails, record its assertion line here and stop without a repair cycle."
+build_reference = "/out/run/gates.jsonl: final kind=build row; exact candidate revision, command, exit and private log path"
+verify_reference = "/out/run/gates.jsonl: final kind=verify row; exact candidate revision, command, exit and private log path; qualification requires both gates to pass at the same revision"
+
+[qualification.attempt5.result]
+revision = "43d9a3297224abdadafa74020b05a561f53e1fca"
+build = "go build ./node/... && go vet ./node/ ./node/sequencer/ && python3 -m py_compile tests/ci/test_node_build_workflow_scope.py; exit 0; /out/logs/build-1.log"
+command = "cg spec done 22.39.40 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "The node package completed in 657.428 seconds with only the three unrelated failures below; none of the sixteen recorded failures or four activation tests failed. The chained standby and Python checks did not execute. Task remains implemented-not-qualified; unrelated failures are recorded without repair, added skips or a repeated gate."
+
+[qualification.attempt5.unrelated.TestEVMServerServesSequencerReceiptOption]
+task = "22.39.40"
+file = "node/sequencer_rpc_option_test.go:165"
+symbol = "TestEVMServerServesSequencerReceiptOption"
+observed = "At revision 43d9a3297224abdadafa74020b05a561f53e1fca, cg spec done 22.39.40 -f layerx-merge --root /work/paxeer-monorepo exited 1 (/out/logs/verify-1.log:21137); require.NoError received sequencer: standby did not acknowledge: sequencer config: invalid value: replication TLS configuration is required."
+assumption = "The RPC fixture's required replication TLS setup is outside this task's authorized files and is recorded without repair or further investigation."
+severity = "blocker"
+
+[qualification.attempt5.unrelated.TestStandbyReplicatesRecorderGroupsThroughOpenAccount]
+task = "22.39.40"
+file = "node/standby_recorder_replication_test.go:127"
+symbol = "TestStandbyReplicatesRecorderGroupsThroughOpenAccount"
+observed = "At revision 43d9a3297224abdadafa74020b05a561f53e1fca, cg spec done 22.39.40 -f layerx-merge --root /work/paxeer-monorepo exited 1 (/out/logs/verify-1.log:21349); require.NoError received sequencer config: invalid value: replication TLS certificate, key, roots and peer identity are required."
+assumption = "The recorder replication fixture's required TLS setup is outside this task's authorized files and is recorded without repair or further investigation."
+severity = "blocker"
+
+[qualification.attempt5.unrelated.TestV640ToV66UpgradeServesTheExchangeBridgeAndLaunchpadPrecompiles]
+task = "22.39.40"
+file = "node/upgrade_test.go:218"
+symbol = "TestV640ToV66UpgradeServesTheExchangeBridgeAndLaunchpadPrecompiles"
+observed = "At revision 43d9a3297224abdadafa74020b05a561f53e1fca, cg spec done 22.39.40 -f layerx-merge --root /work/paxeer-monorepo exited 1 (/out/logs/verify-1.log:21452); require.Equal expected layerxcustody module version 0x1 but received 0x2."
+assumption = "The historical upgrade's module-version assertion is outside this task's activation-readiness and commit-release repairs and is recorded without repair or further investigation."
+severity = "blocker"
+
+[qualification.attempt4]
+base_revision = "0eb129eb57bc91a7326eff8066cab33469f0d6d9"
+carried_revision = "9f57ad7d65535089d822d8a0f00aab50d4672e1c"
+initial_revision = "f50f732bbffcdb475b1b102d8abccf45ebfff98c"
+initial_verify = "cg spec done 22.39.40 -f layerx-merge --root /work/paxeer-monorepo; exit 1; /out/logs/verify-1.log"
+decision = "Decision 2771 / gotcha 3508: all sixteen reported failures also fail alone with the same assertions, so none requires test-order isolation; retain the three-name skip unchanged and record these independent failures without changing their assertions or unrelated sources."
+isolation_ledger = "/out/logs/node-isolation.jsonl; each row carries its exact command, exit, elapsed seconds and private log"
+final_evidence = "/out/run/gates.jsonl: final kind=build and kind=verify rows; exact candidate revision, command, exit and private log; qualification requires both exits zero on the same revision"
+
+[qualification.attempt4.isolated.TestSidioraFeeTokenUpgradeServesThePrecompileOnlyAfterIt]
+revision = "f50f732bbffcdb475b1b102d8abccf45ebfff98c"
+command = "go test -timeout 15m -count=1 -run ^TestSidioraFeeTokenUpgradeServesThePrecompileOnlyAfterIt$ ./node/"
+exit = 1
+log = "/out/logs/isolated-TestSidioraFeeTokenUpgradeServesThePrecompileOnlyAfterIt.log"
+observed = "node/upgrades_test.go:314,363: EnsureSidioraDenom rejects chain ID 1 with Sidiora must be registered on its home chain before ApplyUpgrade is called. Reproduced alone; recorded, not repaired: the failing path is outside the changed activation-readiness and driver-release paths."
+
+[qualification.attempt4.isolated.TestV6120ModulesAreWired]
+revision = "f50f732bbffcdb475b1b102d8abccf45ebfff98c"
+command = "go test -timeout 15m -count=1 -run ^TestV6120ModulesAreWired$ ./node/"
+exit = 1
+log = "/out/logs/isolated-TestV6120ModulesAreWired.log"
+observed = "node/upgrades_v6120_test.go:322: The initial EndBlockKeepers.V6120Live() is true while require.False expects an inactive chain. Reproduced alone; recorded, not repaired: the failing path is outside the changed activation-readiness and driver-release paths."
+
+[qualification.attempt4.isolated.TestV6120ServesTheNewSetFromTheHandler]
+revision = "f50f732bbffcdb475b1b102d8abccf45ebfff98c"
+command = "go test -timeout 15m -count=1 -run ^TestV6120ServesTheNewSetFromTheHandler$ ./node/"
+exit = 1
+log = "/out/logs/isolated-TestV6120ServesTheNewSetFromTheHandler.log"
+observed = "node/upgrades_v6120_test.go:344: The initial app.v6120Live is true while require.False expects an inactive chain before running the handler. Reproduced alone; recorded, not repaired: the failing path is outside the changed activation-readiness and driver-release paths."
+
+[qualification.attempt4.isolated.TestV6120EndBlockOrder]
+revision = "f50f732bbffcdb475b1b102d8abccf45ebfff98c"
+command = "go test -timeout 15m -count=1 -run ^TestV6120EndBlockOrder$ ./node/"
+exit = 1
+log = "/out/logs/isolated-TestV6120EndBlockOrder.log"
+observed = "node/upgrades_v6120_test.go:452: The initial app.v6120Live is true while require.False expects an inactive chain before running end block. Reproduced alone; recorded, not repaired: the failing path is outside the changed activation-readiness and driver-release paths."
+
+[qualification.attempt4.isolated.TestV6120AppliesThePlanOnTheHaltExport]
+revision = "f50f732bbffcdb475b1b102d8abccf45ebfff98c"
+command = "go test -timeout 15m -count=1 -run ^TestV6120AppliesThePlanOnTheHaltExport$ ./node/"
+exit = 1
+log = "/out/logs/isolated-TestV6120AppliesThePlanOnTheHaltExport.log"
+observed = "node/upgrades_v6120_test.go:496: The loaded halt-export app.v6120Live is true while require.False expects an inactive chain before BeginBlock. Reproduced alone; recorded, not repaired: the failing path is outside the changed activation-readiness and driver-release paths."
+
+[qualification.attempt4.isolated.TestV6120InitialisesTheNewModulesOnAPreUpgradeChain]
+revision = "f50f732bbffcdb475b1b102d8abccf45ebfff98c"
+command = "go test -timeout 15m -count=1 -run ^TestV6120InitialisesTheNewModulesOnAPreUpgradeChain$ ./node/"
+exit = 1
+log = "/out/logs/isolated-TestV6120InitialisesTheNewModulesOnAPreUpgradeChain.log"
+observed = "node/upgrades_v6120_test.go:633: After the v6.12 handler, the spot module version is 2 while the assertion expects 1; the changed activation-readiness predicate does not set module versions. Reproduced alone; recorded, not repaired: the failing path is outside the changed activation-readiness and driver-release paths."
+
+[qualification.attempt4.isolated.TestAnteChainRunsRevocationDecoratorAfterAuthzNested]
+revision = "f50f732bbffcdb475b1b102d8abccf45ebfff98c"
+command = "go test -timeout 15m -count=1 -run ^TestAnteChainRunsRevocationDecoratorAfterAuthzNested$ ./node/"
+exit = 1
+log = "/out/logs/isolated-TestAnteChainRunsRevocationDecoratorAfterAuthzNested.log"
+observed = "node/ante_revocation_test.go:207: The current_grant authz dispatch returns bank denomination has no canonical kernel asset: LXP_AUTH_SCOPE while require.NoError expects success. Reproduced alone; recorded, not repaired: the failing path is outside the changed activation-readiness and driver-release paths."
+
+[qualification.attempt4.isolated.TestFeeTokenGigaBlockRefusesUnusableRate]
+revision = "f50f732bbffcdb475b1b102d8abccf45ebfff98c"
+command = "go test -timeout 15m -count=1 -run ^TestFeeTokenGigaBlockRefusesUnusableRate$ ./node/"
+exit = 1
+log = "/out/logs/isolated-TestFeeTokenGigaBlockRefusesUnusableRate.log"
+observed = "node/app_feetoken_test.go:201: The block result is internal error while the assertion requires fee-token rate is invalid. Reproduced alone; recorded, not repaired: the failing path is outside the changed activation-readiness and driver-release paths."
+
+[qualification.attempt4.isolated.TestAppOrdersStoreGenesisBeforeHostWriters]
+revision = "f50f732bbffcdb475b1b102d8abccf45ebfff98c"
+command = "go test -timeout 15m -count=1 -run ^TestAppOrdersStoreGenesisBeforeHostWriters$ ./node/"
+exit = 1
+log = "/out/logs/isolated-TestAppOrdersStoreGenesisBeforeHostWriters.log"
+observed = "node/app_host_genesis_test.go:33: The genesis-order slice ends with layerxchains while the assertion requires layerxagent after lxphost, layerxledger, layerxauth and layerxpay. Reproduced alone; recorded, not repaired: the failing path is outside the changed activation-readiness and driver-release paths."
+
+[qualification.attempt4.isolated.TestAppMountsMergedModuleStores]
+revision = "f50f732bbffcdb475b1b102d8abccf45ebfff98c"
+command = "go test -timeout 15m -count=1 -run ^TestAppMountsMergedModuleStores$ ./node/"
+exit = 1
+log = "/out/logs/isolated-TestAppMountsMergedModuleStores.log"
+observed = "node/app_merge_modules_test.go:61: The mounted module store count is 37 while the assertion expects 43. Reproduced alone; recorded, not repaired: the failing path is outside the changed activation-readiness and driver-release paths."
+
+[qualification.attempt4.isolated.TestAppBuildsPayKeeperOverSharedHost]
+revision = "f50f732bbffcdb475b1b102d8abccf45ebfff98c"
+command = "go test -timeout 15m -count=1 -run ^TestAppBuildsPayKeeperOverSharedHost$ ./node/"
+exit = 1
+log = "/out/logs/isolated-TestAppBuildsPayKeeperOverSharedHost.log"
+observed = "node/app_pay_agent_modules_test.go:35: Pay InitGenesis returns LXP_NON_CANONICAL: corrupt escrow state: unknown escrow key: invalid genesis while require.NoError expects success. Reproduced alone; recorded, not repaired: the failing path is outside the changed activation-readiness and driver-release paths."
+
+[qualification.attempt4.isolated.TestAppRegistersPayAndAgentModulesInGenesisOrder]
+revision = "f50f732bbffcdb475b1b102d8abccf45ebfff98c"
+command = "go test -timeout 15m -count=1 -run ^TestAppRegistersPayAndAgentModulesInGenesisOrder$ ./node/"
+exit = 1
+log = "/out/logs/isolated-TestAppRegistersPayAndAgentModulesInGenesisOrder.log"
+observed = "node/app_pay_agent_modules_test.go:51: The genesis-order slice is [layerxpay, layerxchains] while the assertion expects [layerxpay, layerxagent]. Reproduced alone; recorded, not repaired: the failing path is outside the changed activation-readiness and driver-release paths."
+
+[qualification.attempt4.isolated.TestDecodeFailureTxReportsZeroGas]
+revision = "f50f732bbffcdb475b1b102d8abccf45ebfff98c"
+command = "go test -timeout 15m -count=1 -run ^TestDecodeFailureTxReportsZeroGas$ ./node/"
+exit = 1
+log = "/out/logs/isolated-TestDecodeFailureTxReportsZeroGas.log"
+observed = "node/app_test.go:1002: The failed-after-ante transaction reports GasWanted 0 while require.Greater requires a positive value. Reproduced alone; recorded, not repaired: the failing path is outside the changed activation-readiness and driver-release paths."
+
+[qualification.attempt4.isolated.TestProofNodeGoApi]
+revision = "f50f732bbffcdb475b1b102d8abccf45ebfff98c"
+command = "go test -timeout 15m -count=1 -run ^TestProofNodeGoApi$ ./node/"
+exit = 1
+log = "/out/logs/isolated-TestProofNodeGoApi.log"
+observed = "node/proof_node_go_api_test.go:218: The API returns nil while require.ErrorAs expects rpc.Error. Reproduced alone; recorded, not repaired: the failing path is outside the changed activation-readiness and driver-release paths."
+
+[qualification.attempt4.isolated.TestEvmEventsForCw1155]
+revision = "f50f732bbffcdb475b1b102d8abccf45ebfff98c"
+command = "go test -timeout 15m -count=1 -run ^TestEvmEventsForCw1155$ ./node/"
+exit = 1
+log = "/out/logs/isolated-TestEvmEventsForCw1155.log"
+observed = "node/receipt_test.go:835: The transaction result code is 1 while the assertion expects 0. Reproduced alone; recorded, not repaired: the failing path is outside the changed activation-readiness and driver-release paths."
+
+[qualification.attempt4.isolated.TestRepair_102_SchedulerFailureAtomic]
+revision = "f50f732bbffcdb475b1b102d8abccf45ebfff98c"
+command = "go test -timeout 15m -count=1 -run ^TestRepair_102_SchedulerFailureAtomic$ ./node/"
+exit = 1
+log = "/out/logs/isolated-TestRepair_102_SchedulerFailureAtomic.log"
+observed = "node/repair_102_test.go:463: The result is internal error while the assertion requires marshalling cosmosGasParams. Reproduced alone; recorded, not repaired: the failing path is outside the changed activation-readiness and driver-release paths."
+
+[qualification.attempt4.isolated.TestFinalizeAdoptedSealedBlockMatchesReexecution]
+revision = "f50f732bbffcdb475b1b102d8abccf45ebfff98c"
+command = "go test -timeout 15m -count=1 -run ^TestFinalizeAdoptedSealedBlockMatchesReexecution$ ./node/"
+exit = 1
+log = "/out/logs/isolated-TestFinalizeAdoptedSealedBlockMatchesReexecution.log"
+observed = "Timed out alone after 15m0s; Go package duration 900.797 seconds and command wall duration 914.611 seconds. The whole-package run timed out with this test active for 7m40s. Both stacks block in snapshot Restore from node/sequenced_finalize_test.go:235 through rootmulti importSnapshotState and CompositeStateStore.Import; the fixture and import implementation are outside scope and the changed activation-readiness and driver-release paths are absent from the blocked stack. Recorded, not repaired; final chained verification cannot reach the standby and Python checks while the node package fails."
+
+[qualification.attempt6]
+base_revision = "3a0f70d0fce59d96719043d5294b98aa3718e3bd"
+carried_revision = "fb5eda5a2e031e93b6ba10ef611a7fed356efedc"
+decision = "Gotcha 3595 and decisions 2771, 2820 and 2821 assign the three attempt-5 failures to retiring task 22.39.155. Preserve the activation and standby release repairs; record each assertion in the baseline and extend the workflow and declared verification to the same six-name skip. The Python workflow tests enforce each exact name and retiring task. The three failing test files are unchanged."
+build_reference = "/out/run/gates.jsonl: final kind=build row; exact candidate revision, command, exit and private log path"
+verify_reference = "/out/run/gates.jsonl: final kind=verify row; exact candidate revision, command, exit and private log path; qualification requires both exits zero on the same revision"
