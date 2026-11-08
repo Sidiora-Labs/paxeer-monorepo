@@ -35346,3 +35346,35 @@ symbol = "test_qualification_ledger_parses.py"
 observed = "Attempt 1 at 8141143a2ae5: build exit 0; verification exit 1: test_ledger_headers_unique and test_ledger_strings_terminated pass, test_beta_ledger_check_passes fails with 3,412 violations (3,398 severities outside the vocabulary, ten sections outside the grammar, two missing symbol keys, two empty observed strings); the tools/ci suite did not run."
 assumption = "The attempt did what the note allowed; the remaining violations need the mapping ruling of decision 2884 and nothing in the checker."
 severity = "blocker"
+
+[finding.22.39.118.14]
+task = "22.39.118"
+file = "tools/platform/cli::rpc::tests::positional_requests_match_published_contract"
+symbol = "cli::rpc::tests::positional_requests_match_published_contract"
+observed = "Attempt 14 at 27007fa945cf: build exit 0; verification failed: make platform-test-tooling reports two failed cases of repair_22_33_1499.rs, readme_retired_endpoint at line 397 (verification marker present) and readme_operator_contract at its closing refusal (handler text instead of the parser placeholder); every other case passed."
+assumption = "Both stale assertions predate the producer changes of 22.31.212 and 8.48.1; the README examples of attempt 14 are correct."
+severity = "blocker"
+
+[finding.22.39.68.5]
+task = "22.39.68"
+file = "tests/ci/test_key_material_only_in_fixtures.py"
+symbol = "test_key_material_only_in_fixtures.py"
+observed = "Attempt 5 at d2643125cac1: build exit 0; verification failed only in the ramp toolkit binaries: one case, the protected source contract test at source_settlement.rs line 78; every other binary and the hosted internal and key-material gates passed."
+assumption = "The failure is the recorded protected-material gap of 22.39.149, not a defect of the fixture moves."
+severity = "blocker"
+
+[finding.22.39.47.2]
+task = "22.39.47"
+file = "tests/ci/test_tools_ci_suites_collected.py"
+symbol = "test_tools_ci_suites_collected.py"
+observed = "Attempt 2 at dac8a1270116: build exit 0; verification failed two cases: test_makefile_wave6 test_aggregates_dry_run_clean at line 118 (the two explicit tests/ci paths missing) and test_beta_ledger_paths test_ledger_check_reads_layerx_merge_ledger (the ledger severities 22.39.87 maps); every other tools/ci case and the collected-suites test passed."
+assumption = "Both failures are external to the wiring the task owns: one settlement landed after the task text, one ledger repair in flight."
+severity = "blocker"
+
+[finding.22.39.138.5]
+task = "22.39.138"
+file = "tests/ci/test_copied_artifacts_in_sync.py"
+symbol = "test_copied_artifacts_in_sync.py"
+observed = "Attempt 5 at f01c678451d5: build exit 0; verification exit 1: all seventeen selected node tests passed and the trailing python step failed seven of nine cases of the copy inventory sync test on apps/launchpad/web/src/assets/icons/airdrop_background.png missing since 637c9c63da."
+assumption = "The node repair is complete; the failure is a foreign gate step over an inventory another task owns."
+severity = "blocker"
