@@ -89,7 +89,10 @@ class TypedProgramResponseTests(unittest.TestCase):
             "valid_through": "2000",
         }
         discovery = dict(common, lifecycle="active", verification="registry-receipt-and-current-head-verified")
-        interface = dict(common, interface="00",
+        interface_common = {key: value for key, value in common.items() if key != "receipt_digest"}
+        interface_common.update(deployment_receipt_digest=common["receipt_digest"],
+                                observed_sequence=9, observed_at=1000, valid_through=2000)
+        interface = dict(interface_common, interface="00",
             interface_digest="6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d",
             source={"status": "verified", "source_digest": "55" * 32,
                 "environment_digest": "66" * 32,
@@ -97,7 +100,15 @@ class TypedProgramResponseTests(unittest.TestCase):
             verification="deployment-interface-and-current-head-verified")
         class Handler(BaseHTTPRequestHandler):
             def do_GET(self) -> None:
-                value = interface if self.path.endswith("/interface") else discovery
+                if self.path.endswith("/interface"):
+                    encoded = json.dumps(interface, separators=(",", ":")).encode()
+                    self.send_response(200)
+                    self.send_header("Content-Type", "application/json")
+                    self.send_header("Content-Length", str(len(encoded)))
+                    self.end_headers()
+                    self.wfile.write(encoded)
+                    return
+                value = discovery
                 encoded = json.dumps({"request_id": "1", "value": value,
                     "verification_status": {"state": "unverified", "requested": "receipted",
                         "achieved": "submitted", "reason": "server_side_receipt_verification_only"}},
@@ -122,6 +133,8 @@ class TypedProgramResponseTests(unittest.TestCase):
             typed_interface = operations.interface(program_id)
             self.assertIsInstance(typed_interface, ProgramInterface)
             self.assertEqual(typed_interface.interface, b"\x00")
+            self.assertEqual(typed_interface.receipt_digest, common["receipt_digest"])
+            self.assertEqual(typed_interface.observed_sequence, 9)
             self.assertIsInstance(typed_interface.source, ProgramSource)
             self.assertEqual(typed_interface.source.status, "verified")
             self.assertEqual(typed_interface.verification, "server-side-receipt-verification-only")

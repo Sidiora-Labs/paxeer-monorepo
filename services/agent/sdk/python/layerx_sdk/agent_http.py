@@ -217,6 +217,7 @@ class AgentHttpTransport(ProductionTransport):
             raise _invalid_argument()
         canonical = _encode_program_mutation_body(request.get("signed_activity"))
         try:
+            decode_signed(canonical)
             if operation == "program.call":
                 from .program_wire import decode_signed_program_call
                 from .programs import NativeProgramRequest, _wire
