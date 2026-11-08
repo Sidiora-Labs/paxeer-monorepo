@@ -211545,7 +211545,7 @@ do_5 = "Attempt 3 (continue, gotcha 3625, decision 2857): the attempt-2 tree 505
 
 [task.22.39.154]
 title = "Follow the shared v2 receipt projection in the two log-free receipt tests of the launchpad API and retire their baseline entries"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.39.75"]
