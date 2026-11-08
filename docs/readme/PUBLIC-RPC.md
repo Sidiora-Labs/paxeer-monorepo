@@ -54,10 +54,10 @@ Names are numbered, not ranked. Pick any one and fall back to another if it
 stops answering; compare `eth_blockNumber` across two names when you need the
 newest head.
 
-WebSocket upgrades were observed at
-`wss://api-mainnet-beta.paxeer.network` and
-`wss://api-mainnet-beta.paxeer.network/ws`.
-There is no WebSocket upgrade at `/rpc/ws`.
+WebSocket upgrades for `api-mainnet-beta.paxeer.network` and the fourteen
+numbered hosts `api1` through `api14.mainnet-beta.paxeer.network` are served at
+the root of each host, the same path as JSON-RPC.
+There is no WebSocket upgrade at the retired `/rpc/ws` route.
 
 ## The px namespace
 
