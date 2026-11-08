@@ -265,7 +265,9 @@ test-harness: $(BUILD_DIR)/tests/lxp_test_harness
 test-tests-python:
 	python3 -m pytest tests/ci/test_real_node_build_ownership.py \
 		tests/ci/test_runner_routing_container_runtime.py \
-		tests/test_lxgb_producers.py tests/test_beta_withdrawal_genesis.py tests/ci
+		tests/test_lxgb_producers.py tests/test_beta_withdrawal_genesis.py tests/ci tools/ci/tests
+	bash tools/ci/tests/publish-images.test.sh
+	bash tools/ci/tests/workflow-runner-check.sh
 
 .PHONY: test-python-suites
 test-python-suites: layerx-genesis-build layerx-module-registry $(BUILD_DIR)/tests/explorer_fixture

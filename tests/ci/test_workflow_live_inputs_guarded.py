@@ -3,6 +3,8 @@ import re
 
 import yaml
 
+from tools.ci.tests.workflow_graph import workflow_closure
+
 from test_workflow_runs_on_routed import (
     ROUTED,
     assert_runner_routing,
@@ -122,8 +124,7 @@ def assert_presence_guard(name, job):
 
 
 def automatic_jobs():
-    for name in WORKFLOWS:
-        workflow = load_workflow(name)
+    for name, workflow in workflow_closure(ROOT, WORKFLOWS).items():
         triggers = workflow["on"]
         if isinstance(triggers, str):
             triggers = [triggers]
@@ -204,5 +205,7 @@ def test_guard_names_an_input_the_job_reads():
 
 def test_live_input_workflows_keep_runner_routing():
     assert_runner_routing()
-    for name in WORKFLOWS:
-        assert_workflow_runs_on_routed(name, load_workflow(name))
+    workflows = workflow_closure(ROOT, WORKFLOWS)
+    assert {"agent.yml", "programs-conformance.yml"} <= workflows.keys()
+    for name, workflow in workflows.items():
+        assert_workflow_runs_on_routed(name, workflow)

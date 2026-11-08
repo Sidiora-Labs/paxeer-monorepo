@@ -1,5 +1,6 @@
 //! F08 bounded admission: approvals, quotas, cooldowns, heartbeat presence and exits.
 //! Membership is permission to participate only; it never carries quality or rewards.
+use crate::types::GuestIndex as _;
 use crate::{
     codec::{self, EventCommon, Reader, ValidatedEnvelope, Writer},
     dispatch,
@@ -285,21 +286,25 @@ impl ApprovalTerms {
     pub fn digest(&self, market: &MarketHeader) -> CodecResult<Digest32> {
         let mut buf = [0u8; 361];
         let mut w = Writer::new(&mut buf);
-        w.put(market.deployment_chain_domain.as_bytes())?;
-        w.put(market.program_id.as_bytes())?;
-        w.put(market.market_id.as_bytes())?;
+        crate::codec::write_fields!(w;
+            id32: market.deployment_chain_domain.as_bytes();
+            id32: market.program_id.as_bytes();
+            id32: market.market_id.as_bytes();
+        )?;
         self.participant.write(&mut w)?;
-        w.put(self.owner.as_bytes())?;
-        w.put(self.enrollment_nonce_commitment.as_bytes())?;
-        w.put(&self.delegate.0)?;
-        w.u64(self.delegate_generation)?;
-        w.put(self.identity_commitment.as_bytes())?;
-        w.u64(self.effective_epoch)?;
-        w.u64(self.config_version)?;
-        w.put(self.request.as_bytes())?;
-        w.u64(self.expiry_height)?;
+        crate::codec::write_fields!(w;
+            id32: self.owner.as_bytes();
+            id32: self.enrollment_nonce_commitment.as_bytes();
+            put: &self.delegate.0;
+            u64: self.delegate_generation;
+            id32: self.identity_commitment.as_bytes();
+            u64: self.effective_epoch;
+            u64: self.config_version;
+            id32: self.request.as_bytes();
+            u64: self.expiry_height;
+        )?;
         let n = w.len();
-        codec::domain_hash("PAXAI/admission-approval/v1", &buf[..n])
+        codec::domain_hash("PAXAI/admission-approval/v1", buf.guest_index(..n))
     }
 }
 
@@ -385,19 +390,23 @@ impl AdmissionMeta {
             w.u64(exit.epoch)?;
             w.u8(exit.cause as u8)?;
         }
-        w.u64(self.membership_generation)?;
-        w.u8(self.complete_missed_opened_epochs)?;
-        w.u8(self.membership_flags)?;
-        w.u16(0)?;
-        w.put(self.owner.as_bytes())?;
-        w.u64(self.delegate_generation)?;
+        crate::codec::write_fields!(w;
+            u64: self.membership_generation;
+            u8: self.complete_missed_opened_epochs;
+            u8: self.membership_flags;
+            u16: 0_u16;
+            id32: self.owner.as_bytes();
+            u64: self.delegate_generation;
+        )?;
         optional(w, self.admission_height)?;
         w.boolean(self.approval.is_some())?;
         if let Some(a) = self.approval {
-            w.put(a.digest.as_bytes())?;
-            w.u64(a.expiry_height)?;
-            w.u64(a.effective_epoch)?;
-            w.u64(a.config_version)?;
+            crate::codec::write_fields!(w;
+                id32: a.digest.as_bytes();
+                u64: a.expiry_height;
+                u64: a.effective_epoch;
+                u64: a.config_version;
+            )?;
         }
         Ok(())
     }
@@ -427,12 +436,13 @@ impl AdmissionMeta {
         let delegate_generation = r.u64()?;
         let admission_height = optional(r)?;
         let approval = if r.boolean()? {
-            Some(Approval {
-                digest: r.digest32()?,
-                expiry_height: r.u64()?,
-                effective_epoch: r.u64()?,
-                config_version: r.u64()?,
-            })
+            Some(
+                crate::codec::read_record!(r, Approval {  }; digest = r.digest32()?;
+                    expiry_height: U64,
+                    effective_epoch: U64,
+                    config_version: U64
+                ),
+            )
         } else {
             None
         };
@@ -550,7 +560,7 @@ impl AdmissionTable {
         self.count == 0
     }
     pub fn iter(&self) -> impl Iterator<Item = &AdmissionMeta> {
-        self.entries[..self.count].iter().flatten()
+        self.entries.guest_index(..self.count).iter().flatten()
     }
     #[must_use]
     pub fn get(&self, participant: Participant) -> Option<AdmissionMeta> {
@@ -577,7 +587,8 @@ impl AdmissionTable {
             .max()
     }
     fn position(&self, participant: Participant) -> CodecResult<usize> {
-        self.entries[..self.count]
+        self.entries
+            .guest_index(..self.count)
             .iter()
             .position(|m| m.is_some_and(|m| m.participant == participant))
             .ok_or(NOT_FOUND)
@@ -594,12 +605,14 @@ impl AdmissionTable {
         if self.count >= MAX_MEMBERS || self.role_count(role) >= role.capacity() {
             return Err(F08_CAPACITY_EXCEEDED);
         }
-        let at = self.entries[..self.count]
+        let at = self
+            .entries
+            .guest_index(..self.count)
             .iter()
             .position(|m| m.is_some_and(|m| m.participant > meta.participant))
             .unwrap_or(self.count);
-        self.entries.copy_within(at..self.count, at + 1);
-        self.entries[at] = Some(meta);
+        self.entries.guest_copy_within(at..self.count, at + 1);
+        *self.entries.guest_index_mut(at) = Some(meta);
         self.count += 1;
         Ok(())
     }
@@ -608,15 +621,15 @@ impl AdmissionTable {
     pub fn replace(&mut self, meta: AdmissionMeta) -> CodecResult<()> {
         meta.validate()?;
         let at = self.position(meta.participant)?;
-        self.entries[at] = Some(meta);
+        *self.entries.guest_index_mut(at) = Some(meta);
         Ok(())
     }
     pub(crate) fn remove(&mut self, participant: Participant) -> CodecResult<AdmissionMeta> {
         let at = self.position(participant)?;
-        let meta = self.entries[at].ok_or(NOT_FOUND)?;
-        self.entries.copy_within(at + 1..self.count, at);
+        let meta = self.entries.guest_index(at).ok_or(NOT_FOUND)?;
+        self.entries.guest_copy_within(at + 1..self.count, at);
         self.count -= 1;
-        self.entries[self.count] = None;
+        *self.entries.guest_index_mut(self.count) = None;
         Ok(meta)
     }
     pub(crate) fn begin_epoch(&mut self, epoch: u64) {
@@ -1114,17 +1127,19 @@ impl EvaluatorConsent {
     #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn encode(&self, out: &mut [u8; CONSENT_BYTES]) -> CodecResult<()> {
         let mut w = Writer::new(out);
-        w.u16(1)?;
-        w.put(self.chain.as_bytes())?;
-        w.put(self.program.as_bytes())?;
-        w.put(self.market.as_bytes())?;
-        w.put(self.evaluator.as_bytes())?;
-        w.put(self.owner.as_bytes())?;
-        w.put(&self.signing_key.0)?;
-        w.put(&self.enrollment_nonce)?;
-        w.put(self.rubric.as_bytes())?;
-        w.put(self.approval_digest.as_bytes())?;
-        w.put(self.request.as_bytes())?;
+        crate::codec::write_fields!(w;
+            u16: 1_u16;
+            id32: self.chain.as_bytes();
+            id32: self.program.as_bytes();
+            id32: self.market.as_bytes();
+            id32: self.evaluator.as_bytes();
+            id32: self.owner.as_bytes();
+            put: &self.signing_key.0;
+            put: &self.enrollment_nonce;
+            id32: self.rubric.as_bytes();
+            id32: self.approval_digest.as_bytes();
+            id32: self.request.as_bytes();
+        )?;
         for value in [
             self.grant_version,
             self.key_version,
@@ -1147,23 +1162,22 @@ impl EvaluatorConsent {
         if r.u16()? != 1 {
             return Err(BAD_VERSION);
         }
-        let value = Self {
-            chain: r.chain_domain()?,
-            program: r.program_id()?,
-            market: r.market_id()?,
-            evaluator: r.evaluator_id()?,
-            owner: r.principal_id()?,
-            signing_key: PublicKey32(r.fixed()?),
-            enrollment_nonce: r.fixed()?,
-            rubric: r.rubric_digest()?,
-            approval_digest: r.digest32()?,
-            request: r.request_id()?,
-            grant_version: r.u64()?,
-            key_version: r.u64()?,
-            effective_epoch: r.u64()?,
-            config_version: r.u64()?,
-            expiry_height: r.u64()?,
-        };
+        let value = crate::codec::read_record!(&mut r, Self {  }; chain = r.chain_domain()?;
+            program: ProgramId,
+            market: MarketId,
+            evaluator: EvaluatorId,
+            owner: PrincipalId,
+            signing_key: PublicKey32,
+            enrollment_nonce: Fixed,
+            rubric: RubricDigest,
+            approval_digest: Digest32,
+            request: RequestId,
+            grant_version: U64,
+            key_version: U64,
+            effective_epoch: U64,
+            config_version: U64,
+            expiry_height: U64
+        );
         r.finish()?;
         Ok(value)
     }
@@ -1195,7 +1209,7 @@ pub fn admit_evaluator(
     if payload.len() != SIGNED_CONSENT_BYTES {
         return Err(NON_CANONICAL);
     }
-    let (consent_bytes, signature_bytes) = payload.split_at(CONSENT_BYTES);
+    let (consent_bytes, signature_bytes) = payload.guest_split_at(CONSENT_BYTES);
     let consent = EvaluatorConsent::decode(consent_bytes)?;
     let signature = Signature64(signature_bytes.try_into().map_err(|_| NON_CANONICAL)?);
     if ctx.invoking_principal != grant.principal {
@@ -1351,7 +1365,9 @@ fn participant_identity(
     state: &SharedState<'_>,
     participant: Participant,
 ) -> CodecResult<(PrincipalId, PublicKey32, u64)> {
-    let identity = state.feature_sections[Section::IdentityRoster.index()];
+    let identity = *state
+        .feature_sections
+        .guest_index(Section::IdentityRoster.index());
     match participant {
         Participant::Worker(worker) => {
             let workers = WorkerTable::decode(split_identity_section(identity)?.0)?;
@@ -1377,7 +1393,9 @@ fn check_approval_identity(
     if terms.delegate_generation != generation {
         return Err(F08_WRONG_GENERATION);
     }
-    let identity = state.feature_sections[Section::IdentityRoster.index()];
+    let identity = *state
+        .feature_sections
+        .guest_index(Section::IdentityRoster.index());
     let commitment = match terms.participant {
         Participant::Worker(worker) => {
             let workers = WorkerTable::decode(split_identity_section(identity)?.0)?;
@@ -1400,7 +1418,7 @@ fn check_approval_identity(
             }
             let mut bytes = [0; GRANT_BYTES];
             let len = encode_grant(&grant, &mut bytes)?;
-            codec::domain_hash("PAXAI/evaluator-grant/v1", &bytes[..len])?
+            codec::domain_hash("PAXAI/evaluator-grant/v1", bytes.guest_index(..len))?
         }
     };
     if commitment != terms.identity_commitment {
@@ -1414,7 +1432,9 @@ fn check_heartbeat_identity(
     participant: Participant,
     height: u64,
 ) -> CodecResult<()> {
-    let identity = state.feature_sections[Section::IdentityRoster.index()];
+    let identity = *state
+        .feature_sections
+        .guest_index(Section::IdentityRoster.index());
     match participant {
         Participant::Worker(worker) => {
             let workers = WorkerTable::decode(split_identity_section(identity)?.0)?;
@@ -1496,7 +1516,9 @@ fn admission_replay(
         }
         ActorSlot::OWNER
     } else {
-        let identity = state.feature_sections[Section::IdentityRoster.index()];
+        let identity = *state
+            .feature_sections
+            .guest_index(Section::IdentityRoster.index());
         let (owner, _, _) = participant_identity(state, call.participant())?;
         if owner != e.actor {
             return Err(F08_OWNER_REQUIRED);
@@ -1575,8 +1597,12 @@ fn transition_admission(
             table.admit(ctx, request)?
         }
         AdmissionCall::Evaluator(consent, payload) => {
-            let grant = evaluator_region(state.feature_sections[Section::IdentityRoster.index()])?
-                .stored_grant(consent.evaluator)?;
+            let grant = evaluator_region(
+                *state
+                    .feature_sections
+                    .guest_index(Section::IdentityRoster.index()),
+            )?
+            .stored_grant(consent.evaluator)?;
             admit_evaluator(table, ctx, &grant, consent.request, payload)?
         }
         AdmissionCall::Heartbeat(participant, membership, delegate, epoch) => {
@@ -1631,7 +1657,11 @@ fn apply_admission_inner(
     let e = &envelope.envelope;
     let call = admission_call(envelope)?;
     let mut state = state::decode_shared_state(current)?;
-    let section = PolicySection::decode(state.feature_sections[Section::PolicyLifecycle.index()])?;
+    let section = PolicySection::decode(
+        *state
+            .feature_sections
+            .guest_index(Section::PolicyLifecycle.index()),
+    )?;
     if section.header.state_revision != state.revision {
         return Err(NON_CANONICAL);
     }
@@ -1647,7 +1677,9 @@ fn apply_admission_inner(
     if e.config != section.header.active_config_version {
         return Err(WRONG_CONFIG);
     }
-    let joint = state.feature_sections[Section::ReputationAdmission.index()];
+    let joint = *state
+        .feature_sections
+        .guest_index(Section::ReputationAdmission.index());
     let (_, bytes) = split_joint(joint)?;
     let mut table = AdmissionTable::decode(bytes)?;
     match table.current_epoch() {
@@ -1682,7 +1714,7 @@ fn apply_admission_inner(
     };
     let mut suffix = [0; META_MAX_BYTES];
     let suffix_len = transition_admission(&mut table, &state, &actor, &call, &mut suffix)?;
-    let result = codec::result_digest(&suffix[..suffix_len])?;
+    let result = codec::result_digest(suffix.guest_index(..suffix_len))?;
     let revision = state.revision.checked_add(1).ok_or(ARITHMETIC)?;
     if let Some(request) = replay {
         if state.record_success(&request, ctx.height, result)? != ReplayDecision::Apply {
@@ -1707,7 +1739,7 @@ fn apply_admission_inner(
             request: envelope.request_digest()?,
             result,
         },
-        &suffix[..suffix_len],
+        suffix.guest_index(..suffix_len),
         event,
     )?;
     Ok(AdmissionOutcome::Applied {
@@ -1737,14 +1769,16 @@ fn encode_admission_state(
     joint_out
         .get_mut(..prefix_len)
         .ok_or(CAPACITY)?
-        .copy_from_slice(prefix);
+        .guest_copy_from_slice(prefix);
     let table_len = table.encode(joint_out.get_mut(prefix_len..).ok_or(CAPACITY)?)?;
     let joint_len = prefix_len.checked_add(table_len).ok_or(ARITHMETIC)?;
     section.header.state_revision = state.revision;
     let policy_len = section.encode(policy_out)?;
     let mut features = state.feature_sections;
-    features[Section::PolicyLifecycle.index()] = policy_out.get(..policy_len).ok_or(CAPACITY)?;
-    features[Section::ReputationAdmission.index()] = joint_out.get(..joint_len).ok_or(CAPACITY)?;
+    *features.guest_index_mut(Section::PolicyLifecycle.index()) =
+        policy_out.get(..policy_len).ok_or(CAPACITY)?;
+    *features.guest_index_mut(Section::ReputationAdmission.index()) =
+        joint_out.get(..joint_len).ok_or(CAPACITY)?;
     let candidate = SharedState {
         revision: state.revision,
         feature_sections: features,

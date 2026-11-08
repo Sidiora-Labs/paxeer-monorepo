@@ -35378,3 +35378,99 @@ symbol = "test_copied_artifacts_in_sync.py"
 observed = "Attempt 5 at f01c678451d5: build exit 0; verification exit 1: all seventeen selected node tests passed and the trailing python step failed seven of nine cases of the copy inventory sync test on apps/launchpad/web/src/assets/icons/airdrop_background.png missing since 637c9c63da."
 assumption = "The node repair is complete; the failure is a foreign gate step over an inventory another task owns."
 severity = "blocker"
+
+[finding.22.39.142.5]
+task = "22.39.142"
+file = "programs/crates/layerx-programs-ai-market/tests/f11_views.rs"
+symbol = "f11_views.rs"
+observed = "Attempt 5 at 81922d66a65c: build exit 0; verification exit 101: the size bound, the family table, the canary and the module mirror checks passed, and f11_rooms_and_deals failed one case, the shared-budget capacity test, at the sixty-fifth bid of one model digest with CAPACITY from the placement book."
+assumption = "The size work is complete; the failure is a settlement between two landed producer constants that another task owns."
+severity = "blocker"
+
+[finding.9.98.4.15]
+task = "9.98.4"
+file = "services/agent/crates/layerx-agentd/src/ops/program.rs"
+symbol = "program.rs"
+observed = "Attempt 13 at fc2cdfba14aa: build exit 0; verification exit 101: the selected unit tests and every integration binary passed except receipt_store_v2, whose two cases fail at the raw evidence ingress with UnauthenticatedIngress (line 120) and receipt.unauthenticated_ingress in place of receipt.evidence_version (line 339)."
+assumption = "The two cases predate the authenticated ingress of 22.33.1513 and never ran in earlier attempts because the gate stopped at an earlier binary."
+severity = "blocker"
+
+[finding.22.39.118.15]
+task = "22.39.118"
+file = "tools/platform/cli::rpc::tests::positional_requests_match_published_contract"
+symbol = "cli::rpc::tests::positional_requests_match_published_contract"
+observed = "Attempt 15 at 8b84628f5540: build exit 0; verification exit 101 at the second run: 2 passed, 1 failed, readme_retired_endpoint at line 89 expecting InvalidRequest where the producer refuses with node RPC URL must name the root endpoint; the first run at 103e46115bdf failed at line 74, which the attempt repaired."
+assumption = "The last stale assertion of the test follows the producer refusal; nothing else in the task is open."
+severity = "blocker"
+
+[finding.22.39.122.2]
+task = "22.39.122"
+file = "services/agent/crates/layerx-agentd/src/approval/mod.rs"
+symbol = "mod.rs"
+observed = "Attempt 2 at 5d5c4a51b325 (base 79b47a737349): build exit 0; verification exit 101: 330 passed, 3 failed: budget_proof_v2_node_answers_fixture_is_current (committed 252 lines, generated 219) and the two session_control durable-write cases; one verification run, no repair, no closing message."
+assumption = "The vector drift comes from ba761d6c5d extending the committed file by hand; the durable-write cases fail at the base and are the repair the attempt-2 note already asked for."
+severity = "blocker"
+
+[finding.22.39.75.4]
+task = "22.39.75"
+file = "tests/ci/test_launchpad_go_tests_wired.py"
+symbol = "test_launchpad_go_tests_wired.py"
+observed = "Attempt 4 at f11cfdbbeabc: build exit 0; verification exit 1: both SDK modules passed under the baseline, the api module failed in app, broker, cache, rest and store with some forty tests stopping at undefined test-service variables, one uncompiled contract artifact, two stale log-free receipt assertions and two 180 s stream timeouts; the modules after api never ran."
+assumption = "The job never provided the services the api module documents; the missing variables and the compile step are job configuration, and only the two log-free tests are stale consumers."
+severity = "high"
+
+[finding.22.39.152.1]
+task = "22.39.152"
+file = "tests/ci/test_copied_artifacts_in_sync.py"
+symbol = "test_copied_artifacts_in_sync.py"
+observed = "Attempt 1 at e5efb803e2b4: build exit 0; verification exit 1: 7 passed, 2 failed, the stylesheet row made stale by the same producer commit and three unlisted byte-identical pairs over 20000 bytes."
+assumption = "The task text enumerated twelve rows while the producer commit and later fixture copies left four more inventory corrections; all fit the one file the task touches."
+severity = "high"
+
+[finding.22.39.84.2]
+task = "22.39.84"
+file = "tests/ci/test_tools_python_suites_wired.py"
+symbol = "test_tools_python_suites_wired.py"
+observed = "Attempt 2 at 1f802c791b33: build exit 0; verification exit 1 after the four wiring tests passed: 117 failed, 689 passed, 10 skipped, 44 deselected, 14 errors in 896 seconds across seven families."
+assumption = "Five families need toolchains, outputs or services the job never provided; the other two are consumer drift that retiring tasks own."
+severity = "high"
+
+[finding.22.39.118.16]
+task = "22.39.118"
+file = "tools/platform/cli::rpc::tests::positional_requests_match_published_contract"
+symbol = "cli::rpc::tests::positional_requests_match_published_contract"
+observed = "Attempt 16 at f081b1c8ccf8: build exit 0; library tests 24 passed; make platform-test-tooling exit 1 with four failures of wallet_evm_writes.rs (lines 633, 683, 795 and 862), all from the missing --gateway-rpc and the address form."
+assumption = "The tests predate the hosted account read of 3f380f6199 and follow it; the source is correct."
+severity = "high"
+
+[finding.22.39.40.5]
+task = "22.39.40"
+file = "tests/ci/test_node_build_workflow_scope.py"
+symbol = "test_node_build_workflow_scope.py"
+observed = "Attempt 5 at fb5eda5a2e03: build exit 0; verification exit 1 in go test ./node/ with three failures outside the task paths; the standby and Python gates did not run."
+assumption = "The three tests follow producers that changed after the task was written and belong to a retiring task of their own."
+severity = "high"
+
+[finding.22.39.152.2]
+task = "22.39.152"
+file = "tests/ci/test_copied_artifacts_in_sync.py"
+symbol = "test_copied_artifacts_in_sync.py"
+observed = "Attempt 2 at 722ed1a6cbfc: build exit 0 twice; verification exit 1 twice, each on the next differing pair (a perps stylesheet import, then the charting library declaration file); 8 of 9 tests passed."
+assumption = "The enumeration was missing, not the repair form; two rows remain."
+severity = "high"
+
+[finding.22.39.120.1]
+task = "22.39.120"
+file = "services/agent/sdk/python/tests/test_repair_22_33_702.py"
+symbol = "test_repair_22_33_702.py"
+observed = "Attempt 1 at 424d36488609: build exit 0 twice; verification exit 1 twice: 20 failed then 5 failed of 191, the five recording an unanswered eth_call to the address precompile and an HTTP 500 from the replay."
+assumption = "The work landed in the retired tree under the earlier text; the remaining five cases lack one replay answer."
+severity = "high"
+
+[finding.22.39.131.1]
+task = "22.39.131"
+file = "tests/conformance/test_repair_22_33_886.py"
+symbol = "test_repair_22_33_886.py"
+observed = "Attempt 1 at 199d2c9c2940: build exit 0; verification exit 1 at the runner test (1 failed, 4 passed) before make test-python-suites ran; the stale exclusion row predates the attempt."
+assumption = "The stale row is a producer side effect of 22.39.47 that no pending task owned; the suites of this task were never exercised."
+severity = "high"

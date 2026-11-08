@@ -30,16 +30,18 @@ use std::{
 };
 use zeroize::Zeroizing;
 
-const CA: &[u8] = include_bytes!("../src/repair_22_33_1452_tls/configured-ca.der");
-const OTHER_CA: &[u8] = include_bytes!("../src/repair_22_33_1452_tls/unconfigured-ca.der");
-const SERVER: &[u8] = include_bytes!("../src/repair_22_33_1452_tls/configured-server.der");
-const SERVER_KEY: &[u8] = include_bytes!("../src/repair_22_33_1452_tls/configured-server-key.der");
-const OTHER_SERVER: &[u8] = include_bytes!("../src/repair_22_33_1452_tls/unconfigured-server.der");
+const CA: &[u8] = include_bytes!("fixtures/repair_22_33_1452_tls/configured-ca.der");
+const OTHER_CA: &[u8] = include_bytes!("fixtures/repair_22_33_1452_tls/unconfigured-ca.der");
+const SERVER: &[u8] = include_bytes!("fixtures/repair_22_33_1452_tls/configured-server.der");
+const SERVER_KEY: &[u8] =
+    include_bytes!("fixtures/repair_22_33_1452_tls/configured-server-key.der");
+const OTHER_SERVER: &[u8] =
+    include_bytes!("fixtures/repair_22_33_1452_tls/unconfigured-server.der");
 const OTHER_SERVER_KEY: &[u8] =
-    include_bytes!("../src/repair_22_33_1452_tls/unconfigured-server-key.der");
-const IDENTITY: &[u8] = include_bytes!("../src/repair_22_33_1452_tls/configured-client.p12");
+    include_bytes!("fixtures/repair_22_33_1452_tls/unconfigured-server-key.der");
+const IDENTITY: &[u8] = include_bytes!("fixtures/repair_22_33_1452_tls/configured-client.p12");
 const OTHER_IDENTITY: &[u8] =
-    include_bytes!("../src/repair_22_33_1452_tls/unconfigured-client.p12");
+    include_bytes!("fixtures/repair_22_33_1452_tls/unconfigured-client.p12");
 const PRINCIPAL: &str = "repair-principal";
 const ENROLLMENT_KEY: &str = "repair-enrollment-authentication-key";
 
