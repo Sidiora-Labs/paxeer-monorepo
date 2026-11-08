@@ -183082,7 +183082,7 @@ do_6 = "Attempt 5 (continue, gotcha 3612, decisions 2857, 2899 and 2907): the at
 
 [task.22.39.118]
 title = "Bring the three CLI RPC tests to the published contract and the root endpoint"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.130", "22.39.135", "22.39.141", "22.39.166"]
@@ -204143,7 +204143,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.9.35.20]
 title = "Serve the Human API prepare, native, native-effect, native-send and native-disclosure variants as EIP-1559 preparations"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 5
 requires = ["9.35.18", "9.35.19", "22.99.159", "22.99.160", "22.31.572", "22.31.614", "22.31.620"]
