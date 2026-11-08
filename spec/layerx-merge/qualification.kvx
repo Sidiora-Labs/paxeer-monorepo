@@ -36098,3 +36098,11 @@ symbol = "runtime.integration.test.tsx"
 observed = "Attempt 6 at 30d180caaaa2 (base 8e8996fbd8): build exit 0; verification exit 1: the mobile suite passed and the web suite stopped in the trade journey at the joined-services step, the api process started with the rest role answering 404 page not found to GET /v2/snapshots, so the setup refused with the required public snapshot route is not mounted; log /out/logs/verify-1.log."
 assumption = "The role split of the setup is the failure; the test repairs of the tree never ran against the joined services."
 severity = "high"
+
+[finding.9.35.24.5]
+task = "9.35.24"
+file = "services/agent/crates/layerx-agentd/tests/prepare.rs"
+symbol = "prepare.rs"
+observed = "Attempt 5 at 1c8c961ddb28 (record tree 05d2264af3a8): build exit 0; verification exit 101: every migration target passed, the lib target failed the two TLS identity cases for a missing boundary executable (producer input of decision 2325) and approval_events failed one case whose store root is not a canonical owned private directory; log /out/logs/verify-1.log."
+assumption = "The gate omitted the boundary producer and the approval test setup predates the protected root check; the deletion itself is complete."
+severity = "high"
