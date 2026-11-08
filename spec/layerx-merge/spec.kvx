@@ -334270,7 +334270,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.101]
 title = "Pin the Rust toolchain action and Foundry to one exact version each across the public checks"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.39.51"]
