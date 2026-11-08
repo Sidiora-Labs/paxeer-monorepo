@@ -35938,3 +35938,11 @@ symbol = "w7_owner_binding.rs::a_foreign_key_signature_over_the_owner_preimage_i
 observed = "Attempt 9 at 63ef7855ac5c: build exit 0; verification exit 101: every preparation target passed and limits-exactly-once failed its two node_recovery cases at the inventory assertion of line 1649 (expected 1 without-evidence entry, found 0); log /out/logs/verify-1.log."
 assumption = "The test asserts the pre-22.31.559 inventory split; the stored receipt is in with_current_evidence, which is the producer behaviour."
 severity = "high"
+
+[finding.22.39.144.2]
+task = "22.39.144"
+file = "tools/paxeer-x/tests/ai_evidence_test.py"
+symbol = "ai_evidence_test.py"
+observed = "Attempt 2 at 9fcc072c7f2c: build exit 0; verification exit 2 twice, the second run with 2 failed and 867 passed: test_check_all_services_scope and test_paxd_images of tools/containers failed on the docker build scan hitting six prose lines of the jev ledger fixture; log /out/logs/verify-2.log."
+assumption = "The scan reads a data fixture as a build invocation; every case of the task itself passes."
+severity = "high"
