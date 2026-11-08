@@ -15,8 +15,8 @@ use layerx_types::intent::{CapabilityRequest, ProgramCall, ProgramCallOutcome};
 use layerx_types::payload::{ModuleId, ModuleRegistry};
 use layerx_types::program_call::NativeProgramCall;
 use layerx_types::result::ResultCode;
-use layerx_wire::activity::decode_signed;
-use layerx_wire::hash::activity_id;
+use layerx_wire::historical::activity::decode_signed;
+use layerx_wire::historical::hash::activity_id;
 use sha2::{Digest as _, Sha256};
 
 const SIMULATION_EVIDENCE_DOMAIN: &[u8] = b"LayerX/agent/program-simulation-evidence/v1\0";
@@ -681,7 +681,7 @@ impl<T> ReceiptVerifiedProgramSimulator<T> {
                 sequencer_public_key: self.simulation_public_key,
                 previous_state_root: self.trusted_previous_state_root,
                 activity_id: expected,
-                payload_hash: layerx_wire::hash::payload_hash(&activity)
+                payload_hash: layerx_wire::historical::hash::payload_hash(&activity)
                     .map_err(|_| ProgramOperationError::InvalidRequest)?,
                 program_id: self.expected_program.bytes(),
                 guest_abi_version: self.expected_abi_version,
@@ -929,7 +929,7 @@ impl ProgramOperations {
             &AuthorizedProgramExecutionExpectation {
                 authority,
                 activity_id,
-                payload_hash: layerx_wire::hash::payload_hash(&activity)
+                payload_hash: layerx_wire::historical::hash::payload_hash(&activity)
                     .map_err(|_| ProgramOperationError::InvalidRequest)?,
                 program_id,
                 guest_abi_version,
@@ -1319,7 +1319,7 @@ fn validate_lifecycle_activity(
         || activity.activity_type().ordinal() != ordinal
         || activity.payload() != payload
         || activity.payload_hash()
-            != layerx_wire::hash::payload_hash(&activity)
+            != layerx_wire::historical::hash::payload_hash(&activity)
                 .map_err(|_| ProgramOperationError::InvalidRequest)?
     {
         return Err(ProgramOperationError::InvalidRequest);

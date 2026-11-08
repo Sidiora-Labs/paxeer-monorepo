@@ -1,8 +1,8 @@
 pub use layerx_wire::hash::{
-    account_id_for_protocol, activity_id, batch_header_digest, did_id_for_protocol,
-    execution_batch_id, payload_hash, payload_hash_for, program_execution_batch_id, receipt_digest,
-    Domain,
+    account_id_for_protocol, batch_header_digest, did_id_for_protocol, execution_batch_id,
+    payload_hash_for, program_execution_batch_id, receipt_digest, Domain,
 };
+pub use layerx_wire::historical::hash::{activity_id, payload_hash};
 pub use layerx_wire::limits::{
     protocol_version_supported, MAX_MESSAGE_BYTES, PROTOCOL_VERSION,
     STATE_COMMITMENT_PROTOCOL_VERSION,
