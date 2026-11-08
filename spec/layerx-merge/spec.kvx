@@ -174530,7 +174530,7 @@ do_7 = "Attempt 5 (continue, gotcha 3560, decisions 2771, 2859, 2862 and 2867): 
 
 [task.22.31.623]
 title = "Settle the two hundred and sixty-seven qualification suite failures against the live rules"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.31.621", "22.39.161"]
