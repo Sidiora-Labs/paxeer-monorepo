@@ -95,7 +95,7 @@ jobs:
       - name: Install Foundry for core suites
         uses: foundry-rs/foundry-toolchain@908c540300062bd5a7e473851cdb4282204cee09 # v1.9.1
         with:
-          version: v1.7.1
+          version: v1.8.1
           cache: false
       - name: Install arithmetic proof tools for core suites
         run: sudo apt-get update && sudo apt-get install --yes cbmc z3 clang
@@ -115,7 +115,7 @@ jobs:
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@908c540300062bd5a7e473851cdb4282204cee09 # v1.9.1
         with:
-          version: v1.7.1
+          version: v1.8.1
           cache: false
       - name: Install Solidity and mirror test dependencies
         run: sudo apt-get update && sudo apt-get install --yes ripgrep build-essential libssl-dev pkg-config python3 openssl
