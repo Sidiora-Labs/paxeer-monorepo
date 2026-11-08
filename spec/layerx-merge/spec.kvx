@@ -11020,6 +11020,24 @@ value = "The delivery engine of the agent daemon derives, for every event it del
 basis = "Gotcha 3685, decisions 2900 and 2908, finding 18.1150.1.1, task 22.31.215"
 affects = ["22.39.171", "9.35.24"]
 
+[decision.2985]
+title = "A local-only daemon event is anchored after the last journaled chain position at the block boundary, and chain log cursors stay exact"
+value = "Amends decision 2984. The delivery engine of the agent daemon derives the cursor of a chain-positioned log from its block height, transaction index and log index, unchanged in every stream. A local-only event is anchored to the last chain position the ingestor had journaled when the event was recorded: its cursor is (the block height of that position, the u32 maximum transaction index, a per-anchor counter that starts at zero and increments for every local-only event recorded under the same anchor), and before any chain log the anchor block height is zero. Because the ingestor queues chain logs as pending and journals the logs of a block together at new_head, every local-only event is ordered after every log of its anchor block and before every log of any later block, the stream stays strictly increasing in journal order, and no function admits part of a pending block. The anchor and the counter are persisted with the event in the same atomic write as its bytes; a legacy local-only event without a persisted anchor keeps its previous ordinal cursor and is never refused for lacking one. The strict refusal of mark_delivered_inner, the persisted cursor format of the subscription store and the acknowledgement rules stay unchanged. A test proves the order with a local-only event recorded between two closed blocks and with one recorded while the logs of the next block are pending; a case that interleaves a local-only event between two logs of one block is not an admitted order and is removed."
+basis = "Gotcha 3686, decisions 2763 and 2984, finding 18.1150.1.1"
+affects = ["22.39.171", "9.35.24"]
+
+[decision.2986]
+title = "The legacy subscription reset cases assert the UpgradeRequired interface the restart-recovery repair introduced"
+value = "Since 22.33.1506 SubscriptionStore::open refuses a legacy or previous-format subscription record with UpgradeRequired naming the tenant and the subscription identifier, and the explicit reset path is Store::recover_legacy. The legacy reset cases of tests/subscription.rs and tests/subscription_cursor_v3.rs assert that refusal with its display text and its two names instead of CursorResetRequired, keeping every other assertion of each case; the production mapping stays unchanged. The task whose gate runs the two targets owns the update in the same attempt, following gotcha 3046 that consumer tests assert the names of the producer."
+basis = "Gotcha 3687, gotcha 3046, decision 2908, the record of 22.33.1506"
+affects = ["22.39.171"]
+
+[decision.2987]
+title = "The history contract test asserts the exclusive first-page cursor of the read repair, and the cross-UID receiver binds its sockets outside the protected store root"
+value = "The read_account cases of tests/history_served_contract.rs expect, for a request without a cursor, the hexadecimal cursor of the position (from_height minus one, u32 maximum, u32 maximum) that HistoryPage::read_account has sent since 22.33.1521, and keep every page, cursor-bound and refusal assertion otherwise; the client stays unchanged. The cross-UID case of tests/repair_22_33_1506.rs keeps the store root at mode 0700 as the protected root check of 22.30.91 requires and binds the receiver sockets in a sibling world-accessible directory under the temporary directory that the case removes on drop; the receiver protocol, the identity assertions and the store contents stay unchanged. Task 22.39.172 carries both updates with the two test files in its touches, and the two targets leave the gate of the cursor task whose change they never exercised."
+basis = "Gotcha 3687, gotcha 3046, decisions 2908 and 2931, the record of 22.31.218"
+affects = ["22.39.172", "22.39.171"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -39910,6 +39928,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.172]
+title = "Align the history contract test and the cross-UID receiver case with the exclusive cursor and the protected store root their producers introduced"
+reqs = ["22998.1"]
+touches = ["services/agent/crates/layerx-agentd/tests/history_served_contract.rs", "services/agent/crates/layerx-agentd/tests/repair_22_33_1506.rs"]
+tests = ["services/agent/crates/layerx-agentd/tests/history_served_contract.rs", "services/agent/crates/layerx-agentd/tests/repair_22_33_1506.rs"]
+verification_contract = "test -s services/agent/crates/layerx-agentd/src/read/repair_22_39_172.kvx && sh tools/runtime/run-with-clock.sh cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --no-fail-fast --test history_served_contract --test repair_22_33_1506 --test repair_22_33_1521 --test repair_22_31_218"
+do_1 = "do_1 Decision 2987, gotcha 3687. The eight read_account cases of services/agent/crates/layerx-agentd/tests/history_served_contract.rs assert a null first-page cursor while HistoryPage::read_account in src/read/history.rs has sent the exclusive position (from_height minus one, u32 maximum, u32 maximum) since 22.33.1521, and the cross-UID case of tests/repair_22_33_1506.rs sets the store root to mode 0777 so the protected root check refuses every later store operation. Reproduce both targets first and record the failing names by target before any change."
+symbols = []
 
 [capability.22.39.171]
 title = "Anchor the cursors of local-only daemon events to the chain position so one subscription stream stays strictly increasing across approval events and recovered logs"
@@ -182945,6 +182972,37 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.39.172]
+title = "Align the history contract test and the cross-UID receiver case with the exclusive cursor and the protected store root their producers introduced"
+status = "pending"
+mode = "BUILD"
+wave = 2
+requires = ["22.33.1521", "22.33.1506"]
+reqs = ["22998.1"]
+capabilities = ["22.39.172"]
+interfaces = []
+do_1 = "do_1 Decision 2987, gotcha 3687. The eight read_account cases of services/agent/crates/layerx-agentd/tests/history_served_contract.rs assert a null first-page cursor while HistoryPage::read_account in src/read/history.rs has sent the exclusive position (from_height minus one, u32 maximum, u32 maximum) since 22.33.1521, and the cross-UID case of tests/repair_22_33_1506.rs sets the store root to mode 0777 so the protected root check refuses every later store operation. Reproduce both targets first and record the failing names by target before any change."
+do_2 = "do_2 In tests/history_served_contract.rs change the expected params of every first-page exchange from a null cursor to the hexadecimal cursor of the position (from_height minus one, u32 maximum, u32 maximum) the client sends, computed with Cursor::to_hex from the from_height the case passes, and keep every page, height, cursor-bound, response-size and refusal assertion; src/read/history.rs stays unchanged."
+do_3 = "do_3 In tests/repair_22_33_1506.rs keep the store root at mode 0700 and create a sibling directory under the temporary directory, world-accessible, for the receiver sockets of the cross-UID case, removed with the store root on drop; the receiver process, the identity assertions, the frame exchange and the engine assertions stay unchanged, and the other cases of the target keep their setup."
+do_4 = "do_4 Record the two updates with the producers they follow (the record of 22.31.218 for the exclusive cursor, the protected root check of 22.30.91) and the failing names by target before and after in src/read/repair_22_39_172.kvx. Run the build once and the verification once at the final revision and record both by reference; if a case still fails, repair it within the one allowed cycle and rerun once."
+symbols = []
+touches = ["services/agent/crates/layerx-agentd/tests/history_served_contract.rs", "services/agent/crates/layerx-agentd/tests/repair_22_33_1506.rs"]
+tests = ["services/agent/crates/layerx-agentd/tests/history_served_contract.rs", "services/agent/crates/layerx-agentd/tests/repair_22_33_1506.rs"]
+planned_paths = ["services/agent/crates/layerx-agentd/src/read/repair_22_39_172.kvx"]
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --tests"
+verify_cmd = "test -s services/agent/crates/layerx-agentd/src/read/repair_22_39_172.kvx && sh tools/runtime/run-with-clock.sh cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --no-fail-fast --test history_served_contract --test repair_22_33_1506 --test repair_22_33_1521 --test repair_22_31_218"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.171]
 title = "Anchor the cursors of local-only daemon events to the chain position so one subscription stream stays strictly increasing across approval events and recovered logs"
 status = "pending"
@@ -182963,7 +183021,7 @@ touches = ["services/agent/crates/layerx-agentd/src/events", "services/agent/cra
 tests = ["services/agent/crates/layerx-agentd/tests/approval_events.rs", "services/agent/crates/layerx-agentd/tests/delivery.rs", "services/agent/crates/layerx-agentd/tests/subscription.rs", "services/agent/crates/layerx-agentd/tests/subscription_cursor_v3.rs", "services/agent/crates/layerx-agentd/tests/subscription_ops_cursor.rs", "services/agent/crates/layerx-agentd/tests/gaps.rs", "services/agent/crates/layerx-agentd/tests/history_block_cursor.rs"]
 planned_paths = ["services/agent/crates/layerx-agentd/src/events/repair_22_39_171.kvx"]
 build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --tests"
-verify_cmd = "test -s services/agent/crates/layerx-agentd/src/events/repair_22_39_171.kvx && sh tools/runtime/run-with-clock.sh cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --no-fail-fast --test approval_events --test delivery --test subscription --test subscription_cursor_v3 --test subscription_ops_cursor --test gaps --test history_block_cursor --test history_served_contract --test w7_subscription_permit --test repair_22_31_215 --test repair_22_33_1506"
+verify_cmd = "test -s services/agent/crates/layerx-agentd/src/events/repair_22_39_171.kvx && sh tools/runtime/run-with-clock.sh cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --no-fail-fast --test approval_events --test delivery --test subscription --test subscription_cursor_v3 --test subscription_ops_cursor --test gaps --test history_block_cursor --test w7_subscription_permit --test repair_22_31_215"
 gate_kind = "planned"
 sandbox_profile = "rust"
 owner_role = "fm-agent"
@@ -182975,6 +183033,7 @@ time_limit_minutes = 240
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_5 = "Attempt 2 (continue, gotchas 3686 and 3687, decisions 2900, 2985 and 2986): the attempt-1 tree af91dcafa5a4 is the starting point (the anchor persisted with the event, the approval stream root created by Store::open, the record). Rework the derivation to decision 2985: a chain log keeps the cursor of its block height, transaction index and log index in every stream, with no insertion offset; a local-only event takes the cursor (the block height of the last chain position the ingestor had journaled when the event was recorded, the u32 maximum transaction index, a per-anchor counter starting at zero), with anchor height zero before any chain log; the anchor and the counter are persisted in the same atomic write as the event bytes, and a legacy local-only event without a persisted anchor keeps its previous ordinal cursor instead of a refusal. Remove the prefix admission function added to ingest.rs and the case that interleaves a local-only event between two logs of one block; keep the ingestor journaling a block at new_head. Replace that case by two in tests/approval_events.rs: a local-only event recorded between two closed blocks and one recorded while the logs of the next block are pending, each delivered in journal order with strictly increasing cursors, and keep the restore case assertions of finding 18.1150.1.1. Update the literal cursors of the attempt-1 cases to the new form and record each change beside its case. Per decision 2986 update the legacy reset cases of tests/subscription.rs (line 360) and tests/subscription_cursor_v3.rs (line 205) to assert UpgradeRequired with its display text, tenant and subscription identifier; the production mapping stays unchanged. The gate of this task no longer runs history_served_contract and repair_22_33_1506, which task 22.39.172 owns. Keep the decision 2900 record of failing names by target before and after. Run the build once and the verification once at the final revision and record both by reference; if a case still fails, repair it within the one allowed cycle and rerun once."
 
 [task.22.39.169]
 title = "Requalify the ai-market guest with the whole crate test suite before the bond operations land"

@@ -36122,3 +36122,11 @@ symbol = "prepare.rs"
 observed = "Attempt 6 at 92818149c731 (base 403a6bf491): build exit 0; verification exit 101: every target passed except approval_events, whose restore case was refused at line 342 with delivery cursor (1, 0, 0) arrived out of order, expected (4, 0, 1); log /out/logs/verify-1.log."
 assumption = "The cursor derivation of the delivery engine is the failure and belongs to 22.39.171; the deletion itself is complete and qualified in every other target."
 severity = "high"
+
+[finding.22.39.171.1]
+task = "22.39.171"
+file = "services/agent/crates/layerx-agentd/tests/approval_events.rs"
+symbol = "approval_events.rs"
+observed = "Attempt 1 at af91dcafa5a4 (base 996b8669da): build exit 0 twice; verification exit 1 twice (test exit 101): approval_events and the six new cases passed with delivery, gaps, history_block_cursor, subscription_ops_cursor, w7_subscription_permit and repair_22_31_215, while subscription (line 360), subscription_cursor_v3 (line 205), history_served_contract (eight read_account cases) and repair_22_33_1506 (the cross-UID case, line 750) failed on cases the attempt did not change; log /out/logs/verify-2.log."
+assumption = "The departure from decision 2984 answered an order the ingestor never admits, and the four other failures are consumer tests behind producers that changed after their last gate."
+severity = "high"
