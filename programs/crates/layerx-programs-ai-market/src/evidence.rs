@@ -1954,11 +1954,11 @@ fn frozen_binding<'a>(
     section: &PolicySection<'_>,
     known: Option<RewardState<'a>>,
 ) -> CodecResult<(FrozenBinding, RewardState<'a>)> {
-    let admission = AdmissionTable::decode(
+    let admission = AdmissionTable::decode(crate::reputation_transition::joint_table(
         *state
             .feature_sections
             .guest_index(Section::ReputationAdmission.index()),
-    )?;
+    )?)?;
     let epoch = admission.current_epoch().ok_or(WRONG_EPOCH)?;
     let rewards = settlement_rewards(state, known)?;
     let row = match rewards.row(epoch) {
@@ -2004,6 +2004,16 @@ pub(crate) fn sealed_evidence_with<'a>(
     if frozen.epoch != epoch {
         return Err(WRONG_EPOCH);
     }
+    sealed_evidence_for_binding(state, frozen, evaluator)
+}
+
+/// Reads the canonical seal using the caller's validated opened-epoch binding.
+pub(crate) fn sealed_evidence_for_binding(
+    state: &SharedState<'_>,
+    frozen: FrozenBinding,
+    evaluator: EvaluatorId,
+) -> CodecResult<Presence<RegisteredEvidence>> {
+    let epoch = frozen.epoch;
     let region = SealRegion::decode(state.control.feature_bytes)?;
     if region.epoch > epoch && !region.records.is_empty() {
         return Err(NON_CANONICAL);
@@ -2201,6 +2211,18 @@ pub(crate) fn check_frozen_evaluator(
     epoch: u64,
     membership: &[u8],
 ) -> CodecResult<()> {
+    check_frozen_grant(region, frozen, epoch)?;
+    let membership = crate::reputation_transition::joint_table(membership)?;
+    let admission = AdmissionTable::decode(membership)?;
+    check_frozen_membership(frozen, &admission)
+}
+
+#[cfg_attr(target_arch = "wasm32", inline(never))]
+fn check_frozen_grant(
+    region: &crate::evaluators::authority::EvaluatorRegion,
+    frozen: &FrozenEvaluator,
+    epoch: u64,
+) -> CodecResult<()> {
     let evaluator = frozen.entry.evaluator;
     let live = region.get(evaluator).ok_or(NON_CANONICAL)?;
     if live.grant.status == GrantStatus::Revoked || region.excluded(evaluator) {
@@ -2221,12 +2243,30 @@ pub(crate) fn check_frozen_evaluator(
     if live.grant.signing_key != frozen.entry.public_key {
         return Err(KEY_MISMATCH);
     }
-    let admission = AdmissionTable::decode(membership)?;
+    Ok(())
+}
+
+fn check_frozen_membership(
+    frozen: &FrozenEvaluator,
+    admission: &AdmissionTable,
+) -> CodecResult<()> {
+    let evaluator = frozen.entry.evaluator;
     match admission.get(Participant::Evaluator(evaluator)) {
         Some(meta) if meta.revoked() => Err(REVOKED),
         Some(meta) if meta.admitted() && meta.owner == frozen.entry.owner => Ok(()),
         _ => Err(UNAUTHORIZED),
     }
+}
+
+#[cfg_attr(target_arch = "wasm32", inline(never))]
+pub(crate) fn check_frozen_evaluator_in_table(
+    region: &crate::evaluators::authority::EvaluatorRegion,
+    frozen: &FrozenEvaluator,
+    epoch: u64,
+    admission: &AdmissionTable,
+) -> CodecResult<()> {
+    check_frozen_grant(region, frozen, epoch)?;
+    check_frozen_membership(frozen, admission)
 }
 
 /// Commits `seal` at the next revision and evaluator sequence and emits `EvidenceSealed`.
@@ -2575,8 +2615,8 @@ pub fn require_sealed_artifact_chunk_root(
     manifest_bytes: &[u8],
     batch: &crate::laps::ReceiptBatch,
 ) -> CodecResult<Digest32> {
-    let (_, admission) =
-        crate::reputation_transition::split_joint(state.section(Section::ReputationAdmission)?)?;
+    let admission =
+        crate::reputation_transition::joint_table(state.section(Section::ReputationAdmission)?)?;
     let view = state.replace_section(Section::ReputationAdmission, admission)?;
     let state = &view;
     let unsealed = crate::errors::F11_BATCH_UNSEALED;

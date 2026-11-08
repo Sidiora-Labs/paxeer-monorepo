@@ -60,7 +60,9 @@ panic = "abort"
 strip = true
 
 [profile.release.package.layerx-programs-ai-market]
+# Keep the guest and its deployment header within the protocol payload limit.
 opt-level = "z"
+strip = true
 
 [workspace.package]
 authors = ["Sidiora Labs"]
