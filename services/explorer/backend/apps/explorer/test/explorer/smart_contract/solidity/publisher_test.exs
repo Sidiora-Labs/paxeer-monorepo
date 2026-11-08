@@ -33,6 +33,7 @@ defmodule Explorer.SmartContract.Solidity.PublisherTest do
     end
 
     describe "publish/2" do
+      @tag :compiler
       test "with valid data creates a smart_contract" do
         contract_code_info = Factory.contract_code_info_modern_compiler()
 
@@ -61,6 +62,7 @@ defmodule Explorer.SmartContract.Solidity.PublisherTest do
         assert smart_contract.abi == contract_code_info.abi
       end
 
+      @tag :compiler
       test "detects and adds constructor arguments if autodetection is checked" do
         path = File.cwd!() <> "/test/support/fixture/smart_contract/solidity_0.5.9_smart_contract.sol"
         contract = File.read!(path)
@@ -96,6 +98,7 @@ defmodule Explorer.SmartContract.Solidity.PublisherTest do
         assert result.constructor_arguments == expected_constructor_arguments
       end
 
+      @tag :compiler
       test "corresponding contract_methods are created for the abi" do
         contract_code_info = Factory.contract_code_info_modern_compiler()
 
@@ -122,6 +125,7 @@ defmodule Explorer.SmartContract.Solidity.PublisherTest do
         end)
       end
 
+      @tag :compiler
       test "creates a smart contract with constructor arguments" do
         contract_code_info = Factory.contract_code_info_with_constructor_arguments()
 
@@ -162,6 +166,7 @@ defmodule Explorer.SmartContract.Solidity.PublisherTest do
         assert {:error, %Ecto.Changeset{}} = Publisher.publish(address_hash, invalid_attrs)
       end
 
+      @tag :compiler
       test "validates and creates smart contract with external libraries" do
         contract_data =
           "#{File.cwd!()}/test/support/fixture/smart_contract/contract_with_lib.json"
@@ -206,6 +211,7 @@ defmodule Explorer.SmartContract.Solidity.PublisherTest do
         assert {:ok, %SmartContract{} = _smart_contract} = response
       end
 
+      @tag :compiler
       test "allows to re-verify solidity contracts" do
         contract_code_info = Factory.contract_code_info_modern_compiler()
 

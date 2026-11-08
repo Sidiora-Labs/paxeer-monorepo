@@ -1,3 +1,5 @@
+# Separate Paxeer chain project; select with FOUNDRY_CONFIG=foundry.paxeer.toml.
+# See docs/MONOREPO.md#root-layout for the root kernel-contract project.
 [profile.default]
 src = "contracts/src"
 out = "contracts/out"

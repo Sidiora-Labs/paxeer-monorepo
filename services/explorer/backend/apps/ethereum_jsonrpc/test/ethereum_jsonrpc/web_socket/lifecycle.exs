@@ -105,10 +105,11 @@ defmodule EthereumJSONRPC.WebSocket.Lifecycle do
     assert_head(subscription, transport_options, fallback_connection, :fallback, fixture)
 
     assert start_node(@primary_listener, :recovered, fixture, primary_port) == primary_port
+
     monitor = Process.monitor(initial_pid)
     send(RetryWorker, :retry)
-    assert_receive {:DOWN, ^monitor, :process, ^initial_pid, :shutdown}, 15_000
     {recovered_connection, recovered_id} = assert_subscribed(:recovered)
+    assert_receive {:DOWN, ^monitor, :process, ^initial_pid, :shutdown}, 15_000
     recovered_pid = Process.whereis(@client)
     assert is_pid(recovered_pid)
     refute recovered_pid == initial_pid
@@ -119,8 +120,10 @@ defmodule EthereumJSONRPC.WebSocket.Lifecycle do
     assert_head(subscription, transport_options, recovered_connection, :recovered, fixture)
 
     # The pre-repair handle captured this PID; cancellation through it must fail after replacement.
-    assert {:noproc, {GenServer, :call, [^initial_pid, {:unsubscribe, ^subscription}, _]}} =
+    assert {:noproc, {GenServer, :call, [^initial_pid, {:request, deadline, {:unsubscribe, ^subscription}}, 5_000]}} =
              catch_exit(WebSocketClient.unsubscribe(initial_pid, subscription))
+
+    assert is_integer(deadline)
 
     assert_cancelled(subscription, transport_options, recovered_pid, recovered_connection, :recovered, recovered_id)
     refute_receive {:node_request, :fallback, _, %{"method" => "eth_unsubscribe"}}
@@ -137,7 +140,7 @@ defmodule EthereumJSONRPC.WebSocket.Lifecycle do
       start: {Supervisor, :start_link, [[], [name: WebSocketSupervisor, strategy: :one_for_one]]}
     })
 
-    start_supervised!({RetryWorker, []})
+    start_supervised!({RetryWorker, %{web_socket: WebSocketClient, name: @client}})
     transport_options = transport("wss://localhost:#{port}/websocket")
 
     # The public WebSockex constructor allows fixture CA trust; production start_link pins certifi's roots.

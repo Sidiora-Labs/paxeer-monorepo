@@ -38,10 +38,15 @@ from test_sequencer_receipt import (
     VECTORS,
     _bytes,
     _key,
-    _payment_terms,
+    _payment_terms as _ledger_payment_terms,
     _payment_vector,
 )
 
+
+def _payment_terms(vector):
+    terms = _ledger_payment_terms(vector)
+    return {**terms, "ledger_payer": terms["payer"],
+            "payer": _bytes(vector["receiptJson"]["from"]).rjust(32, b"\0").hex()}
 
 
 def test_x402_draw_verifies_the_sequencer_receipt():
@@ -80,7 +85,7 @@ def test_x402_draw_verifies_the_sequencer_receipt():
     assert _bytes(log["topics"][3]).hex() == terms["pay_to"]
     assert payment.receipt.from_account == _bytes(vector["receiptJson"]["from"]).rjust(32, b"\0")
     from layerx_sdk.payment_transaction import decode_payment_transaction
-    assert decode_payment_transaction(raw).data[4:36].hex() == terms["payer"]
+    assert decode_payment_transaction(raw).data[4:36].hex() == terms["ledger_payer"]
     assert raw == _bytes(vector["rawTransaction"])
 
     for changes in (
@@ -89,6 +94,8 @@ def test_x402_draw_verifies_the_sequencer_receipt():
         {"asset": "2a" * 32},
         {"pay_to": "2a" * 32},
         {"payer": "2a" * 32},
+        {"ledger_payer": "2a" * 32},
+        {"purpose_hash": "2a" * 32},
         {"return_data": b"altered"},
     ):
         with pytest.raises(PlatformSdkError) as raised:
@@ -206,7 +213,7 @@ def _grant_inputs(vector):
     receiver_signer = Ed25519PrivateKey.generate()
     grant = {
         "grant_id": "22" * 32,
-        "from": terms["payer"],
+        "from": terms["ledger_payer"],
         "recipient": terms["pay_to"],
         "asset": terms["asset"],
         "per_draw_maximum": terms["amount"],
@@ -223,7 +230,7 @@ def _grant_inputs(vector):
     }
     grant["signature"] = grant_signer.sign(grant_authorization_message(grant)).hex()
     receive = {
-        "from": terms["payer"],
+        "from": terms["ledger_payer"],
         "to": terms["pay_to"],
         "asset": terms["asset"],
         "amount": terms["amount"],
@@ -247,7 +254,7 @@ def _grant_inputs(vector):
     ).hex()
     offer = {
         "scheme": "metered",
-        "network": "layerx:125",
+        "network": "eip155:125",
         "amount": terms["amount"],
         "asset": terms["asset"],
         "payTo": terms["pay_to"],
@@ -255,7 +262,7 @@ def _grant_inputs(vector):
         "extra": {
             "layerx": {
                 "commitment": "receipted",
-                "payer": terms["payer"],
+                "payer": terms["ledger_payer"],
                 "purposeHash": purpose,
             }
         },
@@ -347,3 +354,27 @@ def test_payment_commitment_refuses_the_retired_executed_rung():
     }
     with pytest.raises(PaymentCommitmentError):
         validate_grant_draw(receive, retired, body["idempotencyKey"], 125, 0)
+
+
+@pytest.mark.parametrize("commitment", ("submitted", "executed", "batched", "finalised", "finalized", "acknowledged", None, 1, [], {}))
+def test_payment_commitment_cannot_downgrade_receipt_verification(commitment):
+    vector = _payment_vector()
+    with pytest.raises(PaymentCommitmentError):
+        verify_payment_receipt(
+            _bytes(vector["signedReceipt"]), _bytes(vector["rawTransaction"]),
+            (_key(vector),), commitment=commitment, **_payment_terms(vector),
+        )
+
+
+def test_payment_sender_and_ledger_accounts_are_independently_bound():
+    vector = _payment_vector()
+    terms = _payment_terms(vector)
+    signed, raw, key = _bytes(vector["signedReceipt"]), _bytes(vector["rawTransaction"]), _key(vector)
+    assert terms["payer"] != terms["ledger_payer"]
+    verified = verify_payment_receipt(signed, raw, (key,), **{
+        **terms, "asset": "0x" + terms["asset"], "pay_to": "0x" + terms["pay_to"],
+    })
+    assert verified.canonical_bytes == signed
+    for changes in ({"payer": terms["ledger_payer"]}, {"ledger_payer": terms["payer"]}, {"payer": "00" * 32}):
+        with pytest.raises(PlatformSdkError):
+            verify_payment_receipt(signed, raw, (key,), **{**terms, **changes})

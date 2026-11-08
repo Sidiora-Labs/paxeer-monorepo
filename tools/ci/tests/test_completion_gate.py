@@ -361,7 +361,7 @@ PLANNED_PATHS = (
     ),
     (
         "16.97.3",
-        "tests/ci/test_requested_retirements_absent.py",
+        "tests/ci/test_retired_requested_retirements_absent.py",
     ),
     (
         "16.97.5",

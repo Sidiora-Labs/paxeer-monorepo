@@ -11,6 +11,7 @@ on:
       - 'tools/release/version.json'
       - 'precompiles/**'
       - '.github/workflows/explorer-images.yml'
+      - 'tests/ci/test_explorer_test_step.py'
   pull_request:
     paths:
       - 'apps/explorer/**'
@@ -19,6 +20,7 @@ on:
       - 'precompiles/**'
       - 'tools/release/version.json'
       - '.github/workflows/explorer-images.yml'
+      - 'tests/ci/test_explorer_test_step.py'
   workflow_dispatch:
 
 permissions:
@@ -28,17 +30,25 @@ concurrency:
   group: explorer-images-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: false
 
+# The test job provisions its container runtime; image publishing keeps its hosted runner.
 jobs:
   explorer-backend-test:
     name: Explorer backend tests
-    runs-on: ubuntu-24.04
+    runs-on: ${{ (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && 'ubuntu-24.04' || vars.CI_LINUX_RUNNER || 'ubuntu-24.04' }}
     timeout-minutes: 90
     steps:
       - name: Check out source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - name: Run mix test in the explorer builder
+      - name: Install and verify the container runtime
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes docker.io acl
+          sudo systemctl start docker
+          sudo setfacl -m "u:$(id -u):rw" /var/run/docker.sock
+          docker version --format '{{.Server.Version}}'
+      - name: Run umbrella tests (explorer and ethereum_jsonrpc) in the builder
         env:
           MIX_ENV: test
         run: services/explorer/deploy/tools/mix-in-builder.sh test

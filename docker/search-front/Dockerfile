@@ -3,7 +3,7 @@
 # SEARCH_FRONT_UPSTREAMS variable to /etc/nginx/search/upstreams.conf, real-ip
 # renders the trusted proxies, and the nginx entrypoint renders the resolver of
 # the container's /etc/resolv.conf (services/interop/deploy/search-front/railway.env.example).
-FROM nginx:stable
+FROM nginx:1.28.3@sha256:146adea4768b83c607d0bdfa4188464e3da6e0a3ad4475db1d1d8f64f27c29cc
 ENV NGINX_ENTRYPOINT_LOCAL_RESOLVERS=1 \
     NGINX_ENVSUBST_OUTPUT_DIR=/etc/nginx/search/conf.d
 COPY services/interop/deploy/search-front/nginx.conf /etc/nginx/nginx.conf

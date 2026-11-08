@@ -1,3 +1,8 @@
+// These constructed-receipt cases cover local adversarial behavior, not paxd finality.
+// The recorded producer/transport/consumer regressions retain and reopen real evidence.
+#[path = "repair_22_33_50.rs"]
+mod committed_evidence_regressions;
+
 #[path = "support/canonical_owner.rs"]
 mod canonical_owner;
 mod control_fixture {

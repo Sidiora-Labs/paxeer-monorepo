@@ -2,6 +2,8 @@
 static int unbound_fixture_reference_main(int argc, char **argv) __attribute__((unused));
 #include "../programs/test_call_activity.c"
 #undef main
+
+#include "layerx/lxp_genesis.h"
 #include "layerx/lxp_batch_identity.h"
 #include "../../src/modules/programs/storage.h"
 

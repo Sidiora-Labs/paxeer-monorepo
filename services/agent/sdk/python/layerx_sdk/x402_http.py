@@ -14,9 +14,11 @@ from .x402 import (
     PaymentEvidence,
     ledger_payment_payer,
     payment_commitment,
+    payment_identifier,
     payment_payer,
     payment_purpose,
     verify_payment_receipt,
+    verify_sequencer_receipt,
 )
 from .x402_rpc import _transaction_bytes, rpc_hex, verify_rpc_payment
 
@@ -88,10 +90,8 @@ def validate_requirements(value):
     )
     if value["scheme"] not in ("exact", "metered", "subscription"):
         raise ValueError("unsupported-payment")
-    if (
-        re.fullmatch(r"layerx:[A-Za-z0-9._-]{1,64}", _text(value["network"], 71))
-        is None
-    ):
+    network = re.fullmatch(r"eip155:([1-9][0-9]{0,9})", _text(value["network"], 17))
+    if network is None or int(network[1]) > 0xFFFFFFFF:
         raise ValueError("unsupported-network")
     amount = value["amount"]
     if (
@@ -100,12 +100,12 @@ def validate_requirements(value):
         or int(amount) >= 1 << 128
     ):
         raise ValueError("invalid-payment-amount")
-    rpc_hex(value["asset"], 32)
-    rpc_hex(value["payTo"], 32)
     timeout = value["maxTimeoutSeconds"]
     if type(timeout) is not int or not 0 < timeout < 1 << 32:
         raise ValueError("invalid-payment-timeout")
     try:
+        payment_identifier(value["asset"])
+        payment_identifier(value["payTo"])
         payment_commitment(value.get("extra"))
         payment_payer(value.get("extra"), required=value["scheme"] != "exact")
         payment_purpose(value.get("extra"), required=value["scheme"] != "exact")
@@ -198,6 +198,171 @@ def decode_header(value):
     )
 
 
+def _proof_bytes(value, size=None, *, empty=False):
+    if (
+        not isinstance(value, str)
+        or len(value) > 131072
+        or re.fullmatch(r"0x(?:[0-9a-f]{2})*", value) is None
+        or not empty and value == "0x"
+        or size is not None and len(value) != 2 + size * 2
+    ):
+        raise ValueError("invalid-receipt-proof")
+    return bytes.fromhex(value[2:])
+
+
+def _quantity(value, bits=None):
+    if (
+        not isinstance(value, str)
+        or re.fullmatch(r"0x(?:0|[1-9a-f][0-9a-f]*)", value) is None
+        or len(value) > (18 if bits == 64 else 66)
+    ):
+        raise ValueError("invalid-receipt-quantity")
+    number = int(value, 16)
+    if bits is not None and number >= 1 << bits:
+        raise ValueError("invalid-receipt-quantity")
+    return number
+
+
+def _parse_proof(value):
+    _keys(value, ("format", "verificationLevel", "rawTransaction", "signedReceipt",
+                  "receiptDigest", "receiptKey"), ("receiptJson",))
+    if value["format"] != "layerx-receipt-proof-v2" or value["verificationLevel"] not in ("receipted", "committed"):
+        raise ValueError("invalid-receipt-proof")
+    _proof_bytes(value["rawTransaction"])
+    _proof_bytes(value["signedReceipt"])
+    _proof_bytes(value["receiptDigest"], 32)
+    key = value["receiptKey"]
+    _keys(key, ("keyId", "publicKey", "firstHeight", "lastHeight"))
+    _proof_bytes(key["keyId"], 32)
+    _proof_bytes(key["publicKey"], 32)
+    if _quantity(key["firstHeight"], 64) > _quantity(key["lastHeight"], 64):
+        raise ValueError("invalid-receipt-key-range")
+    if "receiptJson" in value:
+        _object(value["receiptJson"])
+    return value
+
+
+def _verify_node_receipt(proof, verified, key):
+    if "receiptJson" not in proof:
+        return
+    node = proof["receiptJson"]
+    _keys(node, ("rung", "txHash", "nonce", "seq", "height", "index", "timestamp",
+                 "status", "returnData", "logs", "gasUsed", "cumulativeGasUsed",
+                 "effectiveGasPrice", "paymentDenom", "feeDenom", "feeAmount",
+                 "sponsor", "from", "to", "contractAddress", "vmError", "keyId",
+                 "signingKey", "receipt"), ("blockNumber", "blockHash"))
+    from .payment_transaction import decode_payment_transaction
+    transaction = decode_payment_transaction(_proof_bytes(proof["rawTransaction"]))
+    receipt = verified.receipt
+    body = receipt.effects[0].body
+    if (
+        node["rung"] not in ("receipted", "committed")
+        or proof["verificationLevel"] == "committed" and node["rung"] != "committed"
+        or node["txHash"] != "0x" + receipt.activity_id.hex()
+        or node["receipt"] != proof["signedReceipt"]
+        or node["keyId"] != "0x" + receipt.context_hash.hex()
+        or node["signingKey"] != "0x" + key.public_key.hex()
+        or _quantity(node["nonce"]) != transaction.nonce
+        or transaction.nonce != receipt.from_sequence
+        or _quantity(node["seq"]) != receipt.global_sequence
+        or _quantity(node["height"]) != verified.height
+        or _quantity(node["timestamp"]) != receipt.timestamp
+        or _quantity(node["index"]) != int.from_bytes(body[24:28], "big")
+        or _quantity(node["status"]) != (1 if receipt.result_code == 0 else 0)
+        or _quantity(node["feeAmount"]) != receipt.fee_charged
+        or _proof_bytes(node["from"], 20) != receipt.from_account[12:]
+        or _proof_bytes(node["to"], 20) != receipt.to_account[12:]
+        or _proof_bytes(node["contractAddress"], 20) != body[28:48]
+        or _proof_bytes(node["sponsor"], 20) != body[48:68]
+        or len(_proof_bytes(node["returnData"], empty=True)) != int.from_bytes(body[100:104], "big")
+        or hashlib.sha256(_proof_bytes(node["returnData"], empty=True)).digest() != receipt.activity_root
+        or not isinstance(node["vmError"], str)
+        or hashlib.sha256(node["vmError"].encode()).digest() != body[68:100]
+        or not isinstance(node["paymentDenom"], str) or not node["paymentDenom"]
+        or hashlib.sha256(node["paymentDenom"].encode()).digest() != receipt.asset
+        or not isinstance(node["feeDenom"], str) or node["feeDenom"].encode() != body[109:]
+    ):
+        raise ValueError("node-receipt-mismatch")
+    for name, offset in (("gasUsed", 0), ("cumulativeGasUsed", 8), ("effectiveGasPrice", 16)):
+        if _quantity(node[name]) != int.from_bytes(body[offset:offset + 8], "big"):
+            raise ValueError("node-receipt-mismatch")
+    if "blockNumber" in node or "blockHash" in node:
+        if node["rung"] != "committed" or _quantity(node.get("blockNumber")) < verified.height:
+            raise ValueError("node-receipt-mismatch")
+        _proof_bytes(node.get("blockHash"), 32)
+    logs = node["logs"]
+    if not isinstance(logs, list) or len(logs) != len(receipt.effects) - 1:
+        raise ValueError("node-receipt-mismatch")
+    for index, (log, effect) in enumerate(zip(logs, receipt.effects[1:])):
+        _keys(log, ("address", "topics", "data", "logIndex"))
+        topics = log["topics"]
+        if (not isinstance(topics, list) or len(topics) != effect.body[20]
+                or _quantity(log["logIndex"]) != index
+                or _proof_bytes(log["address"], 20) != effect.body[:20]
+                or hashlib.sha256(_proof_bytes(log["data"], empty=True)).digest() != effect.body[-32:]):
+            raise ValueError("node-receipt-mismatch")
+        for topic_index, topic in enumerate(topics):
+            if _proof_bytes(topic, 32) != effect.body[21 + topic_index * 32:53 + topic_index * 32]:
+                raise ValueError("node-receipt-mismatch")
+
+
+def _verify_proof(proof, offer, receipt_keys, resolve_receipt):
+    proof = _parse_proof(proof)
+    receipt = _proof_bytes(proof["signedReceipt"])
+    raw = _proof_bytes(proof["rawTransaction"])
+    evidence = resolve_receipt(receipt, offer)
+    if evidence.canonical_receipt != receipt or evidence.raw_transaction != raw:
+        raise ValueError("receipt-mismatch")
+    required = payment_commitment(offer.get("extra"))
+    if required == "committed" and proof["verificationLevel"] != "committed":
+        raise ValueError("commitment-mismatch")
+    if offer["network"] != "eip155:125":
+        raise ValueError("unsupported-network")
+    verified = verify_payment_receipt(
+        receipt, raw, receipt_keys, amount=offer["amount"], asset=offer["asset"],
+        pay_to=offer["payTo"], ledger_payer=payment_payer(offer.get("extra")),
+        purpose_hash=payment_purpose(offer.get("extra")),
+        commitment=proof["verificationLevel"], finality=evidence.finality,
+        scheme=offer["scheme"], grant_binding=evidence.grant_binding,
+    )
+    if proof["receiptDigest"] != "0x" + verified.receipt_digest.hex():
+        raise ValueError("receipt-digest-mismatch")
+    advertised = proof["receiptKey"]
+    matches = [key for key in receipt_keys if (
+        key.key_id == _proof_bytes(advertised["keyId"], 32) == verified.receipt.context_hash
+        and key.public_key == _proof_bytes(advertised["publicKey"], 32)
+        and key.first_height == _quantity(advertised["firstHeight"], 64)
+        and key.last_height == _quantity(advertised["lastHeight"], 64)
+    )]
+    if not matches:
+        raise ValueError("receipt-key-mismatch")
+    # Verify with the advertised pin as well as the caller's complete trust set.
+    verify_sequencer_receipt(receipt, raw, matches)
+    _verify_node_receipt(proof, verified, matches[0])
+    return verified, evidence
+
+
+def _make_proof(evidence, receipt_keys):
+    verified = verify_sequencer_receipt(evidence.canonical_receipt, evidence.raw_transaction, receipt_keys)
+    for key in receipt_keys:
+        if key.key_id != verified.receipt.context_hash or not key.first_height <= verified.height <= key.last_height:
+            continue
+        try:
+            verify_sequencer_receipt(evidence.canonical_receipt, evidence.raw_transaction, (key,))
+        except PlatformSdkError:
+            continue
+        return {
+            "format": "layerx-receipt-proof-v2",
+            "verificationLevel": "committed" if evidence.finality is not None else "receipted",
+            "rawTransaction": "0x" + evidence.raw_transaction.hex(),
+            "signedReceipt": "0x" + evidence.canonical_receipt.hex(),
+            "receiptDigest": "0x" + verified.receipt_digest.hex(),
+            "receiptKey": {"keyId": "0x" + key.key_id.hex(), "publicKey": "0x" + key.public_key.hex(),
+                           "firstHeight": hex(key.first_height), "lastHeight": hex(key.last_height)},
+        }
+    raise ValueError("receipt-key-mismatch")
+
+
 class FulfillmentStore:
     def __init__(self, path: str):
         self.path = path
@@ -276,22 +441,7 @@ class SellerMiddleware:
         ).hexdigest()
         body = payload["payload"]
         if offer["scheme"] == "exact":
-            _keys(
-                body,
-                ("receipt", "receiptDigest", "verificationLevel"),
-                ("idempotencyKey",),
-            )
-            if body["verificationLevel"] != "sequencer-signed":
-                raise ValueError("invalid-verification-level")
-            receipt = base64.b64decode(body["receipt"], validate=True)
-            if (
-                hashlib.sha256(b"LXP/v1/merkle-leaf\0" + receipt).hexdigest()
-                != body["receiptDigest"]
-            ):
-                raise ValueError("receipt-digest-mismatch")
-            evidence = self.resolve_receipt(receipt, offer)
-            if evidence.canonical_receipt != receipt:
-                raise ValueError("receipt-mismatch")
+            verified, evidence = _verify_proof(body, offer, self.receipt_keys, self.resolve_receipt)
         else:
             _keys(body, ("receive", "idempotencyKey"))
             rpc_hex(body["receive"], 733)
@@ -302,49 +452,17 @@ class SellerMiddleware:
             if evidence is None:
                 return 202, {}, b""
         if offer["scheme"] != "exact":
-            from .x402_grant import validate_grant_draw
-            import time
-            receive = validate_grant_draw(rpc_hex(body["receive"], 733), offer, body["idempotencyKey"], 125, int(time.time()))
-            if evidence.grant_binding != receive:
-                raise ValueError("draw-evidence-binding")
-        verified = verify_payment_receipt(
-            evidence.canonical_receipt,
-            evidence.raw_transaction,
-            self.receipt_keys,
-            amount=offer["amount"],
-            asset=offer["asset"],
-            pay_to=offer["payTo"],
-            payer=payment_payer(
-                offer.get("extra"), required=offer["scheme"] != "exact"
-            ),
-            commitment=payment_commitment(offer.get("extra")),
-            finality=evidence.finality,
-            scheme=offer["scheme"],
-            grant_binding=evidence.grant_binding,
-        )
-        receipt_digest = hashlib.sha256(
-            b"LXP/v1/merkle-leaf\0" + evidence.canonical_receipt
-        ).hexdigest()
+            from .x402 import refuse_payer_grant
+            refuse_payer_grant()
+        receipt_digest = verified.receipt_digest.hex()
         resource = self.fulfillments.fulfill(key, digest, receipt_digest, release)
-        purpose_hash = payment_purpose(offer.get("extra"))
         settlement = {
             "success": True,
-            "transaction": "lxp:" + receipt_digest,
+            "transaction": "0x" + verified.receipt.activity_id.hex(),
             "network": offer["network"],
             "amount": offer["amount"],
             "payer": ledger_payment_payer(verified, evidence.raw_transaction, offer["scheme"]),
-            "extensions": {
-                "layerx": {
-                    "receipt": base64.b64encode(evidence.canonical_receipt).decode(),
-                    "receiptDigest": receipt_digest,
-                    "verificationLevel": "sequencer-signed",
-                    **(
-                        {"purposeHash": purpose_hash}
-                        if purpose_hash is not None
-                        else {}
-                    ),
-                }
-            },
+            "extensions": {"layerx": body},
         }
         return 200, {"PAYMENT-RESPONSE": encode_header(settlement)}, resource
 
@@ -405,19 +523,15 @@ class BuyerMiddleware:
         )
         if verified["rung"] == "pending" or evidence.canonical_receipt != receipt:
             raise ValueError("receipt-mismatch")
+        proof = _make_proof(evidence, self.receipt_keys)
+        _verify_proof(proof, offer, self.receipt_keys, self.resolve_receipt)
         return encode_header(
             {
                 "x402Version": 2,
                 "resource": required["resource"],
                 "accepted": offer,
                 "extensions": required.get("extensions", {}),
-                "payload": {
-                    "receipt": base64.b64encode(receipt).decode(),
-                    "receiptDigest": hashlib.sha256(
-                        b"LXP/v1/merkle-leaf\0" + receipt
-                    ).hexdigest(),
-                    "verificationLevel": "sequencer-signed",
-                },
+                "payload": proof,
             }
         )
 
@@ -502,54 +616,16 @@ class BuyerMiddleware:
         return grant_payment_header(required, offer, receive_hex)
 
     def capture_grant_settlement(self, header, payment_header, expected_activity):
-        from .x402_receive import decode_receive
-
+        from .x402 import refuse_payer_grant
         expected_hash = _transaction_bytes(expected_activity, 32)
         payment = validate_payload(decode_header(payment_header))
-        receive = decode_receive(rpc_hex(payment["payload"]["receive"], 733))
-        offer = payment["accepted"]
-        from .x402_grant import validate_grant_draw
-        import time
-        validate_grant_draw(rpc_hex(payment["payload"]["receive"], 733), offer, payment["payload"]["idempotencyKey"], 125, int(time.time()))
+        if payment["accepted"]["scheme"] not in ("metered", "subscription"):
+            raise ValueError("grant-offer-required")
         settlement = _object(decode_header(header))
-        body = _object(_object(settlement.get("extensions")).get("layerx"))
-        if (
-            settlement.get("success") is not True
-            or settlement.get("network") != offer["network"]
-            or settlement.get("amount") != offer["amount"]
-            or settlement.get("payer") != receive["from"]
-            or settlement.get("payer")
-            != payment_payer(offer.get("extra"), required=True)
-            or body.get("purposeHash")
-            != payment_purpose(offer.get("extra"), required=True)
-            or body.get("verificationLevel") != "sequencer-signed"
-        ):
-            raise ValueError("settlement-mismatch")
-        receipt = base64.b64decode(body["receipt"], validate=True)
-        digest = hashlib.sha256(b"LXP/v1/merkle-leaf\0" + receipt).hexdigest()
-        if (
-            body.get("receiptDigest") != digest
-            or settlement.get("transaction") != "lxp:" + digest
-        ):
-            raise ValueError("settlement-receipt-mismatch")
-        evidence = self.resolve_receipt(receipt, offer)
-        if evidence.canonical_receipt != receipt:
-            raise ValueError("receipt-mismatch")
-        if keccak256(evidence.raw_transaction) != expected_hash:
+        proof = _parse_proof(_object(settlement.get("extensions")).get("layerx"))
+        if keccak256(_proof_bytes(proof["rawTransaction"])) != expected_hash:
             raise ValueError("transaction-hash-mismatch")
-        return verify_payment_receipt(
-            receipt,
-            evidence.raw_transaction,
-            self.receipt_keys,
-            amount=offer["amount"],
-            asset=offer["asset"],
-            pay_to=offer["payTo"],
-            payer=receive["from"],
-            commitment=payment_commitment(offer.get("extra")),
-            finality=evidence.finality,
-            scheme=offer["scheme"],
-            grant_binding=receive,
-        )
+        refuse_payer_grant()
 
     def capture_settlement(self, header, payment_header):
         settlement = _object(decode_header(header))
@@ -562,38 +638,22 @@ class BuyerMiddleware:
             or settlement.get("amount") != offer["amount"]
         ):
             raise ValueError("settlement-mismatch")
-        if (
-            evidence_body
-            != {
-                k: payment["payload"][k]
-                for k in ("receipt", "receiptDigest", "verificationLevel")
-            }
-            or settlement.get("transaction") != "lxp:" + evidence_body["receiptDigest"]
-        ):
+        payment_proof = _parse_proof(payment["payload"])
+        proof = _parse_proof(evidence_body)
+        for name in ("rawTransaction", "signedReceipt", "receiptDigest", "receiptKey"):
+            if proof[name] != payment_proof[name]:
+                raise ValueError("settlement-receipt-mismatch")
+        if payment_proof["verificationLevel"] == "committed" and proof["verificationLevel"] != "committed":
+            raise ValueError("commitment-mismatch")
+        # Authenticate the submitted proof too, including optional node JSON.
+        _verify_proof(payment_proof, offer, self.receipt_keys, self.resolve_receipt)
+        verified, evidence = _verify_proof(proof, offer, self.receipt_keys, self.resolve_receipt)
+        if settlement.get("transaction") != "0x" + verified.receipt.activity_id.hex():
             raise ValueError("settlement-receipt-mismatch")
-        receipt = base64.b64decode(evidence_body["receipt"], validate=True)
-        if (
-            hashlib.sha256(b"LXP/v1/merkle-leaf\0" + receipt).hexdigest()
-            != evidence_body["receiptDigest"]
-        ):
-            raise ValueError("receipt-digest-mismatch")
-        evidence = self.resolve_receipt(receipt, offer)
-        if evidence.canonical_receipt != receipt:
-            raise ValueError("receipt-mismatch")
-        verified = verify_payment_receipt(
-            receipt,
-            evidence.raw_transaction,
-            self.receipt_keys,
-            amount=offer["amount"],
-            asset=offer["asset"],
-            pay_to=offer["payTo"],
-            payer=payment_payer(offer.get("extra")),
-            commitment=payment_commitment(offer.get("extra")),
-            finality=evidence.finality,
-        )
         if settlement.get("payer") != ledger_payment_payer(verified, evidence.raw_transaction, offer["scheme"]):
             raise ValueError("settlement-payer-mismatch")
         return verified
+
 
 
 class ConfiguredReceiptAuthority:

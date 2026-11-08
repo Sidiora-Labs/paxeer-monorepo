@@ -1,5 +1,6 @@
 {
   "name": "paxeer-x-protocol",
+  "description": "npm workspace for Paxeer X Network JavaScript SDKs, middleware and examples",
   "private": false,
   "license": "Apache-2.0",
   "packageManager": "npm@11.19.1",
