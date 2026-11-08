@@ -60,13 +60,15 @@ type feeTokenBlock struct {
 // fee-token switch on, Sidiora governed at the initial rate as of
 // rateUpdateHeight, and a payer holding sidiora base units of Sidiora that prefers it.
 func newFeeTokenBlock(t *testing.T, rateUpdateHeight int64, sidiora int64) *feeTokenBlock {
+	previousOCC := app.EnableOCC
 	app.EnableOCC = false
-	t.Cleanup(func() { app.EnableOCC = true })
+	t.Cleanup(func() { app.EnableOCC = previousOCC })
 	accounts := utils.NewTestAccounts(1)
 	wrapper := app.NewGigaTestWrapper(t, time.Now(), accounts[0].PublicKey, true, false, func(ba *baseapp.BaseApp) {
 		ba.SetOccEnabled(false)
 		ba.SetConcurrencyWorkers(1)
 	})
+	t.Cleanup(func() { require.NoError(t, wrapper.App.Close()) })
 	ctx := wrapper.Ctx
 	denom := bridgetypes.SidioraDenom()
 
@@ -197,7 +199,8 @@ func TestFeeTokenGigaBlockRefusesUnusableRate(t *testing.T) {
 
 	tx, bz := b.transfer(t, feeTokenTransferGas)
 	results := b.run(t, bz)
-	require.Equal(t, uint32(1), results[0].Code, results[0].Log)
+	require.Equal(t, evmtypes.ErrFeeTokenRateInvalid.Codespace(), results[0].Codespace, "code=%d log=%s", results[0].Code, results[0].Log)
+	require.Equal(t, evmtypes.ErrFeeTokenRateInvalid.ABCICode(), results[0].Code, results[0].Log)
 	require.Contains(t, results[0].Log, "fee-token rate is invalid")
 
 	require.Equal(t, sdk.NewInt(feeTokenFunded), b.balance(b.payer.AccountAddress, b.denom))
