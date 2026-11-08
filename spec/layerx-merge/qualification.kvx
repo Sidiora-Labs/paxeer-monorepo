@@ -35714,3 +35714,75 @@ symbol = "ai_evidence_test.py"
 observed = "Attempt 1 at bd0358e55efa (final tree 187162452818): build exit 0; verification exit 2: make test-tools-python recorded 689 passed, 41 failed, 6 errors, 8 skipped and 125 deselected, every failure outside tools/paxeer-x for a missing public prerequisite."
 assumption = "With the public prerequisites present the other packages pass or fail only on cases their own retiring tasks own, which land first."
 severity = "high"
+
+[finding.22.39.131.4]
+task = "22.39.131"
+file = "tests/conformance/test_repair_22_33_886.py"
+symbol = "test_repair_22_33_886.py"
+observed = "Attempt 4 at 3468ec6ceca2: build exit 0; verification exit 2: the five runner cases passed, make test-python-suites recorded 289 passed and 1 failed at tests/integration/scripts/test_repair_22_33_758.py line 245 asserting Z and reading R."
+assumption = "The case races the kernel teardown and passes with a bounded wait; nothing else in the suite is affected."
+severity = "high"
+
+[finding.22.99.77.30]
+task = "22.99.77"
+file = "programs/crates/layerx-programs-ai-market"
+symbol = "layerx-programs-ai-market"
+observed = "Attempt 28 at d4a3a88fab8f, cecd8f3607ca and ffd215bdea94: build exit 1 three times at rpc/repair_478_test.go line 127, raw guest 536740, 537201 and 536580 bytes against 524184; verification not run."
+assumption = "The optimised artifact of the attempt tree at the merged base fits the bound as the 22.38.6 gate and the attempt-27 record indicate."
+severity = "high"
+
+[finding.22.39.164.1]
+task = "22.39.164"
+file = "test_repair_22_31_319"
+symbol = "test_repair_22_31_319"
+observed = "Attempt 1 at 444720c13af8 and dd34403c55d1: verify exit 1 twice; at dd34403c55d1 make test-tools-python reported 8 failed and 738 passed: test_bringup_fixtures_retired (stale digest of docs/swagger/statik.go and the retired relay variable at check-live.test.sh line 1193), test_repair_22_31_319 search front names (public inventory unreadable), test_spec_paths docs-names (README.md unpublished public name) and four container cases on the legacy docker builder; log /out/logs/verify-2.log."
+assumption = "The four bringup cases pass once their producers are corrected and the container cases pass under BuildKit; no other baseline row is affected."
+severity = "high"
+
+[finding.22.39.118.20]
+task = "22.39.118"
+file = "tools/platform/cli::rpc::tests::positional_requests_match_published_contract"
+symbol = "cli::rpc::tests::positional_requests_match_published_contract"
+observed = "Attempt 21 at 043ac50c1f65: build exit 0; verify exit 1: make platform-test-tooling failed in layerx-platform-testnet test testnet_chain_id_parameters_to_signed_transaction at hosted/testnet/tests/repair_22_31_351.rs line 206 with ModuleNotFoundError for cryptography; log /out/logs/verify-1.log."
+assumption = "The remaining platform-test-tooling targets pass once the python module is present, as they did for 22.31.351."
+severity = "high"
+
+[finding.9.35.20.1]
+task = "9.35.20"
+file = "services/agent/crates/layerx-agentd/tests/prepare_eip1559.rs"
+symbol = "prepare_eip1559.rs"
+observed = "Attempt 1 at 25a272675293: build exit 101: cargo build -p layerx-agentd --tests reported E0425 cannot find function read_program_budget_sources_call and read_native_effect_budget_sources_call in module crate::budget; verification not run; log /out/logs/build-1.log."
+assumption = "The two readers exist at program_sources.rs lines 413 and 552 at main 41390400af with the signatures the consumers call."
+severity = "high"
+
+[finding.22.39.95.2]
+task = "22.39.95"
+file = "apps/launchpad/web/src/core/wallet-sdk/runtime.integration.test.tsx"
+symbol = "runtime.integration.test.tsx"
+observed = "Attempt 2 at 9857111ec409 and 4078ebdbf4a0: verify exit 1 twice; at 4078ebdbf4a0 the web suite reported 10 failed and 1266 passed: Bound actual chain125 deployment fixture required (trade journey line 43), Bound actual phase4 measurement inputs required (measurement line 14), Missing actual joined configuration field (chart recovery line 84, four cases), absent L25, L27 and L28 inputs (three wallet runtime cases, creation, connected journeys) and the embedded sign-in setup step timed out at 10000 ms; the mobile suite did not run; log /out/logs/verify-2.log."
+assumption = "The generators the repository carries produce their inputs on owned Anvil children and the three new producers follow the same pattern; the mobile suite passes as in attempt 1."
+severity = "high"
+
+[finding.22.38.7.1]
+task = "22.38.7"
+file = "programs/crates/layerx-programs-ai-market/tests/f11_bonds.rs"
+symbol = "f11_bonds.rs"
+observed = "Attempt 1 at 3964ef3fa398: build exit 1 three times at the size test of the gate (529219, 529219 and 529811 bytes against 524184); the verification never ran; the crate suite at the final tree showed 36 previously passing cases failing across the f04, f05 and f11 targets and four f11_bonds cases failing; record /out/logs/22.38.7-task-record.json."
+assumption = "The guest headroom, the private region format and the unchanged bid setups are the failure; the bond logic itself is sound apart from the countersign identity the batch does not carry."
+severity = "high"
+
+[finding.22.39.118.21]
+task = "22.39.118"
+file = "tools/platform/cli::rpc::tests::positional_requests_match_published_contract"
+symbol = "cli::rpc::tests::positional_requests_match_published_contract"
+observed = "Attempt 22 at 6f42e123e276: build exit 0; verification exit 2: the CLI rpc tests passed and the platform tooling target failed one case, doc_testnet_readme_native_smoke_inputs (undocumented required input LAYERX_TEST_ACCOUNTS_FILE); log /out/logs/verify-1.log."
+assumption = "The README omits two inputs the script asserts; nothing in the tree of the task is at fault."
+severity = "high"
+
+[finding.9.35.20.2]
+task = "9.35.20"
+file = "services/agent/crates/layerx-agentd/tests/prepare_eip1559.rs"
+symbol = "prepare_eip1559.rs"
+observed = "Attempt 2 at 2fc5394b7570: build exit 0; verification exit 101: four targets passed and write_path_evm failed four cases, each refusing the store root as not a canonical owned private directory; log /out/logs/verify-1.log."
+assumption = "The test setup predates the protected root check and no gate ran it since; the re-exports of the task are complete."
+severity = "high"

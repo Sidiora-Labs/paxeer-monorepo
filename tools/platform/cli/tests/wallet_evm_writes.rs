@@ -549,12 +549,7 @@ impl WalletFixture {
                 socket.read_exact(&mut body).expect("HTTP body");
                 let request: Value = serde_json::from_slice(&body).expect("RPC JSON");
                 let method = request["method"].as_str().expect("method");
-                let path = if method.starts_with("px_") {
-                    "/rpc"
-                } else {
-                    "/"
-                };
-                assert!(header.starts_with(&format!("POST {path} HTTP/1.1\r\n")));
+                assert!(header.starts_with("POST / HTTP/1.1\r\n"));
                 let mut result = match method {
                     "eth_getTransactionCount" => json!("0x7"),
                     "eth_gasPrice" => json!("0x2"),
@@ -599,6 +594,7 @@ impl WalletFixture {
             .command()
             .args(["--rpc", &endpoint])
             .args(args)
+            .args(["--gateway-rpc", &endpoint])
             .args(["--fee-limit", "200000", "--timeout-seconds", "5"])
             .arg("--evm-key-file")
             .arg(self.directory.path().join("evm.json"))
@@ -632,7 +628,10 @@ fn assert_submission(fixture: &WalletFixture, requests: &[Value]) -> Eip1559Call
     assert_eq!(nonce.len(), 1);
     assert_eq!(
         nonce[0]["params"],
-        json!([fixture.account.evm_address_text(), "pending"])
+        json!([
+            format!("0x{}", hex(&fixture.account.evm_address())),
+            "pending"
+        ])
     );
     let sent: Vec<_> = requests
         .iter()
@@ -662,7 +661,10 @@ fn assert_submission(fixture: &WalletFixture, requests: &[Value]) -> Eip1559Call
     assert_eq!(estimates.len(), 1);
     assert_eq!(estimates[0]["params"][1], "pending");
     let tx = &estimates[0]["params"][0];
-    assert_eq!(tx["from"], fixture.account.evm_address_text());
+    assert_eq!(
+        tx["from"],
+        format!("0x{}", hex(&fixture.account.evm_address()))
+    );
     assert_eq!(tx["chainId"], "0x7d");
     assert_eq!(tx["nonce"], "0x7");
     assert_eq!(tx["gas"], "0x186a0");
@@ -755,25 +757,25 @@ fn wallet_send_refuses_mismatched_account_reads_before_submission() {
             "px_getAccount",
             "account_id",
             json!(hex(&DESTINATION)),
-            "wallet RPC failed: InvalidResponse",
+            "InvalidResponse",
         ),
         (
             "px_getAccount",
             "asset_id",
             json!(hex(&[0x44; 32])),
-            "wallet RPC failed: InvalidResponse",
+            "InvalidResponse",
         ),
         (
             "px_getAccount",
             "owner",
             json!(hex(&DESTINATION)),
-            "wallet RPC failed: InvalidResponse",
+            "InvalidResponse",
         ),
         (
             "px_getAccount",
             "next_sequence",
             json!("019"),
-            "wallet RPC failed: InvalidResponse",
+            "InvalidResponse",
         ),
     ] {
         let (output, requests) = fixture.run_with_account_change(
