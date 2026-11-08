@@ -41,6 +41,7 @@ import (
 	"github.com/Sidiora-Technologies/KindleLaunch/media/gateway/internal/auth"
 	"github.com/Sidiora-Technologies/KindleLaunch/media/gateway/internal/config"
 	"github.com/Sidiora-Technologies/KindleLaunch/media/gateway/internal/devidentity"
+	"github.com/Sidiora-Technologies/KindleLaunch/media/gateway/internal/internaltest"
 	"github.com/Sidiora-Technologies/KindleLaunch/media/gateway/internal/proxy"
 	sharedauth "github.com/Sidiora-Technologies/KindleLaunch/shared/auth"
 	interfaces "github.com/Sidiora-Technologies/KindleLaunch/shared/interfaces/v2"
@@ -345,16 +346,6 @@ func bearerRequest(token string) *http.Request {
 	return r
 }
 
-func freePort(t *testing.T) int {
-	t.Helper()
-	l, err := net.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer l.Close()
-	return l.Addr().(*net.TCPAddr).Port
-}
-
 // lockedBuffer collects a subprocess's output.
 type lockedBuffer struct {
 	mu  sync.Mutex
@@ -401,7 +392,8 @@ CREATE TABLE "indexer"."pools" ("pool_address" varchar(42) PRIMARY KEY NOT NULL,
 	}
 	cursor := make([]byte, 32)
 	_, _ = rand.Read(cursor)
-	plainPort, privatePort := freePort(t), freePort(t)
+	ports := internaltest.FreePorts(t, 2)
+	plainPort, privatePort := ports[0], ports[1]
 	social := e.peers["social"]
 	env := []string{
 		"NODE_ENV=production", "RUNTIME_PROFILE=platform", "ZONE=zone-a", "METRICS_ENVIRONMENT=production", "LOG_LEVEL=error",
@@ -520,7 +512,8 @@ func (e *identityE2E) startLivestream() livestreamProcess {
 		t.Fatal(err)
 	}
 	server := e.pki.Leaf("livestream-server", "livestream.railway.internal")
-	plainPort, privatePort := freePort(t), freePort(t)
+	ports := internaltest.FreePorts(t, 2)
+	plainPort, privatePort := ports[0], ports[1]
 	lp := livestreamProcess{plainURL: fmt.Sprintf("http://127.0.0.1:%d", plainPort), privateURL: fmt.Sprintf("https://127.0.0.1:%d", privatePort), dsn: dsn}
 	env := []string{
 		"NODE_ENV=production", "RUNTIME_PROFILE=platform", "ZONE=zone-a", "METRICS_ENVIRONMENT=production", "LOG_LEVEL=error",
@@ -885,7 +878,7 @@ func TestPlatformPeersThroughGatewayIdentityListener(t *testing.T) {
 			t.Fatalf("dependency failure through the gateway: %d %s", resp.StatusCode, raw)
 		}
 		// A dead upstream has no envelope: the gateway's own code.
-		dead, err := proxy.NewConnected(proxy.ConnectedDeps{Name: "livestream", URL: fmt.Sprintf("https://127.0.0.1:%d", freePort(t)), Routes: proxy.LivestreamConnectedRoutes(), Identity: e.authorityForGateway, SigningKey: e.gatewayKey.Private, TLS: clientTLS})
+		dead, err := proxy.NewConnected(proxy.ConnectedDeps{Name: "livestream", URL: fmt.Sprintf("https://127.0.0.1:%d", internaltest.FreePorts(t, 1)[0]), Routes: proxy.LivestreamConnectedRoutes(), Identity: e.authorityForGateway, SigningKey: e.gatewayKey.Private, TLS: clientTLS})
 		if err != nil {
 			t.Fatal(err)
 		}
