@@ -42,6 +42,42 @@ impl layerx_types::clock::Clock for TestClock {
 }
 
 #[cfg(test)]
+fn assert_terminal_approvals(
+    store: &std::sync::Arc<Mutex<Store>>,
+    tenant: &TenantId,
+    expected: &[([u8; 32], ApprovalState)],
+) {
+    let mut terminal_ids = expected
+        .iter()
+        .map(|(id, _)| [b"approval-terminal-v1:".as_slice(), id].concat())
+        .collect::<Vec<_>>();
+    terminal_ids.sort();
+    assert_eq!(
+        store
+            .lock()
+            .unwrap_or_else(|_| panic!("store lock"))
+            .list_object_ids(tenant, crate::store::ObjectKind::PreparedActivity),
+        terminal_ids
+    );
+    let recovered = ApprovalRegistry::with_store(std::sync::Arc::clone(store));
+    let limiter = BudgetLimiter::new(Vec::new()).unwrap_or_else(|error| panic!("{error:?}"));
+    assert_eq!(
+        recovered.replay_tenant(tenant, &limiter),
+        Ok(expected.len())
+    );
+    for (id, state) in expected {
+        assert_eq!(
+            recovered
+                .ticket(*id)
+                .map(|ticket| ticket.map(|ticket| ticket.state)),
+            Ok(Some(*state))
+        );
+    }
+    assert_eq!(recovered.restored_reservation_ids(), Ok(Vec::new()));
+    assert_eq!(limiter.held_reservations(), Ok(0));
+}
+
+#[cfg(test)]
 #[path = "../../tests/approval_ordering/mod.rs"]
 mod ordering_tests;
 
@@ -527,7 +563,7 @@ mod lock_order_tests {
     };
     use crate::capability::CapabilityId;
     use crate::policy::approval::{
-        hold_reserved_at, ApprovalContext, ApprovalRegistry, ApproverId,
+        hold_reserved_at, ApprovalContext, ApprovalRegistry, ApprovalState, ApproverId,
     };
     use crate::session::SessionId;
     use crate::store::{ObjectKind, Store, TenantId, TenantKey};
@@ -709,6 +745,7 @@ mod lock_order_tests {
         store
             .list_object_ids(tenant, ObjectKind::PreparedActivity)
             .into_iter()
+            .filter(|id| id.starts_with(b"approval-hold-v1:"))
             .map(|id| {
                 let key = TenantKey::new(tenant.clone(), ObjectKind::PreparedActivity, id.clone())
                     .unwrap_or_else(|error| panic!("key: {error:?}"));
@@ -787,6 +824,11 @@ mod lock_order_tests {
                 &owner
             )
             .is_empty());
+            super::assert_terminal_approvals(
+                &shared.store,
+                &owner,
+                &[([51; 32], ApprovalState::Rejected)],
+            );
         }
     }
 
@@ -854,7 +896,7 @@ mod reject_persist_tests {
     };
     use crate::capability::CapabilityId;
     use crate::policy::approval::{
-        hold_reserved_at, ApprovalContext, ApprovalRegistry, ApproverId,
+        hold_reserved_at, ApprovalContext, ApprovalRegistry, ApprovalState, ApproverId,
     };
     use crate::session::SessionId;
     use crate::store::{ObjectKind, Store, TenantId, TenantKey};
@@ -1034,6 +1076,7 @@ mod reject_persist_tests {
         store
             .list_object_ids(tenant, ObjectKind::PreparedActivity)
             .into_iter()
+            .filter(|id| id.starts_with(b"approval-hold-v1:"))
             .map(|id| {
                 let key = TenantKey::new(tenant.clone(), ObjectKind::PreparedActivity, id.clone())
                     .unwrap_or_else(|error| panic!("key: {error:?}"));
@@ -1160,6 +1203,11 @@ mod reject_persist_tests {
             &tenant
         )
         .is_empty());
+        super::assert_terminal_approvals(
+            &shared.store,
+            &tenant,
+            &[([61; 32], ApprovalState::Rejected)],
+        );
     }
 }
 
@@ -1366,6 +1414,7 @@ mod defective_persist_tests {
         store
             .list_object_ids(tenant, ObjectKind::PreparedActivity)
             .into_iter()
+            .filter(|id| id.starts_with(b"approval-hold-v1:"))
             .map(|id| {
                 let key = TenantKey::new(tenant.clone(), ObjectKind::PreparedActivity, id.clone())
                     .unwrap_or_else(|error| panic!("key: {error:?}"));
@@ -1427,6 +1476,11 @@ mod defective_persist_tests {
             &tenant
         )
         .is_empty());
+        super::assert_terminal_approvals(
+            &shared.store,
+            &tenant,
+            &[([81; 32], ApprovalState::Defective)],
+        );
         assert!(matches!(
             shared.expiry.repeated(&tenant, [81; 32], &approve),
             Ok(Some(decision)) if decision.outcome == ApprovalOutcome::Defective
@@ -1561,6 +1615,11 @@ mod defective_persist_tests {
             &tenant
         )
         .is_empty());
+        super::assert_terminal_approvals(
+            &shared.store,
+            &tenant,
+            &[([101; 32], ApprovalState::Defective)],
+        );
     }
 }
 
