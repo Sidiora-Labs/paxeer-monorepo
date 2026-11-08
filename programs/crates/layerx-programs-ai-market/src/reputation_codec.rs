@@ -231,7 +231,7 @@ pub fn reputation_root(
     if records.len() > LIMIT {
         return Err(CAPACITY);
     }
-    let mut bytes = [0; 24 + 32 + 8 + 2 + LIMIT * CURRENT_BYTES];
+    let mut bytes = [0; b"PAXAI/reputation-root/v1\0".len() + 32 + 8 + 2 + LIMIT * CURRENT_BYTES];
     let mut h = Writer::new(&mut bytes);
     h.put(b"PAXAI/reputation-root/v1\0")?;
     h.put(market.as_bytes())?;
@@ -254,7 +254,7 @@ pub fn reputation_root(
 )]
 pub(crate) fn state_root(state: &ReputationState, epoch: u64) -> CodecResult<Digest32> {
     // During staging, records may already refer to the pending completion.
-    let mut bytes = [0; 24 + 32 + 8 + 2 + LIMIT * CURRENT_BYTES];
+    let mut bytes = [0; b"PAXAI/reputation-root/v1\0".len() + 32 + 8 + 2 + LIMIT * CURRENT_BYTES];
     let mut h = Writer::new(&mut bytes);
     h.put(b"PAXAI/reputation-root/v1\0")?;
     h.put(state.market.as_bytes())?;

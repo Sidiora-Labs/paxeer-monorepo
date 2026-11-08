@@ -241,12 +241,15 @@ struct Parts {
     reports: Vec<u8>,
     rewards: Vec<u8>,
     admission: AdmissionTable,
+    reputation: Vec<u8>,
     replay: ReplayTable,
 }
 impl Parts {
     fn load(bytes: &[u8]) -> CodecResult<Self> {
         let state = decode_shared_state(bytes)?;
         let [policy, identity, reports, rewards, admission] = state.feature_sections;
+        let (_, table) = layerx_programs_ai_market::reputation_transition::split_joint(admission)?;
+        let reputation = admission[..admission.len() - table.len()].to_vec();
         let (workers, region) = split_identity_section(identity)?;
         Ok(Self {
             revision: state.revision,
@@ -255,7 +258,8 @@ impl Parts {
             region: region.to_vec(),
             reports: reports.to_vec(),
             rewards: rewards.to_vec(),
-            admission: AdmissionTable::decode(admission)?,
+            admission: AdmissionTable::decode(table)?,
+            reputation,
             replay: state.control.replay,
         })
     }
@@ -274,15 +278,11 @@ impl Parts {
         identity.extend_from_slice(&self.region);
         let mut admission = vec![0; TABLE_MAX_BYTES];
         let admission_len = self.admission.encode(&mut admission)?;
+        admission.truncate(admission_len);
+        let admission = [self.reputation.as_slice(), admission.as_slice()].concat();
         encode(&SharedState {
             revision: self.revision,
-            feature_sections: [
-                &policy,
-                &identity,
-                &self.reports,
-                &self.rewards,
-                &admission[..admission_len],
-            ],
+            feature_sections: [&policy, &identity, &self.reports, &self.rewards, &admission],
             control: Control {
                 replay: self.replay.clone(),
                 feature_bytes: &[],
@@ -1445,7 +1445,7 @@ fn publish_worker_metadata(m: &mut Market, at: u64) -> CodecResult<MetadataDiges
 }
 
 #[test]
-fn a29_changed_metadata_refuses_admission_until_the_next_roster() -> TestResult {
+fn a29_admission_keeps_frozen_metadata_until_the_next_roster() -> TestResult {
     let mut world = World::create(ORIGIN)?;
     let worker = world.enroll(1, ORIGIN + 2)?;
     for n in 2..=4 {
@@ -1470,11 +1470,20 @@ fn a29_changed_metadata_refuses_admission_until_the_next_roster() -> TestResult 
         ..a
     };
     let before = m.world.bytes.clone();
-    for body in [a, changed] {
-        let call = m.bound(dispatch::ADMIT_TASK, body.requester, body.payload());
-        assert_eq!(m.world.route(&call, 1525), Err(WRONG_ROSTER));
-        assert_eq!(m.world.bytes, before);
-    }
+    let call = m.bound(dispatch::ADMIT_TASK, changed.requester, changed.payload());
+    assert_eq!(m.world.route(&call, 1525), Err(WRONG_ROSTER));
+    assert_eq!(m.world.bytes, before);
+    let call = m.bound(dispatch::ADMIT_TASK, a.requester, a.payload());
+    assert_eq!(m.world.route(&call, 1525)?, ResultStatus::Ok);
+    assert_eq!(
+        m.world.revision()?,
+        decode_shared_state(&before)?.revision + 1
+    );
+    let admitted_task = m.task_id(0x21, 1)?;
+    m.cancel(0x21, admitted_task, 1526)?;
+    assert_eq!(m.find(admitted_task)?.status, TaskStatus::Cancelled);
+    let digest = m.expected_digest(&m.region()?)?;
+    m.seal(digest, 1576)?;
     m.world.terminalize(&m.frozen, &m.workers[0], 1624)?;
     m.frozen = m.world.open(1640)?;
     assert_eq!(m.frozen.epoch, 5);
