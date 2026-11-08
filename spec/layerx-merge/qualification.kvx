@@ -36186,3 +36186,19 @@ symbol = "runtime.integration.test.tsx"
 observed = "Attempt 7 at f9670ab45d4e: build exit 0; verification exit 1 before the suites: the snapshot readiness probe timed out after ninety seconds answering HTTP 429 RATE_LIMITED, and the api log recorded development stream projection degraded because stats.pool_stats does not exist on every stats sweep; log /out/logs/verify-1.log."
 assumption = "The api and its routes behave as designed; the preparation lacks the stats schema and floods the rate limit while waiting."
 severity = "high"
+
+[finding.22.99.155.8]
+task = "22.99.155"
+file = "services/platform/hosted/indexer"
+symbol = "indexer"
+observed = "Attempt 6 at 61c5e13929ea (base c0859a9d080c): build exit 0 twice; verification exit 1 twice, the second with two targets failing: a02_only_a_rank4_checkpoint_for_the_same_root_finalizes (slot F06 NotYetProduced against the expected NotEnabled at tests/ai_snapshot_minimal.rs line 617) and request_writes_obey_total_deadline (1.26 s against the one-second bound at tests/repair_22_33_1445.rs line 644); log /out/logs/verify-2.log."
+assumption = "The two remaining failures are consumer expectations behind their producers; the eviction repair of the task holds."
+severity = "high"
+
+[finding.9.35.7.3]
+task = "9.35.7"
+file = "services/agent/crates/layerx-crypto/tests/signer.rs::keystore_signer_refuses_activity_preimages_and_signs_the_bind_message"
+symbol = "signer.rs::keystore_signer_refuses_activity_preimages_and_signs_the_bind_message"
+observed = "Attempt 6 at 21576b957f45 (base 29e8b1130a): build exit 0; the verification never ran because the compile check of the dependent crates exited 101 at the bridge relayer test target repair_22_31_160 (evm/package-lock.json missing on main); the local crate suite failed one case, auth_lifecycle_call_discloses_the_governance_payload at tests/disclosure_call.rs line 411; log /out/logs/dependents-1.log."
+assumption = "Both failures predate the attempt: the missing lock file since 22.39.124 and the stale malformed row since 22.31.496."
+severity = "high"

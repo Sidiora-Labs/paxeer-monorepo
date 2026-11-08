@@ -11092,6 +11092,30 @@ value = "The stats module gains a command under its cmd directory that applies i
 basis = "Gotcha 3696, decisions 2908, 2971 and 2981, the migrate package and startup of the stats module"
 affects = ["22.39.95"]
 
+[decision.2997]
+title = "Indexer consumers assert the availability value the ai-market program producer returns, and the reward slot before the first funding is NotYetProduced"
+value = "The availability of every feature slot that the hosted indexer stores and serves comes from feature_availability of programs/crates/layerx-programs-ai-market/src/queries.rs; since the 22.30.122 repair the reward slot F06 derives from the settlement section and reads NotYetProduced until the first funding, as the producer test tests/view_binding.rs line 315 asserts. An indexer test that asserts a slot value asserts the value that rule returns for the state it built, and a changed producer rule is followed in the consumer test, never argued with in a record. The a02 case of services/platform/hosted/indexer/tests/ai_snapshot_minimal.rs asserts NotYetProduced for slot F06."
+basis = "Gotcha 3697, gotcha 3046, decision 2900"
+affects = ["22.99.155"]
+
+[decision.2998]
+title = "The total-deadline test proves the deadline by returning with a Source error before the peer hold expires, with its upper bound set below that hold"
+value = "request_writes_obey_total_deadline of services/platform/hosted/indexer/tests/repair_22_33_1445.rs sends a sixteen-megabyte request against a 350 ms total deadline to a peer that holds the connection for three seconds. The deadline is proven when the request returns a Source error after at least 250 ms and before the hold expires; the upper bound is two seconds, so the write latency of the request under the parallel suite stays inside it while a request that waited for the peer still fails the bound. The lower bound, the Source error assertion and the deadline under test stay unchanged."
+basis = "Gotcha 3697, decision 2900"
+affects = ["22.99.155"]
+
+[decision.2999]
+title = "A test support module that includes a lock file through include_str has that lock file tracked beside its manifest, generated from the pinned manifest"
+value = "services/interop/crates/layerx-bridge-relayer/tests/support/evm holds package.json with four pinned dependencies and the package-lock.json that evm_dependencies.rs includes at compile time; the lock file is generated from the manifest with npm install in package-lock-only mode with scripts ignored, resolves exactly the pinned versions with integrity fields, and is tracked so cargo test of the crate compiles every test target and npm ci provisions the real dependencies from it. Task 22.39.174 adds the lock file; a task whose gate compiles the bridge relayer test targets requires it."
+basis = "Gotcha 3698, decision 2994"
+affects = ["22.39.174", "9.35.7"]
+
+[decision.3000]
+title = "The malformed-header table of the lifecycle disclosure test follows the shapes the call binder admits, and the key-rotation shape is accepted"
+value = "bind_call of services/agent/crates/layerx-crypto/src/disclosure/call.rs admits the recordLifecycle payload shapes (1, 0, 2, 68), (1, 2, 1, 8 to 1024), (2, 0, 4, 92), (3, 0, 3, 70) and (3, 0, 5, 86); the shape (2, 0, 4, 92) is the key-rotation payload admitted by 22.31.496. The malformed-header table of auth_lifecycle_call_discloses_the_governance_payload in tests/disclosure_call.rs lists only shapes the binder refuses, so the key-rotation row leaves it and one assertion states that the binder accepts a payload of that shape as AuthLifecycle. The task that owns the crypto crate suite under decision 2994 makes the change inside its attempt, with the test file in its touches."
+basis = "Gotcha 3698, gotcha 3046, decision 2994"
+affects = ["9.35.7"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -39982,6 +40006,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.174]
+title = "Track the generated lock file of the bridge relayer EVM test dependencies so the crate test targets compile"
+reqs = ["22998.1"]
+touches = ["services/interop/crates/layerx-bridge-relayer/tests/support/evm"]
+tests = []
+verification_contract = "test -s services/interop/repair_22_39_174.kvx && test -s services/interop/crates/layerx-bridge-relayer/tests/support/evm/package-lock.json && grep -q lockfileVersion services/interop/crates/layerx-bridge-relayer/tests/support/evm/package-lock.json && python3 -m pytest -q tests/ci/test_interop_workspace_tests_wired.py && cargo test --locked --manifest-path services/interop/Cargo.toml -p layerx-bridge-relayer --no-fail-fast"
+do_1 = "do_1 Decision 2999, gotcha 3698. services/interop/crates/layerx-bridge-relayer/tests/support/evm_dependencies.rs line 17 includes evm/package-lock.json beside evm/package.json, and main tracks only the manifest, so cargo test of the crate fails to compile every test target. Inside tests/support/evm generate the lock file from the pinned manifest with npm install in package-lock-only mode with scripts, audit and funding output disabled; check that it carries lockfileVersion 3, resolves exactly the four pinned dependencies and their transitive set with integrity fields, and track it. The manifest, the support module and every test stay unchanged."
+symbols = []
 
 [capability.22.39.173]
 title = "Restore the six editor integration scripts of the vendored tree that the relocation left uncommitted"
@@ -183036,6 +183069,35 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.39.174]
+title = "Track the generated lock file of the bridge relayer EVM test dependencies so the crate test targets compile"
+status = "pending"
+mode = "BUILD"
+wave = 3
+requires = ["22.39.124"]
+reqs = ["22998.1"]
+capabilities = ["22.39.174"]
+interfaces = []
+do_1 = "do_1 Decision 2999, gotcha 3698. services/interop/crates/layerx-bridge-relayer/tests/support/evm_dependencies.rs line 17 includes evm/package-lock.json beside evm/package.json, and main tracks only the manifest, so cargo test of the crate fails to compile every test target. Inside tests/support/evm generate the lock file from the pinned manifest with npm install in package-lock-only mode with scripts, audit and funding output disabled; check that it carries lockfileVersion 3, resolves exactly the four pinned dependencies and their transitive set with integrity fields, and track it. The manifest, the support module and every test stay unchanged."
+do_2 = "do_2 Record in services/interop/repair_22_39_174.kvx the generation command, the npm version, the resolved versions of the four pinned dependencies and the whole-crate suite result by reference. Run the build once and the verification once at the final revision and record both by reference; if a case fails, repair it within the one allowed cycle and rerun once."
+symbols = []
+touches = ["services/interop/crates/layerx-bridge-relayer/tests/support/evm"]
+tests = []
+planned_paths = ["services/interop/repair_22_39_174.kvx"]
+build_cmd = "cargo test --locked --manifest-path services/interop/Cargo.toml -p layerx-bridge-relayer --no-run"
+verify_cmd = "test -s services/interop/repair_22_39_174.kvx && test -s services/interop/crates/layerx-bridge-relayer/tests/support/evm/package-lock.json && grep -q lockfileVersion services/interop/crates/layerx-bridge-relayer/tests/support/evm/package-lock.json && python3 -m pytest -q tests/ci/test_interop_workspace_tests_wired.py && cargo test --locked --manifest-path services/interop/Cargo.toml -p layerx-bridge-relayer --no-fail-fast"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-interop"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.172]
 title = "Align the history contract test and the cross-UID receiver case with the exclusive cursor and the protected store root their producers introduced"
 status = "pending"
@@ -201611,7 +201673,7 @@ rollback = "Revert the task's commit."
 max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
-time_limit_minutes = 45
+time_limit_minutes = 120
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
@@ -201621,6 +201683,7 @@ do_7 = "Attempt 3 (requalify after 22.99.160): the build failed only on the stal
 do_8 = "Attempt 4 (continue): the attempt record alone is not a repair; the task closes when the three failing test targets pass. (1) tests/vectors/names/indexer_api_v1.json is in the paths: the third 08:00:01 event of alice.pax (the registry NewOwner emitted by the registration) carries action transfer, as names.rs classifies it since issue #1394; the DESC and ASC answers and the filtered answers follow from it and no other vector field changes. (2) The a11 cases of ai_reputation_finality.rs are refused with CAPACITY (0x0016) at the first certified section: read the retention capacity the projection applies and size the fixture sections (records(32), ring 1..=32) to it, or, if the projection refuses a section it must retain, repair the capacity rule inside services/platform/hosted/indexer and report a rule living in programs/crates with file and line. (3) proof_layerxledger_0x101a and proof_layerxpay_0x101b consume a producer document on stdin from their declared gates; the verify now skips them by name and the record lists them under producer_input_tests."
 do_9 = "Attempt 5 (requalify after 22.99.77): the failing a11 cases come from the reputation_root buffer that 22.99.77 repairs; this task now requires 22.99.77 and the attempt-5 tree is requalified as it stands once that repair is on main; a test that still fails afterwards is repaired inside the paths."
 do_10 = "Attempt 6 (continue): the a11 eviction tests receive Err(Refused(ApplicationError(22))) where Ok(Advanced with a height) is expected; implement the advance-with-archive-locator path so eviction advances the head when the archive locator is present; the test expectations stand."
+do_11 = "Attempt 7 (continue, gotcha 3697, decisions 2900, 2997 and 2998): the attempt-6 tree 61c5e13929ea stands (the WrongDomain alert on a chain id mismatch, the canonical native membership proofs of the snapshot tests, the reputation finality and tenant query corrections, the record). In tests/ai_snapshot_minimal.rs change the expectation at line 617 to Availability::NotYetProduced, the value the availability producer of the ai-market program returns for the reward slot before the first funding (queries.rs, asserted by the producer test view_binding.rs line 315); no other assertion changes. In tests/repair_22_33_1445.rs raise the upper bound of request_writes_obey_total_deadline at line 644 to two seconds, below the three-second hold of the peer, keeping the 250 ms lower bound and the Source error assertion. Replace the pre-existing and unrelated wording of the record with the producer facts: the availability rule changed with the 22.30.122 repair, and the one-second bound sat inside the write latency of a sixteen-megabyte request under the parallel suite. Run the two targets locally to green before the gate, then run the build once and the verification once at the final revision and record both by reference; if a case still fails, repair it within the one allowed cycle and rerun once."
 
 [task.22.99.154]
 title = "Repair the inventory sweep target layerx-bridge-relayer"
@@ -208960,7 +209023,7 @@ title = "Remove the kernel activity codec items from layerx-crypto once the kern
 status = "pending"
 mode = "BUILD"
 wave = 40
-requires = ["9.35.1", "12.95.2", "9.27.10", "10.21.9", "9.35.13", "8.47.12", "8.51.3", "9.24.9", "8.101.3", "8.101.4", "8.101.5", "22.9.24", "9.35.14", "9.35.15", "9.35.16", "9.35.17", "9.35.18", "9.35.19", "9.35.20", "9.35.21", "9.35.22", "9.35.23", "9.35.24", "22.99.160", "22.31.572", "22.31.620"]
+requires = ["9.35.1", "12.95.2", "9.27.10", "10.21.9", "9.35.13", "8.47.12", "8.51.3", "9.24.9", "8.101.3", "8.101.4", "8.101.5", "22.9.24", "9.35.14", "9.35.15", "9.35.16", "9.35.17", "9.35.18", "9.35.19", "9.35.20", "9.35.21", "9.35.22", "9.35.23", "9.35.24", "22.99.160", "22.31.572", "22.31.620", "22.39.174"]
 reqs = ["9341.1"]
 capabilities = ["9.35.7"]
 interfaces = []
@@ -208995,6 +209058,7 @@ do_11 = "Decision 2356 (2026-11-02): requires gains the per-crate port tasks 9.3
 do_12 = "Decision 2357 (2026-11-02): requires gains the agent daemon family 9.35.16 to 9.35.24 (the call binder coverage, the EvmPrepared disclosure, approval holds, native-effect and program families, the prepare and submit variants, the test port, the sdk and mcp checks and the legacy module deletion); with them every consumer named in do_11 is owned by a task in requires and this task is eligible once they publish."
 do_13 = "Attempt 5 (continue): the census found 297 live references across 90 files outside the touches; migrate the consumers in the agent daemon, the human service and the platform CLI in the same change until the census reaches zero."
 do_14 = "Attempt 6 (continue, gotcha 3694, decisions 2908, 2977 and 2994): start from main at the current revision, where the agent daemon family through 9.35.24 is landed and the census outside the crate is already empty; delete exactly the items of do_2, do_3 and do_4 (bind over canonical activity bytes, bind_budget_mutation, the Source::Activity variant, the onboarding field and decoder, EnvelopeOptions, DisclosedEnvelope, encode_send_envelope and sign_disclosed) and keep every other item, import and re-export the call modules use, so the call module keeps decode_session_key in scope and the library compiles at the first build. The source and tests directories of the crate are the touches from this round: migrate every test source that consumes the retired items (tests/support/mod.rs, tests/support/signing.rs, tests/repair_22_33_1560.rs, tests/repair_22_33_1558.rs, tests/proof_crypto.rs, tests/disclosure.rs and tests/signer.rs) onto sign_disclosed_call and bind_call; a case of repair_22_33_1558.rs that reads the crate source for a deprecation marker of a retired item asserts the absence of that item instead, and a case that proves nothing but a retired behaviour is removed with its name in the commit message. Add keystore_signer_refuses_activity_preimages_and_signs_the_bind_message to tests/signer.rs as do_5 states and keep the consumers in the agent daemon, the human service and the platform CLI unchanged unless the census names one. Run the whole crate suite locally to green before the gate as decision 2977 requires, then run the build once and the verification once at the final revision and record both by reference; the verification census excludes the platform guard test by its no_kernel_ prefix from this round."
+do_15 = "Attempt 7 (continue after 22.39.174 lands; gotcha 3698, decisions 2900, 2994, 2999 and 3000): the attempt-6 tree 21576b957f45 stands (the deletion of the activity binder, the envelope types and the send envelope encoder, the migrated test consumers; the census of the deleted names passes at that tree). Merge main once 22.39.174 is on it so the bridge relayer test targets compile. In services/agent/crates/layerx-crypto/tests/disclosure_call.rs remove the row (0x71, 2, 0, 4, 92) from the malformed-header table of auth_lifecycle_call_discloses_the_governance_payload (line 391), the key-rotation shape the binder admits since 22.31.496, and add one assertion that bind_call accepts a payload of that shape as ConstructMethod::AuthLifecycle; no other assertion changes. Run the whole crate suite locally to green before the gate as decision 2994 requires and keep the record of failing names by target before and after (decision 2900), naming the producer of each correction; then run the build once and the verification once at the final revision and record both by reference."
 
 [task.9.35.8]
 title = "Drop the layerx-crypto owner rotation decode from the human-service production fixture"
