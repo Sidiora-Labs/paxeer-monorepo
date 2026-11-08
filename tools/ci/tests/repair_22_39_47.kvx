@@ -1,0 +1,198 @@
+[baseline.22_39_47]
+task = "22.39.47"
+revision = "abc81fd2cead6b2b9d5612c6e09a6ab56f13c1ed"
+command = "python3 -m pytest -q tools/ci/tests scripts/ci/test_repair_22_31_317.py"
+exit = 1
+log = "/out/logs/22.39.47-baseline.log"
+observed = "25 failed, 100 passed, 260 subtests passed at the unchanged starting revision."
+qualification = "No passing verification claimed. Exact candidate revision, command, exit and private log are recorded by hf-build/hf-done in /out/run/gates.jsonl and in the final evidence line."
+suite_move = "All eight original test functions and both parameterizations from scripts/ci/test_repair_22_31_317.py are consolidated into tools/ci/tests/test_completion_gate.py, the only in-scope tools/ci Python module. CI script paths resolve from ROOT/scripts/ci."
+public_check = ".github/workflows/ci.yml tests-python already runs make test-tests-python; the target collects tests/ci and tools/ci/tests once and executes both CI shell tests."
+
+[failure.1]
+test = "SUBFAILED(script='beta-ledger-check') tools/ci/tests/test_beta_ledger_paths.py::BetaLedgerPathsTest::test_ledger_check_reads_layerx_merge_ledger"
+status = "recorded_outside_scope"
+resolution = "Pre-existing failure outside the permitted repair paths; preserved the test and producer unchanged, with full observed failure retained only in the private baseline log."
+
+[failure.2]
+test = "FAILED tools/ci/tests/test_ci_loadtest_job.py::CiLoadtestJobTest::test_root_workflow_runs_loadtest_module"
+status = "recorded_outside_scope"
+resolution = "Pre-existing failure outside the permitted repair paths; preserved the test and producer unchanged, with full observed failure retained only in the private baseline log."
+
+[failure.3]
+test = "SUBFAILED(task='16.97.3', path='tests/ci/test_requested_retirements_absent.py') tools/ci/tests/test_completion_gate.py::CompletionGateTest::test_tools_ops_completion_retired_surfaces_absent"
+status = "implemented"
+resolution = "Updated PLANNED_PATHS to tests/ci/test_retired_requested_retirements_absent.py without dropping its existence assertion."
+
+[failure.4]
+test = "FAILED tools/ci/tests/test_foundry_profile.py::FoundryProfileTest::test_root_profile_grants_no_retired_paths"
+status = "recorded_outside_scope"
+resolution = "Pre-existing failure outside the permitted repair paths; preserved the test and producer unchanged, with full observed failure retained only in the private baseline log."
+
+[failure.5]
+test = "FAILED tools/ci/tests/test_makefile_wave1.py::MakefileWaveOneTest::test_library_exclusions_exact"
+status = "recorded_outside_scope"
+resolution = "Pre-existing failure outside the permitted repair paths; preserved the test and producer unchanged, with full observed failure retained only in the private baseline log."
+
+[failure.6]
+test = "FAILED tools/ci/tests/test_makefile_wave2.py::MakefileWaveTwoTest::test_library_exclusions_exact"
+status = "recorded_outside_scope"
+resolution = "Pre-existing failure outside the permitted repair paths; preserved the test and producer unchanged, with full observed failure retained only in the private baseline log."
+
+[failure.7]
+test = "FAILED tools/ci/tests/test_makefile_wave4.py::MakefileWaveFourTest::test_aggregates_dry_run_clean"
+status = "recorded_outside_scope"
+resolution = "Pre-existing failure outside the permitted repair paths; preserved the test and producer unchanged, with full observed failure retained only in the private baseline log."
+
+[failure.8]
+test = "FAILED tools/ci/tests/test_makefile_wave6.py::MakefileWaveSixTest::test_aggregates_dry_run_clean"
+status = "recorded_outside_scope"
+resolution = "Pre-existing failure outside the permitted repair paths; preserved the test and producer unchanged, with full observed failure retained only in the private baseline log."
+
+[failure.9]
+test = "SUBFAILED(script='scripts/ci/runner-routing-check.sh') tools/ci/tests/test_replay_golden_ci.py::ReplayGoldenCiTest::test_core_gates_and_routing_pass_without_replay_golden"
+status = "recorded_outside_scope"
+resolution = "Pre-existing failure outside the permitted repair paths; preserved the test and producer unchanged, with full observed failure retained only in the private baseline log."
+
+[failure.10]
+test = "FAILED tools/ci/tests/test_solidity_state_surface.py::SolidityStateSurfaceTest::test_surface_check_passes_on_kept_contracts"
+status = "recorded_outside_scope"
+resolution = "Pre-existing failure outside the permitted repair paths; preserved the test and producer unchanged, with full observed failure retained only in the private baseline log."
+
+[failure.11]
+test = "FAILED tools/ci/tests/test_wallet_check_live.py::test_endpoint_account_probe_passes_a_resolved_account[True-42-True]"
+status = "recorded_outside_scope"
+resolution = "Pre-existing failure outside the permitted repair paths; preserved the test and producer unchanged, with full observed failure retained only in the private baseline log."
+
+[failure.12]
+test = "FAILED tools/ci/tests/test_wallet_check_live.py::test_endpoint_account_probe_passes_a_resolved_account[True-42-False]"
+status = "recorded_outside_scope"
+resolution = "Pre-existing failure outside the permitted repair paths; preserved the test and producer unchanged, with full observed failure retained only in the private baseline log."
+
+[failure.13]
+test = "FAILED tools/ci/tests/test_wallet_check_live.py::test_endpoint_account_probe_passes_a_resolved_account[False-0-True]"
+status = "recorded_outside_scope"
+resolution = "Pre-existing failure outside the permitted repair paths; preserved the test and producer unchanged, with full observed failure retained only in the private baseline log."
+
+[failure.14]
+test = "FAILED tools/ci/tests/test_wallet_check_live.py::test_endpoint_account_probe_passes_a_resolved_account[False-0-False]"
+status = "recorded_outside_scope"
+resolution = "Pre-existing failure outside the permitted repair paths; preserved the test and producer unchanged, with full observed failure retained only in the private baseline log."
+
+[failure.15]
+test = "FAILED tools/ci/tests/test_wallet_check_live.py::test_endpoint_account_probe_fails_a_read_refusal[-32001-data0]"
+status = "recorded_outside_scope"
+resolution = "Pre-existing failure outside the permitted repair paths; preserved the test and producer unchanged, with full observed failure retained only in the private baseline log."
+
+[failure.16]
+test = "FAILED tools/ci/tests/test_wallet_check_live.py::test_endpoint_account_probe_fails_a_read_refusal[-32001-data1]"
+status = "recorded_outside_scope"
+resolution = "Pre-existing failure outside the permitted repair paths; preserved the test and producer unchanged, with full observed failure retained only in the private baseline log."
+
+[failure.17]
+test = "FAILED tools/ci/tests/test_wallet_check_live.py::test_endpoint_account_probe_fails_a_read_refusal[-32010-data2]"
+status = "recorded_outside_scope"
+resolution = "Pre-existing failure outside the permitted repair paths; preserved the test and producer unchanged, with full observed failure retained only in the private baseline log."
+
+[failure.18]
+test = "FAILED tools/ci/tests/test_wallet_gate_targets.py::test_builtin_targets_exist[gate-lint.sh]"
+status = "recorded_outside_scope"
+resolution = "Pre-existing failure outside the permitted repair paths; preserved the test and producer unchanged, with full observed failure retained only in the private baseline log."
+
+[failure.19]
+test = "FAILED tools/ci/tests/test_wallet_go_test_workflow.py::test_wallet_go_workflow_triggers_on_every_test_input"
+status = "recorded_outside_scope"
+resolution = "Pre-existing failure outside the permitted repair paths; preserved the test and producer unchanged, with full observed failure retained only in the private baseline log."
+
+[failure.20]
+test = "SUBFAILED(command=('bash', 'scripts/ci/xweb-workflow-check.sh')) tools/ci/tests/test_xweb_workflow.py::XwebWorkflowTest::test_workflow_has_no_kernel_web_job"
+status = "recorded_outside_scope"
+resolution = "Pre-existing failure outside the permitted repair paths; preserved the test and producer unchanged, with full observed failure retained only in the private baseline log."
+
+[failure.21]
+test = "FAILED tools/ci/tests/test_xweb_workflow_check.py::XwebWorkflowCheckTest::test_check_passes_against_head_tree"
+status = "recorded_outside_scope"
+resolution = "Pre-existing failure outside the permitted repair paths; preserved the test and producer unchanged, with full observed failure retained only in the private baseline log."
+
+[failure.22]
+test = "FAILED scripts/ci/test_repair_22_31_317.py::test_repeated_release_retains_both_source_sidecars"
+status = "implemented"
+resolution = "Moved the complete suite into test_completion_gate.py; evidence log reads and tampering resolve the producer sidecar kind to command.log for directory evidence, preserving file evidence assertions and adding a real default-directory regression."
+
+[failure.23]
+test = "FAILED scripts/ci/test_repair_22_31_317.py::test_command_failure_is_bound_to_source_and_rejected"
+status = "implemented"
+resolution = "Moved the complete suite into test_completion_gate.py; evidence log reads and tampering resolve the producer sidecar kind to command.log for directory evidence, preserving file evidence assertions and adding a real default-directory regression."
+
+[failure.24]
+test = "FAILED scripts/ci/test_repair_22_31_317.py::test_dirty_source_is_retained_but_not_release_eligible"
+status = "implemented"
+resolution = "Moved the complete suite into test_completion_gate.py; evidence log reads and tampering resolve the producer sidecar kind to command.log for directory evidence, preserving file evidence assertions and adding a real default-directory regression."
+
+[failure.25]
+test = "FAILED scripts/ci/test_repair_22_31_317.py::test_consumer_rejects_missing_source_or_changed_log[evidence]"
+status = "implemented"
+resolution = "Moved the complete suite into test_completion_gate.py; evidence log reads and tampering resolve the producer sidecar kind to command.log for directory evidence, preserving file evidence assertions and adding a real default-directory regression."
+
+[conflict.wave6]
+test = "tools/ci/tests/test_makefile_wave6.py::MakefileWaveSixTest::test_aggregates_dry_run_clean"
+observed = "The existing test requires two explicit tests/ci paths that do_3 requires removing; it also already fails at baseline on an obsolete make build layerx-genesis-build recipe expectation."
+assumption = "Keep the requested directory-only collection and retain the out-of-scope test unchanged; no assertion is relaxed or bypassed."
+
+[gotcha.evidence_kind]
+observed = "The release-gate producer defaults to directory evidence, so reading or appending the evidence path itself raises IsADirectoryError."
+resolution = "Use the recorded sidecar evidence kind and read or mutate command.log inside a directory; keep file and directory coverage."
+
+[gotcha.runner_policy]
+observed = "The retired runner check predates hosted Ubuntu fallbacks and the two deliberately retained live-mirror testnet jobs."
+resolution = "Validate matching hosted Ubuntu fallbacks and retain exact labels for the two named live mirror jobs; continue refusing retired labels everywhere else."
+
+[continuation.2]
+prior_revision = "4fae3a7ef3850589af589bd0c740568a75a8c7f3"
+main_revision = "61b1cd9c81e4070dc5dfccd4bb9255c602cfb066"
+settlements_revision = "234a974b912f06a95946752312df7d6494e5564b"
+merge_revision = "797c636d3841278a8b5ca5811d099ae619f16514"
+decision = 2800
+gotcha = 3427
+observed = "The supplied checkout already merges current main and the landed 22.39.54 settlements before this attempt's first build, with the seven attempt-1 paths reapplied and no unresolved merge conflicts."
+settlements_reference = "tools/ci/tests/repair_22_39_54.kvx records the landed settlements; retain them without re-settling their tests. Historical recorded_outside_scope entries and conflict.wave6 above describe attempt 1, before this merge."
+ledger_reference = "The landed repair record defers the malformed historical beta ledger to 22.39.87 and tests/ci/data/tools_ci_deselect.txt names that one test; this task's declared full-suite verification retains the test without deselection."
+build_reference = "/out/run/gates.jsonl: the final hf-build row records the candidate revision, exact build command, exit code and private log."
+verify_reference = "/out/run/gates.jsonl: the final hf-done row records the candidate revision, exact cg spec done command, exit code and private log for the full declared verification and graph checks."
+stop_rule = "If a tools/ci test still fails after the merge, record the exact bounded gate result here and stop without repairing or weakening the landed settlements."
+
+[qualification.2]
+revision = "dac8a1270116493d968e7dcad3905df6a57b766a"
+command = "cg spec done 22.39.47 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "hf-build passed at the same revision (/out/logs/build-1.log); hf-done reported 2 failed, 120 passed, 2 skipped and 275 subtests passed: BetaLedgerPathsTest.test_ledger_check_reads_layerx_merge_ledger reports 6591 violations in the historical qualification ledger assigned to 22.39.87, and MakefileWaveSixTest.test_aggregates_dry_run_clean at line 118 still requires the two explicit tests/ci paths that do_3 removes. The second pytest command did not execute; preserve the full verification and landed tests, record this cross-task contradiction and stop under do_4 without a repair cycle or a completion claim."
+
+[continuation.3]
+prior_revision = "dac8a1270116493d968e7dcad3905df6a57b766a"
+base_revision = "401632bb3bf3e234e22f4d228473ad8e432754d2"
+ledger_settlement_revision = "7ed33041f02649a9a0bd4abd785de1981a18306b"
+merge_revision = "4ac71458c0624217c24b90906d22b8f8ae03f86a"
+decisions = [2771, 2800, 2857, 2884]
+gotcha = 3582
+observed = "The supplied checkout already merges the landed 22.39.87 ledger mapping and retains the seven attempt-2 paths without conflicts; no build or verification from the previous attempt is rerun as a baseline."
+ruling = "The landed wave-six settlement governs test-tests-python: retain tests/ci/test_real_node_build_ownership.py, tests/ci/test_runner_routing_container_runtime.py, tests/test_lxgb_producers.py, tests/test_beta_withdrawal_genesis.py and tests/ci, and add tools/ci/tests and both shell suites. Pytest ignores a path given twice unless asked to keep duplicates; the collection regression rejects repeated path tokens, as directed by do_5."
+makefile_scope = "The only task change to Makefile is test-tests-python; other content comes from the merged main line."
+settlements_reference = "tools/ci/tests/repair_22_39_54.kvx and tests/ci/repair_22_39_87.kvx record the landed producer and ledger settlements; retain their checks without deselection. The earlier conflict.wave6 and qualification.2 sections are historical and superseded by this ruling."
+build_reference = "/out/run/gates.jsonl: the final build row records the candidate revision, exact build command, exit code and private log."
+verify_reference = "/out/run/gates.jsonl: the final verify row records the candidate revision, exact cg spec done command, exit code and private log; qualification requires exit zero at the built revision."
+stop_rule = "Run hf-build and hf-done on the merged candidate; correct a remaining task-scoped consumer assertion to its real producer within the allowed repair budget, then stop on the bounded result. The external runner commits and publishes."
+
+[qualification.3.first]
+revision = "814563e43839c6a1b1d47230ab43713fb80805b5"
+command = "cg spec done 22.39.47 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "hf-build passed at this revision (/out/logs/build-1.log); the tools/ci suite passed with 121 passed, 2 existing skips and 276 subtests passed, then test_no_unreferenced_ci_shell_tests failed because publish-images.test.sh requires publication rows for the retired platform-authority and platform-core Dockerfiles."
+
+[repair.3.publication_inventory]
+producer = "services/platform/hosted/tests/beta-images.sh; services/platform/hosted/tests/repair_m1386_test.go::TestRepairM_1386_NativeImageSelection; services/platform/hosted/tests/test_beta_relay_archive_retired.py::test_beta_cluster_deploys_no_relay_archive"
+settlement = "The native image selection of 22.33.1386 removes layerx-node, layerx-core-boundary and layerx-receipt-authority from publication while their historical Dockerfiles remain in the repository."
+repair = "Keep the inventory sweep and every active Dockerfile coverage assertion, require that the two retired Dockerfiles have no publication row, and explicitly reject all three retired image names. No shell test is deleted or bypassed."
+build_reference = "/out/run/gates.jsonl: final build row records revision, command, exit and private log after this repair."
+verify_reference = "/out/run/gates.jsonl: final verify row records revision, command, exit and private log for the unchanged full declared verification; completion requires exit zero on the built candidate."

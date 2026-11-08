@@ -1,0 +1,140 @@
+[repair.22.39.87]
+mode = "BUILD"
+decision = 2884
+prior_decision = 2806
+prior_attempt_revision = "8141143a2ae5a29b47a288cc27d8867d8066abf8"
+gotcha = 3445
+acceptance = "22998.1"
+base_revision = "9b2c85fd7c52203005bf81b94abd12d3ab150ae2"
+prior_starting_revision = "c14b605b03d0ed39598a54bdcadcaea6880fb511"
+continuation_gotcha = 3579
+renamed_headers = 456
+repaired_strings = 2
+preserved_records = 4369
+header_repair = "Keep each first header and append .a2 to its later occurrence in file order; every record remains present; decision 2884 authorizes the subsequent schema and severity repairs."
+string_repair = "Escape the interior double quote after the two backslashes in the assumption values at original lines 494 and 4486; preserve the recorded text."
+checker_repair = "Admit the specified .a2 and subsequent numeric attempt suffixes after a finding identifier, retaining every existing record, value, severity, task and evidence check."
+deselections = "The tools_ci_deselect.txt file is empty; the tools/ci suite and its subprocess wrapper execute the ledger regression again."
+build_cmd = "python3 -m py_compile tests/ci/test_qualification_ledger_parses.py && bash -n scripts/ci/beta-ledger-check.sh"
+verify_cmd = "python3 -m pytest -q tests/ci/test_qualification_ledger_parses.py && python3 -m pytest -q tools/ci/tests && python3 -m pytest -q tests/ci/test_tools_ci_suite_passes.py"
+verified_revision = "/out/run/gates.jsonl: the final hf-done row names the exact candidate revision, command, exit code and private log; qualification requires exit zero at the built revision."
+publication = "The external runner commits; this record makes no claim that an unrun gate passed."
+
+[normalisation]
+current_main = "The runner reapplied the six attempt-1 paths onto origin/main at base_revision without conflicts before this continuation; the stale local main branch is not the integration base."
+additional_duplicate_headers = 4
+observed_sentences_completed = 2
+additional_string_escapes = 2
+pointer_generation = "cg spec render --root <isolated render root> renders the unchanged adapter configuration from the updated workflow; only generated CLAUDE.md is copied into the checkout to preserve task scope."
+original_string_repairs = "The two assumption escapes from attempt 1 remain; the corresponding observed sentences also need their interior quote escaped to keep the following # inside the string."
+completion_count = 12
+completion_count_basis = "Ten renamed sections and two missing symbols; the two observed-sentence repairs are recorded separately."
+build_evidence = "/out/run/gates.jsonl: final build row; revision, command, exit and log are recorded by hf-build."
+verify_evidence = "/out/run/gates.jsonl: final verify row; revision, command, exit and log are recorded by hf-done and must match the final build candidate."
+
+[severity.original_counts]
+advisory = 1
+assumption = 10
+blocker = 687
+blocking = 15
+critical = 7
+cross-task = 141
+cross_task = 10
+environment = 9
+high = 700
+low = 747
+major = 590
+medium = 767
+minor = 293
+needs-ruling = 1
+note = 210
+owner = 81
+pre-existing = 1
+spec = 2
+suspect = 54
+task = 33
+task-scoped = 3
+
+[severity.mapped_counts]
+blocker = 2188
+suspect = 1863
+assumption = 101
+note = 210
+
+[severity.final_counts]
+assumption = 101
+blocker = 2193
+note = 212
+suspect = 1863
+
+[record.1]
+original = "finding.17.3.4.attempt1"
+normalised = "finding.17.3.4.1"
+action = "Keep the text and evidence in observed and assumption under the exact six-key record grammar."
+
+[record.2]
+original = "finding.17.3.4.attempt2"
+normalised = "finding.17.3.4.2"
+action = "Keep the text and evidence in observed and assumption under the exact six-key record grammar."
+
+[record.3]
+original = "finding.17.3.4.attempt3"
+normalised = "finding.17.3.4.3"
+action = "Keep the text and evidence in observed and assumption under the exact six-key record grammar."
+
+[record.4]
+original = "finding.22.31.615.measurement"
+normalised = "finding.22.31.615.1.a2"
+action = "Keep the text and evidence in observed and assumption under the exact six-key record grammar."
+
+[record.5]
+original = "finding.22.31.615.gateway-dependent"
+normalised = "finding.22.31.615.2"
+action = "Keep the text and evidence in observed and assumption under the exact six-key record grammar."
+
+[record.6]
+original = "finding.22.31.622.dependency_gate"
+normalised = "finding.22.31.622.1.a2"
+action = "Keep the text and evidence in observed and assumption under the exact six-key record grammar."
+
+[record.7]
+original = "finding.22.31.622.attempt_2_facilitator"
+normalised = "finding.22.31.622.2.a2"
+action = "Keep the text and evidence in observed and assumption under the exact six-key record grammar."
+
+[record.8]
+original = "finding.22.31.622.attempt_3_snapshot_gate"
+normalised = "finding.22.31.622.3.a2"
+action = "Keep the text and evidence in observed and assumption under the exact six-key record grammar."
+
+[record.9]
+original = "observation.22.31.622.snapshot"
+normalised = "observation.22.31.622.1"
+action = "Keep the text and evidence in observed and assumption under the exact six-key record grammar."
+
+[record.10]
+original = "repair.22.37.30"
+normalised = "finding.22.37.30.1"
+action = "Keep the text and evidence in observed and assumption under the exact six-key record grammar."
+
+[record.11]
+original = "finding.22.31.620.2"
+normalised = "finding.22.31.620.2"
+action = "Complete symbol from the function enclosing the cited file line."
+
+[record.12]
+original = "finding.22.31.620.3"
+normalised = "finding.22.31.620.3"
+action = "Complete symbol from the function enclosing the cited file line."
+
+[observed.1]
+record = "finding.17.0.1.1"
+action = "Retain the existing observed sentence and escape its interior quote so the embedded # cannot turn the remaining sentence into a comment."
+
+[observed.2]
+record = "finding.17.0.1.1.a2"
+action = "Retain the duplicate attempt sentence with the same quote repair."
+
+[implementation.gotchas]
+observation_namespace = "The required observation.22.31.622.1 uses a three-component LayerX task; validate it with the full finding checks, including exactly six non-empty strings, matching task and task existence, rather than the legacy two-component observation rules."
+formatter = "The repository uses whitespace and final-newline hooks and declares no Python, shell or KVX language formatter; retain existing style."

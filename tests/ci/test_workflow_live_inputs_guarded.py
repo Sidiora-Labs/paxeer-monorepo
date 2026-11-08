@@ -3,6 +3,12 @@ import re
 
 import yaml
 
+from test_workflow_runs_on_routed import (
+    ROUTED,
+    assert_runner_routing,
+    assert_workflow_runs_on_routed,
+)
+
 
 ROOT = Path(__file__).resolve().parents[2]
 WORKFLOWS = ("platform.yml", "human.yml")
@@ -46,8 +52,18 @@ def input_references(value):
 def job_inputs(workflow, job):
     # A guard must name an input consumed outside the guard itself. Include
     # workflow env because GitHub passes it to every job, including matrix jobs.
-    body = {key: value for key, value in job.items() if key != "if"}
-    return input_references([workflow.get("env", {}), body])
+    body = {key: value for key, value in job.items() if key not in {"if", "steps"}}
+    # The exact routed form has a hosted-runner fallback and its own shape check.
+    if body.get("runs-on") == ROUTED:
+        del body["runs-on"]
+    inputs = input_references([workflow.get("env", {}), body])
+    for step in job.get("steps", []):
+        condition = step.get("if", "")
+        step_inputs = input_references(step)
+        if not can_run_without_inputs(condition):
+            step_inputs -= set(PRESENCE.findall(condition))
+        inputs |= step_inputs
+    return inputs
 
 
 def split_condition(expression, operator):
@@ -116,6 +132,40 @@ def automatic_jobs():
                 yield f"{name}:{job_name}", workflow, job
 
 
+def test_primary_platform_job_runs_unconditionally():
+    workflow = load_workflow("platform.yml")
+    job = workflow["jobs"]["build-lint-test"]
+    assert "if" not in job
+    registry_inputs = {
+        "vars.LAYERX_TEN_LINE_REGISTRY_SNAPSHOT",
+        "vars.LAYERX_TEN_LINE_REGISTRY_URL",
+    }
+    assert not registry_inputs.intersection(input_references(workflow.get("env", {})))
+    assert not registry_inputs.intersection(input_references(job.get("env", {})))
+    steps = {step["name"]: step for step in job["steps"]}
+    benchmark = steps["Build the source-bound published quickstart benchmark"]
+    presence = (
+        "(vars.LAYERX_TEN_LINE_REGISTRY_SNAPSHOT != '' || "
+        "vars.LAYERX_TEN_LINE_REGISTRY_URL != '')"
+    )
+    assert benchmark["if"] == presence
+    assert set(PRESENCE.findall(benchmark["if"])) == registry_inputs
+    assert not can_run_without_inputs(benchmark["if"])
+    assert benchmark["env"] == {
+        "LAYERX_TEN_LINE_REGISTRY_SNAPSHOT": "${{ vars.LAYERX_TEN_LINE_REGISTRY_SNAPSHOT }}",
+        "LAYERX_TEN_LINE_REGISTRY_URL": "${{ vars.LAYERX_TEN_LINE_REGISTRY_URL }}",
+    }
+    assert input_references(benchmark) == registry_inputs
+    upload = steps["Retain the actual published-package integration line counts"]
+    assert upload["if"] == f"always() && {presence}"
+    assert not can_run_without_inputs(upload["if"])
+    middleware = steps[
+        "Build the framework integrations and scan client bundles for secrets"
+    ]
+    assert "if" not in middleware
+    assert not job_inputs(workflow, job)
+
+
 def test_scheduled_platform_jobs_guard_live_inputs():
     workflow = load_workflow("platform.yml")
     assert workflow["on"]["schedule"], "Platform must retain its scheduled checks"
@@ -150,3 +200,9 @@ def test_guard_names_an_input_the_job_reads():
             )
             checked.add(name)
     assert checked, "No live job guards were inspected"
+
+
+def test_live_input_workflows_keep_runner_routing():
+    assert_runner_routing()
+    for name in WORKFLOWS:
+        assert_workflow_runs_on_routed(name, load_workflow(name))

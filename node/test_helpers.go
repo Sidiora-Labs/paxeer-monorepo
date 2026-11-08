@@ -19,6 +19,7 @@ import (
 	layerxchainstypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxchains/types"
 	seqtypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/sequencer/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/client"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/store/prefix"
 	slashingtypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/slashing/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/staking"
 	ssconfig "github.com/Sidiora-Labs/Paxeer-X-Network/storage/config"
@@ -48,6 +49,7 @@ import (
 	authtypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/auth/types"
 	banktypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/bank/types"
 	stakingtypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/staking/types"
+	upgradetypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/upgrade/types"
 
 	gigaconfig "github.com/Sidiora-Labs/Paxeer-X-Network/engine/executor/config"
 )
@@ -76,11 +78,12 @@ func (t TestTx) GetGasEstimate() uint64 {
 }
 
 type TestAppOpts struct {
-	GenesisTime    time.Time
-	UseSc          bool
-	EnableGiga     bool
-	EnableGigaOCC  bool
-	ReceiptBackend string
+	GenesisTime      time.Time
+	UseSc            bool
+	EnableGiga       bool
+	EnableGigaOCC    bool
+	ReceiptBackend   string
+	ImportNumWorkers int
 }
 
 func (t TestAppOpts) Get(s string) interface{} {
@@ -100,6 +103,9 @@ func (t TestAppOpts) Get(s string) interface{} {
 	}
 	if s == FlagSSBackend {
 		return "pebbledb"
+	}
+	if s == FlagSSImportNumWorkers && t.ImportNumWorkers != 0 {
+		return t.ImportNumWorkers
 	}
 	if s == gigaconfig.FlagEnabled {
 		return t.EnableGiga
@@ -426,6 +432,26 @@ func SetupWithAppOptsAndDefaultHome(isCheckTx bool, appOpts TestAppOpts, enableE
 // plan and stays there through commit and reopen.
 func recordV6120Done(a *App, ctx sdk.Context) {
 	a.UpgradeKeeper.SetDone(ctx, V6120Upgrade)
+	a.RefreshPrecompiles(ctx)
+}
+
+func preparePreV6120TestChain(tb testing.TB, a *App, ctx sdk.Context) {
+	tb.Helper()
+	require.Zero(tb, a.UpgradeKeeper.GetDoneHeight(ctx, V6120Upgrade))
+	versions := prefix.NewStore(ctx.KVStore(a.GetKey(upgradetypes.StoreKey)), []byte{upgradetypes.VersionMapByte})
+	for _, name := range v6120NewModules {
+		versions.Delete([]byte(name))
+		store := ctx.KVStore(a.GetKey(name))
+		iterator := store.Iterator(nil, nil)
+		var stale [][]byte
+		for ; iterator.Valid(); iterator.Next() {
+			stale = append(stale, bytes.Clone(iterator.Key()))
+		}
+		require.NoError(tb, iterator.Close())
+		for _, key := range stale {
+			store.Delete(key)
+		}
+	}
 	a.RefreshPrecompiles(ctx)
 }
 
