@@ -48,6 +48,7 @@ fn low_limb(x: u128) -> CodecResult<u64> {
 ///
 /// # Errors
 /// Returns `ARITHMETIC` when `t` is zero or the quotient exceeds 128 bits.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn mul_div_rem(b: u128, s: u64, t: u64) -> CodecResult<(u128, u64)> {
     if t == 0 {
         return Err(ARITHMETIC);
@@ -273,4 +274,121 @@ pub fn conservation_holds(
         .and_then(|v| v.checked_add(liability))
         .ok_or(ARITHMETIC)?;
     Ok(sum == deposits)
+}
+
+const PAYOUT_BPS: u64 = 10_000;
+const PAYOUT_PEER_ORDER: [usize; MAX_WORKERS] = [
+    0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25,
+    26, 27, 28, 29, 30, 31,
+];
+
+#[cfg_attr(target_arch = "wasm32", inline(never))]
+pub fn split_settled_amount(
+    amount: Amount,
+    profile: &crate::policy::RoomProfile,
+    peers: &[(WorkerId, u64)],
+    faults: &[u32],
+) -> CodecResult<crate::rewards::PayoutShares> {
+    profile.validate()?;
+    if amount == 0 {
+        return Err(F06_INVALID_AMOUNT);
+    }
+    if peers.is_empty()
+        || peers.len() > MAX_WORKERS
+        || faults.is_empty()
+        || faults.len() > crate::laps::LAP_BATCH_MAX
+    {
+        return Err(CAPACITY);
+    }
+    if peers
+        .windows(2)
+        .any(|p| p.guest_index(0).0 >= p.guest_index(1).0)
+        || peers.iter().any(|p| p.1 == 0)
+        || faults
+            .iter()
+            .any(|mask| peers.len() < 32 && mask >> peers.len() != 0)
+    {
+        return Err(NON_CANONICAL);
+    }
+    let host = mul_div_rem(amount, u64::from(profile.host_share_bps), PAYOUT_BPS)?.0;
+    let protocol = mul_div_rem(amount, u64::from(profile.protocol_share_bps), PAYOUT_BPS)?.0;
+    let pool = amount
+        .checked_sub(host)
+        .and_then(|a| a.checked_sub(protocol))
+        .ok_or(ARITHMETIC)?;
+    let mut result = crate::rewards::PayoutShares {
+        host,
+        protocol,
+        peer_count: peers.len(),
+        amounts: [0; MAX_WORKERS],
+    };
+    let faults = if faults.iter().all(|mask| *mask == 0) {
+        faults.guest_index(..1)
+    } else {
+        faults
+    };
+    let laps = faults.len() as u128;
+    for (lap, &mask) in faults.iter().enumerate() {
+        let budget = pool / laps + u128::from((lap as u128) < pool % laps);
+        let mut total = 0u64;
+        for (i, &(_, weight)) in peers.iter().enumerate() {
+            if mask & (1u32 << i) == 0 {
+                total = total.checked_add(weight).ok_or(ARITHMETIC)?;
+            }
+        }
+        if total == 0 {
+            return Err(F06_INVALID_AMOUNT);
+        }
+        let mut remainders = [0; MAX_WORKERS];
+        let mut left = budget;
+        for (i, &(_, weight)) in peers.iter().enumerate() {
+            if mask & (1u32 << i) != 0 {
+                continue;
+            }
+            let (share, remainder) = mul_div_rem(budget, weight, total)?;
+            *result.amounts.guest_index_mut(i) = result
+                .amounts
+                .guest_index(i)
+                .checked_add(share)
+                .ok_or(ARITHMETIC)?;
+            *remainders.guest_index_mut(i) = remainder;
+            left = left.checked_sub(share).ok_or(ARITHMETIC)?;
+        }
+        let mut order = PAYOUT_PEER_ORDER;
+        crate::codec::sort_by(order.guest_index_mut(..peers.len()), |&a, &b| {
+            remainders
+                .guest_index(b)
+                .cmp(remainders.guest_index(a))
+                .then(a.cmp(&b))
+        });
+        for &i in order.guest_index(..peers.len()) {
+            if left == 0 {
+                break;
+            }
+            if *remainders.guest_index(i) == 0 {
+                return Err(F06_LEDGER_INVARIANT_VIOLATION);
+            }
+            *result.amounts.guest_index_mut(i) = result
+                .amounts
+                .guest_index(i)
+                .checked_add(1)
+                .ok_or(ARITHMETIC)?;
+            left -= 1;
+        }
+        if left != 0 {
+            return Err(F06_LEDGER_INVARIANT_VIOLATION);
+        }
+    }
+    if result
+        .amounts
+        .guest_index(..peers.len())
+        .iter()
+        .try_fold(host.checked_add(protocol).ok_or(ARITHMETIC)?, |sum, a| {
+            sum.checked_add(*a).ok_or(ARITHMETIC)
+        })?
+        != amount
+    {
+        return Err(F06_LEDGER_INVARIANT_VIOLATION);
+    }
+    Ok(result)
 }

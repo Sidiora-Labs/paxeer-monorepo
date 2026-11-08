@@ -495,7 +495,7 @@ def test_cosmos_submission_vector():
 
 
 def test_protobuf_queries():
-    assert P.pb_bytes(1, P.UPGRADE) == b"\x0a\x07v6.12.0"
+    assert P.pb_bytes(1, P.UPGRADE) == b"\x0a\x04v7.0"
     assert P.pb_fields(P.pb_uint(1, 300) + P.pb_bytes(2, b"ab")) == [
         (1, 0, 300),
         (2, 2, b"ab"),
@@ -609,6 +609,8 @@ def exercise_driver_check(name, url, work):
     script = r"""
 set -euo pipefail
 release=$1; logs=$2; url=$3; halt_height=20
+plan=$(jq -er .upgrade "$release/version.json")
+release_version=$(jq -er .version "$release/version.json")
 credentials=$logs/credentials; units=(node0 node1 node2 node3); sidecar_pids=()
 rpc_url() { printf '%s\n' "$url"; }
 evm_url() { printf '%s\n' "$url"; }

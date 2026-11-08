@@ -2026,7 +2026,6 @@ pub(crate) fn policy_dry_run<A: HumanAuthorityBoundary>(
 ) -> Result<Dispatched, Rejection> {
     use crate::agent_rpc_wire::PolicyDryRunShape;
     use crate::policy::{DecisionReason, EvaluationMode, Explanation, Outcome};
-    use layerx_agent_api::policy::{PolicyDecisionReason, PolicyOutcome};
     let id = ctx.request_id;
     let malformed_response =
         || rejection(ErrorClass::InternalFault, id, "owner.response_malformed");
@@ -2061,37 +2060,6 @@ pub(crate) fn policy_dry_run<A: HumanAuthorityBoundary>(
                     DecisionReason::EvaluationFailure => "evaluation_failure",
                 },
                 explanation.authority_statement,
-            )
-        }
-        PolicyDryRunShape::Legacy(legacy) => {
-            let response = owner
-                .lock()
-                .and_then(|mut guard| {
-                    let control = guard.session_control.clone();
-                    guard.policy_dry_run_legacy(context, &control, legacy)
-                })
-                .map_err(|error| owner_error(id, error))?;
-            let result = response
-                .value
-                .validate()
-                .map_err(|_| malformed_response())?;
-            policy_dry_run_value(
-                match result.outcome {
-                    PolicyOutcome::Allow => "allow",
-                    PolicyOutcome::Deny => "deny",
-                },
-                result.policy_version.as_str(),
-                &result.matched_rules,
-                result.deciding_rule.as_deref(),
-                match result.reason {
-                    PolicyDecisionReason::PermittedByRule => "permitted_by_rule",
-                    PolicyDecisionReason::ExplicitDeny => "explicit_deny",
-                    PolicyDecisionReason::ApprovalRequired => "approval_required",
-                    PolicyDecisionReason::NoPermittingRule => "no_permitting_rule",
-                    PolicyDecisionReason::InvalidContext => "invalid_context",
-                    PolicyDecisionReason::EvaluationFailure => "evaluation_failure",
-                },
-                &result.authority_statement,
             )
         }
     };

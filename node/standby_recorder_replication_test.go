@@ -4,8 +4,12 @@ import (
 	"bytes"
 	"context"
 	"crypto/ed25519"
+	"crypto/rand"
 	"crypto/sha256"
+	"crypto/x509"
+	"crypto/x509/pkix"
 	"encoding/hex"
+	"encoding/pem"
 	"fmt"
 	"math"
 	"math/big"
@@ -41,6 +45,50 @@ import (
 	"github.com/holiman/uint256"
 	"github.com/stretchr/testify/require"
 )
+
+func replicationTLSFixture(t *testing.T) (sequencer.ReplicationTLSConfig, sequencer.ReplicationTLSConfig) {
+	t.Helper()
+	dir := t.TempDir()
+	public, key, err := ed25519.GenerateKey(rand.Reader)
+	require.NoError(t, err)
+	ca := &x509.Certificate{
+		SerialNumber: big.NewInt(1), Subject: pkix.Name{CommonName: "replication-test-root"},
+		NotBefore: time.Now().Add(-time.Hour), NotAfter: time.Now().Add(time.Hour),
+		IsCA: true, BasicConstraintsValid: true, KeyUsage: x509.KeyUsageCertSign,
+	}
+	der, err := x509.CreateCertificate(rand.Reader, ca, ca, public, key)
+	require.NoError(t, err)
+	roots := filepath.Join(dir, "roots.pem")
+	require.NoError(t, os.WriteFile(roots, pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: der}), 0o600))
+	issue := func(name string, serial int64) (sequencer.ReplicationTLSConfig, string) {
+		t.Helper()
+		public, private, err := ed25519.GenerateKey(rand.Reader)
+		require.NoError(t, err)
+		cert := &x509.Certificate{
+			SerialNumber: big.NewInt(serial), DNSNames: []string{name},
+			NotBefore: ca.NotBefore, NotAfter: ca.NotAfter, KeyUsage: x509.KeyUsageDigitalSignature,
+			ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth, x509.ExtKeyUsageServerAuth},
+		}
+		der, err := x509.CreateCertificate(rand.Reader, cert, ca, public, key)
+		require.NoError(t, err)
+		parsed, err := x509.ParseCertificate(der)
+		require.NoError(t, err)
+		digest := sha256.Sum256(parsed.RawSubjectPublicKeyInfo)
+		cfg := sequencer.ReplicationTLSConfig{
+			CAFile: roots, CertFile: filepath.Join(dir, name+".pem"), KeyFile: filepath.Join(dir, name+".key"),
+		}
+		require.NoError(t, os.WriteFile(cfg.CertFile, pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: der}), 0o600))
+		pk, err := x509.MarshalPKCS8PrivateKey(private)
+		require.NoError(t, err)
+		require.NoError(t, os.WriteFile(cfg.KeyFile, pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: pk}), 0o600))
+		return cfg, hex.EncodeToString(digest[:])
+	}
+	primary, primaryPin := issue("primary.test", 2)
+	standby, standbyPin := issue("standby.test", 3)
+	primary.PeerName, primary.PeerSPKI = "standby.test", standbyPin
+	standby.PeerName, standby.PeerSPKI = "primary.test", primaryPin
+	return primary, standby
+}
 
 func TestStandbyReplicatesRecorderGroupsThroughOpenAccount(t *testing.T) {
 	ctx := context.Background()
@@ -118,11 +166,13 @@ func TestStandbyReplicatesRecorderGroupsThroughOpenAccount(t *testing.T) {
 	require.NoError(t, err)
 	address := l.Addr().String()
 	require.NoError(t, l.Close())
+	primaryTLS, standbyTLS := replicationTLSFixture(t)
 	standbyCtx, cancel := context.WithCancel(ctx)
 	standby, err := sequencer.StartStandby(standbyCtx, sequencer.Config{
 		Role: sequencer.RoleStandby, WALDir: filepath.Join(dir, "standby-wal"),
 		ReceiptKeyFile: writeSeed("standby-receipt", standbySeed[:]),
 		StandbyAddress: address, ReplicationTimeout: 2 * time.Second,
+		ReplicationTLS: standbyTLS,
 	}, backup)
 	require.NoError(t, err)
 	t.Cleanup(func() {
@@ -133,7 +183,7 @@ func TestStandbyReplicatesRecorderGroupsThroughOpenAccount(t *testing.T) {
 	require.NoError(t, err)
 	t.Cleanup(primaryWAL.Close)
 	repl, err := sequencer.NewReplicator(sequencer.ReplicatorConfig{
-		WAL: primaryWAL, Dial: sequencer.DialStandby(address, 2*time.Second), ReplicationTimeout: 2 * time.Second,
+		WAL: primaryWAL, Dial: sequencer.DialStandby(address, 2*time.Second, primaryTLS), ReplicationTimeout: 2 * time.Second,
 	})
 	require.NoError(t, err)
 	t.Cleanup(repl.Close)

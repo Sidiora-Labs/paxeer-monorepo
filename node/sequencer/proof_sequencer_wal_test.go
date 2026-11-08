@@ -215,8 +215,14 @@ func TestProofSequencerWal(t *testing.T) {
 		require.Equal(t, uint64(1), f.backup.app.EvmKeeper.GetNonce(f.backup.openCtx(), sender.EvmAddress))
 		// A later expiry is a real renewal, not a duplicate. Retrying the entire
 		// retained window after it must neither append nor rewind the lease.
-		renewAt := f.holder.Expiry()
+		expiry := f.holder.Expiry()
+		require.ErrorIs(t, f.holder.RenewAt(expiry), sequencer.ErrLeaseFenced)
+		require.Equal(t, before, driverEntries(t, f.dir), "an expired renewal must not reach the standby")
+		renewAt := expiry.Add(-time.Minute)
+		require.True(t, renewAt.Before(expiry))
+		require.LessOrEqual(t, expiry.Sub(renewAt), 3*time.Minute/2)
 		require.NoError(t, f.holder.RenewAt(renewAt))
+		require.Equal(t, renewAt.Add(3*time.Minute), f.holder.Expiry())
 		renewed := driverEntries(t, f.dir)
 		require.Len(t, renewed, len(before)+1)
 		require.Equal(t, &wal.Lease{
