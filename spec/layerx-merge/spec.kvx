@@ -183048,7 +183048,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.125]
 title = "Bring the committed proof, fiat, portable and mirror test suites to green and retire their baseline entries"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.39.74"]
@@ -210663,7 +210663,7 @@ do_4 = "Decision 2939, gotcha 3646: the baseline names this task for eighteen fu
 
 [task.22.39.160]
 title = "Make the nested Go module tools/paxctl pass the read-only dependency listing the checksum test runs"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 3
 requires = ["22.39.84"]
@@ -334341,7 +334341,7 @@ do_6 = "Attempt 3: the closure check is a gate over the whole issue programme; i
 
 [task.22.39.164]
 title = "Make the bringup and benchmark Python suites pass again following their producers, provide nginx in the tools-python job and retire their baseline entries"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 3
 requires = ["22.39.84"]
@@ -334403,7 +334403,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.158]
 title = "Bring the container scope lists, the kernel init role check and the image reference scan to the current tree"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 3
 requires = ["22.39.84"]
@@ -334465,7 +334465,7 @@ do_4 = "Attempt note (gotcha 3609, decision 2905): the baseline family of this t
 
 [task.22.39.156]
 title = "Make the jev suites pass again by committing the failure log fixtures and following the README, lockfile and client answer producers"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 3
 requires = ["22.39.84"]
@@ -334784,7 +334784,7 @@ do_4 = "Attempt 2 (continue, gotcha 3610, decisions 2820 and 2901): the attempt-
 
 [task.22.39.131]
 title = "Repair the conformance copy checker, module registry and daemon admission Python suites and retire their baseline entries"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.39.83"]
