@@ -210418,7 +210418,7 @@ do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete ap
 
 [task.22.39.165]
 title = "Build the evmone 0.12.0 shared library the Giga executor loads with a make target from the pinned upstream source and run it in the node build check"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
