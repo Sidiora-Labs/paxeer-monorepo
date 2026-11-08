@@ -334168,7 +334168,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.159]
 title = "Make the system docs generator and its two tests agree on the precompiles page header and the nested ABI listing"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 3
 requires = ["22.39.84"]
