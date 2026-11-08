@@ -210094,7 +210094,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.138]
 title = "Make the sixteen node package tests that fail once the recorded failures are skipped pass alone and in any selection"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.143", "22.39.148", "22.39.150"]
