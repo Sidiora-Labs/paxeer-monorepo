@@ -334722,7 +334722,7 @@ do_9 = "Attempt 8 (continue, gotcha 3565, decisions 2771, 2849, 2857 and 2872): 
 
 [task.22.39.134]
 title = "Bring the ramp dependency policy and ramp journey Python suites to green and retire their baseline entries"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.39.83"]
