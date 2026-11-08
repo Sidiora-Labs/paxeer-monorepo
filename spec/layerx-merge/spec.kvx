@@ -335558,7 +335558,7 @@ do_3 = "Attempt 2 (continue, gotcha 3545, decisions 2771 and 2857, gotcha 3052 o
 
 [task.22.39.102]
 title = "Run every public check job on one explicit Ubuntu image and one explicit macOS image"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.39.51"]
