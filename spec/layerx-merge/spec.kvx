@@ -204062,7 +204062,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.9.35.19]
 title = "Read the call-bound preparation in the native-effect carrier and the program settlement, requirement, presentation and policy families"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["9.35.17", "22.99.158", "22.99.159", "22.99.160", "9.98.4", "22.31.572", "22.31.614", "22.31.620"]
