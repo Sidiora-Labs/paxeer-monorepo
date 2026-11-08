@@ -35978,3 +35978,35 @@ symbol = "w7_owner_binding.rs::a_foreign_key_signature_over_the_owner_preimage_i
 observed = "Attempt 11 at 390327c4ad89: build exit 0; verification exit 1 twice, the final run passing every target except proof_agentd, where pending_attempt_recovers_original_hash_height_and_exact_request panicked with Corrupt when the idempotency store opened on the root the outbox had written; log /out/logs/verify-2.log."
 assumption = "The expiry alignment and the directory repair of attempt 11 are complete; the shared root of the ported case is the only failure."
 severity = "high"
+
+[finding.22.39.75.10]
+task = "22.39.75"
+file = "tests/ci/test_launchpad_go_tests_wired.py"
+symbol = "test_launchpad_go_tests_wired.py"
+observed = "Attempt 10 at 5bc20d955595: build exit 0; verification exit 1 then 2: the second run passed every module from shared to trading-charts and the gateway module failed TestRepair_48_export_capability (PostgreSQL and Redis handed the same port 33641); notifications, security and user cannot list or compile; log /out/logs/verify-2.log."
+assumption = "The port helper and the three stale manifests are the failures; the tested code of every module that ran is green."
+severity = "high"
+
+[finding.22.99.77.33]
+task = "22.99.77"
+file = "programs/crates/layerx-programs-ai-market"
+symbol = "layerx-programs-ai-market"
+observed = "Attempt 31 at 568123b3f048 (base 7dc80ac4fc2f): build exit 2 at 0a1746a443bf (dependency archive download HTTP 504) then exit 0 at e24f0abd2ec7 and exit 0 at 568123b3; verification exit 1 at e24f0abd2ec7 with seventeen failing targets; no verification budget remained after the reader repair; log /out/logs/verify-1.log."
+assumption = "The fuel work is complete and right; the remaining mismatches are four classified refusal and replay-support defects."
+severity = "high"
+
+[finding.9.35.22.7]
+task = "9.35.22"
+file = "services/agent/crates/layerx-agentd/tests/w7_owner_binding.rs::a_foreign_key_signature_over_the_owner_preimage_is_refused"
+symbol = "w7_owner_binding.rs::a_foreign_key_signature_over_the_owner_preimage_is_refused"
+observed = "Attempt 12 at c96ee7ed4414 (base 7d49f6b87c): build exit 0; verification exit 101: every target through proof_agentd passed and repair_22_31_217 failed two wind-down cases at line 1807 with Err(Preparation) from settle(&store); log /out/logs/verify-1.log."
+assumption = "The test helper is identical to main; the settlement reads two different actors for one call."
+severity = "high"
+
+[finding.22.39.161.2]
+task = "22.39.161"
+file = "tools/qualification/test_beta_driver.py::BetaDriverTests::test_multichain_inventory_reports_absent_infrastructure_as_failed"
+symbol = "test_beta_driver.py::BetaDriverTests::test_multichain_inventory_reports_absent_infrastructure_as_failed"
+observed = "Attempt 2 at d85c25147bc4 (verified revision c2899bf12994): build exit 0; verification exit 1: the schema check and every crate test passed and two beta driver inventory cases failed after 279 seconds with the real_stack flag false; log /out/logs/verify-1.log."
+assumption = "The schema work is complete; the failing inventory belongs to the qualification suite owner."
+severity = "high"
