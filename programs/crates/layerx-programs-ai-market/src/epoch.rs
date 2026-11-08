@@ -722,6 +722,7 @@ fn compose_in_state(
     let settlement = *source
         .feature_sections
         .guest_index(Section::SettlementClaims.index());
+
     let sections = rolled.feature_sections;
     let frozen = freeze(
         &sections,
@@ -1163,7 +1164,7 @@ fn with_region<T>(
     next: &mut [u8],
     scratch: &mut [u8],
     produce: impl FnOnce(&[u8], &mut [u8]) -> CodecResult<(T, Option<usize>)>,
-    update: impl FnOnce(&Region, &SharedState<'_>, &SharedState<'_>, &T) -> CodecResult<Region>,
+    update: impl FnOnce(Region, &SharedState<'_>, &SharedState<'_>, &T) -> CodecResult<Region>,
 ) -> CodecResult<(T, Option<usize>)> {
     let state = decode_shared_state(current)?;
     let (region, table) = split_joint(*state.feature_sections.guest_index(ADMISSION))?;
@@ -1174,8 +1175,7 @@ fn with_region<T>(
         .split_at_mut_checked(MAX_STATE_BYTES)
         .ok_or(CAPACITY)?;
     let (joint, control) = rest.split_at_mut_checked(JOINT_OUT).ok_or(CAPACITY)?;
-    let without = state.replace_section(Section::ReputationAdmission, table)?;
-    let len = encode_shared_state(&without, stripped, control)?;
+    let len = strip_region(state.clone(), table, stripped, control)?;
     let (value, written) = produce(stripped.get(..len).ok_or(CAPACITY)?, next)?;
     let Some(written) = written else {
         return Ok((value, None));
@@ -1187,8 +1187,32 @@ fn with_region<T>(
     if again.is_some() {
         return Err(NON_CANONICAL);
     }
-    let region = update(&region, &state, &produced, &value)?;
-    let joint_len = encode_joint(&region, table, joint)?;
+    let region = update(region, &state, &produced, &value)?;
+    let state_len = restore_region(produced, &region, table, joint, next, control)?;
+    Ok((value, Some(state_len)))
+}
+
+#[cfg_attr(target_arch = "wasm32", inline(never))]
+fn strip_region(
+    state: SharedState<'_>,
+    table: &[u8],
+    stripped: &mut [u8],
+    control: &mut [u8],
+) -> CodecResult<usize> {
+    let without = state.with_section(Section::ReputationAdmission, table)?;
+    encode_shared_state(&without, stripped, control)
+}
+
+#[cfg_attr(target_arch = "wasm32", inline(never))]
+fn restore_region(
+    produced: SharedState<'_>,
+    region: &Region,
+    table: &[u8],
+    joint: &mut [u8],
+    next: &mut [u8],
+    control: &mut [u8],
+) -> CodecResult<usize> {
+    let joint_len = encode_joint(region, table, joint)?;
     let candidate = produced.with_section(
         Section::ReputationAdmission,
         joint.get(..joint_len).ok_or(CAPACITY)?,
@@ -1200,8 +1224,7 @@ fn with_region<T>(
             .len(),
         candidate.encoded_len()?,
     )?;
-    let state_len = encode_shared_state(&candidate, next, control)?;
-    Ok((value, Some(state_len)))
+    encode_shared_state(&candidate, next, control)
 }
 
 /// Runs any producer that reads the F08 table only (F02, F03, F04, F06, F08, F09, F10, F01
@@ -1215,6 +1238,7 @@ fn with_region<T>(
 /// Propagates `produce`'s refusals; `NON_CANONICAL` when the produced joint section carries an
 /// F07 region; the joint split/encode, capacity and state codec refusals. On any error
 /// `current` is unchanged and the outputs must be discarded.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn carry_reputation<T>(
     current: &[u8],
     next: &mut [u8],
@@ -1222,7 +1246,7 @@ pub fn carry_reputation<T>(
     produce: impl FnOnce(&[u8], &mut [u8]) -> CodecResult<(T, Option<usize>)>,
 ) -> CodecResult<(T, Option<usize>)> {
     with_region(current, next, scratch, produce, |region, _, _, _| {
-        Ok(region.clone())
+        Ok(region)
     })
 }
 
@@ -1259,7 +1283,7 @@ fn epoch_row<'a>(
 
 /// `history_allowed` frozen at the F05 seal of `epoch` from the sealed `produced` state.
 #[cfg_attr(target_arch = "wasm32", inline(never))]
-fn seal_region(region: &Region, produced: &SharedState<'_>, epoch: u64) -> CodecResult<Region> {
+fn seal_region(mut region: Region, produced: &SharedState<'_>, epoch: u64) -> CodecResult<Region> {
     if region.seal != Presence::Absent {
         return Err(NON_CANONICAL);
     }
@@ -1298,10 +1322,8 @@ fn seal_region(region: &Region, produced: &SharedState<'_>, epoch: u64) -> Codec
         workers.get(..count).ok_or(CAPACITY)?,
         u8::try_from(eligible).map_err(|_| CAPACITY)?,
     )?;
-    Ok(Region {
-        state: region.state.clone(),
-        seal: Presence::Present(seal),
-    })
+    region.seal = Presence::Present(seal);
+    Ok(region)
 }
 
 /// Byte length of the F05 current record at the start of `tail`.
@@ -1447,9 +1469,9 @@ pub fn aggregate(
                 let Presence::Present(root) = progress.root else {
                     return Err(NON_CANONICAL);
                 };
-                complete_region(region, before, produced, progress.epoch, root, ctx.height)
+                complete_region(&region, before, produced, progress.epoch, root, ctx.height)
             } else {
-                Ok(region.clone())
+                Ok(region)
             }
         },
     )?;

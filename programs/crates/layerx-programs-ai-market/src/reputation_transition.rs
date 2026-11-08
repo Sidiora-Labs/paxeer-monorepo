@@ -31,6 +31,7 @@ pub struct SegmentBinding {
 ///
 /// # Errors
 /// Propagates `ReputationCurrent::matches_segment`'s `NON_CANONICAL`/`F07_SEGMENT_MISMATCH` refusals; returns `NON_CANONICAL` when `height` is zero or before the last transition; `F07_BINDING_MISMATCH` when the config moves backwards or `reason` disagrees with the binding change; `WRONG_EPOCH` when the last applied epoch is not completed; `ARITHMETIC` when the generation overflows; propagates the digest and validation refusals.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn reset_segment(
     old: &ReputationCurrent,
     old_key: SegmentKey,
@@ -99,6 +100,7 @@ pub fn reset_segment(
 ///
 /// # Errors
 /// Propagates `ReputationCurrent::matches_segment`'s and `reset_segment`'s refusals.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn rollover_segment(
     old: &ReputationCurrent,
     old_key: SegmentKey,
@@ -150,6 +152,7 @@ pub(crate) struct EpochTally {
     dead_code,
     reason = "crate-internal F07 primitive: its F05/F06 bridge caller is not in tree; tests/reputation_vectors.rs drives it via #[path]"
 )]
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub(crate) fn update_record(
     record: &ReputationCurrent,
     key: SegmentKey,
@@ -243,6 +246,7 @@ pub(crate) struct CompletionDraft {
     reason = "crate-internal F07 primitive: its F05/F06 bridge caller is not in tree; tests/reputation_vectors.rs drives it via #[path]"
 )]
 impl CompletionDraft {
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub(crate) fn begin(
         state: &ReputationState,
         frozen: FrozenBinding,
@@ -312,6 +316,7 @@ impl CompletionDraft {
             covered: 0,
         }))
     }
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub(crate) fn apply_worker(
         &mut self,
         key: SegmentKey,
@@ -364,6 +369,7 @@ impl CompletionDraft {
         self.covered = covered;
         Ok(())
     }
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub(crate) fn finish(mut self) -> CodecResult<(ReputationState, CompletedHistory)> {
         if self.cursor != self.roster_len {
             return Err(F07_EPOCH_NOT_SEALED);
@@ -450,6 +456,7 @@ pub struct Region {
     dead_code,
     reason = "joint-section runtime used by epoch.rs; tests/reputation_vectors.rs includes this file via #[path]"
 )]
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn split_joint(section: &[u8]) -> CodecResult<(Option<Region>, &[u8])> {
     if section.get(..4) != Some(SECTION_MAGIC.as_slice()) {
         return Ok((None, section));
@@ -557,6 +564,7 @@ pub fn encode_joint(region: &Region, table: &[u8], out: &mut [u8]) -> CodecResul
     dead_code,
     reason = "joint-section runtime used by epoch.rs; tests/reputation_vectors.rs includes this file via #[path]"
 )]
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn seal_history(
     state: &ReputationState,
     epoch: u64,
@@ -604,6 +612,7 @@ pub fn seal_history(
     dead_code,
     reason = "joint-section runtime used by epoch.rs; tests/reputation_vectors.rs includes this file via #[path]"
 )]
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn open_segments(
     state: &ReputationState,
     previous: SegmentBinding,
@@ -678,6 +687,7 @@ pub fn open_segments(
     dead_code,
     reason = "joint-section runtime used by epoch.rs; tests/reputation_vectors.rs includes this file via #[path]"
 )]
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn bound_record(
     state: &ReputationState,
     worker: WorkerId,
@@ -732,6 +742,7 @@ pub fn check_expected(
     dead_code,
     reason = "joint-section runtime used by epoch.rs; tests/reputation_vectors.rs includes this file via #[path]"
 )]
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn set_status(
     record: &ReputationCurrent,
     key: SegmentKey,
@@ -834,6 +845,7 @@ pub struct WorkerObservation {
     clippy::too_many_arguments,
     reason = "every input is a distinct authenticated producer value of the completion"
 )]
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub(crate) fn complete_epoch(
     state: &ReputationState,
     seal: Presence<HistorySeal>,
