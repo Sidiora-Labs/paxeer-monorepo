@@ -35578,3 +35578,11 @@ symbol = "upgrades_merge_bonds_test.go::TestMergePlanReturnsGuarantorBonds"
 observed = "Attempt 1 at c8f1f9e1cf2a (verified at e26283413c3a): three builds, exit 0 at the last; verification exit 1: two of the three tests passed and TestHostedKernelProgramsABISurvivesRestart failed at line 269 with ProcessBlock panic invalid height 42 expected 1; the repaired tree was never verified."
 assumption = "The restart repair in the attempt-1 tree is sound and only the baseline file was outside the paths."
 severity = "high"
+
+[finding.22.39.122.4]
+task = "22.39.122"
+file = "services/agent/crates/layerx-agentd/src/approval/mod.rs"
+symbol = "mod.rs"
+observed = "Attempt 4 at 545af8953d2a (verified at 919231dd61d2): build exit 0; verification exit 101: 331 passed, 2 failed, both at session_control.rs line 3530 with the left side holding tenant-authorization and tenant-traces and the right side tenant-authorization alone."
+assumption = "The instruction of round 257 transcribed one of the two sinks; the attempt tree is otherwise green."
+severity = "high"
