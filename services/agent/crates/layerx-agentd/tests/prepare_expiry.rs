@@ -128,50 +128,8 @@ fn evm_prepared() -> evm::Prepared {
     prepared
 }
 
-// The retained lifecycle consumes canonical authorization envelopes. Reopen the
-// exact ledger payload through its production decoder, without legacy preparation.
-fn prepared() -> layerx_agentd::prepare::Prepared {
-    let evm = evm_prepared();
-    let payload_length = send_payload().len();
-    let payload = must(Payload::new(
-        &registry(),
-        activity_type(),
-        &evm.call.data[68..68 + payload_length],
-    ));
-    let authority = must(Authority::owner(b"external-authority"));
-    let mut builder = EnvelopeBuilder::new();
-    must(
-        builder
-            .protocol_version(layerx_wire::limits::PROTOCOL_VERSION)
-            .and_then(|b| b.network_id(17))
-            .and_then(|b| b.activity_type(activity_type()))
-            .and_then(|b| b.actor_did(must(Did::new(b"did:layerx:expiry"))))
-            .and_then(|b| b.authority(authority.clone()))
-            .and_then(|b| b.account_sequence(evm.call.nonce))
-            .and_then(|b| b.timestamp_bound(must(TimestampBound::new(995, 1010))))
-            .and_then(|b| b.idempotency_key(IdempotencyKey::new(evm.disclosure.idempotency_key)))
-            .and_then(|b| b.fee_limit(Amount::from_u128(evm.call.max_fee_per_gas)))
-            .and_then(|b| b.payload_hash(must(layerx_wire::hash::payload_hash_for(&payload))))
-            .and_then(|b| b.payload(payload)),
-    );
-    let envelope = must(builder.build());
-    let bytes = must(layerx_wire::activity::encode_unsigned_envelope(&envelope));
-    let retained = must(layerx_agentd::prepare::restore_canonical(
-        &bytes,
-        evm.observed_head_height,
-        &registry(),
-        Some(&authority),
-    ));
-    assert_eq!(
-        retained.envelope.payload().as_bytes(),
-        &evm.call.data[68..68 + payload_length]
-    );
-    assert_eq!(
-        retained.envelope.timestamp_bound().not_after(),
-        evm.disclosure.expiry.payload_expires_at
-    );
-    assert_eq!(retained.envelope.account_sequence(), evm.call.nonce);
-    retained
+fn prepared() -> evm::Prepared {
+    evm_prepared()
 }
 
 fn limiter() -> BudgetLimiter {

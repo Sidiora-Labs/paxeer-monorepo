@@ -2267,6 +2267,8 @@ pub struct ProductionHumanOperations<A> {
     store: Arc<Mutex<Store>>,
     outboxes: BTreeMap<String, Outbox>,
     prepared: BTreeMap<(String, String, String), CachedPreparation>,
+    restored_preparations:
+        BTreeMap<(String, String, String), (crate::prepare::EvmPrepared, ModuleRegistry)>,
     submissions: BTreeMap<(String, String, String), [u8; 32]>,
     released_submissions:
         BTreeMap<(String, [u8; 32]), crate::policy::approval::ReleaseSubmissionLink>,
@@ -3735,13 +3737,6 @@ fn settle_retained_native_effect(
     let prepared = carrier
         .restore_prepared(registry)
         .map_err(|_| HumanOperationError::Refused)?;
-    let layerx_types::activity::Authority::Owner(key_bytes) = prepared.envelope.authority() else {
-        return Err(HumanOperationError::Refused);
-    };
-    let public: [u8; 32] = key_bytes
-        .as_ref()
-        .try_into()
-        .map_err(|_| HumanOperationError::Refused)?;
     let signed = durable
         .signed_bytes()
         .map_err(|_| HumanOperationError::Refused)?
@@ -3813,6 +3808,39 @@ fn settle_retained_native_program_call(
     sequencer_key: [u8; 32],
     authorization: SequencerAuthorization,
 ) -> Result<bool, HumanOperationError> {
+    let config = read_rpc_config()?;
+    settle_retained_native_program_call_with_config(
+        node,
+        programs,
+        registry,
+        budgets,
+        store,
+        tenant,
+        preparation_id,
+        terminal,
+        authority,
+        verifier,
+        sequencer_key,
+        authorization,
+        &config,
+    )
+}
+
+fn settle_retained_native_program_call_with_config(
+    node: &mut layerx_client::sequencer::SequencerEndpoint,
+    programs: &crate::ops::program::ProgramOperations,
+    registry: &layerx_types::payload::ModuleRegistry,
+    budgets: &BudgetLimiter,
+    store: &mut Store,
+    tenant: &TenantId,
+    preparation_id: [u8; 32],
+    terminal: &crate::protocol_evidence::VerifiedReceiptEvidence,
+    authority: &AuthorizedBatch,
+    verifier: &EvidenceAuthority,
+    sequencer_key: [u8; 32],
+    authorization: SequencerAuthorization,
+    read_config: &crate::node_rpc::NodeRpcConfig,
+) -> Result<bool, HumanOperationError> {
     use crate::prepare::{DurablePreparation, LifecycleState};
     let refused_at = |site: &'static str| {
         #[cfg(test)]
@@ -3861,13 +3889,6 @@ fn settle_retained_native_program_call(
     let prepared = carrier
         .restore_prepared(registry)
         .map_err(|_| refused_at("carrier_restore"))?;
-    let layerx_types::activity::Authority::Owner(public_key) = prepared.envelope.authority() else {
-        return Err(refused_at("owner_authority"));
-    };
-    let public_key: [u8; 32] = public_key
-        .as_ref()
-        .try_into()
-        .map_err(|_| refused_at("owner_public_key"))?;
     let signed = durable
         .signed_bytes()
         .map_err(|_| refused_at("durable_signed_bytes"))?
@@ -3882,69 +3903,33 @@ fn settle_retained_native_program_call(
         registry,
     )
     .map_err(|_| refused_at("verify_before_submit"))?;
-    let signed_activity =
-        layerx_wire::activity::decode_unsigned(&prepared.canonical_bytes, registry)
-            .map_err(|_| refused_at("decode_unsigned"))?;
-    let lifecycle_exit = signed_activity.protocol_version() == 3
-        && signed_activity.activity_type().module() == layerx_types::payload::ModuleId::Programs
-        && signed_activity.activity_type().ordinal() == 7
-        && matches!(
-            layerx_types::program_lifecycle::NativeProgramWindDown::decode(
-                signed_activity.payload()
-            ),
-            Ok(layerx_types::program_lifecycle::NativeProgramWindDown {
-                operation: layerx_types::program_lifecycle::ProgramWindDownOperation::Exit { .. }
-                    | layerx_types::program_lifecycle::ProgramWindDownOperation::BoundedExit { .. },
-                ..
-            })
-        );
-    let remaining_lifecycle = signed_activity.protocol_version() == 3
-        && signed_activity.activity_type().module() == layerx_types::payload::ModuleId::Programs
-        && match signed_activity.activity_type().ordinal() {
-            1 => layerx_types::program_lifecycle::NativeProgramDeploy::decode(
-                signed_activity.payload(),
-            )
-            .is_ok(),
-            2 => layerx_types::program_lifecycle::NativeProgramUpgrade::decode(
-                signed_activity.payload(),
-            )
-            .is_ok(),
-            7 => matches!(
-                layerx_types::program_lifecycle::NativeProgramWindDown::decode(
-                    signed_activity.payload()
-                ),
-                Ok(layerx_types::program_lifecycle::NativeProgramWindDown {
-                    operation: layerx_types::program_lifecycle::ProgramWindDownOperation::Route { .. }
-                        | layerx_types::program_lifecycle::ProgramWindDownOperation::Deprecate { .. }
-                        | layerx_types::program_lifecycle::ProgramWindDownOperation::Tombstone,
-                    ..
-                })
-            ),
-            _ => false,
-        };
+    let lifecycle_exit = matches!(
+        &prepared.disclosure.native_operation,
+        Some(layerx_crypto::disclosure::DisclosedNativeOperation::ProgramWindDown(value))
+            if matches!(value.native().operation, layerx_types::program_lifecycle::ProgramWindDownOperation::Exit { .. } | layerx_types::program_lifecycle::ProgramWindDownOperation::BoundedExit { .. })
+    );
+    let remaining_lifecycle = matches!(
+        &prepared.disclosure.native_operation,
+        Some(
+            layerx_crypto::disclosure::DisclosedNativeOperation::ProgramDeploy(_)
+                | layerx_crypto::disclosure::DisclosedNativeOperation::ProgramUpgrade(_)
+                | layerx_crypto::disclosure::DisclosedNativeOperation::ProgramWindDown(_)
+        )
+    );
     let committed_state = if lifecycle_exit || remaining_lifecycle {
         use layerx_types::program_lifecycle::{
             NativeProgramDeploy, NativeProgramUpgrade, NativeProgramWindDown,
             ProgramWindDownOperation,
         };
-        let (program, accounts) = match signed_activity.activity_type().ordinal() {
-            1 => (
-                NativeProgramDeploy::decode(signed_activity.payload())
-                    .map_err(|_| refused_at("committed_deploy_decode"))?
-                    .program_id
-                    .bytes(),
-                Vec::new(),
-            ),
-            2 => (
-                NativeProgramUpgrade::decode(signed_activity.payload())
-                    .map_err(|_| refused_at("committed_upgrade_decode"))?
-                    .program_id
-                    .bytes(),
-                Vec::new(),
-            ),
-            7 => {
-                let value = NativeProgramWindDown::decode(signed_activity.payload())
-                    .map_err(|_| refused_at("committed_wind_down_decode"))?;
+        let (program, accounts) = match &prepared.disclosure.native_operation {
+            Some(layerx_crypto::disclosure::DisclosedNativeOperation::ProgramDeploy(v)) => {
+                (v.native().program_id.bytes(), Vec::new())
+            }
+            Some(layerx_crypto::disclosure::DisclosedNativeOperation::ProgramUpgrade(v)) => {
+                (v.native().program_id.bytes(), Vec::new())
+            }
+            Some(layerx_crypto::disclosure::DisclosedNativeOperation::ProgramWindDown(v)) => {
+                let value = v.native();
                 let accounts = match value.operation {
                     ProgramWindDownOperation::Exit { account }
                     | ProgramWindDownOperation::BoundedExit { account, .. }
@@ -3960,18 +3945,15 @@ fn settle_retained_native_program_call(
                 .try_into()
                 .map_err(|_| refused_at("committed_correlation"))?,
         ) | 1;
-        let actor = layerx_wire::hash::did_id_for_protocol(prepared.envelope.actor_did(), 3)
-            .map_err(|_| refused_at("committed_actor"))?;
+        let owner =
+            Did::new(carrier.retained_actor()).map_err(|_| refused_at("committed_actor"))?;
         let height = node
             .block_number()
             .map_err(|_| HumanOperationError::Unavailable)?;
-        let caps = committed_prepared_caps(node, &prepared, height).inspect_err(|_| {
+        let caps = committed_call_caps(node, &prepared, &owner, height).inspect_err(|_| {
             let _ = refused_at("committed_prepared_caps");
         })?;
-        let config = read_rpc_config().inspect_err(|_| {
-            let _ = refused_at("read_rpc_config");
-        })?;
-        let endpoint = read_rpc_endpoint(&config).inspect_err(|_| {
+        let endpoint = read_rpc_endpoint(read_config).inspect_err(|_| {
             let _ = refused_at("read_rpc_endpoint");
         })?;
         Some(
@@ -5734,7 +5716,7 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
                 .map_err(|_| HumanOperationError::Unavailable)?
                 .clock,
         );
-        let (prepared, transaction, snapshot) = {
+        let (prepared, call_prepared, snapshot) = {
             let mut operations = operations_shared
                 .lock()
                 .map_err(|_| HumanOperationError::Unavailable)?;
@@ -5756,10 +5738,12 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
                 .get(&cache_key)
                 .ok_or(HumanOperationError::Refused)?;
             let prepared = cached.prepared.clone();
-            let transaction = cached
+            let call_prepared = cached
                 .transaction
-                .clone()
-                .ok_or(HumanOperationError::Refused)?;
+                .as_ref()
+                .ok_or(HumanOperationError::Refused)?
+                .transaction
+                .clone();
             let snapshot = core_preparation_snapshot(
                 operations.chain.as_ref(),
                 &operations.authority,
@@ -5769,7 +5753,7 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
             if snapshot.observed_head_sequence != prepared.observed_head_sequence {
                 return Err(HumanOperationError::Refused);
             }
-            (prepared, transaction, snapshot)
+            (prepared, call_prepared, snapshot)
         };
         let owner = self.native_purpose_owner(
             context,
@@ -5821,7 +5805,7 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
                         sessions,
                         session,
                         &owner,
-                        &prepared,
+                        &call_prepared,
                         &preparation_id,
                         &request.operation.purpose,
                         snapshot.observed_head_sequence,
@@ -5831,7 +5815,7 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
                     binding::inspect_native_capability(
                         store,
                         purpose.binding().clone(),
-                        &prepared,
+                        &call_prepared,
                         snapshot.protocol_timestamp,
                     )
                     .map_err(|_| refused())
@@ -5878,17 +5862,21 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
                 .programs
                 .as_mut()
                 .ok_or(HumanOperationError::Unavailable)?;
+            let signing = crate::sign::SigningPreparation {
+                transaction: call_prepared.clone(),
+                actor_address: call_prepared.from,
+            };
             let resolved = crate::budget::read_program_budget_sources(
                 &mut operations.node,
                 programs,
                 &prepared,
-                Some(&transaction),
+                Some(&signing),
                 &caps,
                 snapshot.protocol_timestamp,
                 boundary_correlation(context.peer(), &preparation_id, b"native-prepare-fee"),
             )
             .map_err(|_| HumanOperationError::Refused)?;
-            if !resolved.matches_prepared(&prepared)
+            if !resolved.matches_prepared(&call_prepared)
                 || operations
                     .node
                     .block_number()
@@ -5911,7 +5899,7 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
                         sessions,
                         session,
                         &owner,
-                        &prepared,
+                        &call_prepared,
                         &preparation_id,
                         &request.operation.purpose,
                         snapshot.observed_head_sequence,
@@ -5921,7 +5909,7 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
                     let current = binding::inspect_native_capability(
                         store,
                         purpose.binding().clone(),
-                        &prepared,
+                        &call_prepared,
                         snapshot.protocol_timestamp,
                     )
                     .map_err(|_| refused())?;
@@ -5991,7 +5979,7 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
                             prepared.envelope.timestamp_bound().not_after(),
                         )),
                     };
-                    let rate = StagedNativeRateUse::stage(store, &current, &prepared, &proofs)
+                    let rate = StagedNativeRateUse::stage(store, &current, &call_prepared, &proofs)
                         .map_err(|_| refused())?;
                     let staged = budgets
                         .stage_program_allocation(
@@ -6002,7 +5990,7 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
                         .map_err(|_| refused())?;
                     let held = NativeProgramApprovalCarrier::bind(
                         context,
-                        &prepared,
+                        &call_prepared,
                         &policy,
                         staged.record(),
                     )
@@ -6047,7 +6035,7 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
                     lifecycle
                         .register_authorized(
                             preparation_id,
-                            &prepared,
+                            &call_prepared,
                             vec![preparation_id],
                             origin,
                         )
@@ -6277,7 +6265,8 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
                 }
                 let mut totals: BTreeMap<[u8; 32], u128> = BTreeMap::from([(asset, amount)]);
                 if let Some(charge) = binding::native_effect_fee(
-                    &authorization,
+                    &context.principal().agent,
+                    &prepared,
                     &fee,
                     snapshot.observed_head_sequence,
                 )
@@ -6616,7 +6605,8 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
                 }
                 let mut totals: BTreeMap<[u8; 32], u128> = BTreeMap::from([(asset, amount)]);
                 if let Some(charge) = binding::native_effect_fee(
-                    &authorization,
+                    &context.principal().agent,
+                    &prepared,
                     &fee,
                     snapshot.observed_head_sequence,
                 )
@@ -6724,7 +6714,7 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
                 .map_err(|_| HumanOperationError::Unavailable)?
                 .clock,
         );
-        let (prepared, transaction, snapshot) = {
+        let (prepared, call_prepared, snapshot) = {
             let mut operations = operations_shared
                 .lock()
                 .map_err(|_| HumanOperationError::Unavailable)?;
@@ -6746,10 +6736,12 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
                 .get(&cache_key)
                 .ok_or(HumanOperationError::Refused)?;
             let prepared = cached.prepared.clone();
-            let transaction = cached
+            let call_prepared = cached
                 .transaction
-                .clone()
-                .ok_or(HumanOperationError::Refused)?;
+                .as_ref()
+                .ok_or(HumanOperationError::Refused)?
+                .transaction
+                .clone();
             let snapshot = core_preparation_snapshot(
                 operations.chain.as_ref(),
                 &operations.authority,
@@ -6759,7 +6751,7 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
             if snapshot.observed_head_sequence != prepared.observed_head_sequence {
                 return Err(HumanOperationError::Refused);
             }
-            (prepared, transaction, snapshot)
+            (prepared, call_prepared, snapshot)
         };
         let owner = self.native_purpose_owner(
             context,
@@ -6842,7 +6834,7 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
                         sessions,
                         session,
                         &owner,
-                        &prepared,
+                        &call_prepared,
                         &preparation_id,
                         &request.operation.purpose,
                         snapshot.observed_head_sequence,
@@ -6852,7 +6844,7 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
                     binding::inspect_native_effect_capability(
                         store,
                         purpose.binding().clone(),
-                        &prepared,
+                        &call_prepared,
                         snapshot.protocol_timestamp,
                         &fee,
                         snapshot.observed_head_sequence,
@@ -6902,14 +6894,17 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
             let resolved = crate::budget::read_native_effect_budget_sources(
                 &mut operations.node,
                 &prepared,
-                Some(&transaction),
+                Some(&crate::sign::SigningPreparation {
+                    transaction: call_prepared.clone(),
+                    actor_address: call_prepared.from,
+                }),
                 &caps,
                 snapshot.protocol_timestamp,
                 boundary_correlation(context.peer(), &preparation_id, b"native-prepare-fee"),
                 profile,
             )
             .map_err(|_| HumanOperationError::Refused)?;
-            if !resolved.matches_prepared(&prepared)
+            if !resolved.matches_prepared(&call_prepared)
                 || operations
                     .node
                     .block_number()
@@ -6932,7 +6927,7 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
                         sessions,
                         session,
                         &owner,
-                        &prepared,
+                        &call_prepared,
                         &preparation_id,
                         &request.operation.purpose,
                         snapshot.observed_head_sequence,
@@ -6942,7 +6937,7 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
                     let current = binding::inspect_native_effect_capability(
                         store,
                         purpose.binding().clone(),
-                        &prepared,
+                        &call_prepared,
                         snapshot.protocol_timestamp,
                         &fee,
                         snapshot.observed_head_sequence,
@@ -7016,7 +7011,7 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
                             prepared.envelope.timestamp_bound().not_after(),
                         )),
                     };
-                    let rate = StagedNativeRateUse::stage(store, &current, &prepared, &proofs)
+                    let rate = StagedNativeRateUse::stage(store, &current, &call_prepared, &proofs)
                         .map_err(|_| refused())?;
                     let staged = budgets
                         .stage_program_allocation(
@@ -7028,8 +7023,8 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
                     let origin = context.permit().preparation_authorization();
                     let held = NativeEffectApprovalCarrier::bind(
                         context.peer(),
-                        &prepared,
-                        preparation_id,
+                        &context.principal().agent,
+                        &call_prepared,
                         &origin,
                         crate::capability::CapabilityId(current.binding().capability_id()),
                         current.binding().purpose_commitment(),
@@ -7099,7 +7094,7 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
                         .map_err(|_| refused())?;
                     if let Err(error) = lifecycle.register_authorized(
                         preparation_id,
-                        &prepared,
+                        &call_prepared,
                         vec![preparation_id],
                         origin,
                     ) {
@@ -7217,6 +7212,7 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
             }
             (prepared, transaction, snapshot)
         };
+        let call_prepared = transaction.transaction.clone();
         let owner = self.native_send_purpose_owner(
             context,
             request.operation.purpose.purpose.consent_public_key,
@@ -7293,7 +7289,7 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
                         sessions,
                         session,
                         &owner,
-                        &prepared,
+                        &call_prepared,
                         &transaction,
                         &preparation_id,
                         &request.operation.purpose,
@@ -7306,7 +7302,7 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
                     binding::inspect_native_send_capability(
                         store,
                         &purpose,
-                        &prepared,
+                        &call_prepared,
                         &transaction,
                         snapshot.protocol_timestamp,
                         &fee,
@@ -7356,14 +7352,17 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
             let resolved = crate::budget::read_native_effect_budget_sources(
                 &mut operations.node,
                 &prepared,
-                Some(&transaction),
+                Some(&crate::sign::SigningPreparation {
+                    transaction: call_prepared.clone(),
+                    actor_address: call_prepared.from,
+                }),
                 &caps,
                 snapshot.protocol_timestamp,
                 boundary_correlation(context.peer(), &preparation_id, b"native-prepare-fee"),
                 crate::capability::NativeAdmissionProfile::Effect,
             )
-            .map_err(|_| refused("budget source read"))?;
-            if !resolved.matches_prepared(&prepared)
+            .map_err(|_| HumanOperationError::Refused)?;
+            if !resolved.matches_prepared(&call_prepared)
                 || operations
                     .node
                     .block_number()
@@ -7386,7 +7385,7 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
                         sessions,
                         session,
                         &owner,
-                        &prepared,
+                        &call_prepared,
                         &transaction,
                         &preparation_id,
                         &request.operation.purpose,
@@ -7399,7 +7398,7 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
                     let current = binding::inspect_native_send_capability(
                         store,
                         &purpose,
-                        &prepared,
+                        &call_prepared,
                         &transaction,
                         snapshot.protocol_timestamp,
                         &fee,
@@ -7491,7 +7490,7 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
                             prepared.envelope.timestamp_bound().not_after(),
                         )),
                     };
-                    let rate = StagedNativeRateUse::stage(store, &current, &prepared, &proofs)
+                    let rate = StagedNativeRateUse::stage(store, &current, &call_prepared, &proofs)
                         .map_err(|_| SessionControlError::Human(refused("native rate staging")))?;
                     let staged = budgets
                         .stage_program_allocation(
@@ -7505,8 +7504,8 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
                     let origin = context.permit().preparation_authorization();
                     let held = NativeEffectApprovalCarrier::bind(
                         context.peer(),
-                        &prepared,
-                        preparation_id,
+                        &context.principal().agent,
+                        &call_prepared,
                         &origin,
                         crate::capability::CapabilityId(current.binding().capability_id()),
                         current.binding().purpose_commitment(),
@@ -7634,7 +7633,7 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
                         .map_err(|_| SessionControlError::Human(refused("rate commit")))?;
                     if let Err(error) = lifecycle.register_authorized(
                         preparation_id,
-                        &prepared,
+                        &call_prepared,
                         vec![preparation_id],
                         origin,
                     ) {
@@ -7841,7 +7840,7 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
             .map(|(_, _, reference)| reference.clone())
             .collect();
         let response = operations.prepare_gated(peer, request, Some((context, &control)))?;
-        let (key, prepared) = {
+        let (key, prepared, call_prepared) = {
             let mut inserted =
                 operations
                     .prepared
@@ -7854,7 +7853,16 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
             let (Some((key, cached)), None) = (inserted.next(), inserted.next()) else {
                 return Err(HumanOperationError::Unavailable);
             };
-            (key.clone(), cached.prepared.clone())
+            (
+                key.clone(),
+                cached.prepared.clone(),
+                cached
+                    .transaction
+                    .as_ref()
+                    .ok_or(HumanOperationError::Refused)?
+                    .transaction
+                    .clone(),
+            )
         };
         let admitted = (|| -> Result<(), HumanOperationError> {
             let preparation_id = digest_from_hex(&key.2).ok_or(HumanOperationError::Refused)?;
@@ -8055,7 +8063,7 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
                     &control,
                     WriteAdmission {
                         stage: AdmissionStage::Prepare {
-                            prepared: &prepared,
+                            prepared: &call_prepared,
                         },
                         preparation_id,
                         charge,
@@ -8100,7 +8108,9 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
             .map_err(|_| HumanOperationError::Refused)?
         };
         let mut operations = self.lock_operations()?;
-        if operations.prepared.contains_key(&key) {
+        if operations.prepared.contains_key(&key)
+            || operations.restored_preparations.contains_key(&key)
+        {
             return Ok(());
         }
         let registry = operations
@@ -8110,31 +8120,9 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
         let prepared = held
             .restore_prepared(&registry)
             .map_err(|_| HumanOperationError::Refused)?;
-        let transaction = {
-            let store = self
-                .store
-                .lock()
-                .map_err(|_| HumanOperationError::Unavailable)?;
-            crate::sign::SigningPreparation::restore(
-                &store,
-                context.principal().tenant.clone(),
-                preparation_id,
-            )
-            .map_err(|_| HumanOperationError::Refused)?
-        };
-        if crate::prepare::DurablePreparation::native_identifier(&transaction.transaction.call)
-            != preparation_id
-        {
-            return Err(HumanOperationError::Refused);
-        }
-        operations.prepared.insert(
-            key,
-            CachedPreparation {
-                transaction: Some(transaction),
-                prepared,
-                registry,
-            },
-        );
+        operations
+            .restored_preparations
+            .insert(key, (prepared, registry));
         Ok(())
     }
 
@@ -8161,7 +8149,9 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
             .map_err(|_| HumanOperationError::Refused)?
         };
         let mut operations = self.lock_operations()?;
-        if operations.prepared.contains_key(&key) {
+        if operations.prepared.contains_key(&key)
+            || operations.restored_preparations.contains_key(&key)
+        {
             return Ok(());
         }
         let registry = operations
@@ -8171,31 +8161,9 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
         let prepared = held
             .restore_prepared(&registry)
             .map_err(|_| HumanOperationError::Refused)?;
-        let transaction = {
-            let store = self
-                .store
-                .lock()
-                .map_err(|_| HumanOperationError::Unavailable)?;
-            crate::sign::SigningPreparation::restore(
-                &store,
-                context.principal().tenant.clone(),
-                preparation_id,
-            )
-            .map_err(|_| HumanOperationError::Refused)?
-        };
-        if crate::prepare::DurablePreparation::native_identifier(&transaction.transaction.call)
-            != preparation_id
-        {
-            return Err(HumanOperationError::Refused);
-        }
-        operations.prepared.insert(
-            key,
-            CachedPreparation {
-                transaction: Some(transaction),
-                prepared,
-                registry,
-            },
-        );
+        operations
+            .restored_preparations
+            .insert(key, (prepared, registry));
         Ok(())
     }
 
@@ -8257,6 +8225,11 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
             request.operation.signer_public_key,
             snapshot.observed_head_sequence,
         )?;
+        let call_prepared = &cached
+            .transaction
+            .as_ref()
+            .ok_or(HumanOperationError::Refused)?
+            .transaction;
         let verified = verify_evm_write(&cached, &request.operation.signature)?;
         context
             .permit()
@@ -8273,7 +8246,7 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
                             .map_err(|_| refuse())?;
                     held.authorize_submit(
                         context,
-                        &cached.prepared,
+                        call_prepared,
                         request.operation.approval_release_ref,
                         snapshot.observed_head_sequence,
                         snapshot.protocol_timestamp,
@@ -8284,7 +8257,7 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
                         sessions,
                         session,
                         &owner,
-                        &cached.prepared,
+                        call_prepared,
                         &preparation_id,
                         &signed_purpose,
                         snapshot.observed_head_sequence,
@@ -8294,7 +8267,7 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
                     binding::inspect_native_capability(
                         store,
                         purpose.binding().clone(),
-                        &cached.prepared,
+                        call_prepared,
                         snapshot.protocol_timestamp,
                     )
                     .map_err(|_| refuse())?;
@@ -8310,7 +8283,7 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
                     let update = native_rate_submission_update(
                         store,
                         &context.principal().tenant,
-                        &cached.prepared,
+                        call_prepared,
                         &verified,
                         &cached.registry,
                     )
@@ -8453,6 +8426,11 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
             request.operation.signer_public_key,
             snapshot.observed_head_sequence,
         )?;
+        let call_prepared = &cached
+            .transaction
+            .as_ref()
+            .ok_or(HumanOperationError::Refused)?
+            .transaction;
         let verified = verify_evm_write(&cached, &request.operation.signature)?;
         context
             .permit()
@@ -8468,7 +8446,7 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
                         .map_err(|_| refuse())?;
                     held.authorize_submit(
                         context,
-                        &cached.prepared,
+                        call_prepared,
                         request.operation.approval_release_ref,
                         snapshot.observed_head_sequence,
                         snapshot.protocol_timestamp,
@@ -8479,7 +8457,7 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
                         sessions,
                         session,
                         &owner,
-                        &cached.prepared,
+                        call_prepared,
                         &preparation_id,
                         &signed_purpose,
                         snapshot.observed_head_sequence,
@@ -8489,7 +8467,7 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
                     binding::inspect_native_effect_capability(
                         store,
                         purpose.binding().clone(),
-                        &cached.prepared,
+                        call_prepared,
                         snapshot.protocol_timestamp,
                         &fee,
                         snapshot.observed_head_sequence,
@@ -8508,7 +8486,7 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
                     let update = native_rate_submission_update(
                         store,
                         &context.principal().tenant,
-                        &cached.prepared,
+                        call_prepared,
                         &verified,
                         &cached.registry,
                     )
@@ -8666,7 +8644,13 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
                         .map_err(|_| refuse())?;
                     held.authorize_submit(
                         context,
-                        &cached.prepared,
+                        &cached
+                            .transaction
+                            .as_ref()
+                            .ok_or_else(|| {
+                                SessionControlError::Human(HumanOperationError::Refused)
+                            })?
+                            .transaction,
                         request.operation.approval_release_ref,
                         snapshot.observed_head_sequence,
                         snapshot.protocol_timestamp,
@@ -8677,7 +8661,13 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
                         sessions,
                         session,
                         &owner,
-                        &cached.prepared,
+                        &cached
+                            .transaction
+                            .as_ref()
+                            .ok_or_else(|| {
+                                SessionControlError::Human(HumanOperationError::Refused)
+                            })?
+                            .transaction,
                         cached.transaction.as_ref().ok_or_else(refuse)?,
                         &preparation_id,
                         &signed_purpose,
@@ -8688,7 +8678,13 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
                     binding::inspect_native_send_capability(
                         store,
                         &purpose,
-                        &cached.prepared,
+                        &cached
+                            .transaction
+                            .as_ref()
+                            .ok_or_else(|| {
+                                SessionControlError::Human(HumanOperationError::Refused)
+                            })?
+                            .transaction,
                         cached.transaction.as_ref().ok_or_else(refuse)?,
                         snapshot.protocol_timestamp,
                         &fee,
@@ -8707,7 +8703,13 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
                     let update = native_rate_submission_update(
                         store,
                         &context.principal().tenant,
-                        &cached.prepared,
+                        &cached
+                            .transaction
+                            .as_ref()
+                            .ok_or_else(|| {
+                                SessionControlError::Human(HumanOperationError::Refused)
+                            })?
+                            .transaction,
                         &verified,
                         &cached.registry,
                     )
@@ -8954,7 +8956,11 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
                     let release = crate::approval::program_requirement::authorize_program(
                         &store,
                         context,
-                        &cached.prepared,
+                        &cached
+                            .transaction
+                            .as_ref()
+                            .ok_or(HumanOperationError::Refused)?
+                            .transaction,
                         &durable,
                         &self.approval_queue,
                         snapshot.observed_head_sequence,
@@ -14240,6 +14246,7 @@ impl<A: HumanAuthorityBoundary> ProductionHumanOperations<A> {
             store,
             outboxes,
             prepared: BTreeMap::new(),
+            restored_preparations: BTreeMap::new(),
             submissions,
             released_submissions,
             approval_queue: None,
@@ -18208,7 +18215,11 @@ fn encode_native_effect_approval_facts(
     out.u64(record.created_at_sequence());
     out.u64(record.budget_expiry_sequence());
     out.u64(record.created_at_unix_seconds());
-    out.u64(record.activity_expires_at_unix_milliseconds());
+    out.u64(
+        record
+            .activity_expires_at_unix_milliseconds()
+            .map_err(|_| HumanOperationError::Refused)?,
+    );
     out.fixed(&disclosure.asset);
     out.fixed(&record.fee_asset());
     out.u128(disclosure.fee_limit);
@@ -21656,13 +21667,25 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
             let authorization = held
                 .restore_prepared(&registry)
                 .map_err(|_| HumanOperationError::Refused)?;
-            let Authority::Owner(owner) = authorization.envelope.authority() else {
+            if authorization.call != transaction.transaction.call || authorization.from != actor {
                 return Err(HumanOperationError::Refused);
-            };
-            let owner: [u8; 32] = owner
+            }
+            let owner = context
+                .peer()
+                .subject
                 .as_ref()
-                .try_into()
-                .map_err(|_| HumanOperationError::Refused)?;
+                .ok_or(HumanOperationError::Refused)?
+                .owner
+                .as_bytes();
+            let owner = std::str::from_utf8(owner).map_err(|_| HumanOperationError::Refused)?;
+            let owner: [u8; 32] = layerx_programs::hex::decode(
+                owner
+                    .strip_prefix("did:layerx:")
+                    .ok_or(HumanOperationError::Refused)?,
+            )
+            .map_err(|_| HumanOperationError::Refused)?
+            .try_into()
+            .map_err(|_| HumanOperationError::Refused)?;
             (
                 held.response()
                     .map_err(|_| HumanOperationError::Refused)?
@@ -23725,6 +23748,30 @@ fn committed_prepared_caps(
     prepared: &crate::prepare::Prepared,
     height: u64,
 ) -> Result<crate::read::CommittedCaps, HumanOperationError> {
+    committed_disclosure_caps(
+        node,
+        &prepared.disclosure,
+        prepared.envelope.actor_did(),
+        height,
+    )
+}
+
+fn committed_call_caps(
+    node: &layerx_client::sequencer::SequencerEndpoint,
+    prepared: &crate::prepare::EvmPrepared,
+    owner: &Did,
+    height: u64,
+) -> Result<crate::read::CommittedCaps, HumanOperationError> {
+    crate::prepare::verify_call_binding(prepared).map_err(|_| HumanOperationError::Refused)?;
+    committed_disclosure_caps(node, &prepared.disclosure, owner, height)
+}
+
+fn committed_disclosure_caps(
+    node: &layerx_client::sequencer::SequencerEndpoint,
+    disclosure: &layerx_crypto::disclosure::Disclosure,
+    actor: &Did,
+    height: u64,
+) -> Result<crate::read::CommittedCaps, HumanOperationError> {
     let reads = crate::read::CommittedReads::open(node, height)
         .map_err(crate::protocol_evidence::committed_read_error)?;
     let fee = crate::budget::native_fee_policy(node, height)
@@ -23736,24 +23783,24 @@ fn committed_prepared_caps(
     let mut programs: std::collections::BTreeMap<[u8; 32], std::collections::BTreeSet<[u8; 32]>> =
         std::collections::BTreeMap::new();
     if !matches!(
-        prepared.disclosure.payment,
+        disclosure.payment,
         Some(layerx_crypto::payments::Payment::Register(_))
-    ) && prepared.disclosure.asset != [0; 32]
+    ) && disclosure.asset != [0; 32]
     {
-        assets.insert(prepared.disclosure.asset);
+        assets.insert(disclosure.asset);
     }
     if matches!(
-        prepared.disclosure.native_operation,
+        disclosure.native_operation,
         Some(
             layerx_crypto::disclosure::DisclosedNativeOperation::ProgramCall(_)
                 | layerx_crypto::disclosure::DisclosedNativeOperation::LegacyProgramCall(_)
         )
     ) || matches!(
-        prepared.disclosure.payment,
+        disclosure.payment,
         Some(layerx_crypto::payments::Payment::ProgramTransfer { .. })
     ) {
         let plan = crate::capability::derive_effects(
-            &prepared.disclosure,
+            disclosure,
             &crate::capability::VerifiedInputs::default(),
         )
         .map_err(|_| HumanOperationError::Refused)?;
@@ -23774,11 +23821,7 @@ fn committed_prepared_caps(
     }
     let assets: Vec<_> = assets.into_iter().collect();
     let mut caps = reads
-        .inventory(
-            prepared.envelope.actor_did(),
-            &assets,
-            fee.value.asset.asset_id,
-        )
+        .inventory(actor, &assets, fee.value.asset.asset_id)
         .map_err(crate::protocol_evidence::committed_read_error)?;
     for (program, accounts) in programs {
         reads
@@ -23807,7 +23850,6 @@ mod retained_settlement_tests {
     use std::path::PathBuf;
     use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 
-    static ENVIRONMENT: Mutex<()> = Mutex::new(());
     static NEXT: AtomicU64 = AtomicU64::new(0);
     const ASSET: [u8; 32] = [0x31; 32];
     const PROGRAM: [u8; 32] = [0x41; 32];
@@ -24295,11 +24337,15 @@ mod retained_settlement_tests {
                 1_700_000_000,
                 123_000_000,
             ));
+            let call_prepared = transaction.transaction.clone();
             let sources = must(crate::budget::read_program_budget_sources(
                 &mut node,
                 &mut programs,
                 &prepared,
-                Some(&transaction),
+                Some(&crate::sign::SigningPreparation {
+                    transaction: call_prepared.clone(),
+                    actor_address: call_prepared.from,
+                }),
                 &caps,
                 1_700_000_000_000,
                 1,
@@ -24333,6 +24379,7 @@ mod retained_settlement_tests {
                 CoreTimestampMs(1),
             ));
             let allocations = must(sources.budget_allocations(|_| Ok(vec![limit])));
+            let canonical = transaction.transaction.call.encode_unsigned();
             let id = Sha256::digest(&canonical).into();
             let reservation = must(budgets.stage_program_allocation(
                 &ProgramReservationRequest {
@@ -24363,10 +24410,10 @@ mod retained_settlement_tests {
                 "id":"deploy","effect":"Permit","activity":{"module":9,"ordinal":1},"scope":{"kind":"Operation"},"required_approval":false,"purpose_commitment":null
             }]}).to_string().into_bytes();
             let carrier: NativeProgramApprovalCarrier = must(serde_json::from_value(json!({
-                "version":1,"tenant":tenant.as_str(),"principal":"settlement-owner","actor":actor.as_bytes(),"session":vec![1;32],"generation":1,
+                "version":2,"tenant":tenant.as_str(),"principal":"settlement-owner","actor":actor.as_bytes(),"session":vec![1;32],"generation":1,
                 "preparation":id,"activity_module":9,"activity_ordinal":1,"canonical_bytes":canonical,
-                "authority":{"kind":"Owner","bytes":public.to_vec()},"created_at_sequence":8,"budget_expiry_sequence":100,
-                "envelope_not_after":1_800_000_000_000_u64,"program_budget":must(reservation.encode()),
+                "sender":sender,"created_at_sequence":8,"budget_expiry_sequence":100,
+                "envelope_not_after":transaction.transaction.disclosure.expiry.not_after,"program_budget":must(reservation.encode()),
                 "native_policy_source":policy,"local_policy_outcome":"Permitted","matched_rules":["deploy"],"state":"NotRequired","terminal":null
             })));
             let durable = DurablePreparation {
@@ -24374,8 +24421,10 @@ mod retained_settlement_tests {
                 preparation_id: id,
                 session_id: [1; 32],
                 generation: 1,
-                not_after: 1_800_000_000_000,
-                payload_hash: prepared.envelope.payload_hash(),
+                not_after: transaction.transaction.disclosure.expiry.not_after,
+                payload_hash: layerx_crypto::evm_transaction::transaction_hash(
+                    &transaction.transaction.call.data,
+                ),
                 state: LifecycleState::Submitted,
                 activity_id: Some(submission.activity_id()),
                 holds: Vec::new(),
@@ -24421,7 +24470,7 @@ mod retained_settlement_tests {
 
         fn settle(&mut self) -> Result<bool, HumanOperationError> {
             let verifier = must(EvidenceAuthority::pinned_to_handshake(3, 125, self.public));
-            settle_retained_native_program_call(
+            settle_retained_native_program_call_with_config(
                 &mut self.rpc.endpoint(),
                 &self.programs,
                 &self.registry,
@@ -24434,6 +24483,11 @@ mod retained_settlement_tests {
                 &verifier,
                 self.public,
                 SequencerAuthorization::new(self.public, self.public, 9, 9),
+                &crate::node_rpc::NodeRpcConfig {
+                    url: self.rpc.url.clone(),
+                    chain_id: 125,
+                    deadline: Duration::from_secs(30),
+                },
             )
         }
 
@@ -24461,41 +24515,14 @@ mod retained_settlement_tests {
             .pop()
             .expect("retained carrier");
             let prepared = must(carrier.restore_prepared(&self.registry));
-            assert_eq!(prepared.observed_head_sequence, 8);
-            assert_eq!(prepared.audit.observed_head_sequence, 8);
-        }
-    }
-
-    struct Environment(Vec<(&'static str, Option<std::ffi::OsString>)>);
-    impl Environment {
-        fn set(url: &str) -> Self {
-            let saved = ["LAYERX_AGENT_NODE_RPC_URL", "LAYERX_AGENT_NODE_CHAIN_ID"]
-                .into_iter()
-                .map(|key| (key, std::env::var_os(key)))
-                .collect();
-            std::env::set_var("LAYERX_AGENT_NODE_RPC_URL", url);
-            std::env::set_var("LAYERX_AGENT_NODE_CHAIN_ID", "125");
-            Self(saved)
-        }
-    }
-    impl Drop for Environment {
-        fn drop(&mut self) {
-            for (key, value) in &self.0 {
-                match value {
-                    Some(value) => std::env::set_var(key, value),
-                    None => std::env::remove_var(key),
-                }
-            }
+            assert_eq!(prepared.observed_head_height, 8);
+            assert_eq!(prepared.signing_hash, prepared.call.signing_hash());
         }
     }
 
     #[test]
     fn retained_settlement_settles_after_the_head_advances() {
-        let _lock = ENVIRONMENT
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner);
         let mut fixture = Fixture::new(false);
-        let _environment = Environment::set(&fixture.rpc.url);
         fixture.assert_retained_height();
         assert_eq!(fixture.budgets.held_exposure(fixture.limit), Ok(10));
         assert!(!fixture.settlement_recorded());
@@ -24526,11 +24553,7 @@ mod retained_settlement_tests {
 
     #[test]
     fn retained_settlement_settles_once_across_replay() {
-        let _lock = ENVIRONMENT
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner);
         let mut fixture = Fixture::new(false);
-        let _environment = Environment::set(&fixture.rpc.url);
         assert!(must(fixture.settle()));
         let durable = must(fixture.durable().encode());
         let root = fixture.root.clone();
@@ -24553,11 +24576,7 @@ mod retained_settlement_tests {
 
     #[test]
     fn retained_settlement_refuses_a_failed_receipt() {
-        let _lock = ENVIRONMENT
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner);
         let mut fixture = Fixture::new(true);
-        let _environment = Environment::set(&fixture.rpc.url);
         assert!(must(fixture.settle()));
         assert_eq!(fixture.durable().state, LifecycleState::Failed);
         assert_eq!(fixture.budgets.consumed(fixture.limit), Ok(0));
@@ -24570,9 +24589,6 @@ mod retained_settlement_tests {
 
     #[test]
     fn retained_settlement_still_refuses_a_stale_node() {
-        let _lock = ENVIRONMENT
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner);
         let mut fixture = Fixture::new(false);
         let owner = SigningKey::from_bytes(&[0x52; 32])
             .verifying_key()
@@ -24590,7 +24606,7 @@ mod retained_settlement_tests {
             transaction.actor_address,
         );
         stale.head.store(8, Ordering::SeqCst);
-        let _environment = Environment::set(&stale.url);
+        fixture.rpc.head.store(8, Ordering::SeqCst);
         let durable = must(fixture.durable().encode());
         assert!(matches!(
             fixture.settle(),
