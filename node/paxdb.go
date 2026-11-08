@@ -161,7 +161,9 @@ func parseSSConfigs(appOpts servertypes.AppOptions) config.StateStoreConfig {
 	ssConfig.AsyncWriteBuffer = cast.ToInt(appOpts.Get(FlagSSAsyncWriterBuffer))
 	ssConfig.KeepRecent = cast.ToInt(appOpts.Get(FlagSSKeepRecent))
 	ssConfig.PruneIntervalSeconds = cast.ToInt(appOpts.Get(FlagSSPruneInterval))
-	ssConfig.ImportNumWorkers = cast.ToInt(appOpts.Get(FlagSSImportNumWorkers))
+	if workers := appOpts.Get(FlagSSImportNumWorkers); workers != nil {
+		ssConfig.ImportNumWorkers = cast.ToInt(workers)
+	}
 	ssConfig.DBDirectory = cast.ToString(appOpts.Get(FlagSSDirectory))
 
 	// EVM optimization fields (embedded in SS config)
