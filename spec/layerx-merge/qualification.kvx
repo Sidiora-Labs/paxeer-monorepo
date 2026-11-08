@@ -36058,3 +36058,11 @@ symbol = "prepare.rs"
 observed = "Attempt 3 at 622839667701 (build revision 63965127afc7): build exit 0 without repair; the cross-root dependents check exit 101 at the human service test target session_keys (the removed core preparation names); the verification never ran; logs /out/logs/build-1.log and /out/logs/dependents-1.log."
 assumption = "The seven human service journey tests are the last consumers of the removed names outside the crate; the production sources of the human service already follow the EVM path."
 severity = "high"
+
+[finding.22.99.77.34]
+task = "22.99.77"
+file = "programs/crates/layerx-programs-ai-market"
+symbol = "layerx-programs-ai-market"
+observed = "Attempt 32 at 4206f461379d (base 81f0e5a93ff9): first build exit 0 at 0bcb816315a0; verification exit 1 at 0bcb816315a0 with twelve failing targets (F03 evaluator host, F04 windows, F05 aggregation runtime, fuel budget, host boundary, repair_22_33_261, reputation lifecycle, reputation vectors, native rewards, task state boundary); second build exit 1 (Fund 802525 against 802503); third build exit 0 at the final tree; the second verification was refused; log /out/logs/verify-1.log."
+assumption = "The final tree repairs most of the list but no run shows it; local iteration before the gate pair closes the gap."
+severity = "high"
