@@ -36170,3 +36170,11 @@ symbol = "signer.rs::keystore_signer_refuses_activity_preimages_and_signs_the_bi
 observed = "Attempt 5 at d6ead3a72927 (base dd4addbf677b): build exit 101 twice, the first with decode_session_key out of scope in the call module, the second with the library compiling and every test target failing on unresolved imports of the retired items in tests/support/signing.rs, tests/support/mod.rs and tests/repair_22_33_1560.rs; the verification never ran; log /out/logs/build-2.log."
 assumption = "The deletion of attempt 5 is exact; only the unlisted test consumers, the lost import and the census exclusion block the task."
 severity = "high"
+
+[finding.22.39.172.2]
+task = "22.39.172"
+file = "services/agent/crates/layerx-agentd/tests/history_served_contract.rs"
+symbol = "history_served_contract.rs"
+observed = "Attempt 2 at dd47d3970a57 (base dd4addbf677b): build exit 0 twice; verification exit 1 twice, the second with 25 cases passing and read_account_decodes_a_served_gateway_page failing its exact response-size assertion (495 against 643) at tests/history_served_contract.rs line 157; log /out/logs/verify-2.log."
+assumption = "The producer measure is settled since 22.33.1521 and the oversized case already follows it; only the exact-count expectation of one case lags."
+severity = "high"
