@@ -36018,3 +36018,11 @@ symbol = "runtime.integration.test.tsx"
 observed = "Attempt 5 at 9cac716c3d5e (base 1d56709c2764): build exit 0 twice; verification exit 1 at ed4c35130cf9 (indexer refused RPC_URL for the rpc-getlogs source) and exit 1 at 9cac716c3d5e (an unnamed joined role exited 1 before readiness on port 39843); neither Vitest suite ran; log /out/logs/verify-2.log."
 assumption = "The producer repairs of the attempt are right as far as they go; the failing role is unknown only because the producer discards its evidence."
 severity = "high"
+
+[finding.9.35.24.1]
+task = "9.35.24"
+file = "services/agent/crates/layerx-agentd/tests/prepare.rs"
+symbol = "prepare.rs"
+observed = "Attempt 1 at bd82359bfca3 (base 097581705c2e): build exit 101 twice (the first because the deleted restore_tests.rs is the active fixture test_support.rs includes, the second with sixty-four errors in six consumer sources outside the touches); the verification never ran; log /out/logs/build-2.log."
+assumption = "The record named the wrong files and undersized the task; the deletion itself is a whole-crate migration."
+severity = "high"
