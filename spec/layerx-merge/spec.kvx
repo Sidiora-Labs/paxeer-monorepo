@@ -334816,7 +334816,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.78]
 title = "Run the platform middleware, integration and example suites from the platform workflow"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.39.72", "22.39.136", "22.39.137", "22.39.151"]
