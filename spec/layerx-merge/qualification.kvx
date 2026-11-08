@@ -35289,3 +35289,11 @@ symbol = "test_copied_artifacts_in_sync.py"
 observed = "Attempt 4 at 1f95eb51246e: build exit 0; verification 16 passed, 1 failed, TestEvmEventsForCw1155 status 0x1 with the raw keeper error logged by the localization: the CW721 owner lookup refused the CW1155 burn."
 assumption = "The producer defect lives in the wasm keeper, outside the task paths; once 22.39.150 lands the direct delivery passes and the diagnostic has served its purpose."
 severity = "high"
+
+[finding.22.39.118.13]
+task = "22.39.118"
+file = "tools/platform/cli::rpc::tests::positional_requests_match_published_contract"
+symbol = "cli::rpc::tests::positional_requests_match_published_contract"
+observed = "Attempt 13 at 31157b57e4d8: build exit 0; verification exit 1 after two cycles: readme_receipt_policy_and_watch passes, readme_retired_endpoint and readme_operator_contract fail at tests/repair_22_33_1499.rs line 72 with the gateway_rpc_required refusal for hosted px_ balances and for hosted px_ account queries."
+assumption = "The producer contract routes hosted methods through the explicit option; eight README examples predate it and the test runs them verbatim."
+severity = "high"
