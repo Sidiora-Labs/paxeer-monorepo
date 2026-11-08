@@ -797,6 +797,19 @@ mod ledger_producer_proof {
             .read_to_end(&mut input)
             .expect("read ledger producer input");
         if input.is_empty() {
+            eprintln!("Building the real ledger producer's kernel library");
+            let output = Command::new("make")
+                .current_dir(concat!(env!("CARGO_MANIFEST_DIR"), "/../../../.."))
+                .args(["build", "-j2"])
+                .output()
+                .expect("build the real ledger producer's kernel library");
+            assert!(
+                output.status.success(),
+                "ledger producer kernel build failed: {}\n{}\n{}",
+                output.status,
+                String::from_utf8_lossy(&output.stdout),
+                String::from_utf8_lossy(&output.stderr)
+            );
             eprintln!("Building the real ledger producer's native programs library");
             let output = Command::new("cargo")
                 .current_dir(concat!(env!("CARGO_MANIFEST_DIR"), "/../../../.."))
