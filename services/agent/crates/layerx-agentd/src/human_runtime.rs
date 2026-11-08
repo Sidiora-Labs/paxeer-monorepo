@@ -5699,7 +5699,7 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
                 .map_err(|_| HumanOperationError::Unavailable)?
                 .clock,
         );
-        let (prepared, snapshot) = {
+        let (prepared, transaction, snapshot) = {
             let mut operations = operations_shared
                 .lock()
                 .map_err(|_| HumanOperationError::Unavailable)?;
@@ -5716,12 +5716,15 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
                     Some((context, &control)),
                 )?;
             }
-            let prepared = operations
+            let cached = operations
                 .prepared
                 .get(&cache_key)
-                .ok_or(HumanOperationError::Refused)?
-                .prepared
-                .clone();
+                .ok_or(HumanOperationError::Refused)?;
+            let prepared = cached.prepared.clone();
+            let transaction = cached
+                .transaction
+                .clone()
+                .ok_or(HumanOperationError::Refused)?;
             let snapshot = core_preparation_snapshot(
                 operations.chain.as_ref(),
                 &operations.authority,
@@ -5731,7 +5734,7 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
             if snapshot.observed_head_sequence != prepared.observed_head_sequence {
                 return Err(HumanOperationError::Refused);
             }
-            (prepared, snapshot)
+            (prepared, transaction, snapshot)
         };
         let owner = self.native_purpose_owner(
             context,
@@ -5844,6 +5847,7 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
                 &mut operations.node,
                 programs,
                 &prepared,
+                Some(&transaction),
                 &caps,
                 snapshot.protocol_timestamp,
                 boundary_correlation(context.peer(), &preparation_id, b"native-prepare-fee"),
@@ -6685,7 +6689,7 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
                 .map_err(|_| HumanOperationError::Unavailable)?
                 .clock,
         );
-        let (prepared, snapshot) = {
+        let (prepared, transaction, snapshot) = {
             let mut operations = operations_shared
                 .lock()
                 .map_err(|_| HumanOperationError::Unavailable)?;
@@ -6702,12 +6706,15 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
                     Some((context, &control)),
                 )?;
             }
-            let prepared = operations
+            let cached = operations
                 .prepared
                 .get(&cache_key)
-                .ok_or(HumanOperationError::Refused)?
-                .prepared
-                .clone();
+                .ok_or(HumanOperationError::Refused)?;
+            let prepared = cached.prepared.clone();
+            let transaction = cached
+                .transaction
+                .clone()
+                .ok_or(HumanOperationError::Refused)?;
             let snapshot = core_preparation_snapshot(
                 operations.chain.as_ref(),
                 &operations.authority,
@@ -6717,7 +6724,7 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
             if snapshot.observed_head_sequence != prepared.observed_head_sequence {
                 return Err(HumanOperationError::Refused);
             }
-            (prepared, snapshot)
+            (prepared, transaction, snapshot)
         };
         let owner = self.native_purpose_owner(
             context,
@@ -6860,6 +6867,7 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
             let resolved = crate::budget::read_native_effect_budget_sources(
                 &mut operations.node,
                 &prepared,
+                Some(&transaction),
                 &caps,
                 snapshot.protocol_timestamp,
                 boundary_correlation(context.peer(), &preparation_id, b"native-prepare-fee"),
@@ -7313,6 +7321,7 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
             let resolved = crate::budget::read_native_effect_budget_sources(
                 &mut operations.node,
                 &prepared,
+                Some(&transaction),
                 &caps,
                 snapshot.protocol_timestamp,
                 boundary_correlation(context.peer(), &preparation_id, b"native-prepare-fee"),
@@ -23603,7 +23612,7 @@ mod retained_settlement_tests {
     }
 
     impl Rpc {
-        fn serve(public: [u8; 32], actor: Did) -> Self {
+        fn serve(public: [u8; 32], actor: Did, sender: [u8; 20]) -> Self {
             let listener = must(std::net::TcpListener::bind("127.0.0.1:0"));
             let url = format!("http://{}", must(listener.local_addr()));
             must(listener.set_nonblocking(true));
@@ -23633,7 +23642,7 @@ mod retained_settlement_tests {
                 let account = must(layerx_wire::hash::account_id_for_protocol(&account, 3));
                 let owner = must(layerx_wire::hash::did_id_for_protocol(&actor, 3));
                 let mut address = vec![0; 32];
-                address[12..].fill(7);
+                address[12..].copy_from_slice(&sender);
                 let asset =
                     crate::budget::fee_policy::tests::asset_result(ASSET, b"PAX", 18, false);
                 while !stopping.load(Ordering::SeqCst) {
@@ -23870,7 +23879,7 @@ mod retained_settlement_tests {
             must(out.u32(layerx_types::programs_module_abi::CURRENT));
             must(out.u32(1));
             must(out.u8(0));
-            must(out.bytes(&[0; 32], 32));
+            must(out.bytes(&Sha256::digest(b"usid"), 32));
             must(out.u128(0));
             must(out.bytes(&[0; 32], 32));
             must(out.u128(0));
@@ -23917,7 +23926,13 @@ mod retained_settlement_tests {
         let header_signature = signer
             .sign(&must(layerx_wire::hash::batch_header_digest(&header)))
             .to_bytes();
-        let authority = AuthorizedBatch::new(batch, [0; 32], previous, resulting, public);
+        let authority = AuthorizedBatch::new(
+            batch,
+            Sha256::digest(b"usid").into(),
+            previous,
+            resulting,
+            public,
+        );
         let raw = crate::protocol_evidence::RawReceiptEvidence::new(
             receipt,
             proof,
@@ -23955,8 +23970,6 @@ mod retained_settlement_tests {
             let actor = must(Did::new(
                 format!("did:layerx:{}", hex::encode(public)).as_bytes(),
             ));
-            let rpc = Rpc::serve(public, actor.clone());
-            let mut node = rpc.endpoint();
             let kind = must(ActivityType::new(ModuleId::Programs, 1));
             let registry = must(ModuleRegistry::new(&[must(ModuleRegistration::new(
                 ModuleId::Programs,
@@ -24000,6 +24013,34 @@ mod retained_settlement_tests {
                 &registry,
                 Some(&authority),
             ));
+            let call = layerx_crypto::evm_transaction::Eip1559Call {
+                chain_id: u64::from(envelope.network_id()),
+                nonce: envelope.account_sequence(),
+                max_priority_fee_per_gas: 0,
+                max_fee_per_gas: 1,
+                gas_limit: 10,
+                to: crate::prepare::PrecompileTarget::Programs.address(),
+                data: layerx_crypto::disclosure::call::encode_program_deploy(&deploy),
+            };
+            let signed = must(call.sign(&[0xa5; 32]));
+            let (_, signature) = must(layerx_crypto::evm_transaction::decode_signed(&signed));
+            let sender = must(layerx_crypto::evm_transaction::recover_sender(
+                &call, &signature,
+            ));
+            let disclosed = must(crate::prepare::disclose::bind(&call, sender));
+            let transaction = crate::sign::SigningPreparation {
+                actor_address: sender,
+                transaction: crate::prepare::EvmPrepared {
+                    signing_hash: call.signing_hash(),
+                    call,
+                    from: sender,
+                    disclosure: disclosed.disclosure,
+                    disclosure_digest: disclosed.digest,
+                    observed_head_height: 8,
+                },
+            };
+            let rpc = Rpc::serve(public, actor.clone(), sender);
+            let mut node = rpc.endpoint();
             let caps = must(committed_prepared_caps(
                 &node,
                 &prepared,
@@ -24015,6 +24056,7 @@ mod retained_settlement_tests {
                 &mut node,
                 &mut programs,
                 &prepared,
+                Some(&transaction),
                 &caps,
                 1_700_000_000_000,
                 1,
@@ -24067,12 +24109,13 @@ mod retained_settlement_tests {
                 125,
                 &canonical,
             ));
-            let submission =
-                crate::human_runtime::activity_submission_index_tests::transaction_submission(
-                    prepared.clone(),
-                    &registry,
-                );
-            let signed = submission.exact_bytes().to_vec();
+            let submission = must(crate::sign::verify_before_submit(
+                &signed,
+                &transaction,
+                &sender,
+                &registry,
+            ));
+            must(transaction.retain(&mut store, tenant.clone(), id));
             let policy = json!({"schema":"layerx.native-program-policy.v1","version":"1","network_id":125,"step_limit":1000,"rules":[{
                 "id":"deploy","effect":"Permit","activity":{"module":9,"ordinal":1},"scope":{"kind":"Operation"},"required_approval":false,"purpose_commitment":null
             }]}).to_string().into_bytes();
@@ -24112,7 +24155,7 @@ mod retained_settlement_tests {
                 "rung":"committed","txHash":rpc_hex(&terminal.activity_id()),"nonce":"0x1","seq":"0x9","height":"0x9","index":"0x0",
                 "timestamp":"0x6553f100","status":if failed {"0x0"}else{"0x1"},"returnData":"0x","logs":[],
                 "gasUsed":"0x0","cumulativeGasUsed":"0x0","effectiveGasPrice":"0x0","feeDenom":"upax","feeAmount":"0x0",
-                "sponsor":rpc_hex(&[0;20]),"from":rpc_hex(&[7;20]),"to":rpc_hex(&[0;20]),"contractAddress":rpc_hex(&[0;20]),"vmError":"",
+                "paymentDenom":"usid","sponsor":rpc_hex(&[0;20]),"from":rpc_hex(&sender),"to":rpc_hex(&[0;20]),"contractAddress":rpc_hex(&[0;20]),"vmError":"",
                 "keyId":rpc_hex(&[1;32]),"receipt":rpc_hex(terminal.canonical_receipt()),"signingKey":rpc_hex(&public),
                 "blockNumber":"0x9","blockHash":rpc_hex(&checkpoint.block_hash)
             });
@@ -24283,11 +24326,17 @@ mod retained_settlement_tests {
         let owner = SigningKey::from_bytes(&[0x52; 32])
             .verifying_key()
             .to_bytes();
+        let transaction = must(crate::sign::SigningPreparation::restore(
+            &fixture.store,
+            fixture.tenant.clone(),
+            fixture.id,
+        ));
         let stale = Rpc::serve(
             owner,
             must(Did::new(
                 format!("did:layerx:{}", hex::encode(owner)).as_bytes(),
             )),
+            transaction.actor_address,
         );
         stale.head.store(8, Ordering::SeqCst);
         let _environment = Environment::set(&stale.url);

@@ -21,13 +21,8 @@ env:
 
 jobs:
   build-lint-test:
-    if: >-
-      (vars.LAYERX_TEN_LINE_REGISTRY_SNAPSHOT != '' || vars.LAYERX_TEN_LINE_REGISTRY_URL != '')
     runs-on: ${{ (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && 'ubuntu-24.04' || vars.CI_LINUX_RUNNER || 'ubuntu-24.04' }}
     timeout-minutes: 45
-    env:
-      LAYERX_TEN_LINE_REGISTRY_SNAPSHOT: ${{ vars.LAYERX_TEN_LINE_REGISTRY_SNAPSHOT }}
-      LAYERX_TEN_LINE_REGISTRY_URL: ${{ vars.LAYERX_TEN_LINE_REGISTRY_URL }}
     steps:
       - name: Initialize private Platform evidence directory
         run: |
@@ -91,6 +86,11 @@ jobs:
       - name: Exercise the developer CLI end to end against the emulator
         run: make platform-test-tooling
       - name: Build the source-bound published quickstart benchmark
+        if: >-
+          (vars.LAYERX_TEN_LINE_REGISTRY_SNAPSHOT != '' || vars.LAYERX_TEN_LINE_REGISTRY_URL != '')
+        env:
+          LAYERX_TEN_LINE_REGISTRY_SNAPSHOT: ${{ vars.LAYERX_TEN_LINE_REGISTRY_SNAPSHOT }}
+          LAYERX_TEN_LINE_REGISTRY_URL: ${{ vars.LAYERX_TEN_LINE_REGISTRY_URL }}
         run: |
           umask 077
           ten_line_directory=$(mktemp -d "$RUNNER_TEMP/layerx-ten-line.XXXXXXXX")
@@ -101,7 +101,8 @@ jobs:
       - name: Build the framework integrations and scan client bundles for secrets
         run: make platform-test-middleware
       - name: Retain the actual published-package integration line counts
-        if: always()
+        if: >-
+          always() && (vars.LAYERX_TEN_LINE_REGISTRY_SNAPSHOT != '' || vars.LAYERX_TEN_LINE_REGISTRY_URL != '')
         uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
         with:
           name: ten-line-counts-${{ github.job }}-${{ github.run_attempt }}
@@ -124,7 +125,7 @@ jobs:
         run: make platform-test-docs
 
   android-application-artifact:
-    runs-on: ubuntu-24.04
+    runs-on: ${{ (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && 'ubuntu-24.04' || vars.CI_LINUX_RUNNER || 'ubuntu-24.04' }}
     timeout-minutes: 45
     steps:
       - name: Check out source
@@ -411,7 +412,7 @@ jobs:
 
   programs-acceptance:
     if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/sdk-v')
-    runs-on: ubuntu-24.04
+    runs-on: ${{ (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && 'ubuntu-24.04' || vars.CI_LINUX_RUNNER || 'ubuntu-24.04' }}
     timeout-minutes: 120
     steps:
       - name: Check out source
@@ -447,7 +448,7 @@ jobs:
 
   agent-sanitizers:
     if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/sdk-v')
-    runs-on: ubuntu-24.04
+    runs-on: ${{ (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && 'ubuntu-24.04' || vars.CI_LINUX_RUNNER || 'ubuntu-24.04' }}
     timeout-minutes: 90
     env:
       CARGO_PROFILE_DEV_DEBUG: "1"
@@ -498,7 +499,7 @@ jobs:
 
   agent-fuzz-corpus:
     if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/sdk-v')
-    runs-on: ubuntu-24.04
+    runs-on: ${{ (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && 'ubuntu-24.04' || vars.CI_LINUX_RUNNER || 'ubuntu-24.04' }}
     timeout-minutes: 120
     steps:
       - name: Check out source
@@ -1599,7 +1600,7 @@ jobs:
   release-promotion:
     if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/sdk-v')
     needs: [release-pipeline, publish-crates-io, publish-npm, publish-pypi, publish-go-modules, publish-maven-central, publish-swiftpm, publish-nuget, release-verification]
-    runs-on: ubuntu-24.04
+    runs-on: ${{ (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && 'ubuntu-24.04' || vars.CI_LINUX_RUNNER || 'ubuntu-24.04' }}
     timeout-minutes: 15
     env:
       LAYERX_RELEASE_VERSION: ${{ needs.release-pipeline.outputs.version }}

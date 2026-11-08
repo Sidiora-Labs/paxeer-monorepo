@@ -167,12 +167,16 @@ class _NoRedirect(urllib.request.HTTPRedirectHandler):
         raise ValueError("rpc-redirect")
 
 
-class PaymentRpc:
-    def __init__(self, endpoint: str, headers: Mapping[str, str] | None = None,
-                 *, hosted_gateway_endpoint: str | None = None):
-        if (not isinstance(endpoint, str) or not endpoint
-                or any(ord(character) <= 32 or ord(character) == 127 for character in endpoint)
-                or "\\" in endpoint):
+class _BoundedRpc:
+    def __init__(
+        self, endpoint: str, headers: Mapping[str, str] | None, *, path: str
+    ):
+        if (
+            not isinstance(endpoint, str)
+            or not endpoint
+            or any(ord(character) <= 32 or ord(character) == 127 for character in endpoint)
+            or "\\" in endpoint
+        ):
             raise ValueError("invalid-rpc-endpoint")
         url = urllib.parse.urlsplit(endpoint)
         # Accessing port also refuses malformed and out-of-range authorities.
@@ -182,7 +186,7 @@ class PaymentRpc:
             or url.password is not None
             or url.fragment
             or url.query
-            or url.path not in ("", "/") and endpoint != hosted_gateway_endpoint
+            or (url.path or "/") != path
             or not url.hostname
             or url.scheme != "https"
             and not (
@@ -213,13 +217,43 @@ class PaymentRpc:
             raise ValueError("rpc-body-too-large")
         return _decode_rpc_response(json.loads(raw), request_id)
 
+
+class HostedGatewayRpc(_BoundedRpc):
+    def __init__(self, endpoint: str, headers: Mapping[str, str] | None = None):
+        super().__init__(endpoint, headers, path="/rpc")
+
+    def call(self, method: str, params: list) -> dict | str | None:
+        if (
+            not isinstance(method, str)
+            or re.fullmatch(r"px_[A-Za-z0-9_]+", method) is None
+        ):
+            raise ValueError("invalid-gateway-method")
+        return super().call(method, params)
+
     def receipt_keys(self) -> tuple[ReceiptKey, ...]:
         return decode_receipt_keys(self.call("px_getReceiptKeys", []))
 
+
+class PaymentRpc(_BoundedRpc):
+    def __init__(self, endpoint: str, headers: Mapping[str, str] | None = None):
+        super().__init__(endpoint, headers, path="/")
+
+    def call(self, method: str, params: list) -> dict | str | None:
+        if (
+            not isinstance(method, str)
+            or re.fullmatch(r"(?:eth|pax)_[A-Za-z0-9_]+", method) is None
+        ):
+            raise ValueError("invalid-node-method")
+        return super().call(method, params)
+
     def send(self, raw_transaction: str) -> str:
-        canonical = _transaction_bytes(raw_transaction)
-        if len(canonical) > 524288:
-            raise ValueError("invalid-rpc-submit")
+        try:
+            canonical = _transaction_bytes(raw_transaction)
+            if len(canonical) > 524288:
+                raise ValueError("invalid-rpc-submit")
+            decode_signed_transaction(canonical)
+        except ValueError as error:
+            raise ValueError("invalid-rpc-submit") from error
         try:
             result = self.call("eth_sendRawTransaction", [raw_transaction])
         except PaymentRpcError as error:
@@ -313,8 +347,6 @@ def verify_rpc_payment(
                 _return_data(result["returnData"]) if "returnData" in result else None
             ),
         )
-    except SequencerReceiptVerificationError:
-        raise
     except PlatformSdkError as error:
         raise ValueError("payment-binding-mismatch") from error
     if (
@@ -323,7 +355,9 @@ def verify_rpc_payment(
         or verified.receipt.context_hash != _transaction_bytes(result["keyId"], 32)
     ):
         raise ValueError("payment-binding-mismatch")
-    if commitment == "committed":
+    if result["rung"] == "committed":
+        if not isinstance(finality, tuple) or len(finality) != 2:
+            raise ValueError("missing-committed-evidence")
         rpc_committed_evidence(result, raw_transaction, receipt_keys, *finality)
     return {
         "txHash": "0x" + expected_hash.hex(),
