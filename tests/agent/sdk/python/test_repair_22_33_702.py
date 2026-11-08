@@ -11,7 +11,7 @@ import pytest
 
 from layerx_sdk.account_derivation import keccak256
 from layerx_sdk.evm_transaction import (
-    EvmTransactionError, LegacyTransaction, _rlp, _rlp_decode,
+    EvmTransactionError, LegacyTransaction, Type2Transaction, _rlp, _rlp_decode,
     decode_signed, decode_signed_transaction,
 )
 from layerx_sdk.production import SdkErrorCode
@@ -37,9 +37,7 @@ def recorded_payment_rpc(vector, *, response_change=None):
             try:
                 request = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
                 observed.append((self.path, self.headers["Content-Type"], request))
-                # PaymentRpc's current /rpc restriction is an owner wiring
-                # request. This replay makes no public-node route claim.
-                assert self.path == "/rpc"
+                assert self.path == "/"
                 assert self.headers["Content-Type"] == "application/json"
                 assert set(request) == {"jsonrpc", "id", "method", "params"}
                 assert request["jsonrpc"] == "2.0" and type(request["id"]) is int
@@ -71,7 +69,7 @@ def recorded_payment_rpc(vector, *, response_change=None):
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
     try:
-        yield PaymentRpc(f"http://127.0.0.1:{server.server_port}/rpc"), observed
+        yield PaymentRpc(f"http://127.0.0.1:{server.server_port}"), observed
     finally:
         server.shutdown()
         server.server_close()
@@ -81,8 +79,8 @@ def recorded_payment_rpc(vector, *, response_change=None):
 
 def test_px_retired_rpc_path_matches_gateway_contract():
     source = (ROOT / "services/platform/hosted/gateway/src/main.rs").read_text()
-    assert 'if request.path == "/" && request.method == "POST"' in source
-    assert "return rpc::route(config, request);" in source
+    assert 'if path == "/rpc"' in source
+    assert 'return response(404, "not_found", None);' in source
     method = next(item for item in px.OPENRPC["methods"] if item["name"] == "px_getBalances")
     assert method["paramStructure"] == "by-position"
     assert set(px.BALANCES) == set(method["result"]["schema"]["required"])
@@ -150,15 +148,16 @@ def test_x402_rpc_payment_refuses_rebinding(field):
         key = replace(key, first_height=int(result["height"], 16) + 1)
     elif field == "raw":
         raw = raw[:-1] + bytes([raw[-1] ^ 1])
-    expected = SequencerReceiptVerificationError if field in ("signature", "key") else ValueError
-    with pytest.raises(expected) as raised:
+    with pytest.raises(ValueError) as raised:
         verify_rpc_payment(
             result, vector["receiptJson"]["txHash"], "0x" + terms.pop("payer"),
             receipt_keys=(key,), raw_transaction=raw, **terms,
         )
     if field in ("signature", "key"):
-        assert raised.value.check == {"signature": "bad_signature", "key": "key_out_of_range"}[field]
-        assert raised.value.code == SdkErrorCode.VERIFICATION_FAILURE
+        assert str(raised.value) == "payment-binding-mismatch"
+        assert isinstance(raised.value.__cause__, SequencerReceiptVerificationError)
+        assert raised.value.__cause__.check == {"signature": "bad_signature", "key": "key_out_of_range"}[field]
+        assert raised.value.__cause__.code == SdkErrorCode.VERIFICATION_FAILURE
     else:
         assert str(raised.value) == ("transaction-hash-mismatch" if field == "raw" else "payment-binding-mismatch")
 
@@ -180,7 +179,7 @@ def test_x402_committed_recording_keeps_the_actual_block_identity():
     receipt = settlement["receipt"]
     raw = unhex(settlement["raw_transaction"])
     transaction, signature = decode_signed_transaction(raw)
-    assert isinstance(transaction, LegacyTransaction)
+    assert isinstance(transaction, Type2Transaction)
     transaction_hash = keccak256(raw)
     assert receipt["txHash"] == "0x" + transaction_hash.hex()
     vector = {**corpus["positive"], "receiptJson": receipt}
@@ -193,15 +192,19 @@ def test_x402_committed_recording_keeps_the_actual_block_identity():
         assert rpc.send(vector["rawTransaction"]) == receipt["txHash"]
         result = rpc.receipt(receipt["txHash"])
         assert result == receipt
-        verified = verify_rpc_payment(
-            result, receipt["txHash"], "0x" + terms.pop("payer"),
-            receipt_keys=(receipt_key(vector),), raw_transaction=raw,
-            commitment="committed", **terms,
-        )
-        assert verified == {
-            "txHash": receipt["txHash"], "rung": "committed",
-            "height": 10, "keyId": receipt["keyId"],
-        }
+        with pytest.raises(ValueError, match="^payment-binding-mismatch$") as refused:
+            verify_rpc_payment(
+                result, receipt["txHash"], "0x" + terms.pop("payer"),
+                receipt_keys=(receipt_key(vector),), raw_transaction=raw,
+                commitment="committed", **terms,
+            )
+        assert refused.value.__cause__.code == SdkErrorCode.VERIFICATION_FAILURE
+        with pytest.raises(ValueError, match="^missing-committed-evidence$"):
+            verify_rpc_payment(
+                result, receipt["txHash"], "0x" + signed.receipt.from_account.hex(),
+                receipt_keys=(receipt_key(vector),), raw_transaction=raw,
+                **terms,
+            )
         assert len(observed) == 2
     block_hash = receipt["blockHash"].removeprefix("0x").lower()
     assert block_hash == settlement["execution_commit"]["block_id"]["hash"].lower()
@@ -210,8 +213,9 @@ def test_x402_committed_recording_keeps_the_actual_block_identity():
 
 
 def test_recorded_eip155_decoder_preserves_canonical_and_signature_refusals():
-    corpus = json.loads((ROOT / "sdk/platform/conformance/fixtures/vector-v4-committed.json").read_text())
-    raw = unhex(corpus["positive"]["rawTransaction"])
+    archive = json.loads((ROOT / "services/agent/sdk/python/tests/fixtures/vector-v4-chain713714.json").read_text())
+    raw = unhex(archive["settlement"]["raw_transaction"])
+    assert isinstance(decode_signed_transaction(raw)[0], LegacyTransaction)
     with pytest.raises(EvmTransactionError, match="^invalid_transaction$"):
         decode_signed(raw)
     with pytest.raises(EvmTransactionError, match="^invalid_rlp$"):
@@ -270,7 +274,7 @@ def test_search_payer_address_binds_the_recorded_offer_over_http():
         client = search.WebSearchClient(
             peer.endpoint, "eip155:125", search.ASSETS["PAX"]["asset_id"],
             search._terms(), search._metered_sid(), (search.RECEIPT_KEY,),
-            payer_rpc=PaymentRpc(peer.endpoint + "/rpc"),
+            payer_rpc=PaymentRpc(peer.endpoint),
             payer_address=search.PAYER_ADDRESS,
         )
         response = client._get("/search?q=paxeer", {})
@@ -319,17 +323,25 @@ def test_web_search_authorized_batch_cannot_replace_raw_payment_binding():
     terms = payment_terms(vector)
     offer = WebSearchOffer(
         scheme="exact", network="eip155:125", amount=terms["amount"],
-        asset=terms["asset"], pay_to=terms["pay_to"], payer=terms["payer"],
+        asset=terms["asset"], pay_to=terms["pay_to"], payer=decode_signed_transaction(unhex(vector["rawTransaction"]))[0].data[4:36].hex(),
         max_timeout_seconds=60, currency="USDC", account="agent:did:layerx:seller:main",
     )
-    # The producer's EVM summary describes value=0 and destination=ledger,
-    # while PaymentExact carries the paid asset/recipient/amount in its log.
-    # Preserve the refusal rather than manufacture a payable search receipt.
     assert verified.receipt.amount == 0
     assert verified.receipt.to_account.hex() != offer.pay_to
-    with pytest.raises(WebSearchError) as raised:
-        verify_web_search_payment(verified, offer)
-    assert raised.value.code == "receipt-offer-mismatch"
+    raw = unhex(vector["rawTransaction"])
+    keys = (receipt_key(vector),)
+    verify_web_search_payment(verified, offer,
+                              raw_transaction=raw, receipt_keys=keys)
+    with pytest.raises(WebSearchError) as rebound:
+        verify_web_search_payment(verified, replace(offer, payer="ab" * 32),
+                                  raw_transaction=raw, receipt_keys=keys)
+    assert rebound.value.code == "receipt-unverified"
+    assert rebound.value.__cause__.field == "payment"
+    for changed_raw, changed_keys in ((raw + b"\0", keys), (raw, ())):
+        with pytest.raises(WebSearchError) as raised:
+            verify_web_search_payment(verified, offer,
+                                      raw_transaction=changed_raw, receipt_keys=changed_keys)
+        assert raised.value.code == "receipt-unverified"
 
 
 def test_web_search_recorded_http_producer_contract_is_not_rewritten():
@@ -373,3 +385,27 @@ def test_legacy_exchange_write_proof_retains_historical_vectors_and_current_dire
     case.test_historical_exchange_writes_match_the_typescript_legacy_signatures()
     case.test_exchange_argument_refusals()
     case.test_current_direct_order_and_position_calldata()
+
+
+def test_payment_baseline_entries_are_retired_and_the_transport_baseline_is_preserved():
+    import subprocess
+
+    path = "tests/ci/data/agent_sdk_python_baseline.json"
+    original = json.loads(subprocess.check_output(
+        ["git", "show", "3a0f70d0fce59d96719043d5294b98aa3718e3bd:" + path],
+        cwd=ROOT, text=True,
+    ))
+    retained = json.loads((ROOT / path).read_text())
+    repaired_paths = {
+        "tests/agent/sdk/python/" + name for name in (
+            "test_ai_market.py", "test_web_search.py", "test_x402.py",
+            "test_repair_22_33_16.py", "test_repair_22_33_702.py",
+        )
+    }
+    retired = [entry for entry in original if entry["nodeid"].split("::")[0] in repaired_paths]
+    assert len(retired) == 48
+    assert all(entry["retiring_task"] == "22.39.120" for entry in retired)
+    assert retained == [entry for entry in original if entry not in retired]
+    assert [entry for entry in retained if entry["retiring_task"] == "22.39.119"] == [
+        entry for entry in original if entry["retiring_task"] == "22.39.119"
+    ]
