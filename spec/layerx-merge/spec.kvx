@@ -183181,7 +183181,7 @@ do_10 = "Attempt 7 (continue, gotcha 3557, decisions 2771, 2834, 2855 and 2800):
 
 [task.22.39.127]
 title = "Bring the ucp, x402 and web search test suites to green and retire their baseline entries"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.39.74"]
