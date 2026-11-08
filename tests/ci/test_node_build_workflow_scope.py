@@ -1,4 +1,4 @@
-"""Keep the public node gate's package coverage and timeout explicit."""
+"""Keep retired node cases in the full public package gate with its bounded timeout."""
 
 import json
 import shlex
