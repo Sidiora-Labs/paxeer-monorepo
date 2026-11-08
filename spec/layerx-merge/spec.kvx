@@ -204091,7 +204091,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.9.35.23]
 title = "Bind the served call in the sdk and mcp native-disclosure checks"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = ["9.35.20", "22.99.160", "22.31.572", "22.31.614", "22.31.620"]
