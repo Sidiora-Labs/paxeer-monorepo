@@ -23564,7 +23564,7 @@ mod tests {
                             if request["method"] == "pax_sequencerReceipt" {
                                 rungs[&height].clone()
                             } else {
-                                json!({"transactionHash":hash,"blockHash":block(height)["hash"],"blockNumber":format!("{height:#x}"),"transactionIndex":"0x1","status":"0x1","gasUsed":"0x5208","logs":[]})
+                                json!({"transactionHash":hash,"blockHash":block(height)["hash"],"blockNumber":format!("{height:#x}"),"transactionIndex":"0x1","status":"0x1","gasUsed":"0x5208","logs":rungs[&height]["logs"]})
                             }
                         }
                         method => panic!("unexpected RPC {method}"),
@@ -23621,6 +23621,7 @@ mod tests {
             18
         );
         assert_eq!(time.activity_ids(), &[[8; 32], [7; 32]]);
+        let first_read_end = must(rpc.calls.lock()).len();
         let history = must(read_policy_history(
             &rpc.config,
             &actor,
@@ -23646,6 +23647,9 @@ mod tests {
             "eth_getBlockByNumber",
             "px_getCommit",
             "px_getValidators",
+            "px_getReceiptKeys",
+            "commit",
+            "block_results",
         ] {
             assert!(
                 calls.iter().any(|call| call["method"] == method),
@@ -23666,6 +23670,14 @@ mod tests {
                 .count(),
             6
         );
+        for read in [&calls[..first_read_end], &calls[first_read_end..]] {
+            assert_eq!(
+                read.iter()
+                    .filter(|call| call["method"] == "eth_blockNumber")
+                    .count(),
+                3
+            );
+        }
     }
 
     #[test]

@@ -1,0 +1,27 @@
+[repair.22.39.163]
+decision = "2904"
+gotcha = "3605"
+source_revision = "d243de8e61fb9be18a6941da2ee93882cb4990c3"
+source_revision_ref = "70fb314c8d^"
+build_command_ref = "spec/layerx-merge/spec.kvx#task.22.39.163.build_cmd"
+verify_command_ref = "spec/layerx-merge/spec.kvx#task.22.39.163.verify_cmd"
+verified_revision_ref = "/out/run/gates.jsonl: passing verify record revision"
+qualification_evidence_ref = "/out/run/gates.jsonl: revision, command, exit and log recorded by hf-build and hf-done"
+
+[fixture.localhost_pem]
+source = "services/platform/ramps/reference/src/repair_fixtures/localhost.pem"
+path = "services/platform/ramps/reference/tests/fixtures/repair_fixtures/localhost.pem"
+blob = "54069617c3590537f49d8851beb298a761b0cee1"
+ignore_negation = "!services/platform/ramps/reference/tests/fixtures/repair_fixtures/localhost.pem"
+
+[fixture.localhost_p12]
+source = "services/platform/ramps/reference/src/repair_fixtures/localhost.p12"
+path = "services/platform/ramps/reference/tests/fixtures/repair_fixtures/localhost.p12"
+blob = "3261ccb173332a169ae6d27665773623b9ddeef8"
+ignore_negation = "!services/platform/ramps/reference/tests/fixtures/repair_fixtures/localhost.p12"
+
+[fixture.ca_pem]
+source = "services/agent/crates/layerx-sdk/src/repair_22_31_227_fixture/ca.pem"
+path = "services/agent/crates/layerx-sdk/tests/fixtures/repair_22_31_227_fixture/ca.pem"
+blob = "8f79501d23430bec0473fdf3a503c9bdfe934554"
+ignore_negation = "!services/agent/crates/layerx-sdk/tests/fixtures/repair_22_31_227_fixture/ca.pem"
