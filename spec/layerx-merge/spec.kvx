@@ -334252,7 +334252,7 @@ do_4 = "Attempt 2 (continue, gotcha 3627, decisions 2907, 2908, 2910 and 2918): 
 
 [task.22.39.157]
 title = "Move the release tooling and its suites to the v7.0.0 release that tools/release/version.json declares"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 3
 requires = ["22.39.84"]
