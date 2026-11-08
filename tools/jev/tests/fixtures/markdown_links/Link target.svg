@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 32" role="img" aria-labelledby="title">
+  <title id="title">Markdown link target</title>
+  <rect width="120" height="32" rx="4" fill="#16324f" />
+  <text x="60" y="21" text-anchor="middle" fill="white" font-family="sans-serif" font-size="14">Link target</text>
+</svg>
