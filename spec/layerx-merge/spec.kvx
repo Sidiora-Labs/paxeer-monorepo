@@ -183128,7 +183128,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.175]
 title = "Move the fuzz test of the agent envelope codec to the historical module of layerx-wire and widen the retired-path grep to the grouped use form"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 42
 requires = ["9.29.1", "22.33.1567"]
