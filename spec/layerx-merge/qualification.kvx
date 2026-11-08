@@ -36114,3 +36114,11 @@ symbol = "f11_views.rs"
 observed = "Attempt 3 at d59fd29efb2f (base 20cf44679e): build exit 1 at the Fund production allowance test, rpc/repair_478_test.go line 127, the raw candidate guest at 536267 bytes against 524184 while the packaged guest measures 498845; the verification never ran; log /out/logs/build-1.log."
 assumption = "The helper omits the packaging pass the deployment applies; the size work of the attempt is complete under the staged bound."
 severity = "high"
+
+[finding.9.35.24.6]
+task = "9.35.24"
+file = "services/agent/crates/layerx-agentd/tests/prepare.rs"
+symbol = "prepare.rs"
+observed = "Attempt 6 at 92818149c731 (base 403a6bf491): build exit 0; verification exit 101: every target passed except approval_events, whose restore case was refused at line 342 with delivery cursor (1, 0, 0) arrived out of order, expected (4, 0, 1); log /out/logs/verify-1.log."
+assumption = "The cursor derivation of the delivery engine is the failure and belongs to 22.39.171; the deletion itself is complete and qualified in every other target."
+severity = "high"
