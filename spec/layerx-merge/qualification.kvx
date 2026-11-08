@@ -35930,3 +35930,11 @@ symbol = "test_beta_driver.py::BetaDriverTests::test_multichain_inventory_report
 observed = "Attempt 1 at f23ff5483369 (base 7dc80ac4fc): build exit 0 twice; verification exit 101 twice: the first failed three conformance cases that the repair cycle corrected, the second passed the schema check and the conformance target and failed one journey vocabulary case at line 191 (left three optional fields, right one); the beta driver tests did not run; log /out/logs/verify-2.log."
 assumption = "The vocabulary assertion is stale since the receipt-proof v2 change; the golden and baseline work of the task is complete."
 severity = "high"
+
+[finding.9.35.22.4]
+task = "9.35.22"
+file = "services/agent/crates/layerx-agentd/tests/w7_owner_binding.rs::a_foreign_key_signature_over_the_owner_preimage_is_refused"
+symbol = "w7_owner_binding.rs::a_foreign_key_signature_over_the_owner_preimage_is_refused"
+observed = "Attempt 9 at 63ef7855ac5c: build exit 0; verification exit 101: every preparation target passed and limits-exactly-once failed its two node_recovery cases at the inventory assertion of line 1649 (expected 1 without-evidence entry, found 0); log /out/logs/verify-1.log."
+assumption = "The test asserts the pre-22.31.559 inventory split; the stored receipt is in with_current_evidence, which is the producer behaviour."
+severity = "high"
