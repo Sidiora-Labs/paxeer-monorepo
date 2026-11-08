@@ -3545,10 +3545,11 @@ derivation_message = "The account-derivation message names paxportwallet.com as 
 
 [contract_context.108.decision.public_names]
 title = "Public names the bring-up docs may carry, read by tools/bringup/docs-names.sh"
-router = "api-mainnet-beta.paxeer.network -> the unified router; its RPC endpoint is https://api-mainnet-beta.paxeer.network/rpc."
-rpc = "api1..api16.mainnet-beta.paxeer.network -> the sixteen public RPC nodes, unchanged."
+router = "api-mainnet-beta.paxeer.network -> one node name reaching the node root like the numbered nodes; there is no router and no rpc path (decision 2521)."
+rpc = "api1.mainnet-beta.paxeer.network to api14.mainnet-beta.paxeer.network -> the fourteen public RPC nodes at the root path on chain 125; the served list is docs/site/docs/reference/public-rpc.md, which the check reads as the inventory."
 developers = "dev.paxeer.network -> the dashboard web app; api-dev.paxeer.network -> the dashboard API app; hooks.paxeer.network -> the webhooks app."
 ramp = "ramp.paxeer.network -> the reference ramp app."
+website = "www.paxeer.network -> the project website and media host; the README header image URL carries it percent-encoded."
 
 [decision.1603]
 title = "Retired daemons leave the container images"
@@ -10646,6 +10647,24 @@ title = "A test that builds the ai-market guest from source applies the producti
 value = "Every Go or Rust test that compiles programs/crates/layerx-programs-ai-market to wasm32 for a fixture (the production allowance test of 22.31.478, the authority receipt proof, the receipt vector tests) runs wasm-opt -Oz --strip-debug --strip-producers on the artifact exactly as the make target paxai-host-boundary-build does, requires wasm-opt on the PATH with the message of the target when it is absent, and asserts the optimised artifact plus the 104-byte envelope within the protocol bound; the raw artifact is never the measured or deployed form, so the bound of the test equals the bound of production and no source is cut for a test-only measurement."
 basis = "Task 22.99.77 attempt 28 (gotcha 3631) failed the raw measurement of rpc/repair_478_test.go at 536740 bytes while the optimised artifact of the same tree fits; extends decisions 94, 2733 and 2792."
 affects = ["22.99.77", "22.31.478"]
+
+[decision.2923]
+title = "The documentation name check percent-decodes the text before its host scan and the public names section lists every served name individually"
+value = "ValidateDocumentNames of tools/bringup/live_repair.go decodes percent-encoded sequences in the document text before the host scan, so a name inside an encoded URL is checked as the name it encodes; the public names section of the specification lists each served name separately because the check matches whole names and cannot expand a range, names the project website www.paxeer.network, and describes api-mainnet-beta.paxeer.network as one node name reaching the node root with no router and no rpc path, as decision 2521 and the public inventory docs/site/docs/reference/public-rpc.md record; a documentation input is never edited to satisfy a decoding gap of the check."
+basis = "Task 22.39.164 attempt 1 (gotcha 3632): docs-names refused README.md for 2fwww.paxeer.network read from the percent-encoded header image URL; extends decision 2521."
+affects = ["22.39.164"]
+
+[decision.2924]
+title = "The public job step that runs a wired suite installs every interpreter module its tests import"
+value = "When a test in a wired suite runs an interpreter (python3 through Command in a Rust test, or a shell calling python3), the apt or pip step of the public job that runs the suite installs the modules the test imports (python3-cryptography for repair_22_31_351.rs in the platform job), the qualification environment installs the same packages before the build command, and the build command of the gate owner asserts the import; a missing module is a declared-prerequisite defect of the job and never a test skip."
+basis = "Task 22.39.118 attempt 21 (gotcha 3633); extends decisions 2856 and 2905 and the prerequisite rule of 22.39.144."
+affects = ["22.39.118"]
+
+[decision.2925]
+title = "A producer module re-exports every reader its consumer task names"
+value = "When a producer task adds a function in a private submodule (program_sources.rs of the budget module) that a later consumer task names through the module path (crate::budget), the re-export list of the producer module carries it; where the producer already landed without the export, the consumer task carries the module file in its touches for the export line only and changes nothing else there."
+basis = "Task 9.35.20 attempt 1 (gotcha 3634): 9.35.19 at 41390400af added read_program_budget_sources_call and read_native_effect_budget_sources_call without re-exporting them; extends decision 2918."
+affects = ["9.35.20", "9.35.19"]
 
 [feature.1]
 name = "kernel"
@@ -182990,10 +183009,10 @@ interfaces = []
 do_1 = "do_1 Decision 2521, gotcha 3467. In the layerx-platform-cli library tests under tools/platform/cli, rpc::tests::positional_requests_match_published_contract compares the embedded OpenRPC document against the published one and fails on info.description (the published text now opens with The merged Paxeer network is one execution domain in paxd); refresh the embedded copy from the published document so the consumer follows the producer. rpc::tests::program_event_queries_are_bounded_before_transport and rpc::tests::subscriptions_require_authenticated_websocket_and_string_ack build a node URL with a path and fail with node RPC URL must name the root endpoint; give them the root endpoint of a node name (chain 125, no path)."
 do_2 = "do_2 Run the whole CLI library test set and keep the other 21 tests green; make platform-test-tooling must then pass through its CLI leg."
 symbols = []
-touches = ["tools/platform/cli"]
+touches = ["tools/platform/cli", ".github/workflows/platform.yml"]
 tests = ["tools/platform/cli::rpc::tests::positional_requests_match_published_contract", "tools/platform/cli::rpc::tests::program_event_queries_are_bounded_before_transport", "tools/platform/cli::rpc::tests::subscriptions_require_authenticated_websocket_and_string_ack"]
 planned_paths = []
-build_cmd = "npm ci --ignore-scripts --no-audit --no-fund && cargo build --locked --manifest-path tools/platform/Cargo.toml -p layerx-platform-cli --tests"
+build_cmd = "python3 -c 'import cryptography' && npm ci --ignore-scripts --no-audit --no-fund && cargo build --locked --manifest-path tools/platform/Cargo.toml -p layerx-platform-cli --tests"
 verify_cmd = "cargo test --locked --manifest-path tools/platform/Cargo.toml -p layerx-platform-cli --lib rpc::tests && make platform-test-tooling"
 gate_kind = "planned"
 sandbox_profile = "rust"
@@ -183026,6 +183045,7 @@ do_19 = "Attempt 18 (continue, gotcha 3606, decisions 2857 and 2771): the attemp
 do_20 = "Attempt 20 (continue, gotcha 3615, decisions 2771 and 2856): the attempt-18 tree a047230ba6a1 stands (the wallet read tests following the hosted gateway client and the read kinds, the record). The build step of the task now runs npm ci --ignore-scripts --no-audit --no-fund at the repository root before the cargo build, so the emulator target repair_22_31_200 resolves the TypeScript SDK dependencies when make platform-test-tooling runs it; nothing under services/platform or the SDK changes for that. Replace the record entry that calls the emulator failure unrelated with the root install fact. Run the build once and the verification once at the final revision and record both by reference; if a tooling case still fails, repair it within the one allowed cycle and rerun once."
 do_21 = "Attempt 20 (continue, gotchas 3615 and 3619, decisions 2771 and 2856): the attempt-19 tree bbb71aa07459 stands (the wallet read tests following the hosted gateway client and the read kinds, the record). The build step of the task runs npm ci --ignore-scripts --no-audit --no-fund at the repository root before the cargo build since the previous round, so the emulator target repair_22_31_200 resolves the TypeScript SDK dependencies when make platform-test-tooling runs it; nothing under services/platform or the SDK changes for that. Replace the record entry that calls the emulator failure unrelated with the root install fact. Run the build once and the verification once at the final revision and record both by reference; if a tooling case still fails, repair it within the one allowed cycle and rerun once."
 do_22 = "Attempt 21 (relaunch, gotcha 3623, decisions 2904 and 2915): the attempt-20 tree 578dd31cdd2b stands unchanged (the wallet read tests following the hosted gateway client and the read kinds, the record). Task 22.39.166 corrects the receipt digest of the emulator middleware path that the platform tooling target runs, and this task requires it from this round, so the target runs clean once it lands. Run the build once and the verification once at the final revision and record both by reference."
+do_23 = "Attempt 22 (continue, gotcha 3633, decisions 2856, 2905 and 2924): the attempt-21 tree 043ac50c1f65 stands. The touches now carry .github/workflows/platform.yml: the apt step at line 70 that installs dbus, gnome-keyring, python3-pytest and python3-yaml also installs python3-cryptography, which services/platform/hosted/testnet/tests/repair_22_31_351.rs line 51 imports through python3; install the same package in the qualification environment before the build command, whose first step now asserts the import. Then run the build once and the verification once at the final revision."
 
 [task.22.39.93]
 title = "Move the seven remaining key fixtures of the agent SDK and the ramps reference crate into test fixture directories"
@@ -204050,7 +204070,7 @@ do_2 = "rpc_native_disclosure (:527-592) and the retained-record readers restore
 do_3 = "The canonical-intent binder at :16699 (layerx_crypto::disclosure::bind over an IntentCarrier's activity bytes feeding legacy_policy_purpose :18451 and legacy_policy_effects :18481) is removed with the legacy policy dry-run shape: policy_dry_run_legacy (human_runtime.rs :3504, :11208 and :16598, and the human.rs:1430 trait method), the two legacy_policy_* helpers and the PolicyDryRunShape::Legacy arms (agent_rpc_adapters.rs:1998-2003 answers malformed; human_runtime.rs:5157) go, and agent_rpc_wire.rs drops the legacy policy payload decoder (:1512-1612) so that a request in that shape is refused as malformed by the wire decoder; the unused correlation binding at :20813 goes."
 do_4 = "The retained durable record keeps its extension numbering (6 budget, 7 carrier digest, 8, 9 carrier, 10, 11 variant marker) so that readers at :548-551, :3603-3613, :8490-8532 and :20739 keep working; a record whose extension 9 carrier is of the previous version is refused and prepared again. The verify runs the prepare_eip1559, native_routes_rpc, native_send_preview_evm, write_path_evm and rpc_surface_major_two targets."
 symbols = ["rpc_prepare_native", "rpc_prepare_native_effect", "rpc_prepare_native_send", "rpc_native_disclosure"]
-touches = ["services/agent/crates/layerx-agentd/src/human_runtime.rs", "services/agent/crates/layerx-agentd/src/human.rs", "services/agent/crates/layerx-agentd/src/agent_rpc_adapters.rs", "services/agent/crates/layerx-agentd/src/agent_rpc_wire.rs"]
+touches = ["services/agent/crates/layerx-agentd/src/human_runtime.rs", "services/agent/crates/layerx-agentd/src/human.rs", "services/agent/crates/layerx-agentd/src/agent_rpc_adapters.rs", "services/agent/crates/layerx-agentd/src/agent_rpc_wire.rs", "services/agent/crates/layerx-agentd/src/budget/mod.rs"]
 tests = ["services/agent/crates/layerx-agentd/tests/prepare_eip1559.rs", "services/agent/crates/layerx-agentd/tests/native_routes_rpc.rs", "services/agent/crates/layerx-agentd/tests/native_send_preview_evm.rs"]
 planned_paths = []
 build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --tests"
@@ -204066,6 +204086,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_5 = "Attempt 2 (continue, gotcha 3634, decisions 2918 and 2925): the attempt-1 tree 25a272675293 stands. The touches now carry services/agent/crates/layerx-agentd/src/budget/mod.rs: add read_program_budget_sources_call and read_native_effect_budget_sources_call to the program_sources re-export list at line 43 and change nothing else in the budget module; the consumers keep calling them through crate::budget. Then run the build once and the verification once at the final revision."
 
 [task.9.35.19]
 title = "Read the call-bound preparation in the native-effect carrier and the program settlement, requirement, presentation and policy families"
@@ -334180,7 +334201,7 @@ do_2 = "The two benchmark cases follow their producers: the ERC721 binding of to
 do_3 = "Add nginx to the apt packages of the tools-python job of .github/workflows/ci.yml so test_repair_22_31_319.py line 213 finds its declared integration prerequisite in the public job, and record in tools/bringup/tests/repair_22_39_164.kvx that the qualification environment provides it the same way."
 do_4 = "Remove every tools/bringup and tools/benchmark entry from tests/ci/data/tools_python_suite_baseline.json, keep the family of this task in tests/ci/test_tools_python_suites_wired.py so an empty family stays valid, and write the record with the producer line of every corrected assertion."
 symbols = []
-touches = ["tools/bringup/tests", "tools/benchmark", ".github/workflows/ci.yml", "tests/ci/data/tools_python_suite_baseline.json", "tests/ci/test_tools_python_suites_wired.py"]
+touches = ["tools/bringup", "tools/benchmark", ".github/workflows/ci.yml", "tests/ci/data/tools_python_suite_baseline.json", "tests/ci/test_tools_python_suites_wired.py"]
 tests = ["test_repair_22_31_319", "test_bringup_fixtures_retired", "test_spec_paths", "test_xweb_config", "test_sources_match_bindings", "test_repair_22_31_431", "test_tools_python_suites_wired"]
 planned_paths = ["tools/bringup/tests/repair_22_39_164.kvx", "tests/ci/data/tools_python_suite_baseline.json", "tests/ci/test_tools_python_suites_wired.py"]
 build_cmd = "zstd --version > /dev/null && docker buildx version > /dev/null && forge --version > /dev/null && command -v nginx > /dev/null && test -x build/loadtest && test -s build/liblayerx.a && command -v bringup-inspect > /dev/null && test -x tools/bringup/tests/xweb-loader/target/debug/bringup-xweb-config-loader && ssh -o BatchMode=yes localhost true && python3 -m py_compile tests/ci/test_tools_python_suites_wired.py"
@@ -334196,6 +334217,7 @@ time_limit_minutes = 240
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_5 = "Attempt 2 (continue, gotcha 3632, decisions 2905, 2908 and 2923): the attempt-1 tree dd34403c55d1 stands (benchmark binding, hosts file, transcript, baseline removal). The touches now cover tools/bringup, so the four remaining bringup failures follow their producers: (1) tools/bringup/search-front.sh computes repo_root before it sources the check-live functions at line 12, or reassigns rpc_inventory from its own repo_root after line 13, so bringup-inspect rpc-names reads docs/site/docs/reference/public-rpc.md; (2) tools/bringup/check-live.test.sh line 1193 drops the retired LAYERX_INDEXER_RELAY_URL and LAYERX_INDEXER_RELAY_CA_DER assignments from the indexer stand-in launch; (3) regenerate tools/bringup/runtime-dependencies.json with python3 tools/bringup/tests/runtime-dependencies.py so the recorded digest of docs/swagger/statik.go matches the tree, committing only the regenerated record; (4) ValidateDocumentNames in tools/bringup/live_repair.go percent-decodes the document text before the host scan at line 465, so the README header image URL yields www.paxeer.network, which the public names section now lists under its website key; README.md is not edited. Before the build gate set up the public prerequisites exactly as the tools-python job of .github/workflows/ci.yml lines 58 to 93 does (zstd, docker buildx, forge, nginx, build/loadtest, build/liblayerx.a, bringup-inspect, the xweb loader, localhost SSH), so the four container cases run docker build --check under BuildKit. Record every producer line in tools/bringup/tests/repair_22_39_164.kvx, then run the build once and the verification once at the final revision."
 
 [task.22.39.159]
 title = "Make the system docs generator and its two tests agree on the precompiles page header and the nested ABI listing"

@@ -35730,3 +35730,27 @@ symbol = "layerx-programs-ai-market"
 observed = "Attempt 28 at d4a3a88fab8f, cecd8f3607ca and ffd215bdea94: build exit 1 three times at rpc/repair_478_test.go line 127, raw guest 536740, 537201 and 536580 bytes against 524184; verification not run."
 assumption = "The optimised artifact of the attempt tree at the merged base fits the bound as the 22.38.6 gate and the attempt-27 record indicate."
 severity = "high"
+
+[finding.22.39.164.1]
+task = "22.39.164"
+file = "test_repair_22_31_319"
+symbol = "test_repair_22_31_319"
+observed = "Attempt 1 at 444720c13af8 and dd34403c55d1: verify exit 1 twice; at dd34403c55d1 make test-tools-python reported 8 failed and 738 passed: test_bringup_fixtures_retired (stale digest of docs/swagger/statik.go and the retired relay variable at check-live.test.sh line 1193), test_repair_22_31_319 search front names (public inventory unreadable), test_spec_paths docs-names (README.md unpublished public name) and four container cases on the legacy docker builder; log /out/logs/verify-2.log."
+assumption = "The four bringup cases pass once their producers are corrected and the container cases pass under BuildKit; no other baseline row is affected."
+severity = "high"
+
+[finding.22.39.118.20]
+task = "22.39.118"
+file = "tools/platform/cli::rpc::tests::positional_requests_match_published_contract"
+symbol = "cli::rpc::tests::positional_requests_match_published_contract"
+observed = "Attempt 21 at 043ac50c1f65: build exit 0; verify exit 1: make platform-test-tooling failed in layerx-platform-testnet test testnet_chain_id_parameters_to_signed_transaction at hosted/testnet/tests/repair_22_31_351.rs line 206 with ModuleNotFoundError for cryptography; log /out/logs/verify-1.log."
+assumption = "The remaining platform-test-tooling targets pass once the python module is present, as they did for 22.31.351."
+severity = "high"
+
+[finding.9.35.20.1]
+task = "9.35.20"
+file = "services/agent/crates/layerx-agentd/tests/prepare_eip1559.rs"
+symbol = "prepare_eip1559.rs"
+observed = "Attempt 1 at 25a272675293: build exit 101: cargo build -p layerx-agentd --tests reported E0425 cannot find function read_program_budget_sources_call and read_native_effect_budget_sources_call in module crate::budget; verification not run; log /out/logs/build-1.log."
+assumption = "The two readers exist at program_sources.rs lines 413 and 552 at main 41390400af with the signatures the consumers call."
+severity = "high"
