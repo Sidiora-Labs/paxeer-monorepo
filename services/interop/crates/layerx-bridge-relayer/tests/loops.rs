@@ -8,9 +8,12 @@ use std::path::{Path, PathBuf};
 use ed25519_dalek::{Signer as _, SigningKey};
 use layerx_bridge_relayer::abi::{encode_bridge_in, encode_release, LAYERX_BRIDGE_PRECOMPILE};
 use layerx_bridge_relayer::attestation::{
-    to_attestor_signature, uint256_from_u64, InboundAttestation, OutboundAttestation,
+    ethereum_address, to_attestor_signature, uint256_from_u64, InboundAttestation,
+    OutboundAttestation,
 };
-use layerx_bridge_relayer::attestation_api::{deposit_answer, release_answer};
+use layerx_bridge_relayer::attestation_api::{
+    deposit_answer, release_answer, AttestationView, AuthenticatedPolicy, PolicyDestination,
+};
 use layerx_bridge_relayer::cosign::CosignDirectory;
 use layerx_bridge_relayer::hex;
 use layerx_bridge_relayer::journal::{
@@ -215,6 +218,38 @@ fn completion(relayer: &Relayer, item: &str) -> Option<Completion> {
         .items
         .get(item)
         .and_then(|item| item.completion)
+}
+
+fn assert_view_items(
+    view: &AttestationView,
+    relayer: &Relayer,
+    destination: PolicyDestination,
+    signers: &[u8],
+    threshold: usize,
+) {
+    let policy = AuthenticatedPolicy {
+        destination,
+        threshold,
+        attestors: signers
+            .iter()
+            .map(|seed| ethereum_address(key(*seed).verifying_key()))
+            .collect(),
+    };
+    let mut expected = relayer.journal().state().items.clone();
+    for item in expected.values_mut() {
+        assert_eq!(item.attestation_policy, None);
+        item.attestation_policy = Some(policy.clone());
+    }
+    assert_eq!(view.items, expected);
+}
+
+fn inbound_destination() -> PolicyDestination {
+    PolicyDestination::Inbound {
+        chain_id: PAXEER.chain_id,
+        bridge: LAYERX_BRIDGE_PRECOMPILE,
+        source_chain_id: CHAIN.chain_id,
+        source_vault: CHAIN.vault,
+    }
 }
 
 fn handle_requests(signer: &SignerServer, handle: &str) -> usize {
@@ -440,7 +475,7 @@ fn the_attestation_view_holds_every_item_after_a_tick() {
     );
     assert_eq!(tick[1].1, Ok(StepReport::default()));
     let view = relayer.attestation_view();
-    assert_eq!(view.items, relayer.journal().state().items);
+    assert_view_items(&view, &relayer, inbound_destination(), &[ATTESTOR_1], 1);
     assert_eq!(view.items.len(), 3);
     assert_eq!(view.thresholds.get(&CHAIN.chain_id), Some(&1));
     assert_eq!(view.signatures.len(), 3);
@@ -449,7 +484,7 @@ fn the_attestation_view_holds_every_item_after_a_tick() {
         deposit(0xcc, 7, padded(0x88), 5),
     ] {
         let digest = attestation.digest();
-        assert_eq!(view.signatures[&digest], vec![attest(ATTESTOR_1, &digest)]);
+        assert!(view.signatures[&digest].is_empty());
         let answer = deposit_answer(
             &view,
             attestation.chain_id,
@@ -458,6 +493,10 @@ fn the_attestation_view_holds_every_item_after_a_tick() {
         )
         .unwrap_or_else(|| panic!("missing deposit"));
         assert_eq!(answer["status"], "ready");
+        assert_eq!(
+            answer["signatures"],
+            serde_json::json!([hex::prefixed(&attest(ATTESTOR_1, &digest))])
+        );
     }
     let refused = &view.items[&inbound_key(1, &[0xdd; 32], 0)];
     assert!(refused.refusal.is_some());
@@ -505,7 +544,16 @@ fn the_attestation_view_holds_every_item_after_a_tick() {
         })
     );
     let view = relayer.attestation_view();
-    assert_eq!(view.items, relayer.journal().state().items);
+    assert_view_items(
+        &view,
+        &relayer,
+        PolicyDestination::EvmRelease {
+            chain_id: CHAIN.chain_id,
+            vault: CHAIN.vault,
+        },
+        &[ATTESTOR_1],
+        1,
+    );
     assert_eq!(view.items.len(), 1);
     let item = &view.items[&outbound_key(1, &[0x22; 32], 7)];
     assert!(matches!(item.completion, Some(Completion::Included { .. })));
@@ -514,7 +562,11 @@ fn the_attestation_view_holds_every_item_after_a_tick() {
         .outbound_attestation()
         .unwrap_or_else(|| panic!("missing release"))
         .digest();
-    assert_eq!(view.signatures[&digest], vec![attest(ATTESTOR_1, &digest)]);
+    assert!(view.signatures[&digest].is_empty());
+    assert_eq!(
+        release_answer(&view, 1, &[0x22; 32], 7).expect("release answer")["signatures"],
+        serde_json::json!([hex::prefixed(&attest(ATTESTOR_1, &digest))])
+    );
     assert_eq!(view.thresholds.get(&CHAIN.chain_id), Some(&1));
     assert_eq!(
         release_answer(&view, 1, &[0x22; 32], 7)
@@ -557,7 +609,13 @@ fn the_attestation_view_is_a_snapshot() {
         1
     );
     let before = first.attestation_view();
-    assert_eq!(before.items, first.journal().state().items);
+    assert_view_items(
+        &before,
+        &first,
+        inbound_destination(),
+        &[ATTESTOR_2, ATTESTOR_1],
+        2,
+    );
     assert_eq!(
         before.signatures[&digest],
         vec![attest(ATTESTOR_1, &digest)]
@@ -591,7 +649,13 @@ fn the_attestation_view_is_a_snapshot() {
     );
     assert_eq!(tick[1].1, Ok(StepReport::default()));
     let after = first.attestation_view();
-    assert_eq!(after.items, first.journal().state().items);
+    assert_view_items(
+        &after,
+        &first,
+        inbound_destination(),
+        &[ATTESTOR_2, ATTESTOR_1],
+        2,
+    );
     assert_eq!(
         after.items[&item].completion,
         Some(Completion::AlreadyBridged)
