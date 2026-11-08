@@ -1,3 +1,6 @@
+#[path = "support/journal_entries.rs"]
+mod journal_entries;
+
 include!("support/rate_harness.rs");
 include!("support/rate_repairs.rs");
 
@@ -43,7 +46,7 @@ fn publishes_the_owner_rate_with_set_rate_and_journals_it() -> TestResult {
     let lines = std::fs::read_to_string(lane.dir.join("rate.jsonl"))?;
     let entries: Vec<Entry> = lines
         .lines()
-        .map(serde_json::from_str)
+        .map(journal_entries::entry)
         .collect::<Result<_, _>>()?;
     assert_eq!(entries.len(), 3);
     assert!(
@@ -58,7 +61,20 @@ fn publishes_the_owner_rate_with_set_rate_and_journals_it() -> TestResult {
     assert!(
         matches!(&entries[2], Entry::RateFinalized { hash, settlement, .. } if *hash == publication.hash && settlement.succeeded)
     );
-    assert!(!lines.contains(&format!("{:064x}", 1)));
+    // The captured producer uses test scalar 1. That public 32-byte value also
+    // occurs inside ABI words and receipt signatures, so compare complete
+    // persisted scalar values rather than substrings of opaque public evidence.
+    fn no_secret(value: &Value, secret: &str) {
+        match value {
+            Value::String(text) => assert_ne!(text.strip_prefix("0x").unwrap_or(text), secret),
+            Value::Array(values) => values.iter().for_each(|value| no_secret(value, secret)),
+            Value::Object(values) => values.values().for_each(|value| no_secret(value, secret)),
+            _ => {}
+        }
+    }
+    for entry in &entries {
+        no_secret(&serde_json::to_value(entry)?, &format!("{:064x}", 1));
+    }
     Ok(())
 }
 
@@ -277,7 +293,7 @@ fn unsettled_publications_reserve_their_most_against_the_floor() -> TestResult {
         refused.downcast_ref::<RateRefusal>(),
         Some(&RateRefusal::LegacyUnresolved)
     );
-    std::fs::remove_file(lane.dir.join("rate.jsonl"))?;
+    journal_entries::remove(&lane.dir.join("rate.jsonl"))?;
     let floor = 10_u128.pow(15);
     lane.chain.borrow_mut().rung = "receipted";
     lane.chain.borrow_mut().balance = floor + RESERVE - 1;
@@ -576,7 +592,7 @@ fn real_signed_v2_publication_replays_exactly_and_refuses_identity_corruption() 
     }
     drop(journal);
     assert_eq!(Journal::open(&path)?.state(), &state);
-    std::fs::remove_file(path)?;
+    journal_entries::remove(&path)?;
     std::fs::remove_file(input)?;
     std::fs::remove_dir(directory)?;
     Ok(())

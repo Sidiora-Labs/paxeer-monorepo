@@ -870,18 +870,15 @@ mod active_inputs {
 
 static CONFIGURATION: Mutex<()> = Mutex::new(());
 
-fn payment_case() -> TestResult<Value> {
-    let fixtures: Value = serde_json::from_slice(include_bytes!(concat!(
+mod payment_fixture {
+    include!(concat!(
         env!("CARGO_MANIFEST_DIR"),
-        "/../../../../sdk/platform/conformance/fixtures/sequencer-receipt-v1.json"
-    )))?;
-    fixtures["cases"]
-        .as_array()
-        .ok_or("cases")?
-        .iter()
-        .find(|case| case["id"] == "V1-layerxledger-pay-exact")
-        .cloned()
-        .ok_or_else(|| "recorded payment".into())
+        "/tests/support/payment_fixture.rs"
+    ));
+}
+
+fn payment_case() -> TestResult<Value> {
+    payment_fixture::payment_case(None)
 }
 
 fn assert_active_environment(dir: &Path) {

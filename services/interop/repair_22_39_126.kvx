@@ -1,0 +1,185 @@
+[task]
+id = "22.39.126"
+mode = "BUILD"
+base_revision = "e586fd17d347cb8d454948b3c3d7a4dbec4670c2"
+continued_revision = "5f8324a70466e7290e008e3d87df5eae61397eb2"
+decisions = [2800, 2821, 2826, 2949]
+gotchas = [3483, 3655]
+baseline_entries_retired = 49
+implementation = "All in-scope code and fixture repairs are implemented before formatting or either declared gate. No pre-change gate was run."
+
+[qualification]
+revision_source = "/out/run/gates.jsonl: the matching build and successful hf-done rows name the exact verified candidate revision; the runner final evidence JSON is authoritative."
+build_command = "cargo test --locked --manifest-path services/interop/Cargo.toml -p layerx-gas-station -p layerx-interop-gateway -p layerx-interop-service -p layerx-migrate --no-run"
+verify_command = "cg spec done 22.39.126 -f layerx-merge --root /work/paxeer-monorepo"
+logs = "/out/logs/build-*.log and /out/logs/verify-*.log (private runner evidence)"
+coverage = "A skip is never a pass. When protected material is absent, the harness reports the two funded migration corpora and the two real-HTTPS station cases as ignored, naming their prerequisites. The owner-run qualification case of tools/paxeer-x/gates/20.2.sh exercises the protected material."
+
+[repair.1]
+member = "layerx-gas-station"
+target = "--lib"
+side = "test"
+decision = "Authenticated storage refuses a plaintext suffix as Corrupt before Entry version decoding; retain that exact refusal and separately assert Version for all four retired kinds in an actual plaintext legacy journal."
+recorded_failures = ["journal::tests::refusal_frees_the_nonce_and_retired_replacement_records_refuse_replay"]
+
+[repair.2]
+member = "layerx-gas-station"
+target = "--test did_budget"
+side = "test"
+decision = "Read Entry from its production authenticated envelope and remove the private temporary journal directory including lock, key and rollback head; keep all budget, DID and replay equality checks."
+recorded_failures = ["balance_floor_refuses_quote", "budget_charged_through_precompile", "did_gas_budget_resets_at_the_day_boundary_not_the_policy_interval", "did_lookup_failure_refuses", "journal_replay_restores_did_gas_within_the_same_day", "journal_replay_restores_did_totals", "unbound_account_uses_address"]
+
+[repair.3]
+member = "layerx-gas-station"
+target = "--test rate"
+side = "test"
+decision = "Bring the existing canonical receipt-codec fixture into agreement with verify_sequencer_view: millisecond timestamp, sequence, finality block number, fee fields, signing key, execution summary and log commitments; preserve independent signature, tamper, reserve, cost, fee ceiling and cadence assertions. Read authenticated journal payloads and clear sidecars only when a scenario starts a new history."
+recorded_failures = ["daily_gas_budget_stops_publishing", "fee_above_the_ceiling_is_refused_unsigned", "publication_unknown_to_the_sequencer_is_resent_as_its_exact_bytes", "publication_waits_for_the_sequencer_receipt_and_is_never_resent_at_its_nonce", "publisher_targets_only_the_paymaster_never_the_fee_token", "publishes_the_owner_rate_with_set_rate_and_journals_it", "real_signed_v2_publication_replays_exactly_and_refuses_identity_corruption", "receipt_signature_is_verified_against_pinned_receipt_keys", "refusals_never_publish", "renewal_tick_is_not_spent_on_finalizing_the_previous_publication", "settlement_records_the_actual_cost", "unsettled_publications_reserve_their_most_against_the_floor"]
+
+[repair.4]
+member = "layerx-gas-station"
+target = "--test resolution_policy"
+side = "test"
+decision = "Read authenticated payloads and clean their complete private storage. Retain exact replay state equality and rejection of retired replacement kinds both as authenticated-log corruption and as a legacy Version refusal."
+recorded_failures = ["journal_carries_did", "no_same_nonce_replacement", "one_paymaster_nonce"]
+
+[repair.5]
+member = "layerx-gas-station"
+target = "--test service"
+side = "test"
+decision = "Service::new durably binds PolicyIdentity before requests. A refused quote leaves precisely that PolicyBound entry, with no reservation or submission; the assertion now checks that exact state instead of requiring zero file bytes."
+recorded_failures = ["a_failed_did_read_answers_503_unavailable", "quote_refusals_are_4xx_and_unavailability_is_5xx", "quote_refused_when_the_rate_is_older_than_max_rate_age"]
+
+[repair.6]
+member = "layerx-gas-station"
+target = "--test station"
+side = "test"
+decision = "The exchange must inspect the authenticated Prepared payload before recording a send; a raw Entry parser refused the production envelope and caused subsequent indexing of an empty sent list. Preserve byte identity, signature counts, nonce and liability assertions; remove rollback sidecars only for deliberate test-history resets."
+recorded_failures = ["authenticated_retry_real_https_retains_unknown_liability_within_deadline", "dropped_submission_frees_its_nonce_and_nothing_is_signed_at_it", "expired_unknown_submission_frees_its_nonce_without_rebroadcast", "first_use_replay_state_real_https_preserves_retained_storage", "pending_nonce_read_failure_sends_nothing", "quote_submit_collect_restart_and_consumed_nonce", "refused_send_frees_nonce_without_replacement", "refused_submission_retains_exact_bytes_until_finalized_receipt"]
+
+[repair.7]
+member = "layerx-interop-gateway"
+target = "--lib"
+side = "test"
+decision = "The real Go ledger producer links both the kernel and programs libraries. Build the kernel with its existing make build target before the existing native programs build and real Go-to-Rust producer/consumer proof; retain the actual producer PASS assertion and all consumer log assertions."
+recorded_failures = ["gateway::ledger_producer_proof::proof_layerxledger_0x101a"]
+
+[repair.8]
+member = "layerx-interop-service"
+target = "--lib"
+side = "test"
+decision = "Use the existing repair_22_33_86 receipt Encoder/signature producer as a shared helper, signing a fresh bounded payer deadline and recomputing transaction, sequence, nonce, log and receipt identities for capture and refund. The UCP test declares its trusted USD/asset unit binding through the production ConfiguredUcpPaymentPlane wrapper; no implicit currency inference is added."
+recorded_failures = ["server::tests::ap2_execute_relays_the_mandate_transaction", "server::tests::fiat_callback_settles_through_the_relay", "server::tests::fiat_capture_evidence_restores_refunds_after_restart_without_resubmission", "server::tests::ucp_complete_relays_the_checkout_transaction"]
+
+[repair.9]
+member = "layerx-interop-service"
+target = "--test private_network"
+side = "test"
+decision = "The startup validator intentionally refuses every CLI argument with its full environment-configuration/offline-verification instruction. Assert that exact current diagnostic. Sign current settlement evidence via the shared production codecs; retain HTTP 200 and all replay, durable receipt, submission count and authentication checks."
+recorded_failures = ["arguments_are_refused_before_configuration", "private_network_route_coverage"]
+
+[repair.10]
+member = "layerx-interop-service"
+target = "--test repair_22_31_164"
+side = "test"
+decision = "Share the renewed payer-signed payment and freshly encoded, signed receipt fixture; do not weaken the real-clock deadline check or the mounted private-route settlement and recovery assertions."
+recorded_failures = ["relay_claim_before_send_and_private_endpoint_settlement"]
+
+[repair.11]
+member = "layerx-interop-service"
+target = "--test repair_22_33_87"
+side = "test"
+decision = "Use the same valid settlement producer so the payment completes before the HTTP replay assertions; retain exact 400/409/200 response bytes and restart assertions."
+recorded_failures = ["replayed_http_status_reopens_400_and_409"]
+
+[repair.12]
+member = "layerx-interop-service"
+target = "--test repair_22_33_91"
+side = "test"
+decision = "Repair the shared expired payment fixture that poisoned CONFIGURATION; keep strict mutex poisoning behavior and every startup and private route assertion."
+recorded_failures = ["legacy_plain_listener_inputs", "legacy_sequencer_start_inputs", "private_network_route_coverage", "unavailable_node_refuses_minimal_startup"]
+
+[repair.13]
+member = "layerx-migrate"
+target = "--test funded_operator"
+side = "test"
+decision = "Decision 2821 explicitly requires a reported skip only when LAYERX_MIGRATION_FUNDED_OPERATOR_FIXTURE is absent. Use the libtest-mimic harness to count that trial as ignored, never passed; retain every refusal case and the complete genuine funded corpus checks when configured. Empty or invalid supplied values still fail."
+recorded_failures = ["funded_operator_runs_real_gateway_source_and_independent_funded_receipts"]
+
+[repair.14]
+member = "layerx-migrate"
+target = "--test migration_v2_connected"
+side = "test"
+decision = "Report an ignored trial naming LAYERX_MIGRATION_V2_FIXTURE only when absent; configured runs retain the actual connected subprocess and exact complete Ethereum/Solana funded coverage and nonzero-case assertions. A skipped trial never emits the completion marker."
+recorded_failures = ["migration_v2_connected_runs_authenticated_mapping_and_funded_settlement"]
+
+[gotcha.task_storage]
+observed = "Deleting only an authenticated journal log leaves its anti-rollback head; tests that intentionally start a new history must reset their own complete temporary storage."
+action = "Temporary fixtures clean the journal key, lock, head and replay index as a unit; production retention and corruption checks remain unchanged."
+
+[gotcha.task_receipts]
+observed = "The recorded payment deadline is in milliseconds and has expired; adjusting the HTTP credential alone cannot make the payer transaction valid."
+action = "Reuse the existing real signer and receipt Encoder to produce bounded current evidence and derive every dependent identity, leaving expiry enforcement intact."
+
+[prerequisite.gas_station_https]
+variables = ["PAXEER_X_STATION_RECOVERY_MATERIAL", "PAXEER_X_STATION_FIRST_USE_MATERIAL"]
+observed = "Both variables are absent from the sandbox; the existing tests require protected material and actual isolated HTTPS node endpoints."
+action = "Decision 2949 extends decision 2821 to both real-HTTPS station cases: report each trial as ignored only when its named variable is absent; run the unchanged body when present, including failure for an invalid supplied value. A skip is never a pass; the owner-run qualification case of tools/paxeer-x/gates/20.2.sh exercises the material."
+
+[qualification.first_build]
+revision = "1d19266ad5b63429c7100f504587f97d558470ea"
+command = "cargo test --locked --manifest-path services/interop/Cargo.toml -p layerx-gas-station -p layerx-interop-gateway -p layerx-interop-service -p layerx-migrate --no-run"
+exit = 0
+log = "/out/logs/build-1.log"
+
+[qualification.first_verify]
+revision = "1d19266ad5b63429c7100f504587f97d558470ea"
+command = "cg spec done 22.39.126 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Wiring tests and all 17 dependent crates passed; gateway, service library and migration targets passed, while the rate secret substring assertion, a separately loaded expired settlement fixture and the two missing gas-station HTTPS materials failed."
+
+[repair.qualification]
+rate = "The genuine producer recording uses public test scalar 1, whose bytes also occur within public ABI/receipt data. Preserve the rule against persisting its private scalar as any complete JSON value (with or without 0x), recursively checking every persisted typed Entry, rather than rejecting an incidental substring inside public opaque evidence."
+settlement = "repair_22_31_164 loaded the old capture directly instead of the shared payment_case helper; switch that load to the same freshly signed bounded transaction and receipt used by all its other consumers, leaving its expected statuses, journal bytes, independent relay checks and submission counts intact."
+
+[finding.gas_station_external_material]
+task = "22.39.126"
+file = "services/interop/crates/layerx-gas-station/tests/station.rs"
+symbol = "authenticated_retry_real_https_retains_unknown_liability_within_deadline, first_use_replay_state_real_https_preserves_retained_storage"
+observed = "At 1d19266ad5b63429c7100f504587f97d558470ea, cg spec done 22.39.126 -f layerx-merge --root /work/paxeer-monorepo exited 1 with both enabled HTTPS tests returning NotPresent, recorded at /out/logs/verify-1.log."
+assumption = "Historical attempt-1 blocker: decision 2949 now authorizes absent-material reporting as ignored for these two cases; configured runs still require genuine protected material and isolated HTTPS nodes."
+severity = "blocker"
+
+[repair.15]
+member = "layerx-gas-station"
+target = "--test station"
+side = "test harness"
+decision = "Decision 2949: authenticated_retry_real_https_retains_unknown_liability_within_deadline requires PAXEER_X_STATION_RECOVERY_MATERIAL; first_use_replay_state_real_https_preserves_retained_storage requires PAXEER_X_STATION_FIRST_USE_MATERIAL. Each is ignored only when its variable is absent, following the two migrate cases. All twelve station test functions remain registered and every test body and assertion is unchanged. A skip is never a pass; the owner-run qualification case of tools/paxeer-x/gates/20.2.sh exercises the material."
+
+[gotcha.baseline_merge]
+observed = "The seeded baseline deletion conflicts with retirements already present on the current base."
+action = "Keep the current base retirements and remove its forty-nine entries for these four members; do not restore the seed's stale entries for other tasks."
+
+[qualification.continuation]
+build = "/out/run/gates.jsonl: final matching build row records revision, exact command, exit and private log; /out/logs/build-1.log is the initial continuation build."
+verify = "/out/run/gates.jsonl: final hf-done verify row records revision, exact command, exit and private log; /out/logs/verify-1.log is the initial continuation verification."
+policy = "The matching successful gate rows qualify this continuation; prior attempt evidence above remains historical. No protected-material skip is counted as a pass."
+
+[qualification.continuation_verify_1]
+revision = "8330e6493cd5f960a6987644edd75e2a900b2407"
+command = "cg spec done 22.39.126 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Wiring, seventeen dependents and every other test target passed; committed_claim_without_proof_hosted_ap2_response in repair_22_33_86 returned 503 persistence_unavailable in its unrelated-block scenario instead of 200."
+
+[repair.continuation_transport]
+member = "layerx-interop-service"
+target = "--test repair_22_33_86"
+side = "test transport"
+decision = "Set TCP_NODELAY on accepted loopback fixture sockets so small TLS/RESP and HTTP exchanges do not incur Nagle/delayed-ACK stalls. Preserve the existing one-second operation and relay retention, all request deadlines, exact 200 response assertions, every portable verification check and the independently exercised expiration/restart tests. No configured bound or assertion is changed."
+evidence = "/out/run/gates.jsonl: build-2 and verify-2 rows must name the same repaired candidate; their private logs record the actual results."
+
+[gotcha.fixture_transport]
+observed = "A loopback TLS/RESP peer that writes small replies with Nagle buffering can spend a short retention fixture's operation lifetime on delayed acknowledgements."
+action = "Use TCP_NODELAY for the fixture transport while preserving the retention and request deadline checks."

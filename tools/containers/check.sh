@@ -142,6 +142,7 @@ REFERENCE_EXEMPT=(
     ':(exclude)GOTCHA.kvx'
     ':(exclude)tools/containers/check.sh'
     ':(exclude)tools/qualification/audit_repairs/*.kvx'
+    ':(exclude)tools/jev/tests/fixtures'
 )
 # files where the bare word Dockerfile or an unflagged docker build is not the root image
 ROOT_TOKEN_EXEMPT=(
