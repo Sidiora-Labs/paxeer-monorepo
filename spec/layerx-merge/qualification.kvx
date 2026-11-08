@@ -36162,3 +36162,51 @@ symbol = "test_launchpad_go_tests_wired.py"
 observed = "Attempt 13 at 6fd12004277d (base c92013249283): build exit 0 twice; first verification exit 2 with the protocol bindings package timed out at ten minutes during the cold overlay proof; second verification exit 2 with every module green except services/launchpad/user/internal/app, two cases failing; log /out/logs/verify-2.log."
 assumption = "The launchpad target is green apart from two user profile cases whose producers landed on 2026-11-04; the baseline procedure of the task covers them."
 severity = "high"
+
+[finding.9.35.7.2]
+task = "9.35.7"
+file = "services/agent/crates/layerx-crypto/tests/signer.rs::keystore_signer_refuses_activity_preimages_and_signs_the_bind_message"
+symbol = "signer.rs::keystore_signer_refuses_activity_preimages_and_signs_the_bind_message"
+observed = "Attempt 5 at d6ead3a72927 (base dd4addbf677b): build exit 101 twice, the first with decode_session_key out of scope in the call module, the second with the library compiling and every test target failing on unresolved imports of the retired items in tests/support/signing.rs, tests/support/mod.rs and tests/repair_22_33_1560.rs; the verification never ran; log /out/logs/build-2.log."
+assumption = "The deletion of attempt 5 is exact; only the unlisted test consumers, the lost import and the census exclusion block the task."
+severity = "high"
+
+[finding.22.39.172.2]
+task = "22.39.172"
+file = "services/agent/crates/layerx-agentd/tests/history_served_contract.rs"
+symbol = "history_served_contract.rs"
+observed = "Attempt 2 at dd47d3970a57 (base dd4addbf677b): build exit 0 twice; verification exit 1 twice, the second with 25 cases passing and read_account_decodes_a_served_gateway_page failing its exact response-size assertion (495 against 643) at tests/history_served_contract.rs line 157; log /out/logs/verify-2.log."
+assumption = "The producer measure is settled since 22.33.1521 and the oversized case already follows it; only the exact-count expectation of one case lags."
+severity = "high"
+
+[finding.22.39.95.7]
+task = "22.39.95"
+file = "apps/launchpad/web/src/core/wallet-sdk/runtime.integration.test.tsx"
+symbol = "runtime.integration.test.tsx"
+observed = "Attempt 7 at f9670ab45d4e: build exit 0; verification exit 1 before the suites: the snapshot readiness probe timed out after ninety seconds answering HTTP 429 RATE_LIMITED, and the api log recorded development stream projection degraded because stats.pool_stats does not exist on every stats sweep; log /out/logs/verify-1.log."
+assumption = "The api and its routes behave as designed; the preparation lacks the stats schema and floods the rate limit while waiting."
+severity = "high"
+
+[finding.22.99.155.8]
+task = "22.99.155"
+file = "services/platform/hosted/indexer"
+symbol = "indexer"
+observed = "Attempt 6 at 61c5e13929ea (base c0859a9d080c): build exit 0 twice; verification exit 1 twice, the second with two targets failing: a02_only_a_rank4_checkpoint_for_the_same_root_finalizes (slot F06 NotYetProduced against the expected NotEnabled at tests/ai_snapshot_minimal.rs line 617) and request_writes_obey_total_deadline (1.26 s against the one-second bound at tests/repair_22_33_1445.rs line 644); log /out/logs/verify-2.log."
+assumption = "The two remaining failures are consumer expectations behind their producers; the eviction repair of the task holds."
+severity = "high"
+
+[finding.9.35.7.3]
+task = "9.35.7"
+file = "services/agent/crates/layerx-crypto/tests/signer.rs::keystore_signer_refuses_activity_preimages_and_signs_the_bind_message"
+symbol = "signer.rs::keystore_signer_refuses_activity_preimages_and_signs_the_bind_message"
+observed = "Attempt 6 at 21576b957f45 (base 29e8b1130a): build exit 0; the verification never ran because the compile check of the dependent crates exited 101 at the bridge relayer test target repair_22_31_160 (evm/package-lock.json missing on main); the local crate suite failed one case, auth_lifecycle_call_discloses_the_governance_payload at tests/disclosure_call.rs line 411; log /out/logs/dependents-1.log."
+assumption = "Both failures predate the attempt: the missing lock file since 22.39.124 and the stale malformed row since 22.31.496."
+severity = "high"
+
+[finding.22.39.26.4]
+task = "22.39.26"
+file = "tests/ci/test_qualification_suites_have_ci_host.py"
+symbol = "test_qualification_suites_have_ci_host.py"
+observed = "Attempt 4 at af2711cdcd84 (base d27e49f022): build exit 0 twice; verification exit 2 twice, 4448 passed and test_finding_7_final_bytes_are_bounded_deployed_and_then_published failed, first at line 105 (consumer fact), then at line 119 (harness fact); log /out/logs/verify-2.log."
+assumption = "The one stale quotation is the whole remaining failure; the host, the job and the make target are complete."
+severity = "high"
