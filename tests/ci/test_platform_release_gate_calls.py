@@ -5,6 +5,8 @@ from pathlib import Path
 import pytest
 import yaml
 
+from tools.ci.tests.workflow_graph import release_gate_job
+
 
 ROOT = Path(__file__).resolve().parents[2]
 RELEASE_GATES = (
@@ -26,13 +28,16 @@ def test_platform_workflow_does_not_pass_ordinal_to_release_gate():
         for step in job.get("steps", []):
             assert "--ordinal" not in step.get("run", "")
     for job_name, _ in RELEASE_GATES:
-        for step in workflow["jobs"][job_name]["steps"]:
+        _, job = release_gate_job(ROOT, job_name)
+        for step in job["steps"]:
+            assert "--ordinal" not in step.get("run", "")
             assert "release-gate.sh" not in step.get("run", "")
 
 
 @pytest.mark.parametrize("job_name,target", RELEASE_GATES)
 def test_platform_release_gate_upload_paths_are_runner_temp(job_name, target):
-    steps = _workflow()["jobs"][job_name]["steps"]
+    _, job = release_gate_job(ROOT, job_name)
+    steps = job["steps"]
     uploads = [
         step
         for step in steps
@@ -40,6 +45,7 @@ def test_platform_release_gate_upload_paths_are_runner_temp(job_name, target):
     ]
     assert len(uploads) == 1
     upload = uploads[0]
+    assert upload["with"]["name"] == f"release-gate-{job_name}"
     assert upload["if"] == "${{ always() }}"
     assert upload["with"]["path"] == f"${{{{ runner.temp }}}}/{job_name}.log"
     assert upload["with"]["if-no-files-found"] == "error"
@@ -60,7 +66,8 @@ def test_platform_release_gate_upload_paths_are_runner_temp(job_name, target):
 
 @pytest.mark.parametrize("job_name,target", RELEASE_GATES)
 def test_platform_release_gate_jobs_run_existing_make_targets(job_name, target):
-    steps = _workflow()["jobs"][job_name]["steps"]
+    _, job = release_gate_job(ROOT, job_name)
+    steps = job["steps"]
     commands = [step["run"] for step in steps if "run" in step]
     invocations = [
         shlex.split(line)
