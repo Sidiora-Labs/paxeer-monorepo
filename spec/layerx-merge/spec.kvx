@@ -183012,7 +183012,7 @@ do_5 = "Attempt 2 (continue, gotcha 3688, decisions 2900, 2987 and 2988): the at
 
 [task.22.39.171]
 title = "Anchor the cursors of local-only daemon events to the chain position so one subscription stream stays strictly increasing across approval events and recovered logs"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 3
 requires = ["22.31.215", "18.1150.1"]
