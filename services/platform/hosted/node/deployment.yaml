@@ -38,6 +38,7 @@ spec:
     metadata: {labels: {app: layerx-node, layerx-plane: native-chain}}
     spec:
       securityContext: {runAsNonRoot: true, runAsUser: 4020, runAsGroup: 4020, fsGroup: 4020}
+      shareProcessNamespace: false
       automountServiceAccountToken: false
       terminationGracePeriodSeconds: 60
       initContainers:

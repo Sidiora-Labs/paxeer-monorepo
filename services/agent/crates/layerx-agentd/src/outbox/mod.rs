@@ -215,6 +215,11 @@ impl Outbox {
         if verified.idempotency_key() != submission_id {
             return Err(OutboxError::IdempotencyMismatch);
         }
+        if verified.activity_id() != transaction_hash(verified.exact_bytes())
+            || verified.signed_byte_length() != verified.exact_bytes().len()
+        {
+            return Err(OutboxError::Corrupt);
+        }
         let indexed_owner = owner.map(|principal| (verified.idempotency_key(), principal));
         self.enqueue_exact(
             store,

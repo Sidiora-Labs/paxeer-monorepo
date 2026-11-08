@@ -35,6 +35,7 @@ MAXIMUM_MATERIAL_BYTES = 4096
 MAXIMUM_COMMAND_OUTPUT_BYTES = 4096
 DEFAULT_OPERATION_TIMEOUT = 10.0
 OPERATION_DEADLINE = ContextVar('treasury_operation_deadline', default=None)
+OPERATION_CLOCK = ContextVar('treasury_operation_clock', default=time.monotonic)
 RECIPIENT_BINDING_DOMAIN = b'LX:SETTLE:RECIPIENT:v1\0'
 RECIPIENT_BINDING_BYTES = 120
 
@@ -48,13 +49,19 @@ class ProviderTimeout(ProviderError):
 
 
 @contextmanager
-def operation_deadline(deadline):
+def operation_deadline(deadline, clock=None):
+    clock_token = OPERATION_CLOCK.set(OPERATION_CLOCK.get() if clock is None else clock)
     previous = OPERATION_DEADLINE.get()
     token = OPERATION_DEADLINE.set(deadline if previous is None else min(previous, deadline))
     try:
         yield
     finally:
         OPERATION_DEADLINE.reset(token)
+        OPERATION_CLOCK.reset(clock_token)
+
+
+def monotonic():
+    return OPERATION_CLOCK.get()()
 
 
 def remaining_time(deadline=None):
@@ -62,7 +69,7 @@ def remaining_time(deadline=None):
         deadline = OPERATION_DEADLINE.get()
     if deadline is None:
         return DEFAULT_OPERATION_TIMEOUT
-    remaining = deadline - time.monotonic()
+    remaining = deadline - monotonic()
     if remaining <= 0:
         raise ProviderTimeout('the treasury operation deadline expired')
     return remaining
@@ -72,7 +79,7 @@ def bounded_process(command, timeout, descriptors=(), stdin=None,
                     maximum=MAXIMUM_COMMAND_OUTPUT_BYTES):
     if not math.isfinite(timeout) or timeout <= 0 or maximum < 0:
         raise ProviderError('provider process bounds must be finite and positive')
-    deadline = time.monotonic() + timeout
+    deadline = monotonic() + timeout
     request_deadline = OPERATION_DEADLINE.get()
     if request_deadline is not None:
         deadline = min(deadline, request_deadline)

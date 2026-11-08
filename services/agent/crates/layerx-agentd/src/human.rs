@@ -1429,19 +1429,6 @@ pub trait HumanOperations {
         request: layerx_agent_api::policy::PolicyDryRunRequest,
     ) -> Result<HumanResponse, HumanOperationError>;
     /// # Errors
-    /// Returns an error if authorization fails, an asserted context field disagrees with the
-    /// authenticated session, the session capability binding or purpose is absent, or the intent
-    /// is malformed.
-    fn policy_dry_run_legacy(
-        &mut self,
-        context: &crate::agent_rpc_peer::RpcOwnerContext<'_>,
-        control: &crate::session_control::SessionControl,
-        request: layerx_agent_api::identity::LegacyPolicyDryRun,
-    ) -> Result<
-        layerx_agent_api::budget::AuthorityResponse<layerx_agent_api::policy::PolicyDryRunResult>,
-        HumanOperationError,
-    >;
-    /// # Errors
     /// Returns an error if authorization or operation validation fails, or required state is unavailable.
     fn wait(
         &mut self,
