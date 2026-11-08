@@ -10437,6 +10437,12 @@ value = "When a task adds, renames or removes any file that tests/ci/data/intent
 basis = "Task 22.39.138 attempt 5 at f01c678451d5 (gotcha 3583): the rename task 22.39.61 removed twelve copies that 22.39.62 had locked eleven commits earlier, and its gate never ran the sync test. Extends decisions 2762 and 2800 and gotcha 3046."
 affects = ["22.39.152", "22.39.61", "22.39.62"]
 
+[decision.2888]
+title = "The per-model placement cap governs alongside the aggregate room book and a capacity test spreads its fill over model digests"
+value = "The placement book admits at most 64 open asks and 64 open bids per model digest (SIDE_CAPACITY of src/placement.rs, task 22.38.11) and the room book admits 64 asks and 128 bids in total across all rooms and models (ASK_CAPACITY and BID_CAPACITY of src/rooms.rs, task 22.38.3); both constants stay. A test that fills an aggregate capacity spreads the fill over as many model digests as the per-model cap requires, asserts the per-model refusal (the sixty-fifth open bid of one model refuses CAPACITY while the book still has room) and the aggregate refusal (the one-hundred-and-twenty-ninth bid refuses CAPACITY) separately, and keeps the aggregate count assertion. Nothing under src changes for this settlement."
+basis = "Task 22.39.142 attempt 5 at 81922d66a65c (gotcha 3585): the capacity test of 22.38.3 fills 128 bids under one model digest that the placement book of 22.38.11 caps at 64. Owner ruling between two landed producer constants, flagged for review; extends decisions 2800 and 2857 and gotcha 3046."
+affects = ["22.39.153", "22.39.142", "22.38.3", "22.38.11"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -39327,6 +39333,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.153]
+title = "Settle the shared-budget capacity test of the rooms binary against the per-model placement cap"
+reqs = ["22998.1"]
+touches = ["programs/crates/layerx-programs-ai-market/tests/f11_rooms_and_deals.rs"]
+tests = ["programs/crates/layerx-programs-ai-market/tests/f11_rooms_and_deals.rs"]
+verification_contract = "test -s programs/crates/layerx-programs-ai-market/tests/repair_22_39_153.kvx && cargo test --locked --manifest-path programs/Cargo.toml -p layerx-programs-ai-market --test f11_rooms_and_deals --test f11_placement_book"
+do_1 = "do_1 Decision 2888, gotcha 3585. In programs/crates/layerx-programs-ai-market/tests/f11_rooms_and_deals.rs the case all_room_ask_and_bid_capacities_fit_together_in_the_shared_state_budget (from line 1039) opens sixteen rooms that all carry model digest digest(50) and posts BID_CAPACITY bids into room digest(100); the placement book of src/placement.rs admits SIDE_CAPACITY (64) open bids per model digest since 22.38.11 and refuses the sixty-fifth with CAPACITY at line 90."
+symbols = []
 
 [capability.22.39.152]
 title = "Reconcile the intentional-copy inventory with the launchpad and perps asset tree after the rename task"
@@ -182139,6 +182154,36 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.39.153]
+title = "Settle the shared-budget capacity test of the rooms binary against the per-model placement cap"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.153"]
+interfaces = []
+do_1 = "do_1 Decision 2888, gotcha 3585. In programs/crates/layerx-programs-ai-market/tests/f11_rooms_and_deals.rs the case all_room_ask_and_bid_capacities_fit_together_in_the_shared_state_budget (from line 1039) opens sixteen rooms that all carry model digest digest(50) and posts BID_CAPACITY bids into room digest(100); the placement book of src/placement.rs admits SIDE_CAPACITY (64) open bids per model digest since 22.38.11 and refuses the sixty-fifth with CAPACITY at line 90."
+do_2 = "do_2 Open the sixteen rooms under two model digests (eight with digest(50), eight with a second digest through a request variant of open_request), fill 64 bids into one room of the first model, assert that the next bid of that model refuses the PostBid operation with CAPACITY while the book still has room, fill 64 bids into one room of the second model, assert that the next bid of either model refuses with CAPACITY because the room book is full, and keep the ask fill, the ask refusal, the final counts assertion [16, 64, 128, 0] and the state size assertion as they stand. Every other case of the binary and every assertion the producers still satisfy stay unchanged, and nothing under programs/crates/layerx-programs-ai-market/src changes."
+do_3 = "do_3 Record each changed assertion with the producer line it follows in programs/crates/layerx-programs-ai-market/tests/repair_22_39_153.kvx. Run the build once and the verification once at the final tree and record both by reference."
+symbols = []
+touches = ["programs/crates/layerx-programs-ai-market/tests/f11_rooms_and_deals.rs"]
+tests = ["programs/crates/layerx-programs-ai-market/tests/f11_rooms_and_deals.rs"]
+planned_paths = ["programs/crates/layerx-programs-ai-market/tests/repair_22_39_153.kvx"]
+build_cmd = "cargo build --locked --manifest-path programs/Cargo.toml -p layerx-programs-ai-market --tests"
+verify_cmd = "test -s programs/crates/layerx-programs-ai-market/tests/repair_22_39_153.kvx && cargo test --locked --manifest-path programs/Cargo.toml -p layerx-programs-ai-market --test f11_rooms_and_deals --test f11_placement_book"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-programs"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 90
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.149]
 title = "Settle the ramp toolkit test binaries against the off-ramp payer grant contract and run them without fail-fast"
 status = "done"
@@ -182176,7 +182221,7 @@ title = "Bring the ai-market guest forty thousand bytes under its deployment bou
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = []
+requires = ["22.39.153"]
 reqs = ["22998.1"]
 capabilities = ["22.39.142"]
 interfaces = []
@@ -182205,6 +182250,7 @@ do_5 = "Attempt 2 (continue, gotcha 3549, decisions 2771 and 2792): the attempt-
 do_6 = "Attempt 3 (continue, gotcha 3561, decisions 2771, 2792 and 2868): the attempt-2 tree 77bfba6a279be09fc90f7172b752ba9290e372d2 stands (every shared helper, the derivations, the replay checkpoint, the moved control values, the record). Before any source change, build the guest with the host boundary target and run the function metrics pass of wasm-opt on the packaged ai_market.wasm; record the twenty-five largest functions with their sizes in src/repair_22_39_142.kvx. Then, driven by that table: mark the shared typed writer, the ordered destination reader and every other shared helper that the table shows duplicated into its callers with the never-inline attribute so link-time optimisation keeps one body; remove the formatting machinery from the guest paths outside the test modules (the seven asserts, the two panics and the one write outside cfg(test) become status-code returns or the SDK abort, so no Debug implementation and no core formatting is reachable from the guest exports); and apply the existing techniques to whichever large functions remain at the top of the table, re-measuring after each step and recording the bytes it saved. The tests of the crate stay unchanged as do_3 requires. Run the build once and the verification once at the final revision and record both by reference. If the guest is still above 484184 bytes after the table-driven steps, record the final table and the remaining gap and stop the attempt without a further repair cycle; the owner then decides on the bound."
 do_7 = "Attempt 4 (continue, gotcha 3570, decisions 2771, 2792, 2857 and 2877, gotcha 3046): the attempt-3 tree 4e3940dd51bf stands (the reduced guest at 483154 bytes, every shared helper, the function metrics table, the record). The only failure is the consumer row: in tests/f11_family_table.rs (now a touched path) replace the literal SettleLaps bounds 92 and 92 at lines 62 to 70 with laps::SETTLE_FIXED_BYTES + evidence::MANIFEST_FIXED_BYTES and laps::SETTLE_FIXED_BYTES + evidence::MAX_MANIFEST_BYTES, the names the operation table declares since 22.38.4; import the two modules the way the test already imports the crate modules; no other row, no source file and no bound changes. Record the corrected row with the producer lines in src/repair_22_39_142.kvx. Run the build once and the verification once at the final revision and record both by reference."
 do_8 = "Attempt 5 (continue, gotcha 3576, decisions 2857, 2877 and 2882): the attempt-4 tree 146d4fa84434 stands (the SettleLaps row at the producer constants, the rebuilt guest, the record). In tests/f11_family_table.rs the selector table row for 0x0B14 follows the operation table: the section list is PolicyLifecycle then SettlementClaims as the BookView metadata declares them since 22.38.11, and the assertion that every selector contains IdentityRoster applies to selectors other than 0x0B14, which reads the placement book per model digest and touches no roster entry. Every further assertion of f11_selectors_route_to_their_operation_metadata that disagrees with the operation table is corrected the same way and recorded with the producer line it follows; the instruction of the round-245 note to change only the SettleLaps row yields where the producer differs, per decision 2857. Nothing under src changes. Run the build once and the verification once at the final revision and record both by reference; if the test still disagrees with the producer, correct the assertion it names in the one allowed repair cycle and rerun once."
+do_9 = "Attempt 6 (continue after 22.39.153 lands; gotcha 3585, decisions 2771, 2857 and 2888): the attempt-5 tree 81922d66a65c stands in full (the guest at 483154 bytes, the shared codec routing, the SettleLaps and BookView rows and the roster assertion of f11_family_table.rs, the record). The one failing case belongs to the capacity test of 22.38.3 that task 22.39.153 settles against the placement book of 22.38.11; this task changes no test, as its do_3 says. Once 22.39.153 is on main, merge main, rebuild the guest, confirm the size bound still holds at the merged tree, run the build once and the verification once and record both by reference; a case that still fails after the merge is recorded with its producer line and left to the task that owns it."
 
 [task.22.39.141]
 title = "Make the program call test assert the unknown-rung value the CLI returns for a lost node response"

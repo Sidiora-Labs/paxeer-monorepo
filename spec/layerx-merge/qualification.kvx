@@ -35378,3 +35378,11 @@ symbol = "test_copied_artifacts_in_sync.py"
 observed = "Attempt 5 at f01c678451d5: build exit 0; verification exit 1: all seventeen selected node tests passed and the trailing python step failed seven of nine cases of the copy inventory sync test on apps/launchpad/web/src/assets/icons/airdrop_background.png missing since 637c9c63da."
 assumption = "The node repair is complete; the failure is a foreign gate step over an inventory another task owns."
 severity = "blocker"
+
+[finding.22.39.142.5]
+task = "22.39.142"
+file = "programs/crates/layerx-programs-ai-market/tests/f11_views.rs"
+symbol = "f11_views.rs"
+observed = "Attempt 5 at 81922d66a65c: build exit 0; verification exit 101: the size bound, the family table, the canary and the module mirror checks passed, and f11_rooms_and_deals failed one case, the shared-budget capacity test, at the sixty-fifth bid of one model digest with CAPACITY from the placement book."
+assumption = "The size work is complete; the failure is a settlement between two landed producer constants that another task owns."
+severity = "blocker"
