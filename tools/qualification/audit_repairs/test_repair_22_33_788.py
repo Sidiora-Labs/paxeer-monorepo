@@ -94,11 +94,15 @@ def test_finding_7_final_bytes_are_bounded_deployed_and_then_published():
         "printf '%s\\n' '$(PAXAI_CHAIN_DOMAIN)' | LC_ALL=C grep -Eq '^[0-9a-f]{64}$$'"
     )
     assert MAKEFILE.count("$(PAXAI_CHAIN_DOMAIN)") == 3
-    # Trace the unchanged consumers of the same manifest and final artifact.
+    # Trace manifest artifacts through the consumer's checked path resolution.
     consumer = read("programs/crates/layerx-programs-ai-market/tests/host_boundary.rs")
     for fact in (
-        "let [wasm, binary, chain] = lines[..]", "wasm: wasm.to_owned()",
-        "harness: binary.to_owned()", "chain: fixed(&unhex(chain)?)?",
+        "let [wasm, binary, chain] = lines[..]", "wasm: resolve(wasm)?",
+        "harness: resolve(binary)?", "chain: fixed(&unhex(chain)?)?",
+        "let resolve = |value: &str| -> Checked<String>",
+        "let artifact = PathBuf::from(value)", "if artifact.is_absolute()",
+        "path.parent()", ".join(artifact)", "let resolved = artifact.canonicalize()",
+        "if !resolved.is_file()", "Ok(resolved.to_string_lossy().into_owned())",
         "Command::new(&m.harness)", ".arg(&m.wasm)",
         "assert_eq!(s.header.deployment_chain_domain, n.chain)",
     ):
@@ -106,7 +110,9 @@ def test_finding_7_final_bytes_are_bounded_deployed_and_then_published():
     harness = read("tests/programs/test_ai_host_boundary.c")
     for fact in (
         'FILE *artifact = fopen(path, "rb")',
-        "fread(payload+104U, 1U, length, artifact) != length",
+        "wasm = malloc((size_t)length)",
+        "fread(wasm, 1U, (size_t)length, artifact) != (size_t)length",
+        "deploy_bytes(f, wasm, (size_t)length)",
         "lxp_hash_sha256(payload+104U, length, payload+68U)",
         "execute(f, 0U, LX_PROGRAMS_DEPLOY, payload, length+104U)",
         "execute(f, 0U, LX_PROGRAMS_UPGRADE, upgrade, length+106U)",
