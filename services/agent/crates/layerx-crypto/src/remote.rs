@@ -175,7 +175,10 @@ impl Signer for RemoteSigner {
     }
 
     fn sign<'a>(&'a self, request: SigningRequest<'a>) -> SignFuture<'a> {
-        Box::pin(async move { self.sign_once(request).map_err(SignError::from) })
+        Box::pin(async move {
+            request.external_signing_bytes()?;
+            self.sign_once(request).map_err(SignError::from)
+        })
     }
 
     fn evm_address(&self) -> Option<[u8; 20]> {
