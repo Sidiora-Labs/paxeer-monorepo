@@ -201964,7 +201964,7 @@ do_4 = "Decision 2496 (continue): the tests canonical_native_authority_matches_a
 
 [task.22.99.77]
 title = "Repair the inventory sweep target layerx-programs-ai-market"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.99.160", "22.99.159", "22.31.464", "22.31.497", "22.31.558", "22.31.564", "22.31.569", "22.31.573", "22.31.586", "22.31.615", "22.31.620", "22.39.142", "22.39.163"]
