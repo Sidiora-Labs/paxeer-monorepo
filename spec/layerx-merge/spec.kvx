@@ -153010,7 +153010,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.37.31]
 title = "Run the object-store cases of the source-control live campaign and inventory the inputs of every remaining registry case"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.36.1"]
