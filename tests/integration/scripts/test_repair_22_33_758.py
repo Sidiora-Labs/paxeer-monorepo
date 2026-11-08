@@ -241,8 +241,16 @@ def test_python_status_timeout_kills_process_group_and_stops_setup(tmp_path, cap
     descendant_pid = int(failure.value.stdout.strip())
     stat = Path(f"/proc/{descendant_pid}/stat")
     # A killed orphan may await reaping by the sandbox init process.
-    if stat.exists():
-        assert stat.read_text().split(") ", 1)[1].split()[0] == "Z"
+    deadline = time.monotonic() + 3
+    while True:
+        try:
+            state = stat.read_text().split(") ", 1)[1].split()[0]
+        except FileNotFoundError:
+            state = None
+        if state in (None, "Z") or time.monotonic() >= deadline:
+            break
+        time.sleep(0.01)
+    assert state in (None, "Z")
     assert not marker.exists()
     assert "private timeout diagnostics" not in str(failure.value)
     assert "private timeout diagnostics" not in capsys.readouterr().err

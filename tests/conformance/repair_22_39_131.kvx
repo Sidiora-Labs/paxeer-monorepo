@@ -1,0 +1,107 @@
+[repair.22.39.131]
+mode = "BUILD"
+base_revision = "3835ba1c084b328157834ceb663adb8020990ae7"
+continued_revision = "80deacfdd28164f7b2f1ee65f5ccf4a662f6ef64"
+criterion = "22998.1"
+evidence = "The private /out/run/gates.jsonl names each exact candidate revision, command, exit and log. Only a passing hf-done at the hf-build revision qualifies this repair; no pass is claimed in this record before those gates execute."
+
+[choice.receipted_producer]
+owner = "22.33.886; superseding producer contracts 22.31.486 and 22.31.491"
+source = "rpc/sequencer_receipt_vectors_test.go::TestVectorFilesV1ToV3MatchSequencerReceiptFixture; sdk/platform/conformance/fixtures/sequencer-receipt-v1.json"
+repair = "Compare every field and type of all five V1, two V2 and six V3 cases with the recorded chain-125 RPC producer. The daemon V2/V3 recordings are preserved historical artifacts, not the current SDK-copy authority. Retain the exact six V3 identities and refusal rungs; test removal of either V2 refusal and all six V3 refusals."
+tests = ["test_f041_committed_copies_match_recorded_producer", "test_f041_refusal_coverage_cannot_be_removed", "test_f041_retained_transport_drift_is_refused"]
+
+[choice.committed_producer]
+owner = "22.33.886"
+source = "daemon/committed-fixture/vectors/vector-v4-committed.json"
+repair = "Keep the committed producer, SDK converter, strict copy equality and every signature/inclusion/proof/refusal assertion. Expose the explorer refresh as a deterministic conversion of that producer, preserving legacy cases and refusals. Escape literal fixture paths in refusal regexes."
+tests = ["test_f041_committed_copies_match_recorded_producer", "test_f041_explorer_copy_refresh_uses_recorded_producer", "test_f041_copy_drift_is_refused", "test_f041_strict_copy_equality", "test_f041_missing_commitment_is_still_refused", "test_f041_x402_refusal_cannot_be_removed_or_accepted"]
+
+[choice.transport]
+repair = "Use PaymentRpc for eth_/pax_ at the node root, HostedGatewayRpc for px_ at /rpc, and CometRpc for commit/validators at its root. All use the production bounded JSON-RPC HTTP codec; assert exact methods, parameters, paths, content types, independent request IDs and cross-interface refusals."
+test = "test_f041_real_rpc_transport_feeds_copy_checker"
+
+[choice.registry]
+owner = "22.1.9"
+source = "src/protocol/lxp_genesis.c module_table; src/modules/asset/lx_asset_registry.c activity_types; include/layerx/lx_asset.h"
+repair = "The CLI correctly reads the canonical module interfaces. Update the complete expected schema to the seven live asset ordinals 1,2,3,4,5,10,11: ordinal 9 is retired. Keep full JSON equality, enabled module equality, deterministic ordering and every input refusal."
+test = "cmd/layerx-module-registry/test_registry.py::test_registry"
+
+[choice.admission]
+owner = "22.33.1076; current program_wire EVM contract"
+source = "sdk/platform/conformance/fixtures/sequencer-receipt-v1.json#V1-layerxprograms-call"
+repair = "The retired native network-7 signed-activity fixture is no longer an admission transaction. Consume the production node's signed chain-125 EIP-1559 program call, retain every native call bound, require foreign-network and malformed-signature refusal, and prove the altered signature cannot authenticate the recorded sender or bind to the authentic signed execution receipt. Keep commitment and real-node-reopen proofs unchanged."
+test = "test_native_program_admission_refuses_foreign_network_and_forged_signature"
+
+[baseline]
+repair = "Remove the three entries owned by 22.39.131; remaining repair tasks keep their exact module entries. Add services/platform/hosted/node/tests/test_reset_state.py under its owner 22.39.133 as directed by gotcha 3622 and decision 2914."
+
+[choice.runner_inventory]
+source = "995a25e5af661ae8eb85ccdd9e43bccdc81849a4"
+repair = "Remove the exact scripts/ci exclusion row: 995a25e5af deleted scripts/ci/test_repair_22_31_317.py, the last tracked Python test under that root. Keep test_exclusion_list_entries_exist unchanged and retain every other exclusion."
+test = "tests/ci/test_python_suites_have_runner.py::test_exclusion_list_entries_exist"
+
+[choice.explorer_refresh]
+file = "services/explorer/backend/apps/explorer/test/support/fixture/paxeer_x/committed_vectors.json"
+producer = "74ef78b42b re-recorded daemon/committed-fixture/vectors/vector-v4-committed.json under chain 125; tests/conformance/check_receipt_vector_copies.py:200 refresh_explorer_copy projects that recording through sdk/platform/conformance/fixtures/refresh_receipt_vectors.py::_committed and explorer_cases at line 159."
+repair = "Regenerate cases, refusals and source digest with refresh_explorer_copy from the recorded producer, matching the SDK and interop digest 5013cd232ee94ece8d25fca4c802ca60c892f3a5f637a70962d9909dc71c4e7b. Preserve legacy_cases and legacy_refusals and all strict equality and refusal checks; the HTTP transport consumer now receives the current transaction and receipt."
+tests = ["test_f041_explorer_copy_refresh_uses_recorded_producer", "test_f041_committed_copies_match_recorded_producer", "test_f041_real_rpc_transport_feeds_copy_checker"]
+
+[choice.continuation_merge]
+repair = "Keep the current baseline's other task entries and remove the three rows owned by 22.39.131. Do not restore the seed's stale 22.39.132 entry; its repair has already landed on the current base. The scripts/ci exclusion is already absent on this base; retain that removal and document its producer revision beside the exclusion policy."
+
+[finding.runner_inventory]
+task = "22.39.131"
+file = "tests/ci/data/python_suite_exclusions.txt"
+symbol = "test_exclusion_list_entries_exist"
+observed = "At revision 2b677dda14bda61e13b1717a56d125bddfa13b11, cg spec done 22.39.131 -f layerx-merge --root /work/paxeer-monorepo exited 1 (/out/logs/verify-1.log): the runner test reported scripts/ci is not an exact tracked test root or file, with four cases passing and one failing, so make test-python-suites did not execute."
+assumption = "The continuation explicitly includes this exclusion file; choice.runner_inventory records the authorized repair without weakening the inventory assertion."
+severity = "note"
+
+[finding.integration_timeout_qualification]
+task = "22.39.131"
+file = "tests/integration/scripts/test_repair_22_33_758.py"
+symbol = "test_python_status_timeout_kills_process_group_and_stops_setup"
+observed = "At revision 3468ec6ceca20372aea7095cbf22801bd2b4aa83, cg spec done 22.39.131 -f layerx-merge --root /work/paxeer-monorepo exited 1 (/out/logs/verify-1.log): runner inventory passed, then make test-python-suites exited 2 with 289 passes and one failure at test_repair_22_33_758.py:245 because the descendant process state was R instead of Z; hf-build passed at the same revision (/out/logs/build-1.log)."
+assumption = "Gotcha 3630 and decisions 2901, 2908 and 2921 extend this continuation's scope to the integration test; choice.integration_timeout records the bounded wait for the kernel transition without changing any other assertion."
+severity = "blocker"
+
+[choice.integration_timeout]
+file = "tests/integration/scripts/test_repair_22_33_758.py"
+producer = "tests/integration/scripts/runner.py:161 sends SIGKILL with os.killpg; line 164 reaps the direct process through communicate, while the kernel independently transitions its descendant's /proc/<pid>/stat state to Z or removes it after reaping."
+repair = "Replace the single process-state read with a monotonic poll bounded to three seconds, ending only when the stat file disappears, its state is Z, or the deadline expires; assert disappearance or Z. Preserve the runner duration bound, timeout flag, return code, exact private stderr, setup-stop marker and diagnostic-redaction assertions."
+test = "test_python_status_timeout_kills_process_group_and_stops_setup"
+
+[previous_qualification.build]
+revision = "2b677dda14bda61e13b1717a56d125bddfa13b11"
+command = "python3 -m pytest -q --collect-only tests/conformance cmd/layerx-module-registry tests/daemon > /dev/null"
+exit = 0
+log = "/out/logs/build-1.log"
+
+[previous_qualification.verify]
+revision = "2b677dda14bda61e13b1717a56d125bddfa13b11"
+command = "cg spec done 22.39.131 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+result = "Implemented, not qualified. No task completion, commit or push; no repair rerun of the unrelated inventory failure. The finding and gate evidence were appended after the failed gate, and no gate is claimed for this subsequent record-only edit."
+
+[qualification]
+build = "The final build row of /out/run/gates.jsonl records hf-build's candidate revision, exact collect-only command, exit and private log."
+verify = "The final verify row of /out/run/gates.jsonl records hf-done's candidate revision, exact cg spec done command, exit and private log; its log includes the runner inventory test and make test-python-suites."
+acceptance = "Only passing build and verify rows with the same revision qualify criterion 22998.1."
+
+[finding.explorer_copy]
+task = "22.39.131"
+file = "services/explorer/backend/apps/explorer/test/support/fixture/paxeer_x/committed_vectors.json"
+symbol = "test_f041_committed_copies_match_recorded_producer"
+observed = "At revision 456110947bf317a3349635f19f5632f8b948d60f, cg spec done 22.39.131 -f layerx-merge --root /work/paxeer-monorepo exited 1 (/out/logs/verify-1.log): all five inventory tests passed, then make test-python-suites reported 22 conformance failures, 283 passes and 19 passing subtests because the explorer copy retains the old producer digest and transaction; build passed at the same revision (/out/logs/build-1.log)."
+assumption = "The previous attempt recorded this scope blocker; attempt 3 explicitly includes the explorer JSON and choice.explorer_refresh implements the authorized refresh without weakening any check."
+severity = "blocker"
+
+[finding.hosted_reset_ownership]
+task = "22.39.133"
+file = "services/platform/hosted/node/tests/test_reset_state.py"
+symbol = "test_legacy_reset_waits_on_real_durable_operation"
+observed = "At revision cebafc5a10b67fc3d6c71925c9907ec5b69cc13a, cg spec done 22.39.131 -f layerx-merge --root /work/paxeer-monorepo exited 1 (/out/logs/verify-1.log): runner inventory passed, then make test-python-suites exited 2 with 313 passes, 19 passing subtests and one failure at test_reset_state.py:347 because path permissions were 0755 instead of 0660; hf-build passed at the same revision (/out/logs/build-1.log)."
+assumption = "Gotcha 3622 and decision 2914 assign this producer defect to 22.39.133: generation_transport.py serve binds the supervisor socket before chown and chmod, exposing its creation mode to the assertion at line 347; this continuation records that owner's baseline entry and preserves the hosted implementation and assertion for its owning task."
+severity = "note"

@@ -1,0 +1,15 @@
+[repair.22.39.134]
+owner = "8.31.2; decisions 827, 829 and 2842"
+dependency_policy = "Keep the existing production policy: neither ramp may depend directly or transitively on layerx-intents, layerx-paxeer-client, rusqlite or libsqlite3-sys. The current manifests and lock graph already satisfy that contract; layerx-paxeer-client is absent from the entire workspace. Other workspace members still require intents and SQLite."
+dependency_tests = "Preserve all sixteen direct/transitive rejection cases using the real dependency-policy.sh and live Cargo metadata. For the removed client, mutate the unreachable intents package name before attaching its existing node to a ramp; assert the stricter global boundary rejection. Other cases assert the ramp-specific rejection. Check both direct manifests and the full live ramp closures."
+journey_contract = "Follow the maintained customer-signed EIP-1559 payment flow: no independent receiver sequence, submit_customer_payment transports raw_transaction, and both journeys invoke ramp-verify-receipt with --transaction-hash. Keep authenticated committed-only completion and assert transaction, receipt, order, maintained-batch and presentation bindings. Help now states the nonce and committed receipt requirements."
+baseline = "Remove exactly the two entries owned by 22.39.134 after implementing their suite repairs; no case is removed, skipped or marked expected-failure."
+qualification = "hf-build and hf-done retain the verified candidate revision, exact commands, exits and private evidence locations in /out/run/gates.jsonl; final evidence copies the last hf-done line. The runner publishes the qualified revision."
+
+[continuation.22.39.134]
+seed_revision = "eac6fce0c1f637d58b660e705f348daac91b3b24"
+merged_base = "78d0581353854ea2ddc3d88da4a611c84304c2c9"
+baseline_resolution = "Keep the current main-line hosted-node reset-state entry, remove the two ramp entries, and discard the seed-side entries already retired by other tasks."
+exclusion_retirement = "The scripts/ci row is already absent at the merged base; retain its removal landed by task 22.39.131 in 767e5757f2c3a5a38e354044c494f2ea158f01ec."
+build_evidence = "/out/run/gates.jsonl: final build record binds candidate revision, declared build command, exit and private log."
+verify_evidence = "/out/run/gates.jsonl: final verify record binds the same candidate revision, cg spec done command, exit and private log; it is the verified revision of this repair."

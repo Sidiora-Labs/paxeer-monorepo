@@ -2,8 +2,6 @@
 
 from copy import deepcopy
 from dataclasses import replace
-import importlib.util
-import json
 
 import pytest
 
@@ -12,6 +10,7 @@ from layerx_sdk.native_program_call import (
     decode_native_program_call,
     encode_native_program_call,
 )
+from layerx_sdk.evm_transaction import EvmTransactionError, decode_signed
 from layerx_sdk.program_wire import verify_native_program_call_signature
 from layerx_sdk.production import PlatformSdkError, SdkErrorCode
 from layerx_sdk.verifier import (
@@ -21,7 +20,6 @@ from layerx_sdk.verifier import (
 )
 
 from recorded_paxd import (
-    ROOT,
     RecordedPaxd,
     program_transaction,
     programs_execution_case,
@@ -172,19 +170,28 @@ def test_program_receipt_refuses_untrusted_or_expired_credentials(mutation, chec
 
 
 def test_native_program_admission_refuses_foreign_network_and_forged_signature():
-    fixture = json.loads(
-        (ROOT / "sdk/platform/conformance/fixtures/native-program-call-v4.json").read_text()
-    )
-    path = ROOT / "sdk/integrations/fastapi/layerx_fastapi/signatures.py"
-    spec = importlib.util.spec_from_file_location("daemon_production_signatures", path)
-    assert spec is not None and spec.loader is not None
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    signatures = module.LayerXSignatureVerifier()
-    canonical = bytes.fromhex(fixture["signed_activity_hex"])
-    verify_native_program_call_signature(canonical, signatures, expected_network=7)
-    with pytest.raises(ValueError, match="native activity signature or network"):
-        verify_native_program_call_signature(canonical, signatures, expected_network=125)
+    case = programs_execution_case()
+    canonical, _ = program_transaction(case)
+    transaction, signature = decode_signed(canonical)
+    signer = case["receiptJson"]["from"]
+    assert transaction.attach_signature(signature, signer) == canonical
+    verify_native_program_call_signature(canonical, None, expected_network=125)
+    with pytest.raises(ValueError, match="^invalid program transaction network$"):
+        verify_native_program_call_signature(canonical, None, expected_network=7)
+
+    invalid_signature = canonical[:-32] + bytes(32)
+    with pytest.raises(EvmTransactionError, match="^invalid_signature$"):
+        verify_native_program_call_signature(invalid_signature, None, expected_network=125)
+
     forged = canonical[:-1] + bytes([canonical[-1] ^ 1])
-    with pytest.raises(ValueError, match="native activity signature or network"):
-        verify_native_program_call_signature(forged, signatures, expected_network=7)
+    _, forged_signature = decode_signed(forged)
+    with pytest.raises(EvmTransactionError, match="^signer_mismatch$"):
+        transaction.attach_signature(forged_signature, signer)
+    pin = case["pinnedKey"]
+    key = ReceiptKey(
+        bytes.fromhex(pin["keyId"][2:]), bytes.fromhex(pin["publicKey"][2:]),
+        pin["firstHeight"], pin["lastHeight"],
+    )
+    with pytest.raises(SequencerReceiptVerificationError) as failure:
+        verify_sequencer_receipt(bytes.fromhex(case["signedReceipt"][2:]), forged, (key,))
+    assert failure.value.check == "hash_mismatch"
