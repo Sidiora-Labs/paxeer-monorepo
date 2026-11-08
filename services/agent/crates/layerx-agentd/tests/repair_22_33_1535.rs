@@ -531,7 +531,7 @@ fn external_signing_consumer_compiles_and_submits_exact_type2_bytes() {
         prepared.transaction.call.signing_hash()
     );
     assert_eq!(
-        external.disclosure_digest.0,
+        external.disclosure_digest,
         prepared.transaction.disclosure_digest
     );
     let (_, signature) = decode_signed(&recorded).expect("external signer's real signature");

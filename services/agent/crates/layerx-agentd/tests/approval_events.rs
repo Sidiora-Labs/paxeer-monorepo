@@ -4,6 +4,7 @@ use gap_integration::{HistoryServer, SubscriptionServer};
 
 use std::collections::BTreeSet;
 use std::fs;
+use std::os::unix::fs::DirBuilderExt;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 
@@ -413,6 +414,11 @@ fn assert_digest_evidence_exported(audit_path: &Path, lifecycles: &[ApprovalLife
 #[test]
 fn approval_lifecycle_stream_resumes_after_gap_and_exports_digest_evidence() {
     let root = directory();
+    fs::DirBuilder::new()
+        .mode(0o700)
+        .create(&root)
+        .unwrap_or_else(|error| panic!("root: {error}"));
+    let root = fs::canonicalize(root).unwrap_or_else(|error| panic!("canonical root: {error}"));
     let durable = Store::open(&root).unwrap_or_else(|error| panic!("store: {error}"));
     let mut ingestor = EventIngestor::open(durable, tenant(), 16, 0)
         .unwrap_or_else(|error| panic!("ingestor: {error}"));

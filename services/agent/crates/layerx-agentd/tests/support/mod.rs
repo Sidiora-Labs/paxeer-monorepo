@@ -4,10 +4,10 @@
 // preparation producer of 9.35.17; its consent-reopen restoration and
 // repair_22_31_217::repair_wire_carrier_binds_the_retained_signing_preparation_after_restart
 // follow 9.35.19's retained-call restoration (decode_unsigned, bind_call and the
-// observed head). The latter also checks the legacy native carrier through its
-// retained signing preparation while the production carrier interface remains.
-// human_node_preparation follows ProductionCorePreparationBoundary in
-// src/prepare/mod.rs: protocol_timestamp converts the head's seconds to
+// observed head). Retained preparation validation now compares the exact EVM
+// preparation with its separately retained signing preparation.
+// human_node_preparation follows HumanNodePreparationReader in
+// src/human_node.rs: protocol_timestamp converts the head's seconds to
 // milliseconds (decision 2704), retaining the served blocks unchanged.
 // The node_recovery cases in limits/exactly_once.rs follow the authenticated
 // receipt ingress in src/human_runtime.rs and src/receipt.rs: repeated storage
@@ -28,8 +28,8 @@
 // the outbox continues to enqueue and restore in the shared store directory.
 // native_lifecycle_debits follows read_retained_native_call_debit_settlement's
 // owner and allocation checks: both settlement paths derive the actor from the
-// retained envelope actor DID through retained_actor_id, including the actor
-// passed to committed_exit_debit (decision 2969).
+// registered Human owner through retained_actor_id after read_call validates
+// the retained owner/sender binding, including committed_exit_debit (decision 2969).
 // Qualification references: the final matching build and verify entries in
 // /out/run/gates.jsonl contain the revision, command, exit and private log.
 

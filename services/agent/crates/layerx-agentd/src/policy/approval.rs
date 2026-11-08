@@ -2159,25 +2159,10 @@ mod released_replay_tests {
         reserve, BudgetLimiter, LimitConfig, LimitId, LimitScope, ReservationRequest,
     };
     use crate::capability::CapabilityId;
-    use crate::prepare::{
-        prepare_activity, CorePreparationBoundary, CorePreparationState, CoreStateError,
-        PreparationDefaults, PrepareRequest,
-    };
     use crate::session::SessionId;
     use crate::store::{ObjectKind, Store, TenantId, TenantKey};
 
     const ACTOR: &str = "0404040404040404040404040404040404040404";
-
-    struct RecordedCore(CorePreparationState);
-
-    impl CorePreparationBoundary for RecordedCore {
-        fn preparation_state(
-            &mut self,
-            _actor: &Did,
-        ) -> Result<CorePreparationState, CoreStateError> {
-            Ok(self.0.clone())
-        }
-    }
 
     struct Root(std::path::PathBuf);
 

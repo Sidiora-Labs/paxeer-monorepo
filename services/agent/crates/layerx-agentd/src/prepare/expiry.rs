@@ -788,7 +788,7 @@ fn require_authorization(
     }
 }
 
-pub(crate) fn expire_elapsed(
+pub fn expire_elapsed(
     lifecycle: &PreparationLifecycle,
     limiter: &BudgetLimiter,
     core_batch_time_ms: u64,
@@ -837,7 +837,7 @@ pub(crate) fn expire_elapsed(
     Ok(report)
 }
 
-pub(crate) fn sweep_retention(
+pub fn sweep_retention(
     lifecycle: &PreparationLifecycle,
     current_sequence: u64,
     retention_sequences: u64,

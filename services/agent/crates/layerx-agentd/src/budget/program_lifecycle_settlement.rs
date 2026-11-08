@@ -1902,14 +1902,14 @@ mod tests {
 }
 
 pub(super) fn native_lifecycle_debits(
-    prepared: &crate::prepare::Prepared,
+    prepared: &crate::prepare::EvmPrepared,
+    actor: [u8; 32],
     state: &CommittedExecutionState,
     sequence: u64,
     logs: &[layerx_client::sequencer::SequencerLog],
 ) -> Result<Vec<ProgramExecutedDebit>, ProgramSettlementError> {
     use layerx_crypto::disclosure::DisclosedNativeOperation as Operation;
     use layerx_crypto::evm_transaction::transaction_hash;
-    let actor = super::native_settlement::retained_actor_id(prepared)?;
     let [log] = logs else {
         return Err(ProgramSettlementError::Terminal);
     };
