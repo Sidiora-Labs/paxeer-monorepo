@@ -36066,3 +36066,27 @@ symbol = "layerx-programs-ai-market"
 observed = "Attempt 32 at 4206f461379d (base 81f0e5a93ff9): first build exit 0 at 0bcb816315a0; verification exit 1 at 0bcb816315a0 with twelve failing targets (F03 evaluator host, F04 windows, F05 aggregation runtime, fuel budget, host boundary, repair_22_33_261, reputation lifecycle, reputation vectors, native rewards, task state boundary); second build exit 1 (Fund 802525 against 802503); third build exit 0 at the final tree; the second verification was refused; log /out/logs/verify-1.log."
 assumption = "The final tree repairs most of the list but no run shows it; local iteration before the gate pair closes the gap."
 severity = "high"
+
+[finding.9.35.24.4]
+task = "9.35.24"
+file = "services/agent/crates/layerx-agentd/tests/prepare.rs"
+symbol = "prepare.rs"
+observed = "Attempt 4 at base 20cf44679e3f (tree fffb576516ea): no gate ran; the attempt stopped under the legacy-only-field clause after inspecting agent_controls_rungs.rs lines 2611 to 2632 and disclosure/call.rs lines 1158 to 1194; record src/prepare/repair_9_35_24.kvx (finding at its line 452), no gate log."
+assumption = "The stop was the ruled behaviour; the field has an EVM-branch reading through the call disclosure and the budget record, so the case migrates."
+severity = "high"
+
+[finding.22.39.75.12]
+task = "22.39.75"
+file = "tests/ci/test_launchpad_go_tests_wired.py"
+symbol = "test_launchpad_go_tests_wired.py"
+observed = "Attempt 12 at f5056671f0c6 (base 1d8f18989ce7): build exit 0 twice; verification exit 2 twice: the first in the proxy package of the gateway module (four callers of a removed port helper), the second at the final tree in the two gateway proofs that build the social daemon, refused because services/launchpad/social/go.mod needs an update; log /out/logs/verify-2.log."
+assumption = "The social manifest is the same class as the api manifest; a local build across the work file shows every remaining one."
+severity = "high"
+
+[finding.22.31.623.5]
+task = "22.31.623"
+file = "tests/ci/test_qualification_suites_collect.py"
+symbol = "test_qualification_suites_collect.py"
+observed = "Attempt 5 at aa2a06c06db1 (base 1d8f18989ce7): build exit 0 twice; verification exit 1 twice (89 then 86 failed of about 4450 cases, 535 seconds at the final tree): eighty-odd cases assert the former paxd-native-libs recipe, one the node go test command, one the wallet vitest command, one a workflow digest baseline, one the wallet manifest dependency set, one indexes a shortened container check list; log /out/logs/verify-2.log."
+assumption = "Every failure is a producer that moved on main after the attempt tree was cut; the settled cases of the attempt hold."
+severity = "high"
