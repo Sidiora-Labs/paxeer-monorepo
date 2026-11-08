@@ -35658,3 +35658,11 @@ symbol = "upgrades_merge_bonds_test.go::TestMergePlanReturnsGuarantorBonds"
 observed = "Attempt 2 at 23e73a8366a8: build exit 0 twice; verification exit 1 twice: the restart test failed at line 312 with LXP_ERR_PROGRAM_REFUSED at height 43, then at line 287 with LXP_ERR_CONTEXT_MISMATCH from the hand-placed occupancy call."
 assumption = "The occupancy precedent of the host tests applies to this fixture; the single call with a store-read sequence does not."
 severity = "high"
+
+[finding.22.39.131.3]
+task = "22.39.131"
+file = "tests/conformance/test_repair_22_33_886.py"
+symbol = "test_repair_22_33_886.py"
+observed = "Attempt 3 at fe42850a8737 (verified at cebafc5a10b6): build exit 0; verification exit 2: 5 runner cases passed, make test-python-suites recorded 313 passes and 1 failure in test_reset_state.py line 347 (mode 493 observed, 432 asserted)."
+assumption = "The failure is a creation-mode window of the hosted node supervisor, owned by 22.39.133; the task tree is sound."
+severity = "high"
