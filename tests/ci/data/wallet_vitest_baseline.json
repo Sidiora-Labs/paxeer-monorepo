@@ -1,0 +1,188 @@
+[
+  {
+    "file": "sdk/wallet/test/agent.test.ts",
+    "full_name": "agent claim flow against the gateway claim route > agent_claim_counter_signature_accepted_by_gateway",
+    "reason": "GatewayRefusalError: the claim route refuses the recorded claim with custody_authority_unavailable.",
+    "retiring_task": "22.39.145"
+  },
+  {
+    "file": "sdk/wallet/test/client.test.ts",
+    "full_name": "PaxeerWallet > reads a public route without a bearer header and strips a trailing slash from the base",
+    "reason": "FundedUnsupportedError: funded tiers are retired before the recorded public-route response can be read.",
+    "retiring_task": "22.39.145"
+  },
+  {
+    "file": "sdk/wallet/test/client.test.ts",
+    "full_name": "PaxeerWallet > maps a structured error body to the error code, message, status and detail",
+    "reason": "AssertionError: FundedUnsupportedError from the retired funded-tier route differs from the expected HTTP error body.",
+    "retiring_task": "22.39.145"
+  },
+  {
+    "file": "sdk/wallet/test/client.test.ts",
+    "full_name": "PaxeerWallet > maps a non-JSON error body to an HTTP status code",
+    "reason": "AssertionError: FundedUnsupportedError from the retired funded-tier route differs from the expected HTTP error body.",
+    "retiring_task": "22.39.145"
+  },
+  {
+    "file": "sdk/wallet/test/endpoint.test.ts",
+    "full_name": "EndpointClient > endpoint_batches_mixed_calls_in_one_request_with_per_call_errors",
+    "reason": "AssertionError: the fixture expects two routed batches but the moved account method produces one.",
+    "retiring_task": "22.39.145"
+  },
+  {
+    "file": "sdk/wallet/test/endpoint.test.ts",
+    "full_name": "KernelClient > endpoint_kernel_reads_run_when_the_kernel_is_available",
+    "reason": "JsonRpcError: receipt authentication requests a method the fixture does not serve.",
+    "retiring_task": "22.39.145"
+  },
+  {
+    "file": "sdk/wallet/test/endpoint.test.ts",
+    "full_name": "HumanClient > endpoint_human_client_plans_submits_and_reads_the_journey_from_goldens",
+    "reason": "AssertionError: the current journey result differs from the recorded human-client golden response.",
+    "retiring_task": "22.39.145"
+  },
+  {
+    "file": "sdk/wallet/test/kernel-reads.test.ts",
+    "full_name": "kernel_client_reads_the_pending_nonce_and_sequencer_receipt",
+    "reason": "AssertionError: the receipt fixture rejects a required authentication method with JsonRpcError instead of resolving.",
+    "retiring_task": "22.39.145"
+  },
+  {
+    "file": "sdk/wallet/test/ladder.test.ts",
+    "full_name": "statusLadder > ladder_journey_table_maps_every_journey_state_in_the_schema",
+    "reason": "AssertionError: the recorded journey states and ladder steps differ from the current journey schema.",
+    "retiring_task": "22.39.145"
+  },
+  {
+    "file": "sdk/wallet/test/ladder.test.ts",
+    "full_name": "statusLadder > ladder_maps_the_golden_journey_and_its_stages",
+    "reason": "AssertionError: the recorded journey states and ladder steps differ from the current journey schema.",
+    "retiring_task": "22.39.145"
+  },
+  {
+    "file": "sdk/wallet/test/modules.test.ts",
+    "full_name": "modules > acceptance 5.40.2: caps() reads xweb fee() and layerxledger getPayerGrant through eth_call only",
+    "reason": "WebPayerGrantsRetiredError: payer-grant reads are retired by the web-data module.",
+    "retiring_task": "22.39.145"
+  },
+  {
+    "file": "sdk/wallet/test/modules.test.ts",
+    "full_name": "modules > caps() reads payer grants in bounded batches, never all ids at once",
+    "reason": "WebPayerGrantsRetiredError: payer-grant reads are retired by the web-data module.",
+    "retiring_task": "22.39.145"
+  },
+  {
+    "file": "sdk/wallet/test/modules.test.ts",
+    "full_name": "modules > modules_events decode logs encoded from each precompile ABI",
+    "reason": "Error: the recorded event fixture misses the kind field required by the precompile ABI.",
+    "retiring_task": "22.39.145"
+  },
+  {
+    "file": "sdk/wallet/test/modules.test.ts",
+    "full_name": "send_module_transaction_receipted_answers_the_receipt_with_logs",
+    "reason": "JsonRpcError: the module receipt fixture does not serve a method requested during authentication.",
+    "retiring_task": "22.39.145"
+  },
+  {
+    "file": "sdk/wallet/test/modules.test.ts",
+    "full_name": "send_module_transaction_receipted_falls_back_for_an_injected_provider",
+    "reason": "JsonRpcError: the module receipt fixture does not serve a method requested during authentication.",
+    "retiring_task": "22.39.145"
+  },
+  {
+    "file": "sdk/wallet/test/provider.test.ts",
+    "full_name": "PaxeerProvider > provider_drops_accounts_when_the_gateway_rejects_the_session",
+    "reason": "AssertionError: UnauthorizedError from the current session check lacks the recorded gateway refusal fields.",
+    "retiring_task": "22.39.145"
+  },
+  {
+    "file": "sdk/wallet/test/provider.test.ts",
+    "full_name": "PaxeerProvider > provider_eth_sendTransaction_forwards_decimal_fields_and_returns_the_hash",
+    "reason": "AssertionError: the forwarded transaction fields differ from the recorded gateway payload.",
+    "retiring_task": "22.39.145"
+  },
+  {
+    "file": "sdk/wallet/test/provider.test.ts",
+    "full_name": "PaxeerProvider > provider_eth_sign_refuses_an_arbitrary_digest",
+    "reason": "AssertionError: InvalidParamsError for the eth_sign parameters differs from the expected UnauthorizedError.",
+    "retiring_task": "22.39.145"
+  },
+  {
+    "file": "sdk/wallet/test/provider.test.ts",
+    "full_name": "gas station through PaxeerProvider > provider_gas_station_sign_parameters_with_an_altered_digest_or_field_are_refused",
+    "reason": "AssertionError: InvalidParamsError for the digest parameters differs from the recorded authorization refusal.",
+    "retiring_task": "22.39.145"
+  },
+  {
+    "file": "sdk/wallet/test/provider.test.ts",
+    "full_name": "WalletInterface > provider_parity_between_the_embedded_and_an_injected_provider",
+    "reason": "UnsupportedMethodError: the provider no longer supports the eth_accounts read used by the parity case.",
+    "retiring_task": "22.39.145"
+  },
+  {
+    "file": "sdk/wallet/test/receipt.test.ts",
+    "full_name": "wait_for_sequencer_receipt_returns_once_the_requested_rung_is_reached",
+    "reason": "JsonRpcError: the legacy receipt fixture refuses an authentication read as an invalid receipt request.",
+    "retiring_task": "22.39.145"
+  },
+  {
+    "file": "sdk/wallet/test/receipt.test.ts",
+    "full_name": "wait_for_sequencer_receipt_times_out_with_the_last_answer",
+    "reason": "AssertionError: the invalid receipt request raises JsonRpcError before the expected ReceiptTimeoutError.",
+    "retiring_task": "22.39.145"
+  },
+  {
+    "file": "sdk/wallet/test/receipt.test.ts",
+    "full_name": "read_sequencer_receipt_calls_pax_sequencer_receipt_and_decodes_each_rung",
+    "reason": "JsonRpcError: the legacy receipt fixture refuses an authentication read as an invalid receipt request.",
+    "retiring_task": "22.39.145"
+  },
+  {
+    "file": "sdk/wallet/test/receipt.test.ts",
+    "full_name": "decode_sequencer_receipt_refuses_an_unknown_rung_or_a_foreign_hash",
+    "reason": "AssertionError: the fixture refuses the authentication request before the expected rung validation error.",
+    "retiring_task": "22.39.145"
+  },
+  {
+    "file": "sdk/wallet/test/receipt.test.ts",
+    "full_name": "decode_sequencer_receipt_preserves_strict_validation_before_commit",
+    "reason": "AssertionError: strict submitted-receipt validation rejects extra fields before the expected blockNumber error.",
+    "retiring_task": "22.39.145"
+  },
+  {
+    "file": "sdk/wallet/test/receipt.test.ts",
+    "full_name": "wait_for_sequencer_receipt_polling_continues_through_the_unchanged_receipted_answer",
+    "reason": "JsonRpcError: the legacy receipt fixture refuses an authentication read as an invalid receipt request.",
+    "retiring_task": "22.39.145"
+  },
+  {
+    "file": "sdk/wallet/test/repair-22-31-238.test.ts",
+    "full_name": "receipt_fields_lost_preserves_complete_node_views",
+    "reason": "JsonRpcTransportError: the receipt authentication fixture returns a response that does not answer the request id.",
+    "retiring_task": "22.39.145"
+  },
+  {
+    "file": "sdk/wallet/test/repair-22-31-238.test.ts",
+    "full_name": "receipt_authentication_rejects_tampered_node_outputs",
+    "reason": "JsonRpcTransportError: the receipt authentication fixture returns a response that does not answer the request id.",
+    "retiring_task": "22.39.145"
+  },
+  {
+    "file": "sdk/wallet/test/repair-22-31-238.test.ts",
+    "full_name": "receipt_authentication_protects_module_provider_and_ladder_consumers",
+    "reason": "JsonRpcTransportError: the receipt authentication fixture returns a response that does not answer the request id.",
+    "retiring_task": "22.39.145"
+  },
+  {
+    "file": "sdk/wallet/test/repair-22-31-238.test.ts",
+    "full_name": "default_node_hosted_methods_require_hosted_configuration_and_use_producer_namespaces",
+    "reason": "AssertionError: the account method now uses the node root rather than the recorded hosted namespace.",
+    "retiring_task": "22.39.145"
+  },
+  {
+    "file": "sdk/wallet/test/repair-22-33-135.test.ts",
+    "full_name": "react_auth_refresh_tracks_stable_client_and_discards_replaced_reads",
+    "reason": "TypeError: the React refresh case reads active from an undefined renderer result.",
+    "retiring_task": "22.39.145"
+  }
+]
