@@ -724,7 +724,24 @@ impl Harness {
     }
 
     fn journal_is_empty(&self) -> Result<bool, Box<dyn std::error::Error>> {
-        Ok(std::fs::read_to_string(&self.journal)?.is_empty())
+        // Startup binds the service policy before it handles any request.
+        // A refused quote must add no records beyond that binding.
+        let lines = std::fs::read_to_string(&self.journal)?;
+        let records = lines
+            .lines()
+            .map(
+                |line| -> Result<layerx_gas_station::journal::Entry, Box<dyn std::error::Error>> {
+                    let record: Value = serde_json::from_str(line)?;
+                    Ok(serde_json::from_str(
+                        record["payload"].as_str().ok_or("authenticated payload")?,
+                    )?)
+                },
+            )
+            .collect::<Result<Vec<_>, _>>()?;
+        Ok(matches!(
+            records.as_slice(),
+            [layerx_gas_station::journal::Entry::PolicyBound { .. }]
+        ))
     }
 
     fn stop(&mut self) -> TestResult {

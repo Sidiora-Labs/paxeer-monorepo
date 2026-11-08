@@ -12,6 +12,11 @@ path = "src/lib.rs"
 name = "paxeer-gas-station"
 path = "src/main.rs"
 
+[[test]]
+name = "station"
+path = "tests/station.rs"
+harness = false
+
 [dependencies]
 base64.workspace = true
 ed25519-dalek.workspace = true
@@ -25,6 +30,8 @@ sha3.workspace = true
 zeroize.workspace = true
 
 [dev-dependencies]
+libtest-mimic = "=0.8.1"
+sha2.workspace = true
 layerx-wire.workspace = true
 
 [lints]
