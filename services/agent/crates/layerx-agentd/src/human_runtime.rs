@@ -3736,8 +3736,10 @@ fn settle_retained_native_effect(
         .signed_bytes()
         .map_err(|_| HumanOperationError::Refused)?
         .ok_or(HumanOperationError::Refused)?;
-    let transaction = crate::sign::SigningPreparation::restore(store, tenant.clone(), id)
-        .map_err(|_| HumanOperationError::Refused)?;
+    let transaction = crate::sign::SigningPreparation {
+        transaction: prepared.clone(),
+        actor_address: prepared.from,
+    };
     let submission = crate::sign::verify_before_submit(
         &signed,
         &transaction,
@@ -3888,9 +3890,10 @@ fn settle_retained_native_program_call_with_config(
         .signed_bytes()
         .map_err(|_| refused_at("durable_signed_bytes"))?
         .ok_or_else(|| refused_at("durable_signed_bytes_missing"))?;
-    let transaction =
-        crate::sign::SigningPreparation::restore(store, tenant.clone(), preparation_id)
-            .map_err(|_| refused_at("signing_preparation_restore"))?;
+    let transaction = crate::sign::SigningPreparation {
+        transaction: prepared.clone(),
+        actor_address: prepared.from,
+    };
     let submission = crate::sign::verify_before_submit(
         &signed,
         &transaction,
@@ -12911,43 +12914,15 @@ impl<A: HumanAuthorityBoundary> ProductionHumanOperations<A> {
             .store
             .lock()
             .map_err(|_| HumanOperationError::Unavailable)?;
-        let bytes = subject::begin_transmission(
+        let _ = (registry, signer, correlation);
+        let node = write_node()?;
+        let status = transmit_raw_write(
             self.outboxes.entry(peer.tenant.clone()).or_default(),
             &mut store,
             submission_id,
+            &node,
         )?;
-        let _ = (registry, signer, correlation);
-        let node = write_node()?;
-        let (state, reason) = match node.send_raw_transaction(&bytes) {
-            Ok(tx_hash) => {
-                let status = accept_raw_write(
-                    self.outboxes.entry(peer.tenant.clone()).or_default(),
-                    &mut store,
-                    submission_id,
-                    tx_hash,
-                )?;
-                return Self::observation(&status);
-            }
-            Err(crate::node_rpc::NodeRpcError::Unavailable) => {
-                (SubmissionState::Unknown, "submission outcome indeterminate")
-            }
-            Err(crate::node_rpc::NodeRpcError::Sequencer(
-                layerx_client::sequencer::SequencerError::Rpc(_),
-            )) => (SubmissionState::Failed, "eth_sendRawTransaction refused"),
-            Err(_) => return Err(HumanOperationError::Unavailable),
-        };
-        self.outboxes
-            .entry(peer.tenant.clone())
-            .or_default()
-            .transition(&mut store, submission_id, state, reason, None)
-            .map_err(|_| HumanOperationError::Unavailable)?;
-        Self::observation(
-            self.outboxes
-                .entry(peer.tenant.clone())
-                .or_default()
-                .status(submission_id)
-                .ok_or(HumanOperationError::Unavailable)?,
-        )
+        Self::observation(&status)
     }
 
     /// The tenant's subscription store, opened from the shared durable store on first use.
@@ -13102,6 +13077,10 @@ impl<A: HumanAuthorityBoundary> ProductionHumanOperations<A> {
             .cloned()
             .ok_or(HumanOperationError::Refused)?;
         let verified = verify_evm_write(&cached, &request.operation.signature)?;
+        let node = write_node()?;
+        if cached.prepared.call.chain_id != node.chain_id() {
+            return Err(HumanOperationError::Refused);
+        }
         let activity_id = verified.activity_id();
         let tenant =
             TenantId::new(peer.tenant.clone()).map_err(|_| HumanOperationError::Refused)?;
@@ -21854,12 +21833,29 @@ pub fn submit_raw_write(
             crate::outbox::OutboxError::Store(_) => HumanOperationError::Unavailable,
             _ => HumanOperationError::Refused,
         })?;
+    let status = transmit_raw_write(outbox, store, hash, node)?;
+    write_submission(&status, None)
+}
+
+fn transmit_raw_write(
+    outbox: &mut Outbox,
+    store: &mut Store,
+    hash: [u8; 32],
+    node: &crate::node_rpc::NodeRpc,
+) -> Result<SubmissionStatus, HumanOperationError> {
+    let raw = outbox
+        .bytes_for_transmission(hash)
+        .map_err(|_| HumanOperationError::Refused)?;
+    let (call, _) = layerx_crypto::evm_transaction::decode_signed(raw)
+        .map_err(|_| HumanOperationError::Refused)?;
+    if call.chain_id != node.chain_id()
+        || layerx_crypto::evm_transaction::transaction_hash(raw) != hash
+    {
+        return Err(HumanOperationError::Refused);
+    }
     let bytes = subject::begin_transmission(outbox, store, hash)?;
     let (state, reason) = match node.send_raw_transaction(&bytes) {
-        Ok(returned_hash) => {
-            let status = accept_raw_write(outbox, store, hash, returned_hash)?;
-            return write_submission(&status, None);
-        }
+        Ok(returned_hash) => return accept_raw_write(outbox, store, hash, returned_hash),
         Err(crate::node_rpc::NodeRpcError::Unavailable) => {
             (SubmissionState::Unknown, "submission outcome indeterminate")
         }
@@ -21868,10 +21864,9 @@ pub fn submit_raw_write(
         )) => (SubmissionState::Failed, "eth_sendRawTransaction refused"),
         Err(_) => return Err(HumanOperationError::Unavailable),
     };
-    let status = outbox
+    outbox
         .transition(store, hash, state, reason, None)
-        .map_err(|_| HumanOperationError::Unavailable)?;
-    write_submission(&status, None)
+        .map_err(|_| HumanOperationError::Unavailable)
 }
 
 pub fn accept_raw_write(
