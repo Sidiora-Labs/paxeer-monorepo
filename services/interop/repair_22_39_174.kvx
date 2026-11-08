@@ -1,0 +1,43 @@
+[task]
+id = "22.39.174"
+acceptance = "22998.1"
+base_revision = "f6511609fef00a80f1f201f0add5ceaebfbf7e57"
+decision = "2999"
+gotcha = "3698"
+repair = "Preserve the attempt-1 generated package-lock.json included by tests/support/evm_dependencies.rs so every bridge relayer test target can compile and npm ci can provision its pinned real EVM dependencies. Apply decisions 3002 and 3003 to the EVM provider and shared host accessor; the manifest, support module, server options, commands and test assertions remain unchanged."
+
+[generation]
+directory = "services/interop/crates/layerx-bridge-relayer/tests/support/evm"
+command = "npm install --package-lock-only --ignore-scripts --no-audit --no-fund"
+npm_version = "11.19.1"
+lockfile_version = 3
+package_entries = 384
+integrity = "All 384 non-root package entries have integrity fields and registry tarball resolutions, including the transitive dependencies and Ganache bundled package entries emitted by npm. The lock root declares exactly the four manifest dependencies."
+
+[resolved]
+openzeppelin_contracts = "5.3.0"
+ethers = "6.16.0"
+ganache = "7.9.2"
+solc = "0.8.30"
+
+[continuation]
+source_revision = "bc0483b770c3758ba67069745d2a2da5ab59b146"
+base_revision = "7df64b44b87e2efd757fbb0177bc3b9292a1d173"
+decisions = "2900, 2908, 2999, 3002, 3003"
+gotcha = "3700"
+provider = "VaultProvider uses an ethers FetchRequest with Connection: close for fresh HTTP connections. Its transport boundary retries ECONNRESET exactly once only when every request in the payload is an explicitly listed idempotent read; transaction sends and mixed batches are never retried, and all other errors propagate."
+host = "The shared node accessor recovers a poisoned Mutex guard with into_inner, checks Child::try_wait and replaces an exited EVM host with a newly provisioned live host. Test cases, commands and assertions are preserved."
+prior_evidence = "GOTCHA.kvx gotcha.3700 records attempt 1 at bc0483b770c3: ganache 7.9.2 could not load uws_linux_x64_137.node on the gate Node ABI 137 and used its Node implementation, as also seen in the passing 22.39.124 run. That passing run warned of eleven close listeners on the server, one per kept-alive connection; attempt 1 then reset a reused socket during deploy and poisoned the shared guard for four further cases."
+local_command = "cargo test --locked --manifest-path services/interop/Cargo.toml -p layerx-bridge-relayer --test repair_22_31_160"
+local_result = "Three consecutive runs each passed all 7 cases with exit 0 before hf-build and hf-done. By reference: private /out/logs/repair_22_31_160-local-1.log, /out/logs/repair_22_31_160-local-2.log and /out/logs/repair_22_31_160-local-3.log, each containing the executed command and exit status."
+local_warnings = "All three passing local logs retain the ganache uws_linux_x64_137.node incompatibility notice and NodeJS fallback, plus MaxListenersExceededWarning for 11 close listeners on Server. These warnings remain visible; no server option or assertion was changed to suppress them."
+
+[qualification]
+ledger = "private /out/run/gates.jsonl"
+verified_revision = "The successful build and verify rows for this task in the private ledger identify the exact common candidate revision; hf-build and hf-done print revision, command, exit and log. This record is part of that candidate and does not assert an unexecuted gate result."
+build_command = "cargo test --locked --manifest-path services/interop/Cargo.toml -p layerx-bridge-relayer --no-run"
+build_result = "By reference: the final kind=build row in the private ledger and its private log."
+verify_command = "cg spec done 22.39.174 -f layerx-merge --root /work/paxeer-monorepo"
+verify_result = "By reference: the final kind=verify row in the private ledger and its private log, including graph checks and the declared verify_cmd."
+whole_crate_command = "cargo test --locked --manifest-path services/interop/Cargo.toml -p layerx-bridge-relayer --no-fail-fast"
+whole_crate_result = "By reference: the whole-crate suite output and exit status in the final verification log, after python3 -m pytest -q tests/ci/test_interop_workspace_tests_wired.py."
