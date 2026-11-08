@@ -199834,7 +199834,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.9.98.4]
 title = "Carry paymentDenom in every daemon receipt fixture so the exact receipted and committed field sets of the receipt decoder accept them"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.23.11", "22.31.443", "22.31.485", "22.31.497", "22.31.558", "22.31.572", "22.31.560", "22.31.585", "22.31.217", "22.31.614", "22.31.620", "22.39.128"]
