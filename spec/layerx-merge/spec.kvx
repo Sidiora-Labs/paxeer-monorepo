@@ -10545,6 +10545,12 @@ value = "When a task wires several test suites into one make target and keeps a 
 basis = "Task 22.39.84 attempt 3 at 581f4166326e (gotcha 3609): fifteen inherited failures of three suites had no family and stopped the wiring task. Extends decisions 2820, 2878 and 2896."
 affects = ["22.39.84", "22.39.164", "22.39.157"]
 
+[decision.2906]
+title = "Every file a task instruction names as changed by the task is in its touches or planned paths before the attempt launches"
+value = "When a do item of a task tells the attempt to edit, delete from or write a named file (a baseline file, a conftest, a record, a workflow), that file is in the touches of the task or, when it does not yet exist, in its planned paths, checked when the instruction is written; an instruction that names a file outside both is corrected in the same round, never left for the attempt to discover at publication, because the scope check refuses the publication and the whole attempt is spent."
+basis = "Task 22.39.116 attempt 1 at c8f1f9e1cf2a (gotcha 3611) could not delete its baseline entries and task 22.39.120 attempt 2 at 8173d0a942f1 (gotcha 3607) was refused for a conftest its instruction asked for. Extends decision 2771."
+affects = ["22.39.116", "22.39.120"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -210561,7 +210567,7 @@ interfaces = []
 do_1 = "do_1 Decision 2820, gotcha 3464. TestMergePlanReturnsGuarantorBonds in node/upgrades_merge_bonds_test.go and TestHostedKernelProgramsABIFollowsTheMergeUpgrade and TestHostedKernelProgramsABISurvivesRestart in node/upgrades_merge_programs_abi_test.go fail on main and are skipped through tests/ci/data/node_go_test_baseline.json. Read each failure against the merge upgrade plan in node/upgrades.go: where the plan or the hosted kernel programs ABI changed under an earlier task, bring the test to the current producer behaviour; where the producer regressed (guarantor bonds not returned, the ABI not following the upgrade or not surviving a restart), repair the producer."
 do_2 = "do_2 Delete the three entries from the baseline file and the -skip pattern from the node test step of .github/workflows/node-build.yml, leaving the baseline file in place with an empty list so the step keeps reading it."
 symbols = []
-touches = ["node/upgrades_merge_bonds_test.go", "node/upgrades_merge_programs_abi_test.go", "node/upgrades.go", ".github/workflows/node-build.yml"]
+touches = ["node/upgrades_merge_bonds_test.go", "node/upgrades_merge_programs_abi_test.go", "node/upgrades.go", ".github/workflows/node-build.yml", "tests/ci/data/node_go_test_baseline.json"]
 tests = ["node/upgrades_merge_bonds_test.go::TestMergePlanReturnsGuarantorBonds", "node/upgrades_merge_programs_abi_test.go::TestHostedKernelProgramsABIFollowsTheMergeUpgrade", "node/upgrades_merge_programs_abi_test.go::TestHostedKernelProgramsABISurvivesRestart"]
 planned_paths = []
 build_cmd = "go build ./node/... && go vet ./node/"
@@ -210577,6 +210583,7 @@ time_limit_minutes = 120
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_3 = "Attempt 2 (continue, gotcha 3611, decision 2820): the attempt-1 tree c8f1f9e1cf2a stands, including the restart test setup that commits the preceding blocks and schedules the merge at height 42. The touches now include tests/ci/data/node_go_test_baseline.json: delete its three entries for this task and leave the file in place with an empty list, keep the node test step of .github/workflows/node-build.yml without the skip pattern, and make no other change before the gates. Run the build once and the verification once at the final revision (the three named tests and tests/ci/test_node_build_workflow_scope.py) and record both by reference in the task record; a further failure of the restart test is repaired in the one allowed repair cycle in the test setup, not in node/upgrades.go."
 
 [task.22.39.86]
 title = "Repair the six node sequencer test failures the standby commit hang masked"

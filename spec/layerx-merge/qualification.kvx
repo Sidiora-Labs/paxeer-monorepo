@@ -35570,3 +35570,11 @@ symbol = "test_mcp_binding_receipt_keys.py"
 observed = "Attempt 1 at 26ad9e4f4845 (verified at f0867e7ba859): build exit 0; verification exit 1: the 29 focused tests passed and make test-python-suites failed test_signer_deadline_spans_provider_operations (1 failed, 255 passed, 318 seconds)."
 assumption = "The failing case is a timing-dependent test of a module outside the task paths, inherited from 22.33.1454 and owned by 22.39.133."
 severity = "high"
+
+[finding.22.39.116.1]
+task = "22.39.116"
+file = "node/upgrades_merge_bonds_test.go::TestMergePlanReturnsGuarantorBonds"
+symbol = "upgrades_merge_bonds_test.go::TestMergePlanReturnsGuarantorBonds"
+observed = "Attempt 1 at c8f1f9e1cf2a (verified at e26283413c3a): three builds, exit 0 at the last; verification exit 1: two of the three tests passed and TestHostedKernelProgramsABISurvivesRestart failed at line 269 with ProcessBlock panic invalid height 42 expected 1; the repaired tree was never verified."
+assumption = "The restart repair in the attempt-1 tree is sound and only the baseline file was outside the paths."
+severity = "high"
