@@ -35786,3 +35786,83 @@ symbol = "prepare_eip1559.rs"
 observed = "Attempt 2 at 2fc5394b7570: build exit 0; verification exit 101: four targets passed and write_path_evm failed four cases, each refusing the store root as not a canonical owned private directory; log /out/logs/verify-1.log."
 assumption = "The test setup predates the protected root check and no gate ran it since; the re-exports of the task are complete."
 severity = "high"
+
+[finding.22.39.75.7]
+task = "22.39.75"
+file = "tests/ci/test_launchpad_go_tests_wired.py"
+symbol = "test_launchpad_go_tests_wired.py"
+observed = "Attempt 7 at 357e916cb654 (record tree dec46c1d7c43): build exit 0; verification exit 2: 26 wiring tests passed, every launchpad module passed except protocol/bindings, where the overlay proof of TestRepair_37_native_family_events failed to compile github.com/cockroachdb/swiss under Go 1.27.3 (seven undefined symbols); log /out/logs/verify-1.log."
+assumption = "The node module compiles under the toolchain its go.mod declares; only the inherited launchpad pin breaks the overlay proof."
+severity = "high"
+
+[finding.22.39.164.2]
+task = "22.39.164"
+file = "test_repair_22_31_319"
+symbol = "test_repair_22_31_319"
+observed = "Attempt 2 at c8e49bb70d6a (base e8cd0764863d): build exit 0 twice; verification exit 1 twice, the second run failing only test_docs_names_reads_existing_spec (1 failed, 768 passed) because docs-names refused docs/ci/secrets-and-runners.md as unpublished faucet configuration; log /out/logs/verify-2.log."
+assumption = "The two name rules are the only remaining failures of the tools-python suite; the documents are right."
+severity = "high"
+
+[finding.22.39.95.3]
+task = "22.39.95"
+file = "apps/launchpad/web/src/core/wallet-sdk/runtime.integration.test.tsx"
+symbol = "runtime.integration.test.tsx"
+observed = "Attempt 3 at cba4f786e00a (base 59c437e6cb1c): build exit 0 twice; verification exit 1 twice, the preparation script stopping before vitest first at the advanced inputs stage (Missing producer input L28_CHAIN_FIXTURE_JSON, repaired) and then at the trading phase four stage (Missing producer input L26_MEASUREMENT_CONFIG); no suite ran; log /out/logs/verify-2.log."
+assumption = "The generated inputs of the other stages are complete; only the phase four stage asks for a release artifact."
+severity = "high"
+
+[finding.22.99.77.31]
+task = "22.99.77"
+file = "programs/crates/layerx-programs-ai-market"
+symbol = "layerx-programs-ai-market"
+observed = "Attempt 29 at 3588221d01e2 (base 95c2388776a4): build exit 1 at 6ebb141df125 (wasm-opt refused the historical guest for undeclared bulk memory, repaired), then exit 0 at the final tree; verification exit 101: 12 of the crate targets failed with about sixty cases; log /out/logs/verify-1.log."
+assumption = "The size changes of the attempt caused the regressions; the base already met the guest bound."
+severity = "high"
+
+[finding.9.35.23.1]
+task = "9.35.23"
+file = "services/agent/crates/layerx-sdk/src/agent_envelope.rs"
+symbol = "agent_envelope.rs"
+observed = "Attempt 1 at eccc16297056 (base cb96b80a5c25): build exit 0 twice; verification exit 101 twice, the second run failing four cases of the layerx-sdk lib suite (the registration parameter names and the three TLS identity cases refusing for the missing boundary binary) with 47 passed; log /out/logs/verify-2.log."
+assumption = "The disclosure work of the task is complete; the four failures belong to the suite the gate runs."
+severity = "high"
+
+[finding.9.35.22.1]
+task = "9.35.22"
+file = "services/agent/crates/layerx-agentd/tests/w7_owner_binding.rs::a_foreign_key_signature_over_the_owner_preimage_is_refused"
+symbol = "w7_owner_binding.rs::a_foreign_key_signature_over_the_owner_preimage_is_refused"
+observed = "Attempt 1 at 7e0e122f6a7b (base c1cec79b2794): build exit 0; verification exit 1 at the retired-name search, which found restore_canonical in tests/repair_22_31_217.rs line 2402 and prepare_activity_for_protocol and restore_canonical in tests/repair_22_31_545.rs lines 91 and 516; the test targets never ran; log /out/logs/verify-1.log."
+assumption = "The nine ported files are complete; the two repair targets were outside the touches although the search of the task covers them."
+severity = "high"
+
+[finding.22.39.167.1]
+task = "22.39.167"
+file = "programs/crates/layerx-programs-ai-market/tests/f11_views.rs"
+symbol = "f11_views.rs"
+observed = "Attempt 1 at 35bc97a9686d (base d996be5f0c2c): build exit 1 at acc558b80f88 (a borrowed administration state moved, repaired), then exit 0; verification exit 1 at the size test, 505461 bytes against 484184, after two repair cycles that saved 250 bytes; the five f11 targets never ran; record src/repair_22_39_167.kvx of the attempt tree, logs /out/logs/verify-1.log and /out/logs/22.39.167-size.json."
+assumption = "The metrics table points at the routing transition, which the attempt never touched; the measurement runs were withheld on a wrong reading of the gate bound."
+severity = "high"
+
+[finding.22.39.75.8]
+task = "22.39.75"
+file = "tests/ci/test_launchpad_go_tests_wired.py"
+symbol = "test_launchpad_go_tests_wired.py"
+observed = "Attempt 8 at 9621d9237eec (base d996be5f0c2c): build exit 0 twice; verification exit 2 twice, the wiring tests, both SDK modules and the api module passing and the indexer module failing the same eighteen cases on PostgreSQL 18 and on postgres 16; the thirteen later modules never ran; logs /out/logs/verify-1.log and /out/logs/verify-2.log."
+assumption = "The eighteen cases belong to the indexer module the retiring task owns; the job wiring of this task is complete."
+severity = "high"
+
+[finding.22.99.77.32]
+task = "22.99.77"
+file = "programs/crates/layerx-programs-ai-market"
+symbol = "layerx-programs-ai-market"
+observed = "Attempt 30 at 42fc4308cf0d: build exit 1 in every build at TestRepair478_FundWithinProductionAllowance (Fund refused at attempted 1000018 then 1000008 against the 1000000 allowance, kernel gas 635); the verification never ran; logs /out/logs/build-1.log and /out/logs/build-2.log."
+assumption = "The overrun entered main through the guest changes landed without the allowance test; the restored sources of the attempt are otherwise sound."
+severity = "high"
+
+[finding.9.35.22.2]
+task = "9.35.22"
+file = "services/agent/crates/layerx-agentd/tests/w7_owner_binding.rs::a_foreign_key_signature_over_the_owner_preimage_is_refused"
+symbol = "w7_owner_binding.rs::a_foreign_key_signature_over_the_owner_preimage_is_refused"
+observed = "Attempt 2 at 3e725f8c5739: build exit 0; verification exit 101 twice: first three budget_durable_limits cases (repaired), then preparation_state_reads_chain_id_pending_nonce_and_block_time of human_node_preparation.rs line 116 (left 1700000000000, right 1700000000); the four later targets did not run; logs /out/logs/verify-1.log and /out/logs/verify-2.log."
+assumption = "The port is complete; only the second-resolution expectation of the legacy era remains."
+severity = "high"

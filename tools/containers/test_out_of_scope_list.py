@@ -33,10 +33,12 @@ def assert_reviewed_out_of_scope(script: str) -> None:
         "core/deps/geth/Dockerfile.alltools",
         "core/deps/geth/crypto/secp256k1/libsecp256k1/ci/linux-debian.Dockerfile",
         "sdk/contrib/devtools/dockerfile",
-        "sdk/contrib/images/simd-dlv/Dockerfile",
         "sdk/contrib/images/simd-env/Dockerfile",
-        "sdk/contrib/rosetta/node/Dockerfile",
+        "sdk/contrib/rosetta/node/Dockerfile.historical",
+        "sdk/contrib/rosetta/node/Dockerfile.paxd",
         "sdk/contrib/rosetta/rosetta-cli/Dockerfile",
+        "tools/hyperfide/deploy/hyperfide/fleet-control/Dockerfile",
+        "tools/hyperfide/plugins/environment-modal-sandbox/Dockerfile",
         "wasm-runtime/builders/Dockerfile.alpine",
         "wasm-runtime/builders/Dockerfile.centos7",
         "wasm-runtime/builders/Dockerfile.cross",
@@ -50,7 +52,6 @@ def assert_reviewed_out_of_scope(script: str) -> None:
         "consensus/test/e2e/docker/Dockerfile",
         "services/explorer/backend/.devcontainer/Dockerfile",
         "storage/db_engine/litt/util/testdata/ssh-test.Dockerfile",
-        "docker/platform-node/Dockerfile",
         "docker/redis/Dockerfile",
     ]
 
