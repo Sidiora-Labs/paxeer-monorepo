@@ -35474,3 +35474,19 @@ symbol = "test_repair_22_33_886.py"
 observed = "Attempt 1 at 199d2c9c2940: build exit 0; verification exit 1 at the runner test (1 failed, 4 passed) before make test-python-suites ran; the stale exclusion row predates the attempt."
 assumption = "The stale row is a producer side effect of 22.39.47 that no pending task owned; the suites of this task were never exercised."
 severity = "high"
+
+[finding.22.39.122.3]
+task = "22.39.122"
+file = "services/agent/crates/layerx-agentd/src/approval/mod.rs"
+symbol = "mod.rs"
+observed = "Attempt 3 at 9391a017048e: build exit 0; verification exit 101 with 331 passed and 2 failed, both on the root-exists assertion after every store assertion held."
+assumption = "The audit sink writes under the root by contract since bfc86ded84; the two assertions are the stale side."
+severity = "high"
+
+[finding.22.99.77.28]
+task = "22.99.77"
+file = "programs/crates/layerx-programs-ai-market"
+symbol = "layerx-programs-ai-market"
+observed = "Attempt 26 at c7bbaef169b0: build exit 0 at the third cycle (483167 bytes, Fund at 858358 CPU fuel); verification exit 101 with 411 passed and 129 failed across 18 of 49 targets; no main baseline recorded."
+assumption = "Part of the failures is the attempt changing refusal codes, part is the main rewrite of 22.39.142 that a four-target gate let through; the baseline run separates them."
+severity = "high"
