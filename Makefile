@@ -275,6 +275,26 @@ test-python-suites: layerx-genesis-build layerx-module-registry $(BUILD_DIR)/tes
 		LAYERX_TEST_BUILD_DIR="$(abspath $(BUILD_DIR))" \
 		python3 tests/ci/run_python_suites.py
 
+TOOLS_PYTHON_SUITES :=
+include tools/release/tests/python-tests.mk
+include tools/release/rehearsal/python-tests.mk
+include tools/bringup/tests/python-tests.mk
+include tools/containers/python-tests.mk
+include tools/deps/tests/python-tests.mk
+include tools/rollout/python-tests.mk
+include tools/deploy/python-tests.mk
+include tools/docs/gen/python-tests.mk
+include tools/spec/python-tests.mk
+include tools/benchmark/python-tests.mk
+include tools/jev/tests/python-tests.mk
+include tools/jev/checks/python-tests.mk
+include tools/paxeer-x/tests/python-tests.mk
+
+.PHONY: test-tools-python
+# Exact inherited failures and their retiring tasks are tracked in tests/ci/data/tools_python_suite_baseline.json.
+test-tools-python:
+	python3 -c 'import json, os, sys; cases = json.load(open("tests/ci/data/tools_python_suite_baseline.json")); os.execvp("python3", ["python3", "-m", "pytest", "-q", *sys.argv[1:], *["--deselect=" + case["nodeid"] for case in cases]])' $(TOOLS_PYTHON_SUITES)
+
 list-tests: $(BUILD_DIR)/tests/lxp_test_harness
 	$(BUILD_DIR)/tests/lxp_test_harness --list
 
