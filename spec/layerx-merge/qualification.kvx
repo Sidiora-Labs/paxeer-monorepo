@@ -35714,3 +35714,11 @@ symbol = "ai_evidence_test.py"
 observed = "Attempt 1 at bd0358e55efa (final tree 187162452818): build exit 0; verification exit 2: make test-tools-python recorded 689 passed, 41 failed, 6 errors, 8 skipped and 125 deselected, every failure outside tools/paxeer-x for a missing public prerequisite."
 assumption = "With the public prerequisites present the other packages pass or fail only on cases their own retiring tasks own, which land first."
 severity = "high"
+
+[finding.22.39.131.4]
+task = "22.39.131"
+file = "tests/conformance/test_repair_22_33_886.py"
+symbol = "test_repair_22_33_886.py"
+observed = "Attempt 4 at 3468ec6ceca2: build exit 0; verification exit 2: the five runner cases passed, make test-python-suites recorded 289 passed and 1 failed at tests/integration/scripts/test_repair_22_33_758.py line 245 asserting Z and reading R."
+assumption = "The case races the kernel teardown and passes with a bounded wait; nothing else in the suite is affected."
+severity = "high"
