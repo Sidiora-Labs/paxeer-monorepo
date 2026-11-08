@@ -3814,18 +3814,27 @@ fn settle_retained_native_program_call(
     authorization: SequencerAuthorization,
 ) -> Result<bool, HumanOperationError> {
     use crate::prepare::{DurablePreparation, LifecycleState};
-    let refused = || HumanOperationError::Refused;
-    let key = DurablePreparation::store_key(tenant, preparation_id).map_err(|_| refused())?;
-    let stored = store.get(&key).ok_or_else(refused)?;
+    let refused_at = |site: &'static str| {
+        #[cfg(test)]
+        retained_settlement_tests::REFUSED_AT.with(|last| last.set(Some(site)));
+        #[cfg(not(test))]
+        let _ = site;
+        HumanOperationError::Refused
+    };
+    let key = DurablePreparation::store_key(tenant, preparation_id)
+        .map_err(|_| refused_at("durable_store_key"))?;
+    let stored = store
+        .get(&key)
+        .ok_or_else(|| refused_at("durable_missing"))?;
     if stored.class() != crate::store::StorageClass::LocalOnly {
-        return Err(refused());
+        return Err(refused_at("durable_storage_class"));
     }
-    let mut durable =
-        DurablePreparation::decode(tenant.clone(), stored.bytes()).map_err(|_| refused())?;
+    let mut durable = DurablePreparation::decode(tenant.clone(), stored.bytes())
+        .map_err(|_| refused_at("durable_decode"))?;
     if durable.preparation_id != preparation_id
         || durable.activity_id != Some(terminal.activity_id())
     {
-        return Err(refused());
+        return Err(refused_at("durable_identity"));
     }
     let state = if terminal.result_code() == 0 {
         LifecycleState::Executed
@@ -3837,7 +3846,7 @@ fn settle_retained_native_program_call(
             || durable.extensions.get(&9).map(Vec::as_slice)
                 != Some(terminal.receipt_ref().as_slice())
         {
-            return Err(refused());
+            return Err(refused_at("durable_terminal_state"));
         }
         return Ok(false);
     }
@@ -3845,32 +3854,37 @@ fn settle_retained_native_program_call(
         crate::approval::native_program::NativeProgramApprovalCarrier::retained_for_tenant(
             store, tenant,
         )
-        .map_err(|_| refused())?
+        .map_err(|_| refused_at("carrier_decode"))?
         .into_iter()
         .find(|held| held.preparation_id() == preparation_id)
-        .ok_or_else(refused)?;
-    let prepared = carrier.restore_prepared(registry).map_err(|_| refused())?;
+        .ok_or_else(|| refused_at("carrier_missing"))?;
+    let prepared = carrier
+        .restore_prepared(registry)
+        .map_err(|_| refused_at("carrier_restore"))?;
     let layerx_types::activity::Authority::Owner(public_key) = prepared.envelope.authority() else {
-        return Err(refused());
+        return Err(refused_at("owner_authority"));
     };
-    let public_key: [u8; 32] = public_key.as_ref().try_into().map_err(|_| refused())?;
+    let public_key: [u8; 32] = public_key
+        .as_ref()
+        .try_into()
+        .map_err(|_| refused_at("owner_public_key"))?;
     let signed = durable
         .signed_bytes()
-        .map_err(|_| refused())?
-        .ok_or_else(refused)?;
+        .map_err(|_| refused_at("durable_signed_bytes"))?
+        .ok_or_else(|| refused_at("durable_signed_bytes_missing"))?;
     let transaction =
         crate::sign::SigningPreparation::restore(store, tenant.clone(), preparation_id)
-            .map_err(|_| refused())?;
+            .map_err(|_| refused_at("signing_preparation_restore"))?;
     let submission = crate::sign::verify_before_submit(
         &signed,
         &transaction,
         &transaction.actor_address,
         registry,
     )
-    .map_err(|_| refused())?;
+    .map_err(|_| refused_at("verify_before_submit"))?;
     let signed_activity =
         layerx_wire::activity::decode_unsigned(&prepared.canonical_bytes, registry)
-            .map_err(|_| refused())?;
+            .map_err(|_| refused_at("decode_unsigned"))?;
     let lifecycle_exit = signed_activity.protocol_version() == 3
         && signed_activity.activity_type().module() == layerx_types::payload::ModuleId::Programs
         && signed_activity.activity_type().ordinal() == 7
@@ -3916,21 +3930,21 @@ fn settle_retained_native_program_call(
         let (program, accounts) = match signed_activity.activity_type().ordinal() {
             1 => (
                 NativeProgramDeploy::decode(signed_activity.payload())
-                    .map_err(|_| refused())?
+                    .map_err(|_| refused_at("committed_deploy_decode"))?
                     .program_id
                     .bytes(),
                 Vec::new(),
             ),
             2 => (
                 NativeProgramUpgrade::decode(signed_activity.payload())
-                    .map_err(|_| refused())?
+                    .map_err(|_| refused_at("committed_upgrade_decode"))?
                     .program_id
                     .bytes(),
                 Vec::new(),
             ),
             7 => {
                 let value = NativeProgramWindDown::decode(signed_activity.payload())
-                    .map_err(|_| refused())?;
+                    .map_err(|_| refused_at("committed_wind_down_decode"))?;
                 let accounts = match value.operation {
                     ProgramWindDownOperation::Exit { account }
                     | ProgramWindDownOperation::BoundedExit { account, .. }
@@ -3939,17 +3953,27 @@ fn settle_retained_native_program_call(
                 };
                 (value.program_id.bytes(), accounts)
             }
-            _ => return Err(refused()),
+            _ => return Err(refused_at("committed_activity_kind")),
         };
-        let correlation =
-            u64::from_be_bytes(preparation_id[..8].try_into().map_err(|_| refused())?) | 1;
+        let correlation = u64::from_be_bytes(
+            preparation_id[..8]
+                .try_into()
+                .map_err(|_| refused_at("committed_correlation"))?,
+        ) | 1;
         let actor = layerx_wire::hash::did_id_for_protocol(prepared.envelope.actor_did(), 3)
-            .map_err(|_| refused())?;
+            .map_err(|_| refused_at("committed_actor"))?;
         let height = node
             .block_number()
             .map_err(|_| HumanOperationError::Unavailable)?;
-        let caps = committed_prepared_caps(node, &prepared, height)?;
-        let endpoint = read_rpc_endpoint(&read_rpc_config()?)?;
+        let caps = committed_prepared_caps(node, &prepared, height).inspect_err(|_| {
+            let _ = refused_at("committed_prepared_caps");
+        })?;
+        let config = read_rpc_config().inspect_err(|_| {
+            let _ = refused_at("read_rpc_config");
+        })?;
+        let endpoint = read_rpc_endpoint(&config).inspect_err(|_| {
+            let _ = refused_at("read_rpc_endpoint");
+        })?;
         Some(
             crate::budget::execution_state::committed_execution_state(
                 node,
@@ -3963,7 +3987,7 @@ fn settle_retained_native_program_call(
                 correlation,
                 authorization,
             )
-            .map_err(|_| refused())?,
+            .map_err(|_| refused_at("committed_execution_state"))?,
         )
     } else {
         None
@@ -3976,9 +4000,11 @@ fn settle_retained_native_program_call(
             terminal,
             store,
             tenant,
-            committed_state.as_ref().ok_or_else(refused)?,
+            committed_state
+                .as_ref()
+                .ok_or_else(|| refused_at("wind_down_committed_state_missing"))?,
         )
-        .map_err(|_| refused())?
+        .map_err(|_| refused_at("wind_down_settlement"))?
     } else if remaining_lifecycle {
         crate::budget::program_settlement::read_retained_lifecycle_debit_settlement_at_execution(
             registry,
@@ -3987,9 +4013,15 @@ fn settle_retained_native_program_call(
             terminal,
             store,
             tenant,
-            committed_state.as_ref().ok_or_else(refused)?,
+            committed_state
+                .as_ref()
+                .ok_or_else(|| refused_at("lifecycle_committed_state_missing"))?,
         )
-        .map_err(|_| refused())?
+        .map_err(|_error| {
+            #[cfg(test)]
+            eprintln!("retained lifecycle settlement refusal: {_error:?}");
+            refused_at("lifecycle_settlement")
+        })?
     } else {
         match crate::budget::program_settlement::read_retained_program_debit_settlement(
             programs,
@@ -4002,20 +4034,20 @@ fn settle_retained_native_program_call(
             tenant,
         ) {
             Ok(value) => value,
-            Err(_) => return Err(refused()),
+            Err(_) => return Err(refused_at("program_settlement")),
         }
     };
     if witness.reservation_id() != preparation_id
         || witness.activity_id() != terminal.activity_id()
         || witness.terminal_receipt() != terminal.receipt_ref()
     {
-        return Err(refused());
+        return Err(refused_at("witness_binding"));
     }
     let staged = budgets
         .stage_program_settlement(store, tenant, &reservation, &witness)
-        .map_err(|_| refused())?;
+        .map_err(|_| refused_at("stage_program_settlement"))?;
     if staged.replayed() {
-        return Err(refused());
+        return Err(refused_at("settlement_replayed"));
     }
     durable.state = state;
     durable.drop_signed_bytes();
@@ -4023,10 +4055,13 @@ fn settle_retained_native_program_call(
         .extensions
         .insert(9, terminal.receipt_ref().to_vec());
     let mut updates = staged.updates().to_vec();
-    updates.push((key, durable.encode().map_err(|_| refused())?));
+    updates.push((
+        key,
+        durable.encode().map_err(|_| refused_at("durable_encode"))?,
+    ));
     if let Some(update) =
         crate::approval::native_program::native_rate_receipt_update(store, tenant, terminal)
-            .map_err(|_| refused())?
+            .map_err(|_| refused_at("native_rate_receipt_update"))?
     {
         updates.push(update);
     }
@@ -20548,17 +20583,35 @@ pub(crate) mod activity_submission_index_tests {
         use layerx_crypto::evm_transaction::{decode_signed, recover_sender, Eip1559Call};
         use layerx_types::payload::ModuleId;
         let kind = prepared.envelope.activity_type();
-        let construct = match (kind.module(), kind.ordinal()) {
-            (ModuleId::Governance, 1) => PrecompileCall {
-                target: PrecompileTarget::Auth,
-                selector: layerx_crypto::disclosure::call::ledger_selector(
-                    "recordLifecycle(bytes,bytes32)",
+        let (target, data) = match (kind.module(), kind.ordinal()) {
+            (ModuleId::Governance, 1) => (
+                PrecompileTarget::Auth,
+                must(
+                    PrecompileCall {
+                        target: PrecompileTarget::Auth,
+                        selector: layerx_crypto::disclosure::call::ledger_selector(
+                            "recordLifecycle(bytes,bytes32)",
+                        ),
+                        arguments: vec![
+                            AbiArgument::Bytes(prepared.envelope.payload().as_bytes().to_vec()),
+                            AbiArgument::Word(prepared.envelope.idempotency_key().bytes()),
+                        ],
+                    }
+                    .encode(),
                 ),
-                arguments: vec![
-                    AbiArgument::Bytes(prepared.envelope.payload().as_bytes().to_vec()),
-                    AbiArgument::Word(prepared.envelope.idempotency_key().bytes()),
-                ],
-            },
+            ),
+            (ModuleId::Programs, 1) => {
+                let Some(layerx_crypto::disclosure::DisclosedNativeOperation::ProgramDeploy(
+                    deploy,
+                )) = &prepared.disclosure.native_operation
+                else {
+                    panic!("disclosed program deploy required");
+                };
+                (
+                    PrecompileTarget::Programs,
+                    layerx_crypto::disclosure::call::encode_program_deploy(&deploy.native()),
+                )
+            }
             (ModuleId::Bridge, 1) => {
                 let [amount] = prepared.disclosure.amounts.as_slice() else {
                     panic!("one bridge credit amount");
@@ -20572,28 +20625,39 @@ pub(crate) mod activity_submission_index_tests {
                     .expect("bridge credit recipient");
                 let mut amount_word = [0; 32];
                 amount_word[16..].copy_from_slice(&amount.value.to_be_bytes());
-                PrecompileCall {
-                    target: PrecompileTarget::Ledger,
-                    selector: layerx_crypto::disclosure::call::ledger_selector(
-                        "mint(bytes32,bytes32,uint128)",
+                (
+                    PrecompileTarget::Ledger,
+                    must(
+                        PrecompileCall {
+                            target: PrecompileTarget::Ledger,
+                            selector: layerx_crypto::disclosure::call::ledger_selector(
+                                "mint(bytes32,bytes32,uint128)",
+                            ),
+                            arguments: vec![
+                                AbiArgument::Word(prepared.disclosure.asset),
+                                AbiArgument::Word(recipient.account),
+                                AbiArgument::Word(amount_word),
+                            ],
+                        }
+                        .encode(),
                     ),
-                    arguments: vec![
-                        AbiArgument::Word(prepared.disclosure.asset),
-                        AbiArgument::Word(recipient.account),
-                        AbiArgument::Word(amount_word),
-                    ],
-                }
+                )
             }
             _ => panic!("unsupported submission fixture activity: {kind:?}"),
+        };
+        let (gas_limit, max_fee_per_gas) = if kind.module() == ModuleId::Programs {
+            (must(u64::try_from(prepared.disclosure.fee_limit)), 1)
+        } else {
+            (100_000, 10)
         };
         let call = Eip1559Call {
             chain_id: u64::from(prepared.envelope.network_id()),
             nonce: prepared.envelope.account_sequence(),
             max_priority_fee_per_gas: 1,
-            max_fee_per_gas: 10,
-            gas_limit: 100_000,
-            to: construct.target.address(),
-            data: must(construct.encode()),
+            max_fee_per_gas,
+            gas_limit,
+            to: target.address(),
+            data,
         };
         let raw = must(call.sign(&[0xa5; 32]));
         let (decoded, signature) = must(decode_signed(&raw));
@@ -20603,6 +20667,13 @@ pub(crate) mod activity_submission_index_tests {
             &call,
             actor_address,
         ));
+        if kind.module() == ModuleId::Programs {
+            assert_eq!(
+                disclosure.native_operation,
+                prepared.disclosure.native_operation
+            );
+            assert_eq!(disclosure.fee_limit, prepared.disclosure.fee_limit);
+        }
         if kind.module() == ModuleId::Bridge {
             assert_eq!(disclosure.asset, prepared.disclosure.asset);
             assert_eq!(disclosure.amounts, prepared.disclosure.amounts);
@@ -23130,8 +23201,15 @@ mod tests {
     }
 
     fn rpc_commit(signed: &ServedCheckpoint) -> Value {
-        assert_eq!(signed.header.time.seconds, 1_700_000_000);
-        let timestamp = format!("2023-11-14T22:13:20.{:09}Z", signed.header.time.nanos);
+        assert_eq!(
+            signed.header.time.seconds,
+            1_700_000_000 + (signed.height as i64 - 8) * 5
+        );
+        let timestamp = format!(
+            "2023-11-14T22:13:{:02}.{:09}Z",
+            signed.header.time.seconds - 1_699_999_980,
+            signed.header.time.nanos
+        );
         let hex = |bytes: &[u8]| layerx_programs::hex::encode(bytes);
         let id = |id: BlockId| {
             json!({"hash": hex(&id.hash), "parts": {
@@ -23159,7 +23237,7 @@ mod tests {
             "last_commit_hash": hex(&[3;32]), "data_hash": hex(&[4;32]),
             "validators_hash": hex(&h.validators_hash), "next_validators_hash": hex(&h.next_validators_hash),
             "consensus_hash": hex(&[5;32]), "app_hash": hex(&[6;32]),
-            "last_results_hash": hex(&[7;32]), "evidence_hash": hex(&[8;32]),
+            "last_results_hash": hex(&h.last_results_hash.expect("result root")), "evidence_hash": hex(&[8;32]),
             "proposer_address": hex(&h.proposer_address),
         }, "commit": {"height": signed.height.to_string(), "round": 1,
             "block_id": id(signed.commit.block_id), "signatures": signatures}})
@@ -23185,13 +23263,120 @@ mod tests {
             "status":"0x1", "returnData":"0xabcd",
             "logs":[{"address":rpc_hex(&[8;20]), "topics":[rpc_hex(&[9;32])], "data":"0x0a0b", "logIndex":"0x0"}],
             "gasUsed":"0x5208", "cumulativeGasUsed":"0xa410", "effectiveGasPrice":"0x1",
-            "feeDenom":"upax", "feeAmount":"0x5208", "sponsor":rpc_hex(&[0;20]),
+            "feeDenom":"upax", "paymentDenom":"upax", "feeAmount":"0x5208", "sponsor":rpc_hex(&[0;20]),
             "from":rpc_hex(&[6;20]), "to":rpc_hex(&[7;20]), "contractAddress":rpc_hex(&[0;20]),
             "vmError":"", "keyId":rpc_hex(&KEY_ID), "receipt":rpc_hex(&bytes),
             "signingKey":rpc_hex(signer.verifying_key().as_bytes()),
             "blockNumber":format!("{height:#x}"), "blockHash":null
         });
         (bytes, rung)
+    }
+
+    fn history_result(height: u64) -> Value {
+        fn varint(mut value: u64, out: &mut Vec<u8>) {
+            while value >= 128 {
+                out.push(value as u8 | 128);
+                value >>= 7;
+            }
+            out.push(value as u8);
+        }
+        fn bytes(field: u64, value: &[u8], out: &mut Vec<u8>) {
+            varint(field << 3 | 2, out);
+            varint(value.len() as u64, out);
+            out.extend_from_slice(value);
+        }
+        let mut log = Vec::new();
+        bytes(1, rpc_hex(&[8; 20]).as_bytes(), &mut log);
+        bytes(2, rpc_hex(&[9; 32]).as_bytes(), &mut log);
+        bytes(3, &[10, 11], &mut log);
+        let mut response = vec![8];
+        varint(21_000, &mut response);
+        bytes(3, &[0xab, 0xcd], &mut response);
+        bytes(4, rpc_hex(&[height as u8; 32]).as_bytes(), &mut response);
+        bytes(5, &log, &mut response);
+        let mut message = Vec::new();
+        bytes(
+            1,
+            b"/paxprotocol.paxchain.evm.MsgEVMTransaction",
+            &mut message,
+        );
+        bytes(2, &response, &mut message);
+        let mut data = Vec::new();
+        bytes(1, &message, &mut data);
+        json!([{}, {"data":base64(&data), "gas_wanted":"60000", "gas_used":"21000"}])
+    }
+
+    fn history_checkpoints(results: &BTreeMap<u64, Value>) -> BTreeMap<u64, ServedCheckpoint> {
+        use layerx_programs::chain_proof::merkle::hash_from_byte_slices;
+
+        let mut blocks = BTreeMap::new();
+        let mut parent = [1; 32];
+        for height in 6..=9 {
+            let mut block =
+                ServedCheckpoint::test_fixture(height, 1_700_000_000 + (height as i64 - 8) * 5, 0);
+            block.header.last_block_id.as_mut().expect("parent").hash = parent;
+            let leaves = results.get(&(height - 1)).map_or_else(Vec::new, |rows| {
+                (0..rows.as_array().expect("results").len())
+                    .map(|index| {
+                        must(crate::read::NativeResultSource::from_results(
+                            rows,
+                            index as u64,
+                        ))
+                        .result
+                    })
+                    .collect::<Vec<_>>()
+            });
+            block.header.last_results_hash = Some(hash_from_byte_slices(
+                &leaves.iter().map(Vec::as_slice).collect::<Vec<_>>(),
+            ));
+            block.commit.block_id.hash = block.header.block_hash();
+            let vote_bytes = block.commit.vote_sign_bytes("125", block.header.time);
+            for (seed, vote) in (1..=2).zip(&mut block.commit.votes) {
+                vote.signature = SigningKey::from_bytes(&[seed; 32])
+                    .sign(&vote_bytes)
+                    .to_bytes();
+            }
+            let block = must(crate::read::checkpoint(
+                height,
+                "125",
+                &block.header,
+                &block.commit,
+                &block.validators,
+            ));
+            parent = block.block_hash;
+            blocks.insert(height, block);
+        }
+        blocks
+    }
+
+    static HISTORY_ENVIRONMENT: Mutex<()> = Mutex::new(());
+
+    struct HistoryEnvironment {
+        previous: Option<std::ffi::OsString>,
+        _lock: std::sync::MutexGuard<'static, ()>,
+    }
+
+    impl HistoryEnvironment {
+        fn set(url: &str) -> Self {
+            let lock = HISTORY_ENVIRONMENT
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner);
+            let previous = std::env::var_os("LAYERX_AGENT_NODE_COMET_RPC_URL");
+            std::env::set_var("LAYERX_AGENT_NODE_COMET_RPC_URL", url);
+            Self {
+                previous,
+                _lock: lock,
+            }
+        }
+    }
+
+    impl Drop for HistoryEnvironment {
+        fn drop(&mut self) {
+            match &self.previous {
+                Some(value) => std::env::set_var("LAYERX_AGENT_NODE_COMET_RPC_URL", value),
+                None => std::env::remove_var("LAYERX_AGENT_NODE_COMET_RPC_URL"),
+            }
+        }
     }
 
     struct HistoryRpc {
@@ -23213,7 +23398,11 @@ mod tests {
     }
     impl HistoryRpc {
         fn start(unproven: bool) -> Self {
-            let checkpoint = ServedCheckpoint::test_fixture(8, 1_700_000_000, 0);
+            let results = (6..=8)
+                .map(|height| (height, history_result(height)))
+                .collect();
+            let blocks = history_checkpoints(&results);
+            let checkpoint = blocks[&8].clone();
             let signer = SigningKey::from_bytes(&[8; 32]);
             let key = ReceiptKeyEntry {
                 key_id: KEY_ID,
@@ -23237,15 +23426,11 @@ mod tests {
             let stop = Arc::new(AtomicBool::new(false));
             let signal = stop.clone();
             let worker = std::thread::spawn(move || {
-                let hex = |b: &[u8]| layerx_programs::hex::encode(b);
                 let block = |height: u64| {
-                    let hash = if height == 8 {
-                        checkpoint.block_hash
-                    } else {
-                        [height as u8; 32]
-                    };
-                    json!({"number":format!("{height:#x}"),"hash":rpc_hex(&hash), "parentHash":rpc_hex(&[1;32]),
-                        "timestamp":format!("{:#x}",1_700_000_000 - (8-height)*5), "transactionsRoot":rpc_hex(&[4;32]),
+                    let checkpoint = &blocks[&height];
+                    json!({"number":format!("{height:#x}"),"hash":rpc_hex(&checkpoint.block_hash),
+                        "parentHash":rpc_hex(&checkpoint.header.last_block_id.expect("parent").hash),
+                        "timestamp":format!("{:#x}",checkpoint.header.time.seconds), "transactionsRoot":rpc_hex(&[4;32]),
                         "receiptsRoot":rpc_hex(&[7;32]),"stateRoot":rpc_hex(&checkpoint.app_hash),"transactions":[]})
                 };
                 let mut rows = BTreeMap::new();
@@ -23255,15 +23440,10 @@ mod tests {
                 )));
                 let freshness = &recordings[0]["body"]["freshness"];
                 for (height, amount) in [(8, 7), (7, 11), (6, 13)] {
-                    let (bytes, mut rung) =
-                        signed_item(height, 1_700_000_000 - (8 - height) * 5, amount);
+                    let (_, mut rung) =
+                        signed_item(height, (1_700_000_000 - (8 - height) * 5) * 1000, amount);
                     rung["blockHash"] = block(height)["hash"].clone();
-                    if unproven && height == 7 {
-                        rung["rung"] = json!("receipted");
-                        rung.as_object_mut().expect("rung").remove("blockHash");
-                        rung.as_object_mut().expect("rung").remove("blockNumber");
-                    }
-                    rows.insert(height,json!({"height":height.to_string(),"txIndex":"1","logIndex":"0","kind":"Receipt","canonical":hex(&bytes),"proof":null}));
+                    rows.insert(height,json!({"blockHeight":height,"txIndex":1,"logIndex":0,"tx_hash":rung["txHash"]}));
                     rungs.insert(height, rung);
                 }
                 while !signal.load(Ordering::Acquire) {
@@ -23323,22 +23503,59 @@ mod tests {
                             assert_eq!(params, &json!(["8"]));
                             rpc_validators(&checkpoint)
                         }
+                        "commit" => {
+                            let height: u64 =
+                                must(params["height"].as_str().expect("height").parse());
+                            json!({"signed_header":rpc_commit(&blocks[&height])})
+                        }
+                        "validators" => {
+                            let height: u64 =
+                                must(params["height"].as_str().expect("height").parse());
+                            assert_eq!(params["page"], "1");
+                            assert_eq!(params["per_page"], "100");
+                            let validators = &blocks[&height].validators;
+                            json!({"block_height":height.to_string(), "count":validators.len().to_string(),
+                                "total":validators.len().to_string(), "validators":validators.iter().map(|validator| json!({
+                                    "address":layerx_programs::hex::encode(&validator.address),
+                                    "pub_key":{"type":"tendermint/PubKeyEd25519", "value":base64(&validator.public_key)},
+                                    "voting_power":validator.voting_power.to_string()
+                                })).collect::<Vec<_>>()})
+                        }
+                        "block_results" => {
+                            let height: u64 =
+                                must(params["height"].as_str().expect("height").parse());
+                            let rows = if unproven && height == 7 {
+                                Value::Null
+                            } else {
+                                results[&height].clone()
+                            };
+                            json!({"height":height.to_string(), "txs_results":rows})
+                        }
+                        "px_getReceiptKeys" => {
+                            assert_eq!(params, &json!([]));
+                            json!({"keys":[{"keyId":rpc_hex(&key.key_id), "publicKey":rpc_hex(&key.public_key),
+                                "firstHeight":key.first_height,"lastHeight":key.last_height}]})
+                        }
                         "px_getHistory" => {
                             assert_eq!(params[0], rpc_hex(&[6; 20]));
-                            assert_eq!(params[2], 256);
+                            assert_eq!(params[2], 100);
+                            let first = if unproven { 7 } else { 6 };
                             if params[1].is_null() {
-                                json!({"account":params[0],"items":[rows[&8]],"next_cursor":crate::read::Cursor { block_height:8,tx_index:1,log_index:0 }.to_hex(),"indexedHeight":8,"chainHeight":8,"freshness":freshness})
+                                json!({"account":params[0],"items":[rows[&first]],"next_cursor":crate::read::Cursor { block_height:first,tx_index:1,log_index:0 }.to_hex(),"indexedHeight":8,"chainHeight":8,"freshness":freshness})
                             } else {
                                 assert_eq!(
                                     params[1],
                                     crate::read::Cursor {
-                                        block_height: 8,
+                                        block_height: first,
                                         tx_index: 1,
                                         log_index: 0
                                     }
                                     .to_hex()
                                 );
-                                json!({"account":params[0],"items":[rows[&7],rows[&6]],"next_cursor":crate::read::Cursor { block_height:6,tx_index:1,log_index:0 }.to_hex(),"indexedHeight":8,"chainHeight":8,"freshness":freshness})
+                                let items = ((first + 1)..=8)
+                                    .map(|height| rows[&height].clone())
+                                    .collect::<Vec<_>>();
+                                json!({"account":params[0],"items":items,"next_cursor":null,"indexedHeight":8,"chainHeight":8,"freshness":freshness})
                             }
                         }
                         "pax_sequencerReceipt" | "eth_getTransactionReceipt" => {
@@ -23376,6 +23593,7 @@ mod tests {
     #[test]
     fn policy_usage_sums_only_proven_receipts_in_the_window() {
         let rpc = HistoryRpc::start(false);
+        let _environment = HistoryEnvironment::set(&rpc.config.url);
         let actor = actor();
         let history = must(read_policy_history(
             &rpc.config,
@@ -23446,13 +23664,14 @@ mod tests {
                 .iter()
                 .filter(|call| call["method"] == "eth_blockNumber")
                 .count(),
-            4
+            6
         );
     }
 
     #[test]
     fn native_policy_usage_refuses_a_page_without_a_proof() {
         let rpc = HistoryRpc::start(true);
+        let _environment = HistoryEnvironment::set(&rpc.config.url);
         let error = read_policy_history(
             &rpc.config,
             &actor(),
@@ -23582,8 +23801,20 @@ mod retained_settlement_tests {
     const PROGRAM: [u8; 32] = [0x41; 32];
     const WASM: &[u8] = b"\0asm\x01\0\0\0";
 
+    std::thread_local! {
+        pub(super) static REFUSED_AT: std::cell::Cell<Option<&'static str>> = const {
+            std::cell::Cell::new(None)
+        };
+    }
+
+    #[track_caller]
     fn must<T, E: std::fmt::Debug>(value: Result<T, E>) -> T {
-        value.expect("retained settlement")
+        value.unwrap_or_else(|error| {
+            panic!(
+                "retained settlement: {error:?}; refused at {:?}",
+                REFUSED_AT.with(|last| last.get())
+            )
+        })
     }
 
     fn word(value: u64) -> Vec<u8> {
@@ -24248,7 +24479,9 @@ mod retained_settlement_tests {
 
     #[test]
     fn retained_settlement_settles_after_the_head_advances() {
-        let _lock = must(ENVIRONMENT.lock());
+        let _lock = ENVIRONMENT
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
         let mut fixture = Fixture::new(false);
         let _environment = Environment::set(&fixture.rpc.url);
         fixture.assert_retained_height();
@@ -24281,7 +24514,9 @@ mod retained_settlement_tests {
 
     #[test]
     fn retained_settlement_settles_once_across_replay() {
-        let _lock = must(ENVIRONMENT.lock());
+        let _lock = ENVIRONMENT
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
         let mut fixture = Fixture::new(false);
         let _environment = Environment::set(&fixture.rpc.url);
         assert!(must(fixture.settle()));
@@ -24306,7 +24541,9 @@ mod retained_settlement_tests {
 
     #[test]
     fn retained_settlement_refuses_a_failed_receipt() {
-        let _lock = must(ENVIRONMENT.lock());
+        let _lock = ENVIRONMENT
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
         let mut fixture = Fixture::new(true);
         let _environment = Environment::set(&fixture.rpc.url);
         assert!(must(fixture.settle()));
@@ -24321,7 +24558,9 @@ mod retained_settlement_tests {
 
     #[test]
     fn retained_settlement_still_refuses_a_stale_node() {
-        let _lock = must(ENVIRONMENT.lock());
+        let _lock = ENVIRONMENT
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
         let mut fixture = Fixture::new(false);
         let owner = SigningKey::from_bytes(&[0x52; 32])
             .verifying_key()

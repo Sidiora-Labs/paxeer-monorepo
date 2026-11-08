@@ -1,3 +1,4 @@
+// Receipt views and their signed paymentDenom binding come from support::sequencer_receipt.
 mod support;
 
 use layerx_agentd::budget::{
