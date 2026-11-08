@@ -56,8 +56,8 @@ programme_tests = importlib.util.module_from_spec(programme_spec)
 programme_spec.loader.exec_module(programme_tests)
 
 ASSETS = (
-    "paxd-v6.12.0-linux-amd64",
-    "price-sidecar-v6.12.0-linux-amd64",
+    "paxd-v7.0.0-linux-amd64",
+    "price-sidecar-v7.0.0-linux-amd64",
     "libwasmvm.x86_64.so",
     "libwasmvm152.x86_64.so",
     "libwasmvm155.x86_64.so",
@@ -113,7 +113,7 @@ def release_fixture(root):
     upgrade_info.release(
         argparse.Namespace(
             name=None,
-            tag="paxeer-network/v6.12.0",
+            tag="paxeer-network/v7.0.0",
             sums=out / "SHA256SUMS",
             out=out / "upgrade-info.json",
         ),
@@ -150,7 +150,7 @@ def test_build_distribution(tmp_path):
         )
     )
     script = (
-        """out=$1; want_version=v6.12.0; want_tag=paxeer-network/v6.12.0
+        """out=$1; want_version=v7.0.0; want_tag=paxeer-network/v7.0.0
 paxd_name=paxd-$want_version-linux-amd64
 sidecar_name=price-sidecar-$want_version-linux-amd64
 wasm_libs=(libwasmvm.x86_64.so libwasmvm152.x86_64.so libwasmvm155.x86_64.so)
@@ -162,7 +162,7 @@ build_status=0
         + "\nrelease_directory_contents"
     )
     run_shell(script, out, cwd=tmp_path)
-    (out / "layerxd-v6.12.0-linux-amd64").write_bytes(b"retired artifact")
+    (out / "layerxd-v7.0.0-linux-amd64").write_bytes(b"retired artifact")
     write_sums(out)
     refusal = run_shell(script, out, cwd=tmp_path, success=False)
     assert "release directory holds:" in refusal.stderr
@@ -223,7 +223,7 @@ def binding_functions():
 @contextlib.contextmanager
 def recorded_rpc():
     requests = []
-    state = {"version": "v6.12.0", "applied": 21}
+    state = {"version": "v7.0.0", "applied": 21}
     pool = "0x" + "11" * 20
     token = "0x" + "22" * 20
 
@@ -236,6 +236,7 @@ def recorded_rpc():
             requests.append(request)
             method, params = request["method"], request["params"]
             assert request["jsonrpc"] == "2.0" and request["id"] == 1
+            error = None
             if method == "status":
                 result = {
                     "node_info": {"network": "rehearsal_hyperpax_125-1"},
@@ -245,7 +246,7 @@ def recorded_rpc():
                 result = {"response": {"version": state["version"]}}
             elif method == "abci_query":
                 assert params["path"] == "/cosmos.upgrade.v1beta1.Query/AppliedPlan"
-                assert params["data"] == programme_tests.P.pb_bytes(1, "v6.12.0").hex()
+                assert params["data"] == programme_tests.P.pb_bytes(1, "v7.0").hex()
                 result = {
                     "response": {
                         "code": 0,
@@ -253,6 +254,36 @@ def recorded_rpc():
                             programme_tests.P.pb_uint(1, state["applied"])
                         ).decode(),
                     }
+                }
+            elif method == "eth_chainId":
+                assert params == []
+                result = "0x7d"
+            elif method == "px_getNetwork":
+                assert params == [] and self.path == "/"
+                result = {
+                    "network_id": "rehearsal_hyperpax_125-1",
+                    "paxeer": {"chain_id": "0x7d", "latest_block": "0x20"},
+                    "consensus": None,
+                    "reason": "consensus_unavailable",
+                }
+            elif method == "eth_call" and params[0]["to"].lower() == (
+                "0x0000000000000000000000000000000000001013"
+            ):
+                assert params == [
+                    {
+                        "to": "0x0000000000000000000000000000000000001013",
+                        "data": fleet.call_data("depositCount()"),
+                    },
+                    "latest",
+                ]
+                reason = "LXP_MODULE_DISABLED: module disabled; layerxCustody retired"
+                data = programme_tests.P.selector("Error(string)") + (
+                    programme_tests.P.encode_values(["string"], [reason])
+                )
+                error = {
+                    "code": 3,
+                    "message": "execution reverted",
+                    "data": "0x" + data.hex(),
                 }
             else:
                 assert method == "eth_call", request
@@ -285,7 +316,13 @@ def recorded_rpc():
                     ), request
                     raw = fleet.word(18)
                 result = "0x" + raw.hex()
-            payload = json.dumps({"jsonrpc": "2.0", "id": 1, "result": result}).encode()
+            payload = json.dumps(
+                {
+                    "jsonrpc": "2.0",
+                    "id": 1,
+                    **({"error": error} if error is not None else {"result": result}),
+                }
+            ).encode()
             self.send_response(200)
             self.send_header("Content-Type", "application/json")
             self.send_header("Content-Length", str(len(payload)))
@@ -317,7 +354,7 @@ def emit_environment(work, url, candidate_sha):
     )
     script = r"""
 work=$1; url=$2; new_sha=$3
-nodes=4; release_id=rehearsal; plan=v6.12.0; sidecar_sha=$new_sha
+nodes=4; release_id=rehearsal; plan=v7.0; release_version=v7.0.0; sidecar_sha=$new_sha
 halt_height=20; chain_id=rehearsal_hyperpax_125-1; keyring_backend=test
 source_genesis=$work/source-genesis.json; bin_dir=$work/bin
 snapshots=$work/snapshots; credentials=$work/credentials; receipts=$work/receipts
@@ -334,7 +371,7 @@ evm_url() { printf '%s/%s\n' "$url" "$1"; }
 def publish_receipt(work, env, result="pass", checksum=None):
     script = r"""
 source "$1/rehearsal/receipt.sh"
-receipt=$2/receipts/rehearsal.json; plan=v6.12.0; nodes=4; precompiles_served=8
+receipt=$2/receipts/rehearsal.json; plan=v7.0; release_version=v7.0.0; nodes=4; precompiles_served=8
 pools=1; markets=18; oracle_fresh=18; feed_keys=4; new_sha=$3
 write_receipt "$4"
 """
@@ -462,7 +499,7 @@ def test_rehearsal_requires_fresh_driver(tmp_path):
     rehearsal_shell("fresh", env_file, final, scratch, success=False)
     # This is the real producer's input refusal, after the empty-work guard. A
     # failed producer cannot publish or bind success, and its exit is memoized.
-    assert "SOURCE_DATA is required" in (scratch / "full.log").read_text()
+    assert "--plan-info is required for plan v7.0" in (scratch / "full.log").read_text()
     assert (scratch / "full.done").read_text().strip() == "1"
     assert not final.exists() and not (empty / "test-evidence-binding.json").exists()
     stale_work, stale_env = fresh_handoff_case(tmp_path / "stale")
@@ -493,7 +530,7 @@ def test_rehearsal_evidence_binding(tmp_path):
     start = source.index("{\n\tprintf 'upgrade=")
     end = source.index("\npassed=1", start)
     run_shell(
-        "work=$1; plan=v6.12.0; halt_height=20; export_height=10; final_height=32; "
+        "work=$1; plan=v7.0; release_version=v7.0.0; halt_height=20; export_height=10; final_height=32; "
         "old_sha=$2; new_sha=$3; pools=1; markets=18; oracle_fresh=18; feed_keys=4; precompiles_served=8\n"
         + source[start:end],
         work,
@@ -574,7 +611,7 @@ def test_rollback_forward_recovery(tmp_path):
     dump(signer, signing)
     (home / "config/app.toml").write_text("halt-height = 25\n")
     (home / "config/priv_validator_key.json").write_bytes(b"recorded validator key")
-    dump(home / "data/upgrade-info.json", {"name": "v6.12.0", "height": 21})
+    dump(home / "data/upgrade-info.json", {"name": "v7.0", "height": 21})
     store = home / "data/committer.db/history.sqlite"
     with sqlite3.connect(store) as database:
         database.execute("CREATE TABLE commits(height INTEGER PRIMARY KEY, hash TEXT)")
@@ -623,7 +660,7 @@ def test_rollback_forward_recovery(tmp_path):
         home / ".forward-recovery-r1/priv_validator_state.json"
     ).read_bytes() == before["data/priv_validator_state.json"]
     assert digest(binaries / "paxd") == digest(recovery)
-    assert not (home / "data.v6.12.0-r1").exists()
+    assert not (home / "data.v7.0.0-r1").exists()
     for changed in ({**signing, "height": "20"}, {**signing, "signbytes": "0821"}):
         dump(signer, changed)
         refused = run_shell(command, RELEASE, env_file, success=False)
@@ -649,11 +686,14 @@ def test_programme_driver_consumes_rpc_evidence(tmp_path):
         )
         assert result.returncode == 0, result.stdout + result.stderr
         log = tmp_path / "programme-check_plan_and_version.log"
-        assert "applied at 21 on four nodes reporting v6.12.0" in log.read_text()
+        assert "applied at 21 on four nodes reporting v7.0.0" in log.read_text()
         assert "PASS check_plan_and_version" in result.stdout
         assert [request["method"] for request in requests] == [
             "abci_query",
             "abci_info",
+            "eth_chainId",
+            "eth_call",
+            "px_getNetwork",
         ] * 4
         state["applied"] = 22
         result = programme_tests.exercise_driver_check(
@@ -661,7 +701,7 @@ def test_programme_driver_consumes_rpc_evidence(tmp_path):
         )
         assert result.returncode == 1
         assert "FAIL check_plan_and_version" in result.stdout
-        assert "applied v6.12.0 at 22, expected 21" in log.read_text()
+        assert "applied v7.0 at 22, expected 21" in log.read_text()
         state.update(applied=21, version="v6.11.0")
         result = programme_tests.exercise_driver_check(
             "check_plan_and_version", url, tmp_path

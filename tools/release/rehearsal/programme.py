@@ -669,7 +669,12 @@ def perps_golden():
 
 def spot_golden(name):
     with open(
-        ROOT / f"precompiles/spot/testdata/{name}.golden.json", encoding="utf-8"
+        (
+            ROOT / "tools/release/rehearsal/share.golden.json"
+            if name == "share"
+            else ROOT / f"precompiles/spot/testdata/{name}.golden.json"
+        ),
+        encoding="utf-8",
     ) as handle:
         return json.load(handle)
 
