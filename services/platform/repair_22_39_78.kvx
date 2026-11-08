@@ -1,0 +1,77 @@
+[meta]
+task = "22.39.78"
+starting_revision = "5989465ed996eff127b982c0150f80533bbc9c34"
+decision = "2804"
+gotcha = "3438"
+
+[repair.workflow]
+observed = "platform-test-middleware built packages but omitted their tests, the Python suites, framework suites and marketplace tests."
+change = "Run each workspace's npm test with its dependency-building pretest hook, retain conformance and existing platform checks, and run Python suites with the provisioned platform interpreter. Conformance also runs pay6 and public RPC example Node tests."
+proof = "tests/ci/test_platform_middleware_suites_wired.py::test_platform_middleware_runs_package_tests; tests/ci/test_platform_middleware_suites_wired.py::test_platform_integrations_tests_wired"
+
+[repair.fastapi]
+observed = "The inventory recorded FastAPI collection failures from undeclared test dependencies."
+change = "Declare pytest, fastapi, httpx and cryptography as test extras and provision the matching existing tests/requirements.txt in platform-sample-install."
+constraint = "The existing deterministic wheel backend hardcodes runtime metadata; install the test requirements directly rather than relying on it to emit extra metadata."
+proof = "tests/ci/test_platform_middleware_suites_wired.py::test_fastapi_integration_declares_test_deps"
+
+[repair.python_collection]
+observed = "pay6/test_asset.py imports layerx_sdk without setting its path; collection previously depended on another test importing it first."
+change = "Each Python suite's conftest adds the real local Python SDK before collection, so both roots collect independently."
+proof = "python3 -m pytest -q services/platform/middleware/conformance/pay6 services/platform/middleware/examples"
+
+[qualification]
+revision = "The candidate revision named by hf-done's final JSON evidence and cg spec done's task record."
+build = "python3 -m py_compile tests/ci/test_platform_middleware_suites_wired.py && make -n platform-test-middleware > /dev/null"
+verify = "python3 -m pytest -q tests/ci/test_platform_middleware_suites_wired.py && python3 -m pytest -q services/platform/middleware/conformance/pay6 services/platform/middleware/examples"
+evidence = "Private runner gate ledger and build/verify logs; the final task response copies the exact revision, command, exit and log."
+limits = "Only the declared build and verify gates qualify this task. Workspace npm tests and the FastAPI suite are wired for the platform workflow; they are not additional sandbox qualification gates."
+
+[repair.receipt_digest]
+observed = "The pay6 TypeScript and Python peer fixtures recomputed receiptDigest as keccak256 of signed bytes; seller verification requires the producer's signed receipt digest, causing verification-failure and a teardown error."
+change = "Retain the current TypeScript verifySequencerReceipt and Python verify_sequencer_receipt derivations landed by tasks 22.39.146 and 22.39.136: receiptDigest is the verifier's SHA-256 domain digest of the unsigned receipt encoding. The seed's direct vector-field assignment is superseded; all assertions remain intact."
+proof = "services/platform/middleware/conformance/pay6/test_agent.py::AgentBudgetTests::test_budget_receipt_commit_and_replay"
+
+[continuation]
+starting_revision = "1dc3d5dca894a9db8002e0144c5e148a8731e19d"
+prerequisites = "22.39.136 at 0a5febebdd6e70cdef77b327d9c5815bdc472d0b and 22.39.137 at 13c3f20ce4f04a7e316546dd59b68926659c3bb2 are merged into the checked-out continuation."
+change = "Resolve both seeded fixture conflicts in favor of the current verifier-derived receipt digest while retaining the attempt-1 workflow wiring, three wiring tests, FastAPI extras and suite-local SDK paths. No Python SDK module is edited by this task."
+
+[continuation.after_22_39_151]
+starting_revision = "58b52ce38403ae0850c3a58d16d59b6931abaa8a"
+prerequisite = "Task 22.39.151 is merged through e6a52bc443; the primary platform job runs unconditionally and its quickstart benchmark step guards its own registry inputs."
+change = "Retain the attempt-2 implementation and all three wiring tests unchanged; qualify the complete continued tree at one candidate revision."
+build_evidence = "The build row in the private /out/run/gates.jsonl ledger records the exact candidate revision, declared command, exit code and /out/logs/build-1.log."
+verify_evidence = "The verify row in the same private ledger and hf-done's final JSON record the exact candidate revision, cg spec done command, exit code and /out/logs/verify-1.log."
+
+[finding.workflow_condition]
+revision = "9ef4fa446c98b475770b57294ac521c2a0b5cbde"
+command = "cg spec done 22.39.78 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Two wiring tests fail at tests/ci/test_platform_middleware_suites_wired.py:32 because the pre-existing jobs.build-lint-test.if in .github/workflows/platform.yml conditions execution on registry inputs; the FastAPI dependency test passes and the command's && prevents the Python suites from running."
+assumption = "The platform CI workflow owner must reconcile this out-of-scope job condition with the retained unconditional-execution assertion; decision 2762 requires stopping at this boundary without changing the workflow, weakening the assertion or rerunning the recorded failure."
+
+[finding.sdk_wire_contract]
+revision = "3c536a7f5ecaa1705b40be29ee43c3bff1ce9e30"
+command = "python3 -m pytest -q services/platform/middleware/conformance/pay6 services/platform/middleware/examples"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Python x402_http accepts layerx networks, unprefixed identifiers and sequencer-signed receipt payloads, while real TypeScript peers produce eip155:125 and portable receipt-proof-v2 payloads; x402_agent likewise rejects the peer's prefixed assets."
+assumption = "Repair requires services/agent/sdk/python/layerx_sdk/x402_http.py and x402_agent.py outside scope; retain interoperability assertions and request SDK owner alignment."
+
+[finding.commitment_and_payer]
+revision = "3c536a7f5ecaa1705b40be29ee43c3bff1ce9e30"
+command = "python3 -m pytest -q services/platform/middleware/conformance/pay6 services/platform/middleware/examples"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "test_no_commitment_downgrade expects invalid commitment values to fail, but x402.verify_payment_receipt only branches on committed; payer assertions also bind the EVM sender where the SDK checks the ledger payer."
+assumption = "Changing SDK commitment validation or reconciling payer contracts requires services/agent/sdk/python/layerx_sdk/x402.py outside scope; preserve assertions."
+
+[finding.rpc_surface]
+revision = "3c536a7f5ecaa1705b40be29ee43c3bff1ce9e30"
+command = "python3 -m pytest -q services/platform/middleware/conformance/pay6 services/platform/middleware/examples"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "test_hosted_gateway_has_its_own_origin imports missing HostedGatewayRpc; test_endpoints shows PaymentRpc.send accepts truncated 0x02 and attempts network submission instead of refusing the invalid transaction."
+assumption = "The missing gateway API and submission validation belong in services/agent/sdk/python/layerx_sdk/x402_rpc.py outside scope; retain both tests."
