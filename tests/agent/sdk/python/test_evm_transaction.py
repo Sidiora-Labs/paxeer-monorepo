@@ -22,6 +22,7 @@ from layerx_sdk.ai_market import (  # noqa: E402
     PROGRAMS_PRECOMPILE,
     NativeTerms,
     _attach_signature,
+    _decode_programs_call,
     _encode_programs_call,
     _unsigned_activity,
 )
@@ -111,6 +112,8 @@ class AiMarketVectorTests(EvmTransactionCase):
     def test_codec_round_trips_the_ai_market_transaction_vectors_byte_for_byte(self) -> None:
         self.assertEqual(MAX_TRANSACTION_BYTES, _MAX_TRANSACTION_BYTES)
         fixture = fixture_call()
+        recorded, _ = decode_signed(bytes.fromhex(RECEIPT_VECTOR["rawTransaction"][2:]))
+        self.assertEqual(_decode_programs_call(recorded.data)[0], fixture)
         for name, envelope in (("claim", claim_envelope()), ("fund", fund_envelope())):
             with self.subTest(vector=name):
                 call = NativeProgramCall(
@@ -195,6 +198,7 @@ class AiMarketVectorTests(EvmTransactionCase):
         )
         self.assertEqual(data[:4].hex(), "54bd2b48")
         self.assertEqual(data, _encode_programs_call(call, FEE_LIMIT))
+        self.assertEqual(_decode_programs_call(data), (call, FEE_LIMIT))
 
 
 class SignatureTests(EvmTransactionCase):
