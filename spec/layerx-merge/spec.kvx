@@ -183002,7 +183002,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.161]
 title = "Bring the human API schema check to green: golden scalar formats, golden set ownership and a re-blessed baseline"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
