@@ -182656,7 +182656,7 @@ do_17 = "Attempt 16 (continue, gotcha 3588, decisions 2771, 2871, 2885 and 2891)
 
 [task.22.39.93]
 title = "Move the seven remaining key fixtures of the agent SDK and the ramps reference crate into test fixture directories"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.39.68"]
