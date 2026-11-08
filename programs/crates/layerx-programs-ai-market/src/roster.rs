@@ -1,5 +1,6 @@
 //! F08 deterministic roster rollover, inactivity selection and evaluator health.
 //! Selection never consults quality history (F07); it uses activity epochs and IDs only.
+use crate::types::GuestIndex as _;
 use crate::{
     admission::{
         AdmissionMeta, AdmissionTable, Participant, Role, FLAG_DRAINING, MAX_MEMBERS, POLICY_V1,
@@ -391,17 +392,23 @@ pub(crate) fn rollover_roster_with<'c>(
         return Err(F08_STALE_STATE);
     }
     let sections = state.feature_sections;
-    let market = PolicySection::decode(sections[Section::PolicyLifecycle.index()])?.header;
+    let market =
+        PolicySection::decode(*sections.guest_index(Section::PolicyLifecycle.index()))?.header;
     let epoch = opening_epoch(&market, height)?;
-    let mut admission = AdmissionTable::decode(sections[Section::ReputationAdmission.index()])?;
+    let mut admission =
+        AdmissionTable::decode(*sections.guest_index(Section::ReputationAdmission.index()))?;
     let previous = admission.current_epoch();
     let skipped = match previous {
         Some(p) if epoch <= p => return Err(WRONG_EPOCH),
         Some(p) => epoch - p - 1,
         None => epoch,
     };
-    let rewards = reward_state(sections[Section::SettlementClaims.index()], &market)?;
-    let (worker_bytes, region) = split_identity_section(sections[Section::IdentityRoster.index()])?;
+    let rewards = reward_state(
+        *sections.guest_index(Section::SettlementClaims.index()),
+        &market,
+    )?;
+    let (worker_bytes, region) =
+        split_identity_section(*sections.guest_index(Section::IdentityRoster.index()))?;
     let mut workers = WorkerTable::decode(worker_bytes)?;
     let replay = &state.control.replay;
     let before = admission;
@@ -455,15 +462,17 @@ pub(crate) fn rollover_roster_with<'c>(
         .ok_or(CAPACITY)?;
     let mut feature_sections = sections;
     let table_len = admission.encode(table_out)?;
-    feature_sections[Section::ReputationAdmission.index()] = &table_out[..table_len];
+    *feature_sections.guest_index_mut(Section::ReputationAdmission.index()) =
+        table_out.guest_index(..table_len);
     if workers_changed {
         let workers_len = workers.encode(identity_out)?;
         let identity_len = workers_len.checked_add(region.len()).ok_or(ARITHMETIC)?;
         identity_out
             .get_mut(workers_len..identity_len)
             .ok_or(CAPACITY)?
-            .copy_from_slice(region);
-        feature_sections[Section::IdentityRoster.index()] = &identity_out[..identity_len];
+            .guest_copy_from_slice(region);
+        *feature_sections.guest_index_mut(Section::IdentityRoster.index()) =
+            identity_out.guest_index(..identity_len);
     }
     let opened = SharedState {
         revision: state.revision,
@@ -484,7 +493,11 @@ pub(crate) fn rollover_roster_with<'c>(
         preserved_amount,
         state_len,
     };
-    Ok((roster, sections[Section::SettlementClaims.index()], rewards))
+    Ok((
+        roster,
+        *sections.guest_index(Section::SettlementClaims.index()),
+        rewards,
+    ))
 }
 
 /// Digest over the frozen roster sorted by role then stable participant ID.
@@ -498,11 +511,13 @@ pub fn roster_digest(table: &AdmissionTable, epoch: u64) -> CodecResult<Digest32
     w.u64(epoch)?;
     for m in table.iter().filter(|m| m.admitted_epoch.is_some()) {
         w.u8(m.participant.role() as u8)?;
-        w.put(&m.participant.bytes())?;
-        w.put(m.owner.as_bytes())?;
-        w.u64(m.membership_generation)?;
-        w.u64(m.delegate_generation)?;
+        crate::codec::write_fields!(w;
+            put: &m.participant.bytes();
+            id32: m.owner.as_bytes();
+            u64: m.membership_generation;
+            u64: m.delegate_generation;
+        )?;
     }
     let n = w.len();
-    codec::domain_hash("PAXAI/admission-roster/v1", &buf[..n])
+    codec::domain_hash("PAXAI/admission-roster/v1", buf.guest_index(..n))
 }
