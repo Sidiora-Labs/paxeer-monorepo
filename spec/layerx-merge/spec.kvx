@@ -182162,7 +182162,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.153]
 title = "Settle the shared-budget capacity test of the rooms binary against the per-model placement cap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
