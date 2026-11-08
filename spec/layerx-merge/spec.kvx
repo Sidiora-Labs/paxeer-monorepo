@@ -173573,7 +173573,7 @@ do_3 = "Attempt 2 (continue, gotcha 3536, decisions 2762, 2771 and 2820): the at
 
 [task.22.39.76]
 title = "Wire the core-test-all C suites into the main workflow and port the four drifted sources"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -182048,7 +182048,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.149]
 title = "Settle the ramp toolkit test binaries against the off-ramp payer grant contract and run them without fail-fast"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
