@@ -35241,3 +35241,11 @@ symbol = "test_copied_artifacts_in_sync.py"
 observed = "Attempt 3 at 733e82e76991: build exit 0; verification exit 1 twice: 16 of 17 selected tests passed, TestEvmEventsForCw1155 failed at the burn-on-behalf step with undefined/1 internal error; the trace option exposed nothing because the node response is built with debug=false."
 assumption = "The redaction sits in the node response, not in the base application; the keeper and the translator return the raw error when called directly."
 severity = "high"
+
+[finding.22.39.118.12]
+task = "22.39.118"
+file = "tools/platform/cli::rpc::tests::positional_requests_match_published_contract"
+symbol = "cli::rpc::tests::positional_requests_match_published_contract"
+observed = "Attempt 12 at 07484f057fd9: build exit 0; verification exit 1: 24 library tests and 56 command-boundary cases passed; make platform-test-tooling failed at wallet_bind_rpc of tests/repair_22_31_212.rs with node RPC URL must name the root endpoint."
+assumption = "The fixture path is older than the root-endpoint contract; the fixture follows it and the sibling tests accept the root path."
+severity = "high"
