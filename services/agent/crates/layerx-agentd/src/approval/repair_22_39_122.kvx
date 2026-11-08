@@ -1,0 +1,47 @@
+[repair.22.39.122]
+acceptance = "22998.1"
+implementation = "Approval tests distinguish active holds from retained terminal decisions and assert both; history tests supply native ascending pages, signed receipts and complete Comet result proofs; program submission uses a canonical signed receipt and the payment denomination; program views authenticate account status under the same snapshot root; TLS tests retain hostname and private-CA enforcement."
+qualification = "The private hf-build/hf-done ledger supplies the final candidate revision, command, exit and evidence location; a passing build alone does not qualify this repair."
+
+[continuation.22.39.122]
+implementation = "generated_answers emits the committed owner authentication calls at height 0x8 in order, including the unified-account ABI offset and empty trailing dynamic value; committed vector bytes and all other readers remain unchanged."
+build = "/out/run/gates.jsonl records hf-build candidate revision, declared command, exit and private log."
+verify = "/out/run/gates.jsonl records hf-done candidate revision, declared command, exit and private log."
+
+[finding.session_store_recreation_boundary]
+revision = "3615c117190ff4c628a0a243f48560d94f02dbc3"
+file = "services/agent/crates/layerx-agentd/src/tenant.rs:392; services/agent/crates/layerx-agentd/src/audit/log.rs:156"
+symbol = "TenantObservability::flush_to; Log::open"
+observed = "OperationPermit::resolve_at at session_control.rs:2588 and SessionControl::resolve_credential at :362 call tenant::resolve, whose TenantObservability::record at tenant.rs:500 and :537 flushes through Log::open; audit/log.rs:159 calls fs::create_dir_all on the audit directory and recreates the removed store root before admission attempts its durable write."
+assumption = "The re-open is outside session_control.rs, so the attempt-3 boundary ruling requires recording it here and stopping this repair without changing tenant authorization, audit persistence or the durable-write assertions."
+
+[finding.native_preparation]
+revision = "8dec97bad71ec6f4b4f52cd6ada35dff18c844bf"
+command = "cg spec done 22.39.122 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "The four retained-settlement cases remain blocked by Preparation from read_program_budget_sources and the resulting shared-fixture poison."
+assumption = "This is the already recorded gotcha 3494 production defect in budget/native_binding.rs, owned by 22.39.128 and outside this task's scope; assertions and the verifier remain intact."
+
+[finding.session_store_cleanup]
+revision = "8dec97bad71ec6f4b4f52cd6ada35dff18c844bf"
+command = "cg spec done 22.39.122 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "session_control::tests::admit_write_with_a_failed_durable_write_releases_its_hold and submit_rewrite_with_a_failed_durable_write_leaves_the_limiter_as_it_was fail their !root.exists() cleanup assertions at session_control.rs:3537 and :3637."
+assumption = "These untouched store-fixture cleanup failures are outside the task scope and are recorded without modifying or investigating their producer."
+
+[continuation.session_authorization_artifacts]
+tests = ["admit_write_with_a_failed_durable_write_releases_its_hold", "submit_rewrite_with_a_failed_durable_write_leaves_the_limiter_as_it_was"]
+producer = "TenantObservability::flush_to opens tenant-authorization at services/agent/crates/layerx-agentd/src/tenant.rs:395 and tenant-traces at :430 through Log::open at services/agent/crates/layerx-agentd/src/audit/log.rs:156; create_dir_all at :159 recreates each audit directory."
+correction = "Both tests use SessionControl::new's real store-root sinks, require exactly tenant-authorization and tenant-traces in sorted order, assert each sink's exact audit/tenant directory and audit file inventory, verify both chains, and retain Unavailable, hold, limiter, lifecycle and durable preparation assertions; no store file or durable preparation can exist in that exact inventory."
+integration = "The current base already carries active-hold versus terminal replay, linked Comet result proofs, current protocol receipt encoding, owner ABI answers and the committed account fixture; conflict resolution retains those contracts and folds in the seed's additional record, receipt, snapshot and per-read assertions."
+build = "/out/run/gates.jsonl records the final hf-build revision, command, exit and private evidence location."
+verify = "/out/run/gates.jsonl records the final hf-done revision, command, exit and private evidence location; acceptance 22998.1 requires exit zero on the same candidate as the build."
+
+[continuation.current_tenant_trace_inventory]
+authorization_producer = "services/agent/crates/layerx-agentd/src/tenant.rs:395: Log::open(root.join(\"tenant-authorization\"), &entry.tenant)"
+trace_producer = "services/agent/crates/layerx-agentd/src/tenant.rs:430: Log::open(root.join(\"tenant-traces\"), &trace.tenant)"
+correction = "Attempt 5 follows both producer lines in the shared inventory assertion used by the two durable-write refusal tests; tenant.rs and audit sources remain unchanged."
+build = "/out/run/gates.jsonl records the final hf-build revision, command, exit and private evidence location."
+verify = "/out/run/gates.jsonl records the final hf-done revision, command, exit and private evidence location at the same candidate."
