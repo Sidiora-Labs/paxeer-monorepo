@@ -34,21 +34,18 @@ See [Asset](Asset.md#withdraw). The LayerX debit lands in
 asset recorded at request time (`spec/layerx-beta/spec.kvx` requirement 10).
 A caller-supplied asset that disagrees is refused with no transfer.
 
-Finalize (`lxp_bridge_withdraw_finalize`) requires a finalised checkpoint,
-guarantor certificate, membership proof, and a closed challenge window.
-Open windows are `LXP_ERR_CHALLENGE_WINDOW_OPEN`. Cancelled payouts are
-`LXP_ERR_WITHDRAWAL_CANCELLED`. A consumed nullifier is
-`LXP_ERR_WITHDRAWAL_ALREADY_SETTLED`.
+The former bridge withdraw finalization path is retired.
 
 ---
 
 ## Emergency exit
 
-`lxp_exit_eligibility`, `lxp_exit_declare`, and `lxp_exit_claim_build`
-(`include/layerx/lxp_bridge.h`) allow an agent to exit against the last
-finalised checkpoint when the sequencer is unavailable or the liveness bound
-is exceeded. The claim is a balance proof plus the recorded guarantor
-signatures. It is not an ordinary activity ordinal.
+`lxp_exit_eligibility` and `lxp_exit_declare`
+(`include/layerx/lxp_bridge.h`) check eligibility and declare an emergency
+exit against the last finalised checkpoint when the liveness bound is
+exceeded. This is not an ordinary activity ordinal.
+
+The former exit-claim construction path using guarantor signatures is retired.
 
 ---
 
@@ -56,6 +53,5 @@ signatures. It is not an ordinary activity ordinal.
 
 - [Asset](Asset.md)
 - [Finality](Finality.md)
-- [Guarantor](Guarantor.md)
 - [Sequencing](Sequencing.md)
 - [Paxeer boundary](PaxeerBoundary.md)

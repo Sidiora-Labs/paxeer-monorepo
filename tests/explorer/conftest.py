@@ -12,5 +12,6 @@ def data_boundary() -> ModuleType:
     if spec is None or spec.loader is None:
         raise ImportError(f"Cannot load data-boundary script from {path}")
     module = importlib.util.module_from_spec(spec)
+    assert spec.origin == str(path)
     spec.loader.exec_module(module)
     return module

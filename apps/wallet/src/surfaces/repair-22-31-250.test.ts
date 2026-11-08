@@ -47,8 +47,7 @@ interface ProducerVector {
 function repositoryRoot(testUrl: string): string {
   let directory = dirname(fileURLToPath(testUrl));
   while (
-    !existsSync(resolve(directory, 'pnpm-workspace.yaml')) ||
-    !existsSync(resolve(directory, 'sdk/wallet/src/receipt.ts'))
+    !existsSync(resolve(directory, 'sdk/platform/conformance/fixtures/kernel-receipt-v1.json'))
   ) {
     const parent = dirname(directory);
     if (parent === directory) throw new Error('cannot locate repository workspace from test file');

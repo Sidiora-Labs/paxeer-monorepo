@@ -190,12 +190,13 @@ async function virtual_network_disconnect_switch_retains_identity_and_validates_
     // Transfers normalize recipients to checksum casing; raw transactions preserve the input.
     {
       tx: {
+        from: original.address,
         chainId: selected.chainId,
         to: ethers.getAddress(recipient),
         value: '1000000000000000',
       },
     },
-    { tx: { chainId: selected.chainId, to: recipient, value: '2' } },
+    { tx: { from: original.address, chainId: selected.chainId, to: recipient, value: '2' } },
   ]);
   await act(async () => context().refresh());
   expect(context().status).toBe('ready');
@@ -216,6 +217,17 @@ async function virtual_network_disconnect_switch_retains_identity_and_validates_
     await expect(context().send({ to: recipient, value: '0.001' })).resolves.toBe(
       fixtureBody('default', 'POST', '/v1/wallet/send').tx_hash
     );
+  });
+  expect(gateway.requests.filter((request) => request.path === '/v1/wallet/send')).toHaveLength(3);
+  expect(
+    gateway.requests.filter((request) => request.path === '/v1/wallet/send').at(-1)?.body
+  ).toEqual({
+    tx: {
+      from: original.address,
+      chainId: PAXEER_CONFIG.chainId,
+      to: ethers.getAddress(recipient),
+      value: '1000000000000000',
+    },
   });
 }
 

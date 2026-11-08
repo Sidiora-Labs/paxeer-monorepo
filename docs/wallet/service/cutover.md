@@ -21,15 +21,14 @@ Rules that hold for every step:
   read -rs CEREMONY_MASTER_KEY && export CEREMONY_MASTER_KEY
   ```
 
-- Evidence is appended to `spec/paxeer-x-wallet/qualification.kvx` as a
-  `[gate.5.<n>]` record: revision, command, exit code, log path and an
-  observed line with counts only, never a hostname, an address, a key or a
-  person's name.
+- Record the revision, command, exit code and log path in the operator's
+  change record, with an observed line containing counts only, never a
+  hostname, an address, a key or a person's name.
 - The old master key is retained sealed and is never destroyed.
 
 ## 1. Merged gate record
 
-- Action: on the merged feature tip run the gates once (task 5.1).
+- Action: on the merged feature tip run the gates once.
 
   ```sh
   mkdir -p .logs
@@ -55,8 +54,7 @@ Rules that hold for every step:
 
 - Readiness check: five `pass node` lines with `peers=4/4` and
   `pass quorum ready=5/5 need=3`. Signing through the deployed nodes needs a
-  signing principal they honour (observation 3.5.2); that blocker is closed
-  before step 3.
+  signing principal they honour; that blocker is closed before step 3.
 - Evidence: the check's gate record.
 - Rollback: none; a failing node is handled by `runbooks/node-replacement.md`
   or `runbooks/backup-restore.md` before the checklist continues.
@@ -64,18 +62,16 @@ Rules that hold for every step:
 ## 3. Gateway in shadow
 
 - Action: the gateway runs beside the current service under its platform
-  name, provisions a fresh test account, binds it on the chain and signs
-  (task 4.1).
+  name, provisions a fresh test account, binds it on the chain and signs.
 
   ```sh
   curl -sS https://<gateway-base>/readyz
   scripts/wallet/check-live.sh gateway
   ```
 
-  `scripts/wallet/check-live.sh gateway` is added by task 4.1.
 - Readiness check: `/readyz` answers 200 with every component `up`; the
   gateway mode of check-live passes.
-- Evidence: the gate record of task 4.1 with the binding transaction hash.
+- Evidence: the gateway check's gate record with the binding transaction hash.
 - Rollback: `runbooks/gateway-rollback.md`; the current service still serves
   every user.
 
@@ -83,7 +79,7 @@ Rules that hold for every step:
 
 - Action: rehearse the whole migration on an operator machine against a copy
   of the production wallet data, read through the read-only role of the
-  current service's database, with five locally started daemons (task 5.2).
+  current service's database, with five locally started daemons.
 
   ```sh
   (cd services/wallet/attestor && go build -o <attestor-binary-path> ./cmd/attestor)
@@ -119,12 +115,13 @@ Rules that hold for every step:
 ## 5. Live preconditions
 
 - Action: move the production wallet rows into the gateway's platform
-  database with the ceremony tool's `move` subcommand (task 5.4), then plan
-  against that database. `CEREMONY_DATABASE_URL` names the same database as
+  database with the ceremony tool's `move` subcommand, then plan against that
+  database. `CEREMONY_DATABASE_URL` names the same database as
   the gateway's `DATABASE_URL`, which must hold no gateway table before the
   move; the source is read through the read-only role named by the source
-  connection variable of task 5.2, in one read-only snapshot, and is never
-  written. The move applies the remaining gateway migrations after its check.
+  connection variable used in the rehearsal, in one read-only snapshot, and
+  is never written. The move applies the remaining gateway migrations after
+  its check.
 
   ```sh
   read -rs <source-connection-variable> && export <source-connection-variable>
@@ -140,8 +137,7 @@ Rules that hold for every step:
   `plan` exits 0 with `wallets=<w> eligible=<e> funded=<f> already_migrated=0`
   and the same `wallets`, `eligible` and funded counts as the rehearsal. The
   tool refuses a `wallets` table without the `migrated_at` column. The live
-  deliver has a credential for its test signature (observation 3.3.2 closed by
-  the owner's decision).
+  deliver has a credential for its test signature approved by the owner.
 - Evidence: the move's per-table counts and digests and the plan line.
 - Rollback: the source and the old service are untouched; empty the gateway's
   platform database and run the move again.
@@ -163,9 +159,8 @@ Rules that hold for every step:
 - Evidence: the archive line. The archive file and its passphrase are sealed
   separately under the owner's custody.
 - Rollback: delete the archive file and run the step again under a new
-  passphrase. The funded rows are not dropped by any repository command
-  (observation 4.5.5); the gateway refuses every request that names a funded
-  wallet.
+  passphrase. The funded rows are not dropped by any repository command;
+  the gateway refuses every request that names a funded wallet.
 
 ## 7. Ceremony window open
 
@@ -184,9 +179,9 @@ Rules that hold for every step:
 
 ## 8. Live ceremony and wallet flag flip
 
-- Action: deliver every standard and agent wallet to the deployed attestors
-  (task 5.4). For each wallet the tool decrypts the envelope with the old
-  master key in memory, checks the address, splits both keys, imports the
+- Action: deliver every standard and agent wallet to the deployed attestors.
+  For each wallet the tool decrypts the envelope with the old master key in
+  memory, checks the address, splits both keys, imports the
   shares on the five nodes over mutual TLS, refreshes them, requests a test
   signature from three nodes, recovers the address, and only on a match sets
   `migrated_at` and `attestor_key_id` on the wallet row in one statement. That
@@ -322,8 +317,8 @@ Rules that hold for every step:
 ## 13. Old service shutdown
 
 - Action: after the proxied path has served for the configured soak period,
-  run the retire script of task 5.3 on the current host, which stops and
-  disables the old service units.
+  run `services/wallet/deploy/cutover/retire.sh` on the current host, which
+  stops and disables the old service units.
 - Readiness check: `scripts/wallet/check-live.sh cutover` passes after the
   retire; `curl -sS https://<gateway-base>/readyz` answers 200.
 - Evidence: the retire run's gate record.

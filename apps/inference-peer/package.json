@@ -18,7 +18,7 @@
     "./engine/*": "./engine/engine/*"
   },
   "scripts": {
-    "test": "node --test test/vendored_engine.test.mjs"
+    "test": "node --test test/*.test.mjs"
   },
   "engines": {
     "node": ">=22"

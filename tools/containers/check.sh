@@ -176,35 +176,6 @@ in_list() {
     return 1
 }
 
-reference_hits() {
-    python3 /dev/fd/3 "$1" 3<<'PYTHON'
-import sys
-
-accepted = {('tests/ci/ci-recipe-contract.py', '93'): "            require('tools/flyci/runner/Dockerfile' not in "
-                                                 "command and 'tools/flyci/controller/Dockerfile' not in "
-                                                 "command, 'obsolete Dockerfile in ' + name)",
- ('tests/ci/ci-recipe-contract.py', '137'): "            ('capability.109.1.2', 'dockerfile', "
-                                                  "'tools/flyci/controller/Dockerfile'),",
- ('tests/ci/ci-recipe-contract.py', '138'): "            ('capability.109.1.1', 'build_command', "
-                                                  "'docker build tools/flyci/runner'),",
- ('tests/ci/ci-recipe-contract.py', '156'): '        for path, value in '
-                                                  "(('docker/flyci-runner/Dockerfile', 'COPY "
-                                                  "tools/flyci/absent-contract-input /runner\\n'), "
-                                                  "('docker/flyci-controller/Dockerfile', 'COPY ../go.mod "
-                                                  "/src\\n'), ('tools/flyci/controller/fly.toml', "
-                                                  '\'dockerfile = "tools/flyci/controller/Dockerfile"\')):'}
-for hit in sys.stdin:
-    parts = hit.rstrip("\n").split(":", 2)
-    if len(parts) == 3:
-        text = parts[2]
-        if sys.argv[1] == "build" and text.startswith(" "):
-            text = text[1:]
-        if accepted.get((parts[0], parts[1])) == text:
-            continue
-    sys.stdout.write(hit)
-PYTHON
-}
-
 known_services=()
 while IFS='|' read -r service _; do
     in_list "$service" "${known_services[@]+"${known_services[@]}"}" || known_services+=("$service")
@@ -274,7 +245,6 @@ if [ "${#stale[@]}" -gt 0 ]; then
     done
     if [ "${#grep_args[@]}" -gt 0 ]; then
         hits=$(git grep -n -F "${grep_args[@]}" -- . "${REFERENCE_EXEMPT[@]}" || true)
-        hits=$(printf '%s\n' "$hits" | reference_hits grep)
         if [ -n "$hits" ]; then
             printf '%s\n' "$hits" >&2
             fail "tracked files still name a moved Dockerfile by its old path"
@@ -301,7 +271,6 @@ if picked layerx; then
                 }
             }' "$file"
     done || true)
-    hits=$(printf '%s\n' "$hits" | reference_hits build)
     if [ -n "$hits" ]; then
         printf '%s\n' "$hits" >&2
         fail "docker build invocations without --file rely on a Dockerfile at the context root"

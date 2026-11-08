@@ -812,11 +812,7 @@ fn balance_fixture_uses_production_material_through_persistence_reopen_and_http(
         (None, "unverified", "submission-record"),
         (Some(Rung::Submitted), "unverified", "submission-record"),
         (Some(Rung::Receipted), "receipt-verified", "layerx-receipt"),
-        (
-            Some(Rung::Committed),
-            "checkpoint-finalised",
-            "checkpoint-proof",
-        ),
+        (Some(Rung::Committed), "committed", "checkpoint-proof"),
     ] {
         let balance = AccountBalance::from_agent(VerifiedBalance {
             account: [1; 32],
@@ -977,7 +973,7 @@ fn projection_uses_versioned_typed_rungs_through_peer_codec_and_reopen() {
     for (rung, label) in [
         (Rung::Submitted, "unverified"),
         (Rung::Receipted, "receipt-verified"),
-        (Rung::Committed, "checkpoint-finalised"),
+        (Rung::Committed, "committed"),
     ] {
         let producer = peer_agent(rung);
         let bytes = producer

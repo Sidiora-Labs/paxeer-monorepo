@@ -1,14 +1,11 @@
-pub use layerx_agentd::{human, identity, managed_agent, session, store};
-
-#[path = "../src/managed_agent_rotation.rs"]
-mod managed_agent_rotation;
+use layerx_agentd::{identity, managed_agent, session, store};
 
 use identity::CoreIdentity;
+use layerx_agentd::test_support::{prepare, OwnerRotation, Projection};
 use layerx_proof::receipt::AuthorizedBatch;
 use layerx_types::payload::{ActivityType, ModuleId, ModuleRegistration, ModuleRegistry};
 use layerx_types::verify::VerificationLevel;
 use managed_agent::FinalizationEvidence;
-use managed_agent_rotation::{prepare, OwnerRotation, Projection};
 use session::{SessionId, SessionRegistry};
 use std::fmt::Debug;
 use store::{ObjectKind, Store, TenantId, TenantKey};

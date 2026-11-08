@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Rehearses plan v6.12.0 on a local network of four validators built from the real chain state.
+# Rehearses the release upgrade plan on a local network of four validators built from the real chain state.
 #
 # The previous binary exports a copy of a stopped full node's data at height E (paxd export
 # --height E), rehearsal/rewrite_genesis.py gives the four bonded validators local consensus keys
@@ -29,7 +29,6 @@ set -euo pipefail
 
 root=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
 release=$root/tools/release
-plan=v6.12.0
 release_id=rehearsal
 nodes=4
 launchpad=0x0000000000000000000000000000000000001017
@@ -52,6 +51,8 @@ operator_keys=""
 keyring_backend=test
 keyring_dir=""
 receipt=""
+plan_info=""
+active_plan_info=""
 stop_after=""
 wait_seconds=1800
 check=0
@@ -79,7 +80,7 @@ flags (each overrides the env file key in brackets):
   --source-data DIR          data directory copy of a STOPPED synced full node, never modified [SOURCE_DATA]
   --source-genesis FILE      genesis of that node [SOURCE_GENESIS]
   --old-bin PATH             running release binary [OLD_BIN]
-  --new-bin PATH             release candidate paxd-v6.12.0-linux-amd64 inside its release directory [NEW_BIN]
+  --new-bin PATH             release candidate paxd-VERSION-linux-amd64 from version.json [NEW_BIN]
   --work DIR                 empty or absent directory for the four local homes [WORK]
   --port-base P              node i listens at P+20i+0 rpc, +1 p2p, +2 evm, +3 evm ws, +4 grpc,
                              +5 grpc-web, +6 sidecar health (default 36000) [PORT_BASE]
@@ -94,6 +95,7 @@ flags (each overrides the env file key in brackets):
   --keyring-dir DIR          directory of that keyring [CREDENTIAL_DIR]
 options:
   --env-file FILE            untracked KEY=VALUE file supplying any bracketed key
+  --plan-info FILE           rehearsal leader and receipt keys; required for plan v7.0
   --receipt PATH             write the JSON receipt (default WORK/receipts/rehearsal.json) of contracts/release.md#post-rollout-verification
   --stop-after STEP          stop after the export or halt step and keep WORK for inspection
   --wait-seconds S           limit on each wait for the network (default 1800)
@@ -167,6 +169,7 @@ while [ "$#" -gt 0 ]; do
 		--operator-keys) need_value "$@"; operator_keys=$2; shift 2 ;;
 		--keyring-backend) need_value "$@"; keyring_backend=$2; shift 2 ;;
 		--keyring-dir) need_value "$@"; keyring_dir=$2; shift 2 ;;
+		--plan-info) need_value "$@"; plan_info=$2; shift 2 ;;
 		--receipt) need_value "$@"; receipt=$2; shift 2 ;;
 		--stop-after) need_value "$@"; stop_after=$2; shift 2 ;;
 		--wait-seconds) need_value "$@"; wait_seconds=$2; shift 2 ;;
@@ -177,6 +180,13 @@ while [ "$#" -gt 0 ]; do
 done
 
 bash -n "${BASH_SOURCE[0]}" || fail "syntax check of ${BASH_SOURCE[0]} failed"
+command -v jq >/dev/null 2>&1 || fail "jq is not available"
+release_version=$(jq -er '.version' "$release/version.json") || fail "invalid release version"
+plan=$(jq -er '.upgrade' "$release/version.json") || fail "invalid release upgrade"
+[[ "$release_version" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || fail "invalid release version $release_version"
+[[ "$plan" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || [ "$plan" = v7.0 ] || [ "$plan" = v7.0-anchor-store-delete ] \
+	|| fail "invalid release upgrade $plan"
+[ "$plan" != v7.0 ] || [ -n "$plan_info" ] || fail "--plan-info is required for plan v7.0"
 for key_value in "SOURCE_DATA=$source_data" "SOURCE_GENESIS=$source_genesis" "OLD_BIN=$old_bin" "NEW_BIN=$new_bin" "WORK=$work"; do
 	[ -n "${key_value#*=}" ] || fail "${key_value%%=*} is required (flag or env file key)"
 done
@@ -224,8 +234,52 @@ if [ "$check" -eq 1 ] || [ "$stop_after" != export ]; then
 	[ "$(id -u)" = 0 ] || fail "the rehearsal runs its nodes as runtime units in $unit_dir and needs root"
 fi
 
+validate_rehearsal_plan_info() {
+	local args=(plan-info --check "$plan_info")
+	[ -z "$halt_height" ] || args+=(--plan-height "$halt_height")
+	python3 "$release/upgrade_info.py" "${args[@]}" || fail "invalid --plan-info $plan_info"
+}
+
+prepare_plan_info_command() {
+	local leader entry source='if has("info") then .info | fromjson else . end'
+	active_plan_info=$work/merge-plan-info.json
+	plan_info_command=(python3 "$release/upgrade_info.py" plan-info --plan-height "$halt_height"
+		--activation-height "$(jq -r "$source | .activation_height // 0" "$plan_info")" --out "$active_plan_info")
+	while IFS= read -r leader; do
+		plan_info_command+=(--leader "$leader")
+	done < <(jq -r "$source | .leaders[]" "$plan_info")
+	while IFS= read -r entry; do
+		plan_info_command+=(--receipt-key "$entry")
+	done < <(jq -c "$source | .receipt_keys[]" "$plan_info")
+}
+
+prepare_node_upgrade_command() {
+	local home=$1
+	node_upgrade_command=(python3 "$release/upgrade_info.py" node --home "$home" --halt-height "$halt_height" --name "$plan")
+	[ -z "$active_plan_info" ] || node_upgrade_command+=(--plan-info "$active_plan_info")
+}
+
+preview_command() {
+	printf '%s' "$1"
+	shift
+	printf ' %q' "$@"
+	printf '\n'
+}
+
+active_plan_info=$plan_info
+[ -z "$plan_info" ] || validate_rehearsal_plan_info
 if [ "$check" -eq 1 ]; then
-	echo "rehearse-v6120: check passed (syntax, flags, keys, tools); no state touched" >&2
+	if [ -n "$halt_height" ]; then
+		if [ "$plan" = v7.0 ]; then
+			prepare_plan_info_command
+			preview_command plan-info-command "${plan_info_command[@]}"
+		fi
+		for ((i = 0; i < nodes; i++)); do
+			prepare_node_upgrade_command "$work/node$i"
+			preview_command node-upgrade-command "${node_upgrade_command[@]}"
+		done
+	fi
+	echo "rehearse-v6120: check passed (plan $plan, version $release_version, syntax, flags, keys, tools); no state touched" >&2
 	exit 0
 fi
 
@@ -236,16 +290,16 @@ new_bin=$(command -v "$new_bin")
 release_dir=$(cd "$(dirname "$new_bin")" && pwd)
 old_sha=$(sha256sum "$old_bin" | cut -d' ' -f1)
 new_sha=$(sha256sum "$new_bin" | cut -d' ' -f1)
-sidecar_bin=$release_dir/price-sidecar-$plan-linux-amd64
+sidecar_bin=$release_dir/price-sidecar-$release_version-linux-amd64
 if [ -z "$stop_after" ]; then
 	[ "$old_sha" != "$new_sha" ] || fail "OLD_BIN and NEW_BIN are the same binary"
-	[ "$(basename "$new_bin")" = "paxd-$plan-linux-amd64" ] || fail "NEW_BIN must be paxd-$plan-linux-amd64 of the release directory"
-	sums_sha=$(awk -v f="paxd-$plan-linux-amd64" '$2 == f || $2 == "*" f { print $1 }' "$release_dir/SHA256SUMS" 2>/dev/null || true)
+	[ "$(basename "$new_bin")" = "paxd-$release_version-linux-amd64" ] || fail "NEW_BIN must be paxd-$release_version-linux-amd64 of the release directory"
+	sums_sha=$(awk -v f="paxd-$release_version-linux-amd64" '$2 == f || $2 == "*" f { print $1 }' "$release_dir/SHA256SUMS" 2>/dev/null || true)
 	[ "$sums_sha" = "$new_sha" ] || fail "NEW_BIN sha256 $new_sha is not the paxd line of $release_dir/SHA256SUMS"
 	[ -r "$release_dir/upgrade-info.json" ] || fail "$release_dir/upgrade-info.json is missing"
 	[ -x "$sidecar_bin" ] || fail "$sidecar_bin is missing"
 	sidecar_sha=$(sha256sum "$sidecar_bin" | cut -d' ' -f1)
-	grep -q "^$sidecar_sha [ *]price-sidecar-$plan-linux-amd64$" "$release_dir/SHA256SUMS" \
+	grep -q "^$sidecar_sha [ *]price-sidecar-$release_version-linux-amd64$" "$release_dir/SHA256SUMS" \
 		|| fail "$sidecar_bin is not the price-sidecar line of SHA256SUMS"
 	for key_value in "CHAINFLOW_KEY_FILE=$chainflow_key_file" "PRICE_SIDECAR_CONFIG=$sidecar_config" \
 		"OPERATOR_KEY_NAMES=$operator_keys" "CREDENTIAL_DIR=$keyring_dir"; do
@@ -502,7 +556,7 @@ programme_args() {
 	for ((i = 0; i < 4; i++)); do
 		printf '%s\n' --evm "$(evm_url "$i")" --comet "$(rpc_url "$i")"
 	done
-	printf '%s\n' --halt-height "$halt_height"
+	printf '%s\n' --halt-height "$halt_height" --plan-name "$plan" --release-version "$release_version"
 	printf '%s\n' --trader-key "${programme_trader_key_file:-${PROGRAMME_TRADER_KEY_FILE:-}}"
 	printf '%s\n' --maker-key "${programme_maker_key_file:-${PROGRAMME_MAKER_KEY_FILE:-}}"
 	printf '%s\n' --feed-key "$credentials/${units[0]}/feed.key"
@@ -549,7 +603,7 @@ run_programme_checks() {
 	for check in check_launchpad_interface check_usdl_erc20_custody check_pool_parity check_fee_right_and_pool_token \
 		check_perps_order_types check_perps_margin check_perps_economics check_perps_markets check_perps_log_rebuild \
 		check_spot_interface check_spot_settlement check_spot_logs \
-		check_sidecar_submissions check_price_freshness check_price_submission_bounds check_plan_and_version \
+		check_sidecar_submissions check_price_freshness check_price_submission_bounds \
 		check_merged_transaction check_current_guest_deployment check_native_xweb check_tenant_isolation check_persisted_restart; do
 		"$check" || failed=1
 	done
@@ -595,6 +649,7 @@ fi
 [ -n "$halt_height" ] || halt_height=$((export_height + 20))
 [ "$halt_height" -gt "$initial_height" ] || fail "REHEARSAL_HALT_HEIGHT $halt_height must be above the first height $initial_height"
 h1=$((halt_height + 1))
+[ -z "$plan_info" ] || validate_rehearsal_plan_info
 log "exported state at height $export_height; rehearsal halts at $halt_height"
 [ "$stop_after" != export ] || { log "stopped after the export step; work kept in $work"; exit 0; }
 
@@ -742,7 +797,7 @@ for ((i = 0; i < nodes; i++)); do
 done
 {
 	printf 'RELEASE_ID=%s\n' "$release_id"
-	printf 'RELEASE_TAG=%s\n' "paxeer-network/$plan"
+	printf 'RELEASE_TAG=%s\n' "paxeer-network/$release_version"
 	printf 'RELEASE_SHA256=%s\n' "$new_sha"
 	printf 'SIDECAR_SHA256=%s\n' "$sidecar_sha"
 	printf 'HALT_HEIGHT=%s\n' "$halt_height"
@@ -780,9 +835,14 @@ done
 log "application hash at $halt_height: $hash_at_halt"
 
 # --- 4. upgrade files, the release candidate and the applied plan ------------------------------
+if [ "$plan" = v7.0 ]; then
+	prepare_plan_info_command
+	"${plan_info_command[@]}" >>"$logs/upgrade-info.log" 2>&1 \
+		|| fail "upgrade_info.py plan-info failed; see $logs/upgrade-info.log"
+fi
 for ((i = 0; i < nodes; i++)); do
-	python3 "$release/upgrade_info.py" node --home "${homes[$i]}" --halt-height "$halt_height" \
-		--release-doc "$release_dir/upgrade-info.json" --sha256 "$new_sha" >>"$logs/upgrade-info.log" 2>&1 \
+	prepare_node_upgrade_command "${homes[$i]}"
+	"${node_upgrade_command[@]}" --release-doc "$release_dir/upgrade-info.json" --sha256 "$new_sha" >>"$logs/upgrade-info.log" 2>&1 \
 		|| fail "upgrade_info.py node failed for ${homes[$i]}; see $logs/upgrade-info.log"
 	jq -e --arg name "$plan" --argjson h "$h1" '.name == $name and .height == $h' "${homes[$i]}/data/upgrade-info.json" >/dev/null \
 		|| fail "${homes[$i]}/data/upgrade-info.json does not name $plan at $h1"
@@ -809,11 +869,12 @@ for ((i = 0; i < nodes; i++)); do
 	record "node$i/upgrade-applied.json" <<<"$applied"
 	[ "$(jq -r '.header.height' <<<"$applied")" = "$h1" ] || fail "node $i applied $plan at $(jq -r '.header.height' <<<"$applied"), expected $h1"
 	version=$(jget "$(rpc_url "$i")/abci_info" '.response.version')
-	[ "$version" = "$plan" ] || fail "node $i reports ABCI version '$version', expected $plan"
+	[ "$version" = "$release_version" ] || fail "node $i reports ABCI version '$version', expected $release_version"
 done
 [ "$(jget "$(rpc_url 0)/block?height=$h1" '.block.header.app_hash')" = "$hash_at_halt" ] \
 	|| fail "block $h1 does not carry the application hash recorded at $halt_height"
 log "plan $plan applied at $h1 on the four nodes"
+check_plan_and_version || fail "plan or merge activation check failed; see $logs/programme-check_plan_and_version.log"
 
 # --- 5. presence switch, pool parity and the feed keys -----------------------------------------
 precompiles_served=0
@@ -982,8 +1043,8 @@ final_height=$(wait_height_above 0 "$((halt_height + 10))")
 for ((i = 0; i < nodes; i++)); do
 	wait_height_above "$i" "$((halt_height + 10))" >/dev/null
 	rpc_post "$i" abci_info '{}' | record "node$i/abci-info.json" || fail "node $i did not answer abci_info"
-	[ "$(jq -r '.result.response.version' "$evidence/node$i/abci-info.json")" = "$plan" ] \
-		|| fail "node $i reports ABCI version $(jq -r '.result.response.version' "$evidence/node$i/abci-info.json"), expected $plan"
+	[ "$(jq -r '.result.response.version' "$evidence/node$i/abci-info.json")" = "$release_version" ] \
+		|| fail "node $i reports ABCI version $(jq -r '.result.response.version' "$evidence/node$i/abci-info.json"), expected $release_version"
 done
 for ((h = h1; h <= halt_height + 10; h++)); do
 	first=""
@@ -1025,7 +1086,7 @@ bash "$release/rollback.sh" --env-file "$rehearsal_env" --local --execute --phas
 	|| fail "rollback.sh --execute --phase start failed; see $logs/rollback.log"
 for ((i = 0; i < nodes; i++)); do
 	[ ! -e "${homes[$i]}/data/upgrade-info.json" ] || fail "rollback left ${homes[$i]}/data/upgrade-info.json"
-	[ -d "${homes[$i]}/data.$plan-$release_id" ] || fail "rollback did not set aside the data of ${homes[$i]}"
+	[ -d "${homes[$i]}/data.$release_version-$release_id" ] || fail "rollback did not set aside the data of ${homes[$i]}"
 	wait_height_above "$i" "$((halt_height + 5))" >/dev/null
 	rpc_post "$i" status '{}' | record "node$i/rollback-status.json" || fail "node $i did not answer status after the rollback"
 	[ "$(jq -r '.result.response.last_block_app_hash' "$evidence/node$i/rollback-abci-info.json")" = "$hash_at_halt" ] \

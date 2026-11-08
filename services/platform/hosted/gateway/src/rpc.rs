@@ -2,6 +2,7 @@ use super::{
     json_response, media_type_is, response, Config, IncomingRequest, KernelBackend,
     OutgoingResponse,
 };
+use layerx_platform_gateway::evm;
 use serde_json::{json, Value};
 
 pub(super) fn error(id: &Value, code: i32, message: &str) -> Value {
@@ -31,7 +32,10 @@ pub(super) fn dispatch(config: &Config, request: &IncomingRequest, value: &Value
     }
     let id = value.get("id").cloned().unwrap_or(Value::Null);
     let method = value["method"].as_str()?;
-    if !method.starts_with("px_") && method != "pax_sequencerReceipt" {
+    if !method.starts_with("px_")
+        && !evm::is_evm_namespace(method)
+        && method != "pax_sequencerReceipt"
+    {
         return value
             .get("id")
             .map(|_| error(&id, -32601, "Method not found"));

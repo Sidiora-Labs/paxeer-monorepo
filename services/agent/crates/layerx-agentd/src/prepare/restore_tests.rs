@@ -1,15 +1,15 @@
-//! Shared integration fixtures emitted by the production EIP-1559 preparer.
+//! Library-owned integration fixtures emitted by the production EIP-1559 preparer.
 
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
 
-use layerx_agentd::budget::{BudgetLimiter, LimitConfig, LimitId, LimitScope};
-use layerx_agentd::prepare::{
+use crate::budget::{BudgetLimiter, LimitConfig, LimitId, LimitScope};
+use crate::prepare::{
     prepare_bound, AbiArgument, EvmPreparationDefaults, EvmPreparationState, EvmPrepareRequest,
     EvmPrepared, PrecompileCall, PrecompileTarget,
 };
-use layerx_agentd::session::{SessionId, SessionRef};
-use layerx_agentd::store::{Store, TenantId};
+use crate::session::{SessionId, SessionRef};
+use crate::store::{Store, TenantId};
 use layerx_crypto::disclosure::call::ledger_selector;
 
 static NEXT: AtomicU64 = AtomicU64::new(0);

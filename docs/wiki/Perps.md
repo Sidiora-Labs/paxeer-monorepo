@@ -6,10 +6,10 @@ insurance are module state. Losses and fees are transfer legs, not shadow
 balances.
 
 Oracle prices enter as signed `ORACLE_PUSH` activities. Execution does not
-dial out (`spec/layerx-protocol/spec.kvx` requirement 4 acceptance 5).
+dial out (`src/modules/perps/lx_oracle_intake.c`).
 
-Sources: `include/layerx/lx_perps.h`, `src/modules/perps/`,
-`spec/layerx-protocol/spec.kvx` requirement 19.
+Sources: `include/layerx/lx_perps.h`, `src/modules/perps/lx_perps_dispatch.c`,
+`src/modules/perps/lx_perps_command.c`, `src/modules/perps/lx_oracle_intake.c`.
 
 ---
 

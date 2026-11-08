@@ -10,7 +10,7 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.event_name == 'push' && github.sha || github.ref }}
   cancel-in-progress: true
 
 permissions:
@@ -18,8 +18,6 @@ permissions:
 
 env:
   CARGO_TERM_COLOR: always
-  LAYERX_TEN_LINE_REGISTRY_SNAPSHOT: ${{ vars.LAYERX_TEN_LINE_REGISTRY_SNAPSHOT }}
-  LAYERX_TEN_LINE_REGISTRY_URL: ${{ vars.LAYERX_TEN_LINE_REGISTRY_URL }}
 
 jobs:
   build-lint-test:
@@ -65,7 +63,9 @@ jobs:
       - name: Install platform sample and policy dependencies
         run: make platform-dependencies-install
       - name: Install private Secret Service dependencies for CLI tests
-        run: sudo apt-get update && sudo apt-get install --yes dbus gnome-keyring
+        run: sudo apt-get update && sudo apt-get install --yes dbus gnome-keyring python3-pytest python3-yaml
+      - name: Check workflow Make recipes and beta module paths
+        run: python3 -m pytest -q tests/ci/test_make_recipe_paths_exist.py
       - name: Enforce workspace, dependency, license and audit policies
         run: make platform-lint
       - name: Build the platform workspace and run its drift and release gates
@@ -74,6 +74,11 @@ jobs:
         run: make platform-test
       - name: Run Go and JVM conformance and compile Swift and C sharp SDKs
         run: make platform-verify-sdks
+      - name: Install Maven for the Android sample
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes maven
+          mvn -v
       - name: Compile the Android sample against the installed JVM SDK
         run: >-
           mvn -B -f sdk/platform/jvm/pom.xml -DskipTests install &&
@@ -81,6 +86,11 @@ jobs:
       - name: Exercise the developer CLI end to end against the emulator
         run: make platform-test-tooling
       - name: Build the source-bound published quickstart benchmark
+        if: >-
+          (vars.LAYERX_TEN_LINE_REGISTRY_SNAPSHOT != '' || vars.LAYERX_TEN_LINE_REGISTRY_URL != '')
+        env:
+          LAYERX_TEN_LINE_REGISTRY_SNAPSHOT: ${{ vars.LAYERX_TEN_LINE_REGISTRY_SNAPSHOT }}
+          LAYERX_TEN_LINE_REGISTRY_URL: ${{ vars.LAYERX_TEN_LINE_REGISTRY_URL }}
         run: |
           umask 077
           ten_line_directory=$(mktemp -d "$RUNNER_TEMP/layerx-ten-line.XXXXXXXX")
@@ -91,8 +101,9 @@ jobs:
       - name: Build the framework integrations and scan client bundles for secrets
         run: make platform-test-middleware
       - name: Retain the actual published-package integration line counts
-        if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: >-
+          always() && (vars.LAYERX_TEN_LINE_REGISTRY_SNAPSHOT != '' || vars.LAYERX_TEN_LINE_REGISTRY_URL != '')
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
         with:
           name: ten-line-counts-${{ github.job }}-${{ github.run_attempt }}
           path: ${{ env.PAXEER_X_EVIDENCE_DIR }}/**/published-measurement/ten-line-counts.json
@@ -169,7 +180,9 @@ jobs:
             sdk/integrations/ios/.derived/Build/Products/Release-iphonesimulator/LayerXWallet.app
 
   connected-middleware:
-    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    if: >-
+      vars.LAYERX_CONNECTED_MIDDLEWARE_FIXTURE != ''
+      && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
     runs-on: ${{ (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && 'ubuntu-24.04' || vars.CI_LINUX_RUNNER || 'ubuntu-24.04' }}
     timeout-minutes: 30
     steps:
@@ -185,7 +198,7 @@ jobs:
       - name: Install locked middleware and wallet dependencies
         run: |
           npm ci --ignore-scripts --no-audit --no-fund
-          npm exec --yes --package=pnpm@9.15.9 -- pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts --filter @paxeer/wallet
+          npm exec --yes --package=pnpm@10.34.9+sha512.f49b5a8ea0fdedb44bb3c0c1d6575092a53c2950d95b7ad15df11f17974877a2de3a01c07e934e9b28ce716e51c09a94962c7306d09be2e1e4b18a8c8762fd32 -- pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts --filter @paxeer/wallet
       - name: Build connected middleware and original-wallet consumer
         run: make platform-build-connected-middleware
       - name: Exercise original-wallet consent and receipt-backed merchant settlement
@@ -229,7 +242,9 @@ jobs:
         run: make platform-test-connected-middleware
 
   real-agent-framework-journeys:
-    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    if: >-
+      vars.LAYERX_SCHEDULED_AGENT_SERVICES_MODULE != ''
+      && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
     runs-on: ${{ (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && 'ubuntu-24.04' || vars.CI_LINUX_RUNNER || 'ubuntu-24.04' }}
     timeout-minutes: 20
     strategy:
@@ -305,7 +320,9 @@ jobs:
           LAYERX_WEBHOOK_EXPECT=duplicate node sdk/integrations/agents/examples/agent-runtime/webhook-conformance.mjs
 
   real-ios-journey:
-    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    if: >-
+      vars.LAYERX_SCHEDULED_HUMAN_SERVICE_URL != ''
+      && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
     runs-on: macos-15
     timeout-minutes: 20
     steps:
@@ -346,7 +363,9 @@ jobs:
           make platform-real-ios-integration
 
   real-android-journey:
-    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    if: >-
+      vars.LAYERX_SCHEDULED_HUMAN_SERVICE_URL != ''
+      && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
     runs-on: ${{ (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && 'ubuntu-24.04' || vars.CI_LINUX_RUNNER || 'ubuntu-24.04' }}
     timeout-minutes: 20
     steps:
@@ -414,14 +433,17 @@ jobs:
           node-version: 22
       - name: Install locked AssemblyScript dependencies
         run: make programs-js-install
-      - name: Run the aggregate Programs acceptance suite and record its gate
-        run: scripts/ci/release-gate.sh --job programs-acceptance --ordinal 1 -- make programs-test
-      - name: Retain the gate record and log
+      - name: Run the aggregate Programs acceptance suite
+        shell: bash
+        run: |
+          set -euo pipefail
+          make programs-test 2>&1 | tee "$RUNNER_TEMP/programs-acceptance.log"
+      - name: Retain the gate log
         if: ${{ always() }}
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
         with:
           name: release-gate-programs-acceptance
-          path: spec/layerx-beta/evidence
+          path: ${{ runner.temp }}/programs-acceptance.log
           if-no-files-found: error
 
   agent-sanitizers:
@@ -452,25 +474,27 @@ jobs:
           python3 -m venv .lane-venv
           .lane-venv/bin/python -m pip install -r tests/bridge/requirements.txt
           echo "$PWD/.lane-venv/bin" >> "$GITHUB_PATH"
-      - name: Run the sanitizer variants and record their gate
+      - name: Run the sanitizer variants
+        shell: bash
         run: |
+          set -euo pipefail
           sudo env "PATH=$PATH" "CARGO_HOME=$HOME/.cargo" "RUSTUP_HOME=$HOME/.rustup" \
             "CARGO_TARGET_DIR=$PWD/.lane-target" \
             "CARGO_PROFILE_DEV_DEBUG=$CARGO_PROFILE_DEV_DEBUG" \
             "CARGO_PROFILE_TEST_DEBUG=$CARGO_PROFILE_TEST_DEBUG" \
-            sh services/agent/tools/run-real-node-tests.sh prepare
+            sh services/agent/tools/run-real-node-tests.sh prepare 2>&1 | tee "$RUNNER_TEMP/agent-sanitizers.log"
           sudo env "PATH=$PATH" "CARGO_HOME=$HOME/.cargo" "RUSTUP_HOME=$HOME/.rustup" \
             "CARGO_TARGET_DIR=$PWD/.lane-target" \
             "CARGO_PROFILE_DEV_DEBUG=$CARGO_PROFILE_DEV_DEBUG" \
             "CARGO_PROFILE_TEST_DEBUG=$CARGO_PROFILE_TEST_DEBUG" \
             "LAYERX_TEST_NATIVE_BIN_DIR=$PWD/build/bin" \
-            scripts/ci/release-gate.sh --job agent-sanitizers --ordinal 2 -- make agent-test-sanitize
-      - name: Retain the gate record and log
+            make agent-test-sanitize 2>&1 | tee -a "$RUNNER_TEMP/agent-sanitizers.log"
+      - name: Retain the gate log
         if: ${{ always() }}
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
         with:
           name: release-gate-agent-sanitizers
-          path: spec/layerx-beta/evidence
+          path: ${{ runner.temp }}/agent-sanitizers.log
           if-no-files-found: error
 
   agent-fuzz-corpus:
@@ -488,14 +512,17 @@ jobs:
           rustup default 1.91.1 &&
           rustup toolchain install nightly-2025-11-10 --profile minimal &&
           cargo install cargo-fuzz --locked
-      - name: Run the committed long-fuzz corpus and record its gate
-        run: scripts/ci/release-gate.sh --job agent-fuzz-corpus --ordinal 3 -- make agent-fuzz-long
-      - name: Retain the gate record and log
+      - name: Run the committed long-fuzz corpus
+        shell: bash
+        run: |
+          set -euo pipefail
+          make agent-fuzz-long 2>&1 | tee "$RUNNER_TEMP/agent-fuzz-corpus.log"
+      - name: Retain the gate log
         if: ${{ always() }}
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
         with:
           name: release-gate-agent-fuzz-corpus
-          path: spec/layerx-beta/evidence
+          path: ${{ runner.temp }}/agent-fuzz-corpus.log
           if-no-files-found: error
 
   release-pipeline:
@@ -536,14 +563,16 @@ jobs:
           LAYERX_RELEASE_TAG: ${{ startsWith(github.ref, 'refs/tags/sdk-v') && github.ref_name || '' }}
         run: scripts/ci/release-version.py ${LAYERX_RELEASE_TAG:+--tag "$LAYERX_RELEASE_TAG"} | tee build/release/pipeline/version.txt
       - name: Retain the release plan, source digest and version
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
         with:
           name: release-pipeline
           path: build/release/pipeline
           if-no-files-found: error
 
   publish-crates-io:
-    if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/sdk-v')
+    if: >-
+      vars.LAYERX_RELEASE_CRATES_IO_INDEX != ''
+      && (github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/sdk-v'))
     needs: [release-pipeline]
     runs-on: ubuntu-24.04
     timeout-minutes: 90
@@ -695,7 +724,7 @@ jobs:
           cargo build --offline --manifest-path "$install/Cargo.toml"
           echo install_check=pass >> "$LAYERX_RELEASE_OUTPUT/publication.txt"
       - name: Retain the crates, digests, SBOMs, signatures, attestation, artifact records and publication record
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
         with:
           name: release-crates-io
           path: |
@@ -705,7 +734,9 @@ jobs:
           if-no-files-found: error
 
   publish-npm:
-    if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/sdk-v')
+    if: >-
+      vars.LAYERX_RELEASE_NPM_REGISTRY != ''
+      && (github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/sdk-v'))
     needs: [release-pipeline]
     runs-on: ubuntu-24.04
     timeout-minutes: 45
@@ -822,7 +853,7 @@ jobs:
           sha256sum --check ../../digests.txt
           echo install_check=pass >> ../../publication.txt
       - name: Retain the tarballs, digests, SBOMs, signatures, artifact records and publication record
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
         with:
           name: release-npm
           path: |
@@ -831,7 +862,9 @@ jobs:
           if-no-files-found: error
 
   publish-pypi:
-    if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/sdk-v')
+    if: >-
+      vars.LAYERX_RELEASE_PYPI_INDEX_URL != ''
+      && (github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/sdk-v'))
     needs: [release-pipeline]
     runs-on: ubuntu-24.04
     timeout-minutes: 45
@@ -936,7 +969,7 @@ jobs:
           python -c "import layerx_sdk, layerx_fastapi"
           echo install_check=pass >> "$LAYERX_RELEASE_OUTPUT/publication.txt"
       - name: Retain the wheels, digests, SBOMs, signatures, artifact records and publication record
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
         with:
           name: release-pypi
           path: |
@@ -945,7 +978,9 @@ jobs:
           if-no-files-found: error
 
   publish-go-modules:
-    if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/sdk-v')
+    if: >-
+      vars.LAYERX_RELEASE_GO_PROXY != ''
+      && (github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/sdk-v'))
     needs: [release-pipeline]
     runs-on: ubuntu-24.04
     timeout-minutes: 45
@@ -964,7 +999,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Install Go
-        uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: sdk/platform/go/go.mod
       - name: Install syft
@@ -1058,7 +1093,7 @@ jobs:
           $GITHUB_WORKSPACE/scripts/ci/release-artifact-record.sh "$module" "layerx-go-v$LAYERX_RELEASE_VERSION.zip" registry-bytes tag-signature.txt layerx-go.sbom.spdx.json "go-checksum-database:sum.golang.org $checksum" "${LAYERX_RELEASE_TARGET%/}/$escaped/@v/v$LAYERX_RELEASE_VERSION.zip"
           echo install_check=pass >> publication.txt
       - name: Retain the archives, digests, SBOM, tag signature, artifact record and publication record
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
         with:
           name: release-go-modules
           path: |
@@ -1067,7 +1102,9 @@ jobs:
           if-no-files-found: error
 
   publish-maven-central:
-    if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/sdk-v')
+    if: >-
+      vars.LAYERX_RELEASE_MAVEN_REPOSITORY_URL != ''
+      && (github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/sdk-v'))
     needs: [release-pipeline]
     runs-on: ubuntu-24.04
     timeout-minutes: 120
@@ -1205,7 +1242,7 @@ jobs:
           sha256sum --check ../install-digests.txt
           echo install_check=pass >> ../publication.txt
       - name: Retain the staging repository, digests, SBOMs, signatures, attestation, artifact records and publication record
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
         with:
           name: release-maven-central
           path: |
@@ -1214,7 +1251,9 @@ jobs:
           if-no-files-found: error
 
   publish-swiftpm:
-    if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/sdk-v')
+    if: >-
+      vars.LAYERX_RELEASE_SWIFTPM_URL != ''
+      && (github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/sdk-v'))
     needs: [release-pipeline]
     runs-on: ubuntu-24.04
     timeout-minutes: 45
@@ -1343,7 +1382,7 @@ jobs:
           swift build --package-path .
           echo install_check=pass >> ../publication.txt
       - name: Retain the archive, digest, SBOM, tag signature, attestation, artifact record and publication record
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
         with:
           name: release-swiftpm
           path: |
@@ -1352,7 +1391,9 @@ jobs:
           if-no-files-found: error
 
   publish-nuget:
-    if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/sdk-v')
+    if: >-
+      vars.LAYERX_RELEASE_NUGET_SOURCE != ''
+      && (github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/sdk-v'))
     needs: [release-pipeline]
     runs-on: ubuntu-24.04
     timeout-minutes: 60
@@ -1473,7 +1514,7 @@ jobs:
           $GITHUB_WORKSPACE/scripts/ci/release-artifact-record.sh LayerX.Sdk "LayerX.Sdk.$LAYERX_RELEASE_VERSION.registry.nupkg" registry-bytes repository-signature.txt LayerX.Sdk.sbom.spdx.json provenance.sigstore.json "${LAYERX_RELEASE_NUGET_BASE}layerx.sdk/$lower/layerx.sdk.$lower.nupkg"
           echo install_check=pass >> publication.txt
       - name: Retain the packages, digests, SBOM, signatures, attestation, artifact record and publication record
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
         with:
           name: release-nuget
           path: |
@@ -1482,13 +1523,17 @@ jobs:
           if-no-files-found: error
 
   release-verification:
-    if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/sdk-v')
+    if: >-
+      (vars.LAYERX_TEN_LINE_REGISTRY_SNAPSHOT != '' || vars.LAYERX_TEN_LINE_REGISTRY_URL != '')
+      && (github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/sdk-v'))
     needs: [release-pipeline, publish-crates-io, publish-npm, publish-pypi, publish-go-modules, publish-maven-central, publish-swiftpm, publish-nuget]
     runs-on: ${{ (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && 'ubuntu-24.04' || vars.CI_LINUX_RUNNER || 'ubuntu-24.04' }}
     timeout-minutes: 45
     permissions:
       contents: read
     env:
+      LAYERX_TEN_LINE_REGISTRY_SNAPSHOT: ${{ vars.LAYERX_TEN_LINE_REGISTRY_SNAPSHOT }}
+      LAYERX_TEN_LINE_REGISTRY_URL: ${{ vars.LAYERX_TEN_LINE_REGISTRY_URL }}
       LAYERX_RELEASE_VERSION: ${{ needs.release-pipeline.outputs.version }}
     steps:
       - name: Check out source with every release tag for the rollback identity
@@ -1515,7 +1560,7 @@ jobs:
       - name: Gate seller and buyer quickstarts against the actual public registry snapshot
         run: make platform-test-ten-line
       - name: Retain the actual published-package integration line counts
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
         with:
           name: ten-line-counts-${{ github.job }}-${{ github.run_attempt }}
           path: ${{ env.PAXEER_X_EVIDENCE_DIR }}/**/published-measurement/ten-line-counts.json
@@ -1546,7 +1591,7 @@ jobs:
             --fetch build/release/verification \
             --source-revision "$GITHUB_SHA"
       - name: Retain the artifact manifest
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
         with:
           name: release-artifact-manifest
           path: build/release/artifact-manifest.json
@@ -1588,14 +1633,16 @@ jobs:
           done
           cat build/release/release-*/publication.txt > build/release/promotion.txt
       - name: Retain the promoted release
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
         with:
           name: release-${{ env.LAYERX_RELEASE_VERSION }}
           path: build/release
           if-no-files-found: error
 
   hosted-testnet-journey:
-    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    if: >-
+      vars.LAYERX_SCHEDULED_TESTNET_URL != ''
+      && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
     runs-on: ${{ (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && 'ubuntu-24.04' || vars.CI_LINUX_RUNNER || 'ubuntu-24.04' }}
     timeout-minutes: 15
     steps:

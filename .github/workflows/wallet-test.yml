@@ -10,7 +10,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: wallet-test-${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.event_name == 'push' && github.sha || github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -28,9 +28,9 @@ jobs:
         with:
           persist-credentials: false
       - name: Set up Node
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v6
+        uses: "actions/setup-node@820762786026740c76f36085b0efc47a31fe5020" # v6
         with:
-          node-version: 22
+          node-version: 24.22.0
       - name: Install pnpm
         run: npm install --global pnpm@10.34.9
       - name: Install agent SDK dependencies
@@ -49,3 +49,118 @@ jobs:
       - name: Run Vitest suite
         working-directory: ${{ matrix.directory }}
         run: pnpm exec vitest run
+
+  gateway:
+    name: Gateway Vitest
+    runs-on: ${{ (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && 'ubuntu-24.04' || vars.CI_LINUX_RUNNER || 'ubuntu-24.04' }}
+    timeout-minutes: 30
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v6
+        with:
+          node-version: 24.22.0
+      - name: Install pnpm
+        run: npm install --global pnpm@10.34.9
+      - name: Set up Go for attestor fixtures
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: services/wallet/attestor/go.mod
+          cache-dependency-path: services/wallet/attestor/go.sum
+      - name: Install Anvil for gateway RPC proofs
+        uses: foundry-rs/foundry-toolchain@908c540300062bd5a7e473851cdb4282204cee09 # v1.9.1
+        with:
+          version: v1.8.1
+      - name: Install PostgreSQL fixture binaries
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y --no-install-recommends postgresql openssl
+          echo "PG_BIN_DIR=$(ls -d /usr/lib/postgresql/*/bin | sort -V | tail -1)" >> "$GITHUB_ENV"
+      - name: Install agent SDK dependencies
+        working-directory: services/agent/sdk/typescript
+        run: npm ci --workspaces=false --no-audit --no-fund
+      - name: Build agent SDK
+        working-directory: services/agent/sdk/typescript
+        run: npm run build --workspaces=false
+      - name: Install wallet SDK dependencies
+        working-directory: sdk/wallet
+        run: pnpm install --ignore-workspace --frozen-lockfile
+      - name: Install wallet workspace dependencies
+        working-directory: services/wallet
+        run: pnpm install --frozen-lockfile
+      - name: Test gateway
+        working-directory: services/wallet/gateway
+        run: pnpm test
+
+  ceremony-import:
+    name: Ceremony import Vitest and pytest
+    runs-on: ${{ (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && 'ubuntu-24.04' || vars.CI_LINUX_RUNNER || 'ubuntu-24.04' }}
+    timeout-minutes: 30
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v6
+        with:
+          node-version: 24.22.0
+      - name: Install pnpm
+        run: npm install --global pnpm@10.34.9
+      - name: Set up Python
+        uses: actions/setup-python@7f4fc3e22c37d6ff65e88745f38bd3157c663f7c # v4
+        with:
+          python-version: '3.12'
+      - name: Install pytest
+        run: python3 -m pip install pytest
+      - name: Install PostgreSQL fixture binaries
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y --no-install-recommends postgresql
+          echo "PG_BIN_DIR=$(ls -d /usr/lib/postgresql/*/bin | sort -V | tail -1)" >> "$GITHUB_ENV"
+      - name: Install wallet workspace dependencies
+        working-directory: services/wallet
+        run: pnpm install --frozen-lockfile
+      - name: Install ceremony import dependencies
+        working-directory: services/wallet/ceremony/legacy-import
+        run: pnpm install --ignore-workspace --frozen-lockfile
+      - name: Test ceremony import
+        working-directory: services/wallet/ceremony/legacy-import
+        run: pnpm test
+      - name: Test ceremony import lockfile
+        working-directory: services/wallet/ceremony/legacy-import
+        run: python3 -m pytest -q test
+
+  demo:
+    name: Demo Vitest
+    runs-on: ${{ (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && 'ubuntu-24.04' || vars.CI_LINUX_RUNNER || 'ubuntu-24.04' }}
+    timeout-minutes: 30
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v6
+        with:
+          node-version: 24.22.0
+      - name: Install pnpm
+        run: npm install --global pnpm@10.34.9
+      - name: Install agent SDK dependencies
+        working-directory: services/agent/sdk/typescript
+        run: npm ci --workspaces=false --no-audit --no-fund
+      - name: Build agent SDK
+        working-directory: services/agent/sdk/typescript
+        run: npm run build --workspaces=false
+      - name: Install wallet SDK dependencies
+        working-directory: sdk/wallet
+        run: pnpm install --ignore-workspace --frozen-lockfile
+      - name: Install wallet workspace dependencies
+        working-directory: services/wallet
+        run: pnpm install --frozen-lockfile
+      - name: Test demo
+        working-directory: services/wallet/demo
+        run: pnpm test

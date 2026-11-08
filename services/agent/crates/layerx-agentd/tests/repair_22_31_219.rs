@@ -7,7 +7,9 @@ use layerx_agentd::{
         HumanRefusal, HumanRequest, HumanWireResponse,
     },
     identity::{self, ProtocolAuthority},
-    managed_agent::{self, ManagedAgent, SessionObservationV1},
+    managed_agent::{self, ManagedAgent, ManagedAgentCheck, SessionObservationV1},
+    outbox::Outbox,
+    prepare::evm::{AbiArgument, PrecompileCall, PrecompileTarget},
     read::{
         self, BlockCommit, BlockId, CheckpointHeader, CheckpointRequest, CommitTimestamp,
         CommitValidator, CommitVote, NativeResultSource, ServedCheckpoint,
@@ -17,6 +19,9 @@ use layerx_agentd::{
     store::{Store, TenantId},
 };
 use layerx_client::sequencer::{ReceiptKeyEntry, SequencerEndpoint};
+use layerx_crypto::evm_transaction::{
+    decode_signed, recover_sender, transaction_hash, Eip1559Call,
+};
 use layerx_types::{ids::Did, rung::Rung, verify::VerificationLevel};
 use layerx_wire::{encode::Encoder, hash::receipt_digest};
 use serde_json::{json, Value};
@@ -25,7 +30,7 @@ use std::{
     collections::{BTreeMap, BTreeSet},
     io::{BufRead, BufReader, Read, Write},
     net::TcpListener,
-    os::unix::net::UnixStream,
+    os::unix::{fs::PermissionsExt, net::UnixStream},
     path::PathBuf,
     sync::{
         atomic::{AtomicBool, AtomicU64, Ordering},
@@ -59,12 +64,16 @@ fn decode_hex(v: &Value) -> Vec<u8> {
 struct Directory(PathBuf);
 impl Directory {
     fn new() -> Self {
-        let p = std::env::temp_dir().join(format!(
+        let p = must(std::fs::canonicalize(std::env::temp_dir())).join(format!(
             "repair219-{}-{}",
             std::process::id(),
             NEXT.fetch_add(1, Ordering::SeqCst)
         ));
         must(std::fs::create_dir(&p));
+        must(std::fs::set_permissions(
+            &p,
+            std::fs::Permissions::from_mode(0o700),
+        ));
         Self(p)
     }
 }
@@ -360,6 +369,9 @@ impl Fixture {
                 json!({"transactionHash":r["txHash"],"status":"0x1","blockNumber":quantity(HEIGHT),"blockHash":rpc_hex(&if self.attack==Attack::ForeignBlock {[0x55;32]}else{block.block_hash}),"transactionIndex":if self.attack==Attack::LandingIndex {json!("0x0")}else{r["index"].clone()},"gasUsed":r["gasUsed"],"logs":r["logs"]})
             }
             "px_getHistory" => {
+                let recorded: Value = must(serde_json::from_str(include_str!(
+                    "../../../../../apps/web/e2e/fixtures/px-get-unified-history.json"
+                )));
                 let mut rows=self.receipts.iter().enumerate().map(|(i,r)|json!({"blockHeight":HEIGHT,"txIndex":i+1,"logIndex":0,"tx_hash":r["txHash"]})).collect::<Vec<_>>();
                 match self.attack {
                     Attack::Omitted | Attack::PrematureEnd => {
@@ -398,7 +410,7 @@ impl Fixture {
                 } else {
                     None
                 };
-                json!({"items":rows,"next_cursor":next,"indexedHeight":if self.attack==Attack::StaleIndex {HEIGHT-1}else{HEIGHT}})
+                json!({"account":params[0],"items":rows,"next_cursor":next,"indexedHeight":if self.attack==Attack::StaleIndex {HEIGHT-1}else{HEIGHT},"chainHeight":HEIGHT,"freshness":recorded["result"]["freshness"]})
             }
             other => panic!("unexpected direct node method {other}: {params}"),
         }
@@ -668,7 +680,7 @@ impl identity::IdentityResolver for IdentityRecording {
             canonical_bytes: b"recorded-primary-key-identity-v1".to_vec(),
             head_sequence: HEIGHT,
             revocation_sequence: 1,
-            verification_level: VerificationLevel::CHECKPOINT_FINALISED,
+            verification_level: VerificationLevel::COMMITTED,
             frozen: false,
             authorities: vec![ProtocolAuthority::PrimaryKey([3; 32])],
         }))
@@ -703,6 +715,37 @@ fn open_session(store: &mut Store, sessions: &mut SessionRegistry, tenant: &Tena
     ));
     assert_eq!(token.credential().generation(), 1);
 }
+fn owner_word() -> [u8; 32] {
+    let call = Eip1559Call {
+        chain_id: 125,
+        nonce: 1,
+        max_priority_fee_per_gas: 1,
+        max_fee_per_gas: 2,
+        gas_limit: 100000,
+        to: [0; 20],
+        data: vec![],
+    };
+    let (call, sig) = must(decode_signed(&must(call.sign(&[1; 32]))));
+    let mut word = [0; 32];
+    word[12..].copy_from_slice(&must(recover_sender(&call, &sig)));
+    word
+}
+fn session_grant() -> layerx_crypto::session::IssuedSessionKey {
+    use layerx_crypto::session::{issue_session_key, SessionKeyRequest, SessionPurpose};
+    must(issue_session_key(&SessionKeyRequest {
+        grantor: [8; 32],
+        session_public_key: [12; 32],
+        not_before: HEIGHT,
+        expires_at: Some(HEIGHT + 10000),
+        permitted_activity_types: vec![must(layerx_types::payload::ActivityType::new(
+            layerx_types::payload::ModuleId::Governance,
+            6,
+        ))],
+        revocation_sequence: Some(1),
+        fee_budget: None,
+        purpose: SessionPurpose::Activity,
+    }))
+}
 fn seed() -> human::HumanAgentLifecycleSeed {
     human::HumanAgentLifecycleSeed {
         agent_id: format!("agt_{}", hex::encode([8; 32])),
@@ -716,11 +759,17 @@ fn seed() -> human::HumanAgentLifecycleSeed {
         updated_at: 1,
         verified_evidence: vec![[1; 32]],
         actor: String::from_utf8(actor().as_bytes().to_vec()).unwrap(),
-        primary_authority: hex::encode([3; 32]),
+        primary_authority: hex::encode(owner_word()),
         custody_key: "owner".into(),
-        custody_public_key: [3; 32],
-        owner_account: "owner".into(),
-        budget_account: "budget".into(),
+        custody_public_key: [9; 32],
+        owner_account: format!(
+            "agent:{}:main",
+            std::str::from_utf8(actor().as_bytes()).unwrap()
+        ),
+        budget_account: format!(
+            "agent:{}:budget:managed",
+            std::str::from_utf8(actor().as_bytes()).unwrap()
+        ),
         budget_asset: [4; 32],
         purpose_hash: [5; 32],
         recovery_root: [6; 32],
@@ -736,7 +785,7 @@ fn seed() -> human::HumanAgentLifecycleSeed {
         capability_expiry_sequence: HEIGHT + 10000,
         session_scopes: vec!["prepare".into()],
         session_expiry_unix_seconds: NOW / 1000 + 10000,
-        protocol_grant_id: [7; 32],
+        protocol_grant_id: session_grant().grant_id,
         budget_period_seconds: 100,
         budget_expiry_seconds: NOW / 1000 + 10000,
         initial_funding: 100,
@@ -761,39 +810,149 @@ fn owner() -> (Directory, TenantId, String) {
     must(managed_agent::publish_creation(&mut store, &tenant, &agent));
     (directory, tenant, seed.agent_id)
 }
-// The peer encodes a real signed protocol receipt; the production store must
-// verify its signature, native result inclusion and Comet quorum before promotion.
-fn protocol_receipt(tx: [u8; 32], module: u16, op: u8, signature: Option<[u8; 64]>) -> Vec<u8> {
-    let mut e = Encoder::new(4096);
+fn word(n: u128) -> [u8; 32] {
+    let mut w = [0; 32];
+    w[16..].copy_from_slice(&n.to_be_bytes());
+    w
+}
+fn replacement(current: [u8; 32], action: [u8; 32]) -> [u8; 32] {
+    Sha256::new()
+        .chain_update(b"layerx-human/agent-limit-budget/v1")
+        .chain_update(current)
+        .chain_update(action)
+        .finalize()
+        .into()
+}
+fn budget_call(agent: &ManagedAgent, id: [u8; 32], amount: u128, nonce: u64) -> Eip1559Call {
+    use layerx_agentd::prepare::evm::{AbiArgument, PrecompileCall, PrecompileTarget};
+    let account = must(layerx_types::account::AccountId::parse(
+        &agent.context.budget_account,
+    ));
+    let budget_account = must(layerx_wire::hash::account_id_for_protocol(&account, 3));
+    let args = vec![
+        id,
+        budget_account,
+        agent.context.budget_asset,
+        agent.context.purpose_hash,
+        word(amount),
+        word(0),
+        word(0),
+        word(u128::from(agent.context.budget_period_seconds) * 1000),
+        word(NOW as u128),
+        word((NOW + 100_000_000) as u128),
+        word(1),
+        word(1),
+    ];
+    let create=PrecompileCall { target:PrecompileTarget::Pay,
+        selector:layerx_crypto::disclosure::call::ledger_selector("budgetCreate(bytes32,bytes32,bytes32,bytes32,uint128,uint128,uint128,uint64,uint64,uint64,uint64,uint8)"),
+        arguments:args.into_iter().map(AbiArgument::Word).collect() };
+    Eip1559Call {
+        chain_id: 125,
+        nonce,
+        max_priority_fee_per_gas: 1,
+        max_fee_per_gas: 2,
+        gas_limit: 100_000,
+        to: create.target.address(),
+        data: must(create.encode()),
+    }
+}
+fn event(
+    address: [u8; 20],
+    name: &str,
+    id: [u8; 32],
+    data: Vec<u8>,
+) -> layerx_proof::sequencer_logs::SequencerLog {
+    layerx_proof::sequencer_logs::SequencerLog::new(
+        address,
+        vec![transaction_hash(name.as_bytes()), id],
+        data,
+        0,
+    )
+}
+fn protocol_receipt(
+    raw: &[u8],
+    logs: &[layerx_proof::sequencer_logs::SequencerLog],
+    signature: Option<[u8; 64]>,
+) -> Vec<u8> {
+    let tx = transaction_hash(raw);
+    let height = HEIGHT;
+    let (call, sig) = must(decode_signed(raw));
+    let sender = must(recover_sender(&call, &sig));
+    let mut from = [0; 32];
+    from[12..].copy_from_slice(&sender);
+    let mut to = [0; 32];
+    to[12..].copy_from_slice(&call.to);
+    let mut summary = Encoder::new(256);
+    must(summary.u64(1));
+    must(summary.u64(1));
+    must(summary.u64(1));
+    must(summary.u32(0));
+    must(summary.fixed(&[0; 20]));
+    must(summary.fixed(&[0; 20]));
+    must(summary.fixed(&hash(b"")));
+    must(summary.u32(0));
+    must(summary.u32(logs.len() as u32));
+    must(summary.u8(4));
+    must(summary.fixed(b"upax"));
+    let mut e = Encoder::new(16384);
     must(e.structure_header_version(0x5201, 2));
     must(e.u16(2));
     must(e.bytes(&tx, 32));
-    must(e.u64(HEIGHT));
-    for root in [[2; 32], [3; 32], [4; 32]] {
-        must(e.bytes(&root, 32));
-    }
+    must(e.u64(height));
+    must(e.bytes(&[2; 32], 32));
+    let seq = hash(
+        &[
+            b"PAXEER/v1/sequence\0".as_slice(),
+            &[2; 32],
+            &height.to_be_bytes(),
+            &tx,
+        ]
+        .concat(),
+    );
+    must(e.bytes(&seq, 32));
+    must(e.bytes(&hash(b""), 32));
     must(e.i32(0));
-    must(e.sequence_length(0, 512));
-    must(e.u128(1));
-    let mut height = [0; 32];
-    height[24..].copy_from_slice(&HEIGHT.to_be_bytes());
-    must(e.bytes(&height, 32));
-    must(e.u16(module));
-    must(e.u32(1));
-    must(e.u32(1));
-    must(e.u8(op));
-    must(e.bytes(&[6; 32], 32));
-    must(e.u128(1));
-    must(e.bytes(&[7; 32], 32));
-    must(e.u128(100));
-    must(e.u128(99));
-    must(e.u64(7));
-    must(e.bytes(&[8; 32], 32));
-    must(e.u128(0));
-    must(e.u128(1));
-    for root in [[9; 32], [10; 32], [11; 32]] {
-        must(e.bytes(&root, 32));
+    must(e.sequence_length(1 + logs.len(), 512));
+    for (index, body) in std::iter::once(summary.finish())
+        .chain(logs.iter().map(|log| {
+            let mut body = log.address().to_vec();
+            body.push(log.topics().len() as u8);
+            for topic in log.topics() {
+                body.extend_from_slice(topic);
+            }
+            body.extend_from_slice(&hash(log.data()));
+            body
+        }))
+        .enumerate()
+    {
+        must(e.u16(12));
+        must(e.u16(index as u16));
+        must(e.u16(0));
+        must(e.tag(if index == 0 { 1 } else { 3 }, 3));
+        must(e.u8(0));
+        must(e.bytes(&[0; 32], 32));
+        must(e.bytes(&body, 256));
     }
+    must(e.u128(1));
+    let mut block = [0; 32];
+    block[24..].copy_from_slice(&height.to_be_bytes());
+    must(e.bytes(&block, 32));
+    must(e.u16(12));
+    must(e.u32(1));
+    must(e.u32(0));
+    must(e.u8(2));
+    must(e.bytes(&[0; 32], 32));
+    must(e.u128(0));
+    must(e.bytes(&from, 32));
+    must(e.u128(1000));
+    must(e.u128(999));
+    must(e.u64(call.nonce));
+    must(e.bytes(&to, 32));
+    must(e.u128(0));
+    must(e.u128(0));
+    must(e.bytes(&[0; 32], 32));
+    must(e.bytes(&[0; 32], 32));
+    must(e.bytes(&[11; 32], 32));
     must(e.u64(NOW));
     must(e.u8(u8::from(signature.is_some())));
     if let Some(signature) = signature {
@@ -801,52 +960,238 @@ fn protocol_receipt(tx: [u8; 32], module: u16, op: u8, signature: Option<[u8; 64
     }
     e.finish()
 }
-fn evidence(
+fn retain_receipt(
     store: &mut Store,
     tenant: &TenantId,
-    action: u8,
-    module: u16,
-    op: u8,
+    call: Eip1559Call,
+    action: [u8; 32],
+    logs: Vec<layerx_proof::sequencer_logs::SequencerLog>,
 ) -> HumanFinalizationEvidence {
-    let tx = hash(&[action, 42]);
+    let height = HEIGHT;
+    let raw = must(call.sign(&[1; 32]));
+    let tx = must(Outbox::default().enqueue(store, tenant.clone(), raw.clone()));
     let signer = SigningKey::from_bytes(&[31; 32]);
-    let digest = must(receipt_digest(&protocol_receipt(tx, module, op, None)));
-    let canonical = protocol_receipt(tx, module, op, Some(signer.sign(&digest).to_bytes()));
-    let peer =
-        json!({"gasUsed":"0x1","vmError":"","returnData":"0x","txHash":rpc_hex(&tx),"logs":[]});
+    let digest = must(receipt_digest(&protocol_receipt(&raw, &logs, None)));
+    let canonical = protocol_receipt(&raw, &logs, Some(signer.sign(&digest).to_bytes()));
+    // Both signed log effects and their committed ABCI result are emitted by the peer transcript.
+    let peer = json!({"gasUsed":"0x1","vmError":"","returnData":"0x","txHash":rpc_hex(&tx),"logs":logs.iter().map(|log|
+        json!({"address":rpc_hex(&log.address()),"topics":log.topics().iter().map(|t|rpc_hex(t)).collect::<Vec<_>>(),
+            "data":rpc_hex(log.data()),"logIndex":format!("{:#x}",log.log_index())})).collect::<Vec<_>>()});
     let results = json!([{"data":openssl::base64::encode_block(&abci_response(&peer)),"gas_wanted":"1","gas_used":"1"}]);
     let inclusion = must(NativeResultSource::from_results(&results, 0));
-    let root =
-        layerx_programs::chain_proof::merkle::hash_from_byte_slices(&[inclusion.result.as_slice()]);
-    let checkpoint = committed(HEIGHT + 1, NOW as i64 / 1000, [1; 32], root, 4);
+    let root = layerx_programs::chain_proof::merkle::hash_from_byte_slices(&[&inclusion.result]);
+    let checkpoint = committed(height + 1, NOW as i64 / 1000, [1; 32], root, 4);
     let key = ReceiptKeyEntry {
         key_id: [11; 32],
         public_key: signer.verifying_key().to_bytes(),
-        first_height: HEIGHT,
-        last_height: HEIGHT,
+        first_height: height,
+        last_height: height,
     };
-    let record = must(receipt::persist_committed_protocol_receipt(
+    must(receipt::persist_committed_protocol_receipt(
         store,
         tenant.clone(),
         &canonical,
         &[key],
-        HEIGHT,
+        height,
         0,
         &inclusion,
         &checkpoint,
         "125",
         &checkpoint.validators,
     ));
-    assert_eq!(record.metadata.rung, Rung::Committed);
-    assert_ne!([action; 32], tx);
     HumanFinalizationEvidence {
-        action_key: [action; 32],
+        action_key: action,
         tx_hash: tx,
         receipt_hash: hash(&canonical),
-        observed_height: HEIGHT,
+        observed_height: height,
         rung: Rung::Committed.wire_rank(),
-        finalized_at: NOW / 1000 + u64::from(action),
+        finalized_at: NOW / 1000 + call.nonce,
     }
+}
+enum LifecycleCall {
+    Suspend,
+    Resume,
+    Archive,
+    KeyChange {
+        ready_at: u64,
+    },
+    Limit {
+        budget: [u8; 32],
+        amount: u128,
+    },
+    Reclaim {
+        budget: [u8; 32],
+        amount: u128,
+        limit: u128,
+    },
+}
+
+// Produce the signed call and its exact sequencer log effects before retaining the
+// committed receipt. The lifecycle consumer restores and verifies all of them.
+fn evidence(
+    store: &mut Store,
+    tenant: &TenantId,
+    action: u8,
+    operation: LifecycleCall,
+) -> HumanFinalizationEvidence {
+    let agent = must(ManagedAgent::from_creation(
+        &seed(),
+        &seed().actor,
+        [10; 32],
+        [11; 32],
+        1,
+    ));
+    let mut logs = Vec::new();
+    let call = match operation {
+        LifecycleCall::Limit { budget, amount } => {
+            let call = budget_call(&agent, budget, amount, u64::from(action));
+            logs.push(event(
+                call.to,
+                "BudgetCreated(bytes32,bytes32,uint128)",
+                budget,
+                [agent.context.budget_asset.to_vec(), word(0).to_vec()].concat(),
+            ));
+            call
+        }
+        operation => {
+            let precompile = match operation {
+                LifecycleCall::Suspend | LifecycleCall::Archive => {
+                    let reason = if matches!(operation, LifecycleCall::Archive) {
+                        2
+                    } else {
+                        1
+                    };
+                    let revoked = [
+                        agent.protocol_grant_id.to_vec(),
+                        vec![reason],
+                        HEIGHT.to_be_bytes().to_vec(),
+                    ]
+                    .concat();
+                    let body = must(
+                        PrecompileCall {
+                            target: PrecompileTarget::Auth,
+                            selector: [0; 4],
+                            arguments: vec![AbiArgument::Bytes(revoked)],
+                        }
+                        .encode(),
+                    );
+                    logs.push(event(
+                        PrecompileTarget::Auth.address(),
+                        "GrantRevoked(bytes32,bytes)",
+                        agent.protocol_grant_id,
+                        body[4..].to_vec(),
+                    ));
+                    PrecompileCall {
+                        target: PrecompileTarget::Auth,
+                        selector: layerx_crypto::disclosure::call::ledger_selector(
+                            "revokeGrant(bytes32,uint8,uint64)",
+                        ),
+                        arguments: vec![
+                            AbiArgument::Word(agent.protocol_grant_id),
+                            AbiArgument::Word(word(reason.into())),
+                            AbiArgument::Word(word(HEIGHT.into())),
+                        ],
+                    }
+                }
+                LifecycleCall::Resume => {
+                    let grant = session_grant();
+                    let body = must(
+                        PrecompileCall {
+                            target: PrecompileTarget::Auth,
+                            selector: [0; 4],
+                            arguments: vec![AbiArgument::Bytes(grant.registration_payload.clone())],
+                        }
+                        .encode(),
+                    );
+                    logs.push(event(
+                        PrecompileTarget::Auth.address(),
+                        "SessionGranted(bytes32,bytes)",
+                        grant.grant_id,
+                        body[4..].to_vec(),
+                    ));
+                    PrecompileCall {
+                        target: PrecompileTarget::Auth,
+                        selector: layerx_crypto::disclosure::call::ledger_selector(
+                            "grantSession(bytes,uint64,bytes32)",
+                        ),
+                        arguments: vec![
+                            AbiArgument::Bytes(grant.registration_payload),
+                            AbiArgument::Word(word(1)),
+                            AbiArgument::Word([action; 32]),
+                        ],
+                    }
+                }
+                LifecycleCall::KeyChange { ready_at } => {
+                    let did = must(Did::new(agent.context.actor.as_bytes()));
+                    let intent =
+                        layerx_intents::Intent::v3(layerx_intents::IntentKind::KeyRotation(must(
+                            layerx_intents::KeyRotation::new(
+                                did,
+                                layerx_types::intent::PublicKey::new([53; 32]),
+                                must(layerx_types::activity::TimestampBound::new(
+                                    NOW / 1000 + u64::from(action),
+                                    ready_at,
+                                )),
+                                layerx_types::intent::Sequence::from_u64(HEIGHT),
+                            ),
+                        )));
+                    use layerx_types::payload::{
+                        ActivityType, ModuleId, ModuleRegistration, ModuleRegistry,
+                    };
+                    let activity = must(ActivityType::new(ModuleId::Governance, 2));
+                    let registration =
+                        must(ModuleRegistration::new(ModuleId::Governance, &[activity]));
+                    let registry = must(ModuleRegistry::new(&[registration]));
+                    let compiled = must(layerx_intents::compile(&intent, &registry));
+                    must(compiled.verify_disclosure(&intent));
+                    let payload = compiled.payload().as_bytes().to_vec();
+                    PrecompileCall {
+                        target: PrecompileTarget::Auth,
+                        selector: layerx_crypto::disclosure::call::ledger_selector(
+                            "recordLifecycle(bytes,bytes32)",
+                        ),
+                        arguments: vec![
+                            AbiArgument::Bytes(payload),
+                            AbiArgument::Word([action; 32]),
+                        ],
+                    }
+                }
+                LifecycleCall::Reclaim {
+                    budget,
+                    amount,
+                    limit,
+                } => {
+                    let data = [word(amount).to_vec(), word(limit - amount).to_vec()].concat();
+                    logs.push(event(
+                        PrecompileTarget::Pay.address(),
+                        "BudgetDefunded(bytes32,uint128,uint128)",
+                        budget,
+                        data,
+                    ));
+                    PrecompileCall {
+                        target: PrecompileTarget::Pay,
+                        selector: layerx_crypto::disclosure::call::ledger_selector(
+                            "budgetDefund(bytes32,uint128)",
+                        ),
+                        arguments: vec![AbiArgument::Word(budget), AbiArgument::Word(word(amount))],
+                    }
+                }
+                LifecycleCall::Limit { .. } => unreachable!(),
+            };
+            Eip1559Call {
+                chain_id: 125,
+                nonce: action.into(),
+                max_priority_fee_per_gas: 1,
+                max_fee_per_gas: 2,
+                gas_limit: 100000,
+                to: precompile.target.address(),
+                data: must(precompile.encode()),
+            }
+        }
+    };
+    let evidence = retain_receipt(store, tenant, call, [action; 32], logs);
+    assert_ne!(evidence.action_key, evidence.tx_hash);
+    evidence
 }
 fn socket_exchange(
     request: &HumanRequest,
@@ -923,7 +1268,7 @@ fn observe_budget(
     let state = layerx_agentd::human_runtime::CoreBudgetState {
         revocation_sequence: 1,
         observed_head_sequence: HEIGHT,
-        verification: 4,
+        verification: VerificationLevel::COMMITTED.wire_rank(),
         evidence_digest: [tag; 32],
         receipt_digest: [2; 32],
         checkpoint_digest: [3; 32],
@@ -964,7 +1309,7 @@ fn finalization_rungs_and_session_observation_shape_survive_suspend_resume_archi
         digest,
         bytes.bytes().to_vec(),
     ));
-    let evidence = evidence(&mut store, &tenant, action, 7, 6);
+    let evidence = evidence(&mut store, &tenant, action, LifecycleCall::Suspend);
     drop(store);
     let request = |obs, evidence| HumanRequest::AgentControl {
         agent_id: id.clone(),
@@ -1016,11 +1361,11 @@ fn finalization_rungs_and_session_observation_shape_survive_suspend_resume_archi
         &mut store,
         &tenant,
         &id,
-        ([12; 32], [13; 32], 1, [7; 32]),
+        ([12; 32], [13; 32], 1, session_grant().grant_id),
         [22; 32],
     ));
     let resume = must(SessionObservationV1::decode(resume.bytes()));
-    let resume_evidence = self::evidence(&mut store, &tenant, 22, 7, 6);
+    let resume_evidence = self::evidence(&mut store, &tenant, 22, LifecycleCall::Resume);
     drop(store);
     let resumed = success(lifecycle(
         &directory,
@@ -1052,7 +1397,7 @@ fn finalization_rungs_and_session_observation_shape_survive_suspend_resume_archi
     assert_eq!(prepared.bytes(), bytes);
     must(store.put_local(key, bytes));
     let closed = must(SessionObservationV1::decode(prepared.bytes()));
-    let archive_evidence = self::evidence(&mut store, &tenant, 24, 7, 6);
+    let archive_evidence = self::evidence(&mut store, &tenant, 24, LifecycleCall::Archive);
     drop(store);
     success(lifecycle(
         &directory,
@@ -1074,6 +1419,10 @@ fn finalization_rungs_and_session_observation_shape_survive_suspend_resume_archi
 }
 #[test]
 fn journey_wire_rotate_recover_bind_persisted_key_policy_over_socket() {
+    assert_persisted_key_policy_rank_over_socket(VerificationLevel::COMMITTED.wire_rank());
+}
+
+pub(crate) fn assert_persisted_key_policy_rank_over_socket(policy_rank: u8) {
     for (recovery, action) in [(false, 41), (true, 42)] {
         let (directory, tenant, id) = owner();
         let mut store = must(Store::open(&directory.0));
@@ -1084,7 +1433,7 @@ fn journey_wire_rotate_recover_bind_persisted_key_policy_over_socket() {
             maximum_delay_seconds: 20,
             effective_sequence: 1,
             observed_head_sequence: HEIGHT,
-            verification: 4,
+            verification: policy_rank,
             evidence_digest: [51; 32],
             checkpoint_digest: [52; 32],
             age_sequences: 0,
@@ -1093,8 +1442,17 @@ fn journey_wire_rotate_recover_bind_persisted_key_policy_over_socket() {
         must(managed_agent::record_key_policy_snapshot(
             &mut store, &tenant, &did, recovery, &policy,
         ));
-        let evidence = evidence(&mut store, &tenant, action, 7, 2);
-        must(managed_agent::validate_authority_revocation(
+        let evidence = evidence(
+            &mut store,
+            &tenant,
+            action,
+            LifecycleCall::KeyChange {
+                ready_at: NOW / 1000 + u64::from(action) + 10,
+            },
+        );
+        drop(store);
+        let store = must(Store::open(&directory.0));
+        let validation = managed_agent::validate_authority_revocation(
             &store,
             &tenant,
             &id,
@@ -1102,7 +1460,23 @@ fn journey_wire_rotate_recover_bind_persisted_key_policy_over_socket() {
             policy.evidence_digest,
             [0; 32],
             evidence.into(),
-        ));
+        );
+        if !matches!(policy_rank, 4 | 5 | 6) {
+            let check = if VerificationLevel::from_wire_rank(policy_rank).is_err() {
+                ManagedAgentCheck::KeyPolicyVerification
+            } else {
+                ManagedAgentCheck::KeyPolicyObservationBinding
+            };
+            assert_eq!(
+                validation.err(),
+                Some(HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+                    check
+                ))),
+                "rank {policy_rank}"
+            );
+            continue;
+        }
+        must(validation);
         drop(store);
         let kind = if recovery {
             HumanAgentJourneyKind::Recover {
@@ -1155,7 +1529,16 @@ fn journey_wire_rotate_recover_bind_persisted_key_policy_over_socket() {
 fn finalization_limit_and_reclaim_use_committed_receipts_and_independent_action_keys() {
     let (directory, tenant, id) = owner();
     let mut store = must(Store::open(&directory.0));
-    let limit = evidence(&mut store, &tenant, 61, 3, 1);
+    let budget = replacement([8; 32], [61; 32]);
+    let limit = evidence(
+        &mut store,
+        &tenant,
+        61,
+        LifecycleCall::Limit {
+            budget,
+            amount: 200,
+        },
+    );
     drop(store);
     success(lifecycle(
         &directory,
@@ -1164,14 +1547,23 @@ fn finalization_limit_and_reclaim_use_committed_receipts_and_independent_action_
             agent_id: id.clone(),
             monthly_limit: 200,
             currency: "PAX".into(),
-            replacement_budget_id: [62; 32],
+            replacement_budget_id: budget,
             evidence: limit,
         },
     ));
     let mut store = must(Store::open(&directory.0));
-    let pre = observe_budget(&mut store, &tenant, [62; 32], 63, 100);
-    let post = observe_budget(&mut store, &tenant, [62; 32], 64, 50);
-    let reclaim = evidence(&mut store, &tenant, 65, 3, 7);
+    let pre = observe_budget(&mut store, &tenant, budget, 63, 100);
+    let post = observe_budget(&mut store, &tenant, budget, 64, 50);
+    let reclaim = evidence(
+        &mut store,
+        &tenant,
+        65,
+        LifecycleCall::Reclaim {
+            budget,
+            amount: 50,
+            limit: 200,
+        },
+    );
     drop(store);
     success(lifecycle(
         &directory,
@@ -1245,4 +1637,54 @@ fn human_refusal_wire_preserves_budget_session_capability_export_policy_and_nonc
         panic!("{response:?}")
     };
     assert_eq!(refusal.reason, human::capability_refusal_reason(dimension));
+}
+
+/// Reuse the real receipt, budget snapshot, durable store and socket producers.
+pub(crate) fn archived_reclaim_over_socket() -> HumanWireResponse {
+    let directory = Directory::new();
+    let tenant = must(TenantId::new("repair219"));
+    let mut store = must(Store::open(&directory.0));
+    let seed = seed();
+    let mut agent = must(ManagedAgent::from_creation(
+        &seed,
+        &seed.actor,
+        [10; 32],
+        [11; 32],
+        1,
+    ));
+    agent.state = 4;
+    must(managed_agent::publish_creation(&mut store, &tenant, &agent));
+    let pre = observe_budget(&mut store, &tenant, agent.active_budget_id, 61, 100);
+    let post = observe_budget(&mut store, &tenant, agent.active_budget_id, 62, 90);
+    let evidence = evidence(
+        &mut store,
+        &tenant,
+        63,
+        LifecycleCall::Reclaim {
+            budget: agent.active_budget_id,
+            amount: 10,
+            limit: 100,
+        },
+    );
+    drop(store);
+    let store = must(Store::open(&directory.0));
+    assert_eq!(
+        agent_state(must(managed_agent::get(&store, &tenant, &seed.agent_id)).bytes()),
+        4
+    );
+    drop(store);
+    lifecycle(
+        &directory,
+        &tenant,
+        &HumanRequest::AgentJourney {
+            agent_id: seed.agent_id,
+            kind: HumanAgentJourneyKind::Reclaim {
+                amount: 10,
+                currency: seed.currency,
+            },
+            pre_observation: pre,
+            post_observation: post,
+            evidence,
+        },
+    )
 }

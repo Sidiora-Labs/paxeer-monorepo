@@ -47,7 +47,7 @@ class MakefileWaveFourTest(unittest.TestCase):
                 "-n",
                 "test",
                 "core-test-all",
-                "test-paxeer-bond",
+                "layerx-genesis-build",
                 "test-genesis-builder-cli",
             ],
             cwd=ROOT,
@@ -66,6 +66,8 @@ class MakefileWaveFourTest(unittest.TestCase):
             with self.subTest(retired=retired):
                 self.assertNotIn(retired, result.stdout)
 
+        self.assertIn("cmd/layerx-genesis/main.c", result.stdout)
+        self.assertIn("-o build/bin/layerx-genesis-build", result.stdout)
         commands = result.stdout.replace("\\\n", " ").splitlines()
         genesis_commands = [
             line for line in commands if "tests/test_genesis_builder_cli.c" in line

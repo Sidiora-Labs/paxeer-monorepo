@@ -574,6 +574,11 @@ fn committed_vector_commits_verify() {
             })
             .collect();
         let commit = commit(&case["commit"]);
+        assert_eq!(set.len(), 2);
+        assert_eq!(set[1].voting_power, 1);
+        assert_eq!(commit.signatures.len(), 2);
+        assert_eq!(commit.signatures[1].block_id_flag, BlockIdFlag::Absent);
+        let absent_power = set[1].voting_power as u64;
         assert_eq!(header.chain_id, string(provenance, "chainId"));
         assert_eq!(header.chain_id, execution.chain_id);
         assert_eq!(header.height, execution.height + 1);
@@ -603,7 +608,18 @@ fn committed_vector_commits_verify() {
         let expected = &case["expected"];
         let expected_error = match id {
             "committed-payExact" => {
-                assert_eq!(commit_result, Ok(number(expected, "power")), "{id}");
+                assert_eq!(
+                    set.iter()
+                        .map(|validator| validator.voting_power as u64)
+                        .sum::<u64>(),
+                    number(expected, "power"),
+                    "{id}"
+                );
+                assert_eq!(
+                    commit_result,
+                    Ok(number(expected, "power") - absent_power),
+                    "{id}"
+                );
                 None
             }
             "commit-under-two-thirds" => {
@@ -630,7 +646,18 @@ fn committed_vector_commits_verify() {
             _ => panic!("unexpected committed vector {id}"),
         };
         if id != "commit-under-two-thirds" {
-            assert_eq!(commit_result, Ok(number(expected, "commitPower")), "{id}");
+            assert_eq!(
+                set.iter()
+                    .map(|validator| validator.voting_power as u64)
+                    .sum::<u64>(),
+                number(expected, "commitPower"),
+                "{id}"
+            );
+            assert_eq!(
+                commit_result,
+                Ok(number(expected, "commitPower") - absent_power),
+                "{id}"
+            );
         }
         if id != "wrong-validators-hash" {
             assert_eq!(header_result, Ok(header.hash()), "{id}");
@@ -644,7 +671,11 @@ fn committed_vector_commits_verify() {
         match expected_error {
             None => {
                 assert_eq!(string(expected, "rung"), "committed");
-                assert_eq!(verified, Ok(number(expected, "power")), "{id}");
+                assert_eq!(
+                    verified,
+                    Ok(number(expected, "power") - absent_power),
+                    "{id}"
+                );
             }
             Some(error) => {
                 assert_eq!(string(expected, "rung"), "refused");

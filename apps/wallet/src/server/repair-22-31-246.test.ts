@@ -3,6 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { afterEach, expect, test, vi } from 'vitest';
 import { AtomicJsonStore, DurableStoreCorruptError } from './atomic-json-store';
+import { browserPushKeys } from './test/browser-push-keys';
 
 const directories: string[] = [];
 const originalDataDirectory = process.env.PUSH_DATA_DIR;
@@ -64,8 +65,8 @@ async function push_corruption_reset_remains_unavailable_after_push_store_reopen
   process.env.PUSH_DATA_DIR = directory;
   const producer = await import('./push-store');
   const subscription = {
-    endpoint: 'https://push.example.test/subscription',
-    keys: { p256dh: 'a'.repeat(32), auth: 'b'.repeat(16) },
+    endpoint: 'https://fcm.googleapis.com/fcm/send/corruption-recovery',
+    keys: browserPushKeys(),
     walletAddress: `0x${'1'.repeat(40)}`,
     createdAt: 1,
     lastActiveAt: 1,
@@ -237,26 +238,26 @@ async function push_corruption_reset_preserves_fresh_store_initialization() {
 }
 
 test(
-  push_corruption_reset_remains_unavailable_after_push_store_reopen,
+  push_corruption_reset_remains_unavailable_after_push_store_reopen.name,
   push_corruption_reset_remains_unavailable_after_push_store_reopen
 );
 test(
-  push_corruption_reset_recovers_only_an_explicitly_verified_backup,
+  push_corruption_reset_recovers_only_an_explicitly_verified_backup.name,
   push_corruption_reset_recovers_only_an_explicitly_verified_backup
 );
 test(
-  push_corruption_reset_rejects_invalid_or_missing_backups_across_reopen,
+  push_corruption_reset_rejects_invalid_or_missing_backups_across_reopen.name,
   push_corruption_reset_rejects_invalid_or_missing_backups_across_reopen
 );
 test(
-  push_corruption_reset_keeps_interrupted_recovery_unavailable,
+  push_corruption_reset_keeps_interrupted_recovery_unavailable.name,
   push_corruption_reset_keeps_interrupted_recovery_unavailable
 );
 test(
-  push_corruption_reset_marks_schema_and_size_corruption,
+  push_corruption_reset_marks_schema_and_size_corruption.name,
   push_corruption_reset_marks_schema_and_size_corruption
 );
 test(
-  push_corruption_reset_preserves_fresh_store_initialization,
+  push_corruption_reset_preserves_fresh_store_initialization.name,
   push_corruption_reset_preserves_fresh_store_initialization
 );

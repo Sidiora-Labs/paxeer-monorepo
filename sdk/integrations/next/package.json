@@ -4,12 +4,16 @@
   "description": "One-call LayerX x402 route mount and client-bundle secret scanner for Next.js",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Sidiora-Labs/Paxeer-X-Network.git",
+    "url": "git+https://github.com/Sidiora-Labs/paxeer-monorepo.git",
     "directory": "sdk/integrations/next"
   },
+  "homepage": "https://github.com/Sidiora-Labs/paxeer-monorepo/tree/main/sdk/integrations/next",
   "type": "module",
   "private": false,
   "license": "Apache-2.0",
+  "engines": {
+    "node": ">=22"
+  },
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
@@ -32,7 +36,7 @@
   "scripts": {
     "prebuild": "npm --prefix ../../.. run build:dependencies -- @sidiora/layerx-next",
     "build": "tsc -p tsconfig.json",
-    "test": "npm run build && node --test test/receipt-keys.test.mjs",
+    "test": "npm run build && node --test test/*.test.mjs && npm --prefix example test",
     "test:fulfillment": "node --test example/test/repair-22-33-619.test.mjs"
   },
   "dependencies": {
@@ -51,9 +55,6 @@
   "devDependencies": {
     "@noble/hashes": "2.4.0",
     "typescript": "5.9.2"
-  },
-  "engines": {
-    "node": ">=22"
   },
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts"

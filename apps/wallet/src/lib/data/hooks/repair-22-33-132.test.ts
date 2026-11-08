@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { parseWalletReadRequest, walletReadResponseHeaders } from '@/lib/wallet-read-contract';
 import { createServer, type Server, type ServerResponse } from 'node:http';
 import { once } from 'node:events';
 import { act, createElement, StrictMode } from 'react';
@@ -259,13 +260,19 @@ beforeEach(async () => {
   unexpected = [];
   requests = [];
   server = createServer((req, res) => {
+    const url = new URL(req.url ?? '/', 'http://localhost');
+    const read = parseWalletReadRequest(url);
+    for (const [key, value] of Object.entries(walletReadResponseHeaders(read)))
+      res.setHeader(key, value);
+    expect(read.chainId).toBe(125);
+    url.searchParams.delete('chain_id');
     responses.push(res);
     requests.push(`${req.method} ${req.url}`);
     const next = exchanges.shift();
     if (
       !next ||
       req.method !== 'GET' ||
-      req.url !== next.path ||
+      url.pathname + url.search !== next.path ||
       req.headers.accept !== 'application/json'
     ) {
       unexpected.push(`${req.method} ${req.url}`);

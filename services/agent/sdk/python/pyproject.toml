@@ -8,7 +8,7 @@ name = "layerx-sdk"
 version = "0.1.0"
 description = "Production Python SDK for the LayerX Agent and Human APIs"
 requires-python = ">=3.11"
-license = { text = "See the LayerX repository LICENSE" }
+license = "Apache-2.0"
 authors = [{ name = "Sidiora Labs" }]
 classifiers = [
   "Development Status :: 3 - Alpha",

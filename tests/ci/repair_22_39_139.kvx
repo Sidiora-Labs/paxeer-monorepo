@@ -1,0 +1,82 @@
+[repair.22.39.139]
+mode = "BUILD"
+decisions = ["2829", "2853", "3052"]
+gotcha = "3527"
+acceptance = "22998.1"
+base_revision = "b87f19d0d700a69101d9cbf50056afe0af8a7f83"
+build_cmd = "python3 -m py_compile tests/ci/test_package_manager_pins_agree.py && python3 -m pytest -q --collect-only tools/ci/tests/test_bridge_workflow_app.py > /dev/null"
+verify_cmd = "python3 -m pytest -q tools/ci/tests/test_bridge_workflow_app.py tests/ci/test_package_manager_pins_agree.py"
+verified_revision = "hf-done records the exact verified candidate revision, command, exit and private log in /out/run/gates.jsonl; the final handoff copies that evidence. This repair record is part of that candidate."
+publication = "The external runner publishes the qualified candidate; no worker commit or push."
+
+[correction.bridge_app]
+workflow = ".github/workflows/bridge-test.yml"
+line = 143
+job = "bridge-app"
+working_directories = ["apps/bridge"]
+compared_manifests = ["apps/bridge/package.json"]
+before = "pnpm@12.15.0"
+after = "pnpm@10.34.9+sha512.f49b5a8ea0fdedb44bb3c0c1d6575092a53c2950d95b7ad15df11f17974877a2de3a01c07e934e9b28ce716e51c09a94962c7306d09be2e1e4b18a8c8762fd32"
+
+[correction.ci_pnpm_matrix]
+workflow = ".github/workflows/ci.yml"
+inventory_line = 267
+line = 271
+job = "js-pnpm-tests"
+working_directories = ["sdk/names", "services/wallet/ceremony/legacy-import"]
+compared_manifests = ["sdk/names/package.json", "services/wallet/ceremony/legacy-import/package.json"]
+before = "pnpm@10.15.1"
+after = "Read packageManager from ./package.json in each matrix instance's default working directory: pnpm@10.15.1 for sdk/names and pnpm@10.34.9 for legacy-import."
+reason = "These matrix entries are separate job instances, each installing one directory with its own pnpm. Their manifests declare different releases; one literal release would break the other instance. The manifest-reading command is already used by launchpad-test.yml."
+
+[correction.ci_gateway]
+workflow = ".github/workflows/ci.yml"
+inventory_line = 298
+line = 302
+job = "js-wallet-gateway-tests"
+working_directories = ["services/wallet", "services/wallet/gateway"]
+compared_manifests = ["services/wallet/package.json", "services/wallet/gateway/package.json"]
+before = "pnpm@9.15.9"
+after = "pnpm@10.34.9+sha512.f49b5a8ea0fdedb44bb3c0c1d6575092a53c2950d95b7ad15df11f17974877a2de3a01c07e934e9b28ce716e51c09a94962c7306d09be2e1e4b18a8c8762fd32"
+agreement = "The workspace and gateway both declare release 10.34.9; the workspace carries the integrity hash used by the install."
+
+[correction.wallet_attestor]
+workflow = ".github/workflows/wallet-go-test.yml"
+line = 74
+job = "attestor"
+working_directories = ["services/wallet/attestor", "services/wallet/gateway"]
+compared_manifests = ["services/wallet/package.json", "services/wallet/gateway/package.json"]
+before = "pnpm@9.15.9"
+after = "pnpm@10.34.9+sha512.f49b5a8ea0fdedb44bb3c0c1d6575092a53c2950d95b7ad15df11f17974877a2de3a01c07e934e9b28ce716e51c09a94962c7306d09be2e1e4b18a8c8762fd32"
+agreement = "The attestor directory inherits the wallet workspace declaration. The gateway declares the same release without an integrity suffix."
+
+[correction.platform]
+workflow = ".github/workflows/platform.yml"
+line = 195
+job = "connected-middleware"
+working_directories = ["services/wallet"]
+compared_manifests = ["services/wallet/package.json"]
+before = "pnpm@9.15.9"
+after = "pnpm@10.34.9+sha512.f49b5a8ea0fdedb44bb3c0c1d6575092a53c2950d95b7ad15df11f17974877a2de3a01c07e934e9b28ce716e51c09a94962c7306d09be2e1e4b18a8c8762fd32"
+resolution = "The npm exec activation runs pnpm with --dir services/wallet; its manifest supplies the pin, rather than the root npm manifest."
+
+[correction.wallet_ceremony]
+workflow = ".github/workflows/wallet-go-test.yml"
+line = 125
+job = "ceremony"
+working_directories = ["services/wallet/ceremony", "services/wallet/gateway"]
+compared_manifests = ["services/wallet/package.json", "services/wallet/gateway/package.json"]
+before = "pnpm@9.15.9"
+after = "pnpm@10.34.9+sha512.f49b5a8ea0fdedb44bb3c0c1d6575092a53c2950d95b7ad15df11f17974877a2de3a01c07e934e9b28ce716e51c09a94962c7306d09be2e1e4b18a8c8762fd32"
+reason = "The workflow-wide inventory finds a sixth stale activation in the same scoped file; ceremony and attestor install the same gateway. The ceremony directory inherits the wallet workspace declaration, and the gateway declares the same release."
+
+[coverage.workflow_pins]
+test = "test_workflow_pnpm_matches_package_manager"
+criterion = "Discover literal npm global pnpm installs and --package=pnpm activations in every public workflow YAML file, plus the explicitly recorded repaired manifest-driven matrix install. Each activation is a separate parameter identified by workflow line and job."
+resolution = "Expand job matrices, workflow and job defaults and step working directories; account for pnpm --dir and -C; walk to the nearest ancestor package.json declaring packageManager. Every pnpm consumer in each job instance must agree with its installed release, including every member when a single pnpm serves multiple directories."
+retained = "Retain the full bridge workflow assertion, Dockerfile activation checks, workspace lockfile checks and shared-lockfile release checks."
+additional_manifests = ["sdk/wallet/package.json", "apps/wallet/package.json", "services/wallet/package.json", "services/wallet/gateway/package.json", "services/wallet/ceremony/legacy-import/package.json", "services/wallet/demo/package.json"]
+
+[implementation_notes]
+line_numbers = "The task inventory predates four lines added earlier in ci.yml; actual install lines are 271 and 302. Both inventory and actual line numbers are recorded above."
+manifest_resolution = "services/wallet/gateway/package.json now declares packageManager itself, so nearest-manifest resolution stops there; services/wallet/package.json additionally confirms the workspace's matching release and supplies its integrity suffix."

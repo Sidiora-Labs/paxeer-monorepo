@@ -1,12 +1,12 @@
 require("@nomiclabs/hardhat-waffle");
 require("@nomiclabs/hardhat-ethers");
 
-const mnemonic = process.env.DAPP_TESTS_MNEMONIC;
-const accounts = mnemonic
-  ? { mnemonic, path: "m/44'/118'/0'/0/0", initialIndex: 0, count: 1 }
-  : undefined;
-
 function remoteNetwork(url) {
+  const mnemonic = process.env.DAPP_TESTS_MNEMONIC;
+  const accounts = mnemonic
+    ? { mnemonic, path: "m/44'/118'/0'/0/0", initialIndex: 0, count: 1 }
+    : undefined;
+
   return url && accounts ? { url, accounts } : undefined;
 }
 
@@ -27,7 +27,12 @@ module.exports = {
   networks: {
     paxlocal: {
       url: process.env.PAXEER_LOCAL_EVM_RPC_URL || "http://127.0.0.1:8545",
-      ...(accounts ? { accounts } : {}),
+      accounts: {
+        mnemonic: "test test test test test test test test test test test junk",
+        path: "m/44'/118'/0'/0/0",
+        initialIndex: 0,
+        count: 1,
+      },
     },
     ...(remoteNetwork(process.env.PAXEER_TESTNET_EVM_RPC_URL)
       ? { testnet: remoteNetwork(process.env.PAXEER_TESTNET_EVM_RPC_URL) }
