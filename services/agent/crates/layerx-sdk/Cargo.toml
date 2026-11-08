@@ -5,6 +5,10 @@ edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 
+[package.metadata.test-fixtures]
+tls = "tests/fixtures/repair_22_31_227_fixture"
+private-ca = "tests/fixtures/repair_22_33_1564_fixture"
+
 [package.metadata.proof.agent-wallet-rpc]
 test = "services/agent/crates/layerx-sdk/tests/proof_layerx_wallet_rpc.rs"
 producer = "test-owned loopback JSON-RPC listener"

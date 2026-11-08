@@ -1,5 +1,5 @@
 // Integration-test host for the actual vault and an actual local EVM node.
-// Dependencies are provisioned before qualification, never installed by a test.
+// The Rust test host provisions the pinned real compiler and EVM dependencies.
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');

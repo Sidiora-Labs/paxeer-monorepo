@@ -761,10 +761,14 @@ func (app *App) resolveNamedUpgradePlan(ctx sdk.Context, name string, height int
 }
 
 // activationModulesPresent reports whether the module version map of ctx already
-// carries every module the activation plan initialises.
+// carries every active module the activation plan initialises. Anchor's store
+// is retained for retirement reads, but its module no longer runs migrations.
 func (app *App) activationModulesPresent(ctx sdk.Context) bool {
 	versions := app.UpgradeKeeper.GetModuleVersionMap(ctx)
 	for _, name := range activationModules() {
+		if name == layerxanchortypes.ModuleName {
+			continue
+		}
 		if _, known := versions[name]; !known {
 			return false
 		}

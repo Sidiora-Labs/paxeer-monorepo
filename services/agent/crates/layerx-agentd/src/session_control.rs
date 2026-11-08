@@ -3518,7 +3518,11 @@ mod tests {
 
     #[test]
     fn admit_write_with_a_failed_durable_write_releases_its_hold() {
-        let (root, control, token) = control("admit-io-failure");
+        let (root, mut control, token) = control("admit-io-failure");
+        let audit_root = root.with_extension("observability");
+        control.observability = Arc::new(Mutex::new(TenantObservability::with_durable_sinks(
+            audit_root.clone(),
+        )));
         let prepared = prepared_activity();
         let permit = permit(&control, &token);
         must(std::fs::remove_dir_all(&root));
@@ -3538,6 +3542,8 @@ mod tests {
         assert!(must(control.registry().read())
             .get(&tenant(), SESSION)
             .is_some());
+        assert!(must(control.observability_stats()).audits_delivered > 0);
+        must(std::fs::remove_dir_all(audit_root));
     }
 
     #[test]
@@ -3607,7 +3613,11 @@ mod tests {
 
     #[test]
     fn submit_rewrite_with_a_failed_durable_write_leaves_the_limiter_as_it_was() {
-        let (root, control, token) = control("submit-io-failure");
+        let (root, mut control, token) = control("submit-io-failure");
+        let audit_root = root.with_extension("observability");
+        control.observability = Arc::new(Mutex::new(TenantObservability::with_durable_sinks(
+            audit_root.clone(),
+        )));
         let first = LimitId([1; 16]);
         let second = second_limit(&control);
         let prepared = prepared_activity();
@@ -3635,6 +3645,8 @@ mod tests {
             before
         );
         assert!(!root.exists());
+        assert!(must(control.observability_stats()).audits_delivered > 0);
+        must(std::fs::remove_dir_all(audit_root));
     }
 
     #[test]
