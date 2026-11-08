@@ -22,10 +22,10 @@ use layerx_agentd::budget::{
 use layerx_agentd::identity::{
     register, CoreIdentity, IdentityError, IdentityResolver, ProtocolAuthority,
 };
-use layerx_agentd::prepare::evm::{AbiArgument, PrecompileCall, PrecompileTarget};
+use layerx_agentd::prepare::evm::{self, AbiArgument, PrecompileCall, PrecompileTarget};
 use layerx_agentd::prepare::{
     prepare_activity_for_protocol, CorePreparationBoundary, CorePreparationState, CoreStateError,
-    PreparationDefaults, PreparationLifecycle, PrepareError, PrepareRequest, Prepared,
+    EvmPrepared, PreparationDefaults, PreparationLifecycle, PrepareError, PrepareRequest, Prepared,
 };
 use layerx_agentd::session::{open, OpenRequest, SessionId, SessionRegistry, Token};
 use layerx_agentd::session_control::{
@@ -328,8 +328,7 @@ fn hold_request(id: u8, amount: u128, limit: LimitId) -> ReservationRequest {
     }
 }
 
-fn send_prepared() -> Prepared {
-    let signer = LocalSigner::new([0xa5; 32]);
+fn send_prepared() -> EvmPrepared {
     let mut encoder = Encoder::new(512);
     text(encoder.u16(0x5301), "tag");
     text(encoder.u16(10), "fields");
@@ -353,32 +352,28 @@ fn send_prepared() -> Prepared {
         "version",
     );
     let payload = support::send_authorization::sign(encoder.finish());
-    let mut core = RecordedCore(CorePreparationState {
-        network_id: 17,
-        account_sequence: ENVELOPE_SEQUENCE,
-        protocol_timestamp: CORE_TIME_MS,
-        observed_head_sequence: OBSERVED_HEAD_SEQUENCE,
-        module_registry: registry(),
-    });
     text(
-        layerx_agentd::prepare::prepare_activity(
-            &mut core,
-            PreparationDefaults {
-                timestamp_span: 30,
-                fee_limit: Amount::from_u128(12),
+        evm::prepare_bound(
+            evm::EvmPreparationState {
+                chain_id: 17,
+                pending_nonce: ENVELOPE_SEQUENCE,
+                base_fee_per_gas: 3,
+                head_height: OBSERVED_HEAD_SEQUENCE,
+            },
+            evm::PreparationDefaults {
+                max_priority_fee_per_gas: 1,
+                max_fee_per_gas: 7,
                 maximum_payload_bytes: 1_024,
             },
-            PrepareRequest {
-                actor: text(Did::new(b"did:layerx:budget-suite"), "DID"),
-                authority: text(Authority::owner(&signer.public_key()), "authority"),
-                activity_type: send_kind(),
-                expected_account_sequence: Some(ENVELOPE_SEQUENCE),
-                timestamp_bound: Some(text(TimestampBound::new(995, NOT_AFTER_MS), "timestamp")),
-                fee_limit: Some(Amount::from_u128(7)),
-                idempotency_key: IdempotencyKey::new([4; 32]),
-                payload,
+            evm::PrepareRequest {
+                from: [0x11; 20],
+                call: PrecompileCall::ledger_transfer(payload),
+                expected_nonce: Some(ENVELOPE_SEQUENCE),
+                max_priority_fee_per_gas: None,
+                max_fee_per_gas: None,
                 declared_payload_limit: 1_024,
             },
+            300_000,
         ),
         "prepare send",
     )
@@ -433,7 +428,7 @@ struct Harness {
     limiter: Arc<BudgetLimiter>,
     token: Token,
     limit: LimitId,
-    prepared: Prepared,
+    prepared: EvmPrepared,
 }
 
 impl Harness {
