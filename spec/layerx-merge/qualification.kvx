@@ -35281,3 +35281,11 @@ symbol = "test_rpc.py"
 observed = "Attempt 1 at 73ee319e281b: build exit 0; verification exit 1 twice: first the committed candidate at line 44 was accepted, then after the repair a malformed receipt raised SequencerReceiptVerificationError at line 65 where ValueError is asserted; 7 passed, 5 subtests passed, the local suite did not run."
 assumption = "The exemption clause is the only remaining difference from the reference mapping on this path."
 severity = "high"
+
+[finding.22.39.138.4]
+task = "22.39.138"
+file = "tests/ci/test_copied_artifacts_in_sync.py"
+symbol = "test_copied_artifacts_in_sync.py"
+observed = "Attempt 4 at 1f95eb51246e: build exit 0; verification 16 passed, 1 failed, TestEvmEventsForCw1155 status 0x1 with the raw keeper error logged by the localization: the CW721 owner lookup refused the CW1155 burn."
+assumption = "The producer defect lives in the wasm keeper, outside the task paths; once 22.39.150 lands the direct delivery passes and the diagnostic has served its purpose."
+severity = "high"

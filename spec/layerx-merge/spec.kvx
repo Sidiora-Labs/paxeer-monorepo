@@ -10389,6 +10389,12 @@ value = "When a Python module mirrors a TypeScript verification entry whose refe
 basis = "Task 22.39.137 attempt 1 at 73ee319e281b (gotcha 3573): the re-raise of SequencerReceiptVerificationError let a malformed receipt escape the ValueError the case asserts where rpc.ts lines 151 to 155 map it to verification-failure. Extends decisions 2849 and 2871."
 affects = ["22.39.137", "22.39.136"]
 
+[decision.2880]
+title = "A standard-specific pre-execution lookup of the wasm keeper classifies the message by the shape of that standard, never by the action name alone"
+value = "The CW721 owner lookup the keeper runs before Execute applies only to messages of the CW721 transfer shape (transfer_nft, send_nft or burn carrying a string token_id and no amount); a message that carries a multi-token amount or uses a CW1155 action (send, send_batch, burn_batch, mint_batch) never triggers a CW721 query or event, and the lookup returns without effect for it. A contract refusing such a query is a classification defect of the keeper to repair at the producer, never a fixture or approval repair of the consumer test, and every refusal of a malformed CW721 shape stays as it is."
+basis = "Task 22.39.138 attempt 4 at 1f95eb51246e (gotcha 3574): keeper.go lines 1185 to 1215 queried owner_of against a CW1155 contract for a burn with amount and refused the burn as an internal error. Extends decisions 2800 and 2875."
+affects = ["22.39.150", "22.39.138", "22.31.184"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -39279,6 +39285,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.150]
+title = "Limit the CW721 pre-transfer owner lookup to CW721 transfer shapes so CW1155 burns execute"
+reqs = ["22998.1"]
+touches = ["wasm/x/wasm/keeper/keeper.go", "wasm/x/wasm/keeper/repair_184_test.go"]
+tests = ["wasm/x/wasm/keeper/repair_184_test.go"]
+verification_contract = "test -s wasm/x/wasm/keeper/repair_22_39_150.kvx && make -s paxd-native-libs && CGO_ENABLED=1 go test -count=1 -timeout 20m -run ^TestRepair_184_CW ./wasm/x/wasm/keeper/"
+do_1 = "do_1 Decision 2880, gotcha 3574. wasm/x/wasm/keeper/keeper.go emitCW721OwnerBeforeTransferIfApplicable (lines 1179 to 1233, introduced by 22.31.184 at 6ae9e2abf8) classifies every transfer_nft, send_nft or burn message carrying token_id as a CW721 transfer and queries owner_of before Execute (line 424); a CW1155 burn message with from, token_id and amount reaches the same path, the contract refuses owner_of as an unknown variant of Cw1155QueryMsg, and the keeper returns ErrCW721OwnerLookup, so every CW1155 burn is refused as an internal error (task 22.39.138 attempt 4 at 1f95eb51246e, node/receipt_test.go TestEvmEventsForCw1155)."
+symbols = []
 
 [capability.22.39.149]
 title = "Settle the ramp toolkit test binaries against the off-ramp payer grant contract and run them without fail-fast"
@@ -209866,6 +209881,37 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete apart from the pins. Add the {'recordLifecycle', true, 36680} row to the expected list in gas_test.go and move the three require.Len pins at surface_test.go:28-30 to 10, adding the recordLifecycle signature to any frozen listing the test holds. Build once and verify once."
 
+[task.22.39.150]
+title = "Limit the CW721 pre-transfer owner lookup to CW721 transfer shapes so CW1155 burns execute"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.150"]
+interfaces = []
+do_1 = "do_1 Decision 2880, gotcha 3574. wasm/x/wasm/keeper/keeper.go emitCW721OwnerBeforeTransferIfApplicable (lines 1179 to 1233, introduced by 22.31.184 at 6ae9e2abf8) classifies every transfer_nft, send_nft or burn message carrying token_id as a CW721 transfer and queries owner_of before Execute (line 424); a CW1155 burn message with from, token_id and amount reaches the same path, the contract refuses owner_of as an unknown variant of Cw1155QueryMsg, and the keeper returns ErrCW721OwnerLookup, so every CW1155 burn is refused as an internal error (task 22.39.138 attempt 4 at 1f95eb51246e, node/receipt_test.go TestEvmEventsForCw1155)."
+do_2 = "do_2 Factor the classification into one function of keeper.go that returns the token id and whether the message is a CW721 transfer: a burn, transfer_nft or send_nft whose fields carry amount, or any send, send_batch, burn_batch or mint_batch action, is not a CW721 transfer and the lookup returns nil without a query or an event; a CW721 shape (string token_id, no amount) keeps the owner_of query, the pre-transfer owner event and every existing refusal of the malformed shapes (numeric or null token_id, invalid transfer, invalid owner). The query body, the event attributes and the error text do not change."
+do_3 = "do_3 Add TestRepair_184_CW1155BurnSkipsCW721Lookup to wasm/x/wasm/keeper/repair_184_test.go: the classification function returns not applicable for a burn with from, token_id and amount and for send, send_batch and burn_batch messages, and returns the token id for the three CW721 shapes; through contracts.Execute against the repair184CW721 fixture a burn with amount emits no pre-transfer owner event and never returns ErrCW721OwnerLookup, whatever the contract answers. The existing TestRepair_184_CW721OwnerFailures and TestRepair_184_CW721JSONStrings stay unchanged and pass."
+do_4 = "do_4 Record each changed line and the producer fact in wasm/x/wasm/keeper/repair_22_39_150.kvx. Run the build once and the verification once at the final tree; the node case TestEvmEventsForCw1155 is the consumer that task 22.39.138 reruns after this task lands."
+symbols = []
+touches = ["wasm/x/wasm/keeper/keeper.go", "wasm/x/wasm/keeper/repair_184_test.go"]
+tests = ["wasm/x/wasm/keeper/repair_184_test.go"]
+planned_paths = ["wasm/x/wasm/keeper/repair_22_39_150.kvx"]
+build_cmd = "make -s paxd-native-libs && CGO_ENABLED=1 go vet ./wasm/x/wasm/keeper/"
+verify_cmd = "test -s wasm/x/wasm/keeper/repair_22_39_150.kvx && make -s paxd-native-libs && CGO_ENABLED=1 go test -count=1 -timeout 20m -run ^TestRepair_184_CW ./wasm/x/wasm/keeper/"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-chain-modules"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.148]
 title = "Wrap the fee-token rate errors with sdkerrors so their ABCI code survives and assert the code through the producer function"
 status = "done"
@@ -209933,7 +209979,7 @@ title = "Make the sixteen node package tests that fail once the recorded failure
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.39.143", "22.39.148"]
+requires = ["22.39.143", "22.39.148", "22.39.150"]
 reqs = ["22998.1"]
 capabilities = ["22.39.138"]
 interfaces = []
@@ -209962,6 +210008,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 do_6 = "Attempt 2 (continue after 22.39.143 lands; gotcha 3535, decisions 2762, 2857 and 2858, gotcha 3046): the attempt-1 tree 95a1cd16f850 stands (the pre-upgrade fixture helper, the revocation and shared-host fixture setup, the fresh-application isolation, the snapshot import count, the record). Merge current main. The eight remaining failures are consumer assertions that follow their producers: TestAppMountsMergedModuleStores asserts the mounted count equals the length of keys.MemIAVLStoreKeys and that each of the six merged names is a member of that list; TestAppOrdersStoreGenesisBeforeHostWriters and TestAppRegistersPayAndAgentModulesInGenesisOrder assert the production genesis order, layerxpay then layerxchains then layerxagent after layerxauth, listing layerxchains in their expected names; TestV6120InitialisesTheNewModulesOnAPreUpgradeChain asserts for every new module the consensus version the module declares instead of the literal 1; TestFeeTokenGigaBlockRefusesUnusableRate asserts the codespace and code 22.39.143 registers for the invalid rate and that the log carries the fee-token rate is invalid text a registered error keeps; TestRepair_102_SchedulerFailureAtomic asserts the refusal through the code and codespace of the redacted response and that the log carries no internal marshalling detail, keeping the store atomicity assertions that follow; TestProofNodeGoApi asserts that the receipt method over the websocket answers like the HTTP path, no error and a nil result for the unknown hash, and keeps a method-not-found probe only for a method name the server does not register; TestEvmEventsForCw1155 returns code 1 under the fresh-application fixture of attempt 1: run it once with the shared fixture to separate the fixture change from the producer, and if the fresh application is the cause keep the shared fixture with cleanup of the state the test mutates, never relaxing the code 0 assertion. Record each corrected assertion with its producer line in node/repair_22_39_138.kvx; the do_5 instruction never to change the assertions yields for these eight only. Run the build once and the verification once at the final revision and record both by reference."
 do_7 = "Attempt 3 (continue after 22.39.148 lands; gotcha 3556, decisions 2771, 2800 and 2865): the attempt-2 tree 83c683f4987e3847d4a7d4c0d0727420743e17ab stands (the codespace and code assertions of the fee-token test, the fresh application fixture with its Close cleanup, the record). Once 22.39.148 is on main, merge main; the fee-token case then passes without a change. For TestEvmEventsForCw1155, pass a base application option that calls SetTrace(true) (sdk/baseapp/options.go line 55) through the variadic options of the Setup helper in node/test_helpers.go to the fresh application fixture, run the case once and read the full error text the receipt now carries. If the text names the synthetic receipt translation of node/receipt.go (ErrSyntheticReceiptTranslation, translateCW1155Event or GetActionsFromWasmEvent), record the file and line as the producer and stop the attempt without a repair cycle; a producer task follows and the status 0x0 assertion never relaxes. If the text is a contract refusal of the burn-on-behalf message (the sender lacks approval for the from account), the test follows the contract: add the approval step the contract requires before the burn, or burn from the account of the sender, and record which. Then run the build once and the verification once at the final revision and record both by reference."
 do_8 = "Attempt 4 (continue, gotcha 3568, decisions 2771, 2865 and 2875): the attempt-3 tree 733e82e76991e80722917d794640d4fe0162b0eb stands (the merged fee-token repair, the fresh application fixture with its Close cleanup, the trace option, the records). In TestEvmEventsForCw1155 replace the attempt-3 diagnostic at node/receipt_test.go line 838 with the localization of decision 2875: before the burn-on-behalf DeliverTx, take a cache context of ctx, execute the same burn payload through wasmKeeper.Execute with the recipient as caller and the contract address, and log the raw error it returns; if it returns nil, take a second cache context, pass the events of the first cache context EventManager through testApp.AddCosmosEventsToEVMReceiptIfApplicable with the tx and its checksum as the input events of the receipt translation step, and log that raw error. Neither cache context is written. Then run the case once. If the logged text is a receipt translation error (ErrSyntheticReceiptTranslation, translateCW1155Event, GetActionsFromWasmEvent or GetEvmAddressHash of node/receipt.go), record the file and line and the exact text in node/repair_22_39_138.kvx and stop the attempt without a further change; a producer task follows and the status 0x0 assertion never relaxes. If the text is a contract refusal of the burn-on-behalf message, the test follows the contract in the one allowed repair cycle (add the approval step the contract requires, or burn from the sender own balance) and reruns once. Run the build once and the verification once at the final revision and record both by reference."
+do_9 = "Attempt 5 (continue after 22.39.150 lands; gotcha 3574, decisions 2771, 2875 and 2880): the attempt-4 tree 1f95eb51246e stands (the merged fee-token repair, the fresh application fixture with its Close cleanup, the trace option, the records) except the localization block that attempt 4 placed before the burn-on-behalf DeliverTx in TestEvmEventsForCw1155 (node/receipt_test.go from line 838): remove it so the burn-on-behalf transaction is delivered directly as before attempt 3, with the status 0x0 assertion, the receipt-content assertions and the burn payload unchanged. Record in node/repair_22_39_138.kvx that the producer repair is 22.39.150 (the CW721 lookup classification of wasm/x/wasm/keeper/keeper.go) and that the localization of attempt 4 found it. Run the build once and the verification once at the final revision and record both by reference. If the case still fails after 22.39.150 is merged, record the raw text of the new failure and stop without a repair cycle; no assertion relaxes."
 
 [task.22.39.117]
 title = "Give the five launchpad shared service packages in-process fixtures or configured skips and retire their baseline entries"
