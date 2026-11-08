@@ -333460,7 +333460,7 @@ do_6 = "Attempt 3: the closure check is a gate over the whole issue programme; i
 
 [task.22.39.147]
 title = "Restore the routed runs-on form on the seven jobs the live-input guard repair pinned and run the routing check from the live-input test"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
