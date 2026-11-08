@@ -11122,6 +11122,18 @@ value = "The audit repair tests under tools/qualification/audit_repairs trace a 
 basis = "Gotcha 3699, decisions 2908 and 2900, gotcha 3046"
 affects = ["22.39.26"]
 
+[decision.3002]
+title = "The EVM host helper of the bridge relayer test opens a fresh connection for every JSON-RPC request and retries one transport-level reset of an idempotent read"
+value = "src/repair_22_31_160_vault.cjs talks to the in-process ganache server through a provider whose requests do not reuse connections (an ethers FetchRequest with the Connection header set to close, or an equivalent provider option), so the Node fallback server of ganache never resets a kept-alive socket under the test; a transport-level reset (ECONNRESET) of an idempotent read such as eth_getTransactionReceipt is retried exactly once before the helper reports an error, and a reset of a transaction send is never retried. The server options, the contract, the commands and every assertion of the test stay unchanged, and the helper keeps reporting every other error as it does."
+basis = "Gotcha 3700, decision 2908"
+affects = ["22.39.174"]
+
+[decision.3003]
+title = "The shared EVM host of the bridge relayer test recovers from a poisoned lock and relaunches a dead host, so every case reports its own result"
+value = "tests/repair_22_31_160.rs keeps one EVM host behind a static Mutex for all cases; the accessor recovers a poisoned guard through into_inner instead of unwrapping it, checks that the child process is still running, and relaunches the host when it exited, so a panic in one case never turns the remaining cases into PoisonError failures and the record of failing names by target (decision 2900) names the real cause. The cases, their commands and their assertions stay unchanged."
+basis = "Gotcha 3700, decision 2900"
+affects = ["22.39.174"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -183087,7 +183099,7 @@ interfaces = []
 do_1 = "do_1 Decision 2999, gotcha 3698. services/interop/crates/layerx-bridge-relayer/tests/support/evm_dependencies.rs line 17 includes evm/package-lock.json beside evm/package.json, and main tracks only the manifest, so cargo test of the crate fails to compile every test target. Inside tests/support/evm generate the lock file from the pinned manifest with npm install in package-lock-only mode with scripts, audit and funding output disabled; check that it carries lockfileVersion 3, resolves exactly the four pinned dependencies and their transitive set with integrity fields, and track it. The manifest, the support module and every test stay unchanged."
 do_2 = "do_2 Record in services/interop/repair_22_39_174.kvx the generation command, the npm version, the resolved versions of the four pinned dependencies and the whole-crate suite result by reference. Run the build once and the verification once at the final revision and record both by reference; if a case fails, repair it within the one allowed cycle and rerun once."
 symbols = []
-touches = ["services/interop/crates/layerx-bridge-relayer/tests/support/evm"]
+touches = ["services/interop/crates/layerx-bridge-relayer"]
 tests = []
 planned_paths = ["services/interop/repair_22_39_174.kvx"]
 build_cmd = "cargo test --locked --manifest-path services/interop/Cargo.toml -p layerx-bridge-relayer --no-run"
@@ -183103,6 +183115,7 @@ time_limit_minutes = 120
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_3 = "Attempt 2 (continue, gotcha 3700, decisions 2900, 2908, 2999, 3002 and 3003): the attempt-1 tree bc0483b770c3 stands (the generated lock file and the record). Per decision 3002 make the provider of services/interop/crates/layerx-bridge-relayer/src/repair_22_31_160_vault.cjs open a fresh connection per request (an ethers FetchRequest with the Connection header set to close, or an equivalent provider option) and retry one transport-level reset of an idempotent read; sends are never retried. Per decision 3003 make the host accessor of tests/repair_22_31_160.rs (line 160) recover a poisoned guard through into_inner, check the child is alive and relaunch the host when it exited. No server option, command or assertion changes; the crate directory is in the touches from this round. Record both corrections with the evidence (the fallback notice of ganache on the Node build of the gate environment, the close-listener warning of the passing run) in services/interop/repair_22_39_174.kvx. Run the repair_22_31_160 target locally three times to green before the gate, then run the build once and the verification once at the final revision and record both by reference; if a case still fails, repair it within the one allowed cycle and rerun once."
 
 [task.22.39.172]
 title = "Align the history contract test and the cross-UID receiver case with the exclusive cursor and the protected store root their producers introduced"

@@ -36210,3 +36210,11 @@ symbol = "test_qualification_suites_have_ci_host.py"
 observed = "Attempt 4 at af2711cdcd84 (base d27e49f022): build exit 0 twice; verification exit 2 twice, 4448 passed and test_finding_7_final_bytes_are_bounded_deployed_and_then_published failed, first at line 105 (consumer fact), then at line 119 (harness fact); log /out/logs/verify-2.log."
 assumption = "The one stale quotation is the whole remaining failure; the host, the job and the make target are complete."
 severity = "high"
+
+[finding.22.39.174.1]
+task = "22.39.174"
+file = "services/interop/crates/layerx-bridge-relayer/tests/support/evm"
+symbol = "evm"
+observed = "Attempt 1 at bc0483b770c3 (base f6511609fe): build exit 0, every test target compiled; verification exit 101: one target failed, repair_22_31_160 with two passed and five failed (one read ECONNRESET from the EVM host helper at line 123, four PoisonError at line 160); log /out/logs/verify-1.log."
+assumption = "The lock file is right; the remaining failure is one connection reset of the in-process EVM host amplified by the shared lock."
+severity = "high"
