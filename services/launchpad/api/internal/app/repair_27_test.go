@@ -5,7 +5,6 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"encoding/json"
-	"errors"
 	"io"
 	"math/big"
 	"net"
@@ -220,7 +219,7 @@ func TestRepair_27_log_free_receipts(t *testing.T) {
 	c.backend.Commit()
 	sdk := repair27SDK(t, c)
 	servers := []*httptest.Server{repair27HTTP(t, c.endpoint), networkReadsServer(t, c.endpoint)}
-	for _, tc := range []struct {
+	for i, tc := range []struct {
 		hash          common.Hash
 		success       bool
 		state, status string
@@ -232,15 +231,52 @@ func TestRepair_27_log_free_receipts(t *testing.T) {
 		if err != nil || receipt == nil {
 			t.Fatalf("receipt missing: %v", err)
 		}
-		if len(receipt.Logs) != 0 || (receipt.Status == 1) != tc.success {
+		if len(receipt.Logs) != 0 || (receipt.Status == 1) != tc.success || receipt.TransactionIndex != uint(i) {
 			t.Fatalf("log-free fixture: %+v", receipt)
 		}
+		var destination *string
+		failureCode := ""
+		if tc.success {
+			address := to.Hex()
+			destination = &address
+		} else {
+			failureCode = "TRANSACTION_REVERTED"
+		}
+		expected := interfaces.TxStatusData{Status: tc.status, Receipt: &interfaces.Receipt{
+			TransactionHash: tc.hash.Hex(), BlockHash: receipt.BlockHash.Hex(),
+			Height: interfaces.UInt256(receipt.BlockNumber.String()),
+			Position: interfaces.ChainPosition{
+				ChainId: "125", Height: interfaces.UInt256(receipt.BlockNumber.String()),
+				BlockHash: receipt.BlockHash.Hex(), TransactionHash: tc.hash.Hex(),
+				TransactionIndex: interfaces.UInt256(strconv.FormatUint(uint64(receipt.TransactionIndex), 10)),
+				LogIndex:         "0",
+			},
+			From: crypto.PubkeyToAddress(c.key.PublicKey).Hex(), To: destination, Success: tc.success,
+			GasUsedRaw:           interfaces.UInt256(strconv.FormatUint(receipt.GasUsed, 10)),
+			EffectiveGasPriceRaw: interfaces.UInt256(receipt.EffectiveGasPrice.String()),
+		}}
 		next, view, err := sdk.ReceiptState(context.Background(), repair27Submitted(t, tc.hash))
-		if !errors.Is(err, chain.ErrReceiptPosition) || view.Receipt != nil || view.Status != tc.status || next.State != tc.state || next.BlockHash == nil || *next.BlockHash != receipt.BlockHash {
-			t.Fatalf("SDK log-free evidence/position refusal: %+v %+v %v", next, view, err)
+		if err != nil || !reflect.DeepEqual(view, expected) {
+			t.Fatalf("SDK log-free receipt: got %+v, want %+v, error %v", view, expected, err)
+		}
+		if next.State != tc.state || next.ChainID != "125" || next.SubmittedHash != tc.hash || next.DeploymentVersion != "repair-27" || next.EvidenceType != "rpc_receipt" || next.FailureCode != failureCode || next.BlockNumber != receipt.BlockNumber.String() || next.BlockHash == nil || *next.BlockHash != receipt.BlockHash {
+			t.Fatalf("SDK log-free state: %+v (chain %+v)", next, receipt)
 		}
 		for _, srv := range servers {
-			repair27Refused(t, srv, tc.hash)
+			status, body, header := netCall(t, http.MethodGet, srv.URL+"/v2/transactions/"+tc.hash.Hex())
+			if status != 200 || interfaces.ValidateJSON("TxStatusResponse", body) != nil || header.Get("Cache-Control") != "no-store" {
+				t.Fatalf("log-free receipt HTTP contract: %d %s", status, body)
+			}
+			var got struct {
+				Data    interfaces.TxStatusData `json:"data"`
+				Quality string                  `json:"quality"`
+			}
+			if err := json.Unmarshal(body, &got); err != nil {
+				t.Fatal(err)
+			}
+			if got.Quality != "complete" || !reflect.DeepEqual(got.Data, expected) {
+				t.Fatalf("API log-free receipt: %s; want %+v", body, expected)
+			}
 		}
 	}
 }
