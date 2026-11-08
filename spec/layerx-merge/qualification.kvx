@@ -35410,3 +35410,19 @@ symbol = "mod.rs"
 observed = "Attempt 2 at 5d5c4a51b325 (base 79b47a737349): build exit 0; verification exit 101: 330 passed, 3 failed: budget_proof_v2_node_answers_fixture_is_current (committed 252 lines, generated 219) and the two session_control durable-write cases; one verification run, no repair, no closing message."
 assumption = "The vector drift comes from ba761d6c5d extending the committed file by hand; the durable-write cases fail at the base and are the repair the attempt-2 note already asked for."
 severity = "blocker"
+
+[finding.22.39.75.4]
+task = "22.39.75"
+file = "tests/ci/test_launchpad_go_tests_wired.py"
+symbol = "test_launchpad_go_tests_wired.py"
+observed = "Attempt 4 at f11cfdbbeabc: build exit 0; verification exit 1: both SDK modules passed under the baseline, the api module failed in app, broker, cache, rest and store with some forty tests stopping at undefined test-service variables, one uncompiled contract artifact, two stale log-free receipt assertions and two 180 s stream timeouts; the modules after api never ran."
+assumption = "The job never provided the services the api module documents; the missing variables and the compile step are job configuration, and only the two log-free tests are stale consumers."
+severity = "high"
+
+[finding.22.39.152.1]
+task = "22.39.152"
+file = "tests/ci/test_copied_artifacts_in_sync.py"
+symbol = "test_copied_artifacts_in_sync.py"
+observed = "Attempt 1 at e5efb803e2b4: build exit 0; verification exit 1: 7 passed, 2 failed, the stylesheet row made stale by the same producer commit and three unlisted byte-identical pairs over 20000 bytes."
+assumption = "The task text enumerated twelve rows while the producer commit and later fixture copies left four more inventory corrections; all fit the one file the task touches."
+severity = "high"
