@@ -1,0 +1,43 @@
+[repair.22.39.286]
+criterion = "22998.1"
+decisions = ["3101", "3104", "3122"]
+starting_revision = "e39f8813b7ac67fc5f56826924becb3dc9ec693a"
+verified_revision = "/out/run/gates.jsonl: the final passing build and verify rows name the same immutable candidate revision, including this record."
+qualification = "Success requires hf-build and hf-done to pass at the same candidate revision; this record alone does not claim a gate result."
+
+[findings.before]
+source = "The task's recorded main-tree inventory, confirmed by source inspection at starting_revision; the baseline scan is not rerun because the ordered gate budget permits verification only through hf-done after implementation."
+command = "python3 tools/paxeer-x/tests/retired_callers_test.py --path modules/layerxexchange"
+count = 1
+
+[finding.1]
+path = "modules/layerxexchange/types/state.go"
+line = 186
+component = "custody-disclosure"
+symbol = "paxeer-reserve"
+disposition = "allowed_reference"
+repair = "Document and expand the legacy system-account mapping without changing its names or kinds, and allow only the exact kind-11 entry in the retired-caller catalogue."
+reason = "NativeGenesisCapability validates historical genesis manifests for the merge-disabled exchange module, whose original account names and required reserve kind remain part of the shipped legacy format."
+
+[implementation]
+catalogue = "tools/paxeer-x/retired_callers.json"
+allowance_path = "modules/layerxexchange/types/state.go"
+boundary = "The allowance matches only the kind-11 mapping line, leaving other reserve references in this file and module subject to the scan."
+producer = "src/protocol/lxp_genesis.c fresh_system_name preserves the reserve name, and validate_legacy_accounts requires fees, reserve and withdrawals with canonical account identifiers."
+consumer = "modules/layerxexchange/types/params.go Market.Validate and modules/layerxexchange/keeper/intents.go call NativeGenesisCapability; modules/layerxexchange/keeper/keeper_test.go signedNativeGenesis still encodes the same account names and kinds."
+contract = "All original account-identifier, zero-balance, asset, ordering, uniqueness, required-kind and signature checks remain intact."
+retirement = "modules/layerxexchange/keeper/intents.go record still checks Retired before accepting intents; this repair preserves historical validation without enabling retired ingress."
+
+[findings.after]
+required_count = 0
+evidence = "/out/run/gates.jsonl: final passing verify row and its private log; the final verify_cmd step exits zero only when the scoped retired-caller scan has no findings."
+
+[qualification]
+build_command = "go build ./modules/layerxexchange/..."
+verify_command = "cg spec done 22.39.286 -f layerx-merge --root /work/paxeer-monorepo"
+verify_cmd = "test -s modules/layerxexchange/repair_22_39_286.kvx && go test -count=1 ./modules/layerxexchange/types/ && python3 tools/paxeer-x/tests/retired_callers_test.py --path modules/layerxexchange"
+evidence = "/out/run/gates.jsonl records revision, command, exit and private log for each gate; hf-done executes the declared verification and graph checks."
+
+[gotcha.scope]
+observed = "The task's baseline-scan step conflicts with its implementation-first gate order, and root GOTCHA.kvx and spec files are outside the authorized edit scope."
+resolution = "Use the supplied baseline inventory, preserve pre-existing bookkeeping changes, record the workflow conflict here, and run only hf-build and hf-done after implementation."
