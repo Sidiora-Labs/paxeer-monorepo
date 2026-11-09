@@ -227,7 +227,7 @@ func TestRepairM_784_AssociationCurrentRouting(t *testing.T) {
 					if !identical {
 						require.Nil(t, routed.auth.GetAccount(routed.ctx, pax))
 					}
-					require.NoError(t, legacy.NewAssociationHelper(routed.evm, routed.bank, routed.auth).
+					require.NoError(t, legacy.NewAssociationHelper(routed.evm, routed.bank, routed.auth, "").
 						AssociateAddresses(routed.ctx, pax, evm, pub))
 					require.NoError(t, helpers.NewAssociationHelper(direct.evm, direct.bank, direct.auth).
 						AssociateAddresses(direct.ctx, pax, evm, pub, false))
@@ -252,7 +252,7 @@ func TestRepairM_784_AssociationCurrentRouting(t *testing.T) {
 					require.Equal(t, evm, mappedEVM)
 					// Direct calls to the migration entry point must use the same current guard.
 					before := repair784Snapshot(t, routed)
-					require.NoError(t, legacy.NewAssociationHelper(routed.evm, routed.bank, routed.auth).
+					require.NoError(t, legacy.NewAssociationHelper(routed.evm, routed.bank, routed.auth, "").
 						MigrateBalance(routed.ctx, evm, sdk.AccAddress(evm.Bytes())))
 					require.Equal(t, before, repair784Snapshot(t, routed))
 				}
@@ -275,7 +275,7 @@ func TestRepairM_784_AssociationHistoricalReplay(t *testing.T) {
 		if !identical {
 			require.Nil(t, f.auth.GetAccount(f.ctx, pax))
 		}
-		require.NoError(t, legacy.NewAssociationHelper(f.evm, f.bank, f.auth).AssociateAddresses(f.ctx, pax, evm, pub))
+		require.NoError(t, legacy.NewAssociationHelper(f.evm, f.bank, f.auth, "v5.7.5").AssociateAddresses(f.ctx, pax, evm, pub))
 		require.Equal(t, coins, f.bank.GetAllBalances(f.ctx, pax))
 		require.Equal(t, sdk.NewInt(19), f.bank.GetWeiBalance(f.ctx, pax))
 		if identical {
@@ -308,7 +308,7 @@ func TestRepairM_784_AssociationRejectsNewInvalidKey(t *testing.T) {
 			require.NotPanics(t, func() {
 				var err error
 				if routed {
-					err = legacy.NewAssociationHelper(f.evm, f.bank, f.auth).AssociateAddresses(f.ctx, pax, evm, pub)
+					err = legacy.NewAssociationHelper(f.evm, f.bank, f.auth, "").AssociateAddresses(f.ctx, pax, evm, pub)
 				} else {
 					err = helpers.NewAssociationHelper(f.evm, f.bank, f.auth).AssociateAddresses(f.ctx, pax, evm, pub, false)
 				}
@@ -316,6 +316,106 @@ func TestRepairM_784_AssociationRejectsNewInvalidKey(t *testing.T) {
 			})
 			require.Equal(t, before, repair784Snapshot(t, f))
 			require.Equal(t, events, f.ctx.EventManager().Events())
+		}
+	}
+}
+
+func TestIssue1682AssociationReplay(t *testing.T) {
+	for _, tc := range []struct {
+		name       string
+		selected   string
+		closest    string
+		tracing    bool
+		historical bool
+	}{
+		{"start", "v5.7.5", "v5.7.5", true, true},
+		{"next v580", "v5.7.5", "v5.8.0", true, true},
+		{"next v590", "v5.7.5", "v5.9.0", true, true},
+		{"next v600", "v5.7.5", "v6.0.0", true, true},
+		{"no closest upgrade", "v5.7.5", "", true, true},
+		{"unselected trace", "", "v5.7.5", true, false},
+		{"other selection", "v6.0.0", "v5.7.5", true, false},
+		{"non tracing start", "v5.7.5", "v5.7.5", false, false},
+		{"non tracing next v600", "v5.7.5", "v6.0.0", false, false},
+	} {
+		for _, migrationOnly := range []bool{false, true} {
+			for _, identical := range []bool{false, true} {
+				t.Run(tc.name+"/migration="+strconv.FormatBool(migrationOnly)+"/self="+strconv.FormatBool(identical), func(t *testing.T) {
+					f := repair784Keepers(t)
+					f.ctx = f.ctx.WithIsTracing(tc.tracing).WithClosestUpgradeName(tc.closest)
+					evm, pax, pub := repair784Identity(t, f.ctx)
+					cast := sdk.AccAddress(evm.Bytes())
+					if identical {
+						pax = cast
+					}
+					f.auth.SetAccount(f.ctx, authtypes.NewBaseAccount(cast, nil, 42, 7))
+					coins := repair784Fund(t, f, cast)
+					probe, _ := f.ctx.CacheContext()
+					nextNumber := f.auth.GetNextAccountNumber(probe)
+					h := legacy.NewAssociationHelper(f.evm, f.bank, f.auth, tc.selected)
+					if migrationOnly {
+						require.NoError(t, h.MigrateBalance(f.ctx, evm, pax))
+					} else {
+						require.NoError(t, h.AssociateAddresses(f.ctx, pax, evm, pub))
+					}
+					require.Equal(t, coins, f.bank.GetAllBalances(f.ctx, pax))
+					require.Equal(t, sdk.NewInt(19), f.bank.GetWeiBalance(f.ctx, pax))
+					acc := f.auth.GetAccount(f.ctx, pax)
+					if identical && tc.historical {
+						require.Nil(t, acc)
+					} else {
+						require.NotNil(t, acc)
+						if identical || (!migrationOnly && !tc.historical) {
+							require.Equal(t, uint64(42), acc.GetAccountNumber())
+							require.Equal(t, uint64(7), acc.GetSequence())
+						} else {
+							require.Equal(t, nextNumber, acc.GetAccountNumber())
+							require.NotEqual(t, uint64(42), acc.GetAccountNumber())
+							require.Zero(t, acc.GetSequence())
+						}
+						if migrationOnly {
+							require.Nil(t, acc.GetPubKey())
+						} else {
+							require.Equal(t, pub.Bytes(), acc.GetPubKey().Bytes())
+						}
+					}
+					if !identical {
+						require.Nil(t, f.auth.GetAccount(f.ctx, cast))
+						require.True(t, f.bank.GetAllBalances(f.ctx, cast).IsZero())
+						require.True(t, f.bank.GetWeiBalance(f.ctx, cast).IsZero())
+					}
+					mapped, found := f.evm.GetPaxAddress(f.ctx, evm)
+					require.Equal(t, !migrationOnly, found)
+					mappedEVM, reverseFound := f.evm.GetEVMAddress(f.ctx, pax)
+					require.Equal(t, !migrationOnly, reverseFound)
+					if migrationOnly {
+						require.Empty(t, mapped)
+						require.Equal(t, common.Address{}, mappedEVM)
+					} else {
+						require.Equal(t, pax, mapped)
+						require.Equal(t, evm, mappedEVM)
+					}
+				})
+			}
+		}
+		if !tc.historical {
+			for _, pub := range []cryptotypes.PubKey{nil, (*secp256k1.PubKey)(nil), &secp256k1.PubKey{}, &secp256k1.PubKey{Key: []byte{4}}} {
+				t.Run(tc.name+"/invalid key", func(t *testing.T) {
+					f := repair784Keepers(t)
+					f.ctx = f.ctx.WithIsTracing(tc.tracing).WithClosestUpgradeName(tc.closest)
+					evm, pax, _ := repair784Identity(t, f.ctx)
+					f.auth.SetAccount(f.ctx, authtypes.NewBaseAccount(sdk.AccAddress(evm.Bytes()), nil, 42, 7))
+					repair784Fund(t, f, sdk.AccAddress(evm.Bytes()))
+					before := repair784Snapshot(t, f)
+					events := f.ctx.EventManager().Events()
+					require.NotPanics(t, func() {
+						err := legacy.NewAssociationHelper(f.evm, f.bank, f.auth, tc.selected).AssociateAddresses(f.ctx, pax, evm, pub)
+						require.ErrorIs(t, err, helpers.ErrInvalidPubkey)
+					})
+					require.Equal(t, before, repair784Snapshot(t, f))
+					require.Equal(t, events, f.ctx.EventManager().Events())
+				})
+			}
 		}
 	}
 }
