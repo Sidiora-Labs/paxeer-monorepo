@@ -36522,3 +36522,11 @@ symbol = "test_parity_coverage.py::test_installed_spec_has_no_uncovered_acceptan
 observed = "Attempt 3: build exit 0; verification exit 1: 84 stale and 229 uncovered acceptance selectors reported by test_installed_spec_has_no_uncovered_acceptance; log /out/logs/verify-2.log."
 assumption = "The remaining selectors are grammar artifacts and unapplied map entries; the check is complete once coverage reads ownership and the map."
 severity = "high"
+
+[finding.17.1.9.1]
+task = "17.1.9"
+file = "spec/layerx-merge/programme/tests/test_receipt_order_golden.py::test_receipt_order_golden_passes"
+symbol = "test_receipt_order_golden.py::test_receipt_order_golden_passes"
+observed = "Attempt 1 at b484071f1a8e: build exit 0; verification exit 1: test_receipt_order_golden_passes failed because go test ./node for the two order cases could not link the kernel archive or the programs host archive under the mixed profile; log /out/logs/verify-1.log."
+assumption = "The golden entry and the test are complete; the profile alone prevented the link."
+severity = "high"

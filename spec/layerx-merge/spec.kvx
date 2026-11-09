@@ -11386,6 +11386,12 @@ value = "The parity coverage check of 17.4.5 treats an acceptance as covered whe
 basis = "Gotcha 3741, decisions 2194 and 2195, task 22.31.438, the record spec/layerx-merge/programme/parity-open-selectors.txt"
 affects = ["17.4.5", "22.39.213"]
 
+[decision.3046]
+title = "The programme tasks that run every golden or every parity row on the merged candidate carry the kernel archive profile in advance"
+value = "Decision 3041 gives the kernel archive profile to a programme task whose verification runs Go tests of a kernel-linked package. The candidate gate task 17.0.9 runs every golden of the programme and the parity inventory task 17.4.6 runs every parity row, so both run the node package tests among their rows; they carry the kernel archive profile now, before a first attempt fails on the link step, together with the receipt order golden task 17.1.9. A programme task added later whose rows include a golden or a parity row of the node, programs or kernel domains carries the profile from its first attempt."
+basis = "Gotcha 3742, decisions 1709 and 3041, gotcha 3738"
+affects = ["17.1.9", "17.0.9", "17.4.6"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -317626,7 +317632,7 @@ planned_paths = ["spec/layerx-merge/programme/gates.py", "spec/layerx-merge/prog
 build_cmd = "python3 -m py_compile spec/layerx-merge/programme/gates.py"
 verify_cmd = "python3 -m pytest spec/layerx-merge/programme/tests/test_programme_gate.py::test_programme_gate_passes_on_candidate spec/layerx-merge/programme/tests/test_programme_gate.py::test_mixed_revisions_are_refused -q"
 gate_kind = "planned"
-sandbox_profile = "mixed"
+sandbox_profile = "go-cgo"
 owner_role = "fm-programme"
 rollback = "None needed; the programme gate writes evidence only."
 max_builds = 1
@@ -317903,7 +317909,7 @@ planned_paths = ["spec/layerx-merge/programme/data/goldens/receipt-order.kvx", "
 build_cmd = "python3 -m py_compile spec/layerx-merge/programme/tests/test_receipt_order_golden.py"
 verify_cmd = "python3 -m pytest spec/layerx-merge/programme/tests/test_receipt_order_golden.py::test_receipt_order_golden_passes -q"
 gate_kind = "planned"
-sandbox_profile = "mixed"
+sandbox_profile = "go-cgo"
 owner_role = "fm-programme"
 rollback = "Delete the receipt-order golden."
 max_builds = 1
@@ -317913,6 +317919,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "Attempt 2 (continue, gotcha 3742, decisions 1709, 3041 and 3046): the attempt-1 tree b484071f1a8e stands unchanged (the [golden.receipt-order] entry naming the two node cases and the leader schedule rule it protects, and the test module with test_receipt_order_golden_passes). The qualification environment of this attempt prebuilds the kernel archive and the programs host archive, so the node package links and the two cases run. Make no change to the tree unless a case names a defect in the golden entry itself. Run the build once and the verification once at the final revision and record both by reference; if the golden still reports false, record the failing case within the one allowed repair cycle and rerun once."
 
 [task.17.2.1]
 title = "Record the retired components with their owning domain and refusal"
@@ -318455,7 +318462,7 @@ planned_paths = ["spec/layerx-merge/programme/parity.py", "spec/layerx-merge/pro
 build_cmd = "python3 -m py_compile spec/layerx-merge/programme/parity.py"
 verify_cmd = "python3 -m pytest spec/layerx-merge/programme/tests/test_parity_run.py::test_parity_rows_pass_on_merged_revision -q"
 gate_kind = "planned"
-sandbox_profile = "mixed"
+sandbox_profile = "go-cgo"
 owner_role = "fm-programme"
 rollback = "Revert parity.py."
 max_builds = 1
