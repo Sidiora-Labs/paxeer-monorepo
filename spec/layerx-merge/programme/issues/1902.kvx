@@ -1,0 +1,48 @@
+[issue.1902]
+number = 1902
+title = "[Coherence] The continuation comment added to d22-13.kvx points to d22-27.kvx, but d22-14.kvx is the file that actually comes next, and the task forbade editing existing files"
+revision = "3520b1428059af90261432778c008a9ce362a0b1"
+verdict = "task"
+evidence = "Commit 8b236f857832e179bdfe516df75fbcf810c9f124 added the still-present continuation note at spec/layerx-merge/dispositions/d22-13.kvx:55 despite the existing parts at spec/layerx-merge/dispositions/d22-14.kvx:1, spec/layerx-merge/dispositions/d22-15.kvx:1 and spec/layerx-merge/dispositions/d22-16.kvx:1, and although task 22.39.195 lists d22-13.kvx in touches at spec/layerx-merge/spec.kvx:351045, its do_3 at spec/layerx-merge/spec.kvx:351042 still promises that only new files change, so removing the note restores the earlier file and resolves both claims without changing disposition data."
+close_comment = "The continuation note in d22-13.kvx skips existing disposition parts and contradicts the closure task's promise to leave existing files unchanged. The follow-up removes the note and preserves every disposition record."
+
+[task.18.1902.1]
+title = "Issue #1902: Remove the misleading continuation note from disposition part 13"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181902.1"]
+capabilities = []
+interfaces = []
+do_1 = "Remove the trailing blank line and continuation comment at spec/layerx-merge/dispositions/d22-13.kvx:54 and spec/layerx-merge/dispositions/d22-13.kvx:55, restoring the file exactly to its contents before commit 8b236f857832e179bdfe516df75fbcf810c9f124; preserve all existing disposition blocks and leave the new closure list and d22-27.kvx unchanged."
+do_2 = "Check that spec/layerx-merge/dispositions/d22-13.kvx contains no continuation note and is byte-for-byte identical to the same path in the parent of commit 8b236f857832e179bdfe516df75fbcf810c9f124; the parser at spec/layerx-merge/programme/closure_check.py:22 reads disposition blocks rather than comment navigation, so this focused documentation check also preserves the complete disposition data."
+symbols = []
+touches = ["spec/layerx-merge/dispositions/d22-13.kvx"]
+tests = []
+planned_paths = []
+build_cmd = "true"
+verify_cmd = "! grep -Fq '# Continuation:' spec/layerx-merge/dispositions/d22-13.kvx && git show 8b236f857832e179bdfe516df75fbcf810c9f124^:spec/layerx-merge/dispositions/d22-13.kvx | cmp - spec/layerx-merge/dispositions/d22-13.kvx"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-programme"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181902]
+title = "Disposition part 13 retains its original records without a misleading continuation"
+ac_1 = "Given the continuation note at spec/layerx-merge/dispositions/d22-13.kvx:55 and the unchanged-file promise at spec/layerx-merge/spec.kvx:351042, when the correction is applied, then d22-13.kvx matches its contents before commit 8b236f857832e179bdfe516df75fbcf810c9f124 exactly, with all disposition records preserved and no continuation note directing readers past parts 14, 15 and 16."
+
+[acceptance.18.1902.1]
+feature = "18"
+req = "181902.1"
+scenario = "Given disposition part 13 and the closure task's new-file-only promise, when the focused documentation check runs, then the continuation note is absent and part 13 matches its pre-comment contents byte for byte."
+contract = "contracts/programme.md#programme-artifacts"
+test = "spec/layerx-merge/dispositions/d22-13.kvx::original-disposition-content (planned)"
+qualification = "UNRUN"
