@@ -201,7 +201,7 @@ pub(super) fn validate_public_call(
 }
 
 impl NativeProgramCallRequest {
-    /// Binds a native call and fee ceiling to a signed native activity or EIP-1559 transaction.
+    /// Binds a native call and fee ceiling to a signed EIP-1559 transaction.
     ///
     /// # Errors
     /// Refuses malformed transactions, other targets, and calldata that differs from the call.
@@ -212,6 +212,12 @@ impl NativeProgramCallRequest {
     ) -> Result<Self, ProgramOperationError> {
         if call.resources.0[0] == 0 {
             return Err(ProgramOperationError::Bounds);
+        }
+        if signed_transaction.is_empty() || signed_transaction.len() > MAX_SIGNED_ACTIVITY_BYTES {
+            return Err(ProgramOperationError::Bounds);
+        }
+        if signed_transaction[0] != 0x02 {
+            return Err(ProgramOperationError::Decode);
         }
         let transaction = signed_program_transaction(signed_transaction)?;
         if transaction.data != program_call_calldata(call, fee_limit)? {
