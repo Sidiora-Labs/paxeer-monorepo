@@ -167,6 +167,8 @@ func (server msgServer) EVMTransaction(goCtx context.Context, msg *types.MsgEVMT
 			return
 		}
 
+		serverRes.VmError = formatVMError(serverRes.VmError, stateDB.GetPrecompileError())
+
 		if domain, ok := ctx.Value(domainExecutionKey{}).(domainExecution); ok {
 			server.chainsBinding().RecordDomainTx(ctx, domain.id, ctx.BlockHeight(), tx.Hash(), serverRes.GasUsed)
 		}
