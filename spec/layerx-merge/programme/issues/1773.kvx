@@ -1,0 +1,50 @@
+[issue.1773]
+number = 1773
+title = "[Coherence] The new delta charge lets the execution observer hold far more than its 64 MiB bound, because every boundary still keeps a full copy of linear memory"
+revision = "a910fdedd579e63379ae6c2e4d4971990d28f8ad"
+verdict = "task"
+evidence = "The delta substitution introduced by commit 41f31ec2fc56cb9c9b2939d5b7013037f6c8f63d remains at programs/vendor/wasmi-0.31.2/src/store.rs:233 and :247, whereas src/engine/executor.rs:710 and :743 under the same crate capture complete linear memory and instance states retained by store.rs:291 and :1092 until programs/crates/layerx-programs-runtime/src/execute.rs:1483 or :1692, so the 64 MiB byte/work ceilings configured at execute.rs:1474 and :1659 undercount retained allocations before the post-call peak check at execute.rs:891."
+close_comment = "Trace and boundary-witness capture can retain full memory snapshots while charging only changed pages, allowing retained allocations to exceed the 64 MiB limit. The repair will enforce allocation and work bounds before retaining each full snapshot while preserving compact replay records and their existing limits."
+
+[task.18.1773.1]
+title = "Issue #1773: Bound full snapshots retained by the execution observer"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181773.1"]
+capabilities = []
+interfaces = []
+do_1 = "Add authorize_retained_execution_snapshot and independent full-snapshot allocation/work accounting to ExecutionObserver in programs/vendor/wasmi-0.31.2/src/execution_trace.rs:394 and its initialization in src/store.rs:1759; invoke admission from Store::refresh_execution_supplement at store.rs:2117 before retained_observation_charge at :214 allocates comparison instance states or substitutes deltas, using checked conservative bounds for both complete memory copies, vector backing allocations and instance members, and refuse before an allocation would exceed the configured byte or work limit even when a supplement reduces the delta charge."
+do_2 = "Cover ordinary snapshots at programs/vendor/wasmi-0.31.2/src/store.rs:267, replay snapshots at :1064 and terminal snapshots at :821 and :921 with the same allocation guard; count shared Arc backing allocations once, retain fail-closed observer errors, and keep memory growth and changed pages within the real retained bound without raising byte, work or snapshot limits."
+do_3 = "Add issue_1773_full_snapshot_bytes_are_bounded_before_capture and issue_1773_replay_and_terminal_snapshots_share_retention_bound to the real-engine tests at programs/vendor/wasmi-0.31.2/src/engine/mod.rs:1167; execute unchanged-memory, single-page-write and memory-growth guests with ordinary and replay observers, assert the retained_vec_bytes total of unique snapshots stays within the configured byte ceiling, assert allocation/work refusal occurs before another full capture rather than after the call or at the snapshot-count limit, and cover a successful below-limit call and terminal-return admission."
+do_4 = "Preserve decision 2679 delta-based replay accounting and canonical encodings: profiled replay already drains shared snapshots at programs/crates/layerx-programs-runtime/src/execute.rs:1331 and recreates a two-snapshot observer at :1888, unlike the accumulating trace and boundary-witness paths at :1656 and :1472; keep programs/crates/layerx-programs-runtime/tests/repair_22_31_573.rs:356 intact and ensure the full-allocation guard also admits a real two-boundary replay step below its limits without making aggregate virtual memory across compact leaves an allocation charge."
+symbols = ["authorize_retained_execution_snapshot", "issue_1773_full_snapshot_bytes_are_bounded_before_capture", "issue_1773_replay_and_terminal_snapshots_share_retention_bound"]
+touches = ["programs/vendor/wasmi-0.31.2/src/store.rs", "programs/vendor/wasmi-0.31.2/src/execution_trace.rs", "programs/vendor/wasmi-0.31.2/src/engine/mod.rs"]
+tests = ["programs/vendor/wasmi-0.31.2/src/engine/mod.rs::issue_1773_full_snapshot_bytes_are_bounded_before_capture", "programs/vendor/wasmi-0.31.2/src/engine/mod.rs::issue_1773_replay_and_terminal_snapshots_share_retention_bound"]
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path programs/Cargo.toml -p wasmi"
+verify_cmd = "cargo test --locked --manifest-path programs/Cargo.toml -p wasmi --lib issue_1773_"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-programs"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181773]
+title = "Execution observers bound the full allocations they retain"
+ac_1 = "Given ordinary or replay observers accumulating full snapshots through programs/vendor/wasmi-0.31.2/src/store.rs:267 and :1064, when unchanged memory, page writes, growth or terminal return would exceed their configured retained-byte or work ceiling, admission refuses before allocating the next full memory and instance snapshot, and unique retained backing allocations remain within the ceiling regardless of the delta accounting at store.rs:233."
+
+[acceptance.18.1773.1]
+feature = "18"
+req = "181773.1"
+scenario = "Given a real guest with large linear memory and ordinary or replay observation enabled, when successive boundaries retain full snapshots, then checked allocation and work admission refuses before the next snapshot exceeds the configured bound, while below-limit execution and bounded replay steps still succeed."
+contract = "contracts/programs.md#runtime-crate"
+test = "programs/vendor/wasmi-0.31.2/src/engine/mod.rs::issue_1773_full_snapshot_bytes_are_bounded_before_capture; programs/vendor/wasmi-0.31.2/src/engine/mod.rs::issue_1773_replay_and_terminal_snapshots_share_retention_bound (planned)"
+qualification = "UNRUN"
