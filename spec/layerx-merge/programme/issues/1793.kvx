@@ -1,0 +1,48 @@
+[issue.1793]
+number = 1793
+title = "[Coherence] tools/release/tests/workflows.test.sh still expects v6.12.0 and the old V6120Upgrade grep, so the release test suite fails"
+revision = "a910fdedd579e63379ae6c2e4d4971990d28f8ad"
+verdict = "task"
+evidence = "Commit 84e41c7e32f7707dac1f3ce246de4e381cabe6fb changed the release identity, now v7.0.0 / v7.0 at tools/release/version.json:2, and the declaring-line pipeline at .github/workflows/paxeer-release-check.yml:66, but tools/release/tests/workflows.test.sh:212 still requires v6.12.0, :214 tests the old publish tag, :278 cannot match the multiline pipeline, and :280 still requires v6.12.0 with the obsolete V6120Upgrade command at :284, while tools/release/tests/run-all.sh:22 retains the script."
+close_comment = "The release workflow regression checks still enforce the former v6.12.0 identity instead of v7.0.0 and the v7.0 upgrade plan. Task 18.1793.1 tracks updating the publish-tag and upgrade-declaration checks while preserving their rejection cases."
+
+[task.18.1793.1]
+title = "Issue #1793: Align release workflow regression checks with the v7.0.0 identity"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181793.1"]
+capabilities = []
+interfaces = []
+do_1 = "Update publish_tag_must_match_version at tools/release/tests/workflows.test.sh:202 to require v7.0.0, accept paxeer-network/v7.0.0 and reject both a mismatched namespaced version and an unnamespaced v7.0.0 with exact exit codes and diagnostics from the real publish step at .github/workflows/paxeer-release-publish.yml:34; replace identity_greps_v6120_constant at tools/release/tests/workflows.test.sh:276 with identity_greps_registered_upgrade_constant, require upgrade v7.0 and parse and execute the actual multiline declaring-line pipeline at .github/workflows/paxeer-release-check.yml:66 against node/upgrades.go:127 and precompiles/common/precompiles.go:29."
+do_2 = "Preserve upgrade-declaration rejection coverage at tools/release/tests/workflows.test.sh:297 by exercising the actual pipeline against source mutations that remove the allowed declaring lines while retaining comments, references and unrelated constants with the same value, and reject unregistered upgrade values; retain exact publish-tag status and output assertions at :233; extend the runner at :317 to accept explicit function-name selectors, reject unknown or empty selections and execute every requested function, with the existing no-argument invocation still running every check, so the two identity checks have a focused gate independent of the distinct compiler-action regression described by input/1871.md."
+symbols = ["publish_tag_must_match_version", "identity_greps_registered_upgrade_constant"]
+touches = ["tools/release/tests/workflows.test.sh"]
+tests = ["tools/release/tests/workflows.test.sh::publish_tag_must_match_version", "tools/release/tests/workflows.test.sh::identity_greps_registered_upgrade_constant"]
+planned_paths = []
+build_cmd = "bash -n tools/release/tests/workflows.test.sh"
+verify_cmd = "bash tools/release/tests/workflows.test.sh publish_tag_must_match_version identity_greps_registered_upgrade_constant"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181793]
+title = "Release workflow checks validate the current release tag and registered upgrade declaration"
+ac_1 = "Given the v7.0.0 / v7.0 identity at tools/release/version.json:2 and the real workflow steps at .github/workflows/paxeer-release-publish.yml:34 and .github/workflows/paxeer-release-check.yml:66, the two focused checks in tools/release/tests/workflows.test.sh:202 and :276 accept paxeer-network/v7.0.0 and the registered v7.0 declaration, reject mismatched or unnamespaced tags with exact diagnostics, and reject unregistered names or source text lacking an allowed declaring line even when comments, references or unrelated constants contain the same value."
+
+[acceptance.18.1793.1]
+feature = "18"
+req = "181793.1"
+scenario = "Given the current release identity and real release workflow commands, when the publish-tag and registered-upgrade regression checks run, then both pass for the valid tag and declaration and assert rejection of mismatched tags, unregistered upgrade names and source text without an allowed declaration."
+contract = "contracts/tools-ops.md#ci-workflows"
+test = "tools/release/tests/workflows.test.sh::publish_tag_must_match_version, tools/release/tests/workflows.test.sh::identity_greps_registered_upgrade_constant (planned)"
+qualification = "UNRUN"
