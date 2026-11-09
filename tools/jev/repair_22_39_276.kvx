@@ -1,0 +1,174 @@
+[repair.22.39.276]
+mode = "BUILD"
+requirement = "22998.1"
+base_revision = "d5a0c9940685169b25d2095344655f65d2ff6420"
+decisions = ["3101", "3104"]
+inventory_command = "python3 tools/paxeer-x/tests/retired_callers_test.py --path tools/jev --path tools/release --path tools/ci --path tools/workspace --path scripts/ci --path scripts/programs --path docs/build"
+inventory_exit = 1
+finding_count = 20
+inventory_log = "/out/logs/retired-callers-before.log"
+verified_revision_source = "The final passing build and verify rows of /out/run/gates.jsonl name the verified candidate revision, exact commands, exits and private logs; both rows must name the same revision. This repair record is finalized before the gates so it cannot introduce a revision mismatch."
+build_log = "/out/logs/build-1.log (or the last repair build log named by /out/run/gates.jsonl)."
+verify_log = "/out/logs/verify-1.log (or the last repair verify log named by /out/run/gates.jsonl)."
+qualification = "UNRUN at implementation time; only a passing hf-done on the built candidate establishes qualification. The final response copies its exact revision, command, exit and private log."
+
+[finding.1]
+path = "docs/build/build_wiki.py"
+line = 32
+component = "layerxctl-port"
+symbol = "LNI"
+repair = "Replace the retired transport navigation entry with Public JSON-RPC / PublicRpc.md, the existing chain-125 node-root reference."
+
+[finding.2]
+path = "docs/build/build_wiki.py"
+line = 32
+component = "lni"
+symbol = "LNI"
+repair = "Use the existing PublicRpc.md replacement page rather than rename or alias the retired transport."
+
+[finding.3]
+path = "scripts/ci/audit_object_checks.py"
+line = 13
+component = "oracle-web-roots"
+symbol = "lx_oracle_adapter"
+repair = "Remove the exclusion for the deleted source; a reintroduced C source must now be built and inspected."
+
+[finding.4]
+path = "scripts/ci/audit_object_checks.py"
+line = 14
+component = "oracle-web-roots"
+symbol = "lx_oracle_root"
+repair = "Remove the exclusion for the deleted source; retain exact source/object inventory equality."
+
+[finding.5]
+path = "scripts/ci/audit_object_checks.py"
+line = 15
+component = "da"
+symbol = "lxp_da_"
+repair = "Remove the exclusion for the deleted challenge-record source; block data is the availability record."
+
+[finding.6]
+path = "scripts/ci/audit_object_checks.py"
+line = 16
+component = "da"
+symbol = "lxp_da_"
+repair = "Remove the exclusion for the deleted challenge source; retain the live projection-source exclusion."
+
+[finding.7]
+path = "scripts/programs/dependency-policy.sh"
+line = 136
+component = "protocol-adapter"
+symbol = "layerx-programs-protocol-adapter"
+repair = "Remove the rg unsafe exemption for the deleted crate; retain only the two live FFI exemptions."
+
+[finding.8]
+path = "scripts/programs/dependency-policy.sh"
+line = 136
+component = "protocol-adapter"
+symbol = "protocol-adapter"
+repair = "Remove the same deleted-crate glob without adding another unsafe exemption."
+
+[finding.9]
+path = "scripts/programs/dependency-policy.sh"
+line = 143
+component = "protocol-adapter"
+symbol = "layerx-programs-protocol-adapter"
+repair = "Remove the grep fallback unsafe exemption for the deleted crate, matching the rg branch."
+
+[finding.10]
+path = "scripts/programs/dependency-policy.sh"
+line = 143
+component = "protocol-adapter"
+symbol = "protocol-adapter"
+repair = "Remove the same deleted-crate regex alternative; unsafe code in any reintroduced crate is checked."
+
+[finding.11]
+path = "tools/ci/consensus_commit_gate.py"
+line = 14
+component = "custody-deposit"
+symbol = "layerxcustody"
+repair = "Replace the obsolete module-specific deposit inventory with a rule for every modules/<module>/keeper/ and types/ path; preserve coverage of live retirement and balance-release code and extend explicit coverage to bank 0x1001 and the SDK bank keeper/types."
+
+[finding.12]
+path = "tools/ci/consensus_commit_gate.py"
+line = 15
+component = "custody-deposit"
+symbol = "layerxcustody"
+repair = "Cover all module types through the same consensus rule, retaining test-file exclusion, exact directory boundaries, merge-history inspection and ledger approval checks."
+
+[finding.13]
+path = "tools/jev/checks/fixtures/repair_22_33_704/agent-advisories.jsonl"
+line = 1
+component = "paxeer-verifier"
+symbol = "layerx-paxeer-verifier"
+repair = "Regenerate the historical capture from the committed source transcript, pruning the deleted verifier branch from the duplicate dependency graph."
+
+[finding.14]
+path = "tools/jev/checks/fixtures/repair_22_33_704/agent-advisories.jsonl"
+line = 2
+component = "paxeer-verifier"
+symbol = "layerx-paxeer-verifier"
+repair = "Regenerate the unmaintained advisory graph without the deleted verifier branch; retain the advisory and every live branch."
+
+[finding.15]
+path = "tools/jev/checks/fixtures/repair_22_33_704/agent-advisories.jsonl"
+line = 2
+component = "protocol-adapter"
+symbol = "layerx-programs-protocol-adapter"
+repair = "Regenerate the unmaintained advisory graph without the deleted adapter branch; no replacement crate is invented."
+
+[finding.16]
+path = "tools/jev/checks/fixtures/repair_22_33_704/agent-advisories.jsonl"
+line = 2
+component = "protocol-adapter"
+symbol = "protocol-adapter"
+repair = "Prune the same dead adapter branch structurally, without renaming its package."
+
+[finding.17]
+path = "tools/jev/checks/fixtures/repair_22_33_704/agent-advisories.jsonl"
+line = 3
+component = "paxeer-verifier"
+symbol = "layerx-paxeer-verifier"
+repair = "Regenerate the vulnerability graph without the deleted verifier branch; retain the vulnerability diagnostic."
+
+[finding.18]
+path = "tools/jev/checks/fixtures/repair_22_33_704/interop-advisories.jsonl"
+line = 2
+component = "paxeer-verifier"
+symbol = "layerx-paxeer-verifier"
+repair = "Regenerate the historical interop unmaintained graph without the deleted verifier branch."
+
+[finding.19]
+path = "tools/jev/checks/fixtures/repair_22_33_704/interop-advisories.jsonl"
+line = 3
+component = "paxeer-verifier"
+symbol = "layerx-paxeer-verifier"
+repair = "Regenerate the historical interop vulnerability graph without the deleted verifier branch; retain all diagnostic identities and completion counts."
+
+[finding.20]
+path = "tools/workspace/platform-dependency-roots.txt"
+line = 38
+component = "storage-keeper"
+symbol = "paxai-storage-keeper"
+repair = "Remove the manifest inventory row for the deleted standalone keeper; no replacement reservation service is required and historical availability comes from archive nodes."
+
+[programme]
+observation = "The merged-main inventory scan reports no finding in tools/release/rehearsal/programme.py; px_getNetwork is a retained node-root method under decision 3104, not a retired join."
+change = "Keep the required retirement-refusal check intact and require the public JSON-RPC root to answer eth_chainId 0x7d before accepting its px_getNetwork identity; the EVM endpoint, root endpoint and advertised network must all identify chain 125."
+
+[consensus_inventory]
+scope_resolution = "The catalogue is outside the explicit nine-file scope. No allowance is added, no live consensus path is dropped, and no package is renamed: replace the module-specific deposit list with a general keeper/types rule covering the native constructs and live retirement lifecycle. Add the actual bank implementation paths named by the funding replacement. Existing ledger decisions for covered paths remain mandatory."
+
+[fixture_regeneration]
+source_revision = "d5a0c9940685169b25d2095344655f65d2ff6420"
+source = "Original committed cargo-deny JSONL transcripts at the same fixture paths in source_revision; the deterministic regeneration below prunes only branches whose retired crate trees are absent. Advisory IDs, descriptions, versions, labels, diagnostic order and completion summaries are preserved. These remain historical parser inputs, not a fresh scan or current vulnerability evidence."
+command = "python3 -c 'import pathlib,tomllib; exec(tomllib.loads(pathlib.Path(\"tools/jev/repair_22_39_276.kvx\").read_text())[\"fixture_regeneration\"][\"python_source\"])'"
+python_source = "import json\nfrom pathlib import Path\nimport subprocess\n\nROOT = Path.cwd()\nSOURCE_REVISION = \"d5a0c9940685169b25d2095344655f65d2ff6420\"\nREMOVED_CRATES = {\n    \"layerx-paxeer-verifier\": \"services/agent/crates/layerx-paxeer-verifier\",\n    \"layerx-programs-protocol-adapter\": \"programs/crates/layerx-programs-protocol-adapter\",\n}\nfor tree in REMOVED_CRATES.values():\n    if (ROOT / tree).exists():\n        raise ValueError(\"cannot prune a crate that still exists: \" + tree)\n\ndef retained_node(node):\n    if node[\"Krate\"][\"name\"] in REMOVED_CRATES:\n        return None\n    result = dict(node)\n    if \"parents\" in node:\n        parents = [retained_node(parent) for parent in node[\"parents\"]]\n        result[\"parents\"] = [parent for parent in parents if parent is not None]\n        if not result[\"parents\"]:\n            del result[\"parents\"]\n    return result\n\nfor workspace in (\"agent\", \"interop\"):\n    path = ROOT / \"tools/jev/checks/fixtures/repair_22_33_704\" / (workspace + \"-advisories.jsonl\")\n    original = subprocess.run(\n        [\"git\", \"show\", SOURCE_REVISION + \":\" + path.relative_to(ROOT).as_posix()],\n        check=True, capture_output=True, text=True,\n    ).stdout\n    output = []\n    for line in original.splitlines():\n        document = json.loads(line)\n        fields = document[\"fields\"]\n        if \"graphs\" in fields:\n            graphs = [retained_node(node) for node in fields[\"graphs\"]]\n            fields[\"graphs\"] = [node for node in graphs if node is not None]\n        output.append(json.dumps(document, sort_keys=True, separators=(\",\", \":\")))\n    path.write_text(\"\\n\".join(output) + \"\\n\", encoding=\"utf-8\")\n"
+
+[gotcha.scope]
+observed = "Runner setup changed graph ignore rules, workflow pointers and spec statuses before this task; the task forbids editing GOTCHA.kvx, spec files and the retired-caller catalogue or publishing commits directly."
+action = "Preserve setup changes, record task-local findings here, and leave qualification status and publication to hf-done and the runner."
+
+[gotcha.fixture_history]
+observed = "The captured dependency graphs predate deletion of two crates and contain historical rustls versions; recapturing current cargo-deny output would change the vulnerability scenarios asserted by their consumers."
+action = "Regenerate from the committed transcript source using the recorded structural transformation; keep all diagnostics and expectations without claiming the captures describe the current resolved dependency graph."

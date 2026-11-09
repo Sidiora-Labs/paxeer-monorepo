@@ -11848,6 +11848,12 @@ value = "The verification of 22.39.245 drops modules/layerxanchor, modules/layer
 basis = "Gotcha 3976 and decision 3105"
 affects = ["22.39.245", "22.39.284", "22.39.285", "22.39.286", "17.2.8"]
 
+[decision.3123]
+title = "A consumer test a schema regeneration broke gets a repair task asserting the regenerated names, and the qualification environment provisions the .NET SDK channel the project files target"
+value = "The JVM catalogue programs test follows the regenerated NativePrepareResultV1 and PrepareResponse records through task 22.39.287 and the wave 6 gate requires it; the qualification environment installs the .NET SDK channel that sdk/platform/dotnet/LayerX.Sdk.csproj targets before the platform sample installation, so platform-sample-dependencies-ready can be met on a tree that compiles"
+basis = "Gotchas 3979 to 3981: the aggregate gate failed on a consumer test the regeneration of task 22.39.237 left behind and on an SDK channel the environment lacked"
+affects = ["22.39.287", "17.5.7"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -41508,6 +41514,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.287]
+title = "Align the JVM catalogue programs test with the regenerated native preparation records"
+reqs = ["22998.1"]
+touches = ["sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk/GeneratedCatalogueProgramsTest.java", "sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk/Repair22331391Test.java"]
+tests = ["sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk/GeneratedCatalogueProgramsTest.java"]
+verification_contract = "test -s sdk/platform/jvm/repair_22_39_287.kvx && mvn -q -f sdk/platform/jvm/pom.xml test -Dtest=GeneratedCatalogueProgramsTest+Repair22331391Test -Dsurefire.failIfNoSpecifiedTests=false"
+do_1 = "do_1 Decision 3123 and gotcha 3980. The regeneration dd11131421 (task 22.39.237) replaced the transaction-shaped native preparation of the JVM schema: NativePrepareResultV1 now carries version, preparation_id, canonical_bytes, signing_preimage and approval_id, and PrepareResponse carries preparation_ref, unsigned_canonical_bytes, signing_preimage, disclosure and expiry (sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java:553 and :2943, generated from the daemon wire at services/agent/crates/layerx-agentd/src/agent_rpc_wire.rs:1135). Rewrite nativePrepareReturnsEip1559Transaction at sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk/GeneratedCatalogueProgramsTest.java:140 to :193 as nativePrepareCarriesThePreparationRecord asserting the regenerated shape: the record components equal the producer names above and still exclude activity and moduleId, PREPARE.responseType() and the preparation component of McpNativeWriteV1 stay bound to those records, a value built from the producer field names round-trips through Jackson, each required field missing is refused, and a kernel activity object is refused; update the method reference at Repair22331391Test.java:29 to the new name; do not reintroduce the transaction fields and change no generated source."
+symbols = []
 
 [capability.22.39.286]
 title = "Repair the retired references of the exchange module"
@@ -160581,7 +160596,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.281]
 title = "Darken the light muted explorer label to meet the 3:1 contrast of the design brief"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -192087,7 +192102,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.283]
 title = "Regenerate the stale lockfile of the agent workspace"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -192174,7 +192189,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.267]
 title = "Repair the retired references of the interop service, its deployment and scripts"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.39.245"]
@@ -279524,6 +279539,35 @@ do_7 = "Attempts 1 to 4 fail compiling sdk/platform/jvm/src/main/java/com/sidior
 do_8 = "Delete the two tests of sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk/ProgramsContractTest.java that construct LocalVerifier.AuthorizedReceiptBatch: actualKernelExecutionReceiptsKeepPinnedAuthorityAndAttachmentBindings (:437-466, reads the kernel receipt-programs-executed-v3/v4 vectors tasks 8.47.5 and 8.47.6 retire) and nativeTerminalV5CorpusBindsSignedRequestsReceiptsAndEveryOutcome (:468-534, calls the deleted verifyProgramTerminalV5Receipt and verifyReceiptOutcome). Leave every other test and helper, including the /v1/programs route tests task 8.42.6 retires."
 do_9 = "Delete the test signedSharedVectors at sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk/TerminalV4Test.java:28-62 (it constructs LocalVerifier.AuthorizedReceiptBatch and calls the deleted LocalVerifier.verifyReceipt); keep nativeAccountAuthorizationVectors (:19-26) and drop imports that become unused. Task 8.47.6 still deletes the whole file later. The clients.md anchors of do_1 to do_3 now sit at spec/layerx-merge/contracts/clients.md:60 and :121."
 
+[task.22.39.287]
+title = "Align the JVM catalogue programs test with the regenerated native preparation records"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.287"]
+interfaces = []
+do_1 = "do_1 Decision 3123 and gotcha 3980. The regeneration dd11131421 (task 22.39.237) replaced the transaction-shaped native preparation of the JVM schema: NativePrepareResultV1 now carries version, preparation_id, canonical_bytes, signing_preimage and approval_id, and PrepareResponse carries preparation_ref, unsigned_canonical_bytes, signing_preimage, disclosure and expiry (sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java:553 and :2943, generated from the daemon wire at services/agent/crates/layerx-agentd/src/agent_rpc_wire.rs:1135). Rewrite nativePrepareReturnsEip1559Transaction at sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk/GeneratedCatalogueProgramsTest.java:140 to :193 as nativePrepareCarriesThePreparationRecord asserting the regenerated shape: the record components equal the producer names above and still exclude activity and moduleId, PREPARE.responseType() and the preparation component of McpNativeWriteV1 stay bound to those records, a value built from the producer field names round-trips through Jackson, each required field missing is refused, and a kernel activity object is refused; update the method reference at Repair22331391Test.java:29 to the new name; do not reintroduce the transaction fields and change no generated source."
+do_2 = "do_2 Record the former and the regenerated shapes in sdk/platform/jvm/repair_22_39_287.kvx. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk/GeneratedCatalogueProgramsTest.java", "sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk/Repair22331391Test.java"]
+tests = ["sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk/GeneratedCatalogueProgramsTest.java"]
+planned_paths = ["sdk/platform/jvm/repair_22_39_287.kvx"]
+build_cmd = "mvn -q -f sdk/platform/jvm/pom.xml -DskipTests test-compile"
+verify_cmd = "test -s sdk/platform/jvm/repair_22_39_287.kvx && mvn -q -f sdk/platform/jvm/pom.xml test -Dtest=GeneratedCatalogueProgramsTest+Repair22331391Test -Dsurefire.failIfNoSpecifiedTests=false"
+gate_kind = "planned"
+sandbox_profile = "jvm"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 60
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.33.1393]
 title = "Repair audit record 22.30.77 medium findings in sdk/platform/jvm/src/conformance/java/com/sidiora/layerx/sdk (part 1 of 1): test-gap"
 status = "done"
@@ -304074,7 +304118,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.285]
 title = "Repair the retired references of the anchor module"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.39.245"]
@@ -304104,7 +304148,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.282]
 title = "Admit and export programs-module rows in the lxphost store genesis"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -330655,7 +330699,7 @@ title = "Run the wave 6 aggregate gate once on the merged wave revision"
 status = "pending"
 mode = "BUILD"
 wave = 48
-requires = ["17.5.8", "17.8.6", "17.7.5", "17.2.6", "17.4.5", "1.0.4", "2.0.4", "3.0.4", "4.0.4", "5.0.4", "6.0.4", "7.0.4", "8.0.4", "9.0.4", "10.0.4", "11.0.4", "12.0.4", "13.0.4", "14.0.4", "15.0.4", "16.0.4", "16.1.7", "18.1121.1", "14.0.5", "22.39.239", "22.39.243"]
+requires = ["17.5.8", "17.8.6", "17.7.5", "17.2.6", "17.4.5", "1.0.4", "2.0.4", "3.0.4", "4.0.4", "5.0.4", "6.0.4", "7.0.4", "8.0.4", "9.0.4", "10.0.4", "11.0.4", "12.0.4", "13.0.4", "14.0.4", "15.0.4", "16.0.4", "16.1.7", "18.1121.1", "14.0.5", "22.39.239", "22.39.243", "22.39.287"]
 reqs = ["17060.1"]
 capabilities = ["17.5.7"]
 interfaces = []
@@ -330686,6 +330730,7 @@ do_6 = "Attempt 4 (continue, gotcha 3816, decision 2908): the attempt-3 tree 534
 do_7 = "Attempt 5 (continue, gotcha 3865, decision 3072): the attempt-4 tree 00454c9755425a stands (the install step before the gate, the lint repair of the first cycle). In the root Makefile extend human-js-install so it installs sdk/wallet with the package manager of its lock file (pnpm with the frozen lock in sdk/wallet) before apps/web, so the source-path import of sdk/wallet/src/index.ts resolves @supabase/supabase-js in the human build; the Makefile is in the touches from this round. Record the import trace (exchange-client.tsx, api/wallet.ts) in the task record. Run the build once and the verification once at the final revision and record both by reference; if the gate fails at another aggregate command, repair it within the one allowed cycle and rerun once."
 do_8 = "Attempt 6 (continue, gotcha 3887, decision 3090): the attempt-5 tree 4ccfcd4a7f30 stands. The task now requires 22.39.239, which regenerates the JVM schema and contract; wait for it to be done, rebase on main and rerun the wave-6 gate unchanged. Change nothing for the JVM schema inside this task; if the gate fails on a later step, record that step by file, line and command."
 do_9 = "Attempt 7 (requalify, gotcha 3927): the attempt-6 tree 9b215c97f3d5 stands unchanged. The task now requires 22.39.243, which restores the release gate records on the called workflows and makes the registry checker follow uses jobs, so make platform-build passes the registry check on main. Rebase on main after 22.39.243 lands and run the build once and the verification once at the final revision."
+do_10 = "Attempt 8 (continue, gotchas 3979 to 3981, decision 3123): the attempt-7 tree 631acc08d200 stands unchanged. The task now requires 22.39.287, which restores the JVM SDK test compile so the local JVM artifacts of the platform samples install, and the qualification environment provisions the .NET SDK channel the project files target before the platform sample installation. Rebase on main after 22.39.287 lands and run the build once and the verification once at the final revision."
 
 [task.17.5.8]
 title = "Write the wave gate manifest over the domain-16 wave scripts"
@@ -349459,7 +349504,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.276]
 title = "Repair the retired references of the release, ci, workspace and programme scripts and fixtures"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.39.245"]
@@ -349609,7 +349654,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.245]
 title = "Scope the retired-caller catalogue to live code and make the scan runnable per package"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
