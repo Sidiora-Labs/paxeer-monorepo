@@ -3,10 +3,8 @@
 import argparse
 import importlib.util
 import shutil
-import json
 import os
 from pathlib import Path
-import subprocess
 import sys
 
 ROOT = Path(__file__).resolve().parents[4]
@@ -241,21 +239,16 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--component', action='store_true', help='Use the owned source service and component object backend')
     args = parser.parse_args()
+    if os.environ.get('HYPERFIDE_SOURCE_CONTROL_TEST_PROFILE'):
+        raise RuntimeError('CAPABILITY_MISSING: unset HYPERFIDE_SOURCE_CONTROL_TEST_PROFILE and use the owned native_source_sparse_fixture.mjs fixture through this launcher; explicit profiles lack the required IPC revocation control channel')
     node = shutil.which(os.environ.get('HYPERFIDE_NODE_BINARY') or 'node')
     if not node:
         raise RuntimeError('CAPABILITY_MISSING: set HYPERFIDE_NODE_BINARY to an executable Node binary or install node on PATH')
-    profile_path = os.environ.get('HYPERFIDE_SOURCE_CONTROL_TEST_PROFILE')
-    if not profile_path:
-        spec = importlib.util.spec_from_file_location('native_source_fixture', ROOT / 'tests/hyperfide/support/native_source_fixture.py')
-        fixture = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(fixture)
-        return fixture.run_source_actor(ROOT / 'tests/hyperfide/support/native_source_sparse_fixture.mjs', timeout=360,
-                                        actor_env={'SOURCE_CONTROL_WORKSPACE_PROGRAM': PROGRAM, 'SOURCE_CONTROL_SPARSE_OWNED': '1'})
-    options = {'profile_path': str(Path(profile_path).resolve())}
-    result = subprocess.run([node, '--conditions=source', '--import', 'tsx', '--input-type=module', '-e', PROGRAM, str(ROOT), json.dumps(options)], cwd=ROOT, text=True, capture_output=True, timeout=240)
-    sys.stdout.write(result.stdout)
-    sys.stderr.write(result.stderr)
-    return result.returncode
+    spec = importlib.util.spec_from_file_location('native_source_fixture', ROOT / 'tests/hyperfide/support/native_source_fixture.py')
+    fixture = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(fixture)
+    return fixture.run_source_actor(ROOT / 'tests/hyperfide/support/native_source_sparse_fixture.mjs', timeout=360,
+                                    actor_env={'SOURCE_CONTROL_WORKSPACE_PROGRAM': PROGRAM, 'SOURCE_CONTROL_SPARSE_OWNED': '1'})
 
 if __name__ == '__main__':
     sys.exit(main())
