@@ -1,13 +1,13 @@
 //! Repair record 22.33.1523, audit 22.30.92, acceptance 22998.1.
 //!
 //! Finding -> proving test:
-//! - wire_hash_tests -> wire_hash_tests_native_identity_and_scope
-//! - wire_rejection_tests -> wire_rejection_tests_native_mutations_and_disclosures
-//! - wire_structure_tests -> wire_structure_tests_native_round_trips
-//! - wallet_vector_tests -> wallet_vector_tests_signed_calls_reach_node_consumer
+//! - `wire_hash_tests` -> `wire_hash_tests_native_identity_and_scope`
+//! - `wire_rejection_tests` -> `wire_rejection_tests_native_mutations_and_disclosures`
+//! - `wire_structure_tests` -> `wire_structure_tests_native_round_trips`
+//! - `wallet_vector_tests` -> `wallet_vector_tests_signed_calls_reach_node_consumer`
 //!
 //! Baseline: no gate ran before implementation. The ordered implementation-first,
-//! hf-done-only instruction supersedes do_8; this target did not exist at start.
+//! hf-done-only instruction supersedes `do_8`; this target did not exist at start.
 //! No pre-change test failure is claimed. Qualification revision, command, exit
 //! and private evidence are recorded by the runner in /out/run/gates.jsonl.
 //!
@@ -17,8 +17,8 @@
 //! dev-dependency supplies the real node JSON-RPC client. No out-of-path wiring
 //! remains; the workspace lockfile is refreshed with those dependencies.
 //!
-//! Historical kernel wallet vectors remain in wallet_vectors.rs under the
-//! historical_compatibility module. They establish archive codec compatibility,
+//! Historical kernel wallet vectors remain in `wallet_vectors.rs` under the
+//! `historical_compatibility` module. They establish archive codec compatibility,
 //! never present-day signing authority or chain finality. The loopback peer below
 //! is a committed transport fixture; transaction and disclosure handling use
 //! production code. It does not simulate consensus or claim committed execution.
@@ -64,7 +64,18 @@ fn must<T, E: Debug>(value: Result<T, E>) -> T {
     value.unwrap_or_else(|error| panic!("production path refused fixture: {error:?}"))
 }
 
+fn refused<T: Debug, E>(value: Result<T, E>) -> E {
+    match value {
+        Err(error) => error,
+        Ok(value) => panic!("unexpected acceptance: {value:?}"),
+    }
+}
+
 /// Reads committed text fixtures directly; no generated replay corpus or toolchain.
+///
+/// # Panics
+/// Panics if a committed vector has an invalid field count, hex value, or result code.
+#[must_use]
 pub fn codec_vectors(text: &str) -> Vec<CodecVector> {
     text.lines()
         .filter(|line| !line.trim().is_empty() && !line.starts_with('#'))
@@ -109,7 +120,9 @@ fn wire_rejection_tests_primitive_taxonomy_and_bounds() {
             })(),
             kind => panic!("unhandled committed vector: {kind}"),
         };
-        let error = result.unwrap_err();
+        let Err(error) = result else {
+            panic!("adversarial vector accepted: {}", vector.name);
+        };
         assert_eq!(error.result, vector.expected_result, "{}", vector.name);
         codes.insert(error.result.raw());
     }
@@ -127,7 +140,7 @@ fn wire_rejection_tests_primitive_taxonomy_and_bounds() {
         let over = must(u32::try_from(maximum + 1)).to_be_bytes();
         let mut decoder = Decoder::new(&over, maximum);
         assert_eq!(
-            decoder.bytes_owned(maximum).unwrap_err().result,
+            refused(decoder.bytes_owned(maximum)).result,
             KnownResult::LengthLimit.into()
         );
         assert_eq!(decoder.allocated(), 0);
@@ -166,6 +179,7 @@ fn word(value: u128) -> [u8; 32] {
     word
 }
 
+#[must_use]
 pub fn native_call() -> Eip1559Call {
     Eip1559Call {
         chain_id: 125,
@@ -180,6 +194,7 @@ pub fn native_call() -> Eip1559Call {
 
 /// Five current examples produced by native constructors, with real signatures
 /// applied by the caller. ABI argument words for budgetFund are fixture input.
+#[must_use]
 pub fn native_vectors() -> Vec<(&'static str, Eip1559Call)> {
     let native = native_call();
     let signer = LocalSigner::new([7; 32]);
@@ -264,6 +279,8 @@ pub fn native_vectors() -> Vec<(&'static str, Eip1559Call)> {
     ]
 }
 
+/// # Panics
+/// Panics if signing, sender recovery, transaction identity, or hash-scope assertions fail.
 #[test]
 pub fn wire_hash_tests_native_identity_and_scope() {
     let call = native_call();
@@ -336,6 +353,8 @@ fn relist(fields: &[u8]) -> Vec<u8> {
     raw
 }
 
+/// # Panics
+/// Panics if malformed transactions or disclosures are accepted, bounds change, or typed rejection assertions fail.
 #[test]
 pub fn wire_rejection_tests_native_mutations_and_disclosures() {
     let call = Eip1559Call {
@@ -413,6 +432,11 @@ pub fn wire_rejection_tests_native_mutations_and_disclosures() {
     }
     assert_eq!(assemble(&call, &signature), raw);
 
+    native_unsigned_custody_bound();
+    native_disclosure_mutations();
+}
+
+fn native_unsigned_custody_bound() {
     // Exercise the production decoder's exact unsigned custody limit, including
     // framing overhead; a one-byte larger input must retain its typed refusal.
     let maximum = 1_048_576;
@@ -430,7 +454,9 @@ pub fn wire_rejection_tests_native_mutations_and_disclosures() {
         decode_unsigned(&over),
         Err(EvmTransactionError::UnsupportedField)
     );
+}
 
+fn native_disclosure_mutations() {
     for (_, call) in native_vectors() {
         let original = must(bind_call(&call, SENDER));
         assert_eq!(validate_call(&call, &original, SENDER), Ok(()));
@@ -471,6 +497,8 @@ pub fn wire_rejection_tests_native_mutations_and_disclosures() {
     }
 }
 
+/// # Panics
+/// Panics if native calls, disclosures, or committed receipts fail decoding or round-trip assertions.
 #[test]
 pub fn wire_structure_tests_native_round_trips() {
     for (name, call) in native_vectors() {
@@ -498,11 +526,9 @@ pub fn wire_structure_tests_native_round_trips() {
                 assert_eq!(denom, "uhpx");
                 assert_eq!(amount, word(50));
             }
-            ("token-send", Some(ConstructMethod::LedgerSend { payload })) => {
-                assert!(!payload.is_empty())
-            }
-            ("approval", Some(ConstructMethod::AuthLifecycle { payload, .. })) => {
-                assert!(!payload.is_empty())
+            ("token-send", Some(ConstructMethod::LedgerSend { payload }))
+            | ("approval", Some(ConstructMethod::AuthLifecycle { payload, .. })) => {
+                assert!(!payload.is_empty());
             }
             ("budget-change", Some(ConstructMethod::PayBudgetFund { budget, amount })) => {
                 assert_eq!(budget, [5; 32]);
@@ -669,14 +695,18 @@ fn request(stream: &mut TcpStream) -> json::JsonValue {
         .lines()
         .filter_map(|line| line.split_once(':'))
         .find(|(key, _)| key.eq_ignore_ascii_case("content-length"))
-        .map(|(_, length)| must(length.trim().parse::<usize>()))
-        .unwrap_or_else(|| panic!("missing HTTP length"));
+        .map_or_else(
+            || panic!("missing HTTP length"),
+            |(_, length)| must(length.trim().parse::<usize>()),
+        );
     assert!(length <= 1_048_576);
     let mut body = vec![0; length];
     must(stream.read_exact(&mut body));
     must(json::parse(must(std::str::from_utf8(&body))))
 }
 
+/// # Panics
+/// Panics if signing or loopback transport fails, a deadline expires, or consumer and transaction assertions fail.
 #[test]
 pub fn wallet_vector_tests_signed_calls_reach_node_consumer() {
     let vectors = native_vectors();
