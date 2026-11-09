@@ -1,0 +1,49 @@
+[issue.1688]
+number = 1688
+title = "[Coherence] An invalid RPC override now throws while rpc.ts loads, so the new RpcConfigurationError never reaches backendConfigurationProblems or the configuration error page"
+revision = "bb8caac8b3e73e3e2f4b330805574f0bcb540641"
+verdict = "task"
+evidence = "apps/launchpad/web/src/core/rpc.ts:54 eagerly calls the rejecting resolver at rpc.ts:39 through rpc.ts:47, so the import at apps/launchpad/web/src/core/backend-origins.ts:23 throws before its catch at backend-origins.ts:157 can supply the configuration error branch at apps/launchpad/web/src/app/layout.tsx:38, while apps/launchpad/web/src/core/repair-22-33-900.test.ts:9 imports the resolver before invalid overrides are set at repair-22-33-900.test.ts:426."
+close_comment = "Invalid RPC overrides still abort startup before the configuration error page can explain the problem. The repair task defers RPC-dependent initialization and adds regression coverage with invalid overrides present before the first import, while retaining strict endpoint validation."
+
+[task.18.1688.1]
+title = "Issue #1688: Report invalid RPC overrides before initializing wallet transports"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181688.1"]
+capabilities = []
+interfaces = []
+do_1 = "Replace eager primary RPC selection at apps/launchpad/web/src/core/rpc.ts:54 with deferred resolution and migrate its imports and re-export in apps/launchpad/web/src/core/wagmi-config.ts:4, deferring RPC-dependent chain, transport and embedded-wallet initialization at wagmi-config.ts:13, wagmi-config.ts:37, wagmi-config.ts:47 and wagmi-config.ts:65 until a validated configuration is consumed; also defer the shared resolver call at apps/launchpad/web/src/core/wallet-sdk/client.ts:11 so importing the layout's wallet dependencies cannot bypass configuration diagnostics."
+do_2 = "Add a declared async test function rpcColdImportReportsInvalidOverrides in apps/launchpad/web/src/core/rpc-configuration.test.tsx and register it with test(rpcColdImportReportsInvalidOverrides); for each RPC override and invalid value, including empty, malformed and path-bearing URLs, set the environment before clearing the module cache and importing the real RPC, backend-origin, wagmi and wallet-client modules, assert imports succeed, assert backendConfigurationProblems returns the matching BackendOriginError and origins are null, and render the real BackendConfigurationError with those problems to assert its alert state without initializing transports or contacting an endpoint."
+do_3 = "Add and register a declared async test function rpcColdImportPreservesValidatedSelection in the same test file to prove unset overrides retain the existing default, valid overrides retain precedence and deduplication across the resolver and both wallet chain definitions, and explicit invalid resolver or transport use still raises RpcConfigurationError without selecting a fallback; preserve the rejection rules at apps/launchpad/web/src/core/rpc.ts:16 and the diagnostic conversion at apps/launchpad/web/src/core/backend-origins.ts:157, leaving the distinct request-time CSP defect described by issue #1689 to its own repair."
+symbols = ["getPaxeerRpcUrls", "createWagmiConfig", "paxeerWalletChain", "rpcColdImportReportsInvalidOverrides", "rpcColdImportPreservesValidatedSelection"]
+touches = ["apps/launchpad/web/src/core/rpc.ts", "apps/launchpad/web/src/core/wagmi-config.ts", "apps/launchpad/web/src/core/wallet-sdk/client.ts", "apps/launchpad/web/src/core/rpc-configuration.test.tsx"]
+tests = ["apps/launchpad/web/src/core/rpc-configuration.test.tsx::rpcColdImportReportsInvalidOverrides", "apps/launchpad/web/src/core/rpc-configuration.test.tsx::rpcColdImportPreservesValidatedSelection"]
+planned_paths = []
+build_cmd = "pnpm --dir apps/launchpad/web exec tsc --noEmit"
+verify_cmd = "pnpm --dir apps/launchpad/web exec vitest run src/core/rpc-configuration.test.tsx -t '^(rpcColdImportReportsInvalidOverrides|rpcColdImportPreservesValidatedSelection)$'"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181688]
+title = "Invalid RPC overrides remain visible as configuration problems during startup"
+ac_1 = "Given an invalid value in any RPC override before the first module import, importing RPC and wallet configuration succeeds and the existing backendConfigurationProblems conversion at apps/launchpad/web/src/core/backend-origins.ts:157 returns the matching BackendOriginError with null origins, permitting the configuration error state at apps/launchpad/web/src/app/layout.tsx:38 to render without initializing a wallet transport; valid and unset overrides preserve the selection policy at apps/launchpad/web/src/core/rpc.ts:39 and explicit use of invalid RPC configuration still fails."
+
+[acceptance.18.1688.1]
+feature = "18"
+req = "181688.1"
+scenario = "Given an invalid RPC override present before modules load, when the configuration modules are imported and backend configuration is inspected, then the override is reported as a BackendOriginError and the configuration error alert renders without a transport being initialized or an RPC fallback hiding the error."
+contract = "contracts/launchpad.md#scope-and-reading-guide"
+test = "apps/launchpad/web/src/core/rpc-configuration.test.tsx::rpcColdImportReportsInvalidOverrides (planned)"
+qualification = "UNRUN"

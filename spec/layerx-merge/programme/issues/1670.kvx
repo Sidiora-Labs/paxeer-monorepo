@@ -1,0 +1,48 @@
+[issue.1670]
+number = 1670
+title = "[Coherence] The existing EmptyBlocksSanitizer tests still send block numbers and hashes the new validator rejects, so both cases now hang and fail"
+revision = "bb8caac8b3e73e3e2f4b330805574f0bcb540641"
+verdict = "task"
+evidence = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/empty_blocks_sanitizer.ex:139 requires a hexadecimal number string and :142 requires a binary hash matching the candidate at :145, but services/explorer/backend/apps/indexer/test/indexer/fetcher/empty_blocks_sanitizer_test.exs:80 supplies an integer number and a hash struct and :122 supplies a hash struct, which the response helper forwards unchanged at :181 and :185, so neither response can reach classification."
+close_comment = "Task 18.1670.1 tracks encoding the block numbers and hashes in both sanitizer test responses as JSON-RPC hex strings so the tests reach their empty-block and refetch assertions. The strict response validation remains required."
+
+[task.18.1670.1]
+title = "Issue #1670: Encode sanitizer test responses as JSON-RPC block values"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181670.1"]
+capabilities = []
+interfaces = []
+do_1 = "In services/explorer/backend/apps/indexer/test/indexer/fetcher/empty_blocks_sanitizer_test.exs:172, make eth_get_block_by_number_response accept an integer block number and serialize it with EthereumJSONRPC.integer_to_quantity/1 at :185, and serialize the row hash with to_string/1 at :181; change the caller at :122 to pass block_to_process.number like the caller at :80, retaining the encoded request expectations at :76 and :118 and the existing transaction hash."
+do_2 = "Run the existing process db-empty blocks without transactions and process db-empty blocks with transactions tests in services/explorer/backend/apps/indexer/test/indexer/fetcher/empty_blocks_sanitizer_test.exs:59 and :100 against the real sanitizer and database, preserving the updated_at predicates at :91 and :133 and every is_empty and refetch_needed assertion at :96, :97, :138 and :139; retain the production validator at services/explorer/backend/apps/indexer/lib/indexer/fetcher/empty_blocks_sanitizer.ex:138 and its malformed-response coverage in services/explorer/backend/apps/indexer/test/repair/repair_22_33_316_test.exs:138."
+symbols = ["eth_get_block_by_number_response"]
+touches = ["services/explorer/backend/apps/indexer/test/indexer/fetcher/empty_blocks_sanitizer_test.exs"]
+tests = ["services/explorer/backend/apps/indexer/test/indexer/fetcher/empty_blocks_sanitizer_test.exs::process db-empty blocks without transactions", "services/explorer/backend/apps/indexer/test/indexer/fetcher/empty_blocks_sanitizer_test.exs::process db-empty blocks with transactions"]
+planned_paths = []
+build_cmd = "services/explorer/deploy/tools/mix-in-builder.sh cmd --app indexer mix compile"
+verify_cmd = "services/explorer/deploy/tools/mix-in-builder.sh test apps/indexer/test/indexer/fetcher/empty_blocks_sanitizer_test.exs --only 'test:test process db-empty blocks without transactions' --only 'test:test process db-empty blocks with transactions'"
+gate_kind = "planned"
+sandbox_profile = "elixir"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181670]
+title = "Sanitizer classification tests supply valid JSON-RPC block identities"
+ac_1 = "The responses built by services/explorer/backend/apps/indexer/test/indexer/fetcher/empty_blocks_sanitizer_test.exs:172 carry hexadecimal string numbers and hashes matching their inserted rows, so the tests at :59 and :100 reach the existing assertions at :96, :97, :138 and :139 through the strict validator at services/explorer/backend/apps/indexer/lib/indexer/fetcher/empty_blocks_sanitizer.ex:138."
+
+[acceptance.18.1670.1]
+feature = "18"
+req = "181670.1"
+scenario = "Given database-empty blocks and JSON-RPC responses with matching hexadecimal string numbers and hashes, when the sanitizer classifies an empty transaction list or a non-empty transaction list, then both existing tests complete their row-update waits and assert respectively is_empty true with refetch_needed false or is_empty nil with refetch_needed true."
+contract = "contracts/explorer-indexer.md#rpc-parity"
+test = "services/explorer/backend/apps/indexer/test/indexer/fetcher/empty_blocks_sanitizer_test.exs::process db-empty blocks without transactions; services/explorer/backend/apps/indexer/test/indexer/fetcher/empty_blocks_sanitizer_test.exs::process db-empty blocks with transactions (planned)"
+qualification = "UNRUN"

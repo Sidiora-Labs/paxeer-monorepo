@@ -1,0 +1,49 @@
+[issue.1696]
+number = 1696
+title = "[Coherence] Existing repair_54 processor tests still call RegisterStatus without a Mode and assert HTTP 200 and a non-null lastProcessedBlock, so they now fail"
+revision = "bb8caac8b3e73e3e2f4b330805574f0bcb540641"
+verdict = "task"
+evidence = "Commit e83899139984f477c3954905d7ece0d0817f406e introduced explicit status modes, but services/launchpad/indexer/internal/processor/repair_54_test.go:224 and services/launchpad/indexer/internal/processor/repair_54_test.go:1156 still omit Mode while services/launchpad/indexer/internal/processor/repair_54_test.go:231 and services/launchpad/indexer/internal/processor/repair_54_test.go:1164 require HTTP 200, the latter also requiring the committed height, whereas services/launchpad/indexer/internal/httpapi/status.go:52 initializes that height to null, services/launchpad/indexer/internal/httpapi/status.go:79 rejects the empty mode and services/launchpad/indexer/internal/httpapi/status.go:129 returns 503, leaving the caller update recorded only at services/launchpad/indexer/internal/httpapi/repair_m996.kvx:14 despite the same-change requirement at spec/layerx-merge/spec.kvx:226169."
+close_comment = "Both canonical projection tests still omit the status mode and therefore receive an unavailable response instead of the expected committed projection. The follow-up task supplies explicit canonical status dependencies and proves the committed height and counts while preserving unavailable responses for missing or invalid configuration."
+
+[task.18.1696.1]
+title = "Issue #1696: Supply canonical status dependencies in projection tests"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181696.1"]
+capabilities = []
+interfaces = []
+do_1 = "Update TestRepair54Postgres_NativeReadModelProjection and TestRepair_54_NativeReadModelProjection at services/launchpad/indexer/internal/processor/repair_54_test.go:160 and services/launchpad/indexer/internal/processor/repair_54_test.go:1098 so both RegisterStatus calls at lines 224 and 1156 supply StatusCanonical, batch.StreamID, delivery health from their committed store and an explicit positive MaxDeliveryLag; use the real delivery.Store for the PostgreSQL fixture and implement health from the existing transactional memory store's committed delivery rows for its projection test, never a constant healthy response or a switch to legacy mode."
+do_2 = "Extend only the existing persistence peer in services/launchpad/indexer/internal/processor/repair_54_test.go:717 and services/launchpad/indexer/internal/processor/repair_54_test.go:987 to serve the real Store.GetCanonicalWatermark query from services/launchpad/indexer/internal/store/canonical.go:453 with chain and stream validation, and to report committed delivery health; distinguish canonical progress from the legacy cursor and preserve unsupported-query errors, rollback isolation and all existing projection assertions."
+do_3 = "In both projection tests preserve HTTP 200 and pool/swap count assertions at services/launchpad/indexer/internal/processor/repair_54_test.go:231 and services/launchpad/indexer/internal/processor/repair_54_test.go:1164, assert canonical mode, stream and non-null lastProcessedBlock equal to the actual committed batch height, and exercise missing mode, wrong stream and missing delivery configuration through the mounted route to require HTTP 503 and truthful unavailable fields; retain the rollback, duplicate-commit and immutable replay checks, change no handler behavior, and require both selected tests to execute with the existing canonicaltest PostgreSQL fixture rather than accepting a skipped PostgreSQL case."
+symbols = ["TestRepair54Postgres_NativeReadModelProjection", "TestRepair_54_NativeReadModelProjection", "repair54MemoryDB", "repair54MemoryStore"]
+touches = ["services/launchpad/indexer/internal/processor/repair_54_test.go"]
+tests = ["services/launchpad/indexer/internal/processor/repair_54_test.go::TestRepair54Postgres_NativeReadModelProjection", "services/launchpad/indexer/internal/processor/repair_54_test.go::TestRepair_54_NativeReadModelProjection"]
+planned_paths = []
+build_cmd = "cd services/launchpad/indexer && GOWORK=off go build ./internal/processor/..."
+verify_cmd = ": ${L06_POSTGRES_DSN:?required} && cd services/launchpad/indexer && GOWORK=off go test -count=1 -v ./internal/processor/ -run '^(TestRepair54Postgres_NativeReadModelProjection|TestRepair_54_NativeReadModelProjection)$'"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181696]
+title = "Canonical projection tests consume correctly configured status responses"
+ac_1 = "Given the canonical projection tests at services/launchpad/indexer/internal/processor/repair_54_test.go:160 and services/launchpad/indexer/internal/processor/repair_54_test.go:1098, when each commits its real projection and requests the mounted status route with explicit canonical stream, delivery health and lag budget, then HTTP 200 reports that stream's committed height and one pool and swap, while requests with missing mode, wrong stream or missing delivery configuration return HTTP 503 without weakening services/launchpad/indexer/internal/httpapi/status.go:62 or services/launchpad/indexer/internal/httpapi/status.go:94."
+
+[acceptance.18.1696.1]
+feature = "18"
+req = "181696.1"
+scenario = "Given the PostgreSQL and transactional memory canonical projection fixtures, when their existing projection tests commit the batch and consume its explicitly configured canonical status, then both tests execute and report HTTP 200, the matching canonical stream and committed height and the original pool and swap counts, and invalid status configurations remain unavailable with HTTP 503."
+contract = "contracts/launchpad.md#scope-and-reading-guide"
+test = "services/launchpad/indexer/internal/processor/repair_54_test.go::TestRepair_54_NativeReadModelProjection (planned)"
+qualification = "UNRUN"
