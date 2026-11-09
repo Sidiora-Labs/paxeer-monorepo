@@ -57,12 +57,23 @@ defmodule Indexer.Fetcher.PaxeerX.PriceAcceptanceReplay do
     now = System.monotonic_time(:millisecond)
 
     if is_nil(state.last_held_warning_at) or now - state.last_held_warning_at >= @held_warning_interval do
-      case apply(state.module, :held_jobs, []) do
-        {count, number, error} ->
+      held_jobs =
+        try do
+          {:ok, apply(state.module, :held_jobs, [])}
+        rescue
+          error in [Postgrex.Error, DBConnection.ConnectionError] -> {:error, error}
+        end
+
+      case held_jobs do
+        {:ok, {count, number, error}} ->
           Logger.warning("price acceptance replay held: #{count} rows; lowest block #{number}: #{error}")
           %{state | last_held_warning_at: now}
 
-        nil ->
+        {:ok, nil} ->
+          state
+
+        {:error, error} ->
+          Logger.warning("price acceptance replay held-job diagnostic unavailable: #{Exception.message(error)}")
           state
       end
     else
