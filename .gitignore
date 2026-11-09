@@ -52,6 +52,7 @@ node_modules/
 # Runtime state and logs
 /.logs/
 *.log
+!tools/jev/tests/fixtures/failures/*.log
 *.db
 *.db-*
 *.sqlite
@@ -132,6 +133,7 @@ __pycache__/
 /sdk/build/
 /wasm/build/
 /interchain/build/
+!/tools/hyperfide/.codex/hooks.json
 /evm_stress
 **/.terraform
 *terraform.lock.hcl

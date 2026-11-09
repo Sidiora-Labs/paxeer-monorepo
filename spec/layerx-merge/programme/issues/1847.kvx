@@ -1,0 +1,49 @@
+[issue.1847]
+number = 1847
+title = "[Coherence] The test module doc and record still state the retired rung-to-VerificationLevel wiring request that the final assertion now contradicts"
+revision = "3520b1428059af90261432778c008a9ce362a0b1"
+verdict = "task"
+evidence = "services/human/crates/layerx-human-service/tests/repair_22_33_50.rs:9 and services/human/crates/layerx-human-service/tests/repair_22_33_50.kvx:37 retain the translation request and rank-4 expectation introduced by 1c1fb2c68cece895cce12dec3886661abc69a8ae, contradicting the unchanged rung copy at services/agent/crates/layerx-agentd/src/managed_agent.rs:663, committed-rung check at services/agent/crates/layerx-agentd/src/managed_agent.rs:3214 and final assertion at services/human/crates/layerx-human-service/tests/repair_22_33_50.rs:645 despite the supersession note at services/human/crates/layerx-human-service/tests/repair_22_33_50.kvx:204."
+close_comment = "The test documentation still requests a retired translation from rung rank to VerificationLevel even though finalization carries and checks the committed rung rank. A focused documentation correction is specified to retire that request and the rank-4 expectation while preserving the finalization checks and open evidence findings."
+
+[task.18.1847.1]
+title = "Issue #1847: Align control finalization documentation with the committed rung contract"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181847.1"]
+capabilities = []
+interfaces = []
+do_1 = "Replace the retired translation instruction in services/human/crates/layerx-human-service/tests/repair_22_33_50.rs:9 with the statement FinalizationEvidence.verification carries the committed rung rank without VerificationLevel translation.; align it with the existing assertion at line 645 and the production copy and check at services/agent/crates/layerx-agentd/src/managed_agent.rs:663 and :3214."
+do_2 = "Correct services/human/crates/layerx-human-service/tests/repair_22_33_50.kvx:37 and :38 to describe the current committed rung rank 2 and clearly retire the rank-2-to-rank-4 request with the statement Retired: no rung-to-VerificationLevel translation is required.; keep the supersession explanation at line 204 consistent and preserve the independent control-recording request at line 41 and native-commit evidence finding at line 206."
+do_3 = "Change documentation only, preserving all executable test code, assertions and production behavior; use the focused documentation check to assert the current contract in both files and reject the obsolete translation instruction, rank-4 expectation and reconciliation request."
+symbols = []
+touches = ["services/human/crates/layerx-human-service/tests/repair_22_33_50.rs", "services/human/crates/layerx-human-service/tests/repair_22_33_50.kvx"]
+tests = []
+planned_paths = []
+build_cmd = "true"
+verify_cmd = "grep -Fq 'FinalizationEvidence.verification carries the committed rung rank without VerificationLevel translation.' services/human/crates/layerx-human-service/tests/repair_22_33_50.rs && grep -Fq 'Retired: no rung-to-VerificationLevel translation is required.' services/human/crates/layerx-human-service/tests/repair_22_33_50.kvx && ! grep -Eq 'must translate|immutable test still expects verification rank 4|must reconcile HumanFinalizationEvidence.rung rank 2' services/human/crates/layerx-human-service/tests/repair_22_33_50.rs services/human/crates/layerx-human-service/tests/repair_22_33_50.kvx"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-docs"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181847]
+title = "Control finalization documentation agrees with the committed rung contract"
+ac_1 = "The module documentation at services/human/crates/layerx-human-service/tests/repair_22_33_50.rs:9 states that FinalizationEvidence.verification carries the committed rung rank without VerificationLevel translation, and the record at services/human/crates/layerx-human-service/tests/repair_22_33_50.kvx:37 explicitly retires the translation request and no longer claims the final assertion expects verification rank 4; all executable assertions and independent open evidence findings remain intact."
+
+[acceptance.18.1847.1]
+feature = "18"
+req = "181847.1"
+scenario = "Given the committed-rung production conversion and final control assertion, when the module documentation and control-finalization record are read, then both describe the committed rung rank and explicitly retire the obsolete VerificationLevel translation and rank-4 expectation while preserving all executable assertions and independent evidence findings."
+contract = "contracts/services.md#human-service"
+test = "services/human/crates/layerx-human-service/tests/repair_22_33_50.rs and repair_22_33_50.kvx::focused documentation grep check (planned)"
+qualification = "UNRUN"

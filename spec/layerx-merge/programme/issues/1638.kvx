@@ -1,0 +1,49 @@
+[issue.1638]
+number = 1638
+title = "Preserve completed registry job results across cleanup reload"
+revision = "bb8caac8b3e73e3e2f4b330805574f0bcb540641"
+verdict = "task"
+evidence = "tools/bringup/registry-artifacts.py:357 appends the completed result without persisting it, tools/bringup/registry_lifecycle.go:100 and :292 reload and persist the older state during cleanup, and tools/bringup/registry-artifacts.py:364 and :372 replace and write that state before inspect reads it at :253, so completed job history is lost."
+close_comment = "Completed registry job results can be lost when cleanup reloads lifecycle state. Persist each completed result before cleanup so later inspection retains its exit code, output, command and observations alongside reconciled cleanup metadata."
+
+[task.18.1638.1]
+title = "Issue #1638: Persist completed registry job results before cleanup reload"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181638.1"]
+capabilities = []
+interfaces = []
+do_1 = "In tools/bringup/registry-artifacts.py:354-358, atomically persist the appended completed result through write_json before invoking registry-container-clean at :362; retain the reload at :364 and the final cleanup-state write at :372 so discovered container identifiers, container_absent and cleanup phases remain authoritative, and persist completed nonzero-exit results as well as successful results without inventing a job result when execution fails before completion."
+do_2 = "Extend RegistryArtifacts in tools/bringup/tests/registry-artifacts.py:29 with test_22_completed_job_history_survives_cleanup_reload using the real prepared fixture, bounded workloads, Docker and Go lifecycle producer; run a successful job followed by a completed nonzero-exit job, compare durable and inspected history with both returned results including exit_code, stdout, stderr, command, elapsed, observations and interrupted, assert prior history is unchanged and each result occurs exactly once, then invoke the real inspect CLI in a fresh process and assert identical history, prepared phase, retained container identifiers, container_absent and cleaned container phases."
+do_3 = "Support the focused pytest invocation of RegistryArtifacts by explicitly requiring the existing PAXEER_X_REGISTRY_ARTIFACT_MANIFEST configuration when the standalone --manifest argument is unavailable at tools/bringup/tests/registry-artifacts.py:32, preserve artifact validation and real fixture cleanup at :42-48, and update the standalone runner's exact test count at :356 for the added test without skipping any test or weakening any assertion."
+symbols = ["run_job", "test_22_completed_job_history_survives_cleanup_reload"]
+touches = ["tools/bringup/registry-artifacts.py", "tools/bringup/tests/registry-artifacts.py"]
+tests = ["tools/bringup/tests/registry-artifacts.py::RegistryArtifacts::test_22_completed_job_history_survives_cleanup_reload"]
+planned_paths = []
+build_cmd = "python3 -m py_compile tools/bringup/registry-artifacts.py tools/bringup/tests/registry-artifacts.py"
+verify_cmd = "python3 -m pytest tools/bringup/tests/registry-artifacts.py::RegistryArtifacts::test_22_completed_job_history_survives_cleanup_reload -q"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181638]
+title = "Completed registry job history survives cleanup and fresh inspection"
+ac_1 = "Given the prepared lifecycle and a completed registry job at tools/bringup/registry-artifacts.py:354-357, when cleanup reloads state at :364 and publishes reconciled cleanup metadata at :372, then lifecycle.json, inspect at :251-258 and a fresh inspect process retain every completed result exactly once with exit code, stdout, stderr, command, elapsed, observations and interruption status, preserving earlier jobs and the cleanup ownership and absence proofs."
+
+[acceptance.18.1638.1]
+feature = "18"
+req = "181638.1"
+scenario = "Given a prepared registry lifecycle with existing job history, when successful and nonzero-exit bounded jobs complete through the real lifecycle producer and cleanup reloads state, then durable history and fresh-process inspection retain both returned results exactly once, preserve prior history and retain reconciled container ownership, absence proofs and prepared phase."
+contract = "contracts/tools-ops.md#bringup"
+test = "tools/bringup/tests/registry-artifacts.py::RegistryArtifacts::test_22_completed_job_history_survives_cleanup_reload (planned)"
+qualification = "UNRUN"

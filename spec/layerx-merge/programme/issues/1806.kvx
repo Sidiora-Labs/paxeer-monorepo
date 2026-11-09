@@ -1,0 +1,48 @@
+[issue.1806]
+number = 1806
+title = "[Coherence] The receipt verifier still drops every pinned key whose id is not the SHA-256 digest of its public key, so the configuration change accepts keys that verification then ignores"
+revision = "a910fdedd579e63379ae6c2e4d4971990d28f8ad"
+verdict = "task"
+evidence = "Commit e2b5e835fcd75d0802f039733dd67ca637879504 introduced ReceiptKeysConfig.parse/1, called at services/explorer/backend/config/runtime.exs:315, which accepts non-digest IDs at services/explorer/backend/apps/explorer/lib/explorer/chain/paxeer_x/receipt_keys_config.ex:16, but services/explorer/backend/apps/explorer/lib/explorer/chain/paxeer_x/sequencer_receipt.ex:581 still filters them out and returns untrusted_receipt_keys at line 592 through discovery at line 206 and verification step R3 at line 178, contradicting the chain validation at modules/sequencer/keeper/receipt_keys.go:50 and decision 2754 at spec/layerx-merge/spec.kvx:9639."
+close_comment = "The explorer accepts governed receipt keys in configuration but still rejects them during discovery and receipt verification when their IDs differ from their public-key digests. The follow-up repair makes those paths accept the configured non-zero IDs while preserving key matching, signature verification and validity ranges."
+
+[task.18.1806.1]
+title = "Issue #1806: Accept governed non-digest key IDs during receipt verification"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181806.1"]
+capabilities = []
+interfaces = []
+do_1 = "Update governed_keys/1 at services/explorer/backend/apps/explorer/lib/explorer/chain/paxeer_x/sequencer_receipt.ex:571 to replace the public-key digest requirement at line 581 with the non-zero 32-byte ID rule; apply the positive uint64 validity bounds already enforced by ReceiptKeysConfig at services/explorer/backend/apps/explorer/lib/explorer/chain/paxeer_x/receipt_keys_config.ex:40, retaining exact configured ID/public-key matching and discovery coverage at sequencer_receipt.ex:582, configured ranges, the context-hash lookup at line 598, signature verification at line 180 and receipt-height validation at line 181."
+do_2 = "Add an issue1806-tagged test named issue1806_governed_receipt_keys to services/explorer/backend/apps/explorer/test/explorer/chain/paxeer_x/sequencer_receipt_test.exs, using the existing V1-pax-transfer node-signed receipt and non-digest pinnedKey at services/explorer/backend/apps/explorer/test/support/fixture/paxeer_x/receipt_vectors.json:89 and :122 without rewriting signed bytes: parse the pin through ReceiptKeysConfig, configure the chain and pin, serve its recorded discovery response through a real loopback HTTP connection using the existing repair_transport.exs helper and the actual HTTP adapter, assert receipt_keys/1 returns the configured range and verify/4 returns receipted, then repeat after clearing and reloading configuration; assert rejection of an unpinned or substituted public key, zero or malformed IDs, invalid configured height bounds, discovery that does not cover the configured range, receipts outside that range and altered signatures, restoring configuration and adapter afterward and preserving all existing assertions."
+symbols = ["governed_keys"]
+touches = ["services/explorer/backend/apps/explorer/lib/explorer/chain/paxeer_x/sequencer_receipt.ex", "services/explorer/backend/apps/explorer/test/explorer/chain/paxeer_x/sequencer_receipt_test.exs"]
+tests = ["services/explorer/backend/apps/explorer/test/explorer/chain/paxeer_x/sequencer_receipt_test.exs::issue1806_governed_receipt_keys"]
+planned_paths = []
+build_cmd = "services/explorer/deploy/tools/mix-in-builder.sh cmd --app explorer mix compile"
+verify_cmd = "services/explorer/deploy/tools/mix-in-builder.sh test apps/explorer/test/explorer/chain/paxeer_x/sequencer_receipt_test.exs --only issue1806"
+gate_kind = "planned"
+sandbox_profile = "elixir"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181806]
+title = "Configured non-digest receipt key IDs work throughout explorer receipt verification"
+ac_1 = "Given a non-zero 32-byte key ID independent of its public-key digest and a valid configured height range, discovery through receipt_keys/1 at services/explorer/backend/apps/explorer/lib/explorer/chain/paxeer_x/sequencer_receipt.ex:202 preserves the configured pin and verify/4 at line 175 accepts its correctly signed in-range receipt before and after configuration reload, while untrusted keys, malformed pins, invalid or uncovered ranges and altered signatures remain refused."
+
+[acceptance.18.1806.1]
+feature = "18"
+req = "181806.1"
+scenario = "Given a configured governed key whose non-zero ID differs from its public-key digest, when the explorer discovers that key and verifies its node-signed receipt before and after reloading configuration, then the receipt reaches receipted with the configured validity range and invalid keys, signatures and heights remain refused."
+contract = "contracts/sequencer.md#sequencer-module"
+test = "services/explorer/backend/apps/explorer/test/explorer/chain/paxeer_x/sequencer_receipt_test.exs::issue1806_governed_receipt_keys (planned)"
+qualification = "UNRUN"

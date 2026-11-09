@@ -1,0 +1,76 @@
+# Source: main at a26369c7eda603cb28bcdd8cef55c35df7d248ee.
+
+[disposition.7.0.2.a2]
+finding = "7.0.2.a2"
+status = "resolved"
+evidence = "Commit b8025fbace converts the two InfoAPI test methods into package functions at rpc/export_info_test.go:10 and line 14, preserving their helper behavior without publishing extra RPC methods through service registration."
+
+[disposition.7.1.1.a2]
+finding = "7.1.1.a2"
+status = "resolved"
+evidence = "Commit 91540e8a8 asserts the registered receipt method with and without SequencerReceiptOption at rpc/pax_served_set_test.go:93; the zero-option call is required to answer -32000 and served by sequencer at lines 105 and 106."
+
+[disposition.7.13.2.a2]
+finding = "7.13.2.a2"
+status = "resolved"
+evidence = "Commit 38a35a858 removes CheckTxTimeout and flagCheckTxTimeout from rpc/config/config.go; rpc/config/config_test.go:217 checks that old checktx_timeout values are ignored while the retained HTTP timeouts remain configured."
+
+[disposition.7.13.3.a2]
+finding = "7.13.3.a2"
+status = "environment"
+evidence = "rpc/ip_rate_limit.go:22 declares the local ipRateLimiter and line 32 constructs it, while each entry holds an imported rate.Limiter at line 18; the limiter implementation and local declarations are present on main."
+
+[disposition.7.14.6.1.a2]
+finding = "7.14.6.1.a2"
+status = "resolved"
+evidence = "Commit c2fcd6e065 adds deferred latency recording for the four uncle handlers, synchronous transaction submission and traceStateAccess; the uncle-by-number handler retains recordMetricsWithError at rpc/uncle.go:36 and its hash counterpart at line 44."
+
+[disposition.7.14.6.a2]
+finding = "7.14.6.a2"
+status = "resolved"
+evidence = "Commit c2fcd6e065 supplies the histogram swap used at rpc/served_labels_test.go:35 and valid arguments beginning at line 44. Both web3 handlers retain deferred latency recording at rpc/web3.go:17 and line 25."
+
+[disposition.7.15.1.a2]
+finding = "7.15.1.a2"
+status = "resolved"
+evidence = "Commit 961530acf removes the launch-height floor and its validation helpers; rpc/block.go:217 resolves hash lookups without ValidateEVMBlockHeight or Pacific1EVMLaunchHeight checks."
+
+[disposition.7.16.1.a2]
+finding = "7.16.1.a2"
+status = "resolved"
+evidence = "Commit 15525f0dd adds lx_unsubscribe and eth_lx_unsubscribe to the HTTP deny list at rpc/server.go:436 and the WebSocket deny list at line 662 before dispatch, preventing the built-in unsubscribe callback from serving those retired names."
+
+[disposition.7.19.3.1.a2]
+finding = "7.19.3.1.a2"
+status = "resolved"
+evidence = "Commit a781fe95b8 sets the stored multiTxBlockTx1 receipt to ReceiptStatusSuccessful at rpc/setup_test.go:1054; rpc/ethclient_receipts_test.go:54 retains the successful-status assertion on the decoded receipt."
+
+[disposition.7.19.3.a2]
+finding = "7.19.3.a2"
+status = "resolved"
+evidence = "Commit a781fe95b8 requires CumulativeGasUsed to equal 21000 at rpc/ethclient_receipts_test.go:33, matching the served first-transaction cumulative gas while preserving the other receipt field checks."
+
+[disposition.7.19.4.a2]
+finding = "7.19.4.a2"
+status = "environment"
+evidence = "core/deps/geth/ethclient/ethclient.go:35 declares Client as the typed RPC wrapper, and rpc/ethclient_state_test.go:31 exercises BalanceAt through that client against the keeper-backed server."
+
+[disposition.7.19.6.a2]
+finding = "7.19.6.a2"
+status = "resolved"
+evidence = "Commit 8a79a1125e adds the default priority fee to the uncongested suggested gas price at rpc/info.go:172; rpc/ethclient_fees_test.go:30 retains the assertion that SuggestGasPrice is at least SuggestGasTipCap."
+
+[disposition.7.19.9.a2]
+finding = "7.19.9.a2"
+status = "resolved"
+evidence = "Commit d2d638646e drives the committed block through OnBlockCommitted at rpc/ethclient_newhead_test.go:55 and retains the ethclient header-hash equality at line 97 plus the served consensus-hash equality at line 99."
+
+[disposition.7.2.1.a2]
+finding = "7.2.1.a2"
+status = "resolved"
+evidence = "Commit 206fe99709 replaces the removed Cleanup calls with ShutdownFilterAPIForTest at rpc/pending_filter_test.go:72 and rpc/synthetic_receipts_test.go:142; the wrapper delegates to the unexported shutdown method at rpc/export_filter_test.go:7."
+
+[disposition.7.4.1.a2]
+finding = "7.4.1.a2"
+status = "environment"
+evidence = "rpc/web3.go:24 declares Web3API.Sha3, which returns crypto.Keccak256(input) at line 26; the imported hashing function is consumed by the local RPC method rather than declared as another local function."

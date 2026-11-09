@@ -1,0 +1,48 @@
+[issue.1786]
+number = 1786
+title = "[Coherence] The readiness summary counts 53 workflow files and 46 disabled ones, but the tree and the page's own table have 52"
+revision = "a910fdedd579e63379ae6c2e4d4971990d28f8ad"
+verdict = "task"
+evidence = "The snapshot identified at docs/release/7.0.0-readiness-matrix.md:4 still reports 53 files and 46 disabled at docs/release/7.0.0-readiness-matrix.md:13 and docs/release/7.0.0-readiness-matrix.md:15 despite its 52 workflow rows containing 7 enabled, 45 disabled, 21 failures, 13 successes, 16 without runs and 2 skipped at docs/release/7.0.0-readiness-matrix.md:48 through docs/release/7.0.0-readiness-matrix.md:99, with the skipped rows at docs/release/7.0.0-readiness-matrix.md:72 and docs/release/7.0.0-readiness-matrix.md:83 absent from the summary buckets totaling 50 at docs/release/7.0.0-readiness-matrix.md:16 through docs/release/7.0.0-readiness-matrix.md:20; the original commit 34a0a294e05a8a49cf3f45b5eecad4e6796e030f contains 52 workflow files, whereas this revision contains 54 following the additions of .github/workflows/launchpad-test.yml:1 and .github/workflows/wallet-test.yml:1, so the historical summary correction remains necessary."
+close_comment = "The recorded readiness snapshot still has inconsistent workflow totals and omits its two skipped workflows from the summary. A focused documentation correction is tracked to report 52 workflows, 7 enabled and 45 disabled, with the two skipped workflows included in the status totals."
+
+[task.18.1786.1]
+title = "Issue #1786: Reconcile the readiness snapshot workflow totals"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181786.1"]
+capabilities = []
+interfaces = []
+do_1 = "Correct the recorded snapshot summary at docs/release/7.0.0-readiness-matrix.md:13 to 52 workflow files and docs/release/7.0.0-readiness-matrix.md:15 to 45 disabled, retain the 7 enabled at docs/release/7.0.0-readiness-matrix.md:14, and add a summary row named Skipped on `main` with count 2 naming paxeer-ecr and paxeer-nightly-ecr from docs/release/7.0.0-readiness-matrix.md:72 and docs/release/7.0.0-readiness-matrix.md:83, so the existing status counts 1, 3, 18, 12 and 16 plus 2 account for all 52 rows."
+do_2 = "Use the focused documentation grep checks to require the corrected 52-file total, the retained 7 enabled, the corrected 45 disabled and the skipped row naming both workflows; preserve the historical date and revision at docs/release/7.0.0-readiness-matrix.md:4, identify the counts as belonging to that recorded snapshot rather than the later 54-file tree containing .github/workflows/launchpad-test.yml:1 and .github/workflows/wallet-test.yml:1, and preserve the workflow enablement policy in decision.3028 at spec/layerx-merge/spec.kvx:11281."
+symbols = []
+touches = ["docs/release/7.0.0-readiness-matrix.md"]
+tests = []
+planned_paths = []
+build_cmd = "true"
+verify_cmd = "grep -Fq '| Workflow files | 52 |' docs/release/7.0.0-readiness-matrix.md && grep -Fq '| Enabled in GitHub | 7 |' docs/release/7.0.0-readiness-matrix.md && grep -Fq '| Disabled in GitHub (`disabled_manually`) | 45 |' docs/release/7.0.0-readiness-matrix.md && grep -Eq '^[|] Skipped on `main` [|] 2 [|] .*paxeer-ecr.*paxeer-nightly-ecr' docs/release/7.0.0-readiness-matrix.md"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-docs"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181786]
+title = "The readiness snapshot summary accounts for every recorded workflow"
+ac_1 = "The summary at docs/release/7.0.0-readiness-matrix.md:13 through docs/release/7.0.0-readiness-matrix.md:20 reports 52 workflows split into 7 enabled and 45 disabled and includes a 2-workflow skipped category for the entries at docs/release/7.0.0-readiness-matrix.md:72 and docs/release/7.0.0-readiness-matrix.md:83, making its mutually exclusive run-status counts total 52 while retaining the snapshot date and revision at docs/release/7.0.0-readiness-matrix.md:4."
+
+[acceptance.18.1786.1]
+feature = "18"
+req = "181786.1"
+scenario = "Given the readiness snapshot's 52 workflow rows with 7 enabled, 45 disabled and two skipped conclusions, when its summary is corrected and the focused documentation checks run, then the summary reports 52 workflow files, preserves the 7 enabled, reports 45 disabled and explicitly counts both skipped workflows so all run-status categories total 52."
+contract = "contracts/programme.md#programme-artifacts"
+test = "Focused grep checks for the workflow total, enabled count, disabled count and skipped workflow row in docs/release/7.0.0-readiness-matrix.md (planned)"
+qualification = "UNRUN"

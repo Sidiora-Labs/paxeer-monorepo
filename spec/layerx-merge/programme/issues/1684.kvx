@@ -1,0 +1,52 @@
+[issue.1684]
+number = 1684
+title = "[Coherence] The qualifier requires a receipt_ref digest that native Agentd never produces, and the recording replaces the producer's value so the test passes anyway"
+revision = "bb8caac8b3e73e3e2f4b330805574f0bcb540641"
+verdict = "task"
+evidence = "The unsigned receipt digest required by services/agent/schema/agent-api/read.kvx:103 and tools/qualification/paxeer-x/mcp_daemon_revocation.py:213 still differs from the signed-byte domain digest at services/agent/crates/layerx-agentd/src/human_runtime.rs:21720 and the untagged signed-byte references at services/agent/crates/layerx-agentd/src/protocol_evidence.rs:755 and services/agent/crates/layerx-agentd/src/protocol_evidence.rs:1819, while the dispatch vector at services/agent/crates/layerx-agentd/src/agent_rpc_dispatch.rs:2483 retains another reference that tools/qualification/paxeer-x/fixtures/mcp_recovery_recording.py:60 overwrites before the equality assertion at tools/qualification/paxeer-x/tests/test_repair_22_33_703.py:82, so neither the original commit 8dc033c3f05e07cee4473875a62019f577985046 nor the later metadata repair 3740acfa3e25ea3b4aa157330f14dc50a37b0c47 resolves the producer-consumer mismatch."
+close_comment = "Native receipt recovery still uses inconsistent receipt references, and the recovery recording replaces the native reference before validation. A follow-up task will align native references with the unsigned receipt digest and prove recovery using the producer's unchanged reference."
+
+[task.18.1684.1]
+title = "Issue #1684: Align native receipt references and preserve producer evidence during recovery"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181684.1"]
+capabilities = []
+interfaces = []
+do_1 = "Add canonical_receipt_reference in services/agent/crates/layerx-agentd/src/protocol_evidence.rs using the existing decode, encode_unsigned and receipt_digest functions; use it for write_submission at services/agent/crates/layerx-agentd/src/human_runtime.rs:21720 and the reference construction at services/agent/crates/layerx-agentd/src/protocol_evidence.rs:486, :755, :831 and :1819, mapping decoding failures to the existing typed refusals and retaining all signature, identity, inclusion and authorization checks; keep receipt_hash metadata as SHA-256 of the complete signed bytes."
+do_2 = "Correct MIDDLEWARE_SUBMISSION_TRANSCRIPT at services/agent/crates/layerx-agentd/src/agent_rpc_dispatch.rs:2483 from authenticated native producer output; replace the receipt_ref assignment at tools/qualification/paxeer-x/fixtures/mcp_recovery_recording.py:60 with a refusing equality check against the SDK digest, update the source pin and regenerate tools/qualification/paxeer-x/fixtures/mcp_recovery_transcript.json through its generator without changing recorded references after capture."
+do_3 = "Add receipt_reference_reaches_recovery_consumer in services/agent/crates/layerx-agentd/src/agent_rpc_dispatch.rs:2529: authenticate a genuine signed receipt, call native write_submission and the production observation and receipt decoders, and pass their unchanged JSON through a subprocess pipe to the real Python tracked_evidence and recovered_receipt consumers; assert native, SDK and consumer references equal the domain digest of encode_unsigned, and that domain-plus-signed and untagged-signed substitutions are refused without weakening receipt, signature, state-root or rung checks."
+do_4 = "Extend the durable outbox proof at services/agent/crates/layerx-agentd/src/protocol_evidence_native_tests.rs:263 with receipt_reference_survives_terminal_recovery, asserting the same canonical reference before and after store reopen; strengthen tools/qualification/paxeer-x/tests/test_repair_22_33_703.py:53 to compare the unmodified native source reference with the replay and SDK values, retain its existing HTTP recovery, one-transmission and refusal assertions, and exercise both native regression tests and this focused Python recovery suite in the single verify command."
+symbols = ["canonical_receipt_reference", "write_submission", "MIDDLEWARE_SUBMISSION_TRANSCRIPT", "produce_recording", "receipt_reference_reaches_recovery_consumer", "receipt_reference_survives_terminal_recovery", "test_committed_recording_is_the_real_producers_signed_receipt"]
+touches = ["services/agent/crates/layerx-agentd/src/protocol_evidence.rs", "services/agent/crates/layerx-agentd/src/human_runtime.rs", "services/agent/crates/layerx-agentd/src/agent_rpc_dispatch.rs", "services/agent/crates/layerx-agentd/src/protocol_evidence_native_tests.rs", "tools/qualification/paxeer-x/fixtures/mcp_recovery_recording.py", "tools/qualification/paxeer-x/fixtures/mcp_recovery_transcript.json", "tools/qualification/paxeer-x/tests/test_repair_22_33_703.py"]
+tests = ["services/agent/crates/layerx-agentd/src/agent_rpc_dispatch.rs::receipt_reference_reaches_recovery_consumer", "services/agent/crates/layerx-agentd/src/protocol_evidence_native_tests.rs::receipt_reference_survives_terminal_recovery", "tools/qualification/paxeer-x/tests/test_repair_22_33_703.py::test_committed_recording_is_the_real_producers_signed_receipt", "tools/qualification/paxeer-x/tests/test_repair_22_33_703.py::test_unknown_recovers_committed_receipt_across_stop_and_reopen"]
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd"
+verify_cmd = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib receipt_reference && python3 -m pytest tools/qualification/paxeer-x/tests/test_repair_22_33_703.py -q"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181684]
+title = "Native receipt recovery uses one canonical reference without replacing producer evidence"
+ac_1 = "For an authenticated receipt, native tracking and terminal or spend evidence expose SHA-256 of the LXP/v1/receipt domain including its terminating zero byte followed by the canonical unsigned receipt, as services/agent/schema/agent-api/read.kvx:103 requires; signed-byte hashes remain distinct receipt_hash metadata."
+ac_2 = "The source transcript at services/agent/crates/layerx-agentd/src/agent_rpc_dispatch.rs:2483 and recovery recording preserve the native reference byte for byte; the generator at tools/qualification/paxeer-x/fixtures/mcp_recovery_recording.py:60 refuses a mismatch instead of replacing it with the SDK result."
+ac_3 = "The real native writer and decoders feed unchanged reference values to the Python recovery validators at tools/qualification/paxeer-x/mcp_daemon_revocation.py:157 and :185, which accept the canonical reference and refuse both signed-byte hash variants; durable outbox recovery preserves that reference across reopen and the existing recovery suite retains its one-transmission and malformed-evidence assertions."
+
+[acceptance.18.1684.1]
+feature = "18"
+req = "181684.1"
+scenario = "Given a native submission with an authenticated signed receipt, when its native tracking response is decoded and consumed by receipt recovery and its durable outbox is reopened, then the unchanged receipt reference equals the unsigned receipt domain digest, remains stable across reopen and is never replaced by the recording generator."
+contract = "contracts/agent-api.md#program-receipt"
+test = "services/agent/crates/layerx-agentd/src/agent_rpc_dispatch.rs::receipt_reference_reaches_recovery_consumer (planned)"
+qualification = "UNRUN"

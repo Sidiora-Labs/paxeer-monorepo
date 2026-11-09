@@ -1,3 +1,8 @@
+[closure.22.39.186]
+ids = "spec/layerx-merge/programme/closure/22.39.186.ids"
+dispositions = "spec/layerx-merge/dispositions/d22-18.kvx"
+main_revision = "a26369c7eda603cb28bcdd8cef55c35df7d248ee"
+
 [disposition.22.90.9.1]
 finding = "22.90.9.1"
 status = "resolved"

@@ -47,7 +47,7 @@ commitments on Ethereum and Solana. The mirror archive carries verification
 material; its contracts hold no vault or custody and do not establish Paxeer
 finality. Bridge vaults are separate contracts with their own attestor policy.
 Settlement on Paxeer is the committed chain state, whose node lives in the
-chain directories at the [repository root](../../README.md).
+chain directories at the [Paxeer monorepo root](../../README.md).
 
 Remote signer framing: [`deploy/mirror/signer-protocol.md`](deploy/mirror/signer-protocol.md).
 

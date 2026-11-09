@@ -1,0 +1,49 @@
+[issue.1667]
+number = 1667
+title = "[P2] Initialize V6 genesis when recording all vectors"
+revision = "bb8caac8b3e73e3e2f4b330805574f0bcb540641"
+verdict = "task"
+evidence = "The explicit-only V6 setup introduced by commit 172281ea8647e485da37881ba884b06689110239 remains at daemon/committed-fixture/main.go:113 despite the empty default at main.go:90 and all-vector dispatch at main.go:169 selecting the unconditionally registered V6 at daemon/committed-fixture/vector_v6.go:120, whose genesis editor installs token code at vector_v6.go:154 and recorder mints at vector_v6.go:343 before sponsored repayment requires a 32-byte true result at contracts/src/BatchCallAndSponsor.sol:163, while modules/evm/types/genesis.go:11 supplies no code, daemon/committed-fixture/vector_v2.go:531 configures activation rather than token code, and daemon/committed-fixture/vector_v6_test.go:55 installs the runtime directly without exercising CLI selection."
+close_comment = "Recording all vectors selects V6 but omits the token runtime required for its sponsored binding transaction. A follow-up fix will initialize V6 genesis for both all-vector and explicit V6 recording before peer startup and add regression coverage for both selections."
+
+[task.18.1667.1]
+title = "Issue #1667: Initialize V6 token genesis for all-vector recording"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181667.1"]
+capabilities = []
+interfaces = []
+do_1 = "In daemon/committed-fixture/main.go:113, make the production genesis preparation select V6 whenever the vector filter is empty or equals vectorV6Name, using the existing configureV6Genesis implementation at daemon/committed-fixture/vector_v6.go:125 before prepareStandby at main.go:118 copies genesis and before prepareObserver at main.go:133 or any peer starts; preserve V2 activation preparation at main.go:123, unrelated genesis entries and the existing rejection of duplicate token code."
+do_2 = "Add TestRecorderV6GenesisSelection in daemon/committed-fixture/main_test.go, exercising the production selection and genesis preparation used by run at daemon/committed-fixture/main.go:82 with empty, explicit V6 and another registered vector selections; assert the exact token runtime is present once for empty and V6 selections, absent for the unrelated selection, preserved in primary, standby and observer genesis before startup, and compatible with the existing V2 activation settings for empty selection."
+do_3 = "Add TestRecorderAllSelectedV6Executes in daemon/committed-fixture/main_test.go using the existing embedded paxd support at main_test.go:32 to exercise run without --vector on a fresh chain and a temporary output directory, require every selected recorder to complete and emit its output, and validate the emitted V6 with verifyVectorV6 including successful sponsored binding and authenticated receipts; use real registered recorders and token execution rather than directly installing code as daemon/committed-fixture/vector_v6_test.go:55 does, and retain the existing TestVectorV6SponsoredBindVerifies assertions."
+symbols = ["run", "TestRecorderV6GenesisSelection", "TestRecorderAllSelectedV6Executes"]
+touches = ["daemon/committed-fixture/main.go", "daemon/committed-fixture/main_test.go"]
+tests = ["daemon/committed-fixture/main_test.go::TestRecorderV6GenesisSelection", "daemon/committed-fixture/main_test.go::TestRecorderAllSelectedV6Executes"]
+planned_paths = []
+build_cmd = "go build ./daemon/committed-fixture/"
+verify_cmd = "go test -count=1 ./daemon/committed-fixture/ -run '^(TestRecorderV6GenesisSelection|TestRecorderAllSelectedV6Executes)$'"
+gate_kind = "planned"
+sandbox_profile = "go-cgo"
+owner_role = "fm-node-runtime"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181667]
+title = "Every V6 recorder selection receives its token genesis prerequisite"
+ac_1 = "Given a fresh recording chain, when the vector filter is empty or explicitly selects V6 as dispatched at daemon/committed-fixture/main.go:169, then the token runtime installed by daemon/committed-fixture/vector_v6.go:154 is present in every peer's genesis before startup, V2 activation settings remain intact for all-vector recording, and the all-selected recorder produces V6 evidence with successful token-funded sponsored binding; selecting another vector alone does not install the V6 token runtime."
+
+[acceptance.18.1667.1]
+feature = "18"
+req = "181667.1"
+scenario = "Given fresh recorder genesis and empty, explicit V6 or unrelated vector selections, when production genesis preparation runs and the all-selected recorder executes, then the selections containing V6 install its real token runtime in every peer before startup and produce verifiable sponsored binding evidence, while the unrelated selection omits that runtime."
+contract = "contracts/sequencer.md#genesis"
+test = "daemon/committed-fixture/main_test.go::TestRecorderV6GenesisSelection and daemon/committed-fixture/main_test.go::TestRecorderAllSelectedV6Executes (planned)"
+qualification = "UNRUN"

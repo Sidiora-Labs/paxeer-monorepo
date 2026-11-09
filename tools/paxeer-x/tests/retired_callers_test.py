@@ -89,13 +89,20 @@ def validate_catalogue(document):
             "incomplete component: " + name,
         )
         require(
-            set(entry) <= {"symbols", "deleted_trees", "replacement", "req", "title"},
+            set(entry) <= {"symbols", "deleted_trees", "retiring_trees", "replacement", "req", "title"},
             "unknown component field: " + name,
         )
         string_list(entry["symbols"], name + " symbols")
         string_list(entry["deleted_trees"], name + " deleted trees", empty=True)
         for path in entry["deleted_trees"]:
             require(relative_path(path) == path, "noncanonical deleted tree: " + path)
+        retiring = entry.get("retiring_trees", {})
+        require(isinstance(retiring, dict), "retiring trees must map paths to tasks: " + name)
+        for path, task in retiring.items():
+            require(relative_path(path) == path, "noncanonical retiring tree: " + path)
+            require(path not in entry["deleted_trees"], "tree is both deleted and retiring: " + path)
+            require(isinstance(task, str) and re.fullmatch(r"[1-9][0-9]*(?:\.[1-9][0-9]*)+", task),
+                    "invalid retiring task: " + path)
         require(
             isinstance(entry["replacement"], str) and entry["replacement"].strip(),
             "replacement is missing: " + name,
@@ -272,6 +279,14 @@ def scan(root, catalogue, component_ids, paths, deleted=False):
     findings = []
     if deleted:
         for name in selected:
+            for tree, task in components[name].get("retiring_trees", {}).items():
+                if filters and not any(
+                    not path or below(tree, path) or below(path, tree)
+                    for path in filters
+                ):
+                    continue
+                if os.path.lexists(root / tree):
+                    findings.append((tree, 1, name, "tree retirement pending task " + task))
             for tree in components[name]["deleted_trees"]:
                 if filters and not any(
                     not path or below(tree, path) or below(path, tree)
@@ -406,6 +421,25 @@ def self_test(catalogue):
         "complete component catalogue"
         + (": missing " + ", ".join(missing) if missing else ""),
     )
+    for retiring, message in (
+        ([], "retiring trees must map paths to tasks: lni"),
+        ({"../lni": "9.24.7"}, "path must name a repository-relative file or tree"),
+        ({"src/./lni": "9.24.7"}, "noncanonical retiring tree: src/./lni"),
+        ({"src/lni": "done"}, "invalid retiring task: src/lni"),
+        ({"src/lni": True}, "invalid retiring task: src/lni"),
+        ({"cmd/layerxd": "9.24.7"}, "tree is both deleted and retiring: cmd/layerxd"),
+    ):
+        document = {
+            **catalogue,
+            "components": {
+                **components,
+                "lni": {**components["lni"], "retiring_trees": retiring},
+            },
+        }
+        check_equal(
+            refusal(validate_catalogue, document), message,
+            "retiring tree contract exact refusal " + message,
+        )
     check_equal(
         {entry.get("req") for entry in components.values()},
         {str(11000 + number) for number in range(1, 50) if number not in {6, 7}},

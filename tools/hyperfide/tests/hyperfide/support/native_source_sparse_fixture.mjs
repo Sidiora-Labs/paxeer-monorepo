@@ -7,6 +7,21 @@ import { pathToFileURL } from "node:url";
 import { createNativeAcceptanceFixture } from "./native_source_acceptance_fixture.mjs";
 
 const owned = process.env.SOURCE_CONTROL_SPARSE_OWNED === "1";
+function redactLiveInputs(text) {
+  const values = Object.entries(process.env)
+    .filter(
+      ([name, value]) =>
+        value && /^(S3_|HF_SOURCE_S3_|HF_ARTIFACT_S3_)/.test(name),
+    )
+    .flatMap(([, value]) => [
+      value,
+      encodeURIComponent(value),
+      JSON.stringify(value).slice(1, -1),
+    ])
+    .sort((a, b) => b.length - a.length);
+  for (const value of values) text = text.replaceAll(value, "[REDACTED]");
+  return text;
+}
 let serviceOptions = {};
 if (!owned) {
   try {
@@ -23,7 +38,8 @@ if (!owned) {
 }
 const f = await createNativeAcceptanceFixture({ serviceOptions });
 const output = path.resolve(
-  owned ? "build/source-control/2.2" : "build/source-control/sparse-live",
+  process.env.HYPERFIDE_SOURCE_EVIDENCE_DIR ??
+    (owned ? "build/source-control/2.2" : "build/source-control/sparse-live"),
 );
 await fs.mkdir(output, { recursive: true, mode: 0o700 });
 const profile = path.join(
@@ -86,9 +102,13 @@ try {
     child.once("error", reject);
     child.once("close", resolve);
   });
-  await fs.writeFile(path.join(output, "host.log"), stdout + stderr, {
-    mode: 0o600,
-  });
+  await fs.writeFile(
+    path.join(output, "host.log"),
+    redactLiveInputs(stdout + stderr),
+    {
+      mode: 0o600,
+    },
+  );
   assert.equal(code, 0, stdout + stderr);
   const report = JSON.parse(stdout.trim().split("\n").at(-1));
   assert.equal(
@@ -203,7 +223,9 @@ try {
       encoding: "utf8",
     }).trim(),
   };
-  const bytes = Buffer.from(JSON.stringify(receipt, null, 2) + "\n");
+  const bytes = Buffer.from(
+    redactLiveInputs(JSON.stringify(receipt, null, 2)) + "\n",
+  );
   const digest = "sha256:" + createHash("sha256").update(bytes).digest("hex");
   await fs.writeFile(path.join(output, "receipt.json"), bytes, { mode: 0o600 });
   await fs.writeFile(path.join(output, "receipt.sha256"), digest + "\n", {
@@ -230,7 +252,9 @@ try {
     ).rows;
     await fs.writeFile(
       path.join(output, "retained-placements.json"),
-      JSON.stringify({ scope: f.scope, placements }, null, 2) + "\n",
+      redactLiveInputs(
+        JSON.stringify({ scope: f.scope, placements }, null, 2),
+      ) + "\n",
       { mode: 0o600 },
     );
   } finally {

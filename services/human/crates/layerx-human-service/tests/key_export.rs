@@ -10,9 +10,10 @@ use std::sync::Arc;
 use std::task::{Context, Poll, Wake, Waker};
 
 use layerx_agentd::prepare::{
-    prepare_activity, CorePreparationBoundary, CorePreparationState, CoreStateError,
-    PreparationDefaults, PrepareRequest, Prepared,
+    prepare_activity, verify_call_binding, EvmPreparationDefaults, EvmPrepareRequest, EvmPrepared,
+    PrecompileCall, ProductionEvmPreparationBoundary,
 };
+
 use layerx_human_service::audit::{AuditChain, AuditEvent, Decision};
 use layerx_human_service::custody::{
     CustodyError, CustodySigner, EnvelopeKms, KeyClass, KeyEntropy, KeyId, Keystore, Operation,
@@ -25,9 +26,8 @@ use layerx_human_service::store::{PrincipalId, PrincipalStore, TenancyDigest};
 use layerx_human_service::trace::TraceId;
 use layerx_intents::{compile, Intent, IntentKind, LxpSend};
 use layerx_types::account::AccountId;
-use layerx_types::activity::{Authority, TimestampBound};
 use layerx_types::amount::Amount;
-use layerx_types::ids::{AssetId, Did, IdempotencyKey};
+use layerx_types::ids::{AssetId, IdempotencyKey};
 use layerx_types::intent::{
     AuthorizationSignature, ContextHash, NetworkId, ProtocolVersion, PublicKey, SendAuthorization,
     SendAuthorizationKind, Sequence, TimestampSeconds,
@@ -124,50 +124,32 @@ fn send_intent(public_key: [u8; 32], signing_key: [u8; 32], amount: u128) -> Int
     Intent::v1(IntentKind::LxpSend(send))
 }
 
-struct PreparedCore {
-    state: CorePreparationState,
-}
-
-impl CorePreparationBoundary for PreparedCore {
-    fn preparation_state(&mut self, _actor: &Did) -> Result<CorePreparationState, CoreStateError> {
-        Ok(self.state.clone())
-    }
-}
-
-fn prepared(public_key: [u8; 32], seed: [u8; 32], amount: u128) -> Prepared {
-    let registry = registry();
-    let compiled = compile(&send_intent(public_key, seed, amount), &registry)
+fn prepared(public_key: [u8; 32], seed: [u8; 32], amount: u128) -> EvmPrepared {
+    let compiled = compile(&send_intent(public_key, seed, amount), &registry())
         .unwrap_or_else(|error| panic!("compile: {error:?}"));
-    let mut core = PreparedCore {
-        state: CorePreparationState {
-            network_id: NETWORK_ID,
-            account_sequence: 7,
-            protocol_timestamp: 1_000,
-            observed_head_sequence: 88,
-            module_registry: registry,
-        },
-    };
+    let key = k256::ecdsa::SigningKey::from_slice(&seed)
+        .unwrap_or_else(|error| panic!("EVM key: {error}"));
+    let from = layerx_crypto::secp256k1::evm_address(
+        key.verifying_key().to_encoded_point(false).as_bytes(),
+    )
+    .unwrap_or_else(|error| panic!("EVM address: {error:?}"));
+    let node = layerx_agentd::node_rpc::NodeRpcConfig::from_environment()
+        .unwrap_or_else(|error| panic!("node configuration: {error:?}"));
+    let boundary = ProductionEvmPreparationBoundary::new(&node.url, &[])
+        .unwrap_or_else(|error| panic!("preparation boundary: {error:?}"));
     prepare_activity(
-        &mut core,
-        PreparationDefaults {
-            timestamp_span: 30,
-            fee_limit: Amount::from_u128(12),
+        &boundary,
+        EvmPreparationDefaults {
+            max_priority_fee_per_gas: 1,
+            max_fee_per_gas: 12,
             maximum_payload_bytes: 1_024,
         },
-        PrepareRequest {
-            actor: Did::new(b"did:layerx:human-custody")
-                .unwrap_or_else(|error| panic!("DID: {error:?}")),
-            authority: Authority::owner(&public_key)
-                .unwrap_or_else(|error| panic!("authority: {error:?}")),
-            activity_type: compiled.activity_type(),
-            expected_account_sequence: Some(7),
-            timestamp_bound: Some(
-                TimestampBound::new(995, 1_010)
-                    .unwrap_or_else(|error| panic!("timestamp: {error:?}")),
-            ),
-            fee_limit: Some(Amount::from_u128(7)),
-            idempotency_key: IdempotencyKey::new([4; 32]),
-            payload: compiled.payload().as_bytes().to_vec(),
+        EvmPrepareRequest {
+            from,
+            call: PrecompileCall::ledger_transfer(compiled.payload().as_bytes().to_vec()),
+            expected_nonce: Some(7),
+            max_priority_fee_per_gas: Some(1),
+            max_fee_per_gas: Some(7),
             declared_payload_limit: 1_024,
         },
     )
@@ -308,15 +290,19 @@ fn key_export_ceremony_is_the_only_route_that_ever_returns_the_primary_key() {
         .unwrap_or_else(|error| panic!("custody posture: {error}")));
 
     let prepared = prepared(public_key, seed, 25);
-    layerx_agentd::prepare::verify_disclosure_binding(&prepared)
+    verify_call_binding(&prepared)
         .unwrap_or_else(|error| panic!("key export preparation: {error:?}"));
-    let restored = layerx_agentd::prepare::restore_canonical(
-        &prepared.canonical_bytes,
-        prepared.observed_head_sequence,
-        &registry(),
-        Some(prepared.envelope.authority()),
+    let canonical_bytes = prepared.call.encode_unsigned();
+    let restored = layerx_agentd::prepare::disclose::restore_call(
+        &canonical_bytes,
+        prepared.from,
+        prepared.observed_head_height,
+        prepared.disclosure_digest,
+        prepared.signing_hash,
     )
     .unwrap_or_else(|error| panic!("restore export signing subject: {error:?}"));
+    verify_call_binding(&restored)
+        .unwrap_or_else(|error| panic!("restored key export preparation: {error:?}"));
     assert_eq!(restored, prepared);
     let signer = CustodySigner::new(
         fixture.keystore(),
@@ -329,7 +315,7 @@ fn key_export_ceremony_is_the_only_route_that_ever_returns_the_primary_key() {
         &key,
         &fixture.trace,
         SignAuthorization::new(Operation::ProtocolMutation, None),
-        &prepared.canonical_bytes,
+        &canonical_bytes,
         &prepared.disclosure,
         100,
     )))
@@ -357,7 +343,7 @@ fn key_export_ceremony_is_the_only_route_that_ever_returns_the_primary_key() {
         &key,
         &fixture.trace,
         SignAuthorization::new(Operation::ProtocolMutation, None),
-        &prepared.canonical_bytes,
+        &canonical_bytes,
         &prepared.disclosure,
         101,
     )));
@@ -389,7 +375,7 @@ fn key_export_ceremony_is_the_only_route_that_ever_returns_the_primary_key() {
     ));
     let export = fixture.audit_export(&fixture.alice);
     assert!(!contains(&export, &seed));
-    assert!(!contains(&export, &prepared.canonical_bytes));
+    assert!(!contains(&export, &canonical_bytes));
 }
 
 #[test]

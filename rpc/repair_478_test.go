@@ -46,56 +46,64 @@ func repair478Command(t *testing.T, dir string, env []string, name string, args 
 
 // All guests use the same compiler, profile, SDK and fixture. Historical
 // sources come from the fixed revisions, never from a reconstructed test double.
-func repair478Guests(t *testing.T) (before, after []byte) {
+type repair478Guest struct {
+	Revision       string `json:"revision"`
+	RawBytes       int    `json:"raw_bytes"`
+	OptimizedBytes int    `json:"optimized_bytes"`
+	raw, packaged  []byte
+	modulePath     string
+}
+
+func repair478RawGuest(t *testing.T, revision string) repair478Guest {
 	t.Helper()
 	root, err := filepath.Abs("..")
 	require.NoError(t, err)
 	target := filepath.Join(root, "programs", "target", "repair-478-guest")
 	sdkPath := filepath.Join(root, "programs", "sdk", "rust")
-	for _, revision := range []string{repair478Base, ""} {
-		dir := t.TempDir()
-		if revision != "" {
-			data := repair478Command(t, root, nil, "git", "archive", revision, "programs/crates/layerx-programs-ai-market/src")
-			reader := tar.NewReader(bytes.NewReader(data))
-			for {
-				header, err := reader.Next()
-				if err == io.EOF {
-					break
-				}
-				require.NoError(t, err)
-				if header.Typeflag != tar.TypeReg {
-					continue
-				}
-				rel, err := filepath.Rel("programs/crates/layerx-programs-ai-market", header.Name)
-				require.NoError(t, err)
-				destination := filepath.Join(dir, rel)
-				require.NoError(t, os.MkdirAll(filepath.Dir(destination), 0755))
-				content, err := io.ReadAll(reader)
-				require.NoError(t, err)
-				require.NoError(t, os.WriteFile(destination, content, 0644))
+
+	dir := t.TempDir()
+	if revision != "" {
+		data := repair478Command(t, root, nil, "git", "archive", revision, "programs/crates/layerx-programs-ai-market/src")
+		reader := tar.NewReader(bytes.NewReader(data))
+		for {
+			header, err := reader.Next()
+			if err == io.EOF {
+				break
 			}
-		} else {
-			source := filepath.Join(root, "programs/crates/layerx-programs-ai-market/src")
-			require.NoError(t, filepath.WalkDir(source, func(path string, entry os.DirEntry, err error) error {
-				if err != nil {
-					return err
-				}
-				rel, err := filepath.Rel(source, path)
-				if err != nil {
-					return err
-				}
-				destination := filepath.Join(dir, "src", rel)
-				if entry.IsDir() {
-					return os.MkdirAll(destination, 0755)
-				}
-				content, err := os.ReadFile(path)
-				if err != nil {
-					return err
-				}
-				return os.WriteFile(destination, content, 0644)
-			}))
+			require.NoError(t, err)
+			if header.Typeflag != tar.TypeReg {
+				continue
+			}
+			rel, err := filepath.Rel("programs/crates/layerx-programs-ai-market", header.Name)
+			require.NoError(t, err)
+			destination := filepath.Join(dir, rel)
+			require.NoError(t, os.MkdirAll(filepath.Dir(destination), 0755))
+			content, err := io.ReadAll(reader)
+			require.NoError(t, err)
+			require.NoError(t, os.WriteFile(destination, content, 0644))
 		}
-		manifest := fmt.Sprintf(`[package]
+	} else {
+		source := filepath.Join(root, "programs/crates/layerx-programs-ai-market/src")
+		require.NoError(t, filepath.WalkDir(source, func(path string, entry os.DirEntry, err error) error {
+			if err != nil {
+				return err
+			}
+			rel, err := filepath.Rel(source, path)
+			if err != nil {
+				return err
+			}
+			destination := filepath.Join(dir, "src", rel)
+			if entry.IsDir() {
+				return os.MkdirAll(destination, 0755)
+			}
+			content, err := os.ReadFile(path)
+			if err != nil {
+				return err
+			}
+			return os.WriteFile(destination, content, 0644)
+		}))
+	}
+	manifest := fmt.Sprintf(`[package]
 name = "layerx-programs-ai-market"
 version = "0.1.0"
 edition = "2021"
@@ -112,27 +120,110 @@ codegen-units = 1
 panic = "abort"
 strip = true
 `, sdkPath)
-		require.NoError(t, os.WriteFile(filepath.Join(dir, "Cargo.toml"), []byte(manifest), 0644))
-		// These isolated workspaces do not inherit programs/.cargo/config.toml.
-		// Preserve its Wasm flags: the metering decoder requires the compact
-		// table indices produced by disabling reference types and compressing
-		// linker relocations, for both the historical and candidate sources.
-		repair478Command(t, dir, []string{
-			"CARGO_TARGET_DIR=" + target,
-			"PAXAI_CHAIN_DOMAIN=62b6b14734fa769c3e0fbc94de495a3d038be49a2524b1c071d75d0a4eed71f6",
-			"CARGO_ENCODED_RUSTFLAGS=-C\x1ftarget-feature=-reference-types\x1f-C\x1flink-arg=--compress-relocations",
-		}, "cargo", "build", "--release", "--target", "wasm32-unknown-unknown")
-		wasm, err := os.ReadFile(filepath.Join(target, "wasm32-unknown-unknown/release/layerx_programs_ai_market.wasm"))
-		require.NoError(t, err)
-		require.LessOrEqual(t, len(wasm), 524184)
-		switch revision {
-		case repair478Base:
-			before = wasm
-		default:
-			after = wasm
-		}
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "Cargo.toml"), []byte(manifest), 0644))
+	buildScript, err := os.ReadFile(filepath.Join(root, "programs/crates/layerx-programs-ai-market/build.rs"))
+	require.NoError(t, err)
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "build.rs"), buildScript, 0644))
+	// These isolated workspaces do not inherit programs/.cargo/config.toml.
+	// Preserve its Wasm flags: the metering decoder requires the compact
+	// table indices produced by disabling reference types and compressing
+	// linker relocations, for both the historical and candidate sources.
+	repair478Command(t, dir, []string{
+		"CARGO_TARGET_DIR=" + target,
+		"PAXAI_CHAIN_DOMAIN=62b6b14734fa769c3e0fbc94de495a3d038be49a2524b1c071d75d0a4eed71f6",
+		"CARGO_ENCODED_RUSTFLAGS=-C\x1ftarget-feature=-reference-types\x1f-C\x1flink-arg=--compress-relocations",
+	}, "cargo", "build", "--release", "--target", "wasm32-unknown-unknown")
+	modulePath := filepath.Join(target, "wasm32-unknown-unknown/release/layerx_programs_ai_market.wasm")
+	raw, err := os.ReadFile(modulePath)
+	require.NoError(t, err)
+	label := revision
+	if label == "" {
+		label = "working-tree"
 	}
-	return before, after
+	return repair478Guest{Revision: label, RawBytes: len(raw), raw: raw, modulePath: modulePath}
+}
+
+func repair478PackageGuest(t *testing.T, guest repair478Guest) repair478Guest {
+	t.Helper()
+	wasmOpt, err := exec.LookPath("wasm-opt")
+	require.NoError(t, err, "paxai-host-boundary: wasm-opt is required")
+	dir := filepath.Dir(guest.modulePath)
+	rawPath := guest.modulePath
+	optimizedPath := filepath.Join(dir, "ai_market.packaged.wasm")
+	repair478Command(t, dir, nil, wasmOpt, "-Oz", "--strip-debug", "--strip-producers", rawPath, "-o", optimizedPath)
+	guest.packaged, err = os.ReadFile(optimizedPath)
+	require.NoError(t, err)
+	require.LessOrEqual(t, len(guest.packaged), 524184)
+	guest.OptimizedBytes = len(guest.packaged)
+	fmt.Fprintf(os.Stderr, "Repair478 guest revision=%s raw_bytes=%d optimized_bytes=%d\n", guest.Revision, guest.RawBytes, guest.OptimizedBytes)
+	return guest
+}
+
+func repair478GuestSet(t *testing.T, revisions []string) map[string]repair478Guest {
+	t.Helper()
+	guests := make(map[string]repair478Guest)
+	for _, revision := range revisions {
+		guest := repair478PackageGuest(t, repair478RawGuest(t, revision))
+		guests[guest.Revision] = guest
+	}
+	return guests
+}
+
+func repair478Guests(t *testing.T) (before, after []byte) {
+	t.Helper()
+	root, err := filepath.Abs("..")
+	require.NoError(t, err)
+	mergedBase := string(bytes.TrimSpace(repair478Command(t, root, nil, "git", "merge-base", "HEAD", "origin/main")))
+	sizes := repair478GuestSet(t, []string{repair478Base, mergedBase, ""})
+	measurement := map[string]map[string]repair478Guest{
+		"merged_base": {"historical": sizes[repair478Base], "candidate": sizes[mergedBase]},
+		"final_tree":  {"historical": sizes[repair478Base], "candidate": sizes["working-tree"]},
+	}
+	encoded, err := json.MarshalIndent(measurement, "", "  ")
+	require.NoError(t, err)
+	evidenceDir := filepath.Join(root, "programs", "target", "repair-478")
+	require.NoError(t, os.MkdirAll(evidenceDir, 0755))
+	require.NoError(t, os.WriteFile(filepath.Join(evidenceDir, "guest-sizes.json"), append(encoded, '\n'), 0600))
+	return sizes[repair478Base].packaged, sizes["working-tree"].packaged
+}
+
+func TestFundConsumptionAttribution(t *testing.T) {
+	// Measure each source-changing boundary, including its immediate predecessor.
+	revisions := []string{repair478Base, "075a770edb^", "075a770edb", "2d8083af02^", "2d8083af02", "7dc80ac4fc2fdc96f295d738f48f26c355f6a9a0", "42fc4308cf0d", ""}
+	for _, revision := range revisions {
+		label := revision
+		if label == "" {
+			label = "working-tree"
+		}
+		t.Run(label, func(t *testing.T) {
+			guest := repair478PackageGuest(t, repair478RawGuest(t, revision))
+			dir := t.TempDir()
+			receipt := repair478RunObserved(t, guest.packaged, repair478KernelAllowance, false, dir)
+			// Native admission enforces the production ceiling before guest execution.
+			require.Equal(t, int64(-3), int64(receipt.ResultCode))
+			require.Zero(t, receipt.ProgramOutcome.CPUFuel)
+			measure := func(t *testing.T, form string, wasm []byte) {
+				require.NoError(t, os.WriteFile(filepath.Join(dir, "wasm"), wasm, 0600))
+				output := repair478Command(t, "../programs", nil, "cargo", "run", "-q", "-p", "layerx-programs-ai-market", "--example", "repair_478_fixture", "--", "--measure", dir, fmt.Sprint(repair478KernelAllowance))
+				output = bytes.TrimSpace(output)
+				if last := bytes.LastIndexByte(output, '\n'); last >= 0 {
+					output = output[last+1:]
+				}
+				var measurement struct {
+					CPUFuel uint64 `json:"cpu_fuel"`
+				}
+				require.NoError(t, json.Unmarshal(output, &measurement), "%s", output)
+				require.Positive(t, measurement.CPUFuel)
+				require.LessOrEqual(t, measurement.CPUFuel, repair478KernelAllowance)
+				if revision == "" && form == "packaged" {
+					require.LessOrEqual(t, measurement.CPUFuel, uint64(994968))
+				}
+				fmt.Fprintf(os.Stderr, "Repair478 attribution revision=%s form=%s bytes=%d cpu_fuel=%d native_admission=%d kernel_gas=%d\n", label, form, len(wasm), measurement.CPUFuel, receipt.ResultCode, receipt.KernelGasUsed)
+			}
+			t.Run("raw", func(t *testing.T) { measure(t, "raw", guest.raw) })
+			t.Run("packaged", func(t *testing.T) { measure(t, "packaged", guest.packaged) })
+		})
+	}
 }
 
 func repair478Fixture(t *testing.T, owner, asset [32]byte, wasm []byte) map[string][]byte {
@@ -156,6 +247,11 @@ func repair478Fixture(t *testing.T, owner, asset [32]byte, wasm []byte) map[stri
 }
 
 func repair478Run(t *testing.T, wasm []byte, cpuAllowance uint64, evidence bool) lxphost.Receipt {
+	t.Helper()
+	return repair478RunObserved(t, wasm, cpuAllowance, evidence, "")
+}
+
+func repair478RunObserved(t *testing.T, wasm []byte, cpuAllowance uint64, evidence bool, observationDir string) lxphost.Receipt {
 	t.Helper()
 	b := newSeqVecBuilder(t)
 	a := app.Setup(t, false, false, false)
@@ -410,7 +506,10 @@ func repair478Run(t *testing.T, wasm []byte, cpuAllowance uint64, evidence bool)
 	}
 	// Transport the real kernel inputs and observed balance to the Rust executor.
 	dir := "../programs/target/repair-478"
-	if evidence {
+	if observationDir != "" {
+		dir = observationDir
+	}
+	if evidence || observationDir != "" {
 		require.NoError(t, os.MkdirAll(dir, 0755))
 		balance, err := host.ReadBalance(ctx, rewards, asset)
 		require.NoError(t, err)
@@ -482,6 +581,7 @@ func TestRepair478_FundWithinProductionAllowance(t *testing.T) {
 	require.Less(t, after.ProgramOutcome.CPUFuel, before.ProgramOutcome.CPUFuel)
 	require.Less(t, after.ProgramOutcome.CPUFuel, repair478CPUAllowance)
 	require.Less(t, after.ProgramOutcome.CPUFuel, uint64(999968))
+	require.LessOrEqual(t, after.ProgramOutcome.CPUFuel, uint64(802503))
 	t.Logf("Fund kernel gas before=%d after=%d allowance=%d", before.KernelGasUsed, after.KernelGasUsed, repair478KernelAllowance)
 	t.Logf("Fund CPU fuel historical_stop=%d attempt9_stop=999968 production=%d kernel_allowance=%d", before.ProgramOutcome.CPUFuel, after.ProgramOutcome.CPUFuel, repair478KernelAllowance)
 	fmt.Fprintf(os.Stderr, "Repair478 Fund CPU fuel historical_stop=%d attempt9_stop=999968 production=%d kernel_allowance=%d\n", before.ProgramOutcome.CPUFuel, after.ProgramOutcome.CPUFuel, repair478KernelAllowance)

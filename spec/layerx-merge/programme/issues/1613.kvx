@@ -1,0 +1,50 @@
+[issue.1613]
+number = 1613
+title = "[Coherence] The audit record marks the legacy importer integration test clean although its own note describes a stub that hides the blocking conflict defect"
+revision = "bb8caac8b3e73e3e2f4b330805574f0bcb540641"
+verdict = "task"
+evidence = "The clean verdict at spec/layerx-merge/programme/audit/records/22.30.118.kvx:783 contradicts its wallet-id-only producer note at line 784 and the test-fidelity rule at spec/layerx-merge/programme/audit/BRIEF.kvx:25: services/wallet/ceremony/legacy-import/test/import.test.ts:61 still substitutes a server returning unverified insertion and wallet-id-only conflict responses at lines 69-71, although commit d3c77120fae702c13dee3fc3f658de38651b9edd repaired the original conflict defect with material comparisons at services/wallet/gateway/src/routes/admin.ts:106 and receipt verification at services/wallet/ceremony/legacy-import/src/importer.ts:312 and added real-gateway collision coverage at services/wallet/ceremony/legacy-import/test/repair-22-31-369.test.ts:171, leaving the original test and its classification unrepaired."
+close_comment = "The conflict-handling repair includes real-gateway regression coverage, but the original integration test still uses incompatible responses from a wallet-id-only server and its audit entry still says clean. A follow-up will replace that server with the real gateway and explicitly record the test gap."
+
+[task.18.1613.1]
+title = "Issue #1613: Align the legacy importer integration test and audit verdict with the real gateway"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181613.1"]
+capabilities = []
+interfaces = []
+do_1 = "Replace the in-memory HTTP producer at services/wallet/ceremony/legacy-import/test/import.test.ts:61 with the production adminRoutes and migrated PostgreSQL gateway database, using the existing real-gateway setup pattern at services/wallet/ceremony/legacy-import/test/repair-22-31-369.test.ts:29; keep the legacy source schema isolated from the destination database and preserve the mapping, redaction, archived-wallet and wrong-chain assertions at services/wallet/ceremony/legacy-import/test/import.test.ts:88 and the journal replay assertions at line 111."
+do_2 = "Correct file.129 at spec/layerx-merge/programme/audit/records/22.30.118.kvx:780 to verdict issues with a linked test-gap finding naming services/wallet/ceremony/legacy-import/test/import.test.ts, update the finding count and that entry's line count, and make the proposal explicitly name the replacement integration test; distinguish this remaining test gap from the already repaired legacy-conflict-success proposal at line 851 and acknowledge its existing real-gateway regression coverage at services/wallet/ceremony/legacy-import/test/repair-22-31-369.test.ts:171."
+do_3 = "Declare and register legacy_import_gateway_conflict_roundtrip in services/wallet/ceremony/legacy-import/test/import.test.ts to drive readLegacyWallets, planAll and applyPlans through the real HTTP admin route: assert committed live and archived insertions and exact replay receipts, then submit distinct-wallet address and user/kind collisions plus changed ciphertext for an existing wallet, assert wallet_conflict responses, unchanged destination records and no successful journal entries, reopen each journal to prove those rows remain retryable, and prove a resolved collision can subsequently import; retain the existing real-gateway repair tests and production checks unchanged."
+symbols = ["legacy_import_gateway_conflict_roundtrip"]
+touches = ["services/wallet/ceremony/legacy-import/test/import.test.ts", "spec/layerx-merge/programme/audit/records/22.30.118.kvx"]
+tests = ["services/wallet/ceremony/legacy-import/test/import.test.ts::legacy_import_gateway_conflict_roundtrip"]
+planned_paths = []
+build_cmd = "pnpm --dir services/wallet/ceremony/legacy-import exec tsc --noEmit"
+verify_cmd = "pnpm --dir services/wallet/ceremony/legacy-import exec vitest run test/import.test.ts"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-wallet"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181613]
+title = "The legacy importer integration test proves real gateway conflicts and its audit records the test gap"
+ac_1 = "The server substituted at services/wallet/ceremony/legacy-import/test/import.test.ts:61 is replaced by the production adminRoutes, whose distinct conflict and identical replay responses at services/wallet/gateway/src/routes/admin.ts:130 are exercised over HTTP against migrated PostgreSQL; the test proves successful insertion and identical replay, rejects address, user/kind and ciphertext collisions without journaling success or changing stored material, and proves retryability after journal reopen and conflict resolution."
+ac_2 = "The file.129 clean verdict and note at spec/layerx-merge/programme/audit/records/22.30.118.kvx:783 are replaced by an issues verdict linked to an explicit test-gap finding and proposal naming the original integration test, while acknowledging the existing conflict repair and coverage rather than claiming that no conflict regression exists."
+
+[acceptance.18.1613.1]
+feature = "18"
+req = "181613.1"
+scenario = "Given legacy source rows and a migrated gateway destination, when the original importer integration test submits insertions, identical replays and conflicting address, owner/kind or ciphertext material through the real admin route and reopens its journals, then only verified insertions and identical replays are journaled, conflicts preserve destination material and remain retryable, and the audit explicitly records the original test gap and its repair."
+contract = "contracts/services.md#wallet-key-ceremony"
+test = "services/wallet/ceremony/legacy-import/test/import.test.ts::legacy_import_gateway_conflict_roundtrip (planned)"
+qualification = "UNRUN"

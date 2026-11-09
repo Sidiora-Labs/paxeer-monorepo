@@ -155,9 +155,19 @@ impl Drop for VaultNode {
 }
 fn node() -> MutexGuard<'static, VaultNode> {
     static NODE: OnceLock<Mutex<VaultNode>> = OnceLock::new();
-    NODE.get_or_init(|| Mutex::new(VaultNode::new()))
+    let mut node = NODE
+        .get_or_init(|| Mutex::new(VaultNode::new()))
         .lock()
-        .unwrap()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
+    if node
+        .child
+        .try_wait()
+        .expect("EVM host child status")
+        .is_some()
+    {
+        *node = VaultNode::new();
+    }
+    node
 }
 
 fn sign(digest: &[u8; 32], key: u8) -> ([u8; 20], [u8; 65]) {

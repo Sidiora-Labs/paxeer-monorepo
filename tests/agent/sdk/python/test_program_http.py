@@ -123,12 +123,13 @@ class ProgramHttp(unittest.TestCase):
         transaction, signature = decode_signed(raw)
         self.assertEqual(transaction.chain_id, self.trust.network_id)
         self.assertEqual(transaction.to.hex(), "000000000000000000000000000000000000101d")
+        self.assertEqual(transaction.value, 0)
         fee = row["fee_limit"]
         self.assertIsInstance(fee, str)
         self.assertEqual(str(int(fee)), fee)
         self.assertEqual(_encode_programs_call(native, int(fee)), transaction.data)
         self.assertEqual(_decode_programs_call(transaction.data), (native, int(fee)))
-        self.assertTrue(transaction.recover_signer(signature).startswith("0x"))
+        self.assertEqual(transaction.attach_signature(signature, transaction.recover_signer(signature)), raw)
         return ProgramTransaction(raw, native, int(fee))
 
     def verified_receipt(self, request):

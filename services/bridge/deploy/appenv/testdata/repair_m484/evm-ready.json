@@ -1,7 +1,7 @@
 {
   "script": "services/bridge/deploy/deploy-evm-chain.sh",
   "writer_index": 0,
-  "writer_sha256": "6210f2f594936eff8f2dddb2a31f3cd03212beb04bd8311ac69329024d1c907c",
+  "writer_sha256": "3c5e023a41d95a70c4b10d1e5de96878bf75e12454ae1d685efe51fccb1cc10b",
   "record": {
     "chain": "ethereum",
     "chain_id": 1,

@@ -1,0 +1,7 @@
+[issue.1813]
+number = 1813
+title = "[Coherence] RELEASE.md now describes a 7.0.0 release identity check that the workflow does not perform, and drops the warning that the check is tied to V6120Upgrade"
+revision = "a910fdedd579e63379ae6c2e4d4971990d28f8ad"
+verdict = "already-fixed"
+evidence = "Commit 84e41c7e32f7707dac1f3ce246de4e381cabe6fb retargeted release identity validation: .github/workflows/paxeer-release-check.yml:66 accepts the MergeUpgrade declaration in precompiles/common/precompiles.go:29, node/upgrades.go:127 aliases that v7.0 name and node/upgrades.go:218 registers its handler, tools/release/version.json:2 and tools/release/version.json:3 declare v7.0 and v7.0.0 as RELEASE.md:22 and RELEASE.md:37 require, and tools/release/tests/test_upgrade_info.py:46 and tools/release/tests/test_upgrade_info.py:205 cover the identity and the actual workflow expression accepting registered merge plans while refusing unknown names."
+close_comment = "Release identity validation now accepts the registered MergeUpgrade plan v7.0, and the release identity is v7.0.0 with upgrade v7.0. This matches the release documentation; the former V6120Upgrade-only restriction no longer applies."

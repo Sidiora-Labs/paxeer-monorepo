@@ -1,0 +1,48 @@
+[issue.1824]
+number = 1824
+title = "[P3] Emit the declared license in both Python wheel metadata generators"
+revision = "a910fdedd579e63379ae6c2e4d4971990d28f8ad"
+verdict = "task"
+evidence = "Commit 51fdcd5919fc922ce1ea7080a310a0d1f7a29289 changed the declarations now at sdk/integrations/fastapi/pyproject.toml:11 and services/agent/sdk/python/pyproject.toml:11 to Apache-2.0, but sdk/integrations/fastapi/build_backend.py:21 and :27 and services/agent/sdk/python/build_backend.py:19 and :24 still emit metadata 2.3 with the generic License text, which their _source_files functions place in wheel METADATA at sdk/integrations/fastapi/build_backend.py:50 and services/agent/sdk/python/build_backend.py:49, while tests/ci/test_manifest_license_fields.py:145 and :215 check manifests and tests/agent/sdk/python/test_integration.py:462 checks reproducibility without asserting the wheel license."
+close_comment = "The Python SDK and FastAPI wheels still publish generic license text instead of the Apache-2.0 declaration in their project metadata. A focused repair will derive each wheel's license expression from its manifest, use compatible core metadata, and check the built wheels while preserving reproducibility and existing dependencies."
+
+[task.18.1824.1]
+title = "Issue #1824: Emit each Python wheel's declared license expression"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181824.1"]
+capabilities = []
+interfaces = []
+do_1 = "Update _metadata in sdk/integrations/fastapi/build_backend.py:18 and services/agent/sdk/python/build_backend.py:17 to read project.license from the respective adjacent pyproject.toml using tomllib, emit Metadata-Version: 2.4 and License-Expression with that value, and remove the generic License field; keep the declarations at sdk/integrations/fastapi/pyproject.toml:11 and services/agent/sdk/python/pyproject.toml:11 as the sole license source and preserve deterministic archive generation and existing dependency fields at sdk/integrations/fastapi/build_backend.py:15 and services/agent/sdk/python/build_backend.py:25."
+do_2 = "Add test_python_wheels_emit_declared_license to tests/ci/test_manifest_license_fields.py, whose current license checks at :215 and :230 inspect manifests only; load both real backends independently, build each complete wheel twice into temporary output directories, assert identical wheel bytes, parse each archive's dist-info/METADATA with the standard email parser, and assert metadata version 2.4, exactly one License-Expression equal to its manifest's project.license, no legacy License field, unchanged FastAPI base Requires-Dist values and unchanged SDK derivation Provides-Extra and conditional Requires-Dist values."
+symbols = ["_metadata", "test_python_wheels_emit_declared_license"]
+touches = ["sdk/integrations/fastapi/build_backend.py", "services/agent/sdk/python/build_backend.py", "tests/ci/test_manifest_license_fields.py"]
+tests = ["tests/ci/test_manifest_license_fields.py::test_python_wheels_emit_declared_license"]
+planned_paths = []
+build_cmd = "python3 -m py_compile sdk/integrations/fastapi/build_backend.py services/agent/sdk/python/build_backend.py tests/ci/test_manifest_license_fields.py"
+verify_cmd = "python3 -m pytest tests/ci/test_manifest_license_fields.py::test_python_wheels_emit_declared_license -q"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181824]
+title = "Python SDK and FastAPI wheels expose their declared license"
+ac_1 = "Given the license declarations at sdk/integrations/fastapi/pyproject.toml:11 and services/agent/sdk/python/pyproject.toml:11, when each real build_wheel backend produces a wheel through sdk/integrations/fastapi/build_backend.py:73 and services/agent/sdk/python/build_backend.py:72, then its METADATA contains exactly one License-Expression matching project.license and Metadata-Version: 2.4 with no legacy License field, repeated builds are byte-identical, and the existing FastAPI base dependencies and SDK derivation extra remain unchanged."
+
+[acceptance.18.1824.1]
+feature = "18"
+req = "181824.1"
+scenario = "Given the Python SDK and FastAPI project license declarations, when both real backends build their wheels twice and the archives are opened, then their license expressions match the respective manifests under core metadata 2.4, their bytes are reproducible, and existing dependency metadata is preserved."
+contract = "contracts/platform-sdk.md#pipeline"
+test = "tests/ci/test_manifest_license_fields.py::test_python_wheels_emit_declared_license (planned)"
+qualification = "UNRUN"

@@ -1,0 +1,48 @@
+[issue.1594]
+number = 1594
+title = "[Coherence] Four tests/daemon file entries are marked 'issues' but their notes say no disagreement was found"
+revision = "bb8caac8b3e73e3e2f4b330805574f0bcb540641"
+verdict = "task"
+evidence = "The unchanged audit notes at spec/layerx-merge/programme/audit/records/22.30.43.kvx:1398, spec/layerx-merge/programme/audit/records/22.30.43.kvx:1404, spec/layerx-merge/programme/audit/records/22.30.43.kvx:1410 and spec/layerx-merge/programme/audit/records/22.30.43.kvx:1416 still claim no disagreement despite their issues verdicts and retired-reference findings at spec/layerx-merge/programme/audit/records/22.30.43.kvx:1602, spec/layerx-merge/programme/audit/records/22.30.43.kvx:1612, spec/layerx-merge/programme/audit/records/22.30.43.kvx:1622 and spec/layerx-merge/programme/audit/records/22.30.43.kvx:1632, so the requested record correction remains necessary even though commit f8a28dce1caf05f95fed07581fb77990ab72e900 ported the four tests to retained embedded-node paths."
+close_comment = "The four audit notes still contradict their retired-harness findings and need a focused documentation correction describing the dependencies at the audited revision. The tests have since been ported to retained embedded-node paths; this correction preserves the historical findings and their issues verdicts."
+
+[task.18.1594.1]
+title = "Issue #1594: Correct the four retired-harness audit notes"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181594.1"]
+capabilities = []
+interfaces = []
+do_1 = "Replace only the note values of file.231 through file.234 at spec/layerx-merge/programme/audit/records/22.30.43.kvx:1398, spec/layerx-merge/programme/audit/records/22.30.43.kvx:1404, spec/layerx-merge/programme/audit/records/22.30.43.kvx:1410 and spec/layerx-merge/programme/audit/records/22.30.43.kvx:1416 with the historical retired-harness dependencies documented by findings f016 through f019 at spec/layerx-merge/programme/audit/records/22.30.43.kvx:1597, spec/layerx-merge/programme/audit/records/22.30.43.kvx:1607, spec/layerx-merge/programme/audit/records/22.30.43.kvx:1617 and spec/layerx-merge/programme/audit/records/22.30.43.kvx:1627; retain the audit revision, line counts, issues verdicts, finding bodies and all other record fields, because commit f8a28dce1caf05f95fed07581fb77990ab72e900 repairs the later tests without correcting these contradictory audit notes."
+do_2 = "Use these four note sentences in file order and require the focused documentation grep checks to find each complete sentence: At the audited revision, this test depended on the removed tests/daemon/handover-chain.py harness; see finding f016. | At the audited revision, this test required make layerxd and the removed cmd/layerxd/lxp_daemon_protocol.c state-feed bindings; see finding f017. | At the audited revision, this test launched the removed build/bin/layerxd sequencer/replica harness to commit a programs call; see finding f018. | At the audited revision, this test required make layerxd and the removed lxp_daemon_process.c and lxp_daemon_finality_authority.c startup paths; see finding f019."
+symbols = []
+touches = ["spec/layerx-merge/programme/audit/records/22.30.43.kvx"]
+tests = []
+planned_paths = []
+build_cmd = "true"
+verify_cmd = "grep -Fq 'At the audited revision, this test depended on the removed tests/daemon/handover-chain.py harness; see finding f016.' spec/layerx-merge/programme/audit/records/22.30.43.kvx && grep -Fq 'At the audited revision, this test required make layerxd and the removed cmd/layerxd/lxp_daemon_protocol.c state-feed bindings; see finding f017.' spec/layerx-merge/programme/audit/records/22.30.43.kvx && grep -Fq 'At the audited revision, this test launched the removed build/bin/layerxd sequencer/replica harness to commit a programs call; see finding f018.' spec/layerx-merge/programme/audit/records/22.30.43.kvx && grep -Fq 'At the audited revision, this test required make layerxd and the removed lxp_daemon_process.c and lxp_daemon_finality_authority.c startup paths; see finding f019.' spec/layerx-merge/programme/audit/records/22.30.43.kvx"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-programme"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181594]
+title = "Audit file notes agree with the historical retired-harness findings"
+ac_1 = "The four notes at spec/layerx-merge/programme/audit/records/22.30.43.kvx:1398, spec/layerx-merge/programme/audit/records/22.30.43.kvx:1404, spec/layerx-merge/programme/audit/records/22.30.43.kvx:1410 and spec/layerx-merge/programme/audit/records/22.30.43.kvx:1416 identify, respectively, the removed handover-chain.py import, layerxd protocol-owner state-feed prerequisite, standalone programs-call sequencer/replica harness, and daemon startup/finality-authority sources described in findings f016 through f019, explicitly qualify them as dependencies at the audited revision, and preserve the issues verdicts and historical audit data."
+
+[acceptance.18.1594.1]
+feature = "18"
+req = "181594.1"
+scenario = "Given the four audit file entries marked issues and their retired-reference findings f016 through f019, when their notes are corrected and the focused documentation checks run, then each note names its historical removed-harness dependency and matching finding without claiming that no disagreement was identified."
+contract = "contracts/programme.md#programme-artifacts"
+test = "Focused grep checks for all four corrected historical dependency sentences in spec/layerx-merge/programme/audit/records/22.30.43.kvx (planned)"
+qualification = "UNRUN"

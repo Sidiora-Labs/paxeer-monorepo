@@ -1,0 +1,50 @@
+[issue.1625]
+number = 1625
+title = "Guarded SurfaceRuntime is rejected by deployment attestation and pool reads"
+revision = "bb8caac8b3e73e3e2f4b330805574f0bcb540641"
+verdict = "task"
+evidence = "Commit 76d6a76d08d4e02f5830b7a9b880e90ceec89f4f introduced the guarded 51-byte runtime still declared at modules/launchpad/keeper/market.go:32 and installed for new pools at modules/launchpad/keeper/market.go:187, roles at modules/launchpad/keeper/surfaces.go:131 and migrated pools at modules/launchpad/keeper/migrate_v6120.go:326, but sdk/launchpad/shared/config/deployment/generate.py:21, sdk/launchpad/shared/config/deployment/current.json:24 and sdk/launchpad/shared/chain/client.go:1050 retain the old 41-byte runtime hash, which fails the exact comparisons at sdk/launchpad/shared/config/deployment/attest.go:185 and sdk/launchpad/shared/chain/client.go:1081, while tools/launchpad/production/interfaces/contracts/client-deployment.cjs:22 and apps/launchpad/web/src/core/network/deployment.ts:21 retain the same obsolete pin enforced by apps/launchpad/web/src/core/runtime-authority.ts:183."
+close_comment = "The guarded launchpad runtime remains incompatible with deployment attestation and registered pool reads because their approved code hashes still identify the previous runtime. Task 18.1625.1 tracks aligning those identities and generated browser constants, with regression coverage for the keeper's current runtime and rejection of unknown code."
+
+[task.18.1625.1]
+title = "Issue #1625: Align launchpad surface identities with the guarded keeper runtime"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181625.1"]
+capabilities = []
+interfaces = []
+do_1 = "Align SURFACE_RUNTIME_HASH at sdk/launchpad/shared/config/deployment/generate.py:21 and surfaceRuntimeHash at sdk/launchpad/shared/chain/client.go:1050 with Ethereum Keccak-256 of the guarded SurfaceRuntime at modules/launchpad/keeper/market.go:32; regenerate sdk/launchpad/shared/config/deployment/current.json surface identities using the reviewed inputs, retaining historical deployment manifests and the keeper's native-value guard."
+do_2 = "Update the exact surface identity assertion in deriveDeployment at tools/launchpad/production/interfaces/contracts/client-deployment.cjs:22 and regenerate apps/launchpad/web/src/core/network/deployment.ts surface hashes; preserve its complete current role inventory, including Treasury and LaunchpadPrecompile, and retain exact identity validation for every role."
+do_3 = "Extend TestAttestSurfaceAndPrecompileRoles at sdk/launchpad/shared/config/deployment/attest_surface_test.go:170 and TestPoolSurfaceIdentity at sdk/launchpad/shared/chain/pool_surface_test.go:24 so their bytecode inputs derive from the current keeper SurfaceRuntime declaration rather than the obsolete copies at attest_surface_test.go:24 and pool_surface_test.go:22; assert Ethereum Keccak-256 agrees with every canonical surface role and the pool identity pin, exercise production Attest and identifyPool through their existing transports, and retain unregistered-pool, unknown-code and proxy/beacon identity refusals without adding test doubles."
+do_4 = "Strengthen TestEveryFrontendGeneratedRoleMatchesGoManifest at sdk/launchpad/shared/config/deployment/manifest_test.go:134 to compare every generated role identity, including runtime and implementation hashes, with Current and exercise the updated browser generator against the same approved identities; assert the Python manifest generator reproduces current.json using its reviewed inputs, without changing frozen historical deployment provenance."
+symbols = ["SURFACE_RUNTIME_HASH", "surfaceRuntimeHash", "deriveDeployment", "CORE_DEPLOYMENT", "TestAttestSurfaceAndPrecompileRoles", "TestPoolSurfaceIdentity", "TestEveryFrontendGeneratedRoleMatchesGoManifest"]
+touches = ["sdk/launchpad/shared/config/deployment/generate.py", "sdk/launchpad/shared/config/deployment/current.json", "sdk/launchpad/shared/chain/client.go", "sdk/launchpad/shared/chain/pool_surface_test.go", "sdk/launchpad/shared/config/deployment/attest_surface_test.go", "sdk/launchpad/shared/config/deployment/manifest_test.go", "tools/launchpad/production/interfaces/contracts/client-deployment.cjs", "apps/launchpad/web/src/core/network/deployment.ts"]
+tests = ["sdk/launchpad/shared/config/deployment/attest_surface_test.go::TestAttestSurfaceAndPrecompileRoles", "sdk/launchpad/shared/chain/pool_surface_test.go::TestPoolSurfaceIdentity", "sdk/launchpad/shared/config/deployment/manifest_test.go::TestEveryFrontendGeneratedRoleMatchesGoManifest"]
+planned_paths = []
+build_cmd = "cd sdk/launchpad/shared && go build ./config/deployment ./chain"
+verify_cmd = "cd sdk/launchpad/shared && go test -count=1 ./config/deployment ./chain -run '^(TestAttestSurfaceAndPrecompileRoles|TestPoolSurfaceIdentity|TestEveryFrontendGeneratedRoleMatchesGoManifest)$'"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181625]
+title = "Guarded launchpad surfaces share one exact approved runtime identity"
+ac_1 = "Given the guarded runtime declared at modules/launchpad/keeper/market.go:32 and installed at modules/launchpad/keeper/surfaces.go:131 and modules/launchpad/keeper/migrate_v6120.go:326, when canonical role attestation and registered pool identity reads run, then the role pins in sdk/launchpad/shared/config/deployment/current.json:24, the pool pin in sdk/launchpad/shared/chain/client.go:1050 and all generated browser surface identities match its Ethereum Keccak-256, and production Attest and identifyPool accept that code while retaining unknown-code and registry-membership refusals."
+
+[acceptance.18.1625.1]
+feature = "18"
+req = "181625.1"
+scenario = "Given keeper role and pool surfaces using the guarded runtime, when their code is checked against the canonical deployment and generated browser identities and a registered pool is read, then all exact runtime identities agree and the reads succeed, while unregistered pools and unknown runtimes remain rejected."
+contract = "contracts/launchpad.md#native-execution"
+test = "sdk/launchpad/shared/config/deployment/attest_surface_test.go::TestAttestSurfaceAndPrecompileRoles; sdk/launchpad/shared/chain/pool_surface_test.go::TestPoolSurfaceIdentity; sdk/launchpad/shared/config/deployment/manifest_test.go::TestEveryFrontendGeneratedRoleMatchesGoManifest (planned)"
+qualification = "UNRUN"

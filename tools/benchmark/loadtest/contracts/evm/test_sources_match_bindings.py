@@ -58,3 +58,8 @@ def test_my_nft_abi_matches_erc721_binding(compiled_contracts):
     )
     binding = json.loads((compiled_contracts / "bindings/erc721/abi.json").read_text())
     assert canonical_abi(artifact["abi"]) == canonical_abi(binding)
+    source = (compiled_contracts / "bindings/erc721/erc721.go").read_text()
+    declaration = next(line.strip() for line in source.splitlines()
+                       if line.strip().startswith("ABI: "))
+    embedded = json.loads(json.loads(declaration.removeprefix("ABI: ").removesuffix(",")))
+    assert canonical_abi(artifact["abi"]) == canonical_abi(embedded)

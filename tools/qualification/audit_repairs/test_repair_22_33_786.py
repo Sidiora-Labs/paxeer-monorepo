@@ -183,7 +183,7 @@ def test_doc_1_operator_build_and_start_match_declared_producers():
         ["./build/paxd", "version"], ["./build/paxd", "start", "--home", "$PAXD_HOME"]
     ]
     makefile = source("Makefile")
-    assert "\npaxd-native-libs: $(LIBRARY) programs-release-build\n" in makefile
+    assert "\npaxd-native-libs: $(LIBRARY) programs-release-build evmone-lib\n" in makefile
     assert "\npaxd-build: paxd-native-libs\n" in makefile
     assert "tools/release/version.json" in makefile
     assert "-o ./build/paxd ./daemon/paxd" in source("chain.mk")

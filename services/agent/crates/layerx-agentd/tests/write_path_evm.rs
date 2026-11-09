@@ -11,6 +11,7 @@ use layerx_agentd::outbox::{Outbox, SubmissionState, SubmissionStatus};
 use layerx_agentd::store::{Store, TenantId};
 use layerx_crypto::evm_transaction::{decode_signed, transaction_hash, Eip1559Call};
 use layerx_types::rung::Rung;
+use std::os::unix::fs::DirBuilderExt;
 
 struct DurableWrite {
     root: std::path::PathBuf,
@@ -21,9 +22,13 @@ struct DurableWrite {
 
 impl DurableWrite {
     fn queued(name: &str) -> Self {
-        let root =
-            std::env::temp_dir().join(format!("write-path-evm-{}-{name}", std::process::id()));
-        std::fs::create_dir(&root).unwrap();
+        let root = std::fs::canonicalize(std::env::temp_dir())
+            .unwrap()
+            .join(format!("write-path-evm-{}-{name}", std::process::id()));
+        std::fs::DirBuilder::new()
+            .mode(0o700)
+            .create(&root)
+            .unwrap();
         let mut store = Store::open(&root).unwrap();
         let mut outbox = Outbox::default();
         let call = Eip1559Call {
@@ -152,9 +157,13 @@ fn raw_transaction_submit_sends_eth_send_raw_transaction() {
         submissions
     });
     let node = NodeRpc::connect(&config).unwrap();
-    let root =
-        std::env::temp_dir().join(format!("write-path-evm-{}-raw-submit", std::process::id()));
-    std::fs::create_dir(&root).unwrap();
+    let root = std::fs::canonicalize(std::env::temp_dir())
+        .unwrap()
+        .join(format!("write-path-evm-{}-raw-submit", std::process::id()));
+    std::fs::DirBuilder::new()
+        .mode(0o700)
+        .create(&root)
+        .unwrap();
     let store = Store::open(&root).unwrap();
     let mut write = DurableWrite {
         root,

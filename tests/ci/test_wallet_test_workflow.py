@@ -34,7 +34,7 @@ def test_sdk_wallet_declares_pnpm():
     assert install["run"] == "pnpm install --ignore-workspace --frozen-lockfile"
     run = next(step for step in steps if step["name"] == "Run Vitest suite")
     assert run["working-directory"] == "${{ matrix.directory }}"
-    assert run["run"] == "pnpm exec vitest run"
+    assert run["run"] == "${{ matrix.command }}"
 
 
 def test_wallet_vitest_aliases_node_sqlite():
@@ -81,7 +81,8 @@ def test_wallet_setup_provides_web_locks():
     assert setup["with"]["node-version"] == "24.22.0"
     for name in ("pns/repair-22-33-138.test.ts", "swap/repair-22-31-239.test.ts"):
         source = (WALLET / "src/widgets" / name).read_text()
-        assert "import { locks } from 'node:worker_threads'" in source, name
+        assert "import * as workerThreads from 'node:worker_threads'" in source, name
+        assert "const locks: unknown = Reflect.get(workerThreads, 'locks')" in source, name
         setup_body = source.split("beforeAll(async () => {", 1)[1]
         assert "Object.defineProperty(navigator, 'locks', { value: locks, configurable: true })" in setup_body, name
         assert "expect(navigator.locks).toBe(locks)" in setup_body, name
@@ -96,7 +97,16 @@ def test_wallet_workflow_matrix_dirs_exist():
     assert {"pull_request", "push", "workflow_dispatch"} <= workflow["on"].keys()
     job = workflow["jobs"]["vitest"]
     matrix = job["strategy"]["matrix"]
-    assert matrix == {"directory": ["apps/wallet", "sdk/wallet"]}
+    assert matrix == {
+        "directory": ["apps/wallet", "sdk/wallet"],
+        "include": [
+            {"directory": "apps/wallet", "command": "pnpm exec vitest run"},
+            {
+                "directory": "sdk/wallet",
+                "command": "python3 ../../tools/ci/run_wallet_vitest.py",
+            },
+        ],
+    }
     assert job["strategy"]["fail-fast"] == "false"
     assert "if" not in job
     assert "continue-on-error" not in job
@@ -113,4 +123,28 @@ def test_wallet_workflow_matrix_dirs_exist():
             assert (ROOT / directory).is_dir(), directory
     run = next(step for step in job["steps"] if step["name"] == "Run Vitest suite")
     assert "if" not in run
-    assert run["run"] == "pnpm exec vitest run"
+    assert run["run"] == "${{ matrix.command }}"
+
+
+def test_sdk_wallet_installs_gateway_dependencies_and_fixture_tools():
+    workflow = wallet_workflow()
+    steps = workflow["jobs"]["vitest"]["steps"]
+    gateway_steps = workflow["jobs"]["gateway"]["steps"]
+    sdk = next(step for step in steps if step["name"] == "Install wallet SDK dependencies")
+    install = next(step for step in steps if step["name"] == "Install wallet workspace dependencies")
+    gateway_install = next(
+        step for step in gateway_steps
+        if step["name"] == "Install wallet workspace dependencies"
+    )
+    suite = next(step for step in steps if step["name"] == "Run Vitest suite")
+    assert install["if"] == "matrix.directory == 'sdk/wallet'"
+    assert {key: value for key, value in install.items() if key != "if"} == gateway_install
+    assert install["working-directory"] == "services/wallet"
+    assert install["run"] == "pnpm install --frozen-lockfile"
+    assert steps.index(sdk) < steps.index(install) < steps.index(suite)
+    for name in ("Set up Go for attestor fixtures", "Install PostgreSQL fixture binaries"):
+        setup = next(step for step in steps if step["name"] == name)
+        gateway_setup = next(step for step in gateway_steps if step["name"] == name)
+        assert setup["if"] == "matrix.directory == 'sdk/wallet'"
+        assert {key: value for key, value in setup.items() if key != "if"} == gateway_setup
+        assert steps.index(setup) < steps.index(suite)

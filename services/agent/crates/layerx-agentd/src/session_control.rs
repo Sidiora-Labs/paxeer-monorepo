@@ -16,8 +16,8 @@ use crate::events::subscription::Termination;
 use crate::human::{HumanOperationError, HumanResponse};
 use crate::managed_agent;
 use crate::prepare::{
-    DurablePreparation, LifecycleError, LifecycleState, PreparationAuthorization,
-    PreparationExtension, PreparationInvalidationReport, PreparationLifecycle, Prepared,
+    DurablePreparation, EvmPrepared, LifecycleError, LifecycleState, PreparationAuthorization,
+    PreparationExtension, PreparationInvalidationReport, PreparationLifecycle,
     EXTENSION_IDEMPOTENCY, EXTENSION_OUTCOME,
 };
 use crate::session::{
@@ -1882,7 +1882,7 @@ impl OperationPermit {
                 .iter()
                 .map(|(key, _)| key.clone())
                 .collect::<Vec<_>>();
-            let idempotency_key = prepared.audit.idempotency_key;
+            let idempotency_key = prepared.disclosure.idempotency_key;
             if live_preparation_for_key(&store, &tenant, idempotency_key)?.is_some() {
                 return Err(lifecycle(LifecycleError::Duplicate));
             }
@@ -1917,8 +1917,8 @@ impl OperationPermit {
                 preparation_id,
                 session_id: authorization.session.session_id.0,
                 generation: authorization.generation,
-                not_after: prepared.envelope.timestamp_bound().not_after(),
-                payload_hash: prepared.envelope.payload_hash(),
+                not_after: prepared.disclosure.expiry.not_after,
+                payload_hash: layerx_crypto::evm_transaction::transaction_hash(&prepared.call.data),
                 state: LifecycleState::Prepared,
                 activity_id: None,
                 holds,
@@ -2095,7 +2095,7 @@ impl OperationPermit {
         &self,
         control: &SessionControl,
         preparation_id: [u8; 32],
-        prepared: &Prepared,
+        prepared: &EvmPrepared,
         reservation_ids: Vec<[u8; 32]>,
     ) -> Result<(), SessionControlError> {
         self.require_operation(Operation::Prepare)?;
@@ -2624,7 +2624,7 @@ impl OperationPermit {
 
 /// Stage at which one write passes the single admission seam.
 pub enum AdmissionStage<'a> {
-    Prepare { prepared: &'a Prepared },
+    Prepare { prepared: &'a EvmPrepared },
     Sign,
     Submit,
 }
@@ -3258,17 +3258,6 @@ mod tests {
         let _ = std::fs::remove_dir_all(root);
     }
 
-    struct RecordedCore(crate::prepare::CorePreparationState);
-
-    impl crate::prepare::CorePreparationBoundary for RecordedCore {
-        fn preparation_state(
-            &mut self,
-            _actor: &Did,
-        ) -> Result<crate::prepare::CorePreparationState, crate::prepare::CoreStateError> {
-            Ok(self.0.clone())
-        }
-    }
-
     fn activity_type() -> layerx_types::payload::ActivityType {
         must(layerx_types::payload::ActivityType::new(
             layerx_types::payload::ModuleId::Asset,
@@ -3348,42 +3337,29 @@ mod tests {
         payload
     }
 
-    fn prepared_activity() -> Prepared {
-        let registry = must(layerx_types::payload::ModuleRegistry::new(&[must(
-            layerx_types::payload::ModuleRegistration::new(
-                layerx_types::payload::ModuleId::Asset,
-                &[activity_type()],
-            ),
-        )]));
-        let mut core = RecordedCore(crate::prepare::CorePreparationState {
-            network_id: 17,
-            account_sequence: 5,
-            protocol_timestamp: 1_000,
-            observed_head_sequence: 88,
-            module_registry: registry,
-        });
-        must(crate::prepare::prepare_activity(
-            &mut core,
-            crate::prepare::PreparationDefaults {
-                timestamp_span: 30,
-                fee_limit: layerx_types::amount::Amount::from_u128(12),
+    fn prepared_activity() -> EvmPrepared {
+        use crate::prepare::evm;
+        must(evm::prepare_bound(
+            evm::EvmPreparationState {
+                chain_id: 17,
+                pending_nonce: 5,
+                head_height: 88,
+                base_fee_per_gas: 0,
+            },
+            evm::PreparationDefaults {
+                max_priority_fee_per_gas: 0,
+                max_fee_per_gas: 7,
                 maximum_payload_bytes: 1_024,
             },
-            crate::prepare::PrepareRequest {
-                actor: must(Did::new(b"did:layerx:expiry")),
-                authority: must(layerx_types::activity::Authority::owner(
-                    b"external-authority",
-                )),
-                activity_type: activity_type(),
-                expected_account_sequence: Some(5),
-                timestamp_bound: Some(must(layerx_types::activity::TimestampBound::new(
-                    995, 1_010,
-                ))),
-                fee_limit: Some(layerx_types::amount::Amount::from_u128(7)),
-                idempotency_key: layerx_types::ids::IdempotencyKey::new([4; 32]),
-                payload: signed_payload(),
+            evm::PrepareRequest {
+                from: [0x11; 20],
+                call: evm::PrecompileCall::ledger_transfer(signed_payload()),
+                expected_nonce: Some(5),
+                max_priority_fee_per_gas: None,
+                max_fee_per_gas: None,
                 declared_payload_limit: 1_024,
             },
+            1,
         ))
     }
 
@@ -3499,7 +3475,7 @@ mod tests {
         let _ = std::fs::remove_dir_all(root);
     }
 
-    fn admission(prepared: &Prepared, limit: LimitId) -> WriteAdmission<'_> {
+    fn admission(prepared: &EvmPrepared, limit: LimitId) -> WriteAdmission<'_> {
         WriteAdmission {
             stage: AdmissionStage::Prepare { prepared },
             preparation_id: [8; 32],

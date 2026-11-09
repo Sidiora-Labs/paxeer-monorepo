@@ -22,11 +22,11 @@ use layerx_types::activity::{Authority, EnvelopeBuilder, Signature, TimestampBou
 use layerx_types::amount::Amount;
 use layerx_types::ids::{Did, IdempotencyKey};
 use layerx_types::payload::{ActivityType, ModuleId, ModuleRegistration, ModuleRegistry, Payload};
-use layerx_wire::activity::{encode_signed_envelope, encode_unsigned_envelope};
 use layerx_wire::encode::Encoder;
 use layerx_wire::hash::{
     batch_header_digest, payload_hash_for, program_execution_batch_id, receipt_digest, Domain,
 };
+use layerx_wire::historical::activity::{encode_signed_envelope, encode_unsigned_envelope};
 use layerx_wire::limits::PROTOCOL_VERSION;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};

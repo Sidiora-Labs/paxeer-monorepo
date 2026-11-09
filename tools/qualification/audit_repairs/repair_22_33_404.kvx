@@ -3,7 +3,7 @@ task = "22.33.404"
 audit = "22.30.142"
 base_revision = "399c122802fbe3326c62ef9251760c3e53ee4060"
 readme_source_revision = "fc6d0a5ac2222ecf28b4061a8d09e2e730e40bdc"
-readme_sha256 = "689aad1724d426309d059d9a3b0085214078d35f756e19b396142a751f84ba98"
+readme_sha256 = "188d8c138efd7e35992f0a390886bd129a05322d55cd00f9a3f1c43cc6e28d1b"
 repair = "Add focused source regression proofs for finding 46 against README.md as the owning task 22.31.470 left it. Decision 2525 delegates the root README rewrite; this task changes only its repair record and pytest module."
 source_proof = "Six tests read the real README: one paxd BFT chain with the embedded kernel and topology; chain 125 and root api1..api14 JSON-RPC hosts with parsed curl JSON; public node versus optional hosted px_ contract; signed transaction acceptance/forwarding, durable receipt release and committed-block receipt coverage; authenticated finality versus historical archive reads; retired custody/checkpoint refusal surfaces without standalone deployment; and linked native prerequisites plus the paxd build/start entry. Tests check source connections in the production host, RPC, sequencer, retirement and build files, parse the gateway OpenRPC manifest, and parse the Makefile target declarations. A seventh test binds the audit finding, source digest, declared proofs and owner wiring to this record."
 review_only = "Native Go/C/Rust builds, node startup, transaction execution, receipt signature verification, BFT consensus, live RPC availability, deployment, and WAL restart/recovery are not executed by this Python-only documentation gate. Source connections establish documented producer/transport/consumer facts, not runtime certification. No interface or stateful component is changed; restart/recovery and interface execution proofs are not applicable to this doc-drift finding. Semantic completeness beyond the asserted source facts remains a review judgment."
@@ -40,3 +40,7 @@ resolution = "Follow the explicit ordered gates and disclose the absent baseline
 [gotcha.2]
 observed = "Combined broad reads exceeded output limits, Codify brief/survey referenced unrelated cached task state, and guessed neighboring 22.33 repair modules were absent."
 resolution = "Use actual git status/diff, bounded finding/task/source sections and the private gate ledger; read the existing 22.31.470 proof and repair record for the owning README task."
+
+[qualification_pin_22_31_623]
+source_revision = "89c8395f4e8340dfd9447c6d20f7065cede8e6b5"
+policy = "Refresh the retained full-content fingerprint from the live producer after authorized task repairs; original audit metadata remains historical. This is a source pin, not a claim that qualification passed."

@@ -11,6 +11,7 @@ fi
 # shellcheck disable=SC1090
 . <(sed '/^mode="\${1:-}"$/,$d' "$check_live_path")
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+rpc_inventory="$repo_root/docs/site/docs/reference/public-rpc.md"
 
 usage() {
 	cat <<'EOF'

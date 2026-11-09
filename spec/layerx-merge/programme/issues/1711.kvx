@@ -1,0 +1,49 @@
+[issue.1711]
+number = 1711
+title = "Migrate retained middleware conformance fixtures to the verified receipt digest"
+revision = "bb8caac8b3e73e3e2f4b330805574f0bcb540641"
+verdict = "task"
+evidence = "Although commit 908d90b5c529e8464d9a6b5f3cf852a8d03b47eb corrected services/platform/middleware/conformance/pay6/node-fixtures.mjs:15 and :19, services/platform/middleware/conformance/pay6/walkthrough.mjs:17 still expects Keccak of the signed receipt and services/platform/middleware/conformance/service.mjs:529 still constructs it for the agent and budget assertions at :688 and :698, whereas services/platform/middleware/seller/src/rpc.ts:158 returns the authenticated digest from services/agent/sdk/typescript/src/verifier.ts:558 and services/platform/middleware/seller/src/index.ts:1049 rejects a different digest."
+close_comment = "The PAY6 fixture now uses the authenticated receipt digest, but the walkthrough assertion and service agent fixture still use the earlier signed-receipt hash. The remaining correction is tracked as task 18.1711.1, including settlement, budget recovery and incorrect-digest rejection checks."
+
+[task.18.1711.1]
+title = "Issue #1711: Align retained conformance consumers with the authenticated receipt digest"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181711.1"]
+capabilities = []
+interfaces = []
+do_1 = "In services/platform/middleware/conformance/pay6/walkthrough.mjs:15 replace the signed-receipt Keccak expectation at :17 with the authenticated verifier digest and the recorded V1-layerxledger-pay-exact receiptDigest at sdk/platform/conformance/fixtures/sequencer-receipt-v1.json:156; preserve the agent, settlement, capture and restart assertions at :21, :37, :42 and :43, and extend the negative cases at :56 to reject the legacy Keccak digest as well as the existing corrupt evidence."
+do_2 = "In services/platform/middleware/conformance/service.mjs:523 authenticate the recorded signed receipt and raw transaction with the pinned receipt keys at :532 through verifySequencerReceipt and use its receiptDigest in the proof instead of the Keccak construction at :529; retain the exact digest assertions for the agent result and committed budget at :688 and :698 and the recovery and replay checks at :742."
+do_3 = "Extend conformance_daemon_fixture_tracks_and_recovers_real_serializer_output in services/platform/middleware/conformance/test/repair-22-33-1480.test.mjs:124 to independently verify the transcript receipt with its pinned keys, assert that every receipt-service proof and the recovered budget carry that authenticated digest, and assert it differs from the legacy signed-receipt Keccak hash; retain its exact producer-transcript, six-scenario, restart and single-budget-commit assertions at :129, :133, :154 and :184, then run it together with mergedHttpEnvelopesSurviveReopen against current source."
+symbols = ["mergedHttpEnvelopesSurviveReopen", "runAgentServiceScenarios", "conformance_daemon_fixture_tracks_and_recovers_real_serializer_output"]
+touches = ["services/platform/middleware/conformance/pay6/walkthrough.mjs", "services/platform/middleware/conformance/service.mjs", "services/platform/middleware/conformance/test/repair-22-33-1480.test.mjs"]
+tests = ["services/platform/middleware/conformance/pay6/walkthrough.mjs::mergedHttpEnvelopesSurviveReopen", "services/platform/middleware/conformance/test/repair-22-33-1480.test.mjs::conformance_daemon_fixture_tracks_and_recovers_real_serializer_output"]
+planned_paths = []
+build_cmd = "pnpm --dir services/platform/middleware/conformance exec tsc --noEmit"
+verify_cmd = "node --test --test-name-pattern='^(mergedHttpEnvelopesSurviveReopen|conformance_daemon_fixture_tracks_and_recovers_real_serializer_output)$' services/platform/middleware/conformance/test/repair-22-33-1479.test.mjs services/platform/middleware/conformance/test/repair-22-33-1480.test.mjs"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181711]
+title = "Retained middleware conformance uses the authenticated receipt digest throughout"
+ac_1 = "Given the recorded receipts, the PAY6 walkthrough at services/platform/middleware/conformance/pay6/walkthrough.mjs:9 and service agent scenarios at services/platform/middleware/conformance/service.mjs:523 carry the verifier's authenticated digest through proof, agent result, settlement and durable budget recovery, accept the recorded payment, preserve idempotent replay and reject incorrect digests including Keccak of the signed receipt."
+
+[acceptance.18.1711.1]
+feature = "18"
+req = "181711.1"
+scenario = "Given recorded signed receipts and trusted receipt keys, when the PAY6 walkthrough and service agent scenarios verify payments and reopen their durable state, then proofs, settlement and budget records preserve the authenticated receipt digest and incorrect digests are refused."
+contract = "contracts/platform-middleware.md#middleware-conformance-ts-exports"
+test = "services/platform/middleware/conformance/test/repair-22-33-1479.test.mjs::mergedHttpEnvelopesSurviveReopen and services/platform/middleware/conformance/test/repair-22-33-1480.test.mjs::conformance_daemon_fixture_tracks_and_recovers_real_serializer_output (planned)"
+qualification = "UNRUN"

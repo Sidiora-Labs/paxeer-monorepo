@@ -210,6 +210,9 @@ def test_restart_rejects_misbound_submission(qualifier, tmp_path, change):
     "missing", "transaction", "canonical-identity", "truncated", "receipt-rung", "status-rung",
     "retired-level", "retired-receipt-level", "header-missing", "header-before", "header-after",
     "header-key", "header-batch", "header-asset", "request-id", "signature-framing",
+    "receipt-hash", "block-height", "signed-copy", "key-id", "public-key",
+    "first-height", "last-height", "inclusion-height", "wire-rank", "extra-field",
+    "missing-key", "noncanonical-height", "signature",
 ])
 def test_recovery_rejects_missing_or_misbound_receipt_and_header(qualifier, tmp_path, change):
     with serving(qualifier, tmp_path) as (peer, phase):
@@ -231,6 +234,35 @@ def test_recovery_rejects_missing_or_misbound_receipt_and_header(qualifier, tmp_
                 raw = bytearray.fromhex(receipt["canonical_bytes"])
                 raw[-69] = 0
                 receipt["canonical_bytes"] = raw.hex()
+            elif change == "receipt-hash":
+                receipt["receipt_hash"] = "99" * 32
+            elif change == "block-height":
+                receipt["block_height"] = "8"
+            elif change == "signed-copy":
+                receipt["signed_receipt"] = "00"
+            elif change == "key-id":
+                receipt["receipt_key_id"] = "99" * 32
+            elif change == "public-key":
+                receipt["public_key"] = "99" * 32
+            elif change == "first-height":
+                receipt["first_height"] = "8"
+            elif change == "last-height":
+                receipt["last_height"] = "6"
+            elif change == "inclusion-height":
+                receipt["inclusion_height"] = "8"
+            elif change == "wire-rank":
+                receipt["verification_level"] = "committed"
+            elif change == "extra-field":
+                receipt["unrecognised"] = "value"
+            elif change == "missing-key":
+                del receipt["receipt_key_id"]
+            elif change == "noncanonical-height":
+                receipt["block_height"] = "07"
+            elif change == "signature":
+                raw = bytearray.fromhex(receipt["canonical_bytes"])
+                raw[-1] ^= 1
+                receipt["canonical_bytes"] = receipt["signed_receipt"] = raw.hex()
+                receipt["receipt_hash"] = hashlib.sha256(raw).hexdigest()
             elif change == "receipt-rung":
                 receipt["rung"] = "receipted"
             elif change == "status-rung":

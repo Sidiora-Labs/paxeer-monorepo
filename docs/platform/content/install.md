@@ -31,7 +31,7 @@ use `layerx --help` for the current command catalogue.
 
 Public node JSON-RPC uses the root path. Hosted gateway `px_*` methods are
 additional service APIs; a node URL does not supply human-payment credentials
-or every hosted method. See the [gateway source guide](https://github.com/Sidiora-Labs/paxeer-monorepo/blob/main/services/platform/hosted/gateway/README.md)
+or every hosted method. See the [gateway source guide in the Paxeer monorepo](https://github.com/Sidiora-Labs/paxeer-monorepo/blob/main/services/platform/hosted/gateway/README.md)
 and [reference applications](https://github.com/Sidiora-Labs/paxeer-monorepo/blob/main/services/platform/examples/README.md)
 for the distinct service bindings.
 

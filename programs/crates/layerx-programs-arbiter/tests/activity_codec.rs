@@ -1,6 +1,6 @@
 use layerx_programs_arbiter::{activity_codec::signed_activity_bytes, ReplayError};
 use layerx_types::payload::{ActivityType, ModuleId, ModuleRegistration, ModuleRegistry};
-use layerx_wire::activity::{
+use layerx_wire::historical::activity::{
     decode_signed, decode_unsigned, encode_signed, encode_unsigned, Activity,
 };
 
@@ -95,7 +95,7 @@ fn signed_activity_bytes_match_wire_encoder_golden() {
         assert_eq!(activity.protocol_version(), 3);
         assert_eq!(activity.network_id(), 7);
         assert_eq!(
-            layerx_wire::hash::payload_hash(&activity).expect("payload hash"),
+            layerx_wire::historical::hash::payload_hash(&activity).expect("payload hash"),
             activity.payload_hash()
         );
         let key = activity.authority().try_into().expect("Ed25519 public key");
@@ -104,7 +104,8 @@ fn signed_activity_bytes_match_wire_encoder_golden() {
             .expect("signature")
             .try_into()
             .expect("Ed25519 signature");
-        let preimage = layerx_wire::sign::preimage(&activity).expect("signing preimage");
+        let preimage =
+            layerx_wire::historical::sign::preimage(&activity).expect("signing preimage");
         layerx_crypto::ed25519::verify_digest(&key, &signature, preimage.as_bytes())
             .expect("genuine fixture signature");
         assert_eq!(encode_signed(&activity).expect("wire golden"), bytes);

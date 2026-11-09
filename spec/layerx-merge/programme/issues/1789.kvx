@@ -1,0 +1,48 @@
+[issue.1789]
+number = 1789
+title = "[Coherence] BetaCluster still says the primary container runs `paxd start --home /var/lib/paxeer` on a `/var/lib/paxeer` volume, which contradicts the updated PaxeerBoundary page and the manifest"
+revision = "a910fdedd579e63379ae6c2e4d4971990d28f8ad"
+verdict = "task"
+evidence = "docs/wiki/BetaCluster.md:58 still gives `paxd start --home /var/lib/paxeer` and docs/wiki/BetaCluster.md:120-121 places the 40Gi data PVC at `/var/lib/paxeer`, whereas services/platform/hosted/paxeer/deployment.yaml:74 runs `python3 /opt/layerx/kernel_runtime.py --home /data/layerx/node`, services/platform/hosted/paxeer/deployment.yaml:85 mounts data at `/data` and services/platform/hosted/paxeer/deployment.yaml:121 retains 40Gi; commit e3c7244ad7269e76d61d308bde5a0dc4eb5bf5a7 corrected docs/wiki/PaxeerBoundary.md:73,75 but left those BetaCluster claims intact, and services/platform/hosted/paxeer/repair_m483_test.go:42-47 checks that the boundary command matches the maintained native runtime."
+close_comment = "BetaCluster still describes an outdated primary command and volume path. A documentation correction is specified to describe `python3 /opt/layerx/kernel_runtime.py --home /data/layerx/node` and the 40Gi data volume mounted at `/data`, matching the manifest and PaxeerBoundary."
+
+[task.18.1789.1]
+title = "Issue #1789: Align BetaCluster primary command and storage with the manifest"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181789.1"]
+capabilities = []
+interfaces = []
+do_1 = "Replace the primary command at docs/wiki/BetaCluster.md:54-59 with the exact command line `python3 /opt/layerx/kernel_runtime.py --home /data/layerx/node` from services/platform/hosted/paxeer/deployment.yaml:74; replace the primary storage claim at docs/wiki/BetaCluster.md:120-121 with the single-line sentence: The Paxeer StatefulSet declares one primary replica and a 40Gi `data` PVC mounted at `/data`. These descriptions must agree with docs/wiki/PaxeerBoundary.md:73,75 and the volume mount and capacity at services/platform/hosted/paxeer/deployment.yaml:85,121; preserve the separate observer description."
+do_2 = "Use the focused documentation grep check to assert the exact primary command line and the complete corrected volume sentence and reject the obsolete exact `/var/lib/paxeer` home reference; the existing runtime and manifest tests remain the evidence for the command being documented."
+symbols = []
+touches = ["docs/wiki/BetaCluster.md"]
+tests = []
+planned_paths = []
+build_cmd = "true"
+verify_cmd = "grep -Fxq 'python3 /opt/layerx/kernel_runtime.py --home /data/layerx/node' docs/wiki/BetaCluster.md && grep -Fxq 'The Paxeer StatefulSet declares one primary replica and a 40Gi `data` PVC mounted at `/data`.' docs/wiki/BetaCluster.md && ! grep -Fq '`/var/lib/paxeer`' docs/wiki/BetaCluster.md && ! grep -Fxq 'paxd start --home /var/lib/paxeer' docs/wiki/BetaCluster.md"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-docs"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181789]
+title = "BetaCluster accurately describes the primary container command and data volume"
+ac_1 = "The primary command and volume description at docs/wiki/BetaCluster.md:54-59,120-121 match services/platform/hosted/paxeer/deployment.yaml:74,85,121 and docs/wiki/PaxeerBoundary.md:73,75: the command is `python3 /opt/layerx/kernel_runtime.py --home /data/layerx/node`, the 40Gi data PVC is mounted at `/data`, and the obsolete primary command and exact `/var/lib/paxeer` home reference are absent."
+
+[acceptance.18.1789.1]
+feature = "18"
+req = "181789.1"
+scenario = "Given the primary container command and data volume in the Paxeer manifest, when BetaCluster describes that container, then it shows `python3 /opt/layerx/kernel_runtime.py --home /data/layerx/node` and the 40Gi data PVC mounted at `/data`, agrees with PaxeerBoundary, and contains neither the obsolete primary command nor the exact `/var/lib/paxeer` home reference."
+contract = "contracts/platform-hosted.md#platform-docs"
+test = "docs/wiki/BetaCluster.md::focused grep checks of the primary command, data volume sentence and obsolete primary references (planned)"
+qualification = "UNRUN"

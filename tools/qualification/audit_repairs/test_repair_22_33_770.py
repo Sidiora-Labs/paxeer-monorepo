@@ -115,7 +115,7 @@ def test_rpc_unbounded_simulation_explicit_private_diagnostics_override():
 def test_rpc_unbounded_simulation_config_reaches_real_limiter_and_test_gate():
     # Trace the committed producer/copy/decoder/server/consumer source path.
     init = source("docker/rpcnode/scripts/step1_configure_init.sh")
-    assert "cp docker/rpcnode/config/app.toml ~/.pax/config/app.toml" in init
+    assert "cp docker/rpcnode/config/app.toml \"$HOME/.pax/config/app.toml\"" in init
     assert not re.search(r"sed[^\n]*(?:simulation_calls|enable_test_api)", init)
     config = source("rpc/config/config.go")
     assert re.search(

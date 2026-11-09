@@ -1,0 +1,48 @@
+[issue.1851]
+number = 1851
+title = "[Coherence] The new FastAPI `test` extra is declared in pyproject.toml but the package's own build backend never emits it, so `layerx-fastapi[test]` installs no test dependencies"
+revision = "3520b1428059af90261432778c008a9ce362a0b1"
+verdict = "task"
+evidence = "sdk/integrations/fastapi/pyproject.toml:3 selects the local backend and sdk/integrations/fastapi/pyproject.toml:23 declares the test extra added by commit 9a0d2df69abcfea124d631f5915f803a19013fd1, but sdk/integrations/fastapi/build_backend.py:18 emits only the runtime REQUIRES tuple at sdk/integrations/fastapi/build_backend.py:15 into the wheel through sdk/integrations/fastapi/build_backend.py:50, while tests/ci/test_platform_middleware_suites_wired.py:108 checks only the declaration and requirements wiring, leaving the wheel without Provides-Extra or extra-conditional Requires-Dist headers."
+close_comment = "The FastAPI package declares a test extra that its wheel metadata omits, so installing layerx-fastapi[test] does not request pytest, httpx or cryptography. Repair task 18.1851.1 covers emitting the declared extra and checking the metadata of the resulting wheel."
+
+[task.18.1851.1]
+title = "Issue #1851: Emit the FastAPI test extra in wheel metadata"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181851.1"]
+capabilities = []
+interfaces = []
+do_1 = "Update _metadata in sdk/integrations/fastapi/build_backend.py:18 to read project.optional-dependencies from sdk/integrations/fastapi/pyproject.toml:22 and emit Provides-Extra plus Requires-Dist headers guarded by the corresponding extra marker for every declared optional dependency; preserve the unconditional runtime dependencies at sdk/integrations/fastapi/build_backend.py:15 and deterministic wheel output through build_wheel at sdk/integrations/fastapi/build_backend.py:73."
+do_2 = "Add test_wheel_metadata_declares_test_extra in sdk/integrations/fastapi/tests/test_build_backend.py: load the real local backend, call build_wheel into two temporary directories, open the resulting archives and parse their METADATA, assert that Provides-Extra includes test and that its conditional requirements match every dependency in pyproject.toml:23 and tests/requirements.txt:1, assert those markers select the dependencies only for the test extra while runtime requirements stay unconditional, and assert the two wheels are byte-identical; retain the declaration check at tests/ci/test_platform_middleware_suites_wired.py:108."
+symbols = ["_metadata", "test_wheel_metadata_declares_test_extra"]
+touches = ["sdk/integrations/fastapi/build_backend.py", "sdk/integrations/fastapi/tests/test_build_backend.py"]
+tests = ["sdk/integrations/fastapi/tests/test_build_backend.py::test_wheel_metadata_declares_test_extra"]
+planned_paths = ["sdk/integrations/fastapi/tests/test_build_backend.py"]
+build_cmd = "python3 -m py_compile sdk/integrations/fastapi/build_backend.py sdk/integrations/fastapi/tests/test_build_backend.py"
+verify_cmd = "python3 -m pytest sdk/integrations/fastapi/tests/test_build_backend.py::test_wheel_metadata_declares_test_extra -q"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181851]
+title = "The FastAPI wheel exposes its declared optional test dependencies"
+ac_1 = "Given the test extra declared at sdk/integrations/fastapi/pyproject.toml:23, the wheel produced by sdk/integrations/fastapi/build_backend.py:73 advertises Provides-Extra: test and extra-conditional Requires-Dist entries for pytest, fastapi>=0.110, cryptography>=41 and httpx>=0.27, preserves its unconditional runtime dependencies, and remains byte-identical across repeated builds."
+
+[acceptance.18.1851.1]
+feature = "18"
+req = "181851.1"
+scenario = "Given the FastAPI project with its declared test extra, when the real backend builds two wheels and their metadata is parsed, then every declared test requirement is selected by the test extra and no other extra, the runtime requirements remain unconditional, and both wheels have identical bytes."
+contract = "contracts/cosmos-fork.md#client-sdks"
+test = "sdk/integrations/fastapi/tests/test_build_backend.py::test_wheel_metadata_declares_test_extra (planned)"
+qualification = "UNRUN"

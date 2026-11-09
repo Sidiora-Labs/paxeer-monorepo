@@ -11,6 +11,7 @@ import hashlib
 import importlib.util
 import json
 import sqlite3
+import shutil
 import sys
 import threading
 from contextlib import contextmanager
@@ -474,6 +475,9 @@ def test_release_signing_without_relay_import(tmp_path):
     sdk = absent / "services/agent/sdk"
     sdk.mkdir(parents=True)
     (sdk / "python").symlink_to(ROOT / "services/agent/sdk/python", target_is_directory=True)
+    release = absent / "tools/release"
+    release.mkdir(parents=True)
+    shutil.copy2(ROOT / "tools/release/version.json", release / "version.json")
     source = Path(P.__file__).read_text()
     source = source.replace('ROOT = Path(__file__).resolve().parents[3]', f'ROOT = Path({str(absent)!r})')
     namespace = {"__file__": P.__file__, "__name__": "release_signing_without_relay"}

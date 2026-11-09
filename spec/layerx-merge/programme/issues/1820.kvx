@@ -1,0 +1,48 @@
+[issue.1820]
+number = 1820
+title = "[P2] Preserve ECR dispatch input identity in the concurrency group"
+revision = "a910fdedd579e63379ae6c2e4d4971990d28f8ad"
+verdict = "task"
+evidence = "Commit 25628a60423da476dd484a64ac45c9c7062b21dd removed dispatch input identity and .github/workflows/paxeer-ecr.yml:70 still accepts ref and tag while :81 groups all dispatches on the same workflow branch with cancellation enabled at :82 despite input-dependent checkout at :99 and image tags at :120, :133, :146 and :159, with the publisher conditional at :90 and tests/ci/test_workflow_push_concurrency.py:68 enforcing the shared expression without dispatch coverage."
+close_comment = "Independent ECR image requests with different source refs or output tags still share a cancellation group when dispatched from the same workflow branch. Follow-up task 18.1820.1 will preserve manual request identity and add regression coverage while retaining push SHA isolation and pull request cancellation."
+
+[task.18.1820.1]
+title = "Issue #1820: Preserve ECR manual dispatch source and tag identity"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181820.1"]
+capabilities = []
+interfaces = []
+do_1 = "Change .github/workflows/paxeer-ecr.yml:81 so workflow_dispatch concurrency retains both inputs.ref and inputs.tag from :72 and :76; requests from the same workflow branch with different source refs or output tags must have distinct cancellation groups, while push groups remain isolated by github.sha and existing pull request cancellation remains enabled. Preserve the publisher condition at :90, checkout source at :99 and all four image tag expressions at :120, :133, :146 and :159."
+do_2 = "Extend expected_group at tests/ci/test_workflow_push_concurrency.py:68 with the precise ECR dispatch identity expression, retaining exact group and cancellation assertions in test_push_workflows_key_concurrency_on_sha at :74 and test_pull_request_concurrency_still_cancels at :98. Add test_ecr_dispatch_concurrency_preserves_request_identity to evaluate the actual parsed ECR concurrency expression for requests sharing a workflow branch: vary only ref, vary only tag, cover an omitted tag and repeat identical inputs; assert distinct groups for independent requests, stable groups for identical requests, SHA isolation across pushes and unchanged ref-based pull request cancellation, without exempting ECR from the existing checks."
+symbols = ["expected_group", "test_ecr_dispatch_concurrency_preserves_request_identity"]
+touches = [".github/workflows/paxeer-ecr.yml", "tests/ci/test_workflow_push_concurrency.py"]
+tests = ["tests/ci/test_workflow_push_concurrency.py::test_ecr_dispatch_concurrency_preserves_request_identity", "tests/ci/test_workflow_push_concurrency.py::test_push_workflows_key_concurrency_on_sha", "tests/ci/test_workflow_push_concurrency.py::test_pull_request_concurrency_still_cancels"]
+planned_paths = []
+build_cmd = "python3 -m py_compile tests/ci/test_workflow_push_concurrency.py"
+verify_cmd = "python3 -m pytest -q tests/ci/test_workflow_push_concurrency.py"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181820]
+title = "Independent ECR image requests retain independent concurrency groups"
+ac_1 = "Given the manual ref and optional tag inputs at .github/workflows/paxeer-ecr.yml:72 and :76, dispatches from the same workflow branch that differ in either input receive distinct cancellation groups at :81, including requests without an explicit tag, while push groups retain SHA isolation and the pull request cancellation assertions at tests/ci/test_workflow_push_concurrency.py:98 remain satisfied."
+
+[acceptance.18.1820.1]
+feature = "18"
+req = "181820.1"
+scenario = "Given two ECR manual image requests from one workflow branch, when their source refs or output tags differ, then neither request cancels the other, identical requests retain a stable group, push commits remain isolated and pull requests retain cancellation across commits."
+contract = "contracts/operations.md#ci-workflows"
+test = "tests/ci/test_workflow_push_concurrency.py::test_ecr_dispatch_concurrency_preserves_request_identity (planned)"
+qualification = "UNRUN"

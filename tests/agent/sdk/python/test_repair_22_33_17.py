@@ -32,7 +32,7 @@ from layerx_sdk.x402_http import (
     SellerMiddleware, decode_header, encode_header,
 )
 from layerx_sdk.x402_receive import decode_receive, encode_receive
-from layerx_sdk.x402_rpc import PaymentRpc, rpc_committed_evidence, rpc_payment_evidence
+from layerx_sdk.x402_rpc import HostedGatewayRpc, PaymentRpc, rpc_committed_evidence, rpc_payment_evidence
 
 from test_repair_22_31_147 import (
     commit_producer, finality_bundle, http_server, payment_terms,
@@ -119,13 +119,14 @@ class ReceiptNode:
         return result
 
     def dispatch(self, method, path, headers, body):
-        assert method == "POST" and path == self.path
+        assert method == "POST"
         assert headers["Content-Type"] == "application/json"
         request = json.loads(body)
         assert set(request) == {"jsonrpc", "id", "method", "params"}
         assert request["jsonrpc"] == "2.0" and type(request["id"]) is int
         self.requests.append(request)
         operation, params = request["method"], request["params"]
+        assert path == ("/rpc" if operation.startswith("px_") else self.path)
         if operation == "px_getReceiptKeys":
             assert params == []
             result = {"keys": self.keys}
@@ -167,7 +168,7 @@ def test_program_receipt_key_rotation_and_reopened_lifecycle_recovery(tmp_path):
     results = [node.execute_lifecycle(request.signed_activity, height, secret, key.key_id)
                for request, height, secret, key in zip(requests, (1000, 1001), secrets, keys)]
     with http_server(node.dispatch) as endpoint:
-        pins = PaymentRpc(endpoint).receipt_keys()
+        pins = HostedGatewayRpc(endpoint + "/rpc").receipt_keys()
         assert pins == keys and len({key.public_key for key in pins}) == 2
         trust = programs.ProgramTrustContext(discovery.public_key().public_bytes_raw(), protocol_version=3,
                                              network_id=125, receipt_keys=pins)
@@ -261,7 +262,7 @@ def test_retired_batch_authority_and_payment_evidence_exports_preserve_signed_re
     transaction = raw(PROGRAM["rawTransaction"])
     with http_server(node.dispatch) as endpoint:
         rpc = PaymentRpc(endpoint)
-        keys = rpc.receipt_keys()
+        keys = HostedGatewayRpc(endpoint + "/rpc").receipt_keys()
         result = rpc.receipt(PROGRAM["receiptJson"]["txHash"])
         trust = programs.ProgramTrustContext(b"\x19" * 32, network_id=125, receipt_keys=keys)
         output = programs._submission(result, signatures(), trust, retained_signed_activity=transaction.hex())
@@ -284,28 +285,33 @@ def test_root_node_and_explicit_hosted_gateway_endpoints():
     with http_server(node.dispatch) as endpoint:
         for root in (endpoint, endpoint + "/"):
             rpc = PaymentRpc(root, {"Authorization": "Bearer loopback-only"})
-            assert rpc.receipt_keys() == (pin(),)
+            assert HostedGatewayRpc(endpoint + "/rpc", {"Authorization": "Bearer loopback-only"}).receipt_keys() == (pin(),)
             assert rpc.receipt(PAYMENT["receiptJson"]["txHash"]) == PAYMENT["receiptJson"]
-        gateway = endpoint + "/tenant/payments"
-        node.path = "/tenant/payments"
+            with pytest.raises(ValueError, match="^invalid-node-method$"):
+                rpc.call("px_getReceiptKeys", [])
+        gateway = endpoint + "/rpc"
         with pytest.raises(ValueError, match="invalid-rpc-endpoint"):
             PaymentRpc(gateway)
-        hosted = PaymentRpc(gateway, hosted_gateway_endpoint=gateway)
+        hosted = HostedGatewayRpc(gateway, {"Authorization": "Bearer loopback-only"})
         assert hosted.receipt_keys() == (pin(),)
         with pytest.raises(ValueError, match="invalid-rpc-endpoint"):
-            PaymentRpc(gateway + "/other", hosted_gateway_endpoint=gateway)
+            HostedGatewayRpc(gateway + "/other")
+        with pytest.raises(ValueError, match="^invalid-gateway-method$"):
+            hosted.call("pax_sequencerReceipt", [PAYMENT["receiptJson"]["txHash"]])
     assert len(node.requests) == 5
 
 
 @pytest.mark.parametrize("endpoint", [
-    "http://api1.mainnet-beta.paxeer.network/", "https://user:secret@example.test/",
-    "https://user@example.test/", "https://@example.test/", "https://example.test/?token=secret", "https://example.test/#fragment",
-    "ftp://example.test/", "https://example.test/rpc", "https://example.test:99999/",
-    "https://example.test/\n", " https://example.test/", "https://example.test\\@other.test/",
+    "http://api1.mainnet-beta.paxeer.network/rpc", "https://user:secret@example.test/rpc",
+    "https://user@example.test/rpc", "https://@example.test/rpc", "https://example.test/rpc?token=secret", "https://example.test/rpc#fragment",
+    "ftp://example.test/rpc", "https://example.test/rpc/other", "https://example.test:99999/rpc",
+    "https://example.test/rpc\n", " https://example.test/rpc", "https://example.test\\@other.test/rpc",
 ])
 def test_rpc_endpoint_protections_apply_to_explicit_gateway_too(endpoint):
     with pytest.raises(ValueError):
-        PaymentRpc(endpoint, hosted_gateway_endpoint=endpoint if "/rpc" not in endpoint else None)
+        HostedGatewayRpc(endpoint)
+    with pytest.raises(ValueError):
+        PaymentRpc(endpoint.replace("/rpc", "/", 1))
 
 
 def test_rpc_refuses_redirect_without_forwarding_credentials():
@@ -320,16 +326,18 @@ def test_rpc_refuses_redirect_without_forwarding_credentials():
             assert headers["Authorization"] == "Bearer loopback-only"
             return 307, {"Location": destination + "/"}, b""
         with http_server(redirect) as endpoint:
-            with pytest.raises(ValueError, match="rpc-redirect"):
-                PaymentRpc(endpoint, {"Authorization": "Bearer loopback-only"}).receipt_keys()
+            with pytest.raises(ValueError, match="^rpc-redirect$"):
+                HostedGatewayRpc(endpoint + "/rpc", {"Authorization": "Bearer loopback-only"}).receipt_keys()
+            with pytest.raises(ValueError, match="^rpc-redirect$"):
+                PaymentRpc(endpoint, {"Authorization": "Bearer loopback-only"}).receipt(PAYMENT["receiptJson"]["txHash"])
     assert destinations == []
 
 
 def required_payment(commitment):
     terms = payment_terms(PAYMENT)
     return dict(x402Version=2, resource={"url": "https://seller.example/resource"}, accepts=[dict(
-        scheme="exact", network="layerx:125", amount=terms["amount"], asset=terms["asset"],
-        payTo=terms["pay_to"], maxTimeoutSeconds=30, extra={"layerx": {"commitment": commitment}},
+        scheme="exact", network="eip155:125", amount=terms["amount"], asset=terms["asset"],
+        payTo=terms["pay_to"], maxTimeoutSeconds=30, extra={"layerx": {"commitment": commitment, "payer": terms["ledger_payer"]}},
     )])
 
 
@@ -349,11 +357,11 @@ def test_live_payment_evidence_flows_through_buyer_seller_and_reopen(tmp_path, c
     released = []
     with http_server(node.dispatch) as endpoint:
         rpc = PaymentRpc(endpoint)
-        keys = rpc.receipt_keys()
+        keys = HostedGatewayRpc(endpoint + "/rpc").receipt_keys()
         authority = ConfiguredReceiptAuthority(transaction, rpc=rpc, receipt_keys=keys,
                                                commit_trust=trust, committed_evidence=committed)
         buyer_path = tmp_path / "buyer.sqlite"
-        buyer = BuyerMiddleware(rpc, keys, authority, [("exact", "layerx:125")], journal_path=buyer_path)
+        buyer = BuyerMiddleware(rpc, keys, authority, [("exact", "eip155:125")], journal_path=buyer_path)
         header = buyer.prepare(encode_header(required), "0x" + transaction.hex(), identity, "0x" + payment_terms(PAYMENT)["payer"])
         assert decode_header(header)["accepted"] == required["accepts"][0]
         seller_path = tmp_path / "seller.sqlite"
@@ -376,7 +384,7 @@ def test_live_payment_evidence_flows_through_buyer_seller_and_reopen(tmp_path, c
         reopened_rpc = PaymentRpc(endpoint)
         reopened_authority = ConfiguredReceiptAuthority(transaction, rpc=reopened_rpc, receipt_keys=keys,
                                                         commit_trust=trust, committed_evidence=committed)
-        reopened = BuyerMiddleware(reopened_rpc, keys, reopened_authority, [("exact", "layerx:125")], journal_path=buyer_path)
+        reopened = BuyerMiddleware(reopened_rpc, keys, reopened_authority, [("exact", "eip155:125")], journal_path=buyer_path)
         assert reopened.prepare(encode_header(required), "0x" + transaction.hex(), identity,
                                 "0x" + payment_terms(PAYMENT)["payer"]) == header
         recovered_seller = SellerMiddleware(required, keys, reopened_authority, FulfillmentStore(seller_path))

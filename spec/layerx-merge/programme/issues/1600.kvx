@@ -1,0 +1,7 @@
+[issue.1600]
+number = 1600
+title = "[Coherence] The audit marks the oracle floor-half median as a high blocking defect, but requirement 2297.1 explicitly requires that rule"
+revision = "bb8caac8b3e73e3e2f4b330805574f0bcb540641"
+verdict = "spec-edit"
+evidence = "Requirement 2297.1 of done task 2.36.1 at spec/layerx-merge/spec.kvx:19582 must replace floor(total/2) with ceil(total/2), retaining the lower price on an exact half-weight tie and the minimum nonzero confidence, to match precompiles/layerxagent/oracle/oracle.go:74, spec/layerx-merge/contracts/agent-functions.md:138 and precompiles/layerxagent/oracle/oracle_test.go:209, after commits 2886b9d852fdca210f71c4e5a762176f54c565e7 and c50d8e936c44d3a9cd2414407821c1cc2946f854 repaired the median and added independent reference coverage at precompiles/layerxagent/oracle/repair_m1425_test.go:410; the blocking findings at spec/layerx-merge/programme/audit/records/22.30.8.kvx:8 and :1322 describe the older revision recorded at :3."
+close_comment = "The oracle implementation, contract and tests now use ceiling-half confidence, selecting price 30 for weights 2 at price 10 and 3 at price 30 while keeping the lower price on an exact half-weight tie. Requirement 2297.1 still states floor-half and needs a specification edit to match that established behavior; the original audit records the earlier implementation."

@@ -1,0 +1,50 @@
+[issue.1739]
+number = 1739
+title = "[Coherence] Two of the five refusal cases check nothing in production code; each asserts a value the test set itself one line earlier"
+revision = "a910fdedd579e63379ae6c2e4d4971990d28f8ad"
+verdict = "task"
+evidence = "The test introduced by commit 8510976ba57895ae6df45c220ca73d4d9732c1d7 remains unchanged: programs/crates/layerx-programs-ai-market/tests/repair_22_33_233.rs:547 mutates proof bytes but :580 only compares digests, :549 assigns read verification but :588 only asserts that assignment, and :591 compares recorded errors, while programs/crates/layerx-programs-ai-market/tests/repair_22_33_233.kvx:15 claims five refusal checks; the actual membership and read-verification rejection paths are services/platform/hosted/indexer/src/ai_market.rs:452 and :1613."
+close_comment = "Confirmed a regression coverage gap: altered membership proofs and insufficient read verification are compared with recorded outcomes without exercising their production refusal paths. The follow-up adds live consumer rejection and restart checks and identifies that coverage in the repair record."
+
+[task.18.1739.1]
+title = "Issue #1739: Prove membership and read-verification refusals through the production consumer"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181739.1"]
+capabilities = []
+interfaces = []
+do_1 = "Add ai_market_rejects_altered_membership_and_unsigned_reads_across_restart to services/platform/hosted/indexer/tests/repair_22_31_350.rs, reusing its real guest state, chunk capture, signed commit and persistent ProjectionStore helpers at :201, :507, :518 and :552; drive fresh guest output through observe and promote rather than comparing recorded error strings, preserving all existing assertions."
+do_2 = "With an otherwise valid capture and signed commit, append a byte to the membership proof exactly as programs/crates/layerx-programs-ai-market/tests/repair_22_33_233.rs:547 does and assert ProjectionStore::promote returns FinalityUnavailable through services/platform/hosted/indexer/src/ai_market.rs:1628; separately observe a capture with ReadVerification::Unverified, defined as 1 at ai_market.rs:296 and corresponding to repair_22_33_233.rs:549, and assert promote returns BindingMismatch through ai_market.rs:1613 using an intact proof."
+do_3 = "For each refusal use a separate persistent store, assert its snapshot remains rank zero with no finalized binding or publication event, drop and reopen the store and assert those same observable results and finalized-view refusal; include an otherwise identical SequencerSigned capture with intact membership proof that promotes successfully and retains its binding after reopen, proving that the rejection cases reach meaningful production checks."
+do_4 = "Update programs/crates/layerx-programs-ai-market/tests/repair_22_33_233.kvx:15 and :17 to name the new hosted consumer test as the live proof for the two refusal paths and distinguish it from the existing transcript comparisons, retaining their assertions and the dependency boundary documented at repair_22_33_233.rs:20."
+symbols = ["ai_market_rejects_altered_membership_and_unsigned_reads_across_restart"]
+touches = ["services/platform/hosted/indexer/tests/repair_22_31_350.rs", "programs/crates/layerx-programs-ai-market/tests/repair_22_33_233.kvx"]
+tests = ["services/platform/hosted/indexer/tests/repair_22_31_350.rs::ai_market_rejects_altered_membership_and_unsigned_reads_across_restart"]
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-indexer --test repair_22_31_350"
+verify_cmd = "cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-indexer --test repair_22_31_350 ai_market_rejects_altered_membership_and_unsigned_reads_across_restart -- --exact"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181739]
+title = "Altered membership and insufficient read verification have live refusal coverage"
+ac_1 = "Given fresh guest state and chunk reads with a valid signed commit, the altered-proof case at programs/crates/layerx-programs-ai-market/tests/repair_22_33_233.rs:547 and insufficient-read case at :549 are exercised against ProjectionStore::promote at services/platform/hosted/indexer/src/ai_market.rs:1599 and return FinalityUnavailable and BindingMismatch respectively, with rank zero, no finalized binding, no publication event and finalized-view refusal preserved across reopen, while an otherwise identical valid capture promotes and recovers successfully."
+
+[acceptance.18.1739.1]
+feature = "18"
+req = "181739.1"
+scenario = "Given fresh guest output, signed consensus evidence and a persistent production consumer, when membership proof bytes are altered or read verification is insufficient, then promotion returns the specific production refusal and remains unpublished after restart, while the valid control promotes and recovers its finalized binding."
+contract = "contracts/programs.md#ai-market-guest"
+test = "services/platform/hosted/indexer/tests/repair_22_31_350.rs::ai_market_rejects_altered_membership_and_unsigned_reads_across_restart (planned)"
+qualification = "UNRUN"

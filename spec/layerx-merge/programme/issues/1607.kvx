@@ -1,0 +1,50 @@
+[issue.1607]
+number = 1607
+title = "[Coherence] The audit record reports three interface contract pages as missing, but all three exist under spec/layerx-merge/contracts/"
+revision = "bb8caac8b3e73e3e2f4b330805574f0bcb540641"
+verdict = "task"
+evidence = "The unchanged audit finding introduced by commit e15212c541813bdfe2f3bf5aca0b7de482e0e593 still declares three pages absent at spec/layerx-merge/programme/audit/records/22.30.85.kvx:809 and marks doc.15-17 missing at :894, :899 and :904, although spec/layerx-merge/interfaces.kvx:313497 and :550232 resolve to the existing anchors at spec/layerx-merge/contracts/platform-hosted.md:329 and spec/layerx-merge/contracts/programs.md:646, and the SDK contract also exists at spec/layerx-merge/contracts/cosmos-fork.md:1."
+close_comment = "The audit incorrectly marks three existing interface contract pages as missing because their targets are relative to spec/layerx-merge. A focused documentation correction will remove the false restoration proposal and review the existing pages for actual content drift."
+
+[task.18.1607.1]
+title = "Issue #1607: Correct the audit of the existing hosted, Programs and SDK contract pages"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181607.1"]
+capabilities = []
+interfaces = []
+do_1 = "Correct spec/layerx-merge/programme/audit/records/22.30.85.kvx:804-812: remove the false missing-interface-contract-pages finding and its restoration/repointing proposal, then recalculate the findings count at :8; preserve all independent findings, blocking ids and upgrade readiness."
+do_2 = "Review the three existing contract pages against the interfaces and source paths they document, resolving registry contract targets relative to spec/layerx-merge: interfaces.kvx:313497 targets platform-hosted.md:329, interfaces.kvx:550232 targets programs.md:646, and interfaces.kvx:647194 targets cosmos-fork.md:2865, all under spec/layerx-merge; replace doc.15-17 at spec/layerx-merge/programme/audit/records/22.30.85.kvx:894-907 with repository-relative spec/layerx-merge/contracts paths, accurate/stale/misleading statuses and concrete review notes citing actual content rather than absence."
+do_3 = "Correct the false missing-target summary in doc.18 at spec/layerx-merge/programme/audit/records/22.30.85.kvx:912 while retaining the independent historical-verifier signature concern; record any real content drift found by the three-page review with current evidence and proposals, without restoring pages or regenerating interface rows merely because of the false absence claim."
+do_4 = "The focused documentation check must assert that all three numbered doc blocks have their correct repository-relative paths, non-missing review statuses and substantive notes, that the false absence finding and missing-target summary are absent, and that the declared findings count equals the finding blocks; preserve the audit checker at spec/layerx-merge/programme/audit_check.py:190-207 and existing source tests."
+symbols = []
+touches = ["spec/layerx-merge/programme/audit/records/22.30.85.kvx"]
+tests = ["spec/layerx-merge/programme/audit/records/22.30.85.kvx::contract_pages_present"]
+planned_paths = []
+build_cmd = "true"
+verify_cmd = "awk '/^\\[finding\\./ {findings++} /^findings = / {declared=$3} /^\\[finding\\.missing-interface-contract-pages\\]$/ {bad=1} /^\\[/ {active=0} /^\\[doc\\.15\\]$/ {active=15; docs++} /^\\[doc\\.16\\]$/ {active=16; docs++} /^\\[doc\\.17\\]$/ {active=17; docs++} active==15 && /^path = .spec\\/layerx-merge\\/contracts\\/platform-hosted\\.md.$/ {paths++} active==16 && /^path = .spec\\/layerx-merge\\/contracts\\/programs\\.md.$/ {paths++} active==17 && /^path = .spec\\/layerx-merge\\/contracts\\/cosmos-fork\\.md.$/ {paths++} active && /^status = .(accurate|stale|misleading).$/ {statuses++} active && /^notes = / && length($0)>30 {notes++} active && /absent contract page|restore.*contract/ {bad=1} /missing contract targets/ {bad=1} END {exit !(docs==3 && paths==3 && statuses==3 && notes==3 && findings==declared && !bad)}' spec/layerx-merge/programme/audit/records/22.30.85.kvx"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-programme"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181607]
+title = "The platform registry audit reviews existing interface contract pages without false absence findings"
+ac_1 = "The false absence claim at spec/layerx-merge/programme/audit/records/22.30.85.kvx:809 and missing statuses at :896, :901 and :906 are replaced by evidence-based reviews of spec/layerx-merge/contracts/platform-hosted.md:329, spec/layerx-merge/contracts/programs.md:646 and spec/layerx-merge/contracts/cosmos-fork.md:2865; the audit retains independent findings, has consistent counts, and no longer proposes restoring or repointing these existing pages merely to resolve their relative paths."
+
+[acceptance.18.1607.1]
+feature = "18"
+req = "181607.1"
+scenario = "Given interface contract targets relative to spec/layerx-merge and the three existing hosted, Programs and SDK pages, when audit record 22.30.85 is reviewed and its focused documentation check runs, then doc.15-17 identify the actual pages with non-missing review statuses and concrete notes, the false absence finding and summary are removed, and the findings count remains consistent."
+contract = "contracts/programme.md#programme-artifacts"
+test = "spec/layerx-merge/programme/audit/records/22.30.85.kvx::contract_pages_present (planned)"
+qualification = "UNRUN"

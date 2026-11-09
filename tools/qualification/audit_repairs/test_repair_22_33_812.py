@@ -55,7 +55,7 @@ def bash(program, *args, cwd=ROOT, env=None, **kwargs):
 def gofmt_parts():
     command = re.search(r"^GOFMT_CMD='(.*?)'\nPNPM_ESLINT_CMD=", source("gate-lint.sh"), re.M | re.S)
     assert command is not None
-    consumer, invocation = command[1].split('\nout="$(gofmt -l .)"\n')
+    consumer, invocation = command[1].split('; out="$(gofmt -l .)"; ')
     return command[1], consumer, invocation
 
 
@@ -128,12 +128,12 @@ def test_58_provider_location_inventory():
 
 def test_57_rpc_owner_routing_source():
     script = source("check-live.sh")
-    endpoint = script[script.index('node_rpc_url="${CHECK_LIVE_NODE_RPC_URL:-}"'):]
-    assert 'hosted_rpc_url="${CHECK_LIVE_HOSTED_RPC_URL:-}"' in endpoint
-    assert 'for name in CHECK_LIVE_NODE_RPC_URL CHECK_LIVE_HOSTED_RPC_URL; do' in endpoint
-    assert 'if [ -z "${!name:-}" ]; then' in endpoint
-    assert 'exit 2' in endpoint.split("failures=0", 1)[0]
+    endpoint = script[script.index('node_rpc_url="${CHECK_LIVE_NODE_RPC_URL-https://api1.mainnet-beta.paxeer.network/}"'):]
+    assert "endpoint mode does not call it" in script
+    assert "CHECK_LIVE_HOSTED_RPC_URL" not in endpoint
     assert "CHECK_LIVE_ENDPOINT_BASE" not in script
+    assert 'url.path in ("", "/")' in endpoint
+    assert "raise SystemExit" in endpoint.split("failures=0", 1)[0]
     assert '"$base/rpc"' not in script
     call = endpoint.split("call() {\n", 1)[1].split("\n}\n", 1)[0]
     assert 'local url="$1" method="$2" params="$3"' in call
@@ -142,9 +142,9 @@ def test_57_rpc_owner_routing_source():
     routes = [shlex.split(line) for line in endpoint.splitlines() if line.startswith("run ")]
     assert [(row[1], row[2], row[3]) for row in routes] == [
         ("node", "$node_rpc_url", "eth_chainId"),
-        ("hosted", "$hosted_rpc_url", "px_resolveAccount"),
-        ("hosted", "$hosted_rpc_url", "px_getNetwork"),
-        ("hosted", "$hosted_rpc_url", "px_getAccount"),
+        ("node", "$node_rpc_url", "px_resolveAccount"),
+        ("node", "$node_rpc_url", "px_getNetwork"),
+        ("node", "$node_rpc_url", "px_getAccount"),
     ]
     assert routes[0][4] == routes[2][4] == "[]"
     assert routes[1][4] == routes[3][4] == '["$account_address"]'
@@ -187,7 +187,7 @@ def test_57_real_response_consumer_reports_owner(method, result):
 
 def test_59_gofmt_producer_checks_status_and_logs_stderr():
     command, consumer, invocation = gofmt_parts()
-    assert invocation == 'status=$?\ngofmt_result "$status" "$out"'
+    assert invocation == 'status=$?; gofmt_result "$status" "$out"'
     assert consumer.index('if [ "$status" -ne 0 ]; then') < consumer.index('if [ -n "$out" ]; then')
     assert 'return "$status"' in consumer
     assert 'return 1' in consumer
@@ -212,8 +212,8 @@ def test_59_malformed_go_transcript_fails_real_target_gate(tmp_path):
     _, consumer, _ = gofmt_parts()
     # Target files are tab-delimited; retain the production function as shell
     # tokens on one line, without introducing a replacement formatter.
-    lines = consumer.splitlines()
-    one_line = " ".join(line.strip() + (";" if line.strip() not in ("}",) and not line.strip().endswith(("{", "then")) else "") for line in lines)
+    assert "\n" not in consumer
+    one_line = consumer
     command = (
         one_line + "; printf '%s' " + shlex.quote(FORMATTER_FAILURE["stderr"]) + " >&2; "
         + "gofmt_result " + str(FORMATTER_FAILURE["exit"]) + " " + shlex.quote(FORMATTER_FAILURE["stdout"])

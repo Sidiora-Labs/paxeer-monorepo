@@ -1,0 +1,48 @@
+[issue.1756]
+number = 1756
+title = "[Coherence] The capability-install evidence digest that agentd now computes still cannot match the digest the Human service checks, so every capability narrowing is refused"
+revision = "a910fdedd579e63379ae6c2e4d4971990d28f8ad"
+verdict = "task"
+evidence = "The rung repair in commit 2c7ff104282ab5e1e67afeb2576086a482d8a366 remains at services/agent/crates/layerx-agentd/src/human_runtime.rs:12128, but its capability response at services/agent/crates/layerx-agentd/src/human_runtime.rs:12136 still uses the length-prefixed digest at services/agent/crates/layerx-agentd/src/human_runtime.rs:12263 rather than the concatenated preimage required by services/human/crates/layerx-human-service/src/agents/create.rs:841 and services/human/crates/layerx-human-service/src/agents/create.rs:1810, causing the rejection at services/human/crates/layerx-human-service/src/server/agent_creation.rs:951 despite the stated compatibility at services/agent/crates/layerx-agentd/tests/repair_22_31_562.kvx:29 and the budget-only regressions at services/agent/crates/layerx-agentd/tests/repair_22_31_562.rs:1112 and services/agent/crates/layerx-agentd/tests/repair_22_31_562.rs:1117."
+close_comment = "Capability installation still returns an evidence digest with framing that Human rejects, blocking capability narrowing during agent creation. A focused repair must align the response digest with Human and prove that a real capability-install response is accepted."
+
+[task.18.1756.1]
+title = "Issue #1756: Match capability-install response evidence to Human validation"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181756.1"]
+capabilities = []
+interfaces = []
+do_1 = "At services/agent/crates/layerx-agentd/src/human_runtime.rs:12136, use a dedicated capability_install_evidence_digest for the response, hashing the domain, stage byte 5, action key, capability id, big-endian observed sequence and emitted rung rank without length prefixes, exactly as services/human/crates/layerx-human-service/src/agents/create.rs:841 and services/human/crates/layerx-human-service/src/agents/create.rs:1810 require; preserve agent_evidence_digest framing for authority validation at services/agent/crates/layerx-agentd/src/human_runtime.rs:18705 and services/agent/crates/layerx-agentd/src/human_runtime.rs:20077, all scope checks, and durable request binding."
+do_2 = "Add capability_install_evidence_matches_human in services/human/crates/layerx-human-service/tests/agent_creation_rungs.rs:600 using the real ProductionHumanOperations capability-install producer, verified authority evidence and serve_one over a Unix socket into AgentRuntime and ProductionAgentCreation::narrow_capability, rather than a constructed response; assert Committed evidence, the requested capability id, exact AgentEvidence::expected_digest(CapabilityNarrowing) equality and successful narrowing, reopen the daemon store and assert identical evidence on retry with no duplicate capability, and assert refusal for changed request bytes under the same action key and for invalid authority evidence."
+symbols = ["install_capability", "capability_install_evidence_digest", "capability_install_evidence_matches_human"]
+touches = ["services/agent/crates/layerx-agentd/src/human_runtime.rs", "services/human/crates/layerx-human-service/tests/agent_creation_rungs.rs"]
+tests = ["services/human/crates/layerx-human-service/tests/agent_creation_rungs.rs::capability_install_evidence_matches_human"]
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-service"
+verify_cmd = "cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --test agent_creation_rungs capability_install_evidence_matches_human -- --exact"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181756]
+title = "Capability installation returns evidence accepted by Human capability narrowing"
+ac_1 = "Given a valid committed authority capability scope, when the production capability-install response at services/agent/crates/layerx-agentd/src/human_runtime.rs:12136 reaches Human through its real transport, then its receipt digest equals AgentEvidence::expected_digest(CapabilityNarrowing) at services/human/crates/layerx-human-service/src/agents/create.rs:841 and the gate at services/human/crates/layerx-human-service/src/server/agent_creation.rs:951 accepts it; retry after reopening returns identical evidence without duplicate application, while changed requests and invalid authority evidence are refused."
+
+[acceptance.18.1756.1]
+feature = "18"
+req = "181756.1"
+scenario = "Given a valid committed capability grant and a fresh action key, when Human narrows the capability through the real daemon and retries after reopening its store, then both responses carry identical Human-compatible evidence and the capability is applied once, while changed requests and invalid authority evidence are refused."
+contract = "contracts/agent-human-peer.md#capability-install"
+test = "services/human/crates/layerx-human-service/tests/agent_creation_rungs.rs::capability_install_evidence_matches_human (planned)"
+qualification = "UNRUN"

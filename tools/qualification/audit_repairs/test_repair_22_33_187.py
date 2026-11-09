@@ -154,7 +154,7 @@ def test_readme_build_and_start_use_supported_paxd_targets():
     assert ["./build/paxd", "version"] in commands
     assert ["./build/paxd", "start", "--home", "$PAXD_HOME"] in commands
     makefile = source("Makefile")
-    assert "\npaxd-native-libs: $(LIBRARY) programs-release-build\n" in makefile
+    assert "\npaxd-native-libs: $(LIBRARY) programs-release-build evmone-lib\n" in makefile
     assert "\npaxd-build: paxd-native-libs\n" in makefile
     assert "\npaxeer-build:\n" in makefile
     assert "-o ./build/paxd ./daemon/paxd" in source("chain.mk")

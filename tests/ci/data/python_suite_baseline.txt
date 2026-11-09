@@ -1,15 +1,2 @@
 # Exact failing module | retiring task | observed failure (gotcha 3514).
-tests/conformance/test_repair_22_33_886.py | 22.39.131 | Committed receipt copies drift, explorer fixture path no longer matches, and RPC or SDK receipt validation refuses the transaction.
-cmd/layerx-module-registry/test_registry.py | 22.39.131 | The generated module registry schema document differs from the expected module ordinals.
-tests/daemon/test_repair_22_33_1076.py | 22.39.131 | Native program admission exits with invalid_transaction for the recorded transaction.
-services/platform/hosted/node/signer/test_repair_22_33_1454.py | 22.39.133 | The deadline test asserts wall-clock margins the full suite run misses, so no sign call is recorded before the busy refusal.
-services/platform/hosted/node/tests/test_repair_22_33_1456.py | 22.39.133 | Deployment topology roles and the retirement case disagree with the asserted node contract.
-services/platform/hosted/node/tests/test_repair_22_31_355.py | 22.39.133 | Deployment manifests lack the expected treasury projection, shareProcessNamespace and exec keys.
-services/platform/hosted/node/tests/test_node_without_guarantor.py | 22.39.133 | The asserted node deployment container contract differs from the retained topology.
-services/platform/hosted/testnet/tests/test_repair_22_33_1447.py | 22.39.133 | The journey router path assertion disagrees with the kernel backend source.
-services/platform/hosted/tests/test_retired_gateway_helpers.py | 22.39.133 | The asserted hosted gateway local harness directory is absent from the retained tree.
-services/platform/hosted/tests/test_retired_gateway_lifecycle.py | 22.39.133 | The asserted hosted gateway local lifecycle harness directory is absent from the retained tree.
-services/platform/hosted/tests/test_sequencer_pins.py | 22.39.133 | The sequencer pin test expects a developer deployment manifest that is absent.
-services/platform/hosted/tests/test_workspace_manifest.py | 22.39.133 | The verifier package remains in the workspace for dependent crates despite the retirement assertion.
-services/platform/tests/test_ramp_dependencies.py | 22.39.134 | Live ramp crates depend on layerx-intents, paxeer-client and rusqlite while the dependency policy bans them.
-services/platform/tests/test_ramp_sandbox_journey.py | 22.39.134 | Journey help omits LAYERX_RAMP_OFF_RECEIVER_SEQUENCE and transaction hash verification finds no match.
+services/platform/hosted/node/tests/test_reset_state.py | 22.39.133 | The supervisor socket is visible with its creation mode between the bind and the chmod of generation_transport.py serve, so the 0o660 assertion at line 347 races the server.
