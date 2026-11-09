@@ -319053,7 +319053,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.17.4.5]
 title = "Check that every acceptance test of the merged spec has a parity row or a task"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 48
 requires = ["17.4.4", "1.0.9", "2.0.9", "3.0.9", "4.0.9", "5.0.9", "6.0.9", "7.0.9", "8.0.9", "9.0.9", "10.0.9", "11.0.9", "12.0.9", "13.0.9", "14.0.9", "15.0.9", "16.0.9", "2.90.1", "8.90.1", "8.90.2", "8.90.3", "10.90.1", "9.90.2", "16.90.1", "18.90.1", "22.31.438", "22.39.213"]
