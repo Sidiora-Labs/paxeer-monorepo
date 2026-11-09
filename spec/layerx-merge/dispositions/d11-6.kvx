@@ -1,0 +1,174 @@
+[disposition.11.14.1.a2]
+finding = "11.14.1.a2"
+status = "resolved"
+evidence = "Commit cb00b9648d makes the proof-less committed settlement carry an empty transaction. On main services/interop/crates/layerx-x402/tests/sequenced_vectors.rs:173 asserts that shape and src/model.rs:461 refuses a successful settlement without a transaction, preserving the wire evidence requirement."
+
+[disposition.11.14.4.a2]
+finding = "11.14.4.a2"
+status = "resolved"
+evidence = "Commit 85b55735b2 publishes checkout-bound sequenced order vectors. On main services/interop/crates/layerx-ucp/tests/sequenced_vectors.rs:225 checks the declared receipt signing key and line 233 requires the native payment reference to equal submission.idempotency_key.gateway_key()."
+
+[disposition.11.14.5.a2]
+finding = "11.14.5.a2"
+status = "resolved"
+evidence = "Commit c03dde7dd2 supplies fiat journey receipts bound to their payment references. On main services/interop/crates/layerx-fiat/tests/sequenced_vectors.rs:181 constructs the re-signed payment using the declared reference and line 372 derives the credit idempotency key from verified provider facts."
+
+[disposition.11.15.1.a2]
+finding = "11.15.1.a2"
+status = "environment"
+evidence = "On main services/interop/Cargo.toml:5 includes layerx-committed-proof as a workspace member and its crate manifest at crates/layerx-committed-proof/Cargo.toml:8 declares the proof dependencies. Commit 70d2136554 adds that member and the shared dependency edges."
+
+[disposition.11.17.1.a2]
+finding = "11.17.1.a2"
+status = "resolved"
+evidence = "Commit 0fb793f745 adapts the Visa TAP conformance and middleware consumers to sequencer evidence. On main services/interop/crates/layerx-visa-tap/tests/conformance.rs:122 calls MerchantOperationResult::from_receipt with payment evidence, pinned keys and the payment reference."
+
+[disposition.11.2.6.1.a2]
+finding = "11.2.6.1.a2"
+status = "resolved"
+evidence = "Commit ecdaab902b updates all five dependent lock entries for the committed-proof serde_json dependency. On main services/interop/Cargo.lock:1395 records layerx-committed-proof with ed25519-dalek, serde_json and sha2, matching crates/layerx-committed-proof/Cargo.toml:11."
+
+[disposition.11.2.6.a2]
+finding = "11.2.6.a2"
+status = "resolved"
+evidence = "Commit 99fc3cd2a9 extends receipted verification with the receipt view and key identifiers. On main services/interop/crates/layerx-committed-proof/src/lib.rs:331 verify_receipted accepts receipt_json and pinned tuples containing both key id and public key with their height range."
+
+[disposition.11.21.2.1.a2]
+finding = "11.21.2.1.a2"
+status = "resolved"
+evidence = "Commit 05dcc12439 ports the mirror read types and f0aa4ee07e deletes the old node source. On main services/interop/crates/layerx-mirror/src/committed.rs:49 provides the committed-block RPC source with pinned receipt keys, replacing the removed Freshness-based node path."
+
+[disposition.11.21.2.a2]
+finding = "11.21.2.a2"
+status = "resolved"
+evidence = "Commit b798d67a40 adapts the relayer configuration and constructor callers to PaxeerEndpoint. On main services/interop/crates/layerx-bridge-relayer/src/config.rs:566 returns Vec<PaxeerEndpoint>, and line 548 passes that typed endpoint list to PaxeerRpc::new."
+
+[disposition.11.21.3.a2]
+finding = "11.21.3.a2"
+status = "resolved"
+evidence = "Commit c429cd21f3 separates relayer receipt-key configuration from link construction. On main services/interop/crates/layerx-bridge-relayer/src/relayer.rs:229 declares PaxeerLink with settings, receipt_keys, rpc and submitter, so the receipt-key field is now part of the link type."
+
+[disposition.11.23.3.1.a2]
+finding = "11.23.3.1.a2"
+status = "environment"
+evidence = "On main services/interop/crates/layerx-gas-station/src/service.rs:674 declares report and line 700 reads the per-DID policy budget through the station accessor. Commit d50f1c57fd supplies the status budget calculation through its read-only policy accessor."
+
+[disposition.11.23.3.a2]
+finding = "11.23.3.a2"
+status = "resolved"
+evidence = "Commit d50f1c57fd exposes the station policy through a read-only accessor. On main services/interop/crates/layerx-gas-station/src/station.rs:356 returns &QuotePolicy, and src/service.rs:700 uses that accessor to calculate used and remaining DID gas."
+
+[disposition.11.24.2.a2]
+finding = "11.24.2.a2"
+status = "environment"
+evidence = "On main services/interop/crates/layerx-gas-station/src/service.rs:290 declares respond and dispatches /submit to submission handling; line 593 declares submission_rung. Commit 7e9c6451a8 supplies the full sequencer receipt response through that API."
+
+[disposition.11.25.5.a2]
+finding = "11.25.5.a2"
+status = "environment"
+evidence = "Commit f0aa4ee07e removes node.rs and the LNI archive source with its checkpoint-policy helpers. On main services/interop/crates/layerx-mirror/src/lib.rs:3 exports the committed module, and src/committed.rs:49 provides CommittedBlockSource with RPC and pinned receipt keys."
+
+[disposition.11.26.1.1.a2]
+finding = "11.26.1.1.a2"
+status = "resolved"
+evidence = "Commit 7defb87c39 connects the publisher to committed-block archive v4 after the read-type port. On main services/interop/crates/layerx-mirror/src/publisher.rs:5 imports CommittedBlock and CommittedCoordinate, and line 59 represents the archived block with block, parent and app hashes and receipts."
+
+[disposition.11.26.1.a2]
+finding = "11.26.1.a2"
+status = "resolved"
+evidence = "Commit 7defb87c39 lands the v4 publisher against the committed-block interface. On main services/interop/crates/layerx-mirror/src/committed.rs:27 declares CommittedBlock with its header and receipts, and src/publisher.rs:5 imports that real type."
+
+[disposition.11.26.2.a2]
+finding = "11.26.2.a2"
+status = "resolved"
+evidence = "Commit b2265cf171 carries the committed-coordinate rename into storage and its callers. On main services/interop/crates/layerx-mirror/src/store.rs:11 imports CommittedCoordinate with MirrorCursor and NodeHead, while src/committed.rs:226 declares the height and block_hash coordinate."
+
+[disposition.11.29.1.a2]
+finding = "11.29.1.a2"
+status = "environment"
+evidence = "On main services/interop/crates/layerx-portable/src/receipt.rs:206 exports a receipt with its raw transaction and line 386 exposes the optional raw bytes through raw_transaction(). Commit f7295f0076 binds the transaction to the portable receipt activity id."
+
+[disposition.11.29.4.a2]
+finding = "11.29.4.a2"
+status = "resolved"
+evidence = "Commit 2c4ecdb634 adapts the portable receipt consumers while removing the batch-authority format. On main services/interop/crates/layerx-portable/tests/independent_verifier.rs:4 imports PortableReceiptV2, ReceiptKeyEntry and PORTABLE_RECEIPT_FORMAT for verification against pinned receipt keys."
+
+[disposition.11.3.1.1.a2]
+finding = "11.3.1.1.a2"
+status = "resolved"
+evidence = "Commit 96173816ec carries transaction hashes through the seller pending outcomes and their consumers. On main services/interop/crates/layerx-x402/tests/e2e.rs:74 constructs PlanePaymentOutcome::Pending with transaction_hash, rather than using it as a unit variant."
+
+[disposition.11.3.1.2.a2]
+finding = "11.3.1.2.a2"
+status = "resolved"
+evidence = "Commit 96173816ec adapts the pending-outcome consumers and ecdaab902b records the committed-proof dependency in the interop lock. On main services/interop/crates/layerx-x402/tests/e2e.rs:74 supplies the pending transaction hash and services/interop/Cargo.lock:1399 includes serde_json for committed-proof."
+
+[disposition.11.3.1.3.a2]
+finding = "11.3.1.3.a2"
+status = "resolved"
+evidence = "Commit 96173816ec supplies account-bound seller settlement evidence, with the binding check retained on main at services/interop/crates/layerx-x402/src/model.rs:215. PaymentRequirements::layerx_terms rejects a payee outside account_identifiers(account), preserving the account-to-payment binding."
+
+[disposition.11.3.1.a2]
+finding = "11.3.1.a2"
+status = "resolved"
+evidence = "Commit f2c0fc0eea adapts facilitator settlement to SequencerEvidence and 96173816ec migrates the seller outcome. On main services/interop/crates/layerx-x402/src/facilitator.rs:575 constructs ExecutedPayment from evidence and an optional committed proof instead of canonical_receipt and authorised_batch."
+
+[disposition.11.30.1.a2]
+finding = "11.30.1.a2"
+status = "environment"
+evidence = "Commit fc9c1c7ce1 deletes layerx-intent-ingester and removes it from the interop workspace. On main services/interop/Cargo.toml:1 declares the remaining workspace members, including committed-proof at line 5, with no intent-ingester member."
+
+[disposition.11.31.2.a2]
+finding = "11.31.2.a2"
+status = "resolved"
+evidence = "Commit 8bd22a5b85 adapts PaymentGate to the optional configured network and the resolved network constructor. On main services/interop/crates/x-websearch/src/payment.rs:1190 open_with_network accepts network_id as u32, while line 1183 explicitly refuses an unresolved configuration value."
+
+[disposition.11.38.2.a2]
+finding = "11.38.2.a2"
+status = "resolved"
+evidence = "Commit 259712fad2 adds release attestation assembly after the deposit API and mirror read port. On main services/interop/crates/layerx-bridge-relayer/src/attestation_api.rs:446 release_answer resolves the outbound burn by chain id, transaction hash and nonce before constructing the release answer."
+
+[disposition.11.4.1.1.a2]
+finding = "11.4.1.1.a2"
+status = "resolved"
+evidence = "Commit f2c0fc0eea adapts the facilitator transport consumer to the sequencer evidence contract. On main services/interop/crates/layerx-x402/tests/transports.rs:624 implements FacilitatorPlane and line 625 returns its pinned SequencerAuthorization list through receipt_keys."
+
+[disposition.11.4.1.2.a2]
+finding = "11.4.1.2.a2"
+status = "resolved"
+evidence = "Commit f2c0fc0eea lands the corrected facilitator payment evidence and asset binding. On main services/interop/crates/layerx-x402/tests/facilitator_evidence.rs:231 validates the signed receipt against pinned keys and line 240 verifies its logs before asserting the receipted settlement."
+
+[disposition.11.4.1.a2]
+finding = "11.4.1.a2"
+status = "resolved"
+evidence = "Commit f2c0fc0eea carries the facilitator trait change through its transport consumer. On main services/interop/crates/layerx-x402/tests/transports.rs:625 supplies receipt_keys, and src/facilitator.rs:575 constructs the executed outcome from SequencerEvidence."
+
+[disposition.11.5.1.a2]
+finding = "11.5.1.a2"
+status = "resolved"
+evidence = "Commit 4e013c19ca adapts buyer capture and its receipt consumers to pinned sequencer authorizations. On main services/interop/crates/layerx-x402/tests/buyer.rs:260 accepts &[SequencerAuthorization] and line 265 passes those keys to Buyer::capture_settlement."
+
+[disposition.11.7.1.a2]
+finding = "11.7.1.a2"
+status = "resolved"
+evidence = "Commit 769bd81db5 binds AP2 settlement evidence to the authorized payment, with later native topic alignment in b59e13c063. On main services/interop/crates/layerx-ap2/tests/sequencer_settlement.rs:349 checks the payment reference against the authorized payment before validating its native PaymentExact topics."
+
+[disposition.11.8.1.a2]
+finding = "11.8.1.a2"
+status = "resolved"
+evidence = "Commit 1877290e62 adapts the fiat adapter consumers to receipt keys and sequencer evidence. On main services/interop/crates/layerx-fiat/tests/adapter.rs:426 implements FiatPlane with receipt_keys and line 431 returns the captured SequencerEvidence for verified provider facts."
+
+[disposition.11.9.1.a2]
+finding = "11.9.1.a2"
+status = "resolved"
+evidence = "Commit 47723d4207 migrates checkout consumers to ExecutedUcpPayment carrying sequencer evidence. On main services/interop/crates/layerx-ucp/tests/merchant_profile.rs:176 derives the checkout gateway key and constructs the payment with evidence at line 183."
+
+[disposition.11.9.2.a2]
+finding = "11.9.2.a2"
+status = "resolved"
+evidence = "Commit ee3e4aaacb uses the canonical receipt digest for UCP orders. On main services/interop/crates/layerx-ucp/tests/sequencer_checkout.rs:209 first checks the recorded signed receipt digest and then completes the checkout using checkout_payment at line 219, which binds the payment to the checkout."
+
+[disposition.11.98.1.1]
+finding = "11.98.1.1"
+status = "resolved"
+evidence = "Commit 9f2b202594 updates the payment recording suite constants with its signed transaction fixtures, and 2c4a62dd00 refreshes their current digest. On main services/interop/crates/x-websearch/src/lib.rs:48 declares CONFORMANCE_SUITE_DIGEST and line 57 registers the suite using its vector count and that digest."
