@@ -1,0 +1,518 @@
+# Evidence read from origin/main at a26369c7eda603cb28bcdd8cef55c35df7d248ee.
+
+[disposition.22.39.103.1]
+finding = "22.39.103.1"
+status = "resolved"
+evidence = "Commit 775a34c6ff records chain.mk install as a dependency prerequisite at tests/ci/test_workflow_duplicate_jobs.py:17 and still checks exact lane ownership and duplicate automatic targets at tests/ci/test_workflow_duplicate_jobs.py:195. The release workflows share the composite toolchain action."
+
+[disposition.22.39.107.1]
+finding = "22.39.107.1"
+status = "resolved"
+evidence = "Commit bace946642 includes the actual canary and rooms modules at services/platform/hosted/gateway/tests/repair_22_33_1439.rs:110 and services/platform/hosted/gateway/tests/repair_22_33_1439.rs:165. Commit 4c513d3198 admits the reachable image inputs checked at tests/ci/test_image_compile_inputs_not_ignored.py:281."
+
+[disposition.22.39.108.1]
+finding = "22.39.108.1"
+status = "resolved"
+evidence = "Commit 8affafda34 reconciles wasm-instrument source checksums and registers its patched files at tests/ci/test_vendored_checksums.py:11. Commit 69114894c3 includes the chain-trust script at docker/platform-registry/Dockerfile:12 and checks image COPY sources through tests/ci/test_image_copy_sources_in_context.py:184."
+
+[disposition.22.39.116.1]
+finding = "22.39.116.1"
+status = "resolved"
+evidence = "Commit 9de1de1c04 finalizes and commits every height from one through the merge at node/upgrades_merge_programs_abi_test.go:256, then restarts the application and checks a successful ABI-5 program receipt at node/upgrades_merge_programs_abi_test.go:316."
+
+[disposition.22.39.116.2]
+finding = "22.39.116.2"
+status = "resolved"
+evidence = "Commit 9de1de1c04 derives occupancy sequence from ReadLastSequence before each commit at node/upgrades_merge_programs_abi_test.go:285. The restart checks restored sequence and ABI at node/upgrades_merge_programs_abi_test.go:307 and executes the program successfully after BeginBlock."
+
+[disposition.22.39.117.1]
+finding = "22.39.117.1"
+status = "open"
+evidence = "Main retains the registered-pool adapter test at sdk/launchpad/shared/chain/client_test.go:569, with explicit provider and transaction bindings required at sdk/launchpad/shared/chain/client_test.go:599. Task 22.39.117 remains pending and owns the shared-service fixture contract."
+follow_up = "22.39.117"
+
+[disposition.22.39.117.2]
+finding = "22.39.117.2"
+status = "open"
+evidence = "Main retains unknown-version poison handling at sdk/launchpad/shared/delivery/natsdriver/driver_test.go:838 and requires its exact envelope and failure class to survive store reopening at sdk/launchpad/shared/delivery/natsdriver/driver_test.go:854. The shared delivery repair remains pending in task 22.39.117."
+follow_up = "22.39.117"
+
+[disposition.22.39.117.3]
+finding = "22.39.117.3"
+status = "open"
+evidence = "The Redis client test still requires an explicit service URL at sdk/launchpad/shared/redis/redis_test.go:15 and fails when that input is absent. Task 22.39.117 remains pending and owns the shared Redis, deployment and capability package qualification."
+follow_up = "22.39.117"
+
+[disposition.22.39.118.10]
+finding = "22.39.118.10"
+status = "resolved"
+evidence = "Commit a08a60044b asserts the SDK token-list response refusal as InvalidResponse at tools/platform/cli/tests/proof_cli_cli_commands.rs:375 while retaining the structured error envelope and token.read consumer checks."
+
+[disposition.22.39.118.11]
+finding = "22.39.118.11"
+status = "resolved"
+evidence = "Commit a08a60044b distinguishes malformed token cursors from malformed hexadecimal identifiers at tools/platform/cli/tests/proof_cli_cli_commands.rs:420. The cursor path requires InvalidRequest and retains the separate zero-limit refusal."
+
+[disposition.22.39.118.12]
+finding = "22.39.118.12"
+status = "resolved"
+evidence = "Commit a08a60044b publishes a root endpoint at tools/platform/cli/tests/repair_22_31_212.rs:33 and asserts POST / on the captured request at tools/platform/cli/tests/repair_22_31_212.rs:58. The wallet binding journey therefore follows the root-only RPC contract."
+
+[disposition.22.39.118.13]
+finding = "22.39.118.13"
+status = "resolved"
+evidence = "Commit a08a60044b updates the README command journey to use its explicit hosted gateway and verifies balances and asset pages at tools/platform/cli/tests/repair_22_33_1499.rs:397. The returned balance carries committed_eth_call evidence and the node-observation verification marker."
+
+[disposition.22.39.118.14]
+finding = "22.39.118.14"
+status = "resolved"
+evidence = "Commit a08a60044b asserts unverified_node_observation for README balance output at tools/platform/cli/tests/repair_22_33_1499.rs:401 and the concrete root-endpoint refusal at tools/platform/cli/tests/repair_22_33_1499.rs:426. The examples retain their receipt-policy and fee-limit requirements."
+
+[disposition.22.39.118.15]
+finding = "22.39.118.15"
+status = "resolved"
+evidence = "Commit a08a60044b checks the exact node RPC URL must name the root endpoint refusal at tools/platform/cli/tests/repair_22_33_1499.rs:361 and repeats that contract for the wallet-watch command at tools/platform/cli/tests/repair_22_33_1499.rs:411."
+
+[disposition.22.39.118.16]
+finding = "22.39.118.16"
+status = "resolved"
+evidence = "Commit a08a60044b supplies the hosted gateway option to wallet-write journeys at tools/platform/cli/tests/wallet_evm_writes.rs:597 and retains explicit receipt policy at tools/platform/cli/tests/wallet_evm_writes.rs:601. Malformed account, asset and sequence responses still require InvalidResponse."
+
+[disposition.22.39.118.17]
+finding = "22.39.118.17"
+status = "resolved"
+evidence = "Commit a08a60044b supplies the hosted gateway for wallet reads at tools/platform/cli/tests/wallet_px_reads.rs:247 and requires token.read output at tools/platform/cli/tests/wallet_px_reads.rs:340. The negative gateway-omission case still checks the named refusal at tools/platform/cli/tests/wallet_px_reads.rs:299."
+
+[disposition.22.39.118.18]
+finding = "22.39.118.18"
+status = "environment"
+evidence = "On main, services/agent/sdk/typescript/package.json:53 declares @noble/hashes version 2.4.0, and package.json:12 includes that SDK as a root workspace member. The TypeScript receipt and transaction producers use that declared cryptographic dependency."
+
+[disposition.22.39.118.19]
+finding = "22.39.118.19"
+status = "environment"
+evidence = "On main, services/agent/sdk/typescript/package.json:53 declares @noble/hashes version 2.4.0, and package.json:12 includes that SDK as a root workspace member. The TypeScript receipt and transaction producers use that declared cryptographic dependency."
+
+[disposition.22.39.118.1]
+finding = "22.39.118.1"
+status = "resolved"
+evidence = "Commit a08a60044b makes the zero-timeout wallet wait require RpcError::Pending with the same activity identifier at tools/platform/cli/src/wallet.rs:2129. The test continues to exercise the SDK wait path rather than asserting a finality-trust error before any wait."
+
+[disposition.22.39.118.20]
+finding = "22.39.118.20"
+status = "environment"
+evidence = "On main, services/platform/hosted/testnet/tests/repair_22_31_351.rs:51 imports the cryptography certificate and signing primitives for the chain-id-to-signed-transaction journey. The platform dependency declaration includes python3-cryptography at .github/workflows/platform.yml:70."
+
+[disposition.22.39.118.21]
+finding = "22.39.118.21"
+status = "resolved"
+evidence = "Commit a08a60044b documents the explicit DID-to-EVM smoke-account binding input at services/platform/hosted/testnet/README.md:35. The native smoke journey consumes smoke-accounts.json produced by tests/smoke_accounts.py."
+
+[disposition.22.39.118.2]
+finding = "22.39.118.2"
+status = "environment"
+evidence = "On main, tools/platform/cli/src/credential.rs:19 selects operating-system credential storage by default, with encrypted file storage available explicitly. The mandatory D-Bus prerequisite remains enforced when requested at tools/platform/cli/tests/common/credential_environment.rs:27."
+
+[disposition.22.39.118.3]
+finding = "22.39.118.3"
+status = "resolved"
+evidence = "Commit a08a60044b reads the relocated installation document from docs/platform/content/install.md at tools/platform/cli/tests/emulator.rs:472. The bootstrap contract still requires exactly one bootstrap marker at tools/platform/cli/tests/emulator.rs:483."
+
+[disposition.22.39.118.4]
+finding = "22.39.118.4"
+status = "resolved"
+evidence = "Commit a08a60044b supplies --service-endpoint to the faucet claim route at tools/platform/cli/tests/faucet_route.rs:128 and to both identity-session refusal forms at tools/platform/cli/tests/faucet_route.rs:245. The positive claim and missing-session boundaries remain separate."
+
+[disposition.22.39.118.5]
+finding = "22.39.118.5"
+status = "resolved"
+evidence = "Commit a08a60044b covers retired core_sequence rejection at tools/platform/cli/tests/mcp_daemon_bound.rs:681 and checks owner-only binding publication at tools/platform/cli/tests/mcp_daemon_bound.rs:154. The loader rejects that retired key before accepting its remaining document shape at services/agent/crates/layerx-mcp/src/binding.rs:683."
+
+[disposition.22.39.118.6]
+finding = "22.39.118.6"
+status = "resolved"
+evidence = "Commit 62d586acfd makes ordinary MCP invocation refuse an indeterminate submission while the task invocation preserves the unknown rung. The real submission test requires the transaction-bound submission_indeterminate error at tools/platform/cli/tests/mcp_evm_submit.rs:181."
+
+[disposition.22.39.118.7]
+finding = "22.39.118.7"
+status = "resolved"
+evidence = "Commit 9312cc9482 aligns the program-call consumer with the transaction-bound unknown outcome after a lost response at tools/platform/cli/tests/program_evm_calls.rs:261. The test retains the captured raw-transaction submission and its hash binding."
+
+[disposition.22.39.118.8]
+finding = "22.39.118.8"
+status = "resolved"
+evidence = "Commit a08a60044b requires the unknown rung from a closed lifecycle transport at tools/platform/cli/tests/program_evm_lifecycle.rs:157. The lifecycle result is still bound to the submitted transaction hash."
+
+[disposition.22.39.118.9]
+finding = "22.39.118.9"
+status = "resolved"
+evidence = "Commit a08a60044b supplies the required --receipt-policy argument to the program lifecycle journey at tools/platform/cli/tests/program_evm_lifecycle.rs:241. Deployment calldata and wind-down modes continue through the real CLI command boundary."
+
+[disposition.22.39.119.1]
+finding = "22.39.119.1"
+status = "resolved"
+evidence = "Commit 06d9fa865e repairs both Python SDK test trees and keeps current signed-transaction receipt verification at tests/agent/sdk/python/test_evm_transaction.py:96. Its per-case producer bindings, including the budget, x402 and lifecycle consumers, are recorded at tests/agent/sdk/python/repair_22_39_119.kvx:1."
+
+[disposition.22.39.120.1]
+finding = "22.39.120.1"
+status = "resolved"
+evidence = "Commit 5247adc56b replaces the retired payment replay with the exact node-produced transaction and receipt pair at tests/agent/sdk/python/test_repair_22_33_702.py:31. Receipt retrieval checks the requested transaction hash and returns the matching producer receipt at tests/agent/sdk/python/test_repair_22_33_702.py:48."
+
+[disposition.22.39.120.2]
+finding = "22.39.120.2"
+status = "resolved"
+evidence = "Commit 5247adc56b binds payment verification to the canonical signed transaction and pinned receipt key at tests/agent/sdk/python/test_repair_22_33_702.py:95. Current payment producer and consumer bindings are retained at services/agent/sdk/python/layerx_sdk/repair_22_39_120.kvx:1."
+
+[disposition.22.39.121.1]
+finding = "22.39.121.1"
+status = "resolved"
+evidence = "Commit 8affafda34 reconciles wasm-instrument and wasmi-0.31.2 digests and checks each vendored source against its manifest at tests/ci/test_vendored_checksums.py:41. Patch reasons are required for the explicit refreshed-file inventory at tests/ci/test_vendored_checksums.py:70, rather than treating Cargo-normalized manifests as local source patches."
+
+[disposition.22.39.122.1]
+finding = "22.39.122.1"
+status = "resolved"
+evidence = "Commit c047504e3a binds retained native preparations to the signing preparation at services/agent/crates/layerx-agentd/src/budget/native_binding.rs:26. Commit 390ed89c8a makes durable-write assertions preserve the two tenant observability sinks and verify their audit chains at services/agent/crates/layerx-agentd/src/session_control.rs:3495."
+
+[disposition.22.39.122.2]
+finding = "22.39.122.2"
+status = "resolved"
+evidence = "Commit 390ed89c8a reconciles the generated budget-proof account answer with the current ABI at services/agent/crates/layerx-agentd/src/budget/budget_proof.rs:667. Durable-write failures retain exactly the two tenant observability sinks at services/agent/crates/layerx-agentd/src/session_control.rs:3507."
+
+[disposition.22.39.122.3]
+finding = "22.39.122.3"
+status = "resolved"
+evidence = "Commit 390ed89c8a replaces the empty-root assumption with exact tenant observability artifact checks at services/agent/crates/layerx-agentd/src/session_control.rs:3495. Each retained audit directory must contain only its anchor, chain and lock, and the chain is verified."
+
+[disposition.22.39.122.4]
+finding = "22.39.122.4"
+status = "resolved"
+evidence = "Commit 390ed89c8a requires both tenant-authorization and tenant-traces at services/agent/crates/layerx-agentd/src/session_control.rs:3505. Each sink is checked for its tenant-hashed audit directory and valid chain at services/agent/crates/layerx-agentd/src/session_control.rs:3527."
+
+[disposition.22.39.123.1]
+finding = "22.39.123.1"
+status = "resolved"
+evidence = "Commit d15bd08924 routes wallet storage through the registered boundary checked at apps/wallet/src/platform/storage/storage-forensics.test.ts:53 and derives supported token precision at apps/wallet/src/widgets/tokenDetail/TokenDetailWidget.tsx:143. The surface fixture resolves the repository from the package location at apps/wallet/src/surfaces/repair-22-31-250.test.ts:196."
+
+[disposition.22.39.126.1]
+finding = "22.39.126.1"
+status = "environment"
+evidence = "On main, services/interop/crates/layerx-gas-station/src/station.rs:1273 authenticates retries against retained transaction state, refusing unauthenticated or expired unsubmitted identities. The two HTTPS recovery contracts explicitly require authenticated material at services/interop/crates/layerx-gas-station/tests/station.rs:1355 and services/interop/crates/layerx-gas-station/tests/station.rs:1453."
+
+[disposition.22.39.128.1]
+finding = "22.39.128.1"
+status = "resolved"
+evidence = "Commit c047504e3a supplies the signing preparation to both native budget source reads at services/agent/crates/layerx-agentd/tests/repair_22_33_1520.rs:754 and services/agent/crates/layerx-agentd/tests/repair_22_33_1520.rs:767. The current reader additionally receives the explicit effect admission profile."
+
+[disposition.22.39.128.2]
+finding = "22.39.128.2"
+status = "resolved"
+evidence = "Commit c047504e3a authenticates the recorded budget proof through its bound owner and capabilities at services/agent/crates/layerx-agentd/tests/repair_22_31_217.rs:193. The proof test explicitly accepts a revocation counter above block height and rejects its altered export at services/agent/crates/layerx-agentd/tests/repair_22_31_217.rs:1477."
+
+[disposition.22.39.128.3]
+finding = "22.39.128.3"
+status = "resolved"
+evidence = "Commit c047504e3a carries the authenticated owner-capability responses for the recorded proof_revocation_counter case exercised at services/agent/crates/layerx-agentd/tests/repair_22_31_217.rs:1408. Native source selection requires the retained signing preparation at services/agent/crates/layerx-agentd/src/budget/native_binding.rs:26."
+
+[disposition.22.39.128.4]
+finding = "22.39.128.4"
+status = "resolved"
+evidence = "Commit c047504e3a supplies paymentDenom in the retained settlement receipt at services/agent/crates/layerx-agentd/src/human_runtime.rs:24035. The library still exercises settlement after head advancement, replay idempotency, failed receipts and stale nodes at services/agent/crates/layerx-agentd/src/human_runtime.rs:24109."
+
+[disposition.22.39.128.5]
+finding = "22.39.128.5"
+status = "resolved"
+evidence = "Commit c047504e3a binds the retained fixture fee schedule to ASSET at services/agent/crates/layerx-agentd/src/human_runtime.rs:23640. The same asset is reserved by the settlement preparation at services/agent/crates/layerx-agentd/src/human_runtime.rs:23955, preserving the exact fee-asset check."
+
+[disposition.22.39.131.1]
+finding = "22.39.131.1"
+status = "resolved"
+evidence = "Commit 56c0f69099 reconciles the Python suite inventory and the recorded receipt-copy consumer at tests/conformance/test_repair_22_33_886.py:60. The current exclusion list explicitly removes the absent scripts/ci directory at tests/ci/data/python_suite_exclusions.txt:3."
+
+[disposition.22.39.131.2]
+finding = "22.39.131.2"
+status = "resolved"
+evidence = "Commit 56c0f69099 refreshes services/explorer/backend/apps/explorer/test/support/fixture/paxeer_x/committed_vectors.json from the recorded producer. The conformance check retains the explorer legacy cases and matches current settlement evidence at tests/conformance/test_repair_22_33_886.py:70."
+
+[disposition.22.39.131.3]
+finding = "22.39.131.3"
+status = "resolved"
+evidence = "Commit 68952aa1bf sets the socket creation umask before binding at services/platform/hosted/node/generation_transport.py:248 and restores the previous mask afterward. The published generation socket is group-owned and mode 0660 from creation rather than relying solely on a later chmod."
+
+[disposition.22.39.131.4]
+finding = "22.39.131.4"
+status = "resolved"
+evidence = "Commit 56c0f69099 makes process teardown inspect the child state until disappearance or zombie state within the existing three-second bound at tests/integration/scripts/test_repair_22_33_758.py:243. The final assertion still refuses any live process state."
+
+[disposition.22.39.132.1]
+finding = "22.39.132.1"
+status = "resolved"
+evidence = "Commit 68952aa1bf makes the provider-deadline journey assert elapsed operation time and the busy refusal at services/platform/hosted/node/signer/test_repair_22_33_1454.py:211. It waits for released deadlines before checking successful subsequent signing at services/platform/hosted/node/signer/test_repair_22_33_1454.py:229."
+
+[disposition.22.39.133.1]
+finding = "22.39.133.1"
+status = "resolved"
+evidence = "Commit 68952aa1bf uses CommittedReadiness at services/platform/hosted/node/tests/test_repair_22_31_355.py:763 and waits for prior signer deadlines to clear before the next bind at services/platform/hosted/node/signer/test_repair_22_33_1454.py:259. Socket publication sets mode 0660 at creation through services/platform/hosted/node/generation_transport.py:248."
+
+[disposition.22.39.134.1]
+finding = "22.39.134.1"
+status = "resolved"
+evidence = "Commit b8a3d4fcd2 removes the stale scripts/ci exclusion documented at tests/ci/data/python_suite_exclusions.txt:3. The ramp dependency contract still forbids the retired client through the actual workspace dependency graph at services/platform/tests/test_ramp_dependencies.py:46."
+
+[disposition.22.39.136.1]
+finding = "22.39.136.1"
+status = "environment"
+evidence = "On main, package.json:12 includes the TypeScript SDK workspace and services/agent/sdk/typescript/package.json:53 declares its @noble/hashes dependency. The Python buyer verifies the signed receipt and exact verifier digest at services/agent/sdk/python/layerx_sdk/x402_http.py:321."
+
+[disposition.22.39.136.2]
+finding = "22.39.136.2"
+status = "environment"
+evidence = "On main, package.json:12 includes the TypeScript SDK workspace and services/agent/sdk/typescript/package.json:53 declares its @noble/hashes dependency. The Python buyer verifies the signed receipt and exact verifier digest at services/agent/sdk/python/layerx_sdk/x402_http.py:321."
+
+[disposition.22.39.136.3]
+finding = "22.39.136.3"
+status = "environment"
+evidence = "On main, package.json:12 includes the TypeScript SDK workspace and services/agent/sdk/typescript/package.json:53 declares its @noble/hashes dependency. The Python buyer verifies the signed receipt and exact verifier digest at services/agent/sdk/python/layerx_sdk/x402_http.py:321."
+
+[disposition.22.39.136.4]
+finding = "22.39.136.4"
+status = "resolved"
+evidence = "Commit 908d90b5c5 derives the seller proof digest through receipt verification and keeps unsupported scheme rejection at services/platform/middleware/conformance/pay6/test_http.py:121. Commit 18880543d1 gives the Python mirror the same verifier-derived receiptDigest at services/platform/middleware/conformance/pay6/test_commitment.py:34."
+
+[disposition.22.39.136.5]
+finding = "22.39.136.5"
+status = "resolved"
+evidence = "Commit 908d90b5c5 makes the seller fixture use the verifier-produced receipt digest. Commit 18880543d1 mirrors that digest at services/platform/middleware/conformance/pay6/test_commitment.py:34, preserving exact proof equality in services/platform/middleware/conformance/pay6/test_agent.py:42."
+
+[disposition.22.39.136.6]
+finding = "22.39.136.6"
+status = "resolved"
+evidence = "Commit 18880543d1 derives the Python FIXTURE receiptDigest from verify_sequencer_receipt at services/platform/middleware/conformance/pay6/test_commitment.py:18. The proof uses the resulting receipt_digest at services/platform/middleware/conformance/pay6/test_commitment.py:34 and still must exactly equal the agent-produced proof."
+
+[disposition.22.39.137.1]
+finding = "22.39.137.1"
+status = "resolved"
+evidence = "Commit a7d39f7f68 ports payment RPC verification to the hosted client and maps verification failures to the payment-binding refusal. The current exception mapping at services/agent/sdk/python/layerx_sdk/x402_rpc.py:360 raises ValueError while preserving the original verification error as its cause."
+
+[disposition.22.39.138.1]
+finding = "22.39.138.1"
+status = "resolved"
+evidence = "Commit ff8d706905 aligns node module initialization with the shared host and the chain module between pay and agent at node/app_host_genesis_test.go:24 and node/app_pay_agent_modules_test.go:45. The CW1155 journey still requires successful burn-on-behalf delivery and exact event fields at node/receipt_test.go:838."
+
+[disposition.22.39.138.2]
+finding = "22.39.138.2"
+status = "resolved"
+evidence = "Commit 854460656d preserves registered ABCI error identity through sdkerrors.Wrapf at modules/evm/keeper/params.go:323. Commit 877e7a097c excludes amount-bearing CW1155 burns from the CW721 owner lookup at wasm/x/wasm/keeper/keeper.go:1204."
+
+[disposition.22.39.138.3]
+finding = "22.39.138.3"
+status = "resolved"
+evidence = "Commit 877e7a097c classifies transfer shapes before any CW721 owner query at wasm/x/wasm/keeper/keeper.go:1180 and excludes amount-bearing burns. The real CW1155 delivery requires code zero and verifies its burn event at node/receipt_test.go:838."
+
+[disposition.22.39.138.4]
+finding = "22.39.138.4"
+status = "resolved"
+evidence = "Commit 877e7a097c restricts the CW721 pre-transfer owner lookup to matching transfer shapes at wasm/x/wasm/keeper/keeper.go:1218. CW1155 messages carrying amount bypass that lookup at wasm/x/wasm/keeper/keeper.go:1204 while their original burn assertions remain."
+
+[disposition.22.39.138.5]
+finding = "22.39.138.5"
+status = "resolved"
+evidence = "Commit f21aec1315 points the shared airdrop artwork relationship at apps/launchpad/web/public/icons/airdrop_background.png in tests/ci/data/intentional_copies.txt:10. The copy guard retains exact source-to-copy comparisons through tests/ci/test_copied_artifacts_in_sync.py."
+
+[disposition.22.39.140.1]
+finding = "22.39.140.1"
+status = "resolved"
+evidence = "Commit 9de3f56cd8 makes off-ramp payment use the budgetSpend selector at services/platform/ramps/toolkit/tests/contracts.rs:228. Both wrong-direction compiler calls require InvalidOrder at services/platform/ramps/toolkit/tests/contracts.rs:233."
+
+[disposition.22.39.142.1]
+finding = "22.39.142.1"
+status = "resolved"
+evidence = "Commit 075a770edb lands the shared-codec size repair recorded as 483154 bytes at programs/crates/layerx-programs-ai-market/src/repair_22_39_142.kvx:27. Main subsequently records the expanded guest at 499972 bytes against the later 500000-byte qualification bound at programs/crates/layerx-programs-ai-market/src/repair_22_39_167.kvx:5940."
+
+[disposition.22.39.142.2]
+finding = "22.39.142.2"
+status = "resolved"
+evidence = "Commit 075a770edb lands the shared-codec size repair recorded as 483154 bytes at programs/crates/layerx-programs-ai-market/src/repair_22_39_142.kvx:27. Main subsequently records the expanded guest at 499972 bytes against the later 500000-byte qualification bound at programs/crates/layerx-programs-ai-market/src/repair_22_39_167.kvx:5940."
+
+[disposition.22.39.142.3]
+finding = "22.39.142.3"
+status = "resolved"
+evidence = "Commit 075a770edb derives SettleLaps payload bounds from laps::SETTLE_FIXED_BYTES plus the evidence manifest constants at programs/crates/layerx-programs-ai-market/tests/f11_family_table.rs:68. The minimum, maximum and out-of-bound operation checks remain."
+
+[disposition.22.39.142.4]
+finding = "22.39.142.4"
+status = "resolved"
+evidence = "Commit 075a770edb gives selector 0x0B14 the PolicyLifecycle and SettlementClaims sections at programs/crates/layerx-programs-ai-market/tests/f11_family_table.rs:232. The roster-section assertion explicitly reflects that BookView reads the placement book without a roster entry at programs/crates/layerx-programs-ai-market/tests/f11_family_table.rs:236."
+
+[disposition.22.39.142.5]
+finding = "22.39.142.5"
+status = "resolved"
+evidence = "Commit 49ef3cf941 fills the shared room budget across two model digests at programs/crates/layerx-programs-ai-market/tests/f11_rooms_and_deals.rs:1049. The journey retains the aggregate room-capacity refusal while respecting the placement book's per-model capacity."
+
+[disposition.22.39.144.1]
+finding = "22.39.144.1"
+status = "environment"
+evidence = "On main, tools/paxeer-x/ai_evidence.py:352 validates structured authority documents and tools/paxeer-x/ai_evidence.py:482 checks the pinned policy bytes. Its evidence tests bind those documents to exact file hashes at tools/paxeer-x/tests/ai_evidence_test.py:38."
+
+[disposition.22.39.144.2]
+finding = "22.39.144.2"
+status = "resolved"
+evidence = "Commit e1ae6e0924 excludes tools/jev/tests/fixtures from the container reference scan at tools/containers/check.sh:145. The scan still distinguishes executable docker build commands and explicit recipe references from data and prose."
+
+[disposition.22.39.147.1]
+finding = "22.39.147.1"
+status = "resolved"
+evidence = "Commit e0a5a9cb96 reconciles the routed workflow declarations with the repository-wide routing contract and connects that check to tests/ci/test_workflow_live_inputs_guarded.py. The loadtest routing contract compares the routed job to repository-audit at tools/ci/tests/test_ci_loadtest_job.py:19."
+
+[disposition.22.39.147.2]
+finding = "22.39.147.2"
+status = "resolved"
+evidence = "Commit e0a5a9cb96 makes loadtest follow the repository-audit routing expression at tools/ci/tests/test_ci_loadtest_job.py:19 and retain the same initial setup step at tools/ci/tests/test_ci_loadtest_job.py:43. The sanitizer's separate pin no longer defines this job's routing contract."
+
+[disposition.22.39.149.1]
+finding = "22.39.149.1"
+status = "environment"
+evidence = "On main, services/platform/ramps/toolkit/tests/source_settlement.rs:76 requires a protected version-2 source contract with genuine finalized Ethereum and Solana cases. The contract is decoded strictly and must include both source-chain kinds before settlement evidence is accepted."
+
+[disposition.22.39.152.1]
+finding = "22.39.152.1"
+status = "resolved"
+evidence = "Commit f21aec1315 updates the intentional-copy inventory to the relocated public launchpad artwork at tests/ci/data/intentional_copies.txt:10 and records the independent identical image relationships at tests/ci/data/intentional_copies.txt:34. Each retained relationship names an exact comparison test."
+
+[disposition.22.39.152.2]
+finding = "22.39.152.2"
+status = "resolved"
+evidence = "Commit f21aec1315 removes obsolete stylesheet and charting-declaration equality relationships from the exact-path inventory at tests/ci/data/intentional_copies.txt:1 because those app consumers have diverged. The guard still rejects unlisted byte-identical artifacts over 20000 bytes at tests/ci/test_copied_artifacts_in_sync.py:245."
+
+[disposition.22.39.155.1]
+finding = "22.39.155.1"
+status = "resolved"
+evidence = "Commit 412a4d444a requires the retired anchor module to be absent from the v6.6 version map at node/upgrade_test.go:224. The venue at 0x1015 is queried through its actual ABI using totalMarkets at node/upgrade_test.go:249."
+
+[disposition.22.39.155.2]
+finding = "22.39.155.2"
+status = "environment"
+evidence = "On main, node/sequencer_rpc_option_test.go:103 exercises the EVM server's sequencer receipt option with configured receipt keys. The v6.6 test checks the actual venue ABI at node/upgrade_test.go:249, and standby replication is exercised at node/standby_recorder_replication_test.go:93."
+
+[disposition.22.39.158.1]
+finding = "22.39.158.1"
+status = "resolved"
+evidence = "Commit 59516c3c0b makes the container inventory consumer assert the exact current out-of-scope list at tools/containers/test_out_of_scope_list.py:20. The companion regression requires all thirty-five entries at tools/containers/test_repair_22_33_776.py:43 and retains the consensus Dockerfile exclusion."
+
+[disposition.22.39.161.1]
+finding = "22.39.161.1"
+status = "resolved"
+evidence = "Commit b910eb9938 makes EvidenceMaterial's optional fields include settlement_domain, rung and inclusion_height at services/human/tools/schema-check/tests/journey_vocabulary.rs:193. EvidenceRef retains only settlement_domain, and each list is still compared exactly with the schema."
+
+[disposition.22.39.161.2]
+finding = "22.39.161.2"
+status = "resolved"
+evidence = "Commit 08a7f84469 preserves failed qualification records without invented stack evidence at tools/qualification/test_beta_driver.py:300. The multichain inventory separately checks schema conformance and exact missing-input failures at tools/qualification/test_beta_driver.py:324."
+
+[disposition.22.39.164.1]
+finding = "22.39.164.1"
+status = "resolved"
+evidence = "Commit 8493063952 derives allowed documentation hosts from the public inventory and current spec at tools/bringup/live_repair.go:432 and checks the exact retired faucet variable token at tools/bringup/live_repair.go:475. Container recipe checks retain their BuildKit validation at tools/containers/check.sh:394."
+
+[disposition.22.39.164.2]
+finding = "22.39.164.2"
+status = "resolved"
+evidence = "Commit 8493063952 bounds the retired FAUCET_URL match by identifier characters at tools/bringup/live_repair.go:475, preserving rejection of that exact variable. The documented LAYERX_SCHEDULED_FAUCET_URL at docs/ci/secrets-and-runners.md:156 is a distinct supported input."
+
+[disposition.22.39.167.1]
+finding = "22.39.167.1"
+status = "resolved"
+evidence = "Commit 6fce630c2d records a 499972-byte packaged guest against the later 500000-byte qualification bound at programs/crates/layerx-programs-ai-market/src/repair_22_39_167.kvx:5940. The same record explicitly retains the 15788-byte gap to the 484184-byte target and the unchanged 524184-byte deployment bound."
+
+[disposition.22.39.167.2]
+finding = "22.39.167.2"
+status = "resolved"
+evidence = "Commit 6fce630c2d records a 499972-byte packaged guest against the later 500000-byte qualification bound at programs/crates/layerx-programs-ai-market/src/repair_22_39_167.kvx:5940. The same record explicitly retains the 15788-byte gap to the 484184-byte target and the unchanged 524184-byte deployment bound."
+
+[disposition.22.39.167.3]
+finding = "22.39.167.3"
+status = "resolved"
+evidence = "Commit 6fce630c2d packages the candidate with wasm-opt before checking deployment size at rpc/repair_478_test.go:156. Main records both raw and packaged sizes and production Fund fuel of 850810 at programs/crates/layerx-programs-ai-market/src/repair_22_39_167.kvx:5939, preserving the one-million fuel allowance."
+
+[disposition.22.39.169.1]
+finding = "22.39.169.1"
+status = "resolved"
+evidence = "Commit 06be02228f lands the current-schema codec and host-boundary repairs recorded in programs/crates/layerx-programs-ai-market/src/repair_22_39_169.kvx. The real header codec round-trips every ordered field and refuses every truncated prefix at programs/crates/layerx-programs-ai-market/tests/repair_22_39_169.rs:9."
+
+[disposition.22.39.171.1]
+finding = "22.39.171.1"
+status = "resolved"
+evidence = "Commit fc12a863fb durably anchors local events to the latest chain height with a checked local counter at services/agent/crates/layerx-agentd/src/events/ingest.rs:329. Commit 190852a335 aligns the history response and protected cross-UID store contract at services/agent/crates/layerx-agentd/tests/repair_22_33_1506.rs:697."
+
+[disposition.22.39.172.1]
+finding = "22.39.172.1"
+status = "resolved"
+evidence = "Commit 190852a335 serves the gateway page with its current account, cursor, height and freshness fields at services/agent/crates/layerx-agentd/tests/history_served_contract.rs:95. The reverse-window journey authenticates the newest and preceding receipt positions at services/agent/crates/layerx-agentd/tests/repair_22_31_218.rs:1005."
+
+[disposition.22.39.172.2]
+finding = "22.39.172.2"
+status = "resolved"
+evidence = "Commit 190852a335 measures exactly the history payload fields counted by the consumer at services/agent/crates/layerx-agentd/tests/history_served_contract.rs:157. The byte count is derived from items, next_cursor, indexedHeight and chainHeight instead of an enclosing transport document."
+
+[disposition.22.39.173.1]
+finding = "22.39.173.1"
+status = "resolved"
+evidence = "Commit fd5cfe93f0 restores the desktop icon assets, including tools/hyperfide/apps/desktop/assets/icon-dev.png, alongside the editor scripts. The preservation contract at tools/qualification/audit_repairs/test_repair_22_36_1.py:111 still requires every relocated file and its original bytes and executable mode."
+
+[disposition.22.39.174.1]
+finding = "22.39.174.1"
+status = "resolved"
+evidence = "Commit 5bc0e4ad56 retries ECONNRESET once only for explicitly idempotent EVM reads at services/interop/crates/layerx-bridge-relayer/src/repair_22_31_160_vault.cjs:17. Write errors remain errors, and the request disables reused connections at services/interop/crates/layerx-bridge-relayer/src/repair_22_31_160_vault.cjs:105."
+
+[disposition.22.39.176.1]
+finding = "22.39.176.1"
+status = "resolved"
+evidence = "Commit f741d475ca distinguishes decoded receipted reverts from preexecution refusals at sdk/platform/go/cmd/conformance/main.go:187. The insufficient-funds shape requires result code one, empty return data and logs, and nonempty vmError while preserving signed bytes and digest checks."
+
+[disposition.22.39.177.1]
+finding = "22.39.177.1"
+status = "open"
+evidence = "Main still imports layerx_wire::activity at programs/crates/layerx-programs-arbiter/tests/activity_codec.rs:3 and uses layerx_wire::sign at programs/crates/layerx-programs-arbiter/tests/activity_codec.rs:107. Task 22.39.177 remains pending and owns migration to the historical codec modules."
+follow_up = "22.39.177"
+
+[disposition.22.39.177.2]
+finding = "22.39.177.2"
+status = "open"
+evidence = "Main decodes raw proof leaves with PortableBoundary::decode_untrusted at programs/crates/layerx-programs-arbiter/tests/proof_arbiter_crate.rs:1235 and programs/crates/layerx-programs-arbiter/tests/proof_arbiter_crate.rs:1794. Pending task 22.39.183 owns the record-header envelope transport and consumer repair."
+follow_up = "22.39.183"
+
+[disposition.22.39.177.3]
+finding = "22.39.177.3"
+status = "open"
+evidence = "Main still passes each raw market boundary leaf directly to decode_untrusted at programs/crates/layerx-programs-arbiter/tests/proof_arbiter_crate.rs:1794. Task 22.39.183 remains pending to bind the producer's record header and raw-leaf commitment through the arbiter consumers."
+follow_up = "22.39.183"
+
+[disposition.22.39.178.1]
+finding = "22.39.178.1"
+status = "resolved"
+evidence = "Commit 661007bc72 obtains the actual worker-thread lock registry through Reflect.get at tests/ci/test_wallet_test_workflow.py:85. The widget setup must publish that same registry on navigator and retain a callable request method."
+
+[disposition.22.39.179.1]
+finding = "22.39.179.1"
+status = "resolved"
+evidence = "Commit b23a43fd9a narrows server.address() before capturing its numeric port at apps/wallet/src/server/repair-22-33-168.test.ts:116. The surface replay follows receipt-key and raw-transaction reads at apps/wallet/src/surfaces/test/repair-22-33-206.test.ts:131."
+
+[disposition.22.39.180.1]
+finding = "22.39.180.1"
+status = "resolved"
+evidence = "Commit cc3d81fa23 states the supported gateway behavior at docs/release/7.0.0-service-operator-runbook.md:44 and configures upgraded public node root URLs at docs/release/7.0.0-service-operator-runbook.md:62. The documentation contract checks those concrete capabilities at tests/ci/test_release_docs_gap_markers.py:195."
+
+[disposition.22.39.25.1]
+finding = "22.39.25.1"
+status = "resolved"
+evidence = "Commit 1fcdfec0c5 recognizes explicitly invoked Python modules at tests/ci/test_tests_ci_modules_collected.py:49 and still rejects every uncollected, unimported, uninvoked module at tests/ci/test_tests_ci_modules_collected.py:81. The script-reference guard continues to reject the retired recipe module."
+
+[disposition.22.39.26.1]
+finding = "22.39.26.1"
+status = "resolved"
+evidence = "Commit 78547df161 follows literal, ConfigMap and Secret-backed gateway environment entries instead of assuming every item has value. Main retains the explicit shape dispatch at tools/qualification/audit_repairs/test_repair_22_33_1395.py:23, including the receipt-key Secret projection."
+
+[disposition.22.39.26.2]
+finding = "22.39.26.2"
+status = "resolved"
+evidence = "Commit 3740acfa3e reconciles the qualification consumers with current producer contracts and records their individual bindings at tools/qualification/repair_22_31_623.kvx:27. The gateway consumer accepts the actual valueFrom projections at tools/qualification/audit_repairs/test_repair_22_33_1395.py:23, and qualification dependencies are declared in tools/qualification/requirements.txt:1."
+
