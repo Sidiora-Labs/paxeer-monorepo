@@ -1,0 +1,50 @@
+[issue.1621]
+number = 1621
+title = "[Coherence] The KMS provenance finding names services/platform/crates as the moved producer tree, but no such directory exists"
+revision = "bb8caac8b3e73e3e2f4b330805574f0bcb540641"
+verdict = "task"
+evidence = "The incorrect replacement proposed at spec/layerx-merge/programme/audit/records/22.30.174.kvx:1077 was applied by commit 81eb679b4f580d66b58412cafccd3c7921d488fb: tools/qualification/paxeer-x/human-movement-kms-assembly.py:35 now lists the nonexistent services/platform/crates and :74 refuses missing paths, while services/platform/Cargo.toml:8 names hosted/runtime-clock and tools/qualification/paxeer-x/tests/test_repair_22_33_778.py:610 fabricates the missing directory instead of checking the repository layout."
+close_comment = "The missing platform/crates entry was replaced with services/platform/crates, which also does not exist, so the provenance check still refuses valid source layouts. A follow-up task will remove that invalid entry, correct the finding, and test the actual producer sources while preserving missing-path, content and revision checks."
+
+[task.18.1621.1]
+title = "Issue #1621: Correct KMS provenance paths and prove the real source layout"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181621.1"]
+capabilities = []
+interfaces = []
+do_1 = "Remove the nonexistent services/platform/crates entry from SOURCES at tools/qualification/paxeer-x/human-movement-kms-assembly.py:35, retaining the already listed services/platform/hosted/runtime-clock and Human and agent source trees; the clock package is built at :134 and its workspace member is services/platform/Cargo.toml:8; retain all source_snapshot, source and verify_provenance existence, symlink, content and revision checks at :69, :84 and :91."
+do_2 = "Correct observed and proposal in spec/layerx-merge/programme/audit/records/22.30.174.kvx:1075 and :1077 to describe the actual missing entry and its removal, and correct tools/qualification/paxeer-x/repair-22.33.778.kvx:22 and :45 so they no longer require a nonexistent producer directory or its creation."
+do_3 = "Replace the invented qualified-source.rs tree in source_tree at tools/qualification/paxeer-x/tests/test_repair_22_33_778.py:605 with copies of real tracked source files at the current revision; strengthen test_kms_provenance_binds_real_moved_tree_and_artifact_revision at :618 to assert the existing Human, agent and hosted/runtime-clock sources and unchanged snapshot verification, mutate a copied real source to prove content refusal, and retain revision mismatch and every missing-path refusal at :630."
+do_4 = "Add test_kms_provenance_paths_exist_in_repository to the same test module: assert every SOURCES entry exists in the actual checkout, neither platform/crates nor services/platform/crates is listed, and the real source_snapshot includes the runtime clock sources and the Human and agent producer sources; use the actual repository revision and production snapshot functions without fabricating a directory or substituting source data."
+symbols = ["SOURCES", "source_tree", "test_kms_provenance_binds_real_moved_tree_and_artifact_revision", "test_kms_every_missing_provenance_path_refuses_before_producers", "test_kms_provenance_paths_exist_in_repository"]
+touches = ["tools/qualification/paxeer-x/human-movement-kms-assembly.py", "tools/qualification/paxeer-x/tests/test_repair_22_33_778.py", "spec/layerx-merge/programme/audit/records/22.30.174.kvx", "tools/qualification/paxeer-x/repair-22.33.778.kvx"]
+tests = ["tools/qualification/paxeer-x/tests/test_repair_22_33_778.py::test_kms_provenance_paths_exist_in_repository", "tools/qualification/paxeer-x/tests/test_repair_22_33_778.py::test_kms_provenance_binds_real_moved_tree_and_artifact_revision", "tools/qualification/paxeer-x/tests/test_repair_22_33_778.py::test_kms_every_missing_provenance_path_refuses_before_producers"]
+planned_paths = []
+build_cmd = "python3 -m py_compile tools/qualification/paxeer-x/human-movement-kms-assembly.py tools/qualification/paxeer-x/tests/test_repair_22_33_778.py"
+verify_cmd = "python3 -m pytest tools/qualification/paxeer-x/tests/test_repair_22_33_778.py -k test_kms_ -q"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181621]
+title = "KMS provenance names existing producer sources and rejects missing or changed sources"
+ac_1 = "Given the producer build at tools/qualification/paxeer-x/human-movement-kms-assembly.py:124 and the workspace member at services/platform/Cargo.toml:8, when provenance is collected, every declared source exists in the real repository, the runtime clock and Human and agent sources are covered, neither nonexistent crates path is required, and the checks at tools/qualification/paxeer-x/human-movement-kms-assembly.py:74, :87 and :98 still reject missing paths, altered source content and revision mismatches."
+
+[acceptance.18.1621.1]
+feature = "18"
+req = "181621.1"
+scenario = "Given the actual producer source layout and a manifest bound to its revision, when the KMS provenance snapshot and focused regression tests run, then the existing Human, agent and runtime clock sources verify without an invented platform directory, and missing sources, altered content and a different revision are refused."
+contract = "contracts/operations.md#operations-contract"
+test = "tools/qualification/paxeer-x/tests/test_repair_22_33_778.py::test_kms_provenance_paths_exist_in_repository (planned)"
+qualification = "UNRUN"
