@@ -257,4 +257,4 @@ WebSocket retries use the separate connection options and callback described abo
 
 ## Requirements
 
-- Python 3.9 or newer
+- Python 3.11 or newer

@@ -43,12 +43,11 @@ use crate::{
         model::{ReportContext, SignedReport, VerificationError, SIGNED_REPORT_MAX_BYTES},
     },
     evidence::SealRegion,
-    registry::check_f01_capacity,
     registry_ops::{CallContext, PolicySection},
     rewards::{RewardEpoch, RewardState},
     state::{
-        decode_shared_state, encode_shared_state, settlement_rewards, ReplayDecision,
-        ReplayRequest, RetainedResult, Section, SharedState,
+        decode_shared_state, settlement_rewards, ReplayDecision, ReplayRequest, RetainedResult,
+        Section, SharedState,
     },
     types::{
         Digest32, EvaluatorBinding, EvaluatorId, FrozenBinding, Presence, PrincipalId,
@@ -585,26 +584,26 @@ fn commit_report(
 ) -> CodecResult<(u64, usize)> {
     let (policy, rest) = scratch.split_at_mut_checked(POLICY_CAP).ok_or(CAPACITY)?;
     let (reports, control) = rest.split_at_mut_checked(REPORTS_CAP).ok_or(CAPACITY)?;
-    let revision = state.revision.checked_add(1).ok_or(ARITHMETIC)?;
-    let mut section = opened.section;
-    section.header.state_revision = revision;
-    let policy_len = section.encode(policy)?;
     let reports_len = opened
         .reports
         .write_with(opened.frozen.epoch, row, reports)?;
-    let policy = policy.get(..policy_len).ok_or(CAPACITY)?;
     let reports = reports.get(..reports_len).ok_or(CAPACITY)?;
-    let with_policy = state.replace_section(Section::PolicyLifecycle, policy)?;
-    let mut candidate = with_policy.with_section(Section::CurrentReports, reports)?;
+    let mut candidate = state.clone();
+    *candidate
+        .feature_sections
+        .guest_index_mut(Section::CurrentReports.index()) = reports;
     let result = row.receipt.result()?;
-    if candidate.record_success(&reveal.request, reveal.height, result)? != ReplayDecision::Apply
-        || candidate.revision != revision
-    {
-        return Err(NON_CANONICAL);
-    }
-    check_f01_capacity(policy_len, candidate.encoded_len()?)?;
-    let state_len = encode_shared_state(&candidate, next, control)?;
-    Ok((revision, state_len))
+    crate::rewards::finish_feature_transition(
+        candidate,
+        opened.section,
+        Some(&reveal.request),
+        reveal.height,
+        result,
+        NON_CANONICAL,
+        policy,
+        control,
+        next,
+    )
 }
 
 /// `ValidateReportAdmission`: admits one canonical signed report of a frozen evaluator into
@@ -1135,18 +1134,19 @@ fn commit_challenge(
     };
     let record_bytes = record.encode()?;
     let result = codec::result_digest(&record_bytes)?;
-    let revision = state.revision.checked_add(1).ok_or(ARITHMETIC)?;
-    let mut section = opened.section;
-    section.header.state_revision = revision;
-    let policy_len = section.encode(policy)?;
-    let mut candidate = state.replace_section(
-        Section::PolicyLifecycle,
-        policy.get(..policy_len).ok_or(CAPACITY)?,
-    )?;
+    let mut candidate = state.clone();
     candidate.control.feature_bytes = features.get(..features_len).ok_or(CAPACITY)?;
-    candidate.revision = revision;
-    check_f01_capacity(policy_len, candidate.encoded_len()?)?;
-    let state_len = encode_shared_state(&candidate, next, control)?;
+    let (revision, state_len) = crate::rewards::finish_feature_transition(
+        candidate,
+        opened.section,
+        None,
+        0,
+        result,
+        NON_CANONICAL,
+        policy,
+        control,
+        next,
+    )?;
     let event_len = codec::encode_event_frame(
         dispatch::ChallengeAssessment,
         &EventCommon {

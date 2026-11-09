@@ -4,6 +4,7 @@ import base64
 import csv
 import hashlib
 import io
+import tomllib
 import zipfile
 from pathlib import Path
 
@@ -15,13 +16,15 @@ ZIP_TIME = (1980, 1, 1, 0, 0, 0)
 
 
 def _metadata() -> bytes:
+    with Path(__file__).with_name("pyproject.toml").open("rb") as manifest:
+        license_expression = tomllib.load(manifest)["project"]["license"]
     return (
-        "Metadata-Version: 2.3\n"
+        "Metadata-Version: 2.4\n"
         "Name: layerx-sdk\n"
         f"Version: {VERSION}\n"
         "Summary: Generated LayerX Agent API Python SDK\n"
         "Requires-Python: >=3.11\n"
-        "License: See the LayerX repository LICENSE\n"
+        f"License-Expression: {license_expression}\n"
         "Provides-Extra: derivation\n"
         "Requires-Dist: cryptography>=41; extra == 'derivation'\n"
         "\n"

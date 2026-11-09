@@ -296,7 +296,10 @@ mod wire_label_tests {
     }
 
     #[test]
-    #[allow(deprecated)]
+    #[allow(
+        deprecated,
+        reason = "Verify the retained legacy decoder cannot manufacture a current verification level."
+    )]
     fn wire_label_names_archives_but_refuses_retired_and_unknown_labels() {
         assert_eq!(
             VerificationLevel::CHECKPOINT_FINALISED.wire_label(),

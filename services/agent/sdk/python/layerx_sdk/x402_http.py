@@ -242,6 +242,23 @@ def _parse_proof(value):
     return value
 
 
+def _parse_settlement_proof(value):
+    value = _object(value)
+    landing_fields = {"landingBlockHeight", "landingBlockHash"}
+    proof = _parse_proof({
+        name: member for name, member in value.items() if name not in landing_fields
+    })
+    present = value.keys() & landing_fields
+    if not present:
+        return proof, None
+    if present != landing_fields or proof["verificationLevel"] != "committed":
+        raise ValueError("invalid-settlement-landing")
+    return proof, (
+        _quantity(value["landingBlockHeight"], 64),
+        _proof_bytes(value["landingBlockHash"], 32),
+    )
+
+
 def _verify_node_receipt(proof, verified, key):
     if "receiptJson" not in proof:
         return
@@ -639,7 +656,7 @@ class BuyerMiddleware:
         ):
             raise ValueError("settlement-mismatch")
         payment_proof = _parse_proof(payment["payload"])
-        proof = _parse_proof(evidence_body)
+        proof, landing = _parse_settlement_proof(evidence_body)
         for name in ("rawTransaction", "signedReceipt", "receiptDigest", "receiptKey"):
             if proof[name] != payment_proof[name]:
                 raise ValueError("settlement-receipt-mismatch")
@@ -648,6 +665,11 @@ class BuyerMiddleware:
         # Authenticate the submitted proof too, including optional node JSON.
         _verify_proof(payment_proof, offer, self.receipt_keys, self.resolve_receipt)
         verified, evidence = _verify_proof(proof, offer, self.receipt_keys, self.resolve_receipt)
+        if landing is not None:
+            trust, committed = evidence.finality
+            authenticated = trust.verify(evidence.raw_transaction, verified.height, committed)
+            if landing != (authenticated.height, authenticated.block_hash):
+                raise ValueError("settlement-landing-mismatch")
         if settlement.get("transaction") != "0x" + verified.receipt.activity_id.hex():
             raise ValueError("settlement-receipt-mismatch")
         if settlement.get("payer") != ledger_payment_payer(verified, evidence.raw_transaction, offer["scheme"]):

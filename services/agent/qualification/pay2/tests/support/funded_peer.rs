@@ -4,23 +4,23 @@ use ed25519_dalek::{Signer as _, SigningKey};
 use layerx_client::runtime_clock::{ClockBinding, RuntimeClock};
 use layerx_crypto::{
     account_derivation::derive_from_seed,
-    disclosure::call::{bind_call, ConstructMethod},
+    disclosure::call::{ConstructMethod, bind_call},
     disclosure::{CounterpartyRole, Disclosure},
     evm_transaction::{decode_signed, recover_sender, transaction_hash},
     local::LocalSigner,
 };
 use layerx_programs::chain_proof::{
+    ChainProofVerifier,
     header::{ChainHeader, HeaderBlockId, HeaderTime, HeaderVersion},
     merkle::SimpleProof,
     validators::{TrustedValidator, ValidatorSet},
-    vote::{vote_sign_bytes, BlockId, PartSetHeader, Timestamp},
-    ChainProofVerifier,
+    vote::{BlockId, PartSetHeader, Timestamp, vote_sign_bytes},
 };
 use layerx_proof::sequencer_logs::SequencerLog;
 use layerx_sdk::rpc::RpcClient;
 use layerx_types::{clock::ClockReading, clock_protocol};
 use layerx_wire::{encode::Encoder, receipt};
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use std::{
     collections::BTreeMap,
     fs,
@@ -31,8 +31,8 @@ use std::{
         net::UnixListener,
     },
     sync::{
-        atomic::{AtomicBool, AtomicU16, Ordering},
         Arc, Mutex,
+        atomic::{AtomicBool, AtomicU16, Ordering},
     },
     thread::{self, JoinHandle},
     time::{Duration, Instant},
@@ -322,9 +322,11 @@ impl Peer {
                     }
                     "eth_estimateGas" => {
                         assert_eq!(params[1], "pending");
-                        assert!([hex(&sender), hex(&recipient_sender)]
-                            .iter()
-                            .any(|address| params[0]["from"] == *address));
+                        assert!(
+                            [hex(&sender), hex(&recipient_sender)]
+                                .iter()
+                                .any(|address| params[0]["from"] == *address)
+                        );
                         assert_eq!(
                             params[0]["to"],
                             "0x000000000000000000000000000000000000101a"
@@ -433,9 +435,11 @@ impl Peer {
                         .protocol()
                         .expect("protocol receipt")
                         .resulting_state_root();
-                        assert!(checked(served_coverage.lock())
-                            .insert(hash, committed.coverage.clone())
-                            .is_none());
+                        assert!(
+                            checked(served_coverage.lock())
+                                .insert(hash, committed.coverage.clone())
+                                .is_none()
+                        );
                         assert!(
                             submitted.insert(hash, (answer, committed, 0)).is_none(),
                             "exactly one submission per activity"
@@ -481,9 +485,11 @@ impl Peer {
                     "px_getValidators" => {
                         assert_eq!(params.as_array().expect("validator params").len(), 1);
                         let height = params[0].as_str().expect("validator height");
-                        assert!(submitted
-                            .values()
-                            .any(|(_, committed, _)| committed.commit["height"] == height));
+                        assert!(
+                            submitted
+                                .values()
+                                .any(|(_, committed, _)| committed.commit["height"] == height)
+                        );
                         let validators: Vec<_> = (1..=3).map(|n| {
                             let public = SigningKey::from_bytes(&[n; 32]).verifying_key().to_bytes();
                             let address = layerx_agentd::read::CommitValidator::address_for_key(&public);
@@ -532,7 +538,11 @@ impl Peer {
                 );
                 let body =
                     json!({"jsonrpc":"2.0", "id":request["id"], "result":answer}).to_string();
-                checked(write!(stream, "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}", body.len()));
+                checked(write!(
+                    stream,
+                    "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
+                    body.len()
+                ));
             }
         });
         Self {
@@ -923,7 +933,9 @@ fn execution_receipt(
     assert_eq!(protocol.to(), to);
     println!(
         "PAY2 loopback peer authenticated receipt module={module} operation={operation} amount={amount} from={} to={} asset={}",
-        hex(&from), hex(&to), hex(&asset)
+        hex(&from),
+        hex(&to),
+        hex(&asset)
     );
     let (_, verified) = layerx_sdk::rpc_verification::verify_node_receipt(&response, hash, &policy)
         .unwrap_or_else(|error| {
@@ -998,10 +1010,10 @@ fn occupancy_maintenance(protocol: &receipt::ProtocolReceipt, batch_number: u64)
 
 fn commit_receipt(executed: &Value, raw: &[u8], signer: &SigningKey) -> CommittedReceipt {
     use layerx_client::rpc::receipt_commit::{
-        verify_receipt_coverage, ReceiptCommitEvidence, SequenceBatch,
+        ReceiptCommitEvidence, SequenceBatch, verify_receipt_coverage,
     };
     use layerx_proof::{
-        inclusion::{verify_receipt, SequencerAuthorization},
+        inclusion::{SequencerAuthorization, verify_receipt},
         merkle::build_proof,
     };
 
@@ -1203,7 +1215,9 @@ fn commit_receipt(executed: &Value, raw: &[u8], signer: &SigningKey) -> Committe
         "signed_header":{"canonical_header":funded_inputs::hex_encode(&batch_header),
             "signature":funded_inputs::hex_encode(&header_signature)},
     });
-    println!("PAY2 loopback peer independently verified receipt inclusion, Comet quorum and signed sequence-batch coverage");
+    println!(
+        "PAY2 loopback peer independently verified receipt inclusion, Comet quorum and signed sequence-batch coverage"
+    );
     let (call, signature) = checked(decode_signed(raw));
     let quantity = |bytes: &[u8]| {
         let text = funded_inputs::hex_encode(bytes);
@@ -1240,6 +1254,7 @@ fn commit_receipt(executed: &Value, raw: &[u8], signer: &SigningKey) -> Committe
         full_transactions,
         sequence_batch: json!({
             "height":height.to_string(), "tx":hex(&transaction),
+            "activityIds":identities.iter().map(|id| hex(id)).collect::<Vec<_>>(),
             "proof":{
                 "total":transaction_proof.total, "index":transaction_proof.index,
                 "leafHash":hex(&transaction_proof.leaf_hash),

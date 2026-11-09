@@ -5,7 +5,7 @@
 task = "22.30.35"
 revision = "6d2c32a65a1c7989a6a37abf5965929de9769ae4"
 files_reviewed = 99
-findings = 26
+findings = 25
 docs_reviewed = 13
 upgrade_ready = false
 blocking = ["1", "2", "3"]
@@ -200,7 +200,7 @@ note = "Tests actual ranking truncation, custom limits, source watermark preserv
 path = "services/launchpad/api/internal/rest/rest.go"
 lines = 45
 verdict = "issues"
-note = "Search proxy failure bytes bypass the canonical Error contract, finding 1; its registry contract authority is missing, finding 12."
+note = "Search proxy failure bytes bypass the canonical Error contract, finding 1."
 
 [file.33]
 path = "services/launchpad/api/internal/rest/rest_test.go"
@@ -718,17 +718,6 @@ proposal = "In services/launchpad/metadata/internal/metadata/handlers.go, stage 
 owner_domain = 4
 class = "runtime-risk"
 
-[finding.12]
-file = "services/launchpad/api/internal/rest/rest.go"
-line = 24
-severity = "medium"
-observed = "Stable launchpad API and metadata registry rows, including 4.http-api-get-v2-search-rest, link contracts/services.md#launchpad-api and #launchpad-metadata, but contracts/services.md does not exist. Integrators cannot follow the declared contract authority for these live interfaces."
-expected = "Stable service registry links must resolve to maintained documentation of actual route, frozen wire shape, authentication, errors and lifecycle behavior."
-proposal = "Domain 4 should restore contracts/services.md with launchpad-api and launchpad-metadata sections or update registry links to existing maintained authorities. Document search errors, media visibility and publication recovery alongside the frozen contracts."
-owner_domain = 4
-class = "doc-drift"
-interface = "4.http-api-get-v2-search-rest"
-
 [finding.13]
 file = "services/launchpad/api/internal/rest/dev_chain.go"
 line = 80
@@ -931,6 +920,6 @@ status = "accurate"
 notes = "Describes merged eth_/pax_ node reads, independently pinned receipt keys and separate inclusion versus committed BFT evidence; preserves fixture provenance and refusal checks without introducing a separate sequencer service."
 
 [doc.13]
-path = "contracts/services.md"
-status = "missing"
-notes = "Missing registry authority for launchpad-api and launchpad-metadata, including search and legacy metadata/logo route rows. Finding 12 proposes restoration or a maintained replacement contract page."
+path = "spec/layerx-merge/contracts/services.md"
+status = "stale"
+notes = "Registry contract anchors resolve: launchpad-api and launchpad-metadata. Headings are at spec/layerx-merge/contracts/services.md:3046 and spec/layerx-merge/contracts/services.md:3218, respectively. Both sections inventory configuration variables, interface counts and acceptance tests, but do not describe search error behavior for the stable GET /v2/search registry row or visibility and publication recovery for the stable GET /metadata/{tokenAddress}, GET /metadata/batch, GET /logo/{file} and POST /metadata/{tokenAddress} rows. These content gaps justify stale status for the existing page."

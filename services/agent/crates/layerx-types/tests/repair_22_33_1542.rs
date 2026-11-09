@@ -21,7 +21,8 @@ fn wasm(size: usize) -> Vec<u8> {
         let mut length = content;
         let mut leb = Vec::new();
         loop {
-            let byte = (length & 0x7f) as u8;
+            let byte =
+                u8::try_from(length & 0x7f).unwrap_or_else(|error| panic!("LEB128 digit: {error}"));
             length >>= 7;
             leb.push(byte | if length == 0 { 0 } else { 0x80 });
             if length == 0 {
@@ -41,11 +42,14 @@ fn wasm(size: usize) -> Vec<u8> {
 
 fn registry() -> ModuleRegistry {
     let activities = [
-        ActivityType::new(ModuleId::Programs, 1).unwrap(),
-        ActivityType::new(ModuleId::Programs, 2).unwrap(),
+        ActivityType::new(ModuleId::Programs, 1)
+            .unwrap_or_else(|error| panic!("test or reference input rejected: {error:?}")),
+        ActivityType::new(ModuleId::Programs, 2)
+            .unwrap_or_else(|error| panic!("test or reference input rejected: {error:?}")),
     ];
-    ModuleRegistry::new(&[ModuleRegistration::new(ModuleId::Programs, &activities).unwrap()])
-        .unwrap()
+    ModuleRegistry::new(&[ModuleRegistration::new(ModuleId::Programs, &activities)
+        .unwrap_or_else(|error| panic!("test or reference input rejected: {error:?}"))])
+    .unwrap_or_else(|error| panic!("test or reference input rejected: {error:?}"))
 }
 
 #[test]
@@ -62,23 +66,30 @@ fn repair_f12_deploy_payload_matches_native_admission() {
             interface,
             wasm: &code,
         };
-        let encoded = deploy.encode().unwrap();
+        let encoded = deploy
+            .encode()
+            .unwrap_or_else(|error| panic!("test or reference input rejected: {error:?}"));
         assert_eq!(encoded.len(), MAX_PAYLOAD_BYTES);
         let admitted = Payload::new(
             &registry,
-            ActivityType::new(ModuleId::Programs, 1).unwrap(),
+            ActivityType::new(ModuleId::Programs, 1)
+                .unwrap_or_else(|error| panic!("test or reference input rejected: {error:?}")),
             &encoded,
         )
-        .unwrap();
+        .unwrap_or_else(|error| panic!("test or reference input rejected: {error:?}"));
         let Payload::Programs(_, transported) = admitted else {
             panic!("wrong native module");
         };
-        assert_eq!(NativeProgramDeploy::decode(&transported).unwrap(), deploy);
         assert_eq!(
             NativeProgramDeploy::decode(&transported)
-                .unwrap()
+                .unwrap_or_else(|error| panic!("test or reference input rejected: {error:?}")),
+            deploy
+        );
+        assert_eq!(
+            NativeProgramDeploy::decode(&transported)
+                .unwrap_or_else(|error| panic!("test or reference input rejected: {error:?}"))
                 .encode()
-                .unwrap(),
+                .unwrap_or_else(|error| panic!("test or reference input rejected: {error:?}")),
             encoded
         );
         let over_code = wasm(code.len() + 1);
@@ -89,14 +100,16 @@ fn repair_f12_deploy_payload_matches_native_admission() {
         .encode()
         .is_err());
         let mut over = encoded;
-        let length = u32::try_from(over_code.len()).unwrap();
+        let length = u32::try_from(over_code.len())
+            .unwrap_or_else(|error| panic!("test or reference input rejected: {error:?}"));
         over[100..104].copy_from_slice(&length.to_be_bytes());
         over.truncate(overhead);
         over.extend_from_slice(&over_code);
         assert_eq!(over.len(), MAX_PAYLOAD_BYTES + 1);
         assert!(Payload::new(
             &registry,
-            ActivityType::new(ModuleId::Programs, 1).unwrap(),
+            ActivityType::new(ModuleId::Programs, 1)
+                .unwrap_or_else(|error| panic!("test or reference input rejected: {error:?}")),
             &over
         )
         .is_err());
@@ -107,7 +120,8 @@ fn repair_f12_deploy_payload_matches_native_admission() {
 #[test]
 fn repair_f12_upgrade_budgets_hook_interface_and_clear_marker() {
     let registry = registry();
-    for hook in [&b""[..], &b"migrate"[..], &[9; 65_535][..]] {
+    let longest_hook = vec![9; 65_535];
+    for hook in [&b""[..], &b"migrate"[..], longest_hook.as_slice()] {
         for (interface, clear_interface) in [
             (None, false),
             (Some(&b"interface"[..]), false),
@@ -125,18 +139,25 @@ fn repair_f12_upgrade_budgets_hook_interface_and_clear_marker() {
                 interface,
                 wasm: &code,
             };
-            let encoded = upgrade.encode().unwrap();
+            let encoded = upgrade
+                .encode()
+                .unwrap_or_else(|error| panic!("test or reference input rejected: {error:?}"));
             assert_eq!(encoded.len(), MAX_PAYLOAD_BYTES);
             let admitted = Payload::new(
                 &registry,
-                ActivityType::new(ModuleId::Programs, 2).unwrap(),
+                ActivityType::new(ModuleId::Programs, 2)
+                    .unwrap_or_else(|error| panic!("test or reference input rejected: {error:?}")),
                 &encoded,
             )
-            .unwrap();
+            .unwrap_or_else(|error| panic!("test or reference input rejected: {error:?}"));
             let Payload::Programs(_, transported) = admitted else {
                 panic!("wrong native module");
             };
-            assert_eq!(NativeProgramUpgrade::decode(&transported).unwrap(), upgrade);
+            assert_eq!(
+                NativeProgramUpgrade::decode(&transported)
+                    .unwrap_or_else(|error| panic!("test or reference input rejected: {error:?}")),
+                upgrade
+            );
             let over_code = wasm(code.len() + 1);
             assert!(NativeProgramUpgrade {
                 wasm: &over_code,
@@ -145,13 +166,18 @@ fn repair_f12_upgrade_budgets_hook_interface_and_clear_marker() {
             .encode()
             .is_err());
             let mut over = encoded;
-            over[102..106].copy_from_slice(&u32::try_from(over_code.len()).unwrap().to_be_bytes());
+            over[102..106].copy_from_slice(
+                &u32::try_from(over_code.len())
+                    .unwrap_or_else(|error| panic!("test or reference input rejected: {error:?}"))
+                    .to_be_bytes(),
+            );
             over.truncate(overhead);
             over.extend_from_slice(&over_code);
             assert_eq!(over.len(), MAX_PAYLOAD_BYTES + 1);
             assert!(Payload::new(
                 &registry,
-                ActivityType::new(ModuleId::Programs, 2).unwrap(),
+                ActivityType::new(ModuleId::Programs, 2)
+                    .unwrap_or_else(|error| panic!("test or reference input rejected: {error:?}")),
                 &over
             )
             .is_err());
@@ -162,11 +188,16 @@ fn repair_f12_upgrade_budgets_hook_interface_and_clear_marker() {
 
 #[test]
 fn repair_f30_block_validator_and_state_provenance_roundtrip() {
-    let trust = ValidatorSetTrust::parse(TRUST).unwrap();
-    let producer = BlockReference::new(17, 19, [1; 32], [0x22; 32], [3; 32]).unwrap();
+    let trust = ValidatorSetTrust::parse(TRUST)
+        .unwrap_or_else(|error| panic!("test or reference input rejected: {error:?}"));
+    let producer = BlockReference::new(17, 19, [1; 32], [0x22; 32], [3; 32])
+        .unwrap_or_else(|error| panic!("test or reference input rejected: {error:?}"));
     let transported = producer.encode();
-    let consumer = BlockReference::decode(&transported).unwrap();
-    trust.check_reference(&consumer).unwrap();
+    let consumer = BlockReference::decode(&transported)
+        .unwrap_or_else(|error| panic!("test or reference input rejected: {error:?}"));
+    trust
+        .check_reference(&consumer)
+        .unwrap_or_else(|error| panic!("test or reference input rejected: {error:?}"));
     assert_eq!(consumer, producer);
     assert_eq!(consumer.block_hash(), [1; 32]);
     assert_eq!(consumer.validator_set_hash(), trust.validator_set_hash());
@@ -182,17 +213,23 @@ fn repair_f30_block_validator_and_state_provenance_roundtrip() {
         invalid[offset] = value;
         assert!(BlockReference::decode(&invalid).is_err());
     }
-    let wrong_set = BlockReference::new(17, 19, [1; 32], [4; 32], [3; 32]).unwrap();
+    let wrong_set = BlockReference::new(17, 19, [1; 32], [4; 32], [3; 32])
+        .unwrap_or_else(|error| panic!("test or reference input rejected: {error:?}"));
     assert!(trust
-        .check_reference(&BlockReference::decode(&wrong_set.encode()).unwrap())
+        .check_reference(
+            &BlockReference::decode(&wrong_set.encode())
+                .unwrap_or_else(|error| panic!("test or reference input rejected: {error:?}"))
+        )
         .is_err());
-    let wrong_height = BlockReference::new(17, 20, [1; 32], [0x22; 32], [3; 32]).unwrap();
+    let wrong_height = BlockReference::new(17, 20, [1; 32], [0x22; 32], [3; 32])
+        .unwrap_or_else(|error| panic!("test or reference input rejected: {error:?}"));
     assert!(trust.check_reference(&wrong_height).is_err());
 }
 
 #[test]
 fn repair_f31_explicit_trust_refuses_retired_or_invalid_configuration() {
-    let trust = ValidatorSetTrust::parse(TRUST).unwrap();
+    let trust = ValidatorSetTrust::parse(TRUST)
+        .unwrap_or_else(|error| panic!("test or reference input rejected: {error:?}"));
     assert_eq!(trust.chain_id(), 125);
     assert_eq!(trust.comet_chain_id(), "hyperpax_125-1");
     assert_eq!(trust.height(), 19);
@@ -217,7 +254,10 @@ fn repair_f31_explicit_trust_refuses_retired_or_invalid_configuration() {
 }
 
 #[test]
-#[allow(deprecated)]
+#[allow(
+    deprecated,
+    reason = "Exercise retained historical wire compatibility without conferring current authority."
+)]
 fn repair_f32_retired_labels_cannot_satisfy_current_policy() {
     let levels = [
         VerificationLevel::UNVERIFIED,
@@ -227,7 +267,8 @@ fn repair_f32_retired_labels_cannot_satisfy_current_policy() {
         VerificationLevel::COMMITTED,
     ];
     for (index, achieved) in levels.iter().copied().enumerate() {
-        let observed = VerificationLevel::from_wire_rank(achieved.wire_rank()).unwrap();
+        let observed = VerificationLevel::from_wire_rank(achieved.wire_rank())
+            .unwrap_or_else(|error| panic!("test or reference input rejected: {error:?}"));
         assert_eq!(observed, achieved);
         assert!(observed.is_current());
         for (requested_index, requested) in levels.iter().copied().enumerate() {
@@ -253,7 +294,8 @@ fn repair_f32_retired_labels_cannot_satisfy_current_policy() {
 
 #[test]
 fn repair_f33_archive_readers_preserve_bytes_without_current_privileges() {
-    let archive = DeclaredCheckpointSettlement::parse(ARCHIVE).unwrap();
+    let archive = DeclaredCheckpointSettlement::parse(ARCHIVE)
+        .unwrap_or_else(|error| panic!("test or reference input rejected: {error:?}"));
     assert!(!archive.domains().is_empty());
     assert!(archive.domain("undeclared-domain").is_err());
     assert!(DeclaredCheckpointSettlement::parse(
@@ -261,7 +303,8 @@ fn repair_f33_archive_readers_preserve_bytes_without_current_privileges() {
     )
     .is_err());
     for rank in 0..=5 {
-        let observation = HistoricalVerificationLevel::from_wire_rank(rank).unwrap();
+        let observation = HistoricalVerificationLevel::from_wire_rank(rank)
+            .unwrap_or_else(|error| panic!("test or reference input rejected: {error:?}"));
         assert_eq!(observation.wire_rank(), rank);
         assert_eq!(observation.rung(), None);
     }
@@ -276,8 +319,10 @@ fn repair_f33_archive_readers_preserve_bytes_without_current_privileges() {
 #[test]
 fn repair_f48_covering_block_preserves_distinct_execution_height() {
     for covering_height in [17, 19] {
-        let producer = BlockReference::new(17, covering_height, [1; 32], [2; 32], [3; 32]).unwrap();
-        let receipt_provenance = BlockReference::decode(&producer.encode()).unwrap();
+        let producer = BlockReference::new(17, covering_height, [1; 32], [2; 32], [3; 32])
+            .unwrap_or_else(|error| panic!("test or reference input rejected: {error:?}"));
+        let receipt_provenance = BlockReference::decode(&producer.encode())
+            .unwrap_or_else(|error| panic!("test or reference input rejected: {error:?}"));
         assert_eq!(receipt_provenance.execution_height(), 17);
         assert_eq!(receipt_provenance.covering_height(), covering_height);
     }

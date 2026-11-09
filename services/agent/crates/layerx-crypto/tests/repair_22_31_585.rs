@@ -115,10 +115,13 @@ fn assert_fields(call: &Eip1559Call, ordinal: u16, signature: &str) -> TestResul
     assert!(disclosure.counterparties.is_empty());
     assert!(disclosure.amounts.is_empty());
     assert_eq!(
-        disclosure
-            .construct_method()?
-            .expect("construct method")
-            .abi_signature(),
+        {
+            let Some(value) = disclosure.construct_method()? else {
+                panic!("construct method");
+            };
+            value
+        }
+        .abi_signature(),
         signature
     );
     assert_eq!(&call.data[..4], &ledger_selector(signature));
@@ -151,7 +154,12 @@ fn deploy_discloses_policy_interface_and_native_operation() -> TestResult {
             assert_eq!(decoded.native(), native);
             assert_eq!(decoded.native().encode(), native.encode());
             assert_eq!(
-                NativeProgramDeploy::decode(&decoded.native().encode().expect("native deploy")),
+                NativeProgramDeploy::decode(
+                    &decoded
+                        .native()
+                        .encode()
+                        .map_err(|error| format!("native deploy: {error:?}"))?
+                ),
                 Ok(native)
             );
             assert_fields(&call, 1, DEPLOY)?;
@@ -196,7 +204,10 @@ fn upgrade_discloses_flags_interface_and_separate_execution_fee() -> TestResult 
                 assert_eq!(decoded.native().encode(), native.encode());
                 assert_eq!(
                     NativeProgramUpgrade::decode(
-                        &decoded.native().encode().expect("native upgrade")
+                        &decoded
+                            .native()
+                            .encode()
+                            .map_err(|error| format!("native upgrade: {error:?}"))?
                     ),
                     Ok(native)
                 );
@@ -217,7 +228,7 @@ fn upgrade_discloses_flags_interface_and_separate_execution_fee() -> TestResult 
                 let money = disclosure
                     .call_monetary(CallFeeContext::ProgramExecution { fee_asset: [6; 32] })?;
                 assert_eq!(money.gas_fee_bound.amount_wei, 3_000_000);
-                let execution = money.execution_fee_bound.expect("execution budget");
+                let execution = money.execution_fee_bound.ok_or("execution budget")?;
                 assert_eq!(execution.asset, [6; 32]);
                 assert_eq!(execution.amount_base_units, fee_limit);
                 assert_eq!(
@@ -238,7 +249,12 @@ fn all_five_wind_down_selectors_disclose_the_exact_native_operation() -> TestRes
         assert_eq!(decoded.native(), native);
         assert_eq!(decoded.native().encode(), native.encode());
         assert_eq!(
-            NativeProgramWindDown::decode(&decoded.native().encode().expect("native wind-down")),
+            NativeProgramWindDown::decode(
+                &decoded
+                    .native()
+                    .encode()
+                    .map_err(|error| format!("native wind-down: {error:?}"))?
+            ),
             Ok(native)
         );
         assert_fields(&call, 7, signature)?;
@@ -291,7 +307,8 @@ fn lifecycle_calls_refuse_every_truncation_trailing_bytes_and_unknown_selector()
 }
 
 #[test]
-fn lifecycle_calls_refuse_noncanonical_offsets_lengths_and_padding() {
+fn lifecycle_calls_refuse_noncanonical_offsets_lengths_and_padding(
+) -> Result<(), Box<dyn std::error::Error>> {
     for (data, tail_indices) in [
         (encode_program_deploy(&deployment()), vec![5, 6]),
         (encode_program_upgrade(&upgrade(), 1), vec![5, 6, 7]),
@@ -307,7 +324,7 @@ fn lifecycle_calls_refuse_noncanonical_offsets_lengths_and_padding() {
             let offset = usize::from_be_bytes(
                 data[word_start + 32 - std::mem::size_of::<usize>()..word_start + 32]
                     .try_into()
-                    .expect("offset"),
+                    .map_err(|error| format!("offset: {error:?}"))?,
             );
             let length_start = 4 + offset;
             for byte in length_start..length_start + 24 {
@@ -321,7 +338,7 @@ fn lifecycle_calls_refuse_noncanonical_offsets_lengths_and_padding() {
             let length = usize::from_be_bytes(
                 data[length_start + 32 - std::mem::size_of::<usize>()..length_start + 32]
                     .try_into()
-                    .expect("length"),
+                    .map_err(|error| format!("length: {error:?}"))?,
             );
             let end = length_start + 32 + length;
             let padded_end = (end - 4).div_ceil(32) * 32 + 4;
@@ -333,10 +350,13 @@ fn lifecycle_calls_refuse_noncanonical_offsets_lengths_and_padding() {
             }
         }
     }
+
+    Ok(())
 }
 
 #[test]
-fn lifecycle_calls_refuse_noncanonical_scalar_words_and_invalid_native_terms() {
+fn lifecycle_calls_refuse_noncanonical_scalar_words_and_invalid_native_terms(
+) -> Result<(), Box<dyn std::error::Error>> {
     for (data, indices) in [
         (encode_program_deploy(&deployment()), vec![1, 2]),
         (encode_program_upgrade(&upgrade(), 1), vec![1, 2, 8]),
@@ -373,10 +393,12 @@ fn lifecycle_calls_refuse_noncanonical_scalar_words_and_invalid_native_terms() {
     let wasm_offset = usize::from_be_bytes(
         data[4 + 7 * 32 - std::mem::size_of::<usize>()..4 + 7 * 32]
             .try_into()
-            .expect("wasm offset"),
+            .map_err(|error| format!("wasm offset: {error:?}"))?,
     );
     invalid_wasm[4 + wasm_offset + 32] = 1;
     assert_refused(invalid_wasm);
+
+    Ok(())
 }
 
 #[test]

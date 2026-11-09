@@ -134,6 +134,354 @@ function tokenFor(tokenScope = scope, changes = {}) {
     )
   );
 }
+async function test_source_query_ancestor_type_changes({
+  call,
+  client,
+  endpoint,
+  file,
+  put,
+  revision,
+  empty,
+  service,
+  verifySourcePrincipalToken,
+}) {
+  const main = await file(Buffer.from("ancestor replacement main\n")),
+    other = await file(Buffer.from("ancestor replacement nested\n")),
+    link = await put("blob", Buffer.from("nested/other.ts"));
+  const directory = await call("source.trees.patch", {
+    tree_id: empty.object_id,
+    patches: [
+      {
+        path: "src/main.ts",
+        operation: "put",
+        kind: "file",
+        mode: "100755",
+        object_id: main.object_id,
+      },
+      {
+        path: "src/nested/other.ts",
+        operation: "put",
+        kind: "file",
+        mode: "100644",
+        object_id: other.object_id,
+      },
+      {
+        path: "src/unselected.ts",
+        operation: "put",
+        kind: "file",
+        mode: "100644",
+        object_id: main.object_id,
+      },
+      {
+        path: "private/hidden.ts",
+        operation: "put",
+        kind: "file",
+        mode: "100644",
+        object_id: other.object_id,
+      },
+    ],
+  });
+  const seed = await revision(empty.object_id),
+    created = await revision(directory.root_tree_id, [seed.result.revision_id]);
+  const paths = ["src/main.ts", "src/nested/other.ts"];
+  const nestedCapability = randomUUID();
+  await pool.query(
+    `INSERT INTO hyperfide.source_capabilities(organisation_id,repository_id,security_domain_id,id,principal_id,credential_id,principal_kind,authority_epoch,policy_version,actions,path_prefixes,expires_at)
+    SELECT organisation_id,repository_id,security_domain_id,$2,principal_id,credential_id,principal_kind,authority_epoch,policy_version,actions,ARRAY['src/main.ts','src/nested'],expires_at FROM hyperfide.source_capabilities WHERE id=$1`,
+    [capability_id, nestedCapability],
+  );
+  const nestedClient = new SourceControlClient({
+    endpoint,
+    scope,
+    token: () => tokenFor(scope, { capability_id: nestedCapability }),
+  });
+  const entryValue = (entry) =>
+    entry === null
+      ? null
+      : [entry.name, entry.kind, entry.mode, entry.object_id];
+  const original = new Map();
+  for (const path of [
+    "src",
+    "src/main.ts",
+    "src/nested",
+    "src/nested/other.ts",
+    "src/unselected.ts",
+  ])
+    original.set(
+      path,
+      entryValue((await client.lookup(directory.root_tree_id, path)).entry),
+    );
+  const snapshot = (entry) => [
+    entry.path,
+    entry.kind,
+    entryValue(entry.before),
+    entryValue(entry.after),
+  ];
+  const sorted = (entries) => entries.sort((a, b) => a[0].localeCompare(b[0]));
+  async function collect(queryClient, action, input, redacted, bounded = true) {
+    const entries = [],
+      cursors = new Set();
+    let cursor;
+    for (let pageNumber = 0; pageNumber < 64; pageNumber++) {
+      const page = await queryClient.call(action, {
+        ...input,
+        limit: 1,
+        ...(bounded
+          ? { budget: { max_nodes: 1, max_bytes: 4194304, max_ms: 5000 } }
+          : {}),
+        ...(cursor ? { cursor } : {}),
+      });
+      assert(page.entries.length <= 1);
+      if (bounded) assert(page.coverage.visited_nodes <= 1);
+      assert.deepEqual(
+        (page.coverage.paths ?? []).map((item) => [item.path, item.state]),
+        redacted.map((path) => [path, "REDACTED"]),
+      );
+      entries.push(...page.entries);
+      if (page.next_cursor === null) {
+        assert.equal(
+          page.coverage.state,
+          redacted.length ? "REDACTED" : "COMPLETE",
+        );
+        assert.equal(page.coverage.reason, undefined);
+        return entries;
+      }
+      assert.equal(page.coverage.state, "PARTIAL");
+      assert(["NODE_BUDGET", "PAGE_LIMIT"].includes(page.coverage.reason));
+      assert(!cursors.has(page.next_cursor), "Continuation must make progress");
+      cursors.add(page.next_cursor);
+      cursor = page.next_cursor;
+    }
+    assert.fail(
+      "Ancestor replacement continuations must exhaust within 64 pages",
+    );
+  }
+  let errorInput;
+  for (const [kind, mode, object_id] of [
+    ["file", "100644", main.object_id],
+    ["symlink", "120000", link.object_id],
+  ]) {
+    const replacement = await call("source.trees.patch", {
+      tree_id: directory.root_tree_id,
+      patches: [{ path: "src", operation: "put", kind, mode, object_id }],
+    });
+    const removed = await revision(replacement.root_tree_id, [
+        created.result.revision_id,
+      ]),
+      unchanged = await revision(replacement.root_tree_id, [
+        removed.result.revision_id,
+      ]),
+      restored = await revision(directory.root_tree_id, [
+        unchanged.result.revision_id,
+      ]);
+    const replacementEntry = entryValue(
+      (await client.lookup(replacement.root_tree_id, "src")).entry,
+    );
+    await assert.rejects(
+      client.lookup(replacement.root_tree_id, "src/main.ts"),
+      (error) => error.code === "PATH_CONFLICT",
+    );
+    await assert.rejects(
+      call("source.trees.patch", {
+        tree_id: replacement.root_tree_id,
+        patches: [
+          {
+            path: "src/main.ts",
+            operation: "put",
+            kind: "file",
+            mode: "100644",
+            object_id: main.object_id,
+          },
+        ],
+      }),
+      (error) => error.code === "PATH_CONFLICT",
+    );
+    const profiles = [
+      { queryClient: client, paths, visible: paths, redacted: [] },
+      {
+        queryClient: client,
+        paths: ["src"],
+        visible: [...original.keys()],
+        redacted: [],
+      },
+      { queryClient: nestedClient, paths, visible: paths, redacted: [] },
+      {
+        queryClient: nestedClient,
+        paths: [...paths, "private"],
+        visible: paths,
+        redacted: ["private"],
+      },
+      {
+        queryClient: nestedClient,
+        paths: ["src", "private"],
+        visible: ["src/main.ts", "src/nested", "src/nested/other.ts"],
+        redacted: ["src", "private"],
+      },
+    ];
+    for (const profile of profiles) {
+      for (const bounded of [false, true]) {
+        for (const reverse of [false, true]) {
+          const input = {
+            before_revision_id: (reverse ? removed : created).result
+              .revision_id,
+            after_revision_id: (reverse ? created : removed).result.revision_id,
+            paths: profile.paths,
+          };
+          const expected = profile.visible.map((path) =>
+            path === "src"
+              ? [
+                  path,
+                  "TYPE_CHANGED",
+                  reverse ? replacementEntry : original.get(path),
+                  reverse ? original.get(path) : replacementEntry,
+                ]
+              : [
+                  path,
+                  reverse ? "ADDED" : "REMOVED",
+                  reverse ? null : original.get(path),
+                  reverse ? original.get(path) : null,
+                ],
+          );
+          const unpaged = await profile.queryClient.call(
+            "source.queries.diff",
+            input,
+          );
+          assert.equal(unpaged.next_cursor, null);
+          assert.equal(
+            unpaged.coverage.state,
+            profile.redacted.length ? "REDACTED" : "COMPLETE",
+          );
+          assert.deepEqual(
+            sorted(unpaged.entries.map(snapshot)),
+            sorted(expected),
+          );
+          const entries = await collect(
+            profile.queryClient,
+            "source.queries.diff",
+            input,
+            profile.redacted,
+            bounded,
+          );
+          assert.deepEqual(sorted(entries.map(snapshot)), sorted(expected));
+          assert.equal(
+            new Set(entries.map((entry) => entry.path)).size,
+            entries.length,
+          );
+        }
+        const input = {
+          revision_id: restored.result.revision_id,
+          paths: profile.paths,
+        };
+        const history = await collect(
+          profile.queryClient,
+          "source.queries.history",
+          input,
+          profile.redacted,
+          bounded,
+        );
+        const expected = [restored, removed, created].map(
+          (item) => item.result.revision_id,
+        );
+        assert.deepEqual(
+          history.map((entry) => entry.revision_id),
+          expected,
+        );
+        assert.equal(
+          new Set(history.map((entry) => entry.revision_id)).size,
+          expected.length,
+        );
+      }
+    }
+    const missing = await call("source.queries.history", {
+      revision_id: restored.result.revision_id,
+      paths: ["src/missing.ts"],
+    });
+    assert.deepEqual(missing.entries, []);
+    assert.equal(missing.next_cursor, null);
+    assert.equal(missing.coverage.state, "COMPLETE");
+    for (const path of paths) {
+      const history = await call("source.queries.history", {
+        revision_id: restored.result.revision_id,
+        paths: [path],
+      });
+      assert.deepEqual(
+        history.entries.map((entry) => entry.revision_id),
+        [restored, removed, created].map((item) => item.result.revision_id),
+      );
+      assert.equal(history.coverage.state, "COMPLETE");
+      assert.equal(history.next_cursor, null);
+    }
+    for (const action of ["source.queries.diff", "source.queries.history"]) {
+      const denied = await collect(
+        nestedClient,
+        action,
+        action.endsWith("diff")
+          ? {
+              before_revision_id: created.result.revision_id,
+              after_revision_id: removed.result.revision_id,
+              paths: ["private"],
+            }
+          : { revision_id: restored.result.revision_id, paths: ["private"] },
+        ["private"],
+      );
+      assert.deepEqual(denied, []);
+    }
+    errorInput = { revision_id: restored.result.revision_id, paths };
+  }
+  fixture.faults.unavailableReads = 1;
+  try {
+    await assert.rejects(
+      call("source.queries.history", errorInput),
+      (error) => error.code === "OBJECT_UNAVAILABLE",
+    );
+    assert.equal(fixture.faults.unavailableReads, 0);
+  } finally {
+    fixture.faults.unavailableReads = 0;
+  }
+  fixture.faults.corrupt = true;
+  try {
+    await assert.rejects(
+      call("source.queries.history", errorInput),
+      (error) => error.code === "OBJECT_INTEGRITY",
+    );
+  } finally {
+    fixture.faults.corrupt = false;
+  }
+  const cancelled = new AbortController(),
+    reason = new Error("Cancelled ancestor replacement query");
+  cancelled.abort(reason);
+  await assert.rejects(
+    service.api.invoke(
+      "source.queries.history",
+      {
+        protocol_version: 1,
+        scope,
+        operation_id: randomUUID(),
+        action: "source.queries.history",
+        input: errorInput,
+      },
+      {
+        ...verifySourcePrincipalToken(tokenFor(), trust, scope),
+        signal: cancelled.signal,
+      },
+    ),
+    (error) => error === reason,
+  );
+  await pool.query(
+    "UPDATE hyperfide.source_capabilities SET revoked_at=clock_timestamp() WHERE id=$1",
+    [nestedCapability],
+  );
+  const beforeDenied = fixture.requests.length;
+  await assert.rejects(
+    nestedClient.call("source.queries.history", errorInput),
+    (error) => error.code === "SCOPE_DENIED",
+  );
+  assert.equal(fixture.requests.length, beforeDenied);
+  checks.push(
+    "test_source_query_ancestor_type_changes: file and symlink ancestor replacements preserve exact descendant diff and history through authorized, redacted and bounded HTTP SDK pages; storage, integrity, authorization and cancellation failures propagate",
+  );
+}
+
 try {
   await pool.query("CREATE SCHEMA hyperfide");
   for (const migration of JSON.parse(process.env.SOURCE_CONTROL_MIGRATIONS))
@@ -1074,6 +1422,18 @@ try {
   checks.push(
     "diff, history and directory path filters retain allowed results and explicit REDACTED coverage without exposing other prefixes",
   );
+
+  await test_source_query_ancestor_type_changes({
+    call,
+    client,
+    endpoint,
+    file,
+    put,
+    revision,
+    empty,
+    service,
+    verifySourcePrincipalToken,
+  });
 
   const longIds = [base.result.revision_id];
   let tip = base.result.revision_id;

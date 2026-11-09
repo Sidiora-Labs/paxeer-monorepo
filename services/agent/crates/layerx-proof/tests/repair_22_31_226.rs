@@ -1,10 +1,10 @@
 //! Task 22.31.226: guarantor-evidence-reaches-committed is covered by
-//! guarantor_only_success_cannot_yield_committed and native_evidence_stops_at_receipted.
+//! `guarantor_only_success_cannot_yield_committed` and `native_evidence_stops_at_receipted`.
 //! Task 22.33.1557 migrates retired API calls to the retained certificate-bucket
 //! refusal while preserving recorded signature checks and receipt/inclusion coverage.
 
 #[path = "support/historical_checkpoint.rs"]
-mod historical;
+pub(crate) mod historical;
 
 use std::collections::BTreeSet;
 
@@ -71,7 +71,7 @@ fn guarantor_only_success_cannot_yield_committed() {
         let key = domain
             .guarantor_set
             .iter()
-            .find(|key| key.guarantor_id == signed.guarantor_id)
+            .find(|key| key.id == signed.guarantor_id)
             .unwrap_or_else(|| panic!("published guarantor must be bonded"));
         let mut statement = Vec::new();
         statement.extend_from_slice(&vector.header.protocol_version.to_be_bytes());

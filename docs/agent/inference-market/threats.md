@@ -2,20 +2,22 @@
 
 Only the development attestation envelope is accepted today.
 
-The market surfaces remain planned at the [documentation base revision](README.md#availability).
-The acceptance rule above describes the attestation verifier and the planned
-peer binding; it does not assert that bindPeer is deployed. Development
+bindPeer and peerBinding are implemented at 0x0907.
+See the [attestor implementation](../../../precompiles/layerxagent/teeattestor/teeattestor.go).
+Implementation does not establish deployment on a target network; check its
+availability and [F11 support](README.md#availability) before use. Development
 attestation does not establish hardware isolation, an authenticated production
 TEE measurement, model confidentiality or trustworthy execution. Other
 attestation families must refuse until explicitly implemented and qualified.
 
 ## Identity and execution
 
-The planned `bindPeer` at `0x0907` verifies an envelope whose report data equals
-`keccak256(peerKey, modelDigest, runtimeDigest)` over the three bytes32 values,
-then records the family, digests and binding height for the peer key. A matching
-binding ties those identifiers together; it does not prove the peer ran the
-specified model for every token. Signatures and roster checks authenticate
+The implemented `bindPeer` at `0x0907` verifies an envelope whose report data
+equals `keccak256(peerKey, modelDigest, runtimeDigest)` over the three bytes32
+values, then records the family, digests and binding height for the peer key.
+`peerBinding` reads back those stored values for a peer key. A matching binding
+ties those identifiers together; it does not prove the peer ran the specified
+model for every token. Signatures and roster checks authenticate
 participants and receipt agreement, not the truth of arbitrary output.
 
 ## Wrong answers and canaries

@@ -11,18 +11,21 @@ fn vectors() -> Value {
     static VECTORS: OnceLock<Value> = OnceLock::new();
     VECTORS
         .get_or_init(|| {
-            let root = Path::new(env!("CARGO_MANIFEST_DIR"))
+            let root = match Path::new(env!("CARGO_MANIFEST_DIR"))
                 .join("../../../..")
                 .canonicalize()
-                .expect("repository root");
+            {
+                Ok(required_value) => required_value,
+                Err(error) => panic!("{}: {error:?}", "repository root"),
+            };
             let directory =
                 std::env::temp_dir().join(format!("layerx-caps-vectors-{}", std::process::id()));
-            std::fs::DirBuilder::new()
-                .mode(0o700)
-                .create(&directory)
-                .expect("private native producer directory");
+            match std::fs::DirBuilder::new().mode(0o700).create(&directory) {
+                Ok(required_value) => required_value,
+                Err(error) => panic!("{}: {error:?}", "private native producer directory"),
+            }
             let executable = directory.join("lxp_wallet_caps_vectors");
-            let compiled = Command::new("cc")
+            let compiled = match Command::new("cc")
                 .current_dir(&root)
                 .args([
                     "-std=c17",
@@ -49,34 +52,52 @@ fn vectors() -> Value {
                 ])
                 .arg(&executable)
                 .output()
-                .expect("compile native vector producer");
+            {
+                Ok(required_value) => required_value,
+                Err(error) => panic!("{}: {error:?}", "compile native vector producer"),
+            };
             assert!(
                 compiled.status.success(),
                 "native vector producer compile failed: {}",
                 String::from_utf8_lossy(&compiled.stderr)
             );
-            let produced = Command::new(&executable)
-                .output()
-                .expect("run native vector producer");
+            let produced = match Command::new(&executable).output() {
+                Ok(required_value) => required_value,
+                Err(error) => panic!("{}: {error:?}", "run native vector producer"),
+            };
             assert!(
                 produced.status.success(),
                 "native vector producer failed: {}",
                 String::from_utf8_lossy(&produced.stderr)
             );
-            let vectors = serde_json::from_slice(&produced.stdout).expect("native JSON");
-            std::fs::remove_file(executable).expect("remove native vector producer");
-            std::fs::remove_dir(directory).expect("remove native producer directory");
+            let vectors = match serde_json::from_slice(&produced.stdout) {
+                Ok(required_value) => required_value,
+                Err(error) => panic!("{}: {error:?}", "native JSON"),
+            };
+            match std::fs::remove_file(executable) {
+                Ok(required_value) => required_value,
+                Err(error) => panic!("{}: {error:?}", "remove native vector producer"),
+            }
+            match std::fs::remove_dir(directory) {
+                Ok(required_value) => required_value,
+                Err(error) => panic!("{}: {error:?}", "remove native producer directory"),
+            }
             vectors
         })
         .clone()
 }
 
 fn bytes(v: &Value, name: &str) -> Vec<u8> {
-    let s = v[name].as_str().expect("native field");
+    let Some(s) = v[name].as_str() else {
+        panic!("native field")
+    };
     assert_eq!(s.len() % 2, 0);
     (0..s.len())
         .step_by(2)
-        .map(|i| u8::from_str_radix(&s[i..i + 2], 16).expect("hex"))
+        .map(|i| match u8::from_str_radix(&s[i..i + 2], 16) {
+            Ok(required_value) => required_value,
+            Err(error) => panic!("{}: {error:?}", "hex"),
+        })
         .collect()
 }
 
@@ -85,7 +106,10 @@ fn native_budget_versions_fields_and_extremes() {
     let v = vectors();
     assert_eq!(BUDGET_MODULE_ID, 3);
     for name in ["budget_v1", "budget_v2"] {
-        let r = ProtocolBudgetRecord::decode(&bytes(&v, name)).expect("C budget codec");
+        let r = match ProtocolBudgetRecord::decode(&bytes(&v, name)) {
+            Ok(required_value) => required_value,
+            Err(error) => panic!("{}: {error:?}", "C budget codec"),
+        };
         assert_eq!(budget_state_key(r.budget_id), bytes(&v, "budget_key"));
         assert_eq!(
             (r.owner, r.budget_account, r.asset_id, r.purpose_hash),
@@ -122,7 +146,10 @@ fn native_budget_versions_fields_and_extremes() {
         );
         assert!(!r.closed && !r.revoked);
     }
-    let r = ProtocolBudgetRecord::decode(&bytes(&v, "budget_extreme")).expect("native max fields");
+    let r = match ProtocolBudgetRecord::decode(&bytes(&v, "budget_extreme")) {
+        Ok(required_value) => required_value,
+        Err(error) => panic!("{}: {error:?}", "native max fields"),
+    };
     assert_eq!(r.delegates.len(), 16);
     assert_eq!(
         (

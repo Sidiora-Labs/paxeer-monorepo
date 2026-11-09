@@ -598,7 +598,7 @@ class BindTransportTest(unittest.TestCase):
     def test_bind_rpc_transport_loss_keeps_unknown_submission_outcome(self) -> None:
         with socket.socket() as reserved:
             reserved.bind(("localhost", 0))
-            rpc = PaymentRpc(f"http://localhost:{reserved.getsockname()[1]}/rpc")
+            rpc = PaymentRpc(f"http://localhost:{reserved.getsockname()[1]}/")
             for method, code, retry in (
                 (
                     "eth_sendRawTransaction",

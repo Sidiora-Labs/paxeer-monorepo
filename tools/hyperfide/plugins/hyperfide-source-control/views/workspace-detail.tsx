@@ -3,6 +3,7 @@ import { useRpc } from "@hyperfide/plugin-sdk/app";
 import {
   sourceContract,
   sourceCheckpointReceiptMatches,
+  sourceHostCheckpointMatches,
   type SourceProductRequest,
   type SourceProductResponse,
   type SourceWorkspaceEvidence,
@@ -38,6 +39,7 @@ export function WorkspaceDetail({
   journal,
   completion,
   evidence,
+  completed,
 }: {
   run: RunSource;
   pending: boolean;
@@ -50,6 +52,10 @@ export function WorkspaceDetail({
     response: SourceProductResponse;
   } | null;
   evidence: SourceWorkspaceEvidence[];
+  completed: (
+    request: SourceProductRequest,
+    response: SourceProductResponse,
+  ) => void;
 }) {
   const [revision, setRevision] = useState(revisions[0]?.id ?? ""),
     [paths, setPaths] = useState(""),
@@ -79,6 +85,7 @@ export function WorkspaceDetail({
     } | null>(null),
     [hostError, setHostError] = useState(""),
     [hostBusy, setHostBusy] = useState(false),
+    [hostUnresolved, setHostUnresolved] = useState(false),
     [attached, setAttached] = useState<{
       sliceId: string;
       path: string;
@@ -88,8 +95,13 @@ export function WorkspaceDetail({
   const checkpointPending = retainedCheckpoint?.workspaceId === workspaceId;
   const durableEvidence = evidence.find(
     (value) =>
+      value.projectId === projectId &&
       value.workspaceId === workspaceId &&
-      (!workspace || value.revisionId === workspace.base_revision_id),
+      workspace !== null &&
+      value.revisionId === workspace.base_revision_id &&
+      value.revisionId === workspace.checkpoint_revision_id &&
+      value.workspaceGeneration === workspace.workspace_generation &&
+      value.scopeGeneration === workspace.scope_generation,
   );
   const stage = checkpointPending
     ? "UPLOADING"
@@ -181,12 +193,39 @@ export function WorkspaceDetail({
           }),
         );
       } else {
-        setReceipt(
-          await rpc.call("checkpointHost", {
-            projectId,
-            workspaceId: workspace.workspace_id,
-          }),
-        );
+        setHostUnresolved(true);
+        const acknowledgment = await rpc.call("checkpointHost", {
+          projectId,
+          workspaceId: workspace.workspace_id,
+        });
+        setReceipt(acknowledgment);
+        const checkpoint = acknowledgment.checkpoint;
+        if (
+          checkpoint &&
+          checkpoint.workspaceId === workspace.workspace_id &&
+          sourceHostCheckpointMatches(checkpoint, checkpoint.result.workspace)
+        ) {
+          const operationId = crypto.randomUUID();
+          completed(
+            {
+              projectId,
+              operationId,
+              action: {
+                kind: "workspace",
+                workspaceId: workspace.workspace_id,
+              },
+            },
+            {
+              ok: true,
+              operationId,
+              result: {
+                workspace: checkpoint.result.workspace,
+                checkpointEvidence: { projectId, checkpoint },
+              },
+            },
+          );
+        }
+        setHostUnresolved(false);
         const result = await run({
           kind: "workspace",
           workspaceId: workspace.workspace_id,
@@ -606,6 +645,7 @@ export function WorkspaceDetail({
               pending ||
               dirty ||
               checkpointPending ||
+              hostUnresolved ||
               !durableEvidence ||
               assignment.workspace_id !== workspace.workspace_id
             }
