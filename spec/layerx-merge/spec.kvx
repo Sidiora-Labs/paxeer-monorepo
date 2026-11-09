@@ -160646,7 +160646,7 @@ do_3 = "Attempt 2 (continue after 22.39.234 lands; gotcha 3770, decision 3068): 
 
 [task.18.1654.1]
 title = "Issue #1654: Detect the first excess subscription notification after consuming expected logs"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -191435,7 +191435,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1740.1]
 title = "Issue #1740: Bind the AI market consumer transcript to its production sources"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -348272,7 +348272,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1757.1]
 title = "Issue #1757: Count recorded assertion failures in the agent test inventory"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -348301,7 +348301,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1623.1]
 title = "Issue #1623: Correct the operations contract status in the bringup audit"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -348330,7 +348330,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1595.1]
 title = "Issue #1595: Correct the consensus contract-page audit entries"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -348659,7 +348659,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1611.1]
 title = "Issue #1611: Correct the false migration README link finding"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -348690,7 +348690,7 @@ do_4 = "Requalify at the attempt-1 tree 15dea9d73c9d (gotcha 3765): the verifica
 
 [task.18.1610.1]
 title = "Issue #1610: Correct the crypto and proof contract inventory in audit record 22.30.98"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -348750,7 +348750,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1607.1]
 title = "Issue #1607: Correct the audit of the existing hosted, Programs and SDK contract pages"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -348812,7 +348812,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1604.1]
 title = "Issue #1604: Correct the client-parity audit and missing raw-envelope documentation"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -348990,7 +348990,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1592.1]
 title = "Issue #1592: Correct the launchpad-user contract presence in the audit record"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -349021,7 +349021,7 @@ do_4 = "Requalify at the attempt-1 tree 6c34ffb03d2a (gotcha 3765): the verifica
 
 [task.18.1591.1]
 title = "Issue #1591: Correct the launchpad security audit’s contract-page findings"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -349052,7 +349052,7 @@ do_4 = "Requalify at the attempt-1 tree 3e750c78ee6c (gotcha 3765): the verifica
 
 [task.18.1590.1]
 title = "Issue #1590: Correct the launchpad audit contract-page inventory"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -349113,7 +349113,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1588.1]
 title = "Issue #1588: Reconcile the launchpad audit with its existing contract pages"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
