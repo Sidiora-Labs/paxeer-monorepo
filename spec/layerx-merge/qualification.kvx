@@ -38522,3 +38522,11 @@ symbol = "test_repair_22_31_594.py::test_gateway_ingress_admits_existing_control
 observed = "Attempt 1 at 8bfd76300b90: build exit 0 and verification exit 0; the result could not be merged onto the platform integration branch because of a conflict at services/platform/hosted/testnet/deployment.yaml:3 with the issue-1790 change; the attempt was ended."
 assumption = "The two label changes combine in one labels map."
 severity = "high"
+
+[finding.18.1717.1.7]
+task = "18.1717.1"
+file = "apps/explorer/ui/shared/layout/LayoutSearchResults.spec.tsx::searchResultsRoutesKeepOneHeaderAndLiveSearch"
+symbol = "LayoutSearchResults.spec.tsx::searchResultsRoutesKeepOneHeaderAndLiveSearch"
+observed = "Attempt 7 at adfd8670f810: build exit 0; verification exit 1: searchResultsRoutesKeepOneHeaderAndLiveSearch fails at LayoutSearchResults.spec.tsx:228, the combobox inside the filters has no accessible name; log /out/logs/verify-1.log."
+assumption = "The accessible name is the only missing piece between the single header and the passing case."
+severity = "high"
