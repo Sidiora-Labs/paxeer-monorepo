@@ -1,8 +1,12 @@
+import importlib.util
 import json
 import re
 import subprocess
 import tomllib
 import xml.etree.ElementTree as ET
+import zipfile
+from email import policy
+from email.parser import BytesParser
 from functools import cache
 from pathlib import Path
 
@@ -252,6 +256,54 @@ def test_manifest_license_matches_nearest_license_file():
         except (AssertionError, ValueError, ET.ParseError) as error:
             violations.append(f"{path.relative_to(ROOT)}: {error}")
     assert not violations, "Manifest/governing LICENSE disagreements:\n" + "\n".join(violations)
+
+
+def test_python_wheels_emit_declared_license(tmp_path):
+    projects = (
+        (
+            "fastapi",
+            ROOT / "sdk/integrations/fastapi",
+            ["fastapi>=0.110", "layerx-sdk>=0.1.0"],
+            [],
+        ),
+        (
+            "sdk",
+            ROOT / "services/agent/sdk/python",
+            ["cryptography>=41; extra == 'derivation'"],
+            ["derivation"],
+        ),
+    )
+    for name, project_root, expected_requires, expected_extras in projects:
+        spec = importlib.util.spec_from_file_location(
+            f"license_{name}_build_backend", project_root / "build_backend.py"
+        )
+        assert spec is not None and spec.loader is not None
+        backend = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(backend)
+        with (project_root / "pyproject.toml").open("rb") as manifest:
+            declared_license = tomllib.load(manifest)["project"]["license"]
+
+        wheels = []
+        for build in range(2):
+            output = tmp_path / name / str(build)
+            wheel_path = output / backend.build_wheel(str(output))
+            wheels.append(wheel_path.read_bytes())
+            with zipfile.ZipFile(wheel_path) as archive:
+                metadata_paths = [
+                    path
+                    for path in archive.namelist()
+                    if path.endswith(".dist-info/METADATA")
+                ]
+                assert len(metadata_paths) == 1, name
+                metadata = BytesParser(policy=policy.default).parsebytes(
+                    archive.read(metadata_paths[0])
+                )
+            assert metadata.get_all("Metadata-Version") == ["2.4"], name
+            assert metadata.get_all("License-Expression") == [declared_license], name
+            assert "License" not in metadata, name
+            assert metadata.get_all("Requires-Dist", []) == expected_requires, name
+            assert metadata.get_all("Provides-Extra", []) == expected_extras, name
+        assert wheels[0] == wheels[1], name
 
 
 def test_first_party_authors_are_organisation():
