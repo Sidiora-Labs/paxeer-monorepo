@@ -302082,7 +302082,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1715.1]
 title = "Issue #1715: Align the web payer sequence read with the native account-ID ABI"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
