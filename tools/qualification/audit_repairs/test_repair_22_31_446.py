@@ -45,11 +45,25 @@ def run_check(monkeypatch, capsys, path=None):
     return result.value.code, output.err
 
 
-def test_refuses_committed_manifest_naming_governance(monkeypatch, capsys):
-    assert json.loads(MANIFEST.read_text())["pending_governance"] is True
-    code, error = run_check(monkeypatch, capsys)
+def test_accepts_committed_governed_manifest(monkeypatch, capsys):
+    assert json.loads(MANIFEST.read_text()) == {
+        "attestors": ["0x12598F221f1e645322C7665537D4Ab130281f51d"],
+        "threshold": 1,
+    }
+    assert run_check(monkeypatch, capsys) == (0, "")
+
+
+def test_refuses_committed_manifest_naming_governance(tmp_path, monkeypatch, capsys):
+    # Preserve the former committed document as an explicit refusal fixture.
+    document = {
+        "attestors": [f"PLACEHOLDER:attestor-{i}" for i in range(1, 6)],
+        "threshold": 3,
+        "pending_governance": True,
+    }
+    path = write_manifest(tmp_path, document)
+    code, error = run_check(monkeypatch, capsys, path)
     assert code == 1
-    assert str(MANIFEST) in error
+    assert str(path) in error
     assert "pending_governance=true" in error
     assert GOVERNANCE_STEP in error
     assert "before the upgrade" in error
@@ -189,7 +203,7 @@ def test_entry_points_guard_first(tmp_path, entry, invocation, manifest_kind):
     }
     if manifest_kind == "committed":
         path = MANIFEST
-        expected = "pending_governance=true"
+        expected = f"usage: {entry}"
     else:
         document = filled_manifest()
         if manifest_kind == "repeated-byte":
@@ -218,18 +232,16 @@ def test_entry_points_guard_first(tmp_path, entry, invocation, manifest_kind):
         timeout=10,
     )
     assert result.returncode == (
-        2 if manifest_kind == "filled" else 1
+        2 if manifest_kind in ("committed", "filled") else 1
     ), result.stderr
     assert result.stdout == ""
     assert expected in result.stderr
     trace = [line for line in result.stderr.splitlines() if line.startswith("+")]
     assert trace[0].startswith("+ python3 ")
     assert "check-attestor-manifest.py" in trace[0]
-    if manifest_kind != "filled":
+    if manifest_kind not in ("committed", "filled"):
         assert str(path) in result.stderr
         assert trace[1:] == ["+ exit 1"]
-        if manifest_kind == "committed":
-            assert GOVERNANCE_STEP in result.stderr
     else:
         assert trace[1] == "+ set -euo pipefail"
         assert trace[-1] == "+ exit 2"
@@ -239,15 +251,17 @@ def test_task_record_names_only_governance_signer_set_wiring():
     record = tomllib.loads((DEPLOY / "repair_22_31_446.kvx").read_text())[
         "repair"
     ]["22"]["31"]["446"]
+    assert record["status"] == "governed-manifest-live"
     assert record["governance_step"] == (
-        f"{GOVERNANCE_STEP}: bridge governance owners supply the approved public "
-        "signer set and threshold for attestors.json before the upgrade "
-        "and remove pending_governance."
+        f"{GOVERNANCE_STEP}: CLOSED by decision 3042; attestors.json records "
+        "0x12598F221f1e645322C7665537D4Ab130281f51d at threshold 1 with no pending marker."
     )
-    assert len(record["wiring_requests"]) == 1
-    assert "signer set and threshold" in record["wiring_requests"][0]
-    assert "governance" in record["wiring_requests"][0]
+    assert record["wiring_requests"] == []
+    assert record["wiring_fulfilled"] == (
+        "Decision 3042 supplies the governed signer set and threshold."
+    )
     assert record["proving_tests"] == [
+        "test_accepts_committed_governed_manifest",
         "test_refuses_committed_manifest_naming_governance",
         "test_refuses_repeated_byte_addresses",
         "test_refuses_invalid_threshold",
