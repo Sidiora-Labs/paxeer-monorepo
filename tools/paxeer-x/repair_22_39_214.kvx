@@ -1,0 +1,114 @@
+[repair.22.39.214]
+base_revision = "dc72fdfd4d653a7398dcc4bdcb8c91205ece6c60"
+decision = "3051"
+gotcha = "3747"
+implementation = "Keep the existing selected tracked files as a set, issue one git grep over the tracked tree or literal filter paths, and discard excluded paths before match_line; run the case-sensitive fixed-string byte prefilter in the C locale and retain Python matching, sorting, diagnostics, exit codes and refusals."
+regression = "The added self_test case uses a real temporary git repository containing a tracked deleted-tree file, test file, reviewed documentation, catalogue and one live caller; only the live caller is reported and COUNT increments through check_equal. All existing cases remain unchanged."
+
+[previous_design]
+batch_size = 128
+git_grep_invocations = 609
+observed = "Gotcha 3747 records the earlier whole-repository scan still running after 26 minutes 29 seconds and stopped before the thirty-minute limit, exit -15. Each batch matched literal file pathspecs against the full index."
+
+[scan]
+command = "timeout 600 python3 tools/paxeer-x/tests/retired_callers_test.py --deleted > /tmp/retired-scan.txt"
+git_grep_invocations = 1
+wall_time_limit_seconds = 600
+evidence = "/out/logs/retired-scan-evidence.json"
+wall_time_reference = "/out/logs/retired-scan-evidence.json: wall_seconds_upper_bound measures the qualification scan process lifetime using its /proc start time and the first observation of its exit."
+finding_count_reference = "/out/logs/retired-scan-evidence.json: finding_count counts the lines emitted to /tmp/retired-scan.txt by the single qualification scan."
+findings = "/tmp/retired-scan.txt"
+
+[qualification]
+verified_revision_source = "/out/run/gates.jsonl: final build and verify rows must pass at the same candidate revision; those rows record exact revision, command, exit and private log."
+build_command = "python3 -m py_compile tools/paxeer-x/tests/retired_callers_test.py"
+build_reference = "/out/run/gates.jsonl: final kind=build row; private log /out/logs/build-2.log"
+verify_command = "cg spec done 22.39.214 -f layerx-merge --root /work/paxeer-monorepo"
+verify_reference = "/out/run/gates.jsonl: final kind=verify row; private log /out/logs/verify-2.log"
+scan_runs = "Only hf-done runs the declared verify_cmd, including the self-tests and one whole-repository --deleted scan per candidate; the gate accepts scan exit 0 or 1 and refuses timeout or scanner errors."
+
+[repair.locale]
+observed = "Revision 53df909602458784b56cc12f205ee49b08622997 passed hf-build and all 111 self-tests with zero skipped; cg spec done 22.39.214 -f layerx-merge --root /work/paxeer-monorepo exited 1 because the single git grep scan hit timeout 600 in the inherited C.UTF-8 locale, private log /out/logs/verify-1.log."
+change = "Set LC_ALL=C only for git grep's case-sensitive fixed-string prefilter, keeping the exact flags, patterns, tracked tree and Python match_line semantics. This removes multibyte-locale matching overhead without changing literal byte matches or widening the timeout."
+first_scan_evidence = "/out/logs/retired-scan-evidence-1.json"
+
+[attempt_2]
+base_revision = "93249965659c4b9cb25e6d721c9a37f9bc005106"
+continued_revision = "045bfdb5413487162746cc1cf644fa737d07a7a4"
+decision = "3051, 3062"
+gotcha = "3759"
+implementation = "Keep the selected tracked file set and existing regression case; send sorted top-literal file pathspecs as NUL-delimited standard input to one git grep with --pathspec-from-file=- and --pathspec-file-nul. Store the fixed-string patterns in a temporary file because standard input carries pathspecs. Explicit command-line path filters retain literal filter pathspecs and the selected-set check before match_line. All other grep flags, C locale, NUL output parsing, sorting, diagnostics and refusals remain unchanged."
+interface_blocker = "Installed git version 2.53.0 does not expose --pathspec-from-file or --pathspec-file-nul for git grep; its advertised interface accepts pathspecs only as command-line arguments. No fallback, replacement Git, relaxed refusal or out-of-scope change is authorized."
+measurement_reference = "/out/logs/retired-scan-attempt-2.json"
+
+[attempt_2.measurement]
+command = "timeout 600 python3 tools/paxeer-x/tests/retired_callers_test.py --deleted > /tmp/retired-scan-attempt-2.txt"
+wall_seconds = 1.651133720006328
+exit = 2
+finding_count = 0
+finding_count_valid = false
+observed = "The scanner refused with git grep exit 129, so zero output findings do not establish a successful scan or the ten-minute performance criterion."
+stderr_reference = "/out/logs/retired-scan-attempt-2.stderr.log"
+evidence_reference = "/out/logs/retired-scan-attempt-2.json"
+
+[attempt_2.qualification]
+verified_revision_source = "/out/run/gates.jsonl: final build and verify rows identify the exact candidate revision, command, exit code and private log; completion requires both rows to pass at the same revision."
+build_command = "python3 -m py_compile tools/paxeer-x/tests/retired_callers_test.py"
+build_reference = "/out/run/gates.jsonl: final kind=build row; first private log /out/logs/build-1.log"
+verify_command = "cg spec done 22.39.214 -f layerx-merge --root /work/paxeer-monorepo"
+verify_reference = "/out/run/gates.jsonl: final kind=verify row; first private log /out/logs/verify-1.log"
+scan_runs = "One implementation measurement with --deleted; hf-done alone runs the declared verify_cmd and its qualification scan if the unchanged self-tests pass. A measurement refusal is not a zero-finding success."
+
+[attempt_3]
+base_revision = "027bfa65e2a8c1dcc27852c4ea1d6414ec78c44e"
+continued_revision = "810c7823c543709f4982cc2bb3b1c49e51e5dc61"
+decision = "3051, 3062, 3065"
+gotcha = "3761"
+implementation = "Retain the pattern file, C locale, fixed-string grep, NUL parser and existing regression case. Replace the unsupported stdin pathspec options with top/exclude/literal command-line pathspecs for the catalogue, forty-nine deleted paths and retiring trees; exclude test directories with glob pathspecs, .md/.kvx files under spec/layerx-merge and docs with recursive glob pathspecs, and additional catalogue documentation with exact file exclusions and suffix globs beneath its paths. Check every parsed path against the unchanged selected-file set before match_line, and search each symbol regex only when its literal occurs in the line."
+documentation_scope = "Apply the explicit attempt-3 .md/.kvx globs under spec/layerx-merge and docs; retain catalogue-based exclusions as well. Code under the documentation trees and documentation under spec/other remain callers, as the unchanged self-tests require. The selected-file set expression remains unchanged. The requested tests/repair_22_39_214.kvx spelling is outside the two-file scope; this existing repair record is the authorized destination."
+measurement_reference = "/out/logs/retired-scan-attempt-3.json: exact grep argv and shell command, wall seconds, output bytes and matched-line records, Python post-grep loop seconds, whole-scan wall seconds, exit code, finding count and twenty busiest matched paths."
+measurement_limits = "One standalone whole-repository --deleted measurement was interrupted by a 300-second measurement limit; retain it as incomplete. The declared task budget is 180 minutes, whose half-budget is 90 minutes; hf-done retains the exact timeout-600 verify command. Instrument real function calls without replacing the scanner or its git subprocess."
+
+[attempt_3.qualification]
+verified_revision_source = "/out/run/gates.jsonl: final kind=build and kind=verify rows must pass at the same candidate revision and record exact revision, command, exit and private log."
+build_command = "python3 -m py_compile tools/paxeer-x/tests/retired_callers_test.py"
+build_reference = "/out/run/gates.jsonl: final kind=build row; first private log /out/logs/build-1.log"
+verify_command = "cg spec done 22.39.214 -f layerx-merge --root /work/paxeer-monorepo"
+verify_reference = "/out/run/gates.jsonl: final kind=verify row; first private log /out/logs/verify-1.log"
+scan_runs = "One implementation measurement after the whole implementation is written; hf-done alone runs the declared verify_cmd, including every self-test and one timeout-600 --deleted qualification scan. Make no edits after the final hf-build so build and verification qualify the same candidate."
+
+[attempt_3.measurement]
+command = "python3 tools/paxeer-x/tests/retired_callers_test.py --deleted (real main invoked under sys.setprofile measurement)"
+git_grep_command = "env LC_ALL=C git -C /work/paxeer-monorepo grep --no-ext-grep --no-textconv --no-color --full-name -I -n -z -F -f /tmp/retired-callers-patterns-uf9919fw -- ':(top,exclude,literal)apps/explorer/ui/paxeerX/anchors/PaxeerXAnchorsTable.tsx' ':(top,exclude,literal)cmd/layerx-guarantor' ':(top,exclude,literal)cmd/layerx-handover' ':(top,exclude,literal)cmd/layerx-verify' ':(top,exclude,literal)cmd/layerxd' ':(top,exclude,literal)cmd/layerxd/lxp_daemon_batch_wal.c' ':(top,exclude,literal)cmd/layerxd/lxp_daemon_finality_authority.c' ':(top,exclude,literal)cmd/layerxd/lxp_daemon_lni.c' ':(top,exclude,literal)custodyproof/light.go' ':(top,exclude,literal)docker/intent-ingester' ':(top,exclude,literal)docker/relay-archive' ':(top,exclude,literal)include/layerx/lx_web.h' ':(top,exclude,literal)programs/crates/layerx-programs-protocol-adapter' ':(top,exclude,literal)services/agent/crates/layerx-client/src/handover.rs' ':(top,exclude,literal)services/agent/crates/layerx-client/src/lni' ':(top,exclude,literal)services/agent/crates/layerx-paxeer-verifier' ':(top,exclude,literal)services/agent/crates/layerx-proof/src/settlement.rs' ':(top,exclude,literal)services/agent/crates/layerx-wire' ':(top,exclude,literal)services/agent/include/layerx_lni_abi.h' ':(top,exclude,literal)services/agent/tools/wire-differential' ':(top,exclude,literal)services/explorer/backend/apps/indexer/lib/indexer/fetcher/paxeer_x_kernel_receipts.ex' ':(top,exclude,literal)services/human/crates/layerx-explorer-index' ':(top,exclude,literal)services/human/crates/layerx-human-movement-provider' ':(top,exclude,literal)services/human/crates/layerx-intents/src/precompile.rs' ':(top,exclude,literal)services/human/crates/layerx-paxeer-client' ':(top,exclude,literal)services/interop/crates/layerx-intent-ingester' ':(top,exclude,literal)services/interop/crates/layerx-intent-ingester/src/submit.rs' ':(top,exclude,literal)services/platform/hosted/indexer/src/layerx.rs' ':(top,exclude,literal)services/platform/hosted/paxai-storage-keeper' ':(top,exclude,literal)services/platform/hosted/paxeer' ':(top,exclude,literal)services/platform/relay_archive' ':(top,exclude,literal)services/wallet/gateway/src/jobs/layerxSync.ts' ':(top,exclude,literal)src/guarantor' ':(top,exclude,literal)src/modules/bridge/lxp_bridge_credit.c' ':(top,exclude,literal)src/modules/bridge/lxp_bridge_light.c' ':(top,exclude,literal)src/modules/web' ':(top,exclude,literal)src/network/lx_oracle_adapter.c' ':(top,exclude,literal)src/network/lxp_batch_publish.c' ':(top,exclude,literal)src/network/lxp_da_bundle.c' ':(top,exclude,literal)src/paxeer/lxp_paxeer_client.c' ':(top,exclude,literal)src/protocol/lxp_handover.c' ':(top,exclude,literal)src/replica' ':(top,exclude,literal)src/sequencer/lx_oracle_root.c' ':(top,exclude,literal)src/sequencer/lx_web_root.c' ':(top,exclude,literal)src/sequencer/lxp_batch_seal.c' ':(top,exclude,literal)src/state/lxp_idempotency.c' ':(top,exclude,literal)src/storage/lxp_da_verified.c' ':(top,exclude,literal)tests/daemon' ':(top,exclude,literal)tests/replay/golden/history.lxl' ':(top,exclude,literal)tests/replay/lxp_test_golden_replay.c' ':(top,exclude,literal)tools/paxeer-x/retired_callers.json' ':(top,exclude,glob)**/test/**' ':(top,exclude,glob)**/tests/**' ':(top,exclude,glob)**/testdata/**' ':(top,exclude,glob)**/__tests__/**' ':(top,exclude,literal)spec/layerx-merge/spec.kvx' ':(top,exclude,glob)spec/layerx-merge/spec.kvx/**/*.kvx' ':(top,exclude,glob)spec/layerx-merge/spec.kvx/**/*.md' ':(top,exclude,literal)spec/layerx-merge/qualification.kvx' ':(top,exclude,glob)spec/layerx-merge/qualification.kvx/**/*.kvx' ':(top,exclude,glob)spec/layerx-merge/qualification.kvx/**/*.md' ':(top,exclude,glob)spec/layerx-merge/docs/**/*.kvx' ':(top,exclude,glob)spec/layerx-merge/docs/**/*.md'"
+source_sha256 = "00794bf49af06f20b8e8cac684e86a87d2981adcc34fffe0cec31cb00cc4ada8"
+process_wall_seconds = 305.36463587603066
+process_exit = -15
+git_grep_wall_seconds_lower_bound = 300
+git_grep_wall_seconds_upper_bound = 300.304713274
+git_grep_exit = -15
+finding_count_valid = false
+emitted_finding_lines = 0
+observed = "The measurement wrapper interpreted half-budget as half the 600-second scan limit and terminated the process group after 300 seconds of grep. This is an interrupted measurement, not a completed scan, successful gate, or zero-finding result."
+unavailable_metrics = "The process group was terminated at the measurement wrapper limit while subprocess.run was still collecting grep output; no complete grep output, Python loop or finding count is available."
+evidence_reference = "/out/logs/retired-scan-attempt-3.json"
+stderr_reference = "/out/logs/retired-scan-attempt-3.stderr.log"
+build_status = "Not run at the interrupted measurement."
+verify_status = "Not run at the interrupted measurement; task remains unqualified."
+
+[attempt_3.qualification_measurement]
+reference = "/out/logs/retired-scan-qualification-profile.json: private profile of the real scanner during hf-done, recording exact git grep command, wall time, output bytes and matched-line records, Python loop time, finding count and twenty busiest paths when the scan completes."
+method = "A private sitecustomize observes function call/return events only; it does not replace any scanner function, subprocess, assertion, test or refusal. Both gates use the same profiling environment. No further standalone scan is run."
+interruption = "The first measurement applied 300 seconds as half the scan timeout. That interpretation was too narrow for the stated 180-minute task budget; preserve the interrupted measurement and use the declared gate for qualification, with no timeout widened."
+
+[attempt_3.repair]
+failed_revision = "8f51f6ad6f7954c32e9e171e541c5c12567b8419"
+failed_command = "cg spec done 22.39.214 -f layerx-merge --root /work/paxeer-monorepo"
+failed_exit = 1
+failed_log = "/out/logs/verify-1.log"
+observed = "The build passed and all 111 self-tests passed with zero skipped; verification then failed when the whole-repository scan reached its timeout-600 bound, without a completed grep result. The first implementation omitted the requested broad Markdown/KVX documentation globs and still searched the 51,758,837-byte generated spec/layerx-merge/interfaces.kvx file."
+change = "Add exactly the requested recursive .md/.kvx glob exclusions for spec/layerx-merge and docs. Keep every self-test, selected-file-set predicate, grep flag, pattern, literal/regex match rule, parser, refusal, diagnostic, finding sort, timeout and exit-code rule unchanged."
+first_profile_reference = "/out/logs/retired-scan-qualification-profile-1.json: incomplete grep start/command evidence only; no completed-scan metrics are claimed."
+metadata_reference = "/out/logs/retired-scan-largest-selected-files.json: file-size metadata identifies the generated merge interface catalogue without rerunning a search."
+final_build_reference = "/out/run/gates.jsonl: final kind=build row, private log /out/logs/build-2.log; exact candidate revision, command and exit are authoritative."
+final_verify_reference = "/out/run/gates.jsonl: final kind=verify row, private log /out/logs/verify-2.log; completion requires passing build and verify rows at the same revision."
+final_measurement_reference = "/out/logs/retired-scan-qualification-profile.json: final gate scan command, grep wall seconds, output bytes/line records, Python loop time, finding count and top twenty paths if grep returns."
