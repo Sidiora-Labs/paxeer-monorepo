@@ -1,0 +1,7 @@
+[issue.1778]
+number = 1778
+title = "[Coherence] The required F11 component can never appear in the snapshot, because the indexer emits only families F01 through F10"
+revision = "a910fdedd579e63379ae6c2e4d4971990d28f8ad"
+verdict = "already-fixed"
+evidence = "Commit b5a4f2ce26c9c06539a23ecbe05679afaa239c8e widened the indexer to eleven families: services/platform/hosted/indexer/src/ai_views.rs:179 includes F11, :183 renders all eleven statuses and :78 publishes them in snapshot components, while programs/crates/layerx-programs-ai-market/src/queries.rs:945 explicitly reports F11 as NotEnabled for an available market policy, covered by programs/crates/layerx-programs-ai-market/tests/f11_family_table.rs:385, and services/agent/crates/layerx-agentd/src/boot.rs:37 still requires available rather than accepting an unavailable family."
+close_comment = "The snapshot now includes F11 alongside F01 through F10, resolving the missing component key. F11 currently reports not-enabled for an available market policy, so the inference profile continues to refuse startup until F11 is available."

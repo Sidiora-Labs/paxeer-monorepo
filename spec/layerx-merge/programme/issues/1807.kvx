@@ -1,0 +1,7 @@
+[issue.1807]
+number = 1807
+title = "[Coherence] The affects lists of decisions 2757 to 2761 are prose sentences split into one-character entries instead of task ids"
+revision = "a910fdedd579e63379ae6c2e4d4971990d28f8ad"
+verdict = "already-fixed"
+evidence = "The affects lists in spec/layerx-merge/spec.kvx:9659, spec/layerx-merge/spec.kvx:9665, spec/layerx-merge/spec.kvx:9671, spec/layerx-merge/spec.kvx:9677 and spec/layerx-merge/spec.kvx:9683 now contain complete task ids for decisions 2757 through 2761 respectively: 22.38.1; 22.31.600; 22.31.586 and 22.99.77; 22.31.611; and 22.38.16, 22.38.8, 22.38.15 and 22.38.17."
+close_comment = "Decisions 2757 through 2761 now list complete affected task ids, including both signal tasks and their prerequisites. The character-split metadata has been corrected."

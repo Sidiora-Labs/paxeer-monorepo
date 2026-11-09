@@ -1,0 +1,7 @@
+[issue.1814]
+number = 1814
+title = "[P2] Preserve F11 NotEnabled in the widened availability regression assertions"
+revision = "a910fdedd579e63379ae6c2e4d4971990d28f8ad"
+verdict = "already-fixed"
+evidence = "Commit 101f526f032f95aa585c3458967dae66f1bb053c corrected availability_hides_enabled_features: programs/crates/layerx-programs-ai-market/tests/repair_22_31_253.rs:903-904 sets the eleven-entry expectation to Available for F01 through F10 and NotEnabled for F11, and :914 and :920 assert that same array before and after persistence, matching the unchanged F11 rule at programs/crates/layerx-programs-ai-market/src/queries.rs:945-947."
+close_comment = "The availability regression now expects Available for the ten populated families and NotEnabled for F11 in the legacy fixture, both before persistence and after reopening the capture. This preserves the production availability rule without enabling F11."
