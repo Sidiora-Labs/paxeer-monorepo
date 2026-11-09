@@ -5,6 +5,8 @@ import subprocess
 import pytest
 import yaml
 
+from tools.ci.tests.workflow_graph import RELEASE_GATE_CALLS, release_gate_job
+
 
 ROOT = Path(__file__).resolve().parents[2]
 CHECK = ROOT / "scripts/ci/runner-routing-check.sh"
@@ -163,7 +165,11 @@ def test_every_non_excluded_job_keeps_routed_runs_on(name):
 
 @pytest.mark.parametrize(("name", "job_name"), RESTORED_JOBS)
 def test_restored_job_keeps_routed_runs_on(name, job_name):
-    jobs = load_workflow(name)["jobs"]
+    workflow = load_workflow(name)
+    if name == "platform.yml" and job_name in RELEASE_GATE_CALLS:
+        workflow, _ = release_gate_job(ROOT, job_name)
+        name, _, _, job_name = RELEASE_GATE_CALLS[job_name]
+    jobs = workflow["jobs"]
     assert job_name in jobs, f"{name}:{job_name}: restored job disappeared"
     if "uses" in jobs[job_name]:
         assert_restored_job_runs_on_routed(name, job_name, jobs[job_name])
@@ -174,7 +180,7 @@ def test_restored_job_keeps_routed_runs_on(name, job_name):
     assert (name, job_name) not in routing_exclusions(), (
         f"{name}:{job_name}: restored job must not be excluded from routing"
     )
-    assert_workflow_runs_on_routed(name, load_workflow(name))
+    assert_workflow_runs_on_routed(name, workflow)
 
 
 @pytest.mark.parametrize(("name", "job_name", "reason", "runner"), HOSTED_JOBS)

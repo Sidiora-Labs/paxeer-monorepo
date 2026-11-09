@@ -259,6 +259,9 @@ impl SequencerEndpoint {
     }
 
     /// Opens the node JSON-RPC at its root, without a hosted route suffix.
+    /// # Errors
+    ///
+    /// Returns `SequencerError::Endpoint` for an invalid node root URL or trust anchor.
     pub fn new_node(url: &str, trust_anchors: &[&[u8]]) -> Result<Self, SequencerError> {
         let uri: ureq::http::Uri = url.parse().map_err(|_| SequencerError::Endpoint)?;
         if uri.path() != "/"
@@ -276,6 +279,9 @@ impl SequencerEndpoint {
         Self::new(url, trust_anchors)
     }
 
+    /// # Errors
+    ///
+    /// Returns an endpoint error unless the URL is HTTPS, loopback, or an explicitly permitted private-network HTTP endpoint.
     pub fn new_with_railway_private_network(
         url: &str,
         trust_anchors: &[&[u8]],
@@ -341,6 +347,9 @@ impl SequencerEndpoint {
         quantity_u256(&result).ok_or(SequencerError::Malformed)
     }
 
+    /// # Errors
+    ///
+    /// Returns transport and node refusal errors, or `SequencerError::Malformed` when the response does not satisfy the requested layout or snapshot.
     pub fn storage_witness(
         &self,
         address: &[u8; 20],
@@ -358,6 +367,9 @@ impl SequencerEndpoint {
         decode_storage_witness(&result, address, slots).ok_or(SequencerError::Malformed)
     }
 
+    /// # Errors
+    ///
+    /// Returns transport and node refusal errors, or `SequencerError::Malformed` when the response does not satisfy the requested layout or snapshot.
     pub fn balance_at(&self, address: &[u8; 20], height: u64) -> Result<[u8; 32], SequencerError> {
         let result = self.call(
             "eth_getBalance",
@@ -366,6 +378,9 @@ impl SequencerEndpoint {
         quantity_u256(&result).ok_or(SequencerError::Malformed)
     }
 
+    /// # Errors
+    ///
+    /// Returns transport and node refusal errors, or `SequencerError::Malformed` when the response does not satisfy the requested layout or snapshot.
     pub fn nonce_at(&self, address: &[u8; 20], height: u64) -> Result<u64, SequencerError> {
         let result = self.call(
             "eth_getTransactionCount",
@@ -376,6 +391,9 @@ impl SequencerEndpoint {
 
     /// Reads the gateway page and preserves its own snapshot coordinates.
     /// The cursor is the gateway's canonical 32-character position cursor.
+    /// # Errors
+    ///
+    /// Returns transport and node refusal errors, or `SequencerError::Malformed` when the response does not satisfy the requested layout or snapshot.
     pub fn history(
         &self,
         account: &str,
@@ -439,6 +457,9 @@ impl SequencerEndpoint {
         self.eth_call(to, data, "pending")
     }
 
+    /// # Errors
+    ///
+    /// Returns transport and node refusal errors, or `SequencerError::Malformed` when the response does not satisfy the requested layout or snapshot.
     pub fn call_pending_from(
         &self,
         from: &[u8; 20],
@@ -527,6 +548,9 @@ impl SequencerEndpoint {
         Ok(Some(receipt))
     }
 
+    /// # Errors
+    ///
+    /// Returns transport and node refusal errors, or `SequencerError::Malformed` when the response does not satisfy the requested layout or snapshot.
     pub fn transaction_receipt(
         &self,
         hash: &[u8; 32],
@@ -562,6 +586,9 @@ impl SequencerEndpoint {
         quantity_u64(&result).ok_or(SequencerError::Malformed)
     }
 
+    /// # Errors
+    ///
+    /// Returns transport and node refusal errors, or `SequencerError::Malformed` when the response does not satisfy the requested layout or snapshot.
     pub fn commit_material(&self, height: u64) -> Result<Value, SequencerError> {
         let result = self.call("px_getCommit", &json!([height.to_string()]))?;
         let signed = &result["signedHeader"];
@@ -579,6 +606,9 @@ impl SequencerEndpoint {
         Ok(result)
     }
 
+    /// # Errors
+    ///
+    /// Returns transport and node refusal errors, or `SequencerError::Malformed` when the response does not satisfy the requested layout or snapshot.
     pub fn validator_set(&self, height: u64) -> Result<Value, SequencerError> {
         let result = self.call("px_getValidators", &json!([height.to_string()]))?;
         let validators = result["validators"]
@@ -607,6 +637,9 @@ impl SequencerEndpoint {
         Ok(result)
     }
 
+    /// # Errors
+    ///
+    /// Returns transport and node refusal errors, or `SequencerError::Malformed` when the response does not satisfy the requested layout or snapshot.
     pub fn state_root(&self, height: u64) -> Result<[u8; 32], SequencerError> {
         let result = self.call(
             "eth_getBlockByNumber",

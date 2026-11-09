@@ -67,6 +67,11 @@ pub type AuthenticatedLookupContext<'a> = LookupContext<'a>;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct AuthenticatedReceipt {
+    inner: Box<AuthenticatedReceiptData>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+struct AuthenticatedReceiptData {
     receipt: Receipt,
     execution: ExecutedReceipt,
     module_id: u16,
@@ -79,62 +84,62 @@ pub struct AuthenticatedReceipt {
 impl AuthenticatedReceipt {
     #[must_use]
     pub fn canonical_bytes(&self) -> &[u8] {
-        &self.execution.receipt
+        &self.inner.execution.receipt
     }
 
     #[must_use]
     pub const fn receipt(&self) -> &Receipt {
-        &self.receipt
+        &self.inner.receipt
     }
 
     #[must_use]
     pub const fn execution(&self) -> &ExecutedReceipt {
-        &self.execution
+        &self.inner.execution
     }
 
     #[must_use]
     pub const fn activity_id(&self) -> [u8; 32] {
-        self.execution.tx_hash
+        self.inner.execution.tx_hash
     }
 
     #[must_use]
     pub const fn global_sequence(&self) -> u64 {
-        self.execution.seq
+        self.inner.execution.seq
     }
 
     #[must_use]
     pub const fn height(&self) -> u64 {
-        self.execution.height
+        self.inner.execution.height
     }
 
     #[must_use]
     pub const fn module_id(&self) -> u16 {
-        self.module_id
+        self.inner.module_id
     }
 
     #[must_use]
     pub fn result_code(&self) -> ResultCode {
-        ResultCode::from_raw(i32::from(!self.execution.success))
+        ResultCode::from_raw(i32::from(!self.inner.execution.success))
     }
 
     #[must_use]
     pub const fn rung(&self) -> Rung {
-        self.rung
+        self.inner.rung
     }
 
     #[must_use]
     pub const fn covering_block(&self) -> Option<(u64, [u8; 32])> {
-        self.covering_block
+        self.inner.covering_block
     }
 
     #[must_use]
     pub const fn committed_header(&self) -> Option<&VerifiedChainHead> {
-        self.committed_header.as_ref()
+        self.inner.committed_header.as_ref()
     }
 
     #[must_use]
     pub const fn landing(&self) -> Option<&TransactionReceipt> {
-        self.landing.as_ref()
+        self.inner.landing.as_ref()
     }
 }
 
@@ -182,6 +187,9 @@ pub enum Resolution {
     Unknown(Unknown),
 }
 
+/// # Errors
+///
+/// Returns RPC, receipt-signature, execution-field, log, commit or coverage errors when the returned evidence fails validation.
 pub fn lookup(
     endpoint: &SequencerEndpoint,
     tx_hash: [u8; 32],
@@ -190,6 +198,9 @@ pub fn lookup(
     lookup_authenticated(endpoint, tx_hash, context)
 }
 
+/// # Errors
+///
+/// Returns RPC, receipt-signature, execution-field, log, commit or coverage errors when the returned evidence fails validation.
 pub fn lookup_authenticated(
     endpoint: &SequencerEndpoint,
     tx_hash: [u8; 32],
@@ -198,6 +209,9 @@ pub fn lookup_authenticated(
     lookup_with_evidence(endpoint, tx_hash, context, None)
 }
 
+/// # Errors
+///
+/// Returns RPC, receipt-signature, execution-field, log, commit or coverage errors when the returned evidence fails validation.
 pub fn lookup_authenticated_with_commit(
     endpoint: &SequencerEndpoint,
     tx_hash: [u8; 32],
@@ -228,18 +242,7 @@ fn lookup_with_evidence(
             block_hash,
         }) => (receipt, Some((block_number, block_hash))),
     };
-    let keys: Vec<_> = context
-        .receipt_keys
-        .iter()
-        .map(|key| {
-            SequencerAuthorization::new(
-                key.key_id,
-                key.public_key,
-                key.first_height,
-                key.last_height,
-            )
-        })
-        .collect();
+    let keys = receipt_authorizations(context.receipt_keys);
     let receipt = verify_sequencer_signature(&execution.receipt, keys.as_slice())
         .map_err(ReceiptError::Verification)?;
     let module_id = verify_execution(&receipt, &execution, tx_hash)?;
@@ -295,7 +298,7 @@ fn lookup_with_evidence(
                 }
             }
             Err(CommitError::Rpc(SequencerError::Unavailable)) => {}
-            Err(CommitError::Rpc(SequencerError::Rpc(ref refusal))) if refusal.code == -32601 => {}
+            Err(CommitError::Rpc(SequencerError::Rpc(ref refusal))) if refusal.code == -32_601 => {}
             Err(error) => return Err(ReceiptError::Commit(error)),
         }
     }
@@ -305,14 +308,29 @@ fn lookup_with_evidence(
         Rung::Receipted
     };
     Ok(Lookup::Verified(AuthenticatedReceipt {
-        receipt,
-        execution,
-        module_id,
-        rung,
-        landing,
-        covering_block,
-        committed_header,
+        inner: Box::new(AuthenticatedReceiptData {
+            receipt,
+            execution,
+            module_id,
+            rung,
+            landing,
+            covering_block,
+            committed_header,
+        }),
     }))
+}
+
+fn receipt_authorizations(keys: &[ReceiptKeyEntry]) -> Vec<SequencerAuthorization> {
+    keys.iter()
+        .map(|key| {
+            SequencerAuthorization::new(
+                key.key_id,
+                key.public_key,
+                key.first_height,
+                key.last_height,
+            )
+        })
+        .collect()
 }
 
 fn verify_execution(
@@ -401,6 +419,9 @@ fn sha256(bytes: &[u8]) -> [u8; 32] {
     Sha256::digest(bytes).into()
 }
 
+/// # Errors
+///
+/// Returns RPC, receipt-signature, execution-field, log, commit or coverage errors when the returned evidence fails validation.
 pub fn resolve_unknown(
     endpoint: &SequencerEndpoint,
     unknown: &Unknown,
