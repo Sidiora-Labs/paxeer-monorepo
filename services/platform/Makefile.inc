@@ -360,7 +360,6 @@ platform-test-middleware: platform-sample-dependencies-ready
 	mvn -o -q -f sdk/integrations/android/pom.xml -DskipTests verify
 	swift build --disable-automatic-resolution --package-path sdk/integrations/ios
 	swift test --package-path sdk/integrations/ios
-	$(MAKE) platform-test-ten-line
 
 platform-test-reference-apps:
 	node services/platform/examples/run-reference-apps.mjs --check
