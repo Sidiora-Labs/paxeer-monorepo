@@ -1,0 +1,48 @@
+[issue.1836]
+number = 1836
+title = "[Coherence] Qualification finding 22.39.142.3 names f11_views.rs as the failing file although the failure and the repair are in f11_family_table.rs"
+revision = "a910fdedd579e63379ae6c2e4d4971990d28f8ad"
+verdict = "task"
+evidence = "Finding 22.39.142.3 introduced by commit 5eec969fb07bda52928ba4476772a5998713bc93 still names f11_views.rs in spec/layerx-merge/qualification.kvx:35272 and :35273 although its observation at :35274 identifies f11_family_table, decision 2877 at spec/layerx-merge/spec.kvx:10375 and task 22.39.142 do_7 at :188001 identify that test, and commit 075a770edbf33195cd9a37f5b9563d4dc0d3ab05 already corrected its SettleLaps row at programs/crates/layerx-programs-ai-market/tests/f11_family_table.rs:68 to the producer constants at programs/crates/layerx-programs-ai-market/src/dispatch.rs:945, leaving only the finding's file and symbol attribution incorrect."
+close_comment = "The SettleLaps metadata test already uses the operation table's payload bounds, but finding 22.39.142.3 still points to the views test. A focused correction is specified to name f11_family_table.rs in the finding's file and symbol fields."
+
+[task.18.1836.1]
+title = "Issue #1836: Correct the SettleLaps qualification finding attribution"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181836.1"]
+capabilities = []
+interfaces = []
+do_1 = "In finding.22.39.142.3 at spec/layerx-merge/qualification.kvx:35270, change file at :35272 to programs/crates/layerx-programs-ai-market/tests/f11_family_table.rs and symbol at :35273 to f11_family_table.rs, matching its observation at :35274, gotcha 3570 at GOTCHA.kvx:17674, decision 2877 at spec/layerx-merge/spec.kvx:10375 and do_7 at :188001; preserve the task, historical observation, assumption, severity and all other records."
+do_2 = "Use the focused grep verification to assert that finding.22.39.142.3 itself contains both corrected metadata values; the SettleLaps row at programs/crates/layerx-programs-ai-market/tests/f11_family_table.rs:68 and its resolved disposition at spec/layerx-merge/dispositions/d22-31.kvx:336 already identify the completed repair and require no change."
+symbols = []
+touches = ["spec/layerx-merge/qualification.kvx"]
+tests = []
+planned_paths = []
+build_cmd = "true"
+verify_cmd = "grep -Pzo '(?m)^\\[finding\\.22\\.39\\.142\\.3\\]\\ntask = \\x2222\\.39\\.142\\x22\\nfile = \\x22programs/crates/layerx-programs-ai-market/tests/f11_family_table\\.rs\\x22\\nsymbol = \\x22f11_family_table\\.rs\\x22\\n' spec/layerx-merge/qualification.kvx"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-programme"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181836]
+title = "The SettleLaps qualification finding identifies its failing test file"
+ac_1 = "Given finding.22.39.142.3 at spec/layerx-merge/qualification.kvx:35270, its file and symbol fields identify programs/crates/layerx-programs-ai-market/tests/f11_family_table.rs and f11_family_table.rs respectively, consistent with its observed failure at :35274 and the corrected SettleLaps metadata assertion at programs/crates/layerx-programs-ai-market/tests/f11_family_table.rs:192, while its historical observation and all other finding fields remain intact."
+
+[acceptance.18.1836.1]
+feature = "18"
+req = "181836.1"
+scenario = "Given finding 22.39.142.3 attributes the SettleLaps family-table failure to the views test, when its metadata is corrected, then its file and symbol identify f11_family_table.rs and its historical observation and other fields are preserved."
+contract = "contracts/programme.md#programme"
+test = "spec/layerx-merge/qualification.kvx::focused grep check of finding.22.39.142.3 file and symbol (planned)"
+qualification = "UNRUN"
