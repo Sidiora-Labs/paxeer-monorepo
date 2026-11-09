@@ -31,7 +31,7 @@ use layerx_committed_proof::{
 };
 use layerx_indexer::ai_market::{
     verify_program_state, BlockCommitProof, FinalityAuthority, Observation as SnapshotObservation,
-    ProjectionStore, ReadVerification, ViewError,
+    ProjectionState, ProjectionStore, ReadVerification, ViewError, Viewer,
 };
 use layerx_indexer::ai_reputation::{
     Admission, FinalizedRead, HistoryRequest, ReputationError, ReputationProjector,
@@ -582,6 +582,126 @@ fn snapshot_observation<'a>(
         source_activity: digest(90)?,
         observed_at_ms: 4000,
     })
+}
+
+#[test]
+fn ai_market_rejects_altered_membership_and_unsigned_reads_across_restart() -> Checked {
+    let state = created_state()?;
+    let material = certify_state(&state, PROGRAM, layerx_programs_ai_market::SHARED_STATE_KEY)?;
+    let (_, _, facts) = capture_state(&state, &material)?;
+    let viewer = Viewer::for_principal("ai-market-refusal-reader")?;
+    let mut altered_proof = material.proof.clone();
+    altered_proof.push(0);
+    let altered_evidence = BlockCommitProof {
+        store_proof: &altered_proof,
+        ..material.evidence()
+    };
+
+    for (name, read, evidence, expected_error) in [
+        (
+            "altered-membership",
+            ReadVerification::SequencerSigned,
+            altered_evidence,
+            ViewError::FinalityUnavailable,
+        ),
+        (
+            "unsigned-read",
+            ReadVerification::Unverified,
+            material.evidence(),
+            ViewError::BindingMismatch,
+        ),
+    ] {
+        let dir = Scratch::new(name);
+        let store = ProjectionStore::open(&dir.db())?;
+        let mut observation = snapshot_observation(&state, facts)?;
+        observation.read = read;
+        let initial = store.observe(&observation)?;
+        assert_eq!(initial.read, read);
+        assert_eq!(
+            store.promote(
+                &initial.snapshot_id,
+                &evidence,
+                &authority(),
+                PUBLICATION_TIME_MS,
+            ),
+            Err(expected_error)
+        );
+        let assert_unpublished = |store: &ProjectionStore| -> Checked {
+            let snapshot = store
+                .snapshot(&initial.snapshot_id)?
+                .expect("saved capture");
+            assert_eq!(snapshot, initial);
+            assert_eq!(snapshot.rank, 0);
+            assert_eq!(snapshot.binding, None);
+            assert_eq!(snapshot.checkpoint, None);
+            assert_eq!(snapshot.publication_time_ms, None);
+            assert_eq!(
+                snapshot.projection,
+                match read {
+                    ReadVerification::Unverified => ProjectionState::ObservedUnverified,
+                    ReadVerification::SequencerSigned =>
+                        ProjectionState::EvidenceVerifiedUnfinalized,
+                }
+            );
+            let stream = store.stream(&market()?)?.expect("observed stream");
+            assert_eq!(stream.finalized_snapshot, None);
+            assert_eq!(stream.finalized_sequence, None);
+            assert!(store.pending_events(&market()?, 10)?.is_empty());
+            for selector in [Some(&initial.snapshot_id), None] {
+                assert!(matches!(
+                    store.market_view(&viewer, &market()?, selector, Some(1000)),
+                    Err(ViewError::FinalityUnavailable)
+                ));
+            }
+            Ok(())
+        };
+        assert_unpublished(&store)?;
+        drop(store);
+        let reopened = ProjectionStore::open(&dir.db())?;
+        assert_unpublished(&reopened)?;
+    }
+
+    let dir = Scratch::new("valid-membership-and-signed-read");
+    let store = ProjectionStore::open(&dir.db())?;
+    let initial = store.observe(&snapshot_observation(&state, facts)?)?;
+    assert_eq!(initial.rank, 0);
+    assert_eq!(initial.read, ReadVerification::SequencerSigned);
+    let finalized = store.promote(
+        &initial.snapshot_id,
+        &material.evidence(),
+        &authority(),
+        PUBLICATION_TIME_MS,
+    )?;
+    assert_eq!(finalized.snapshot_id, initial.snapshot_id);
+    assert_eq!(finalized.rank, FINALIZED_RANK);
+    assert_eq!(finalized.projection, ProjectionState::FinalizedPublishable);
+    assert!(!finalized
+        .binding
+        .as_ref()
+        .expect("finalized binding")
+        .is_empty());
+    assert_eq!(finalized.publication_time_ms, Some(PUBLICATION_TIME_MS));
+    let view = store.market_view(&viewer, &market()?, None, Some(1000))?;
+    assert_eq!(view.snapshot_id, finalized.snapshot_id);
+    view.binding.require_finalized()?;
+    let stream = store.stream(&market()?)?.expect("finalized stream");
+    assert_eq!(stream.finalized_snapshot, Some(finalized.snapshot_id));
+    assert_eq!(
+        stream.finalized_sequence,
+        Some(facts.proof.observed_sequence)
+    );
+    let events = store.pending_events(&market()?, 10)?;
+    assert!(!events.is_empty());
+    drop(store);
+    let reopened = ProjectionStore::open(&dir.db())?;
+    assert_eq!(reopened.snapshot(&finalized.snapshot_id)?, Some(finalized));
+    assert_eq!(reopened.stream(&market()?)?, Some(stream));
+    assert_eq!(reopened.pending_events(&market()?, 10)?, events);
+    assert_eq!(
+        reopened.market_view(&viewer, &market()?, None, Some(1000))?,
+        view
+    );
+    Ok(())
 }
 
 #[test]

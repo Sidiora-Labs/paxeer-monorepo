@@ -170,7 +170,8 @@ func (v *Venue) openInterest(w http.ResponseWriter, r *http.Request) {
 }
 
 // venueTicker and venueTickerEntry carry null for a value whose source fact
-// does not exist yet: mark and index before the first MarkPriceUpdated, the
+// does not exist yet: mark before the first MarkPriceUpdated, index before
+// the first mark event or successful pricefeed aggregate, the
 // last rates before the first FundingSettled, open interest before the first
 // OpenInterestChanged and the 24 hour prices of a window without fills.
 // Volumes count fills, so a market without fills answers 0.
@@ -209,7 +210,7 @@ type venueTickerEntry struct {
 // open interest, the 24 hour prices and volume of market_stats_rolling and the
 // contracts filled in the last 24 hours.
 const venueTickersSQL = `SELECT m.symbol,
-    (mp.mark_price / $1::numeric)::text, (mp.index_price / $1::numeric)::text,
+    (mp.mark_price / $1::numeric)::text, (ip.index_price / $1::numeric)::text,
     ((oi.long_oi + oi.short_oi) / $1::numeric)::text,
     fs.hourly,
     (fs.funding_rate / $1::numeric)::text,
@@ -217,8 +218,16 @@ const venueTickersSQL = `SELECT m.symbol,
     (s.high_24h / $1::numeric)::text, (s.low_24h / $1::numeric)::text,
     COALESCE(amount.contracts, 0)::text, (COALESCE(s.volume_24h, 0) / $1::numeric)::text
 FROM perps.markets m
-LEFT JOIN LATERAL (SELECT mark_price, index_price FROM perps.mark_prices WHERE market_id = m.market_id
+LEFT JOIN LATERAL (SELECT mark_price FROM perps.mark_prices WHERE market_id = m.market_id
     ORDER BY block DESC, tx_index DESC, log_index DESC, sub DESC LIMIT 1) mp ON true
+LEFT JOIN LATERAL (SELECT index_price FROM (
+    (SELECT block, tx_index, log_index, sub, index_price FROM perps.mark_prices
+        WHERE market_id = m.market_id ORDER BY block DESC, tx_index DESC, log_index DESC, sub DESC LIMIT 1)
+    UNION ALL
+    (SELECT block, tx_index, log_index, sub, index_price FROM perps.index_prices
+        WHERE market_id = m.market_id AND kind = 'aggregate' AND index_price IS NOT NULL
+        ORDER BY block DESC, tx_index DESC, log_index DESC, sub DESC LIMIT 1)
+) latest_index ORDER BY block DESC, tx_index DESC, log_index DESC, sub DESC LIMIT 1) ip ON true
 LEFT JOIN LATERAL (SELECT funding_rate, ` + records.LastFundingRateHourlySQL + ` AS hourly FROM perps.funding_settlements WHERE market_id = m.market_id
     ORDER BY block DESC, tx_index DESC, log_index DESC, sub DESC LIMIT 1) fs ON true
 LEFT JOIN LATERAL (SELECT long_oi, short_oi FROM perps.open_interest WHERE market_id = m.market_id

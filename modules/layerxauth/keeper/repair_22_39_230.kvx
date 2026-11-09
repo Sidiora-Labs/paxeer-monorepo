@@ -1,0 +1,13 @@
+[repair.22.39.230]
+decision = "3058"
+gotchas = ["3754", "3046"]
+test = "modules/layerxauth/keeper/revoke_test.go: TestRevokeGrantAdvancesRevocation, capability and session subtests"
+producer = "modules/layerxledger/types/denom.go: MirrorDenom emits layerx/ plus the asset ID encoded as 64 lowercase hexadecimal digits; ParseMirrorDenom accepts exactly this canonical representation."
+consumer = "modules/layerxauth/types/authorization.go: scopeActivity parses the bank denomination with ledgertypes.ParseMirrorDenom; LayerXScopeAuthorization.Accept enforces the asset, bank module and payment purpose."
+precedent = "modules/layerxauth/types/authorization_test.go: layerXScopeTestSend and layerXScopeTestAuthorization; modules/layerxauth/keeper/repair_m1421_test.go: repairM1421Endpoint uses MirrorDenom(*f.Asset()) and BankSendPurpose."
+change = "Produce the bank message with MirrorDenom(*f.Asset()) and bind its test authorization to BankScopeModule and the exact BankSendPurpose hash; retain the existing asset, ordinal interval, budgets, revocation epochs and every assertion."
+ownership = "The ledger denomination producer and authorization consumer agree; production keeper and authorization types require no change."
+coverage = "Both grant kinds must accept the payment before revocation, advance the identity revocation sequence from 41 to 44, preserve stored mirrors for both grantees and unrelated grants, and refuse the same payment afterwards with ErrAuthRevoked."
+build_evidence = "Reference /out/run/gates.jsonl, kind=build: the final matching candidate row records revision, command go vet ./modules/layerxauth/..., exit and private log; hf-build writes /out/logs/build-1.log for the initial run."
+verify_evidence = "Reference /out/run/gates.jsonl, kind=verify: the final matching candidate row records revision, command cg spec done 22.39.230 -f layerx-merge --root /work/paxeer-monorepo, exit and private log; hf-done writes /out/logs/verify-1.log for the initial run and runs the declared nonempty-record check and focused Go test with graph checks."
+qualification = "Qualification is established only by successful build and verify rows for the same candidate revision in the referenced private ledger; no pre-change or unexecuted gate result is claimed."

@@ -1,0 +1,7 @@
+[issue.1877]
+number = 1877
+title = "Align surface fixture RPC trace with authenticated SDK fallback"
+revision = "3520b1428059af90261432778c008a9ce362a0b1"
+verdict = "already-fixed"
+evidence = "Commit b23a43fd9a17e7fc5bfc51a5790ff7816adafd2e removed exactly the redundant fallback key/raw-transaction pair: apps/wallet/src/surfaces/test/repair-22-33-206.test.ts:131 now asserts eight fallback requests and six direct requests while retaining signed fixture bytes, digest and authenticated read equality at :99 and :127 and tamper/refusal checks at :184; sdk/wallet/src/modules/index.ts:99 returns the authenticated polling result after authentication and transaction matching, with governed-key/raw-transaction verification at sdk/wallet/src/receipt.ts:426 and :437 and authenticated polling at :637 and :689 unchanged."
+close_comment = "The surface fixture now expects eight fallback requests and six direct requests, matching the authenticated SDK fallback without redundant receipt reads. Signed receipt, governed-key, raw-transaction and transaction-identity checks remain intact, together with the surface tamper/refusal assertions."

@@ -1185,7 +1185,7 @@ interface = "4.env-web-next-public-rpc-url-j30"
 
 [finding.client_contract_router_drift]
 file = "spec/layerx-merge/contracts/clients.md"
-line = 19
+line = 20
 class = "doc-drift"
 severity = "medium"
 observed = "The client contract's operations table describes joined reads through the router px_* methods as part of the after-merge client contract. The audit brief defines no router or separate LayerX interface; px_* belongs to the hosted gateway and public node RPC is served at node root URLs."
@@ -1195,10 +1195,10 @@ owner_domain = 12
 
 [finding.service_contract_router_drift]
 file = "spec/layerx-merge/contracts/services.md"
-line = 40
+line = 39
 class = "doc-drift"
 severity = "medium"
-observed = "The after-merge service catalogue says node JSON-RPC is private to the router and lists platform-gateway POST /rpc, GET /rpc/schema and /rpc/ws routes at lines40 and48. Those instructions conflict with the audit brief's public node-root RPC and explicit retirement of a router/unified RPC interface."
+observed = "The after-merge service catalogue says node JSON-RPC is private to the router and lists platform-gateway POST /rpc, GET /rpc/schema and /rpc/ws routes at lines 39 and 46. Those instructions conflict with the audit brief's public node-root RPC and explicit retirement of a router/unified RPC interface."
 expected = "Operator documentation must describe the single paxd BFT network, public api1..api14/api-mainnet-beta root RPC and the hosted gateway's own declared methods, without presenting retired router paths as the finished topology."
 proposal = "Amend spec/layerx-merge/contracts/services.md catalogue and linked service routing sections to separate historical routes from the finished merged deployment, remove the router dependency and name current public node endpoints. Coordinate the node/domain5 and hosted gateway/domain8 contract owners."
 owner_domain = 5
@@ -1239,12 +1239,12 @@ interface = "4.fmt-web-abi-router-j30"
 [doc.client_contract]
 path = "spec/layerx-merge/contracts/clients.md"
 status = "stale"
-notes = "Reviewed client operations, identity and signing, receipt verification and switch-off guidance relevant to this slice. Operation Q at line 19 still sends joined reads through a router; client_contract_router_drift proposes the hosted-gateway/node-root distinction. Historical switch-off caller inventories are treated as baseline history."
+notes = "Reviewed client operations, identity and signing, receipt verification and switch-off guidance relevant to this slice. Operation Q at line 20 still sends joined reads through a router; client_contract_router_drift proposes the hosted-gateway/node-root distinction. Historical switch-off caller inventories are treated as baseline history."
 
 [doc.service_contract]
 path = "spec/layerx-merge/contracts/services.md"
 status = "stale"
-notes = "Reviewed service catalogue and launchpad/embedded-wallet service contracts relevant to this slice. Catalogue lines 40 and 48 describe private-to-router node RPC and unified /rpc routes as after-merge service behavior; service_contract_router_drift proposes correction to the finished topology."
+notes = "Reviewed service catalogue and launchpad/embedded-wallet service contracts relevant to this slice. Catalogue lines 39 and 46 describe private-to-router node RPC and unified /rpc routes as after-merge service behavior; service_contract_router_drift proposes correction to the finished topology."
 
 [doc.launchpad_contract]
 path = "spec/layerx-merge/contracts/launchpad.md"

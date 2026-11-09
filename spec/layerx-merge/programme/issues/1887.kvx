@@ -1,0 +1,49 @@
+[issue.1887]
+number = 1887
+title = "[Coherence] The commit message says it repaired the quarantine read-back, refreshed the lockfiles, settled the release documents and completed the ledger, but the commit only plans that work"
+revision = "3520b1428059af90261432778c008a9ce362a0b1"
+verdict = "task"
+evidence = "Commit 246829c4964ad6d5400b13084f9b4b74711f35e6 changes only GOTCHA.kvx, spec/layerx-merge/qualification.kvx and spec/layerx-merge/spec.kvx, recording decisions and pending repairs plus the arbiter verification exclusion; wallet lockfiles, release documents and ledger rows arrive separately in 661007bc729b355a7d2eb1d843c691aa23715e3c, cc3d81fa233eff7273b4b57faf7f6fe0391569fd and cb176160bdd2bf13e1a2837ce271d50d5868d882, while sdk/launchpad/shared/delivery/store.go:663 still compares pools with reflect.DeepEqual and spec/layerx-merge/spec.kvx:216479 and spec/layerx-merge/spec.kvx:216068 keep the quarantine repair and candidate report pending, so the original implementation claim still needs a published correction."
+close_comment = "Commit 246829c4964ad6d5400b13084f9b4b74711f35e6 records repair decisions and follow-up tasks and corrects the arbiter verification; its subject overstates the changes it contains. The wallet lockfiles, release documents and consensus ledger changed in later commits, while the quarantine read-back repair and candidate release report remain outstanding at the reviewed revision."
+
+[task.18.1887.1]
+title = "Issue #1887: Correct the release history of the quarantine and release planning commit"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181887.1"]
+capabilities = []
+interfaces = []
+do_1 = "Create docs/release/7.0.0-change-history.md and link it from the related release documents at docs/release/7.0.0-upgrade-plan.md:6; include this exact standalone correction: Commit 246829c4964ad6d5400b13084f9b4b74711f35e6 records decisions and follow-up tasks and corrects the arbiter verification; it does not repair the quarantine read-back, refresh wallet lockfiles, update release documents or complete the consensus ledger."
+do_2 = "Attribute the wallet lockfiles to 661007bc729b355a7d2eb1d843c691aa23715e3c, release-document updates to cc3d81fa233eff7273b4b57faf7f6fe0391569fd and consensus-ledger rows to cb176160bdd2bf13e1a2837ce271d50d5868d882, citing the wallet installation checks at tests/ci/test_wallet_lockfiles_current.py:27, release-gap assertions at tests/ci/test_release_docs_gap_markers.py:63 and ledger assertions at tools/ci/tests/test_consensus_ledger_rows.py:71; describe these as separate deliveries rather than changes in the original commit."
+do_3 = "Include the exact revision-specific statement: At revision 3520b1428059af90261432778c008a9ce362a0b1, the quarantine read-back repair and candidate release report remain pending. Cite sdk/launchpad/shared/delivery/store.go:663, the durable poison-row assertion at sdk/launchpad/shared/delivery/natsdriver/driver_test.go:863 and the pending task states at spec/layerx-merge/spec.kvx:216479 and spec/layerx-merge/spec.kvx:216068; leave their implementation under existing tasks 22.39.117 and 22.39.182 and retain the open candidate evidence at docs/release/7.0.0-readiness-checklist.md:28."
+symbols = []
+touches = ["docs/release/7.0.0-change-history.md", "docs/release/7.0.0-upgrade-plan.md"]
+tests = ["docs/release/7.0.0-change-history.md::commit_scope_correction"]
+planned_paths = ["docs/release/7.0.0-change-history.md"]
+build_cmd = "true"
+verify_cmd = "grep -Fx 'Commit 246829c4964ad6d5400b13084f9b4b74711f35e6 records decisions and follow-up tasks and corrects the arbiter verification; it does not repair the quarantine read-back, refresh wallet lockfiles, update release documents or complete the consensus ledger.' docs/release/7.0.0-change-history.md && grep -Fq 661007bc729b355a7d2eb1d843c691aa23715e3c docs/release/7.0.0-change-history.md && grep -Fq cc3d81fa233eff7273b4b57faf7f6fe0391569fd docs/release/7.0.0-change-history.md && grep -Fq cb176160bdd2bf13e1a2837ce271d50d5868d882 docs/release/7.0.0-change-history.md && grep -Fx 'At revision 3520b1428059af90261432778c008a9ce362a0b1, the quarantine read-back repair and candidate release report remain pending.' docs/release/7.0.0-change-history.md && grep -Fq '[7.0.0 change history](7.0.0-change-history.md)' docs/release/7.0.0-upgrade-plan.md"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-docs"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181887]
+title = "The release history distinguishes the planning commit from delivered repairs"
+ac_1 = "The release change history linked from docs/release/7.0.0-upgrade-plan.md:6 identifies 246829c4964ad6d5400b13084f9b4b74711f35e6 as a decision, task and arbiter-verification change, attributes the wallet, release-document and ledger deliveries to their separate implementation commits, and states that the quarantine repair and candidate report remain pending at revision 3520b1428059af90261432778c008a9ce362a0b1 as recorded at spec/layerx-merge/spec.kvx:216479 and spec/layerx-merge/spec.kvx:216068."
+
+[acceptance.18.1887.1]
+feature = "18"
+req = "181887.1"
+scenario = "Given the planning commit and later wallet, release-document and ledger changes, when the linked release change history is read, then the original commit scope is stated accurately, later deliveries are attributed separately and the outstanding quarantine repair and candidate report are identified at the cited revision."
+contract = "contracts/programme.md#decisions"
+test = "docs/release/7.0.0-change-history.md::commit_scope_correction (planned)"
+qualification = "UNRUN"

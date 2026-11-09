@@ -758,7 +758,7 @@ impl GrantTerms {
         payment_call(
             PrecompileTarget::Ledger,
             "nextSequence(bytes32,bytes32)",
-            vec![self.receiver_did_key, self.asset],
+            vec![self.recipient, self.asset],
         )
     }
 
@@ -2357,12 +2357,21 @@ mod tests {
                 == layerx_crypto::disclosure::call::ledger_selector("nextSequence(bytes32,bytes32)")
             {
                 let ledger = fixture("gateway/metered.json");
-                assert_eq!(
-                    call.arguments.first(),
-                    Some(&AbiArgument::Word(word(
-                        &ledger["ledger"]["receiverDidKey"]
-                    )))
-                );
+                let AbiArgument::Word(asset) = &call.arguments[1] else {
+                    panic!("sequence asset word");
+                };
+                let recipient = ledger["ledger"]["grants"]
+                    .as_array()
+                    .expect("ledger grants")
+                    .iter()
+                    .find_map(|record| {
+                        let canonical = record["canonical"].as_str()?;
+                        (canonical.get(192..256) == Some(hex(asset).as_str()))
+                            .then(|| word(&serde_json::json!(canonical[128..192].to_owned())))
+                    })
+                    .expect("canonical receiver account");
+                assert_ne!(recipient, word(&ledger["ledger"]["receiverDidKey"]));
+                assert_eq!(call.arguments[0], AbiArgument::Word(recipient));
                 let data = format!(
                     "0x{}",
                     hex(&call.encode().map_err(|_| WebPayerError::Refused)?)
@@ -2371,7 +2380,11 @@ mod tests {
                     .as_array()
                     .and_then(|records| {
                         records.iter().find(|record| {
-                            record["method"] == "eth_call" && record["params"][0]["data"] == data
+                            record["method"] == "eth_call"
+                                && record["params"] == serde_json::json!([
+                                    {"to": format!("0x{}", hex(&call.target.address())), "data": data},
+                                    "pending"
+                                ])
                         })
                     })
                     .unwrap_or_else(|| panic!("recorded sequence view"));
