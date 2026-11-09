@@ -57,19 +57,9 @@ pub struct MarketHeader {
 /// # Errors
 /// Returns `F01_ACCOUNT_BINDING_MISSING` when the SDK refuses the program, asset, or derived account.
 pub fn derive_rewards_account(program: ProgramId, asset: AssetId) -> CodecResult<AccountId> {
-    let prepared = prepare_rewards_account(program, asset)?;
-    AccountId::new(prepared.account().bytes()).map_err(|_| F01_ACCOUNT_BINDING_MISSING)
-}
-
-/// Reuses the SDK binding across header validation and value settlement in one call.
-pub(crate) fn prepare_rewards_account(
-    program: ProgramId,
-    asset: AssetId,
-) -> CodecResult<PreparedProgramAccount<'static>> {
     #[cfg(target_arch = "wasm32")]
-    static DERIVED: crate::guest_cell::GuestCell<
-        Option<(ProgramId, AssetId, PreparedProgramAccount<'static>)>,
-    > = crate::guest_cell::GuestCell::new(None);
+    static DERIVED: crate::guest_cell::GuestCell<Option<(ProgramId, AssetId, AccountId)>> =
+        crate::guest_cell::GuestCell::new(None);
     #[cfg(target_arch = "wasm32")]
     let mut derived = DERIVED
         .try_borrow_mut()
@@ -80,17 +70,41 @@ pub(crate) fn prepare_rewards_account(
             return Ok(account);
         }
     }
+    // Match PreparedProgramAccount's software derivation byte for byte. The
+    // compact streaming hasher is already needed by the guest's long preimages.
+    let seed = layerx_program_sdk::ProgramAccountSeed::new(crate::REWARDS_ACCOUNT_SEED)
+        .map_err(|_| F01_ACCOUNT_BINDING_MISSING)?;
+    let length = u32::try_from(seed.bytes().len()).map_err(|_| F01_ACCOUNT_BINDING_MISSING)?;
+    let mut hash = crate::codec::Sha256State::new();
+    hash.update(b"LayerX/programs/program-account/v1\0");
+    hash.update(program.as_bytes());
+    hash.update(&length.to_be_bytes());
+    hash.update(seed.bytes());
+    let account = AccountId::new(hash.finalize()).map_err(|_| F01_ACCOUNT_BINDING_MISSING)?;
+    #[cfg(target_arch = "wasm32")]
+    {
+        *derived = Some((program, asset, account));
+    }
+    #[cfg(all(not(target_arch = "wasm32"), debug_assertions))]
+    debug_assert_eq!(
+        account.bytes(),
+        prepare_rewards_account(program, asset)?.account().bytes()
+    );
+    Ok(account)
+}
+
+/// Client capability encoders use the SDK's public prepared value. Guest
+/// settlement needs only the checked account, asset, and fixed public seed.
+pub(crate) fn prepare_rewards_account(
+    program: ProgramId,
+    asset: AssetId,
+) -> CodecResult<PreparedProgramAccount<'static>> {
     let sdk_program = layerx_program_sdk::ProgramId::new(program.bytes())
         .map_err(|_| F01_ACCOUNT_BINDING_MISSING)?;
     let sdk_asset =
         layerx_program_sdk::AssetId::new(asset.bytes()).map_err(|_| F01_ACCOUNT_BINDING_MISSING)?;
-    let prepared = PreparedProgramAccount::new(sdk_program, crate::REWARDS_ACCOUNT_SEED, sdk_asset)
-        .map_err(|_| F01_ACCOUNT_BINDING_MISSING)?;
-    #[cfg(target_arch = "wasm32")]
-    {
-        *derived = Some((program, asset, prepared));
-    }
-    Ok(prepared)
+    PreparedProgramAccount::new(sdk_program, crate::REWARDS_ACCOUNT_SEED, sdk_asset)
+        .map_err(|_| F01_ACCOUNT_BINDING_MISSING)
 }
 
 impl MarketHeader {
@@ -148,31 +162,35 @@ impl MarketHeader {
             return Err(CAPACITY);
         }
         let mut w = Writer::new(output);
-        w.u16(self.format_version)?;
-        w.put(self.market_id.as_bytes())?;
-        w.put(self.deployment_chain_domain.as_bytes())?;
-        w.put(self.program_id.as_bytes())?;
-        w.put(self.owner_principal.as_bytes())?;
-        w.put(self.funding_asset.as_bytes())?;
-        w.put(self.rewards_account.as_bytes())?;
-        w.put(self.refund_recipient_account.as_bytes())?;
+        crate::codec::write_fields!(w;
+            u16: self.format_version;
+            id32: self.market_id.as_bytes();
+            id32: self.deployment_chain_domain.as_bytes();
+            id32: self.program_id.as_bytes();
+            id32: self.owner_principal.as_bytes();
+            id32: self.funding_asset.as_bytes();
+            id32: self.rewards_account.as_bytes();
+            id32: self.refund_recipient_account.as_bytes();
+        )?;
         w.presence(&self.treasury_principal, |w, principal| {
             w.put(principal.as_bytes())
         })?;
-        w.u64(self.origin_height)?;
-        w.u8(self.lifecycle)?;
-        w.u64(self.state_revision)?;
-        w.u64(self.highest_config_version)?;
-        w.u64(self.active_config_version)?;
-        w.u64(self.activation_epoch)?;
-        w.boolean(self.activation_scheduled)?;
-        w.u64(self.closure_requested_at)?;
-        w.u8(self.close_phase)?;
-        w.u16(self.close_cursor)?;
-        w.put(&self.suspension_reason_digest)?;
-        w.put(self.metadata_digest.as_bytes())?;
-        w.put(&self.closing_request_digest)?;
-        w.put(&self.reserved)?;
+        crate::codec::write_fields!(w;
+            u64: self.origin_height;
+            u8: self.lifecycle;
+            u64: self.state_revision;
+            u64: self.highest_config_version;
+            u64: self.active_config_version;
+            u64: self.activation_epoch;
+            u8: u8::from(self.activation_scheduled);
+            u64: self.closure_requested_at;
+            u8: self.close_phase;
+            u16: self.close_cursor;
+            put: &self.suspension_reason_digest;
+            id32: self.metadata_digest.as_bytes();
+            put: &self.closing_request_digest;
+            put: &self.reserved;
+        )?;
         Ok(w.len())
     }
     /// Reads a header from its exact canonical bytes.
@@ -182,31 +200,29 @@ impl MarketHeader {
     #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn decode(input: &[u8]) -> CodecResult<Self> {
         let mut r = Reader::new(input);
-        let value = Self {
-            format_version: r.u16()?,
-            market_id: r.market_id()?,
-            deployment_chain_domain: r.chain_domain()?,
-            program_id: r.program_id()?,
-            owner_principal: r.principal_id()?,
-            funding_asset: r.asset_id()?,
-            rewards_account: r.account_id()?,
-            refund_recipient_account: r.account_id()?,
-            treasury_principal: r.presence(|r| r.principal_id())?,
-            origin_height: r.u64()?,
-            lifecycle: r.u8()?,
-            state_revision: r.u64()?,
-            highest_config_version: r.u64()?,
-            active_config_version: r.u64()?,
-            activation_epoch: r.u64()?,
-            activation_scheduled: r.boolean()?,
-            closure_requested_at: r.u64()?,
-            close_phase: r.u8()?,
-            close_cursor: r.u16()?,
-            suspension_reason_digest: r.fixed()?,
-            metadata_digest: r.metadata_digest()?,
-            closing_request_digest: r.fixed()?,
-            reserved: r.fixed()?,
-        };
+        let value = crate::codec::read_record!(&mut r, Self { format_version = r.u16()?; }; market_id = r.market_id()?;
+            deployment_chain_domain: ChainDomain,
+            program_id: ProgramId,
+            owner_principal: PrincipalId,
+            funding_asset: AssetId,
+            rewards_account: AccountId,
+            refund_recipient_account: AccountId,
+            treasury_principal: PresencePrincipal,
+            origin_height: U64,
+            lifecycle: U8,
+            state_revision: U64,
+            highest_config_version: U64,
+            active_config_version: U64,
+            activation_epoch: U64,
+            activation_scheduled: Boolean,
+            closure_requested_at: U64,
+            close_phase: U8,
+            close_cursor: U16,
+            suspension_reason_digest: Fixed,
+            metadata_digest: MetadataDigest,
+            closing_request_digest: Fixed,
+            reserved: Fixed
+        );
         r.finish()?;
         value.validate()?;
         Ok(value)
@@ -245,11 +261,13 @@ impl OperatorGrant {
             return Err(CAPACITY);
         }
         let mut w = Writer::new(output);
-        w.put(self.principal.as_bytes())?;
-        w.u8(self.permissions)?;
-        w.u64(self.sequence)?;
-        w.boolean(self.revoked)?;
-        w.put(&self.reserved)?;
+        crate::codec::write_fields!(w;
+            id32: self.principal.as_bytes();
+            u8: self.permissions;
+            u64: self.sequence;
+            u8: u8::from(self.revoked);
+            put: &self.reserved;
+        )?;
         Ok(w.len())
     }
     /// Reads a grant from its exact canonical bytes.
@@ -259,13 +277,12 @@ impl OperatorGrant {
     #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn decode(input: &[u8]) -> CodecResult<Self> {
         let mut r = Reader::new(input);
-        let value = Self {
-            principal: r.principal_id()?,
-            permissions: r.u8()?,
-            sequence: r.u64()?,
-            revoked: r.boolean()?,
-            reserved: r.fixed()?,
-        };
+        let value = crate::codec::read_record!(&mut r, Self {  }; principal = r.principal_id()?;
+            permissions: U8,
+            sequence: U64,
+            revoked: Boolean,
+            reserved: Fixed
+        );
         r.finish()?;
         value.validate()?;
         Ok(value)

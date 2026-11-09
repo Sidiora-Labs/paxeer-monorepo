@@ -9,8 +9,9 @@ use layerx_types::{
     account::AccountId,
     payload::{ActivityType, ModuleId, ModuleRegistration, ModuleRegistry},
 };
-use layerx_wire::activity::{decode_signed, encode_signed, encode_unsigned, Activity};
-use layerx_wire::hash::{activity_id, payload_hash, Domain};
+use layerx_wire::hash::Domain;
+use layerx_wire::historical::activity::{decode_signed, encode_signed, encode_unsigned, Activity};
+use layerx_wire::historical::hash::{activity_id, payload_hash};
 use std::collections::BTreeMap;
 use std::path::PathBuf;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};

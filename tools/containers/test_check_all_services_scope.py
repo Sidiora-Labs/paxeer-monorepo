@@ -18,6 +18,7 @@ def test_check_all_services_scope():
         check=False,
     )
     assert result.returncode == 0, result.stdout + result.stderr
+    assert "containers-check: ok" in result.stdout
 
 
 def test_every_tracked_dockerfile_has_scope():
@@ -54,6 +55,12 @@ def test_every_tracked_dockerfile_has_scope():
         and not path.endswith(".dockerignore")
     }
     assert dockerfiles, "the tracked container inventory must not be empty"
+    assert {
+        "sdk/contrib/rosetta/node/Dockerfile.historical",
+        "sdk/contrib/rosetta/node/Dockerfile.paxd",
+        "tools/hyperfide/deploy/hyperfide/fleet-control/Dockerfile",
+        "tools/hyperfide/plugins/environment-modal-sandbox/Dockerfile",
+    } <= out_of_scope
     assert placed.isdisjoint(out_of_scope), "services must not also be out of scope"
     assert dockerfiles == placed | out_of_scope, (
         f"Tracked recipes without a scope: {sorted(dockerfiles - placed - out_of_scope)}; "
@@ -61,7 +68,7 @@ def test_every_tracked_dockerfile_has_scope():
     )
 
 
-def check_copy_inputs(tmp_path, instructions):
+def check_copy_inputs(tmp_path, instructions, *, context=None):
     recipe = tmp_path / "inputs.Dockerfile"
     recipe.write_text(instructions, encoding="utf-8")
     function = re.search(
@@ -77,13 +84,40 @@ def check_copy_inputs(tmp_path, instructions):
             function.group(0) + '\ncopy_inputs "$1" "$2"',
             "copy-inputs-test",
             str(recipe),
-            str(tmp_path),
+            str(tmp_path if context is None else context),
         ],
         cwd=ROOT,
         capture_output=True,
         text=True,
         check=False,
     )
+
+
+def test_layerx_default_target_copy_inputs(tmp_path):
+    result = check_copy_inputs(
+        tmp_path,
+        (ROOT / "docker/layerx/Dockerfile").read_text(encoding="utf-8"),
+        context=ROOT,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "COPY inputs present" in result.stdout
+
+
+@pytest.mark.parametrize(
+    "dependency",
+    [
+        "FROM producer AS final",
+        "FROM scratch AS final\nCOPY --from=producer /program /program",
+        "FROM scratch AS final\nCOPY --from=0 /program /program",
+    ],
+)
+def test_default_target_dependency_copy_inputs_are_checked(tmp_path, dependency):
+    result = check_copy_inputs(
+        tmp_path,
+        "FROM scratch AS producer\nCOPY missing-program /program\n" + dependency + "\n",
+    )
+    assert result.returncode != 0, result.stdout + result.stderr
+    assert "missing COPY/ADD input: missing-program" in result.stderr
 
 
 @pytest.mark.parametrize(

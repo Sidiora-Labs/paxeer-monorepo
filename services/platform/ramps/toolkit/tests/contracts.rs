@@ -12,6 +12,7 @@ use layerx_ramp_toolkit::{
     EXTERNAL_CUSTODY_LABEL,
 };
 use layerx_types::rung::Rung;
+use sha3::{Digest as _, Keccak256};
 
 const WORKER: &str = "test-worker";
 const CALLBACK_ID: &str = "provider-callback-1";
@@ -222,8 +223,12 @@ fn payment_direction_selects_direct_send_or_customer_grant() {
     let send = compile_operator_send(&on_ramp).expect("on-ramp ledger call");
     let draw = compile_payer_grant_draw(&off_ramp, 9).expect("off-ramp ledger call");
     assert_eq!(send.to, layerx_ramp_toolkit::evm::LEDGER_ADDRESS);
-    assert_eq!(draw.to, layerx_ramp_toolkit::evm::LEDGER_ADDRESS);
+    assert_eq!(draw.to, layerx_ramp_toolkit::evm::PAY_ADDRESS);
     assert_eq!(&send.data[..4], &[0x78, 0xea, 0x11, 0xdb]);
+    assert_eq!(
+        &draw.data[..4],
+        &Keccak256::digest(b"budgetSpend(bytes32,bytes32,uint128)")[..4]
+    );
     assert_eq!(&draw.data[4..36], &[7; 32]);
     assert_eq!(
         compile_operator_send(&off_ramp),
@@ -231,7 +236,7 @@ fn payment_direction_selects_direct_send_or_customer_grant() {
     );
     assert_eq!(
         compile_payer_grant_draw(&on_ramp, 9),
-        Err(RampError::PayerGrantRequired)
+        Err(RampError::InvalidOrder)
     );
 }
 

@@ -44,9 +44,9 @@ on:
       runner:
         description: Runner label for the gate and image build jobs
         required: false
-        default: ubuntu-latest
+        default: ubuntu-24.04
         type: choice
-        options: [ubuntu-latest, lx-runner]
+        options: [ubuntu-24.04, lx-runner]
 
 permissions:
   contents: read
@@ -67,7 +67,7 @@ env:
 jobs:
   plan:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     outputs:
       images: ${{ steps.plan.outputs.images }}
@@ -107,7 +107,7 @@ jobs:
 
   images:
     needs: [plan]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 180
     permissions:
       contents: read
@@ -152,7 +152,7 @@ jobs:
 
   images-dependent:
     needs: [plan, images]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 180
     permissions:
       contents: read
@@ -197,7 +197,7 @@ jobs:
 
   gate:
     if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/')
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 60
     outputs:
       revision: ${{ steps.revision.outputs.revision }}
@@ -282,7 +282,7 @@ jobs:
               < "$LAYERX_PUBLISH_OUTPUT/digests.txt")"
           } >> "$GITHUB_OUTPUT"
       - name: Retain the SBOMs, the digests and the publication record
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
         with:
           name: beta-image-publication
           path: ${{ env.LAYERX_PUBLISH_OUTPUT }}
@@ -356,7 +356,7 @@ jobs:
             ${LAYERX_PUBLISH_RELEASE_CANDIDATE:+--release-candidate "$LAYERX_PUBLISH_RELEASE_CANDIDATE"} \
             --output "$LAYERX_PUBLISH_OUTPUT"
       - name: Retain the verification evidence of the promotion
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
         with:
           name: beta-image-verification
           path: ${{ env.LAYERX_PUBLISH_OUTPUT }}

@@ -212,12 +212,14 @@ def test_f051_retained_build_targets_match_real_makefile_recipes():
         "$(LIBRARY)", "layerx-genesis-build", "layerx-module-registry"
     }
     assert re.search(r"^LIBRARY := \$\(BUILD_DIR\)/liblayerx\.a$", makefile, re.M)
-    assert make_rule(makefile, "paxd-native-libs")[0] == {"$(LIBRARY)", "programs-release-build"}
+    assert make_rule(makefile, "paxd-native-libs")[0] == {"$(LIBRARY)", "programs-release-build", "evmone-lib"}
     prerequisites, recipe = make_rule(makefile, "paxd-build")
     assert prerequisites == {"paxd-native-libs"}
     assert "jq -er .version tools/release/version.json" in recipe
-    assert "$(PAXEER_MAKE) build LDFLAGS=" in recipe
-    assert "sdk/version.Version=$$version" in recipe
+    assert '$(PAXEER_MAKE) build VERSION="$$version"' in recipe
+    assert 'VERSION="$$version"' in recipe
+    assert "sdk/version.Version=$(VERSION)" in source("chain.mk")
+    assert "BUILD_FLAGS = -tags \"$(build_tags)\" -ldflags '$(paxd_ldflags)'" in source("chain.mk")
     assert "$(PAXEER_MAKE) build" in make_rule(makefile, "paxeer-build")[1]
     chain = source("chain.mk")
     prerequisites, recipe = make_rule(chain, "build")

@@ -1,0 +1,121 @@
+[repair.22.39.127]
+base_revision = "7dc80ac4fc2fdc96f295d738f48f26c355f6a9a0"
+decisions = ["2800", "2826", "2830"]
+gotchas = ["3046", "3483", "3488"]
+inventory = "Retire all 56 baseline entries belonging to layerx-ucp, layerx-x402 and x-websearch after the bounded whole-member gate qualifies them. Every existing test remains registered."
+verified_revision = "The revision field in the matching successful build and verify rows of /out/run/gates.jsonl; the immutable candidate is assigned after this record is written."
+evidence = "hf-build and hf-done retain exact revision, command, exit code and private log in /out/run/gates.jsonl. Qualification requires both exits zero at the same revision. No unexecuted gate is claimed here."
+
+[decision.ucp_conformance_vectors]
+side = "test"
+record = "tests/repair_22_31_168.rs and src/config.rs require an explicit merchant currency binding; the unconfigured verification API deliberately refuses."
+change = "Pass an explicit USD/fixture-asset binding with equal 2-decimal minor and atomic units into the configured verifier. Keep every signature, key-window, corruption, metadata, payment identity, amount and ambiguity assertion unchanged."
+
+[decision.ucp_e2e_client_seller]
+side = "test"
+record = "The currency-units repair directs old callers to config.bind_plane and read_order_with_config."
+change = "Bind each test merchant's explicit currency and asset with equal 2-decimal units for completion and order reads; preserve pending, completion, receipt digest, retry and one-order assertions."
+
+[decision.ucp_merchant_profile]
+side = "test"
+record = "MerchantCurrencyBinding is deployment-owned; ExecutedUcpPayment alone carries no service configuration."
+change = "Supply the test merchant binding through the production configured plane and order reader; keep the existing signed receipt and order assertions."
+
+[decision.ucp_sequencer_checkout]
+side = "test"
+record = "src/config.rs and repair_22_31_168.rs require the same binding for checkout verification, completion and stored order reads."
+change = "Use equal 2-decimal merchant units throughout; keep all topic permutations, amount and identity mutations, key refusals, submitted-rung checks and transaction-hash assertions."
+
+[decision.x402_buyer]
+side = "test"
+record = "Buyer::new supports exact, metered and subscription with canonical positive EIP-155 chain identifiers; build_payment requires the plane to return the requested payment identity."
+change = "Replace the retired 402lxp/non-native support entry with metered on chain 125 and construct existing payload inputs through production BoundBuyerPaymentPlane. Capture the unmodified request before asserting all requirements. Explicitly assert rejection of the retired scheme and zero chain identifier, and acceptance of the valid chain-1 support declaration."
+
+[decision.x402_e2e]
+side = "test"
+record = "src/buyer.rs publishes the supported scheme names and the production BoundBuyerPaymentPlane binds idempotencyKey."
+change = "Use metered as the second supported scheme and route existing construction inputs through the real identity binder; retain offer order, amount, extension, transport and pending/refused assertions."
+
+[decision.x402_facilitator_evidence]
+side = "test"
+record = "Decision 2830 and gotcha 3488: committed evidence without a proof must be rejected, while no-proof evidence is receipted."
+change = "Give only the no-proof positive iteration a Receipted rung. Preserve the with-proof evidence and committed assertions. Add an exact EvidenceMismatch assertion for committed-rung evidence supplied without a proof; production code is unchanged."
+
+[decision.x402_repair_22_33_102]
+side = "test"
+record = "X402Error and Buyer::build_payment distinguish missing, malformed and mismatched payment identities from a non-object payload."
+change = "Keep every unbound construction case and assert its exact producer error: PaymentIdentityMissing, PaymentIdentityMalformed, PaymentIdentityMismatch or InvalidPayload."
+
+[decision.x402_repair_22_33_107]
+side = "test"
+record = "The MCP eip155_125 current-offer records omit extra.layerx and record the native ProfileMissing boundary; the other complete role fixtures remain round-trip cases."
+change = "Run all records. Assert ProfileMissing on both encoding and decoding for the three profile-free native records, preserving the complete role-message matrix and its strict equality checks. Assert the producer names of every representation/profile refusal, including all four A2A refusal records."
+
+[decision.x402_seller]
+side = "test"
+record = "settlement_payment selects PaymentDrawn for metered/subscription and requires grantId plus the idempotency word; PaymentExact is never grant evidence."
+change = "Feed the two grant-purpose tests authenticated PaymentDrawn logs with their grantId, reference and full 128-byte data. Preserve the byte-for-byte response assertion, purpose echo and exact ProfileMissing refusals for absent/malformed challenge purpose."
+
+[decision.x402_transports]
+side = "test"
+record = "The MCP current-offer records distinguish representation acceptance from native profile semantics; PaymentRequirements::validate requires extra.layerx on chain 125."
+change = "Assert the exact ProfileMissing error on both production codec directions for all three profile-free native records. Every complete role vector still round-trips on every declared transport, and representation refusals remain tested."
+
+[decision.websearch_lib]
+side = "test"
+record = "src/repair_22_33_118.kvx assigns settlement to gateway.endpoint; tests/repair_22_31_528.kvx records exact-only offers with and without a payer."
+change = "Point the settlement authority at the recorded ledger endpoint, require exactly four exact offers and account for the five chain-checked startup reads; retain unpaid 402 and exact header/body equality assertions."
+
+[decision.websearch_binary]
+side = "test"
+record = "PaymentGate startup authenticates its receiver accounts through the chain-bound settlement authority; the exact-only offer contract retires metered challenges."
+change = "Assert wrong-chain startup exits 2 before opening its listener or issuing an eth_call/receipt request. Require the same four exact offers when a payer header is present; preserve all paid-route, free health/content and no-unpaid-fetch assertions."
+
+[decision.websearch_content]
+side = "test"
+record = "src/repair_22_33_118.kvx names gateway.endpoint as payment authority and evm.endpoint as watcher endpoint."
+change = "Configure the actual settlement endpoint with the existing committed ledger transcript; preserve content availability and paid-fetch gating assertions."
+
+[decision.websearch_program]
+side = "test"
+record = "ProgramExchange::open holds an exclusive answers.lock lease while any owning Arc remains alive."
+change = "Drop the test's last exchange Arc after dropping the relay before reopening; keep the real stop/reopen, signed journal, quorum, fulfilment and one-broadcast assertions."
+
+[decision.websearch_search]
+side = "test"
+record = "The settlement-authority repair uses gateway.endpoint, so setting only the watcher endpoint cannot construct a payment gate."
+change = "Point gateway.endpoint at the existing ledger transcript and retain the search route's exact paid-gate assertions."
+
+[decision.websearch_sequencer_vectors]
+side = "test"
+record = "The shared producer now publishes V2-pax-transfer-insufficient-funds beside V2-layerxledger-revert."
+change = "Classify the additional signed execution-revert case and execute all thirteen shared cases, including seven verifiable answers and all six refusals. Point the gate's settlement authority at its recorded peer; keep every signature, receipt, log, sequence, zero-release and zero-persisted-success assertion."
+
+[decision.websearch_submit]
+side = "test"
+record = "Submitter::open persists submitter.identity and refuses reopening the same journal with a different chain/signing identity."
+change = "Assert that reopening with the other key returns InvalidData, then reopen with the original identity and retain byte-identical raw transaction replay, one nonce allocation, confirmation, fulfilment and journal-key isolation assertions."
+
+[decision.baseline]
+side = "inventory"
+change = "Remove only entries for these three members from tests/ci/data/interop_test_baseline.json; keep all other retiring tasks unchanged. The declared wiring gate and unfiltered cargo --no-fail-fast gate qualify retirement."
+
+[session_gotcha.1]
+observed = "The runner has already started the task and changed workflow bookkeeping; there is no previous gate ledger or in-scope implementation to redo."
+action = "Preserve runner changes and run only the allowed bounded gates after implementation; the runner owns completion bookkeeping and publication."
+
+[session_gotcha.2]
+observed = "Older acceptance flags in the MCP current-offer records describe representation compatibility even though their own semantic records name missing native profile terms."
+action = "Keep complete role vectors as strict positive cases and assert exact native semantic refusals on the profile-free records without changing production validation."
+
+[qualification.initial]
+revision = "6ca364d546df277263a0d19260694adcfdccc8ec"
+command = "cg spec done 22.39.127 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "The wiring, all UCP and web-search targets, and every other x402 target passed. The buyer constructor accepts canonical chain 1; the A2A producer now declares four refusal records while the old matrix count asserted one."
+repair = "Use zero chain id as the malformed-network refusal and explicitly assert chain 1 acceptance. Replace the stale aggregate refusal count with exact per-transport sets of producer-declared refusal names."
+
+[session_gotcha.3]
+observed = "Network syntax admission in Buyer::new is broader than native LayerX payment facts; treating every non-125 network as malformed invents a constraint."
+action = "Assert canonical positive EIP-155 network syntax at construction and retain native payment binding checks at their actual production boundary."

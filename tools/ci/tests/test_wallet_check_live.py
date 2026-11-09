@@ -78,7 +78,7 @@ def run_endpoint_account_probe(account_answer, consensus_available=True):
             cwd=ROOT,
             env={
                 **os.environ,
-                "CHECK_LIVE_ENDPOINT_BASE": base,
+                "CHECK_LIVE_NODE_RPC_URL": base,
                 "CHECK_LIVE_TIMEOUT": "2",
             },
             capture_output=True,
@@ -87,6 +87,17 @@ def run_endpoint_account_probe(account_answer, consensus_available=True):
             timeout=10,
         )
     assert [path for path, _, _ in requests] == ["/"] * 4
+    probe_lines = checked.stdout.splitlines()
+    for method in ("eth_chainId", "px_resolveAccount", "px_getNetwork", "px_getAccount"):
+        matching = [
+            line for line in probe_lines
+            if line.startswith((f"pass {method} ", f"fail {method} "))
+        ]
+        assert len(matching) == 1, checked.stdout + checked.stderr
+        assert f" owner=node url={base} " in matching[0]
+    checked.stdout = "\n".join(
+        line.replace(f" owner=node url={base}", "") for line in probe_lines
+    ) + "\n"
     assert [request["method"] for _, request, _ in requests] == [
         "eth_chainId",
         "px_resolveAccount",

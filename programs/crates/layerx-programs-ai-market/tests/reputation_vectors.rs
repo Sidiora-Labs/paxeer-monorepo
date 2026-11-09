@@ -628,3 +628,65 @@ fn canonical_digest_inputs_domain_status_and_order() -> Checked {
     assert!(ClosureReason::decode(5).is_err());
     Ok(())
 }
+
+#[test]
+fn borrowed_joint_reader_preserves_all_reputation_and_seal_checks() -> Checked {
+    let mut state = ReputationState::new(key(2)?.market);
+    for n in 2..34 {
+        state.insert(fresh(n)?)?;
+    }
+    let (state, _) = complete(&state, 7, digest(50)?, score(500_000)?, 4)?;
+    let mut bytes = vec![0; SECTION_CAP];
+    let length = encode_section(&state, &mut bytes)?;
+    bytes.truncate(length);
+    assert_eq!(validate_section(&bytes)?, state.latest_completed());
+    for offset in 0..bytes.len() {
+        for mask in [1, 0x80] {
+            let mut changed = bytes.clone();
+            changed[offset] ^= mask;
+            assert_eq!(
+                validate_section(&changed).is_ok(),
+                decode_section(&changed).is_ok(),
+                "offset {offset}, mask {mask}"
+            );
+        }
+    }
+    let region = Region {
+        state,
+        seal: Presence::Present(HistorySeal {
+            epoch: 8,
+            allowed: 0xffff_ffff,
+            eligible: 8,
+        }),
+    };
+    let table = [0, 1, 0, 0];
+    let mut joint = vec![0; SECTION_CAP + 64];
+    let length = encode_joint(&region, &table, &mut joint)?;
+    joint.truncate(length);
+    assert_eq!(joint_table(&joint)?, table);
+    for end in 4..joint.len() - table.len() {
+        assert_eq!(
+            joint_table(&joint[..end]).is_ok(),
+            split_joint(&joint[..end]).is_ok(),
+            "truncated at {end}"
+        );
+    }
+    for offset in 0..joint.len() - table.len() {
+        let mut changed = joint.clone();
+        changed[offset] ^= 0x80;
+        assert_eq!(
+            joint_table(&changed),
+            split_joint(&changed).map(|(_, table)| table),
+            "joint offset {offset}"
+        );
+    }
+    Ok(())
+}
+
+fn validate_section(input: &[u8]) -> CodecResult<Presence<u64>> {
+    decode_section(input).map(|state| state.latest_completed())
+}
+
+fn joint_table(input: &[u8]) -> CodecResult<&[u8]> {
+    reputation_transition::joint_table(input)
+}

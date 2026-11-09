@@ -11,8 +11,9 @@ use layerx_proof::receipt::verify_sequencer_signature;
 use layerx_proof::sequencer_logs::SequencerLog;
 use layerx_ucp::{
     ucp_adapter_descriptor, Capability, CheckoutStatus, CheckoutSubmission, ExecutedUcpPayment,
-    MerchantProfile, NegotiatedCapabilities, OrderMetadata, PaymentHandler, PlatformProfile,
-    StoredOrder, UcpAdapter, UcpError, UcpIdempotencyKey, UCP_CHECKOUT_SPEC_SHA256,
+    MerchantCurrencyBinding, MerchantProfile, NegotiatedCapabilities, OrderMetadata,
+    PaymentHandler, PlatformProfile, StoredOrder, UcpAdapter, UcpError, UcpIdempotencyKey,
+    UcpServiceConfig, UCP_CHECKOUT_SPEC_SHA256,
 };
 use sha2::{Digest as _, Sha256};
 use std::collections::HashMap;
@@ -124,7 +125,7 @@ impl LayerXSeller {
             &mut self.gateway,
             &self.principal,
             &submission,
-            payment,
+            &mut currency_config(&submission).bind_plane(payment),
             &receipt_keys(),
             trace,
             now,
@@ -141,7 +142,11 @@ impl LayerXSeller {
     fn get_order(&self, order_id: &str) -> Result<layerx_ucp::UcpOrder, UcpError> {
         let stored = self.get_executed_receipt(order_id)?;
 
-        UcpAdapter::read_order(stored, &receipt_keys())
+        UcpAdapter::read_order_with_config(
+            stored,
+            &receipt_keys(),
+            &currency_config(&stored.submission),
+        )
     }
 
     fn get_executed_receipt(&self, order_id: &str) -> Result<&StoredOrder, UcpError> {
@@ -542,4 +547,11 @@ mod producer_checkout;
 #[test]
 fn ucp_e2e_durability() {
     producer_checkout::producer_checkout("ucp-e2e-durability");
+}
+
+fn currency_config(submission: &CheckoutSubmission) -> UcpServiceConfig {
+    UcpServiceConfig::new(
+        MerchantCurrencyBinding::new(submission.currency, submission.layerx_asset, 2, 2)
+            .unwrap_or_else(|error| panic!("merchant currency binding: {error}")),
+    )
 }

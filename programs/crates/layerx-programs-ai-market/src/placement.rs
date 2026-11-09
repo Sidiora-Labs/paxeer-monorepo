@@ -1,3 +1,4 @@
+use crate::types::GuestIndex as _;
 use crate::{
     codec::{self, Envelope, Reader, ValidatedEnvelope, Writer},
     dispatch,
@@ -90,23 +91,24 @@ fn insert(
     if *count == SIDE_CAPACITY {
         return Err(CAPACITY);
     }
-    let row = &rows[index * width..(index + 1) * width];
-    let at = indices[..*count]
+    let row = rows.guest_index(index * width..(index + 1) * width);
+    let at = indices
+        .guest_index(..*count)
         .iter()
         .position(|previous| {
-            let other = &rows[usize::from(*previous) * width..][..width];
-            let price_order = row[128..144].cmp(&other[128..144]);
+            let other = (*rows.guest_index(usize::from(*previous) * width..)).guest_index(..width);
+            let price_order = row.guest_index(128..144).cmp(other.guest_index(128..144));
             (if descending {
                 price_order.reverse()
             } else {
                 price_order
             })
-            .then_with(|| row[32..64].cmp(&other[32..64]))
+            .then_with(|| row.guest_index(32..64).cmp(other.guest_index(32..64)))
             .is_lt()
         })
         .unwrap_or(*count);
-    indices.copy_within(at..*count, at + 1);
-    indices[at] = u8::try_from(index).map_err(|_| CAPACITY)?;
+    indices.guest_copy_within(at..*count, at + 1);
+    *indices.guest_index_mut(at) = u8::try_from(index).map_err(|_| CAPACITY)?;
     *count += 1;
     Ok(())
 }
@@ -117,24 +119,24 @@ impl<'a> PlacementBook<'a> {
         let counts = book.counts();
         let mut r = Reader::new(bytes);
         if !bytes.is_empty() {
-            r.take(14 + counts[0] * rooms::ROOM_RECORD_BYTES)?;
+            r.take(14 + *counts.guest_index(0) * rooms::ROOM_RECORD_BYTES)?;
         }
-        let ask_rows = r.take(counts[1] * rooms::ASK_RECORD_BYTES)?;
-        let bid_rows = r.take(counts[2] * rooms::BID_RECORD_BYTES)?;
-        let deals = r.take(counts[3] * rooms::DEAL_RECORD_BYTES)?;
+        let ask_rows = r.take(*counts.guest_index(1) * rooms::ASK_RECORD_BYTES)?;
+        let bid_rows = r.take(*counts.guest_index(2) * rooms::BID_RECORD_BYTES)?;
+        let deals = r.take(*counts.guest_index(3) * rooms::DEAL_RECORD_BYTES)?;
         r.finish()?;
         let mut consumed = [false; rooms::BID_CAPACITY];
-        for bytes in deals.chunks_exact(rooms::DEAL_RECORD_BYTES) {
+        for bytes in deals.guest_chunks_exact(rooms::DEAL_RECORD_BYTES) {
             let deal = rooms::DealRecord::decode(bytes)?;
             for split in deal.layers.iter().flatten() {
                 let index = bid_rows
-                    .chunks_exact(rooms::BID_RECORD_BYTES)
-                    .position(|row| &row[32..64] == split.bid_id.as_bytes())
+                    .guest_chunks_exact(rooms::BID_RECORD_BYTES)
+                    .position(|row| row.guest_index(32..64) == split.bid_id.as_bytes())
                     .ok_or(NON_CANONICAL)?;
-                if consumed[index] {
+                if *consumed.guest_index(index) {
                     return Err(CONFLICT);
                 }
-                consumed[index] = true;
+                *consumed.guest_index_mut(index) = true;
             }
         }
         let mut value = Self {
@@ -145,7 +147,10 @@ impl<'a> PlacementBook<'a> {
             bids: [0; SIDE_CAPACITY],
             counts: [0; 2],
         };
-        for (index, row) in ask_rows.chunks_exact(rooms::ASK_RECORD_BYTES).enumerate() {
+        for (index, row) in ask_rows
+            .guest_chunks_exact(rooms::ASK_RECORD_BYTES)
+            .enumerate()
+        {
             let ask = rooms::AskRecord::decode(row)?;
             let room = book.room(ask.room_id)?.ok_or(NON_CANONICAL)?;
             if ask.state == AskState::Open
@@ -154,7 +159,7 @@ impl<'a> PlacementBook<'a> {
             {
                 insert(
                     &mut value.asks,
-                    &mut value.counts[0],
+                    value.counts.guest_index_mut(0),
                     ask_rows,
                     rooms::ASK_RECORD_BYTES,
                     index,
@@ -162,16 +167,19 @@ impl<'a> PlacementBook<'a> {
                 )?;
             }
         }
-        for (index, row) in bid_rows.chunks_exact(rooms::BID_RECORD_BYTES).enumerate() {
+        for (index, row) in bid_rows
+            .guest_chunks_exact(rooms::BID_RECORD_BYTES)
+            .enumerate()
+        {
             let bid = rooms::BidRecord::decode(row)?;
             let room = book.room(bid.room_id)?.ok_or(NON_CANONICAL)?;
-            if !consumed[index]
+            if !*consumed.guest_index(index)
                 && room.state == RoomState::Open
                 && room.model_digest == model_digest
             {
                 insert(
                     &mut value.bids,
-                    &mut value.counts[1],
+                    value.counts.guest_index_mut(1),
                     bid_rows,
                     rooms::BID_RECORD_BYTES,
                     index,
@@ -190,12 +198,13 @@ impl<'a> PlacementBook<'a> {
         let index = usize::from(
             *self
                 .asks
-                .get(..self.counts[0])
+                .get(..*self.counts.guest_index(0))
                 .and_then(|s| s.get(index))
                 .ok_or(CAPACITY)?,
         );
         rooms::AskRecord::decode(
-            &self.ask_rows[index * rooms::ASK_RECORD_BYTES..][..rooms::ASK_RECORD_BYTES],
+            (*self.ask_rows.guest_index(index * rooms::ASK_RECORD_BYTES..))
+                .guest_index(..rooms::ASK_RECORD_BYTES),
         )
     }
 
@@ -203,48 +212,69 @@ impl<'a> PlacementBook<'a> {
         let index = usize::from(
             *self
                 .bids
-                .get(..self.counts[1])
+                .get(..*self.counts.guest_index(1))
                 .and_then(|s| s.get(index))
                 .ok_or(CAPACITY)?,
         );
         rooms::BidRecord::decode(
-            &self.bid_rows[index * rooms::BID_RECORD_BYTES..][..rooms::BID_RECORD_BYTES],
+            (*self.bid_rows.guest_index(index * rooms::BID_RECORD_BYTES..))
+                .guest_index(..rooms::BID_RECORD_BYTES),
         )
     }
 
     pub fn encode_view(&self, out: &mut [u8]) -> CodecResult<usize> {
         let len = VIEW_HEADER_BYTES
-            + self.counts[0] * ASK_VIEW_BYTES
-            + self.counts[1] * BID_VIEW_BYTES
+            + *self.counts.guest_index(0) * ASK_VIEW_BYTES
+            + *self.counts.guest_index(1) * BID_VIEW_BYTES
             + CROSSING_BYTES;
         let mut w = Writer::new(out.get_mut(..len).ok_or(CAPACITY)?);
-        w.put(b"F11P")?;
-        w.u16(1)?;
-        w.put(self.model_digest.as_bytes())?;
-        w.u8(self.counts[0] as u8)?;
-        w.u8(self.counts[1] as u8)?;
-        for index in 0..self.counts[0] {
+        crate::codec::write_fields!(w;
+            put: b"F11P";
+            u16: 1_u16;
+            id32: self.model_digest.as_bytes();
+            u8: (*(self.counts).guest_index(0)) as u8;
+            u8: (*(self.counts).guest_index(1)) as u8;
+        )?;
+        for index in 0..*self.counts.guest_index(0) {
             let ask = self.ask(index)?;
-            w.put(ask.room_id.as_bytes())?;
-            w.put(ask.ask_id.as_bytes())?;
-            w.u128(ask.maximum_price_per_thousand_tokens)?;
-            w.u128(ask.stream_id)?;
+            crate::codec::write_fields!(w;
+                id32: ask.room_id.as_bytes();
+                id32: ask.ask_id.as_bytes();
+                u128: ask.maximum_price_per_thousand_tokens;
+                u128: ask.stream_id;
+            )?;
         }
-        for index in 0..self.counts[1] {
+        for index in 0..*self.counts.guest_index(1) {
             let bid = self.bid(index)?;
-            w.put(bid.room_id.as_bytes())?;
-            w.put(bid.bid_id.as_bytes())?;
-            w.u128(bid.minimum_price_per_thousand_tokens)?;
+            crate::codec::write_fields!(w;
+                id32: bid.room_id.as_bytes();
+                id32: bid.bid_id.as_bytes();
+                u128: bid.minimum_price_per_thousand_tokens;
+            )?;
         }
         let at = w.len();
         w.put(&[0; CROSSING_BYTES])?;
-        let (orders, crossings) = out[..len].split_at_mut(at);
-        let (asks, bids) = orders[VIEW_HEADER_BYTES..].split_at(self.counts[0] * ASK_VIEW_BYTES);
-        for (a, ask) in asks.chunks_exact(ASK_VIEW_BYTES).enumerate() {
-            for (b, bid) in bids.chunks_exact(BID_VIEW_BYTES).enumerate() {
+        let (orders, crossings) = out.guest_index_mut(..len).guest_split_at_mut(at);
+        let (asks, bids) = orders
+            .guest_index(VIEW_HEADER_BYTES..)
+            .guest_split_at(*self.counts.guest_index(0) * ASK_VIEW_BYTES);
+        for (a, ask) in asks
+            .as_chunks::<{ ASK_VIEW_BYTES }>()
+            .0
+            .iter()
+            .map(|chunk| chunk.as_slice())
+            .enumerate()
+        {
+            for (b, bid) in bids
+                .as_chunks::<{ BID_VIEW_BYTES }>()
+                .0
+                .iter()
+                .map(|chunk| chunk.as_slice())
+                .enumerate()
+            {
                 if crosses(ask, bid) {
                     let bit = a * SIDE_CAPACITY + b;
-                    crossings[bit / 8] |= 1 << (bit % 8);
+                    *crossings.guest_index_mut(bit / 8) |= 1 << (bit % 8);
                 }
             }
         }
@@ -253,7 +283,9 @@ impl<'a> PlacementBook<'a> {
 }
 
 fn crosses(ask: &[u8], bid: &[u8]) -> bool {
-    ask[..32] == bid[..32] && ask[64..80] >= bid[64..80] && ask[80..96] != [0; 16]
+    *ask.guest_index(..32) == *bid.guest_index(..32)
+        && *ask.guest_index(64..80) >= *bid.guest_index(64..80)
+        && *ask.guest_index(80..96) != [0; 16]
 }
 
 #[derive(Clone, Copy, Eq, PartialEq)]
@@ -316,7 +348,7 @@ impl<'a> BookView<'a> {
             (value.bids, BID_VIEW_BYTES, false),
         ] {
             let mut previous: Option<Placement> = None;
-            for bytes in rows.chunks_exact(width) {
+            for bytes in rows.guest_chunks_exact(width) {
                 let row = Placement::decode(bytes, ask)?;
                 if let Some(p) = previous {
                     let order = p
@@ -337,11 +369,13 @@ impl<'a> BookView<'a> {
                 let expected = ai < a
                     && bi < b
                     && crosses(
-                        &value.asks[ai * ASK_VIEW_BYTES..][..ASK_VIEW_BYTES],
-                        &value.bids[bi * BID_VIEW_BYTES..][..BID_VIEW_BYTES],
+                        (*value.asks.guest_index(ai * ASK_VIEW_BYTES..))
+                            .guest_index(..ASK_VIEW_BYTES),
+                        (*value.bids.guest_index(bi * BID_VIEW_BYTES..))
+                            .guest_index(..BID_VIEW_BYTES),
                     );
                 let bit = ai * SIDE_CAPACITY + bi;
-                if (value.crossings[bit / 8] & (1 << (bit % 8)) != 0) != expected {
+                if (*value.crossings.guest_index(bit / 8) & (1 << (bit % 8)) != 0) != expected {
                     return Err(NON_CANONICAL);
                 }
             }
@@ -359,7 +393,10 @@ impl<'a> BookView<'a> {
     pub fn ask(&self, index: usize) -> CodecResult<Placement> {
         Placement::decode(
             self.asks
-                .chunks_exact(ASK_VIEW_BYTES)
+                .as_chunks::<{ ASK_VIEW_BYTES }>()
+                .0
+                .iter()
+                .map(|chunk| chunk.as_slice())
                 .nth(index)
                 .ok_or(CAPACITY)?,
             true,
@@ -369,7 +406,10 @@ impl<'a> BookView<'a> {
     pub fn bid(&self, index: usize) -> CodecResult<Placement> {
         Placement::decode(
             self.bids
-                .chunks_exact(BID_VIEW_BYTES)
+                .as_chunks::<{ BID_VIEW_BYTES }>()
+                .0
+                .iter()
+                .map(|chunk| chunk.as_slice())
                 .nth(index)
                 .ok_or(CAPACITY)?,
             false,
@@ -388,6 +428,7 @@ impl<'a> BookView<'a> {
     }
 }
 
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn apply(
     ctx: &CallContext,
     envelope: &ValidatedEnvelope<'_>,
@@ -398,7 +439,7 @@ pub fn apply(
 ) -> CodecResult<rooms::Outcome> {
     let outcome = rooms::apply(ctx, envelope, current, next, scratch, event)?;
     if let rooms::Outcome::Applied { state_len, .. } = &outcome {
-        let shared = state::decode_shared_state(&next[..*state_len])?;
+        let shared = state::decode_shared_state(next.guest_index(..*state_len))?;
         let bytes = shared.room_market()?.1;
         let mut r = Reader::new(envelope.envelope.payload);
         let room_id = r.digest32()?;

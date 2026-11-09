@@ -1,0 +1,50 @@
+[issue.1660]
+number = 1660
+title = "Receipt-key tests still expect forwarding after node-local authority change"
+revision = "bb8caac8b3e73e3e2f4b330805574f0bcb540641"
+verdict = "task"
+evidence = "The local keeper discovery and governed read introduced by commit 561806a6529dcbcf892d71a309c73ca4bc3ea5d0 remain at rpc/sequencer_receipt.go:267 and rpc/sequencer_receipt.go:338, but the fixture pins committed at rpc/sequencer_receipt_test.go:130 still lead to obsolete refusal assertions at rpc/sequencer_receipt_test.go:430 and rpc/sequencer_receipt_test.go:448, and the explicitly empty local list at rpc/sequencer_receipt_test.go:688 is still asserted equal to the proposer's nonempty response at rpc/sequencer_receipt_test.go:719, contradicting the local authority contract at spec/layerx-merge/contracts/evm-rpc.md:3715."
+close_comment = "The receipt-key tests still expect sequencer forwarding even though each node reads its own governed pins. Task 18.1660.1 updates the tests to distinguish valid, explicitly empty and missing local authority while preserving SDK interoperability and error propagation."
+
+[task.18.1660.1]
+title = "Issue #1660: Exercise local governed receipt-key authority in RPC tests"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181660.1"]
+capabilities = []
+interfaces = []
+do_1 = "Update TestReceiptKeysNotServedNamesRequestedMethod at rpc/sequencer_receipt_test.go:414 to prove that valid local pins are served without a source or explicit keeper in direct and ForwardURL configurations; use a separate committed fixture with ReceiptKeysKey genuinely absent to assert -32003, Chain read unavailable and data.code receipt_keys_unavailable in both configurations, even when the forwarding target has valid pins, retaining the separate pax_sequencerReceipt refusal assertions at rpc/sequencer_receipt_test.go:437."
+do_2 = "Give TestPublicPxReceiptKeysCanonical at rpc/sequencer_receipt_test.go:443 a separate genuinely missing-authority fixture for its error endpoint instead of reusing the valid pinned chain at rpc/sequencer_receipt_test.go:447; assert the exact authority error code, message and data, and retain all TypeScript and Python public-client initial, rotated and empty-list checks, malformed-document rejection and error propagation at rpc/sequencer_receipt_test.go:457 through rpc/sequencer_receipt_test.go:675."
+do_3 = "Update TestReceiptKeysServedByTheNode at rpc/sequencer_receipt_test.go:680 so a ForwardURL node with an explicitly empty local list answers its own empty list while the proposer retains nonempty pins, then exercise distinct nonempty local pins and independent committed rotation and empty-list updates; assert each node's exact own key bytes, order and inclusive ranges rather than response equality at rpc/sequencer_receipt_test.go:719, preserving signed-receipt verification and the sent-transaction coverage at rpc/sequencer_receipt_test.go:748."
+do_4 = "Run the three named RPC tests in one focused package verification, including both public SDK subprocess checks inside TestPublicPxReceiptKeysCanonical; use real committed keeper state and the existing HTTP server helpers, preserve every rejection and signature check, and leave production local key discovery and receipt forwarding unchanged."
+symbols = ["TestReceiptKeysNotServedNamesRequestedMethod", "TestPublicPxReceiptKeysCanonical", "TestReceiptKeysServedByTheNode"]
+touches = ["rpc/sequencer_receipt_test.go"]
+tests = ["rpc/sequencer_receipt_test.go::TestReceiptKeysNotServedNamesRequestedMethod", "rpc/sequencer_receipt_test.go::TestPublicPxReceiptKeysCanonical", "rpc/sequencer_receipt_test.go::TestReceiptKeysServedByTheNode"]
+planned_paths = []
+build_cmd = "make -s paxd-native-libs && go build ./rpc/..."
+verify_cmd = "go test -count=1 ./rpc/ -run '^(TestReceiptKeysNotServedNamesRequestedMethod|TestPublicPxReceiptKeysCanonical|TestReceiptKeysServedByTheNode)$'"
+gate_kind = "planned"
+sandbox_profile = "go-cgo"
+owner_role = "fm-rpc-api"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181660]
+title = "Receipt-key RPC tests prove local governed authority and public SDK interoperability"
+ac_1 = "Given the local authority contract at spec/layerx-merge/contracts/evm-rpc.md:3715 and the committed-pin fixture at rpc/sequencer_receipt_test.go:130, direct and ForwardURL configurations return their own exact latest committed pins, including distinct nonempty and explicitly empty lists, genuinely absent local authority returns -32003 with Chain read unavailable and data.code receipt_keys_unavailable regardless of valid upstream pins, and the three tests at rpc/sequencer_receipt_test.go:414, rpc/sequencer_receipt_test.go:443 and rpc/sequencer_receipt_test.go:680 preserve receipt signature verification, the separate receipt-method refusal, both public SDKs' interoperability, malformed-document rejection and exact error propagation."
+
+[acceptance.18.1660.1]
+feature = "18"
+req = "181660.1"
+scenario = "Given nodes with valid, explicitly empty or absent committed local receipt-key authority and a configured forwarding target with different valid pins, when the three focused RPC tests call px_getReceiptKeys and the TypeScript and Python public clients, then each node serves its own latest governed pins or the exact missing-authority error and all signature, malformed-document and SDK interoperability checks hold."
+contract = "contracts/evm-rpc.md#px-node-root-consensus-and-receipts"
+test = "rpc/sequencer_receipt_test.go::TestReceiptKeysNotServedNamesRequestedMethod; rpc/sequencer_receipt_test.go::TestPublicPxReceiptKeysCanonical; rpc/sequencer_receipt_test.go::TestReceiptKeysServedByTheNode (planned)"
+qualification = "UNRUN"

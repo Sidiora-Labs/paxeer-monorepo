@@ -206,13 +206,15 @@ def test_051_build_commands_target_the_merged_node_without_obsolete_steps():
         "running network entry point is `paxd`",
     )
     makefile = source("Makefile")
-    require(makefile, "\npaxd-native-libs: $(LIBRARY) programs-release-build\n",
+    require(makefile, "\npaxd-native-libs: $(LIBRARY) programs-release-build evmone-lib\n",
             "\npaxd-build: paxd-native-libs\n",
             "PAXEER_MAKE := $(MAKE) -f $(PAXEER_DIR)/chain.mk",
             "version=$$(jq -er .version tools/release/version.json)",
-            "GOPROXY=off $(PAXEER_MAKE) build LDFLAGS=")
+            'GOPROXY=off $(PAXEER_MAKE) build VERSION="$$version"')
     require(source("chain.mk"), "\nbuild: paxd-native-libs\n",
-            "go build $(BUILD_FLAGS) -o ./build/paxd ./daemon/paxd")
+            "go build $(BUILD_FLAGS) -o ./build/paxd ./daemon/paxd",
+            "sdk/version.Version=$(VERSION)",
+            "BUILD_FLAGS = -tags \"$(build_tags)\" -ldflags '$(paxd_ldflags)'")
     require(source("daemon/paxd/cmd/root.go"), "server.AddCommands(")
     release = section("Releases and Network Upgrades")
     require(release, "executes kernel activity inside `paxd`",

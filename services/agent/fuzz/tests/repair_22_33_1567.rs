@@ -11,7 +11,8 @@ use layerx_types::program_call::{NativeProgramCall, Resources};
 use layerx_types::program_lifecycle::{
     NativeProgramAccountProfile2, NativeProgramWindDown, ProgramWindDownOperation,
 };
-use layerx_wire::{activity, encode::Encoder};
+use layerx_wire::encode::Encoder;
+use layerx_wire::historical::activity;
 
 #[path = "../fuzz_targets/payload_codec.rs"]
 mod payload_codec;

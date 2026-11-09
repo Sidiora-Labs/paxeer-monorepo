@@ -1,0 +1,11 @@
+[meta]
+format_version = 1
+
+[golden.receipt-order]
+domain = 5
+rule = "Receipt order equals block order: sequence numbers are contiguous and prevSeqHash chains to the last accepted receipt."
+leader_source = "node/leader_source.go::App.LeaderSchedule"
+leader_switch = "Below H_act use voting-power leader election; from H_act use the committed pinned leaders L[round mod len(L)] supplied by App.LeaderSchedule."
+tests = ["node/process_proposal_order_test.go::TestOrderCheckRefusesSeqGap", "node/process_proposal_order_test.go::TestOrderCheckRefusesPrevSeqHashMismatch"]
+command = "go test ./node -run '^(TestOrderCheckRefusesSeqGap|TestOrderCheckRefusesPrevSeqHashMismatch)$' -count=1 -v"
+expect_exit = 0

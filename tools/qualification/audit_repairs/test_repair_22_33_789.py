@@ -1,6 +1,7 @@
 """Source/consumer proofs for audit 22.30.176; no compiled toolchain is needed."""
 
 import ast
+import copy
 import hashlib
 import importlib.util
 import os
@@ -432,8 +433,15 @@ def test_finding_15_kept_inventory_uses_current_authority_and_actual_inputs(tmp_
 def test_finding_15_workflow_owner_wiring_is_recorded_without_blessing_absent_filters():
     checker = workflow_module()
     document = yaml.load((ROOT / checker.WORKFLOW_PATH).read_text(), Loader=yaml.BaseLoader)
-    checker.check_filters(str(ROOT), checker.declared_paths(str(ROOT)), document['on'])
-    assert any('path filters are' in refusal for refusal in checker.REFUSALS)
+    declared = checker.declared_paths(str(ROOT))
+    checker.check_filters(str(ROOT), declared, document['on'])
+    assert checker.REFUSALS == []
+    for trigger in ('pull_request', 'push'):
+        rejected = copy.deepcopy(document['on'])
+        rejected[trigger]['paths'].remove('Makefile')
+        checker.REFUSALS.clear()
+        checker.check_filters(str(ROOT), declared, rejected)
+        assert any(f'the {trigger} path filters are' in refusal for refusal in checker.REFUSALS)
     record = (ROOT / 'tools/qualification/audit_repairs/repair_22_33_789.kvx').read_text()
     assert '.github/workflows/xweb-test.yml' in record
     assert 'fm-tools-ops' in record

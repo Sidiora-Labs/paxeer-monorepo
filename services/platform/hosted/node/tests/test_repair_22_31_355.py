@@ -11,6 +11,8 @@ import hashlib
 import http.client
 from http.server import BaseHTTPRequestHandler, HTTPServer
 import json
+import importlib.util
+from datetime import datetime
 import os
 from pathlib import Path
 import platform
@@ -235,8 +237,9 @@ def manifests():
 
 def test_treasury_projected_secret_startup(tmp_path):
     _, pod = manifests()
-    init = next(value for value in pod['initContainers'] if value['name'] == 'treasury-key')
-    signer = next(value for value in pod['containers'] if value['name'] == 'treasury-signer')
+    assert [value['name'] for value in pod['initContainers']] == ['native-home']
+    assert [value['name'] for value in pod['containers']] == ['paxd']
+    assert "'receipt.key': 'config/receipt.key'" in pod['initContainers'][0]['args'][0]
     projection, private = tmp_path / 'projection', tmp_path / 'private'
     projection.mkdir()
     private.mkdir(mode=0o700)
@@ -249,19 +252,16 @@ def test_treasury_projected_secret_startup(tmp_path):
     (projection / 'treasury.key').symlink_to('..data/treasury.key')
     with pytest.raises(OSError):
         FileProvider(projection / 'treasury.key')
-    assert init['command'] == ['python3', '/opt/layerx/projected_secret.py']
-    projected_secret.main([argument.replace('/run/treasury-input', str(projection))
-                           .replace('/run/treasury-private', str(private)) for argument in init['args']])
+    projected_secret.main(['--source', str(projection / 'treasury.key'),
+                           '--destination', str(private / 'owner/treasury.key')])
     regular = private / 'owner' / 'treasury.key'
     assert not regular.is_symlink() and regular.read_bytes() == seed
     assert stat.S_IMODE(regular.stat().st_mode) == 0o600
     assert stat.S_IMODE(regular.parent.stat().st_mode) == 0o700
     assert regular.stat().st_nlink == 1
-    assert next(volume for volume in pod['volumes'] if volume['name'] == 'treasury-private')['emptyDir']['medium'] == 'Memory'
-    users = [container['name'] for container in pod['containers']
-             if any(mount['name'] == 'treasury-private' for mount in container.get('volumeMounts', []))]
-    assert users == ['treasury-signer']
-    assert not any(mount['name'] == 'treasury-material' for mount in signer['volumeMounts'])
+    assert all(volume['name'] not in {'treasury-private', 'treasury-material'}
+               for volume in pod['volumes'])
+    assert {mount['name'] for mount in pod['containers'][0]['volumeMounts']} == {'data', 'tmp'}
     path = tmp_path / 'signer.sock'
     provider = FileProvider(regular)
     signer_backend = signer_service.Signer(provider, [os.geteuid()])
@@ -288,7 +288,9 @@ def test_treasury_projected_secret_startup(tmp_path):
 
 def test_funding_key_projection_is_private_to_core(tmp_path):
     _, pod = manifests()
-    init = next(value for value in pod['initContainers'] if value['name'] == 'funding-key')
+    assert [value['name'] for value in pod['initContainers']] == ['native-home']
+    assert [value['name'] for value in pod['containers']] == ['paxd']
+    assert "'treasury-policy.json': 'treasury-policy.json'" in pod['initContainers'][0]['args'][0]
     projection, private = tmp_path / 'projection', tmp_path / 'private'
     projection.mkdir()
     private.mkdir(mode=0o700)
@@ -301,16 +303,16 @@ def test_funding_key_projection_is_private_to_core(tmp_path):
     (version / 'sender.key').chmod(0o440)
     (projection / '..data').symlink_to(version.name, target_is_directory=True)
     (projection / 'sender.key').symlink_to('..data/sender.key')
-    assert init['command'] == ['python3', '/opt/layerx/projected_secret.py']
-    projected_secret.main([argument.replace('/run/funding-input', str(projection))
-                           .replace('/run/funding-private', str(private)) for argument in init['args']])
+    projected_secret.main(['--source', str(projection / 'sender.key'),
+                           '--destination', str(private / 'owner/sender.key')])
     regular = private / 'owner' / 'sender.key'
     assert not regular.is_symlink() and regular.read_text().strip() == scalar.hex()
     assert stat.S_IMODE(regular.stat().st_mode) == 0o600
     assert stat.S_IMODE(regular.parent.stat().st_mode) == 0o700
-    assert next(volume for volume in pod['volumes'] if volume['name'] == 'funding-private')['emptyDir']['medium'] == 'Memory'
-    assert [container['name'] for container in pod['containers']
-            if any(mount['name'] == 'funding-private' for mount in container.get('volumeMounts', []))] == ['core-boundary']
+    assert all(volume['name'] not in {'funding-private', 'funding-material'}
+               for volume in pod['volumes'])
+    assert not any(entry['name'].startswith('LAYERX_CORE_FUNDING_')
+                   for container in pod['containers'] for entry in container.get('env', []))
 
 
 def test_native_lifecycle_rejects_retired_arguments(tmp_path, capsys):
@@ -726,13 +728,11 @@ def test_deployment_retired_topology_contract():
     assert pod['shareProcessNamespace'] is False and not pod['automountServiceAccountToken']
     assert all(value['securityContext']['readOnlyRootFilesystem'] for value in pod['containers'])
     assert any(value.get('metadata', {}).get('name') == 'layerx-native-chain' for value in docs)
-    core = {value['name']: value.get('value') for value in containers['core-boundary']['env']}
-    assert 'LAYERX_CORE_LNI_SOCKET' not in core
-    assert core['LAYERX_CORE_CHAIN_RPC_URL'] == 'http://127.0.0.1:8545'
-    assert core['LAYERX_CORE_FUNDING_SENDER_KEY_FILE'] == '/run/funding-private/owner/sender.key'
-    assert 'LAYERX_CORE_FUNDING_SENDER_KMS_KEY_ID' not in core
-    assert 'LAYERX_CORE_SEQUENCER_ENDPOINT' in core
-    assert core['LAYERX_CORE_SEQUENCER_TRUST_ANCHOR_DER']
+    assert set(containers) == {'paxd'}
+    assert containers['paxd']['command'] == [
+        'python3', '/opt/layerx/kernel_runtime.py', '--home', '/data/layerx/node']
+    assert not any('LNI' in value['name'] or value['name'].startswith('LAYERX_CORE_')
+                   for container in pod['containers'] for value in container.get('env', []))
 
 
 def test_deployment_retired_topology_native_committed_reads(tmp_path, native_configuration):
@@ -744,20 +744,45 @@ def test_deployment_retired_topology_native_committed_reads(tmp_path, native_con
             with socket.socket() as connection:
                 connection.settimeout(0.2)
                 assert connection.connect_ex(('127.0.0.1', port)) != 0
-    # Exercise the manifest's Python health entrypoint against the selected generation.
-    # Image packaging is an explicit out-of-path wiring request, never a Docker gate.
     _, pod = manifests()
     container = next(item for item in pod['containers'] if item['name'] == 'paxd')
     assert container['image'] == native_configuration['image']
-    probe = container['readinessProbe']['exec']['command']
-    assert probe[:3] == ['python3', '/opt/layerx/native_runtime.py', 'health']
+    assert container['command'][1] == '/opt/layerx/kernel_runtime.py'
+    probe = container['readinessProbe']['httpGet']
+    assert probe == {'path': '/readyz', 'port': 'health'}
+    assert next(port['containerPort'] for port in container['ports']
+                if port['name'] == probe['port']) == 9460
+    spec = importlib.util.spec_from_file_location('deployed_kernel_runtime', ROOT / 'docker/kernel/kernel_runtime.py')
+    kernel = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(kernel)
+    stamp = datetime.fromisoformat(native_configuration['status']['sync_info']['latest_block_time'].replace('Z', '+00:00'))
+    checkpoint = state / 'committed.json'
     with native_supervisor(native_configuration, data, state, run, tmp_path / 'supervisor.log'):
-        result = subprocess.run([sys.executable, str(NODE / 'native_runtime.py'), 'health',
-                                 '--data-dir', str(data), '--run-dir', str(run)],
-                                capture_output=True, text=True, timeout=10)
-        assert result.returncode == 0, result.stderr
-        assert json.loads(result.stdout)['height'] > 0
-        assert native.committed_health(transport.environment((data / 'node.env').read_bytes()))['height'] > 0
+        node = transport.environment((data / 'node.env').read_bytes())
+        pid = reset.decode(native.read_regular(run / 'native-process.json', 8192))['pid']
+        readiness = kernel.CommittedReadiness(node, checkpoint, hashlib.sha256((data / 'config/genesis.json').read_bytes()).hexdigest(),
+                                     pid, clock=stamp.timestamp)
+        for _ in range(2):
+            server = kernel.readiness_server(readiness, ('127.0.0.1', 0))
+            worker = threading.Thread(target=server.serve_forever)
+            worker.start()
+            connection = http.client.HTTPConnection('127.0.0.1', server.server_port, timeout=5)
+            try:
+                connection.request('GET', probe['path'])
+                response = connection.getresponse()
+                value = json.loads(response.read())
+                assert response.status == 200 and value['ready'] is True
+                assert value['chain_id'] == 125 and value['height'] > 0
+                assert reset.decode(native.read_regular(checkpoint))['height'] == value['height']
+            finally:
+                connection.close()
+                server.shutdown()
+                worker.join(timeout=5)
+                assert not worker.is_alive()
+                server.server_close()
+            readiness = kernel.CommittedReadiness(node, checkpoint, readiness.genesis, pid, clock=stamp.timestamp)
+        readiness.clock = lambda: stamp.timestamp() + kernel.MAXIMUM_COMMIT_AGE + 1
+        assert readiness.probe() == (503, {'ready': False, 'chain_id': 125})
 
 
 def test_supervisor_retired_launch_reopens_native_process(tmp_path, native_configuration):

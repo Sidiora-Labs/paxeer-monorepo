@@ -101,12 +101,42 @@ BUILD_FLAGS_BENCHMARK = -tags "$(build_tags) benchmark mock_balances" -ldflags '
 
 all: lint install
 
+EVMONE_BUILD_DIR := $(PAXEER_PROJECT_HOME)/build/evmone-0.12.0
+EVMONE_SOURCE_DIR := $(EVMONE_BUILD_DIR)/source
+EVMONE_LIBRARY := $(PAXEER_PROJECT_HOME)/engine/executor/lib/libevmone.0.12.0_linux_amd64.so
+
+# The linux/arm64 and darwin/arm64 loader filenames remain unbuilt by this target.
+.PHONY: evmone-lib
+evmone-lib:
+	@if [ -f "$(EVMONE_LIBRARY)" ]; then exit 0; fi; \
+	set -eu; \
+	if [ "$$(uname -s):$$(uname -m)" != Linux:x86_64 ]; then \
+		echo "evmone-lib currently builds only linux/amd64; linux/arm64 and darwin/arm64 libraries are unbuilt" >&2; \
+		exit 1; \
+	fi; \
+	mkdir -p "$(EVMONE_BUILD_DIR)"; \
+	if [ ! -d "$(EVMONE_SOURCE_DIR)/.git" ]; then \
+		git clone --branch v0.12.0 --depth 1 https://github.com/ethereum/evmone.git "$(EVMONE_SOURCE_DIR)"; \
+	fi; \
+	test "$$(git -C "$(EVMONE_SOURCE_DIR)" rev-parse HEAD)" = "$$(git -C "$(EVMONE_SOURCE_DIR)" rev-parse v0.12.0^{commit})"; \
+	git -C "$(EVMONE_SOURCE_DIR)" submodule update --init --recursive --depth 1 evmc; \
+	HUNTER_ROOT="$(EVMONE_BUILD_DIR)/hunter" cmake \
+		-S "$(EVMONE_SOURCE_DIR)" -B "$(EVMONE_BUILD_DIR)/cmake" \
+		-DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=ON \
+		-DEVMONE_TESTING=OFF -DEVMC_TESTING=OFF -DEVMC_TOOLS=OFF \
+		-DEVMONE_X86_64_ARCH_LEVEL=1 -DCMAKE_INSTALL_LIBDIR=lib; \
+	cmake --build "$(EVMONE_BUILD_DIR)/cmake" --target evmone --parallel 2; \
+	cp "$(EVMONE_BUILD_DIR)/cmake/lib/libevmone.so.0.12.0" "$(EVMONE_LIBRARY)"
+
 # paxd links the LayerX kernel (build/liblayerx.a) and the programs sandbox
 # (programs/target/release/liblayerx_programs_sandbox.a) through the cgo
 # directives in modules/lxphost; the root Makefile builds both.
 .PHONY: paxd-native-libs
 paxd-native-libs:
 	$(MAKE) -C $(PAXEER_PROJECT_HOME) -f Makefile paxd-native-libs
+	@for archive in $(NATIVE_ARCHIVES); do \
+		test -f "$$archive" || { echo "Missing native archive: $$archive" >&2; exit 1; }; \
+	done
 
 install: go.sum paxd-native-libs
 		go install $(BUILD_FLAGS) ./daemon/paxd

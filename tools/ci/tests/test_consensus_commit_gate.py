@@ -182,3 +182,53 @@ def test_seeded_list_names_the_cited_commits():
     for sha in SEEDED_COMMITS:
         git(ROOT, "cat-file", "-e", f"{sha}^{{commit}}")
         git(ROOT, "merge-base", "--is-ancestor", sha, "HEAD")
+
+
+def test_v7_ledger_covers_history_from_latest_v6120_commit():
+    spec = importlib.util.spec_from_file_location("consensus_commit_gate", SCRIPT)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    base = "68c8887a9520542d2878da3d6a44920ddd71b4b1"
+    unlisted = module.unlisted_consensus_commits(ROOT, base, "HEAD", LIST_PATH)
+    assert unlisted == {}, unlisted
+    document = (ROOT / LIST_PATH).read_text(encoding="utf-8")
+    current, historical = document.split("## Historical v6.12.0 ledger\n", 1)
+    assert base in historical
+    assert base in current
+    assert "tools/ci/consensus_ledger_rows.py" in current
+    assert module._table_commits(historical) == SEEDED_COMMITS - {
+        "12fbbeb80389f9021d791db00d3f32101ea51668"
+    }
+    preserved = "12fbbeb80389f9021d791db00d3f32101ea51668"
+    git(ROOT, "merge-base", "--is-ancestor", preserved, base)
+    history = module._git(ROOT, *module.HISTORY_ARGS, f"{base}..HEAD", "--")
+    changes = {
+        preserved: module.consensus_paths_touched(ROOT, preserved),
+        **module.consensus_changes_from_history(history),
+    }
+    expected = {sha for sha, paths in changes.items() if paths}
+    rows = [
+        line
+        for line in current.splitlines()
+        if line.startswith("| `")
+        and len(line.split("|")[1].strip(" `")) == 40
+    ]
+    actual = [line.split("|")[1].strip(" `") for line in rows]
+    assert set(actual) == expected
+    assert len(actual) == len(expected)
+    assert rows[0] == (
+        f"| `{preserved}` | Read the sequenced flag from chain state and the "
+        "applied merge-plan height, so node-local configuration cannot change "
+        "the accepted block format. | `node/app.go`, "
+        "`node/sequencer/consensus_source.go` | v7.0.0 coordinated binary "
+        "upgrade through `MergeUpgrade` (`v7.0`); sequenced blocks activate "
+        "as recorded in chain state. |"
+    )
+    for row in rows:
+        assert len(row.split("|")) == 6, row
+        sha = row.split("|")[1].strip(" `")
+        assert row.split("|")[3].strip() == ", ".join(
+            f"`{path}`" for path in changes[sha]
+        )
+        assert "v7.0" in row.split("|")[4]
+        assert "MergeUpgrade" in row.split("|")[4]

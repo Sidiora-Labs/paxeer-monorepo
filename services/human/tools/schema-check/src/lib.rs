@@ -11,7 +11,17 @@ const PRIMITIVES: &[&str] = &["string", "boolean", "integer", "object"];
 
 const METHODS: &[&str] = &["GET", "POST", "PUT", "PATCH", "DELETE"];
 
-const SCALAR_FORMATS: &[&str] = &["decimal", "currency", "rfc3339-utc", "copy-key"];
+const CHALLENGE_FORMAT: &str = "chg_ followed by exactly 32 lowercase hexadecimal characters minted from sixteen entropy bytes. The same identifier references completed evidence for bound decisions.";
+const DIGEST_FORMAT: &str = "opd_ followed by exactly 64 lowercase hexadecimal characters encoding the canonical 32-byte operation digest.";
+
+const SCALAR_FORMATS: &[&str] = &[
+    "decimal",
+    "currency",
+    "rfc3339-utc",
+    "copy-key",
+    CHALLENGE_FORMAT,
+    DIGEST_FORMAT,
+];
 
 #[derive(Debug, Eq, PartialEq)]
 pub struct Violation {
@@ -1070,6 +1080,8 @@ fn check_operation_declarations(
 
 fn format_matches(format: &str, text: &str) -> bool {
     match format {
+        CHALLENGE_FORMAT => prefixed_hex_matches(text, "chg_", 32),
+        DIGEST_FORMAT => prefixed_hex_matches(text, "opd_", 64),
         "decimal" => !text.is_empty() && text.bytes().all(|byte| byte.is_ascii_digit()),
         "currency" => {
             text.bytes()
@@ -1097,6 +1109,15 @@ fn format_matches(format: &str, text: &str) -> bool {
         }
         _ => false,
     }
+}
+
+fn prefixed_hex_matches(text: &str, prefix: &str, digits: usize) -> bool {
+    text.strip_prefix(prefix).is_some_and(|value| {
+        value.len() == digits
+            && value
+                .bytes()
+                .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
+    })
 }
 
 fn is_integer_text(text: &str) -> bool {
@@ -2290,7 +2311,140 @@ fn check_golden(
     vectors
 }
 
-fn check_orphan_goldens(root: &Path, model: &Model, push: bool, violations: &mut Vec<Violation>) {
+fn check_supplemental_goldens(
+    root: &Path,
+    files: &[SchemaFile],
+    model: &Model,
+    encoding: &Encoding,
+    violations: &mut Vec<Violation>,
+) -> BTreeSet<PathBuf> {
+    let mut owned = BTreeSet::new();
+    for operation in &model.operations {
+        let Some(entries) = files
+            .iter()
+            .find(|file| file.path == operation.origin)
+            .and_then(|file| file.sections.get(&format!("operation.{}", operation.name)))
+        else {
+            continue;
+        };
+        for key in [
+            "golden_requests",
+            "golden_responses",
+            "golden_failures",
+            "golden_inputs",
+            "golden_artifacts",
+        ] {
+            let Some(value) = entries.get(key) else {
+                continue;
+            };
+            let Some(paths) = parse_list(value) else {
+                violations.push(violation(
+                    &operation.origin,
+                    "invalid-golden-ownership",
+                    format!(
+                        "operation.{}.{key} must list relative fixture paths",
+                        operation.name
+                    ),
+                ));
+                continue;
+            };
+            for relative in paths {
+                let components: Vec<_> = Path::new(&relative).components().collect();
+                if components.len() != 2
+                    || !components
+                        .iter()
+                        .all(|part| matches!(part, std::path::Component::Normal(_)))
+                    || relative.contains('\\')
+                    || relative
+                        .split('/')
+                        .any(|part| part.is_empty() || part == "." || part == "..")
+                    || relative.starts_with("stream-push-v2/")
+                {
+                    violations.push(violation(
+                        &operation.origin,
+                        "invalid-golden-ownership",
+                        format!("{relative} must name a file inside one supplemental golden set"),
+                    ));
+                    continue;
+                }
+                let path = root.join("golden").join(relative);
+                if !owned.insert(path.clone()) {
+                    violations.push(violation(
+                        &path,
+                        "duplicate-golden-ownership",
+                        "a supplemental fixture must belong to exactly one operation and role",
+                    ));
+                    continue;
+                }
+                check_supplemental_golden(model, encoding, operation, &path, key, violations);
+            }
+        }
+    }
+    owned
+}
+
+fn check_supplemental_golden(
+    model: &Model,
+    encoding: &Encoding,
+    operation: &Operation,
+    path: &Path,
+    role: &str,
+    violations: &mut Vec<Violation>,
+) {
+    let Ok(bytes) = fs::read(path) else {
+        violations.push(violation(
+            path,
+            "missing-golden-vector",
+            "declared supplemental fixture is missing",
+        ));
+        return;
+    };
+    if role == "golden_artifacts" {
+        if bytes.is_empty() {
+            violations.push(violation(
+                path,
+                "invalid-golden-artifact",
+                "a producer artifact must not be empty",
+            ));
+        }
+        return;
+    }
+    let vector = match std::str::from_utf8(&bytes)
+        .map_err(|error| error.to_string())
+        .and_then(parse_json)
+    {
+        Ok(vector) => vector,
+        Err(detail) => {
+            violations.push(violation(path, "invalid-golden-json", detail));
+            return;
+        }
+    };
+    match role {
+        "golden_requests" => {
+            check_golden_request(model, encoding, operation, path, &vector, violations)
+        }
+        "golden_responses" => check_golden_response(model, operation, path, &vector, violations),
+        "golden_failures" => check_golden_failure(model, operation, path, &vector, violations),
+        "golden_inputs" => {
+            if !matches!(vector, Json::Object(ref fields) if !fields.is_empty()) {
+                violations.push(violation(
+                    path,
+                    "invalid-golden-input",
+                    "a producer input must be a non-empty JSON object",
+                ));
+            }
+        }
+        _ => unreachable!("supplemental roles are enumerated by check_supplemental_goldens"),
+    }
+}
+
+fn check_orphan_goldens(
+    root: &Path,
+    model: &Model,
+    push: bool,
+    supplemental: &BTreeSet<PathBuf>,
+    violations: &mut Vec<Violation>,
+) {
     let golden = root.join("golden");
     let Ok(entries) = fs::read_dir(&golden) else {
         violations.push(violation(
@@ -2306,16 +2460,50 @@ fn check_orphan_goldens(root: &Path, model: &Model, push: bool, violations: &mut
         if push && name == "stream-push-v2" && path.is_dir() {
             continue;
         }
+        if path.is_dir()
+            && supplemental
+                .iter()
+                .any(|file| file.parent() == Some(path.as_path()))
+        {
+            match fs::read_dir(&path) {
+                Ok(children) => {
+                    for child in children {
+                        match child {
+                            Ok(child)
+                                if child.path().is_file()
+                                    && supplemental.contains(&child.path()) => {}
+                            Ok(child) => violations.push(violation(
+                                &child.path(),
+                                "orphan-golden-vector",
+                                "supplemental fixtures must belong to a declared operation",
+                            )),
+                            Err(error) => violations.push(violation(
+                                &path,
+                                "invalid-golden-directory",
+                                error.to_string(),
+                            )),
+                        }
+                    }
+                }
+                Err(error) => violations.push(violation(
+                    &path,
+                    "invalid-golden-directory",
+                    error.to_string(),
+                )),
+            }
+            continue;
+        }
         let stem = name
             .strip_suffix(".request.json")
             .or_else(|| name.strip_suffix(".response.json"))
             .or_else(|| name.strip_suffix(".failure.json"));
-        let owned = stem.is_some_and(|stem| {
-            model
-                .operations
-                .iter()
-                .any(|operation| operation.name == stem)
-        });
+        let owned = path.is_file()
+            && stem.is_some_and(|stem| {
+                model
+                    .operations
+                    .iter()
+                    .any(|operation| operation.name == stem)
+            });
         if !owned {
             violations.push(violation(
                 &path,
@@ -2556,7 +2744,8 @@ pub fn human_api_schema(root: &Path) -> Result<SchemaReport, Vec<Violation>> {
     for operation in &model.operations {
         golden_vectors += check_golden(root, &model, &encoding, operation, &mut violations);
     }
-    check_orphan_goldens(root, &model, push, &mut violations);
+    let supplemental = check_supplemental_goldens(root, &files, &model, &encoding, &mut violations);
+    check_orphan_goldens(root, &model, push, &supplemental, &mut violations);
     let mut all_files = files;
     if let Some(compatibility) =
         check_compatibility(root, header.major, header.minor, &mut violations)

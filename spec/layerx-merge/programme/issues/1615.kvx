@@ -1,0 +1,7 @@
+[issue.1615]
+number = 1615
+title = "[Coherence] The audit record reports the Programs contract page as missing, but it exists under spec/layerx-merge/contracts/programs.md with the cited #runtime-crate anchor"
+revision = "bb8caac8b3e73e3e2f4b330805574f0bcb540641"
+verdict = "spec-edit"
+evidence = "The registry target at spec/layerx-merge/interfaces.kvx:562199 resolves to spec/layerx-merge/contracts/programs.md:491, whose table lists portable_replay.rs, replay_record.rs and terminal.rs at lines 540, 543 and 549, yet spec/layerx-merge/programme/audit/records/22.30.123.kvx:553 and :621 still declare the page absent and completed task 22.33.218 at spec/layerx-merge/spec.kvx:198961 repeats the restoration proposal at :198973 despite commit a8b57f6565e271f28fef5563dee977f72ca5bc34 adding a separate runtime contract tested at programs/crates/layerx-programs-runtime/tests/repair_22_33_218.rs:519; the specification must mark doc.013 as present, retract finding.022's missing-page premise and correct the completed task's restoration or migration instruction without redirecting valid registry links."
+close_comment = "The Programs contract exists at spec/layerx-merge/contracts/programs.md with the runtime-crate anchor and the cited terminal and replay modules. Correct the audit's missing-page classification and the completed repair task's restoration or migration instruction; any remaining contract finding must identify content drift in the existing page."

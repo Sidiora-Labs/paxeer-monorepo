@@ -1,3 +1,4 @@
+use crate::types::GuestIndex as _;
 use crate::{
     codec::{self, Envelope, EventCommon, Reader, ValidatedEnvelope, Writer},
     dispatch,
@@ -71,13 +72,15 @@ impl CanaryTask {
         self.profile.validate()?;
         let mut out = [0; CANARY_COMMIT_BYTES];
         let mut w = Writer::new(&mut out);
-        w.put(CANARY_TASK_KIND)?;
-        w.put(self.deal.as_bytes())?;
-        w.u64(self.lap)?;
-        w.put(self.peer.as_bytes())?;
-        w.put(self.prompt_digest.as_bytes())?;
-        w.put(self.expected_logits_digest.as_bytes())?;
-        w.put(self.answer_digest.as_bytes())?;
+        crate::codec::write_fields!(w;
+            put: CANARY_TASK_KIND;
+            id32: self.deal.as_bytes();
+            u64: self.lap;
+            id32: self.peer.as_bytes();
+            id32: self.prompt_digest.as_bytes();
+            id32: self.expected_logits_digest.as_bytes();
+            id32: self.answer_digest.as_bytes();
+        )?;
         w.room_profile(&self.profile.room)?;
         w.u16(self.profile.relative_tolerance_bps)?;
         w.put(&self.peer_signature.0)?;
@@ -114,28 +117,36 @@ impl CanaryTask {
         w.put(host.as_bytes())?;
         w.put(&self.encode()?)?;
         let n = w.len();
-        codec::domain_hash("PAXAI/canary-commit/v1", &out[..n])
+        codec::domain_hash("PAXAI/canary-commit/v1", out.guest_index(..n))
     }
     #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn answer_attestation(&self, binding: &FrozenBinding) -> CodecResult<Digest32> {
         let mut out = [0; 160 + 32 + 8 + 32 + 32 + 32];
         let mut w = Writer::new(&mut out);
         codec::write_frozen_binding(&mut w, binding)?;
-        w.put(self.deal.as_bytes())?;
-        w.u64(self.lap)?;
-        w.put(self.peer.as_bytes())?;
-        w.put(self.prompt_digest.as_bytes())?;
-        w.put(self.answer_digest.as_bytes())?;
+        crate::codec::write_fields!(w;
+            id32: self.deal.as_bytes();
+            u64: self.lap;
+            id32: self.peer.as_bytes();
+            id32: self.prompt_digest.as_bytes();
+            id32: self.answer_digest.as_bytes();
+        )?;
         let n = w.len();
-        codec::domain_hash("PAXAI/canary-answer/v1", &out[..n])
+        codec::domain_hash("PAXAI/canary-answer/v1", out.guest_index(..n))
     }
 }
 
 #[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn encode_logits(logits: &CanaryLogits) -> [u8; 32] {
     let mut bytes = [0; 32];
-    for (chunk, value) in bytes.chunks_exact_mut(4).zip(logits) {
-        chunk.copy_from_slice(&value.to_be_bytes());
+    for (chunk, value) in bytes
+        .as_chunks_mut::<{ 4 }>()
+        .0
+        .iter_mut()
+        .map(|chunk| chunk.as_mut_slice())
+        .zip(logits)
+    {
+        chunk.guest_copy_from_slice(&value.to_be_bytes());
     }
     bytes
 }
@@ -145,7 +156,13 @@ pub fn decode_logits(bytes: &[u8]) -> CodecResult<CanaryLogits> {
         return Err(NON_CANONICAL);
     }
     let mut logits = [0; TOP_LOGITS];
-    for (value, chunk) in logits.iter_mut().zip(bytes.chunks_exact(4)) {
+    for (value, chunk) in logits.iter_mut().zip(
+        bytes
+            .as_chunks::<{ 4 }>()
+            .0
+            .iter()
+            .map(|chunk| chunk.as_slice()),
+    ) {
         *value = i32::from_be_bytes(chunk.try_into().map_err(|_| NON_CANONICAL)?);
     }
     Ok(logits)
@@ -181,9 +198,11 @@ impl CanaryReveal {
     pub fn encode(&self) -> CodecResult<[u8; CANARY_REVEAL_BYTES]> {
         let mut out = [0; CANARY_REVEAL_BYTES];
         let mut w = Writer::new(&mut out);
-        w.put(CANARY_TASK_KIND)?;
-        w.put(self.commitment.as_bytes())?;
-        w.put(self.prompt_digest.as_bytes())?;
+        crate::codec::write_fields!(w;
+            put: CANARY_TASK_KIND;
+            id32: self.commitment.as_bytes();
+            id32: self.prompt_digest.as_bytes();
+        )?;
         w.put(&encode_logits(&self.logits))?;
         Ok(out)
     }
@@ -248,12 +267,14 @@ impl CanaryCommitment {
     fn encode(&self) -> CodecResult<[u8; RECORD_BYTES]> {
         let mut out = [0; RECORD_BYTES];
         let mut w = Writer::new(&mut out);
-        w.put(self.id.as_bytes())?;
-        w.u64(self.epoch)?;
-        w.u64(self.config)?;
-        w.put(self.roster.as_bytes())?;
-        w.put(self.host.as_bytes())?;
-        w.u64(self.committed_height)?;
+        crate::codec::write_fields!(w;
+            id32: self.id.as_bytes();
+            u64: self.epoch;
+            u64: self.config;
+            id32: self.roster.as_bytes();
+            id32: self.host.as_bytes();
+            u64: self.committed_height;
+        )?;
         w.put(&self.task.encode()?)?;
         w.u8(u8::from(self.revealed_height.is_some()))?;
         w.put(&encode_logits(&self.expected_logits))?;
@@ -273,12 +294,13 @@ impl CanaryCommitment {
     #[cfg_attr(target_arch = "wasm32", inline(never))]
     fn decode(bytes: &[u8]) -> CodecResult<Self> {
         let mut r = Reader::new(bytes);
-        let id = r.digest32()?;
-        let epoch = r.u64()?;
-        let config = r.u64()?;
-        let roster = r.roster_digest()?;
-        let host = r.principal_id()?;
-        let committed_height = r.u64()?;
+        let (id, epoch, config, roster, host, committed_height) = crate::codec::read_values!(&mut r; id = r.digest32()?;
+            epoch: U64,
+            config: U64,
+            roster: RosterDigest,
+            host: PrincipalId,
+            committed_height: U64,
+        );
         let task = CanaryTask::decode(r.take(CANARY_COMMIT_BYTES)?)?;
         let revealed = r.u8()?;
         let expected_logits = decode_logits(r.take(32)?)?;
@@ -369,7 +391,7 @@ impl<'a> CanaryRegion<'a> {
         let seals = SealRegion::decode(features)?;
         let challenges = ChallengeRegion::decode(seals.rest())?;
         let bytes = challenges.rest();
-        let prefix = &features[..features.len() - bytes.len()];
+        let prefix = features.guest_index(..features.len() - bytes.len());
         if bytes.is_empty() {
             return Ok(Self {
                 prefix,
@@ -386,10 +408,22 @@ impl<'a> CanaryRegion<'a> {
             return Err(NON_CANONICAL);
         }
         let records = r.take(count * RECORD_BYTES)?;
-        let rest = &bytes[r.offset()..];
-        for (i, row) in records.chunks_exact(RECORD_BYTES).enumerate() {
+        let rest = bytes.guest_index(r.offset()..);
+        for (i, row) in records
+            .as_chunks::<{ RECORD_BYTES }>()
+            .0
+            .iter()
+            .map(|chunk| chunk.as_slice())
+            .enumerate()
+        {
             let record = CanaryCommitment::decode(row)?;
-            for previous in records[..i * RECORD_BYTES].chunks_exact(RECORD_BYTES) {
+            for previous in records
+                .guest_index(..i * RECORD_BYTES)
+                .as_chunks::<{ RECORD_BYTES }>()
+                .0
+                .iter()
+                .map(|chunk| chunk.as_slice())
+            {
                 let previous = CanaryCommitment::decode(previous)?;
                 if previous.id == record.id
                     || (previous.epoch == record.epoch
@@ -409,7 +443,10 @@ impl<'a> CanaryRegion<'a> {
     }
     pub fn records(&self) -> impl Iterator<Item = CodecResult<CanaryCommitment>> + '_ {
         self.records
-            .chunks_exact(RECORD_BYTES)
+            .as_chunks::<{ RECORD_BYTES }>()
+            .0
+            .iter()
+            .map(|chunk| chunk.as_slice())
             .map(CanaryCommitment::decode)
     }
     #[cfg_attr(target_arch = "wasm32", inline(never))]
@@ -431,10 +468,12 @@ impl<'a> CanaryRegion<'a> {
         }
         let mut w = Writer::new(out);
         if self.prefix.is_empty() {
-            w.u64(record.epoch)?;
-            w.u8(0)?;
-            w.u64(record.epoch)?;
-            w.u16(0)?;
+            crate::codec::write_fields!(w;
+                u64: record.epoch;
+                u8: 0;
+                u64: record.epoch;
+                u16: 0_u16;
+            )?;
         } else {
             w.put(self.prefix)?;
             if SealRegion::decode(self.prefix)?.rest().is_empty() {
@@ -444,7 +483,13 @@ impl<'a> CanaryRegion<'a> {
         }
         w.put(REGION_MAGIC)?;
         w.u8(u8::try_from(count).map_err(|_| CAPACITY)?)?;
-        for row in self.records.chunks_exact(RECORD_BYTES) {
+        for row in self
+            .records
+            .as_chunks::<{ RECORD_BYTES }>()
+            .0
+            .iter()
+            .map(|chunk| chunk.as_slice())
+        {
             if CanaryCommitment::decode(row)?.id == record.id {
                 w.put(&record.encode()?)?;
             } else {
@@ -483,7 +528,11 @@ pub(crate) fn check_call<'a>(
     e: &Envelope<'_>,
     state: &SharedState<'a>,
 ) -> CodecResult<PolicySection<'a>> {
-    let section = PolicySection::decode(state.feature_sections[Section::PolicyLifecycle.index()])?;
+    let section = PolicySection::decode(
+        *state
+            .feature_sections
+            .guest_index(Section::PolicyLifecycle.index()),
+    )?;
     e.check_domain(
         ctx.chain,
         ctx.program,
@@ -641,8 +690,8 @@ pub(crate) fn persist(
     let (features, control) = rest.split_at_mut_checked(CONTROL_CAP).ok_or(CAPACITY)?;
     let pn = section.encode(policy)?;
     let n = CanaryRegion::decode(state.control.feature_bytes)?.write(&record, features)?;
-    let mut candidate = state.replace_section(Section::PolicyLifecycle, &policy[..pn])?;
-    candidate.control.feature_bytes = &features[..n];
+    let mut candidate = state.with_section(Section::PolicyLifecycle, policy.guest_index(..pn))?;
+    candidate.control.feature_bytes = features.guest_index(..n);
     let result = codec::result_digest(payload)?;
     if let Some(request) = request {
         if candidate.record_success(request, ctx.height, result)? != ReplayDecision::Apply {
@@ -709,21 +758,22 @@ impl ChallengeLapPayload {
     pub fn encode(&self) -> CodecResult<[u8; 88]> {
         let mut out = [0; 88];
         let mut w = Writer::new(&mut out);
-        w.put(self.deal.as_bytes())?;
-        w.u64(self.lap)?;
-        w.put(self.commitment.as_bytes())?;
-        w.u128(self.deposit)?;
+        crate::codec::write_fields!(w;
+            id32: self.deal.as_bytes();
+            u64: self.lap;
+            id32: self.commitment.as_bytes();
+            u128: self.deposit;
+        )?;
         Ok(out)
     }
     #[cfg_attr(target_arch = "wasm32", inline(never))]
     fn decode(bytes: &[u8]) -> CodecResult<Self> {
         let mut r = Reader::new(bytes);
-        let value = Self {
-            deal: r.digest32()?,
-            lap: r.u64()?,
-            commitment: r.digest32()?,
-            deposit: r.u128()?,
-        };
+        let value = crate::codec::read_record!(&mut r, Self {  }; deal = r.digest32()?;
+            lap: U64,
+            commitment: Digest32,
+            deposit: U128
+        );
         r.finish()?;
         Ok(value)
     }
@@ -740,9 +790,11 @@ impl ResolveChallengePayload {
     pub fn encode(&self) -> CodecResult<[u8; 104]> {
         let mut out = [0; 104];
         let mut w = Writer::new(&mut out);
-        w.put(self.deal.as_bytes())?;
-        w.u64(self.lap)?;
-        w.put(self.commitment.as_bytes())?;
+        crate::codec::write_fields!(w;
+            id32: self.deal.as_bytes();
+            u64: self.lap;
+            id32: self.commitment.as_bytes();
+        )?;
         w.put(&encode_logits(&self.answer))?;
         Ok(out)
     }
@@ -787,6 +839,7 @@ pub fn challenge_window(origin: u64, record: &CanaryCommitment) -> CodecResult<H
             .ok_or(ARITHMETIC)?,
     })
 }
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn apply_challenge_lap(
     ctx: &CallContext,
     envelope: &ValidatedEnvelope<'_>,
@@ -841,6 +894,7 @@ pub fn apply_challenge_lap(
         event,
     )
 }
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn apply_resolve_challenge(
     ctx: &CallContext,
     envelope: &ValidatedEnvelope<'_>,
@@ -886,8 +940,10 @@ pub fn apply_resolve_challenge(
     record.resolve_request = Some(digest);
     record.resolved_height = ctx.height;
     let mut result = [0; 33];
-    result[..32].copy_from_slice(record.id.as_bytes());
-    result[32] = record.status as u8;
+    result
+        .guest_index_mut(..32)
+        .guest_copy_from_slice(record.id.as_bytes());
+    *result.guest_index_mut(32) = record.status as u8;
     persist(
         ctx, e, digest, current, record, None, &result, next, scratch, event,
     )
@@ -944,6 +1000,7 @@ pub fn value_action(
 }
 
 #[cfg(target_arch = "wasm32")]
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn stage_value(
     operation: dispatch::Operation,
     before: &[u8],
@@ -954,7 +1011,11 @@ pub fn stage_value(
         return Ok(());
     }
     let state = decode_shared_state(after)?;
-    let section = PolicySection::decode(state.feature_sections[Section::PolicyLifecycle.index()])?;
+    let section = PolicySection::decode(
+        *state
+            .feature_sections
+            .guest_index(Section::PolicyLifecycle.index()),
+    )?;
     let bound = crate::value_adapter::RewardsAccount::derive(
         section.header.program_id,
         section.header.funding_asset,

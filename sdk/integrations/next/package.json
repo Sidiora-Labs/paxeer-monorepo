@@ -36,8 +36,9 @@
   "scripts": {
     "prebuild": "npm --prefix ../../.. run build:dependencies -- @sidiora/layerx-next",
     "build": "tsc -p tsconfig.json",
-    "test": "npm run build && node --test test/*.test.mjs && npm --prefix example test",
-    "test:fulfillment": "node --test example/test/repair-22-33-619.test.mjs"
+    "test": "node --test test/*.test.mjs && npm --prefix example test",
+    "test:fulfillment": "node --test example/test/repair-22-33-619.test.mjs",
+    "pretest": "npm run build"
   },
   "dependencies": {
     "@sidiora/layerx-buyer-middleware": "file:../../../services/platform/middleware/buyer",

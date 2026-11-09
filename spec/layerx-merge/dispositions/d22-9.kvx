@@ -1,3 +1,6 @@
+# Additional 22.33-series dispositions: d22-23.kvx (task 22.39.191).
+# Ordered finding inventory: ../programme/closure/22.39.191.ids.
+
 [disposition.22.13.6.5]
 finding = "22.13.6.5"
 status = "resolved"

@@ -1,0 +1,49 @@
+[issue.1589]
+number = 1589
+title = "[Coherence] The audit record reports contracts/services.md and contracts/clients.md as missing, but the registry links resolve to existing pages and anchors under spec/layerx-merge/contracts"
+revision = "bb8caac8b3e73e3e2f4b330805574f0bcb540641"
+verdict = "task"
+evidence = "The false absence claim introduced by e693aaf338d1322919ea6863ec11965105301ed1 remains at spec/layerx-merge/programme/audit/records/22.30.31.kvx:1023 and :1209 and :1214, although registry targets at spec/layerx-merge/interfaces.kvx:89628, :77612, :75993 and :77411 resolve to existing headings at spec/layerx-merge/contracts/services.md:3105 and :3046 and spec/layerx-merge/contracts/clients.md:739 and :443, so the audit record needs a documentation correction."
+close_comment = "The launchpad discovery, API, web app and SDK contract links resolve to existing pages and anchors under spec/layerx-merge/contracts. A focused documentation correction is tracked to remove the false missing-page finding and correct the audit entries while preserving independently evidenced content drift."
+
+[task.18.1589.1]
+title = "Issue #1589: Correct the launchpad audit contract-link resolution"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181589.1"]
+capabilities = []
+interfaces = []
+do_1 = "Correct spec/layerx-merge/programme/audit/records/22.30.31.kvx:1018 by removing the false missing-interface-contract-pages finding and its restore-or-retarget proposal; change findings from 38 to 37 at :5 and file.124 at :751 to clean with a factual SourceAuthority review note, since its only finding is the false missing-page claim, preserving all other findings, blocking entries and upgrade_ready."
+do_2 = "At spec/layerx-merge/programme/audit/records/22.30.31.kvx:1209 and :1214 use repository paths spec/layerx-merge/contracts/services.md and spec/layerx-merge/contracts/clients.md, read their launchpad sections against the linked implementations, replace missing with the evidence-supported accurate, stale or misleading status, and cite any actual content drift separately; do not create replacement contract pages or retarget valid registry links."
+do_3 = "Include these exact link-resolution sentences in the respective doc notes: Registry contract links resolve relative to spec/layerx-merge; launchpad-discovery and launchpad-api exist in spec/layerx-merge/contracts/services.md. Registry contract links resolve relative to spec/layerx-merge; launchpad-web-app and launchpad-sdk-sdk exist in spec/layerx-merge/contracts/clients.md. The focused documentation check asserts both sentences, both canonical paths and non-missing statuses, the clean wire.go entry, the reconciled finding count and absence of the false finding and missing-page wording."
+symbols = []
+touches = ["spec/layerx-merge/programme/audit/records/22.30.31.kvx"]
+tests = ["spec/layerx-merge/programme/audit/records/22.30.31.kvx::contract_link_resolution"]
+planned_paths = []
+build_cmd = "true"
+verify_cmd = "grep -Fq 'Registry contract links resolve relative to spec/layerx-merge; launchpad-discovery and launchpad-api exist in spec/layerx-merge/contracts/services.md.' spec/layerx-merge/programme/audit/records/22.30.31.kvx && grep -Fq 'Registry contract links resolve relative to spec/layerx-merge; launchpad-web-app and launchpad-sdk-sdk exist in spec/layerx-merge/contracts/clients.md.' spec/layerx-merge/programme/audit/records/22.30.31.kvx && grep -A3 -F '[doc.013]' spec/layerx-merge/programme/audit/records/22.30.31.kvx | grep -Eq 'status = .(accurate|stale|misleading).' && grep -A3 -F '[doc.014]' spec/layerx-merge/programme/audit/records/22.30.31.kvx | grep -Eq 'status = .(accurate|stale|misleading).' && grep -A2 -F '[doc.013]' spec/layerx-merge/programme/audit/records/22.30.31.kvx | grep -Fq 'spec/layerx-merge/contracts/services.md' && grep -A2 -F '[doc.014]' spec/layerx-merge/programme/audit/records/22.30.31.kvx | grep -Fq 'spec/layerx-merge/contracts/clients.md' && grep -A4 -F '[file.124]' spec/layerx-merge/programme/audit/records/22.30.31.kvx | grep -wq clean && grep -Fxq 'findings = 37' spec/layerx-merge/programme/audit/records/22.30.31.kvx && ! grep -Eq 'missing-interface-contract-pages|Neither contracts/services.md|page is absent|page links are missing' spec/layerx-merge/programme/audit/records/22.30.31.kvx"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-docs"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181589]
+title = "The launchpad audit distinguishes existing contract targets from actual documentation drift"
+ac_1 = "The false absence finding at spec/layerx-merge/programme/audit/records/22.30.31.kvx:1018 is removed, its finding count and file.124 verdict are reconciled, and doc.013 and doc.014 at :1209 and :1214 name canonical existing paths and evidence-supported non-missing statuses with both service anchors at spec/layerx-merge/contracts/services.md:3046 and :3105 and both client anchors at spec/layerx-merge/contracts/clients.md:443 and :739, preserving independently evidenced content defects."
+
+[acceptance.18.1589.1]
+feature = "18"
+req = "181589.1"
+scenario = "Given the four launchpad registry contract targets and their existing headings, when the corrected audit record is checked, then both canonical document paths and link-resolution notes are present, neither document is marked missing, the false restore-or-retarget finding is absent, and the finding count and wire.go verdict agree with its removal."
+contract = "contracts/programme.md#programme-artifacts"
+test = "spec/layerx-merge/programme/audit/records/22.30.31.kvx::contract_link_resolution (planned)"
+qualification = "UNRUN"

@@ -120,10 +120,16 @@ pub(crate) fn signed_by(prepared: &SigningPreparation, seed: &[u8; 32]) -> Vec<u
         prepared.transaction.call.signing_hash()
     );
     assert_eq!(
-        package.disclosure_digest.0,
+        package.disclosure_digest,
         prepared.transaction.disclosure_digest
     );
-    must(prepared.transaction.call.sign(seed))
+    let key = must(SigningKey::from_slice(seed));
+    let (signature, recovery) = must(key.sign_prehash_recoverable(&package.signing_preimage));
+    let mut bytes = [0; 65];
+    bytes[..64].copy_from_slice(&signature.to_bytes());
+    bytes[64] = 27 + recovery.to_byte();
+    let signature = must(layerx_crypto::signer::AgentSignature::new(bytes));
+    layerx_crypto::evm_transaction::assemble(&prepared.transaction.call, &signature)
 }
 
 #[test]

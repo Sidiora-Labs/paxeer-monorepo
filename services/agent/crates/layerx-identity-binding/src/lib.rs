@@ -145,7 +145,8 @@ impl Client {
         write_before(&mut stream, &encoded, &mut expires, self.clock.as_ref())?;
         let mut length = [0; 4];
         read_before(&mut stream, &mut length, &mut expires, self.clock.as_ref())?;
-        let length = u32::from_be_bytes(length) as usize;
+        let length = usize::try_from(u32::from_be_bytes(length))
+            .map_err(|_| invalid("binding response length"))?;
         if !(6..=MAX_FRAME).contains(&length) {
             return Err(invalid("binding response length"));
         }

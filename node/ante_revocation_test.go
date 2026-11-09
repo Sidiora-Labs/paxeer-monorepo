@@ -12,6 +12,7 @@ import (
 	evmtypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/types"
 	layerxauthkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxauth/keeper"
 	layerxauthtypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxauth/types"
+	ledgertypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxledger/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/lxphost"
 	app "github.com/Sidiora-Labs/Paxeer-X-Network/node"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/client"
@@ -148,12 +149,17 @@ func TestAnteChainRunsRevocationDecoratorAfterAuthzNested(t *testing.T) {
 	grantee := sdk.AccAddress(private.PubKey().Address())
 	grantor := sdk.AccAddress(bytes.Repeat([]byte{0x31}, 20))
 	recipient := sdk.AccAddress(bytes.Repeat([]byte{0x32}, 20))
+	asset := [32]byte{0x41}
+	denom := ledgertypes.MirrorDenom(asset)
 	for _, address := range []sdk.AccAddress{grantor, grantee} {
 		a.AccountKeeper.SetAccount(ctx, a.AccountKeeper.NewAccountWithAddress(ctx, address))
 		coins := sdk.NewCoins(sdk.NewInt64Coin("uhpx", 1_000_000))
 		require.NoError(t, a.BankKeeper.MintCoins(ctx, "evm", coins))
 		require.NoError(t, a.BankKeeper.SendCoinsFromModuleToAccount(ctx, "evm", address, coins))
 	}
+	coins := sdk.NewCoins(sdk.NewInt64Coin(denom, 1_000_000))
+	require.NoError(t, a.BankKeeper.MintCoins(ctx, "evm", coins))
+	require.NoError(t, a.BankKeeper.SendCoinsFromModuleToAccount(ctx, "evm", grantor, coins))
 	address := common.BytesToAddress(grantor)
 	a.EvmKeeper.SetAddressMapping(ctx, grantor, address)
 	identityPrivate := ed25519.NewKeyFromSeed(bytes.Repeat([]byte{71}, ed25519.SeedSize))
@@ -184,14 +190,15 @@ func TestAnteChainRunsRevocationDecoratorAfterAuthzNested(t *testing.T) {
 	sequence, err := keeper.RevocationSequence(ctx, public)
 	require.NoError(t, err)
 	require.Equal(t, uint64(41), sequence)
-	send := banktypes.NewMsgSend(grantor, recipient, sdk.NewCoins(sdk.NewInt64Coin("uhpx", 1)))
+	send := banktypes.NewMsgSend(grantor, recipient, sdk.NewCoins(sdk.NewInt64Coin(denom, 1)))
 	exec := authz.NewMsgExec(grantee, []sdk.Msg{send})
 	for _, epoch := range []uint64{41, 40} {
 		t.Run(map[uint64]string{41: "current_grant", 40: "revoked_grant"}[epoch], func(t *testing.T) {
 			branch, _ := ctx.CacheContext()
 			grant := &layerxauthtypes.LayerXScopeAuthorization{
 				GrantId: bytes.Repeat([]byte{0x51}, 32), MsgTypeUrl: sdk.MsgTypeURL(send), Kind: 3,
-				ModuleMask: 1 << 9, OrdinalMin: 0, OrdinalMax: 0xffff, RevocationEpoch: epoch,
+				ModuleMask: 1 << layerxauthtypes.BankScopeModule, OrdinalMin: uint32(layerxauthtypes.BankScopeOrdinal), OrdinalMax: uint32(layerxauthtypes.BankScopeOrdinal), RevocationEpoch: epoch,
+				AssetId: asset[:], MaxPerActivity: "1", MaxTotal: "1",
 				NotBefore: uint64(ctx.BlockTime().UnixMilli()) - 1000, NotAfter: uint64(ctx.BlockTime().UnixMilli()) + 1000,
 			}
 			require.NoError(t, grant.ValidateBasic())
@@ -201,15 +208,15 @@ func TestAnteChainRunsRevocationDecoratorAfterAuthzNested(t *testing.T) {
 			require.NoError(t, err)
 			anteCtx, err := handler(branch.WithTxBytes(encoded), transaction, false)
 			require.NoError(t, err)
-			before := a.BankKeeper.GetBalance(anteCtx, recipient, "uhpx")
+			before := a.BankKeeper.GetBalance(anteCtx, recipient, denom)
 			_, err = grants.Exec(sdk.WrapSDKContext(anteCtx), &exec)
 			if epoch == sequence {
 				require.NoError(t, err)
-				require.Equal(t, before.Amount.AddRaw(1), a.BankKeeper.GetBalance(anteCtx, recipient, "uhpx").Amount)
+				require.Equal(t, before.Amount.AddRaw(1), a.BankKeeper.GetBalance(anteCtx, recipient, denom).Amount)
 			} else {
 				require.ErrorIs(t, err, layerxauthtypes.ErrAuthRevoked)
 				require.ErrorContains(t, err, "revocation epoch 40, grantor revocation 41")
-				require.Equal(t, before, a.BankKeeper.GetBalance(anteCtx, recipient, "uhpx"))
+				require.Equal(t, before, a.BankKeeper.GetBalance(anteCtx, recipient, denom))
 			}
 		})
 	}

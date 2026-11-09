@@ -1,6 +1,6 @@
 use layerx_agentd::prepare::{
-    prepare_activity, verify_disclosure_binding, CorePreparationBoundary, CorePreparationState,
-    CoreStateError, DisclosureBindingError, PreparationDefaults, PrepareError, PrepareRequest,
+    prepare_bound, verify_call_binding, CallBindingError, EvmPreparationDefaults,
+    EvmPreparationState, EvmPrepareError, EvmPrepareRequest, PrecompileCall,
 };
 use layerx_crypto::{
     disclosure::DisclosureError,
@@ -13,7 +13,7 @@ use layerx_intents::{
     KeyRotation, LxpReceive, LxpSend, PayerGrantRegistration, RecoveryRegistration,
 };
 use layerx_types::account::AccountId;
-use layerx_types::activity::{Authority, TimestampBound};
+use layerx_types::activity::TimestampBound;
 use layerx_types::amount::Amount;
 use layerx_types::ids::{AssetId, Did, IdempotencyKey};
 use layerx_types::intent::{
@@ -22,7 +22,7 @@ use layerx_types::intent::{
     RolloverPolicy, SendAuthorization, SendAuthorizationKind, Sequence, TimestampSeconds,
 };
 use layerx_types::payload::{
-    ActivityType, ModuleId, ModuleRegistration, ModuleRegistry, PayloadError,
+    ActivityType, ModuleId, ModuleRegistration, ModuleRegistry, Payload, PayloadError,
 };
 use layerx_wire::hash;
 use proptest::prelude::*;
@@ -48,16 +48,6 @@ fn run<F: Future>(future: F) -> F::Output {
             Poll::Ready(value) => return value,
             Poll::Pending => std::thread::park(),
         }
-    }
-}
-
-struct RecordedCoreBoundary {
-    state: CorePreparationState,
-}
-
-impl CorePreparationBoundary for RecordedCoreBoundary {
-    fn preparation_state(&mut self, _actor: &Did) -> Result<CorePreparationState, CoreStateError> {
-        Ok(self.state.clone())
     }
 }
 
@@ -173,50 +163,55 @@ fn compiled_send_is_accepted_by_prepare_and_disclosed_field_for_field() {
     let intent = send_intent([4; 32]);
     let registry = registry();
     let compiled = compile(&intent, &registry).unwrap_or_else(|error| panic!("compile: {error:?}"));
-    let mut boundary = RecordedCoreBoundary {
-        state: CorePreparationState {
-            network_id: 77,
-            account_sequence: 7,
-            protocol_timestamp: 1_000,
-            observed_head_sequence: 91,
-            module_registry: registry.clone(),
-        },
+    let state = EvmPreparationState {
+        chain_id: 77,
+        pending_nonce: 7,
+        base_fee_per_gas: 1,
+        head_height: 91,
     };
-    let defaults = PreparationDefaults {
-        timestamp_span: 20,
-        fee_limit: Amount::from_u128(9),
+    let defaults = EvmPreparationDefaults {
+        max_priority_fee_per_gas: 0,
+        max_fee_per_gas: 9,
         maximum_payload_bytes: 1_024,
     };
-    let request = PrepareRequest {
-        actor: did(),
-        authority: Authority::owner(&LocalSigner::new([4; 32]).public_key())
-            .unwrap_or_else(|error| panic!("authority: {error:?}")),
-        activity_type: compiled.activity_type(),
-        expected_account_sequence: Some(7),
-        timestamp_bound: Some(
-            TimestampBound::new(995, 1_010).unwrap_or_else(|error| panic!("timestamp: {error:?}")),
-        ),
-        fee_limit: None,
-        idempotency_key: IdempotencyKey::new([4; 32]),
-        payload: compiled.payload().as_bytes().to_vec(),
+    let request = EvmPrepareRequest {
+        from: [4; 20],
+        call: PrecompileCall::ledger_transfer(compiled.payload().as_bytes().to_vec()),
+        expected_nonce: Some(7),
+        max_priority_fee_per_gas: None,
+        max_fee_per_gas: None,
         declared_payload_limit: 1_024,
     };
     let mut forged = request.clone();
-    let authorization = forged.payload.len() - 167;
-    forged.payload[authorization + 33..authorization + 129].fill(4);
-    forged.payload[authorization + 33] |= 1;
+    let mut forged_payload = compiled.payload().as_bytes().to_vec();
+    let authorization = forged_payload.len() - 167;
+    forged_payload[authorization + 33..authorization + 129].fill(4);
+    forged_payload[authorization + 33] |= 1;
+    forged.call = PrecompileCall::ledger_transfer(forged_payload);
     assert_eq!(
-        prepare_activity(&mut boundary, defaults, forged),
-        Err(PrepareError::Disclosure(DisclosureBindingError::Decode(
+        prepare_bound(state, defaults, forged, 100_000),
+        Err(EvmPrepareError::Disclosure(
             DisclosureError::MalformedPayload
-        )))
+        ))
     );
-    let prepared = prepare_activity(&mut boundary, defaults, request)
+    let prepared = prepare_bound(state, defaults, request, 100_000)
         .unwrap_or_else(|error| panic!("prepare: {error:?}"));
 
     let from = hash::account_id(&owner()).unwrap_or_else(|error| panic!("from hash: {error:?}"));
     let to = hash::account_id(&recipient()).unwrap_or_else(|error| panic!("to hash: {error:?}"));
-    assert_eq!(prepared.envelope.payload_hash(), compiled.payload_hash());
+    let Some(layerx_crypto::disclosure::call::ConstructMethod::LedgerSend { payload }) = prepared
+        .disclosure
+        .construct_method()
+        .unwrap_or_else(|error| panic!("construct method: {error:?}"))
+    else {
+        panic!("expected ledger send");
+    };
+    let payload = Payload::new(&registry, prepared.disclosure.activity_type, &payload)
+        .unwrap_or_else(|error| panic!("prepared payload: {error:?}"));
+    assert_eq!(
+        hash::payload_hash_for(&payload).unwrap_or_else(|error| panic!("payload hash: {error:?}")),
+        compiled.payload_hash()
+    );
     assert_eq!(prepared.disclosure.counterparties[0].account, from);
     assert_eq!(prepared.disclosure.counterparties[1].account, to);
     assert_eq!(prepared.disclosure.amounts[0].value, 5);
@@ -227,14 +222,21 @@ fn compiled_send_is_accepted_by_prepare_and_disclosed_field_for_field() {
         .unwrap_or_else(|error| panic!("intent disclosure: {error:?}"));
     DisclosureCheck::verify_agent(&intent, &prepared.disclosure)
         .unwrap_or_else(|error| panic!("agent disclosure: {error:?}"));
-    verify_disclosure_binding(&prepared)
-        .unwrap_or_else(|error| panic!("disclosure binding: {error:?}"));
+    verify_call_binding(&prepared).unwrap_or_else(|error| panic!("disclosure binding: {error:?}"));
 
     let mut altered_disclosure = prepared.disclosure.clone();
     altered_disclosure.amounts[0].value += 1;
     assert_eq!(
         DisclosureCheck::verify_agent(&intent, &altered_disclosure),
         Err(DisclosureCheckError::FieldMismatch(DisclosureField::Amount))
+    );
+    let mut altered_preparation = prepared;
+    altered_preparation.disclosure = altered_disclosure;
+    assert_eq!(
+        verify_call_binding(&altered_preparation),
+        Err(CallBindingError::Disclosure(
+            DisclosureError::FieldMismatch("call")
+        ))
     );
 }
 

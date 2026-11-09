@@ -445,7 +445,7 @@ impl Server {
             let acceptor = tls.then(|| {
                 TlsAcceptor::new(
                     Identity::from_pkcs12(
-                        include_bytes!("../src/repair_22_33_1486/identity.p12"),
+                        include_bytes!("fixtures/repair_22_33_1486/identity.p12"),
                         "ramp-config-proof",
                     )
                     .unwrap(),

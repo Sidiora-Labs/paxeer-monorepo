@@ -1,0 +1,49 @@
+[issue.1804]
+number = 1804
+title = "[Coherence] The new programs-reference-fixtures job rebuilds the committed fixtures in place but never compares the result with the committed files, so fixture drift cannot fail CI"
+revision = "a910fdedd579e63379ae6c2e4d4971990d28f8ad"
+verdict = "task"
+evidence = "The job introduced by commit 20b07243e3ea98c0398ab1c417c081ad4e593644 still ends at .github/workflows/ci.yml:130 with make programs-reference-fixtures (Makefile:3146 invokes the generator), scripts/programs/program-fixtures.sh:54 overwrites the wasm and :73, :76 and :80 regenerate the interfaces and registry values before :89 merely prints hashes, and tools/qualification/audit_repairs/test_repair_22_31_605.py:91 checks invocation without asserting any comparison against committed fixtures."
+close_comment = "The reference fixture job rebuilds the committed artifacts without checking for changes, so stale fixtures can pass. A follow-up task will require a comparison after rebuilding and regression coverage for drift in all eight generated files."
+
+[task.18.1804.1]
+title = "Issue #1804: Fail reference fixture checks when regenerated artifacts differ from the committed set"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181804.1"]
+capabilities = []
+interfaces = []
+do_1 = "After the existing make programs-reference-fixtures step at .github/workflows/ci.yml:129, add a required step running git diff --exit-code -- programs/crates/layerx-programs-registry/tests/fixtures/naming programs/crates/layerx-programs-registry/tests/fixtures/lxt721 programs/fixtures/pay5; retain the build step and propagate comparison failures without conditions, continue-on-error, index updates or fixture restoration that could hide drift."
+do_2 = "Extend tools/qualification/audit_repairs/test_repair_22_31_605.py after the existing invocation check at :78 with test_program_reference_fixtures_reject_drift: parse the actual job, assert the comparison follows the required rebuild, and execute that comparison with real Git in a temporary repository populated from the eight committed files listed at scripts/programs/program-fixtures.sh:89, asserting exit 0 unchanged and exit 1 for an independent byte change or deletion of each file, restoring the baseline between cases; retain all existing assertions."
+do_3 = "Cover naming.wasm, naming.interface, nft-lxt721.wasm, nft-lxt721.interface, nft-lxt721.registry-value, swap-cpmm.wasm, swap-cpmm.interface and swap-cpmm.registry-value; preserve build, lint and checkout-path refusals at scripts/programs/program-fixtures.sh:48, :51 and :84, and treat the checkout-location sensitivity documented at :12 as a reproducibility failure rather than normalizing bytes or bypassing the comparison."
+symbols = ["test_program_reference_fixtures_reject_drift"]
+touches = [".github/workflows/ci.yml", "tools/qualification/audit_repairs/test_repair_22_31_605.py"]
+tests = ["tools/qualification/audit_repairs/test_repair_22_31_605.py::test_program_reference_fixtures_reject_drift", "tools/qualification/audit_repairs/test_repair_22_31_605.py::test_ci_runs_both_make_targets_in_separate_jobs"]
+planned_paths = []
+build_cmd = "python3 -m py_compile tools/qualification/audit_repairs/test_repair_22_31_605.py"
+verify_cmd = "python3 -m pytest tools/qualification/audit_repairs/test_repair_22_31_605.py -k 'test_program_reference_fixtures_reject_drift or test_ci_runs_both_make_targets_in_separate_jobs' -q"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181804]
+title = "Reference fixture checks reject changed committed artifacts after regeneration"
+ac_1 = "The programs-reference-fixtures job at .github/workflows/ci.yml:117 performs a required comparison after its rebuild at :130 and fails if any of the eight committed wasm, interface or registry-value files listed at scripts/programs/program-fixtures.sh:89 changes or disappears, while an unchanged fixture set passes."
+
+[acceptance.18.1804.1]
+feature = "18"
+req = "181804.1"
+scenario = "Given the committed reference fixtures and the required regeneration step, when the subsequent comparison runs, then unchanged fixtures pass and a byte change or deletion in any generated wasm, interface or registry-value file fails the job."
+contract = "contracts/tools-ops.md#ci-workflows"
+test = "tools/qualification/audit_repairs/test_repair_22_31_605.py::test_program_reference_fixtures_reject_drift (planned)"
+qualification = "UNRUN"

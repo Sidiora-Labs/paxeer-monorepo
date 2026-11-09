@@ -30,6 +30,7 @@ pub const MUTATION_CAPABILITIES: [layerx_program_sdk::Capability; 3] = [
 #[cfg(target_arch = "wasm32")]
 mod wasm {
     use super::*;
+    use crate::types::GuestIndex as _;
     use crate::{
         codec, dispatch::Operation, errors::*, state, types::*, MAX_EVENTS, MAX_STATE_BYTES,
         SHARED_STATE_KEY,
@@ -57,7 +58,7 @@ mod wasm {
     impl DirectCall {
         #[cfg_attr(target_arch = "wasm32", inline(never))]
         pub fn read_context() -> AdapterResult<Self> {
-            if Context::immediate_caller()?.is_some() {
+            if crate::guest_cell::immediate_caller()?.is_some() {
                 return Err(UNAUTHORIZED.into());
             }
             Ok(Self {
@@ -112,11 +113,13 @@ mod wasm {
             let bounded_len = output.len().min(MAX_STATE_BYTES);
             let length = shared::read(
                 SharedStorageKey::new(SHARED_STATE_KEY)?,
-                &mut output[..bounded_len],
+                output.guest_index_mut(..bounded_len),
             )?;
             match length {
                 None => Ok(None),
-                Some(length) => Ok(Some(state::decode_shared_state(&output[..length])?)),
+                Some(length) => Ok(Some(state::decode_shared_state(
+                    output.guest_index(..length),
+                )?)),
             }
         }
         pub fn hash_domain(
@@ -136,13 +139,15 @@ mod wasm {
             if n > crypto::MAX_HASH_INPUT_BYTES || scratch.len() < n {
                 return Err(CAPACITY.into());
             }
-            let mut w = codec::Writer::new(&mut scratch[..n]);
-            w.put(domain.as_bytes())?;
-            w.u8(0)?;
-            w.put(body)?;
+            let mut w = codec::Writer::new(scratch.guest_index_mut(..n));
+            crate::codec::write_fields!(w;
+                put: domain.as_bytes();
+                u8: 0;
+                put: body;
+            )?;
             let digest = crypto::hash(
                 crypto::HashAlgorithm::Sha256,
-                crypto::HashInput::new(&scratch[..n])?,
+                crypto::HashInput::new(scratch.guest_index(..n))?,
             )?;
             Ok(Digest32::new(digest)?)
         }
@@ -179,9 +184,12 @@ mod wasm {
             let mut lengths = [0usize; MAX_EVENTS];
             let mut previous = None;
             for (i, event) in events.iter().enumerate() {
-                lengths[i] = codec::event_topic(event.operation, &mut topics[i])?;
-                let (_, common, _) =
-                    codec::decode_event_frame(&topics[i][..lengths[i]], event.body)?;
+                *lengths.guest_index_mut(i) =
+                    codec::event_topic(event.operation, topics.guest_index_mut(i))?;
+                let (_, common, _) = codec::decode_event_frame(
+                    (*topics.guest_index(i)).guest_index(..*lengths.guest_index(i)),
+                    event.body,
+                )?;
                 if common.revision != state.revision {
                     return Err(NON_CANONICAL.into());
                 }
@@ -189,7 +197,7 @@ mod wasm {
                     return Err(NON_CANONICAL.into());
                 }
                 previous = Some(common);
-                EventTopic::new(&topics[i][..lengths[i]])?;
+                EventTopic::new((*topics.guest_index(i)).guest_index(..*lengths.guest_index(i)))?;
                 EventData::new(event.body)?;
             }
             let key = SharedStorageKey::new(SHARED_STATE_KEY)?;
@@ -197,7 +205,9 @@ mod wasm {
             shared::write(key, value)?;
             for (i, event) in events.iter().enumerate() {
                 layerx_program_sdk::event::emit(
-                    EventTopic::new(&topics[i][..lengths[i]])?,
+                    EventTopic::new(
+                        (*topics.guest_index(i)).guest_index(..*lengths.guest_index(i)),
+                    )?,
                     EventData::new(event.body)?,
                 )?;
             }

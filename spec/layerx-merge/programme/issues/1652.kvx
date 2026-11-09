@@ -1,0 +1,49 @@
+[issue.1652]
+number = 1652
+title = "[P2] Return valid BufferedTask retry entries from multichain export fetchers"
+revision = "bb8caac8b3e73e3e2f4b330805574f0bcb540641"
+verdict = "task"
+evidence = "The flat retry map produced by services/explorer/backend/apps/explorer/lib/explorer/microservice_interfaces/multichain_search.ex:71, including malformed-200 failures at :945, is returned unchanged by services/explorer/backend/apps/indexer/lib/indexer/fetcher/multichain_search_db/main_export_queue.ex:112 and services/explorer/backend/apps/indexer/lib/indexer/fetcher/multichain_search_db/balances_export_queue.ex:88 into services/explorer/backend/apps/indexer/lib/indexer/buffered_task.ex:741, whose retry path at :931 and :1082 reaches the list-only push at :1122, while services/explorer/backend/apps/explorer/test/repair/repair_22_33_455_test.exs:264 and :350 and services/explorer/backend/apps/indexer/test/indexer/fetcher/multichain_search_db/export_queue_contract.exs:72 and :88 exercise direct failure followed by successful dispatch rather than worker failure handling, so commits 08da21d2377053a40a0d0eb5793d404b4bcac9c6 and cafc76afa25b0b018d0b268255f487f900613a91 leave this scheduler mismatch unresolved."
+close_comment = "Failed multichain exports can still crash the queue worker because the retry payload does not match its callback contract. The follow-up repair must retain valid queue entries and prove that both export queues survive HTTP 503 and malformed-success responses, preserve failed work, and drain it after recovery."
+
+[task.18.1652.1]
+title = "Issue #1652: Retry multichain exports with valid buffered queue entries"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181652.1"]
+capabilities = []
+interfaces = []
+do_1 = "Change the list callbacks in services/explorer/backend/apps/indexer/lib/indexer/fetcher/multichain_search_db/main_export_queue.ex:63 and services/explorer/backend/apps/indexer/lib/indexer/fetcher/multichain_search_db/balances_export_queue.ex:51 to return lists of valid failed queue entries to BufferedTask rather than wire-format maps; retain original row identities, hash_type and block_range required by main_export_queue.ex:196 and token_contract_address_hash_or_native, token_id and balance values required by balances_export_queue.ex:167, preserve successful-chunk deletion and failed-row persistence, and keep the direct prepared-map export interface compatible."
+do_2 = "Add two running-supervisor recovery tests to each existing main_export_queue_test.exs and balances_export_queue_test.exs under services/explorer/backend/apps/indexer/test/indexer/fetcher/multichain_search_db: one HTTP 503 and one malformed HTTP 200 case, each using real persisted queue rows, the real HTTP adapter and a local HTTP listener with nonzero dispatch concurrency; observe failure result consumption and a subsequent retry from the same monitored worker PID, assert no worker termination or replacement, retain failed rows during failure, then return success and assert exact replayed request fields and durable queue drainage without restarting the worker."
+do_3 = "Update the retry assertions at services/explorer/backend/apps/indexer/test/indexer/fetcher/multichain_search_db/main_export_queue_test.exs:178, services/explorer/backend/apps/indexer/test/indexer/fetcher/multichain_search_db/balances_export_queue_test.exs:254 and services/explorer/backend/apps/explorer/test/repair/repair_22_33_455_test.exs:276 to assert exact callback entries and their re-prepared payloads instead of accepting a wire map from list callbacks; retain all existing hash, range, native/ERC-20/NFT balance precision, token identity, request, configuration-restoration, partial-success and persistence assertions, including direct prepared-map export coverage."
+symbols = ["run", "export_data_to_multichain"]
+touches = ["services/explorer/backend/apps/indexer/lib/indexer/fetcher/multichain_search_db/main_export_queue.ex", "services/explorer/backend/apps/indexer/lib/indexer/fetcher/multichain_search_db/balances_export_queue.ex", "services/explorer/backend/apps/indexer/test/indexer/fetcher/multichain_search_db/main_export_queue_test.exs", "services/explorer/backend/apps/indexer/test/indexer/fetcher/multichain_search_db/balances_export_queue_test.exs", "services/explorer/backend/apps/explorer/test/repair/repair_22_33_455_test.exs"]
+tests = ["services/explorer/backend/apps/indexer/test/indexer/fetcher/multichain_search_db/main_export_queue_test.exs::running main export retries HTTP 503 without worker restart", "services/explorer/backend/apps/indexer/test/indexer/fetcher/multichain_search_db/main_export_queue_test.exs::running main export retries malformed HTTP 200 without worker restart", "services/explorer/backend/apps/indexer/test/indexer/fetcher/multichain_search_db/balances_export_queue_test.exs::running balances export retries HTTP 503 without worker restart", "services/explorer/backend/apps/indexer/test/indexer/fetcher/multichain_search_db/balances_export_queue_test.exs::running balances export retries malformed HTTP 200 without worker restart", "services/explorer/backend/apps/explorer/test/repair/repair_22_33_455_test.exs::malformed successful export is durable and replays after restart"]
+planned_paths = []
+build_cmd = "services/explorer/deploy/tools/mix-in-builder.sh cmd --app indexer mix compile"
+verify_cmd = "services/explorer/deploy/tools/mix-in-builder.sh test apps/indexer/test/indexer/fetcher/multichain_search_db/main_export_queue_test.exs apps/indexer/test/indexer/fetcher/multichain_search_db/balances_export_queue_test.exs apps/explorer/test/repair/repair_22_33_455_test.exs"
+gate_kind = "planned"
+sandbox_profile = "elixir"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181652]
+title = "Multichain export failures preserve valid retry work without crashing queue workers"
+ac_1 = "Given persisted main and balance export work dispatched by the real BufferedTask supervisor, when the upstream returns HTTP 503 or malformed HTTP 200, then the worker consumes scheduler-compatible retry results, survives with the same PID, retains failed durable work and exports it successfully after recovery, draining the corresponding rows while preserving partial-success behavior and every existing request and persistence assertion; the callback contract is services/explorer/backend/apps/indexer/lib/indexer/buffered_task.ex:122 and the row preparation contracts are services/explorer/backend/apps/indexer/lib/indexer/fetcher/multichain_search_db/main_export_queue.ex:196 and services/explorer/backend/apps/indexer/lib/indexer/fetcher/multichain_search_db/balances_export_queue.ex:167."
+
+[acceptance.18.1652.1]
+feature = "18"
+req = "181652.1"
+scenario = "Given persisted main and balance export rows and running queue supervisors with nonzero concurrency, when HTTP 503 and malformed HTTP 200 responses are consumed and the upstream later succeeds, then each original worker survives, retries valid entries, preserves failed work and drains its durable queue after successful replay without changing partial-success behavior."
+contract = "contracts/explorer-indexer.md#paxeer-x-ingestion"
+test = "services/explorer/backend/apps/indexer/test/indexer/fetcher/multichain_search_db/main_export_queue_test.exs::running main export retries HTTP 503 without worker restart; services/explorer/backend/apps/indexer/test/indexer/fetcher/multichain_search_db/main_export_queue_test.exs::running main export retries malformed HTTP 200 without worker restart; services/explorer/backend/apps/indexer/test/indexer/fetcher/multichain_search_db/balances_export_queue_test.exs::running balances export retries HTTP 503 without worker restart; services/explorer/backend/apps/indexer/test/indexer/fetcher/multichain_search_db/balances_export_queue_test.exs::running balances export retries malformed HTTP 200 without worker restart (planned)"
+qualification = "UNRUN"

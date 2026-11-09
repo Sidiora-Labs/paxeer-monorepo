@@ -1,0 +1,50 @@
+[issue.1631]
+number = 1631
+title = "Accepted-genesis test invokes deliberately disabled Giga InitGenesis"
+revision = "bb8caac8b3e73e3e2f4b330805574f0bcb540641"
+verdict = "task"
+evidence = "engine/deps/xbank/types/repair_m1126_test.go:78 still invokes Giga InitGenesis before the accepted-fixture assertions at engine/deps/xbank/types/repair_m1126_test.go:161, but engine/deps/xbank/keeper/genesis.go:13 unconditionally panics as introduced by commit 0b29495c6969f606047ebb88870ab870817d4775; canonical initialization remains supported at sdk/x/bank/keeper/genesis.go:11 and registered at node/app.go:1176, with canonical initialization and Giga refusal independently asserted at engine/deps/xbank/keeper/repair_m1125_test.go:115 and engine/deps/xbank/keeper/repair_m1125_test.go:150."
+close_comment = "The accepted-genesis proof still calls the deliberately unsupported Giga initialization entry point and cannot reach its balance and supply assertions. The repair task routes validated fixtures through canonical bank initialization while retaining Giga balance and supply checks and rejection of malformed wei entries without state changes."
+
+[task.18.1631.1]
+title = "Issue #1631: Initialize accepted genesis fixtures through the canonical bank keeper"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181631.1"]
+capabilities = []
+interfaces = []
+do_1 = "Replace the unsupported Giga initialization call at engine/deps/xbank/types/repair_m1126_test.go:78 with the supported canonical bank path at sdk/x/bank/keeper/genesis.go:11: extend repairM1126Fixture and repairM1126Keeper with real canonical and Giga keepers over the same bank store, validate the xbank GenesisState before any state write, and convert accepted genesis through the production ProtoCodec JSON APIs into banktypes.GenesisState before canonical initialization, following the shared-store pattern at engine/deps/xbank/keeper/repair_m1125_test.go:39. Preserve the unconditional Giga initialization and export refusals at engine/deps/xbank/keeper/genesis.go:13 and engine/deps/xbank/keeper/genesis.go:18."
+do_2 = "Retain and exercise both computed_supply and explicit_supply cases at engine/deps/xbank/types/repair_m1126_test.go:136 through canonical initialization and real Giga cache reads, preserving every balance, fractional wei, total and per-denomination supply assertion at engine/deps/xbank/types/repair_m1126_test.go:162; retain every malformed-entry case, no-panic assertion, empty-store assertion and event assertion at engine/deps/xbank/types/repair_m1126_test.go:98, and retain fractional-total and incorrect-supply rejection at engine/deps/xbank/types/repair_m1126_test.go:180. Update the proof path at engine/deps/xbank/types/repair_m1126.kvx:6 to describe validated canonical initialization followed by Giga reads."
+symbols = ["repairM1126Fixture", "repairM1126Keeper", "initialize", "TestRepairM_1126_InvalidEntriesBeforeInitGenesis", "TestRepairM_1126_AcceptedTotalsPreserveSupply", "TestRepairM_1126_SupplyChecksRemainEnforced"]
+touches = ["engine/deps/xbank/types/repair_m1126_test.go", "engine/deps/xbank/types/repair_m1126.kvx"]
+tests = ["engine/deps/xbank/types/repair_m1126_test.go::TestRepairM_1126_InvalidEntriesBeforeInitGenesis", "engine/deps/xbank/types/repair_m1126_test.go::TestRepairM_1126_AcceptedTotalsPreserveSupply", "engine/deps/xbank/types/repair_m1126_test.go::TestRepairM_1126_SupplyChecksRemainEnforced"]
+planned_paths = []
+build_cmd = "go build ./engine/deps/xbank/types/..."
+verify_cmd = "go test -count=1 ./engine/deps/xbank/types/ -run '^(TestRepairM_1126_InvalidEntriesBeforeInitGenesis|TestRepairM_1126_AcceptedTotalsPreserveSupply|TestRepairM_1126_SupplyChecksRemainEnforced)$'"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-chain-modules"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181631]
+title = "Accepted xbank genesis proofs use canonical initialization and preserve supply"
+ac_1 = "Both accepted cases at engine/deps/xbank/types/repair_m1126_test.go:136 validate xbank genesis, initialize the shared real bank store through canonical bank InitGenesis, and reach all existing Giga balance and supply assertions at engine/deps/xbank/types/repair_m1126_test.go:162 without a panic: base-denomination balances are 7 and 4, the other-denomination balance is 7, fractional wei are 1 and OneUhpxInWei minus 1, the zero wei balance remains zero, and base-denomination supply is 12 for both computed and explicit supply."
+ac_2 = "Every malformed wei fixture at engine/deps/xbank/types/repair_m1126_test.go:108 returns its expected validation error without a panic, bank or auth or params store writes, Giga store writes, or events, preserving the assertions at engine/deps/xbank/types/repair_m1126_test.go:125; fractional-total and incorrect-supply fixtures at engine/deps/xbank/types/repair_m1126_test.go:189 remain rejected."
+ac_3 = "The proof path at engine/deps/xbank/types/repair_m1126.kvx:6 describes canonical initialization and Giga reads, while the deliberately unsupported Giga genesis entry points at engine/deps/xbank/keeper/genesis.go:12 and engine/deps/xbank/keeper/genesis.go:17 remain unchanged."
+
+[acceptance.18.1631.1]
+feature = "18"
+req = "181631.1"
+scenario = "Given computed-supply and explicit-supply xbank genesis fixtures and malformed wei fixtures, when the real codec and xbank validator feed accepted genesis to canonical bank initialization over the shared bank store, then both accepted cases reach every existing Giga balance, fractional wei and supply assertion, and malformed fixtures fail before any store or event changes."
+contract = "contracts/cosmos-fork.md#bank-gateway"
+test = "engine/deps/xbank/types/repair_m1126_test.go::TestRepairM_1126_AcceptedTotalsPreserveSupply, engine/deps/xbank/types/repair_m1126_test.go::TestRepairM_1126_InvalidEntriesBeforeInitGenesis, engine/deps/xbank/types/repair_m1126_test.go::TestRepairM_1126_SupplyChecksRemainEnforced (planned)"
+qualification = "UNRUN"

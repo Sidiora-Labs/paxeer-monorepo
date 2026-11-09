@@ -1,5 +1,6 @@
 #[cfg(target_arch = "wasm32")]
 use crate::types::AttestationDigest;
+use crate::types::GuestIndex as _;
 use crate::{
     codec,
     errors::{
@@ -20,6 +21,7 @@ pub const COMMITMENT_PREIMAGE_BYTES: usize = 278;
 pub const ATTESTATION_PREIMAGE_BYTES: usize = 59;
 pub const REPORT_PREIMAGE_MAX_BYTES: usize = 1402;
 pub const REVEAL_MAX_BYTES: usize = 1480;
+pub const REVEAL_MIN_BYTES: usize = 4 + codec::REPORT_FIXED_BYTES + 36 + 96;
 pub const REPORT_DOMAIN: &[u8; 22] = b"PAXAI/score-report/v1\0";
 pub const ATTESTATION_DOMAIN: &[u8; 27] = b"PAXAI/score-attestation/v1\0";
 pub const COMMITMENT_DOMAIN: &[u8; 22] = b"PAXAI/score-commit/v1\0";
@@ -120,7 +122,10 @@ pub fn validate_report<'a>(
     if workers.len() > MAX_WORKERS {
         return Err(CAPACITY);
     }
-    if workers.windows(2).any(|pair| pair[0] >= pair[1]) {
+    if workers
+        .windows(2)
+        .any(|pair| *pair.guest_index(0) >= *pair.guest_index(1))
+    {
         return Err(NON_CANONICAL);
     }
     for entry in report.scores.entries() {
@@ -144,16 +149,24 @@ pub fn report_preimage(body: &[u8], output: &mut [u8]) -> CodecResult<usize> {
     if length > REPORT_PREIMAGE_MAX_BYTES || output.len() < length {
         return Err(CAPACITY);
     }
-    output[..22].copy_from_slice(REPORT_DOMAIN);
-    output[22..length].copy_from_slice(body);
+    output
+        .guest_index_mut(..22)
+        .guest_copy_from_slice(REPORT_DOMAIN);
+    output
+        .guest_index_mut(22..length)
+        .guest_copy_from_slice(body);
     Ok(length)
 }
 
 #[must_use]
 pub fn attestation_preimage(report: ReportDigest) -> [u8; ATTESTATION_PREIMAGE_BYTES] {
     let mut bytes = [0; ATTESTATION_PREIMAGE_BYTES];
-    bytes[..27].copy_from_slice(ATTESTATION_DOMAIN);
-    bytes[27..].copy_from_slice(report.as_bytes());
+    bytes
+        .guest_index_mut(..27)
+        .guest_copy_from_slice(ATTESTATION_DOMAIN);
+    bytes
+        .guest_index_mut(27..)
+        .guest_copy_from_slice(report.as_bytes());
     bytes
 }
 
@@ -167,8 +180,10 @@ pub fn commitment_preimage(
     salt: Salt32,
 ) -> CodecResult<[u8; COMMITMENT_PREIMAGE_BYTES]> {
     let mut bytes = [0; COMMITMENT_PREIMAGE_BYTES];
-    bytes[..22].copy_from_slice(COMMITMENT_DOMAIN);
-    codec::encode_commitment_preimage(binding, report, salt, &mut bytes[22..])?;
+    bytes
+        .guest_index_mut(..22)
+        .guest_copy_from_slice(COMMITMENT_DOMAIN);
+    codec::encode_commitment_preimage(binding, report, salt, bytes.guest_index_mut(22..))?;
     Ok(bytes)
 }
 
@@ -268,7 +283,7 @@ fn sdk_sha256(bytes: &[u8]) -> Result<[u8; 32], CryptoError> {
 pub fn report_digest(body: &[u8]) -> Result<ReportDigest, CryptoError> {
     let mut bytes = [0; REPORT_PREIMAGE_MAX_BYTES];
     let length = report_preimage(body, &mut bytes).map_err(CryptoError::Codec)?;
-    ReportDigest::new(sdk_sha256(&bytes[..length])?).map_err(CryptoError::Codec)
+    ReportDigest::new(sdk_sha256(bytes.guest_index(..length))?).map_err(CryptoError::Codec)
 }
 
 #[cfg(target_arch = "wasm32")]

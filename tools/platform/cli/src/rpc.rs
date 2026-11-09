@@ -642,6 +642,11 @@ mod tests {
                 Some("px_listHolderRecords"),
                 Some("px_getCapabilities"),
                 Some("px_getRouteCatalogue"),
+                Some("px_getInferenceRooms"),
+                Some("px_getInferenceRoom"),
+                Some("px_getInferenceDeal"),
+                Some("px_getInferencePeer"),
+                Some("px_getInferenceReceipts"),
             ]
         );
         assert!(methods.iter().all(|entry| !entry["name"]
@@ -756,7 +761,7 @@ mod tests {
                 Some("rpc_method_unavailable: lx_getProgramEvents is switched off".into())
             );
         }
-        let client = RpcClient::new("http://127.0.0.1:1/rpc", None)?;
+        let client = RpcClient::new("https://api1.mainnet-beta.paxeer.network", None)?;
         for params in [
             json!([]),
             json!({}),
@@ -941,7 +946,7 @@ mod tests {
 
     #[test]
     fn subscriptions_require_authenticated_websocket_and_string_ack() -> Result<(), String> {
-        let client = RpcClient::new("http://127.0.0.1:1/rpc", None)?;
+        let client = RpcClient::new("https://api1.mainnet-beta.paxeer.network", None)?;
         assert!(client.call("eth_subscribe", &json!(["receipts"])).is_err());
         assert!(client.call("eth_unsubscribe", &json!(["1"])).is_err());
         assert!(client

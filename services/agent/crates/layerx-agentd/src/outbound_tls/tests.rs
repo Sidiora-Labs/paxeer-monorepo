@@ -186,6 +186,10 @@ fn private_ca_is_required_and_hostname_verification_remains_enabled() -> TestRes
         (true, true)
     );
     assert_eq!(
+        exchange(&identity, &ca.to_der()?, "LOCALHOST")?,
+        (true, true)
+    );
+    assert_eq!(
         exchange(&identity, &other_ca.to_der()?, "localhost")?,
         (false, false)
     );

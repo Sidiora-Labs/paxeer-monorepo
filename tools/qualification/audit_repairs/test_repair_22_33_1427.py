@@ -100,7 +100,8 @@ def test_public_rpc_hosts_and_chain_probe_use_the_root_endpoint():
             assert url.port is None and not url.query and not url.fragment
     assert {url.hostname for url in node_urls} == {
         "api-mainnet-beta.paxeer.network",
-        "api1.mainnet-beta.paxeer.network", "api14.mainnet-beta.paxeer.network",
+        "api1.mainnet-beta.paxeer.network", "api2.mainnet-beta.paxeer.network",
+        "api14.mainnet-beta.paxeer.network",
     }
     blocks = re.findall(r"```sh\n(.*?)\n```", quickstart, re.S)
     assert len(blocks) == 1
@@ -235,7 +236,7 @@ def test_build_instructions_match_linked_node_prerequisites():
     ):
         assert fact in build, fact
     prerequisites, recipe = make_rule("Makefile", "paxd-native-libs")
-    assert prerequisites == ["$(LIBRARY)", "programs-release-build"]
+    assert prerequisites == ["$(LIBRARY)", "programs-release-build", "evmone-lib"]
     prerequisites, recipe = make_rule("Makefile", "paxd-build")
     assert prerequisites == ["paxd-native-libs"]
     assert "jq -er .version tools/release/version.json" in recipe

@@ -118,11 +118,18 @@ class HttpTests(unittest.TestCase):
                     encode_header(self.payload | {"accepted": self.offer | change}),
                     lambda: b"resource",
                 )
-        for scheme in ("metered", "subscription", "unknown"):
-            with self.assertRaises(ValueError):
-                validate_required(
-                    self.required | {"accepts": [self.offer | {"scheme": scheme}]}
-                )
+        with self.assertRaisesRegex(ValueError, "unsupported-payment"):
+            validate_required(
+                self.required | {"accepts": [self.offer | {"scheme": "unknown"}]}
+            )
+        for scheme in ("metered", "subscription"):
+            terms = dict(self.offer["extra"]["layerx"])
+            if scheme == "subscription":
+                terms["windowSeconds"] = "60"
+            offer = self.offer | {"scheme": scheme, "extra": {"layerx": terms}}
+            required = self.required | {"accepts": [offer]}
+            with self.subTest(scheme=scheme):
+                self.assertEqual(validate_required(required), required)
         for level in ("executed", "batched", "finalised", "finalized"):
             payload = self.payload | {
                 "payload": self.payload["payload"] | {"verificationLevel": level}

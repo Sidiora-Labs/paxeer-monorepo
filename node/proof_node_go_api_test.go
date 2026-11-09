@@ -10,8 +10,8 @@
 // TestResolutionActivationHeight, whose harnesses still used only the upgrade
 // marker instead of initializing the persisted SequencerKeeper activation height.
 // Malformed producer bytes are refused by DecodeSequenceBatch and receipt Verify.
-// rpc/server.go:NewEVMWebSocketServer intentionally has no pax_sequencerReceipt
-// method (HTTP serves it); the proof asserts that current boundary explicitly.
+// rpc/server.go serves pax_sequencerReceipt over HTTP and WebSocket; the proof
+// asserts the same unknown-hash response on both transports.
 package app_test
 
 import (
@@ -214,8 +214,10 @@ func TestProofNodeGoApi(t *testing.T) {
 	var absent *evmrpc.SequencerReceiptResult
 	require.NoError(t, httpClient.CallContext(ctx, &absent, evmrpc.SequencerReceiptMethod, common.Hash{0xff}))
 	require.Nil(t, absent)
+	require.NoError(t, wsClient.CallContext(ctx, &absent, evmrpc.SequencerReceiptMethod, common.Hash{0xff}))
+	require.Nil(t, absent)
 	var rpcErr gethrpc.Error
-	require.ErrorAs(t, wsClient.CallContext(ctx, &absent, evmrpc.SequencerReceiptMethod, common.Hash{0xff}), &rpcErr)
+	require.ErrorAs(t, wsClient.CallContext(ctx, &absent, "pax_unregisteredProofMethod"), &rpcErr)
 	require.Equal(t, -32601, rpcErr.ErrorCode())
 	pins := seqkeeper.ReceiptKeys{{KeyId: keyID[:], PublicKey: public[:], FirstHeight: 1, LastHeight: 1000}}
 	recipient := utils.NewSigner().EvmAddress
@@ -235,7 +237,7 @@ func TestProofNodeGoApi(t *testing.T) {
 			require.NoError(t, transport.CallContext(ctx, &pending, "eth_getTransactionCount", sender.EvmAddress, "pending"))
 			require.Equal(t, uint64(nonce+1), uint64(pending))
 			var receipt *evmrpc.SequencerReceiptResult
-			require.NoError(t, httpClient.CallContext(ctx, &receipt, evmrpc.SequencerReceiptMethod, hash))
+			require.NoError(t, transport.CallContext(ctx, &receipt, evmrpc.SequencerReceiptMethod, hash))
 			require.NotNil(t, receipt)
 			require.Equal(t, evmrpc.RungReceipted, receipt.Rung)
 			require.Equal(t, uint64(nonce+1), uint64(receipt.Seq))

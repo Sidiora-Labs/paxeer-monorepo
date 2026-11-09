@@ -144,11 +144,6 @@ pub mod historical {
     }
 }
 
-#[deprecated(
-    note = "archive only; use historical::hash for archived activities and layerx_crypto::evm_transaction::transaction_hash for current transaction identity"
-)]
-pub use historical::{activity_id, canonical_activity, canonical_payload, payload_hash};
-
 /// Computes `SHA256(exact_domain_tag || canonical_bytes)` exactly as core.
 ///
 /// # Errors
@@ -792,5 +787,52 @@ mod account_asset_tests {
             assert!(account_id_for_protocol(&account, 3).is_err());
         }
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod domain_tests {
+    use super::{domain, CanonicalBytes, Domain};
+
+    #[test]
+    fn all_domains_separate_identical_canonical_bytes() {
+        let bytes = include_bytes!("../../../../../tests/fixtures/asset/supply-pause.receipt");
+        let receipt = crate::receipt::decode(bytes)
+            .unwrap_or_else(|error| panic!("published receipt failed decode: {error:?}"));
+        let canonical = CanonicalBytes::from_wire(
+            crate::receipt::encode(&receipt)
+                .unwrap_or_else(|error| panic!("canonical receipt failed encode: {error:?}")),
+        );
+        let digests: Vec<_> = [
+            Domain::ActivityId,
+            Domain::PayloadHash,
+            Domain::SignaturePreimage,
+            Domain::AuthorityHash,
+            Domain::ContextHash,
+            Domain::MerkleLeaf,
+            Domain::MerkleInternal,
+            Domain::BatchHeader,
+            Domain::Receipt,
+            Domain::CheckpointCertificate,
+            Domain::AccountId,
+            Domain::DidId,
+            Domain::EvmPayoutBinding,
+            Domain::StateLeaf,
+            Domain::StateNode,
+            Domain::StateRootChain,
+            Domain::Snapshot,
+            Domain::DaChunk,
+            Domain::DaChallenge,
+            Domain::GuarantorAttestation,
+        ]
+        .into_iter()
+        .map(|purpose| domain(purpose, &canonical))
+        .collect();
+        assert!(digests.iter().all(Result::is_ok));
+        for (index, left) in digests.iter().enumerate() {
+            for right in &digests[index + 1..] {
+                assert_ne!(left, right);
+            }
+        }
     }
 }

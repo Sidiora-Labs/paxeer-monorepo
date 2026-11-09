@@ -59,6 +59,7 @@ const SUITES: [(TransportKind, &str, &str); 3] = [
 
 #[derive(Deserialize)]
 struct RoleVector {
+    name: String,
     role: String,
     accepted: bool,
     representation: String,
@@ -91,7 +92,11 @@ fn round_trip<T: DeserializeOwned + Serialize + Debug + PartialEq>(
     decode: fn(TransportKind, &TransportValue) -> Result<T, X402Error>,
 ) {
     let wire = vector.wire();
-    if vector.accepted {
+    if let Some(expected) = profile_refusal(&vector.name) {
+        let model: T = serde_json::from_value(vector.document.clone()).unwrap();
+        assert_eq!(encode(transport, &model), Err(expected.clone()));
+        assert_eq!(decode(transport, &wire), Err(expected));
+    } else if vector.accepted {
         let model: T = serde_json::from_value(vector.document.clone()).unwrap();
         let produced = encode(transport, &model).unwrap();
         match (&produced, &wire) {
@@ -127,12 +132,12 @@ fn finding_40_matrix_matches_production_codecs() {
         assert!(DOCUMENT.contains(&format!("| {label} | yes | yes | yes |")));
         let vectors: Vec<RoleVector> = serde_json::from_str(suite).unwrap();
         let mut roles = BTreeSet::new();
-        let mut refused = 0;
+        let mut refused = BTreeSet::new();
         for vector in &vectors {
             if vector.accepted {
                 roles.insert(vector.role.as_str());
             } else {
-                refused += 1;
+                refused.insert(vector.name.as_str());
             }
             match vector.role.as_str() {
                 "payment-required" => {
@@ -142,7 +147,7 @@ fn finding_40_matrix_matches_production_codecs() {
                         encode_payment_required,
                         decode_payment_required,
                     );
-                    if vector.accepted {
+                    if vector.accepted && profile_refusal(&vector.name).is_none() {
                         let seller =
                             Seller::new(serde_json::from_value(vector.document.clone()).unwrap())
                                 .unwrap();
@@ -224,7 +229,21 @@ fn finding_40_matrix_matches_production_codecs() {
                 "supported-response"
             ])
         );
-        assert_eq!(refused, 1);
+        let expected_refusals = match transport {
+            TransportKind::Http => {
+                BTreeSet::from(["json_payment_required_is_not_an_http_representation"])
+            }
+            TransportKind::Mcp => {
+                BTreeSet::from(["http_header_payment_required_is_not_a_mcp_representation"])
+            }
+            TransportKind::A2a => BTreeSet::from([
+                "http_header_payment_required_is_not_a_a2a_representation",
+                "profile_free_payment_required",
+                "profile_free_payment_payload",
+                "profile_free_facilitator_request",
+            ]),
+        };
+        assert_eq!(refused, expected_refusals);
     }
 }
 
@@ -294,5 +313,14 @@ fn finding_40_qualification_stays_pending() {
         "`0x101a` on chain 125",
     ] {
         assert!(text.contains(boundary), "missing qualification boundary: {boundary}");
+    }
+}
+
+fn profile_refusal(name: &str) -> Option<X402Error> {
+    match name {
+        "eip155_125_payment_required"
+        | "eip155_125_payment_payload"
+        | "eip155_125_facilitator_request" => Some(X402Error::ProfileMissing),
+        _ => None,
     }
 }

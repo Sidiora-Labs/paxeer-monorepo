@@ -6,6 +6,8 @@ import io
 import json
 import os
 from pathlib import Path
+import shutil
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -22,10 +24,110 @@ else:
 AUTHORITY = None
 
 
+def authority_fixture(directory):
+    root = Path(__file__).resolve().parents[3]
+
+    def write(name, value):
+        raw = json.dumps(value, sort_keys=True).encode()
+        path = directory / name
+        with path.open('xb') as stream:
+            stream.write(raw)
+        path.chmod(0o600)
+        return str(path), hashlib.sha256(raw).hexdigest()
+
+    def files(paths):
+        return [{'path': name, 'sha256': hashlib.sha256((root / name).read_bytes()).hexdigest()}
+                for name in paths]
+
+    policy_path, policy_sha = write('policy.json', {
+        'limits': evidence.LIMITS, 'read_scope': evidence.READ_SCOPE,
+        'network': False, 'web': False, 'mcp': False, 'apps': False,
+    })
+    runtime_path, runtime_sha = write('runtime.json', {
+        'runtime_scope_result': 'PASS', 'full_sandbox_pass': False,
+        'infrastructure_probe_exit': 1,
+        'infrastructure_probe_qualification': 'UNRUN_UNCHANGED',
+    })
+    log_path, log_sha = write('runtime.log', {'runtime_result_sha256': runtime_sha})
+    owner = {
+        'manager': 'px26-fm1', 'writer': 'isolated-cli-author-W-CORE-WORKSPACE',
+        'codify_attempt': '3b57d71f2384b9f82b2612d78da0c854062402a195b3112775f14b2460f3e4d1',
+        'fence': 2, 'paths': list(evidence.PATHS), 'exclusive': True,
+    }
+    contracts = files('spec/layerx-merge/contracts/' + name
+                      for name in evidence.CONTRACT_PATHS)
+    overlay = files(evidence.PATHS)
+    admission = {
+        **evidence.IDENTITY, 'schema': 'paxai.admission.v1',
+        'selector': evidence.SELECTORS[0], 'issued_at_unix': 1791454712,
+        'candidate': {'checkout': str(root),
+                      'base_revision': 'ce269bfe23c1db984a8ae62ce13aa36c238ce2fd',
+                      'branch': 'px26/fm1/ai-workspace'},
+        'contract': {'version': 1, 'files': contracts},
+        'toolchain': {
+            'python': {'executable': sys.executable, 'version': '3.12.3'},
+            'rustc': {'executable': '/usr/local/bin/rustc', 'version': '1.91.1',
+                      'release_identity': 'ed61e7d7e 2025-11-07'},
+            'cargo': {'executable': '/usr/local/bin/cargo', 'version': '1.91.1',
+                      'release_identity': 'ea2d97820 2025-10-10'},
+            'installed_targets': ['wasm32-unknown-unknown', 'x86_64-unknown-linux-gnu'],
+        },
+        'dependencies': {
+            'validator': 'python-standard-library-only', 'new_dependencies': [],
+            'programs_lock_sha256': 'f20c66cb7d488269d52a8d5a14a99f2fc23ec1b57dfbe697497a2d7744d67354',
+            'programs_lock_evidence': 'Root verified actual Programs lock SHA256 before dispatch; author may not read unapproved lockfile.',
+        },
+        'ownership': owner,
+        'access': {
+            'policy_path': policy_path, 'policy_sha256': policy_sha,
+            'runtime_result_path': runtime_path, 'runtime_result_sha256': runtime_sha,
+            'runtime_scope_result': 'PASS', 'infrastructure_probe_exit': 1,
+            'infrastructure_probe_qualification': 'UNRUN', 'full_sandbox_pass': False,
+            'limits': evidence.LIMITS, 'author_read_scope': evidence.READ_SCOPE,
+            'author_write_scope': 'exclusive private workspace-output subtree only; controller materializes exact two product files',
+            'allowed_tools': ['shell for approved reads/private output', 'apply_patch within private workspace-output'],
+            'network': False, 'web': False, 'mcp': False, 'apps': False,
+            'ignore_user_config': True, 'ignore_rules': True,
+            'project_doc_max_bytes': 0, 'ephemeral': True,
+        },
+        'evidence': {
+            'directory': str(directory), 'approval_path': str(directory / 'approval.json'),
+            'runtime_log_path': log_path, 'runtime_log_sha256': log_sha,
+            'gate_log_path': str(directory / 'gate.log'),
+            'gate_log_status': 'not-yet-run-root-Codify-owns-gate',
+        },
+        'model': {'requested': 'gpt-6.1-sol',
+                  'backend_identity': 'not-independently-emitted-by-CLI-events',
+                  'runtime_probe_exit': 0},
+        'authorization': {
+            'metadata_authority': 'Root explicitly delegated private actual workspace manifests from supplied verified facts; no runtime/deployment success may be invented.',
+            'product_authority': 'Only isolated CLI authors the two exact files; root owns canonical qualification/publication.',
+        },
+        'overlay': {'status': 'READY', 'files': overlay}, 'other_selector_records': {},
+    }
+    admission_path, admission_sha = write('admission.json', admission)
+    approval = {
+        **evidence.IDENTITY, 'schema': 'paxai.approval.v1',
+        'selector': evidence.SELECTORS[0], 'admission_path': admission_path,
+        'admission_sha256': admission_sha,
+        'base_revision': admission['candidate']['base_revision'],
+        'branch': admission['candidate']['branch'], 'contract_version': 1,
+        'contract_files': copy.deepcopy(contracts), 'ownership': copy.deepcopy(owner),
+        'policy_sha256': policy_sha, 'runtime_result_sha256': runtime_sha,
+        'runtime_log_sha256': log_sha, 'evidence_directory': str(directory),
+        'overlay_files': copy.deepcopy(overlay), 'status': 'READY',
+    }
+    write('approval.json', approval)
+    return admission, approval
+
+
 class EvidenceTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.authority = AUTHORITY if AUTHORITY is not None else evidence.load_authority()
+        cls.fixture = tempfile.TemporaryDirectory(prefix='paxai-structure-', dir=Path.home())
+        cls.addClassCleanup(cls.fixture.cleanup)
+        cls.authority = (AUTHORITY if AUTHORITY is not None else
+                         authority_fixture(Path(cls.fixture.name)))
 
     def setUp(self):
         self.admission, self.approval = copy.deepcopy(self.authority)
@@ -47,7 +149,12 @@ class EvidenceTests(unittest.TestCase):
 
     def test_actual_approved_authority(self):
         contracts, overlay = evidence.validate_structure(*self.authority)
-        self.assertEqual(len(contracts), 39)
+        self.assertEqual(set(contracts), {
+            'spec/layerx-merge/contracts/' + name for name in evidence.CONTRACT_PATHS})
+        self.assertEqual(len(contracts), 4)
+        root = Path(self.authority[0]['candidate']['checkout'])
+        for name, digest in contracts.items():
+            self.assertEqual(hashlib.sha256((root / name).read_bytes()).hexdigest(), digest)
         self.assertEqual(set(overlay), set(evidence.PATHS))
         self.assertEqual(self.authority[0]['overlay']['status'], 'READY')
         self.assertFalse(self.authority[0]['access']['full_sandbox_pass'])
@@ -134,7 +241,7 @@ class EvidenceTests(unittest.TestCase):
         self.refuse_structure()
 
     def test_changed_bytes_and_pin(self):
-        raw = evidence.read_bytes(os.environ['PAXAI_ADMISSION_RECORD'])
+        raw = evidence.read_bytes(self.approval['admission_path'])
         path = self.write('copied-admission.json', raw)
         pinned = hashlib.sha256(raw).hexdigest()
         self.assertEqual(evidence.pinned_file(str(path), pinned), raw)
@@ -143,10 +250,10 @@ class EvidenceTests(unittest.TestCase):
         with self.assertRaises(evidence.Invalid):
             evidence.pinned_file(str(path), pinned)
         self.approval['admission_sha256'] = '0' * 64
-        with self.assertRaises(evidence.Invalid):
+        with self.assertRaisesRegex(evidence.Invalid, '^admission bytes pin: mismatch$'):
             evidence.validate_workspace(self.admission, self.approval,
-                Path(os.environ['PAXAI_ADMISSION_RECORD']),
-                Path(os.environ['PAXAI_APPROVAL_RECORD']), raw)
+                self.approval['admission_path'],
+                self.admission['evidence']['approval_path'], raw)
 
     def test_ownership_and_fence(self):
         for name, value in (('manager', 'other'), ('writer', 'native-controller'),
@@ -364,6 +471,60 @@ class EvidenceTests(unittest.TestCase):
         self.assertEqual(result.errors[0][1], 'filesystem-error')
         self.assertEqual(result.skipped[0][1], 'skip')
         self.assertFalse(result.wasSuccessful())
+
+
+class WorkspaceRefusalTests(unittest.TestCase):
+    def setUp(self):
+        self.temporary = tempfile.TemporaryDirectory(prefix='paxai-workspace-', dir=Path.home())
+        self.addCleanup(self.temporary.cleanup)
+        self.directory = Path(self.temporary.name)
+        self.admission, self.approval = authority_fixture(self.directory)
+
+    def validate(self):
+        raw = json.dumps(self.admission, sort_keys=True).encode()
+        self.approval['admission_sha256'] = hashlib.sha256(raw).hexdigest()
+        return evidence.validate_workspace(
+            self.admission, self.approval, self.approval['admission_path'],
+            self.admission['evidence']['approval_path'], raw)
+
+    def test_current_checkout_refuses_stale_authority(self):
+        with self.assertRaisesRegex(evidence.Invalid, '^stale Git HEAD$'):
+            self.validate()
+        with self.assertRaisesRegex(evidence.Invalid, '^stale Git HEAD$'):
+            evidence.load_authority(self.approval['admission_path'],
+                                    self.admission['evidence']['approval_path'])
+
+    def test_historical_checkout_enforces_interpreter_and_validator_path(self):
+        root = Path(self.admission['candidate']['checkout'])
+        checkout = self.directory / 'checkout'
+        commands = [
+            ['git', 'clone', '--shared', '--no-checkout', str(root), str(checkout)],
+            ['git', '-C', str(checkout), 'sparse-checkout', 'set', 'spec/layerx-merge/contracts'],
+            ['git', '-C', str(checkout), 'switch', '--create',
+             self.admission['candidate']['branch'], self.admission['candidate']['base_revision']],
+        ]
+        for command in commands:
+            result = subprocess.run(command, capture_output=True, text=True, timeout=60)
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        for row in self.admission['contract']['files'] + self.admission['overlay']['files']:
+            destination = checkout / row['path']
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(root / row['path'], destination)
+        self.admission['candidate']['checkout'] = str(checkout)
+        reason = ('actual Python must be 3.12.3' if sys.version_info[:3] != (3, 12, 3)
+                  else 'validator must execute materialized owned path')
+        with self.assertRaisesRegex(evidence.Invalid, '^' + reason + '$'):
+            self.validate()
+
+
+class EvidencePathContractTests(unittest.TestCase):
+    def test_paths_are_canonical_strings(self):
+        path = Path(__file__).resolve()
+        self.assertEqual(evidence.safe_path(str(path)), path)
+        with self.assertRaises(evidence.Invalid):
+            evidence.safe_path(path)
+        with self.assertRaises(evidence.Invalid):
+            evidence.load_authority(path, str(path))
 
 
 if __name__ == '__main__':

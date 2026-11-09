@@ -88,6 +88,7 @@ def test_root_network_description_public_rpc_and_chain_probe():
     assert {url.hostname for url in urls} == {
         "api-mainnet-beta.paxeer.network",
         "api1.mainnet-beta.paxeer.network",
+        "api2.mainnet-beta.paxeer.network",
         "api14.mainnet-beta.paxeer.network",
     }
     for url in urls:
@@ -161,7 +162,7 @@ def test_root_network_description_build_and_operations_use_paxd():
     ))
     targets = dict(re.findall(r"^([\w-]+):([^\n]*)$", source("Makefile"), re.M))
     assert targets["paxd-build"].split() == ["paxd-native-libs"]
-    assert targets["paxd-native-libs"].split() == ["$(LIBRARY)", "programs-release-build"]
+    assert targets["paxd-native-libs"].split() == ["$(LIBRARY)", "programs-release-build", "evmone-lib"]
     assert "-o ./build/paxd ./daemon/paxd" in source("chain.mk")
     assert "server.AddCommands(" in source("daemon/paxd/cmd/root.go")
     releases = section("Releases and Network Upgrades")

@@ -1,0 +1,45 @@
+[repair.22.39.179]
+requirement = "22998.1"
+decision = "3017"
+gotcha = "3715"
+target = "apps/wallet/src/surfaces/test/repair-22-33-206.test.ts: repair_22_33_206_unsigned_surface_fixture_replays_node_send_and_read"
+producer = "5577807085a205dc03e13c98ad58d876c8d3e1c6 (22.39.145), sdk/wallet/src/modules/index.ts: sendModuleTransactionReceipted now calls requireAuthenticatedReceipt and matchReceiptTransaction on the waitForSequencerReceipt result and returns it, avoiding the second authenticateSequencerReceipt call on the fallback path. No SDK files change in this repair."
+fallback_before = ["paxeer_sendTransactionReceipted", "eth_sendTransaction", "pax_sequencerReceipt", "px_getReceiptKeys", "eth_getRawTransactionByHash", "px_getReceiptKeys", "eth_getRawTransactionByHash", "pax_sequencerReceipt", "px_getReceiptKeys", "eth_getRawTransactionByHash"]
+fallback_after = ["paxeer_sendTransactionReceipted", "eth_sendTransaction", "pax_sequencerReceipt", "px_getReceiptKeys", "eth_getRawTransactionByHash", "pax_sequencerReceipt", "px_getReceiptKeys", "eth_getRawTransactionByHash"]
+direct_before_and_after = ["paxeer_sendTransactionReceipted", "px_getReceiptKeys", "eth_getRawTransactionByHash", "pax_sequencerReceipt", "px_getReceiptKeys", "eth_getRawTransactionByHash"]
+authentication = "waitForSequencerReceipt uses readSequencerReceipt, which authenticates each non-submitted receipt against governed px_getReceiptKeys pins, canonical signed receipt bytes and eth_getRawTransactionByHash; returning that authenticated result preserves its authentication evidence and transaction match. The independent read still fetches keys and raw bytes once and must equal the sent receipt, pass requireAuthenticatedReceipt and produce the same surfaceReceipt. Direct sends still authenticate their RPC answer once before the independent authenticated read."
+assertions = "Only the duplicate fallback key/raw request pair is removed from the exact method list; the direct method list, node-produced receipt bytes and digest, full decoded surface result, authenticated read equality and submitted-call assertions remain intact."
+
+[repair.22.39.179.history]
+method = "Run the original named case in isolated source snapshots at the producer parent and producer, using the installed wallet dependencies; no historical source is copied into the working tree. This requested producer comparison is separate from the final qualification gates."
+command = "pnpm exec vitest run src/surfaces/test/repair-22-33-206.test.ts -t repair_22_33_206_unsigned_surface_fixture_replays_node_send_and_read"
+parent = "e0ddb42c88a7f7121467c64ce8e9a91cce626209 (5577807085^): exit 0, one selected case passed; exact revision, command, exit and output: /out/logs/22-39-179-history-parent.log"
+producer = "5577807085a205dc03e13c98ad58d876c8d3e1c6: exit 1, the selected case failed at line 131 with eight received requests versus ten expected, removing precisely the duplicate px_getReceiptKeys/eth_getRawTransactionByHash pair; exact revision, command, exit and output: /out/logs/22-39-179-history-producer.log"
+evidence = "The parent case passes the ten-request fallback expectation; the producer case passes its direct-path assertions and the fallback authentication, read equality and surface assertions before failing only the fallback method list. These historical runs establish the producer, not final qualification; the name filter selects the requested case without changing any test registration."
+snapshot_setup = "The initial isolated launches executed no cases because the snapshots omitted services/wallet/tsconfig.base.json; restoring that file from each matching historical revision allowed the requested comparisons to execute, with both launch attempts retained in the private logs."
+
+[repair.22.39.179.previous_attempt_qualification]
+status = "implemented-not-qualified"
+build = "hf-build: candidate 322993bbc12275b0e2eef194d78b11bc2b38569c, exit 2; exact build command and private evidence: /out/logs/build-1.log and /out/run/gates.jsonl (kind=build). The receipt test change was complete and formatted before this gate; only this evidence record was updated afterward."
+verify = "Not run: hf-done requires a passing hf-build, which is blocked by the unrelated pre-existing server-test errors recorded below. No verification pass or qualified revision is claimed."
+verify_cmd = "test -s apps/wallet/src/surfaces/test/repair-22-39-179.kvx && cd apps/wallet && corepack enable && pnpm exec vitest run src/surfaces/test"
+revision_policy = "The build and verify must reference the same final candidate revision; the runner retains the exact evidence and publishes the qualified candidate."
+
+[repair.22.39.179.finding.build]
+task = "22.39.179"
+file = "apps/wallet/src/server/repair-22-33-168.test.ts:123"
+symbol = "createAgent"
+observed = "At candidate 322993bbc12275b0e2eef194d78b11bc2b38569c, cd apps/wallet && corepack enable && pnpm install --frozen-lockfile && pnpm exec tsc --noEmit -p tsconfig.json exited 2 with TS18047 and TS2339 at address.port; log /out/logs/build-1.log."
+assumption = "The unchanged base contains the same nested-function access to the nullable string-or-AddressInfo address; attempt 2 explicitly includes this server-test file in scope and resolves the recorded failure below."
+severity = "blocker"
+
+[repair.22.39.179.address_read]
+producer = "d15bd08924 (22.33.168), apps/wallet/src/server/repair-22-33-168.test.ts: pushProvider/createAgent."
+correction = "After server.address(), the existing guard explicitly rejects null and string addresses; capture address.port as a number immediately after that guard, before the nested createAgent declaration, and pass the captured port to the real https.Agent. This keeps the AddressInfo narrowing at the property read and preserves every assertion, TLS hostname verification and real provider transport."
+authority = "Attempt 2 continuation, gotcha 3725, decisions 2908 and 3017; the attempt-1 request-sequence repair and producer comparison stand."
+
+[repair.22.39.179.qualification]
+evidence = "The current attempt's private /out/run/gates.jsonl is authoritative for exact revision, command, exit and log; final build and verify records must name the same candidate revision. These references declare no pass before execution."
+build = "hf-build records kind=build in /out/run/gates.jsonl and full output in /out/logs/build-1.log (or the final repair build log named by the ledger)."
+verify = "hf-done runs cg spec done 22.39.179 -f layerx-merge --root /work/paxeer-monorepo, including the declared surface-suite verify_cmd and graph checks; kind=verify in /out/run/gates.jsonl names the verified revision and /out/logs/verify-1.log (or the final repair verification log named by the ledger)."
+revision_policy = "Leave this implementation and its evidence references unchanged after the final hf-build so hf-done qualifies the same candidate; the runner retains exact gate evidence and publishes the qualified candidate."

@@ -130,12 +130,10 @@ def test_finding_17_supported_go_and_linter_consumer():
     assert re.findall(r"^go\s+(\S+)$", source("go.mod"), re.M) == ["1.25.8"]
     assert re.findall(r'^version:\s*"(\d+)"$', source(".golangci.yml"), re.M) == ["2"]
     wasm_makefile = source("wasm/Makefile")
-    assert re.findall(r"^include (contrib/devtools/Makefile)$", wasm_makefile, re.M) == [
-        "contrib/devtools/Makefile",
-    ]
-    assert re.findall(r"^lint: (.*)\n\t(.*)$", wasm_makefile, re.M) == [
-        ("format-tools", "golangci-lint run --tests=false"),
-    ]
+    assert ".DEFAULT_GOAL := help" in wasm_makefile
+    assert "$(error wasm/Makefile is retired; run make paxd-build from the repository root; use help for module developer commands)" in wasm_makefile
+    assert "CGO_ENABLED=1 go test -mod=readonly ./wasm/x/wasm/..." in wasm_makefile
+    assert not re.findall(r"^include |^lint:", wasm_makefile, re.M)
 
 
 def test_finding_17_readme_matches_real_installation_path():
@@ -154,10 +152,10 @@ def test_finding_17_readme_matches_real_installation_path():
     examples = re.findall(r"```sh\n(.*?)\n```", readme, re.S)
     assert len(examples) == 1
     assert [shlex.split(line) for line in examples[0].splitlines()] == [
-        ["make", "-C", "wasm", "tools", "TOOLS_DESTDIR=$PWD/.devtools/bin"],
+        ["make", "-C", "wasm/contrib/devtools", "tools", "TOOLS_DESTDIR=$PWD/.devtools/bin"],
         ["export", "PATH=$PWD/.devtools/bin:$PATH"],
     ]
-    assert 'make -C wasm tools-clean TOOLS_DESTDIR="$PWD/.devtools/bin"' in readme
+    assert 'make -C wasm/contrib/devtools tools-clean TOOLS_DESTDIR="$PWD/.devtools/bin"' in readme
     assert "not a working installer" not in readme
 
 

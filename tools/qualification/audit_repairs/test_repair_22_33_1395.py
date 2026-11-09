@@ -154,10 +154,13 @@ def test_receipt_keys_producer_projection_and_real_consumer_contract():
     # exact receipt-key environment, Secret volume and read-only mount.
     producer()["gateway_manifest"](rendered, container)
     assert rendered == POD
+    producer()["gateway_manifest"](rendered, container)
+    assert rendered == POD
     volume = next(item for item in POD["volumes"] if item["name"] == "receipt-keys")
     projection = volume["secret"]
     assert projection["secretName"] == "layerx-gateway-receipt-keys"
     assert not projection.get("optional", False)
+    assert projection["optional"] is False
     assert projection["defaultMode"] == 0o440
     mount = next(item for item in CONTAINER["volumeMounts"] if item["name"] == "receipt-keys")
     assert mount["readOnly"] is True
@@ -327,7 +330,7 @@ def test_identifier_meanings_and_proof_limits_are_published():
         "LAYERX_GATEWAY_PROTOCOL_NETWORK_ID=125", "LAYERX_GATEWAY_NETWORK_ID=paxeer-mainnet-beta",
         "LAYERX_GATEWAY_LXP_WIRE_VERSION=3", "inclusive uint64\nchain heights",
         "A chain-ID label alone is not authentication", "Key rotation requires",
-        "It does not launch the Rust", "material provisioning",
+        "They do not launch the Rust binary or certify a live", "material provisioning",
     ):
         assert fact in documentation
     record = (ROOT / "tools/qualification/audit_repairs/repair_22_33_1395.kvx").read_text()

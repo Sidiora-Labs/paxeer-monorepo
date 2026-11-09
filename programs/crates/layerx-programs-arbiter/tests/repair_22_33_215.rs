@@ -215,7 +215,7 @@ fn registry_replay_signatures_verify_admission_from_transported_chain_proofs() {
             assert_eq!(admission.state_root(), hash(entry, "state_root"));
             assert_eq!(admission.receipt_digest(), hash(entry, "receipt_digest"));
             assert_eq!(
-                layerx_wire::activity::encode_signed(admission.activity()).unwrap(),
+                layerx_wire::historical::activity::encode_signed(admission.activity()).unwrap(),
                 bytes(entry, "signed_activity")
             );
             assert_eq!(

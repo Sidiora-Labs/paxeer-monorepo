@@ -61,3 +61,6 @@ unwrap_used = "deny"
 expect_used = "deny"
 float_arithmetic = "deny"
 lossy_float_literal = "deny"
+
+[profile.test]
+debug = 0

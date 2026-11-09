@@ -37,19 +37,19 @@ from layerx_sdk import (
 from layerx_sdk.account_derivation import keccak256
 from layerx_sdk.evm_transaction import encode_call
 from layerx_sdk.perps import (
-    perps_call, perps_cancel_order_call, perps_close_position_call,
+    PERPS_PRECOMPILE, perps_call, perps_cancel_order_call, perps_close_position_call,
     perps_open_position_call,
 )
 from layerx_sdk.exchange import (
-    LAYERX_EXCHANGE_PRECOMPILE,
+    PRE_V6120_EXCHANGE_PRECOMPILE,
     PrecompileAbiError,
     PrecompileCall,
-    exchange_cancel_order_call,
-    exchange_deposit_margin_call,
-    exchange_deposit_margin_token_call,
-    exchange_place_order_call,
-    exchange_request_settlement_call,
-    exchange_withdraw_margin_call,
+    pre_v6120_exchange_cancel_order_call,
+    pre_v6120_exchange_deposit_margin_call,
+    pre_v6120_exchange_deposit_margin_token_call,
+    pre_v6120_exchange_place_order_call,
+    pre_v6120_exchange_request_settlement_call,
+    pre_v6120_exchange_withdraw_margin_call,
     precompile_transaction_request,
 )
 
@@ -160,20 +160,20 @@ class XWebApiVectorTests(unittest.TestCase):
         price = (1 << 64) + 2
         calls = (
             (
-                exchange_place_order_call(market, 2, price, 5_000, 3),
+                pre_v6120_exchange_place_order_call(market, 2, price, 5_000, 3),
                 "0x36633730" + "11" * 32 + f"{2:064x}{price:064x}{5_000:064x}{3:064x}",
                 0,
             ),
-            (exchange_cancel_order_call(order), "0x7489ec23" + "33" * 32, 0),
-            (exchange_request_settlement_call(position), "0xe2ab32b3" + "44" * 32, 0),
-            (exchange_deposit_margin_call(account, 255), "0x4498105f" + "22" * 32, 255),
+            (pre_v6120_exchange_cancel_order_call(order), "0x7489ec23" + "33" * 32, 0),
+            (pre_v6120_exchange_request_settlement_call(position), "0xe2ab32b3" + "44" * 32, 0),
+            (pre_v6120_exchange_deposit_margin_call(account, 255), "0x4498105f" + "22" * 32, 255),
             (
-                exchange_deposit_margin_token_call(pointer, 9, account),
+                pre_v6120_exchange_deposit_margin_token_call(pointer, 9, account),
                 "0x4576dad4" + "00" * 12 + "ab" * 20 + f"{9:064x}" + "22" * 32,
                 0,
             ),
             (
-                exchange_withdraw_margin_call(account, asset, 10),
+                pre_v6120_exchange_withdraw_margin_call(account, asset, 10),
                 "0x661e2df4" + "22" * 32 + "55" * 32 + f"{10:064x}",
                 0,
             ),
@@ -182,7 +182,7 @@ class XWebApiVectorTests(unittest.TestCase):
             with self.subTest(selector=data[:10]):
                 self.assertIs(type(call), PrecompileCall)
                 self.assertEqual(
-                    call, PrecompileCall(LAYERX_EXCHANGE_PRECOMPILE, data, value)
+                    call, PrecompileCall(PRE_V6120_EXCHANGE_PRECOMPILE, data, value)
                 )
 
     def test_current_direct_order_and_position_calldata(self) -> None:
@@ -203,12 +203,12 @@ class XWebApiVectorTests(unittest.TestCase):
                 for kind, value in zip(types, values, strict=True)
             ]
             expected = encode_call(name, types, abi_values)
-            self.assertEqual(call.to, LAYERX_EXCHANGE_PRECOMPILE)
+            self.assertEqual(call.to, PERPS_PRECOMPILE)
             self.assertEqual(call.data, "0x" + expected.hex())
             self.assertEqual(bytes.fromhex(call.data[2:10]), keccak256(signature.encode())[:4])
             self.assertEqual(call.value, 0)
             self.assertEqual(precompile_transaction_request("0x" + "12" * 20, call), {
-                "from": "0x" + "12" * 20, "to": LAYERX_EXCHANGE_PRECOMPILE,
+                "from": "0x" + "12" * 20, "to": PERPS_PRECOMPILE,
                 "data": "0x" + expected.hex(), "value": "0x0",
             })
         for name in ("getOrder", "getPosition"):
@@ -229,15 +229,15 @@ class XWebApiVectorTests(unittest.TestCase):
         market = "0x" + "11" * 32
         account = "0x" + "22" * 32
         invalid = (
-            (exchange_place_order_call, ("0x22", 2, 1, 1, 0)),
-            (exchange_place_order_call, (market, 256, 1, 1, 0)),
-            (exchange_place_order_call, (market, True, 1, 1, 0)),
-            (exchange_place_order_call, (market, 2, -1, 1, 0)),
-            (exchange_place_order_call, (market, 2, 1, 1 << 256, 0)),
-            (exchange_place_order_call, (market, 2, 1, 1, 256)),
-            (exchange_cancel_order_call, ("0x11",)),
-            (exchange_request_settlement_call, ("0x22",)),
-            (exchange_withdraw_margin_call, (account, market, -1)),
+            (pre_v6120_exchange_place_order_call, ("0x22", 2, 1, 1, 0)),
+            (pre_v6120_exchange_place_order_call, (market, 256, 1, 1, 0)),
+            (pre_v6120_exchange_place_order_call, (market, True, 1, 1, 0)),
+            (pre_v6120_exchange_place_order_call, (market, 2, -1, 1, 0)),
+            (pre_v6120_exchange_place_order_call, (market, 2, 1, 1 << 256, 0)),
+            (pre_v6120_exchange_place_order_call, (market, 2, 1, 1, 256)),
+            (pre_v6120_exchange_cancel_order_call, ("0x11",)),
+            (pre_v6120_exchange_request_settlement_call, ("0x22",)),
+            (pre_v6120_exchange_withdraw_margin_call, (account, market, -1)),
         )
         for builder, args in invalid:
             with self.subTest(builder=builder.__name__, args=args):

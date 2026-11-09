@@ -145,13 +145,13 @@ permissions:
 jobs:
   tests-rocksdb:
     name: RocksDB Tests
-    runs-on: ${{ (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && 'ubuntu-latest' || vars.CI_LINUX_RUNNER || 'ubuntu-latest' }}
+    runs-on: ${{ (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && 'ubuntu-24.04' || vars.CI_LINUX_RUNNER || 'ubuntu-24.04' }}
     permissions:
       contents: read
       id-token: write
     steps:
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
-      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version: '1.25.8'
           cache-dependency-path: go.sum
@@ -168,14 +168,16 @@ jobs:
           path: |
             /usr/local/lib/librocksdb.*
             /usr/local/include/rocksdb
-          key: rocksdb-v8.9.1-${{ runner.os }}
+          key: rocksdb-v8.9.1-49ce8a1064dd1ad89117899839bf136365e49e79-${{ runner.os }}
 
       - name: Build and Install RocksDB from source
         if: steps.cache-rocksdb.outputs.cache-hit != 'true'
         run: |
-          git clone https://github.com/facebook/rocksdb.git
+          git init rocksdb
+          git -C rocksdb remote add origin https://github.com/facebook/rocksdb.git
+          git -C rocksdb fetch --depth 1 origin 49ce8a1064dd1ad89117899839bf136365e49e79 # v8.9.1
+          git -C rocksdb checkout --detach 49ce8a1064dd1ad89117899839bf136365e49e79
           cd rocksdb
-          git checkout v8.9.1
           make clean
           CXXFLAGS='-march=native -DNDEBUG' make -j"$(nproc)" shared_lib
           sudo make install-shared

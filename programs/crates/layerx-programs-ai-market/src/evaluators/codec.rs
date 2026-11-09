@@ -6,6 +6,7 @@ use super::model::{
     GRANT_BYTES, SIGNED_CONSENT_BYTES, SIGNED_REPORT_MAX_BYTES,
 };
 pub use crate::codec::{decode_reveal_event, encode_reveal_event, RevealScoreEvent};
+use crate::types::GuestIndex as _;
 use crate::{
     codec::{self as common, Reader, ReportBody, ScoreVector, Writer},
     errors::{
@@ -45,15 +46,17 @@ pub fn encode_grant(value: &EvaluatorGrant, out: &mut [u8]) -> CodecResult<usize
     value.validate()?;
     room(out, GRANT_BYTES)?;
     let mut w = Writer::new(out);
-    w.put(value.evaluator.as_bytes())?;
-    w.put(value.principal.as_bytes())?;
-    w.put(value.rubric.as_bytes())?;
-    w.u64(value.grant_version.get())?;
-    w.u64(value.key_version.get())?;
-    w.put(&value.signing_key.0)?;
-    w.u64(value.effective_epoch)?;
-    w.u64(value.expiry_epoch_exclusive)?;
-    w.u8(value.status as u8)?;
+    crate::codec::write_fields!(w;
+        id32: value.evaluator.as_bytes();
+        id32: value.principal.as_bytes();
+        id32: value.rubric.as_bytes();
+        u64: value.grant_version.get();
+        u64: value.key_version.get();
+        put: &value.signing_key.0;
+        u64: value.effective_epoch;
+        u64: value.expiry_epoch_exclusive;
+        u8: value.status as u8;
+    )?;
     Ok(w.len())
 }
 /// Decodes and validates an evaluator grant.
@@ -66,17 +69,16 @@ pub fn decode_grant(input: &[u8]) -> CodecResult<EvaluatorGrant> {
         return Err(NON_CANONICAL);
     }
     let mut r = Reader::new(input);
-    let value = EvaluatorGrant {
-        evaluator: r.evaluator_id()?,
-        principal: r.principal_id()?,
-        rubric: r.rubric_digest()?,
-        grant_version: r.version()?,
-        key_version: r.version()?,
-        signing_key: PublicKey32(r.fixed()?),
-        effective_epoch: r.u64()?,
-        expiry_epoch_exclusive: r.u64()?,
-        status: GrantStatus::decode(r.u8()?)?,
-    };
+    let value = crate::codec::read_record!(&mut r, EvaluatorGrant {  }; evaluator = r.evaluator_id()?;
+        principal: PrincipalId,
+        rubric: RubricDigest,
+        grant_version: Version,
+        key_version: Version,
+        signing_key: PublicKey32,
+        effective_epoch: U64,
+        expiry_epoch_exclusive: U64,
+        status: GrantStatus
+    );
     r.finish()?;
     value.validate()?;
     Ok(value)
@@ -84,6 +86,7 @@ pub fn decode_grant(input: &[u8]) -> CodecResult<EvaluatorGrant> {
 
 /// F03 narrows common structural vector errors to its frozen feature codes.
 /// Does not sort, repair or mutate caller input.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 fn validate_scores(scores: &ScoreVector<'_>) -> CodecResult<()> {
     if let ScoreVector::Encoded(bytes) = scores {
         if bytes.len() % 36 != 0 {
@@ -161,7 +164,8 @@ pub fn encode_signed_report(value: &SignedReport<'_>, out: &mut [u8]) -> CodecRe
         .ok_or(ARITHMETIC)?;
     room(out, n)?;
     let body_len = encode_report_body(&value.body, out)?;
-    out[body_len..n].copy_from_slice(&value.signature.0);
+    out.guest_index_mut(body_len..n)
+        .guest_copy_from_slice(&value.signature.0);
     Ok(n)
 }
 /// Decodes a signed report: body, then the 64-byte signature.
@@ -174,8 +178,13 @@ pub fn decode_signed_report(input: &[u8]) -> CodecResult<SignedReport<'_>> {
         return Err(NON_CANONICAL);
     }
     let end = input.len().checked_sub(64).ok_or(ARITHMETIC)?;
-    let body = decode_report_body(&input[..end])?;
-    let signature = Signature64(input[end..].try_into().map_err(|_| NON_CANONICAL)?);
+    let body = decode_report_body(input.guest_index(..end))?;
+    let signature = Signature64(
+        input
+            .guest_index(end..)
+            .try_into()
+            .map_err(|_| NON_CANONICAL)?,
+    );
     Ok(SignedReport { body, signature })
 }
 
@@ -215,6 +224,7 @@ pub fn check_binding(actual: &EvaluatorBinding, expected: &EvaluatorBinding) -> 
 ///
 /// # Errors
 /// Returns, in order: vector, `check_binding` and grant `validate` refusals; `F03_NO_GRANT`, `F03_GRANT_VERSION_CONFLICT`, `REVOKED`, `EXPIRED` or `F03_KEY_VERSION_CONFLICT` for grant state; `KEY_MISMATCH`; `ROLE_CONFLICT`; `WRONG_CONFIG` for the rubric; `CAPACITY` for too many workers; `NON_CANONICAL` for a zero worker key; `WRONG_ROSTER` for an unsorted roster; `F03_EVIDENCE_NOT_SEALED`; `EVIDENCE_BINDING`; `F03_EVIDENCE_ROOT_MISMATCH`; `F03_UNKNOWN_WORKER`.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn check_report_context(body: &ReportBody<'_>, context: &ReportContext<'_>) -> CodecResult<()> {
     validate_scores(&body.scores)?;
     check_binding(&body.binding, &context.binding)?;
@@ -299,6 +309,7 @@ pub fn check_report_context(body: &ReportBody<'_>, context: &ReportContext<'_>) 
 ///
 /// # Errors
 /// Returns `NON_CANONICAL` for a zero key; `BAD_SIGNATURE` for an invalid key or signature; on wasm, `Host` for any other host refusal.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn verify_digest(
     key: PublicKey32,
     signature: Signature64,
@@ -351,22 +362,24 @@ pub fn encode_consent(value: &EvaluatorAdmissionConsentV1, out: &mut [u8]) -> Co
     value.validate()?;
     room(out, CONSENT_BYTES)?;
     let mut w = Writer::new(out);
-    w.u16(crate::SCHEMA_VERSION)?;
-    w.put(value.chain.as_bytes())?;
-    w.put(value.program.as_bytes())?;
-    w.put(value.market.as_bytes())?;
-    w.put(value.evaluator.as_bytes())?;
-    w.put(value.owner.as_bytes())?;
-    w.put(&value.delegate_key.0)?;
-    w.put(&value.enrollment_nonce)?;
-    w.put(value.rubric.as_bytes())?;
-    w.put(value.approval.as_bytes())?;
-    w.put(value.request.as_bytes())?;
-    w.u64(value.grant_version.get())?;
-    w.u64(value.key_version.get())?;
-    w.u64(value.effective_epoch)?;
-    w.u64(value.config_version.get())?;
-    w.u64(value.expiry_height)?;
+    crate::codec::write_fields!(w;
+        u16: crate::SCHEMA_VERSION;
+        id32: value.chain.as_bytes();
+        id32: value.program.as_bytes();
+        id32: value.market.as_bytes();
+        id32: value.evaluator.as_bytes();
+        id32: value.owner.as_bytes();
+        put: &value.delegate_key.0;
+        put: &value.enrollment_nonce;
+        id32: value.rubric.as_bytes();
+        id32: value.approval.as_bytes();
+        id32: value.request.as_bytes();
+        u64: value.grant_version.get();
+        u64: value.key_version.get();
+        u64: value.effective_epoch;
+        u64: value.config_version.get();
+        u64: value.expiry_height;
+    )?;
     Ok(w.len())
 }
 /// Decodes and validates an admission consent.
@@ -380,23 +393,22 @@ pub fn decode_consent(input: &[u8]) -> CodecResult<EvaluatorAdmissionConsentV1> 
     }
     let mut r = Reader::new(input);
     schema(&mut r)?;
-    let value = EvaluatorAdmissionConsentV1 {
-        chain: r.chain_domain()?,
-        program: r.program_id()?,
-        market: r.market_id()?,
-        evaluator: r.evaluator_id()?,
-        owner: r.principal_id()?,
-        delegate_key: PublicKey32(r.fixed()?),
-        enrollment_nonce: r.fixed()?,
-        rubric: r.rubric_digest()?,
-        approval: r.digest32()?,
-        request: r.request_id()?,
-        grant_version: r.version()?,
-        key_version: r.version()?,
-        effective_epoch: r.u64()?,
-        config_version: r.version()?,
-        expiry_height: r.u64()?,
-    };
+    let value = crate::codec::read_record!(&mut r, EvaluatorAdmissionConsentV1 {  }; chain = r.chain_domain()?;
+        program: ProgramId,
+        market: MarketId,
+        evaluator: EvaluatorId,
+        owner: PrincipalId,
+        delegate_key: PublicKey32,
+        enrollment_nonce: Fixed,
+        rubric: RubricDigest,
+        approval: Digest32,
+        request: RequestId,
+        grant_version: Version,
+        key_version: Version,
+        effective_epoch: U64,
+        config_version: Version,
+        expiry_height: U64
+    );
     r.finish()?;
     value.validate()?;
     Ok(value)
@@ -419,7 +431,8 @@ pub fn encode_signed_consent(value: &SignedEvaluatorConsent, out: &mut [u8]) -> 
     value.consent.validate()?;
     room(out, SIGNED_CONSENT_BYTES)?;
     encode_consent(&value.consent, out)?;
-    out[CONSENT_BYTES..SIGNED_CONSENT_BYTES].copy_from_slice(&value.signature.0);
+    out.guest_index_mut(CONSENT_BYTES..SIGNED_CONSENT_BYTES)
+        .guest_copy_from_slice(&value.signature.0);
     Ok(SIGNED_CONSENT_BYTES)
 }
 /// Decodes a signed consent: consent, then the 64-byte signature.
@@ -432,9 +445,10 @@ pub fn decode_signed_consent(input: &[u8]) -> CodecResult<SignedEvaluatorConsent
         return Err(NON_CANONICAL);
     }
     Ok(SignedEvaluatorConsent {
-        consent: decode_consent(&input[..CONSENT_BYTES])?,
+        consent: decode_consent(input.guest_index(..CONSENT_BYTES))?,
         signature: Signature64(
-            input[CONSENT_BYTES..]
+            input
+                .guest_index(CONSENT_BYTES..)
                 .try_into()
                 .map_err(|_| NON_CANONICAL)?,
         ),
@@ -444,6 +458,7 @@ pub fn decode_signed_consent(input: &[u8]) -> CodecResult<SignedEvaluatorConsent
 ///
 /// # Errors
 /// Propagates `validate` refusals; returns `WRONG_DOMAIN`, `WRONG_CONFIG`, `REVOKED`, `EXPIRED` for an expired status or height, or `F08_BAD_CONSENT` for a non-pending nomination or any statement mismatch.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn check_consent_context(
     value: &EvaluatorAdmissionConsentV1,
     context: &ConsentContext,

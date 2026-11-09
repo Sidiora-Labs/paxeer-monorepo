@@ -39,6 +39,34 @@ func repair37Run(t *testing.T, dir string, env []string, args ...string) {
 	cmd := exec.CommandContext(ctx, "go", args...)
 	cmd.Dir = dir
 	cmd.Env = append(os.Environ(), env...)
+	moduleDir, err := filepath.Abs(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for {
+		manifest, err := os.ReadFile(filepath.Join(moduleDir, "go.mod"))
+		if err == nil {
+			if moduleDir == repair37Root(t) {
+				toolchain := ""
+				for _, line := range strings.Split(string(manifest), "\n") {
+					fields := strings.Fields(line)
+					if len(fields) >= 2 && fields[0] == "go" {
+						toolchain = "go" + fields[1]
+						break
+					}
+				}
+				if toolchain == "" {
+					t.Fatal("node go.mod has no go directive")
+				}
+				cmd.Env = append(cmd.Env, "GOTOOLCHAIN="+toolchain)
+			}
+			break
+		}
+		if !os.IsNotExist(err) || filepath.Dir(moduleDir) == moduleDir {
+			t.Fatalf("locate producer/consumer go.mod: %v", err)
+		}
+		moduleDir = filepath.Dir(moduleDir)
+	}
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		t.Fatalf("real producer/consumer %s failed: %v\n%s", strings.Join(args, " "), err, output)

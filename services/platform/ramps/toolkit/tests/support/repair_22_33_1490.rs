@@ -48,15 +48,15 @@ impl Files {
         let files = Self(directory);
         files.write(
             "ca.pem",
-            include_bytes!("../../src/repair_22_33_1486/ca.pem"),
+            include_bytes!("../fixtures/repair_22_33_1486/ca.pem"),
         );
         files.write(
             "ca.der",
-            include_bytes!("../../src/repair_22_33_1486/ca.der"),
+            include_bytes!("../fixtures/repair_22_33_1486/ca.der"),
         );
         files.write(
             "identity.p12",
-            include_bytes!("../../src/repair_22_33_1486/identity.p12"),
+            include_bytes!("../fixtures/repair_22_33_1486/identity.p12"),
         );
         files.write("password", b"ramp-config-proof");
         files.write("token", b"repair-1490-token");
@@ -183,7 +183,7 @@ impl Server {
             let acceptor = tls.then(|| {
                 TlsAcceptor::new(
                     Identity::from_pkcs12(
-                        include_bytes!("../../src/repair_22_33_1486/identity.p12"),
+                        include_bytes!("../fixtures/repair_22_33_1486/identity.p12"),
                         "ramp-config-proof",
                     )
                     .unwrap(),

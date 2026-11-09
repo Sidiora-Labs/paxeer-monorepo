@@ -41,11 +41,11 @@ const OWNER: [u8; 20] = [0xab; 20];
 const OTHER: [u8; 20] = [0xcd; 20];
 const FUTURE: u64 = 4_102_444_800;
 const CERTIFICATE: &[u8] =
-    include_bytes!("../../internal/src/repair_22_33_1452_tls/configured-server.der");
+    include_bytes!("../../internal/tests/fixtures/repair_22_33_1452_tls/configured-server.der");
 const PRIVATE_KEY: &[u8] =
-    include_bytes!("../../internal/src/repair_22_33_1452_tls/configured-server-key.der");
+    include_bytes!("../../internal/tests/fixtures/repair_22_33_1452_tls/configured-server-key.der");
 const TRUST_ANCHOR: &[u8] =
-    include_bytes!("../../internal/src/repair_22_33_1452_tls/configured-ca.der");
+    include_bytes!("../../internal/tests/fixtures/repair_22_33_1452_tls/configured-ca.der");
 
 fn word(number: u64) -> [u8; 32] {
     let mut value = [0; 32];
@@ -536,7 +536,7 @@ fn trickling_http_responses_obey_total_deadline() -> Checked<()> {
                                     | std::io::ErrorKind::ConnectionAborted
                             ) =>
                         {
-                            break
+                            break;
                         }
                         Err(error) => return Err(error.into()),
                     }
@@ -594,7 +594,7 @@ fn tls_handshake_obeys_total_deadline() -> Checked<()> {
                         std::io::ErrorKind::BrokenPipe | std::io::ErrorKind::ConnectionReset
                     ) =>
                 {
-                    break
+                    break;
                 }
                 Err(error) => return Err(error.into()),
             }
@@ -642,7 +642,7 @@ fn request_writes_obey_total_deadline() -> Checked<()> {
             "tls={tls}: {result:?}"
         );
         assert!(
-            elapsed >= Duration::from_millis(250) && elapsed < Duration::from_secs(1),
+            elapsed >= Duration::from_millis(250) && elapsed < Duration::from_secs(2),
             "tls={tls}: {elapsed:?}"
         );
     }

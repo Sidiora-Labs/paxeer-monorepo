@@ -100,7 +100,13 @@ def test_ci_runs_both_make_targets_in_separate_jobs(target):
     )
     commands = [step.get("run", "") for step in job["steps"]]
     if target == "test-tests-python":
-        assert any("pip install pytest cryptography PyYAML" in run for run in commands)
+        assert any(
+            '"$RUNNER_TEMP/tests-python/bin/python3" -m pip install pytest PyYAML -r tests/bridge/requirements.txt'
+            in run for run in commands
+        )
+        requirements = (ROOT / "tests/bridge/requirements.txt").read_text().splitlines()
+        assert "cryptography>=42" in requirements
+        assert "pycryptodome>=3.20" in requirements
     else:
         assert (
             "rustup toolchain install 1.91.1 --profile minimal --target wasm32-unknown-unknown"
@@ -117,7 +123,20 @@ def test_wallet_runs_unfiltered_vitest_in_both_directories():
     steps = job["steps"]
     test = steps[-1]
     assert test["working-directory"] == "${{ matrix.directory }}"
-    assert shlex.split(test["run"]) == ["pnpm", "exec", "vitest", "run"]
+    assert test["run"] == "${{ matrix.command }}"
+    matrix = job["strategy"]["matrix"]
+    commands_by_directory = {
+        entry["directory"]: shlex.split(entry["command"])
+        for entry in matrix["include"]
+    }
+    assert len(matrix["include"]) == len(matrix["directory"])
+    assert commands_by_directory == {
+        "apps/wallet": ["pnpm", "exec", "vitest", "run"],
+        "sdk/wallet": ["python3", "../../tools/ci/run_wallet_vitest.py"],
+    }
+    runner = (ROOT / "tools/ci/run_wallet_vitest.py").read_text()
+    assert (ROOT / "tools/ci/run_wallet_vitest.py").is_file()
+    assert "return subprocess.run(wallet_vitest_command(entries, sys.argv[1:]), cwd=WALLET).returncode" in runner
     assert "if" not in test
     assert test.get("continue-on-error", "false") == "false"
     commands = [step.get("run", "") for step in steps]
@@ -137,7 +156,7 @@ def test_wallet_runs_unfiltered_vitest_in_both_directories():
         for step in steps
         if step.get("uses", "").startswith("actions/setup-node@")
     )
-    assert node["with"]["node-version"] == "22"
+    assert node["with"]["node-version"] == "24.22.0"
 
 
 def test_explorer_runs_mix_test_through_the_builder_without_publishing_on_prs():

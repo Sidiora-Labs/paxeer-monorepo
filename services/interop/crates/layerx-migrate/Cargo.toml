@@ -9,6 +9,16 @@ license.workspace = true
 name = "layerx-migrate"
 path = "src/main.rs"
 
+[[test]]
+name = "funded_operator"
+path = "tests/funded_operator.rs"
+harness = false
+
+[[test]]
+name = "migration_v2_connected"
+path = "tests/migration_v2_connected.rs"
+harness = false
+
 [dependencies]
 base64.workspace = true
 ed25519-dalek.workspace = true
@@ -24,6 +34,7 @@ subtle.workspace = true
 zeroize.workspace = true
 
 [dev-dependencies]
+libtest-mimic = "=0.8.1"
 layerx-types.workspace = true
 
 [lints]

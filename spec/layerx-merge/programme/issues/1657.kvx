@@ -1,0 +1,48 @@
+[issue.1657]
+number = 1657
+title = "Portfolio Assets chart treats sparse active days as calendar-day windows"
+revision = "bb8caac8b3e73e3e2f4b330805574f0bcb540641"
+verdict = "task"
+evidence = "apps/perps/src/widgets/portfolio/PortfolioAssetsChart.tsx:215 selects the last N records despite services/platform/perps-data/internal/pnl/pnl.go:407 deleting days without trades, whereas apps/perps/src/widgets/portfolio/PortfolioPerformanceGrid.tsx:399 and :410 apply the N-day inclusive UTC cutoff required by spec/release-v6-12-0/qualification.kvx:2605; apps/perps/src/page-modules/portfolio/index.tsx:160 and apps/perps/src/widgets/portfolio/PortfolioOverviewPanel.tsx:105 pass that sparse history to Assets, and commits a542a9898afcb093682d0f1df6a77a82ec83f73d and b2b5792f96f9ff7b121c8ea88e3045129229c97e preserve cap and estimate disclosures without repairing this selection."
+close_comment = "Assets still counts active history rows for 7D, 30D and 90D, so those views can include dates outside the selected calendar window. The follow-up repair will align Assets with Performance on UTC day boundaries and preserve the capped-history disclosures."
+
+[task.18.1657.1]
+title = "Issue #1657: Apply UTC calendar windows to the Assets chart"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181657.1"]
+capabilities = []
+interfaces = []
+do_1 = "Replace record-count slicing in buildAssetSeries at apps/perps/src/widgets/portfolio/PortfolioAssetsChart.tsx:205-233 with date filtering consistent with sliceByRange and windowStartKey at apps/perps/src/widgets/portfolio/PortfolioPerformanceGrid.tsx:399-410: 7D, 30D and 90D start at UTC midnight N-1 days before today, including the start day; allow an explicit reference date for deterministic checks and use the current date by default. Return an empty series for entirely stale history, preserve ascending ordering and the exact-wei walk back from the current anchor, and leave ALL history selection and the estimate, skipped-day and capped-history disclosures at apps/perps/src/widgets/portfolio/PortfolioAssetsChart.tsx:68-82 and :182 intact."
+do_2 = "Extend apps/perps/tests/portfolio-windows.test.ts:12-47 with a declared async function assetsCalendarWindowsMatchPerformance registered with test(assetsCalendarWindowsMatchPerformance). At 2026-10-21T23:59Z assert that January 1 and 2 rows produce no 7D Assets points despite a nonzero anchor; for each of 7D, 30D and 90D assert explicit expected dates for unsorted sparse rows before, on and after the inclusive start and compare the Assets dates with Performance; advance to 2026-10-22T00:00Z and assert that the former start day drops out and the next start day remains. Assert ALL retains the stale rows, anchor and exact-wei values remain correct, and rendered capped and uncapped ALL selections preserve the disclosures already checked at apps/perps/tests/repair-22-33-198.test.ts:189-210; keep every existing window assertion."
+symbols = ["buildAssetSeries", "assetsCalendarWindowsMatchPerformance"]
+touches = ["apps/perps/src/widgets/portfolio/PortfolioAssetsChart.tsx", "apps/perps/tests/portfolio-windows.test.ts"]
+tests = ["apps/perps/tests/portfolio-windows.test.ts::assetsCalendarWindowsMatchPerformance"]
+planned_paths = []
+build_cmd = "pnpm --dir apps/perps exec tsc --noEmit"
+verify_cmd = "pnpm --dir apps/perps exec node --test --import tsx tests/portfolio-windows.test.ts"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-markets"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181657]
+title = "Assets and Performance use the same UTC calendar windows"
+ac_1 = "Given sparse or entirely stale daily PnL history, Assets at apps/perps/src/widgets/portfolio/PortfolioAssetsChart.tsx:205 selects 7D, 30D and 90D by the same inclusive UTC start day as Performance at apps/perps/src/widgets/portfolio/PortfolioPerformanceGrid.tsx:399-410, advances that boundary when the reference date crosses UTC midnight, returns no points when no rows qualify, and preserves ALL rows, exact-wei anchor reconstruction and the capped-history disclosures at apps/perps/src/widgets/portfolio/PortfolioAssetsChart.tsx:75-82 and :182."
+
+[acceptance.18.1657.1]
+feature = "18"
+req = "181657.1"
+scenario = "Given a current balance anchor and stale or sparse daily PnL history, when Assets selects 7D, 30D or 90D before and after UTC midnight, then only the days within the inclusive UTC calendar window appear and match Performance, while ALL retains all supplied rows and the capped-history disclosures"
+contract = "contracts/perps-client.md#widgets"
+test = "apps/perps/tests/portfolio-windows.test.ts::assetsCalendarWindowsMatchPerformance (planned)"
+qualification = "UNRUN"

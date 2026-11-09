@@ -1,22 +1,27 @@
 [sweep.rust-test-platform]
-revision = "c31683c61b87eea00be98941431a38949fe5068b"
+revision = "5cdafe0888ec15cf6e3607d3801fdba7a01bee13"
 command = "cargo test --locked --manifest-path services/platform/Cargo.toml -p TARGET --no-fail-fast"
 targets_total = 22
-targets_passed = 15
+targets_passed = 2
 targets_failed = 7
-targets_not_run = 0
+targets_not_run = 13
+producer_input_policy = "Only producer_input_tests named in the landed repair records are excluded; each affected target names its exclusions and command."
+exit_code_policy = "Exit 124 records a timed-out command; exit -1 means no process started; a timed-out command with an observed test failure is recorded failed."
 
 [target.rust-test-platform.1]
 target = "layerx-ramp-toolkit"
-result = "failed"
-exit_code = 101
-observed = "services/platform/ramps/toolkit/tests/contracts.rs:461:32 failed failed_callback_apply_retains_no_event_and_retry_is_idempotent because protected real recovery contract configuration is required."
-assumption = "The sandbox lacks the protected real recovery contract configuration required by these integration tests, an environmental prerequisite."
+result = "not_run"
+exit_code = 124
+command = "cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-ramp-toolkit --no-fail-fast -- --skip failed_callback_apply_retains_no_event_and_retry_is_idempotent --skip genuine_source_finality_binds_orders_and_claims_before_any_funded_transition --skip interrupted_callback_write_recovers_on_restart_without_repair --skip mismatched_pending_append_prefix_preserves_history_and_refuses_recovery --skip recovery_refuses_chain_id_mismatch"
+excluded_tests = ["failed_callback_apply_retains_no_event_and_retry_is_idempotent", "genuine_source_finality_binds_orders_and_claims_before_any_funded_transition", "interrupted_callback_write_recovers_on_restart_without_repair", "mismatched_pending_append_prefix_preserves_history_and_refuses_recovery", "recovery_refuses_chain_id_mismatch"]
+reason = "The target exceeded its 180 second allocation within the whole-task wall-clock limit; the process was stopped to preserve time for remaining targets and qualification."
 
 [target.rust-test-platform.2]
 target = "layerx-reference-ramp"
-result = "passed"
-exit_code = 0
+result = "failed"
+exit_code = 101
+observed = "services/platform/ramps/reference/tests/proof_ramp_reference_http_routes.rs:518:5 failed method because the Node deepStrictEqual assertion expected no rewrites but received three human API rewrites."
+assumption = "The route proof appears to retain an empty-rewrite expectation that disagrees with the current human API routing configuration."
 
 [target.rust-test-platform.3]
 target = "layerx-platform-faucet"
@@ -27,18 +32,22 @@ exit_code = 0
 target = "layerx-platform-core"
 result = "failed"
 exit_code = 101
-observed = "services/platform/hosted/core/tests/chain_fund.rs:733:14 failed readyz_reports_the_funding_chain_and_sender because Anvil could not be found."
-assumption = "The sandbox lacks the Anvil executable and the required LAYERX_CORE_SEQUENCER_ENDPOINT configuration, both environmental prerequisites for the chain-funding tests."
+observed = "services/platform/hosted/core/tests/chain_fund.rs:738:14 failed readyz_reports_the_funding_chain_and_sender because Anvil was not found."
+assumption = "The sandbox lacks the Anvil executable and Python cryptography dependency, environmental prerequisites for the funding and signer tests; separate account-evidence, proof-evidence and journal-state assertion failures also remain in this run."
 
 [target.rust-test-platform.5]
 target = "layerx-platform-internal"
-result = "passed"
-exit_code = 0
+result = "not_run"
+exit_code = 124
+reason = "The target exceeded its 180 second allocation within the whole-task wall-clock limit; the process was stopped to preserve time for remaining targets and qualification."
 
 [target.rust-test-platform.6]
 target = "layerx-platform-authority"
-result = "passed"
-exit_code = 0
+result = "failed"
+exit_code = 124
+observed = "services/platform/hosted/authority/tests/budget_proof_exports.rs:235:40 panicked on an unrecorded abci_query to /store/lxphost/key, and budget_export_from_the_fixture_answers_equals_the_committed_export failed with budget_proof_export_unavailable."
+assumption = "The recorded RPC fixture appears not to include the native host-store proof query required by the current budget export implementation."
+reason = "Failures were observed before the command was interrupted at its 180 second allocation; exit 124 records the interruption, and the remaining tests did not finish."
 
 [target.rust-test-platform.7]
 target = "layerx-runtime-clock"
@@ -47,86 +56,102 @@ exit_code = 0
 
 [target.rust-test-platform.8]
 target = "layerx-platform-agent-boundary"
-result = "passed"
-exit_code = 0
+result = "failed"
+exit_code = 101
+observed = "services/platform/hosted/agent-boundary/tests/chain_receipt.rs:22:35 failed boundary_starts_without_an_lni_socket with OS error 2, No such file or directory."
+assumption = "The test appears to expect a filesystem path that is absent from its fixture, and the panic does not identify the missing path."
 
 [target.rust-test-platform.9]
 target = "layerx-platform-identity"
-result = "passed"
-exit_code = 0
-observed = "49 tests passed with none failed, ignored or filtered out, including session_capacity_excludes_expired_after_restart; the service tests completed in 287.50s."
+result = "not_run"
+exit_code = 124
+reason = "The target exceeded its 180 second allocation within the whole-task wall-clock limit; the process was stopped to preserve time for remaining targets and qualification."
 
 [target.rust-test-platform.10]
 target = "layerx-platform-paxeer-boundary"
 result = "failed"
 exit_code = 101
-observed = "services/platform/hosted/paxeer/evm.py:29 failed during settlement_domains with ModuleNotFoundError for cryptography."
-assumption = "The sandbox lacks the Python cryptography dependency and the paxd binary also reported unavailable by real_paxd_boundary, both environmental prerequisites."
+command = "cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-paxeer-boundary --no-fail-fast -- --skip real_paxd_boundary"
+excluded_tests = ["real_paxd_boundary"]
+observed = "services/platform/hosted/paxeer/tests/migrations/v1/settlement_domains.py:13 failed settlement_domains with FileNotFoundError loading services/platform/hosted/paxeer/settlement-domain.py."
+assumption = "The version-one settlement migration qualification appears to import a helper path that is absent at the closure revision."
 
 [target.rust-test-platform.11]
 target = "layerx-platform-gateway"
 result = "failed"
 exit_code = 101
-observed = "services/platform/hosted/gateway/src/main.rs:5061:58 failed authority_readiness_contract_tests::authority_readiness_contract with real authority case required: NotPresent."
-assumption = "The real authority contract case environment configuration is unset, so this test lacks its required environmental input."
+command = "cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-gateway --no-fail-fast -- --skip real_core_and_identity_readiness_contract --skip real_gateway_readiness_capabilities_contract --skip payment_facts_cross_real_tls_and_refuse_foreign_principals_without_losing_the_outbox"
+excluded_tests = ["real_core_and_identity_readiness_contract", "real_gateway_readiness_capabilities_contract", "payment_facts_cross_real_tls_and_refuse_foreign_principals_without_losing_the_outbox"]
+observed = "services/platform/hosted/gateway/src/rpc.rs:323:9 failed rpc::tests::schema_lists_every_public_method because the method-count assertion received 22 and expected 17."
+assumption = "The schema assertion appears stale relative to the current public method set; other integration tests also lack the Redis executable, an environmental prerequisite."
 
 [target.rust-test-platform.12]
 target = "layerx-indexer"
-result = "failed"
-exit_code = 101
-observed = "test proof_layerxledger_0x101a ... FAILED"
-assumption = "The recorded command lacks stdin JSON receipts from precompiles/layerxledger/proof_layerxledger_0x101a_test.go and TestProofLayerxpay0x101b, so both consumers fail on EOF; proof_layerxauth_0x101c_receipts cannot produce LAYERX_AUTH_PROOF_INPUT because its Go producer cannot link liblayerx and liblayerx_programs_sandbox; names_api_accepts_the_explorer_query_parameters and names_api_answers_match_the_committed_vector appear to disagree with the event projection because the response reports transfer where the committed vector expects register."
+result = "not_run"
+exit_code = 124
+command = "cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-indexer --no-fail-fast -- --skip proof_layerxledger_0x101a --skip proof_layerxpay_0x101b"
+excluded_tests = ["proof_layerxledger_0x101a", "proof_layerxpay_0x101b"]
+reason = "The target exceeded its 180 second allocation within the whole-task wall-clock limit; the process was stopped to preserve time for remaining targets and qualification."
 
 [target.rust-test-platform.13]
 target = "layerx-platform-registry"
 result = "failed"
 exit_code = 101
-observed = "services/platform/hosted/registry/src/main.rs:1662:9 failed tests::live_container_delegation_attaches_and_kills_stopped_child because its child reported container cgroup lacks required controller pids."
-assumption = "The sandbox cgroup delegation does not expose the required pids controller, an environmental limitation."
+observed = "services/platform/hosted/registry/src/main.rs:1366:9 failed tests::deployment_contract_keeps_https_mtls_and_bearer_roles_aligned because GATEWAY_DEPLOYMENT did not contain the expected HTTPS registry service URL."
+assumption = "The deployment contract assertion appears stale relative to the current gateway deployment configuration; additional registry quota and deployment-proof assertions also fail."
 
 [target.rust-test-platform.14]
 target = "layerx-platform-webhooks"
-result = "passed"
-exit_code = 0
+result = "not_run"
+exit_code = 124
+reason = "The target exceeded its 31 second allocation within the whole-task wall-clock limit; the process was stopped to preserve time for remaining targets and qualification."
 
 [target.rust-test-platform.15]
 target = "layerx-paxai-worker"
-result = "failed"
-exit_code = 101
-observed = "a05_real_runner_executes_once_across_replicas failed with unexpected real model runner executable: PAXAI_RUNNER is not provisioned."
-assumption = "The sandbox lacks the provisioned real model runner selected by PAXAI_RUNNER, an environmental prerequisite."
+result = "not_run"
+exit_code = -1
+command = "cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-paxai-worker --no-fail-fast -- --skip a05_real_runner_executes_once_across_replicas --skip a09_real_runner_lookup_resolves_after_restart --skip a08_a11_real_inference_workload_end_to_end --skip a08_a11_real_embedding_workload_end_to_end --skip a08_real_output_above_the_requested_bound_fails_without_output --skip a17_real_single_dispatch_and_late_commit_refusal --skip a15_real_expired_metadata_keeps_the_admitted_model_binding --skip a19_real_revoked_delegate_keeps_completed_evidence_and_evaluator_samples"
+excluded_tests = ["a05_real_runner_executes_once_across_replicas", "a09_real_runner_lookup_resolves_after_restart", "a08_a11_real_inference_workload_end_to_end", "a08_a11_real_embedding_workload_end_to_end", "a08_real_output_above_the_requested_bound_fails_without_output", "a17_real_single_dispatch_and_late_commit_refusal", "a15_real_expired_metadata_keeps_the_admitted_model_binding", "a19_real_revoked_delegate_keeps_completed_evidence_and_evaluator_samples"]
+reason = "Not started because the remaining task time is reserved for the report and declared gates."
 
 [target.rust-test-platform.16]
 target = "layerx-platform-dashboard"
-result = "passed"
-exit_code = 0
+result = "not_run"
+exit_code = -1
+reason = "Not started because the remaining task time is reserved for the report and declared gates."
 
 [target.rust-test-platform.17]
 target = "layerx-platform-testnet"
-result = "passed"
-exit_code = 0
+result = "not_run"
+exit_code = -1
+reason = "Not started because the remaining task time is reserved for the report and declared gates."
 
 [target.rust-test-platform.18]
 target = "layerx-oracle-feeder"
-result = "passed"
-exit_code = 0
+result = "not_run"
+exit_code = -1
+reason = "Not started because the remaining task time is reserved for the report and declared gates."
 
 [target.rust-test-platform.19]
 target = "layerx-ai-evaluator"
-result = "passed"
-exit_code = 0
+result = "not_run"
+exit_code = -1
+reason = "Not started because the remaining task time is reserved for the report and declared gates."
 
 [target.rust-test-platform.20]
 target = "layerx-platform-kvx"
-result = "passed"
-exit_code = 0
+result = "not_run"
+exit_code = -1
+reason = "Not started because the remaining task time is reserved for the report and declared gates."
 
 [target.rust-test-platform.21]
 target = "layerx-platform-workspace-gate"
-result = "passed"
-exit_code = 0
+result = "not_run"
+exit_code = -1
+reason = "Not started because the remaining task time is reserved for the report and declared gates."
 
 [target.rust-test-platform.22]
 target = "layerx-platform-benchmark"
-result = "passed"
-exit_code = 0
+result = "not_run"
+exit_code = -1
+reason = "Not started because the remaining task time is reserved for the report and declared gates."

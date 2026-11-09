@@ -1,0 +1,50 @@
+[issue.1678]
+number = 1678
+title = "[Coherence] Unknown internal errors from gRPC queries are re-wrapped in a registered error before reaching ABCIInfo, so their full text still leaks in non-debug query responses"
+revision = "bb8caac8b3e73e3e2f4b330805574f0bcb540641"
+verdict = "task"
+evidence = "The redaction introduced by commit a5e04ee81d2c76adff9e1b16436286125f4ddd9c still exposes registered wrappers at sdk/types/errors/abci.go:108, while sdk/baseapp/abci.go:618 passes handler failures through raw-text registration at sdk/baseapp/abci.go:632 and sdk/baseapp/abci.go:635, sdk/store/rootmulti/store.go:607 similarly registers the unclassified version error produced at sdk/store/rootmulti/store.go:523, sdk/types/errors/repair_m647_test.go:105 tests constructors directly, and sdk/types/errors/repair_m647.kvx:7 declares no wiring requests."
+close_comment = "Confirmed: non-debug ABCI queries can expose internal error details after gRPC or legacy store error conversion. The repair task covers both query paths, retaining debug diagnostics and registered module error identities while preventing unclassified failures from becoming public error messages."
+
+[task.18.1678.1]
+title = "Issue #1678: Preserve internal error redaction through ABCI query conversion"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181678.1"]
+capabilities = []
+interfaces = []
+do_1 = "Repair gRPCErrorToSDKError and handleQueryGRPC at sdk/baseapp/abci.go:610 and sdk/baseapp/abci.go:626 so plain unknown errors and gRPC Internal or Unknown failures retain their unsafe cause and produce undefined codespace, code 1 and exactly internal error in non-debug query responses; do not copy their raw text into registered SDK roots, preserve registered module codespaces, codes and safe messages, retain existing client-status code mappings with safe public messages, and retain original diagnostic text in debug responses."
+do_2 = "Repair the historical-query error conversion at sdk/store/rootmulti/store.go:605 to pass the original CacheMultiStoreWithVersion failure to QueryResult instead of registering err.Error() under ErrInvalidRequest; the real unclassified failure from sdk/store/rootmulti/store.go:523 must produce undefined codespace, code 1 and exactly internal error without exposing requested-height or backend details, while historical reads remain unsupported and unversioned reads still return current values."
+do_3 = "Extend sdk/baseapp/query_grpc_error_test.go:21 with TestIssue1678GRPCQueryRedaction exercising BaseApp.Query through the real registered gRPC router and production decoder or handler errors, including an unknown parse failure, gRPC Internal and Unknown failures, mapped client statuses, registered module errors and success in both trace modes; use real parsing and service paths without mocked handlers, assert exact response codespace, code, height and log, and round-trip the produced ResponseQuery through its protobuf codec before asserting public redaction and debug diagnostics."
+do_4 = "Strengthen TestHandleQueryGRPCKeepsModuleCodespace at sdk/baseapp/query_grpc_error_test.go:21 to assert the repaired unknown-error response while preserving registered module identity and mapped client-status code assertions; update TestRepair_292_ABCIHistoricalQuery at sdk/store/rootmulti/repair_292_test.go:68 to assert exact undefined/1/internal error responses from the real mounted store, absent values and proofs, and successful unversioned reads, replacing expectations that require raw internal text without removing refusal or state-integrity checks."
+symbols = ["gRPCErrorToSDKError", "handleQueryGRPC", "Query", "TestIssue1678GRPCQueryRedaction", "TestHandleQueryGRPCKeepsModuleCodespace", "TestRepair_292_ABCIHistoricalQuery"]
+touches = ["sdk/baseapp/abci.go", "sdk/baseapp/query_grpc_error_test.go", "sdk/store/rootmulti/store.go", "sdk/store/rootmulti/repair_292_test.go"]
+tests = ["sdk/baseapp/query_grpc_error_test.go::TestIssue1678GRPCQueryRedaction", "sdk/baseapp/query_grpc_error_test.go::TestHandleQueryGRPCKeepsModuleCodespace", "sdk/store/rootmulti/repair_292_test.go::TestRepair_292_ABCIHistoricalQuery"]
+planned_paths = []
+build_cmd = "go build ./sdk/baseapp ./sdk/store/rootmulti"
+verify_cmd = "go test -count=1 ./sdk/baseapp/ ./sdk/store/rootmulti/ -run '^(TestIssue1678GRPCQueryRedaction|TestHandleQueryGRPCKeepsModuleCodespace|TestRepair_292_ABCIHistoricalQuery)$'"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-cosmos-fork"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181678]
+title = "ABCI query conversion cannot promote unknown internal details into public error messages"
+ac_1 = "Given unknown internal failures from a real gRPC query path or the legacy versioned store query at sdk/baseapp/abci.go:618 and sdk/store/rootmulti/store.go:607, non-debug ResponseQuery values carry undefined codespace, code 1 and exactly internal error with no raw diagnostics, debug gRPC responses retain diagnostic details, registered module errors and mapped client statuses retain their codes, and successful queries retain their values."
+
+[acceptance.18.1678.1]
+feature = "18"
+req = "181678.1"
+scenario = "Given a committed BaseApp with registered gRPC services and a real mounted legacy store, when unknown internal failures cross their actual ABCI query paths, then non-debug responses contain only undefined/1/internal error, debug gRPC responses retain diagnostics, registered and mapped client error identities remain correct, and successful unversioned reads remain intact."
+contract = "contracts/cosmos-fork.md#error-codes"
+test = "sdk/baseapp/query_grpc_error_test.go::TestIssue1678GRPCQueryRedaction; sdk/baseapp/query_grpc_error_test.go::TestHandleQueryGRPCKeepsModuleCodespace; sdk/store/rootmulti/repair_292_test.go::TestRepair_292_ABCIHistoricalQuery (planned)"
+qualification = "UNRUN"

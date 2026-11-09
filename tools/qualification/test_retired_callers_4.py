@@ -4,15 +4,15 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[2]
-PRODUCERS = (
-    "tools/qualification/paxeer-x/program-replay-record.py",
-    "tools/qualification/paxeer-x/replay-authority.py",
-    "tools/qualification/paxeer-x/replay-catalogue.py",
-)
+RETIRED = ('tools/qualification/paxeer-x/program-replay-record.py', 'tools/qualification/paxeer-x/replay-catalogue.py')
+PRODUCERS = ('tools/qualification/paxeer-x/native-programs-link.py', 'tools/qualification/paxeer-x/replay-authority.py')
 
 
 class RetiredCallers4Test(unittest.TestCase):
     def test_producers_name_no_retired_construct(self):
+        for producer in RETIRED:
+            self.assertFalse((ROOT / producer).exists(), producer)
+            self.assertFalse((ROOT / producer).is_symlink(), producer)
         command = [
             "python3",
             "tools/paxeer-x/tests/retired_callers_test.py",

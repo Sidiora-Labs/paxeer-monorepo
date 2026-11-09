@@ -323,16 +323,26 @@ impl PortableBoundary {
     /// Decodes a self-contained boundary transport envelope. Raw record leaves require
     /// `decode_with_header`, since their immutable inputs are stored once per record.
     pub fn decode_untrusted(bytes: &[u8], maximum: usize) -> Result<Self, ReplayWitnessError> {
+        let (header, leaf) = Self::split_envelope(bytes, maximum)?;
+        Self::decode_with_header(leaf, maximum, &header)
+    }
+
+    /// Extracts the record header and the raw Merkle leaf from the producer's
+    /// self-contained transport without changing either encoding.
+    pub fn split_envelope(
+        bytes: &[u8],
+        maximum: usize,
+    ) -> Result<(crate::replay_record::ReplayRecordHeader, &[u8]), ReplayWitnessError> {
         bounded(bytes, maximum)?;
         let mut cursor = ReplayCursor::new(bytes);
         let domain = b"LXP/program-replay-boundary-context/v2\0";
         if cursor.take(domain.len())? != domain {
             return Err(ReplayWitnessError::Encoding);
         }
-        let header = crate::replay_record::ReplayRecordHeader::decode(cursor.field()?, maximum)?;
-        let leaf =
-            cursor.take(bytes.len() - domain.len() - 4 - header.canonical_bytes(maximum)?.len())?;
-        Self::decode_with_header(leaf, maximum, &header)
+        let header_bytes = cursor.field()?;
+        let header = crate::replay_record::ReplayRecordHeader::decode(header_bytes, maximum)?;
+        let leaf = cursor.take(bytes.len() - domain.len() - 4 - header_bytes.len())?;
+        Ok((header, leaf))
     }
 
     pub fn decode_with_header(

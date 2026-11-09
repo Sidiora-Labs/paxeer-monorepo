@@ -100,6 +100,7 @@ func repairM373Input(t *testing.T, chain string) repairM373Fixture {
 		t.Fatal(err)
 	}
 	canonical.Owner, canonical.Attestors = legacy.Owner, legacy.Attestors
+	canonical.Threshold = legacy.Threshold
 	vault := legacy.Vault
 	if canonical.Solana != nil {
 		canonical.Solana.ProgramID = legacy.ProgramID

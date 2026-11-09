@@ -107,8 +107,10 @@ from layerx_sdk.production import ProductionClient, SecretBytes  # noqa: E402
 from layerx_sdk.program_wire import _signed_call_envelope  # noqa: E402
 from layerx_sdk.programs import ProgramOperations, ProgramTrustContext  # noqa: E402
 from layerx_sdk.verifier import (  # noqa: E402
-    AuthorizedReceiptBatch,
+    ReceiptKey,
+    SequencerReceiptVerification,
     SequencerReceiptVerificationError,
+    verify_sequencer_receipt,
 )
 
 SIGNATURES_SPEC = importlib.util.spec_from_file_location(
@@ -804,7 +806,10 @@ def native_terms(owner: bytes, capabilities: bytes, access: bytes) -> NativeTerm
 
 
 def fixture_call() -> NativeProgramCall:
-    return decode_native_program_call(_signed_call_envelope((MULTICALL / "activity-0").read_bytes()).payload)
+    vector = next(case for case in json.loads(
+        (ROOT / "sdk/platform/conformance/fixtures/sequencer-receipt-v1.json").read_text()
+    )["cases"] if case["id"] == "V1-layerxprograms-call")
+    return decode_native_program_call(_signed_call_envelope(bytes.fromhex(vector["rawTransaction"][2:])).payload)
 
 
 class ApprovalTests(ViewTestCase):
@@ -1001,11 +1006,18 @@ class ProgramEndpoint:
                                  "reason": "refused", "request_id": "r1"})
 
 
-RECEIPT_0 = AuthorizedReceiptBatch(
-    bytes.fromhex("4449191b1fca9bf266bab78c75b0498afc0094b2b1b4ed63fb91aee3c11246e8"), bytes(32),
-    bytes.fromhex("ac6b2b4a387db1e32856545c23d456622a1b8d1f6825b06591ccc7abc829256d"),
-    bytes.fromhex("69a397d65515222f1cbfae02e338736777a4d9c6b51e90af8c0ea85d79259f57"),
-    (MULTICALL / "sequencer.public").read_bytes())
+RECEIPT_VECTOR = next(
+    case for case in json.loads(
+        (ROOT / "sdk/platform/conformance/fixtures/sequencer-receipt-v1.json").read_text()
+    )["cases"] if case["id"] == "V1-layerxprograms-call"
+)
+RECEIPT_PIN = RECEIPT_VECTOR["pinnedKey"]
+RECEIPT_KEYS = (ReceiptKey(
+    bytes.fromhex(RECEIPT_PIN["keyId"][2:]),
+    bytes.fromhex(RECEIPT_PIN["publicKey"][2:]),
+    RECEIPT_PIN["firstHeight"],
+    RECEIPT_PIN["lastHeight"],
+),)
 
 
 class JournalTests(AiMarketCase):
@@ -1041,7 +1053,7 @@ class JournalTests(AiMarketCase):
         self.assertEqual((record.attempt, record.domain, record.signed_bytes), (1, DomainStatus.PENDING, signed_bytes))
         self.assertEqual(operations.requests, [("eth_sendRawTransaction", [hx(signed_bytes)])])
         self.assertEqual(self.on_disk(record), record)
-        self.assertEqual(self.journal.resolve(record, None, RECEIPT_0), SdkState.UNKNOWN)
+        self.assertEqual(self.journal.resolve(record, None, RECEIPT_KEYS), SdkState.UNKNOWN)
         self.assertRefused("InvalidTransition", SdkState.UNKNOWN, self.journal.submit, record, operations)
         self.assertRefused("InvalidTransition", SdkState.UNKNOWN, self.journal.expire, record, 1301)
 
@@ -1054,15 +1066,29 @@ class JournalTests(AiMarketCase):
         self.assertEqual(record.attempt, 2)
         self.assertEqual(operations.requests[1], operations.requests[0])
         self.assertEqual(self.on_disk(record), record)
-        self.assertEqual(self.journal.resolve(record, None, RECEIPT_0), SdkState.PENDING)
+        self.assertEqual(self.journal.resolve(record, None, RECEIPT_KEYS), SdkState.PENDING)
         record_path = self.journal.record_path(record.activity_id)
         persisted_bytes = record_path.read_bytes()
         with self.assertRaises(SequencerReceiptVerificationError) as raised:
-            self.journal.resolve(record, (MULTICALL / "receipt-0").read_bytes(), RECEIPT_0)
+            self.journal.resolve(record, (MULTICALL / "receipt-0").read_bytes(), RECEIPT_KEYS)
         self.assertEqual(raised.exception.check, "bad_signature")
         self.assertEqual(record_path.read_bytes(), persisted_bytes)
         self.assertEqual(self.journal.load(record.activity_id), record)
         self.assertEqual(record.signed_bytes, signed_bytes)
+
+    def test_live_receipt_verification_binds_the_recorded_transaction(self) -> None:
+        raw = bytes.fromhex(RECEIPT_VECTOR["rawTransaction"][2:])
+        receipt = bytes.fromhex(RECEIPT_VECTOR["signedReceipt"][2:])
+        verified = verify_sequencer_receipt(receipt, raw, RECEIPT_KEYS)
+        self.assertIs(type(verified), SequencerReceiptVerification)
+        self.assertEqual(verified.level, "sequencer-signed")
+        self.assertEqual(verified.canonical_bytes, receipt)
+        self.assertEqual(verified.receipt.activity_id, keccak256(raw))
+        self.assertEqual(verified.receipt_digest.hex(), RECEIPT_VECTOR["receiptDigest"][2:])
+        self.assertEqual(verified.height, int(RECEIPT_VECTOR["receiptJson"]["height"], 16))
+        with self.assertRaises(SequencerReceiptVerificationError) as raised:
+            verify_sequencer_receipt(receipt, raw + b"\x00", RECEIPT_KEYS)
+        self.assertEqual(raised.exception.check, "hash_mismatch")
 
     def test_records_refuse_corruption_and_foreign_keys(self) -> None:
         record = self.signed("activity-0")
@@ -1109,7 +1135,7 @@ class JournalTests(AiMarketCase):
         self.assertEqual(self.journal.expire(record, 1300), SdkState.SIGNED)
         self.assertEqual(self.journal.expire(record, 1301), SdkState.FAILED)
         self.assertEqual(self.on_disk(record).state, SdkState.FAILED)
-        self.assertRefused("InvalidTransition", SdkState.FAILED, self.journal.resolve, record, None, RECEIPT_0)
+        self.assertRefused("InvalidTransition", SdkState.FAILED, self.journal.resolve, record, None, RECEIPT_KEYS)
 
 
 if __name__ == "__main__":
