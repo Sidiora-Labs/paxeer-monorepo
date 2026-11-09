@@ -11422,6 +11422,18 @@ value = "scan in tools/paxeer-x/tests/retired_callers_test.py computes its selec
 basis = "Gotcha 3747, task 17.2.8"
 affects = ["22.39.214", "17.2.8"]
 
+[decision.3052]
+title = "A guest handler whose fuel per roster participant is of the order of the frame size is diagnosed at a fixed roster with a growing frame before it is repaired again"
+value = "Before any further repair of OPEN_EPOCH, BeginAggregation or FinalizeAggregation of the ai-market guest, the fuel case of tests/fuel_budget.rs measures each handler at the roster of 16 participants and 4 evaluators with 16, 32, 48 and 64 admitted tasks (the frame grows by about 233 bytes per admitted task and none of the three handlers consumes a task row) and records the four fuel values per handler. A handler whose fuel grows with the task count walks the frame once per participant; its repair builds the section offset index of the frame once per call and resolves every participant against that index, so its fuel changes with the task count by at most the cost of one frame walk. A handler whose fuel does not grow with the task count carries a cost intrinsic to its per-participant work: the attempt records the four values and the per-participant slope for it and stops without a repair cycle, and the record supports the owner decision whether that operation becomes a continuation sequence, which no task takes on its own. The cap, the sweep rows, the assertion names, every public operation, status code and query result stay unchanged."
+basis = "Gotcha 3748, decisions 3014, 3025 and 3037"
+affects = ["22.33.223"]
+
+[decision.3053]
+title = "The agent lint target is brought green crate by crate, each member linted alone with no-deps, before the whole-workspace task runs"
+value = "Decision 3039 keeps its repair rules and the ownership of the public target by task 22.39.211, and the work is split: one task per workspace member runs cargo clippy with --locked and --no-deps on that member with all its targets and warnings denied, the agent daemon in five tasks (its library, then its test targets in four groups by file name), and 22.39.211 requires every one of them and runs the whole target after they land. Every task repairs the lints of its member at the source: a long literal gains digit separators, a lossy cast becomes the fallible conversion with the error path of the crate or, where the value is bounded by construction, keeps the cast under the allowance on that expression with a reason naming the bound, double parentheses are removed, similar names are made distinct, an underscore-prefixed binding that is used loses the prefix, an unwrap or expect in a test becomes the question mark operator on a Result-returning test or the matching assertion, a missing Errors or Panics section is written as the condition, a use of a deprecated item inside the test that proves its retention or inside its own compatibility shim carries the deprecated allowance on that test or item with a reason naming the retention while a live use migrates to the replacement, and an unexpected cfg value in copied test support code loses its conditional branch and keeps the path the tests use. No lint level changes in the workspace manifest, no allowance at crate or module level, no public signature changes, no test assertion changes; each record lists every lint by file and line with its repair."
+basis = "Gotcha 3749, decision 3039, gotcha 3736, the red public job finding class"
+affects = ["22.39.215", "22.39.216", "22.39.217", "22.39.218", "22.39.219", "22.39.220", "22.39.221", "22.39.222", "22.39.223", "22.39.224", "22.39.225", "22.39.226", "22.39.227", "22.39.228", "22.39.229", "22.39.211"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -40312,6 +40324,141 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.229]
+title = "Bring the agent daemon test targets named s-z under the workspace lints"
+reqs = ["22998.1"]
+touches = ["services/agent/crates/layerx-agentd/tests", "services/agent/tests/limits"]
+tests = []
+verification_contract = "test -s services/agent/crates/layerx-agentd/tests/repair_22_39_229.kvx && cargo clippy --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --no-deps $(cd services/agent/crates/layerx-agentd/tests && ls [s-z]*.rs | sed 's/.rs$//; s/^/--test /') --test native-reads-http --test limits-exactly-once -- -D warnings"
+do_1 = "do_1 Decision 3053, gotcha 3749. Run the verification command of this task once on the unchanged merged main tree and record every reported lint of the test targets whose file names start with s to z and the two named targets native-reads-http and limits-exactly-once by file, line and lint name in services/agent/crates/layerx-agentd/tests/repair_22_39_229.kvx."
+symbols = []
+
+[capability.22.39.228]
+title = "Bring the agent daemon test targets named r under the workspace lints"
+reqs = ["22998.1"]
+touches = ["services/agent/crates/layerx-agentd/tests"]
+tests = []
+verification_contract = "test -s services/agent/crates/layerx-agentd/tests/repair_22_39_228.kvx && cargo clippy --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --no-deps $(cd services/agent/crates/layerx-agentd/tests && ls r*.rs | sed 's/.rs$//; s/^/--test /') -- -D warnings"
+do_1 = "do_1 Decision 3053, gotcha 3749. Run the verification command of this task once on the unchanged merged main tree and record every reported lint of the test targets whose file names start with r by file, line and lint name in services/agent/crates/layerx-agentd/tests/repair_22_39_228.kvx."
+symbols = []
+
+[capability.22.39.227]
+title = "Bring the agent daemon test targets named i-q under the workspace lints"
+reqs = ["22998.1"]
+touches = ["services/agent/crates/layerx-agentd/tests"]
+tests = []
+verification_contract = "test -s services/agent/crates/layerx-agentd/tests/repair_22_39_227.kvx && cargo clippy --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --no-deps $(cd services/agent/crates/layerx-agentd/tests && ls [i-q]*.rs | grep -v proof_native_reads | sed 's/.rs$//; s/^/--test /') -- -D warnings"
+do_1 = "do_1 Decision 3053, gotcha 3749. Run the verification command of this task once on the unchanged merged main tree and record every reported lint of the test targets whose file names start with i to q by file, line and lint name in services/agent/crates/layerx-agentd/tests/repair_22_39_227.kvx."
+symbols = []
+
+[capability.22.39.226]
+title = "Bring the agent daemon test targets named a-h under the workspace lints"
+reqs = ["22998.1"]
+touches = ["services/agent/crates/layerx-agentd/tests"]
+tests = []
+verification_contract = "test -s services/agent/crates/layerx-agentd/tests/repair_22_39_226.kvx && cargo clippy --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --no-deps $(cd services/agent/crates/layerx-agentd/tests && ls [a-h]*.rs | sed 's/.rs$//; s/^/--test /') -- -D warnings"
+do_1 = "do_1 Decision 3053, gotcha 3749. Run the verification command of this task once on the unchanged merged main tree and record every reported lint of the test targets whose file names start with a to h by file, line and lint name in services/agent/crates/layerx-agentd/tests/repair_22_39_226.kvx."
+symbols = []
+
+[capability.22.39.225]
+title = "Bring the layerx-sdk crate and its test targets under the workspace lints"
+reqs = ["22998.1"]
+touches = ["services/agent/crates/layerx-sdk"]
+tests = []
+verification_contract = "test -s services/agent/crates/layerx-sdk/src/repair_22_39_225.kvx && cargo clippy --locked --manifest-path services/agent/Cargo.toml -p layerx-sdk --no-deps --all-targets -- -D warnings"
+do_1 = "do_1 Decision 3053, gotcha 3749. Run cargo clippy --locked --manifest-path services/agent/Cargo.toml -p layerx-sdk --no-deps --all-targets -- -D warnings once on the unchanged merged main tree and record every reported lint of the crate and its test targets by file, line and lint name in services/agent/crates/layerx-sdk/src/repair_22_39_225.kvx."
+symbols = []
+
+[capability.22.39.224]
+title = "Bring the layerx-mcp crate and its test targets under the workspace lints"
+reqs = ["22998.1"]
+touches = ["services/agent/crates/layerx-mcp"]
+tests = []
+verification_contract = "test -s services/agent/crates/layerx-mcp/src/repair_22_39_224.kvx && cargo clippy --locked --manifest-path services/agent/Cargo.toml -p layerx-mcp --no-deps --all-targets -- -D warnings"
+do_1 = "do_1 Decision 3053, gotcha 3749. Run cargo clippy --locked --manifest-path services/agent/Cargo.toml -p layerx-mcp --no-deps --all-targets -- -D warnings once on the unchanged merged main tree and record every reported lint of the crate and its test targets by file, line and lint name in services/agent/crates/layerx-mcp/src/repair_22_39_224.kvx."
+symbols = []
+
+[capability.22.39.223]
+title = "Bring the layerx-agentd-host crate and its test targets under the workspace lints"
+reqs = ["22998.1"]
+touches = ["services/agent/crates/layerx-agentd-host"]
+tests = []
+verification_contract = "test -s services/agent/crates/layerx-agentd-host/src/repair_22_39_223.kvx && cargo clippy --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd-host --no-deps --all-targets -- -D warnings"
+do_1 = "do_1 Decision 3053, gotcha 3749. Run cargo clippy --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd-host --no-deps --all-targets -- -D warnings once on the unchanged merged main tree and record every reported lint of the crate and its test targets by file, line and lint name in services/agent/crates/layerx-agentd-host/src/repair_22_39_223.kvx."
+symbols = []
+
+[capability.22.39.222]
+title = "Bring the library of the agent daemon crate under the workspace lints"
+reqs = ["22998.1"]
+touches = ["services/agent/crates/layerx-agentd/src"]
+tests = []
+verification_contract = "test -s services/agent/crates/layerx-agentd/src/repair_22_39_222.kvx && cargo clippy --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --no-deps --lib -- -D warnings"
+do_1 = "do_1 Decision 3053, gotcha 3749. Run cargo clippy --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --no-deps --lib -- -D warnings once on the unchanged merged main tree and record every reported lint of the library by file, line and lint name in services/agent/crates/layerx-agentd/src/repair_22_39_222.kvx."
+symbols = []
+
+[capability.22.39.221]
+title = "Bring the layerx-agent-api crate and its test targets under the workspace lints"
+reqs = ["22998.1"]
+touches = ["services/agent/crates/layerx-agent-api"]
+tests = []
+verification_contract = "test -s services/agent/crates/layerx-agent-api/src/repair_22_39_221.kvx && cargo clippy --locked --manifest-path services/agent/Cargo.toml -p layerx-agent-api --no-deps --all-targets -- -D warnings"
+do_1 = "do_1 Decision 3053, gotcha 3749. Run cargo clippy --locked --manifest-path services/agent/Cargo.toml -p layerx-agent-api --no-deps --all-targets -- -D warnings once on the unchanged merged main tree and record every reported lint of the crate and its test targets by file, line and lint name in services/agent/crates/layerx-agent-api/src/repair_22_39_221.kvx."
+symbols = []
+
+[capability.22.39.220]
+title = "Bring the layerx-identity-binding crate and its test targets under the workspace lints"
+reqs = ["22998.1"]
+touches = ["services/agent/crates/layerx-identity-binding"]
+tests = []
+verification_contract = "test -s services/agent/crates/layerx-identity-binding/src/repair_22_39_220.kvx && cargo clippy --locked --manifest-path services/agent/Cargo.toml -p layerx-identity-binding --no-deps --all-targets -- -D warnings"
+do_1 = "do_1 Decision 3053, gotcha 3749. Run cargo clippy --locked --manifest-path services/agent/Cargo.toml -p layerx-identity-binding --no-deps --all-targets -- -D warnings once on the unchanged merged main tree and record every reported lint of the crate and its test targets by file, line and lint name in services/agent/crates/layerx-identity-binding/src/repair_22_39_220.kvx."
+symbols = []
+
+[capability.22.39.219]
+title = "Bring the layerx-client crate and its test targets under the workspace lints"
+reqs = ["22998.1"]
+touches = ["services/agent/crates/layerx-client"]
+tests = []
+verification_contract = "test -s services/agent/crates/layerx-client/src/repair_22_39_219.kvx && cargo clippy --locked --manifest-path services/agent/Cargo.toml -p layerx-client --no-deps --all-targets -- -D warnings"
+do_1 = "do_1 Decision 3053, gotcha 3749. Run cargo clippy --locked --manifest-path services/agent/Cargo.toml -p layerx-client --no-deps --all-targets -- -D warnings once on the unchanged merged main tree and record every reported lint of the crate and its test targets by file, line and lint name in services/agent/crates/layerx-client/src/repair_22_39_219.kvx."
+symbols = []
+
+[capability.22.39.218]
+title = "Bring the layerx-proof crate and its test targets under the workspace lints"
+reqs = ["22998.1"]
+touches = ["services/agent/crates/layerx-proof"]
+tests = []
+verification_contract = "test -s services/agent/crates/layerx-proof/src/repair_22_39_218.kvx && cargo clippy --locked --manifest-path services/agent/Cargo.toml -p layerx-proof --no-deps --all-targets -- -D warnings"
+do_1 = "do_1 Decision 3053, gotcha 3749. Run cargo clippy --locked --manifest-path services/agent/Cargo.toml -p layerx-proof --no-deps --all-targets -- -D warnings once on the unchanged merged main tree and record every reported lint of the crate and its test targets by file, line and lint name in services/agent/crates/layerx-proof/src/repair_22_39_218.kvx."
+symbols = []
+
+[capability.22.39.217]
+title = "Bring the layerx-crypto crate and its test targets under the workspace lints"
+reqs = ["22998.1"]
+touches = ["services/agent/crates/layerx-crypto"]
+tests = []
+verification_contract = "test -s services/agent/crates/layerx-crypto/src/repair_22_39_217.kvx && cargo clippy --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --no-deps --all-targets -- -D warnings"
+do_1 = "do_1 Decision 3053, gotcha 3749. Run cargo clippy --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --no-deps --all-targets -- -D warnings once on the unchanged merged main tree and record every reported lint of the crate and its test targets by file, line and lint name in services/agent/crates/layerx-crypto/src/repair_22_39_217.kvx."
+symbols = []
+
+[capability.22.39.216]
+title = "Bring the layerx-wire crate and its test targets under the workspace lints"
+reqs = ["22998.1"]
+touches = ["services/agent/crates/layerx-wire"]
+tests = []
+verification_contract = "test -s services/agent/crates/layerx-wire/src/repair_22_39_216.kvx && cargo clippy --locked --manifest-path services/agent/Cargo.toml -p layerx-wire --no-deps --all-targets -- -D warnings"
+do_1 = "do_1 Decision 3053, gotcha 3749. Run cargo clippy --locked --manifest-path services/agent/Cargo.toml -p layerx-wire --no-deps --all-targets -- -D warnings once on the unchanged merged main tree and record every reported lint of the crate and its test targets by file, line and lint name in services/agent/crates/layerx-wire/src/repair_22_39_216.kvx."
+symbols = []
+
+[capability.22.39.215]
+title = "Bring the layerx-types crate and its test targets under the workspace lints"
+reqs = ["22998.1"]
+touches = ["services/agent/crates/layerx-types"]
+tests = []
+verification_contract = "test -s services/agent/crates/layerx-types/src/repair_22_39_215.kvx && cargo clippy --locked --manifest-path services/agent/Cargo.toml -p layerx-types --no-deps --all-targets -- -D warnings"
+do_1 = "do_1 Decision 3053, gotcha 3749. Run cargo clippy --locked --manifest-path services/agent/Cargo.toml -p layerx-types --no-deps --all-targets -- -D warnings once on the unchanged merged main tree and record every reported lint of the crate and its test targets by file, line and lint name in services/agent/crates/layerx-types/src/repair_22_39_215.kvx."
+symbols = []
 
 [capability.22.39.214]
 title = "Make the retired caller scanner issue one git grep over the tracked files and filter the matches in memory"
@@ -183798,12 +183945,462 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
-[task.22.39.211]
-title = "Bring the agent workspace lint target to green under the workspace lints"
+[task.22.39.229]
+title = "Bring the agent daemon test targets named s-z under the workspace lints"
+status = "pending"
+mode = "BUILD"
+wave = 5
+requires = ["22.39.222"]
+reqs = ["22998.1"]
+capabilities = ["22.39.229"]
+interfaces = []
+do_1 = "do_1 Decision 3053, gotcha 3749. Run the verification command of this task once on the unchanged merged main tree and record every reported lint of the test targets whose file names start with s to z and the two named targets native-reads-http and limits-exactly-once by file, line and lint name in services/agent/crates/layerx-agentd/tests/repair_22_39_229.kvx."
+do_2 = "do_2 Repair every recorded lint at its source as decision 3053 states (digit separators, fallible conversions or the bounded allowance on the expression with a reason, removed double parentheses, distinct names, written Errors and Panics sections, the deprecated allowance with a reason only on the test or compatibility item that retains the deprecated item, removed conditional branches of copied test support); no lint level change, no crate or module level allowance, no public signature change, no test assertion change, and nothing outside the touched paths changes."
+do_3 = "do_3 Record each lint with its repair and the final count of zero in the record; run the build once and the verification once at the final revision and record both by reference. If lints remain after the allowed repair cycles, record the remaining count by file and stop the attempt."
+symbols = []
+touches = ["services/agent/crates/layerx-agentd/tests", "services/agent/tests/limits"]
+tests = []
+planned_paths = ["services/agent/crates/layerx-agentd/tests/repair_22_39_229.kvx"]
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib"
+verify_cmd = "test -s services/agent/crates/layerx-agentd/tests/repair_22_39_229.kvx && cargo clippy --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --no-deps $(cd services/agent/crates/layerx-agentd/tests && ls [s-z]*.rs | sed 's/.rs$//; s/^/--test /') --test native-reads-http --test limits-exactly-once -- -D warnings"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.228]
+title = "Bring the agent daemon test targets named r under the workspace lints"
+status = "pending"
+mode = "BUILD"
+wave = 5
+requires = ["22.39.222"]
+reqs = ["22998.1"]
+capabilities = ["22.39.228"]
+interfaces = []
+do_1 = "do_1 Decision 3053, gotcha 3749. Run the verification command of this task once on the unchanged merged main tree and record every reported lint of the test targets whose file names start with r by file, line and lint name in services/agent/crates/layerx-agentd/tests/repair_22_39_228.kvx."
+do_2 = "do_2 Repair every recorded lint at its source as decision 3053 states (digit separators, fallible conversions or the bounded allowance on the expression with a reason, removed double parentheses, distinct names, written Errors and Panics sections, the deprecated allowance with a reason only on the test or compatibility item that retains the deprecated item, removed conditional branches of copied test support); no lint level change, no crate or module level allowance, no public signature change, no test assertion change, and nothing outside the touched paths changes."
+do_3 = "do_3 Record each lint with its repair and the final count of zero in the record; run the build once and the verification once at the final revision and record both by reference. If lints remain after the allowed repair cycles, record the remaining count by file and stop the attempt."
+symbols = []
+touches = ["services/agent/crates/layerx-agentd/tests"]
+tests = []
+planned_paths = ["services/agent/crates/layerx-agentd/tests/repair_22_39_228.kvx"]
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib"
+verify_cmd = "test -s services/agent/crates/layerx-agentd/tests/repair_22_39_228.kvx && cargo clippy --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --no-deps $(cd services/agent/crates/layerx-agentd/tests && ls r*.rs | sed 's/.rs$//; s/^/--test /') -- -D warnings"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.227]
+title = "Bring the agent daemon test targets named i-q under the workspace lints"
+status = "pending"
+mode = "BUILD"
+wave = 5
+requires = ["22.39.222"]
+reqs = ["22998.1"]
+capabilities = ["22.39.227"]
+interfaces = []
+do_1 = "do_1 Decision 3053, gotcha 3749. Run the verification command of this task once on the unchanged merged main tree and record every reported lint of the test targets whose file names start with i to q by file, line and lint name in services/agent/crates/layerx-agentd/tests/repair_22_39_227.kvx."
+do_2 = "do_2 Repair every recorded lint at its source as decision 3053 states (digit separators, fallible conversions or the bounded allowance on the expression with a reason, removed double parentheses, distinct names, written Errors and Panics sections, the deprecated allowance with a reason only on the test or compatibility item that retains the deprecated item, removed conditional branches of copied test support); no lint level change, no crate or module level allowance, no public signature change, no test assertion change, and nothing outside the touched paths changes."
+do_3 = "do_3 Record each lint with its repair and the final count of zero in the record; run the build once and the verification once at the final revision and record both by reference. If lints remain after the allowed repair cycles, record the remaining count by file and stop the attempt."
+symbols = []
+touches = ["services/agent/crates/layerx-agentd/tests"]
+tests = []
+planned_paths = ["services/agent/crates/layerx-agentd/tests/repair_22_39_227.kvx"]
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib"
+verify_cmd = "test -s services/agent/crates/layerx-agentd/tests/repair_22_39_227.kvx && cargo clippy --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --no-deps $(cd services/agent/crates/layerx-agentd/tests && ls [i-q]*.rs | grep -v proof_native_reads | sed 's/.rs$//; s/^/--test /') -- -D warnings"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.226]
+title = "Bring the agent daemon test targets named a-h under the workspace lints"
+status = "pending"
+mode = "BUILD"
+wave = 5
+requires = ["22.39.222"]
+reqs = ["22998.1"]
+capabilities = ["22.39.226"]
+interfaces = []
+do_1 = "do_1 Decision 3053, gotcha 3749. Run the verification command of this task once on the unchanged merged main tree and record every reported lint of the test targets whose file names start with a to h by file, line and lint name in services/agent/crates/layerx-agentd/tests/repair_22_39_226.kvx."
+do_2 = "do_2 Repair every recorded lint at its source as decision 3053 states (digit separators, fallible conversions or the bounded allowance on the expression with a reason, removed double parentheses, distinct names, written Errors and Panics sections, the deprecated allowance with a reason only on the test or compatibility item that retains the deprecated item, removed conditional branches of copied test support); no lint level change, no crate or module level allowance, no public signature change, no test assertion change, and nothing outside the touched paths changes."
+do_3 = "do_3 Record each lint with its repair and the final count of zero in the record; run the build once and the verification once at the final revision and record both by reference. If lints remain after the allowed repair cycles, record the remaining count by file and stop the attempt."
+symbols = []
+touches = ["services/agent/crates/layerx-agentd/tests"]
+tests = []
+planned_paths = ["services/agent/crates/layerx-agentd/tests/repair_22_39_226.kvx"]
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib"
+verify_cmd = "test -s services/agent/crates/layerx-agentd/tests/repair_22_39_226.kvx && cargo clippy --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --no-deps $(cd services/agent/crates/layerx-agentd/tests && ls [a-h]*.rs | sed 's/.rs$//; s/^/--test /') -- -D warnings"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.225]
+title = "Bring the layerx-sdk crate and its test targets under the workspace lints"
 status = "pending"
 mode = "BUILD"
 wave = 4
 requires = ["22.39.209"]
+reqs = ["22998.1"]
+capabilities = ["22.39.225"]
+interfaces = []
+do_1 = "do_1 Decision 3053, gotcha 3749. Run cargo clippy --locked --manifest-path services/agent/Cargo.toml -p layerx-sdk --no-deps --all-targets -- -D warnings once on the unchanged merged main tree and record every reported lint of the crate and its test targets by file, line and lint name in services/agent/crates/layerx-sdk/src/repair_22_39_225.kvx."
+do_2 = "do_2 Repair every recorded lint at its source as decision 3053 states (digit separators, fallible conversions or the bounded allowance on the expression with a reason, removed double parentheses, distinct names, written Errors and Panics sections, the deprecated allowance with a reason only on the test or compatibility item that retains the deprecated item, removed conditional branches of copied test support); no lint level change, no crate or module level allowance, no public signature change, no test assertion change, and nothing outside the touched paths changes."
+do_3 = "do_3 Record each lint with its repair and the final count of zero in the record; run the build once and the verification once at the final revision and record both by reference. If lints remain after the allowed repair cycles, record the remaining count by file and stop the attempt."
+symbols = []
+touches = ["services/agent/crates/layerx-sdk"]
+tests = []
+planned_paths = ["services/agent/crates/layerx-sdk/src/repair_22_39_225.kvx"]
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-sdk --all-targets"
+verify_cmd = "test -s services/agent/crates/layerx-sdk/src/repair_22_39_225.kvx && cargo clippy --locked --manifest-path services/agent/Cargo.toml -p layerx-sdk --no-deps --all-targets -- -D warnings"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.224]
+title = "Bring the layerx-mcp crate and its test targets under the workspace lints"
+status = "pending"
+mode = "BUILD"
+wave = 4
+requires = ["22.39.209"]
+reqs = ["22998.1"]
+capabilities = ["22.39.224"]
+interfaces = []
+do_1 = "do_1 Decision 3053, gotcha 3749. Run cargo clippy --locked --manifest-path services/agent/Cargo.toml -p layerx-mcp --no-deps --all-targets -- -D warnings once on the unchanged merged main tree and record every reported lint of the crate and its test targets by file, line and lint name in services/agent/crates/layerx-mcp/src/repair_22_39_224.kvx."
+do_2 = "do_2 Repair every recorded lint at its source as decision 3053 states (digit separators, fallible conversions or the bounded allowance on the expression with a reason, removed double parentheses, distinct names, written Errors and Panics sections, the deprecated allowance with a reason only on the test or compatibility item that retains the deprecated item, removed conditional branches of copied test support); no lint level change, no crate or module level allowance, no public signature change, no test assertion change, and nothing outside the touched paths changes."
+do_3 = "do_3 Record each lint with its repair and the final count of zero in the record; run the build once and the verification once at the final revision and record both by reference. If lints remain after the allowed repair cycles, record the remaining count by file and stop the attempt."
+symbols = []
+touches = ["services/agent/crates/layerx-mcp"]
+tests = []
+planned_paths = ["services/agent/crates/layerx-mcp/src/repair_22_39_224.kvx"]
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-mcp --all-targets"
+verify_cmd = "test -s services/agent/crates/layerx-mcp/src/repair_22_39_224.kvx && cargo clippy --locked --manifest-path services/agent/Cargo.toml -p layerx-mcp --no-deps --all-targets -- -D warnings"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.223]
+title = "Bring the layerx-agentd-host crate and its test targets under the workspace lints"
+status = "pending"
+mode = "BUILD"
+wave = 4
+requires = ["22.39.209"]
+reqs = ["22998.1"]
+capabilities = ["22.39.223"]
+interfaces = []
+do_1 = "do_1 Decision 3053, gotcha 3749. Run cargo clippy --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd-host --no-deps --all-targets -- -D warnings once on the unchanged merged main tree and record every reported lint of the crate and its test targets by file, line and lint name in services/agent/crates/layerx-agentd-host/src/repair_22_39_223.kvx."
+do_2 = "do_2 Repair every recorded lint at its source as decision 3053 states (digit separators, fallible conversions or the bounded allowance on the expression with a reason, removed double parentheses, distinct names, written Errors and Panics sections, the deprecated allowance with a reason only on the test or compatibility item that retains the deprecated item, removed conditional branches of copied test support); no lint level change, no crate or module level allowance, no public signature change, no test assertion change, and nothing outside the touched paths changes."
+do_3 = "do_3 Record each lint with its repair and the final count of zero in the record; run the build once and the verification once at the final revision and record both by reference. If lints remain after the allowed repair cycles, record the remaining count by file and stop the attempt."
+symbols = []
+touches = ["services/agent/crates/layerx-agentd-host"]
+tests = []
+planned_paths = ["services/agent/crates/layerx-agentd-host/src/repair_22_39_223.kvx"]
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd-host --all-targets"
+verify_cmd = "test -s services/agent/crates/layerx-agentd-host/src/repair_22_39_223.kvx && cargo clippy --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd-host --no-deps --all-targets -- -D warnings"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.222]
+title = "Bring the library of the agent daemon crate under the workspace lints"
+status = "pending"
+mode = "BUILD"
+wave = 4
+requires = ["22.39.209"]
+reqs = ["22998.1"]
+capabilities = ["22.39.222"]
+interfaces = []
+do_1 = "do_1 Decision 3053, gotcha 3749. Run cargo clippy --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --no-deps --lib -- -D warnings once on the unchanged merged main tree and record every reported lint of the library by file, line and lint name in services/agent/crates/layerx-agentd/src/repair_22_39_222.kvx."
+do_2 = "do_2 Repair every recorded lint at its source as decision 3053 states (digit separators, fallible conversions or the bounded allowance on the expression with a reason, removed double parentheses, distinct names, written Errors and Panics sections, the deprecated allowance with a reason only on the test or compatibility item that retains the deprecated item, removed conditional branches of copied test support); no lint level change, no crate or module level allowance, no public signature change, no test assertion change, and nothing outside the touched paths changes."
+do_3 = "do_3 Record each lint with its repair and the final count of zero in the record; run the build once and the verification once at the final revision and record both by reference. If lints remain after the allowed repair cycles, record the remaining count by file and stop the attempt."
+symbols = []
+touches = ["services/agent/crates/layerx-agentd/src"]
+tests = []
+planned_paths = ["services/agent/crates/layerx-agentd/src/repair_22_39_222.kvx"]
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib"
+verify_cmd = "test -s services/agent/crates/layerx-agentd/src/repair_22_39_222.kvx && cargo clippy --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --no-deps --lib -- -D warnings"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 300
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.221]
+title = "Bring the layerx-agent-api crate and its test targets under the workspace lints"
+status = "pending"
+mode = "BUILD"
+wave = 4
+requires = ["22.39.209"]
+reqs = ["22998.1"]
+capabilities = ["22.39.221"]
+interfaces = []
+do_1 = "do_1 Decision 3053, gotcha 3749. Run cargo clippy --locked --manifest-path services/agent/Cargo.toml -p layerx-agent-api --no-deps --all-targets -- -D warnings once on the unchanged merged main tree and record every reported lint of the crate and its test targets by file, line and lint name in services/agent/crates/layerx-agent-api/src/repair_22_39_221.kvx."
+do_2 = "do_2 Repair every recorded lint at its source as decision 3053 states (digit separators, fallible conversions or the bounded allowance on the expression with a reason, removed double parentheses, distinct names, written Errors and Panics sections, the deprecated allowance with a reason only on the test or compatibility item that retains the deprecated item, removed conditional branches of copied test support); no lint level change, no crate or module level allowance, no public signature change, no test assertion change, and nothing outside the touched paths changes."
+do_3 = "do_3 Record each lint with its repair and the final count of zero in the record; run the build once and the verification once at the final revision and record both by reference. If lints remain after the allowed repair cycles, record the remaining count by file and stop the attempt."
+symbols = []
+touches = ["services/agent/crates/layerx-agent-api"]
+tests = []
+planned_paths = ["services/agent/crates/layerx-agent-api/src/repair_22_39_221.kvx"]
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agent-api --all-targets"
+verify_cmd = "test -s services/agent/crates/layerx-agent-api/src/repair_22_39_221.kvx && cargo clippy --locked --manifest-path services/agent/Cargo.toml -p layerx-agent-api --no-deps --all-targets -- -D warnings"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.220]
+title = "Bring the layerx-identity-binding crate and its test targets under the workspace lints"
+status = "pending"
+mode = "BUILD"
+wave = 4
+requires = ["22.39.209"]
+reqs = ["22998.1"]
+capabilities = ["22.39.220"]
+interfaces = []
+do_1 = "do_1 Decision 3053, gotcha 3749. Run cargo clippy --locked --manifest-path services/agent/Cargo.toml -p layerx-identity-binding --no-deps --all-targets -- -D warnings once on the unchanged merged main tree and record every reported lint of the crate and its test targets by file, line and lint name in services/agent/crates/layerx-identity-binding/src/repair_22_39_220.kvx."
+do_2 = "do_2 Repair every recorded lint at its source as decision 3053 states (digit separators, fallible conversions or the bounded allowance on the expression with a reason, removed double parentheses, distinct names, written Errors and Panics sections, the deprecated allowance with a reason only on the test or compatibility item that retains the deprecated item, removed conditional branches of copied test support); no lint level change, no crate or module level allowance, no public signature change, no test assertion change, and nothing outside the touched paths changes."
+do_3 = "do_3 Record each lint with its repair and the final count of zero in the record; run the build once and the verification once at the final revision and record both by reference. If lints remain after the allowed repair cycles, record the remaining count by file and stop the attempt."
+symbols = []
+touches = ["services/agent/crates/layerx-identity-binding"]
+tests = []
+planned_paths = ["services/agent/crates/layerx-identity-binding/src/repair_22_39_220.kvx"]
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-identity-binding --all-targets"
+verify_cmd = "test -s services/agent/crates/layerx-identity-binding/src/repair_22_39_220.kvx && cargo clippy --locked --manifest-path services/agent/Cargo.toml -p layerx-identity-binding --no-deps --all-targets -- -D warnings"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.219]
+title = "Bring the layerx-client crate and its test targets under the workspace lints"
+status = "pending"
+mode = "BUILD"
+wave = 4
+requires = ["22.39.209"]
+reqs = ["22998.1"]
+capabilities = ["22.39.219"]
+interfaces = []
+do_1 = "do_1 Decision 3053, gotcha 3749. Run cargo clippy --locked --manifest-path services/agent/Cargo.toml -p layerx-client --no-deps --all-targets -- -D warnings once on the unchanged merged main tree and record every reported lint of the crate and its test targets by file, line and lint name in services/agent/crates/layerx-client/src/repair_22_39_219.kvx."
+do_2 = "do_2 Repair every recorded lint at its source as decision 3053 states (digit separators, fallible conversions or the bounded allowance on the expression with a reason, removed double parentheses, distinct names, written Errors and Panics sections, the deprecated allowance with a reason only on the test or compatibility item that retains the deprecated item, removed conditional branches of copied test support); no lint level change, no crate or module level allowance, no public signature change, no test assertion change, and nothing outside the touched paths changes."
+do_3 = "do_3 Record each lint with its repair and the final count of zero in the record; run the build once and the verification once at the final revision and record both by reference. If lints remain after the allowed repair cycles, record the remaining count by file and stop the attempt."
+symbols = []
+touches = ["services/agent/crates/layerx-client"]
+tests = []
+planned_paths = ["services/agent/crates/layerx-client/src/repair_22_39_219.kvx"]
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-client --all-targets"
+verify_cmd = "test -s services/agent/crates/layerx-client/src/repair_22_39_219.kvx && cargo clippy --locked --manifest-path services/agent/Cargo.toml -p layerx-client --no-deps --all-targets -- -D warnings"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.218]
+title = "Bring the layerx-proof crate and its test targets under the workspace lints"
+status = "pending"
+mode = "BUILD"
+wave = 4
+requires = ["22.39.209"]
+reqs = ["22998.1"]
+capabilities = ["22.39.218"]
+interfaces = []
+do_1 = "do_1 Decision 3053, gotcha 3749. Run cargo clippy --locked --manifest-path services/agent/Cargo.toml -p layerx-proof --no-deps --all-targets -- -D warnings once on the unchanged merged main tree and record every reported lint of the crate and its test targets by file, line and lint name in services/agent/crates/layerx-proof/src/repair_22_39_218.kvx."
+do_2 = "do_2 Repair every recorded lint at its source as decision 3053 states (digit separators, fallible conversions or the bounded allowance on the expression with a reason, removed double parentheses, distinct names, written Errors and Panics sections, the deprecated allowance with a reason only on the test or compatibility item that retains the deprecated item, removed conditional branches of copied test support); no lint level change, no crate or module level allowance, no public signature change, no test assertion change, and nothing outside the touched paths changes."
+do_3 = "do_3 Record each lint with its repair and the final count of zero in the record; run the build once and the verification once at the final revision and record both by reference. If lints remain after the allowed repair cycles, record the remaining count by file and stop the attempt."
+symbols = []
+touches = ["services/agent/crates/layerx-proof"]
+tests = []
+planned_paths = ["services/agent/crates/layerx-proof/src/repair_22_39_218.kvx"]
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-proof --all-targets"
+verify_cmd = "test -s services/agent/crates/layerx-proof/src/repair_22_39_218.kvx && cargo clippy --locked --manifest-path services/agent/Cargo.toml -p layerx-proof --no-deps --all-targets -- -D warnings"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.217]
+title = "Bring the layerx-crypto crate and its test targets under the workspace lints"
+status = "pending"
+mode = "BUILD"
+wave = 4
+requires = ["22.39.209"]
+reqs = ["22998.1"]
+capabilities = ["22.39.217"]
+interfaces = []
+do_1 = "do_1 Decision 3053, gotcha 3749. Run cargo clippy --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --no-deps --all-targets -- -D warnings once on the unchanged merged main tree and record every reported lint of the crate and its test targets by file, line and lint name in services/agent/crates/layerx-crypto/src/repair_22_39_217.kvx."
+do_2 = "do_2 Repair every recorded lint at its source as decision 3053 states (digit separators, fallible conversions or the bounded allowance on the expression with a reason, removed double parentheses, distinct names, written Errors and Panics sections, the deprecated allowance with a reason only on the test or compatibility item that retains the deprecated item, removed conditional branches of copied test support); no lint level change, no crate or module level allowance, no public signature change, no test assertion change, and nothing outside the touched paths changes."
+do_3 = "do_3 Record each lint with its repair and the final count of zero in the record; run the build once and the verification once at the final revision and record both by reference. If lints remain after the allowed repair cycles, record the remaining count by file and stop the attempt."
+symbols = []
+touches = ["services/agent/crates/layerx-crypto"]
+tests = []
+planned_paths = ["services/agent/crates/layerx-crypto/src/repair_22_39_217.kvx"]
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --all-targets"
+verify_cmd = "test -s services/agent/crates/layerx-crypto/src/repair_22_39_217.kvx && cargo clippy --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --no-deps --all-targets -- -D warnings"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.216]
+title = "Bring the layerx-wire crate and its test targets under the workspace lints"
+status = "pending"
+mode = "BUILD"
+wave = 4
+requires = ["22.39.209"]
+reqs = ["22998.1"]
+capabilities = ["22.39.216"]
+interfaces = []
+do_1 = "do_1 Decision 3053, gotcha 3749. Run cargo clippy --locked --manifest-path services/agent/Cargo.toml -p layerx-wire --no-deps --all-targets -- -D warnings once on the unchanged merged main tree and record every reported lint of the crate and its test targets by file, line and lint name in services/agent/crates/layerx-wire/src/repair_22_39_216.kvx."
+do_2 = "do_2 Repair every recorded lint at its source as decision 3053 states (digit separators, fallible conversions or the bounded allowance on the expression with a reason, removed double parentheses, distinct names, written Errors and Panics sections, the deprecated allowance with a reason only on the test or compatibility item that retains the deprecated item, removed conditional branches of copied test support); no lint level change, no crate or module level allowance, no public signature change, no test assertion change, and nothing outside the touched paths changes."
+do_3 = "do_3 Record each lint with its repair and the final count of zero in the record; run the build once and the verification once at the final revision and record both by reference. If lints remain after the allowed repair cycles, record the remaining count by file and stop the attempt."
+symbols = []
+touches = ["services/agent/crates/layerx-wire"]
+tests = []
+planned_paths = ["services/agent/crates/layerx-wire/src/repair_22_39_216.kvx"]
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-wire --all-targets"
+verify_cmd = "test -s services/agent/crates/layerx-wire/src/repair_22_39_216.kvx && cargo clippy --locked --manifest-path services/agent/Cargo.toml -p layerx-wire --no-deps --all-targets -- -D warnings"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.215]
+title = "Bring the layerx-types crate and its test targets under the workspace lints"
+status = "pending"
+mode = "BUILD"
+wave = 4
+requires = ["22.39.209"]
+reqs = ["22998.1"]
+capabilities = ["22.39.215"]
+interfaces = []
+do_1 = "do_1 Decision 3053, gotcha 3749. Run cargo clippy --locked --manifest-path services/agent/Cargo.toml -p layerx-types --no-deps --all-targets -- -D warnings once on the unchanged merged main tree and record every reported lint of the crate and its test targets by file, line and lint name in services/agent/crates/layerx-types/src/repair_22_39_215.kvx."
+do_2 = "do_2 Repair every recorded lint at its source as decision 3053 states (digit separators, fallible conversions or the bounded allowance on the expression with a reason, removed double parentheses, distinct names, written Errors and Panics sections, the deprecated allowance with a reason only on the test or compatibility item that retains the deprecated item, removed conditional branches of copied test support); no lint level change, no crate or module level allowance, no public signature change, no test assertion change, and nothing outside the touched paths changes."
+do_3 = "do_3 Record each lint with its repair and the final count of zero in the record; run the build once and the verification once at the final revision and record both by reference. If lints remain after the allowed repair cycles, record the remaining count by file and stop the attempt."
+symbols = []
+touches = ["services/agent/crates/layerx-types"]
+tests = []
+planned_paths = ["services/agent/crates/layerx-types/src/repair_22_39_215.kvx"]
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-types --all-targets"
+verify_cmd = "test -s services/agent/crates/layerx-types/src/repair_22_39_215.kvx && cargo clippy --locked --manifest-path services/agent/Cargo.toml -p layerx-types --no-deps --all-targets -- -D warnings"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 300
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.211]
+title = "Bring the agent workspace lint target to green under the workspace lints"
+status = "pending"
+mode = "BUILD"
+wave = 5
+requires = ["22.39.209", "22.39.215", "22.39.216", "22.39.217", "22.39.218", "22.39.219", "22.39.220", "22.39.221", "22.39.222", "22.39.223", "22.39.224", "22.39.225", "22.39.226", "22.39.227", "22.39.228", "22.39.229"]
 reqs = ["22998.1"]
 capabilities = ["22.39.211"]
 interfaces = []
@@ -183827,6 +184424,7 @@ time_limit_minutes = 300
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "Attempt 2 (continue after tasks 22.39.215 to 22.39.229 land; gotcha 3749, decisions 3039 and 3053): the attempt-1 tree 227acaa1fe0d stands as the starting point (the eight repairs in layerx-types, the layerx-crypto repairs, the record). Merge main once every per-crate lint task is on it, run the lint target once as the verification states, and repair at the source only what the whole-workspace run still reports (a lint that appears only when the members are linted together), following the repair rules of decision 3053 with the same prohibitions. Record the count by crate at the start and the end of the attempt in the record. Run the build once and the verification once at the final revision and record both by reference; if lints remain after the allowed repair cycles, record the remaining count by crate and stop the attempt."
 
 [task.22.39.209]
 title = "Remove the unused binding named level in the agent RPC adapters so the agent lint target passes"
@@ -195144,6 +195742,7 @@ do_20 = "Attempt 12 (continue, gotcha 3706, decisions 3005, 3009 and 2938): star
 do_21 = "Attempt 13 (continue, gotcha 3712, decisions 3005, 3009 and 3014): the attempt-12 tree 013e3cee50c3 stands (check_preserved_sections removed with its two calls, the bounded admission rows, the record). Before any change, run the roster-size sweep of decision 3014 at the sixteen-task journey with rosters of 8 participants and 2 evaluators, 16 and 4, 24 and 6 and 32 and 8 for OPEN_EPOCH, the eight RevealScore rows and the six aggregation rows, and record attempted fuel per row and roster size in the task record. Then bound the three handlers to the sections the operation touches: open_epoch of src/epoch.rs (line 893) and its handler in the routing module read the roster and the epoch header through the section reader instead of the whole 63175-byte state input; reveal_score of src/commit_reveal.rs (line 607) reads the commitment of the revealing participant and its chunk only; aggregate of src/epoch.rs (line 1438) with src/aggregation.rs reads the per-chunk vote sections and re-hashes no unchanged section. Regenerate the guest with build-guest.sh at the final tree, keep the decision 2900 record of failing names by target before and after, and leave the cap and the clamp as they are. Run the build once and the verification once at the final revision and record both by reference; if a row still exceeds the cap, repair it within the one allowed cycle and rerun once, and record the attempted fuel of every row that remains."
 do_22 = "Attempt 14 (continue, gotcha 3722, decisions 3014 and 3025): the attempt-13 tree f3500b77dd19 is the starting point. In tests/fuel_budget.rs make the sweep fixture seal the task set before any evidence step, so the sealed_task_set step no longer answers with application error 2305 through the F08 view and every routed execution of the sweep is admitted and measured; the assertion of every_routed_operation_fits_the_protocol_cpu_fuel_cap (line 1873) keeps its name and its requirement that every routed execution produce measured fuel. In the guest, bring OPEN_EPOCH, BeginAggregation, ProcessAggregation and FinalizeAggregation under the cap of 1000000 cpu fuel with margin at the roster sizes 16, 24 and 32 by removing their per-roster rescans, one pass over the roster per handler through the shared helpers; the sweep rows of roster_state_fuel_scaling (line 2828) and maximum_state_fuel_scaling (line 2777) keep recording the attempted fuel, the cap stays, no assertion changes and no public operation, status code or query result changes. Record the fuel of each of the four handlers before and after at the three roster sizes in the task record. Run the build once and the verification once at the final revision and record both by reference; if a sweep row still exceeds the cap, repair the handler within the one allowed cycle and rerun once."
 do_23 = "Attempt 15 (continue, gotcha 3734, decisions 3005, 3009, 3014, 3025 and 3037): the attempt-14 tree c35ee22bb79c is the starting point (the sealed sweep fixture, the one-pass opening, the merged chunk reader, the shared record writers, the record). Before any change, state in the task record for each of the four handlers the fuel per added participant the roster sweep rows at 8/2, 16/4, 24/6 and 32/8 imply and the implied fuel at 32 participants and 8 evaluators (OPEN_EPOCH about 62000 per participant and about 1.78 million at the full roster from the 8/2 and 16/4 rows, BeginAggregation about 25600 per participant, a ProcessAggregation chunk about 21900 per added roster participant plus about 59000 per earlier chunk at the full roster, FinalizeAggregation refused from 16/4), and repair against those slopes rather than against the stopping position of a refusal. A ProcessAggregation chunk reads the eight reports of its chunk and the running aggregate section only, carries the running aggregate in its own section so no call decodes the reports or per-participant results of earlier chunks, and checks the roster-wide sections by length and digest only, so its fuel at 32/8 is within ten percent of the first chunk at 16/4 and the chunks of one roster differ by the per-report cost only. OPEN_EPOCH encodes the roster projection once and digests each written section once, never per participant, with no per-participant hashing, re-encoding or validation of sections it does not write, at most 900000 fuel at 32/8. BeginAggregation and FinalizeAggregation read the committed sections they consume once through the section reader, write the aggregate header and the reputation records of the roster once, and validate only the records they appended or replaced (the whole-state reputation validation the attempt-14 record describes is replaced by the validation of the appended records), at most 900000 fuel each at 32/8. The cap, the chunk size of eight, the sweep rows, the recorded attempted fuel, every assertion name and every public operation, status code and query result stay unchanged, and no handler is made multi-step in this task. Regenerate the guest with build-guest.sh after the change. Record the rows at the four rosters for the four handlers before and after with the implied slopes in the task record. Run the build once and the verification once at the final revision and record both by reference; if a row still refuses, repair its handler within the allowed cycles and rerun once, and if a handler still exceeds the cap at 32/8 after them, record its implied fuel from the slope and stop the attempt."
+do_24 = "Attempt 16 (continue, gotcha 3748, decisions 3005, 3009, 3014, 3025, 3037 and 3052): the attempt-15 tree 642ca7eae683 is the starting point (the sealed sweep fixture, the eligibility count carried into the seal composer, the record with the rows and slopes). Before any change, add to tests/fuel_budget.rs the fixed-roster measurement of decision 3052: open the epoch and run the aggregation at 16 participants and 4 evaluators with 16, 32, 48 and 64 admitted tasks, print the fuel of OPEN_EPOCH, BeginAggregation and FinalizeAggregation per task count beside the existing roster rows, and record the twelve values in the task record with the fuel per added task for each handler. For each handler whose fuel grows with the task count, find the per-participant read of the frame (a lookup, decode, digest or validation that starts at the frame head for every participant, in the roster projection, the eligible-input reader or the reputation validation), build the section offset index once per call and resolve every participant against it; then regenerate the guest with build-guest.sh and record the roster rows before and after. For a handler whose fuel does not grow with the task count, record its four values and its per-participant slope and make no change to it. The cap, the chunk size of eight, every assertion name, every public operation, status code and query result stay unchanged, and no handler becomes multi-step in this task. Run the build once and the verification once at the final revision and record both by reference; if a roster row still refuses after the indexed pass, record it and stop the attempt without a second repair cycle."
 
 [task.22.33.222]
 title = "Repair audit record 22.30.124 medium findings in programs/crates/layerx-programs-registry/tests/support (part 1 of 1): test-gap"

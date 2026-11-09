@@ -36570,3 +36570,19 @@ symbol = "test_no_retired_callers.py::test_scan_reports_no_caller"
 observed = "Attempt 1 at ceda589fd709: build exit 0; verification exit 1: the scan with --deleted was still running after 26 minutes 29 seconds and was stopped before the thirty-minute limit (exit -15); log /out/logs/verify-1.log."
 assumption = "The scanner design, not the test module, consumes the limit; the test is complete."
 severity = "high"
+
+[finding.22.33.223.14]
+task = "22.33.223"
+file = "programs/crates/layerx-programs-ai-market/tests/repair_22_33_223.rs"
+symbol = "repair_22_33_223.rs"
+observed = "Attempt 15 at 642ca7eae683: build exit 0; verification exit 101: 21 cases passed and roster_state_fuel_scaling, maximum_state_fuel_scaling and every_routed_operation_fits_the_protocol_cpu_fuel_cap failed on OPEN_EPOCH and FinalizeAggregation refused at the cap from the roster 24/6 and at every task count of the maximum-state sweep; log /out/logs/verify-1.log."
+assumption = "The per-participant fuel of the two handlers tracks the frame size; the measurement at a fixed roster decides it."
+severity = "high"
+
+[finding.22.39.211.1]
+task = "22.39.211"
+file = "services/agent/crates"
+symbol = "crates"
+observed = "Attempt 1 at 227acaa1fe0d: build exit 0 twice; verification exit 1 twice: 108 diagnostics at the first tree and 1205 at the final tree, 1186 of them in the test targets of layerx-types, with nine members never reached; log /out/logs/verify-2.log."
+assumption = "The lint debt is spread over every member and exceeds the repair cycles of one task; the split carries it."
+severity = "high"
