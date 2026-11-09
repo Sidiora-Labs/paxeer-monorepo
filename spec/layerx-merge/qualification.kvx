@@ -36586,3 +36586,19 @@ symbol = "crates"
 observed = "Attempt 1 at 227acaa1fe0d: build exit 0 twice; verification exit 1 twice: 108 diagnostics at the first tree and 1205 at the final tree, 1186 of them in the test targets of layerx-types, with nine members never reached; log /out/logs/verify-2.log."
 assumption = "The lint debt is spread over every member and exceeds the repair cycles of one task; the split carries it."
 severity = "high"
+
+[finding.22.39.212.2]
+task = "22.39.212"
+file = "tools/qualification/audit_repairs/test_repair_22_31_402.py"
+symbol = "test_repair_22_31_402.py"
+observed = "Attempt 2 at 4bfb39fc0f2c: build exit 0; verification exit 1: 99 Python cases passed, chainconfig and proposals passed, appenv failed TestEnvLinesFromEVMRecords, TestRepair_277_LegacyProducerCheckpoint and three TestRepairM_484 cases on the pre-repair writer form; log /out/logs/verify-1.log."
+assumption = "The five failures are stale consumer assertions of the deploy scripts and the fixture; nothing in the governed signer work is at fault."
+severity = "high"
+
+[finding.22.39.162.2]
+task = "22.39.162"
+file = "services/launchpad/indexer/internal/runtimedocs::TestPaxeerReportedIdentityQualifiesRealMarket"
+symbol = "runtimedocs::TestPaxeerReportedIdentityQualifiesRealMarket"
+observed = "Attempt 2 at ba731cfe3d0c: build exit 0; verification exit 1: six wiring-test cases failed on the pre-retirement baseline expectations (total 226 against 261, two api entries removed, indexer entries expected), and the Go tests of the module never ran; log /out/logs/verify-1.log."
+assumption = "The indexer repairs of the tree stand; only the wiring test scope and the two api entries block the gate."
+severity = "high"
