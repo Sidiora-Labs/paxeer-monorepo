@@ -2,6 +2,37 @@
 # Section stale: acceptance id, selector and owning tasks for selectors whose file or test name is absent from the tree.
 # Section uncovered: selectors that no task names in its tests.
 
+# Second-round resolution (task 22.39.213, decision 3045): report selector lines below are preserved.
+# All 84 stale selectors require dispositions; uncovered exceptions use the union of command, missing path,
+# no literal acceptance test and unheld/missing requirement rules. Spec planning/existing notes resolve ids only.
+# The 24 uncovered exceptions and their spec acceptance ids are recorded here; the other 205 selectors are
+# listed with completed owners and existing paths in the parity-stale.kvx header.
+# The wallet e2e path also belongs to acceptance.18.1065.3, whose requirement has an owner; acceptance.18.1065.2 has no req field.
+# resolve: services/platform/hosted/gateway/tests/local/tests/retired_client_modules_w2.rs::no_retired_layerx_client_module_paths_w2 => acceptance.8.947.1; missing path, no literal acceptance test
+# resolve: services/platform/hosted/gateway/tests/local/tests/retired_client_modules.rs::no_retired_layerx_client_module_paths => acceptance.8.948.1; missing path, no literal acceptance test
+# resolve: services/agent/crates/layerx-client/tests/committed_caps.rs::native_grant_signatures_and_every_committed_field => acceptance.9.276.1; no literal acceptance test
+# resolve: services/agent/crates/layerx-proof/tests/checkpoint.rs::transported_registration_never_invents_paxeer_chain_finality => acceptance.9.307.1; missing path, no literal acceptance test
+# resolve: services/human/crates/layerx-intents/tests/budget_payloads.rs::budget_fund_compiles_to_the_kernel_canonical_payload => acceptance.10.241.3; no literal acceptance test
+# resolve: services/platform/hosted/indexer/tests/ai_reputation_finality.rs::a09_invalid_certificates_never_move_the_cursor => acceptance.13.279.3; requirement unheld or missing
+# resolve: tests/ci/test_retired_make_rules.py::test_parallel_differential_links_without_batch_wal => acceptance.16.984.2; no literal acceptance test
+# resolve: apps/launchpad/web/src/widgets/create-chain/chain-domain.test.mjs::chain_domain_validates_names_tiers_cost_and_wallet_params => acceptance.20.7.1.1; missing path, no literal acceptance test
+# resolve: make -n -s human-check => acceptance.6.60.6.1; command, missing path
+# resolve: cargo test -p layerx-human-kms -p layerx-human-identity-provider --no-run => acceptance.10.1.10.1; command, missing path
+# resolve: cargo test -p layerx-human-service --no-run => acceptance.10.1.9.1; command, missing path
+# resolve: services/human/crates/layerx-human-test-support/src/lib.rs::step_clock_advances_one_millisecond_per_sample => acceptance.10.1.8.1; no literal acceptance test
+# resolve: cargo build -p layerx-human-service --bins => acceptance.10.1.7.1; command, missing path
+# resolve: services/human/tools/boundary-check/tests/fixtures.rs::identifier_containing_a_private_path_token_passes => acceptance.10.1.5.1; no literal acceptance test
+# resolve: cargo check --locked of layerx-human-service plus the identifier grep of task 10.99.2 (its verify_cmd) => acceptance.10.99.2; command, missing path
+# resolve: cargo metadata --locked over services/platform plus the manifest grep of task 8.52.1 (its verify_cmd) => acceptance.8.52.1; command, missing path
+# resolve: cargo metadata --locked over the seventeen workspaces named in task 13.8.3 (its verify_cmd) => acceptance.13.8.3; command, missing path
+# resolve: services/wallet/gateway/test/e2e/gateway.e2e.test.ts => acceptance.18.1065.2, acceptance.18.1065.3; requirement unheld or missing
+# resolve: services/wallet/README.md::retired-settings-grep => acceptance.18.745.1; no literal acceptance test
+# resolve: GOTCHA.kvx::gotcha.2021 => acceptance.18.1103.1; no literal acceptance test
+# resolve: grep -q 'delegate_not_allowed' services/wallet/docs/security-review.md => acceptance.18.950.1; command, missing path
+# resolve: apps/bridge/package.json::typecheck => acceptance.18.1136.1; no literal acceptance test
+# resolve: services/human/crates/layerx-explorer-index/src/lib.rs (unit tests) => acceptance.18.1153.1; missing path
+# resolve: cargo metadata --locked in the eight workspaces => acceptance.18.1297.1; command, missing path
+
 [stale]
 [acceptance.1.964.2] modules/lxphost/read_program_test.go::TestReadProgramAccounts; owners: task.1.22.3 (done)
 [acceptance.1.964.3] modules/lxphost/read_program_test.go::TestReadWindDownAndRetirementControl; owners: task.1.22.3 (done)
