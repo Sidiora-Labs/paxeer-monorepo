@@ -183353,7 +183353,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.289]
 title = "Bring the hosted human provisioning cases to the current bring-up script, node deployment and registration shape"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = []
