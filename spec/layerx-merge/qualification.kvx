@@ -36442,3 +36442,11 @@ symbol = "completion_gate_test.go::TestChainModulesCompletionRetiredSurfacesAbse
 observed = "Attempt 1 at 9afa710deb (base 8c5a7acd05): build exit 0; verification exit 1: 12 of 582 subcases failed, the kept settlement document, the ten height-gated verifier entries and the renamed planned test of 6.52.2; log /out/logs/verify-1.log."
 assumption = "The 570 passing subcases show the inventory is right apart from the twelve entries the decisions re-classify."
 severity = "high"
+
+[finding.22.39.117.5]
+task = "22.39.117"
+file = "sdk/launchpad/shared/chain::TestPhase2ReadAdapterRealRegisteredPool"
+symbol = "chain::TestPhase2ReadAdapterRealRegisteredPool"
+observed = "Attempt 5 at d115388f9b (base e418f06937): build exit 0; verification exit 1: every sdk/launchpad module passed and services/launchpad/api/internal/app failed three cases, two for the absent compiled artifact BeaconProxy.json and one for the unset CORE_API_TEST_POSTGRES_URL; log /out/logs/verify-1.log."
+assumption = "The failures are environment inputs the public job provides; the task tree is complete."
+severity = "high"
