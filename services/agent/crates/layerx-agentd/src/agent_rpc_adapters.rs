@@ -1918,37 +1918,78 @@ pub fn offline_export_operation(
     request: &layerx_agent_api::read::ReadRequest<Vec<layerx_agent_api::export::FactRef>>,
     response: &layerx_agent_api::read::VerifiedRead<layerx_agent_api::export::OfflineExport>,
 ) -> Result<Dispatched, Rejection> {
-    let invalid = || rejection(ErrorClass::VerificationFailure, id, "export.invalid_proof");
-    layerx_agent_api::export::check_export_response(request, response).map_err(|_| invalid())?;
+    let invalid = |stage: &str, error: &dyn std::fmt::Debug| {
+        eprintln!("layerx-agentd: offline export refused stage={stage} error={error:?}");
+        rejection(ErrorClass::VerificationFailure, id, "export.invalid_proof")
+    };
+    layerx_agent_api::export::check_export_response(request, response)
+        .map_err(|error| invalid("response_contract", &error))?;
     if response.value.bundles.len() != request.selector.len() {
-        return Err(invalid());
+        return Err(invalid(
+            "bundle_count",
+            &(response.value.bundles.len(), request.selector.len()),
+        ));
     }
-    let mut common_hash = None;
+    let mut common_checkpoint = None;
     for (fact, bundle) in request.selector.iter().zip(&response.value.bundles) {
-        let selector = fact.selector().map_err(|_| invalid())?;
+        let selector = fact
+            .selector()
+            .map_err(|error| invalid("fact_selector", &error))?;
         let receipt = layerx_wire::receipt::decode(bundle.signed_receipt.as_bytes())
-            .map_err(|_| invalid())?;
-        let protocol = receipt.protocol().ok_or_else(invalid)?;
+            .map_err(|error| invalid("signed_receipt", &error))?;
+        let protocol = receipt
+            .protocol()
+            .ok_or_else(|| invalid("receipt_protocol", &"protocol fields absent"))?;
         let header = crate::export::decode_header(
-            bundle.block_header.as_ref().ok_or_else(invalid)?.as_bytes(),
+            bundle
+                .block_header
+                .as_ref()
+                .ok_or_else(|| invalid("block_header", &"header absent"))?
+                .as_bytes(),
         )
-        .map_err(|_| invalid())?;
-        if protocol.activity_id() != selector.activity_id()
-            || layerx_crypto::evm_transaction::transaction_hash(bundle.raw_transaction.as_bytes())
-                != selector.activity_id()
-            || header.height != response.value.height
-            || common_hash.is_some_and(|hash| hash != header.block_hash())
-        {
-            return Err(invalid());
+        .map_err(|error| invalid("block_header", &error))?;
+        if protocol.activity_id() != selector.activity_id() {
+            return Err(invalid("receipt_activity", &"selector and receipt differ"));
         }
-        common_hash = Some(header.block_hash());
+        if layerx_crypto::evm_transaction::transaction_hash(bundle.raw_transaction.as_bytes())
+            != selector.activity_id()
+        {
+            return Err(invalid(
+                "raw_transaction",
+                &"transaction and selector differ",
+            ));
+        }
+        let inclusion = bundle
+            .receipt_inclusion
+            .as_ref()
+            .ok_or_else(|| invalid("receipt_inclusion", &"inclusion absent"))?;
+        let commitment_height =
+            crate::export::committed_checkpoint_height(response.value.height, inclusion.as_bytes())
+                .map_err(|error| invalid("inclusion_encoding", &error))?;
+        if header.height != commitment_height {
+            return Err(invalid(
+                "checkpoint_height",
+                &(header.height, commitment_height),
+            ));
+        }
+        let coordinate = (header.height, header.block_hash());
+        if common_checkpoint.is_some_and(|previous| previous != coordinate) {
+            return Err(invalid(
+                "common_checkpoint",
+                &"bundle block coordinates differ",
+            ));
+        }
+        common_checkpoint = Some(coordinate);
     }
     match response.freshness.relative_to {
         layerx_agent_api::read::RelativeTo::Block { height, hash }
-            if height == response.value.height && Some(hash) == common_hash => {}
-        _ => return Err(invalid()),
+            if Some((height, hash)) == common_checkpoint => {}
+        _ => return Err(invalid("freshness_checkpoint", &response.freshness)),
     }
-    let artifact = response.value.encode_json().map_err(|_| invalid())?;
+    let artifact = response
+        .value
+        .encode_json()
+        .map_err(|error| invalid("artifact_encoding", &error))?;
     let encoded = format!(
         r#"{{"value":{},"achieved_rung":"{}","freshness":{}}}"#,
         artifact,
@@ -1962,7 +2003,8 @@ pub fn offline_export_operation(
         ));
     }
     Ok(Dispatched {
-        value: serde_json::from_str(&encoded).map_err(|_| invalid())?,
+        value: serde_json::from_str(&encoded)
+            .map_err(|error| invalid("response_encoding", &error))?,
         verification: Some(VerificationStatus::Achieved(response.achieved_rung)),
     })
 }
