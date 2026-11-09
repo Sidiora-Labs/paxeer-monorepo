@@ -35,7 +35,6 @@ rust|services/platform/hosted/identity/Cargo.toml|covered-by-platform-cargo
 rust|services/platform/hosted/indexer/Cargo.toml|covered-by-platform-cargo
 rust|services/platform/hosted/internal/Cargo.toml|covered-by-platform-cargo
 rust|services/platform/hosted/node/tests/probe/Cargo.toml|locked-independent
-rust|services/platform/hosted/paxai-storage-keeper/Cargo.toml|locked-independent
 rust|services/platform/hosted/paxai-worker/Cargo.toml|covered-by-platform-cargo
 rust|services/platform/hosted/paxeer/Cargo.toml|covered-by-platform-cargo
 rust|services/platform/hosted/registry/Cargo.toml|covered-by-platform-cargo
