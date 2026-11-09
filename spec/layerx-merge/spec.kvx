@@ -182263,7 +182263,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1833.1]
 title = "Issue #1833: Accept committed settlement metadata in the Python buyer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -412876,7 +412876,7 @@ do_5 = "Attempt 3 (continue, gotcha 3851): the attempt-2 tree 76c78b18cb71 stand
 
 [task.18.1652.1]
 title = "Issue #1652: Retry multichain exports with valid buffered queue entries"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
