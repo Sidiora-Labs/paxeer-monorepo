@@ -394,59 +394,32 @@ pub struct BoundaryProof {
 }
 impl BoundaryProof {
     fn verify(&self, metadata: &ReplayMetadata) -> Result<PortableBoundary, ReplayError> {
-        if self.index >= metadata.boundary_count
-            || self.leaf.is_empty()
-            || self.leaf.len() > metadata.maximum_bytes as usize
-            || self.siblings.len() > 12
-        {
-            return Err(ReplayError::Bounds);
-        }
-        let mut hash = Sha256::new();
-        hash.update(b"LXP/program-replay-leaf/v1\0");
-        hash.update(self.index.to_be_bytes());
-        hash.update((self.leaf.len() as u32).to_be_bytes());
-        hash.update(&self.leaf);
-        let mut node: [u8; 32] = hash.finalize().into();
-        let mut index = self.index;
-        let mut count = metadata.boundary_count;
-        for sibling in &self.siblings {
-            if count <= 1 || ((index ^ 1) >= count && sibling != &node) {
-                return Err(ReplayError::Path);
-            }
-            let mut hash = Sha256::new();
-            hash.update(b"LXP/program-replay-node/v1\0");
-            if index & 1 == 0 {
-                hash.update(node);
-                hash.update(sibling);
-            } else {
-                hash.update(sibling);
-                hash.update(node);
-            }
-            node = hash.finalize().into();
-            index /= 2;
-            count = count.div_ceil(2);
-        }
-        if count != 1 || node != metadata.boundary_root {
-            return Err(ReplayError::Path);
-        }
-        let boundary =
-            PortableBoundary::decode_untrusted(&self.leaf, metadata.maximum_bytes as usize)
-                .map_err(|_| ReplayError::Leaf)?;
-        let identity = boundary.arbitration.identity;
-        if identity.module_code_hash != metadata.code_hash
-            || identity.input_digest != metadata.input_digest
-            || identity.runtime_version != metadata.runtime_version
-            || identity.abi_version != metadata.abi_version
-            || identity.fee_schedule_version != metadata.fee_version
-            || identity.metering_schedule_version != metadata.metering_version
-            || identity.trace_policy
-                != ProgramReplayProfile::new(metadata.maximum_boundaries, metadata.maximum_bytes)
-                    .map_err(|_| ReplayError::Metadata)?
-                    .trace_policy()
-        {
-            return Err(ReplayError::Identity);
-        }
-        Ok(boundary)
+        crate::market::verify_boundary(
+            self,
+            metadata.boundary_count,
+            metadata.boundary_root,
+            metadata.maximum_bytes,
+            |header| {
+                let identity = header.identity;
+                if identity.module_code_hash != metadata.code_hash
+                    || identity.input_digest != metadata.input_digest
+                    || identity.runtime_version != metadata.runtime_version
+                    || identity.abi_version != metadata.abi_version
+                    || identity.fee_schedule_version != metadata.fee_version
+                    || identity.metering_schedule_version != metadata.metering_version
+                    || identity.trace_policy
+                        != ProgramReplayProfile::new(
+                            metadata.maximum_boundaries,
+                            metadata.maximum_bytes,
+                        )
+                        .map_err(|_| ReplayError::Metadata)?
+                        .trace_policy()
+                {
+                    return Err(ReplayError::Leaf);
+                }
+                Ok(())
+            },
+        )
     }
 }
 
