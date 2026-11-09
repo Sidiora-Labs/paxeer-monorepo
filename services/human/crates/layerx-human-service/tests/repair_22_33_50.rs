@@ -6,9 +6,7 @@
 //! The original local adversarial cases remain in agent_controls_rungs.rs.
 //! The inherited baseline failures are retained in repair_22_33_50.kvx; this
 //! continuation uses only the declared build and hf-done gates for qualification.
-//! Wiring request (agent domain): services/agent/crates/layerx-agentd/src/managed_agent.rs
-//! must translate HumanFinalizationEvidence.rung into the corresponding achieved
-//! VerificationLevel before the managed consumer checks checkpoint finalization.
+//! FinalizationEvidence.verification carries the committed rung rank without VerificationLevel translation.
 //! Wiring request (node/consensus domain): daemon/committed-fixture must retain
 //! paxd control transactions, signed receipts, pinned keys, committed headers,
 //! validator votes and inclusion proofs for pause, resume, limit and archive.

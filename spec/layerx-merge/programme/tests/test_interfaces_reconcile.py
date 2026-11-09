@@ -9,6 +9,66 @@ from programme.kvx import load
 ROOT = Path(__file__).resolve().parents[4]
 
 
+def test_deleted_issue_templates_are_unregistered() -> None:
+    spec = ROOT / "spec/layerx-merge"
+    registry_path = spec / "interfaces.kvx"
+    registry = load(registry_path)
+    registry_text = registry_path.read_text(encoding="utf-8")
+    operations = (spec / "contracts/operations.md").read_text(encoding="utf-8")
+    matrix = (spec / "docs/plans/interface-matrix.md").read_text(encoding="utf-8")
+    prefix = "interface.16.fmt-gh-issue-template-"
+    deleted = (
+        ("bug-report-md", "bug_report.md"),
+        ("enahancement-yml", "enahancement.yml"),
+        ("general-issue-md", "general_issue.md"),
+    )
+    for suffix, filename in deleted:
+        name = prefix + suffix
+        path = f".github/ISSUE_TEMPLATE/{filename}"
+        assert not (ROOT / path).exists(), path
+        assert name not in registry
+        for document in (registry_text, operations, matrix):
+            assert name not in document, name
+            assert path not in document, path
+
+    retained = (
+        ("bug-yml", "bug.yml", "name: LayerX Network bug report"),
+        ("config-yml", "config.yml", "blank_issues_enabled: false"),
+        ("feature-yml", "feature.yml", "name: LayerX Network feature request"),
+        ("question-yml", "question.yml", "name: LayerX Network question"),
+        ("security-md", "security.md", "---"),
+    )
+    contract = "contracts/operations.md#ci-formats"
+    ci_formats = operations.split("\n## ci-formats\n", 1)[1].split("\n## ", 1)[0]
+    for suffix, filename, signature in retained:
+        name = prefix + suffix
+        path = f".github/ISSUE_TEMPLATE/{filename}"
+        assert registry[name] == {
+            "kind": "file_format",
+            "path": path,
+            "line": 1,
+            "signature": f"{path}: {signature}",
+            "callers": [],
+            "status": "stable",
+            "contract": contract,
+            "notes": "Issue form or template.",
+        }
+        assert (ROOT / path).is_file(), path
+        operation_row = (
+            f"| <code>{name}</code> | <code>file_format</code> | "
+            f"<code>stable</code> | <code>{path}:1</code> | "
+            f"<code>{path}: {signature}</code> |"
+        )
+        notes_row = f"| <code>{name}</code> | notes | Issue form or template. |"
+        matrix_row = (
+            f"| `{name}` | `file_format` | `{path}:1` | stable | — | "
+            f"[{contract}](../../{contract}) | — |"
+        )
+        assert ci_formats.splitlines().count(operation_row) == 1, name
+        assert ci_formats.splitlines().count(notes_row) == 1, name
+        assert matrix.splitlines().count(matrix_row) == 1, name
+
+
 def test_interfaces_reconcile_classifies_each_case(tmp_path: Path) -> None:
     tree = tmp_path / "tree"
     tree.mkdir()

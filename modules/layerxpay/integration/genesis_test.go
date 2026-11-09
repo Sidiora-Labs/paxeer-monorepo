@@ -222,7 +222,8 @@ func TestAppExportsPayGenesisWithSharedHost(t *testing.T) {
 	require.Empty(t, output)
 	_, err = db.Finalize()
 	require.NoError(t, err)
-	stored, found := source.App.LayerXPayKeeper.GetEscrow(source.Ctx, id)
+	stored, found, err := source.App.LayerXPayKeeper.GetEscrow(source.Ctx, id)
+	require.NoError(t, err)
 	require.True(t, found)
 	require.Equal(t, paytypes.EscrowRecord{EscrowID: id, Owner: main, EscrowAccount: escrowAccount, Beneficiary: payee, Arbiter: owner.id, AssetID: asset, LockedAmount: codec.U128{Lo: 600}, State: 1, ExpiryMs: expiry, DisputeWindowMs: disputeWindow, TermsHash: terms, AgreementReference: agreement}, stored)
 	for _, balance := range []struct {
@@ -275,7 +276,8 @@ func TestAppExportsPayGenesisWithSharedHost(t *testing.T) {
 	t.Cleanup(func() { require.NoError(t, restored.App.Close()) })
 	restored.Ctx = sdk.NewContext(restored.App.CommitMultiStore(), tmproto.Header{Height: exported.Height, ChainID: "pax-test", Time: now}, false)
 	require.NotSame(t, source.App.LayerXHost, restored.App.LayerXHost)
-	_, found = restored.App.LayerXPayKeeper.GetEscrow(restored.Ctx, id)
+	_, found, err = restored.App.LayerXPayKeeper.GetEscrow(restored.Ctx, id)
+	require.NoError(t, err)
 	require.False(t, found)
 	_, err = restored.App.InitChain(context.Background(), &abci.RequestInitChain{
 		Time: now, ChainId: "pax-test", InitialHeight: exported.Height,
@@ -284,7 +286,8 @@ func TestAppExportsPayGenesisWithSharedHost(t *testing.T) {
 	require.NoError(t, err)
 	restored.Ctx = restored.App.NewContext(false, tmproto.Header{Height: exported.Height, ChainID: "pax-test", Time: now})
 	genesisSharedRecords(t, restored, payGenesis)
-	restoredRecord, found := restored.App.LayerXPayKeeper.GetEscrow(restored.Ctx, id)
+	restoredRecord, found, err := restored.App.LayerXPayKeeper.GetEscrow(restored.Ctx, id)
+	require.NoError(t, err)
 	require.True(t, found)
 	require.Equal(t, stored, restoredRecord)
 	afterEVM, _, afterABI := genesisEVM(t, restored)

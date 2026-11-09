@@ -11536,6 +11536,30 @@ value = "tools/bringup/tests/registry-artifacts.py runs only against a real regi
 basis = "Gotcha 3773, decision 2700"
 affects = ["18.1638.1"]
 
+[decision.3071]
+title = "The explorer backend test environment runs a Redis container beside the database container and the backend reads it through ACCOUNT_REDIS_URL"
+value = "services/explorer/deploy/tools/mix-in-builder.sh starts, for every test and cmd invocation that starts the database container, a Redis container from a pinned image (REDIS_IMAGE, redis:7.4-alpine) joined to the network namespace of the database container, waits for it to answer PING, removes it with the database container, reuses it under --reuse-db, and passes ACCOUNT_REDIS_URL=redis://127.0.0.1:6379 into the mix container; the backend session store and the Redix start of the explorer application stay unchanged. Every explorer backend gate that runs controller tests runs on this environment, and an issue task whose tests touch the session store requires the task that lands it."
+basis = "Gotcha 3778, decision 2917"
+affects = ["22.39.236", "18.1673.1", "18.1651.1"]
+
+[decision.3072]
+title = "A gate runs the package manager of the lock file in its directory"
+value = "A build or verification command of a JavaScript or TypeScript directory names the package manager of the lock file committed there: yarn for a yarn.lock (apps/explorer and apps/explorer/deploy/tools/envs-validator, through the workspace scripts, yarn --cwd or an install with the frozen lock in the directory), npm for a package-lock.json (services/explorer/backend/apps/block_scout_web/assets, services/platform/middleware/conformance, services/agent/sdk/typescript when its lock is package-lock.json), pnpm for a pnpm-lock.yaml. A gate written for another manager is corrected by a command change and the attempt requalifies at its revision when its tree is complete."
+basis = "Gotcha 3780, precedent gates of 22.33.274 and 22.33.499"
+affects = ["18.1718.1", "18.1766.1", "18.1711.1", "18.1770.1"]
+
+[decision.3073]
+title = "A gate whose tests start the local node builds the node binary in its build command"
+value = "A task whose declared tests start tools/qualification/localnode/v6120-node.sh (the agent daemon proof tests among them) runs make -f chain.mk install before its cargo build, as the build command of 21.95.1 does, so the node build and its failures are visible in the build log and the verification starts an existing binary; the gate shell provides cmake for that build. The rpc gates keep decision 3067 and never build the native libraries."
+basis = "Gotcha 3781, gotcha 3769, decision 3067"
+affects = ["18.1743.1"]
+
+[decision.3074]
+title = "An explicit null cursor on a px_ list method is invalid params"
+value = "px_listAssets and the other px_ list methods of the node root treat a JSON null cursor as an invalid parameter and answer -32602 through pxRootError, the same as a malformed cursor; only an absent cursor starts from the beginning. The OpenRPC document already declares the cursor a string, and the account test asserts the code."
+basis = "Gotcha 3783, decision 2521"
+affects = ["18.1665.1"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -41196,6 +41220,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.236]
+title = "Run a Redis container beside the database container of the explorer backend test environment"
+reqs = ["22998.1"]
+touches = ["services/explorer/deploy/tools/mix-in-builder.sh", "services/explorer/deploy/tools/tests"]
+tests = ["services/explorer/deploy/tools/tests/test_repair_22_39_236.py"]
+verification_contract = "test -s services/explorer/deploy/tools/repair_22_39_236.kvx && python3 -m pytest -q services/explorer/deploy/tools/tests/test_repair_22_39_236.py"
+do_1 = "do_1 Decision 3071, gotcha 3778. In services/explorer/deploy/tools/mix-in-builder.sh add a pinned REDIS_IMAGE constant (redis:7.4-alpine) beside DATABASE_IMAGE and a redis_container name derived like the database container name; in start_sidecar start the Redis container with docker run --detach --network container:$database_container after the database container is running (reusing a running one under --reuse-db the same way the database container is reused), and wait for docker exec redis-cli PING to answer PONG with the same bounded attempts the database wait uses; in remove_sidecar remove it with the database container."
+symbols = []
 
 [capability.18.1863.1]
 title = "Issue #1863: Check routed runners on the concrete Platform release gate jobs"
@@ -159895,7 +159928,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1797.1]
 title = "Issue #1797: Align middleware conformance gateway requests with the root endpoint"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -159970,8 +160003,8 @@ symbols = ["schema", "explorerAssistantStartupValidation"]
 touches = ["apps/explorer/deploy/tools/envs-validator/schema.ts", "apps/explorer/deploy/tools/envs-validator/assistant.spec.ts"]
 tests = ["apps/explorer/deploy/tools/envs-validator/assistant.spec.ts::explorerAssistantStartupValidation"]
 planned_paths = ["apps/explorer/deploy/tools/envs-validator/assistant.spec.ts"]
-build_cmd = "pnpm --dir apps/explorer/deploy/tools/envs-validator run build"
-verify_cmd = "pnpm --dir apps/explorer exec vitest run deploy/tools/envs-validator/assistant.spec.ts -t '^explorerAssistantStartupValidation$'"
+build_cmd = "cd apps/explorer/deploy/tools/envs-validator && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn build"
+verify_cmd = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn vitest run deploy/tools/envs-validator/assistant.spec.ts -t '^explorerAssistantStartupValidation$'"
 gate_kind = "planned"
 sandbox_profile = "node"
 owner_role = "fm-web-explorer-bridge"
@@ -159983,6 +160016,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_3 = "Requalify attempt 1 at 2a88ca65780f with the yarn build and verification of decision 3072; the tree stands unchanged (the Explorer Ask flag in schema.ts and its specification). Run the build once and the verification once and record both by reference; if a case fails, repair it within the one allowed cycle and rerun once."
 
 [task.18.1717.1]
 title = "Issue #1717: Render one desktop header on both search-results routes"
@@ -160088,7 +160122,7 @@ touches = ["services/wallet/gateway/test/repair-22-33-181.test.ts", "services/wa
 tests = ["services/wallet/gateway/test/repair-22-33-181.test.ts::actionLeaseDurationCoversSigningAndReceiptTimeoutWithCompetingWorkers", "services/wallet/gateway/test/repair-22-33-181.test.ts::actionLeaseLossStopsDelayedSigningAndFencesRelease", "services/wallet/gateway/test/repair-22-33-181.test.ts::actionLeaseRenewalErrorStopsAdvancement", "services/wallet/gateway/test/repair-22-33-181.test.ts::actionLeaseLossDuringReceiptDoesNotPersistStaleOutcome", "services/wallet/gateway/test/repair-22-33-181.test.ts::actionLeaseExpiryDrainsPendingRenewal", "services/wallet/gateway/test/repair-22-33-181.test.ts::actionOperationDeadlineBoundsDelayedSigning", "services/wallet/gateway/test/repair-22-33-209.test.ts::attestorListenersStayReservedUntilDaemonHandoff", "services/wallet/gateway/test/repair-22-33-209.test.ts::retainedRoutesAuthenticateWhileCustodyStaysAbsent", "services/wallet/gateway/test/repair-22-33-209.test.ts::evmApprovalRetainsFeesOwnershipAndReceiptAcrossRestart"]
 planned_paths = []
 build_cmd = "pnpm --dir services/wallet/gateway exec tsc --noEmit"
-verify_cmd = "pnpm --dir services/wallet/gateway exec vitest run test/repair-22-33-181.test.ts test/repair-22-33-209.test.ts --reporter=json | python3 -c 'import json,sys,types; r=types.SimpleNamespace(**json.load(sys.stdin)); assert r.success and r.numTotalTests == 9 and r.numPassedTests == 9 and r.numFailedTests == 0 and r.numPendingTests == 0 and r.numTodoTests == 0'"
+verify_cmd = "pnpm --dir services/wallet/gateway exec vitest run test/repair-22-33-181.test.ts test/repair-22-33-209.test.ts --reporter=verbose; pnpm --dir services/wallet/gateway exec vitest run test/repair-22-33-181.test.ts test/repair-22-33-209.test.ts --reporter=json | python3 -c 'import json,sys,types; r=types.SimpleNamespace(**json.load(sys.stdin)); print(r.success, r.numTotalTests, r.numPassedTests, r.numFailedTests, r.numPendingTests, r.numTodoTests); assert r.success and r.numTotalTests == 9 and r.numPassedTests == 9 and r.numFailedTests == 0 and r.numPendingTests == 0 and r.numTodoTests == 0'"
 gate_kind = "planned"
 sandbox_profile = "node"
 owner_role = "fm-wallet"
@@ -160100,13 +160134,14 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "Attempt 2 (continue, gotcha 3792): the attempt-1 tree 90883a34f5d7 stands (the nine registered proofs across the two test files). Run the verification, which now runs the suite with the verbose reporter and prints the five counts, read which case fails or is skipped, and repair it at its source in the two test files (a skipped or todo case becomes a running case; a failing case asserts the value the wallet gateway produces); the count assertion stays at nine passed. Run the build once and the verification once at the final revision and record both by reference; if a case still fails, repair it within the one allowed cycle and rerun once."
 
 [task.18.1656.1]
 title = "Issue #1656: Display protocol snapshot TVL in six-decimal USDL units"
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = []
+requires = ["22.39.234"]
 reqs = ["181656.1"]
 capabilities = ["18.1656.1"]
 interfaces = []
@@ -160131,6 +160166,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_5 = "Attempt 2 (continue after 22.39.234 lands; gotcha 3790, decision 3068): merge main once 22.39.234 is on it and keep the attempt-1 tree 7136e0b39e36 (the six-decimal TVL display in the analytics widgets, the type, the record and the test). Run the build once and the verification once at the final revision and record both by reference; if a case still fails, repair it within the one allowed cycle and rerun once."
 
 [task.22.39.234]
 title = "Restore the perps type check to one React type resolution"
@@ -160179,8 +160215,8 @@ symbols = ["baseReducer", "legacyBlockCounterKeepsHeight"]
 touches = ["services/explorer/backend/apps/block_scout_web/assets/js/pages/chain.js", "services/explorer/backend/apps/block_scout_web/assets/__tests__/pages/chain.js"]
 tests = ["services/explorer/backend/apps/block_scout_web/assets/__tests__/pages/chain.js::legacyBlockCounterKeepsHeight"]
 planned_paths = []
-build_cmd = "pnpm --dir services/explorer/backend/apps/block_scout_web/assets run build"
-verify_cmd = "pnpm --dir services/explorer/backend/apps/block_scout_web/assets exec jest --runInBand --runTestsByPath __tests__/pages/chain.js"
+build_cmd = "cd services/explorer/backend/apps/block_scout_web/assets && npm ci --ignore-scripts --no-audit --no-fund && npm run build"
+verify_cmd = "cd services/explorer/backend/apps/block_scout_web/assets && npx jest --runInBand --runTestsByPath __tests__/pages/chain.js"
 gate_kind = "planned"
 sandbox_profile = "node"
 owner_role = "fm-web-explorer-bridge"
@@ -160192,6 +160228,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_5 = "Requalify attempt 1 at 9402211da8e3 with the npm build and verification of decision 3072; the tree stands unchanged (the chain page script and its test). Run the build once and the verification once and record both by reference; if a case fails, repair it within the one allowed cycle and rerun once."
 
 [task.18.1720.1]
 title = "Issue #1720: Keep home transaction history within its calendar-day window"
@@ -160207,7 +160244,7 @@ do_2 = "Anchor the window to the latest valid UTC calendar date in the raw respo
 do_3 = "Extend apps/explorer/ui/home/repair-22-35-4.spec.tsx:179 with a declared test function homeChartCalendarDayWindow registered by its function name; exercise the real preparation functions and home query-to-chart path, assert the dates and values reaching the chart rather than point counts alone, and retain the existing null-removal and zero-preservation assertions at apps/explorer/ui/home/repair-22-35-4.spec.tsx:188 and apps/explorer/ui/home/repair-22-35-4.spec.tsx:200."
 do_4 = "In homeChartCalendarDayWindow, assert that January 1-30 with January 29 null retains January 17-28 and January 30 only, that sparse and unsorted histories never pull older dates into the window, that leading and trailing nulls do not shift the raw-date anchor, and that all-null and empty histories remain unavailable; cover a real zero, exact inclusive lower and upper bounds, the preceding excluded date, month and year rollover, leap day, and UTC day boundaries without filling missing dates."
 symbols = ["prepareChartItems", "getChartData", "useChartDataQuery", "StatsHistory", "ChainIndicatorsChart", "homeChartCalendarDayWindow"]
-touches = ["apps/explorer/ui/home/indicators/utils/chart.ts", "apps/explorer/ui/home/indicators/useChartDataQuery.tsx", "apps/explorer/ui/home/Stats.tsx", "apps/explorer/ui/home/indicators/ChainIndicatorsChart.tsx", "apps/explorer/ui/home/repair-22-35-4.spec.tsx"]
+touches = ["apps/explorer/ui/home/indicators/utils/chart.ts", "apps/explorer/ui/home/indicators/useChartDataQuery.tsx", "apps/explorer/ui/home/Stats.tsx", "apps/explorer/ui/home/indicators/ChainIndicatorsChart.tsx", "apps/explorer/ui/home/repair-22-35-4.spec.tsx", "apps/explorer/ui/home/indicators/ChainIndicatorsChart.spec.tsx"]
 tests = ["apps/explorer/ui/home/repair-22-35-4.spec.tsx::homeChartCalendarDayWindow"]
 planned_paths = []
 build_cmd = "yarn --cwd apps/explorer tsc --noEmit -p tsconfig.json"
@@ -160223,6 +160260,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_5 = "Attempt 2 (continue, gotcha 3776, gotcha 3046): the attempt-1 tree c4355decafc5 stands (the calendar-day window in utils/chart.ts and useChartDataQuery.tsx, the Stats and ChainIndicatorsChart changes, the new case in repair-22-35-4.spec.tsx). In apps/explorer/ui/home/indicators/ChainIndicatorsChart.spec.tsx, in the touches from this round, remove the days property from the render at line 53 and rewrite the trims-the-series case so it asserts the calendar-day window the producer now applies (the series the chart renders for the fixed window), keeping the other cases of the file; no assertion of the new case changes. Record the consumer change with its producer in the task record. Run the build once and the verification once at the final revision and record both by reference; if a case still fails, repair it within the one allowed cycle and rerun once."
 
 [task.18.1719.1]
 title = "Issue #1719: Synchronize token category filters with browser history"
@@ -160268,8 +160306,8 @@ symbols = ["horizontalHeaderGroupsAndSearch", "verticalSettingUsesTheSameHeader"
 touches = ["apps/explorer/ui/snippets/header/repair-22-35-2.spec.tsx"]
 tests = ["apps/explorer/ui/snippets/header/repair-22-35-2.spec.tsx::horizontalHeaderGroupsAndSearch", "apps/explorer/ui/snippets/header/repair-22-35-2.spec.tsx::verticalSettingUsesTheSameHeader", "apps/explorer/ui/snippets/header/repair-22-35-2.spec.tsx::searchShortcutFocusesTheRealInput", "apps/explorer/ui/snippets/searchBar/repair-22-35-3.spec.tsx::explicitCompactAndHeroRenderInBothModes"]
 planned_paths = []
-build_cmd = "pnpm --dir apps/explorer exec tsc --noEmit"
-verify_cmd = "pnpm --dir apps/explorer exec vitest run ui/snippets/header/repair-22-35-2.spec.tsx ui/snippets/searchBar/repair-22-35-3.spec.tsx"
+build_cmd = "cd apps/explorer && yarn tsc --noEmit -p tsconfig.json"
+verify_cmd = "cd apps/explorer && yarn vitest run ui/snippets/header/repair-22-35-2.spec.tsx ui/snippets/searchBar/repair-22-35-3.spec.tsx"
 gate_kind = "planned"
 sandbox_profile = "node"
 owner_role = "fm-web-explorer-bridge"
@@ -160281,6 +160319,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_3 = "Requalify attempt 1 at 0daffc77f779 with the yarn build and verification of decision 3072; the tree stands unchanged (the header specification repair). Run the build once and the verification once and record both by reference; if a case fails, repair it within the one allowed cycle and rerun once."
 
 [task.18.1713.1]
 title = "Issue #1713: Accept exact payments within complete receipt log lists"
@@ -160310,6 +160349,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_3 = "Attempt 2 (continue, gotcha 3779, gotcha 3046): the attempt-1 tree fca0ac74d127 stands (the exact payment log receipts in web-search.ts and the client tests). In services/agent/sdk/typescript/test/web-search.test.ts write every fixture receipt with the settlement moduleId 12 and operation 2 the client requires at src/web-search.ts line 359 (the producer values, unchanged from main), and replace the cast at line 166 column 35 with a literal of the receipt type; no check in src/web-search.ts is loosened. Run the build once through the package manager of the directory and the verification once at the final revision and record both by reference; if a case still fails, repair it within the one allowed cycle and rerun once."
 
 [task.18.1712.1]
 title = "Issue #1712: Restore real HTTP regression coverage alongside fetch boundary checks"
@@ -160324,7 +160364,7 @@ do_1 = "Decision 3056 (triage record spec/layerx-merge/programme/issues/1712.kvx
 do_2 = "Extend httpErrorsAsPayloads at apps/explorer/nextjs/utils/repair-22-33-543.spec.ts:38 to assert that fetch is not mocked during the HTTP proof; retain the 400/404/500/503 refusal assertions at line 57, 200/201 payload and metadata assertions at line 72, and exactly twelve requests with six metadata queries at line 88, without adding a replacement transport or changing apps/explorer/nextjs/utils/fetchApi.ts:26."
 do_3 = "Add test:fetch-boundary to the existing scripts at apps/explorer/package.json:37, invoking vitest run nextjs/utils/repair-22-33-543.spec.ts repair-22-31-512.spec.ts; use that script in apps/explorer/repair-22-31-512.kvx:16 and update its tests and qualification summary to include httpErrorsAsPayloads while retaining the existing type-check, both boundary tests and production build; the frontend suite already discovers both files through apps/explorer/vitest.config.ts:21 and .github/workflows/explorer-build.yml:90."
 symbols = ["httpErrorsAsPayloads"]
-touches = ["apps/explorer/nextjs/utils/repair-22-33-543.spec.ts", "apps/explorer/package.json", "apps/explorer/repair-22-31-512.kvx"]
+touches = ["apps/explorer/nextjs/utils/repair-22-33-543.spec.ts", "apps/explorer/package.json", "apps/explorer/repair-22-31-512.kvx", "apps/explorer/repair-22-31-512.spec.ts"]
 tests = ["apps/explorer/nextjs/utils/repair-22-33-543.spec.ts::httpErrorsAsPayloads", "apps/explorer/repair-22-31-512.spec.ts::nodeFetchImportsStayServerOnly", "apps/explorer/repair-22-31-512.spec.ts::testModulesStayOutOfNextPages"]
 planned_paths = []
 build_cmd = "cd apps/explorer && yarn tsc --noEmit -p tsconfig.json"
@@ -160340,6 +160380,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "Attempt 2 (continue, gotcha 3775, decision 2908): the attempt-1 tree e00b671ac7e4 stands (the server-only fetch boundary repair, the package script, the record). In apps/explorer/repair-22-31-512.spec.ts add nextjs/pages-tests/api/repair-22-35-10.spec.ts, ui/snippets/searchBar/repair-22-35-10.spec.tsx and ui/pages/PaxeerXInference.spec.tsx to nodeTestModules, the allow-list the case nodeFetchImportsStayServerOnly walks; the three files and the case assertions stay unchanged, and the allow-list file is in the touches from this round. Record the three entries with the tasks that added the files (22.35.10, 22.38.33) in the task record. Run the build once and the verification once at the final revision and record both by reference; if a case still fails, repair it within the one allowed cycle and rerun once."
 
 [task.18.1711.1]
 title = "Issue #1711: Align retained conformance consumers with the authenticated receipt digest"
@@ -160357,7 +160398,7 @@ symbols = ["mergedHttpEnvelopesSurviveReopen", "runAgentServiceScenarios", "conf
 touches = ["services/platform/middleware/conformance/pay6/walkthrough.mjs", "services/platform/middleware/conformance/service.mjs", "services/platform/middleware/conformance/test/repair-22-33-1480.test.mjs"]
 tests = ["services/platform/middleware/conformance/pay6/walkthrough.mjs::mergedHttpEnvelopesSurviveReopen", "services/platform/middleware/conformance/test/repair-22-33-1480.test.mjs::conformance_daemon_fixture_tracks_and_recovers_real_serializer_output"]
 planned_paths = []
-build_cmd = "pnpm --dir services/platform/middleware/conformance exec tsc --noEmit"
+build_cmd = "npm ci --ignore-scripts && npm run build:dependencies -- @sidiora/layerx-middleware-conformance && npm --prefix services/platform/middleware/conformance run build"
 verify_cmd = "node --test --test-name-pattern='^(mergedHttpEnvelopesSurviveReopen|conformance_daemon_fixture_tracks_and_recovers_real_serializer_output)$' services/platform/middleware/conformance/test/repair-22-33-1479.test.mjs services/platform/middleware/conformance/test/repair-22-33-1480.test.mjs"
 gate_kind = "planned"
 sandbox_profile = "node"
@@ -160370,6 +160411,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "Requalify attempt 1 at 80a88738417b with the npm build of decision 3072; the tree stands unchanged (the walkthrough and service changes with their test). Run the build once and the verification once and record both by reference; if a case fails, repair it within the one allowed cycle and rerun once."
 
 [task.18.1699.1]
 title = "Issue #1699: Recover advanced actions after rejected or failed wallet signatures"
@@ -160527,7 +160569,7 @@ title = "Issue #1676: Keep portfolio statistics and controls visible during bala
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = []
+requires = ["22.39.234"]
 reqs = ["181676.1"]
 capabilities = ["18.1676.1"]
 interfaces = []
@@ -160552,6 +160594,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_5 = "Attempt 2 (continue after 22.39.234 lands; gotcha 3790, decision 3068): merge main once 22.39.234 is on it, so the perps type check resolves one React type package, and keep the attempt-1 tree a2aeeabdfeca (the portfolio balance isolation and the daily PnL changes with their tests). Run the build once and the verification once at the final revision and record both by reference; if a case still fails, repair it within the one allowed cycle and rerun once."
 
 [task.18.1668.1]
 title = "Issue #1668: Remove the unused resize-handle fixture manifest"
@@ -182076,7 +182119,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1828.1]
 title = "Issue #1828: Scope interop baseline skips to their recorded package and Cargo target"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -182107,7 +182150,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1822.1]
 title = "Issue #1822: Preserve the shared Swagger bundle through regeneration"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -182379,13 +182422,14 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "Attempt 2 (continue, gotcha 3789, gotcha 3046): the attempt-1 tree c87168c7be37 stands (the batch activity list in the committed-wait response of px_kernel.go and server.go, the OpenRPC document, the SDK verification over the complete list, the proxied tampering modes of the Go test, the Rust test). Make the genuine mode pass first: run the Rust test against the response the node returns for an unaltered committed wait, find the parser site in src/rpc_commit.rs or src/rpc_verification.rs that returns InvalidResponse for that response, and change the parser to the shape the node produces (the node response is the producer; the SDK does not require a field the node does not send); make RpcError::InvalidResponse name the refused field so a later failure is readable. Keep every tampering mode asserting a refusal. Keep the fixture repair of the first verification (the bank recipient). Run the build once and the verification once at the final revision and record both by reference; if a case still fails, repair it within the one allowed cycle and rerun once."
 
 [task.18.1655.1]
 title = "Issue #1655: Align collateral removal with post-settlement withdrawal limits"
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = []
+requires = ["22.39.234"]
 reqs = ["181655.1"]
 capabilities = ["18.1655.1"]
 interfaces = []
@@ -182410,6 +182454,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_5 = "Attempt 2 (continue after 22.39.234 lands; gotcha 3790, decision 3068): merge main once 22.39.234 is on it and keep the attempt-1 tree a1cc2ede1dd0 (the collateral removal parity in collateralRemoval.ts, its test and the positions test). Run the build once and the verification once at the final revision and record both by reference; if a case still fails, repair it within the one allowed cycle and rerun once."
 
 [task.18.1625.1]
 title = "Issue #1625: Align launchpad surface identities with the guarded keeper runtime"
@@ -190955,7 +191000,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1809.1]
 title = "Issue #1809: Restore the SDK registry dependency to test scope and refresh consumer locks"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -190985,7 +191030,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1782.1]
 title = "Issue #1782: Remove the deleted wallet image from gateway admission and route discovery"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -191044,7 +191089,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1774.1]
 title = "Issue #1774: Encode every room profile setting required by inference consumers"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -191074,7 +191119,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1773.1]
 title = "Issue #1773: Bound full snapshots retained by the execution observer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -191105,7 +191150,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1768.1]
 title = "Issue #1768: Correct the crowded AI-market fixture timing comment"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -191195,7 +191240,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1748.1]
 title = "Issue #1748: Prove reward authorization consumes authenticated snapshot evidence"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -191372,6 +191417,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "Attempt 2 (continue, gotcha 3782): the attempt-1 tree 492b07abcd86 stands (the bootstrap peer repair and its test). In tools/platform/cli/tests/repair_22_33_63.rs line 1648 build the trace identifier in the format TraceId::parse accepts (trace.rs lines 38 to 46): the prefix trc_ followed by thirty-two lowercase hexadecimal digits; no change to the parser. Run the build once and the verification once at the final revision and record both by reference; if a case still fails, repair it within the one allowed cycle and rerun once."
 
 [task.18.1745.1]
 title = "Issue #1745: Exercise the production committed-state predicate in approval budget repair tests"
@@ -191419,7 +191465,7 @@ symbols = ["native_read_response", "native_read_unavailable_has_fixed_body", "Er
 touches = ["services/agent/crates/layerx-agentd/tests/proof_native_reads.rs", "services/agent/crates/layerx-agentd/tests/proof_serve_errors.rs"]
 tests = ["services/agent/crates/layerx-agentd/tests/proof_native_reads.rs::native_read_unavailable_has_fixed_body", "services/agent/crates/layerx-agentd/tests/proof_serve_errors.rs::verified_read_unavailable", "services/agent/crates/layerx-agentd/tests/proof_serve_errors.rs::native_read_refusals_redact_internal_errors"]
 planned_paths = []
-build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test proof_serve_errors"
+build_cmd = "make -f chain.mk install && cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test proof_serve_errors"
 verify_cmd = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test proof_serve_errors"
 gate_kind = "planned"
 sandbox_profile = "rust"
@@ -191432,6 +191478,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "Requalify attempt 1 at 37960b88eacc with the build of decision 3073 (make -f chain.mk install before the cargo build of the proof_serve_errors target); the tree stands unchanged (the proof serve error tests). Run the build once and the verification once and record both by reference; if the node build or a case fails, repair it within the one allowed cycle and rerun once, recording the node startup log by reference."
 
 [task.18.1740.1]
 title = "Issue #1740: Bind the AI market consumer transcript to its production sources"
@@ -191526,7 +191573,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1729.1]
 title = "Issue #1729: Prove lifecycle and registry endpoint behavior through their own commands"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -191553,6 +191600,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "Attempt 2 (continue, gotcha 3788): merge main into the attempt-1 tree and resolve tools/platform/cli/tests/repair_22_33_1496.rs so both the repair of 18.1728.1 (published at 2c8a047541) and the repair of this task stand in the file, keeping every test of both; no other change. Run the build once and the verification once at the final revision and record both by reference; if a case still fails, repair it within the one allowed cycle and rerun once."
 
 [task.18.1728.1]
 title = "Issue #1728: Reject ordinary program calls as lifecycle completion evidence"
@@ -191674,7 +191722,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1664.1]
 title = "Issue #1664: Bound registration tenants to identity subject capacity"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -191687,7 +191735,7 @@ do_3 = "In the same focused integration test, assert 96-byte and 128-byte tenant
 symbols = ["configured_tenant", "registration_tenant_subject_boundary"]
 touches = ["services/platform/hosted/gateway/src/rpc_register.rs", "services/platform/hosted/gateway/Cargo.toml", "services/platform/hosted/gateway/tests/registration_tenant_boundary.rs"]
 tests = ["services/platform/hosted/gateway/tests/registration_tenant_boundary.rs::registration_tenant_subject_boundary"]
-planned_paths = ["services/platform/hosted/gateway/tests/registration_tenant_boundary.rs"]
+planned_paths = ["services/platform/hosted/gateway/tests/registration_tenant_boundary.rs", "services/platform/Cargo.lock"]
 build_cmd = "cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-gateway --test registration_tenant_boundary"
 verify_cmd = "cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-gateway --test registration_tenant_boundary registration_tenant_subject_boundary"
 gate_kind = "planned"
@@ -191790,6 +191838,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_3 = "Attempt 2 (continue, gotcha 3774): the attempt-1 tree fb2ca1f9175f stands (the classification in sdk/platform/pipeline.kvx, the case in tests/drift.rs). Compare the two OutputState values through one ordering, the sorted path order the pipeline writer emits, by sorting the collected file list before the equality or by comparing the states as maps from path to digest; the other assertions of the case stay unchanged. Run the build once and the verification once at the final revision and record both by reference; if the case still fails, repair it within the one allowed cycle and rerun once."
+do_4 = "Attempt 3 (continue, gotcha 3791, decision 2908): the attempt-2 tree 18d40c7ffbb0 stands (the classification, the sorted comparison in tests/drift.rs). In sdk/platform/pipeline.kvx declare handwritten, in the platform-conformance output, the eight fixture files the live capture lists and the inventory misses: fixtures/fiat-receipts-v1.json, fixtures/generate_kernel_receipt_fixture.mjs, fixtures/kernel-receipt-v1.json, fixtures/native-program-binding-v4.json, fixtures/refresh_native_program_binding.py, fixtures/refresh_receipt_vectors.py, fixtures/vector-v6-sponsored-bind.json and fixtures/vector-v7-named-payee.json, in the order the capture writes; change no generated digest and no assertion. Record the eight entries in the task record. Run the build once and the verification once at the final revision and record both by reference; if the case still fails, repair it within the one allowed cycle and rerun once."
 
 [task.18.1637.1]
 title = "Issue #1637: Align custody protocol assertions with version-3 selection"
@@ -191822,7 +191871,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1635.1]
 title = "Issue #1635: Replace forbidden unwrap calls in Programs host repair tests"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -192128,7 +192177,7 @@ do_4 = "Attempt 2 (continue, gotcha 3753, decisions 3053 and 3057): start from t
 
 [task.22.39.221]
 title = "Bring the layerx-agent-api crate and its test targets under the workspace lints"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["22.39.209"]
@@ -192156,6 +192205,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Attempt 2 (continue, gotcha 3753, decisions 3053 and 3057): start from the attempt-1 record tree a1f1f25a4bcd and first restore the build by correcting the test module import the final tree replaced. Then run the clippy command of do_1 once and record the inventory; the three public-contract lints the record names (among them the four-byte argument passed by reference to a public function) carry the item-level allowance with a reason per decision 3057 and are listed in the record; repair the remaining library findings in inventory order rerunning the same command after each file, and the test support findings next. Run the build once and the verification once at the final revision and record both by reference; if lints remain after the allowed cycles, record the remaining count by file and stop."
+do_5 = "Attempt 3 (continue, gotcha 3786, decision 3053): the attempt-2 tree 119dfedb86cb stands. Repair the remaining lints at their sites: the unnecessary parentheses at tests/support/independent/field25519.rs line 440, the ten missing semicolons in tests/repair_22_31_214.rs (lines 740, 744, 748, 754, 760, 855, 859, 863, 867 and 871), the backticks in proof_agent_api.rs lines 5 and 65 and tests/support/independent/edwards25519.rs lines 173, 176, 183 and 186, and the reference to an Option at tests/support/committed_landing.rs line 462 (take the Option by value or match on it); rerun clippy on the crate with the gate flags and repair any further reported lint. Record the lints and repairs in the task record. Run the build once and the verification once at the final revision and record both by reference; if a lint remains, repair it within the one allowed cycle and rerun once."
 
 [task.22.39.220]
 title = "Bring the layerx-identity-binding crate and its test targets under the workspace lints"
@@ -192217,6 +192267,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Attempt 2 (continue, gotcha 3753, decisions 3053 and 3057): start from the attempt-1 record tree d129e8eb5d0b and first restore the build by returning the OperationRecord import the final tree removed while still in use. Then run the clippy command of do_1 once and record the inventory; the public method named next outside the Iterator trait is a lint whose only repair changes a public signature and carries the item-level allowance with a reason per decision 3057, listed in the record; repair the rest in inventory order rerunning the same command after each file. Run the build once and the verification once at the final revision and record both by reference; if lints remain after the allowed cycles, record the remaining count by file and stop."
+do_5 = "Attempt 3 (continue, gotcha 3786, decision 3053): the attempt-2 tree 9ef634b1ba16 stands. Remove the unnecessary semicolons at tests/committed_caps.rs lines 26, 80 and 84; rerun clippy on the crate with the gate flags and repair any further reported lint at its source. Record the lints and repairs in the task record. Run the build once and the verification once at the final revision and record both by reference; if a lint remains, repair it within the one allowed cycle and rerun once."
 
 [task.22.39.218]
 title = "Bring the layerx-proof crate and its test targets under the workspace lints"
@@ -192280,6 +192331,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Attempt 2 (continue, gotcha 3753, decisions 3053 and 3057): start from the attempt-1 record tree 873ad023077b. First restore the build: the extracted peer helper of the test support (tests/support/signing.rs) needs the public_key accessor its callers use; then run the clippy command of do_1 once and record the inventory by file, line and lint name, and repair in inventory order rerunning the same clippy command after each file so the crate compiles at every step. A lint whose only repair changes a public signature carries the item-level allowance with a reason per decision 3057 and is listed in the record. Run the build once and the verification once at the final revision and record both by reference; if lints remain after the allowed cycles, record the remaining count by file and stop."
+do_5 = "Attempt 3 (continue, gotcha 3786, decision 3053): the attempt-2 tree 21824c558755 stands. In tests/repair_22_33_1558.rs keep one declaration of the support/assertions.rs module and wrap the identifiers of its documentation comments in backticks; rerun clippy on the crate with the gate flags and repair any further reported lint at its source. Record the lints and repairs in the task record. Run the build once and the verification once at the final revision and record both by reference; if a lint remains, repair it within the one allowed cycle and rerun once."
 
 [task.22.39.216]
 title = "Bring the layerx-wire crate and its test targets under the workspace lints"
@@ -192313,7 +192365,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.215]
 title = "Bring the layerx-types crate and its test targets under the workspace lints"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["22.39.209"]
@@ -192326,7 +192378,7 @@ do_3 = "do_3 Record each lint with its repair and the final count of zero in the
 symbols = []
 touches = ["services/agent/crates/layerx-types"]
 tests = []
-planned_paths = ["services/agent/crates/layerx-types/src/repair_22_39_215.kvx"]
+planned_paths = ["services/agent/crates/layerx-types/src/repair_22_39_215.kvx", "services/agent/Cargo.lock"]
 build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-types --all-targets"
 verify_cmd = "test -s services/agent/crates/layerx-types/src/repair_22_39_215.kvx && cargo clippy --locked --manifest-path services/agent/Cargo.toml -p layerx-types --no-deps --all-targets -- -D warnings"
 gate_kind = "planned"
@@ -220654,7 +220706,7 @@ do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete ap
 
 [task.18.1854.1]
 title = "Issue #1854: Align the C# behavior qualification framework assertion with .NET 10"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -220802,8 +220854,8 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 title = "Issue #1695: Wire indexer status to canonical progress and authorized durable operations"
 status = "pending"
 mode = "BUILD"
-wave = 1
-requires = []
+wave = 2
+requires = ["22.39.162"]
 reqs = ["181695.1"]
 capabilities = ["18.1695.1"]
 interfaces = []
@@ -220829,6 +220881,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "Attempt 2 (continue after 22.39.162 lands; gotcha 3777): merge main once 22.39.162 is on it, so the recorded production documents pass receipt.NewRPCQualification under the corrected rule, and keep the attempt-1 tree d2f97ccb678d (the status rendering in app.go and render.go, the status test, the render test change). Rerun both cases of the verification against the merged tree; if a case still fails for a reason other than receipt qualification, repair it within the one allowed cycle and rerun once. Run the build once and the verification once at the final revision and record both by reference."
 
 [task.18.1690.1]
 title = "Issue #1690: Prove native role origins and initialization refusals through production methods"
@@ -220919,6 +220972,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_5 = "Attempt 2 (continue, gotcha 3785): the attempt-1 tree 6b398503dc8c stands (the gRPC query error mapping and its test). In query_grpc_error_test.go build the request bytes without importing sdk/x/auth/tx or any x module that imports baseapp: encode the transaction with the codec the package under test already uses, or read a committed fixture; the mapping under test stays unchanged. Run the build once and the verification once at the final revision and record both by reference; if a case still fails, repair it within the one allowed cycle and rerun once."
 
 [task.18.1669.1]
 title = "Issue #1669: Resume refresh recovery after saving a replacement session"
@@ -221042,7 +221096,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.232]
 title = "Bring the programs guest event and call outcome log tests green at the canonical guest event evidence"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -221073,7 +221127,7 @@ do_4 = "Attempt 2 (continue, gotcha 3763, decision 2908): the attempt-1 tree fc5
 
 [task.22.39.231]
 title = "Bring the service dispute refusals and the offer publish and withdraw tests of the pay keeper green"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -301963,7 +302017,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1810.1]
 title = "Issue #1810: Decode public node discovery in the wallet SDK"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -301993,7 +302047,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1776.1]
 title = "Issue #1776: Freeze the complete 0x0907 peer-binding ABI"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -302022,7 +302076,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1682.1]
 title = "Issue #1682: Bind v575 association replay to the selected precompile version"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -302259,6 +302313,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_5 = "Attempt 2 (continue, gotcha 3783, decision 3074): the attempt-1 tree 3dd4b2d997c5 stands (the asset listing repair and its tests). In rpc/px_assets.go ListAssets (lines 193 to 199) treat a JSON null cursor as invalid params and answer -32602 through pxRootError, as the test at px_node_root_account_test.go line 687 asserts; then repair the count case at line 589 (eight expected, none returned) at its source in the listing path. Record both repairs in the task record. Run the build once and the verification once at the final revision and record both by reference; if a case still fails, repair it within the one allowed cycle and rerun once."
 
 [task.18.1661.1]
 title = "Issue #1661: Complete CW20 deployment without retired DEX commands"
@@ -302351,6 +302406,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "Attempt 2 (continue, gotcha 3784, gotcha 3046): the attempt-1 tree efcb96016b69 stands (the newHeads consistency check and the subscription test). In rpc/subscribe_test.go wire the fixture so the header stored for height 1 carries the state root the notifier announces through OnBlockCommitted (store the header with the AppHash of the ResponseFinalizeBlock before the notification), and assert at line 405 the value the server serves; the consistency check in the server stays unchanged. Run the build once and the verification once at the final revision and record both by reference; if a case still fails, repair it within the one allowed cycle and rerun once."
 
 [task.18.1634.1]
 title = "Issue #1634: Scan every leaf when collecting state-size statistics"
@@ -302398,7 +302454,7 @@ symbols = ["Row", "rowFrom", "TestPxNodeRoot_History_TransactionHashParity"]
 touches = ["src/modules/history/indexer.go", "rpc/px_node_root_history_test.go"]
 tests = ["rpc/px_node_root_history_test.go::TestPxNodeRoot_History_TransactionHashParity", "rpc/px_node_root_history_test.go::TestPxNodeRoot_History_TransportShapesAndRestart"]
 planned_paths = []
-build_cmd = "make -s paxd-native-libs && go build ./rpc/..."
+build_cmd = "go build ./rpc/... ./src/modules/history/..."
 verify_cmd = "go test -count=1 ./rpc/ -run '^TestPxNodeRoot_History_(TransactionHashParity|TransportShapesAndRestart)$'"
 gate_kind = "planned"
 sandbox_profile = "go-cgo"
@@ -302411,6 +302467,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "Requalify attempt 1 at 16600cc3e5d0 with the build of decision 3067 (go build of the rpc and history packages, no native library target); the tree stands unchanged (the history indexer repair and its test). Run the build once and the verification once and record both by reference; if a case fails, repair it within the one allowed cycle and rerun once."
 
 [task.18.1632.1]
 title = "Issue #1632: Accept explorer-imported IDs in node-root history"
@@ -302446,7 +302503,7 @@ do_5 = "Attempt 2 (continue, gotcha 3769, decision 3067): the attempt-1 tree b26
 
 [task.18.1628.1]
 title = "Issue #1628: Scope installed pending transaction filters to their virtual chain"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -347160,6 +347217,37 @@ do_4 = "Finding 18.0.1.1: attempt 1 (943ca6eff) implemented both files and its t
 do_5 = "Decision 2456 (attempt 2, 26e5df6d3, re-qualify unchanged once eligible): the three programme tests pass and the closure gate exits 1 only because 29 issue tasks are not done; the task now requires every one of them and is re-qualified without change when the last publishes."
 do_6 = "Attempt 3: the closure check is a gate over the whole issue programme; it now requires every open issue task, so it is launched only when all of them are done and its verify can pass. Keep the superseded-task handling and the three regression cases of attempt 2."
 
+[task.22.39.236]
+title = "Run a Redis container beside the database container of the explorer backend test environment"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.236"]
+interfaces = []
+do_1 = "do_1 Decision 3071, gotcha 3778. In services/explorer/deploy/tools/mix-in-builder.sh add a pinned REDIS_IMAGE constant (redis:7.4-alpine) beside DATABASE_IMAGE and a redis_container name derived like the database container name; in start_sidecar start the Redis container with docker run --detach --network container:$database_container after the database container is running (reusing a running one under --reuse-db the same way the database container is reused), and wait for docker exec redis-cli PING to answer PONG with the same bounded attempts the database wait uses; in remove_sidecar remove it with the database container."
+do_2 = "do_2 Pass --env ACCOUNT_REDIS_URL=redis://127.0.0.1:6379 into the mix container in mix_in_container, so BlockScoutWeb.Plug.RedisCookie and the Redix start of services/explorer/backend/apps/explorer/lib/explorer/application.ex line 96 reach the container through the shared network namespace; change nothing in the backend."
+do_3 = "do_3 Write services/explorer/deploy/tools/tests/test_repair_22_39_236.py: a pytest module that reads the script text and asserts the pinned image constant, the shared network namespace flag for the Redis container, the PING wait, the removal beside the database container and the ACCOUNT_REDIS_URL environment flag, and runs bash -n on the script; no Docker is needed by the test."
+do_4 = "do_4 Record the change with the two failing cases it unblocks (18.1673.1 confirm OTP successfully, 18.1651.1 get watchlist id) in services/explorer/deploy/tools/repair_22_39_236.kvx. Run the build once and the verification once at the final revision and record both by reference."
+symbols = []
+touches = ["services/explorer/deploy/tools/mix-in-builder.sh", "services/explorer/deploy/tools/tests"]
+tests = ["services/explorer/deploy/tools/tests/test_repair_22_39_236.py"]
+planned_paths = ["services/explorer/deploy/tools/tests/test_repair_22_39_236.py", "services/explorer/deploy/tools/repair_22_39_236.kvx"]
+build_cmd = "bash -n services/explorer/deploy/tools/mix-in-builder.sh && python3 -m py_compile services/explorer/deploy/tools/tests/test_repair_22_39_236.py"
+verify_cmd = "test -s services/explorer/deploy/tools/repair_22_39_236.kvx && python3 -m pytest -q services/explorer/deploy/tools/tests/test_repair_22_39_236.py"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.18.1863.1]
 title = "Issue #1863: Check routed runners on the concrete Platform release gate jobs"
 status = "pending"
@@ -347191,7 +347279,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1861.1]
 title = "Issue #1861: Align Chainflow SDK runtime requirements with their manifests"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -347220,7 +347308,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1860.1]
 title = "Issue #1860: Guard the Node, Python and Go runtime floors with regression tests"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -347278,7 +347366,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1858.1]
 title = "Issue #1858: Recognise launchpad selectors and the wallet Vitest wrapper in the suite inventory"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -347307,7 +347395,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1855.1]
 title = "Issue #1855: Document the .NET SDK’s net10.0 target"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -347365,7 +347453,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1851.1]
 title = "Issue #1851: Emit the FastAPI test extra in wheel metadata"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -347424,7 +347512,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1847.1]
 title = "Issue #1847: Align control finalization documentation with the committed rung contract"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -347512,7 +347600,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1844.1]
 title = "Issue #1844: Select the explorer umbrella test step by its command"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -347628,7 +347716,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1836.1]
 title = "Issue #1836: Correct the SettleLaps qualification finding attribution"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -347657,7 +347745,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1825.1]
 title = "Issue #1825: Remove stale model allowances and cover asset cleanup"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -347686,7 +347774,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1824.1]
 title = "Issue #1824: Emit each Python wheel’s declared license expression"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -347744,7 +347832,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1820.1]
 title = "Issue #1820: Preserve ECR manual-run source and tag identity"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -347802,7 +347890,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1816.1]
 title = "Issue #1816: Align ask-stream documentation with the native bytes32 identifiers"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -347862,7 +347950,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1804.1]
 title = "Issue #1804: Fail reference fixture checks when regenerated artifacts differ from the committed set"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -347892,7 +347980,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1801.1]
 title = "Issue #1801: Remove the orphaned SSH image fixtures and their container exclusion"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -347921,7 +348009,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1799.1]
 title = "Issue #1799: Correct the SDK and middleware endpoint routing documentation"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -347951,7 +348039,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1794.1]
 title = "Issue #1794: Correct inference market profile and peer-binding availability statements"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -347980,7 +348068,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1793.1]
 title = "Issue #1793: Align release workflow regression checks with the v7.0.0 identity"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -348038,7 +348126,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1790.1]
 title = "Issue #1790: Restore network-policy connectivity between the gateway and its hosted peers"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -348067,7 +348155,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1789.1]
 title = "Issue #1789: Align the beta-network wiki page primary command and storage with the manifest"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -348096,7 +348184,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1788.1]
 title = "Issue #1788: Align the Programs, faucet and gateway RPC pages with the node px namespace"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -348126,7 +348214,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1787.1]
 title = "Issue #1787: Document the required gateway endpoint in the register command row"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -348155,7 +348243,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1786.1]
 title = "Issue #1786: Reconcile the readiness snapshot workflow totals"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -348184,7 +348272,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1783.1]
 title = "Issue #1783: Remove deleted issue templates from the interface inventory"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -348243,7 +348331,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1771.1]
 title = "Issue #1771: Complete Explorer catalogue rebuild triggers and input validation"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -348508,7 +348596,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1638.1]
 title = "Issue #1638: Persist completed registry job results before cleanup reload"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -412366,7 +412454,7 @@ title = "Issue #1673: Restore the confirm-OTP success test with a signed Auth0 I
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = []
+requires = ["22.39.236"]
 reqs = ["181673.1"]
 capabilities = ["18.1673.1"]
 interfaces = []
@@ -412389,6 +412477,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_3 = "Attempt 2 (continue after 22.39.236 lands; gotcha 3778, decision 3071): merge main once 22.39.236 is on it, so the test environment runs the Redis container the session store writes to, and keep the attempt-1 tree 47e42319140a (the confirm OTP test change). Rerun the verification against the merged tree; if the case fails for a reason other than the session store, repair it within the one allowed cycle and rerun once. Run the build once and the verification once at the final revision and record both by reference."
 
 [task.18.1670.1]
 title = "Issue #1670: Encode sanitizer test responses as JSON-RPC block values"
@@ -412424,7 +412513,7 @@ title = "Issue #1651: Migrate BENS controller regressions to production HTTP rou
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = []
+requires = ["22.39.236"]
 reqs = ["181651.1"]
 capabilities = ["18.1651.1"]
 interfaces = []
@@ -412435,7 +412524,7 @@ touches = ["services/explorer/backend/apps/block_scout_web/test/block_scout_web/
 tests = ["services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/address_controller_test.exs::regression test for decoding issue", "services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/address_controller_test.exs::regression test for 9926", "services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/address_controller_test.exs::BENS multiprotocol: batch resolve uses protocol-based URL without chain_id", "services/explorer/backend/apps/explorer/test/repair/repair_22_33_455_test.exs"]
 planned_paths = []
 build_cmd = "services/explorer/deploy/tools/mix-in-builder.sh cmd --app block_scout_web mix compile"
-verify_cmd = "services/explorer/deploy/tools/mix-in-builder.sh test apps/block_scout_web/test/block_scout_web/controllers/api/v2/address_controller_test.exs apps/explorer/test/repair/repair_22_33_455_test.exs"
+verify_cmd = "services/explorer/deploy/tools/mix-in-builder.sh test apps/block_scout_web/test/block_scout_web/controllers/api/v2/address_controller_test.exs apps/explorer/test/repair/repair_22_33_455_test.exs --only 'test:test /addresses/{address_hash}/transactions regression test for decoding issue' --only 'test:test /addresses/{address_hash}/logs regression test for 9926' --only 'test:test /addresses/{address_hash}/logs BENS multiprotocol: batch resolve uses protocol-based URL without chain_id'"
 gate_kind = "planned"
 sandbox_profile = "elixir"
 owner_role = "fm-web-explorer-bridge"
@@ -412447,6 +412536,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_3 = "Attempt 2 (continue after 22.39.236 lands; gotcha 3778, decision 3071): merge main once 22.39.236 is on it and keep the attempt-1 tree d1ee7253d734 (the production BENS listeners and the start_bens_listener helper in address_controller_test.exs). The verification now names the three cases of the task; the proxy case get EIP-1967 proxy contract info is recorded as a qualification finding and is not part of this task. Rerun the verification against the merged tree; if one of the three cases fails, repair it within the one allowed cycle and rerun once. Run the build once and the verification once at the final revision and record both by reference."
 
 [task.18.1640.1]
 title = "Issue #1640: Reconcile deferred orphan replay jobs with bounded price-feed retention"

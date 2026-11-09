@@ -282,6 +282,9 @@ export async function runMerchantServiceScenarios(suite, sequencer, facts, recei
   const observations = { node: [], hosted: [], settlements: [], payments: [], restarted: false };
   const node = await listenJsonService((request, body) => {
     const reply = receiptRpc(request, body, receipt);
+    if (reply.status === 200 && body.method === "pax_sequencerReceipt") {
+      reply.body.result = receipt.receiptJson;
+    }
     observations.node.push({ path: request.url, authorization: request.headers.authorization, request: body, response: reply });
     return reply;
   });
@@ -290,7 +293,7 @@ export async function runMerchantServiceScenarios(suite, sequencer, facts, recei
     layerx_account: toHex(payTo), bound: true,
   };
   const settlement = await listenJsonService(async (request, body) => {
-    if (request.url === "/rpc") {
+    if (request.url === "/") {
       assert(request.method === "POST" && body.jsonrpc === "2.0" && body.method === "px_resolveAccount",
         "only hosted identity methods belong on the gateway");
       assert(body.params?.length === 1 && body.params[0] === toHex(payTo),
@@ -354,7 +357,7 @@ export async function runMerchantServiceScenarios(suite, sequencer, facts, recei
   const configFile = join(workDir, "example.json");
   await writeFile(configFile, JSON.stringify({ version: 1, application: "merchant-shop", environments: { emulator: {
     port, publicUrl: environment.LAYERX_PUBLIC_URL, settlementUrl: environment.LAYERX_SETTLEMENT_URL,
-    rpcUrl: `${node.url}/`, hostedGatewayUrl: `${settlement.url}/rpc`, stateDirectory: ".", scheme: "exact", network: "eip155:125",
+    rpcUrl: `${node.url}/`, hostedGatewayUrl: `${settlement.url}/`, stateDirectory: ".", scheme: "exact", network: "eip155:125",
     receiptKeysEnvironment: "LAYERX_RECEIPT_KEYS_JSON",
     customerCredentialsEnvironment: "LAYERX_MERCHANT_CUSTOMERS_JSON",
     tokenEnvironment: "LAYERX_SETTLEMENT_TOKEN", priceEnvironment: "LAYERX_PRICE",
