@@ -1,11 +1,9 @@
 //! Repair 22.33.1557. Finding/test mappings and out-of-scope wiring requests
-//! are recorded in src/repair_22_33_1557.kvx. Qualification evidence is supplied
+//! are recorded in `src/repair_22_33_1557.kvx`. Qualification evidence is supplied
 //! by the runner's gate ledger, including the exact candidate revision.
 
 // Preserve the existing real inclusion producer/consumer assertions for all
 // three retained constructors, including state evidence, in this focused gate.
-#[path = "support/historical_checkpoint.rs"]
-mod historical;
 #[path = "repair_22_31_226.rs"]
 mod retained_certificate_retirement;
 #[path = "export_complete.rs"]
@@ -14,6 +12,10 @@ mod retained_complete_export;
 mod retained_inclusion;
 #[path = "offline_export.rs"]
 mod retained_offline_export;
+
+use std::fmt::Write as _;
+
+use retained_certificate_retirement::historical;
 
 use layerx_proof::evidence::Evidence;
 use layerx_proof::export::{
@@ -56,7 +58,9 @@ fn must<T, E: std::fmt::Debug>(result: Result<T, E>) -> T {
 
 fn receipt_record() -> ReceiptRecord {
     let receipt = must(decode(RECEIPT));
-    let protocol = receipt.protocol().expect("recorded native withdrawal");
+    let Some(protocol) = receipt.protocol() else {
+        panic!("recorded native withdrawal");
+    };
     ReceiptRecord {
         reference: FactSelector::Receipt {
             activity_id: protocol.activity_id(),
@@ -201,7 +205,9 @@ fn legacy_level_mints_commitment_pinned_receipts_stop_at_receipted() {
     assert_eq!(must(case.str_at("expected.verifier")), "accepts");
     let bytes = must(case.hex_at("signedReceipt"));
     let receipt = must(decode(&bytes));
-    let protocol = receipt.protocol().expect("recorded sequencer receipt");
+    let Some(protocol) = receipt.protocol() else {
+        panic!("recorded sequencer receipt");
+    };
     let pin = SequencerAuthorization::new(
         must(case.hex_array_at("pinnedKey.keyId")),
         must(case.hex_array_at("pinnedKey.publicKey")),
@@ -225,15 +231,16 @@ fn legacy_level_mints_commitment_pinned_receipts_stop_at_receipted() {
     );
     let empty: [SequencerAuthorization; 0] = [];
     assert_eq!(
-        AuthorizedBatch::from_receipt_keys(
+        match AuthorizedBatch::from_receipt_keys(
             &bytes,
             &empty,
             protocol.asset(),
             protocol.previous_state_root(),
             protocol.resulting_state_root(),
-        )
-        .expect_err("absent receipt-key pins")
-        .check,
+        ) {
+            Err(error) => error.check,
+            Ok(_) => panic!("absent receipt-key pins"),
+        },
         ReceiptCheck::SequencerSignature,
     );
 }
@@ -252,7 +259,7 @@ fn registry_export_signatures_stale_current_interfaces_verify_real_records() {
         receipts: vec![ReceiptFact {
             statement: receipt.reference.canonical_text(),
             canonical_receipt_bytes: receipt.canonical_receipt.clone(),
-            authorised_batch: receipt.authorised_batch.clone(),
+            authorised_batch: receipt.authorised_batch,
             expected_receipt_digest: receipt.expected_receipt_digest,
         }],
         inclusions: Vec::new(),
@@ -306,7 +313,10 @@ fn registry_removed_codec_symbols_certificate_bucket_is_always_refused() {
         );
     }
     let id = artifact.facts[0].activity_id();
-    let hex: String = id.iter().map(|byte| format!("{byte:02x}")).collect();
+    let mut hex = String::with_capacity(id.len() * 2);
+    for byte in id {
+        must(write!(hex, "{byte:02x}"));
+    }
     assert_eq!(
         FactSelector::parse(&format!("checkpoint:{hex}:1")),
         Err(FactRefError::UnknownKind),
