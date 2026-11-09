@@ -39,3 +39,23 @@ serde_json = "=1.0.151"
 
 [lints]
 workspace = true
+
+[[test]]
+name = "authority_grant"
+path = "tests/harnesses/authority_grant.rs"
+
+[[test]]
+name = "disclosure"
+path = "tests/harnesses/disclosure.rs"
+
+[[test]]
+name = "native_fee_grant"
+path = "tests/harnesses/native_fee_grant.rs"
+
+[[test]]
+name = "remote"
+path = "tests/harnesses/remote.rs"
+
+[[test]]
+name = "disclosure_call"
+path = "tests/harnesses/disclosure_call.rs"

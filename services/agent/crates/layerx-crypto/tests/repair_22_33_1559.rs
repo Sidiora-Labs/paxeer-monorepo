@@ -1,3 +1,5 @@
+#[path = "support/assertions.rs"]
+mod assertions;
 use std::collections::BTreeSet;
 
 use layerx_crypto::disclosure::call::{
@@ -34,8 +36,13 @@ fn hex(text: &str) -> Vec<u8> {
     text.as_bytes()
         .chunks_exact(2)
         .map(|pair| {
-            u8::from_str_radix(std::str::from_utf8(pair).expect("fixture UTF-8"), 16)
-                .expect("fixture hex")
+            assertions::require(
+                u8::from_str_radix(
+                    assertions::require(std::str::from_utf8(pair), "fixture UTF-8"),
+                    16,
+                ),
+                "fixture hex",
+            )
         })
         .collect()
 }
@@ -231,6 +238,68 @@ fn bank_monetary_projection_reaches_typed_policy_and_human_view() -> Outcome {
 fn registry_call_constructors_cover_every_bound_selector() -> Outcome {
     let mut calls: Vec<(Eip1559Call, &str)> = Vec::new();
     // Real payment encoders consume the committed canonical native fixtures.
+    append_payment_constructor_cases(&mut calls)?;
+    // Committed ABI transcripts from disclosure_call.rs: budget create v1/v2,
+    // fund/defund, lifecycle, and pointer calls have no named daemon constructor.
+    append_budget_constructor_cases(&mut calls);
+    append_governance_constructor_cases(&mut calls)?;
+    assert_eq!(calls.len(), 17);
+    let mut selectors = BTreeSet::new();
+    for (transaction, signature) in calls {
+        let disclosure = transported(&transaction)?;
+        let method = disclosure.construct_method()?.ok_or("call constructor")?;
+        assert_eq!(method.abi_signature(), signature);
+        assert_eq!(
+            &transaction.data[..4],
+            &ledger_selector(method.abi_signature())
+        );
+        assert!(selectors.insert(method.abi_signature()));
+        let context = if matches!(method, ConstructMethod::ProgramCall { .. }) {
+            CallFeeContext::ProgramExecution {
+                fee_asset: [0x72; 32],
+            }
+        } else {
+            CallFeeContext::GasOnly
+        };
+        let view = disclosure.call_monetary(context)?;
+        match method {
+            ConstructMethod::BankSend { denom, amount, .. } => assert_eq!(
+                view.amounts,
+                vec![CallMonetaryAmount::Bank {
+                    role: AmountRole::Transfer,
+                    denom,
+                    value: amount
+                }]
+            ),
+            ConstructMethod::PointerTransfer { pointer, .. } => assert_eq!(
+                view.amounts,
+                vec![CallMonetaryAmount::Pointer {
+                    role: AmountRole::Transfer,
+                    pointer,
+                    value: 123
+                }]
+            ),
+            _ => assert_eq!(
+                view.amounts,
+                disclosure
+                    .amounts
+                    .iter()
+                    .map(|amount| CallMonetaryAmount::Protocol {
+                        role: amount.role,
+                        asset: disclosure.asset,
+                        value: amount.value
+                    })
+                    .collect::<Vec<_>>()
+            ),
+        }
+    }
+    assert_eq!(selectors.len(), 17);
+    Ok(())
+}
+
+fn append_payment_constructor_cases(
+    calls: &mut Vec<(Eip1559Call, &'static str)>,
+) -> Result<(), Box<dyn std::error::Error>> {
     for (ordinal, fixture, signature) in [
         (
             4,
@@ -299,8 +368,10 @@ fn registry_call_constructors_cover_every_bound_selector() -> Outcome {
         "send(address,address,string,uint256)",
     ));
 
-    // Committed ABI transcripts from disclosure_call.rs: budget create v1/v2,
-    // fund/defund, lifecycle, and pointer calls have no named daemon constructor.
+    Ok(())
+}
+
+fn append_budget_constructor_cases(calls: &mut Vec<(Eip1559Call, &'static str)>) {
     let budget_words = [
         [0x21; 32],
         [0x22; 32],
@@ -340,6 +411,11 @@ fn registry_call_constructors_cover_every_bound_selector() -> Outcome {
             signature,
         ));
     }
+}
+
+fn append_governance_constructor_cases(
+    calls: &mut Vec<(Eip1559Call, &'static str)>,
+) -> Result<(), Box<dyn std::error::Error>> {
     let lifecycle = "recordLifecycle(bytes,bytes32)";
     let mut payload = vec![0x71, 1, 0, 2];
     payload.resize(68, 0x23);
@@ -394,56 +470,5 @@ fn registry_call_constructors_cover_every_bound_selector() -> Outcome {
         session,
     ));
 
-    assert_eq!(calls.len(), 17);
-    let mut selectors = BTreeSet::new();
-    for (transaction, signature) in calls {
-        let disclosure = transported(&transaction)?;
-        let method = disclosure.construct_method()?.expect("call constructor");
-        assert_eq!(method.abi_signature(), signature);
-        assert_eq!(
-            &transaction.data[..4],
-            &ledger_selector(method.abi_signature())
-        );
-        assert!(selectors.insert(method.abi_signature()));
-        let context = if matches!(method, ConstructMethod::ProgramCall { .. }) {
-            CallFeeContext::ProgramExecution {
-                fee_asset: [0x72; 32],
-            }
-        } else {
-            CallFeeContext::GasOnly
-        };
-        let view = disclosure.call_monetary(context)?;
-        match method {
-            ConstructMethod::BankSend { denom, amount, .. } => assert_eq!(
-                view.amounts,
-                vec![CallMonetaryAmount::Bank {
-                    role: AmountRole::Transfer,
-                    denom,
-                    value: amount
-                }]
-            ),
-            ConstructMethod::PointerTransfer { pointer, .. } => assert_eq!(
-                view.amounts,
-                vec![CallMonetaryAmount::Pointer {
-                    role: AmountRole::Transfer,
-                    pointer,
-                    value: 123
-                }]
-            ),
-            _ => assert_eq!(
-                view.amounts,
-                disclosure
-                    .amounts
-                    .iter()
-                    .map(|amount| CallMonetaryAmount::Protocol {
-                        role: amount.role,
-                        asset: disclosure.asset,
-                        value: amount.value
-                    })
-                    .collect::<Vec<_>>()
-            ),
-        }
-    }
-    assert_eq!(selectors.len(), 17);
     Ok(())
 }
