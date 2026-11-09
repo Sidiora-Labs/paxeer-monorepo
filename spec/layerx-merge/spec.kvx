@@ -192575,7 +192575,7 @@ do_3 = "Attempt 2 (continue, gotcha 4022, decision 3138): the attempt-1 tree aba
 
 [task.22.39.284]
 title = "Repair the retired references of the agent wire crate"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.39.245", "22.39.283"]
@@ -350286,7 +350286,7 @@ do_4 = "Attempt 2 (continue, gotchas 3984 and 3985, decision 3125): the attempt-
 
 [task.22.39.246]
 title = "Repair the retired references of the kernel headers, state, protocol and ledger sources"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.39.245"]
