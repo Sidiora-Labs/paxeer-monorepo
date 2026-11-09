@@ -336492,7 +336492,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.188]
 title = "Write the closure dispositions 22-20 for 104 findings of the 22.31 series"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 48
 requires = []
@@ -336554,7 +336554,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.186]
 title = "Write the closure dispositions 22-18 for 105 findings of the 22.31 series"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 48
 requires = []
