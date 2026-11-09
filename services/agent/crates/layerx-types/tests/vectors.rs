@@ -2,6 +2,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
+use layerx_types::payload::{ActivityType, ModuleId};
 use layerx_types::vectors::checkpoint::{
     checkpoint_vector_path, load_checkpoint_vectors, CHECKPOINT_VECTOR_CASES,
 };
@@ -76,6 +77,13 @@ fn repository_corpora_are_loaded_and_fully_accounted() {
     let Ok(corpus) = Corpus::load(&repository_root()) else {
         panic!("published corpora failed to load");
     };
+    let Ok(retired_budget_pull) = ActivityType::new(ModuleId::Budget, 11) else {
+        panic!("retired budget pull activity type is unrepresentable");
+    };
+    assert!(
+        !corpus.replay.activity_types.contains(&retired_budget_pull),
+        "generated replay corpus contains retired budget pull activity 0x0003000B"
+    );
     assert_eq!(corpus.valid_codec.len(), 4);
     assert_eq!(corpus.adversarial_codec.len(), 7);
     assert_eq!(corpus.replay.protocol_version, DERIVED_PROTOCOL_VERSION);

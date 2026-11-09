@@ -329,7 +329,7 @@ func NewEVMHTTPServer(
 		{Namespace: "px", Service: pxAPI},
 		{Namespace: "px", Service: &pxInferenceAPI{account: pxAPI}},
 		{Namespace: "px", Service: &pxHistoryAPI{account: pxAPI}},
-		{Namespace: "px", Service: &pxKernelAPI{tmClient: tmClient, chainID: ctx.ChainID(), connectionType: stateAPI.connectionType}},
+		{Namespace: "px", Service: &pxKernelAPI{tmClient: tmClient, txConfigProvider: txConfigProvider, chainID: ctx.ChainID(), connectionType: stateAPI.connectionType}},
 		{
 			Namespace: "echo",
 			Service:   NewEchoAPI(),
@@ -598,7 +598,7 @@ func NewEVMWebSocketServer(
 		{Namespace: "px", Service: pxAPI},
 		{Namespace: "px", Service: &pxInferenceAPI{account: pxAPI}},
 		{Namespace: "px", Service: &pxHistoryAPI{account: pxAPI}},
-		{Namespace: "px", Service: &pxKernelAPI{tmClient: tmClient, chainID: ctx.ChainID(), connectionType: stateAPI.connectionType}},
+		{Namespace: "px", Service: &pxKernelAPI{tmClient: tmClient, txConfigProvider: txConfigProvider, chainID: ctx.ChainID(), connectionType: stateAPI.connectionType}},
 		{
 			Namespace: "echo",
 			Service:   NewEchoAPI(),

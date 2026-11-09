@@ -4,9 +4,9 @@ pub mod node_commit;
 use layerx_types::clock::Deadline;
 use std::time::Duration;
 
-use layerx_proof::inclusion::{verify_receipt, SequencerAuthorization};
+use layerx_proof::inclusion::{SequencerAuthorization, verify_receipt};
 use layerx_proof::merkle::Proof;
-use layerx_wire::receipt::{decode_batch_header, Receipt};
+use layerx_wire::receipt::{Receipt, decode_batch_header};
 use serde_json::Value;
 
 use crate::rpc::{Commitment, RpcClient, RpcError};
@@ -360,7 +360,6 @@ impl RpcClient {
                     served_coverage = node_commit::NodeCommitCoverage::from_sequence_batch(
                         &batch,
                         height,
-                        &block,
                         receipt.protocol().ok_or(RpcError::Verification)?,
                     )?;
                     &served_coverage
@@ -488,44 +487,49 @@ mod tests {
     }
 }
 
+fn invalid_response(field: &str) -> RpcError {
+    eprintln!("RpcError::InvalidResponse: refused field {field}");
+    RpcError::InvalidResponse
+}
+
 fn node_quantity(value: &Value, name: &str) -> Result<u64, RpcError> {
     let text = value
         .get(name)
         .and_then(Value::as_str)
         .and_then(|s| s.strip_prefix("0x"))
-        .ok_or(RpcError::InvalidResponse)?;
+        .ok_or_else(|| invalid_response(name))?;
     if text.is_empty()
         || (text.len() > 1 && text.starts_with('0'))
         || !text.bytes().all(|b| matches!(b, b'0'..=b'9' | b'a'..=b'f'))
     {
-        return Err(RpcError::InvalidResponse);
+        return Err(invalid_response(name));
     }
-    u64::from_str_radix(text, 16).map_err(|_| RpcError::InvalidResponse)
+    u64::from_str_radix(text, 16).map_err(|_| invalid_response(name))
 }
 fn node_bytes(value: &Value, name: &str, maximum: usize) -> Result<Vec<u8>, RpcError> {
     let text = value
         .get(name)
         .and_then(Value::as_str)
         .and_then(|s| s.strip_prefix("0x"))
-        .ok_or(RpcError::InvalidResponse)?;
+        .ok_or_else(|| invalid_response(name))?;
     if text.len() % 2 != 0 || text.len() / 2 > maximum {
-        return Err(RpcError::InvalidResponse);
+        return Err(invalid_response(name));
     }
     text.as_bytes()
         .chunks_exact(2)
         .map(|pair| {
             u8::from_str_radix(
-                std::str::from_utf8(pair).map_err(|_| RpcError::InvalidResponse)?,
+                std::str::from_utf8(pair).map_err(|_| invalid_response(name))?,
                 16,
             )
-            .map_err(|_| RpcError::InvalidResponse)
+            .map_err(|_| invalid_response(name))
         })
         .collect()
 }
 fn node_fixed<const N: usize>(value: &Value, name: &str) -> Result<[u8; N], RpcError> {
     node_bytes(value, name, N)?
         .try_into()
-        .map_err(|_| RpcError::InvalidResponse)
+        .map_err(|_| invalid_response(name))
 }
 
 /// Authenticates the node summary and every served execution field under height-ranged pins.
@@ -535,7 +539,7 @@ pub fn verify_node_receipt(
     activity: [u8; 32],
     policy: &ReceiptPolicy,
 ) -> Result<(Receipt, Vec<u8>), RpcError> {
-    use layerx_proof::sequencer_logs::{verify_logs, SequencerLog};
+    use layerx_proof::sequencer_logs::{SequencerLog, verify_logs};
     use sha2::{Digest as _, Sha256};
     let fields = value.as_object().ok_or(RpcError::InvalidResponse)?;
     const EXECUTION_FIELDS: &[&str] = &[
@@ -577,7 +581,12 @@ pub fn verify_node_receipt(
             .iter()
             .any(|field| !fields.contains_key(*field))
     {
-        return Err(RpcError::InvalidResponse);
+        let refused = EXECUTION_FIELDS
+            .iter()
+            .find(|field| !fields.contains_key(**field))
+            .copied()
+            .unwrap_or("receipt field set");
+        return Err(invalid_response(refused));
     }
     if committed
         && (node_quantity(value, "blockNumber")? < node_quantity(value, "height")?

@@ -14,12 +14,15 @@ const serverOnlyModules = new Set([ 'nextjs/utils/fetchProxy.ts', 'instrumentati
 const nodeTestModules = new Set([
   'nextjs/pages-tests/apps/repair-22-33-451.spec.ts',
   'nextjs/pages-tests/api/repair-22-33-448.spec.ts',
+  'nextjs/pages-tests/api/repair-22-35-10.spec.ts',
   'nextjs/pages-tests/api/tokens/[hash]/instances/[id]/repair-22-33-449.spec.ts',
   'nextjs/utils/fetchProxy.spec.ts',
   'nextjs/csp/policies/repair-22-31-412.spec.ts',
   'nextjs/csp/policies/repair-22-33-542.spec.ts',
   'nextjs/middlewares/repair-22-33-540.spec.ts',
   'lib/socket/repair-22-33-292.spec.ts',
+  'ui/snippets/searchBar/repair-22-35-10.spec.tsx',
+  'ui/pages/PaxeerXInference.spec.tsx',
 ]);
 
 function explorerSources(directory: string): Array<string> {
