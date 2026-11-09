@@ -169,6 +169,137 @@ func TestRepairM_1160_WorkloadErrorsReachCLI(t *testing.T) {
 	}
 }
 
+func captureIssue1700Output(t *testing.T, run func()) (string, string) {
+	t.Helper()
+	stdout, err := os.CreateTemp(t.TempDir(), "stdout")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer stdout.Close()
+	stderr, err := os.CreateTemp(t.TempDir(), "stderr")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer stderr.Close()
+	originalStdout, originalStderr := os.Stdout, os.Stderr
+	os.Stdout, os.Stderr = stdout, stderr
+	defer func() { os.Stdout, os.Stderr = originalStdout, originalStderr }()
+	run()
+	read := func(file *os.File) string {
+		t.Helper()
+		data, err := os.ReadFile(file.Name())
+		if err != nil {
+			t.Fatal(err)
+		}
+		return string(data)
+	}
+	return read(stdout), read(stderr)
+}
+
+func TestIssue1700SingleDiagnostic(t *testing.T) {
+	for _, operation := range []string{"write", "flush", "prune", "flush during teardown", "clean"} {
+		t.Run(operation, func(t *testing.T) {
+			store := newRepairM1160JournalStore(t)
+			b := newRepairM1160Runner(t, store)
+			var cause error = os.ErrClosed
+			startHeight := uint64(1)
+			switch operation {
+			case "write", "flush during teardown":
+				if err := store.writes.Close(); err != nil {
+					t.Fatal(err)
+				}
+			case "flush":
+				reader, writer, err := os.Pipe()
+				if err != nil {
+					t.Fatal(err)
+				}
+				t.Cleanup(func() { _ = reader.Close(); _ = writer.Close() })
+				store.writes = writer
+				cause = writer.Sync()
+				if cause == nil {
+					t.Fatal("pipe unexpectedly supports durable flushing")
+				}
+				cause = errors.Unwrap(cause)
+				b.config.FlushIntervalBlocks = 1
+			case "prune":
+				if err := store.prunes.Close(); err != nil {
+					t.Fatal(err)
+				}
+				startHeight = 6
+			}
+			b.config.LogDir = t.TempDir()
+			b.config.CleanLogsOnExit = true
+			logPath := filepath.Join(b.config.LogDir, "benchmark.log")
+			if err := os.WriteFile(logPath, []byte("cleanup required"), 0600); err != nil {
+				t.Fatal(err)
+			}
+			var haltErr error
+			var code int
+			stdout, stderr := captureIssue1700Output(t, func() {
+				if operation == "flush during teardown" {
+					go b.teardown()
+				} else {
+					b.generator = repairM1160Generator(b, startHeight)
+					go b.run()
+					if operation == "clean" {
+						b.cancel()
+					}
+				}
+				select {
+				case <-b.closeChan:
+				case <-time.After(5 * time.Second):
+					t.Fatal("benchmark did not finish teardown")
+				}
+				haltErr = b.BlockUntilHalted()
+				if closeErr := b.Close(); closeErr != haltErr {
+					t.Fatalf("Close result = %v; want original error %v", closeErr, haltErr)
+				}
+				code = CLIExitCode(haltErr, os.Stderr)
+			})
+			if _, err := os.Stat(logPath); !errors.Is(err, os.ErrNotExist) {
+				t.Fatalf("teardown did not clean logs: %v", err)
+			}
+			for _, file := range []*os.File{store.writes, store.prunes} {
+				if _, err := file.Stat(); !errors.Is(err, os.ErrClosed) {
+					t.Fatalf("journal was not closed during teardown: %v", err)
+				}
+			}
+			output := stdout + stderr
+			if operation == "clean" {
+				if haltErr != nil || code != 0 || stderr != "" || strings.Contains(stdout, "failed to") {
+					t.Fatalf("clean result = %v, exit %d, stdout %q, stderr %q", haltErr, code, stdout, stderr)
+				}
+				return
+			}
+			if !errors.Is(haltErr, cause) || !strings.Contains(haltErr.Error(), "failed to "+operation) {
+				t.Fatalf("halt result = %v; want %q wrapping %v", haltErr, operation, cause)
+			}
+			if code != 1 || stderr != "Error: "+haltErr.Error()+"\n" {
+				t.Fatalf("CLI result = %d, %q; want one original diagnostic", code, stderr)
+			}
+			if strings.Count(output, haltErr.Error()) != 1 || strings.Count(output, cause.Error()) != 1 || strings.Count(output, "failed to") != 1 {
+				t.Fatalf("primary failure must appear exactly once, without secondary errors: %q", output)
+			}
+			if strings.Contains(output, "Error closing blocksim") || strings.Contains(output, "failed to close database") {
+				t.Fatalf("primary failure was relabeled during cleanup: %q", output)
+			}
+			if operation == "write" || operation == "flush" || operation == "prune" {
+				wantBlocks := int64(1)
+				if operation == "write" {
+					wantBlocks = 0
+				}
+				if b.totalBlocksWritten != wantBlocks {
+					t.Fatalf("wrote %d blocks after backend failure; want %d", b.totalBlocksWritten, wantBlocks)
+				}
+				_, present, err := store.GetBlockByHeight(context.Background(), startHeight)
+				if err != nil || present != (wantBlocks == 1) {
+					t.Fatalf("actual store state: present=%v, error=%v", present, err)
+				}
+			}
+		})
+	}
+}
+
 func TestRepairM_1160_TeardownAndSuspendErrors(t *testing.T) {
 	for _, operation := range []string{"flush during teardown", "close database", "flush on suspend"} {
 		t.Run(operation, func(t *testing.T) {

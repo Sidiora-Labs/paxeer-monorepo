@@ -152,7 +152,7 @@ func ReadRESTReq(w http.ResponseWriter, r *http.Request, cdc *codec.LegacyAmino,
 	body, err := io.ReadAll(r.Body)
 	var tooLarge *http.MaxBytesError
 	if errors.As(err, &tooLarge) {
-		WriteErrorResponse(w, http.StatusRequestEntityTooLarge, fmt.Sprintf("request body exceeds maximum size of %d bytes", MaxRequestBodyBytes))
+		WriteErrorResponse(w, http.StatusRequestEntityTooLarge, fmt.Sprintf("request body exceeds maximum size of %d bytes", tooLarge.Limit))
 		return false
 	}
 	if CheckBadRequestError(w, err) {

@@ -2,7 +2,7 @@
 task = "22.30.31"
 revision = "6d2c32a65a1c7989a6a37abf5965929de9769ae4"
 files_reviewed = 124
-findings = 38
+findings = 37
 docs_reviewed = 14
 upgrade_ready = false
 blocking = ["legacy-squad-contract", "frozen-squad-validation", "invitation-token-lost", "membership-squad-revision", "alert-price-context-lost", "alert-evaluator-unwired", "prepared-call-not-bound"]
@@ -751,8 +751,8 @@ note = "Reviewed schema application/source deduplication, expiry/freshness and d
 [file.124]
 path = "services/launchpad/discovery/wire.go"
 lines = 54
-verdict = "issues"
-note = "Reviewed local/remote SourceAuthority composition and moderation capability refusal; registry contract page links are missing."
+verdict = "clean"
+note = "Reviewed OwnedSources SourceAuthority composition: external pool/account checks and non-callout reads delegate or return ErrUnavailable; local callout reads require approved, undeleted content and matching source identity/revision; moderation requires PublicationPolicy or returns ErrUnavailable."
 
 [finding.legacy-squad-contract]
 file = "services/launchpad/discovery/http.go"
@@ -1015,17 +1015,6 @@ expected = "The frozen membership adapter proof must exercise independent member
 proposal = "In services/launchpad/discovery/squads_v2_test.go add unequal squad/member revisions using the revised adapter result from the real store; assert both identities independently and retain the uint64 precision checks, including a reopen between mutation and read."
 owner_domain = 4
 
-[finding.missing-interface-contract-pages]
-file = "services/launchpad/discovery/wire.go"
-line = 7
-class = "doc-drift"
-severity = "medium"
-observed = "The registry points launchpad discovery/API exports at contracts/services.md#launchpad-discovery and #launchpad-api, and web environment/SDK rows at contracts/clients.md#launchpad-web-app and #launchpad-sdk-sdk. Neither contracts/services.md nor contracts/clients.md exists in this checkout."
-expected = "Every served registry row must lead integrators to an existing canonical contract page describing the actual service/client shapes, authority, errors and recovery lifecycle."
-proposal = "Restore the canonical launchpad contracts under contracts/ or retarget spec/layerx-merge/interfaces.kvx to the maintained pages, with valid anchors for discovery, API, web and SDK. Document the corrected squad and alert workflows and check every produced/consumed contract link."
-owner_domain = 4
-interface = "4.go-discovery-root-owned-sources"
-
 [finding.core-architecture-scope]
 file = "contracts/launchpad/README.md"
 line = 55
@@ -1207,11 +1196,11 @@ status = "misleading"
 notes = "Lines 9-14 and 30-42 require replica batches, LNI receipt lookup and layerxd-authority. Replace this live authority model with committed-block proofs and label legacy material."
 
 [doc.013]
-path = "contracts/services.md"
-status = "missing"
-notes = "Referenced by discovery/API registry contract anchors; this page is absent, so producer lifecycle, errors and transport cannot be followed through that declared documentation link."
+path = "spec/layerx-merge/contracts/services.md"
+status = "stale"
+notes = "Registry contract links resolve relative to spec/layerx-merge; launchpad-discovery and launchpad-api exist in spec/layerx-merge/contracts/services.md. Reviewed the sections at lines 3105 and 3046 against services/launchpad/discovery/http.go and services/launchpad/api/internal/app/production_unserved.go. Content drift: the API operator health/metrics handler file is still marked planned although implemented; the discovery TestDiscoveryErrorsUseFrozenEnvelope and API TestProductionUnservedOperationsAreFrozenApiOperations entries are also marked planned although declared in services/launchpad/discovery/errors_test.go and services/launchpad/api/internal/app/production_unserved_test.go. Independently recorded squad and alert findings remain unchanged."
 
 [doc.014]
-path = "contracts/clients.md"
-status = "missing"
-notes = "Referenced by web environment and SDK operation registry anchors; this page is absent, leaving the declared client contract documentation destinations unresolved."
+path = "spec/layerx-merge/contracts/clients.md"
+status = "stale"
+notes = "Registry contract links resolve relative to spec/layerx-merge; launchpad-web-app and launchpad-sdk-sdk exist in spec/layerx-merge/contracts/clients.md. Reviewed the sections at lines 739 and 443 against apps/launchpad/web/src/core/next-build-config.ts, sdk/launchpad/packages/sdk/src/served-routes.ts and sdk/launchpad/packages/sdk/package.json. Content drift: the web NEXT_DEV_ALLOWED_ORIGINS and TRANSPILE_PACKAGES helper entries remain marked planned despite their implementation; the SDK routeStatusCoversEveryOperation acceptance entry remains marked planned despite its declaration in sdk/launchpad/packages/sdk/test/served-routes.test.mjs. SDK phase scripts and v2EvidenceManifest are already absent from package.json although listed for retirement."

@@ -140,6 +140,15 @@ func newSeqReceiptChain9005(t *testing.T) *seqReceiptChain9005 {
 	return c
 }
 
+func newSeqReceiptMissingKeysChain9005(t *testing.T) *seqReceiptChain9005 {
+	t.Helper()
+	chain := newSeqReceiptChain9005(t)
+	chain.writeCtx9005(7).KVStore(chain.key).Delete(seqtypes.ReceiptKeysKey)
+	chain.commit9005(7)
+	require.False(t, chain.ctxProvider(evmrpc.LatestCtxHeight).KVStore(chain.key).Has(seqtypes.ReceiptKeysKey))
+	return chain
+}
+
 // commit9005 commits the block at height and keeps a copy of the committed sequencer store as
 // the state at that height: the legacy root store serves only its latest version.
 func (c *seqReceiptChain9005) commit9005(height int64) {
@@ -415,22 +424,36 @@ func TestReceiptKeysNotServedNamesRequestedMethod(t *testing.T) {
 	chain := newSeqReceiptChain9005(t)
 	testApp := app.Setup(t, false, false, false)
 	port := startSeqReceiptServer9005(t, testApp, chain.ctxProvider, evmrpc.SequencerReceiptOption{})
-	unavailableURL, err := url.Parse(fmt.Sprintf("http://%s:%d", TestAddr, port))
+	proposerURL, err := url.Parse(fmt.Sprintf("http://%s:%d", TestAddr, port))
 	require.NoError(t, err)
-	forwardPort := startSeqReceiptServer9005(t, testApp, chain.ctxProvider, evmrpc.SequencerReceiptOption{ForwardURL: unavailableURL})
+	forwardPort := startSeqReceiptServer9005(t, testApp, chain.ctxProvider, evmrpc.SequencerReceiptOption{ForwardURL: proposerURL})
+	missing := newSeqReceiptMissingKeysChain9005(t)
+	unavailablePort := startSeqReceiptServer9005(t, testApp, missing.ctxProvider, evmrpc.SequencerReceiptOption{})
+	unavailableForwardPort := startSeqReceiptServer9005(t, testApp, missing.ctxProvider, evmrpc.SequencerReceiptOption{ForwardURL: proposerURL})
+	public := chain.receiptKey.PublicKey()
 
 	for _, node := range []struct {
-		name string
-		port int
+		name        string
+		port        int
+		unavailable bool
 	}{
 		{name: "direct", port: port},
 		{name: "forwarded", port: forwardPort},
+		{name: "missing direct", port: unavailablePort, unavailable: true},
+		{name: "missing forwarded", port: unavailableForwardPort, unavailable: true},
 	} {
 		t.Run(node.name, func(t *testing.T) {
-			_, rpcErr := callSeqReceipt9005(t, node.port, evmrpc.ReceiptKeysMethod)
-			require.NotNil(t, rpcErr)
-			require.Equal(t, -32000, rpcErr.Code)
-			require.Equal(t, "px_getReceiptKeys served by sequencer", rpcErr.Message)
+			raw, rpcErr := callSeqReceipt9005(t, node.port, evmrpc.ReceiptKeysMethod)
+			if node.unavailable {
+				require.NotNil(t, rpcErr)
+				require.Equal(t, -32003, rpcErr.Code)
+				require.Equal(t, "Chain read unavailable", rpcErr.Message)
+				require.Equal(t, map[string]any{"code": "receipt_keys_unavailable"}, rpcErr.Data)
+			} else {
+				require.Nil(t, rpcErr)
+				require.JSONEq(t, fmt.Sprintf(`{"keys":[{"keyId":%q,"publicKey":%q,"firstHeight":1,"lastHeight":1999}]}`,
+					"0x"+hex.EncodeToString(chain.keyID[:]), "0x"+hex.EncodeToString(public[:])), string(raw))
+			}
 		})
 	}
 
@@ -444,12 +467,13 @@ func TestPublicPxReceiptKeysCanonical(t *testing.T) {
 	chain := newSeqReceiptChain9005(t)
 	testApp := app.Setup(t, false, false, false)
 	port := startSeqReceiptServer9005(t, testApp, chain.ctxProvider, evmrpc.SequencerReceiptOption{Source: chain, Keeper: &chain.keeper})
-	unavailablePort := startSeqReceiptServer9005(t, testApp, chain.ctxProvider, evmrpc.SequencerReceiptOption{})
+	missing := newSeqReceiptMissingKeysChain9005(t)
+	unavailablePort := startSeqReceiptServer9005(t, testApp, missing.ctxProvider, evmrpc.SequencerReceiptOption{})
 	_, unavailable := callSeqReceipt9005(t, unavailablePort, evmrpc.ReceiptKeysMethod)
 	require.NotNil(t, unavailable)
-	require.Equal(t, -32000, unavailable.Code)
-	require.Equal(t, "px_getReceiptKeys served by sequencer", unavailable.Message)
-	require.Nil(t, unavailable.Data)
+	require.Equal(t, -32003, unavailable.Code)
+	require.Equal(t, "Chain read unavailable", unavailable.Message)
+	require.Equal(t, map[string]any{"code": "receipt_keys_unavailable"}, unavailable.Data)
 
 	root, err := filepath.Abs("..")
 	require.NoError(t, err)
@@ -683,15 +707,14 @@ func TestReceiptKeysServedByTheNode(t *testing.T) {
 	port := startSeqReceiptServer9005(t, testApp, chain.ctxProvider, evmrpc.SequencerReceiptOption{Source: chain, Keeper: &chain.keeper})
 	proposerURL, err := url.Parse(fmt.Sprintf("http://%s:%d", TestAddr, port))
 	require.NoError(t, err)
-	// The forwarder's local store is empty: it must answer the proposer's pins.
 	other := newSeqReceiptChain9005(t)
 	require.NoError(t, other.keeper.SetReceiptKeys(other.writeCtx9005(7), seqkeeper.ReceiptKeys{}))
 	other.commit9005(7)
 	forwardPort := startSeqReceiptServer9005(t, testApp, other.ctxProvider, evmrpc.SequencerReceiptOption{Keeper: &other.keeper, ForwardURL: proposerURL})
 
-	checkKeys := func(want seqkeeper.ReceiptKeys) seqkeeper.ReceiptKeys {
+	checkKeys := func(nodePort int, want seqkeeper.ReceiptKeys) seqkeeper.ReceiptKeys {
 		t.Helper()
-		raw, rpcErr := callSeqReceipt9005(t, port, evmrpc.ReceiptKeysMethod)
+		raw, rpcErr := callSeqReceipt9005(t, nodePort, evmrpc.ReceiptKeysMethod)
 		require.Nil(t, rpcErr)
 		var fields map[string]json.RawMessage
 		require.NoError(t, json.Unmarshal(raw, &fields))
@@ -714,19 +737,36 @@ func TestReceiptKeysServedByTheNode(t *testing.T) {
 			pins[i] = seqkeeper.ReceiptKeyEntry{KeyId: bytes.Clone(key.KeyID[:]), PublicKey: bytes.Clone(key.PublicKey), FirstHeight: key.FirstHeight, LastHeight: key.LastHeight}
 		}
 		require.Equal(t, want, pins)
-		forwarded, rpcErr := callSeqReceipt9005(t, forwardPort, evmrpc.ReceiptKeysMethod)
-		require.Nil(t, rpcErr)
-		require.JSONEq(t, string(raw), string(forwarded))
+		for _, pin := range pins {
+			keyID := [32]byte(pin.KeyId)
+			for _, height := range []uint64{pin.FirstHeight, pin.LastHeight} {
+				entry, err := pins.KeyForHeight(keyID, height)
+				require.NoError(t, err)
+				require.Equal(t, pin, entry)
+			}
+			_, err := pins.KeyForHeight(keyID, pin.FirstHeight-1)
+			require.ErrorIs(t, err, seqkeeper.ErrReceiptKeyNotPinned)
+			_, err = pins.KeyForHeight(keyID, pin.LastHeight+1)
+			require.ErrorIs(t, err, seqkeeper.ErrReceiptKeyNotPinned)
+		}
 		return pins
 	}
 
 	public := chain.receiptKey.PublicKey()
 	want := seqkeeper.ReceiptKeys{{KeyId: bytes.Clone(chain.keyID[:]), PublicKey: bytes.Clone(public[:]), FirstHeight: 1, LastHeight: 1999}}
-	pins := checkKeys(want)
+	pins := checkKeys(port, want)
+	checkKeys(forwardPort, seqkeeper.ReceiptKeys{})
 	hash, _ := chain.accept9005(seqReceiptTx9005{nonce: 1, height: 7, txIndex: 1, status: 1, returnData: []byte{0x01}})
 	_, receipt, _ := seqReceiptResult9005(t, port, hash)
 	require.NotNil(t, receipt)
 	require.NoError(t, receipt.Verify(pins))
+
+	otherPublic := ed25519.NewKeyFromSeed(bytes.Repeat([]byte{0x41}, ed25519.SeedSize)).Public().(ed25519.PublicKey)
+	otherWant := seqkeeper.ReceiptKeys{{KeyId: bytes.Repeat([]byte{0x88}, 32), PublicKey: otherPublic, FirstHeight: 9, LastHeight: 3999}}
+	require.NoError(t, other.keeper.SetReceiptKeys(other.writeCtx9005(8), otherWant))
+	other.commit9005(8)
+	checkKeys(forwardPort, otherWant)
+	checkKeys(port, want)
 
 	// An update after server startup must be read at the latest height, in pinned order.
 	secondID := bytes.Repeat([]byte{0x66}, 32)
@@ -734,16 +774,33 @@ func TestReceiptKeysServedByTheNode(t *testing.T) {
 	want = append(want, seqkeeper.ReceiptKeyEntry{KeyId: secondID, PublicKey: secondPublic, FirstHeight: 8, LastHeight: 2999})
 	require.NoError(t, chain.keeper.SetReceiptKeys(chain.writeCtx9005(7), want))
 	chain.commit9005(7)
-	pins = checkKeys(want)
+	pins = checkKeys(port, want)
+	checkKeys(forwardPort, otherWant)
+	require.NoError(t, receipt.Verify(pins))
+
+	rotatedPublic := ed25519.NewKeyFromSeed(bytes.Repeat([]byte{0x51}, ed25519.SeedSize)).Public().(ed25519.PublicKey)
+	otherWant = append(seqkeeper.ReceiptKeys{{KeyId: bytes.Repeat([]byte{0x77}, 32), PublicKey: rotatedPublic, FirstHeight: 10, LastHeight: 4999}}, otherWant...)
+	require.NoError(t, other.keeper.SetReceiptKeys(other.writeCtx9005(9), otherWant))
+	other.commit9005(9)
+	checkKeys(forwardPort, otherWant)
+	pins = checkKeys(port, want)
 	require.NoError(t, receipt.Verify(pins))
 
 	require.NoError(t, chain.keeper.SetReceiptKeys(chain.writeCtx9005(8), seqkeeper.ReceiptKeys{}))
 	chain.commit9005(8)
-	checkKeys(seqkeeper.ReceiptKeys{})
+	checkKeys(port, seqkeeper.ReceiptKeys{})
+	checkKeys(forwardPort, otherWant)
+
+	require.NoError(t, other.keeper.SetReceiptKeys(other.writeCtx9005(10), seqkeeper.ReceiptKeys{}))
+	other.commit9005(10)
+	checkKeys(forwardPort, seqkeeper.ReceiptKeys{})
+	checkKeys(port, seqkeeper.ReceiptKeys{})
 
 	_, rpcErr := callSeqReceipt9005(t, TestPort, evmrpc.ReceiptKeysMethod)
 	require.NotNil(t, rpcErr)
-	require.Equal(t, -32000, rpcErr.Code)
+	require.Equal(t, -32003, rpcErr.Code)
+	require.Equal(t, "Chain read unavailable", rpcErr.Message)
+	require.Equal(t, map[string]any{"code": "receipt_keys_unavailable"}, rpcErr.Data)
 
 	t.Run("sent transaction", func(t *testing.T) {
 		sender := occutils.NewSigner()

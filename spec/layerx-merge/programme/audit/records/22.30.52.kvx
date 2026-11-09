@@ -1540,7 +1540,7 @@ owner_domain = 7
 
 [finding.rpc-agents-pending-policy-stale]
 file = "rpc/AGENTS.md"
-line = 7
+line = 6
 class = "doc-drift"
 severity = "medium"
 observed = "The Pending rule says every pending parameter is equivalent to final/safe/latest because there is no pending block concept. The real pending provider and SimulationAPI expose open execution state and a bounded retry lifecycle on the node holding the proposal."
@@ -1857,7 +1857,7 @@ notes = "Read package-linked interface sections and frozen context/acceptance ro
 [doc.28]
 path = "rpc/AGENTS.md"
 status = "stale"
-notes = "Read in full: line 7 claims universal pending/latest equivalence, contrary to live open/idle provider semantics; other RPC unsupported/deprecation instructions remain separately scoped."
+notes = "Read in full: line 6 claims universal pending/latest equivalence, contrary to live open/idle provider semantics; other RPC unsupported/deprecation instructions remain separately scoped."
 
 [doc.29]
 path = "consensus/AGENTS.md"
