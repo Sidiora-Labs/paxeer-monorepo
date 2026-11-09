@@ -160435,7 +160435,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1718.1]
 title = "Issue #1718: Locate the shell search input by its accessible label"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -182521,7 +182521,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1658.1]
 title = "Issue #1658: Preserve markets snapshots with unavailable feed metrics"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.39.234"]
@@ -182587,7 +182587,7 @@ do_6 = "Attempt 2 (continue, gotcha 3789, gotcha 3046): the attempt-1 tree c8716
 
 [task.18.1655.1]
 title = "Issue #1655: Align collateral removal with post-settlement withdrawal limits"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.234"]
@@ -191585,7 +191585,7 @@ do_5 = "Attempt 3 (continue, gotcha 3821): the attempt-2 tree 55fb3d91800b stand
 
 [task.18.1745.1]
 title = "Issue #1745: Exercise the production committed-state predicate in approval budget repair tests"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -191615,7 +191615,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1743.1]
 title = "Issue #1743: Restore code-only native-read refusal responses"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
