@@ -160256,7 +160256,7 @@ do_5 = "Attempt 3 (continue, gotcha 3817): the attempt-2 tree 612de178d080 stand
 
 [task.18.1656.1]
 title = "Issue #1656: Display protocol snapshot TVL in six-decimal USDL units"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.234"]
@@ -160723,7 +160723,7 @@ do_5 = "Attempt 2 (continue after 22.39.234 lands; gotcha 3790, decision 3068): 
 
 [task.18.1668.1]
 title = "Issue #1668: Remove the unused resize-handle fixture manifest"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.234"]
@@ -160784,7 +160784,7 @@ do_4 = "Attempt 2 (continue after 22.39.234 lands; gotcha 3770, decision 3068): 
 
 [task.18.1657.1]
 title = "Issue #1657: Apply UTC calendar windows to the Assets chart"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.234"]
@@ -192443,7 +192443,7 @@ do_6 = "Attempt 4 (continue, gotcha 3819): the attempt-3 tree a724daeb709d stand
 
 [task.22.39.217]
 title = "Bring the layerx-crypto crate and its test targets under the workspace lints"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["22.39.209"]
