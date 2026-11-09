@@ -19655,3 +19655,63 @@ fix = "The chunk step touches only the region of its chunk and the replay entry 
 title = "The launchpad stream relay attempt ran no gate because the file its note names is outside the task scope"
 symptom = "Task 22.39.117 attempt 13: the attempt-13 note asks for the loopback JetStream server inside services/launchpad/api/internal/app/stream_relay_production_test.go, which the touches list does not name; the model session kept the attempt-12 tree ef16d9ebde7a and ran no build and no verification"
 fix = "The touches list names the test file; decision 3116"
+
+[gotcha.3967]
+title = "The launchpad image task ran out of working time on a 557 second image build under a 30 minute limit"
+symptom = "Task 18.1823.1 attempt 7 at 2ea4848b5c49: the model session hit the working-time limit after the image build alone took 557 seconds, thirteen paths were changed and no gate ran; the time limit of the task was 30 minutes"
+fix = "The time limit is 90 minutes and attempt 8 continues from the attempt-7 tree"
+
+[gotcha.3968]
+title = "The SDK lint task stopped on a dependent gateway test that main has since repaired"
+symptom = "Task 22.39.225 attempt 7 at fd299ca99eea: the build passes, then the dependent check fails with E0063 at services/platform/hosted/gateway/tests/repair_22_33_1336.rs:28 because the configuration literal of that test lacks the read window field; main carries the repair since bdbadaedbc"
+fix = "Attempt 8 rebases on main and continues"
+
+[gotcha.3969]
+title = "The programs runtime lint task has fifteen documentation sites and two further lints left in its test targets"
+symptom = "Task 22.39.235 attempt 5 at b8e4850b4acc: after ten repaired sites the clippy run under -D warnings still reports fifteen doc-markdown sites (identifiers without backticks) in tests/repair_22_33_259.rs and tests/repair_22_31_266.rs, items_after_statements in tests/repair_22_31_259.rs and assigning_clones in tests/repair_22_31_577.rs of programs/crates/layerx-programs-runtime; the dead-code warnings printed for programs/sdk/rust belong to the dependency and are not errors"
+fix = "Attempt 6 repairs the remaining sites of the crate"
+
+[gotcha.3970]
+title = "The store genesis validation of lxphost refuses the programs-module rows the committed fixture writes"
+symptom = "Task 18.1667.1 attempt 8 at b6f4f6ac6d08: TestRecorderV6GenesisSelection fails in every selection because paxd gentx reports lxphost: record 0: foreign module row; StoreGenesis.Validate at modules/lxphost/genesis.go:82 admits module rows of C.LXP_MODULE_ASSET only, while the fixture writes the metering and fee rows decision 3114 requires under C.LXP_MODULE_PROGRAMS, and ExportStoreGenesis at genesis.go:117 exports the asset prefix only"
+fix = "Task 22.39.282 admits programs-module rows in validation and export; decision 3121"
+
+[gotcha.3971]
+title = "The agent workspace lockfile on main is stale for every build that passes the locked flag"
+symptom = "Task 18.1724.1 attempt 8 at e8ddcf78cbb1 (build exit 101: the lock file services/agent/Cargo.lock needs to be updated but --locked was passed), task 18.1752.1 attempt 5 (gotcha 3964) and task 18.1777.1 attempt 6, held for regenerating the lockfile outside its planned paths, all hit the same lockfile; it has not followed the manifests since the merge d6aef6b24c"
+fix = "Task 22.39.283 regenerates the lockfile; the tasks that build the workspace with the locked flag follow it; decision 3120"
+
+[gotcha.3972]
+title = "The approval clock case of the human service is refused because its journey never bound a transaction sender"
+symptom = "Task 18.1747.1 attempt 9 at be777ff4e246: native_producer_clock_units passes, native_approval_clock_units panics at crates/layerx-human-service/tests/repair_22_33_63.rs:2378 with Agent(Refused) on the native journey advance; native_send_preview_v2 of services/agent/crates/layerx-agentd/src/server/agent_runtime.rs refuses at :5443 when transaction_sender is unset, and the approval case binds the journey context at :2352 without the bind_transaction_sender call the producer case makes at :1524"
+fix = "The approval case binds the sender before the journey context"
+
+[gotcha.3973]
+title = "The launchpad workflow test still asserts the Foundry version the core-suite alignment moved on"
+symptom = "Task 22.39.168 attempt 5 at 80becdf17c91: tests/ci/test_launchpad_go_tests_wired.py:103 asserts the Foundry action input version v1.7.1 while .github/workflows/launchpad-test.yml:252 pins v1.8.1; issue 1846 aligned the core-suite assertion with v1.8.1 and left the launchpad assertion behind"
+fix = "The assertion names the value the workflow pins (gotcha 3046)"
+
+[gotcha.3974]
+title = "Setting the recorded launchpad packet manifest to the current deployment makes the receipt qualification reject the recorded code"
+symptom = "Task 22.39.242 attempt 4 at 4d99d03cc6d9: with Options.Manifest of services/launchpad/indexer/internal/receipt/testdata/repair53-producer.json set to deployment.Current() six of the ten cases fail (receipt qualification rejected at repair_53_test.go:458 and :496, TestRepairM_999_ReceiptQualifiedBackfill, TestRepairM_995_NativeReceiptAttribution); the packet is a transcript of the live chain whose role code is the 41-byte runtime with keccak 6302ff80, while current.json pins the guarded surface runtime e67f4b12 that no deployment runs before the upgrade, so the recorded code can never qualify against the current manifest and the packet can never equal it"
+fix = "The ten cases compare the manifests without the runtime hash fields and the packet keeps the manifest it was recorded with; decision 3119"
+
+[gotcha.3975]
+title = "The launchpad stream relay task is red on the same recorded packet cases"
+symptom = "Task 22.39.117 attempt 14 at dc36fbcb9ce5: make ci fails on TestRepairM_999_ProductionBackfillDefault, TestRepairM_995_NativeRoleProvenance, TestRepairM_995_ConservativeEvidence, TestRepairM_995_ReceiptIdentity and TestRepair_53_migrated_role_epochs, the recorded packet cases of gotcha 3974, and every other package passes"
+fix = "The task follows 22.39.242 and clears the staged runtime hash the same way"
+
+[gotcha.3976]
+title = "The retired-caller catalogue task finds seven references in four trees that have or now get a repair task of their own"
+symptom = "Task 22.39.245 attempt 1 at 27d4df847c64: the thirty self-test cases pass and the whole-tree scan reports modules/layerxanchor/keeper/custody_reader.go:6 and :36 (custody-deposit, layerxcustody), modules/layerxexchange/types/state.go:186 (custody-disclosure, paxeer-reserve), services/agent/crates/layerx-client/src/ai_market.rs:628 (checkpoint-finality, FINALIZED_RANK) and services/agent/crates/layerx-wire/src/hash.rs:38, :72 and :819 (human-two-domain, EvmPayoutBinding); the client tree belongs to 22.39.256 and the other three trees had no repair task"
+fix = "The verification of 22.39.245 scans only trees without a repair task; tasks 22.39.284 to 22.39.286; decision 3122"
+
+[gotcha.3977]
+title = "The aggregation chunk slope of the market program now sits in the report-score projection of the vote phase"
+symptom = "Task 22.33.223 attempt 21 at 3ce387375a31: 31 of 32 cases pass and roster_state_fuel_scaling fails at tests/fuel_budget.rs:3218 with the first ProcessAggregation chunk at 175338 fuel for 16 and 4 against 251901 for 32 and 8; the attempt-21 measurements show the chunk roster read flat and no replay decode, with the vote phase at 66026 against 130658, so the report-score projection still walks the score cells of every roster participant on each chunk call; the regenerated guest was 60 bytes over the deployment limit before the final repair"
+fix = "The projection covers only the reports of the eight participants of the chunk"
+
+[gotcha.3978]
+title = "The light muted label of the explorer misses the 3:1 contrast the design brief promises by three hundredths"
+symptom = "Issue 1716: LIGHT_ROLES.textMuted #8A91A0 of apps/explorer/toolkit/theme/foundations/palette.ts:10 against the light surface #F7F8FA gives 2.9769:1 while spec/layerx-merge/programme/docs/explorer-ui/design-brief.md:29 promises 3:1; the nearest value meeting the ratio on that surface is #8A90A0 (3.0045:1)"
+fix = "Task 22.39.281 darkens the label, keeps the surface and adds an unrounded contrast regression; decision 3118"

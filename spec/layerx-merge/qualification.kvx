@@ -38610,3 +38610,91 @@ symbol = "chain::TestPhase2ReadAdapterRealRegisteredPool"
 observed = "Attempt 13: no build and no verification ran; the model session declined the edit of stream_relay_production_test.go as outside the touches list and kept the attempt-12 tree ef16d9ebde7a."
 assumption = "With the test file in scope the attempt-13 note can be carried out."
 severity = "high"
+
+[finding.18.1823.1.7]
+task = "18.1823.1"
+file = "tests/ci/test_frontend_asset_names.py::test_launchpad_docker_chart_declarations"
+symbol = "test_frontend_asset_names.py::test_launchpad_docker_chart_declarations"
+observed = "Attempt 7 at 2ea4848b5c49: the model session hit the 30 minute working-time limit after the image build; no build gate and no verification ran; log /out/logs/run-task.log."
+assumption = "With 90 minutes the image build and the gates fit in one attempt."
+severity = "high"
+
+[finding.22.39.225.7]
+task = "22.39.225"
+file = "services/agent/crates/layerx-sdk"
+symbol = "layerx-sdk"
+observed = "Attempt 7 at fd299ca99eea: cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-sdk --all-targets exit 0; the dependent check fails with E0063 at services/platform/hosted/gateway/tests/repair_22_33_1336.rs:28 (Config lacks read_windows); no verification ran; log /out/logs/dependents-1.log."
+assumption = "The dependent compiles on main and the lint repairs stand."
+severity = "high"
+
+[finding.22.39.235.5]
+task = "22.39.235"
+file = "programs/crates/layerx-programs-runtime"
+symbol = "layerx-programs-runtime"
+observed = "Attempt 5 at b8e4850b4acc: build exit 0; verification exit 101: cargo clippy --locked --manifest-path programs/Cargo.toml -p layerx-programs-runtime --no-deps --all-targets -- -D warnings reports fifteen doc-markdown errors and two further lints in the test targets; log /out/logs/verify-2.log."
+assumption = "The remaining sites are in files inside the task tree and the repairs are mechanical."
+severity = "high"
+
+[finding.18.1667.1.8]
+task = "18.1667.1"
+file = "daemon/committed-fixture/main_test.go::TestRecorderV6GenesisSelection"
+symbol = "main_test.go::TestRecorderV6GenesisSelection"
+observed = "Attempt 8 at b6f4f6ac6d08: build exit 0; verification exit 1: TestRecorderV6GenesisSelection fails in the all, V6 and unrelated selections with paxd gentx exit status 1, failed to validate genesis state: lxphost: record 0: foreign module row; log /out/logs/verify-2.log."
+assumption = "With the programs-module rows admitted the gentx validation passes and the selections run."
+severity = "high"
+
+[finding.18.1724.1.8]
+task = "18.1724.1"
+file = "node/sequencer/receipt_equality_test.go::TestCurrentReceiptRestartFixture"
+symbol = "receipt_equality_test.go::TestCurrentReceiptRestartFixture"
+observed = "Attempt 8 at e8ddcf78cbb1: go build ./node/sequencer/... && cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test outbox_recover exit 101, the lock file services/agent/Cargo.lock needs to be updated but --locked was passed; no verification ran; log /out/logs/build-1.log."
+assumption = "With the lockfile regenerated on main the locked build passes."
+severity = "high"
+
+[finding.18.1747.1.9]
+task = "18.1747.1"
+file = "services/human/crates/layerx-human-service/tests/repair_22_33_63.rs::native_approval_clock_units"
+symbol = "repair_22_33_63.rs::native_approval_clock_units"
+observed = "Attempt 9 at be777ff4e246: build exit 0; verification exit 101: native_approval_clock_units panics at repair_22_33_63.rs:2378 with clock regression native Journey advance: Agent(Refused); native_producer_clock_units passes; log /out/logs/verify-2.log."
+assumption = "The approval case setup lacks the sender binding and the runtime behaves as specified."
+severity = "high"
+
+[finding.22.39.168.5]
+task = "22.39.168"
+file = "services/launchpad/ranking-algo"
+symbol = "ranking-algo"
+observed = "Attempt 5 at 80becdf17c91: build exit 0; verification exit 1: tests/ci/test_launchpad_go_tests_wired.py:103 asserts the Foundry version v1.7.1 while the workflow pins v1.8.1; log /out/logs/verify-1.log."
+assumption = "The assertion follows the pin of the workflow it tests."
+severity = "high"
+
+[finding.22.39.242.4]
+task = "22.39.242"
+file = "services/launchpad/indexer/internal/receipt/testdata/repair53-producer.json"
+symbol = "repair53-producer.json"
+observed = "Attempt 4 at 4d99d03cc6d9: build exit 0; verification exit 1: six of the ten cases fail with receipt qualification rejected (repair_53_test.go:458 and :496) and the backfill and attribution cases of internal/config and internal/decode, because the packet manifest now pins a runtime hash the recorded chain code does not carry; log /out/logs/verify-1.log."
+assumption = "The recorded transcript qualifies against the manifest it was recorded with and the comparison without runtime hashes keeps the cases meaningful until the upgrade."
+severity = "high"
+
+[finding.22.39.117.14]
+task = "22.39.117"
+file = "sdk/launchpad/shared/chain::TestPhase2ReadAdapterRealRegisteredPool"
+symbol = "chain::TestPhase2ReadAdapterRealRegisteredPool"
+observed = "Attempt 14 at dc36fbcb9ce5: build exit 0; verification exit 2: make -C services/launchpad ci fails on TestRepairM_999_ProductionBackfillDefault, TestRepairM_995_NativeRoleProvenance, TestRepairM_995_ConservativeEvidence, TestRepairM_995_ReceiptIdentity and TestRepair_53_migrated_role_epochs; every other package passes; log /out/logs/verify-1.log."
+assumption = "Once the comparison helpers of 22.39.242 land and clear the staged hash, make ci is green."
+severity = "high"
+
+[finding.22.39.245.1]
+task = "22.39.245"
+file = "tools/paxeer-x/retired_callers.json"
+symbol = "retired_callers.json"
+observed = "Attempt 1 at 27d4df847c64: build exit 0; verification exit 1: the whole-tree scan reports seven references in modules/layerxanchor/keeper/custody_reader.go, modules/layerxexchange/types/state.go, services/agent/crates/layerx-client/src/ai_market.rs and services/agent/crates/layerx-wire/src/hash.rs; log /out/logs/verify-2.log."
+assumption = "The narrowed scan is clean on the attempt-1 tree and the findings are owned by their repair tasks."
+severity = "high"
+
+[finding.22.33.223.20]
+task = "22.33.223"
+file = "programs/crates/layerx-programs-ai-market/tests/repair_22_33_223.rs"
+symbol = "repair_22_33_223.rs"
+observed = "Attempt 21 at 3ce387375a31: build exit 0; verification exit 101: roster_state_fuel_scaling panics at tests/fuel_budget.rs:3218, a chunk fuel must remain within ten percent across rosters, 16/4=175338, 32/8=251901; 31 cases pass; log /out/logs/verify-1.log."
+assumption = "The vote-phase projection is the last roster-proportional pass of the chunk step."
+severity = "high"
