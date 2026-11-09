@@ -349806,7 +349806,7 @@ do_6 = "Attempt 3: the closure check is a gate over the whole issue programme; i
 
 [task.22.39.293]
 title = "Re-pin the audit-record cases of the qualification tree to the producers as they stand"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
