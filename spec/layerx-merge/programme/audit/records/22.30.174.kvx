@@ -1072,9 +1072,9 @@ file = "tools/qualification/paxeer-x/human-movement-kms-assembly.py"
 line = 35
 class = "test-gap"
 severity = "medium"
-observed = "SOURCES contains platform/crates although the moved producer tree is services/platform/crates. The source check relies on git status and a revision and does not require that each named source path exists."
+observed = "SOURCES contains services/platform/crates, which does not exist; platform/crates also does not exist. The runtime clock is already covered by services/platform/hosted/runtime-clock, the workspace member in services/platform/Cargo.toml:8 built by build(). The existing source_snapshot existence and symlink checks correctly refuse the invalid entry before producers can run."
 expected = "Artifact provenance must cover the actual source trees used to build the KMS and movement producers, and a missing provenance path must stop qualification."
-proposal = "In tools/qualification/paxeer-x/human-movement-kms-assembly.py, name services/platform/crates and require every provenance path to exist and match the artifact revision before starting live producers."
+proposal = "Remove services/platform/crates from SOURCES in tools/qualification/paxeer-x/human-movement-kms-assembly.py, retain services/platform/hosted/runtime-clock and the Human and agent source trees, and prove the actual repository layout with real tracked sources while preserving every missing-path, symlink, content and artifact-revision refusal in source_snapshot, source and verify_provenance."
 owner_domain = 16
 interface = "16.cli-qual-qualification-paxeer-x-human-movement-kms-assembly"
 
