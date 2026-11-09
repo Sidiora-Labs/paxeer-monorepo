@@ -191693,7 +191693,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1681.1]
 title = "Issue #1681: Assert retired budget pull exclusion in the generated corpus consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -347337,7 +347337,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1859.1]
 title = "Issue #1859: Align launchpad and wallet repair-suite checks with workspace commands"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -359892,7 +359892,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.214]
 title = "Make the retired caller scanner issue one git grep over the tracked files and filter the matches in memory"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["22.39.144"]
