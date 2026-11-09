@@ -24,6 +24,7 @@ mod proof {
     use super::daemon::native_read_response;
     use layerx_agentd::node_rpc::NodeRpcConfig;
     use layerx_agentd::read::{NativeReadError, ProgramBalanceReadRoute};
+    use layerx_client::sequencer::{RpcRefusal, SequencerError};
     use std::io::{Read, Write};
     use std::net::{TcpListener, TcpStream};
     use std::sync::Arc;
@@ -67,7 +68,6 @@ mod proof {
     #[serde(deny_unknown_fields)]
     struct ErrorBody {
         error: Code,
-        detail: Option<String>,
     }
 
     #[derive(Debug, PartialEq)]
@@ -122,14 +122,6 @@ mod proof {
         let envelope: ErrorBody = serde_json::from_str(body).map_err(|e| e.to_string())?;
         if status != envelope.error.status() {
             return Err("status and code disagree".into());
-        }
-        if (envelope.error == Code::VerifiedReadUnavailable)
-            != envelope
-                .detail
-                .as_deref()
-                .is_some_and(|detail| !detail.is_empty())
-        {
-            return Err("native refusal detail and code disagree".into());
         }
         Ok(Observed::Refused(envelope.error))
     }
@@ -325,9 +317,122 @@ mod proof {
     #[test]
     fn verified_read_unavailable() {
         let service = Service::start(Some(125), 125);
-        service.twice(
-            &format!("/v1/reads/availability/{}", u64::MAX),
-            Code::VerifiedReadUnavailable,
+        let path = format!("/v1/reads/availability/{}", u64::MAX);
+        for _ in 0..2 {
+            let raw = service.get(&path, BEARER);
+            assert_eq!(
+                decode_response(&raw).unwrap(),
+                Observed::Refused(Code::VerifiedReadUnavailable)
+            );
+            let first_body = raw.windows(4).position(|w| w == b"\r\n\r\n").unwrap() + 4;
+            assert_eq!(
+                &raw[first_body..],
+                b"{\"error\":\"verified_read_unavailable\"}"
+            );
+            assert!(decode_response(&raw[..raw.len() - 1]).is_err());
+
+            // Corrupt the actual response only at the consumer boundary, keeping
+            // its framing valid so unknown fields reach the strict JSON decoder.
+            for (field, value) in [
+                ("detail", json!("private-native-read-rpc-message")),
+                ("detail", Value::Null),
+                (
+                    "diagnostic",
+                    json!({"data": "private-native-read-rpc-data"}),
+                ),
+            ] {
+                let mut body: Value = serde_json::from_slice(&raw[first_body..]).unwrap();
+                body.as_object_mut().unwrap().insert(field.into(), value);
+                let body = body.to_string();
+                let head = std::str::from_utf8(&raw[..first_body]).unwrap().replace(
+                    &format!("Content-Length: {}\r\n", raw.len() - first_body),
+                    &format!("Content-Length: {}\r\n", body.len()),
+                );
+                let mut malformed = head.into_bytes();
+                malformed.extend_from_slice(body.as_bytes());
+                let error = decode_response(&malformed).unwrap_err();
+                assert!(error.contains("unknown field"), "{error}");
+            }
+        }
+        assert_eq!(
+            decode_response(&service.get(&path, "wrong-credential")).unwrap(),
+            Observed::Refused(Code::Unauthorized)
+        );
+    }
+
+    #[test]
+    fn native_read_refusals_redact_internal_errors() {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let address = listener.local_addr().unwrap();
+        let requests = Arc::new(AtomicUsize::new(0));
+        let observed = Arc::clone(&requests);
+        let pool = HttpPool::start(listener, move |mut stream| {
+            let answer = match parse_request(&mut stream, BEARER) {
+                Parsed::Admitted(path) => {
+                    assert_eq!(path, "/v1/reads/checkpoint/1");
+                    let index = observed.fetch_add(1, Ordering::SeqCst);
+                    native_read_response(Err(NativeReadError::Connection(SequencerError::Rpc(
+                        RpcRefusal {
+                            code: -32043,
+                            message: format!("private-native-read-rpc-message-{index}"),
+                            data: Some(json!({
+                                "diagnostic": format!("private-native-read-rpc-data-{index}"),
+                                "request": index,
+                            })),
+                        },
+                    ))))
+                }
+                Parsed::Refused(status, body) => (status, body.to_owned()),
+                Parsed::Closed => return,
+            };
+            response(&mut stream, answer.0, &answer.1).unwrap();
+        })
+        .unwrap();
+        let service = Service {
+            address,
+            _pool: pool,
+            node: None,
+        };
+        for _ in 0..2 {
+            let raw = service.get("/v1/reads/checkpoint/1", BEARER);
+            assert!(raw.starts_with(b"HTTP/1.1 503 "));
+            assert_eq!(
+                decode_response(&raw).unwrap(),
+                Observed::Refused(Code::VerifiedReadUnavailable)
+            );
+            let first_body = raw.windows(4).position(|w| w == b"\r\n\r\n").unwrap() + 4;
+            assert_eq!(
+                &raw[first_body..],
+                b"{\"error\":\"verified_read_unavailable\"}"
+            );
+            let text = std::str::from_utf8(&raw[first_body..]).unwrap();
+            for diagnostic in [
+                "Connection",
+                "Rpc",
+                "RpcRefusal",
+                "detail",
+                "message",
+                "data",
+                "diagnostic",
+                "-32043",
+                "private-native-read-rpc-message",
+                "private-native-read-rpc-data",
+            ] {
+                assert!(
+                    !text.contains(diagnostic),
+                    "leaked diagnostic: {diagnostic}"
+                );
+            }
+            assert!(decode_response(&raw[..raw.len() - 1]).is_err());
+        }
+        assert_eq!(
+            decode_response(&service.get("/v1/reads/checkpoint/1", "wrong-credential")).unwrap(),
+            Observed::Refused(Code::Unauthorized)
+        );
+        assert_eq!(
+            requests.load(Ordering::SeqCst),
+            2,
+            "independent producer invocations"
         );
     }
 
