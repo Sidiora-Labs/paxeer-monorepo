@@ -1,0 +1,48 @@
+[issue.1714]
+number = 1714
+title = "[P2] Resolve committed journey receipt references through evidence.get"
+revision = "a910fdedd579e63379ae6c2e4d4971990d28f8ad"
+verdict = "task"
+evidence = "The producer retains verified bank commitment evidence at services/human/crates/layerx-human-service/src/journeys/engine.rs:1842 and :1856, the journey projection emits its verified receipt reference at services/human/crates/layerx-human-service/src/server/production_reads.rs:1221, and receipt_label_with_keys validates its digest, signature and retained commitment at :1316, :1324 and :1333 before returning committed at :1336, but evidence_get rejects that result at :916 before the Committed-capable exporter at :800; commit ba761d6c5d67fad74ebeeff0ef036e52fa2bb99b renamed the label introduced by f83425c2a8b990d50d884e286f59800c7de91252 without repairing this guard, and services/human/crates/layerx-human-service/tests/projection_rungs.rs:475 checks labels without dereferencing the evidence IDs."
+close_comment = "Committed bank journeys still advertise receipt references that evidence.get rejects after successful verification. The required repair makes both receipted and committed references retrievable while preserving receipt authentication, retained commitment checks and accurate proof metadata."
+
+[task.18.1714.1]
+title = "Issue #1714: Resolve verified committed journey receipt references"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181714.1"]
+capabilities = []
+interfaces = []
+do_1 = "Repair the journey-receipt branch of evidence_get in services/human/crates/layerx-human-service/src/server/production_reads.rs:906 so successfully authenticated Receipted and Committed receipts resolve with the same evidence_id, rung and verification metadata advertised by journey.get at :1221; keep the digest, signature, key-window and retained bank commitment checks in receipt_label_with_keys at :1316 and :1333 and the export integrity checks in managed_receipt_material at :791, refuse unsupported or invalid evidence, and retain the portable payload's actual receipted proof strength rather than claiming it independently proves commitment."
+do_2 = "Extend authenticated_routes_preserve_reopened_producer_rungs in services/human/crates/layerx-human-service/tests/projection_rungs.rs:242 using the existing recorded bank producer and durable store reopen at :294 and :334: configure the production receipt-key source, request authenticated journey.get and dereference its emitted receipt evidence_id through the actual ProductionComponents::evidence_get path for Receipted and Committed, assert schema-valid identity, class, rung and verification metadata, decode bytes_base64 and verify PortableReceiptV2 against the configured keys and original signed receipt, and assert unauthenticated access, invalid receipt signatures or digests, mismatched receipt keys and absent or altered retained commitment evidence are refused after reopening without weakening existing assertions or substituting an exporter-only test."
+symbols = ["evidence_get", "authenticated_routes_preserve_reopened_producer_rungs"]
+touches = ["services/human/crates/layerx-human-service/src/server/production_reads.rs", "services/human/crates/layerx-human-service/tests/projection_rungs.rs"]
+tests = ["services/human/crates/layerx-human-service/tests/projection_rungs.rs::authenticated_routes_preserve_reopened_producer_rungs"]
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-service"
+verify_cmd = "cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --test projection_rungs authenticated_routes_preserve_reopened_producer_rungs -- --exact"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-human"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181714]
+title = "Verified journey receipt references remain retrievable at both achieved rungs"
+ac_1 = "Given the recorded bank journey persisted by services/human/crates/layerx-human-service/src/journeys/engine.rs:1856 and reopened by services/human/crates/layerx-human-service/tests/projection_rungs.rs:334, when an authenticated client dereferences the receipt evidence_id emitted by journey.get at services/human/crates/layerx-human-service/src/server/production_reads.rs:1221 through ProductionComponents::evidence_get at :823, then valid Receipted and Committed receipts resolve with consistent metadata and independently verifiable receipt material at its actual proof strength, while invalid receipt authentication and absent or altered retained commitment evidence are refused."
+
+[acceptance.18.1714.1]
+feature = "18"
+req = "181714.1"
+scenario = "Given a bank journey with authenticated receipt keys and producer-emitted evidence retained across a store reopen, when an authenticated client requests journey.get and retrieves its advertised receipt evidence_id through ProductionComponents::evidence_get, then both Receipted and Committed references resolve with matching identity and achieved-rung metadata and verifiable receipt material without overstating the portable proof, while absent or altered commitment evidence and unauthenticated access are refused."
+contract = "contracts/services.md#human-service"
+test = "services/human/crates/layerx-human-service/tests/projection_rungs.rs::authenticated_routes_preserve_reopened_producer_rungs (planned)"
+qualification = "UNRUN"
