@@ -48,6 +48,332 @@ fn fields() -> Fields {
     }
 }
 
+#[derive(Clone, Copy, Debug)]
+enum ProgramsReceiptKind {
+    Call,
+    Lifecycle,
+    PreexecutionRejection,
+}
+
+#[derive(Clone, Copy, Debug)]
+struct ProgramsVector {
+    protocol: u16,
+    module: u32,
+    guest: u16,
+    kind: ProgramsReceiptKind,
+}
+
+fn encode_programs_vector(
+    vector: ProgramsVector,
+    signature: Option<[u8; 64]>,
+) -> Result<Vec<u8>, layerx_wire::WireError> {
+    use layerx_types::result::KnownResult;
+
+    let mut encoder = Encoder::new(4096);
+    let result = if matches!(vector.kind, ProgramsReceiptKind::PreexecutionRejection) {
+        KnownResult::VersionUnsupported.raw()
+    } else {
+        0
+    };
+    encoder.structure_header_version(0x5201, vector.protocol)?;
+    encoder.u16(vector.protocol)?;
+    encoder.bytes(&[1; 32], 32)?; // activity
+    encoder.u64(9)?;
+    encoder.bytes(&[2; 32], 32)?; // previous state root
+    encoder.bytes(&[3; 32], 32)?; // resulting state root
+    encoder.bytes(&[8; 32], 32)?; // activity root
+    encoder.i32(result)?;
+    encoder.sequence_length(0, 512)?;
+    encoder.u128(0)?; // fee
+    encoder.bytes(&[4; 32], 32)?; // batch
+    encoder.u16(9)?; // Programs module
+    encoder.u32(vector.module)?;
+    encoder.u32(1)?; // parameter version
+    encoder.u8(if matches!(vector.kind, ProgramsReceiptKind::Lifecycle) {
+        0
+    } else {
+        3
+    })?;
+    encoder.bytes(&[0; 32], 32)?; // asset
+    encoder.u128(0)?; // amount
+    encoder.bytes(&[0; 32], 32)?; // from
+    encoder.u128(0)?;
+    encoder.u128(0)?;
+    encoder.u64(0)?;
+    encoder.bytes(&[0; 32], 32)?; // to
+    encoder.u128(0)?;
+    encoder.u128(0)?;
+    encoder.bytes(&[0; 32], 32)?; // transfer root
+    encoder.bytes(&[0; 32], 32)?; // authorization
+    encoder.bytes(&[0; 32], 32)?; // context
+    encoder.u64(1_000)?;
+    if matches!(vector.kind, ProgramsReceiptKind::Call) {
+        encoder.u32(0x5052_4733)?; // canonical outcome version three
+        encoder.u8(1)?; // successful terminal
+        encoder.i32(0)?;
+        encoder.u16(layerx_programs_runtime::RUNTIME_VERSION)?;
+        encoder.u16(vector.guest)?;
+        encoder.u32(1)?; // fee schedule
+        encoder.u32(1)?; // metering schedule
+        encoder.u64(1)?; // CPU fuel
+        encoder.u64(0)?; // memory
+        encoder.u64(0)?; // storage read
+        encoder.u64(0)?; // storage write
+        encoder.u32(0)?; // output values
+        encoder.u64(0)?; // output bytes
+        encoder.u128(0)?; // occupancy byte batches
+        encoder.u128(0)?; // occupancy fee
+        for _ in 0..7 {
+            encoder.u64(0)?; // schedule prices
+        }
+        let occupancy = vector.protocol != LEGACY_PROTOCOL_VERSION;
+        encoder.bytes(&[if occupancy { 12 } else { 0 }; 32], 32)?;
+        encoder.bytes(&[if occupancy { 13 } else { 0 }; 32], 32)?;
+        encoder.bytes(&[0; 32], 32)?; // occupancy transfer root
+        encoder.u128(0)?; // fee units
+        encoder.bytes(&[14; 32], 32)?; // call graph
+        encoder.bytes(&[15; 32], 32)?; // terminal payload
+        encoder.bytes(&[0; 32], 32)?; // transfer root
+    }
+    encoder.u8(u8::from(signature.is_some()))?;
+    if let Some(signature) = signature {
+        encoder.bytes(&signature, 64)?;
+    }
+    Ok(encoder.finish())
+}
+
+fn sign_programs_vector(vector: ProgramsVector, signing_key: &SigningKey) -> Vec<u8> {
+    use layerx_wire::receipt::{decode, encode, encode_unsigned};
+
+    let unsigned = encode_programs_vector(vector, None)
+        .unwrap_or_else(|error| panic!("encode {vector:?}: {error:?}"));
+    let receipt = decode(&unsigned).unwrap_or_else(|error| panic!("decode {vector:?}: {error:?}"));
+    let canonical = encode_unsigned(&receipt)
+        .unwrap_or_else(|error| panic!("canonical unsigned receipt: {error:?}"));
+    assert_eq!(canonical, unsigned);
+    let digest =
+        receipt_digest(&canonical).unwrap_or_else(|error| panic!("hash {vector:?}: {error:?}"));
+    let signed = encode_programs_vector(vector, Some(signing_key.sign(&digest).to_bytes()))
+        .unwrap_or_else(|error| panic!("sign {vector:?}: {error:?}"));
+    let decoded =
+        decode(&signed).unwrap_or_else(|error| panic!("decode signed {vector:?}: {error:?}"));
+    assert_eq!(
+        encode(&decoded).unwrap_or_else(|error| panic!("canonical receipt: {error:?}")),
+        signed
+    );
+    signed
+}
+
+fn verify_programs_vector(
+    kind: ProgramsReceiptKind,
+    bytes: &[u8],
+    batch: &AuthorizedBatch,
+) -> Result<layerx_proof::receipt::VerifiedReceipt, VerificationFailure> {
+    use layerx_proof::receipt::{
+        verify_program_outcome, verify_program_preexecution_rejection, verify_program_state,
+    };
+    match kind {
+        ProgramsReceiptKind::Call => verify_program_outcome(bytes, batch),
+        ProgramsReceiptKind::Lifecycle => verify_program_state(bytes, batch),
+        ProgramsReceiptKind::PreexecutionRejection => {
+            verify_program_preexecution_rejection(bytes, batch)
+        }
+    }
+}
+
+#[test]
+fn programs_module_versions_verify_signed_receipts() {
+    use layerx_proof::receipt::verify_historical_program_outcome_v1;
+    use layerx_types::{guest_abi, programs_module_abi};
+    use layerx_wire::limits::STATE_COMMITMENT_PROTOCOL_VERSION;
+
+    let signing_key = SigningKey::from_bytes(&[3; 32]);
+    let batch = AuthorizedBatch::new(
+        [4; 32],
+        [0; 32],
+        [2; 32],
+        [3; 32],
+        signing_key.verifying_key().to_bytes(),
+    );
+    let kinds = [
+        ProgramsReceiptKind::Call,
+        ProgramsReceiptKind::Lifecycle,
+        ProgramsReceiptKind::PreexecutionRejection,
+    ];
+    for module in [
+        programs_module_abi::SANDBOX_DESTROY,
+        programs_module_abi::GUEST_ABI_V5,
+    ] {
+        for kind in kinds {
+            for guest in 1..=guest_abi::MAX_VERSION {
+                let vector = ProgramsVector {
+                    protocol: STATE_COMMITMENT_PROTOCOL_VERSION,
+                    module,
+                    guest,
+                    kind,
+                };
+                let bytes = sign_programs_vector(vector, &signing_key);
+                let verified = verify_programs_vector(kind, &bytes, &batch)
+                    .unwrap_or_else(|error| panic!("valid {vector:?}: {error:?}"));
+                assert_eq!(verified.canonical_bytes(), bytes);
+                let protocol = verified
+                    .receipt()
+                    .protocol()
+                    .expect("Programs protocol receipt");
+                assert_eq!(protocol.module_version(), module);
+                match kind {
+                    ProgramsReceiptKind::Call => assert_eq!(
+                        protocol
+                            .program_outcome()
+                            .expect("call outcome")
+                            .abi_version(),
+                        guest
+                    ),
+                    ProgramsReceiptKind::Lifecycle => assert_eq!(protocol.operation(), 0),
+                    ProgramsReceiptKind::PreexecutionRejection => {
+                        assert!(protocol.program_outcome().is_none());
+                        assert_eq!(
+                            protocol.result_code(),
+                            layerx_types::result::KnownResult::VersionUnsupported.raw()
+                        );
+                    }
+                }
+                if !matches!(kind, ProgramsReceiptKind::PreexecutionRejection) {
+                    assert_eq!(
+                        verify_outcome(&bytes, &batch)
+                            .expect("dispatch Programs receipt")
+                            .canonical_bytes(),
+                        bytes
+                    );
+                }
+                let mut tampered = bytes.clone();
+                let last = tampered.len() - 1;
+                tampered[last] ^= 1;
+                assert_eq!(
+                    verify_programs_vector(kind, &tampered, &batch),
+                    Err(VerificationFailure {
+                        check: ReceiptCheck::SequencerSignature
+                    }),
+                    "{vector:?}"
+                );
+                for (previous, resulting, check) in [
+                    ([99; 32], [3; 32], ReceiptCheck::PreviousStateRoot),
+                    ([2; 32], [99; 32], ReceiptCheck::ResultingStateRoot),
+                ] {
+                    let wrong = AuthorizedBatch::new(
+                        batch.batch_id(),
+                        batch.asset(),
+                        previous,
+                        resulting,
+                        batch.sequencer_public_key(),
+                    );
+                    assert_eq!(
+                        verify_programs_vector(kind, &bytes, &wrong),
+                        Err(VerificationFailure { check }),
+                        "{vector:?}"
+                    );
+                }
+                let wrong_batch = AuthorizedBatch::new(
+                    [99; 32],
+                    batch.asset(),
+                    batch.previous_state_root(),
+                    batch.resulting_state_root(),
+                    batch.sequencer_public_key(),
+                );
+                assert_eq!(
+                    verify_programs_vector(kind, &bytes, &wrong_batch),
+                    Err(VerificationFailure {
+                        check: ReceiptCheck::BatchId
+                    })
+                );
+            }
+        }
+        for guest in [guest_abi::MAX_VERSION + 1, u16::MAX] {
+            let vector = ProgramsVector {
+                protocol: STATE_COMMITMENT_PROTOCOL_VERSION,
+                module,
+                guest,
+                kind: ProgramsReceiptKind::Call,
+            };
+            assert_eq!(
+                verify_programs_vector(
+                    vector.kind,
+                    &sign_programs_vector(vector, &signing_key),
+                    &batch
+                ),
+                Err(VerificationFailure {
+                    check: ReceiptCheck::ProtocolVersion
+                })
+            );
+        }
+    }
+    for module in [0, 1, 2, 3, 6, u32::MAX] {
+        for kind in kinds {
+            let vector = ProgramsVector {
+                protocol: STATE_COMMITMENT_PROTOCOL_VERSION,
+                module,
+                guest: 2,
+                kind,
+            };
+            assert_eq!(
+                verify_programs_vector(kind, &sign_programs_vector(vector, &signing_key), &batch),
+                Err(VerificationFailure {
+                    check: ReceiptCheck::Module
+                }),
+                "{vector:?}"
+            );
+        }
+    }
+    for module in [0, 1, 2, 3, 4, 5, 6, u32::MAX] {
+        for kind in kinds {
+            let vector = ProgramsVector {
+                protocol: PROTOCOL_VERSION,
+                module,
+                guest: 2,
+                kind,
+            };
+            let bytes = sign_programs_vector(vector, &signing_key);
+            let expected = match kind {
+                ProgramsReceiptKind::Call if matches!(module, 1..=3) => None,
+                ProgramsReceiptKind::Lifecycle if matches!(module, 2 | 3) => None,
+                ProgramsReceiptKind::PreexecutionRejection => Some(ReceiptCheck::ProtocolVersion),
+                _ => Some(ReceiptCheck::Module),
+            };
+            assert_eq!(
+                verify_programs_vector(kind, &bytes, &batch)
+                    .map(|_| ())
+                    .map_err(|error| error.check),
+                expected.map_or(Ok(()), Err),
+                "{vector:?}"
+            );
+        }
+        let vector = ProgramsVector {
+            protocol: LEGACY_PROTOCOL_VERSION,
+            module,
+            guest: 2,
+            kind: ProgramsReceiptKind::Call,
+        };
+        let bytes = sign_programs_vector(vector, &signing_key);
+        assert_eq!(
+            verify_historical_program_outcome_v1(&bytes, &batch)
+                .map(|_| ())
+                .map_err(|error| error.check),
+            if module == programs_module_abi::INITIAL {
+                Ok(())
+            } else {
+                Err(ReceiptCheck::Module)
+            },
+            "historical {vector:?}"
+        );
+        assert_eq!(
+            verify_programs_vector(vector.kind, &bytes, &batch),
+            Err(VerificationFailure {
+                check: ReceiptCheck::ProtocolVersion
+            })
+        );
+    }
+}
+
 fn encode_fields_version(
     fields: &Fields,
     signature: Option<[u8; 64]>,
