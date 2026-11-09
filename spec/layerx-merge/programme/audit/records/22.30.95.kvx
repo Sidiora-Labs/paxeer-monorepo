@@ -4,7 +4,7 @@
 task = "22.30.95"
 revision = "2b99f88520e4e809ad5593f3bee2df74fe355d7b"
 files_reviewed = 87
-findings = 50
+findings = 49
 docs_reviewed = 12
 upgrade_ready = false
 blocking = ["6","8","9","10"]
@@ -78,8 +78,8 @@ note = "Reviewed all fixture decoding, maintained-transition refusals, submissio
 [file.12]
 path = "services/agent/crates/layerx-agentd/src/registry_source.rs"
 lines = 244
-verdict = "issues"
-note = "Reviewed exact JSON configuration/response fields, protected material, mTLS, bounded reads, source status and program/version/hash/head bindings; contract links are missing."
+verdict = "clean"
+note = "Registry-source contract links resolve relative to spec/layerx-merge. Configuration anchors exist at spec/layerx-merge/contracts/agent-config.md:7 (#agentd-env) and :477 (#registry-source), and the Rust API anchor exists at spec/layerx-merge/contracts/agent-rust-api.md:499 (#agentd); spec/layerx-merge/interfaces.kvx:391311 resolves to spec/layerx-merge/contracts/agent-formats.md:252 (#registry-source-config). Reviewed exact JSON configuration/response fields, protected material, mTLS, bounded reads, source status and program/version/hash/head bindings."
 
 [file.13]
 path = "services/agent/crates/layerx-agentd/src/session_keys.rs"
@@ -1054,17 +1054,6 @@ expected = "The exported signing API declarations and consumer compile contracts
 proposal = "Update the signing declarations and caller references in spec/layerx-merge/interfaces.kvx from services/agent/crates/layerx-agentd/src/sign.rs, publish the current typed signatures and prove downstream external-sign/verify consumers compile against them."
 owner_domain = 9
 interface = "9.rs-agentd-sign-attach-external-signature"
-
-[finding.50]
-file = "services/agent/crates/layerx-agentd/src/registry_source.rs"
-line = 0
-class = "doc-drift"
-severity = "medium"
-observed = "The slice's registry-source configuration and Rust API rows point to contracts/agent-config.md#agentd-env and contracts/agent-rust-api.md#agentd, but neither contract page exists in this checkout. Operators cannot resolve the declared TLS, protected-file and response contract from those registry links."
-expected = "The declared registry-source interface must have an existing authoritative contract page describing configuration, authenticated transport and exact response binding."
-proposal = "Publish the current RegistrySourceProvider contract under the maintained agent documentation and repair the contract links in spec/layerx-merge/interfaces.kvx; document field units, mTLS identities, protected bearer material, head bindings and typed refusals from src/registry_source.rs."
-owner_domain = 9
-interface = "9.fmt-registry-source-config"
 
 [doc.1]
 path = "docs/site/docs/agents/agentd.md"
