@@ -18,7 +18,7 @@ export type UseFetchChartDataResult = {
   data: TimeChartData;
 };
 
-export default function useChartDataQuery(indicatorId: ChainIndicatorId): UseFetchChartDataResult {
+export default function useChartDataQuery(indicatorId: ChainIndicatorId, calendarWindowDays?: number): UseFetchChartDataResult {
   const statsDailyTxsQuery = useApiQuery('stats:pages_main', {
     queryOptions: {
       refetchOnMount: false,
@@ -94,42 +94,42 @@ export default function useChartDataQuery(indicatorId: ChainIndicatorId): UseFet
     case 'daily_txs': {
       const query = isStatsFeatureEnabled ? statsDailyTxsQuery : apiDailyTxsQuery;
       return {
-        data: getChartData(indicatorId, query.data || []),
+        data: getChartData(indicatorId, query.data || [], calendarWindowDays),
         isError: query.isError,
         isPending: query.isPending,
       };
     }
     case 'daily_operational_txs': {
       return {
-        data: getChartData(indicatorId, statsDailyOperationalTxsQuery.data || []),
+        data: getChartData(indicatorId, statsDailyOperationalTxsQuery.data || [], calendarWindowDays),
         isError: statsDailyOperationalTxsQuery.isError,
         isPending: statsDailyOperationalTxsQuery.isPending,
       };
     }
     case 'coin_price': {
       return {
-        data: getChartData(indicatorId, coinPriceQuery.data || []),
+        data: getChartData(indicatorId, coinPriceQuery.data || [], calendarWindowDays),
         isError: coinPriceQuery.isError,
         isPending: coinPriceQuery.isPending,
       };
     }
     case 'secondary_coin_price': {
       return {
-        data: getChartData(indicatorId, secondaryCoinPriceQuery.data || []),
+        data: getChartData(indicatorId, secondaryCoinPriceQuery.data || [], calendarWindowDays),
         isError: secondaryCoinPriceQuery.isError,
         isPending: secondaryCoinPriceQuery.isPending,
       };
     }
     case 'market_cap': {
       return {
-        data: getChartData(indicatorId, marketCapQuery.data || []),
+        data: getChartData(indicatorId, marketCapQuery.data || [], calendarWindowDays),
         isError: marketCapQuery.isError,
         isPending: marketCapQuery.isPending,
       };
     }
     case 'tvl': {
       return {
-        data: getChartData(indicatorId, tvlQuery.data || []),
+        data: getChartData(indicatorId, tvlQuery.data || [], calendarWindowDays),
         isError: tvlQuery.isError,
         isPending: tvlQuery.isPending,
       };
