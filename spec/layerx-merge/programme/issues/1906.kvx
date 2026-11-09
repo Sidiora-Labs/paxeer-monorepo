@@ -1,0 +1,7 @@
+[issue.1906]
+number = 1906
+title = "[Coherence] Disposition 22.39.118.5 credits the MCP binding repair to a commit that never touched the binding tests"
+revision = "3520b1428059af90261432778c008a9ce362a0b1"
+verdict = "spec-edit"
+evidence = "The completed closure task at spec/layerx-merge/spec.kvx:350909 requires the repair commit at spec/layerx-merge/spec.kvx:350916, so spec/layerx-merge/dispositions/d22-31.kvx:129 must credit 20f9642e0ee4757175eb5dab89a151b67116b260, which moved binding validation before shape decoding at tools/platform/cli/src/install/mcp.rs:188 and repaired owner-only binding assertions at tools/platform/cli/tests/mcp_daemon_bound.rs:151 and :605 for the tests including retired-key refusal at tools/platform/cli/tests/mcp_daemon_bound.rs:681, instead of a08a60044bf3f1a66189338037862089c11b31f0, which changed neither file."
+close_comment = "The binding repair is already present: retired core_sequence bindings are refused before shape decoding, and the binding tests assert owner-only permissions. Disposition 22.39.118.5 needs a specification correction to credit repair commit 20f9642e0e instead of a08a60044b."
