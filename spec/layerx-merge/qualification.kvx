@@ -36562,3 +36562,11 @@ symbol = "ranking-algo"
 observed = "Attempt 1 at 933ff2d7d58e: build exit 0; verification exit 1: nine wiring test cases failed on the pre-retirement baseline expectations before any module test ran, and two api entries of owner 22.39.154 were removed; log /out/logs/verify-1.log."
 assumption = "The wiring test and the verification contradict each other until the test asserts the retirement state; the module repairs of the attempt are unverified."
 severity = "high"
+
+[finding.17.2.8.1]
+task = "17.2.8"
+file = "spec/layerx-merge/programme/tests/test_no_retired_callers.py::test_scan_reports_no_caller"
+symbol = "test_no_retired_callers.py::test_scan_reports_no_caller"
+observed = "Attempt 1 at ceda589fd709: build exit 0; verification exit 1: the scan with --deleted was still running after 26 minutes 29 seconds and was stopped before the thirty-minute limit (exit -15); log /out/logs/verify-1.log."
+assumption = "The scanner design, not the test module, consumes the limit; the test is complete."
+severity = "high"
