@@ -875,8 +875,8 @@ fn unsealed_market(origin: u64) -> CodecResult<Market> {
     );
     Ok(m)
 }
-/// Epoch 6 (T = 896) of a market at both identity bounds: 32 frozen workers and evaluators
-/// 2..=9 frozen, the empty task set sealed and every evidence root sealed at 960.
+/// A market whose opening height and epoch derive from admission, with 32 workers and
+/// evaluators 2..=9 frozen; the empty task set and every evidence root seal at opening + 64.
 fn crowded() -> CodecResult<Market> {
     let mut world = World::create(ORIGIN)?;
     let first = world.enroll(LOW, 130)?;
