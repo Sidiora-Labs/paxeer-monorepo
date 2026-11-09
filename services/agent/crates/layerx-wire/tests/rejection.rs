@@ -159,17 +159,21 @@ fn hostile_lengths_are_constant_work_and_allocation_bounded() {
 fn rejection_taxonomy_coverage_has_no_silent_gap() {
     let mut covered = rejection_corpus();
     let mut invalid_utf8 = Decoder::new(&[0, 0, 0, 1, 0xff], 0);
-    let error = invalid_utf8.text(1).unwrap_err();
+    let Err(error) = invalid_utf8.text(1) else {
+        panic!("invalid UTF-8 was accepted");
+    };
     assert_eq!(error.result, KnownResult::NonCanonical.into());
     covered.insert(error.result.raw());
     let mut unknown_field = Decoder::new(&[0, 13], 0);
-    let error = unknown_field.field_id(12).unwrap_err();
+    let Err(error) = unknown_field.field_id(12) else {
+        panic!("unknown field was accepted");
+    };
     assert_eq!(error.result, KnownResult::UnknownField.into());
     covered.insert(error.result.raw());
     let mut unknown_version = Decoder::new(&[0, 4, 0x17, 0x01], 0);
-    let error = unknown_version
-        .structure_header_version(0x1701)
-        .unwrap_err();
+    let Err(error) = unknown_version.structure_header_version(0x1701) else {
+        panic!("unknown version was accepted");
+    };
     assert_eq!(error.result, KnownResult::VersionUnsupported.into());
     covered.insert(error.result.raw());
     let required = BTreeSet::from([
