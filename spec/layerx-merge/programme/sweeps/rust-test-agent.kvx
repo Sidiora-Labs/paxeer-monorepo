@@ -4,10 +4,10 @@ command = "cargo test --locked --manifest-path services/agent/Cargo.toml -p TARG
 enumeration_command = "cargo metadata --no-deps --format-version 1 --manifest-path services/agent/Cargo.toml"
 targets_total = 11
 targets_passed = 3
-targets_failed = 4
-targets_not_run = 4
+targets_failed = 6
+targets_not_run = 2
 qualification_log = "/out/logs/rust-test-agent-closure/qualification.jsonl"
-not_run_policy = "Commands interrupted before completion are recorded not_run; assertion failures already observed in those commands are retained in their target blocks."
+not_run_policy = "Observed assertion failures take precedence over incomplete commands and are recorded failed; commands interrupted before completion without observed assertion failures are recorded not_run."
 
 [target.rust-test-agent.1]
 target = "layerx-types"
@@ -81,7 +81,7 @@ log = "/out/logs/rust-test-agent-closure/layerx-agent-api.log"
 
 [target.rust-test-agent.8]
 target = "layerx-agentd"
-result = "not_run"
+result = "failed"
 exit_code = 124
 command = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --no-fail-fast"
 attempts = 2
@@ -93,7 +93,7 @@ assumption = "The middleware test observation bytes likely lag the current decod
 
 [target.rust-test-agent.9]
 target = "layerx-sdk"
-result = "not_run"
+result = "failed"
 exit_code = 124
 command = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-sdk --no-fail-fast -- --skip v5_native_corpus_binds_exact_profiles_authority_and_all_outcomes --skip rpc::rpc_system_tls_checks_the_actual_server_identity --skip rpc::rpc_private_ca_tls_checks_the_actual_server_identity --skip rpc::rpc_subscription_private_ca_checks_the_actual_server_identity --skip native_request_binds_real_signed_fixture"
 attempts = 2

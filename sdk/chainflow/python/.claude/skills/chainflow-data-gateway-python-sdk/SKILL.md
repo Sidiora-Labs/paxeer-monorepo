@@ -139,7 +139,7 @@ credential-bearing debug output unless redaction filters are installed.
 
 ## Requirements
 
-- Python 3.9 or newer
+- Python 3.11 or newer
 
 ## Reference files
 

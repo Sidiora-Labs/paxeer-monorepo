@@ -1,7 +1,8 @@
 # Inference market operator guide
 
-The inference market is not yet available. This procedure describes the
-[planned daemon profile](README.md#availability) and dependent F11 surfaces.
+The [inference-market daemon profile](README.md#availability) and its
+configuration are implemented. This procedure also depends on F11 surfaces
+whose availability must be checked on the target network.
 Use a qualified release with F11 available before following the operational
 sequence below.
 
@@ -14,7 +15,8 @@ The node URL names the node root, with an explicitly checked chain ID.
 Keep the host signing key and node credentials in the existing private key
 configuration; room pages and browser configuration must not contain them.
 
-The planned profile configuration is:
+The inference-market profile reads the settings below.
+They are loaded by [InferenceConfig](../../../services/agent/crates/layerx-agentd/src/config.rs).
 
 | Variable | Meaning |
 | --- | --- |
@@ -26,7 +28,7 @@ The planned profile configuration is:
 | `LAYERX_AGENT_INFERENCE_ROOM_PROFILE` | Path to the implementation's room profile file |
 
 With the required digests, profile file and existing daemon settings already
-configured, the intended invocation is:
+configured, start the profile with:
 
 ```sh
 LAYERX_AGENT_MODE=inference-market layerx-agentd
@@ -34,10 +36,11 @@ LAYERX_AGENT_MODE=inference-market layerx-agentd
 
 Use the release's profile schema for minimum bond, lap size, canary ratio,
 challenge/slash policy, payout shares, settlement account and serving limits.
-There is no supported sample profile schema yet. Missing digests must refuse
-configuration. Boot checks node readiness, program
-authority and F11 availability before starting either listener. A successful
-generic agent compatibility check does not establish F11 support.
+There is no supported sample profile schema yet. Configuration rejects missing,
+zero or malformed digests; each must be a nonzero 32-byte hexadecimal value.
+Boot checks node readiness, program authority and F11 availability before
+starting either listener. A successful generic agent compatibility check does
+not establish F11 support.
 
 ## Enrol the host and peers
 

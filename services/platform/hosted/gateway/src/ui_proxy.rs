@@ -872,7 +872,6 @@ const ASSETS: &[&str] = &[
     "/wallet/Paxeer_Sans_Rounded/PPPangramSansRounded-SlimMediumReclined.otf",
     "/wallet/Paxeer_Sans_Rounded/PPPangramSansRounded-SlimSemiboldItalic.otf",
     "/wallet/Paxeer_Sans_Rounded/PPPangramSansRounded-Thin.otf",
-    "/wallet/Untitled%20design.svg",
     "/wallet/a84ac5ac-5ebe-4f96-a9d1-4b3b664db1a5.png",
     "/wallet/argus.svg",
     "/wallet/art.png",
@@ -1564,6 +1563,55 @@ const API: &[(&str, &str)] = &[
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn removed_wallet_asset_is_not_routed_or_advertised() {
+        let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../..");
+        let removed = "/wallet/Untitled%20design.svg";
+        let retained = "/wallet/argus.svg";
+        assert!(!root
+            .join("apps/wallet/public/Untitled design.svg")
+            .try_exists()
+            .expect("deleted wallet asset can be checked"));
+        assert!(root.join("apps/wallet/public/argus.svg").is_file());
+        assert!(!asset(removed));
+        assert!(asset(retained));
+        for method in ["GET", "HEAD"] {
+            assert!(!admitted(method, removed), "{method} {removed}");
+            assert!(admitted(method, retained), "{method} {retained}");
+        }
+
+        for path in [
+            "tools/paxeer-x/route-catalogue.json",
+            "rpc/px_route_catalogue.json",
+        ] {
+            let contents = std::fs::read_to_string(root.join(path))
+                .expect("committed route catalogue can be read");
+            assert!(!contents.contains(removed), "{path} advertises {removed}");
+            let catalogue: serde_json::Value =
+                serde_json::from_str(&contents).expect("committed route catalogue is valid JSON");
+            let routes = catalogue["routes"]
+                .as_array()
+                .expect("committed route catalogue has routes");
+            for method in ["GET", "HEAD"] {
+                let removed_id = format!("wallet-ui:{method}:{removed}");
+                assert!(
+                    routes.iter().all(|route| route["id"] != removed_id),
+                    "{path} advertises {removed_id}"
+                );
+                let retained_id = format!("wallet-ui:{method}:{retained}");
+                assert!(
+                    routes.iter().any(|route| {
+                        route["id"] == retained_id
+                            && route["service"] == "wallet-ui"
+                            && route["method"] == method
+                            && route["path"] == retained
+                    }),
+                    "{path} is missing {retained_id}"
+                );
+            }
+        }
+    }
 
     #[test]
     fn ui_bindings_owner_is_root_or_the_process() {
