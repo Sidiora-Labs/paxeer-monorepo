@@ -1,9 +1,4 @@
-"""Attestor-manifest source checks; these do not execute the Go loader.
-
-Passing the data checks establishes agreement on explicit pending signer slots.
-Governance approval and execution of LoadAttestorManifest/Check remain required
-before deployment; the production loader refuses the pending manifest.
-"""
+"""Assert governed signer agreement and preserve the production refusal rules."""
 
 import json
 from pathlib import Path
@@ -51,12 +46,7 @@ def go_declaration(path, name):
 
 
 def assert_manifest_signers(manifest):
-    pending = "pending_governance" in manifest
-    expected_fields = {"attestors", "threshold"}
-    if pending:
-        expected_fields.add("pending_governance")
-        assert manifest["pending_governance"] is True
-    assert set(manifest) == expected_fields
+    assert set(manifest) == {"attestors", "threshold"}
     signers = manifest["attestors"]
     assert isinstance(signers, list)
     assert 1 <= len(signers) <= 64
@@ -65,19 +55,14 @@ def assert_manifest_signers(manifest):
     decoded = []
     for index, signer in enumerate(signers):
         assert isinstance(signer, str)
-        if pending and signer.startswith("PLACEHOLDER:"):
-            assert signer == f"PLACEHOLDER:attestor-{index + 1}"
-            continue
         assert re.fullmatch(r"0x[0-9a-fA-F]{40}", signer), (
             f"{MANIFEST}: attestors[{index}] is not a twenty-byte address"
         )
         address = bytes.fromhex(signer[2:])
         assert any(address), f"{MANIFEST}: attestors[{index}] is zero"
-        if not pending:
-            assert len(set(address)) > 1, (
-                f"{MANIFEST}: attestors[{index}] is a repeated-byte placeholder; "
-                "bridge governance must supply the approved public signer set"
-            )
+        assert len(set(address)) > 1, (
+            f"{MANIFEST}: attestors[{index}] is a repeated-byte placeholder"
+        )
         decoded.append(address)
     assert decoded == sorted(set(decoded)), "attestors must be unique and ascending"
     assert not decoded or len(decoded) == len(signers), "mixed signer representations"
@@ -87,17 +72,19 @@ def test_attestor_manifest_contains_live_canonical_signers():
     assert_manifest_signers(read_json(MANIFEST))
 
 
-def test_pending_governance_manifest_uses_named_slots():
+def test_governed_manifest_has_no_pending_signer_slots():
     manifest = read_json(MANIFEST)
-    assert manifest["pending_governance"] is True
-    assert manifest["attestors"] == [
-        f"PLACEHOLDER:attestor-{index + 1}"
-        for index in range(len(manifest["attestors"]))
-    ]
+    assert manifest == {
+        "attestors": ["0x12598F221f1e645322C7665537D4Ab130281f51d"],
+        "threshold": 1,
+    }
+    for path in (MANIFEST, *(ROOT / relative for relative in CHAIN_CONFIGS)):
+        assert "PLACEHOLDER:attestor" not in path.read_text(), str(path)
+        assert "pending_governance" not in path.read_text(), str(path)
 
 
-@pytest.mark.parametrize("pending", [False, None, 0, 1, "true", {}, []])
-def test_pending_governance_requires_explicit_true(pending):
+@pytest.mark.parametrize("pending", [True, False, None, 0, 1, "true", {}, []])
+def test_governed_manifest_rejects_every_pending_marker(pending):
     manifest = read_json(MANIFEST)
     manifest["pending_governance"] = pending
     with pytest.raises(AssertionError):
@@ -106,14 +93,15 @@ def test_pending_governance_requires_explicit_true(pending):
 
 def test_signer_checks_remain_strict_without_pending_governance():
     manifest = read_json(MANIFEST)
-    del manifest["pending_governance"]
+    manifest["attestors"] = ["PLACEHOLDER:attestor-1"]
     with pytest.raises(AssertionError, match="not a twenty-byte address"):
         assert_manifest_signers(manifest)
     manifest["attestors"] = ["0x" + f"{index:02x}" * 20 for index in range(1, 6)]
     with pytest.raises(AssertionError, match="repeated-byte placeholder"):
         assert_manifest_signers(manifest)
     manifest["pending_governance"] = True
-    assert_manifest_signers(manifest)
+    with pytest.raises(AssertionError):
+        assert_manifest_signers(manifest)
     assert_manifest_signers(read_json(DEPLOY / "proposals/testdata/attestors.json"))
 
 
@@ -155,12 +143,11 @@ def test_manifest_loader_retains_placeholder_and_threshold_refusals():
     threshold = go_declaration(manifest_source, "checkThreshold")
     assert "threshold == 0" in threshold
     assert "int(threshold) > count" in threshold
-    committed_refusal = go_declaration(
-        DEPLOY / "proposals/proposals_test.go",
-        "TestCommittedManifestCarriesPlaceholdersEveryToolRefuses",
+    pending_refusal = go_declaration(
+        DEPLOY / "proposals/proposals_test.go", "TestPendingGovernanceManifestIsRefused"
     )
-    assert "refusal.Field != fieldDocument" in committed_refusal
-    assert 'unknown field "pending_governance"' in committed_refusal
+    assert "refusal.Field != fieldDocument" in pending_refusal
+    assert 'unknown field "pending_governance"' in pending_refusal
 
 
 def test_proposal_source_checks_manifest_before_emitting_attestors():

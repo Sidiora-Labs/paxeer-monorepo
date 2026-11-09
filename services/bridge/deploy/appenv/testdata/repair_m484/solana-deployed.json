@@ -1,7 +1,7 @@
 {
   "script": "services/bridge/deploy/deploy-solana-program.sh",
   "writer_index": 0,
-  "writer_sha256": "6a833a8ced3aa4ba36a30e26721ff31c76c03a1bba8f3232a535c0447a4aa2af",
+  "writer_sha256": "c43465f63b7b4bbf587e8f78b5a1136cf0ef83e347af16e6318653e1e34a1cc2",
   "record": {
     "chain": "solana",
     "chain_id": 91600046870081,

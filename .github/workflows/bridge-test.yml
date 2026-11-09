@@ -117,6 +117,17 @@ jobs:
         with:
           go-version: '1.25.8'
 
+      - name: Install Node.js for the bridge deploy helpers
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v6
+        with:
+          node-version: 24.11.0
+
+      - name: Install the pinned appenv helper dependencies
+        run: npm ci --no-audit --no-fund --prefix services/bridge/deploy/appenv
+
+      - name: Install the pinned proposal compiler dependencies
+        run: npm ci --no-audit --no-fund --prefix services/bridge/deploy/proposals/testdata/repair_270
+
       - name: Run go test for contracts/bridge/vectors and services/bridge/deploy
         run: go test -count=1 ./contracts/bridge/vectors/... ./services/bridge/deploy/...
 
