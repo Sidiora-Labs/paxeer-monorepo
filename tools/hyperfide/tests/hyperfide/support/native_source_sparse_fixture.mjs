@@ -3,7 +3,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { createHash, randomUUID } from "node:crypto";
 import { spawn, execFileSync } from "node:child_process";
-import { pathToFileURL } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { createNativeAcceptanceFixture } from "./native_source_acceptance_fixture.mjs";
 
 const owned = process.env.SOURCE_CONTROL_SPARSE_OWNED === "1";
@@ -21,6 +21,77 @@ function redactLiveInputs(text) {
     .sort((a, b) => b.length - a.length);
   for (const value of values) text = text.replaceAll(value, "[REDACTED]");
   return text;
+}
+async function testSparseWorkspaceLauncherProfiles(f, ownedProfile) {
+  const launcher = fileURLToPath(
+    new URL("../cases/source_control/2_2.py", import.meta.url),
+  );
+  const directory = await fs.mkdtemp(
+    path.join(path.dirname(ownedProfile), "sparse-launcher-profiles-"),
+  );
+  const snapshot = async () =>
+    Promise.all(
+      [
+        ["source_native_objects", "object_id"],
+        ["source_revisions", "revision_id"],
+        ["source_workspaces", "workspace_id"],
+      ].map(
+        async ([table, id]) =>
+          (
+            await f.pool.query(
+              `SELECT to_jsonb(s) AS row, xmin::text AS tuple_version FROM hyperfide.${table} s WHERE organisation_id=$1 AND repository_id=$2 AND security_domain_id=$3 ORDER BY ${id}`,
+              Object.values(f.scope),
+            )
+          ).rows,
+      ),
+    );
+  try {
+    const { revocation_token, ...profile } = JSON.parse(
+      await fs.readFile(ownedProfile, "utf8"),
+    );
+    assert.ok(revocation_token);
+    assert.notEqual(revocation_token, profile.token);
+    for (const [name, explicitProfile] of [
+      ["without-revocation", profile],
+      ["with-revocation", { ...profile, revocation_token }],
+    ]) {
+      const profilePath = path.join(directory, name + ".json");
+      await fs.writeFile(profilePath, JSON.stringify(explicitProfile), {
+        mode: 0o600,
+      });
+      assert.equal((await fs.stat(profilePath)).mode & 0o777, 0o600);
+      const before = await snapshot();
+      const child = spawn("python3", [launcher], {
+        env: {
+          ...process.env,
+          HYPERFIDE_SOURCE_CONTROL_TEST_PROFILE: profilePath,
+        },
+        stdio: ["ignore", "pipe", "pipe"],
+        timeout: 60000,
+      });
+      let stdout = "",
+        stderr = "";
+      child.stdout.on("data", (chunk) => (stdout += chunk));
+      child.stderr.on("data", (chunk) => (stderr += chunk));
+      const [code, signal] = await new Promise((resolve, reject) => {
+        child.once("error", reject);
+        child.once("close", (code, signal) => resolve([code, signal]));
+      });
+      const output = stdout + stderr;
+      assert.equal(signal, null, output);
+      assert.ok(Number.isInteger(code) && code !== 0, output);
+      assert.match(output, /CAPABILITY_MISSING/);
+      assert.match(output, /unset HYPERFIDE_SOURCE_CONTROL_TEST_PROFILE/);
+      assert.match(output, /owned native_source_sparse_fixture\.mjs fixture/);
+      assert.doesNotMatch(
+        output,
+        /\bPASS\b|full_case_qualified["']?\s*:\s*true|REAL_SOURCE_SERVICE_AND_HOST_FILESYSTEM/,
+      );
+      assert.deepEqual(await snapshot(), before, name + " changed source rows");
+    }
+  } finally {
+    await fs.rm(directory, { recursive: true, force: true });
+  }
 }
 let serviceOptions = {};
 if (!owned) {
@@ -57,6 +128,7 @@ try {
     }),
     { mode: 0o600 },
   );
+  await testSparseWorkspaceLauncherProfiles(f, profile);
   const program =
     process.env.SOURCE_CONTROL_WORKSPACE_PROGRAM ??
     execFileSync(
@@ -111,10 +183,28 @@ try {
   );
   assert.equal(code, 0, stdout + stderr);
   const report = JSON.parse(stdout.trim().split("\n").at(-1));
+  assert.equal(report.status, "PASS");
+  assert.equal(report.full_case_qualified, true);
   assert.equal(
     report.qualification_level,
     "REAL_SOURCE_SERVICE_AND_HOST_FILESYSTEM",
   );
+  assert.ok(
+    report.assertions.every((assertion) => assertion.outcome === "PASS"),
+  );
+  for (const id of [
+    "server-side-capability-revocation-during-materialization",
+    "watcher-overflow-scans-only-installed-scope-and-preserves-omitted-paths",
+    "lost-checkpoint-response-resolves-original-operation-and-retains-later-edits",
+    "server-scope-widening-preserves-base-root-and-dirty-host-bytes",
+  ]) {
+    assert.ok(
+      report.assertions.some(
+        (assertion) => assertion.id === id && assertion.outcome === "PASS",
+      ),
+      "Missing passing qualification assertion: " + id,
+    );
+  }
   const rows = (
     await f.pool.query(
       "SELECT checkpoint_revision_id FROM hyperfide.source_workspaces WHERE checkpoint_revision_id IS NOT NULL",
@@ -234,6 +324,7 @@ try {
   console.log(
     JSON.stringify({
       status: "PASS",
+      full_case_qualified: report.full_case_qualified,
       exit_code: code,
       receipt_digest: digest,
       receipt: path.join(output, "receipt.json"),
