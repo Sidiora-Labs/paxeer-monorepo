@@ -183816,7 +183816,7 @@ do_4 = "Attempt 3 (continue, gotcha 3739, decisions 3039 and 3043): the attempt-
 
 [task.22.39.183]
 title = "Make the arbiter decode kernel boundary leaves through the record header the runtime producer authenticates"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["22.31.577", "22.33.215", "21.53.1", "22.39.177"]
