@@ -160339,7 +160339,7 @@ do_6 = "Attempt 5 (relaunch, decision 3099, gotcha 3917): attempt 4 completed no
 
 [task.18.1679.1]
 title = "Issue #1679: Restrict live transfer updates and notices to the first display page"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
