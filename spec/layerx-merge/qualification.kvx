@@ -35269,8 +35269,8 @@ severity = "blocker"
 
 [finding.22.39.142.3]
 task = "22.39.142"
-file = "programs/crates/layerx-programs-ai-market/tests/f11_views.rs"
-symbol = "f11_views.rs"
+file = "programs/crates/layerx-programs-ai-market/tests/f11_family_table.rs"
+symbol = "f11_family_table.rs"
 observed = "Attempt 3 at 4e3940dd51bf: build exit 0, guest 483154 bytes; verification exit 101 in f11_family_table at line 191, SettleLaps expected (92, 92) against the table (480, 4190); the base tree fails the same assertion."
 assumption = "The row is a producer-to-consumer defect of 22.38.4, not of the size reduction; correcting it to the producer constants is the whole remaining work."
 severity = "blocker"
