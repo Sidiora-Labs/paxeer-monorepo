@@ -1673,7 +1673,7 @@
                 "properties": {
                   "id": {
                     "type": "string",
-                    "pattern": "^[1-9][0-9]*$",
+                    "pattern": "^([1-9][0-9]*|explorer:[1-9][0-9]*)$",
                     "description": "The indexer row id; rows are ordered by (blockHeight, txIndex, logIndex)."
                   },
                   "height_or_seq": {
@@ -2068,7 +2068,7 @@
             },
             "accounts": {
               "type": "array",
-              "maxItems": 1,
+              "maxItems": 16,
               "items": {
                 "type": "object",
                 "required": [
@@ -2080,16 +2080,39 @@
                   "side": {
                     "type": "string",
                     "enum": [
-                      "paxeer"
-                    ]
+                      "paxeer",
+                      "layerx"
+                    ],
+                    "description": "The side the row comes from: paxeer or layerx."
                   },
                   "account": {
-                    "type": "string",
-                    "pattern": "^0x[0-9a-f]{40}$"
+                    "type": "string"
                   }
-                }
+                },
+                "oneOf": [
+                  {
+                    "properties": {
+                      "side": {
+                        "const": "paxeer"
+                      },
+                      "account": {
+                        "pattern": "^0x[0-9a-f]{40}$"
+                      }
+                    }
+                  },
+                  {
+                    "properties": {
+                      "side": {
+                        "const": "layerx"
+                      },
+                      "account": {
+                        "pattern": "^[0-9a-f]{64}$"
+                      }
+                    }
+                  }
+                ]
               },
-              "description": "The single EVM indexer account selected after resolution, tagged with side paxeer.",
+              "description": "The EVM account of the resolved identity with side paxeer, followed by the canonical main account and the owned native accounts with side layerx, in the order composed by rpc/px_history.go.",
               "minItems": 1
             },
             "items": {
@@ -2125,7 +2148,7 @@
                 "properties": {
                   "id": {
                     "type": "string",
-                    "pattern": "^[1-9][0-9]*$",
+                    "pattern": "^([1-9][0-9]*|explorer:[1-9][0-9]*)$",
                     "description": "The indexer row id; rows are ordered by (blockHeight, txIndex, logIndex)."
                   },
                   "height_or_seq": {
@@ -2339,9 +2362,10 @@
                   "side": {
                     "type": "string",
                     "enum": [
-                      "paxeer"
+                      "paxeer",
+                      "layerx"
                     ],
-                    "description": "The selected EVM indexer account, always paxeer."
+                    "description": "The side the row comes from: paxeer or layerx."
                   },
                   "blockHeight": {
                     "type": "integer",

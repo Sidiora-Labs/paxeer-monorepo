@@ -116,15 +116,9 @@ fn insert(
 impl<'a> PlacementBook<'a> {
     pub fn decode(bytes: &'a [u8], model_digest: Digest32) -> CodecResult<Self> {
         let book = RoomBook::decode(bytes)?;
-        let counts = book.counts();
-        let mut r = Reader::new(bytes);
-        if !bytes.is_empty() {
-            r.take(14 + *counts.guest_index(0) * rooms::ROOM_RECORD_BYTES)?;
-        }
-        let ask_rows = r.take(*counts.guest_index(1) * rooms::ASK_RECORD_BYTES)?;
-        let bid_rows = r.take(*counts.guest_index(2) * rooms::BID_RECORD_BYTES)?;
-        let deals = r.take(*counts.guest_index(3) * rooms::DEAL_RECORD_BYTES)?;
-        r.finish()?;
+        let ask_rows = book.table(1);
+        let bid_rows = book.table(2);
+        let deals = book.table(3);
         let mut consumed = [false; rooms::BID_CAPACITY];
         for bytes in deals.guest_chunks_exact(rooms::DEAL_RECORD_BYTES) {
             let deal = rooms::DealRecord::decode(bytes)?;

@@ -27,7 +27,10 @@ import {
 } from "./account-derivation.js";
 import { abiSelector, type PrecompileCall } from "./exchange.js";
 import { decodeRevertReason, RevertReasonError } from "./revert.js";
-import { verifySequencerReceipt, type SequencerAuthorization } from "./verifier.js";
+import {
+  verifySequencerReceipt,
+  type SequencerAuthorization,
+} from "./verifier.js";
 
 /** Values of sdk/platform/schema/paxai-v1.kvx [limits]. */
 export const PAXAI_LIMITS = Object.freeze({
@@ -427,6 +430,104 @@ const OPERATION_ROWS: readonly OperationRow[] = [
     46,
     46,
   ],
+  ["OpenRoom", 0x0b01, 11, "mutation", "role", "native-only", 168, 168],
+  ["PostAsk", 0x0b02, 11, "mutation", "object-local", "native-only", 128, 128],
+  ["PostBid", 0x0b03, 11, "mutation", "role", "native-only", 130, 130],
+  ["RecordDeal", 0x0b04, 11, "mutation", "role", "native-only", 181, 1297],
+  ["SettleLaps", 0x0b05, 11, "mutation", "role", "native-only", 480, 4190],
+  [
+    "ChallengeLap",
+    0x0b06,
+    11,
+    "mutation",
+    "object-local",
+    "native-only",
+    88,
+    88,
+  ],
+  [
+    "ResolveChallenge",
+    0x0b07,
+    11,
+    "mutation",
+    "object-local",
+    "native-only",
+    104,
+    104,
+  ],
+  [
+    "SplitPayout",
+    0x0b08,
+    11,
+    "mutation",
+    "object-local",
+    "native-only",
+    80,
+    80,
+  ],
+  ["LockBond", 0x0b09, 11, "mutation", "role", "native-only", 80, 80],
+  [
+    "SlashBond",
+    0x0b0a,
+    11,
+    "mutation",
+    "object-local",
+    "native-only",
+    104,
+    104,
+  ],
+  ["RefundBond", 0x0b0b, 11, "mutation", "role", "native-only", 64, 64],
+  ["CloseRoom", 0x0b0c, 11, "mutation", "role", "native-only", 32, 32],
+  [
+    "RoomView",
+    0x0b10,
+    11,
+    "program-read",
+    "object-local",
+    "native-only",
+    32,
+    32,
+  ],
+  [
+    "DealView",
+    0x0b11,
+    11,
+    "program-read",
+    "object-local",
+    "native-only",
+    32,
+    32,
+  ],
+  [
+    "PeerView",
+    0x0b12,
+    11,
+    "program-read",
+    "object-local",
+    "native-only",
+    32,
+    32,
+  ],
+  [
+    "ReceiptBatchView",
+    0x0b13,
+    11,
+    "program-read",
+    "object-local",
+    "native-only",
+    64,
+    64,
+  ],
+  [
+    "BookView",
+    0x0b14,
+    11,
+    "program-read",
+    "object-local",
+    "native-only",
+    32,
+    32,
+  ],
 ];
 
 /** The [operations] table of the shared schema, keyed by selector. */
@@ -734,7 +835,16 @@ export type EpochStatus =
 export type ParticipantKind = "worker" | "evaluator";
 export type KindFilter = "all" | ParticipantKind;
 export type FeatureName =
-  "F01" | "F02" | "F03" | "F04" | "F05" | "F06" | "F07" | "F08" | "F09" | "F10";
+  | "F01"
+  | "F02"
+  | "F03"
+  | "F04"
+  | "F05"
+  | "F06"
+  | "F07"
+  | "F08"
+  | "F09"
+  | "F10";
 export type Components = Readonly<Record<FeatureName, Availability>>;
 
 const PROJECTIONS: readonly ProjectionState[] = [
@@ -1613,6 +1723,7 @@ function validateEnvelope(envelope: RequestEnvelope): OperationSpec {
     application(AI_APPLICATION_ERRORS.NON_CANONICAL);
   if (
     envelope.roster === null &&
+    !(envelope.selector >= 0x0b10 && envelope.selector <= 0x0b14) &&
     (envelope.epoch !== 0n || !registryBeforeEpoch(envelope.selector))
   ) {
     application(AI_APPLICATION_ERRORS.WRONG_ROSTER);
@@ -1835,18 +1946,32 @@ export function encodeProgramCallActivity(
   if (authorities !== undefined) {
     let tupleOffset = authorities.length * 32;
     const tuples = authorities.map((authority) => {
-      if (authority.canonicalReceipt.length === 0 || authority.canonicalReceipt.length > MAX_CALL_BYTES) invalid();
-      return concat(abiWord(64n), abiWord(authority.blockHeight, 64), abiBytes(authority.canonicalReceipt));
+      if (
+        authority.canonicalReceipt.length === 0 ||
+        authority.canonicalReceipt.length > MAX_CALL_BYTES
+      )
+        invalid();
+      return concat(
+        abiWord(64n),
+        abiWord(authority.blockHeight, 64),
+        abiBytes(authority.canonicalReceipt),
+      );
     });
     const tupleOffsets = tuples.map((tuple) => {
       const word = abiWord(BigInt(tupleOffset));
       tupleOffset += tuple.length;
       return word;
     });
-    receiptTail = concat(abiWord(BigInt(authorities.length)), ...tupleOffsets, ...tuples);
+    receiptTail = concat(
+      abiWord(BigInt(authorities.length)),
+      ...tupleOffsets,
+      ...tuples,
+    );
   }
   const encoded = concat(
-    authorities === undefined ? PROGRAMS_CALL_SELECTOR : PROGRAMS_CALL_WITH_RECEIPTS_SELECTOR,
+    authorities === undefined
+      ? PROGRAMS_CALL_SELECTOR
+      : PROGRAMS_CALL_WITH_RECEIPTS_SELECTOR,
     call.programId,
     abiWord(BigInt(call.guestAbi), 16),
     ...offsets,
@@ -1864,7 +1989,10 @@ export function encodeProgramCallActivity(
 export function decodeProgramCallActivity(
   bytes: Uint8Array,
 ): ProgramCallActivity {
-  const withReceipts = equal(bytes.slice(0, 4), PROGRAMS_CALL_WITH_RECEIPTS_SELECTOR);
+  const withReceipts = equal(
+    bytes.slice(0, 4),
+    PROGRAMS_CALL_WITH_RECEIPTS_SELECTOR,
+  );
   const headSize = (withReceipts ? 16 : 15) * 32;
   if (
     bytes.length < headSize + 4 ||
@@ -1929,29 +2057,57 @@ export function decodeProgramCallActivity(
   let receiptAuthorities: ProgramCallActivity["receiptAuthorities"];
   if (withReceipts) {
     const at = (offset: number, bits = 256): bigint => {
-      if (!Number.isSafeInteger(offset) || offset < 4 || offset + 32 > bytes.length) invalid();
+      if (
+        !Number.isSafeInteger(offset) ||
+        offset < 4 ||
+        offset + 32 > bytes.length
+      )
+        invalid();
       const value = BigInt(`0x${hex(bytes.slice(offset, offset + 32))}`);
       if (value >= 1n << BigInt(bits)) invalid();
       return value;
     };
     const arrayOffset = word(15);
-    if (arrayOffset < BigInt(headSize) || arrayOffset % 32n !== 0n || arrayOffset > BigInt(bytes.length - 36)) invalid();
+    if (
+      arrayOffset < BigInt(headSize) ||
+      arrayOffset % 32n !== 0n ||
+      arrayOffset > BigInt(bytes.length - 36)
+    )
+      invalid();
     const start = Number(arrayOffset) + 4;
     const count = at(start);
-    if (count > 4096n || count * 32n > BigInt(bytes.length - start - 32)) invalid();
-    receiptAuthorities = Object.freeze(Array.from({ length: Number(count) }, (_, index) => {
-      const offset = at(start + 32 + index * 32);
-      if (offset < count * 32n || offset % 32n !== 0n || offset > BigInt(bytes.length - start - 32)) invalid();
-      const tuple = start + 32 + Number(offset);
-      if (at(tuple) !== 64n) invalid();
-      const blockHeight = at(tuple + 32, 64);
-      const length = at(tuple + 64);
-      if (length === 0n || length > BigInt(bytes.length - tuple - 96)) invalid();
-      return Object.freeze({ canonicalReceipt: bytes.slice(tuple + 96, tuple + 96 + Number(length)), blockHeight });
-    }));
+    if (count > 4096n || count * 32n > BigInt(bytes.length - start - 32))
+      invalid();
+    receiptAuthorities = Object.freeze(
+      Array.from({ length: Number(count) }, (_, index) => {
+        const offset = at(start + 32 + index * 32);
+        if (
+          offset < count * 32n ||
+          offset % 32n !== 0n ||
+          offset > BigInt(bytes.length - start - 32)
+        )
+          invalid();
+        const tuple = start + 32 + Number(offset);
+        if (at(tuple) !== 64n) invalid();
+        const blockHeight = at(tuple + 32, 64);
+        const length = at(tuple + 64);
+        if (length === 0n || length > BigInt(bytes.length - tuple - 96))
+          invalid();
+        return Object.freeze({
+          canonicalReceipt: bytes.slice(
+            tuple + 96,
+            tuple + 96 + Number(length),
+          ),
+          blockHeight,
+        });
+      }),
+    );
   }
-  const activity: ProgramCallActivity = Object.freeze({ payload, feeLimit: word(14, 128),
-    ...(receiptAuthorities === undefined ? {} : { receiptAuthorities }) });
+  const activity: ProgramCallActivity = Object.freeze({
+    payload,
+    feeLimit: word(14, 128),
+    ...(receiptAuthorities === undefined ? {} : { receiptAuthorities }),
+  });
   if (!equal(encodeProgramCallActivity(activity), bytes)) invalid();
   return activity;
 }
@@ -3084,34 +3240,59 @@ export class OperationJournal {
       // Exclusive creation also excludes writers in other journal instances/processes.
       // An abandoned lock fails closed: an operator must reconcile it before removal.
       for (let attempt = 0; attempt < 100; attempt++) {
-        try { lock = await open(lockPath, "wx", 0o600); break; }
-        catch (cause) {
+        try {
+          lock = await open(lockPath, "wx", 0o600);
+          break;
+        } catch (cause) {
           if (errorCode(cause) !== "EEXIST" || attempt === 99) throw cause;
-          await new Promise(resolve => setTimeout(resolve, 10));
+          await new Promise((resolve) => setTimeout(resolve, 10));
         }
       }
       let current: Uint8Array | undefined;
-      try { current = await readFile(path); }
-      catch (cause) { if (errorCode(cause) !== "ENOENT") throw cause; }
+      try {
+        current = await readFile(path);
+      } catch (cause) {
+        if (errorCode(cause) !== "ENOENT") throw cause;
+      }
       const encoded = record.encode();
       OperationRecord.decode(encoded);
       if (current !== undefined && equal(current, encoded)) return;
       const expected = recordRevisions.get(record);
-      if (current === undefined ? expected !== undefined : expected === undefined || !equal(current, expected))
-        refuse("InvalidTransition", current === undefined ? {} : { from: OperationRecord.decode(current).state });
+      if (
+        current === undefined
+          ? expected !== undefined
+          : expected === undefined || !equal(current, expected)
+      )
+        refuse(
+          "InvalidTransition",
+          current === undefined
+            ? {}
+            : { from: OperationRecord.decode(current).state },
+        );
       const file = await open(partial, "wx", 0o600);
-      try { await file.writeFile(encoded); await file.sync(); }
-      finally { await file.close(); }
+      try {
+        await file.writeFile(encoded);
+        await file.sync();
+      } finally {
+        await file.close();
+      }
       await rename(partial, path);
       const directory = await open(this.#directory, "r");
-      try { await directory.sync(); }
-      finally { await directory.close(); }
+      try {
+        await directory.sync();
+      } finally {
+        await directory.close();
+      }
     } catch (cause) {
       if (cause instanceof AiMarketError) throw cause;
       refuse("Journal", { cause });
     } finally {
       if (lock !== undefined) {
-        try { await unlink(partial); } catch (cause) { if (errorCode(cause) !== "ENOENT") throw cause; }
+        try {
+          await unlink(partial);
+        } catch (cause) {
+          if (errorCode(cause) !== "ENOENT") throw cause;
+        }
         await lock.close();
         await unlink(lockPath);
       }
@@ -3130,9 +3311,14 @@ export class OperationJournal {
     if (record.activityId !== activityId) refuse("CorruptRecord");
     if (record.state !== "submitting") return record;
     const recovered = record.with({ state: "unknown" }, TOKEN);
-    try { await this.persist(recovered); }
-    catch (cause) {
-      if (!(cause instanceof AiMarketError) || cause.code !== "InvalidTransition") throw cause;
+    try {
+      await this.persist(recovered);
+    } catch (cause) {
+      if (
+        !(cause instanceof AiMarketError) ||
+        cause.code !== "InvalidTransition"
+      )
+        throw cause;
       return this.load(activityId);
     }
     return recovered;
@@ -3187,12 +3373,16 @@ export class OperationJournal {
         this.#receiptKeys,
       );
       if (execution === null) return record;
-      const code = execution.programResult?.terminalResult ?? execution.receipt.resultCode;
-      const resolved = record.with({
-        state: code === 0 ? "executed" : "failed",
-        resultCode: code,
-        globalSequence: execution.receipt.globalSequence,
-      }, TOKEN);
+      const code =
+        execution.programResult?.terminalResult ?? execution.receipt.resultCode;
+      const resolved = record.with(
+        {
+          state: code === 0 ? "executed" : "failed",
+          resultCode: code,
+          globalSequence: execution.receipt.globalSequence,
+        },
+        TOKEN,
+      );
       await this.persist(resolved);
       if (execution.revert !== null) throw execution.revert;
       return resolved;
@@ -3405,10 +3595,15 @@ export function decodeProgramsCallResult(
       legs,
     );
     response = execution;
-  } else if (response.length > responseCapacity || [
-    "LXP/program-execution-with-transfer-authority/v2\0",
-    "LXP/program-execution-with-occupancy/v1\0",
-  ].some((domain) => equal(response.slice(0, ascii(domain).length), ascii(domain)))) {
+  } else if (
+    response.length > responseCapacity ||
+    [
+      "LXP/program-execution-with-transfer-authority/v2\0",
+      "LXP/program-execution-with-occupancy/v1\0",
+    ].some((domain) =>
+      equal(response.slice(0, ascii(domain).length), ascii(domain)),
+    )
+  ) {
     refuse("ReceiptMismatch");
   }
   return Object.freeze({
@@ -3429,12 +3624,18 @@ function validateProgramsExecutionResponse(
   let inner = execution;
   let authorityProgram: Uint8Array | undefined;
   if (equal(inner.slice(0, authority.length), authority)) {
-    const wrapper = new Reader(inner.slice(authority.length), () => refuse("ReceiptMismatch"));
+    const wrapper = new Reader(inner.slice(authority.length), () =>
+      refuse("ReceiptMismatch"),
+    );
     inner = wrapper.sized(1_048_576);
     const authorization = wrapper.sized(1_048_576);
     const root = wrapper.fixed(32);
     wrapper.end();
-    authorityProgram = validateProgramsTransferAuthority(authorization, root, appliedLegs);
+    authorityProgram = validateProgramsTransferAuthority(
+      authorization,
+      root,
+      appliedLegs,
+    );
   }
   if (equal(inner.slice(0, occupancy.length), occupancy)) {
     const wrapper = new Reader(inner.slice(occupancy.length), () =>
@@ -3554,49 +3755,103 @@ function decodeCommittedTransactionReceipt(value: unknown, signed: Uint8Array) {
 // The wrapper root equals the applied-legs root; protocol occupancy charges
 // settle in their own activity.
 function programsLegRoot(legs: readonly Uint8Array[]): Uint8Array {
-  let level = legs.map((leg) => sha256(concat(ascii("LXP/v1/merkle-leaf\0"), leg)));
+  let level = legs.map((leg) =>
+    sha256(concat(ascii("LXP/v1/merkle-leaf\0"), leg)),
+  );
   while (level.length > 1) {
     const next: typeof level = [];
     for (let i = 0; i < level.length; i += 2)
-      next.push(sha256(concat(ascii("LXP/v1/merkle-internal\0"), level[i]!, level[i + 1] ?? level[i]!)));
+      next.push(
+        sha256(
+          concat(
+            ascii("LXP/v1/merkle-internal\0"),
+            level[i]!,
+            level[i + 1] ?? level[i]!,
+          ),
+        ),
+      );
     level = next;
   }
   return level[0] ?? new Uint8Array(32);
 }
 
-function validateProgramsTransferAuthority(encoded: Uint8Array, root: Uint8Array, applied: Uint8Array): Uint8Array {
+function validateProgramsTransferAuthority(
+  encoded: Uint8Array,
+  root: Uint8Array,
+  applied: Uint8Array,
+): Uint8Array {
   const fail = (): never => refuse("ReceiptMismatch");
   const reader = (bytes: Uint8Array) => new Reader(bytes, fail);
-  const nonzero = (bytes: Uint8Array): Uint8Array => bytes.some((b) => b !== 0) ? bytes : fail();
-  const domain = (r: Reader, text: string): void => { if (!equal(r.fixed(ascii(text).length), ascii(text))) fail(); };
+  const nonzero = (bytes: Uint8Array): Uint8Array =>
+    bytes.some((b) => b !== 0) ? bytes : fail();
+  const domain = (r: Reader, text: string): void => {
+    if (!equal(r.fixed(ascii(text).length), ascii(text))) fail();
+  };
   const frame = (r: Reader): Uint8Array => {
-    const path = r.fixed(8), depth = r.u8();
-    if (depth > 8 || path.slice(0, depth).some((b) => b === 0) || path.slice(depth).some((b) => b !== 0)) fail();
+    const path = r.fixed(8),
+      depth = r.u8();
+    if (
+      depth > 8 ||
+      path.slice(0, depth).some((b) => b === 0) ||
+      path.slice(depth).some((b) => b !== 0)
+    )
+      fail();
     return concat(path, Uint8Array.of(depth));
   };
-  const derive = (owner: Uint8Array, seed: Uint8Array) => sha256(concat(ascii("LayerX/programs/program-account/v1\0"), owner, new Writer().sized(seed).bytes()));
+  const derive = (owner: Uint8Array, seed: Uint8Array) =>
+    sha256(
+      concat(
+        ascii("LayerX/programs/program-account/v1\0"),
+        owner,
+        new Writer().sized(seed).bytes(),
+      ),
+    );
   const capabilities = (encoded: Uint8Array, v2: boolean): void => {
-    const r = reader(encoded), count = r.u16();
+    const r = reader(encoded),
+      count = r.u16();
     if (encoded.length > 65_452 || count > 238) fail();
-    let previous: Uint8Array[] | undefined, sights = 0;
+    let previous: Uint8Array[] | undefined,
+      sights = 0;
     for (let i = 0; i < count; i++) {
       const tag = r.u8();
       const rank = [0, 0, 1, 2, 3, 4, 6, 8, 9, 5, 7][tag];
-      if (tag < 1 || tag > 10 || rank === undefined || (!v2 && tag >= 9)) fail();
+      if (tag < 1 || tag > 10 || rank === undefined || (!v2 && tag >= 9))
+        fail();
       let key: Uint8Array[] = [Uint8Array.of(rank!)];
       if (tag === 4 || tag === 6) key.push(nonzero(r.fixed(32)));
-      if (tag === 5) { key.push(nonzero(r.fixed(32)), nonzero(r.fixed(32))); if (r.u128() === 0n) fail(); }
-      if (tag === 9) {
-        const owner = nonzero(r.fixed(32)), length = r.u16(); if (length > 128) fail();
-        const seed = r.fixed(length), source = r.fixed(32);
-        if (!equal(derive(owner, seed), source)) fail();
-        key.push(owner, seed, source, nonzero(r.fixed(32)), nonzero(r.fixed(32)));
+      if (tag === 5) {
+        key.push(nonzero(r.fixed(32)), nonzero(r.fixed(32)));
         if (r.u128() === 0n) fail();
       }
-      if (tag === 10) { key.push(nonzero(r.fixed(32)), nonzero(r.fixed(32))); nonzero(r.fixed(32)); if (++sights > 32) fail(); }
+      if (tag === 9) {
+        const owner = nonzero(r.fixed(32)),
+          length = r.u16();
+        if (length > 128) fail();
+        const seed = r.fixed(length),
+          source = r.fixed(32);
+        if (!equal(derive(owner, seed), source)) fail();
+        key.push(
+          owner,
+          seed,
+          source,
+          nonzero(r.fixed(32)),
+          nonzero(r.fixed(32)),
+        );
+        if (r.u128() === 0n) fail();
+      }
+      if (tag === 10) {
+        key.push(nonzero(r.fixed(32)), nonzero(r.fixed(32)));
+        nonzero(r.fixed(32));
+        if (++sights > 32) fail();
+      }
       if (previous !== undefined) {
         let order = 0;
-        for (let field = 0; field < Math.min(previous.length, key.length) && order === 0; field++) order = Buffer.compare(previous[field]!, key[field]!);
+        for (
+          let field = 0;
+          field < Math.min(previous.length, key.length) && order === 0;
+          field++
+        )
+          order = Buffer.compare(previous[field]!, key[field]!);
         if (order >= 0) fail();
       }
       previous = key;
@@ -3621,24 +3876,37 @@ function validateProgramsTransferAuthority(encoded: Uint8Array, root: Uint8Array
   const eventBindings: Array<{ program: Uint8Array; frame: Uint8Array }> = [];
   const events = reader(r.sized(1_048_576));
   domain(events, "LayerX/programs/events/v1\0");
-  const eventCount = events.u32(); if (eventCount > 64) fail();
+  const eventCount = events.u32();
+  if (eventCount > 64) fail();
   for (let i = 0; i < eventCount; i++) {
     const eventProgram = nonzero(events.fixed(32));
     if (!equal(events.fixed(32), principal)) fail();
     eventBindings.push({ program: eventProgram, frame: frame(events) });
-    if (events.sized(64).length === 0) fail(); events.sized(65_536);
+    if (events.sized(64).length === 0) fail();
+    events.sized(65_536);
   }
   events.end();
-  const calls = r.u64(); if (calls > 64n) fail();
+  const calls = r.u64();
+  if (calls > 64n) fail();
   for (let i = 0n; i < calls; i++) {
-    const caller = nonzero(r.fixed(32)), callee = nonzero(r.fixed(32));
+    const caller = nonzero(r.fixed(32)),
+      callee = nonzero(r.fixed(32));
     if (!equal(r.fixed(32), principal)) fail();
-    const callerFrame = frame(r), calleeFrame = frame(r);
+    const callerFrame = frame(r),
+      calleeFrame = frame(r);
     const expectedCaller = frames.get(hex(callerFrame));
     const callerDepth = callerFrame[8]!;
-    if (expectedCaller === undefined || !equal(expectedCaller, caller) ||
-      frames.has(hex(calleeFrame)) || calleeFrame[8] !== callerDepth + 1 ||
-      !equal(calleeFrame.slice(0, callerDepth), callerFrame.slice(0, callerDepth))) fail();
+    if (
+      expectedCaller === undefined ||
+      !equal(expectedCaller, caller) ||
+      frames.has(hex(calleeFrame)) ||
+      calleeFrame[8] !== callerDepth + 1 ||
+      !equal(
+        calleeFrame.slice(0, callerDepth),
+        callerFrame.slice(0, callerDepth),
+      )
+    )
+      fail();
     frames.set(hex(calleeFrame), callee);
     capabilities(r.sized(65_452), v2);
   }
@@ -3646,61 +3914,141 @@ function validateProgramsTransferAuthority(encoded: Uint8Array, root: Uint8Array
     const expected = frames.get(hex(event.frame));
     if (expected === undefined || !equal(expected, event.program)) fail();
   }
-  const count = r.u64(); if (count === 0n || count > 256n) fail();
+  const count = r.u64();
+  if (count === 0n || count > 256n) fail();
   const legs: Uint8Array[] = [];
   let total = 0n;
   for (let i = 0n; i < count; i++) {
-    const staged = frame(r), tag = v2 ? r.u8() : 1;
+    const staged = frame(r),
+      tag = v2 ? r.u8() : 1;
     let source = principal;
-    let binding: { owner: Uint8Array; account: Uint8Array; asset: Uint8Array; frame?: Uint8Array; to?: Uint8Array; amount?: bigint } | undefined;
+    let binding:
+      | {
+          owner: Uint8Array;
+          account: Uint8Array;
+          asset: Uint8Array;
+          frame?: Uint8Array;
+          to?: Uint8Array;
+          amount?: bigint;
+        }
+      | undefined;
     if (tag === 1 || tag === 3) {
       if (v2 && !equal(r.fixed(32), principal)) fail();
     } else if (tag !== 2) fail();
     if (tag === 2 || tag === 3) {
       const b = reader(r.sized(512));
-      domain(b, `LayerX/programs/402LXP/program-${tag === 2 ? "authority" : "funding"}/v1\0`);
-      const owner = nonzero(b.fixed(32)), length = b.u16(); if (length > 128) fail();
-      const seed = b.fixed(length), account = nonzero(b.fixed(32));
+      domain(
+        b,
+        `LayerX/programs/402LXP/program-${tag === 2 ? "authority" : "funding"}/v1\0`,
+      );
+      const owner = nonzero(b.fixed(32)),
+        length = b.u16();
+      if (length > 128) fail();
+      const seed = b.fixed(length),
+        account = nonzero(b.fixed(32));
       if (!equal(account, derive(owner, seed))) fail();
       if (tag === 2) {
         source = account;
-        binding = { owner, account, frame: frame(b), asset: nonzero(b.fixed(32)), to: nonzero(b.fixed(32)), amount: b.u128() };
+        binding = {
+          owner,
+          account,
+          frame: frame(b),
+          asset: nonzero(b.fixed(32)),
+          to: nonzero(b.fixed(32)),
+          amount: b.u128(),
+        };
       } else binding = { owner, account, asset: nonzero(b.fixed(32)) };
       b.end();
     }
-    const asset = nonzero(r.fixed(32)), to = nonzero(r.fixed(32)), amount = r.u128(), program = nonzero(r.fixed(32));
+    const asset = nonzero(r.fixed(32)),
+      to = nonzero(r.fixed(32)),
+      amount = r.u128(),
+      program = nonzero(r.fixed(32));
     const expectedProgram = frames.get(hex(staged));
-    if (expectedProgram === undefined || !equal(expectedProgram, program)) fail();
+    if (expectedProgram === undefined || !equal(expectedProgram, program))
+      fail();
     if (amount === 0n || (total += amount) > U128_MAX) fail();
-    if (binding !== undefined && (!equal(binding.owner, program) || !equal(binding.asset, asset))) fail();
-    if (tag === 2 && binding !== undefined && (!equal(binding.frame!, staged) || !equal(binding.to!, to) || binding.amount !== amount)) fail();
-    if (tag === 3 && binding !== undefined && !equal(binding.account, to)) fail();
+    if (
+      binding !== undefined &&
+      (!equal(binding.owner, program) || !equal(binding.asset, asset))
+    )
+      fail();
+    if (
+      tag === 2 &&
+      binding !== undefined &&
+      (!equal(binding.frame!, staged) ||
+        !equal(binding.to!, to) ||
+        binding.amount !== amount)
+    )
+      fail();
+    if (tag === 3 && binding !== undefined && !equal(binding.account, to))
+      fail();
     if (names !== undefined) {
-      const length = names.u16(); if (length > 512) fail();
+      const length = names.u16();
+      if (length > 512) fail();
       const name = names.fixed(length);
-      if (tag === 2) { if (length !== 0) fail(); }
-      else {
-        if (name.some((b) => !(b >= 97 && b <= 122) && !(b >= 48 && b <= 57) && ![46, 95, 45, 58].includes(b))) fail();
+      if (tag === 2) {
+        if (length !== 0) fail();
+      } else {
+        if (
+          name.some(
+            (b) =>
+              !(b >= 97 && b <= 122) &&
+              !(b >= 48 && b <= 57) &&
+              ![46, 95, 45, 58].includes(b),
+          )
+        )
+          fail();
         const text = new TextDecoder().decode(name);
         if (!text.startsWith("agent:") || text.includes("::")) fail();
-        const suffix = text.endsWith(":main") ? ":main" : `:asset:${hex(asset)}`;
+        const suffix = text.endsWith(":main")
+          ? ":main"
+          : `:asset:${hex(asset)}`;
         if (!text.endsWith(suffix)) fail();
         const did = text.slice(6, -suffix.length);
-        if (did.length === 0 || did.startsWith(":") || did.endsWith(":")) fail();
-        if (!equal(sha256(concat(ascii("LXP/v1/did-id\0"), new Writer().u16(ascii(did).length).put(ascii(did)).bytes())), principal)) fail();
-        source = sha256(concat(ascii("LX:ACCOUNT:v1"), new Writer().sized(name).bytes()));
+        if (did.length === 0 || did.startsWith(":") || did.endsWith(":"))
+          fail();
+        if (
+          !equal(
+            sha256(
+              concat(
+                ascii("LXP/v1/did-id\0"),
+                new Writer().u16(ascii(did).length).put(ascii(did)).bytes(),
+              ),
+            ),
+            principal,
+          )
+        )
+          fail();
+        source = sha256(
+          concat(ascii("LX:ACCOUNT:v1"), new Writer().sized(name).bytes()),
+        );
       }
     }
-    legs.push(concat(Uint8Array.of(0), source, to, asset, new Writer().u128(amount).u16(1).bytes()));
+    legs.push(
+      concat(
+        Uint8Array.of(0),
+        source,
+        to,
+        asset,
+        new Writer().u128(amount).u16(1).bytes(),
+      ),
+    );
   }
-  r.end(); names?.end();
+  r.end();
+  names?.end();
   if (!equal(programsLegRoot(legs), root)) fail();
   const appliedLegs = Array.from({ length: applied.length / 115 }, (_, index) =>
-    applied.slice(index * 115, (index + 1) * 115));
+    applied.slice(index * 115, (index + 1) * 115),
+  );
   if (!equal(programsLegRoot(appliedLegs), root)) fail();
   let offset = 0;
   for (const leg of legs) {
-    while (offset < applied.length && !equal(leg, applied.slice(offset, offset + 115))) offset += 115;
+    while (
+      offset < applied.length &&
+      !equal(leg, applied.slice(offset, offset + 115))
+    )
+      offset += 115;
     if (offset === applied.length) fail();
     offset += 115;
   }

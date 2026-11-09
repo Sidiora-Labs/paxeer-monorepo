@@ -1,4 +1,4 @@
-//! LayerX JSON-RPC client modules.
+//! `LayerX` JSON-RPC client modules.
 
 pub use layerx_programs_registry::chain_proof::{ChainProofVerifier, VerifiedChainHead};
 
@@ -12,6 +12,9 @@ pub struct CommittedBlockContext {
 }
 
 impl CommittedBlockContext {
+    /// # Errors
+    ///
+    /// Returns `commit::CommitError::Invalid` when the verified height cannot be represented as an unsigned height.
     pub fn from_verified(head: &VerifiedChainHead) -> Result<Self, commit::CommitError> {
         let committed_height = u64::try_from(head.height())
             .ok()

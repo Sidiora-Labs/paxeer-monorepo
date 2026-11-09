@@ -21,6 +21,13 @@ impl<T, E: std::fmt::Debug> Must<T> for Result<T, E> {
     }
 }
 
+fn must_err<T: std::fmt::Debug, E>(result: Result<T, E>) -> E {
+    match result {
+        Ok(value) => panic!("expected error, got {value:?}"),
+        Err(error) => error,
+    }
+}
+
 fn hex(bytes: &[u8]) -> String {
     bytes.iter().fold(String::new(), |mut text, byte| {
         let _ = write!(text, "{byte:02x}");
@@ -649,7 +656,7 @@ fn refusal_keeps_code_message_and_data() {
     assert_eq!(
         endpoint.send_raw_transaction(&[0x02]),
         Err(SequencerError::Rpc(RpcRefusal {
-            code: -32000,
+            code: -32_000,
             message: "nonce too low: next nonce 8, tx nonce 7".to_owned(),
             data: Some(json!({"next": "0x8", "reason": ["nonce", 7]})),
         }))
@@ -657,7 +664,7 @@ fn refusal_keeps_code_message_and_data() {
     assert_eq!(
         endpoint.send_raw_transaction(&[0x02]),
         Err(SequencerError::Rpc(RpcRefusal {
-            code: -32003,
+            code: -32_003,
             message: "sequencer unavailable".to_owned(),
             data: Some(Value::Null),
         }))
@@ -1019,57 +1026,7 @@ fn producer_receipts_refuse_missing_payment_denom_invalid_asset_and_truncated_by
                     .trim_start_matches("0x")
             )
         );
-        let keys =
-            layerx_client::sequencer::decode_receipt_keys(&json!({"keys":[case["pinnedKey"]]}))
-                .must();
-        let authorizations: Vec<_> = keys
-            .iter()
-            .map(|key| {
-                layerx_proof::inclusion::SequencerAuthorization::new(
-                    key.key_id,
-                    key.public_key,
-                    key.first_height,
-                    key.last_height,
-                )
-            })
-            .collect();
-        let signed = layerx_proof::receipt::verify_sequencer_signature(
-            &execution.receipt,
-            authorizations.as_slice(),
-        )
-        .must();
-        assert_eq!(
-            signed
-                .protocol()
-                .unwrap_or_else(|| panic!("protocol"))
-                .activity_id(),
-            hash
-        );
-        // The authenticated path reconciles every execution field and every log with the Go receipt.
-        let (auth_url, auth_server) = serve(vec![
-            ("pax_sequencerReceipt", Some(format!("\"result\":{view}"))),
-            (
-                "eth_getTransactionReceipt",
-                Some("\"result\":null".to_owned()),
-            ),
-        ]);
-        let authenticated = layerx_client::rpc::receipt::lookup_authenticated(
-            &endpoint(&auth_url),
-            hash,
-            layerx_client::rpc::receipt::LookupContext {
-                receipt_keys: &keys,
-            },
-        )
-        .must();
-        let layerx_client::rpc::receipt::Lookup::Verified(authenticated) = authenticated else {
-            panic!("authenticated receipt")
-        };
-        assert_eq!(authenticated.execution(), &execution);
-        assert_eq!(
-            authenticated.rung(),
-            layerx_client::rpc::receipt::Rung::Receipted
-        );
-        assert_eq!(auth_server.join().must(), vec![json!([view["txHash"]]); 2]);
+        assert_authenticated_producer_receipt(case, &view, hash, &execution);
         for label in ["missing paymentDenom", "invalid asset", "truncated receipt"] {
             assert_eq!(
                 sequencer.sequencer_receipt(&hash),
@@ -1082,12 +1039,67 @@ fn producer_receipts_refuse_missing_payment_denom_invalid_asset_and_truncated_by
     }
 }
 
+fn assert_authenticated_producer_receipt(
+    case: &Value,
+    view: &Value,
+    hash: [u8; 32],
+    execution: &ExecutedReceipt,
+) {
+    let keys =
+        layerx_client::sequencer::decode_receipt_keys(&json!({"keys":[case["pinnedKey"]]})).must();
+    let authorizations: Vec<_> = keys
+        .iter()
+        .map(|key| {
+            layerx_proof::inclusion::SequencerAuthorization::new(
+                key.key_id,
+                key.public_key,
+                key.first_height,
+                key.last_height,
+            )
+        })
+        .collect();
+    let signed = layerx_proof::receipt::verify_sequencer_signature(
+        &execution.receipt,
+        authorizations.as_slice(),
+    )
+    .must();
+    assert_eq!(
+        signed
+            .protocol()
+            .unwrap_or_else(|| panic!("protocol"))
+            .activity_id(),
+        hash
+    );
+    // The authenticated path reconciles every execution field and every log with the Go receipt.
+    let (auth_url, auth_server) = serve(vec![
+        ("pax_sequencerReceipt", Some(format!("\"result\":{view}"))),
+        (
+            "eth_getTransactionReceipt",
+            Some("\"result\":null".to_owned()),
+        ),
+    ]);
+    let authenticated = layerx_client::rpc::receipt::lookup_authenticated(
+        &endpoint(&auth_url),
+        hash,
+        layerx_client::rpc::receipt::LookupContext {
+            receipt_keys: &keys,
+        },
+    )
+    .must();
+    let layerx_client::rpc::receipt::Lookup::Verified(authenticated) = authenticated else {
+        panic!("authenticated receipt")
+    };
+    assert_eq!(authenticated.execution(), execution);
+    assert_eq!(
+        authenticated.rung(),
+        layerx_client::rpc::receipt::Rung::Receipted
+    );
+    assert_eq!(auth_server.join().must(), vec![json!([view["txHash"]]); 2]);
+}
+
 fn assert_producer_refusal(case: &Value) {
     use layerx_client::rpc::receipt::{lookup_authenticated, LookupContext, ReceiptError};
-    use layerx_proof::receipt::{
-        verify_outcome, verify_sequencer_signature, AuthorizedBatch, ReceiptCheck,
-    };
-    use sha2::{Digest as _, Sha256};
+    use layerx_proof::receipt::{verify_sequencer_signature, ReceiptCheck};
 
     let view = &case["receiptJson"];
     let bytes = vector_bytes(&case["signedReceipt"]);
@@ -1108,9 +1120,9 @@ fn assert_producer_refusal(case: &Value) {
     let signed = verify_sequencer_signature(&bytes, authorizations.as_slice());
     let stage = vector_text(&case["expected"]["refusedAt"]);
     match vector_text(&case["expected"]["verifier"]) {
-        "Decode" => assert_eq!(signed.as_ref().unwrap_err().check, ReceiptCheck::Decode),
+        "Decode" => assert_eq!(must_err(signed.as_ref()).check, ReceiptCheck::Decode),
         "SequencerSignature" => assert_eq!(
-            signed.as_ref().unwrap_err().check,
+            must_err(signed.as_ref()).check,
             ReceiptCheck::SequencerSignature
         ),
         "accepts" => {
@@ -1143,7 +1155,7 @@ fn assert_producer_refusal(case: &Value) {
             result,
             Err(ReceiptError::Sequencer(SequencerError::Malformed))
         ),
-        "R3" => assert_eq!(result, Err(ReceiptError::Verification(signed.unwrap_err()))),
+        "R3" => assert_eq!(result, Err(ReceiptError::Verification(must_err(signed)))),
         "R5" => assert_eq!(
             result,
             Err(ReceiptError::Logs(
@@ -1161,32 +1173,45 @@ fn assert_producer_refusal(case: &Value) {
             };
             assert_eq!(authenticated.rung(), layerx_types::rung::Rung::Receipted);
             let signed = signed.must();
-            let protocol = signed.protocol().unwrap_or_else(|| panic!("protocol"));
-            let previous = decode32(vector_text(&case["prevSeqHash"]));
-            assert_ne!(protocol.previous_state_root(), previous);
-            let mut chain = Sha256::new();
-            chain.update(b"PAXEER/v1/sequence\0");
-            chain.update(previous);
-            chain.update(protocol.global_sequence().to_be_bytes());
-            chain.update(requested_hash);
-            let expected_root: [u8; 32] = chain.finalize().into();
-            let batch = AuthorizedBatch::from_receipt_keys(
-                &bytes,
-                authorizations.as_slice(),
-                protocol.asset(),
-                previous,
-                expected_root,
-            )
-            .must();
-            assert_eq!(
-                verify_outcome(&bytes, &batch).unwrap_err().check,
-                ReceiptCheck::PreviousStateRoot
-            );
+            assert_producer_previous_root(case, requested_hash, &bytes, &authorizations, &signed);
         }
         other => panic!("unexpected refusal stage: {other}"),
     }
     assert_eq!(
         server.join().must(),
         vec![json!([format!("0x{}", hex(&requested_hash))]); if stage == "R6" { 2 } else { 1 }]
+    );
+}
+
+fn assert_producer_previous_root(
+    case: &Value,
+    requested_hash: [u8; 32],
+    bytes: &[u8],
+    authorizations: &[layerx_proof::inclusion::SequencerAuthorization],
+    signed: &layerx_wire::receipt::Receipt,
+) {
+    use layerx_proof::receipt::{verify_outcome, AuthorizedBatch, ReceiptCheck};
+    use sha2::{Digest as _, Sha256};
+
+    let protocol = signed.protocol().unwrap_or_else(|| panic!("protocol"));
+    let previous = decode32(vector_text(&case["prevSeqHash"]));
+    assert_ne!(protocol.previous_state_root(), previous);
+    let mut chain = Sha256::new();
+    chain.update(b"PAXEER/v1/sequence\0");
+    chain.update(previous);
+    chain.update(protocol.global_sequence().to_be_bytes());
+    chain.update(requested_hash);
+    let expected_root: [u8; 32] = chain.finalize().into();
+    let batch = AuthorizedBatch::from_receipt_keys(
+        bytes,
+        authorizations,
+        protocol.asset(),
+        previous,
+        expected_root,
+    )
+    .must();
+    assert_eq!(
+        must_err(verify_outcome(bytes, &batch)).check,
+        ReceiptCheck::PreviousStateRoot
     );
 }
