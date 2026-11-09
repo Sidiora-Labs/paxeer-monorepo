@@ -19640,3 +19640,18 @@ fix = "The attempt compares the account kinds and the capability record of the r
 title = "The eight surface epochs of the launchpad producer record were aligned to the current runtime hash, which the migration case must see refused"
 symptom = "Task 22.39.242 attempt 3 at 5128ff63d2c1: the record now carries the current runtime hash on the eight surface epochs; TestRepair_53_migrated_role_epochs requires each of the eight original surface epochs to fail exact code attestation (repair_53_test.go:478, the error is nil) while the active epoch the authority resolves for the same address attests the installed migration runtime (:470 to :473); the four qualification cases still fail at identity.go:444, rehydrate historical creation, for the pre-activation market at height 33963716 that proveHistoricalMarket checks"
 fix = "The original epochs keep the obsolete approved identity, which migratedRoleEpoch (:484) normalises into the admitted execution epoch, and the historical creation of the record is re-recorded against the fields proveHistoricalMarket compares"
+
+[gotcha.3964]
+title = "The export witness attempt fails its build on an inherited agent lockfile and cannot touch the verifier its note names"
+symptom = "Task 18.1752.1 attempt 5 at ecbd11c045f3: cargo build --locked refuses because services/agent/Cargo.lock needs an update after the rebase (exit 101; the lockfile is in neither the touches nor the planned paths), and the note of attempt 5 asks for stage names in export::verify of services/agent/crates/layerx-agentd/src/export.rs, a file the touches list does not name, so the model session declined it as out of scope"
+fix = "The planned paths admit the agent lockfile and the touches list names export.rs; decision 3116"
+
+[gotcha.3965]
+title = "The aggregation chunk of the market program costs 46 percent more fuel at 32 participants than at 16 although a chunk is eight participants"
+symptom = "Task 22.33.223 attempt 20 at d74a1c29af7d: the opening fuel repair holds (OPEN_EPOCH 720967, BeginAggregation 593976, FinalizeAggregation 491195 at 32 and 8, all under the 900000 margin) and 31 of 32 cases pass; roster_state_fuel_scaling fails at tests/fuel_budget.rs:3145 because the first ProcessAggregation chunk (selector 0x0502) costs 189384 fuel at 16 and 4 and 276514 at 32 and 8, a slope of about 5500 fuel per added roster participant with a constant eight-participant chunk, which means a pass over the whole roster on every chunk call; the candidates in the tree are the whole-state decode at line 1520 of the entry module of the program and the roster section it carries, the replay table of every actor slot decoded and re-encoded per call (state.rs decode_replay at :496 and encode_replay at :423), and the roster load inside epoch::aggregate (entered at line 2196 of the entry module)"
+fix = "The chunk step touches only the region of its chunk and the replay entry of the calling actor; the per-pass fuel is measured and recorded before the change"
+
+[gotcha.3966]
+title = "The launchpad stream relay attempt ran no gate because the file its note names is outside the task scope"
+symptom = "Task 22.39.117 attempt 13: the attempt-13 note asks for the loopback JetStream server inside services/launchpad/api/internal/app/stream_relay_production_test.go, which the touches list does not name; the model session kept the attempt-12 tree ef16d9ebde7a and ran no build and no verification"
+fix = "The touches list names the test file; decision 3116"

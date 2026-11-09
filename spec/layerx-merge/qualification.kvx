@@ -38586,3 +38586,27 @@ symbol = "repair53-producer.json"
 observed = "Attempt 3 at 5128ff63d2c1: build exit 0; verification exit 1: TestRepair_53_migrated_role_epochs fails at repair_53_test.go:478 with a nil attestation error, and four cases fail at identity.go:444 rehydrate historical creation; log /out/logs/verify-1.log."
 assumption = "The obsolete identities on the eight surface epochs and the re-recorded historical creation satisfy both sites."
 severity = "high"
+
+[finding.18.1752.1.5]
+task = "18.1752.1"
+file = "services/agent/crates/layerx-agentd/tests/issue_1752.rs::state_export_owner_rpc_retains_and_recovers_witnesses"
+symbol = "issue_1752.rs::state_export_owner_rpc_retains_and_recovers_witnesses"
+observed = "Attempt 5 at ecbd11c045f3: build exit 101, the lock file services/agent/Cargo.lock needs to be updated but --locked was passed; no verification ran; the verifier edit was declined as outside the touches list; log /out/logs/build-1.log."
+assumption = "With the lockfile planned and export.rs in scope the attempt-5 note can be carried out."
+severity = "high"
+
+[finding.22.33.223.19]
+task = "22.33.223"
+file = "programs/crates/layerx-programs-ai-market/tests/repair_22_33_223.rs"
+symbol = "repair_22_33_223.rs"
+observed = "Attempt 20 at d74a1c29af7d: build exit 0; verification exit 101: roster_state_fuel_scaling panics at tests/fuel_budget.rs:3145, a chunk fuel must remain within ten percent across rosters, 16/4=189384, 32/8=276514; 31 cases pass; log /out/logs/verify-1.log."
+assumption = "The per-call roster pass is in the state decode or the replay table and the chunk-bounded form removes the slope."
+severity = "high"
+
+[finding.22.39.117.13]
+task = "22.39.117"
+file = "sdk/launchpad/shared/chain::TestPhase2ReadAdapterRealRegisteredPool"
+symbol = "chain::TestPhase2ReadAdapterRealRegisteredPool"
+observed = "Attempt 13: no build and no verification ran; the model session declined the edit of stream_relay_production_test.go as outside the touches list and kept the attempt-12 tree ef16d9ebde7a."
+assumption = "With the test file in scope the attempt-13 note can be carried out."
+severity = "high"

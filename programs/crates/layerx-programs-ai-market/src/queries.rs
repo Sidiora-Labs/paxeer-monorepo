@@ -274,13 +274,9 @@ pub fn answer_room_view(state_bytes: &[u8], payload: &[u8], out: &mut [u8]) -> C
     let bytes = shared.room_market()?.1;
     let book = RoomBook::decode(bytes)?;
     let room = book.room(id)?.ok_or(crate::errors::F11_ROOM_UNKNOWN)?;
-    let counts = book.counts();
-    let mut r = Reader::new(bytes);
-    r.take(14 + *counts.guest_index(0) * ROOM_RECORD_BYTES)?;
-    let asks = r.take(*counts.guest_index(1) * ASK_RECORD_BYTES)?;
-    let bids = r.take(*counts.guest_index(2) * BID_RECORD_BYTES)?;
-    let deals = r.take(*counts.guest_index(3) * DEAL_RECORD_BYTES)?;
-    r.finish()?;
+    let asks = book.table(1);
+    let bids = book.table(2);
+    let deals = book.table(3);
     let mut consumed = [false; BID_CAPACITY];
     for row in deals
         .as_chunks::<{ DEAL_RECORD_BYTES }>()
