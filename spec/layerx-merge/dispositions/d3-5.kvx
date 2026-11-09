@@ -1,0 +1,96 @@
+# Product evidence on main at a26369c7eda603cb28bcdd8cef55c35df7d248ee.
+
+[disposition.3.1.5.a2]
+finding = "3.1.5.a2"
+status = "resolved"
+evidence = "On main, modules/perps/keeper/msg_server_market_test.go:206 changes MaxLeverage to 500 and expects ErrInvalidParams while preserving the stored market, matching modules/perps/types/market.go:67; commit 8fe024ea01 landed the pinned-leverage contract coverage."
+
+[disposition.3.10.1.a2]
+finding = "3.10.1.a2"
+status = "resolved"
+evidence = "On main, precompiles/perps/governed_view_market_config_test.go:69 changes TierClass and OiCapUsd, then line 88 checks that getMarketConfig still returns max leverage 1000; commit c6b8416d7f landed this governed-field view test."
+
+[disposition.3.13.2.1.a2]
+finding = "3.13.2.1.a2"
+status = "resolved"
+evidence = "On main, precompiles/common/lxp_errors.go:331 registers the pricefeed delegatecall, staticcall, missing-keeper and oversized-batch site codes; commit f1bae5e042 landed all four rows."
+
+[disposition.3.13.2.a2]
+finding = "3.13.2.a2"
+status = "resolved"
+evidence = "On main, precompiles/common/lxp_errors.go:331 contains the four pricefeed site-code rows alongside the module error registrations, so those refusals have canonical LXP names; commit f1bae5e042 landed the missing entries."
+
+[disposition.3.18.1.a2]
+finding = "3.18.1.a2"
+status = "environment"
+evidence = "On main, modules/oracle/types/events.go:5 retains exchange-rate, feed-delegate, aggregate-vote and slash-window event names, with the never-emitted single-vote event removed in commit 3cdd4a0585."
+
+[disposition.3.41.3.a2]
+finding = "3.41.3.a2"
+status = "resolved"
+evidence = "On main, services/platform/perps-data/internal/rest/symbol_test.go:23 owns its fixture symbol-to-ID map, while services/platform/perps-data/internal/records/marketset.go:57 reads market IDs from perps.markets; commit 1ab055090d removed the records.MarketIDs dependency."
+
+[disposition.3.42.1.1.a2]
+finding = "3.42.1.1.a2"
+status = "resolved"
+evidence = "On main, services/platform/perps-data/migrations/0012_markets_config.sql:1, services/platform/perps-data/migrations/0013_chain_counters.sql:1 and services/platform/perps-data/migrations/0014_market_tiers.sql:1 provide the consecutive migrations before 0015; commits 97bfd080f6, 4e055beb49 and 9ed29331e4 landed them, preserving the contiguous-prefix assertion at services/platform/perps-data/internal/store/migrate_test.go:292."
+
+[disposition.3.42.1.a2]
+finding = "3.42.1.a2"
+status = "environment"
+evidence = "On main, services/platform/perps-data/migrations/0012_markets_config.sql:1 adds the seven nullable market-configuration columns, and services/platform/perps-data/internal/store/migrate.go:60 applies embedded migrations transactionally with their recorded SHA-256 sums."
+
+[disposition.3.42.2.a2]
+finding = "3.42.2.a2"
+status = "environment"
+evidence = "On main, services/platform/perps-data/internal/markets/markets.go:147 refreshes market records from the chain, and line 174 reads getMarketConfig and rejects a symbol inconsistent with getMarket before storing the configuration."
+
+[disposition.3.42.8.1.a2]
+finding = "3.42.8.1.a2"
+status = "environment"
+evidence = "On main, services/platform/perps-data/migrations/0014_market_tiers.sql:1 creates perps.market_tiers with market and tier as its primary key, a market foreign key, margin fields and a nonnegative refreshed block."
+
+[disposition.3.42.8.a2]
+finding = "3.42.8.a2"
+status = "environment"
+evidence = "On main, services/platform/perps-data/migrations/0014_market_tiers.sql:1 persists the chain margin tiers, while services/platform/perps-data/migrations/0013_chain_counters.sql:16 installs insert/delete triggers that maintain the block and action counters transactionally."
+
+[disposition.3.45.1.a2]
+finding = "3.45.1.a2"
+status = "environment"
+evidence = "On main, services/platform/perps-data/migrations/0013_chain_counters.sql:6 defines perps.bump_chain_counter and lines 16-17 attach it to block and transaction-action inserts and deletes; the same migration seeds both counters from existing table counts."
+
+[disposition.3.46.4.a2]
+finding = "3.46.4.a2"
+status = "environment"
+evidence = "On main, services/platform/perps-data/internal/rest/spotusers.go:1454 builds stream items from the actual trade, obtains one account fold at line 1507 and reuses it for the trade's positions, profit summary and closed legs."
+
+[disposition.3.5.3.a2]
+finding = "3.5.3.a2"
+status = "resolved"
+evidence = "On main, modules/perps/keeper/genesis_governed_test.go:58 calls the real keeper ExportGenesis and line 73 calls the restored keeper InitGenesis, asserting an equal re-export at line 92; commit 7e9750d69f landed the round trip and commit 220850ae77 repaired its shared scoped-read prerequisite."
+
+[disposition.3.54.3.a2]
+finding = "3.54.3.a2"
+status = "environment"
+evidence = "On main, apps/perps/tests/local-market-config.test.ts:31 reads getActiveMarketIds and line 45 reads getMarketConfig through the perps contract ABI, then asserts each decoded market ID, symbol, positive tick size and positive lot size."
+
+[disposition.3.6.21.a2]
+finding = "3.6.21.a2"
+status = "resolved"
+evidence = "On main, modules/perps/keeper/governed_max_leverage_test.go:32 moves BTC from tier class A to B and line 47 rejects the same 600000-USD order at 500x with ErrLeverageTooHigh while line 56 admits 200x; commit 6faed64b68 landed this governed-tier test."
+
+[disposition.3.93.1.1.a2]
+finding = "3.93.1.1.a2"
+status = "resolved"
+evidence = "On main, modules/lxphost/host.go:263 registers lx_perps_oracle_transport_module_iface in the shared kernel, enabling the native oracle transport activity; commit 1ab8d66454 landed the perps registration."
+
+[disposition.3.93.1.2.a2]
+finding = "3.93.1.2.a2"
+status = "resolved"
+evidence = "On main, modules/lxphost/host.go:263 installs the perps oracle transport interface alongside the asset, budget and escrow modules; commit 1ab8d66454 landed the registration used by committed oracle observations."
+
+[disposition.3.93.1.a2]
+finding = "3.93.1.a2"
+status = "resolved"
+evidence = "On main, modules/lxphost/host.go:263 registers the native perps oracle transport rather than leaving the observation activity without a module; commit 1ab8d66454 landed the shared-host registration."
