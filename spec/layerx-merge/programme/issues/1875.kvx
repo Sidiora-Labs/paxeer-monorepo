@@ -1,0 +1,49 @@
+[issue.1875]
+number = 1875
+title = "[P2] Refresh explorer regression pins and gas expectations with committed fixture"
+revision = "3520b1428059af90261432778c008a9ce362a0b1"
+verdict = "task"
+evidence = "After fixture refresh commit 56c0f69099ee42ef28ab776f5149207578ac6dca, services/explorer/backend/apps/explorer/test/repair/repair_22_31_411_test.exs:12 retains the old validator/block/key pins installed at :43 and selects the refreshed first case at :56, whose pins at services/explorer/backend/apps/explorer/test/support/fixture/paxeer_x/committed_vectors.json:60 and :139 differ, so services/explorer/backend/apps/explorer/lib/explorer/chain/paxeer_x/sequencer_receipt.ex:175 and :571 refuse it at R3 before the expected receipted result at services/explorer/backend/apps/explorer/test/repair/repair_22_31_411_test.exs:70, while exact gas assertions at :98 still require 39092/0x98b4 instead of the recorded 39080/0x98a8 at services/explorer/backend/apps/explorer/test/support/fixture/paxeer_x/committed_vectors.json:49 and :538."
+close_comment = "The explorer regression retains receipt and validator pins and gas expectations from the previous recording. Refresh the independent fixed pins and exact gas assertions to the approved recording while preserving the signed bytes and all trust, inclusion and mutation checks."
+
+[task.18.1875.1]
+title = "Issue #1875: Refresh explorer regression pins and exact gas expectations"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181875.1"]
+capabilities = []
+interfaces = []
+do_1 = "Update the independent constants at services/explorer/backend/apps/explorer/test/repair/repair_22_31_411_test.exs:12 to the approved recording: validator hash 65AC241D8D9974E24C80AE5EF8B49BD34F4CDD522B0A881EA960A28E47BB6C29 from services/explorer/backend/apps/explorer/test/support/fixture/paxeer_x/committed_vectors.json:139, execution block hash A7C648246A5213D57D6A2F2AA7BDC8E0050249629E5E92A4B89F2BDB918E9108 from :64, receipt key ID 9FE7D4491A2DFBA1B61B8B5283B486FA92B3E90B8A29D7E4FF7F0ED89E389D9B and public key 98BCC99E26FDA009118F88F4A01864C65BD40CB2064C2CDE3B156FDE2F71804C from :67; retain chain committed-fixture and the height-10 validity window, and keep trust pins independent of received RPC data."
+do_2 = "Change only the exact gas expectations at services/explorer/backend/apps/explorer/test/repair/repair_22_31_411_test.exs:98 to 39_080 and 0x98a8, matching services/explorer/backend/apps/explorer/test/support/fixture/paxeer_x/committed_vectors.json:49 and :538; preserve all existing positive, controller, R7/R8, untrusted-history, missing-witness and mutation assertions, the signed receipt/settlement bytes, and production verification."
+do_3 = "Run all fourteen existing tests in services/explorer/backend/apps/explorer/test/repair/repair_22_31_411_test.exs, including committed_without_inclusion_same_execution_reaches_status at :61 and trust/mutation refusals at :170 and :201, followed by tests/conformance/check_receipt_vector_copies.py:270 to prove receipt-vector copies still match their recorded source; diagnose unrelated failures separately without changing their assertions."
+symbols = ["Explorer.Repair2231411Test"]
+touches = ["services/explorer/backend/apps/explorer/test/repair/repair_22_31_411_test.exs"]
+tests = ["services/explorer/backend/apps/explorer/test/repair/repair_22_31_411_test.exs::committed_without_inclusion_same_execution_reaches_status", "services/explorer/backend/apps/explorer/test/repair/repair_22_31_411_test.exs::committed_without_inclusion_controller_preserves_authenticated_evidence", "services/explorer/backend/apps/explorer/test/repair/repair_22_31_411_test.exs::committed_without_inclusion_controller_rejects_altered_recorded_result", "services/explorer/backend/apps/explorer/test/repair/repair_22_31_411_test.exs::committed_without_inclusion_rejects_untrusted_chain_and_validator_history", "services/explorer/backend/apps/explorer/test/repair/repair_22_31_411_test.exs::committed_without_inclusion_preserves_r7_and_r8_rejections", "services/explorer/backend/apps/explorer/test/repair/repair_22_31_411_test.exs::committed_without_inclusion_rejects_unrelated_valid_header", "services/explorer/backend/apps/explorer/test/repair/repair_22_31_411_test.exs::committed_without_inclusion_rejects_altered_covering_ranges", "services/explorer/backend/apps/explorer/test/repair/repair_22_31_411_test.exs::committed_without_inclusion_rejects_wrong_execution_block_identity", "services/explorer/backend/apps/explorer/test/repair/repair_22_31_411_test.exs::committed_without_inclusion_rejects_changed_transaction_and_result_witnesses", "services/explorer/backend/apps/explorer/test/repair/repair_22_31_411_test.exs::committed_without_inclusion_reconstructs_only_with_authenticated_evidence", "services/explorer/backend/apps/explorer/test/repair/repair_22_31_411_test.exs::committed_without_inclusion_requires_every_witness", "services/explorer/backend/apps/explorer/test/repair/repair_22_31_411_test.exs::committed_without_inclusion_rejects_changed_result_header_and_proofs", "services/explorer/backend/apps/explorer/test/repair/repair_22_31_411_test.exs::committed_without_inclusion_rejects_changed_aunts_and_validator_set", "services/explorer/backend/apps/explorer/test/repair/repair_22_31_411_test.exs::committed_without_inclusion_never_promotes_unproven_unindexed_hash", "tests/conformance/check_receipt_vector_copies.py::check_receipt_vector_copies"]
+planned_paths = []
+build_cmd = "services/explorer/deploy/tools/mix-in-builder.sh compile"
+verify_cmd = "services/explorer/deploy/tools/mix-in-builder.sh test apps/explorer/test/repair/repair_22_31_411_test.exs && python3 tests/conformance/check_receipt_vector_copies.py"
+gate_kind = "planned"
+sandbox_profile = "elixir"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181875]
+title = "Explorer regression authenticates the approved committed recording with independent fixed pins"
+ac_1 = "Given the committed-ok recording selected at services/explorer/backend/apps/explorer/test/repair/repair_22_31_411_test.exs:56 with pins from services/explorer/backend/apps/explorer/test/support/fixture/paxeer_x/committed_vectors.json:67 and :139, the positive test at services/explorer/backend/apps/explorer/test/repair/repair_22_31_411_test.exs:61 passes R1-R6, authenticates inclusion and reaches committed status at height 10 with exact gas 39080/0x98a8 matching services/explorer/backend/apps/explorer/test/support/fixture/paxeer_x/committed_vectors.json:49 and :538; every existing trust and mutation rejection remains asserted and receipt-vector copies remain unchanged."
+
+[acceptance.18.1875.1]
+feature = "18"
+req = "181875.1"
+scenario = "Given the approved committed-ok recording and independent fixed receipt and validator pins, when the explorer committed-recording regression verifies its positive and altered evidence, then the positive reaches committed status at height 10 with exact gas 39080/0x98a8 and all existing trust, R7/R8 and mutation refusals remain enforced without altering recorded bytes."
+contract = "contracts/interop-committed-proof.md#consensus-inclusion"
+test = "services/explorer/backend/apps/explorer/test/repair/repair_22_31_411_test.exs::committed_without_inclusion_same_execution_reaches_status (planned)"
+qualification = "UNRUN"
