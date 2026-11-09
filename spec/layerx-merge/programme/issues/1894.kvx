@@ -1,0 +1,48 @@
+[issue.1894]
+number = 1894
+title = "[Coherence] The readiness checklist is ticked early, and its only evidence is a reference to private files outside the repository"
+revision = "3520b1428059af90261432778c008a9ce362a0b1"
+verdict = "task"
+evidence = "docs/release/7.0.0-readiness-checklist.md:24 retains the completion tick introduced by cb176160bdd2bf13e1a2837ce271d50d5868d882 with indirect revision and exit references, although spec/layerx-merge/spec.kvx:11223 requires candidate-revision evidence before ticking and the candidate report task remains pending at spec/layerx-merge/spec.kvx:216068."
+close_comment = "The consensus-ledger readiness item is marked complete before candidate evidence is available. The correction will leave it unchecked until the candidate gate passes and record the concrete revision, exact command, exit status and evidence location in the release documentation, while retaining raw logs in access-controlled storage."
+
+[task.18.1894.1]
+title = "Issue #1894: Require candidate evidence before marking the consensus ledger ready"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181894.1"]
+capabilities = []
+interfaces = []
+do_1 = "Correct docs/release/7.0.0-readiness-checklist.md:24 to leave the consensus-ledger item unchecked pending a passing gate at the candidate revision; replace the stale completion proof with the required command and instructions to record the concrete candidate revision, exact command, exit status and log location when ticking, with a reviewed candidate-report reference and access-controlled raw logs, as required by spec/layerx-merge/spec.kvx:11223 and the candidate report described at spec/layerx-merge/spec.kvx:216076."
+do_2 = "Add test_consensus_ledger_tick_requires_candidate_evidence to tests/ci/test_release_docs_gap_markers.py alongside test_checklist_has_no_closed_gaps at tests/ci/test_release_docs_gap_markers.py:117: read the actual release documents and assert that an unchecked ledger item explicitly awaits candidate evidence without a completion claim; a checked item must instead carry a concrete 40-hex candidate revision, the exact consensus gate command with that revision as head, exit status 0, a log location and a matching consensus-gate entry in the candidate report, with no indirect substitution for revision or exit status; preserve all existing assertions."
+symbols = ["test_consensus_ledger_tick_requires_candidate_evidence"]
+touches = ["docs/release/7.0.0-readiness-checklist.md", "tests/ci/test_release_docs_gap_markers.py"]
+tests = ["tests/ci/test_release_docs_gap_markers.py::test_consensus_ledger_tick_requires_candidate_evidence"]
+planned_paths = []
+build_cmd = "python3 -m py_compile tests/ci/test_release_docs_gap_markers.py"
+verify_cmd = "python3 -m pytest tests/ci/test_release_docs_gap_markers.py::test_consensus_ledger_tick_requires_candidate_evidence -q"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-docs"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181894]
+title = "Consensus-ledger readiness reflects evidence from the release candidate"
+ac_1 = "Given the consensus-ledger item at docs/release/7.0.0-readiness-checklist.md:24 and the candidate evidence requirement at spec/layerx-merge/spec.kvx:11223, the item remains unchecked until the gate passes at the candidate revision; a tick states the concrete revision, exact command, exit status 0 and log location and links a matching candidate-report entry, without requiring publication of raw qualification logs."
+
+[acceptance.18.1894.1]
+feature = "18"
+req = "181894.1"
+scenario = "Given a release checklist without passing candidate consensus-ledger evidence, when readiness is inspected, then the ledger item remains unchecked and names the required candidate evidence; once checked, its concrete revision, exact gate command, exit status 0 and log location agree with the candidate report."
+contract = "contracts/programme.md#programme-gate"
+test = "tests/ci/test_release_docs_gap_markers.py::test_consensus_ledger_tick_requires_candidate_evidence (planned)"
+qualification = "UNRUN"
