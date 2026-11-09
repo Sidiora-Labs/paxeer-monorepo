@@ -854,6 +854,6 @@ status = "stale"
 notes = "Read all 601 lines, including the navigation differences from the site. Lines 70-79, 98 and 269-306 duplicate its retired authority/router deployment instructions and need the same current receipt and credential rewrite."
 
 [doc.operations-contract]
-path = "contracts/operations.md"
-status = "missing"
-notes = "The package interface rows repeatedly cite #bringup-cli and #bringup-config, but contracts/operations.md does not exist at the reviewed revision. Restore a current operations contract or repoint these registry references to an existing authoritative page."
+path = "spec/layerx-merge/contracts/operations.md"
+status = "stale"
+notes = "#bringup-cli and #bringup-config exist at spec/layerx-merge/contracts/operations.md:469 and :710, including at the recorded audit revision 9d9e94b1751d89ba849d2d3d0f89b48fabce9756. The configuration table at operations.md:722, :740 and :744 still lists GUARANTOR, RECEIPT_AUTHORITY and RELAY_ARCHIVE, which are absent from tools/bringup/railway-names.env:10-39."

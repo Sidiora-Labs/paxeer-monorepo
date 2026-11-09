@@ -5,7 +5,7 @@
 task = "22.30.46"
 revision = "6d2c32a65a1c7989a6a37abf5965929de9769ae4"
 files_reviewed = 130
-findings = 64
+findings = 63
 docs_reviewed = 19
 upgrade_ready = false
 blocking = ["3","7","8","9","10","11","12","13","14","15","16","22","23","32","33","34","35","40","41","42","43","44","45","46","47","48"]
@@ -824,7 +824,7 @@ path = "consensus/rpc/openapi/openapi.yaml"
 lines = 3301
 verdict = "issues"
 note = "Read in full against package requirements and producer/consumer shapes, configuration and lifecycle. The numbered findings below identify the discrepancies and owning repair proposals."
-findings = ["40","41","42","43","44","45","46","47","48","49","50","63","64"]
+findings = ["40","41","42","43","44","45","46","47","48","49","50","64"]
 
 [file.130]
 path = "consensus/rpc/test/helpers.go"
@@ -1496,17 +1496,6 @@ expected = "Webhook network identity must come from the deployed merged chain an
 proposal = "In docs/site/docs/platform/webhooks.md replace the router service-variable reference with the maintained deployment's canonical network identity and document how event and receipt identities are checked across startup and reconnect."
 owner_domain = 17
 
-[finding.63]
-file = "consensus/rpc/openapi/openapi.yaml"
-line = 1
-class = "doc-drift"
-severity = "medium"
-observed = "The OpenAPI registry row points to contracts/consensus-fork.md#openapi and the slice's Go/config rows also point to contracts/consensus-fork.md and contracts/sequencer.md, but neither contract page exists at the audited revision."
-expected = "Declared producer and consumer contracts must resolve to maintained pages describing names, encodings, refusals and lifecycle for the merged consensus interface."
-proposal = "Restore the maintained consensus contract pages or repoint the owning rows in spec/layerx-merge/interfaces.kvx to existing authoritative documentation, covering Autobahn refusals, state recovery and the internal versus public RPC boundary."
-owner_domain = 17
-interface = "15.fmt-consensus-rpc-openapi-j57"
-
 [finding.64]
 file = "consensus/rpc/openapi/openapi.yaml"
 line = 1
@@ -1604,13 +1593,13 @@ status = "misleading"
 notes = "Read all 3301 lines. GET framing, error envelopes, result references, header/proof/query/commit/parameter fields and consensus-mode behavior disagree with current producers; bind/server defaults are stale."
 
 [doc.18]
-path = "contracts/consensus-fork.md"
-status = "missing"
-notes = "Registry contract target for consensus exported types, RPC routes, metrics and OpenAPI does not exist at the audited revision; restore the authoritative contract or correct the registry links."
+path = "spec/layerx-merge/contracts/consensus-fork.md"
+status = "stale"
+notes = "The registry target resolves relative to spec/layerx-merge. spec/layerx-merge/contracts/consensus-fork.md:2990 repeats the obsolete claim that OpenAPI documents dial_peers and dial_seeds, the drift already identified in finding.64. Neither operation appears in the current OpenAPI paths or NewRoutesMap at consensus/internal/rpc/core/routes.go:29; TestOpenAPIPathsMatchRoutesMap at consensus/internal/rpc/core/openapi_routes_test.go:12 compares documented methods with registered routes with Unsafe true, excluding the root POST transport."
 
 [doc.19]
-path = "contracts/sequencer.md"
-status = "missing"
-notes = "Registry contract target for consensus configuration and ABCI APIs does not exist at the audited revision; restore the maintained merged-network contract or correct the registry links."
+path = "spec/layerx-merge/contracts/sequencer.md"
+status = "stale"
+notes = "The registry target resolves relative to spec/layerx-merge. The node-abci section's Application, BaseApplication and proposal/finalization request declarations match consensus/abci/types/application.go:14 and consensus/abci/types/plain_types.go:207-218; the node-config sequencer fields match consensus/config/config.go:1264, and Config.ValidateBasic at :158 rejects sequencer mode with Autobahn. However, the consensus-leader-pin section at spec/layerx-merge/contracts/sequencer.md:715 still describes LeaderSource and LeaderPinFromSchedule as planned although they are implemented in consensus/types/sequencer.go:24 and consensus/internal/consensus/types/leader_schedule.go:8."
 
 
