@@ -192416,7 +192416,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.243]
 title = "Emit the release gate records through the called workflows and make the checker follow reusable workflow jobs"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -193647,7 +193647,7 @@ do_9 = "Attempt 7 (continue, gotcha 3953, decisions 3080 and 3089): the attempt-
 
 [task.22.39.224]
 title = "Bring the layerx-mcp crate and its test targets under the workspace lints"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["22.39.209"]
@@ -193807,7 +193807,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.219]
 title = "Bring the layerx-client crate and its test targets under the workspace lints"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["22.39.209", "22.39.238"]
