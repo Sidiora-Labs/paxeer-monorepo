@@ -182,7 +182,7 @@ func (p PrecompileExecutor) associate(ctx sdk.Context, method *abi.Method, args 
 	}
 
 	// Associate Addresses:
-	associationHelper := helpers.NewAssociationHelper(p.evmKeeper, p.bankKeeper, p.accountKeeper)
+	associationHelper := helpers.NewAssociationHelper(p.evmKeeper, p.bankKeeper, p.accountKeeper, "v5.7.5")
 	err = associationHelper.AssociateAddresses(ctx, paxAddr, evmAddr, pubkey)
 	if err != nil {
 		return nil, err

@@ -404,12 +404,104 @@ pub(crate) struct ExecutionObserver {
     pub(crate) boundary_authorized: bool,
     pub(crate) aggregate_bytes: u64,
     pub(crate) aggregate_work: u64,
+    pub(crate) retained_allocation_bytes: u64,
+    pub(crate) retained_allocation_work: u64,
     pub(crate) maximum_bytes: u64,
     pub(crate) maximum_work: u64,
     pub(crate) sampled_current: bool,
 }
 
 impl ExecutionObserver {
+    pub(crate) fn authorize_retained_execution_snapshot(
+        &mut self,
+        charge: ObservationCharge,
+        replay: bool,
+    ) -> Result<(), ExecutionObserverError> {
+        if let Some(error) = self.error {
+            return Err(error);
+        }
+        if !charge.collect {
+            return Ok(());
+        }
+        let bound = (|| {
+            fn backing<T>(count: u64) -> Option<u64> {
+                if count == 0 {
+                    return Some(0);
+                }
+                count
+                    .checked_mul(2)?
+                    .max(4)
+                    .checked_mul(u64::try_from(core::mem::size_of::<T>()).ok()?)
+            }
+            let values = charge.value_bytes.checked_sub(4)?.checked_div(5)?;
+            let frames = charge.frame_bytes.checked_sub(4)?.checked_div(9)?;
+            let globals = charge.global_bytes.checked_sub(4)?.checked_div(10)?;
+            let controls = charge.instruction_bytes.checked_sub(4)?.checked_div(6)?;
+            let memory = charge.memory_bytes.checked_sub(4)?;
+            let mut bytes = u64::try_from(core::mem::size_of::<ExecutionSnapshot>())
+                .ok()?
+                .checked_add(2 * core::mem::size_of::<usize>() as u64)?
+                .checked_add(backing::<ExecutionValue>(values)?)?
+                .checked_add(backing::<ExecutionFrame>(frames)?)?
+                .checked_add(backing::<ExecutionValue>(charge.frame_bytes / 5)?)?
+                .checked_add(backing::<ExecutionGlobal>(globals)?)?
+                .checked_add(if memory == 0 { 0 } else { memory.max(8) })?
+                .checked_add(charge.instance_state_bytes)?
+                .checked_add(backing::<ExecutionControlFrame>(controls)?)?
+                .checked_add(charge.retained_instruction_bytes)?
+                .checked_add(4 * core::mem::size_of::<ExecutionTransition>() as u64)?;
+            if replay {
+                bytes = bytes
+                    .checked_add(core::mem::size_of::<ExecutionReplaySnapshot>() as u64)?
+                    .checked_add(2 * core::mem::size_of::<usize>() as u64)?
+                    .checked_add(backing::<ExecutionReplayFrame>(frames)?)?
+                    .checked_add(values)?
+                    .checked_add(4 * core::mem::size_of::<ExecutionReplayTransition>() as u64)?;
+            }
+            let work = if self.last_retained.is_some() {
+                bytes
+                    .checked_add(charge.instance_state_bytes.checked_mul(2)?)?
+                    .checked_add(memory)?
+            } else {
+                bytes
+            };
+            Some((bytes, work))
+        })();
+        match bound {
+            Some((bytes, work)) => self.authorize_retained_allocation(bytes, work),
+            None => {
+                self.error = Some(ExecutionObserverError::SnapshotLimitExceeded);
+                Err(ExecutionObserverError::SnapshotLimitExceeded)
+            }
+        }
+    }
+
+    pub(crate) fn authorize_retained_allocation(
+        &mut self,
+        bytes: u64,
+        work: u64,
+    ) -> Result<(), ExecutionObserverError> {
+        if let Some(error) = self.error {
+            return Err(error);
+        }
+        match (
+            self.retained_allocation_bytes.checked_add(bytes),
+            self.retained_allocation_work.checked_add(work),
+        ) {
+            (Some(bytes), Some(work))
+                if bytes <= self.maximum_bytes && work <= self.maximum_work =>
+            {
+                self.retained_allocation_bytes = bytes;
+                self.retained_allocation_work = work;
+                Ok(())
+            }
+            _ => {
+                self.error = Some(ExecutionObserverError::SnapshotLimitExceeded);
+                Err(ExecutionObserverError::SnapshotLimitExceeded)
+            }
+        }
+    }
+
     pub(crate) fn enter_boundary(&mut self) -> Result<bool, ExecutionObserverError> {
         if self.interval == 0 {
             self.error = Some(ExecutionObserverError::InvalidInterval);

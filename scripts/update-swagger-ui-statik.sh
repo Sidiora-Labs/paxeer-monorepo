@@ -8,6 +8,11 @@ trap 'rm -rf -- "$STAGING"' EXIT
 trap 'exit 130' INT
 trap 'exit 143' TERM
 
-ignite generate openapi -y
-statik -src=./docs/swagger-ui -dest="$STAGING" -f -p swagger
+case "${1:-}" in
+    '') ignite generate openapi -y ;;
+    --assets-only) [ "$#" -eq 1 ] ;;
+    *) echo "usage: $0 [--assets-only]" >&2; exit 2 ;;
+esac
+python3 "$SCRIPT_DIR/swagger_assets.py" prepare docs/swagger-ui "$STAGING/assets"
+"${STATIK:-statik}" -src="$STAGING/assets" -dest="$STAGING" -f -m -p swagger
 python3 "$SCRIPT_DIR/swagger_assets.py" "$STAGING/swagger/statik.go" docs/swagger/statik.go

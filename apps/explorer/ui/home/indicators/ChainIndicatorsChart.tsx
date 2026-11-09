@@ -16,19 +16,11 @@ interface Props {
   chartQuery: UseFetchChartDataResult;
   title: string;
   hint?: string;
-  days?: number;
 }
 
-const ChainIndicatorsChart = ({ isLoading: isLoadingProp, value, valueDiff, chartQuery, title, hint, days }: Props) => {
+const ChainIndicatorsChart = ({ isLoading: isLoadingProp, value, valueDiff, chartQuery, title, hint }: Props) => {
   const isLoading = isLoadingProp || chartQuery.isPending;
-
-  const data = React.useMemo(() => {
-    if (!days) {
-      return chartQuery.data;
-    }
-
-    return chartQuery.data.map((item) => ({ ...item, items: item.items.slice(-days) }));
-  }, [ chartQuery.data, days ]);
+  const data = chartQuery.data;
 
   const valueTitleElement = (() => {
     if (value === undefined) {

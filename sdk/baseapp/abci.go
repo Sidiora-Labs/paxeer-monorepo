@@ -616,6 +616,9 @@ func (app *BaseApp) handleQueryGRPC(handler GRPCQueryHandler, req abci.RequestQu
 	res, err := handler(ctx, req)
 	if err != nil {
 		res = sdkerrors.QueryResultWithDebug(gRPCErrorToSDKError(err), app.trace)
+		if app.trace {
+			_, _, res.Log = sdkerrors.ABCIInfo(err, true)
+		}
 		res.Height = req.Height
 		return res
 	}
@@ -629,20 +632,22 @@ func gRPCErrorToSDKError(err error) error {
 	}
 	status, ok := grpcstatus.FromError(err)
 	if !ok {
-		return sdkerrors.Wrap(sdkerrors.ErrInvalidRequest, err.Error())
+		return err
 	}
 
 	switch status.Code() {
+	case codes.Internal, codes.Unknown:
+		return err
 	case codes.NotFound:
-		return sdkerrors.Wrap(sdkerrors.ErrKeyNotFound, err.Error())
+		return sdkerrors.ErrKeyNotFound
 	case codes.InvalidArgument:
-		return sdkerrors.Wrap(sdkerrors.ErrInvalidRequest, err.Error())
+		return sdkerrors.ErrInvalidRequest
 	case codes.FailedPrecondition:
-		return sdkerrors.Wrap(sdkerrors.ErrInvalidRequest, err.Error())
+		return sdkerrors.ErrInvalidRequest
 	case codes.Unauthenticated:
-		return sdkerrors.Wrap(sdkerrors.ErrUnauthorized, err.Error())
+		return sdkerrors.ErrUnauthorized
 	default:
-		return sdkerrors.Wrap(sdkerrors.ErrUnknownRequest, err.Error())
+		return sdkerrors.ErrUnknownRequest
 	}
 }
 

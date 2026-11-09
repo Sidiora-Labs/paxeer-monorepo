@@ -9,11 +9,9 @@ import (
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/lxphost"
 	pcommon "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/common"
-	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/core/vm"
-	"github.com/ethereum/go-ethereum/crypto"
 )
 
 type committedGuestEvent struct {
@@ -82,6 +80,12 @@ func decodeCommittedGuestEvents(encoded []byte) ([]committedGuestEvent, error) {
 }
 
 func emitCallEvents(evm *vm.EVM, receipt lxphost.Receipt) error {
+	if evm == nil {
+		return fmt.Errorf("EVM is nil")
+	}
+	if evm.StateDB == nil {
+		return fmt.Errorf("EVM StateDB is nil")
+	}
 	outcome := receipt.ProgramOutcome
 	if outcome == nil {
 		return fmt.Errorf("programs: missing call program outcome")
@@ -93,16 +97,7 @@ func emitCallEvents(evm *vm.EVM, receipt lxphost.Receipt) error {
 	if err != nil {
 		return err
 	}
-	bytes32Type, err := abi.NewType("bytes32", "", nil)
-	if err != nil {
-		return err
-	}
-	bytesType, err := abi.NewType("bytes", "", nil)
-	if err != nil {
-		return err
-	}
-	guestArguments := abi.Arguments{{Type: bytes32Type}, {Type: bytesType}}
-	guestTopic := crypto.Keccak256Hash([]byte("ProgramGuestEvent(bytes32,bytes32,bytes)"))
+	guestEvent := programsABI.Events["ProgramGuestEvent"]
 	var guests []*types.Log
 	var terminal *types.Log
 	var callProgram common.Hash
@@ -151,12 +146,16 @@ func emitCallEvents(evm *vm.EVM, receipt lxphost.Receipt) error {
 				return fmt.Errorf("programs: guest event bytes disagree with committed envelope")
 			}
 			guestActivities = append(guestActivities, common.BytesToHash(body[70:102]))
-			kind := [32]byte(crypto.Keccak256Hash(canonical.topic))
-			data, err := guestArguments.Pack(kind, canonical.payload)
+			data, err := guestEvent.Inputs.NonIndexed().Pack(
+				[32]byte(body[38:70]), [32]byte(body[70:102]),
+				binary.BigEndian.Uint64(body[102:110]), depth,
+				binary.BigEndian.Uint32(body[111:115]), binary.BigEndian.Uint16(body[115:117]),
+				topicDigest, binary.BigEndian.Uint32(body[149:153]), dataDigest,
+			)
 			if err != nil {
 				return fmt.Errorf("programs: pack guest event: %w", err)
 			}
-			guests = append(guests, &types.Log{Address: common.HexToAddress("0x101D"), Topics: []common.Hash{guestTopic, common.Hash{}}, Data: data})
+			guests = append(guests, &types.Log{Address: common.HexToAddress("0x101D"), Topics: []common.Hash{guestEvent.ID, canonical.program}, Data: data})
 			continue
 		}
 		if terminal != nil {
@@ -197,11 +196,10 @@ func emitCallEvents(evm *vm.EVM, receipt lxphost.Receipt) error {
 	if terminal == nil || len(guests) != len(committed) {
 		return fmt.Errorf("programs: missing call outcome or guest event envelope")
 	}
-	for index, log := range guests {
+	for index := range guests {
 		if guestActivities[index] != callActivity {
 			return fmt.Errorf("programs: guest activity disagrees with call receipt")
 		}
-		log.Topics[1] = callProgram
 	}
 	for _, log := range append(guests, terminal) {
 		if err := pcommon.EmitEVMLog(evm, log.Address, log.Topics, log.Data); err != nil {

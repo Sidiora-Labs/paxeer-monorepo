@@ -61,6 +61,27 @@ func callGuestEnvelope(program [32]byte, frame [8]byte, depth byte, index uint32
 	return lxphost.ReceiptEvent{Code: 6, Body: body}
 }
 
+func appendCallGuestEvent(receipt *lxphost.Receipt, program [32]byte, frame [8]byte, depth byte, topic, data []byte) {
+	const domain = "LayerX/programs/events/v1\x00"
+	evidence := receipt.ProgramOutcome.Events
+	count := binary.BigEndian.Uint32(evidence[len(domain):])
+	principal := [32]byte{0x22}
+	evidence = append(evidence, program[:]...)
+	evidence = append(evidence, principal[:]...)
+	evidence = append(evidence, frame[:]...)
+	evidence = append(evidence, depth)
+	evidence = binary.BigEndian.AppendUint32(evidence, uint32(len(topic)))
+	evidence = append(evidence, topic...)
+	evidence = binary.BigEndian.AppendUint32(evidence, uint32(len(data)))
+	evidence = append(evidence, data...)
+	binary.BigEndian.PutUint32(evidence[len(domain):], count+1)
+	receipt.ProgramOutcome.Events = evidence
+	digest := sha256.Sum256(evidence)
+	body := receipt.Events[0].Body
+	copy(body[len(body)-32:], digest[:])
+	receipt.Events = append(receipt.Events, callGuestEnvelope(program, frame, depth, count, topic, data))
+}
+
 func callOutcomeReceipt(legacy bool) lxphost.Receipt {
 	header := "LXMO\x02\x02"
 	if legacy {
@@ -74,13 +95,15 @@ func callOutcomeReceipt(legacy bool) lxphost.Receipt {
 		body = binary.BigEndian.AppendUint32(body, 1)
 	}
 	body = binary.BigEndian.AppendUint32(body, 0)
-	for _, root := range [][32]byte{{0x44}, {0x55}, {0x66}, {0x77}} {
+	evidence := binary.BigEndian.AppendUint32([]byte("LayerX/programs/events/v1\x00"), 0)
+	for _, root := range [][32]byte{{0x44}, {0x55}, {0x66}, sha256.Sum256(evidence)} {
 		body = append(body, root[:]...)
 	}
 	return lxphost.Receipt{
 		Events: []lxphost.ReceiptEvent{{Code: 7, Body: body}},
 		ProgramOutcome: &lxphost.ProgramOutcome{
 			Status: 0, Kind: 1, FeeScheduleVersion: 0x12345678, MeteringScheduleVersion: 1,
+			Events: evidence,
 		},
 	}
 }
@@ -97,7 +120,7 @@ func TestProgramsGuestEventLogs(t *testing.T) {
 		if i == 1 {
 			depth = 2
 		}
-		receipt.Events = append(receipt.Events, callGuestEnvelope(programs[i], frames[i], depth, uint32(i), topics[i], data[i]))
+		appendCallGuestEvent(&receipt, programs[i], frames[i], depth, topics[i], data[i])
 	}
 	receipt.Events = append(receipt.Events, lxphost.ReceiptEvent{Code: 4, Body: []byte("unrelated")})
 	require.NoError(t, emitCallEvents(evm, receipt))
@@ -141,10 +164,38 @@ func TestProgramsGuestEventLogs(t *testing.T) {
 		t.Run(mutate.name, func(t *testing.T) {
 			evm, db := callEventState(t)
 			r := callOutcomeReceipt(false)
-			guest := callGuestEnvelope([32]byte{0x11}, [8]byte{}, 0, 0, nil, nil)
-			guest.Body = mutate.apply(guest.Body)
-			r.Events = append(r.Events, guest)
+			appendCallGuestEvent(&r, [32]byte{0x11}, [8]byte{}, 0, []byte("topic"), nil)
+			r.Events[1].Body = mutate.apply(r.Events[1].Body)
 			require.Error(t, emitCallEvents(evm, r))
+			require.Empty(t, db.GetAllLogs())
+		})
+	}
+	for _, tc := range []struct {
+		name    string
+		mutate  func(*lxphost.Receipt)
+		message string
+	}{
+		{"missing evidence", func(r *lxphost.Receipt) { r.ProgramOutcome.Events = nil }, "missing canonical guest event evidence"},
+		{"evidence topic", func(r *lxphost.Receipt) { r.ProgramOutcome.Events[len("LayerX/programs/events/v1\x00")+4+77] ^= 1 }, "guest event bytes disagree"},
+		{"evidence data", func(r *lxphost.Receipt) { r.ProgramOutcome.Events[len(r.ProgramOutcome.Events)-1] ^= 1 }, "guest event bytes disagree"},
+		{"evidence program", func(r *lxphost.Receipt) { r.ProgramOutcome.Events[len("LayerX/programs/events/v1\x00")+4] ^= 1 }, "guest event bytes disagree"},
+		{"evidence principal", func(r *lxphost.Receipt) { r.ProgramOutcome.Events[len("LayerX/programs/events/v1\x00")+4+32] ^= 1 }, "guest event bytes disagree"},
+		{"evidence frame", func(r *lxphost.Receipt) { r.ProgramOutcome.Events[len("LayerX/programs/events/v1\x00")+4+64] = 1 }, "guest event bytes disagree"},
+		{"evidence depth", func(r *lxphost.Receipt) { r.ProgramOutcome.Events[len("LayerX/programs/events/v1\x00")+4+72] = 1 }, "guest event bytes disagree"},
+		{"event order", func(r *lxphost.Receipt) { binary.BigEndian.PutUint32(r.Events[1].Body[111:115], 1) }, "guest event order disagrees"},
+		{"event activity", func(r *lxphost.Receipt) { r.Events[1].Body[70] ^= 1 }, "guest activity disagrees"},
+		{"missing guest envelope", func(r *lxphost.Receipt) { r.Events = r.Events[:1] }, "missing call outcome or guest event envelope"},
+		{"evidence digest", func(r *lxphost.Receipt) { r.Events[0].Body[254] ^= 1 }, "guest event evidence digest disagrees"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			evm, db := callEventState(t)
+			r := callOutcomeReceipt(false)
+			appendCallGuestEvent(&r, [32]byte{0x11}, [8]byte{}, 0, []byte("topic"), []byte("data"))
+			tc.mutate(&r)
+			if len(r.Events) == 2 {
+				r.Events[0], r.Events[1] = r.Events[1], r.Events[0]
+			}
+			require.ErrorContains(t, emitCallEvents(evm, r), tc.message)
 			require.Empty(t, db.GetAllLogs())
 		})
 	}
@@ -170,7 +221,8 @@ func TestProgramsCallOutcomeLog(t *testing.T) {
 			require.NoError(t, err)
 			require.Equal(t, []interface{}{
 				[32]byte{0x22}, [32]byte{0x33}, uint64(0), uint8(0), uint16(3), uint16(5),
-				uint32(0x12345678), uint32(1), int32(0), [32]byte{0x44}, [32]byte{0x55}, [32]byte{0x66}, [32]byte{0x77},
+				uint32(0x12345678), uint32(1), int32(0), [32]byte{0x44}, [32]byte{0x55}, [32]byte{0x66},
+				sha256.Sum256([]byte("LayerX/programs/events/v1\x00\x00\x00\x00\x00")),
 			}, values)
 		})
 	}
@@ -188,6 +240,8 @@ func TestProgramsCallOutcomeLog(t *testing.T) {
 		{"fee mismatch", func(r *lxphost.Receipt) { r.ProgramOutcome.FeeScheduleVersion++ }},
 		{"metering mismatch", func(r *lxphost.Receipt) { r.ProgramOutcome.MeteringScheduleVersion++ }},
 		{"status mismatch", func(r *lxphost.Receipt) { r.ProgramOutcome.Status = -1 }},
+		{"missing evidence", func(r *lxphost.Receipt) { r.ProgramOutcome.Events = nil }},
+		{"evidence digest", func(r *lxphost.Receipt) { r.Events[0].Body[254] ^= 1 }},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			evm, db := callEventState(t)
@@ -199,4 +253,8 @@ func TestProgramsCallOutcomeLog(t *testing.T) {
 	}
 	require.ErrorContains(t, emitCallEvents(nil, callOutcomeReceipt(false)), "EVM is nil")
 	require.ErrorContains(t, emitCallEvents(&vm.EVM{}, callOutcomeReceipt(false)), "StateDB is nil")
+	missingEvidence := callOutcomeReceipt(false)
+	missingEvidence.ProgramOutcome.Events = nil
+	require.ErrorContains(t, emitCallEvents(nil, missingEvidence), "EVM is nil")
+	require.ErrorContains(t, emitCallEvents(&vm.EVM{}, missingEvidence), "StateDB is nil")
 }
