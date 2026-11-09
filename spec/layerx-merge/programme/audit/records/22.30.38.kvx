@@ -4,7 +4,7 @@
 task = "22.30.38"
 revision = "6d2c32a65a1c7989a6a37abf5965929de9769ae4"
 files_reviewed = 124
-findings = 33
+findings = 32
 docs_reviewed = 21
 upgrade_ready = false
 blocking = ["payout-dispatch-crash", "recovery-delete-grant", "policy-write-read-shape"]
@@ -936,17 +936,6 @@ expected = "Accessibility inventory must name the actual route tree and retain p
 proposal = "Update the owning generator and apps/launchpad/qualification/accessibility/corpus.json to the current apps/launchpad route tree; compare current page coverage and preserve pending browser/manual AT evidence instead of turning inventory coverage into a qualification pass."
 owner_domain = 4
 
-[finding.registry-contract-pages-missing]
-file = "services/launchpad/security/control/providers.go"
-line = 0
-class = "doc-drift"
-severity = "medium"
-observed = "The registry contract targets contracts/services.md and contracts/clients.md do not exist. Consumed rows also name absent contracts/operations.md, contracts/launchpad.md and contracts/explorer-frontend-config.md, so these declared contracts cannot be consulted at their registered paths."
-expected = "Each declared producer/consumer contract must resolve to an authoritative page describing current wire shape, authentication, errors and recovery guarantees."
-proposal = "Restore or retarget affected spec/layerx-merge/interfaces.kvx rows to real owning contract pages under contracts/launchpad and current shared documentation. Preserve row identity and document control/provider lifecycle instead of leaving dangling contract anchors."
-owner_domain = 17
-interface = "4.go-security-control-new-runtime"
-
 [finding.agents-running]
 file = "docs/site/docs/agents/running.md"
 line = 512
@@ -1178,26 +1167,26 @@ status = "stale"
 notes = "Read in full; line 3 retains removed client/apps/web and line 8 has superseded phase-one-only framing. Document existing later runners without claiming they qualified release capacity."
 
 [doc.017]
-path = "contracts/services.md"
-status = "missing"
-notes = "Attempted registered contract target; absent at this revision. Restore or retarget to an authoritative owning page; see registry-contract-pages-missing."
+path = "spec/layerx-merge/contracts/services.md"
+status = "accurate"
+notes = "Registry keys resolve relative to spec/layerx-merge per contracts/README.md:8. The launchpad-security heading at spec/layerx-merge/contracts/services.md:3378 names services/launchpad/security and inventories 230 stable interfaces (9 CLI, 4 errors, 211 Go exports, 6 HTTP); interfaces.kvx:112845 already assigns NewRuntime to this owning anchor. Accurate as a registry inventory; the summary does not establish provider lifecycle guarantees or runtime qualification."
 
 [doc.018]
-path = "contracts/clients.md"
-status = "missing"
-notes = "Attempted registered contract target; absent at this revision. Restore or retarget to an authoritative owning page; see registry-contract-pages-missing."
+path = "spec/layerx-merge/contracts/clients.md"
+status = "stale"
+notes = "The registered launchpad-sdk-shared-go heading at spec/layerx-merge/contracts/clients.md:319 names sdk/launchpad/shared and lists the ReconcileCreationFee change and covering criteria. However, lines 19-32 and 45-52 still prescribe pax_sequencerReceipt, signed receipt rungs and ReceiptKeys verification, retaining the separate sequencer receipt model rather than the merged committed-block finality model. The page exists; this is content drift, not a dangling registry target."
 
 [doc.019]
-path = "contracts/operations.md"
-status = "missing"
-notes = "Attempted registered contract target; absent at this revision. Restore or retarget to an authoritative owning page; see registry-contract-pages-missing."
+path = "spec/layerx-merge/contracts/operations.md"
+status = "accurate"
+notes = "The deploy-formats heading at spec/layerx-merge/contracts/operations.md:3547 includes interface.16.fmt-dep-launchpad-dockerfile-svc at line 3553, naming deploy/launchpad/Dockerfile.svc and the Go1.26.4 build-image baseline. Lines 3-5 explicitly freeze registry interfaces at a pinned revision and leave acceptance qualification UNRUN; this inventory does not claim a production deployment or successful gate."
 
 [doc.020]
-path = "contracts/launchpad.md"
-status = "missing"
-notes = "Attempted registered contract target; absent at this revision. Restore or retarget to an authoritative owning page; see registry-contract-pages-missing."
+path = "spec/layerx-merge/contracts/launchpad.md"
+status = "accurate"
+notes = "The scope at spec/layerx-merge/contracts/launchpad.md:14 assigns on-chain 0x1017 and contract tooling here while directing off-chain services and clients to their own pages. The launchpad-tools heading at line 7040 includes env-lp-tools-qualification-candidate-sha256 at line 7179 with QUALIFICATION_CANDIDATE_SHA256 and its phase4-run.py source. This is the registered tooling contract, not a replacement owner for security control."
 
 [doc.021]
-path = "contracts/explorer-frontend-config.md"
-status = "missing"
-notes = "Attempted registered contract target; absent at this revision. Restore or retarget to an authoritative owning page; see registry-contract-pages-missing."
+path = "spec/layerx-merge/contracts/explorer-frontend-config.md"
+status = "accurate"
+notes = "The existing page freezes explorer configuration interfaces with pinned source references and explicit UNRUN qualification at spec/layerx-merge/contracts/explorer-frontend-config.md:3-5. Its cfg-features heading at line 117 lists config.features.account with authProvider and apiKeysButton at line 121; cfg-apis at line 7 lists explorer API keys. These concrete explorer settings do not by themselves establish a launchpad security dependency from a generic lexical caller match."
