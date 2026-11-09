@@ -160808,7 +160808,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1772.1]
 title = "Issue #1772: Preserve acknowledged host checkpoints for submission and reopening"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -304321,7 +304321,7 @@ do_6 = "Attempt 4 (continue, gotcha 3842, decision 3076): the attempt-3 tree 21c
 
 [task.18.1632.1]
 title = "Issue #1632: Accept explorer-imported IDs in node-root history"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["18.1633.1"]
@@ -350429,7 +350429,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1791.1]
 title = "Issue #1791: Admit the existing control pods to gateway ingress"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
