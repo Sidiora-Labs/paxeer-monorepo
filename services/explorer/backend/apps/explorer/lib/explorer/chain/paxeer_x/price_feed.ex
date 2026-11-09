@@ -429,7 +429,8 @@ defmodule Explorer.Chain.PaxeerX.PriceFeed do
   @doc """
   Deletes, oldest first, at most `batch_size` submissions whose block is older than
   `retention_days` days, with their observations, keeping each market's newest consensus
-  observation. Returns how many were deleted; fewer than `batch_size` means nothing
+  observation and every incomplete acceptance replay job's source submissions.
+  Returns how many were deleted; fewer than `batch_size` means nothing
   older eligible for deletion is left.
   """
   @spec delete_expired_updates(pos_integer(), pos_integer()) :: non_neg_integer()
@@ -449,7 +450,17 @@ defmodule Explorer.Chain.PaxeerX.PriceFeed do
         0
 
       hashes ->
-        {count, _} = Repo.delete_all(from(update in PriceUpdate, where: update.hash in ^hashes))
+        incomplete_replay_job = incomplete_replay_job_query()
+
+        {count, _} =
+          Repo.delete_all(
+            from(update in PriceUpdate,
+              as: :update,
+              where: update.hash in ^hashes,
+              where: not exists(incomplete_replay_job)
+            )
+          )
+
         count
     end
   end
@@ -479,12 +490,22 @@ defmodule Explorer.Chain.PaxeerX.PriceFeed do
         where: not exists(newer_observation)
       )
 
+    incomplete_replay_job = incomplete_replay_job_query()
+
     from(update in PriceUpdate,
       as: :update,
+      where: not exists(incomplete_replay_job),
       where: not exists(retained_observation),
       order_by: [asc: update.block_number, asc: update.index],
       limit: ^batch_size,
       select: {update.hash, update.timestamp}
+    )
+  end
+
+  defp incomplete_replay_job_query do
+    from(job in "paxeer_x_price_acceptance_backfill",
+      where: job.block_hash == parent_as(:update).block_hash and job.completed == false,
+      select: 1
     )
   end
 

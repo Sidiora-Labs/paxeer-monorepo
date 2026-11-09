@@ -4,7 +4,7 @@
 task = "22.30.118"
 revision = "2b99f88520e4e809ad5593f3bee2df74fe355d7b"
 files_reviewed = 135
-findings = 54
+findings = 55
 docs_reviewed = 12
 upgrade_ready = false
 blocking = ["delta-missing-table", "push-corruption-reset", "legacy-conflict-success", "refresh-epoch-recovery"]
@@ -779,9 +779,9 @@ note = "Maps supported legacy rows but journals every gateway conflict as succes
 
 [file.129]
 path = "services/wallet/ceremony/legacy-import/test/import.test.ts"
-lines = 135
-verdict = "clean"
-note = "Replaces real gateway unique-conflict semantics with an in-memory wallet-id-only HTTP producer."
+lines = 283
+verdict = "issues"
+note = "The audited integration test used a wallet-id-only HTTP producer with incompatible receipts, leaving a test gap despite the existing production conflict repair and real-gateway regression coverage. Findings: legacy-import-test-gateway-gap; replaced by legacy_import_gateway_conflict_roundtrip for issue #1613."
 
 [file.130]
 path = "services/wallet/ceremony/legacy-import/test/legacy-schema.sql"
@@ -848,7 +848,18 @@ class = "interface-mismatch"
 severity = "high"
 observed = "applyPlans journals every HTTP 409 as already_imported. The real gateway admin.ts uses ON CONFLICT DO NOTHING without a conflict target, so unrelated unique address or user/kind collisions return the same 409 and become permanently skipped."
 expected = "The admin producer and journal consumer must distinguish identical replay from conflicting wallet identity, owner or ciphertext and acknowledge success only when the submitted wallet is durably present."
-proposal = "In services/wallet/gateway/src/routes/admin.ts compare existing material and return structured identical-replay evidence or a conflict; in services/wallet/ceremony/legacy-import/src/importer.ts journal only a verified identical replay or insertion and retain conflicting rows for reconciliation."
+proposal = "Repaired by commit d3c77120fae702c13dee3fc3f658de38651b9edd: services/wallet/gateway/src/routes/admin.ts compares stored material and returns structured identical-replay receipts or wallet_conflict, and services/wallet/ceremony/legacy-import/src/importer.ts journals only verified insertion or identical replay. Existing real-gateway regression coverage includes services/wallet/ceremony/legacy-import/test/repair-22-31-369.test.ts:171; the separate remaining original integration-test gap is legacy-import-test-gateway-gap."
+owner_domain = 12
+interface = "12.http-gw-post-v1-admin-legacy-import"
+
+[finding.legacy-import-test-gateway-gap]
+file = "services/wallet/ceremony/legacy-import/test/import.test.ts"
+line = 61
+class = "test-gap"
+severity = "medium"
+observed = "The audited original integration test substitutes an in-memory wallet-id-only HTTP producer whose insertion and conflict responses omit verified receipts; it cannot prove migrated PostgreSQL uniqueness, stored material or retryability. The production legacy-conflict-success repair already has real-gateway regression coverage at services/wallet/ceremony/legacy-import/test/repair-22-31-369.test.ts:171."
+expected = "The original importer integration test must drive readLegacyWallets, planAll and applyPlans over HTTP into production adminRoutes backed by migrated PostgreSQL, preserving mapping, redaction, archived and wrong-chain checks and journal replay while proving distinct conflicts remain retryable."
+proposal = "Replace the producer in services/wallet/ceremony/legacy-import/test/import.test.ts with production adminRoutes and a migrated gateway destination isolated from the legacy source database; register legacy_import_gateway_conflict_roundtrip to assert committed live and archived insertions, exact identical-replay receipts, address and user/kind collisions and changed ciphertext, unchanged destination material, no successful conflict journal entries, journal reopen and successful import after collision resolution. Issue #1613 implements this replacement while retaining services/wallet/ceremony/legacy-import/test/repair-22-31-369.test.ts and production checks unchanged."
 owner_domain = 12
 interface = "12.http-gw-post-v1-admin-legacy-import"
 
