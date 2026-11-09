@@ -160340,7 +160340,7 @@ do_4 = "Attempt 2 (continue, gotcha 3795, decision 3068): the attempt-1 tree 345
 
 [task.18.1766.1]
 title = "Issue #1766: Preserve the legacy explorer block height across live updates"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
