@@ -1,0 +1,7 @@
+[issue.1755]
+number = 1755
+title = "[Coherence] The negative case specified for 22.31.562 is already refused by the existing COMMITTED check, so it never reaches the new label-without-rung refusal"
+revision = "a910fdedd579e63379ae6c2e4d4971990d28f8ad"
+verdict = "spec-edit"
+evidence = "Done task 22.31.562 at spec/layerx-merge/spec.kvx:189919 and :189927 and decision 2651 at spec/layerx-merge/spec.kvx:9021 must describe the SEQUENCER_SIGNED negative case as coverage of the existing committed-budget guard, with missing-rung refusal a defensive helper guarantee: services/agent/crates/layerx-types/src/verify.rs:91 rejects retired labels 4 and 5 and :133 maps label 1 to Submitted, services/agent/crates/layerx-agentd/src/budget/mod.rs:9 accepts only Committed, services/agent/crates/layerx-agentd/src/human_runtime.rs:10158 refuses other budget labels before encoding at :10230, and services/agent/crates/layerx-agentd/tests/repair_22_31_562.rs:1068 and :1117 respectively assert committed rung byte 2 and label-1 refusal, as the implementation record already distinguishes at services/agent/crates/layerx-agentd/tests/repair_22_31_562.kvx:11."
+close_comment = "The budget-after response converts committed label 6 to rung 2, while SEQUENCER_SIGNED label 1 is refused by the existing committed-budget requirement before conversion. Task 22.31.562 and decision 2651 should describe the negative case as committed-budget guard coverage and the missing-rung refusal as a defensive helper guarantee with no reachable budget-after input."

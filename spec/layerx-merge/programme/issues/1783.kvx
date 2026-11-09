@@ -1,0 +1,49 @@
+[issue.1783]
+number = 1783
+title = "[Coherence] The interface registry still lists the three deleted issue templates as stable file-format interfaces"
+revision = "a910fdedd579e63379ae6c2e4d4971990d28f8ad"
+verdict = "task"
+evidence = "Commit 2f9f630e948446e646f997ba55cc8bbb8652ac35 deletes the three templates, but spec/layerx-merge/interfaces.kvx:760709, :760739 and :760759 still name their absent paths with stable statuses at :760713, :760743 and :760763, repeated in spec/layerx-merge/contracts/operations.md:2252, :2255 and :2257 and spec/layerx-merge/docs/plans/interface-matrix.md:76425, :76428 and :76430."
+close_comment = "The three deleted issue templates are still advertised as stable interfaces in the registry, operations contract and interface matrix. A focused correction is needed to remove those obsolete declarations while retaining the current issue forms."
+
+[task.18.1783.1]
+title = "Issue #1783: Remove deleted issue templates from the interface inventory"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181783.1"]
+capabilities = []
+interfaces = []
+do_1 = "Remove only interface.16.fmt-gh-issue-template-bug-report-md, interface.16.fmt-gh-issue-template-enahancement-yml and interface.16.fmt-gh-issue-template-general-issue-md from spec/layerx-merge/interfaces.kvx:760707, :760737 and :760757 because commit 2f9f630e948446e646f997ba55cc8bbb8652ac35 deleted their files; retain the existing bug.yml, config.yml, feature.yml, question.yml and security.md declarations and do not restore the deleted templates."
+do_2 = "Regenerate the affected ci-formats interface and notes tables in spec/layerx-merge/contracts/operations.md:2242 and :2265 and the interface inventory in spec/layerx-merge/docs/plans/interface-matrix.md:1 from the corrected effective registry, removing all rows for those three identifiers and updating the affected counts and generation evidence consistently; preserve unrelated interface declarations and contract sections."
+do_3 = "Add test_deleted_issue_templates_are_unregistered to spec/layerx-merge/programme/tests/test_interfaces_reconcile.py using ROOT at line 9 and the existing programme.kvx.load import at line 7 to read the real registry, operations contract and matrix; assert that all three deleted paths are absent, all three identifiers are absent from the registry and both rendered documents including notes tables, and the five retained issue-template declarations remain stable, point to existing files and occur in both rendered inventories; leave the existing reconciliation tests unchanged."
+symbols = ["test_deleted_issue_templates_are_unregistered"]
+touches = ["spec/layerx-merge/interfaces.kvx", "spec/layerx-merge/contracts/operations.md", "spec/layerx-merge/docs/plans/interface-matrix.md", "spec/layerx-merge/programme/tests/test_interfaces_reconcile.py"]
+tests = ["spec/layerx-merge/programme/tests/test_interfaces_reconcile.py::test_deleted_issue_templates_are_unregistered"]
+planned_paths = []
+build_cmd = "python3 -m py_compile spec/layerx-merge/programme/tests/test_interfaces_reconcile.py"
+verify_cmd = "PYTHONPATH=spec/layerx-merge python3 -m pytest spec/layerx-merge/programme/tests/test_interfaces_reconcile.py::test_deleted_issue_templates_are_unregistered -q"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-programme"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181783]
+title = "The issue-template interface inventory contains only retained templates"
+ac_1 = "The three obsolete declarations at spec/layerx-merge/interfaces.kvx:760707, :760737 and :760757 and their rows and notes at spec/layerx-merge/contracts/operations.md:2252, :2255, :2257, :2273, :2276 and :2278 and spec/layerx-merge/docs/plans/interface-matrix.md:76425, :76428 and :76430 are absent, the deleted files remain absent, and the five retained issue-template interfaces remain stable and resolve to existing files in both rendered inventories."
+
+[acceptance.18.1783.1]
+feature = "18"
+req = "181783.1"
+scenario = "Given the deletion of the three obsolete issue templates, when the corrected registry and its rendered operations contract and interface matrix are checked, then none contains the three obsolete interface identifiers, the deleted files remain absent and all five retained issue-template interfaces remain stable with existing backing files."
+contract = "contracts/operations.md#ci-formats"
+test = "spec/layerx-merge/programme/tests/test_interfaces_reconcile.py::test_deleted_issue_templates_are_unregistered (planned)"
+qualification = "UNRUN"

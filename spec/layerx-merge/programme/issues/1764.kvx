@@ -1,0 +1,51 @@
+[issue.1764]
+number = 1764
+title = "[Coherence] Committed waits rebuild the batch's activity list from eth_getBlockByNumber, but the node's block view is a filtered subset of the transactions the sequence batch counts, so genuine committed receipts are refused"
+revision = "a910fdedd579e63379ae6c2e4d4971990d28f8ad"
+verdict = "task"
+evidence = "The mismatch introduced by fe3fe074b7134d77d3bbee2b80c92004ab64fb9c remains: services/agent/crates/layerx-sdk/src/rpc_commit.rs:147 requires the filtered block list to equal the batch count and uses its sequence positions, whereas node/app.go:2735 and node/app.go:3706 commit every transaction after tx 0 using EVM hashes or raw-byte SHA-256, rpc/utils.go:456 filters undecodable, associate, ante-failing, non-nonce-bumping, shell, wasm and bank transactions, rpc/block.go:311 applies domain filtering, rpc/px_kernel.go:166 serves no activity list, and services/agent/crates/layerx-sdk/tests/repair_22_31_567.rs:130 tests single-activity batches despite the per-wait coverage requirement in spec/layerx-merge/spec.kvx:9051."
+close_comment = "Committed waits need the complete sequence-batch activity list, including transactions omitted from Ethereum and domain views. The repair will serve that list with the batch and retain signature, inclusion and sequence-state verification."
+
+[task.18.1764.1]
+title = "Issue #1764: Verify committed receipts against the complete batch activity list"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181764.1"]
+capabilities = []
+interfaces = []
+do_1 = "Extend pxSequenceBatchResult and GetSequenceBatch in rpc/px_kernel.go:48 and rpc/px_kernel.go:134 with activityIds containing one 0x-prefixed 32-byte ID for every consensus transaction after tx 0 in original order; use exactly the classification of node/app.go:3174 and node/app.go:3706, including SHA-256 for associate, non-EVM and undecodable transactions, and validate the resulting IDs against the decoded batch root and range before serving them. Supply the height-specific transaction decoder through both registrations in rpc/server.go:332 and rpc/server.go:601, and describe the field in services/platform/hosted/gateway/openrpc.json:385; Ethereum visibility and domain filtering must not change these IDs."
+do_2 = "Change NodeCommitCoverage::from_sequence_batch at services/agent/crates/layerx-sdk/src/rpc_commit.rs:120 to decode activityIds from px_getSequenceBatch instead of block.transactions and update its caller at services/agent/crates/layerx-sdk/src/rpc_verification.rs:360; retain the 65536 bound, exact count, receipt sequence position, proof leaf and inclusion, pinned validator and receipt-key signatures, activity root and every sequence-state transition checked at services/agent/crates/layerx-sdk/src/rpc_commit.rs:551. Missing or malformed IDs must be refused without substituting the Ethereum list."
+do_3 = "Update the existing SDK and payment qualification peers in the declared test files to serve the complete activityIds with their production-encoded batch; preserve their current assertions and move list-corruption assertions to the new batch field so malformed lists still prove refusal."
+do_4 = "Add TestCommittedWaitUsesBatchActivityIDs to rpc/px_node_root_kernel_test.go, extending its real sequencer and consensus producer at rpc/px_node_root_kernel_test.go:151 to commit a mixed block with transactions omitted by the Ethereum view before and after a receipted target; assert the served IDs match every consensus transaction after tx 0, including the SHA-256 path, and remain complete through domain-scoped RPC. The test must invoke committed_wait_uses_unfiltered_batch_activity_ids in the new SDK integration test against those same production RPC responses with independently supplied trust pins, and assert a verified Committed receipt at the correct nonzero sequence offset; do not replace the producer, transport or consumer with a test double."
+do_5 = "In the same focused integration test, exercise missing, truncated, reordered and altered activityIds derived from the genuine produced response and require verification refusal, while a shortened Ethereum transaction list alone must not prevent the genuine committed receipt from verifying; preserve the original signed batch and pinned trust for these checks."
+symbols = ["pxSequenceBatchResult", "GetSequenceBatch", "from_sequence_batch", "TestCommittedWaitUsesBatchActivityIDs", "committed_wait_uses_unfiltered_batch_activity_ids"]
+touches = ["rpc/px_kernel.go", "rpc/server.go", "rpc/px_node_root_kernel_test.go", "services/platform/hosted/gateway/openrpc.json", "services/agent/crates/layerx-sdk/src/rpc_commit.rs", "services/agent/crates/layerx-sdk/src/rpc_verification.rs", "services/agent/crates/layerx-sdk/tests/issue_1764.rs", "services/agent/crates/layerx-sdk/tests/repair_22_31_494.rs", "services/agent/crates/layerx-sdk/tests/repair_22_31_563.rs", "services/agent/crates/layerx-sdk/tests/repair_22_31_567.rs", "services/agent/crates/layerx-sdk/tests/repair_22_31_576.rs", "services/agent/crates/layerx-sdk/tests/support/audit_22_30_99.rs", "services/agent/qualification/pay2/tests/support/funded_peer.rs"]
+tests = ["rpc/px_node_root_kernel_test.go::TestCommittedWaitUsesBatchActivityIDs", "services/agent/crates/layerx-sdk/tests/issue_1764.rs::committed_wait_uses_unfiltered_batch_activity_ids"]
+planned_paths = ["services/agent/crates/layerx-sdk/tests/issue_1764.rs"]
+build_cmd = "go build ./rpc/ && cargo build --locked --manifest-path services/agent/crates/layerx-sdk/Cargo.toml --test issue_1764"
+verify_cmd = "go test -count=1 ./rpc/ -run '^TestCommittedWaitUsesBatchActivityIDs$'"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181764]
+title = "Committed receipt coverage uses the complete consensus batch independently of Ethereum visibility"
+ac_1 = "Given a signed mixed-transaction sequence batch as constructed by node/app.go:2735 and node/app.go:3706, when GetSequenceBatch serves coverage and the SDK verifies a committed receipt through services/agent/crates/layerx-sdk/src/rpc_verification.rs:360, then every post-batch activity ID is preserved in consensus order, a target at a nonzero sequence offset verifies even when rpc/utils.go:456 or rpc/block.go:311 omits other transactions, and missing, truncated, reordered or altered IDs are refused with signature, root, proof and sequence-state checks intact."
+
+[acceptance.18.1764.1]
+feature = "18"
+req = "181764.1"
+scenario = "Given a real committed mixed-transaction batch and independently pinned trust, when the SDK waits for its target through the node's production RPC while Ethereum and domain views omit other batch transactions, then the target verifies as Committed using the complete batch activityIds and corrupted lists are refused."
+contract = "contracts/sequencer.md#sequencer-msg"
+test = "rpc/px_node_root_kernel_test.go::TestCommittedWaitUsesBatchActivityIDs (planned)"
+qualification = "UNRUN"

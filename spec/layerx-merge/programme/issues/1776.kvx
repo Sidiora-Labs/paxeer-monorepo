@@ -1,0 +1,48 @@
+[issue.1776]
+number = 1776
+title = "[Coherence] The existing 0x0907 ABI freeze test still expects four methods and one event, so it fails now that the ABI has bindPeer, peerBinding and PeerAttestationBound"
+revision = "a910fdedd579e63379ae6c2e4d4971990d28f8ad"
+verdict = "task"
+evidence = "Commit 6e64aa6ffb45918b2936a2c2c92b248687a88287 added the peer-binding entries still served by precompiles/layerxagent/teeattestor/teeattestor.go:46, :47 and :48, making six methods and two events, but precompiles/layerxagent/teeattestor/teeattestor_test.go:329 and :366 still require four and one and its table at :334 omits both peer methods despite their gas schedules at precompiles/layerxagent/teeattestor/teeattestor.go:143; the issue's claim about the original verification command is incorrect because spec/layerx-merge/spec.kvx:296863 selects only TestPeerBinding, whose selector and event checks at precompiles/layerxagent/teeattestor/peer_binding_test.go:47 and :69 do not repair the freeze test."
+close_comment = "The 0x0907 ABI freeze test still describes four methods and one event although peer binding expands the interface to six methods and two events. The follow-up task will freeze the complete interface, including peer-binding selectors, gas schedules, return types and event fields, while preserving existing coverage."
+
+[task.18.1776.1]
+title = "Issue #1776: Freeze the complete 0x0907 peer-binding ABI"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181776.1"]
+capabilities = []
+interfaces = []
+do_1 = "Extend TestABISelectorsGasAndEvent in precompiles/layerxagent/teeattestor/teeattestor_test.go:325 to require exactly the six served methods from precompiles/layerxagent/teeattestor/teeattestor.go:45, retaining the four existing method rows and their checks; add bindPeer(uint8,bytes,bytes32,bytes32,bytes32), selector c7c179e5, nonpayable, returning bound bool, and peerBinding(bytes32), selector c3c05f2e, view, returning family uint8, modelDigest bytes32, runtimeDigest bytes32 and blockHeight uint64, with explicit per-method mutability, output counts and output metadata."
+do_2 = "In the same test, assert bindPeer costs 106000+30 times total calldata bytes and peerBinding costs 1000+3 times total calldata bytes through both RequiredGas entry points across the existing input sizes, matching precompiles/layerxagent/teeattestor/teeattestor.go:136 and :158; require exactly both events and freeze PeerAttestationBound(bytes32,uint8,bytes32,bytes32), its Keccak topic, non-anonymous flag, and ordered fields peerKey bytes32 indexed, family uint8 unindexed, modelDigest bytes32 unindexed and runtimeDigest bytes32 unindexed from :48, preserving all existing selector, gas, AttestationVerified, unknown-method and out-of-gas checks at precompiles/layerxagent/teeattestor/teeattestor_test.go:334 through :399."
+symbols = ["TestABISelectorsGasAndEvent"]
+touches = ["precompiles/layerxagent/teeattestor/teeattestor_test.go"]
+tests = ["precompiles/layerxagent/teeattestor/teeattestor_test.go::TestABISelectorsGasAndEvent"]
+planned_paths = []
+build_cmd = "go build ./precompiles/layerxagent/teeattestor/"
+verify_cmd = "go test -count=1 ./precompiles/layerxagent/teeattestor/ -run '^TestABISelectorsGasAndEvent$'"
+gate_kind = "planned"
+sandbox_profile = "go-cgo"
+owner_role = "fm-chain-modules"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181776]
+title = "The 0x0907 ABI freeze covers every served method and event"
+ac_1 = "Given the six methods and two events served at precompiles/layerxagent/teeattestor/teeattestor.go:45 and the peer-method gas schedules at :143, TestABISelectorsGasAndEvent at precompiles/layerxagent/teeattestor/teeattestor_test.go:325 asserts the exact inventories, every method signature, selector, mutability and output shape, both gas entry points including bindPeer at 106000+30 per calldata byte and peerBinding at 1000+3 per calldata byte, and both events' signatures, topics, anonymity and ordered field types and indexing, while retaining its existing unknown-method and out-of-gas assertions."
+
+[acceptance.18.1776.1]
+feature = "18"
+req = "181776.1"
+scenario = "Given the 0x0907 precompile with peer binding enabled, when TestABISelectorsGasAndEvent inspects the real precompile ABI and both gas entry points, then it verifies exactly six methods and two events with their frozen selectors, mutability, outputs, gas schedules and event fields and preserves the existing refusal checks."
+contract = "contracts/inference-market.md#attestation-0x0907"
+test = "precompiles/layerxagent/teeattestor/teeattestor_test.go::TestABISelectorsGasAndEvent (planned)"
+qualification = "UNRUN"

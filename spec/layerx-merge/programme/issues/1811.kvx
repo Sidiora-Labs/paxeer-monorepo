@@ -1,0 +1,7 @@
+[issue.1811]
+number = 1811
+title = "[Coherence] The nine new decision records store their affects field as a list of single characters instead of a list of affected ids"
+revision = "a910fdedd579e63379ae6c2e4d4971990d28f8ad"
+verdict = "already-fixed"
+evidence = "Decisions 2762-2770 now store complete task ids in affects at spec/layerx-merge/spec.kvx:9689, :9695, :9701, :9707, :9713, :9719, :9725, :9731 and :9737, including 9.98.4 and 22.31.217 for decision 2762 and 22.38.15, 22.38.16, 22.38.17 and 22.38.25 for decision 2770, while the five earlier decisions 2757-2761 also have complete task ids at spec/layerx-merge/spec.kvx:9659, :9665, :9671, :9677 and :9683."
+close_comment = "Decisions 2762-2770 now list complete affected task IDs, including the expected dependencies for decisions 2762 and 2770. The same correction covers decisions 2757-2761, so all fourteen cited records identify tasks instead of individual characters."
