@@ -1,0 +1,7 @@
+[issue.1707]
+number = 1707
+title = "[Coherence] Interface ledger and sequencer contract still record the removed state-test env var reads as stable"
+revision = "bb8caac8b3e73e3e2f4b330805574f0bcb540641"
+verdict = "spec-edit"
+evidence = "Completed task 22.33.1180 (spec/layerx-merge/spec.kvx:221558, commit bac846d233441bf22c65cc68e111a0dffd9eb8b8) changed the harness as exercised by engine/tests/repair_m1180_test.go:48, but spec/layerx-merge/interfaces.kvx:228148, spec/layerx-merge/interfaces.kvx:229088, spec/layerx-merge/interfaces.kvx:229098, spec/layerx-merge/interfaces.kvx:229138 and spec/layerx-merge/contracts/sequencer.md:2098 still describe deleted reads as stable switches, so the specification must refresh their signatures and locations to engine/tests/state_harness_test.go:689 and engine/tests/state_harness_test.go:691, describe required directory/name, Cancun fork, positive count and both flags equal to true at engine/tests/state_harness_test.go:693, register STATE_TEST_FORK and STATE_TEST_COUNT, and register STATE_TEST_ROOT as an optional archive override with the existing fallback at engine/tests/state_harness_test.go:699."
+close_comment = "The interface ledger and sequencer contract need to reflect the existing required state-test selection and mandatory oracle and skip-list flags, including entries for STATE_TEST_FORK and STATE_TEST_COUNT. STATE_TEST_ROOT should be documented as an optional archive override; an empty value uses the standard archive path."

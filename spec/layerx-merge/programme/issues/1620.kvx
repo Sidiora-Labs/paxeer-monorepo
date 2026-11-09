@@ -1,0 +1,49 @@
+[issue.1620]
+number = 1620
+title = "[Coherence] The audit record reports four specification contract pages as missing, but all four exist under spec/layerx-merge/contracts/"
+revision = "bb8caac8b3e73e3e2f4b330805574f0bcb540641"
+verdict = "task"
+evidence = "The unchanged audit introduced by commit 47a2574c39875a372152ff7a96d19b936e9f446c still proposes four missing-page repairs at spec/layerx-merge/programme/audit/records/22.30.148.kvx:2034, :2045, :2056 and :2067 and repeats that premise in doc.14 through doc.18 at :2253, although the registry targets at spec/layerx-merge/interfaces.kvx:576445, :575685, :580195 and :594793 resolve to headings at spec/layerx-merge/contracts/explorer-frontend-config.md:7, spec/layerx-merge/contracts/explorer-config.md:75, spec/layerx-merge/contracts/explorer-services-config.md:67 and spec/layerx-merge/contracts/verifier-http.md:25, all in pages first added by commit 4a9dbd7408d98ec112b849894a0d4c9ed40a2aa9."
+close_comment = "All four registered explorer contract pages and their cited anchors exist under spec/layerx-merge/contracts/. The audit record needs to resolve those links from the specification directory, replace the false missing-page findings with any demonstrated content disagreements, and base its documentation statuses on the existing pages."
+
+[task.18.1620.1]
+title = "Issue #1620: Correct the explorer audit's contract-page findings"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181620.1"]
+capabilities = []
+interfaces = []
+do_1 = "Correct spec/layerx-merge/programme/audit/records/22.30.148.kvx:2034, :2045, :2056 and :2067 by resolving registry contract links relative to spec/layerx-merge and reading the existing explorer-frontend-config.md, explorer-config.md, explorer-services-config.md and verifier-http.md pages against their declared interfaces and implementations; remove the four false missing-page findings and record only evidenced content disagreements with current citations, without creating or rewriting contract pages."
+do_2 = "In the same record, give doc.14 through doc.17 at spec/layerx-merge/programme/audit/records/22.30.148.kvx:2253 canonical spec/layerx-merge/contracts/ paths and accurate, stale or misleading statuses supported by specific content comparisons; correct doc.18's four-missing-pages rationale at :2276, reconcile the findings count at :5, and preserve unrelated findings, the blocking list and upgrade_ready=false."
+do_3 = "Use the focused documentation check to assert that all four canonical contract paths occur in the record, no missing-page finding or missing status remains, and the declared findings count equals the actual finding blocks; inspect the content comparisons and doc.18 rationale as part of the correction."
+symbols = []
+touches = ["spec/layerx-merge/programme/audit/records/22.30.148.kvx"]
+tests = []
+planned_paths = []
+build_cmd = "true"
+verify_cmd = "test $(grep -Ec '^path = .spec/layerx-merge/contracts/(explorer-frontend-config|explorer-config|explorer-services-config|verifier-http)[.]md.$' spec/layerx-merge/programme/audit/records/22.30.148.kvx) -eq 4 && test $(grep -c '^[[]finding[.]' spec/layerx-merge/programme/audit/records/22.30.148.kvx) -eq $(sed -n 's/^findings = //p' spec/layerx-merge/programme/audit/records/22.30.148.kvx) && ! grep -Eq '^[[]finding[.](frontend|backend|launcher|verifier)-contract-page-missing[]]$|^status = .missing.$|four missing pages' spec/layerx-merge/programme/audit/records/22.30.148.kvx"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-programme"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181620]
+title = "Explorer audit findings resolve existing specification contract pages"
+ac_1 = "The four contract targets identified at spec/layerx-merge/interfaces.kvx:576445, :575685, :580195 and :594793 resolve under spec/layerx-merge/contracts/; the audit record's findings at spec/layerx-merge/programme/audit/records/22.30.148.kvx:2034 and documentation entries at :2253 must describe evidenced content agreements or disagreements, use the four existing canonical paths, and propose no repair based on nonexistent missing pages."
+
+[acceptance.18.1620.1]
+feature = "18"
+req = "181620.1"
+scenario = "Given the four existing explorer specification contract pages and their registered anchors, when the explorer audit resolves and reviews those pages, then its four documentation paths are canonical, their statuses and the registry assessment reflect the actual content, its missing-page findings are removed, and its findings count matches the remaining blocks."
+contract = "contracts/explorer-frontend-config.md#cfg-apis"
+test = "Focused grep and finding-count check of spec/layerx-merge/programme/audit/records/22.30.148.kvx (planned)"
+qualification = "UNRUN"

@@ -1,0 +1,49 @@
+[issue.1610]
+number = 1610
+title = "[Coherence] The audit record reports the crypto and proof API contract as missing, but it exists with both anchors"
+revision = "bb8caac8b3e73e3e2f4b330805574f0bcb540641"
+verdict = "task"
+evidence = "spec/layerx-merge/programme/audit/records/22.30.98.kvx:827 and :1014 still claim the contract is absent, although spec/layerx-merge/contracts/agent-rust-api.md:3384 and :4191 define its crypto and proof anchors and spec/layerx-merge/interfaces.kvx:412611 and :417305 link to them in 480 rows (199 crypto, 281 proof); repair commit 35193922ed added services/agent/crates/layerx-crypto/src/api-contract.md and its test at services/agent/crates/layerx-crypto/tests/repair_22_33_1558.rs:186 without correcting this record."
+close_comment = "The crypto and proof contract already exists with both registry anchors. A focused documentation correction is tracked to remove the false missing-contract finding and assess the existing sections for signature drift instead of creating a replacement or redirecting valid links."
+
+[task.18.1610.1]
+title = "Issue #1610: Correct the crypto and proof contract inventory in audit record 22.30.98"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181610.1"]
+capabilities = []
+interfaces = []
+do_1 = "Remove the false finding.api-contract-document-absent block at spec/layerx-merge/programme/audit/records/22.30.98.kvx:822 and change the findings count at :5 from 43 to 42; preserve every other finding, file verdict and blocking entry. Registry contract paths resolve relative to spec/layerx-merge, where spec/layerx-merge/contracts/agent-rust-api.md:3384 and :4191 provide the crypto and proof sections used by all 480 corresponding registry rows."
+do_2 = "Correct doc.013 at spec/layerx-merge/programme/audit/records/22.30.98.kvx:1012: use the repository-relative path spec/layerx-merge/contracts/agent-rust-api.md and status stale, with notes beginning Existing contract sections: contracts/agent-rust-api.md#crypto and contracts/agent-rust-api.md#proof. Cite actual signature drift: spec/layerx-merge/contracts/agent-rust-api.md:4285 still documents verify(export, expected_settlement_domain), while services/agent/crates/layerx-proof/src/export.rs:96 defines verify(export). Retain the existing registry-export-signatures-stale finding at spec/layerx-merge/programme/audit/records/22.30.98.kvx:767; replace the missing-page and replacement-link claims with this concrete assessment."
+do_3 = "The focused documentation check proves both contract anchors exist, the false finding and absence/replacement claims are gone, the finding count is 42, and doc.013 names the existing repository path with stale status and both contract links; it changes only the audit record."
+symbols = []
+touches = ["spec/layerx-merge/programme/audit/records/22.30.98.kvx"]
+tests = ["spec/layerx-merge/programme/audit/records/22.30.98.kvx::contract_inventory_correction"]
+planned_paths = []
+build_cmd = "true"
+verify_cmd = "grep -Fxq '## crypto' spec/layerx-merge/contracts/agent-rust-api.md && grep -Fxq '## proof' spec/layerx-merge/contracts/agent-rust-api.md && grep -Fxq 'findings = 42' spec/layerx-merge/programme/audit/records/22.30.98.kvx && grep -Fq 'Existing contract sections: contracts/agent-rust-api.md#crypto and contracts/agent-rust-api.md#proof.' spec/layerx-merge/programme/audit/records/22.30.98.kvx && sed -n '/^\\[doc\\.013\\]$/,$p' spec/layerx-merge/programme/audit/records/22.30.98.kvx | grep -Eq '^status = .stale.$' && sed -n '/^\\[doc\\.013\\]$/,$p' spec/layerx-merge/programme/audit/records/22.30.98.kvx | grep -Eq '^path = .spec/layerx-merge/contracts/agent-rust-api\\.md.$' && ! grep -Eq '^\\[finding\\.api-contract-document-absent\\]$|absent page|absent from the tree|Create an owned current crypto/proof API contract|redirect the registry links' spec/layerx-merge/programme/audit/records/22.30.98.kvx"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-programme"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181610]
+title = "The crypto and proof audit distinguishes existing contract drift from a missing document"
+ac_1 = "The false absence finding at spec/layerx-merge/programme/audit/records/22.30.98.kvx:822 is removed with its finding count adjusted, and doc.013 at :1012 resolves the existing contract with both anchors at spec/layerx-merge/contracts/agent-rust-api.md:3384 and :4191, classifies its signature drift as stale, and proposes neither a duplicate document nor redirection of valid registry links."
+
+[acceptance.18.1610.1]
+feature = "18"
+req = "181610.1"
+scenario = "Given the existing crypto and proof contract sections and their registry links, when audit record 22.30.98 is read, then it identifies the existing document and its signature drift, contains no missing-contract finding or replacement proposal, and preserves the remaining findings with an accurate count."
+contract = "contracts/agent-rust-api.md#proof"
+test = "spec/layerx-merge/programme/audit/records/22.30.98.kvx::contract_inventory_correction (planned)"
+qualification = "UNRUN"
