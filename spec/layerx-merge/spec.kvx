@@ -191312,7 +191312,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1753.1]
 title = "Issue #1753: Restore version-1 public evidence in receipt inventory"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -347559,7 +347559,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.93.395]
 title = "Triage issue #1925 and write its report"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -347590,7 +347590,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.93.394]
 title = "Triage issue #1924 and write its report"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
