@@ -1,7 +1,7 @@
 [disposition.14.0.6.2]
 finding = "14.0.6.2"
 status = "resolved"
-evidence = "Commit 2dc2c17ab removed the retired deposit, forward and withdrawal journey imports, helpers, tests and bridge fee variants from intent_submit.rs, and landed commit 0a26ef46a retained the kernel-send cases using the six-argument EIP-1559 submission path now visible at services/human/crates/layerx-human-service/tests/intent_submit.rs:50."
+evidence = "Commit 2dc2c17ab removed the retired deposit, forward and withdrawal journeys, and 0a26ef46a8 retained the EIP-1559 submission cases on main. The six-argument production call remains at services/human/crates/layerx-human-service/tests/intent_submit.rs:59, with persisted journey checks added by 969e69ea5a at services/human/crates/layerx-human-service/tests/intent_submit.rs:67."
 follow_up = "closure"
 
 [disposition.14.0.6.3]
