@@ -189386,7 +189386,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1721.1]
 title = "Issue #1721: Migrate the remaining receipt ingress tests and correct the format contract"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -189417,7 +189417,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1714.1]
 title = "Issue #1714: Resolve verified committed journey receipt references"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -189505,7 +189505,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1650.1]
 title = "Issue #1650: Classify the Python SDK discovery files as handwritten"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -218507,7 +218507,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1700.1]
 title = "Issue #1700: Report each blocksim failure once with its original operation"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -218536,7 +218536,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1696.1]
 title = "Issue #1696: Supply canonical status dependencies in projection tests"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -218688,7 +218688,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1669.1]
 title = "Issue #1669: Resume refresh recovery after saving a replacement session"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -299876,7 +299876,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1661.1]
 title = "Issue #1661: Complete CW20 deployment without retired DEX commands"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -300089,7 +300089,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1627.1]
 title = "Issue #1627: Preserve canonical escrow receipts across both genesis recovery paths"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -344109,7 +344109,7 @@ do_6 = "Attempt 3: the closure check is a gate over the whole issue programme; i
 
 [task.18.1767.1]
 title = "Issue #1767: Repoint platform adoption inputs to the relocated documentation and samples"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -344138,7 +344138,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1741.1]
 title = "Issue #1741: Identify the authoritative AI market repair record in the test header"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -407983,7 +407983,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1674.1]
 title = "Issue #1674: Connect interop HTTP paging to the complete message cursor"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -408041,7 +408041,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1670.1]
 title = "Issue #1670: Encode sanitizer test responses as JSON-RPC block values"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
