@@ -1,0 +1,7 @@
+[issue.1760]
+number = 1760
+title = "[Coherence] The wallet issue and pull request templates still link to apps/wallet/CHANGELOG.md, which this move deleted"
+revision = "a910fdedd579e63379ae6c2e4d4971990d28f8ad"
+verdict = "already-fixed"
+evidence = "Commit cdcc2e38ad162ff91f715973eb95768c7e8fa694 repointed all four templates: apps/wallet/.github/ISSUE_TEMPLATE/bug_report.md:16 and apps/wallet/.github/ISSUE_TEMPLATE/bug_report.md:46, apps/wallet/.github/ISSUE_TEMPLATE/feature_request.md:16 and apps/wallet/.github/ISSUE_TEMPLATE/feature_request.md:30, apps/wallet/.github/ISSUE_TEMPLATE/question.md:16 and apps/wallet/.github/ISSUE_TEMPLATE/question.md:35, and apps/wallet/.github/PULL_REQUEST_TEMPLATE.md:8 and apps/wallet/.github/PULL_REQUEST_TEMPLATE.md:40 now reference docs/wallet/app/CHANGELOG.md with the network-context anchors preserved at docs/wallet/app/CHANGELOG.md:24."
+close_comment = "The wallet bug report, feature request, question, and pull request templates now point to docs/wallet/app/CHANGELOG.md using the correct relative paths. Their network-context references also retain the anchor to the existing Network context section."
