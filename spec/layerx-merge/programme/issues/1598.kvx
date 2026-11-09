@@ -1,0 +1,49 @@
+[issue.1598]
+number = 1598
+title = "[Coherence] The ABI-5 switch tasks change Programs receipts to module_version 5, but the Rust proof verifier and the Go lifecycle verifier still accept only 4"
+revision = "bb8caac8b3e73e3e2f4b330805574f0bcb540641"
+verdict = "task"
+evidence = "The ABI-5 producer is implemented by commits 4fc7db65734db30d0f63c8bdce6b2a5b86367751 and b408a0bf7297f2ddbefb8a495b131cb254ba822c and asserted at modules/lxphost/programs_registration_test.go:157, but services/agent/crates/layerx-proof/src/receipt.rs:355 dispatches Programs receipts through the four-only check at :69 and preexecution rejection separately requires four at :940, while services/agent/crates/layerx-types/build.rs:293 omits the version-five enumerator at include/layerx/programs.h:109 and :331 requires four to remain the maximum; the Go claim is superseded by sdk/platform/go/verify.go:194 and sdk/platform/go/native_program_lifecycle.go:491, which retire kernel lifecycle verification in favour of sequencer receipts, with deliberate refusal asserted at sdk/platform/go/native_program_lifecycle_test.go:235."
+close_comment = "The Rust proof verifier still rejects Programs module-version-5 receipts emitted after the merge upgrade, so a repair must support versions 4 and 5 while preserving protocol, signature and state-root checks. Go lifecycle verification already uses authenticated sequencer receipts, and its retired kernel receipt verifier deliberately refuses that format."
+
+[task.18.1598.1]
+title = "Issue #1598: Verify Programs receipts from both hosted module registrations"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181598.1"]
+capabilities = []
+interfaces = []
+do_1 = "Extend the generated Programs module ABI table in services/agent/crates/layerx-types/build.rs:283 to include the hosted registration at LX_PROGRAMS_GUEST_ABI_V5_VERSION (include/layerx/programs.h:109), without collecting unrelated guest ABI aliases or losing the distinct INITIAL, ACCOUNT, SANDBOX and SANDBOX_DESTROY allocations; update the maximum validation at build.rs:331, generated constants and documentation at :350 and the header-mirroring tests in services/agent/crates/layerx-types/src/programs_module_abi.rs:36 to describe the actual version-five registration."
+do_2 = "Use the generated registration constants in services/agent/crates/layerx-proof/src/receipt.rs:69 so protocol-three Programs call and lifecycle receipts accept exactly module versions four and five, and apply the same policy to the independent preexecution-rejection check at :940; preserve protocol-one historical handling, protocol-two module bounds, guest ABI validation and every canonical encoding, authority, signature, batch and root-chain check."
+do_3 = "Add programs_module_versions_header_matches_hosted_registrations to services/agent/crates/layerx-types/src/programs_module_abi.rs and programs_module_versions_verify_signed_receipts to services/agent/crates/layerx-proof/tests/receipt.rs:51, using real canonical encoders and Ed25519 signing to verify protocol-three version-four and version-five call, lifecycle and preexecution-rejection vectors and reject unsupported module versions, tampered signatures and mismatched roots; update the obsolete four-only version-policy assertion at services/agent/crates/layerx-proof/src/receipt.rs:1247 to an exact two-registration matrix that also preserves historical protocol bounds."
+symbols = ["programs_module_abi", "programs_module_abi_body", "programs_version_for_protocol", "verify_program_preexecution_rejection", "programs_module_versions_header_matches_hosted_registrations", "programs_module_versions_verify_signed_receipts"]
+touches = ["services/agent/crates/layerx-types/build.rs", "services/agent/crates/layerx-types/src/programs_module_abi.rs", "services/agent/crates/layerx-proof/src/receipt.rs", "services/agent/crates/layerx-proof/tests/receipt.rs"]
+tests = ["services/agent/crates/layerx-types/src/programs_module_abi.rs::programs_module_versions_header_matches_hosted_registrations", "services/agent/crates/layerx-proof/tests/receipt.rs::programs_module_versions_verify_signed_receipts"]
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-proof --test receipt"
+verify_cmd = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-types -p layerx-proof programs_module_versions"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181598]
+title = "Rust Programs proof verification follows both hosted module registrations"
+ac_1 = "Given protocol-three Programs receipts from the module registrations proven at modules/lxphost/programs_registration_test.go:157 and :167, the Rust verifier accepts valid module-version-four and module-version-five call, lifecycle and preexecution-rejection receipts, rejects unsupported module versions and corrupted signature or root evidence, and retains the historical protocol bounds at services/agent/crates/layerx-proof/src/receipt.rs:61 without conflating module registration with guest ABI."
+
+[acceptance.18.1598.1]
+feature = "18"
+req = "181598.1"
+scenario = "Given valid signed protocol-three Programs call, lifecycle and preexecution-rejection receipts for hosted module versions four and five, when Rust verifies them, then both registrations pass their applicable checks while unsupported registrations, altered signatures and wrong state roots fail and historical protocol limits remain enforced."
+contract = "contracts/programs.md#frozen-abi"
+test = "services/agent/crates/layerx-proof/tests/receipt.rs::programs_module_versions_verify_signed_receipts (planned)"
+qualification = "UNRUN"

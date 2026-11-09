@@ -1,0 +1,7 @@
+[issue.1642]
+number = 1642
+title = "Reconcile merged staking key-length errors with retained regression tests"
+revision = "bb8caac8b3e73e3e2f4b330805574f0bcb540641"
+verdict = "already-fixed"
+evidence = "Commit f722f13307a8683200511b13d04b00de352fdfa0 removed the shadowing short-error guard, leaving the single activation-gated exact-length check at precompiles/staking/staking.go:559 and detailed expected/actual error at precompiles/staking/staking.go:560 before payment at precompiles/staking/staking.go:593, matching the retained receipt expectation at precompiles/staking/repair_m1201_test.go:96 and direct-wrapper expectation at precompiles/staking/repair_m1201_test.go:139 through original-error storage at precompiles/common/precompiles.go:260 before outer-error replacement at precompiles/common/precompiles.go:374, with refusal/state assertions retained at precompiles/staking/repair_m1201_test.go:97 and precompiles/staking/repair_m1201_test.go:101 and activation-policy assertions at precompiles/staking/repair_m1201_test.go:138."
+close_comment = "The duplicate key-length guard has been removed, so malformed validator keys now report both the expected 32 bytes and the actual length, as the retained regression tests require. Exact-length refusal before payment, activation policy, and validator and balance assertions remain intact."

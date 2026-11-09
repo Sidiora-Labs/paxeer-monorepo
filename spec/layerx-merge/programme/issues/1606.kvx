@@ -1,0 +1,49 @@
+[issue.1606]
+number = 1606
+title = "[Coherence] The audit record declares the hosted and CLI platform contracts missing although both exist at the path the interface registry uses"
+revision = "bb8caac8b3e73e3e2f4b330805574f0bcb540641"
+verdict = "task"
+evidence = "The unchanged audit from commit 060ba3d1fd928b3069b01db6eab99c3f5b21a882 still declares the pages absent at spec/layerx-merge/programme/audit/records/22.30.80.kvx:545 and marks them missing at :747 and :752, although spec/layerx-merge/interfaces.kvx:313536 and :376733 resolve to the existing anchors at spec/layerx-merge/contracts/platform-hosted.md:329 (including retention_mark and revocation_mark at :337 and :338) and spec/layerx-merge/contracts/platform-cli.md:1141, whose stable activities and settlement rows at :1163 and :1170 contradict the 404 and 410 assertions in tools/platform/emulator/tests/gateway.rs:373 and :320 and the settlement refusal at tools/platform/emulator/src/main.rs:1254."
+close_comment = "The hosted and CLI platform contracts exist under spec/layerx-merge/contracts/; the audit incorrectly reports them as missing. A documentation correction is needed to review the existing pages and identify their actual drift, including the CLI contract's stable activities and settlement rows for retired emulator routes."
+
+[task.18.1606.1]
+title = "Issue #1606: Correct the platform audit's contract resolution and documentation findings"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181606.1"]
+capabilities = []
+interfaces = []
+do_1 = "Correct spec/layerx-merge/programme/audit/records/22.30.80.kvx:540-548 and :745-753 by resolving registry contract targets relative to spec/layerx-merge, reading both existing contract pages, and replacing the false absence claim with evidence of actual content drift; retain the finding identifier for existing repair references, give the finding an existing documentation path and positive line number, and replace its publish-missing-pages proposal with a focused correction of stale contract text. Include this exact sentence in its observed value: Both platform contract pages exist under spec/layerx-merge/contracts/; the CLI contract still advertises retired emulator routes as stable."
+do_2 = "Review spec/layerx-merge/contracts/platform-hosted.md, including the config anchor and mark rows at :329-338 against services/platform/hosted/ai-artifacts/src/authority.rs:49-67, and spec/layerx-merge/contracts/platform-cli.md, including :1163 and :1170 against tools/platform/emulator/src/main.rs:1254-1259 and tools/platform/emulator/tests/gateway.rs:319-323 and :344-378; give hosted-contract an evidence-backed accurate, stale or misleading status and cli-contract a stale status, with full spec/layerx-merge/contracts/ paths and current source citations in their notes. Include this exact sentence in the CLI notes: POST /v1/activities returns 404; POST /v1/settle returns 410 settlement_authority_retired."
+do_3 = "Reconcile dependent wording such as the missing-page note at spec/layerx-merge/programme/audit/records/22.30.80.kvx:79, affected file verdicts, finding and documentation counts, and any blocking list changes within this record; retain unrelated findings and distinguish original audit observations from the correction's cited revision. The focused contract_target_review check must assert both resolved document paths and reviewed statuses, the corrected existence statement, the actual retirement behavior, and absence of the original missing-page assertion."
+symbols = []
+touches = ["spec/layerx-merge/programme/audit/records/22.30.80.kvx"]
+tests = ["spec/layerx-merge/programme/audit/records/22.30.80.kvx::contract_target_review"]
+planned_paths = []
+build_cmd = "true"
+verify_cmd = "grep -Fx -A3 '[doc.hosted-contract]' spec/layerx-merge/programme/audit/records/22.30.80.kvx | grep -Eq '^status = .(accurate|stale|misleading).$' && grep -Fx -A3 '[doc.hosted-contract]' spec/layerx-merge/programme/audit/records/22.30.80.kvx | grep -Fq 'spec/layerx-merge/contracts/platform-hosted.md' && grep -Fx -A3 '[doc.cli-contract]' spec/layerx-merge/programme/audit/records/22.30.80.kvx | grep -Eq '^status = .stale.$' && grep -Fx -A3 '[doc.cli-contract]' spec/layerx-merge/programme/audit/records/22.30.80.kvx | grep -Fq 'spec/layerx-merge/contracts/platform-cli.md' && grep -Fq 'Both platform contract pages exist under spec/layerx-merge/contracts/; the CLI contract still advertises retired emulator routes as stable.' spec/layerx-merge/programme/audit/records/22.30.80.kvx && grep -Fx -A3 '[doc.cli-contract]' spec/layerx-merge/programme/audit/records/22.30.80.kvx | grep -Fq 'POST /v1/activities returns 404; POST /v1/settle returns 410 settlement_authority_retired.' && ! grep -Fq 'Neither page exists in the audited tree' spec/layerx-merge/programme/audit/records/22.30.80.kvx"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-docs"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181606]
+title = "The platform audit reviews existing contracts and records actual documentation drift"
+ac_1 = "The finding and documentation entries at spec/layerx-merge/programme/audit/records/22.30.80.kvx:540-548 and :745-753 resolve the existing pages under spec/layerx-merge/contracts/, give both pages reviewed non-missing statuses, cite the hosted config rows at platform-hosted.md:329-338 and their actual producer, and identify the stale activities and settlement rows at platform-cli.md:1163 and :1170 using the 404 and 410 regression assertions at tools/platform/emulator/tests/gateway.rs:373 and :320; no finding proposes creating these already-existing pages."
+
+[acceptance.18.1606.1]
+feature = "18"
+req = "181606.1"
+scenario = "Given the platform audit and registry targets relative to spec/layerx-merge, when the existing hosted and CLI contracts are reviewed against their producers and retirement tests, then the audit records their resolved paths and reviewed content, replaces its false missing-page finding with actual content drift, and documents the activities 404 and settlement 410 refusals without changing the retired routes."
+contract = "contracts/programme.md#programme-artifacts"
+test = "spec/layerx-merge/programme/audit/records/22.30.80.kvx::contract_target_review (planned)"
+qualification = "UNRUN"

@@ -1,0 +1,52 @@
+[issue.1632]
+number = 1632
+title = "[P2] Accept explorer-imported row IDs in node-root history"
+revision = "bb8caac8b3e73e3e2f4b330805574f0bcb540641"
+verdict = "task"
+evidence = "The indexer history route at services/platform/hosted/indexer/src/api.rs:667-693 reads merged history whose serializer emits explorer-prefixed IDs at services/platform/hosted/indexer/src/store.rs:2237, but rowFrom at src/modules/history/indexer.go:176-187 still requires decimal-only IDs and Client.Page propagates the rejection at src/modules/history/indexer.go:259-261 into the unavailable response at rpc/px_history.go:18-33, while Merge at src/modules/history/indexer.go:319-321 also lacks the source discriminator required by services/platform/hosted/gateway/src/history.rs:203-205; these Go paths remain unchanged from commit 745659e6d62d69b4f1aa8b2afd12d6b2bf7982f2 and the existing paging regression at rpc/px_node_root_history_test.go:189-208 covers only decimal IDs."
+close_comment = "Node-root history rejects valid pages containing explorer-imported transfers. The repair is specified in task 18.1632.1 to preserve both ID forms, indexed-before-imported ordering, and complete pagination through both history methods on HTTP and WebSocket while continuing to reject malformed IDs."
+
+[task.18.1632.1]
+title = "Issue #1632: Accept explorer-imported IDs in node-root history"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181632.1"]
+capabilities = []
+interfaces = []
+do_1 = "Change rowFrom at src/modules/history/indexer.go:152-194 to accept only canonical positive decimal IDs and explorer:<positive decimal> IDs whose numeric component fits uint64, retaining Row.ID verbatim; change Merge at src/modules/history/indexer.go:309-322 to order by position, ordinal, indexed-before-imported discriminator and numeric ID, matching services/platform/hosted/indexer/src/store.rs:575-585 and services/platform/hosted/gateway/src/history.rs:203-205 without changing position cursors, deduplication, page bounds or other row validation."
+do_2 = "Extend rpc/testdata/px-history/responses.json with separate mixed-history recordings emitted by the real indexer Store::commit and Store::import_explorer at services/platform/hosted/indexer/src/store.rs:1961-2013 through GET /v1/history/{account} at services/platform/hosted/indexer/src/api.rs:667-693; record their producer revision and generation procedure in rpc/testdata/px-history/README.md, retaining the existing recordings and never constructing successful response rows by hand."
+do_3 = "Add TestPxNodeRoot_History_ExplorerImportedRows in rpc/px_node_root_history_test.go using the real node harness and producer recordings alongside the existing replay transport at rpc/px_node_root_history_test.go:51-85; call px_getHistory and px_getUnifiedHistory on HTTP and WebSocket, include committed native-account merging, decimal and explorer IDs sharing numeric suffixes, equal-position ties with numeric IDs 2 and 10, and self-transfer legs, and assert exact unchanged IDs, indexed-before-imported and numeric ordering, distinct namespaced rows, cursor advancement and traversal to null without omissions or repeats, including after restarting the RPC consumer."
+do_4 = "In the same regression add malformed-ID subtests for empty IDs, zero, leading zeros, missing explorer suffixes, signs, whitespace, unknown or repeated prefixes, and uint64 overflow in either form; assert both node-root methods on HTTP and WebSocket return -32001, History unavailable, data.code=invalid_indexer_response, retaining all existing positive and negative checks."
+symbols = ["rowFrom", "Merge", "TestPxNodeRoot_History_ExplorerImportedRows"]
+touches = ["src/modules/history/indexer.go", "rpc/px_node_root_history_test.go", "rpc/testdata/px-history/responses.json", "rpc/testdata/px-history/README.md"]
+tests = ["rpc/px_node_root_history_test.go::TestPxNodeRoot_History_ExplorerImportedRows"]
+planned_paths = []
+build_cmd = "make -s paxd-native-libs && go build ./rpc/..."
+verify_cmd = "go test -count=1 ./rpc/ -run '^TestPxNodeRoot_History_ExplorerImportedRows$'"
+gate_kind = "planned"
+sandbox_profile = "go-cgo"
+owner_role = "fm-rpc-api"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181632]
+title = "Node-root history accepts explorer-imported transfers without changing ordering or pagination"
+ac_1 = "Given indexer-produced pages containing canonical positive decimal and explorer-prefixed uint64 IDs from services/platform/hosted/indexer/src/store.rs:2208 and services/platform/hosted/indexer/src/store.rs:2237, both node-root history methods preserve the exact ID strings and return the complete pages over HTTP and WebSocket instead of the rejection at src/modules/history/indexer.go:176-187."
+ac_2 = "For rows tied on position and ordinal, Merge at src/modules/history/indexer.go:309-322 orders indexed rows before imported rows and then compares numeric IDs within each source, retains distinct decimal and explorer IDs with the same suffix, and preserves position-boundary pagination at src/modules/history/indexer.go:323-337 so traversal through a null cursor has no missing or repeated rows before and after consumer restart."
+ac_3 = "Malformed IDs, zero, noncanonical decimal strings, unsupported prefixes and numeric components exceeding uint64 continue to fail the whole page with the typed invalid_indexer_response unavailable error defined at rpc/px_history.go:18-33 on both history methods and both transports."
+
+[acceptance.18.1632.1]
+feature = "18"
+req = "181632.1"
+scenario = "Given real indexer pages containing indexed and explorer-imported transfers and a node with committed account state, when either history method is traversed over HTTP and WebSocket and reread after restart, then IDs remain unchanged, tied rows follow indexer source and numeric ordering, every row is returned exactly once through the final cursor, and malformed IDs return the documented unavailable error."
+contract = "contracts/evm-rpc.md#px-node-root-history"
+test = "rpc/px_node_root_history_test.go::TestPxNodeRoot_History_ExplorerImportedRows (planned)"
+qualification = "UNRUN"
