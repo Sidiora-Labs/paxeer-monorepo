@@ -3,6 +3,7 @@
 import itertools
 import json
 from pathlib import Path, PurePosixPath
+import posixpath
 import re
 import shlex
 import subprocess
@@ -106,7 +107,7 @@ def expand_matrix(value, row):
 
 
 def manifest_at(directory):
-    path = PurePosixPath(directory) / "package.json"
+    path = PurePosixPath(posixpath.normpath(directory)) / "package.json"
     return str(path)
 
 
@@ -120,7 +121,7 @@ def command_packages(command, directory, manifests, seen=None):
         # Ignore embedded language/heredoc bodies; only executable shell lines
         # with a supported command can contribute coverage.
         if not re.match(
-            r"\s*\(?\s*(?:[A-Za-z_]\w*=\S+\s+)*(?:npm|pnpm|yarn|cd)\s", line
+            r"\s*\(?\s*(?:[A-Za-z_]\w*=\S+\s+)*(?:npm|pnpm|yarn|python3|cd)\s", line
         ):
             continue
         lexer = shlex.shlex(line, posix=True, punctuation_chars=";&|()")
@@ -142,22 +143,40 @@ def command_packages(command, directory, manifests, seen=None):
         if not words:
             continue
         if words[0] == "cd" and len(words) == 2:
-            directory = str(PurePosixPath(directory) / words[1])
+            directory = posixpath.normpath(posixpath.join(directory, words[1]))
+            continue
+        if words[0] == "python3":
+            wrapper = ROOT / "tools/ci/run_wallet_vitest.py"
+            if len(words) != 2 or (ROOT / directory / words[1]).resolve() != wrapper:
+                continue
+            source = wrapper.read_text()
+            assert 'WALLET = ROOT / "sdk/wallet"' in source
+            assert '"pnpm", "--ignore-workspace", "exec", "vitest", "run",' in source
+            assert (
+                "subprocess.run(wallet_vitest_command(entries, sys.argv[1:]), "
+                "cwd=WALLET).returncode"
+            ) in source, "Stale wallet Vitest runner mapping"
+            name = "sdk/wallet/package.json"
+            if name in manifests:
+                covered.add(name)
             continue
         if words[0] not in {"npm", "pnpm", "yarn"}:
             continue
         words = words[1:]
         package_dir = directory
         workspace = None
+        selector = None
         args = []
         index = 0
         while index < len(words):
             word = words[index]
-            if word in {"--prefix", "--dir", "-C", "--workspace", "-w"}:
+            if word in {"--prefix", "--dir", "-C", "--workspace", "-w", "--filter"}:
                 if index + 1 >= len(words):
                     break
                 value = words[index + 1]
-                if word in {"--workspace", "-w"}:
+                if word == "--filter":
+                    selector = value
+                elif word in {"--workspace", "-w"}:
                     workspace = value
                 else:
                     package_dir = str(PurePosixPath(directory) / value)
@@ -165,6 +184,10 @@ def command_packages(command, directory, manifests, seen=None):
                 continue
             if word.startswith("--workspace="):
                 workspace = word.split("=", 1)[1]
+            elif word.startswith("--filter="):
+                selector = word.split("=", 1)[1]
+            elif word == "--fail-if-no-match":
+                pass
             else:
                 args.append(word)
             index += 1
@@ -177,6 +200,19 @@ def command_packages(command, directory, manifests, seen=None):
             if len(matches) != 1:
                 continue
             package_dir = str(PurePosixPath(matches[0]).parent)
+        if selector is not None:
+            if selector.startswith("."):
+                selected = manifest_at(posixpath.join(package_dir, selector))
+                matches = [name for name in manifests if name == selected]
+            else:
+                matches = [
+                    name for name, data in manifests.items()
+                    if data.get("name") == selector
+                ]
+            if len(matches) != 1:
+                continue
+            package_dir = str(PurePosixPath(matches[0]).parent)
+        package_dir = posixpath.normpath(package_dir)
         name = manifest_at(package_dir)
         if name not in manifests or not args:
             continue
@@ -296,6 +332,87 @@ def test_js_test_scripts_have_runner():
         "sdk/integrations/next/example/package.json",
         "tools/codebase-map/package.json",
     } <= covered
+
+
+def test_js_launchpad_and_wallet_runners_recognised():
+    manifests = tracked_manifests()
+    covered = workflow_coverage(manifests)
+    launchpad = yaml.load(
+        (ROOT / ".github/workflows/launchpad-test.yml").read_text(),
+        Loader=yaml.BaseLoader,
+    )["jobs"]["launchpad-test"]
+    expected_launchpad = {
+        "sdk/launchpad/packages/candles-sdk/package.json",
+        "sdk/launchpad/packages/indexer-sdk/package.json",
+        "sdk/launchpad/packages/metadata-sdk/package.json",
+        "sdk/launchpad/packages/production-contracts/package.json",
+        "sdk/launchpad/packages/ranking-algo-sdk/package.json",
+        "sdk/launchpad/packages/sdk/package.json",
+        "sdk/launchpad/packages/sidiora-launchpad-v3/package.json",
+        "sdk/launchpad/packages/stats-sdk/package.json",
+        "sdk/launchpad/packages/users-sdk/package.json",
+        "apps/launchpad/web/package.json",
+        "apps/launchpad/mobile/package.json",
+    }
+    rows = matrix_rows(launchpad)
+    assert len(rows) == 11
+    assert {manifest_at(row["package"]) for row in rows} == expected_launchpad
+    wallet_package = "sdk/wallet/package.json"
+    expected = expected_launchpad | {wallet_package}
+    assert expected <= packages_with_tests(manifests)
+    assert expected <= covered
+    test_step = next(
+        step for step in launchpad["steps"] if step["name"] == "Test package"
+    )
+    for row in rows:
+        command = expand_matrix(test_step["run"], row)
+        directory = expand_matrix(test_step["working-directory"], row)
+        assert command_packages(command, directory, manifests) == {
+            manifest_at(row["package"])
+        }
+        for rejected in (
+            command.rsplit("run test", 1)[0] + "run build",
+            "echo " + shlex.quote(command),
+            shlex.quote(command),
+            command + " || true",
+            command.replace(row["package"], "sdk/launchpad/packages/not-a-package"),
+        ):
+            assert not command_packages(rejected, directory, manifests), rejected
+    build_step = next(
+        step for step in launchpad["steps"] if step["name"] == "Build SDK packages"
+    )
+    assert not command_packages(
+        build_step["run"],
+        launchpad["defaults"]["run"]["working-directory"],
+        manifests,
+    )
+    wallet = yaml.load(
+        (ROOT / ".github/workflows/wallet-test.yml").read_text(),
+        Loader=yaml.BaseLoader,
+    )["jobs"]["vitest"]
+    wallet_step = next(
+        step for step in wallet["steps"] if step["name"] == "Run Vitest suite"
+    )
+    wallet_rows = matrix_rows(wallet)
+    assert {row["directory"] for row in wallet_rows} == {"apps/wallet", "sdk/wallet"}
+    for row in wallet_rows:
+        command = expand_matrix(wallet_step["run"], row)
+        directory = expand_matrix(wallet_step["working-directory"], row)
+        assert command_packages(command, directory, manifests) == {
+            manifest_at(directory)
+        }
+        for rejected in (
+            "pnpm run build",
+            "echo " + shlex.quote(command),
+            shlex.quote(command),
+            command + " || true",
+            "python3 ../../tests/ci/run_python_suites.py",
+            "python3 run_wallet_vitest.py",
+        ):
+            assert not command_packages(rejected, directory, manifests), rejected
+    assert command_packages(
+        "python3 tools/ci/../ci/run_wallet_vitest.py", ".", manifests
+    ) == {wallet_package}
 
 
 def test_js_exclusion_list_entries_exist():

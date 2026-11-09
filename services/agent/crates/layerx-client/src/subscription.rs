@@ -119,24 +119,34 @@ impl DeadlineTcp {
         self.stream.set_read_timeout(Some(left))?;
         self.stream.set_write_timeout(Some(left))
     }
+
+    fn poll_result<T>(result: io::Result<T>) -> io::Result<T> {
+        result.map_err(|error| match error.kind() {
+            io::ErrorKind::TimedOut => io::Error::from(io::ErrorKind::WouldBlock),
+            _ => error,
+        })
+    }
 }
 impl Read for DeadlineTcp {
     fn read(&mut self, bytes: &mut [u8]) -> io::Result<usize> {
         self.prepare()?;
-        self.stream.read(bytes)
+        Self::poll_result(self.stream.read(bytes))
     }
 }
 impl Write for DeadlineTcp {
     fn write(&mut self, bytes: &[u8]) -> io::Result<usize> {
         self.prepare()?;
-        self.stream.write(bytes)
+        Self::poll_result(self.stream.write(bytes))
     }
     fn flush(&mut self) -> io::Result<()> {
         self.prepare()?;
-        self.stream.flush()
+        Self::poll_result(self.stream.flush())
     }
 }
 
+/// # Errors
+///
+/// Returns endpoint or TLS errors for invalid configuration, transport errors for failed I/O, node refusals, or malformed-response errors; expiry and cancellation return unavailable.
 pub fn subscribe(
     url: &str,
     trust_anchors: &[&[u8]],
@@ -145,6 +155,9 @@ pub fn subscribe(
     subscribe_with_options(url, trust_anchors, topic, &WaitOptions::default())
 }
 
+/// # Errors
+///
+/// Returns endpoint or TLS errors for invalid configuration, transport errors for failed I/O, node refusals, or malformed-response errors; expiry and cancellation return unavailable.
 pub fn subscribe_with_options(
     url: &str,
     trust_anchors: &[&[u8]],
@@ -222,12 +235,18 @@ pub fn subscribe_with_options(
     let config = WebSocketConfig::default()
         .max_message_size(Some(MAX_MESSAGE_BYTES))
         .max_frame_size(Some(MAX_MESSAGE_BYTES));
-    let (mut socket, _) =
-        tungstenite::client_tls_with_config(request, stream, Some(config), Some(connector))
-            .map_err(|error| match error {
-                HandshakeError::Failure(error) => socket_error(error),
-                HandshakeError::Interrupted(_) => SequencerError::Unavailable,
-            })?;
+    let mut handshake =
+        tungstenite::client_tls_with_config(request, stream, Some(config), Some(connector));
+    let (mut socket, _) = loop {
+        deadline.remaining()?;
+        match handshake {
+            Ok(established) => break established,
+            Err(HandshakeError::Interrupted(interrupted)) => {
+                handshake = interrupted.handshake();
+            }
+            Err(HandshakeError::Failure(error)) => return Err(socket_error(error)),
+        }
+    };
     deadline.socket(&mut socket)?;
     socket
         .send(Message::Text(
@@ -246,20 +265,36 @@ pub fn subscribe_with_options(
 }
 
 impl NodeSubscription {
+    /// # Errors
+    ///
+    /// Returns endpoint or TLS errors for invalid configuration, transport errors for failed I/O, node refusals, or malformed-response errors; expiry and cancellation return unavailable.
+    #[allow(
+        clippy::should_implement_trait,
+        reason = "Decision 3057 preserves the public fallible subscription API; Iterator::next would change its return type"
+    )]
     pub fn next(&mut self) -> Result<Value, SequencerError> {
         self.next_with_options(&WaitOptions::default())
     }
 
+    /// # Errors
+    ///
+    /// Returns endpoint or TLS errors for invalid configuration, transport errors for failed I/O, node refusals, or malformed-response errors; expiry and cancellation return unavailable.
     pub fn next_with_options(&mut self, options: &WaitOptions) -> Result<Value, SequencerError> {
         let deadline = OperationDeadline::new(options)?;
         let value = receive(&mut self.socket, &deadline)?;
         notification(&value, &self.id).cloned()
     }
 
+    /// # Errors
+    ///
+    /// Returns endpoint or TLS errors for invalid configuration, transport errors for failed I/O, node refusals, or malformed-response errors; expiry and cancellation return unavailable.
     pub fn close(&mut self) -> Result<(), SequencerError> {
         self.close_with_options(&WaitOptions::default())
     }
 
+    /// # Errors
+    ///
+    /// Returns endpoint or TLS errors for invalid configuration, transport errors for failed I/O, node refusals, or malformed-response errors; expiry and cancellation return unavailable.
     pub fn close_with_options(&mut self, options: &WaitOptions) -> Result<(), SequencerError> {
         let deadline = OperationDeadline::new(options)?;
         deadline.socket(&mut self.socket)?;

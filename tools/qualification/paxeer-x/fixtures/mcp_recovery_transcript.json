@@ -184,7 +184,7 @@
     "state": "Committed",
     "submission_ref": "c338d02daa42c03c08f5b6032840123a4e40557ab37ad27f238655bbb4c1af9f"
   },
-  "reference_producer": "layerx_sdk.verifier.verify_sequencer_receipt",
+  "reference_producer": "layerx-agentd::human_runtime::write_submission",
   "requests": [
     {
       "credential": {
@@ -246,5 +246,5 @@
       "version": 1
     }
   ],
-  "source_transcript_sha256": "6fdc46bf3275c6ef2c7cf9d24010bea6e925e3e8190ffa8470ed2135e916fb67"
+  "source_transcript_sha256": "13f66434d409100458fcae8fd963520a53fa5f5c4b09088db1fb7414baa2042a"
 }

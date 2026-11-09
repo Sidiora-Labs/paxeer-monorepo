@@ -313,27 +313,35 @@ export async function createAdvancedProvider(options: AdvancedProviderOptions) {
     if (canonical.hash !== result.blockHash) throw new Error('Receipt no longer canonical');
     return result;
   };
-  const reconcileAction = async (
-    attempt: AdvancedAttempt,
-    result: Awaited<ReturnType<typeof receipt>>,
-  ) => {
+  const validateActionTransaction = async (attempt: AdvancedAttempt) => {
     const account = await owner();
     const target = await required(attempt.action === 'placeOrder' ? 'orders' : 'routes');
     if (
+      attempt.chainId !== 125 ||
       attempt.account !== account ||
       attempt.target !== target ||
-      attempt.deployment !== options.manifestSha256 ||
-      result.transactionHash !== attempt.hash
+      attempt.deployment !== options.manifestSha256
     )
       throw new Error('Advanced recovery context changed');
     const transaction = await client.getTransaction({ hash: attempt.hash! });
     if (
+      transaction.hash.toLowerCase() !== attempt.hash!.toLowerCase() ||
+      (transaction.chainId !== undefined && transaction.chainId !== 125) ||
       address(transaction.from) !== account ||
       !transaction.to ||
       address(transaction.to) !== target ||
       transaction.input !== attempt.calldata
     )
       throw new Error('Advanced transaction intent mismatch');
+    return { account, target };
+  };
+  const reconcileAction = async (
+    attempt: AdvancedAttempt,
+    result: Awaited<ReturnType<typeof receipt>>,
+  ) => {
+    const { account, target } = await validateActionTransaction(attempt);
+    if (result.transactionHash !== attempt.hash)
+      throw new Error('Advanced recovery context changed');
     if (result.status === 'reverted')
       return { action: attempt.action, status: 'reverted' as const, receipt: result };
     if (attempt.action === 'placeOrder') {
@@ -467,8 +475,17 @@ export async function createAdvancedProvider(options: AdvancedProviderOptions) {
   };
   const pendingAction = async (action: AdvancedAction) =>
     actionRecovery.pending(await owner(), action);
-  const recoverAction = async (action: AdvancedAction) =>
-    actionRecovery.recover(await owner(), action, receipt, reconcileAction);
+  const recoverAction = async (action: AdvancedAction, hash?: Hex) =>
+    actionRecovery.recover(
+      await owner(),
+      action,
+      receipt,
+      reconcileAction,
+      async (attempt) => {
+        await validateActionTransaction(attempt);
+      },
+      hash,
+    );
   const health = async () => {
     if (!manifest.keeperHealthUrl) return { healthy: false, checkedAt: 0 };
     // Keeper health is an external execution-service authority. The web origin

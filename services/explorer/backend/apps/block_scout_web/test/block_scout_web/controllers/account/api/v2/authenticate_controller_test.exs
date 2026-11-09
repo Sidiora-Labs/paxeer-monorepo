@@ -296,7 +296,27 @@ defmodule BlockScoutWeb.Account.API.V2.AuthenticateControllerTest do
     # email and otp from conn.body_params instead of the action's params argument.
     # See commit dbf589ae25.
     test "confirm OTP successfully", %{conn: conn} do
-      id_token = build_test_jwt(%{"sub" => "email|123", "email" => "test@example.com"})
+      initial_account_config = Application.get_env(:explorer, Explorer.Account)
+      Application.put_env(:explorer, Explorer.Account, Keyword.put(initial_account_config, :enabled, true))
+
+      on_exit(fn ->
+        Application.put_env(:explorer, Explorer.Account, initial_account_config)
+      end)
+
+      signing_key = JOSE.JWK.generate_key({:rsa, 2048})
+      key_id = "auth0-test-signing-key"
+      client = Ueberauth.Strategy.Auth0.OAuth.client()
+      issued_at = System.system_time(:second)
+
+      id_token =
+        build_test_jwt(signing_key, key_id, %{
+          "sub" => "email|123",
+          "email" => "test@example.com",
+          "iss" => String.trim_trailing(client.site, "/") <> "/",
+          "aud" => client.client_id,
+          "exp" => issued_at + 300,
+          "iat" => issued_at
+        })
 
       user_json =
         JSON.encode!(%{
@@ -317,7 +337,7 @@ defmodule BlockScoutWeb.Account.API.V2.AuthenticateControllerTest do
         })
 
       Tesla.Test.expect_tesla_call(
-        times: 3,
+        times: 4,
         returns: fn
           # OTP confirmation via OAuth2.Client
           %{
@@ -327,13 +347,28 @@ defmodule BlockScoutWeb.Account.API.V2.AuthenticateControllerTest do
               {"accept", "application/json"},
               {"auth0-forwarded-for", _ip},
               {"content-type", "application/json"}
-            ]
+            ],
+            body: body
+          },
+          _opts ->
+            assert %{"username" => "test@example.com", "otp" => "123456"} = JSON.decode!(body)
+
+            {:ok,
+             %Tesla.Env{
+               status: 200,
+               body: ~s({"access_token":"test_access","id_token":"#{id_token}","token_type":"Bearer"})
+             }}
+
+          %{
+            method: :get,
+            url: "https://example.com/.well-known/jwks.json"
           },
           _opts ->
             {:ok,
              %Tesla.Env{
                status: 200,
-               body: ~s({"access_token":"test_access","id_token":"#{id_token}","token_type":"Bearer"})
+               headers: [{"content-type", "application/json"}],
+               body: JSON.encode!(%{"keys" => [public_jwk(signing_key, key_id)]})
              }}
 
           # M2M JWT via HttpClient
@@ -659,11 +694,13 @@ defmodule BlockScoutWeb.Account.API.V2.AuthenticateControllerTest do
     end
   end
 
-  defp build_test_jwt(claims) do
-    header = Base.url_encode64(JSON.encode!(%{"alg" => "HS256", "typ" => "JWT"}), padding: false)
-    payload = Base.url_encode64(JSON.encode!(claims), padding: false)
-    signature = Base.url_encode64("test_signature", padding: false)
-    "#{header}.#{payload}.#{signature}"
+  defp build_test_jwt(signing_key, key_id, claims) do
+    {_modules, token} =
+      signing_key
+      |> JOSE.JWT.sign(%{"alg" => "RS256", "kid" => key_id, "typ" => "JWT"}, claims)
+      |> JOSE.JWS.compact()
+
+    token
   end
 
   defp public_jwk(signing_key, key_id) do

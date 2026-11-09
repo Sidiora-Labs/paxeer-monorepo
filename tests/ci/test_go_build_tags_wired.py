@@ -5,6 +5,8 @@ import re
 
 import yaml
 
+from test_workflow_runs_on_routed import ROUTED
+
 
 ROOT = Path(__file__).resolve().parents[2]
 WORKFLOW = ".github/workflows/paxeer-go-test.yml"
@@ -23,7 +25,7 @@ def go_workflow():
 
 
 def assert_required_job(job):
-    assert job["runs-on"] == "ubuntu-latest"
+    assert job["runs-on"] == ROUTED
     assert "if" not in job
     assert "continue-on-error" not in job
     for step in job["steps"]:

@@ -1,6 +1,12 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
-import { browserConnectOrigins, browserImageOrigins, walletParentOrigins } from '@/core/backend-origins';
+import {
+  BackendOriginError,
+  browserConnectOrigins,
+  browserImageOrigins,
+  walletParentOrigins,
+} from '@/core/backend-origins';
+import { getPaxeerRpcUrls, RpcConfigurationError } from '@/core/rpc';
 
 /**
  * Runtime CSP middleware.
@@ -13,11 +19,22 @@ import { browserConnectOrigins, browserImageOrigins, walletParentOrigins } from 
  * contact: no fallback host is listed that the bundle would not use, and no
  * host the bundle uses is missing.
  */
-function buildCsp(): string {
-  const connectSrc = browserConnectOrigins();
-  // `https:` already admits every https image/media host; a plain-http backend (local stack) is listed explicitly.
-  const plainHttpImageHosts = browserImageOrigins().filter(origin => origin.startsWith('http:'));
-  const walletOrigins = walletParentOrigins();
+function buildCsp(): { policy: string; walletOrigins: string[] } {
+  let connectSrc: string[] = [];
+  let plainHttpImageHosts: string[] = [];
+  let walletOrigins: string[] = [];
+  try {
+    walletOrigins = walletParentOrigins();
+    getPaxeerRpcUrls();
+    connectSrc = browserConnectOrigins();
+    // `https:` already admits every https image/media host; a plain-http backend (local stack) is listed explicitly.
+    plainHttpImageHosts = browserImageOrigins().filter(origin => origin.startsWith('http:'));
+  } catch (error) {
+    if (!(error instanceof BackendOriginError) && !(error instanceof RpcConfigurationError)) throw error;
+    connectSrc = [];
+    plainHttpImageHosts = [];
+    walletOrigins = [];
+  }
   const walletList = walletOrigins.length > 0 ? ' ' + walletOrigins.join(' ') : '';
 
   const directives = [
@@ -38,7 +55,7 @@ function buildCsp(): string {
     `frame-ancestors 'self'${walletList}`,
   ];
 
-  return directives.join('; ');
+  return { policy: directives.join('; '), walletOrigins };
 }
 
 export function middleware(request: NextRequest) {
@@ -64,12 +81,12 @@ export function middleware(request: NextRequest) {
     return response;
   }
 
-  const csp = buildCsp();
-  response.headers.set('Content-Security-Policy', csp);
+  const { policy, walletOrigins } = buildCsp();
+  response.headers.set('Content-Security-Policy', policy);
 
   // Only set X-Frame-Options if no wallet origin is configured
   // (CSP frame-ancestors supersedes X-Frame-Options per spec)
-  if (walletParentOrigins().length === 0) {
+  if (walletOrigins.length === 0) {
     response.headers.set('X-Frame-Options', 'SAMEORIGIN');
   }
 

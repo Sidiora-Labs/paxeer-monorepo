@@ -2,7 +2,9 @@
 //! test_retired_endpoint_program_calls -> test_retired_endpoint_program_calls
 //! program_capture_path_gap -> program_capture_path_gap
 //! test_retired_endpoint_program_lifecycle -> test_retired_endpoint_program_lifecycle
-//! program_lifecycle_third_shape -> program_lifecycle_third_shape
+//! program_lifecycle_third_shape -> program_lifecycle_third_shape proves calldata,
+//! receipt authentication and ordinary-call refusal; lifecycle execution and
+//! resultant state still require the producer transcripts requested below.
 //! test_retired_endpoint_program_registry -> test_retired_endpoint_program_registry
 //! proof_rpc_expected_failure -> proof_rpc_expected_failure
 //! test_retired_endpoint_rpc_identity -> test_retired_endpoint_rpc_identity
@@ -132,6 +134,28 @@ struct Transcript {
 
 impl Transcript {
     fn start(path: &'static str, authorization: Option<String>, exchanges: Vec<Exchange>) -> Self {
+        Self::start_with_capture(path, authorization, exchanges, None)
+    }
+
+    fn capture(authorization: String, method: &'static str, params: Value) -> Self {
+        Self::start_with_capture("/", Some(authorization), vec![], Some((method, params)))
+    }
+
+    fn start_with_capture(
+        path: &'static str,
+        authorization: Option<String>,
+        exchanges: Vec<Exchange>,
+        capture: Option<(&'static str, Value)>,
+    ) -> Self {
+        let exchanges: std::collections::HashMap<_, _> = exchanges
+            .into_iter()
+            .map(|exchange| {
+                (
+                    (exchange.method.to_owned(), exchange.params.to_string()),
+                    exchange.result,
+                )
+            })
+            .collect();
         let listener = TcpListener::bind("127.0.0.1:0").expect("loopback peer");
         let endpoint = format!("http://{}", listener.local_addr().expect("peer address"));
         listener.set_nonblocking(true).expect("nonblocking peer");
@@ -206,13 +230,22 @@ impl Transcript {
                         serde_json::to_vec(&json!({"error":"authentication required"}))
                             .expect("authentication refusal"),
                     )
-                } else if let Some(exchange) = exchanges.iter().find(|exchange| {
-                    request["method"] == exchange.method && request["params"] == exchange.params
+                } else if capture.as_ref().is_some_and(|(method, params)| {
+                    request["method"] == *method && request["params"] == *params
                 }) {
+                    reader
+                        .get_ref()
+                        .shutdown(std::net::Shutdown::Both)
+                        .expect("drop captured reply");
+                    continue;
+                } else if let Some(result) = exchanges.get(&(
+                    request["method"].as_str().expect("RPC method").to_owned(),
+                    request["params"].to_string(),
+                )) {
                     (
                         200,
                         serde_json::to_vec(
-                            &json!({"jsonrpc":"2.0", "id":request["id"], "result":exchange.result}),
+                            &json!({"jsonrpc":"2.0", "id":request["id"], "result":result}),
                         )
                         .expect("recorded reply"),
                     )
@@ -267,6 +300,10 @@ fn switched_off(endpoint: &str) -> Proof {
         "lx_getReceipt",
         "lx_sendActivity",
         "lx_getProgram",
+        "lx_deployProgram",
+        "lx_upgradeProgram",
+        "lx_windDownProgram",
+        "lx_listPrograms",
         "lx_getBalances",
         "lx_futureMethod",
     ] {
@@ -469,25 +506,176 @@ pub fn program_capture_path_gap() -> Proof {
 
 #[test]
 pub fn test_retired_endpoint_program_lifecycle() -> Proof {
-    root_receipt()
+    use layerx_crypto::evm_transaction::Eip1559Call;
+
+    let account = layerx_crypto::account_derivation::derive_from_mnemonic(
+        "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about",
+        "",
+        0,
+    ).map_err(|error| error.to_string())?;
+    let credential = format!("lifecycle:lxp_live_{}", "c".repeat(64));
+    let invalid = format!("lifecycle:lxp_live_{}", "d".repeat(64));
+    for (ordinal, fee, source) in [
+        (
+            1,
+            "0",
+            include_str!(
+                "../../../../sdk/platform/conformance/fixtures/native-program-deploy-v4.json"
+            ),
+        ),
+        (
+            2,
+            "1000",
+            include_str!(
+                "../../../../sdk/platform/conformance/fixtures/native-program-upgrade-v4.json"
+            ),
+        ),
+        (
+            7,
+            "0",
+            include_str!(
+                "../../../../sdk/platform/conformance/fixtures/native-program-wind-down-tombstone-v4.json"
+            ),
+        ),
+    ] {
+        let vector: Value = serde_json::from_str(source).map_err(|error| error.to_string())?;
+        let payload = encoding::hex_decode(
+            "lifecycle payload",
+            vector["payload_hex"].as_str().expect("producer payload"),
+        )?;
+        let data = programs::lifecycle_calldata(ordinal, &payload, fee)?;
+        assert_eq!(
+            format!("0x{}", encoding::hex_encode(&data)),
+            vector["evm"]["calldata"]
+        );
+        let transaction = Eip1559Call {
+            chain_id: vector["evm"]["chainId"].as_u64().expect("producer chain"),
+            nonce: 7,
+            max_priority_fee_per_gas: 2,
+            max_fee_per_gas: 200,
+            gas_limit: 1_000_000,
+            to: encoding::fixed_hex(
+                "Programs address",
+                "000000000000000000000000000000000000101d",
+            )?,
+            data,
+        };
+        let raw = programs::sign_program_transaction(
+            &transaction,
+            account.evm_secret().expect("derived EVM secret"),
+            &account.evm_address(),
+        )?;
+        let params = json!([format!("0x{}", encoding::hex_encode(&raw))]);
+        let hash = format!("0x{}", encoding::hex_encode(&transaction_hash(&raw)));
+        let peer = Transcript::capture(
+            format!("LayerX-Key {credential}"),
+            "eth_sendRawTransaction",
+            params.clone(),
+        );
+        let mut expected_headers = Vec::new();
+        for key in [None, Some(invalid.clone()), Some(credential.clone())] {
+            let client = match key.clone() {
+                Some(key) => http::Client::new_gateway(&peer.endpoint, Zeroizing::new(key))?,
+                None => http::Client::new(&peer.endpoint, None)?,
+            };
+            let outcome = programs::submit_lifecycle_transaction(&client, &raw)?;
+            assert_eq!(outcome["txHash"], hash);
+            assert_eq!(outcome["tx_hash"], hash);
+            assert_eq!(outcome["rung"], "unknown");
+            let detail = outcome["detail"]
+                .as_str()
+                .expect("recoverable submission detail");
+            if key.as_deref() == Some(credential.as_str()) {
+                assert!(detail.contains("POST / failed:"), "{detail}");
+                assert!(!detail.contains("401"), "authenticated capture: {detail}");
+            } else {
+                assert!(detail.contains("401"), "authentication refusal: {detail}");
+            }
+            assert!(outcome.get("receipt").is_none());
+            expected_headers.push(key.map(|key| format!("LayerX-Key {key}")));
+        }
+        let count = peer.observations().len();
+        switched_off(&peer.endpoint)?;
+        let seen = peer.observations();
+        assert_eq!(count, 3, "each lifecycle invocation sends exactly once");
+        assert_eq!(seen.len(), count, "lx_ refuses before lifecycle transport");
+        for (seen, authorization) in seen.iter().zip(expected_headers) {
+            assert_eq!(seen.path, "/");
+            assert_eq!(seen.authorization, authorization);
+            assert_eq!(
+                seen.request,
+                json!({"jsonrpc":"2.0", "id":1, "method":"eth_sendRawTransaction", "params":params})
+            );
+            let (sent, signature) = decode_signed(&bytes(&seen.request["params"][0]))
+                .map_err(|error| error.to_string())?;
+            assert_eq!(sent, transaction);
+            assert_eq!(
+                recover_sender(&sent, &signature).map_err(|error| error.to_string())?,
+                account.evm_address()
+            );
+        }
+    }
+    hosted_wallet()
 }
 
 #[test]
 pub fn program_lifecycle_third_shape() -> Proof {
+    let mut lifecycle_topics = Vec::new();
     for (ordinal, fee, source) in [
-        (1, "0", include_str!("../../../../sdk/platform/conformance/fixtures/native-program-deploy-v4.json")),
-        (2, "1000", include_str!("../../../../sdk/platform/conformance/fixtures/native-program-upgrade-v4.json")),
-        (7, "0", include_str!("../../../../sdk/platform/conformance/fixtures/native-program-wind-down-route-v4.json")),
-        (7, "0", include_str!("../../../../sdk/platform/conformance/fixtures/native-program-wind-down-deprecate-v4.json")),
-        (7, "0", include_str!("../../../../sdk/platform/conformance/fixtures/native-program-wind-down-tombstone-v4.json")),
-        (7, "0", include_str!("../../../../sdk/platform/conformance/fixtures/native-program-wind-down-exit-v4.json")),
+        (
+            1,
+            "0",
+            include_str!(
+                "../../../../sdk/platform/conformance/fixtures/native-program-deploy-v4.json"
+            ),
+        ),
+        (
+            2,
+            "1000",
+            include_str!(
+                "../../../../sdk/platform/conformance/fixtures/native-program-upgrade-v4.json"
+            ),
+        ),
+        (
+            7,
+            "0",
+            include_str!(
+                "../../../../sdk/platform/conformance/fixtures/native-program-wind-down-route-v4.json"
+            ),
+        ),
+        (
+            7,
+            "0",
+            include_str!(
+                "../../../../sdk/platform/conformance/fixtures/native-program-wind-down-deprecate-v4.json"
+            ),
+        ),
+        (
+            7,
+            "0",
+            include_str!(
+                "../../../../sdk/platform/conformance/fixtures/native-program-wind-down-tombstone-v4.json"
+            ),
+        ),
+        (
+            7,
+            "0",
+            include_str!(
+                "../../../../sdk/platform/conformance/fixtures/native-program-wind-down-exit-v4.json"
+            ),
+        ),
     ] {
         let vector: Value = serde_json::from_str(source).map_err(|e| e.to_string())?;
-        let payload = encoding::hex_decode("lifecycle payload",
-            vector["payload_hex"].as_str().expect("unprefixed payload"))?;
+        let payload = encoding::hex_decode(
+            "lifecycle payload",
+            vector["payload_hex"].as_str().expect("unprefixed payload"),
+        )?;
         let calldata = programs::lifecycle_calldata(ordinal, &payload, fee)?;
-        assert_eq!(format!("0x{}", encoding::hex_encode(&calldata)),
-            vector["evm"]["calldata"]);
+        lifecycle_topics.push(programs::lifecycle_event_topic(&calldata)?);
+        assert_eq!(
+            format!("0x{}", encoding::hex_encode(&calldata)),
+            vector["evm"]["calldata"]
+        );
     }
     // These are authentic execution receipts, not the old txHash/rung-only objects.
     for id in [PROGRAM, REVERT] {
@@ -524,18 +712,76 @@ pub fn program_lifecycle_third_shape() -> Proof {
                 "{refusal}"
             );
         } else {
-            let rendered = programs::lifecycle_receipt_result_verified(hash, &receipt, &policy)?;
-            assert_eq!(rendered["sequencer_receipt"], recorded["receiptJson"]);
-            assert_eq!(rendered["rung"], "receipted");
-            assert_eq!(rendered["state"], "completed");
-            assert_eq!(rendered["result_code"], 0);
-            assert_eq!(rendered["return_data"], receipt["returnData"]);
-            assert_eq!(rendered["vm_error"], "");
+            let raw = bytes(&recorded["rawTransaction"]);
+            let (call, signature) = decode_signed(&raw).map_err(|e| e.to_string())?;
+            assert_eq!(call.chain_id, 125);
+            assert_eq!(
+                format!("0x{}", encoding::hex_encode(&call.to)),
+                receipt["to"]
+            );
+            assert_eq!(
+                format!(
+                    "0x{}",
+                    encoding::hex_encode(
+                        &recover_sender(&call, &signature).map_err(|e| e.to_string())?
+                    )
+                ),
+                receipt["from"]
+            );
+            assert_eq!(
+                &call.data[..4],
+                &[0x54, 0xbd, 0x2b, 0x48],
+                "Programs call selector"
+            );
+            assert!(programs::lifecycle_event_topic(&call.data).is_err());
+            let logs = receipt["logs"].as_array().expect("authenticated logs");
+            assert_eq!(logs.len(), 1);
+            assert_eq!(
+                logs[0]["address"],
+                "0x000000000000000000000000000000000000101d"
+            );
+            assert_eq!(
+                logs[0]["topics"],
+                json!([
+                    "0xcfe5297f03a2951065e463e9e0c2e3686bc0204f727eeec1a52357b5dd4a27a0",
+                    format!("0x{}", encoding::hex_encode(&call.data[4..36])),
+                ]),
+                "ProgramCallOutcome for the called program"
+            );
+            let protocol = verified
+                .protocol()
+                .expect("authenticated Programs execution");
+            assert_eq!(protocol.module_id(), 12);
+            assert_eq!(protocol.operation(), 2);
+            assert_eq!(receipt["status"], "0x1");
+            assert_eq!(receipt["vmError"], "");
+            let refusal = programs::lifecycle_receipt_result_verified(hash, &receipt, &policy)
+                .expect_err("an ordinary Programs call cannot prove lifecycle completion");
+            assert!(
+                refusal.contains("omitted an authenticated program lifecycle event"),
+                "{refusal}"
+            );
             let pending = programs::lifecycle_receipt_result_verified(hash, &Value::Null, &policy)?;
             assert_eq!(
                 pending,
                 json!({"txHash":hash,"rung":"submitted","state":"pending"})
             );
+            let submitted = json!({"txHash":hash,"rung":"submitted"});
+            assert_eq!(
+                programs::lifecycle_receipt_result_verified(hash, &submitted, &policy)?,
+                pending
+            );
+            let submitted = json!({"txHash":hash,"rung":"submitted","nonce":receipt["nonce"]});
+            assert_eq!(
+                programs::lifecycle_receipt_result_verified(hash, &submitted, &policy)?,
+                json!({"txHash":hash,"rung":"submitted","state":"pending","nonce":receipt["nonce"]})
+            );
+            assert!(programs::lifecycle_receipt_result_verified(
+                hash,
+                &json!({"txHash":hash,"rung":"submitted","nonce":"0x00"}),
+                &policy,
+            )
+            .is_err());
             for rung in ["receipted", "committed"] {
                 assert!(
                     programs::lifecycle_receipt_result_verified(
@@ -547,9 +793,37 @@ pub fn program_lifecycle_third_shape() -> Proof {
                     "terminal labels are not authenticated execution"
                 );
             }
-            let mut changed = receipt.clone();
-            changed["status"] = json!("0x0");
-            assert!(programs::lifecycle_receipt_result_verified(hash, &changed, &policy).is_err());
+            let mut damaged = canonical;
+            *damaged.last_mut().expect("signature byte") ^= 1;
+            for (field, replacement) in [
+                ("status", json!("0x0")),
+                ("txHash", json!(format!("0x{}", "00".repeat(32)))),
+                (
+                    "receipt",
+                    json!(format!("0x{}", encoding::hex_encode(&damaged))),
+                ),
+            ] {
+                let mut changed = receipt.clone();
+                changed[field] = replacement;
+                let refusal = programs::lifecycle_receipt_result_verified(hash, &changed, &policy)
+                    .expect_err("tampered execution facts must fail authentication");
+                assert!(
+                    refusal.contains("lifecycle receipt verification failed"),
+                    "{refusal}"
+                );
+            }
+            for topic in &lifecycle_topics {
+                let mut changed = receipt.clone();
+                changed["logs"][0]["topics"][0] = json!(format!("0x{topic}"));
+                let refusal = programs::lifecycle_receipt_result_verified(hash, &changed, &policy)
+                    .expect_err(
+                        "relabelling a signed call log cannot authenticate a lifecycle event",
+                    );
+                assert!(
+                    refusal.contains("lifecycle receipt verification failed"),
+                    "{refusal}"
+                );
+            }
         }
     }
     Ok(())
@@ -557,7 +831,115 @@ pub fn program_lifecycle_third_shape() -> Proof {
 
 #[test]
 pub fn test_retired_endpoint_program_registry() -> Proof {
-    root_receipt()
+    let recorded_head: Value = serde_json::from_str(include_str!(
+        "../../../../services/explorer/deploy/tools/fixtures/eth_blockNumber.json"
+    ))
+    .map_err(|error| error.to_string())?;
+    let recorded_logs: Value = serde_json::from_str(include_str!(
+        "../../../../services/explorer/deploy/tools/fixtures/eth_getLogs.json"
+    ))
+    .map_err(|error| error.to_string())?;
+    assert_eq!(recorded_head["method"], "eth_blockNumber");
+    assert_eq!(recorded_logs["method"], "eth_getLogs");
+    for record in [&recorded_head, &recorded_logs] {
+        assert_eq!(
+            record["recorded_from"],
+            "the Paxeer X Network public JSON-RPC surface"
+        );
+        assert_eq!(
+            record["responses"]
+                .as_array()
+                .expect("recorded responses")
+                .len(),
+            1
+        );
+        assert_eq!(record["responses"][0]["match"], json!([]));
+    }
+    let head_result = recorded_head["responses"][0]["result"].clone();
+    let head = u64::from_str_radix(
+        head_result
+            .as_str()
+            .expect("recorded head")
+            .strip_prefix("0x")
+            .expect("quantity prefix"),
+        16,
+    )
+    .map_err(|error| error.to_string())?;
+    let logs = recorded_logs["responses"][0]["result"].clone();
+    assert_eq!(logs, json!([]));
+    let mut exchanges = vec![Exchange {
+        method: "eth_blockNumber",
+        params: json!([]),
+        result: head_result,
+    }];
+    let mut upper = head;
+    loop {
+        let lower = upper.saturating_sub(1999);
+        exchanges.push(Exchange {
+            method: "eth_getLogs",
+            params: json!([{
+                "address":"0x000000000000000000000000000000000000101d",
+                "fromBlock":format!("0x{lower:x}"), "toBlock":format!("0x{upper:x}"),
+                "topics":["0x2765c1020c93cab47e389edaa5b5c68834bdd76f7a5d384adb460fc86e688709"]
+            }]),
+            result: logs.clone(),
+        });
+        if lower == 0 {
+            break;
+        }
+        upper = lower - 1;
+    }
+    let credential = format!("registry:lxp_live_{}", "e".repeat(64));
+    let invalid = format!("registry:lxp_live_{}", "f".repeat(64));
+    let peer = Transcript::start(
+        "/",
+        Some(format!("LayerX-Key {credential}")),
+        exchanges.clone(),
+    );
+    for key in [None, Some(invalid.clone())] {
+        let client = match key {
+            Some(key) => http::Client::new_gateway(&peer.endpoint, Zeroizing::new(key))?,
+            None => http::Client::new(&peer.endpoint, None)?,
+        };
+        let refusal =
+            programs::registry_list(&client).expect_err("registry requires node authentication");
+        assert!(refusal.contains("401"), "{refusal}");
+    }
+    let client = http::Client::new_gateway(&peer.endpoint, Zeroizing::new(credential.clone()))?;
+    let output = programs::registry_list(&client)?;
+    assert_eq!(
+        output,
+        json!({
+            "program_ids":[], "events":logs, "source":"eth_getLogs",
+            "from_block":0, "to_block":head, "history_complete":true, "earliest_scanned":0
+        })
+    );
+    let count = peer.observations().len();
+    switched_off(&peer.endpoint)?;
+    let seen = peer.observations();
+    assert_eq!(
+        count,
+        exchanges.len() + 2,
+        "registry must query the head and every bounded log window"
+    );
+    assert_eq!(seen.len(), count, "lx_ refuses before registry transport");
+    assert!(seen.iter().all(|seen| seen.path == "/"));
+    assert_eq!(seen[0].authorization, None);
+    assert_eq!(seen[1].authorization, Some(format!("LayerX-Key {invalid}")));
+    for seen in &seen[..2] {
+        assert_eq!(
+            seen.request,
+            json!({"jsonrpc":"2.0", "id":1, "method":"eth_blockNumber", "params":[]})
+        );
+    }
+    for (seen, exchange) in seen[2..].iter().zip(&exchanges) {
+        assert_eq!(seen.authorization, Some(format!("LayerX-Key {credential}")));
+        assert_eq!(
+            seen.request,
+            json!({"jsonrpc":"2.0", "id":1, "method":exchange.method, "params":exchange.params})
+        );
+    }
+    hosted_wallet()
 }
 
 fn hosted_wallet() -> Proof {
@@ -619,6 +1001,64 @@ fn hosted_wallet() -> Proof {
         "lx_ refuses before hosted transport"
     );
     assert!(peer.observations().iter().all(|seen| seen.path == "/rpc"));
+    let service_key = format!("service:lxp_live_{}", "9".repeat(64));
+    let invalid_key = format!("service:lxp_live_{}", "8".repeat(64));
+    let service = Transcript::start(
+        "/services/wallet",
+        Some(format!("LayerX-Key {service_key}")),
+        vec![Exchange {
+            method: "px_getBalances",
+            params: json!([did]),
+            result: output.clone(),
+        }],
+    );
+    let node = RpcClient::new(&service.endpoint, None)?;
+    let refused = node
+        .call("px_requestFunds", &json!([did, "61".repeat(32)]))
+        .expect_err("hosted method needs an explicit service route");
+    assert!(
+        refused.starts_with("gateway_endpoint_required:"),
+        "{refused}"
+    );
+    assert!(service.observations().is_empty());
+    let endpoint = format!("{}/services/wallet", service.endpoint);
+    assert!(RpcClient::new(&endpoint, None).is_err());
+    let request = json!({"jsonrpc":"2.0", "id":1, "method":"px_getBalances", "params":[did]});
+    for key in [None, Some(invalid_key.clone())] {
+        let client = match key {
+            Some(key) => http::Client::new_gateway(&service.endpoint, Zeroizing::new(key))?,
+            None => http::Client::new(&service.endpoint, None)?,
+        };
+        let refused = client
+            .post("/services/wallet", &request, None)
+            .expect_err("service authentication required");
+        assert!(refused.contains("401"), "{refused}");
+    }
+    let client = http::Client::new_gateway(&service.endpoint, Zeroizing::new(service_key.clone()))?;
+    let response = client.post("/services/wallet", &request, None)?;
+    assert_eq!(
+        wallet_reads::balances(response["result"].clone(), &did, None)?,
+        output
+    );
+    switched_off(&service.endpoint)?;
+    let seen = service.observations();
+    assert_eq!(
+        seen.len(),
+        3,
+        "retired and root-hosted methods must refuse before transport"
+    );
+    for (seen, authorization) in seen.iter().zip([
+        None,
+        Some(format!("LayerX-Key {invalid_key}")),
+        Some(format!("LayerX-Key {service_key}")),
+    ]) {
+        assert_eq!(seen.path, "/services/wallet");
+        assert_eq!(seen.authorization, authorization);
+        assert_eq!(
+            seen.request,
+            json!({"jsonrpc":"2.0", "id":1, "method":"px_getBalances", "params":[did]})
+        );
+    }
     Ok(())
 }
 

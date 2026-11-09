@@ -26,6 +26,12 @@ export interface ResolvedPaxeerConfig extends PaxeerWalletConfig {
 export function resolvePaxeerConfig(): ResolvedPaxeerConfig | null {
   if (typeof window === "undefined") return null;
 
+  const supabaseAnonKey =
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || "";
+  // The Supabase publishable key MUST be set for the SDK to work; missing key
+  // means the embedded wallet feature is disabled. Injected wallets still work.
+  if (!supabaseAnonKey) return null;
+
   const apiUrl = process.env.NEXT_PUBLIC_PAXEER_WALLET_API?.trim();
   if (!apiUrl) {
     throw new Error(
@@ -34,8 +40,6 @@ export function resolvePaxeerConfig(): ResolvedPaxeerConfig | null {
   }
   const supabaseUrl =
     process.env.NEXT_PUBLIC_SUPABASE_URL || DEFAULT_SUPABASE_URL;
-  const supabaseAnonKey =
-    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || "";
   // Route through getPaxeerRpcUrls so the embedded wallet's read RPC
   // honors the same env precedence + legacy-endpoint filtering as the
   // public client, instead of trusting a possibly-stale env var raw.
@@ -45,10 +49,6 @@ export function resolvePaxeerConfig(): ResolvedPaxeerConfig | null {
       "[paxeer] getPaxeerRpcUrls() returned no RPC URL for the embedded wallet.",
     );
   }
-
-  // The Supabase publishable key MUST be set for the SDK to work; missing key
-  // means the embedded wallet feature is disabled. Injected wallets still work.
-  if (!supabaseAnonKey) return null;
 
   return {
     apiUrl,

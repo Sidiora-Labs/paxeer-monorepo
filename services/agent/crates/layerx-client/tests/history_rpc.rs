@@ -81,11 +81,11 @@ fn history_pages_px_get_history_and_carries_the_next_cursor() {
         json!({"kind": "call", "transactionHash": format!("0x{}", "34".repeat(32))}),
     ];
     let result = json!({
-        "account": account, "chainHeight": 44000, "freshness": recorded_freshness(),
-        "items": items, "next_cursor": next, "indexedHeight": 43981
+        "account": account, "chainHeight": 44_000, "freshness": recorded_freshness(),
+        "items": items, "next_cursor": next, "indexedHeight": 43_981
     });
     let refusal = RpcRefusal {
-        code: -32001,
+        code: -32_001,
         message: "History unavailable".to_owned(),
         data: Some(json!({"code": "indexer_not_configured"})),
     };
@@ -99,8 +99,8 @@ fn history_pages_px_get_history_and_carries_the_next_cursor() {
             "px_getHistory",
             json!([account, next, 50]),
             json!({"result": {
-                "account": account, "chainHeight": 44001, "freshness": recorded_freshness(),
-                "items": [], "next_cursor": null, "indexedHeight": 43982
+                "account": account, "chainHeight": 44_001, "freshness": recorded_freshness(),
+                "items": [], "next_cursor": null, "indexedHeight": 43_982
             }}),
         ),
     ];
@@ -131,8 +131,8 @@ fn history_pages_px_get_history_and_carries_the_next_cursor() {
             freshness: recorded_freshness(),
             items,
             next_cursor: Some(next.to_owned()),
-            indexed_height: Some(43981),
-            chain_height: Some(44000),
+            indexed_height: Some(43_981),
+            chain_height: Some(44_000),
         }
     );
     let last = history(&endpoint, account, page.next_cursor.as_deref(), None).must();
@@ -143,8 +143,8 @@ fn history_pages_px_get_history_and_carries_the_next_cursor() {
             freshness: recorded_freshness(),
             items: vec![],
             next_cursor: None,
-            indexed_height: Some(43982),
-            chain_height: Some(44001),
+            indexed_height: Some(43_982),
+            chain_height: Some(44_001),
         }
     );
     for _ in 0..3 {
@@ -158,7 +158,10 @@ fn history_pages_px_get_history_and_carries_the_next_cursor() {
         Err(SequencerError::Rpc(refusal))
     );
     assert_eq!(server.join().must(), count);
+    assert_invalid_history_cursors(account, next);
+}
 
+fn assert_invalid_history_cursors(account: &str, next: &str) {
     let listener = TcpListener::bind("127.0.0.1:0").must();
     listener.set_nonblocking(true).must();
     let endpoint =
@@ -204,7 +207,7 @@ fn did_accounts_reads_px_get_account_for_the_did() {
     let mut explicit_null = result.clone();
     explicit_null["layerx"] = Value::Null;
     let refusal = RpcRefusal {
-        code: -32001,
+        code: -32_001,
         message: "Read unavailable".to_owned(),
         data: Some(json!({"code": "native_read_unavailable"})),
     };

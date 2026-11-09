@@ -2,12 +2,12 @@
 //! Uses the existing SDK audit peer's wire producer and OS clock over loopback HTTP.
 use ed25519_dalek::{Signer as _, SigningKey};
 use layerx_crypto::account_derivation::derive_from_seed;
-use layerx_crypto::disclosure::call::{bind_call, ConstructMethod};
+use layerx_crypto::disclosure::call::{ConstructMethod, bind_call};
 use layerx_crypto::evm_transaction::{decode_signed, recover_sender, transaction_hash};
 use layerx_crypto::payments::Payment;
-use layerx_crypto::send::{send_context_hash, SendDebit};
+use layerx_crypto::send::{SendDebit, send_context_hash};
 use layerx_crypto::signer::{LocalSigner, Signer};
-use layerx_proof::inclusion::{verify_receipt, SequencerAuthorization};
+use layerx_proof::inclusion::{SequencerAuthorization, verify_receipt};
 use layerx_proof::merkle::build_proof;
 use layerx_sdk::rpc::{Commitment, RpcClient, RpcError};
 use layerx_sdk::rpc_verification::{ReceiptPolicy, VerifiedRpcReceipt};
@@ -16,14 +16,14 @@ use layerx_types::clock::{Clock, ClockError, ClockReading};
 use layerx_types::rung::Rung;
 use layerx_wire::encode::Encoder;
 use layerx_wire::hash::batch_header_digest;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use sha2::{Digest as _, Sha256};
 use std::future::Future;
 use std::io::{BufRead as _, BufReader, Read as _, Write as _};
 use std::net::TcpListener;
 use std::sync::{
-    atomic::{AtomicBool, Ordering},
     Arc, Mutex,
+    atomic::{AtomicBool, Ordering},
 };
 use std::task::{Context, Poll, Wake, Waker};
 use std::thread::JoinHandle;
@@ -744,6 +744,7 @@ fn committed_lookup_keeps_its_verified_block_and_does_not_invent_batch_evidence(
         state["receipts"][hash_text] = record["receiptJson"].clone();
         state["committed"] = record.clone();
         state["committed"]["activityIds"] = json!([hash_text]);
+        state["committed"]["batch"]["activityIds"] = json!([hash_text]);
     }
     let authority = NodeCommitAuthority::new(
         "committed-fixture".to_owned(),

@@ -1,0 +1,50 @@
+[issue.1874]
+number = 1874
+title = "[P2] Provide the history required by the Python baseline-retirement test"
+revision = "3520b1428059af90261432778c008a9ce362a0b1"
+verdict = "task"
+evidence = "The historical git show introduced by commit 5247adc56b93433fa7d8ad18a98455124a7e19df remains at tests/agent/sdk/python/test_repair_22_33_702.py:394 before the retirement assertions at :405, despite their correction in commit 06d9fa865e929be081a8bddc1836c9ac8e384d48 under spec/layerx-merge/spec.kvx:10825, while .github/workflows/agent.yml:90 configures checkout with only persist-credentials false and invokes make agent-test-sdk-py at :115, whose Makefile:2434 collects this test, so the pinned actions/checkout commit 3d3c42e5aac5ba805825da76410c181273ba90b1 action.yml:74 default fetch-depth of 1 still omits the required 3a0f70d0fce59d96719043d5294b98aa3718e3bd baseline object."
+close_comment = "Confirmed: the Python SDK baseline-retirement check requires historical baseline data that its default checkout does not provide. The follow-up supplies that history explicitly and verifies the retirement assertions and normal SDK target from a fresh checkout."
+
+[task.18.1874.1]
+title = "Issue #1874: Supply historical baseline data to the Python SDK checks"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181874.1"]
+capabilities = []
+interfaces = []
+do_1 = "Set fetch-depth: 0 on the sdk-python checkout at .github/workflows/agent.yml:90, retaining its pinned action and persist-credentials: false; provide the original baseline read at tests/agent/sdk/python/test_repair_22_33_702.py:394 without changing the test, its four assertions at :406, the baseline contents or the retirement rule of spec/layerx-merge/spec.kvx:10825."
+do_2 = "Add the declared test_agent_sdk_python_baseline_history_in_clean_checkout function to tests/ci/test_agent_sdk_suites_wired.py, using its workflow parser at :30 to assert that the sdk-python checkout unconditionally fetches full history before the SDK checks and keeps credentials disabled; create a fresh temporary checkout of the actual candidate revision through Git transport with the declared full-history configuration, no shared object store or alternates, assert that it is not shallow and that git show can read 3a0f70d0fce59d96719043d5294b98aa3718e3bd:tests/ci/data/agent_sdk_python_baseline.json, then run the exact unchanged tests/agent/sdk/python/test_repair_22_33_702.py::test_payment_baseline_entries_are_retired_and_the_transport_baseline_is_preserved with the fresh checkout as cwd and its services/agent/sdk/python as PYTHONPATH; assert successful execution of one test without skips and preserve subprocess output on failure."
+do_3 = "In the same focused regression, retain the workflow-to-Makefile wiring checked at tests/ci/test_agent_sdk_suites_wired.py:86 and run make agent-test-sdk-py from that same fresh checkout after the exact retirement test, asserting its exit status and retaining its separate output so a normal SDK failure is distinguished from missing baseline history; preserve both SDK trees and compilation in Makefile:2432 and the normal SDK invocation at .github/workflows/agent.yml:115, and report unrelated failures without changing their checks."
+symbols = ["test_agent_sdk_python_baseline_history_in_clean_checkout"]
+touches = [".github/workflows/agent.yml", "tests/ci/test_agent_sdk_suites_wired.py"]
+tests = ["tests/ci/test_agent_sdk_suites_wired.py::test_agent_sdk_python_baseline_history_in_clean_checkout"]
+planned_paths = []
+build_cmd = "python3 -m py_compile tests/ci/test_agent_sdk_suites_wired.py"
+verify_cmd = "python3 -m pytest tests/ci/test_agent_sdk_suites_wired.py::test_agent_sdk_python_baseline_history_in_clean_checkout -q"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181874]
+title = "Python SDK checks receive their required historical baseline"
+ac_1 = "The sdk-python checkout at .github/workflows/agent.yml:90 supplies the historical baseline object consumed at tests/agent/sdk/python/test_repair_22_33_702.py:394, so a fresh checkout matching that configuration executes all four retirement assertions at :406 successfully without skips, fallback inputs or changed baseline entries."
+ac_2 = "The normal SDK target at Makefile:2432 runs against the same fresh revision after the focused retirement test, retains both SDK test trees and compilation, and records any separate failure with its command and output."
+
+[acceptance.18.1874.1]
+feature = "18"
+req = "181874.1"
+scenario = "Given a fresh checkout with the Python SDK job's declared history configuration, when the exact baseline-retirement test and normal SDK target run, then the pinned original baseline is available, all retirement assertions execute unchanged, the focused test passes without skips and the normal SDK result is reported separately."
+contract = "contracts/test-harness.md#reachability"
+test = "tests/ci/test_agent_sdk_suites_wired.py::test_agent_sdk_python_baseline_history_in_clean_checkout (planned)"
+qualification = "UNRUN"

@@ -1,0 +1,7 @@
+[issue.1901]
+number = 1901
+title = "[Coherence] Decision 3038 is applied to only one of the three arbiter test binaries that call the failing producer functions, so the repair gate of 22.39.183 leaves two done-task gates red"
+revision = "3520b1428059af90261432778c008a9ce362a0b1"
+verdict = "spec-edit"
+evidence = "Commit dd3a58600392bfe151306e605f4dddc12d6fce97 repairs the common producer transport at programs/crates/layerx-programs-arbiter/tests/proof_arbiter_crate.rs:1211 and shared header-aware decoder at programs/crates/layerx-programs-arbiter/src/market.rs:46, reached through src/step.rs:397 by the unchanged callers in programs/crates/layerx-programs-arbiter/tests/repair_22_31_252.rs:6 and :16 and programs/crates/layerx-programs-arbiter/tests/repair_22_33_214.rs:6, but task 22.39.183 is done at spec/layerx-merge/spec.kvx:187669 while its verify_cmd at :187685 and do_6 at :187698 still name only repair_22_33_215, so the spec must add repair_22_31_252 and repair_22_33_214 to that command and ownership item to satisfy Decision 3038 at spec/layerx-merge/spec.kvx:11343 without claiming those omitted gates were verified."
+close_comment = "The shared producer now transports record-header envelopes and the arbiter decodes their authenticated raw leaves through the common helper. The completed repair specification needs to include repair_22_31_252 and repair_22_33_214 in its verification command and ownership item so coverage matches Decision 3038."

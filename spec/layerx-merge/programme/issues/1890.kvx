@@ -1,0 +1,50 @@
+[issue.1890]
+number = 1890
+title = "[Coherence] RELEASE.md still says the rehearsal script only rehearses the v6.12.0 plan, which contradicts the newly closed D6"
+revision = "3520b1428059af90261432778c008a9ce362a0b1"
+verdict = "task"
+evidence = "RELEASE.md:136 still names only v6.12.0 and RELEASE.md:149 excludes other plans, contradicting the D6 support recorded by commit cc3d81fa233eff7273b4b57faf7f6fe0391569fd at docs/release/7.0.0-upgrade-plan.md:253, the v7.0 identity at tools/release/version.json:2, the plan selection and required --plan-info at tools/release/rehearse-v6120.sh:185 and tools/release/rehearse-v6120.sh:189, the validated forwarding at tools/release/rehearse-v6120.sh:240 and tools/release/rehearse-v6120.sh:259, and the corresponding assertions at tests/ci/test_release_merge_rehearsal.py:117, tests/ci/test_release_merge_rehearsal.py:151 and tests/ci/test_release_docs_gap_markers.py:91."
+close_comment = "The rehearsal script reads its upgrade plan from tools/release/version.json and requires validated --plan-info for v7.0, but RELEASE.md still describes a v6.12.0-only rehearsal. The follow-up documentation task aligns the rehearsal instructions with that behavior and removes the obsolete plan restriction."
+
+[task.18.1890.1]
+title = "Issue #1890: Align the release rehearsal instructions with the configured upgrade plan"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181890.1"]
+capabilities = []
+interfaces = []
+do_1 = "Update the Rehearsing the upgrade section at RELEASE.md:134 so its opening states: `tools/release/rehearse-v6120.sh` rehearses the plan named in `tools/release/version.json` (currently `v7.0`). Continue the existing description of the four-validator rehearsal on the following line; this replaces the v6.12.0-only statement at RELEASE.md:136 and matches tools/release/rehearse-v6120.sh:185 and tools/release/version.json:2."
+do_2 = "Add this standalone sentence in the same section: For `v7.0`, `--plan-info` is required, validated and forwarded to the node upgrade files. This describes the requirement at tools/release/rehearse-v6120.sh:189, validation at tools/release/rehearse-v6120.sh:240 and forwarding at tools/release/rehearse-v6120.sh:259, consistent with docs/release/7.0.0-upgrade-plan.md:253."
+do_3 = "Remove the obsolete sentence This rehearsal does not prove a different upgrade plan. at RELEASE.md:149, retain the isolated rollback and feed-service instructions at RELEASE.md:146, and keep candidate rehearsal evidence requirements intact."
+do_4 = "Use the focused documentation grep to require both corrected sentences within Rehearsing the upgrade and reject both obsolete plan restrictions in that section; no script or existing test changes are needed."
+symbols = []
+touches = ["RELEASE.md"]
+tests = []
+planned_paths = []
+build_cmd = "true"
+verify_cmd = "sed -n '/^## Rehearsing the upgrade$/,/^## Rolling out to a fleet$/p' RELEASE.md | grep -Fxq '`tools/release/rehearse-v6120.sh` rehearses the plan named in `tools/release/version.json` (currently `v7.0`).' && sed -n '/^## Rehearsing the upgrade$/,/^## Rolling out to a fleet$/p' RELEASE.md | grep -Fxq 'For `v7.0`, `--plan-info` is required, validated and forwarded to the node upgrade files.' && ! sed -n '/^## Rehearsing the upgrade$/,/^## Rolling out to a fleet$/p' RELEASE.md | grep -Eq 'rehearses the v6[.]12[.]0 plan|This rehearsal does not prove a different upgrade plan[.]'"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-docs"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181890]
+title = "Release rehearsal instructions describe the configured plan and its merge genesis input"
+ac_1 = "The rehearsal section at RELEASE.md:134 names tools/release/version.json as the plan source with current plan v7.0, requires validated --plan-info forwarded to the node upgrade files for v7.0 as implemented at tools/release/rehearse-v6120.sh:189 and tools/release/rehearse-v6120.sh:259, and contains neither the v6.12.0-only assertion at RELEASE.md:136 nor the exclusion at RELEASE.md:149."
+
+[acceptance.18.1890.1]
+feature = "18"
+req = "181890.1"
+scenario = "Given the configured v7.0 release plan and rehearsal script, when the Rehearsing the upgrade section is checked, then it identifies version.json as the plan source, requires validated --plan-info forwarded to node upgrade files for v7.0 and contains no obsolete v6.12.0-only restriction."
+contract = "contracts/operations.md#release-cli"
+test = "RELEASE.md::rehearsal_plan_instructions grep (planned)"
+qualification = "UNRUN"

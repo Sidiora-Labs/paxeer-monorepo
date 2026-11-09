@@ -2,7 +2,7 @@
 task = "22.30.148"
 revision = "2b99f88520e4e809ad5593f3bee2df74fe355d7b"
 files_reviewed = 283
-findings = 45
+findings = 43
 docs_reviewed = 18
 upgrade_ready = false
 blocking = ["verifier-base-path", "health-error-contract"]
@@ -2031,47 +2031,25 @@ proposal = "Regenerate services/explorer/backend/apps/block_scout_web/API bluepr
 owner_domain = 14
 interface = "14.http-get-api-account-v2-user-info"
 
-[finding.frontend-contract-page-missing]
-file = "spec/layerx-merge/interfaces.kvx"
-line = 576438
-class = "doc-drift"
-severity = "medium"
-observed = "The stable frontend configuration rows, including 14.cfg-fe-apis-general and 14.cfg-fe-essential-dapps-chains, link contracts/explorer-frontend-config.md and anchors, but that file is absent. The consumer lists therefore have no referenced prose contract for origin, optional features or downloaded asset shapes."
-expected = "Stable explorer frontend interfaces must have resolvable documentation describing the exact runtime configuration types, URL/base-path handling and supported defaults."
-proposal = "Create contracts/explorer-frontend-config.md in a domain-14 repair task, document the actual configs/app and essential-dapps/multichain readers and their schemas, and replace or verify every associated registry anchor."
-owner_domain = 14
-interface = "14.cfg-fe-apis-general"
-
-[finding.backend-contract-page-missing]
-file = "spec/layerx-merge/interfaces.kvx"
-line = 575678
-class = "doc-drift"
-severity = "medium"
-observed = "The backend configuration rows such as 14.cfg-explorer-explorer-microserviceinterfaces-metadata reference contracts/explorer-config.md, which is absent. Their declared enabled/service_url and indexer settings have no linked lifecycle or error contract for backend consumers."
-expected = "Backend and indexer configuration interfaces must link a present contract with the consumed key names, accepted types, enablement rules and failure/recovery semantics."
-proposal = "Create contracts/explorer-config.md in the explorer domain, document backend runtime.exs configuration and actual microservice/indexer consumers, including retry and restart behavior, and make the registry anchors resolve."
-owner_domain = 14
-interface = "14.cfg-explorer-explorer-microserviceinterfaces-metadata"
-
-[finding.launcher-contract-page-missing]
+[finding.launcher-registry-provenance]
 file = "spec/layerx-merge/interfaces.kvx"
 line = 580188
 class = "doc-drift"
 severity = "medium"
-observed = "The verifier and signature-provider launcher settings link contracts/explorer-services-config.md, including server.http.base_path, but the contract page is absent. Operators cannot follow the registry to the service-prefix, CORS, timeout and HTTP/gRPC enablement requirements."
-expected = "The shared service launcher must have a resolvable deployment contract covering configuration precedence, transport settings, database inputs and non-root mounting."
-proposal = "Create contracts/explorer-services-config.md from services/explorer/services/libs/blockscout-service-launcher settings and deployed service readers, with exact environment separators and root/prefixed route examples; reconcile and verify the registry anchors."
+observed = "The stable 14.cfg-verifier-server-http-base-path row at lines 580188-580196 attributes SMART_CONTRACT_VERIFIER settings to the local launcher. Its linked spec/layerx-merge/contracts/explorer-services-config.md:11-17 and :31 instead distinguish the registry launchers and explicitly reject base_path support. services/explorer/services/smart-contract-verifier/Cargo.toml:28 and Cargo.lock:1104-1106 resolve registry launcher 0.17.0; services/explorer/services/sig-provider/Cargo.lock:941-943 resolves registry launcher 0.10.1, while services/explorer/services/libs/blockscout-service-launcher/Cargo.toml:3 identifies the local crate as 0.22.0. The page and cfg-verifier anchor exist; the disagreement is the registry's producer attribution and supported-setting claim."
+expected = "Stable explorer service-setting rows must identify the dependency actually linked by each server and agree with the existing contract's supported keys. Local launcher fields alone do not establish a consumer interface."
+proposal = "Reconcile the verifier and signature-provider launcher registry rows with their workspace manifests, lockfiles and the existing explorer-services-config.md support notes, correcting source attribution and unsupported-setting claims without creating a replacement contract page."
 owner_domain = 14
 interface = "14.cfg-verifier-server-http-base-path"
 
-[finding.verifier-contract-page-missing]
-file = "spec/layerx-merge/interfaces.kvx"
-line = 594786
+[finding.verifier-contract-health-drift]
+file = "spec/layerx-merge/contracts/verifier-http.md"
+line = 29
 class = "doc-drift"
 severity = "medium"
-observed = "All verifier gRPC service rows reference contracts/verifier-http.md anchors such as grpc-health, but that page does not exist. The proto and HTTP mapping remain available, while the registry's promised transport/error/encoding contract is missing."
-expected = "Verifier consumers need a present contract that binds the v2 protobuf methods to their HTTP paths, JSON field encodings, response variants and gRPC-to-HTTP error semantics."
-proposal = "Create contracts/verifier-http.md in the explorer domain from proto/v2, api_config_http.yaml and the real service implementations; document bytecode and map encodings, health errors and base paths and ensure every referenced anchor exists."
+observed = "The existing grpc-health section at line 29 says every nonempty name other than Health returns NOT_FOUND; verifier-health at line 88 says compiler service names are not recognized. Current services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/src/services/health.rs:28-38 also accepts registered service names. src/run.rs:283-329 registers initialized compiler names and its ProviderHealth::check at :164-178 returns NOT_SERVING for enabled providers whose initialization failed. The page's line 23 startup-failure description also omits initialize_provider at src/run.rs:135-156, which converts provider initialization errors or deadlines into unavailable providers while listener startup continues at :330-355."
+expected = "The verifier transport contract must distinguish aggregate liveness, ready compiler service names, enabled but unavailable providers and unknown names, and describe startup behavior consistently with the registered HTTP/gRPC services."
+proposal = "Update the existing verifier-http.md health and startup descriptions in a documentation repair task using services/health.rs and run.rs, retaining the existing grpc-health and verifier-health anchors and the HTTP mappings from proto/v2/api_config_http.yaml."
 owner_domain = 14
 interface = "14.grpcs-verifier-health-check"
 
@@ -2251,26 +2229,26 @@ status = "stale"
 notes = "Legacy generated controller examples reviewed throughout. HOST at line 2 and account/v1 examples at 9-2102 do not document the current account/v2 router; see blueprint-account-api-version."
 
 [doc.14]
-path = "contracts/explorer-frontend-config.md"
-status = "missing"
-notes = "The frontend configuration contract page referenced by stable interface-registry rows is absent from this revision; corresponding missing-contract finding names the owning page and registry row."
+path = "spec/layerx-merge/contracts/explorer-frontend-config.md"
+status = "accurate"
+notes = "Registry links resolve relative to spec/layerx-merge. The cfg-apis heading at line 7 and general API row at line 15 agree with 14.cfg-fe-apis-general (interfaces.kvx:576438-576446) and apps/explorer/configs/app/apis.ts:225-244, including general, tac and userOps. The cfg-essential-dapps-chains heading and row at lines 107-111 identify the marketplace feature read present at apps/explorer/configs/essential-dapps-chains/index.ts:7-18. Line 3 explicitly scopes source positions to pinned revision 2a1033aa2; the current marketplace read has moved from line 6 to 7 without changing that signature. No content disagreement was demonstrated for these entries."
 
 [doc.15]
-path = "contracts/explorer-config.md"
-status = "missing"
-notes = "The backend configuration contract page referenced by stable interface-registry rows is absent from this revision; corresponding missing-contract finding names the owning page and registry row."
+path = "spec/layerx-merge/contracts/explorer-config.md"
+status = "accurate"
+notes = "The cfg-explorer heading at line 75 exists. The Metadata row at line 167 agrees with 14.cfg-explorer-explorer-microserviceinterfaces-metadata (interfaces.kvx:575678-575686): service_url, enabled, requests_timeout and proxy_requests_timeout are configured in services/explorer/backend/config/runtime.exs:828-832 and read through services/explorer/backend/apps/explorer/lib/explorer/microservice_interfaces/metadata.ex:168-177. The row's runtime.exs:790 citation is explicitly a pinned-revision source position under the page's line 3 disclaimer. No content disagreement was demonstrated for this configuration entry."
 
 [doc.16]
-path = "contracts/explorer-services-config.md"
-status = "missing"
-notes = "The shared launcher configuration contract page referenced by stable interface-registry rows is absent from this revision; corresponding missing-contract finding names the owning page and registry row."
+path = "spec/layerx-merge/contracts/explorer-services-config.md"
+status = "accurate"
+notes = "The cfg-verifier heading at line 67 exists. Dependency provenance at lines 11-17 agrees with services/explorer/services/sig-provider/Cargo.lock:941-943 (registry 0.10.1), services/explorer/services/smart-contract-verifier/Cargo.lock:1104-1106 (registry 0.17.0) and services/explorer/services/libs/blockscout-service-launcher/Cargo.toml:3 (local 0.22.0). Line 31 explicitly identifies server.http.base_path as unsupported by the linked releases, contrary to the stable registry row at interfaces.kvx:580188-580196. This is a registry disagreement documented by the existing page; see launcher-registry-provenance."
 
 [doc.17]
-path = "contracts/verifier-http.md"
-status = "missing"
-notes = "The verifier transport contract page referenced by stable interface-registry rows is absent from this revision; corresponding missing-contract finding names the owning page and registry row."
+path = "spec/layerx-merge/contracts/verifier-http.md"
+status = "stale"
+notes = "The grpc-health heading at line 25 resolves from interfaces.kvx:594793. The GET /health mapping at lines 84-86 agrees with services/explorer/services/smart-contract-verifier/smart-contract-verifier-proto/proto/v2/api_config_http.yaml:66-67. However, lines 29 and 88 omit recognized compiler names and NOT_SERVING provider health implemented by services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/src/services/health.rs:28-38 and its src/run.rs:164-178, :283-329; line 23 also omits startup continuing with unavailable providers at src/run.rs:135-156, :330-355. See verifier-contract-health-drift. These current content comparisons do not alter the separately retained historical runtime findings or blocking list."
 
 [doc.18]
 path = "spec/layerx-merge/interfaces.kvx"
 status = "misleading"
-notes = "Reviewed the package-listed produced and consumed rows against declarations and callers. Stable explorer registry contract links point to four missing pages; unrelated lexical caller matches were not treated as transport dependencies."
+notes = "Reviewed the package-listed produced and consumed rows against declarations and callers. At correction revision 0f3fe6b8c5c1973c0e80408097cf66e06e40785f, contract links at lines 576445, 575685, 580195 and 594793 resolve relative to spec/layerx-merge to the four existing canonical pages in doc.14-doc.17, including cfg-apis, cfg-explorer, cfg-verifier and grpc-health. The remaining documented disagreement is producer attribution: 14.cfg-verifier-server-http-base-path at lines 580188-580196 claims local-launcher settings for a server linked to registry 0.17.0, contrary to the existing services contract's lines 11-17 and 31; see launcher-registry-provenance. Verifier prose health drift is recorded separately; unrelated lexical caller matches were not treated as transport dependencies."

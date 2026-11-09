@@ -231,7 +231,12 @@ def test_makefile_boundary_and_wiring_request_are_explicit():
     money = next(line for line in source.splitlines() if line.startswith("MONEY_MODULES :=")).split(":=", 1)[1].split()
     assert {"indexer", "pnl-tracker", "../../sdk/launchpad/shared"} <= set(money) <= set(modules)
     assert "cover-check: cover" in source
-    assert '-covermode=atomic -coverprofile=$(CURDIR)/.cover/$$name.out' in source
+    assert 'TEST_RUNNER := $(abspath ../../tests/ci/data/launchpad_go_tests.py)' in source
+    assert 'python3 $(TEST_RUNNER) --module "$$m" --go "$(GO)" --flags="$(GOFLAGS)" --profile "$(CURDIR)/.cover/$$name.out";' in source
+    runner = (ROOT / 'tests/ci/data/launchpad_go_tests.py').read_text()
+    assert '"-covermode=atomic"' in runner
+    assert 'f"-coverprofile={part}"' in runner
+    assert 'Path(profile).write_text("\\n".join(lines) + "\\n")' in runner
     record = RECORD.read_text()
     assert '[finding.coverage-module-inventory]' in record
     assert 'test_coverage_module_inventory_rejects_missing_money_module' in record

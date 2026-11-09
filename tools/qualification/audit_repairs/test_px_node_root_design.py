@@ -3,6 +3,7 @@
 import json
 from pathlib import Path
 import re
+import tomllib
 
 import pytest
 
@@ -139,6 +140,16 @@ def test_px_node_root_inventory_matches_all_seventeen_contract_methods():
     assert len(names) == len(set(names)) == 22
     assert set(names) == expected == set(SOURCE_ANCHORS)
     assert set(method_sections(DESIGN.read_text(encoding="utf-8"))) == expected
+    record = tomllib.loads(Path(__file__).with_name("repair_22_39_293.kvx").read_text())
+    assert record["repair"]["source_revision"] == PINS["hosted_source_revision"] == "2910889b640274b1b6f2bd14a2fba25019093bb2"
+    assert record["repair"]["task"] == "22.39.293"
+    assert record["repair"]["evidence_ledger"] == "/out/run/gates.jsonl"
+    assert len(record["case"]) == 20
+    for case in record["case"].values():
+        assert (ROOT / case["test_file"]).is_file()
+        assert re.search(r"^def " + re.escape(case["test"]) + r"\(", (ROOT / case["test_file"]).read_text(), re.M)
+        assert case["assertion"]
+        existing_sources(case["producers"])
 
 
 @pytest.mark.parametrize("method", METHODS, ids=lambda method: method["name"])

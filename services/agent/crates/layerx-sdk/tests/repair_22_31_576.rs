@@ -6,7 +6,7 @@ use layerx_crypto::disclosure::call::bind_call;
 use layerx_crypto::evm_transaction::{decode_signed, recover_sender, transaction_hash};
 use layerx_crypto::payments::Payment;
 use layerx_crypto::signer::LocalSigner;
-use layerx_proof::inclusion::{verify_receipt, SequencerAuthorization};
+use layerx_proof::inclusion::{SequencerAuthorization, verify_receipt};
 use layerx_proof::merkle::build_proof;
 use layerx_sdk::rpc::{Commitment, RpcClient, RpcError};
 use layerx_sdk::rpc_verification::node_commit::NodeCommitAuthority;
@@ -16,14 +16,14 @@ use layerx_types::clock::{Clock, ClockError, ClockReading};
 use layerx_types::rung::Rung;
 use layerx_wire::encode::Encoder;
 use layerx_wire::hash::batch_header_digest;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use sha2::{Digest as _, Sha256};
 use std::future::Future;
 use std::io::{BufRead as _, BufReader, Read as _, Write as _};
 use std::net::TcpListener;
 use std::sync::{
-    atomic::{AtomicBool, Ordering},
     Arc, Mutex,
+    atomic::{AtomicBool, Ordering},
 };
 use std::task::{Context, Poll, Wake, Waker};
 use std::thread::JoinHandle;
@@ -457,11 +457,11 @@ fn options() -> PaymentOptions {
 // ReceiptCommitEvidence exposes these protocol types from the client's dependency.
 use layerx_client::rpc::receipt_commit::SequenceBatch;
 use layerx_programs_registry::chain_proof::{
+    ChainProofVerifier,
     header::{ChainHeader, HeaderBlockId, HeaderTime, HeaderVersion},
     merkle::SimpleProof,
     validators::{TrustedValidator, ValidatorSet},
-    vote::{vote_sign_bytes, BlockId, PartSetHeader, Timestamp},
-    ChainProofVerifier,
+    vote::{BlockId, PartSetHeader, Timestamp, vote_sign_bytes},
 };
 
 fn base64(bytes: &[u8]) -> String {
@@ -599,7 +599,7 @@ impl CommitFixture {
         state["committed"] = json!({"receiptJson":summary.clone(),
             "activityIds":[format!("0x{}", hex(&activity))],
             "commit":{"signed_header":signed},
-            "batch":{"height":"1000", "tx":format!("0x{}", hex(&batch_transaction)),
+            "batch":{"height":"1000", "activityIds":[format!("0x{}", hex(&activity))], "tx":format!("0x{}", hex(&batch_transaction)),
                 "proof":{"total":proof.total, "index":proof.index,
                     "leafHash":format!("0x{}", hex(&proof.leaf_hash)),
                     "aunts":proof.aunts.iter().map(|aunt| format!("0x{}", hex(aunt))).collect::<Vec<_>>()}}});
@@ -748,10 +748,12 @@ fn empty_signed_bytes_are_refused_before_rpc() {
             Err(RpcError::InvalidRequest)
         ));
     }
-    assert!(node.state.lock().expect("node store")["requests"]
-        .as_array()
-        .expect("requests")
-        .is_empty());
+    assert!(
+        node.state.lock().expect("node store")["requests"]
+            .as_array()
+            .expect("requests")
+            .is_empty()
+    );
 }
 
 #[test]

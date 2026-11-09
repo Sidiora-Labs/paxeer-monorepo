@@ -43,6 +43,11 @@ fn profile() -> RoomProfile {
         host_share_bps: 1000,
         protocol_share_bps: 100,
         settlement_account: AccountId::new([80; 32]).unwrap(),
+        max_generated_tokens: 4096,
+        queue_depth: layerx_programs_ai_market::policy::DEFAULT_QUEUE_DEPTH,
+        liveness_timeout_ms: 30_000,
+        acknowledgement_window_ms: 5_000,
+        canary_relative_tolerance_bps: 100,
     }
 }
 fn payload(size: usize, encode: impl FnOnce(&mut [u8]) -> CodecResult<usize>) -> Vec<u8> {
@@ -248,6 +253,26 @@ impl Harness {
         bytes: &[u8],
         roster: Presence<RosterDigest>,
     ) -> Vec<u8> {
+        if op == dispatch::PostBid {
+            let mut r = codec::Reader::new(bytes);
+            let room = r.digest32().unwrap();
+            let bid = r.digest32().unwrap();
+            r.take(48).unwrap();
+            let amount = r.u128().unwrap();
+            if layerx_programs_ai_market::bonds::bond_from_state(&self.current, bid)
+                .unwrap()
+                .is_none()
+            {
+                self.apply(
+                    dispatch::LockBond,
+                    actor,
+                    &layerx_programs_ai_market::bonds::LockBondRequest { room, bid, amount }
+                        .encode()
+                        .unwrap(),
+                    roster,
+                );
+            }
+        }
         let envelope = self.envelope(op, actor, bytes, roster);
         let (routed, result, _) = self.execute(actor, &envelope);
         assert!(
@@ -473,7 +498,9 @@ impl Harness {
         self.apply(
             dispatch::OpenRoom,
             HOST,
-            &payload(168, |out| open_request(room).encode(out)),
+            &payload(OPEN_ROOM_REQUEST_BYTES, |out| {
+                open_request(room).encode(out)
+            }),
             Presence::Absent,
         )
     }
@@ -823,7 +850,9 @@ fn room_host_authority_and_native_identity_are_enforced() {
         Presence::Present(request.roster_digest),
         UNAUTHORIZED,
     );
-    let bytes = payload(168, |out| open_request(digest(65)).encode(out));
+    let bytes = payload(OPEN_ROOM_REQUEST_BYTES, |out| {
+        open_request(digest(65)).encode(out)
+    });
     let envelope = h.envelope(dispatch::OpenRoom, HOST, &bytes, Presence::Absent);
     let (routed, result, _) = h.execute(PEER_A, &envelope);
     assert!(matches!(routed, Routed::Refused { .. }));
@@ -1018,7 +1047,7 @@ fn every_record_codec_is_fixed_width_and_rejects_truncation_trailing_and_invalid
         assert_eq!(decode(&trailing), Err(NON_CANONICAL));
     }
     let mut invalid = room_bytes;
-    invalid[200] = 2;
+    invalid[4 * 32 + layerx_programs_ai_market::policy::ROOM_PROFILE_BYTES] = 2;
     assert_eq!(RoomRecord::decode(&invalid), Err(NON_CANONICAL));
     let mut invalid = ask_bytes;
     invalid[160] = 3;
@@ -1056,14 +1085,16 @@ fn all_room_ask_and_bid_capacities_fit_together_in_the_shared_state_budget() {
         h.apply(
             dispatch::OpenRoom,
             HOST,
-            &payload(168, |out| request.encode(out)),
+            &payload(OPEN_ROOM_REQUEST_BYTES, |out| request.encode(out)),
             Presence::Absent,
         );
     }
     h.refuse(
         dispatch::OpenRoom,
         HOST,
-        &payload(168, |out| open_request(digest(116)).encode(out)),
+        &payload(OPEN_ROOM_REQUEST_BYTES, |out| {
+            open_request(digest(116)).encode(out)
+        }),
         Presence::Absent,
         CAPACITY,
     );
@@ -1123,4 +1154,101 @@ fn all_room_ask_and_bid_capacities_fit_together_in_the_shared_state_budget() {
     let mut malformed = h.state().room_market().unwrap().1.to_vec();
     malformed[10..12].copy_from_slice(&129u16.to_be_bytes());
     assert!(matches!(RoomBook::decode(&malformed), Err(CAPACITY)));
+}
+
+#[test]
+fn f11_room_profile_survives_room_view_restart() -> CodecResult<()> {
+    use layerx_programs_ai_market::{
+        policy::{MarketPolicy, MARKET_POLICY_BYTES},
+        queries::{self, RoomView},
+    };
+
+    let mut h = Harness::new();
+    let policy = MarketPolicy {
+        task_policy: PolicySection::decode(h.state().section(Section::PolicyLifecycle)?)?.current,
+        room_profile: RoomProfile {
+            max_generated_tokens: (1u64 << 40) + 19,
+            queue_depth: 47,
+            liveness_timeout_ms: (1u64 << 34) + 123,
+            acknowledgement_window_ms: 12_345,
+            canary_relative_tolerance_bps: 321,
+            ..profile()
+        },
+    };
+    let mut policy_bytes = [0; MARKET_POLICY_BYTES];
+    policy.encode(&mut policy_bytes)?;
+    let decoded = MarketPolicy::decode(&policy_bytes)?;
+    let request = OpenRoomRequest {
+        profile: decoded.room_profile,
+        ..open_request(digest(60))
+    };
+    let bytes = payload(OPEN_ROOM_REQUEST_BYTES, |out| request.encode(out));
+    assert_eq!(bytes.len(), OPEN_ROOM_REQUEST_BYTES);
+    let mut unsupported = bytes.clone();
+    unsupported[96..98].copy_from_slice(&1u16.to_be_bytes());
+    h.refuse(
+        dispatch::OpenRoom,
+        HOST,
+        &unsupported,
+        Presence::Absent,
+        BAD_VERSION,
+    );
+    h.apply(dispatch::OpenRoom, HOST, &bytes, Presence::Absent);
+
+    let mut persisted = vec![0; MAX_STATE_BYTES];
+    let mut control = vec![0; Section::Control.payload_cap()];
+    let n = state::encode_shared_state(&h.state(), &mut persisted, &mut control)?;
+    persisted.truncate(n);
+    assert_eq!(persisted, h.current);
+    let mut restarted = Harness {
+        current: persisted.clone(),
+        height: h.height,
+        request: h.request,
+    };
+    let header = restarted.header();
+    let mut input = vec![0; MAX_ENVELOPE_BYTES];
+    let n = queries::encode_view_envelope(
+        &Envelope {
+            operation: dispatch::RoomView,
+            chain: header.deployment_chain_domain,
+            program: header.program_id,
+            market: header.market_id,
+            actor: principal(ASKER),
+            epoch: 0,
+            config: 0,
+            roster: Presence::Absent,
+            sequence: 0,
+            expiry: restarted.height + 10,
+            request: RequestId::new([99; 32])?,
+            payload: request.room_id.as_bytes(),
+            authentication: Authentication::Native,
+        },
+        &mut input,
+    )?;
+    let (routed, bytes, event) = restarted.execute(ASKER, &input[..n]);
+    assert!(matches!(routed, Routed::Unchanged { .. }));
+    assert!(event.is_empty());
+    assert_eq!(restarted.current, persisted);
+    let result = codec::decode_result(&bytes)?;
+    assert_eq!(result.status, ResultStatus::Ok);
+    assert_eq!(result.error, None);
+    let view = RoomView::decode(result.payload)?;
+    assert_eq!(result.payload.len(), queries::ROOM_VIEW_BYTES);
+    assert_eq!(view.room.room_id, request.room_id);
+    assert_eq!(view.room.profile, policy.room_profile);
+    assert_eq!(view.room.profile.max_generated_tokens, (1u64 << 40) + 19);
+    assert_eq!(view.room.profile.queue_depth, 47);
+    assert_eq!(view.room.profile.liveness_timeout_ms, (1u64 << 34) + 123);
+    assert_eq!(view.room.profile.acknowledgement_window_ms, 12_345);
+    assert_eq!(view.room.profile.canary_relative_tolerance_bps, 321);
+
+    // Both standalone room records and the book refuse prior profile formats.
+    let mut room_bytes = [0; ROOM_RECORD_BYTES];
+    view.room.encode(&mut room_bytes)?;
+    room_bytes[128..130].copy_from_slice(&1u16.to_be_bytes());
+    assert_eq!(RoomRecord::decode(&room_bytes), Err(BAD_VERSION));
+    let mut book_bytes = restarted.state().room_market()?.1.to_vec();
+    book_bytes[4..6].copy_from_slice(&1u16.to_be_bytes());
+    assert!(matches!(RoomBook::decode(&book_bytes), Err(BAD_VERSION)));
+    Ok(())
 }

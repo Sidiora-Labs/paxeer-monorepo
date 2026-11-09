@@ -604,7 +604,7 @@ func (rs *Store) Query(ctx context.Context, req abci.RequestQuery) abci.Response
 
 	if req.Height != 0 {
 		_, err := rs.CacheMultiStoreWithVersion(req.Height)
-		return sdkerrors.QueryResult(sdkerrors.Wrap(sdkerrors.ErrInvalidRequest, err.Error()))
+		return sdkerrors.QueryResult(err)
 	}
 
 	// trim the path and make the query

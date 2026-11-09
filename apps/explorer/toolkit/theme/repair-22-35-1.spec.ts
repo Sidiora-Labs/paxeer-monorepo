@@ -84,7 +84,7 @@ function semanticRolesMatchDecision2587() {
     'border.strong': [ 'rgba(16,18,24,0.16)', 'rgba(255,255,255,0.16)' ],
     'text.primary': [ '#0E1016', '#F2F4F8' ],
     'text.secondary': [ '#4B5262', '#A0A8B8' ],
-    'text.muted': [ '#8A91A0', '#6B7385' ],
+    'text.muted': [ '#8A90A0', '#6B7385' ],
     accent: [ '#2B4FDA', '#4F7DFF' ],
     'accent.soft': [ 'rgba(43,79,218,0.10)', 'rgba(79,125,255,0.14)' ],
     onAccent: [ '#FFFFFF', '#FFFFFF' ],

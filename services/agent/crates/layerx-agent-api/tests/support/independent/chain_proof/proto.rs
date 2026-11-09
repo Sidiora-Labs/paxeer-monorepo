@@ -30,11 +30,6 @@ impl<'a> ProtoReader<'a> {
         }
     }
 
-    #[must_use]
-    pub const fn cursor(&self) -> usize {
-        self.cursor
-    }
-
     pub fn next_field(&mut self) -> Result<Option<ProtoField<'a>>, ChainProofError> {
         if self.cursor == self.bytes.len() {
             return Ok(None);

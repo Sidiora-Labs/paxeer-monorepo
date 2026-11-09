@@ -1,8 +1,10 @@
 // @vitest-environment jsdom
 
+import { createServer } from 'node:http';
+import type { AddressInfo } from 'node:net';
 import React from 'react';
 
-import type { TimeChartData } from 'toolkit/components/charts/types';
+import type { TimeChartData, TimeChartItemRaw } from 'toolkit/components/charts/types';
 import type { TokenInfo } from 'types/api/token';
 
 import useApiQuery from 'lib/api/useApiQuery';
@@ -19,7 +21,7 @@ import { beforeEach, expect, test, vi } from 'vitest';
 import { screen, waitFor, within } from 'vitest/lib';
 
 import ChainIndicatorChartContainer from './indicators/ChainIndicatorChartContainer';
-import { prepareChartItems } from './indicators/utils/chart';
+import { getChartData, prepareChartItems } from './indicators/utils/chart';
 import Stats from './Stats';
 import TickerStrip from './TickerStrip';
 
@@ -193,6 +195,182 @@ async function networkChartUsesReturnedSamples() {
 }
 
 test(networkChartUsesReturnedSamples.name, networkChartUsesReturnedSamples);
+
+async function homeChartCalendarDayWindow() {
+  type Sample = [ string, TimeChartItemRaw['value'] ];
+  type Observation = [ string, number ];
+  const january = Array.from({ length: 30 }, (_, index): Sample => [
+    `2026-01-${ String(index + 1).padStart(2, '0') }`, index === 28 ? null : index === 19 ? 0 : index + 1,
+  ]);
+  const januaryExpected: Array<Observation> = [
+    [ '2026-01-17', 17 ], [ '2026-01-18', 18 ], [ '2026-01-19', 19 ], [ '2026-01-20', 0 ],
+    [ '2026-01-21', 21 ], [ '2026-01-22', 22 ], [ '2026-01-23', 23 ], [ '2026-01-24', 24 ],
+    [ '2026-01-25', 25 ], [ '2026-01-26', 26 ], [ '2026-01-27', 27 ], [ '2026-01-28', 28 ], [ '2026-01-30', 30 ],
+  ];
+  const cases: Array<{ name: string; samples: Array<Sample>; expected: Array<Observation> }> = [
+    { name: 'January with a missing observation', samples: january, expected: januaryExpected },
+    {
+      name: 'sparse and unsorted with exact inclusive bounds',
+      samples: [ [ '2026-01-30', 30 ], [ '2026-01-02', 2 ], [ '2026-01-25', '25' ], [ '2026-01-16', 16 ], [ '2026-01-17', 0 ] ],
+      expected: [ [ '2026-01-17', 0 ], [ '2026-01-25', 25 ], [ '2026-01-30', 30 ] ],
+    },
+    {
+      name: 'leading and trailing nulls preserve the raw-date anchor',
+      samples: [
+        [ '2026-01-01', null ], [ '2026-01-16', 16 ], [ '2026-01-17', 17 ],
+        [ '2026-01-18', 18 ], [ '2026-01-29', null ], [ '2026-01-30', null ],
+      ],
+      expected: [ [ '2026-01-17', 17 ], [ '2026-01-18', 18 ] ],
+    },
+    {
+      name: 'trailing null leaves only older observations outside the window',
+      samples: [ [ '2026-01-01', 1 ], [ '2026-01-02', 2 ], [ '2026-01-30', null ] ],
+      expected: [],
+    },
+    { name: 'all null', samples: [ [ '2026-01-01', null ], [ '2026-01-30', null ] ], expected: [] },
+    { name: 'empty', samples: [], expected: [] },
+    {
+      name: 'month rollover',
+      samples: [ [ '2026-02-19', 19 ], [ '2026-02-20', 20 ], [ '2026-02-28', 28 ], [ '2026-03-05', 5 ] ],
+      expected: [ [ '2026-02-20', 20 ], [ '2026-02-28', 28 ], [ '2026-03-05', 5 ] ],
+    },
+    {
+      name: 'year rollover',
+      samples: [ [ '2025-12-22', 22 ], [ '2025-12-23', 23 ], [ '2025-12-31', 31 ], [ '2026-01-05', 5 ] ],
+      expected: [ [ '2025-12-23', 23 ], [ '2025-12-31', 31 ], [ '2026-01-05', 5 ] ],
+    },
+    {
+      name: 'leap day',
+      samples: [ [ '2024-03-05', 5 ], [ '2024-02-20', 20 ], [ '2024-02-21', 21 ], [ '2024-02-29', 29 ] ],
+      expected: [ [ '2024-02-21', 21 ], [ '2024-02-29', 29 ], [ '2024-03-05', 5 ] ],
+    },
+    {
+      name: 'UTC day boundaries',
+      samples: [
+        [ '2026-01-30T23:59:59.999Z', 30 ], [ '2026-01-16T23:59:59.999Z', 16 ],
+        [ '2026-01-17T01:00:00+01:00', 0 ], [ '2026-01-16T23:30:00-01:00', 17 ], [ '2026-01-31T00:30:00+01:00', 31 ],
+      ],
+      expected: [
+        [ '2026-01-17T00:00:00.000Z', 0 ], [ '2026-01-17T00:30:00.000Z', 17 ],
+        [ '2026-01-30T23:30:00.000Z', 31 ], [ '2026-01-30T23:59:59.999Z', 30 ],
+      ],
+    },
+    {
+      name: 'invalid dates and missing or invalid values never become zero',
+      samples: [
+        [ 'invalid', 99 ], [ '2026-01-17', 0 ], [ '2026-01-18', '' ], [ '2026-01-19', 'NaN' ],
+        [ '2026-01-20', 'Infinity' ], [ '2026-01-21', 'unavailable' ], [ '2026-01-30', 30 ],
+      ],
+      expected: [ [ '2026-01-17', 0 ], [ '2026-01-30', 30 ] ],
+    },
+  ];
+  const observations = (items: TimeChartData[0]['items']): Array<Observation> =>
+    items.map(({ date, value }) => [ date.toISOString(), value ]);
+  const expectedObservations = (items: Array<Observation>): Array<Observation> =>
+    items.map(([ date, value ]) => [ new Date(date).toISOString(), value ]);
+
+  for (const { name, samples, expected } of cases) {
+    const raw = samples.map(([ date, value ]) => ({ date: new Date(date), value }));
+    const original = raw.slice();
+    expect(observations(prepareChartItems(raw, 14)), name).toEqual(expectedObservations(expected));
+    expect(observations(getChartData('daily_txs', raw, 14)[0].items), name).toEqual(expectedObservations(expected));
+    expect(raw, `${ name }: raw order is preserved`).toEqual(original);
+  }
+  expect(prepareChartItems([ { date: new Date('invalid'), value: 1 } ], 14)).toEqual([]);
+  const fullJanuary = january.filter(([ , value ]) => value !== null).map(([ date, value ]): Observation => [ date, Number(value) ]);
+  const rawJanuary = january.map(([ date, value ]) => ({ date: new Date(date), value }));
+  expect(observations(prepareChartItems(rawJanuary))).toEqual(expectedObservations(fullJanuary));
+  expect(observations(getChartData('coin_price', rawJanuary)[0].items)).toEqual(expectedObservations(fullJanuary));
+
+  const originalEnvs = window.__envs;
+  let samples: Array<Sample> = [];
+  const requests: Array<string> = [];
+  const server = createServer((request, response) => {
+    requests.push(request.url || '');
+    response.setHeader('Content-Type', 'application/json');
+    if (request.url === '/api/v2/stats/charts/transactions') {
+      response.end(JSON.stringify({ chart_data: samples.map(([ date, value ]) => ({ date, transactions_count: value })) }));
+    } else if (request.url === '/api/v1/pages/main') {
+      response.end(JSON.stringify({ daily_new_transactions: { chart: samples.map(([ date, value ]) => ({ date, value })) } }));
+    } else if (request.url === '/api/v2/stats') {
+      response.end(JSON.stringify(statsMock.base));
+    } else {
+      response.statusCode = 404;
+      response.end(JSON.stringify({ error: 'Unexpected resource' }));
+    }
+  });
+  fetchMock.disableMocks();
+  try {
+    await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+    const port = String((server.address() as AddressInfo).port);
+    for (const statsEnabled of [ false, true ]) {
+      window.__envs = {
+        ...originalEnvs,
+        NEXT_PUBLIC_API_HOST: '127.0.0.1',
+        NEXT_PUBLIC_API_PORT: port,
+        NEXT_PUBLIC_API_PROTOCOL: 'http',
+        NEXT_PUBLIC_STATS_API_HOST: statsEnabled ? `http://127.0.0.1:${ port }` : '',
+      };
+      vi.resetModules();
+      const { 'default': HomeStats } = await import('./Stats');
+      const { 'default': useHomeChartDataQuery } = await import('./indicators/useChartDataQuery');
+      const { 'default': HomeChart } = await import('./indicators/ChainIndicatorsChart');
+      const { render: renderHome } = await import('ui/shared/layout/testWrapper');
+      function QueryToChart() {
+        const chartQuery = useHomeChartDataQuery('daily_txs', 14);
+        const unboundedQuery = useHomeChartDataQuery('daily_txs');
+        return (
+          <>
+            <HomeStats/>
+            <section aria-label="Query to chart">
+              <HomeChart title="Calendar window" isLoading={ false } chartQuery={ chartQuery }/>
+              <output data-window>{ JSON.stringify(observations(chartQuery.data[0].items)) }</output>
+              <output data-unbounded>{ JSON.stringify(observations(unboundedQuery.data[0].items)) }</output>
+            </section>
+          </>
+        );
+      }
+      for (const scenario of cases) {
+        samples = scenario.samples;
+        requests.length = 0;
+        const { container, unmount } = renderHome(<QueryToChart/>);
+        try {
+          const queryChart = within(container).getByRole('region', { name: 'Query to chart' });
+          const homeChart = container.querySelector('[data-label="home-stats-history"]')!;
+          await waitFor(() => {
+            expect(requests).toContain(statsEnabled ? '/api/v1/pages/main' : '/api/v2/stats/charts/transactions');
+            expect(queryChart.querySelector('output[data-window]')?.textContent, scenario.name)
+              .toBe(JSON.stringify(expectedObservations(scenario.expected)));
+            for (const chart of [ homeChart, queryChart ]) {
+              if (scenario.expected.length < 2) {
+                expect(within(chart as HTMLElement).getByLabelText('Network chart unavailable').textContent).toBe('—');
+                expect(chart.querySelector('[data-label="sparkline"]')).toBeNull();
+              } else {
+                expect(chart.querySelector('[data-label="sparkline"]')).not.toBeNull();
+                expect(chart.querySelector('[data-label="chain-indicator-chart"]')?.getAttribute('data-points'))
+                  .toBe(String(scenario.expected.length));
+              }
+            }
+          });
+          expect(homeChart.textContent).toContain('transaction history in 14 days');
+          if (scenario.samples === january) {
+            expect(queryChart.querySelector('output[data-unbounded]')?.textContent).toBe(JSON.stringify(expectedObservations(fullJanuary)));
+          }
+          expect(requests).not.toContain(statsEnabled ? '/api/v2/stats/charts/transactions' : '/api/v1/pages/main');
+        } finally {
+          unmount();
+        }
+      }
+    }
+  } finally {
+    window.__envs = originalEnvs;
+    fetchMock.enableMocks();
+    await new Promise<void>((resolve, reject) => server.close(error => error ? reject(error) : resolve()));
+    vi.resetModules();
+  }
+}
+
+test(homeChartCalendarDayWindow.name, homeChartCalendarDayWindow);
 
 function missingSeriesNeverBecomesZeroOrAnInventedCurve() {
   const date = new Date('2026-01-01T00:00:00Z');

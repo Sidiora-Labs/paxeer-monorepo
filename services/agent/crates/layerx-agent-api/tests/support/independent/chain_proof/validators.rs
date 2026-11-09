@@ -5,7 +5,7 @@ use super::super::Sha256;
 
 use super::ChainProofError;
 
-pub const MAX_TOTAL_VOTING_POWER: u64 = (i64::MAX / 8) as u64;
+pub const MAX_TOTAL_VOTING_POWER: u64 = i64::MAX.unsigned_abs() / 8;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct TrustedValidator {
@@ -34,10 +34,10 @@ impl TrustedValidator {
             bytes.push(0x10);
             let mut power = self.voting_power;
             while power >= 0x80 {
-                bytes.push((power as u8 & 0x7f) | 0x80);
+                bytes.push((power.to_le_bytes()[0] & 0x7f) | 0x80);
                 power >>= 7;
             }
-            bytes.push(power as u8);
+            bytes.push(power.to_le_bytes()[0]);
         }
         bytes
     }
@@ -101,7 +101,7 @@ fn simple_merkle_root(validators: &[TrustedValidator]) -> [u8; 32] {
             hash.update(simple_merkle_root(&validators[split..]));
         }
     }
-    hash.finalize().into()
+    hash.finalize()
 }
 
 #[must_use]

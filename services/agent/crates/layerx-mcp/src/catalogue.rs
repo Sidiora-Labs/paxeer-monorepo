@@ -252,7 +252,6 @@ pub const WEB_TOOLS: [ToolDefinition; 3] = [
 
 fn fields(name: &str) -> &'static [Field] {
     match name.as_bytes() {
-        b"tenant.readiness" => &NONE,
         b"balance.get" => &BALANCE_GET,
         b"history.list" => &HISTORY_LIST,
         b"receipt.get" => &RECEIPT_GET,
@@ -710,7 +709,9 @@ pub const SESSION_TOOLS: [ToolDefinition; 11] = [
 ];
 
 fn session_object(properties: Value, required: &[&str]) -> Value {
-    json!({"type": "object", "properties": properties, "required": required, "additionalProperties": false})
+    let mut schema = json!({"type": "object", "required": required, "additionalProperties": false});
+    schema["properties"] = properties;
+    schema
 }
 
 fn session_text() -> Value {
@@ -736,6 +737,8 @@ fn subscription_cursor_schema() -> Value {
     )
 }
 
+/// # Errors
+/// Refuses malformed scope or cursor fields and any acknowledgement the subscription store rejects.
 pub fn subscription_acknowledge_tool(
     store: &mut layerx_agentd::events::subscription::Store,
     arguments: &Value,
@@ -778,6 +781,8 @@ pub fn subscription_acknowledge_tool(
         .map_err(|error| BoundaryRefusal::Malformed(error.to_string()))
 }
 
+/// # Errors
+/// Refuses malformed or unauthorized requests, unsupported native variants, or failures reading the approval state.
 pub fn approval_get_tool(
     service: &layerx_agentd::approval::ApprovalService<'_>,
     tenant: &layerx_agentd::store::TenantId,
@@ -849,18 +854,13 @@ pub fn approval_get_tool(
             return Err(malformed());
         }
     }
-    let hex = |bytes: &[u8]| {
-        bytes
-            .iter()
-            .map(|byte| format!("{byte:02x}"))
-            .collect::<String>()
-    };
+    let hex = crate::hex;
     Ok(json!({
         "approval_id": hex(&record.approval_id),
         "canonical_digest": hex(&disclosure.canonical_digest),
         "activity_type": disclosure.activity_type.0.to_string(),
         "actor": disclosure.actor.as_str(), "authority": disclosure.authority.as_str(),
-        "counterparties": disclosure.counterparties.values().iter().map(|value| value.as_str()).collect::<Vec<_>>(),
+        "counterparties": disclosure.counterparties.values().iter().map(layerx_agent_api::identity::AgentDid::as_str).collect::<Vec<_>>(),
         "amounts": disclosure.amounts.values().iter().map(|value| json!({"counterparty": value.counterparty.as_str(), "amount": value.amount.0.to_string()})).collect::<Vec<_>>(),
         "asset": disclosure.asset.as_str(), "fee_limit": disclosure.fee_limit.0.to_string(),
         "expiry": disclosure.expiry.0.to_string(), "idempotency_key": disclosure.idempotency_key.as_str(),
@@ -999,47 +999,7 @@ fn validate_session_schema(value: &Value, schema: &Value) -> Result<(), Argument
                 validate_session_schema(child, schema.get("items").ok_or_else(malformed)?)?;
             }
         }
-        Some("string") => {
-            let text = value.as_str().ok_or_else(malformed)?;
-            let length = u64::try_from(text.len()).map_err(|_| malformed())?;
-            if schema
-                .get("minLength")
-                .and_then(Value::as_u64)
-                .is_some_and(|minimum| length < minimum)
-                || schema
-                    .get("maxLength")
-                    .and_then(Value::as_u64)
-                    .is_some_and(|maximum| length > maximum)
-            {
-                return Err(malformed());
-            }
-            match schema.get("pattern").and_then(Value::as_str) {
-                Some("^[0-9a-f]{64}$")
-                    if !text
-                        .bytes()
-                        .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte)) =>
-                {
-                    return Err(malformed())
-                }
-                Some("^(0|[1-9][0-9]*)$") => {
-                    if text.is_empty()
-                        || (text.len() > 1 && text.starts_with('0'))
-                        || !text.bytes().all(|byte| byte.is_ascii_digit())
-                    {
-                        return Err(malformed());
-                    }
-                    let number = text.parse::<u64>().map_err(|_| malformed())?;
-                    if schema
-                        .get("layerx/maximum")
-                        .and_then(Value::as_u64)
-                        .is_some_and(|maximum| number > maximum)
-                    {
-                        return Err(malformed());
-                    }
-                }
-                _ => (),
-            }
-        }
+        Some("string") => validate_session_string(value, schema)?,
         Some("integer") => {
             let number = value.as_i64().ok_or_else(malformed)?;
             if schema
@@ -1056,6 +1016,50 @@ fn validate_session_schema(value: &Value, schema: &Value) -> Result<(), Argument
         }
         Some("null") if value.is_null() => (),
         _ => return Err(malformed()),
+    }
+    Ok(())
+}
+
+fn validate_session_string(value: &Value, schema: &Value) -> Result<(), ArgumentError> {
+    let malformed = || ArgumentError::Malformed("session_request");
+    let text = value.as_str().ok_or_else(malformed)?;
+    let length = u64::try_from(text.len()).map_err(|_| malformed())?;
+    if schema
+        .get("minLength")
+        .and_then(Value::as_u64)
+        .is_some_and(|minimum| length < minimum)
+        || schema
+            .get("maxLength")
+            .and_then(Value::as_u64)
+            .is_some_and(|maximum| length > maximum)
+    {
+        return Err(malformed());
+    }
+    match schema.get("pattern").and_then(Value::as_str) {
+        Some("^[0-9a-f]{64}$")
+            if !text
+                .bytes()
+                .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte)) =>
+        {
+            return Err(malformed())
+        }
+        Some("^(0|[1-9][0-9]*)$") => {
+            if text.is_empty()
+                || (text.len() > 1 && text.starts_with('0'))
+                || !text.bytes().all(|byte| byte.is_ascii_digit())
+            {
+                return Err(malformed());
+            }
+            let number = text.parse::<u64>().map_err(|_| malformed())?;
+            if schema
+                .get("layerx/maximum")
+                .and_then(Value::as_u64)
+                .is_some_and(|maximum| number > maximum)
+            {
+                return Err(malformed());
+            }
+        }
+        _ => (),
     }
     Ok(())
 }
@@ -1227,6 +1231,7 @@ pub struct NativeAliasTarget {
     pub address: [u8; 20],
 }
 
+#[must_use]
 pub fn native_alias_target(name: &str) -> Option<NativeAliasTarget> {
     let (ordinal, suffix) = match name {
         "wallet.send" | "token.transfer" => (5, 0x101a_u16),

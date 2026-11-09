@@ -84,6 +84,8 @@ jobs:
           persist-credentials: false
       - name: Turn every row of the shared image table into a build matrix entry
         id: plan
+        env:
+          DASHBOARD_API_ORIGIN: ${{ vars.DASHBOARD_API_ORIGIN }}
         run: |
           set -euo pipefail
           fail() { echo "$*" >&2; exit 1; }
@@ -92,9 +94,10 @@ jobs:
           image_ref() { printf 'ghcr.io/sidiora-labs/%s:%s' "$1" "$REVISION"; }
           entries=$(for name in "${IMAGE_NAMES[@]}"; do
             read -r canonical dockerfile <<<"$(image_source "$name")"
+            build_args=$(image_build_args "$name") || exit 1
             jq -n -c --arg name "$name" --arg dockerfile "$dockerfile" --arg target "$(image_target "$name")" \
               --arg context "$(image_context "$name")" \
-              --arg args "$(image_build_args "$name" | sed -E 's/--build-arg //g; s/ +/\n/g')" \
+              --arg args "$(printf '%s' "$build_args" | sed -E 's/--build-arg //g; s/ +/\n/g')" \
               '{name: $name, dockerfile: $dockerfile, target: $target, context: $context, build_args: $args}'
           done)
           {

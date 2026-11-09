@@ -55,7 +55,7 @@ fn batch_lookup_reads_the_block_by_number_and_refuses_a_null_block() {
     type Lookup = fn(&SequencerEndpoint, u64) -> Result<SequencerBlock, BatchHeaderError>;
     let lookups: [Lookup; 2] = [batch::lookup, batch::lookup_untrusted];
     let refusal = RpcRefusal {
-        code: -32000,
+        code: -32_000,
         message: "block unavailable".to_owned(),
         data: Some(json!({"height": "0x3eb"})),
     };

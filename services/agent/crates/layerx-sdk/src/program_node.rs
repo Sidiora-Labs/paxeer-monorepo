@@ -138,6 +138,22 @@ fn signed_result(word: &[u8]) -> Result<i32, ProgramOperationError> {
 }
 
 impl HttpProgramTransport {
+    /// Configures independently pinned receipt authority before contacting the node.
+    /// Live operations still verify the node's network before sending a transaction or reading.
+    ///
+    /// # Errors
+    /// Refuses an unsupported receipt protocol or an unspecified network.
+    pub fn with_node_receipt_policy(
+        mut self,
+        policy: ReceiptPolicy,
+    ) -> Result<Self, ProgramOperationError> {
+        if policy.protocol_version != 2 || policy.network_id == 0 {
+            return Err(ProgramOperationError::Verification);
+        }
+        self.node_policy = Some(policy);
+        Ok(self)
+    }
+
     /// Connects to live node JSON-RPC with independently configured network and height-ranged receipt trust.
     pub fn connect_node_with_policy(
         endpoint: &str,
@@ -148,9 +164,8 @@ impl HttpProgramTransport {
         if policy.protocol_version != 2 || policy.network_id == 0 {
             return Err(ProgramOperationError::Verification);
         }
-        let mut transport =
-            Self::connect(endpoint, credential, policy.sequencer.public_key(), clock)?;
-        transport.node_policy = Some(policy);
+        let transport = Self::connect(endpoint, credential, policy.sequencer.public_key(), clock)?
+            .with_node_receipt_policy(policy)?;
         transport.check_node_network()?;
         Ok(transport)
     }

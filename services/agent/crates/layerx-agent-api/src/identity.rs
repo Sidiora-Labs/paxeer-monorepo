@@ -22,6 +22,7 @@ pub enum TenantRecoveryReason {
 }
 
 impl TenantRecoveryReason {
+    #[must_use]
     pub const fn as_str(self) -> &'static str {
         match self {
             Self::RecoveryPending => "recovery_pending",
@@ -36,6 +37,7 @@ impl TenantRecoveryReason {
         }
     }
 
+    #[must_use]
     pub fn parse(value: &str) -> Option<Self> {
         match value {
             "recovery_pending" => Some(Self::RecoveryPending),
@@ -61,10 +63,16 @@ pub struct TenantReadiness {
 }
 
 impl TenantReadiness {
+    /// # Errors
+    /// Returns a mismatch if write admission disagrees with recovery state or transport and read readiness.
+    #[allow(
+        clippy::trivially_copy_pass_by_ref,
+        reason = "TenantReadiness::validate borrows self in the public contract; preserve its argument mode."
+    )]
     pub fn validate(&self) -> Result<(), ContractError> {
         if self.writes_admitted != self.recovery_reason.is_none()
-            || (self.writes_admitted && (!self.transport_ready || !self.verified_reads_ready))
-            || (self.verified_reads_ready && !self.transport_ready)
+            || (self.writes_admitted && !self.verified_reads_ready)
+            || (!self.transport_ready && self.verified_reads_ready)
         {
             return Err(ContractError::Mismatch("tenant_readiness"));
         }
@@ -176,15 +184,21 @@ pub struct NativeActivity {
 impl NativeActivity {
     pub const VERSION: u8 = 1;
 
+    /// # Errors
+    /// Returns an error for an unknown module or a zero activity ordinal.
     pub fn new(module: u16, ordinal: u16) -> Result<Self, ContractError> {
         Self { module, ordinal }.validate()
     }
 
+    /// # Errors
+    /// Returns an error for an unknown module or a zero activity ordinal.
     pub fn validate(self) -> Result<Self, ContractError> {
         self.activity_type()?;
         Ok(self)
     }
 
+    /// # Errors
+    /// Returns a malformed-module error for an unknown module, or a zero-ordinal error.
     pub fn activity_type(self) -> Result<layerx_types::payload::ActivityType, ContractError> {
         let module = layerx_types::payload::ModuleId::from_u16(self.module)
             .map_err(|_| ContractError::Malformed("native_activity.module"))?;
@@ -192,6 +206,8 @@ impl NativeActivity {
             .map_err(|_| ContractError::Zero("native_activity.ordinal"))
     }
 
+    /// # Errors
+    /// Returns an error for an unknown module or a zero activity ordinal.
     pub fn encode(self) -> Result<[u8; 5], ContractError> {
         self.validate()?;
         let module = self.module.to_be_bytes();
@@ -199,6 +215,8 @@ impl NativeActivity {
         Ok([Self::VERSION, module[0], module[1], ordinal[0], ordinal[1]])
     }
 
+    /// # Errors
+    /// Returns an error for a wrong length or version, an unknown module, or a zero ordinal.
     pub fn decode(bytes: &[u8]) -> Result<Self, ContractError> {
         let bytes: &[u8; 5] = bytes
             .try_into()
@@ -239,6 +257,8 @@ impl NativePreparationPurposeV1 {
     pub const VERSION: u8 = 1;
     pub const DOMAIN: &'static [u8] = b"LayerX/native/preparation-purpose/v1\0";
 
+    /// # Errors
+    /// Returns an error for a malformed tenant, DID, session or capability, or a zero generation or expiry.
     pub fn validate(self) -> Result<Self, ContractError> {
         self.validate_fields()?;
         Ok(self)
@@ -262,6 +282,8 @@ impl NativePreparationPurposeV1 {
         Ok(())
     }
 
+    /// # Errors
+    /// Returns an error for a malformed, truncated or noncanonical frame, invalid identifiers, or a zero generation or expiry.
     pub fn from_canonical_bytes(bytes: &[u8]) -> Result<Self, ContractError> {
         let rest = bytes
             .strip_prefix(Self::DOMAIN)
@@ -298,6 +320,8 @@ impl NativePreparationPurposeV1 {
         Ok(value)
     }
 
+    /// # Errors
+    /// Returns an error for invalid purpose fields or a text length that cannot be encoded as a u32.
     pub fn canonical_bytes(&self) -> Result<Vec<u8>, ContractError> {
         self.validate_fields()?;
         let mut bytes = Self::DOMAIN.to_vec();
@@ -366,6 +390,8 @@ pub struct SignedNativePreparationPurposeV1 {
 }
 
 impl SignedNativePreparationPurposeV1 {
+    /// # Errors
+    /// Returns the purpose validation error for invalid identifiers, generation or expiry.
     pub fn validate(self) -> Result<Self, ContractError> {
         Ok(Self {
             purpose: self.purpose.validate()?,
@@ -399,19 +425,23 @@ impl NativeSendPurposeV1 {
     pub const VERSION: u8 = 1;
     pub const DOMAIN: &'static [u8] = b"LayerX/native/send-purpose/v1\0";
 
+    /// # Errors
+    /// Always refuses this retired carrier with a native-send legacy-version mismatch.
     pub fn validate(self) -> Result<Self, ContractError> {
-        self.validate_fields()?;
+        Self::validate_fields()?;
         Ok(self)
     }
 
-    fn validate_fields(&self) -> Result<(), ContractError> {
+    fn validate_fields() -> Result<(), ContractError> {
         // This legacy record cannot bind an EVM sender or a rotated owner.
         // Keep its shape for explicit refusal at existing wire boundaries.
         Err(ContractError::Mismatch("native_send.legacy_version"))
     }
 
+    /// # Errors
+    /// Always refuses this retired carrier with a native-send legacy-version mismatch.
     pub fn canonical_bytes(&self) -> Result<Vec<u8>, ContractError> {
-        self.validate_fields()?;
+        Self::validate_fields()?;
         let mut bytes = Self::DOMAIN.to_vec();
         bytes.push(Self::VERSION);
         for (field, value) in [
@@ -444,6 +474,8 @@ impl NativeSendPurposeV1 {
         Ok(bytes)
     }
 
+    /// # Errors
+    /// Returns a malformed-frame error for invalid encoding, or the legacy-version refusal for a decoded V1 purpose.
     pub fn from_canonical_bytes(bytes: &[u8]) -> Result<Self, ContractError> {
         let rest = bytes
             .strip_prefix(Self::DOMAIN)
@@ -498,6 +530,8 @@ pub struct SignedNativeSendPurposeV1 {
 }
 
 impl SignedNativeSendPurposeV1 {
+    /// # Errors
+    /// Returns the legacy-version refusal from the retired purpose before checking the owner key.
     pub fn validate(self) -> Result<Self, ContractError> {
         let purpose = self.purpose.validate()?;
         if self.owner_public_key != purpose.owner_public_key {
@@ -519,6 +553,8 @@ pub struct NativeLocalGrantConsentV1 {
 impl NativeLocalGrantConsentV1 {
     pub const MAX_RECORD_BYTES: usize = 1_048_576;
 
+    /// # Errors
+    /// Returns an error for an empty or oversized capability or session scope, or a zero expiry.
     pub fn validate(&self) -> Result<(), ContractError> {
         for (name, record) in [
             ("capability", &self.capability),
@@ -556,6 +592,8 @@ pub struct NativePrepareRequestV1 {
 }
 
 impl NativePrepareRequestV1 {
+    /// # Errors
+    /// Returns an error for a non-program activity, invalid actor or capability, empty or oversized authority or payload, reversed lifetime, inconsistent purpose, or invalid local grant.
     pub fn validate(self) -> Result<Self, ContractError> {
         if self.activity.activity_type()?.module() != layerx_types::payload::ModuleId::Programs {
             return Err(ContractError::Mismatch("native_prepare.module"));
@@ -612,6 +650,8 @@ pub struct NativeEffectPrepareRequestV1 {
 }
 
 impl NativeEffectPrepareRequestV1 {
+    /// # Errors
+    /// Returns an error for a program activity, invalid actor or capability, empty or oversized authority or payload, reversed lifetime, inconsistent purpose, or invalid local grant.
     pub fn validate(self) -> Result<Self, ContractError> {
         if self.activity.activity_type()?.module() == layerx_types::payload::ModuleId::Programs {
             return Err(ContractError::Mismatch("native_effect_prepare.module"));
@@ -658,6 +698,8 @@ pub struct NativeRegistrationPrepareRequestV1 {
 impl NativeRegistrationPrepareRequestV1 {
     pub const ADMISSION_PROFILE: &'static str = "native-registration-v1";
 
+    /// # Errors
+    /// Returns an error unless the activity is native registration and its effect request passes validation.
     pub fn validate(self) -> Result<Self, ContractError> {
         if self.request.activity != NativeActivity::new(1, 1)? {
             return Err(ContractError::Mismatch(
@@ -688,6 +730,8 @@ pub struct NativeSendPrepareRequestV1 {
 }
 
 impl NativeSendPrepareRequestV1 {
+    /// # Errors
+    /// Returns an error for an invalid send activity, actor, authority, lifetime, payload, capability or grant, inconsistent purpose fields, or the retired V1 purpose.
     pub fn validate(self) -> Result<Self, ContractError> {
         if self.activity != NativeActivity::new(1, 5)? {
             return Err(ContractError::Mismatch("native_send_prepare.activity"));
@@ -1171,6 +1215,10 @@ pub struct DaemonLimitView {
 impl DaemonLimitView {
     /// The bypass notice every daemon-limit record carries.
     #[must_use]
+    #[allow(
+        clippy::unused_self,
+        reason = "DaemonLimitView::notice is a public instance method carrying the constant bypass notice."
+    )]
     pub const fn notice(&self) -> &'static str {
         BudgetEnforcement::DAEMON_LIMIT_NOTICE
     }
@@ -1178,6 +1226,10 @@ impl DaemonLimitView {
 
 /// One budget-like record tagged by who actually enforces it.
 #[derive(Clone, Debug, Eq, PartialEq)]
+#[allow(
+    clippy::large_enum_variant,
+    reason = "BudgetRecord::Protocol publicly carries ProtocolBudgetView by value; boxing changes the contract."
+)]
 pub enum BudgetRecord {
     Protocol(ProtocolBudgetView),
     Daemon(DaemonLimitView),

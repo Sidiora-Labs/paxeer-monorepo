@@ -31,6 +31,23 @@ defmodule BlockScoutWeb.API.V2.AddressControllerTest do
   import Explorer.Chain, only: [hash_to_lower_case_string: 1]
   import Mox
 
+  defmodule BENSListener do
+    @behaviour Plug
+
+    def init(options), do: options
+
+    def call(conn, {owner, responses}) do
+      {:ok, body, conn} = Plug.Conn.read_body(conn)
+      payload = if body == "", do: nil, else: Jason.decode!(body)
+      send(owner, {:bens_request, conn.method, conn.request_path, payload})
+      response = Map.fetch!(responses, {conn.method, conn.request_path})
+
+      conn
+      |> Plug.Conn.put_resp_content_type("application/json")
+      |> Plug.Conn.resp(200, Jason.encode!(response))
+    end
+  end
+
   @first_topic_hex_string_1 "0x7fcf532c15f0a6db0bd6d0e038bea71d30d808c7d98cb3bf7268a95bf5081b65"
   @instances_amount_in_collection 9
   @resolved_delegate_proxy "0x608060408181523060009081526001602090815282822054908290529181207FBF40FAC1000000000000000000000000000000000000000000000000000000009093529173FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF9091169063BF40FAC19061006D9060846101E2565B602060405180830381865AFA15801561008A573D6000803E3D6000FD5B505050506040513D601F19601F820116820180604052508101906100AE91906102C5565B905073FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF8116610157576040517F08C379A000000000000000000000000000000000000000000000000000000000815260206004820152603960248201527F5265736F6C76656444656C656761746550726F78793A2074617267657420616460448201527F6472657373206D75737420626520696E697469616C697A656400000000000000606482015260840160405180910390FD5B6000808273FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF16600036604051610182929190610302565B600060405180830381855AF49150503D80600081146101BD576040519150601F19603F3D011682016040523D82523D6000602084013E6101C2565B606091505B5090925090508115156001036101DA57805160208201F35B805160208201FD5B600060208083526000845481600182811C91508083168061020457607F831692505B858310810361023A577F4E487B710000000000000000000000000000000000000000000000000000000085526022600452602485FD5B878601838152602001818015610257576001811461028B576102B6565B7FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF008616825284151560051B820196506102B6565B60008B81526020902060005B868110156102B057815484820152908501908901610297565B83019750505B50949998505050505050505050565B6000602082840312156102D757600080FD5B815173FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF811681146102FB57600080FD5B9392505050565B818382376000910190815291905056FEA164736F6C634300080F000A"
@@ -1118,65 +1135,38 @@ defmodule BlockScoutWeb.API.V2.AddressControllerTest do
 
       Explorer.Repo.delete(to_address)
 
-      bypass = Bypass.open()
-
-      Application.put_env(:tesla, :adapter, Tesla.Adapter.Mint)
-
-      old_chain_id = Application.get_env(:block_scout_web, :chain_id)
-      chain_id = 1
-      Application.put_env(:block_scout_web, :chain_id, chain_id)
-
-      old_env_bens = Application.get_env(:explorer, Explorer.MicroserviceInterfaces.BENS)
-
-      Application.put_env(:explorer, Explorer.MicroserviceInterfaces.BENS,
-        service_url: "http://localhost:#{bypass.port}",
-        enabled: true
-      )
-
-      old_env_metadata = Application.get_env(:explorer, Explorer.MicroserviceInterfaces.Metadata)
-
-      Application.put_env(:explorer, Explorer.MicroserviceInterfaces.Metadata,
-        service_url: "http://localhost:#{bypass.port}",
-        enabled: true
-      )
-
-      Bypass.expect_once(bypass, "POST", "api/v1/#{chain_id}/addresses:batch_resolve_names", fn conn ->
-        Conn.resp(
-          conn,
-          200,
-          Jason.encode!(%{
-            "names" => %{
-              to_string(to_address) => "test.eth"
+      start_bens_listener(%{
+        {"POST", "/api/v1/1/addresses:batch-resolve-names"} => %{
+          "names" => %{
+            to_string(to_address) => "test.eth"
+          }
+        },
+        {"GET", "/api/v1/metadata"} => %{
+          "addresses" => %{
+            to_string(to_address) => %{
+              "tags" => [
+                %{
+                  "name" => "Proposer Fee Recipient",
+                  "ordinal" => 0,
+                  "slug" => "proposer-fee-recipient",
+                  "tagType" => "generic",
+                  "meta" => "{\"styles\":\"danger_high\"}"
+                }
+              ]
             }
-          })
-        )
-      end)
-
-      Bypass.expect_once(bypass, "GET", "api/v1/metadata", fn conn ->
-        Conn.resp(
-          conn,
-          200,
-          Jason.encode!(%{
-            "addresses" => %{
-              to_string(to_address) => %{
-                "tags" => [
-                  %{
-                    "name" => "Proposer Fee Recipient",
-                    "ordinal" => 0,
-                    "slug" => "proposer-fee-recipient",
-                    "tagType" => "generic",
-                    "meta" => "{\"styles\":\"danger_high\"}"
-                  }
-                ]
-              }
-            }
-          })
-        )
-      end)
+          }
+        }
+      })
 
       request = get(conn, "/api/v2/addresses/#{from_address.hash}/transactions")
 
       assert response = json_response(request, 200)
+
+      assert_receive {:bens_request, "POST", "/api/v1/1/addresses:batch-resolve-names", payload}
+      assert payload == %{"addresses" => [to_string(to_address.hash), to_string(from_address.hash)]}
+      assert_receive {:bens_request, "GET", "/api/v1/metadata", nil}
+      refute_receive {:bens_request, _, _, _}
+
       assert Enum.count(response["items"]) == 1
       assert response["next_page_params"] == nil
 
@@ -1194,12 +1184,6 @@ defmodule BlockScoutWeb.API.V2.AddressControllerTest do
                  }
                ]
              }
-
-      Application.put_env(:block_scout_web, :chain_id, old_chain_id)
-      Application.put_env(:explorer, Explorer.MicroserviceInterfaces.BENS, old_env_bens)
-      Application.put_env(:explorer, Explorer.MicroserviceInterfaces.Metadata, old_env_metadata)
-      Application.put_env(:tesla, :adapter, Explorer.Mock.TeslaAdapter)
-      Bypass.down(bypass)
     end
   end
 
@@ -2806,65 +2790,38 @@ defmodule BlockScoutWeb.API.V2.AddressControllerTest do
           address: address
         )
 
-      bypass = Bypass.open()
-
-      Application.put_env(:tesla, :adapter, Tesla.Adapter.Mint)
-
-      old_chain_id = Application.get_env(:block_scout_web, :chain_id)
-      chain_id = 1
-      Application.put_env(:block_scout_web, :chain_id, chain_id)
-
-      old_env_bens = Application.get_env(:explorer, Explorer.MicroserviceInterfaces.BENS)
-
-      Application.put_env(:explorer, Explorer.MicroserviceInterfaces.BENS,
-        service_url: "http://localhost:#{bypass.port}",
-        enabled: true
-      )
-
-      old_env_metadata = Application.get_env(:explorer, Explorer.MicroserviceInterfaces.Metadata)
-
-      Application.put_env(:explorer, Explorer.MicroserviceInterfaces.Metadata,
-        service_url: "http://localhost:#{bypass.port}",
-        enabled: true
-      )
-
-      Bypass.expect_once(bypass, "POST", "api/v1/#{chain_id}/addresses:batch_resolve_names", fn conn ->
-        Conn.resp(
-          conn,
-          200,
-          Jason.encode!(%{
-            "names" => %{
-              to_string(address) => "test.eth"
+      start_bens_listener(%{
+        {"POST", "/api/v1/1/addresses:batch-resolve-names"} => %{
+          "names" => %{
+            to_string(address) => "test.eth"
+          }
+        },
+        {"GET", "/api/v1/metadata"} => %{
+          "addresses" => %{
+            to_string(address) => %{
+              "tags" => [
+                %{
+                  "name" => "Proposer Fee Recipient",
+                  "ordinal" => 0,
+                  "slug" => "proposer-fee-recipient",
+                  "tagType" => "generic",
+                  "meta" => "{\"styles\":\"danger_high\"}"
+                }
+              ]
             }
-          })
-        )
-      end)
-
-      Bypass.expect_once(bypass, "GET", "api/v1/metadata", fn conn ->
-        Conn.resp(
-          conn,
-          200,
-          Jason.encode!(%{
-            "addresses" => %{
-              to_string(address) => %{
-                "tags" => [
-                  %{
-                    "name" => "Proposer Fee Recipient",
-                    "ordinal" => 0,
-                    "slug" => "proposer-fee-recipient",
-                    "tagType" => "generic",
-                    "meta" => "{\"styles\":\"danger_high\"}"
-                  }
-                ]
-              }
-            }
-          })
-        )
-      end)
+          }
+        }
+      })
 
       request = get(conn, "/api/v2/addresses/#{address.hash}/logs")
 
       assert response = json_response(request, 200)
+
+      assert_receive {:bens_request, "POST", "/api/v1/1/addresses:batch-resolve-names", payload}
+      assert payload == %{"addresses" => [to_string(address.hash)]}
+      assert_receive {:bens_request, "GET", "/api/v1/metadata", nil}
+      refute_receive {:bens_request, _, _, _}
+
       assert Enum.count(response["items"]) == 1
       assert response["next_page_params"] == nil
 
@@ -2884,12 +2841,6 @@ defmodule BlockScoutWeb.API.V2.AddressControllerTest do
                  }
                ]
              }
-
-      Application.put_env(:block_scout_web, :chain_id, old_chain_id)
-      Application.put_env(:explorer, Explorer.MicroserviceInterfaces.BENS, old_env_bens)
-      Application.put_env(:explorer, Explorer.MicroserviceInterfaces.Metadata, old_env_metadata)
-      Application.put_env(:tesla, :adapter, Explorer.Mock.TeslaAdapter)
-      Bypass.down(bypass)
     end
 
     # https://github.com/blockscout/blockscout/issues/13763
@@ -2910,58 +2861,14 @@ defmodule BlockScoutWeb.API.V2.AddressControllerTest do
           address: address
         )
 
-      bypass = Bypass.open()
-
-      Application.put_env(:tesla, :adapter, Tesla.Adapter.Mint)
-
-      old_chain_id = Application.get_env(:block_scout_web, :chain_id)
-      chain_id = 1
-      Application.put_env(:block_scout_web, :chain_id, chain_id)
-
-      old_env_bens = Application.get_env(:explorer, Explorer.MicroserviceInterfaces.BENS)
-
-      Application.put_env(:explorer, Explorer.MicroserviceInterfaces.BENS,
-        service_url: "http://localhost:#{bypass.port}",
-        enabled: true,
-        protocols: ["ens"]
-      )
-
-      old_env_metadata = Application.get_env(:explorer, Explorer.MicroserviceInterfaces.Metadata)
-
-      Application.put_env(:explorer, Explorer.MicroserviceInterfaces.Metadata,
-        service_url: "http://localhost:#{bypass.port}",
-        enabled: true
-      )
-
-      on_exit(fn ->
-        Application.put_env(:block_scout_web, :chain_id, old_chain_id)
-        Application.put_env(:explorer, Explorer.MicroserviceInterfaces.BENS, old_env_bens)
-        Application.put_env(:explorer, Explorer.MicroserviceInterfaces.Metadata, old_env_metadata)
-        Application.put_env(:tesla, :adapter, Explorer.Mock.TeslaAdapter)
-        Bypass.down(bypass)
-      end)
-
-      Bypass.expect_once(bypass, "POST", "api/v1/addresses:batch_resolve", fn conn ->
-        {:ok, body, conn} = Plug.Conn.read_body(conn)
-        decoded = Jason.decode!(body)
-        assert decoded["protocols"] == "ens"
-
-        Conn.resp(
-          conn,
-          200,
-          Jason.encode!(%{
+      start_bens_listener(
+        %{
+          {"POST", "/api/v1/addresses:batch-resolve"} => %{
             "names" => %{
               to_string(address) => "test.eth"
             }
-          })
-        )
-      end)
-
-      Bypass.expect_once(bypass, "GET", "api/v1/metadata", fn conn ->
-        Conn.resp(
-          conn,
-          200,
-          Jason.encode!(%{
+          },
+          {"GET", "/api/v1/metadata"} => %{
             "addresses" => %{
               to_string(address) => %{
                 "tags" => [
@@ -2975,13 +2882,21 @@ defmodule BlockScoutWeb.API.V2.AddressControllerTest do
                 ]
               }
             }
-          })
-        )
-      end)
+          }
+        },
+        ["ens"]
+      )
 
       request = get(conn, "/api/v2/addresses/#{address.hash}/logs")
 
       assert response = json_response(request, 200)
+
+      assert_receive {:bens_request, "POST", "/api/v1/addresses:batch-resolve", payload}
+      assert payload == %{"addresses" => [to_string(address.hash)], "protocols" => "ens"}
+      assert payload["protocols"] == "ens"
+      assert_receive {:bens_request, "GET", "/api/v1/metadata", nil}
+      refute_receive {:bens_request, _, _, _}
+
       assert Enum.count(response["items"]) == 1
       assert response["next_page_params"] == nil
 
@@ -5813,6 +5728,42 @@ defmodule BlockScoutWeb.API.V2.AddressControllerTest do
                "from_address" => %{"hash" => ^from_address_hash}
              } = json
     end
+  end
+
+  defp start_bens_listener(responses, protocols \\ []) do
+    keys = [
+      {:tesla, :adapter},
+      {:block_scout_web, :chain_id},
+      {:explorer, Explorer.MicroserviceInterfaces.BENS},
+      {:explorer, Explorer.MicroserviceInterfaces.Metadata}
+    ]
+
+    saved = Enum.map(keys, fn {app, key} -> {app, key, Application.fetch_env(app, key)} end)
+    ref = make_ref()
+    {:ok, _pid} = Plug.Cowboy.http(BENSListener, {self(), responses}, port: 0, ref: ref, ip: {127, 0, 0, 1})
+
+    on_exit(fn ->
+      try do
+        Plug.Cowboy.shutdown(ref)
+      after
+        Enum.each(saved, fn
+          {app, key, {:ok, value}} -> Application.put_env(app, key, value)
+          {app, key, :error} -> Application.delete_env(app, key)
+        end)
+      end
+    end)
+
+    url = "http://127.0.0.1:#{:ranch.get_port(ref)}"
+    Application.put_env(:tesla, :adapter, Tesla.Adapter.Mint)
+    Application.put_env(:block_scout_web, :chain_id, 1)
+
+    Application.put_env(:explorer, Explorer.MicroserviceInterfaces.BENS,
+      service_url: url,
+      enabled: true,
+      protocols: protocols
+    )
+
+    Application.put_env(:explorer, Explorer.MicroserviceInterfaces.Metadata, service_url: url, enabled: true)
   end
 
   defp compare_item({token, amount, token_instances}, json) do

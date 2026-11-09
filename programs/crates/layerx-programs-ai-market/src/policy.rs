@@ -419,8 +419,10 @@ pub fn validate_policy_records(
     Ok(())
 }
 
-pub const ROOM_PROFILE_BYTES: usize = 72;
-pub const MARKET_POLICY_VERSION: u16 = 2;
+pub const ROOM_PROFILE_VERSION: u16 = 2;
+pub const DEFAULT_QUEUE_DEPTH: u16 = 32;
+pub const ROOM_PROFILE_BYTES: usize = 2 + 72 + 8 + 2 + 8 + 8 + 2;
+pub const MARKET_POLICY_VERSION: u16 = 3;
 pub const MARKET_POLICY_BYTES: usize = 2 + TASK_POLICY_BYTES + ROOM_PROFILE_BYTES;
 
 #[derive(Clone, Copy, Eq, PartialEq)]
@@ -434,10 +436,22 @@ pub struct RoomProfile {
     pub host_share_bps: u16,
     pub protocol_share_bps: u16,
     pub settlement_account: AccountId,
+    pub max_generated_tokens: u64,
+    pub queue_depth: u16,
+    /// Peer liveness deadline in milliseconds.
+    pub liveness_timeout_ms: u64,
+    /// Deal acknowledgement deadline in milliseconds.
+    pub acknowledgement_window_ms: u64,
+    pub canary_relative_tolerance_bps: u16,
 }
 impl RoomProfile {
     pub fn validate(&self) -> CodecResult<()> {
         if self.minimum_bond == 0
+            || self.max_generated_tokens == 0
+            || self.queue_depth == 0
+            || self.liveness_timeout_ms == 0
+            || self.acknowledgement_window_ms == 0
+            || self.canary_relative_tolerance_bps > 10_000
             || self.lap_size_tokens == 0
             || self.challenge_window_blocks == 0
             || self.canary_ratio_bps > 10_000
@@ -456,6 +470,7 @@ impl RoomProfile {
         }
         let mut w = Writer::new(output);
         crate::codec::write_fields!(w;
+            u16: ROOM_PROFILE_VERSION;
             u128: self.minimum_bond;
             u16: self.canary_ratio_bps;
             u64: self.lap_size_tokens;
@@ -464,12 +479,20 @@ impl RoomProfile {
             u16: self.host_share_bps;
             u16: self.protocol_share_bps;
             id32: self.settlement_account.as_bytes();
+            u64: self.max_generated_tokens;
+            u16: self.queue_depth;
+            u64: self.liveness_timeout_ms;
+            u64: self.acknowledgement_window_ms;
+            u16: self.canary_relative_tolerance_bps;
         )?;
         Ok(w.len())
     }
 
     pub fn decode(input: &[u8]) -> CodecResult<Self> {
         let mut r = Reader::new(input);
+        if r.u16()? != ROOM_PROFILE_VERSION {
+            return Err(BAD_VERSION);
+        }
         let value = Self {
             minimum_bond: r.u128()?,
             canary_ratio_bps: r.u16()?,
@@ -479,6 +502,11 @@ impl RoomProfile {
             host_share_bps: r.u16()?,
             protocol_share_bps: r.u16()?,
             settlement_account: r.policy_account()?,
+            max_generated_tokens: r.u64()?,
+            queue_depth: r.u16()?,
+            liveness_timeout_ms: r.u64()?,
+            acknowledgement_window_ms: r.u64()?,
+            canary_relative_tolerance_bps: r.u16()?,
         };
         r.finish()?;
         value.validate()?;
@@ -536,6 +564,6 @@ impl MarketPolicy {
     pub fn digest(&self) -> CodecResult<PolicyDigest> {
         let mut bytes = [0; MARKET_POLICY_BYTES];
         self.encode(&mut bytes)?;
-        PolicyDigest::new(domain_hash("PAXAI/policy/v2", &bytes)?.bytes())
+        PolicyDigest::new(domain_hash("PAXAI/policy/v3", &bytes)?.bytes())
     }
 }

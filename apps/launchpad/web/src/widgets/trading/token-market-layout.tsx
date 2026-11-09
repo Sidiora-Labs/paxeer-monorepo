@@ -20,6 +20,7 @@ import McAthCard from '@/widgets/coin/mc-ath-card';
 import CreatorRewardsCard from '@/widgets/coin/creator-rewards-card';
 import CoinTabs from '@/widgets/coin/coin-tabs';
 import TokenDescription from './token-description';
+import { MetadataViewer } from '@/features/metadata-media/viewer';
 
 const TvChart = dynamic(() => import('./tv-chart'), { ssr: false });
 const TradePanel = dynamic(() => import('./trade-panel'), { ssr: false });
@@ -116,6 +117,16 @@ export default function TokenMarketLayout({ poolAddress }: { poolAddress: string
    * traffic mounts (an unknown address must not poll before its 404 arrives).
    */
   const marketPool = pool ?? (settled ? poolAddress : null);
+  const trading = <>
+    <div className="hidden min-w-0 lg:block">
+      <PremiumErrorBoundary area="TradePanel">
+        <Suspense fallback={<Skeleton variant="block" height={320} label="trade panel" />}>
+          {marketPool ? <TradePanel poolAddress={marketPool} /> : <Skeleton variant="block" height={320} label="trade panel" />}
+        </Suspense>
+      </PremiumErrorBoundary>
+    </div>
+    {marketPool ? <MobileTradeDrawer poolAddress={marketPool} /> : null}
+  </>;
   const notice = !settled ? null : <FreshnessNotice freshness={live.freshness} stream={live.state.stream} error={live.state.error} onReconnect={() => { void live.session.start(); }} />;
   return (
     <div
@@ -140,13 +151,7 @@ export default function TokenMarketLayout({ poolAddress }: { poolAddress: string
           </PremiumErrorBoundary>
         </div>
         <aside aria-label="Trade and coin details" className="grid min-w-0 grid-cols-1 gap-2 md:grid-cols-2 lg:col-start-2 lg:row-start-1 lg:row-span-2 lg:grid-cols-1 xl:col-start-3">
-          <div className="hidden min-w-0 lg:block">
-            <PremiumErrorBoundary area="TradePanel">
-              <Suspense fallback={<Skeleton variant="block" height={320} label="trade panel" />}>
-                {marketPool ? <TradePanel poolAddress={marketPool} /> : <Skeleton variant="block" height={320} label="trade panel" />}
-              </Suspense>
-            </PremiumErrorBoundary>
-          </div>
+          {data ? <MetadataViewer key={data.pool.tokenAddress} tokenAddress={data.pool.tokenAddress} tradePanel={trading} /> : trading}
           {pool ? (
             <PremiumErrorBoundary area="LiveStream">
               <Suspense fallback={null}>
@@ -162,13 +167,15 @@ export default function TokenMarketLayout({ poolAddress }: { poolAddress: string
           <PremiumErrorBoundary area="Description"><DescriptionCard poolAddress={poolAddress} /></PremiumErrorBoundary>
           <PremiumErrorBoundary area="Creator rewards"><CreatorRewardsCard poolAddress={poolAddress} /></PremiumErrorBoundary>
         </aside>
-        <div className="min-w-0 lg:col-start-1 lg:row-start-2 xl:col-start-2">
+        <div className="min-w-0 lg:col-start-1 lg:row-start-2 xl:col-start-2" ref={element => {
+          const tabs = element?.querySelector('section[aria-label="Coin details"]');
+          tabs?.setAttribute('aria-label', 'Market activity');
+        }}>
           {marketPool ? (
             <PremiumErrorBoundary area="Coin tabs"><CoinTabs poolAddress={marketPool} live={live} price={price} /></PremiumErrorBoundary>
           ) : <Skeleton variant="block" height={240} label="coin details" />}
         </div>
       </div>
-      {marketPool ? <MobileTradeDrawer poolAddress={marketPool} /> : null}
     </div>
   );
 }

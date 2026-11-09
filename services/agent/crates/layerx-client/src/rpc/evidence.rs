@@ -39,6 +39,9 @@ mod sealed {
 /// to treat an unauthenticated root as committed evidence.
 pub trait ProofBundleTarget: sealed::Target {
     type Bundle;
+    /// # Errors
+    ///
+    /// Returns missing-header, RPC, block, witness or proof errors unless all requested storage evidence is authenticated under the committed header.
     fn read_bundle(
         self,
         endpoint: &SequencerEndpoint,
@@ -87,6 +90,9 @@ impl From<SequencerError> for EvidenceError {
     }
 }
 
+/// # Errors
+///
+/// Returns an RPC error or unavailable when the block is absent.
 pub fn checkpoint(
     endpoint: &SequencerEndpoint,
     height: u64,
@@ -96,6 +102,9 @@ pub fn checkpoint(
         .ok_or(EvidenceError::Rpc(SequencerError::Unavailable))
 }
 
+/// # Errors
+///
+/// Returns missing-header, RPC, block, witness or proof errors unless all requested storage evidence is authenticated under the committed header.
 pub fn proof_bundle<T: ProofBundleTarget>(
     endpoint: &SequencerEndpoint,
     address: [u8; 20],
@@ -137,6 +146,9 @@ fn witnessed_bundle(
     })
 }
 
+/// # Errors
+///
+/// Returns missing-header, RPC, block, witness or proof errors unless all requested storage evidence is authenticated under the committed header.
 pub fn proof_bundle_with_history<T: ProofBundleTarget>(
     endpoint: &SequencerEndpoint,
     address: [u8; 20],

@@ -159,7 +159,7 @@ const MarketRowItem = React.memo(function MarketRowItem({
   onToggleFavorite: (symbol: string) => void;
 }) {
   const router = useRouter();
-  const positive = row.change24h >= 0;
+  const positive = row.change24h !== null && row.change24h >= 0;
   const funding8h = fundingWadFigure(row.funding8h);
 
   const goTrade = useCallback(
@@ -236,19 +236,23 @@ const MarketRowItem = React.memo(function MarketRowItem({
 
       {/* ── Mobile: compact price/change block ── */}
       <div className="flex flex-col items-end shrink-0 md:hidden">
-        <PriceFlash
-          value={row.price}
-          className="text-sm font-mono font-semibold tabular-nums text-foreground"
-        >
-          {row.price > 0 ? `$${fmtPrice(row.price)}` : "—"}
-        </PriceFlash>
+        {row.price === null ? (
+          <span className="text-sm font-mono tabular-nums text-muted-foreground">—</span>
+        ) : (
+          <PriceFlash
+            value={row.price}
+            className="text-sm font-mono font-semibold tabular-nums text-foreground"
+          >
+            {row.price > 0 ? `$${fmtPrice(row.price)}` : "—"}
+          </PriceFlash>
+        )}
         <span
           className={cn(
             "text-[11px] font-mono tabular-nums",
-            row.hasLiveData ? (positive ? "text-emerald-400" : "text-red-400") : "text-muted-foreground",
+            row.hasLiveData && row.change24h !== null ? (positive ? "text-emerald-400" : "text-red-400") : "text-muted-foreground",
           )}
         >
-          {row.hasLiveData ? fmtChangePct(row.change24h) : "—"}
+          {row.hasLiveData && row.change24h !== null ? fmtChangePct(row.change24h) : "—"}
         </span>
         <span className="text-[10px] font-mono tabular-nums text-muted-foreground mt-0.5">
           {row.volume24h > 0 ? `${fmtUsd(row.volume24h)} vol` : ""}
@@ -257,21 +261,25 @@ const MarketRowItem = React.memo(function MarketRowItem({
 
       {/* ── Desktop grid cells ── */}
       <div className="hidden md:flex justify-end">
-        <PriceFlash
-          value={row.price}
-          className="text-sm font-mono font-semibold tabular-nums text-foreground"
-        >
-          {row.price > 0 ? `$${fmtPrice(row.price)}` : "—"}
-        </PriceFlash>
+        {row.price === null ? (
+          <span className="text-sm font-mono tabular-nums text-muted-foreground">—</span>
+        ) : (
+          <PriceFlash
+            value={row.price}
+            className="text-sm font-mono font-semibold tabular-nums text-foreground"
+          >
+            {row.price > 0 ? `$${fmtPrice(row.price)}` : "—"}
+          </PriceFlash>
+        )}
       </div>
       <div className="hidden md:flex justify-end">
         <span
           className={cn(
             "text-xs font-mono tabular-nums font-medium",
-            row.hasLiveData ? (positive ? "text-emerald-400" : "text-red-400") : "text-muted-foreground",
+            row.hasLiveData && row.change24h !== null ? (positive ? "text-emerald-400" : "text-red-400") : "text-muted-foreground",
           )}
         >
-          {row.hasLiveData ? fmtChangePct(row.change24h) : "—"}
+          {row.hasLiveData && row.change24h !== null ? fmtChangePct(row.change24h) : "—"}
         </span>
       </div>
       <div className="hidden md:flex justify-end">

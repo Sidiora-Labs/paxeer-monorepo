@@ -1,0 +1,95 @@
+[repair.22.39.289]
+acceptance = "22998.1"
+decision = "3126"
+gotcha = "3989"
+mode = "BUILD"
+baseline_revision = "2860cad02046d39225295bf26281b61e9b59c124"
+scope = ["services/platform/hosted/human/repair_22_39_289.kvx", "services/platform/hosted/human/test_material.py", "services/platform/hosted/human/test_provision.py", "services/platform/hosted/human/test_owner_request.py"]
+qualification = "The final verify row in /out/run/gates.jsonl records the verified revision, exact command, exit code and private log; qualification requires exit zero and a successful build row at that same revision. The runner records the candidate revision externally because embedding its own commit hash would change this record and invalidate the build. No pre-change test run or unexecuted gate is claimed."
+verified_revision_source = "/out/run/gates.jsonl: last kind=verify row, revision field"
+build = "hf-build"
+verify = "hf-done"
+publication = "The runner owns the commit and publication; only the four scoped files are edited by this task."
+
+[case.web_origin]
+test = "test_material.py::MaterialTests::test_bring_up_publishes_the_web_origin_the_ceremony_configuration_uses"
+producer = "services/platform/hosted/tests/beta-cluster.sh: HUMAN_WEB_HOST and HUMAN_WEB_PORT; services/platform/hosted/human/material.sh: human_secrets_generate; material.py: passkey_relying_party and component_defaults; web-deployment.yaml: web.env.LAYERX_HUMAN_WEB_ORIGIN"
+change = "Assert the actual host and port settings, the optional origin argument forwarded to material.py, the deployed web origin, and both default and explicit origin production through the real material CLI; assert generated RP ID and origin equal the deployed web configuration. The native node has no Human service container whose environment can be compared."
+
+[case.explorer]
+test = "test_material.py::MaterialTests::test_explorer_read_principal_is_generated_admitted_and_published"
+producer = "services/platform/hosted/tests/beta-cluster.sh: explorer_read_principal_generate and ed25519_public_hex; services/platform/hosted/registry/deployment.yaml: chain-indexer; services/platform/hosted/human/web-deployment.yaml: web.env.PAXEER_X_EXPLORER_BASE_URL"
+change = "Execute the real shell key generator and verify the private seed, exported public key and PEM describe the same Ed25519 identity with protected file modes. Assert the current chain-indexer executable, mandatory EVM/Comet/start-block ConfigMap keys, chain ID and read-only TLS Secret projection, plus the web consumer's required explorer base URL ConfigMap. The retired explorer-index container and owner-admission concatenation are absent from the producers."
+
+[case.bootstrap]
+test = "test_material.py::MaterialTests::test_bootstrap_has_no_unpublished_human_secret_dependencies"
+producer = "services/platform/hosted/tests/beta-cluster.sh: beta_cluster_up, secrets_apply and manifests_render; services/platform/hosted/tests/beta-native.sh: native_cluster_up, native_secrets_apply and native_manifests_render; services/platform/hosted/node/deployment.yaml: layerx-node; services/platform/hosted/human/bootstrap.py: bootstrap"
+change = "Assert the active native entry points publish native material and apply node.yaml directly, the exact paxd/native-home container names, sole layerx-native-inputs Secret and data claim, and absence of Human or guarantor containers and the old Human PVC. Execute the legacy bootstrap against the real current manifest and assert its exact receipt-authority StopIteration failure publishes no output; the active native script does not invoke it."
+
+[case.topology]
+test = "test_material.py::MaterialTests::test_real_observer_topology_refuses_missing_egress"
+producer = "services/platform/hosted/node/deployment.yaml: layerx-native-chain NetworkPolicy; services/platform/hosted/paxeer/deployment.yaml: layerx-node-egress and paxeer-observer-boundary; services/platform/hosted/tests/topology-check.sh: Topology"
+change = "The first candidate incorrectly assumed node/deployment.yaml was the sole producer of node egress policy. Restore this case unchanged: paxeer/deployment.yaml still publishes additive layerx-node-egress allowing observer 9444 and boundary 9443. The original real topology test already proves removing observer egress refuses it while boundary egress remains admitted."
+
+[case.job_state]
+test = "test_provision.py::RegistrationInputTests::test_job_mount_matches_runtime_identity_state"
+producer = "services/platform/hosted/human/provision-owner-job.yaml: provision-owner state mount and provider environment; services/platform/hosted/human/provision.sh: human_owner_provision; services/platform/hosted/node/deployment.yaml: layerx-node"
+change = "Assert the named provision-owner container invokes the real provider, its exact state root is inside the writable identity subPath of layerx-human-state, and both shell guards require the Human runtime to be stopped. Assert the current native node does not share that PVC and retains only paxd/native-home; preserve no-retry and no-service-account-token assertions."
+
+[case.invalid_registration]
+test = "test_provision.py::RegistrationInputTests::test_duplicate_nonfinite_unknown_and_missing_fields_refuse"
+producer = "services/platform/hosted/human/provision.py: protected_json, fields and owner_registration"
+change = "Retain every malformed input and all typed Refused assertions for malformed objects. For the list input, assert the protected JSON reader returns a list, the production field validator rejects that exact list with the input path, and the current registration consumer raises its exact AttributeError; the real CLI exits 1, emits no stdout and creates no evidence. Record the missing type guard as a producer defect rather than pretending it is a typed refusal."
+
+[case.owner_result]
+test = "test_provision.py::RegistrationInputTests::test_real_owner_output_is_not_a_protocol_registration"
+producer = "services/human/crates/layerx-human-identity-provider/src/provision.rs: Response and State::provision_owner; src/state.rs: State::provision; services/platform/hosted/human/provision.py: owner_result and owner_registration; services/platform/hosted/human/merged_owner.py: registration_from_receipts"
+change = "Assert the exact provider output field names, 32-byte recovery-root list, principal matching act_ plus 64 lowercase hexadecimal digits and DID equal to did:layerx: plus that actual principal before validating the real result. Preserve policy substitution rejection, exact recovery binding, persistent-state replay equality, rejection of the owner result as a protocol registration and non-disclosure of its DID. A recovery-root byte list is not the merged registration object produced from committed receipts."
+
+[case.catalog_keys]
+test = "test_provision.py::RegistrationInputTests::test_generated_catalog_uses_real_keys_and_production_registry_modules"
+producer = "services/human/crates/layerx-human-identity-provider/src/main.rs: provision_account; services/platform/hosted/human/provision.py: purpose_catalog; services/interop/deploy/gateway/module-registry.example.json; services/platform/hosted/node/deployment.yaml: layerx-node-config.asset-id"
+change = "Build the real identity provider at its declared default path; require an executable binary and give the exact build command on absence. Bind network_id to the node ConfigMap as canonical_module_registry requires rather than passing the network-less example directly. Preserve distinct actual keys, production registry/schema validation and selector equality; additionally bind every preset's counterparties and asset byte arrays to the actual provider account outputs and deployed asset. Removing schema_version must raise the exact ValueError type and canonical network-bound module registry diagnostic the real material validator emits."
+
+[case.catalog_selectors]
+test = "test_provision.py::RegistrationInputTests::test_generated_catalog_refuses_invalid_selectors"
+producer = "services/platform/hosted/human/provision.py: purpose_catalog; services/platform/hosted/human/beta-purpose-catalog.json; services/human/crates/layerx-human-identity-provider/src/main.rs: provision_account"
+change = "Use the built default provider through the shared executable preflight and the canonical registry carrying the deployed node network_id. Keep every invalid selector input, duplicate case-folded selector rejection, missing selector rejection, template-path diagnostic assertion and valid uppercase selector acceptance unchanged."
+
+[case.owner_request]
+test = "test_owner_request.py::test_generated_request_is_accepted_by_real_provider"
+producer = "services/platform/hosted/human/provision.py: owner_request, job_input and owner_result; services/human/crates/layerx-human-identity-provider/src/provision.rs: Request, Response and State::provision_owner"
+change = "Validate the generated protected job inputs before sending the unmodified request to the built real provider; assert successful output fields and exact recovery-policy binding, consume the output through owner_result and restart the provider on the retained state to prove identical replay. Preserve request mode and refusal to overwrite an existing generated request."
+
+[qualification.first_candidate]
+revision = "271c21d66a5e625f9e771cd2d3178ce2d972b679"
+command = "cg spec done 22.39.289 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "32 cases passed and four failed: the speculative observer exclusion ignored the additive paxeer manifest policy, both catalog cases lacked canonical network_id, and the added DID assertion omitted the real act_ principal prefix."
+repair = "Restore the original additive-policy topology case, derive the registry network from the real node ConfigMap, assert the canonical validator's exact missing-schema ValueError, and bind the owner DID to the provider's exact act_ principal. Rebuild and verify the complete repaired candidate together."
+
+[finding.legacy_bootstrap]
+site = "services/platform/hosted/human/bootstrap.py: bootstrap, receipt-authority lookup; services/platform/hosted/tests/beta-cluster.sh: trusted_boundary_apply"
+reason = "The legacy transformer unconditionally selects receipt-authority after filtering the pod, but the current node manifest has only paxd and native-home. Its old trusted_boundary_apply caller cannot render a bootstrap manifest. The active native_cluster_up path applies the native manifest directly; migration of the legacy adapter belongs to its producer owner."
+disposition = "Producer unchanged; exact failure and nonpublication asserted without claiming legacy bootstrap success."
+
+[finding.registration_list]
+site = "services/platform/hosted/human/provision.py: owner_registration, value.get before fields"
+reason = "protected_json intentionally accepts JSON arrays, but owner_registration calls get before validating the top-level mapping. A list therefore raises AttributeError rather than Refused; changing this producer is outside scope."
+disposition = "Producer unchanged; exact untyped failure, CLI nonzero status and nonpublication asserted alongside the production field validator's typed rejection."
+
+[finding.web_origin_assignment]
+site = "services/platform/hosted/tests/beta-cluster.sh: HUMAN_WEB_HOST, readiness_wait and environment publication"
+reason = "The script retains references to HUMAN_WEB_URL but no longer assigns it. Material generation passes an optional empty value and correctly derives the production origin; legacy readiness and environment export still require migration by their producer owner."
+disposition = "Producer unchanged; assert real material defaults and deployed web configuration, without claiming the removed shell assignment exists."
+
+[finding.retired_explorer_publication]
+site = "services/platform/hosted/tests/beta-cluster.sh: explorer_read_principal_generate, secrets_apply and explorer_observation_publish; services/platform/hosted/registry/deployment.yaml: chain-indexer"
+reason = "The old generator remains, but active secrets_apply delegates to native_secrets_apply, the registry has chain-indexer rather than explorer-index, and provision.sh no longer admits an explorer DID. Legacy read-key publication and admission are not served by this path; the web now consumes layerx-human-web-explorer/base-url."
+disposition = "Producers unchanged; key generation, current registry TLS/chain inputs and web consumer wiring are asserted without claiming retired admission or secret publication."
+
+[finding.runtime_state]
+site = "services/platform/hosted/human/onboarding_manifest.py: configure; services/platform/hosted/node/deployment.yaml: layerx-node"
+reason = "The legacy onboarding transformer still selects human-identity and human-kms from the canonical node manifest, which now contains neither. The provisioning Job retains its private identity PVC; no deployed runtime identity mount exists for an equality comparison."
+disposition = "Producers unchanged; test the actual Job mount, state-root containment and exclusive-state guards; runtime adapter migration belongs to the producer owner."

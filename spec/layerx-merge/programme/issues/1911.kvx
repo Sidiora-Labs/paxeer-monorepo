@@ -1,0 +1,7 @@
+[issue.1911]
+number = 1911
+title = "[Coherence] Tests that pin the committed manifest's pending-governance state still assert it and now fail"
+revision = "3520b1428059af90261432778c008a9ce362a0b1"
+verdict = "already-fixed"
+evidence = "Commit f285b9e530ea3163b04289754c95a1a725cf9673 aligned the tests with the governed manifest at services/bridge/deploy/attestors.json:3: services/bridge/deploy/proposals/proposals_test.go:351 accepts it and verifies proposal output for all nine chains, services/bridge/deploy/proposals/proposals_test.go:419 retains pending-governance rejection using a separate temporary manifest, tools/qualification/audit_repairs/test_repair_22_31_402.py:75 asserts the governed set without pending slots and tools/qualification/audit_repairs/test_repair_22_31_402.py:146 checks that separate rejection test, while tools/qualification/audit_repairs/test_repair_22_31_392.py:105 asserts the committed manifest passes the guard without a pending marker."
+close_comment = "The bridge proposal and audit-repair tests now accept the committed governed signer set and verify its agreement with the chain configurations. Separate negative coverage continues to reject pending-governance manifests and placeholder signers."

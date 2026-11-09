@@ -1,15 +1,18 @@
-//! Proves: registry_ops::apply/read_state_chunk, Eip1559Call::sign and repository-recorded RPC producers -> ObservedSnapshot, CommitFinality, FinalizedSnapshot, OperationJournal, SequencerEndpoint and PxEndpoint -> clients.md public API consumers.
+//! Proves: `registry_ops::apply/read_state_chunk`, `Eip1559Call::sign` and
+//! repository-recorded RPC producers -> `ObservedSnapshot`, `CommitFinality`,
+//! `FinalizedSnapshot`, `OperationJournal`, `SequencerEndpoint` and `PxEndpoint`
+//! -> clients.md public API consumers.
 //!
-//! Repairs ai_market.rs::decode_snapshot_binding accepting a commit below the
+//! Repairs `ai_market.rs::decode_snapshot_binding` accepting a commit below the
 //! captured execution height. Malformed bytes come from the real binding encoder.
-//! The retired CheckpointFinality path is exercised as a refusal, not reintroduced.
+//! The retired `CheckpointFinality` path is exercised as a refusal, not reintroduced.
 //! RPC production replays the registered gateway contract examples in
-//! tests/fixtures/repair_22_33_1546_gateway.json over a loopback listener.
+//! `tests/fixtures/repair_22_33_1546_gateway.json` over a loopback listener.
 //! The public HTTP/JSON-RPC transport and consumer decoders run on every read;
 //! only refusal cases damage a producer result. No URL comes from the environment.
-//! Inventory finding: interfaces.kvx::rs-client-ai-market-checkpointfinality-j44
-//! names a removed type and ai_market_client.rs callers absent at this revision;
-//! the replacement exercised here is CommitFinality, as required by clients.md.
+//! Inventory finding: `interfaces.kvx::rs-client-ai-market-checkpointfinality-j44`
+//! names a removed type and `ai_market_client.rs` callers absent at this revision;
+//! the replacement exercised here is `CommitFinality`, as required by clients.md.
 
 #[path = "support/gateway_22_33_1546.rs"]
 mod gateway_repair;
@@ -280,7 +283,9 @@ fn prepared_operation(registry: &ModuleRegistry) -> Checked<PreparedOperation> {
             capabilities: &[0, 0],
             access_declaration: b"LayerX/programs/access-declaration/v1\0\0",
             response_capacity: 16,
-            resources: Resources([1000000, 16777216, 1048576, 1048576, 64, 1048576, 4096]),
+            resources: Resources([
+                1_000_000, 16_777_216, 1_048_576, 1_048_576, 64, 1_048_576, 4096,
+            ]),
             gas_limit: 100_000,
             max_fee_per_gas: 30,
             max_priority_fee_per_gas: 2,
@@ -407,8 +412,8 @@ fn CheckpointFinality() -> Checked {
 fn signed_producer_survives_journal_reopen_and_refuses_corruption() -> Checked {
     let registry = registry()?;
     let prepared = prepared_operation(&registry)?;
-    let signer = owner_signer()?;
-    let from = signer
+    let owner_key = owner_signer()?;
+    let from = owner_key
         .evm_address()
         .ok_or_else(|| Failure::Setup("missing sender".into()))?;
     let review = prepared.review(&registry, from)?;
@@ -426,8 +431,8 @@ fn signed_producer_survives_journal_reopen_and_refuses_corruption() -> Checked {
     )));
     let journal = OperationJournal::open(&directory.0)?;
     journal.record_signed(&signed)?;
-    let path = journal.record_path(&id);
-    let encoded = fs::read(&path).map_err(setup("journal bytes"))?;
+    let record_path = journal.record_path(&id);
+    let encoded = fs::read(&record_path).map_err(setup("journal bytes"))?;
     assert_eq!(OperationRecord::decode(&encoded, &registry)?, signed);
     drop(journal);
     drop(signed);
@@ -448,7 +453,7 @@ fn signed_producer_survives_journal_reopen_and_refuses_corruption() -> Checked {
         reopened.load(&wrong_id, &registry),
         Err(AiClientError::CorruptRecord)
     );
-    fs::write(&path, &encoded[..encoded.len() - 1]).map_err(setup("truncate journal"))?;
+    fs::write(&record_path, &encoded[..encoded.len() - 1]).map_err(setup("truncate journal"))?;
     assert!(
         reopened.load(&id, &registry).is_err(),
         "load must decode disk again, without cached state"
@@ -468,8 +473,7 @@ use layerx_client::rpc::history as consumer_history;
 use layerx_client::sequencer::{SequencerEndpoint, SequencerError};
 use serde_json::{json, Value};
 
-#[allow(dead_code)]
-#[path = "../../../../platform/hosted/gateway/src/evm.rs"]
+#[path = "support/gateway_evm_22_39_219.rs"]
 mod gateway_evm;
 
 #[derive(Clone, Debug)]
@@ -554,11 +558,10 @@ impl RecordedProducer {
                 } else {
                     assert_eq!(*params, record["request"]["params"]);
                 }
-                let mut result = record["response"]
+                record["response"]
                     .get("result")
                     .unwrap_or_else(|| panic!("recorded producer refused: {method}"))
-                    .clone();
-                result
+                    .clone()
             }
         }
     }
@@ -634,7 +637,9 @@ impl Crossing {
                         document.get("error").is_none(),
                         "producer refused: {document}"
                     );
-                    let (_, replacement) = fault.take().expect("armed response fault");
+                    let Some((_, replacement)) = fault.take() else {
+                        panic!("armed response fault")
+                    };
                     document["result"] = replacement;
                 }
                 drop(fault);
@@ -720,204 +725,265 @@ fn px_getNetwork() {
     let px = must(PxEndpoint::new(&crossing.url, &[]));
     let account = "0x102132435465768798a9bacbdcedfe0f1e2d3c4b".to_owned();
     let address: [u8; 20] = must(market_repair::unhex(&account).try_into());
-    let history_account = gateway_repair::records()["history"]["account"]
-        .as_str()
-        .expect("history account")
-        .to_owned();
+    let history_account = (match gateway_repair::records()["history"]["account"].as_str() {
+        Some(required_value) => required_value,
+        None => panic!("history account"),
+    })
+    .to_owned();
     // Each iteration must reach the producer again, preserving the gateway history head.
     for iteration in 1..=2 {
-        let chain = must(sequencer.chain_id());
-        assert_eq!(chain, number(&crossing.latest("eth_chainId").result));
-        let balance = must(sequencer.balance(&address));
-        let exchange = crossing.latest("eth_getBalance");
-        assert_eq!(exchange.params, json!([account, "pending"]));
-        assert_eq!(balance, word(&exchange.result));
-        let joined = must(px.account(&account));
-        let exchange = crossing.latest("px_getAccount");
-        assert_eq!(exchange.params, json!([account]));
-        assert_eq!(joined.account.bound, exchange.result["account"]["bound"]);
-        assert_eq!(
-            joined.paxeer.is_some(),
-            !exchange.result["paxeer"].is_null()
+        assert_network_read_iteration(
+            &crossing,
+            &sequencer,
+            &px,
+            &account,
+            &address,
+            &history_account,
+            iteration,
         );
-        assert_eq!(joined.account.evm_address, Some(address));
-        assert_eq!(
-            joined.account.layerx_account,
-            Some(word(&exchange.result["account"]["layerx_account"]))
-        );
-        assert_eq!(
-            joined.account.layerx_did.as_deref(),
-            exchange.result["account"]["layerx_did"].as_str()
-        );
-        assert_eq!(
-            joined.account.pax_address.as_deref(),
-            exchange.result["account"]["pax_address"].as_str()
-        );
-        let paxeer = joined.paxeer.as_ref().expect("recorded Paxeer account");
-        assert_eq!(paxeer.address, address);
-        assert_eq!(paxeer.balance.decimal(), "81985529216486895");
-        assert_eq!(paxeer.height, exchange.result["paxeer"]["height"]);
-        assert_eq!(paxeer.nonce, 42);
-        assert_eq!(
-            joined.layerx.as_ref(),
-            exchange.result["layerx"].as_object()
-        );
-        let balances = must(px.balances(&account));
-        let exchange = crossing.latest("px_getBalances");
-        assert_eq!(exchange.params, json!([account]));
-        assert_eq!(
-            balances.balances.len(),
-            exchange.result["balances"]
-                .as_array()
-                .unwrap_or_else(|| panic!("balance rows"))
-                .len()
-        );
-        assert_eq!(balances.height, number(&exchange.result["height"]));
-        assert_eq!(balances.account, joined.account);
-        let row = balances.balances.first().expect("recorded balance row");
-        assert_eq!(row.denom, "ulxp");
-        assert_eq!(row.amount.decimal(), "123456789");
-        for (row, produced) in balances
+    }
+    assert_network_read_refusals(&crossing, &sequencer, &px, &account, &address);
+}
+
+fn assert_network_read_iteration(
+    crossing: &Crossing,
+    sequencer: &SequencerEndpoint,
+    px: &PxEndpoint,
+    account: &str,
+    address: &[u8; 20],
+    history_account: &str,
+    iteration: usize,
+) {
+    let chain = must(sequencer.chain_id());
+    assert_eq!(chain, number(&crossing.latest("eth_chainId").result));
+    let balance = must(sequencer.balance(address));
+    let exchange = crossing.latest("eth_getBalance");
+    assert_eq!(exchange.params, json!([account, "pending"]));
+    assert_eq!(balance, word(&exchange.result));
+    let joined = must(px.account(account));
+    let exchange = crossing.latest("px_getAccount");
+    assert_eq!(exchange.params, json!([account]));
+    assert_eq!(joined.account.bound, exchange.result["account"]["bound"]);
+    assert_eq!(
+        joined.paxeer.is_some(),
+        !exchange.result["paxeer"].is_null()
+    );
+    assert_eq!(joined.account.evm_address, Some(*address));
+    assert_eq!(
+        joined.account.layerx_account,
+        Some(word(&exchange.result["account"]["layerx_account"]))
+    );
+    assert_eq!(
+        joined.account.layerx_did.as_deref(),
+        exchange.result["account"]["layerx_did"].as_str()
+    );
+    assert_eq!(
+        joined.account.pax_address.as_deref(),
+        exchange.result["account"]["pax_address"].as_str()
+    );
+    let Some(paxeer) = joined.paxeer.as_ref() else {
+        panic!("recorded Paxeer account")
+    };
+    assert_eq!(paxeer.address, *address);
+    assert_eq!(paxeer.balance.decimal(), "81985529216486895");
+    assert_eq!(paxeer.height, exchange.result["paxeer"]["height"]);
+    assert_eq!(paxeer.nonce, 42);
+    assert_eq!(
+        joined.layerx.as_ref(),
+        exchange.result["layerx"].as_object()
+    );
+    let balances = must(px.balances(account));
+    let exchange = crossing.latest("px_getBalances");
+    assert_eq!(exchange.params, json!([account]));
+    assert_eq!(
+        balances.balances.len(),
+        exchange.result["balances"]
+            .as_array()
+            .unwrap_or_else(|| panic!("balance rows"))
+            .len()
+    );
+    assert_eq!(balances.height, number(&exchange.result["height"]));
+    assert_eq!(balances.account, joined.account);
+    let Some(row) = balances.balances.first() else {
+        panic!("recorded balance row")
+    };
+    assert_eq!(row.denom, "ulxp");
+    assert_eq!(row.amount.decimal(), "123456789");
+    for (row, produced) in
+        balances
             .balances
             .iter()
-            .zip(exchange.result["balances"].as_array().expect("coins"))
-        {
-            assert_eq!(row.denom, produced["denom"]);
-            assert_eq!(row.amount.decimal(), produced["amount"]);
-        }
-        let assets = must(px.list_assets());
-        let exchange = crossing.latest("px_listAssets");
-        assert_eq!(exchange.params, json!([]));
-        assert_eq!(
-            assets.assets.len(),
-            exchange.result["assets"]
-                .as_array()
-                .unwrap_or_else(|| panic!("asset rows"))
-                .len()
-        );
-        assert_eq!(
-            assets.joined_limit,
-            number(&exchange.result["joined_limit"])
-        );
-        let asset = assets.assets.first().expect("recorded asset");
-        assert_eq!(assets.height, number(&exchange.result["height"]));
-        assert_eq!(asset.asset_id, exchange.result["assets"][0]["asset_id"]);
-        assert_eq!(asset.kind, "layerx");
-        assert_eq!(asset.denom, None);
-        assert_eq!(
-            asset.name.as_deref(),
-            exchange.result["assets"][0]["name"].as_str()
-        );
-        assert_eq!(
-            asset.symbol.as_deref(),
-            exchange.result["assets"][0]["symbol"].as_str()
-        );
-        assert_eq!(
-            asset.decimals.map(u64::from),
-            exchange.result["assets"][0]["decimals"].as_u64()
-        );
-        assert_eq!(
-            asset.supply.expect("recorded supply").decimal(),
-            exchange.result["assets"][0]["supply"]
-        );
-        assert_eq!(asset.paused, Some(false));
-        assert_eq!(
-            asset.verification.as_deref(),
-            Some("authenticated_committed_snapshot")
-        );
-        let head = must(px.network());
-        let exchange = crossing.latest("px_getNetwork");
-        assert_eq!(exchange.params, json!([]));
-        assert_eq!(head.paxeer.chain_id, chain);
-        assert_eq!(head.network_id, exchange.result["network_id"]);
-        assert_eq!(
-            head.paxeer.latest_block,
-            number(&exchange.result["paxeer"]["latest_block"])
-        );
-        assert_eq!(
-            head.latest_committed_height,
-            number(&exchange.result["consensus"]["latest_height"])
-        );
-        let history = must(consumer_history::history(
-            &sequencer,
-            &history_account,
-            None,
-            Some(2),
-        ));
-        let exchange = crossing.latest("px_getHistory");
-        assert_eq!(exchange.params, json!([history_account, null, 2]));
-        assert_eq!(
-            history.items,
-            *exchange.result["items"]
-                .as_array()
-                .unwrap_or_else(|| panic!("history rows"))
-        );
-        assert_eq!(
-            history.next_cursor.as_deref(),
-            exchange.result["next_cursor"].as_str()
-        );
-        assert_eq!(
-            history.indexed_height,
-            exchange.result["indexedHeight"].as_u64()
-        );
-        assert_eq!(
-            history.chain_height,
-            exchange.result["chainHeight"].as_u64()
-        );
-        assert_eq!(history.account, history_account);
-        assert_eq!(history.freshness, exchange.result["freshness"]);
-        let exchanges = must(crossing.exchanges.lock());
-        assert!(exchanges
-            .iter()
-            .all(|exchange| exchange.method != "eth_blockNumber"));
-        for method in [
-            "eth_chainId",
-            "eth_getBalance",
-            "px_getAccount",
-            "px_getBalances",
-            "px_listAssets",
-            "px_getNetwork",
-            "px_getHistory",
-        ] {
-            assert_eq!(
-                exchanges
-                    .iter()
-                    .filter(|exchange| exchange.method == method)
-                    .count(),
-                iteration
-            );
-        }
+            .zip(match exchange.result["balances"].as_array() {
+                Some(required_value) => required_value,
+                None => panic!("coins"),
+            })
+    {
+        assert_eq!(row.denom, produced["denom"]);
+        assert_eq!(row.amount.decimal(), produced["amount"]);
     }
+    assert_asset_and_network_reads(crossing, px, chain);
+    assert_history_read_iteration(crossing, sequencer, history_account, iteration);
+}
+
+fn assert_asset_and_network_reads(crossing: &Crossing, px: &PxEndpoint, chain: u64) {
+    let assets = must(px.list_assets());
+    let exchange = crossing.latest("px_listAssets");
+    assert_eq!(exchange.params, json!([]));
+    assert_eq!(
+        assets.assets.len(),
+        exchange.result["assets"]
+            .as_array()
+            .unwrap_or_else(|| panic!("asset rows"))
+            .len()
+    );
+    assert_eq!(
+        assets.joined_limit,
+        number(&exchange.result["joined_limit"])
+    );
+    let Some(asset) = assets.assets.first() else {
+        panic!("recorded asset")
+    };
+    assert_eq!(assets.height, number(&exchange.result["height"]));
+    assert_eq!(asset.asset_id, exchange.result["assets"][0]["asset_id"]);
+    assert_eq!(asset.kind, "layerx");
+    assert_eq!(asset.denom, None);
+    assert_eq!(
+        asset.name.as_deref(),
+        exchange.result["assets"][0]["name"].as_str()
+    );
+    assert_eq!(
+        asset.symbol.as_deref(),
+        exchange.result["assets"][0]["symbol"].as_str()
+    );
+    assert_eq!(
+        asset.decimals.map(u64::from),
+        exchange.result["assets"][0]["decimals"].as_u64()
+    );
+    assert_eq!(
+        (match asset.supply {
+            Some(required_value) => required_value,
+            None => panic!("recorded supply"),
+        })
+        .decimal(),
+        exchange.result["assets"][0]["supply"]
+    );
+    assert_eq!(asset.paused, Some(false));
+    assert_eq!(
+        asset.verification.as_deref(),
+        Some("authenticated_committed_snapshot")
+    );
+    let head = must(px.network());
+    let exchange = crossing.latest("px_getNetwork");
+    assert_eq!(exchange.params, json!([]));
+    assert_eq!(head.paxeer.chain_id, chain);
+    assert_eq!(head.network_id, exchange.result["network_id"]);
+    assert_eq!(
+        head.paxeer.latest_block,
+        number(&exchange.result["paxeer"]["latest_block"])
+    );
+    assert_eq!(
+        head.latest_committed_height,
+        number(&exchange.result["consensus"]["latest_height"])
+    );
+}
+
+fn assert_history_read_iteration(
+    crossing: &Crossing,
+    sequencer: &SequencerEndpoint,
+    history_account: &str,
+    iteration: usize,
+) {
+    let history = must(consumer_history::history(
+        sequencer,
+        history_account,
+        None,
+        Some(2),
+    ));
+    let exchange = crossing.latest("px_getHistory");
+    assert_eq!(exchange.params, json!([history_account, null, 2]));
+    assert_eq!(
+        history.items,
+        *exchange.result["items"]
+            .as_array()
+            .unwrap_or_else(|| panic!("history rows"))
+    );
+    assert_eq!(
+        history.next_cursor.as_deref(),
+        exchange.result["next_cursor"].as_str()
+    );
+    assert_eq!(
+        history.indexed_height,
+        exchange.result["indexedHeight"].as_u64()
+    );
+    assert_eq!(
+        history.chain_height,
+        exchange.result["chainHeight"].as_u64()
+    );
+    assert_eq!(history.account, history_account);
+    assert_eq!(history.freshness, exchange.result["freshness"]);
+    let exchanges = must(crossing.exchanges.lock());
+    assert!(exchanges
+        .iter()
+        .all(|exchange| exchange.method != "eth_blockNumber"));
+    for method in [
+        "eth_chainId",
+        "eth_getBalance",
+        "px_getAccount",
+        "px_getBalances",
+        "px_listAssets",
+        "px_getNetwork",
+        "px_getHistory",
+    ] {
+        assert_eq!(
+            exchanges
+                .iter()
+                .filter(|exchange| exchange.method == method)
+                .count(),
+            iteration
+        );
+    }
+}
+
+fn assert_network_read_refusals(
+    crossing: &Crossing,
+    sequencer: &SequencerEndpoint,
+    px: &PxEndpoint,
+    account: &str,
+    address: &[u8; 20],
+) {
     crossing.corrupt_next("eth_chainId");
     assert_eq!(sequencer.chain_id(), Err(SequencerError::Malformed));
     crossing.corrupt_next("eth_getBalance");
-    assert_eq!(sequencer.balance(&address), Err(SequencerError::Malformed));
+    assert_eq!(sequencer.balance(address), Err(SequencerError::Malformed));
     crossing.corrupt_next("px_getAccount");
-    assert_eq!(px.account(&account), Err(SequencerError::Malformed));
+    assert_eq!(px.account(account), Err(SequencerError::Malformed));
     crossing.corrupt_next("px_getBalances");
-    assert_eq!(px.balances(&account), Err(SequencerError::Malformed));
+    assert_eq!(px.balances(account), Err(SequencerError::Malformed));
     crossing.corrupt_next("px_listAssets");
     assert_eq!(px.list_assets(), Err(SequencerError::Malformed));
     crossing.corrupt_next("px_getNetwork");
     assert_eq!(px.network(), Err(SequencerError::Malformed));
     crossing.corrupt_next("px_getHistory");
     assert_eq!(
-        consumer_history::history(&sequencer, &account, None, Some(2)),
+        consumer_history::history(sequencer, account, None, Some(2)),
         Err(SequencerError::Malformed)
     );
     let records = RecordedProducer::from_repository_records();
-    let retired_network = records
+    let retired_network = match records
         .records
         .iter()
         .find(|record| record["request"]["method"] == "px_getNetwork")
-        .expect("recorded retired network")["response"]["result"]
+    {
+        Some(required_value) => required_value,
+        None => panic!("recorded retired network"),
+    }["response"]["result"]
         .clone();
     assert!(retired_network.get("anchor").is_some());
     crossing.replace_next("px_getNetwork", retired_network);
     assert_eq!(px.network(), Err(SequencerError::Malformed));
     let transmitted = must(crossing.exchanges.lock()).len();
     assert_eq!(
-        consumer_history::history(&sequencer, &account, Some("invalid"), Some(2)),
+        consumer_history::history(sequencer, account, Some("invalid"), Some(2)),
         Err(SequencerError::Endpoint)
     );
     assert_eq!(must(crossing.exchanges.lock()).len(), transmitted);

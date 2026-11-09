@@ -48,8 +48,7 @@ function baseReducer (state = initialState, action) {
       })
     }
     case 'RECEIVED_NEW_BLOCK': {
-      const firstBlock = ($('#indexer-first-block').text() && parseInt($('#indexer-first-block').text(), 10)) || 0
-      const blockCount = (action.msg.blockNumber - firstBlock) + 1
+      const blockCount = Math.max(state.blockCount, action.msg.blockNumber)
       // @ts-ignore
       if (!state.blocks.length || state.blocks[0].blockNumber < action.msg.blockNumber) {
         let pastBlocks
@@ -173,7 +172,7 @@ function withMissingBlocks (reducer) {
 }
 
 let chart
-const elements = {
+export const elements = {
   '[data-chart="historyChart"]': {
     load () {
       // @ts-ignore
@@ -331,12 +330,7 @@ if ($chainDetailsPage.length) {
     msg: humps.camelizeKeys(msg)
   }))
 
-  const blocksChannel = socket.channel('blocks_old:new_block')
-  blocksChannel.join()
-  blocksChannel.on('new_block', msg => store.dispatch({
-    type: 'RECEIVED_NEW_BLOCK',
-    msg: humps.camelizeKeys(msg)
-  }))
+  bindBlocksChannel(store)
 
   const transactionsChannel = socket.channel('transactions_old:new_transaction')
   transactionsChannel.join()
@@ -362,6 +356,16 @@ if ($chainDetailsPage.length) {
       type: 'TRANSACTION_BATCH_EXPANDED'
     })
   })
+}
+
+export function bindBlocksChannel (store) {
+  const blocksChannel = socket.channel('blocks_old:new_block')
+  blocksChannel.join()
+  blocksChannel.on('new_block', msg => store.dispatch({
+    type: 'RECEIVED_NEW_BLOCK',
+    msg: humps.camelizeKeys(msg)
+  }))
+  return blocksChannel
 }
 
 function loadTransactions (store) {
