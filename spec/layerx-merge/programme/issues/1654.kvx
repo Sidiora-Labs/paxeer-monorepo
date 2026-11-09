@@ -1,0 +1,48 @@
+[issue.1654]
+number = 1654
+title = "Subscription over-delivery test uses cumulative count after notifications are consumed"
+revision = "bb8caac8b3e73e3e2f4b330805574f0bcb540641"
+verdict = "task"
+evidence = "tests/integration/rpc_tests/utils/subscribeUtils.ts:148 consumes notifications with splice, introduced by commit 9fe6328a30a9843787f4f20503b426b35e92f438, but tests/integration/rpc_tests/eth/eth_subscribe.spec.ts:261 consumes the expected logs before line 266 waits for oracle.length + 1 additional logs and lines 267-270 treat a timeout as no over-delivery, allowing one through N extra matching notifications to escape detection."
+close_comment = "The subscription integration check can miss extra matching logs because its expected notifications have already been consumed. Task 18.1654.1 will detect the first additional matching notification and cover exact delivery and unrelated subscription traffic; this finding alone does not establish a production subscription defect."
+
+[task.18.1654.1]
+title = "Issue #1654: Detect the first excess subscription notification after consuming expected logs"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181654.1"]
+capabilities = []
+interfaces = []
+do_1 = "Add assertNoAdditionalNotifications to tests/integration/rpc_tests/utils/subscribeUtils.ts and call it from assertSubLogsMatchGetLogs in tests/integration/rpc_tests/eth/eth_subscribe.spec.ts:255, replacing the cumulative-count guard at lines 262-270 with a bounded wait for exactly one remaining notification on the same subscription; only a notification timeout establishes absence, while receipt of any extra notification fails and connection or subscription errors propagate."
+do_2 = "Add the named subscriptionOverDeliveryRegression test in tests/integration/rpc_tests/utils/subscribeUtils.unit.spec.ts using a real loopback WebSocket test server and WsClient: consume N expected notifications, require exactly N to pass, require N+1 to fail with the extra notification both already buffered and arriving during the guard, and require notifications on another active subscription to leave the guard successful and remain available to that subscription; also assert successive waitFor calls consume disjoint ordered notifications as specified at tests/integration/rpc_tests/utils/subscribeUtils.ts:138-152 and transport failures cannot pass as absence."
+symbols = ["assertNoAdditionalNotifications", "assertSubLogsMatchGetLogs", "subscriptionOverDeliveryRegression"]
+touches = ["tests/integration/rpc_tests/utils/subscribeUtils.ts", "tests/integration/rpc_tests/eth/eth_subscribe.spec.ts", "tests/integration/rpc_tests/utils/subscribeUtils.unit.spec.ts"]
+tests = ["tests/integration/rpc_tests/utils/subscribeUtils.unit.spec.ts::subscriptionOverDeliveryRegression"]
+planned_paths = ["tests/integration/rpc_tests/utils/subscribeUtils.unit.spec.ts"]
+build_cmd = "pnpm --dir tests/integration/rpc_tests exec tsc --noEmit"
+verify_cmd = "pnpm --dir tests/integration/rpc_tests exec mocha --no-config --require tsx --reporter spec utils/subscribeUtils.unit.spec.ts --grep subscriptionOverDeliveryRegression"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-rpc-api"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181654]
+title = "The subscription over-delivery assertion rejects any extra matching notification"
+ac_1 = "After the expected logs are consumed at tests/integration/rpc_tests/eth/eth_subscribe.spec.ts:261, the guard at lines 262-270 rejects the first additional notification for that subscription within the existing observation interval, passes exactly N deliveries and unrelated-subscription traffic, and propagates transport failures while preserving ordered consuming waitFor semantics at tests/integration/rpc_tests/utils/subscribeUtils.ts:138-152."
+
+[acceptance.18.1654.1]
+feature = "18"
+req = "181654.1"
+scenario = "Given N expected matching notifications have been consumed and another subscription is active, when the bounded over-delivery guard observes the target subscription, then exactly N deliveries and unrelated traffic pass, one additional matching notification fails whether buffered or delayed, transport failures propagate, and successive waits retain ordered consuming behavior."
+contract = "contracts/evm-rpc.md#ws-logs"
+test = "tests/integration/rpc_tests/utils/subscribeUtils.unit.spec.ts::subscriptionOverDeliveryRegression (planned)"
+qualification = "UNRUN"

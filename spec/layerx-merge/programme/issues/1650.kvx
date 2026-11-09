@@ -1,0 +1,49 @@
+[issue.1650]
+number = 1650
+title = "Classify the new Python SDK discovery files in the pipeline inventory"
+revision = "bb8caac8b3e73e3e2f4b330805574f0bcb540641"
+verdict = "task"
+evidence = "The discovery files added by commit 7a2a710bef68175548dcccf2a2de0958688d462b remain at services/agent/sdk/python/TESTING.md:1 and services/agent/sdk/python/tests/test_collection_contract.py:12 but are absent from the handwritten declarations at sdk/platform/pipeline.kvx:113 and sdk/platform/pipeline.kvx:172, while sdk/platform/generators/src/main.rs:119, sdk/platform/generators/src/main.rs:345, sdk/platform/generators/src/main.rs:2103 and sdk/platform/generators/src/main.rs:2177 establish that their discovery under agent-compatibility causes both drift checking and lock writing to reject the missing classifications."
+close_comment = "The Python SDK discovery instructions and collection test are still missing their handwritten pipeline classifications. A focused inventory repair will declare both files and add a regression check while preserving strict rejection of undeclared files."
+
+[task.18.1650.1]
+title = "Issue #1650: Classify the Python SDK discovery files as handwritten"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181650.1"]
+capabilities = []
+interfaces = []
+do_1 = "Add python/TESTING.md and python/tests/test_collection_contract.py with the value handwritten under [handwritten.agent-compatibility] in sdk/platform/pipeline.kvx:113, alongside the existing Python documentation and test inventory at sdk/platform/pipeline.kvx:114 and sdk/platform/pipeline.kvx:171; retain both source files and all existing classifications and generated digests."
+do_2 = "Add repository_python_discovery_files_are_declared in sdk/platform/generators/tests/drift.rs following the real repository capture and parse_lock pattern at sdk/platform/generators/tests/drift.rs:759; assert that both discovery files exist, are captured as handwritten under agent-compatibility, are explicitly declared handwritten by the committed pipeline, and are absent from that output's generated files."
+do_3 = "Keep the strict rejection paths at sdk/platform/generators/src/main.rs:2103 and sdk/platform/generators/src/main.rs:2177 unchanged and preserve the existing unclassified-file and regeneration assertions at sdk/platform/generators/tests/drift.rs:483, sdk/platform/generators/tests/drift.rs:498 and sdk/platform/generators/tests/drift.rs:513; this repair classifies only the two Python discovery files and does not repair unrelated inventory or generated-output drift."
+symbols = ["repository_python_discovery_files_are_declared"]
+touches = ["sdk/platform/pipeline.kvx", "sdk/platform/generators/tests/drift.rs"]
+tests = ["sdk/platform/generators/tests/drift.rs::repository_python_discovery_files_are_declared"]
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path sdk/platform/generators/Cargo.toml -p layerx-platform-sdkgen"
+verify_cmd = "cargo test --locked --manifest-path sdk/platform/generators/Cargo.toml -p layerx-platform-sdkgen --test drift repository_python_discovery_files_are_declared -- --exact"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181650]
+title = "Python SDK discovery files have explicit handwritten pipeline classifications"
+ac_1 = "Both services/agent/sdk/python/TESTING.md:1 and services/agent/sdk/python/tests/test_collection_contract.py:12 remain shipped and are declared handwritten under agent-compatibility in sdk/platform/pipeline.kvx:113, matching their live classification from sdk/platform/generators/src/main.rs:345 without changing unclassified-file enforcement."
+
+[acceptance.18.1650.1]
+feature = "18"
+req = "181650.1"
+scenario = "Given the shipped Python SDK discovery instructions and collection test, when the real repository pipeline is captured and its committed declarations are parsed, then both paths belong to the agent-compatibility handwritten inventory and neither is classified as generated."
+contract = "contracts/platform-sdk.md#pipeline"
+test = "sdk/platform/generators/tests/drift.rs::repository_python_discovery_files_are_declared (planned)"
+qualification = "UNRUN"

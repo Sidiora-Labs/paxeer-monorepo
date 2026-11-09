@@ -1,0 +1,49 @@
+[issue.1634]
+number = 1634
+title = "[P2] Keep state-size scanning after the memiavl true-to-stop change"
+revision = "bb8caac8b3e73e3e2f4b330805574f0bcb540641"
+verdict = "task"
+evidence = "Commit 7776fa009cdb31ed4b6a5f9c085a8d03574a658a remains effective at storage/state_db/sc/memiavl/tree.go:269, where a true callback stops scanning, but storage/tools/cmd/paxdb/operations/state_size.go:196 still returns true after the first leaf, truncating the totals accumulated at state_size.go:159, prefix counts at state_size.go:176 and contract totals at state_size.go:185 before console output at state_size.go:323 or DynamoDB analysis at state_size.go:375, contrary to the unchanged two-key assertions at storage/tools/cmd/paxdb/operations/repair_m1177_test.go:155 and repair_m1177_test.go:169."
+close_comment = "The state-size visitor still stops after the first leaf, undercounting module bytes, prefixes and contracts. A focused repair is tracked to scan every leaf while preserving exporter cancellation and the existing module inventory assertions."
+
+[task.18.1634.1]
+title = "Issue #1634: Scan every leaf when collecting state-size statistics"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181634.1"]
+capabilities = []
+interfaces = []
+do_1 = "Change the visitor in storage/tools/cmd/paxdb/operations/state_size.go:157 to return false at state_size.go:196 so collectModuleStats continues over internal nodes and every leaf under the true-to-stop contract at storage/state_db/sc/memiavl/tree.go:254; preserve all existing module, prefix and contract accumulation and top-contract limiting."
+do_2 = "Add TestStateSizeFullScan in storage/tools/cmd/paxdb/operations/repair_m1177_test.go using real memiavl trees and a committed, closed and reopened database, with multiple prefix bytes, multiple storage keys for one contract and keys for another contract; assert exact leaf counts, key/value/total bytes, every prefix count and byte total, contract counts and byte totals, console output and createStateSizeAnalysis payloads without contacting DynamoDB, covering both all-module and explicit-module selection as well as mutable and snapshot-backed trees."
+do_3 = "Retain the two-key default and explicit-module inventory assertions at storage/tools/cmd/paxdb/operations/repair_m1177_test.go:135 unchanged, and preserve the scanner and exporter behavior asserted by storage/state_db/sc/memiavl/repair_m1200_test.go:177, repair_m1200_test.go:211 and repair_m1200_test.go:256; run those focused provider tests alongside the state-size consumer tests without changing the provider package."
+symbols = ["collectModuleStats", "TestStateSizeFullScan"]
+touches = ["storage/tools/cmd/paxdb/operations/state_size.go", "storage/tools/cmd/paxdb/operations/repair_m1177_test.go"]
+tests = ["storage/tools/cmd/paxdb/operations/repair_m1177_test.go::TestStateSizeFullScan", "storage/tools/cmd/paxdb/operations/repair_m1177_test.go::TestRepairM_1177_ModuleInventory", "storage/state_db/sc/memiavl/repair_m1200_test.go::TestRepairM_1200_ScanStopConvention", "storage/state_db/sc/memiavl/repair_m1200_test.go::TestRepairM_1200_ExportCancellation", "storage/state_db/sc/memiavl/repair_m1200_test.go::TestRepairM_1200_SnapshotExportConvention"]
+planned_paths = []
+build_cmd = "go build ./storage/tools/cmd/paxdb/operations/..."
+verify_cmd = "go test -count=1 -v ./storage/tools/cmd/paxdb/operations/ ./storage/state_db/sc/memiavl/ -run '^(TestStateSizeFullScan|TestRepairM_1177_ModuleInventory|TestRepairM_1200_(ScanStopConvention|ExportCancellation|SnapshotExportConvention))$'"
+gate_kind = "planned"
+sandbox_profile = "go-cgo"
+owner_role = "fm-node-runtime"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181634]
+title = "State-size reports include every leaf under the true-to-stop scan contract"
+ac_1 = "Given real mutable and reopened snapshot-backed memiavl trees with multiple leaves, prefixes and contract keys, collectModuleStats at storage/tools/cmd/paxdb/operations/state_size.go:149 counts every leaf and reports exact module, prefix and contract byte totals to printResultsToConsole at state_size.go:314 and createStateSizeAnalysis at state_size.go:361 for both default and explicit-module selection, while the unchanged two-key assertions at storage/tools/cmd/paxdb/operations/repair_m1177_test.go:155 and repair_m1177_test.go:169 and true-to-stop and cancellation assertions at storage/state_db/sc/memiavl/repair_m1200_test.go:177, repair_m1200_test.go:211 and repair_m1200_test.go:256 remain satisfied."
+
+[acceptance.18.1634.1]
+feature = "18"
+req = "181634.1"
+scenario = "Given a real memiavl database containing multiple leaves across prefixes and contracts, when state-size scans all modules or an explicit module, then every leaf contributes to exact key counts and byte totals, console and DynamoDB analysis contain complete prefix and contract aggregates, and exporter early stop and cancellation remain bounded."
+contract = "contracts/sequencer.md#storage"
+test = "storage/tools/cmd/paxdb/operations/repair_m1177_test.go::TestStateSizeFullScan (planned)"
+qualification = "UNRUN"
