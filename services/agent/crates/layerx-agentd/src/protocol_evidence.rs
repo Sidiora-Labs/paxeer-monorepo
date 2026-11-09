@@ -15,8 +15,9 @@ use layerx_proof::receipt::{
 use layerx_types::ids::Did;
 use layerx_types::payload::{ActivityType, ModuleId, ModuleRegistration, ModuleRegistry};
 use layerx_types::verify::VerificationLevel;
-use layerx_wire::activity::{decode_signed, peek_signed_activity_type};
-use layerx_wire::hash::{activity_id, receipt_execution_batch_id};
+use layerx_wire::hash::receipt_execution_batch_id;
+use layerx_wire::historical::activity::{decode_signed, peek_signed_activity_type};
+use layerx_wire::historical::hash::activity_id;
 use layerx_wire::limits::PROTOCOL_VERSION;
 use layerx_wire::receipt::{decode, decode_batch_header, BatchHeader};
 use sha2::{Digest, Sha256};

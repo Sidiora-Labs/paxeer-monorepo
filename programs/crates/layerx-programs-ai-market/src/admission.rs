@@ -1629,6 +1629,7 @@ fn transition_admission(
     meta.encode(suffix)
 }
 
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn apply_admission(
     ctx: &CallContext,
     envelope: &ValidatedEnvelope<'_>,
@@ -1643,6 +1644,7 @@ pub fn apply_admission(
     }
 }
 
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 fn apply_admission_inner(
     ctx: &CallContext,
     envelope: &ValidatedEnvelope<'_>,

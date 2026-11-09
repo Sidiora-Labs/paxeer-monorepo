@@ -458,6 +458,15 @@ impl Material {
 // Canonical native fixture: the namespace head/manifest layout emitted by lxphost,
 // with ICS23 leaf operations encoded by the production protobuf codec.
 fn native_membership(state: &[u8], program: [u8; 32], cell: &[u8]) -> (Vec<u8>, [u8; 32]) {
+    native_membership_version(state, program, cell, 1)
+}
+
+pub fn native_membership_version(
+    state: &[u8],
+    program: [u8; 32],
+    cell: &[u8],
+    version: u64,
+) -> (Vec<u8>, [u8; 32]) {
     fn leaf(key: &[u8], value: &[u8], prefix: &[u8]) -> (Vec<u8>, [u8; 32]) {
         let mut operation = Vec::new();
         for (field, value) in [(1, 1), (2, 0), (3, 1), (4, 1)] {
@@ -487,7 +496,9 @@ fn native_membership(state: &[u8], program: [u8; 32], cell: &[u8]) -> (Vec<u8>, 
     let mut key = b"\x01\x00\x09progstor".to_vec();
     key.extend(program);
     key.push(1);
-    let (proof, store_root) = leaf(&key, &head, &[0, 2, 2]);
+    let mut prefix = vec![0, 2];
+    encode_varint(version.checked_mul(2).expect("IAVL version"), &mut prefix);
+    let (proof, store_root) = leaf(&key, &head, &prefix);
     let (outer, app_hash) = leaf(b"lxphost", &store_root, &[0]);
     let mut multistore = Vec::new();
     encode_length_delimited(1, &outer, &mut multistore);

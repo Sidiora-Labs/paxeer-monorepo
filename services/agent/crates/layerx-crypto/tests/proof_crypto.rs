@@ -336,7 +336,9 @@ fn proof_crypto_real_keystore_transport_survives_agent_reopen_and_refuses_unknow
     chain[24..].copy_from_slice(&125u64.to_be_bytes());
     let produced = BindMessage::new(chain, [0xa1; 20], 7);
     let canonical = produced.as_bytes();
-    let old = support::signing::old_envelope(public_key);
+    let payment = support::send_call(123, 7);
+    let transaction = payment.call.encode_unsigned();
+    let request = support::signing::activity_request(&transaction, &payment.disclosure);
     let mut prior_signature = None;
     for _ in 0..2 {
         let agent = open_agent(&directory)?;
@@ -344,12 +346,7 @@ fn proof_crypto_real_keystore_transport_survives_agent_reopen_and_refuses_unknow
         assert_eq!(signer.public_key(), public_key);
         assert_eq!(signer.evm_address(), None);
         assert_eq!(
-            complete(layerx_crypto::signer::sign_disclosed(
-                &signer,
-                &old.canonical,
-                &old.disclosure,
-                &old.registry
-            )),
+            complete(signer.sign(request)),
             Err(SignError::InvalidDisclosure)
         );
         for _ in 0..2 {
@@ -369,12 +366,7 @@ fn proof_crypto_real_keystore_transport_survives_agent_reopen_and_refuses_unknow
         );
         drop(agent);
         assert_eq!(
-            complete(layerx_crypto::signer::sign_disclosed(
-                &signer,
-                &old.canonical,
-                &old.disclosure,
-                &old.registry
-            )),
+            complete(signer.sign(request)),
             Err(SignError::InvalidDisclosure)
         );
         assert_eq!(

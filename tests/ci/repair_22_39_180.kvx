@@ -1,0 +1,57 @@
+[repair.22.39.180]
+decision = "3020"
+gotcha = "3717"
+acceptance = "22998.1"
+base_revision = "246829c4964ad6d5400b13084f9b4b74711f35e6"
+repair = "Close the rehearsal script gap, record the release owner's exported-state rehearsal waiver with replacement halt and swap evidence, and retain deployed agent daemon qualification as acceptance after S."
+verified_revision = "The private /out/run/gates.jsonl hf-done record names the exact candidate revision, command, exit code and log path; the final handoff copies that record without claiming qualification unless exit is zero."
+
+[change.upgrade_plan]
+path = "docs/release/7.0.0-upgrade-plan.md"
+lines = "147, 170, 174, 229-230, 253, 268 (base lines 147, 170, 174, 229-230, 268-269)."
+repair = "The T minus 16 days row and go/no-go criteria record the release owner's decision 3020 waiver, including the running-binary halt log and rollback leg; the four ordered rehearsal tests, programme test_rehearsal_passes_on_merged_revision and candidate release report provide replacement halt and swap evidence. The risk register follows the waiver."
+script = "D6 moves to implemented release support, sourced to tools/release/rehearse-v6120.sh and tests/ci/test_release_merge_rehearsal.py: read the plan from tools/release/version.json, require --plan-info for v7.0 and forward it to node upgrade files."
+preserved = "Known gaps lists D5 only, with programme task 17.0.9 and candidate evidence still pending; existing D5 assertions remain intact."
+
+[change.readiness_checklist]
+path = "docs/release/7.0.0-readiness-checklist.md"
+lines = "27, 36-37, 95; move the deployed agent item from base line 76 to acceptance after S."
+repair = "The exported-state rehearsal and exact-running-binary halt-log items record decision 3020 and replacement candidate evidence without gap markers. Keep the two D5 checklist items and the bridge attestor manifest marker."
+acceptance = "The deployed agent daemon readiness, settled scheduled job and clean node logs are retained for the exact deployed revision after S."
+
+[change.service_operator_runbook]
+path = "docs/release/7.0.0-service-operator-runbook.md"
+lines = "138-146; remove the agent daemon gap row at base line 272."
+repair = "Decision 3020 makes release qualification acceptance after S before opening writes: readiness only after governed receipt keys, a settled scheduled job, and node logs free of agent end block failed, all retained for the deployed revision."
+preserved = "The only runbook gap row is services/bridge/deploy/attestors.json pending governance."
+
+[change.gap_marker_tests]
+path = "tests/ci/test_release_docs_gap_markers.py"
+repair = "CLOSED_IDS gains D6 with the script and regression-test sources; pin D5-only known gaps, the D5 pair and attestor checklist markers, and the bridge-only runbook gap table. Preserve every other existing assertion."
+tests = "test_exported_state_rehearsal_waiver_retains_candidate_evidence checks the waiver and ordered replacement evidence in the timeline, go/no-go criteria and checklist; test_agent_daemon_qualification_is_after_s_acceptance checks readiness, settlement and node-log evidence for the deployed revision."
+
+[observation.preserved_gateway_assertion]
+revision = "246829c4964ad6d5400b13084f9b4b74711f35e6"
+observed = "Attempt 1 preserved the pre-existing decision 2521 assertion; its verification failed because the producer documentation rewrite had removed the decision number."
+resolution = "The explicitly authorized attempt-2 correction is recorded below; gateway prose and all other assertions remain as attempt 1 left them."
+
+[change.hosted_gateway_assertion]
+path = "tests/ci/test_release_docs_gap_markers.py"
+lines = "195-199 (attempt-1 line 195)."
+decision = "3026, applying the public-node routing fact of decision 2521; gotcha 3723."
+producer = "Documentation rewrite fb22c0390a removed decision numbers from the release documents while preserving the public-node root routing facts."
+continuation_base = "fa374671b962e9d50647ac930227a6e3140987f6"
+preserved_attempt = "bbe08676b47cd7e4c628252747aa2719670d655c"
+repair = "Replace only the stale decision-number assertion with the gateway's upgraded public node root URLs, the node root serving the px_ methods and the absence of an /rpc path or separate router. Existing assertions retain api1 to api14 and the api1 and api8 root URLs."
+preserved = "No other assertion changes; the three release documents remain exactly as attempt 1 left them."
+
+[evidence.build]
+runner = "hf-build"
+command = "python3 -m py_compile tests/ci/test_release_docs_gap_markers.py tests/ci/test_release_merge_rehearsal.py"
+reference = "Private /out/run/gates.jsonl kind=build record and its referenced /out/logs/build-<n>.log record revision, command and exit."
+
+[evidence.verification]
+runner = "hf-done"
+command = "cg spec done 22.39.180 -f layerx-merge --root /work/paxeer-monorepo"
+verify_cmd = "test -s tests/ci/repair_22_39_180.kvx && python3 -m pytest -q tests/ci/test_release_docs_gap_markers.py tests/ci/test_release_merge_rehearsal.py tests/ci/test_docs_release_version_examples.py tests/ci/test_release_rollout_identity.py"
+reference = "Private /out/run/gates.jsonl kind=verify record and its referenced /out/logs/verify-<n>.log; qualification requires exit zero and the same candidate revision as the passing build."

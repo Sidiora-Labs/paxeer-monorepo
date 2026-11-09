@@ -673,6 +673,7 @@ fn create<'a>(
 ///
 /// # Errors
 /// Returns `UNAUTHORIZED`, `WRONG_DOMAIN`, `WRONG_PROGRAM`, `WRONG_MARKET`, or `EXPIRED` when the envelope does not match the call context; `NOT_FOUND` when a non-create request has no state; `NON_CANONICAL` when the stored section or replay record is inconsistent; `WRONG_CONFIG` when the envelope config is not active; `UNAUTHORIZED` or `REVOKED` when the actor lacks authority; `F01_STALE_REVISION` when the expected revision is stale; `ARITHMETIC` on counter overflow; propagates payload-parse, create, replay, transition, capacity, and event refusals.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn apply<'a>(
     ctx: &CallContext,
     current: Option<&SharedState<'a>>,

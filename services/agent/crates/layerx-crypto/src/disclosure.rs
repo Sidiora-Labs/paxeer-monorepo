@@ -1,4 +1,4 @@
-//! Byte-bound EIP-1559 call disclosure and deprecated activity compatibility.
+//! Byte-bound EIP-1559 call disclosure.
 
 #[path = "disclosure/call.rs"]
 mod call_codec;
@@ -126,8 +126,8 @@ use std::fmt;
 
 use sha2::{Digest as _, Sha256};
 
-use layerx_types::payload::{ActivityType, ModuleId, ModuleRegistry};
-use layerx_wire::activity::{decode_unsigned, encode_unsigned, Activity, TimestampBound};
+use layerx_types::payload::{ActivityType, ModuleId};
+type Activity = layerx_wire::historical::activity::Activity;
 use layerx_wire::decode::Decoder;
 use layerx_wire::encode::Encoder;
 use layerx_wire::hash;
@@ -139,21 +139,13 @@ use crate::{
     evm_transaction::Eip1559Call,
     onboarding::{OnboardingConsent, SponsoredRegistration},
     payments::{Grant, Payment},
-    session::{decode_session_key, IssuedSessionKey, SessionPurpose},
-    SignatureMessage,
+    session::{decode_session_key, IssuedSessionKey},
 };
 
 const ASSET_SEND_ORDINAL: u16 = 5;
 const SEND_WIRE_TAG: u16 = 0x5301;
 const SEND_FIELD_COUNT: u16 = 10;
-const ASSET_RECEIVE_ORDINAL: u16 = 6;
-const BRIDGE_DEPOSIT_CREDIT_ORDINAL: u16 = 1;
-const ASSET_WITHDRAW_ORDINAL: u16 = 9;
-const GOVERNANCE_EVM_BINDING_ORDINAL: u16 = 4;
-const GOVERNANCE_EVM_BINDING_WIRE_TAG: u16 = 0x7104;
-const GOVERNANCE_EVM_BINDING_FIELD_COUNT: u16 = 4;
 const MAX_SEND_CONDITIONS: usize = 8;
-const MAX_SEND_PAYLOAD_BYTES: usize = 512;
 const MAX_TRANSPORT_DISCLOSURE_BYTES: usize = 1_048_576;
 
 /// The semantic role of one counterparty named in a disclosure.
@@ -284,7 +276,6 @@ pub struct Disclosure {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 enum Source {
-    Activity(Activity),
     Call(Eip1559Call),
 }
 
@@ -459,53 +450,6 @@ fn decode_send(payload: &[u8]) -> Result<SendSemantics, DisclosureError> {
     })
 }
 
-fn decode_activity_send(
-    payload: &[u8],
-    activity: &Activity,
-) -> Result<SendSemantics, DisclosureError> {
-    let send = decode_send(payload)?;
-    let scope = &payload[payload.len() - 6..];
-    if scope[..4] != activity.network_id().to_be_bytes()
-        || scope[4..] != activity.protocol_version().to_be_bytes()
-        || send.idempotency_key != activity.idempotency_key()
-    {
-        return Err(DisclosureError::MalformedPayload);
-    }
-    Ok(send)
-}
-
-fn decode_receive(payload: &[u8], activity: &Activity) -> Result<SendSemantics, DisclosureError> {
-    let payment = Payment::decode(ModuleId::Asset, 6, payload, activity.actor_did())?;
-    let Payment::Receive {
-        from,
-        to,
-        asset,
-        amount,
-        sequence,
-        idempotency_key,
-        receiver_authorization: auth,
-        ..
-    } = payment
-    else {
-        return Err(DisclosureError::MalformedPayload);
-    };
-    if idempotency_key != activity.idempotency_key()
-        || auth.network_id != activity.network_id()
-        || auth.protocol_version != activity.protocol_version()
-    {
-        return Err(DisclosureError::MalformedPayload);
-    }
-    Ok(SendSemantics {
-        from,
-        to,
-        asset,
-        amount,
-        sequence,
-        idempotency_key,
-        expires_at: activity.timestamp_bound().not_after,
-    })
-}
-
 fn decode_bridge_deposit_credit(
     payload: &[u8],
     activity: &Activity,
@@ -553,111 +497,6 @@ fn decode_bridge_deposit_credit(
         idempotency_key: activity.idempotency_key(),
         expires_at: activity.timestamp_bound().not_after,
     })
-}
-
-fn decode_withdraw(activity: &Activity) -> Result<DisclosureFields, DisclosureError> {
-    let mut decoder = Decoder::new(activity.payload(), 0);
-    let asset = fixed(&mut decoder)?;
-    let amount = decoder.u128()?;
-    let evm_recipient = fixed(&mut decoder)?;
-    let request_anchor = fixed(&mut decoder)?;
-    let fee_limit = decoder.u64()?;
-    decoder.finish()?;
-    if amount == 0
-        || evm_recipient == [0; 20]
-        || request_anchor == [0; 32]
-        || u128::from(fee_limit) != activity.fee_limit()
-    {
-        return Err(DisclosureError::MalformedPayload);
-    }
-    let actor =
-        std::str::from_utf8(activity.actor_did()).map_err(|_| DisclosureError::MalformedPayload)?;
-    let account = layerx_types::account::AccountId::parse(&format!("agent:{actor}:main"))
-        .map_err(|_| DisclosureError::MalformedPayload)?;
-    let payer = hash::account_id_for_protocol(&account, activity.protocol_version())?;
-    let bounds = activity.timestamp_bound();
-    Ok(DisclosureFields {
-        activity_type: activity.activity_type(),
-        actor: activity.actor_did().to_vec(),
-        authority: activity.authority().to_vec(),
-        counterparties: vec![Counterparty {
-            role: CounterpartyRole::Payer,
-            account: payer,
-        }],
-        amounts: vec![DisclosedAmount {
-            role: AmountRole::Transfer,
-            value: amount,
-        }],
-        asset,
-        fee_limit: u128::from(fee_limit),
-        expiry: Expiry {
-            not_before: bounds.not_before,
-            not_after: bounds.not_after,
-            payload_expires_at: bounds.not_after,
-        },
-        idempotency_key: activity.idempotency_key(),
-        authority_grant: None,
-        session_grant: None,
-        onboarding: None,
-        native_operation: None,
-        evm_payout_binding: None,
-        withdrawal: Some(DisclosedWithdrawal {
-            account_sequence: activity.account_sequence(),
-            evm_recipient,
-            request_anchor,
-        }),
-        payment: None,
-    })
-}
-
-fn decode_evm_payout_binding(
-    payload: &[u8],
-    activity: &Activity,
-) -> Result<DisclosedEvmPayoutBinding, DisclosureError> {
-    let mut decoder = Decoder::new(payload, 0);
-    if decoder.u16()? != GOVERNANCE_EVM_BINDING_WIRE_TAG
-        || decoder.u16()? != GOVERNANCE_EVM_BINDING_FIELD_COUNT
-    {
-        return Err(DisclosureError::MalformedPayload);
-    }
-    let did_id = fixed(&mut decoder)?;
-    let network_id = decoder.u32()?;
-    let payout_address = fixed(&mut decoder)?;
-    let ownership_signature = decoder.bytes(128)?;
-    decoder.finish()?;
-    if network_id != activity.network_id() || ownership_signature.len() != 65 {
-        return Err(DisclosureError::MalformedPayload);
-    }
-    let mut hasher = Sha256::new();
-    hasher.update(b"LXP/agent/evm-ownership-signature/v1\0");
-    hasher.update(ownership_signature);
-    Ok(DisclosedEvmPayoutBinding {
-        did_id,
-        network_id,
-        payout_address,
-        ownership_signature_digest: hasher.finalize().into(),
-    })
-}
-
-fn semantics(activity: &Activity) -> Result<SendSemantics, DisclosureError> {
-    let activity_type = activity.activity_type();
-    let kind = (activity_type.module(), activity_type.ordinal());
-    let max_payload_bytes = if kind == (ModuleId::Bridge, BRIDGE_DEPOSIT_CREDIT_ORDINAL) {
-        layerx_types::limits::MAX_PAYLOAD_BYTES
-    } else {
-        MAX_SEND_PAYLOAD_BYTES
-    };
-    if activity.payload().len() > max_payload_bytes {
-        return Err(DisclosureError::MalformedPayload);
-    }
-    match kind {
-        (ModuleId::Asset, ASSET_SEND_ORDINAL) => decode_activity_send(activity.payload(), activity),
-        (ModuleId::Asset, ASSET_RECEIVE_ORDINAL) => decode_receive(activity.payload(), activity),
-        (ModuleId::Bridge, BRIDGE_DEPOSIT_CREDIT_ORDINAL) => {
-            decode_bridge_deposit_credit(activity.payload(), activity)
-        }
-        _ => Err(DisclosureError::UnsupportedActivity(activity_type.value())),
-    }
 }
 
 fn disclose_party(
@@ -746,378 +585,6 @@ fn payment_monetary_fields(
     (counterparties, amounts, asset)
 }
 
-fn payment_fields(activity: &Activity) -> Result<DisclosureFields, DisclosureError> {
-    let TimestampBound {
-        not_before,
-        not_after,
-    } = activity.timestamp_bound();
-    let kind = (
-        activity.activity_type().module(),
-        activity.activity_type().ordinal(),
-    );
-    if kind == (ModuleId::Programs, 6)
-        && !layerx_wire::limits::protocol_version_uses_occupancy(activity.protocol_version())
-    {
-        return Err(DisclosureError::MalformedPayload);
-    }
-    let payment = Payment::decode(kind.0, kind.1, activity.payload(), activity.actor_did())?;
-    if let Payment::Receive {
-        idempotency_key,
-        receiver_authorization: auth,
-        ..
-    } = &payment
-    {
-        if *idempotency_key != activity.idempotency_key()
-            || auth.network_id != activity.network_id()
-            || auth.protocol_version != activity.protocol_version()
-        {
-            return Err(DisclosureError::MalformedPayload);
-        }
-    }
-    let (counterparties, amounts, asset) = payment_monetary_fields(&payment);
-    let payload_expires_at = match &payment {
-        Payment::Receive { payer_grant, .. } => payer_grant.expiration,
-        Payment::IssueGrant(grant) => grant.expiration,
-        _ => not_after,
-    };
-    Ok(DisclosureFields {
-        activity_type: activity.activity_type(),
-        actor: activity.actor_did().to_vec(),
-        authority: activity.authority().to_vec(),
-        counterparties,
-        amounts,
-        asset,
-        fee_limit: activity.fee_limit(),
-        expiry: Expiry {
-            not_before,
-            not_after,
-            payload_expires_at,
-        },
-        idempotency_key: activity.idempotency_key(),
-        authority_grant: None,
-        session_grant: None,
-        onboarding: None,
-        native_operation: None,
-        evm_payout_binding: None,
-        withdrawal: None,
-        payment: Some(payment),
-    })
-}
-
-fn governance_fields(
-    activity: &Activity,
-    not_before: u64,
-    not_after: u64,
-) -> Result<DisclosureFields, DisclosureError> {
-    let binding = decode_evm_payout_binding(activity.payload(), activity)?;
-    Ok(DisclosureFields {
-        activity_type: activity.activity_type(),
-        actor: activity.actor_did().to_vec(),
-        authority: activity.authority().to_vec(),
-        counterparties: Vec::new(),
-        amounts: Vec::new(),
-        asset: [0; 32],
-        fee_limit: activity.fee_limit(),
-        expiry: Expiry {
-            not_before,
-            not_after,
-            payload_expires_at: not_after,
-        },
-        idempotency_key: activity.idempotency_key(),
-        authority_grant: None,
-        session_grant: None,
-        onboarding: None,
-        native_operation: None,
-        evm_payout_binding: Some(binding),
-        withdrawal: None,
-        payment: None,
-    })
-}
-
-fn onboarding_fields(activity: &Activity) -> Result<DisclosureFields, DisclosureError> {
-    let malformed = || DisclosureError::MalformedPayload;
-    if !activity.payload().starts_with(&[0x71, 1, 3, 5])
-        && !activity.payload().starts_with(&[0x71, 1, 2, 1])
-    {
-        return Err(DisclosureError::UnsupportedActivity(
-            activity.activity_type().value(),
-        ));
-    }
-    if activity.protocol_version() != 3 || activity.network_id() == 0 {
-        return Err(malformed());
-    }
-    let key: [u8; 32] = activity.authority().try_into().map_err(|_| malformed())?;
-    if !crate::ed25519::public_key_is_canonical(&key) {
-        return Err(malformed());
-    }
-    let bound = activity.timestamp_bound();
-    let (onboarding, consent) = if activity.payload().starts_with(&[0x71, 1, 3, 5]) {
-        let target = layerx_types::ids::Did::new(activity.actor_did()).map_err(|_| malformed())?;
-        let consent = OnboardingConsent::decode_payload(activity.payload(), target, key)
-            .map_err(|_| malformed())?;
-        if activity.account_sequence() != 0
-            || activity.fee_limit() != 0
-            || activity.idempotency_key() != consent.action_key
-            || bound.not_after != consent.expires_at
-            || bound.not_before >= bound.not_after
-        {
-            return Err(malformed());
-        }
-        (DisclosedOnboarding::Consent(consent.clone()), consent)
-    } else {
-        let registration =
-            SponsoredRegistration::decode(activity.payload()).map_err(|_| malformed())?;
-        registration
-            .validate_outer(activity)
-            .map_err(|_| malformed())?;
-        let consent = registration.consent.clone();
-        (DisclosedOnboarding::Registration(registration), consent)
-    };
-    Ok(DisclosureFields {
-        activity_type: activity.activity_type(),
-        actor: activity.actor_did().to_vec(),
-        authority: activity.authority().to_vec(),
-        counterparties: vec![Counterparty {
-            role: CounterpartyRole::Recipient,
-            account: consent.target_account_id().map_err(|_| malformed())?,
-        }],
-        amounts: Vec::new(),
-        asset: consent.native_asset,
-        fee_limit: activity.fee_limit(),
-        expiry: Expiry {
-            not_before: bound.not_before,
-            not_after: bound.not_after,
-            payload_expires_at: consent.expires_at,
-        },
-        idempotency_key: consent.action_key,
-        evm_payout_binding: None,
-        withdrawal: None,
-        payment: None,
-        authority_grant: None,
-        session_grant: None,
-        onboarding: Some(onboarding),
-        native_operation: None,
-    })
-}
-
-fn authority_grant_fields(activity: &Activity) -> Result<DisclosureFields, DisclosureError> {
-    if activity.protocol_version() != 3 {
-        return Err(DisclosureError::MalformedPayload);
-    }
-    let grant = AuthorityGrant::from_payload(activity.payload())
-        .map_err(|_| DisclosureError::MalformedPayload)?;
-    let did = layerx_types::ids::Did::new(activity.actor_did())
-        .map_err(|_| DisclosureError::MalformedPayload)?;
-    if grant.grantor != hash::did_id_for_protocol(&did, activity.protocol_version())?
-        || activity.authority() == grant.delegate_key
-    {
-        return Err(DisclosureError::MalformedPayload);
-    }
-    let scope = grant.scope;
-    Ok(DisclosureFields {
-        activity_type: activity.activity_type(),
-        actor: activity.actor_did().to_vec(),
-        authority: activity.authority().to_vec(),
-        counterparties: Vec::new(),
-        amounts: vec![
-            DisclosedAmount {
-                role: AmountRole::PerDrawMaximum,
-                value: scope.maximum_per_activity,
-            },
-            DisclosedAmount {
-                role: AmountRole::GrantAllowance,
-                value: scope.maximum_total,
-            },
-            DisclosedAmount {
-                role: AmountRole::SpendingLimit,
-                value: scope.maximum_per_period,
-            },
-        ],
-        asset: scope.asset,
-        fee_limit: activity.fee_limit(),
-        expiry: Expiry {
-            not_before: activity.timestamp_bound().not_before,
-            not_after: activity.timestamp_bound().not_after,
-            payload_expires_at: grant.not_after,
-        },
-        idempotency_key: activity.idempotency_key(),
-        evm_payout_binding: None,
-        withdrawal: None,
-        payment: None,
-        authority_grant: Some(grant),
-        session_grant: None,
-        onboarding: None,
-        native_operation: None,
-    })
-}
-
-fn session_grant_fields(activity: &Activity) -> Result<DisclosureFields, DisclosureError> {
-    if activity.protocol_version() != 3 || activity.authority().len() != 32 {
-        return Err(DisclosureError::MalformedPayload);
-    }
-    let mut decoder = Decoder::new(activity.payload(), 1024);
-    if decoder.u16()? != 0x7105 {
-        return Err(DisclosureError::MalformedPayload);
-    }
-    let version = decoder.u8()?;
-    let fields = decoder.u8()?;
-    if !matches!((version, fields), (1, 3) | (2, 5)) {
-        return Err(DisclosureError::MalformedPayload);
-    }
-    let grant =
-        decode_session_key(decoder.bytes(1024)?).map_err(|_| DisclosureError::MalformedPayload)?;
-    let expiry_sequence = decoder.u64()?;
-    let action_key: [u8; 32] = decoder
-        .bytes(32)?
-        .try_into()
-        .map_err(|_| DisclosureError::MalformedPayload)?;
-    let replacement = if version == 2 {
-        Some(DisclosedSessionReplacement {
-            predecessor_grant_id: decoder
-                .bytes(32)?
-                .try_into()
-                .map_err(|_| DisclosureError::MalformedPayload)?,
-            expected_charge_state: decoder
-                .bytes(32)?
-                .try_into()
-                .map_err(|_| DisclosureError::MalformedPayload)?,
-        })
-    } else {
-        None
-    };
-    decoder.finish()?;
-    let did = layerx_types::ids::Did::new(activity.actor_did())
-        .map_err(|_| DisclosureError::MalformedPayload)?;
-    if grant.grantor != hash::did_id_for_protocol(&did, activity.protocol_version())?
-        || activity.authority() == grant.session_public_key
-        || !crate::ed25519::public_key_is_canonical(&grant.session_public_key)
-        || expiry_sequence == 0
-        || action_key == [0; 32]
-    {
-        return Err(DisclosureError::MalformedPayload);
-    }
-    if let Some(replacement) = replacement {
-        if grant.purpose != SessionPurpose::Activity
-            || grant.fee_budget.is_none()
-            || replacement.predecessor_grant_id == [0; 32]
-            || replacement.predecessor_grant_id == grant.grant_id
-            || replacement.expected_charge_state == [0; 32]
-        {
-            return Err(DisclosureError::MalformedPayload);
-        }
-    }
-    Ok(DisclosureFields {
-        activity_type: activity.activity_type(),
-        actor: activity.actor_did().to_vec(),
-        authority: activity.authority().to_vec(),
-        counterparties: Vec::new(),
-        amounts: Vec::new(),
-        asset: grant.fee_budget.map_or([0; 32], |fee| fee.asset),
-        fee_limit: activity.fee_limit(),
-        expiry: Expiry {
-            not_before: activity.timestamp_bound().not_before,
-            not_after: activity.timestamp_bound().not_after,
-            payload_expires_at: grant.expires_at,
-        },
-        idempotency_key: activity.idempotency_key(),
-        evm_payout_binding: None,
-        withdrawal: None,
-        payment: None,
-        authority_grant: None,
-        onboarding: None,
-        native_operation: None,
-        session_grant: Some(DisclosedSessionGrant {
-            grant,
-            expiry_sequence,
-            action_key,
-            replacement,
-        }),
-    })
-}
-
-fn decoded_fields(
-    activity: &Activity,
-    budget_context: Option<&BudgetStateContext>,
-) -> Result<DisclosureFields, DisclosureError> {
-    if activity.activity_type().module() == ModuleId::Asset
-        && activity.activity_type().ordinal() == ASSET_WITHDRAW_ORDINAL
-    {
-        return decode_withdraw(activity);
-    }
-    let TimestampBound {
-        not_before,
-        not_after,
-    } = activity.timestamp_bound();
-    let kind = (
-        activity.activity_type().module(),
-        activity.activity_type().ordinal(),
-    );
-    if matches!(kind, (ModuleId::Programs, 1 | 2 | 3 | 7)) {
-        return program::fields(activity);
-    }
-    if matches!(
-        kind,
-        (ModuleId::Asset, 1 | 2 | 3 | 4 | 6 | 7 | 8 | 10 | 11) | (ModuleId::Programs, 5 | 6)
-    ) {
-        return payment_fields(activity);
-    }
-    if matches!(kind, (ModuleId::Governance, 2 | 3))
-        || (kind == (ModuleId::Governance, 1) && activity.payload().starts_with(&[0x71, 1, 0, 2]))
-        || (kind == (ModuleId::Budget, 1)
-            && matches!(activity.payload().get(..2), Some([0, 1 | 2])))
-        || matches!(kind, (ModuleId::Budget, 2 | 8 | 9))
-    {
-        return native::fields(activity, budget_context);
-    }
-    if kind == (ModuleId::Governance, 1) {
-        return onboarding_fields(activity);
-    }
-    if kind == (ModuleId::Governance, 8) {
-        return authority_grant_fields(activity);
-    }
-    if kind == (ModuleId::Governance, 5) {
-        return session_grant_fields(activity);
-    }
-    if kind == (ModuleId::Governance, GOVERNANCE_EVM_BINDING_ORDINAL) {
-        return governance_fields(activity, not_before, not_after);
-    }
-    let send = semantics(activity)?;
-    Ok(DisclosureFields {
-        activity_type: activity.activity_type(),
-        actor: activity.actor_did().to_vec(),
-        authority: activity.authority().to_vec(),
-        counterparties: vec![
-            Counterparty {
-                role: CounterpartyRole::Payer,
-                account: send.from,
-            },
-            Counterparty {
-                role: CounterpartyRole::Recipient,
-                account: send.to,
-            },
-        ],
-        amounts: vec![DisclosedAmount {
-            role: AmountRole::Transfer,
-            value: send.amount,
-        }],
-        asset: send.asset,
-        fee_limit: activity.fee_limit(),
-        expiry: Expiry {
-            not_before,
-            not_after,
-            payload_expires_at: send.expires_at,
-        },
-        idempotency_key: send.idempotency_key,
-        authority_grant: None,
-        session_grant: None,
-        onboarding: None,
-        native_operation: None,
-        evm_payout_binding: None,
-        withdrawal: None,
-        payment: None,
-    })
-}
-
 struct DisclosureFields {
     activity_type: ActivityType,
     actor: Vec<u8>,
@@ -1185,7 +652,6 @@ impl Disclosure {
     #[must_use]
     pub fn canonical_payload(&self) -> &[u8] {
         match &self.source {
-            Source::Activity(activity) => activity.payload(),
             Source::Call(call) => &call.data,
         }
     }
@@ -1193,7 +659,6 @@ impl Disclosure {
     #[must_use]
     pub const fn envelope_sequence(&self) -> u64 {
         match &self.source {
-            Source::Activity(activity) => activity.account_sequence(),
             Source::Call(call) => call.nonce,
         }
     }
@@ -1201,37 +666,16 @@ impl Disclosure {
     /// # Errors
     /// Returns a payload decoding error for malformed canonical semantics.
     pub fn payload_sequence(&self) -> Result<Option<u64>, DisclosureError> {
-        if let Source::Call(call) = &self.source {
-            if call::is_pay_exact(call) {
-                call::decode_pay_exact(call)?;
-                return Ok(None);
-            }
-            return call_codec::payload_sequence(call);
+        let Source::Call(call) = &self.source;
+        if call::is_pay_exact(call) {
+            call::decode_pay_exact(call)?;
+            return Ok(None);
         }
-        if let Some(DisclosedNativeOperation::BudgetCreate(budget)) = &self.native_operation {
-            return Ok(Some(budget.source_sequence));
-        }
-        if let Some(DisclosedNativeOperation::BudgetFund(fund)) = &self.native_operation {
-            return Ok(fund.source_sequence);
-        }
-        if let Some(payment) = &self.payment {
-            return Ok(match payment {
-                Payment::Receive { sequence, .. } => Some(*sequence),
-                _ => None,
-            });
-        }
-        match (self.activity_type.module(), self.activity_type.ordinal()) {
-            (ModuleId::Asset, 5 | 6) => match &self.source {
-                Source::Activity(activity) => Ok(Some(semantics(activity)?.sequence)),
-                Source::Call(call) => call_codec::payload_sequence(call),
-            },
-            _ => Ok(None),
-        }
+        call_codec::payload_sequence(call)
     }
 
     fn validate_fields(&self) -> Result<(), DisclosureError> {
         let expected = match &self.source {
-            Source::Activity(activity) => decoded_fields(activity, self.budget_context.as_ref())?,
             Source::Call(call) if call::is_pay_exact(call) => pay_exact_fields(
                 call,
                 self.call_sender.ok_or(DisclosureError::MalformedPayload)?,
@@ -1275,7 +719,7 @@ impl Disclosure {
         self.validated_digest().map(|_| ())
     }
 
-    /// Checks canonical transaction or deprecated activity bytes against the disclosure.
+    /// Checks canonical transaction bytes against the disclosure.
     ///
     /// # Errors
     /// Refuses changed semantics, another source kind, or different canonical bytes.
@@ -1286,7 +730,7 @@ impl Disclosure {
         Ok(())
     }
 
-    /// Re-encodes the transaction or deprecated activity represented by this disclosure.
+    /// Re-encodes the transaction represented by this disclosure.
     ///
     /// # Errors
     ///
@@ -1294,7 +738,6 @@ impl Disclosure {
     pub fn reencode(&self) -> Result<Vec<u8>, DisclosureError> {
         self.validate_fields()?;
         match &self.source {
-            Source::Activity(activity) => encode_unsigned(activity).map_err(DisclosureError::from),
             Source::Call(call) => Ok(call.encode_unsigned()),
         }
     }
@@ -1409,10 +852,9 @@ impl Disclosure {
         if let Some(operation) = &self.native_operation {
             encoder.bytes(&operation.encode()?, 2048)?;
         }
-        if let Source::Call(call) = &self.source {
-            encoder.fixed(&call.signing_hash())?;
-            encoder.bytes(&call.data, MAX_TRANSPORT_DISCLOSURE_BYTES)?;
-        }
+        let Source::Call(call) = &self.source;
+        encoder.fixed(&call.signing_hash())?;
+        encoder.bytes(&call.data, MAX_TRANSPORT_DISCLOSURE_BYTES)?;
         Ok(encoder.finish())
     }
 
@@ -1431,7 +873,6 @@ impl Disclosure {
     pub fn construct_method(&self) -> Result<Option<call::ConstructMethod>, DisclosureError> {
         self.validate()?;
         match &self.source {
-            Source::Activity(_) => Ok(None),
             Source::Call(call) => call_codec::decode_method(call).map(Some),
         }
     }
@@ -1439,17 +880,6 @@ impl Disclosure {
     pub(crate) fn validated_digest(&self) -> Result<[u8; 32], DisclosureError> {
         self.validate_fields()?;
         let digest = match &self.source {
-            Source::Activity(activity) => {
-                let reencoded = encode_unsigned(activity)?;
-                SignatureMessage::new(
-                    hash::Domain::SignaturePreimage,
-                    activity.protocol_version(),
-                    activity.network_id(),
-                    &reencoded,
-                )
-                .map_err(|_| DisclosureError::MalformedPayload)?
-                .digest()
-            }
             Source::Call(call) => call.signing_hash(),
         };
         if !ct::eq_fixed(&digest, &self.signing_digest) {
@@ -1457,140 +887,6 @@ impl Disclosure {
         }
         Ok(digest)
     }
-
-    pub(crate) const fn scope(&self) -> (u16, u32) {
-        match &self.source {
-            Source::Activity(activity) => (activity.protocol_version(), activity.network_id()),
-            // Calls have no kernel signing domain and cannot enter the activity signer.
-            Source::Call(_) => (0, 0),
-        }
-    }
-
-    pub(crate) fn validate_bytes(
-        &self,
-        canonical: &[u8],
-        registry: &ModuleRegistry,
-    ) -> Result<(), DisclosureError> {
-        if matches!(self.source, Source::Call(_)) {
-            return Err(DisclosureError::FieldMismatch("source"));
-        }
-        let actual = bind_with(canonical, registry, self.budget_context.as_ref())?;
-        macro_rules! require_field {
-            ($field:ident) => {
-                if self.$field != actual.$field {
-                    return Err(DisclosureError::FieldMismatch(stringify!($field)));
-                }
-            };
-        }
-        require_field!(activity_type);
-        require_field!(actor);
-        require_field!(authority);
-        require_field!(counterparties);
-        require_field!(amounts);
-        require_field!(asset);
-        require_field!(fee_limit);
-        require_field!(expiry);
-        require_field!(idempotency_key);
-        require_field!(withdrawal);
-        require_field!(authority_grant);
-        require_field!(session_grant);
-        require_field!(onboarding);
-        require_field!(native_operation);
-        let reencoded = self.reencode()?;
-        if !ct::eq(&reencoded, canonical) {
-            return Err(DisclosureError::FieldMismatch("canonical_bytes"));
-        }
-        Ok(())
-    }
-}
-
-/// Decodes canonical unsigned bytes into their complete structured disclosure.
-///
-/// Opaque module payloads are rejected until a complete semantic decoder is
-/// available; they can never pass through the signing interface undisclosed.
-///
-/// # Errors
-///
-/// Returns a typed wire, payload, commitment, or unsupported-activity refusal.
-#[deprecated(
-    note = "Use disclosure::call::bind_call with a canonical EIP-1559 call and explicit sender"
-)]
-pub fn bind(canonical: &[u8], registry: &ModuleRegistry) -> Result<Disclosure, DisclosureError> {
-    bind_with(canonical, registry, None)
-}
-
-/// Decodes a canonical budget fund, defund or revoke activity into its complete
-/// disclosure bound to the verified budget record context it acts on.
-///
-/// # Errors
-///
-/// Returns a typed wire, payload or commitment refusal, `UnsupportedActivity`
-/// for any other activity type, and `MalformedPayload` when the context does not
-/// match what the canonical bytes and actor derive.
-#[deprecated(
-    note = "Use disclosure::call::bind_call with a canonical EIP-1559 call and explicit sender"
-)]
-pub fn bind_budget_mutation(
-    canonical: &[u8],
-    registry: &ModuleRegistry,
-    context: &BudgetStateContext,
-) -> Result<Disclosure, DisclosureError> {
-    let disclosure = bind_with(canonical, registry, Some(context))?;
-    match disclosure.native_operation {
-        Some(
-            DisclosedNativeOperation::BudgetFund(_)
-            | DisclosedNativeOperation::BudgetDefund(_)
-            | DisclosedNativeOperation::BudgetRevoke(_),
-        ) => Ok(disclosure),
-        _ => Err(DisclosureError::UnsupportedActivity(
-            disclosure.activity_type.value(),
-        )),
-    }
-}
-
-fn bind_with(
-    canonical: &[u8],
-    registry: &ModuleRegistry,
-    budget_context: Option<&BudgetStateContext>,
-) -> Result<Disclosure, DisclosureError> {
-    let activity = decode_unsigned(canonical, registry)?;
-    if !ct::eq_fixed(&hash::payload_hash(&activity)?, &activity.payload_hash()) {
-        return Err(DisclosureError::PayloadHash);
-    }
-    let reencoded = encode_unsigned(&activity)?;
-    if !ct::eq(&reencoded, canonical) {
-        return Err(DisclosureError::FieldMismatch("canonical_bytes"));
-    }
-    let fields = decoded_fields(&activity, budget_context)?;
-    let message = SignatureMessage::new(
-        hash::Domain::SignaturePreimage,
-        activity.protocol_version(),
-        activity.network_id(),
-        canonical,
-    )
-    .map_err(|_| DisclosureError::MalformedPayload)?;
-    Ok(Disclosure {
-        activity_type: fields.activity_type,
-        actor: fields.actor,
-        authority: fields.authority,
-        counterparties: fields.counterparties,
-        amounts: fields.amounts,
-        asset: fields.asset,
-        fee_limit: fields.fee_limit,
-        expiry: fields.expiry,
-        idempotency_key: fields.idempotency_key,
-        authority_grant: fields.authority_grant,
-        session_grant: fields.session_grant,
-        onboarding: fields.onboarding,
-        native_operation: fields.native_operation,
-        evm_payout_binding: fields.evm_payout_binding,
-        withdrawal: fields.withdrawal,
-        payment: fields.payment,
-        source: Source::Activity(activity),
-        call_sender: None,
-        signing_digest: message.digest(),
-        budget_context: budget_context.copied(),
-    })
 }
 
 #[cfg(test)]
@@ -1599,8 +895,8 @@ mod tests {
     use layerx_types::activity::{Authority, EnvelopeBuilder, TimestampBound as EnvelopeBound};
     use layerx_types::amount::Amount;
     use layerx_types::ids::{Did, IdempotencyKey};
-    use layerx_types::payload::{ModuleRegistration, Payload};
-    use layerx_wire::activity::encode_unsigned_envelope;
+    use layerx_types::payload::{ModuleRegistration, ModuleRegistry, Payload};
+    use layerx_wire::historical::activity::encode_unsigned_envelope;
 
     fn custody_credit_payload(length: usize) -> Vec<u8> {
         let mut payload = vec![0; length];
@@ -1661,20 +957,27 @@ mod tests {
                 let mut payload = custody_credit_payload(length);
                 payload[41..43].copy_from_slice(&protocol.to_be_bytes());
                 let (canonical, registry) = custody_credit_envelope(&payload, protocol)?;
-                let disclosure = bind(&canonical, &registry).map_err(|e| format!("{e:?}"))?;
+                let activity =
+                    layerx_wire::historical::activity::decode_unsigned(&canonical, &registry)
+                        .map_err(|e| format!("{e:?}"))?;
+                let disclosure = decode_bridge_deposit_credit(activity.payload(), &activity)
+                    .map_err(|e| format!("{e:?}"))?;
                 let mut payer = [0; 32];
                 payer[12..].copy_from_slice(&payload[171..191]);
-                assert_eq!(disclosure.counterparties[0].account, payer);
-                assert_eq!(disclosure.counterparties[1].account, payload[107..139]);
+                assert_eq!(disclosure.from, payer);
+                assert_eq!(disclosure.to, payload[107..139]);
                 assert_eq!(disclosure.asset, payload[75..107]);
-                assert_eq!(disclosure.amounts[0].value.to_be_bytes(), payload[191..207]);
+                assert_eq!(disclosure.amount.to_be_bytes(), payload[191..207]);
                 let mut nullifier = Sha256::new();
                 nullifier.update(b"LX:DEPOSIT:NULLIFIER:v1");
                 nullifier.update(&payload[43..75]);
                 assert_eq!(disclosure.idempotency_key, nullifier.finalize()[..]);
-                assert_eq!(disclosure.envelope_sequence(), 7);
-                assert_eq!(disclosure.expiry.payload_expires_at, 100);
-                assert_eq!(disclosure.reencode(), Ok(canonical));
+                assert_eq!(disclosure.sequence, 7);
+                assert_eq!(disclosure.expires_at, 100);
+                assert_eq!(
+                    layerx_wire::historical::activity::encode_unsigned(&activity),
+                    Ok(canonical)
+                );
             }
         }
         Ok(())
@@ -1687,8 +990,15 @@ mod tests {
             payload[offset] ^= 1;
             let (canonical, registry) = custody_credit_envelope(&payload, 3)?;
             assert_eq!(
-                bind(&canonical, &registry),
-                Err(DisclosureError::MalformedPayload),
+                decode_bridge_deposit_credit(
+                    layerx_wire::historical::activity::decode_unsigned(&canonical, &registry)
+                        .map_err(|e| format!("{e:?}"))?
+                        .payload(),
+                    &layerx_wire::historical::activity::decode_unsigned(&canonical, &registry)
+                        .map_err(|e| format!("{e:?}"))?,
+                )
+                .err(),
+                Some(DisclosureError::MalformedPayload),
                 "altered byte {offset}"
             );
         }
@@ -1697,8 +1007,15 @@ mod tests {
             payload[range.clone()].fill(0);
             let (canonical, registry) = custody_credit_envelope(&payload, 3)?;
             assert_eq!(
-                bind(&canonical, &registry),
-                Err(DisclosureError::MalformedPayload),
+                decode_bridge_deposit_credit(
+                    layerx_wire::historical::activity::decode_unsigned(&canonical, &registry)
+                        .map_err(|e| format!("{e:?}"))?
+                        .payload(),
+                    &layerx_wire::historical::activity::decode_unsigned(&canonical, &registry)
+                        .map_err(|e| format!("{e:?}"))?,
+                )
+                .err(),
+                Some(DisclosureError::MalformedPayload),
                 "zero field {range:?}"
             );
         }
@@ -1706,8 +1023,15 @@ mod tests {
         for length in 0..368 {
             let (canonical, registry) = custody_credit_envelope(&payload[..length], 3)?;
             assert_eq!(
-                bind(&canonical, &registry),
-                Err(DisclosureError::MalformedPayload),
+                decode_bridge_deposit_credit(
+                    layerx_wire::historical::activity::decode_unsigned(&canonical, &registry)
+                        .map_err(|e| format!("{e:?}"))?
+                        .payload(),
+                    &layerx_wire::historical::activity::decode_unsigned(&canonical, &registry)
+                        .map_err(|e| format!("{e:?}"))?,
+                )
+                .err(),
+                Some(DisclosureError::MalformedPayload),
                 "truncated length {length}"
             );
         }
@@ -1728,8 +1052,15 @@ mod tests {
         payload[180..212].copy_from_slice(&nullifier.finalize());
         let (canonical, registry) = custody_credit_envelope(&payload, 3)?;
         assert_eq!(
-            bind(&canonical, &registry),
-            Err(DisclosureError::MalformedPayload)
+            decode_bridge_deposit_credit(
+                layerx_wire::historical::activity::decode_unsigned(&canonical, &registry)
+                    .map_err(|e| format!("{e:?}"))?
+                    .payload(),
+                &layerx_wire::historical::activity::decode_unsigned(&canonical, &registry)
+                    .map_err(|e| format!("{e:?}"))?,
+            )
+            .err(),
+            Some(DisclosureError::MalformedPayload)
         );
         Ok(())
     }
@@ -1739,9 +1070,15 @@ mod tests {
         let (mut canonical, registry) = custody_credit_envelope(&custody_credit_payload(368), 3)?;
         let last = canonical.last_mut().ok_or("empty canonical envelope")?;
         *last ^= 1;
+        let activity = layerx_wire::historical::activity::decode_unsigned(&canonical, &registry)
+            .map_err(|e| format!("{e:?}"))?;
+        assert_ne!(
+            layerx_wire::historical::hash::payload_hash(&activity).map_err(|e| format!("{e:?}"))?,
+            activity.payload_hash()
+        );
         assert_eq!(
-            bind(&canonical, &registry),
-            Err(DisclosureError::PayloadHash)
+            decode_bridge_deposit_credit(activity.payload(), &activity).err(),
+            Some(DisclosureError::MalformedPayload)
         );
         Ok(())
     }

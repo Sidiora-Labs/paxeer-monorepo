@@ -132,7 +132,7 @@ pub(super) fn signed_program_transaction(
             Ok(SignedProgramTransaction {
                 to: PROGRAMS_ADDRESS,
                 data: program_call_calldata(call, activity.fee_limit())?,
-                activity_id: layerx_wire::hash::activity_id(&activity)
+                activity_id: layerx_wire::historical::hash::activity_id(&activity)
                     .map_err(|_| ProgramOperationError::Decode)?,
                 idempotency_key: activity.idempotency_key(),
                 protocol_version: activity.protocol_version(),

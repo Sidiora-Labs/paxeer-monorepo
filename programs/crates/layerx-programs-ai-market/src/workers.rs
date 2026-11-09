@@ -904,6 +904,7 @@ fn stamp(record: &mut WorkerCurrent, replay: &ReplayRequest, suffix: &[u8]) -> C
 /// Returns the F02 refusal code of the first failed check, `CAPACITY` when the next worker
 /// table followed by the region exceeds the identity section cap, or when `out`, `event` or
 /// `control_scratch` (which needs [`CONTROL_SCRATCH_BYTES`]) cannot hold its encoding.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn apply(
     state_bytes: &[u8],
     ctx: &CallContext<'_>,
@@ -941,6 +942,7 @@ pub fn apply(
     }
 }
 
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 fn apply_owner(call: &Call<'_>, table: &WorkerTable, buffers: Buffers<'_>) -> CodecResult<Applied> {
     let ctx = call.ctx;
     let e = &call.env.envelope;
@@ -1091,6 +1093,7 @@ fn expire_enrollment(
     )
 }
 
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 fn apply_record(
     call: &Call<'_>,
     mut table: WorkerTable,
