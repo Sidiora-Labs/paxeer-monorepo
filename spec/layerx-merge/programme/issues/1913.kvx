@@ -1,0 +1,7 @@
+[issue.1913]
+number = 1913
+title = "[Coherence] do_2 asks for command-check replacements that name a document or script path, but the validator do_3 keeps rejects any replacement that is not path::TestName"
+revision = "3520b1428059af90261432778c008a9ce362a0b1"
+verdict = "already-fixed"
+evidence = "Commit 9a55b08e3c9477ab2ca309bd071a80021083c64b supplied compatible command/document dispositions at spec/layerx-merge/programme/parity-stale.kvx:2020 (Makefile::human-check), :2028 (the human Cargo manifest member), :2076 (the platform workspace marker) and :2108 (the wallet security document marker), whose suffixes exist at Makefile:1895, services/human/Cargo.toml:7, services/platform/Cargo.toml:1 and docs/wallet/service/security-review.md:162 respectively, satisfying the retained path::name and text-presence checks at spec/layerx-merge/programme/parity_stale_check.py:65 and :77 and the shared disposition rules at spec/layerx-merge/spec.kvx:350606."
+close_comment = "Command and document checks now have replacements naming both the exercised file and a marker present in that file, including Makefile::human-check, Cargo manifest entries and the wallet security document. These dispositions satisfy the existing replacement validator and retain the original command checks."

@@ -1,0 +1,49 @@
+[issue.1879]
+number = 1879
+title = "[P2] Provide historical checkout input for the new tools authority test"
+revision = "3520b1428059af90261432778c008a9ce362a0b1"
+verdict = "task"
+evidence = "tools/paxeer-x/tests/ai_evidence_test.py:64 pins ce269bfe23c1db984a8ae62ce13aa36c238ce2fd and :501 clones shared history before :503 switches to that commit and :508 requires success, but .github/workflows/ci.yml:69 leaves the pinned checkout action at its default depth of one with no subsequent history fetch before :115 invokes Makefile:296, whose tests/ci/data/tools_python_suite_baseline.json:2 entry excludes only the separate retired-catalogue test."
+close_comment = "The tools authority test still requires a historical commit that the tools-python checkout does not provide. The follow-up task supplies that history and checks the unchanged refusal assertions from a fresh checkout through the tools-python target."
+
+[task.18.1879.1]
+title = "Issue #1879: Supply historical checkout input to the tools authority test"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181879.1"]
+capabilities = []
+interfaces = []
+do_1 = "Set fetch-depth to 0 on the tools-python actions/checkout step at .github/workflows/ci.yml:69, preserving persist-credentials: false at :72 and the normal make test-tools-python step at :115, so the shared clone in tools/paxeer-x/tests/ai_evidence_test.py:501 can switch to the pinned authority commit at :64."
+do_2 = "Add test_tools_python_checkout_provides_authority_history beside the workflow checks at tests/ci/test_tools_python_suites_wired.py:141; assert the owning job requests full history, create a fresh checkout of the real repository with that history configuration, assert the pinned commit exists, and invoke the unchanged tools/paxeer-x/tests/ai_evidence_test.py:497 test through make test-tools-python with TOOLS_PYTHON_SUITES restricted to its exact node id, requiring one executed passing test and reporting subprocess failures."
+do_3 = "Keep the interpreter and validator-location refusal assertions at tools/paxeer-x/tests/ai_evidence_test.py:514 intact, assert the historical-checkout test is absent from tests/ci/data/tools_python_suite_baseline.json:2, and retain the existing workflow and suite-wiring assertions at tests/ci/test_tools_python_suites_wired.py:141 without skipping tests or changing baseline entries."
+symbols = ["test_tools_python_checkout_provides_authority_history"]
+touches = [".github/workflows/ci.yml", "tests/ci/test_tools_python_suites_wired.py"]
+tests = ["tests/ci/test_tools_python_suites_wired.py::test_tools_python_checkout_provides_authority_history"]
+planned_paths = []
+build_cmd = "python3 -m py_compile tests/ci/test_tools_python_suites_wired.py"
+verify_cmd = "python3 -m pytest tests/ci/test_tools_python_suites_wired.py::test_tools_python_checkout_provides_authority_history -q"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181879]
+title = "The tools authority refusal test receives its required historical commit"
+ac_1 = "Given the tools-python checkout configured at .github/workflows/ci.yml:69, a fresh checkout contains ce269bfe23c1db984a8ae62ce13aa36c238ce2fd from tools/paxeer-x/tests/ai_evidence_test.py:64 and the normal Makefile:296 target, focused on the exact historical-checkout test at tools/paxeer-x/tests/ai_evidence_test.py:497, executes and passes its unchanged interpreter or validator-location refusal assertion without skipping or baselining the test."
+
+[acceptance.18.1879.1]
+feature = "18"
+req = "181879.1"
+scenario = "Given a fresh checkout matching the tools-python history configuration, when the exact historical authority test runs through the tools-python target, then its pinned commit is available and its unchanged validator refusal assertion passes with one test executed and no baseline exclusion."
+contract = "contracts/tools-ops.md#ci-workflows"
+test = "tests/ci/test_tools_python_suites_wired.py::test_tools_python_checkout_provides_authority_history (planned)"
+qualification = "UNRUN"

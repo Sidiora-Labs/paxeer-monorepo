@@ -1,0 +1,48 @@
+[issue.1886]
+number = 1886
+title = "[Coherence] The qualification finding for 22.39.117 attempt 2 names a chain-package test that never failed instead of the natsdriver case that did"
+revision = "3520b1428059af90261432778c008a9ce362a0b1"
+verdict = "task"
+evidence = "Commit 246829c4964ad6d5400b13084f9b4b74711f35e6 introduced the still-incorrect file and symbol at spec/layerx-merge/qualification.kvx:36312 and :36313, whose observed result at :36314 says the chain package passed and TestPhase3ActualOrderedPoisonAndHundredDuplicates failed, matching its declaration at sdk/launchpad/shared/delivery/natsdriver/driver_test.go:666 and quarantine assertion at :863 rather than the unrelated chain test at sdk/launchpad/shared/chain/client_test.go:569; GOTCHA.kvx:18416 and spec/layerx-merge/spec.kvx:216506 corroborate that failure, and task 22.39.117 remains pending at spec/layerx-merge/spec.kvx:216479."
+close_comment = "The attempt-2 finding still points to the chain read-adapter test even though its recorded failure is the NATS driver poison-quarantine case. A focused correction will name sdk/launchpad/shared/delivery/natsdriver/driver_test.go and TestPhase3ActualOrderedPoisonAndHundredDuplicates while preserving the recorded outcome."
+
+[task.18.1886.1]
+title = "Issue #1886: Correct the failure location in the attempt-2 qualification finding"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181886.1"]
+capabilities = []
+interfaces = []
+do_1 = "In finding.22.39.117.2 at spec/layerx-merge/qualification.kvx:36310, replace only file at :36312 with sdk/launchpad/shared/delivery/natsdriver/driver_test.go and symbol at :36313 with TestPhase3ActualOrderedPoisonAndHundredDuplicates, declared at sdk/launchpad/shared/delivery/natsdriver/driver_test.go:666 with its poison-quarantine assertion at :863; preserve task, observed, assumption, severity and every other finding."
+do_2 = "Use the focused metadata assertion to require exactly one finding.22.39.117.2 block, parse its values, assert the exact corrected file and symbol, retain task 22.39.117 and confirm its observed result still identifies the passing chain package and failing NATS driver test; this documentation correction does not change or rerun the delivery implementation or its tests."
+symbols = []
+touches = ["spec/layerx-merge/qualification.kvx"]
+tests = []
+planned_paths = []
+build_cmd = "true"
+verify_cmd = "python3 -c 'from pathlib import Path; import json; text=Path('\\''spec/layerx-merge/qualification.kvx'\\'').read_text(); assert text.count('\\''[finding.22.39.117.2]'\\'') == 1; block=text.split('\\''[finding.22.39.117.2]'\\'', 1)[1].split('\\''\\n['\\'', 1)[0]; fields=dict((k.strip(), json.loads(v)) for line in block.splitlines() if '\\'' = '\\'' in line for k, v in [line.split('\\'' = '\\'', 1)]); assert fields['\\''file'\\''] == '\\''sdk/launchpad/shared/delivery/natsdriver/driver_test.go'\\''; assert fields['\\''symbol'\\''] == '\\''TestPhase3ActualOrderedPoisonAndHundredDuplicates'\\''; assert fields['\\''task'\\''] == '\\''22.39.117'\\''; assert '\\''chain, db, delivery and storage passed'\\'' in fields['\\''observed'\\'']; assert '\\''TestPhase3ActualOrderedPoisonAndHundredDuplicates'\\'' in fields['\\''observed'\\'']; print('\\''finding.22.39.117.2 metadata matches the recorded failure'\\'')'"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-programme"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181886]
+title = "The attempt-2 finding identifies the failing NATS driver case"
+ac_1 = "The file and symbol of finding.22.39.117.2 at spec/layerx-merge/qualification.kvx:36312 and :36313 identify sdk/launchpad/shared/delivery/natsdriver/driver_test.go and TestPhase3ActualOrderedPoisonAndHundredDuplicates, matching the observed result at :36314 and test declaration at sdk/launchpad/shared/delivery/natsdriver/driver_test.go:666, while all other finding fields remain unchanged."
+
+[acceptance.18.1886.1]
+feature = "18"
+req = "181886.1"
+scenario = "Given the attempt-2 finding records a passing chain package and a failing NATS driver poison-quarantine case, when its metadata is checked, then exactly one finding names the NATS driver test file and exact test function and retains the recorded outcome."
+contract = "contracts/programme.md#programme"
+test = "spec/layerx-merge/qualification.kvx::finding.22.39.117.2 metadata assertion (planned)"
+qualification = "UNRUN"
