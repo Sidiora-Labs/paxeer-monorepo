@@ -11,6 +11,8 @@ interfaces_reviewed = 800
 interface_basis = "The supplied package explicitly lists 400 produced and 400 consumed registry rows. Its produces_total and consumes_total describe larger inventories; this record reviews the rows actually supplied, their declarations and relevant real consumers. Stale registry positions are located by identifiers rather than assumed line offsets."
 review_basis = "All 36 non-generated members read in full; eight MockGen outputs classified from generator provenance under the brief exemption. Documentation reviewed in full, including equivalent site/wiki content and differences. Findings are static source conclusions; no source build, source test suite, live network probe or production qualification is claimed."
 requirements_basis = "Package requirement acceptance criteria read from spec.kvx. Current retirement 8323.1 is preserved; retained emulator acceptance 8544.2 and 8969.1 has missing positive evidence. Starter-credit unit/amount and Go module/tag requirements were checked against their actual declarations. The declared task gate qualifies this audit record and does not establish that source repair target acceptance 22998.1 has been satisfied by source tests."
+contract_review_revision = "0f3fe6b8c5c1973c0e80408097cf66e06e40785f"
+contract_review_basis = "Issue 1606 correction: resolve registry contract targets relative to spec/layerx-merge and review the existing hosted config and emulator route anchors against sources at contract_review_revision. The audit revision, source line counts and unrelated observations remain historical; current retirement evidence below does not requalify or close the original settlement findings. Reassign the medium missing-platform-interface-contracts finding to actual CLI documentation drift and clear file.11's unsupported issues verdict. Counts remain 44 files, 39 findings and 15 documentation entries (13 unchanged, two corrected); the four original high findings, blocking list and upgrade_ready=false remain unchanged. This is a static documentation review, not a claim that the cited source regression tests ran."
 
 [file.01]
 path = "sdk/tests/mocks/account_retriever.go"
@@ -75,8 +77,8 @@ note = "Full manifest review of the isolated service workspace, direct ai-market
 [file.11]
 path = "services/platform/hosted/ai-artifacts/src/authority.rs"
 lines = 176
-verdict = "issues"
-note = "Full review of tenant token authentication, publisher generation/key admission, purpose/grant checks and configuration contracts; missing registry contract pages are recorded separately here."
+verdict = "clean"
+note = "Original full review covered tenant token authentication, publisher generation/key admission, purpose/grant checks and configuration contracts. At contract_review_revision, spec/layerx-merge/contracts/platform-hosted.md:329-338 resolves the config anchor and matches Config at services/platform/hosted/ai-artifacts/src/authority.rs:49-67, including retention_mark and revocation_mark. The corrected documentation finding names the stale CLI page; no independent source disagreement was identified in this member."
 
 [file.12]
 path = "services/platform/hosted/ai-artifacts/src/crypto.rs"
@@ -538,13 +540,13 @@ proposal = "Apply an explicit total deadline, bounded subprocess output and arch
 owner_domain = 8
 
 [finding.missing-platform-interface-contracts]
-file = "services/platform/hosted/ai-artifacts/src/authority.rs"
-line = 0
+file = "spec/layerx-merge/contracts/platform-cli.md"
+line = 1163
 class = "doc-drift"
 severity = "medium"
-observed = "The supplied interface registry points hosted artifact/identity interfaces at contracts/platform-hosted.md and emulator/release interfaces at contracts/platform-cli.md. Neither page exists in the audited tree, leaving declared config, route, file-format and CLI anchors unresolved."
-expected = "Published interface rows must resolve to an existing contract that defines the supported merged-network names, encodings, authorization, errors and recovery behavior for their consumers."
-proposal = "Have domain 8 publish the hosted and CLI interface contracts at the declared paths or update all registry anchors to maintained existing contracts. Include retirement dispositions and prove each documented shape against its real producer and consumer."
+observed = "Both platform contract pages exist under spec/layerx-merge/contracts/; the CLI contract still advertises retired emulator routes as stable. At contract_review_revision, registry targets resolve relative to spec/layerx-merge to spec/layerx-merge/contracts/platform-hosted.md#ai-artifacts-config-keys and spec/layerx-merge/contracts/platform-cli.md#emulator-http-routes. Hosted config rows at platform-hosted.md:329-338 match Config at services/platform/hosted/ai-artifacts/src/authority.rs:49-67, including the mark fields. CLI rows at platform-cli.md:1163 and :1170 still promise stable submit and settle handlers. In contrast, tools/platform/emulator/tests/gateway.rs:344-378 includes activities at :349 and asserts 404 at :373; :319-323 asserts settlement 410 with settlement_authority_retired, implemented by tools/platform/emulator/src/main.rs:1254-1259. The finding identifier is retained for existing repair references; its corrected subject is content drift."
+expected = "Existing contract text must describe the current producer and retirement dispositions: activities remain absent with HTTP 404 and settlement refuses with HTTP 410 settlement_authority_retired. Historical source offsets in the contracts' pinned revision must not be read as evidence of current callable handlers."
+proposal = "Have domain 8 correct the existing spec/layerx-merge/contracts/platform-cli.md emulator route table, especially :1163 and :1170, to describe activities retirement and the settlement refusal instead of stable submit/settle execution. Reconcile stale source citations and supported-surface guidance with the current dispatcher and regression assertions, alongside the separate emulator-retired-route-registry finding. Preserve the matching hosted config rows and the current 404/410 behavior; no page creation or anchor relocation is needed."
 owner_domain = 8
 
 [finding.doc-gateway]
@@ -743,11 +745,11 @@ status = "stale"
 notes = "Full 93-line page reviewed; lines 3-20, 38, 50 and 93 describe separate execution/custody/checkpoint architecture. Tenant virtual-chain namespace guidance at 24-30 remains useful."
 
 [doc.hosted-contract]
-path = "contracts/platform-hosted.md"
-status = "missing"
-notes = "Registry contract target is absent; hosted routes, configuration and durable formats need a maintained merged-network contract or corrected registry anchors. See finding missing-platform-interface-contracts."
+path = "spec/layerx-merge/contracts/platform-hosted.md"
+status = "accurate"
+notes = "At contract_review_revision, the registry target resolves relative to spec/layerx-merge. Reviewed ai-artifacts-config-keys at spec/layerx-merge/contracts/platform-hosted.md:329-338: capacity_bytes, commit_readers, listener, publishers, tenants and both mark signatures agree with the current Config producer at services/platform/hosted/ai-artifacts/src/authority.rs:49-67. In particular, retention_mark is Option<PathBuf> at :58 and revocation_mark is PathBuf at :54; their comments at :53-56 require marks outside the restorable data directory. The page explicitly pins source revision 2a1033aa2, so its authority.rs:17-32 offsets are historical. Accurate applies to this reviewed config contract; the CLI retirement drift is recorded separately in missing-platform-interface-contracts."
 
 [doc.cli-contract]
-path = "contracts/platform-cli.md"
-status = "missing"
-notes = "Registry contract target is absent; emulator and release CLI contracts need maintained pages and explicit retirement dispositions. See finding missing-platform-interface-contracts."
+path = "spec/layerx-merge/contracts/platform-cli.md"
+status = "stale"
+notes = "At contract_review_revision, the registry target resolves relative to spec/layerx-merge to the existing emulator-http-routes anchor at spec/layerx-merge/contracts/platform-cli.md:1141. Its rows at :1163 and :1170 still declare activities and settlement stable with obsolete submit/settle handlers. POST /v1/activities returns 404; POST /v1/settle returns 410 settlement_authority_retired. Current evidence is tools/platform/emulator/tests/gateway.rs:344-378 (activities listed at :349, 404 asserted at :373) and :319-323 (410 asserted at :320 and the refusal code at :323), plus tools/platform/emulator/src/main.rs:1254-1259 and :1303 for settlement and the absent-route default. These current sources supersede the page's pinned 2a1033aa2 dispatcher signatures as supported-surface evidence. Correct the stale text under finding missing-platform-interface-contracts; retain retired-route refusals."

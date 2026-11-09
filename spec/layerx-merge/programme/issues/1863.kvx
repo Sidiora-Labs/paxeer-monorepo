@@ -1,0 +1,48 @@
+[issue.1863]
+number = 1863
+title = "[Coherence] The routed-runner test still requires runs-on on the three Platform release gate jobs, which are now reusable-workflow calls without one"
+revision = "3520b1428059af90261432778c008a9ce362a0b1"
+verdict = "task"
+evidence = "The reusable calls introduced by commit 775a34c6ff79efe75976ba3dba4d1ea2376f7802 remain at .github/workflows/platform.yml:417, .github/workflows/platform.yml:423 and .github/workflows/platform.yml:429 without runs-on, while tests/ci/test_workflow_runs_on_routed.py:21 still lists all three and tests/ci/test_workflow_runs_on_routed.py:113 directly indexes their missing runs-on key, causing KeyError instead of checking the concrete jobs whose routed runners are at .github/workflows/programs-conformance.yml:68, .github/workflows/agent.yml:160 and .github/workflows/agent.yml:222."
+close_comment = "The routing regression test still reads runs-on from three reusable-workflow callers, so those cases fail before checking their concrete jobs. Follow each caller to its owning job and preserve the exact routed-runner and exclusion checks."
+
+[task.18.1863.1]
+title = "Issue #1863: Check routed runners on the concrete Platform release gate jobs"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181863.1"]
+capabilities = []
+interfaces = []
+do_1 = "Update test_restored_job_keeps_routed_runs_on in tests/ci/test_workflow_runs_on_routed.py:110 to resolve the three Platform callers at .github/workflows/platform.yml:417, .github/workflows/platform.yml:423 and .github/workflows/platform.yml:429 through RELEASE_GATE_CALLS and release_gate_job in tools/ci/tests/workflow_graph.py:8 and tools/ci/tests/workflow_graph.py:27, checking programs-conformance.yml acceptance, agent.yml adversarial and agent.yml fuzz-corpus respectively; retain all RESTORED_JOBS entries and the direct checks for inline jobs."
+do_2 = "Keep the parametrized test at tests/ci/test_workflow_runs_on_routed.py:109 asserting job existence, exact ROUTED equality, absence from routing_exclusions and the exact source-line check through assert_workflow_runs_on_routed for the resolved workflow; use release_gate_job to reject missing or incorrect caller targets and scope or lane inputs rather than skipping jobs without runs-on, following the existing callee coverage pattern at tests/ci/test_workflow_live_inputs_guarded.py:208."
+symbols = ["test_restored_job_keeps_routed_runs_on"]
+touches = ["tests/ci/test_workflow_runs_on_routed.py"]
+tests = ["tests/ci/test_workflow_runs_on_routed.py::test_restored_job_keeps_routed_runs_on"]
+planned_paths = []
+build_cmd = "python3 -m py_compile tests/ci/test_workflow_runs_on_routed.py"
+verify_cmd = "python3 -m pytest tests/ci/test_workflow_runs_on_routed.py::test_restored_job_keeps_routed_runs_on -q"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181863]
+title = "Platform release gate routing checks follow reusable workflows to concrete jobs"
+ac_1 = "Given the three reusable callers at .github/workflows/platform.yml:417, .github/workflows/platform.yml:423 and .github/workflows/platform.yml:429, the parametrized test at tests/ci/test_workflow_runs_on_routed.py:110 validates their target and input mappings and asserts the exact routed runner and non-exclusion of programs-conformance.yml acceptance at .github/workflows/programs-conformance.yml:68, agent.yml adversarial at .github/workflows/agent.yml:160 and agent.yml fuzz-corpus at .github/workflows/agent.yml:222 without requiring runs-on on a caller; all inline RESTORED_JOBS checks remain enforced."
+
+[acceptance.18.1863.1]
+feature = "18"
+req = "181863.1"
+scenario = "Given the Platform release gates call the Programs acceptance and Agent sanitizer and fuzz workflows, when the restored-job routing test inspects them, then it validates each caller mapping and the concrete job's exact routed runner and non-exclusion while preserving inline-job coverage."
+contract = "contracts/operations.md#ci-workflows"
+test = "tests/ci/test_workflow_runs_on_routed.py::test_restored_job_keeps_routed_runs_on (planned)"
+qualification = "UNRUN"

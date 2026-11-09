@@ -1395,25 +1395,25 @@ note = "Chain-level assertions use the actual module and sequencer interfaces, i
 path = "tests/daemon/test_handover_chain_no_read_consumer.py"
 lines = 23
 verdict = "issues"
-note = "Declared values and caller contracts agree with the merged-network requirements; no additional interface disagreement identified."
+note = "At the audited revision, this test depended on the removed tests/daemon/handover-chain.py harness; see finding f016."
 
 [file.232]
 path = "tests/daemon/test_protocol_owner_binds_state_feed.py"
 lines = 50
 verdict = "issues"
-note = "Declared values and caller contracts agree with the merged-network requirements; no additional interface disagreement identified."
+note = "At the audited revision, this test required make layerxd and the removed cmd/layerxd/lxp_daemon_protocol.c state-feed bindings; see finding f017."
 
 [file.233]
 path = "tests/daemon/test_serve_commits_programs_call.py"
 lines = 263
 verdict = "issues"
-note = "Declared values and caller contracts agree with the merged-network requirements; no additional interface disagreement identified."
+note = "At the audited revision, this test launched the removed build/bin/layerxd sequencer/replica harness to commit a programs call; see finding f018."
 
 [file.234]
 path = "tests/daemon/test_serve_startup_without_anchor_bind.py"
 lines = 44
 verdict = "issues"
-note = "Declared values and caller contracts agree with the merged-network requirements; no additional interface disagreement identified."
+note = "At the audited revision, this test required make layerxd and the removed lxp_daemon_process.c and lxp_daemon_finality_authority.c startup paths; see finding f019."
 
 [file.235]
 path = "tools/qualification/localnode/tests/test_merge_precompiles_served.py"

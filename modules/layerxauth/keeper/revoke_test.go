@@ -10,6 +10,7 @@ import (
 	evmtypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/types"
 	keeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxauth/keeper"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxauth/types"
+	ledgertypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxledger/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/lxphost"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/baseapp"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/codec"
@@ -61,14 +62,18 @@ func TestRevokeGrantAdvancesRevocation(t *testing.T) {
 			const send = "/cosmos.bank.v1beta1.MsgSend"
 			const multiSend = "/cosmos.bank.v1beta1.MsgMultiSend"
 			expiration := f.Context().BlockTime().Add(time.Hour)
+			message := banktypes.NewMsgSend(granter, grantee, sdk.NewCoins(sdk.NewInt64Coin(ledgertypes.MirrorDenom(*f.Asset()), 1)))
+			purpose, err := types.BankSendPurpose(message)
+			require.NoError(t, err)
 			matching := authRevokeAuthorization(f, grantID, send)
+			matching.ModuleMask = 1 << types.BankScopeModule
+			matching.PurposeHash = bytes.Clone(purpose[:])
 			require.NoError(t, matching.ValidateBasic())
 			if kind == "session" {
 				matching.Kind = 2
 			}
 			require.NoError(t, authzKeeper.SaveGrant(*f.Context(), grantee, granter, matching, expiration))
 			require.NoError(t, authzKeeper.SaveGrant(*f.Context(), otherGrantee, granter, matching, expiration))
-			message := banktypes.NewMsgSend(granter, grantee, sdk.NewCoins(sdk.NewInt64Coin("upax", 1)))
 			accepted, err := matching.Accept(types.WithGrantorRevocation(*f.Context(), granter, matching.RevocationEpoch), message)
 			require.NoError(t, err)
 			require.True(t, accepted.Accept)
