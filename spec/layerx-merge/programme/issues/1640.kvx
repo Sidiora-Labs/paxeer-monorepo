@@ -1,0 +1,52 @@
+[issue.1640]
+number = 1640
+title = "[P2] Reconcile orphaned acceptance replay jobs with price-feed retention"
+revision = "bb8caac8b3e73e3e2f4b330805574f0bcb540641"
+verdict = "task"
+evidence = "The queue includes non-consensus blocks at services/explorer/backend/apps/explorer/priv/repo/migrations/20261104000000_backfill_paxeer_x_price_acceptance.exs:30 and survives consensus loss at services/explorer/backend/apps/explorer/lib/explorer/chain/import/runner/blocks.ex:576, while services/explorer/backend/apps/explorer/priv/repo/migrations/scripts/price_acceptance_backfill.exs:20 counts every incomplete job but :64 and :73 return complete when only orphan jobs remain, services/explorer/backend/apps/indexer/lib/indexer/fetcher/paxeer_x/price_acceptance_replay.ex:39 stops the runner, and services/explorer/backend/apps/indexer/lib/indexer/fetcher/paxeer_x/price_feed_maintenance.ex:71 therefore still blocks all retention; commit bbfe819c82aa62bccf0821cf2232131f78821327 changes held-job ordering without reconciling these predicates, and services/explorer/backend/apps/explorer/test/repair/repair_22_31_472_test.exs:201 covers only canonical completion."
+close_comment = "Orphaned acceptance replay jobs can keep price-feed retention suspended after canonical replay finishes. The follow-up defers orphan jobs without claiming successful replay, protects their source observations while allowing unrelated history to expire, and restores replay eligibility if their blocks regain consensus."
+
+[task.18.1640.1]
+title = "Issue #1640: Reconcile deferred orphan replay jobs with bounded price-feed retention"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181640.1"]
+capabilities = []
+interfaces = []
+do_1 = "In services/explorer/backend/apps/explorer/priv/repo/migrations/scripts/price_acceptance_backfill.exs:20 and :64, distinguish runnable canonical jobs from deferred non-consensus jobs: retain orphan rows as incomplete with their durable cursor and retained payload, make pending? report canonical replay work for the retention guard, and return an explicit deferred result when no canonical job is runnable but incomplete orphan jobs remain; reserve :complete for an exhausted queue and retain the consensus lock and refusal at :159 so no orphan is replayed or marked successfully requalified. Keep migration 20261104000000 queue-only and preserve bounded block transactions under spec/layerx-merge/spec.kvx:8270."
+do_2 = "In services/explorer/backend/apps/explorer/lib/explorer/chain/paxeer_x/price_feed.ex:436 and :458, exclude submissions belonging to any incomplete replay job from retention candidates, including deferred orphan jobs, while retaining the existing latest accepted consensus observation rule and batch bound; this protects replay inputs even if consensus changes between the maintenance predicate and deletion, without letting an orphan prevent expiration of unrelated eligible history. In services/explorer/backend/apps/indexer/lib/indexer/fetcher/paxeer_x/price_feed_maintenance.ex:9, document canonical replay deferral and per-job source protection consistently with the existing guard at :71."
+do_3 = "In services/explorer/backend/apps/indexer/lib/indexer/fetcher/paxeer_x/price_acceptance_replay.ex:34, handle the deferred result by scheduling a bounded retry without fetching or rewriting non-consensus observations, preserving normal termination for a genuinely exhausted queue. A retained block can regain consensus through services/explorer/backend/apps/explorer/lib/explorer/chain/import/runner/blocks.ex:386, so the runner must discover its still-incomplete job after that transition, including after restart, and resume its durable cursor without resetting an already committed batch."
+do_4 = "Extend services/explorer/backend/apps/explorer/test/repair/repair_22_31_472_test.exs with declared helper functions orphan_replay_retention_recovers_after_restart, migration_defers_preexisting_orphan_jobs and orphan_replay_resumes_after_consensus_returns, each registered as an ExUnit test and asserting its criterion using real PostgreSQL, recorded node fixtures, PriceFeed imports, the migration, normal block import consensus transitions, PriceAcceptanceReplay and PriceFeedMaintenance.run_once. Cover a block already non-consensus at migration, a canonical block orphaned before replay, and consensus loss between batches; finish other canonical jobs, assert deferred jobs remain incomplete without false acceptance or node replay, and prove unrelated expired canonical history is deleted while every incomplete job retains its source observations. Restart the runner with only orphan jobs, restore the same block to consensus through block import, and assert cursor resumption, canonical source protection until replay completes, unchanged first-batch rows, and eventual completion and retention. Preserve all existing canonical retention, migration isolation, retry and durable cursor assertions in the 472 and 406 suites."
+symbols = ["pending?", "run_step", "oldest_updates_query", "handle_info", "orphan_replay_retention_recovers_after_restart", "migration_defers_preexisting_orphan_jobs", "orphan_replay_resumes_after_consensus_returns"]
+touches = ["services/explorer/backend/apps/explorer/priv/repo/migrations/scripts/price_acceptance_backfill.exs", "services/explorer/backend/apps/explorer/lib/explorer/chain/paxeer_x/price_feed.ex", "services/explorer/backend/apps/indexer/lib/indexer/fetcher/paxeer_x/price_feed_maintenance.ex", "services/explorer/backend/apps/indexer/lib/indexer/fetcher/paxeer_x/price_acceptance_replay.ex", "services/explorer/backend/apps/explorer/test/repair/repair_22_31_472_test.exs"]
+tests = ["services/explorer/backend/apps/explorer/test/repair/repair_22_31_472_test.exs::orphan_replay_retention_recovers_after_restart", "services/explorer/backend/apps/explorer/test/repair/repair_22_31_472_test.exs::migration_defers_preexisting_orphan_jobs", "services/explorer/backend/apps/explorer/test/repair/repair_22_31_472_test.exs::orphan_replay_resumes_after_consensus_returns"]
+planned_paths = []
+build_cmd = "services/explorer/deploy/tools/mix-in-builder.sh cmd --app indexer mix compile"
+verify_cmd = "services/explorer/deploy/tools/mix-in-builder.sh test apps/explorer/test/repair/repair_22_31_472_test.exs apps/explorer/test/repair/repair_22_31_406_test.exs"
+gate_kind = "planned"
+sandbox_profile = "elixir"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181640]
+title = "Orphan acceptance jobs cannot globally suspend price-feed retention or lose replay eligibility"
+ac_1 = "Given incomplete jobs for blocks that are already non-consensus when queued by services/explorer/backend/apps/explorer/priv/repo/migrations/20261104000000_backfill_paxeer_x_price_acceptance.exs:30 or lose consensus through services/explorer/backend/apps/explorer/lib/explorer/chain/import/runner/blocks.ex:543, canonical replay exhaustion defers those jobs without completing or replaying them, and services/explorer/backend/apps/indexer/lib/indexer/fetcher/paxeer_x/price_feed_maintenance.ex:55 expires unrelated eligible history before and after runner restart."
+ac_2 = "Retention candidates at services/explorer/backend/apps/explorer/lib/explorer/chain/paxeer_x/price_feed.ex:458 exclude source submissions for every incomplete canonical or deferred job, including across a concurrent consensus transition, while preserving bounded batches and the newest accepted consensus observation."
+ac_3 = "Given consensus loss between committed batches and later consensus restoration through services/explorer/backend/apps/explorer/lib/explorer/chain/import/runner/blocks.ex:386, the replay runner resumes the retained job from its durable cursor after restart, leaves already committed observations unchanged, requalifies remaining observations using recorded node evidence, and reports completion only after all jobs complete."
+
+[acceptance.18.1640.1]
+feature = "18"
+req = "181640.1"
+scenario = "Given migration-produced orphan jobs and a canonical job orphaned between replay batches, when canonical work finishes, maintenance and the replay runner restart, and a retained block regains consensus, then unrelated expired history is deleted, incomplete replay sources remain protected, orphan jobs stay deferred without false success, and canonical replay resumes its durable cursor to genuine completion."
+contract = "contracts/explorer-config.md#native-price-feed-indexing"
+test = "services/explorer/backend/apps/explorer/test/repair/repair_22_31_472_test.exs::orphan_replay_retention_recovers_after_restart; services/explorer/backend/apps/explorer/test/repair/repair_22_31_472_test.exs::migration_defers_preexisting_orphan_jobs; services/explorer/backend/apps/explorer/test/repair/repair_22_31_472_test.exs::orphan_replay_resumes_after_consensus_returns (planned)"
+qualification = "UNRUN"

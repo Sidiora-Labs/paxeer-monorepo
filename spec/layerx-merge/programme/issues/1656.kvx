@@ -1,0 +1,52 @@
+[issue.1656]
+number = 1656
+title = "[P2] Align protocol TVL card with six-decimal snapshot amounts"
+revision = "bb8caac8b3e73e3e2f4b330805574f0bcb540641"
+verdict = "task"
+evidence = "USDL has six decimals at modules/perps/types/market.go:12 and apps/perps/src/core/perps/config.ts:35, its raw transfer value survives decoding and storage at services/platform/perps-data/internal/decode/usdl.go:24 and services/platform/perps-data/internal/store/facts.go:192, the custody sum at services/platform/perps-data/internal/store/projections.go:858 reaches GraphQL unchanged at services/platform/perps-data/internal/graphql/perps.go:1727 and is asserted as 3500000 at services/platform/perps-data/internal/store/projections_test.go:556, but the mounted card at apps/perps/src/page-modules/analytics/index.tsx:87 divides by 1e18 at apps/perps/src/widgets/analytics/AnalyticsLiquidStat.tsx:54, as does the chart at apps/perps/src/widgets/analytics/ProtocolTvlChart.tsx:31, while apps/perps/tests/repair-22-33-192.test.ts:103 and apps/perps/src/widgets/analytics/repair-22-33-192.kvx:7 perpetuate the incorrect 18-decimal assumption introduced by commit 20a040577ed00d9cbb331e06d8212543bb679837 and left present after commit 1afd957303a399499f63282e15ecc79148b57863 marked task 22.33.192 done."
+close_comment = "The protocol TVL card and chart still interpret six-decimal USDL snapshots as 18-decimal amounts, understating TVL by a factor of one trillion. A focused repair is specified to align both displays and their regression coverage with raw custody snapshots while preserving aggregate balances and unavailable daily-change labels."
+
+[task.18.1656.1]
+title = "Issue #1656: Display protocol snapshot TVL in six-decimal USDL units"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181656.1"]
+capabilities = []
+interfaces = []
+do_1 = "Correct buildTvlTimeline at apps/perps/src/widgets/analytics/AnalyticsLiquidStat.tsx:54 and the TVL conversion at apps/perps/src/widgets/analytics/ProtocolTvlChart.tsx:29 to use the six-decimal USDL metadata at apps/perps/src/core/perps/config.ts:35; rename the chart converter to parseTvlUsd and expose ProtocolTvlChartContent for the existing component-test pattern without changing the production hook path."
+do_2 = "Document ProtocolSnapshotRecord.tvlUsd at apps/perps/src/types/perps.ts:119 as the raw six-decimal USDL custody inflow-minus-outflow sum from services/platform/perps-data/internal/store/projections.go:858, passed unchanged by services/platform/perps-data/internal/graphql/perps.go:1727, and correct the 18-decimal source statement at apps/perps/src/widgets/analytics/repair-22-33-192.kvx:7; preserve the producer, stored snapshots, GraphQL wire value and unrelated WAD fields."
+do_3 = "Update snapshot at apps/perps/tests/repair-22-33-192.test.ts:97 to encode six-decimal amounts and add a named protocolSnapshotsSixDecimalTvl test using the existing GraphQL client-to-component path at apps/perps/tests/repair-22-33-192.test.ts:200 with the producer regression's 5000000 inflow minus 1500000 outflow and raw tvlUsd 3500000 from services/platform/perps-data/internal/store/projections_test.go:526, :528 and :556; assert the card displays $3.50 and the chart plots 3.5 for desktop and mobile from that same GraphQL result."
+do_4 = "Keep the aggregate-custody assertions in f008AggregateTvlIncludesCollateralAbsentFromRecentEvents at apps/perps/tests/repair-22-33-192.test.ts:227 and the empty, missing, mistimed, zero-baseline and malformed-history assertions in f008MissingDailyHistoryNeverInventsAPercentage at apps/perps/tests/repair-22-33-192.test.ts:264; add a six-decimal fractional daily baseline and assert the correct percentage while retaining the exact 24-hour endpoint requirement at apps/perps/src/widgets/analytics/AnalyticsLiquidStat.tsx:100."
+symbols = ["buildTvlTimeline", "parseTvlUsd", "ProtocolTvlChartContent", "ProtocolSnapshotRecord", "snapshot", "protocolSnapshotsSixDecimalTvl", "f008AggregateTvlIncludesCollateralAbsentFromRecentEvents", "f008MissingDailyHistoryNeverInventsAPercentage"]
+touches = ["apps/perps/src/widgets/analytics/AnalyticsLiquidStat.tsx", "apps/perps/src/widgets/analytics/ProtocolTvlChart.tsx", "apps/perps/src/types/perps.ts", "apps/perps/src/widgets/analytics/repair-22-33-192.kvx", "apps/perps/tests/repair-22-33-192.test.ts"]
+tests = ["apps/perps/tests/repair-22-33-192.test.ts::protocolSnapshotsSixDecimalTvl", "apps/perps/tests/repair-22-33-192.test.ts::f008AggregateTvlIncludesCollateralAbsentFromRecentEvents", "apps/perps/tests/repair-22-33-192.test.ts::f008MissingDailyHistoryNeverInventsAPercentage"]
+planned_paths = []
+build_cmd = "pnpm --dir apps/perps exec tsc --noEmit"
+verify_cmd = "pnpm --dir apps/perps exec node --test --import tsx --test-name-pattern '^(protocolSnapshotsSixDecimalTvl|f008AggregateTvlIncludesCollateralAbsentFromRecentEvents|f008MissingDailyHistoryNeverInventsAPercentage)$' tests/repair-22-33-192.test.ts"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-markets"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181656]
+title = "Protocol TVL displays preserve the snapshot's six-decimal USDL unit contract"
+ac_1 = "Given custody transfers of 5000000 in and 1500000 out, the raw aggregate snapshot remains 3500000 as asserted at services/platform/perps-data/internal/store/projections_test.go:556 and returned at services/platform/perps-data/internal/graphql/perps.go:1727, and both the card conversion at apps/perps/src/widgets/analytics/AnalyticsLiquidStat.tsx:54 and chart conversion at apps/perps/src/widgets/analytics/ProtocolTvlChart.tsx:66 display 3.5 dollars rather than 3.5e-12."
+ac_2 = "Given complete aggregate snapshots with fractional six-decimal amounts and a positive baseline exactly 24 hours earlier, the card reports the correct daily percentage; empty, malformed, missing, mistimed or zero-baseline history retains the unavailable behavior at apps/perps/src/widgets/analytics/AnalyticsLiquidStat.tsx:185, and unchanged collateral remains included as asserted at apps/perps/tests/repair-22-33-192.test.ts:227."
+ac_3 = "The TVL unit description at apps/perps/src/types/perps.ts:119 and source statement at apps/perps/src/widgets/analytics/repair-22-33-192.kvx:7 agree with the raw six-decimal custody sum, and the GraphQL-to-card and chart regression uses 3500000 from the existing producer assertion instead of the WAD fixture at apps/perps/tests/repair-22-33-192.test.ts:103."
+
+[acceptance.18.1656.1]
+feature = "18"
+req = "181656.1"
+scenario = "Given six-decimal USDL aggregate protocol snapshots with raw TVL 3500000, when the GraphQL result reaches the analytics card and chart, then both show $3.50 worth of TVL, a valid daily baseline yields the correct percentage, and unavailable history stays explicitly unavailable."
+contract = "contracts/perps-client.md#widgets"
+test = "apps/perps/tests/repair-22-33-192.test.ts::protocolSnapshotsSixDecimalTvl (planned)"
+qualification = "UNRUN"

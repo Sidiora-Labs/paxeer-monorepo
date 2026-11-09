@@ -1,0 +1,50 @@
+[issue.1724]
+number = 1724
+title = "[P2] Use node-consistent amounts in the current-receipt restart fixture"
+revision = "a910fdedd579e63379ae6c2e4d4971990d28f8ad"
+verdict = "task"
+evidence = "The fixture introduced by dbd4e68ed94769c51ad1368826824595ec17b6f3 still supplies 25 at services/agent/crates/layerx-agentd/tests/support/current_node.rs:126 for signed_transaction at services/agent/crates/layerx-agentd/tests/support/mod.rs:109 whose encoder writes zero value at services/agent/crates/layerx-crypto/src/evm_transaction.rs:187, independently encodes and signs that amount at services/agent/crates/layerx-agentd/tests/support/mod.rs:861 and :923, whereas node/sequencer/receipt.go:426 derives Amount from transaction value and :266 encodes it, leaving the nonzero recovery assertions at services/agent/crates/layerx-agentd/tests/outbox_recover.rs:248 and :392 inconsistent with the producer and decision 2648 at spec/layerx-merge/spec.kvx:9001."
+close_comment = "The current restart fixture signs a receipt for 25 against a transaction whose value is zero, so it does not establish node-consistent nonzero recovery. The repair must use node-produced receipt bytes and matching budget evidence while preserving restart recovery, write admission and refusal coverage."
+
+[task.18.1724.1]
+title = "Issue #1724: Prove nonzero restart accounting with node-produced transaction receipts"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181724.1"]
+capabilities = []
+interfaces = []
+do_1 = "Add TestCurrentReceiptRestartFixture to node/sequencer/receipt_equality_test.go using the real newReceiptHarness at :233 and Receipter.Accept path at :278 to capture a successful transaction with explicit nonzero value, its exact signed transaction bytes, node-signed receipt, governed key and producer-derived budget state with matching committed evidence into services/agent/crates/layerx-agentd/tests/fixtures/current-receipt-restart.json; assert the raw transaction hash, decoded transaction value and receipt amount agree, and replay those captured bytes through authenticated_receipt and committed_budget in services/agent/crates/layerx-agentd/tests/support/current_node.rs:123 and :159 instead of supplying independent amount and spent fields at :126 and :169. Preserve the zero-value restriction of services/agent/crates/layerx-crypto/src/evm_transaction.rs:315; the existing shared corpus generator at rpc/sequencer_receipt_vectors_test.go:248 supplies execution results directly and is not a substitute for the real execution and budget producer; if the actual producer-consumer interfaces cannot represent matching nonzero spend, report the exact blocking interface without inventing fields, weakening checks or changing the positive scenario to zero."
+do_2 = "Update seed_startup_recovery and startup_recovery_reconciles_evidenced_tenant_and_holds_tenant_without_evidence in services/agent/crates/layerx-agentd/tests/outbox_recover.rs:184 and :361 to consume the captured transaction, receipt and budget evidence, retain the transaction bytes across store close/reopen, and assert transaction hash/value/receipt amount consistency, identical retained receipt bytes at :374, current-evidence inventory at :378, governed-key re-verification at :387, matching explicit nonzero protocol_consumed and receipt_consumed at :248, reconciliation and write admission at :252; preserve both legacy-evidence refusal tests at :79 and :141, missing-evidence reservation holds at :264, unreconciled-budget write refusal at :295 and invalid-budget refusals at :332, and have TestCurrentReceiptRestartFixture compare its producer output with the committed capture before the focused outbox_recover consumer tests run."
+symbols = ["TestCurrentReceiptRestartFixture", "authenticated_receipt", "committed_budget", "seed_startup_recovery", "startup_recovery_reconciles_evidenced_tenant_and_holds_tenant_without_evidence"]
+touches = ["node/sequencer/receipt_equality_test.go", "services/agent/crates/layerx-agentd/tests/fixtures/current-receipt-restart.json", "services/agent/crates/layerx-agentd/tests/support/current_node.rs", "services/agent/crates/layerx-agentd/tests/outbox_recover.rs"]
+tests = ["node/sequencer/receipt_equality_test.go::TestCurrentReceiptRestartFixture", "services/agent/crates/layerx-agentd/tests/outbox_recover.rs::startup_recovery_reconciles_evidenced_tenant_and_holds_tenant_without_evidence", "services/agent/crates/layerx-agentd/tests/outbox_recover.rs::legacy_receipt_evidence_is_refused_after_restart", "services/agent/crates/layerx-agentd/tests/outbox_recover.rs::archived_legacy_receipt_evidence_is_refused_after_restart"]
+planned_paths = ["services/agent/crates/layerx-agentd/tests/fixtures/current-receipt-restart.json"]
+build_cmd = "go build ./node/sequencer/... && cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test outbox_recover"
+verify_cmd = "go test -count=1 ./node/sequencer/ -run '^TestCurrentReceiptRestartFixture$' && cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test outbox_recover"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181724]
+title = "Nonzero restart accounting uses matching node transaction, receipt and budget evidence"
+ac_1 = "Given the positive recovery scenario at services/agent/crates/layerx-agentd/tests/outbox_recover.rs:361, its retained signed transaction hash and explicit nonzero value equal the activity id and amount of receipt bytes emitted by the actual node Receipter.Accept at node/sequencer/receipt.go:329, with producer-derived budget state and matching evidence rather than the independent amount and spent arguments at services/agent/crates/layerx-agentd/tests/support/current_node.rs:126 and :169."
+ac_2 = "After closing and reopening the store, the positive scenario preserves exact transaction and receipt bytes, inventories and re-verifies current evidence at services/agent/crates/layerx-agentd/tests/outbox_recover.rs:367, reconciles equal nonzero protocol and receipt spend and admits evidenced-tenant writes at :248, while legacy evidence at :79 and :141, missing evidence at :264, unreconciled accounting at :295 and invalid budget state at :332 retain their refusal assertions."
+ac_3 = "If the genuine producer-consumer path cannot supply the required nonzero budget spend and matching evidence, the specific interface blocker is reported without weakening the zero-value transaction decoder at services/agent/crates/layerx-crypto/src/evm_transaction.rs:315 or fabricating receipt or budget fields."
+
+[acceptance.18.1724.1]
+feature = "18"
+req = "181724.1"
+scenario = "Given a node-executed transaction with explicit nonzero value, its signed receipt and matching producer-derived budget evidence, when the recovery store closes and reopens, then retained transaction hash and value agree with the identical receipt bytes, current evidence re-verifies, equal nonzero spend reconciles and evidenced-tenant writes are admitted while legacy, missing, invalid and unreconciled evidence retain their refusals."
+contract = "contracts/agent-rust-api.md#agentd"
+test = "services/agent/crates/layerx-agentd/tests/outbox_recover.rs::startup_recovery_reconciles_evidenced_tenant_and_holds_tenant_without_evidence (planned)"
+qualification = "UNRUN"

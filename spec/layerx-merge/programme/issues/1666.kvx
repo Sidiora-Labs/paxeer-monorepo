@@ -1,0 +1,7 @@
+[issue.1666]
+number = 1666
+title = "MCP approval tests omit newly required decision time"
+revision = "bb8caac8b3e73e3e2f4b330805574f0bcb540641"
+verdict = "already-fixed"
+evidence = "Commit bcfa98a405d16c7239f986ba4235fb66b82ee24a migrated both cited callers: services/agent/crates/layerx-mcp/tests/session_tools_major_two.rs:216 supplies deterministic DecisionRequest.current_time and :251 supplies approval.get current_time, services/agent/crates/layerx-mcp/tests/repair_22_31_223.rs:1249 supplies deterministic lookup time, services/agent/crates/layerx-mcp/src/catalogue.rs:946 still requires current_time with parsing at :812, services/agent/crates/layerx-agentd/tests/repair_22_31_495.rs:329 retains backwards-time refusal assertions, and services/agent/crates/layerx-mcp/tests/approval.rs:217 retains the terminal expiry boundary test."
+close_comment = "Both cited MCP approval tests now supply explicit deterministic time in their decision constructor and lookup requests. The required-time validation contract and approval time-window and expiry refusals remain intact."

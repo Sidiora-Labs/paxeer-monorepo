@@ -1,0 +1,7 @@
+[issue.1709]
+number = 1709
+title = "Rust fiat replay tests still load the retired receipt corpus"
+revision = "bb8caac8b3e73e3e2f4b330805574f0bcb540641"
+verdict = "already-fixed"
+evidence = "Commit b793700a08a245d7128c53de7da59db62e500b97 repairs the corpus mismatch: services/interop/crates/layerx-fiat/tests/sequenced_vectors.rs:22 loads fiat-receipts-v1.json, services/interop/crates/layerx-fiat/tests/sequenced_vectors.rs:322 resolves the declared case IDs and checks original transaction, digest and calldata bindings, services/interop/crates/layerx-fiat/tests/sequenced_vectors.rs:448 retains idempotent replay with all five coverage slots asserted at line 482, and services/interop/crates/layerx-fiat/tests/sequenced_vectors.rs:493 uses the shared V1 case only for separate negative mutations whose helper at line 181 no longer requires removed journey fields, while services/interop/crates/layerx-fiat/tests/support/producer_path.rs:600 preserves rejection of altered transaction hashes, signatures and log references."
+close_comment = "Fiat replay now consumes the original producer receipts and current case IDs from fiat-receipts-v1.json for all three credited rails and the submitted and reverted journeys. Idempotent replay and mutation checks remain covered, with negative mutation evidence constructed separately without the removed journey fields."
