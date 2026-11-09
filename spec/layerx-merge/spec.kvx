@@ -215801,7 +215801,7 @@ do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete ap
 
 [task.22.39.212]
 title = "Align the bridge chain configurations, tests and release records with the governed signer manifest"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["22.31.446"]
