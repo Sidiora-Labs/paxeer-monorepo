@@ -2,15 +2,8 @@ include!("support/settlement_fixture.rs");
 
 #[test]
 fn relay_claim_before_send_and_private_endpoint_settlement() -> TestResult {
-    let fixtures: Value = serde_json::from_slice(include_bytes!(
-        "../../../../../sdk/platform/conformance/fixtures/sequencer-receipt-v1.json"
-    ))?;
-    let case = fixtures["cases"]
-        .as_array()
-        .ok_or("cases")?
-        .iter()
-        .find(|case| case["id"] == "V1-layerxledger-pay-exact")
-        .ok_or("recorded payment")?;
+    let current = payment_case()?;
+    let case = &current;
     let raw = bytes(case["rawTransaction"].as_str().ok_or("raw transaction")?)?;
     let (transaction, signature) = decode_signed(&raw)?;
     let sender = recover_sender(&transaction, &signature)?;

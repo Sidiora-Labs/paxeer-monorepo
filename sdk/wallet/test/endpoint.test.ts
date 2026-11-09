@@ -1,9 +1,11 @@
 import { readFileSync } from 'node:fs';
-import { nodeVector, receiptWireKeys } from './support/receipt-recordings.js';
+import { authenticatedReceipt, nodeVector, receiptWireKeys } from './support/receipt-recordings.js';
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, test } from 'vitest';
 import {
+  decodeJourney,
+  decodeIntentPlan,
   EndpointClient,
   HumanClient,
   HumanServiceError,
@@ -75,6 +77,11 @@ function answer(scenario: Scenario, call: unknown): unknown {
     request.params[0] === receiptRecording.receiptJson.txHash
   )
     result = receiptRecording.receiptJson;
+  else if (
+    request.method === 'eth_getRawTransactionByHash' &&
+    request.params[0] === receiptRecording.receiptJson.txHash
+  )
+    result = receiptRecording.rawTransaction;
   else if (request.method === 'px_getReceiptKeys')
     result = receiptWireKeys(receiptRecording.receiptJson);
   else if (request.method === 'px_getAccount' && request.params[0] === `0x${'7d'.repeat(20)}`)
@@ -97,7 +104,7 @@ function answer(scenario: Scenario, call: unknown): unknown {
     unmatched.push(`${scenario} ${request.method} ${JSON.stringify(request.params)}`);
     return { jsonrpc: '2.0', id: request.id, error: { code: -32601, message: 'Method not found' } };
   }
-  return { jsonrpc: '2.0', id: request.id, ...exchange.response };
+  return { ...exchange.response, jsonrpc: '2.0', id: request.id };
 }
 
 function reply(
@@ -227,11 +234,10 @@ describe('EndpointClient', () => {
       { method: 'lx_getReceipt', params: ['cd'.repeat(32)] },
       { method: 'px_resolveAccount', params: [owner] },
     ]);
-    expect(seen).toHaveLength(2);
+    expect(seen).toHaveLength(1);
     expect(seen.every((request) => request.batch)).toBe(true);
     expect(seen.map((request) => request.methods)).toEqual([
-      ['px_getCapabilities', 'px_resolveAccount'],
-      ['eth_blockNumber', 'lx_getReceipt'],
+      ['eth_blockNumber', 'px_getCapabilities', 'lx_getReceipt', 'px_resolveAccount'],
     ]);
     expect(outcomes[0]).toEqual({ ok: true, result: '0x1a2b3c' });
     expect(outcomes[1]?.ok).toBe(true);
@@ -330,7 +336,7 @@ describe('KernelClient', () => {
     expect(await kernel.getSequence(mergedOwner)).toEqual({ available: true, result: '42' });
     expect(await kernel.getReceipt(receiptRecording.receiptJson.txHash)).toEqual({
       available: true,
-      result: receiptRecording.receiptJson,
+      result: authenticatedReceipt(receiptRecording.receiptJson),
     });
     expect(Reflect.get(kernel, 'getActivityStatus')).toBeUndefined();
     expect(methodsSeen('available')).toEqual([
@@ -340,6 +346,7 @@ describe('KernelClient', () => {
       'eth_getTransactionCount',
       'pax_sequencerReceipt',
       'px_getReceiptKeys',
+      'eth_getRawTransactionByHash',
     ]);
     await expect(client.rpc.call('lx_getReceipt', ['cd'.repeat(32)])).rejects.toMatchObject({
       name: 'JsonRpcError',
@@ -420,10 +427,23 @@ describe('HumanClient', () => {
     const client = human('available');
     const plan = await client.planIntent(golden('intent.plan.request').body as PlanIntentRequest);
     expect(plan).toEqual((golden('intent.plan.response').body as { result: unknown }).result);
-    expect(plan.legs.map((leg) => [leg.domain, leg.fee.amount])).toEqual([
-      ['paxeer', '1'],
-      ['layerx', '8'],
-    ]);
+    expect(plan.legs.map((leg) => [leg.domain, leg.fee.amount])).toEqual([['layerx', '200000']]);
+    for (const [field, invalids] of [
+      ['to', [null, '0x12', `0x${'aa'.repeat(20)}\n`]],
+      ['calldata', [null, '0x1', '0xgg', '0x12\n']],
+      ['value', [null, 0, '-1', '01', '1\n']],
+      ['max_fee_per_gas', [null, 0, '-1', '01']],
+      ['max_priority_fee_per_gas', [null, 0, '-1', '01']],
+      ['nonce', [-1, 0.5, Number.MAX_SAFE_INTEGER + 1]],
+      ['chain_id', [-1, 0.5, Number.MAX_SAFE_INTEGER + 1]],
+      ['gas_limit', [-1, 0.5, Number.MAX_SAFE_INTEGER + 1]],
+    ] as const) {
+      for (const value of invalids) {
+        expect(() =>
+          decodeIntentPlan({ ...plan, legs: [{ ...plan.legs[0], [field]: value }] })
+        ).toThrow(`intent leg ${field}`);
+      }
+    }
     const submitGolden = golden('intent.submit.request');
     const submitted = await client.submitPlan(
       submitGolden.body as SubmitPlanRequest,
@@ -436,6 +456,17 @@ describe('HumanClient', () => {
     const journeyId = (golden('journey.get.request').path as string).split('/').pop() as string;
     const journey = await client.getJourney(journeyId);
     expect(journey).toEqual((golden('journey.get.response').body as { result: unknown }).result);
+    for (const [field, value] of [
+      ['tx_hash', '0x12'],
+      ['nonce', -1],
+      ['nonce', 1.5],
+      ['nonce', Number.MAX_SAFE_INTEGER + 1],
+    ] as const) {
+      expect(() =>
+        decodeJourney({ ...journey, stages: [{ ...journey.stages[0], [field]: value }] })
+      ).toThrow(`journey stage ${field}`);
+    }
+    expect(journey.stages[0]).toMatchObject({ tx_hash: `0x${'ab'.repeat(32)}`, nonce: 19 });
     expect(seen.filter((entry) => entry.scenario === 'human').map((entry) => entry.path)).toEqual([
       '/v1/intents/plan',
       '/v1/intents/submit',

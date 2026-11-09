@@ -94,3 +94,8 @@ exit = 101
 log = "/out/logs/build-1.log"
 observed = "The existing src/compat.rs:8 include_str!(../../../COMPATIBILITY.md) cannot read the absent services/agent/COMPATIBILITY.md, so neither the library nor its integration tests compile."
 assumption = "Both the include site and absent file are outside the explicit task scope; record this inherited failure without changing either or rerunning the recorded failure; verify has not run and qualification is not claimed."
+
+[regression.managed_agent_checks_613]
+boundary = "The unknown release and foreign submission refusals originate in TRACK authorization and release lookup outside managed_agent; their exact operation.refused frames remain unchanged."
+execution = "The existing regression target runs alone under task 22.31.613; tests/repair_22_31_613.kvx references its private command, revision, exit and log. All behavioral cases and recording-only ignore attributes are preserved."
+evidence = "The final passing verify row in /out/run/gates.jsonl supplies the verified revision, command, exit and private log and must match the final passing build row; no result is claimed before execution."

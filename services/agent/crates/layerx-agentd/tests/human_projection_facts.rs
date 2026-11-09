@@ -225,6 +225,7 @@ fn real_authenticated_approval_and_managed_exports_preserve_facts_refusals_and_r
     assert!(created > 0 && created < expiry);
     let rejected =
         scoped_projection_exchange(&fixture, &get, fixture_text(&fixture, "foreign_principal"));
+    // Subject authorization refuses this foreign principal outside managed_agent.
     assert_eq!(rejected, refusal_frame(b"operation.refused"));
     let mut legacy = fixture_id(&fixture, "legacy_approval_id").to_vec();
     legacy.extend_from_slice(&sequence.to_be_bytes());
@@ -266,7 +267,7 @@ fn real_authenticated_approval_and_managed_exports_preserve_facts_refusals_and_r
     );
     assert_eq!(
         budget_facts[82],
-        layerx_types::verify::VerificationLevel::COMMITTED.wire_rank()
+        layerx_types::rung::Rung::Committed.wire_rank()
     );
     assert!(budget_facts[83..115].iter().any(|byte| *byte != 0));
     assert_eq!(&budget_facts[115..123], &sequence.to_be_bytes());
@@ -367,13 +368,26 @@ fn real_authenticated_approval_and_managed_exports_preserve_facts_refusals_and_r
         &wire[66..74],
         &exported.metadata.global_sequence.to_be_bytes()
     );
-    assert_eq!(wire[74], exported.metadata.verification_level.wire_rank());
+    assert_eq!(
+        wire[74],
+        exported
+            .metadata
+            .verification_level
+            .rung()
+            .expect("exported evidence has a current rung")
+            .wire_rank()
+    );
     let length =
         u32::from_be_bytes(wire[75..79].try_into().expect("exact receipt length")) as usize;
     assert_eq!(wire.len(), 79 + length);
     assert_eq!(&wire[79..], exported.canonical_bytes);
-    assert!(
-        layerx_agentd::managed_agent::evidence_export(&store, &tenant, agent_id, [0; 32]).is_err()
+    assert_eq!(
+        layerx_agentd::managed_agent::evidence_export(&store, &tenant, agent_id, [0; 32]).err(),
+        Some(layerx_agentd::human::HumanOperationError::Typed(
+            layerx_agentd::human::HumanRefusal::ManagedAgent(
+                layerx_agentd::managed_agent::ManagedAgentCheck::EvidenceDigest,
+            ),
+        )),
     );
     let foreign =
         TenantId::new(fixture_text(&fixture, "foreign_agent_tenant")).expect("distinct tenant");
@@ -859,7 +873,7 @@ impl LocalServer {
             "canonical_core_bytes":fixture.agent_did.strip_prefix("did:layerx:").unwrap(),
             "head_sequence":fixture.budget_state["observed_head_sequence"],
             "revocation_sequence":fixture.budget_state["revocation_sequence"],
-            "verification_level":"checkpoint_finalised", "frozen":false,
+            "verification_level":layerx_types::verify::VerificationLevel::COMMITTED.wire_label(), "frozen":false,
             "authorities":[{"kind":"primary_key","id":fixture.agent_did.strip_prefix("did:layerx:").unwrap()}]
         });
         let subject_peer = fixture.subject_peer(0);
@@ -869,7 +883,7 @@ impl LocalServer {
             "tenant":subject.transport_tenant,"subject_principal":subject_peer.principal,
             "agent_tenant":subject_peer.tenant,"owner_did":subject.owner,
             "account_id":hex::encode(must(layerx_wire::hash::account_id_for_protocol(&account,3))),
-            "asset_id":hex::encode(subject.asset),"verification_level":"checkpoint_finalised",
+            "asset_id":hex::encode(subject.asset),"verification_level":layerx_types::verify::VerificationLevel::COMMITTED.wire_label(),
             "observed_head_sequence":fixture.budget_state["observed_head_sequence"],
             "checkpoint_digest":fixture.budget_state["checkpoint_digest"],
         });

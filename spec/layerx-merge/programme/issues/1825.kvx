@@ -1,0 +1,49 @@
+[issue.1825]
+number = 1825
+title = "[P2] Remove the deleted glTF model from both size allowlists"
+revision = "a910fdedd579e63379ae6c2e4d4971990d28f8ad"
+verdict = "task"
+evidence = "Commit c3975b3cee9bf838d84b478d58dea4b8b24aa6f2 deleted apps/perps/public/model.gltf, but tests/ci/test_web_asset_weight.py:66 and tests/ci/data/large_file_allowlist.txt:12 still allow it while tests/ci/test_web_asset_weight.py:153 rejects stale allowances, tests/ci/test_tracked_file_size_budget.py:71 stats every allowance, tests/ci/test_tracked_file_size_budget.py:82 rejects missing entries, and Makefile:268 includes these tests in the target called by .github/workflows/ci.yml:41."
+close_comment = "The deleted model still appears in both size allowlists, causing the repository checks to reject the intended asset set. The follow-up repair will remove both entries and extend the cleanup regression checks while keeping the unused model deleted."
+
+[task.18.1825.1]
+title = "Issue #1825: Remove stale model allowances and cover asset cleanup"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181825.1"]
+capabilities = []
+interfaces = []
+do_1 = "Remove only apps/perps/public/model.gltf from LARGE_ASSET_ALLOWLIST at tests/ci/test_web_asset_weight.py:66 and from tests/ci/data/large_file_allowlist.txt:12; keep the model deleted and preserve every remaining budget and assertion, including the retained Model_Compressed.glb allowances at tests/ci/test_web_asset_weight.py:58 and tests/ci/data/large_file_allowlist.txt:11."
+do_2 = "Add test_removed_model_has_no_size_allowances to tests/ci/test_repo_hygiene_strays.py beside the model absence assertion at tests/ci/test_repo_hygiene_strays.py:120; assert that the model remains absent and that neither the actual LARGE_ASSET_ALLOWLIST nor the parsed large_file_allowlist.txt contains its path, then run it with test_public_assets_under_weight_cap, test_allowlist_entries_exist and test_allowlisted_files_have_not_grown to cover both allowance consumers in cleanup qualification."
+symbols = ["LARGE_ASSET_ALLOWLIST", "test_removed_model_has_no_size_allowances"]
+touches = ["tests/ci/test_web_asset_weight.py", "tests/ci/data/large_file_allowlist.txt", "tests/ci/test_repo_hygiene_strays.py"]
+tests = ["tests/ci/test_web_asset_weight.py::test_public_assets_under_weight_cap", "tests/ci/test_tracked_file_size_budget.py::test_allowlist_entries_exist", "tests/ci/test_tracked_file_size_budget.py::test_allowlisted_files_have_not_grown", "tests/ci/test_repo_hygiene_strays.py::test_removed_model_has_no_size_allowances"]
+planned_paths = []
+build_cmd = "python3 -m py_compile tests/ci/test_web_asset_weight.py tests/ci/test_tracked_file_size_budget.py tests/ci/test_repo_hygiene_strays.py"
+verify_cmd = "python3 -m pytest -q tests/ci/test_web_asset_weight.py::test_public_assets_under_weight_cap tests/ci/test_tracked_file_size_budget.py::test_allowlist_entries_exist tests/ci/test_tracked_file_size_budget.py::test_allowlisted_files_have_not_grown tests/ci/test_repo_hygiene_strays.py::test_removed_model_has_no_size_allowances"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181825]
+title = "Deleted model assets have no remaining size allowances"
+ac_1 = "Given the model deleted by commit c3975b3cee9bf838d84b478d58dea4b8b24aa6f2, apps/perps/public/model.gltf remains absent and its stale entries at tests/ci/test_web_asset_weight.py:66 and tests/ci/data/large_file_allowlist.txt:12 are removed without changing other budgets or weakening the checks at tests/ci/test_web_asset_weight.py:153 and tests/ci/test_tracked_file_size_budget.py:68."
+ac_2 = "The focused verification runs the three allowance consumer tests declared at tests/ci/test_web_asset_weight.py:147 and tests/ci/test_tracked_file_size_budget.py:68 and :82, plus test_removed_model_has_no_size_allowances in the cleanup suite whose current absence assertion is at tests/ci/test_repo_hygiene_strays.py:120; the existing tests/ci collection at Makefile:268 includes the regression in the CI target at .github/workflows/ci.yml:41."
+
+[acceptance.18.1825.1]
+feature = "18"
+req = "181825.1"
+scenario = "Given the intentionally deleted perps model and its two stale allowances, when both allowances are removed and the focused asset, file-size and cleanup checks run, then the model stays absent, neither allowlist contains its path and every selected check passes without weakening existing budgets."
+contract = "contracts/operations.md#ci-workflows"
+test = "tests/ci/test_repo_hygiene_strays.py::test_removed_model_has_no_size_allowances (planned)"
+qualification = "UNRUN"

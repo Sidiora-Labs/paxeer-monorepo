@@ -1,20 +1,22 @@
 import hashlib
 import json
+import os
 import subprocess
 from pathlib import Path
 
 
 def fixture_output_matches_golden(tmp_path: Path) -> tuple[bytes, bytes, bytes]:
     root = Path(__file__).resolve().parents[1]
-    build_dir = tmp_path / "build"
+    build_dir = Path(os.environ.get("LAYERX_TEST_BUILD_DIR", root / "build"))
     binary = build_dir / "tests" / "explorer_fixture"
     subprocess.run(
         ["make", f"BUILD_DIR={build_dir}", str(binary)],
         cwd=root,
         check=True,
+        timeout=300,
     )
     output = subprocess.run(
-        [str(binary)], cwd=root, check=True, capture_output=True
+        [str(binary)], cwd=root, check=True, capture_output=True, timeout=30
     ).stdout
     assert len(output) <= 1_048_576
     offset = 0

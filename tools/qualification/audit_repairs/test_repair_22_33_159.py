@@ -198,12 +198,14 @@ def test_f15_paxd_build_and_release_examples():
         assert fact in build, fact
     makefile = source("Makefile")
     rules = dict(re.findall(r"^([A-Za-z0-9_-]+):([^\n]*)$", makefile, re.M))
-    assert rules["paxd-native-libs"].split() == ["$(LIBRARY)", "programs-release-build"]
+    assert rules["paxd-native-libs"].split() == ["$(LIBRARY)", "programs-release-build", "evmone-lib"]
     assert rules["paxd-build"].split() == ["paxd-native-libs"]
     recipe = makefile.split("\npaxd-build: paxd-native-libs\n", 1)[1].split("\n\n", 1)[0]
     assert "jq -er .version tools/release/version.json" in recipe
     assert "$(PAXEER_MAKE) build" in recipe
-    assert "sdk/version.Version=$$version" in recipe
+    assert 'VERSION="$$version"' in recipe
+    assert "sdk/version.Version=$(VERSION)" in source("chain.mk")
+    assert "BUILD_FLAGS = -tags \"$(build_tags)\" -ldflags '$(paxd_ldflags)'" in source("chain.mk")
     version = json.loads(source("tools/release/version.json"))
     assert re.fullmatch(r"v\d+\.\d+\.\d+", version["version"])
     assert "-o ./build/paxd ./daemon/paxd" in source("chain.mk")

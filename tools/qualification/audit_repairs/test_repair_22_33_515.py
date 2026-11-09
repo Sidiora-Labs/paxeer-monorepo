@@ -122,7 +122,8 @@ def test_rust_contract_consumes_actual_http_and_typed_state():
         assert replacement not in harness
     assert '"{}/api/health"' in source("crate/src/apis/health_api.rs")
     assert '"{}/api/v2/blocks"' in source("crate/src/apis/blocks_api.rs")
-    assert "HealthBlocks" in source("crate/src/models/health_check_response_metadata.rs")
+    assert "pub blocks: models::BlockIndexingStatus" in source("crate/src/models/health_check_response_metadata.rs")
+    assert "pub latest_block:" in source("crate/src/models/block_indexing_status.rs")
     assert "pub items: Vec<models::Block>" in source("crate/src/models/get_blocks_200_response.rs")
 
 

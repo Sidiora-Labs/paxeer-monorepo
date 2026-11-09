@@ -69,6 +69,8 @@ request = "Empty"
 response = "EvidenceMaterial"
 
 [operation.journey.get]
+golden_responses = ["historical/journey.get.response.json"]
+golden_inputs = ["producer/journey.get.record.json"]
 authorization_class = "read"
 method = "GET"
 path = "/v1/journeys/{journey_id}"

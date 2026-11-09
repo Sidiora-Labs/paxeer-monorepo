@@ -81,22 +81,16 @@ def test_architecture_root_introduction_and_receipt_commit_boundary():
 
 
 def test_architecture_root_component_table_links_real_runtime_boundaries():
-    architecture = section(source("README.md"), "### Architecture")
-    table = architecture.split("```mermaid", 1)[0]
-    rows = [line for line in table.splitlines() if line.startswith("| ")]
-    assert [row.split("|")[1].strip() for row in rows[2:]] == [
-        "Paxeer node",
-        "Embedded kernel and proposer",
-        "Native state and finality",
-        "Public node RPC",
-        "Hosted gateway",
-    ]
-    paths = re.findall(r"\]\(([^)#]+)\)", table)
-    assert paths
+    introduction = section(source("README.md"), "## What is Paxeer X Network?")
+    components = introduction.split("The node integrates the following components:", 1)[1].split("A receipt is final", 1)[0]
+    for fact in ("**Node and consensus.**", "**Kernel and programs.**", "runs inside `paxd`",
+                 "build/liblayerx.a", "execution ordering and the consensus block source within the node"):
+        assert fact in components
+    paths = re.findall(r"\]\(([^)#]+)\)", components)
+    assert set(paths) == {"daemon/paxd/", "node/", "consensus/", "modules/", "rpc/",
+                          "modules/lxphost/", "programs/", "node/sequencer/"}
     for path in paths:
-        assert (ROOT / path).exists(), path
-    assert "inside the node" in rows[3]
-    assert "configured separately" in rows[-1]
+        assert (ROOT / path).is_dir(), path
     host = source("modules/lxphost/host.go")
     assert "//go:build cgo" in host
     ldflags = re.search(r"^#cgo LDFLAGS: (.+)$", host, re.M)
@@ -108,29 +102,28 @@ def test_architecture_root_component_table_links_real_runtime_boundaries():
 
 
 def test_architecture_root_diagram_contains_embedded_execution_and_gateway_relay():
-    architecture = section(source("README.md"), "### Architecture")
+    architecture = section(source("README.md"), "### Integrated network topology")
     diagrams = re.findall(r"^```mermaid\n(.*?)^```$", architecture, re.M | re.S)
     assert len(diagrams) == 1
     diagram = diagrams[0]
-    assert diagram.startswith("flowchart TB\n")
-    node = diagram.split('subgraph Node["paxd: one BFT network, EVM chain ID 125"]', 1)[1]
-    node = node.split("\n  end", 1)[0]
-    for component in ("RPC", "Kernel", "Commit", "State"):
-        assert re.search(rf'^\s+{component}\["[^"\n]+"\]$', node, re.M)
-    assert "Embedded LayerX kernel: modules/lxphost and node/sequencer" in node
-    assert "BFT block commit: receipt finality" in node
-    assert 'Gateway -->|"Signed transaction relay and node reads"| RPC' in diagram
-    assert 'Client -->|"Public node root JSON-RPC"| RPC' in diagram
-    assert 'Client -->|"Hosted service requests"| Gateway' in diagram
-    assert 'RPC -->|"Transaction admission"| Kernel' in node
-    assert 'Kernel -->|"Proposal and deterministic execution"| Commit' in node
-    assert "Commit --> State" in node
-    assert 'State -->|"Committed reads and receipt evidence"| RPC' in node
-    assert "Gateway[" not in node
+    assert diagram.startswith("flowchart LR\n")
+    node = diagram.split("subgraph Node[paxd]", 1)[1].split("\n        end", 1)[0]
+    for component in ("RPC", "Order", "Host", "Native"):
+        assert re.search(rf'^\s+{component}\[[^\n]+\]$', node, re.M)
+    for fact in ("RPC --> Order --> Host --> Native", "Embedded C17 kernel and Rust programs host",
+                 "Integrated sequencing and block proposal"):
+        assert fact in node
+    for fact in ("Hosted[Optional hosted developer gateway] -->|Chain RPC and committed state| RPC",
+                 "Client[Wallet, SDK or application] -->|Signed EVM transaction / root JSON-RPC| RPC",
+                 "Order -->|Proposed block in execution order| Validators[BFT validators]",
+                 "Validators -->|Commit| State[Committed block and chain state]",
+                 "State -->|Transaction receipts, logs and proofs| Client"):
+        assert fact in diagram
+    assert "Hosted[" not in node
     for retired in ("layerxd", "layerxAnchor", "0x1014", "LNI", "guarantor"):
         assert retired not in diagram
-    assert "does not add a consensus or settlement step" in architecture
-    assert "deployment files alone do not certify a running service" in architecture
+    assert "outside consensus" in architecture
+    assert "does not provide another execution or finality domain" in architecture
 
 
 def test_architecture_root_build_and_run_match_native_producer():
@@ -139,7 +132,7 @@ def test_architecture_root_build_and_run_match_native_producer():
     prerequisites, recipe = make_rule(source("Makefile"), "paxd-build")
     assert prerequisites == ["paxd-native-libs"]
     native, _ = make_rule(source("Makefile"), "paxd-native-libs")
-    assert native == ["$(LIBRARY)", "programs-release-build"]
+    assert native == ["$(LIBRARY)", "programs-release-build", "evmone-lib"]
     assert "tools/release/version.json" in recipe
     assert "$(PAXEER_MAKE) build" in recipe
     chain_native, chain_build = make_rule(source("chain.mk"), "build")
@@ -159,23 +152,14 @@ def test_architecture_root_build_and_run_match_native_producer():
     ]
     assert len(commands) == 2
     assert commands[0] == [
-        "./build/paxd", "validate-genesis", "--home", "/path/to/prepared-node"
+        "./build/paxd", "version"
     ]
     assert commands[1][:2] == ["./build/paxd", "start"]
     options = commands[1][2:]
     assert len(options) % 2 == 0
     documented = dict(zip(options[::2], options[1::2]))
     assert len(documented) * 2 == len(options), "duplicate node flags"
-    assert documented == {
-        "--home": "/path/to/prepared-node",
-        "--rpc.laddr": "tcp://127.0.0.1:26657",
-        "--evm.http_enabled": "true",
-        "--evm.http_address": "127.0.0.1",
-        "--evm.http_port": "8545",
-        "--sequencer.enable": "true",
-        "--sequencer.wal-dir": "/path/to/prepared-node/sequencer-wal",
-        "--sequencer.receipt-key-file": "/path/to/protected-receipt.key",
-    }
+    assert documented == {"--home": "$PAXD_HOME"}
     runtime = ast.parse(source("services/platform/hosted/node/native_runtime.py"))
     start = next(
         node for node in runtime.body
@@ -199,13 +183,18 @@ def test_architecture_root_build_and_run_match_native_producer():
         ast.literal_eval(arguments.elts[index]): arguments.elts[index + 1]
         for index in range(2, len(arguments.elts), 2)
     }
-    assert set(documented) == set(runtime_flags)
+    assert set(runtime_flags) == {
+        "--home", "--rpc.laddr", "--evm.http_enabled", "--evm.http_address",
+        "--evm.http_port", "--sequencer.enable", "--sequencer.wal-dir",
+        "--sequencer.receipt-key-file",
+    }
     for name in ("--evm.http_enabled", "--sequencer.enable"):
-        assert documented[name] == ast.literal_eval(runtime_flags[name])
-    assert "authoritative genesis" in build
-    assert "app_state.sequencer.receipt_keys" in build
-    assert "owner-only permissions" in build
-    assert "Keep the node home, validator signing state and receipt WAL" in build
+        assert ast.literal_eval(runtime_flags[name]) == "true"
+    assert "operator-provisioned, initialized node home" in build
+    assert "network genesis and configuration" in build
+    assert "operator-provided genesis and consensus chain identifier" in build
+    assert "EVM chain ID `125` is the signing domain" in build
+    assert "Building the binary alone does not provision network membership" in build
 
 
 def test_architecture_root_public_rpc_example_and_hosted_contract_are_distinct():
@@ -229,8 +218,8 @@ def test_architecture_root_public_rpc_example_and_hosted_contract_are_distinct()
     ):
         assert origin in documentation
         assert origin in source("docs/site/docs/reference/public-rpc.md")
-    assert "`debug`, `echo`, `eth`, `net`, `pax`, `test` and `txpool`" in documentation
-    assert "method availability depends on node configuration" in documentation
+    assert "`debug`, `echo`, `eth`, `net`, `pax`, `px` and `txpool`" in documentation
+    assert "Method availability depends on node configuration" in documentation
     assert "Obtain its deployment URL and credentials from the operator" in documentation
     assert "does not establish method availability at public node URLs" in documentation
     contract = json.loads(source("services/platform/hosted/gateway/openrpc.json"))
@@ -244,13 +233,15 @@ def test_architecture_root_public_rpc_example_and_hosted_contract_are_distinct()
 
 def test_architecture_root_retired_model_is_labelled_and_never_launched():
     readme = source("README.md")
-    historical = section(readme, "#### Historical model (retired)")
-    for term in ("layerxd", "layerxAnchor", "0x1014", "checkpoint settlement", "guarantor"):
+    historical = section(readme, "### EVM and Native Precompiles")
+    for term in ("layerxVerify", "layerxCustody", "layerxAnchor", "0x1014", "guarantor"):
         assert term in historical
-    assert "retired" in historical and "archived deployments" in historical
-    assert "not additional processes or settlement instructions" in historical
-    current = readme.replace(historical, "")
-    assert "layerxd" not in current
+    assert "retired refusal surfaces retained for compatibility" in historical
+    assert "not active funding or checkpoint executors" in historical
+    assert "External checkpoint registration, guarantor attestations and the L0–L4 settlement ladder are retired" in historical
+    introduction = section(readme, "## What is Paxeer X Network?")
+    assert "There is no separate kernel daemon, sequencer service or checkpoint deployment" in introduction
+    assert "layerxd" not in introduction
     for block in shell_blocks(readme):
         for retired in ("layerxd", "layerxAnchor", "checkpoint", "/rpc/evm", "/rpc/schema"):
             assert retired not in block

@@ -1,0 +1,7 @@
+[issue.1703]
+number = 1703
+title = "[Coherence] Push never closes its SSH session, which now leaks a temporary copy of the private key on every push or sync cycle"
+revision = "bb8caac8b3e73e3e2f4b330805574f0bcb540641"
+verdict = "already-fixed"
+evidence = "Commit b7dcf52fe593b0e2d18cf1e168d8d76b22bfe3a6 added the deferred connection.Close() now at storage/db_engine/litt/cli/push.go:124, covering repeated sync calls at storage/db_engine/litt/cli/sync.go:219; Close cancels and waits for cleanup at storage/db_engine/litt/util/ssh.go:197, including private-directory removal and supervisor completion at storage/db_engine/litt/util/ssh.go:190, with regression coverage for eight sync cycles and a push error at storage/db_engine/litt/cli/repair_m1163_test.go:361 and directory removal after Close at storage/db_engine/litt/util/repair_m1164_test.go:490."
+close_comment = "Push now closes its SSH session on both successful completion and error returns, removing the temporary private-key and known-hosts copies and waiting for session cleanup. Repeated sync cycles use this same cleanup path, with regression coverage for repeated pushes and an error after connection setup."

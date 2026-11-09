@@ -9,7 +9,8 @@ use base64::Engine as _;
 use layerx_interop_gateway::trace::{TraceId, Traced};
 use layerx_proof::inclusion::SequencerAuthorization;
 use layerx_x402::buyer::{
-    BuiltPayment, Buyer, BuyerPaymentPlane, PaymentBuildRequest, SupportedKind,
+    BoundBuyerPaymentPlane, BuiltPayment, Buyer, BuyerPaymentPlane, PaymentBuildRequest,
+    SupportedKind,
 };
 use layerx_x402::model::{
     account_identifiers, AtomicAmount, PaymentPayload, PaymentRequired, PaymentRequirements,
@@ -89,8 +90,8 @@ struct TestBuyerPlane {
 }
 
 impl BuyerPaymentPlane for TestBuyerPlane {
-    fn construct(&mut self, _request: PaymentBuildRequest) -> Result<Value, X402Error> {
-        Ok(self.payload.clone())
+    fn construct(&mut self, request: PaymentBuildRequest) -> Result<Value, X402Error> {
+        BoundBuyerPaymentPlane::new(self.payload.clone()).construct(request)
     }
 }
 
@@ -101,8 +102,8 @@ fn test_supported() -> Vec<SupportedKind> {
             network: "eip155:125".to_owned(),
         },
         SupportedKind {
-            scheme: "402lxp".to_owned(),
-            network: "eip155:1".to_owned(),
+            scheme: "metered".to_owned(),
+            network: "eip155:125".to_owned(),
         },
     ]
 }
@@ -544,6 +545,22 @@ fn buyer_validates_supported_kinds_on_construction() {
     assert!(Buyer::new(valid).is_ok());
 
     assert!(Buyer::new(vec![]).is_err());
+    for (scheme, network) in [("402lxp", "eip155:125"), ("exact", "eip155:0")] {
+        assert_eq!(
+            Buyer::new(vec![SupportedKind {
+                scheme: scheme.to_owned(),
+                network: network.to_owned()
+            }])
+            .err(),
+            Some(X402Error::UnsupportedOffer),
+        );
+    }
+
+    assert!(Buyer::new(vec![SupportedKind {
+        scheme: "exact".to_owned(),
+        network: "eip155:1".to_owned(),
+    }])
+    .is_ok());
 
     let duplicate = vec![
         SupportedKind {
@@ -758,8 +775,10 @@ fn buyer_plane_request_contains_all_requirements() {
 
     impl BuyerPaymentPlane for CaptureBuyerPlane {
         fn construct(&mut self, request: PaymentBuildRequest) -> Result<Value, X402Error> {
+            let payload = BoundBuyerPaymentPlane::new(json!({"test": "payload"}))
+                .construct(request.clone())?;
             self.captured = Some(request);
-            Ok(json!({"test": "payload"}))
+            Ok(payload)
         }
     }
 

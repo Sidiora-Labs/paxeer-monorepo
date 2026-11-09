@@ -1,0 +1,48 @@
+[issue.1821]
+number = 1821
+title = "[P2] Align Compose image tags with local cluster and CI producers"
+revision = "a910fdedd579e63379ae6c2e4d4971990d28f8ad"
+verdict = "task"
+evidence = "docker/docker-compose.yml:5 and docker/docker-compose.yml:130 require tagged GHCR images, but chain.mk:283 builds pax-chain/localnode, chain.mk:412 supplies neither required tag, chain.mk:469 invokes Compose down without them, .github/workflows/paxeer-integration-test.yml:202 and .github/workflows/paxeer-integration-test.yml:597 build and retag that incompatible alias, .github/workflows/integration-registry.json:4 publishes a different package, .github/workflows/scripts/integration_registry.py:30 exports only GHCR identities, docker/README.md:26 documents start without tag inputs, and tests/ci/test_image_namespaces.py:130 and tests/ci/test_image_namespaces.py:159 check literals rather than caller image resolution."
+close_comment = "The local cluster still builds and pulls image identities that differ from the images Compose requests, and its start and stop targets omit required tags. Task 18.1821.1 tracks a consistent explicit image contract and regression coverage for local and integration CI callers."
+
+[task.18.1821.1]
+title = "Issue #1821: Align cluster image producers and Compose callers"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181821.1"]
+capabilities = []
+interfaces = []
+do_1 = "Unify the image identity contract in chain.mk:281 and .github/workflows/paxeer-integration-test.yml:194: give locally built nodes an explicit GHCR alias matching docker/docker-compose.yml:5, and retag the exact run image pulled at .github/workflows/paxeer-integration-test.yml:595 to that same Compose repository with a run-specific explicit tag; retain aliases needed by binary preparation and RPC-node consumers, and leave the registry package identity at .github/workflows/integration-registry.json:4 intact. Supply both LOCALNODE_IMAGE_TAG and X_WEBSEARCH_IMAGE_TAG through shared caller configuration for start, skipbuild, CI start, monitoring, mixed overlays and both stop targets at chain.mk:412, chain.mk:426, chain.mk:441, chain.mk:453, chain.mk:468, chain.mk:473, chain.mk:487 and chain.mk:536, including stop prerequisites. Use an explicit source-revision tag for local builds and x-websearch builds so documented local targets need no undocumented tag inputs; preserve Compose's required-tag syntax and namespace checks, and document tag selection and any supported overrides in docker/README.md:21."
+do_2 = "Extend tests/ci/test_image_namespaces.py:129 with test_cluster_image_identity_contract, parameterized over local start, skipbuild, CI start, monitoring, mixed overlays and stop variants: render the actual Compose files with docker compose config --images using the same image environment as the real Make callers, starting without ambient tag variables, and compare all four resolved node references with the local build tag or the CI pull-to-retag identity from the workflow; assert x-websearch resolves an explicit build tag, CI runs receive distinct matching aliases, direct Compose rejects absent or empty required tags, and existing namespace and explicit-tag assertions remain intact. Keep this test config-only, with no image build, pull, container start or substituted Docker executable."
+symbols = ["test_cluster_image_identity_contract"]
+touches = ["chain.mk", ".github/workflows/paxeer-integration-test.yml", "docker/README.md", "tests/ci/test_image_namespaces.py"]
+tests = ["tests/ci/test_image_namespaces.py::test_cluster_image_identity_contract", "tests/ci/test_image_namespaces.py::test_compose_first_party_images_use_ghcr_namespace", "tests/ci/test_image_namespaces.py::test_compose_images_have_explicit_tags"]
+planned_paths = []
+build_cmd = "python3 -m py_compile tests/ci/test_image_namespaces.py"
+verify_cmd = "python3 -m pytest tests/ci/test_image_namespaces.py -q"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181821]
+title = "Cluster Compose callers resolve the images produced for their source or CI run"
+ac_1 = "Given no ambient image-tag variables, local start, skipbuild, monitoring, mixed-overlay and stop callers at chain.mk:426, chain.mk:441, chain.mk:468, chain.mk:473, chain.mk:487 and chain.mk:536 supply both required tags and render node images equal to the explicit image alias built by chain.mk:283, while the CI caller at chain.mk:453 resolves exactly the run image alias prepared by .github/workflows/paxeer-integration-test.yml:595; config-only regression coverage proves these identities and preserves the namespace and required-tag checks at tests/ci/test_image_namespaces.py:130 and tests/ci/test_image_namespaces.py:159."
+
+[acceptance.18.1821.1]
+feature = "18"
+req = "181821.1"
+scenario = "Given the documented local cluster commands or a prepared integration CI run without ambient image tags, when each start or stop variant renders its Compose configuration with the real caller environment, then every node image matches its local producer or run-specific retag identity, x-websearch has an explicit build tag, and direct Compose still rejects missing required tags."
+contract = "contracts/operations.md#operations-contract"
+test = "tests/ci/test_image_namespaces.py::test_cluster_image_identity_contract (planned)"
+qualification = "UNRUN"

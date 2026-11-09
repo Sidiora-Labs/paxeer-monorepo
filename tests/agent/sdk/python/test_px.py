@@ -156,10 +156,12 @@ class UnifiedNetworkReadTest(unittest.TestCase):
         self.assertEqual(px_quantity("500000"), 500000)
         self.assertEqual(px_quantity("0x1e"), 30)
         self.assertEqual(px_quantity("0X1E"), 30)
+        self.assertEqual(px_quantity(str(_MAX_U256)), _MAX_U256)
+        self.assertEqual(px_quantity(hex(_MAX_U256)), _MAX_U256)
         self.assertEqual(px_quantity(0), 0)
         self.assertEqual(px_quantity(16), 16)
         self.assertEqual(px_quantity("340282366920938463463374607431768211455"), 340282366920938463463374607431768211455)
-        for refused in ("", "0x", "-1", "1.5", "007", "0xgg", "0x" + "f" * 33, "340282366920938463463374607431768211456", 1.5, -1, None, True, {}):
+        for refused in ("", "0x", "-1", "1.5", "007", "0xgg", "0x" + "f" * 65, "115792089237316195423570985008687907853269984665640564039457584007913129639936", 1.5, -1, None, True, {}):
             with self.assertRaises(ValueError):
                 px_quantity(refused)
         self.assertIsNone(px_optional_quantity(None))

@@ -1,0 +1,57 @@
+[meta]
+task = "9.35.19"
+requirement = "22058.1"
+basis = "Continuation of attempt 11 07c500d028d5; decisions 2762, 2771 and 2916."
+
+[callers.repair_22_31_545]
+verify_initial = "Original line 321: verify_native_owner_send_purpose receives transaction.transaction, the call-bound preparation restored from the real Unix owner-preview response."
+inspect_initial = "Original line 340: inspect_native_send_capability receives the same transaction.transaction alongside its SigningPreparation."
+verify_changed_owner = "Original line 404: owner-substitution refusals receive transaction.transaction and keep their native_send.current_owner assertions."
+verify_invalid_signature = "Original line 424: the invalid-signature refusal receives transaction.transaction and keeps its Unbound assertion."
+verify_changed_nonce = "Original line 448: the nonce-substitution refusal receives changed_call.transaction alongside changed_call, reaching the signed purpose's native_send.prepared_transaction assertion."
+verify_reopened = "Original line 530: after reopening the Store, verification receives transaction.transaction restored by SigningPreparation::restore and keeps every replay and legacy-record assertion."
+
+[inherited_callers]
+human_runtime = "Attempt 10 migrated original sites 5868, 8244, 8256, 8263, 8273, 8465, 8477, 8484 and 8494 to the adjacent call-bound preparation and updated result types; those changes remain."
+repair_22_31_217 = "Attempt 10 migrated original sites 1876, 2026, 2029 and 2481, rebinding retained call bytes on restore and mutating call.data for the substitution assertion; those changes remain."
+
+[qualification]
+ledger = "/out/run/gates.jsonl"
+build = "The final hf-build entry supplies the exact candidate revision, build command, exit and private log."
+verify = "The final hf-done entry supplies the exact candidate revision, cg spec done command, exit and private log; it runs the declared verify_cmd and graph checks."
+matching_candidate = "Qualification requires passing build and verification entries at the same candidate revision; no outcome is asserted before the gates run."
+
+[repair.w7_core_time]
+site = "w7_core_time.rs::signed_bytes line 151 still requires registry(); repair_22_33_1538 includes the same test file."
+change = "Restore the original activity_type and registry helpers for verify_before_submit, retaining the call-bound prepared helper and every assertion."
+finding = "Candidate 46ff4affd7bdb1411dfa362df206b1092832b0cc: cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --tests exited 101 with E0425; evidence /out/logs/build-1.log."
+
+[conversion.program_sources]
+read_program_budget_sources_call = "Owner identifier is caps.did(); committed_owner_did recovers the DID from the inventory producer's principal account names, checks every recovered DID against caps.did(), and supplies principal-source selection and fee reads."
+read_native_effect_budget_sources_call = "Owner identifier and DID come from the same committed inventory; transfer and destruction principal_source calls and the fee read use that owner DID."
+read_native_lifecycle_budget_sources_call = "Owner identifier and fee-source DID come from the committed inventory, including when program-owned accounts are also present."
+verify_fee_payer = "Takes the checked inventory owner DID, resolves getEvmAddrByLayerX at the retained head and state root, and compares the returned address with prepared.from."
+validate_prepared = "verify_call_binding and the explicit disclosure.actor == prepared.from check retain the sender contract; sender bytes are never parsed as a DID."
+
+[conversion.carriers]
+native_effect_bind = "Retains the authenticated RpcOwnerContext principal's agent DID alongside prepared.from; both human_runtime bind callers supply it, and carrier validation checks the reservation allocation owner identifier."
+native_effect_disclosure = "Rebinds unsigned call bytes with the stored sender and compares disclosure.actor with that sender; actor() continues to expose the stored owner DID for ownership checks."
+native_effect_from_call = "Retains RetainedNativeCall.owner_did alongside RetainedNativeCall.sender."
+native_program_bind_restore = "Retains the authenticated principal DID and checks allocation ownership; restore compares the rebound disclosure actor with sender."
+native_program_from_call = "Retains RetainedNativeCall.owner_did alongside sender."
+retained_settlement_fixture = "The retained settlement fixture stores its actual actor DID in the carrier, preserving all settlement assertions."
+
+[conversion.settlement]
+read_owned_native_effect_budget = "Ownership selects the carrier's stored DID while the rebound disclosure actor is checked against prepared.from."
+read_program_debit_settlement = "Passes the checked source inventory owner DID into settlement."
+read_retained_program_debit_settlement_inner = "Passes the approval carrier's stored DID into retained settlement."
+verify_native_program_debit_settlement = "Reservation allocation owner and OccupancyPayer DID use the explicit checked owner, never sender bytes."
+retained_lifecycle = "Both retained lifecycle readers pass the carrier's DID into lifecycle verifiers; allocation ownership and principal fee accounts use it."
+committed_call_caps = "The retained settlement reader supplies the carrier's stored DID to committed inventory reads, retaining call-binding verification."
+
+[conversion.other_consumers]
+program_presentation = "Uses the carrier DID for allocation ownership and principal account derivation and the rebound sender for disclosure-actor comparison."
+program_requirement = "Authenticated principal remains the stored requirement owner; call-bound actor checks compare with prepared.from."
+capability_binding = "Purpose and capability ownership remain the authenticated session/binding agent; call-bound actor comparisons use prepared.from."
+native_effect_fee = "Fee-account derivation takes the authenticated owner DID explicitly; both runtime callers, the policy intent and the bound capability consumer supply it."
+native_rate_use = "Pending-use actor remains the authenticated binding agent DID; submission compares the recovered sender with prepared.from and the bound disclosure actor."

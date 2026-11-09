@@ -68,7 +68,7 @@ class Peer:
         path.mkdir()
         self.store = path / "store.sqlite"
         self.address = path / "address"
-        self.command = [sys.executable, str(PEER), "--store", str(self.store),
+        self.command = [sys.executable, "-I", "-S", str(PEER), "--store", str(self.store),
                         "--address", str(self.address), "--identity", identity]
         if stalled:
             self.command.append("--stalled")

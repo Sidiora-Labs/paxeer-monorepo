@@ -430,7 +430,7 @@ pub fn native_call_disclosure_answer(
     let d = &prepared.disclosure;
     Ok(json!({
         "version": "1", "preparation_id": lower_hex(&id), "canonical_bytes": lower_hex(&canonical),
-        "disclosure_digest": lower_hex(&d.audit_digest().map_err(|_| refuse())?),
+        "disclosure_digest": lower_hex(&d.signing_digest().map_err(|_| refuse())?),
         "activity_type": d.activity_type.value().to_string(), "actor": lower_hex(&d.actor),
         "authority": lower_hex(&d.authority), "asset": lower_hex(&d.asset), "fee_limit": d.fee_limit.to_string(),
         "not_before": d.expiry.not_before.to_string(), "not_after": d.expiry.not_after.to_string(),
@@ -630,7 +630,7 @@ where
         return Err(refuse());
     }
     if <[u8; 32]>::from(Sha256::digest(&prepared.canonical_bytes)) != prepared.preparation_id
-        || disclosure.audit_digest().map_err(|_| refuse())? != exported.disclosure_digest
+        || disclosure.signing_digest().map_err(|_| refuse())? != exported.disclosure_digest
         || disclosure.activity_type.value() != exported.activity_type
         || disclosure.actor != exported.actor
         || disclosure.authority != exported.authority
@@ -734,5 +734,194 @@ fn verify_native_intent(
         Ok(())
     } else {
         Err(refused())
+    }
+}
+
+#[cfg(test)]
+mod native_disclosure_tests {
+    use super::*;
+    use layerx_agentd::prepare::evm;
+    use layerx_agentd::tenant::Operation;
+    use layerx_crypto::evm_transaction::decode_signed;
+    use serde_json::{json, Value};
+    use sha2::{Digest, Sha256};
+
+    fn served_call() -> evm::Prepared {
+        let payload =
+            include_str!("../../../layerx-crypto/tests/fixtures/payments/native-1-5.hex").trim();
+        let payload = (0..payload.len())
+            .step_by(2)
+            .map(|i| u8::from_str_radix(&payload[i..i + 2], 16).unwrap())
+            .collect();
+        let key = k256::ecdsa::SigningKey::from_slice(&[3; 32]).unwrap();
+        let from = layerx_crypto::secp256k1::evm_address(
+            key.verifying_key().to_encoded_point(false).as_bytes(),
+        )
+        .unwrap();
+        evm::prepare_bound(
+            evm::EvmPreparationState {
+                chain_id: 125,
+                pending_nonce: 7,
+                base_fee_per_gas: 1,
+                head_height: 50,
+            },
+            evm::PreparationDefaults {
+                max_priority_fee_per_gas: 1,
+                max_fee_per_gas: 5,
+                maximum_payload_bytes: 65536,
+            },
+            evm::PrepareRequest {
+                from,
+                call: evm::PrecompileCall::ledger_transfer(payload),
+                expected_nonce: Some(7),
+                max_priority_fee_per_gas: None,
+                max_fee_per_gas: None,
+                declared_payload_limit: 65536,
+            },
+            100_000,
+        )
+        .expect("daemon Ledger call producer")
+    }
+
+    fn arguments(prepared: &evm::Prepared) -> Value {
+        let d = &prepared.disclosure;
+        let canonical = prepared.call.encode_unsigned();
+        let id: [u8; 32] = Sha256::digest(&canonical).into();
+        let raw = prepared.call.sign(&[3; 32]).unwrap();
+        let (_, signature) = decode_signed(&raw).unwrap();
+        let payload_hash: [u8; 32] = Sha256::new()
+            .chain_update(b"LXP/v1/payload-hash\0")
+            .chain_update(d.canonical_payload())
+            .finalize()
+            .into();
+        json!({
+            "variant":"native_write_v1",
+            "intent":{"destination":lower_hex(&[2; 32]), "asset":lower_hex(&[3; 32]),
+                "amount":"123", "idempotency_key":lower_hex(&d.idempotency_key)},
+            "canonical_bytes":lower_hex(&canonical), "signer_address":lower_hex(&prepared.from),
+            "signature":lower_hex(signature.as_bytes()),
+            "preparation":{
+                "variant":"native_send_v1", "activity":{"version":"1","module":"1","ordinal":"5"},
+                "actor":"did:layerx:alice", "authority":lower_hex(&d.authority),
+                "account_sequence":d.envelope_sequence().to_string(), "fee_limit":d.fee_limit.to_string(),
+                "not_before":d.expiry.not_before.to_string(), "not_after":d.expiry.not_after.to_string(),
+                "payload":lower_hex(d.canonical_payload()), "payload_hash":lower_hex(&payload_hash),
+                "idempotency_key":lower_hex(&d.idempotency_key),
+                "purpose":{"purpose":{"preparation_id":lower_hex(&id),
+                    "canonical_digest":lower_hex(&id), "agent_did":"did:layerx:alice"}}
+            }
+        })
+    }
+
+    fn consume(
+        prepared: &evm::Prepared,
+        arguments: &Value,
+        changed: Option<(&str, Value)>,
+    ) -> Result<Value, crate::boundary::BoundaryRefusal> {
+        execute_native_alias(
+            "wallet.send",
+            arguments,
+            &layerx_types::payload::ModuleRegistry::new(&[]).unwrap(),
+            prepared.disclosure.idempotency_key,
+            |operation, request| {
+                assert_eq!(
+                    operation,
+                    Operation::Prepare,
+                    "held call must not sign or submit"
+                );
+                let mut value = if request["variant"] == "native_disclosure_v1" {
+                    assert_eq!(
+                        request["canonical_bytes"],
+                        lower_hex(&prepared.call.encode_unsigned())
+                    );
+                    let mut value = native_call_disclosure_answer(prepared)?;
+                    if let Some((field, replacement)) = &changed {
+                        value[*field] = replacement.clone();
+                    }
+                    value
+                } else {
+                    native_call_preparation_answer(prepared, Some([7; 32]))?
+                };
+                let response = layerx_agentd::agent_rpc::mcp_result_response(
+                    layerx_agent_api::error::RequestId(1),
+                    value.take(),
+                );
+                let wire = serde_json::from_slice(&response.body).unwrap();
+                Ok(
+                    layerx_sdk::agent_envelope::decode_response(response.status, &wire)
+                        .expect("SDK response codec")
+                        .expect("daemon response")
+                        .value,
+                )
+            },
+        )
+    }
+
+    #[test]
+    fn native_disclosure_binds_served_ledger_call_and_signer() {
+        let prepared = served_call();
+        assert_eq!(&prepared.call.data[..4], &[0x2b, 0xb1, 0xae, 0x7c]);
+        let answer = native_call_disclosure_answer(&prepared).unwrap();
+        let decoded = layerx_sdk::agent_envelope::decode_native_disclosure(&answer).unwrap();
+        assert_eq!(decoded.disclosure_digest, prepared.call.signing_hash());
+        let request = layerx_agent_api::identity::NativeDisclosureRequestV1 {
+            canonical_bytes: prepared.call.encode_unsigned(),
+        };
+        layerx_sdk::agent_envelope::validate_call_disclosure(&request, &decoded, prepared.from)
+            .expect("SDK and MCP bind the same served call");
+        let args = arguments(&prepared);
+        let result = consume(&prepared, &args, None).expect("served Ledger transfer accepted");
+        assert_eq!(result["approval_required"], true);
+        let mut wrong_signer = args.clone();
+        wrong_signer["signer_address"] = json!(lower_hex(&[0x22; 20]));
+        assert!(consume(&prepared, &wrong_signer, None).is_err());
+        let mut wrong_intent = args;
+        wrong_intent["intent"]["amount"] = json!("124");
+        assert!(consume(&prepared, &wrong_intent, None).is_err());
+    }
+
+    #[test]
+    fn native_disclosure_rejects_every_changed_answer_field() {
+        let prepared = served_call();
+        let args = arguments(&prepared);
+        let answer = native_call_disclosure_answer(&prepared).unwrap();
+        for field in [
+            "preparation_id",
+            "canonical_bytes",
+            "disclosure_digest",
+            "activity_type",
+            "actor",
+            "authority",
+            "asset",
+            "fee_limit",
+            "not_before",
+            "not_after",
+            "payload_expires_at",
+            "idempotency_key",
+        ] {
+            let text = answer[field].as_str().unwrap();
+            let replacement = if matches!(
+                field,
+                "activity_type" | "fee_limit" | "not_before" | "not_after" | "payload_expires_at"
+            ) {
+                (text.parse::<u128>().unwrap() ^ 1).to_string()
+            } else {
+                let mut bytes = text.as_bytes().to_vec();
+                bytes[0] = if bytes[0] == b'0' { b'1' } else { b'0' };
+                String::from_utf8(bytes).unwrap()
+            };
+            assert!(
+                consume(&prepared, &args, Some((field, json!(replacement)))).is_err(),
+                "{field}"
+            );
+        }
+        let audit = prepared.disclosure.audit_digest().unwrap();
+        assert_ne!(audit, prepared.signing_hash);
+        assert!(consume(
+            &prepared,
+            &args,
+            Some(("disclosure_digest", json!(lower_hex(&audit))))
+        )
+        .is_err());
     }
 }

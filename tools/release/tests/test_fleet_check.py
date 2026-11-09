@@ -9,6 +9,7 @@ from pathlib import Path
 import random
 import re
 import socket
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -425,8 +426,8 @@ class FleetUnitTests(unittest.TestCase):
         directory = Path(directory)
         values = {key: "filled" for key in fleet.template_keys()}
         for name, key in (
-            ("paxd-v6.12.0-linux-amd64", "RELEASE_SHA256"),
-            ("price-sidecar-v6.12.0-linux-amd64", "SIDECAR_SHA256"),
+            ("paxd-v7.0.0-linux-amd64", "RELEASE_SHA256"),
+            ("price-sidecar-v7.0.0-linux-amd64", "SIDECAR_SHA256"),
         ):
             (directory / name).write_bytes(name.encode() * 64)
             values[key] = hashlib.sha256(name.encode() * 64).hexdigest()
@@ -444,7 +445,7 @@ class FleetUnitTests(unittest.TestCase):
             values[key] = "localhost"
         values.update(
             RELEASE_ID="20261020-v6120",
-            RELEASE_TAG="paxeer-network/v6.12.0",
+            RELEASE_TAG="paxeer-network/v7.0.0",
             HALT_HEIGHT="34800000",
             CHAIN_ID="hyperpax_125-1",
             BIN_DIR=str(bin_dir),
@@ -531,7 +532,7 @@ class FleetUnitTests(unittest.TestCase):
             self.assertEqual(code, 1)
             self.assertEqual(
                 errors,
-                ["inputs: paxd-v6.12.0-linux-amd64 does not match RELEASE_SHA256"],
+                ["inputs: paxd-v7.0.0-linux-amd64 does not match RELEASE_SHA256"],
             )
 
     def test_market_phases_read_rehearsal_receipt_by_default(self):
@@ -571,7 +572,11 @@ class FleetUnitTests(unittest.TestCase):
                     fleet.load_config(env, phase)
                 with self.assertRaisesRegex(
                     fleet.CheckError,
-                    "^POOL_COUNT is empty and --no-rehearsal was given$",
+                    (
+                        "^POOL_COUNT is empty and --no-rehearsal was given$"
+                        if phase == "markets"
+                        else "^PRODUCTION_REQUIRES_ROLLBACK_RECEIPT$"
+                    ),
                 ):
                     fleet.load_config(env, phase, no_rehearsal=True)
             receipt = {
@@ -590,7 +595,12 @@ class FleetUnitTests(unittest.TestCase):
             explicit.write_text(json.dumps(dict(receipt, pools=9)))
             self.assertEqual(fleet.load_config(env, "post", explicit)[4], 9)
             env["POOL_COUNT"] = "5"
-            self.assertEqual(fleet.load_config(env, "post", no_rehearsal=True)[4], 5)
+            self.assertEqual(fleet.load_config(env, "markets", no_rehearsal=True)[4], 5)
+            for phase in ("full", "post"):
+                with self.assertRaisesRegex(
+                    fleet.CheckError, "^PRODUCTION_REQUIRES_ROLLBACK_RECEIPT$"
+                ):
+                    fleet.load_config(env, phase, no_rehearsal=True)
         with contextlib.redirect_stderr(io.StringIO()):
             with self.assertRaises(SystemExit) as exit_code:
                 fleet.main(
@@ -712,9 +722,12 @@ class LocalChainTests(unittest.TestCase):
         if given:
             paxd.symlink_to(Path(given).resolve())
         else:
+            go = shutil.which("go")
+            if go is None:
+                raise RuntimeError("Go is required on PATH to build the local chain")
             subprocess.run(
                 [
-                    "/usr/local/go/bin/go",
+                    go,
                     "build",
                     "-trimpath",
                     "-buildvcs=false",
@@ -897,7 +910,7 @@ class LocalChainTests(unittest.TestCase):
             value,
             {
                 "version": fleet.VERSION,
-                "plan": fleet.VERSION,
+                "plan": fleet.UPGRADE,
                 "nodes_checked": 1,
                 "nodes_passed": 1,
                 "result": "pass",
@@ -976,20 +989,26 @@ class LocalChainTests(unittest.TestCase):
             (self.bin_dir / "paxd").read_bytes()
         ).hexdigest()
         env["POOL_COUNT"] = "0"
-        code, value, errors = self.run_main(env, "full", ["--no-rehearsal"])
+        for phase in ("full", "post"):
+            code, value, errors = self.run_main(env, phase, ["--no-rehearsal"])
+            self.assertEqual(
+                (code, errors), (1, ["fleet_check: PRODUCTION_REQUIRES_ROLLBACK_RECEIPT"])
+            )
+            self.assertEqual(value["result"], "fail")
+        code, value, errors = self.run_main(env, "markets", ["--no-rehearsal"])
         self.assertEqual(code, 1)
         self.assertFalse(any(line.startswith("fleet_check:") for line in errors))
         self.assertIn("node 0 version: VERSION_MISMATCH", errors)
         self.assertEqual(value["result"], "fail")
         del env["POOL_COUNT"]
-        code, value, errors = self.run_main(env, "full", ["--no-rehearsal"])
+        code, value, errors = self.run_main(env, "markets", ["--no-rehearsal"])
         self.assertEqual(
             (code, errors),
             (1, ["fleet_check: POOL_COUNT is empty and --no-rehearsal was given"]),
         )
         env["POOL_COUNT"] = "0"
         env["RELEASE_SHA256"] = "0" * 64
-        code, value, errors = self.run_main(env, "full", ["--no-rehearsal"])
+        code, value, errors = self.run_main(env, "markets", ["--no-rehearsal"])
         self.assertEqual(
             (code, errors),
             (1, ["fleet_check: BIN_DIR paxd does not match RELEASE_SHA256"]),

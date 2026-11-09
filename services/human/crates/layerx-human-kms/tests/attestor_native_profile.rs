@@ -1,5 +1,7 @@
 #[path = "support/attestor_cluster.rs"]
 mod attestor_cluster;
+#[path = "support/native_principal_store.rs"]
+mod native_principal_store;
 
 use attestor_cluster::{ClockAuthority, StepClock};
 use base64::engine::general_purpose::{STANDARD, URL_SAFE_NO_PAD};
@@ -17,7 +19,7 @@ use layerx_human_service::custody::{
 };
 use layerx_human_service::server::production_components::{AttestorCustodyConfig, AttestorKms};
 use layerx_human_service::store::{
-    AgentTenantId, PrincipalId, PrincipalStore, RetentionPeriod, RetentionPolicy, TenancyMap,
+    AgentTenantId, PrincipalId, RetentionPeriod, RetentionPolicy, TenancyMap,
 };
 use layerx_human_service::trace::TraceId;
 use layerx_types::clock::{Clock, Deadline};
@@ -309,7 +311,7 @@ fn native_provider_and_sdk_real_cluster() -> Result<()> {
         STANDARD.decode(&fixture.client_pkcs8)?,
         Duration::from_secs(120),
     )?;
-    let provider = AttestorKms::connect(config)?;
+    let provider = AttestorKms::connect_with_clock(config, clock.clone())?;
     provider.admit_assertion(&fixture.owner, &fixture.owner_assertion)?;
     let principal = PrincipalId::new("native-owner")?;
     let key = KeyId::new("primary")?;
@@ -360,10 +362,10 @@ fn native_provider_and_sdk_real_cluster() -> Result<()> {
         (foreign_principal.clone(), AgentTenantId::new("tenant-b")?),
     ])?;
     let store_root = directory.join("human-store");
-    let tenancy_digest = tenancy.install(&store_root)?;
     let period = RetentionPeriod::new(86400);
-    let mut store = PrincipalStore::open(
+    let shared_store = native_principal_store::open(
         &store_root,
+        &tenancy,
         RetentionPolicy {
             journeys: period,
             notifications: period,
@@ -371,21 +373,10 @@ fn native_provider_and_sdk_real_cluster() -> Result<()> {
             telemetry: period,
             cache: period,
         },
-        tenancy_digest,
     )?;
     let custody = CustodySigner::new_shared(
         keystore,
-        Arc::new(std::sync::Mutex::new(PrincipalStore::open(
-            &store_root,
-            RetentionPolicy {
-                journeys: period,
-                notifications: period,
-                audit: period,
-                telemetry: period,
-                cache: period,
-            },
-            tenancy_digest,
-        )?)),
+        Arc::clone(&shared_store),
         snapshot.native_registry()?,
         SigningLimits::new(32, 60)?,
     );
@@ -394,6 +385,9 @@ fn native_provider_and_sdk_real_cluster() -> Result<()> {
     getrandom::fill(&mut trace_entropy)
         .map_err(|error| std::io::Error::other(error.to_string()))?;
     let trace = TraceId::mint(trace_entropy);
+    let mut store = shared_store
+        .lock()
+        .map_err(|_| "native custody store lock poisoned")?;
     let mut scope = store.principal(&principal)?;
     let result = ready(custody.sign_native_consent_in_scope(
         &mut scope,
@@ -549,18 +543,8 @@ fn native_provider_and_sdk_real_cluster() -> Result<()> {
         ),
         Err(CustodyError::InvalidEvidence)
     ));
-    let mut foreign_store = PrincipalStore::open(
-        &store_root,
-        RetentionPolicy {
-            journeys: period,
-            notifications: period,
-            audit: period,
-            telemetry: period,
-            cache: period,
-        },
-        tenancy_digest,
-    )?;
-    let mut foreign_scope = foreign_store.principal(&foreign_principal)?;
+    drop(scope);
+    let mut foreign_scope = store.principal(&foreign_principal)?;
     assert!(matches!(
         CustodySigner::bind_authenticated_step_up(
             &passkeys,
@@ -574,6 +558,8 @@ fn native_provider_and_sdk_real_cluster() -> Result<()> {
         ),
         Err(CustodyError::InvalidEvidence)
     ));
+    drop(foreign_scope);
+    let mut scope = store.principal(&principal)?;
     let evidence = CustodySigner::bind_authenticated_step_up(
         &passkeys,
         &mut scope,

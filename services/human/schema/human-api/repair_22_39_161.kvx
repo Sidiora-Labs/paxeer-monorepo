@@ -1,0 +1,708 @@
+[repair]
+task = "22.39.161"
+decision = "2903"
+gotcha = "3601"
+starting_revision = "7dc80ac4fc2fdc96f295d738f48f26c355f6a9a0"
+starting_command = "cargo run --manifest-path services/human/tools/schema-check/Cargo.toml --locked -- services/human/schema/human-api"
+starting_exit = 1
+starting_log = "/out/22_39_161-starting-schema.log"
+baseline_last_written = "8331803f7c7b3b70e0ac7589d6558930a83c292b"
+inventory_baseline = "7c4892fa49"
+inventory_difference = "The starting revision has 47 scalar diagnostics over 44 values (three values fail both prefix and format), five orphan sets, ten baseline changes and two unsupported scalar declarations; the inventory recorded 27 scalar values and an older baseline."
+
+[violation.1]
+class = "invalid-scalar-declaration"
+path = "services/human/schema/human-api/identity.kvx"
+detail = "scalar.OperationDigest format opd_ followed by exactly 64 lowercase hexadecimal characters encoding the canonical 32-byte operation digest. is not a known scalar format"
+
+[violation.2]
+class = "invalid-scalar-declaration"
+path = "services/human/schema/human-api/identity.kvx"
+detail = "scalar.StepUpChallengeId format chg_ followed by exactly 32 lowercase hexadecimal characters minted from sixteen entropy bytes. The same identifier references completed evidence for bound decisions. is not a known scalar format"
+
+[violation.3]
+class = "invalid-scalar-value"
+path = "services/human/schema/human-api/golden/native.send.access.begin.response.json"
+detail = "body.result.confirms does not match the opd_ followed by exactly 64 lowercase hexadecimal characters encoding the canonical 32-byte operation digest. format of scalar OperationDigest"
+
+[violation.4]
+class = "invalid-scalar-value"
+path = "services/human/schema/human-api/golden/native.send.access.confirm.request.json"
+detail = "body.step_up.challenge_id does not match the chg_ followed by exactly 32 lowercase hexadecimal characters minted from sixteen entropy bytes. The same identifier references completed evidence for bound decisions. format of scalar StepUpChallengeId"
+
+[violation.5]
+class = "invalid-scalar-value"
+path = "services/human/schema/human-api/golden/native.send.access.confirm.request.json"
+detail = "body.step_up.confirms does not match the opd_ followed by exactly 64 lowercase hexadecimal characters encoding the canonical 32-byte operation digest. format of scalar OperationDigest"
+
+[violation.6]
+class = "invalid-scalar-value"
+path = "services/human/schema/human-api/golden/authenticator.backup.rotate.request.json"
+detail = "body.step_up.challenge_id does not match the chg_ followed by exactly 32 lowercase hexadecimal characters minted from sixteen entropy bytes. The same identifier references completed evidence for bound decisions. format of scalar StepUpChallengeId"
+
+[violation.7]
+class = "invalid-scalar-value"
+path = "services/human/schema/human-api/golden/authenticator.backup.rotate.request.json"
+detail = "body.step_up.confirms does not match the opd_ followed by exactly 64 lowercase hexadecimal characters encoding the canonical 32-byte operation digest. format of scalar OperationDigest"
+
+[violation.8]
+class = "invalid-scalar-value"
+path = "services/human/schema/human-api/golden/authenticator.disable.request.json"
+detail = "body.step_up.challenge_id does not match the chg_ followed by exactly 32 lowercase hexadecimal characters minted from sixteen entropy bytes. The same identifier references completed evidence for bound decisions. format of scalar StepUpChallengeId"
+
+[violation.9]
+class = "invalid-scalar-value"
+path = "services/human/schema/human-api/golden/authenticator.disable.request.json"
+detail = "body.step_up.confirms does not match the opd_ followed by exactly 64 lowercase hexadecimal characters encoding the canonical 32-byte operation digest. format of scalar OperationDigest"
+
+[violation.10]
+class = "invalid-scalar-value"
+path = "services/human/schema/human-api/golden/authenticator.setup.begin.request.json"
+detail = "body.step_up.challenge_id does not match the chg_ followed by exactly 32 lowercase hexadecimal characters minted from sixteen entropy bytes. The same identifier references completed evidence for bound decisions. format of scalar StepUpChallengeId"
+
+[violation.11]
+class = "invalid-scalar-value"
+path = "services/human/schema/human-api/golden/authenticator.setup.begin.request.json"
+detail = "body.step_up.confirms does not match the opd_ followed by exactly 64 lowercase hexadecimal characters encoding the canonical 32-byte operation digest. format of scalar OperationDigest"
+
+[violation.12]
+class = "invalid-scalar-value"
+path = "services/human/schema/human-api/golden/authenticator.setup.finish.request.json"
+detail = "body.step_up.challenge_id does not match the chg_ followed by exactly 32 lowercase hexadecimal characters minted from sixteen entropy bytes. The same identifier references completed evidence for bound decisions. format of scalar StepUpChallengeId"
+
+[violation.13]
+class = "invalid-scalar-value"
+path = "services/human/schema/human-api/golden/authenticator.setup.finish.request.json"
+detail = "body.step_up.confirms does not match the opd_ followed by exactly 64 lowercase hexadecimal characters encoding the canonical 32-byte operation digest. format of scalar OperationDigest"
+
+[violation.14]
+class = "invalid-scalar-value"
+path = "services/human/schema/human-api/golden/binding.rebind.request.json"
+detail = "body.step_up.challenge_id does not match the chg_ followed by exactly 32 lowercase hexadecimal characters minted from sixteen entropy bytes. The same identifier references completed evidence for bound decisions. format of scalar StepUpChallengeId"
+
+[violation.15]
+class = "invalid-scalar-value"
+path = "services/human/schema/human-api/golden/binding.rebind.request.json"
+detail = "body.step_up.confirms does not match the opd_ followed by exactly 64 lowercase hexadecimal characters encoding the canonical 32-byte operation digest. format of scalar OperationDigest"
+
+[violation.16]
+class = "invalid-scalar-value"
+path = "services/human/schema/human-api/golden/binding.rebind.action.response.json"
+detail = "body.result.confirms does not match the opd_ followed by exactly 64 lowercase hexadecimal characters encoding the canonical 32-byte operation digest. format of scalar OperationDigest"
+
+[violation.17]
+class = "invalid-scalar-value"
+path = "services/human/schema/human-api/golden/security.action.response.json"
+detail = "body.result.confirms does not match the opd_ followed by exactly 64 lowercase hexadecimal characters encoding the canonical 32-byte operation digest. format of scalar OperationDigest"
+
+[violation.18]
+class = "invalid-scalar-value"
+path = "services/human/schema/human-api/golden/security.key-export.begin.request.json"
+detail = "body.step_up.challenge_id does not match the chg_ followed by exactly 32 lowercase hexadecimal characters minted from sixteen entropy bytes. The same identifier references completed evidence for bound decisions. format of scalar StepUpChallengeId"
+
+[violation.19]
+class = "invalid-scalar-value"
+path = "services/human/schema/human-api/golden/security.key-export.begin.request.json"
+detail = "body.step_up.confirms does not match the opd_ followed by exactly 64 lowercase hexadecimal characters encoding the canonical 32-byte operation digest. format of scalar OperationDigest"
+
+[violation.20]
+class = "invalid-scalar-value"
+path = "services/human/schema/human-api/golden/security.key-export.begin.response.json"
+detail = "body.result.confirms does not match the opd_ followed by exactly 64 lowercase hexadecimal characters encoding the canonical 32-byte operation digest. format of scalar OperationDigest"
+
+[violation.21]
+class = "invalid-scalar-value"
+path = "services/human/schema/human-api/golden/security.key-export.finish.request.json"
+detail = "body.step_up.challenge_id does not match the chg_ followed by exactly 32 lowercase hexadecimal characters minted from sixteen entropy bytes. The same identifier references completed evidence for bound decisions. format of scalar StepUpChallengeId"
+
+[violation.22]
+class = "invalid-scalar-value"
+path = "services/human/schema/human-api/golden/security.key-export.finish.request.json"
+detail = "body.step_up.confirms does not match the opd_ followed by exactly 64 lowercase hexadecimal characters encoding the canonical 32-byte operation digest. format of scalar OperationDigest"
+
+[violation.23]
+class = "invalid-scalar-value"
+path = "services/human/schema/human-api/golden/security.passkey.register.begin.request.json"
+detail = "body.step_up.challenge_id does not match the chg_ followed by exactly 32 lowercase hexadecimal characters minted from sixteen entropy bytes. The same identifier references completed evidence for bound decisions. format of scalar StepUpChallengeId"
+
+[violation.24]
+class = "invalid-scalar-value"
+path = "services/human/schema/human-api/golden/security.passkey.register.begin.request.json"
+detail = "body.step_up.confirms does not match the opd_ followed by exactly 64 lowercase hexadecimal characters encoding the canonical 32-byte operation digest. format of scalar OperationDigest"
+
+[violation.25]
+class = "invalid-scalar-value"
+path = "services/human/schema/human-api/golden/security.passkey.register.finish.request.json"
+detail = "body.step_up.challenge_id does not match the chg_ followed by exactly 32 lowercase hexadecimal characters minted from sixteen entropy bytes. The same identifier references completed evidence for bound decisions. format of scalar StepUpChallengeId"
+
+[violation.26]
+class = "invalid-scalar-value"
+path = "services/human/schema/human-api/golden/security.passkey.register.finish.request.json"
+detail = "body.step_up.confirms does not match the opd_ followed by exactly 64 lowercase hexadecimal characters encoding the canonical 32-byte operation digest. format of scalar OperationDigest"
+
+[violation.27]
+class = "invalid-scalar-value"
+path = "services/human/schema/human-api/golden/security.passkey.revoke.request.json"
+detail = "body.step_up.challenge_id does not match the chg_ followed by exactly 32 lowercase hexadecimal characters minted from sixteen entropy bytes. The same identifier references completed evidence for bound decisions. format of scalar StepUpChallengeId"
+
+[violation.28]
+class = "invalid-scalar-value"
+path = "services/human/schema/human-api/golden/security.passkey.revoke.request.json"
+detail = "body.step_up.confirms does not match the opd_ followed by exactly 64 lowercase hexadecimal characters encoding the canonical 32-byte operation digest. format of scalar OperationDigest"
+
+[violation.29]
+class = "invalid-scalar-value"
+path = "services/human/schema/human-api/golden/security.recovery.reveal.request.json"
+detail = "body.step_up.challenge_id does not match the chg_ followed by exactly 32 lowercase hexadecimal characters minted from sixteen entropy bytes. The same identifier references completed evidence for bound decisions. format of scalar StepUpChallengeId"
+
+[violation.30]
+class = "invalid-scalar-value"
+path = "services/human/schema/human-api/golden/security.recovery.reveal.request.json"
+detail = "body.step_up.confirms does not match the opd_ followed by exactly 64 lowercase hexadecimal characters encoding the canonical 32-byte operation digest. format of scalar OperationDigest"
+
+[violation.31]
+class = "invalid-scalar-value"
+path = "services/human/schema/human-api/golden/security.session.revoke.request.json"
+detail = "body.step_up.challenge_id does not match the chg_ followed by exactly 32 lowercase hexadecimal characters minted from sixteen entropy bytes. The same identifier references completed evidence for bound decisions. format of scalar StepUpChallengeId"
+
+[violation.32]
+class = "invalid-scalar-value"
+path = "services/human/schema/human-api/golden/security.session.revoke.request.json"
+detail = "body.step_up.confirms does not match the opd_ followed by exactly 64 lowercase hexadecimal characters encoding the canonical 32-byte operation digest. format of scalar OperationDigest"
+
+[violation.33]
+class = "invalid-scalar-value"
+path = "services/human/schema/human-api/golden/security.session.revoke-all.request.json"
+detail = "body.step_up.challenge_id does not match the chg_ followed by exactly 32 lowercase hexadecimal characters minted from sixteen entropy bytes. The same identifier references completed evidence for bound decisions. format of scalar StepUpChallengeId"
+
+[violation.34]
+class = "invalid-scalar-value"
+path = "services/human/schema/human-api/golden/security.session.revoke-all.request.json"
+detail = "body.step_up.confirms does not match the opd_ followed by exactly 64 lowercase hexadecimal characters encoding the canonical 32-byte operation digest. format of scalar OperationDigest"
+
+[violation.35]
+class = "invalid-scalar-value"
+path = "services/human/schema/human-api/golden/stepup.begin.request.json"
+detail = "body.confirms does not match the opd_ followed by exactly 64 lowercase hexadecimal characters encoding the canonical 32-byte operation digest. format of scalar OperationDigest"
+
+[violation.36]
+class = "invalid-scalar-value"
+path = "services/human/schema/human-api/golden/stepup.begin.response.json"
+detail = "body.result.challenge_id does not match the chg_ followed by exactly 32 lowercase hexadecimal characters minted from sixteen entropy bytes. The same identifier references completed evidence for bound decisions. format of scalar StepUpChallengeId"
+
+[violation.37]
+class = "invalid-scalar-value"
+path = "services/human/schema/human-api/golden/stepup.begin.response.json"
+detail = "body.result.confirms does not match the opd_ followed by exactly 64 lowercase hexadecimal characters encoding the canonical 32-byte operation digest. format of scalar OperationDigest"
+
+[violation.38]
+class = "invalid-scalar-value"
+path = "services/human/schema/human-api/golden/stepup.finish.response.json"
+detail = "body.result.challenge_id does not match the chg_ followed by exactly 32 lowercase hexadecimal characters minted from sixteen entropy bytes. The same identifier references completed evidence for bound decisions. format of scalar StepUpChallengeId"
+
+[violation.39]
+class = "invalid-scalar-value"
+path = "services/human/schema/human-api/golden/stepup.finish.response.json"
+detail = "body.result.confirms does not match the opd_ followed by exactly 64 lowercase hexadecimal characters encoding the canonical 32-byte operation digest. format of scalar OperationDigest"
+
+[violation.40]
+class = "invalid-scalar-value"
+path = "services/human/schema/human-api/golden/agent.rotation.disclosure.response.json"
+detail = "body.result.confirms does not match the opd_ followed by exactly 64 lowercase hexadecimal characters encoding the canonical 32-byte operation digest. format of scalar OperationDigest"
+
+[violation.41]
+class = "invalid-scalar-value"
+path = "services/human/schema/human-api/golden/agent.rotation.start.request.json"
+detail = "body.step_up.challenge_id does not match the chg_ followed by exactly 32 lowercase hexadecimal characters minted from sixteen entropy bytes. The same identifier references completed evidence for bound decisions. format of scalar StepUpChallengeId"
+
+[violation.42]
+class = "invalid-scalar-value"
+path = "services/human/schema/human-api/golden/agent.rotation.start.request.json"
+detail = "body.step_up.confirms does not match the opd_ followed by exactly 64 lowercase hexadecimal characters encoding the canonical 32-byte operation digest. format of scalar OperationDigest"
+
+[violation.43]
+class = "invalid-scalar-value"
+path = "services/human/schema/human-api/golden/approval.approve.request.json"
+detail = "body.step_up_evidence must carry the chg_ prefix for scalar StepUpChallengeId"
+
+[violation.44]
+class = "invalid-scalar-value"
+path = "services/human/schema/human-api/golden/approval.approve.request.json"
+detail = "body.step_up_evidence does not match the chg_ followed by exactly 32 lowercase hexadecimal characters minted from sixteen entropy bytes. The same identifier references completed evidence for bound decisions. format of scalar StepUpChallengeId"
+
+[violation.45]
+class = "invalid-scalar-value"
+path = "services/human/schema/human-api/golden/approval.program.approve.request.json"
+detail = "body.step_up_evidence must carry the chg_ prefix for scalar StepUpChallengeId"
+
+[violation.46]
+class = "invalid-scalar-value"
+path = "services/human/schema/human-api/golden/approval.program.approve.request.json"
+detail = "body.step_up_evidence does not match the chg_ followed by exactly 32 lowercase hexadecimal characters minted from sixteen entropy bytes. The same identifier references completed evidence for bound decisions. format of scalar StepUpChallengeId"
+
+[violation.47]
+class = "invalid-scalar-value"
+path = "services/human/schema/human-api/golden/approval.program.disclosure.response.json"
+detail = "body.result.confirms does not match the opd_ followed by exactly 64 lowercase hexadecimal characters encoding the canonical 32-byte operation digest. format of scalar OperationDigest"
+
+[violation.48]
+class = "invalid-scalar-value"
+path = "services/human/schema/human-api/golden/approval.program.reject.request.json"
+detail = "body.step_up_evidence must carry the chg_ prefix for scalar StepUpChallengeId"
+
+[violation.49]
+class = "invalid-scalar-value"
+path = "services/human/schema/human-api/golden/approval.program.reject.request.json"
+detail = "body.step_up_evidence does not match the chg_ followed by exactly 32 lowercase hexadecimal characters minted from sixteen entropy bytes. The same identifier references completed evidence for bound decisions. format of scalar StepUpChallengeId"
+
+[violation.50]
+class = "orphan-golden-vector"
+path = "services/human/schema/human-api/golden/historical-decode"
+detail = "historical-decode does not belong to a declared operation"
+
+[violation.51]
+class = "orphan-golden-vector"
+path = "services/human/schema/human-api/golden/producer"
+detail = "producer does not belong to a declared operation"
+
+[violation.52]
+class = "orphan-golden-vector"
+path = "services/human/schema/human-api/golden/negative"
+detail = "negative does not belong to a declared operation"
+
+[violation.53]
+class = "orphan-golden-vector"
+path = "services/human/schema/human-api/golden/historical"
+detail = "historical does not belong to a declared operation"
+
+[violation.54]
+class = "orphan-golden-vector"
+path = "services/human/schema/human-api/golden/current"
+detail = "current does not belong to a declared operation"
+
+[violation.55]
+class = "breaking-declaration-change"
+path = "services/human/schema/human-api/baseline.kvx"
+detail = "agents.kvx:type.ApprovalApproveRequest.required: [\"step_up_evidence:EvidenceId\"] -> [\"step_up_evidence:StepUpChallengeId\"]"
+producer_commit = "7e32286b9a58600532e003f4f658ea95c05d0f91"
+reason = "Approval decisions pass the original completed challenge_id to the durable evidence loader, preserving its chg_ prefix rather than using an evidence export identifier."
+
+[violation.56]
+class = "breaking-declaration-change"
+path = "services/human/schema/human-api/baseline.kvx"
+detail = "intent.kvx:module.progress: \"Progress and completion are read through GET /v1/journeys/{journey_id} in journeys.kvx. Submission and a transaction hash do not establish completion. The production EVM intent path waits for a verified committed receipt for each leg before advancing; a committed block on this network is final.\" -> \"Progress and completion are read through GET /v1/journeys/{journey_id} in journeys.kvx. Submission initially reports processing. Submission and a transaction hash establish only submitted progress, not receipt verification or completion. The production EVM intent path waits for a verified committed receipt for each leg before advancing; a committed block on this network is final.\""
+producer_commit = "cdcf3bfd4700337810ee0c3f599a7b71d0c4b9d5"
+reason = "Submission initially reports processing; only committed verified receipts advance execution or complete the intent."
+
+[violation.57]
+class = "breaking-declaration-change"
+path = "services/human/schema/human-api/baseline.kvx"
+detail = "intent.kvx:module.spine: \"A human states one intent - move an amount of one asset from one endpoint to another - and the service plans its ordered calls on the merged Paxeer network. The kernel is part of that network and proposes blocks; the EVM chain id is 125 (0x7d). Planning is pure and deterministic: the same intent over the same observed state produces byte-identical plan bytes and therefore the same plan digest.\" -> \"A human states one intent - move an amount of one asset from one endpoint to another - and the service plans its ordered bank and budget calls on the single merged Paxeer network. The kernel is part of that network and proposes blocks; the EVM chain id is 125 (0x7d). Planning is pure and deterministic: the same intent over the same observed state produces byte-identical plan bytes and therefore the same plan digest.\""
+producer_commit = "cdcf3bfd4700337810ee0c3f599a7b71d0c4b9d5"
+reason = "The planner constructs bank and budget calls on the single merged Paxeer network."
+
+[violation.58]
+class = "breaking-declaration-change"
+path = "services/human/schema/human-api/baseline.kvx"
+detail = "intent.kvx:type.IntentDomain.meaning: \"Retained wire labels, not separate settlement networks. The current planner labels protocol legs layerx and the production serializer preserves that value even though execution is an EVM call on Paxeer. paxeer labels the retired custody deposit and withdrawal mechanisms, which are refused by the current executable-shape classifier. A client must use the disclosed EVM call fields and must not select a second network from this label.\" -> \"Retained wire labels, not separate settlement networks. The current planner labels protocol legs layerx and the production serializer preserves that value even though execution is an EVM call on Paxeer. paxeer labels the retired custody deposit and withdrawal mechanisms, which are refused by the current executable-shape classifier. These labels are compatibility vocabulary, not execution authority. A client must use the disclosed EVM call fields and chain_id 125 and must not select a second network from this label.\""
+producer_commit = "cdcf3bfd4700337810ee0c3f599a7b71d0c4b9d5"
+reason = "Retained domain labels are compatibility vocabulary; disclosed EVM fields and chain_id 125 determine execution."
+
+[violation.59]
+class = "breaking-declaration-change"
+path = "services/human/schema/human-api/baseline.kvx"
+detail = "intent.kvx:type.IntentLeg.order: \"Legs execute in index order. Each leg runs to its own verified receipt before the next leg starts.\" -> \"Legs execute in index order. Each leg runs to its own verified committed receipt before the production EVM intent path starts the next leg; a submitted transaction or a receipted execution alone cannot advance that path.\""
+producer_commit = "cdcf3bfd4700337810ee0c3f599a7b71d0c4b9d5"
+reason = "Each leg waits for its verified committed receipt before the next leg starts."
+
+[violation.60]
+class = "breaking-declaration-change"
+path = "services/human/schema/human-api/baseline.kvx"
+detail = "journeys.kvx:module.network: \"Journeys describe one merged Paxeer network, whose kernel participates in the network and proposes blocks. A receipt establishes the verified execution outcome; that outcome is final once its block is committed. The rung and verification labels below describe evidence on this same network.\" -> \"Journeys describe one merged Paxeer network, whose kernel participates in the network and proposes blocks. A receipt establishes the verified execution outcome; that outcome is final once its block is committed. The current rungs are submitted, receipted and committed on this same network; committed is final, with no later settlement or checkpoint rung.\""
+producer_commit = "cdcf3bfd4700337810ee0c3f599a7b71d0c4b9d5"
+reason = "Submitted, receipted and committed are rungs on one network; no later settlement rung follows committed."
+
+[violation.61]
+class = "breaking-declaration-change"
+path = "services/human/schema/human-api/baseline.kvx"
+detail = "journeys.kvx:type.EvidenceClass.meaning: \"layerx-receipt is the retained wire class for a receipt on the merged network. checkpoint-proof describes commitment evidence on that network. paxeer-finality is retired legacy vocabulary, not another finality source for new journeys.\" -> \"layerx-receipt is the retained wire class for a receipt on the merged network. checkpoint-proof describes commitment evidence on that network. paxeer-finality is retired legacy vocabulary, not another finality source for new journeys. Legacy evidence classes remain decodable but never authorize a new execution or promote a current journey to final.\""
+producer_commit = "cdcf3bfd4700337810ee0c3f599a7b71d0c4b9d5"
+reason = "Legacy evidence stays decodable but does not authorize execution or upgrade finality."
+
+[violation.62]
+class = "breaking-declaration-change"
+path = "services/human/schema/human-api/baseline.kvx"
+detail = "journeys.kvx:type.JourneyState.done-finalised.semantics: \"The receipt-backed outcome has committed evidence on the same network, represented by checkpoint-finalised verification. This retained status label is not required for every committed journey: the EVM intent and native journey projections render done and expose evidence separately.\" -> \"The receipt-backed outcome has committed evidence on the same network, represented by checkpoint-finalised verification. checkpoint-finalised names the committed rung rather than an additional proof to await after commitment. This retained status label is not required for every committed journey: the EVM intent and native journey projections render done and expose evidence separately.\""
+producer_commit = "cdcf3bfd4700337810ee0c3f599a7b71d0c4b9d5"
+reason = "checkpoint-finalised denotes commitment, not an extra proof after commitment."
+
+[violation.63]
+class = "breaking-declaration-change"
+path = "services/human/schema/human-api/baseline.kvx"
+detail = "journeys.kvx:type.JourneyState.done.semantics: \"A verified receipt backs the exact outcome of every completed leg. The production EVM intent path requires committed receipt material before rendering done. Other receipt-backed projections may render done at receipted; use evidence verification and rung to distinguish execution evidence from block commitment. No independent settlement step follows a committed block.\" -> \"A verified receipt backs the exact outcome of every completed leg. The production EVM intent path requires committed receipt material before rendering done. Other receipt-backed projections may render done at receipted; use evidence.get and its authenticated material, verification and rung to distinguish execution evidence from block commitment; the done label alone is not a finality proof. No independent settlement step follows a committed block.\""
+producer_commit = "cdcf3bfd4700337810ee0c3f599a7b71d0c4b9d5"
+reason = "The done label alone proves no finality; authenticated evidence material and rung distinguish receipt from commitment."
+
+[violation.64]
+class = "breaking-declaration-change"
+path = "services/human/schema/human-api/baseline.kvx"
+detail = "program-approvals.kvx:type.ProgramApprovalDecisionRequest.required: [\"held_digest:string\",\"step_up_evidence:EvidenceId\"] -> [\"held_digest:string\",\"step_up_evidence:StepUpChallengeId\"]"
+producer_commit = "7e32286b9a58600532e003f4f658ea95c05d0f91"
+reason = "Approval decisions pass the original completed challenge_id to the durable evidence loader, preserving its chg_ prefix rather than using an evidence export identifier."
+
+[scalar_repair.1]
+path = "services/human/schema/human-api/golden/native.send.access.begin.response.json"
+field = "body.result.confirms"
+old = "opd_AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+new = "opd_000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f"
+
+[scalar_repair.2]
+path = "services/human/schema/human-api/golden/native.send.access.confirm.request.json"
+field = "body.step_up.challenge_id"
+old = "chg_01j2h5w4eh8j0k2m4n6p8q0r2s"
+new = "chg_000102030405060708090a0b0c0d0e0f"
+
+[scalar_repair.3]
+path = "services/human/schema/human-api/golden/native.send.access.confirm.request.json"
+field = "body.step_up.confirms"
+old = "opd_01j2h5x8fj9k1m3n5p7q9r1s3t"
+new = "opd_000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f"
+
+[scalar_repair.4]
+path = "services/human/schema/human-api/golden/authenticator.backup.rotate.request.json"
+field = "body.step_up.challenge_id"
+old = "chg_01j2h5w4eh8j0k2m4n6p8q0r2s"
+new = "chg_000102030405060708090a0b0c0d0e0f"
+
+[scalar_repair.5]
+path = "services/human/schema/human-api/golden/authenticator.backup.rotate.request.json"
+field = "body.step_up.confirms"
+old = "opd_01j2h5x8fj9k1m3n5p7q9r1s3t"
+new = "opd_000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f"
+
+[scalar_repair.6]
+path = "services/human/schema/human-api/golden/authenticator.disable.request.json"
+field = "body.step_up.challenge_id"
+old = "chg_01j2h5w4eh8j0k2m4n6p8q0r2s"
+new = "chg_000102030405060708090a0b0c0d0e0f"
+
+[scalar_repair.7]
+path = "services/human/schema/human-api/golden/authenticator.disable.request.json"
+field = "body.step_up.confirms"
+old = "opd_01j2h5x8fj9k1m3n5p7q9r1s3t"
+new = "opd_000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f"
+
+[scalar_repair.8]
+path = "services/human/schema/human-api/golden/authenticator.setup.begin.request.json"
+field = "body.step_up.challenge_id"
+old = "chg_01j2h5w4eh8j0k2m4n6p8q0r2s"
+new = "chg_000102030405060708090a0b0c0d0e0f"
+
+[scalar_repair.9]
+path = "services/human/schema/human-api/golden/authenticator.setup.begin.request.json"
+field = "body.step_up.confirms"
+old = "opd_01j2h5x8fj9k1m3n5p7q9r1s3t"
+new = "opd_000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f"
+
+[scalar_repair.10]
+path = "services/human/schema/human-api/golden/authenticator.setup.finish.request.json"
+field = "body.step_up.challenge_id"
+old = "chg_01j2h5w4eh8j0k2m4n6p8q0r2s"
+new = "chg_000102030405060708090a0b0c0d0e0f"
+
+[scalar_repair.11]
+path = "services/human/schema/human-api/golden/authenticator.setup.finish.request.json"
+field = "body.step_up.confirms"
+old = "opd_01j2h5x8fj9k1m3n5p7q9r1s3t"
+new = "opd_000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f"
+
+[scalar_repair.12]
+path = "services/human/schema/human-api/golden/binding.rebind.request.json"
+field = "body.step_up.challenge_id"
+old = "chg_01j2h5w4eh8j0k2m4n6p8q0r2s"
+new = "chg_000102030405060708090a0b0c0d0e0f"
+
+[scalar_repair.13]
+path = "services/human/schema/human-api/golden/binding.rebind.request.json"
+field = "body.step_up.confirms"
+old = "opd_01j2h5x8fj9k1m3n5p7q9r1s3t"
+new = "opd_000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f"
+
+[scalar_repair.14]
+path = "services/human/schema/human-api/golden/binding.rebind.action.response.json"
+field = "body.result.confirms"
+old = "opd_01j2h5x8fj9k1m3n5p7q9r1s3t"
+new = "opd_000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f"
+
+[scalar_repair.15]
+path = "services/human/schema/human-api/golden/security.action.response.json"
+field = "body.result.confirms"
+old = "opd_01j2h5x8fj9k1m3n5p7q9r1s3t"
+new = "opd_000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f"
+
+[scalar_repair.16]
+path = "services/human/schema/human-api/golden/security.key-export.begin.request.json"
+field = "body.step_up.challenge_id"
+old = "chg_key_export_begin_example"
+new = "chg_000102030405060708090a0b0c0d0e0f"
+
+[scalar_repair.17]
+path = "services/human/schema/human-api/golden/security.key-export.begin.request.json"
+field = "body.step_up.confirms"
+old = "opd_key_export_begin_example"
+new = "opd_000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f"
+
+[scalar_repair.18]
+path = "services/human/schema/human-api/golden/security.key-export.begin.response.json"
+field = "body.result.confirms"
+old = "opd_key_export_finish_example"
+new = "opd_000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f"
+
+[scalar_repair.19]
+path = "services/human/schema/human-api/golden/security.key-export.finish.request.json"
+field = "body.step_up.challenge_id"
+old = "chg_key_export_finish_example"
+new = "chg_000102030405060708090a0b0c0d0e0f"
+
+[scalar_repair.20]
+path = "services/human/schema/human-api/golden/security.key-export.finish.request.json"
+field = "body.step_up.confirms"
+old = "opd_key_export_finish_example"
+new = "opd_000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f"
+
+[scalar_repair.21]
+path = "services/human/schema/human-api/golden/security.passkey.register.begin.request.json"
+field = "body.step_up.challenge_id"
+old = "chg_01j2h5w4eh8j0k2m4n6p8q0r2s"
+new = "chg_000102030405060708090a0b0c0d0e0f"
+
+[scalar_repair.22]
+path = "services/human/schema/human-api/golden/security.passkey.register.begin.request.json"
+field = "body.step_up.confirms"
+old = "opd_01j2h5x8fj9k1m3n5p7q9r1s3t"
+new = "opd_000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f"
+
+[scalar_repair.23]
+path = "services/human/schema/human-api/golden/security.passkey.register.finish.request.json"
+field = "body.step_up.challenge_id"
+old = "chg_01j2h5w4eh8j0k2m4n6p8q0r2s"
+new = "chg_000102030405060708090a0b0c0d0e0f"
+
+[scalar_repair.24]
+path = "services/human/schema/human-api/golden/security.passkey.register.finish.request.json"
+field = "body.step_up.confirms"
+old = "opd_01j2h5x8fj9k1m3n5p7q9r1s3t"
+new = "opd_000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f"
+
+[scalar_repair.25]
+path = "services/human/schema/human-api/golden/security.passkey.revoke.request.json"
+field = "body.step_up.challenge_id"
+old = "chg_01j2h5w4eh8j0k2m4n6p8q0r2s"
+new = "chg_000102030405060708090a0b0c0d0e0f"
+
+[scalar_repair.26]
+path = "services/human/schema/human-api/golden/security.passkey.revoke.request.json"
+field = "body.step_up.confirms"
+old = "opd_01j2h5x8fj9k1m3n5p7q9r1s3t"
+new = "opd_000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f"
+
+[scalar_repair.27]
+path = "services/human/schema/human-api/golden/security.recovery.reveal.request.json"
+field = "body.step_up.challenge_id"
+old = "chg_01j2h5w4eh8j0k2m4n6p8q0r2s"
+new = "chg_000102030405060708090a0b0c0d0e0f"
+
+[scalar_repair.28]
+path = "services/human/schema/human-api/golden/security.recovery.reveal.request.json"
+field = "body.step_up.confirms"
+old = "opd_01j2h5x8fj9k1m3n5p7q9r1s3t"
+new = "opd_000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f"
+
+[scalar_repair.29]
+path = "services/human/schema/human-api/golden/security.session.revoke.request.json"
+field = "body.step_up.challenge_id"
+old = "chg_01j2h5w4eh8j0k2m4n6p8q0r2s"
+new = "chg_000102030405060708090a0b0c0d0e0f"
+
+[scalar_repair.30]
+path = "services/human/schema/human-api/golden/security.session.revoke.request.json"
+field = "body.step_up.confirms"
+old = "opd_01j2h5x8fj9k1m3n5p7q9r1s3t"
+new = "opd_000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f"
+
+[scalar_repair.31]
+path = "services/human/schema/human-api/golden/security.session.revoke-all.request.json"
+field = "body.step_up.challenge_id"
+old = "chg_01j2h5w4eh8j0k2m4n6p8q0r2s"
+new = "chg_000102030405060708090a0b0c0d0e0f"
+
+[scalar_repair.32]
+path = "services/human/schema/human-api/golden/security.session.revoke-all.request.json"
+field = "body.step_up.confirms"
+old = "opd_01j2h5x8fj9k1m3n5p7q9r1s3t"
+new = "opd_000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f"
+
+[scalar_repair.33]
+path = "services/human/schema/human-api/golden/stepup.begin.request.json"
+field = "body.confirms"
+old = "opd_01j2h5x8fj9k1m3n5p7q9r1s3t"
+new = "opd_000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f"
+
+[scalar_repair.34]
+path = "services/human/schema/human-api/golden/stepup.begin.response.json"
+field = "body.result.challenge_id"
+old = "chg_01j2h5w4eh8j0k2m4n6p8q0r2s"
+new = "chg_000102030405060708090a0b0c0d0e0f"
+
+[scalar_repair.35]
+path = "services/human/schema/human-api/golden/stepup.begin.response.json"
+field = "body.result.confirms"
+old = "opd_01j2h5x8fj9k1m3n5p7q9r1s3t"
+new = "opd_000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f"
+
+[scalar_repair.36]
+path = "services/human/schema/human-api/golden/stepup.finish.response.json"
+field = "body.result.challenge_id"
+old = "chg_01j2h5w4eh8j0k2m4n6p8q0r2s"
+new = "chg_000102030405060708090a0b0c0d0e0f"
+
+[scalar_repair.37]
+path = "services/human/schema/human-api/golden/stepup.finish.response.json"
+field = "body.result.confirms"
+old = "opd_01j2h5x8fj9k1m3n5p7q9r1s3t"
+new = "opd_000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f"
+
+[scalar_repair.38]
+path = "services/human/schema/human-api/golden/agent.rotation.disclosure.response.json"
+field = "body.result.confirms"
+old = "opd_01j2h5x8fj9k1m3n5p7q9r1s3t"
+new = "opd_000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f"
+
+[scalar_repair.39]
+path = "services/human/schema/human-api/golden/agent.rotation.start.request.json"
+field = "body.step_up.challenge_id"
+old = "chg_01j2h5w4eh8j0k2m4n6p8q0r2s"
+new = "chg_000102030405060708090a0b0c0d0e0f"
+
+[scalar_repair.40]
+path = "services/human/schema/human-api/golden/agent.rotation.start.request.json"
+field = "body.step_up.confirms"
+old = "opd_01j2h5x8fj9k1m3n5p7q9r1s3t"
+new = "opd_000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f"
+
+[scalar_repair.41]
+path = "services/human/schema/human-api/golden/approval.approve.request.json"
+field = "body.step_up_evidence"
+old = "evd_01j8agg5v6a1b2c3d4e5f6g7h8"
+new = "chg_000102030405060708090a0b0c0d0e0f"
+
+[scalar_repair.42]
+path = "services/human/schema/human-api/golden/approval.program.approve.request.json"
+field = "body.step_up_evidence"
+old = "evd_33ea3d093c0706f506137086ee12c16d3c337b265fa709b9a8a4a67318ac242f"
+new = "chg_000102030405060708090a0b0c0d0e0f"
+
+[scalar_repair.43]
+path = "services/human/schema/human-api/golden/approval.program.disclosure.response.json"
+field = "body.result.confirms"
+old = "opd_8ae40d8ea09c993beef32f002b168200409564224b4404437e405500a0eea8d7"
+new = "opd_000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f"
+
+[scalar_repair.44]
+path = "services/human/schema/human-api/golden/approval.program.reject.request.json"
+field = "body.step_up_evidence"
+old = "evd_4e98dfa9cc1cc6ec99398706305bc3d8f37d884e60812444b3918349dcc556a4"
+new = "chg_000102030405060708090a0b0c0d0e0f"
+
+[qualification]
+build_reference = "/out/run/gates.jsonl: kind=build; revision, command, exit and log are recorded by hf-build"
+verify_reference = "/out/run/gates.jsonl: kind=verify; revision, command, exit and log are recorded by hf-done"
+verified_revision_reference = "/out/run/gates.jsonl: last kind=verify row revision; the same revision must have a passing kind=build row"
+baseline_command = "cargo run --manifest-path services/human/tools/schema-check/Cargo.toml --locked -- --write-baseline services/human/schema/human-api"
+baseline_log = "/out/22_39_161-baseline.log"
+
+[ownership]
+mechanism = "Operation declarations list every supplemental path by its request, response, failure, producer-input or artifact role; schema-check checks HTTP vectors with the owner type, producer JSON syntax and nonempty input shape, and nonempty artifact bytes. Unlisted files, missing files, duplicate owners and paths outside one supplemental set fail."
+current = "activity.export.evidence owns current/activity.evidence.bundle; the unchanged service producer test validates the bundle bytes."
+historical_decode = "activity.entry and activity.export.evidence own their historical-decode responses; retained enum vocabulary remains decodable."
+historical = "intent.plan and journey.get own their historical responses; schema-check validates their wire types without promoting legacy data to current execution authority."
+negative = "intent.plan owns the unsupported route request and its typed refusal; shape validation does not imply execution authority."
+producer = "intent.plan owns its observation context and journey.get owns its projection record; unchanged producer tests consume these internal input objects."
+consumer_paths = "Preserved all five set paths: service production_reads.rs and production_components.rs and qualification test_repair_22_33_29.py and test_repair_22_33_30.py outside scope depend on them. Explicit ownership avoids breaking those references or exempting directories by name."
+
+[scalar_format_repair]
+source = "identity.kvx:scalar.StepUpChallengeId.format and scalar.OperationDigest.format; auth/mod.rs:mint_identifier encodes sixteen entropy bytes as lowercase hexadecimal; operation digests encode 32 bytes."
+implementation = "Recognize both exact declared formats and enforce their prefix, width and lowercase hexadecimal alphabet, retaining rejection of unknown formats."
+examples = "All affected challenge_id and step_up_evidence examples use chg_000102030405060708090a0b0c0d0e0f; confirms uses opd_000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f. Every other JSON field and all producer artifact bytes are unchanged."
+
+[gotcha.1]
+symptom = "The starting checker does not recognize the two prose scalar formats already declared by identity.kvx, so changing golden values alone cannot pass the gate."
+cause = "SCALAR_FORMATS and format_matches only implement decimal, currency, rfc3339-utc and copy-key."
+repair = "Implement strict recognition and hexadecimal validation for the declared challenge and digest formats with rejection tests for width, alphabet and prefix."
+
+[workflow]
+path = ".github/workflows/human.yml"
+job = "schema-check"
+trigger = "Unconditional job in the existing Human workflow, including push to main and pull_request."
+command = "cargo run --manifest-path services/human/tools/schema-check/Cargo.toml --locked -- services/human/schema/human-api"
+
+[qualification.attempt1]
+revision = "a3375cf7edfcc5752957d96b75661c5ef05035ac"
+command = "cg spec done 22.39.161 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "The schema command passed with 1343 declarations, 95 operations and 285 primary vectors; cargo test found three stale mutation targets in conformance.rs and stopped before the beta driver."
+repair = "Use the current journey state done, current journey kind move and current EvidenceRef.export declaration as mutation targets, preserving the existing undeclared-enum-value, missing-required-field and breaking-declaration-removal assertions. The tests still exercise invalid data and deletion through the production checker."
+
+[gotcha.2]
+symptom = "Three conformance mutation tests panic before exercising the checker because their old golden or declaration source text no longer exists."
+cause = "The live journey fixture and EvidenceRef export text changed while the mutation targets retained processing, deposit and the older export description."
+repair = "Update only the source mutation anchors to the current owned fixture and declaration, keeping all rejection criteria intact."
+
+[qualification.attempt2]
+continued_revision = "f23ff54833698defec05b5585cae05c0b52b6078"
+decision = "2953"
+gotcha = "3658"
+producer = "services/human/schema/human-api/journeys.kvx:58, type.EvidenceMaterial.optional"
+producer_task = "10.92.1"
+producer_commit = "c55d8901a7aac95ed5f4717e821f9cf3d0f77a73"
+repair = "In verification_level_retires_settlement_values_and_maps_rungs, assert the exact per-section optional lists: settlement_domain:SettlementDomain for EvidenceRef; settlement_domain:SettlementDomain, rung:Rung and inclusion_height:integer for EvidenceMaterial. Keep both settlement_domain.retired and settlement_domain assertions, every required-field assertion and the schema declarations unchanged."
+build_reference = "/out/run/gates.jsonl: passing kind=build row records the final candidate revision, command, exit and private log location"
+verify_reference = "/out/run/gates.jsonl: passing kind=verify row records the same final candidate revision, cg spec done command, exit and private log location; its verify_cmd includes schema-check, all crate tests and tools/qualification/test_beta_driver.py"
+verified_revision_reference = "/out/run/gates.jsonl: last kind=verify row revision, with a passing kind=build row at that same revision"
+
+[gotcha.3]
+symptom = "The journey vocabulary loop expected EvidenceMaterial.optional to contain settlement_domain alone, preventing the beta driver tests from being reached."
+cause = "The test predates task 10.92.1, whose receipt-proof v2 producer added rung and inclusion_height at journeys.kvx:58 in c55d8901a7."
+repair = "Compare each section against its own complete optional-field list while retaining the retired settlement assertions for both."
+
+[qualification.attempt2.result]
+revision = "c2899bf12994f2c43410d34df27450f5fac86367"
+build_command = "cargo build --locked --manifest-path services/human/tools/schema-check/Cargo.toml"
+build_exit = 0
+build_log = "/out/logs/build-1.log"
+command = "cg spec done 22.39.161 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "The build, schema command and all Rust tests passed at the same candidate revision, including verification_level_retires_settlement_values_and_maps_rungs; pytest reached both inventory cases but each failed assert_manifest_shape at test_beta_driver.py:256 because real_stack was false (2 failed, 1 passed). The multichain case stopped before its schema-check exit-code assertion."
+outcome = "Implemented, not qualified; the unrelated beta driver manifest assertion is outside scope and is recorded without repair or rerun. This result record was appended after the gates; it is not claimed to have been built or verified."
+
+[finding.attempt2.beta_driver]
+task = "22.39.161"
+file = "tools/qualification/test_beta_driver.py:256"
+symbol = "BetaDriverTests.assert_manifest_shape"
+observed = "At revision c2899bf12994f2c43410d34df27450f5fac86367, cg spec done 22.39.161 -f layerx-merge --root /work/paxeer-monorepo exited 1 with private log /out/logs/verify-1.log after both inventory tests failed the real_stack is True assertion while the schema command and all Rust tests passed."
+assumption = "The beta driver manifest real_stack contract is unrelated to the schema repair and requires its owner to reconcile the producer and consumer outside this task's allowed paths."
+severity = "blocker"
+
+[qualification.attempt3]
+continued_revision = "d85c25147bc4"
+decision = "2970"
+gotcha = "3671"
+implementation = "Preserve the carried-forward scalar formats, golden ownership, baseline, workflow and tests, including the per-section EvidenceMaterial optional-field assertions."
+verify_cmd = "cargo run --manifest-path services/human/tools/schema-check/Cargo.toml --locked -- services/human/schema/human-api && cargo test --locked --manifest-path services/human/tools/schema-check/Cargo.toml"
+inventory_owner = "Task 22.31.623 owns beta driver inventory qualification; its previously recorded failure is not rerun by this task."
+build_reference = "/out/run/gates.jsonl: last kind=build row records the candidate revision, command, exit and private log location"
+verify_reference = "/out/run/gates.jsonl: last kind=verify row records the candidate revision, cg spec done command, exit and private log location"
+verified_revision_reference = "/out/run/gates.jsonl: passing kind=verify row revision must equal the passing kind=build row revision; both include this record in the candidate snapshot created by the gate runner"
+record_policy = "Write this reference before qualification and leave the candidate unchanged after the passing gate pair; the runner publishes the qualified candidate."

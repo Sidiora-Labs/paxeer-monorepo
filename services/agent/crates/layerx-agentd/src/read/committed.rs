@@ -952,6 +952,10 @@ impl<'a> CommittedReads<'a> {
 }
 
 #[cfg(test)]
+#[path = "program_account_fixture.rs"]
+mod program_account_fixture;
+
+#[cfg(test)]
 pub(crate) mod tests {
     use super::*;
     use crate::read::BlockId;
@@ -1297,12 +1301,18 @@ pub(crate) mod tests {
     ) {
         let mut nonce = [0; 16];
         getrandom::fill(&mut nonce).expect("temporary directory nonce");
-        let root = std::env::temp_dir().join(format!(
-            "layerx-committed-budget-recovery-{}-{}",
-            std::process::id(),
-            hex::encode(&nonce)
-        ));
-        std::fs::create_dir(&root).expect("fresh temporary directory");
+        use std::os::unix::fs::DirBuilderExt;
+        let root = std::fs::canonicalize(std::env::temp_dir())
+            .expect("canonical temporary directory")
+            .join(format!(
+                "layerx-committed-budget-recovery-{}-{}",
+                std::process::id(),
+                hex::encode(&nonce)
+            ));
+        std::fs::DirBuilder::new()
+            .mode(0o700)
+            .create(&root)
+            .expect("fresh private temporary directory");
         let store = crate::store::Store::open(&root).expect("recovery store");
         let tenant = crate::store::TenantId::new("committed-budget-recovery").expect("tenant");
         let checkpoint = ServedCheckpoint::test_fixture(8, 1_700_000_000, 123_000_000);
@@ -1517,6 +1527,7 @@ pub(crate) mod tests {
         budget[32..64].copy_from_slice(&owner);
         stable_call(&mut answers, &checkpoint, &budget);
         stable_call(&mut answers, &checkpoint, &integer(75));
+        stable_call(&mut answers, &checkpoint, &integer(75));
         use layerx_crypto::authority_grant::{AuthorityGrant, GrantKind, GrantScope};
         let canonical = AuthorityGrant {
             grantor: owner,
@@ -1579,6 +1590,10 @@ pub(crate) mod tests {
             .inventory_records(&mut caps, &[[9; 32]], &[[6; 32]])
             .expect("selected budget and grant");
         assert_eq!(caps.budgets()[0].spent_this_period, 25);
+        let funding = caps.budget_funding(&[9; 32]).expect("funded budget");
+        assert_eq!(funding.allowance(), 75);
+        assert_eq!(funding.funded_balance(), 75);
+        assert_eq!(funding.remaining(), 75);
         assert_eq!(caps.grants()[0].maximum_per_activity, 10);
         crate::budget::VerifiedResolvedProgramCharges::assert_committed_inventory(
             &caps, &did, asset, account_id,
@@ -1642,8 +1657,8 @@ pub(crate) mod tests {
 
     #[test]
     fn program_views_decode_one_program_and_one_account_and_refuse_changed_settlement() {
-        use crate::budget::execution_state::read_program_records;
-        let checkpoint = ServedCheckpoint::test_fixture(8, 1_700_000_000, 123_000_000);
+        use crate::budget::execution_state::read_program_records_with_account_proofs;
+        let mut checkpoint = ServedCheckpoint::test_fixture(8, 1_700_000_000, 123_000_000);
         let program = [3; 32];
         let asset = [7; 32];
         let seed = [1, 2, 3];
@@ -1653,6 +1668,14 @@ pub(crate) mod tests {
         )
         .expect("derived account")
         .bytes();
+        let proof =
+            super::program_account_fixture::committed_account(&mut checkpoint, account, asset, 50);
+        assert_eq!(
+            proof.header().header().resulting_state_root(),
+            checkpoint.app_hash
+        );
+        assert!(!proof.account().frozen);
+        let proofs = BTreeMap::from([(account, proof)]);
         let integer = |value: u64| {
             let mut word = [0; 32];
             word[24..].copy_from_slice(&value.to_be_bytes());
@@ -1693,7 +1716,7 @@ pub(crate) mod tests {
         binding.extend(seed);
         binding.resize(160, 0);
         let registered = [account, asset, integer(2)].concat();
-        let value = [integer(50), integer(0)].concat();
+        let value = [integer(50), integer(1)].concat();
         let mut account_arguments = [program, asset, integer(96), integer(3)].concat();
         account_arguments.extend(seed);
         account_arguments.resize(160, 0);
@@ -1740,7 +1763,13 @@ pub(crate) mod tests {
             }
             let (endpoint, worker) = endpoint(answers);
             let reads = CommittedReads::open(&endpoint, 8).expect("checkpoint");
-            let result = read_program_records(&endpoint, reads.checkpoint(), program, &[account]);
+            let result = read_program_records_with_account_proofs(
+                &endpoint,
+                reads.checkpoint(),
+                program,
+                &[account],
+                &proofs,
+            );
             if changed {
                 assert!(matches!(
                     result,

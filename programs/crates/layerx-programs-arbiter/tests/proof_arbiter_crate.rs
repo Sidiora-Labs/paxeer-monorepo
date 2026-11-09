@@ -62,7 +62,8 @@ use layerx_types::{
     ids::{Did, IdempotencyKey},
     payload::{ActivityType, ModuleId, ModuleRegistration, ModuleRegistry, Payload},
 };
-use layerx_wire::{activity, encode::Encoder, hash, receipt};
+use layerx_wire::historical::activity;
+use layerx_wire::{encode::Encoder, hash, receipt};
 use sha2::{Digest, Sha256};
 use std::{collections::BTreeMap, ffi::c_void, rc::Rc};
 
@@ -594,7 +595,7 @@ fn signed_activity(
         .unwrap();
     let unsigned = builder.build().unwrap();
     let signature = owner.sign(
-        layerx_wire::sign::preimage_unsigned(&unsigned)
+        layerx_wire::historical::sign::preimage_unsigned(&unsigned)
             .unwrap()
             .as_bytes(),
     );
@@ -603,7 +604,7 @@ fn signed_activity(
     )
     .unwrap();
     let decoded = activity::decode_signed(&bytes, &registry).unwrap();
-    let id = hash::activity_id(&decoded).unwrap();
+    let id = layerx_wire::historical::hash::activity_id(&decoded).unwrap();
     (bytes, id)
 }
 fn application_state(
@@ -1207,7 +1208,11 @@ impl Corpus {
             .enumerate()
             .map(|(i, leaf)| BoundaryProof {
                 index: i as u32,
-                leaf: leaf.clone(),
+                leaf: portable
+                    .record
+                    .header()
+                    .boundary_envelope(leaf, MAX)
+                    .unwrap(),
                 siblings: portable.merkle_path_untrusted(i as u32).unwrap(),
             })
             .collect()
@@ -1772,9 +1777,10 @@ fn runtime_producer_records_integer_steps_and_terminal_traps() {
                     Some(ExecutionFault::UnreachableExecuted)
                 );
                 assert_eq!(execution.record.terminal_status(), 1);
-                let terminal = PortableBoundary::decode_untrusted(
+                let terminal = PortableBoundary::decode_with_header(
                     execution.boundary_leaves.last().unwrap(),
                     MAX,
+                    execution.record.header(),
                 )
                 .unwrap();
                 assert!(terminal.trap.is_some());
@@ -1791,7 +1797,10 @@ fn runtime_producer_records_integer_steps_and_terminal_traps() {
                 let boundaries: Vec<_> = execution
                     .boundary_leaves
                     .iter()
-                    .map(|leaf| PortableBoundary::decode_untrusted(leaf, MAX).unwrap())
+                    .map(|leaf| {
+                        PortableBoundary::decode_with_header(leaf, MAX, execution.record.header())
+                            .unwrap()
+                    })
                     .collect();
                 assert_eq!(boundaries.len(), execution.record.boundary_count() as usize);
                 let mut steps = 0;
@@ -1809,8 +1818,119 @@ fn runtime_producer_records_integer_steps_and_terminal_traps() {
                 assert!(steps > 0, "consumer replays actual producer instruction");
                 let mut malformed = execution.boundary_leaves[0].clone();
                 malformed.push(0);
-                assert!(PortableBoundary::decode_untrusted(&malformed, MAX).is_err());
+                assert!(PortableBoundary::decode_with_header(
+                    &malformed,
+                    MAX,
+                    execution.record.header()
+                )
+                .is_err());
             }
         }
+    }
+}
+
+pub fn repair_record_header_transport() {
+    use layerx_programs_runtime::{commit::TracePolicy, replay_record::ReplayRecordHeader};
+
+    fn changed_header(header: &mut ReplayRecordHeader, field: usize) {
+        match field {
+            0 => header.identity.module_code_hash[0] ^= 1,
+            1 => header.identity.input_digest[0] ^= 1,
+            2 => header.identity.runtime_version += 1,
+            3 => header.identity.abi_version += 1,
+            4 => header.identity.fee_schedule_version += 1,
+            5 => header.identity.metering_schedule_version += 1,
+            6 => header.identity.trace_policy = TracePolicy::new(1, 127).unwrap(),
+            7 => header.identity.trace_policy = TracePolicy::new(2, 128).unwrap(),
+            _ => unreachable!(),
+        }
+        let i = header.identity;
+        header.execution_parameters_digest = digest(&[
+            b"LXP/program-trace-parameters/v1\0",
+            &i.runtime_version.to_be_bytes(),
+            &i.abi_version.to_be_bytes(),
+            &i.fee_schedule_version.to_be_bytes(),
+            &i.metering_schedule_version.to_be_bytes(),
+            &i.trace_policy.canonical_bytes(),
+        ]);
+    }
+
+    let corpus = Corpus::produce(false);
+    let (_, raw_leaves) = decode_record(corpus.record.canonical_bytes(), MAX).unwrap();
+    for _ in 0..2 {
+        let (receipt, admission, header, commit, host_proof) = corpus.consume();
+        let metadata = corpus.host.transported(
+            &[
+                vec![1, 0, 9],
+                b"progreplay/v1/".to_vec(),
+                corpus.activity_id.to_vec(),
+            ]
+            .concat(),
+        );
+        let replay = VerifiedReplay::verify_with_batch_context(
+            &receipt,
+            &admission,
+            &header,
+            &commit,
+            corpus.host.root,
+            &host_proof,
+            &metadata,
+            &corpus.authority,
+            &corpus.hosts,
+            corpus.catalogue(&admission, &commit, &host_proof),
+        )
+        .unwrap();
+        let paths = corpus.paths();
+        for (path, raw) in paths.iter().zip(&raw_leaves) {
+            let (header, extracted) = PortableBoundary::split_envelope(&path.leaf, MAX).unwrap();
+            assert_eq!(&header, corpus.record.header());
+            assert_eq!(extracted, raw);
+        }
+        for pair in paths.windows(2) {
+            assert_eq!(
+                replay.verify_step(&pair[0], &pair[1]).unwrap().pre_index(),
+                pair[0].index
+            );
+        }
+        for field in 0..8 {
+            let mut header = corpus.record.header().clone();
+            changed_header(&mut header, field);
+            let mut bad = paths[0].clone();
+            bad.leaf = header.boundary_envelope(&raw_leaves[0], MAX).unwrap();
+            // The header is structurally valid and the committed raw leaf is unchanged.
+            let (decoded, raw) = PortableBoundary::split_envelope(&bad.leaf, MAX).unwrap();
+            assert_eq!(decoded, header);
+            assert_eq!(raw, raw_leaves[0]);
+            assert_eq!(
+                replay.verify_step(&bad, &paths[1]),
+                Err(ReplayError::Leaf),
+                "header field {field}"
+            );
+            let mut bad_post = paths[1].clone();
+            bad_post.leaf = header.boundary_envelope(&raw_leaves[1], MAX).unwrap();
+            assert_eq!(
+                replay.verify_step(&paths[0], &bad_post),
+                Err(ReplayError::Leaf),
+                "post header field {field}"
+            );
+        }
+        let mut bad = paths[0].clone();
+        bad.leaf = raw_leaves[0].clone();
+        assert_eq!(replay.verify_step(&bad, &paths[1]), Err(ReplayError::Leaf));
+        let mut bad = paths[0].clone();
+        *bad.leaf.last_mut().unwrap() ^= 1;
+        assert_eq!(replay.verify_step(&bad, &paths[1]), Err(ReplayError::Path));
+        let mut bad = paths[0].clone();
+        bad.siblings.pop().unwrap();
+        assert_eq!(replay.verify_step(&bad, &paths[1]), Err(ReplayError::Path));
+        let mut bad = paths[0].clone();
+        bad.leaf.resize(MAX + 1, 0);
+        assert_eq!(
+            replay.verify_step(&bad, &paths[1]),
+            Err(ReplayError::Bounds)
+        );
+        let mut bad = paths[0].clone();
+        bad.leaf.truncate(40);
+        assert_eq!(replay.verify_step(&bad, &paths[1]), Err(ReplayError::Leaf));
     }
 }

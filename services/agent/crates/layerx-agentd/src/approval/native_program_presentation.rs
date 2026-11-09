@@ -151,10 +151,10 @@ pub fn read_owned(
     }
     let presentation = carrier.presentation(store)?;
     let prepared = carrier.restore_prepared(registry)?;
-    crate::prepare::verify_disclosure_binding(&prepared)
+    crate::prepare::verify_call_binding(&prepared)
         .map_err(|_| ProgramPresentationError::Binding)?;
-    if prepared.envelope.activity_type().module() != ModuleId::Programs
-        || prepared.envelope.actor_did().as_bytes() != carrier.retained_actor()
+    if prepared.disclosure.activity_type.module() != ModuleId::Programs
+        || prepared.disclosure.actor.as_slice() != prepared.from
     {
         return Err(ProgramPresentationError::Binding);
     }
@@ -187,15 +187,16 @@ pub fn read_owned(
         _ => ProgramPresentationError::Corrupt,
     })?;
     let reservation = carrier.budget()?;
-    let preparation_digest: [u8; 32] = Sha256::digest(&prepared.canonical_bytes).into();
+    let preparation_digest: [u8; 32] = Sha256::digest(&prepared.call.encode_unsigned()).into();
     let actor = layerx_wire::hash::did_id_for_protocol(
-        prepared.envelope.actor_did(),
-        prepared.envelope.protocol_version(),
+        &layerx_types::ids::Did::new(carrier.retained_actor())
+            .map_err(|_| ProgramPresentationError::Binding)?,
+        3,
     )
     .map_err(|_| ProgramPresentationError::Binding)?;
     if reservation.id != preparation_digest
         || reservation.allocation_preparation_digest() != Some(preparation_digest)
-        || reservation.allocation_sequence() != Some(prepared.observed_head_sequence)
+        || reservation.allocation_sequence() != Some(prepared.observed_head_height)
         || reservation.allocation_actor() != Some(actor)
     {
         return Err(ProgramPresentationError::Binding);
@@ -210,8 +211,17 @@ pub fn read_owned(
         if allocation.kind == ProgramChargeKind::Fee {
             if fee_asset.replace(allocation.asset).is_some()
                 || allocation.destination.is_some()
-                || allocation.maximum_amount != prepared.envelope.fee_limit().value()
-                || !principal_source_matches(&prepared, allocation.source, allocation.asset)?
+                || allocation.maximum_amount
+                    != prepared
+                        .call
+                        .max_fee_per_gas
+                        .checked_mul(u128::from(prepared.call.gas_limit))
+                        .ok_or(ProgramPresentationError::Binding)?
+                || !principal_source_matches(
+                    carrier.retained_actor(),
+                    allocation.source,
+                    allocation.asset,
+                )?
             {
                 return Err(ProgramPresentationError::Binding);
             }
@@ -228,7 +238,14 @@ pub fn read_owned(
             limits.push(allocation.clone());
         }
     }
-    if fee_asset.is_some() != (prepared.envelope.fee_limit().value() != 0) {
+    if fee_asset.is_some()
+        != (prepared
+            .call
+            .max_fee_per_gas
+            .checked_mul(u128::from(prepared.call.gas_limit))
+            .ok_or(ProgramPresentationError::Binding)?
+            != 0)
+    {
         return Err(ProgramPresentationError::Binding);
     }
     let mut expected = BTreeMap::<AllocationKey, u128>::new();
@@ -245,7 +262,7 @@ pub fn read_owned(
                     .ok_or(ProgramPresentationError::Binding)?
                     .source;
                 if sources.next().is_some()
-                    || !principal_source_matches(&prepared, source, bound.asset)?
+                    || !principal_source_matches(carrier.retained_actor(), source, bound.asset)?
                 {
                     return Err(ProgramPresentationError::Binding);
                 }
@@ -280,7 +297,7 @@ pub fn read_owned(
     let immutable_carrier_bytes = carrier.immutable_hold_bytes()?;
     let held_digest = carrier.held_digest()?;
     if <[u8; 32]>::from(Sha256::digest(&immutable_carrier_bytes)) != held_digest
-        || <[u8; 32]>::from(Sha256::digest(&prepared.canonical_bytes)) != id
+        || <[u8; 32]>::from(Sha256::digest(&prepared.call.encode_unsigned())) != id
     {
         return Err(ProgramPresentationError::Binding);
     }
@@ -304,8 +321,8 @@ pub fn read_owned(
             .owner
             .clone(),
         state,
-        activity_ordinal: prepared.envelope.activity_type().ordinal(),
-        canonical_unsigned_bytes: prepared.canonical_bytes,
+        activity_ordinal: prepared.disclosure.activity_type.ordinal(),
+        canonical_unsigned_bytes: prepared.call.encode_unsigned(),
         immutable_carrier_bytes,
         reservation,
         created_at_sequence: presentation.created_at_sequence,
@@ -324,36 +341,26 @@ pub fn read_owned(
 }
 
 fn principal_source_matches(
-    prepared: &crate::prepare::Prepared,
+    owner: &[u8],
     source: [u8; 32],
     asset: [u8; 32],
 ) -> Result<bool, ProgramPresentationError> {
-    let actor = prepared.envelope.actor_did();
-    match prepared.envelope.protocol_version() {
-        1 | 2 => Ok(layerx_wire::hash::did_id_for_protocol(
-            actor,
-            prepared.envelope.protocol_version(),
-        )
+    let actor =
+        &layerx_types::ids::Did::new(owner).map_err(|_| ProgramPresentationError::Binding)?;
+    let did =
+        std::str::from_utf8(actor.as_bytes()).map_err(|_| ProgramPresentationError::Binding)?;
+    let main = layerx_types::account::AccountId::parse(&format!("agent:{did}:main"))
+        .map_err(|_| ProgramPresentationError::Binding)?;
+    let asset_hex: String = asset.iter().map(|byte| format!("{byte:02x}")).collect();
+    let asset_account =
+        layerx_types::account::AccountId::parse(&format!("agent:{did}:asset:{asset_hex}"))
+            .map_err(|_| ProgramPresentationError::Binding)?;
+    Ok(layerx_wire::hash::account_id_for_protocol(&main, 3)
         .map_err(|_| ProgramPresentationError::Binding)?
-            == source),
-        3 => {
-            let did = std::str::from_utf8(actor.as_bytes())
-                .map_err(|_| ProgramPresentationError::Binding)?;
-            let main = layerx_types::account::AccountId::parse(&format!("agent:{did}:main"))
-                .map_err(|_| ProgramPresentationError::Binding)?;
-            let asset_hex: String = asset.iter().map(|byte| format!("{byte:02x}")).collect();
-            let asset_account =
-                layerx_types::account::AccountId::parse(&format!("agent:{did}:asset:{asset_hex}"))
-                    .map_err(|_| ProgramPresentationError::Binding)?;
-            Ok(layerx_wire::hash::account_id_for_protocol(&main, 3)
-                .map_err(|_| ProgramPresentationError::Binding)?
-                == source
-                || layerx_wire::hash::account_id_for_protocol(&asset_account, 3)
-                    .map_err(|_| ProgramPresentationError::Binding)?
-                    == source)
-        }
-        _ => Err(ProgramPresentationError::Unsupported),
-    }
+        == source
+        || layerx_wire::hash::account_id_for_protocol(&asset_account, 3)
+            .map_err(|_| ProgramPresentationError::Binding)?
+            == source)
 }
 
 fn read_owned_call(

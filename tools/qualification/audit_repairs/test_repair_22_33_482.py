@@ -205,7 +205,7 @@ def test_compose_private_ingress_and_inherited_image_health():
     nginx_examples = re.findall(r"```nginx\n(.*?)\n```", architecture, re.S)
     assert len(nginx_examples) == 1
     directives = [shlex.split(line.removesuffix(";")) for line in nginx_examples[0].splitlines()]
-    assert ["resolver", "127.0.0.11", "valid=5s", "ipv6=off"] in directives
+    assert ["resolver", "192.0.2.53", "valid=5s", "ipv6=off"] in directives
     assert ["set", "$perps_upstream", "app:" + app["environment"]["PORT"]] in directives
     assert ["proxy_pass", "http://$perps_upstream"] in directives
     assert ["proxy_set_header", "Host", "$host"] in directives

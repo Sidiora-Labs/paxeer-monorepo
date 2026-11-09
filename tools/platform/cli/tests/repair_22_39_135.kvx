@@ -1,0 +1,35 @@
+[meta]
+task = "22.39.135"
+acceptance = "22998.1"
+reference = "tools/platform/cli/src/a2a.rs: Runtime::invoke and Runtime::invoke_task; decision 2848; gotcha 3520"
+verified_revision = "The final hf-done evidence row binds this record to the identical hf-build and hf-done candidate revision."
+evidence = "hf-build and hf-done retain the exact candidate revision, command, exit code and private log location."
+
+[assertion.tool_submit_recovery_task]
+file = "tools/platform/cli/tests/repair_22_33_1493.rs"
+symbol = "tool_submit_recovery"
+change = "Move the txHash and unknown-rung assertions into the task branch and require nonempty detail."
+reason = "The A2A task producer retains an unknown submission and its local hash for recovery."
+
+[assertion.tool_submit_recovery_tool]
+file = "tools/platform/cli/tests/repair_22_33_1493.rs"
+symbol = "tool_submit_recovery"
+change = "Replace the tool branch success unwrap with unwrap_err and require submission_indeterminate: <local hash>: <nonempty detail>."
+reason = "The A2A tool producer refuses an indeterminate submission while retaining its recovery identity in the error."
+
+[assertion.tool_submit_recovery_receipt]
+file = "tools/platform/cli/tests/repair_22_33_1493.rs"
+symbol = "tool_submit_recovery"
+change = "Extract and assert the saved producer hash from each output shape; compare the reopened receipt hash to that identity instead of indexing the tool error as an object."
+reason = "Both branches must recover through receipt.get after restart using their actual retained output without resubmission."
+
+[assertion.mcp_submit_tool_sends_raw_transaction]
+file = "tools/platform/cli/tests/mcp_evm_submit.rs"
+symbol = "mcp_submit_tool_sends_raw_transaction"
+change = "Keep every existing assertion and add the submission_indeterminate prefix and local transaction hash assertion."
+reason = "Pin the required producer error name and recovery identity while preserving the closed-transport refusal check and changing every declared touches path."
+
+[preserved.submission_failures_remain_distinct]
+file = "tools/platform/cli/tests/repair_22_33_1493.rs"
+symbol = "submission_failures_remain_distinct"
+assertions = "All unsent, refused, successful and indeterminate program submission assertions remain unchanged."

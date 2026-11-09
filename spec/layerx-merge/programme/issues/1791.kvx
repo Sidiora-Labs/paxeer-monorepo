@@ -1,0 +1,48 @@
+[issue.1791]
+number = 1791
+title = "[Coherence] The gateway ingress rule now admits a control pod label, layerx-mainnet-beta-control, that no workload carries"
+revision = "a910fdedd579e63379ae6c2e4d4971990d28f8ad"
+verdict = "task"
+evidence = "services/platform/hosted/gateway/deployment.yaml:185 and services/platform/hosted/gateway/deployment.yaml:190 still select the nonexistent layerx-mainnet-beta-control pod in layerx-mainnet-beta without a namespaceSelector, while services/platform/hosted/testnet/deployment.yaml:70 and services/platform/hosted/testnet/deployment.yaml:75 declare layerx-testnet-control in layerx-testnet with layerx-plane: control, services/platform/hosted/interop/deployment.yaml:69 admits the existing app label, and docker/platform-testnet/Dockerfile:13 retains the control executable."
+close_comment = "The gateway ingress policy still selects an unused control label and omits the namespace selector needed for the existing control pods. A targeted repair will admit those pods on TCP 9443 while preserving the gateway's namespace and other peer restrictions."
+
+[task.18.1791.1]
+title = "Issue #1791: Admit the existing control pods to gateway ingress"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181791.1"]
+capabilities = []
+interfaces = []
+do_1 = "Replace only the unused control peer at services/platform/hosted/gateway/deployment.yaml:190 with one peer combining namespaceSelector.matchLabels.layerx-control-plane: enabled and podSelector.matchLabels.layerx-plane: control; add the matching namespace label to the existing Namespace at services/platform/hosted/testnet/deployment.yaml:3, using the existing control pod label at services/platform/hosted/testnet/deployment.yaml:75, and retain TCP 9443 and every other ingress and egress rule."
+do_2 = "Add test_gateway_ingress_admits_existing_control_namespace_and_pods to tools/qualification/audit_repairs/test_repair_22_31_594.py, retaining every existing assertion including the literal namespace exclusion at tools/qualification/audit_repairs/test_repair_22_31_594.py:104; parse the real gateway and testnet manifests and use Topology.ingress_admits from services/platform/hosted/tests/topology-check.sh:734 to assert control admission on TCP 9443, rejection after removal of either required namespace or pod label, rejection of a control pod in an unlabeled namespace, rejection on UDP 9443 and TCP 9444, and preservation of ingress-nginx admission."
+symbols = ["test_gateway_ingress_admits_existing_control_namespace_and_pods"]
+touches = ["services/platform/hosted/gateway/deployment.yaml", "services/platform/hosted/testnet/deployment.yaml", "tools/qualification/audit_repairs/test_repair_22_31_594.py"]
+tests = ["tools/qualification/audit_repairs/test_repair_22_31_594.py::test_gateway_ingress_admits_existing_control_namespace_and_pods"]
+planned_paths = []
+build_cmd = "python3 -m py_compile tools/qualification/audit_repairs/test_repair_22_31_594.py"
+verify_cmd = "python3 -m pytest tools/qualification/audit_repairs/test_repair_22_31_594.py -q"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181791]
+title = "Gateway ingress admits the existing control workload across namespaces"
+ac_1 = "The control Deployment at services/platform/hosted/testnet/deployment.yaml:70 is admitted by the gateway NetworkPolicy at services/platform/hosted/gateway/deployment.yaml:185 on TCP 9443 through one peer that requires both its labeled namespace and its existing layerx-plane: control pod label, while unlabeled namespaces, non-control pods, UDP 9443 and TCP 9444 remain denied and ingress-nginx admission is preserved."
+
+[acceptance.18.1791.1]
+feature = "18"
+req = "181791.1"
+scenario = "Given the gateway and control Deployment manifests in their distinct namespaces, when the topology checker evaluates gateway ingress, then the control pods are admitted on TCP 9443 only when both namespace and pod selectors match, other control ports and protocols remain denied, and ingress-nginx retains access."
+contract = "contracts/platform-hosted.md#testnet-env-vars"
+test = "tools/qualification/audit_repairs/test_repair_22_31_594.py::test_gateway_ingress_admits_existing_control_namespace_and_pods (planned)"
+qualification = "UNRUN"

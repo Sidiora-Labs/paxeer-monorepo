@@ -37,7 +37,7 @@ use layerx_agentd::store::{ObjectKind, Store, TenantId};
 use layerx_crypto::account_derivation::derive_from_seed;
 use layerx_crypto::evm_transaction::{decode_signed, transaction_hash};
 use layerx_crypto::local::LocalSigner;
-use layerx_crypto::send::{encode_send_envelope, send_context_hash, EnvelopeOptions, SendDebit};
+use layerx_crypto::send::{send_context_hash, SendDebit};
 use layerx_crypto::signer::Signer;
 use layerx_types::payload::ModuleRegistry;
 
@@ -976,6 +976,10 @@ fn verified_submission() -> Result<VerifiedSubmission, SuiteFailure> {
     Ok(verified)
 }
 
+fn registry() -> Result<ModuleRegistry, SuiteFailure> {
+    step(ModuleRegistry::new(&[]), "module registry", &[])
+}
+
 fn send_payload() -> Result<(SigningPreparation, ModuleRegistry, LocalSigner), SuiteFailure> {
     let account = step(
         derive_from_seed(&[0xa5; 32], 0),
@@ -1000,24 +1004,6 @@ fn send_payload() -> Result<(SigningPreparation, ModuleRegistry, LocalSigner), S
     let payload = step(
         ready(debit.sign(&signer)),
         "sign native debit authorization",
-        &[],
-    )?;
-    let disclosed = step(
-        encode_send_envelope(
-            &payload,
-            &EnvelopeOptions {
-                actor: "did:layerx:limits-exactly-once",
-                public_key: signer.public_key(),
-                protocol_version: 2,
-                network_id: 17,
-                identity_sequence: 5,
-                idempotency_key: INTENT,
-                fee_limit: 7,
-                not_before: 995,
-                not_after: 1_010,
-            },
-        ),
-        "disclose transfer authorization",
         &[],
     )?;
     let transaction = step(
@@ -1051,7 +1037,7 @@ fn send_payload() -> Result<(SigningPreparation, ModuleRegistry, LocalSigner), S
             transaction,
             actor_address: account.evm_address(),
         },
-        disclosed.registry,
+        registry()?,
         signer,
     ))
 }
@@ -1192,7 +1178,9 @@ mod node_recovery {
         resolve_unknown, Outbox, OutboxError, ResendObservation, ResolutionObservation,
         SubmissionState,
     };
-    use layerx_agentd::prepare::{DurablePreparation, LifecycleState, PreparationLifecycle};
+    use layerx_agentd::prepare::lifecycle::{
+        DurablePreparation, LifecycleState, PreparationLifecycle,
+    };
     use layerx_agentd::receipt;
     use layerx_agentd::session::SessionRegistry;
     use layerx_agentd::session_control::SessionControl;
@@ -1651,8 +1639,12 @@ mod node_recovery {
                 vec![hash.to_vec()]
             );
             let inventory = must(receipt::evidence_inventory(&store, &tenant));
-            assert_eq!(inventory.without_evidence.len(), 1);
+            assert_eq!(inventory.with_current_evidence.len(), 1);
+            let current = &inventory.with_current_evidence[0];
+            assert_eq!(current.idempotency_key, hash);
+            assert_eq!(current.activity_id, stored.metadata.activity_id);
             assert!(inventory.with_evidence.is_empty());
+            assert!(inventory.without_evidence.is_empty());
             assert_eq!(
                 must(receipt::serve_evidence(&store, tenant.clone(), hash))
                     .expect("durable node receipt")

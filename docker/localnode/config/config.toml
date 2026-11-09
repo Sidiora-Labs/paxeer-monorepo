@@ -198,7 +198,7 @@ laddr = "tcp://0.0.0.0:26656"
 # If empty, will use the same port as the laddr,
 # and will introspect on the listener or use UPnP
 # to figure out the address. ip and port are required
-# example: 159.89.10.97:26656
+# example: 192.0.2.97:26656 (documentation address)
 external-address = ""
 
 # Comma separated list of peers to be added to the peer store

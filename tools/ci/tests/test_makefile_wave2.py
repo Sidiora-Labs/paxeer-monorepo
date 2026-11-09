@@ -83,7 +83,8 @@ class MakefileWaveTwoTest(unittest.TestCase):
                 "-s",
                 "--no-print-directory",
                 "--eval",
-                'lx-excluded: ; @printf "%s\\n" $(sort $(filter-out $(LIB_SOURCES),$(shell find src -type f -name "*.c" -print)))',
+                "lx-excluded: ; @printf '%s\\n' "
+                "'$(sort $(LIB_EXCLUDED_SOURCES))' '$(sort $(LIB_SOURCES))'",
                 "lx-excluded",
             ],
             cwd=ROOT,
@@ -93,16 +94,23 @@ class MakefileWaveTwoTest(unittest.TestCase):
             check=False,
         )
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-        self.assertEqual(
-            set(result.stdout.splitlines()),
-            {
-                "src/storage/lxp_projection.c",
-                "src/network/lx_oracle_adapter.c",
-                "src/sequencer/lx_oracle_root.c",
-                "src/paxeer/lxp_da_challenge_record.c",
-                "src/guarantor/lxp_da_challenge.c",
-            },
-        )
+        declared, included = (set(line.split()) for line in result.stdout.splitlines())
+        # Projection stays out of the native library; the node owns projection.
+        # Oracle adapter/root are retired: native pricefeed/oracle reads replace them.
+        # DA challenges belong to the retired guarantor/checkpoint execution domain.
+        expected = {
+            "src/storage/lxp_projection.c",
+            "src/network/lx_oracle_adapter.c",
+            "src/sequencer/lx_oracle_root.c",
+            "src/paxeer/lxp_da_challenge_record.c",
+            "src/guarantor/lxp_da_challenge.c",
+        }
+        self.assertEqual(declared, expected)
+        sources = {str(path.relative_to(ROOT)) for path in (ROOT / "src").rglob("*.c")}
+        self.assertEqual(included, sources - declared)
+        self.assertEqual(sources - included, sources & declared)
+        self.assertTrue((ROOT / "modules/pricefeed").is_dir())
+        self.assertTrue((ROOT / "src/storage/lxp_projection.c").is_file())
 
 
 if __name__ == "__main__":

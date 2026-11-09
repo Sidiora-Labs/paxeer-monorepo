@@ -331,3 +331,46 @@ fn subscription_health_reports_delivered_and_watermark_triples() {
         .bytes()
         .starts_with(b"LXS3"));
 }
+
+#[test]
+fn local_event_anchor_does_not_advance_the_chain_watermark() {
+    use layerx_agentd::events::{ingest_local_restriction, CoreEvent};
+    use layerx_types::verify::VerificationLevel;
+    let mut fixture = Fixture::new();
+    fixture.ingest(&[position(13, 0, 2)]);
+    let before = fixture.snapshot().health_fields()["ingest_watermark"].clone();
+    let subscriptions = fixture.subscriptions.take().unwrap();
+    let mut ingestor = EventIngestor::open(
+        subscriptions.into_durable().unwrap(),
+        TenantId::new("tenant-a").unwrap(),
+        8,
+        0,
+    )
+    .unwrap();
+    let sequence = ingestor.watermark().next_expected;
+    ingest_local_restriction(
+        &mut ingestor,
+        CoreEvent {
+            global_sequence: sequence,
+            canonical_bytes: b"local-policy-restriction".to_vec(),
+            receipt_reference: None,
+            receipt_verification_level: VerificationLevel::UNVERIFIED,
+            attributes: attributes(),
+        },
+    )
+    .unwrap();
+    assert_eq!(ingestor.watermark().last_position.unwrap().block_height, 13);
+    assert_eq!(ingestor.watermark().next_expected, sequence + 1);
+    drop(ingestor);
+    fixture.subscriptions = Some(
+        SubscriptionStore::open(
+            Store::open(&fixture.root).unwrap(),
+            TenantId::new("tenant-a").unwrap(),
+        )
+        .unwrap(),
+    );
+    assert_eq!(
+        fixture.snapshot().health_fields()["ingest_watermark"],
+        before
+    );
+}

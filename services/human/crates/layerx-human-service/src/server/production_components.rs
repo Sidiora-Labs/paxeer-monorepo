@@ -6280,10 +6280,7 @@ impl ProductionComponents {
                     (
                         Some("approval-hold" | "local-journey-state"),
                         Some("unverified")
-                    ) | (
-                        Some("checkpoint-proof"),
-                        Some("checkpoint-finalised" | "settlement-anchored")
-                    )
+                    ) | (Some("checkpoint-proof"), Some("committed"))
                 )
             {
                 return Err(ApiFailure::upstream_degraded());
@@ -7377,7 +7374,23 @@ impl AttestorKms {
         *kms.inner
             .clock
             .lock()
-            .map_err(|_| CustodyError::Kms(KmsError::Unavailable))? = Some(clock);
+            .map_err(|_| CustodyError::Kms(KmsError::Unavailable))? = Some(Arc::new(
+            layerx_human_kms::attestor::AttestorClock::new(clock),
+        ));
+        Ok(kms)
+    }
+
+    pub fn connect_with_clock(
+        config: AttestorCustodyConfig,
+        clock: Arc<dyn Clock>,
+    ) -> Result<Self, CustodyError> {
+        let kms = Self::connect(config)?;
+        *kms.inner
+            .clock
+            .lock()
+            .map_err(|_| CustodyError::Kms(KmsError::Unavailable))? = Some(Arc::new(
+            layerx_human_kms::attestor::AttestorClock::new(clock),
+        ));
         Ok(kms)
     }
 
@@ -7483,7 +7496,18 @@ impl AttestorKms {
         network: u32,
     ) -> Result<layerx_human_kms::attestor::AttestorSigner, layerx_human_kms::attestor::AttestorError>
     {
-        let client = self.inner.config.client()?;
+        let mut client = self.inner.config.client()?;
+        if let Some(clock) = self
+            .inner
+            .clock
+            .lock()
+            .map_err(|_| {
+                layerx_human_kms::attestor::AttestorError::Configuration("attestor clock lock")
+            })?
+            .as_ref()
+        {
+            client = client.with_clock(Arc::clone(clock));
+        }
         let signers: Vec<&str> = self
             .inner
             .config

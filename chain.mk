@@ -4,22 +4,24 @@
 # - Extract vX.Y.Z (+ any suffix) from the branch name when present.
 # - Compare only the base vX.Y.Z (strip any suffix) between branch/tag.
 # - Prefer tag if bases are equal; otherwise use whichever base is newer.
+# - Use the release version file when no matching release tag is available.
+PAXEER_PROJECT_HOME := $(abspath $(dir $(lastword $(MAKEFILE_LIST))))
+RELEASE_VERSION := $(shell jq -er .version "$(PAXEER_PROJECT_HOME)/tools/release/version.json")
 BRANCH_NAME := $(shell git rev-parse --abbrev-ref HEAD)
 BRANCH_VERSION := $(shell echo "$(BRANCH_NAME)" | sed -E -n 's|.*(v[0-9]+\.[0-9]+\.[0-9]+[-A-Za-z0-9._]*).*|\1|p')
-TAG_VERSION := $(shell git describe --tags --always --match 'paxeer-network/v*' | sed 's|^paxeer-network/||')
+TAG_VERSION := $(shell git describe --tags --match 'paxeer-network/v*' 2>/dev/null | sed 's|^paxeer-network/||')
 VERSION := $(shell \
 	bv="$(BRANCH_VERSION)"; tv="$(TAG_VERSION)"; \
 	bb=$$(echo "$$bv" | sed 's/^\(v[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\).*/\1/'); \
 	tb=$$(echo "$$tv" | sed 's/^\(v[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\).*/\1/'); \
-	if [ -z "$$bv" ]; then echo "$$tv"; \
-	elif [ -z "$$tv" ] || [ "$$bb" = "$$tb" ]; then echo "$$tv"; \
+	if [ -z "$$tv" ]; then echo "$(RELEASE_VERSION)"; \
+	elif [ -z "$$bv" ] || [ "$$bb" = "$$tb" ]; then echo "$$tv"; \
 	elif [ "$$(printf '%s\n%s\n' "$$tb" "$$bb" | sort -V | tail -n 1)" = "$$bb" ]; then echo "$$bv"; \
 	else echo "$$tv"; fi)
 COMMIT := $(shell git log -1 --format='%H')
 
 BUILDDIR ?= $(CURDIR)/build
 INVARIANT_CHECK_INTERVAL ?= $(INVARIANT_CHECK_INTERVAL:-0)
-PAXEER_PROJECT_HOME := $(abspath $(dir $(lastword $(MAKEFILE_LIST))))
 export PROJECT_HOME := $(PAXEER_PROJECT_HOME)
 export GO_PKG_PATH=$(HOME)/go/pkg
 export GO111MODULE = on
@@ -99,12 +101,42 @@ BUILD_FLAGS_BENCHMARK = -tags "$(build_tags) benchmark mock_balances" -ldflags '
 
 all: lint install
 
+EVMONE_BUILD_DIR := $(PAXEER_PROJECT_HOME)/build/evmone-0.12.0
+EVMONE_SOURCE_DIR := $(EVMONE_BUILD_DIR)/source
+EVMONE_LIBRARY := $(PAXEER_PROJECT_HOME)/engine/executor/lib/libevmone.0.12.0_linux_amd64.so
+
+# The linux/arm64 and darwin/arm64 loader filenames remain unbuilt by this target.
+.PHONY: evmone-lib
+evmone-lib:
+	@if [ -f "$(EVMONE_LIBRARY)" ]; then exit 0; fi; \
+	set -eu; \
+	if [ "$$(uname -s):$$(uname -m)" != Linux:x86_64 ]; then \
+		echo "evmone-lib currently builds only linux/amd64; linux/arm64 and darwin/arm64 libraries are unbuilt" >&2; \
+		exit 1; \
+	fi; \
+	mkdir -p "$(EVMONE_BUILD_DIR)"; \
+	if [ ! -d "$(EVMONE_SOURCE_DIR)/.git" ]; then \
+		git clone --branch v0.12.0 --depth 1 https://github.com/ethereum/evmone.git "$(EVMONE_SOURCE_DIR)"; \
+	fi; \
+	test "$$(git -C "$(EVMONE_SOURCE_DIR)" rev-parse HEAD)" = "$$(git -C "$(EVMONE_SOURCE_DIR)" rev-parse v0.12.0^{commit})"; \
+	git -C "$(EVMONE_SOURCE_DIR)" submodule update --init --recursive --depth 1 evmc; \
+	HUNTER_ROOT="$(EVMONE_BUILD_DIR)/hunter" cmake \
+		-S "$(EVMONE_SOURCE_DIR)" -B "$(EVMONE_BUILD_DIR)/cmake" \
+		-DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=ON \
+		-DEVMONE_TESTING=OFF -DEVMC_TESTING=OFF -DEVMC_TOOLS=OFF \
+		-DEVMONE_X86_64_ARCH_LEVEL=1 -DCMAKE_INSTALL_LIBDIR=lib; \
+	cmake --build "$(EVMONE_BUILD_DIR)/cmake" --target evmone --parallel 2; \
+	cp "$(EVMONE_BUILD_DIR)/cmake/lib/libevmone.so.0.12.0" "$(EVMONE_LIBRARY)"
+
 # paxd links the LayerX kernel (build/liblayerx.a) and the programs sandbox
 # (programs/target/release/liblayerx_programs_sandbox.a) through the cgo
 # directives in modules/lxphost; the root Makefile builds both.
 .PHONY: paxd-native-libs
 paxd-native-libs:
 	$(MAKE) -C $(PAXEER_PROJECT_HOME) -f Makefile paxd-native-libs
+	@for archive in $(NATIVE_ARCHIVES); do \
+		test -f "$$archive" || { echo "Missing native archive: $$archive" >&2; exit 1; }; \
+	done
 
 install: go.sum paxd-native-libs
 		go install $(BUILD_FLAGS) ./daemon/paxd

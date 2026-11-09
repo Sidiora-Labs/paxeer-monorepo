@@ -1,3 +1,5 @@
+//! Library TLS cases, selected by the `outbound_tls::tests` unit-test filter.
+
 use std::error::Error;
 use std::io::{Read, Write};
 use std::net::TcpListener;
@@ -181,6 +183,10 @@ fn private_ca_is_required_and_hostname_verification_remains_enabled() -> TestRes
     )?;
     assert_eq!(
         exchange(&identity, &ca.to_der()?, "localhost")?,
+        (true, true)
+    );
+    assert_eq!(
+        exchange(&identity, &ca.to_der()?, "LOCALHOST")?,
         (true, true)
     );
     assert_eq!(

@@ -1,0 +1,48 @@
+[issue.1680]
+number = 1680
+title = "[Coherence] The legacy REST body limit is a fixed 1,000,000-byte constant, while the API server's limit comes from the operator's rpc-max-body-bytes setting"
+revision = "bb8caac8b3e73e3e2f4b330805574f0bcb540641"
+verdict = "task"
+evidence = "The cap introduced by commit a2a291cb095768b9204db48886ccffe6a65f5d79 remains at sdk/types/rest/rest.go:29 and sdk/types/rest/rest.go:151, and its 413 message at sdk/types/rest/rest.go:155 ignores the matched MaxBytesError limit even though sdk/server/api/server.go:108 supplies RPCMaxBodyBytes (default 1000000 at sdk/server/config/config.go:279) to the outer reader at consensus/rpc/jsonrpc/server/http_server.go:64 and consensus/rpc/jsonrpc/server/http_server.go:259, while sdk/types/rest/repair_m650_test.go:187 tests only the default cap."
+close_comment = "The mismatch is confirmed and tracked by task 18.1680.1 to report the byte limit that actually rejected a legacy REST request. The correction retains the 1,000,000-byte REST cap and reports a smaller configured API limit when that limit is exceeded."
+
+[task.18.1680.1]
+title = "Issue #1680: Report the effective legacy REST request body limit"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181680.1"]
+capabilities = []
+interfaces = []
+do_1 = "In ReadRESTReq at sdk/types/rest/rest.go:150, format the HTTP 413 error using the Limit field of the http.MaxBytesError already matched at sdk/types/rest/rest.go:154 instead of MaxRequestBodyBytes at sdk/types/rest/rest.go:155; report the actual rejecting limit while preserving the local bounded reader at sdk/types/rest/rest.go:151 and all existing default-cap assertions."
+do_2 = "Add TestReadRESTReqReportsEffectiveBodyLimit to sdk/types/rest/repair_m650_test.go beside TestRepairM_650_StreamedBodyLimit at sdk/types/rest/repair_m650_test.go:187, reusing repairM650Handler at sdk/types/rest/repair_m650_test.go:28 to marshal a real bank SendReq and send it through a loopback HTTP server wrapping the registered bank route with consensus/rpc/jsonrpc/server/http_server.go:246 MaxBytesHandler; cover configured limits below, equal to and above 1000000, plus zero (no outer cap), with both known-length and chunked bodies at the effective limit and one byte over, assert successful StdTx decoding at the bound and exact 413 JSON naming the smaller positive limit on overflow, and retain TestRepairM_650_BoundedRead at sdk/types/rest/repair_m650_test.go:219 to prove bounded consumption."
+symbols = ["ReadRESTReq", "TestReadRESTReqReportsEffectiveBodyLimit"]
+touches = ["sdk/types/rest/rest.go", "sdk/types/rest/repair_m650_test.go"]
+tests = ["sdk/types/rest/repair_m650_test.go::TestReadRESTReqReportsEffectiveBodyLimit", "sdk/types/rest/repair_m650_test.go::TestRepairM_650_StreamedBodyLimit", "sdk/types/rest/repair_m650_test.go::TestRepairM_650_BoundedRead"]
+planned_paths = []
+build_cmd = "go build ./sdk/types/rest/..."
+verify_cmd = "go test -count=1 ./sdk/types/rest/ -run '^(TestReadRESTReqReportsEffectiveBodyLimit|TestRepairM_650_StreamedBodyLimit|TestRepairM_650_BoundedRead)$'"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-cosmos-fork"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181680]
+title = "Legacy REST body overflow responses identify the limit that rejected the request"
+ac_1 = "Given the API's configured MaxBytesHandler at consensus/rpc/jsonrpc/server/http_server.go:246 around a registered legacy bank route using ReadRESTReq at sdk/types/rest/rest.go:150, valid transaction bodies at the smaller of the positive API limit and the 1000000-byte REST cap succeed, bodies one byte over receive HTTP 413 JSON naming that effective limit, and known-length and chunked requests remain bounded with the existing default-cap assertions at sdk/types/rest/repair_m650_test.go:210 and sdk/types/rest/repair_m650_test.go:237 preserved."
+
+[acceptance.18.1680.1]
+feature = "18"
+req = "181680.1"
+scenario = "Given a real Amino bank transaction request and a registered legacy REST route under the production MaxBytesHandler with limits below, equal to and above 1000000 or zero, when known-length and chunked requests reach the effective cap or exceed it by one byte, then the boundary request yields the expected StdTx and the oversized request returns HTTP 413 with the actual rejecting limit, preserving the 1000000-byte local cap."
+contract = "contracts/cosmos-fork.md#go-api"
+test = "sdk/types/rest/repair_m650_test.go::TestReadRESTReqReportsEffectiveBodyLimit (planned)"
+qualification = "UNRUN"

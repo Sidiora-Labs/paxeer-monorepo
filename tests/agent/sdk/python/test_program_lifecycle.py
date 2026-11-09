@@ -126,16 +126,21 @@ class ProgramLifecycleTest(unittest.TestCase):
                     bind_signed_program_lifecycle(bytes(bad_hash), payload, ordinal)
                 if name == "deploy":
                     from dataclasses import replace
-                    for size in (524_288, 524_289):
-                        large_wasm = value.wasm + bytes(size - len(payload))
-                        large_payload = replace(value, wasm=large_wasm, new_hash=sha256(large_wasm).digest()).encode()
-                        self.assertEqual(len(large_payload), size)
-                        mutated = signed[:hash_offset] + sha256(b"LXP/v1/payload-hash\0" + large_payload).digest() + b"\x0b" + size.to_bytes(4, "big") + large_payload + signed[-69:]
-                        if size == 524_288:
-                            self.assertEqual(bind_signed_program_lifecycle(mutated, None, ordinal).idempotency_key, fixture["idempotency_key_hex"])
-                        else:
-                            with self.assertRaises(ValueError):
-                                bind_signed_program_lifecycle(mutated, None, ordinal)
+                    size = 524_288
+                    large_wasm = value.wasm + bytes(size - len(payload))
+                    large_deploy = replace(value, wasm=large_wasm, new_hash=sha256(large_wasm).digest())
+                    large_payload = large_deploy.encode()
+                    self.assertEqual(len(large_payload), size)
+                    mutated = signed[:hash_offset] + sha256(b"LXP/v1/payload-hash\0" + large_payload).digest() + b"\x0b" + size.to_bytes(4, "big") + large_payload + signed[-69:]
+                    self.assertEqual(bind_signed_program_lifecycle(mutated, None, ordinal).idempotency_key, fixture["idempotency_key_hex"])
+                    oversized_wasm = large_wasm + b"\0"
+                    with self.assertRaises(ValueError):
+                        replace(large_deploy, wasm=oversized_wasm, new_hash=sha256(oversized_wasm).digest()).encode()
+                    oversized_payload = large_payload[:100] + len(oversized_wasm).to_bytes(4, "big") + large_payload[104:] + b"\0"
+                    self.assertEqual(len(oversized_payload), 524_289)
+                    mutated = signed[:hash_offset] + sha256(b"LXP/v1/payload-hash\0" + oversized_payload).digest() + b"\x0b" + len(oversized_payload).to_bytes(4, "big") + oversized_payload + signed[-69:]
+                    with self.assertRaises(ValueError):
+                        bind_signed_program_lifecycle(mutated, None, ordinal)
                 self.assertEqual(bound.activity_id, fixture["activity_id_hex"])
                 self.assertEqual(bind_signed_program_lifecycle(signed, None, ordinal, fixture["idempotency_key_hex"]).activity_id, fixture["activity_id_hex"])
                 with self.assertRaises(ValueError):

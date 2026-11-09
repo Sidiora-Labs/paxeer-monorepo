@@ -49,7 +49,7 @@ status = "awaiting_gate_and_external_wiring"
 
 [finding.sources_native_envelope]
 test = "repair_sources_native_envelope_allocates_and_restores_real_preparation"
-repair = "Validate native unsigned bytes, signing digest and bound disclosure directly; restore canonical native bytes without re-encoding a retired signing envelope, and check retained payload, payload hash and owner authority consistency."
+repair = "Bind the retained carrier through its SigningPreparation instead of decoding wire envelope bytes as an EIP-1559 transaction; validate disclosure and signing digests, payload, payload hash and owner authority consistency. restore_native_preparation produces the approval path's restore_canonical wire carrier."
 status = "awaiting_gate_and_external_wiring"
 
 [wiring]
@@ -225,3 +225,34 @@ baseline_verify = "cg spec done 22.31.217 -f layerx-merge --root /work/paxeer-mo
 observed = "The unchanged attempt-11 final repairs pass canonical summary and nested-account signature verification; lifecycle, wind-down exit and burn instead reach native_settlement::execution's Receipt refusal because it requires receipt protocol version 3 while the module-12 sequencer producer and sequencer_logs verifier require PROTOCOL_VERSION 2."
 repair = "Bind native settlement to the exact sequencer receipt PROTOCOL_VERSION, retaining all signature, transaction, block, summary, log, source, reservation and debit checks. The real fixture receipt producer explicitly asserts version 2 before all eighteen mandatory tests run."
 evidence = "The final matching hf-build and hf-done rows in /out/run/gates.jsonl record the verified revision, command, exit and private log by reference. No source or task record changes follow the final build/verify pair; qualification requires hf-done to pass."
+
+[repair_22_39_128]
+basis = "Continue attempt 2 at 29b48212d94c58284ac99a5120a15e6a06c3de51; gotcha 3518 and decisions 2771, 2834 and 2846. The prior build refused two old-arity source-reader calls in repair_22_33_1520.rs; no current baseline gate was rerun."
+binding = "All three budget source readers require the retained SigningPreparation. Native runtime admission supplies the cached transaction under the selected preparation identity; retained settlement fixtures construct that transaction before source validation. The two historical fee preference calls pass the same preparation used to construct their carrier, including the stale-head refusal."
+proof = "repair_wire_carrier_binds_the_retained_signing_preparation_after_restart restores a real unsigned wire envelope, retains and reopens the signing preparation under the same identity, requires source selection success and rejects absent or substituted signing inputs, disclosure digests, signing hashes, authority and carrier bytes. Existing settlement and source success assertions remain mandatory."
+evidence = "Resolve the exact verified revision, command, exit and private log from the final matching build and verify rows in /out/run/gates.jsonl for task 22.39.128. hf-build runs the declared cargo build; hf-done runs cg spec done with repair_22_31_217 and human_runtime::retained_settlement_tests. This record precedes qualification and claims no unrun result."
+
+[repair_22_39_128.attempt_4]
+diagnostic = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test repair_22_31_217 repair_proof_revocation_counter_exports_and_verifies -- --nocapture; exit 101; /tmp/22.39.128-proof-diagnostic.log; unchanged carried implementation on base 708e71968aabc7a6db61e50936c7cb0153c422f8."
+observed = "The preserved assertion at line 1433 reports BudgetProofError::Refused. verify_budget_proof delegates directly to verify_native_budget_proof, which never calls native_binding or the source readers; this export already has no retained-preparation binding step to skip."
+refusal_site = "budget_proof.rs::authenticated_owner_address requests accountOwner(bytes32) for the export's repeated-02 owner account. checkpoint-answers.json contains no such RPC answer, and add_account_and_fee_answers supplies only the derived main, repeated-05 and repeated-08 accounts. The missing committed RPC maps to BudgetProofError::Refused before the account-join comparison."
+assumption = "This is a pre-existing proof-authentication/transcript conflict outside the native-preparation binding path. The proof verifier is outside scope, and the recorded case, test and assertion must remain unchanged; no authentication check or native binding check is bypassed."
+evidence = "The final same-candidate hf-build and hf-done rows in /out/run/gates.jsonl record the exact revision, command, exit and private log by reference, including this diagnosis. The retained settlement library suite runs only if the preceding integration suite passes, as required by the unchanged verify_cmd."
+
+[repair_22_39_128.attempt_5]
+basis = "Decision 2855 and gotcha 3532 authorize extending only the RPC answer helper while preserving the inherited signing binding, recorded corpus, export bytes, proof verifier and mandatory assertions."
+implementation = "add_account_and_fee_answers reads each case's proof export when present, binds its account join to the case DID and identity key, and answers getEvmAddrByLayerX, getUnifiedAccount and accountOwner at the checkpoint with that recorded owner address and account. Native preparation cases retain their signing-key address and derived main account; unified replies use the producer's dynamic tuple layout."
+evidence = "The final matching hf-build and hf-done rows for task 22.39.128 in /out/run/gates.jsonl name the exact candidate revision, commands, exit codes and private logs by reference. The declared verify_cmd runs all repair_22_31_217 cases followed by human_runtime::retained_settlement_tests. Qualification is claimed only on a passing hf-done, and no task file changes follow the final build/verify pair."
+
+[repair_22_39_128.attempt_7]
+basis = "Continue attempt 6 at e49db43c7aa431bbb12c55ff717764a21acb7f95 under gotcha 3557 and decisions 2771, 2834, 2855 and 2800; the inherited binding, test helpers and paymentDenom fixture repair remain."
+producer = "human_runtime.rs:23882, retained_settlement_tests::terminal, now writes Sha256::digest(b\"usid\") for the asset word. The receipt fixture supplies paymentDenom usid; approval/call_bound.rs:234 compares the fee charge asset with Sha256::digest(summary.fee_denom().as_bytes()) using the same digest type. ASSET, all other words, assertions and verifier predicates remain unchanged."
+evidence = "The final matching hf-build and hf-done rows for task 22.39.128 in /out/run/gates.jsonl supply the exact revision, command, exit code and private log by reference. hf-done must pass the complete declared verification and graph checks before qualification is claimed; no task file changes follow the final build/verify pair."
+
+[repair_22_39_128.attempt_7.authorization_repair]
+revision = "8cc639c2bcce3beb9702a4e1348e0e903be03f57"
+command = "cg spec done 22.39.128 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "The build and all nineteen integration tests passed; retained settlement refused BatchIdentity because terminal's AuthorizedBatch still named the zero asset while its receipt now names the usid digest, violating protocol_evidence.rs::VerifiedReceiptEvidence::verify_authorized's exact asset comparison."
+repair = "The fixture's AuthorizedBatch now names the same Sha256::digest(b\"usid\") asset as its receipt producer; no other receipt word, verifier predicate, ASSET constant or assertion changes. Final matching build and verify ledger rows supply the repaired candidate evidence by reference."

@@ -74,6 +74,7 @@ import (
 
 	"github.com/Sidiora-Technologies/KindleLaunch/media/gateway/internal/auth"
 	"github.com/Sidiora-Technologies/KindleLaunch/media/gateway/internal/devidentity"
+	"github.com/Sidiora-Technologies/KindleLaunch/media/gateway/internal/internaltest"
 	sharedauth "github.com/Sidiora-Technologies/KindleLaunch/shared/auth"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/db/production"
 	v2 "github.com/Sidiora-Technologies/KindleLaunch/shared/interfaces/v2"
@@ -360,16 +361,6 @@ func (e *identityE2E) prepareSocialAccount(wallet string) {
 	}
 }
 
-func freePort(t *testing.T) int {
-	t.Helper()
-	l, err := net.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer l.Close()
-	return l.Addr().(*net.TCPAddr).Port
-}
-
 // proofStores owns real, disposable storage servers on loopback. Nothing is
 // borrowed from a developer's database or Redis configuration.
 func proofStores(t *testing.T) (string, string) {
@@ -439,7 +430,8 @@ func proofStores(t *testing.T) (string, string) {
 			}
 		})
 	}
-	pgPort, redisPort := freePort(t), freePort(t)
+	ports := internaltest.FreePorts(t, 2)
+	pgPort, redisPort := ports[0], ports[1]
 	start(pgCommand("postgres", "-D", data, "-h", "127.0.0.1", "-p", strconv.Itoa(pgPort), "-k", data, "-c", "max_connections=40"))
 	redisPassword := strings.ReplaceAll(uuid.NewString(), "-", "")
 	redis := exec.Command("redis-server", "--bind", "127.0.0.1", "--port", strconv.Itoa(redisPort), "--save", "", "--appendonly", "no", "--requirepass", redisPassword)
@@ -514,7 +506,8 @@ func (e *identityE2E) startSocial() socialProcess {
 	}
 	cursor := make([]byte, 32)
 	_, _ = rand.Read(cursor)
-	plainPort, privatePort := freePort(t), freePort(t)
+	ports := internaltest.FreePorts(t, 2)
+	plainPort, privatePort := ports[0], ports[1]
 	social := e.peers["social"]
 	schemaFile, schemaDigest := e.database.ExpectedSchemaFile(t, "chat_runtime")
 	env := []string{
@@ -628,7 +621,8 @@ func (e *identityE2E) startLivestream() livestreamProcess {
 	binary := buildService(t, "livestream", "livestreamd")
 	dsn := e.database.AdminDSN
 	server := e.pki.Leaf("livestream-server", "livestream.railway.internal")
-	plainPort, privatePort := freePort(t), freePort(t)
+	ports := internaltest.FreePorts(t, 2)
+	plainPort, privatePort := ports[0], ports[1]
 	lp := livestreamProcess{plainURL: fmt.Sprintf("http://127.0.0.1:%d", plainPort), privateURL: fmt.Sprintf("https://127.0.0.1:%d", privatePort), dsn: dsn}
 	schemaFile, schemaDigest := e.database.ExpectedSchemaFile(t, "livestream_runtime")
 	env := []string{

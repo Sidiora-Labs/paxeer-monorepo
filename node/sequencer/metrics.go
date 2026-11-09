@@ -70,14 +70,17 @@ func NewMetrics(meter metric.Meter) (*Metrics, error) {
 	return m, nil
 }
 
+// ObserveReceipt records the duration measured by the accepter at publication.
 func (m *Metrics) ObserveReceipt(d time.Duration) {
 	m.receiptLatency.Record(context.Background(), d.Seconds())
 }
 
+// ObserveWALSync records the duration measured by the replicator around GroupSync.
 func (m *Metrics) ObserveWALSync(d time.Duration) {
 	m.walSync.Record(context.Background(), d.Seconds())
 }
 
+// ObserveStandbyAck records the duration measured by the accepter around Release.
 func (m *Metrics) ObserveStandbyAck(d time.Duration) {
 	m.standbyAck.Record(context.Background(), d.Seconds())
 }

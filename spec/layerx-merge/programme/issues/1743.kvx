@@ -1,0 +1,49 @@
+[issue.1743]
+number = 1743
+title = "[Coherence] The production daemon's native-read 503 body now includes a Debug dump of the internal error, which contradicts the serve-errors contract and the module's own no-behaviour-change claim"
+revision = "a910fdedd579e63379ae6c2e4d4971990d28f8ad"
+verdict = "task"
+evidence = "Commit 76589ba8624594fd1047bbe77ec4a4ee027082fc introduced the still-present Debug detail at services/agent/crates/layerx-agentd/tests/proof_native_reads.rs:235, compiled into the executable by services/agent/crates/layerx-agentd/src/main.rs:197 and services/agent/crates/layerx-agentd/tests/proof_serve_errors.rs:14, exposing the nested Connection error at services/agent/crates/layerx-agentd/src/read/native.rs:19 and RPC message/data at services/agent/crates/layerx-client/src/sequencer.rs:66 despite the code-only body in contracts/agent-api.md:159 and spec/layerx-merge/contracts/agent-api.md:1021, while services/agent/crates/layerx-agentd/tests/proof_serve_errors.rs:11 claims unchanged semantics and its decoder at :126 requires the diagnostic field."
+close_comment = "Native-read failures currently expose internal diagnostics and upstream RPC error text in the listener response. Restore the fixed 503 body {\"error\":\"verified_read_unavailable\"} and add regression coverage that rejects diagnostic fields while preserving the existing error codes and status mappings."
+
+[task.18.1743.1]
+title = "Issue #1743: Restore code-only native-read refusal responses"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181743.1"]
+capabilities = []
+interfaces = []
+do_1 = "Restore the fixed 503 body {\"error\":\"verified_read_unavailable\"} in native_read_response at services/agent/crates/layerx-agentd/tests/proof_native_reads.rs:221, removing Debug serialization at :235; preserve successful JSON, invalid_read 400 and read_too_large 413 mappings, the shared production inclusion at services/agent/crates/layerx-agentd/src/main.rs:197 and the existing serve-errors contract at contracts/agent-api.md:155."
+do_2 = "Strengthen the existing regression at services/agent/crates/layerx-agentd/tests/proof_native_reads.rs:284 to require the exact fixed response for Unavailable, Verification and nested Connection(SequencerError::Rpc(RpcRefusal)) errors with distinctive message and data; rename it native_read_unavailable_has_fixed_body and assert that no internal variant, message or data is serialized."
+do_3 = "Restore the code-only ErrorBody at services/agent/crates/layerx-agentd/tests/proof_serve_errors.rs:68 and replace the detail requirement in decode_response at :126 with strict rejection of extra fields, retaining deny_unknown_fields and all framing/status checks; strengthen verified_read_unavailable at :326 to assert exact body bytes from the real node through NativeReadRoute, the shared listener and TCP consumer, and add native_read_refusals_redact_internal_errors using the real NativeReadError classifier, HttpPool, parser and writer over TCP for nested RPC errors, checking both independent connections, exact 503 JSON and absence of diagnostic text without replacing a transport or constructing a wire response."
+symbols = ["native_read_response", "native_read_unavailable_has_fixed_body", "ErrorBody", "decode_response", "verified_read_unavailable", "native_read_refusals_redact_internal_errors"]
+touches = ["services/agent/crates/layerx-agentd/tests/proof_native_reads.rs", "services/agent/crates/layerx-agentd/tests/proof_serve_errors.rs"]
+tests = ["services/agent/crates/layerx-agentd/tests/proof_native_reads.rs::native_read_unavailable_has_fixed_body", "services/agent/crates/layerx-agentd/tests/proof_serve_errors.rs::verified_read_unavailable", "services/agent/crates/layerx-agentd/tests/proof_serve_errors.rs::native_read_refusals_redact_internal_errors"]
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test proof_serve_errors"
+verify_cmd = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test proof_serve_errors"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181743]
+title = "Native-read HTTP refusals preserve the code-only public error contract"
+ac_1 = "Given native-read failures including nested upstream RPC errors, when the shared native_read_response producer at services/agent/crates/layerx-agentd/tests/proof_native_reads.rs:221 responds through the listener included at services/agent/crates/layerx-agentd/src/main.rs:197, then clients receive status 503 and exactly {\"error\":\"verified_read_unavailable\"}, with no diagnostic field, internal Debug representation or upstream message/data, while the existing 200, 400 and 413 mappings remain intact and the consumer at services/agent/crates/layerx-agentd/tests/proof_serve_errors.rs:79 rejects extra fields."
+
+[acceptance.18.1743.1]
+feature = "18"
+req = "181743.1"
+scenario = "Given real native-read error values including nested RPC refusals carrying distinctive message and data, when the production classifier and HTTP pool transmit the response over two independent authenticated TCP connections, then each consumer observes status 503 and the exact code-only verified_read_unavailable body, no diagnostic text is exposed, added fields are rejected and the existing success and refusal mappings still pass."
+contract = "contracts/agent-api.md#serve-errors"
+test = "services/agent/crates/layerx-agentd/tests/proof_serve_errors.rs::native_read_refusals_redact_internal_errors (planned)"
+qualification = "UNRUN"

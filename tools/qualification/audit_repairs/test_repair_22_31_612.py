@@ -133,11 +133,17 @@ def test_no_tracked_manifest_outside_notice_drifts_from_the_repository_licence()
             continue
         if any(manifest.startswith(tree + "/") for tree in trees):
             continue
-        expected = (
-            "(Apache-2.0 AND MIT)"
-            if manifest == "apps/inference-peer/package.json"
-            else "Apache-2.0"
-        )
+        expected = "Apache-2.0"
+        if manifest == "apps/inference-peer/package.json":
+            assert "Permission is hereby granted, free of charge" in (
+                ROOT / "apps/inference-peer/LICENSE-ENGINE"
+            ).read_text()
+            expected = "(Apache-2.0 AND MIT)"
+        elif manifest == "apps/wallet/package.json":
+            assert (ROOT / "apps/wallet/LICENSE").read_text().startswith(
+                "SPDX-License-Identifier: MIT\n"
+            )
+            expected = "MIT"
         for field, licence in manifest_licence_fields(manifest).items():
             if licence != expected:
                 violations.append(f"{manifest}: {field} = {licence!r}, expected {expected}")

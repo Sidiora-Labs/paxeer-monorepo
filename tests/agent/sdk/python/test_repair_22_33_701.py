@@ -21,6 +21,7 @@ from layerx_sdk.evm_transaction import activity_id, decode_signed
 from layerx_sdk.native_program_call import encode_native_program_call
 from layerx_sdk.production import ProductionClient, SecretBytes
 from layerx_sdk.programs import _verify_program_transaction
+from layerx_sdk.verifier import SequencerReceiptVerification
 from layerx_sdk.x402_rpc import PaymentRpc
 
 from program_receipt_evidence import ProgramReceiptEvidence
@@ -52,7 +53,7 @@ def recorded_program_rpc(vector):
         def do_POST(self):
             request = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
             observed.append((self.path, self.headers["Content-Type"], request))
-            if (self.path != "/rpc" or self.headers["Content-Type"] != "application/json"
+            if (self.path != "/" or self.headers["Content-Type"] != "application/json"
                     or set(request) != {"jsonrpc", "id", "method", "params"}
                     or request["jsonrpc"] != "2.0"):
                 failures.append("unexpected JSON-RPC framing")
@@ -82,7 +83,7 @@ def recorded_program_rpc(vector):
     thread = Thread(target=server.serve_forever, daemon=True)
     thread.start()
     try:
-        yield PaymentRpc(f"http://127.0.0.1:{server.server_port}/rpc"), observed
+        yield PaymentRpc(f"http://127.0.0.1:{server.server_port}/"), observed
     finally:
         server.shutdown()
         server.server_close()
@@ -144,11 +145,12 @@ def test_program_account_current_identity_over_recorded_rpc():
                 bytes.fromhex(result["receipt"][2:]), evidence.signed,
                 (evidence.key,), transaction.chain_id, evidence.execution["program_id"],
             )
+            assert type(verified) is SequencerReceiptVerification
             assert verified.receipt.from_account == bytes(12) + bytes.fromhex(transaction.recover_signer(signature)[2:])
             assert verified.receipt.to_account == bytes(12) + transaction.to
             assert verified.receipt.activity_id == expected
             assert verified.receipt.from_sequence == transaction.nonce
-            assert [(path, content_type) for path, content_type, _ in observed] == [("/rpc", "application/json")] * 2
+            assert [(path, content_type) for path, content_type, _ in observed] == [("/", "application/json")] * 2
 
 
 @pytest.mark.parametrize("mutation", ["signature", "network", "program", "pin"])
@@ -372,6 +374,7 @@ def test_px_chain_only_openrpc_contract_and_retired_anchor_refusal():
 
 def test_px_recorded_chain_125_root_answers_over_sdk_rpc():
     from urllib.parse import urlsplit
+    from layerx_sdk.x402_rpc import _BoundedRpc
 
     for node in px.ROOT_RECORDINGS:
         assert urlsplit(node["endpoint"]).path == "/"
@@ -384,7 +387,7 @@ def test_px_recorded_chain_125_root_answers_over_sdk_rpc():
                 request = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
                 observed.append(request)
                 vector = vectors[len(observed) - 1]
-                if self.path != "/rpc" or self.headers["Content-Type"] != "application/json" or request != vector["request"]:
+                if self.path != "/" or self.headers["Content-Type"] != "application/json" or request != vector["request"]:
                     failures.append(request)
                     self.send_error(400)
                     return
@@ -402,9 +405,13 @@ def test_px_recorded_chain_125_root_answers_over_sdk_rpc():
         thread = Thread(target=server.serve_forever, daemon=True)
         thread.start()
         try:
-            rpc = PaymentRpc(f"http://127.0.0.1:{server.server_port}/rpc")
-            # The source transcript uses the node root. PaymentRpc currently
-            # accepts only /rpc; that production endpoint change is a wiring request.
+            endpoint = f"http://127.0.0.1:{server.server_port}/"
+            payments = PaymentRpc(endpoint)
+            for method, params in (("px_getNetwork", []), ("status", {})):
+                with pytest.raises(ValueError, match="^invalid-node-method$"):
+                    payments.call(method, params)
+            assert observed == []
+            rpc = _BoundedRpc(endpoint, None, path="/")
             assert px.px_quantity(rpc.call("eth_chainId", [])) == 125
             head = rpc.call("eth_blockNumber", [])
             assert head == vectors[1]["response"]["result"]

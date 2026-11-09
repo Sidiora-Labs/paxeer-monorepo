@@ -1,0 +1,527 @@
+# Main-line product evidence: a26369c7eda603cb28bcdd8cef55c35df7d248ee.
+
+[disposition.22.31.547.4]
+finding = "22.31.547.4"
+status = "resolved"
+evidence = "0ac376037d landed the shared native-send identifier repair, and c59eebe59b wired the SDK to it; services/agent/crates/layerx-sdk/tests/repair_22_31_547.rs:324 retains the HTTP 200 V2 acceptance assertion on main and :346 binds the returned preparation to the requested activity."
+
+[disposition.22.31.547.5]
+finding = "22.31.547.5"
+status = "resolved"
+evidence = "The SDK uses the receipt-key-aware native-send producer at services/agent/crates/layerx-sdk/tests/repair_22_31_547.rs:2 on main, landed in c59eebe59b; services/agent/crates/layerx-agentd/tests/repair_22_31_560.rs:358 serves the receipt keys and authenticated checkpoint methods that preparation reads."
+
+[disposition.22.31.547.6]
+finding = "22.31.547.6"
+status = "resolved"
+evidence = "c59eebe59b landed unsigned-call disclosure verification at services/agent/crates/layerx-sdk/tests/repair_22_31_547.rs:347 on main, binding the decoded EIP-1559 call to its sender, nonce, activity, payload and signing hash rather than interpreting it as a kernel activity envelope."
+
+[disposition.22.31.547.7]
+finding = "22.31.547.7"
+status = "resolved"
+evidence = "c59eebe59b landed the ledger-send disclosure assertions at services/agent/crates/layerx-sdk/tests/repair_22_31_547.rs:380 on main: the call has not_before zero and not_after u64::MAX, while :166 preserves the client request window in the prepare envelope."
+
+[disposition.22.31.547.8]
+finding = "22.31.547.8"
+status = "environment"
+evidence = "The SDK on main encodes a signed NativeSendPurposeV2 and retains the client request fields at services/agent/crates/layerx-sdk/tests/repair_22_31_547.rs:183, with the accepted daemon response decoded and bound to its unsigned call at :329."
+
+[disposition.22.31.548.1]
+finding = "22.31.548.1"
+status = "environment"
+evidence = "Human custody on main signs the V2 native-send purpose and verifies its digest at services/human/crates/layerx-human-service/tests/native_send_purpose.rs:327; :350 checks canonical V2 round-trip equality and explicitly refuses decoding those bytes as a V1 preparation purpose."
+
+[disposition.22.31.549.1]
+finding = "22.31.549.1"
+status = "resolved"
+evidence = "ba94e7d6bd landed the committed identity label asserted at services/platform/hosted/authority/tests/repair_22_31_549.rs:11 on main; bace946642 subsequently supplied the gateway canary and rooms modules at services/platform/hosted/gateway/tests/repair_22_33_1439.rs:110 and :165."
+
+[disposition.22.31.55.1]
+finding = "22.31.55.1"
+status = "resolved"
+evidence = "5c44801047 landed the decimal-call responses in services/launchpad/indexer/internal/app/testdata/repair_55_rpc.jsonl:1 on main, and services/launchpad/indexer/internal/app/repair_55_test.go:143 reads that supplemental transcript while retaining rejection of unrecorded requests."
+
+[disposition.22.31.55.2]
+finding = "22.31.55.2"
+status = "resolved"
+evidence = "5c44801047 landed the latest-block response with full transactions in services/launchpad/indexer/internal/app/testdata/repair_55_rpc.jsonl:9 on main; services/launchpad/indexer/internal/app/repair_55_test.go:543 still requires identical canonical trade records and identities after restart."
+
+[disposition.22.31.555.1]
+finding = "22.31.555.1"
+status = "resolved"
+evidence = "bace946642 landed the previously absent canary and rooms declarations at services/platform/hosted/gateway/tests/repair_22_33_1439.rs:110 and :165 on main; the store-backed committed-read checks remain at services/agent/crates/layerx-agentd/src/read/committed.rs:1158 after 2d40d3e17c restored their fixtures."
+
+[disposition.22.31.557.1]
+finding = "22.31.557.1"
+status = "resolved"
+evidence = "d6543a4874 landed the V2 consent-key consumer at services/human/crates/layerx-human-service/tests/native_send_producer.rs:681 on main, comparing consent_public_key with the prepared owner key instead of accessing a removed purpose field."
+
+[disposition.22.31.557.2]
+finding = "22.31.557.2"
+status = "resolved"
+evidence = "f6d68db3a9 landed the public-key DID rotation case at services/human/crates/layerx-intents/tests/repair_22_31_557.rs:148 on main, deriving its length from the DID prefix plus 64 hex characters and requiring the compiled actor to equal the protocol-3 length-prefixed identifier at :152."
+
+[disposition.22.31.558.1]
+finding = "22.31.558.1"
+status = "environment"
+evidence = "The Human native-send producer on main binds first.purpose.consent_public_key to the owner key at services/human/crates/layerx-human-service/tests/native_send_producer.rs:681, so the V2 purpose retains the same consent identity as the prepared send."
+
+[disposition.22.31.559.1]
+finding = "22.31.559.1"
+status = "resolved"
+evidence = "8950f604bf landed the recovery contract at services/agent/crates/layerx-agentd/tests/repair_22_31_559.rs:323 on main: current receipt evidence restores receipt and protocol consumption, while :334 keeps the reservation-bound ceiling consumption at zero and requires reconciliation."
+
+[disposition.22.31.560.10]
+finding = "22.31.560.10"
+status = "resolved"
+evidence = "0ac376037d landed call-identifier and timestamp alignment; services/agent/crates/layerx-agentd/src/human_runtime.rs:7443 keys reservations by preparation_id on main, and services/agent/crates/layerx-agentd/tests/native_send_preview_evm.rs:804 converts the head timestamp to milliseconds before constructing the send."
+
+[disposition.22.31.560.11]
+finding = "22.31.560.11"
+status = "resolved"
+evidence = "0ac376037d landed the native-send recovery path retained at services/agent/crates/layerx-agentd/tests/repair_22_31_560.rs:929 on main, requiring first and reopened Prepare responses to preserve the same identifier, canonical call bytes and signing preimage."
+
+[disposition.22.31.560.12]
+finding = "22.31.560.12"
+status = "environment"
+evidence = "Native-send preparation on main accepts the V2 purpose through services/agent/crates/layerx-agentd/src/human_runtime.rs:7091 and restores retained preparations by the authenticated tenant and purpose identifier at :7127; the restart equality assertions remain in services/agent/crates/layerx-agentd/tests/repair_22_31_560.rs:934."
+
+[disposition.22.31.560.13]
+finding = "22.31.560.13"
+status = "resolved"
+evidence = "0ac376037d landed millisecond-valued native-send fixtures at services/agent/crates/layerx-agentd/tests/native_send_preview_evm.rs:804 on main, with payload expiry now twenty thousand milliseconds after the observed head time at :815."
+
+[disposition.22.31.560.14]
+finding = "22.31.560.14"
+status = "resolved"
+evidence = "0ac376037d landed explicit approval-carrier binding and deadline checks at services/agent/crates/layerx-agentd/src/approval/native_effect.rs:182 on main; the carrier checks the reservation identifier against the unsigned-call digest and its clock sample against the disclosed expiry at :248."
+
+[disposition.22.31.560.15]
+finding = "22.31.560.15"
+status = "resolved"
+evidence = "0ac376037d landed the reservation identity comparison at services/agent/crates/layerx-agentd/src/approval/native_effect.rs:205 on main, using the SHA-256 identifier of the unsigned EIP-1559 call computed at :182."
+
+[disposition.22.31.560.16]
+finding = "22.31.560.16"
+status = "resolved"
+evidence = "0ac376037d landed call-bound carrier validation, retained through 41390400af; services/agent/crates/layerx-agentd/src/approval/native_effect.rs:323 on main rebinds the unsigned call disclosure and checks its digest, sender, activity and budget context without equating a reservation identifier with a kernel envelope digest."
+
+[disposition.22.31.560.1]
+finding = "22.31.560.1"
+status = "resolved"
+evidence = "0ac376037d landed tenant-bound native preparation lookup at services/agent/crates/layerx-agentd/src/human_runtime.rs:7117 on main, where both the cache key and durable store lookup use context.principal().tenant and the signed purpose preparation identifier."
+
+[disposition.22.31.560.2]
+finding = "22.31.560.2"
+status = "resolved"
+evidence = "0ac376037d landed receipt-key-aware native-send inputs at services/agent/crates/layerx-agentd/tests/repair_22_31_560.rs:295 on main; :358 answers px_getReceiptKeys and :723 authenticates the served key set before preparation."
+
+[disposition.22.31.560.3]
+finding = "22.31.560.3"
+status = "resolved"
+evidence = "0ac376037d landed the authority balance-context response at services/agent/crates/layerx-agentd/tests/native_send_preview_evm.rs:498 on main, supplying the authorization consumed with governed receipt keys by services/agent/crates/layerx-agentd/src/human_runtime.rs:12485."
+
+[disposition.22.31.560.4]
+finding = "22.31.560.4"
+status = "resolved"
+evidence = "0ac376037d landed authenticated history commits at services/agent/crates/layerx-agentd/tests/repair_22_31_560.rs:172 on main; :360 serves px_getCommit and px_getValidators from those signed checkpoints instead of forwarding those methods to an EVM-only peer."
+
+[disposition.22.31.560.5]
+finding = "22.31.560.5"
+status = "resolved"
+evidence = "0ac376037d landed the committed native inventory at services/agent/crates/layerx-agentd/tests/repair_22_31_560.rs:11 on main, including ledger asset, account, budget and grant views with owner and asset bindings checked at :93."
+
+[disposition.22.31.560.6]
+finding = "22.31.560.6"
+status = "resolved"
+evidence = "0ac376037d landed named refusal sites in services/agent/crates/layerx-agentd/src/human_runtime.rs:7100 on main, including native rate staging at :7453; services/agent/crates/layerx-agentd/tests/repair_22_31_560.rs:929 retains successful first-Prepare and reopened-Prepare equivalence."
+
+[disposition.22.31.560.7]
+finding = "22.31.560.7"
+status = "resolved"
+evidence = "0ac376037d landed site-specific native-send preparation errors at services/agent/crates/layerx-agentd/src/human_runtime.rs:7100 on main, with separate durable request, lifecycle, allocation and rate-binding refusal sites rather than one undifferentiated policy error."
+
+[disposition.22.31.560.8]
+finding = "22.31.560.8"
+status = "resolved"
+evidence = "0ac376037d repaired authenticated budget-read admission, and 3831896949 normalized the committed label; services/agent/crates/layerx-agentd/src/read/committed.rs:215 on main returns VerificationLevel::COMMITTED for the checkpoint-bound native capability inventory."
+
+[disposition.22.31.560.9]
+finding = "22.31.560.9"
+status = "resolved"
+evidence = "0ac376037d landed preparation-bound native rate staging at services/agent/crates/layerx-agentd/src/human_runtime.rs:7452 on main, after reservation allocation is keyed by the purpose preparation identifier at :7444 and timestamped with snapshot.protocol_timestamp at :7458."
+
+[disposition.22.31.563.1]
+finding = "22.31.563.1"
+status = "resolved"
+evidence = "8e43ba58e4 landed the SDK canonical-activity wait path and its registry dependency at services/agent/crates/layerx-sdk/Cargo.toml:35 on main; services/agent/crates/layerx-sdk/src/wallet.rs:238 preserves the submitted signed transaction through subsequent commitment waits."
+
+[disposition.22.31.565.1]
+finding = "22.31.565.1"
+status = "resolved"
+evidence = "8fbd79559f landed schema version 4 at services/agent/crates/layerx-agentd/src/store/migrate.rs:11 on main; the version-3 migration dispatches legacy approval holds to crate::policy::approval::migrate_legacy_hold at :176."
+
+[disposition.22.31.566.1]
+finding = "22.31.566.1"
+status = "resolved"
+evidence = "d7e7f8e839 landed distinct replay-bound and engine-fault statuses at include/layerx/lxp_result.h:150 on main; programs/crates/layerx-programs-runtime/tests/repair_22_31_566.rs:131 preserves a trapping initializer as a failed execution carrying a replay record."
+
+[disposition.22.31.566.2]
+finding = "22.31.566.2"
+status = "resolved"
+evidence = "d7e7f8e839 landed the complete revert registry at precompiles/common/lxp_errors.go:203 on main, including the LXP_XWEB_INVALID_PAYLOAD row alongside the separately named kernel replay-bound and engine-fault codes in include/layerx/lxp_result.h:150."
+
+[disposition.22.31.566.3]
+finding = "22.31.566.3"
+status = "resolved"
+evidence = "d7e7f8e839 landed the replay-bound mapping at precompiles/common/lxp_errors.go:158 on main, where kernel status -740 names LXP_REPLAY_BOUND consistently with include/layerx/lxp_result.h:150."
+
+[disposition.22.31.567.1]
+finding = "22.31.567.1"
+status = "resolved"
+evidence = "fe3fe074b7 landed the one-argument authority configuration at services/agent/crates/layerx-sdk/tests/repair_22_31_563.rs:720 on main; services/agent/crates/layerx-sdk/src/rpc_verification.rs:343 acquires the receipt coverage from the served batch when no explicit override is configured."
+
+[disposition.22.31.568.1]
+finding = "22.31.568.1"
+status = "resolved"
+evidence = "01dd0d7fe8 landed governed receipt-key authentication, extended for node EVM activities by 566ac40605; services/agent/crates/layerx-agentd/src/protocol_evidence.rs:933 on main separates node receipt module identifiers from kernel ModuleId decoding and authenticates the signed activity identity."
+
+[disposition.22.31.571.1]
+finding = "22.31.571.1"
+status = "resolved"
+evidence = "a0cc1e345c landed the relocated compatibility include at services/agent/crates/layerx-agentd/src/compat.rs:8 on main, embedding docs/agent/COMPATIBILITY.md; 30523e9c9a landed the release-reference TRACK behavior retained at services/agent/crates/layerx-agentd/tests/repair_22_31_571.rs:1203."
+
+[disposition.22.31.571.2]
+finding = "22.31.571.2"
+status = "resolved"
+evidence = "30523e9c9a landed explicit Store borrowing at services/agent/crates/layerx-agentd/tests/repair_22_31_571.rs:1083 on main, restoring the signing preparation through the locked store and binding it to the tenant and preparation identifier."
+
+[disposition.22.31.571.3]
+finding = "22.31.571.3"
+status = "resolved"
+evidence = "30523e9c9a landed the accepted PREPARE frame and retained signing-preparation checks at services/agent/crates/layerx-agentd/tests/repair_22_31_571.rs:1076 on main; :1223 resolves the release reference to the same executed submission and authenticated receipt as direct TRACK."
+
+[disposition.22.31.571.4]
+finding = "22.31.571.4"
+status = "resolved"
+evidence = "30523e9c9a landed durable release-reference recovery at services/agent/crates/layerx-agentd/tests/repair_22_31_571.rs:1203 on main: linked and direct TRACK both report Unknown until receipt evidence arrives, then :1223 requires Executed with the unchanged submission identifier."
+
+[disposition.22.31.573.1]
+finding = "22.31.573.1"
+status = "resolved"
+evidence = "a0cc1e345c repaired the compatibility include at services/agent/crates/layerx-agentd/src/compat.rs:8 on main; 41f31ec2fc landed retained-state charging at programs/vendor/wasmi-0.31.2/src/store.rs:214, measuring memory and instance deltas against the preceding retained snapshot."
+
+[disposition.22.31.573.2]
+finding = "22.31.573.2"
+status = "resolved"
+evidence = "51b87e5bd4 landed digest-framed terminal receipt persistence; programs/crates/layerx-programs-runtime/tests/repair_22_31_259.rs:982 on main appends the usage receipt digest before persisting the terminal frame, and :998 decodes the reopened payload while retaining tamper refusals."
+
+[disposition.22.31.573.3]
+finding = "22.31.573.3"
+status = "resolved"
+evidence = "41f31ec2fc landed the sited supplement-refusal contract at programs/crates/layerx-programs-runtime/tests/repair_22_31_564.rs:156 on main, retaining SupplementRejected at retain_boundary_capture.source and the replay byte and boundary-limit assertions."
+
+[disposition.22.31.573.4]
+finding = "22.31.573.4"
+status = "resolved"
+evidence = "41f31ec2fc landed retained-memory charging at programs/vendor/wasmi-0.31.2/src/store.rs:233 on main; programs/crates/layerx-programs-runtime/tests/repair_22_31_573.rs:279 still requires 128 distinct host calls and bounds both framed leaves and the complete record by 1048576 bytes at :296."
+
+[disposition.22.31.573.5]
+finding = "22.31.573.5"
+status = "resolved"
+evidence = "1342437ee8 landed chunk-root memory reconstruction at programs/crates/layerx-programs-runtime/src/portable_replay.rs:505 on main, authenticating reconstructed memory against its committed root at :513 instead of repeating complete linear memory in every boundary leaf."
+
+[disposition.22.31.573.6]
+finding = "22.31.573.6"
+status = "resolved"
+evidence = "1342437ee8 landed header-aware native replay consumption at programs/crates/layerx-programs-runtime/src/execute.rs:6171 on main; programs/crates/layerx-programs-runtime/src/portable_replay.rs:505 reconstructs boundary memory and :513 refuses a length or root mismatch before installing it in the replay state."
+
+[disposition.22.31.573.7]
+finding = "22.31.573.7"
+status = "environment"
+evidence = "The runtime on main charges each retained snapshot for its memory delta at programs/vendor/wasmi-0.31.2/src/store.rs:233, and programs/crates/layerx-programs-runtime/tests/repair_22_31_573.rs:279 retains the 128-call default-stack proof with the unchanged 1048576-byte record maximum."
+
+[disposition.22.31.577.1]
+finding = "22.31.577.1"
+status = "resolved"
+evidence = "1342437ee8 landed the replay outcome distinction at programs/crates/layerx-programs-runtime/tests/program_replay.rs:367 on main, retaining an actual unreachable instruction as a terminal trap record while the preceding observer-refusal case keeps its separate execution-fault assertions."
+
+[disposition.22.31.577.2]
+finding = "22.31.577.2"
+status = "resolved"
+evidence = "1342437ee8 landed the 128-chunk executor proof at programs/crates/layerx-programs-runtime/tests/repair_22_31_577.rs:453 on main, retaining the 1048576-byte leaf and whole-record bounds at :488 and reconstructing each successive memory state from authenticated deltas at :506."
+
+[disposition.22.31.577.3]
+finding = "22.31.577.3"
+status = "resolved"
+evidence = "1342437ee8 landed one ReplayRecordHeader for execution identity, parameter digest, storage baseline and semantic constants at programs/crates/layerx-programs-runtime/src/replay_record.rs:91 on main; the executor proof still bounds aggregate leaf bytes and record bytes at programs/crates/layerx-programs-runtime/tests/repair_22_31_577.rs:488."
+
+[disposition.22.31.577.4]
+finding = "22.31.577.4"
+status = "resolved"
+evidence = "1342437ee8 landed the final bounded 128-call implementation retained at programs/crates/layerx-programs-runtime/tests/repair_22_31_577.rs:480 on main, requiring successful execution, exact record decode equality and leaf and complete-record sizes no larger than 1048576 bytes."
+
+[disposition.22.31.577.5]
+finding = "22.31.577.5"
+status = "resolved"
+evidence = "1342437ee8 landed shared record constants at programs/crates/layerx-programs-runtime/src/replay_record.rs:106 on main, extracting the storage baseline and semantic constants once into the header while programs/crates/layerx-programs-runtime/tests/repair_22_31_577.rs:501 checks every decoded boundary against that header."
+
+[disposition.22.31.577.6]
+finding = "22.31.577.6"
+status = "resolved"
+evidence = "1342437ee8 landed header-bound replay decoding and memory reconstruction at programs/crates/layerx-programs-runtime/tests/repair_22_31_577.rs:496 on main; :857 retains the live-snapshot and middle-step memory authentication proof, including reconstruction of every boundary before adjudication."
+
+[disposition.22.31.577.7]
+finding = "22.31.577.7"
+status = "resolved"
+evidence = "1342437ee8 landed record-level host constants at programs/crates/layerx-programs-runtime/src/replay_record.rs:109 on main, retaining the baseline and semantic constants once; programs/crates/layerx-programs-runtime/tests/repair_22_31_577.rs:498 still covers executor steps 734, 743 and 900 under the aggregate bound."
+
+[disposition.22.31.577.8]
+finding = "22.31.577.8"
+status = "resolved"
+evidence = "1342437ee8 landed the composition graph in the shared ReplayRecordHeader at programs/crates/layerx-programs-runtime/src/replay_record.rs:96 on main, extracting it once at :111 while each boundary remains authenticated to the header and the complete record remains bounded."
+
+[disposition.22.31.577.9]
+finding = "22.31.577.9"
+status = "resolved"
+evidence = "1342437ee8 landed the shared response capacity at programs/crates/layerx-programs-runtime/src/replay_record.rs:97 on main, extracting it once at :112 rather than repeating record-constant outcome framing in every leaf; the 1048576-byte executor record assertion remains at programs/crates/layerx-programs-runtime/tests/repair_22_31_577.rs:489."
+
+[disposition.22.31.58.1]
+finding = "22.31.58.1"
+status = "resolved"
+evidence = "a6fda138a3 landed direct schema consumption for REST error parity at services/launchpad/api/internal/rest/repair_58_test.go:56 on main; the sdk and sdk-v2 source schemas are decoded alongside the frozen OpenAPI contract and their required error fields are checked against the actual response at :148."
+
+[disposition.22.31.580.1]
+finding = "22.31.580.1"
+status = "environment"
+evidence = "The builtin registry on main retains the source-control plugin in the exact unprefixed plugin list at tools/hyperfide/core/server/test/services/plugins/builtin-registry.test.ts:34; :60 compares that list with BUNDLED_PLUGINS and :70 checks bundled artifact resolution."
+
+[disposition.22.31.582.1]
+finding = "22.31.582.1"
+status = "resolved"
+evidence = "dde39ed61b landed the shared lease request field checks at precompiles/layerxprograms/gas_charge_test.go:127 on main, binding the decoded program, asset, eight resource limits, lease and receipt identities rather than comparing independently constructed lease request bytes."
+
+[disposition.22.31.583.1]
+finding = "22.31.583.1"
+status = "resolved"
+evidence = "b4579563fb landed bindLayerX disclosure at services/agent/crates/layerx-crypto/tests/repair_22_31_583.rs:59 on main, retaining selector, public-key and signature binding; services/human/crates/layerx-human-service/src/agents/create.rs:771 exhaustively refuses a bind registration as a lifecycle transaction."
+
+[disposition.22.31.583.2]
+finding = "22.31.583.2"
+status = "environment"
+evidence = "The call disclosure decoder on main recognizes bindLayerX(bytes32,bytes) at services/agent/crates/layerx-crypto/src/disclosure/call.rs:907, and services/agent/crates/layerx-crypto/tests/repair_22_31_583.rs:68 binds the disclosed registration to the produced public key and signature."
+
+[disposition.22.31.585.1]
+finding = "22.31.585.1"
+status = "environment"
+evidence = "The programs disclosure decoder on main constructs deploy, upgrade and wind-down methods at services/agent/crates/layerx-crypto/src/disclosure/call.rs:595; services/agent/crates/layerx-crypto/tests/repair_22_31_585.rs:104 checks their activity ordinals, sender, authority and fee limit."
+
+[disposition.22.31.586.1]
+finding = "22.31.586.1"
+status = "resolved"
+evidence = "0892f23fca landed the version-2 native replay decoder at tests/programs/test_ai_host_boundary.c:686 on main, checking the record domain and version before parsing its length-prefixed header and boundary count at :699."
+
+[disposition.22.31.586.2]
+finding = "22.31.586.2"
+status = "resolved"
+evidence = "0892f23fca landed separately accounted declaration and guest fuel at tests/programs/test_ai_host_boundary.c:665 on main; :680 requires successful CALL execution, fuel within their combined allowance and a real replay witness with no refusal or execution-fault field."
+
+[disposition.22.31.586.3]
+finding = "22.31.586.3"
+status = "resolved"
+evidence = "0892f23fca landed replay boundary declaration checks at tests/programs/test_ai_host_boundary.c:704 on main, requiring a nonzero captured count within LXP_PROGRAMS_REPLAY_MAX_BOUNDARIES and a declaration equal to the smallest power of two covering that count at :712."
+
+[disposition.22.31.59.1]
+finding = "22.31.59.1"
+status = "environment"
+evidence = "Metadata revocation on main persists the visibility revision and blocked state before serving single, batch and logo routes at services/launchpad/metadata/internal/metadata/repair_59_test.go:250; restoring visibility reverses the block consistently across all three routes at :265."
+
+[disposition.22.31.59.2]
+finding = "22.31.59.2"
+status = "resolved"
+evidence = "afdfa79ad0 landed self-contained object responses at services/launchpad/metadata/internal/metadata/repair_59_test.go:71 on main, retaining exact uploaded logo bytes and object reads; :250 still requires revoked metadata and logos to be hidden and restored visibility to be persisted."
+
+[disposition.22.31.60.1]
+finding = "22.31.60.1"
+status = "resolved"
+evidence = "7bed093745 landed the connected wallet fixture at apps/launchpad/web/src/widgets/my-token/repair-22-31-60.test.ts:157 on main, requiring the configured account to equal the token creator before rendering MyTokenView and still rejecting a Sign in result at :179."
+
+[disposition.22.31.60.2]
+finding = "22.31.60.2"
+status = "resolved"
+evidence = "ba88778da5 landed the recorded JSON-RPC transport at apps/launchpad/web/src/widgets/my-token/repair-22-31-60.test.ts:52 on main, with the widget provider using the same chain endpoint at :145 and retaining the connected creator account assertion at :160."
+
+[disposition.22.31.600.1]
+finding = "22.31.600.1"
+status = "resolved"
+evidence = "2859f7ac3e removed the personal settings and installed package trees from tracked content on main, and .claude/.gitignore:1 ignores settings.local.json; tools/qualification/audit_repairs/test_repair_22_31_600.py:26 still requires git ls-files to return no tracked paths for every declared target."
+
+[disposition.22.31.611.1]
+finding = "22.31.611.1"
+status = "resolved"
+evidence = "b922423300 landed exhausted-iterator handling at precompiles/layerxpay/conformance_escrow_test.go:29 on main, requiring Valid to be false and both Error and Close to succeed after scanning the escrow store."
+
+[disposition.22.31.611.2]
+finding = "22.31.611.2"
+status = "resolved"
+evidence = "b922423300 landed escrow receipt-row accounting at precompiles/layerxpay/conformance_escrow_test.go:110 on main, requiring exactly one additional sequence-keyed receipt row and exact equality of every remaining precompile row with direct HostExecute state."
+
+[disposition.22.31.611.3]
+finding = "22.31.611.3"
+status = "resolved"
+evidence = "b922423300 landed bound-receipt comparison at precompiles/layerxpay/conformance_escrow_test.go:123 on main, requiring a nonzero TransferSetRoot while comparing all other decoded receipt fields with HostExecute and retaining identical escrow records and resulting state roots."
+
+[disposition.22.31.612.1]
+finding = "22.31.612.1"
+status = "environment"
+evidence = "First-party manifests on main declare Apache-2.0 at package.json:5 and services/platform/Cargo.toml:32, while NOTICE:7 inventories vendored trees with their own licences; tools/qualification/audit_repairs/test_repair_22_31_612.py:51 resolves inherited manifest licence fields rather than treating them as undeclared."
+
+[disposition.22.31.613.1]
+finding = "22.31.613.1"
+status = "resolved"
+evidence = "37e7efee64 landed dedicated refusal coverage at services/agent/crates/layerx-agentd/tests/repair_22_31_613.rs:623 on main, requiring unique prefixed reasons for every ManagedAgentCheck and verifying lifecycle and revocation refusals across the socket at :642 and :653 without importing unrelated regression test modules."
+
+[disposition.22.31.615.1.a2]
+finding = "22.31.615.1.a2"
+status = "resolved"
+evidence = "a2790d350c landed compact nonzero error indices at programs/crates/layerx-programs-ai-market/src/errors.rs:8 on main, preserving the u16 wire lookup and refusing unknown codes at :16; tests/ci/test_ai_market_guest_bound.py:14 retains the stricter 504184-byte guest limit below the deployment maximum."
+
+[disposition.22.31.615.1]
+finding = "22.31.615.1"
+status = "resolved"
+evidence = "a2790d350c landed nonzero Version storage at programs/crates/layerx-programs-ai-market/src/types.rs:357 on main, preserving zero rejection through the checked constructor at :365; tests/ci/test_ai_market_guest_bound.py:14 retains the 504184-byte assertion, and bace946642 supplies the gateway mirror modules at services/platform/hosted/gateway/tests/repair_22_33_1439.rs:110."
+
+[disposition.22.31.615.2]
+finding = "22.31.615.2"
+status = "resolved"
+evidence = "bace946642 landed the canary and rooms module declarations at services/platform/hosted/gateway/tests/repair_22_33_1439.rs:110 and :165 on main, pointing at the real ai-market sources; tests/ci/test_ai_market_module_mirror.py:83 requires exact equality of the mirrored file-module sets."
+
+[disposition.22.31.62.1]
+finding = "22.31.62.1"
+status = "resolved"
+evidence = "ae6104c61e landed the migration registry lookup at services/launchpad/pnl-tracker/internal/production/l18/repair_62_support_test.go:148 on main, resolving launchpad/spec/production-system/integration/migrations beneath the repository root and checking applied migration checksums at :176."
+
+[disposition.22.31.62.2]
+finding = "22.31.62.2"
+status = "environment"
+evidence = "The rewards journey on main retains HTTP reward decoding and migration-grant checks at services/launchpad/pnl-tracker/internal/production/l18/repair_62_test.go:28 and :46; :95 checks the journey against the indexed checkpoint and :159 retains age and outage behavior."
+
+[disposition.22.31.620.1]
+finding = "22.31.620.1"
+status = "resolved"
+evidence = "bace946642 landed the slice comparison repair, preserved by the guest indexing conversion at programs/crates/layerx-programs-ai-market/src/rooms.rs:656 on main; both operands compare byte slices, and tests/ci/test_ai_market_module_mirror.py:83 requires the gateway to mirror the exact crate module set."
+
+[disposition.22.31.620.2]
+finding = "22.31.620.2"
+status = "resolved"
+evidence = "bace946642 moved the unchanged Fund fuel proof into its owning ai-market target at programs/crates/layerx-programs-ai-market/tests/fuel_budget.rs:1844 on main; :1853 resolves programs/target/repair-478 and programs/crates/layerx-programs-ai-market/tests/support/repair_478_fixture.rs:233 still requires the actual produced owner bytes."
+
+[disposition.22.31.620.3]
+finding = "22.31.620.3"
+status = "resolved"
+evidence = "bace946642 landed the EVM namespace admission in services/platform/hosted/gateway/src/rpc.rs:35 on main, allowing node RPC methods to reach the existing relay; services/platform/hosted/gateway/tests/repair_22_33_1439.rs:615 retains the exact 0xb result assertion for root and explicit chain paths."
+
+[disposition.22.31.621.1]
+finding = "22.31.621.1"
+status = "open"
+evidence = "The full-suite consumer at tests/ci/test_qualification_suites_collect.py:47 on main requires a zero exit and nonempty pass summary, but tools/qualification/repair_22_31_623.kvx:20 records eight newly skipped cases and tools/qualification/audit_repairs/test_repair_22_33_372.py:58 still skips missing SDK distributions, leaving the no-new-skips criterion unmet."
+follow_up = "22.31.623"
+
+[disposition.22.31.622.1.a2]
+finding = "22.31.622.1.a2"
+status = "resolved"
+evidence = "bace946642 landed the gateway canary and rooms declarations at services/platform/hosted/gateway/tests/repair_22_33_1439.rs:110 and :165 on main, so path-included dispatch and commit/reveal sources resolve the same real modules as the ai-market crate."
+
+[disposition.22.31.622.1]
+finding = "22.31.622.1"
+status = "resolved"
+evidence = "bace946642 landed the real canary and rooms module includes at services/platform/hosted/gateway/tests/repair_22_33_1439.rs:110 and :165 on main; the committed-vector provenance and signed-receipt equality checks remain at tests/ci/test_committed_vector_copy_current.py:12 and :20 after 2c51893714 refreshed the copy."
+
+[disposition.22.31.622.2.a2]
+finding = "22.31.622.2.a2"
+status = "resolved"
+evidence = "92006ea423 landed proof-sensitive facilitator evidence at services/interop/crates/layerx-x402/tests/facilitator_evidence.rs:694 on main: the no-proof branch is receipted and carries no block fields, while the proof-bearing branch must report committed and the authenticated block at :726."
+
+[disposition.22.31.622.2]
+finding = "22.31.622.2"
+status = "resolved"
+evidence = "92006ea423 landed the matching facilitator rung contract at services/interop/crates/layerx-x402/tests/facilitator_evidence.rs:698 on main, requiring receipted evidence without a proof and committed evidence only with a verified proof; tests/ci/test_committed_vector_copy_current.py:20 retains exact signed-receipt equality with the recording."
+
+[disposition.22.31.622.3.a2]
+finding = "22.31.622.3.a2"
+status = "resolved"
+evidence = "2c51893714 landed the current recorded transaction in services/interop/specs/conformance/x402/sequenced-settlement.json:75 on main; services/interop/crates/layerx-x402/tests/sequenced_vectors.rs:557 still requires the settlement transaction to equal the recorded receipt txHash."
+
+[disposition.22.31.622.3]
+finding = "22.31.622.3"
+status = "resolved"
+evidence = "2c51893714 landed the refreshed x402 settlement transaction at services/interop/specs/conformance/x402/sequenced-settlement.json:75 on main, with the original transaction equality retained at services/interop/crates/layerx-x402/tests/sequenced_vectors.rs:557 and the committed copy pinned to its source digest at tests/ci/test_committed_vector_copy_current.py:12."
+
+[disposition.22.31.623.1]
+finding = "22.31.623.1"
+status = "open"
+evidence = "The settlement record on main explicitly lists eight newly skipped cases at tools/qualification/repair_22_31_623.kvx:20, and tools/qualification/audit_repairs/test_repair_22_33_372.py:58 still replaces absent SDK distribution coverage with pytest.skip, so the complete unskipped qualification required by 22998.1 remains outstanding."
+follow_up = "22.31.623"
+
+[disposition.22.31.623.2]
+finding = "22.31.623.2"
+status = "open"
+evidence = "The SDK distribution prerequisite still causes pytest.skip at tools/qualification/audit_repairs/test_repair_22_33_372.py:58 on main, and the full-suite settlement record at tools/qualification/repair_22_31_623.kvx:20 names it among newly skipped baseline cases rather than preserving execution of every original assertion."
+follow_up = "22.31.623"
+
+[disposition.22.31.623.3]
+finding = "22.31.623.3"
+status = "open"
+evidence = "The current full-suite record at tools/qualification/repair_22_31_623.kvx:20 on main carries new skips for SDK, renderer and native-node cases; tests/ci/test_qualification_suites_collect.py:47 checks exit zero and a passing summary without forbidding those newly skipped cases."
+follow_up = "22.31.623"
+
+[disposition.22.31.623.4]
+finding = "22.31.623.4"
+status = "open"
+evidence = "The blocker remains at tools/qualification/repair_22_31_623.kvx:20 on main, where the full-suite result permits newly skipped cases, including the live renderer cases whose missing prerequisite still invokes pytest.skip at tools/qualification/audit_repairs/test_repair_22_33_885.py:60."
+follow_up = "22.31.623"
+
+[disposition.22.31.623.5]
+finding = "22.31.623.5"
+status = "open"
+evidence = "The full-suite assertions at tests/ci/test_qualification_suites_collect.py:47 on main accept a passing summary even when cases are skipped, and tools/qualification/repair_22_31_623.kvx:20 explicitly retains eight new skips, so the blocker cannot be closed as unchanged complete coverage."
+follow_up = "22.31.623"
+
+[disposition.22.31.63.1]
+finding = "22.31.63.1"
+status = "resolved"
+evidence = "b2b0e05da6 landed the migration input root at services/launchpad/pnl-tracker/internal/production/l16/repair_63_test.go:43 on main, reading the registry beneath launchpad/spec and verifying each SQL checksum before granting the runtime role."
+
+[disposition.22.31.63.2]
+finding = "22.31.63.2"
+status = "resolved"
+evidence = "b2b0e05da6 landed wallet-range storage at launchpad/spec/production-system/integration/migrations/160004.sql:2 on main and the column-limited active-snapshot UPDATE grant at launchpad/spec/production-system/integration/migrations/grants.json:3600; services/launchpad/pnl-tracker/internal/production/l16/repair_63_test.go:119 pins the exact writable columns."
+
+[disposition.22.31.63.3]
+finding = "22.31.63.3"
+status = "resolved"
+evidence = "b2b0e05da6 landed checksum-bound coordinator inputs at services/launchpad/pnl-tracker/internal/production/l16/repair_63_test.go:43 on main, resolving all migrations and grants under launchpad/spec/production-system/integration/migrations instead of a nonexistent root-level spec directory."
+
+[disposition.22.31.63.4]
+finding = "22.31.63.4"
+status = "resolved"
+evidence = "b2b0e05da6 landed eth_call block-identifier decoding through rpc.BlockNumberOrHash at services/launchpad/pnl-tracker/internal/production/l16/repair_63_test.go:191 on main; :203 retains string-tag and blockHash-object cases and diagnostic rejection of malformed parameters."
+
+[disposition.22.31.63.5]
+finding = "22.31.63.5"
+status = "resolved"
+evidence = "b2b0e05da6 landed both supplemental recorded block headers at services/launchpad/pnl-tracker/internal/production/l16/testdata/repair_63_headers.jsonl:1 on main; services/launchpad/pnl-tracker/internal/production/l16/repair_63_test.go:344 derives the corresponding eth_getBlockByNumber lookup keys from the preserved producer block numbers."
+
+[disposition.22.31.65.1]
+finding = "22.31.65.1"
+status = "resolved"
+evidence = "869dff44e0 removed unconditional fixture startup from services/launchpad/security/control/fixtures_test.go:21 on main, with normal package entry reaching m.Run at :34; only fixture-dependent cases call ensureControlFixtures at :47, leaving local durable-store coverage independent of an EVM executable."
+
+[disposition.22.31.74.1]
+finding = "22.31.74.1"
+status = "resolved"
+evidence = "b0f704f765 landed retained archive reconstruction at services/launchpad/trading-charts/internal/engine/repair_74_test.go:149 on main and the committed manifest input at :23; :266 preserves delete, close, reopen and archive reconstruction coverage with exact canonical candle parity."
+
+[disposition.22.31.91.1]
+finding = "22.31.91.1"
+status = "resolved"
+evidence = "adc33588e0 landed wire-derived block expectations at consensus/internal/rpc/core/repair_91_test.go:342 on main, normalizing the producer through tmjson before comparison; :366 retains exact block_search equality with that decoded ResultBlock."

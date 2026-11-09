@@ -1,0 +1,49 @@
+[issue.1728]
+number = 1728
+title = "[Coherence] program_lifecycle_third_shape treats a plain Programs call receipt as proof that a lifecycle operation completed"
+revision = "a910fdedd579e63379ae6c2e4d4971990d28f8ad"
+verdict = "task"
+evidence = "tools/platform/cli/tests/repair_22_33_1496.rs:527 renders the ordinary call identified at :50 and :405 as completed at :530 despite the missing lifecycle transcript recorded at :20, because tools/platform/cli/src/programs.rs:704 checks only Programs scope and :709 emits completed without the lifecycle-event check at :749, while rpc/sequencer_receipt_vectors_test.go:860 and :1086 confirm that the authentic vector emits ProgramCallOutcome."
+close_comment = "The lifecycle proof currently accepts an ordinary program-call receipt as completed lifecycle execution. The repair will require authenticated lifecycle-event evidence before reporting completion, reject the existing call receipt in the regression test, and retain the outstanding requirement for real lifecycle execution transcripts."
+
+[task.18.1728.1]
+title = "Issue #1728: Reject ordinary program calls as lifecycle completion evidence"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181728.1"]
+capabilities = []
+interfaces = []
+do_1 = "Strengthen lifecycle_receipt_result_verified in tools/platform/cli/src/programs.rs:681 so a successful Programs receipt cannot become completed at :709 without an authenticated deploy, upgrade or wind-down event from the Programs precompile; use the lifecycle event identities at :765, exclude ProgramCallOutcome, and preserve signature, transaction-hash, policy, scope, pending and failure checks together with the stricter submitted-operation and program matching at :749."
+do_2 = "Strengthen program_lifecycle_third_shape in tools/platform/cli/tests/repair_22_33_1496.rs:476: independently authenticate the existing node-produced V1-layerxprograms-call vector, assert its call selector and ProgramCallOutcome identity, and require the renderer to refuse it as lifecycle completion instead of asserting completed at :530; retain calldata, pending, tampering, terminal-label and Ledger-scope assertions, and make the finding mapping at :5 explicitly distinguish these checks from the still-missing lifecycle execution transcripts at :20, without manufacturing successful lifecycle receipts or claiming resultant lifecycle state."
+symbols = ["lifecycle_receipt_result_verified", "program_lifecycle_third_shape"]
+touches = ["tools/platform/cli/src/programs.rs", "tools/platform/cli/tests/repair_22_33_1496.rs"]
+tests = ["tools/platform/cli/tests/repair_22_33_1496.rs::program_lifecycle_third_shape"]
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path tools/platform/Cargo.toml -p layerx-platform-cli"
+verify_cmd = "cargo test --locked --manifest-path tools/platform/Cargo.toml -p layerx-platform-cli --test repair_22_33_1496 program_lifecycle_third_shape"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181728]
+title = "Lifecycle completion excludes ordinary program-call receipts"
+ac_1 = "Given the authentic V1-layerxprograms-call receipt produced by rpc/sequencer_receipt_vectors_test.go:1086 with the ProgramCallOutcome log asserted at :860, lifecycle_receipt_result_verified at tools/platform/cli/src/programs.rs:681 refuses it as lifecycle completion, while pending submissions remain pending and malformed or unauthenticated terminal responses remain errors."
+ac_2 = "The proof at tools/platform/cli/tests/repair_22_33_1496.rs:476 preserves lifecycle calldata and receipt-authentication checks but makes no successful lifecycle-execution or resultant-state claim from the call vector or the encoding-only lifecycle vectors, leaving the lifecycle transcript requirement recorded at :20 outstanding."
+
+[acceptance.18.1728.1]
+feature = "18"
+req = "181728.1"
+scenario = "Given a valid signed Programs call receipt containing ProgramCallOutcome and no lifecycle event, when the lifecycle renderer evaluates it, then it refuses lifecycle completion and the regression proof preserves pending and authentication checks without claiming deploy, upgrade or wind-down execution."
+contract = "contracts/platform-cli.md#cli-cli-commands"
+test = "tools/platform/cli/tests/repair_22_33_1496.rs::program_lifecycle_third_shape (planned)"
+qualification = "UNRUN"

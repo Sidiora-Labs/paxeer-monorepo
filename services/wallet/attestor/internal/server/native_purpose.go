@@ -13,6 +13,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/attestor/internal/policy"
 	nativepolicy "github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/attestor/internal/policy/native"
@@ -171,7 +172,7 @@ func (s *Server) doNativeSign(r *http.Request, body []byte) (NativeSignResponse,
 		return refuse(newError(CodeKeyCurve, "native consent requires the stored Ed25519 owner key"))
 	}
 	if s.opts.Inventory == nil {
-		return refuse(newError(CodeTokenUnavailable, "owner-approved key inventory unavailable"))
+		return refuse(newError(CodeTokenUnavailable, "owner-approved key inventory unavailable for native consent"))
 	}
 	if err := s.opts.Inventory.Check(req.KeyID, "sign", payload.Owner, rec.Curve, &rec); err != nil {
 		return refuse(newError(CodeKeyInvalidShare, "owner-approved inventory differs from stored share"))
@@ -237,7 +238,7 @@ func (s *Server) doNativeSign(r *http.Request, body []byte) (NativeSignResponse,
 		if decodeErr != nil {
 			return refuse(newError(CodeSessionBadRequest, "send purpose must be canonical hex"))
 		}
-		digest, coords, err = nativepolicy.SendPurposeDigest(raw, rec.PublicKey)
+		digest, coords, err = nativeSendPurposeV2Digest(raw, rec.PublicKey, payload.Account)
 	case NativeLocalGrantConsent:
 		capability, decodeErr := nativepolicy.Hex(req.Capability, 0)
 		if decodeErr != nil || len(capability) > maxNativeRecordBytes {
@@ -350,3 +351,89 @@ func (s *Server) doNativeSign(r *http.Request, body []byte) (NativeSignResponse,
 	return resp, nil
 }
 func sha256Digest(raw []byte) []byte { sum := sha256.Sum256(raw); return sum[:] }
+
+const nativeSendPurposeV2Domain = "LayerX/native/send-purpose/v2\x00"
+
+type nativeSendPurposeV2 struct {
+	nativepolicy.Coordinates
+	OwnerDID         string
+	ConsentPublicKey [32]byte
+	EVMSender        [20]byte
+	TransactionType  uint8
+	ChainID          uint64
+	ActivityVersion  uint8
+	ModuleID         uint16
+	Ordinal          uint16
+	Preparation      [32]byte
+	CanonicalDigest  [32]byte
+	EconomicAction   [32]byte
+	Idempotency      [32]byte
+	Commitment       [32]byte
+}
+
+func nativeSendText(r *bytes.Reader) (string, error) {
+	var length uint32
+	if binary.Read(r, binary.BigEndian, &length) != nil || length == 0 || length > 255 || uint64(length) > uint64(r.Len()) {
+		return "", nativepolicy.ErrMalformed
+	}
+	raw := make([]byte, int(length))
+	if _, err := io.ReadFull(r, raw); err != nil || !utf8.Valid(raw) || bytes.IndexByte(raw, 0) >= 0 {
+		return "", nativepolicy.ErrMalformed
+	}
+	return string(raw), nil
+}
+
+func parseNativeSendPurposeV2(raw []byte) (nativeSendPurposeV2, error) {
+	var p nativeSendPurposeV2
+	if len(raw) > 2048 || !bytes.HasPrefix(raw, []byte(nativeSendPurposeV2Domain)) {
+		return p, nativepolicy.ErrMalformed
+	}
+	r := bytes.NewReader(raw[len(nativeSendPurposeV2Domain):])
+	version, err := r.ReadByte()
+	if err != nil || version != 2 {
+		return p, nativepolicy.ErrMalformed
+	}
+	for _, field := range []*string{&p.Tenant, &p.AgentDID, &p.OwnerDID} {
+		*field, err = nativeSendText(r)
+		if err != nil {
+			return p, err
+		}
+	}
+	for _, did := range []string{p.AgentDID, p.OwnerDID} {
+		if !strings.HasPrefix(did, "did:layerx:") {
+			return p, nativepolicy.ErrMalformed
+		}
+		if _, err := nativepolicy.Hex(strings.TrimPrefix(did, "did:layerx:"), 32); err != nil {
+			return p, err
+		}
+	}
+	for _, field := range []any{
+		&p.ConsentPublicKey, &p.EVMSender, &p.Session, &p.Generation, &p.ExpiresAtMS,
+		&p.Capability, &p.TransactionType, &p.ChainID, &p.ActivityVersion, &p.ModuleID, &p.Ordinal,
+		&p.Preparation, &p.CanonicalDigest, &p.EconomicAction, &p.Idempotency, &p.Commitment,
+	} {
+		if binary.Read(r, binary.BigEndian, field) != nil {
+			return p, nativepolicy.ErrMalformed
+		}
+	}
+	if r.Len() != 0 || p.ConsentPublicKey == ([32]byte{}) || p.EVMSender == ([20]byte{}) ||
+		p.Generation == 0 || p.ExpiresAtMS == 0 || p.TransactionType != 2 || p.ChainID != 125 ||
+		p.ActivityVersion != 1 || p.ModuleID != 1 || p.Ordinal != 5 {
+		return p, nativepolicy.ErrMalformed
+	}
+	for _, digest := range [][32]byte{p.Preparation, p.CanonicalDigest, p.EconomicAction, p.Idempotency, p.Commitment} {
+		if digest == ([32]byte{}) {
+			return p, nativepolicy.ErrMalformed
+		}
+	}
+	return p, nil
+}
+
+func nativeSendPurposeV2Digest(raw, owner []byte, account string) ([32]byte, nativepolicy.Coordinates, error) {
+	p, err := parseNativeSendPurposeV2(raw)
+	if err != nil || len(owner) != 32 || !bytes.Equal(owner, p.ConsentPublicKey[:]) ||
+		!common.IsHexAddress(account) || !bytes.Equal(common.HexToAddress(account).Bytes(), p.EVMSender[:]) {
+		return [32]byte{}, nativepolicy.Coordinates{}, nativepolicy.ErrMalformed
+	}
+	return sha256.Sum256(raw), p.Coordinates, nil
+}

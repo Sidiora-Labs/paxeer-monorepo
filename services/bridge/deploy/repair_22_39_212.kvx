@@ -1,0 +1,115 @@
+[repair.22.39.212]
+acceptance = "22998.1"
+decision = "3042"
+base_revision = "b1fd5106ceaed43ab9d7fad46a5fb0cc7000c282"
+status = "implemented; qualification is determined by the referenced bounded gate records"
+manifest = "services/bridge/deploy/attestors.json"
+attestors = ["0x12598F221f1e645322C7665537D4Ab130281f51d"]
+threshold = 1
+configurations = ["contracts/bridge/evm/chains/ethereum/config.json", "contracts/bridge/evm/chains/base/config.json", "contracts/bridge/evm/chains/arbitrum/config.json", "contracts/bridge/evm/chains/optimism/config.json", "contracts/bridge/evm/chains/bnb/config.json", "contracts/bridge/evm/chains/polygon/config.json", "contracts/bridge/evm/chains/avalanche/config.json", "contracts/bridge/evm/chains/hyperevm/config.json", "contracts/bridge/solana/chains/solana/config.json"]
+implementation = "Only attestors and threshold change in the nine committed configurations. Production manifest loading, check script and every refusal rule remain unchanged. The historical records close the owner decision and mark manifest wiring fulfilled; the service operator runbook lists the governed manifest as implemented support."
+proposal_proof = "TestCommittedManifestMatchesEveryChainAndEmitsGovernedProposals loads the real committed manifest, checks every committed chain signer configuration, runs the real proposal command for all nine chains with remaining deployment inputs filled in temporary copies, reads its emitted set-attestors body and opening proposal from disk and decodes them into real module messages. It asserts the governed signer, threshold, zero bond, authority and registered chain ID."
+appenv_proof = "TestGovernedSolanaRecordRoundTripsToAppEnv feeds the committed Solana signer values into the real record writer, reopens the persisted record, generates app environment output and validates that output with Check and Run --check. Existing refusal tests remain."
+refusal_proof = "All Python check-script refusal fixtures are retained. The former committed pending manifest is now an explicit temporary fixture. Chainconfig injects its placeholder-attestor refusal fixture explicitly. Entry scripts accept the committed manifest and stop at missing arguments, record directories, unreadable configurations or absent deployment tools before signing or RPC."
+retired_assertions = ["test_pending_governance_manifest_uses_named_slots -> test_governed_manifest_has_no_pending_signer_slots: exact decision-3042 signer, threshold 1 and no named slot or pending marker in the manifest or nine configurations.", "test_pending_governance_requires_explicit_true -> test_governed_manifest_rejects_every_pending_marker: all seven prior marker values and boolean true are refused; pending no longer exempts signers from validation.", "test_signer_checks_remain_strict_without_pending_governance: retire acceptance of repeated-byte signers with pending true; require rejection instead, retaining the named-slot and repeated-byte refusal assertions and live fixture acceptance.", "test_refuses_committed_manifest_naming_governance: retire the claim that the current committed manifest is pending; retain the same test name and historical pending document as an explicit refusal fixture, plus test_accepts_committed_governed_manifest for the live committed document.", "test_entry_points_guard_first: replace committed-manifest exit-1 refusal with exit-2 usage after the first guard succeeds, across absolute, relative and basename invocations; repeated-byte and threshold refusal cases remain.", "test_bridge_all_rejected_cli_record_guard, test_bridge_all_rejected_cli_stops_first_failure, test_bridge_all_rejected_preflight_all and test_bridge_all_rejected_cli_usage: retire the shared assertion of an immediate pending-governance refusal; assert manifest acceptance, exact downstream environment/usage refusal and no deployment (only the retained deployment lock is permitted on a non-preflight first-chain refusal). All original test names and parameter cases remain; the nine preflight environments reach the first-chain absent-forge refusal before any deploy-key consumption.", "TestCommittedManifestCarriesPlaceholdersEveryToolRefuses -> TestCommittedManifestMatchesEveryChainAndEmitsGovernedProposals: all nine committed signer configurations pass the real loader and Check; persisted bodies and proposals carry the governed set.", "TestRunRefusesTheCommittedPlaceholderManifest -> TestRunRefusesConfigurationThatDiffersFromCommittedManifest: the governed manifest loads, the old five-signer fixture still refuses at the precise signer-count mismatch, and no output is published.", "test_manifest_loader_retains_placeholder_and_threshold_refusals: move source inspection of the pending-document refusal into TestPendingGovernanceManifestIsRefused, which retains the exact historical pending document as an explicit Go fixture; retain all production loader, placeholder, canonical-order and threshold guard assertions. Go TestManifestRefusals and TestChainConfigurationRefusals retain their fixtures.", "TestRequireDeployableRefusesEachPlaceholder: explicitly inject the placeholder-attestor fixture because committed attestors are now governed; the same refusal and field assertion remain.", "test_task_record_names_only_governance_signer_set_wiring: replace the open supply request with closed decision 3042 and an empty outstanding wiring list.", "test_service_operator_runbook_has_only_open_gaps: replace the sole pending-attestor gap row and marker with an implemented-support row that names decision 3042, all nine configurations and committed-check exit 0; every other release-doc test remains unchanged."]
+qualification = "Both gates must reference the same final candidate revision. Read the last build and verify entries for task 22.39.212 in the runner private ledger; each entry records revision, command, exit and log. No success is claimed by this source record alone."
+continuation_base_revision = "58fc909ddd01ecb849ab1f2a738862e4ebafb56f"
+continuation_source_revision = "57191557c5b1765c4eabfb71815b0e5c15ab8c34"
+helper_setup = "Decisions 3047 and 3052: .github/workflows/bridge-test.yml deploy-tooling installs Node.js 24.11.0 with actions/setup-node@820762786026740c76f36085b0efc47a31fe5020, the same action revision as bridge-app, after the pinned Go toolchain and before go test."
+helper_installs = ["npm ci --no-audit --no-fund --prefix services/bridge/deploy/appenv", "npm ci --no-audit --no-fund --prefix services/bridge/deploy/proposals/testdata/repair_270"]
+helper_lockfile = "services/bridge/deploy/appenv/package-lock.json is generated with npm install --package-lock-only from the unchanged pinned devDependencies @noble/curves 2.4.0 and viem 2.41.2. The proposal compiler retains its existing npm-shrinkwrap.json and pinned dependency versions."
+helper_consumers = "The appenv install serves repair_277_app.mjs, which imports the real bridge app config.ts and chains.ts through viem and @noble/curves in TestRepair_277_DeploymentPhasesToApp. The proposal install serves testdata/repair_270/compile-vault.cjs, which uses solc and @openzeppelin/contracts to compile the real vault in TestRepair_270_VaultDepositReachesKeeper. Both installs also precede go build in the task build command. No dependency version or inherited test changes in this continuation."
+rollback = "Revert the task's commit."
+
+[evidence.build]
+wrapper = "hf-build"
+ledger = "/out/run/gates.jsonl"
+selector = "last entry with kind=build"
+command = "npm ci --no-audit --no-fund --prefix services/bridge/deploy/appenv && npm ci --no-audit --no-fund --prefix services/bridge/deploy/proposals/testdata/repair_270 && go build ./services/bridge/deploy/... && python3 -m py_compile tools/qualification/audit_repairs/test_repair_22_31_402.py tools/qualification/audit_repairs/test_repair_22_31_392.py tools/qualification/audit_repairs/test_repair_22_31_446.py"
+
+[evidence.verify]
+wrapper = "hf-done"
+ledger = "/out/run/gates.jsonl"
+selector = "last entry with kind=verify"
+command = "cg spec done 22.39.212 -f layerx-merge --root /work/paxeer-monorepo"
+includes = "Declared Python manifest guard, placeholder scan, four pytest modules, go test ./services/bridge/deploy/... and graph checks."
+
+[gotcha.scope]
+observed = "Root GOTCHA.kvx and spec files are outside the explicit task scope; runner bookkeeping changes were present at entry."
+resolution = "Leave runner-prepared files intact and record task-local findings here. No gate ledger existed at entry; both gate counters were zero."
+
+[gotcha.fixture-threshold]
+observed = "Proposal tests copy committed configurations but replace signers with their existing five-signer test manifest; leaving the new committed threshold would mismatch that fixture."
+resolution = "The temporary deployable-configuration helper copies both signers and threshold from the manifest it is testing; production configurations retain the governed values."
+
+[repair_cycle.1]
+observed = "At 61021d9889991ef9daeecc28060cf250ef2e43e9, cg spec done 22.39.212 -f layerx-merge --root /work/paxeer-monorepo exited 1 (/out/logs/verify-1.log): TestRepairM_373_StagingFailureAndRetry and TestRepairM_373_ValidationRefusal copied five legacy fixture signers but retained committed threshold 1."
+resolution = "Copy legacy.Threshold alongside legacy.Attestors in repairM373Input; preserve all publication, retry and refusal assertions. Rerun hf-build then hf-done as required on the repaired candidate."
+
+[finding.appenv-record]
+task = "22.39.212"
+file = "services/bridge/deploy/appenv/appenv_test.go"
+symbol = "TestEnvLinesFromEVMRecords"
+observed = "Revision 61021d9889991ef9daeecc28060cf250ef2e43e9; command cg spec done 22.39.212 -f layerx-merge --root /work/paxeer-monorepo; exit 1; log /out/logs/verify-1.log: the unchanged deployment record fixture includes owner, threshold 3, five fixture attestors and configuration while the unchanged exact expected Record omits those fields."
+assumption = "The fixture and expected Record mismatch predates this task; the new committed signer configuration is not read by that assertion."
+severity = "blocker"
+
+[finding.appenv-writers]
+task = "22.39.212"
+file = "services/bridge/deploy/appenv/repair_277_test.go; services/bridge/deploy/appenv/repair_m484_test.go"
+symbol = "TestRepair_277_LegacyProducerCheckpoint; TestRepairM_484_ScriptOutputToReadConfigAfterRestart; TestRepairM_484_PartialDeploymentRefusedAcrossRestart; TestRepairM_484_ReadConfigValidatesEmittedNames"
+observed = "Revision 61021d9889991ef9daeecc28060cf250ef2e43e9; command cg spec done 22.39.212 -f layerx-merge --root /work/paxeer-monorepo; exit 1; log /out/logs/verify-1.log: the unchanged source-inspection tests cannot find the legacy checkpoint writer or recorded EVM/Solana writers in the unchanged deployment scripts."
+assumption = "The legacy writer expectations predate this task and are independent of the attestor/threshold fields changed here."
+severity = "blocker"
+
+[finding.node-dependencies]
+task = "22.39.212"
+file = "services/bridge/deploy/appenv/repair_277_test.go; services/bridge/deploy/proposals/repair_270_test.go"
+symbol = "TestRepair_277_DeploymentPhasesToApp; TestRepair_270_VaultDepositReachesKeeper"
+observed = "Revision 61021d9889991ef9daeecc28060cf250ef2e43e9; command cg spec done 22.39.212 -f layerx-merge --root /work/paxeer-monorepo; exit 1; log /out/logs/verify-1.log: Node cannot resolve the already-declared viem and solc dependencies."
+assumption = "Dependency installation state predates this task; it is recorded without changing manifests, fixtures or assertions."
+severity = "blocker"
+
+[gotcha.compound-gate]
+observed = "The declared compound verification reports pre-existing Go test failures after all 99 Python tests pass; the required task-scoped threshold repair still requires the same compound hf-build/hf-done sequence."
+resolution = "Record unrelated findings once here because spec ledgers are out of scope; do not investigate or repair them. Run only the prescribed bounded gates after the relevant threshold edit and report the final result without claiming completion."
+
+[continuation.attempt_3]
+decision = "3054; gotcha 3750"
+base_revision = "7e66a0f24eb1f87105987ba975c49b0462e8054f"
+source_attempt_revision = "4bfb39fc0f2ce6448959b0e7afda579db0249d9d"
+implementation = "Retain attempt 2 and repair its five stale appenv cases to the existing producers. The expected EVM Record includes configuration, owner, threshold 3 and all five fixture attestors; its EnvLines expectation is unchanged. The checkpoint test executes the real Solana writer through its work/record.json redirection. The transcript selector ends at the same redirection, and only the three writer_sha256 values change in its recorded transcripts. No deployment script, deployment fixture record or production code changes."
+transcript_provenance = "Each previous digest matches the writer at the parent of its producer recovery commit. Each current writer is byte-identical to that previous writer after substituting only the output redirection from work/record.json to record. The recorded JSON outputs and every restart, refusal and application validation assertion remain unchanged."
+prior_findings = "finding.appenv-record and finding.appenv-writers describe the historical failures now repaired under decision 3054; finding.node-dependencies was addressed by the retained attempt-2 helper installs and lockfile. Qualification of this continuation is determined only by the referenced bounded gate records."
+qualification = "evidence.build and evidence.verify reference the last build and verify entries in /out/run/gates.jsonl; those private entries name the final candidate revision, exact commands, exit codes and logs. Both must pass at the same revision."
+
+[continuation.attempt_3.case_1]
+symbol = "TestEnvLinesFromEVMRecords"
+producer_commit = "56eef2420e5504a39e9e500adf3d4aae09300bbc"
+original_fixture_commit = "1310ba291ac3007b786278dc1116f31f56bda6f4"
+producer = "services/bridge/deploy/tests/fixtures/records/ethereum.json"
+change = "Match every Record field carried by the fixture, including the configuration path relocated by producer_commit and the original owner, threshold 3 and five attestors. Preserve the exact deep comparison and EnvLines expectations."
+
+[continuation.attempt_3.case_2]
+symbol = "TestRepair_277_LegacyProducerCheckpoint"
+producer_commit = "ae16b636df1c0a3748758bd2018675b1e2681037"
+producer = "services/bridge/deploy/deploy-solana-program.sh; legacy checkpoint writer"
+change = "Extract and execute the writer ending at the work/record.json redirection before journal publication; provide the work directory and reopen that exact output. Preserve checkpoint identity, missing-version refusal and empty exporter assertions."
+
+[continuation.attempt_3.case_3]
+symbol = "TestRepairM_484_ScriptOutputToReadConfigAfterRestart"
+producer_commits = ["6198209c5bc484d021a926fb046b3664eb852b9c", "ae16b636df1c0a3748758bd2018675b1e2681037"]
+producer = "services/bridge/deploy/deploy-evm-chain.sh writer 0; services/bridge/deploy/deploy-solana-program.sh writer 1"
+change = "Bind the unchanged EVM-ready and Solana-registered recordings to the current writer text and destination; preserve real exporter, saved transport, application restart, replacement and stale-environment assertions."
+
+[continuation.attempt_3.case_4]
+symbol = "TestRepairM_484_PartialDeploymentRefusedAcrossRestart"
+producer_commits = ["6198209c5bc484d021a926fb046b3664eb852b9c", "ae16b636df1c0a3748758bd2018675b1e2681037"]
+producer = "services/bridge/deploy/deploy-evm-chain.sh writer 0; services/bridge/deploy/deploy-solana-program.sh writers 0 and 1"
+change = "Bind all three unchanged recordings to the current writer text; preserve refusal of legacy and versioned partial checkpoints across both restart iterations and the empty application configuration assertions."
+
+[continuation.attempt_3.case_5]
+symbol = "TestRepairM_484_ReadConfigValidatesEmittedNames"
+producer_commit = "ae16b636df1c0a3748758bd2018675b1e2681037"
+producer = "services/bridge/deploy/deploy-solana-program.sh writer 1"
+change = "Bind the unchanged Solana-registered recording to the current writer text; preserve all emitted-name, EIP-55 checksum and invalid-value refusal assertions."

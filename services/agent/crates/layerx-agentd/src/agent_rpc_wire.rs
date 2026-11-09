@@ -42,7 +42,6 @@ use crate::human::HumanRefusal;
 use layerx_agent_api::budget::{BudgetAuthorization, SignedBudgetMutation};
 use layerx_agent_api::error::Retriability;
 use layerx_agent_api::export::{validate_export_request, FactRef};
-use layerx_agent_api::identity::{LegacyPolicyDryRun, MAX_POLICY_INTENT_BYTES};
 use layerx_agent_api::policy::PolicyDryRunRequest;
 use layerx_agent_api::read::{FeeProjectionRequest, ReadRequest};
 
@@ -58,7 +57,8 @@ pub(crate) fn decode_wire<W: DeserializeOwned>(
     decode(request, id)
 }
 
-pub(crate) fn version_exchange(body: &[u8]) -> Result<[u8; 23], Rejection> {
+#[doc(hidden)]
+pub fn version_exchange(body: &[u8]) -> Result<[u8; 23], Rejection> {
     use layerx_agent_api::{agent_api_schema_v1, ContractVersion, Sequence, VersionResponse};
 
     let id = body
@@ -1693,10 +1693,9 @@ impl PolicyDryRunWire {
     }
 }
 
-/// The two disjoint `policy.dry_run` request shapes.
+/// The typed `policy.dry_run` request.
 pub(crate) enum PolicyDryRunShape {
     Typed(PolicyDryRunRequest),
-    Legacy(LegacyPolicyDryRun),
 }
 
 const POLICY_DRY_RUN_TYPED_KEYS: [&str; 10] = [
@@ -1712,29 +1711,6 @@ const POLICY_DRY_RUN_TYPED_KEYS: [&str; 10] = [
     "core_sequence",
 ];
 
-const POLICY_DRY_RUN_LEGACY_KEYS: [&str; 2] = ["context", "canonical_intent"];
-
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-struct LegacyPolicyDryRunWire {
-    context: SessionContextWire,
-    canonical_intent: String,
-}
-
-impl LegacyPolicyDryRunWire {
-    fn into_request(self, id: RequestId) -> Result<LegacyPolicyDryRun, Rejection> {
-        if self.canonical_intent.is_empty()
-            || self.canonical_intent.len() > MAX_POLICY_INTENT_BYTES * 2
-        {
-            return Err(malformed(id));
-        }
-        Ok(LegacyPolicyDryRun {
-            context: self.context.into_context(id)?,
-            canonical_intent: hex_bytes(&self.canonical_intent, id)?,
-        })
-    }
-}
-
 /// The single decoder of the `policy.dry_run` request.
 pub(crate) fn policy_dry_run_request(
     request: &Map<String, Value>,
@@ -1745,10 +1721,6 @@ pub(crate) fn policy_dry_run_request(
         decode_wire::<PolicyDryRunWire>(request, id)?
             .into_request(id)
             .map(PolicyDryRunShape::Typed)
-    } else if within(&POLICY_DRY_RUN_LEGACY_KEYS) {
-        decode_wire::<LegacyPolicyDryRunWire>(request, id)?
-            .into_request(id)
-            .map(PolicyDryRunShape::Legacy)
     } else {
         Err(malformed(id))
     }

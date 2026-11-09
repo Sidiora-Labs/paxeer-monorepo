@@ -1,0 +1,7 @@
+[issue.1763]
+number = 1763
+title = "[Coherence] Decision 2670 counts only literal old-path strings as references, so relative Markdown links to the moved agent matrix stay broken"
+revision = "a910fdedd579e63379ae6c2e4d4971990d28f8ad"
+verdict = "already-fixed"
+evidence = "The three inbound links at services/agent/crates/layerx-agentd/README.md:11, services/agent/sdk/COMPATIBILITY.md:8 and services/agent/README.md:57 now resolve to docs/agent/COMPATIBILITY.md:1 following commits a0cc1e345c1270bdf15888f087070d84b190fb0f and be21b9b9e53246de60834207c1df6645aad2e225, the SDK source template preserves the corrected destination at services/agent/tools/sdk-gen/templates/compatibility.md.tpl:8, and tests/ci/test_markdown_links_resolve.py:350 checks tracked Markdown pages using relative destination resolution at tests/ci/test_markdown_links_resolve.py:314 rather than literal old-path matching."
+close_comment = "The daemon README, workspace README and SDK compatibility page now link to the compatibility matrix under docs/agent, and the SDK template preserves that destination when regenerated. The Markdown link guard resolves relative destinations across the tracked first-party pages, covering inbound links as well as links inside moved documents."

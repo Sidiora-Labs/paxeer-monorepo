@@ -1,0 +1,17 @@
+[repair.22.39.160]
+base_revision = "215e9d31d2501e5207b4bb09ec9130e66ccaf154"
+gotcha = "3593"
+implementation = "Run go mod tidy in tools/paxctl with GOTOOLCHAIN=go1.26.0 and publish the resulting go.mod and go.sum dependency closure."
+toolchain = "Retain go 1.26.0 declared by tools/paxctl/go.mod; tools/paxctl/.github/workflows/release-provenance.yml installs Go from that manifest, and the tools-python workflow permits automatic toolchain selection."
+baseline_removed = "tools/deps/tests/test_go_root_checksums.py::test_go_root_nested_checksums"
+baseline_reason = "The nested module dependency closure is repaired, so the checksum test returns to the tools Python suite without a baseline deselection."
+verified_revision_source = "The final passing build and verify entries in /out/run/gates.jsonl name the verified candidate revision, exact commands, exit codes and private evidence locations; qualification requires both to pass at the same revision."
+build_evidence = "/out/run/gates.jsonl, kind=build; private output /out/logs/build-*.log"
+verify_evidence = "/out/run/gates.jsonl, kind=verify; private output /out/logs/verify-*.log"
+build_command = "go -C tools/paxctl list -mod=readonly -deps -test ./... > /dev/null"
+verify_command = "test $(grep -c tools/deps/ tests/ci/data/tools_python_suite_baseline.json) -eq 0 && python3 -m pytest -q tools/deps/tests/test_go_root_checksums.py"
+
+[case.nested_checksums]
+test = "tools/deps/tests/test_go_root_checksums.py::test_go_root_nested_checksums"
+assertion = "All four nested modules must list dependencies in read-only mode, verify their checksums and build successfully while every go.mod and go.sum remains byte-identical."
+preserved = "The existing test and all its assertions remain unchanged."

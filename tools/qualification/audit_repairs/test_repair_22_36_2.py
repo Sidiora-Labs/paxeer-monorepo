@@ -34,7 +34,6 @@ SAMPLE_ENTRIES = {
 }
 MOVED_DOCUMENTS = (
     ".gitignore",
-    ".gitkeep",
     "README.md",
     "beta-environment.md",
     "beta-resets.ics",
@@ -110,7 +109,7 @@ MOVED_SAMPLE_FILES = (
     "paid-endpoint-spring/resource.json",
     "paid-endpoint-spring/src/main/java/com/sidiora/layerx/docs/PaidApiApplication.java",
     "paid-endpoint-spring/src/main/resources/application.yaml",
-    "paid-route-next/.env",
+    "paid-route-next/.env.example",
     "paid-route-next/.gitignore",
     "paid-route-next/app/layerx/webhooks/route.js",
     "paid-route-next/app/paid/route.js",
@@ -123,7 +122,7 @@ MOVED_SAMPLE_FILES = (
     "verify-receipt-rust/Cargo.toml",
     "verify-receipt-rust/src/main.rs",
 )
-NPM_BASELINE_SHA256 = "d87be0023a876ed7dedfc5db9eb24be268dcfaa56c9f97968f50d5a15e411005"
+NPM_BASELINE_SHA256 = "a733ff574a1ef96698f6cd3a73cc3df76567d8aab8586ac615afb258c154c661"
 FENCED_CODE = re.compile(r"^(`{3,}|~{3,})[^\n]*\n.*?^\1[ \t]*$", re.M | re.S)
 MARKDOWN_LINK = re.compile(r"!?\[[^\]]*\]\(\s*(<[^>]+>|[^\s)]+)(?:\s+[^)]*)?\)")
 REFERENCE_LINK = re.compile(r"^\s{0,3}\[[^\]]+\]:\s*(<[^>]+>|\S+)", re.M)
@@ -146,10 +145,11 @@ def test_documentation_tree_and_all_thirteen_samples_moved():
     for name in MOVED_SAMPLE_FILES:
         assert (SAMPLES / name).is_file(), name
     assert not (DOCS / "samples").exists()
+    assert not (DOCS / ".gitkeep").exists()
     assert {path.name for path in SAMPLES.iterdir() if path.is_dir()} == set(SAMPLE_ENTRIES)
     for name, entry in SAMPLE_ENTRIES.items():
         assert (SAMPLES / name / entry).is_file(), (name, entry)
-    assert (SAMPLES / "paid-route-next/.env").is_file()
+    assert (SAMPLES / "paid-route-next/.env.example").is_file()
     assert (SAMPLES / "verify-receipt-rust/Cargo.lock").is_file()
     assert (SAMPLES / ".gitignore").is_file()
     published = set(subprocess.run(
@@ -164,16 +164,12 @@ def test_documentation_tree_and_all_thirteen_samples_moved():
 def test_node_workspace_entries_and_npm_lock_preserve_resolutions():
     expected = {f"services/platform/examples/samples/{name}" for name in NODE_SAMPLES}
     manifest = json.loads((ROOT / "package.json").read_text())
-    workspace = {
-        match.group(1).strip("\"'")
-        for match in re.finditer(r"^\s*-\s*(\S+)\s*$", (ROOT / "pnpm-workspace.yaml").read_text(), re.M)
-    }
+    assert manifest["packageManager"] == "npm@11.19.1"
     assert expected <= set(manifest["workspaces"])
-    assert expected <= workspace
-    assert workspace == set(manifest["workspaces"])
+    assert not (ROOT / "pnpm-workspace.yaml").exists()
+    assert not (ROOT / "pnpm-lock.yaml").exists()
     lock_bytes = (ROOT / "package-lock.json").read_bytes()
-    restored = lock_bytes.replace(b"services/platform/examples/samples", (OLD_DOCS + "/samples").encode())
-    assert hashlib.sha256(restored).hexdigest() == NPM_BASELINE_SHA256
+    assert hashlib.sha256(lock_bytes).hexdigest() == NPM_BASELINE_SHA256
     lock = json.loads(lock_bytes)
     assert lock["packages"][""]["workspaces"] == manifest["workspaces"]
     for path in expected:
@@ -282,47 +278,33 @@ def test_workspace_and_gate_consumers_resolve_the_relocated_paths():
 
 
 def test_pnpm_importers_and_registry_resolutions_match_the_npm_lock():
-    lock = (ROOT / "pnpm-lock.yaml").read_text()
-    assert "lockfileVersion: '9.0'" in lock
-    importers = lock.split("\nimporters:\n", 1)[1].split("\npackages:\n", 1)[0]
-    for name in NODE_SAMPLES:
-        relative = f"services/platform/examples/samples/{name}"
-        block = re.search(r"^  " + re.escape(relative) + r":\n(.*?)(?=^  \S|\Z)", importers, re.M | re.S)
-        assert block, relative
-        package = json.loads((ROOT / relative / "package.json").read_text())
-        for dependency, specifier in package["dependencies"].items():
-            entry = re.search(
-                r"^      ['\"]?" + re.escape(dependency) + r"['\"]?:\n"
-                r"        specifier: ([^\n]+)\n        version: ([^\n]+)", block[1], re.M,
-            )
-            assert entry, (name, dependency)
-            assert entry[1] == specifier
-            if entry[2].startswith("link:"):
-                linked = (ROOT / relative / entry[2].removeprefix("link:")).resolve()
-                assert json.loads((linked / "package.json").read_text())["name"] == dependency
-            else:
-                assert entry[2].split("(", 1)[0] == specifier
-    npm = json.loads((ROOT / "package-lock.json").read_text())["packages"]
-    expected = {
-        path.rsplit("node_modules/", 1)[1] + "@" + package["version"]: package["integrity"]
-        for path, package in npm.items() if "node_modules/" in path and not package.get("link")
-    }
-    packages = lock.split("\npackages:\n", 1)[1].split("\nsnapshots:\n", 1)[0]
-    actual = {}
-    for key, body in re.findall(r"^  ([^\n]+):\n(.*?)(?=^  \S|\Z)", packages, re.M | re.S):
-        key = key.strip("'\"")
-        if "@file:" in key:
-            package_name, directory = key.split("@file:", 1)
-            assert f"resolution: {{directory: {directory}, type: directory}}" in body
-            target = (ROOT / directory).resolve()
-            assert target.is_relative_to(ROOT)
-            manifest = json.loads((target / "package.json").read_text())
-            assert manifest["name"] == package_name
-            assert npm[directory]["name"] == package_name
-            assert npm[directory]["version"] == manifest["version"]
-            assert npm[f"node_modules/{package_name}"] == {"resolved": directory, "link": True}
-        else:
-            integrity = re.search(r"resolution: \{integrity: ([^}]+)\}", body)
-            assert integrity, key
-            actual[key] = integrity[1]
-    assert actual == expected
+    # 22.39.104 removed the unused root pnpm workspace and lock. Validate
+    # the complete npm importer graph and every registry resolution instead.
+    assert not (ROOT / "pnpm-lock.yaml").exists()
+    assert not (ROOT / "pnpm-workspace.yaml").exists()
+    root_manifest = json.loads((ROOT / "package.json").read_text())
+    lock_bytes = (ROOT / "package-lock.json").read_bytes()
+    assert hashlib.sha256(lock_bytes).hexdigest() == NPM_BASELINE_SHA256
+    lock = json.loads(lock_bytes)
+    assert lock["lockfileVersion"] == 3
+    packages = lock["packages"]
+    workspaces = root_manifest["workspaces"]
+    assert packages[""]["workspaces"] == workspaces
+    assert set(NODE_SAMPLES) <= {Path(path).name for path in workspaces}
+    for relative in ["", *workspaces]:
+        manifest = json.loads((ROOT / relative / "package.json").read_text())
+        importer = packages[relative]
+        for group in ("dependencies", "devDependencies", "optionalDependencies",
+                      "peerDependencies", "peerDependenciesMeta"):
+            assert importer.get(group, {}) == manifest.get(group, {}), (relative, group)
+        if relative:
+            assert packages[f"node_modules/{manifest['name']}"] == {
+                "resolved": relative, "link": True,
+            }
+    registry = {path: entry for path, entry in packages.items()
+                if "node_modules/" in path and not entry.get("link")}
+    assert registry
+    for path, entry in registry.items():
+        assert entry["version"], path
+        assert entry["resolved"].startswith("https://registry.npmjs.org/"), path
+        assert entry["integrity"].startswith("sha512-"), path

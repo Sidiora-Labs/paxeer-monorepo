@@ -41,6 +41,7 @@ pub use layerx_types::rung::Rung;
 
 pub mod agent_envelope;
 pub mod approval;
+pub mod inference_market;
 pub mod mirror_generated;
 pub mod native_capabilities;
 pub mod native_effect;

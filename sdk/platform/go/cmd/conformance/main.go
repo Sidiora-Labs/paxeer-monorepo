@@ -188,6 +188,20 @@ func matchVectorReceipt(c receiptVectorCase, result layerx.SequencerReceiptVerif
 		if result.Status != 0 || result.Revert == nil || result.Revert.Code != c.LXPCode {
 			return fmt.Errorf("expected receipted revert %s, got %+v", c.LXPCode, result.Revert)
 		}
+	} else if result.Status == 0 {
+		if result.Receipt.ResultCode != 1 || len(result.ReturnData) != 0 || len(result.Logs) != 0 ||
+			result.Revert != nil && (result.Revert.Code != "" || result.Revert.Reason != "" || len(result.Revert.ReturnData) != 0) {
+			return fmt.Errorf("expected preexecution refusal shape: no decoded revert, result code one, empty return data and no logs")
+		}
+		var view struct {
+			VMError string `json:"vmError"`
+		}
+		if err := json.Unmarshal(c.ReceiptJSON, &view); err != nil {
+			return fmt.Errorf("expected preexecution refusal shape: decode vmError: %w", err)
+		}
+		if view.VMError == "" {
+			return fmt.Errorf("expected preexecution refusal shape: non-empty vmError")
+		}
 	} else if result.Status != 1 || result.Revert != nil {
 		return fmt.Errorf("expected successful execution")
 	}
@@ -224,7 +238,7 @@ func runVectors(repo string) error {
 		count int
 	}{
 		{"vector-v1-receipted-positive", 5},
-		{"vector-v2-receipted-revert", 1},
+		{"vector-v2-receipted-revert", 2},
 		{"vector-v3-receipt-refusals", 6},
 	} {
 		vector, err := readJSON[struct {

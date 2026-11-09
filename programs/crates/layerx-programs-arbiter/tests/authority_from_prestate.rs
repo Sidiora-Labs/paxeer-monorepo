@@ -775,7 +775,7 @@ fn admission_evidence_verifies_under_ics23_app_hash() {
         assert_eq!(admission.state_root(), hash(entry, "state_root"));
         assert_eq!(admission.receipt_digest(), hash(entry, "receipt_digest"));
         assert_eq!(
-            layerx_wire::activity::encode_signed(admission.activity()).unwrap(),
+            layerx_wire::historical::activity::encode_signed(admission.activity()).unwrap(),
             hex(entry, "signed_activity")
         );
         let native = admission.legacy().legacy();

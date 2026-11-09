@@ -1,0 +1,50 @@
+[issue.1766]
+number = 1766
+title = "[P3] Keep the legacy explorer block counter on height after websocket updates"
+revision = "a910fdedd579e63379ae6c2e4d4971990d28f8ad"
+verdict = "task"
+evidence = "Commit 213a42d6ac000615cc3f18c660413563cc8fbe7e still initializes the counter with Chain.block_height at services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/chain_controller.ex:19, but services/explorer/backend/apps/block_scout_web/assets/js/pages/chain.js:52 computes blockNumber minus firstBlock plus one and assigns it in both notification branches at :68 and :74 before rendering at :216, so height 500 followed by block 501 becomes 402 with first_block 100 or 502 with first_block zero, contrary to decision.2659 at spec/layerx-merge/spec.kvx:9067."
+close_comment = "The legacy explorer still replaces the latest block height with an indexed-range count after a live block update. The follow-up repair will keep the counter on height for zero and nonzero indexing start blocks and preserve it when older or replacement notifications arrive."
+
+[task.18.1766.1]
+title = "Issue #1766: Preserve the legacy explorer block height across live updates"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181766.1"]
+capabilities = []
+interfaces = []
+do_1 = "Change baseReducer at services/explorer/backend/apps/block_scout_web/assets/js/pages/chain.js:50 so blockCount follows the greatest block height observed, including the initially loaded height, without subtracting the configured first block or adding one; preserve the existing insertion and replacement of block tiles at :54 and :73, and ensure delayed lower-height or same-height replacement notifications cannot decrease the counter, including while the block list is empty."
+do_2 = "Declare a named legacyBlockCounterKeepsHeight regression in services/explorer/backend/apps/block_scout_web/assets/__tests__/pages/chain.js alongside the existing RECEIVED_NEW_BLOCK cases at :46; use the actual page DOM load/render bindings at services/explorer/backend/apps/block_scout_web/assets/js/pages/chain.js:210 and the actual legacy channel callback at :336 with snake_case new_block payloads matching services/explorer/backend/apps/block_scout_web/lib/block_scout_web/channels/block_channel.ex:38, without substituting the reducer, socket or DOM bindings; expose the existing bindings from chain.js only as needed for the test."
+do_3 = "For first_block values zero and 100, assert an initial rendered counter of 500 remains 500 on load, advances to 501 on a block-501 notification, stays 501 on a duplicate or replacement at 501 and an older notification at 499, and advances again on 502; assert the visible counter and Redux state, retain replacement-tile assertions, and cover an initially empty block list receiving a notification below its loaded height."
+do_4 = "Preserve the latest-consensus-height server contract at services/explorer/backend/apps/explorer/lib/explorer/chain.ex:1322 and services/explorer/backend/apps/block_scout_web/lib/block_scout_web/templates/chain/show.html.eex:138; the configured first block remains available at services/explorer/backend/apps/block_scout_web/lib/block_scout_web/templates/layout/app.html.eex:63, and the existing controller regression at services/explorer/backend/apps/block_scout_web/test/repair/repair_22_35_9_test.exs:18 proves initial HTML only; the legacy router remains optional under services/explorer/backend/apps/block_scout_web/config/config.exs:73 and services/explorer/deploy/env/backend.example.env:115, as described by decision.2667 at spec/layerx-merge/spec.kvx:9115."
+symbols = ["baseReducer", "legacyBlockCounterKeepsHeight"]
+touches = ["services/explorer/backend/apps/block_scout_web/assets/js/pages/chain.js", "services/explorer/backend/apps/block_scout_web/assets/__tests__/pages/chain.js"]
+tests = ["services/explorer/backend/apps/block_scout_web/assets/__tests__/pages/chain.js::legacyBlockCounterKeepsHeight"]
+planned_paths = []
+build_cmd = "pnpm --dir services/explorer/backend/apps/block_scout_web/assets run build"
+verify_cmd = "pnpm --dir services/explorer/backend/apps/block_scout_web/assets exec jest --runInBand --runTestsByPath __tests__/pages/chain.js"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181766]
+title = "The legacy explorer counter keeps the latest observed consensus height after live updates"
+ac_1 = "Given server-rendered height 500 loaded through services/explorer/backend/apps/block_scout_web/assets/js/pages/chain.js:210 with first_block zero or 100 from services/explorer/backend/apps/block_scout_web/lib/block_scout_web/templates/layout/app.html.eex:63, when the legacy new_block callback at services/explorer/backend/apps/block_scout_web/assets/js/pages/chain.js:336 receives block 501, then state and the visible counter become 501, remain 501 after same-height replacements or older notifications even before the block list loads, and advance to 502 after block 502 while block tile replacement remains functional."
+
+[acceptance.18.1766.1]
+feature = "18"
+req = "181766.1"
+scenario = "Given the enabled legacy explorer page initially showing height 500 and an indexing start block of zero or 100, when live block 501, replacement block 501, older block 499 and live block 502 arrive, then the counter displays 501, 501, 501 and 502 respectively and replacement block tiles still update; an older notification before the block list loads preserves the initial height."
+contract = "contracts/explorer-frontend.md#pages"
+test = "services/explorer/backend/apps/block_scout_web/assets/__tests__/pages/chain.js::legacyBlockCounterKeepsHeight (planned)"
+qualification = "UNRUN"

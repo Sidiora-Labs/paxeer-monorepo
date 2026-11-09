@@ -747,7 +747,7 @@ fn rate_evidence() -> Vec<AuthenticatedTimeWindowUse> {
     let registration = ModuleRegistration::new(ModuleId::Bridge, &[kind]).unwrap();
     let registry = ModuleRegistry::new(&[registration]).unwrap();
     let activity = read("activity");
-    layerx_wire::activity::decode_signed(&activity, &registry).unwrap();
+    layerx_wire::historical::activity::decode_signed(&activity, &registry).unwrap();
     let receipt = RawReceiptEvidence::new(
         read("credit.receipt"),
         layerx_proof::merkle::decode_proof(&read("receipt.proof")).unwrap(),

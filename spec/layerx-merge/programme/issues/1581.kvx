@@ -1,0 +1,7 @@
+[issue.1581]
+number = 1581
+title = "[P2] Update retained Python lifecycle tests for receipt verification arguments"
+revision = "bb8caac8b3e73e3e2f4b330805574f0bcb540641"
+verdict = "already-fixed"
+evidence = "Commit b9feda9b3ad955cdbeaf3efdb7d4592f67f6bd1e supplies the required arguments: tests/agent/sdk/python/test_program_lifecycle.py:73 reads the producer receipt vector, :78 constructs its pinned receipt keys, :83 supplies signed_activity and receipt_keys to verify_lifecycle_recovery, and :113 supplies receipt_keys to resolve_lifecycle_response, matching services/agent/sdk/python/layerx_sdk/programs.py:197 and :213 while preserving the ValueError/PlatformSdkError assertion at tests/agent/sdk/python/test_program_lifecycle.py:82 and the unknown-outcome assertion at :113."
+close_comment = "The retained lifecycle tests now supply the signed transaction and pinned receipt keys required by receipt verification. The binding and refusal assertions remain in place, and the recovery exception catch has not been broadened."

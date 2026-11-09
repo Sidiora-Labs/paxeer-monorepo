@@ -104,6 +104,7 @@ def test_readme_chain_125_probe_and_api1_through_api14_use_root_json_rpc():
     assert {url.hostname for url in rpc_urls} == {
         "api-mainnet-beta.paxeer.network",
         "api1.mainnet-beta.paxeer.network",
+        "api2.mainnet-beta.paxeer.network",
         "api14.mainnet-beta.paxeer.network",
     }
     assert all(url.scheme == "https" and url.path in ("", "/") for url in rpc_urls)
@@ -189,7 +190,7 @@ def test_readme_build_and_upgrade_guidance_use_merged_paxd():
     ):
         assert fact in build, fact
     makefile = source("Makefile")
-    assert "\npaxd-native-libs: $(LIBRARY) programs-release-build\n" in makefile
+    assert "\npaxd-native-libs: $(LIBRARY) programs-release-build evmone-lib\n" in makefile
     assert "\npaxd-build: paxd-native-libs\n" in makefile
     assert "-o ./build/paxd ./daemon/paxd" in source("chain.mk")
     release = section("Releases and Network Upgrades")
@@ -211,7 +212,7 @@ def test_readme_hosted_px_methods_follow_the_gateway_openrpc_contract():
         "gateway contract does not establish method availability at public node URLs",
         "`px_getReceiptKeys` is registered by the node",
         "gateway relays its governed key ranges",
-        "Use each server's declared methods",
+        "`px_register` and `px_requestFunds` are operations of the hosted identity and faucet services",
     ):
         assert fact in quickstart, fact
     contract = json.loads(source(contract_path))

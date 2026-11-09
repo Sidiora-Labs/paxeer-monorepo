@@ -204,7 +204,7 @@ def test_root_network_overview_uses_supported_paxd_startup():
     assert "operator-provided genesis and consensus chain identifier" in build
     assert "running network entry point is `paxd`" in build
     makefile = source("Makefile")
-    assert re.search(r"^paxd-native-libs: \$\(LIBRARY\) programs-release-build$", makefile, re.M)
+    assert re.search(r"^paxd-native-libs: \$\(LIBRARY\) programs-release-build evmone-lib$", makefile, re.M)
     assert re.search(r"^paxd-build: paxd-native-libs$", makefile, re.M)
     assert "build/liblayerx.a" in build
     assert "programs/target/release/liblayerx_programs_sandbox.a" in build
