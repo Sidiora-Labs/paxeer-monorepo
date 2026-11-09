@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import type { DailyPnl } from '../src/hooks/perps/useDailyPnl';
+import type { AssetsTimeRange } from '../src/widgets/portfolio/PortfolioAssetsChart';
 
 process.env.NEXT_PUBLIC_PERPS_GATEWAY_URL ??= 'https://perps-gateway.invalid';
 
@@ -49,6 +50,117 @@ test('emptyWindowIsNoDataNotZero', async () => {
   assert.equal((html.match(/No data yet/g) ?? []).length, 4);
   assert.doesNotMatch(html, /\$0\.00/);
 });
+
+async function assetsCalendarWindowsMatchPerformance() {
+  const grid = await import('../src/widgets/portfolio/PortfolioPerformanceGrid');
+  const { buildAssetSeries, PortfolioAssetsChart } = await import('../src/widgets/portfolio/PortfolioAssetsChart');
+  const stale = [day('2026-01-02', '2000000000000000000'), day('2026-01-01')];
+  assert.deepEqual(buildAssetSeries(stale, 100, '7D', NOW), []);
+  const allStale = [
+    { date: '01-01', value: 98 },
+    { date: '01-02', value: 100 },
+  ];
+  assert.deepEqual(buildAssetSeries(stale, 100, 'ALL', NOW), allStale);
+  assert.deepEqual(
+    buildAssetSeries(stale, 100, 'ALL', NOW).map(point => point.date),
+    grid.sliceByRange(stale, 'ALL', NOW).map(row => row.date.slice(5, 10)),
+  );
+
+  const midnight = new Date('2026-10-22T00:00:00Z');
+  const cases: Array<{
+    range: Exclude<AssetsTimeRange, 'ALL'>;
+    before: string;
+    expected: string[];
+    rolled: string[];
+  }> = [
+    {
+      range: '7D',
+      before: '2026-10-14',
+      expected: ['2026-10-15', '2026-10-16', '2026-10-21'],
+      rolled: ['2026-10-16', '2026-10-21'],
+    },
+    {
+      range: '30D',
+      before: '2026-09-21',
+      expected: ['2026-09-22', '2026-09-23', '2026-10-21'],
+      rolled: ['2026-09-23', '2026-10-21'],
+    },
+    {
+      range: '90D',
+      before: '2026-07-23',
+      expected: ['2026-07-24', '2026-07-25', '2026-10-21'],
+      rolled: ['2026-07-25', '2026-10-21'],
+    },
+  ];
+  for (const { range, before, expected, rolled } of cases) {
+    const rows = [
+      day('2026-10-21'),
+      day(`${expected[1]}T00:00:00Z`),
+      day(before, '1000000000000000000000'),
+      day(`${expected[0]}T23:59:00Z`),
+    ];
+    const original = rows.map(row => ({ ...row }));
+    const assets = buildAssetSeries(rows, 100, range, NOW);
+    const performance = grid.sliceByRange(rows, range, NOW);
+    assert.deepEqual(performance.map(row => row.date.slice(0, 10)), expected, range);
+    assert.deepEqual(assets.map(point => point.date), expected.map(date => date.slice(5)), range);
+    assert.deepEqual(assets.map(point => point.date), performance.map(row => row.date.slice(5, 10)), range);
+    assert.deepEqual(assets.map(point => point.value), [98, 99, 100], range);
+
+    const rolledAssets = buildAssetSeries(rows, 100, range, midnight);
+    const rolledPerformance = grid.sliceByRange(rows, range, midnight);
+    assert.deepEqual(rolledPerformance.map(row => row.date.slice(0, 10)), rolled, range);
+    assert.deepEqual(rolledAssets.map(point => point.date), rolled.map(date => date.slice(5)), range);
+    assert.deepEqual(rolledAssets.map(point => point.date), rolledPerformance.map(row => row.date.slice(5, 10)), range);
+    assert.deepEqual(rolledAssets.map(point => point.value), [99, 100], range);
+    assert.deepEqual(rows, original, 'window selection preserves the supplied history');
+    assert.deepEqual(buildAssetSeries(stale, 100, range, NOW), [], range);
+  }
+  assert.deepEqual(buildAssetSeries(stale, 100, 'ALL', midnight), allStale);
+  assert.deepEqual(buildAssetSeries([], 100, '7D', NOW), []);
+  const today = new Date().toISOString().slice(0, 10);
+  assert.deepEqual(buildAssetSeries([day(today)], 123.45, '7D'), [
+    { date: today.slice(5), value: 123.45 },
+  ]);
+
+  const large = 10n ** 40n;
+  const exactRows = [
+    day('2026-10-21', large.toString()),
+    day('2026-10-15', '0'),
+    day('2026-10-20'),
+    day('2026-10-17', (-large).toString()),
+  ];
+  const exactSeries = [
+    { date: '10-15', value: 99 },
+    { date: '10-17', value: 0 },
+    { date: '10-20', value: 0 },
+    { date: '10-21', value: 100 },
+  ];
+  for (const range of ['7D', '30D', '90D', 'ALL'] as const) {
+    assert.deepEqual(buildAssetSeries(exactRows, 100, range, NOW), exactSeries, range);
+  }
+
+  const capped = renderToStaticMarkup(createElement(PortfolioAssetsChart, {
+    dailyPnl: stale, totalVaultUsd: 100, historyCapped: true, skippedDays: 2, range: 'ALL',
+  }));
+  assert.match(capped, /<option value="ALL" selected="">Last 90 active days<\/option>/);
+  assert.match(capped, /History limited to the last 90 active days/);
+  assert.match(capped, /2 days skipped: incomplete values/);
+  assert.match(capped, /PnL-only estimate/);
+  assert.match(capped, /excludes deposits and withdrawals/);
+  const uncapped = renderToStaticMarkup(createElement(PortfolioAssetsChart, {
+    dailyPnl: stale, totalVaultUsd: 100, range: 'ALL',
+  }));
+  assert.match(uncapped, /<option value="ALL" selected="">ALL<\/option>/);
+  assert.doesNotMatch(uncapped, /History limited|days skipped/);
+  assert.match(uncapped, /PnL-only estimate/);
+  assert.match(uncapped, /excludes deposits and withdrawals/);
+  const skippedDay = renderToStaticMarkup(createElement(PortfolioAssetsChart, {
+    dailyPnl: stale, totalVaultUsd: 100, skippedDays: 1, range: 'ALL',
+  }));
+  assert.match(skippedDay, /1 day skipped: incomplete values/);
+}
+test(assetsCalendarWindowsMatchPerformance);
 
 test('bigintSumsDoNotDriftAbove2pow53Wei', async () => {
   const grid = await import('../src/widgets/portfolio/PortfolioPerformanceGrid');
