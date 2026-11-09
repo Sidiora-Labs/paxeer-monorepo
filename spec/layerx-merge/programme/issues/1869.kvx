@@ -1,0 +1,7 @@
+[issue.1869]
+number = 1869
+title = "[Coherence] The new workflow test pins the six-name baseline, but neither task that retires those entries is allowed to touch it, so each retirement turns the Python CI job red"
+revision = "3520b1428059af90261432778c008a9ce362a0b1"
+verdict = "already-fixed"
+evidence = "Commit 9de1de1c04e15943e7f8e77e85b8f7dffb6d2bb8 replaced the six-name assertions with the empty-baseline and no-skip checks now at tests/ci/test_node_build_workflow_scope.py:28 and tests/ci/test_node_build_workflow_scope.py:29, matching tests/ci/data/node_go_test_baseline.json:4 and the full node command at .github/workflows/node-build.yml:122; both completed retirement tasks include the Python file and its verification at spec/layerx-merge/spec.kvx:216526, spec/layerx-merge/spec.kvx:216530, spec/layerx-merge/spec.kvx:216298 and spec/layerx-merge/spec.kvx:216302, while the later retirement explicitly preserves the empty baseline at node/repair_22_39_155.kvx:25 and node/repair_22_39_155.kvx:29, so Makefile:268 collecting tests/ci no longer encounters the reported six-name requirement."
+close_comment = "The six skipped cases have been retired, and the node workflow now runs the full package suite without exclusions. The Python workflow checks require the empty baseline and absence of a skip flag, and both retirement tasks include those checks in their scope and verification."
