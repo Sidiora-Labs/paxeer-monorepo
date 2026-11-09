@@ -1,5 +1,5 @@
 //! Audit 22.30.96: real RPC consumers over loopback HTTP and committed producer records.
-//! Closure status and external wiring requests live in rpc/repair_22_33_1545.kvx.
+//! Closure status and external wiring requests live in `rpc/repair_22_33_1545.kvx`.
 #[path = "support/gateway_22_33_1546.rs"]
 mod gateway;
 
@@ -31,10 +31,13 @@ fn bytes(text: &str) -> Vec<u8> {
 }
 
 fn hex(value: &[u8]) -> String {
-    format!(
-        "0x{}",
-        value.iter().map(|v| format!("{v:02x}")).collect::<String>()
-    )
+    use std::fmt::Write as _;
+    let mut text = String::with_capacity(2 + value.len() * 2);
+    text.push_str("0x");
+    for byte in value {
+        let _ = write!(text, "{byte:02x}");
+    }
+    text
 }
 
 #[test]
@@ -46,30 +49,48 @@ fn f26_registered_history_preserves_gateway_observations_without_batch_proof_aut
 fn f28_committed_context_requires_verified_node_evidence_and_keeps_sequence_separate() {
     let record = node_record()["storage"].clone();
     let verifier = ChainProofVerifier {
-        chain_id: record["material"]["signedHeader"]["header"]["chain_id"]
-            .as_str()
-            .expect("chain id")
-            .to_owned(),
+        chain_id: (match record["material"]["signedHeader"]["header"]["chain_id"].as_str() {
+            Some(required_value) => required_value,
+            None => panic!("chain id"),
+        })
+        .to_owned(),
         validators: must(decode_validators(&record["validators"])),
     };
-    let height = record["height"].as_u64().expect("height");
-    let expected_hash: [u8; 32] = must(bytes(record["hash"].as_str().expect("hash")).try_into());
-    let expected_root: [u8; 32] = must(bytes(record["appHash"].as_str().expect("root")).try_into());
-    let served = record.clone();
+    let Some(height) = record["height"].as_u64() else {
+        panic!("height")
+    };
+    let expected_hash: [u8; 32] = must(
+        bytes(match record["hash"].as_str() {
+            Some(required_value) => required_value,
+            None => panic!("hash"),
+        })
+        .try_into(),
+    );
+    let expected_root: [u8; 32] = must(
+        bytes(match record["appHash"].as_str() {
+            Some(required_value) => required_value,
+            None => panic!("root"),
+        })
+        .try_into(),
+    );
+    let response_body = record.clone();
     let server = Server::start(move |r| {
         assert_eq!(r["params"], json!([height.to_string()]));
-        match r["method"].as_str().expect("method") {
-            "px_getCommit" => json!({"result":served["material"]}),
-            "px_getValidators" => json!({"result":served["validators"]}),
+        match match r["method"].as_str() {
+            Some(required_value) => required_value,
+            None => panic!("method"),
+        } {
+            "px_getCommit" => json!({"result":response_body["material"]}),
+            "px_getValidators" => json!({"result":response_body["validators"]}),
             method => panic!("unexpected {method}"),
         }
     });
-    let verified = must(acquire_committed_header(
+    let head = must(acquire_committed_header(
         &server.sequencer(),
         height,
         &verifier,
     ));
-    let context = must(CommittedBlockContext::from_verified(&verified));
+    let context = must(CommittedBlockContext::from_verified(&head));
     let compatibility: Head = ObservedBlockContext::new(context, 7);
     assert_eq!(compatibility.committed(), context);
     assert_eq!(compatibility.observed_sequence(), 7);
@@ -98,10 +119,15 @@ fn f28_committed_context_requires_verified_node_evidence_and_keeps_sequence_sepa
             damaged["material"]["signedHeader"]["commit"]["signatures"][0]["signature"] =
                 json!("A".repeat(88));
         }
-        let server = Server::start(move |r| match r["method"].as_str().expect("method") {
-            "px_getCommit" => json!({"result":damaged["material"]}),
-            "px_getValidators" => json!({"result":damaged["validators"]}),
-            method => panic!("unexpected {method}"),
+        let server = Server::start(move |r| {
+            match match r["method"].as_str() {
+                Some(required_value) => required_value,
+                None => panic!("method"),
+            } {
+                "px_getCommit" => json!({"result":damaged["material"]}),
+                "px_getValidators" => json!({"result":damaged["validators"]}),
+                method => panic!("unexpected {method}"),
+            }
         });
         assert!(
             acquire_committed_header(&server.sequencer(), height, &verifier).is_err(),
@@ -125,8 +151,8 @@ fn f27_payments_keep_flat_gateway_metadata_and_node_gas_estimates() {
         assert_eq!(
             r["params"],
             json!([{
-            "from":hex(&expected.from.expect("sender")),
-            "to":hex(&expected.to.expect("target")),
+            "from":hex(&match expected.from { Some(required_value) => required_value, None => panic!("sender") }),
+            "to":hex(&match expected.to { Some(required_value) => required_value, None => panic!("target") }),
             "value":"0x7", "data":hex(&expected.data)
         }, "pending"])
         );
@@ -136,7 +162,7 @@ fn f27_payments_keep_flat_gateway_metadata_and_node_gas_estimates() {
         must(payments::estimate_fee(&server.sequencer(), &call)),
         FeeEstimate {
             parameter_version: 0,
-            fee: 0x12345,
+            fee: 0x1_2345,
             canonical_schedule: vec![],
         }
     );
@@ -150,53 +176,36 @@ fn custody_vectors() -> Value {
 }
 
 fn custody_server(native: Value, table: Value, gas: Value) -> Server {
-    Server::start(move |r| match r["method"].as_str().expect("method") {
-        "eth_estimateGas" => gas.clone(),
-        "px_listAssets" => {
-            assert_eq!(r["params"], json!([]));
-            json!({"result":table})
-        }
-        "eth_call" => {
-            let selector = &transaction_hash(b"getAsset(bytes32)")[..4];
-            let data = [selector, &[0x11; 32]].concat();
-            assert_eq!(
-                r["params"],
-                json!([{
+    Server::start(move |r| {
+        match match r["method"].as_str() {
+            Some(required_value) => required_value,
+            None => panic!("method"),
+        } {
+            "eth_estimateGas" => gas.clone(),
+            "px_listAssets" => {
+                assert_eq!(r["params"], json!([]));
+                json!({"result":table})
+            }
+            "eth_call" => {
+                let selector = &transaction_hash(b"getAsset(bytes32)")[..4];
+                let data = [selector, &[0x11; 32]].concat();
+                assert_eq!(
+                    r["params"],
+                    json!([{
                 "to":"0x0000000000000000000000000000000000001013",
                 "data":hex(&data)
             },"0x10"])
-            );
-            native.clone()
+                );
+                native.clone()
+            }
+            method => panic!("unexpected {method}"),
         }
-        method => panic!("unexpected {method}"),
     })
 }
 
 #[test]
 fn f29_native_configuration_codec_drives_eligibility_and_every_refusal() {
-    // These ABI vectors cover the client codec; they do not claim a live merged producer.
-    let abi: Value = must(serde_json::from_str(include_str!(
-        "../../../../../precompiles/layerxcustody/abi.json"
-    )));
-    let method = abi
-        .as_array()
-        .expect("ABI")
-        .iter()
-        .find(|m| m["name"] == "getAsset")
-        .expect("getAsset");
-    let fields = method["outputs"][0]["components"]
-        .as_array()
-        .expect("tuple fields");
-    assert_eq!(
-        fields
-            .iter()
-            .map(|f| f["type"].as_str().expect("type"))
-            .collect::<Vec<_>>(),
-        vec![
-            "bytes32", "string", "address", "bool", "bool", "uint256", "uint256", "uint256",
-            "uint256", "uint256"
-        ]
-    );
+    assert_custody_abi();
     let vectors = custody_vectors();
     let table = gateway::records()["assets"].clone();
     let call = CallRequest::default();
@@ -229,35 +238,7 @@ fn f29_native_configuration_codec_drives_eligibility_and_every_refusal() {
         );
         assert_eq!(server.count(), 3);
     }
-    let eligible = bytes(vectors["eligible"].as_str().expect("vector"));
-    let mut malformed = vec![eligible[..eligible.len() - 1].to_vec()];
-    for (offset, value) in [
-        (31, 64),
-        (95, 0),
-        (96, 1),
-        (159, 2),
-        (191, 2),
-        (383, 0),
-        (415, 1),
-    ] {
-        let mut bad = eligible.clone();
-        bad[offset] = value;
-        malformed.push(bad);
-    }
-    let mut trailing = eligible.clone();
-    trailing.extend_from_slice(&[0; 32]);
-    malformed.push(trailing);
-    for bad in malformed {
-        let server = custody_server(
-            json!({"result":hex(&bad)}),
-            table.clone(),
-            json!({"result":"0x5208"}),
-        );
-        assert_eq!(
-            registry(&server.sequencer(), &call, &server.px(), [0x11; 32]),
-            Err(WithdrawalConfigurationError::Unavailable)
-        );
-    }
+    refuse_malformed_custody(&vectors, &table, &call);
     let server = custody_server(
         json!({"error":{"code":3,"message":"execution reverted: LXP_MODULE_DISABLED: module disabled; layerxCustody retired"}}),
         table.clone(),
@@ -268,7 +249,7 @@ fn f29_native_configuration_codec_drives_eligibility_and_every_refusal() {
         Err(WithdrawalConfigurationError::Unsupported)
     );
     let server = custody_server(
-        json!({"error":{"code":-32000,"message":"historical state unavailable"}}),
+        json!({"error":{"code":-32_000,"message":"historical state unavailable"}}),
         table.clone(),
         json!({"result":"0x5208"}),
     );
@@ -322,4 +303,68 @@ fn f29_native_configuration_codec_drives_eligibility_and_every_refusal() {
         Err(WithdrawalConfigurationError::Unavailable)
     );
     assert_eq!(server.count(), 1);
+}
+
+fn assert_custody_abi() {
+    // These ABI vectors cover the client codec; they do not claim a live merged producer.
+    let abi: Value = must(serde_json::from_str(include_str!(
+        "../../../../../precompiles/layerxcustody/abi.json"
+    )));
+    let Some(methods) = abi.as_array() else {
+        panic!("ABI")
+    };
+    let Some(method) = methods.iter().find(|method| method["name"] == "getAsset") else {
+        panic!("getAsset")
+    };
+    let Some(fields) = method["outputs"][0]["components"].as_array() else {
+        panic!("tuple fields")
+    };
+    assert_eq!(
+        fields
+            .iter()
+            .map(|f| match f["type"].as_str() {
+                Some(required_value) => required_value,
+                None => panic!("type"),
+            })
+            .collect::<Vec<_>>(),
+        vec![
+            "bytes32", "string", "address", "bool", "bool", "uint256", "uint256", "uint256",
+            "uint256", "uint256"
+        ]
+    );
+}
+
+fn refuse_malformed_custody(vectors: &Value, table: &Value, call: &CallRequest) {
+    let eligible = bytes(match vectors["eligible"].as_str() {
+        Some(required_value) => required_value,
+        None => panic!("vector"),
+    });
+    let mut malformed = vec![eligible[..eligible.len() - 1].to_vec()];
+    for (offset, value) in [
+        (31, 64),
+        (95, 0),
+        (96, 1),
+        (159, 2),
+        (191, 2),
+        (383, 0),
+        (415, 1),
+    ] {
+        let mut bad = eligible.clone();
+        bad[offset] = value;
+        malformed.push(bad);
+    }
+    let mut trailing = eligible.clone();
+    trailing.extend_from_slice(&[0; 32]);
+    malformed.push(trailing);
+    for bad in malformed {
+        let server = custody_server(
+            json!({"result":hex(&bad)}),
+            table.clone(),
+            json!({"result":"0x5208"}),
+        );
+        assert_eq!(
+            registry(&server.sequencer(), call, &server.px(), [0x11; 32]),
+            Err(WithdrawalConfigurationError::Unavailable)
+        );
+    }
 }

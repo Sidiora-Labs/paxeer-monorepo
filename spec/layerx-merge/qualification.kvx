@@ -38370,3 +38370,171 @@ symbol = "4_3.py::test_host_checkpoint_submission_and_reopen"
 observed = "Attempt 6 at 7f9a26b43f24: build exit 0; verification exit 1: AUTH_SCOPE_DENIED at enrollment.js:159 persists and native_source_product_actor.mjs is unchanged against attempt 5; log /out/logs/verify-2.log."
 assumption = "The instruction was never applied."
 severity = "high"
+
+[finding.22.39.235.3]
+task = "22.39.235"
+file = "programs/crates/layerx-programs-runtime"
+symbol = "layerx-programs-runtime"
+observed = "Attempt 3 at f3d4852c64d5: build exit 0; verification exit 101 in cycle 2: clippy -D warnings reports thirteen missing backticks, five unwrap_err on Result, one redundant closure and one needless borrow in the test targets; the session reached its working-time limit; log /out/logs/verify-2.log."
+assumption = "The twenty sites are the last lints of the crate and its test targets."
+severity = "high"
+
+[finding.22.39.168.3]
+task = "22.39.168"
+file = "services/launchpad/ranking-algo"
+symbol = "ranking-algo"
+observed = "Attempt 3 at 0ca51cadc0a4: build exit 0; no verification ran; the session log shows the module download and 429 reconnects for hours until the working-time limit; log /out/logs/build-1.log."
+assumption = "The model session stalled; the task stands as ruled for attempt 3."
+severity = "high"
+
+[finding.18.1717.1.6]
+task = "18.1717.1"
+file = "apps/explorer/ui/shared/layout/LayoutSearchResults.spec.tsx::searchResultsRoutesKeepOneHeaderAndLiveSearch"
+symbol = "LayoutSearchResults.spec.tsx::searchResultsRoutesKeepOneHeaderAndLiveSearch"
+observed = "Attempt 6 at 6b410c64589a: build pnpm --dir apps/explorer exec tsc --noEmit exit 1 with ERR_PNPM_OTHER_PM_EXPECTED (the package pins yarn 1.22.22); no verification ran; log /out/logs/build-1.log."
+assumption = "The yarn form of the commands builds and runs the case in the qualification environment."
+severity = "high"
+
+[finding.22.39.243.1]
+task = "22.39.243"
+file = "tools/platform/release/src/main.rs"
+symbol = "main.rs"
+observed = "Attempt 1 at 9c5a04a11157: build exit 0; verification exit 1: layerx-platform-release --check refuses job publish-crates-io must run under the release condition; the registries test binary did not run; log /out/logs/verify-1.log."
+assumption = "The guarded condition of 22.39.98 is accepted and the registries test binary then runs."
+severity = "high"
+
+[finding.22.39.117.12]
+task = "22.39.117"
+file = "sdk/launchpad/shared/chain::TestPhase2ReadAdapterRealRegisteredPool"
+symbol = "chain::TestPhase2ReadAdapterRealRegisteredPool"
+observed = "Attempt 12 at ef16d9ebde7a: build exit 0; verification exit 2: TestProductionStreamRelayPublishesCommittedFrames fails at stream_relay_production_test.go:107 because CORE_API_TEST_NATS_URL is not set; the shared packages passed; log /out/logs/verify-1.log."
+assumption = "The broker binary of the qualification environment serves the relay case as it serves the driver cases."
+severity = "high"
+
+[finding.18.1632.1.6]
+task = "18.1632.1"
+file = "rpc/px_node_root_history_test.go::TestPxNodeRoot_History_ExplorerImportedRows"
+symbol = "px_node_root_history_test.go::TestPxNodeRoot_History_ExplorerImportedRows"
+observed = "Attempt 6 at 8f5ff0492f78: build exit 0; verification exit 1: the four px_getUnifiedHistory subcases fail with result.accounts exceeds maxItems against the document; log /out/logs/verify-1.log."
+assumption = "The node composes at most sixteen accounts and the document allows them."
+severity = "high"
+
+[finding.18.1747.1.7]
+task = "18.1747.1"
+file = "services/human/crates/layerx-human-service/tests/repair_22_33_63.rs::native_approval_clock_units"
+symbol = "repair_22_33_63.rs::native_approval_clock_units"
+observed = "Attempt 7 at c6af26c33f1e: build exit 0; verification exit 101: native_producer_clock_units panics at repair_22_33_63.rs:2218 (eight-byte ACCOUNT_SEQUENCE payload read as nine) and native_approval_clock_units at :2348 (sixty-four-byte consent signature converted to sixty-five); log /out/logs/verify-1.log."
+assumption = "The two frames are the last production mismatches between the runtime and the daemon on these journeys."
+severity = "high"
+
+[finding.18.1752.1.4]
+task = "18.1752.1"
+file = "services/agent/crates/layerx-agentd/tests/issue_1752.rs::state_export_owner_rpc_retains_and_recovers_witnesses"
+symbol = "issue_1752.rs::state_export_owner_rpc_retains_and_recovers_witnesses"
+observed = "Attempt 4 at f0d3af66aebc: build exit 0; verification exit 101: the first altered-evidence request is refused at retain_committed_receipt with Binding fact 0 before any eth_getProof call, failing the witness refusal stage assertion at issue_1752.rs:903; log /out/logs/verify-1.log."
+assumption = "The native reader bundle and the export verifier disagree on the checkpoint height and the inclusion encoding."
+severity = "high"
+
+[finding.18.1667.1.6]
+task = "18.1667.1"
+file = "daemon/committed-fixture/main_test.go::TestRecorderV6GenesisSelection"
+symbol = "main_test.go::TestRecorderV6GenesisSelection"
+observed = "Attempt 6 at 497c7e485910: build exit 0; verification exit 1: TestRecorderAllSelectedV6Executes fails at main_test.go:240 with V1 Programs deployment reverted (submit protocol 3, activity 0x00090001, ABI 1) and an undecoded Error string payload; log /out/logs/verify-2.log."
+assumption = "The deploy now reaches the programs module and fails a precondition the unit case satisfies by writing the store."
+severity = "high"
+
+[finding.18.1724.1.6]
+task = "18.1724.1"
+file = "node/sequencer/receipt_equality_test.go::TestCurrentReceiptRestartFixture"
+symbol = "receipt_equality_test.go::TestCurrentReceiptRestartFixture"
+observed = "Attempt 6 at 8618a1863e6e: build exit 0; verification exit 1: TestCurrentReceiptRestartFixture fails at receipt_equality_test.go:422 with LXP_ERR_CONTEXT_MISMATCH for activity 0x30001 at height 2 after the facts were aligned by hand; log /out/logs/verify-2.log."
+assumption = "The keeper path of the passing case supplies the facts the kernel context check expects."
+severity = "high"
+
+[finding.18.1749.1.5]
+task = "18.1749.1"
+file = "programs/crates/layerx-programs-ai-market/tests/rewards_native.rs::reward_reopen_preserves_recipient_balances"
+symbol = "rewards_native.rs::reward_reopen_preserves_recipient_balances"
+observed = "Attempt 5 at d6bc790807e3: build exit 0; verification exit 101: reward_reopen_preserves_recipient_balances fails at BeginAggregation with CPU 1,000,009 above the 1,000,000 cap; log /out/logs/verify-1.log."
+assumption = "The cap repair of 22.33.223 removes the last failure of the case."
+severity = "high"
+
+[finding.18.1823.1.6]
+task = "18.1823.1"
+file = "tests/ci/test_frontend_asset_names.py::test_launchpad_docker_chart_declarations"
+symbol = "test_frontend_asset_names.py::test_launchpad_docker_chart_declarations"
+observed = "Attempt 6 at f936ca678ab0: the docker build exits 1 in the type check with Cannot find module precompiles/launchpad/abi/FeesRouter.json; no verification ran; log /out/logs/build-1.log."
+assumption = "The build stage lacks only the ABI directory the app imports."
+severity = "high"
+
+[finding.22.39.242.2]
+task = "22.39.242"
+file = "services/launchpad/indexer/internal/receipt/testdata/repair53-producer.json"
+symbol = "repair53-producer.json"
+observed = "Attempt 2 at 9c481226fbc1: build exit 0; verification exit 1: six cases fail with receipt qualification rejected because the restored obsolete identities of the role epochs fail the identity check at rpc.go:716; log /out/logs/verify-1.log."
+assumption = "The qualification admits the obsolete identity only through the supplemental list."
+severity = "high"
+
+[finding.22.39.243.2]
+task = "22.39.243"
+file = "tools/platform/release/src/main.rs"
+symbol = "main.rs"
+observed = "Attempt 2 at 6a87c6bbad14: build exit 0; verification exit 1: the registry check refuses job release-verification must run under the release condition before the registries binary runs; log /out/logs/verify-1.log."
+assumption = "The verification job condition on main is the last form the checker refuses."
+severity = "high"
+
+[finding.18.1772.1.7]
+task = "18.1772.1"
+file = "tools/hyperfide/tests/hyperfide/cases/source_control/4_3.py::test_host_checkpoint_submission_and_reopen"
+symbol = "4_3.py::test_host_checkpoint_submission_and_reopen"
+observed = "Attempt 7 at 1ac80304421c: build exit 0; verification exit 1 in cycle 2: the browser case times out on the disabled Inspect assignment button after the host checkpoint, the reopen and the stale-evidence checks pass; log /out/logs/verify-2.log."
+assumption = "The button is disabled by a pending operation or an empty assignment the step does not wait for."
+severity = "high"
+
+[finding.18.1777.1.5]
+task = "18.1777.1"
+file = "services/agent/crates/layerx-agentd/src/main.rs::inference_availability_tests::inference_availability_uses_gateway_credentials"
+symbol = "main.rs::inference_availability_tests::inference_availability_uses_gateway_credentials"
+observed = "Attempt 5 at 69d00e492695: build exit 0; the dependents check exits 7 on E0063 in services/platform/hosted/gateway/tests/repair_22_33_1336.rs:28 before the verification; log /out/logs/dependents-1.log."
+assumption = "The dependent target is the only failure in the path of the attempt."
+severity = "high"
+
+[finding.22.39.235.4]
+task = "22.39.235"
+file = "programs/crates/layerx-programs-runtime"
+symbol = "layerx-programs-runtime"
+observed = "Attempt 4 at 717742d6533d: build exit 0; the dependents check exits 7 on E0063 in services/platform/hosted/gateway/tests/repair_22_33_1336.rs:28 before the verification; log /out/logs/dependents-1.log."
+assumption = "The dependent target is the only failure in the path of the attempt."
+severity = "high"
+
+[finding.22.39.225.6]
+task = "22.39.225"
+file = "services/agent/crates/layerx-sdk"
+symbol = "layerx-sdk"
+observed = "Attempt 6 at b84be16d823c: build exit 0 and the dependents pass; verification exit 101 in cycle 2: seventy-four clippy errors remain in the SDK test targets, forty-two in sources included from the agent daemon tests; log /out/logs/verify-2.log."
+assumption = "The include brings the daemon test sources into the SDK lint scope and the rest are ordinary sites."
+severity = "high"
+
+[finding.18.1791.1.1]
+task = "18.1791.1"
+file = "tools/qualification/audit_repairs/test_repair_22_31_594.py::test_gateway_ingress_admits_existing_control_namespace_and_pods"
+symbol = "test_repair_22_31_594.py::test_gateway_ingress_admits_existing_control_namespace_and_pods"
+observed = "Attempt 1 at 8bfd76300b90: build exit 0 and verification exit 0; the result could not be merged onto the platform integration branch because of a conflict at services/platform/hosted/testnet/deployment.yaml:3 with the issue-1790 change; the attempt was ended."
+assumption = "The two label changes combine in one labels map."
+severity = "high"
+
+[finding.18.1717.1.7]
+task = "18.1717.1"
+file = "apps/explorer/ui/shared/layout/LayoutSearchResults.spec.tsx::searchResultsRoutesKeepOneHeaderAndLiveSearch"
+symbol = "LayoutSearchResults.spec.tsx::searchResultsRoutesKeepOneHeaderAndLiveSearch"
+observed = "Attempt 7 at adfd8670f810: build exit 0; verification exit 1: searchResultsRoutesKeepOneHeaderAndLiveSearch fails at LayoutSearchResults.spec.tsx:228, the combobox inside the filters has no accessible name; log /out/logs/verify-1.log."
+assumption = "The accessible name is the only missing piece between the single header and the passing case."
+severity = "high"
+
+[finding.22.39.168.4]
+task = "22.39.168"
+file = "services/launchpad/ranking-algo"
+symbol = "ranking-algo"
+observed = "Attempt 4 at 5234eca6cedb: build exit 0; verification exit 1: test_launchpad_workflow_has_go_job fails at tests/ci/test_launchpad_go_tests_wired.py:51 asserting ubuntu-latest against the routed runs-on expression; no Go module ran; log /out/logs/verify-1.log."
+assumption = "The wiring assertion is the only failure before the module runs."
+severity = "high"
