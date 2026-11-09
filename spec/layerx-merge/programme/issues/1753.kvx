@@ -1,0 +1,48 @@
+[issue.1753]
+number = 1753
+title = "[Coherence] evidence_inventory now refuses every version-1 evidence record, so the legacy with_evidence branch can never be filled and tenants with old evidence fail recovery outright"
+revision = "a910fdedd579e63379ae6c2e4d4971990d28f8ad"
+verdict = "task"
+evidence = "The public-key pre-check introduced by dbd4e68ed94769c51ad1368826824595ec17b6f3 remains at services/agent/crates/layerx-agentd/src/receipt.rs:531 and accepts only version 2 at receipt.rs:941, rejecting the version-1 records written by persist_evidence at receipt.rs:436 and receipt.rs:817 before serve_kernel_evidence can accept them at receipt.rs:486 and populate with_evidence at receipt.rs:579, contrary to spec/layerx-merge/spec.kvx:190031 and the reopened-store assertions at services/agent/crates/layerx-agentd/tests/repair_22_31_559.rs:520 and services/agent/crates/layerx-agentd/tests/budget_schema.rs:138, with failures propagated by services/agent/crates/layerx-agentd/src/managed_agent.rs:1338 and services/agent/crates/layerx-agentd/src/human_runtime.rs:14795."
+close_comment = "Version-1 public receipt evidence is incorrectly rejected during inventory, preventing recovery of tenants with retained evidence. The repair will restore mixed-format recovery while preserving refusals for unsupported versions, corrupt evidence and legacy archive records."
+
+[task.18.1753.1]
+title = "Issue #1753: Restore version-1 public evidence in receipt inventory"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181753.1"]
+capabilities = []
+interfaces = []
+do_1 = "In services/agent/crates/layerx-agentd/src/receipt.rs:530 replace the inventory-only use of check_evidence_version with format dispatch that admits supported version-1 public evidence to the existing serve_kernel_evidence validation and with_evidence path at receipt.rs:578, while retaining version-2 transaction validation, EvidenceVersion for unknown versions and legacy archive entries at receipt.rs:524, and Corrupt for invalid magic, truncated records or mismatched receipt identities; keep check_evidence_version at receipt.rs:936 strict for version-2 decoders."
+do_2 = "Extend mixed_inventory_rebuilds_both_formats_and_preserves_replay_and_archive_refusals in services/agent/crates/layerx-agentd/tests/repair_22_31_559.rs:497, retaining its real persist_evidence and store_verified_if_absent writes, close and reopen, separate legacy/current inventory assertions at line 520, successful budget accounting and replay checks; before its archive-refusal check at line 588, mutate the stored public version-1 record to assert EvidenceVersion for an unsupported version and Corrupt for malformed magic and truncation, restoring the original producer bytes between cases and preserving the existing archive refusal assertion."
+symbols = ["evidence_inventory", "mixed_inventory_rebuilds_both_formats_and_preserves_replay_and_archive_refusals"]
+touches = ["services/agent/crates/layerx-agentd/src/receipt.rs", "services/agent/crates/layerx-agentd/tests/repair_22_31_559.rs"]
+tests = ["services/agent/crates/layerx-agentd/tests/repair_22_31_559.rs::mixed_inventory_rebuilds_both_formats_and_preserves_replay_and_archive_refusals"]
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd"
+verify_cmd = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test repair_22_31_559 mixed_inventory_rebuilds_both_formats_and_preserves_replay_and_archive_refusals -- --exact"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181753]
+title = "Receipt inventory preserves supported version-1 evidence for mixed-format recovery"
+ac_1 = "Given a reopened tenant store containing version-1 public evidence written by persist_evidence at services/agent/crates/layerx-agentd/src/receipt.rs:436 and current transaction evidence, evidence_inventory returns the version-1 record in with_evidence and the current record in with_current_evidence, and budget recovery accounts for both as asserted at services/agent/crates/layerx-agentd/tests/repair_22_31_559.rs:520; unsupported public versions and archive records still return EvidenceVersion, and malformed public evidence returns Corrupt."
+
+[acceptance.18.1753.1]
+feature = "18"
+req = "181753.1"
+scenario = "Given a tenant with persisted version-1 public evidence and current transaction evidence, when its store is reopened and budget recovery inventories the receipts, then both evidence lists are populated and recovery accounts for both receipts while unsupported versions, corrupt records, duplicate receipts and legacy archive records remain refused."
+contract = "contracts/agent-rust-api.md#agentd"
+test = "services/agent/crates/layerx-agentd/tests/repair_22_31_559.rs::mixed_inventory_rebuilds_both_formats_and_preserves_replay_and_archive_refusals (planned)"
+qualification = "UNRUN"

@@ -1,0 +1,49 @@
+[issue.1662]
+number = 1662
+title = "[P2] Register the nine wallet repair callbacks with Vitest"
+revision = "bb8caac8b3e73e3e2f4b330805574f0bcb540641"
+verdict = "task"
+evidence = "services/wallet/gateway/test/repair-22-33-181.test.ts:8 and services/wallet/gateway/test/repair-22-33-209.test.ts:12 import Vitest, but their registrations at services/wallet/gateway/test/repair-22-33-181.test.ts:920 and services/wallet/gateway/test/repair-22-33-209.test.ts:601 supply names without handlers, which Vitest 4.1.12 pinned at services/wallet/pnpm-lock.yaml:377 collects as TODO, leaving the done claims introduced by commits c77f39374a80245d57198e0697af704e8656c32e and 1f3cc634eaff47f0db04eddf4f18c1652fd19dbe without executed proofs from these nine tests."
+close_comment = "The nine wallet repair proofs still collect as TODO because their callbacks are not registered. Register each callback with its existing timeout and require nine passing tests with zero TODO or skipped entries before treating these suites as repair evidence."
+
+[task.18.1662.1]
+title = "Issue #1662: Register and execute all nine wallet repair proofs"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181662.1"]
+capabilities = []
+interfaces = []
+do_1 = "Replace the six callback-less registrations at services/wallet/gateway/test/repair-22-33-181.test.ts:920 and the three at services/wallet/gateway/test/repair-22-33-209.test.ts:601 with test(fn.name, fn, timeout), omitting timeout only for the two cases that currently use the default; preserve all nine named async functions, their assertions, the six 10000 ms budgets and the 60000 ms adapter budget."
+do_2 = "Run only the two repair suites against their existing production code paths and committed peers; require the Vitest JSON result to report success, exactly nine total and passed tests, zero failed tests, zero pending tests and zero TODO tests."
+do_3 = "Correct the proof comments in services/wallet/gateway/test/repair-22-33-181.test.ts:12 and services/wallet/gateway/test/repair-22-33-209.test.ts:27 to state that former callback-less TODO collection did not execute the assertions and cannot substantiate repair qualification; retain their finding mappings and separate wiring requests."
+symbols = ["actionLeaseDurationCoversSigningAndReceiptTimeoutWithCompetingWorkers", "actionLeaseLossStopsDelayedSigningAndFencesRelease", "actionLeaseRenewalErrorStopsAdvancement", "actionLeaseLossDuringReceiptDoesNotPersistStaleOutcome", "actionLeaseExpiryDrainsPendingRenewal", "actionOperationDeadlineBoundsDelayedSigning", "attestorListenersStayReservedUntilDaemonHandoff", "retainedRoutesAuthenticateWhileCustodyStaysAbsent", "evmApprovalRetainsFeesOwnershipAndReceiptAcrossRestart"]
+touches = ["services/wallet/gateway/test/repair-22-33-181.test.ts", "services/wallet/gateway/test/repair-22-33-209.test.ts"]
+tests = ["services/wallet/gateway/test/repair-22-33-181.test.ts::actionLeaseDurationCoversSigningAndReceiptTimeoutWithCompetingWorkers", "services/wallet/gateway/test/repair-22-33-181.test.ts::actionLeaseLossStopsDelayedSigningAndFencesRelease", "services/wallet/gateway/test/repair-22-33-181.test.ts::actionLeaseRenewalErrorStopsAdvancement", "services/wallet/gateway/test/repair-22-33-181.test.ts::actionLeaseLossDuringReceiptDoesNotPersistStaleOutcome", "services/wallet/gateway/test/repair-22-33-181.test.ts::actionLeaseExpiryDrainsPendingRenewal", "services/wallet/gateway/test/repair-22-33-181.test.ts::actionOperationDeadlineBoundsDelayedSigning", "services/wallet/gateway/test/repair-22-33-209.test.ts::attestorListenersStayReservedUntilDaemonHandoff", "services/wallet/gateway/test/repair-22-33-209.test.ts::retainedRoutesAuthenticateWhileCustodyStaysAbsent", "services/wallet/gateway/test/repair-22-33-209.test.ts::evmApprovalRetainsFeesOwnershipAndReceiptAcrossRestart"]
+planned_paths = []
+build_cmd = "pnpm --dir services/wallet/gateway exec tsc --noEmit"
+verify_cmd = "pnpm --dir services/wallet/gateway exec vitest run test/repair-22-33-181.test.ts test/repair-22-33-209.test.ts --reporter=json | python3 -c 'import json,sys,types; r=json.load(sys.stdin,object_hook=lambda d: types.SimpleNamespace(**d)); assert r.success and r.numTotalTests == 9 and r.numPassedTests == 9 and r.numFailedTests == 0 and r.numPendingTests == 0 and r.numTodoTests == 0'"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-wallet"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181662]
+title = "Wallet repair qualification executes all nine proofs"
+ac_1 = "The six named proofs registered at services/wallet/gateway/test/repair-22-33-181.test.ts:920 and the three at services/wallet/gateway/test/repair-22-33-209.test.ts:601 execute their existing assertions with unchanged timeout budgets, and the focused Vitest result contains nine passed tests with no failed, pending, skipped or TODO entries."
+
+[acceptance.18.1662.1]
+feature = "18"
+req = "181662.1"
+scenario = "Given the six action lease proofs and three adapter proofs, when the two wallet gateway repair suites run, then all nine callbacks execute and pass with their original timeout budgets and assertions, and no TODO or skipped entry counts as repair evidence."
+contract = "contracts/services.md#embedded-wallet-gateway"
+test = "services/wallet/gateway/test/repair-22-33-181.test.ts::actionLeaseDurationCoversSigningAndReceiptTimeoutWithCompetingWorkers; services/wallet/gateway/test/repair-22-33-181.test.ts::actionLeaseLossStopsDelayedSigningAndFencesRelease; services/wallet/gateway/test/repair-22-33-181.test.ts::actionLeaseRenewalErrorStopsAdvancement; services/wallet/gateway/test/repair-22-33-181.test.ts::actionLeaseLossDuringReceiptDoesNotPersistStaleOutcome; services/wallet/gateway/test/repair-22-33-181.test.ts::actionLeaseExpiryDrainsPendingRenewal; services/wallet/gateway/test/repair-22-33-181.test.ts::actionOperationDeadlineBoundsDelayedSigning; services/wallet/gateway/test/repair-22-33-209.test.ts::attestorListenersStayReservedUntilDaemonHandoff; services/wallet/gateway/test/repair-22-33-209.test.ts::retainedRoutesAuthenticateWhileCustodyStaysAbsent; services/wallet/gateway/test/repair-22-33-209.test.ts::evmApprovalRetainsFeesOwnershipAndReceiptAcrossRestart (planned)"
+qualification = "UNRUN"

@@ -1,0 +1,50 @@
+[issue.1595]
+number = 1595
+title = "[Coherence] Audit finding 63 and doc entries 18–19 report the consensus-fork and sequencer contract pages as missing, but both pages exist where the registry points"
+revision = "bb8caac8b3e73e3e2f4b330805574f0bcb540641"
+verdict = "task"
+evidence = "spec/layerx-merge/programme/audit/records/22.30.46.kvx:1504 still falsely declares both contract pages absent and :1608 and :1613 mark them missing, although spec/layerx-merge/contracts/consensus-fork.md:2982 defines the OpenAPI anchor linked by spec/layerx-merge/interfaces.kvx:649914 and spec/layerx-merge/contracts/consensus-fork.md:2990 repeats the obsolete dial-route note, spec/layerx-merge/contracts/sequencer.md:1 exists, and both pages are present in audit revision 6d2c32a65a1c7989a6a37abf5965929de9769ae4; commit 90a641a5b4343c245c4a3f9e39acdc00fa68e17c removed those routes and added the route-parity test, while the audit record is unchanged since 30cb89c5b23140edad90566cd9c2213daf85f8a3."
+close_comment = "Both contract pages exist under spec/layerx-merge/contracts, and the consensus contract repeats an obsolete dial_peers/dial_seeds note. Task 18.1595.1 tracks correcting the audit to review those pages, record the stale content and remove the unsupported missing-page finding."
+
+[task.18.1595.1]
+title = "Issue #1595: Correct the consensus contract-page audit entries"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181595.1"]
+capabilities = []
+interfaces = []
+do_1 = "In spec/layerx-merge/programme/audit/records/22.30.46.kvx:1499 remove finding.63, which incorrectly treats registry paths as missing; remove its reference from file.129 at :827 and change the findings count at :8 from 64 to 63, preserving the other findings, their ids and the high-finding blocking list."
+do_2 = "Review spec/layerx-merge/contracts/consensus-fork.md and spec/layerx-merge/contracts/sequencer.md against the consensus interfaces, resolving registry links relative to spec/layerx-merge as demonstrated by spec/layerx-merge/interfaces.kvx:649914; correct doc.18 and doc.19 at spec/layerx-merge/programme/audit/records/22.30.46.kvx:1606 and :1611 to use the full repository paths and content-based statuses and notes, retaining docs_reviewed = 19 for the 19 reviewed pages."
+do_3 = "Mark doc.18 stale and cite spec/layerx-merge/contracts/consensus-fork.md:2990, which repeats the dial_peers/dial_seeds claim already identified in finding.64 at spec/layerx-merge/programme/audit/records/22.30.46.kvx:1515; read consensus/internal/rpc/core/openapi_routes_test.go:12 and NewRoutesMap at consensus/internal/rpc/core/routes.go:29, and record the actual sequencer contract comparison in doc.19 without creating replacement pages or repointing valid registry links."
+do_4 = "Run the focused documentation checks to assert that finding.63 and its file reference are absent, the finding and document counts are 63 and 19, doc.18 names the existing consensus contract and is stale with the dial-route explanation, and doc.19 names the existing sequencer contract with a reviewed non-missing status."
+symbols = []
+touches = ["spec/layerx-merge/programme/audit/records/22.30.46.kvx"]
+tests = []
+planned_paths = []
+build_cmd = "true"
+verify_cmd = "! grep -Eq '^[[]finding[.]63[]]$|^findings = [[][^]]*.63.|^status = .missing.$' spec/layerx-merge/programme/audit/records/22.30.46.kvx && grep -Fx 'findings = 63' spec/layerx-merge/programme/audit/records/22.30.46.kvx && grep -Fx 'docs_reviewed = 19' spec/layerx-merge/programme/audit/records/22.30.46.kvx && grep -A 3 -F '[doc.18]' spec/layerx-merge/programme/audit/records/22.30.46.kvx | grep -F 'spec/layerx-merge/contracts/consensus-fork.md' && grep -A 3 -F '[doc.18]' spec/layerx-merge/programme/audit/records/22.30.46.kvx | grep -Eq '^status = .stale.$' && grep -A 4 -F '[doc.18]' spec/layerx-merge/programme/audit/records/22.30.46.kvx | grep -E 'dial_peers.*dial_seeds|dial_seeds.*dial_peers' && grep -A 3 -F '[doc.19]' spec/layerx-merge/programme/audit/records/22.30.46.kvx | grep -F 'spec/layerx-merge/contracts/sequencer.md' && grep -A 3 -F '[doc.19]' spec/layerx-merge/programme/audit/records/22.30.46.kvx | grep -Eq '^status = .(accurate|stale|misleading).$'"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-programme"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181595]
+title = "Consensus audit findings distinguish missing contract pages from stale content"
+ac_1 = "Given the existing contract pages linked by spec/layerx-merge/interfaces.kvx:649914, the audit record removes the unsupported missing-page finding at spec/layerx-merge/programme/audit/records/22.30.46.kvx:1499 and its file reference, counts 63 findings and 19 reviewed documents, and replaces the missing statuses at :1608 and :1613 with content-based reviews, including the stale dial-route note at spec/layerx-merge/contracts/consensus-fork.md:2990."
+
+[acceptance.18.1595.1]
+feature = "18"
+req = "181595.1"
+scenario = "Given both canonical contract pages exist and the consensus OpenAPI section repeats the obsolete dial-route note, when the consensus audit reviews the pages, then doc.18 is stale with that evidence, doc.19 records its actual content review, finding.63 and its reference are removed, and the counts remain consistent at 63 findings and 19 documents."
+contract = "contracts/consensus-fork.md#openapi"
+test = "spec/layerx-merge/programme/audit/records/22.30.46.kvx (focused contract-page grep checks, planned)"
+qualification = "UNRUN"

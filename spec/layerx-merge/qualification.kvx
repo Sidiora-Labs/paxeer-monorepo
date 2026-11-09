@@ -36594,3 +36594,139 @@ symbol = "test_repair_22_31_402.py"
 observed = "Attempt 2 at 4bfb39fc0f2c: build exit 0; verification exit 1: 99 Python cases passed, chainconfig and proposals passed, appenv failed TestEnvLinesFromEVMRecords, TestRepair_277_LegacyProducerCheckpoint and three TestRepairM_484 cases on the pre-repair writer form; log /out/logs/verify-1.log."
 assumption = "The five failures are stale consumer assertions of the deploy scripts and the fixture; nothing in the governed signer work is at fault."
 severity = "high"
+
+[finding.22.39.162.2]
+task = "22.39.162"
+file = "services/launchpad/indexer/internal/runtimedocs::TestPaxeerReportedIdentityQualifiesRealMarket"
+symbol = "runtimedocs::TestPaxeerReportedIdentityQualifiesRealMarket"
+observed = "Attempt 2 at ba731cfe3d0c: build exit 0; verification exit 1: six wiring-test cases failed on the pre-retirement baseline expectations (total 226 against 261, two api entries removed, indexer entries expected), and the Go tests of the module never ran; log /out/logs/verify-1.log."
+assumption = "The indexer repairs of the tree stand; only the wiring test scope and the two api entries block the gate."
+severity = "high"
+
+[finding.22.39.215.1]
+task = "22.39.215"
+file = "services/agent/crates/layerx-types"
+symbol = "layerx-types"
+observed = "Attempt 1 at 4e6d194009c8 (record tree): build exit 0 at 6d711a7022eb, verification exit 101 with five missing Errors sections remaining; the third build at the final tree failed on a removed Fe::invert; log /out/logs/verify-1.log."
+assumption = "The eight library repairs are sound; the crate needs the inventory loop and one tranche of documentation repairs."
+severity = "high"
+
+[finding.22.39.217.1]
+task = "22.39.217"
+file = "services/agent/crates/layerx-crypto"
+symbol = "layerx-crypto"
+observed = "Attempt 1 at 873ad023077b: three builds failed (an attribute on an expression, ok_or on a Result, map_err on an Option, and finally a missing public_key on the extracted peer helper); the verification never ran; log /out/logs/build-3.log."
+assumption = "The typed decoding and documentation repairs are sound; the build break is in the test support only."
+severity = "high"
+
+[finding.22.39.218.1]
+task = "22.39.218"
+file = "services/agent/crates/layerx-proof"
+symbol = "layerx-proof"
+observed = "Attempt 1 at a145e3ae66b3: build exit 0; verification exit 101 twice, the library failing on the large enum variant of ProofRecord so the test targets were never linted; log /out/logs/verify-2.log."
+assumption = "Decision 3057 resolves the public signature conflict the record names."
+severity = "high"
+
+[finding.22.39.219.1]
+task = "22.39.219"
+file = "services/agent/crates/layerx-client"
+symbol = "layerx-client"
+observed = "Attempt 1 at d129e8eb5d0b: the first build failed on a question mark conversion into TransportError, the second passed, verification exit 101 at 9b135c721c42, and the final build failed on a removed OperationRecord import; log /out/logs/verify-1.log."
+assumption = "The conversions and allowances recorded are sound; one import and one public-signature lint remain."
+severity = "high"
+
+[finding.22.39.221.1]
+task = "22.39.221"
+file = "services/agent/crates/layerx-agent-api"
+symbol = "layerx-agent-api"
+observed = "Attempt 1 at a1f1f25a4bcd: build exit 0 at 884fffc88329, verification exit 101 (four library lints and the test support groups remaining), final build failed on an incorrect test module import; log /out/logs/verify-1.log."
+assumption = "The public-contract lints are resolved by decision 3057; the rest is one tranche of repairs."
+severity = "high"
+
+[finding.22.39.222.1]
+task = "22.39.222"
+file = "services/agent/crates/layerx-agentd/src"
+symbol = "src"
+observed = "Attempt 1 at fe83fa70beda: verification exit 101 at c147755d033c with Errors sections and other families remaining; the second build failed on question mark operators outside Result functions and the final build passed at cee31dd40c89; record inventories 1413 diagnostics with 374 unresolved; log /out/logs/verify-1.log."
+assumption = "The daemon library needs more than one attempt; tranches under decision 3057 carry it to zero."
+severity = "high"
+
+[finding.22.39.223.1]
+task = "22.39.223"
+file = "services/agent/crates/layerx-agentd-host"
+symbol = "layerx-agentd-host"
+observed = "Attempt 1 at ccc9f3ae7fae: build exit 0 twice; verification exit 101 twice with lints in the daemon binary and host-tests sources the task could not touch; log /out/logs/verify-2.log."
+assumption = "The scope boundary of the record is lifted by the widened touches and the requirement on the daemon library task."
+severity = "high"
+
+[finding.22.39.224.1]
+task = "22.39.224"
+file = "services/agent/crates/layerx-mcp"
+symbol = "layerx-mcp"
+observed = "Attempt 1 at 9b52963216a0: three builds failed on assertion type mismatches; the verification never ran; record remaining_build_errors 4; log /out/logs/build-3.log."
+assumption = "The documentation repairs are sound; four test assertions block the build."
+severity = "high"
+
+[finding.22.39.225.1]
+task = "22.39.225"
+file = "services/agent/crates/layerx-sdk"
+symbol = "layerx-sdk"
+observed = "Attempt 1 at b876d698ca1a: three builds failed on closure arity errors in the repaired Option combinators; the verification never ran; log /out/logs/build-3.log."
+assumption = "The documentation and signature-preserving repairs are sound; the closures block the build."
+severity = "high"
+
+[finding.22.39.214.1]
+task = "22.39.214"
+file = "tools/paxeer-x/tests/retired_callers_test.py"
+symbol = "retired_callers_test.py"
+observed = "Attempt 1 at 045bfdb54134: build exit 0 twice; the 111 self-test cases passed twice and the whole-repository scan ended with an exit the gate refuses under timeout 600 in both runs; log /out/logs/verify-2.log."
+assumption = "The invocation count is solved; the unbounded walk and match volume are what remain."
+severity = "high"
+
+[finding.22.39.117.8]
+task = "22.39.117"
+file = "sdk/launchpad/shared/chain::TestPhase2ReadAdapterRealRegisteredPool"
+symbol = "chain::TestPhase2ReadAdapterRealRegisteredPool"
+observed = "Attempt 8 at 9e3d5fdcb4a4: build exit 0; verification exit 2 at make ci fmt-check naming three files not gofmt-clean after every module test passed; log /out/logs/verify-1.log."
+assumption = "The formatting debt dates from the flattening commit of 2026-10-21; nothing in the tree of the task is at fault."
+severity = "high"
+
+[finding.22.39.168.2]
+task = "22.39.168"
+file = "services/launchpad/ranking-algo"
+symbol = "ranking-algo"
+observed = "Attempt 2 at d6875dc1123f: build exit 0; verification exit 1 in the first module, ranking-algo, with the snapshots category constraint refusing the ranker categories and readiness never reached; later modules not reached; log /out/logs/verify-1.log."
+assumption = "The constraint is the single root of the three ranking failures; the migration registry is append-only."
+severity = "high"
+
+[finding.22.38.7.3]
+task = "22.38.7"
+file = "programs/crates/layerx-programs-ai-market/tests/f11_bonds.rs"
+symbol = "f11_bonds.rs"
+observed = "Attempt 3 at 17c9ba36e628: build exit 1 three times at the size test (527736 bytes against 524184, 3552 over); the verification never ran; log /out/logs/build-3.log."
+assumption = "The design is complete; the remaining bytes are recoverable inside the bond and routing functions."
+severity = "high"
+
+[finding.17.4.6.1]
+task = "17.4.6"
+file = "spec/layerx-merge/programme/tests/test_parity_run.py::test_parity_rows_pass_on_merged_revision"
+symbol = "test_parity_run.py::test_parity_rows_pass_on_merged_revision"
+observed = "Attempt 1 at 1d4c4fdef0d6: build exit 0; verification exit 1 after 27 minutes with eleven rows failed: four refused by command_for (C, Elixir, mixed toolchains), two blocked by the environment (evmone library, Redis binary), five red constructs; log /out/logs/verify-1.log."
+assumption = "The runner change and the four repairs remove every failure the inventory showed."
+severity = "high"
+
+[finding.17.5.7.1]
+task = "17.5.7"
+file = "spec/layerx-merge/programme/tests/test_wave_6_gate.py::test_wave_6_gate_passes"
+symbol = "test_wave_6_gate.py::test_wave_6_gate_passes"
+observed = "Attempt 1 at f0619bc8c681: build exit 0; verification exit 125, status source-identity-refusal, phase before, from scripts/gates/run_gate.py because the task tree carried the workflow bookkeeping edits; log /out/logs/verify-1.log."
+assumption = "The gate must measure the committed revision; the worktree gives it one."
+severity = "high"
+
+[finding.22.39.162.3]
+task = "22.39.162"
+file = "services/launchpad/indexer/internal/runtimedocs::TestPaxeerReportedIdentityQualifiesRealMarket"
+symbol = "runtimedocs::TestPaxeerReportedIdentityQualifiesRealMarket"
+observed = "Attempt 3 at 316a8a12884b: build exit 0; verification failed with go test exit 1: 42 wiring tests passed and three indexer cases failed, TestRepairM_1000_InventoryDurableFrames (receipt qualification rejected at the first recorded batch), TestRepairM_1000_MeasurementRefusals (source pool: identity) and TestPaxeerRehydratedAuthorityQualifiesTradesOfEarlierMarket (unrecorded eth_getCode bound to a block hash); log /out/logs/verify-2.log."
+assumption = "The 33 retirements are complete; the three residual cases are a digest encoding that is not yet proven, one fixture reply that was never recorded, and one composed refusal whose producer the attempt did not locate."
+severity = "high"

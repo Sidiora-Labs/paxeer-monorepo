@@ -1,0 +1,50 @@
+[issue.1669]
+number = 1669
+title = "[Coherence] Resuming after an aborted refresh fails permanently once the journal has rotated to a new refresh session"
+revision = "bb8caac8b3e73e3e2f4b330805574f0bcb540641"
+verdict = "task"
+evidence = "services/wallet/ceremony/internal/migrate/migrate.go:1121 saves the aborted session and a replacement session, but the resume inspections at services/wallet/ceremony/internal/migrate/migrate.go:735 and services/wallet/ceremony/internal/migrate/migrate.go:1009 supply only the replacement, so services/wallet/ceremony/internal/attestor/client.go:1129 rejects the previous attempt before the replay that services/wallet/attestor/internal/server/keys.go:691 explicitly supports; commit a8219dae82feabe7cbd4f0e3b1e6ba169e89a0fe introduced those inspections and services/wallet/ceremony/internal/migrate/repair_m160_test.go:813 covers partial commits within one session rather than restart after abort rotation."
+close_comment = "A wallet migration can become unable to resume if it stops after recording a replacement refresh session while members retain the previous aborted attempt. Task 18.1669.1 specifies accepting that exact recorded recovery attempt, preserving identity and completion checks, and proving recovery after restart for imported keys and held identity keys."
+
+[task.18.1669.1]
+title = "Issue #1669: Resume refresh recovery after saving a replacement session"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181669.1"]
+capabilities = []
+interfaces = []
+do_1 = "Add InspectRefreshRecoveryWithPreviousSession beside InspectRefreshRecovery at services/wallet/ceremony/internal/attestor/client.go:1090, preserving the existing method as a strict wrapper with no previous session; bind the additional previous session to the sealed journal and admit its member records only when both session fields name that exact attempt, the state is aborted, the decision is abort and the held epoch equals baseEpoch, retaining all ceremony, import, existing-key, key, curve, normalized public-key, membership, audit and cross-member decision checks."
+do_2 = "Wire resumeCurve at services/wallet/ceremony/internal/migrate/migrate.go:735 and resumeHeldIdentity at services/wallet/ceremony/internal/migrate/migrate.go:1009 to inspect both RefreshSession and RefreshRecoverySession before replay; preserve the saved replacement across restarts and mixed previous-aborted/replacement-in-progress members without rotating it again, keep prepareRefreshRecovery at services/wallet/ceremony/internal/migrate/migrate.go:1103 able to rotate a genuinely aborted current attempt, and retain strict all-member completion checks before setting Refreshed or clearing recovery material."
+do_3 = "Add TestRefreshRecoveryAfterRotation in services/wallet/ceremony/internal/migrate/repair_m160_test.go using the production client and real attestors through services/wallet/ceremony/internal/testsupport/ceremony_nodes.go:57, with real refresh protocol output and sealed journal reloads rather than fabricated descriptions; cover imported keys and held identity keys, interruption immediately after the replacement journal save and after only some members accept the replacement, reopen the client and member stores, and assert the same replacement completes at baseEpoch+1 without re-importing shares or replacing the held identity."
+do_4 = "Within TestRefreshRecoveryAfterRotation, assert an unrelated previous session, mismatched ceremony/import/key/public-key/curve/membership/base epoch, a previous record without an aborted state and abort decision, and a previous attempt at baseEpoch+1 are refused with the journal and shares retained; retain rejection of incompatible member decisions and incomplete final reconciliation, and assert the original strict InspectRefreshRecovery still refuses a different session."
+symbols = ["InspectRefreshRecovery", "InspectRefreshRecoveryWithPreviousSession", "resumeCurve", "resumeHeldIdentity", "prepareRefreshRecovery", "TestRefreshRecoveryAfterRotation"]
+touches = ["services/wallet/ceremony/internal/attestor/client.go", "services/wallet/ceremony/internal/migrate/migrate.go", "services/wallet/ceremony/internal/migrate/repair_m160_test.go"]
+tests = ["services/wallet/ceremony/internal/migrate/repair_m160_test.go::TestRefreshRecoveryAfterRotation"]
+planned_paths = []
+build_cmd = "cd services/wallet/ceremony && go build ./internal/attestor ./internal/migrate"
+verify_cmd = "cd services/wallet/ceremony && go test -count=1 ./internal/migrate -run '^TestRefreshRecoveryAfterRotation$'"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-wallet"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181669]
+title = "Refresh recovery survives a restart after abort-session rotation"
+ac_1 = "Given the previous aborted attempt and its replacement saved by services/wallet/ceremony/internal/migrate/migrate.go:1121, both resume paths at services/wallet/ceremony/internal/migrate/migrate.go:735 and services/wallet/ceremony/internal/migrate/migrate.go:1009 accept only the journal-bound previous aborted/base-epoch records alongside valid replacement records, replay the same replacement after restart, and require every member complete at baseEpoch+1 before recording completion, while unrelated identities, sessions, epochs and incompatible decisions remain refused by the inspection at services/wallet/ceremony/internal/attestor/client.go:1129."
+
+[acceptance.18.1669.1]
+feature = "18"
+req = "181669.1"
+scenario = "Given an imported key or held identity key with an aborted refresh and a saved replacement session, when recovery stops before all members adopt the replacement and resumes from the sealed journal after client and member restart, then it replays that same replacement to all-member completion at baseEpoch+1 without re-import or identity replacement, and rejects unrelated recovery records without discarding shares or recording completion."
+contract = "contracts/services.md#s28-wallet-attestors-tss"
+test = "services/wallet/ceremony/internal/migrate/repair_m160_test.go::TestRefreshRecoveryAfterRotation (planned)"
+qualification = "UNRUN"

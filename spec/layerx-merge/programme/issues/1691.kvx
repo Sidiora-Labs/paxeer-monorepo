@@ -1,0 +1,49 @@
+[issue.1691]
+number = 1691
+title = "[Coherence] Two tests in this commit assert opposite FeesRouter log origins for direct precompile calls"
+revision = "bb8caac8b3e73e3e2f4b330805574f0bcb540641"
+verdict = "task"
+evidence = "At this revision precompiles/launchpad/events.go:42 selects calledAt for FeesRouter business events and sdk/launchpad/protocol/bindings/repair_m948_test.go:704 requires both emitter addresses, whereas precompiles/launchpad/fees.go:99 fixes the production role address and precompiles/launchpad/fees.go:325 emits there, matching the surface-only assertion at sdk/launchpad/protocol/bindings/repair_m948_test.go:471 and contradicting the direct-call FeesClaimed address in sdk/launchpad/protocol/bindings/testdata/repair_m948/native-execution.json:606."
+close_comment = "Confirmed: FeesRouter role logs use the FeesRouter surface for both direct precompile and surface calls, but the emitter helper and transcript require a different origin for direct calls. A follow-up task will align the helper and both tests with the production origin rule and retain explicit coverage of both entry points."
+
+[task.18.1691.1]
+title = "Issue #1691: Align FeesRouter event origins with the production surface identity"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181691.1"]
+capabilities = []
+interfaces = []
+do_1 = "In precompiles/launchpad/events.go:42 separate FeesRouter from Router origin selection: accept the FeesRouter surface and precompile call addresses but emit every FeesRouter role event at the FeesRouter surface, matching feeContract at precompiles/launchpad/fees.go:99 and feeSetStrategy at precompiles/launchpad/fees.go:325; retain invalid-surface rejection and Router calledAt semantics. Update TestLogsMatchContractEvents at precompiles/launchpad/events_test.go:204 to assert the fixed FeesRouter origin for both entry points without changing the Router or access-control expectations."
+do_2 = "In sdk/launchpad/protocol/bindings/repair_m948_test.go:663 make TestRepairM_948_NativeExecutorTransport require the FeesRouter surface for every FeesRouter observation, independently require both CalledAt entry points and reject any FeesRouter role log at the precompile; retain both Router emitter origins and all payload, source-hash, family and refusal assertions. Regenerate sdk/launchpad/protocol/bindings/testdata/repair_m948/native-execution.json from actual emitter output with testdata/repair_m948/record_native.py:27 and update testdata/repair_m948/producer-revision.txt to the source revision; never edit recorded log addresses or source hashes by hand."
+do_3 = "Strengthen TestRepairM_948_NativeExecutorNode at sdk/launchpad/protocol/bindings/repair_m948_test.go:459 to require exactly one correctly decoded FeesRouter FeeStrategyChanged role log at the surface for each entry point and reject that role topic at every other address, while retaining the distinct native-family event at 0x1017. Add TestFeesRouterLogOrigins in precompiles/launchpad/fees_test.go using newFeeTestEnv at precompiles/launchpad/fees_test.go:74 to invoke successful setFeeStrategy calls through the real EVM at both addresses and assert the same role origin, exact event count, decoded values and separate native-family origin."
+symbols = ["emitAt", "TestLogsMatchContractEvents", "TestFeesRouterLogOrigins", "TestRepairM_948_NativeExecutorTransport", "TestRepairM_948_NativeExecutorNode"]
+touches = ["precompiles/launchpad/events.go", "precompiles/launchpad/events_test.go", "precompiles/launchpad/fees_test.go", "sdk/launchpad/protocol/bindings/repair_m948_test.go", "sdk/launchpad/protocol/bindings/testdata/repair_m948/native-execution.json", "sdk/launchpad/protocol/bindings/testdata/repair_m948/producer-revision.txt"]
+tests = ["precompiles/launchpad/events_test.go::TestLogsMatchContractEvents", "precompiles/launchpad/fees_test.go::TestFeesRouterLogOrigins", "sdk/launchpad/protocol/bindings/repair_m948_test.go::TestRepairM_948_NativeExecutorTransport", "sdk/launchpad/protocol/bindings/repair_m948_test.go::TestRepairM_948_NativeExecutorNode"]
+planned_paths = []
+build_cmd = "go build ./precompiles/launchpad && (cd sdk/launchpad/protocol && go build ./bindings)"
+verify_cmd = "go test -count=1 ./precompiles/launchpad -run '^(TestLogsMatchContractEvents|TestFeesRouterLogOrigins)$' && (cd sdk/launchpad/protocol && go test -count=1 ./bindings -run '^(TestRepairM_948_NativeExecutorTransport|TestRepairM_948_NativeExecutorNode)$')"
+gate_kind = "planned"
+sandbox_profile = "go-cgo"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181691]
+title = "FeesRouter role logs have one origin rule across public calls and emitter evidence"
+ac_1 = "Given successful FeesRouter calls at 0x1017 and the FeesRouter surface, both production execution at precompiles/launchpad/fees.go:325 and emitAt at precompiles/launchpad/events.go:42 emit FeesRouter role logs only at the FeesRouter surface, both SDK tests at sdk/launchpad/protocol/bindings/repair_m948_test.go:459 and sdk/launchpad/protocol/bindings/repair_m948_test.go:663 assert that rule with both entry points represented, and native-family logs remain at 0x1017."
+
+[acceptance.18.1691.1]
+feature = "18"
+req = "181691.1"
+scenario = "Given FeesRouter calls through the direct precompile and FeesRouter surface, when actual public-call receipts and refreshed emitter observations are decoded, then FeesRouter role events appear only at the FeesRouter surface with the expected values, both entry points are covered, and native-family events remain at 0x1017."
+contract = "contracts/launchpad.md#precompile-fees-router"
+test = "precompiles/launchpad/fees_test.go::TestFeesRouterLogOrigins (planned)"
+qualification = "UNRUN"

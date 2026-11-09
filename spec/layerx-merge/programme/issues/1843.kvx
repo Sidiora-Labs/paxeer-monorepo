@@ -1,0 +1,48 @@
+[issue.1843]
+number = 1843
+title = "[Coherence] Routing explorer-backend-test and dropping its exclusion row breaks the hosted-job test that task 22.39.147 just landed"
+revision = "3520b1428059af90261432778c008a9ce362a0b1"
+verdict = "task"
+evidence = "Commit 2c0db3df4c89df0005960896681b53bc7d0d84a0 routed explorer-backend-test at .github/workflows/explorer-images.yml:37 and removed its exclusion from scripts/ci/runner-routing-check.sh:16, but tests/ci/test_workflow_runs_on_routed.py:39 still classifies it as hosted and lines 126 and 129 demand a literal runner and the missing exclusion, so the verification contract at spec/layerx-merge/spec.kvx:351728 still contains a contradictory assertion."
+close_comment = "The explorer backend routing test still expects a hosted runner even though the job now provisions its container runtime and uses the routed runner expression. The repair task moves the job into routed coverage while preserving the container-builder check and the sanitizer job's hosted-runner checks."
+
+[task.18.1843.1]
+title = "Issue #1843: Align explorer backend routing coverage with its routed runner"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181843.1"]
+capabilities = []
+interfaces = []
+do_1 = "In tests/ci/test_workflow_runs_on_routed.py:17 and :37, move explorer-images.yml explorer-backend-test from HOSTED_JOBS into RESTORED_JOBS so test_restored_job_keeps_routed_runs_on at line 110 asserts the exact routed expression and absence from routing_exclusions; retain the ci.yml c17 sanitizer entry and every hosted-runner assertion at lines 123 through 129."
+do_2 = "Rename test_explorer_backend_exclusion_retains_container_builder at tests/ci/test_workflow_runs_on_routed.py:132 to test_explorer_backend_routed_job_retains_container_builder, preserve its exact mix-in-builder command assertion, and assert the job's exact ROUTED expression and absence from routing_exclusions; retain test_repository_runner_routing_check_passes at line 100 so the real workflow and container-runtime provisioning remain checked by scripts/ci/runner-routing-check.sh:120."
+symbols = ["RESTORED_JOBS", "HOSTED_JOBS", "test_explorer_backend_routed_job_retains_container_builder"]
+touches = ["tests/ci/test_workflow_runs_on_routed.py"]
+tests = ["tests/ci/test_workflow_runs_on_routed.py::test_restored_job_keeps_routed_runs_on", "tests/ci/test_workflow_runs_on_routed.py::test_hosted_job_keeps_runner_and_exclusion_reason", "tests/ci/test_workflow_runs_on_routed.py::test_explorer_backend_routed_job_retains_container_builder", "tests/ci/test_workflow_runs_on_routed.py::test_repository_runner_routing_check_passes"]
+planned_paths = []
+build_cmd = "python3 -m py_compile tests/ci/test_workflow_runs_on_routed.py"
+verify_cmd = "python3 -m pytest tests/ci/test_workflow_runs_on_routed.py -q"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181843]
+title = "Explorer backend routing coverage matches its routed runner and retains container-builder protection"
+ac_1 = "Given the routed explorer-backend-test job at .github/workflows/explorer-images.yml:37 and its builder command at line 54, tests/ci/test_workflow_runs_on_routed.py:110 must cover it as routed, require the exact ROUTED expression and no exclusion, preserve the builder assertion at line 132, and continue checking the ci.yml c17 hosted sanitizer runner through the assertions at line 123."
+
+[acceptance.18.1843.1]
+feature = "18"
+req = "181843.1"
+scenario = "Given an explorer backend job that provisions its container runtime and uses the routed runner expression, when the focused routing tests inspect the workflow and exclusion table, then the job satisfies routed coverage without an exclusion, retains its umbrella container-builder command, and the sanitizer job retains its hosted runner and exclusion reason."
+contract = "contracts/tools-ops.md#ci-workflows"
+test = "tests/ci/test_workflow_runs_on_routed.py::test_restored_job_keeps_routed_runs_on (planned)"
+qualification = "UNRUN"

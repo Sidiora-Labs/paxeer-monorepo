@@ -1,0 +1,50 @@
+[issue.1697]
+number = 1697
+title = "[Coherence] The services contract still describes the old unauthenticated publisher-backed dead-letter routes and status that is always ok"
+revision = "bb8caac8b3e73e3e2f4b330805574f0bcb540641"
+verdict = "task"
+evidence = "contracts/services.md:68 still promises publisher-only, unauthenticated, destructive dead-letter routes and healthy status after read failures, contradicting canonical/legacy reads and HTTP 503 handling at services/launchpad/indexer/internal/httpapi/status.go:63 and services/launchpad/indexer/internal/httpapi/status.go:128, unconditional policy-backed routes at services/launchpad/indexer/internal/httpapi/status.go:135, authentication, durable audit and drain refusal at services/launchpad/indexer/internal/httpapi/deadletter.go:61, services/launchpad/indexer/internal/httpapi/deadletter.go:90 and services/launchpad/indexer/internal/httpapi/deadletter.go:103, and the assertions at services/launchpad/indexer/internal/httpapi/repair_m996_test.go:264, services/launchpad/indexer/internal/httpapi/repair_m996_test.go:319 and services/launchpad/indexer/internal/httpapi/repair_m996_test.go:368."
+close_comment = "The services contract still describes the former publisher queue behavior. It needs to document canonical and legacy status, HTTP 503 failures and degradation, and authenticated, audited durable inspection with drain refused and no deletions."
+
+[task.18.1697.1]
+title = "Issue #1697: Align the indexer operational contract with status and dead-letter policy behavior"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181697.1"]
+capabilities = []
+interfaces = []
+do_1 = "Replace the obsolete operational paragraph under Launchpad indexer at contracts/services.md:68: document GET /status, GET /status/dead-letter and POST /status/dead-letter/drain as always mounted, independently of Publisher; explain canonical stream watermark and durable delivery health versus legacy cursor and optional publisher webhook counters, following services/launchpad/indexer/internal/httpapi/status.go:46, services/launchpad/indexer/internal/httpapi/status.go:63 and services/launchpad/indexer/internal/httpapi/status.go:115."
+do_2 = "Document HTTP 503 unavailable for missing configuration or failed reads, null unknown values and unavailableComponents; HTTP 503 degraded for quarantine or delivery lag exceeding MaxDeliveryLag; and HTTP 503 when no dead-letter policy is configured, following services/launchpad/indexer/internal/httpapi/status.go:58, services/launchpad/indexer/internal/httpapi/status.go:94, services/launchpad/indexer/internal/httpapi/status.go:125 and services/launchpad/indexer/internal/httpapi/status.go:135."
+do_3 = "Document authenticated operator sessions, scoped authorization, durable allow/deny audit, bounded metadata-only quarantine inspection and drain refusal even with retention-delete scope; drain deletes neither durable quarantine nor the compatibility publisher queue, following services/launchpad/indexer/internal/httpapi/deadletter.go:54, services/launchpad/indexer/internal/httpapi/deadletter.go:90, services/launchpad/indexer/internal/httpapi/deadletter.go:103, services/launchpad/indexer/internal/httpapi/deadletter.go:110 and services/launchpad/indexer/internal/httpapi/repair_m996_test.go:528; describe these as configured handler capabilities rather than implying the production caller at services/launchpad/indexer/internal/app/app.go:610 already supplies the required dependencies."
+do_4 = "Use the focused documentation grep to assert the corrected statements about modes, unhealthy status, unconditional routes, policy unavailability, audited authorization and non-destructive drain, and reject each obsolete claim from contracts/services.md:68; preserve all runtime behavior and existing tests."
+symbols = []
+touches = ["contracts/services.md"]
+tests = ["contracts/services.md::launchpad-indexer-operational-contract"]
+planned_paths = []
+build_cmd = "true"
+verify_cmd = "grep -Fq 'Canonical mode reads the committed stream watermark and durable delivery health.' contracts/services.md && grep -Fq 'Legacy mode reads the cursor and may include publisher webhook counters.' contracts/services.md && grep -Fq 'Missing configuration or failed reads return HTTP 503 unavailable with unknown values left null and unavailableComponents identifying failures.' contracts/services.md && grep -Fq 'Quarantined deliveries or delivery lag exceeding MaxDeliveryLag return HTTP 503 degraded.' contracts/services.md && grep -Fq 'Both dead-letter routes are always mounted, independently of the publisher, and return HTTP 503 when the policy is unavailable.' contracts/services.md && grep -Fq 'Configured dead-letter inspection requires an authenticated operator session, scoped authorization and durable allow/deny audit, and returns bounded quarantine metadata.' contracts/services.md && grep -Fq 'Drain is refused even with retention-delete scope and deletes neither durable quarantine nor the compatibility publisher queue.' contracts/services.md && ! grep -Fq 'when a publisher is present' contracts/services.md && ! grep -Fq 'Some status read failures are represented by null/zero' contracts/services.md && ! grep -Fq 'Dead-letter drain removes entries from that publisher queue' contracts/services.md && ! grep -Fq 'This handler supplies no authorization middleware of its own' contracts/services.md"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-docs"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181697]
+title = "The indexer operational contract describes status health and policy-protected dead letters accurately"
+ac_1 = "Given the indexer operational routes implemented at services/launchpad/indexer/internal/httpapi/status.go:46 and services/launchpad/indexer/internal/httpapi/deadletter.go:47, when the Launchpad indexer section at contracts/services.md:62 is read, then it distinguishes canonical watermark/delivery health from legacy cursor/publisher metrics, documents unavailable/degraded HTTP 503 and unknown null values, always-mounted dead-letter routes with policy-unavailable HTTP 503, authenticated and audited bounded durable inspection, and refused non-destructive drain, with none of the obsolete claims at contracts/services.md:68."
+
+[acceptance.18.1697.1]
+feature = "18"
+req = "181697.1"
+scenario = "Given the indexer operational contract and its status and dead-letter handlers, when the focused documentation grep runs, then all corrected mode, health, authorization, audit and retention statements are present and the obsolete publisher-only, unauthenticated, destructive-drain and always-healthy claims are absent."
+contract = "contracts/services.md#launchpad-indexer"
+test = "contracts/services.md::launchpad-indexer-operational-contract (planned)"
+qualification = "UNRUN"

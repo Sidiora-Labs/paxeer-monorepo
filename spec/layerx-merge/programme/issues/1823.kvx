@@ -1,0 +1,48 @@
+[issue.1823]
+number = 1823
+title = "[P2] Include shared chart declarations in the launchpad Docker build"
+revision = "a910fdedd579e63379ae6c2e4d4971990d28f8ad"
+verdict = "task"
+evidence = "apps/launchpad/web/public/charting_library/charting_library.d.ts:1 forwards to the canonical perps declaration introduced by commit 637c9c63da15d53eae493665591a26bcb2799d6c, but deploy/launchpad/Dockerfile.web:6-10 omits that input before the Next build at :49, while apps/launchpad/web/src/widgets/trading/tv-chart.tsx:4 and apps/launchpad/web/src/widgets/trading/udf-datafeed.ts:6 require its named exports and tests/ci/test_frontend_asset_names.py:140-147 checks only the full checkout."
+close_comment = "The launchpad image builder is missing the shared chart declarations required by the chart component and datafeed. A follow-up task will include the canonical declaration in the builder, preserve the named exports and TradingView namespace, and verify the production build and isolated packaging inputs."
+
+[task.18.1823.1]
+title = "Issue #1823: Include canonical chart declarations in the launchpad image builder"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181823.1"]
+capabilities = []
+interfaces = []
+do_1 = "Add a COPY beside deploy/launchpad/Dockerfile.web:6-8 for apps/perps/public/static/charting_library/charting_library.d.ts at /src/apps/perps/public/static/charting_library/charting_library.d.ts before dependency installation and the web build at :49; retain the single canonical declaration and the forwarding exports and TradingView namespace at apps/launchpad/web/public/charting_library/charting_library.d.ts:1-2, without copying the rest of the perps app or disabling TypeScript validation."
+do_2 = "Extend tests/ci/test_frontend_asset_names.py beside the checkout-only check at :127-147 with test_launchpad_docker_chart_declarations: stage the actual build-stage COPY inputs from deploy/launchpad/Dockerfile.web in an empty temporary tree, respecting deploy/launchpad/Dockerfile.web.dockerignore:1-42, resolve the staged forwarder's relative import and assert the canonical bytes, named exports used by tv-chart.tsx:4 and udf-datafeed.ts:6, and TradingView namespace are present; assert omission of the canonical COPY makes the staged dependency unavailable, and run the real Docker build target through its unmodified Next type validation configured by apps/launchpad/web/package.json:10 and apps/launchpad/web/next.config.ts:42-117."
+symbols = ["test_launchpad_docker_chart_declarations"]
+touches = ["deploy/launchpad/Dockerfile.web", "tests/ci/test_frontend_asset_names.py"]
+tests = ["tests/ci/test_frontend_asset_names.py::test_launchpad_docker_chart_declarations"]
+planned_paths = []
+build_cmd = "docker build --target build -f deploy/launchpad/Dockerfile.web ."
+verify_cmd = "python3 -m pytest tests/ci/test_frontend_asset_names.py::test_launchpad_docker_chart_declarations -q"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181823]
+title = "The launchpad production builder includes the canonical chart declarations"
+ac_1 = "Given the production COPY layout in deploy/launchpad/Dockerfile.web:6-8 and the forwarding module at apps/launchpad/web/public/charting_library/charting_library.d.ts:1-2, when the launchpad image build runs the web build at deploy/launchpad/Dockerfile.web:49, then the canonical declaration resolves inside the builder, the named imports in apps/launchpad/web/src/widgets/trading/tv-chart.tsx:4 and apps/launchpad/web/src/widgets/trading/udf-datafeed.ts:6 and the TradingView namespace remain available, and a regression check fails if the canonical COPY input is omitted."
+
+[acceptance.18.1823.1]
+feature = "18"
+req = "181823.1"
+scenario = "Given an isolated launchpad production builder containing only the Dockerfile COPY inputs, when the chart component and datafeed are type-validated during the real web build, then their named chart types and TradingView namespace resolve from the canonical declaration, and the packaging regression detects removal of that dependency."
+contract = "contracts/clients.md#launchpad-web-app"
+test = "tests/ci/test_frontend_asset_names.py::test_launchpad_docker_chart_declarations (planned)"
+qualification = "UNRUN"

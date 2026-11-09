@@ -1,0 +1,52 @@
+[issue.1661]
+number = 1661
+title = "Load-test deploy-wasm still invokes retired DEX commands"
+revision = "bb8caac8b3e73e3e2f4b330805574f0bcb540641"
+verdict = "task"
+evidence = "tools/benchmark/loadtest/operations/deployment.go:281 delegates before instantiation and retired DEX calls at :293 and :311 return before unbonding at :321 or address output at :325, while daemon/paxd/cmd/root.go:222 builds transactions from node/app.go:281 module basics without DEX and modules/layerxexchange/module.go:69 and modules/spot/module.go:77 return no transaction commands; commit fb15c3ca096875a1f434b56a365660fba7aa20a7 retained this sequence, tools/benchmark/loadtest/operations/repair_22_31_500_test.go:33 stops after stores, and tools/benchmark/loadtest/repair_m879_test.go:188 supplies synthetic DEX success."
+close_comment = "The WASM deployment still reaches retired DEX commands after creating contracts and delegating stake, so it can leave partial state without returning contract addresses. A repair is specified to complete CW20 deployment through supported commands, remove the unnecessary delegation, retain partial-deployment recovery details, and prove the behavior against the current command tree and chain."
+
+[task.18.1661.1]
+title = "Issue #1661: Complete CW20 deployment without retired DEX commands"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181661.1"]
+capabilities = []
+interfaces = []
+do_1 = "Change DeployWasm in tools/benchmark/loadtest/operations/deployment.go:233 to finish after storing and instantiating the two shipped CW20 contracts and printing both committed addresses; remove the DEX registration, pair files, DEX fees and temporary staking delegation at :248 and :268-323, without restoring retired commands or changing the separate native deploy-ten operation in tools/benchmark/loadtest/contracts/deploy_ten_contracts.sh:4."
+do_2 = "Before the first store at tools/benchmark/loadtest/operations/deployment.go:258, validate the selected paxd binary's supported wasm store and instantiate commands and the artifact; fail before any transaction if unavailable, and retain actionable recovery details for committed code IDs, contract addresses and any uncertain transaction outcome on later failure or cancellation, without publishing success output or attempting to delete committed chain state."
+do_3 = "Add TestIssue1661_CW20Deployment in tools/benchmark/loadtest/issue_1661_test.go using the production paxd command tree and a disposable chain with the shipped CW20 artifact and real transaction responses; prove the required commands exist and DEX does not, successful deployment yields two queryable CW20 addresses and no staking changes, preflight failure commits nothing, and actual transaction rejection or interrupted transport after a committed step retains recoverable partial state with no success output."
+do_4 = "Update the existing store-path checks in tools/benchmark/loadtest/operations/repair_22_31_500_test.go:53 and the transcript at tools/benchmark/loadtest/repair_m879_test.go:156 for preflight and CW20-only completion, preserving absolute and relative paths with spaces, both store assertions, malformed and refused response checks and command-failure coverage; replace obsolete DEX expectations with assertions of the supported sequence and partial-state recovery, and do not use synthetic successful transcripts as proof of command availability."
+symbols = ["DeployWasm", "TestIssue1661_CW20Deployment", "m879WasmSteps", "TestRepair22_31_500_CW20StorePaths", "TestRepair22_31_500_CW20StoreFailureStopsDeployment"]
+touches = ["tools/benchmark/loadtest/operations/deployment.go", "tools/benchmark/loadtest/operations/repair_22_31_500_test.go", "tools/benchmark/loadtest/repair_m879_test.go", "tools/benchmark/loadtest/issue_1661_test.go"]
+tests = ["tools/benchmark/loadtest/issue_1661_test.go::TestIssue1661_CW20Deployment", "tools/benchmark/loadtest/operations/repair_22_31_500_test.go::TestRepair22_31_500_CW20StorePaths", "tools/benchmark/loadtest/operations/repair_22_31_500_test.go::TestRepair22_31_500_CW20StoreFailureStopsDeployment", "tools/benchmark/loadtest/repair_m879_test.go::TestRepairM_879_WasmDeployment"]
+planned_paths = []
+build_cmd = "go build ./tools/benchmark/loadtest/..."
+verify_cmd = "go test -count=1 ./tools/benchmark/loadtest/operations/ ./tools/benchmark/loadtest/ -run '^(TestIssue1661_CW20Deployment|TestRepair22_31_500_CW20StorePaths|TestRepair22_31_500_CW20StoreFailureStopsDeployment|TestRepairM_879_WasmDeployment)$'"
+gate_kind = "planned"
+sandbox_profile = "go-cgo"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181661]
+title = "WASM load-test deployment completes through supported CW20 commands and exposes recoverable failures"
+ac_1 = "The stores and instantiations in tools/benchmark/loadtest/operations/deployment.go:258-290 complete through commands registered by daemon/paxd/cmd/root.go:222, output exactly the two committed CW20 addresses, and never invoke the retired DEX registrations at tools/benchmark/loadtest/operations/deployment.go:293 and :311 or the unnecessary delegation at :281."
+ac_2 = "Missing commands or artifact refuse before the first store at tools/benchmark/loadtest/operations/deployment.go:258; later rejection or cancellation retains committed code IDs, contract addresses and uncertain transaction recovery details with no success output and no temporary delegation to clean up."
+ac_3 = "The regression exercises the production command tree and real CW20 transactions on a disposable chain, checks queryable contract state and unchanged staking state, and asserts preflight refusal and partial-deployment recovery rather than relying on the synthetic DEX transcript at tools/benchmark/loadtest/repair_m879_test.go:188."
+
+[acceptance.18.1661.1]
+feature = "18"
+req = "181661.1"
+scenario = "Given the current paxd command tree and a funded disposable chain, when deploy-wasm completes or encounters missing commands, transaction rejection or transport interruption, then it either returns two committed CW20 addresses without DEX or staking operations, refuses before transactions, or reports recoverable partial state without success output."
+contract = "contracts/cosmwasm.md#cli"
+test = "tools/benchmark/loadtest/issue_1661_test.go::TestIssue1661_CW20Deployment (planned)"
+qualification = "UNRUN"

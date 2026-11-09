@@ -1,0 +1,49 @@
+[issue.1593]
+number = 1593
+title = "[Coherence] The audit record declares the sequencer and consensus-fork contracts missing although both exist and carry the reviewed rows"
+revision = "bb8caac8b3e73e3e2f4b330805574f0bcb540641"
+verdict = "task"
+evidence = "spec/layerx-merge/programme/audit/records/22.30.43.kvx:1863 and :1868 still mark both contracts missing and :1764 requests the sequencer contract, although spec/layerx-merge/contracts/sequencer.md:2172 and :2185 provide the linked CLI section and row, spec/layerx-merge/contracts/consensus-fork.md:64 provides the consensus CLI section, and both files exist in the tree of the audit revision 6d2c32a65a1c7989a6a37abf5965929de9769ae4; the quotation attributed to the package is actually at spec/layerx-merge/interfaces.kvx:24488, while its CLI contract link is at :226153."
+close_comment = "Both contract pages exist, but the audit record still labels them missing and asks for an existing sequencer contract to be supplied. A follow-up task will compare the linked contracts with their implementations, correct both documentation assessments, and retain only evidence-based follow-up findings."
+
+[task.18.1593.1]
+title = "Issue #1593: Correct the sequencer and consensus contract reviews in audit record 22.30.43"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181593.1"]
+capabilities = []
+interfaces = []
+do_1 = "Resolve the links at spec/layerx-merge/interfaces.kvx:226153 and :647644 relative to spec/layerx-merge, and review the existing sequencer CLI and storage sections at spec/layerx-merge/contracts/sequencer.md:2172 and :1152 and the relevant consensus-fork sections including spec/layerx-merge/contracts/consensus-fork.md:64 against the package member implementations and tests; distinguish the historical audit revision at spec/layerx-merge/programme/audit/records/22.30.43.kvx:6 from subsequent source changes, including the verified-receipt implementation at cmd/layerxctl/src/main.rs:235 and the contract tests at cmd/layerxctl/tests/repair_22_33_1078.rs:24 and :123."
+do_2 = "Correct doc.020 and doc.021 at spec/layerx-merge/programme/audit/records/22.30.43.kvx:1863 and :1868 to use the full spec/layerx-merge/contracts paths, assign accurate, stale or misleading from the actual comparisons, and cite concrete contract and source lines in their notes; record any newly established disagreements as findings in that record and keep finding counts and blocking ids consistent if findings are added, without rewriting unrelated historical file counts or claiming a new whole-slice review."
+do_3 = "Correct the false missing-contract summary at spec/layerx-merge/programme/audit/records/22.30.43.kvx:12 and the supply-the-contract clause of f032 at :1764, preserving its independently supported registry drift at :1762 because spec/layerx-merge/interfaces.kvx:226154 and :226164 still describe obsolete behavior; the focused documentation check must find both resolved page paths with a reviewed status and reject the false missing-contract wording."
+symbols = []
+touches = ["spec/layerx-merge/programme/audit/records/22.30.43.kvx"]
+tests = ["spec/layerx-merge/programme/audit/records/22.30.43.kvx::resolved_contract_reviews"]
+planned_paths = []
+build_cmd = "true"
+verify_cmd = "grep -A3 -F '[doc.020]' spec/layerx-merge/programme/audit/records/22.30.43.kvx | grep -Fq spec/layerx-merge/contracts/sequencer.md && grep -A3 -F '[doc.020]' spec/layerx-merge/programme/audit/records/22.30.43.kvx | grep -Eq '^status = .(accurate|stale|misleading).$' && grep -A3 -F '[doc.021]' spec/layerx-merge/programme/audit/records/22.30.43.kvx | grep -Fq spec/layerx-merge/contracts/consensus-fork.md && grep -A3 -F '[doc.021]' spec/layerx-merge/programme/audit/records/22.30.43.kvx | grep -Eq '^status = .(accurate|stale|misleading).$' && ! grep -Eq 'supply the missing linked sequencer contract|Missing linked contracts are listed as missing documentation|absent at the reviewed revision' spec/layerx-merge/programme/audit/records/22.30.43.kvx"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-programme"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181593]
+title = "Audit contract assessments describe the existing sequencer and consensus pages"
+ac_1 = "The documentation entries currently at spec/layerx-merge/programme/audit/records/22.30.43.kvx:1863 and :1868 resolve to the existing specification contract pages and record evidence-based accurate, stale or misleading assessments with contract-versus-implementation citations, while the summary at :12 and proposal at :1764 no longer claim these pages are missing and valid interface disagreements remain recorded."
+
+[acceptance.18.1593.1]
+feature = "18"
+req = "181593.1"
+scenario = "Given audit record 22.30.43 and the sequencer and consensus-fork contracts linked by its registry rows, when the contract documentation is compared with the corresponding implementations and tests, then both pages receive resolved paths and evidence-based review statuses, actual disagreements are recorded, and no proposal asks for these existing pages to be supplied."
+contract = "contracts/sequencer.md#node-cli"
+test = "spec/layerx-merge/programme/audit/records/22.30.43.kvx::resolved_contract_reviews (planned)"
+qualification = "UNRUN"

@@ -1,0 +1,49 @@
+[issue.1803]
+number = 1803
+title = "[Coherence] The existing embedded-wallet test still expects the removed default endpoint and a null result when nothing is configured"
+revision = "a910fdedd579e63379ae6c2e4d4971990d28f8ad"
+verdict = "task"
+evidence = "apps/perps/tests/embedded-wallet.test.ts:72 and :90 omit the endpoint, :81 and :108 require the removed default origin, and :100 expects null for empty browser configuration, contradicting the endpoint refusal at apps/perps/src/core/wallet/embedded/client.ts:29 and the existing refusal assertions at apps/perps/tests/repair-22-31-603.test.ts:43 introduced by commit 8a2e6447fb97f400ce1f6e8252587d5fa4a23f46."
+close_comment = "The embedded-wallet regression still assumes a default endpoint and a null result for missing browser configuration. Update its assertions to the explicit-endpoint contract while preserving coverage for disabled and server-side configurations."
+
+[task.18.1803.1]
+title = "Issue #1803: Align embedded-wallet regression coverage with explicit endpoint configuration"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181803.1"]
+capabilities = []
+interfaces = []
+do_1 = "In apps/perps/tests/embedded-wallet.test.ts:71, declare the existing async callback as function chainIdFromChainObject and register it with test(chainIdFromChainObject); supply NEXT_PUBLIC_PAXEER_WALLET_API explicitly for both successful configurations at :72 and :88, assert the supplied endpoint at :81, and replace the obsolete source-origin requirement at :108 with assertions that the retired default is absent and the endpoint setting is referenced, consistent with decision.2755 at spec/layerx-merge/spec.kvx:9645."
+do_2 = "Replace the empty-browser null expectation at apps/perps/tests/embedded-wallet.test.ts:99 with assert.rejects over withBrowserEnv({}, () => resolvePaxeerConfig()) matching NEXT_PUBLIC_PAXEER_WALLET_API, add the same refusal with a publishable key but no endpoint, and retain a separate null assertion with an endpoint but no publishable key as required by apps/perps/src/core/wallet/embedded/client.ts:51; preserve the server-side null, chain id, RPC precedence and auth-origin assertions at apps/perps/tests/embedded-wallet.test.ts:76, :88, :104 and :109."
+do_3 = "Run the named chainIdFromChainObject regression against the real resolver together with missing_endpoint_refuses_with_the_setting_name and configured_endpoint_is_used_by_the_embedded_client at apps/perps/tests/repair-22-31-603.test.ts:37 and :49; retain their assertions and the resolver's explicit-endpoint refusal unchanged."
+symbols = ["chainIdFromChainObject"]
+touches = ["apps/perps/tests/embedded-wallet.test.ts"]
+tests = ["apps/perps/tests/embedded-wallet.test.ts::chainIdFromChainObject", "apps/perps/tests/repair-22-31-603.test.ts::missing_endpoint_refuses_with_the_setting_name", "apps/perps/tests/repair-22-31-603.test.ts::configured_endpoint_is_used_by_the_embedded_client"]
+planned_paths = []
+build_cmd = "pnpm --dir apps/perps exec tsc --noEmit"
+verify_cmd = "pnpm --dir apps/perps exec node --test --test-concurrency=1 --import tsx --test-name-pattern '^(chainIdFromChainObject|missing_endpoint_refuses_with_the_setting_name|configured_endpoint_is_used_by_the_embedded_client)$' tests/embedded-wallet.test.ts tests/repair-22-31-603.test.ts"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-markets"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181803]
+title = "Embedded-wallet regression coverage enforces explicit endpoints without losing disabled-wallet or server behavior"
+ac_1 = "The chainIdFromChainObject test at apps/perps/tests/embedded-wallet.test.ts:71 passes with explicit endpoints for default and pinned RPC configurations, rejects both empty browser configuration and a publishable key without an endpoint with the setting name from apps/perps/src/core/wallet/embedded/client.ts:32, asserts null with an endpoint but no publishable key and during server rendering, and proves the retired default origin is absent while preserving chain id, RPC precedence and auth-origin coverage."
+
+[acceptance.18.1803.1]
+feature = "18"
+req = "181803.1"
+scenario = "Given the real embedded-wallet resolver and isolated browser configuration, when chainIdFromChainObject exercises explicit endpoints, missing endpoints, a missing publishable key with an endpoint and server rendering, then explicit endpoints and RPC precedence are preserved, missing endpoints reject with the setting name, disabled and server configurations return null, and the client contains no retired default origin."
+contract = "contracts/clients.md#b-identity-and-keys"
+test = "apps/perps/tests/embedded-wallet.test.ts::chainIdFromChainObject (planned)"
+qualification = "UNRUN"

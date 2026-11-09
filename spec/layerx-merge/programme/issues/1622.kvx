@@ -1,0 +1,7 @@
+[issue.1622]
+number = 1622
+title = "[Coherence] The interop check now sends its lx_* account reads to a public node root, which does not serve the LayerX methods"
+revision = "bb8caac8b3e73e3e2f4b330805574f0bcb540641"
+verdict = "already-fixed"
+evidence = "Commit cc9d6e18fe9b1ccab8e94d081e3548bea4fb8dac removed the public-node default and lx_* reads: tools/bringup/check-live.sh:3236 and tools/bringup/check-live.sh:3239 require explicit gateway and node endpoints before requests, tools/bringup/check-live.sh:3255 passes them separately to the payment inspector, tools/bringup/live_journeys.go:60 and tools/bringup/live_journeys.go:79 read px_getAccount and px_getBalances through the gateway without authorization, and tools/bringup/repair_m793_test.go:434 and tools/bringup/repair_m793_test.go:513 assert credential isolation and the replacement methods."
+close_comment = "The interop payment check now requires explicit hosted gateway and node receipt endpoints and rejects missing configuration before making requests. Account and balance reads use px_* on the configured gateway without forwarding the facilitator API key."

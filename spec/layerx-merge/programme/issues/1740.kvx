@@ -1,0 +1,49 @@
+[issue.1740]
+number = 1740
+title = "[Coherence] The test reads the consumer and membership source hashes but only checks that each is 32 bytes long, so the recorded transcript can drift from ProjectionStore without failing"
+revision = "a910fdedd579e63379ae6c2e4d4971990d28f8ad"
+verdict = "task"
+evidence = "programs/crates/layerx-programs-ai-market/tests/repair_22_33_233.rs:381 checks only hash lengths at lines 393 and 397 and retains consumer hash 2e387f6033b6985960035c9d38646074a70549de51f4ba58283e9f11703eab96 at line 624, while commit 6bae59f682542da4cdc3b1091c22fe095f02b1d2 changed services/platform/hosted/indexer/src/ai_market.rs:1616 and its current SHA-256 is ea9d74fffbd8142a5e729dff6b500e6c905df536338bb6d4a58195b7ff78709f, so the recorded consumer provenance has already drifted."
+close_comment = "The recorded consumer hash is stale, and the existing transcript checks accept any 32-byte source hash. The repair task adds a check against both current consumer sources and refreshes the recording through real promotion, refusal and recovery operations."
+
+[task.18.1740.1]
+title = "Issue #1740: Bind the AI market consumer transcript to its production sources"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181740.1"]
+capabilities = []
+interfaces = []
+do_1 = "Add ai_market_transcript_tracks_current_sources to services/platform/hosted/indexer/tests/repair_22_31_350.rs beside snapshot_requires_exact_native_membership at line 588; read the embedded CONSUMER_TRANSCRIPT from programs/crates/layerx-programs-ai-market/tests/repair_22_33_233.rs:622 and compare both decoded source hashes with SHA-256 of include_bytes! for services/platform/hosted/indexer/src/ai_market.rs and ai_market_membership.rs, rejecting either mismatch without adding a hosted-indexer dependency to programs."
+do_2 = "Refresh CONSUMER_TRANSCRIPT and its source_revision assertion at programs/crates/layerx-programs-ai-market/tests/repair_22_33_233.rs:385 from current production ProjectionStore operations; extend the real observe, promote and drop/open path at services/platform/hosted/indexer/tests/repair_22_31_350.rs:607 to reproduce the recording's two successful captures and five refused promotions and compare their canonical bindings, snapshot identities, recovered state and pending events, preserving all existing guest assertions and deriving the metadata from the same production sources rather than relabeling old output."
+do_3 = "In ai_market_transcript_tracks_current_sources, assert acceptance of the current recording and rejection when either recorded source digest is independently changed to a different 32-byte value; assert exact equality with live consumer outcomes so source length alone and stale behavioral output cannot satisfy the check."
+symbols = ["ai_market_transcript_tracks_current_sources", "CONSUMER_TRANSCRIPT"]
+touches = ["services/platform/hosted/indexer/tests/repair_22_31_350.rs", "programs/crates/layerx-programs-ai-market/tests/repair_22_33_233.rs"]
+tests = ["services/platform/hosted/indexer/tests/repair_22_31_350.rs::ai_market_transcript_tracks_current_sources"]
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-indexer --test repair_22_31_350"
+verify_cmd = "cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-indexer --test repair_22_31_350 ai_market_transcript_tracks_current_sources -- --exact"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181740]
+title = "AI market transcript provenance and recovered outcomes match the current consumer"
+ac_1 = "Given CONSUMER_TRANSCRIPT at programs/crates/layerx-programs-ai-market/tests/repair_22_33_233.rs:622 and the production consumer promotion path at services/platform/hosted/indexer/src/ai_market.rs:1599, the focused platform test accepts only a recording whose two source digests equal the current consumer and membership source hashes and whose two successful captures and five refused promotions match real ProjectionStore outcomes across shutdown and reopen; a different 32-byte value in either digest fails the provenance check."
+
+[acceptance.18.1740.1]
+feature = "18"
+req = "181740.1"
+scenario = "Given a consumer transcript and the current production source files, when its hashes and real promotion, refusal and recovered outcomes are checked, then the current recording matches exactly and an independent change to either recorded source hash is rejected."
+contract = "contracts/programs.md#ai-market-guest"
+test = "services/platform/hosted/indexer/tests/repair_22_31_350.rs::ai_market_transcript_tracks_current_sources (planned)"
+qualification = "UNRUN"

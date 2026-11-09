@@ -1,0 +1,50 @@
+[issue.1812]
+number = 1812
+title = "[Coherence] The hand-edited activation runbook no longer matches its generator, so the byte-equality runbook test now fails and regeneration would revert the edit"
+revision = "a910fdedd579e63379ae6c2e4d4971990d28f8ad"
+verdict = "task"
+evidence = "spec/layerx-merge/programme/tests/test_activation_runbook.py:19 requires byte equality, but spec/layerx-merge/programme/activation.py:18 and spec/layerx-merge/programme/activation.py:236 still render four plans and the removed generated header from stale stores at spec/layerx-merge/programme/data/activation-plan.kvx:25, whereas spec/layerx-merge/docs/activation-runbook.md:23 lists eight merge stores and a fifth plan matching node/upgrades.go:450 and node/upgrades.go:647; the requested inline handler is superseded by the guarded registered runAnchorStoreDeleteUpgrade at node/upgrades.go:219 and node/upgrades.go:222, introduced by commit 74b284ed2b0901e49e0a1a7f0b860a552ebb48c0."
+close_comment = "The activation data and renderer still disagree with the runbook's five plans and eight merge stores, so regeneration cannot preserve the current inventory. Synchronize the data, renderer and tests with the node, retain the guarded runAnchorStoreDeleteUpgrade handler, and regenerate the runbook with byte-equality coverage."
+
+[task.18.1812.1]
+title = "Issue #1812: Synchronize the activation runbook generator with the node upgrade inventory"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181812.1"]
+capabilities = []
+interfaces = []
+do_1 = "Correct spec/layerx-merge/programme/data/activation-plan.kvx:25 to the eight stores returned at node/upgrades.go:450, including layerxchains and lxphost from storage/common/keys/store_keys.go:49 and storage/common/keys/store_keys.go:53; retain the correct runAnchorStoreDeleteUpgrade handler at spec/layerx-merge/programme/data/activation-plan.kvx:29, which is registered at node/upgrades.go:219 and checks the earlier merge height at node/upgrades.go:223."
+do_2 = "Extend KNOWN_UPGRADE_PLANS at spec/layerx-merge/programme/activation.py:18 to all five plans in node/upgrades.go:647 and render the delete plan as pending when done_height == 0 rather than deferred at spec/layerx-merge/programme/activation.py:256; update render_runbook at spec/layerx-merge/programme/activation.py:227 to emit the five-plan inventory, accurate handler names, the Merge stores section and the separate guarded deletion step represented at spec/layerx-merge/docs/activation-runbook.md:26, then regenerate that document from the corrected data."
+do_3 = "Strengthen test_runbook_matches_render at spec/layerx-merge/programme/tests/test_activation_runbook.py:14 to require all five known plans, all eight merge stores, the generated header and Merge stores section while preserving byte equality at line 19 and every existing golden assertion; correct the exact store expectations in test_merge_plans_match_store_changes at spec/layerx-merge/programme/tests/test_activation_plan.py:42 and the known delete-plan expectation in test_unknown_plan_is_not_pending at spec/layerx-merge/programme/tests/test_activation_gates.py:41 while preserving unknown-plan refusal and deletion assertions."
+do_4 = "In tools/qualification/audit_repairs/test_repair_22_31_593.py:154, replace the obsolete inline handler label assertion at line 178 with equality to the actual registered handler name while retaining the merge-height guard and migration-body assertions at lines 176-177; retain test_activation_runbook_merge_stores_match_on_disk_keys_and_delete_plan at line 187 to prove the regenerated inventory matches the node and its immutable store keys."
+symbols = ["KNOWN_UPGRADE_PLANS", "render_runbook", "test_runbook_matches_render", "test_merge_plans_match_store_changes", "test_unknown_plan_is_not_pending", "test_activation_runbook_lists_every_explicitly_registered_plan_in_node_order"]
+touches = ["spec/layerx-merge/programme/data/activation-plan.kvx", "spec/layerx-merge/programme/activation.py", "spec/layerx-merge/docs/activation-runbook.md", "spec/layerx-merge/programme/tests/test_activation_runbook.py", "spec/layerx-merge/programme/tests/test_activation_plan.py", "spec/layerx-merge/programme/tests/test_activation_gates.py", "tools/qualification/audit_repairs/test_repair_22_31_593.py"]
+tests = ["spec/layerx-merge/programme/tests/test_activation_runbook.py::test_runbook_matches_render", "spec/layerx-merge/programme/tests/test_activation_plan.py::test_merge_plans_match_store_changes", "spec/layerx-merge/programme/tests/test_activation_gates.py::test_unknown_plan_is_not_pending", "tools/qualification/audit_repairs/test_repair_22_31_593.py::test_activation_runbook_lists_every_explicitly_registered_plan_in_node_order", "tools/qualification/audit_repairs/test_repair_22_31_593.py::test_activation_runbook_merge_stores_match_on_disk_keys_and_delete_plan"]
+planned_paths = []
+build_cmd = "python3 -m py_compile spec/layerx-merge/programme/activation.py spec/layerx-merge/programme/tests/test_activation_runbook.py spec/layerx-merge/programme/tests/test_activation_plan.py spec/layerx-merge/programme/tests/test_activation_gates.py tools/qualification/audit_repairs/test_repair_22_31_593.py"
+verify_cmd = "PYTHONPATH=spec/layerx-merge python3 -m pytest spec/layerx-merge/programme/tests/test_activation_runbook.py::test_runbook_matches_render spec/layerx-merge/programme/tests/test_activation_plan.py::test_merge_plans_match_store_changes spec/layerx-merge/programme/tests/test_activation_gates.py::test_unknown_plan_is_not_pending tools/qualification/audit_repairs/test_repair_22_31_593.py::test_activation_runbook_lists_every_explicitly_registered_plan_in_node_order tools/qualification/audit_repairs/test_repair_22_31_593.py::test_activation_runbook_merge_stores_match_on_disk_keys_and_delete_plan -q"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-programme"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181812]
+title = "The generated activation runbook matches the current node upgrade inventory"
+ac_1 = "Given the plan data at spec/layerx-merge/programme/data/activation-plan.kvx:20, rendering produces the committed runbook byte for byte as required at spec/layerx-merge/programme/tests/test_activation_runbook.py:19, lists all five plans from node/upgrades.go:647, uses the registered handlers including runAnchorStoreDeleteUpgrade at node/upgrades.go:219, and records the eight stores from node/upgrades.go:450 with lxphost and layerxchains, while retaining all golden checks and the separate anchor-store deletion."
+
+[acceptance.18.1812.1]
+feature = "18"
+req = "181812.1"
+scenario = "Given the node upgrade inventory, corrected activation data and bring-up goldens, when the runbook is regenerated and the focused inventory checks run, then the committed document equals the render byte for byte, includes five plans and eight merge stores with the registered guarded delete handler, and preserves the golden checks and unknown-plan refusal."
+contract = "contracts/programme.md#programme"
+test = "spec/layerx-merge/programme/tests/test_activation_runbook.py::test_runbook_matches_render (planned)"
+qualification = "UNRUN"
