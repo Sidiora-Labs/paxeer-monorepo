@@ -38,12 +38,11 @@ use crate::{
         codec::verify_digest,
         model::{SignedReport, VerificationError},
     },
-    registry::check_f01_capacity,
     registry_ops::{CallContext, PolicySection, SUSPENDED},
     rewards::RewardState,
     state::{
-        decode_shared_state, encode_shared_state, settlement_rewards, ActorSlot, HeightWindow,
-        ReplayDecision, ReplayRequest, RetainedResult, Section, SharedState,
+        decode_shared_state, settlement_rewards, ActorSlot, HeightWindow, ReplayDecision,
+        ReplayRequest, RetainedResult, Section, SharedState,
     },
     types::{
         Authentication, CommitmentDigest, EvaluatorBinding, EvaluatorId, FrozenBinding, Presence,
@@ -509,10 +508,6 @@ fn commit(
     let (policy, rest) = scratch.split_at_mut_checked(POLICY_CAP).ok_or(CAPACITY)?;
     let (reports, control) = rest.split_at_mut_checked(REPORTS_CAP).ok_or(CAPACITY)?;
     let epoch = opened.frozen.epoch;
-    let revision = opened.state.revision.checked_add(1).ok_or(ARITHMETIC)?;
-    let mut section = opened.section;
-    section.header.state_revision = revision;
-    let policy_len = section.encode(policy)?;
     let current = *opened
         .state
         .feature_sections
@@ -530,20 +525,23 @@ fn commit(
     }
     opened.commits.write_with(epoch, record, &mut w)?;
     let reports_len = w.len();
-    let policy = policy.get(..policy_len).ok_or(CAPACITY)?;
     let reports = reports.get(..reports_len).ok_or(CAPACITY)?;
-    let with_policy = opened
-        .state
-        .replace_section(Section::PolicyLifecycle, policy)?;
-    let mut candidate = with_policy.with_section(Section::CurrentReports, reports)?;
+    let mut candidate = opened.state.clone();
+    *candidate
+        .feature_sections
+        .guest_index_mut(Section::CurrentReports.index()) = reports;
     let result = record.result()?;
-    if candidate.record_success(request, call.ctx.height, result)? != ReplayDecision::Apply
-        || candidate.revision != revision
-    {
-        return Err(NON_CANONICAL);
-    }
-    check_f01_capacity(policy_len, candidate.encoded_len()?)?;
-    let state_len = encode_shared_state(&candidate, next, control)?;
+    let (revision, state_len) = crate::rewards::finish_feature_transition(
+        candidate,
+        opened.section,
+        Some(request),
+        call.ctx.height,
+        result,
+        NON_CANONICAL,
+        policy,
+        control,
+        next,
+    )?;
     let frozen = &opened.frozen;
     let event_len = codec::encode_commit_event(
         &CommitAccepted {

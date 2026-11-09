@@ -1,0 +1,28 @@
+[repair.22.39.281]
+decision = "3118"
+gotcha = "3978"
+issue = "1716"
+base_revision = "62a87b90a3ba40f6612f11b07a7cbee7a15e6bca"
+implementation = "Change only LIGHT_ROLES.textMuted from #8A91A0 to #8A90A0; retain both surfaces, the dark palette and every other role."
+files = ["apps/explorer/toolkit/theme/foundations/palette.ts", "apps/explorer/toolkit/theme/repair-22-35-1.spec.ts", "apps/explorer/toolkit/theme/repair-22-39-281.spec.ts", "apps/explorer/toolkit/theme/repair_22_39_281.kvx", "spec/layerx-merge/programme/docs/explorer-ui/design-brief.md"]
+measurement = "WCAG sRGB relative luminance: linearize each channel at 0.04045, weight by 0.2126/0.7152/0.0722, then divide (lighter + 0.05) by (darker + 0.05)."
+light_before = "#8A91A0 against #F7F8FA: approximately 2.9769:1, below 3:1."
+light_after = "#8A90A0 against #F7F8FA: approximately 3.0045:1, at least 3:1."
+proof = "Three declared Vitest functions compute unrounded contrast from the real exported LIGHT and DARK palettes, require at least 3 in each mode, and require the former light value to remain below 3 against the real light surface. The existing semantic role pin and design brief agree with the new value."
+
+[measurements]
+light_ratio = "3.004485482509854:1 (#8A90A0 against #F7F8FA); assertions use the unrounded ratio."
+dark_ratio = "3.90456622565237:1 (#6B7385 against #111319); assertions use the unrounded ratio."
+former_light_ratio = "2.976942651392903:1"
+
+[gotcha]
+formatter = "ESLint --fix --fix-type layout completed formatting but exited 1 because the existing Vitest lint plugin rejects assertion messages and declared-function test registration, as already recorded by repair-22-35-1.kvx. Preserve the real assertions and Vitest 4 handlers; do not disable checks or rerun this unrelated lint finding."
+
+[qualification]
+policy = "Run only hf-build followed by hf-done; gate evidence is retained privately outside the source tree to avoid changing the candidate after building."
+verified_revision = "revision field of the final verify row in /out/run/gates.jsonl, copied verbatim in the final response"
+ledger = "/out/run/gates.jsonl"
+build_command = "cd apps/explorer && yarn lint:tsc"
+verify_command = "cg spec done 22.39.281 -f layerx-merge --root /work/paxeer-monorepo"
+verify_target = "test -s apps/explorer/toolkit/theme/repair_22_39_281.kvx && cd apps/explorer && yarn vitest run toolkit/theme/repair-22-35-1.spec.ts toolkit/theme/repair-22-39-281.spec.ts"
+results = "The authoritative revision, command, exit and log fields are in the gate ledger; this source record does not claim a gate has passed."
