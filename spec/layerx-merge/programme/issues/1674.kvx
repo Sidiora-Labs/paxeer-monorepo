@@ -1,0 +1,48 @@
+[issue.1674]
+number = 1674
+title = "[Coherence] The interop messages HTTP API still emits and decodes a two-field cursor, so the page-boundary fix never reaches production paging"
+revision = "bb8caac8b3e73e3e2f4b330805574f0bcb540641"
+verdict = "task"
+evidence = "The HTTP controller still calls generic paging helpers at services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api/v2/optimism_controller.ex:529 and :535, whose interop encoder omits chain and nonce at services/explorer/backend/apps/block_scout_web/lib/block_scout_web/chain.ex:1055 and whose two-field decoder falls back on errors at :733, while commit 4af654705187cd4126ed722a060e0cc50125d728 supplies the unused four-field decoder at services/explorer/backend/apps/explorer/lib/explorer/chain/optimism/interop_message.ex:358 and its regression test transports cursors directly through explorer helpers at services/explorer/backend/apps/explorer/test/repair/repair_22_33_536_test.exs:226."
+close_comment = "The interop messages endpoint still omits source-chain and nonce from its paging cursor and does not reject invalid cursors. A repair is required to connect the existing four-field cursor to HTTP paging and prove complete traversal across messages in the same transaction."
+
+[task.18.1674.1]
+title = "Issue #1674: Connect interop HTTP paging to the complete message cursor"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181674.1"]
+capabilities = []
+interfaces = []
+do_1 = "In services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api/v2/optimism_controller.ex:523 replace the generic paging_options call at :529 with endpoint-specific cursor handling: use default paging only when all four cursor fields are absent, otherwise decode timestamp, init_transaction_hash, init_chain_id and nonce through InteropMessage.paging_options/1 and return HTTP 400 on :error; replace the generic cursor producer at :535 with BlockScoutWeb.Chain.next_page_params/5 using the existing InteropMessage.paging_params/1 callback supported at services/explorer/backend/apps/block_scout_web/lib/block_scout_web/chain.ex:140, retaining the endpoint's filters and response shape."
+do_2 = "Add the planned file services/explorer/backend/apps/block_scout_web/test/repair/issue_1674_test.exs with one unconditional test interop_http_cursor_round_trip that imports recorded interop message data through the production changeset and import runner into PostgreSQL, including more than one HTTP page sharing a timestamp and transaction hash with distinct source-chain and nonce identities; drive the real GET route, follow each response's next_page_params through query-string encoding and decoding, and assert all four cursor fields, every expected identity exactly once in descending order, unchanged filters and a terminal null cursor; assert a cursor-free first page succeeds and malformed or incomplete cursors return HTTP 400, covering each missing field, malformed hash, invalid timestamp, noninteger fields, nonpositive chain and negative nonce, without mocking the controller, cursor helpers or repository."
+symbols = ["interop_messages"]
+touches = ["services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api/v2/optimism_controller.ex", "services/explorer/backend/apps/block_scout_web/test/repair/issue_1674_test.exs"]
+tests = ["services/explorer/backend/apps/block_scout_web/test/repair/issue_1674_test.exs::interop_http_cursor_round_trip"]
+planned_paths = ["services/explorer/backend/apps/block_scout_web/test/repair/issue_1674_test.exs"]
+build_cmd = "services/explorer/deploy/tools/mix-in-builder.sh cmd --app block_scout_web mix compile"
+verify_cmd = "services/explorer/deploy/tools/mix-in-builder.sh test apps/block_scout_web/test/repair/issue_1674_test.exs --only 'test:test interop_http_cursor_round_trip'"
+gate_kind = "planned"
+sandbox_profile = "elixir"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181674]
+title = "Interop HTTP cursors traverse every message exactly once and reject invalid continuation requests"
+ac_1 = "The endpoint at services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api/v2/optimism_controller.ex:523 emits timestamp, init_transaction_hash, init_chain_id and nonce using the encoder at services/explorer/backend/apps/explorer/lib/explorer/chain/optimism/interop_message.ex:344 and decodes continuation requests with its strict decoder at :358, preserving filters and visiting each message exactly once across a page boundary inside one transaction, while cursor-free requests start normally and malformed or incomplete cursors return HTTP 400."
+
+[acceptance.18.1674.1]
+feature = "18"
+req = "181674.1"
+scenario = "Given imported interop messages spanning multiple pages within one transaction and sharing timestamp and transaction hash, when a client follows the HTTP endpoint's returned cursors through query-string transport, then all four cursor fields survive, every message appears exactly once in order with the requested filters, paging terminates, a cursor-free request succeeds and malformed or incomplete cursors receive HTTP 400."
+contract = "contracts/explorer-http-api.md#explorer-http-api-contract"
+test = "services/explorer/backend/apps/block_scout_web/test/repair/issue_1674_test.exs::interop_http_cursor_round_trip (planned)"
+qualification = "UNRUN"

@@ -1,0 +1,49 @@
+[issue.1690]
+number = 1690
+title = "[Coherence] The native executor transcript proves role origins and Initialized refusals through emitAt, which no production path calls"
+revision = "bb8caac8b3e73e3e2f4b330805574f0bcb540641"
+verdict = "task"
+evidence = "The reviewed commit b0ac70d99b0f0117905df0472c09709e71f2efe8 still supplies role observations and refusals by direct emitAt calls at sdk/launchpad/protocol/bindings/testdata/repair_m948/native_recorder.go.txt:112 and :123, consumed as runtime evidence at sdk/launchpad/protocol/bindings/repair_m948_test.go:658 and :713 and claimed resolved at sdk/launchpad/protocol/bindings/repair_m948.kvx:19, whereas production uses feeLog at precompiles/launchpad/fees.go:325 and rejects initialize independently at :87, so the helper guard at precompiles/launchpad/events.go:28 does not prove production-method refusals."
+close_comment = "The native role-origin and initialization-refusal evidence still comes from direct event-helper calls rather than production methods. A follow-up task adds production-method observations and all eight non-pool initialization refusals to the Go binding proof, keeping the runtime finding open until that evidence exists."
+
+[task.18.1690.1]
+title = "Issue #1690: Prove native role origins and initialization refusals through production methods"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181690.1"]
+capabilities = []
+interfaces = []
+do_1 = "Extend TestRepairM_948_NativeExecutorNode at sdk/launchpad/protocol/bindings/repair_m948_test.go:371 with public ABI calls for all eight non-pool initialize methods and reachable role-event operations; capture their actual requests, responses, revert data and logs in native-node-rpc.json with current producer provenance, rather than deriving runtime observations from native_recorder.go.txt:112 or :123."
+do_2 = "Assert each initialize call reaches its production handler and returns its exact declared initialization error with unchanged logs and relevant state; assert successful market creation emits Initialized only at the new pool, and decode actual role logs with generated bindings, checking their fields and emitter addresses against the production handlers, including feeLog at precompiles/launchpad/fees.go:721, nftLog at precompiles/launchpad/nft.go:501 and market creation at precompiles/launchpad/router.go:652."
+do_3 = "Preserve the existing transport, codec, malformed-data, unknown-topic and node assertions; distinguish helper-generated role grants and Initialized refusals as schema evidence from production-method evidence, and update sdk/launchpad/protocol/bindings/repair_m948.kvx:13 and :19 so runtime_emission_proof_gap remains open with a precompile wiring request for any unproven production observation and closes only when the production-method test proves its claimed coverage."
+symbols = ["TestRepairM_948_NativeExecutorNode"]
+touches = ["sdk/launchpad/protocol/bindings/repair_m948_test.go", "sdk/launchpad/protocol/bindings/repair_m948.kvx", "sdk/launchpad/protocol/bindings/testdata/repair_m948/native-node-rpc.json", "sdk/launchpad/protocol/bindings/testdata/repair_m948/producer-revision.txt"]
+tests = ["sdk/launchpad/protocol/bindings/repair_m948_test.go::TestRepairM_948_NativeExecutorNode", "sdk/launchpad/protocol/bindings/repair_m948_test.go::TestRepairM_948_NativeExecutorTransport"]
+planned_paths = []
+build_cmd = "cd sdk/launchpad/protocol && go build ./bindings/..."
+verify_cmd = "cd sdk/launchpad/protocol && go test -count=1 ./bindings/ -run '^(TestRepairM_948_NativeExecutorNode|TestRepairM_948_NativeExecutorTransport)$'"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181690]
+title = "Native runtime evidence comes from production methods and generated Go consumers"
+ac_1 = "Given the eight non-pool roles listed at sdk/launchpad/protocol/bindings/repair_m948_test.go:643, when their public initialize methods and supported role-event operations execute, then the Go binding proof asserts all eight exact initialization refusals without log or state changes and validates actual role-event origins, while direct emitAt observations at testdata/repair_m948/native_recorder.go.txt:112 and :123 remain schema evidence and cannot close runtime_emission_proof_gap."
+
+[acceptance.18.1690.1]
+feature = "18"
+req = "181690.1"
+scenario = "Given production-method recordings for the eight non-pool roles and a newly created pool, when the generated Go bindings consume successful operations and refused initialization calls, then every non-pool initialization is refused without emitted logs or state changes, the new pool alone emits Initialized, and reachable role logs retain their production emitter addresses."
+contract = "contracts/clients.md#launchpad-sdk-protocol-go"
+test = "sdk/launchpad/protocol/bindings/repair_m948_test.go::TestRepairM_948_NativeExecutorNode (planned)"
+qualification = "UNRUN"

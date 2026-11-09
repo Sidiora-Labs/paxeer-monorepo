@@ -1,0 +1,53 @@
+[issue.1715]
+number = 1715
+title = "Reconcile nextSequence identifier used by web payer with Ledger ABI"
+revision = "a910fdedd579e63379ae6c2e4d4971990d28f8ad"
+verdict = "task"
+evidence = "services/agent/crates/layerx-mcp/src/tools/web.rs:757 encodes receiver_did_key instead of recipient, services/agent/crates/layerx-agentd-host/src/payer.rs:415 submits that calldata unchanged, and precompiles/layerxledger/views.go:101 resolves NextSequenceByAccountID with DID-key rejection asserted at precompiles/layerxledger/repair_144_test.go:197, so commit e986a76986d1edcbfbc52251a405797a438f1208 and spec/layerx-merge/spec.kvx:8667 retain an identifier assumption incompatible with the native account-ID ABI introduced by commit 83b5bed9ba339ff5106caf245e22561c5b00b57a."
+close_comment = "The exported web-payer helper still supplies a DID key to Ledger's account-ID sequence view; a focused repair will use the recipient account ID and verify the emitted calldata against native account lookup, including rejection of a DID key. Metered grants remain retired and paid routes continue to advertise exact payments only."
+
+[task.18.1715.1]
+title = "Issue #1715: Align the web payer sequence read with the native account-ID ABI"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181715.1"]
+capabilities = []
+interfaces = []
+do_1 = "Change GrantTerms::next_sequence_call at services/agent/crates/layerx-mcp/src/tools/web.rs:757 to encode recipient and asset for nextSequence(bytes32,bytes32), preserving the public GrantTerms fields and the unchanged consumers at services/agent/crates/layerx-agentd-host/src/payer.rs:415 and web.rs:604; the supported contract is precompiles/layerxledger/views.go:101 and modules/layerxledger/keeper/views.go:57, while decision 2592 at spec/layerx-merge/spec.kvx:8667 confuses the owner-key convenience API at modules/layerxledger/keeper/views.go:44 with the account-ID ABI."
+do_2 = "Update the sequence-word assertions at services/agent/crates/layerx-mcp/tests/web_payments_layerxpay.rs:380, web.rs:2361, services/agent/crates/layerx-mcp/tests/support/web_hold.rs:329 and services/agent/crates/layerx-agentd-host/tests/payer_evm.rs:309 to require the canonical recipient account and assert it differs from the DID key; regenerate only the sequence-read observations beginning at services/interop/crates/x-websearch/tests/fixtures/gateway/metered.json:166 from actual native account reads, preserving signed historical artifacts and all other replay checks, without fabricated responses or selector-only matching."
+do_3 = "Add the Rust example issue_1715_next_sequence.rs with issue_1715_next_sequence_call, which accepts receiver DID key, canonical receiver account and asset from a native fixture and emits GrantTerms::next_sequence_call().encode() bytes; add TestIssue1715WebNextSequence in precompiles/layerxledger/issue_1715_test.go, reuse newRepair144Fixture at precompiles/layerxledger/repair_144_test.go:120 and pass its real identifiers through the example subprocess, requiring subprocess success and feeding its unmodified output into the real EVM StaticCall path shown at precompiles/layerxledger/proof_layerxledger_0x101a_test.go:92 rather than repacking arguments or substituting a test double."
+do_4 = "Have TestIssue1715WebNextSequence assert the emitted target, selector, account and asset, decode the native result and compare it with the fixture account sequence before and after a supported native debit and persisted reopen; obtain a second helper-produced call with recipient deliberately set to the distinct DID key and assert LXP_UNKNOWN_ACCOUNT_NAMESPACE, and a wrong-asset call and assert LXP_ASSET_MISMATCH, preserving the existing refusal coverage at precompiles/layerxledger/repair_144_test.go:197."
+do_5 = "Keep the retirement behavior at modules/layerxledger/keeper/grants.go:14, modules/layerxledger/keeper/draw.go:19 and precompiles/layerxledger/payments.go:159 and the exact-only offers at services/interop/crates/x-websearch/src/payment.rs:1376 intact; the native regression reads sequence state without executing a metered draw and asserts getPayerGrant still refuses with ErrNoPayerGrant."
+symbols = ["next_sequence_call", "issue_1715_next_sequence_call", "TestIssue1715WebNextSequence"]
+touches = ["services/agent/crates/layerx-mcp/src/tools/web.rs", "services/agent/crates/layerx-mcp/tests/web_payments_layerxpay.rs", "services/agent/crates/layerx-mcp/tests/support/web_hold.rs", "services/agent/crates/layerx-agentd-host/tests/payer_evm.rs", "services/interop/crates/x-websearch/tests/fixtures/gateway/metered.json", "services/agent/crates/layerx-mcp/examples/issue_1715_next_sequence.rs", "precompiles/layerxledger/issue_1715_test.go"]
+tests = ["precompiles/layerxledger/issue_1715_test.go::TestIssue1715WebNextSequence"]
+planned_paths = ["services/agent/crates/layerx-mcp/examples/issue_1715_next_sequence.rs", "precompiles/layerxledger/issue_1715_test.go"]
+build_cmd = "go build ./precompiles/layerxledger/..."
+verify_cmd = "go test -count=1 ./precompiles/layerxledger/ -run '^TestIssue1715WebNextSequence$'"
+gate_kind = "planned"
+sandbox_profile = "go-cgo"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181715]
+title = "Web-payer sequence calldata addresses the native receiver account"
+ac_1 = "GrantTerms::next_sequence_call at services/agent/crates/layerx-mcp/src/tools/web.rs:757 supplies recipient and asset to the account-ID ABI at precompiles/layerxledger/views.go:101, and a native consumer test executes the actual Rust-produced bytes with distinct DID and account identifiers and returns the persisted account sequence, including after a supported debit and reopen."
+ac_2 = "The native consumer rejects a helper-produced DID-key substitution with LXP_UNKNOWN_ACCOUNT_NAMESPACE and an account paired with another asset with LXP_ASSET_MISMATCH, retaining the namespace and asset guarantees at precompiles/layerxledger/repair_144_test.go:197."
+ac_3 = "Consumer assertions require account identifiers rather than the DID-key assumption at services/agent/crates/layerx-mcp/tests/web_payments_layerxpay.rs:380 and services/agent/crates/layerx-agentd-host/tests/payer_evm.rs:309; native payer-grant retirement at modules/layerxledger/keeper/grants.go:14 and modules/layerxledger/keeper/draw.go:19, getPayerGrant refusal at precompiles/layerxledger/payments.go:159 and exact-only offers at services/interop/crates/x-websearch/src/payment.rs:1376 are preserved."
+
+[acceptance.18.1715.1]
+feature = "18"
+req = "181715.1"
+scenario = "Given distinct receiver DID and asset-account identifiers from a native Ledger fixture, when the web-payer helper emits sequence calldata and the native Ledger consumes those bytes, then the account sequence is returned before and after debit and reopen, DID-key and wrong-asset inputs are refused, and retired grant lookup remains refused."
+contract = "contracts/ledger-auth.md#layerxledger-0x101a"
+test = "precompiles/layerxledger/issue_1715_test.go::TestIssue1715WebNextSequence (planned)"
+qualification = "UNRUN"

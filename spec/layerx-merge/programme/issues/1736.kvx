@@ -1,0 +1,7 @@
+[issue.1736]
+number = 1736
+title = "[Coherence] The 22.33.14 repair record asks for a commit_block migration that main has already landed"
+revision = "a910fdedd579e63379ae6c2e4d4971990d28f8ad"
+verdict = "spec-edit"
+evidence = "The record for completed task 22.33.14 (spec/layerx-merge/spec.kvx:201687) must mark the wiring_request and remaining_interface at services/agent/crates/layerx-agentd/tests/repair_22_33_14.kvx:13 and services/agent/crates/layerx-agentd/tests/repair_22_33_14.kvx:18 as resolved by 22.31.556, because commit bd9b774f4658f6ec2fc8b2b502d5984e77567a77 already supplies COMMITTED promotion at services/agent/crates/layerx-agentd/src/events/ingest.rs:1120, services/agent/crates/layerx-agentd/src/events/ingest.rs:1140 and services/agent/crates/layerx-agentd/src/events/ingest.rs:1153, legacy-rank decoding at services/agent/crates/layerx-agentd/src/events/ingest.rs:606, and promotion/reopening and migration regression tests at services/agent/crates/layerx-agentd/src/events/ingest.rs:1330 and services/agent/crates/layerx-agentd/src/events/ingest.rs:1385."
+close_comment = "The commit_block migration was delivered by 22.31.556: retained, pending and buffered logs use COMMITTED, and historical rank-4 records decode as committed evidence. The repair record for completed task 22.33.14 needs to mark this wiring request as resolved and remove the claim that this migration remains a blocker."

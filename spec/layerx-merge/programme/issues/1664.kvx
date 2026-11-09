@@ -1,0 +1,49 @@
+[issue.1664]
+number = 1664
+title = "[P2] Align registration tenant length with generated identity subjects"
+revision = "bb8caac8b3e73e3e2f4b330805574f0bcb540641"
+verdict = "task"
+evidence = "Commit ac3a6069b65fcb434cdb8726a931bca731040387 introduced the still-current 128-byte tenant admission at services/platform/hosted/gateway/src/rpc_register.rs:436-447, while subject at :99-103 adds 33 bytes and register at :353-368 sends that subject to both identity routes, whose unchanged 128-byte subject bound at services/platform/hosted/identity/src/main.rs:288-299 is enforced at :852-854 and :1017-1022, so tenants of 95, 96 and 128 bytes produce subjects of 128, 129 and 161 bytes respectively; services/platform/hosted/gateway/tests/repair_22_33_1440.rs:770-793 bypasses those HTTP validators by calling Store directly."
+close_comment = "Registration currently accepts tenant names whose generated subjects exceed identity's 128-byte limit, preventing direct registration and email signup for tenants longer than 95 bytes. The follow-up task will reject those tenants before provisioning is configured, preserve the existing subject format and signature binding, and cover the boundary through the real identity HTTP endpoints."
+
+[task.18.1664.1]
+title = "Issue #1664: Bound registration tenants to identity subject capacity"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181664.1"]
+capabilities = []
+interfaces = []
+do_1 = "Change configured_tenant in services/platform/hosted/gateway/src/rpc_register.rs:436-447 to reject tenants exceeding 95 ASCII bytes, accounting for the dot and 32 hexadecimal characters emitted by subject at :99-103; retain all existing character checks, tenant-bound signatures and subject derivation, and enforce the bound through both configured_token at :428-433 and register at :321-330 without changing identity's valid_sub bound at services/platform/hosted/identity/src/main.rs:288-299."
+do_2 = "Add registration_tenant_subject_boundary in services/platform/hosted/gateway/tests/registration_tenant_boundary.rs and the production identity library as a gateway dev-dependency in services/platform/hosted/gateway/Cargo.toml; follow services/platform/hosted/identity/tests/support/signup_service.rs:3 and :46-126 to include the production identity HTTP implementation and serve its real TLS listener and persistent store, and use the production gateway Server and correctly tenant-bound signatures to prove direct px_register and email signup with a 95-byte tenant generate a 128-byte subject accepted by /v1/principals and /v1/signup, with the expected principal and pending signup respectively."
+do_3 = "In the same focused integration test, assert 96-byte and 128-byte tenants fail provisioning configuration before registration, changing the configured tenant of a running gateway to either invalid length returns registration_tenant_not_configured without creating a principal or pending signup, and submitting overlength subjects directly to each real identity HTTP endpoint returns HTTP 400 invalid_argument; assert the accepted principal and pending signup survive identity store reopen, and preserve coverage for empty, invalid-character and shorter tenant values without substituting Store calls for identity request validation."
+symbols = ["configured_tenant", "registration_tenant_subject_boundary"]
+touches = ["services/platform/hosted/gateway/src/rpc_register.rs", "services/platform/hosted/gateway/Cargo.toml", "services/platform/hosted/gateway/tests/registration_tenant_boundary.rs"]
+tests = ["services/platform/hosted/gateway/tests/registration_tenant_boundary.rs::registration_tenant_subject_boundary"]
+planned_paths = ["services/platform/hosted/gateway/tests/registration_tenant_boundary.rs"]
+build_cmd = "cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-gateway --test registration_tenant_boundary"
+verify_cmd = "cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-gateway --test registration_tenant_boundary registration_tenant_subject_boundary"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181664]
+title = "Registration tenant admission guarantees identity-compatible subjects"
+ac_1 = "Given the subject format at services/platform/hosted/gateway/src/rpc_register.rs:99-103 and identity's 128-byte cap at services/platform/hosted/identity/src/main.rs:288-299, a valid 95-byte tenant supports direct registration and email signup through the production gateway and identity HTTP handlers, while tenants of 96 and 128 bytes are refused before provisioning configuration is accepted and cannot create identity state."
+
+[acceptance.18.1664.1]
+feature = "18"
+req = "181664.1"
+scenario = "Given correctly signed registration requests and the real identity HTTP service, when a gateway uses a 95-byte tenant then direct registration and email signup accept its 128-byte subjects and retain their state after reopen, while 96-byte and 128-byte tenants are refused before provisioning and identity still rejects overlength subjects."
+contract = "contracts/platform-gateway.md#interface.8.rpc-gateway-px-register"
+test = "services/platform/hosted/gateway/tests/registration_tenant_boundary.rs::registration_tenant_subject_boundary (planned)"
+qualification = "UNRUN"

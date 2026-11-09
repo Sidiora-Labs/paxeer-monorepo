@@ -1,0 +1,48 @@
+[issue.1702]
+number = 1702
+title = "[Coherence] Legacy Rsync now kills any segment transfer that takes longer than five minutes, and the push path has no way to raise that limit"
+revision = "bb8caac8b3e73e3e2f4b330805574f0bcb540641"
+verdict = "task"
+evidence = "The deadline introduced by commit f9696ba0518ad4dc69d79cebfeff5eac72a5ad18 remains unchanged: storage/db_engine/litt/util/ssh.go:39 defaults Transfer to five minutes, :63 exposes no legacy constructor options, :216 creates a whole-operation deadline, :275 delegates legacy Rsync to RsyncContext, :279 applies that deadline through the durable acknowledgement at :298, and :346 kills the process group on expiry; storage/db_engine/litt/cli/push.go:108 divides the throttle among workers, :119 selects the default constructor and :309 calls Rsync, storage/db_engine/litt/cli/sync.go:219 reuses push, and storage/db_engine/litt/littdb_config.go:139 defaults segment size to math.MaxUint32, so transfers needing over five minutes fail even while progressing, whereas storage/db_engine/litt/util/ssh_test.go:70 and :80 only exercise a small throttled file."
+close_comment = "Push and sync can fail on healthy large or throttled segment transfers because the five-minute limit covers the entire transfer and its durability acknowledgement. A follow-up repair will bound stalled transfers by progress while preserving cancellation, destination verification and durable acknowledgement before success."
+
+[task.18.1702.1]
+title = "Issue #1702: Bound segment transfers by progress instead of total elapsed time"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181702.1"]
+capabilities = []
+interfaces = []
+do_1 = "In storage/db_engine/litt/util/ssh.go:24 document Transfer as a finite inactivity bound, expose the existing SSHTimeouts options through NewSSHSession at :63 without breaking current callers, and change operation tracking at :206 and RsyncContext at :278 so healthy data progress is governed by the rsync inactivity timeout at :338 rather than a fixed whole-file deadline; preserve explicit caller deadlines, session cancellation, process-group termination and joining at :343, host verification at :325, and a separately bounded Command timeout for acknowledgeDurable at :356, without disabling a timeout or changing command-operation bounds. Existing push and sync callers at storage/db_engine/litt/cli/push.go:119 and storage/db_engine/litt/cli/sync.go:219 must inherit the corrected transfer policy without changing those files."
+do_2 = "Add TestSSHSession_TransferProgressTimeout in storage/db_engine/litt/util/ssh_test.go using the real receiver from storage/db_engine/litt/util/repair_114_test.go:275 and shortened configurable inactivity budgets: prove a throttled, incompressible transfer completes byte-for-byte and receives its durable acknowledgement after running longer than the inactivity interval, through both the legacy and context APIs; stop the real receiver's transfer progress and assert bounded failure with the source retained, then prove caller deadline, cancellation and Close terminate and join an active transfer, and a delayed or failed durability acknowledgement cannot report success. Retain the assertions in TestSSHSession_Rsync at :63 and TestSSHSession_CancelTransfer at :118, including retry after receiver restart."
+symbols = ["SSHTimeouts", "NewSSHSession", "operation", "RsyncContext", "TestSSHSession_TransferProgressTimeout"]
+touches = ["storage/db_engine/litt/util/ssh.go", "storage/db_engine/litt/util/ssh_test.go"]
+tests = ["storage/db_engine/litt/util/ssh_test.go::TestSSHSession_TransferProgressTimeout", "storage/db_engine/litt/util/ssh_test.go::TestSSHSession_Rsync", "storage/db_engine/litt/util/ssh_test.go::TestSSHSession_CancelTransfer"]
+planned_paths = []
+build_cmd = "go build ./storage/db_engine/litt/util/..."
+verify_cmd = "go test -count=1 ./storage/db_engine/litt/util/ -run '^(TestSSHSession_TransferProgressTimeout|TestSSHSession_Rsync|TestSSHSession_CancelTransfer)$'"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-node-runtime"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181702]
+title = "Healthy large and throttled segment transfers survive sustained progress"
+ac_1 = "Given the legacy push and sync transfer path at storage/db_engine/litt/cli/push.go:119 and :309 and storage/db_engine/litt/cli/sync.go:219, a file that keeps making progress must complete with identical receiver bytes and durable acknowledgement even when its total duration exceeds the configured inactivity interval; a stalled transfer, explicit caller deadline, cancellation, Close or failed acknowledgement must terminate without success or source reclamation, preserving the guarantees exercised in storage/db_engine/litt/util/ssh_test.go:63 and :118."
+
+[acceptance.18.1702.1]
+feature = "18"
+req = "181702.1"
+scenario = "Given a real authenticated SSH receiver and a throttled segment transfer whose duration exceeds the configured inactivity interval, when legacy Rsync or RsyncContext transfers the file with sustained progress, then the receiver bytes match and durable acknowledgement precedes success, while stalled progress, caller deadlines, cancellation, Close and acknowledgement failures remain bounded failures with the source retained."
+contract = "contracts/sequencer.md#storage"
+test = "storage/db_engine/litt/util/ssh_test.go::TestSSHSession_TransferProgressTimeout (planned)"
+qualification = "UNRUN"
