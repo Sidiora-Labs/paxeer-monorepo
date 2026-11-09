@@ -1,0 +1,49 @@
+[issue.1797]
+number = 1797
+title = "[Coherence] The middleware conformance service and its tests still build HostedGatewayRpc with the retired /rpc path, which the constructor now refuses"
+revision = "a910fdedd579e63379ae6c2e4d4971990d28f8ad"
+verdict = "task"
+evidence = "Commit 6cfc7652ced4aa7499c9d02fcc6a23653a642a47 changed HostedGatewayRpc to root-only routing, retained at services/platform/middleware/seller/src/rpc.ts:61 and services/platform/middleware/seller/src/rpc.ts:91, but services/platform/middleware/conformance/service.mjs:293 still serves /rpc and services/platform/middleware/conformance/service.mjs:357 configures it for the constructor at services/platform/middleware/conformance/service.mjs:403, while services/platform/middleware/conformance/pay6/rpc.test.mjs:43 and services/platform/middleware/conformance/pay6/rpc.test.mjs:50 still expect and construct /rpc and services/platform/middleware/conformance/test/repair-22-33-1480.test.mjs:66, services/platform/middleware/conformance/test/repair-22-33-1480.test.mjs:70 and services/platform/middleware/conformance/test/repair-22-33-1480.test.mjs:119 retain the opposite path contract."
+close_comment = "The middleware conformance service and its RPC transcript checks still use the retired /rpc path, preventing merchant identity resolution before checkout. The follow-up task moves their configuration, route handling and assertions to / while preserving authentication, method restrictions and payment replay checks."
+
+[task.18.1797.1]
+title = "Issue #1797: Align middleware conformance gateway requests with the root endpoint"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181797.1"]
+capabilities = []
+interfaces = []
+do_1 = "Update runMerchantServiceScenarios in services/platform/middleware/conformance/service.mjs:279 so the identity route at line 293 handles / and hostedGatewayUrl at line 357 points to the same root; retain the separate node origin, identity authentication and /settle payment route, and leave the root-only HostedGatewayRpc constructor unchanged."
+do_2 = "Update rpcRootAndHostedOrigins in services/platform/middleware/conformance/pay6/rpc.test.mjs:30 to construct the gateway client with gateway.endpoint and require root-path requests instead of /rpc at lines 43 and 50; explicitly assert /rpc construction is refused while retaining credentials, separate origins, receipt verification and method restrictions."
+do_3 = "Update conformance_node_router_fixture_uses_root_and_separate_hosted_identity in services/platform/middleware/conformance/test/repair-22-33-1480.test.mjs:52 to require / in the configured URL and observed identity request at lines 66 and 70 and replace the root rejection at line 119 with /rpc rejection; retain all three successful merchant scenarios, identity binding, authorization separation, durable restart replay and exactly one settlement."
+symbols = ["runMerchantServiceScenarios", "rpcRootAndHostedOrigins", "conformance_node_router_fixture_uses_root_and_separate_hosted_identity"]
+touches = ["services/platform/middleware/conformance/service.mjs", "services/platform/middleware/conformance/pay6/rpc.test.mjs", "services/platform/middleware/conformance/test/repair-22-33-1480.test.mjs"]
+tests = ["services/platform/middleware/conformance/pay6/rpc.test.mjs::rpcRootAndHostedOrigins", "services/platform/middleware/conformance/test/repair-22-33-1480.test.mjs::conformance_node_router_fixture_uses_root_and_separate_hosted_identity"]
+planned_paths = []
+build_cmd = "node --check services/platform/middleware/conformance/service.mjs"
+verify_cmd = "node --import ./services/platform/middleware/conformance/pay6/source-loader.mjs --test --test-name-pattern '^(rpcRootAndHostedOrigins|conformance_node_router_fixture_uses_root_and_separate_hosted_identity)$' services/platform/middleware/conformance/pay6/rpc.test.mjs services/platform/middleware/conformance/test/repair-22-33-1480.test.mjs"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181797]
+title = "Middleware conformance uses the root-only gateway endpoint without weakening payment checks"
+ac_1 = "Given the root-only HostedGatewayRpc constructor at services/platform/middleware/seller/src/rpc.ts:91, the conformance producer at services/platform/middleware/conformance/service.mjs:357 and route at services/platform/middleware/conformance/service.mjs:293 use /, and rpcRootAndHostedOrigins at services/platform/middleware/conformance/pay6/rpc.test.mjs:30 and conformance_node_router_fixture_uses_root_and_separate_hosted_identity at services/platform/middleware/conformance/test/repair-22-33-1480.test.mjs:52 prove authenticated root identity and receipt-key requests, /rpc refusal, separate node credentials and successful checkout, verified payment and restart replay without a second settlement."
+
+[acceptance.18.1797.1]
+feature = "18"
+req = "181797.1"
+scenario = "Given a root-only gateway client and the merchant conformance configuration, when the merchant checkout and RPC transcript checks execute, then identity resolution and receipt-key requests reach / with their gateway credentials, /rpc endpoints are refused, node and gateway origins remain distinct and verified payment survives restart and replay with one settlement."
+contract = "contracts/platform-middleware.md#middleware-conformance-http-routes"
+test = "services/platform/middleware/conformance/test/repair-22-33-1480.test.mjs::conformance_node_router_fixture_uses_root_and_separate_hosted_identity (planned)"
+qualification = "UNRUN"

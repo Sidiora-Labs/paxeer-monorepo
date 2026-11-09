@@ -1,0 +1,7 @@
+[issue.1792]
+number = 1792
+title = "[Coherence] Rewriting version.json dropped the hpx_release_identity policy block, which the HPX publish path still requires"
+revision = "a910fdedd579e63379ae6c2e4d4971990d28f8ad"
+verdict = "already-fixed"
+evidence = "Commit 3740acfa3e25ea3b4aa157330f14dc50a37b0c47 removed the manifest policy lookup: tools/hpx/release_identity.py:10 defines RELEASE_IDENTITY_POLICY and tools/hpx/release_identity.py:13 validates versions, source revision and provenance digest without hpx_release_identity, tools/hpx/publish.sh:88 stages the manifest and tools/hpx/publish.sh:89 invokes that validator, tools/qualification/audit_repairs/test_repair_22_33_806.py:346 checks validation with the two-key manifest and tools/qualification/audit_repairs/test_repair_22_33_806.py:348 checks the policy constant, consistent with tools/release/version.json:2 and the exact key check at tools/release/tests/identity.test.sh:32."
+close_comment = "HPX release validation now keeps its schema-1 provenance policy in code and accepts the version-and-upgrade manifest without a hpx_release_identity field. The repair test checks both the manifest shape and the policy, while version, source revision and artifact digest checks remain enforced before publication."

@@ -1,0 +1,7 @@
+[issue.1837]
+number = 1837
+title = "[Coherence] The commit message says the CW721 lookup is limited and the node receipt case was rerun, but the commit changes only spec records and the keeper is untouched"
+revision = "a910fdedd579e63379ae6c2e4d4971990d28f8ad"
+verdict = "not-relevant"
+evidence = "The spec-only planning commit 0afb3102d027a86c66782f3324ba8c3777b83055 was superseded by keeper repair 877e7a097ced7fc3cd7c68ad1867c1b19abdef48, whose amount exclusion and lookup guard remain at wasm/x/wasm/keeper/keeper.go:1204 and :1219 with successful real-contract burn assertions at wasm/x/wasm/keeper/repair_184_test.go:908, while node/repair_22_39_138.kvx:217 records all seventeen selected node tests passing including CW1155 burn-on-behalf and spec/layerx-merge/spec.kvx:216146 and :216239 record both repair and node receipt tasks as done."
+close_comment = "The earlier planning commit has been superseded by the keeper repair and the completed node receipt verification. CW1155 burns now bypass the CW721 owner lookup, with regression coverage for successful execution and receipt contents."

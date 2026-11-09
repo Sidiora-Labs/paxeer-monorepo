@@ -1,0 +1,52 @@
+[issue.1752]
+number = 1752
+title = "[Coherence] The new state export producer is only ever called by tests, so production export of a state fact still answers NotOwned"
+revision = "a910fdedd579e63379ae6c2e4d4971990d28f8ad"
+verdict = "task"
+evidence = "The producer introduced by commit 1c847ed9058966bcf9638d08785e858e35245503 remains at services/agent/crates/layerx-agentd/src/human_runtime.rs:22016 with its only call at services/agent/crates/layerx-agentd/tests/repair_22_31_561.rs:102, while the production handler at services/agent/crates/layerx-agentd/src/human_runtime.rs:16892 calls produce directly, services/agent/crates/layerx-agentd/src/export.rs:338 delegates to retained lookup and :368 returns NotOwned for an absent bundle, and decision 2642 at spec/layerx-merge/spec.kvx:8967 still requires production state evidence from the storage-witness read."
+close_comment = "State exports still lack a production path that acquires and retains their ICS23 storage evidence; the existing coverage calls the retention helper directly. A follow-up task connects authenticated export requests to that producer and proves the returned evidence through RPC and recovery after reopening the store."
+
+[task.18.1752.1]
+title = "Issue #1752: Connect production state exports to authenticated storage-witness retention"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181752.1"]
+capabilities = []
+interfaces = []
+do_1 = "Give ProductionHumanOperations::export_offline at services/agent/crates/layerx-agentd/src/human_runtime.rs:16825 a production export source that supplies the explicit storage slots for the authenticated tenant and bound account before its produce call at :16892; retain_state_export at :22016 requires a nonempty unique slot set and an already retained committed receipt, so acquire and verify the owned transaction's committed receipt evidence through the native proof reader before retaining that receipt and invoking the state producer, rather than relying on manually populated export records."
+do_2 = "Load the tenant/account-to-slot selections from a bounded protected export source using services/agent/crates/layerx-agentd/src/config.rs:323 and install that source alongside export trust in services/agent/crates/layerx-agentd/src/main.rs:930; bind each selection to the authenticated tenant and account, reject empty, duplicate or oversized slot lists using the producer's bounds at services/agent/crates/layerx-agentd/src/human_runtime.rs:22026, and preserve the existing fact-reference wire format and independently configured receipt-key and validator trust."
+do_3 = "For a requested state fact without a retained bundle, call the real producer using the selected slots and the receipt's authenticated committed checkpoint, then let the existing produce and response checks at services/agent/crates/layerx-agentd/src/human_runtime.rs:16892 validate the assembled export; reject another account or tenant, missing ownership, unavailable proof material, mismatched heights and invalid witnesses, and preserve idempotent retained exports without promoting a signed receipt alone to committed evidence."
+do_4 = "Add services/agent/crates/layerx-agentd/tests/issue_1752.rs with state_export_owner_rpc_retains_and_recovers_witnesses: drive the real authenticated daemon RPC dispatch and production owner implementation against a loopback node serving authenticated receipt, commit, inclusion and ICS23 storage material, starting with the owned transaction and no export bundles; assert that ExportOffline acquires the selected slots, returns the requested committed state fact with account_proof, and its serialized response verifies under independent trust, then reopen the store and assert the same export is recovered without acquiring witnesses again."
+do_5 = "In the same focused test, assert refusal for a different tenant or bound account, an unowned transaction, absent or invalid slot configuration, and witnesses with altered proof operations, account, slot or app hash; invalid evidence must not create a retained state bundle, and the RPC path must never be replaced by a direct retain_state_export call or pre-seeded state artifact, unlike services/agent/crates/layerx-agentd/tests/repair_22_31_561.rs:78 and :102."
+symbols = ["export_offline", "retain_state_export", "state_export_owner_rpc_retains_and_recovers_witnesses"]
+touches = ["services/agent/crates/layerx-agentd/src/human_runtime.rs", "services/agent/crates/layerx-agentd/src/config.rs", "services/agent/crates/layerx-agentd/src/main.rs", "services/agent/crates/layerx-agentd/tests/issue_1752.rs"]
+tests = ["services/agent/crates/layerx-agentd/tests/issue_1752.rs::state_export_owner_rpc_retains_and_recovers_witnesses"]
+planned_paths = ["services/agent/crates/layerx-agentd/tests/issue_1752.rs"]
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd-host"
+verify_cmd = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test issue_1752 state_export_owner_rpc_retains_and_recovers_witnesses -- --exact"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181752]
+title = "Authenticated state exports acquire and retain real ICS23 storage evidence"
+ac_1 = "Given an owned transaction with authenticated committed receipt material and configured slots for the caller's bound account, an authenticated ExportOffline request through services/agent/crates/layerx-agentd/src/human_runtime.rs:16825 acquires and retains the state bundle through retain_state_export at :22016 and returns evidence accepted by services/agent/crates/layerx-agentd/src/export.rs:765 without a directly seeded export record."
+ac_2 = "After reopening the store, the same state fact exports with identical verified evidence without fetching its witnesses again; another tenant, another account, an unowned transaction, invalid slot configuration or a tampered witness is refused without retaining a state bundle, preserving the ownership and proof checks at services/agent/crates/layerx-agentd/src/export.rs:361 and :768."
+
+[acceptance.18.1752.1]
+feature = "18"
+req = "181752.1"
+scenario = "Given an authenticated owner, an owned committed transaction and explicit account storage slots with no retained export bundle, when the owner requests a state fact through ExportOffline and repeats the request after reopening the store, then both responses carry independently verifiable ICS23 evidence and unauthorized or invalid evidence is refused without retention"
+contract = "contracts/agent-formats.md#offline-export"
+test = "services/agent/crates/layerx-agentd/tests/issue_1752.rs::state_export_owner_rpc_retains_and_recovers_witnesses (planned)"
+qualification = "UNRUN"

@@ -1,0 +1,50 @@
+[issue.1818]
+number = 1818
+title = "[P2] Supply the required dashboard API origin during the Docker build"
+revision = "a910fdedd579e63379ae6c2e4d4971990d28f8ad"
+verdict = "task"
+evidence = "The production refusal introduced by commit 60915c06e54c5c6abeecd2387d033f8732266117 remains at services/platform/hosted/dashboard/web/next.config.ts:5-11 and its origin supplies the rewrite at :21-25, while docker/platform-dashboard-web/Dockerfile:1-12 runs the next build script declared at services/platform/hosted/dashboard/web/package.json:12 without that input, services/platform/hosted/tests/beta-images.sh:67-76 supplies no dashboard build argument, and .github/workflows/publish-images.yml:85-98 forwards only those arguments; the shared lock resolves Next 16.4.1 at apps/web/package-lock.json:4719-4720, and tests/ci/test_dashboard_proxy_origin_configurable.py:17-62 imports the config directly without building the image."
+close_comment = "The dashboard image still lacks the API origin required by its production build. The follow-up adds an explicit build input, forwards the configured origin through image publication, and verifies the generated proxy destination while preserving refusal when the production setting is missing."
+
+[task.18.1818.1]
+title = "Issue #1818: Pass the dashboard API origin into the canonical image build"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181818.1"]
+capabilities = []
+interfaces = []
+do_1 = "Add an explicit DASHBOARD_API_ORIGIN build argument with no default in the build stage of docker/platform-dashboard-web/Dockerfile:1-12 and expose it to npm run build; retain the production refusal and development-only loopback fallback at services/platform/hosted/dashboard/web/next.config.ts:5-11 and the rewrite suffix at :24-25. Extend image_build_args at services/platform/hosted/tests/beta-images.sh:67-76 to require and forward the supplied origin for layerx-dashboard-web, rejecting empty values and whitespace that its existing argument splitting cannot preserve; supply the repository configuration variable DASHBOARD_API_ORIGIN to the planning step at .github/workflows/publish-images.yml:85-98 so the existing build-args consumer at :145 receives it, and propagate a missing-input error instead of swallowing it in command substitution."
+do_2 = "Add services/platform/hosted/dashboard/web/README.md documenting that the API origin is a non-secret build-time input embedded in Next rewrites, that changing it requires rebuilding the image, and how to provide it to the canonical Dockerfile, shared image builder, publication variable and the Fly Dockerfile path at services/platform/hosted/dashboard/web/fly.toml:6-7 using an explicit build argument; do not introduce a private-host default or suggest a runtime environment variable can replace the built rewrite."
+do_3 = "Extend tests/ci/test_dashboard_proxy_origin_configurable.py with test_dashboard_docker_build_origin: invoke the real image_build_args helper with the supported origin and assert its exact forwarded value and its nonzero refusal for missing, empty or whitespace-containing input; inspect the canonical image produced by build_cmd using Docker and assert that its generated routes-manifest.json rewrites /v1/dashboard/:path* to https://dashboard-api.example.com/v1/dashboard/:path*, that its standalone server exists, and that a different runtime DASHBOARD_API_ORIGIN does not alter that built destination. Preserve and run the existing direct-import production-refusal and no-private-host cases at :13-62, and assert the publication configuration forwards the same origin without a fallback; do not mock Docker, skip absent images, or replace image inspection with a source-text assertion."
+symbols = ["image_build_args", "test_dashboard_docker_build_origin"]
+touches = ["docker/platform-dashboard-web/Dockerfile", "services/platform/hosted/tests/beta-images.sh", ".github/workflows/publish-images.yml", "services/platform/hosted/dashboard/web/README.md", "tests/ci/test_dashboard_proxy_origin_configurable.py"]
+tests = ["tests/ci/test_dashboard_proxy_origin_configurable.py::test_dashboard_docker_build_origin", "tests/ci/test_dashboard_proxy_origin_configurable.py::test_dashboard_next_config_reads_dashboard_api_origin", "tests/ci/test_dashboard_proxy_origin_configurable.py::test_dashboard_next_config_names_no_private_host"]
+planned_paths = ["services/platform/hosted/dashboard/web/README.md"]
+build_cmd = "DASHBOARD_API_ORIGIN=https://dashboard-api.example.com bash -ec 'source services/platform/hosted/tests/beta-images.sh; docker build --file docker/platform-dashboard-web/Dockerfile $(image_build_args layerx-dashboard-web) --tag layerx-dashboard-web:issue-1818 .'"
+verify_cmd = "python3 -m pytest tests/ci/test_dashboard_proxy_origin_configurable.py -q"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181818]
+title = "The dashboard image receives and preserves its configured API origin during production compilation"
+ac_1 = "Given the canonical dashboard Dockerfile at docker/platform-dashboard-web/Dockerfile:1-12 and an explicit DASHBOARD_API_ORIGIN, the image builds successfully and its generated rewrite uses that origin with the /v1/dashboard/:path* suffix from services/platform/hosted/dashboard/web/next.config.ts:24-25; production configuration still rejects an absent or empty origin at :9-11, and no private-host default is restored."
+ac_2 = "The shared image argument producer at services/platform/hosted/tests/beta-images.sh:67-76 forwards the supplied dashboard origin to the build consumers at services/platform/hosted/tests/beta-cluster.sh:430-441 and .github/workflows/publish-images.yml:93-98,145, publication receives the configured variable explicitly, unsupported missing or whitespace-containing inputs fail, and the documented contract states that runtime environment changes cannot replace a compiled rewrite."
+
+[acceptance.18.1818.1]
+feature = "18"
+req = "181818.1"
+scenario = "Given an explicit dashboard API origin, when the canonical image is built with the shared image arguments, then its standalone output contains the matching dashboard proxy destination, a different runtime origin leaves that compiled destination unchanged, and missing production configuration still fails without a private-host fallback."
+contract = "contracts/platform-hosted.md#dashboard-http-routes"
+test = "tests/ci/test_dashboard_proxy_origin_configurable.py::test_dashboard_docker_build_origin (planned)"
+qualification = "UNRUN"

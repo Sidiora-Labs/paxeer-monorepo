@@ -1,0 +1,52 @@
+[issue.1758]
+number = 1758
+title = "[P2] Migrate retained capability-install replies when changing the rung encoding"
+revision = "a910fdedd579e63379ae6c2e4d4971990d28f8ad"
+verdict = "task"
+evidence = "The legacy producer at f0d685372a0262a696e085204fc5e048db4d73c7 retained verification labels and authority evidence, and commit 2c7ff104282ab5e1e67afeb2576086a482d8a366 changed only fresh reply construction: services/agent/crates/layerx-agentd/src/human_runtime.rs:12100 still returns completed v1 replies unchanged through decode_capability_action at :12236 before conversion at :12128, Human rejects label 6 at services/human/crates/layerx-human-service/src/server/agent_runtime.rs:4481 and checks the evidence digest at services/human/crates/layerx-human-service/src/server/agent_creation.rs:951, while schema 4 at services/agent/crates/layerx-agentd/src/store/migrate.rs:11 validates current stores without rewriting at :86 and migrates only approval holds at :175, so the retained-response defect remains distinct from fresh digest framing in input/1756.md."
+close_comment = "Completed capability-install replies still retain the old verification label and evidence digest, so retrying an installed capability after an upgrade can fail Human validation. A versioned compatibility repair must return valid rung evidence while preserving request binding and the installed capability without applying the action again."
+
+[task.18.1758.1]
+title = "Issue #1758: Preserve capability-install replay compatibility across reply encoding changes"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181758.1"]
+capabilities = []
+interfaces = []
+do_1 = "In services/agent/crates/layerx-agentd/src/human_runtime.rs:12067, replace the unchanged completed-response replay at :12100 and decoder at :12227 with an explicitly versioned completed-reply encoding and durable compatibility conversion under the existing tenant-scoped action key at :12168; recognize the actual pre-rung and post-rung v1 producer formats using their committed-rung and digest contracts, validate the complete payload and request digest before any rewrite, convert legacy COMMITTED label 6 to rung 2 with the corresponding Human evidence digest, and persist the converted reply before returning it without reapplying or replacing the capability."
+do_2 = "Preserve LocalOnly admission, tenant isolation, the original capability_request_digest binding at services/agent/crates/layerx-agentd/src/human_runtime.rs:12177, pending-action Unavailable behavior and atomic capability installation at :12162; reject malformed, unknown-version, invalid-rung, inconsistent-digest and changed-request records without mutation, and update completed_capability_action at :18775 to recognize valid completed records of each supported version so enrolment and grant lookup keep working after conversion."
+do_3 = "Give converted and newly versioned capability replies a dedicated capability_reply_digest matching AgentEvidence::expected_digest at services/human/crates/layerx-human-service/src/agents/create.rs:841 and its unprefixed preimage at :1810, retaining the length-prefixed authority-scope digest and its validation at services/agent/crates/layerx-agentd/src/human_runtime.rs:20077; reuse the canonical reply calculation for fresh replies, while keeping the retained-record conversion as the repair specific to this issue rather than treating the fresh framing defect in input/1756.md as sufficient."
+do_4 = "Add services/human/crates/layerx-human-service/tests/retained_capability_install_replies.rs with retained_capability_install_replays_survive_upgrade: retain real producer-generated completed stores from f0d685372a0262a696e085204fc5e048db4d73c7 and 2c7ff104282ab5e1e67afeb2576086a482d8a366 as pre_rung_store.bin and post_rung_store.bin under tests/fixtures/issue_1758, documenting their producer revision and matching request in the test; reopen each store with the current daemon, retry through its real transport into AgentClient::capability_install and ProductionAgentCreation::narrow_capability at services/human/crates/layerx-human-service/src/server/agent_creation.rs:919, assert Committed and the full expected evidence digest, reopen again and assert byte-identical replay, identical installed capability state and no duplicate application."
+do_5 = "In the same focused test cover fresh production followed by restart and replay, a current store already at schema 4, unchanged request and tenant binding, changed request bytes under the same action key, pending records, truncated or extra payload bytes, unknown versions, invalid rung values and corrupt digests; assert refusal or Unavailable as appropriate with no record or capability mutation, and assert has_completed_capability_install and grant discovery still recognize migrated records; use actual producer outputs and real transport and consumer types rather than handcrafted successful replies or substituted decoders."
+symbols = ["install_capability", "decode_capability_action", "completed_capability_action", "capability_reply_digest", "retained_capability_install_replays_survive_upgrade"]
+touches = ["services/agent/crates/layerx-agentd/src/human_runtime.rs", "services/human/crates/layerx-human-service/tests/retained_capability_install_replies.rs", "services/human/crates/layerx-human-service/tests/fixtures/issue_1758/pre_rung_store.bin", "services/human/crates/layerx-human-service/tests/fixtures/issue_1758/post_rung_store.bin"]
+tests = ["services/human/crates/layerx-human-service/tests/retained_capability_install_replies.rs::retained_capability_install_replays_survive_upgrade"]
+planned_paths = ["services/human/crates/layerx-human-service/tests/retained_capability_install_replies.rs", "services/human/crates/layerx-human-service/tests/fixtures/issue_1758/pre_rung_store.bin", "services/human/crates/layerx-human-service/tests/fixtures/issue_1758/post_rung_store.bin"]
+build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --test retained_capability_install_replies"
+verify_cmd = "cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --test retained_capability_install_replies retained_capability_install_replays_survive_upgrade"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181758]
+title = "Capability-install retries retain valid evidence and idempotency across reply upgrades"
+ac_1 = "Given a completed capability-install record emitted before or after the rung repair, including a store already at schema 4, reopening and retrying the identical request through services/agent/crates/layerx-agentd/src/human_runtime.rs:12100 returns Committed evidence accepted by services/human/crates/layerx-human-service/src/server/agent_creation.rs:951, preserves the installed capability and action binding, and returns identical converted evidence after a second restart without duplicate application."
+ac_2 = "Newly versioned completed records replay identically, pending records remain unavailable, and malformed records, unknown versions, invalid rungs, corrupt digests, changed request bytes and cross-tenant requests never gain successful replay or mutate the existing capability, preserving the checks at services/agent/crates/layerx-agentd/src/human_runtime.rs:12096 and :12231 and completed-grant discovery at :18775."
+
+[acceptance.18.1758.1]
+feature = "18"
+req = "181758.1"
+scenario = "Given a real producer's retained completed capability-install record and its installed capability, when the store is reopened and the same action is retried through the daemon and Human consumer across two restarts, then a versioned compatible reply passes rung and evidence validation with unchanged capability state and no duplicate application, while malformed or differently bound requests remain refused."
+contract = "contracts/agent-rust-api.md#agentd"
+test = "services/human/crates/layerx-human-service/tests/retained_capability_install_replies.rs::retained_capability_install_replays_survive_upgrade (planned)"
+qualification = "UNRUN"
