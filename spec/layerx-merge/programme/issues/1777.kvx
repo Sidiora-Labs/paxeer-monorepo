@@ -1,0 +1,48 @@
+[issue.1777]
+number = 1777
+title = "[Coherence] The inference profile reads market availability from the node endpoint, but only the hosted gateway serves that route"
+revision = "a910fdedd579e63379ae6c2e4d4971990d28f8ad"
+verdict = "task"
+evidence = "The wiring introduced by commit a53cf5f3d530e257b2aa20e41d035107216ec8e8 remains unchanged: services/agent/crates/layerx-agentd/src/main.rs:1895 passes the node endpoint and bearer to the snapshot GET at services/agent/crates/layerx-agentd/src/inference_market/mod.rs:63 for boot at main.rs:1925 and supervision at main.rs:2061, whereas services/platform/hosted/gateway/src/main.rs:1915 mounts that route and services/platform/hosted/gateway/src/ai_views.rs:134 authenticates a gateway key before reading the indexer projection, with no corresponding route in node/, rpc/ or api/."
+close_comment = "Inference availability still queries the node with the node credential, although market snapshots are served by the authenticated gateway. Startup and supervision need separate gateway endpoint, API key and certificate trust settings while chain RPC and program reads retain the node settings."
+
+[task.18.1777.1]
+title = "Issue #1777: Read inference availability through the authenticated gateway"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181777.1"]
+capabilities = []
+interfaces = []
+do_1 = "In services/agent/crates/layerx-agentd/src/main.rs:1655 add an InferenceAvailabilityConfig loaded only for inference-market mode, requiring LAYERX_AGENT_INFERENCE_GATEWAY_ENDPOINT, LAYERX_AGENT_INFERENCE_GATEWAY_API_KEY and LAYERX_AGENT_INFERENCE_GATEWAY_CA_FILE; validate the HTTPS endpoint, nonblank gateway credential distinct from node credentials and readable certificate roots without exposing credentials in diagnostics; change inference_observation at main.rs:1874 and the bounded, redirect-disabled HTTP client in inference_boot at main.rs:1906 to use these gateway settings for read_availability at main.rs:1895, preserving node settings for NodeRpc and program_reader at main.rs:1840 and preserving all snapshot binding and F11 checks in services/agent/crates/layerx-agentd/src/inference_market/mod.rs:85."
+do_2 = "Add inference_availability_tests::inference_availability_uses_gateway_credentials inside services/agent/crates/layerx-agentd/src/main.rs and the real gateway, indexer and certificate fixture dependencies to services/agent/crates/layerx-agentd-host/Cargo.toml: prove the production observation path reaches the real gateway ai_views::respond over HTTPS using a durable gateway key and an indexer-produced committed snapshot with available F11, following the producer ingestion approach in services/platform/hosted/gateway/tests/repair_22_33_1439.rs:1663; assert boot and the common supervision observation become healthy, the node receives no snapshot request or gateway credential, and the gateway receives no node credential; exercise missing settings, wrong or revoked keys, wrong certificate roots, gateway failure, mismatched chain/program/block bindings and unavailable F11 as refusals, then prove recovery without replacing the producer response with hand-built JSON or weakening the existing checks."
+symbols = ["InferenceAvailabilityConfig", "config", "inference_observation", "inference_boot", "inference_availability_uses_gateway_credentials"]
+touches = ["services/agent/crates/layerx-agentd/src/main.rs", "services/agent/crates/layerx-agentd-host/Cargo.toml"]
+tests = ["services/agent/crates/layerx-agentd/src/main.rs::inference_availability_tests::inference_availability_uses_gateway_credentials"]
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd-host --bin layerx-agentd"
+verify_cmd = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd-host --bin layerx-agentd inference_availability_tests::inference_availability_uses_gateway_credentials -- --exact"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181777]
+title = "Inference availability uses the gateway service and its credentials"
+ac_1 = "Given distinct node and gateway endpoints, credentials and certificate roots, startup at services/agent/crates/layerx-agentd/src/main.rs:1925 and supervision at main.rs:2061 obtain market snapshots through the authenticated gateway route at services/platform/hosted/gateway/src/main.rs:1915, keep node RPC and program reads on the node, and accept availability only when the existing committed chain, program, market, block and F11 checks at services/agent/crates/layerx-agentd/src/inference_market/mod.rs:85 pass."
+
+[acceptance.18.1777.1]
+feature = "18"
+req = "181777.1"
+scenario = "Given an inference-market profile with distinct node and gateway settings and a real committed market projection, when startup and supervision read availability, then the snapshot request authenticates to the gateway with its own key and certificate roots, valid F11 availability permits readiness, failures refuse readiness, and recovery restores readiness without leaking credentials between services."
+contract = "contracts/inference-market.md#daemon-profile"
+test = "services/agent/crates/layerx-agentd/src/main.rs::inference_availability_tests::inference_availability_uses_gateway_credentials (planned)"
+qualification = "UNRUN"

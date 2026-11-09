@@ -1,0 +1,48 @@
+[issue.1819]
+number = 1819
+title = "[P2] Reject stale source bindings in the layout receipt prerequisite"
+revision = "a910fdedd579e63379ae6c2e4d4971990d28f8ad"
+verdict = "task"
+evidence = "tools/hyperfide/spec/hyperfide-source-control/spec.kvx:200 requires current layout qualification, but require_layout_receipt at tools/hyperfide/tests/hyperfide/cases/source_control/0_10.py:233 validates only schema, PASS, mapping digest and generation without comparing the snapshot and subtree captured at tools/hyperfide/tests/hyperfide/cases/source_control/0_9.py:46 or repeating scoped cleanliness at 0_9.py:422, so the stale-source gap introduced by commit 34c8243fbb04238f2e9ca95cbb94ea32029c5b70 remains."
+close_comment = "The fleet prerequisite still accepts a retained layout PASS receipt after relevant source changes when the mapping is unchanged. A repair task will bind receipt acceptance to current layout source and scoped cleanliness, with regression coverage that preserves tolerance for unrelated changes outside the Hyperfide root."
+
+[task.18.1819.1]
+title = "Issue #1819: Reject retained layout receipts with stale source bindings"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181819.1"]
+capabilities = []
+interfaces = []
+do_1 = "Update require_layout_receipt in tools/hyperfide/tests/hyperfide/cases/source_control/0_10.py:233 to establish current relevant source qualification before allowing fleet checks at 0_10.py:260; compare the retained source snapshot, digest and scoped subtree identity with current Git and working-source evidence using the producer capture at tools/hyperfide/tests/hyperfide/cases/source_control/0_9.py:46, and repeat its scoped tracked-cleanliness policy at 0_9.py:422, returning LAYOUT_RECEIPT_REQUIRED for stale or dirty relevant source while retaining schema, PASS and mapping checks and tolerance for unrelated outside-root changes rather than requiring identical whole-repository HEAD."
+do_2 = "Extend tools/hyperfide/tests/hyperfide/cases/source_control/layout_receipt_gate_test.py:77 with test_retained_pass_receipt_rejects_stale_source_bindings, obtaining and accepting a genuine producer-emitted valid PASS before each mutation, retaining that exact receipt and unchanged mapping bytes, and then asserting prerequisite refusal for unstaged and staged tracked edits, committed source changes, deletions, mode changes, root-workspace membership changes and a tracked obsolete services/ container that the producer rejects at tools/hyperfide/tests/hyperfide/cases/source_control/0_9.py:627; also assert acceptance of unchanged source after consumer restart and after outside-root dirty changes and outside-root-only commits, preserving the existing untracked-file cleanliness policy and stale-mapping, generation, schema and failed-receipt assertions at layout_receipt_gate_test.py:80, :123, :182, :189 and :219."
+symbols = ["require_layout_receipt", "test_retained_pass_receipt_rejects_stale_source_bindings"]
+touches = ["tools/hyperfide/tests/hyperfide/cases/source_control/0_10.py", "tools/hyperfide/tests/hyperfide/cases/source_control/layout_receipt_gate_test.py"]
+tests = ["tools/hyperfide/tests/hyperfide/cases/source_control/layout_receipt_gate_test.py::LayoutReceiptGateTest.test_retained_pass_receipt_rejects_stale_source_bindings"]
+planned_paths = []
+build_cmd = "python3 -m py_compile tools/hyperfide/tests/hyperfide/cases/source_control/0_10.py tools/hyperfide/tests/hyperfide/cases/source_control/layout_receipt_gate_test.py"
+verify_cmd = "python3 -m pytest tools/hyperfide/tests/hyperfide/cases/source_control/layout_receipt_gate_test.py -q"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181819]
+title = "Fleet prerequisites require a layout receipt bound to current relevant source"
+ac_1 = "The current-layout prerequisite required by tools/hyperfide/spec/hyperfide-source-control/spec.kvx:200 and consumed at tools/hyperfide/tests/hyperfide/cases/source_control/0_10.py:233 rejects a retained genuine PASS after relevant snapshot, subtree or tracked-cleanliness drift even with unchanged mapping bytes, while accepting unchanged qualified source across consumer restart and unrelated outside-root modifications or commits."
+
+[acceptance.18.1819.1]
+feature = "18"
+req = "181819.1"
+scenario = "Given a genuine producer-emitted layout PASS receipt already accepted by the fleet prerequisite, when relevant source or scoped tracked cleanliness changes without changing the mapping, then prerequisite consumption refuses the retained receipt before fleet verification, while unchanged qualified source and unrelated outside-root changes remain accepted."
+contract = "contracts/tools-ops.md#qualification-harness"
+test = "tools/hyperfide/tests/hyperfide/cases/source_control/layout_receipt_gate_test.py::LayoutReceiptGateTest.test_retained_pass_receipt_rejects_stale_source_bindings (planned)"
+qualification = "UNRUN"

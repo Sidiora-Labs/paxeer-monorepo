@@ -1,0 +1,7 @@
+[issue.1605]
+number = 1605
+title = "[Coherence] The image-build-context finding misstates the Docker build context, so its proposed repair targets the wrong cause"
+revision = "bb8caac8b3e73e3e2f4b330805574f0bcb540641"
+verdict = "not-relevant"
+evidence = "The inaccurate historical context descriptions remain at spec/layerx-merge/programme/audit/records/22.30.74.kvx:391 and spec/layerx-merge/programme/audit/records/22.30.74.kvx:411, but commits 152d124d39f4cc6c38680d0fd1261ec2a12553cc, 958069ee1336f7c17ce6b4220ed2257613f4d532 and 28f5697b29678d04c38f97dea0d5346c8f5b7716 superseded the reviewed recipes through explicit retirement: sdk/contrib/images/Makefile:4 refuses every image target, sdk/contrib/images/simd-env/Dockerfile:1 retains only a retirement notice, sdk/contrib/images/simd-dlv/README.md:5 documents the removed debug Dockerfile, and tools/qualification/audit_repairs/test_repair_22_33_1351.py:50, tools/qualification/audit_repairs/test_repair_22_33_1353.py:42 and tools/qualification/audit_repairs/test_repair_22_33_1352.py:13 assert those retirement boundaries."
+close_comment = "The original build context was already the repository root, so the historical audit's SDK-root diagnosis was inaccurate; the proposed repair has since been superseded by explicit retirement of both simd images. All image targets now refuse, the environment Dockerfile is only a retirement notice, and the debug Dockerfile has been removed; build paxd with make -f chain.mk build from the repository root."

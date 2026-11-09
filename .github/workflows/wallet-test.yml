@@ -38,6 +38,18 @@ jobs:
           node-version: 24.22.0
       - name: Install pnpm
         run: npm install --global pnpm@10.34.9
+      - name: Set up Go for attestor fixtures
+        if: matrix.directory == 'sdk/wallet'
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: services/wallet/attestor/go.mod
+          cache-dependency-path: services/wallet/attestor/go.sum
+      - name: Install PostgreSQL fixture binaries
+        if: matrix.directory == 'sdk/wallet'
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y --no-install-recommends postgresql openssl
+          echo "PG_BIN_DIR=$(ls -d /usr/lib/postgresql/*/bin | sort -V | tail -1)" >> "$GITHUB_ENV"
       - name: Install agent SDK dependencies
         working-directory: services/agent/sdk/typescript
         run: npm ci --workspaces=false --no-audit --no-fund
@@ -47,6 +59,10 @@ jobs:
       - name: Install wallet SDK dependencies
         working-directory: sdk/wallet
         run: pnpm install --ignore-workspace --frozen-lockfile
+      - name: Install wallet workspace dependencies
+        if: matrix.directory == 'sdk/wallet'
+        working-directory: services/wallet
+        run: pnpm install --frozen-lockfile
       - name: Install wallet app dependencies
         if: matrix.directory == 'apps/wallet'
         working-directory: apps/wallet

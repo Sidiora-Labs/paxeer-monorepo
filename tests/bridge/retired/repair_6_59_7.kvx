@@ -1,0 +1,52 @@
+[repair.6.59.7]
+decision = "3022"
+basis = ["gotcha.3719", "decision.928", "decision.2910", "decision.3006", "decision.3022"]
+retirement = "Retire the document's trust role; retain the archival producer byte-for-byte from fcdf55bef3ab5ddf35353f59490928acd609b418 for historical readers and image compile inputs."
+trust_retirement_task = "9.27.4"
+removed_trust_readers = ["services/agent/crates/layerx-proof/src/settlement.rs", "services/agent/crates/layerx-proof/src/checkpoint.rs"]
+removed_trust_role = "The embedded DECLARED_CHECKPOINT_SETTLEMENT and guarantor certificate verifier were deleted; proof evidence cannot establish the committed rung from this document."
+remaining_readers = ["docker/kernel/Dockerfile.dockerignore", "docker/layerx/Dockerfile", "docker/layerx/Dockerfile.dockerignore", "docker/paxeer/Dockerfile.paxd-node.dockerignore", "services/agent/crates/layerx-proof/tests/support/historical_checkpoint.rs", "services/agent/crates/layerx-types/src/historical/settlement.rs", "services/agent/crates/layerx-types/tests/repair_22_33_1542.rs", "services/agent/crates/layerx-types/tests/vectors.rs", "services/platform/hosted/paxeer/tests/migrations/v1/settlement_domains.py", "services/platform/hosted/paxeer/tests/support/node_tls.rs", "tests/ci/test_image_compile_inputs_not_ignored.py", "tests/vectors/checkpoint/generate.py", "tools/bringup/tests/paxeer-x-runtime-contract.py", "tools/jev/tests/fixtures/ledger/beta-qualification.kvx", "tools/paxeer-x/build/104.30.2.mk", "tools/paxeer-x/tests/retired_callers_test.py", "tools/qualification/test_retired_callers_17.py"]
+harness_reader = "tests/bridge/retired/kernel_retirement.py::checkpoint_settlement"
+harness_policy = "The harness and retirement assertion tests remain excluded from live_references by the existing RETIRED and RETIREMENT_ASSERTIONS inventories; checkpoint_settlement validates the retained schema, chain and archival export version."
+source_policy = "Only services/agent/crates/layerx-types/src/historical/settlement.rs may reference the document under a src directory; the retirement test pins the complete live_references reader set."
+hosted_node_tests = "sequencer-seed-test.py and signer-test.py already have no settlement_document or certificate_threshold checks; their inherited whitespace changes are outside this round's scope."
+
+[evidence.build]
+ledger = "/out/run/gates.jsonl"
+kind = "build"
+command = "python3 -m py_compile tests/bridge/retired/test_retired_checkpoint_settlement.py"
+log = "/out/logs/build-1.log"
+authority = "The gate ledger records the actual revision, command, exit and log; this reference does not assert a result before execution."
+
+[evidence.verify]
+ledger = "/out/run/gates.jsonl"
+kind = "verify"
+command = "cg spec done 6.59.7 -f layerx-merge --root /work/paxeer-monorepo"
+log = "/out/logs/verify-1.log"
+authority = "The gate ledger records the actual revision, command, exit and log; build and verify must identify the same final candidate."
+
+[repair.reader_inventory]
+observed = "The first verification reported tools/bringup/tests/paxeer-x-runtime-contract.py as a reader and no services/platform/hosted/node/tests/test_repair_22_31_355.py reference."
+resolution = "Corrected the exact reader inventory to the shared scan as authorized by do_6; the source-reader and schema assertions remain unchanged."
+evidence = "/out/logs/verify-1.log"
+
+[finding.image_compile_inputs]
+task = "6.59.7"
+file = "tests/ci/test_image_compile_inputs_not_ignored.py"
+symbol = "test_layerx_image_includes_reachable"
+observed = "At revision 2e279301b6d9521b61cf191b19bbc7e2b7a0f4d3, cg spec done 6.59.7 -f layerx-merge --root /work/paxeer-monorepo exited 1 (log /out/logs/verify-1.log): the unchanged image compile input assertion at line 290 reports contracts/config/checkpoint-settlement.json missing from the reachable targets."
+assumption = "The image reachability assertion and its Rust producer paths are outside this task's scope and must be reconciled by their owner."
+severity = "blocker"
+
+[repair.image_compile_inputs]
+decision = "3027"
+basis = ["gotcha.3726", "decision.3022", "decision.3027"]
+producer_task = "9.27.4"
+producer_revision = "6c4902c134"
+file = "tests/ci/test_image_compile_inputs_not_ignored.py"
+symbol = "test_layerx_image_includes_reachable"
+resolution = "The producer deleted the embedded settlement copy; assert the document as the native-stage COPY input of docker/layerx/Dockerfile and require admission by both docker/layerx/Dockerfile.dockerignore and docker/x-websearch/Dockerfile.dockerignore, while retaining the reachable Markdown include assertions and every other assertion."
+archival_document = "contracts/config/checkpoint-settlement.json matches base fa374671b962e9d50647ac930227a6e3140987f6 unchanged."
+hosted_node_tests = "services/platform/hosted/node/tests/sequencer-seed-test.py and services/platform/hosted/node/tests/signer-test.py already match base fa374671b962e9d50647ac930227a6e3140987f6 unchanged; no restoration edit is necessary."
+build_evidence = "evidence.build"
+verify_evidence = "evidence.verify"

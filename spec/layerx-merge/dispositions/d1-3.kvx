@@ -19,7 +19,7 @@ follow_up = "closure"
 [disposition.1.12.4.1]
 finding = "1.12.4.1"
 status = "resolved"
-evidence = "Decision 2340 retired the payer-grant route: modules/layerxledger/keeper/grants.go IssueGrant and RevokeGrant and modules/layerxledger/keeper/draw.go Draw refuse with types.ErrNoPayerGrant and submit no kernel activity, so the activities the kernel rejects are never built; the ABI methods stay and answer the refusal. No follow-up task."
+evidence = "Commit 8fc4a07ffd2fe80466fa3d537e571dc3fbac5ae5 makes IssueGrant and RevokeGrant refuse the retired payer-grant route with types.ErrNoPayerGrant at modules/layerxledger/keeper/grants.go:14 and modules/layerxledger/keeper/grants.go:23 on main. Commit 984636931a0601069f318fec743edcf3d8e2d38a makes Draw refuse at modules/layerxledger/keeper/draw.go:19; these paths submit no kernel activity."
 follow_up = ""
 
 [disposition.1.12.4.2]

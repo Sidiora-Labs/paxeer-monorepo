@@ -287,7 +287,7 @@ def test_layerx_image_includes_reachable():
         document(manifest)["package"]["name"] for manifest in manifests
     }
     targets = {target for _, target in inputs}
-    assert MARKDOWN | {SETTLEMENT} <= targets
+    assert MARKDOWN <= targets
     for source, target in sorted(inputs):
         assert admitted(source, policy), f"LayerX source excluded: {source}"
         assert admitted(target, policy), f"LayerX include excluded: {source} -> {target}"
@@ -305,6 +305,13 @@ def test_layerx_image_includes_reachable():
                 assert destination.rstrip("/") == "contracts/config"
                 copied = True
     assert copied, "Native builder lacks its settlement compile input"
+    for ignore in (
+        LAYERX.with_name(LAYERX.name + ".dockerignore"),
+        ROOT / "docker/x-websearch/Dockerfile.dockerignore",
+    ):
+        assert admitted(SETTLEMENT, rules(ignore.read_text())), (
+            f"Settlement COPY input excluded: {ignore}"
+        )
 
 
 def test_rust_image_include_targets_not_ignored():

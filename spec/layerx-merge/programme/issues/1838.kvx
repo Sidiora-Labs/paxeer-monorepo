@@ -1,0 +1,48 @@
+[issue.1838]
+number = 1838
+title = "[Coherence] Existing Go build-tag and launchpad workflow tests still assert the old ubuntu-latest runner on jobs this commit re-routed"
+revision = "a910fdedd579e63379ae6c2e4d4971990d28f8ad"
+verdict = "task"
+evidence = "The routed expressions introduced by commit e0a5a9cb96428465da9d597a1a0df041a92fca04 remain at .github/workflows/paxeer-go-test.yml:158, .github/workflows/paxeer-go-test.yml:187, .github/workflows/paxeer-go-test.yml:205 and .github/workflows/launchpad-test.yml:38, but tests/ci/test_go_build_tags_wired.py:26 (called at :54, :107 and :137) and tests/ci/test_launchpad_test_workflow.py:47 still require ubuntu-latest, contradicting the exact routed contract at tests/ci/test_workflow_runs_on_routed.py:12 and :113."
+close_comment = "The Go and launchpad workflow checks still require ubuntu-latest even though the four jobs use the routed runner expression. A focused repair will make these checks enforce the exact routed expression, including its fork-safe hosted fallback."
+
+[task.18.1838.1]
+title = "Issue #1838: Align Go and launchpad workflow assertions with the exact routed runner contract"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181838.1"]
+capabilities = []
+interfaces = []
+do_1 = "Replace the obsolete ubuntu-latest equalities in tests/ci/test_go_build_tags_wired.py:26 and tests/ci/test_launchpad_test_workflow.py:47 with exact equality to ROUTED from tests/ci/test_workflow_runs_on_routed.py:12, preserving the fork condition, configurable runner and ubuntu-24.04 fallback required by .github/workflows/paxeer-go-test.yml:158, :187, :205 and .github/workflows/launchpad-test.yml:38; preserve all other job, matrix, step and command assertions and leave the workflows unchanged."
+do_2 = "Add test_workflow_runner_contracts_match_routed_jobs in tests/ci/test_launchpad_test_workflow.py, parameterized over tagged-tests, autobahn-integration and hpx-registry in paxeer-go-test.yml and launchpad-test in launchpad-test.yml, parsing the real YAML with BaseLoader and asserting exact equality to ROUTED; run it alongside both existing Go wiring tests so all three helper call sites execute, while the separate command-shape drift at tests/ci/test_launchpad_test_workflow.py:78 described by input/1859.md remains with issue #1859."
+symbols = ["assert_required_job", "test_launchpad_workflow_covers_every_package_with_a_test_script", "test_workflow_runner_contracts_match_routed_jobs"]
+touches = ["tests/ci/test_go_build_tags_wired.py", "tests/ci/test_launchpad_test_workflow.py"]
+tests = ["tests/ci/test_go_build_tags_wired.py::test_go_test_matrix_covers_build_tags", "tests/ci/test_go_build_tags_wired.py::test_hpx_registry_go_test_wired", "tests/ci/test_launchpad_test_workflow.py::test_workflow_runner_contracts_match_routed_jobs"]
+planned_paths = []
+build_cmd = "python3 -m py_compile tests/ci/test_go_build_tags_wired.py tests/ci/test_launchpad_test_workflow.py"
+verify_cmd = "python3 -m pytest tests/ci/test_go_build_tags_wired.py tests/ci/test_launchpad_test_workflow.py::test_workflow_runner_contracts_match_routed_jobs -q"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181838]
+title = "Go and launchpad workflow wiring checks enforce the exact routed runner expression"
+ac_1 = "Given the routed jobs at .github/workflows/paxeer-go-test.yml:158, :187, :205 and .github/workflows/launchpad-test.yml:38, the assertions currently at tests/ci/test_go_build_tags_wired.py:26 and tests/ci/test_launchpad_test_workflow.py:47 and the four-case routing regression require the complete ROUTED expression at tests/ci/test_workflow_runs_on_routed.py:12, rejecting a fixed ubuntu-latest label or any changed fork condition or fallback without weakening other wiring assertions."
+
+[acceptance.18.1838.1]
+feature = "18"
+req = "181838.1"
+scenario = "Given the three Go jobs and the launchpad package test job use the routed runner expression, when their focused workflow wiring checks run against the real YAML, then all four runner assertions match the exact fork-safe routed expression and the Go job invariants remain enforced."
+contract = "contracts/tools-ops.md#ci-workflows"
+test = "tests/ci/test_launchpad_test_workflow.py::test_workflow_runner_contracts_match_routed_jobs (planned)"
+qualification = "UNRUN"

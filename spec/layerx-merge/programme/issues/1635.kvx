@@ -1,0 +1,48 @@
+[issue.1635]
+number = 1635
+title = "[P2] Remove denied unwrap calls from Programs host repair tests"
+revision = "bb8caac8b3e73e3e2f4b330805574f0bcb540641"
+verdict = "task"
+evidence = "The 19 bare unwrap calls introduced by commit a749d8c772d8d682b698520142082b825b10f38f remain in programs/crates/layerx-programs-runtime/tests/repair_22_33_227.rs:130, :132, :144, :146, :147, :152, :155, :165, :176, :185, :203, :205, :206, :208, :286, :290, :305, :321 and :344, contrary to the unwrap_used denial at programs/crates/layerx-programs-runtime/Cargo.toml:42 with no test exception in programs/clippy.toml:1, and Makefile:2853 includes this integration target through --all-targets."
+close_comment = "The Programs host repair regression target still contains 19 unwrap calls forbidden by the runtime lint policy. A focused repair is required to use explicit failure handling while retaining all six tests and their allocation, fuel, status and storage assertions."
+
+[task.18.1635.1]
+title = "Issue #1635: Replace forbidden unwrap calls in Programs host repair tests"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181635.1"]
+capabilities = []
+interfaces = []
+do_1 = "Replace all 19 bare unwrap calls in programs/crates/layerx-programs-runtime/tests/repair_22_33_227.rs:128 through :344 with explicit required-value failure handling or error propagation, following the contextual unwrap_or_else panic handling in programs/crates/layerx-programs-runtime/tests/abi_linker.rs:49; do not substitute expect because programs/crates/layerx-programs-runtime/Cargo.toml:43 also denies expect_used, and preserve the package lint policy."
+do_2 = "Compile the repair_22_33_227 integration target with Clippy and warnings denied, then run its six existing tests at programs/crates/layerx-programs-runtime/tests/repair_22_33_227.rs:212, :227, :246, :264, :310 and :340; preserve every assertion, case, allocation bound, fuel bound, digest vector and storage check without lint allowances or disabled tests."
+symbols = ["instance", "call", "observed_call", "assert_output", "stored_value", "hash_preflight_valid_vectors_and_ceiling", "guest_read_invalid_large_ranges_do_not_allocate", "guest_read_valid_range_still_reaches_storage"]
+touches = ["programs/crates/layerx-programs-runtime/tests/repair_22_33_227.rs"]
+tests = ["programs/crates/layerx-programs-runtime/tests/repair_22_33_227.rs::hash_preflight_oversized_valid_memory", "programs/crates/layerx-programs-runtime/tests/repair_22_33_227.rs::hash_preflight_invalid_input_and_output_ranges", "programs/crates/layerx-programs-runtime/tests/repair_22_33_227.rs::hash_preflight_exhausted_fuel", "programs/crates/layerx-programs-runtime/tests/repair_22_33_227.rs::hash_preflight_valid_vectors_and_ceiling", "programs/crates/layerx-programs-runtime/tests/repair_22_33_227.rs::guest_read_invalid_large_ranges_do_not_allocate", "programs/crates/layerx-programs-runtime/tests/repair_22_33_227.rs::guest_read_valid_range_still_reaches_storage"]
+planned_paths = []
+build_cmd = "cargo clippy --locked --manifest-path programs/Cargo.toml -p layerx-programs-runtime --test repair_22_33_227 --no-deps -- -D warnings"
+verify_cmd = "cargo test --locked --manifest-path programs/Cargo.toml -p layerx-programs-runtime --test repair_22_33_227"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-programs"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181635]
+title = "Programs host repair regression tests comply with the runtime lint policy"
+ac_1 = "Given the six host repair regression tests at programs/crates/layerx-programs-runtime/tests/repair_22_33_227.rs:212, :227, :246, :264, :310 and :340, when the focused Clippy compilation and integration target run, then the target has no Clippy diagnostics, all six tests pass with every assertion and bound preserved, and all 19 bare unwrap calls are replaced without weakening the unwrap_used and expect_used denials at programs/crates/layerx-programs-runtime/Cargo.toml:42 and :43."
+
+[acceptance.18.1635.1]
+feature = "18"
+req = "181635.1"
+scenario = "Given the Programs host repair regression target and the runtime lint policy, when its six tests are compiled with Clippy and executed, then explicit failure handling replaces every forbidden unwrap, the target has no Clippy diagnostics and all six tests pass with their assertions and bounds preserved."
+contract = "contracts/programs.md#runtime-crate"
+test = "programs/crates/layerx-programs-runtime/tests/repair_22_33_227.rs::hash_preflight_valid_vectors_and_ceiling (planned)"
+qualification = "UNRUN"

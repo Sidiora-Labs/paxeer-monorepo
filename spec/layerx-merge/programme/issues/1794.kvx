@@ -1,0 +1,48 @@
+[issue.1794]
+number = 1794
+title = "[Coherence] The inference market guides call the daemon profile and the 0x0907 peer binding unavailable, but both have already landed at this revision"
+revision = "a910fdedd579e63379ae6c2e4d4971990d28f8ad"
+verdict = "task"
+evidence = "docs/agent/inference-market/README.md:11, docs/agent/inference-market/operator.md:17, docs/agent/inference-market/threats.md:5 and docs/agent/COMPATIBILITY.md:43 still describe the daemon profile or peer binding as planned despite the parser at services/agent/crates/layerx-agentd/src/human_owner_mode.rs:15, configuration at services/agent/crates/layerx-agentd/src/config.rs:79 and binding methods at precompiles/layerxagent/teeattestor/teeattestor.go:273 and precompiles/layerxagent/teeattestor/teeattestor.go:307, introduced by ancestor commits a53cf5f3d530e257b2aa20e41d035107216ec8e8 and 6e64aa6ffb45918b2936a2c2c92b248687a88287 and covered by services/agent/crates/layerx-agentd/tests/inference_profile_boot.rs:90 and precompiles/layerxagent/teeattestor/peer_binding_test.go:43; commit b101bde32d44626d933c4cf2073fb0b1ee0f225f removed the README base revision without correcting its availability claim."
+close_comment = "The inference-market mode, its configuration and the 0x0907 peer-binding methods are implemented, while the guides still describe them as planned or unavailable. The documentation needs to reflect these implemented surfaces while retaining the development-attestation limits and the requirement to check F11 availability on the target network."
+
+[task.18.1794.1]
+title = "Issue #1794: Correct inference market profile and peer-binding availability statements"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181794.1"]
+capabilities = []
+interfaces = []
+do_1 = "Correct docs/agent/inference-market/README.md:11 to list full, human-owner and inference-market as accepted daemon modes, docs/agent/inference-market/operator.md:3 and docs/agent/inference-market/operator.md:17 to describe the implemented profile and configuration, docs/agent/inference-market/threats.md:5 and docs/agent/inference-market/threats.md:14 to describe implemented bindPeer and peerBinding at 0x0907, and docs/agent/COMPATIBILITY.md:43 to distinguish these implemented surfaces from network availability; use services/agent/crates/layerx-agentd/src/human_owner_mode.rs:15, services/agent/crates/layerx-agentd/src/config.rs:79 and precompiles/layerxagent/teeattestor/teeattestor.go:273 as the implementation references."
+do_2 = "Remove the contradictory profile-unavailable, planned-profile and planned-binding statements from those four pages, retain the development-envelope-only limitation at docs/agent/inference-market/threats.md:3 and the target-network F11 check at docs/agent/inference-market/README.md:15, and verify explicit corrected statements on each page without claiming network deployment or end-to-end readiness."
+symbols = []
+touches = ["docs/agent/inference-market/README.md", "docs/agent/inference-market/operator.md", "docs/agent/inference-market/threats.md", "docs/agent/COMPATIBILITY.md"]
+tests = []
+planned_paths = []
+build_cmd = "true"
+verify_cmd = "grep -Fq 'The daemon accepts full, human-owner and inference-market.' docs/agent/inference-market/README.md && grep -Fq 'The inference-market profile reads the settings below.' docs/agent/inference-market/operator.md && grep -Fq 'bindPeer and peerBinding are implemented at 0x0907.' docs/agent/inference-market/threats.md && grep -Fq 'Only the development attestation envelope is accepted today.' docs/agent/inference-market/threats.md && grep -Fq 'The daemon profile and peer binding are implemented; F11 availability must be checked on the target network.' docs/agent/COMPATIBILITY.md && grep -Fq 'Check F11 availability on the target network before attempting the flows.' docs/agent/inference-market/README.md && ! grep -Eq 'profile is unavailable|planned daemon profile|planned profile configuration|planned.*bindPeer|planned.*peer binding|does not assert that bindPeer is deployed|surfaces still pending at this revision|documentation base revision' docs/agent/inference-market/README.md docs/agent/inference-market/operator.md docs/agent/inference-market/threats.md docs/agent/COMPATIBILITY.md"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-docs"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181794]
+title = "Inference market guides accurately describe implemented daemon and peer-binding surfaces"
+ac_1 = "The availability statements at docs/agent/inference-market/README.md:11, docs/agent/inference-market/operator.md:17, docs/agent/inference-market/threats.md:5 and docs/agent/COMPATIBILITY.md:43 agree with the accepted modes at services/agent/crates/layerx-agentd/src/human_owner_mode.rs:15, configuration at services/agent/crates/layerx-agentd/src/config.rs:79 and bindPeer/peerBinding at precompiles/layerxagent/teeattestor/teeattestor.go:273 and precompiles/layerxagent/teeattestor/teeattestor.go:307, while retaining development-attestation limits and explicit target-network F11 availability checks."
+
+[acceptance.18.1794.1]
+feature = "18"
+req = "181794.1"
+scenario = "Given implemented inference-market mode, configuration and 0x0907 peer-binding methods, when the overview, operator guide, threat statement and compatibility page describe availability, then each acknowledges the implemented surface without contradictory absence claims and retains development-attestation limits and target-network F11 checks."
+contract = "contracts/inference-market.md#daemon-profile"
+test = "Focused availability statement grep assertions in verify_cmd over the four touched documentation pages (planned)"
+qualification = "UNRUN"

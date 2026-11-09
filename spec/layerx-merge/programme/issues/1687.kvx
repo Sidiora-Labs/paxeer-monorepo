@@ -1,0 +1,50 @@
+[issue.1687]
+number = 1687
+title = "[Coherence] Removing an approved image while a save is in flight drops the save acknowledgment and leaves the editor stuck in the saving state"
+revision = "bb8caac8b3e73e3e2f4b330805574f0bcb540641"
+verdict = "task"
+evidence = "The Remove handler at apps/launchpad/web/src/widgets/profile/profile-edit-modal.tsx:188 increments the shared generation and restores the baseline image, its button at apps/launchpad/web/src/widgets/profile/profile-edit-modal.tsx:267 remains enabled during saving, and the generation check at apps/launchpad/web/src/widgets/profile/profile-edit-modal.tsx:129 consequently skips the revision, upload and committed-state updates at apps/launchpad/web/src/widgets/profile/profile-edit-modal.tsx:132 after a successful save."
+close_comment = "Removing an approved draft image while its profile save is pending can leave the editor showing Saving after the profile was saved. A follow-up task will prevent removal during saving and verify that avatar and banner saves acknowledge success and retain the new revision."
+
+[task.18.1687.1]
+title = "Issue #1687: Preserve profile save acknowledgment when removing a draft image"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181687.1"]
+capabilities = []
+interfaces = []
+do_1 = "In apps/launchpad/web/src/widgets/profile/profile-edit-modal.tsx:182 pass the saving state through the image picker controls, disable Remove at apps/launchpad/web/src/widgets/profile/profile-edit-modal.tsx:267 while saving, and guard the removal handler at apps/launchpad/web/src/widgets/profile/profile-edit-modal.tsx:187 against removal during saving so it cannot invalidate the pending save; retain draft removal and stale-image cancellation outside saving and the session and unmount generation checks."
+do_2 = "Add named avatar and banner regression tests in apps/launchpad/web/src/widgets/profile/repair-22-33-930.test.ts alongside the existing image-removal cases at apps/launchpad/web/src/widgets/profile/repair-22-33-930.test.ts:257: drive the actual modal and signed account transport through upload, approval and save, hold the save acknowledgment after the profile write is accepted, attempt Remove while saving and assert it is disabled and preserves the selected image, then release the acknowledgment and assert Profile saved, one onSaved notification, cleared upload, persisted uploaded asset and an enabled subsequent edit whose save sends the acknowledged expectedRevision and succeeds."
+do_3 = "Retain and run the existing avatar and banner removal tests, including empty baselines, at apps/launchpad/web/src/widgets/profile/repair-22-33-930.test.ts:319; these remove before saving and do not cover the pending-save race, while reopening already reloads the saved revision through apps/launchpad/web/src/widgets/profile/profile-edit-modal.tsx:69 and apps/launchpad/web/src/widgets/profile/account-transport.ts:251, so prove revision advancement with another save in the same open modal."
+symbols = ["ProfileEditModal", "ImagePicker", "profile_image_remove_during_save_avatar", "profile_image_remove_during_save_banner"]
+touches = ["apps/launchpad/web/src/widgets/profile/profile-edit-modal.tsx", "apps/launchpad/web/src/widgets/profile/repair-22-33-930.test.ts"]
+tests = ["apps/launchpad/web/src/widgets/profile/repair-22-33-930.test.ts::profile_image_remove_during_save_avatar", "apps/launchpad/web/src/widgets/profile/repair-22-33-930.test.ts::profile_image_remove_during_save_banner", "apps/launchpad/web/src/widgets/profile/repair-22-33-930.test.ts::profile_image_remove_draft_avatar", "apps/launchpad/web/src/widgets/profile/repair-22-33-930.test.ts::profile_image_remove_draft_banner", "apps/launchpad/web/src/widgets/profile/repair-22-33-930.test.ts::profile_image_remove_draft_empty_avatar", "apps/launchpad/web/src/widgets/profile/repair-22-33-930.test.ts::profile_image_remove_draft_empty_banner"]
+planned_paths = []
+build_cmd = "pnpm --dir apps/launchpad/web exec tsc --noEmit"
+verify_cmd = "pnpm --dir apps/launchpad/web exec vitest run src/widgets/profile/repair-22-33-930.test.ts -t '^profile_image_remove_(draft|during_save)_'"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181687]
+title = "Draft image removal cannot discard an accepted profile save acknowledgment"
+ac_1 = "Given an approved avatar or banner upload and a pending profile save, Remove at apps/launchpad/web/src/widgets/profile/profile-edit-modal.tsx:267 is disabled and its handler at apps/launchpad/web/src/widgets/profile/profile-edit-modal.tsx:187 cannot change the shared generation or draft, so the acknowledgment reaches the success updates at apps/launchpad/web/src/widgets/profile/profile-edit-modal.tsx:132, calls onSaved once, clears the upload and saving state, retains the persisted uploaded image and lets the next save in the same modal use the acknowledged revision."
+ac_2 = "Removing an approved draft image before saving continues to restore the original avatar or banner, including a null baseline, as asserted by the existing cases at apps/launchpad/web/src/widgets/profile/repair-22-33-930.test.ts:319."
+
+[acceptance.18.1687.1]
+feature = "18"
+req = "181687.1"
+scenario = "Given an approved avatar or banner and a profile save whose write is accepted but acknowledgment is pending, when Remove is attempted and the acknowledgment arrives, then removal is disabled, the uploaded image remains saved, the modal reports Profile saved once, and a subsequent edit saves successfully with the acknowledged revision."
+contract = "contracts/clients.md#launchpad-web-app"
+test = "apps/launchpad/web/src/widgets/profile/repair-22-33-930.test.ts::profile_image_remove_during_save_avatar; apps/launchpad/web/src/widgets/profile/repair-22-33-930.test.ts::profile_image_remove_during_save_banner (planned)"
+qualification = "UNRUN"

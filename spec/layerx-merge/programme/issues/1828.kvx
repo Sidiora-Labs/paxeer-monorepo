@@ -1,0 +1,50 @@
+[issue.1828]
+number = 1828
+title = "[P2] Scope interop baseline skips to their recorded Cargo target"
+revision = "a910fdedd579e63379ae6c2e4d4971990d28f8ad"
+verdict = "task"
+evidence = "tests/ci/interop_workspace_test.py:50 validates member/target/name identities but :61-65 still converts them to workspace-global name skips, and tests/ci/test_interop_workspace_tests_wired.py:90-101 asserts that selection; commit 496fe1c9bd773b73f1a6d2dba98310e2600470ea retired the cited entries and tests/ci/data/interop_test_baseline.json:1 is now empty, so no current suppression is claimed, but any retained same-name entry would still suppress a retired or unlisted target such as the functions at services/interop/crates/layerx-interop-service/tests/private_network.rs:275 and services/interop/crates/layerx-interop-service/tests/repair_22_33_91.rs:22."
+close_comment = "The recorded failures have been retired, but the runner still applies any baseline skip to every target with the same qualified test name. Task 18.1828.1 scopes skips to their recorded package and Cargo target and adds coverage for individual retirement and unlisted same-name tests."
+
+[task.18.1828.1]
+title = "Issue #1828: Scope interop baseline skips to their recorded package and Cargo target"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181828.1"]
+capabilities = []
+interfaces = []
+do_1 = "Replace the global skip construction in tests/ci/interop_workspace_test.py:57-66 with selection derived from real Cargo metadata, applying exact qualified-name skips only to the recorded member and target; preserve locked execution, Cargo toolchain arguments, every other workspace test target and doctest, baseline validation and reporting, and execution of remaining targets after a failure with a nonzero final exit status through main at :69-83. Keep the empty baseline unchanged."
+do_2 = "Update tests/ci/test_interop_workspace_tests_wired.py:24-42, :90-106 and :109-135 to check complete Cargo target coverage and target-specific skips rather than requiring one global command; preserve the workflow, metadata inventory and individual baseline identity checks."
+do_3 = "Add test_interop_baseline_skips_are_scoped_to_cargo_targets to tests/ci/test_interop_workspace_tests_wired.py using temporary real Cargo packages and targets executed by the production runner, with identical qualified test names in two targets of one member and a third unlisted target of another member; supply a valid temporary baseline through an explicit baseline-path parameter shared by read_baseline, command construction and main, retaining the committed baseline as the default. Assert actual execution markers and Cargo test counts before and after retiring one entry: only the retained identity is skipped, the retired identity executes, the unlisted identity always executes, and the empty baseline executes all three. Do not substitute Cargo processes or runner results."
+do_4 = "Add test_interop_target_failure_propagates_and_continues using real Cargo targets with an intentional unlisted failing assertion and a later target that writes an execution marker; assert the production runner returns failure and still executes the later target. Run the focused Python regression file, including these Cargo integration checks, and retain its actual results."
+symbols = ["read_baseline", "workspace_test_command", "main", "test_interop_baseline_skips_are_scoped_to_cargo_targets", "test_interop_target_failure_propagates_and_continues"]
+touches = ["tests/ci/interop_workspace_test.py", "tests/ci/test_interop_workspace_tests_wired.py"]
+tests = ["tests/ci/test_interop_workspace_tests_wired.py::test_interop_baseline_skips_are_scoped_to_cargo_targets", "tests/ci/test_interop_workspace_tests_wired.py::test_interop_target_failure_propagates_and_continues"]
+planned_paths = []
+build_cmd = "python3 -m py_compile tests/ci/interop_workspace_test.py tests/ci/test_interop_workspace_tests_wired.py"
+verify_cmd = "python3 -m pytest -q tests/ci/test_interop_workspace_tests_wired.py"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-interop"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181828]
+title = "Interop baseline exceptions affect only their recorded package, Cargo target and qualified test name"
+ac_1 = "Given the identity validation at tests/ci/interop_workspace_test.py:50 and the global skip defect at :61-65, when two targets share a qualified test name and one baseline entry is retired, then the retired target and every unlisted same-name target execute while only the retained member/target/name identity is skipped, all other Cargo test targets and doctests remain covered, and a failing target produces a nonzero result without preventing remaining targets from running."
+
+[acceptance.18.1828.1]
+feature = "18"
+req = "181828.1"
+scenario = "Given two baselined Cargo targets sharing a qualified test name and a third unlisted target with that name, when one entry is retired and the production interop runner executes real Cargo targets, then only the retained identity is skipped, the retired and unlisted tests execute, and any unlisted failure propagates while remaining targets still execute."
+contract = "contracts/tools-ops.md#ci-scripts"
+test = "tests/ci/test_interop_workspace_tests_wired.py::test_interop_baseline_skips_are_scoped_to_cargo_targets (planned)"
+qualification = "UNRUN"

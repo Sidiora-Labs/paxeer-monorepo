@@ -1,0 +1,7 @@
+[issue.1649]
+number = 1649
+title = "Reconcile Wasm devtools consumers with the retired Makefile"
+revision = "bb8caac8b3e73e3e2f4b330805574f0bcb540641"
+verdict = "already-fixed"
+evidence = "Commits a34eebac5b7c215f70c46bb3a790a8247ff20f07 and 3740acfa3e25ea3b4aa157330f14dc50a37b0c47 reconciled both consumers: wasm/contrib/devtools/README.md:32 and wasm/contrib/devtools/README.md:37 invoke the standalone tools and tools-clean targets defined at wasm/contrib/devtools/Makefile:54 and wasm/contrib/devtools/Makefile:76, wasm/contrib/devtools/README.md:40 invokes golangci-lint directly, and tools/qualification/audit_repairs/test_repair_22_33_1231.py:133, tools/qualification/audit_repairs/test_repair_22_33_1231.py:136, tools/qualification/audit_repairs/test_repair_22_33_1231.py:155 and tools/qualification/audit_repairs/test_repair_22_33_1231.py:158 assert the retirement contract and corrected commands while wasm/Makefile:7 still rejects operational goals."
+close_comment = "Devtools installation and cleanup now use make -C wasm/contrib/devtools, and linting uses golangci-lint run directly. Regression assertions match these commands and preserve the retirement of wasm/Makefile."

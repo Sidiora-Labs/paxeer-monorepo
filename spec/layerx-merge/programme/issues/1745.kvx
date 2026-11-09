@@ -1,0 +1,50 @@
+[issue.1745]
+number = 1745
+title = "[Coherence] The old committed_budget_rank helper is now reached only from its own unit tests, so the repair_22_31_538 tests no longer cover the production approval path"
+revision = "a910fdedd579e63379ae6c2e4d4971990d28f8ad"
+verdict = "task"
+evidence = "Commit 4e8983196e702a58e69e18b3804242ec1bca2271 switched the production guard to budget_state_is_committed (services/agent/crates/layerx-agentd/src/human_runtime.rs:10158), but committed_budget_rank remains at services/agent/crates/layerx-agentd/src/human_runtime.rs:11688 with only the test callers at lines 22571 and 22580, while services/agent/crates/layerx-agentd/tests/repair_22_31_538.kvx:10 still describes the private helper as the production guard."
+close_comment = "The approval budget guard uses the shared committed-state predicate, but the repair tests still exercise an unused private helper. The follow-up removes that helper, directs both tests to the production predicate, and corrects the repair record."
+
+[task.18.1745.1]
+title = "Issue #1745: Exercise the production committed-state predicate in approval budget repair tests"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181745.1"]
+capabilities = []
+interfaces = []
+do_1 = "Remove the unused committed_budget_rank helper at services/agent/crates/layerx-agentd/src/human_runtime.rs:11688; retain the production call to crate::budget::budget_state_is_committed at line 10158 and all other approval guard conditions."
+do_2 = "Change repair_22_31_538_approval_budget_accepts_committed_rank and repair_22_31_538_approval_budget_refuses_other_ranks at services/agent/crates/layerx-agentd/src/human_runtime.rs:22569 and :22577 to call crate::budget::budget_state_is_committed directly: assert Ok(()) for COMMITTED.wire_rank(), BudgetVerificationError::NotCommitted for labels 0 through 3, and BudgetVerificationError::RetiredOrUnknown for labels 4, 5 and 7 through u8::MAX, preserving every existing rejected label."
+do_3 = "Correct the approval_budget_after and approval test descriptions at services/agent/crates/layerx-agentd/tests/repair_22_31_538.kvx:10 and :21 to name the shared predicate and its error variants; preserve historical qualification evidence and the program-presentation test."
+symbols = ["repair_22_31_538_approval_budget_accepts_committed_rank", "repair_22_31_538_approval_budget_refuses_other_ranks"]
+touches = ["services/agent/crates/layerx-agentd/src/human_runtime.rs", "services/agent/crates/layerx-agentd/tests/repair_22_31_538.kvx"]
+tests = ["services/agent/crates/layerx-agentd/src/human_runtime.rs::tests::repair_22_31_538_approval_budget_accepts_committed_rank", "services/agent/crates/layerx-agentd/src/human_runtime.rs::tests::repair_22_31_538_approval_budget_refuses_other_ranks"]
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib"
+verify_cmd = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib -- repair_22_31_538_approval_budget_"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181745]
+title = "Approval budget repair tests exercise the predicate used by the production guard"
+ac_1 = "Given the approval guard at services/agent/crates/layerx-agentd/src/human_runtime.rs:10158 and the shared predicate at services/agent/crates/layerx-agentd/src/budget/mod.rs:9, both approval repair tests at services/agent/crates/layerx-agentd/src/human_runtime.rs:22569 and :22577 call that predicate directly, accept only COMMITTED, assert the typed refusals for every other byte label, and no committed_budget_rank helper remains."
+ac_2 = "The approval site and test descriptions at services/agent/crates/layerx-agentd/tests/repair_22_31_538.kvx:10 and :21 describe the shared predicate and its actual typed refusals."
+
+[acceptance.18.1745.1]
+feature = "18"
+req = "181745.1"
+scenario = "Given approval budget repair tests and the production committed-state predicate, when the two focused tests run, then they directly exercise that predicate, accept COMMITTED and refuse every other byte label with the correct typed error, with the unused helper removed and the repair record corrected."
+contract = "contracts/agent-human-peer.md#approval-budget-after-v2"
+test = "services/agent/crates/layerx-agentd/src/human_runtime.rs::tests::repair_22_31_538_approval_budget_accepts_committed_rank and services/agent/crates/layerx-agentd/src/human_runtime.rs::tests::repair_22_31_538_approval_budget_refuses_other_ranks (planned)"
+qualification = "UNRUN"
