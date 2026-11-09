@@ -43,6 +43,7 @@ const serverErrors: unknown[] = [];
 let balances: typeof import("../src/page-modules/portfolio/balances");
 let boundary: typeof import("../src/page-modules/portfolio/PortfolioBalanceBoundary");
 let topBar: typeof import("../src/widgets/portfolio/PortfolioTopBar");
+let overview: typeof import("../src/widgets/portfolio/PortfolioOverviewPanel");
 let orders: typeof import("../src/page-modules/portfolio/PortfolioOrdersAvailability");
 let perps: typeof import("../src/core/network/abi/PerpsPrecompile");
 let config: typeof import("../src/core/perps/config");
@@ -107,6 +108,7 @@ async function setupPortfolioFixture() {
   balances = await import("../src/page-modules/portfolio/balances");
   boundary = await import("../src/page-modules/portfolio/PortfolioBalanceBoundary");
   topBar = await import("../src/widgets/portfolio/PortfolioTopBar");
+  overview = await import("../src/widgets/portfolio/PortfolioOverviewPanel");
   orders = await import("../src/page-modules/portfolio/PortfolioOrdersAvailability");
 }
 
@@ -190,7 +192,7 @@ async function portfolioTopBarBalanceFailureAndRetry() {
   );
   assert.match(
     page,
-    /<PortfolioBalanceBoundary\s+snapshot=\{balanceSnapshot\}\s+onRetry=\{retryBalances\}/,
+    /<PortfolioOverviewPanel\b[\s\S]*?balanceSnapshot=\{balanceSnapshot\}[\s\S]*?onRetryBalances=\{retryBalances\}/,
   );
 
   const actions: string[] = [];
@@ -404,6 +406,174 @@ async function portfolioTopBarBalanceFailureAndRetry() {
   disconnected.cancel();
 }
 
+async function portfolioBalanceIsolationKeepsOverviewVisible() {
+  if (isMainThread) return runPortfolioRepairWorker("portfolioBalanceIsolationKeepsOverviewVisible");
+  const { JSDOM } = await import("../src/ui/atoms/test-support/dom");
+  const dom = new JSDOM("", { url: "http://localhost", pretendToBeVisual: true });
+  const reader = new balances.PortfolioBalanceReader(alice);
+  const observedStates: PortfolioBalanceSnapshot[] = [];
+  const unexpectedAction = () => assert.fail("Server rendering must not dispatch an account action");
+  const propsFor = (selected: PortfolioBalanceReader) => ({
+    isConnected: true, hasVault: true, address: selected.address,
+    totalVaultUsd: 2468.12, unrealizedPnl: -123.45, openPositions: 2,
+    realizedPnl: -61.37, totalTrades: 37,
+    balances: balances.portfolioBalances(selected.getSnapshot()),
+    balanceSnapshot: selected.getSnapshot(), onRetryBalances: selected.refresh,
+    dailyPnl: [{ date: new Date().toISOString().slice(0, 10), pnl: "7000000000000000000", volume: "350000000000000000000", trades: 11 }],
+    dailyPnlLoading: false, dailyPnlError: null,
+    dailyPnlSkippedDays: 0, dailyPnlHistoryCapped: false,
+    isLoading: false, privacy: false,
+    onTogglePrivacy: unexpectedAction, onRefresh: selected.refresh,
+    onConnect: unexpectedAction, onDeposit: unexpectedAction, onWithdraw: unexpectedAction,
+  });
+  const render = (selected = reader, privacy = false) => {
+    observedStates.push(selected.getSnapshot());
+    return renderToStaticMarkup(
+      React.createElement(overview.PortfolioOverviewPanel, { ...propsFor(selected), privacy }),
+    );
+  };
+  const assertIndependent = (html: string) => {
+    assert.match(html, /\$2\.47K/);
+    assert.match(html, /-\$123\.45/);
+    assert.match(html, /-5\.00%/);
+    assert.match(html, /Open positions<\/div><div[^>]*>2<\/div>/);
+    assert.match(html, /Realized PnL<\/div><div[^>]*>-\$61\.37<\/div>/);
+    assert.match(html, /Trades<\/div><div[^>]*>37<\/div>/);
+    for (const label of ["Assets · PnL-only estimate", "Performance", "Daily PnL", "Cumulative PnL", "Daily Volume", "Cumulative Volume", "11 trades"]) {
+      assert.ok(html.includes(label), `${label} remains visible independently of balance reads`);
+    }
+    assert.match(html, /7D PNL<\/div><div[^>]*>\+\$7\.00<\/div>/);
+    assert.match(html, /7D Volume<\/div><div[^>]*>\+\$350\.00<\/div>/);
+    assert.match(html, /7D ROI<\/div><div[^>]*>\+2\.00%<\/div>/);
+    dom.window.document.body.innerHTML = html;
+    const refresh = dom.window.document.querySelector<HTMLButtonElement>('button[aria-label="Refresh"]');
+    assert.ok(refresh, "Refresh remains visible");
+    assert.equal(refresh.disabled, false, "Refresh remains enabled independently of balance reads");
+    assert.match(html, /aria-label="Hide balances"/);
+    for (const label of ["Deposit", "Withdraw"]) {
+      const control = html.match(/<button\b[^>]*>[\s\S]*?<\/button>/g)?.find((button) => button.includes(label));
+      assert.ok(control, `${label} remains visible`);
+      assert.doesNotMatch(control.match(/^<button[^>]*>/)![0], /\sdisabled(?:\s|=|>)/);
+    }
+    assert.doesNotMatch(html, /Performance history is unavailable|Could not load data|No data yet/);
+  };
+  const assertUnresolved = (html: string) => {
+    assertIndependent(html);
+    const strip = html.match(/<section aria-label="Portfolio balances"[\s\S]*?<\/section>/)?.[0];
+    assert.ok(strip, "only the balances strip carries the loading or error boundary");
+    assert.doesNotMatch(strip, /Open positions|Realized PnL|Trades|Daily PnL|Deposit|Withdraw|aria-label="Refresh"|Hide balances/);
+    assert.doesNotMatch(html, />100<\/span>|>200<\/span>|>USDL<\/span>/);
+    assert.doesNotMatch(strip, /\$0|>0</);
+  };
+  let partialReady: { source: Source; observed: ReturnType<typeof deferred> } | undefined;
+  const unsubscribe = reader.subscribe(() => {
+    const snapshot = reader.getSnapshot();
+    assertIndependent(render());
+    if (snapshot.account.status !== "ready" || snapshot.wallet.status !== "ready") {
+      assert.deepEqual(balances.portfolioBalances(snapshot), []);
+      assertUnresolved(render());
+    }
+    if (partialReady && snapshot[partialReady.source].status === "loading" &&
+        snapshot[partialReady.source === "account" ? "wallet" : "account"].status === "ready") {
+      partialReady.observed.resolve();
+    }
+  });
+  let pending: typeof hold;
+  let inFlight: Promise<void> | undefined;
+  let newReader: PortfolioBalanceReader | undefined;
+  try {
+    const initial = render();
+    assertUnresolved(initial);
+    assert.match(initial, /Loading account balance/);
+    assert.match(initial, /Loading wallet balance/);
+    await reader.refresh();
+    const successful = render();
+    assertIndependent(successful);
+    assert.match(successful, />100<\/span>/);
+    assert.match(successful, />USDL<\/span>/);
+    assert.doesNotMatch(successful, /Loading portfolio balances|Portfolio balances are unavailable/);
+    const hidden = render(reader, true);
+    assert.match(hidden, /aria-label="Show balances"/);
+    assert.doesNotMatch(hidden, />100<\/span>|123\.45|61\.37|5\.00%|2\.47K/);
+
+    for (const source of ["account", "wallet"] as const) {
+      pending = { address: alice, source, entered: deferred(), release: deferred() };
+      partialReady = { source, observed: deferred() };
+      hold = pending;
+      inFlight = propsFor(reader).onRefresh();
+      assertUnresolved(render());
+      await pending.entered.promise;
+      await partialReady.observed.promise;
+      assert.equal(reader.getSnapshot()[source].status, "loading");
+      assert.equal(reader.getSnapshot()[source === "account" ? "wallet" : "account"].status, "ready");
+      assert.deepEqual(balances.portfolioBalances(reader.getSnapshot()), []);
+      assertUnresolved(render());
+      pending.release.resolve();
+      await inFlight;
+      partialReady = undefined;
+      assert.equal(render(), successful, "a delayed refresh restores the same overview and values");
+    }
+
+    for (const failedSources of [["account"], ["wallet"], ["account", "wallet"]] as const) {
+      failures.clear();
+      failedSources.forEach((source) => failures.add(source));
+      await reader.refresh();
+      const html = render();
+      assertUnresolved(html);
+      assert.match(html, /Portfolio balances are unavailable/);
+      assert.match(html, /Retry balances/);
+      for (const source of ["account", "wallet"] as const) {
+        const label = source === "account" ? "Account" : "Wallet";
+        assert.match(html, new RegExp(`${label} balance ${failures.has(source) ? "could not be loaded" : "loaded"}`));
+      }
+      assert.deepEqual(balances.portfolioBalances(reader.getSnapshot()), []);
+      const props = propsFor(reader);
+      const retry = findRetry(boundary.PortfolioBalanceBoundary({
+        snapshot: props.balanceSnapshot, onRetry: props.onRetryBalances, children: null,
+      }));
+      assert.ok(retry, "the overview retry handler reaches the real boundary control");
+      failures.clear();
+      const callsBeforeRetry = ledger.length;
+      inFlight = retry();
+      assertUnresolved(render());
+      assert.match(render(), /Loading account balance/);
+      assert.match(render(), /Loading wallet balance/);
+      await inFlight;
+      assert.deepEqual(ledger.slice(callsBeforeRetry).map((entry) => entry.source).sort(), ["account", "wallet"]);
+      assert.equal(render(), successful, "retry recovers balance values without changing independent content");
+    }
+
+    pending = { address: alice, source: "account", entered: deferred(), release: deferred() };
+    hold = pending;
+    inFlight = reader.refresh();
+    await pending.entered.promise;
+    reader.cancel();
+    newReader = new balances.PortfolioBalanceReader(bob);
+    assert.equal(newReader.getSnapshot().address, bob);
+    assert.deepEqual(balances.portfolioBalances(newReader.getSnapshot()), []);
+    assertUnresolved(render(newReader));
+    await newReader.refresh();
+    const bobHtml = render(newReader);
+    assertIndependent(bobHtml);
+    assert.match(bobHtml, />200<\/span>/);
+    assert.doesNotMatch(bobHtml, />100<\/span>/);
+    pending.release.resolve();
+    await inFlight;
+    assert.equal(render(newReader), bobHtml, "late prior-account reads never reveal prior-account balances");
+    assert.ok(observedStates.some((snapshot) => snapshot.account.status === "ready" && snapshot.wallet.status === "loading"));
+    assert.ok(observedStates.some((snapshot) => snapshot.wallet.status === "ready" && snapshot.account.status === "loading"));
+    assert.ok(observedStates.some((snapshot) => snapshot.account.status === "error" && snapshot.wallet.status === "error"));
+  } finally {
+    unsubscribe();
+    pending?.release.resolve();
+    await inFlight;
+    reader.cancel();
+    newReader?.cancel();
+    failures.clear();
+    dom.window.close();
+  }
+}
+
 async function portfolioRpcZeroFailedSourcesAndRetry() {
   if (isMainThread) return runPortfolioRepairWorker("portfolioRpcZeroFailedSourcesAndRetry");
   for (const failedSources of [["account"], ["wallet"], ["account", "wallet"]] as const) {
@@ -534,7 +704,19 @@ async function portfolioOrdersDiamondAvailabilityMatchesNativeVenue() {
   assert.match(page, /<PortfolioOrdersAvailability\s*\/>/);
   assert.doesNotMatch(page, /Diamond|OrderBook facet/);
   assert.match(page, /usePortfolioBalances\(/);
-  assert.match(page, /<PortfolioBalanceBoundary\s+snapshot=\{balanceSnapshot\}\s+onRetry=\{retryBalances\}>/);
+  assert.doesNotMatch(page, /PortfolioBalanceBoundary/);
+  assert.match(page, /<PortfolioOverviewPanel[\s\S]*?balanceSnapshot=\{balanceSnapshot\}[\s\S]*?onRetryBalances=\{retryBalances\}/);
+  const panel = readFileSync(new URL("../src/widgets/portfolio/PortfolioOverviewPanel.tsx", import.meta.url), "utf8");
+  assert.match(panel, /<TotalValueCard[\s\S]*?balanceSnapshot=\{balanceSnapshot\}[\s\S]*?onRetryBalances=\{onRetryBalances\}/);
+  const strip = panel.match(/<PortfolioBalanceBoundary snapshot=\{balanceSnapshot\} onRetry=\{onRetryBalances\}>([\s\S]*?)<\/PortfolioBalanceBoundary>/);
+  assert.ok(strip, "the production boundary surrounds only the balance strip");
+  assert.match(strip[1], /topBalances\.map/);
+  assert.doesNotMatch(strip[1], /MiniStat|onRefresh|onTogglePrivacy|onDeposit|onWithdraw|PortfolioAssetsChart|PortfolioPerformanceGrid/);
+  assert.ok(panel.indexOf('aria-label="Refresh"') < panel.indexOf(strip[0]));
+  assert.ok(panel.indexOf(strip[0]) < panel.indexOf('<MiniStat label="Open positions"'));
+  assert.ok(panel.indexOf(strip[0]) < panel.indexOf('onClick={onDeposit}'));
+  assert.match(panel, /\/>\s*<PortfolioAssetsChart/);
+  assert.match(panel, /<PortfolioPerformanceGrid/);
 }
 
 // The production transport ranks RPC endpoints on recurring timers. Each worker
@@ -563,6 +745,7 @@ async function runPortfolioRepairWorker(testName: string) {
 
 if (isMainThread) {
   test(portfolioTopBarBalanceFailureAndRetry);
+  test(portfolioBalanceIsolationKeepsOverviewVisible);
   test(portfolioRpcZeroFailedSourcesAndRetry);
   test(portfolioRpcZeroAccountSwitchIgnoresInFlightReads);
   test(portfolioRpcZeroSupersededRefreshAndTrueZero);
@@ -571,6 +754,7 @@ if (isMainThread) {
   async function executePortfolioRepairWorker() {
     const repairTest = [
       portfolioTopBarBalanceFailureAndRetry,
+      portfolioBalanceIsolationKeepsOverviewVisible,
       portfolioRpcZeroFailedSourcesAndRetry,
       portfolioRpcZeroAccountSwitchIgnoresInFlightReads,
       portfolioRpcZeroSupersededRefreshAndTrueZero,

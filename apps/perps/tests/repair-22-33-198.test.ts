@@ -5,6 +5,7 @@ import { before, after, test } from "node:test";
 import React, { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import type { PortfolioBalanceSnapshot } from "../src/page-modules/portfolio/balances";
 import type { PositionRowInput } from "../src/core/perps/pnlHelpers";
 
 const usdl = "0x85FcD13735F4309833A503EE804ea32395851479";
@@ -172,6 +173,16 @@ async function overviewProps() {
       ...holdings[0], symbol: "USDL", address: usdl as `0x${string}`,
       decimals: 6, vaultBalance: 987650000n
     }],
+    balanceSnapshot: {
+      address: account,
+      account: { status: "ready", value: {
+        collateral: 987650000n, withdrawable: 987650000n,
+        equityUsd: 246812n * wad / 100n,
+        initialMarginUsd: 0n, maintenanceMarginUsd: 0n,
+      } },
+      wallet: { status: "ready", value: 0n },
+    } satisfies PortfolioBalanceSnapshot,
+    onRetryBalances: unexpectedAction,
     dailyPnl: history.rows, dailyPnlLoading: false, dailyPnlError: null,
     dailyPnlSkippedDays: history.skippedDays, dailyPnlHistoryCapped: history.historyCapped,
     isLoading: false, privacy: false, onTogglePrivacy: unexpectedAction,
