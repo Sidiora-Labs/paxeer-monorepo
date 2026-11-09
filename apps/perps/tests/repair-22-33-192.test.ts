@@ -98,7 +98,7 @@ function snapshot(id: number, ts: number, usd: bigint): ProtocolSnapshotRecord {
     totalPositions: "5",
     totalOpenPositions: "2",
     totalMarkets: "3",
-    tvlUsd: (usd * 10n ** 18n).toString(),
+    tvlUsd: (usd * 10n ** 6n).toString(),
     insuranceTotalUsd: "0",
     onchainTimestamp: ts / 1000,
     blockNumber: id,
@@ -118,6 +118,7 @@ async function loadModules() {
     queries: await import("../src/hooks/perps/useSubgraph"),
     config: await import("../src/core/perps/config"),
     liquid: await import("../src/widgets/analytics/AnalyticsLiquidStat"),
+    tvl: await import("../src/widgets/analytics/ProtocolTvlChart"),
     mark: await import("../src/widgets/analytics/MarkPriceChart"),
     oi: await import("../src/widgets/analytics/OiChart"),
     prices: await import("../src/hooks/perps/useRealtimePrices"),
@@ -197,9 +198,9 @@ after(async () => {
   }
 });
 
-async function renderLiquid(records: ProtocolSnapshotRecord[]) {
+async function loadLiquidProps(records: ProtocolSnapshotRecord[]) {
   protocolSnapshots = records;
-  const { client, queries, config, liquid, transport, prices } = modules;
+  const { client, queries, config, transport, prices } = modules;
   const [history, stats, tickers] = await Promise.all([
     client.gqlQuery<{ protocolSnapshots: ProtocolSnapshotRecord[] }>(
       config.INDEXER_GRAPHQL,
@@ -212,16 +213,65 @@ async function renderLiquid(records: ProtocolSnapshotRecord[]) {
     ),
     transport.fetchJsonWithPolicy<{ data: TickerWire[] }>(`${origin}/tickers`),
   ]);
+  return {
+    snapshots: history.protocolSnapshots,
+    enriched: stats.enrichedGlobalStats,
+    tickers: prices.tickersFromWire(tickers.data),
+  };
+}
+async function renderLiquid(records: ProtocolSnapshotRecord[]) {
   return renderToStaticMarkup(
-    createElement(liquid.AnalyticsLiquidStatContent, {
-      snapshots: history.protocolSnapshots,
-      enriched: stats.enrichedGlobalStats,
-      tickers: prices.tickersFromWire(tickers.data),
-    }),
+    createElement(
+      modules.liquid.AnalyticsLiquidStatContent,
+      await loadLiquidProps(records),
+    ),
   );
 }
 function text(html: string) {
   return html.replace(/<[^>]*>/g, "");
+}
+
+async function protocolSnapshotsSixDecimalTvl() {
+  // Match the custody transfers and raw snapshot asserted by projections_test.go.
+  const inflow = 5_000_000n;
+  const outflow = 1_500_000n;
+  const rawTvl = (inflow - outflow).toString();
+  assert.equal(rawTvl, "3500000");
+  const props = await loadLiquidProps([
+    { ...snapshot(2, latestTime, 3n), tvlUsd: rawTvl },
+    { ...snapshot(1, latestTime - DAY_MS, 2n), tvlUsd: "2500000" },
+  ]);
+  assert.equal(props.snapshots[0].tvlUsd, "3500000");
+  assert.equal(props.snapshots[1].tvlUsd, "2500000");
+  for (const isMobile of [false, true]) {
+    const html = renderToStaticMarkup(
+      createElement(modules.liquid.AnalyticsLiquidStatContent, props),
+    );
+    assert.match(text(html), /TVL · live/);
+    assert.match(text(html), /\$3\.50/);
+    assert.match(text(html), /▲ 40\.00%/);
+    assert.doesNotMatch(html, /24h change unavailable/);
+    const tree = modules.tvl.ProtocolTvlChartContent({
+      data: props.snapshots,
+      isLoading: false,
+      isMobile,
+    });
+    const charts = elements<{ data: { tvl: number }[] }>(tree, AreaChart);
+    assert.equal(charts.length, 1);
+    assert.deepEqual(
+      charts[0].props.data.map((point) => point.tvl),
+      [3.5, 2.5],
+    );
+    const series = elements<{ dataKey: string; name: string }>(tree, Area);
+    assert.equal(series.length, 1);
+    assert.equal(series[0].props.dataKey, "tvl");
+    assert.equal(series[0].props.name, "TVL");
+    assert.ok(
+      elements<{ style?: React.CSSProperties }>(tree, "div").some(
+        (element) => element.props.style?.height === (isMobile ? 200 : 300),
+      ),
+    );
+  }
 }
 
 async function f008AggregateTvlIncludesCollateralAbsentFromRecentEvents() {
@@ -275,6 +325,14 @@ async function f008MissingDailyHistoryNeverInventsAPercentage() {
       label: "TVL: $1,100",
     },
     {
+      records: [snapshot(1, latestTime - DAY_MS + 1, 1000n), current],
+      label: "TVL: $1,100",
+    },
+    {
+      records: [snapshot(1, latestTime - DAY_MS - 1, 1000n), current],
+      label: "TVL: $1,100",
+    },
+    {
       records: [snapshot(1, latestTime - DAY_MS, 0n), current],
       label: "TVL: $1,100",
     },
@@ -299,6 +357,14 @@ async function f008MissingDailyHistoryNeverInventsAPercentage() {
     assert.doesNotMatch(text(html), /TVL · live/);
     assert.match(text(html), /24h Volume · live/);
   }
+  const fractional = await renderLiquid([
+    { ...snapshot(1, latestTime - DAY_MS, 1n), tvlUsd: "1250000" },
+    { ...snapshot(2, latestTime, 1n), tvlUsd: "1875000" },
+  ]);
+  assert.match(text(fractional), /TVL · live/);
+  assert.match(text(fractional), /\$1\.88/);
+  assert.match(text(fractional), /▲ 50\.00%/);
+  assert.doesNotMatch(fractional, /24h change unavailable/);
 }
 
 function elements<P>(node: ReactNode, type: unknown): ReactElement<P>[] {
@@ -406,6 +472,7 @@ async function f010LongAndShortOiTooltipsMatchTheirPlottedSeries() {
   }
 }
 
+test(protocolSnapshotsSixDecimalTvl);
 test(f008AggregateTvlIncludesCollateralAbsentFromRecentEvents);
 test(f008MissingDailyHistoryNeverInventsAPercentage);
 test(f009MarkAndIndexTooltipsMatchTheirPlottedSeries);

@@ -42,6 +42,7 @@ let hold: { address: Address; source: Source; entered: ReturnType<typeof deferre
 const serverErrors: unknown[] = [];
 let balances: typeof import("../src/page-modules/portfolio/balances");
 let boundary: typeof import("../src/page-modules/portfolio/PortfolioBalanceBoundary");
+let topBar: typeof import("../src/widgets/portfolio/PortfolioTopBar");
 let orders: typeof import("../src/page-modules/portfolio/PortfolioOrdersAvailability");
 let perps: typeof import("../src/core/network/abi/PerpsPrecompile");
 let config: typeof import("../src/core/perps/config");
@@ -105,6 +106,7 @@ async function setupPortfolioFixture() {
   precompiles = await import("../src/core/network/precompiles");
   balances = await import("../src/page-modules/portfolio/balances");
   boundary = await import("../src/page-modules/portfolio/PortfolioBalanceBoundary");
+  topBar = await import("../src/widgets/portfolio/PortfolioTopBar");
   orders = await import("../src/page-modules/portfolio/PortfolioOrdersAvailability");
 }
 
@@ -117,18 +119,289 @@ async function teardownPortfolioFixture() {
 
 function view(reader: PortfolioBalanceReader) {
   return React.createElement(boundary.PortfolioBalanceBoundary, {
-    snapshot: reader.getSnapshot(), onRetry: reader.refresh,
+    snapshot: reader.getSnapshot(),
+    onRetry: reader.refresh,
     children: React.createElement("span", null, "Verified financial balances"),
   });
 }
 
-function findRetry(element: React.ReactNode): (() => Promise<void>) | undefined {
-  if (!React.isValidElement<{ children?: React.ReactNode; onClick?: () => Promise<void> }>(element)) return;
+function findRetry(
+  element: React.ReactNode,
+): (() => Promise<void>) | undefined {
+  if (
+    !React.isValidElement<{
+      children?: React.ReactNode;
+      onClick?: () => Promise<void>;
+    }>(element)
+  )
+    return;
   if (element.type === "button") return element.props.onClick;
   for (const child of React.Children.toArray(element.props.children)) {
     const retry = findRetry(child);
     if (retry) return retry;
   }
+}
+
+function findHeaderButton(
+  element: React.ReactNode,
+  label: string,
+):
+  | React.ReactElement<{
+      children?: React.ReactNode;
+      onClick: () => void | Promise<void>;
+      disabled?: boolean;
+    }>
+  | undefined {
+  if (
+    !React.isValidElement<{
+      children?: React.ReactNode;
+      onClick: () => void | Promise<void>;
+      disabled?: boolean;
+    }>(element)
+  )
+    return;
+  const children = React.Children.toArray(element.props.children);
+  if (children.includes(label)) {
+    assert.equal(typeof element.props.onClick, "function");
+    return element;
+  }
+  for (const child of children) {
+    const button = findHeaderButton(child, label);
+    if (button) return button;
+  }
+}
+
+async function portfolioTopBarBalanceFailureAndRetry() {
+  if (isMainThread)
+    return runPortfolioRepairWorker("portfolioTopBarBalanceFailureAndRetry");
+  const page = readFileSync(
+    new URL("../src/page-modules/portfolio/index.tsx", import.meta.url),
+    "utf8",
+  );
+  assert.match(
+    page,
+    /const\s*\{\s*snapshot:\s*balanceSnapshot,\s*balances,\s*retry:\s*retryBalances,?\s*\}\s*=\s*usePortfolioBalances\(/,
+  );
+  const header = page.match(/<PortfolioTopBar\b[\s\S]*?\/>/);
+  assert.ok(header, "PortfolioPage renders the production header");
+  assert.match(
+    header[0],
+    /\{\.\.\.portfolioTopBarBalanceProps\(\s*balanceSnapshot,\s*retryBalances,?\s*\)\}/,
+  );
+  assert.match(
+    page,
+    /<PortfolioBalanceBoundary\s+snapshot=\{balanceSnapshot\}\s+onRetry=\{retryBalances\}/,
+  );
+
+  const actions: string[] = [];
+  const onDeposit = () => {
+    actions.push("deposit");
+  };
+  const onWithdraw = () => {
+    actions.push("withdraw");
+  };
+  const onConnect = () => {
+    actions.push("connect");
+  };
+  function headerView(
+    snapshot: PortfolioBalanceSnapshot,
+    reader: PortfolioBalanceReader,
+  ) {
+    const props = {
+      activeNav: "overview" as const,
+      isConnected: snapshot.address !== null,
+      hasVault: snapshot.address !== null,
+      ...topBar.portfolioTopBarBalanceProps(snapshot, reader.refresh),
+      onDeposit,
+      onWithdraw,
+      onConnect,
+    };
+    assert.equal(props.accountStatus, snapshot.account.status);
+    assert.equal(props.walletStatus, snapshot.wallet.status);
+    assert.equal(props.onRetryBalances, reader.refresh);
+    const element = topBar.PortfolioTopBar(props);
+    return { snapshot, element, html: renderToStaticMarkup(element) };
+  }
+  function assertFailure(
+    view: ReturnType<typeof headerView>,
+    pending: boolean,
+  ) {
+    assert.match(view.html, /role="alert"/);
+    assert.match(view.html, /Portfolio balances are unavailable/);
+    assert.match(view.html, /Retry balances/);
+    assert.doesNotMatch(
+      view.html,
+      /Resolving vault|Deposit|Withdraw|Connect wallet|\$0/,
+    );
+    const retry = findHeaderButton(view.element, "Retry balances");
+    assert.ok(retry, "the displayed retry control has a callback");
+    assert.equal(retry.props.disabled, pending);
+    assert.equal(/<button[^>]*disabled=""/.test(view.html), pending);
+    return retry.props.onClick;
+  }
+  function assertPending(view: ReturnType<typeof headerView>) {
+    assert.match(view.html, /role="status"/);
+    assert.match(view.html, /aria-busy="true"/);
+    assert.match(view.html, /Resolving vault/);
+    assert.doesNotMatch(view.html, /role="alert"|Deposit|Withdraw|\$0/);
+  }
+
+  for (const failedSources of [
+    ["account"],
+    ["wallet"],
+    ["account", "wallet"],
+  ] as const) {
+    failures.clear();
+    failedSources.forEach((source) => failures.add(source));
+    const reader = new balances.PortfolioBalanceReader(alice);
+    const pending = {
+      address: alice,
+      source:
+        failedSources[0] === "account"
+          ? ("wallet" as const)
+          : ("account" as const),
+      entered: deferred(),
+      release: deferred(),
+    };
+    const errorReached = deferred();
+    const notifications: ReturnType<typeof headerView>[] = [];
+    const unsubscribe = reader.subscribe(() => {
+      const view = headerView(reader.getSnapshot(), reader);
+      notifications.push(view);
+      if (view.snapshot[failedSources[0]].status === "error")
+        errorReached.resolve();
+    });
+    hold = pending;
+    const initialRead = reader.refresh();
+    try {
+      assertPending(headerView(reader.getSnapshot(), reader));
+      await pending.entered.promise;
+      await errorReached.promise;
+      const partial = headerView(reader.getSnapshot(), reader);
+      assert.equal(partial.snapshot[pending.source].status, "loading");
+      assertFailure(partial, true);
+      pending.release.resolve();
+      await initialRead;
+      for (const source of ["account", "wallet"] as const) {
+        assert.equal(
+          reader.getSnapshot()[source].status,
+          failures.has(source) ? "error" : "ready",
+        );
+      }
+      assert.deepEqual(balances.portfolioBalances(reader.getSnapshot()), []);
+      const retry = assertFailure(
+        headerView(reader.getSnapshot(), reader),
+        false,
+      );
+      assert.equal(retry, reader.refresh);
+      const callsBeforeRepeatedFailure = ledger.length;
+      const repeated = retry();
+      assert.equal(reader.getSnapshot().account.status, "loading");
+      assert.equal(reader.getSnapshot().wallet.status, "loading");
+      assertPending(headerView(reader.getSnapshot(), reader));
+      await repeated;
+      assert.deepEqual(
+        ledger
+          .slice(callsBeforeRepeatedFailure)
+          .map((entry) => entry.source)
+          .sort(),
+        ["account", "wallet"],
+      );
+      const retryAgain = assertFailure(
+        headerView(reader.getSnapshot(), reader),
+        false,
+      );
+      assert.equal(retryAgain, reader.refresh);
+      failures.clear();
+      const callsBeforeRecovery = ledger.length;
+      const recovering = retryAgain();
+      assertPending(headerView(reader.getSnapshot(), reader));
+      assert.deepEqual(balances.portfolioBalances(reader.getSnapshot()), []);
+      await recovering;
+      assert.deepEqual(
+        ledger
+          .slice(callsBeforeRecovery)
+          .map((entry) => entry.source)
+          .sort(),
+        ["account", "wallet"],
+      );
+      const recovered = headerView(reader.getSnapshot(), reader);
+      assert.equal(recovered.snapshot.account.status, "ready");
+      assert.equal(recovered.snapshot.wallet.status, "ready");
+      assert.match(recovered.html, /Deposit/);
+      assert.match(recovered.html, /Withdraw/);
+      assert.doesNotMatch(
+        recovered.html,
+        /role="alert"|Retry balances|Resolving vault|Connect wallet/,
+      );
+      const deposit = findHeaderButton(recovered.element, "Deposit");
+      const withdraw = findHeaderButton(recovered.element, "Withdraw");
+      assert.ok(deposit);
+      assert.ok(withdraw);
+      assert.equal(deposit.props.onClick, onDeposit);
+      assert.equal(withdraw.props.onClick, onWithdraw);
+      await deposit.props.onClick();
+      await withdraw.props.onClick();
+      for (const view of notifications) {
+        const failed =
+          view.snapshot.account.status === "error" ||
+          view.snapshot.wallet.status === "error";
+        const loading =
+          view.snapshot.account.status === "loading" ||
+          view.snapshot.wallet.status === "loading";
+        if (failed) assertFailure(view, loading);
+        else if (loading) assertPending(view);
+        else {
+          assert.match(view.html, /Deposit/);
+          assert.match(view.html, /Withdraw/);
+        }
+      }
+      assert.ok(
+        notifications.some(
+          (view) =>
+            view.snapshot.account.status === "loading" &&
+            view.snapshot.wallet.status === "loading",
+        ),
+      );
+      assert.ok(
+        notifications.some(
+          (view) =>
+            view.snapshot.account.status === "error" ||
+            view.snapshot.wallet.status === "error",
+        ),
+      );
+    } finally {
+      pending.release.resolve();
+      await initialRead;
+      unsubscribe();
+      reader.cancel();
+      failures.clear();
+    }
+  }
+  const disconnected = new balances.PortfolioBalanceReader(null);
+  const callsBeforeDisconnect = ledger.length;
+  await disconnected.refresh();
+  const view = headerView(disconnected.getSnapshot(), disconnected);
+  assert.match(view.html, /Connect wallet/);
+  assert.doesNotMatch(
+    view.html,
+    /role="alert"|Retry balances|Resolving vault|Deposit|Withdraw/,
+  );
+  const connect = findHeaderButton(view.element, "Connect wallet");
+  assert.ok(connect);
+  assert.equal(connect.props.onClick, onConnect);
+  await connect.props.onClick();
+  assert.equal(ledger.length, callsBeforeDisconnect);
+  assert.deepEqual(actions, [
+    "deposit",
+    "withdraw",
+    "deposit",
+    "withdraw",
+    "deposit",
+    "withdraw",
+    "connect",
+  ]);
+  disconnected.cancel();
 }
 
 async function portfolioRpcZeroFailedSourcesAndRetry() {
@@ -289,6 +562,7 @@ async function runPortfolioRepairWorker(testName: string) {
 }
 
 if (isMainThread) {
+  test(portfolioTopBarBalanceFailureAndRetry);
   test(portfolioRpcZeroFailedSourcesAndRetry);
   test(portfolioRpcZeroAccountSwitchIgnoresInFlightReads);
   test(portfolioRpcZeroSupersededRefreshAndTrueZero);
@@ -296,6 +570,7 @@ if (isMainThread) {
 } else {
   async function executePortfolioRepairWorker() {
     const repairTest = [
+      portfolioTopBarBalanceFailureAndRetry,
       portfolioRpcZeroFailedSourcesAndRetry,
       portfolioRpcZeroAccountSwitchIgnoresInFlightReads,
       portfolioRpcZeroSupersededRefreshAndTrueZero,

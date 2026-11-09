@@ -17,7 +17,6 @@ import { parse18 } from "@/ui/utils/format";
 
 import {
   PortfolioSideNav,
-  PortfolioTopBar,
   PortfolioMobileNav,
   PortfolioOverviewPanel,
   PortfolioPositionsPanel,
@@ -30,6 +29,10 @@ import {
   ConnectGate,
   type PortfolioNavKey,
 } from "@/widgets/portfolio";
+import {
+  PortfolioTopBar,
+  portfolioTopBarBalanceProps,
+} from "@/widgets/portfolio/PortfolioTopBar";
 import { PortfolioSpotSection } from "@/widgets/portfolio/PortfolioSpotSection";
 import { usePortfolioBalances } from "./balances";
 import { PortfolioBalanceBoundary } from "./PortfolioBalanceBoundary";
@@ -90,12 +93,14 @@ export default function PortfolioPage() {
   const [privacy, setPrivacy] = useState(false);
   const [refreshCounter, setRefreshCounter] = useState(0);
 
-  const { snapshot: balanceSnapshot, balances, retry: retryBalances } = usePortfolioBalances(
-    isConnected && address ? address as `0x${string}` : null,
+  const {
+    snapshot: balanceSnapshot,
+    balances,
+    retry: retryBalances,
+  } = usePortfolioBalances(
+    isConnected && address ? (address as `0x${string}`) : null,
     refreshCounter,
   );
-  const accountResolved = balanceSnapshot.account.status === "ready" &&
-    balanceSnapshot.wallet.status === "ready";
 
   // ── Deep-link the nav tab via `?tab=overview|positions|…` ──
   useEffect(() => {
@@ -134,7 +139,7 @@ export default function PortfolioPage() {
           activeNav={activeNav}
           isConnected={isConnected}
           hasVault={isConnected}
-          vaultResolved={accountResolved}
+          {...portfolioTopBarBalanceProps(balanceSnapshot, retryBalances)}
           onDeposit={onDepositOrWithdraw}
           onWithdraw={onDepositOrWithdraw}
           onConnect={connect}
