@@ -191030,7 +191030,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1782.1]
 title = "Issue #1782: Remove the deleted wallet image from gateway admission and route discovery"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -347279,7 +347279,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1861.1]
 title = "Issue #1861: Align Chainflow SDK runtime requirements with their manifests"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -347395,7 +347395,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1855.1]
 title = "Issue #1855: Document the .NET SDK’s net10.0 target"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -347716,7 +347716,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1836.1]
 title = "Issue #1836: Correct the SettleLaps qualification finding attribution"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -347950,7 +347950,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1804.1]
 title = "Issue #1804: Fail reference fixture checks when regenerated artifacts differ from the committed set"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -348039,7 +348039,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1794.1]
 title = "Issue #1794: Correct inference market profile and peer-binding availability statements"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -348155,7 +348155,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1789.1]
 title = "Issue #1789: Align the beta-network wiki page primary command and storage with the manifest"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -348184,7 +348184,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1788.1]
 title = "Issue #1788: Align the Programs, faucet and gateway RPC pages with the node px namespace"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -348214,7 +348214,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1787.1]
 title = "Issue #1787: Document the required gateway endpoint in the register command row"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -348243,7 +348243,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1786.1]
 title = "Issue #1786: Reconcile the readiness snapshot workflow totals"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -348331,7 +348331,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1771.1]
 title = "Issue #1771: Complete Explorer catalogue rebuild triggers and input validation"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -348596,7 +348596,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1638.1]
 title = "Issue #1638: Persist completed registry job results before cleanup reload"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
