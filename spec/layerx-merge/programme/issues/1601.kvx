@@ -1,0 +1,7 @@
+[issue.1601]
+number = 1601
+title = "[Coherence] The audit marks Send's main-account-only source check as a high blocking defect, but requirement 2026.1 explicitly requires it"
+revision = "bb8caac8b3e73e3e2f4b330805574f0bcb540641"
+verdict = "spec-edit"
+evidence = "The audit's historical blocking finding remains at spec/layerx-merge/programme/audit/records/22.30.8.kvx:8 and :1197, but commits 83b5bed9ba339ff5106caf245e22561c5b00b57a and 382416a4291a49fdc2f6d60308a0dec5dda86a2a replaced the main-account-only check with bound-owner, matching-asset and canonical main-or-asset validation at modules/layerxledger/keeper/send.go:49, exercised by modules/layerxledger/keeper/repair_195_test.go:294 and recorded as completed at spec/layerx-merge/spec.kvx:301514, so requirement 2026 at spec/layerx-merge/spec.kvx:19074, attached to done task 2.4.4 at :148921, must describe those accepted source accounts and refusal boundaries instead of requiring only the actor's main account."
+close_comment = "Send accepts the bound actor's canonical main or per-asset account when the stored owner and asset match; opened asset accounts are covered by transfer tests that also check foreign-owner, wrong-asset and consumed-sequence refusals. Requirement 2026 must be corrected to describe this implemented contract, replacing its stale main-account-only wording."
