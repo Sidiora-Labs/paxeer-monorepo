@@ -1,0 +1,129 @@
+[disposition.10.0.1.a2]
+finding = "10.0.1.a2"
+status = "environment"
+evidence = "On main, services/human/crates/layerx-human-service/src/frame.rs:38 declares Limits with finite frame, connection, stream, queue and deadline bounds, and its validate method rejects zero limits. Commit 0af25bfb06 supplies the frame transport and ConnectionGate."
+
+[disposition.10.11.1.a2]
+finding = "10.11.1.a2"
+status = "resolved"
+evidence = "Commit 3acb6d7403 replaces the KMS registry configuration with a chain snapshot; on main services/human/crates/layerx-human-kms/src/server.rs:277 derives the request network from config.chain.chain_id. Signing admission therefore uses the chain configuration rather than the removed network field."
+
+[disposition.10.12.1.1.a2]
+finding = "10.12.1.1.a2"
+status = "resolved"
+evidence = "Commit 05dcc12439 ports mirror reads to rungs and heights, and f0aa4ee07e removes node.rs entirely. On main services/interop/crates/layerx-mirror/src/committed.rs:49 supplies CommittedBlockSource with RPC and pinned receipt keys instead of the old Freshness constructor."
+
+[disposition.10.12.1.a2]
+finding = "10.12.1.a2"
+status = "resolved"
+evidence = "Commit 8905cf9fe5 refreshes the human workspace lock after the domain merge. On main services/human/Cargo.lock:1045 records the human service package and its dependency set, with later manifest changes retained by 2cbf91aae8."
+
+[disposition.10.13.1.a2]
+finding = "10.13.1.a2"
+status = "resolved"
+evidence = "Commit a5edae0386 carries transaction receipts and rungs through agent creation and its consumers. On main services/human/crates/layerx-human-service/src/agents/create.rs:475 stores tx_hash, receipt_hash, block_height and rung, and verify_outcome at line 553 returns the decoded receipt."
+
+[disposition.10.13.3.a2]
+finding = "10.13.3.a2"
+status = "resolved"
+evidence = "Commit 85c5b32c52 supplies the shared receipt fields before 7f9f7d6101 decodes the runtime answers. On main services/human/crates/layerx-human-service/src/journeys/engine.rs:290 ReceiptMaterial includes transaction hash, receipt hash, block height and rung alongside the retained canonical material."
+
+[disposition.10.13.6.a2]
+finding = "10.13.6.a2"
+status = "resolved"
+evidence = "Commit da7d591255 moves journey submission to signed EIP-1559 transactions. On main services/human/crates/layerx-human-service/src/journeys/engine.rs:2432 constructs a signed transaction from a 65-byte signature, and line 2897 rejects persisted signatures of any other length."
+
+[disposition.10.15.1.a2]
+finding = "10.15.1.a2"
+status = "resolved"
+evidence = "Commit a37ac61cdc adds the schema compatibility and golden-vector repairs. On main services/human/schema/human-api/compatibility.kvx:52 records minor 1.9 and line 57 records 1.10; the published schema and its retirement additions therefore have explicit compatibility rows."
+
+[disposition.10.15.2.a2]
+finding = "10.15.2.a2"
+status = "environment"
+evidence = "On main services/human/schema/human-api/errors.kvx:9 includes operation-retired in ErrorCode and line 10 marks the retired wallet-binding and exit variants. Commit c51f67b3bc publishes those schema declarations and the retired-operation markers."
+
+[disposition.10.16.3.a2]
+finding = "10.16.3.a2"
+status = "environment"
+evidence = "On main services/human/tools/schema-check/src/lib.rs:2586 checks every minor through the declared version and emits compatibility-row-missing for the first missing row. Commit f3c9b3e10c implements the compatibility-row requirement with explicit missing-minor diagnostics."
+
+[disposition.10.2.2.1.a2]
+finding = "10.2.2.1.a2"
+status = "resolved"
+evidence = "Commit cc343619fd moves the approval consumers to the budget rung, retained on main at services/human/crates/layerx-human-service/src/server/projection.rs:280. The projected remaining budget derives its verification label from budget.rung rather than the removed level field."
+
+[disposition.10.2.2.a2]
+finding = "10.2.2.a2"
+status = "resolved"
+evidence = "Commit cc343619fd adapts both approval consumers to VerifiedBudgetAfter.rung. On main services/human/crates/layerx-human-service/src/server/agent_runtime.rs:4325 decodes a committed rung and line 4331 constructs VerifiedBudgetAfter with that rung and the authenticated evidence digest."
+
+[disposition.10.2.3.a2]
+finding = "10.2.3.a2"
+status = "resolved"
+evidence = "Commit a2fc4cbd7f replaces the projection fixture dependency while carrying the rung vocabulary through journey projection. On main services/human/crates/layerx-human-service/tests/projection_rungs.rs:165 asserts the submitted, receipted and committed label mapping, with HumanComponentServer constructed at line 93."
+
+[disposition.10.2.5.a2]
+finding = "10.2.5.a2"
+status = "environment"
+evidence = "On main services/human/crates/layerx-human-service/src/activity/detail.rs:121 defines finality as Rung::Committed and line 129 derives an entry rung from its receipts. Commit ceeda1ecc0 supplies the finality-reference and entry-detail behavior."
+
+[disposition.10.2.7.a2]
+finding = "10.2.7.a2"
+status = "resolved"
+evidence = "Commit 85c5b32c52 carries the receipt reshape through the journey consumers. On main services/human/crates/layerx-human-service/src/journeys/engine.rs:290 declares ReceiptMaterial with transaction hash, receipt hash, block height and rung, and line 317 validates the retained bytes before producing ChainReceiptMaterial."
+
+[disposition.10.25.3.1.a2]
+finding = "10.25.3.1.a2"
+status = "resolved"
+evidence = "Commit f4a6b8e8ec keeps the client dependency while moving the evidence framing, and 1f3778094e later moves the evidence node to the node RPC contract. On main services/human/crates/layerx-human-test-support/Cargo.toml:13 retains layerx-client and src/evidence_node.rs:311 serves the current evidence-node requests."
+
+[disposition.10.25.3.a2]
+finding = "10.25.3.a2"
+status = "resolved"
+evidence = "Commit 1f3778094e replaces the remaining evidence-node LNI handshake with the node RPC interface after the framing change in f4a6b8e8ec. On main services/human/crates/layerx-human-test-support/src/evidence_node.rs:194 declares EvidenceNode and line 311 serves requests through its TCP listener."
+
+[disposition.10.25.5.a2]
+finding = "10.25.5.a2"
+status = "resolved"
+evidence = "Commit db3d23d7f7 adds serde_json as a regular test-support dependency and carries its lock entry. On main services/human/crates/layerx-human-test-support/Cargo.toml:18 declares it and services/human/Cargo.lock:1096 records serde_json in the package dependency set."
+
+[disposition.10.3.2.1.a2]
+finding = "10.3.2.1.a2"
+status = "resolved"
+evidence = "Commit 923e94e753 introduces legacy journal decoding and ce7d237e2e removes the remaining in-memory settlement domain. On main services/human/crates/layerx-human-service/src/server/stream_journal.rs:54 decodes the Event record after stripping the legacy field, while line 74 constructs StreamJournal from only its key."
+
+[disposition.10.3.2.2.a2]
+finding = "10.3.2.2.a2"
+status = "resolved"
+evidence = "Commit 05dcc12439 ports the mirror read types, and f0aa4ee07e removes the old node module. On main services/interop/crates/layerx-mirror/src/committed.rs:27 represents a committed block as its header and receipts, with CommittedBlockSource at line 49 providing the RPC-backed source."
+
+[disposition.10.3.2.a2]
+finding = "10.3.2.a2"
+status = "resolved"
+evidence = "Commit 923e94e753 removes the legacy settlement_domain property from decoded Event values; ce7d237e2e finishes removing it from StreamJournal. On main services/human/crates/layerx-human-service/src/server/stream_journal.rs:63 strips that property and line 70 retains only the journal key."
+
+[disposition.10.4.1.a2]
+finding = "10.4.1.a2"
+status = "resolved"
+evidence = "Commit d4c30aef27 moves the KMS provider and its production callers to the human frame types. On main services/human/crates/layerx-human-service/src/server/production_components.rs:64 imports frame Limits and MutualTlsConfig, and line 7086 passes the matching configuration to RemoteKmsProvider::new."
+
+[disposition.10.4.2.a2]
+finding = "10.4.2.a2"
+status = "resolved"
+evidence = "Commit 49c3c40f44 adapts the KMS gateway to the human transport constructor. On main services/human/crates/layerx-human-service/src/bin/kms_gateway/startup.rs:10 imports the human frame types and line 77 constructs RemoteKmsProvider with that configuration, reached by the gateway binary at src/bin/layerx-human-kms-gateway.rs:26."
+
+[disposition.10.4.3.a2]
+finding = "10.4.3.a2"
+status = "resolved"
+evidence = "Commit af1bb9209a adapts the integration transport consumers and 06534c6134 subsequently moves the evidence test onto sequencer RPC. On main services/human/crates/layerx-human-service/tests/evidence_node.rs:9 imports NodeRpc and line 12 imports SequencerEndpoint and SequencerReceipt; schema and handshake types are no longer requested from the human frame module."
+
+[disposition.10.5.1.a2]
+finding = "10.5.1.a2"
+status = "environment"
+evidence = "On main services/human/crates/layerx-human-service/src/custody/sessions.rs:1352 declares reconcile_rotation and returns the rotation journey with an optional restored session lease. Commit 7eff644f84 carries rung-based provisioning, rotation and revocation evidence through this API."
+
+[disposition.10.92.1.a2]
+finding = "10.92.1.a2"
+status = "resolved"
+evidence = "Commit c55d8901a7 wires the portable receipt dependency and stored receipt material into evidence export. On main services/human/crates/layerx-human-service/src/server/production_reads.rs:1030 exports a PortableReceiptV2 with the signed receipt, authorization, inclusion height and raw transaction."

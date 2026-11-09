@@ -1,0 +1,366 @@
+# Main revision: a26369c7eda603cb28bcdd8cef55c35df7d248ee
+
+[disposition.22.37.17.1]
+finding = "22.37.17.1"
+status = "resolved"
+evidence = "On main, tools/hyperfide/tests/hyperfide/support/native_source_acceptance_actor.mjs:42 retries a lifecycle read with the original operation identity only for OUTCOME_UNKNOWN with RETRY_SAME_OPERATION, and line 204 compares the recovered lifecycle with the accepted receipt. Commit ddf76a3fa5 landed this bounded recovery and the retained lifecycle assertions."
+
+[disposition.22.37.18.1]
+finding = "22.37.18.1"
+status = "resolved"
+evidence = "On main, tools/hyperfide/plugins/hyperfide-dispatch/vitest.config.ts:4 resolves source exports for server-side imports, and tools/hyperfide/plugins/hyperfide-dispatch/src/integrate/queue.test.ts:128 requires conflicting lockfiles to be regenerated from merged manifests before integration. Commit aeaf7a2fd0 landed both changes with the native integration queue."
+
+[disposition.22.37.18.2]
+finding = "22.37.18.2"
+status = "resolved"
+evidence = "On main, tools/hyperfide/plugins/hyperfide-dispatch/src/dispatcher/dispatcher.test.ts:83 requires default planning to wait for authenticated manager authority without launching jobs, while line 108 explicitly selects legacy-nonadaptive planning for the legacy scheduler behavior. Commit adbb6d73d5 landed these consumers of the manager-planning contract."
+
+[disposition.22.37.18.3]
+finding = "22.37.18.3"
+status = "resolved"
+evidence = "On main, tools/hyperfide/core/control-plane/src/source_control/fleet-adapter.ts:705 pins the assigned workspace's base root at position zero with the computed capability expiry before exposing its binding. Commit f767a5236a landed the shared retention-pin call for task 22.37.30."
+
+[disposition.22.37.18.4]
+finding = "22.37.18.4"
+status = "resolved"
+evidence = "On main, tools/hyperfide/tests/hyperfide/support/native_source_fleet_reconciliation.mjs:593 defines the API_ONLY workspace readiness identity and line 615 requires its digest-bearing receipt alongside READY, zero files, zero bytes and physically_materialized=false. Commit aeaf7a2fd0 landed the consumer of this complete materialization result."
+
+[disposition.22.37.19.1]
+finding = "22.37.19.1"
+status = "environment"
+evidence = "On main, tools/hyperfide/core/host-daemon/src/source-control/metrics.ts:43 defines counters for logical opens, materialization bytes and files, cache activity, graph work and integration retries, with separate dirty-byte, transfer-depth and remote-lag gauges at line 54. These measurements use bounded mode, status and partition labels checked at line 67."
+
+[disposition.22.37.19.2]
+finding = "22.37.19.2"
+status = "environment"
+evidence = "On main, tools/hyperfide/core/host-daemon/src/source-control/metrics.ts:83 represents budget exhaustion as a typed LIMIT_EXCEEDED error carrying the budget and limit. SourceMetrics.admit at line 129 reserves request capacity for cancel and resume, so recovery remains available under normal request saturation."
+
+[disposition.22.37.19.3]
+finding = "22.37.19.3"
+status = "resolved"
+evidence = "On main, tools/hyperfide/core/control-plane/src/source_control/api.ts:252 derives the authorization path from a source.objects.read request carrying a path, and tools/hyperfide/tests/hyperfide/support/native_source_product_actor.mjs:334 requires the permitted main.txt read to return its bytes. Commit 12a2cd5368 landed this path-aware authorization and the unauthorized-file refusal proof."
+
+[disposition.22.37.19.4]
+finding = "22.37.19.4"
+status = "resolved"
+evidence = "On main, tools/hyperfide/core/control-plane/src/source_control/api.ts:370 passes the selected path witness into authorization rather than treating every scoped read as pathless. Commit 12a2cd5368 also landed the retained SCOPE_DENIED assertion for private.txt at tools/hyperfide/tests/hyperfide/support/native_source_product_actor.mjs:326 and the successful main.txt read at line 337."
+
+[disposition.22.37.19.5]
+finding = "22.37.19.5"
+status = "resolved"
+evidence = "On main, tools/hyperfide/tests/hyperfide/support/native_source_fixture.py:79 selects the complete source-control migration series, and tools/hyperfide/tests/hyperfide/support/native_source_product_actor.mjs:609 exercises publication cancellation against that schema. Commit 12a2cd5368 landed the complete schema selection and cancellation coverage."
+
+[disposition.22.37.19.6]
+finding = "22.37.19.6"
+status = "resolved"
+evidence = "On main, tools/hyperfide/tests/hyperfide/support/native_source_product_actor.mjs:615 accepts the graphs family's actual PARTIAL or COMPLETE coverage and bounds its observed rows, while line 614 still requires PARTIAL coverage for the sampled object family. Commit 12a2cd5368 landed these assertions against the scoped metrics response."
+
+[disposition.22.37.19.7]
+finding = "22.37.19.7"
+status = "environment"
+evidence = "On main, tools/hyperfide/core/host-daemon/src/source-control/metrics.ts:83 exposes typed budget refusals and line 129 preserves cancel/resume capacity under load. The product metrics proof at tools/hyperfide/tests/hyperfide/support/native_source_product_actor.mjs:614 requires bounded sampling and explicit coverage for each observed family."
+
+[disposition.22.37.19.8]
+finding = "22.37.19.8"
+status = "resolved"
+evidence = "On main, tools/hyperfide/plugins/hyperfide-source-control/views/workspace-detail.tsx:256 and line 390 expose distinct Workspace mode and Workspace fields, and tools/hyperfide/tests/hyperfide/support/native_source_product_browser.mjs:300 selects the exact label text before editing its input. Commit 12a2cd5368 landed the exact-label consumer and workspace refresh journey."
+
+[disposition.22.37.19.9]
+finding = "22.37.19.9"
+status = "resolved"
+evidence = "On main, tools/hyperfide/plugins/hyperfide-source-control/runtime.ts:129 derives closure requirements exclusively from dependencyPaths, then checks each required path against read scope and the immutable revision tree. Commit 12a2cd5368 landed this distinction between readable paths and required dependencies."
+
+[disposition.22.37.2.1]
+finding = "22.37.2.1"
+status = "resolved"
+evidence = "On main, tools/hyperfide/tests/hyperfide/cases/source_control/0_9.py:208 resolves the baseline through an explicitly pinned imported subtree, and line 262 reconstructs its inventory while preserving the historical-verification unavailability marker. Commit 34c8243fbb landed this baseline binding without presenting absent historical runtime evidence as verified."
+
+[disposition.22.37.2.2]
+finding = "22.37.2.2"
+status = "environment"
+evidence = "On main, tools/hyperfide/spec/hyperfide-source-control/layout-aggregation-input.json:2 supplies the versioned aggregation input and line 39 names all five required driver receipts. tools/hyperfide/tests/hyperfide/cases/source_control/layout_driver_receipts_test.py:39 preserves an explicit UNRUN outcome for any missing receipt rather than claiming layout aggregation passed."
+
+[disposition.22.37.2.3]
+finding = "22.37.2.3"
+status = "resolved"
+evidence = "On main, tools/hyperfide/tests/hyperfide/cases/source_control/0_9.py:397 derives the aggregation input's own authorization from its latest tracked writer revision, then checks every other follow-on revision against the explicit allowlist. Commit 34c8243fbb landed this construction together with ancestry and duplicate-entry checks."
+
+[disposition.22.37.2.4]
+finding = "22.37.2.4"
+status = "resolved"
+evidence = "On main, tools/hyperfide/tests/hyperfide/cases/source_control/0_9.py:423 computes final-revision cleanliness from tracked changes while separately retaining the untracked path inventory. Commit 34c8243fbb landed this separation and the test at tools/hyperfide/tests/hyperfide/cases/source_control/layout_receipt_gate_test.py:80 that preserves PASS for untracked output while still refusing modified tracked source."
+
+[disposition.22.37.2.5]
+finding = "22.37.2.5"
+status = "resolved"
+evidence = "On main, tools/hyperfide/tests/hyperfide/cases/source_control/0_9.py:423 scopes the cleanliness decision to the layout root, while line 440 records tracked paths outside that root as a separate inventory. Commit 34c8243fbb landed the subtree binding and retained rejection of tracked source changes within it."
+
+[disposition.22.37.20.1]
+finding = "22.37.20.1"
+status = "environment"
+evidence = "On main, tools/hyperfide/plugins/hyperfide-qualify/publication.test.ts:394 requires native publication preparation to produce a versioned QUEUED result tied to the accepted revision, and line 420 requires replay to return the same publication. The publisher's native path uses the authenticated source client and preserves the source publication identity."
+
+[disposition.22.37.20.2]
+finding = "22.37.20.2"
+status = "resolved"
+evidence = "On main, tools/hyperfide/tests/hyperfide/support/native_source_git_actor.mjs:1067 compares the transported publication and reconciled service result by canonical bytes, preserving every payload field across object prototypes. Commit 711a147640 landed this comparison with the remote-observation and publication reconciliation path."
+
+[disposition.22.37.21.1]
+finding = "22.37.21.1"
+status = "resolved"
+evidence = "On main, tools/hyperfide/tests/hyperfide/support/native_source_import_actor.mjs:599 compares the imported candidate scope by canonical bytes and line 594 requires PROPOSED with acceptance NOT_GRANTED. Commit 78457b3c22 landed these assertions with native candidate creation in tools/hyperfide/core/control-plane/src/source_control/git/import.ts:1127."
+
+[disposition.22.37.21.2]
+finding = "22.37.21.2"
+status = "environment"
+evidence = "On main, tools/hyperfide/core/control-plane/src/source_control/git/import.ts:1153 guards contribution creation through source.candidates.create and line 1174 refuses a contribution whose baseline differs from the integration domain. Completed imports enter the ordinary candidate path with separate acceptance, as required by tools/hyperfide/tests/hyperfide/support/native_source_import_actor.mjs:595."
+
+[disposition.22.37.22.1]
+finding = "22.37.22.1"
+status = "environment"
+evidence = "On main, tools/hyperfide/core/control-plane/src/source_control/migration/inventory.ts:116 inventories open workspaces and line 119 reads their retained custody holders within the source scope. Its result at line 192 separately exposes unresolved publication effects instead of reporting them as drained."
+
+[disposition.22.37.22.2]
+finding = "22.37.22.2"
+status = "resolved"
+evidence = "On main, tools/hyperfide/core/control-plane/src/migration/legacy.ts:574 excludes defunct processes that have no storage handles or mappings, then inspects live processes' mount namespaces and storage access. Commit d8860d7d2e landed this observer distinction while retaining LEGACY_VISIBILITY_UNAVAILABLE for storage visibility that cannot be established."
+
+[disposition.22.37.23.1]
+finding = "22.37.23.1"
+status = "environment"
+evidence = "On main, tools/hyperfide/tests/hyperfide/support/native_source_recovery_actor.mjs:918 keeps reads active while line 930 creates acknowledged revisions concurrently with partition movement. The recovery checks retain those acknowledged revisions and require obsolete owners to receive STALE_ROUTE at line 1053."
+
+[disposition.22.37.23.2]
+finding = "22.37.23.2"
+status = "environment"
+evidence = "On main, tools/hyperfide/tests/hyperfide/support/native_source_recovery_actor.mjs:1039 reads each acknowledged revision after routing movement, and line 1053 requires STALE_ROUTE from the obsolete owner. The recovery result records the obsolete-owner refusal code explicitly at line 1080."
+
+[disposition.22.37.23.3]
+finding = "22.37.23.3"
+status = "environment"
+evidence = "On main, tools/hyperfide/tests/hyperfide/cases/source_control/6_1.py:229 keeps PROCESS_LOSS and PRIMARY_INSTANCE_LOSS outcomes separate from FAILURE_DOMAIN_LOSS, whose outcome remains UNRUN. The concurrent routing proof at tools/hyperfide/tests/hyperfide/support/native_source_recovery_actor.mjs:918 continues to assert retained reads and commits across owner movement."
+
+[disposition.22.37.24.1]
+finding = "22.37.24.1"
+status = "environment"
+evidence = "On main, tools/hyperfide/tests/hyperfide/source-control/workloads/campaign.mjs:208 persists operation accounting in OperationLedger and line 528 counts imported revisions separately from new authored revisions. Its receipt validator at line 853 requires latency samples and explicit cache state before accepting campaign measurements."
+
+[disposition.22.37.24.2]
+finding = "22.37.24.2"
+status = "environment"
+evidence = "On main, tools/hyperfide/tests/hyperfide/source-control/workloads/campaign.mjs:895 refuses missing latency samples and line 909 refuses a cold-cache label after warming. The same validator at line 916 rejects materialized-file accounting for logical API_ONLY opens."
+
+[disposition.22.37.24.3]
+finding = "22.37.24.3"
+status = "environment"
+evidence = "On main, tools/hyperfide/tests/hyperfide/source-control/workloads/campaign.mjs:923 excludes imported revision identities from authored-revision accounting, and line 948 compares the reported new-revision count with the durable operation inventory. Missing latency samples or inconsistent durable accounting remain explicit refusals at line 959."
+
+[disposition.22.37.26.1]
+finding = "22.37.26.1"
+status = "resolved"
+evidence = "On main, tools/hyperfide/deploy/hyperfide/source-control/package.py:82 confines dependency resolution to the package workspace and line 142 rejects a dependency outside the approved installed roots. Commit 31f8a91337 landed this closure construction and the packaged runtime checks."
+
+[disposition.22.37.26.2]
+finding = "22.37.26.2"
+status = "resolved"
+evidence = "On main, tools/hyperfide/tests/hyperfide/cases/source_control/7_1.py:119 requires a nonempty, unique assertion inventory for each case and line 121 checks that inventory against its claim. Commit 31f8a91337 landed this case-specific consistency rule and the explicit qualification-state checks for documented profiles at line 173."
+
+[disposition.22.37.28.1]
+finding = "22.37.28.1"
+status = "environment"
+evidence = "On main, tools/hyperfide/tests/hyperfide/cases/source_control/layout_driver_receipts_test.py:39 reports each absent driver receipt as UNRUN and requires every present receipt to be tracked and carry PASS. Its aggregation check at line 116 preserves UNRUN while any required receipt is missing, so the component result does not promote absent layout evidence."
+
+[disposition.22.37.29.1]
+finding = "22.37.29.1"
+status = "resolved"
+evidence = "On main, tools/hyperfide/plugins/hyperfide-dispatch/src/dispatcher/dispatcher.test.ts:94 requires manager planning to wait without launching jobs, and the scheduler case at line 108 explicitly requests legacy-nonadaptive behavior. Commit adbb6d73d5 landed these planning-specific consumers and their unchanged scheduling assertions."
+
+[disposition.22.37.3.1]
+finding = "22.37.3.1"
+status = "environment"
+evidence = "On main, tools/hyperfide/tests/hyperfide/cases/source_control/0_10.py:233 requires a PASS layout receipt bound to the current mapping and layout generation, with LAYOUT_RECEIPT_REQUIRED on refusal at line 250. The independent SDK contract consumer at tools/hyperfide/sdk/client/test/agent-group-contracts.test.ts:71 exercises the exported runtime action surface."
+
+[disposition.22.37.30.1]
+finding = "22.37.30.1"
+status = "resolved"
+evidence = "On main, tools/hyperfide/core/control-plane/src/source_control/fleet-adapter.ts:705 calls pinWorkspaceRoot for the assigned base root at position zero with the assignment capability expiry. Commit f767a5236a landed this shared pin producer so the assigned workspace retains the root needed by its first checkpoint."
+
+[disposition.22.37.31.1]
+finding = "22.37.31.1"
+status = "environment"
+evidence = "On main, tools/hyperfide/tests/hyperfide/cases/source_control/sparse_live.py:15 requires the complete object-store configuration and returns 77 when a required input is missing. spec/layerx-merge/source-control/live-campaign.kvx:8 keeps missing-input outcomes UNRUN, separately from the REAL_S3 sparse receipt required for success."
+
+[disposition.22.37.4.1]
+finding = "22.37.4.1"
+status = "resolved"
+evidence = "On main, tools/hyperfide/sdk/client/test/install-status.test.ts:33 launches the status producer through python3, and tools/hyperfide/tests/hyperfide/cases/source_control/fleet_install_interrupted.py:117 resolves the provider's interpreter request to the actual interpreter. Commit e84868db5b landed this consumer together with the signed READY status assertions at tools/hyperfide/sdk/client/test/install-status.test.ts:155."
+
+[disposition.22.37.4.2]
+finding = "22.37.4.2"
+status = "resolved"
+evidence = "On main, tools/hyperfide/core/control-plane/components/source-control.json:51 declares source.lifecycle.read alongside the other source operations. Commit e84868db5b landed this declaration so the registered source component exposes its lifecycle action as well as the install-status producer's other dependencies."
+
+[disposition.22.37.4.3]
+finding = "22.37.4.3"
+status = "resolved"
+evidence = "On main, tools/hyperfide/tests/hyperfide/cases/source_control/fixtures/install/sdk_status.py:28 includes component 3.2 when deriving the explicit action grants and line 33 retains the bounded grant count assertion. Commit e84868db5b landed this signed status producer with authority for the hierarchy packet it creates."
+
+[disposition.22.37.4.4]
+finding = "22.37.4.4"
+status = "resolved"
+evidence = "On main, tools/hyperfide/tests/hyperfide/cases/source_control/fixtures/install/sdk_status.py:49 binds the provisioner to the active run and the explicit action set, then line 56 checks the stored binding before startup. Commit e84868db5b landed this restart-safe grant producer, including the provider-pool component in the declared action set at line 30."
+
+[disposition.22.37.4.5]
+finding = "22.37.4.5"
+status = "resolved"
+evidence = "On main, tools/hyperfide/tests/hyperfide/cases/source_control/fleet_install_interrupted.py:151 requires a signed FAILED result with complete cleanup and an absent interrupted process before recovery. Commit e84868db5b landed this interruption proof and the replacement execution's SUCCEEDED requirement at line 168 without accepting UNKNOWN as completion."
+
+[disposition.22.37.4.6]
+finding = "22.37.4.6"
+status = "resolved"
+evidence = "On main, tools/hyperfide/tests/hyperfide/cases/source_control/fleet_install_interrupted.py:172 checks receipt.json, stdout and stderr for each actual process, requiring complete response sizes and matching digests before collection. Commit e84868db5b landed this accounting and the READY result check at line 179."
+
+[disposition.22.37.9.1]
+finding = "22.37.9.1"
+status = "resolved"
+evidence = "On main, tools/hyperfide/tests/hyperfide/cases/source_control/0_1.py:208 resolves Node from the configured override or PATH before invoking the real SDK/server codec consumer. Commit 67217aa378 landed this portable consumer with the object and persistent-tree slice in tools/hyperfide/core/control-plane/src/source_control/objects.ts:50."
+
+[disposition.22.38.1.1]
+finding = "22.38.1.1"
+status = "resolved"
+evidence = "On main, programs/crates/layerx-programs-ai-market/tests/identity_section_sharing.rs:619 constructs an eleven-entry expected availability array and line 625 gives F11 its explicit NotEnabled state. Commit b5a4f2ce26 landed this consumer of the eleven-family feature_availability result."
+
+[disposition.22.38.1.2]
+finding = "22.38.1.2"
+status = "resolved"
+evidence = "On main, programs/crates/layerx-programs-ai-market/tests/view_binding.rs:353 compares absent captured content against eleven NotYetProduced entries, matching the producer's F01 through F11 width. Commit b5a4f2ce26 landed this array-width repair with the F11 family table."
+
+[disposition.22.38.1.3]
+finding = "22.38.1.3"
+status = "resolved"
+evidence = "On main, services/platform/hosted/indexer/src/ai_market.rs:64 defines FEATURES as eleven and line 1093 decodes availability into that same width, rejecting a stored array of a different length. Commit b5a4f2ce26 landed the indexer's F11-width consumers alongside the family table."
+
+[disposition.22.38.15.1]
+finding = "22.38.15.1"
+status = "open"
+evidence = "On main, services/agent/crates/layerx-client/src/ai_market.rs:184 can encode LockBond, but programs/crates/layerx-programs-ai-market/src/dispatch.rs:1727 still refuses selectors without a landed transition, including the bond selectors. Task 22.38.15 remains pending at spec/layerx-merge/spec.kvx:185140, and its planned inference_market/enrol.rs and inference_enrol.rs are absent."
+follow_up = "22.38.15"
+
+[disposition.22.38.16.1]
+finding = "22.38.16.1"
+status = "open"
+evidence = "On main, spec/layerx-merge/spec.kvx:185109 leaves the chain-anchored WebSocket signalling task 22.38.16 pending, with inference_market/signal.rs and inference_signal.rs still absent. The declared listener must bind peer offers to the room's model and runtime digests and obtain admitted peer state through the enrolment path."
+follow_up = "22.38.16"
+
+[disposition.22.38.23.1]
+finding = "22.38.23.1"
+status = "environment"
+evidence = "On main, apps/inference-peer/test/vendored_engine.test.mjs:31 declares vendoredEngineModulesImport and line 165 registers the named test function, with separate tokenizer round-trip and snapshot-integrity functions. The package exposes the vendored engine's public API and checks its pinned source bytes instead of treating file paths as declarations."
+
+[disposition.22.38.31.1]
+finding = "22.38.31.1"
+status = "open"
+evidence = "On main, spec/layerx-merge/spec.kvx:154620 leaves task 22.38.31 pending and declares the TypeScript inference-market encoders, reads and funding helper as its output. services/agent/sdk/typescript/src/inference_market.ts and test/inference-market.test.ts are absent, so the four producer-dependent encoders have no landed implementation in that surface."
+follow_up = "22.38.31"
+
+[disposition.22.38.35.1]
+finding = "22.38.35.1"
+status = "environment"
+evidence = "On main, tools/qualification/audit_repairs/test_repair_22_38_35.py:33 declares test_protocol_contains_every_f11_operation_and_selector and line 59 declares the development-envelope threat check. The five inference-market pages have explicit source-contract checks for the seventeen selectors, development-only attestation limits and relative links."
+
+[disposition.22.38.4.1]
+finding = "22.38.4.1"
+status = "resolved"
+evidence = "On main, programs/crates/layerx-programs-ai-market/tests/f11_lap_settlement.rs:127 admits the first participant at ORIGIN+2, while line 156 admits the next participant at ORIGIN+130 after opening the next epoch. Commit 73d57e4523 landed the separated admission windows with the sealed-evidence lap settlement implementation at programs/crates/layerx-programs-ai-market/src/laps.rs:366."
+
+[disposition.22.38.4.2]
+finding = "22.38.4.2"
+status = "resolved"
+evidence = "On main, services/platform/hosted/gateway/tests/repair_22_33_1439.rs:145 includes the real ai-market laps.rs module in the gateway mirror. Commit 73d57e4523 landed this inclusion with the lap-settlement producer, and tests/ci/test_ai_market_module_mirror.py:83 requires the gateway and crate module inventories to match exactly."
+
+[disposition.22.38.5.1]
+finding = "22.38.5.1"
+status = "resolved"
+evidence = "On main, programs/crates/layerx-programs-ai-market/src/dispatch.rs:1726 routes both challenge selectors to handle_canary, whose call at line 2064 invokes the real challenge transition. Commit cb28bca90f landed these routes and programs/crates/layerx-programs-ai-market/src/canary.rs:843 and line 898 implement challenge admission and resolution alongside the room operations."
+
+[disposition.22.38.6.1]
+finding = "22.38.6.1"
+status = "resolved"
+evidence = "On main, programs/crates/layerx-programs-ai-market/src/repair_22_39_142.kvx:4 retains the 524184-byte deployment bound and line 28 records the reduced 483154-byte implementation profile. Commit 075a770edb landed that guest reduction, and commit 2d8083af02 landed the payout transition now routed at programs/crates/layerx-programs-ai-market/src/dispatch.rs:1725."
+
+[disposition.22.38.6.2]
+finding = "22.38.6.2"
+status = "resolved"
+evidence = "On main, services/platform/ramps/reference/tests/repair_22_33_1487.rs:37 and line 38 include the tracked localhost.pem and localhost.p12 fixtures under fixtures/repair_fixtures. Commit d122f710b5 restored those fixtures and their tracking rules, preserving the TLS test's embedded certificate and identity inputs."
+
+[disposition.22.38.7.1]
+finding = "22.38.7.1"
+status = "open"
+evidence = "On main, programs/crates/layerx-programs-ai-market/src/dispatch.rs:1009 advertises LockBond metadata, but the transition selector match ends at line 1727 without bond handlers. spec/layerx-merge/spec.kvx:185259 leaves task 22.38.7 pending, and its planned bonds.rs and f11_bonds.rs are absent."
+follow_up = "22.38.7"
+
+[disposition.22.38.7.2]
+finding = "22.38.7.2"
+status = "open"
+evidence = "On main, programs/crates/layerx-programs-arbiter/src/admission.rs:10 still imports layerx_wire::activity::Activity from the retired root codec path. Task 22.39.177 is pending and owns the move to layerx_wire::historical, which the host-boundary dependency of the pending bond task requires."
+follow_up = "22.39.177"
+
+[disposition.22.38.9.1]
+finding = "22.38.9.1"
+status = "resolved"
+evidence = "On main, precompiles/layerxpay/conformance_escrow_test.go:132 captures the escrow value, found flag and error separately, as do the service and escrow conformance consumers. Commit b922423300 landed the three-result GetEscrow and GetEscrowResult call sites while retaining their error and value assertions."
+
+[disposition.22.38.9.2]
+finding = "22.38.9.2"
+status = "resolved"
+evidence = "On main, precompiles/layerxpay/layerxpay.go:228 routes streamOpenForAsk through the stream mutation handler and line 350 routes askStreamOf through the stream view handler. Commit 41d32cc012 landed both entry-point connections with the ask-to-stream binding and host-meter assertions at precompiles/layerxpay/stream_ask_test.go:74."
+
+[disposition.22.91.126.1]
+finding = "22.91.126.1"
+status = "environment"
+evidence = "On main, chain.mk:606 defines test-group-% as an indexed coverage target and line 615 writes the stem's profile output, while line 617 selects the four numeric groups. spec/layerx-merge/programme/sweeps/c-kernel-make.kvx:797 separately records the literal-percent target's failed result rather than presenting it as a passing numeric group."
+
+[disposition.22.91.126.2]
+finding = "22.91.126.2"
+status = "environment"
+evidence = "On main, spec/layerx-merge/programme/sweeps/c-kernel-make.kvx:2 binds the inventory to revision e5a148500cac4047667803acbd8245a443d90cfe and lines 4 through 7 distinguish 155 total targets, 144 passes, eight failures and three not run. Its individual target records preserve failure results, including the pattern target at line 797."
+
+[disposition.22.95.1.1]
+finding = "22.95.1.1"
+status = "resolved"
+evidence = "On main, services/agent/crates/layerx-agentd/tests/handshake_gate.rs:112 wraps receipt keys in the keys object and supplies numeric firstHeight and lastHeight values, matching the u64 decoder at services/agent/crates/layerx-client/src/sequencer.rs:987. Commit c56015fd36 landed this wire-shape alignment without accepting hexadecimal strings as heights."
+
+[disposition.22.95.1.2]
+finding = "22.95.1.2"
+status = "resolved"
+evidence = "On main, services/agent/Cargo.lock:828 records layerx-client with its ed25519-dalek and related dependencies, and line 761 records the daemon's client dependency. Commit 93caf955b1 refreshed this workspace lock for the layerx-client and layerx-sdk manifest changes in task 22.99.158."
+
+[disposition.22.95.1.3]
+finding = "22.95.1.3"
+status = "resolved"
+evidence = "On main, services/agent/crates/layerx-client/src/sequencer.rs:873 requires exactly account, items, next_cursor, indexedHeight, chainHeight and freshness, and line 889 accepts a null or canonical hexadecimal cursor. Commit c56015fd36 landed this six-field decoder and aligned the human-node history producer with the declared JSON-RPC result."
+
+[disposition.22.95.1.4]
+finding = "22.95.1.4"
+status = "resolved"
+evidence = "On main, services/agent/crates/layerx-agentd/tests/human_node.rs:173 serves px_getHistory for both pages of the history read, including account, cursor and readiness fields constructed at line 163. Commit c56015fd36 landed this JSON-RPC producer and the assertions that consume its rows without the frame transport."
+
+[disposition.22.95.1.5]
+finding = "22.95.1.5"
+status = "resolved"
+evidence = "On main, services/platform/hosted/core/src/public_reads.rs:95 compares committed balances using native.balance.bytes(), and line 136 reads asset metadata from the current PxAssetEntry fields. Commit 1a3c69501c landed these current-client consumers for task 22.31.485 while preserving the public response shape."
+
+[disposition.22.95.1.6]
+finding = "22.95.1.6"
+status = "resolved"
+evidence = "On main, services/agent/crates/layerx-agentd/tests/human_projection_facts.rs:541 imports the native budget store and line 581 calls the exported authority budget-state API with its current configuration type. Commit 9397b65f47 landed this repair and the matching human_approval_budget_actor consumer for task 22.31.497."
+
+[disposition.22.95.1.7]
+finding = "22.95.1.7"
+status = "resolved"
+evidence = "On main, services/agent/crates/layerx-agentd/src/agent_rpc_wire.rs:851 defines prepare_digest beside NativeSendPrepareRequestV2, and line 3337 checks that method's digest against the signed request's expected digest. Commit b6d38a9897 landed the shared method and independent rpc_surface_major_two consumer for task 22.31.550."
+
+[disposition.22.95.7.1]
+finding = "22.95.7.1"
+status = "superseded"
+evidence = "Task 18.1548.1 supersedes 22.95.7 under decision 2459, and its result on main is the explicit viem Chain annotation at services/wallet/gateway/src/chain.ts:15 together with the Zod 4 key/value record schemas at services/wallet/gateway/src/routes/sign.ts:113 and services/wallet/gateway/src/schemas/agent.ts:63. Commit c3980b312c landed both parts with the typed-data record tests."
