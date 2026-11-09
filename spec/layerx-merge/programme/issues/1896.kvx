@@ -1,0 +1,49 @@
+[issue.1896]
+number = 1896
+title = "[Coherence] The new qualification finding for 22.39.117 attempt 5 names a shared-module chain test as its file and symbol, while the failures it records are three cases in the launchpad API module"
+revision = "3520b1428059af90261432778c008a9ce362a0b1"
+verdict = "task"
+evidence = "Finding 22.39.117.5 introduced by commit 47b44760f7955e5b9267a3b34a05fab3e02d0296 still names the unrelated chain test at spec/layerx-merge/qualification.kvx:36448 and spec/layerx-merge/qualification.kvx:36449 and uses high at spec/layerx-merge/qualification.kvx:36452, contradicting its API failure observation at spec/layerx-merge/qualification.kvx:36450, the three test sites at services/launchpad/api/internal/app/dev_authority_cache_test.go:100, services/launchpad/api/internal/app/dev_authority_test.go:53 and services/launchpad/api/internal/app/dev_market_reads_test.go:24, and the allowed severities at spec/workflow.kvx:66."
+close_comment = "The attempt-5 finding still points to a chain test that passed instead of the failing launchpad API tests, and high is not an allowed severity. A focused record correction is planned to identify the API test site and use blocker while preserving the historical failure evidence."
+
+[task.18.1896.1]
+title = "Issue #1896: Correct the launchpad API failure attribution in finding 22.39.117.5"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181896.1"]
+capabilities = []
+interfaces = []
+do_1 = "In finding.22.39.117.5, change file at spec/layerx-merge/qualification.kvx:36448 to services/launchpad/api/internal/app/dev_authority_cache_test.go and symbol at spec/layerx-merge/qualification.kvx:36449 to TestDevelopmentAuthorityAttestationCache, defined at services/launchpad/api/internal/app/dev_authority_cache_test.go:95; this is the first of the three API failures identified by GOTCHA.kvx:18491, alongside TestDevelopmentReviewedInputsMatchRepository at services/launchpad/api/internal/app/dev_authority_test.go:49 and TestDevelopmentReadsMountMarketReads at services/launchpad/api/internal/app/dev_market_reads_test.go:23."
+do_2 = "Replace high at spec/layerx-merge/qualification.kvx:36452 with blocker, one of the values allowed by spec/workflow.kvx:66, because the recorded verification failed; preserve the task, observed and assumption fields and every other finding."
+do_3 = "Use the focused finding check to require exactly one attempt-5 block, the corrected API file and symbol, severity blocker, and the retained observation that the SDK modules passed and three API cases failed."
+symbols = []
+touches = ["spec/layerx-merge/qualification.kvx"]
+tests = []
+planned_paths = []
+build_cmd = "true"
+verify_cmd = "awk -F '\\042' '/^[[]/ {active=0} /^[[]finding[.]22[.]39[.]117[.]5[]]$/ {active=1; findings++} active && /^file = / {files++; if ($2 !~ /^services[/]launchpad[/]api[/]internal[/]app[/]dev_authority_cache_test[.]go$/) bad=1} active && /^symbol = / {symbols++; if ($2 !~ /^TestDevelopmentAuthorityAttestationCache$/) bad=1} active && /^severity = / {severities++; if ($2 !~ /^blocker$/) bad=1} active && /^observed = / {observations++; if ($2 !~ /every sdk[/]launchpad module passed/ || $2 !~ /services[/]launchpad[/]api[/]internal[/]app failed three cases/) bad=1} END {exit(bad || findings!=1 || files!=1 || symbols!=1 || severities!=1 || observations!=1)}' spec/layerx-merge/qualification.kvx"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-programme"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181896]
+title = "The attempt-5 launchpad finding identifies its failing API test and uses an allowed severity"
+ac_1 = "Finding.22.39.117.5 at spec/layerx-merge/qualification.kvx:36446 names services/launchpad/api/internal/app/dev_authority_cache_test.go and TestDevelopmentAuthorityAttestationCache in its file and symbol fields, uses blocker rather than high under spec/workflow.kvx:66, and preserves its observation that the SDK modules passed and three API cases failed; all other fields and findings retain their historical content."
+
+[acceptance.18.1896.1]
+feature = "18"
+req = "181896.1"
+scenario = "Given the recorded attempt-5 failure in three launchpad API cases, when its qualification finding is read, then file and symbol identify the API authority-cache test, severity is blocker, and the historical failure observation remains intact."
+contract = "contracts/programme.md#programme"
+test = "spec/layerx-merge/qualification.kvx::focused finding fields check (planned)"
+qualification = "UNRUN"
