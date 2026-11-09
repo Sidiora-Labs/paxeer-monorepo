@@ -153523,7 +153523,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.179]
 title = "Make the wallet surface replay follow the SDK read path request sequence"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["22.39.55", "22.39.145"]
