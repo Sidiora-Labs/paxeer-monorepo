@@ -913,8 +913,9 @@ fn evidence_get(
             }),
             expected,
         )?;
-        if verification != "receipt-verified" {
-            return Err(ApiFailure::upstream_degraded());
+        match (evidence.rung, verification) {
+            (Rung::Receipted, "receipt-verified") | (Rung::Committed, "committed") => {}
+            _ => return Err(ApiFailure::upstream_degraded()),
         }
         return Ok(response(
             super::ProductionComponents::managed_receipt_material(id, &evidence)?,
