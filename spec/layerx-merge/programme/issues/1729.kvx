@@ -1,0 +1,49 @@
+[issue.1729]
+number = 1729
+title = "[Coherence] The lifecycle and registry retired-endpoint proofs are aliases of the receipt proof and never run lifecycle or registry commands"
+revision = "a910fdedd579e63379ae6c2e4d4971990d28f8ad"
+verdict = "task"
+evidence = "tools/platform/cli/tests/repair_22_33_1496.rs:471 and tools/platform/cli/tests/repair_22_33_1496.rs:559 still delegate both command-family proofs to root_receipt at tools/platform/cli/tests/repair_22_33_1496.rs:342, whose authentication and retired-method checks cover receipt and wallet requests rather than lifecycle submission or registry queries, while commit a08a60044bf3f1a66189338037862089c11b31f0 updates lifecycle policy and dropped-reply expectations without replacing these aliases."
+close_comment = "The lifecycle and registry endpoint proofs still exercise receipt and wallet requests without testing their own commands. A follow-up task will add separate lifecycle submission and registry query proofs covering root routing, authentication and retired-method refusal."
+
+[task.18.1729.1]
+title = "Issue #1729: Prove lifecycle and registry endpoint behavior through their own commands"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181729.1"]
+capabilities = []
+interfaces = []
+do_1 = "Replace the receipt-only aliases test_retired_endpoint_program_lifecycle and test_retired_endpoint_program_registry at tools/platform/cli/tests/repair_22_33_1496.rs:471 and tools/platform/cli/tests/repair_22_33_1496.rs:559 with independent proofs driving production lifecycle submission and registry listing; exercise signed lifecycle calldata through eth_sendRawTransaction and the registry eth_blockNumber/eth_getLogs path implemented at tools/platform/cli/src/programs.rs:1253."
+do_2 = "Assert each command family's actual request method, parameters, root path, authentication header and returned command output, plus missing or invalid authentication refusal and preserved lx_ refusal before transport; verify hosted-only methods through the explicit gateway service route separately from EVM lifecycle and registry requests, preserving the existing receipt proof at tools/platform/cli/tests/repair_22_33_1496.rs:381."
+do_3 = "Use production CLI transports and committed outputs from the corresponding real producers for bounded loopback peers, with no invented lifecycle receipts or registry results and no receipt-only substitute; retain the existing authentication and refusal assertions at tools/platform/cli/tests/repair_22_33_1496.rs:301 and tools/platform/cli/tests/repair_22_33_1496.rs:563, and make each named proof fail when its own command is misrouted or omitted."
+symbols = ["test_retired_endpoint_program_lifecycle", "test_retired_endpoint_program_registry"]
+touches = ["tools/platform/cli/tests/repair_22_33_1496.rs"]
+tests = ["tools/platform/cli/tests/repair_22_33_1496.rs::test_retired_endpoint_program_lifecycle", "tools/platform/cli/tests/repair_22_33_1496.rs::test_retired_endpoint_program_registry"]
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path tools/platform/Cargo.toml -p layerx-platform-cli --test repair_22_33_1496"
+verify_cmd = "cargo test --locked --manifest-path tools/platform/Cargo.toml -p layerx-platform-cli --test repair_22_33_1496 test_retired_endpoint_program_"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181729]
+title = "Lifecycle and registry endpoint proofs exercise their own production commands"
+ac_1 = "The proofs at tools/platform/cli/tests/repair_22_33_1496.rs:471 and tools/platform/cli/tests/repair_22_33_1496.rs:559 independently drive lifecycle transaction submission and registry queries through production CLI consumers, assert root routing, request contents, authentication success and refusal, command output and lx_ refusal, and separately preserve explicit hosted-service routing."
+
+[acceptance.18.1729.1]
+feature = "18"
+req = "181729.1"
+scenario = "Given lifecycle submission and registry query inputs with corresponding producer outputs, when the two named endpoint proofs drive their production command families, then each asserts its own root requests and results, authentication success and refusal, preserved lx_ refusal and separate hosted-service routing, and detects omission or misrouting of its own commands."
+contract = "contracts/platform-cli.md#cli-jsonrpc-methods"
+test = "tools/platform/cli/tests/repair_22_33_1496.rs::test_retired_endpoint_program_lifecycle; tools/platform/cli/tests/repair_22_33_1496.rs::test_retired_endpoint_program_registry (planned)"
+qualification = "UNRUN"
