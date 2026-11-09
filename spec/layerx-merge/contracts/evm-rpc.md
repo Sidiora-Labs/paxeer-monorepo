@@ -2720,7 +2720,7 @@ Contract context <code>contract_context.7.served-methods</code>:
 
 | Interface | Field | Value |
 |---|---|---|
-| <code>interface.7.rpc-pax-sequencerreceipt</code> | notes | pax_sequencerReceipt; HTTP only; exempt from the legacy gate (rpc/pax_legacy.go:145); local on sequencer and standby, forwarded elsewhere; rungs submitted, receipted, committed; 57 call site(s) in 19 file(s); a node with neither a source nor a forward endpoint answers -32000 "served by sequencer" (rpc/sequencer_receipt.go:49, :99) |
+| <code>interface.7.rpc-pax-sequencerreceipt</code> | notes | pax_sequencerReceipt; HTTP and WebSocket; exempt from the legacy gate (rpc/pax_legacy.go:145); local on sequencer and standby, forwarded elsewhere; rungs submitted, receipted, committed; 57 call site(s) in 19 file(s); a node with neither a source nor a forward endpoint answers -32000 "served by sequencer" (rpc/sequencer_receipt.go:49, :99) |
 
 | Decision | Title | Value | Basis | Affects |
 |---|---|---|---|---|
