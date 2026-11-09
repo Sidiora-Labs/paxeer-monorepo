@@ -160904,7 +160904,7 @@ do_3 = "Requalify attempt 1 at 2a88ca65780f with the yarn build and verification
 
 [task.18.1717.1]
 title = "Issue #1717: Render one desktop header on both search-results routes"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -191935,7 +191935,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.280]
 title = "Make the Redis directory of the gateway one_source_reads test unique per start"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
