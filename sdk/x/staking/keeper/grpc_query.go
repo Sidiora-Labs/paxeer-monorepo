@@ -575,7 +575,9 @@ func queryAllRedelegations(store sdk.KVStore, k Querier, req *types.QueryRedeleg
 		return redels, res, err
 	}
 	if req.Pagination == nil || len(req.Pagination.Key) == 0 {
-		res.NextKey = nextMatchingKey
+		if len(nextMatchingKey) > 0 {
+			res.NextKey = nextMatchingKey
+		}
 		return redels, res, nil
 	}
 	if len(res.NextKey) == 0 {

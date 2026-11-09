@@ -1,0 +1,48 @@
+[issue.1826]
+number = 1826
+title = "[P3] Export SystemInstallError from the public Hyperfide SDK entries"
+revision = "a910fdedd579e63379ae6c2e4d4971990d28f8ad"
+verdict = "task"
+evidence = "The constructor added by commit e84868db5bb047e23c1e8c0dc7be2dcdf3dc3705 remains declared at tools/hyperfide/sdk/client/src/areas/system.ts:79 and thrown at tools/hyperfide/sdk/client/src/areas/system.ts:210, but tools/hyperfide/sdk/client/src/public-types.ts:38 forwards only its type, the public exports at tools/hyperfide/sdk/client/src/node.ts:91, tools/hyperfide/sdk/client/src/browser.ts:48 and tools/hyperfide/sdk/client/src/core.ts:37 omit its runtime value, tools/hyperfide/sdk/client/package.json:5 permits no internal system import, and tools/hyperfide/sdk/client/test/install-status.test.ts:14 bypasses that boundary."
+close_comment = "The install-status SDK still omits SystemInstallError from its public runtime exports, preventing consumers from using its specialized instanceof guard. Task 18.1826.1 tracks the public constructor exports and a package-entry regression preserving the existing install-status error assertions."
+
+[task.18.1826.1]
+title = "Issue #1826: Export the install-status error constructor through the public SDK entries"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181826.1"]
+capabilities = []
+interfaces = []
+do_1 = "Re-export the existing SystemInstallError constructor from areas/system.js as a runtime value in tools/hyperfide/sdk/client/src/node.ts:91, tools/hyperfide/sdk/client/src/browser.ts:48 and tools/hyperfide/sdk/client/src/core.ts:37 so @hyperfide/sdk, @hyperfide/sdk/node, @hyperfide/sdk/browser and @hyperfide/sdk/core expose the constructor used by their system.installStatus calls; retain the narrowed SystemInstallErrorCode declaration at tools/hyperfide/sdk/client/src/areas/system.ts:77 and the package exports map at tools/hyperfide/sdk/client/package.json:5."
+do_2 = "Extend install_status_reads_actual_ready_and_preserves_typed_errors in tools/hyperfide/sdk/client/test/install-status.test.ts:28 to import runtime constructors and SDK factories through the four supported package specifiers instead of the internal imports at tools/hyperfide/sdk/client/test/install-status.test.ts:8, exercise each entry against the existing real authenticated HTTPS status producer, and assert that returned errors satisfy instanceof the corresponding public constructor with error.code narrowed to SystemInstallErrorCode without casts; retain the READY result, repeat-read, NOT_FOUND, SUPERSEDED, SCOPE, response-body, cancellation and producer-exit assertions at tools/hyperfide/sdk/client/test/install-status.test.ts:153 and tools/hyperfide/sdk/client/test/install-status.test.ts:188."
+symbols = ["install_status_reads_actual_ready_and_preserves_typed_errors"]
+touches = ["tools/hyperfide/sdk/client/src/node.ts", "tools/hyperfide/sdk/client/src/browser.ts", "tools/hyperfide/sdk/client/src/core.ts", "tools/hyperfide/sdk/client/test/install-status.test.ts"]
+tests = ["tools/hyperfide/sdk/client/test/install-status.test.ts::install_status_reads_actual_ready_and_preserves_typed_errors"]
+planned_paths = []
+build_cmd = "pnpm --dir tools/hyperfide/sdk/client exec tsc --noEmit"
+verify_cmd = "pnpm --dir tools/hyperfide/sdk/client exec vitest run --config vitest.config.ts test/install-status.test.ts -t '^install_status_reads_actual_ready_and_preserves_typed_errors$'"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181826]
+title = "Public SDK consumers can identify typed install-status errors"
+ac_1 = "The root, node, browser and core entries declared in tools/hyperfide/sdk/client/package.json:5 export SystemInstallError as a runtime value usable against errors returned by that entry's system.installStatus, and an instanceof guard narrows code to SystemInstallErrorCode as declared at tools/hyperfide/sdk/client/src/areas/system.ts:77; the real-service regression at tools/hyperfide/sdk/client/test/install-status.test.ts:28 imports through @hyperfide/sdk, @hyperfide/sdk/node, @hyperfide/sdk/browser and @hyperfide/sdk/core and retains the NOT_FOUND, SUPERSEDED and SCOPE error-code and body assertions at tools/hyperfide/sdk/client/test/install-status.test.ts:159."
+
+[acceptance.18.1826.1]
+feature = "18"
+req = "181826.1"
+scenario = "Given a consumer importing the SDK and SystemInstallError through each supported client package entry, when the real install-status service returns NOT_FOUND, SUPERSEDED or SCOPE, then the thrown error is an instance of that entry's public constructor, its guarded code has type SystemInstallErrorCode, and the response body and original error code are preserved."
+contract = "contracts/tools-ops.md#wiring-integration"
+test = "tools/hyperfide/sdk/client/test/install-status.test.ts::install_status_reads_actual_ready_and_preserves_typed_errors (planned)"
+qualification = "UNRUN"

@@ -1,0 +1,50 @@
+[issue.1880]
+number = 1880
+title = "[P2] Remove unavailable sandbox evidence inputs from the public qualification test"
+revision = "3520b1428059af90261432778c008a9ce362a0b1"
+verdict = "task"
+evidence = "The regression introduced by commit 3740acfa3e25ea3b4aa157330f14dc50a37b0c47 remains: tests/ci/test_qualification_suites_collect.py:155 requires historical logs, :202 and :217 read historical XML reports, and :112 and :187 require historical Git objects referenced by tools/qualification/repair_22_31_623.kvx:7634, :9356 and :9502, while the current-evidence fixture at tests/ci/test_qualification_suites_collect.py:20 produces only a new log and JSON sidecar and Makefile:268 collects the test through the public job at .github/workflows/ci.yml:25 with neither artifact provisioning nor explicit history fetching."
+close_comment = "Qualification reconciliation still depends on historical artifacts and Git objects absent from its declared inputs. Task 18.1880.1 separates historical evidence auditing from current-revision validation while preserving baseline reconciliation and evidence integrity checks."
+
+[task.18.1880.1]
+title = "Issue #1880: Make qualification reconciliation independent of historical evidence inputs"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181880.1"]
+capabilities = []
+interfaces = []
+do_1 = "Refactor tests/ci/test_qualification_suites_collect.py:53 so baseline reconciliation retains its complete case coverage, grouping, settlement and current-revision qualification assertions, and qualification_evidence at :20 emits the current log, JSON sidecar and JUnit report needed to verify actual passing cases and evidence digests; preserve the complete qualification subprocess and its exit check."
+do_2 = "Move the historical log, report, source-digest and producer-object checks at tests/ci/test_qualification_suites_collect.py:110, :153, :185 and :198 into tools/qualification/audit_repair_evidence.py as an explicit audit_historical_repair_evidence entrypoint outside automatic test discovery; require an explicitly supplied archive and repository containing the recorded revisions, resolve archived files relative to that archive, and retain strict missing-input, revision, digest, case-coverage and source-integrity rejection without fabricating results or changing the historical repair record."
+do_3 = "Add tests/ci/test_qualification_evidence_portability.py::test_current_repair_evidence_needs_no_historical_inputs that creates a real depth-one checkout, confirms historical objects and artifacts are absent, invokes the real current-revision qualification producer and test_repair_record_settles_every_baseline_entry, and asserts success with nonempty revision-bound log, JSON and JUnit evidence; assert that the public host at .github/workflows/ci.yml:40 still collects this reconciliation through Makefile:268."
+do_4 = "Add tests/ci/test_qualification_evidence_portability.py::test_historical_repair_audit_rejects_missing_inputs that calls the real historical audit against the recorded repair metadata with unavailable archive inputs and asserts an explicit failure identifying the required evidence; retain every original integrity assertion in the explicit audit and introduce no skips, exclusions or silent fallbacks."
+symbols = ["qualification_evidence", "test_repair_record_settles_every_baseline_entry", "audit_historical_repair_evidence", "test_current_repair_evidence_needs_no_historical_inputs", "test_historical_repair_audit_rejects_missing_inputs"]
+touches = ["tests/ci/test_qualification_suites_collect.py", "tools/qualification/audit_repair_evidence.py", "tests/ci/test_qualification_evidence_portability.py"]
+tests = ["tests/ci/test_qualification_evidence_portability.py::test_current_repair_evidence_needs_no_historical_inputs", "tests/ci/test_qualification_evidence_portability.py::test_historical_repair_audit_rejects_missing_inputs"]
+planned_paths = ["tools/qualification/audit_repair_evidence.py", "tests/ci/test_qualification_evidence_portability.py"]
+build_cmd = "python3 -m py_compile tests/ci/test_qualification_suites_collect.py tools/qualification/audit_repair_evidence.py tests/ci/test_qualification_evidence_portability.py"
+verify_cmd = "python3 -m pytest -q tests/ci/test_qualification_evidence_portability.py"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181880]
+title = "Qualification reconciliation validates current evidence without implicit historical inputs"
+ac_1 = "The current-revision producer and baseline checks at tests/ci/test_qualification_suites_collect.py:20 and :53 pass with newly produced evidence and all baseline reconciliation assertions intact when the historical inputs consumed at :112, :155, :187, :202 and :217 are absent; the explicit historical audit continues to reject missing or invalid archived evidence and unavailable producer revisions."
+
+[acceptance.18.1880.1]
+feature = "18"
+req = "181880.1"
+scenario = "Given a depth-one checkout without historical evidence artifacts, when the real qualification producer and baseline reconciliation run, then they validate current-revision results successfully, while an explicitly requested historical audit rejects unavailable archive inputs."
+contract = "contracts/tools-ops.md#qualification-harness"
+test = "tests/ci/test_qualification_evidence_portability.py::test_current_repair_evidence_needs_no_historical_inputs (planned)"
+qualification = "UNRUN"

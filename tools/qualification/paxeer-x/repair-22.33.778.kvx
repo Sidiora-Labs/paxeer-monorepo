@@ -18,8 +18,8 @@ tests = ["test_tenant_readiness_committed_write_cross_tenant_refusal_and_reopen"
 repair = "Keep isolation and owner-recovery checks; require tenant EVM payer, canonical receipt and submission digest to match signed execution and its committed standard receipt/block."
 
 [finding.kms-source-provenance]
-tests = ["test_kms_provenance_binds_real_moved_tree_and_artifact_revision", "test_kms_every_missing_provenance_path_refuses_before_producers"]
-repair = "Require services/platform/crates and every declared producer path, hash their complete regular sources and bind the snapshot to the artifact revision before live producers."
+tests = ["test_kms_provenance_paths_exist_in_repository", "test_kms_provenance_binds_real_moved_tree_and_artifact_revision", "test_kms_every_missing_provenance_path_refuses_before_producers"]
+repair = "Remove the nonexistent services/platform/crates entry; retain services/platform/hosted/runtime-clock and the Human and agent source trees, prove every declared path exists in the checkout using real tracked sources, and preserve complete regular-source hashes and missing-path, symlink, content and artifact-revision refusals before live producers."
 
 [finding.mcp-write-line-deadline]
 tests = ["test_mcp_partial_line_has_one_deadline_and_terminates_child", "test_mcp_real_json_codec_bounds_and_invocation_identity", "test_mcp_trickle_cannot_reset_the_deadline_and_coalesced_lines_survive"]
@@ -42,7 +42,7 @@ tests = ["test_programs_source_config_uses_root_evm_and_preserves_abi_binding", 
 repair = "Require CHAIN_RPC_URL and current EVM Programs metadata plus committed deployment evidence; preserve source/archive provenance and ABI negative cases."
 
 [wiring]
-platform = "services/platform/crates — platform domain: provide the declared moved producer sources or correct the owning artifact producer contract; this checkout lacks the path and qualification now refuses it."
+platform = "services/platform/hosted/runtime-clock — platform domain: the existing workspace member builds layerx-runtime-clock and is already included in provenance; neither platform/crates nor services/platform/crates exists or is required."
 registry = "services/platform/hosted/registry/src/main.rs — platform registry domain: remove mandatory legacy node/receipt-authority configuration and publish merged deployment metadata over CHAIN_RPC_URL."
 agent = "services/agent — agent domain: provision source-bound paxd/gateway services, protected root and /v1/agent/rpc endpoint bindings, receipt pins, tenant EVM payers and current raw submit/prepare requests."
 programs = "precompiles/layerxprograms — Programs domain: publish revision-bound signed current lifecycle cases for every retained 6.4/6.6 case and a private hashed paxd seed for the v2 qualification fixture."

@@ -2,7 +2,7 @@
 task = "22.30.115"
 revision = "2b99f88520e4e809ad5593f3bee2df74fe355d7b"
 files_reviewed = 129
-findings = 56
+findings = 55
 docs_reviewed = 14
 upgrade_ready = false
 blocking = ["receipt-authentication", "receipt-fields-lost", "provider-session-binding", "default-node-hosted-methods", "swap-broadcast-recovery", "swap-speed-up-resubmits"]
@@ -457,7 +457,7 @@ note = "Full-file review of the exported surface and live import/re-export paths
 path = "sdk/wallet/README.md"
 lines = 96
 verdict = "issues"
-note = "Full-file review; retired API documentation and the missing registry contract source are recorded in sdk-readme-retired-api and wallet-contract-source-missing."
+note = "Full-file review; retired API documentation is recorded in sdk-readme-retired-api."
 
 [file.076]
 path = "sdk/wallet/package.json"
@@ -1440,18 +1440,7 @@ path = "sdk/wallet/README.md"
 status = "stale"
 notes = "Stale introduction and API list at 3, 91-92; missing current EVM review and authenticated receipt examples."
 
-[doc.contract-source-missing]
-path = "contracts/clients.md"
-status = "missing"
-notes = "The package interface registry repeatedly names contracts/clients.md#wallet-sdk and #wallet-app, but contracts/clients.md is absent at the audited revision. Producer code and package requirements were used to resolve the actual wallet boundary; domain 17 should restore or retarget this contract reference."
-
-[finding.wallet-contract-source-missing]
-file = "sdk/wallet/README.md"
-line = 0
-class = "doc-drift"
-severity = "medium"
-observed = "The wallet SDK/app interface rows repeatedly cite contracts/clients.md#wallet-sdk and #wallet-app as their contract, but contracts/clients.md is absent from this revision. Integrators cannot follow those registry references to the normative wallet boundary."
-expected = "Every declared wallet interface needs a reachable current contract describing its endpoint, signed shapes, authorization and recovery lifecycle; a missing reference cannot explain the merged product to an integrator."
-proposal = "Domain 17 should restore the merged wallet contract at the referenced location or retarget the wallet interface registry contract fields to an existing maintained page, and link that contract from sdk/wallet/README.md."
-owner_domain = 17
-interface = "12.ts-sdk-sequencer-receipt-answer-j50"
+[doc.wallet-contract-source]
+path = "spec/layerx-merge/contracts/clients.md"
+status = "stale"
+notes = "Registry contract paths resolve relative to spec/layerx-merge. Wallet contract references resolve at #wallet-sdk and #wallet-app. Reviewed both sections against their referenced interfaces: the wallet-app account-route signatures and change/retire statuses agree with the registry, but wallet-sdk still labels 12.key-sdk-evm-review-v1-j50 as new and not at HEAD and 12.rpc-sdk-calls-pax-sequencer-receipt-j50 as new and planned, while both registry rows are served. The contract exists; its SDK inventory needs a status refresh."

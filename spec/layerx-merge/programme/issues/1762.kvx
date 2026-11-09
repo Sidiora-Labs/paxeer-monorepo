@@ -1,0 +1,7 @@
+[issue.1762]
+number = 1762
+title = "[Coherence] do_3 names only three of the four places in test_repair_22_33_1565.py that read the moved matrix, so its required 'still passes' run will fail"
+revision = "a910fdedd579e63379ae6c2e4d4971990d28f8ad"
+verdict = "already-fixed"
+evidence = "Commit 33dc75d17aaf887f126534185e82fb79909e2186 repointed all four matrix reads at tools/qualification/audit_repairs/test_repair_22_33_1565.py:50, :80, :110 and :207 to docs/agent/COMPATIBILITY.md and changed relative-link resolution to each document's parent at :217, while commit be21b9b9e53246de60834207c1df6645aad2e225 corrected services/agent/README.md:57 to link to the existing matrix at docs/agent/COMPATIBILITY.md:1."
+close_comment = "All four compatibility-matrix reads now use docs/agent/COMPATIBILITY.md, and the documentation link check resolves links relative to each document's directory. The agent README also links to the moved matrix, so both reported missing-path failures are already corrected."
