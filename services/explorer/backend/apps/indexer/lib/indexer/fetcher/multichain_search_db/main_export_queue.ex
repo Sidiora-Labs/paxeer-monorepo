@@ -63,7 +63,23 @@ defmodule Indexer.Fetcher.MultichainSearchDb.MainExportQueue do
   def run(data, _json_rpc_named_arguments) when is_list(data) do
     prepared_export_data = prepare_export_data(data)
 
-    export_data_to_multichain(prepared_export_data)
+    case export_data_to_multichain(prepared_export_data) do
+      {:retry, retry} ->
+        failed_entries =
+          MapSet.new(
+            Enum.map(retry.addresses, &{&1.hash, "ADDRESS"}) ++
+              Enum.map(retry.hashes, &{&1.hash, &1.hash_type})
+          )
+
+        {:retry,
+         Enum.filter(data, fn entry ->
+           hash = to_string(%Hash{byte_count: byte_size(entry.hash), bytes: entry.hash})
+           MapSet.member?(failed_entries, {hash, entry.hash_type |> Atom.to_string() |> String.upcase()})
+         end)}
+
+      :ok ->
+        :ok
+    end
   end
 
   defp export_data_to_multichain(prepared_export_data) do

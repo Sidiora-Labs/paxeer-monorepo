@@ -9,6 +9,7 @@ import re
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 
 from .account_derivation import keccak256
+from .evm_transaction import _rlp
 
 
 def _varint(value: int) -> bytes:
@@ -86,6 +87,148 @@ def _vote_bytes(chain_id: str, commit: dict, signature: dict) -> bytes:
 
 
 @dataclass(frozen=True)
+class _TransactionField:
+    tag: int
+    wire: int
+    data: bytes = b""
+    value: int = 0
+
+
+def _transaction_fields(data: bytes) -> list[_TransactionField]:
+    if len(data) > 1048576:
+        raise ValueError("invalid committed transaction envelope")
+    offset = 0
+
+    def read():
+        nonlocal offset
+        value = 0
+        for shift in range(0, 70, 7):
+            if offset >= len(data):
+                raise ValueError("truncated committed transaction envelope")
+            next_byte = data[offset]
+            offset += 1
+            if shift == 63 and next_byte > 1:
+                raise ValueError("invalid committed transaction varint")
+            value |= (next_byte & 127) << shift
+            if next_byte < 128:
+                if shift and next_byte == 0:
+                    raise ValueError("noncanonical committed transaction varint")
+                return value
+        raise ValueError("invalid committed transaction varint")
+
+    fields = []
+    while offset < len(data):
+        key = read()
+        tag, wire = key >> 3, key & 7
+        if not 0 < tag < 1 << 29 or wire not in (0, 1, 2, 5):
+            raise ValueError("invalid committed transaction field")
+        if wire == 0:
+            fields.append(_TransactionField(tag, wire, value=read()))
+        else:
+            size = read() if wire == 2 else 8 if wire == 1 else 4
+            if size > len(data) - offset:
+                raise ValueError("truncated committed transaction field")
+            fields.append(_TransactionField(tag, wire, data[offset:offset + size]))
+            offset += size
+    return fields
+
+
+def _transaction_field(fields: list[_TransactionField], tag: int, wire: int = 2) -> _TransactionField:
+    matches = [field for field in fields if field.tag == tag]
+    if len(matches) > 1 or matches and matches[0].wire != wire:
+        raise ValueError("ambiguous committed transaction field")
+    return matches[0] if matches else _TransactionField(tag, wire)
+
+
+def _committed_evm_transaction(data: bytes) -> bytes:
+    transaction = _transaction_fields(data)
+    body = _transaction_fields(_transaction_field(transaction, 1).data)
+    message = _transaction_fields(_transaction_field(body, 1).data)
+    if _transaction_field(message, 1).data not in (
+        b"/paxprotocol.paxchain.evm.MsgEVMTransaction", b"/ethermint.evm.v1.MsgEthereumTx",
+    ):
+        raise ValueError("invalid committed EVM message")
+    wrapped = _transaction_fields(_transaction_field(message, 2).data)
+    payload = _transaction_field(wrapped, 1).data
+    if not payload:
+        raise ValueError("missing committed EVM transaction")
+    if payload[0] >= 192 or 1 <= payload[0] <= 4:
+        return payload
+    encoded = _transaction_fields(payload)
+    layouts = {
+        b"/paxprotocol.paxchain.eth.LegacyTx": (0, "uduhdrbbb"),
+        b"/paxprotocol.paxchain.eth.AccessListTx": (1, "duduhdrabbb"),
+        b"/paxprotocol.paxchain.eth.DynamicFeeTx": (2, "dudduhdrabbb"),
+        b"/paxprotocol.paxchain.eth.BlobTx": (3, "dudduhdradx_bbb"),
+        b"/paxprotocol.paxchain.eth.SetCodeTx": (4, "dudduhdraobbb"),
+    }
+    layout = layouts.get(_transaction_field(encoded, 1).data)
+    if layout is None:
+        raise ValueError("unsupported committed EVM transaction")
+    fields = _transaction_fields(_transaction_field(encoded, 2).data)
+
+    def unsigned(number):
+        if not 0 <= number < 1 << 256:
+            raise ValueError("invalid committed EVM integer")
+        return number.to_bytes((number.bit_length() + 7) // 8, "big")
+
+    def hex_bytes(value, size):
+        if re.fullmatch(rb"0x[0-9a-fA-F]{" + str(size * 2).encode() + rb"}", value) is None:
+            raise ValueError("invalid committed EVM address or hash")
+        return bytes.fromhex(value[2:].decode("ascii"))
+
+    def scalar(values, tag, kind):
+        field = _transaction_field(values, tag, 0 if kind == "u" else 2)
+        value = field.data
+        if kind == "u":
+            return unsigned(field.value)
+        if kind == "d" and value:
+            if re.fullmatch(rb"(?:0|[1-9][0-9]{0,77})", value) is None:
+                raise ValueError("invalid committed EVM integer")
+            return unsigned(int(value))
+        if kind == "h" and value:
+            return hex_bytes(value, 20)
+        if kind == "b":
+            if len(value) > 32:
+                raise ValueError("invalid committed EVM signature")
+            return value.lstrip(b"\0")
+        return value
+
+    def repeated(tag, kind):
+        result = []
+        for field in fields:
+            if field.tag != tag:
+                continue
+            if field.wire != 2:
+                raise ValueError("invalid committed EVM list")
+            if kind == "x":
+                if len(field.data) != 32:
+                    raise ValueError("invalid committed EVM blob hash")
+                result.append(field.data)
+                continue
+            members = _transaction_fields(field.data)
+            if kind == "o":
+                result.append(tuple(scalar(members, i, fmt) for i, fmt in enumerate("dhubbb", 1)))
+            else:
+                address = hex_bytes(_transaction_field(members, 1).data, 20)
+                keys = []
+                for member in members:
+                    if member.tag == 2:
+                        if member.wire != 2:
+                            raise ValueError("invalid committed EVM storage key")
+                        keys.append(hex_bytes(member.data, 32))
+                result.append((address, tuple(keys)))
+        return tuple(result)
+
+    tx_type, formats = layout
+    values = tuple(
+        repeated(tag, kind) if kind in "axo" else scalar(fields, tag, kind)
+        for tag, kind in enumerate(formats, 1) if kind != "_"
+    )
+    return (bytes([tx_type]) if tx_type else b"") + _rlp(values)
+
+
+@dataclass(frozen=True)
 class VerifiedCommit:
     height: int
     block_hash: bytes
@@ -142,8 +285,18 @@ def verify_committed_transaction(raw_transaction: bytes, receipt_height: int, *,
         raise ValueError("landing height regression")
     # Comet tx proofs commit to SHA256(tx) leaves, not Ethereum transaction hashes.
     data = _hex(proof["data"])
-    if data != raw_transaction:
+    if data != raw_transaction and _committed_evm_transaction(data) != raw_transaction:
         raise ValueError("transaction inclusion identity mismatch")
+    inclusion_header = header
+    if "execution_header" in proof:
+        execution = proof["execution_header"]
+        if (not isinstance(execution, dict) or execution["chain_id"] != chain_id
+                or int(execution["height"]) != receipt_height
+                or int(execution["height"]) + 1 != commit["height"]
+                or _header_hash(execution) != _hex(header["last_block_id"]["hash"], 32)
+                or _hex(execution["next_validators_hash"], 32) != _hex(header["validators_hash"], 32)):
+            raise ValueError("execution header binding mismatch")
+        inclusion_header = execution
     index, total = proof["index"], proof["total"]
     if type(index) is not int or type(total) is not int or not 0 <= index < total <= 1 << 63:
         raise ValueError("transaction proof position")
@@ -160,7 +313,7 @@ def verify_committed_transaction(raw_transaction: bytes, receipt_height: int, *,
         if position < split:
             return sha256(b"\1" + reconstruct(position, split) + aunt).digest()
         return sha256(b"\1" + aunt + reconstruct(position - split, count - split)).digest()
-    if reconstruct(index, total) != _hex(header["data_hash"], 32) or aunts:
+    if reconstruct(index, total) != _hex(inclusion_header["data_hash"], 32) or aunts:
         raise ValueError("transaction inclusion proof mismatch")
     return VerifiedCommit(commit["height"], block_hash, keccak256(raw_transaction), _hex(header["app_hash"]))
 

@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
-import { AgentHttpTransport, ProductionClient, keccak256 } from "@sidiora/layerx-sdk";
+import { AgentHttpTransport, ProductionClient, keccak256, verifySequencerReceipt } from "@sidiora/layerx-sdk";
 import { BuyerMiddleware } from "@sidiora/layerx-buyer-middleware";
 import { PaymentRpc, decodePaymentRequiredHeader, decodeSettlementHeader, encodePaymentPayloadHeader,
   paymentCommitment, verifyRpcPayment, verifyPaymentReceipt } from "../../seller/dist/index.js";
-import { agentSpend, bytes, hex, keys, offer, payer, payloadFor, proof, txHash } from "./node-fixtures.mjs";
+import { agentSpend, bytes, exact, hex, keys, offer, payer, payloadFor, proof, txHash } from "./node-fixtures.mjs";
 import { paymentPeer } from "./peers.mjs";
 
 export async function mergedHttpEnvelopesSurviveReopen(context) {
@@ -12,9 +12,13 @@ export async function mergedHttpEnvelopesSurviveReopen(context) {
   const hash = await rpc.send(proof.rawTransaction);
   assert.equal(hash, txHash);
   const result = await rpc.receipt(hash);
+  const authenticated = await verifySequencerReceipt(bytes(result.receipt), bytes(proof.rawTransaction), keys);
+  const legacyDigest = hex(keccak256(bytes(result.receipt)));
   const produced = await verifyRpcPayment(result, proof.rawTransaction, payer, offer, keys);
   assert.equal(produced.kind, "verified");
-  assert.equal(produced.receiptDigest, hex(keccak256(bytes(result.receipt))));
+  assert.equal(produced.receiptDigest, hex(authenticated.receiptDigest));
+  assert.equal(produced.receiptDigest, exact.receiptDigest);
+  assert.notEqual(produced.receiptDigest, legacyDigest);
   const agentResponse = await fetch(`${peer.endpoint}agent`, { method: "POST",
     headers: { "content-type": "application/json" }, body: JSON.stringify({ proof, spend: agentSpend }) });
   assert.equal(agentResponse.status, 200);
@@ -54,6 +58,7 @@ export async function mergedHttpEnvelopesSurviveReopen(context) {
   assert.deepEqual(peer.requests.filter((request) => request.method === "POST" && request.url === "/").map((request) => request.body.method),
     ["eth_sendRawTransaction", "pax_sequencerReceipt"]);
   for (const corrupt of [
+    { ...proof, receiptDigest: legacyDigest },
     { ...proof, receiptDigest: `0x${"ff".repeat(32)}` },
     { ...proof, signedReceipt: `${proof.signedReceipt.slice(0, -2)}00` },
     { ...proof, verificationLevel: "sequencer-signed" },
