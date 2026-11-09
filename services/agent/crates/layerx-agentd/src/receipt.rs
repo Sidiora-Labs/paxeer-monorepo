@@ -528,7 +528,14 @@ pub fn evidence_inventory(
             return Err(ReceiptStoreError::EvidenceVersion);
         }
         if let Some(value) = durable.get(&evidence_key(tenant.clone(), idempotency_key)?) {
-            check_evidence_version(value.bytes())?;
+            if value.bytes().get(..4) != Some(EVIDENCE_MAGIC.as_slice()) {
+                return Err(ReceiptStoreError::Corrupt);
+            }
+            match value.bytes().get(4) {
+                Some(&1 | &EVIDENCE_VERSION) => {}
+                Some(_) => return Err(ReceiptStoreError::EvidenceVersion),
+                None => return Err(ReceiptStoreError::Corrupt),
+            }
         }
         let served = serve(
             durable,

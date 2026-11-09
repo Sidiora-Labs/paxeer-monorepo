@@ -33,6 +33,7 @@ export interface RealtimePricesResult {
 }
 
 export function tickerFromSnapshot(row: MarketSnapshot): TickerEntry {
+  if (row.price === null) throw new Error("Market price unavailable");
   return {
     symbol: `PERP_${row.symbol}_USDC`,
     paxeerSymbol: row.symbol,
@@ -82,7 +83,7 @@ export function useRealtimePrices({
     const tickers: TickerMap = {};
     for (const row of rows) {
       if (
-        row.price <= 0 ||
+        row.price === null || row.price <= 0 ||
         !Number.isFinite(row.price_updated_at) ||
         now - row.price_updated_at >= PRICE_FRESHNESS_MS
       )

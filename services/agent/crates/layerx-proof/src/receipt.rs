@@ -116,6 +116,9 @@ impl AuthorizedBatch {
         }
     }
 
+    /// # Errors
+    /// Refuses non-range keys, malformed or unsigned receipts, invalid signatures,
+    /// and receipts outside a unique authorised sequencer range.
     pub fn from_receipt_keys<'a>(
         receipt_bytes: &[u8],
         receipt_keys: impl Into<ReceiptKeys<'a>>,
@@ -924,6 +927,11 @@ pub fn verify_program_outcome(
     verify_program_outcome_selected(receipt_bytes, authorised, false)
 }
 
+/// Verifies the authenticated native refusal recorded before Programs execution.
+///
+/// # Errors
+/// Refuses an invalid sequencer signature, receipt shape or refusal result domain,
+/// and any mismatch with the authorised activity, batch or state roots.
 pub fn verify_program_preexecution_rejection(
     receipt_bytes: &[u8],
     authorised: &AuthorizedBatch,
@@ -1012,6 +1020,9 @@ pub fn verify_program_preexecution_rejection(
     .with_batch_authorization(authorised))
 }
 
+/// # Errors
+/// Refuses invalid maintenance or activity inclusion chains and receipts that do
+/// not authenticate a native pre-execution rejection under the derived batch.
 pub fn verify_program_preexecution_rejection_maintained_chain(
     receipt_bytes: &[u8],
     authorised: &AuthorizedBatch,
@@ -1222,8 +1233,8 @@ mod programs_version_contract {
             );
             assert_eq!(
                 supports_program_account_state(version),
-                version >= programs_module_abi::ACCOUNT
-                    && version < programs_module_abi::SANDBOX_DESTROY,
+                (programs_module_abi::ACCOUNT..programs_module_abi::SANDBOX_DESTROY)
+                    .contains(&version),
                 "{name}"
             );
         }

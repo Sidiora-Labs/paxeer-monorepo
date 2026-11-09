@@ -1,11 +1,17 @@
 package perps_test
 
 import (
+	"context"
 	"encoding/json"
+	"fmt"
 	"math"
 	"math/big"
+	"net/http"
+	"net/http/httptest"
 	"os"
+	"os/exec"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -24,6 +30,7 @@ import (
 	testkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/tests/testutil/keeper"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/core/vm"
@@ -619,4 +626,264 @@ func TestPositionsLiquidatePermissionless(t *testing.T) {
 	require.Equal(t, positionsE18(53_990), fields[0]["liquidationPrice"])
 	require.Zero(t, fields[0]["penalty"].(*big.Int).Sign())
 	require.Equal(t, positionsKeeperK, fields[0]["keeper"])
+}
+
+// TestPositionsCollateralRemovalSettlementParity serves real precompile calls to
+// the production UI. Every eth_call has an isolated state snapshot, just as RPC
+// simulation does; only parity_execute commits the builder's calldata.
+func TestPositionsCollateralRemovalSettlementParity(t *testing.T) {
+	var e *positionsEnv
+	var mu sync.Mutex
+	var block uint64 = 100
+	var executed, simulations, resets int
+	reset := func(name string) {
+		e = newPositionsEnv(t, 0)
+		ctx := e.ctx()
+		e.seedBalance(ctx, e.k.ModuleEVMAddress(), 10_000_000_000_000)
+		_, err := e.k.Deposit(ctx, positionsTraderA, *uint256.NewInt(250_000_000))
+		require.NoError(t, err)
+		e.setMark(positionsE18(125))
+		marketState, err := e.k.GetMarketState(ctx, 0)
+		require.NoError(t, err)
+		marketState.Fresh = true
+		marketState.IndexPrice = marketState.MarkPrice
+		marketState.PricefeedMark = marketState.MarkPrice
+		marketState.PriceTimestampMs = uint64(positionsNowMs - 1000)
+		position := perpstypes.Position{ID: *uint256.NewInt(42), Account: positionsTraderA,
+			MarketID: 0, IsLong: true, SizeBase: *uint256.MustFromBig(positionsE18(10)),
+			CostBasisUsd: *uint256.MustFromBig(positionsE18(1000)), ReferencePrice: *uint256.MustFromBig(positionsE18(100)),
+			EntryPrice: *uint256.MustFromBig(positionsE18(100)), Leverage: *uint256.MustFromBig(positionsE18(10)), OpenedAt: 1}
+		params, err := e.k.GetParams(ctx)
+		require.NoError(t, err)
+		params.WithdrawFloorPpm = 100000
+		switch name {
+		case "profit":
+		case "loss":
+			marketState.MarkPrice = *uint256.MustFromBig(positionsE18(90))
+		case "funding-payment":
+			marketState.FundingIndex = *uint256.MustFromBig(positionsE18(3))
+		case "funding-receipt":
+			marketState.FundingIndex.Neg(uint256.MustFromBig(positionsE18(3)))
+		case "round-credit":
+			position.CostBasisUsd.Sub(&position.CostBasisUsd, uint256.NewInt(1))
+		case "round-debit":
+			position.CostBasisUsd.Add(&position.CostBasisUsd, uint256.NewInt(1))
+		case "round-funding-payment":
+			marketState.FundingIndex = *uint256.NewInt(1)
+		case "round-funding-receipt":
+			marketState.FundingIndex.Neg(uint256.NewInt(1))
+		case "round-both":
+			position.CostBasisUsd.Add(&position.CostBasisUsd, uint256.NewInt(1))
+			marketState.FundingIndex = *uint256.NewInt(1)
+		case "floor":
+			params.WithdrawFloorPpm = 200000
+		case "initial":
+			position.Leverage = *uint256.MustFromBig(positionsE18(5))
+		case "zero":
+			position.CostBasisUsd = *uint256.MustFromBig(positionsE18(1375))
+		case "deficit":
+			account, err := e.k.GetAccount(ctx, positionsTraderA)
+			require.NoError(t, err)
+			account.DeficitUsd = *uint256.MustFromBig(positionsE18(20))
+			ctx.KVStore(e.perpsKey).Set(perpstypes.AccountKey(positionsTraderA), account.Marshal())
+		case "tier-below", "tier-at", "tier-above":
+			position.SizeBase = *uint256.MustFromBig(positionsE18(8000))
+			if name == "tier-below" {
+				position.SizeBase.Sub(&position.SizeBase, uint256.NewInt(1))
+			}
+			if name == "tier-above" {
+				position.SizeBase.Add(&position.SizeBase, uint256.NewInt(1))
+			}
+			position.CostBasisUsd = *uint256.MustFromBig(positionsE18(800000))
+			_, err := e.k.Deposit(ctx, positionsTraderA, *uint256.NewInt(300_000_000_000))
+			require.NoError(t, err)
+		case "positions", "orders":
+		default:
+			t.Fatalf("unknown parity scenario %s", name)
+		}
+		require.NoError(t, e.k.UpdateParams(ctx, e.k.Authority(), params))
+		e.k.SetMarketState(ctx, marketState)
+		store := ctx.KVStore(e.perpsKey)
+		store.Set(perpstypes.PositionKey(position.ID), position.Marshal())
+		id := position.ID.Bytes32()
+		store.Set(perpstypes.AccountMarketPositionKey(positionsTraderA, 0), id[:])
+		account, err := e.k.GetAccount(ctx, positionsTraderA)
+		require.NoError(t, err)
+		account.PositionCount = 1
+		if name == "positions" {
+			market := positionsMarket()
+			market.ID = 1
+			market.Symbol = "ETH"
+			market.Name = "ETH"
+			require.NoError(t, e.k.SetMarket(ctx, e.k.Authority(), market))
+			secondState := marketState
+			secondState.MarketID = 1
+			secondState.FundingIndex = *uint256.NewInt(1)
+			e.k.SetMarketState(ctx, secondState)
+			second := position
+			second.ID = *uint256.NewInt(43)
+			second.MarketID = 1
+			second.CostBasisUsd = *uint256.MustFromBig(positionsE18(1200))
+			store.Set(perpstypes.PositionKey(second.ID), second.Marshal())
+			secondID := second.ID.Bytes32()
+			store.Set(perpstypes.AccountMarketPositionKey(positionsTraderA, 1), secondID[:])
+			account.PositionCount = 2
+		}
+		if name == "orders" {
+			order := perpstypes.Order{ID: *uint256.NewInt(900), Account: positionsTraderA, MarketID: 0,
+				IsLong: true, Type: perpstypes.OrderTypeLimit, TimeInForce: perpstypes.TimeInForceGTC,
+				Status: perpstypes.OrderStatusResting, LimitPrice: *uint256.MustFromBig(positionsE18(100)),
+				SizeBase: *uint256.MustFromBig(positionsE18(10)), Leverage: *uint256.MustFromBig(positionsE18(5)), Sequence: 900}
+			require.NoError(t, e.k.BookInsert(ctx, order))
+			store.Set(perpstypes.AccountOrderKey(positionsTraderA, order.ID), []byte{})
+			account.OpenOrderCount = 1
+		}
+		store.Set(perpstypes.AccountKey(positionsTraderA), account.Marshal())
+		_, err = e.k.RefreshMarginRatio(ctx, positionsTraderA)
+		require.NoError(t, err)
+		block++
+		resets++
+	}
+	oracle := func() map[string]string {
+		snapshot := e.stateDB.Snapshot()
+		defer e.stateDB.RevertToSnapshot(snapshot)
+		_, err := e.k.Settle(e.ctx(), positionsTraderA)
+		require.NoError(t, err)
+		amount, err := e.k.Withdrawable(e.ctx(), positionsTraderA)
+		require.NoError(t, err)
+		account, err := e.k.GetAccount(e.ctx(), positionsTraderA)
+		require.NoError(t, err)
+		if amount.Gt(&account.Collateral) {
+			amount = account.Collateral
+		}
+		margin, err := e.k.AccountMargin(e.ctx(), positionsTraderA)
+		require.NoError(t, err)
+		return map[string]string{"max": amount.Dec(), "equity": margin.Equity.String(), "collateral": account.Collateral.Dec()}
+	}
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		mu.Lock()
+		defer mu.Unlock()
+		var request struct {
+			ID     json.RawMessage   `json:"id"`
+			Method string            `json:"method"`
+			Params []json.RawMessage `json:"params"`
+		}
+		require.NoError(t, json.NewDecoder(r.Body).Decode(&request))
+		response := map[string]interface{}{"jsonrpc": "2.0", "id": request.ID}
+		var result interface{}
+		switch request.Method {
+		case "parity_reset":
+			var name string
+			require.NoError(t, json.Unmarshal(request.Params[0], &name))
+			reset(name)
+			result = map[string]interface{}{"owner": positionsTraderA.Hex(), "positionId": "42", "settled": oracle()}
+		case "parity_oracle":
+			result = oracle()
+		case "parity_settle":
+			_, err := e.k.Settle(e.ctx(), positionsTraderA)
+			require.NoError(t, err)
+			block++
+			result = true
+		case "parity_move":
+			var change string
+			require.NoError(t, json.Unmarshal(request.Params[0], &change))
+			market, err := e.k.GetMarketState(e.ctx(), 0)
+			require.NoError(t, err)
+			switch change {
+			case "price":
+				market.MarkPrice = *uint256.MustFromBig(positionsE18(100))
+			case "funding":
+				market.FundingIndex = *uint256.MustFromBig(positionsE18(30))
+			case "unavailable":
+				market.MarkPrice = uint256.Int{}
+			default:
+				t.Fatalf("unknown change %s", change)
+			}
+			e.k.SetMarketState(e.ctx(), market)
+			block++
+			result = true
+		case "eth_blockNumber":
+			result = fmt.Sprintf("0x%x", block)
+		case "eth_chainId":
+			result = "0x7d"
+		case "eth_call", "parity_execute":
+			var call struct {
+				To   common.Address `json:"to"`
+				From common.Address `json:"from"`
+				Data hexutil.Bytes  `json:"data"`
+			}
+			require.NoError(t, json.Unmarshal(request.Params[0], &call))
+			require.Equal(t, common.HexToAddress(perps.PerpsAddress), call.To)
+			if request.Method == "eth_call" {
+				var tag string
+				require.NoError(t, json.Unmarshal(request.Params[1], &tag))
+				require.Equal(t, fmt.Sprintf("0x%x", block), tag, "risk and simulation must use one block")
+			}
+			method, err := e.perpsABI.MethodById(call.Data)
+			require.NoError(t, err)
+			if method.Name == "removeCollateral" {
+				simulations++
+			}
+			snapshot := e.stateDB.Snapshot()
+			walletBefore := e.usdlBalance(positionsTraderA)
+			moduleBefore := e.usdlBalance(e.k.ModuleEVMAddress())
+			ret, callErr := e.precompile.Run(e.evm, call.From, call.From, call.Data, big.NewInt(0), false, false, nil)
+			if request.Method == "eth_call" {
+				e.stateDB.RevertToSnapshot(snapshot)
+				if callErr != nil {
+					response["error"] = map[string]interface{}{"code": 3, "message": "execution reverted", "data": hexutil.Encode(ret)}
+				} else {
+					result = hexutil.Encode(ret)
+				}
+			} else {
+				require.Equal(t, "removeCollateral", method.Name)
+				args, err := method.Inputs.Unpack(call.Data[4:])
+				require.NoError(t, err)
+				amount := args[1].(*big.Int)
+				var commit bool
+				require.NoError(t, json.Unmarshal(request.Params[1], &commit))
+				if callErr != nil {
+					e.stateDB.RevertToSnapshot(snapshot)
+				} else {
+					require.Equal(t, new(big.Int).Add(walletBefore, amount), e.usdlBalance(positionsTraderA))
+					require.Equal(t, new(big.Int).Sub(moduleBefore, amount), e.usdlBalance(e.k.ModuleEVMAddress()))
+					executed++
+				}
+				account, err := e.k.GetAccount(e.ctx(), positionsTraderA)
+				require.NoError(t, err)
+				result = map[string]interface{}{"ok": callErr == nil, "collateral": account.Collateral.Dec(), "wallet": e.usdlBalance(positionsTraderA).String()}
+				if callErr == nil && !commit {
+					e.stateDB.RevertToSnapshot(snapshot)
+				}
+				if commit && callErr == nil {
+					block++
+				}
+				if callErr != nil {
+					require.Equal(t, walletBefore, e.usdlBalance(positionsTraderA))
+					require.Equal(t, moduleBefore, e.usdlBalance(e.k.ModuleEVMAddress()))
+				}
+			}
+		default:
+			t.Errorf("unexpected RPC method %s", request.Method)
+		}
+		if _, failed := response["error"]; !failed {
+			response["result"] = result
+		}
+		w.Header().Set("Content-Type", "application/json")
+		require.NoError(t, json.NewEncoder(w).Encode(response))
+	}))
+	defer server.Close()
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
+	defer cancel()
+	command := exec.CommandContext(ctx, "node", "--import", "tsx", "--test", "--test-reporter=tap", "tests/repair-22-33-195.test.ts")
+	command.Dir = "../../apps/perps"
+	command.Env = append(os.Environ(), "PERPS_SETTLEMENT_RPC="+server.URL)
+	output, err := command.CombinedOutput()
+	require.NoError(t, err, "%s", output)
+	require.Contains(t, string(output), "ok 1 - collateralRemovalSettlementParity", "the TypeScript parity test must execute, not skip: %s", output)
+	require.NotContains(t, string(output), "# SKIP")
+	require.GreaterOrEqual(t, resets, 19)
+	require.GreaterOrEqual(t, executed, 15)
+	require.Greater(t, simulations, executed)
+	t.Logf("production UI parity: %d account snapshots, %d successful removals; %s", resets, executed, output)
 }
