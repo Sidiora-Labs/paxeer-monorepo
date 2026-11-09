@@ -12,11 +12,14 @@ qualification = "The declared gate evidence in /out/run/gates.jsonl is authorita
 
 [finding.runtime_emission_proof_gap]
 proof = "TestRepairM_948_NativeExecutorTransport; TestRepairM_948_NativeExecutorNode"
-path = "Strict committed executor-transcript consumption into all twelve native generated parsers and every retained role parser, with field equality, per-role origins, direct/surface Router and FeesRouter origins, eight non-pool Initialized refusals with unchanged log counts, malformed-data and unknown-topic refusal."
-qualification = "Execution recordings are now present; only the declared hf-build and hf-done evidence qualifies this candidate."
+status = "open"
+path = "NativeExecutorNode drives all eight public initialize methods through role surfaces, checks the exact AlreadyInitialized() revert bytes, failed mined receipts, unchanged role logs and relevant public state, and administrative grant refusals/non-holder renounces. Market creation proves one Initialized(1) at the new pool and actual factory, registry and NFT logs. Buy, fee strategy, fee claim, approval and transfer logs are decoded by generated parsers at production origins. NativeExecutorTransport retains all helper codec, malformed-data, unknown-topic and origin assertions as schema evidence only."
+qualification = "Only passing hf-build and hf-done evidence qualifies the production-method coverage claimed here. Helper emitAt grants, revocations and Initialized guard refusals cannot close this finding. Remaining production observations require the wiring request below."
 
 [wiring.native_transcript]
-resolved = "Recorded real PrecompileExecutor emitFamily/emitAt output over the SDK EVM store in native-execution.json (12 families, 25 role observations, 8 refusals); native-node-rpc.json additionally records public Router, FeesRouter and NFT execution through actual node transport and typed Go consumers. All recording tools remain implementation-time only."
+schema = "native-execution.json records emitFamily/emitAt helpers (12 families, 25 role observations, 8 guard refusals). Its role grants, revocations, origin choices and Initialized refusals are schema evidence, not production-handler observations."
+production = "native-node-rpc.json records current public ABI execution for all eight non-pool initialization refusals and reachable role operations through the real node; producer-revision.txt and handler/ABI source hashes pin its provenance. FeesRouter strategy logs originate at the FeesRouter and NFT identities even for direct 0x1017 calls. Pool Initialized is decoded with the generated shared Initialized(uint64) parser."
+request = "precompiles/launchpad (owning precompile domain): supply governance-authorized production recordings for held-role renounces and FeeAccumulator authorizePool/authorizeOptical grants, ProtocolConfig writes, and successful Quoter/ProtocolConfig AccessControl role emissions. The public fixture accounts hold no migrated privileges, grantRole is refused, and non-holder renounce emits no RoleRevoked; helper-generated observations cannot fill this gap. Keep runtime_emission_proof_gap open until production-method consumers assert each remaining claimed observation."
 
 [wiring.retained_transcripts]
 resolved = "Source-artifact-hash-pinned emitter-rpc.json and beacon-rpc.json now capture the real repository node executing all generated-binding calls, tuple logs, refusals, filters, subscriptions and client reconnects. Public fixture keys are integers 1 through 3 on Paxeer chain 125."
@@ -49,7 +52,7 @@ node_build_log = "/tmp/repair-m948-node-build.log"
 node = "The committed node/testdata/v6120-halt-export.json is prepared by the existing v6120-node.sh sequencer startup procedure, with public fixture-key funding and local WebSocket enabled. The node was stopped before qualification."
 retained = "python3 sdk/launchpad/protocol/bindings/testdata/repair_m948/record_retained.py ws://127.0.0.1:18546; exit 0; /tmp/repair-m948-retained-record.log; captures 83 beacon and 106 emitter calls."
 native = "python3 sdk/launchpad/protocol/bindings/testdata/repair_m948/record_native.py; exit 0; /tmp/repair-m948-native-record.log; source overlay adds only a recorder entrypoint calling production emitters and store."
-native_node = "python3 sdk/launchpad/protocol/bindings/testdata/repair_m948/record_retained.py ws://127.0.0.1:18546 NativeExecutorNode; exit 0; /tmp/repair-m948-native-node-record.log; captures successful market, buy, strategy and NFT transactions, both Router origins and both FeesRouter entry points."
+native_node = "The earlier market/buy/strategy/transfer capture is superseded by recording.issue_1690 for production initialize refusals and role origins."
 reproduce = "python3 sdk/launchpad/protocol/bindings/testdata/repair_m948/record_node.py builds and starts the local sequencer and runs all implementation-time captures; the focused gate never invokes these tools."
 
 [qualification.notes]
@@ -66,3 +69,14 @@ command = "cg spec done 22.33.948 -f layerx-merge --root /work/paxeer-monorepo"
 exit = 1
 log = "/out/logs/verify-1.log"
 observed = "Recorder serialization converted the absent params member on eth_maxPriorityFeePerGas into null; preserve omission in the fixture codec and require exact omission on both sides, keeping explicit null distinct."
+
+[recording.issue_1690]
+command = "python3 /tmp/m948-node.py (native-only adaptation of record_node.py with a forwarding recorder generated from the complete production-method scenario)"
+exit = 0
+log = "/tmp/m948-production-capture-3.log"
+producer = "The current source revision in producer-revision.txt produced native-node-rpc.json through the implementation-time node forwarding recorder; the focused qualification gate uses strict request/response replay only."
+coverage = "Eight exact initialization errors and failed mined receipts; before/after role logs and public state; grantRole refusals and successful non-holder renounces; pool-only Initialized; generated factory, registry, Router, FeesRouter, FeeAccumulator and NFT event consumers."
+
+[qualification.issue_1690_notes]
+gotcha = "Generated role ABIs declare AlreadyInitialized but omit the administrative AccessControl error; decode and assert administrative refusals with the canonical native ABI instead."
+gotcha_normalization = "Decode humanized expected event fields into an empty interface; reusing an interface holding a big.Int invokes its numeric unmarshaler on the humanized string."

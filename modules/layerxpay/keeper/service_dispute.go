@@ -24,6 +24,12 @@ func (k Keeper) serviceDisputeEscrow(ctx sdk.Context, agreementID [32]byte, meth
 	if !found {
 		return types.EscrowRecord{}, submitCodeError(method, lxphost.Code(-706))
 	}
+	key := types.KernelKVKey(types.EscrowModuleID, append([]byte("hold:"), agreement.EscrowID[:]...))
+	wire := ctx.KVStore(k.hostKey).Get(key)
+	// Classify a broken service link before the escrow view rejects its identifier.
+	if len(wire) >= 32 && [32]byte(wire[:32]) != agreement.EscrowID {
+		return types.EscrowRecord{}, submitCodeError(method, serviceEscrowLinkMismatch)
+	}
 	escrow, found, err := k.GetEscrow(ctx, agreement.EscrowID)
 	if err != nil {
 		return types.EscrowRecord{}, err
