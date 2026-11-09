@@ -181,7 +181,10 @@ def test_exact_bank_amount_asset_limit_and_consensus_head_schemas_are_preserved(
     assert "resolved_at_height(config, id, params)" in bank
     assert "node_at_height(" in bank
     assert "evm::SELECTOR_BANK_ALL_BALANCES" in bank
-    assert "wallet_contract::balances(resolution.document(), height, balances)" in bank
+    # Task 22.39.240 removed the shared constructor call from this producer.
+    assert "wallet_contract::balances(" not in bank
+    assert '"result": {"account": resolution.document(), "height": height, "balances": balances}' in bank
+    assert "let balances = match decode_coins(&answer)" in bank
     contract = (ROOT / "tools/platform/cli/src/wallet_gateway.rs").read_text()
     assert '"balances":balances' in contract
     assert "evm::uint256_decimal(&amount)" in rust_function("paxeer.rs", "decode_coins")
@@ -214,6 +217,7 @@ def test_exact_bank_amount_asset_limit_and_consensus_head_schemas_are_preserved(
 def test_all_unrelated_openrpc_contracts_match_the_recorded_base():
     snapshot = read_json(Path(__file__).with_name("fixtures") / "repair_22_33_64_openrpc.json")
     assert snapshot["base_revision"] == "716e8dfe1518af0033ed3d0e2b7b4f34fa81f0aa"
+    assert snapshot["pin_source_revision"] == "2910889b640274b1b6f2bd14a2fba25019093bb2"
     document = copy.deepcopy(read_json(GATEWAY / "openrpc.json"))
     document["methods"] = [
         item for item in document["methods"] if item["name"] != "px_getRouteCatalogue"

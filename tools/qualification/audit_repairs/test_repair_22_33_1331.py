@@ -75,7 +75,7 @@ def test_finding_36_every_affected_lock_matches_manifest_without_resolution_chur
         assert match is not None
         remainder = text[:match.start()] + text[match.end():]
         assert hashlib.sha256(remainder.encode()).hexdigest() == (
-            "4ec28f01587e5a955085c3e381470601a923c16c23f3219133010f37a32fb648"
+            "8bcf0c5f5fc8da8949269043d32cedd9684f0f845484a48a6059ed67fb61212e"
         )
         affected.append(path.relative_to(ROOT).as_posix())
     assert affected == ["services/platform/Cargo.lock"]

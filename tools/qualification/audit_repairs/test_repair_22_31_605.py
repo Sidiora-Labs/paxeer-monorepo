@@ -230,11 +230,22 @@ def test_wallet_runs_unfiltered_vitest_in_both_directories():
     agent_install = commands.index("npm ci --workspaces=false --no-audit --no-fund")
     agent_build = commands.index("npm run build --workspaces=false")
     sdk_install = commands.index("pnpm install --ignore-workspace --frozen-lockfile")
-    app_install = commands.index("pnpm install --frozen-lockfile")
-    assert agent_install < agent_build < sdk_install < app_install < len(steps) - 1
+    workspace_install = next(
+        index for index, step in enumerate(steps)
+        if step.get("working-directory") == "services/wallet"
+        and step.get("run") == "pnpm install --frozen-lockfile"
+    )
+    app_install = next(
+        index for index, step in enumerate(steps)
+        if step.get("working-directory") == "apps/wallet"
+        and step.get("run") == "pnpm install --frozen-lockfile"
+    )
+    assert agent_install < agent_build < sdk_install < workspace_install < app_install < len(steps) - 1
     assert steps[agent_install]["working-directory"] == "services/agent/sdk/typescript"
     assert steps[agent_build]["working-directory"] == "services/agent/sdk/typescript"
     assert steps[sdk_install]["working-directory"] == "sdk/wallet"
+    assert steps[workspace_install]["if"] == "matrix.directory == 'sdk/wallet'"
+    assert (ROOT / "services/wallet/pnpm-workspace.yaml").is_file()
     assert steps[app_install]["working-directory"] == "apps/wallet"
     assert steps[app_install]["if"] == "matrix.directory == 'apps/wallet'"
     assert "npm install --global pnpm@10.34.9" in commands
