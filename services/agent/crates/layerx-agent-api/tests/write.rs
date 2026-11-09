@@ -130,11 +130,11 @@ fn wait_returns_actual_rung_even_when_deadline_elapsed() {
 }
 
 #[test]
-fn sign_signature_is_65_bytes() {
-    let response = GOLDEN
-        .split_once("[golden.response.sign]\n")
-        .map(|(_, response)| response)
-        .unwrap_or_else(|| panic!("golden sign response missing"));
+fn sign_signature_is_65_bytes() -> Result<(), String> {
+    let response = GOLDEN.split_once("[golden.response.sign]\n").map_or_else(
+        || panic!("golden sign response missing"),
+        |(_, response)| response,
+    );
     let signature_text = response
         .lines()
         .take_while(|line| !line.starts_with('['))
@@ -142,7 +142,7 @@ fn sign_signature_is_65_bytes() {
             line.strip_prefix("signature = \"")
                 .and_then(|value| value.strip_suffix('"'))
         })
-        .unwrap_or_else(|| panic!("golden sign signature missing"));
+        .ok_or_else(|| "golden sign signature missing".to_owned())?;
     assert_eq!(signature_text.len(), 130);
     let decoded = required(signature_text.parse::<SignatureBytes>());
     let mut expected = vec![1; 32];
@@ -177,6 +177,8 @@ fn sign_signature_is_65_bytes() {
             Err(ContractError::Malformed("signature"))
         );
     }
+
+    Ok(())
 }
 
 #[test]

@@ -10,6 +10,7 @@ import { describe, it, expect, vi } from 'vitest';
 vi.mock('next/router', async() => (await import('ui/shared/layout/testWrapper')).nextRouterModule());
 
 import ChainIndicatorsChart from './ChainIndicatorsChart';
+import { getChartData } from './utils/chart';
 
 const buildData = (days: number): TimeChartData => ([ {
   id: 'daily_txs',
@@ -43,19 +44,28 @@ describe('ChainIndicatorsChart', () => {
     expect(chart.querySelector('[data-label="sparkline"]')).not.toBeNull();
   });
 
-  it('trims the series to the last days it is asked for', () => {
-    const data = buildData(30);
+  it('renders the calendar-day window prepared by the producer', () => {
+    const samples = Array.from({ length: 30 }, (_, index) => ({
+      date: new Date(Date.UTC(2026, 0, index + 1)),
+      value: index === 28 ? null : index + 1,
+    }));
+    const data = getChartData('daily_txs', samples, 14);
     const { container } = render(
       <ChainIndicatorsChart
         isLoading={ false }
         title="Blockscout transaction history in 14 days"
         chartQuery={{ isError: false, isPending: false, data }}
-        days={ 14 }
       />,
     );
 
-    expect(container.querySelector('[data-label="chain-indicator-chart"]')?.getAttribute('data-points')).toBe('14');
-    expect(data[0].items).toHaveLength(30);
+    expect(container.querySelector('[data-label="chain-indicator-chart"]')?.getAttribute('data-points')).toBe('13');
+    expect(container.querySelector('[data-label="sparkline"]')).not.toBeNull();
+    expect(data[0].items.map(({ date, value }) => [ date.toISOString().slice(0, 10), value ])).toEqual([
+      [ '2026-01-17', 17 ], [ '2026-01-18', 18 ], [ '2026-01-19', 19 ], [ '2026-01-20', 20 ],
+      [ '2026-01-21', 21 ], [ '2026-01-22', 22 ], [ '2026-01-23', 23 ], [ '2026-01-24', 24 ],
+      [ '2026-01-25', 25 ], [ '2026-01-26', 26 ], [ '2026-01-27', 27 ], [ '2026-01-28', 28 ], [ '2026-01-30', 30 ],
+    ]);
+    expect(samples).toHaveLength(30);
   });
 
   it('falls back to a notice when the series cannot be fetched', () => {

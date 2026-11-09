@@ -9,8 +9,8 @@ use std::os::unix::fs::DirBuilderExt as _;
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 use std::sync::{
-    atomic::{AtomicBool, AtomicUsize, Ordering},
     Arc,
+    atomic::{AtomicBool, AtomicUsize, Ordering},
 };
 use std::task::{Context, Poll, Wake, Waker};
 use std::thread::JoinHandle;
@@ -19,9 +19,9 @@ use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use layerx_crypto::account_derivation::derive_from_seed;
 use layerx_crypto::disclosure::call::encode_payment_call;
 use layerx_crypto::evm_transaction::{
-    decode_signed, recover_sender, transaction_hash, Eip1559Call,
+    Eip1559Call, decode_signed, recover_sender, transaction_hash,
 };
-use layerx_crypto::payments::{asset_id, Payment, Registration};
+use layerx_crypto::payments::{Payment, Registration, asset_id};
 use layerx_crypto::signer::LocalSigner;
 use layerx_proof::inclusion::SequencerAuthorization;
 use layerx_sdk::rpc::{Commitment, RpcClient, RpcError};
@@ -29,7 +29,7 @@ use layerx_sdk::rpc_verification::ReceiptPolicy;
 use layerx_sdk::wallet::{PaymentOptions, Wallet};
 use layerx_types::clock::{Clock, ClockError, ClockReading};
 use layerx_types::payload::ModuleId;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use sha2::{Digest as _, Sha256};
 use zeroize::Zeroizing;
 
@@ -969,6 +969,7 @@ pub(super) fn committed_wait_uses_live_block_authority_after_reopen() {
             record["rawTransaction"].clone();
         state["receipts"][field(&record["receiptJson"], "txHash")] = record["receiptJson"].clone();
         state["_committed"] = record.clone();
+        state["_committed"]["batch"]["activityIds"] = json!([record["receiptJson"]["txHash"]]);
     }
     let policy = pinned_policy(&node);
     let rpc = node.rpc();
@@ -1076,7 +1077,7 @@ pub(super) fn committed_wait_uses_live_block_authority_after_reopen() {
 }
 
 pub(super) fn daemon_not_ready_goldens_preserve_value_and_rung_order() {
-    use layerx_sdk::agent_envelope::{decode_response_status, EnvelopeOutcome, NotReadyStatus};
+    use layerx_sdk::agent_envelope::{EnvelopeOutcome, NotReadyStatus, decode_response_status};
     use layerx_types::rung::Rung;
     for (name, expected) in [
         (
@@ -1504,7 +1505,7 @@ pub(super) fn native_owner_preview_prepare_disclose_external_sign_and_submit() {
     };
     use layerx_agent_api::submit::{PreparationRef, SignRequest, SignatureBytes, SubmitRequest};
     use layerx_sdk::agent_envelope::{
-        validate_call_disclosure, AgentEnvelopeTransport, EnvelopeCredential,
+        AgentEnvelopeTransport, EnvelopeCredential, validate_call_disclosure,
     };
     let case = owner_case();
     let credential = EnvelopeCredential::new(
@@ -1605,12 +1606,14 @@ pub(super) fn native_owner_preview_prepare_disclose_external_sign_and_submit() {
     }
     let mut bad_preimage = prepared.clone();
     bad_preimage.signing_preimage = [0x55; 32];
-    assert!(layerx_sdk::agent_envelope::validate_unsigned_preparation(
-        &bad_preimage,
-        prepared.preparation_id,
-        prepared.preparation_id
-    )
-    .is_err());
+    assert!(
+        layerx_sdk::agent_envelope::validate_unsigned_preparation(
+            &bad_preimage,
+            prepared.preparation_id,
+            prepared.preparation_id
+        )
+        .is_err()
+    );
 
     let key = Zeroizing::new(fixed_field::<32>(&case, "external_evm_secret"));
     let raw = call.sign(&key).expect("external EVM signer");
@@ -1881,13 +1884,15 @@ pub(super) fn program_abi_constructor_retains_c_producer_transaction() {
     assert!(NativeProgramCallRequest::new(&registry, native, fee + 1, &raw).is_err());
     let mut retired = transaction.clone();
     retired.data = payload.clone();
-    assert!(NativeProgramCallRequest::new(
-        &registry,
-        native,
-        fee,
-        &retired.sign(&[0x42; 32]).expect("signed retired payload")
-    )
-    .is_err());
+    assert!(
+        NativeProgramCallRequest::new(
+            &registry,
+            native,
+            fee,
+            &retired.sign(&[0x42; 32]).expect("signed retired payload")
+        )
+        .is_err()
+    );
     let (_, signature) = decode_signed(&raw).expect("real recoverable signature");
     let carrier = layerx_agent_api::submit::SignatureBytes::new(signature.as_bytes().to_vec())
         .expect("65-byte carrier");
@@ -1919,10 +1924,10 @@ mod binary {
 pub(super) fn authenticated_registration_and_session_reach_exact_owner_results() {
     use layerx_agent_api::error::RequestId;
     use layerx_agent_api::idempotency::Key;
-    use layerx_client::account_binding::{plan_bind, BindPlan};
-    use layerx_crypto::session::{issue_session_key, SessionKeyRequest, SessionPurpose};
-    use layerx_sdk::agent_envelope::{AgentEnvelopeTransport, EnvelopeCredential, EnvelopeError};
+    use layerx_client::account_binding::{BindPlan, plan_bind};
+    use layerx_crypto::session::{SessionKeyRequest, SessionPurpose, issue_session_key};
     use layerx_sdk::Operation;
+    use layerx_sdk::agent_envelope::{AgentEnvelopeTransport, EnvelopeCredential, EnvelopeError};
 
     let account = derive_from_seed(&[0x41; 32], 0).expect("provisioned owner");
     let BindPlan::Bind(binding) = plan_bind(&account, 125, None, 0).expect("consent producer")
@@ -1946,11 +1951,9 @@ pub(super) fn authenticated_registration_and_session_reach_exact_owner_results()
         session_public_key,
         not_before: 1,
         expires_at: Some(10_000),
-        permitted_activity_types: vec![layerx_types::payload::ActivityType::new(
-            ModuleId::Asset,
-            4,
-        )
-        .expect("open account")],
+        permitted_activity_types: vec![
+            layerx_types::payload::ActivityType::new(ModuleId::Asset, 4).expect("open account"),
+        ],
         revocation_sequence: Some(1),
         fee_budget: None,
         purpose: SessionPurpose::Activity,

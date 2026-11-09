@@ -4,15 +4,24 @@ import { createServer, IncomingMessage, ServerResponse } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { Socket } from 'node:net';
 
+import type generateMetadataFunction from 'lib/metadata/generate';
 import { averageGasPrice } from 'mocks/stats/line';
+import type { getServerSideProps as statsServerSideProps } from 'pages/stats/[id]';
 import { afterAll, beforeAll, expect, test, vi } from 'vitest';
+
+import type fetchApiFunction from './fetchApi';
 
 let server: Server;
 let status = 200;
 let body = JSON.stringify(averageGasPrice);
 const requests: Array<URL> = [];
+const mockedFetch = globalThis.fetch;
+let fetchApi: typeof fetchApiFunction;
+let getServerSideProps: typeof statsServerSideProps;
+let generateMetadata: typeof generateMetadataFunction;
 
 beforeAll(async() => {
+  fetchMock.disableMocks();
   server = createServer((request, response) => {
     requests.push(new URL(request.url ?? '/', 'http://localhost'));
     response.writeHead(status, { 'content-type': 'application/json' });
@@ -25,20 +34,26 @@ beforeAll(async() => {
   vi.stubEnv('NEXT_PUBLIC_STATS_API_BASE_PATH', '');
   vi.stubEnv('NEXT_PUBLIC_SEO_ENHANCED_DATA_ENABLED', 'true');
   vi.resetModules();
+  ({ 'default': fetchApi } = await import('./fetchApi'));
+  ({ getServerSideProps } = await import('pages/stats/[id]'));
+  ({ 'default': generateMetadata } = await import('lib/metadata/generate'));
 });
 
 afterAll(async() => {
-  vi.unstubAllEnvs();
-  vi.resetModules();
-  await new Promise<void>((resolve, reject) => {
-    server.close((error) => error ? reject(error) : resolve());
-  });
+  try {
+    await new Promise<void>((resolve, reject) => {
+      server.close((error) => error ? reject(error) : resolve());
+    });
+  } finally {
+    fetchMock.enableMocks();
+    vi.unstubAllEnvs();
+    vi.resetModules();
+    expect(globalThis.fetch).toBe(mockedFetch);
+  }
 });
 
 async function httpErrorsAsPayloads() {
-  const { 'default': fetchApi } = await import('./fetchApi');
-  const { getServerSideProps } = await import('pages/stats/[id]');
-  const { 'default': generateMetadata } = await import('lib/metadata/generate');
+  expect(vi.isMockFunction(globalThis.fetch)).toBe(false);
   const chartInfo = averageGasPrice.info;
   if (!chartInfo) {
     throw new Error('Stats fixture must contain chart metadata');
@@ -95,4 +110,4 @@ async function httpErrorsAsPayloads() {
   }
 }
 
-test(httpErrorsAsPayloads);
+test(httpErrorsAsPayloads, httpErrorsAsPayloads);

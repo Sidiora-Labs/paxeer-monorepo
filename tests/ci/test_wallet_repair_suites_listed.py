@@ -6,6 +6,8 @@ import shlex
 
 import yaml
 
+from test_pnpm_workspace_roots import expand_matrix, matrix_rows, run_directory
+
 
 ROOT = Path(__file__).resolve().parents[2]
 WALLET = ROOT / "apps/wallet"
@@ -75,7 +77,14 @@ def test_wallet_repair_suites_named_in_workflow_scope():
     assert "continue-on-error" not in job
     run = next(step for step in job["steps"] if step.get("name") == "Run Vitest suite")
     assert run["working-directory"] == "${{ matrix.directory }}"
-    assert shlex.split(run["run"]) == ["pnpm", "exec", "vitest", "run"]
+    assert run["run"] == "${{ matrix.command }}"
+    (wallet_row,) = [
+        row for row in matrix_rows(job) if row["directory"] == "apps/wallet"
+    ]
+    assert run_directory(workflow, job, run, wallet_row) == WALLET
+    assert shlex.split(expand_matrix(run["run"], wallet_row)) == [
+        "pnpm", "exec", "vitest", "run"
+    ]
     assert "if" not in run
     assert "continue-on-error" not in run
 

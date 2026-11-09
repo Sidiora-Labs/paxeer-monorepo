@@ -402,7 +402,8 @@
           "required": [
             "height",
             "tx",
-            "proof"
+            "proof",
+            "activityIds"
           ],
           "properties": {
             "height": {
@@ -413,6 +414,14 @@
             "tx": {
               "type": "string",
               "pattern": "^0x([0-9a-fA-F]{2})*$"
+            },
+            "activityIds": {
+              "type": "array",
+              "description": "Complete consensus activity IDs for every transaction after tx 0, in original order: signed EVM transaction hashes, or SHA-256 of raw bytes for associate, non-EVM and undecodable transactions. Independent of Ethereum visibility and domain filtering; validated against the batch range, activity root and sequence state.",
+              "items": {
+                "type": "string",
+                "pattern": "^0x[0-9a-fA-F]{64}$"
+              }
             },
             "proof": {
               "type": "object",

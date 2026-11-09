@@ -74,7 +74,14 @@ def test_explorer_test_step_runs_both_umbrella_apps():
         (ROOT / ".github/workflows/explorer-images.yml").read_text(encoding="utf-8")
     )
     job = workflow["jobs"]["explorer-backend-test"]
-    commands = [step for step in job["steps"] if "run" in step]
+    commands = [
+        step
+        for step in job["steps"]
+        if "run" in step
+        and shlex.split(step["run"]) == [
+            "services/explorer/deploy/tools/mix-in-builder.sh", "test"
+        ]
+    ]
     assert len(commands) == 1
     step = commands[0]
     assert shlex.split(step["run"]) == [

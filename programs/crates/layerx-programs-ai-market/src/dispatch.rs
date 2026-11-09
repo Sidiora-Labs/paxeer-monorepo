@@ -877,8 +877,8 @@ pub const OPERATIONS: &[OperationMetadata] = &[
         boundary: CallBoundary::Mutation,
         sequence: SequencePolicy::Role,
         delegate_allowed: false,
-        payload_min: 168,
-        payload_max: 168,
+        payload_min: crate::rooms::OPEN_ROOM_REQUEST_BYTES,
+        payload_max: crate::rooms::OPEN_ROOM_REQUEST_BYTES,
         authority: AuthorityClass::Host,
         sections: &[
             Section::PolicyLifecycle,

@@ -179,12 +179,13 @@ export default function ProfileEditModal({ open, onClose, onSaved, initialField 
               kind={kind}
               currentAssetId={draft[kind]}
               upload={upload?.kind === kind ? upload : null}
-              disabled={upload?.pending === true || state === 'loading'}
+              disabled={upload?.pending === true || state === 'loading' || state === 'saving'}
               autoFocus={target === kind}
               onSelect={file => selectImage(kind, file)}
               onRefresh={() => { void refreshImage(); }}
               onRetry={() => upload && void transfer({ ...upload, id: upload.asset?.state === 'rejected' ? crypto.randomUUID() : upload.id })}
               onRemove={() => {
+                if (state === 'saving') return;
                 invalidate();
                 setDraft(previous => ({ ...previous, [kind]: baseline[kind] }));
                 setUpload(null);
@@ -263,8 +264,8 @@ function ImagePicker({ kind, currentAssetId, upload, disabled, autoFocus, onSele
             <Button variant="secondary" size="sm" disabled={disabled} onClick={() => inputRef.current?.click()} aria-controls={inputId} {...(autoFocus ? autofocus : {})}>Choose image</Button>
             {upload && !upload.pending ? (
               <>
-                <Button variant="ghost" size="sm" icon={<RefreshCw />} onClick={upload.asset?.state === 'rejected' || !upload.asset ? onRetry : onRefresh}>{upload.asset?.state === 'rejected' || !upload.asset ? 'Try again' : 'Refresh'}</Button>
-                <Button variant="ghost" size="sm" icon={<Trash2 />} onClick={onRemove}>Remove</Button>
+                <Button variant="ghost" size="sm" icon={<RefreshCw />} disabled={disabled} onClick={upload.asset?.state === 'rejected' || !upload.asset ? onRetry : onRefresh}>{upload.asset?.state === 'rejected' || !upload.asset ? 'Try again' : 'Refresh'}</Button>
+                <Button variant="ghost" size="sm" icon={<Trash2 />} disabled={disabled} onClick={onRemove}>Remove</Button>
               </>
             ) : null}
           </div>

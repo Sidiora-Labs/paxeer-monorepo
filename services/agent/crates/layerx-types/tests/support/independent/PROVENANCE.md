@@ -1,0 +1,7 @@
+The field arithmetic, Edwards group operations, SHA-512 and error enum are the verification-only source modules from ed25519-compact 2.1.1, licensed under MIT. Source archive: https://crates.io/api/v1/crates/ed25519-compact/2.1.1/download
+Archive SHA-256: e9b3460f44bea8cd47f45a0c70892f1eff856d97cd55358b2f73f663789f6190
+Only the field module's crate-relative error import is made module-relative. No signing, randomness, FFI, executable or external crate is used. The field/group modules contain no upstream unit tests to omit.
+
+The chain_proof modules are source-derived from programs/crates/layerx-programs-registry/src/chain_proof at task base e3d7e5828b39e4182e9559fb6bc28d74c2f37e0f. Their hash/signature imports use the independent test crypto implementations; vote.rs uses a module-relative import. This preserves the native protobuf, Merkle and voting-power rules without requiring a manifest change. The repaired API request/response/export codecs remain the production crate implementations.
+
+This crate owns a verification-only copy for its linted test targets. Local changes remove inactive feature branches, spell numeric constants with separators, name intermediates, and make conversions and panic contracts explicit. The field/scalar operations, proof rules, vector tests and MIT attribution are retained. Production API consumers remain imported from their original source paths.
