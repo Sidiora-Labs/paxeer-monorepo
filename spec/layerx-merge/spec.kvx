@@ -11284,6 +11284,12 @@ value = "The readiness matrix lists fifty-three public workflows of which seven 
 basis = "The release owner ruling of 2026-11-09, decisions 3019 and 3020"
 affects = ["22.39.182"]
 
+[decision.3029]
+title = "Every arbiter consumer decodes a kernel boundary leaf through the record header the runtime producer authenticates, and the proof transport carries that header as the envelope the producer emits"
+value = "The runtime producer owns the boundary leaf encoding of decision 3024: a raw leaf is committed by replay_leaf_hash and decodes only with the ReplayRecordHeader of its record (PortableBoundary::decode_with_header), and ReplayRecordHeader::boundary_envelope is the one self-contained transport form (PortableBoundary::decode_untrusted). The arbiter follows the producer: the boundary proof the arbiter receives carries the envelope the producer emits, the arbiter extracts the header and the raw leaf from it through one shared helper of the crate, verifies the path over the hash of the raw leaf against the proved boundary root, checks the header against the proved replay metadata (code hash, input digest, runtime, abi, fee and metering versions, maximum boundaries and bytes) and decodes the leaf with that header; step, market and bisect use the same helper and no consumer calls decode_untrusted on a raw leaf. The producer encoding, the Merkle commitment and the proved metadata stay unchanged; the proof corpus transports leaves as the producer defines and every existing assertion keeps its name and expectation. A producer that changes a leaf, header or envelope encoding runs the proof tests of the arbiter in its own gate."
+basis = "Gotcha 3727, decisions 3024 and 3046, the producer 22.31.577"
+affects = ["22.39.183", "22.39.177"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -40174,6 +40180,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.183]
+title = "Make the arbiter decode kernel boundary leaves through the record header the runtime producer authenticates"
+reqs = ["22998.1"]
+touches = ["programs/crates/layerx-programs-arbiter/src/step.rs", "programs/crates/layerx-programs-arbiter/src/market.rs", "programs/crates/layerx-programs-arbiter/src/bisect.rs", "programs/crates/layerx-programs-arbiter/tests/proof_arbiter_crate.rs", "programs/crates/layerx-programs-runtime/src/portable_replay.rs"]
+tests = ["programs/crates/layerx-programs-arbiter/tests/proof_arbiter_crate.rs"]
+verification_contract = "test -s programs/crates/layerx-programs-arbiter/src/repair_22_39_183.kvx && cargo test --locked --manifest-path programs/Cargo.toml -p layerx-programs-arbiter --test proof_arbiter_crate --test repair_22_39_183 --test activity_codec && cargo test --locked --manifest-path programs/Cargo.toml -p layerx-programs-runtime --lib portable_replay"
+do_1 = "do_1 Decision 3029, gotcha 3727. The runtime producer of 22.31.577 stores the immutable boundary inputs once per record in ReplayRecordHeader, commits each raw leaf through replay_leaf_hash and decodes a raw leaf only with PortableBoundary::decode_with_header and that header (programs/crates/layerx-programs-runtime/src/replay_record.rs line 437, execute.rs line 6170); PortableBoundary::decode_untrusted accepts only the self-contained envelope of ReplayRecordHeader::boundary_envelope (replay_record.rs line 275). Read the producer first and record its definitions (the header fields, the envelope layout, the leaf hash) in programs/crates/layerx-programs-arbiter/src/repair_22_39_183.kvx before changing the consumer."
+symbols = []
 
 [capability.22.39.182]
 title = "Write the 7.0.0 candidate release report at one revision and tick the release check items it proves"
@@ -183372,12 +183387,43 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.39.183]
+title = "Make the arbiter decode kernel boundary leaves through the record header the runtime producer authenticates"
+status = "pending"
+mode = "BUILD"
+wave = 4
+requires = ["22.31.577", "22.33.215", "21.53.1"]
+reqs = ["22998.1"]
+capabilities = ["22.39.183"]
+interfaces = []
+do_1 = "do_1 Decision 3029, gotcha 3727. The runtime producer of 22.31.577 stores the immutable boundary inputs once per record in ReplayRecordHeader, commits each raw leaf through replay_leaf_hash and decodes a raw leaf only with PortableBoundary::decode_with_header and that header (programs/crates/layerx-programs-runtime/src/replay_record.rs line 437, execute.rs line 6170); PortableBoundary::decode_untrusted accepts only the self-contained envelope of ReplayRecordHeader::boundary_envelope (replay_record.rs line 275). Read the producer first and record its definitions (the header fields, the envelope layout, the leaf hash) in programs/crates/layerx-programs-arbiter/src/repair_22_39_183.kvx before changing the consumer."
+do_2 = "do_2 In programs/crates/layerx-programs-arbiter add one shared helper that takes the boundary proof leaf as the envelope the producer emits, splits it into the record header and the raw leaf, verifies the Merkle path over the hash of the raw leaf against the proved boundary root, checks the header against the proved replay metadata (code hash, input digest, runtime version, abi version, fee version, metering version, maximum boundaries and maximum bytes) and decodes the leaf with decode_with_header; route src/step.rs (line 433), src/market.rs (line 646) and src/bisect.rs (lines 66 and 616) through it so no arbiter consumer calls decode_untrusted on a raw leaf. The runtime producer encoding, the Merkle commitment, the proved metadata layout and every public interface of the arbiter stay unchanged; if the helper needs an accessor the runtime does not export, add the accessor to programs/crates/layerx-programs-runtime/src/portable_replay.rs without changing any encoding."
+do_3 = "do_3 In tests/proof_arbiter_crate.rs make the transport follow the producer: Corpus::paths (line 1196) carries each leaf as the envelope of the record header, and the decode at line 1794 decodes the raw leaves of the market execution result with the header of its record; every existing assertion keeps its name and expectation, and runtime_producer_records_integer_steps_and_terminal_traps and authenticated_producer_crosses_authority_and_bounded_replay_consumers_twice pass. Write tests/repair_22_39_183.rs as the consumer test of decision 3046: it drives a genuine record from the runtime producer through the step, market and bisect consumers by the names the producer defines, asserts that a leaf whose header disagrees with the proved metadata is refused as ReplayError::Leaf, and asserts that a raw leaf offered without its header is refused."
+do_4 = "do_4 Record the producer, the transport and every consumer with file and line, the failing cases before and after, and the gates by reference in src/repair_22_39_183.kvx. Run the build once and the verification once at the final revision and record both by reference; if a case fails, repair it within the one allowed cycle and rerun once."
+symbols = []
+touches = ["programs/crates/layerx-programs-arbiter/src/step.rs", "programs/crates/layerx-programs-arbiter/src/market.rs", "programs/crates/layerx-programs-arbiter/src/bisect.rs", "programs/crates/layerx-programs-arbiter/tests/proof_arbiter_crate.rs", "programs/crates/layerx-programs-runtime/src/portable_replay.rs"]
+tests = ["programs/crates/layerx-programs-arbiter/tests/proof_arbiter_crate.rs"]
+planned_paths = ["programs/crates/layerx-programs-arbiter/tests/repair_22_39_183.rs", "programs/crates/layerx-programs-arbiter/src/repair_22_39_183.kvx"]
+build_cmd = "cargo build --locked --manifest-path programs/Cargo.toml -p layerx-programs-arbiter --tests"
+verify_cmd = "test -s programs/crates/layerx-programs-arbiter/src/repair_22_39_183.kvx && cargo test --locked --manifest-path programs/Cargo.toml -p layerx-programs-arbiter --test proof_arbiter_crate --test repair_22_39_183 --test activity_codec && cargo test --locked --manifest-path programs/Cargo.toml -p layerx-programs-runtime --lib portable_replay"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-programs"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.177]
 title = "Move the arbiter crate to the historical activity codec paths of layerx-wire so the programs workspace builds"
 status = "pending"
 mode = "BUILD"
 wave = 4
-requires = ["22.33.215"]
+requires = ["22.33.215", "22.39.183"]
 reqs = ["22998.1"]
 capabilities = ["22.39.177"]
 interfaces = []
@@ -183403,6 +183449,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Attempt 2 (requalify, gotcha 3713, decisions 2496 and 3015): the attempt-1 tree 4977cff751ba stands unchanged (the six arbiter files on the historical activity codec paths of layerx-wire, the record). The verification now excludes canonical_native_authority_matches_authenticated_historical_facts by exact name as the inventory record of the crate does, because that case is qualified only by the native replay and signed admission corpora its producer supplies; no test is changed. Run the build once and the corrected verification once at the same revision and record both by reference; if the retirement grep or a remaining case fails, repair it within the one allowed cycle and rerun once."
 do_5 = "Attempt 3 (continue, gotcha 3721, decisions 3006, 3015 and 3024): the attempt-2 tree 791076fd4c6d is the starting point (the historical activity codec and signing preimage paths, the retirement of the layerx_wire::activity and layerx_wire::sign uses, the record). Bisect the seventeen-line change of src/admission.rs and the six-line change of tests/proof_arbiter_crate.rs against the base: every boundary leaf the runtime producer records and every replay witness the bounded replay consumer verifies must keep the kernel portable boundary encoding, byte for byte as on main, and only the activity codec and the signing preimage go through the historical module. Restore the boundary bytes at the producing site so runtime_producer_records_integer_steps_and_terminal_traps (line 1794) and authenticated_producer_crosses_authority_and_bounded_replay_consumers_twice (line 1538) pass unchanged; the test file changes only where the retirement of a path requires an import, and no assertion changes. Keep the retirement grep and the three passing targets. Record the bisected site and the producer of the boundary encoding in src/repair_22_39_177.kvx. Run the build once and the verification once at the final revision and record both by reference; if a case still fails, repair it within the one allowed cycle and rerun once."
+do_6 = "Attempt 4 (continue after 22.39.183 lands; gotcha 3727, decisions 3015, 3024 and 3029): the attempt-3 tree 677da57e8c4b stands unchanged (the historical activity codec and signing preimage paths, the retirement of the layerx_wire::activity and layerx_wire::sign uses, the record with its boundary comparison). Merge main once 22.39.183 is on it, so the proof corpus transports boundary leaves as the producer defines and the two cases of gotcha 3721 pass through the corrected arbiter consumers; resolve any overlap in tests/proof_arbiter_crate.rs in favour of the 22.39.183 transport and keep only the retired-path import changes of this task. Extend src/repair_22_39_177.kvx with the revision of 22.39.183 the attempt merged. Run the build once and the verification once at the final revision and record both by reference; if the retirement grep or a case fails, repair it within the one allowed cycle and rerun once."
 
 [task.22.39.175]
 title = "Move the fuzz test of the agent envelope codec to the historical module of layerx-wire and widen the retired-path grep to the grouped use form"
