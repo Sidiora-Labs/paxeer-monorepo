@@ -30,6 +30,19 @@ GENERATED_FILES = (
     'nested/.turbo/cache', 'nested/.cache/data', 'nested/__pycache__/module.pyc',
     'nested/.venv/config', 'nested/venv/config', 'nested/.git/config',
 )
+ISSUE_1692_GENERATED_FILES = tuple(
+    'sdk/launchpad/packages/' + package + '/dist/' + filename
+    for package in (
+        'sdk', 'sdk-v2', 'stats-sdk', 'candles-sdk', 'indexer-sdk',
+        'metadata-sdk', 'ranking-algo-sdk', 'users-sdk', 'production-contracts',
+        'production-contracts-v2', 'sidiora-launchpad-v3',
+    )
+    for filename in ('index.js', 'nested/index.js')
+) + tuple(
+    'apps/launchpad/web/' + parent + directory + '/artifact.json'
+    for parent in ('', 'src/', 'src/routes/dashboard/')
+    for directory in ('build', 'dist', 'logs')
+)
 SECRET_FILES = (
     '.env', 'config/.env.production', 'config/id_rsa', 'config/id_ed25519',
     'config/id_ecdsa', 'config/.npmrc', 'config/.pypirc', 'config/.netrc',
@@ -160,6 +173,93 @@ def test_generated_outputs_and_secrets_remain_excluded(source, tmp_path):
     code, stdout, stderr = run_cli('verify', '--root', source, '--baseline', baseline_path)
     assert code == 0, stderr
     assert json.loads(stdout)['sha256'] == baseline['sha256']
+
+
+@pytest.mark.parametrize('relative', ISSUE_1692_GENERATED_FILES)
+def test_issue_1692_generated_outputs_keep_provenance_stable(source, tmp_path, relative):
+    baseline_path = tmp_path / 'baseline.json'
+    baseline = create(source, baseline_path)
+    baseline_bytes = baseline_path.read_bytes()
+    assert set(baseline['files']) == set(OWNED_SOURCES)
+
+    for operation in ('add', 'modify', 'delete'):
+        if operation == 'delete':
+            (source / relative).unlink()
+        else:
+            put(source, relative, operation.encode())
+        candidate_path = tmp_path / (operation + '-candidate.json')
+        assert create(source, candidate_path) == baseline
+        assert candidate_path.read_bytes() == baseline_bytes
+        code, stdout, stderr = run_cli('verify', '--root', source, '--baseline', baseline_path)
+        assert code == 0, stderr
+        assert json.loads(stdout) == {'action': 'verify', 'sha256': baseline['sha256']}
+
+        diff_path = tmp_path / (operation + '-diff.json')
+        code, stdout, stderr = run_cli(
+            'diff', '--root', source, '--baseline', baseline_path,
+            '--owned', 'peer/**', '--output', diff_path,
+        )
+        assert code == 0, stderr
+        diff = json.loads(diff_path.read_bytes())
+        assert json.loads(stdout) == {'action': 'diff', 'sha256': diff['sha256']}
+        assert diff['baseline_sha256'] == baseline['sha256']
+        assert diff['candidate_sha256'] == baseline['sha256']
+        assert diff['changes'] == []
+        assert diff['sha256'] == snapshot.digest({key: value for key, value in diff.items() if key != 'sha256'})
+        assert baseline_path.read_bytes() == baseline_bytes
+
+
+@pytest.mark.parametrize('relative', ISSUE_1692_GENERATED_FILES)
+def test_issue_1692_manifest_rejects_generated_outputs(source, tmp_path, relative):
+    manifest = create(source, tmp_path / 'baseline.json')
+    manifest['files'][relative] = dict(manifest['files'][OWNED_SOURCES[0]])
+    manifest['sha256'] = snapshot.digest({key: value for key, value in manifest.items() if key != 'sha256'})
+    tampered_path = tmp_path / 'tampered.json'
+    tampered_path.write_text(json.dumps(manifest))
+    for action in ('verify', 'diff'):
+        diff_path = tmp_path / 'diff.json'
+        arguments = ('--owned', 'peer/**', '--output', diff_path) if action == 'diff' else ()
+        code, stdout, stderr = run_cli(
+            action, '--root', source, '--baseline', tampered_path, *arguments,
+        )
+        assert code == 1
+        assert stdout == ''
+        assert 'excluded path in manifest: ' + relative in stderr
+        assert not diff_path.exists()
+
+
+@pytest.mark.parametrize('relative', (
+    'apps/launchpad/web-source/build/source.py',
+    'apps/launchpad/web-source/dist/source.py',
+    'apps/launchpad/web-source/logs/source.py',
+    'apps/launchpad/web/build-source/source.py',
+    'apps/launchpad/web/dist-source/source.py',
+    'apps/launchpad/web/logs-source/source.py',
+    'nested/apps/launchpad/web/build/source.py',
+    'sdk/launchpad/packages/sdk/src/dist/source.py',
+    'sdk/launchpad/packages/other-sdk/dist/source.py',
+))
+def test_issue_1692_exclusions_stay_within_generated_locations(source, tmp_path, relative):
+    path = put(source, relative, b'owned source')
+    baseline_path = tmp_path / 'baseline.json'
+    baseline = create(source, baseline_path)
+    assert relative in baseline['files']
+    path.write_bytes(b'changed source')
+    candidate = create(source, tmp_path / 'candidate.json')
+    assert candidate['files'][relative] != baseline['files'][relative]
+    code, stdout, stderr = run_cli('verify', '--root', source, '--baseline', baseline_path)
+    assert code == 1
+    assert stdout == ''
+    assert 'source drift detected' in stderr
+    diff_path = tmp_path / 'diff.json'
+    code, stdout, stderr = run_cli(
+        'diff', '--root', source, '--baseline', baseline_path,
+        '--owned', 'peer/**', '--output', diff_path,
+    )
+    assert code == 1
+    assert stdout == ''
+    assert 'change outside owned paths: ' + relative in stderr
+    assert not diff_path.exists()
 
 
 @pytest.mark.parametrize('directory', ('build', 'coverage', 'runtime', 'dist', 'logs'))
