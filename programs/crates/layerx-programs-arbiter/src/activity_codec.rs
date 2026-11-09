@@ -1,4 +1,4 @@
-use layerx_wire::activity::Activity;
+use layerx_wire::historical::activity::Activity;
 
 use crate::{step::MAX_BYTES, ReplayError};
 

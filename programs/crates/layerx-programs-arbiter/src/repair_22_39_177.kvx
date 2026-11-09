@@ -1,0 +1,102 @@
+[repair.22.39.177]
+base_revision = "208444c51bfb94ae5b94ef6a0b2e26ba24f6119a"
+continuation_base_revision = "fa374671b962e9d50647ac930227a6e3140987f6"
+continuation_seed_revision = "791076fd4c6d1a9b9f354048e174d09aa693a656"
+decision = "3012"
+gotcha = "3709"
+producer_tasks = ["22.33.1522", "9.29.1"]
+producer = "services/agent/crates/layerx-wire/src/lib.rs:18 declares historical::activity and historical::sign and reexports hash::historical as historical::hash; src/hash.rs:111 owns historical activity_id and payload_hash"
+change = "Resolve archived activity codecs, signing preimages and activity hashes through layerx_wire::historical, retaining the same functions, vectors, assertions and dependencies"
+
+[callers.activity_codec]
+file = "programs/crates/layerx-programs-arbiter/src/activity_codec.rs"
+base_lines = [1]
+moved = ["historical::activity::Activity"]
+
+[callers.admission]
+file = "programs/crates/layerx-programs-arbiter/src/admission.rs"
+base_lines = [10, 154, 156, 161, 163, 178]
+moved = ["historical::activity::Activity", "historical::activity::decode_signed", "historical::activity::encode_signed", "historical::hash::activity_id", "historical::hash::payload_hash", "historical::activity::signing_bytes"]
+
+[callers.activity_codec_tests]
+file = "programs/crates/layerx-programs-arbiter/tests/activity_codec.rs"
+base_lines = [3, 98, 107]
+moved = ["historical::activity::{decode_signed, decode_unsigned, encode_signed, encode_unsigned, Activity}", "historical::hash::payload_hash", "historical::sign::preimage"]
+
+[callers.authority_from_prestate]
+file = "programs/crates/layerx-programs-arbiter/tests/authority_from_prestate.rs"
+base_lines = [778]
+moved = ["historical::activity::encode_signed"]
+
+[callers.proof_arbiter_crate]
+file = "programs/crates/layerx-programs-arbiter/tests/proof_arbiter_crate.rs"
+base_lines = [65, 597, 601, 605, 606]
+moved = ["historical::activity standalone import", "historical::sign::preimage_unsigned", "historical::activity::encode_signed_envelope", "historical::activity::decode_signed", "historical::hash::activity_id"]
+retained = "Root hash::Domain, hash::receipt_digest and hash::batch_header_digest remain current producer APIs"
+
+[boundary_comparison]
+revision = "fa374671b962e9d50647ac930227a6e3140987f6"
+method = "Compare the complete admission.rs and proof_arbiter_crate.rs diffs against the continuation base and trace both failing cases to the unchanged runtime producer and decoder"
+admission = "All seventeen changed lines resolve the same historical Activity, activity codec, activity hashes and signing bytes; AdmissionEvidence does not produce portable replay boundary leaves"
+proof = "The six changed lines resolve only the activity import, historical signing preimage and historical activity_id; encode::Encoder and the root receipt and batch hash functions are unchanged"
+producer = "programs/crates/layerx-programs-runtime/src/replay_record.rs:710 captured_leaf_bytes owns the kernel portable raw leaf encoding; ProgramReplayRecord::from_captured at line 437 validates each raw leaf using PortableBoundary::decode_with_header"
+transport = "programs/crates/layerx-programs-runtime/src/execute.rs:6170 decodes the genuine record into raw boundary_leaves, verifies them with record.header(), and returns those leaves in MarketSandboxExecution at line 6210"
+consumer = "programs/crates/layerx-programs-runtime/src/portable_replay.rs:325 PortableBoundary::decode_untrusted requires the LXP/program-replay-boundary-context/v2 envelope; raw leaves require decode_with_header and the separately authenticated record header"
+envelope_producer = "programs/crates/layerx-programs-runtime/src/replay_record.rs:275 ReplayRecordHeader::boundary_envelope produces the context envelope, which is distinct from the raw leaf committed by replay_leaf_hash"
+failing_paths = "proof_arbiter_crate.rs:1794 passes raw MarketSandboxExecution leaves to decode_untrusted; Corpus::paths at line 1196 transports raw record leaves to arbiter src/step.rs:433, which also calls decode_untrusted"
+scope = "The producer and decoder mismatch already exists in the continuation base; changing the runtime producer or arbiter step consumer exceeds the allowed files, and changing the proof test beyond retired-path migration is explicitly prohibited"
+preserved = "Keep kernel portable boundary leaves, Merkle commitments, proof transport, every assertion and all test bodies byte for byte as in the base; no scoped activity migration can change the independent raw-engine test's boundary decoding"
+
+[continuation_4]
+base_revision = "a26369c7eda603cb28bcdd8cef55c35df7d248ee"
+seed_revision = "677da57e8c4b35d0af579abc90752a690c2559b3"
+main_integration = "The runner applied the attempt-3 changes onto the current main revision; HEAD and origin/main both resolve to base_revision before qualification, so no additional merge is needed"
+decisions = ["3015", "3024", "3029", "3034"]
+gotchas = ["3730", "3731"]
+excluded_cases = ["runtime_producer_records_integer_steps_and_terminal_traps", "authenticated_producer_crosses_authority_and_bounded_replay_consumers_twice"]
+restoring_task = "22.39.183"
+disposition = "Decision 3034 qualifies the activity-path retirement first with these two cases excluded by exact name in the declared verify_cmd; task 22.39.183 requires this retirement and restores the boundary transport cases under decision 3029"
+preserved = "The exclusions change only the declared qualification selection; every test body, assertion, vector and portable boundary encoding remains intact"
+
+[callers.repair_22_33_215]
+file = "programs/crates/layerx-programs-arbiter/tests/repair_22_33_215.rs"
+base_lines = [218]
+moved = ["historical::activity::encode_signed"]
+
+[continuation_5]
+base_revision = "2432a1187cc7bf1ced05f7d29e456f72853b53d0"
+seed_revision = "d61c32ef34444e0009fea47f6ad8338c7fcb707d"
+main_integration = "The runner applied the attempt-4 changes onto the current main revision; HEAD and origin/main both resolve to base_revision before qualification, so no additional merge is needed"
+decisions = ["3015", "3034", "3038"]
+gotchas = ["3735"]
+excluded_cases = ["runtime_producer_records_integer_steps_and_terminal_traps", "authenticated_producer_crosses_authority_and_bounded_replay_consumers_twice", "registry_authority_signature_drives_both_call_envelopes", "registry_replay_signatures_reconstruct_and_verify_adjacent_steps"]
+restoring_task = "22.39.183"
+disposition = "Decision 3038 also excludes the two registry cases that call the included proof producer's unchanged raw-leaf replay helpers; task 22.39.183 proves and restores all four replay cases"
+producer_qualified_case = "canonical_native_authority_matches_authenticated_historical_facts remains qualified by its native replay and signed admission corpora under decision 3015"
+preserved = "Retain every test body, assertion, vector, dependency and kernel portable boundary byte; only the declared verify_cmd selects the qualification cases"
+build_reference = "/out/run/gates.jsonl: final kind=build row identifies the final candidate revision, exact command, exit and private evidence log"
+verify_reference = "/out/run/gates.jsonl: final kind=verify row identifies the same candidate revision, exact command, exit and private evidence log; qualification requires both gates to pass at that revision"
+
+[qualification]
+ledger = "/out/run/gates.jsonl"
+build = "The final kind=build row records the candidate revision, exact build command, exit and private log"
+verify = "The final kind=verify row records the candidate revision, cg spec done command, exit and private log; only exit zero establishes qualification, and a failing test prevents later targets and the retirement sweep from running"
+policy = "The ledger identifies the exact candidate each gate ran against; a finding appended after a failed gate records that candidate's result and does not claim qualification for the later record edit"
+
+[repair.continuation_5_grouped_import]
+revision = "d165fd900e5d2ac039527b63270054acb8ad1277"
+command = "cg spec done 22.39.177 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "All twelve selected tests passed, then the retirement sweep matched the historical::activity name nested in the root grouped use in tests/proof_arbiter_crate.rs:65"
+cause = "The grouped-use retirement expression matches any activity token inside layerx_wire::{...}, including historical::activity"
+change = "Import layerx_wire::historical::activity on its own line 65 and retain encode::Encoder, hash and receipt in the root grouped use; no functions, boundary bytes or assertions change"
+evidence = "/out/run/gates.jsonl: final kind=build and kind=verify rows record the repaired candidate and both gate results by reference"
+
+[finding.continuation_4]
+task = "22.39.177"
+file = "programs/crates/layerx-programs-arbiter/tests/proof_arbiter_crate.rs"
+symbol = "repair_v5_authority; assert_authenticated_payer_replay"
+observed = "Revision 1e0231e12e70928cde77d6aa0572b92b6e05ccbb: cg spec done 22.39.177 -f layerx-merge --root /work/paxeer-monorepo exited 1, private log /out/logs/verify-1.log; its declared verify_cmd exited 101 because repair_22_33_215::registry_authority_signature_drives_both_call_envelopes and repair_22_33_215::registry_replay_signatures_reconstruct_and_verify_adjacent_steps call the unchanged boundary replay helpers at lines 1317 and 1538 and receive Err(Witness(Encoding)); the first three test targets passed, the retirement sweep was not reached, and the matching hf-build passed with exit 0 in /out/logs/build-1.log"
+assumption = "Task 22.39.183 must restore boundary transport for these helper callers as well as the two explicitly excluded proof cases, without changing the activity-path retirement or weakening any assertion."
+severity = "blocker"
