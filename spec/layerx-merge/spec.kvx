@@ -192029,7 +192029,7 @@ do_3 = "Attempt 2 (continue, gotcha 3772, decision 3069): implement the issue on
 
 [task.22.39.233]
 title = "Make the native program call request refuse a legacy activity again"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -347484,7 +347484,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.93.397]
 title = "Triage issue #1927: Replace unsupported git grep pathspec flags in retired-scan repair plan"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -347515,7 +347515,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.93.396]
 title = "Triage issue #1926 and write its report"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -412853,7 +412853,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1673.1]
 title = "Issue #1673: Restore the confirm-OTP success test with a signed Auth0 ID token"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.236"]
