@@ -19,17 +19,18 @@ func IsHistoricalReplay(ctx sdk.Context) bool {
 }
 
 type AssociationHelper struct {
-	evmKeeper     utils.EVMKeeper
-	bankKeeper    utils.BankKeeper
-	accountKeeper utils.AccountKeeper
+	evmKeeper       utils.EVMKeeper
+	bankKeeper      utils.BankKeeper
+	accountKeeper   utils.AccountKeeper
+	selectedVersion string
 }
 
-func NewAssociationHelper(evmKeeper utils.EVMKeeper, bankKeeper utils.BankKeeper, accountKeeper utils.AccountKeeper) *AssociationHelper {
-	return &AssociationHelper{evmKeeper: evmKeeper, bankKeeper: bankKeeper, accountKeeper: accountKeeper}
+func NewAssociationHelper(evmKeeper utils.EVMKeeper, bankKeeper utils.BankKeeper, accountKeeper utils.AccountKeeper, selectedVersion string) *AssociationHelper {
+	return &AssociationHelper{evmKeeper: evmKeeper, bankKeeper: bankKeeper, accountKeeper: accountKeeper, selectedVersion: selectedVersion}
 }
 
 func (p AssociationHelper) AssociateAddresses(ctx sdk.Context, paxAddr sdk.AccAddress, evmAddr common.Address, pubkey cryptotypes.PubKey) error {
-	if !IsHistoricalReplay(ctx) {
+	if !ctx.IsTracing() || p.selectedVersion != "v5.7.5" {
 		return helpers.NewAssociationHelper(p.evmKeeper, p.bankKeeper, p.accountKeeper).
 			AssociateAddresses(ctx, paxAddr, evmAddr, pubkey, false)
 	}
@@ -44,7 +45,7 @@ func (p AssociationHelper) AssociateAddresses(ctx sdk.Context, paxAddr sdk.AccAd
 }
 
 func (p AssociationHelper) MigrateBalance(ctx sdk.Context, evmAddr common.Address, paxAddr sdk.AccAddress) error {
-	if !IsHistoricalReplay(ctx) {
+	if !ctx.IsTracing() || p.selectedVersion != "v5.7.5" {
 		return helpers.NewAssociationHelper(p.evmKeeper, p.bankKeeper, p.accountKeeper).
 			MigrateBalance(ctx, evmAddr, paxAddr, false)
 	}

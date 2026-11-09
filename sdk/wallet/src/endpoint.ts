@@ -94,8 +94,8 @@ export class EndpointClient {
     return decodeBankAssetPage(await this.rpc.call('px_listAssets', []));
   }
 
-  async getRouteCatalogue(): Promise<RouteCatalogue> {
-    return decodeRouteCatalogue(await this.rpc.call('px_getRouteCatalogue', []));
+  async getRouteCatalogue(): Promise<NodeRouteCatalogue> {
+    return decodeNodeRouteCatalogue(await this.rpc.call('px_getRouteCatalogue', []));
   }
 
   async getCapabilities(): Promise<Capabilities> {
@@ -447,6 +447,289 @@ export function decodeChainHistoryPage(value: unknown): ChainHistoryPage {
       .map(({ chain, side, ...item }) => item),
     next_cursor: page.next_cursor,
   };
+}
+
+export interface NodeRouteService {
+  readonly id: string;
+  readonly purpose: string;
+  readonly exposure: 'product';
+  readonly discovery_path: string;
+  readonly transport: string;
+  readonly authentication: string;
+  readonly version: string;
+}
+
+interface NodeRouteFields {
+  readonly id: string;
+  readonly service: string;
+  readonly method: string;
+  readonly path: string;
+  readonly transport: string;
+  readonly authentication: string;
+  readonly version: string;
+  readonly consumers: readonly string[];
+}
+
+export interface NodeRpcRoute extends NodeRouteFields {
+  readonly service: 'node_rpc';
+  readonly path: '/';
+  readonly transport: 'json-rpc';
+  readonly authentication: 'none';
+  readonly version: '1';
+}
+
+export interface NodeHostedRoute extends NodeRouteFields {
+  readonly health_predicate: string;
+  readonly timeout_seconds: number;
+  readonly retries: 0;
+  readonly connect_timeout_seconds?: number;
+  readonly timeout_scope?: string;
+  readonly proxy?: boolean;
+  readonly streaming?: boolean;
+  readonly admission_header?: string;
+  readonly asset_max_path_bytes?: number;
+  readonly asset_prefix?: string;
+  readonly asset_suffixes?: readonly string[];
+  readonly capability?: string;
+  readonly content_type?: string;
+  readonly contract_address?: string;
+  readonly distinct_contracts?: string;
+  readonly endpoint_path?: string;
+  readonly endpoint_paths?: readonly string[];
+  readonly error_classes?: Readonly<Record<string, string>>;
+  readonly http_protocol?: string;
+  readonly idempotency?: string;
+  readonly max_body_bytes?: number;
+  readonly max_header_bytes?: number;
+  readonly maximum_lifetime_seconds?: number;
+  readonly mcp_method?: string;
+  readonly operation?: string;
+  readonly page_templates?: readonly string[];
+  readonly query_string?: string;
+  readonly refused_headers?: readonly string[];
+  readonly request_body_max_bytes?: number;
+  readonly required_request_headers?: readonly string[];
+  readonly required_response_headers?: readonly string[];
+  readonly response_contract?: string;
+  readonly response_integrity?: string;
+  readonly response_max_bytes?: number;
+  readonly stream_lifetime_seconds?: number;
+  readonly surface?: string;
+  readonly tls?: string;
+  readonly ui_route_kind?: string;
+  readonly unknown_policy?: string;
+  readonly websocket_protocol?: string;
+}
+
+export interface NodeRegistrationReadiness {
+  readonly ready: true;
+  readonly scope: 'node_registration';
+  readonly methods: readonly string[];
+}
+
+export interface NodeHostedReadiness {
+  readonly ready: false;
+  readonly status: 'unknown';
+  readonly reason: 'hosted_dependency_not_measured';
+}
+
+export interface NodeRouteCatalogue {
+  readonly schema: 'paxeer-x.routes.v1';
+  readonly chain_id: 125;
+  readonly rpc_paths: readonly string[];
+  readonly services: readonly NodeRouteService[];
+  readonly routes: readonly (NodeRpcRoute | NodeHostedRoute)[];
+  readonly readiness: Readonly<Record<string, NodeRegistrationReadiness | NodeHostedReadiness>> & {
+    readonly node_rpc: NodeRegistrationReadiness;
+  };
+}
+
+const NODE_SERVICE_FIELDS = [
+  'id', 'purpose', 'exposure', 'discovery_path', 'transport', 'authentication', 'version',
+] as const;
+const NODE_ROUTE_FIELDS = [
+  'id', 'service', 'method', 'path', 'transport', 'authentication', 'version', 'consumers',
+] as const;
+const NODE_ROUTE_TEXT_FIELDS = [
+  'timeout_scope', 'admission_header', 'asset_prefix', 'capability', 'content_type',
+  'contract_address', 'distinct_contracts', 'endpoint_path', 'http_protocol', 'idempotency',
+  'mcp_method', 'operation', 'query_string', 'response_contract', 'response_integrity',
+  'surface', 'tls', 'ui_route_kind', 'unknown_policy', 'websocket_protocol',
+] as const;
+const NODE_ROUTE_LIST_FIELDS = [
+  'asset_suffixes', 'endpoint_paths', 'page_templates', 'refused_headers',
+  'required_request_headers', 'required_response_headers',
+] as const;
+const NODE_ROUTE_BOUND_FIELDS = [
+  'asset_max_path_bytes', 'max_body_bytes', 'max_header_bytes', 'maximum_lifetime_seconds',
+  'request_body_max_bytes', 'response_max_bytes', 'stream_lifetime_seconds',
+] as const;
+const NODE_INFERENCE_METHODS = [
+  'px_getInferenceRooms', 'px_getInferenceRoom', 'px_getInferenceDeal',
+  'px_getInferencePeer', 'px_getInferenceReceipts',
+] as const;
+
+function nodeCatalogueKeys(doc: Record<string, unknown>, allowed: readonly string[]): void {
+  if (Object.keys(doc).some((key) => !allowed.includes(key))) fail('node catalogue fields');
+}
+
+function nodeCatalogueText(value: unknown): string {
+  if (typeof value !== 'string' || !value.trim() || /[\u0000-\u001f\u007f]/.test(value))
+    fail('node catalogue text');
+  return value;
+}
+
+function nodeCatalogueStrings(value: unknown): string[] {
+  if (!Array.isArray(value) || value.length === 0 || value.length > 4096)
+    fail('node catalogue string inventory');
+  const strings = value.map(nodeCatalogueText);
+  if (new Set(strings).size !== strings.length) fail('node catalogue duplicate strings');
+  return strings;
+}
+
+function nodeCataloguePath(value: unknown): string {
+  const path = nodeCatalogueText(value);
+  if (!path.startsWith('/') || path.startsWith('//') || /[\s?#\\]/.test(path))
+    fail('node catalogue path');
+  return path;
+}
+
+export function decodeNodeRouteCatalogue(value: unknown): NodeRouteCatalogue {
+  const doc = record(value, 'node route catalogue');
+  nodeCatalogueKeys(doc, ['schema', 'chain_id', 'rpc_paths', 'services', 'routes', 'readiness']);
+  if (doc.schema !== 'paxeer-x.routes.v1' || doc.chain_id !== 125)
+    fail('node route catalogue identity');
+  const rpcPaths = nodeCatalogueStrings(doc.rpc_paths).map(nodeCataloguePath);
+  if (rpcPaths.length !== 1 || rpcPaths[0] !== '/') fail('node catalogue rpc paths');
+  if (
+    !Array.isArray(doc.services) || doc.services.length === 0 || doc.services.length > 4096 ||
+    !Array.isArray(doc.routes) || doc.routes.length === 0 || doc.routes.length > 4096
+  ) fail('node route catalogue inventory');
+  const ids = new Set<string>();
+  const services: NodeRouteService[] = doc.services.map((entry) => {
+    const service = record(entry, 'node route service');
+    nodeCatalogueKeys(service, NODE_SERVICE_FIELDS);
+    const id = nodeCatalogueText(service.id);
+    if (!/^[a-zA-Z0-9][a-zA-Z0-9_-]*$/.test(id) || ids.has(id) || service.exposure !== 'product')
+      fail('node route service identity');
+    ids.add(id);
+    const decoded: NodeRouteService = {
+      id,
+      purpose: nodeCatalogueText(service.purpose),
+      exposure: 'product',
+      discovery_path: nodeCataloguePath(service.discovery_path),
+      transport: nodeCatalogueText(service.transport),
+      authentication: nodeCatalogueText(service.authentication),
+      version: nodeCatalogueText(service.version),
+    };
+    if (!['authenticated-discovery', 'http', 'json-rpc'].includes(decoded.transport))
+      fail('node service transport');
+    if (id === 'node_rpc' && (
+      decoded.discovery_path !== '/' || decoded.transport !== 'json-rpc' ||
+      decoded.authentication !== 'none' || decoded.version !== '1'
+    )) fail('node rpc service contract');
+    return Object.freeze(decoded);
+  });
+  if (!ids.has('node_rpc')) fail('node rpc service inventory');
+  const states = record(doc.readiness, 'node route readiness');
+  if (Object.keys(states).length !== ids.size || Object.keys(states).some((id) => !ids.has(id)))
+    fail('node readiness inventory');
+  const registration = record(states.node_rpc, 'node registration readiness');
+  nodeCatalogueKeys(registration, ['ready', 'scope', 'methods']);
+  if (registration.ready !== true || registration.scope !== 'node_registration')
+    fail('node registration readiness');
+  const methods = nodeCatalogueStrings(registration.methods);
+  if (methods.some((method) => !/^[a-zA-Z][a-zA-Z0-9]*_[a-zA-Z0-9_]+$/.test(method)) ||
+      !methods.includes('px_getRouteCatalogue')) fail('node registration methods');
+  const readiness: Record<string, NodeRegistrationReadiness | NodeHostedReadiness> & {
+    node_rpc: NodeRegistrationReadiness;
+  } = { node_rpc: { ready: true, scope: 'node_registration', methods } };
+  for (const id of ids) {
+    if (id === 'node_rpc') continue;
+    const state = record(states[id], 'node hosted readiness');
+    nodeCatalogueKeys(state, ['ready', 'status', 'reason']);
+    if (state.ready !== false || state.status !== 'unknown' ||
+        state.reason !== 'hosted_dependency_not_measured') fail('node hosted readiness');
+    readiness[id] = { ready: false, status: 'unknown', reason: 'hosted_dependency_not_measured' };
+  }
+  const routeIds = new Set<string>();
+  const inferenceMethods = new Set<string>();
+  const routes = doc.routes.map((entry): NodeRpcRoute | NodeHostedRoute => {
+    const route = record(entry, 'node product route');
+    const base: NodeRouteFields = {
+      id: nodeCatalogueText(route.id),
+      service: nodeCatalogueText(route.service),
+      method: nodeCatalogueText(route.method),
+      path: nodeCatalogueText(route.path),
+      transport: nodeCatalogueText(route.transport),
+      authentication: nodeCatalogueText(route.authentication),
+      version: nodeCatalogueText(route.version),
+      consumers: nodeCatalogueStrings(route.consumers),
+    };
+    if (routeIds.has(base.id) || !ids.has(base.service)) fail('node product route identity');
+    routeIds.add(base.id);
+    if (base.service === 'node_rpc') {
+      nodeCatalogueKeys(route, NODE_ROUTE_FIELDS);
+      if (!NODE_INFERENCE_METHODS.some((method) => method === base.method) ||
+          !methods.includes(base.method) || inferenceMethods.has(base.method) ||
+          base.id !== `node_rpc:${base.method}` || base.path !== '/' ||
+          base.transport !== 'json-rpc' || base.authentication !== 'none' || base.version !== '1')
+        fail('node rpc route contract');
+      inferenceMethods.add(base.method);
+      return Object.freeze({ ...base, service: 'node_rpc', path: '/', transport: 'json-rpc',
+        authentication: 'none', version: '1' });
+    }
+    nodeCatalogueKeys(route, [
+      ...NODE_ROUTE_FIELDS, ...NODE_ROUTE_TEXT_FIELDS, ...NODE_ROUTE_LIST_FIELDS,
+      ...NODE_ROUTE_BOUND_FIELDS, 'health_predicate', 'timeout_seconds', 'retries',
+      'connect_timeout_seconds', 'proxy', 'streaming', 'error_classes',
+    ]);
+    if (!base.path.startsWith('/') &&
+        (base.transport === 'json-rpc' || base.transport === 'websocket')) {
+      if (!/^[a-zA-Z][a-zA-Z0-9]*_[a-zA-Z0-9_]+$/.test(base.path)) fail('node rpc route path');
+    } else if (base.transport === 'mcp' && base.method === 'tools/call') {
+      if (!/^[a-zA-Z][a-zA-Z0-9_]*(\.[a-zA-Z][a-zA-Z0-9_]*)+$/.test(base.path))
+        fail('node mcp tool path');
+      nodeCataloguePath(route.endpoint_path);
+    } else nodeCataloguePath(base.path);
+    if (!['http', 'mcp', 'json-rpc', 'a2a', 'websocket'].includes(base.transport) ||
+        !['GET', 'HEAD', 'POST', 'DELETE', 'PUT', 'PATCH', 'OPTIONS', 'tools/call'].includes(base.method))
+      fail('node hosted route transport');
+    const health = nodeCatalogueText(route.health_predicate);
+    if (typeof route.timeout_seconds !== 'number' || !Number.isFinite(route.timeout_seconds) ||
+        route.timeout_seconds <= 0 || route.retries !== 0) fail('node product route bounds');
+    if ('connect_timeout_seconds' in route && (typeof route.connect_timeout_seconds !== 'number' ||
+        !Number.isFinite(route.connect_timeout_seconds) || route.connect_timeout_seconds <= 0))
+      fail('node product connection timeout');
+    for (const field of NODE_ROUTE_TEXT_FIELDS) {
+      if (field in route) nodeCatalogueText(route[field]);
+    }
+    for (const field of NODE_ROUTE_LIST_FIELDS) {
+      if (field in route) nodeCatalogueStrings(route[field]);
+    }
+    for (const field of NODE_ROUTE_BOUND_FIELDS) {
+      if (field in route && (typeof route[field] !== 'number' ||
+          !Number.isSafeInteger(route[field]) || route[field] < (field === 'request_body_max_bytes' ? 0 : 1)))
+        fail('node product route bounds');
+    }
+    for (const field of ['proxy', 'streaming']) {
+      if (field in route && typeof route[field] !== 'boolean') fail('node product route flag');
+    }
+    if ('error_classes' in route) {
+      const errors = record(route.error_classes, 'node route error classes');
+      if (Object.keys(errors).length === 0) fail('node route error classes');
+      for (const [code, message] of Object.entries(errors)) {
+        if (!/^[45][0-9]{2}$/.test(code)) fail('node route error status');
+        nodeCatalogueText(message);
+      }
+    }
+    if ('contract_address' in route && !EVM_ADDRESS.test(String(route.contract_address)))
+      fail('node route contract address');
+    return Object.freeze({ ...route, ...base, health_predicate: health,
+      timeout_seconds: route.timeout_seconds, retries: 0 });
+  });
+  if (inferenceMethods.size !== NODE_INFERENCE_METHODS.length) fail('node rpc route inventory');
+  return { schema: doc.schema, chain_id: doc.chain_id, rpc_paths: rpcPaths, services, routes, readiness };
 }
 
 export interface RouteCatalogue {

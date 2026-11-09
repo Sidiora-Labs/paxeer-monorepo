@@ -35,14 +35,14 @@ fn head() -> Head {
   ]
 }"#
         .parse()
-        .unwrap(),
+        .unwrap_or_else(|error| panic!("required value: {error:?}")),
     )
-    .unwrap();
+    .unwrap_or_else(|error| panic!("required value: {error:?}"));
     let verifier = ChainProofVerifier {
         chain_id: "hyperpax_125-1".to_owned(),
         validators,
     };
-    let verified = verify_commit_material(
+    let authenticated = verify_commit_material(
         &r#"{
   "commit": {
     "block_id": {
@@ -89,15 +89,14 @@ fn head() -> Head {
     }
   }
 }"#
-        .parse()
-        .unwrap(),
+        .parse().unwrap_or_else(|error| panic!("required value: {error:?}")),
         &verifier,
-    )
-    .unwrap();
-    let committed = CommittedBlockContext::from_verified(&verified).unwrap();
+    ).unwrap_or_else(|error| panic!("required value: {error:?}"));
+    let committed = CommittedBlockContext::from_verified(&authenticated)
+        .unwrap_or_else(|error| panic!("required value: {error:?}"));
     assert_eq!(committed.committed_height(), 1200);
-    assert_eq!(committed.block_hash(), verified.header_hash());
-    assert_eq!(committed.app_hash(), verified.app_hash());
+    assert_eq!(committed.block_hash(), authenticated.header_hash());
+    assert_eq!(committed.app_hash(), authenticated.app_hash());
     let head = Head::new(committed, HEIGHT);
     assert_eq!(head.observed_sequence(), HEIGHT);
     assert_ne!(
@@ -136,7 +135,7 @@ fn fee_read_refuses_stale_and_future_snapshots_against_the_rpc_chain_head() {
 }
 
 #[test]
-fn fee_read_accepts_current_snapshot_and_preserves_the_projection() {
+fn fee_read_accepts_current_snapshot_and_preserves_the_projection() -> Result<(), String> {
     let read = FeeProjection::from_committed_snapshot(
         request(),
         head(),
@@ -144,7 +143,7 @@ fn fee_read_accepts_current_snapshot_and_preserves_the_projection() {
         21_000,
         "upax".to_owned(),
     )
-    .unwrap();
+    .map_err(|error| format!("required value: {error:?}"))?;
     assert_eq!(read.request, request());
     assert_eq!(read.parameter_version, 7);
     assert_eq!(read.fee, Amount(u128::MAX));
@@ -164,7 +163,7 @@ fn fee_read_accepts_current_snapshot_and_preserves_the_projection() {
     let projection = read
         .clone()
         .into_projection("committed schedule estimate", freshness.clone())
-        .unwrap();
+        .map_err(|error| format!("required value: {error:?}"))?;
     assert_eq!(projection.projected, read);
     assert_eq!(projection.observed_freshness, freshness);
     let stale = Freshness {
@@ -175,6 +174,8 @@ fn fee_read_accepts_current_snapshot_and_preserves_the_projection() {
         read.into_projection("committed schedule estimate", stale),
         Err(ContractError::Mismatch("fee_snapshot_height"))
     );
+
+    Ok(())
 }
 
 #[test]

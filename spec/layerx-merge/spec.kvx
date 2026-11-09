@@ -159928,7 +159928,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1797.1]
 title = "Issue #1797: Align middleware conformance gateway requests with the root endpoint"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -182119,7 +182119,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1828.1]
 title = "Issue #1828: Scope interop baseline skips to their recorded package and Cargo target"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -182150,7 +182150,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1822.1]
 title = "Issue #1822: Preserve the shared Swagger bundle through regeneration"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -191000,7 +191000,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1809.1]
 title = "Issue #1809: Restore the SDK registry dependency to test scope and refresh consumer locks"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -191089,7 +191089,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1774.1]
 title = "Issue #1774: Encode every room profile setting required by inference consumers"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -191119,7 +191119,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1773.1]
 title = "Issue #1773: Bound full snapshots retained by the execution observer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -191150,7 +191150,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1768.1]
 title = "Issue #1768: Correct the crowded AI-market fixture timing comment"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -191240,7 +191240,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1748.1]
 title = "Issue #1748: Prove reward authorization consumes authenticated snapshot evidence"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -191573,7 +191573,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1729.1]
 title = "Issue #1729: Prove lifecycle and registry endpoint behavior through their own commands"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -191693,7 +191693,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1681.1]
 title = "Issue #1681: Assert retired budget pull exclusion in the generated corpus consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -191722,7 +191722,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1664.1]
 title = "Issue #1664: Bound registration tenants to identity subject capacity"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -191871,7 +191871,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1635.1]
 title = "Issue #1635: Replace forbidden unwrap calls in Programs host repair tests"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -192177,7 +192177,7 @@ do_4 = "Attempt 2 (continue, gotcha 3753, decisions 3053 and 3057): start from t
 
 [task.22.39.221]
 title = "Bring the layerx-agent-api crate and its test targets under the workspace lints"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["22.39.209"]
@@ -192365,7 +192365,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.215]
 title = "Bring the layerx-types crate and its test targets under the workspace lints"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["22.39.209"]
@@ -220706,7 +220706,7 @@ do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete ap
 
 [task.18.1854.1]
 title = "Issue #1854: Align the C# behavior qualification framework assertion with .NET 10"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -221096,7 +221096,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.232]
 title = "Bring the programs guest event and call outcome log tests green at the canonical guest event evidence"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -221127,7 +221127,7 @@ do_4 = "Attempt 2 (continue, gotcha 3763, decision 2908): the attempt-1 tree fc5
 
 [task.22.39.231]
 title = "Bring the service dispute refusals and the offer publish and withdraw tests of the pay keeper green"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -302017,7 +302017,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1810.1]
 title = "Issue #1810: Decode public node discovery in the wallet SDK"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -302047,7 +302047,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1776.1]
 title = "Issue #1776: Freeze the complete 0x0907 peer-binding ABI"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -302076,7 +302076,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1682.1]
 title = "Issue #1682: Bind v575 association replay to the selected precompile version"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -302503,7 +302503,7 @@ do_5 = "Attempt 2 (continue, gotcha 3769, decision 3067): the attempt-1 tree b26
 
 [task.18.1628.1]
 title = "Issue #1628: Scope installed pending transaction filters to their virtual chain"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -347308,7 +347308,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1860.1]
 title = "Issue #1860: Guard the Node, Python and Go runtime floors with regression tests"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -347337,7 +347337,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1859.1]
 title = "Issue #1859: Align launchpad and wallet repair-suite checks with workspace commands"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -347366,7 +347366,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1858.1]
 title = "Issue #1858: Recognise launchpad selectors and the wallet Vitest wrapper in the suite inventory"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -347453,7 +347453,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1851.1]
 title = "Issue #1851: Emit the FastAPI test extra in wheel metadata"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -347512,7 +347512,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1847.1]
 title = "Issue #1847: Align control finalization documentation with the committed rung contract"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -347600,7 +347600,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1844.1]
 title = "Issue #1844: Select the explorer umbrella test step by its command"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -347745,7 +347745,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1825.1]
 title = "Issue #1825: Remove stale model allowances and cover asset cleanup"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -347774,7 +347774,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1824.1]
 title = "Issue #1824: Emit each Python wheel’s declared license expression"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -347832,7 +347832,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1820.1]
 title = "Issue #1820: Preserve ECR manual-run source and tag identity"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -347890,7 +347890,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1816.1]
 title = "Issue #1816: Align ask-stream documentation with the native bytes32 identifiers"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -347980,7 +347980,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1801.1]
 title = "Issue #1801: Remove the orphaned SSH image fixtures and their container exclusion"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -348009,7 +348009,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1799.1]
 title = "Issue #1799: Correct the SDK and middleware endpoint routing documentation"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -348068,7 +348068,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1793.1]
 title = "Issue #1793: Align release workflow regression checks with the v7.0.0 identity"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -348126,7 +348126,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1790.1]
 title = "Issue #1790: Restore network-policy connectivity between the gateway and its hosted peers"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -348272,7 +348272,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1783.1]
 title = "Issue #1783: Remove deleted issue templates from the interface inventory"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -359892,7 +359892,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.214]
 title = "Make the retired caller scanner issue one git grep over the tracked files and filter the matches in memory"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["22.39.144"]

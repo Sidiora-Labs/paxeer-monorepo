@@ -6,6 +6,14 @@ import re
 
 import yaml
 
+from test_pnpm_workspace_roots import (
+    expand_matrix,
+    matrix_rows,
+    pnpm_commands,
+    pnpm_directory,
+    run_directory,
+)
+
 
 ROOT = Path(__file__).resolve().parents[2]
 WORKFLOW = ".github/workflows/launchpad-test.yml"
@@ -44,7 +52,11 @@ def test_launchpad_workflow_covers_every_package_with_a_test_script():
     assert len(matrix) == len(set(matrix)), "Each package must run exactly once"
     assert "exclude" not in job["strategy"]["matrix"]
     assert job["strategy"]["fail-fast"] == "false"
-    assert job["runs-on"] == "ubuntu-latest"
+    assert job["runs-on"] == (
+        "${{ (github.event_name == 'pull_request' && "
+        "github.event.pull_request.head.repo.full_name != github.repository) "
+        "&& 'ubuntu-24.04' || vars.CI_LINUX_RUNNER || 'ubuntu-24.04' }}"
+    )
     assert "if" not in job
     assert "continue-on-error" not in job
     assert job["defaults"]["run"]["working-directory"] == "apps/launchpad"
@@ -75,8 +87,21 @@ def test_launchpad_workflow_covers_every_package_with_a_test_script():
     )
     assert install["run"] == "pnpm install --frozen-lockfile"
     assert build["run"] == "pnpm run build:packages"
-    assert test["run"] == "pnpm run test"
-    assert test["working-directory"] == "${{ matrix.package }}"
+    assert test["working-directory"] == "."
+    for row in matrix_rows(job):
+        directory = run_directory(workflow, job, test, row)
+        assert directory == ROOT
+        (command,) = list(pnpm_commands(expand_matrix(test["run"], row), directory))
+        cwd, args = command
+        assert cwd == ROOT
+        assert args[:3] == ["--dir", "apps/launchpad", "--filter"]
+        assert args[4:] == ["--fail-if-no-match", "run", "test"]
+        assert pnpm_directory(cwd, args) == WORKSPACE
+        selector = args[3]
+        assert selector.startswith("./"), row
+        assert (WORKSPACE / selector).resolve() == (
+            ROOT / row["package"]
+        ).resolve(), row
     assert steps.index(checkout) < steps.index(setup) < steps.index(manager)
     assert (
         steps.index(manager) < steps.index(install)
