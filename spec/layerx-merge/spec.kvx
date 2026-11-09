@@ -11356,6 +11356,24 @@ value = "In sdk/launchpad/shared/db/production a test fixture that creates a pri
 basis = "Gotcha 3737, decisions 2908, 3023 and 3036"
 affects = ["22.39.117"]
 
+[decision.3041]
+title = "A programme task whose verification runs Go tests of a kernel-linked package carries the go-cgo profile"
+value = "A task under spec/layerx-merge/programme whose verification runs go test over a package that links modules/lxphost (the custody, exchange and ledger keepers and the merge precompiles among them) carries the go-cgo profile so the kernel archives of decision 1709 exist before its gate; the profile is the only change and the attempt continues from its tree. The programme tooling itself (evidence.run, parity.count_go_tests, run_refusals) stays unchanged."
+basis = "Gotcha 3738, decision 1709"
+affects = ["17.1.8", "17.2.7"]
+
+[decision.3042]
+title = "The bridge signer set is the single governed address with threshold one, and every assertion of the placeholder manifest retires"
+value = "The release owner governed the bridge signer set on 2026-11-09: services/bridge/deploy/attestors.json carries the one signer address 0x12598F221f1e645322C7665537D4Ab130281f51d with threshold 1 and no pending marker (commit ada7f254a1), and check-attestor-manifest.py accepts it. The nine committed chain configurations under contracts/bridge/evm/chains and contracts/bridge/solana/chains carry the same signer list and threshold so AttestorManifest.Check agrees with the manifest; the tests and records that asserted the placeholder manifest (the audit repair tests of 22.31.392, 22.31.402 and 22.31.446, the repair records of 22.31.402 and 22.31.446, the service operator runbook gap rows and the release document markers test) assert the governed manifest instead; and the proposal tooling emits the set-attestors proposal from it. A wider signer set is a later governance change through the same manifest and the same tests."
+basis = "Owner ruling of 2026-11-09, decision 2522, the repair records of 22.31.402 and 22.31.446"
+affects = ["22.39.212"]
+
+[decision.3043]
+title = "A task confined to one crate of the agent workspace verifies with the build and the library tests of that crate while the lint owner task is pending, and carries no lint clause"
+value = "Until 22.39.211 lands and brings every member of services/agent under the workspace lints, a task whose touches lie inside one member crate and whose change is not a lint repair verifies with its record checks, the build of the crate and cargo test of its library (skipping the test that reaches a live server identity), never with a clippy clause: the crates fail the workspace lints on main through no fault of the task, and decision 3039 bounds a lint gate to its crate only where the crate is already clean. The workspace lints stay as declared and the lint owner repairs every reported lint at its source."
+basis = "Gotcha 3739, decisions 2908 and 3039"
+affects = ["22.39.209", "22.39.211"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -40246,6 +40264,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.212]
+title = "Align the bridge chain configurations, tests and release records with the governed signer manifest"
+reqs = ["22998.1"]
+touches = ["contracts/bridge/evm/chains", "contracts/bridge/solana/chains", "services/bridge/deploy/repair_22_31_402.kvx", "services/bridge/deploy/repair_22_31_446.kvx", "services/bridge/deploy/proposals", "services/bridge/deploy/chainconfig", "services/bridge/deploy/appenv", "tools/qualification/audit_repairs/test_repair_22_31_392.py", "tools/qualification/audit_repairs/test_repair_22_31_402.py", "tools/qualification/audit_repairs/test_repair_22_31_446.py", "docs/release/7.0.0-service-operator-runbook.md", "tests/ci/test_release_docs_gap_markers.py"]
+tests = ["tools/qualification/audit_repairs/test_repair_22_31_402.py", "tools/qualification/audit_repairs/test_repair_22_31_392.py", "tools/qualification/audit_repairs/test_repair_22_31_446.py", "tests/ci/test_release_docs_gap_markers.py"]
+verification_contract = "python3 services/bridge/deploy/check-attestor-manifest.py && test -s services/bridge/deploy/repair_22_39_212.kvx && test 0 -eq $(grep -rl PLACEHOLDER:attestor contracts/bridge/evm/chains contracts/bridge/solana/chains services/bridge/deploy/attestors.json | wc -l) && python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_31_392.py tools/qualification/audit_repairs/test_repair_22_31_402.py tools/qualification/audit_repairs/test_repair_22_31_446.py tests/ci/test_release_docs_gap_markers.py && go test ./services/bridge/deploy/..."
+do_1 = "do_1 Decision 3042. The committed manifest services/bridge/deploy/attestors.json now carries the one governed signer address with threshold 1 and no pending marker, and check-attestor-manifest.py accepts it. Set the attestors list and threshold of the nine committed chain configurations (the config.json of the ethereum, base, arbitrum, optimism, bnb, polygon, avalanche and hyperevm directories under contracts/bridge/evm/chains, and contracts/bridge/solana/chains/solana/config.json) to the same signer list and threshold, changing no other field, so AttestorManifest.Check agrees with the manifest; the Go loader, the check script and every refusal rule stay unchanged."
+symbols = []
 
 [capability.22.39.211]
 title = "Bring the agent workspace lint target to green under the workspace lints"
@@ -183751,7 +183778,7 @@ touches = ["services/agent/crates/layerx-agentd/src/agent_rpc_adapters.rs"]
 tests = []
 planned_paths = ["services/agent/crates/layerx-agentd/src/repair_22_39_209.kvx"]
 build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib"
-verify_cmd = "test -s services/agent/crates/layerx-agentd/src/repair_22_39_209.kvx && test 0 -eq $(grep -c 'let level = crate::' services/agent/crates/layerx-agentd/src/agent_rpc_adapters.rs) && cargo clippy --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib --no-deps -- -D warnings"
+verify_cmd = "test -s services/agent/crates/layerx-agentd/src/repair_22_39_209.kvx && test 0 -eq $(grep -c 'let level = crate::' services/agent/crates/layerx-agentd/src/agent_rpc_adapters.rs) && cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib -- --skip checks_the_actual_server_identity"
 gate_kind = "planned"
 sandbox_profile = "rust"
 owner_role = "fm-agent"
@@ -183764,6 +183791,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_3 = "Attempt 2 (continue, gotcha 3736, decision 3039): the attempt-1 tree 6c2da1a64f69 stands unchanged (the binding removed, the record). The verification now lints layerx-agentd alone with no-deps, so the eight pedantic errors of layerx-types, owned by 22.39.211, no longer stop the gate; no source change is needed beyond the record naming the bounded gate and the task that owns the workspace lint target. Merge main, run the build once and the verification once at the final revision and record both by reference; if the daemon library itself reports a lint, repair it inside agent_rpc_adapters.rs within the one allowed cycle and rerun once."
+do_4 = "Attempt 3 (continue, gotcha 3739, decisions 3039 and 3043): the attempt-2 tree 50823218f0a3 stands unchanged (the removed binding at agent_rpc_adapters.rs, the record). The verification of the task now runs the record checks and the library tests of the daemon crate in place of the lint clause, because the crate fails the workspace lints on main and 22.39.211 owns that repair; change no file, repair no lint. Run the build once and the verification once at the final revision and record both by reference; if a library test fails on its own assertion, record the failing name with the task that owns the test and stop within the one allowed cycle."
 
 [task.22.39.183]
 title = "Make the arbiter decode kernel boundary leaves through the record header the runtime producer authenticates"
@@ -212009,6 +212037,37 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete apart from the pins. Add the {'recordLifecycle', true, 36680} row to the expected list in gas_test.go and move the three require.Len pins at surface_test.go:28-30 to 10, adding the recordLifecycle signature to any frozen listing the test holds. Build once and verify once."
+
+[task.22.39.212]
+title = "Align the bridge chain configurations, tests and release records with the governed signer manifest"
+status = "pending"
+mode = "BUILD"
+wave = 4
+requires = ["22.31.446"]
+reqs = ["22998.1"]
+capabilities = ["22.39.212"]
+interfaces = []
+do_1 = "do_1 Decision 3042. The committed manifest services/bridge/deploy/attestors.json now carries the one governed signer address with threshold 1 and no pending marker, and check-attestor-manifest.py accepts it. Set the attestors list and threshold of the nine committed chain configurations (the config.json of the ethereum, base, arbitrum, optimism, bnb, polygon, avalanche and hyperevm directories under contracts/bridge/evm/chains, and contracts/bridge/solana/chains/solana/config.json) to the same signer list and threshold, changing no other field, so AttestorManifest.Check agrees with the manifest; the Go loader, the check script and every refusal rule stay unchanged."
+do_2 = "do_2 Rewrite the audit repair tests that assert the placeholder manifest (tools/qualification/audit_repairs/test_repair_22_31_392.py, test_repair_22_31_402.py and test_repair_22_31_446.py) to assert the governed manifest: the manifest and the nine configurations agree on live canonical signers and threshold, no committed file names a placeholder slot, the deployment entry script passes the manifest guard and stops at the next refusal of its environment, and the refusal cases of the check script keep their fixtures; keep every test name that still proves a fact and record each removed case with the fact that replaced it."
+do_3 = "do_3 Update the records services/bridge/deploy/repair_22_31_402.kvx and repair_22_31_446.kvx: the owner decision is closed with the governed signer set and threshold, the status reflects the live manifest, and the wiring request for the manifest is fulfilled; update docs/release/7.0.0-service-operator-runbook.md so the attestor manifest leaves its gap rows and markers (the manifest check exits 0 on the committed file) and align tests/ci/test_release_docs_gap_markers.py with the remaining gaps."
+do_4 = "do_4 Run the proposal tooling tests under services/bridge/deploy and confirm the set-attestors proposal is emitted from the governed manifest; record the signer list, the threshold, the nine configuration paths and the retired assertions in services/bridge/deploy/repair_22_39_212.kvx. Run the build once and the verification once at the final revision and record both by reference."
+symbols = []
+touches = ["contracts/bridge/evm/chains", "contracts/bridge/solana/chains", "services/bridge/deploy/repair_22_31_402.kvx", "services/bridge/deploy/repair_22_31_446.kvx", "services/bridge/deploy/proposals", "services/bridge/deploy/chainconfig", "services/bridge/deploy/appenv", "tools/qualification/audit_repairs/test_repair_22_31_392.py", "tools/qualification/audit_repairs/test_repair_22_31_402.py", "tools/qualification/audit_repairs/test_repair_22_31_446.py", "docs/release/7.0.0-service-operator-runbook.md", "tests/ci/test_release_docs_gap_markers.py"]
+tests = ["tools/qualification/audit_repairs/test_repair_22_31_402.py", "tools/qualification/audit_repairs/test_repair_22_31_392.py", "tools/qualification/audit_repairs/test_repair_22_31_446.py", "tests/ci/test_release_docs_gap_markers.py"]
+planned_paths = ["services/bridge/deploy/repair_22_39_212.kvx"]
+build_cmd = "go build ./services/bridge/deploy/... && python3 -m py_compile tools/qualification/audit_repairs/test_repair_22_31_402.py tools/qualification/audit_repairs/test_repair_22_31_392.py tools/qualification/audit_repairs/test_repair_22_31_446.py"
+verify_cmd = "python3 services/bridge/deploy/check-attestor-manifest.py && test -s services/bridge/deploy/repair_22_39_212.kvx && test 0 -eq $(grep -rl PLACEHOLDER:attestor contracts/bridge/evm/chains contracts/bridge/solana/chains services/bridge/deploy/attestors.json | wc -l) && python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_31_392.py tools/qualification/audit_repairs/test_repair_22_31_402.py tools/qualification/audit_repairs/test_repair_22_31_446.py tests/ci/test_release_docs_gap_markers.py && go test ./services/bridge/deploy/..."
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
 [task.22.39.210]
 title = "Carry the receipt VmError text, precompile suffix included, in the EVM transaction response"
@@ -317791,7 +317850,7 @@ planned_paths = ["spec/layerx-merge/programme/data/goldens/merge-bringup.kvx", "
 build_cmd = "python3 -m py_compile spec/layerx-merge/programme/tests/test_custody_golden.py"
 verify_cmd = "python3 -m pytest spec/layerx-merge/programme/tests/test_custody_golden.py::test_custody_and_anchor_goldens_pass -q"
 gate_kind = "planned"
-sandbox_profile = "mixed"
+sandbox_profile = "go-cgo"
 owner_role = "fm-programme"
 rollback = "Remove the two golden rows."
 max_builds = 1
@@ -317801,6 +317860,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "Attempt 2 (continue, gotcha 3738, decisions 1709 and 3041): the attempt-1 tree 9380fccc111a stands unchanged (the custody-release and anchor-retired golden rows in merge-bringup.kvx, test_custody_golden.py). The task now carries the go-cgo profile, whose gate shell builds build/liblayerx.a and the programs host archive before the gate, so the two Go tests the goldens run link; change no file unless a golden fails on its own assertion. Run the build once and the verification once at the final revision and record both by reference; if a golden fails on its assertion rather than at the link step, record the failing case with the task that owns the test and stop within the one allowed cycle."
 
 [task.17.1.9]
 title = "Capture the receipt order equals block order golden"
@@ -318035,7 +318095,7 @@ planned_paths = ["spec/layerx-merge/programme/retired.py", "spec/layerx-merge/pr
 build_cmd = "python3 -m py_compile spec/layerx-merge/programme/retired.py"
 verify_cmd = "python3 -m pytest spec/layerx-merge/programme/tests/test_refusal_run.py::test_every_refusal_runs_and_passes -q"
 gate_kind = "planned"
-sandbox_profile = "mixed"
+sandbox_profile = "go-cgo"
 owner_role = "fm-programme"
 rollback = "Revert retired.py."
 max_builds = 1
@@ -318045,6 +318105,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "Attempt 2 (continue, gotcha 3738, decisions 1709 and 3041): the attempt-1 tree a7575c8f63c0 stands unchanged (run_refusals in retired.py, test_refusal_run.py). The task now carries the go-cgo profile, whose gate shell builds build/liblayerx.a and the programs host archive before the gate, so the six refusal packages link; change no file unless a refusal fails on its own assertion. Run the build once and the verification once at the final revision and record both by reference; if a refusal row fails on its assertion rather than at the link step, record the failing row with the task that owns the test and stop within the one allowed cycle."
 
 [task.17.2.8]
 title = "Prove no retired caller remains on the merged revision"

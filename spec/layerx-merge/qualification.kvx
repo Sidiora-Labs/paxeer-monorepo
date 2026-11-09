@@ -36482,3 +36482,27 @@ symbol = "chain::TestPhase2ReadAdapterRealRegisteredPool"
 observed = "Attempt 6 at b7b8ec69ce77 (base 47b44760f795): build exit 0; verification exit 1: every launchpad package passed except sdk/launchpad/shared/db/production, where TestPhase2ConcurrentIndexesAndRecovery failed in its cleanup with private migration database cleanup failed, context deadline exceeded (online_indexes_test.go line 39) after a 2.05 s lock wait; log /out/logs/verify-1.log."
 assumption = "The environment now mirrors the public job completely; the one failure is a three-second fixture deadline on a forced database drop."
 severity = "high"
+
+[finding.22.39.209.2]
+task = "22.39.209"
+file = "services/agent/crates/layerx-agentd/src/agent_rpc_adapters.rs"
+symbol = "agent_rpc_adapters.rs"
+observed = "Attempt 2 at 50823218f0a3: build exit 0; verification exit 1: the bounded clippy gate reported 1440 errors inside layerx-agentd under the workspace lints; log /out/logs/verify-1.log."
+assumption = "The change of the task is complete; the lint state of the crate on main is the failure and belongs to the lint owner task."
+severity = "high"
+
+[finding.17.1.8.1]
+task = "17.1.8"
+file = "spec/layerx-merge/programme/tests/test_custody_golden.py::test_custody_and_anchor_goldens_pass"
+symbol = "test_custody_golden.py::test_custody_and_anchor_goldens_pass"
+observed = "Attempt 1 at 9380fccc111a: build exit 0; verification exit 1: both goldens failed at the link step of their Go packages (build/liblayerx.a and the programs host archive absent); log /out/logs/verify-1.log."
+assumption = "The goldens are complete; only the profile of the task kept the kernel archives out of its gate shell."
+severity = "high"
+
+[finding.17.2.7.1]
+task = "17.2.7"
+file = "spec/layerx-merge/programme/tests/test_refusal_run.py::test_every_refusal_runs_and_passes"
+symbol = "test_refusal_run.py::test_every_refusal_runs_and_passes"
+observed = "Attempt 1 at a7575c8f63c0: build exit 0; verification exit 1: all six refusal rows failed at the link step of their Go packages (build/liblayerx.a and the programs host archive absent); log /out/logs/verify-1.log."
+assumption = "The runner is complete; only the profile of the task kept the kernel archives out of its gate shell."
+severity = "high"
