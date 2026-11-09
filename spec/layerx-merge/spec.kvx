@@ -162464,7 +162464,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.38.31]
 title = "Expose the market operations and reads in the TypeScript SDK"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = ["22.38.12", "22.38.6", "22.38.7"]
