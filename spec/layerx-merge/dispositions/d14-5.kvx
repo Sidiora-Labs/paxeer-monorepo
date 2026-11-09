@@ -1,0 +1,209 @@
+[disposition.14.0.1.1.a2]
+finding = "14.0.1.1.a2"
+status = "environment"
+evidence = "On main, sdk/js/package.json:51 declares separate import, require and declaration entries for types, REST and encoding; the first-party package entry layout landed in 6c15ae36e7."
+
+[disposition.14.0.1.a2]
+finding = "14.0.1.a2"
+status = "environment"
+evidence = "The SDK is a first-party package with public REST and encoding exports at sdk/js/package.json:57, and sdk/js/VENDOR.kvx is absent on main following 6c15ae36e7."
+
+[disposition.14.21.1.a2]
+finding = "14.21.1.a2"
+status = "environment"
+evidence = "On main, services/explorer/backend/apps/explorer/lib/explorer/chain/paxeer_x/capabilities.ex:62 enumerates exchange, bridge, launchpad and addr probes, with no custody or anchor probe; bb581cb83e landed that retirement."
+
+[disposition.14.22.1.1.a2]
+finding = "14.22.1.1.a2"
+status = "environment"
+evidence = "On main, services/explorer/backend/apps/explorer/test/explorer/chain/paxeer_x/committed_vectors_test.exs:19 binds the committed receipt to height 1000 and rejects the R7 and R8 mismatch vectors, as added by df2b12a84a."
+
+[disposition.14.22.1.a2]
+finding = "14.22.1.a2"
+status = "environment"
+evidence = "The committed receipt vectors on main cover successful commitment, insufficient committed height and mismatched batch height at services/explorer/backend/apps/explorer/test/explorer/chain/paxeer_x/committed_vectors_test.exs:11; df2b12a84a landed the vectors and their verifier calls."
+
+[disposition.14.22.2.a2]
+finding = "14.22.2.a2"
+status = "environment"
+evidence = "On main, services/explorer/backend/apps/explorer/lib/explorer/chain/paxeer_x/status.ex:41 promotes a verified committed sequencer receipt even without an indexed block, while an R1-R6 receipt remains receipted; fb8a0f491b landed this classification."
+
+[disposition.14.22.3.a2]
+finding = "14.22.3.a2"
+status = "environment"
+evidence = "The status controller on main passes authenticated receipt evidence into SequencerReceipt.verify/4 at services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api/v2/paxeer_x/transaction_status_controller.ex:81, preserving an evidence error instead of promotion; f4a6d808bb introduced the committed path."
+
+[disposition.14.22.4.a2]
+finding = "14.22.4.a2"
+status = "environment"
+evidence = "On main, services/explorer/backend/apps/block_scout_web/lib/block_scout_web/schemas/api/v2/paxeer_x/transaction_signature.ex:13 describes the rung, receipt, key and signature and permits a committed height; 476beaf4e1 landed the signature schema."
+
+[disposition.14.22.6.a2]
+finding = "14.22.6.a2"
+status = "environment"
+evidence = "The signature response on main includes committed_height only for a committed rung at services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api/v2/paxeer_x/transaction_signature_controller.ex:34; 83cf2f0dc9 introduced that behavior."
+
+[disposition.14.23.1.a2]
+finding = "14.23.1.a2"
+status = "environment"
+evidence = "On main, services/explorer/backend/apps/block_scout_web/lib/block_scout_web/schemas/api/v2/paxeer_x/archive_anchor.ex:44 requires frozen to be true on archived anchor records; b07fa373b8 landed the archive schemas."
+
+[disposition.14.23.2.a2]
+finding = "14.23.2.a2"
+status = "resolved"
+evidence = "Commit fbf2ad2024 removed the live anchor controller and its dangling UnifiedAccount.anchors call from main. The replacement queries Anchor.only_consensus_query directly at services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api/v2/paxeer_x/archive_controller.ex:37, landed by eab05523bd."
+
+[disposition.14.25.2.a2]
+finding = "14.25.2.a2"
+status = "environment"
+evidence = "On main, services/explorer/backend/apps/indexer/lib/indexer/block/fetcher.ex:404 imports only account bindings and market events from PaxeerXLogs; 71be389da5 removed the retired import keys."
+
+[disposition.14.25.5.1.a2]
+finding = "14.25.5.1.a2"
+status = "resolved"
+evidence = "Commit 449d01e323 added the twelve current launchpad event definitions alongside the ten legacy definitions on main. The distinct MarketCreated signatures remain at services/explorer/backend/apps/indexer/lib/indexer/transform/paxeer_x_logs.ex:386 and services/explorer/backend/apps/indexer/lib/indexer/transform/paxeer_x_logs.ex:604."
+
+[disposition.14.25.5.a2]
+finding = "14.25.5.a2"
+status = "environment"
+evidence = "On main, the indexer recognizes both legacy and current launchpad MarketCreated topics at services/explorer/backend/apps/indexer/lib/indexer/transform/paxeer_x_logs.ex:386 and services/explorer/backend/apps/indexer/lib/indexer/transform/paxeer_x_logs.ex:604, retaining the two ABI event layouts."
+
+[disposition.14.25.6.a2]
+finding = "14.25.6.a2"
+status = "environment"
+evidence = "On main, services/explorer/backend/apps/indexer/lib/indexer/transform/paxeer_x_logs.ex:772 decodes supported logs into binding and market rows and counts undecoded supported logs; the current launchpad definitions landed in 449d01e323."
+
+[disposition.14.26.2.a2]
+finding = "14.26.2.a2"
+status = "environment"
+evidence = "The explorer has no configured retired Finality module on main, as asserted at services/explorer/backend/apps/explorer/test/explorer/config/paxeer_x_finality_config_test.exs:9; 6ca253fbee removed the unread finality settings."
+
+[disposition.14.27.2.a2]
+finding = "14.27.2.a2"
+status = "environment"
+evidence = "UnifiedAccountView is absent on main after 9b4b52d2bf; services/explorer/backend/apps/block_scout_web/test/block_scout_web/views/api/v2/paxeer_x/unified_account_view_gone_test.exs:9 explicitly refuses a loaded copy of that retired view."
+
+[disposition.14.29.2.a2]
+finding = "14.29.2.a2"
+status = "resolved"
+evidence = "Commit 4658297822 moved signature verification into the retained header implementation on main. src/sequencer/lxp_batch_header.c:154 defines lxp_batch_verify_signature, checks authorization scope and verifies the Ed25519 signature over the header hash."
+
+[disposition.14.3.6.a2]
+finding = "14.3.6.a2"
+status = "environment"
+evidence = "The SDK tokenfactory REST contract on main requires factory denom slashes to remain inside one encoded path segment at sdk/js/test/tokenfactory-rest.test.cjs:24 and preserves creator pagination at sdk/js/test/tokenfactory-rest.test.cjs:54; 38a87d20e0 landed those cases and the encoding change."
+
+[disposition.14.30.1.a2]
+finding = "14.30.1.a2"
+status = "environment"
+evidence = "On main, services/explorer/services/sig-provider/sig-provider/src/lib.rs:11 exposes the precompile signature source alongside the other signature sources; f981dcca53 introduced the embedded precompile selector source."
+
+[disposition.14.30.2.a2]
+finding = "14.30.2.a2"
+status = "resolved"
+evidence = "Commit 976b64a7d2 exported precompiles from the sig-provider crate on main. services/explorer/services/sig-provider/sig-provider/src/lib.rs:11 publicly re-exports that module for the server startup consumer."
+
+[disposition.14.30.3.a2]
+finding = "14.30.3.a2"
+status = "resolved"
+evidence = "Commit 1eec7c40a3 added the precompile source settings initializer on main. services/explorer/services/sig-provider/sig-provider-server/tests/mock.rs:33 constructs SourcesSettings with precompiles set to its default alongside the remote sources."
+
+[disposition.14.30.4.a2]
+finding = "14.30.4.a2"
+status = "resolved"
+evidence = "On main, services/explorer/services/sig-provider/sig-provider-server/tests/mock.rs:34 initializes the precompiles member required by SourcesSettings; the initializer repair landed in 1eec7c40a3 with the precompile source ranking change."
+
+[disposition.14.36.1.a2]
+finding = "14.36.1.a2"
+status = "environment"
+evidence = "On main, services/explorer/backend/apps/block_scout_web/lib/block_scout_web/schemas/api/v2/paxeer_x/settlement_rung.ex:11 describes commitment by covered block or verified R1-R8 receipt and restricts the enum to submitted, receipted and committed; b61bd716f0 landed this schema."
+
+[disposition.14.38.1.a2]
+finding = "14.38.1.a2"
+status = "environment"
+evidence = "The market and binding decoder coverage remains on main at services/explorer/backend/apps/indexer/test/indexer/transform/paxeer_x_logs_market_test.exs:7, alongside the two retained row types in services/explorer/backend/apps/indexer/lib/indexer/transform/paxeer_x_logs.ex:67; 81fa3e72dd landed the cases."
+
+[disposition.14.41.1.a2]
+finding = "14.41.1.a2"
+status = "resolved"
+evidence = "Commit 646a1205d7 moved the bridge application to ES2020 at apps/bridge/tsconfig.json:3 and declared Vite 7.3.7 at apps/bridge/package.json:90. On main, apps/bridge/pnpm-lock.yaml:399 and apps/bridge/pnpm-lock.yaml:405 resolve SVGR and Vitest against that same Vite, and apps/bridge/package.json:14 generates Next route types before checking."
+
+[disposition.14.41.2.a2]
+finding = "14.41.2.a2"
+status = "resolved"
+evidence = "Commit de0a994d24 removed the absent global and per-test setup entries from the bridge configuration on main. apps/bridge/vitest.config.ts:15 selects the node environment and includes the application specs directly."
+
+[disposition.14.42.1.a2]
+finding = "14.42.1.a2"
+status = "resolved"
+evidence = "Commit 646a1205d7 repaired the bridge application's shared typecheck inputs on main, including apps/bridge/tsconfig.json:3 selecting ES2020 for BigInt and apps/bridge/tsconfig.json:16 selecting Bundler module resolution."
+
+[disposition.14.5.1.a2]
+finding = "14.5.1.a2"
+status = "resolved"
+evidence = "The web exchange now builds the precompile's current order tuple at apps/web/src/app/exchange/exchange-client.tsx:95 and cancels by order id at apps/web/src/app/exchange/exchange-client.tsx:98. Commit 3559c13435 landed these ABI-aligned callers after the earlier v2 migration in 4a2160446f."
+
+[disposition.14.5.2.a2]
+finding = "14.5.2.a2"
+status = "resolved"
+evidence = "Commit b4db21e5af removed mirror-server.ts and the retired verification endpoint from main. Explorer presentation now delegates to the kit verification words at apps/web/src/explorer/components.tsx:37, retaining the three-rung presentation introduced by c0e0f12161."
+
+[disposition.14.5.5.a2]
+finding = "14.5.5.a2"
+status = "environment"
+evidence = "On main, apps/web/src/explorer/components.tsx:37 derives verificationLabel from the kit's verificationWord, as landed in 7e8bf026b1; the program page delegates its current presentation to ProgramDetails at apps/web/src/app/explorer/programs/[programId]/page.tsx:29."
+
+[disposition.14.58.1.1.a2]
+finding = "14.58.1.1.a2"
+status = "environment"
+evidence = "On main, services/bridge/deploy/checklist.sh:186 checks an optional bridge app environment against the deployment record directory and stops when the values disagree; b473d486d4 landed this comparison."
+
+[disposition.14.58.1.a2]
+finding = "14.58.1.a2"
+status = "environment"
+evidence = "The bridge checklist on main compares configured application vault values with deployment records at services/bridge/deploy/checklist.sh:188 and refuses a mismatch at services/bridge/deploy/checklist.sh:194; its tool prerequisites remain explicit at services/bridge/deploy/tests/checklist-check.sh:37."
+
+[disposition.14.7.2.1.a2]
+finding = "14.7.2.1.a2"
+status = "resolved"
+evidence = "Commit 0ffb993d27 guarded assignment of optional EVM review storage on main. sdk/wallet/src/index.ts:119 assigns evmStorage only when config.evmReview is present, preserving the optional field's declared type."
+
+[disposition.14.7.2.a2]
+finding = "14.7.2.a2"
+status = "resolved"
+evidence = "Commit 0af5ae3b47 removed the custody journey screen together with the retired deposit, withdrawal and exit models from main. The retained wallet settings surface is fee choice at apps/web/src/settings/wallet/wallet-screen.tsx:43, with no import of the deleted journey screen."
+
+[disposition.14.7.5.a2]
+finding = "14.7.5.a2"
+status = "resolved"
+evidence = "On main, sdk/wallet/src/modules/exchange.ts:56 uses the current open-position tuple and sdk/wallet/src/modules/exchange.ts:57 cancels by order id. Commit 36df3ad933 aligned these callers with the precompile ABI after the earlier v2 caller migration in 4a2160446f."
+
+[disposition.14.8.1.1.a2]
+finding = "14.8.1.1.a2"
+status = "resolved"
+evidence = "On main, sdk/wallet/src/index.ts:119 checks config.evmReview before assigning its storage, so an absent review configuration leaves the optional field unset; 0ffb993d27 landed the assignment repair."
+
+[disposition.14.8.1.a2]
+finding = "14.8.1.a2"
+status = "environment"
+evidence = "On main, apps/web/src/settings/wallet/wallet-screen.tsx:43 exports WalletFeeSettings with WalletFeeController and the fee-choice surface, while WalletBindingScreen and its payout binding are gone following 7f05b5853d."
+
+[disposition.14.8.2.1.a2]
+finding = "14.8.2.1.a2"
+status = "resolved"
+evidence = "Commit b60ec74e86 regenerated the web client from the minor-10 API schema on main. apps/web/src/api/generated/index.ts:229 includes operation-retired in errorCodeVariants, and decodeErrorCode accepts declared variants at apps/web/src/api/generated/index.ts:231."
+
+[disposition.14.8.2.a2]
+finding = "14.8.2.a2"
+status = "resolved"
+evidence = "On main, apps/web/src/app/exchange/exchange-client.tsx:95 passes the current precompile order shape and apps/web/src/app/exchange/exchange-client.tsx:99 cancels by order id; 3559c13435 landed the ABI-aligned exchange callers."
+
+[disposition.14.9.1.a2]
+finding = "14.9.1.a2"
+status = "environment"
+evidence = "On main, apps/web/e2e/verification-rungs.test.ts:37 preserves the three kit verification rungs and apps/web/e2e/verification-rungs.test.ts:49 maps retired and unknown levels to unverified; f0223aea81 landed this presentation contract."
+
+[disposition.14.99.1.1]
+finding = "14.99.1.1"
+status = "resolved"
+evidence = "Commit bc2f49c623 removed the nonexistent Chakra Stat.Group mapping from main. apps/explorer/toolkit/chakra/stat.tsx:6 spreads the installed Stat namespace and wraps its exported Root member with the stat recipe."

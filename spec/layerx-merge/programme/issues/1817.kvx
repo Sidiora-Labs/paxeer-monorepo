@@ -1,0 +1,49 @@
+[issue.1817]
+number = 1817
+title = "Fix sparse-workspace qualification's explicit-profile IPC mismatch"
+revision = "a910fdedd579e63379ae6c2e4d4971990d28f8ad"
+verdict = "task"
+evidence = "The mismatch introduced by commit fdb5915e70bf2b61955af6f5d3bf1fa5363ddafc remains: tools/hyperfide/tests/hyperfide/cases/source_control/2_2.py:247-255 launches explicit profiles without IPC, setup writes source objects before revocation at :77, serverControl rejects absent process.send at :39, and the unconditional case at :142-158 requires revocation_token and SCOPE_DENIED, while tools/hyperfide/tests/hyperfide/support/native_source_sparse_fixture.mjs:50-96 alone supplies the separate token, IPC channel and revocation handler."
+close_comment = "Explicit source profiles cannot complete sparse-workspace qualification because they lack the required revocation control channel. Task 18.1817.1 will reject that unsupported mode before source writes, direct callers to the owned fixture, and preserve the full revocation, checkpoint and scope-widening proofs."
+
+[task.18.1817.1]
+title = "Issue #1817: Reject unsupported sparse-workspace profiles before source writes"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181817.1"]
+capabilities = []
+interfaces = []
+do_1 = "Change main in tools/hyperfide/tests/hyperfide/cases/source_control/2_2.py:240-258 to reject a nonempty HYPERFIDE_SOURCE_CONTROL_TEST_PROFILE with CAPABILITY_MISSING and guidance to unset it and use the owned fixture, before launching Node or calling setup at :77; remove the unsupported direct launch at :254-258 and retain the owned run_source_actor route at :249-253, the IPC revocation protocol at :38-44 and every existing qualification assertion."
+do_2 = "Add and invoke the declared async function testSparseWorkspaceLauncherProfiles in tools/hyperfide/tests/hyperfide/support/native_source_sparse_fixture.mjs before the existing child launch at :70: use its real source service and issued credentials to create explicit profiles both without revocation_token and with the valid separate token, invoke the actual Python launcher asynchronously for each so the service remains responsive, assert nonzero CAPABILITY_MISSING with owned-fixture guidance and no PASS or full qualification claim, and compare source object, revision and workspace rows before and after to prove no source writes; retain private profile permissions and existing cleanup without test doubles."
+do_3 = "Exercise the unset-profile route through the existing 2_2.py entry point and native_source_sparse_fixture.mjs:70-117, assert full_case_qualified is true and the emitted assertions include PASS for server-side-capability-revocation-during-materialization, watcher-overflow-scans-only-installed-scope-and-preserves-omitted-paths, lost-checkpoint-response-resolves-original-operation-and-retains-later-edits, and server-scope-widening-preserves-base-root-and-dirty-host-bytes, and preserve all independent source readback and restart assertions at native_source_sparse_fixture.mjs:118-211; never skip the revocation proof or substitute reduced coverage."
+symbols = ["main", "testSparseWorkspaceLauncherProfiles"]
+touches = ["tools/hyperfide/tests/hyperfide/cases/source_control/2_2.py", "tools/hyperfide/tests/hyperfide/support/native_source_sparse_fixture.mjs"]
+tests = ["tools/hyperfide/tests/hyperfide/support/native_source_sparse_fixture.mjs::testSparseWorkspaceLauncherProfiles"]
+planned_paths = []
+build_cmd = "python3 -m py_compile tools/hyperfide/tests/hyperfide/cases/source_control/2_2.py && node --check tools/hyperfide/tests/hyperfide/support/native_source_sparse_fixture.mjs"
+verify_cmd = "python3 tools/hyperfide/tests/hyperfide/cases/source_control/2_2.py"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181817]
+title = "Sparse-workspace qualification rejects explicit profiles before source writes and retains full owned-fixture coverage"
+ac_1 = "Given HYPERFIDE_SOURCE_CONTROL_TEST_PROFILE with or without a separate revocable token, the launcher at tools/hyperfide/tests/hyperfide/cases/source_control/2_2.py:247-255 refuses with CAPABILITY_MISSING and owned-fixture guidance before source data changes; with the variable unset, the IPC-capable fixture at tools/hyperfide/tests/hyperfide/support/native_source_sparse_fixture.mjs:70-96 completes the revocation proof at 2_2.py:142-158 and all later checkpoint and scope-widening cases at 2_2.py:188-230, with full qualification reported only after every assertion passes."
+
+[acceptance.18.1817.1]
+feature = "18"
+req = "181817.1"
+scenario = "Given explicit sparse-workspace profiles with and without a revocation token, when the real launcher receives either profile, then it refuses before source writes with CAPABILITY_MISSING and owned-fixture guidance; given no explicit profile, when qualification runs through the real owned fixture and IPC channel, then revocation, checkpoint recovery, scope widening and independent readback pass and full qualification is reported."
+contract = "contracts/tools-ops.md#qualification-harness"
+test = "tools/hyperfide/tests/hyperfide/support/native_source_sparse_fixture.mjs::testSparseWorkspaceLauncherProfiles (planned)"
+qualification = "UNRUN"

@@ -1,0 +1,104 @@
+[disposition.13.0.1.a2]
+finding = "13.0.1.a2"
+status = "resolved"
+evidence = "Commit 3df701704c refreshes the eleven dependent registry lockfiles. On main services/interop/Cargo.lock:1668 records layerx-programs-registry with curve25519-dalek, ed25519-dalek and sha2 alongside its runtime and type dependencies."
+
+[disposition.13.1.3.1.a2]
+finding = "13.1.3.1.a2"
+status = "resolved"
+evidence = "Commit 9a7022b287 ports the client snapshot finalization to block commits. On main services/agent/crates/layerx-client/src/ai_market.rs:622 constructs FinalityEvidence using block_height, block_hash, app_hash and store_proof_digest, then binds and verifies the finalized snapshot."
+
+[disposition.13.1.3.a2]
+finding = "13.1.3.a2"
+status = "resolved"
+evidence = "Commit 7074a3b324 supplies the non-existence verifier and 0421d08ec9 wires the chain-proof modules into the library. On main programs/crates/layerx-programs-registry/src/chain_proof.rs:5 declares the external ics23 module and line 6 declares ics23_absent rather than empty inline placeholders."
+
+[disposition.13.1.9.a2]
+finding = "13.1.9.a2"
+status = "resolved"
+evidence = "Commit 0421d08ec9 replaces the chain-proof placeholders with file modules. On main programs/crates/layerx-programs-registry/src/chain_proof.rs:7 exports merkle, line 10 exports results, line 12 exports trust, line 14 exports tx and line 18 re-exports ChainProofVerifier."
+
+[disposition.13.21.9.a2]
+finding = "13.21.9.a2"
+status = "resolved"
+evidence = "Commit 261f9858d9 removes the duplicate TransferLeg declaration from args.go. On main precompiles/layerxprograms/args.go:11 decodes legs using the single TransferLeg type declared at precompiles/layerxprograms/payload_accounts.go:15."
+
+[disposition.13.22.1.a2]
+finding = "13.22.1.a2"
+status = "resolved"
+evidence = "Commit c833bda08a exposes the shared host through the precompile keepers before the executor constructor is registered by e894c7ae4e. On main node/precompiles.go:196 implements LayerXHost() and returns the retained host, satisfying the programs constructor context."
+
+[disposition.13.22.4.1.a2]
+finding = "13.22.4.1.a2"
+status = "resolved"
+evidence = "Commit 83cfd21915 admits an unsigned Programs activity only with verified host binding authority. On main src/protocol/lxp_kernel.c:219 requires both execution.binding_authority and signature_valid after the actor, principal and verified-key checks before returning LXP_OK."
+
+[disposition.13.22.4.2.a2]
+finding = "13.22.4.2.a2"
+status = "resolved"
+evidence = "Commit 83cfd21915 adds the unsigned bound-activity branch to the Programs signer check. On main src/protocol/lxp_kernel.c:219 accepts an empty signature only when binding authority and signature validity are established, while line 222 retains signature verification for other activities."
+
+[disposition.13.22.4.3.a2]
+finding = "13.22.4.3.a2"
+status = "resolved"
+evidence = "Commit b575ada348 checks Programs submission through the returned receipt and identity sequence instead of the removed idempotent-receipt read. On main precompiles/layerxprograms/submit_test.go:40 requires nonzero unfunded fee limits to leave the store unchanged, and line 72 checks the successful zero-fee identity sequence."
+
+[disposition.13.22.4.a2]
+finding = "13.22.4.a2"
+status = "resolved"
+evidence = "Commits 95cf1c458d and 83cfd21915 carry bound authority through the host and the Programs signer check. On main modules/lxphost/host.go:933 permits binding authority only for a bound, unsigned activity whose verified key equals its authority key, and src/protocol/lxp_kernel.c:219 consumes that verified binding."
+
+[disposition.13.22.5.a2]
+finding = "13.22.5.a2"
+status = "resolved"
+evidence = "Commit 0ef639b2bd passes program identity separately from the kernel receipt to event emission. On main precompiles/layerxprograms/events.go:96 accepts programID and line 118 places it in the indexed event topics, while method_deploy.go:26 supplies the id decoded from the activity payload."
+
+[disposition.13.29.2.a2]
+finding = "13.29.2.a2"
+status = "resolved"
+evidence = "Commit 9a7022b287 adapts the client to the block-commit FinalityEvidence fields. On main services/agent/crates/layerx-client/src/ai_market.rs:622 fills native_state_root, block_height, block_hash, app_hash and store_proof_digest, and line 631 requires the resulting binding to be finalized."
+
+[disposition.13.30.3.1.a2]
+finding = "13.30.3.1.a2"
+status = "resolved"
+evidence = "Commit aaacf6f8a8 retains the authenticated admission and signed batch context alongside ChainCommitProof rather than deriving authority from receipt inclusion alone. On main programs/crates/layerx-programs-arbiter/src/authority.rs:118 takes all three inputs, and line 150 verifies the receipt against the proved sequencer key table before reconstructing authority."
+
+[disposition.13.30.3.a2]
+finding = "13.30.3.a2"
+status = "resolved"
+evidence = "Commit aaacf6f8a8 adds the sequencer key-table proof vector instead of reusing a module-KV existence proof for receipt authority. On main programs/tests/vectors/ics23-receipt-keys-app-hash.json:4 binds the sequencer store proof to an app hash, and programs/crates/layerx-programs-arbiter/src/authority.rs:40 requires key 0x03 and verifies the multistore root."
+
+[disposition.13.7.1.a2]
+finding = "13.7.1.a2"
+status = "resolved"
+evidence = "Commit f29813a207 adds the EffectLimit arms to the host-state and host-status encoders. On main programs/crates/layerx-programs-runtime/src/abi/host_state.rs:71 encodes EffectLimit as tag 17 and src/host/mod.rs:1459 maps it to STATUS_BOUNDS."
+
+[disposition.13.7.3.a2]
+finding = "13.7.3.a2"
+status = "environment"
+evidence = "On main services/agent/crates/layerx-proof/Cargo.toml:15 declares ed25519-dalek as a development dependency of the proof crate. Commit 20199ba8eb retains the C ABI while checking version-two arbiter authority against block height in the runtime, with the event-log C export retained at programs/crates/layerx-programs-runtime/src/ffi_call.rs:1854."
+
+[disposition.13.7.4.a2]
+finding = "13.7.4.a2"
+status = "resolved"
+evidence = "Commit df69cb12e0 adds the event-log C export and the missing error arm, and c4c019ffa7 later removes the duplicated abi_payload encoder. On main programs/crates/layerx-programs-runtime/src/ffi_call.rs:3593 delegates failure payload encoding to the shared terminal encoder and line 1854 exports layerx_programs_event_log_encode."
+
+[disposition.13.99.1.1]
+finding = "13.99.1.1"
+status = "resolved"
+evidence = "Commit 6fce630c2d reduces the current AI-market guest and retains its measured size record. On main programs/crates/layerx-programs-ai-market/src/repair_22_39_167.kvx:5940 records 499972 packaged bytes, below the 520192-byte limit of this finding."
+
+[disposition.13.99.1.2]
+finding = "13.99.1.2"
+status = "resolved"
+evidence = "Commit 6fce630c2d lands the shared routing and codec reductions with their measured result. On main programs/crates/layerx-programs-ai-market/src/repair_22_39_167.kvx:5940 records a 499972-byte packaged guest, which is smaller than the 520192-byte limit recorded for the earlier guest."
+
+[disposition.13.99.1.3]
+finding = "13.99.1.3"
+status = "resolved"
+evidence = "Commit 6fce630c2d carries the final packaged artifact measurement with the guest reductions. On main programs/crates/layerx-programs-ai-market/src/repair_22_39_167.kvx:5935 identifies the final source record and line 5940 records 499972 packaged bytes, below the finding limit of 520192."
+
+[disposition.13.99.1.4]
+finding = "13.99.1.4"
+status = "resolved"
+evidence = "Commit 10a900f4bc refreshes the four workspace lockfiles after removal of the AI-market spin dependency. On main programs/Cargo.lock:893 records layerx-programs-ai-market with its current dependency set ending at line 903, with no spin dependency in that package."

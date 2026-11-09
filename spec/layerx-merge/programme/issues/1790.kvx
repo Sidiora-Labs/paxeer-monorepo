@@ -1,0 +1,48 @@
+[issue.1790]
+number = 1790
+title = "[Coherence] The gateway's same-namespace NetworkPolicy selectors no longer match the registry, faucet, trusted-boundary and web peers, which stay in layerx-testnet"
+revision = "a910fdedd579e63379ae6c2e4d4971990d28f8ad"
+verdict = "task"
+evidence = "The gateway policy is in layerx-mainnet-beta at services/platform/hosted/gateway/deployment.yaml:185 and still uses namespace-local registry, trusted-boundary and faucet selectors at services/platform/hosted/gateway/deployment.yaml:204-209, while the registry remains in layerx-testnet with a namespace-local gateway ingress at services/platform/hosted/registry/deployment.yaml:177-183, the faucet remains there at services/platform/hosted/testnet/deployment.yaml:128, identity and Paxeer boundary ingress still select the gateway locally at services/platform/hosted/identity/deployment.yaml:66-72 and services/platform/hosted/paxeer/deployment.yaml:140-151, and the web gateway egress and receiving policy remain in layerx-testnet at services/platform/hosted/human/web-deployment.yaml:187-213, so the namespace split introduced by commit 8efee4ff17c3784f392c61be46946bd5875faf8d still prevents those selectors from admitting the intended peers."
+close_comment = "The gateway and its registry, faucet, identity, trusted-boundary and web peers still have incompatible namespace-scoped network policies. A repair task is specified to admit the intended cross-namespace connections on both sides and verify their namespace, pod and port restrictions."
+
+[task.18.1790.1]
+title = "Issue #1790: Restore network-policy connectivity between the gateway and its hosted peers"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181790.1"]
+capabilities = []
+interfaces = []
+do_1 = "Label the existing peer Namespace at services/platform/hosted/testnet/deployment.yaml:3 with layerx.io/gateway-peer-namespace=true and combine that namespaceSelector with the existing registry, trusted-boundary and faucet podSelectors in services/platform/hosted/gateway/deployment.yaml:204-209; apply the same namespace restriction to the registry peer in gateway ingress at services/platform/hosted/gateway/deployment.yaml:196 while retaining its node peer separately. Keep all gateway resources in layerx-mainnet-beta and preserve the public node roots, public HTTPS egress, Redis rules and the no-test-namespace-literal contract at tools/qualification/audit_repairs/test_repair_22_31_594.py:103-108. Pair each gateway podSelector with a namespaceSelector for layerx-mainnet-beta in registry ingress at services/platform/hosted/registry/deployment.yaml:182, faucet ingress at services/platform/hosted/testnet/deployment.yaml:294, identity ingress at services/platform/hosted/identity/deployment.yaml:71 and Paxeer boundary ingress at services/platform/hosted/paxeer/deployment.yaml:148, preserving other callers and ports. In services/platform/hosted/human/web-deployment.yaml:187-213 qualify web egress to the gateway by its actual namespace, move the gateway-targeting ingress policy to layerx-mainnet-beta and qualify its web source by the peer namespace, and correct the stale gateway URL at services/platform/hosted/human/web-deployment.yaml:29 to the existing gateway Service in layerx-mainnet-beta. Preserve the separate control-pod-label defect described in issue #1791 for its own repair."
+do_2 = "Extend tools/qualification/audit_repairs/test_repair_22_31_594.py with test_gateway_cross_namespace_peer_policies, parsing the actual six manifests including the Namespace and workload labels rather than copying their contents into fixtures. Evaluate Kubernetes additive ingress and egress rules with namespace-local semantics for bare podSelectors and AND semantics for namespaceSelector plus podSelector in one peer; assert gateway-to-registry TCP 9420, gateway-to-faucet TCP 9443, gateway-to-identity TCP 9443, gateway-to-Paxeer-boundary TCP 9443 and web-to-gateway TCP 9443 are admitted by both the source egress and destination ingress policies. Assert the changed cross-namespace selector branches reject matching pod labels in an unlabelled namespace, unrelated pod labels in the intended namespace and unlisted ports, without treating existing independent public ingress rules as denials. Assert the peer namespace label exists only on the intended Namespace in these manifests, the web URL resolves to the declared gateway Service and port, and retain every existing assertion, including test_manifest_has_no_internal_service_dns_or_test_namespace at tools/qualification/audit_repairs/test_repair_22_31_594.py:103 and the public-node HTTPS check at tools/qualification/audit_repairs/test_repair_22_31_594.py:111."
+symbols = ["test_gateway_cross_namespace_peer_policies"]
+touches = ["services/platform/hosted/gateway/deployment.yaml", "services/platform/hosted/registry/deployment.yaml", "services/platform/hosted/testnet/deployment.yaml", "services/platform/hosted/identity/deployment.yaml", "services/platform/hosted/paxeer/deployment.yaml", "services/platform/hosted/human/web-deployment.yaml", "tools/qualification/audit_repairs/test_repair_22_31_594.py"]
+tests = ["tools/qualification/audit_repairs/test_repair_22_31_594.py::test_gateway_cross_namespace_peer_policies", "tools/qualification/audit_repairs/test_repair_22_31_594.py::test_manifest_has_no_internal_service_dns_or_test_namespace", "tools/qualification/audit_repairs/test_repair_22_31_594.py::test_manifest_parses_as_yaml", "tools/qualification/audit_repairs/test_repair_22_31_594.py::test_rpc_urls_are_the_first_eight_public_node_roots", "tools/qualification/audit_repairs/test_repair_22_31_594.py::test_gateway_egress_allows_public_https_nodes"]
+planned_paths = []
+build_cmd = "python3 -m py_compile tools/qualification/audit_repairs/test_repair_22_31_594.py"
+verify_cmd = "python3 -m pytest tools/qualification/audit_repairs/test_repair_22_31_594.py::test_gateway_cross_namespace_peer_policies tools/qualification/audit_repairs/test_repair_22_31_594.py::test_manifest_has_no_internal_service_dns_or_test_namespace tools/qualification/audit_repairs/test_repair_22_31_594.py::test_manifest_parses_as_yaml tools/qualification/audit_repairs/test_repair_22_31_594.py::test_rpc_urls_are_the_first_eight_public_node_roots tools/qualification/audit_repairs/test_repair_22_31_594.py::test_gateway_egress_allows_public_https_nodes -q"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181790]
+title = "The gateway and hosted peers admit their intended cross-namespace connections"
+ac_1 = "The gateway registry, trusted-boundary and faucet peers at services/platform/hosted/gateway/deployment.yaml:204-209 and their receiving policies at services/platform/hosted/registry/deployment.yaml:182, services/platform/hosted/testnet/deployment.yaml:294, services/platform/hosted/identity/deployment.yaml:71 and services/platform/hosted/paxeer/deployment.yaml:148 admit the actual workloads across namespaces on their declared ports, and the web URL and policies at services/platform/hosted/human/web-deployment.yaml:29 and services/platform/hosted/human/web-deployment.yaml:187-213 target and admit the existing gateway Service; each changed cross-namespace peer combines a namespaceSelector with its podSelector, with negative assertions for wrong namespaces, pods and ports and all existing gateway configuration assertions preserved."
+
+[acceptance.18.1790.1]
+feature = "18"
+req = "181790.1"
+scenario = "Given the gateway in layerx-mainnet-beta and its registry, faucet, identity, Paxeer boundary and web peers in the labelled peer namespace, when their actual manifests are evaluated under namespace-aware NetworkPolicy semantics, then both sides admit the declared gateway-to-peer and web-to-gateway connections, the web URL targets the gateway Service, and the changed selector branches reject unrelated namespaces, pods and ports while the gateway configuration checks remain intact."
+contract = "contracts/platform-gateway.md#gateway-env-vars"
+test = "tools/qualification/audit_repairs/test_repair_22_31_594.py::test_gateway_cross_namespace_peer_policies (planned)"
+qualification = "UNRUN"

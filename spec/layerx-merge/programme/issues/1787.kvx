@@ -1,0 +1,48 @@
+[issue.1787]
+number = 1787
+title = "[Coherence] The register row in the docs-site CLI command table still omits the required --gateway-endpoint flag, though the faucet row next to it was updated"
+revision = "a910fdedd579e63379ae6c2e4d4971990d28f8ad"
+verdict = "task"
+evidence = "docs/site/docs/platform/cli.md:154 still lists only the optional --key for register although tools/platform/cli/src/register.rs:23 declares gateway_endpoint as a required String, docs/wiki/Cli.md:116 names the required --gateway-endpoint URL, and docs/site/docs/platform/cli.md:162 and docs/system/cli.md:29 describe the explicit endpoint; commit dee1fec130cd0e5dd6dda62b2b002c84c8e649b4 updated the adjacent faucet row at docs/site/docs/platform/cli.md:155 but left the register row unchanged."
+close_comment = "The register command table still omits its required --gateway-endpoint option. The follow-up documentation task adds the required hosted service URL beside the optional --key so the command table matches the CLI and the wiki."
+
+[task.18.1787.1]
+title = "Issue #1787: Document the required gateway endpoint in the register command row"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181787.1"]
+capabilities = []
+interfaces = []
+do_1 = "Change the register row at docs/site/docs/platform/cli.md:154 to begin Required `--gateway-endpoint`; optional `--key`, otherwise default., matching the required argument at tools/platform/cli/src/register.rs:23 and the wiki row at docs/wiki/Cli.md:116, while preserving the existing hosted px_register, tenant beta, subject, signer and native-account wording."
+do_2 = "Check the register row itself with a focused fixed-string grep for the required --gateway-endpoint and optional --key wording; the prose at docs/site/docs/platform/cli.md:162 alone must not satisfy the check."
+symbols = []
+touches = ["docs/site/docs/platform/cli.md"]
+tests = []
+planned_paths = []
+build_cmd = "true"
+verify_cmd = "grep -F -- '| `register` | Required `--gateway-endpoint`; optional `--key`, otherwise default.' docs/site/docs/platform/cli.md"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-docs"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181787]
+title = "The register command row identifies its required hosted service endpoint"
+ac_1 = "Given the register command row at docs/site/docs/platform/cli.md:154, when a reader checks its inputs, then it states Required `--gateway-endpoint`; optional `--key`, otherwise default., matching tools/platform/cli/src/register.rs:23 and docs/wiki/Cli.md:116 while retaining the existing registration behavior description."
+
+[acceptance.18.1787.1]
+feature = "18"
+req = "181787.1"
+scenario = "Given a reader consulting the CLI command table, when the reader selects register, then its row explicitly identifies --gateway-endpoint as required and --key as optional with the default key used otherwise."
+contract = "contracts/platform-cli.md#cli-cli-commands"
+test = "docs/site/docs/platform/cli.md::fixed-string grep of the register row for required --gateway-endpoint and optional --key (planned)"
+qualification = "UNRUN"

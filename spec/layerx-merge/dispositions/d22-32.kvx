@@ -1,0 +1,522 @@
+[meta]
+revision = "a26369c7eda603cb28bcdd8cef55c35df7d248ee"
+
+[disposition.22.39.26.3]
+finding = "22.39.26.3"
+status = "resolved"
+evidence = "On main, commit 08a7f84469 supplies jsonschema and pycryptodome in tools/qualification/requirements.txt:6 and tools/qualification/requirements.txt:16, and the qualification target at Makefile:299 selects the qualification tree with its declared native marker boundary."
+
+[disposition.22.39.26.4]
+finding = "22.39.26.4"
+status = "resolved"
+evidence = "On main, commit 08a7f84469 makes tools/qualification/audit_repairs/test_repair_22_33_788.py:98 follow canonical artifact resolution in the Rust consumer and checks the C harness deployment and upgrade calls at tools/qualification/audit_repairs/test_repair_22_33_788.py:110, including the activity byte bounds."
+
+[disposition.22.39.30.1]
+finding = "22.39.30.1"
+status = "environment"
+evidence = "On main, docs/platform/content/quickstart/rust.md:25 describes committed block evidence as the source of receipt finality, and docs/platform/content/concepts/receipts.md:1 is present under the platform content root; neither page depends on a parent-directory invocation of the documentation checker."
+
+[disposition.22.39.30.2]
+finding = "22.39.30.2"
+status = "resolved"
+evidence = "On main, commit 928ea18d1a declares Native payment execution and block finality at docs/platform/capabilities.kvx:7, matching the protocol capability row at docs/platform/content/install.md:207 and its BFT block-commit semantics."
+
+[disposition.22.39.30.3]
+finding = "22.39.30.3"
+status = "resolved"
+evidence = "On main, commit 928ea18d1a documents Scheduled beta resets at docs/platform/content/environments/emulator.md:104: emulator state lasts until restart, while hosted beta state follows its published reset calendar, matching docs/platform/capabilities.kvx:175."
+
+[disposition.22.39.30.4]
+finding = "22.39.30.4"
+status = "resolved"
+evidence = "On main, commit 928ea18d1a carries the capability-derived reference table at docs/platform/content/reference/enforcement.md:24 and its reset description at docs/platform/content/reference/enforcement.md:64, alongside the regenerated Next integration page at docs/platform/content/framework/next.md:1."
+
+[disposition.22.39.31.1]
+finding = "22.39.31.1"
+status = "resolved"
+evidence = "On main, commit a22b641284 names Paxeer X Network in docs/platform/content/concepts/enforcement.md:3, calls the marketplace a LayerX kernel program at docs/platform/content/guide/reference-applications.md:3, and describes the Rust surface as targeting the kernel at docs/platform/content/quickstart/rust.md:3."
+
+[disposition.22.39.37.1]
+finding = "22.39.37.1"
+status = "resolved"
+evidence = "On main, commit b101bde32d rewrites the product explanations in docs/platform/content/guide/programs.md:1, docs/wallet/service/security-review.md:1 and docs/system/routes.md:1 around program behavior, signing security and network routes; tests/ci/test_docs_no_programme_references.py:75 guards task and decision references across product pages."
+
+[disposition.22.39.38.1]
+finding = "22.39.38.1"
+status = "resolved"
+evidence = "On main, commit 848b657876 removes the numbered implementation references from sdk/contrib/rosetta/node/README.md:29 and tools/launchpad/production/load/README.md:121; the former describes withdrawn image entry points, while the latter describes workload and admission checks through their actual files."
+
+[disposition.22.39.39.1]
+finding = "22.39.39.1"
+status = "resolved"
+evidence = "On main, commit f877b3de28 changes docs/site/docs/protocol/finality.md:9 to link ../overview/unified-network.md, keeping the current execution and finality guide within the documentation site tree."
+
+[disposition.22.39.40.1]
+finding = "22.39.40.1"
+status = "resolved"
+evidence = "On main, commit bc89ead834 carries the activation and standby-release repair, and node/sequencer/driver.go:60 releases COMMITTED and the following OPEN without waiting for standby consensus commitment; commit 045cbd6efe also supplies the positive lease-default assertions at node/sequencer/config_bounds_test.go:40."
+
+[disposition.22.39.40.2]
+finding = "22.39.40.2"
+status = "resolved"
+evidence = "On main, commit 9de1de1c04 preserves bond-return conservation assertions at node/upgrades_merge_bonds_test.go:103 and checks hosted program ABI 4 before activation and ABI 5 afterward at node/upgrades_merge_programs_abi_test.go:234, including ABI 5 after restart at node/upgrades_merge_programs_abi_test.go:320."
+
+[disposition.22.39.40.3]
+finding = "22.39.40.3"
+status = "resolved"
+evidence = "On main, commit ff8d706905 gives RPC test applications a separate home at node/test_helpers.go:193 and verifies their mounted sequencer and chain stores at node/test_helpers.go:216; tests/ci/data/node_go_test_baseline.json:4 now contains an empty tests list."
+
+[disposition.22.39.40.4]
+finding = "22.39.40.4"
+status = "resolved"
+evidence = "On main, commit ff8d706905 repairs the application setup used by sequenced finalization at node/sequenced_finalize_test.go:232, while tests/ci/test_node_build_workflow_scope.py:28 requires the node baseline to be empty and rejects any skip argument."
+
+[disposition.22.39.40.5]
+finding = "22.39.40.5"
+status = "resolved"
+evidence = "On main, commit 412a4d444a brings the standby replication and binary-version expectations to their producers, and tests/ci/test_node_build_workflow_scope.py:28 requires an empty baseline and the complete ./node/... package selection without skips."
+
+[disposition.22.39.42.1]
+finding = "22.39.42.1"
+status = "resolved"
+evidence = "On main, commit cda4e5f2e2 supplies exact signed surface call recordings through apps/wallet/src/surfaces/test/recordedReceipts.ts:168; apps/wallet/src/surfaces/test/repair-22-39-55.test.ts:142 authenticates the formerly missing call vectors and its ledger assertions retain the retired-grant refusal."
+
+[disposition.22.39.43.1]
+finding = "22.39.43.1"
+status = "resolved"
+evidence = "On main, commits cda4e5f2e2 and d15bd08924 repair the surface recordings and the additional wallet cases, while tests/ci/test_wallet_repair_suites_listed.py:54 requires every recorded repair suite to exist and tests/ci/test_wallet_repair_suites_listed.py:87 forbids excluding those suites from the wallet selection."
+
+[disposition.22.39.43.2]
+finding = "22.39.43.2"
+status = "resolved"
+evidence = "On main, commit d15bd08924 repairs swap record persistence in apps/wallet/src/platform/storage/swap-records.ts:1 and its storage integration at apps/wallet/src/lib/swap/storage.ts:1, together with the account, signer, push and wallet consumers exposed by the broader suite."
+
+[disposition.22.39.43.3]
+finding = "22.39.43.3"
+status = "resolved"
+evidence = "On main, commit de0a781980 consumes a single valid chain_id for portfolio reads at apps/wallet/src/app/api/wallet/[...path]/route.ts:319, verifies it against the configured chain, and removes it before forwarding the bounded upstream query at apps/wallet/src/app/api/wallet/[...path]/route.ts:331."
+
+[disposition.22.39.43.4]
+finding = "22.39.43.4"
+status = "resolved"
+evidence = "On main, commit de0a781980 retains the reverted-swap assertion in apps/wallet/src/lib/swap/executor.test.ts:316 and registers that real contract case with a 15000 ms bound at apps/wallet/src/lib/swap/executor.test.ts:552; deployment remains part of the exercised swap path."
+
+[disposition.22.39.47.1]
+finding = "22.39.47.1"
+status = "resolved"
+evidence = "On main, commit 2c0db3df4c settles the tools CI producer and expectation changes, and tests/ci/test_tools_ci_suite_passes.py:26 invokes the entire tools/ci/tests suite and requires a nonzero passing-case count as well as exit zero."
+
+[disposition.22.39.47.2]
+finding = "22.39.47.2"
+status = "resolved"
+evidence = "On main, Makefile:265 includes tests/ci and tools/ci/tests in the Python target, and commit 586887c744 normalizes the original ledger records to the six-field vocabulary documented at spec/layerx-merge/qualification.kvx:2; tests/ci/test_tools_ci_suite_passes.py:19 now reads an empty ledger-deselection file."
+
+[disposition.22.39.48.1]
+finding = "22.39.48.1"
+status = "resolved"
+evidence = "On main, commit e5cab8cb31 separates Go module imports from registry references at tests/ci/test_image_namespaces.py:94: the declared Paxeer-X-Network import remains valid, while image references must use the canonical registry owner and the pax publishing recipe derives its owner from the repository."
+
+[disposition.22.39.51.1]
+finding = "22.39.51.1"
+status = "resolved"
+evidence = "On main, commit a8eb4ef703 makes tests/ci/test_action_pins_consistent.py:51 require one forty-character SHA per action across the workflow tree and checks release comments at tests/ci/test_action_pins_consistent.py:92; the CodeQL init and analyze steps share their v4.37.9 SHA at .github/workflows/codeql.yml:49."
+
+[disposition.22.39.53.1]
+finding = "22.39.53.1"
+status = "resolved"
+evidence = "On main, commit 2dbc538e5c re-includes services/interop/tests/repair_22_33_95.rs in docker/layerx/Dockerfile.dockerignore:85, so the declared portable-crate test target is retained by the node image context dependency closure."
+
+[disposition.22.39.54.1]
+finding = "22.39.54.1"
+status = "resolved"
+evidence = "On main, commit 586887c744 normalizes the original qualification records to finding sections with task, file, symbol, observed, assumption and severity at spec/layerx-merge/qualification.kvx:33; tests/ci/test_qualification_ledger_parses.py:15 retains unique-header and real-parser checks."
+
+[disposition.22.39.54.2]
+finding = "22.39.54.2"
+status = "resolved"
+evidence = "On main, commit 2c0db3df4c supplies the deselection-file reader at tests/ci/test_tools_ci_suite_passes.py:19, and commit 586887c744 empties tests/ci/data/tools_ci_deselect.txt after the original ledger repair, leaving the tools CI suite without that exception."
+
+[disposition.22.39.54.3]
+finding = "22.39.54.3"
+status = "resolved"
+evidence = "On main, commit e0a5a9cb96 restores .github/workflows/paxeer-go-test.yml:158, .github/workflows/paxeer-go-test.yml:187 and .github/workflows/paxeer-go-test.yml:205 to routed runner expressions, and commit 2c0db3df4c keeps the routing checker strict at scripts/ci/runner-routing-check.sh:1 while accepting that expression form."
+
+[disposition.22.39.54.4]
+finding = "22.39.54.4"
+status = "resolved"
+evidence = "On main, commit 5a526f9c07 installs pnpm 10.34.9 with its integrity suffix at .github/workflows/bridge-test.yml:149, matching the bridge package manifest instead of the unrelated 12.15.0 pin."
+
+[disposition.22.39.54.5]
+finding = "22.39.54.5"
+status = "resolved"
+evidence = "On main, commit 2c0db3df4c aligns tools/ci/tests/test_foundry_profile.py:28 with the intentional tests/solidity root project selected by foundry.toml:5, while retaining the assertions that retired permission paths are not granted."
+
+[disposition.22.39.54.6]
+finding = "22.39.54.6"
+status = "resolved"
+evidence = "On main, commit e0a5a9cb96 restores the routed expressions for the affected jobs, including .github/workflows/human.yml:38 and .github/workflows/platform.yml:24, and keeps the routing check on the live-input guard path."
+
+[disposition.22.39.55.1]
+finding = "22.39.55.1"
+status = "resolved"
+evidence = "On main, commit cda4e5f2e2 adds the signed call-vector catalogue checked at apps/wallet/src/surfaces/test/repair-22-39-55.test.ts:142, including perps, web search, launchpad and fee calls; altered calldata, value or destination is rejected by the recording path at apps/wallet/src/surfaces/test/recordedReceipts.ts:227."
+
+[disposition.22.39.56.1]
+finding = "22.39.56.1"
+status = "resolved"
+evidence = "On main, commit ddb58b9552 makes README.md:332 clone the canonical paxeer-monorepo repository and immediately enter paxeer-monorepo at README.md:333; tests/ci/test_docs_canonical_repository_links.py:71 distinguishes preserved upstream provenance from first-party repository links."
+
+[disposition.22.39.57.1]
+finding = "22.39.57.1"
+status = "resolved"
+evidence = "On main, commit 4d361665b1 binds the HPX provenance example to the v7.0.0 release at tools/hpx/README.md:96, and tests/ci/test_docs_release_version_examples.py:11 compares that example with tools/release/version.json rather than treating upstream vendor wording as first-party release metadata."
+
+[disposition.22.39.59.1]
+finding = "22.39.59.1"
+status = "resolved"
+evidence = "On main, commit 82353e8c71 makes tests/ci/test_markdown_links_resolve.py:272 select tracked first-party Markdown while preserving engineering and vendored trees, and tests/ci/test_markdown_links_resolve.py:294 resolves each relative destination against the tracked file and directory inventory."
+
+[disposition.22.39.60.1]
+finding = "22.39.60.1"
+status = "resolved"
+evidence = "On main, commit c3975b3cee removes redundant keep markers beside real content and the unreferenced perps model; tests/ci/test_repo_hygiene_strays.py:114 identifies Git bundle artifacts by their actual bundle header, preserving application fixtures that merely use the same suffix."
+
+[disposition.22.39.61.1]
+finding = "22.39.61.1"
+status = "environment"
+evidence = "On main, apps/launchpad/package.json:9 declares the SDK package build, and apps/launchpad/web/asset-renames.kvx:1 records the launchpad asset mapping; the asset imports under apps/launchpad/web/src/assets/index.ts:1 point to descriptive canonical files."
+
+[disposition.22.39.61.2]
+finding = "22.39.61.2"
+status = "environment"
+evidence = "On main, apps/launchpad/package.json:9 builds the packages under sdk/launchpad/packages, while apps/launchpad/web/src/core/wallet-sdk/runtime.integration.test.tsx:8 imports the real @kindle/sdk contract decoder; that dependency must supply its compiled exports before TypeScript can resolve them."
+
+[disposition.22.39.61.3]
+finding = "22.39.61.3"
+status = "resolved"
+evidence = "On main, commit b80b3706de adds the wallet gateway importer at apps/perps/pnpm-lock.yaml:295, including @electric-sql/pglite and @electric-sql/pglite-socket at apps/perps/pnpm-lock.yaml:325, so those manifest dependencies have locked resolutions."
+
+[disposition.22.39.61.4]
+finding = "22.39.61.4"
+status = "environment"
+evidence = "On main, sdk/wallet/package.json:38 declares the real agent SDK dependency build, and sdk/wallet/package.json:37 makes the wallet build depend on it; the browser entry imported by sdk/wallet/src/receipt.ts:3 is supplied by that package rather than by the renamed application assets."
+
+[disposition.22.39.63.1]
+finding = "22.39.63.1"
+status = "resolved"
+evidence = "On main, commit 51fdcd5919 declares Apache-2.0 for first-party manifests, including sdk/chainflow/python/pyproject.toml:6 and sdk/chainflow/rust/Cargo.toml:8, while tests/ci/test_manifest_license_fields.py:21 preserves the distinct upstream licence metadata of vendored trees."
+
+[disposition.22.39.63.2]
+finding = "22.39.63.2"
+status = "resolved"
+evidence = "On main, commit 51fdcd5919 sets the organisation author in contracts/package.json:16, contracts/launchpad/package.json:42, sdk/chainflow/rust/Cargo.toml:7, sdk/chainflow/typescript/package.json:5 and tests/integration/dapp_tests/package.json:6; the Python package also declares organisation authors at sdk/chainflow/python/pyproject.toml:7."
+
+[disposition.22.39.64.1]
+finding = "22.39.64.1"
+status = "resolved"
+evidence = "On main, commit c84cbfc769 gives CITATION.cff:12 the v7.0.0 identity and its canonical repository URL at CITATION.cff:15, and the Japanese site overview links its README, licence and CI badge to paxeer-monorepo at docs/site/docs/overview/i18n/ja.md:5."
+
+[disposition.22.39.65.1]
+finding = "22.39.65.1"
+status = "resolved"
+evidence = "On main, commit bace946642 updates the hosted gateway ai-market mirror to the current module interfaces, and commit cfb86f78c2 keeps deployment-independent proxy examples under services/platform/hosted/gateway/src/ui_proxy.rs:66; tests/ci/test_no_deployment_hosts_in_source.py:98 requires its explorer example to use the reserved example.net domain."
+
+[disposition.22.39.66.1]
+finding = "22.39.66.1"
+status = "resolved"
+evidence = "On main, commit fb22c0390a describes the Rosetta entry-point withdrawal as product behavior at sdk/contrib/rosetta/node/README.md:29, and tests/ci/test_docs_free_of_process_numbering.py:47 distinguishes engineering records from product guides while checking task, decision and repair prose in the latter."
+
+[disposition.22.39.68.1]
+finding = "22.39.68.1"
+status = "resolved"
+evidence = "On main, commit f8297a9251 moves hosted and toolkit key material beneath tests/fixtures, and commit 70fb314c8d does the same for the remaining SDK and reference fixtures; tests/ci/test_key_material_only_in_fixtures.py:38 requires tracked first-party key material to stay in test fixture directories."
+
+[disposition.22.39.68.2]
+finding = "22.39.68.2"
+status = "resolved"
+evidence = "On main, commit f8297a9251 repoints services/platform/hosted/indexer/tests/repair_22_33_1445.rs:44 through ../../internal/tests/fixtures to the configured server certificate, key and CA, matching the relocated fixture directory."
+
+[disposition.22.39.68.3]
+finding = "22.39.68.3"
+status = "resolved"
+evidence = "On main, commit 9de3f56cd8 makes services/platform/ramps/toolkit/tests/contracts.rs:218 assert the payer-grant draw authority for off-ramp payments; the same contract suite still requires protected genuine provider and custody inputs at services/platform/ramps/toolkit/tests/contracts.rs:501."
+
+[disposition.22.39.68.4]
+finding = "22.39.68.4"
+status = "resolved"
+evidence = "On main, commit 180b50fb4b makes the off-ramp proof at services/platform/ramps/toolkit/tests/proof_precompile_1_layerxledger_0x101a.rs:248 bind the grant and purpose to the payment authority, and checks the encoded budget spend at services/platform/ramps/toolkit/tests/proof_precompile_1_layerxledger_0x101a.rs:256."
+
+[disposition.22.39.68.5]
+finding = "22.39.68.5"
+status = "environment"
+evidence = "On main, services/platform/ramps/toolkit/tests/source_settlement.rs:78 requires a protected genuine source contract with both Ethereum and Solana cases, and services/platform/ramps/toolkit/tests/source_settlement.rs:105 verifies source finality against the bound on-ramp order before a funded transition is accepted."
+
+[disposition.22.39.70.1]
+finding = "22.39.70.1"
+status = "resolved"
+evidence = "On main, commit bbfdff2207 makes tests/ci/test_web_asset_weight.py:163 compare actual asset bytes with the 500000-byte cap or an exact declared allowance; zero-byte vendor stylesheets satisfy that size contract, while the optimized images must retain their real formats and dimensions at tests/ci/test_web_asset_weight.py:169."
+
+[disposition.22.39.72.1]
+finding = "22.39.72.1"
+status = "resolved"
+evidence = "On main, commits a08a60044b and 20f9642e0e align the CLI RPC and daemon-binding consumers, and commit 9312cc9482 preserves an unknown outcome after a lost program submission response at tools/platform/cli/tests/program_evm_calls.rs:265; no successful receipt is invented for that path."
+
+[disposition.22.39.73.1]
+finding = "22.39.73.1"
+status = "resolved"
+evidence = "On main, commits 06d9fa865e and 5247adc56b repair the agent Python transport and payment consumers, and tests/ci/test_agent_sdk_suites_wired.py:96 requires both the top-level SDK tests and services/agent/sdk/python/tests in the same make recipe with the real SDK on the import path."
+
+[disposition.22.39.74.1]
+finding = "22.39.74.1"
+status = "resolved"
+evidence = "On main, commits d884878611, b793700a08, 496fe1c9bd and 92006ea423 carry the interop member repairs, and tests/ci/data/interop_test_baseline.json:1 is empty; tests/ci/test_interop_workspace_tests_wired.py:92 retains locked workspace-wide testing without a member exclusion."
+
+[disposition.22.39.75.10]
+finding = "22.39.75.10"
+status = "resolved"
+evidence = "On main, commit a9a70e7cc9 reserves every listener before reading any chosen port at services/launchpad/gateway/internal/internaltest/ports.go:11, ensuring distinct ports for concurrent fixture services; the same commit updates the notifications, security and user module manifests."
+
+[disposition.22.39.75.11]
+finding = "22.39.75.11"
+status = "resolved"
+evidence = "On main, commit a9a70e7cc9 raises the API module directive to Go 1.27.0 at services/launchpad/api/go.mod:6, matching the requirements of its notifications dependency rather than leaving the older module directive."
+
+[disposition.22.39.75.12]
+finding = "22.39.75.12"
+status = "resolved"
+evidence = "On main, commit a9a70e7cc9 raises the social module directive at services/launchpad/social/go.mod:6 to Go 1.27.0 and migrates gateway proxy fixtures to services/launchpad/gateway/internal/internaltest/ports.go:9, which returns distinct reserved ports."
+
+[disposition.22.39.75.13]
+finding = "22.39.75.13"
+status = "open"
+evidence = "On main, tests/ci/data/launchpad_go_test_baseline.json:1539 retains TestDevelopmentProfileWrite and TestDevelopmentProfileReads, covering stale legacy profile reads and the signed-operation requirement; the user module remains owned by the pending remaining-module repair."
+follow_up = "22.39.168"
+
+[disposition.22.39.75.14]
+finding = "22.39.75.14"
+status = "open"
+evidence = "On main, services/launchpad/security/policy/policy_test.go:64 still declares an untagged Name field but submits its lowercase alias at services/launchpad/security/policy/policy_test.go:65, while the mutation decoder requires canonical field names; the security consumer repair is pending."
+follow_up = "22.39.168"
+
+[disposition.22.39.75.1]
+finding = "22.39.75.1"
+status = "open"
+evidence = "On main, sdk/launchpad/shared/delivery/natsdriver/driver_test.go:446 still requests a one-millisecond JetStream duplicates window, and sdk/launchpad/shared/db/production/production_test.go:421 retains the bounded cancellation-recovery requirement; the shared service repair remains pending."
+follow_up = "22.39.117"
+
+[disposition.22.39.75.2]
+finding = "22.39.75.2"
+status = "open"
+evidence = "On main, sdk/launchpad/shared/delivery/natsdriver/driver_test.go:446 and sdk/launchpad/shared/delivery/natsdriver/driver_test.go:739 still create streams with a one-millisecond duplicates window, leaving the shared driver contract to the pending shared-package repair."
+follow_up = "22.39.117"
+
+[disposition.22.39.75.3]
+finding = "22.39.75.3"
+status = "open"
+evidence = "On main, sdk/launchpad/shared/db/production/production_test.go:397 cancels a blocked transaction and sdk/launchpad/shared/db/production/production_test.go:421 requires connection recovery within one second; the shared-package task that must settle this behavior is pending."
+follow_up = "22.39.117"
+
+[disposition.22.39.75.4]
+finding = "22.39.75.4"
+status = "resolved"
+evidence = "On main, commit a9a70e7cc9 supplies the API service and contract prerequisites checked at tests/ci/test_launchpad_go_tests_wired.py:124, and commit a41ce5ffb6 follows the shared v2 receipt projection at services/launchpad/api/internal/app/repair_27_test.go:258 and services/launchpad/api/internal/app/dev_network_reads_test.go:285 for log-free receipts."
+
+[disposition.22.39.75.5]
+finding = "22.39.75.5"
+status = "open"
+evidence = "On main, services/launchpad/indexer/internal/processor/replay_postgres_test.go:205 still requires a completed replay without a PostgreSQL parameter-type error, and tests/ci/data/launchpad_go_test_baseline.json:1 retains indexer entries owned by the pending indexer repair."
+follow_up = "22.39.162"
+
+[disposition.22.39.75.6]
+finding = "22.39.75.6"
+status = "environment"
+evidence = "On main, sdk/launchpad/shared/db/production/production_test.go:153 creates non-superuser application roles and schema-owned relations, and sdk/launchpad/shared/db/production/production_test.go:186 asserts that runtime credentials cannot mutate ownership or the foreign schema; existing objects from a prior database instance do not alter that authorization contract."
+
+[disposition.22.39.75.7]
+finding = "22.39.75.7"
+status = "resolved"
+evidence = "On main, commit a9a70e7cc9 makes sdk/launchpad/protocol/bindings/repair_37_test.go:47 read the producer module go.mod and set the child GOTOOLCHAIN from its go directive at sdk/launchpad/protocol/bindings/repair_37_test.go:61, preserving the actual node overlay proof."
+
+[disposition.22.39.75.8]
+finding = "22.39.75.8"
+status = "open"
+evidence = "On main, services/launchpad/indexer/internal/processor/replay_postgres_test.go:205 still asserts replay success, and its cancellation and replacement-leader cases remain assigned to 22.39.162 in tests/ci/data/launchpad_go_test_baseline.json:1; that indexer repair is pending."
+follow_up = "22.39.162"
+
+[disposition.22.39.75.9]
+finding = "22.39.75.9"
+status = "open"
+evidence = "On main, tests/ci/data/launchpad_go_test_baseline.json:1 still retains ranking-algo readiness and frozen-input cases under 22.39.168, and services/launchpad/ranking-algo/internal/app/app_test.go:443 requires readiness after publication; the remaining-module repair is pending."
+follow_up = "22.39.168"
+
+[disposition.22.39.76.1]
+finding = "22.39.76.1"
+status = "resolved"
+evidence = "On main, commit 563747fa29 ports the worker-equality property through the current call-activity source, and tests/ci/test_core_test_all_wired.py:165 requires tests/programs/test_call_activity.c in the prepare-workers binary rather than the retired legacy activity producer."
+
+[disposition.22.39.76.2]
+finding = "22.39.76.2"
+status = "environment"
+evidence = "On main, .github/workflows/ci.yml:169 supplies the pinned Foundry toolchain before the core aggregate at .github/workflows/ci.yml:178, and tests/ci/test_core_test_all_wired.py:56 requires that real toolchain dependency for the Solidity state-surface checks."
+
+[disposition.22.39.76.3]
+finding = "22.39.76.3"
+status = "environment"
+evidence = "On main, .github/workflows/ci.yml:174 declares cbmc, z3 and clang as prerequisites of the core proof path, and tests/ci/test_core_test_all_wired.py:73 requires that dependency step before core-test-all; arithmetic qualification retains its actual proof-tool requirement."
+
+[disposition.22.39.76.4]
+finding = "22.39.76.4"
+status = "environment"
+evidence = "On main, .github/workflows/ci.yml:174 includes clang together with cbmc and z3, and tests/ci/test_core_test_all_wired.py:88 explicitly requires clang in that proof dependency set; the arithmetic checks have not been replaced by a missing-tool success path."
+
+[disposition.22.39.78.1]
+finding = "22.39.78.1"
+status = "resolved"
+evidence = "On main, commits 18880543d1 and a7d39f7f68 bring the Python payment verifier, HTTP client, agent budget and hosted RPC client to the seller wire, while tests/ci/test_platform_middleware_suites_wired.py:77 keeps the Python pay6 and example suites on the middleware recipe."
+
+[disposition.22.39.78.2]
+finding = "22.39.78.2"
+status = "resolved"
+evidence = "On main, commit a14bfc1c75 makes the primary platform job unconditional at .github/workflows/platform.yml:24 and leaves registry-variable admission on the quickstart benchmark step; tests/ci/test_platform_middleware_suites_wired.py:32 rejects a job-level condition on the middleware path."
+
+[disposition.22.39.8.1]
+finding = "22.39.8.1"
+status = "environment"
+evidence = "On main, services/wallet/attestor/internal/server/native_purpose_test.go:376 requires the actual Rust custody consumer, and services/wallet/attestor/internal/server/native_purpose_test.go:721 requires the native-send consumer; neither profile substitutes a fabricated Rust response when those executables are absent."
+
+[disposition.22.39.8.2]
+finding = "22.39.8.2"
+status = "environment"
+evidence = "On main, services/wallet/attestor/internal/server/native_purpose_test.go:403 invokes native_provider_and_sdk_real_cluster and services/wallet/attestor/internal/server/native_purpose_test.go:786 invokes native_send_provider_and_sdk_real_cluster; both profiles retain actual Rust provider verification across the Go attestor boundary."
+
+[disposition.22.39.8.3]
+finding = "22.39.8.3"
+status = "resolved"
+evidence = "On main, commit 6391e34850 maps WouldBlock and TimedOut transport errors to AttestorError::Timeout at services/human/crates/layerx-human-kms/src/attestor.rs:2144, while services/wallet/attestor/internal/server/native_purpose_test.go:721 retains a separate real native-send consumer."
+
+[disposition.22.39.8.4]
+finding = "22.39.8.4"
+status = "resolved"
+evidence = "On main, commit 6391e34850 accepts only the v2 native-send purpose prefix at services/wallet/attestor/internal/server/native_purpose.go:355 and services/wallet/attestor/internal/server/native_purpose.go:388, and maps bounded socket timeouts to the typed attestor timeout at services/human/crates/layerx-human-kms/src/attestor.rs:2144."
+
+[disposition.22.39.8.5]
+finding = "22.39.8.5"
+status = "resolved"
+evidence = "On main, commit 6391e34850 shares the principal-store handle through the wrapper at services/human/crates/layerx-human-kms/tests/support/native_principal_store.rs:6 and its custody consumer at services/human/crates/layerx-human-kms/tests/attestor_native_profile.rs:366; the Go native-send decoder also requires the published v2 domain at services/wallet/attestor/internal/server/native_purpose.go:355."
+
+[disposition.22.39.8.6]
+finding = "22.39.8.6"
+status = "resolved"
+evidence = "On main, commit 6391e34850 provisions a held secp256k1 wallet identity for native sends at services/wallet/attestor/internal/server/native_purpose_test.go:727, includes its inventory entry at services/wallet/attestor/internal/server/native_purpose_test.go:745, and verifies every node holds the matching owner and sender before the consumer starts."
+
+[disposition.22.39.82.1]
+finding = "22.39.82.1"
+status = "resolved"
+evidence = "On main, commit 2fe29c1246 makes tests/ci/test_go_build_tags_wired.py:59 require separate mock-block and mock-chain matrix legs, each limited to consensus/types, so the mutually exclusive consensus policies are never compiled together by the declared tag matrix."
+
+[disposition.22.39.82.2]
+finding = "22.39.82.2"
+status = "resolved"
+evidence = "On main, commit 2fe29c1246 separates the default-policy block assertion from the mock-policy selection, and tests/ci/test_go_build_tags_wired.py:63 requires each mock tag to occupy its own consensus/types matrix leg rather than asserting default validation under a replacement policy."
+
+[disposition.22.39.83.1]
+finding = "22.39.83.1"
+status = "resolved"
+evidence = "On main, commits 68952aa1bf and the other Python baseline repairs restore the hosted-suite consumers, and services/platform/hosted/node/generation_transport.py:248 sets umask before binding the supervisor socket so its creation mode is already 0660, satisfying services/platform/hosted/node/tests/test_reset_state.py:347 without a bind/chmod race."
+
+[disposition.22.39.84.1]
+finding = "22.39.84.1"
+status = "resolved"
+evidence = "On main, commit e1ae6e0924 repairs the candidate and AI-evidence consumers and tests/ci/test_tools_python_suites_wired.py:83 limits the remaining tools baseline to the catalogue-retirement case; tools/paxeer-x/tests/test_retired_catalogue_deleted.py:25 explicitly distinguishes the retained LNI record directory from deleted executable trees."
+
+[disposition.22.39.84.2]
+finding = "22.39.84.2"
+status = "resolved"
+evidence = "On main, commits 1c428496c4, cf29e8e93b, 59516c3c0b, 1bfaf21286, 162653eab8 and 8493063952 repair the Jev, release, container, generated-doc, checksum and bringup consumers, and tests/ci/test_tools_python_suites_wired.py:133 requires the bringup and benchmark baseline families to be absent."
+
+[disposition.22.39.84.3]
+finding = "22.39.84.3"
+status = "resolved"
+evidence = "On main, commit 8493063952 retires the bringup and benchmark entries checked at tests/ci/test_tools_python_suites_wired.py:133, while commit e1ae6e0924 constrains the remaining catalogue exception at tests/ci/test_tools_python_suites_wired.py:83; the target still lists all thirteen tools suite roots at tests/ci/test_tools_python_suites_wired.py:16."
+
+[disposition.22.39.84.4]
+finding = "22.39.84.4"
+status = "environment"
+evidence = "On main, .github/workflows/ci.yml:100 builds the benchmark EVM contracts before the tools suites at .github/workflows/ci.yml:115, and tests/ci/test_tools_python_suites_wired.py:195 requires that contract build; Solidity source bindings continue to depend on genuine compiled artifacts."
+
+[disposition.22.39.86.1]
+finding = "22.39.86.1"
+status = "resolved"
+evidence = "On main, commit 045cbd6efe repairs the sequencer latency, standby release and execution-proof consumers, and commit 8ea5577a87 supplies the pinned evmone build required by tests/ci/test_node_build_workflow_scope.py:62; the complete node package selection remains unfiltered at tests/ci/test_node_build_workflow_scope.py:28."
+
+[disposition.22.39.87.1]
+finding = "22.39.87.1"
+status = "resolved"
+evidence = "On main, commit 586887c744 maps the original qualification severities to blocker, suspect, assumption and note and normalizes their six-key records at spec/layerx-merge/qualification.kvx:33; tests/ci/test_qualification_ledger_parses.py:22 continues to exercise the real KVX parser rather than accepting unterminated strings."
+
+[disposition.22.39.90.1]
+finding = "22.39.90.1"
+status = "resolved"
+evidence = "On main, commit 928ea18d1a declares the native-payment capability at docs/platform/capabilities.kvx:7 and documents it at docs/platform/content/install.md:207; commit a34eebac5b keeps the Next sample commands checked against the actual package manifest at tests/ci/test_docs_make_targets_and_scripts.py:39."
+
+[disposition.22.39.92.1]
+finding = "22.39.92.1"
+status = "resolved"
+evidence = "On main, commit af0ccd47a3 makes tests/ci/test_docs_shell_commands_resolve.py:85 parse prompt-led blocks only at prompts, preserving continuation and heredoc handling, and docs/readme/PUBLIC-RPC.md:59 documents WebSocket access at the root host path."
+
+[disposition.22.39.92.2]
+finding = "22.39.92.2"
+status = "resolved"
+evidence = "On main, commit af0ccd47a3 resolves package script commands through the selected package manifests at tests/ci/test_docs_shell_commands_resolve.py:504 and splits comma-joined endpoint values at tests/ci/test_docs_shell_commands_resolve.py:723 before checking each public RPC path."
+
+[disposition.22.39.94.1]
+finding = "22.39.94.1"
+status = "resolved"
+evidence = "On main, commit 5577807085 repairs the wallet SDK receipt and provider consumers, including the signed producer receipt support at sdk/wallet/test/support/receipt-recordings.ts:1 and its authenticated receipt cases at sdk/wallet/test/receipt.test.ts:1; sdk/wallet/package.json:40 retains the SDK build before the unfiltered Vitest command."
+
+[disposition.22.39.95.1]
+finding = "22.39.95.1"
+status = "open"
+evidence = "On main, apps/launchpad/web/src/core/wallet-sdk/runtime.integration.test.tsx:73 still requires admitted L25 network, head and deposit evidence with its checksum before the runtime integration cases can proceed; the web and mobile repair task is pending."
+follow_up = "22.39.95"
+
+[disposition.22.39.95.2]
+finding = "22.39.95.2"
+status = "open"
+evidence = "On main, apps/launchpad/web/src/core/wallet-sdk/runtime.integration.test.tsx:72 still requires L25_QUALIFICATION_CONFIG_FILE and its digest, and apps/launchpad/web/src/core/wallet-sdk/runtime.integration.test.tsx:78 binds the admitted source hash; the task that must supply and reconcile the application inputs is pending."
+follow_up = "22.39.95"
+
+[disposition.22.39.95.3]
+finding = "22.39.95.3"
+status = "open"
+evidence = "On main, apps/launchpad/web/src/widgets/trading/transaction-controls/measurement.integration.test.tsx:1 retains the measurement integration suite and apps/launchpad/web/src/core/wallet-sdk/runtime.integration.test.tsx:73 refuses synthetic qualification input; the preparation and measurement repair belongs to the pending web and mobile task."
+follow_up = "22.39.95"
+
+[disposition.22.39.95.4]
+finding = "22.39.95.4"
+status = "open"
+evidence = "On main, apps/launchpad/web/src/widgets/trading/chart-datafeed-recovery.test.ts:1 retains chart recovery coverage and apps/launchpad/web/src/core/wallet-sdk/runtime.integration.test.tsx:112 requests an actual backend-issued identity challenge; the application repair task is still pending."
+follow_up = "22.39.95"
+
+[disposition.22.39.95.5]
+finding = "22.39.95.5"
+status = "open"
+evidence = "On main, apps/launchpad/web/src/core/next-build-config.ts:93 routes public snapshots to the API upstream and apps/launchpad/web/src/core/realtime/data-stream.ts:48 requires the /v2/snapshots contract; the joined-service preparation needed by the pending web repair has not been qualified by that task."
+follow_up = "22.39.95"
+
+[disposition.22.39.95.6]
+finding = "22.39.95.6"
+status = "open"
+evidence = "On main, apps/launchpad/web/src/core/next-build-config.ts:93 still directs /v2/snapshots to the API REST upstream, and apps/launchpad/web/src/core/realtime/data-stream.ts:48 uses that exact public snapshot path; reconciling the joined-service preparation remains part of pending task 22.39.95."
+follow_up = "22.39.95"
+
+[disposition.22.39.95.7]
+finding = "22.39.95.7"
+status = "open"
+evidence = "On main, services/launchpad/stats-workers/migrations/00001_init.sql:12 declares stats.pool_stats, while apps/launchpad/web/src/core/realtime/data-stream.ts:48 consumes the public snapshot projection; task 22.39.95 is pending and owns the stats preparation required by the web suite."
+follow_up = "22.39.95"
+
+[disposition.22.39.97.1]
+finding = "22.39.97.1"
+status = "resolved"
+evidence = "On main, commit 6ca580636a makes tests/ci/test_explorer_test_step.py:72 require the entire explorer umbrella, preserving dependency configuration, and services/explorer/backend/apps/ethereum_jsonrpc/test/ethereum_jsonrpc/web_socket/lifecycle.exs:25 removes an unsubscribed identifier before subsequent notifications are produced."

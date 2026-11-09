@@ -1,0 +1,48 @@
+[issue.1767]
+number = 1767
+title = "[P2] Repoint bootstrap and adoption consumers after the platform docs move"
+revision = "a910fdedd579e63379ae6c2e4d4971990d28f8ad"
+verdict = "task"
+evidence = "After the relocation in commit 0295d413498432f069f0ce9eda7bcbffd5c20e3d, tools/qualification/beta_driver.py:52 still constructs the removed sample root, :874 reads its Go manifest, and :1114 and :1121 still import the removed builder and load the removed documentation root, although docs/platform/build/build_site.py:230 and docs/platform/samples.kvx:11 resolve the relocated inputs; the CLI reader is already corrected at tools/platform/cli/tests/emulator.rs:472 by commit a08a60044bf3f1a66189338037862089c11b31f0, and the contiguous-byte scan at tools/qualification/audit_repairs/test_repair_22_36_2.py:185 and :206 cannot detect component-wise path construction."
+close_comment = "The CLI bootstrap reader already follows the relocated install guide. Platform adoption qualification still needs its shared sample root and documentation loader pointed at the relocated inputs, with runtime path-resolution coverage."
+
+[task.18.1767.1]
+title = "Issue #1767: Repoint platform adoption inputs to the relocated documentation and samples"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181767.1"]
+capabilities = []
+interfaces = []
+do_1 = "Change SAMPLES at tools/qualification/beta_driver.py:52 to services/platform/examples/samples for all six first-payment consumers at :833, :847, :871, :890, :919 and :939; repoint the builder import at :1114 to docs/platform/build/build_site.py and the load_samples argument at :1121 to docs/platform, whose manifest at docs/platform/samples.kvx:11 resolves the moved sample directories."
+do_2 = "Extract the real builder import, load_samples and measure_samples sequence at tools/qualification/beta_driver.py:1114 into load_adoption_sample_measurements and call it from middleware_ten_line_integration, preserving its error translation and nonempty-measurement check; add test_relocated_adoption_inputs_resolve in tools/qualification/test_beta_driver.py to read the six first-payment manifests through the actual SAMPLES constant, assert its canonical relocated root, and call that production helper against the real builder and manifest, asserting all thirteen sample identities and each measured integration line count within its declared budget without replacements or test doubles."
+symbols = ["SAMPLES", "load_adoption_sample_measurements", "middleware_ten_line_integration", "test_relocated_adoption_inputs_resolve"]
+touches = ["tools/qualification/beta_driver.py", "tools/qualification/test_beta_driver.py"]
+tests = ["tools/qualification/test_beta_driver.py::test_relocated_adoption_inputs_resolve"]
+planned_paths = []
+build_cmd = "python3 -m py_compile tools/qualification/beta_driver.py tools/qualification/test_beta_driver.py"
+verify_cmd = "python3 -m pytest tools/qualification/test_beta_driver.py::test_relocated_adoption_inputs_resolve -q"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181767]
+title = "Platform adoption qualification resolves the relocated sample and documentation inputs"
+ac_1 = "The six first-payment consumers sharing tools/qualification/beta_driver.py:52 read their manifests from services/platform/examples/samples, and middleware_ten_line_integration at :1113 imports docs/platform/build/build_site.py and loads docs/platform/samples.kvx through the production measurement helper, returning all thirteen real sample measurements within their existing budgets; focused runtime coverage detects incorrect component-wise path construction."
+
+[acceptance.18.1767.1]
+feature = "18"
+req = "181767.1"
+scenario = "Given the documentation under docs/platform and executable samples under services/platform/examples/samples, when the adoption driver's real sample root and documentation measurement helper resolve their inputs, then all six first-payment manifests are readable and all thirteen documentation samples are measured within their declared integration budgets."
+contract = "contracts/tools-ops.md#qualification-harness"
+test = "tools/qualification/test_beta_driver.py::test_relocated_adoption_inputs_resolve (planned)"
+qualification = "UNRUN"

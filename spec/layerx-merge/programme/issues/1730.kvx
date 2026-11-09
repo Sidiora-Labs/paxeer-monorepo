@@ -1,0 +1,7 @@
+[issue.1730]
+number = 1730
+title = "[Coherence] The rewritten wallet balance test expects success without --gateway-rpc and expects no verification field, but the CLI requires the flag and adds one"
+revision = "a910fdedd579e63379ae6c2e4d4971990d28f8ad"
+verdict = "already-fixed"
+evidence = "Commit a08a60044bf3f1a66189338037862089c11b31f0 repairs both mismatches from af4bacd7677ec6c604b8c035962e96b9dcd6b9e4: tools/platform/cli/tests/wallet_px_reads.rs:247 supplies --gateway-rpc for both explicit and configured node endpoints, :264 includes verification = unverified_node_observation in the expected document compared at :268, and :292 checks refusal without the flag with the exact gateway_rpc_required code at :296 and no connection at :301, matching the hosted balance requirements in tools/platform/cli/src/wallet.rs:709 and :720."
+close_comment = "The wallet balance test now supplies --gateway-rpc and expects verification = unverified_node_observation, matching the hosted balance output while preserving the exact document assertion. It also checks that omitting the gateway URL returns gateway_rpc_required before any network connection."

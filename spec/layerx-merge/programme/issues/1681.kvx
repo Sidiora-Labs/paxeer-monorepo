@@ -1,0 +1,48 @@
+[issue.1681]
+number = 1681
+title = "[Coherence] The clean-checkout corpus test no longer checks that the generated corpus excludes the retired budget pull, even though the repair claims to keep that check"
+revision = "bb8caac8b3e73e3e2f4b330805574f0bcb540641"
+verdict = "task"
+evidence = "Commit f34ce7bfd97be36f64f682ffed910f83b0d8141f removed the registry invocation whose exclusion assertion remains at services/agent/crates/layerx-wire/src/activity.rs:472; tests/ci/test_agent_codec_corpus.py:168 checks the fixed summary from tests/vectors/codec/generate.py:39 and substitutes unrelated EIP-1559 coverage at tests/ci/test_agent_codec_corpus.py:183, tests/ci/test_repair_22_33_727.py:36 checks only that summary string, and the invoked corpus consumer at services/agent/crates/layerx-types/tests/vectors.rs:75 checks counts and coverage without excluding budget ordinal 11, leaving the preservation requirement at spec/layerx-merge/spec.kvx:362790 unmet."
+close_comment = "The generated codec corpus still lacks a consumer assertion that excludes retired budget pull activity 0x0003000B. A focused follow-up will check the decoded activity types in the existing corpus conformance test, preserving the EIP-1559 coverage and corpus rejection checks."
+
+[task.18.1681.1]
+title = "Issue #1681: Assert retired budget pull exclusion in the generated corpus consumer"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181681.1"]
+capabilities = []
+interfaces = []
+do_1 = "In services/agent/crates/layerx-types/tests/vectors.rs:75, extend repository_corpora_are_loaded_and_fully_accounted after its real Corpus::load call to assert that the decoded replay activity_types excludes ActivityType::new(ModuleId::Budget, 11), numeric activity 0x0003000B; use the typed payload definitions and preserve every existing assertion."
+do_2 = "Regenerate the corpus with tests/vectors/codec/generate.py:15 and run the exact repository_corpora_are_loaded_and_fully_accounted test against the emitted file; the new assertion must fail if a generated record carries 0x0003000B regardless of the generator summary, and the existing clean-checkout invocation at tests/ci/test_agent_codec_corpus.py:158 must inherit the assertion without restoring the retired registry subcase or changing unsupported-version, unknown-class or EIP-1559 checks."
+symbols = ["repository_corpora_are_loaded_and_fully_accounted"]
+touches = ["services/agent/crates/layerx-types/tests/vectors.rs"]
+tests = ["services/agent/crates/layerx-types/tests/vectors.rs::repository_corpora_are_loaded_and_fully_accounted"]
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-types"
+verify_cmd = "python3 tests/vectors/codec/generate.py && sh tools/runtime/run-with-clock.sh cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-types --test vectors repository_corpora_are_loaded_and_fully_accounted -- --exact"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181681]
+title = "Generated codec corpus coverage excludes retired budget pull activity"
+ac_1 = "Given the real codec generator output, when repository_corpora_are_loaded_and_fully_accounted loads it at services/agent/crates/layerx-types/tests/vectors.rs:76, then it asserts that decoded replay activity_types contains no 0x0003000B and fails on that activity even when tests/vectors/codec/generate.py:39 prints its exclusion summary, retaining all existing corpus accounting and rejection assertions."
+
+[acceptance.18.1681.1]
+feature = "18"
+req = "181681.1"
+scenario = "Given a regenerated codec replay corpus, when the existing corpus consumer decodes its records, then budget ordinal 11 is absent and a corpus containing 0x0003000B fails the conformance assertion independently of generator log output."
+contract = "contracts/agent-rust-api.md#types"
+test = "services/agent/crates/layerx-types/tests/vectors.rs::repository_corpora_are_loaded_and_fully_accounted (planned)"
+qualification = "UNRUN"

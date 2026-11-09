@@ -1,0 +1,49 @@
+[issue.1641]
+number = 1641
+title = "[P3] Rebind transfer metric instruments when repeating MetricContract"
+revision = "bb8caac8b3e73e3e2f4b330805574f0bcb540641"
+verdict = "task"
+evidence = "The test introduced by commit 044c26f529733b3073e685c1d3e4ed16a014e9e4 still installs and shuts down a fresh provider at interchain/modules/apps/transfer/keeper/repair_m1205_test.go:153 and collects its reader at :216 before requiring all four instruments at :270, but interchain/modules/apps/transfer/keeper/metrics.go:9 creates the keeper meter and instruments only at initialization, so the one-time delegation in OpenTelemetry v1.45.0 (pinned at go.mod:94; upstream internal/global/state.go:145 and internal/global/meter.go:36) leaves subsequent readers without those instruments."
+close_comment = "The transfer metric contract still uses instruments bound to the first provider, so a repeated invocation cannot collect its own transfer metrics. A focused repair must bind the keeper instruments to each invocation's provider, restore the replaced state during cleanup, and retain every existing transfer and metric assertion."
+
+[task.18.1641.1]
+title = "Issue #1641: Bind transfer metric instruments to each contract test invocation"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181641.1"]
+capabilities = []
+interfaces = []
+do_1 = "Extract the instrument definitions at interchain/modules/apps/transfer/keeper/metrics.go:11 into a transferMetrics type and newTransferMetrics constructor accepting a metric.Meter; use the same constructor for package initialization, preserving the scope, names, descriptions, types and units at metrics.go:9 through :36 and the actual callback instrument handles used by relay.go:207, :216, :306 and :315."
+do_2 = "Add a test-only BindTransferMetricsForTest helper in interchain/modules/apps/transfer/keeper/export_test.go that saves the keeper meter and instrument handles, recreates them directly from the supplied provider through newTransferMetrics, and returns a restoration closure; replace the global provider installation at interchain/modules/apps/transfer/keeper/repair_m1205_test.go:155 with this binding and restore the saved handles before provider shutdown, without changing the global OpenTelemetry provider."
+do_3 = "Add TestTransferMetricsProviderRestoration beside the test-only helper using real SDK providers to assert the saved keeper meter and all four instrument handles are restored and the global provider is unchanged; repeat TestRepairM_1205_MetricContract twice in one binary, retaining the real MsgTransfer and relay path at interchain/modules/apps/transfer/keeper/repair_m1205_test.go:163 through :172 and every legacy and OpenTelemetry name, type, unit, label, amount and branch assertion through :270."
+symbols = ["transferMetrics", "newTransferMetrics", "BindTransferMetricsForTest", "TestTransferMetricsProviderRestoration", "TestRepairM_1205_MetricContract"]
+touches = ["interchain/modules/apps/transfer/keeper/metrics.go", "interchain/modules/apps/transfer/keeper/export_test.go", "interchain/modules/apps/transfer/keeper/repair_m1205_test.go"]
+tests = ["interchain/modules/apps/transfer/keeper/export_test.go::TestTransferMetricsProviderRestoration", "interchain/modules/apps/transfer/keeper/repair_m1205_test.go::TestRepairM_1205_MetricContract"]
+planned_paths = ["interchain/modules/apps/transfer/keeper/export_test.go"]
+build_cmd = "go build ./interchain/modules/apps/transfer/keeper/..."
+verify_cmd = "go test -count=2 ./interchain/modules/apps/transfer/keeper/ -run '^(TestRepairM_1205_MetricContract|TestTransferMetricsProviderRestoration)$' -v"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-chain-modules"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181641]
+title = "Repeated transfer metric contract invocations collect their own keeper instruments"
+ac_1 = "Given the real send and receive callbacks exercised at interchain/modules/apps/transfer/keeper/repair_m1205_test.go:163 through :172, each of two MetricContract invocations in one binary collects all four instruments required at :270 with the existing name, type, unit, label, amount and branch assertions intact; binding cleanup restores the prior keeper meter and instrument handles from metrics.go:9 through :36 and preserves the global OpenTelemetry provider."
+
+[acceptance.18.1641.1]
+feature = "18"
+req = "181641.1"
+scenario = "Given independently created real metric providers and the transfer keeper's package instruments, when MetricContract runs twice in one binary through real packet callbacks, then each invocation collects all four instruments with every existing assertion intact and cleanup restores the previous keeper instruments without replacing the global provider."
+contract = "contracts/ibc.md#telemetry"
+test = "interchain/modules/apps/transfer/keeper/repair_m1205_test.go::TestRepairM_1205_MetricContract and interchain/modules/apps/transfer/keeper/export_test.go::TestTransferMetricsProviderRestoration (planned)"
+qualification = "UNRUN"

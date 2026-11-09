@@ -1,0 +1,49 @@
+[issue.1619]
+number = 1619
+title = "[Coherence] The audit record declares contracts/explorer-http-api.md missing and raises a finding on that basis, but the contract exists under spec/layerx-merge/contracts with the cited anchors"
+revision = "bb8caac8b3e73e3e2f4b330805574f0bcb540641"
+verdict = "task"
+evidence = "The unchanged audit introduced by commit 81a091d2bb443e4e2f34a36ee5d531d599fbbaed still claims absence at spec/layerx-merge/programme/audit/records/22.30.144.kvx:521 and :615, although spec/layerx-merge/interfaces.kvx:594943 resolves to the existing contract headings at spec/layerx-merge/contracts/explorer-http-api.md:1699 and :969."
+close_comment = "The explorer HTTP contract exists with both referenced anchors, so the audit's missing-contract finding is incorrect. A focused repair will correct the audit's contract path and documentation assessment, remove the unsupported finding, and preserve findings supported by actual content differences."
+
+[task.18.1619.1]
+title = "Issue #1619: Correct the explorer HTTP contract assessment in audit 22.30.144"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181619.1"]
+capabilities = []
+interfaces = []
+do_1 = "Correct spec/layerx-merge/programme/audit/records/22.30.144.kvx:516-525, :613-616 and :621: remove the unsupported missing-explorer-http-contract finding, reduce the findings count at :5 from 24 to 23, and remove the missing-contract claim in doc.17 while retaining its independently supported capability drift; change doc.16 to the existing repository path spec/layerx-merge/contracts/explorer-http-api.md with status stale and notes citing spec/layerx-merge/contracts/explorer-http-api.md#rpc-module-account and spec/layerx-merge/contracts/explorer-http-api.md#api-v2-paxeer-x, whose headings are at :1699 and :969."
+do_2 = "Assess doc.16 against the actual contract content: spec/layerx-merge/contracts/explorer-http-api.md:987 still describes custody and anchor probes, whereas services/explorer/backend/apps/explorer/lib/explorer/chain/paxeer_x/capabilities.ex:62-76 defines the supported surfaces and services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/paxeer_x/capabilities_shape_test.exs:35-41 rejects retired keys; record that concrete drift in the notes without claiming the contract is missing or changing unrelated findings."
+do_3 = "Run the focused documentation grep check to assert the corrected doc.16 path and stale status, both resolved anchor citations, the adjusted finding count, and absence of the unsupported missing-contract finding and doc.17 claim."
+symbols = []
+touches = ["spec/layerx-merge/programme/audit/records/22.30.144.kvx"]
+tests = []
+planned_paths = []
+build_cmd = "true"
+verify_cmd = "grep -A 3 -Fx '[doc.16]' spec/layerx-merge/programme/audit/records/22.30.144.kvx | grep -Eq '^path = .spec/layerx-merge/contracts/explorer-http-api.md.$' && grep -A 3 -Fx '[doc.16]' spec/layerx-merge/programme/audit/records/22.30.144.kvx | grep -Eq '^status = .stale.$' && grep -Fq 'spec/layerx-merge/contracts/explorer-http-api.md#rpc-module-account' spec/layerx-merge/programme/audit/records/22.30.144.kvx && grep -Fq 'spec/layerx-merge/contracts/explorer-http-api.md#api-v2-paxeer-x' spec/layerx-merge/programme/audit/records/22.30.144.kvx && grep -Fxq 'findings = 23' spec/layerx-merge/programme/audit/records/22.30.144.kvx && ! grep -Eq 'missing-explorer-http-contract|Missing HTTP contracts' spec/layerx-merge/programme/audit/records/22.30.144.kvx"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-programme"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181619]
+title = "Explorer HTTP audit documentation reflects the existing contract"
+ac_1 = "Given the registry link at spec/layerx-merge/interfaces.kvx:594943 and the contract headings at spec/layerx-merge/contracts/explorer-http-api.md:1699 and :969, the corrected audit doc.16 at spec/layerx-merge/programme/audit/records/22.30.144.kvx:613 identifies the existing specification contract and actual content drift, the unsupported finding at :516 is absent, the header count at :5 is 23, and doc.17 at :621 no longer claims missing HTTP contracts."
+
+[acceptance.18.1619.1]
+feature = "18"
+req = "181619.1"
+scenario = "Given explorer HTTP registry links to an existing contract with both cited anchors, when audit 22.30.144 assesses that documentation, then it records the resolved contract path and supported content drift without a missing-contract finding or a missing-contract claim in doc.17, and its finding count remains consistent."
+contract = "contracts/explorer-http-api.md#rpc-module-account"
+test = "Focused grep check of spec/layerx-merge/programme/audit/records/22.30.144.kvx doc.16, anchor citations, findings count and removed absence claims (planned)"
+qualification = "UNRUN"

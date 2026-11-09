@@ -232,7 +232,17 @@ func TestEnvLinesFromEVMRecords(t *testing.T) {
 	}
 	wantRecord := Record{
 		Chain: "ethereum", ChainID: 1, Kind: "evm",
-		Vault: "0x7a3e5c81b04d296f8e1a7c35d92b6f04e8c1a37d",
+		Vault:         "0x7a3e5c81b04d296f8e1a7c35d92b6f04e8c1a37d",
+		Configuration: "contracts/bridge/evm/chains/ethereum/config.json",
+		Owner:         "0x2b7e151628aed2a6abf7158809cf4f3c762e7160",
+		Threshold:     3,
+		Attestors: []string{
+			"0x1d4a7f3b6e2c95840b1f8d3e7a6c5049b28e1f37",
+			"0x3f81c2d5e40a9b76135c8e2f4d7a6b09e83f1c24",
+			"0x6b2e9d47a1c30f582d94e7b6a3c518fd20e94b76",
+			"0x9c58e1f3a7d24b60c8e5934f1a6d7b28e04c3f95",
+			"0xd27a4e9b16c38f50a3d7e284b95c1f60d8a34e7b",
+		},
 	}
 	if !reflect.DeepEqual(record, wantRecord) {
 		t.Fatalf("LoadRecord() = %+v, want %+v", record, wantRecord)

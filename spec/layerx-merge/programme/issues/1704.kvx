@@ -1,0 +1,7 @@
+[issue.1704]
+number = 1704
+title = "[Coherence] Benchmark config validation accepts a random pool exactly equal to the value size, which panics in the data generator"
+revision = "bb8caac8b3e73e3e2f4b330805574f0bcb540641"
+verdict = "already-fixed"
+evidence = "Commit 0c1b6fc0010f02df8b995645563eb8215f7d120a fixes the exact-pool boundary: storage/db_engine/litt/benchmark/data_generator.go:71 adds 1 to the random-index bound so equal sizes use Intn(1), and TestRepairM_1170_GeneratorExactPool at storage/db_engine/litt/benchmark/repair_m1170_test.go:112 checks the returned length, determinism and equality with the full pool."
+close_comment = "The benchmark generator already handles values exactly equal to the random pool size by returning the full pool without a panic. Existing regression coverage checks this boundary, so the configuration does not need to reject equal sizes."

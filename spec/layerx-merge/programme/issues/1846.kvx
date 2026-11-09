@@ -1,0 +1,48 @@
+[issue.1846]
+number = 1846
+title = "[Coherence] The core-suite wiring test still requires Foundry v1.7.1, so it fails now that ci.yml installs v1.8.1"
+revision = "3520b1428059af90261432778c008a9ce362a0b1"
+verdict = "task"
+evidence = "At this revision, tests/ci/test_core_test_all_wired.py:65 still requires Foundry v1.7.1, contradicting the v1.8.1 pins at .github/workflows/ci.yml:171 and .github/workflows/ci.yml:191 and the uniformity assertions at tests/ci/test_workflow_toolchain_versions.py:84 and tests/ci/test_workflow_toolchain_versions.py:86 introduced by commit 5df725e6b45b4f9275f47f3a0c446fda2252f85c."
+close_comment = "The core-suite wiring check must require Foundry v1.8.1, matching both workflow jobs and the uniform-version check, while retaining its cache and job-parity assertions."
+
+[task.18.1846.1]
+title = "Issue #1846: Align the core-suite wiring assertion with Foundry v1.8.1"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181846.1"]
+capabilities = []
+interfaces = []
+do_1 = "Update test_ci_runs_core_test_all at tests/ci/test_core_test_all_wired.py:65 to require version v1.8.1 and cache false, matching .github/workflows/ci.yml:171 and .github/workflows/ci.yml:191; preserve the pinned action, installation ordering, unconditional execution and cross-job equality assertions at tests/ci/test_core_test_all_wired.py:56 through tests/ci/test_core_test_all_wired.py:72."
+do_2 = "Run the corrected test_ci_runs_core_test_all at tests/ci/test_core_test_all_wired.py:36 together with test_foundry_version_is_exact_and_uniform at tests/ci/test_workflow_toolchain_versions.py:72 against the real workflow files, proving the wiring and uniform-version checks agree without changing the workflows or weakening either check."
+symbols = ["test_ci_runs_core_test_all"]
+touches = ["tests/ci/test_core_test_all_wired.py"]
+tests = ["tests/ci/test_core_test_all_wired.py::test_ci_runs_core_test_all", "tests/ci/test_workflow_toolchain_versions.py::test_foundry_version_is_exact_and_uniform"]
+planned_paths = []
+build_cmd = "python3 -m py_compile tests/ci/test_core_test_all_wired.py"
+verify_cmd = "python3 -m pytest tests/ci/test_core_test_all_wired.py::test_ci_runs_core_test_all tests/ci/test_workflow_toolchain_versions.py::test_foundry_version_is_exact_and_uniform -q"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181846]
+title = "Core-suite wiring and uniform-version checks agree on Foundry v1.8.1"
+ac_1 = "Given the v1.8.1 workflow pins at .github/workflows/ci.yml:171 and .github/workflows/ci.yml:191, test_ci_runs_core_test_all at tests/ci/test_core_test_all_wired.py:36 requires version v1.8.1 with cache false at tests/ci/test_core_test_all_wired.py:65, retains the action and cross-job equality checks at tests/ci/test_core_test_all_wired.py:60 and tests/ci/test_core_test_all_wired.py:71, and passes alongside test_foundry_version_is_exact_and_uniform at tests/ci/test_workflow_toolchain_versions.py:72."
+
+[acceptance.18.1846.1]
+feature = "18"
+req = "181846.1"
+scenario = "Given the core and Solidity jobs pinned to Foundry v1.8.1, when the core-suite wiring test and the Foundry uniform-version test run together, then both pass while the wiring test continues to require cache false, the pinned action, installation before the core suites, unconditional execution and equal core and Solidity toolchain inputs."
+contract = "contracts/tools-ops.md#ci-workflows"
+test = "tests/ci/test_core_test_all_wired.py::test_ci_runs_core_test_all (planned)"
+qualification = "UNRUN"
