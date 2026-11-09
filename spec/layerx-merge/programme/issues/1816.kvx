@@ -1,0 +1,48 @@
+[issue.1816]
+number = 1816
+title = "Reconcile ask-stream ID types in the inference contract and protocol guide"
+revision = "a910fdedd579e63379ae6c2e4d4971990d28f8ad"
+verdict = "task"
+evidence = "The planned catalogue at spec/layerx-merge/contracts/inference-market.md:130 and spec/layerx-merge/contracts/inference-market.md:131 returns uint64 and its event at spec/layerx-merge/contracts/inference-market.md:132 indexes uint64, repeated for method outputs in docs/agent/inference-market/protocol.md:118 and docs/agent/inference-market/protocol.md:119, whereas precompiles/layerxpay/abi.json:2, precompiles/layerxpay/abi.json:104 and precompiles/layerxpay/abi.json:187 use bytes32, packed directly at precompiles/layerxpay/stream.go:34 and precompiles/layerxpay/stream.go:47 and asserted by precompiles/layerxpay/stream_ask_test.go:64 and precompiles/layerxpay/stream_ask_test.go:242 since commit 41d32cc012181c9d27889efabefa64e2170c3882."
+close_comment = "Both ask-stream method outputs and the indexed AskStreamOpened stream ID must be documented as bytes32 to match the pay ABI. A focused contract check must keep the catalogue and protocol guide consistent while preserving their planned status."
+
+[task.18.1816.1]
+title = "Issue #1816: Align ask-stream documentation with the native bytes32 identifiers"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181816.1"]
+capabilities = []
+interfaces = []
+do_1 = "Correct the streamOpenForAsk and askStreamOf outputs to bytes32 and the indexed stream ID in AskStreamOpened to bytes32 in spec/layerx-merge/contracts/inference-market.md:130, spec/layerx-merge/contracts/inference-market.md:131 and spec/layerx-merge/contracts/inference-market.md:132; correct the corresponding outputs in docs/agent/inference-market/protocol.md:118 and docs/agent/inference-market/protocol.md:119 and spell out the event signature alongside its binding description at docs/agent/inference-market/protocol.md:127, preserving the planned status of both documents."
+do_2 = "Add tests/ci/test_inference_market_stream_contract.py with test_ask_stream_documentation_matches_abi, reading the actual catalogue, protocol guide and precompiles/layerxpay/abi.json:2, precompiles/layerxpay/abi.json:104 and precompiles/layerxpay/abi.json:187; parse the two method declarations and event declaration in each document, assert their presence and exact input and output types against the ABI, assert both indexed bytes32 event fields and the non-indexed address, and assert the planned labels remain present."
+symbols = ["test_ask_stream_documentation_matches_abi"]
+touches = ["spec/layerx-merge/contracts/inference-market.md", "docs/agent/inference-market/protocol.md", "tests/ci/test_inference_market_stream_contract.py"]
+tests = ["tests/ci/test_inference_market_stream_contract.py::test_ask_stream_documentation_matches_abi"]
+planned_paths = []
+build_cmd = "python3 -m py_compile tests/ci/test_inference_market_stream_contract.py"
+verify_cmd = "python3 -m pytest tests/ci/test_inference_market_stream_contract.py::test_ask_stream_documentation_matches_abi -q"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-docs"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181816]
+title = "Ask-stream documentation matches the pay ABI"
+ac_1 = "Given the pay ABI at precompiles/layerxpay/abi.json:2, precompiles/layerxpay/abi.json:104 and precompiles/layerxpay/abi.json:187, when the catalogue entries at spec/layerx-merge/contracts/inference-market.md:130 and the protocol declarations at docs/agent/inference-market/protocol.md:116 are checked, then both methods return bytes32 and both documents declare AskStreamOpened(bytes32 indexed,bytes32 indexed,address) with matching input types, indexing and planned status."
+
+[acceptance.18.1816.1]
+feature = "18"
+req = "181816.1"
+scenario = "Given the pay ABI and the planned ask-stream catalogue and protocol guide, when the focused contract check compares the documented methods and event with the ABI, then both methods return bytes32, the event indexes bytes32 ask and stream identifiers and carries a non-indexed address, and the planned labels remain present."
+contract = "contracts/inference-market.md#streams-0x101b"
+test = "tests/ci/test_inference_market_stream_contract.py::test_ask_stream_documentation_matches_abi (planned)"
+qualification = "UNRUN"

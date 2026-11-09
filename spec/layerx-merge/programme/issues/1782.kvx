@@ -1,0 +1,49 @@
+[issue.1782]
+number = 1782
+title = "[Coherence] The deleted wallet image is still allow-listed by the gateway and published in both route catalogues"
+revision = "a910fdedd579e63379ae6c2e4d4971990d28f8ad"
+verdict = "task"
+evidence = "Commit 2f9f630e948446e646f997ba55cc8bbb8652ac35 deleted apps/wallet/public/Untitled design.svg, but services/platform/hosted/gateway/src/ui_proxy.rs:875 still allows its path through asset at :236 and admitted at :297, tools/paxeer-x/route-catalogue.json:20264 and :20287 still advertise its GET and HEAD routes with the upstream health contract at :20273 and :20296, and rpc/px_route_catalogue.json:17253 and :17273 still publish those routes through the catalogue embedded at rpc/px_discovery.go:58 and returned at :66."
+close_comment = "The deleted wallet image still has public GET and HEAD routes in the gateway and discovery catalogues. The follow-up fix removes those stale entries, regenerates the node catalogue and adds regression coverage while preserving supported wallet assets."
+
+[task.18.1782.1]
+title = "Issue #1782: Remove the deleted wallet image from gateway admission and route discovery"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181782.1"]
+capabilities = []
+interfaces = []
+do_1 = "Remove only /wallet/Untitled%20design.svg from ASSETS at services/platform/hosted/gateway/src/ui_proxy.rs:875 and remove its GET and HEAD rows at tools/paxeer-x/route-catalogue.json:20264 and :20287; preserve the asset deletion and all supported routes."
+do_2 = "Regenerate rpc/px_route_catalogue.json with the existing rpc/generate_px_catalogue.py:6 source projection so the stale public rows at rpc/px_route_catalogue.json:17253 and :17273 disappear from the catalogue embedded by rpc/px_discovery.go:58; leave the generator and discovery implementation unchanged."
+do_3 = "Add removed_wallet_asset_is_not_routed_or_advertised to the existing tests module at services/platform/hosted/gateway/src/ui_proxy.rs:1565: assert the deleted public file remains absent, asset and admitted reject the obsolete path for GET and HEAD, neither real committed catalogue contains the obsolete path or route ids, and the retained /wallet/argus.svg file, gateway admission and GET and HEAD catalogue entries remain present."
+symbols = ["ASSETS", "removed_wallet_asset_is_not_routed_or_advertised"]
+touches = ["services/platform/hosted/gateway/src/ui_proxy.rs", "tools/paxeer-x/route-catalogue.json", "rpc/px_route_catalogue.json"]
+tests = ["services/platform/hosted/gateway/src/ui_proxy.rs::removed_wallet_asset_is_not_routed_or_advertised"]
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-gateway --bin layerx-gateway"
+verify_cmd = "cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-gateway --bin layerx-gateway ui_proxy::tests::removed_wallet_asset_is_not_routed_or_advertised -- --exact"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181782]
+title = "Gateway admission and route discovery exclude the deleted wallet image"
+ac_1 = "Given the wallet image deleted by commit 2f9f630e948446e646f997ba55cc8bbb8652ac35, when GET and HEAD admission is checked through services/platform/hosted/gateway/src/ui_proxy.rs:297 and the source and embedded catalogues at tools/paxeer-x/route-catalogue.json:20264 and rpc/px_route_catalogue.json:17253 are read, then /wallet/Untitled%20design.svg is neither admitted nor advertised, the deleted file stays absent and supported /wallet/argus.svg routes remain admitted and advertised."
+
+[acceptance.18.1782.1]
+feature = "18"
+req = "181782.1"
+scenario = "Given a deleted wallet public image and a retained wallet asset, when GET and HEAD gateway admission and both committed route catalogues are checked, then the deleted image is rejected and absent from discovery while the retained asset remains admitted and advertised."
+contract = "contracts/platform-gateway.md#gateway-http-routes"
+test = "services/platform/hosted/gateway/src/ui_proxy.rs::removed_wallet_asset_is_not_routed_or_advertised (planned)"
+qualification = "UNRUN"
