@@ -5,6 +5,7 @@ Out-of-scope clock violations remain violations and require named owner wiring.
 """
 
 import ast
+import json
 from pathlib import Path
 import re
 import shlex
@@ -283,7 +284,11 @@ def test_sdk_wallet_deadlines_use_explicit_clock_without_silent_fallback():
 
 def test_clock_scanner_violations_have_exact_out_of_scope_owner_requests():
     record = tomllib.loads(RECORD.read_text())
-    requests = record["wiring"]["clock_requests"]
+    pins = json.loads(
+        (Path(__file__).with_name("fixtures") / "repair_22_39_293_source_pins.json").read_text()
+    )
+    assert pins["source_revision"] == "2910889b640274b1b6f2bd14a2fba25019093bb2"
+    requests = record["wiring"]["clock_requests"] + pins["clock_requests"]
     requested = set()
     for request in requests:
         path, owner, action = request.split(" | ")
