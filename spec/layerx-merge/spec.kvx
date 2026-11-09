@@ -11344,6 +11344,12 @@ value = "When a test binary of programs/crates/layerx-programs-arbiter includes 
 basis = "Gotcha 3735, decisions 3015, 3029 and 3034"
 affects = ["22.39.177", "22.39.183"]
 
+[decision.3039]
+title = "A clippy gate scoped to one crate lints that crate only, and the agent lint target of the public job is owned by one task that brings every workspace member under the workspace lints without weakening them"
+value = "A task whose verification runs cargo clippy on the crate it changes passes no-deps, so the gate reports the crate in its touches and never a workspace member another task owns; the workspace lints stay as declared. The lint target the public agent job runs (clippy over the services/agent workspace with all targets and warnings denied, then the dependency policy script) is owned by one task of the agent owner that repairs every reported lint at its source: a missing Errors section is written as the condition under which the function returns its error, an item after statements moves above them, and an unused self on a public method kept for its callers carries the allowance the daemon already uses at admin.rs line 327 with a reason; no lint level changes, no blanket allowance is added at crate or module level, and the record lists every lint by crate, file and line with its repair. The public job and the Makefile target stay unchanged."
+basis = "Gotcha 3736, decisions 2908 and 3023, the red public job finding class of gotchas 3052 and 3053"
+affects = ["22.39.209", "22.39.211"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -40234,6 +40240,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.211]
+title = "Bring the agent workspace lint target to green under the workspace lints"
+reqs = ["22998.1"]
+touches = ["services/agent/crates"]
+tests = []
+verification_contract = "test -s services/agent/crates/layerx-types/src/repair_22_39_211.kvx && cargo clippy --locked --manifest-path services/agent/Cargo.toml --workspace --all-targets -- -D warnings && sh services/agent/tools/dependency-policy.sh"
+do_1 = "do_1 Gotcha 3736, decision 3039. The public agent job runs make agent-lint (cargo clippy over the services/agent workspace with all targets and warnings denied, then services/agent/tools/dependency-policy.sh) and is red on main: services/agent/crates/layerx-types/src/chain.rs fails five missing Errors sections (lines 24, 99, 121 and 160, and historical/verify.rs line 8), the unused self of chain_id at line 86 and of rung at historical/verify.rs line 23, and the nested function take after statements at line 164. Run the lint target once on the unchanged merged main tree first and record every reported lint by crate, file and line in the task record."
+symbols = []
 
 [capability.22.39.210]
 title = "Carry the receipt VmError text, precompile suffix included, in the EVM transaction response"
@@ -183684,6 +183699,36 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.39.211]
+title = "Bring the agent workspace lint target to green under the workspace lints"
+status = "pending"
+mode = "BUILD"
+wave = 4
+requires = ["22.39.209"]
+reqs = ["22998.1"]
+capabilities = ["22.39.211"]
+interfaces = []
+do_1 = "do_1 Gotcha 3736, decision 3039. The public agent job runs make agent-lint (cargo clippy over the services/agent workspace with all targets and warnings denied, then services/agent/tools/dependency-policy.sh) and is red on main: services/agent/crates/layerx-types/src/chain.rs fails five missing Errors sections (lines 24, 99, 121 and 160, and historical/verify.rs line 8), the unused self of chain_id at line 86 and of rung at historical/verify.rs line 23, and the nested function take after statements at line 164. Run the lint target once on the unchanged merged main tree first and record every reported lint by crate, file and line in the task record."
+do_2 = "do_2 Repair every reported lint at its source across the workspace members: write each missing Errors section as the condition under which the function returns its error, move an item declared after statements above them, and keep a public method with an unused self for its callers under the allowance the daemon already uses at admin.rs line 327 with a reason naming the callers; replace an unwrap or expect that a lint reports with the error path of the crate. No lint level changes in the workspace manifest, no blanket allowance at crate or module level, no public signature changes, and no test assertion changes; the Makefile target and the public job stay unchanged."
+do_3 = "do_3 Record every lint with its repair in services/agent/crates/layerx-types/src/repair_22_39_211.kvx, run the build once and the verification once at the final revision and record both by reference. If after the allowed repair cycles the lint target still reports errors, record the remaining count by crate and stop the attempt."
+symbols = []
+touches = ["services/agent/crates"]
+tests = []
+planned_paths = ["services/agent/crates/layerx-types/src/repair_22_39_211.kvx"]
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml --workspace"
+verify_cmd = "test -s services/agent/crates/layerx-types/src/repair_22_39_211.kvx && cargo clippy --locked --manifest-path services/agent/Cargo.toml --workspace --all-targets -- -D warnings && sh services/agent/tools/dependency-policy.sh"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 300
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.209]
 title = "Remove the unused binding named level in the agent RPC adapters so the agent lint target passes"
 status = "pending"
@@ -183700,7 +183745,7 @@ touches = ["services/agent/crates/layerx-agentd/src/agent_rpc_adapters.rs"]
 tests = []
 planned_paths = ["services/agent/crates/layerx-agentd/src/repair_22_39_209.kvx"]
 build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib"
-verify_cmd = "test -s services/agent/crates/layerx-agentd/src/repair_22_39_209.kvx && test 0 -eq $(grep -c 'let level = crate::' services/agent/crates/layerx-agentd/src/agent_rpc_adapters.rs) && cargo clippy --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib -- -D warnings"
+verify_cmd = "test -s services/agent/crates/layerx-agentd/src/repair_22_39_209.kvx && test 0 -eq $(grep -c 'let level = crate::' services/agent/crates/layerx-agentd/src/agent_rpc_adapters.rs) && cargo clippy --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib --no-deps -- -D warnings"
 gate_kind = "planned"
 sandbox_profile = "rust"
 owner_role = "fm-agent"
@@ -183712,6 +183757,7 @@ time_limit_minutes = 90
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_3 = "Attempt 2 (continue, gotcha 3736, decision 3039): the attempt-1 tree 6c2da1a64f69 stands unchanged (the binding removed, the record). The verification now lints layerx-agentd alone with no-deps, so the eight pedantic errors of layerx-types, owned by 22.39.211, no longer stop the gate; no source change is needed beyond the record naming the bounded gate and the task that owns the workspace lint target. Merge main, run the build once and the verification once at the final revision and record both by reference; if the daemon library itself reports a lint, repair it inside agent_rpc_adapters.rs within the one allowed cycle and rerun once."
 
 [task.22.39.183]
 title = "Make the arbiter decode kernel boundary leaves through the record header the runtime producer authenticates"
