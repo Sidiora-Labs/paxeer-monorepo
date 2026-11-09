@@ -1,0 +1,49 @@
+[issue.1663]
+number = 1663
+title = "Funding tests read retired MobileTradingLayout source"
+revision = "bb8caac8b3e73e3e2f4b330805574f0bcb540641"
+verdict = "task"
+evidence = "apps/perps/tests/funding-rate.test.ts:179 and apps/perps/tests/funding-rate.test.ts:269 still synchronously read MobileTradingLayout.tsx, deleted by commit 53ff46dcce7522470ab5b45ef00c65ccea88caf8, while apps/perps/tests/repair-22-33-196.test.ts:322 requires its absence and apps/perps/package.json:12 includes both suites in the normal test command."
+close_comment = "The funding suite still reads the retired MobileTradingLayout source in two assertions. Retarget those assertions to the maintained trading header and markets views, keeping the layout retired and preserving exact funding precision, signs and missing-rate coverage."
+
+[task.18.1663.1]
+title = "Issue #1663: Retarget funding assertions to maintained consumers"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181663.1"]
+capabilities = []
+interfaces = []
+do_1 = "Replace the retired-layout source reads in apps/perps/tests/funding-rate.test.ts:179 and apps/perps/tests/funding-rate.test.ts:269 with equivalent assertions on maintained consumers: PairHeader funding sources and figures at apps/perps/src/widgets/trading/PairHeader.tsx:164 and apps/perps/src/widgets/trading/PairHeader.tsx:266, the markets table at apps/perps/src/widgets/markets/MarketsTable.tsx:163 and the funding tab at apps/perps/src/page-modules/markets/index.tsx:348; update obsolete mobile-row wording and keep all existing precision, sign, null-state and conversion-refusal assertions."
+do_2 = "Declare the two retargeted callbacks as named functions funding_consumers_keep_exact_rates and funding_consumers_keep_signed_and_missing_rates and register each with it(functionName); assert the maintained source-to-formatter wiring and keep the runtime cases at apps/perps/tests/funding-rate.test.ts:277 and apps/perps/tests/funding-rate.test.ts:334 intact, with no restored layout, skipped tests or weaker checks."
+do_3 = "Run both complete named suites in one focused verification, including the unchanged f030_uncalled_legacy_funding_layout_is_retired at apps/perps/tests/repair-22-33-196.test.ts:322; keep the normal package test selection at apps/perps/package.json:12 unchanged so it continues to include the repaired funding suite and the retirement proof."
+symbols = ["funding_consumers_keep_exact_rates", "funding_consumers_keep_signed_and_missing_rates"]
+touches = ["apps/perps/tests/funding-rate.test.ts"]
+tests = ["apps/perps/tests/funding-rate.test.ts::funding_consumers_keep_exact_rates", "apps/perps/tests/funding-rate.test.ts::funding_consumers_keep_signed_and_missing_rates", "apps/perps/tests/repair-22-33-196.test.ts::f030_uncalled_legacy_funding_layout_is_retired"]
+planned_paths = []
+build_cmd = "pnpm --dir apps/perps exec tsc --noEmit"
+verify_cmd = "cd apps/perps && node --test --test-concurrency=1 --import tsx tests/funding-rate.test.ts tests/repair-22-33-196.test.ts"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-markets"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181663]
+title = "Funding coverage follows maintained consumers while the unused layout stays retired"
+ac_1 = "Given the stale reads at apps/perps/tests/funding-rate.test.ts:179 and apps/perps/tests/funding-rate.test.ts:269, when both funding and retirement suites run, then the two assertions exercise maintained header and markets consumers without reading the deleted layout, exact parsing, signed tiny values, zero and null-state coverage remain intact, and the absence assertion at apps/perps/tests/repair-22-33-196.test.ts:324 passes."
+
+[acceptance.18.1663.1]
+feature = "18"
+req = "181663.1"
+scenario = "Given the retired MobileTradingLayout and the maintained trading header and markets funding views, when the funding assertions and retirement proof execute, then both suites pass without reading the deleted source and preserve exact-rate, sign and null-state guarantees."
+contract = "contracts/perps-client.md#core"
+test = "apps/perps/tests/funding-rate.test.ts::funding_consumers_keep_exact_rates; apps/perps/tests/funding-rate.test.ts::funding_consumers_keep_signed_and_missing_rates; apps/perps/tests/repair-22-33-196.test.ts::f030_uncalled_legacy_funding_layout_is_retired (planned)"
+qualification = "UNRUN"

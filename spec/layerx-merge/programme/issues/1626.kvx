@@ -1,0 +1,48 @@
+[issue.1626]
+number = 1626
+title = "Staking redelegation query erases sparse-page continuation after scan cap"
+revision = "bb8caac8b3e73e3e2f4b330805574f0bcb540641"
+verdict = "task"
+evidence = "sdk/x/staking/keeper/grpc_query.go:400 routes destination-only queries to queryAllRedelegations, which records only observed matches at sdk/x/staking/keeper/grpc_query.go:567 and unconditionally replaces the keyless continuation at sdk/x/staking/keeper/grpc_query.go:578, discarding the unprocessed raw key returned before the callback by sdk/types/query/filtered_pagination.go:113 when the post-page scan exceeds MaxScanLimit, while the existing eight-record coverage at sdk/x/staking/keeper/grpc_query_test.go:868 never reaches that boundary."
+close_comment = "Destination-filtered redelegation queries can still hide later matches by clearing the continuation when the scan cap is reached. A focused fix must preserve the paginator continuation and prove that following it returns every matching redelegation exactly once."
+
+[task.18.1626.1]
+title = "Issue #1626: Preserve sparse redelegation page continuations at the scan cap"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181626.1"]
+capabilities = []
+interfaces = []
+do_1 = "In queryAllRedelegations at sdk/x/staking/keeper/grpc_query.go:556-579, replace the keyless paginator continuation only when nextMatchingKey contains an observed matching key; otherwise preserve the raw unprocessed continuation from sdk/types/query/filtered_pagination.go:113-116, retaining the scan bounds, existing key-based behavior, count-total errors and true end-of-results behavior."
+do_2 = "Add TestRedelegationsSparsePageContinuation to sdk/x/staking/keeper/grpc_query_test.go beside testRedelegationPartialFilters at line 811: produce actual redelegations through the staking message server and query through the registered gRPC query client, arrange destination matches separated by MaxScanLimit and MaxScanLimit+1 nonmatching records in store order, and cover forward and reverse traversal with keyless limit-one requests, count_total false, and zero and nonzero matching offsets; assert the first full page retains an advancing continuation and following returned keys reaches every expected match once with no distractors, duplicates or premature termination, then ends with an empty key; assert count_total true retains the explicit scan-limit error and retain the existing small-dataset partial-filter coverage."
+symbols = ["queryAllRedelegations", "TestRedelegationsSparsePageContinuation"]
+touches = ["sdk/x/staking/keeper/grpc_query.go", "sdk/x/staking/keeper/grpc_query_test.go"]
+tests = ["sdk/x/staking/keeper/grpc_query_test.go::TestRedelegationsSparsePageContinuation", "sdk/x/staking/keeper/repair_m689_test.go::TestRepairM_689_RedelegationPartialFilters"]
+planned_paths = []
+build_cmd = "go build ./sdk/x/staking/keeper/..."
+verify_cmd = "go test -count=1 ./sdk/x/staking/keeper/ -run '^(TestRedelegationsSparsePageContinuation|TestRepairM_689_RedelegationPartialFilters)$'"
+gate_kind = "planned"
+sandbox_profile = "go-cgo"
+owner_role = "fm-cosmos-fork"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181626]
+title = "Sparse redelegation queries preserve continuation at the scan cap"
+ac_1 = "Given destination matches separated by more than MaxScanLimit raw records, when a keyless Redelegations request fills its page without total counting, then the overwrite at sdk/x/staking/keeper/grpc_query.go:578 preserves the raw continuation returned by sdk/types/query/filtered_pagination.go:115 unless an observed matching continuation is available, and following keys in either direction returns every remaining matching record exactly once without exceeding the scan bounds."
+
+[acceptance.18.1626.1]
+feature = "18"
+req = "181626.1"
+scenario = "Given destination-filtered redelegations separated by a gap beyond the scan cap, when a keyless limit-one query without total counting fills a page and the client follows its returned continuations, then pagination reaches every expected match exactly once in forward and reverse order and signals exhaustion only after the final match."
+contract = "contracts/cosmos-fork.md#go-api"
+test = "sdk/x/staking/keeper/grpc_query_test.go::TestRedelegationsSparsePageContinuation (planned)"
+qualification = "UNRUN"

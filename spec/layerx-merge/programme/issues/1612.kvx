@@ -1,0 +1,48 @@
+[issue.1612]
+number = 1612
+title = "[Coherence] The audit record reports contracts/clients.md as missing, but the wallet contract exists at spec/layerx-merge/contracts/clients.md with both cited anchors"
+revision = "bb8caac8b3e73e3e2f4b330805574f0bcb540641"
+verdict = "task"
+evidence = "The unchanged audit from commit 40682fa947c5d7038d75a27fcd75ff77d50bb4b7 still marks the wallet contract missing at spec/layerx-merge/programme/audit/records/22.30.115.kvx:1443 and files its domain-17 repair with line zero at :1448, although spec/layerx-merge/contracts/clients.md:349 and :538 provide both wallet anchors referenced by spec/layerx-merge/interfaces.kvx:492669 and :491833; correct the audit record rather than restore or retarget an existing contract."
+close_comment = "The wallet app and SDK contracts exist at spec/layerx-merge/contracts/clients.md#wallet-app and #wallet-sdk. A documentation repair will correct the audit entry and remove the false missing-contract finding, including its line-zero reference, without creating replacement contract pages."
+
+[task.18.1612.1]
+title = "Issue #1612: Correct the wallet audit contract references"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181612.1"]
+capabilities = []
+interfaces = []
+do_1 = "In spec/layerx-merge/programme/audit/records/22.30.115.kvx:1443, resolve registry contract paths relative to spec/layerx-merge, read the wallet sections at spec/layerx-merge/contracts/clients.md:349 and :538 against their referenced interfaces, and replace doc.contract-source-missing with doc.wallet-contract-source using the existing repository path and an accurate or stale status justified by that comparison; include the sentence Wallet contract references resolve at #wallet-sdk and #wallet-app. in its notes."
+do_2 = "Remove finding.wallet-contract-source-missing at spec/layerx-merge/programme/audit/records/22.30.115.kvx:1448 and its unsupported line-zero repair, correct the file.075 note at :460 to stop referring to that false finding, and reduce the header findings count at :5 from 56 to 55 while preserving the 14 documentation entries, all other findings and the high-finding blocking list; the focused grep verification proves the resolved path and both anchors are recorded, the count is corrected and both false block identifiers are absent."
+symbols = []
+touches = ["spec/layerx-merge/programme/audit/records/22.30.115.kvx"]
+tests = []
+planned_paths = []
+build_cmd = "true"
+verify_cmd = "grep -Fq 'spec/layerx-merge/contracts/clients.md' spec/layerx-merge/programme/audit/records/22.30.115.kvx && grep -Fq 'Wallet contract references resolve at #wallet-sdk and #wallet-app.' spec/layerx-merge/programme/audit/records/22.30.115.kvx && grep -Fxq 'findings = 55' spec/layerx-merge/programme/audit/records/22.30.115.kvx && ! grep -Eq 'wallet-contract-source-missing|doc.contract-source-missing' spec/layerx-merge/programme/audit/records/22.30.115.kvx"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-programme"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181612]
+title = "Wallet audit documentation resolves existing wallet contracts without false repairs"
+ac_1 = "Given the wallet anchors at spec/layerx-merge/contracts/clients.md:349 and :538 and their registry references at spec/layerx-merge/interfaces.kvx:492669 and :491833, the wallet audit entry at spec/layerx-merge/programme/audit/records/22.30.115.kvx:1443 names the existing repository path, records both anchors and a reviewed accurate or stale status, carries no missing-contract finding or dangling note, and retains consistent counts with all unrelated findings intact."
+
+[acceptance.18.1612.1]
+feature = "18"
+req = "181612.1"
+scenario = "Given the wallet contract exists with wallet-app and wallet-sdk anchors, when the wallet audit record is read, then its documentation entry resolves both anchors and no finding proposes restoring or retargeting that existing contract."
+contract = "contracts/clients.md#wallet-sdk"
+test = "grep -Fq 'spec/layerx-merge/contracts/clients.md' spec/layerx-merge/programme/audit/records/22.30.115.kvx && grep -Fq 'Wallet contract references resolve at #wallet-sdk and #wallet-app.' spec/layerx-merge/programme/audit/records/22.30.115.kvx && grep -Fxq 'findings = 55' spec/layerx-merge/programme/audit/records/22.30.115.kvx && ! grep -Eq 'wallet-contract-source-missing|doc.contract-source-missing' spec/layerx-merge/programme/audit/records/22.30.115.kvx (planned)"
+qualification = "UNRUN"

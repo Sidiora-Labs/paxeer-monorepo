@@ -1,0 +1,48 @@
+[issue.1706]
+number = 1706
+title = "[Coherence] Four replay commands in state_repairs.json select more than one case and always fail the count check"
+revision = "bb8caac8b3e73e3e2f4b330805574f0bcb540641"
+verdict = "task"
+evidence = "engine/tests/state_harness_test.go:646 constructs indexed names, :648 matches them by substring and :655 rejects count mismatches, so the count-one commands at engine/tests/data/state_repairs.json:96, :108, :996 and :1008 select 11, 11, 11 and 7 posts respectively from the committed archive's 132-post Opcodes_TransactionInit and 36-post variedContext fixtures, while engine/tests/repair_m1180_test.go:197 checks flags without validating those selections."
+close_comment = "Four recorded state replay commands select additional posts because indexed case names are matched by substring, so their required count of one fails before comparison. The repair task makes indexed replay selection exact and checks the recorded commands against the fixture inventory."
+
+[task.18.1706.1]
+title = "Issue #1706: Select exactly the recorded indexed state replay case"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181706.1"]
+capabilities = []
+interfaces = []
+do_1 = "Change selectRequiredStateCases at engine/tests/state_harness_test.go:628 so a full loader case name ending in a decimal post index matches that complete case name exactly, preventing /4 from selecting /40 through /49; retain literal substring selection for unindexed fixture or group filters, the mandatory Cancun fork, missing-post errors and the exact required-count check at :654, and document the indexed rule beside the existing substring description at engine/tests/AGENTS.md:29."
+do_2 = "Extend TestRepairM_1180_OwnedInventory at engine/tests/repair_m1180_test.go:164 to read the four replay commands at engine/tests/data/state_repairs.json:96, :108, :996 and :1008, parse their actual directory/name/fork/count assignments, load the unchanged committed archive through harness.GetStateTestsPath and harness.LoadStateTestsFromDir, and call the production selector to assert one returned post with the exact recorded identity and index for Opcodes_TransactionInit /4 and /6 and variedContext /2 and /3; assert the fixture post counts are 132 and 36, retain the existing three-case group selection at :207 and all inventory assertions, and assert unmatched indexed selections and wrong required counts still fail without changing replay counts, exclusions, oracle checks or fixture expectations."
+symbols = ["selectRequiredStateCases", "TestRepairM_1180_OwnedInventory"]
+touches = ["engine/tests/state_harness_test.go", "engine/tests/repair_m1180_test.go", "engine/tests/AGENTS.md"]
+tests = ["engine/tests/repair_m1180_test.go::TestRepairM_1180_OwnedInventory"]
+planned_paths = []
+build_cmd = "go build ./engine/tests/..."
+verify_cmd = "go test -count=1 ./engine/tests/ -run '^TestRepairM_1180_OwnedInventory$'"
+gate_kind = "planned"
+sandbox_profile = "go-cgo"
+owner_role = "fm-chain-modules"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181706]
+title = "An indexed state replay selects exactly its recorded post"
+ac_1 = "The commands at engine/tests/data/state_repairs.json:96, :108, :996 and :1008 each select exactly one correctly indexed Cancun post through the real loader and selectRequiredStateCases at engine/tests/state_harness_test.go:628, while the three-case group selection at engine/tests/repair_m1180_test.go:207 remains valid and unmatched names or incorrect required counts remain errors."
+
+[acceptance.18.1706.1]
+feature = "18"
+req = "181706.1"
+scenario = "Given the unchanged committed state fixture archive and the four indexed replay commands, when their directory, name, fork and count settings pass through the production loader and selector, then each selection returns only its recorded post, group selection still returns its declared three cases and unmatched names or incorrect counts fail."
+contract = "contracts/sequencer.md#execution-engine"
+test = "engine/tests/repair_m1180_test.go::TestRepairM_1180_OwnedInventory (planned)"
+qualification = "UNRUN"

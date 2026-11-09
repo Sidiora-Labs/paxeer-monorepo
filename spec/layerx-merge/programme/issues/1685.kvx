@@ -1,0 +1,7 @@
+[issue.1685]
+number = 1685
+title = "[Coherence] The endpoint fixture now answers only the root path while scripts/wallet/check-live.sh still posts to $base/rpc, so the endpoint probe regressions fail at this revision"
+revision = "bb8caac8b3e73e3e2f4b330805574f0bcb540641"
+verdict = "already-fixed"
+evidence = "Commits ff4c6cc856ad736fd3ac8b30fb4ae6aa106c74a6 and 2c0db3df4c89df0005960896681b53bc7d0d84a0 align the checker and regressions: scripts/wallet/check-live.sh:10 documents the node root, scripts/wallet/check-live.sh:796 posts to the supplied URL and scripts/wallet/check-live.sh:897 sends all four checks there, tools/ci/tests/test_wallet_check_live.py:46 retains root-only replies while tools/ci/tests/test_wallet_check_live.py:81 supplies CHECK_LIVE_NODE_RPC_URL and tools/ci/tests/test_wallet_check_live.py:89 asserts four root requests, and spec/layerx-merge/spec.kvx:163052 marks task 22.34.6 done."
+close_comment = "The wallet endpoint checker and its account-probe regressions now use the same node-root JSON-RPC URL. The fixture still rejects retired /rpc routes and asserts all four requests at the root, so the reported routing mismatch is resolved."

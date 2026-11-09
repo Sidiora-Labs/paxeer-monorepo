@@ -1,0 +1,48 @@
+[issue.1701]
+number = 1701
+title = "[Coherence] A failed segment construction still leaks the value file handles of shards that opened before the failing shard"
+revision = "bb8caac8b3e73e3e2f4b330805574f0bcb540641"
+verdict = "task"
+evidence = "The cleanup added by commit 939d1b436048917caccc406cad1541b1774cb2b0 still closes only keys at storage/db_engine/litt/disktable/segment/segment.go:130, while the shard loop returns without closing earlier shards at segment.go:149-153 despite their retained descriptors and writers at storage/db_engine/litt/disktable/segment/value_file.go:84-90; storage/db_engine/litt/disktable/segment/repair_m1162.kvx:10 promises zero descriptors after constructor failure, but repair_m1162_test.go:141-146 tests only shard 0 with sharding factor 1."
+close_comment = "Segment construction can leave earlier value shards open when a later shard fails to open. The repair must close every acquired key and value handle before returning the constructor error and cover failures after earlier shards have opened."
+
+[task.18.1701.1]
+title = "Issue #1701: Close earlier value shards when segment construction fails"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181701.1"]
+capabilities = []
+interfaces = []
+do_1 = "In storage/db_engine/litt/disktable/segment/segment.go:130-154, extend constructor failure cleanup to close every successfully opened value shard as well as the key handle before returning a createValueFile error; attempt all closes even if one close fails and report cleanup errors without losing the original constructor error. Preserve the successful ownership transfer at segment.go:169-197 so returned segments retain their writable handles, and leave existing files and their contents intact."
+do_2 = "Extend TestRepairM_1162_ConstructorErrors in storage/db_engine/litt/disktable/segment/repair_m1162_test.go:136-148 to exercise real four-shard construction with a pre-existing value file at shard 0, shard 1 and the last shard, both durability modes, and one and multiple segment paths using the placement rule at segment.go:147. Repeat each failure with distinct indices, assert a nil segment and the original already-exists error, preserve the conflicting file contents, and assert zero segment descriptors across every path immediately after each failure using the existing descriptor counter at repair_m1162_test.go:26-42; prevent garbage collection from masking missing explicit closes during these assertions and restore its setting afterward. Retain the existing shard-zero coverage and run TestRepairM_1162_Rotation at repair_m1162_test.go:44-101 to prove successful construction still supports Write, Flush, Seal and reopening with bounded descriptor use."
+symbols = ["CreateSegment", "TestRepairM_1162_ConstructorErrors"]
+touches = ["storage/db_engine/litt/disktable/segment/segment.go", "storage/db_engine/litt/disktable/segment/repair_m1162_test.go"]
+tests = ["storage/db_engine/litt/disktable/segment/repair_m1162_test.go::TestRepairM_1162_ConstructorErrors", "storage/db_engine/litt/disktable/segment/repair_m1162_test.go::TestRepairM_1162_Rotation"]
+planned_paths = []
+build_cmd = "go build ./storage/db_engine/litt/disktable/segment/..."
+verify_cmd = "go test -count=1 ./storage/db_engine/litt/disktable/segment/ -run '^(TestRepairM_1162_ConstructorErrors|TestRepairM_1162_Rotation)$'"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-node-runtime"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181701]
+title = "Failed segment construction releases every acquired descriptor"
+ac_1 = "Given real value-file conflicts at the first, middle or final shard of a four-shard segment, when CreateSegment reaches the failure path at storage/db_engine/litt/disktable/segment/segment.go:149-153, then it returns nil and the original error, immediately releases every acquired key and value descriptor across all segment paths without relying on garbage collection, and preserves pre-existing contents in both durability modes; successful construction retains the writable ownership transferred at segment.go:169-197 until normal sealing closes it."
+
+[acceptance.18.1701.1]
+feature = "18"
+req = "181701.1"
+scenario = "Given a four-shard segment with a pre-existing value file at shard 0, shard 1 or the last shard, when construction fails repeatedly in either durability mode across one or multiple segment paths, then every acquired descriptor is already closed, the original failure is returned and the existing file contents remain intact."
+contract = "contracts/sequencer.md#storage"
+test = "storage/db_engine/litt/disktable/segment/repair_m1162_test.go::TestRepairM_1162_ConstructorErrors (planned)"
+qualification = "UNRUN"
