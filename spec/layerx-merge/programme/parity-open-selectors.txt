@@ -1,0 +1,351 @@
+# Open acceptance selectors reported by the parity coverage check of task 17.4.5 (attempt 3, tree at the revision of the attempt record).
+# Section stale: acceptance id, selector and owning tasks for selectors whose file or test name is absent from the tree.
+# Section uncovered: selectors that no task names in its tests.
+
+# Second-round resolution (task 22.39.213, decision 3045): report selector lines below are preserved.
+# All 84 stale selectors require dispositions; uncovered exceptions use the union of command, missing path,
+# no literal acceptance test and unheld/missing requirement rules. Spec planning/existing notes resolve ids only.
+# The 24 uncovered exceptions and their spec acceptance ids are recorded here; the other 205 selectors are
+# listed with completed owners and existing paths in the parity-stale.kvx header.
+# The wallet e2e path also belongs to acceptance.18.1065.3, whose requirement has an owner; acceptance.18.1065.2 has no req field.
+# resolve: services/platform/hosted/gateway/tests/local/tests/retired_client_modules_w2.rs::no_retired_layerx_client_module_paths_w2 => acceptance.8.947.1; missing path, no literal acceptance test
+# resolve: services/platform/hosted/gateway/tests/local/tests/retired_client_modules.rs::no_retired_layerx_client_module_paths => acceptance.8.948.1; missing path, no literal acceptance test
+# resolve: services/agent/crates/layerx-client/tests/committed_caps.rs::native_grant_signatures_and_every_committed_field => acceptance.9.276.1; no literal acceptance test
+# resolve: services/agent/crates/layerx-proof/tests/checkpoint.rs::transported_registration_never_invents_paxeer_chain_finality => acceptance.9.307.1; missing path, no literal acceptance test
+# resolve: services/human/crates/layerx-intents/tests/budget_payloads.rs::budget_fund_compiles_to_the_kernel_canonical_payload => acceptance.10.241.3; no literal acceptance test
+# resolve: services/platform/hosted/indexer/tests/ai_reputation_finality.rs::a09_invalid_certificates_never_move_the_cursor => acceptance.13.279.3; requirement unheld or missing
+# resolve: tests/ci/test_retired_make_rules.py::test_parallel_differential_links_without_batch_wal => acceptance.16.984.2; no literal acceptance test
+# resolve: apps/launchpad/web/src/widgets/create-chain/chain-domain.test.mjs::chain_domain_validates_names_tiers_cost_and_wallet_params => acceptance.20.7.1.1; missing path, no literal acceptance test
+# resolve: make -n -s human-check => acceptance.6.60.6.1; command, missing path
+# resolve: cargo test -p layerx-human-kms -p layerx-human-identity-provider --no-run => acceptance.10.1.10.1; command, missing path
+# resolve: cargo test -p layerx-human-service --no-run => acceptance.10.1.9.1; command, missing path
+# resolve: services/human/crates/layerx-human-test-support/src/lib.rs::step_clock_advances_one_millisecond_per_sample => acceptance.10.1.8.1; no literal acceptance test
+# resolve: cargo build -p layerx-human-service --bins => acceptance.10.1.7.1; command, missing path
+# resolve: services/human/tools/boundary-check/tests/fixtures.rs::identifier_containing_a_private_path_token_passes => acceptance.10.1.5.1; no literal acceptance test
+# resolve: cargo check --locked of layerx-human-service plus the identifier grep of task 10.99.2 (its verify_cmd) => acceptance.10.99.2; command, missing path
+# resolve: cargo metadata --locked over services/platform plus the manifest grep of task 8.52.1 (its verify_cmd) => acceptance.8.52.1; command, missing path
+# resolve: cargo metadata --locked over the seventeen workspaces named in task 13.8.3 (its verify_cmd) => acceptance.13.8.3; command, missing path
+# resolve: services/wallet/gateway/test/e2e/gateway.e2e.test.ts => acceptance.18.1065.2, acceptance.18.1065.3; requirement unheld or missing
+# resolve: services/wallet/README.md::retired-settings-grep => acceptance.18.745.1; no literal acceptance test
+# resolve: GOTCHA.kvx::gotcha.2021 => acceptance.18.1103.1; no literal acceptance test
+# resolve: grep -q 'delegate_not_allowed' services/wallet/docs/security-review.md => acceptance.18.950.1; command, missing path
+# resolve: apps/bridge/package.json::typecheck => acceptance.18.1136.1; no literal acceptance test
+# resolve: services/human/crates/layerx-explorer-index/src/lib.rs (unit tests) => acceptance.18.1153.1; missing path
+# resolve: cargo metadata --locked in the eight workspaces => acceptance.18.1297.1; command, missing path
+
+[stale]
+[acceptance.1.964.2] modules/lxphost/read_program_test.go::TestReadProgramAccounts; owners: task.1.22.3 (done)
+[acceptance.1.964.3] modules/lxphost/read_program_test.go::TestReadWindDownAndRetirementControl; owners: task.1.22.3 (done)
+[acceptance.10.241.3] services/human/crates/layerx-intents/tests/budget_payloads.rs::budget_fund_compiles_to_the_kernel_canonical_payload; owners: task.10.21.7 (done)
+[acceptance.10.252.1] services/human/crates/layerx-human-test-support/tests/evidence_node_frames.rs::evidence_node_handshakes_over_human_frames; owners: task.10.25.3 (done)
+[acceptance.10.252.2] services/human/crates/layerx-human-test-support/tests/evidence_node_frames.rs::evidence_node_refuses_oversized_frame; owners: task.10.25.3 (done)
+[acceptance.10.253.1] services/human/crates/layerx-human-test-support/tests/evidence_node_transactions.rs::evidence_node_admits_signed_type2_transaction; owners: task.10.25.4 (done)
+[acceptance.10.253.2] services/human/crates/layerx-human-test-support/tests/evidence_node_transactions.rs::evidence_node_refuses_unsigned_transaction; owners: task.10.25.4 (done)
+[acceptance.10.28.2] services/human/crates/layerx-human-kms/tests/sign_eip1559_requests.rs::lxkp_sign_refuses_a_kernel_activity_envelope; owners: task.10.11.7 (done)
+[acceptance.10.47.2] services/human/crates/layerx-human-service/tests/agent_runtime_eip1559.rs::engine_refuses_a_kernel_activity_envelope_leg; owners: task.10.13.5 (done)
+[acceptance.10.941.1] services/human/crates/layerx-explorer-index/tests/retired_client_modules.rs::no_retired_layerx_client_module_paths; owners: task.10.98.1 (done)
+[acceptance.10.943.1] services/human/crates/layerx-human-movement-provider/tests/retired_client_modules.rs::no_retired_layerx_client_module_paths; owners: task.10.98.3 (done)
+[acceptance.11.369.2] services/interop/crates/layerx-mirror/tests/sequencer_vectors.rs::every_shared_refusal_case_is_refused_by_the_mirror; owners: task.11.37.3 (done)
+[acceptance.11.392.1] services/interop/crates/x-websearch/tests/payment.rs::draw_calldata_matches_the_ledger_draw_selector_and_layout; owners: task.11.34.2 (done)
+[acceptance.11.392.2] services/interop/crates/x-websearch/tests/payment.rs::the_payer_grant_is_read_from_the_ledger_precompile; owners: task.11.34.2 (done)
+[acceptance.11.393.1] services/interop/crates/x-websearch/tests/payment.rs::a_metered_draw_is_broadcast_as_a_receiver_signed_ledger_transaction; owners: task.11.34.3 (done)
+[acceptance.11.393.2] services/interop/crates/x-websearch/tests/payment.rs::draw_nonces_are_sequential_for_one_receiver; owners: task.11.34.3 (done)
+[acceptance.11.395.1] services/interop/crates/x-websearch/tests/payment.rs::a_pending_draw_recovers_from_the_sequencer_receipt_and_releases_once; owners: task.11.34.5 (done)
+[acceptance.11.395.2] services/interop/crates/x-websearch/tests/payment.rs::a_reverted_draw_releases_nothing; owners: task.11.34.5 (done)
+[acceptance.11.395.3] services/interop/crates/x-websearch/tests/payment.rs::a_draw_receipt_without_a_matching_payment_drawn_log_is_refused; owners: task.11.34.5 (done)
+[acceptance.11.397.2] services/interop/crates/x-websearch/tests/payment.rs::the_configured_payer_address_is_offered_and_drawn_from; owners: task.11.34.7 (done)
+[acceptance.13.241.2] precompiles/layerxprograms/abi_test.go::TestProgramsABIKeepsThirtyFiveMethods; owners: task.13.21.1 (done)
+[acceptance.13.49.1] programs/crates/layerx-programs-sandbox/tests/activity_chain.rs::sandbox_receipt_refuses_kernel_signed_activity_bytes; owners: task.13.6.5 (done)
+[acceptance.13.50.1] programs/crates/layerx-programs-sandbox/tests/lease_chain.rs::lease_transition_refuses_kernel_batch_header_evidence; owners: task.13.6.6 (done)
+[acceptance.16.967.1] tests/ci/test_requested_retirements_absent.py::test_relay_archive_image_absent; owners: task.16.97.3 (done)
+[acceptance.16.967.2] tests/ci/test_requested_retirements_absent.py::test_relay_archive_tests_absent; owners: task.16.97.3 (done)
+[acceptance.16.967.3] tests/ci/test_requested_retirements_absent.py::test_security_storage_suites_absent; owners: task.16.97.3 (done)
+[acceptance.16.967.4] tests/ci/test_requested_retirements_absent.py::test_nullifier_registry_suites_absent; owners: task.16.97.3 (done)
+[acceptance.16.967.5] tests/ci/test_requested_retirements_absent.py::test_beta_deploy_script_absent; owners: task.16.97.3 (done)
+[acceptance.16.967.6] tests/ci/test_requested_retirements_absent.py::test_state_surface_names_no_nullifier_registry; owners: task.16.97.3 (done)
+[acceptance.18.1022.1] services/agent/crates/layerx-sdk/tests/receipt_fixture.rs::programs_refusal_vectors_expose_the_shared_taxonomy; owners: task.18.1022.1 (done)
+[acceptance.18.1125.1] lxp_test_sandbox_lifecycle::sandbox_execute_lifecycle_accepts_call_token; owners: task.18.1125.1 (done)
+[acceptance.18.1203.1] services/agent/crates/layerx-agentd/tests/admin_retry_rung.rs::settlement_anchored_retry_is_refused; owners: task.18.1203.1 (done)
+[acceptance.18.1221.2] services/agent/crates/layerx-agentd/src/agent_rpc_dispatch.rs::receipt_rung_wire_tests::settlement_anchored_receipt_level_is_refused; owners: task.18.1221.1 (done)
+[acceptance.18.1358.1] services/platform/hosted/indexer/src/paxeer.rs::module-header; owners: task.18.1358.1 (done)
+[acceptance.18.764.1] tests/solidity/GuarantorBond.t.sol::testSyncCustodiedValueUnchangedIsNoOp; owners: task.18.764.1 (done)
+[acceptance.18.765.1] tests/solidity/ContractIntegration.t.sol::test_ReserveReconciliationRecordsUnsolicitedSurplus; owners: task.18.765.1 (done)
+[acceptance.18.766.1] tests/solidity/ContractIntegration.t.sol::testClaimOnLaterBatchCancelsAfterEarlierInvalidation; owners: task.18.766.1 (done)
+[acceptance.18.771.1] services/explorer/backend/apps/explorer/test/explorer/chain/paxeer_x/capabilities_test.exs::reads exchange and bridge as live when their view calls answer one word and absent when they revert; owners: task.18.771.1 (done)
+[acceptance.18.830.1] modules/layerxcustody/keeper/keeper_test.go::TestForcedExitTotalExcludesCancelledExit; owners: task.18.830.1 (done)
+[acceptance.18.893.1] modules/layerxcustody/keeper/keeper_test.go::TestForcedExitAfterLivenessLapseFreezesWithdrawalsWithoutEmergency; owners: task.18.893.1 (done)
+[acceptance.18.893.2] modules/layerxcustody/keeper/keeper_test.go::TestForcedExitAfterLivenessLapseFreezesWithdrawalsWithoutEmergency; owners: task.18.893.1 (done)
+[acceptance.2.259.1] modules/layerxpay/keeper/budget_pull_test.go::TestBudgetPullWithPayerGrant; owners: task.1.98.1 (done)
+[acceptance.2.28.1] modules/layerxledger/keeper/grants_test.go::TestIssuePayerGrant; owners: task.2.4.6 (done)
+[acceptance.2.28.2] modules/layerxledger/keeper/grants_test.go::TestRevokePayerGrant; owners: task.2.4.6 (done)
+[acceptance.2.29.1] modules/layerxledger/keeper/draw_test.go::TestDrawWithinGrant; owners: task.2.4.7 (done)
+[acceptance.2.29.2] modules/layerxledger/keeper/draw_test.go::TestDrawWithoutGrant; owners: task.2.4.7 (done)
+[acceptance.20.7.1.1] apps/launchpad/web/src/widgets/create-chain/chain-domain.test.mjs::chain_domain_validates_names_tiers_cost_and_wallet_params; owners: task.20.7.1 (done)
+[acceptance.20.9.6.1] sdk/platform/swift/Tests/LayerXSdkTests/ChainsTests.swift::testChainsVectorsMatchAndRoundTrip; owners: task.20.9.1 (done)
+[acceptance.5.22.1] node/sequencer/receipt_source_test.go::TestReceiptSourceRecordsAcceptedSend; owners: task.5.5.3 (done)
+[acceptance.5.22.2] node/sequencer/receipt_source_test.go::TestReceiptSourceUnknownHashNil; owners: task.5.5.3 (done)
+[acceptance.5.33.1] node/sequencer/executor_header_test.go::TestOpenHeaderCarriesCommittedAppHash; owners: task.5.4.5 (done)
+[acceptance.5.33.2] node/sequencer/executor_header_test.go::TestOpenHeaderCarriesLastBlockID; owners: task.5.4.5 (done)
+[acceptance.5.506.2] cmd/layerxctl/tests/files.rs::submit_reports_receipted_only_with_a_pinned_key_signature; owners: task.5.47.3 (done)
+[acceptance.5.506.3] cmd/layerxctl/tests/files.rs::submit_names_the_failing_verification_step; owners: task.5.47.3 (done)
+[acceptance.5.507.1] cmd/layerxctl/tests/files.rs::submit_verifies_the_recorded_v1_vector; owners: task.5.47.4 (done)
+[acceptance.5.507.2] cmd/layerxctl/tests/files.rs::submit_refuses_every_recorded_v3_mutation; owners: task.5.47.4 (done)
+[acceptance.5.65.1] node/precompiles_anchor_retired_test.go::TestPrecompileKeepersAnchorKReturnsNil; owners: task.5.7.2 (done)
+[acceptance.6.281.1] modules/layerxanchor/module_retired_route_test.go::TestAppRoutesAnchorUpdateParamsRetired; owners: task.6.31.5 (done)
+[acceptance.6.489.2] tests/bridge/retired/test_retired_emergency_exit.py::test_emergency_exit_is_retired; owners: task.6.52.2 (done)
+[acceptance.6.96.4] modules/layerxcustody/keeper/keeper_test.go::TestWithdrawalPaysOnceAndReplayIsRefused; owners: task.6.96.4 (done)
+[acceptance.7.14.3] rpc/websockets_metrics_test.go::TestWSConnectDoesNotEmitLegacyCounter; owners: task.7.14.3 (done)
+[acceptance.8.231.1] services/platform/docs/build/test_beta_surfaces.py::test_beta_surfaces_name_no_retired_kernel_surface; owners: task.8.20.4 (done)
+[acceptance.8.534.2] tools/platform/cli/tests/wallet_estimate_fee.rs::estimate_fee_refuses_kernel_activity_hex; owners: task.8.48.1 (done)
+[acceptance.8.544.2] tools/platform/emulator/tests/core_linkage.rs::emulator_head_proof_still_verifies; owners: task.8.51.1 (done)
+[acceptance.8.94.10] tools/platform/cli/tests/wallet_estimate_fee.rs::estimate_fee_refuses_kernel_activity_hex; owners: task.8.48.1 (done)
+[acceptance.8.968.4] services/platform/hosted/gateway/src/program_lifecycle.rs::lifecycle_signed_activity_binds_exact_route_protocol_and_payload; owners: task.8.94.6 (done)
+[acceptance.8.969.1] tools/platform/emulator/tests/gateway.rs::lifecycle_executes_without_the_native_state_feed; owners: task.8.96.5 (done)
+[acceptance.9.20.2] services/agent/crates/layerx-agentd/tests/history_block_cursor.rs::history_pages_resume_from_the_returned_cursor; owners: task.9.5.2 (done)
+[acceptance.9.242.1] services/agent/crates/layerx-client/tests/sequencer_reads.rs::account_proof_sends_eth_get_proof_at_the_height_and_decodes_every_node; owners: task.9.21.2 (done)
+[acceptance.9.251.2] services/agent/crates/layerx-client/tests/reads_rpc.rs::account_reads_eth_get_proof_and_refuses_a_proof_for_another_address; owners: task.9.22.1 (done)
+[acceptance.9.252.2] services/agent/crates/layerx-client/tests/module_reads_rpc.rs::module_state_with_history_refuses_a_storage_proof_for_another_slot; owners: task.9.22.2 (done)
+[acceptance.9.26.2] services/agent/crates/layerx-agentd/src/main.rs::balance_json_renders_committed_freshness; owners: task.18.1243.2 (done)
+[acceptance.9.276.1] services/agent/crates/layerx-client/tests/committed_caps.rs::native_grant_signatures_and_every_committed_field; owners: task.9.24.6 (done)
+[acceptance.9.301.1] services/agent/crates/layerx-types/tests/verification.rs::verification_level_maps_onto_rungs_by_decision; owners: task.9.26.1 (done)
+[acceptance.9.301.2] services/agent/crates/layerx-types/tests/verification.rs::settlement_anchored_level_has_no_rung; owners: task.9.26.1 (done)
+[acceptance.9.305.2] services/agent/crates/layerx-proof/tests/terminal_v4.rs::real_executed_v4_and_signed_mutated_leg_refusal; owners: task.9.27.6 (done)
+[acceptance.9.307.1] services/agent/crates/layerx-proof/tests/checkpoint.rs::transported_registration_never_invents_paxeer_chain_finality; owners: task.9.28.2 (done)
+[acceptance.9.33.2] services/agent/crates/layerx-agentd/tests/budget_mutations_layerxpay.rs::budget_proof_v2_carries_the_committed_height; owners: task.9.9.2 (done)
+[acceptance.9.334.1] services/agent/crates/layerx-sdk/tests/receipt_keys.rs::verify_receipt_accepts_a_receipt_under_a_pinned_key; owners: task.11.26.6 (done)
+[acceptance.9.334.2] services/agent/crates/layerx-sdk/tests/receipt_keys.rs::verify_receipt_refuses_a_key_outside_its_height_range; owners: task.11.26.6 (done)
+[acceptance.9.355.2] services/agent/sdk/typescript/test/px.test.ts::px_methods_list_is_the_router_px_set; owners: task.9.33.5 (done)
+[acceptance.9.363.1] services/agent/sdk/typescript/test/perps-v2.test.ts::perps_open_position_call_uses_the_v2_selector; owners: task.9.33.13 (done)
+[acceptance.9.363.2] services/agent/sdk/typescript/test/perps-v2.test.ts::perps_cancel_order_call_carries_the_account_id; owners: task.12.33.8 (done)
+[acceptance.9.46.2] services/agent/crates/layerx-agentd/tests/human_frame.rs::human_peer_still_answers_lxhagt01_frames; owners: task.9.13.1 (done)
+
+[uncovered]
+services/platform/hosted/gateway/tests/local/tests/retired_client_modules_w2.rs::no_retired_layerx_client_module_paths_w2
+services/platform/hosted/gateway/tests/local/tests/retired_client_modules.rs::no_retired_layerx_client_module_paths
+services/agent/crates/layerx-client/tests/committed_caps.rs::native_grant_signatures_and_every_committed_field
+services/agent/crates/layerx-proof/tests/checkpoint.rs::transported_registration_never_invents_paxeer_chain_finality
+services/human/crates/layerx-intents/tests/budget_payloads.rs::budget_fund_compiles_to_the_kernel_canonical_payload
+services/human/crates/layerx-human-service/Cargo.toml::binding.rs deleted by task 10.9.1
+services/platform/hosted/indexer/tests/ai_reputation_finality.rs::a09_invalid_certificates_never_move_the_cursor
+tests/ci/test_retired_make_rules.py::test_parallel_differential_links_without_batch_wal
+docker/kernel/Dockerfile (grep gate in verify_cmd)
+services/human/crates/layerx-human-service/tests/detail_rungs.rs::checkpoint_evidence_rung_follows_the_finality_rung
+scripts/qualification/paxeer-x/program-terminal-v5.py
+include/layerx/lxp_batch.h
+services/agent/crates/layerx-proof/tests/receipt.rs
+services/wallet/attestor/internal/policy/lx/testdata/kernelvectors/Cargo.lock
+services/wallet/attestor/go.sum
+go.sum
+.github/workflows
+tools/deps/floors/docs-pip.json
+tools/deps/floors/jvm.json
+tools/deps/floors/rust-vendored.json
+tools/deps/floors/rust-services.json
+tools/deps/floors/go-vendored.json
+tools/deps/floors/go-launchpad.json
+tools/deps/floors/go-root.json
+tools/deps/floors/web-sdk-misc.json
+tools/deps/floors/platform-node.json
+tools/deps/floors/names.json
+tools/deps/floors/wallet-services.json
+tools/deps/floors/wallet-app.json
+tools/deps/floors/contracts-launchpad.json
+tools/deps/floors/rpc-tests.json
+tools/deps/floors/launchpad-web.json
+tools/deps/floors/blockscout.json
+tools/deps/floors/perps-web.json
+tools/deps/floors/contracts.json
+tools/deps/floors/dapp-tests.json
+tools/deps/floors/explorer-tools.json
+tools/deps/floors/explorer-web.json
+rpc/http_ws_parity_test.go
+sdk/integrations/fastapi/tests/test_seller_receipts.py
+modules/pricefeed/keeper/aggregate_test.go
+modules/perps/keeper/triggers_test.go
+sdk/x/staking/keeper/delegation_test.go
+services/wallet/attestor/internal/auth/agent/authority_test.go
+precompiles/spot/vault_test.go
+services/agent/crates/layerx-agentd/tests/approval.rs
+services/agent/crates/layerx-crypto/tests/disclosure_call.rs
+services/human/tools/api-gen/Cargo.lock
+node/test_wrapper_stores_test.go
+rpc/watermark_manager.go
+services/platform/hosted/gateway/src/paxeer.rs
+services/agent/tools/run-real-node-tests.sh
+tools/platform/cli/src/chains.rs
+tools/platform/cli/tests/common/credential_environment.rs
+sdk/wallet/src/index.ts
+spec/layerx-merge/programme/sweeps/go-launchpad-modules-2.kvx
+spec/layerx-merge/programme/sweeps/go-modules-2.kvx
+services/explorer/services/libs/recaptcha-verifier/src/client.rs
+programs/crates/layerx-programs-runtime/src/calls.rs
+programs/sdk/rust/src/bindgen.rs
+services/platform/ramps/reference/src
+services/platform/middleware
+tools/platform/Cargo.lock
+services/interop/crates/layerx-x402/tests/e2e.rs
+services/interop/crates/layerx-mirror/src/verify.rs
+services/agent/crates/layerx-types/tests/vectors.rs
+services/wallet/attestor/go.mod
+Makefile
+tools/benchmark/loadtest/scripts/validator_failures.py
+precompiles/layerxprograms
+precompiles/layerxagent/teeattestor/resolution_test.go
+rpc/block_txcount_parity_test.go
+modules/launchpad/module_services_test.go
+services/platform/perps-data/deploy
+modules/perps/keeper/adl_test.go
+modules/layerxpay/module_test.go
+modules/layerxauth/keeper/capability.go
+precompiles/pointer/pointer_test.go
+node/gov_custody_test.go
+modules/evm/module_test.go
+precompiles/missing_merge_test.go
+storage/db_engine/litt
+consensus/node
+tests/programs/test_metered_call.c
+tests/test_genesis_manifest.c
+tests/ledger
+src/state
+tests/test_programs_web_read.c
+tests/ledger/test_receive.c
+services/agent/crates/layerx-agentd/src/human_owner_mode.rs
+services/agent/crates/layerx-agentd/src/read/program_node.rs
+services/agent/sdk/python/tests
+tools/qualification/paxeer-x/agent_operation_envelope.py
+services/platform/tests/support/tls_boundary.rs
+services/agent/crates/layerx-proof/tests/terminal_v4.rs
+sdk/platform/go/native_program_lifecycle_test.go
+sdk/platform/jvm/src/conformance/java/com/sidiora/layerx/sdk/ConformanceMain.java
+node/last_block_id_test.go
+services/launchpad/social/internal/interactions/schema_sources_test.go
+modules/layerxauth/ante/integration_test.go
+tests/protocol
+src/protocol/lxp_module_ctx.c
+daemon/committed-fixture/main_test.go
+modules/lxphost/oracle_codec_test.go
+spec/layerx-merge/programme/sweeps/c-kernel-make.kvx
+spec/layerx-merge/programme/sweeps/python-pytest-collect.kvx
+spec/layerx-merge/programme/sweeps/python-compile.kvx
+spec/layerx-merge/programme/sweeps/node-platform-examples.kvx
+spec/layerx-merge/programme/sweeps/node-sdk-integrations.kvx
+spec/layerx-merge/programme/sweeps/node-platform-middleware.kvx
+spec/layerx-merge/programme/sweeps/node-agent-sdk.kvx
+spec/layerx-merge/programme/sweeps/go-sdk-modules.kvx
+spec/layerx-merge/programme/sweeps/go-launchpad-modules.kvx
+spec/layerx-merge/programme/sweeps/go-services.kvx
+spec/layerx-merge/programme/sweeps/go-tests.kvx
+spec/layerx-merge/programme/sweeps/go-tools.kvx
+spec/layerx-merge/programme/sweeps/go-utils.kvx
+spec/layerx-merge/programme/sweeps/go-wasm-runtime.kvx
+spec/layerx-merge/programme/sweeps/go-wasm.kvx
+spec/layerx-merge/programme/sweeps/go-engine.kvx
+spec/layerx-merge/programme/sweeps/go-storage.kvx
+spec/layerx-merge/programme/sweeps/go-interchain.kvx
+spec/layerx-merge/programme/sweeps/go-consensus.kvx
+spec/layerx-merge/programme/sweeps/go-cmd.kvx
+spec/layerx-merge/programme/sweeps/go-daemon.kvx
+spec/layerx-merge/programme/sweeps/go-node.kvx
+spec/layerx-merge/programme/sweeps/go-rpc.kvx
+spec/layerx-merge/programme/sweeps/go-precompiles.kvx
+spec/layerx-merge/programme/sweeps/go-modules.kvx
+spec/layerx-merge/programme/sweeps/rust-test-explorer-verifier.kvx
+spec/layerx-merge/programme/sweeps/rust-test-explorer-libs.kvx
+spec/layerx-merge/programme/sweeps/rust-test-tools-platform.kvx
+spec/layerx-merge/programme/sweeps/rust-test-platform.kvx
+spec/layerx-merge/programme/sweeps/rust-test-interop.kvx
+spec/layerx-merge/programme/sweeps/rust-test-human.kvx
+spec/layerx-merge/programme/sweeps/rust-test-agent.kvx
+spec/layerx-merge/programme/sweeps/rust-test-programs.kvx
+spec/layerx-merge/programme/sweeps/rust-build-explorer-verifier.kvx
+spec/layerx-merge/programme/sweeps/rust-build-explorer-libs.kvx
+spec/layerx-merge/programme/sweeps/rust-build-tools-platform.kvx
+spec/layerx-merge/programme/sweeps/rust-build-platform.kvx
+spec/layerx-merge/programme/sweeps/rust-build-interop.kvx
+spec/layerx-merge/programme/sweeps/rust-build-human.kvx
+spec/layerx-merge/programme/sweeps/rust-build-agent.kvx
+spec/layerx-merge/programme/sweeps/rust-build-programs.kvx
+services/human/crates/layerx-human-kms
+services/interop/crates/layerx-mirror-signer
+services/interop/crates/layerx-interop-service
+services/interop/crates/layerx-bridge-relayer
+services/interop/crates/layerx-ap2
+services/human/crates/layerx-intents
+services/agent/crates/layerx-mcp
+services/agent/crates/layerx-sdk
+services/interop/crates/layerx-mirror
+services/agent/crates/layerx-agentd/tests/proof_native_reads.rs
+services/platform/hosted/core/src/lib.rs
+tools/docs/gen/gen_system_docs.py
+services/human/Cargo.lock
+tests/fixtures/custody/paxeer-light-v1/README
+docs/site/docs/operators/guarantor.md
+services/agent/schema/agent-api/golden/v1.kvx
+services/agent/crates/layerx-agentd/src/agent_rpc.rs
+docs/site/docs/human/custody.md
+apps/launchpad/web/src/widgets/create-chain/chain-domain.test.mjs::chain_domain_validates_names_tiers_cost_and_wallet_params
+modules/layerxcustody/keeper/anchor_reader_test.go
+services/platform/hosted/agent-boundary/src/main.rs
+services/platform/hosted/gateway/src/lib.rs
+services/platform/hosted/core/tests/send.rs
+services/agent/crates/layerx-client/tests/ai_market_commit.rs
+tools/platform/emulator/tests/gateway.rs
+services/agent/crates/layerx-crypto/tests/budget_call.rs
+services/platform/hosted/authority/tests/chain_receipts.rs
+services/platform/Cargo.lock
+services/human/crates/layerx-human-service/src/agents/create.rs
+services/human/crates/layerx-human-service/tests/evidence_node.rs
+services/human/crates/layerx-human-kms/tests/provider.rs
+services/agent/crates/layerx-crypto/tests/send_call.rs
+tests/agent/sdk/python/test_stub_surface.py
+services/platform/hosted/gateway/src/main.rs
+SECURITY.md
+services/platform/middleware/seller/test/checkpoint-retired.test.mjs
+make -n -s human-check
+cargo test -p layerx-human-kms -p layerx-human-identity-provider --no-run
+cargo test -p layerx-human-service --no-run
+services/human/crates/layerx-human-test-support/src/lib.rs::step_clock_advances_one_millisecond_per_sample
+cargo build -p layerx-human-service --bins
+services/human/crates/layerx-human-service/src/server/component.rs::component_deadline_preserves_real_canonical_frame
+services/human/tools/boundary-check/tests/fixtures.rs::identifier_containing_a_private_path_token_passes
+cargo check --locked of layerx-human-service plus the identifier grep of task 10.99.2 (its verify_cmd)
+cargo metadata --locked over services/platform plus the manifest grep of task 8.52.1 (its verify_cmd)
+cargo metadata --locked over the seventeen workspaces named in task 13.8.3 (its verify_cmd)
+apps/perps/src/app/modals/SettingsModal.tsx
+wasm-runtime/libwasmvm-linux.sha256
+modules/layerxcustody/keeper/keeper_test.go::TestWithdrawalPaysOnceAndReplayIsRefused
+services/wallet/gateway/test/e2e/gateway.e2e.test.ts
+services/agent/sdk/typescript/test/px.test.ts
+tools/docs/gen-system-docs.sh::--check
+services/explorer/backend/apps/explorer/test/explorer/chain/paxeer_x/market_event_test.exs
+services/platform/ramps/reference/tests/work_routes.rs
+services/agent/crates/layerx-proof/tests/sequencer_receipt_vectors.rs
+services/explorer/backend/apps/explorer/test/explorer/chain/paxeer_x/sequencer_receipt_test.exs
+services/explorer/deploy/tools/mix-in-builder.sh::test
+services/explorer/backend/apps/explorer/test/explorer/chain/paxeer_x/status_test.exs
+node/standby_recorder_replication_test.go
+services/wallet/README.md::retired-settings-grep
+docs/wiki/MarketMakerRamps.md
+GOTCHA.kvx::gotcha.2021
+tools/bringup/kernel-genesis.sh (grep gate)
+grep -q 'delegate_not_allowed' services/wallet/docs/security-review.md
+apps/bridge/package.json::typecheck
+services/agent/crates/layerx-agentd/tests/handshake_gate.rs::config_with_authority
+services/explorer/deploy/tests/config-check.sh
+services/human/crates/layerx-human-service/tests/reclaim.rs
+node/sequencer/standby_role_test.go
+go.sum (go mod download in read-only module mode)
+services/human/crates/layerx-explorer-index/src/lib.rs (unit tests)
+services/interop/crates/layerx-x402/tests/seller.rs
+tests/programs/test_call_escrow_principal.c
+services/explorer/backend/apps/block_scout_web/test/block_scout_web/channels/v2/paxeer_x_feed_channel_test.exs
+apps/explorer/ui/paxeerX/feed/applyPriceUpdates.spec.ts
+services/platform/hosted/gateway/tests/env_example.rs
+sdk/platform/go/portable_receipt_test.go
+sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk/PortableReceiptTest.java
+sdk/platform/dotnet/tests/LayerX.Sdk.Tests/PortableReceiptTests.cs
+services/launchpad/indexer/internal/decode/golden_test.go
+sdk/launchpad/shared/config/capabilities/catalog_test.go
+services/launchpad/security/supplychain/test_policy.py
+core/deps/geth/rpc/deny_list_batch_test.go::TestHTTPAppliesDenyListMixedBatches
+cargo metadata --locked in the eight workspaces

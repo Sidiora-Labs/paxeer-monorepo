@@ -1,0 +1,527 @@
+# Domain 22 closure, part 25; decisions 2510 and 3031.
+# Main-line evidence revision: a26369c7eda603cb28bcdd8cef55c35df7d248ee.
+
+[disposition.22.33.1537.3]
+finding = "22.33.1537.3"
+status = "resolved"
+evidence = "Commit dbd4e68ed9 added the current-node support module, declared on main at services/agent/crates/layerx-agentd/tests/support/mod.rs:74; services/agent/crates/layerx-agentd/tests/outbox_recover.rs:368 obtains its governed receipt authority and authenticates the recovered transaction evidence."
+
+[disposition.22.33.1537.4]
+finding = "22.33.1537.4"
+status = "resolved"
+evidence = "Commit dbd4e68ed9 added the current-node support module, declared on main at services/agent/crates/layerx-agentd/tests/support/mod.rs:74; services/agent/crates/layerx-agentd/tests/outbox_recover.rs:368 obtains its governed receipt authority and authenticates the recovered transaction evidence."
+
+[disposition.22.33.1537.5]
+finding = "22.33.1537.5"
+status = "resolved"
+evidence = "Commit 8950f604bf added current transaction evidence to recovery: services/agent/crates/layerx-agentd/src/receipt.rs:549 decodes it into with_current_evidence on main. Commit dbd4e68ed9 made services/agent/crates/layerx-agentd/tests/outbox_recover.rs:381 assert one current entry, its exact bytes and the recovered spend of 25."
+
+[disposition.22.33.1537.6]
+finding = "22.33.1537.6"
+status = "resolved"
+evidence = "Commit d6543a4874 changed the native-send assertion to consent_public_key, retained on main at services/human/crates/layerx-human-service/tests/native_send_producer.rs:681. Commit 8950f604bf added CurrentReceiptEvidenceRecord at services/agent/crates/layerx-agentd/src/receipt.rs:31 and its authenticated recovery inventory at line 549."
+
+[disposition.22.33.1538.1]
+finding = "22.33.1538.1"
+status = "resolved"
+evidence = "Commit 7435b17141 restored the Paxeer boundary deployment document on main; services/platform/hosted/gateway/tests/repair_22_31_345.rs:13 includes ../../paxeer/deployment.yaml, and the boundary configuration at line 65 uses the current node endpoint and chain ID 125."
+
+[disposition.22.33.1538.2]
+finding = "22.33.1538.2"
+status = "resolved"
+evidence = "Commit fec58f9815 bound the signed receipt asset to paymentDenom; on main, services/agent/crates/layerx-agentd/tests/unknown.rs:439 retains the missing and changed denomination refusals, and services/agent/crates/layerx-agentd/tests/unknown_receipt_lookup.rs remains included by repair_22_33_1538.rs:67 for authenticated receipt lookup."
+
+[disposition.22.33.1538.3]
+finding = "22.33.1538.3"
+status = "resolved"
+evidence = "Commit 6c7e27fb0d replaced the copied authority module with its library API; on main, services/agent/crates/layerx-agentd/tests/human_approval_budget_actor.rs:80 imports BudgetStateConfig and PrincipalPolicy from layerx_platform_authority and calls budget_state::read at line 107."
+
+[disposition.22.33.1538.4]
+finding = "22.33.1538.4"
+status = "resolved"
+evidence = "Commit b6d38a9897 placed prepare_digest on NativeSendPrepareRequestV2, retained on main at services/agent/crates/layerx-agentd/src/agent_rpc_wire.rs:851; it hashes the canonical wire request with the native-send preparation domain and returns the wire type's digest directly."
+
+[disposition.22.33.1539.1]
+finding = "22.33.1539.1"
+status = "resolved"
+evidence = "Commit a79c74aa5c retained the private store root and timed approval contract on main: services/agent/crates/layerx-agentd/tests/repair_22_33_1539.rs:43 creates the directory with mode 0700, and the durable-hold case at line 242 checks exact producer binding after reopening."
+
+[disposition.22.33.1539.2]
+finding = "22.33.1539.2"
+status = "resolved"
+evidence = "Commit 7435b17141 restored the Paxeer boundary deployment document on main; services/platform/hosted/gateway/tests/repair_22_31_345.rs:13 includes ../../paxeer/deployment.yaml, and the boundary configuration at line 65 uses the current node endpoint and chain ID 125."
+
+[disposition.22.33.1539.3]
+finding = "22.33.1539.3"
+status = "resolved"
+evidence = "Commit 9c3cd0e74d made approval reads and decisions carry explicit time; on main, services/agent/crates/layerx-agentd/src/approval/mod.rs:2173 retains DecisionRequest.current_time and get at line 2254 requires TimestampSeconds alongside the sequence."
+
+[disposition.22.33.1539.4]
+finding = "22.33.1539.4"
+status = "resolved"
+evidence = "Commit a79c74aa5c added the TimestampSeconds import at services/agent/crates/layerx-agentd/tests/approval_ordering/mod.rs:18 and explicit times to the hold and decision paths at lines 124 and 145 on main; the preparation and approval assertions remain in the ordering tests."
+
+[disposition.22.33.1539.5]
+finding = "22.33.1539.5"
+status = "resolved"
+evidence = "Commit 6c7e27fb0d replaced the copied authority module with its library API; on main, services/agent/crates/layerx-agentd/tests/human_approval_budget_actor.rs:80 imports BudgetStateConfig and PrincipalPolicy from layerx_platform_authority and calls budget_state::read at line 107."
+
+[disposition.22.33.1540.1]
+finding = "22.33.1540.1"
+status = "resolved"
+evidence = "Commit 0dc6733f2e added the KMS-specific call binder at services/human/crates/layerx-human-kms/src/call.rs:140 and the retained call re-encoder at line 24 on main; onboarding consent and recovery calls keep their EIP-1559 source and sender, while zero recovery fields are refused before signing."
+
+[disposition.22.33.1540.2]
+finding = "22.33.1540.2"
+status = "environment"
+evidence = "On main, services/human/crates/layerx-human-kms/tests/repair_22_33_1540.rs:124 checks creation before and after restart, preserving the wallet description, canonical transaction, recovered sender and bound onboarding or recovery payload. The creation cases remain declared at line 238."
+
+[disposition.22.33.1543.1]
+finding = "22.33.1543.1"
+status = "resolved"
+evidence = "Commit 7435b17141 restored the Paxeer boundary deployment document on main; services/platform/hosted/gateway/tests/repair_22_31_345.rs:13 includes ../../paxeer/deployment.yaml, and the boundary configuration at line 65 uses the current node endpoint and chain ID 125."
+
+[disposition.22.33.1544.1]
+finding = "22.33.1544.1"
+status = "resolved"
+evidence = "Commit 1a3c69501c ported the public asset reader to the current client fields; services/platform/hosted/core/src/public_reads.rs:148 serializes supply as a decimal string and reads asset_id and paused directly from PxAssetEntry on main."
+
+[disposition.22.33.1544.2]
+finding = "22.33.1544.2"
+status = "resolved"
+evidence = "Commit 6c7e27fb0d replaced the copied authority module with its library API; on main, services/agent/crates/layerx-agentd/tests/human_approval_budget_actor.rs:80 imports BudgetStateConfig and PrincipalPolicy from layerx_platform_authority and calls budget_state::read at line 107."
+
+[disposition.22.33.1544.3]
+finding = "22.33.1544.3"
+status = "resolved"
+evidence = "Commit b6d38a9897 placed prepare_digest on NativeSendPrepareRequestV2, retained on main at services/agent/crates/layerx-agentd/src/agent_rpc_wire.rs:851; it hashes the canonical wire request with the native-send preparation domain and returns the wire type's digest directly."
+
+[disposition.22.33.1545.1]
+finding = "22.33.1545.1"
+status = "resolved"
+evidence = "Commit 1a3c69501c ported both current-client consumers on main: services/platform/hosted/core/src/public_reads.rs:148 emits decimal supply from PxAssetEntry, and services/agent/crates/layerx-agent-api/src/read.rs:731 compares the snapshot observed_sequence against the observed head sequence."
+
+[disposition.22.33.1545.2]
+finding = "22.33.1545.2"
+status = "resolved"
+evidence = "Commit c2ab4fcad7 ported the fee-projection consumer assertions to verified block context on main; services/agent/crates/layerx-agent-api/tests/repair_22_31_485.rs:97 constructs CommittedBlockContext::from_verified and Head::new at line 101, keeping observed sequence distinct from committed height."
+
+[disposition.22.33.1545.3]
+finding = "22.33.1545.3"
+status = "resolved"
+evidence = "Commit 6c7e27fb0d replaced the copied authority module with its library API; on main, services/agent/crates/layerx-agentd/tests/human_approval_budget_actor.rs:80 imports BudgetStateConfig and PrincipalPolicy from layerx_platform_authority and calls budget_state::read at line 107."
+
+[disposition.22.33.1545.4]
+finding = "22.33.1545.4"
+status = "resolved"
+evidence = "Commit b6d38a9897 placed prepare_digest on NativeSendPrepareRequestV2, retained on main at services/agent/crates/layerx-agentd/src/agent_rpc_wire.rs:851; it hashes the canonical wire request with the native-send preparation domain and returns the wire type's digest directly."
+
+[disposition.22.33.1547.1]
+finding = "22.33.1547.1"
+status = "resolved"
+evidence = "Commit 1a3c69501c ported the public asset reader to the current client fields; services/platform/hosted/core/src/public_reads.rs:148 serializes supply as a decimal string and reads asset_id and paused directly from PxAssetEntry on main."
+
+[disposition.22.33.1547.2]
+finding = "22.33.1547.2"
+status = "resolved"
+evidence = "Commit 6c7e27fb0d replaced the copied authority module with its library API; on main, services/agent/crates/layerx-agentd/tests/human_approval_budget_actor.rs:80 imports BudgetStateConfig and PrincipalPolicy from layerx_platform_authority and calls budget_state::read at line 107."
+
+[disposition.22.33.1547.3]
+finding = "22.33.1547.3"
+status = "resolved"
+evidence = "Commit b6d38a9897 placed prepare_digest on NativeSendPrepareRequestV2, retained on main at services/agent/crates/layerx-agentd/src/agent_rpc_wire.rs:851; it hashes the canonical wire request with the native-send preparation domain and returns the wire type's digest directly."
+
+[disposition.22.33.1547.4]
+finding = "22.33.1547.4"
+status = "resolved"
+evidence = "Commit 2944d59b7a made the complete receipt comparison read the producer timestamp at services/agent/crates/layerx-client/tests/sequencer.rs:177 and kept malformed denomination and receipt refusals at line 965 on main. Its services/agent/crates/layerx-client/src/rpc/withdrawal.rs:61 decodes both prefixed and unprefixed asset IDs before matching the registry entry."
+
+[disposition.22.33.155.1]
+finding = "22.33.155.1"
+status = "resolved"
+evidence = "Commit 182e0a9711 placed the wallet send proof at apps/wallet/src/repairs/repair-22-33-155.test.ts:1 on main; the retained signer at line 108 signs the exact transfer transaction, and the proof preserves the node receipt, transfer observation and explorer commitment assertions."
+
+[disposition.22.33.155.2]
+finding = "22.33.155.2"
+status = "resolved"
+evidence = "Commit 182e0a9711 binds signing to PAXEER_CONFIG.chainId at apps/wallet/src/repairs/repair-22-33-155.test.ts:117 on main; the signer checks the requested chain and sender and requires its signed bytes to equal the canonical producer transaction at line 119."
+
+[disposition.22.33.1550.1]
+finding = "22.33.1550.1"
+status = "resolved"
+evidence = "Commit 777dac116f retains durable approval publication on main: services/agent/crates/layerx-agentd/tests/repair_22_33_1550.rs:337 asserts failed persistence leaves the grant invisible and reopening recovers the exact release, while line 862 checks more than 4096 completed uses without losing pending rate reservations."
+
+[disposition.22.33.1550.2]
+finding = "22.33.1550.2"
+status = "resolved"
+evidence = "Commit 7435b17141 restored the Paxeer boundary deployment document on main; services/platform/hosted/gateway/tests/repair_22_31_345.rs:13 includes ../../paxeer/deployment.yaml, and the boundary configuration at line 65 uses the current node endpoint and chain ID 125."
+
+[disposition.22.33.1550.3]
+finding = "22.33.1550.3"
+status = "resolved"
+evidence = "Commit 9c3cd0e74d made approval reads and decisions carry explicit time; on main, services/agent/crates/layerx-agentd/src/approval/mod.rs:2173 retains DecisionRequest.current_time and get at line 2254 requires TimestampSeconds alongside the sequence."
+
+[disposition.22.33.1550.4]
+finding = "22.33.1550.4"
+status = "resolved"
+evidence = "Commit 777dac116f ported the approval consumer to the timed service on main; services/agent/crates/layerx-agentd/tests/repair_22_33_1550.rs:329 supplies DecisionRequest.current_time and the read at line 365 passes TimestampSeconds with the tenant, approval ID and sequence."
+
+[disposition.22.33.1551.1]
+finding = "22.33.1551.1"
+status = "resolved"
+evidence = "Commit b1ecc6e2e4 added the exact-payment disclosure codec on main at services/agent/crates/layerx-crypto/src/disclosure.rs:31; decode_pay_exact checks target, selector, exact ABI length and canonical integer widths, and bind_call at line 69 retains the transaction, sender and signing digest for durable approval."
+
+[disposition.22.33.1553.1]
+finding = "22.33.1553.1"
+status = "resolved"
+evidence = "Commit 231f88d9e7 made the approval preparation a complete bound call at services/agent/crates/layerx-mcp/tests/approval.rs:36 and retained receipt-key-index binding at services/agent/crates/layerx-mcp/tests/web_payments_layerxpay.rs:452 on main. Its schema assertion at services/agent/crates/layerx-mcp/tests/daemon_bound.rs:307 recursively requires every nonempty oneOf branch to be closed."
+
+[disposition.22.33.1553.2]
+finding = "22.33.1553.2"
+status = "resolved"
+evidence = "Commit 231f88d9e7 retained canonical receipt digest comparisons on main at services/agent/crates/layerx-mcp/tests/web.rs:1043 and :1121, with receipt-key-index coverage checked at services/agent/crates/layerx-mcp/tests/web_payments_layerxpay.rs:452; the web result remains bound to the signed payment receipt."
+
+[disposition.22.33.1553.3]
+finding = "22.33.1553.3"
+status = "resolved"
+evidence = "Commit 231f88d9e7 aligns the preserved refusal assertions with the web contract on main: services/agent/crates/layerx-mcp/tests/web.rs:1443 requires PaymentArtifact(receipt) for another receipt key, and line 1503 requires Payer(Refused) for the refused grant without releasing additional seller traffic."
+
+[disposition.22.33.1557.1]
+finding = "22.33.1557.1"
+status = "resolved"
+evidence = "Commit 884d756e24 ported the proof consumers to retained receipt, inclusion and export APIs; on main, services/agent/crates/layerx-proof/tests/repair_22_33_1557.rs:18 imports those APIs and line 131 checks native receipt and inclusion evidence, retaining the complete-export and offline-export cases included at lines 11 and 15."
+
+[disposition.22.33.1557.2]
+finding = "22.33.1557.2"
+status = "resolved"
+evidence = "Commit 6c4902c134 removed the checkpoint certificate API and its daemon cache consumer on main; services/agent/crates/layerx-proof/src/lib.rs:3 exports the retained proof modules, and services/agent/crates/layerx-proof/tests/repair_22_33_1557.rs:317 asserts that checkpoint and settlement modules are absent while retained receipt verification remains available."
+
+[disposition.22.33.1558.1]
+finding = "22.33.1558.1"
+status = "resolved"
+evidence = "Commit f2ca9f35ed ported the crypto consumers to the retained call API on main; services/agent/crates/layerx-crypto/tests/repair_22_33_1558.rs:20 imports bind_call and validate_call, and line 142 asserts transaction round-trip behavior and the absence of the retired activity bind declarations."
+
+[disposition.22.33.1558.2]
+finding = "22.33.1558.2"
+status = "resolved"
+evidence = "The SDK on main uses the call-specific binder at services/agent/crates/layerx-sdk/src/wallet.rs:3 and :336, preserving sender-bound EIP-1559 disclosure. Commit f2ca9f35ed removed the retired activity bind API, with its absence and the retained transaction round trip asserted at services/agent/crates/layerx-crypto/tests/repair_22_33_1558.rs:142."
+
+[disposition.22.33.1560.1]
+finding = "22.33.1560.1"
+status = "resolved"
+evidence = "Commit af4e6522a5 added the signer refusal at services/agent/crates/layerx-crypto/src/signer.rs:94 on main: Activity signing returns InvalidDisclosure before any key boundary. The retained assertion at services/agent/crates/layerx-crypto/tests/repair_22_33_1560.rs:135 checks both signing_bytes and the local signer reject that purpose."
+
+[disposition.22.33.1569.10]
+finding = "22.33.1569.10"
+status = "resolved"
+evidence = "Commit 8e43ba58e4 preserves canonical submitted activity through later waits on main; services/agent/crates/layerx-sdk/src/wallet.rs:238 obtains the submitted activity and rebinds its exact bytes to the waited receipt at line 248, including the explicit commit-evidence path at line 256."
+
+[disposition.22.33.1569.11]
+finding = "22.33.1569.11"
+status = "resolved"
+evidence = "Commit 01dd0d7fe8 added governed-key authentication for cumulative receipt use in services/agent/crates/layerx-agentd/src/protocol_evidence.rs on main. Commit 37f0bdbb05 supplies the readiness receipt keys to the PAY2 evidence authority at services/agent/qualification/pay2/tests/support/funded_scenario.rs:379 before authenticating the draw history."
+
+[disposition.22.33.1569.12]
+finding = "22.33.1569.12"
+status = "resolved"
+evidence = "Commit 37f0bdbb05 uses the current one-argument node commit authority API on main at services/agent/qualification/pay2/tests/support/funded_peer.rs:592; committed_rpc derives the authority bounds from the activity-specific covering height and passes that authority to the client."
+
+[disposition.22.33.1569.13]
+finding = "22.33.1569.13"
+status = "resolved"
+evidence = "Commit a0cc1e345c changed the published matrix include on main to ../../../../../docs/agent/COMPATIBILITY.md at services/agent/crates/layerx-agentd/src/compat.rs:8, retaining the daemon compatibility contract at its current document path."
+
+[disposition.22.33.1569.14]
+finding = "22.33.1569.14"
+status = "resolved"
+evidence = "Commit 37f0bdbb05 binds PAY2 cumulative-use authentication to the readiness keys on main at services/agent/qualification/pay2/tests/support/funded_scenario.rs:375; the evidence authority receives status.receipt_keys before the authenticated issue-usage path at line 886."
+
+[disposition.22.33.1569.15]
+finding = "22.33.1569.15"
+status = "resolved"
+evidence = "Commit 37f0bdbb05 gives each PAY2 batch its required maintenance leaf on main at services/agent/qualification/pay2/tests/support/funded_peer.rs:1018; the receipt proof has two leaves and the batch header reserves its final sequence for maintenance, preserving complete cumulative-window verification."
+
+[disposition.22.33.1569.16]
+finding = "22.33.1569.16"
+status = "resolved"
+evidence = "Commit 566ac40605 added the EIP-1559 cumulative-use decoder on main at services/agent/crates/layerx-agentd/src/protocol_evidence.rs:51; it decodes the signed transaction, recovers the sender and binds ActivityActorBinding::Account to the canonical transaction hash, with account-aware cumulative authentication at line 912."
+
+[disposition.22.33.1569.17]
+finding = "22.33.1569.17"
+status = "resolved"
+evidence = "Commit 37f0bdbb05 supplies authenticated block, commit and validator material for PAY2 identity reads on main at services/agent/qualification/pay2/tests/support/funded_peer.rs:1100. The retained end-to-end assertions at services/agent/qualification/pay2/tests/repair_22_33_1569.rs:85 require successful SDK and MCP grant operations and activity-specific commitment coverage."
+
+[disposition.22.33.1569.18]
+finding = "22.33.1569.18"
+status = "resolved"
+evidence = "Commit f00acfe8ac retains signed bytes on MCP wallet results on main: services/agent/crates/layerx-mcp/src/tools/wallet.rs:103 assembles and submits the signed call, then calls wait_for_signed at line 114. The SDK implementation at services/agent/crates/layerx-sdk/src/wallet.rs:220 binds those bytes to the verified receipt."
+
+[disposition.22.33.1569.19]
+finding = "22.33.1569.19"
+status = "resolved"
+evidence = "Commit 3822bb5f1b derives DrawGrant policy dimensions from the decoded Receive on main at services/agent/crates/layerx-mcp/src/tools/wallet.rs:274; it cross-checks recipient, amount, grant and idempotency key against LedgerDraw and returns the Receive asset and payer only when all bound fields match."
+
+[disposition.22.33.1569.1]
+finding = "22.33.1569.1"
+status = "resolved"
+evidence = "Commit f0b85cbf0c binds the submitted signed transaction to the verified SDK receipt on main at services/agent/crates/layerx-sdk/src/wallet.rs:80. Commit 37f0bdbb05 retains successful Send and grant outcome assertions at services/agent/qualification/pay2/tests/repair_22_33_1569.rs:85 and typed RPC error variants at line 178."
+
+[disposition.22.33.1569.20]
+finding = "22.33.1569.20"
+status = "resolved"
+evidence = "Commit 37f0bdbb05 binds MCP draw usage to the recipient DID and recipient EVM account on main at services/agent/qualification/pay2/tests/support/funded_scenario.rs:1005; the draw context at line 1043 uses the same recipient actor, preserving the policy identity check."
+
+[disposition.22.33.1569.2]
+finding = "22.33.1569.2"
+status = "resolved"
+evidence = "Commit 37f0bdbb05 makes the PAY2 receipt policy use layerx_wire::limits::PROTOCOL_VERSION at services/agent/qualification/pay2/tests/support/funded_inputs.rs:10 on main; services/agent/qualification/pay2/tests/repair_22_33_1569.rs:43 asserts version 2 before the funded workflow and keeps all six successful outcome assertions."
+
+[disposition.22.33.1569.3]
+finding = "22.33.1569.3"
+status = "resolved"
+evidence = "Commit f0b85cbf0c carries the signed transaction into SDK receipt evidence on main at services/agent/crates/layerx-sdk/src/wallet.rs:80; the later commitment paths at lines 248 and 266 retain the same canonical activity for receipt and cumulative-use consumers."
+
+[disposition.22.33.1569.4]
+finding = "22.33.1569.4"
+status = "resolved"
+evidence = "Commit 37f0bdbb05 retains the complete PAY2 Send-to-grant contract on main at services/agent/qualification/pay2/tests/repair_22_33_1569.rs:85; every Send and SDK/MCP grant result must be zero, and each Batched receipt must carry its own authenticated covering height and activity identity."
+
+[disposition.22.33.1569.5]
+finding = "22.33.1569.5"
+status = "resolved"
+evidence = "Commit 37f0bdbb05 binds each PAY2 wait to its own committed activity on main at services/agent/qualification/pay2/tests/support/funded_peer.rs:555; committed_rpc loads that activity's coverage and constructs the node authority with its covering height before returning the client at line 592."
+
+[disposition.22.33.1569.6]
+finding = "22.33.1569.6"
+status = "resolved"
+evidence = "Commit 37f0bdbb05 binds each PAY2 wait to its own committed activity on main at services/agent/qualification/pay2/tests/support/funded_peer.rs:555; committed_rpc loads that activity's coverage and constructs the node authority with its covering height before returning the client at line 592."
+
+[disposition.22.33.1569.7]
+finding = "22.33.1569.7"
+status = "resolved"
+evidence = "Commit 37f0bdbb05 retains the full grant workflow assertions on main at services/agent/qualification/pay2/tests/repair_22_33_1569.rs:99; grant operations advance distinct activity sequences with a reserved maintenance sequence, and each committed activity has its own coverage record and covering height."
+
+[disposition.22.33.1569.8]
+finding = "22.33.1569.8"
+status = "resolved"
+evidence = "Commit 37f0bdbb05 encodes PAY2 node receipts using the EVM receipt profile on main at services/agent/qualification/pay2/tests/support/funded_peer.rs:765; module 12, operation 2, EVM sender and target words, zero transaction value and the uhpx asset digest match the signed type-2 transaction."
+
+[disposition.22.33.1569.9]
+finding = "22.33.1569.9"
+status = "resolved"
+evidence = "Commit 37f0bdbb05 encodes PAY2 node receipts using the EVM receipt profile on main at services/agent/qualification/pay2/tests/support/funded_peer.rs:765; module 12, operation 2, EVM sender and target words, zero transaction value and the uhpx asset digest match the signed type-2 transaction."
+
+[disposition.22.33.1571.1]
+finding = "22.33.1571.1"
+status = "resolved"
+evidence = "Commit 7435b17141 restored the Paxeer boundary deployment document on main; services/platform/hosted/gateway/tests/repair_22_31_345.rs:13 includes ../../paxeer/deployment.yaml, and the boundary configuration at line 65 uses the current node endpoint and chain ID 125."
+
+[disposition.22.33.1571.2]
+finding = "22.33.1571.2"
+status = "resolved"
+evidence = "Commit be51963de0 retains exact-byte Unknown recovery on main at services/agent/tests/limits/exactly_once.rs:1497; a restored submission exposes its exact signed bytes, refuses duplicate enqueue at line 1507 and keeps its reservation until authenticated receipt resolution, including missing and deferred receipt outcomes."
+
+[disposition.22.33.1571.3]
+finding = "22.33.1571.3"
+status = "resolved"
+evidence = "Commit 6c7e27fb0d replaced the copied authority module with its library API; on main, services/agent/crates/layerx-agentd/tests/human_approval_budget_actor.rs:80 imports BudgetStateConfig and PrincipalPolicy from layerx_platform_authority and calls budget_state::read at line 107."
+
+[disposition.22.33.1571.4]
+finding = "22.33.1571.4"
+status = "resolved"
+evidence = "Commit b6d38a9897 placed prepare_digest on NativeSendPrepareRequestV2, retained on main at services/agent/crates/layerx-agentd/src/agent_rpc_wire.rs:851; it hashes the canonical wire request with the native-send preparation domain and returns the wire type's digest directly."
+
+[disposition.22.33.1572.1]
+finding = "22.33.1572.1"
+status = "resolved"
+evidence = "Commit e12649e85e imports the published idempotency key type on main at services/agent/tests/parity/src/lib.rs:8 as layerx_agent_api::idempotency::Key, retaining authenticated daemon operation envelopes and credential-bound parity reads."
+
+[disposition.22.33.1572.2]
+finding = "22.33.1572.2"
+status = "resolved"
+evidence = "Commit e12649e85e normalizes the received hex bytes on main at services/agent/tests/parity/tests/repair_22_33_1572.rs:38 before comparing canonical node receipts; the parity test at line 350 checks receipt and reopened state equality using the same byte representation."
+
+[disposition.22.33.1572.3]
+finding = "22.33.1572.3"
+status = "resolved"
+evidence = "Commit e12649e85e makes parity answers use the production proof-bundle codec on main at services/agent/tests/parity/tests/repair_22_33_1572.rs:295; it decodes VerifiedRead<ProofBundle>, retains achieved_rung internally and serializes proof_bundle_operation_value with the request's verification status at line 321."
+
+[disposition.22.33.1572.4]
+finding = "22.33.1572.4"
+status = "resolved"
+evidence = "Commit e12649e85e makes parity answers use the production proof-bundle codec on main at services/agent/tests/parity/tests/repair_22_33_1572.rs:295; it decodes VerifiedRead<ProofBundle>, retains achieved_rung internally and serializes proof_bundle_operation_value with the request's verification status at line 321."
+
+[disposition.22.33.1573.1]
+finding = "22.33.1573.1"
+status = "resolved"
+evidence = "Commit 7435b17141 restored the Paxeer boundary deployment document on main; services/platform/hosted/gateway/tests/repair_22_31_345.rs:13 includes ../../paxeer/deployment.yaml, and the boundary configuration at line 65 uses the current node endpoint and chain ID 125."
+
+[disposition.22.33.1575.1]
+finding = "22.33.1575.1"
+status = "resolved"
+evidence = "Commit dc01f4723e retains a valid signed positive control and an independently refused subthreshold certificate on main at services/agent/tests/qualify/tests/repair_22_33_1575.rs:312; the attack preserves receipt, batch and signed header and must fail at commit-verifier with Proof(InsufficientPower)."
+
+[disposition.22.33.160.1]
+finding = "22.33.160.1"
+status = "resolved"
+evidence = "Commit a8219dae82 accepts the producer's uncompressed secp256k1 recovery key on main at services/wallet/ceremony/internal/attestor/client.go:1029; a 65-byte key is unmarshaled and compressed before DecodePoint, and malformed points still return ErrPoint."
+
+[disposition.22.33.161.1]
+finding = "22.33.161.1"
+status = "resolved"
+evidence = "Commit 74ef78b42b supplies matching committed and receipted evidence on main at apps/wallet/src/account/test/receiptEndpoint.ts:3 and :19; recordedReceipt at line 33 authenticates each answer with the same receipt hash and pinned receipt keys instead of deriving a new signed receipt."
+
+[disposition.22.33.161.2]
+finding = "22.33.161.2"
+status = "resolved"
+evidence = "Commit d15bd08924 keeps the wallet ladder assertions aligned with authenticated receipt progression on main at apps/wallet/src/account/repair-22-33-161.test.ts:50; submitted and receipted evidence do not imply commitment, and the explorer-backed committed state at line 69 must complete with committed receipt evidence."
+
+[disposition.22.33.162.1]
+finding = "22.33.162.1"
+status = "resolved"
+evidence = "Commit e4190343f3 retains the malformed asset-page refusal on main at apps/wallet/src/account/test/repair-22-33-162.test.ts:54 as JsonRpcTransportError; no decoded asset page is accepted when the required height is absent."
+
+[disposition.22.33.163.1]
+finding = "22.33.163.1"
+status = "environment"
+evidence = "On main, apps/wallet/src/app/api/wallet/[...path]/repair-22-33-163.test.ts:134 retains bounded LRU cache behavior, aggregate byte limits and in-flight request deduplication. The method-collision assertions at line 221 keep HEAD and GET response bodies and cache metadata distinct."
+
+[disposition.22.33.167.1]
+finding = "22.33.167.1"
+status = "resolved"
+evidence = "Commit 25b29b99ea retains durable push recovery on main at apps/wallet/src/server/repair-22-33-167.test.ts:373 and :465; transient campaign rejections remain retryable after reopening, and exhausted attempts never become successful deliveries while terminal recipients alone complete the campaign."
+
+[disposition.22.33.175.1]
+finding = "22.33.175.1"
+status = "resolved"
+evidence = "Commit 0a2a70c637 retains the ceremony production-client contract on main at services/wallet/ceremony/internal/testsupport/repair_m175_test.go:34; ExternalAttestorConfig preserves independently pinned members and rejects invalid or caller-mutated member configurations at line 57."
+
+[disposition.22.33.175.2]
+finding = "22.33.175.2"
+status = "resolved"
+evidence = "Commit 0a2a70c637 retains real distributed refresh and durable description on main at services/wallet/ceremony/internal/testsupport/repair_m175_test.go:138; every participant's share fingerprint must change, and reopened descriptions at line 156 must retain epoch 1 and the committed refresh identity."
+
+[disposition.22.33.175.3]
+finding = "22.33.175.3"
+status = "resolved"
+evidence = "Commit 0a2a70c637 retains real distributed refresh and durable description on main at services/wallet/ceremony/internal/testsupport/repair_m175_test.go:138; every participant's share fingerprint must change, and reopened descriptions at line 156 must retain epoch 1 and the committed refresh identity."
+
+[disposition.22.33.175.4]
+finding = "22.33.175.4"
+status = "resolved"
+evidence = "Commit 0a2a70c637 declares the wallet attestor module in services/wallet/ceremony/go.mod:7 and replaces it with ../attestor at line 62 on main; the ceremony client retains the distributed refresh and durable participant-description contract at services/wallet/ceremony/internal/testsupport/repair_m175_test.go:138."
+
+[disposition.22.33.179.1]
+finding = "22.33.179.1"
+status = "resolved"
+evidence = "Commit 0e95c00565 declares @electric-sql/pglite and @electric-sql/pglite-socket in the gateway manifest, retained on main at services/wallet/gateway/package.json:40. services/wallet/gateway/src/db/testDatabase.ts:1 imports PGlite, its pgcrypto extension and PGLiteSocketServer from those declared packages."
+
+[disposition.22.33.18.1]
+finding = "22.33.18.1"
+status = "resolved"
+evidence = "Commit 8d8c74c152 retains the retired-payment refusal contract on main at services/agent/sdk/python/tests/test_web_search_sequencer.py:449: the public web consumer returns receipt-unverified with LXP_NO_PAYER_GRANT as its cause. The market receipt producer at services/agent/sdk/python/tests/market_receipt_producer.c:34 encodes protocol version 2 through the canonical receipt codec."
+
+[disposition.22.33.18.2]
+finding = "22.33.18.2"
+status = "resolved"
+evidence = "Commit 18880543d1 binds the portable HTTP proof to the verified canonical receipt digest on main at services/agent/sdk/python/layerx_sdk/x402_http.py:328; proof production at line 359 uses that same digest alongside the signed receipt and raw transaction, retaining exact digest equality."
+
+[disposition.22.33.18.3]
+finding = "22.33.18.3"
+status = "resolved"
+evidence = "Commit 8d8c74c152 retains a receipted answer without committed-only block metadata on main at services/agent/sdk/python/tests/test_x402_http_sequencer.py:362; the canonical signed receipt stays unchanged, and the committed resource remains unavailable until verified inclusion after reopening."
+
+[disposition.22.33.181.1]
+finding = "22.33.181.1"
+status = "resolved"
+evidence = "Commit 0e95c00565 declares @electric-sql/pglite and @electric-sql/pglite-socket in the gateway manifest, retained on main at services/wallet/gateway/package.json:40. services/wallet/gateway/src/db/testDatabase.ts:1 imports PGlite, its pgcrypto extension and PGLiteSocketServer from those declared packages."
+
+[disposition.22.33.181.2]
+finding = "22.33.181.2"
+status = "resolved"
+evidence = "Commit 0e95c00565 declares @electric-sql/pglite and @electric-sql/pglite-socket in the gateway manifest, retained on main at services/wallet/gateway/package.json:40. services/wallet/gateway/src/db/testDatabase.ts:1 imports PGlite, its pgcrypto extension and PGLiteSocketServer from those declared packages."
+
+[disposition.22.33.184.1]
+finding = "22.33.184.1"
+status = "resolved"
+evidence = "Commit 0e95c00565 declares @electric-sql/pglite and @electric-sql/pglite-socket in the gateway manifest, retained on main at services/wallet/gateway/package.json:40. services/wallet/gateway/src/db/testDatabase.ts:1 imports PGlite, its pgcrypto extension and PGLiteSocketServer from those declared packages."
+
+[disposition.22.33.186.1]
+finding = "22.33.186.1"
+status = "resolved"
+evidence = "Commit cd123602f6 retains exact wallet submission identity on main at apps/wallet/src/wallet/test/repair-22-33-186.test.ts:245; the signer result at line 272 must carry the producer transaction hash, and the submitted canonical bytes are compared at line 268 while root and selected-namespace routing remain asserted at line 328."
+
+[disposition.22.33.188.1]
+finding = "22.33.188.1"
+status = "environment"
+evidence = "On main, apps/perps/sentry.client.config.ts:49 and apps/perps/sentry.edge.config.ts:23 install sanitizeSentryEvent before event transmission. apps/perps/tests/repair-22-33-188.test.ts:73 retains the assertion that secret values and client addresses never leave the sanitizer."
+
+[disposition.22.33.190.1]
+finding = "22.33.190.1"
+status = "environment"
+evidence = "On main, apps/perps/src/pages/api/presence.ts:205 bounds registrations and active identities, returns 429 when the budget is exhausted and issues a random server-owned identity at line 216. sdk/wallet/package.json declares viem and the linked agent SDK as dependencies."
+
+[disposition.22.33.190.2]
+finding = "22.33.190.2"
+status = "environment"
+evidence = "On main, apps/perps/src/pages/api/presence.ts:205 bounds registrations and active identities, returns 429 when the budget is exhausted and issues a random server-owned identity at line 216. sdk/wallet/package.json declares viem and the linked agent SDK as dependencies."
+
+[disposition.22.33.190.3]
+finding = "22.33.190.3"
+status = "environment"
+evidence = "On main, apps/perps/src/pages/api/presence.ts:193 binds the presence cookie to its originating client and refuses cross-client reuse before updating presence. Registration capacity is bounded at line 205, and the presence assertions remain in apps/perps/tests/repair-22-33-190.test.ts:68."
+
+[disposition.22.33.190.4]
+finding = "22.33.190.4"
+status = "environment"
+evidence = "On main, apps/perps/src/pages/api/presence.ts:193 binds the presence cookie to its originating client and refuses cross-client reuse before updating presence. Registration capacity is bounded at line 205, and the presence assertions remain in apps/perps/tests/repair-22-33-190.test.ts:68."
+
+[disposition.22.33.192.1]
+finding = "22.33.192.1"
+status = "environment"
+evidence = "On main, apps/perps/src/widgets/analytics/AnalyticsLiquidStat.tsx:47 accepts complete aggregate protocol snapshots for the TVL timeline, including collateral absent from recent events. The retained assertion at apps/perps/tests/repair-22-33-192.test.ts:227 checks that full aggregate rather than summing recent activity."
+
+[disposition.22.33.192.2]
+finding = "22.33.192.2"
+status = "environment"
+evidence = "On main, apps/perps/src/widgets/analytics/AnalyticsLiquidStat.tsx:94 derives the timeline from authoritative snapshots, and line 190 reports TVL unavailable when the aggregate is missing. The analytics assertions at apps/perps/tests/repair-22-33-192.test.ts:227 retain coverage of collateral absent from recent events."
+
+[disposition.22.33.192.3]
+finding = "22.33.192.3"
+status = "environment"
+evidence = "On main, apps/perps/src/widgets/analytics/AnalyticsLiquidStat.tsx:94 derives the timeline from authoritative snapshots, and line 190 reports TVL unavailable when the aggregate is missing. The analytics assertions at apps/perps/tests/repair-22-33-192.test.ts:227 retain coverage of collateral absent from recent events."
+
+[disposition.22.33.193.1]
+finding = "22.33.193.1"
+status = "environment"
+evidence = "On main, apps/perps/src/widgets/explorer/BlockRow.tsx:80 labels block.transactions_count as Transactions. apps/perps/tests/repair-22-33-193.test.ts:51 retains the transaction-count, late-history recovery and absence-of-retired-batch-model assertions against the current explorer components."
+
+[disposition.22.33.193.2]
+finding = "22.33.193.2"
+status = "environment"
+evidence = "On main, apps/perps/src/widgets/explorer/BlockRow.tsx:80 labels block.transactions_count as Transactions. apps/perps/tests/repair-22-33-193.test.ts:51 retains the transaction-count, late-history recovery and absence-of-retired-batch-model assertions against the current explorer components."
+
+[disposition.22.33.193.3]
+finding = "22.33.193.3"
+status = "environment"
+evidence = "On main, apps/perps/src/widgets/explorer/BlockRow.tsx:80 displays the actual transaction count, while apps/perps/tests/repair-22-33-193.test.ts:54 retains late-history merging and recovery after reopening. The transaction detail assertion at line 57 preserves the absence of a retired batch model."
+
+[disposition.22.33.193.4]
+finding = "22.33.193.4"
+status = "resolved"
+evidence = "Commit 73fec826c5 retains the current explorer behavior on main at apps/perps/src/widgets/explorer/BlockRow.tsx:80 and apps/perps/tests/repair-22-33-193.test.ts:51; the three declared assertions check transaction labeling, late-history recovery and transaction details without the retired batch model."
+
+[disposition.22.33.194.1]
+finding = "22.33.194.1"
+status = "environment"
+evidence = "On main, sdk/wallet/package.json declares the linked agent SDK and viem, and apps/perps/tests/repair-22-33-194.test.ts:397 retains the refusal to use a foreign symbol's balance or precision. The stop-limit assertion at line 459 restricts the lifetime to the one enforced by the producer."
+
+[disposition.22.33.194.2]
+finding = "22.33.194.2"
+status = "environment"
+evidence = "On main, apps/perps/tests/repair-22-33-194.test.ts:494 retains single-stable funding consistency across display, validation and percentages. The midpoint assertion at line 555 uses both best sides and reports missing liquidity, preserving the spot consumer contract."
+
+[disposition.22.33.194.3]
+finding = "22.33.194.3"
+status = "environment"
+evidence = "On main, apps/perps/tests/repair-22-33-194.test.ts:590 retains complete desktop and mobile spot consumer rendering for every configured market. The assertions at lines 602 and 609 require the market pair, wallet connection state and mobile Spot Balance without NaN output."

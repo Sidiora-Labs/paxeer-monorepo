@@ -1,0 +1,7 @@
+[issue.1705]
+number = 1705
+title = "[Coherence] The task record states that the required baseline run on the unchanged tree was not done, although task 22.33.1172 requires it"
+revision = "bb8caac8b3e73e3e2f4b330805574f0bcb540641"
+verdict = "spec-edit"
+evidence = "Task 22.33.1172 is done at spec/layerx-merge/spec.kvx:221859 but do_6 at spec/layerx-merge/spec.kvx:221871 requires a baseline explicitly absent at storage/db_engine/litt/test/repair_m1172.kvx:3, while commit e0ed96965f5e5a5b00a2896516e8dbcc01a35cb0 adds the proving tests now at storage/db_engine/litt/test/repair_m1172_test.go:5 and storage/db_engine/litt/test/repair_m1172_test.go:13 over the real helpers at storage/db_engine/litt/test/table_test.go:496 and storage/db_engine/litt/test/unlock_test.go:130; the spec must distinguish implemented cached-GC and multivolume-purge coverage from the still-unqualified pre-change baseline rather than claim full completion."
+close_comment = "The cached-GC and three-volume lock-purge regression coverage is present, but no pre-change baseline result is recorded. Task 22.33.1172 needs a spec correction that records this evidence gap and leaves the baseline criterion unqualified until supported by evidence."

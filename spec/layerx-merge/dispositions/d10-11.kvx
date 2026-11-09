@@ -2,3 +2,8 @@
 finding = "10.1.4.1"
 status = "resolved"
 evidence = "On main, commit e22fa31438528ab6c3bb60967a717a321c1ffd96 makes private node paths match identifier boundaries at services/human/tools/boundary-check/src/lib.rs:132, so snapshot.binding_tenant at services/human/crates/layerx-human-identity-provider/src/state.rs:319 is a tenant field, and commit 5b5244ee5 replaces server wall-clock reads with the injected clock sampled at services/human/crates/layerx-human-service/src/server/http.rs:293. Commit ce7d237e2e979ee8234fa0416c6660ec8186d724 invokes dependency, boundary, payload-authority and retired-surface policies at services/human/tools/boundary-check/src/main.rs:26 and retains the real binary success assertion at services/human/tools/boundary-check/tests/retired_surface_tree.rs:16."
+
+[closure.22.39.207]
+ids = "spec/layerx-merge/programme/closure/22.39.207.ids"
+domain_10_dispositions = "spec/layerx-merge/dispositions/d10-12.kvx"
+main_revision = "a26369c7eda603cb28bcdd8cef55c35df7d248ee"

@@ -1,0 +1,7 @@
+[issue.1708]
+number = 1708
+title = "[Coherence] The new agent-middleware resolveGrant test that 22.31.457 attempt 2 requires is never run by the task's verify command"
+revision = "bb8caac8b3e73e3e2f4b330805574f0bcb540641"
+verdict = "already-fixed"
+evidence = "Commit 0c87b70fabcea1c5ee6b6dfe403d874bc1fc4c99 added the resolveGrant implementation now at services/platform/middleware/agent/src/index.ts:961 and the import at services/platform/middleware/seller/test/repair-22-31-457.test.mjs:12, so the verify_cmd at spec/layerx-merge/spec.kvx:160158 executes the agent test registered at services/platform/middleware/agent/test/repair-22-31-457.test.mjs:63, whose assertions at services/platform/middleware/agent/test/repair-22-31-457.test.mjs:52 check the resolved grant and at services/platform/middleware/agent/test/repair-22-31-457.test.mjs:53 check undefined for an unknown grant."
+close_comment = "The seller test named by the verification command imports and runs the agent middleware's resolveGrant test. That test checks grant lookup, unknown grants, network isolation, store updates and deletions, and propagation of store errors, so the reported coverage gap is already fixed."

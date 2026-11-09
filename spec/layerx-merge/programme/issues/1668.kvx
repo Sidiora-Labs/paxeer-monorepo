@@ -1,0 +1,48 @@
+[issue.1668]
+number = 1668
+title = "[Coherence] The new test-support package.json declares a jsdom version the test never loads; the test actually uses the wallet demo's jsdom 26.1.0"
+revision = "bb8caac8b3e73e3e2f4b330805574f0bcb540641"
+verdict = "task"
+evidence = "The unused manifest still declares @types/jsdom 30.0.0 and jsdom 30.1.3 at apps/perps/src/ui/atoms/test-support/package.json:8 and :9, but the fixture resolves jsdom through the wallet demo at apps/perps/src/ui/atoms/test-support/dom.ts:5 and :11, whose declaration at services/wallet/demo/package.json:35 is locked to 26.1.0 at services/wallet/pnpm-lock.yaml:311, while apps/perps/pnpm-workspace.yaml:2 and services/wallet/pnpm-workspace.yaml:2 omit test-support and the real consumer at apps/perps/tests/repair-22-33-83.test.ts:13 imports that fixture."
+close_comment = "The resize-handle fixture uses the wallet demo's locked jsdom 26.1.0, while an unused manifest advertises jsdom 30.1.3. The follow-up task removes the unused manifest so dependency declarations match the fixture's actual dependency."
+
+[task.18.1668.1]
+title = "Issue #1668: Remove the unused resize-handle fixture manifest"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181668.1"]
+capabilities = []
+interfaces = []
+do_1 = "Delete apps/perps/src/ui/atoms/test-support/package.json, whose unused dependency pins at :8 and :9 disagree with the wallet-demo resolution in apps/perps/src/ui/atoms/test-support/dom.ts:5 and :11; retain the wallet demo declaration at services/wallet/demo/package.json:35 and its locked jsdom 26.1.0 at services/wallet/pnpm-lock.yaml:311 without adding another dependency owner, workspace member or lockfile importer."
+do_2 = "Assert that the deleted manifest is absent and run resize_unmount_state_restores_page_interaction in apps/perps/tests/repair-22-33-83.test.ts:12, which imports the real fixture at :13 and proves drag cleanup, restored page interaction and successful remounting with its existing assertions intact."
+symbols = []
+touches = ["apps/perps/src/ui/atoms/test-support/package.json"]
+tests = ["apps/perps/tests/repair-22-33-83.test.ts::resize_unmount_state_restores_page_interaction"]
+planned_paths = []
+build_cmd = "pnpm --dir apps/perps exec tsc --noEmit"
+verify_cmd = "test ! -e apps/perps/src/ui/atoms/test-support/package.json && pnpm --dir apps/perps exec node --test --import tsx --test-name-pattern='^resize_unmount_state_restores_page_interaction$' tests/repair-22-33-83.test.ts"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-markets"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181668]
+title = "The resize-handle fixture has no unused dependency manifest"
+ac_1 = "The unused manifest at apps/perps/src/ui/atoms/test-support/package.json:8 is absent, the fixture still resolves the wallet demo's declared jsdom through apps/perps/src/ui/atoms/test-support/dom.ts:5 and :11, and resize_unmount_state_restores_page_interaction at apps/perps/tests/repair-22-33-83.test.ts:12 passes with its drag cleanup and remount assertions intact."
+
+[acceptance.18.1668.1]
+feature = "18"
+req = "181668.1"
+scenario = "Given the resize-handle fixture resolves jsdom from the wallet demo, when its unused package manifest is removed, then the manifest is absent and the real resize interaction test still restores page interaction after unmounting and remounting."
+contract = "contracts/perps-client.md#ui"
+test = "apps/perps/tests/repair-22-33-83.test.ts::resize_unmount_state_restores_page_interaction (planned)"
+qualification = "UNRUN"

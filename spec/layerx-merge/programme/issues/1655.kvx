@@ -1,0 +1,52 @@
+[issue.1655]
+number = 1655
+title = "Collateral removal modal caps withdrawals by pre-settlement collateral"
+revision = "bb8caac8b3e73e3e2f4b330805574f0bcb540641"
+verdict = "task"
+evidence = "apps/perps/src/widgets/trading/modals/collateralRemoval.ts:61 still caps removal by the stored collateral returned at precompiles/perps/views.go:293, although modules/perps/keeper/account.go:90 settles the account first, credits positive PnL at modules/perps/keeper/account.go:336 and checks withdrawable and settled collateral at modules/perps/keeper/account.go:382, so unsettled profit can support a withdrawal the modal rejects."
+close_comment = "Collateral removal can reject a valid withdrawal when unsettled profit makes the available amount exceed stored collateral. The follow-up will align the maximum with post-settlement withdrawal limits and add coverage for profit, losses, funding and refreshed balances while preserving margin protections."
+
+[task.18.1655.1]
+title = "Issue #1655: Align collateral removal with post-settlement withdrawal limits"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181655.1"]
+capabilities = []
+interfaces = []
+do_1 = "Change readCollateralRemovalRisk in apps/perps/src/widgets/trading/modals/collateralRemoval.ts:25 so maxRemoval at line 61 uses account-wide post-settlement-compatible limits rather than capping profit-backed withdrawals by raw state.collateral; account for PnL, funding and native-unit settlement rounding in modules/perps/keeper/account.go:260 and modules/perps/keeper/funding.go:244, retain the authoritative initial-margin and governed withdrawal-floor limits of modules/perps/keeper/account.go:242, and preserve tiered maintenance, ownership validation, consistent block reads, unavailable-risk refusal and the fresh submission read at apps/perps/src/widgets/trading/modals/collateralRemoval.ts:93."
+do_2 = "Extend precompiles/perps/positions_test.go:430 with TestPositionsCollateralRemovalSettlementParity and apps/perps/tests/repair-22-33-195.test.ts:189 with a declared collateralRemovalSettlementParity test; the Go test supplies real keeper-backed precompile reads over loopback JSON-RPC, invokes the TypeScript test file, consumes the production removal builder's calldata through the real precompile and asserts keeper and token-balance outcomes, without replacing account responses or withdrawal checks with synthetic answers; keep the existing assertions intact and require the TypeScript parity test to execute and pass."
+do_3 = "Prove the six-decimal USDL scenario with an owned active long of 10 base, cost basis 1000 USD, mark 125 USD, leverage 10x, stored collateral 250 USDL, WithdrawFloorPpm 100000, no deficit, funding or orders, a live price and sufficient module liquidity: equity is 500 USD, withdrawable and the modal maximum are 375 USDL, and a 300 USDL removal succeeds with 200 USDL collateral remaining; on independent account snapshots compare modal admission and keeper outcomes at the maximum and one USDL unit above it, including positive and negative PnL, funding payments and receipts, sub-unit settlement rounding, account-wide positions and order reserves, governed floor and tier boundaries, zero headroom, and unavailable risk."
+do_4 = "Compare the production preview and canRemoveCollateral with the keeper before and after settlement at unchanged prices and funding, allowing only the keeper's actual rounding effects; after removal refresh the account and assert the reduced maximum, and change price or funding between preview and submission to prove prepareCollateralRemoval refreshes the limit and rejects a newly unsafe amount; the current preview and submit consumers are apps/perps/src/widgets/trading/modals/AdjustCollateralModal.tsx:63 and apps/perps/src/widgets/trading/modals/AdjustCollateralModal.tsx:114."
+symbols = ["readCollateralRemovalRisk", "collateralRemovalSettlementParity", "TestPositionsCollateralRemovalSettlementParity"]
+touches = ["apps/perps/src/widgets/trading/modals/collateralRemoval.ts", "apps/perps/tests/repair-22-33-195.test.ts", "precompiles/perps/positions_test.go"]
+tests = ["apps/perps/tests/repair-22-33-195.test.ts::collateralRemovalSettlementParity", "precompiles/perps/positions_test.go::TestPositionsCollateralRemovalSettlementParity"]
+planned_paths = []
+build_cmd = "pnpm --dir apps/perps exec tsc --noEmit"
+verify_cmd = "go test -count=1 ./precompiles/perps/ -run '^TestPositionsCollateralRemovalSettlementParity$'"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-markets"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181655]
+title = "Collateral removal admits withdrawals supported by post-settlement account limits"
+ac_1 = "The maximum and admission decision in apps/perps/src/widgets/trading/modals/collateralRemoval.ts:59 match the keeper's post-settlement constraints at modules/perps/keeper/account.go:90 and modules/perps/keeper/account.go:382, including profit, losses, funding, USDL rounding, account-wide initial margin, governed withdrawal floors and tiered maintenance, without using stored pre-settlement collateral to reject an otherwise valid amount."
+ac_2 = "With 250 USDL stored collateral, a 10-base long costing 1000 USD marked at 125 USD with 10x leverage and the default withdrawal floor has a 375 USDL maximum and accepts a 300 USDL withdrawal; the real precompile and UI agree at valid boundaries and reject one unit above the applicable limit."
+ac_3 = "Settlement and refreshed account reads retain the correct maximum, withdrawals reduce it by the actual debited amount, and fresh submission reads continue to reject amounts made unsafe by changed prices or funding and refuse unavailable risk."
+
+[acceptance.18.1655.1]
+feature = "18"
+req = "181655.1"
+scenario = "Given an owned position with unsettled PnL or funding and live risk data, when collateral removal previews and submits an amount before or after settlement and account refresh, then the modal maximum and admission agree with real post-settlement withdrawal constraints, admit the 300 USDL profit-backed example, and reject amounts exceeding margin, tier, funding or withdrawal limits."
+contract = "contracts/markets.md#perps-0x1015"
+test = "precompiles/perps/positions_test.go::TestPositionsCollateralRemovalSettlementParity (planned)"
+qualification = "UNRUN"

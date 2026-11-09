@@ -1,0 +1,524 @@
+[disposition.22.31.24.1]
+finding = "22.31.24.1"
+status = "resolved"
+evidence = "On main, tests/programs/test_registration.c:85 enumerates the five base Programs activities, and the version-two list adds ACCOUNT and WIND_DOWN. Commit 3828e120da landed the registration-table correction."
+
+[disposition.22.31.24.2]
+finding = "22.31.24.2"
+status = "resolved"
+evidence = "On main, tests/programs/audit_22_30_2.h:729 finalizes occupancy with the state-commitment protocol, schedule version one and the state's next sequence after executing the storage-writing call. Commit 3828e120da landed this complete occupancy fixture."
+
+[disposition.22.31.24.3]
+finding = "22.31.24.3"
+status = "resolved"
+evidence = "On main, tests/programs/test_lifecycle.c:346 initializes the original lifecycle through lifecycle_environment and executes deploy and upgrade through the current kernel path. Commit 3828e120da landed the lifecycle migration while retaining its refusal cases."
+
+[disposition.22.31.24.4]
+finding = "22.31.24.4"
+status = "resolved"
+evidence = "On main, tests/programs/test_monetary_law.c:704 places the large payload, call and arena buffers in static storage, and line 713 does the same for the kernel. Commit 3828e120da landed these lifetime and stack-use corrections in the monetary-law case."
+
+[disposition.22.31.24.5]
+finding = "22.31.24.5"
+status = "resolved"
+evidence = "On main, tests/programs/test_monetary_law.c:853 binds the account-profile activity to the state-commitment protocol and current identity sequence, then checks both execution and receipt results. Commit 3828e120da landed the genuine mixed-authority fixture migration."
+
+[disposition.22.31.24.6]
+finding = "22.31.24.6"
+status = "resolved"
+evidence = "On main, tests/programs/test_monetary_law.c:859 resets the arena before profile execution, checks the returned receipt and advances the identity sequence only after success. Commit 3828e120da landed this registration and execution sequence."
+
+[disposition.22.31.248.1]
+finding = "22.31.248.1"
+status = "resolved"
+evidence = "On main, apps/wallet/src/wallet/repair-22-31-248.test.ts:190 checks the transfer recipient through ethers.getAddress while preserving the raw transaction's supplied recipient. Commit d15bd08924 landed this checksum-aware assertion without dropping the selected-chain and identity checks."
+
+[disposition.22.31.250.1]
+finding = "22.31.250.1"
+status = "resolved"
+evidence = "On main, apps/wallet/src/surfaces/repair-22-31-250.test.ts:47 walks parent directories until it finds the canonical kernel receipt corpus and reads it from that repository root. Commit 260acc34ac landed the fixture-root resolution."
+
+[disposition.22.31.250.2]
+finding = "22.31.250.2"
+status = "resolved"
+evidence = "On main, apps/wallet/src/surfaces/repair-22-31-250.test.ts:63 reads sdk/platform/conformance/fixtures/kernel-receipt-v1.json through repositoryRoot instead of an apps/wallet-relative SDK directory. Commits 260acc34ac and d15bd08924 landed the corpus consumer and its current repository-root lookup."
+
+[disposition.22.31.252.1]
+finding = "22.31.252.1"
+status = "resolved"
+evidence = "On main, programs/crates/layerx-programs-arbiter/tests/proof_arbiter_crate.rs:956 retains the declared CPU limit of 1000000 and asserts actual execution stays within it. Commit d234c037e2 landed the authenticated-execution producer used by repair_22_31_252.rs:1."
+
+[disposition.22.31.252.2]
+finding = "22.31.252.2"
+status = "resolved"
+evidence = "On main, programs/crates/layerx-programs-arbiter/tests/proof_arbiter_crate.rs:1536 verifies every adjacent pair of boundaries from the authenticated Executor producer against its replay. Commit d234c037e2 landed this genuine payer-bound replay path and the mismatched-payer refusals."
+
+[disposition.22.31.252.3]
+finding = "22.31.252.3"
+status = "resolved"
+evidence = "On main, programs/crates/layerx-programs-arbiter/tests/proof_arbiter_crate.rs:943 passes the request, admitted budget token, payer and binding through BudgetedAuthorizedExecutionRequest::new to execute_authorized_authenticated. Commit d234c037e2 landed the public authenticated payer interface and its consumer."
+
+[disposition.22.31.26.1]
+finding = "22.31.26.1"
+status = "environment"
+evidence = "On main, sdk/launchpad/shared/chain/repair_26_test.go:27 covers transfers, reversions, events and contract creation, and line 142 carries the node-produced receipt through ReceiptState. The SDK and API preserve the same committed receipt, transaction position and success status, as checked at lines 150 and 155."
+
+[disposition.22.31.260.1]
+finding = "22.31.260.1"
+status = "environment"
+evidence = "On main, programs/crates/layerx-programs-market/tests/repair_22_31_260.rs:38 covers unbound billing and line 44 covers challenge-account overlap through the real market runtime integration. The runtime result must contain both successful cases and report exactly two passes at lines 25 and 29."
+
+[disposition.22.31.262.1]
+finding = "22.31.262.1"
+status = "resolved"
+evidence = "On main, programs/crates/layerx-programs-sandbox/tests/repair_22_31_262.rs:248 verifies SandboxSubmissionReceipt from native evidence and line 414 authenticates the activation transition. Commit 0067fd713a landed these Rust consumers and the canonical native transcript corpus under src/repair_22_31_262_recordings."
+
+[disposition.22.31.262.2]
+finding = "22.31.262.2"
+status = "resolved"
+evidence = "On main, programs/crates/layerx-programs-sandbox/tests/repair_22_31_262.rs:34 reads the committed native transcripts from src/repair_22_31_262_recordings, including sandboxActivate.activity.hex and native.terminal.hex. Commit 0067fd713a landed the corpus with the receipt and terminal-record verification paths."
+
+[disposition.22.31.267.1]
+finding = "22.31.267.1"
+status = "resolved"
+evidence = "On main, services/explorer/services/sig-provider/sig-provider-proto/build.rs:27 selects protoc_bin_vendored::protoc_bin_path before compiling the protobuf definitions. Commit f84346316b landed the explicit compiler dependency with the signature-provider repair."
+
+[disposition.22.31.267.2]
+finding = "22.31.267.2"
+status = "resolved"
+evidence = "On main, services/explorer/services/sig-provider/sig-provider/src/sources/precompiles.rs:38 decodes EmbeddedPrecompiles into the complete contract ABI, and line 67 reconstructs each complete event from owned JSON. Commit f84346316b landed the shared producer inventory and event deserialization repair."
+
+[disposition.22.31.267.3]
+finding = "22.31.267.3"
+status = "resolved"
+evidence = "On main, services/explorer/services/sig-provider/sig-provider/src/aggregator.rs:413 decodes complete event definitions and line 431 copies their indexed flags into the returned inputs. Commit f84346316b landed exact producer-layout decoding for events such as ChainCreated."
+
+[disposition.22.31.267.4]
+finding = "22.31.267.4"
+status = "resolved"
+evidence = "On main, services/explorer/services/sig-provider/sig-provider/src/aggregator.rs:438 labels complete-ABI results Exact and only considers inferred signature layouts when complete definitions are absent. Commit f84346316b landed this aggregator behavior with its HTTP consumer coverage."
+
+[disposition.22.31.269.1]
+finding = "22.31.269.1"
+status = "resolved"
+evidence = "On main, services/explorer/services/libs/blockscout-client/crate/tests/repair_22_31_269.rs:52 declares the health-response integration test in the client crate and checks retained blocks metadata through the typed HTTP consumer. Commit a1783a03b0 landed the crate-local target and removed the obsolete workspace-root copy."
+
+[disposition.22.31.269.2]
+finding = "22.31.269.2"
+status = "resolved"
+evidence = "On main, services/explorer/services/libs/blockscout-client/crate/src/models/health_check_response_metadata.rs:22 retains the typed blocks subtree, while repair_22_31_269.rs:40 decodes HTTP 500 through HealthError::Status500. Commit a1783a03b0 landed the regenerated models and typed health-error coverage."
+
+[disposition.22.31.269.3]
+finding = "22.31.269.3"
+status = "resolved"
+evidence = "On main, services/explorer/services/libs/blockscout-client/crate/tests/repair_22_31_273.rs:749 accesses native price-update data through the FeedItem variant and preserves mixed native and EVM pages. Commits d5fb214592 and a1783a03b0 landed the feed-consumer migration and subsequent client regeneration."
+
+[disposition.22.31.269.4]
+finding = "22.31.269.4"
+status = "resolved"
+evidence = "On main, services/explorer/services/libs/blockscout-client/crate/tests/repair_22_31_273.rs:760 matches FeedItem::Evm and lines 764-765 retain both feed variants on continuation. Commits d5fb214592 and a1783a03b0 landed the consumer changes matching the current feed model."
+
+[disposition.22.31.269.5]
+finding = "22.31.269.5"
+status = "environment"
+evidence = "On main, services/explorer/services/libs/blockscout-client/crate/tests/repair_22_31_269.rs:35 distinguishes healthy responses from typed unhealthy responses, and line 74 checks blocks metadata survives serialization. The client exposes these health responses from its own crate-local integration target."
+
+[disposition.22.31.269.6]
+finding = "22.31.269.6"
+status = "resolved"
+evidence = "On main, services/explorer/services/libs/tests/repair_22_33_430.rs:149 reads metadata.blocks and line 177 matches the native FeedItem variant instead of accessing obsolete flat fields. Commit a1783a03b0 landed this dependent consumer migration with the regenerated client."
+
+[disposition.22.31.271.1]
+finding = "22.31.271.1"
+status = "environment"
+evidence = "On main, services/explorer/services/libs/blockscout-auth/src/lib.rs:7 exports AuthSuccess and SessionProfile, and tests/repair_22_31_271.rs:235 reads committed session transcripts. Wallet, unverified-email and verified-email sessions retain distinct optional email and watchlist semantics through the production authentication client."
+
+[disposition.22.31.271.2]
+finding = "22.31.271.2"
+status = "environment"
+evidence = "On main, services/explorer/services/libs/blockscout-auth/tests/repair_22_31_271.rs:381 checks wallet-session optionality and line 416 checks verified-email sessions through both supported authentication methods. The session inputs are the committed SESSION_TRANSCRIPTS decoded at line 236."
+
+[disposition.22.31.273.1]
+finding = "22.31.273.1"
+status = "resolved"
+evidence = "On main, services/explorer/services/libs/blockscout-client/crate/tests/repair_22_31_273.rs:822 checks the health blocks envelope and line 902 checks database, cache and node heights survive decoding. Commits 7be9027b54 and a1783a03b0 landed the producer-aligned models and their regenerated form."
+
+[disposition.22.31.274.1]
+finding = "22.31.274.1"
+status = "environment"
+evidence = "On main, services/explorer/services/libs/blockscout-client/crate/tests/repair_22_31_274.rs:46 reads committed explorer response recordings and line 589 preserves mixed native and EVM homepage items through the API. Its cursor checks at line 935 retain large integers and validate continuation filters."
+
+[disposition.22.31.275.1]
+finding = "22.31.275.1"
+status = "environment"
+evidence = "On main, services/explorer/services/smart-contract-verifier/smart-contract-verifier-proto/tests/repair_22_31_275.rs:171 connects the production HTTP client to the verifier route handlers and checks compiler versions and verification responses. The root route and mounted verifier route have separate round-trip cases at lines 244 and 249."
+
+[disposition.22.31.275.2]
+finding = "22.31.275.2"
+status = "environment"
+evidence = "On main, services/explorer/services/smart-contract-verifier/smart-contract-verifier-proto/src/http_client/client.rs:132 requests the Solidity compiler-version route, which tests/repair_22_31_275.rs:205 decodes through the production client. Both root and mounted verifier routing preserve the returned version list."
+
+[disposition.22.31.275.3]
+finding = "22.31.275.3"
+status = "environment"
+evidence = "On main, services/explorer/services/smart-contract-verifier/smart-contract-verifier-proto/src/http_client/client.rs:100 uses the v2 multipart-verification route and line 108 uses the standard-JSON route. The root and mounted route round trips remain covered at tests/repair_22_31_275.rs:244 and :249."
+
+[disposition.22.31.278.1]
+finding = "22.31.278.1"
+status = "resolved"
+evidence = "On main, services/explorer/services/libs/blockscout-client/crate/src/models/health_check_response_metadata.rs:22 retains metadata.blocks as BlockIndexingStatus, including its database, cache and node heights. Commits 95bf39c082 and a1783a03b0 landed the preserved blocks envelope and aligned regeneration."
+
+[disposition.22.31.278.2]
+finding = "22.31.278.2"
+status = "resolved"
+evidence = "On main, services/explorer/services/libs/blockscout-client/crate/tests/repair_22_31_278.rs:35 rejects a sibling metadata.latest_block while checking the nested blocks values. Commits 95bf39c082 and a1783a03b0 landed the recording and model alignment around metadata.blocks."
+
+[disposition.22.31.278.3]
+finding = "22.31.278.3"
+status = "resolved"
+evidence = "On main, services/explorer/services/libs/blockscout-client/crate/tests/repair_22_31_273.rs:749 reads the native price update from FeedItem and line 760 recognizes EVM entries separately. Commits d5fb214592 and a1783a03b0 landed the dependent feed test's type migration."
+
+[disposition.22.31.278.4]
+finding = "22.31.278.4"
+status = "resolved"
+evidence = "On main, services/explorer/services/libs/blockscout-client/crate/src/models/health_check_response_metadata.rs:21 declares only blocks and optional batches, so serialization cannot emit a legacy top-level latest_block sibling. Commit a1783a03b0 landed this regenerated model after the initial correction in 95bf39c082."
+
+[disposition.22.31.279.1]
+finding = "22.31.279.1"
+status = "resolved"
+evidence = "On main, services/explorer/services/libs/blockscout-client/crate/tests/repair_22_31_279.rs:52 preserves the log emitter separately from the transaction destination, and line 174 checks ERC1155 totals through the production decoder. Commit 2ba5c45e0c landed the decoder and HTTP consumer repairs."
+
+[disposition.22.31.279.2]
+finding = "22.31.279.2"
+status = "resolved"
+evidence = "On main, services/explorer/services/libs/blockscout-client/crate/tests/repair_22_31_273.rs:745 decodes the mixed feed and line 749 inspects the native variant's price update. Commits d5fb214592 and a1783a03b0 landed the feed test's migration to the current consumer type."
+
+[disposition.22.31.279.3]
+finding = "22.31.279.3"
+status = "resolved"
+evidence = "On main, services/explorer/services/libs/blockscout-client/crate/tests/repair_22_31_273.rs:760 matches EVM entries and lines 764-765 check both variants on the next page. Task 22.31.445 landed that feed-test repair in d5fb214592, retained by the regeneration in a1783a03b0."
+
+[disposition.22.31.280.1]
+finding = "22.31.280.1"
+status = "environment"
+evidence = "On main, services/explorer/services/smart-contract-verifier/smart-contract-verifier/tests/repair_22_31_280.rs:56 checks that absolute multipart source paths cannot overwrite the sentinel, and line 86 rejects root, prefix and parent components. The verifier preserves nested relative source names at line 147."
+
+[disposition.22.31.280.2]
+finding = "22.31.280.2"
+status = "environment"
+evidence = "On main, services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/src/services/solidity_verifier.rs:88 validates multipart source paths before conversion and line 139 validates standard-JSON source paths. The verifier therefore rejects unsafe source locations before compilation or source-file writes."
+
+[disposition.22.31.281.1]
+finding = "22.31.281.1"
+status = "resolved"
+evidence = "On main, services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/src/services/solidity_verifier.rs:91 extracts the requested post_actions and line 99 supplies them to result processing. Commit 62d3b8e295 landed the selective forwarding of supported post actions."
+
+[disposition.22.31.281.2]
+finding = "22.31.281.2"
+status = "resolved"
+evidence = "On main, services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/src/services/solidity_verifier.rs:140 converts the standard-JSON request with post actions and line 149 passes those actions into result processing. Commit 62d3b8e295 landed the multipart and standard-JSON handler repairs."
+
+[disposition.22.31.282.1]
+finding = "22.31.282.1"
+status = "environment"
+evidence = "On main, services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/src/services/solidity_verifier.rs:88 rejects unsafe source paths before invoking verification. Its retained integration case at tests/repair_22_31_282.rs:94 protects the sentinel and cached compiler across invalid source names."
+
+[disposition.22.31.282.2]
+finding = "22.31.282.2"
+status = "environment"
+evidence = "On main, services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests/repair_22_31_282.rs:233 checks unknown-service health behavior, while src/services/solidity_verifier.rs:139 validates standard-JSON source paths. The service preserves the requested source names and checks health through its declared service interface."
+
+[disposition.22.31.282.3]
+finding = "22.31.282.3"
+status = "resolved"
+evidence = "On main, services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests/repair_22_31_282.rs:43 obtains the requested compiler and line 56 authenticates its cached executable before nested-source verification. Commit fbfb41c3c9 landed this compiler-cache preparation and the sentinel-preservation coverage."
+
+[disposition.22.31.284.1]
+finding = "22.31.284.1"
+status = "resolved"
+evidence = "On main, sdk/x/slashing/keeper/repair_284_test.go:79 constructs account, bank, staking and slashing keepers with their parameter subspaces, and line 105 funds the bonded pool before validator hooks. Commit 2de333e55d landed this complete slashing-store fixture."
+
+[disposition.22.31.285.1]
+finding = "22.31.285.1"
+status = "resolved"
+evidence = "On main, sdk/x/slashing/client/rest/repair_285_test.go:85 stores the requested validator signing info before committing, and line 99 confirms it through the query context. Commit 2c5fa23838 landed the persisted signing-info fixture used by the HTTP and ABCI checks."
+
+[disposition.22.31.285.2]
+finding = "22.31.285.2"
+status = "resolved"
+evidence = "On main, sdk/x/slashing/client/rest/repair_285_test.go:89 checks the staged signing record and line 96 checks its committed keeper bytes. Commit 2c5fa23838 landed the fixture whose HTTP and gRPC consumers return that same signing info."
+
+[disposition.22.31.286.1]
+finding = "22.31.286.1"
+status = "resolved"
+evidence = "On main, sdk/x/upgrade/keeper/repair_286_test.go:31 mounts the upgrade store and line 33 gives the keeper that same store key, preserving upgrade-name lookups before and after commit. Commit ac8d0891ce landed the shared-key fixture and historical restart coverage."
+
+[disposition.22.31.287.1]
+finding = "22.31.287.1"
+status = "resolved"
+evidence = "On main, sdk/integrations/fastapi/layerx_fastapi/repair_22_31_287_buyer.mjs:58 verifies the recorded payment through verifyRpcPayment and line 77 requires the prepared payload to equal that verified proof. Commit da769b2fe4 landed the buyer and seller's shared canonical payment evidence path."
+
+[disposition.22.31.29.1]
+finding = "22.31.29.1"
+status = "resolved"
+evidence = "On main, services/launchpad/pnl-tracker/internal/app/repair_29_test.go:155 assigns each reward-schema case a unique schema and line 164 refuses an unmigrated reward ledger. Commit 0a31ef03e9 landed the migration-backed readiness and recovery coverage."
+
+[disposition.22.31.29.2]
+finding = "22.31.29.2"
+status = "resolved"
+evidence = "On main, services/launchpad/pnl-tracker/internal/app/repair_29_test.go:378 estimates transaction gas against pending state before executing each production-contract call and requiring a successful receipt. Commit 0a31ef03e9 landed the pending-state gas estimate for the checkpoint-writing swap path."
+
+[disposition.22.31.3.1]
+finding = "22.31.3.1"
+status = "resolved"
+evidence = "On main, services/human/crates/layerx-human-service/tests/repair_22_31_3.rs:384 declares the Rust export-handoff case and line 804 declares the browser challenge-wire case. Commit 624875f922 landed the Cargo integration target with real custody and component-server paths."
+
+[disposition.22.31.3.2]
+finding = "22.31.3.2"
+status = "resolved"
+evidence = "On main, services/human/crates/layerx-human-service/tests/repair_22_31_3.rs:384 drives the custody export handoff, and line 686 constructs UnixComponents with the current clock-aware API. Commit 624875f922 landed the Rust consumer and current component interfaces."
+
+[disposition.22.31.3.3]
+finding = "22.31.3.3"
+status = "resolved"
+evidence = "On main, services/human/crates/layerx-human-service/tests/repair_22_31_3.rs:237 creates an independent protected store root for each fixture, and lines 457-459 release scope, store and keystore before recovery. Commit 624875f922 landed these custody-store lifetime corrections."
+
+[disposition.22.31.30.1]
+finding = "22.31.30.1"
+status = "resolved"
+evidence = "On main, apps/launchpad/mobile/test/vitest/repair-22-31-30.test.ts:1101 registers TestRepair_30_MobileLive alongside the watch, profile, preferences and operation-boundary cases. Commit 1ce9c766df landed the named mobile integration proof and its current runtime consumers."
+
+[disposition.22.31.30.2]
+finding = "22.31.30.2"
+status = "resolved"
+evidence = "On main, apps/launchpad/mobile/test/vitest/repair-22-31-30.test.ts:758 checks durable watchlist state after a lost response, and line 809 checks preferences through the canonical response envelope. Commit 1ce9c766df landed the signed delivery, identity and recovery corrections."
+
+[disposition.22.31.303.1]
+finding = "22.31.303.1"
+status = "resolved"
+evidence = "On main, sdk/x/auth/tx/service_test.go:94 compares encoded protobuf transaction bytes, then unpacks interfaces before comparing decoded values at line 100. Commit c812a2be10 landed the pagination assertion that preserves wire equality without treating cache population as transaction content."
+
+[disposition.22.31.308.1]
+finding = "22.31.308.1"
+status = "resolved"
+evidence = "On main, sdk/x/gov/client/cli/repair_308_test.go:78 installs the current rootmulti store with retained snapshots, and line 201 checks historical vote recovery after tally and client restart. Commit 393d926652 landed the history-capable governance fixture."
+
+[disposition.22.31.308.2]
+finding = "22.31.308.2"
+status = "resolved"
+evidence = "On main, sdk/x/gov/client/cli/repair_308_test.go:223 compares vote options through govtypes.WeightedVoteOptions and line 238 does the same for recovered votes. Commit 393d926652 landed the named-type comparison while retaining element equality."
+
+[disposition.22.31.308.3]
+finding = "22.31.308.3"
+status = "resolved"
+evidence = "On main, sdk/x/gov/client/cli/repair_308_test.go:21 imports the SDK ed25519 implementation, and line 152 converts its generated public key through ToTmPubKeyInterface. Commit 393d926652 landed the SDK-key import used by the governance transaction fixture."
+
+[disposition.22.31.312.1]
+finding = "22.31.312.1"
+status = "resolved"
+evidence = "On main, tests/agent/sdk/python/test_repair_22_31_312.py:84 authenticates ProgramReceiptEvidence and decodes its signed transaction before checking terminal-call responses. Commit 06d9fa865e landed the migrated call and receipt evidence used by the canonical Programs decoder."
+
+[disposition.22.31.313.1]
+finding = "22.31.313.1"
+status = "resolved"
+evidence = "On main, tools/launchpad/production/integration/adapters.py:22 derives ROLES from the topology runtime-role mapping and line 19 imports DOCUMENT_ENV from the canonical providers. Commit 9af9e84334 landed the connected topology adapter exports."
+
+[disposition.22.31.313.2]
+finding = "22.31.313.2"
+status = "resolved"
+evidence = "On main, tools/launchpad/production/integration/adapters.py:28 implements document_binding by reading regular bytes, decoding the document and returning its SHA-256 digest. Commit 9af9e84334 landed that adapter alongside ROLES and DOCUMENT_ENV."
+
+[disposition.22.31.313.3]
+finding = "22.31.313.3"
+status = "resolved"
+evidence = "On main, deploy/launchpad/production/topology/phase2/tests/test_repair_22_31_313.py:89 requires the three adapter exports, and line 95 checks all twelve role owners against RUNTIME_ROLES. Commit 9af9e84334 landed the matching canonical adapter implementation."
+
+[disposition.22.31.313.4]
+finding = "22.31.313.4"
+status = "resolved"
+evidence = "On main, tools/launchpad/production/integration/adapters.py:22 exposes the complete runtime-role mapping and line 28 authenticates runtime documents by their exact bytes. Commit 9af9e84334 landed the in-scope adapter implementation consumed by the connected topology renderer."
+
+[disposition.22.31.316.1]
+finding = "22.31.316.1"
+status = "resolved"
+evidence = "On main, tools/qualification/paxeer-x/tests/test_repair_22_31_316.py:141 uses requested_verification_level for a proof-bundle request, and line 144 round-trips that request through encode_proof_bundle_request. Commit 26db630e3f landed the canonical request-field correction."
+
+[disposition.22.31.316.2]
+finding = "22.31.316.2"
+status = "environment"
+evidence = "On main, tools/qualification/paxeer-x/tests/test_repair_22_31_316.py:116 verifies a recorded signed transaction through the real SDK and an independently pinned receipt key. The proof-bundle cases at line 135 cover all supported verification rungs and target kinds using portable evidence."
+
+[disposition.22.31.317.1]
+finding = "22.31.317.1"
+status = "environment"
+evidence = "On main, tools/ci/tests/test_completion_gate.py:592 binds command failures to their source, and tests/ci/test_tools_ci_suites_collected.py:32 requires every tools/ci module to be collected. Commit 995a25e5af landed the collected tools/ci suite and its workflow integration."
+
+[disposition.22.31.32.1]
+finding = "22.31.32.1"
+status = "environment"
+evidence = "On main, services/launchpad/ranking-algo/internal/store/repair_32_test.go:52 checks rejection of incomplete or mismatched heavy-category runs, and line 135 covers durable publication across restart. The publication path preserves all seven heavy categories and their matching run identity."
+
+[disposition.22.31.326.1]
+finding = "22.31.326.1"
+status = "resolved"
+evidence = "On main, tools/paxctl/sidecar/tasks/repair_326_test.go:637 gives governance operations their own checkpointer database, and line 835 checks canonical genesis address prefixes. Commit 6a6600cc22 landed the isolated persistence fixture and Paxeer genesis-prefix enforcement."
+
+[disposition.22.31.329.1]
+finding = "22.31.329.1"
+status = "environment"
+evidence = "On main, tools/paxctl/go.mod:3 declares Go 1.26.0 for the CLI module. The module's sidecar persistence uses SQLite through sidecar/engine/sqlite_store.go:28, with a single connection and explicit WAL and busy-timeout settings at lines 45-49."
+
+[disposition.22.31.33.1]
+finding = "22.31.33.1"
+status = "environment"
+evidence = "On main, services/launchpad/ranking-algo/internal/httpapi/repair_33_test.go:151 checks successful snapshot retrieval and continuation, and line 225 checks cursor expiry. The handler and SDK preserve snapshot identity across continuation and reject expired or unavailable views."
+
+[disposition.22.31.332.1]
+finding = "22.31.332.1"
+status = "resolved"
+evidence = "On main, services/human/crates/layerx-human-service/tests/observed_balances_denom.rs:91 compares observed native balances with the expected exact amount and line 104 preserves missing-asset refusal. Task 22.31.443 landed the Quantity-compatible consumer in commit 0f2268dc6d."
+
+[disposition.22.31.332.2]
+finding = "22.31.332.2"
+status = "resolved"
+evidence = "On main, services/platform/hosted/gateway/tests/repair_22_31_345.rs:13 includes the tracked Paxeer deployment manifest from ../../paxeer/deployment.yaml. Task 22.31.483 restored that manifest and its gateway consumer in commit 7435b17141."
+
+[disposition.22.31.337.1]
+finding = "22.31.337.1"
+status = "resolved"
+evidence = "On main, interchain/modules/core/02-client/keeper/grpc_query.go:162 filters consensus-state pagination by excluding slash-bearing metadata keys before parsing heights, and line 215 applies the same rule to height-only queries. Commit 5537a3e415 landed both keeper filters."
+
+[disposition.22.31.342.1]
+finding = "22.31.342.1"
+status = "resolved"
+evidence = "On main, services/platform/examples/agent-program-call/test/repair-22-31-342.test.mjs:7 declares the submission-fate recovery case, with separate corrupted-journal and concurrent-send refusals at lines 47 and 78. Commit f3346b67d1 landed the JavaScript example and its retained receipt-reconciliation contract."
+
+[disposition.22.31.347.1]
+finding = "22.31.347.1"
+status = "resolved"
+evidence = "On main, services/platform/examples/buyer-agent/test/repair-22-31-347.test.mjs:34 loads the buyer example's real repair cases through the production middleware sources. Commit 9f263b5672 landed this JavaScript consumer for the buyer-agent wiring repair."
+
+[disposition.22.31.348.1]
+finding = "22.31.348.1"
+status = "environment"
+evidence = "On main, services/platform/hosted/human/test_repair_22_31_348.py:210 checks owner-custody bootstrap across restart and line 221 reopens OwnerClient against retained native state. The custody producer preserves its signed receipt evidence and durable bootstrap records."
+
+[disposition.22.31.349.1]
+finding = "22.31.349.1"
+status = "resolved"
+evidence = "On main, services/platform/examples/test/repair-22-31-349.test.mjs:135 checks marketplace deployment and calls using the native RPC anchor and recorded transaction nonce. Commit 749b72f5e6 landed the self-contained production-module loading and removed the undeclared marketplace dependency."
+
+[disposition.22.31.353.1]
+finding = "22.31.353.1"
+status = "resolved"
+evidence = "On main, services/platform/examples/merchant-shop/test/repair-22-31-353.test.mjs:40 authenticates chain-origin payment evidence, and line 71 checks settlement-origin results across reopen. Commit 7d8450d7e1 landed the JavaScript merchant example's two distinct evidence paths."
+
+[disposition.22.31.355.1]
+finding = "22.31.355.1"
+status = "environment"
+evidence = "On main, services/platform/hosted/node/tests/test_repair_22_31_355.py:73 publishes the retained native configuration through its production producer, and line 196 checks the resulting startup descriptor handoff. Node lifecycle recovery consumes the same committed native configuration and codecs."
+
+[disposition.22.31.360.1]
+finding = "22.31.360.1"
+status = "resolved"
+evidence = "On main, services/platform/examples/test/repair-22-31-360.test.mjs:24 loads the production merchant and seller modules through explicit source resolution, retaining the signed receipt construction at line 115. Commit c31fdfa586 landed the support example's restart-recovery proof and production imports."
+
+[disposition.22.31.362.1]
+finding = "22.31.362.1"
+status = "resolved"
+evidence = "On main, services/platform/middleware/conformance/test/repair-22-31-362.test.mjs:89 checks recovery against the real balance consumer and line 155 refuses a second debit or changed replay. Commit a28f0bb3da landed the JavaScript conformance target with identity and canonical-amount checks."
+
+[disposition.22.31.363.1]
+finding = "22.31.363.1"
+status = "resolved"
+evidence = "On main, services/agent/crates/layerx-agentd-host/tests/repair_22_31_363.rs:48 includes committed receipt vectors from src/repair_22_31_363_receipts.json, and line 54 authenticates them before payer checks. Commit 047ce1fc57 landed the native producer corpus and payer consumer together."
+
+[disposition.22.31.368.1]
+finding = "22.31.368.1"
+status = "resolved"
+evidence = "On main, services/agent/crates/layerx-agentd/tests/repair_22_31_368.rs:157 constructs the current EVM SigningPreparation and line 201 exercises durable session-key provisioning and revocation. Commits d693490680 and 1a58241e71 landed the repair and the support module's migration away from retired signing helpers."
+
+[disposition.22.31.374.1]
+finding = "22.31.374.1"
+status = "resolved"
+evidence = "On main, programs/sdk/c/src/host.h:59 defaults LXP_PROGRAM_SELECTED_ABI to one, rejects selections outside one through four and includes host_versioned.h only for version two or later. Commit 52135e7c3d landed the separated versioned declarations used by the deterministic C SDK surface."
+
+[disposition.22.31.376.1]
+finding = "22.31.376.1"
+status = "environment"
+evidence = "On main, apps/bridge/src/app/layout.tsx:36 uses Next's generated LayoutProps for the root layout, and src/lib/bridge/repair-22-31-376.spec.ts:42 constructs canonical receipt inputs for bridge recovery. The root layout returns typed JSX and the bridge consumer retains its receipt checks."
+
+[disposition.22.31.377.1]
+finding = "22.31.377.1"
+status = "environment"
+evidence = "On main, apps/explorer/ui/blocks/repair-22-31-377.spec.ts:7 registers native block refresh and line 8 registers canonical hash replacement through blocksRefreshTest. The explorer block view distinguishes forks and promotes canonical entries while handling the overload limit."
+
+[disposition.22.31.38.1]
+finding = "22.31.38.1"
+status = "environment"
+evidence = "On main, sdk/launchpad/shared/config/capabilities/repair_38_test.go:484 checks deployment authority against the native capability contract, with recorded RPC inputs in testdata/repair38-rpc.json. The preflight consumer binds deployment authority, cost spender and pool identity to the selected block."
+
+[disposition.22.31.38.2]
+finding = "22.31.38.2"
+status = "environment"
+evidence = "On main, sdk/launchpad/shared/config/capabilities/repair_38_test.go:388 checks native cost spending and line 434 checks native pool identity, with historical identity coverage at line 521. These checks consume the committed native RPC corpus and preserve the preflight authority and block binding."
+
+[disposition.22.31.380.1]
+finding = "22.31.380.1"
+status = "environment"
+evidence = "On main, apps/explorer/lib/api/services/general/repair-22-31-380.spec.ts:56 binds the signature resource to /api/v2/transactions/:hash/signature, and line 74 validates the backend's cryptographic receipt fixture. The explorer consumer uses the producer's route and committed receipt height."
+
+[disposition.22.31.382.1]
+finding = "22.31.382.1"
+status = "resolved"
+evidence = "On main, apps/explorer/ui/pages/repair-22-31-382.spec.ts:41 disables the fetch interception before opening the feed peer and line 44 restores it after the cases finish. Commit 73129b3293 landed this feed-consumer lifecycle with route and continuation checks."
+
+[disposition.22.31.383.1]
+finding = "22.31.383.1"
+status = "environment"
+evidence = "On main, apps/web/e2e/repair-22-31-383.test.ts:64 serves canonical native account and archive-receipt documents, and line 157 consumes them through the explorer transport. Account identity, paginated activity and receipt identifiers survive the native HTTP response path."
+
+[disposition.22.31.384.1]
+finding = "22.31.384.1"
+status = "resolved"
+evidence = "On main, apps/web/src/api/generated/index.ts:1425 declares optional operation_digest and line 1442 preserves it during ApprovalDetail decoding. Commit 7e32286b9a landed this generated approval codec and its real HTTP disclosure coverage."
+
+[disposition.22.31.384.2]
+finding = "22.31.384.2"
+status = "resolved"
+evidence = "On main, apps/web/e2e/repair-22-31-384.test.ts:162 adds the disclosed operation_digest and line 184 passes the resulting approval through encodeApprovalDetail over HTTP. Commit 7e32286b9a landed the schema and generated-codec migration that preserves the explicit operation binding."
+
+[disposition.22.31.384.3]
+finding = "22.31.384.3"
+status = "resolved"
+evidence = "On main, apps/web/src/journeys/approvals/model.ts:310 maps every JourneyState, including awaiting-approval and closed, to a supported status key. Commit 7e32286b9a landed the journey-consumer updates with the regenerated Human API client."
+
+[disposition.22.31.384.4]
+finding = "22.31.384.4"
+status = "resolved"
+evidence = "On main, sdk/wallet/src/receipt.ts:690 passes an empty options object when signal is absent and a signal-bearing object only when defined. Task 22.31.456 landed this exact-optional-safe receipt-wait call in commit 1ac6b44d52."
+
+[disposition.22.31.384.5]
+finding = "22.31.384.5"
+status = "resolved"
+evidence = "On main, sdk/wallet/src/receipt.ts:690 preserves the optional abort signal through the explicit signal === undefined branch, avoiding an undefined property in the wallet SDK call. Commit 1ac6b44d52 landed task 22.31.456's shared consumer type repair."
+
+[disposition.22.31.387.1]
+finding = "22.31.387.1"
+status = "environment"
+evidence = "On main, apps/web/e2e/repair-22-31-387.test.ts:108 exercises the report HTTPS contract and line 137 requires the same-origin request headers before serving the response. The web reporting flow retains its session, origin and transport checks through the production report consumer."
+
+[disposition.22.31.391.1]
+finding = "22.31.391.1"
+status = "resolved"
+evidence = "On main, services/explorer/backend/apps/block_scout_web/test/repair/repair_22_31_391_test.exs:170 requires the authorized holder CSV balance to be rendered as integer 1 with the checksummed holder address. Commit 46266ee2ee landed the decimal-format alignment and restricted-key export coverage."
+
+[disposition.22.31.394.1]
+finding = "22.31.394.1"
+status = "resolved"
+evidence = "On main, services/explorer/backend/apps/block_scout_web/lib/block_scout_web/schemas/api/v2/transaction/raw_trace.ex:79 defines array alternatives as plain Schema values alongside the call-frame and opcode schemas. Commit d0bc5aaa89 landed these anyOf variants without an array struct binding."
+
+[disposition.22.31.396.1]
+finding = "22.31.396.1"
+status = "resolved"
+evidence = "On main, services/explorer/backend/apps/block_scout_web/test/repair/repair_22_31_396_test.exs:274 checks native identity across import, restart, replay and reorg, while line 265 requires invalid committed evidence to return 404. Commit 8072ba2be2 landed the identity enrichment and authenticated status-route repairs."

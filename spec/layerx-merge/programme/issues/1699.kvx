@@ -1,0 +1,50 @@
+[issue.1699]
+number = 1699
+title = "[Coherence] A rejected or failed wallet signature permanently blocks that advanced action for the account and deployment"
+revision = "bb8caac8b3e73e3e2f4b330805574f0bcb540641"
+verdict = "task"
+evidence = "The unchanged implementation introduced by commit 163342e56c4746a6b0670e2136fffe42036f4777 persists a hashless reservation at apps/launchpad/web/src/widgets/meta-ag/action-recovery.ts:134 before send at :135, releases only dispatches at :151, returns the stored attempt at :87 and refuses hashless recovery at :165, while apps/launchpad/web/src/widgets/meta-ag/advanced-provider.ts:672, :1422 and :1593 fence all three actions and its public surface at :1639 exposes only pendingAction and recoverAction; the existing recovery tests at apps/launchpad/web/src/widgets/meta-ag/repair-22-33-987.test.ts:79, :128 and :165 exercise dropped receipts after broadcast rather than rejected signatures."
+close_comment = "A rejected wallet signature currently leaves order placement or route execution blocked by an unresolved signing reservation. The repair must allow a fresh review after a confirmed failure before broadcast and let an uncertain submission recover through its verified transaction hash without submitting the action twice."
+
+[task.18.1699.1]
+title = "Issue #1699: Recover advanced actions after rejected or failed wallet signatures"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181699.1"]
+capabilities = []
+interfaces = []
+do_1 = "In apps/launchpad/web/src/widgets/meta-ag/action-recovery.ts:105, handle send failures separately from persistence, receipt and reconciliation failures: release only the matching reservation for a typed wallet rejection or another positively identified failure before broadcast, propagate the original error, and retain concurrent-signing protection and all known transaction hashes; never treat a timeout or an arbitrary hashless error as proof that nothing was broadcast."
+do_2 = "Make an unresolved hashless attempt recoverable by extending AdvancedActionRecovery and the existing recoverAction surface at apps/launchpad/web/src/widgets/meta-ag/advanced-provider.ts:470 and :1641 to accept a transaction hash for reconciliation; validate chain, account, deployment, target and exact calldata using the existing transaction checks at :320 and :329 before adopting it, persist a validated hash before receipt waiting, reject conflicting hashes or concurrent signing without changing the reservation, and reuse the existing canonical receipt and exact settlement checks before clearing it."
+do_3 = "Extend openRpcTranscript at apps/launchpad/web/src/widgets/meta-ag/repair-22-33-987.fixtures.ts:99 so its wallet RPC path at :404 can return a typed rejection or a definitive failure before accepting a transaction, and can accept a transaction while losing its hash response; exercise these responses through the real wallet client and createAdvancedProvider rather than replacing production methods."
+do_4 = "Declare and register advanced_signature_failure_recovery in apps/launchpad/web/src/widgets/meta-ag/repair-22-33-987.test.ts alongside the existing broadcast recovery tests at :79, :128 and :165; cover placeOrder, executeRoute and executeCustomRoute with a confirmed rejected signature and another definitive failure before broadcast, assert zero economic writes and no pending reservation after reopening, obtain a fresh review and assert exactly one successful submission, then cover an accepted transaction whose hash response is lost, rejection of a mismatched reconciliation hash without mutation, successful recovery of the matching hash after reopening with exactly one economic write, and continued fencing of unknown outcomes and active signing attempts."
+symbols = ["AdvancedActionRecovery", "createAdvancedProvider", "openRpcTranscript", "advanced_signature_failure_recovery"]
+touches = ["apps/launchpad/web/src/widgets/meta-ag/action-recovery.ts", "apps/launchpad/web/src/widgets/meta-ag/advanced-provider.ts", "apps/launchpad/web/src/widgets/meta-ag/repair-22-33-987.fixtures.ts", "apps/launchpad/web/src/widgets/meta-ag/repair-22-33-987.test.ts"]
+tests = ["apps/launchpad/web/src/widgets/meta-ag/repair-22-33-987.test.ts::advanced_signature_failure_recovery"]
+planned_paths = []
+build_cmd = "pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+verify_cmd = "pnpm --dir apps/launchpad/web exec vitest run src/widgets/meta-ag/repair-22-33-987.test.ts -t 'advanced_signature_failure_recovery|advanced_broadcast_recovery'"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181699]
+title = "Advanced actions remain retryable after confirmed signature failures and recoverable after uncertain submission"
+ac_1 = "Given the signing reservation persisted before send at apps/launchpad/web/src/widgets/meta-ag/action-recovery.ts:134, when a wallet rejection or another confirmed failure before broadcast occurs for order placement or either route action, then the original failure is reported, no economic transaction is broadcast, pendingAction returns null after reopening and a freshly reviewed retry submits exactly one transaction; an uncertain outcome remains fenced until a supplied hash matches the saved intent and passes the transaction and settlement checks at apps/launchpad/web/src/widgets/meta-ag/advanced-provider.ts:320, with recovery never broadcasting another transaction or discarding a known hash."
+
+[acceptance.18.1699.1]
+feature = "18"
+req = "181699.1"
+scenario = "Given an advanced order or route signing attempt, when the wallet rejects or definitively fails before broadcast, then reopening permits a fresh review and one successful retry; when submission is uncertain, then reopening permits recovery only through a validated matching transaction hash and never submits a second economic action."
+contract = "contracts/clients.md#launchpad-web-app"
+test = "apps/launchpad/web/src/widgets/meta-ag/repair-22-33-987.test.ts::advanced_signature_failure_recovery (planned)"
+qualification = "UNRUN"

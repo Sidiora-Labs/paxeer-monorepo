@@ -1,0 +1,49 @@
+[issue.1629]
+number = 1629
+title = "[P2] Restore retention eligibility for reappearing archived snapshots"
+revision = "bb8caac8b3e73e3e2f4b330805574f0bcb540641"
+verdict = "task"
+evidence = "The archival change in commit 63cb383086ee54b00ac957e9819834b407a3215b remains in services/wallet/attestor/internal/replica/ledger.go:180 and ledger.go:233, Lookup at services/wallet/attestor/internal/replica/ledger.go:89 reads only active entries, services/wallet/attestor/internal/replica/shipper.go:236 validates archived bytes then skips upload at shipper.go:248, and production passes that ledger at services/wallet/attestor/cmd/attestor/main.go:250 and main.go:272 to retention which skips missing active acknowledgments at services/wallet/attestor/internal/backup/writer.go:268, contradicting matching-shipment retention eligibility in services/wallet/deploy/env:105 while services/wallet/attestor/internal/replica/repair_m148_test.go:68 manually removes snapshots and repair_m148_test.go:133 checks duplicate shipping without Writer.Retain."
+close_comment = "Identical reappearing snapshots with archived shipping acknowledgments remain ineligible for retention deletion because retention checks only active acknowledgments. A follow-up task will let retention use validated archived acknowledgments while preserving protection for changed and unshipped snapshots and keeping the active ledger bounded."
+
+[task.18.1629.1]
+title = "Issue #1629: Honor archived shipping acknowledgments during snapshot retention"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181629.1"]
+capabilities = []
+interfaces = []
+do_1 = "Extend Shipped at services/wallet/attestor/internal/backup/writer.go:41 with the existing Ledger.Archived signature from services/wallet/attestor/internal/replica/ledger.go:154; in Writer.retain at services/wallet/attestor/internal/backup/writer.go:268 consult Archived only when Lookup has no active acknowledgment, accumulate archive errors and keep the affected file, keep unacknowledged files, and apply the existing size and digest checks at writer.go:272 before deleting any acknowledged file; read archived evidence on demand without populating the active ledger or changing duplicate-shipping behavior."
+do_2 = "Add TestRetainReappearingArchivedSnapshots in services/wallet/attestor/internal/backup/backup_test.go using the real writer fixture at backup_test.go:44 and real SSH/SFTP helpers at services/wallet/attestor/internal/backup/repair_m147_test.go:186 and repair_m147_test.go:203: set Retain=1 and Shipped=shipper.Ledger(), write and ship node-specific snapshot A, save its bytes, write and ship newer B, delete A through Writer.Retain, Ship again to archive A, restore identical A, and assert Ship returns zero with no remote writes and Writer.Retain removes only A while B remains; repeat after reopening the shipper ledger and recreating the writer, including a restart between recognition and retention, repeated Ship/Retain passes, and a longer snapshot history whose active Entries count and serialized ledger size remain bounded by locally present acknowledged snapshots rather than historical shipments."
+do_3 = "In TestRetainReappearingArchivedSnapshots, restore A with same-size changed bytes and separately a changed size, assert Ship refuses both and Writer.Retain reports the mismatch without deletion, keep an older valid writer-produced snapshot that has never been shipped, and corrupt an archived acknowledgment to assert an explicit retention error with the local file preserved; assert unchanged remote snapshot bytes and upload counts on identical reappearance and rerun the existing TestRetainWithLedgerDeletesOnlyShipped and TestRetainWithoutLedgerDeletesByCount cases at services/wallet/attestor/internal/backup/backup_test.go:301 and backup_test.go:284 without weakening their checks."
+symbols = ["Shipped", "retain", "TestRetainReappearingArchivedSnapshots"]
+touches = ["services/wallet/attestor/internal/backup/writer.go", "services/wallet/attestor/internal/backup/backup_test.go"]
+tests = ["services/wallet/attestor/internal/backup/backup_test.go::TestRetainReappearingArchivedSnapshots", "services/wallet/attestor/internal/backup/backup_test.go::TestRetainWithLedgerDeletesOnlyShipped", "services/wallet/attestor/internal/backup/backup_test.go::TestRetainWithoutLedgerDeletesByCount"]
+planned_paths = []
+build_cmd = "cd services/wallet/attestor && go build ./internal/backup"
+verify_cmd = "cd services/wallet/attestor && go test -count=1 ./internal/backup/ -run '^(TestRetainReappearingArchivedSnapshots|TestRetainWithLedgerDeletesOnlyShipped|TestRetainWithoutLedgerDeletesByCount)$'"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-wallet"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181629]
+title = "Archived shipping evidence preserves retention eligibility for identical reappearing snapshots"
+ac_1 = "Given Retain=1 and the production ledger dependency wired at services/wallet/attestor/cmd/attestor/main.go:250 and main.go:272, when a writer-produced shipped snapshot A is deleted through Writer.Retain, archived by Ship, restored byte-for-byte beside newer shipped B and recognized without upload, then Writer.Retain at services/wallet/attestor/internal/backup/writer.go:255 deletes A and keeps B across ledger reopening, writer recreation and repeated Ship/Retain passes; changed-size, changed-digest, unshipped and invalid-archive snapshots stay protected, archive errors are reported, duplicate shipping remains unchanged, and active ledger memory and serialized size stay independent of retired history."
+
+[acceptance.18.1629.1]
+feature = "18"
+req = "181629.1"
+scenario = "Given an older shipped snapshot whose acknowledgment was archived after local retention deletion and a newer shipped snapshot, when the older identical bytes reappear and shipping and retention run repeatedly across restart, then the older file is deleted without another upload, the newer file remains, changed and unshipped files remain protected, archive errors are reported, and retired history does not grow the active ledger."
+contract = "contracts/services.md#s28-wallet-attestors-tss"
+test = "services/wallet/attestor/internal/backup/backup_test.go::TestRetainReappearingArchivedSnapshots (planned)"
+qualification = "UNRUN"

@@ -1,0 +1,524 @@
+[disposition.22.33.253.2]
+finding = "22.33.253.2"
+status = "environment"
+evidence = "On main, sdk/wallet/src/receipt.ts:3 consumes the receipt verifier through the browser entry, and services/agent/sdk/typescript/package.json:22 exports that entry with browser JavaScript and declaration files."
+
+[disposition.22.33.253.3]
+finding = "22.33.253.3"
+status = "environment"
+evidence = "On main, apps/perps/tests/repair-22-33-253.test.ts:52 carries decoded market configuration and margin tiers into the order codec, and its boundary cases refuse disabled markets, excessive leverage and off-tick prices."
+
+[disposition.22.33.253.4]
+finding = "22.33.253.4"
+status = "resolved"
+evidence = "Commit 34996678db on main gives fundingVisibleThroughGateway one deadline for block progress, RPC reads and indexed funding rows at apps/perps/tests/e2e-local-node.test.ts:329, with stalled-read and stalled-indexing assertions at apps/perps/tests/repair-22-33-253.test.ts:124."
+
+[disposition.22.33.255.1]
+finding = "22.33.255.1"
+status = "resolved"
+evidence = "Commit 5afe5869b0 on main supplies snapshots at both ends of the one-second TWAP window at modules/oracle/client/rest/repair_m255_test.go:133, while the retained REST handler validates a positive lookback and the configured maximum at modules/oracle/client/rest/query.go:70."
+
+[disposition.22.33.258.1]
+finding = "22.33.258.1"
+status = "environment"
+evidence = "On main, programs/crates/layerx-programs-runtime/src/storage/scan.rs:316 checks encoded entry and cursor costs before admitting borrowed entries, and clones only the accepted page at programs/crates/layerx-programs-runtime/src/storage/scan.rs:350."
+
+[disposition.22.33.26.1]
+finding = "22.33.26.1"
+status = "resolved"
+evidence = "Commit 0f2268dc6d on main constructs gateway balance rows with exact Quantity values and converts them through for_operation before comparing wallet amounts at services/human/crates/layerx-human-service/tests/observed_balances_denom.rs:18."
+
+[disposition.22.33.260.1]
+finding = "22.33.260.1"
+status = "resolved"
+evidence = "Commit 1a3c69501c on main serializes the current PxAssetEntry fields directly at services/platform/hosted/core/src/public_reads.rs:134, preserving string asset identifiers, optional metadata and decimal total supply without reading a removed layerx field."
+
+[disposition.22.33.260.2]
+finding = "22.33.260.2"
+status = "resolved"
+evidence = "Commit 9397b65f47 on main supplies NativeStore authority state and recorded checkpoint reads to the budget consumer at services/agent/crates/layerx-agentd/tests/human_approval_budget_actor.rs:185, retaining checkpoint digest comparisons at services/agent/crates/layerx-agentd/tests/human_approval_budget_actor.rs:684."
+
+[disposition.22.33.260.3]
+finding = "22.33.260.3"
+status = "resolved"
+evidence = "Commit c5bdd2a4ca on main builds the joint reputation/admission fixture with the RP07 prefix at programs/crates/layerx-programs-ai-market/tests/repair_22_33_260.rs:1053 and produces forty admitted participants across ten opening heights at programs/crates/layerx-programs-ai-market/tests/repair_22_33_260.rs:1127."
+
+[disposition.22.33.260.4]
+finding = "22.33.260.4"
+status = "resolved"
+evidence = "Commit c5bdd2a4ca on main retains the STALE_CURSOR refusal for the original aggregation envelope and builds the retry with recovered_progress.cursor at programs/crates/layerx-programs-ai-market/tests/repair_22_33_260.rs:1467, where the current-cursor retry must return Unchanged and AlreadyApplied."
+
+[disposition.22.33.261.1]
+finding = "22.33.261.1"
+status = "resolved"
+evidence = "Commit 1a3c69501c on main serializes the current PxAssetEntry fields directly at services/platform/hosted/core/src/public_reads.rs:134, preserving string asset identifiers, optional metadata and decimal total supply without reading a removed layerx field."
+
+[disposition.22.33.261.2]
+finding = "22.33.261.2"
+status = "resolved"
+evidence = "Commit 9397b65f47 on main supplies NativeStore authority state and recorded checkpoint reads to the budget consumer at services/agent/crates/layerx-agentd/tests/human_approval_budget_actor.rs:185, retaining checkpoint digest comparisons at services/agent/crates/layerx-agentd/tests/human_approval_budget_actor.rs:684."
+
+[disposition.22.33.261.3]
+finding = "22.33.261.3"
+status = "resolved"
+evidence = "Commit b6d38a9897 on main defines prepare_digest on NativeSendPrepareRequestV2 beside its canonical wire representation at services/agent/crates/layerx-agentd/src/agent_rpc_wire.rs:851, and its wire regression compares that digest at services/agent/crates/layerx-agentd/src/agent_rpc_wire.rs:3337."
+
+[disposition.22.33.261.4]
+finding = "22.33.261.4"
+status = "resolved"
+evidence = "Commit a98636f083 on main stages the two-worker policy before the final epoch opening and admits distinct participants at heights 69 and 197 at programs/crates/layerx-programs-ai-market/tests/repair_22_33_261.rs:764, preserving foreign-approval refusal at programs/crates/layerx-programs-ai-market/tests/repair_22_33_261.rs:854."
+
+[disposition.22.33.261.5]
+finding = "22.33.261.5"
+status = "resolved"
+evidence = "Commit d6543a4874 on main reads the V2 native-send purpose consent_public_key at services/human/crates/layerx-human-service/tests/native_send_producer.rs:681, matching the consent key field carried by the current native-send wire type."
+
+[disposition.22.33.261.6]
+finding = "22.33.261.6"
+status = "resolved"
+evidence = "Commit a98636f083 on main applies epoch::carry_reputation before reward payout at programs/crates/layerx-programs-ai-market/tests/repair_22_33_261.rs:1294, retaining the BAD_VERSION assertion for an unadapted joint F07/F08 region and preserving payout recovery comparisons."
+
+[disposition.22.33.263.1]
+finding = "22.33.263.1"
+status = "resolved"
+evidence = "Commit bf0e3bd7d3 on main types the query wrapper with PropsWithChildren at apps/bridge/src/components/bridge/repair-22-33-263.spec.ts:197 and preserves verified transfer progress across RPC refusals with a working retry at apps/bridge/src/components/bridge/repair-22-33-263.spec.ts:311."
+
+[disposition.22.33.264.1]
+finding = "22.33.264.1"
+status = "environment"
+evidence = "On main, apps/bridge/src/lib/bridge/repair-22-33-264.spec.ts:291 preserves separate deposit log identities and withdrawal nonces across reopening, and apps/bridge/src/lib/bridge/repair-22-33-264.spec.ts:334 validates the custody recipient before recovering a Solana withdrawal."
+
+[disposition.22.33.266.1]
+finding = "22.33.266.1"
+status = "environment"
+evidence = "On main, apps/bridge/src/test/repair-22-33-266.proofs.ts:67 persists a withdrawal before publication, recovers its vault and nonce, and requires signed attestation fields to match before producing a release call."
+
+[disposition.22.33.266.2]
+finding = "22.33.266.2"
+status = "environment"
+evidence = "On main, apps/bridge/src/test/repair-22-33-266.proofs.ts:67 persists a withdrawal before publication, recovers its vault and nonce, and requires signed attestation fields to match before producing a release call."
+
+[disposition.22.33.266.3]
+finding = "22.33.266.3"
+status = "environment"
+evidence = "On main, apps/bridge/src/test/repair-22-33-266.proofs.ts:67 persists a withdrawal before publication, recovers its vault and nonce, and requires signed attestation fields to match before producing a release call."
+
+[disposition.22.33.266.4]
+finding = "22.33.266.4"
+status = "resolved"
+evidence = "Commit 8c8f1ed3f2 on main reopens the persisted submission and resolves its authoritative vault and nonce before release at apps/bridge/src/test/repair-22-33-266.proofs.ts:91, retaining rejection of altered amount, recipient, asset, nonce and transaction identity at apps/bridge/src/test/repair-22-33-266.proofs.ts:103."
+
+[disposition.22.33.267.1]
+finding = "22.33.267.1"
+status = "environment"
+evidence = "On main, apps/bridge/src/components/repair-22-33-267.spec.ts:134 preserves theme and accent changes when storage access is denied, and apps/bridge/src/components/repair-22-33-267.spec.ts:173 covers synchronization between documents when persistence is available."
+
+[disposition.22.33.268.1]
+finding = "22.33.268.1"
+status = "environment"
+evidence = "On main, apps/bridge/src/components/trading/repair-22-33-268.spec.ts:71 maps every produced bridge phase into progress steps, and apps/bridge/src/components/trading/repair-22-33-268.spec.ts:149 refuses an unknown consumer step instead of displaying success."
+
+[disposition.22.33.269.1]
+finding = "22.33.269.1"
+status = "environment"
+evidence = "On main, apps/explorer/toolkit/chakra/select.tsx:311 reads the controlled selection directly and abandons previous option loads during cleanup, while apps/explorer/toolkit/chakra/repair-22-33-269.spec.ts:140 requires an empty selection to clear the native value and show the placeholder."
+
+[disposition.22.33.269.2]
+finding = "22.33.269.2"
+status = "environment"
+evidence = "On main, apps/explorer/toolkit/chakra/select.tsx:311 reads the controlled selection directly and abandons previous option loads during cleanup, while apps/explorer/toolkit/chakra/repair-22-33-269.spec.ts:140 requires an empty selection to clear the native value and show the placeholder."
+
+[disposition.22.33.269.3]
+finding = "22.33.269.3"
+status = "resolved"
+evidence = "Commit 753073e192 on main keeps the asynchronous select value controlled at apps/explorer/toolkit/chakra/select.tsx:311 and apps/explorer/toolkit/chakra/select.tsx:353, with explicit empty-native-value and placeholder assertions at apps/explorer/toolkit/chakra/repair-22-33-269.spec.ts:140."
+
+[disposition.22.33.270.1]
+finding = "22.33.270.1"
+status = "environment"
+evidence = "On main, apps/explorer/toolkit/components/forms/fields/FormFieldRadio.tsx:38 passes validation rules into the form controller, and apps/explorer/toolkit/components/forms/fields/repair-22-33-270.spec.ts:338 covers rejection of a blocked radio value followed by an allowed submission."
+
+[disposition.22.33.270.2]
+finding = "22.33.270.2"
+status = "environment"
+evidence = "On main, apps/explorer/toolkit/components/forms/fields/repair-22-33-270.spec.ts:146 preserves color edits and resets in the form value, and apps/explorer/toolkit/components/forms/fields/repair-22-33-270.spec.ts:303 requires the radio field to reject an empty required choice."
+
+[disposition.22.33.270.3]
+finding = "22.33.270.3"
+status = "resolved"
+evidence = "Commit 58d8e44429 on main passes radio rules to useController at apps/explorer/toolkit/components/forms/fields/FormFieldRadio.tsx:38 and retains explicit custom-validator refusal and subsequent allowed-value submission at apps/explorer/toolkit/components/forms/fields/repair-22-33-270.spec.ts:338."
+
+[disposition.22.33.271.1]
+finding = "22.33.271.1"
+status = "environment"
+evidence = "On main, apps/explorer/toolkit/components/forms/inputs/file/repair-22-33-271.spec.ts:175 preserves previously selected files when directory reading is incomplete, reports the affected path, and permits a later complete selection."
+
+[disposition.22.33.272.1]
+finding = "22.33.272.1"
+status = "environment"
+evidence = "On main, apps/explorer/toolkit/components/charts/parts/repair-22-33-272.spec.ts:21 preserves zero values, empty cells and escaped labels while aligning unequal chart series by date, with distinct date-range coverage at apps/explorer/toolkit/components/charts/parts/repair-22-33-272.spec.ts:51."
+
+[disposition.22.33.272.2]
+finding = "22.33.272.2"
+status = "resolved"
+evidence = "Commit e66badd307 on main reads chart CSV with an explicit comma delimiter at apps/explorer/toolkit/components/charts/parts/repair-22-33-272.spec.ts:16 and asserts quoted labels, embedded newlines, missing samples and aligned dates at apps/explorer/toolkit/components/charts/parts/repair-22-33-272.spec.ts:30."
+
+[disposition.22.33.274.1]
+finding = "22.33.274.1"
+status = "resolved"
+evidence = "Commit 64ef5d528f on main carries PriceUpdateItem through TransactionFeedItem consumers without coercing it to Transaction at apps/explorer/mocks/txs/repair-22-33-274.spec.ts:116, with separate native price-update and EVM transaction rows at apps/explorer/mocks/txs/repair-22-33-274.spec.ts:149."
+
+[disposition.22.33.275.1]
+finding = "22.33.275.1"
+status = "environment"
+evidence = "On main, apps/explorer/mocks/paxeerX/repair-22-33-275.spec.ts:124 keeps failed observations visible in detail while leaving live market prices unchanged, and apps/explorer/mocks/paxeerX/repair-22-33-275.spec.ts:157 applies only accepted observations from a successful submission."
+
+[disposition.22.33.28.1]
+finding = "22.33.28.1"
+status = "resolved"
+evidence = "Commit 8331803f7c on main refreshes the human API baseline and compares the frozen manifest with declarations at services/human/tools/schema-check/tests/repair_22_33_28.rs:7, retaining a zero-additions assertion and complete retired binding refusals."
+
+[disposition.22.33.280.1]
+finding = "22.33.280.1"
+status = "environment"
+evidence = "On main, services/explorer/backend/apps/explorer/test/repair/repair_22_33_280_test.exs:97 compares the registered archive routes with the documented inventory, and services/explorer/backend/apps/explorer/test/repair/repair_22_33_280_test.exs:102 preserves native price-update identity and execution status in detail responses."
+
+[disposition.22.33.281.1]
+finding = "22.33.281.1"
+status = "environment"
+evidence = "On main, apps/explorer/ui/blocks/BlocksListItem.tsx:93 retains the selected chain in mobile block links, and apps/explorer/ui/blocks/BlocksTableItem.tsx:103 retains it in desktop block links, preserving the destination chain instead of falling back to the local block route."
+
+[disposition.22.33.282.1]
+finding = "22.33.282.1"
+status = "resolved"
+evidence = "Commit 87fc4460fe on main covers custom date filters surviving close and reopen at apps/explorer/ui/advancedFilter/repair-22-33-282.spec.ts:176, including the exact date-range query parameters received by the filter request consumer at apps/explorer/ui/advancedFilter/repair-22-33-282.spec.ts:167."
+
+[disposition.22.33.283.1]
+finding = "22.33.283.1"
+status = "environment"
+evidence = "On main, apps/explorer/ui/advancedFilter/filters/AgeFilter.tsx:15 retains explicit date strings, and apps/explorer/ui/advancedFilter/filters/repair-22-33-283.spec.ts:44 covers age_from and age_to surviving apply and reopen without inventing an age preset."
+
+[disposition.22.33.285.1]
+finding = "22.33.285.1"
+status = "environment"
+evidence = "On main, apps/explorer/ui/crossChain/transfers/repair-22-33-285.spec.ts:49 preserves separate recipients and destinations from the same source, while apps/explorer/ui/crossChain/transfers/repair-22-33-285.spec.ts:70 preserves exact duplicate occurrences with distinct row keys."
+
+[disposition.22.33.288.1]
+finding = "22.33.288.1"
+status = "environment"
+evidence = "On main, services/explorer/backend/apps/explorer/test/repair/repair_22_33_288_test.exs:104 exposes frozen kernel collections under the archive namespace and refuses their live aliases, while the same file at line 125 retains the native transaction status response."
+
+[disposition.22.33.288.2]
+finding = "22.33.288.2"
+status = "environment"
+evidence = "On main, services/explorer/backend/apps/explorer/test/repair/repair_22_33_288_test.exs:104 exposes frozen kernel collections under the archive namespace and refuses their live aliases, while the same file at line 125 retains the native transaction status response."
+
+[disposition.22.33.290.1]
+finding = "22.33.290.1"
+status = "environment"
+evidence = "On main, apps/explorer/ui/address/repair-22-33-290.spec.ts:123 preserves address coin history and chart state across connection loss, refetch and reopening, including continued failure visibility until fresh data arrives."
+
+[disposition.22.33.291.1]
+finding = "22.33.291.1"
+status = "resolved"
+evidence = "Commit 2f8cc7017d on main removes undefined query values before creating address CSV links at apps/explorer/ui/address/AddressCsvExportLink.tsx:38, and apps/explorer/ui/address/repair-22-33-291.spec.ts:106 retains an unfiltered second-page export case."
+
+[disposition.22.33.294.1]
+finding = "22.33.294.1"
+status = "resolved"
+evidence = "Commit 52f55ef49b on main gives the revoke consumer explicit coverage, partial allowances and retry fields in apps/explorer/ui/marketplace/essentialDapps/revoke/components/repair-22-33-299.spec.ts:114; commit 34e1c7d317 retains QR destination replacement and reopen assertions at apps/explorer/ui/address/details/repair-22-33-294.spec.ts:93."
+
+[disposition.22.33.298.1]
+finding = "22.33.298.1"
+status = "resolved"
+evidence = "Commit 52f55ef49b on main gives the revoke consumer explicit coverage, partial allowances and retry fields in apps/explorer/ui/marketplace/essentialDapps/revoke/components/repair-22-33-299.spec.ts:114; commit b9f4721923 retains NFT scan refusal, cancellation and partial-success coverage at apps/explorer/ui/marketplace/essentialDapps/revoke/hooks/repair-22-33-298.spec.ts:234."
+
+[disposition.22.33.300.1]
+finding = "22.33.300.1"
+status = "resolved"
+evidence = "Commit e3fa8c5f35 on main supplies events explicitly for the block-hash range refusal at apps/explorer/ui/marketplace/essentialDapps/revoke/lib/repair-22-33-300.spec.ts:156, while the real log scanner bounds requests and discards incomplete results at apps/explorer/ui/marketplace/essentialDapps/revoke/lib/getLogs.ts:85."
+
+[disposition.22.33.301.1]
+finding = "22.33.301.1"
+status = "resolved"
+evidence = "Commit 52f55ef49b on main gives the revoke consumer explicit coverage, partial allowances and retry fields in apps/explorer/ui/marketplace/essentialDapps/revoke/components/repair-22-33-299.spec.ts:114; commit b7ff35f083 retains mounted marketplace share URLs and encoded application identifiers at apps/explorer/ui/marketplace/repair-22-33-301.spec.ts:79."
+
+[disposition.22.33.302.1]
+finding = "22.33.302.1"
+status = "environment"
+evidence = "On main, apps/explorer/ui/multichain/home/repair-22-33-302.spec.ts:194 preserves short chart histories and their formatted values, and apps/explorer/ui/multichain/home/repair-22-33-302.spec.ts:218 checks lengths against actual SVG path geometry."
+
+[disposition.22.33.302.2]
+finding = "22.33.302.2"
+status = "resolved"
+evidence = "Commit 52f55ef49b on main gives the revoke consumer explicit coverage, partial allowances and retry fields in apps/explorer/ui/marketplace/essentialDapps/revoke/components/repair-22-33-299.spec.ts:114; commit c85b23e400 retains empty and single-zero chart history coverage at apps/explorer/ui/multichain/home/repair-22-33-302.spec.ts:213."
+
+[disposition.22.33.305.1]
+finding = "22.33.305.1"
+status = "resolved"
+evidence = "Commit 106eb94a1f on main declares config as a development dependency at services/explorer/services/sig-provider/sig-provider/Cargo.toml:28, retaining the real aggregation and service assertions that lookup unavailability remains an error at services/explorer/services/sig-provider/sig-provider/tests/repair_22_33_305.rs:60."
+
+[disposition.22.33.307.1]
+finding = "22.33.307.1"
+status = "resolved"
+evidence = "Commit dcea545c45 on main awaits signature import and confirms every function and event against the source before acknowledging at services/explorer/services/sig-provider/sig-provider-server/src/service.rs:74, returning Unavailable for upstream refusal or absent persisted signatures."
+
+[disposition.22.33.31.1]
+finding = "22.33.31.1"
+status = "environment"
+evidence = "On main, services/human/crates/layerx-human-kms/tests/repair_22_33_31.rs:185 retains a loaded assertion for the running signer and requires a fresh valid assertion on reopen, with restrictive assertion file permissions checked at services/human/crates/layerx-human-kms/tests/repair_22_33_31.rs:207."
+
+[disposition.22.33.312.1]
+finding = "22.33.312.1"
+status = "resolved"
+evidence = "Commit 03c5916a29 on main refreshes the embedded precompile signature inventory and documents its generator at services/explorer/services/sig-provider/README.md:100, with exact generator-to-embedded equality retained at tools/qualification/audit_repairs/test_repair_22_33_312.py:80."
+
+[disposition.22.33.314.1]
+finding = "22.33.314.1"
+status = "environment"
+evidence = "On main, apps/explorer/ui/pages/repair-22-33-314.spec.ts:121 carries address response fields into the loaded detail view, and apps/explorer/ui/pages/repair-22-33-314.spec.ts:142 restores live feed state through a fresh read after stop and reopen."
+
+[disposition.22.33.319.1]
+finding = "22.33.319.1"
+status = "environment"
+evidence = "On main, apps/explorer/ui/shared/AppError/custom/repair-22-33-319.spec.ts:114 displays a rate-limit explanation without a CAPTCHA button when bypass is unavailable, while apps/explorer/ui/shared/AppError/custom/repair-22-33-319.spec.ts:121 preserves the server reset countdown."
+
+[disposition.22.33.319.2]
+finding = "22.33.319.2"
+status = "resolved"
+evidence = "Commit 5092cb38fa on main reads the route-specific rate-limit response before rendering the error consumer at apps/explorer/ui/shared/AppError/custom/repair-22-33-319.spec.ts:48, preserving server bypass options and reset information at apps/explorer/ui/shared/AppError/custom/repair-22-33-319.spec.ts:87."
+
+[disposition.22.33.323.1]
+finding = "22.33.323.1"
+status = "environment"
+evidence = "On main, apps/explorer/ui/shared/gas/repair-22-33-323.spec.ts:62 distinguishes zero gas prices from missing data, preserving small-value formatting and the available native or fiat denomination rather than treating numeric zero as absent."
+
+[disposition.22.33.324.1]
+finding = "22.33.324.1"
+status = "environment"
+evidence = "On main, apps/explorer/ui/shared/layout/Layout.tsx:14 renders navigation, the mobile header, alert, main content and footer around the page, preserving the content inside AppErrorBoundary at apps/explorer/ui/shared/layout/Layout.tsx:21."
+
+[disposition.22.33.325.1]
+finding = "22.33.325.1"
+status = "environment"
+evidence = "On main, apps/explorer/ui/shared/entities/address/repair-22-33-325.spec.ts:122 retains selected-chain address links through transfer rows, explicit chain override coverage at line 159 and local links when no chain is selected at line 172."
+
+[disposition.22.33.326.1]
+finding = "22.33.326.1"
+status = "environment"
+evidence = "On main, apps/explorer/ui/shared/monaco/repair-22-33-326.spec.ts:68 gives editors distinct model identities for separate contracts, preserves source updates in the correct editor and disposes replaced models on a chain change."
+
+[disposition.22.33.326.2]
+finding = "22.33.326.2"
+status = "resolved"
+evidence = "Commit 80255ac47e on main uses real editor.ITextModel values at apps/explorer/ui/shared/monaco/repair-22-33-326.spec.ts:46, retaining independent model identity and disposal assertions at apps/explorer/ui/shared/monaco/repair-22-33-326.spec.ts:68."
+
+[disposition.22.33.328.1]
+finding = "22.33.328.1"
+status = "environment"
+evidence = "On main, apps/explorer/ui/shared/nft/NftImage.tsx:22 creates an abortable media request for each source and prevents abandoned IPFS results from replacing the current image, with cleanup removing old source attributes at apps/explorer/ui/shared/nft/NftImage.tsx:59."
+
+[disposition.22.33.328.2]
+finding = "22.33.328.2"
+status = "resolved"
+evidence = "Commit e7d2b4edd5 on main aborts replaced image requests at apps/explorer/ui/shared/nft/NftImage.tsx:59 and revokes owned blob URLs on abort or unmount at apps/explorer/ui/shared/nft/useLoadImageViaIpfs.tsx:13, retaining late-result rejection before assigning a new object URL."
+
+[disposition.22.33.328.3]
+finding = "22.33.328.3"
+status = "environment"
+evidence = "On main, apps/explorer/ui/shared/nft/useLoadImageViaIpfs.tsx:32 loads verified-fetch only when IPFS fallback is used, and apps/explorer/ui/shared/nft/useLoadImageViaIpfs.tsx:40 checks request activity before creating an owned blob URL."
+
+[disposition.22.33.329.1]
+finding = "22.33.329.1"
+status = "environment"
+evidence = "On main, apps/explorer/ui/shared/pagination/repair-22-33-329.spec.ts:162 normalizes an invalid page to the first page without a cursor, and apps/explorer/ui/shared/pagination/repair-22-33-329.spec.ts:208 keeps pagination history scoped to the selected chain."
+
+[disposition.22.33.329.2]
+finding = "22.33.329.2"
+status = "environment"
+evidence = "On main, apps/explorer/ui/shared/pagination/repair-22-33-329.spec.ts:162 normalizes an invalid page to the first page without a cursor, and apps/explorer/ui/shared/pagination/repair-22-33-329.spec.ts:208 keeps pagination history scoped to the selected chain."
+
+[disposition.22.33.330.1]
+finding = "22.33.330.1"
+status = "environment"
+evidence = "On main, apps/explorer/ui/shared/reCaptcha/repair-22-33-330.spec.ts:74 permits one CAPTCHA-assisted retry and returns the second refusal, while apps/explorer/ui/shared/reCaptcha/repair-22-33-330.spec.ts:123 refuses to prompt again when the request already supplied a token."
+
+[disposition.22.33.331.1]
+finding = "22.33.331.1"
+status = "environment"
+evidence = "On main, apps/explorer/ui/shared/statusLadder/repair-22-33-331.spec.ts:62 retains submitted, receipted and committed rungs with native labels, and apps/explorer/ui/shared/statusLadder/repair-22-33-331.spec.ts:80 follows refreshed native transaction status through the committed response."
+
+[disposition.22.33.332.1]
+finding = "22.33.332.1"
+status = "environment"
+evidence = "On main, apps/explorer/ui/shared/web3/providers/repair-22-33-332.spec.ts:19 preserves wallet initialization errors and exposes a retry without leaking configuration into the rendered alert, while line 81 retains a read-only provider when wallet connections are disabled."
+
+[disposition.22.33.337.1]
+finding = "22.33.337.1"
+status = "environment"
+evidence = "On main, apps/web/e2e/repair-22-33-337.test.ts:293 resolves receipt links through native transaction identity and retains explicit historical receipt links at apps/web/e2e/repair-22-33-337.test.ts:306, refusing receipt targets without a transaction hash."
+
+[disposition.22.33.337.2]
+finding = "22.33.337.2"
+status = "environment"
+evidence = "On main, apps/web/e2e/repair-22-33-337.test.ts:293 resolves receipt links through native transaction identity and retains explicit historical receipt links at apps/web/e2e/repair-22-33-337.test.ts:306, refusing receipt targets without a transaction hash."
+
+[disposition.22.33.337.3]
+finding = "22.33.337.3"
+status = "resolved"
+evidence = "Commit 1ac6b44d52 on main passes an empty options object when no abort signal exists and a populated signal object otherwise at sdk/wallet/src/receipt.ts:690, preserving exact optional types and abortable receipt polling."
+
+[disposition.22.33.337.4]
+finding = "22.33.337.4"
+status = "resolved"
+evidence = "Commit a333d99310 on main keeps vocabulary matching at word boundaries and distinguishes the uppercase acronym from ordinary words at apps/web/e2e/repair-22-33-337.test.ts:249, while onboarding state messages come from the copy catalogue at apps/web/e2e/repair-22-33-337.test.ts:360."
+
+[disposition.22.33.338.1]
+finding = "22.33.338.1"
+status = "resolved"
+evidence = "Commit 1ac6b44d52 on main passes an empty options object when no abort signal exists and a populated signal object otherwise at sdk/wallet/src/receipt.ts:690, preserving exact optional types and abortable receipt polling."
+
+[disposition.22.33.338.2]
+finding = "22.33.338.2"
+status = "resolved"
+evidence = "Commit 1ac6b44d52 on main passes an empty options object when no abort signal exists and a populated signal object otherwise at sdk/wallet/src/receipt.ts:690, preserving exact optional types and abortable receipt polling."
+
+[disposition.22.33.338.3]
+finding = "22.33.338.3"
+status = "resolved"
+evidence = "Commit c9dfc5d630 on main declares happy-dom in apps/web/package.json:47 and imports it directly in apps/web/e2e/repair-22-33-897.test.ts:8, preserving the explorer admission component coverage without reaching through another package dependency."
+
+[disposition.22.33.338.4]
+finding = "22.33.338.4"
+status = "resolved"
+evidence = "Commit e7e3838efd on main requires committed evidence before displaying committed finality at apps/web/e2e/repair-22-33-338.test.ts:94 and pairs sponsored submission with a successful native receipt at apps/web/e2e/repair-22-33-338.test.ts:213."
+
+[disposition.22.33.338.5]
+finding = "22.33.338.5"
+status = "resolved"
+evidence = "Commit e7e3838efd on main pairs the receipt proof with committedReceipt identity and logs at apps/web/e2e/repair-22-33-338.test.ts:60 and requires sponsored receipt recovery to reuse the persisted submission without a second signature or batch at apps/web/e2e/repair-22-33-338.test.ts:213."
+
+[disposition.22.33.338.6]
+finding = "22.33.338.6"
+status = "resolved"
+evidence = "Commit 74ef78b42b on main re-records the committed receipt vector for chain id 125 at sdk/platform/conformance/fixtures/vector-v4-committed.json:1; commit e7e3838efd consumes that vector at apps/web/e2e/repair-22-33-338-commit.ts:36 and preserves support initialization and retry at apps/web/e2e/repair-22-33-338.test.ts:133."
+
+[disposition.22.33.338.7]
+finding = "22.33.338.7"
+status = "resolved"
+evidence = "Commit e7e3838efd on main decodes nullable absent-vote signatures without treating them as signed votes at apps/web/e2e/repair-22-33-338-commit.ts:50, with empty-vote and insufficient-commit rejection at apps/web/e2e/repair-22-33-338.test.ts:104 and support readiness assertions at apps/web/e2e/repair-22-33-338.test.ts:150."
+
+[disposition.22.33.340.1]
+finding = "22.33.340.1"
+status = "environment"
+evidence = "On main, apps/explorer/ui/snippets/navigation/horizontal/repair-22-33-340.spec.ts:66 retains native blockchain navigation and active-state matching, and apps/explorer/ui/snippets/navigation/horizontal/repair-22-33-340.spec.ts:89 excludes live links to retired kernel anchors and receipts."
+
+[disposition.22.33.341.1]
+finding = "22.33.341.1"
+status = "environment"
+evidence = "On main, apps/explorer/ui/snippets/navigation/vertical/repair-22-33-341.spec.ts:82 waits for the account profile before displaying authenticated navigation, with profile refusal retained at apps/explorer/ui/snippets/navigation/vertical/repair-22-33-341.spec.ts:113."
+
+[disposition.22.33.342.1]
+finding = "22.33.342.1"
+status = "environment"
+evidence = "On main, apps/explorer/ui/snippets/searchBar/repair-22-33-342.spec.ts:137 preserves typed cluster unavailability after bounded retries, and apps/explorer/ui/snippets/searchBar/repair-22-33-342.spec.ts:152 refuses unauthorized searches without retrying or supplying successful data."
+
+[disposition.22.33.343.1]
+finding = "22.33.343.1"
+status = "resolved"
+evidence = "Commit 9ca9569f49 on main delivers keyboard navigation to the tablist and waits for focus and selected state at apps/explorer/ui/snippets/searchBar/SearchBarSuggest/repair-22-33-343.spec.ts:218, preserving directional selection and matching scroll requests for both arrow keys."
+
+[disposition.22.33.344.1]
+finding = "22.33.344.1"
+status = "environment"
+evidence = "On main, apps/explorer/ui/snippets/topBar/settings/repair-22-33-344.spec.ts:32 requires the selected theme to agree across controls, root classes, color variables, cookies and local storage, with top-bar changes and reload covered at line 61."
+
+[disposition.22.33.345.1]
+finding = "22.33.345.1"
+status = "resolved"
+evidence = "Commit 8f08737655 on main accepts the inferred d3 pointer event at apps/explorer/toolkit/components/charts/parts/tooltip/pointerTracker.ts:51, and apps/explorer/ui/snippets/auth/linkEmail/repair-22-33-345.spec.ts:67 preserves profile state after provider rejection and permits a later successful email update."
+
+[disposition.22.33.348.1]
+finding = "22.33.348.1"
+status = "environment"
+evidence = "On main, apps/web/src/app/explorer/programs/[programId]/program-details.tsx:47 labels program observations as reported with currentness unknown and current=false, and apps/web/src/app/explorer/programs/[programId]/page.tsx:15 renders the unavailable view when the read fails."
+
+[disposition.22.33.348.2]
+finding = "22.33.348.2"
+status = "resolved"
+evidence = "Commit eff0931143 on main returns ProgramUnavailable on a failed native program read at apps/web/src/app/explorer/programs/[programId]/page.tsx:15, rendering unavailable freshness copy with current=false at apps/web/src/app/explorer/programs/[programId]/program-details.tsx:11."
+
+[disposition.22.33.360.1]
+finding = "22.33.360.1"
+status = "resolved"
+evidence = "Commit 43cef005e0 on main restores the internal-transaction operation schema at services/explorer/services/libs/blockscout-client/swaggers/blockscout-api-final.yaml:455 and serves the current health operation at services/explorer/services/libs/blockscout-client/swaggers/blockscout-api-final.yaml:1610."
+
+[disposition.22.33.360.2]
+finding = "22.33.360.2"
+status = "resolved"
+evidence = "Commit 43cef005e0 on main preserves healthy and data on v1HealthCheckResponse at services/explorer/services/libs/blockscout-client/swaggers/blockscout-api-final.yaml:3913, while the current health operation exposes 200 and 500 responses under /api/health at line 1610."
+
+[disposition.22.33.360.3]
+finding = "22.33.360.3"
+status = "environment"
+evidence = "On main, services/explorer/services/libs/blockscout-client/swaggers/blockscout-api-final.yaml:1610 declares the current /api/health operation, and services/explorer/services/libs/blockscout-client/crate/Cargo.toml:25 supplies serde-aux, path-aware JSON errors and rust_decimal for the generated client models."
+
+[disposition.22.33.360.4]
+finding = "22.33.360.4"
+status = "resolved"
+evidence = "Commit 43cef005e0 on main retains both the /api/health response schema at services/explorer/services/libs/blockscout-client/swaggers/blockscout-api-final.yaml:1610 and the generated client model dependencies at services/explorer/services/libs/blockscout-client/crate/Cargo.toml:25."
+
+[disposition.22.33.361.1]
+finding = "22.33.361.1"
+status = "environment"
+evidence = "On main, apps/web/src/app/explorer/accounts/[accountId]/page.tsx:63 loads a native account snapshot by returned cursor and renders its committed activity positions, while apps/web/src/app/explorer/accounts/[accountId]/page.tsx:25 explicitly says that the snapshot does not establish the current network head."
+
+[disposition.22.33.362.1]
+finding = "22.33.362.1"
+status = "environment"
+evidence = "On main, apps/web/src/app/explorer/receipts/[receiptId]/page.tsx:42 reads the native receipt transaction and renders its committed block and position, while the historical archive at apps/web/src/app/explorer/receipts/[receiptId]/page.tsx:19 remains an explicit frozen-evidence view."
+
+[disposition.22.33.363.1]
+finding = "22.33.363.1"
+status = "resolved"
+evidence = "Commit 7aa2cc6857 on main gives ADL fills no trading fee at modules/perps/keeper/positions.go:35 and runs QuoteOpen against cached execution at modules/perps/keeper/quotes.go:60; commit e1b27a05d1 retains quote-to-open execution and fill-fee comparisons at modules/perps/keeper/repair_m363_test.go:175."
+
+[disposition.22.33.366.1]
+finding = "22.33.366.1"
+status = "environment"
+evidence = "On main, apps/explorer/ui/block/details/repair-22-33-366.spec.ts:29 retains excess blob gas as an integer gas counter, including zero and values beyond JavaScript safe integer precision at apps/explorer/ui/block/details/repair-22-33-366.spec.ts:42."
+
+[disposition.22.33.366.2]
+finding = "22.33.366.2"
+status = "environment"
+evidence = "On main, apps/explorer/ui/block/details/repair-22-33-366.spec.ts:29 retains excess blob gas as an integer gas counter, including zero and values beyond JavaScript safe integer precision at apps/explorer/ui/block/details/repair-22-33-366.spec.ts:42."
+
+[disposition.22.33.367.1]
+finding = "22.33.367.1"
+status = "resolved"
+evidence = "Commit 92af7889d2 on main retains chain-specific RPC fallback and cache identity at apps/explorer/ui/block/repair-22-33-367.spec.ts:168, including distinct eth_getBlockByNumber requests and cached block hashes for each selected chain at apps/explorer/ui/block/repair-22-33-367.spec.ts:190."
+
+[disposition.22.33.368.1]
+finding = "22.33.368.1"
+status = "environment"
+evidence = "On main, apps/explorer/ui/contractVerification/repair-22-33-368.spec.ts:179 releases pending verification state when the socket closes and exposes a connection-loss error, while apps/explorer/ui/contractVerification/repair-22-33-368.spec.ts:200 retains a refused POST as a visible failure."
+
+[disposition.22.33.37.1]
+finding = "22.33.37.1"
+status = "resolved"
+evidence = "Commit 96e00e7f85 on main retains canonical receipt-backed limit recovery at services/human/crates/layerx-human-service/tests/repair_22_33_37.rs:752 and archive mutation detection after reopen at services/human/crates/layerx-human-service/tests/repair_22_33_37.rs:1482, with receipt-version binding and pinned evidence preserved."
+
+[disposition.22.33.370.1]
+finding = "22.33.370.1"
+status = "resolved"
+evidence = "Commit 1a1c845017 on main retains typed paginated cross-chain responses at apps/explorer/ui/zetaChain/repair-22-33-370.spec.ts:43 and resets the cursor when a sender filter changes at apps/explorer/ui/zetaChain/repair-22-33-370.spec.ts:188, preserving the selected status tab."
+
+[disposition.22.33.371.1]
+finding = "22.33.371.1"
+status = "environment"
+evidence = "On main, apps/explorer/ui/zetaChain/cctxDetails/repair-22-33-371.spec.ts:133 renders outbound mined gas in gas units while retaining destination transaction links, and apps/explorer/ui/zetaChain/cctxDetails/repair-22-33-371.spec.ts:153 preserves gas units for reverted outbound transactions."
+
+[disposition.22.33.373.1]
+finding = "22.33.373.1"
+status = "environment"
+evidence = "On main, services/bridge/deploy/proposals/cmd/paxeer-bridge-proposals/repair_m373_test.go:280 retains an unpublished output after staging failure and permits a complete retry, while services/bridge/deploy/proposals/cmd/paxeer-bridge-proposals/repair_m373_test.go:301 refuses invalid proposal input without publication."

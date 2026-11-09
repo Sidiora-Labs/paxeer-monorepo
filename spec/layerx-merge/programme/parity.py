@@ -218,6 +218,173 @@ def zero_test_commands(
     return task_ids
 
 
+def _coverage_selectors(value: KvxValue) -> list[str]:
+    if not isinstance(value, str):
+        raise ParityError("acceptance and task selectors must be strings")
+    return [
+        re.sub(r" \((?:planned|existing)(?:, [^)]*)?\)$", "", selector.strip())
+        for selector in re.split(r";\s+(?=[A-Za-z0-9_./-]+::)", value)
+    ]
+
+
+def _is_test_source(path: Path) -> bool:
+    return (
+        path.name.endswith("_test.go")
+        or (path.suffix == ".rs" and not {"tests", "src"}.isdisjoint(path.parts))
+        or path.suffix == ".exs"
+        or path.name.endswith((".test.ts", ".test.tsx", ".test.mjs", ".test.js"))
+        or (path.name.startswith("test_") and path.suffix == ".py")
+        or path.name.endswith("Tests.swift")
+    )
+
+
+def _selector_present(path: Path, name: str, text: str) -> bool:
+    if not name:
+        return False
+    if path.suffix == ".py" and "." in name:
+        return all(
+            component and re.search(rf"(?<!\w){re.escape(component)}(?!\w)", text)
+            for component in name.split(".")
+        )
+    if path.suffix in {".exs", ".ts", ".tsx", ".mjs", ".js"}:
+        if name in text:
+            return True
+        descriptions: list[str] = []
+        for match in re.finditer(
+            r"\b(?P<kind>describe|test|it)(?:\.\w+)*\s*\(?\s*"
+            r"(?P<quote>[\"'`])(?P<title>(?:\\.|(?!(?P=quote))[^\\])*)(?P=quote)",
+            text,
+        ):
+            title = match["title"]
+            if match["kind"] == "describe":
+                descriptions.append(title)
+            elif any(f"{description} {title}" == name for description in descriptions):
+                return True
+        return False
+    if "." in name:
+        return all(
+            component and re.search(rf"(?<!\w){re.escape(component)}(?!\w)", text)
+            for component in name.split(".")
+        )
+    return re.search(rf"(?<!\w){re.escape(name)}(?!\w)", text) is not None
+
+
+def _coverage_dispositions() -> dict[tuple[str, str], str | None]:
+    dispositions: dict[tuple[str, str], str | None] = {}
+    for section, entry in load(Path(__file__).with_name("parity-stale.kvx")).items():
+        if not section.startswith("stale."):
+            continue
+        acceptance, file, test = (entry[key] for key in ("acceptance", "file", "test"))
+        if not all(isinstance(value, str) for value in (acceptance, file, test)):
+            raise ParityError(f"[{section}] disposition identity must contain strings")
+        selector = file + (f"::{test}" if test else "")
+        normalized = _coverage_selectors(selector)
+        if len(normalized) != 1:
+            raise ParityError(f"[{section}] disposition must name one selector")
+        identity = (acceptance, normalized[0])
+        if identity in dispositions:
+            raise ParityError(f"[{section}] duplicate disposition for {identity}")
+        if entry["disposition"] == "retired":
+            reason = entry.get("reason")
+            if not isinstance(reason, str) or not reason.strip():
+                raise ParityError(f"[{section}] retired selector needs a reason")
+            dispositions[identity] = None
+        elif entry["disposition"] == "replacement":
+            replacement = entry.get("replacement")
+            if not isinstance(replacement, str) or not replacement.strip():
+                raise ParityError(f"[{section}] replacement selector must be nonempty")
+            selectors = _coverage_selectors(replacement)
+            if len(selectors) != 1:
+                raise ParityError(f"[{section}] replacement must name one selector")
+            dispositions[identity] = selectors[0]
+        else:
+            raise ParityError(f"[{section}] unknown selector disposition")
+    return dispositions
+
+
+def acceptance_coverage(
+    spec_path: str | PathLike[str],
+) -> tuple[list[str], list[str]]:
+    sections = load(spec_path)
+    selector_owners: dict[str, set[str]] = {}
+    requirement_owners: dict[str, set[str]] = {}
+    statuses: dict[str, KvxValue] = {}
+    for section, task in sections.items():
+        if not section.startswith("task."):
+            continue
+        statuses[section] = task["status"]
+        reqs = task["reqs"]
+        if not isinstance(reqs, list):
+            raise ParityError(f"[{section}] reqs must be a list of requirements")
+        for req in reqs:
+            requirement_owners.setdefault(req, set()).add(section)
+        tests = task.get("tests")
+        if not isinstance(tests, list):
+            raise ParityError(f"[{section}] tests must be a list of selectors")
+        for test in tests:
+            for selector in _coverage_selectors(test):
+                selector_owners.setdefault(selector, set()).add(section)
+
+    dispositions = _coverage_dispositions()
+    missing: list[str] = []
+    stale: list[str] = []
+    sources: dict[Path, str] = {}
+    for section, acceptance in sections.items():
+        if not section.startswith("acceptance."):
+            continue
+        for selector in _coverage_selectors(acceptance["test"]):
+            identity = (section, selector)
+            effective = dispositions.get(identity, selector)
+            if effective is None:
+                continue
+            held = requirement_owners.get(acceptance.get("req"), set())
+            named = selector_owners.get(effective, set())
+            owners = named | selector_owners.get(selector, set()) | held
+            ownership = ", ".join(
+                f"{owner} ({statuses[owner]})" for owner in sorted(owners)
+            )
+            description = selector
+            if effective != selector:
+                description += f" -> {effective}"
+            diagnostic = f"[{section}] {description}; owners: {ownership or 'none'}"
+            command = (
+                re.match(r"^(?:make|cargo|grep|go)(?:\s|$)", effective) is not None
+                or re.search(r"\s+\([^()]*\bgate\b[^()]*\)$", effective) is not None
+            )
+            path, separator, name = effective.partition("::")
+            path = re.sub(r"\s+\([^()]*\)$", "", path)
+            source = ROOT / path
+            present = source.exists()
+            completed = bool(held) and all(
+                statuses[owner] in {"done", "superseded"} for owner in held
+            )
+            if not (
+                named
+                or (completed and (present or command))
+                or (identity in dispositions and present)
+            ):
+                missing.append(diagnostic)
+            if (
+                not separator
+                or command
+                or any(statuses[owner] != "done" for owner in held)
+            ):
+                continue
+            if source.is_file() and _is_test_source(source):
+                if source not in sources:
+                    sources[source] = source.read_text(encoding="utf-8")
+                test_name = name.rsplit("::", 1)[-1]
+                present = _selector_present(source, test_name, sources[source])
+            if not present:
+                stale.append(diagnostic)
+    return list(dict.fromkeys(missing)), stale
+
+
+def uncovered(spec_path: str | PathLike[str]) -> list[str]:
+    missing, stale = acceptance_coverage(spec_path)
+    return list(dict.fromkeys([*missing, *stale]))
+
+
 def _doc_text(value: KvxValue) -> str:
     return str(value).replace("|", "\\|").replace("\n", "<br>")
 

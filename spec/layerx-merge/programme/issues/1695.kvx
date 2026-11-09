@@ -1,0 +1,52 @@
+[issue.1695]
+number = 1695
+title = "[Coherence] The production indexer still mounts RegisterStatus without a mode, delivery health or dead-letter policy, so every production GET /status now answers 503 unavailable"
+revision = "bb8caac8b3e73e3e2f4b330805574f0bcb540641"
+verdict = "task"
+evidence = "The RegisterStatus call at services/launchpad/indexer/internal/app/app.go:610 supplies only Store, ChainID, Publisher and StartTime, so services/launchpad/indexer/internal/httpapi/status.go:79 marks mode unavailable and :129 returns 503 while :135 leaves both dead-letter routes unavailable; commit e83899139984f477c3954905d7ece0d0817f406e introduced these requirements and its outstanding wiring requests remain at services/launchpad/indexer/internal/httpapi/repair_m996.kvx:13 and :20."
+close_comment = "The indexer still omits the explicit status mode and operational dependencies, so healthy ingestion cannot produce a healthy status response. A repair is tracked to connect canonical progress, durable delivery health and authorized dead-letter inspection to the application router, preserving unavailable responses for missing dependencies and refusing unapproved deletion."
+
+[task.18.1695.1]
+title = "Issue #1695: Wire indexer status to canonical progress and authorized durable operations"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181695.1"]
+capabilities = []
+interfaces = []
+do_1 = "Update New at services/launchpad/indexer/internal/app/app.go:98 and its RegisterStatus call at :610 to select StatusCanonical for the production canonical processor, retaining the actual epoch-guarded delivery store constructed at :309 and the processor stream set at :587 for StatusDeps; select StatusLegacy explicitly for the nonproduction compatibility adapter, never as a fallback for missing canonical dependencies."
+do_2 = "Extend the bound deliveryRuntimeDocument at services/launchpad/indexer/internal/app/app.go:853 and DeliveryParameters at services/launchpad/indexer/internal/app/render.go:25 to carry an explicit positive delivery lag budget and optional dead-letter policy configuration, and preserve these inputs through RenderRuntimeDocuments at :50; validate supplied values, preserve document hash binding, require a positive configured canonical lag budget without inventing an approval or silently substituting a default, and update the renderer assertions at services/launchpad/indexer/internal/app/render_test.go:56 for the extended document."
+do_3 = "When dead-letter operations are configured, construct the existing httpapi.AuditedDeadLetters from services/launchpad/indexer/internal/httpapi/deadletter.go:24 with the actual least-privilege database, delivery and security schemas, trusted ServiceAssertionVerifier, audience and policy version, and pass it into RegisterStatus; incomplete configured policy must fail closed, an absent policy must leave operations unavailable, and scoped retention authority must not enable deletion, as required at deadletter.go:103."
+do_4 = "Add TestIndexerStatus1695 in services/launchpad/indexer/internal/app/status_1695_test.go to exercise the router returned by New using bound runtime documents and real database, delivery and assertion components, without constructing StatusDeps in the test or replacing dependencies with mocks; prove healthy canonical status returns 200 with the committed stream height and durable delivery metrics, quarantine or excessive lag returns degraded/503, missing or failed canonical reads return unavailable/503, and explicit compatibility mode reads the legacy cursor."
+do_5 = "In TestIndexerStatus1695 also prove that missing policy returns 503, valid signed inspection with a durable operator session and current MFA returns redacted durable quarantine metadata and writes an authorization decision, unsigned or insufficiently scoped requests fail authorization, and drain remains denied without deleting records; use genuine mutual TLS for the assertion verifier, test invalid lag and policy inputs, and keep every existing handler assertion intact."
+symbols = ["New", "deliveryRuntimeDocument", "DeliveryParameters", "RenderRuntimeDocuments", "TestRenderedProductionDocumentsBoot", "TestIndexerStatus1695"]
+touches = ["services/launchpad/indexer/internal/app/app.go", "services/launchpad/indexer/internal/app/render.go", "services/launchpad/indexer/internal/app/render_test.go", "services/launchpad/indexer/internal/app/status_1695_test.go"]
+tests = ["services/launchpad/indexer/internal/app/status_1695_test.go::TestIndexerStatus1695", "services/launchpad/indexer/internal/app/render_test.go::TestRenderedProductionDocumentsBoot"]
+planned_paths = ["services/launchpad/indexer/internal/app/status_1695_test.go"]
+build_cmd = "cd services/launchpad/indexer && GOWORK=off go build ./internal/app/..."
+verify_cmd = "cd services/launchpad/indexer && GOWORK=off go test -count=1 ./internal/app/ -run '^(TestIndexerStatus1695|TestRenderedProductionDocumentsBoot)$'"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181695]
+title = "Indexer status reflects its selected progress mode and authorized durable operations"
+ac_1 = "Given the production application registration at services/launchpad/indexer/internal/app/app.go:610, healthy canonical storage and delivery with an explicitly configured positive lag budget produce HTTP 200 and the actual canonical watermark, quarantine or excessive lag produces degraded/503, and unavailable dependencies produce unavailable/503 under the unchanged handler rules at services/launchpad/indexer/internal/httpapi/status.go:63 and :94; compatibility mode is selected explicitly and reads its legacy cursor."
+ac_2 = "Given configured durable dead-letter operations, the application supplies the audited policy defined at services/launchpad/indexer/internal/httpapi/deadletter.go:24 so authenticated scoped inspection returns redacted metadata and records authorization decisions, unauthorized requests are refused, missing policy remains unavailable under status.go:135, and drain never bypasses the separate retention approval required by deadletter.go:103."
+
+[acceptance.18.1695.1]
+feature = "18"
+req = "181695.1"
+scenario = "Given a configured indexer application with canonical commits, durable delivery state and authorized operational policy, when its mounted status and dead-letter routes are requested, then healthy canonical status reports the real height and delivery health, unhealthy or unavailable dependencies return 503, authorized inspection is audited and redacted, and unauthorized inspection or unapproved deletion is refused."
+contract = "contracts/services.md#launchpad-indexer"
+test = "services/launchpad/indexer/internal/app/status_1695_test.go::TestIndexerStatus1695 (planned)"
+qualification = "UNRUN"

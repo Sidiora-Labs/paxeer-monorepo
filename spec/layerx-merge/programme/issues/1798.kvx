@@ -1,0 +1,7 @@
+[issue.1798]
+number = 1798
+title = "[Coherence] Existing wallet SDK and wallet app tests still assert that px_ reads go to the hosted transport or fail without hostedUrl"
+revision = "a910fdedd579e63379ae6c2e4d4971990d28f8ad"
+verdict = "already-fixed"
+evidence = "Commits 5577807085a205dc03e13c98ad58d876c8d3e1c6 and d15bd08924d04cc597dd6798b7cb5157dc479e97 corrected the cited tests: sdk/wallet/test/endpoint.test.ts:237 expects one mixed node batch, sdk/wallet/test/repair-22-31-238.test.ts:600 and :627 and :646 restrict missing-hostedUrl refusals to px_register and expect px_getNetwork at /node, and apps/wallet/src/account/repair-22-33-161.test.ts:328 and :352 assert node bank reads and reserve missing-hostedUrl refusals for px_register and px_requestFunds, matching sdk/wallet/src/endpoint.ts:82 and :85 and :105 and :109."
+close_comment = "The wallet SDK and wallet app tests now match node-root routing for px_ reads, including a single mixed read batch and bank reads through the node endpoint. Missing hostedUrl is checked only for hosted registration and funding operations; the cited stale assertions have already been corrected."

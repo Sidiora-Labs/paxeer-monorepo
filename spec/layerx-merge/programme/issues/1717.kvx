@@ -1,0 +1,48 @@
+[issue.1717]
+number = 1717
+title = "Search results render two desktop headers after shell migration"
+revision = "a910fdedd579e63379ae6c2e4d4971990d28f8ad"
+verdict = "task"
+evidence = "The shell migration in commit 6affbc654e0ec0d794b9c85b56ae5b69de33abcf remains in apps/explorer/pages/search-results.tsx:12 and :28, which wrap either results page in LayoutSearchResults whose apps/explorer/ui/shared/layout/LayoutSearchResults.tsx:12 mounts the full HeaderDesktop through apps/explorer/ui/shared/layout/components/NavBar.tsx:5 and apps/explorer/ui/snippets/header/HeaderDesktop.tsx:19, while apps/explorer/ui/pages/SearchResults.tsx:297 and apps/explorer/ui/multichain/searchResults/SearchResults.tsx:152 each mount another results-bound HeaderDesktop, contrary to spec/layerx-merge/programme/docs/explorer-ui/design-brief.md:84, and apps/explorer/ui/snippets/header/repair-22-35-2.spec.tsx:128 tests only a generic child."
+close_comment = "Confirmed: ordinary and multichain search results show duplicate desktop navigation bars. The correction will keep one header with results-bound search controls in both modes and preserve mobile search and navigation."
+
+[task.18.1717.1]
+title = "Issue #1717: Render one desktop header on both search-results routes"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181717.1"]
+capabilities = []
+interfaces = []
+do_1 = "Remove the redundant Layout.NavBar at apps/explorer/ui/shared/layout/LayoutSearchResults.tsx:12 so the route composition at apps/explorer/pages/search-results.tsx:28 retains exactly the page-owned desktop header and its results-bound SearchResultsInput from apps/explorer/ui/pages/SearchResults.tsx:272 and :297 or apps/explorer/ui/multichain/searchResults/SearchResults.tsx:52 and :152, preserving the mobile headers at apps/explorer/ui/pages/SearchResults.tsx:292 and apps/explorer/ui/multichain/searchResults/SearchResults.tsx:147."
+do_2 = "Add apps/explorer/ui/shared/layout/LayoutSearchResults.spec.tsx with a declared function searchResultsRoutesKeepOneHeaderAndLiveSearch registered as a test; compose each real results page through the actual search-results route getLayout at apps/explorer/pages/search-results.tsx:28 with the real router, query hooks and application providers, exercise desktop and mobile breakpoints in both configurations, assert exactly one desktop header with navigation, brand, settings and account controls and one correctly visible mobile header, edit and submit desktop and mobile search controls and assert the resulting search term and route query update while multichain tab and chain selection remain usable, and open the mobile navigation menu without replacing the results pages, headers or search hooks with test doubles."
+symbols = ["LayoutSearchResults", "searchResultsRoutesKeepOneHeaderAndLiveSearch"]
+touches = ["apps/explorer/ui/shared/layout/LayoutSearchResults.tsx", "apps/explorer/ui/shared/layout/LayoutSearchResults.spec.tsx"]
+tests = ["apps/explorer/ui/shared/layout/LayoutSearchResults.spec.tsx::searchResultsRoutesKeepOneHeaderAndLiveSearch"]
+planned_paths = ["apps/explorer/ui/shared/layout/LayoutSearchResults.spec.tsx"]
+build_cmd = "pnpm --dir apps/explorer exec tsc --noEmit"
+verify_cmd = "pnpm --dir apps/explorer exec vitest run ui/shared/layout/LayoutSearchResults.spec.tsx -t '^searchResultsRoutesKeepOneHeaderAndLiveSearch$'"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181717]
+title = "Both search-results modes retain one desktop navigation header and usable responsive search"
+ac_1 = "Given ordinary and multichain search-results pages composed through apps/explorer/pages/search-results.tsx:28 and apps/explorer/ui/shared/layout/LayoutSearchResults.tsx:10, desktop shows exactly one navigation, brand, settings and account header whose search input updates the displayed results term, and mobile retains one visible header with working search and navigation controls, preserving the page-owned bindings at apps/explorer/ui/pages/SearchResults.tsx:272 and apps/explorer/ui/multichain/searchResults/SearchResults.tsx:52."
+
+[acceptance.18.1717.1]
+feature = "18"
+req = "181717.1"
+scenario = "Given either ordinary or multichain search results for q=test inside the actual route layout, when rendered at desktop and mobile breakpoints and the search and mobile navigation controls are used, then desktop has exactly one complete navigation header with a results-bound search input and mobile search and navigation remain usable in both configurations."
+contract = "contracts/explorer-frontend.md#pages"
+test = "apps/explorer/ui/shared/layout/LayoutSearchResults.spec.tsx::searchResultsRoutesKeepOneHeaderAndLiveSearch (planned)"
+qualification = "UNRUN"

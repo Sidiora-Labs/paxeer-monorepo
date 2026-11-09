@@ -1,0 +1,49 @@
+[issue.1592]
+number = 1592
+title = "[Coherence] The audit record reports the launchpad-user contract as missing, but spec/layerx-merge/contracts/services.md exists and has a launchpad-user section"
+revision = "bb8caac8b3e73e3e2f4b330805574f0bcb540641"
+verdict = "task"
+evidence = "spec/layerx-merge/programme/audit/records/22.30.42.kvx:703, :714, :725 and :1018 still claim the contract is absent, but spec/layerx-merge/contracts/services.md:3537 defines launchpad-user and :3593 lists its covering tasks, while spec/layerx-merge/interfaces.kvx:148706, :148716 and :148726 retain that valid contract link alongside signatures contradicted by services/launchpad/user/internal/account/v2_wire.go:13, :31 and v2_owner_wire.go:11."
+close_comment = "The launchpad-user contract exists under spec/layerx-merge/contracts/services.md and the three registry links resolve to it. A focused audit-record correction is planned to remove the false missing-contract claims and replacement proposals while retaining the genuine adapter-signature findings."
+
+[task.18.1592.1]
+title = "Issue #1592: Correct the launchpad-user contract presence in the audit record"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181592.1"]
+capabilities = []
+interfaces = []
+do_1 = "Correct the observed and proposal fields of owner-adapter-registry-signature, profile-adapter-registry-signature and watch-adapter-registry-signature in spec/layerx-merge/programme/audit/records/22.30.42.kvx:703-727: remove the false absent-contract claims and instructions to replace the link; explicitly retain contracts/services.md#launchpad-user in each proposal, preserving the concrete signature discrepancies confirmed by services/launchpad/user/internal/account/v2_wire.go:13 and :31 and v2_owner_wire.go:11, :47 and :61 against spec/layerx-merge/interfaces.kvx:148703, :148713 and :148723."
+do_2 = "Correct spec/layerx-merge/programme/audit/records/22.30.42.kvx:1016-1019 doc.14 to status accurate with notes identifying the existing spec/layerx-merge/contracts/services.md#launchpad-user section at spec/layerx-merge/contracts/services.md:3537-3612, its variables, interfaces and covering tasks 4.23.1-4.23.4; preserve the three signature findings, severity, blocking list and audit counts."
+do_3 = "Use the focused record check to assert all three findings remain, their observations contain no absent or missing claims, each proposal retains contracts/services.md#launchpad-user without replacement instructions, and doc.14 records accurate status and the resolved spec-relative contract target."
+symbols = []
+touches = ["spec/layerx-merge/programme/audit/records/22.30.42.kvx"]
+tests = []
+planned_paths = []
+build_cmd = "true"
+verify_cmd = "awk '/^\\[/{scope=0} /^\\[finding\\.(owner|profile|watch)-adapter-registry-signature\\]$/{scope=1; findings++} /^\\[doc\\.14\\]$/{scope=2} scope==1 && /^observed = /{observed++; if ($0 ~ /absent|missing/) bad=1} scope==1 && /^proposal = /{proposals++; if ($0 !~ /contracts\\/services.md#launchpad-user/ || $0 ~ /replace|missing/) bad=1} scope==2 && /^status = .accurate.$/{present++} scope==2 && /^notes = / && /spec\\/layerx-merge\\/contracts\\/services.md#launchpad-user/{notes++} END{exit(bad || findings!=3 || observed!=3 || proposals!=3 || present!=1 || notes!=1)}' spec/layerx-merge/programme/audit/records/22.30.42.kvx"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-programme"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181592]
+title = "Launchpad-user audit findings distinguish signature drift from valid contract links"
+ac_1 = "Given the launchpad-user anchor at spec/layerx-merge/contracts/services.md:3537 and valid links at spec/layerx-merge/interfaces.kvx:148706, :148716 and :148726, the three findings in spec/layerx-merge/programme/audit/records/22.30.42.kvx:698-729 retain their signature discrepancies without absent-contract claims or replacement proposals, and doc.14 at :1016-1019 records the contract as accurate and identifies its resolved target."
+
+[acceptance.18.1592.1]
+feature = "18"
+req = "181592.1"
+scenario = "Given the existing launchpad-user contract and the three mismatched adapter signatures, when the audit record is corrected, then the three signature findings remain, every proposal retains the valid contract link, and doc.14 records the page as accurate with its spec-relative target."
+contract = "contracts/services.md#launchpad-user"
+test = "spec/layerx-merge/programme/audit/records/22.30.42.kvx::focused awk contract-presence and signature-finding checks (planned)"
+qualification = "UNRUN"

@@ -1,0 +1,51 @@
+[issue.1747]
+number = 1747
+title = "[Coherence] native_approval_clock_units and native_producer_clock_units run the same nonce-test helper and never touch the approval or producer paths they claim to prove"
+revision = "a910fdedd579e63379ae6c2e4d4971990d28f8ad"
+verdict = "task"
+evidence = "services/human/crates/layerx-human-service/tests/repair_22_33_63.rs:21 and :26 still call the same nonce helper at services/human/crates/layerx-human-service/tests/native_send_nonces.rs:486, which only validates and reloads consent using the constants at :42 and :44, whereas the claimed source tests exercise JourneyEngine::start_native and approval decisions at services/human/crates/layerx-human-service/tests/native_journey_approval.rs:665 and :882 and preview_send_v2 at services/human/crates/layerx-human-service/tests/native_send_producer.rs:642; services/human/crates/layerx-human-service/tests/repair_22_33_63.kvx:29 and :34 therefore map these regressions to paths they do not execute."
+close_comment = "The clock-unit regressions currently exercise session access without reaching native Journey approval or V2 send preview. A follow-up task will give each path its own consent-expiry and reopen regression and align the evidence record with those tests."
+
+[task.18.1747.1]
+title = "Issue #1747: Exercise native approval and V2 preview in their clock-unit regressions"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181747.1"]
+capabilities = []
+interfaces = []
+do_1 = "Replace the duplicate nonce-helper calls in services/human/crates/layerx-human-service/tests/repair_22_33_63.rs:21 and :26 with distinct regressions: native_approval_clock_units must start a real JourneyEngine, reach AwaitingApproval, reopen the retained journey and drive the production approval decision and resume paths; native_producer_clock_units must obtain signed owner consent through the production producer and call preview_send_v2 before and after reopening the principal store. Follow the behavior exercised by services/human/crates/layerx-human-service/tests/native_journey_approval.rs:651, :665, :839 and :882 and services/human/crates/layerx-human-service/tests/native_send_producer.rs:598, :642 and :790."
+do_2 = "Use distinct approval and producer scenarios with seconds passed to session and Journey APIs and milliseconds to consent and purpose expiry comparisons; assert acceptance before the actual signed expiry and refusal at and after it, stable consent and action bindings after reopen, the approval outcome, and the preview canonical bytes and purpose. Exercise production encoders, daemon handlers, transport clients and stores with deterministic public test keys and committed producer-generated recordings where needed; do not fabricate approval facts, substitute the nonce round trip, edit persisted journey state to manufacture approval, or require protected fixtures or a live endpoint. Preserve the existing genuine approval and producer tests and their assertions."
+do_3 = "Update only the two clock-unit finding blocks at services/human/crates/layerx-human-service/tests/repair_22_33_63.kvx:27 and :32 to identify the actual proving cases and their distinct approval and V2 preview paths; retain unrelated findings and qualification limitations and claim no qualification that did not run. Run only the two clock_units regressions in the repair_22_33_63 integration target."
+symbols = ["native_approval_clock_units", "native_producer_clock_units"]
+touches = ["services/human/crates/layerx-human-service/tests/repair_22_33_63.rs", "services/human/crates/layerx-human-service/tests/repair_22_33_63.kvx"]
+tests = ["services/human/crates/layerx-human-service/tests/repair_22_33_63.rs::native_approval_clock_units", "services/human/crates/layerx-human-service/tests/repair_22_33_63.rs::native_producer_clock_units"]
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --test repair_22_33_63"
+verify_cmd = "cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --test repair_22_33_63 clock_units"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-human"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181747]
+title = "Clock-unit regressions prove native approval and native V2 preview separately"
+ac_1 = "The case replacing services/human/crates/layerx-human-service/tests/repair_22_33_63.rs:21 reaches the production Journey start, approval decision and resume paths represented by services/human/crates/layerx-human-service/tests/native_journey_approval.rs:665 and :882, accepts unexpired consent, refuses expired consent and preserves authority across reopen."
+ac_2 = "The case replacing services/human/crates/layerx-human-service/tests/repair_22_33_63.rs:26 reaches preview_send_v2 as at services/human/crates/layerx-human-service/tests/native_send_producer.rs:642, accepts consent before expiry, refuses at and after expiry and retains identical canonical action and consent bindings across reopen with seconds and milliseconds passed to their matching APIs."
+ac_3 = "The mappings at services/human/crates/layerx-human-service/tests/repair_22_33_63.kvx:29 and :34 identify the actual proving tests, and neither clock-unit case is satisfied by services/human/crates/layerx-human-service/tests/native_send_nonces.rs:486 alone."
+
+[acceptance.18.1747.1]
+feature = "18"
+req = "181747.1"
+scenario = "Given distinct native approval and V2 preview consent scenarios, when their clock-unit regressions exercise the production paths before expiry and at and after expiry with matching time units and reopen retained state, then each path accepts only unexpired consent, preserves the original action and authority across reopen and is identified by its own proving test in the evidence record."
+contract = "contracts/agent-human-peer.md#native-effect-approval-decide-v3"
+test = "services/human/crates/layerx-human-service/tests/repair_22_33_63.rs::native_approval_clock_units and services/human/crates/layerx-human-service/tests/repair_22_33_63.rs::native_producer_clock_units (planned)"
+qualification = "UNRUN"

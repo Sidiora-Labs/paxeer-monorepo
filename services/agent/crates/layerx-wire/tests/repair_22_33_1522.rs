@@ -1,10 +1,10 @@
 //! Task record 22.33.1522, audit 22.30.92, acceptance 22998.1.
-//! wire_activity_retired: wire_activity_retired_native_receipts_need_no_envelope.
-//! wire_activity_hash: wire_activity_hash_preserves_native_identity_and_accounts.
-//! wire_exports: wire_exports_archive_codec_is_explicitly_historical.
-//! checkpoint_codec_bounds: checkpoint_codec_bounds_maximum_fields_round_trip,
-//! checkpoint_codec_bounds_refuses_the_next_byte_and_field_element.
-//! wire_sign_retired: wire_sign_retired_keeps_receipt_signature_verification.
+//! `wire_activity_retired`: `wire_activity_retired_native_receipts_need_no_envelope`.
+//! `wire_activity_hash`: `wire_activity_hash_preserves_native_identity_and_accounts`.
+//! `wire_exports`: `wire_exports_archive_codec_is_explicitly_historical`.
+//! `checkpoint_codec_bounds`: `checkpoint_codec_bounds_maximum_fields_round_trip`,
+//! `checkpoint_codec_bounds_refuses_the_next_byte_and_field_element`.
+//! `wire_sign_retired`: `wire_sign_retired_keeps_receipt_signature_verification`.
 //!
 //! Baseline: not executed. The ordered gate instructions prohibit tests before
 //! complete implementation and direct verify runs; this target did not exist
@@ -20,17 +20,17 @@
 //! codec. The no-custody wire dev-dependency cannot call the custody-gated EVM
 //! producer; its real Go-produced transaction/receipt transcripts are used here.
 //! Wiring request (domain 9): layerx-crypto/src/{disclosure,onboarding,send}.rs
-//! must move archive imports to historical and current callers to evm_transaction
-//! and disclosure::call before removing wire's deprecated source aliases.
-//! Wiring request (domain 9): layerx-agentd/src/{ops/program,protocol_evidence,
-//! human_runtime,human_runtime/native_receipt,prepare/mod,sign_legacy,approval/native_effect,
-//! approval/program_requirement}.rs must use native transaction hashes, signing
-//! digests and bound disclosures for live calls, and historical for archives.
-//! Wiring request (domain 9): layerx-sdk/src/{program_http,programs/native_activity}.rs
+//! must move archive imports to historical and current callers to `evm_transaction`
+//! and `disclosure::call` before removing wire's deprecated source aliases.
+//! Wiring request (domain 9):
+//! `layerx-agentd/src/{ops/program,protocol_evidence,human_runtime,human_runtime/native_receipt,prepare/mod,sign_legacy,approval/native_effect,approval/program_requirement}.rs`
+//! must use native transaction hashes, signing digests and bound disclosures for
+//! live calls, and historical for archives.
+//! Wiring request (domain 9): `layerx-sdk/src/{program_http,programs/native_activity}.rs`
 //! must use native transaction identities and call-bound disclosures.
-//! Wiring request (domain 9): layerx-wire/tests/{hashing,rejection,structures,
-//! wallet_vectors}.rs and archive consumers in layerx-{crypto,agentd}/tests must
-//! import historical before deleting the deprecated aliases; retain every test.
+//! Wiring request (domain 9): `layerx-wire/tests/{hashing,rejection,structures,wallet_vectors}.rs`
+//! and archive consumers in layerx-{crypto,agentd}/tests must import historical
+//! before deleting the deprecated aliases; retain every test.
 //! Paths above are relative to services/agent/crates.
 
 use std::fmt::Debug;

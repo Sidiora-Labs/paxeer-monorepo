@@ -1,0 +1,48 @@
+[issue.1771]
+number = 1771
+title = "[Coherence] Explorer docs relocation leaves the image builder reading the deleted environment catalogue"
+revision = "a910fdedd579e63379ae6c2e4d4971990d28f8ad"
+verdict = "task"
+evidence = "Commits 68bc33ddbdfd44bbc0031aba83991d218933da72 and c3434a1ae48f33ea5c452993b87d080d0fc5bf87 repaired the catalogue copy and build-context allowlist (docker/explorer-frontend/Dockerfile:89 and docker/explorer-frontend/Dockerfile.dockerignore:3), but .github/workflows/explorer-images.yml:7 and .github/workflows/explorer-images.yml:16 still omit catalogue-only changes, while apps/explorer/deploy/scripts/collect_envs.sh:10 checks existence alone and its pipeline at apps/explorer/deploy/scripts/collect_envs.sh:28 can mask an unreadable-input error."
+close_comment = "The frontend image now includes the relocated environment catalogue and rejects missing input. Catalogue-only changes still need to trigger image regeneration, and unreadable catalogue input must stop collection before environment files are written."
+
+[task.18.1771.1]
+title = "Issue #1771: Complete Explorer catalogue rebuild triggers and input validation"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181771.1"]
+capabilities = []
+interfaces = []
+do_1 = "Add docs/explorer/ENVS.md to both push and pull_request path filters in .github/workflows/explorer-images.yml:7 and .github/workflows/explorer-images.yml:16; make apps/explorer/deploy/scripts/collect_envs.sh:10 reject unreadable documents before either output is touched and propagate catalogue read failures from its pipeline at apps/explorer/deploy/scripts/collect_envs.sh:28, preserving the existing missing-document rejection and the corrected Dockerfile catalogue mapping at docker/explorer-frontend/Dockerfile:89 and docker/explorer-frontend/Dockerfile:94."
+do_2 = "Extend tools/qualification/audit_repairs/test_repair_22_31_599.py:10 to resolve the actual builder COPY and collector paths together with the Dockerfile.dockerignore allowlist and collect the real catalogue at that destination in a temporary directory; strengthen test_collect_envs_writes_registry_from_consolidated_docs at line 21 to assert NEXT_PUBLIC_APP_HOST, NEXT_PUBLIC_NETWORK_ID and NEXT_PUBLIC_API_HOST entries from docs/explorer/ENVS.md:94, docs/explorer/ENVS.md:112 and docs/explorer/ENVS.md:133; add test_explorer_catalogue_changes_trigger_images for catalogue-only changes in both workflow events and test_collect_envs_rejects_unreadable_document using a real permission-denied file and an unprivileged process, asserting nonzero exit, a diagnostic and no creation or modification of either output; retain test_collect_envs_rejects_missing_document at line 39."
+symbols = ["test_builder_collects_envs_from_consolidated_docs", "test_collect_envs_writes_registry_from_consolidated_docs", "test_explorer_catalogue_changes_trigger_images", "test_collect_envs_rejects_unreadable_document"]
+touches = [".github/workflows/explorer-images.yml", "apps/explorer/deploy/scripts/collect_envs.sh", "tools/qualification/audit_repairs/test_repair_22_31_599.py"]
+tests = ["tools/qualification/audit_repairs/test_repair_22_31_599.py::test_builder_collects_envs_from_consolidated_docs", "tools/qualification/audit_repairs/test_repair_22_31_599.py::test_collect_envs_writes_registry_from_consolidated_docs", "tools/qualification/audit_repairs/test_repair_22_31_599.py::test_collect_envs_rejects_missing_document", "tools/qualification/audit_repairs/test_repair_22_31_599.py::test_explorer_catalogue_changes_trigger_images", "tools/qualification/audit_repairs/test_repair_22_31_599.py::test_collect_envs_rejects_unreadable_document"]
+planned_paths = []
+build_cmd = "bash -n apps/explorer/deploy/scripts/collect_envs.sh && python3 -m py_compile tools/qualification/audit_repairs/test_repair_22_31_599.py"
+verify_cmd = "python3 -m pytest tools/qualification/audit_repairs/test_repair_22_31_599.py -q"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181771]
+title = "Explorer catalogue updates regenerate images and invalid input fails before output changes"
+ac_1 = "Given a change confined to docs/explorer/ENVS.md, both workflow path filters at .github/workflows/explorer-images.yml:7 and .github/workflows/explorer-images.yml:16 select image regeneration, and the builder catalogue mapping at docker/explorer-frontend/Dockerfile:89 and docker/explorer-frontend/Dockerfile:94 produces a registry containing NEXT_PUBLIC_APP_HOST, NEXT_PUBLIC_NETWORK_ID and NEXT_PUBLIC_API_HOST; missing or unreadable input to apps/explorer/deploy/scripts/collect_envs.sh:9 exits nonzero with a diagnostic before creating or modifying .env.registry or .env."
+
+[acceptance.18.1771.1]
+feature = "18"
+req = "181771.1"
+scenario = "Given the relocated Explorer catalogue and production image configuration, when only the catalogue changes and the collector processes valid, missing or unreadable input, then both workflow events select regeneration, valid input produces known registry entries through the builder mapping, and invalid input fails visibly without changing environment outputs."
+contract = "contracts/explorer-frontend-config.md#cfg-app"
+test = "tools/qualification/audit_repairs/test_repair_22_31_599.py::test_explorer_catalogue_changes_trigger_images; tools/qualification/audit_repairs/test_repair_22_31_599.py::test_builder_collects_envs_from_consolidated_docs; tools/qualification/audit_repairs/test_repair_22_31_599.py::test_collect_envs_writes_registry_from_consolidated_docs; tools/qualification/audit_repairs/test_repair_22_31_599.py::test_collect_envs_rejects_missing_document; tools/qualification/audit_repairs/test_repair_22_31_599.py::test_collect_envs_rejects_unreadable_document (planned)"
+qualification = "UNRUN"
