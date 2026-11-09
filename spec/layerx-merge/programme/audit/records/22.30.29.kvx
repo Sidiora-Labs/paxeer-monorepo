@@ -2,13 +2,19 @@
 
 [audit.22.30.29]
 task = "22.30.29"
-revision = "6d2c32a65a1c7989a6a37abf5965929de9769ae4"
+revision = "0f3fe6b8c5c1973c0e80408097cf66e06e40785f"
 files_reviewed = 111
-findings = 41
+findings = 49
 docs_reviewed = 16
 upgrade_ready = false
 blocking = ["active-rebuild-restart"]
-review_basis = "Whole-file static review against the package requirements, interface registry and merged-network brief. No application suite, provider workload, frozen install or capacity gate was executed. Requirement22076 concerns manifests and lockfiles outside this member set; the audit does not assert dependency advisory closure."
+review_basis = "Contract reconciliation at the recorded revision against all 111 package members, preserving the original whole-file audit and its unresolved findings. Registry contracts/ links resolve relative to spec/layerx-merge, not the repository root. Static comparisons do not qualify application behavior, dependency closure, provider workloads or capacity; only the task documentation gate is declared for this reconciliation."
+prior_revision = "6d2c32a65a1c7989a6a37abf5965929de9769ae4"
+retained_findings_basis = "The original 41 findings retain their original observation revision, severity and ownership pending owning-domain qualification evidence. Current source changes are identified in current_review and file notes; retaining a finding does not assert that its historical observed code is still present. In particular active-rebuild-restart remains the sole high finding and blocker; this documentation-only gate cannot close it."
+clients_comparison = "All 54 client members: file.001 is the slippage widget; file.002 through file.028 are the 27 auth members; file.029 through file.054 are the 26 delivery members. Compared with spec/layerx-merge/contracts/clients.md:319 (shared Go interface group) and :739 (web group). SlippageSelector delegates settings and computeMinOut to the shared trade domain at apps/launchpad/web/src/widgets/trade/slippage-selector.tsx:12 and :16; this widget declares no receipt authority. Auth carries EIP-191/ERC1271 wallet proofs, signed HTTP operations, identity assertions, session checks, mTLS and immutable audit effects, not a mandatory DID-bound transaction per operation. Delivery carries schema-1 chain-125 envelopes, transactional outbox/inbox effects, durable broker acknowledgements, ordered partitions, archive/replay generations, scoped shadow comparisons and HTTPS webhook cursors. The implementations and their Go/SQL/test members were compared as producer, persistence and consumer groups; clients.md:13 and :19 omit or misdescribe these boundaries (clients-offchain-operations, clients-receipt-authority)."
+services_comparison = "Compared all 27 auth and 26 delivery members plus the service-facing load signer/HTTP/feeder/browser/receiver and phase runners against spec/layerx-merge/contracts/services.md:25, :260 and :337. Named unavailable refusals, signed eth_sendRawTransaction writes, mTLS requests, raw-body HMAC webhooks and persisted retry/cursor identities agree with the applicable refusal/write/security intent. services.md:28 still requires separate sequencer ReceiptKeys for every receipt, unlike the node-reported block identities used by auth and load. services.md:346 and :347 omit the archive and generation recovery prerequisites implemented by NewArchive and ReplayEngine. The scoped disagreements are services-receipt-authority and services-recovery-contract, not proposals to restore a sequencer/router or to bypass provenance checks."
+tooling_comparison = "All 57 tool members: file.055 through file.078 are the 24 interface-tool members, and file.079 through file.111 are the 33 load-tool members. The tooling heading is spec/layerx-merge/contracts/launchpad.md:6820; the relevant tools group is :7040, with production rows beginning at :7090 and this slice at :7302 through :7425. Compared required options, environment inputs, executable entry points, imported helpers, Solidity/ERC1271 fixtures, deployment identity generation, evidence schemas/manifests, fixed-arrival workloads and configured provider tests. Accounting options :7303 agree with accounting_check.py:215; phase runner configuration/output options :7396 and :7401 agree with their current parsers; the JSON policies still explicitly refuse capacity qualification. Source-authority option drift and import-only modules presented as commands are concrete findings launchpad-tool-authority-options and launchpad-library-commands. Phase-2 and phase-3 manifest qualifier paths add load-phase2-qualification-command and load-phase3-qualification-command; phase-4 now names the merged specification at phase-4-scenario-manifest.json:116."
+acceptance_comparison = "Package criteria 4498.1, 4499.1 and 4499.2 agree statically with client-deployment.test.cjs:6, :8, :18 and :47 and client-deployment.cjs:17 through :29: the suite supplies the repository contracts root without CONTRACT_SOURCE_ROOT, the helper carries kind/runtime and implementation identities, and role-address drift is refused. This agrees with the capabilities at spec/layerx-merge/contracts/launchpad.md:7454 and :7455; no deployment test was executed. The operations criteria at launchpad.md:6848 through :6852, shared-config criteria at clients.md:346 and :347, web criteria at clients.md:811 through :836, and service criteria at services.md:323 through :335 and :383 through :384 name tests outside this member slice; they are not satisfied by these file verdicts. Criterion 22998.1 requires executed sweep commands and 22076.1 requires manifest/lockfile advisory and frozen-install evidence outside this slice; neither is claimed by static comparison."
 
 [file.001]
 path = "apps/launchpad/web/src/widgets/trade/slippage-selector.tsx"
@@ -30,9 +36,9 @@ note = "Read in full: transaction-bound sanitized audit envelopes and sink inbox
 
 [file.004]
 path = "sdk/launchpad/shared/auth/audit_delivery_integration_test.go"
-lines = 287
+lines = 299
 verdict = "issues"
-note = "Read in full: audit-durable-fixture. The findings identify the current authority, lifecycle or fixture disagreements and propose repairs without changing runtime behavior."
+note = "Contract reconciliation: Current source provisions broker durables through newAuditFixtureConsumer at :194 before NewConsumer; the original audit-durable-fixture observation is retained pending owning-domain qualification. Compared the signed audit envelope and actual sink/replay path with services.md:27 and clients.md:319."
 
 [file.005]
 path = "sdk/launchpad/shared/auth/authorization_test.go"
@@ -216,15 +222,15 @@ note = "Read in full: real broker fixtures provision exact durable configs and e
 
 [file.035]
 path = "sdk/launchpad/shared/delivery/natsdriver/epoch.go"
-lines = 417
+lines = 523
 verdict = "issues"
-note = "Read in full: broker-fence-resume; broker-fence-runtime-wiring. The findings identify the current authority, lifecycle or fixture disagreements and propose repairs without changing runtime behavior."
+note = "Contract reconciliation: Current source journals per-member progress and resumes the fence in fence at :369; FenceAndBind is declared at :365. Original fence findings remain historical and unresolved here; current source presence alone does not establish production wiring or crash qualification. Compared durable credential authority with services.md:27 and clients.md:319."
 
 [file.036]
 path = "sdk/launchpad/shared/delivery/natsdriver/epoch_test.go"
-lines = 304
+lines = 397
 verdict = "issues"
-note = "Read in full: broker-fence-crash-tests. The findings identify the current authority, lifecycle or fixture disagreements and propose repairs without changing runtime behavior."
+note = "Contract reconciliation: Current source declares TestEpochRealBrokerInterruptedMembersResume at :309 and PostgreSQL fence tests at :239 and :281. Retain broker-fence-crash-tests pending the owning runtime gate; test declarations are not executed recovery evidence."
 
 [file.037]
 path = "sdk/launchpad/shared/delivery/ordered_batch.go"
@@ -258,21 +264,21 @@ note = "Read in full: bounded claim and publication preserve persisted outbox re
 
 [file.042]
 path = "sdk/launchpad/shared/delivery/replay.go"
-lines = 464
+lines = 562
 verdict = "issues"
-note = "Read in full: active-rebuild-restart; rollback-generation-freshness. The findings identify the current authority, lifecycle or fixture disagreements and propose repairs without changing runtime behavior."
+note = "Contract reconciliation: Current Start at :53 accepts a matching active generation after checking manifest/status/frontier/count; Rebuild at :106 returns for an active generation. RollbackAlias at :365 has current freshness checks. Retain active-rebuild-restart and rollback-generation-freshness pending owning-domain qualification, with the high blocker unchanged. services.md:347 omits these recovery boundaries."
 
 [file.043]
 path = "sdk/launchpad/shared/delivery/replay.sql"
-lines = 45
+lines = 46
 verdict = "clean"
-note = "Read in full: archive manifests, rebuild leases, aliases, cutover history and consumer watermarks match the replay SQL users; the scope of shadow proofs is recorded against shadow.go."
+note = "Contract reconciliation: Current schema persists archive manifests, rebuild generations, aliases, cutover history and shadow coverage; the extra subject/consumer/generation scope supports the current shadow implementation. Compare services.md:345 and :347; the recovery documentation gap is services-recovery-contract."
 
 [file.044]
 path = "sdk/launchpad/shared/delivery/replay_test.go"
-lines = 16
+lines = 57
 verdict = "issues"
-note = "Read in full: replay-lifecycle-tests. The findings identify the current authority, lifecycle or fixture disagreements and propose repairs without changing runtime behavior."
+note = "Contract reconciliation: Current TestReplayPostgresLifecycle at :23 covers live lease refusal and repeated startup after promotion using the real PostgreSQL/object-store fixture. The original replay-lifecycle-tests finding is retained pending owning-domain qualification; no replay test ran in this documentation task."
 
 [file.045]
 path = "sdk/launchpad/shared/delivery/schema.sql"
@@ -282,15 +288,15 @@ note = "Read in full: outbox, inbox, retry and lease schema constraints match st
 
 [file.046]
 path = "sdk/launchpad/shared/delivery/shadow.go"
-lines = 199
+lines = 238
 verdict = "issues"
-note = "Read in full: shadow-proof-scope. The findings identify the current authority, lifecycle or fixture disagreements and propose repairs without changing runtime behavior."
+note = "Contract reconciliation: Current CompareShadowGeneration at :103 binds the consumer and generation as well as subject coverage; the original shadow-proof-scope observation remains historical pending qualification. Compare clients.md:319 and services.md:347; no scope-free proof is recommended."
 
 [file.047]
 path = "sdk/launchpad/shared/delivery/shadow_test.go"
-lines = 20
+lines = 70
 verdict = "issues"
-note = "Read in full: shadow-durable-tests. The findings identify the current authority, lifecycle or fixture disagreements and propose repairs without changing runtime behavior."
+note = "Contract reconciliation: Current TestShadowPostgresDurableObservations at :27 exercises durable comparison; retain shadow-durable-tests pending the owning runtime gate. Test source is not a claim that its database-backed assertions ran."
 
 [file.048]
 path = "sdk/launchpad/shared/delivery/store.go"
@@ -342,27 +348,27 @@ note = "Read in full: required explicit schema/spec/case inputs drive exact acco
 
 [file.056]
 path = "tools/launchpad/production/interfaces/capability_check.py"
-lines = 273
+lines = 278
 verdict = "issues"
-note = "Read in full: capability-authority-path. The findings identify the current authority, lifecycle or fixture disagreements and propose repairs without changing runtime behavior."
+note = "Contract reconciliation: Current validate at :61 refuses missing spec/bundle/chain authority and main at :248 requires those inputs. The historical path finding remains pending qualification; launchpad.md:7311, :7313 and :7315 omit required=True (launchpad-tool-authority-options)."
 
 [file.057]
 path = "tools/launchpad/production/interfaces/codegen.py"
-lines = 176
+lines = 184
 verdict = "issues"
-note = "Read in full: codegen-authority-path. The findings identify the current authority, lifecycle or fixture disagreements and propose repairs without changing runtime behavior."
+note = "Contract reconciliation: Current main at :149 requires --schema and --manifest, preserving the frozen-v1 generator and version isolation. Retain codegen-authority-path pending qualification; launchpad.md:7320 is a truncated earlier optional-input signature (launchpad-tool-authority-options)."
 
 [file.058]
 path = "tools/launchpad/production/interfaces/compatibility_check.py"
 lines = 64
 verdict = "issues"
-note = "Read in full: compatibility-authority-path. The findings identify the current authority, lifecycle or fixture disagreements and propose repairs without changing runtime behavior."
+note = "Contract reconciliation: Current main at :58 requires --manifest; launchpad.md:7322 still declares it optional. Retain compatibility-authority-path as a historical observation pending qualification; do not restore an implicit old authority."
 
 [file.059]
 path = "tools/launchpad/production/interfaces/compatibility_check_test.py"
-lines = 33
+lines = 53
 verdict = "issues"
-note = "Read in full: compatibility-test-authority. The findings identify the current authority, lifecycle or fixture disagreements and propose repairs without changing runtime behavior."
+note = "Contract reconciliation: Current bind_inputs at :15 and main at :44 require explicit --manifest/--schemas; launchpad.md:7323 and :7324 still advertise removed COMPAT_SOURCE_ROOT/COMPAT_SCHEMAS inputs. Retain compatibility-test-authority pending qualification."
 
 [file.060]
 path = "tools/launchpad/production/interfaces/contracts/ContractWalletFixture.sol"
@@ -438,51 +444,51 @@ note = "Read in full: frozen-baseline-silently-absent. The findings identify the
 
 [file.072]
 path = "tools/launchpad/production/interfaces/examples_check.py"
-lines = 279
+lines = 280
 verdict = "issues"
-note = "Read in full: examples-authority-path. The findings identify the current authority, lifecycle or fixture disagreements and propose repairs without changing runtime behavior."
+note = "Contract reconciliation: Current main at :249 requires --spec or --catalog and --contracts; launchpad.md:7343 and :7344 advertise retired default paths. Retain examples-authority-path pending qualification; the disagreement is now also recorded against the page."
 
 [file.073]
 path = "tools/launchpad/production/interfaces/examples_check_test.py"
-lines = 111
+lines = 136
 verdict = "issues"
-note = "Read in full: examples-test-authority. The findings identify the current authority, lifecycle or fixture disagreements and propose repairs without changing runtime behavior."
+note = "Contract reconciliation: Current bind_inputs at :24 and main at :125 bind explicit contracts and spec/catalog authority; launchpad.md:7351 through :7353 advertise removed EXAMPLE_* environment inputs. Retain examples-test-authority pending qualification."
 
 [file.074]
 path = "tools/launchpad/production/interfaces/materialize.py"
-lines = 403
+lines = 404
 verdict = "issues"
-note = "Read in full: materializer-authority-path. The findings identify the current authority, lifecycle or fixture disagreements and propose repairs without changing runtime behavior."
+note = "Contract reconciliation: Current main at :386 requires --spec or --catalog, --out and --frozen-v1-out and refuses version overlap. launchpad.md:7356 still publishes the prior defaults. Retain materializer-authority-path pending qualification."
 
 [file.075]
 path = "tools/launchpad/production/interfaces/persistence_check.py"
-lines = 195
+lines = 202
 verdict = "issues"
-note = "Read in full: persistence-authority-path. The findings identify the current authority, lifecycle or fixture disagreements and propose repairs without changing runtime behavior."
+note = "Contract reconciliation: Current load_inputs at :109 and main at :122 require --register and --runtime-source in this checkout; launchpad.md:7360 and :7361 describe optional inputs and a retired register default. Retain persistence-authority-path pending qualification."
 
 [file.076]
 path = "tools/launchpad/production/interfaces/test_capability_check.py"
-lines = 109
+lines = 174
 verdict = "issues"
-note = "Read in full: capability-test-authority. The findings identify the current authority, lifecycle or fixture disagreements and propose repairs without changing runtime behavior."
+note = "Contract reconciliation: Current bind_inputs at :25 and main at :158 bind explicit bundle/catalog/chain/evidence inputs; launchpad.md:7363 and :7364 still advertise removed CAPABILITY_* inputs. Retain capability-test-authority pending qualification."
 
 [file.077]
 path = "tools/launchpad/production/interfaces/test_codegen.py"
-lines = 16
+lines = 162
 verdict = "issues"
-note = "Read in full: codegen-drift-test-target. The findings identify the current authority, lifecycle or fixture disagreements and propose repairs without changing runtime behavior."
+note = "Contract reconciliation: Current CodegenTests at :86 uses isolated frozen inputs and generated outputs rather than the former default --check target. Retain codegen-drift-test-target pending qualification; the command inventory at launchpad.md:7366 alone proves no test outcome."
 
 [file.078]
 path = "tools/launchpad/production/interfaces/test_materialize.py"
-lines = 83
+lines = 234
 verdict = "issues"
-note = "Read in full: materializer-test-authority. The findings identify the current authority, lifecycle or fixture disagreements and propose repairs without changing runtime behavior."
+note = "Contract reconciliation: Current derive_authority at :17 and main at :226 bind spec/catalog and required supplementary input. Retain materializer-test-authority pending qualification; launchpad.md:7367 omits the required invocation inputs."
 
 [file.079]
 path = "tools/launchpad/production/load/README.md"
-lines = 29
+lines = 139
 verdict = "issues"
-note = "Read in full: local-load-command-doc. The findings identify the current authority, lifecycle or fixture disagreements and propose repairs without changing runtime behavior."
+note = "Contract reconciliation: Current instructions at :13 select test_load.py; :26 separates live provider discovery; :100 specifies root-path chain-125 committed-block finality and :113 binds final execution to coordinator authority. Documentation is accurate on these reviewed boundaries; retain the original local-load-command-doc finding as historical pending owning qualification."
 
 [file.080]
 path = "tools/launchpad/production/load/calibration.py"
@@ -530,7 +536,7 @@ note = "Read in full: bounded local calibration evidence does not claim managed 
 path = "tools/launchpad/production/load/phase-1-scenario-manifest.json"
 lines = 28
 verdict = "issues"
-note = "Read in full: local-load-manifest-command. The findings identify the current authority, lifecycle or fixture disagreements and propose repairs without changing runtime behavior."
+note = "Contract reconciliation: Current command at :25 selects test_load.py, matching the bounded-local label and current README:17. Retain local-load-manifest-command as historical pending owning qualification; capacity_qualified remains false."
 
 [file.088]
 path = "tools/launchpad/production/load/phase-2-evidence-policy.json"
@@ -541,8 +547,8 @@ note = "Read in full: actual journey, replay and generator evidence must share s
 [file.089]
 path = "tools/launchpad/production/load/phase-2-scenario-manifest.json"
 lines = 47
-verdict = "clean"
-note = "Read in full: declared actual phase2 provider journeys preserve exact workload and source/receiver correlation requirements with explicit external admission."
+verdict = "issues"
+note = "Contract reconciliation: Current workload command uses the real configured phase2 runner, but verify_cmd at :45 still uses legacy task 2.48 and the retired spec path (load-phase2-qualification-command). The file verdict is issues; no live journey or capacity evidence is claimed."
 
 [file.090]
 path = "tools/launchpad/production/load/phase-3-evidence-policy.json"
@@ -553,8 +559,8 @@ note = "Read in full: actual provider faults require source-bound commands, raw 
 [file.091]
 path = "tools/launchpad/production/load/phase-3-scenario-manifest.json"
 lines = 106
-verdict = "clean"
-note = "Read in full: hot-pool skew, authorization and restart/fault journeys retain real provider effects and exact latency/recovery criteria."
+verdict = "issues"
+note = "Contract reconciliation: Current fault command uses the real configured phase3 runner, but verify_cmd at :95 still uses legacy task 3.48 and the retired spec path (load-phase3-qualification-command). The file verdict is issues; the provider faults and final capacity remain separately admitted."
 
 [file.092]
 path = "tools/launchpad/production/load/phase-4-evidence-policy.json"
@@ -564,9 +570,9 @@ note = "Read in full: full shared capacity requires all49 lane authorities, nati
 
 [file.093]
 path = "tools/launchpad/production/load/phase-4-scenario-manifest.json"
-lines = 119
+lines = 125
 verdict = "issues"
-note = "Read in full: load-phase4-qualification-command. The findings identify the current authority, lifecycle or fixture disagreements and propose repairs without changing runtime behavior."
+note = "Contract reconciliation: Current verify_cmd at :116 names task 22.33.965 and spec/layerx-merge/spec.kvx; :117 adds coordinator authority. Retain load-phase4-qualification-command as historical pending owning qualification. The frozen format row at launchpad.md:7387 is not capacity evidence."
 
 [file.094]
 path = "tools/launchpad/production/load/phase2_accounts.py"
@@ -594,7 +600,7 @@ note = "Read in full: explicit primary PostgreSQL authority, read-only bounded q
 
 [file.098]
 path = "tools/launchpad/production/load/phase2_http.py"
-lines = 80
+lines = 81
 verdict = "clean"
 note = "Read in full: bounded asynchronous HTTPS requests require exact origins and explicit owned-local opt-in, preserve raw response/error evidence and timeouts."
 
@@ -606,39 +612,39 @@ note = "Read in full: source and browser event identities join on actual commit 
 
 [file.100]
 path = "tools/launchpad/production/load/phase2_receivers.py"
-lines = 203
+lines = 207
 verdict = "clean"
 note = "Read in full: real sockets enforce frozen frames, explicit source sequence and checkpoint/reconnect lifecycle; missing or regressing evidence fails."
 
 [file.101]
 path = "tools/launchpad/production/load/phase2_runner.py"
-lines = 394
+lines = 401
 verdict = "issues"
-note = "Read in full: load-route-catalog-path. The findings identify the current authority, lifecycle or fixture disagreements and propose repairs without changing runtime behavior."
+note = "Contract reconciliation: Current resolve_routes at :62 uses supplied ContractAuthority, not the historical absent v2 path; config inputs remain explicit at :375. Retain load-route-catalog-path pending owning qualification. Compare launchpad.md:7395 through :7398."
 
 [file.102]
 path = "tools/launchpad/production/load/phase2_types.py"
-lines = 120
+lines = 165
 verdict = "issues"
-note = "Read in full: load-v2-contract-path. The findings identify the current authority, lifecycle or fixture disagreements and propose repairs without changing runtime behavior."
+note = "Contract reconciliation: Current ContractAuthority at :49 binds reviewed schema/OpenAPI paths and digests to the candidate; validate_v2 at :92 requires that authority. Retain load-v2-contract-path pending owning qualification. This helper is imported, not the executable command advertised at launchpad.md:7399."
 
 [file.103]
 path = "tools/launchpad/production/load/phase3_runner.py"
-lines = 551
+lines = 552
 verdict = "clean"
 note = "Read in full: real admitted provider commands, raw fault evidence, fixed-arrival histograms and reconciliation preserve runtime and candidate bindings; absent runtime prerequisites are not replaced."
 
 [file.104]
 path = "tools/launchpad/production/load/phase4_runner.py"
-lines = 344
+lines = 343
 verdict = "issues"
-note = "Read in full: load-final-admission-path. The findings identify the current authority, lifecycle or fixture disagreements and propose repairs without changing runtime behavior."
+note = "Contract reconciliation: Current validate_runtime at :37 consumes source-bound runtime authority and validates the coordinator for final admission. Retain load-final-admission-path pending owning qualification; launchpad.md:7404 through :7409 match option names but omit this authority prerequisite."
 
 [file.105]
 path = "tools/launchpad/production/load/protocol.py"
-lines = 13
+lines = 20
 verdict = "issues"
-note = "Read in full: load-v1-contract-path. The findings identify the current authority, lifecycle or fixture disagreements and propose repairs without changing runtime behavior."
+note = "Contract reconciliation: Current validate at :10 uses the hash-pinned generated v1 schemas at :5 and :6 instead of the historical absent bundle. Retain load-v1-contract-path pending owning qualification. launchpad.md:7410 incorrectly presents this imported helper as a command."
 
 [file.106]
 path = "tools/launchpad/production/load/scheduler.py"
@@ -686,6 +692,8 @@ expected = "The authentication audit integration fixture must use the actual pre
 proposal = "In sdk/launchpad/shared/auth/audit_delivery_integration_test.go provision both durables with ConsumerConfig.BrokerConsumerConfig and js.CreateConsumer before attaching NewConsumer; preserve all sink failure and replay assertions."
 owner_domain = 4
 interface = "4.go-shared-delivery-natsdriver-new-consumer"
+observation_revision = "6d2c32a65a1c7989a6a37abf5965929de9769ae4"
+current_review = "Current source provisions broker durables through newAuditFixtureConsumer at :194 before NewConsumer; the original audit-durable-fixture observation is retained pending owning-domain qualification. Compared the signed audit envelope and actual sink/replay path with services.md:27 and clients.md:319."
 
 [finding.broker-fence-resume]
 file = "sdk/launchpad/shared/delivery/natsdriver/epoch.go"
@@ -697,6 +705,8 @@ expected = "A partially applied broker credential fence must resume after proces
 proposal = "In sdk/launchpad/shared/delivery/natsdriver/epoch.go persist per-member transition progress, recognize the reviewed replacement configuration on restart, and resume denial verification before recording aggregate success; prove crashes after rename, reload and between members."
 owner_domain = 4
 interface = "4.go-shared-delivery-natsdriver-broker-epoch-controller-fence"
+observation_revision = "6d2c32a65a1c7989a6a37abf5965929de9769ae4"
+current_review = "Current source journals per-member progress and resumes the fence in fence at :369; FenceAndBind is declared at :365. Original fence findings remain historical and unresolved here; current source presence alone does not establish production wiring or crash qualification. Compared durable credential authority with services.md:27 and clients.md:319."
 
 [finding.broker-fence-runtime-wiring]
 file = "sdk/launchpad/shared/delivery/natsdriver/epoch.go"
@@ -708,6 +718,8 @@ expected = "An admitted recovery operation must invoke actual broker credential 
 proposal = "Wire sdk/launchpad/shared/delivery/natsdriver/epoch.go into the owning launchpad recovery coordinator with explicit member authorities and durable proof consumption; expose an authorized operational entry point and qualify its real broker path."
 owner_domain = 4
 interface = "4.go-shared-delivery-natsdriver-broker-epoch-controller-fence"
+observation_revision = "6d2c32a65a1c7989a6a37abf5965929de9769ae4"
+current_review = "Current source journals per-member progress and resumes the fence in fence at :369; FenceAndBind is declared at :365. Original fence findings remain historical and unresolved here; current source presence alone does not establish production wiring or crash qualification. Compared durable credential authority with services.md:27 and clients.md:319."
 
 [finding.broker-fence-crash-tests]
 file = "sdk/launchpad/shared/delivery/natsdriver/epoch_test.go"
@@ -719,6 +731,8 @@ expected = "Recovery qualification must prove the irreversible broker changes an
 proposal = "Extend sdk/launchpad/shared/delivery/natsdriver/epoch_test.go with real broker members and process interruptions after configuration publication and reload; require resumed completion with old publish and acknowledgement credentials still denied."
 owner_domain = 4
 interface = "4.go-shared-delivery-natsdriver-broker-epoch-controller-fence"
+observation_revision = "6d2c32a65a1c7989a6a37abf5965929de9769ae4"
+current_review = "Current source declares TestEpochRealBrokerInterruptedMembersResume at :309 and PostgreSQL fence tests at :239 and :281. Retain broker-fence-crash-tests pending the owning runtime gate; test declarations are not executed recovery evidence."
 
 [finding.active-rebuild-restart]
 file = "sdk/launchpad/shared/delivery/replay.go"
@@ -730,6 +744,8 @@ expected = "A successfully promoted configured rebuild must survive an ordinary 
 proposal = "In sdk/launchpad/shared/delivery/replay.go and services/launchpad/indexer/internal/app/app.go recognize an already completed matching rebuild as successful recovery, verify the manifest and alias identity, and bypass duplicate promotion; test promotion followed by process restart with identical configuration."
 owner_domain = 4
 interface = "4.go-shared-delivery-replay-engine-start"
+observation_revision = "6d2c32a65a1c7989a6a37abf5965929de9769ae4"
+current_review = "Current Start at :53 accepts a matching active generation after checking manifest/status/frontier/count; Rebuild at :106 returns for an active generation. RollbackAlias at :365 has current freshness checks. Retain active-rebuild-restart and rollback-generation-freshness pending owning-domain qualification, with the high blocker unchanged. services.md:347 omits these recovery boundaries."
 
 [finding.rollback-generation-freshness]
 file = "sdk/launchpad/shared/delivery/replay.go"
@@ -741,6 +757,8 @@ expected = "An operational rollback must preserve the declared completeness and 
 proposal = "Before wiring RollbackAlias, add prior-generation catch-up, digest and retention checks in sdk/launchpad/shared/delivery/replay.go and bind the rollback to its current recovery authority; exercise a source advance and expired archive after promotion."
 owner_domain = 4
 interface = "4.go-shared-delivery-replay-engine-rollback-alias"
+observation_revision = "6d2c32a65a1c7989a6a37abf5965929de9769ae4"
+current_review = "Current Start at :53 accepts a matching active generation after checking manifest/status/frontier/count; Rebuild at :106 returns for an active generation. RollbackAlias at :365 has current freshness checks. Retain active-rebuild-restart and rollback-generation-freshness pending owning-domain qualification, with the high blocker unchanged. services.md:347 omits these recovery boundaries."
 
 [finding.replay-lifecycle-tests]
 file = "sdk/launchpad/shared/delivery/replay_test.go"
@@ -752,6 +770,8 @@ expected = "Replay qualification must assert the real archive, PostgreSQL projec
 proposal = "Add real PostgreSQL and object-store lifecycle coverage in sdk/launchpad/shared/delivery/replay_test.go, including duplicate startup after promotion, stale lease refusal, changed canonical data, rollback freshness and crash recovery."
 owner_domain = 4
 interface = "4.go-shared-delivery-replay-engine-promote"
+observation_revision = "6d2c32a65a1c7989a6a37abf5965929de9769ae4"
+current_review = "Current TestReplayPostgresLifecycle at :23 covers live lease refusal and repeated startup after promotion using the real PostgreSQL/object-store fixture. The original replay-lifecycle-tests finding is retained pending owning-domain qualification; no replay test ran in this documentation task."
 
 [finding.shadow-proof-scope]
 file = "sdk/launchpad/shared/delivery/shadow.go"
@@ -763,6 +783,8 @@ expected = "A cutover proof must identify the compared subject coverage and bind
 proposal = "In sdk/launchpad/shared/delivery/shadow.go and replay.sql persist the canonical subject set and consumer or generation coverage, have replay.go require the matching proof, and test rejection of a comparison made for a different subset."
 owner_domain = 4
 interface = "4.go-shared-delivery-replay-engine-promote"
+observation_revision = "6d2c32a65a1c7989a6a37abf5965929de9769ae4"
+current_review = "Current CompareShadowGeneration at :103 binds the consumer and generation as well as subject coverage; the original shadow-proof-scope observation remains historical pending qualification. Compare clients.md:319 and services.md:347; no scope-free proof is recommended."
 
 [finding.shadow-durable-tests]
 file = "sdk/launchpad/shared/delivery/shadow_test.go"
@@ -774,6 +796,8 @@ expected = "Shadow qualification must prove the actual database observation and 
 proposal = "Extend sdk/launchpad/shared/delivery/shadow_test.go with real PostgreSQL observations and outbox rows, then assert missing, extra, changed and wrong-range records prevent persisted promotion evidence."
 owner_domain = 4
 interface = "4.go-shared-delivery-replay-engine-promote"
+observation_revision = "6d2c32a65a1c7989a6a37abf5965929de9769ae4"
+current_review = "Current TestShadowPostgresDurableObservations at :27 exercises durable comparison; retain shadow-durable-tests pending the owning runtime gate. Test source is not a claim that its database-backed assertions ran."
 
 [finding.capability-authority-path]
 file = "tools/launchpad/production/interfaces/capability_check.py"
@@ -785,6 +809,8 @@ expected = "The capability qualifier must locate the reviewed authority bundle o
 proposal = "Update tools/launchpad/production/interfaces/capability_check.py to use an explicitly supplied current spec and frozen bundle, or migrate the authoritative bundle into its reviewed repository location and align its CLI and registry defaults."
 owner_domain = 4
 interface = "4.cfg-lp-tools-production-interfaces-capability-check-bundle"
+observation_revision = "6d2c32a65a1c7989a6a37abf5965929de9769ae4"
+current_review = "Current validate at :61 refuses missing spec/bundle/chain authority and main at :248 requires those inputs. The historical path finding remains pending qualification; launchpad.md:7311, :7313 and :7315 omit required=True (launchpad-tool-authority-options)."
 
 [finding.codegen-authority-path]
 file = "tools/launchpad/production/interfaces/codegen.py"
@@ -796,6 +822,8 @@ expected = "Code generation must resolve both its schema and provenance manifest
 proposal = "In tools/launchpad/production/interfaces/codegen.py migrate the schema and manifest locations together and retain traversal and output checks around the new reviewed authority; align invoking commands and registry defaults."
 owner_domain = 4
 interface = "4.cfg-lp-tools-production-interfaces-codegen-root"
+observation_revision = "6d2c32a65a1c7989a6a37abf5965929de9769ae4"
+current_review = "Current main at :149 requires --schema and --manifest, preserving the frozen-v1 generator and version isolation. Retain codegen-authority-path pending qualification; launchpad.md:7320 is a truncated earlier optional-input signature (launchpad-tool-authority-options)."
 
 [finding.compatibility-authority-path]
 file = "tools/launchpad/production/interfaces/compatibility_check.py"
@@ -807,6 +835,8 @@ expected = "The compatibility CLI and its suite must resolve the same explicit c
 proposal = "Align tools/launchpad/production/interfaces/compatibility_check.py and compatibility_check_test.py on a reviewed monorepo authority path or required manifest argument; keep hash, route, field inventory and schema checks intact."
 owner_domain = 4
 interface = "4.cfg-lp-tools-production-interfaces-compatibility-check-root"
+observation_revision = "6d2c32a65a1c7989a6a37abf5965929de9769ae4"
+current_review = "Current main at :58 requires --manifest; launchpad.md:7322 still declares it optional. Retain compatibility-authority-path as a historical observation pending qualification; do not restore an implicit old authority."
 
 [finding.compatibility-test-authority]
 file = "tools/launchpad/production/interfaces/compatibility_check_test.py"
@@ -818,6 +848,8 @@ expected = "The frozen mapping suite must exercise the current repository source
 proposal = "In tools/launchpad/production/interfaces/compatibility_check_test.py derive the repository source root and bind the current manifest explicitly; retain every negative mutation and source-hash assertion."
 owner_domain = 4
 interface = "4.env-lp-tools-compat-source-root"
+observation_revision = "6d2c32a65a1c7989a6a37abf5965929de9769ae4"
+current_review = "Current bind_inputs at :15 and main at :44 require explicit --manifest/--schemas; launchpad.md:7323 and :7324 still advertise removed COMPAT_SOURCE_ROOT/COMPAT_SCHEMAS inputs. Retain compatibility-test-authority pending qualification."
 
 [finding.contract-export-authorities]
 file = "tools/launchpad/production/interfaces/contracts/export.cjs"
@@ -829,6 +861,7 @@ expected = "A contract export must bind the current reviewed event-authority doc
 proposal = "Give tools/launchpad/production/interfaces/contracts/export.cjs an explicit hash-bound event-authority input at the current reviewed location, validate it before writing outputs, and update the owning export invocation."
 owner_domain = 4
 interface = "4.cli-lp-tools-production-interfaces-contracts-export"
+observation_revision = "6d2c32a65a1c7989a6a37abf5965929de9769ae4"
 
 [finding.frozen-baseline-silently-absent]
 file = "tools/launchpad/production/interfaces/contracts/validate.cjs"
@@ -840,6 +873,7 @@ expected = "A frozen-interface validation must require and actually compare its 
 proposal = "In tools/launchpad/production/interfaces/contracts/validate.cjs require an explicit present baseline for comparison, fail on a missing baseline, and derive frozenInterfaceCompared from the comparisons performed; preserve all exact equality assertions."
 owner_domain = 4
 interface = "4.cli-lp-tools-production-interfaces-contracts-validate"
+observation_revision = "6d2c32a65a1c7989a6a37abf5965929de9769ae4"
 
 [finding.examples-authority-path]
 file = "tools/launchpad/production/interfaces/examples_check.py"
@@ -851,6 +885,8 @@ expected = "Example generation and validation must consume the current reviewed 
 proposal = "Update tools/launchpad/production/interfaces/examples_check.py and its owning invocation to require or resolve the current spec and contract bundle together; retain exact endpoint coverage, instance validation and read-only drift checks."
 owner_domain = 4
 interface = "4.cfg-lp-tools-production-interfaces-examples-check-spec"
+observation_revision = "6d2c32a65a1c7989a6a37abf5965929de9769ae4"
+current_review = "Current main at :249 requires --spec or --catalog and --contracts; launchpad.md:7343 and :7344 advertise retired default paths. Retain examples-authority-path pending qualification; the disagreement is now also recorded against the page."
 
 [finding.examples-test-authority]
 file = "tools/launchpad/production/interfaces/examples_check_test.py"
@@ -862,6 +898,8 @@ expected = "The example regression suite must use present authoritative reposito
 proposal = "Bind current reviewed inputs in tools/launchpad/production/interfaces/examples_check_test.py and its test invocation, replacing the missing default locations without weakening endpoint counts or schema assertions."
 owner_domain = 4
 interface = "4.env-lp-tools-example-contracts"
+observation_revision = "6d2c32a65a1c7989a6a37abf5965929de9769ae4"
+current_review = "Current bind_inputs at :24 and main at :125 bind explicit contracts and spec/catalog authority; launchpad.md:7351 through :7353 advertise removed EXAMPLE_* environment inputs. Retain examples-test-authority pending qualification."
 
 [finding.materializer-authority-path]
 file = "tools/launchpad/production/interfaces/materialize.py"
@@ -873,6 +911,8 @@ expected = "The materializer must derive the current frozen contract artifacts f
 proposal = "Migrate the input, output and version-protection bindings together in tools/launchpad/production/interfaces/materialize.py and update its registered invocation; require an explicit authoritative spec rather than inventing replacement shapes."
 owner_domain = 4
 interface = "4.cfg-lp-tools-production-interfaces-materialize-spec"
+observation_revision = "6d2c32a65a1c7989a6a37abf5965929de9769ae4"
+current_review = "Current main at :386 requires --spec or --catalog, --out and --frozen-v1-out and refuses version overlap. launchpad.md:7356 still publishes the prior defaults. Retain materializer-authority-path pending qualification."
 
 [finding.persistence-authority-path]
 file = "tools/launchpad/production/interfaces/persistence_check.py"
@@ -884,6 +924,8 @@ expected = "Persistence privilege checks must bind a present reviewed migration 
 proposal = "Update tools/launchpad/production/interfaces/persistence_check.py and its invocation to name the current migration register and authoritative runtime source together, preserving the local-only connection and SQL privilege assertions."
 owner_domain = 4
 interface = "4.cfg-lp-tools-production-interfaces-persistence-check-register"
+observation_revision = "6d2c32a65a1c7989a6a37abf5965929de9769ae4"
+current_review = "Current load_inputs at :109 and main at :122 require --register and --runtime-source in this checkout; launchpad.md:7360 and :7361 describe optional inputs and a retired register default. Retain persistence-authority-path pending qualification."
 
 [finding.capability-test-authority]
 file = "tools/launchpad/production/interfaces/test_capability_check.py"
@@ -895,6 +937,8 @@ expected = "Capability regression checks must bind current repository contract s
 proposal = "Replace workstation defaults in tools/launchpad/production/interfaces/test_capability_check.py with the current repository roots and explicit reviewed bundle and evidence bindings; retain real provenance and freshness checks."
 owner_domain = 4
 interface = "4.env-lp-tools-capability-materialized-root"
+observation_revision = "6d2c32a65a1c7989a6a37abf5965929de9769ae4"
+current_review = "Current bind_inputs at :25 and main at :158 bind explicit bundle/catalog/chain/evidence inputs; launchpad.md:7363 and :7364 still advertise removed CAPABILITY_* inputs. Retain capability-test-authority pending qualification."
 
 [finding.codegen-drift-test-target]
 file = "tools/launchpad/production/interfaces/test_codegen.py"
@@ -906,6 +950,8 @@ expected = "The drift regression must alter the actual generated SDK artifact an
 proposal = "Use the emitted sdk/launchpad/shared/interfaces/v1/types.gen.go path in tools/launchpad/production/interfaces/test_codegen.py and retain both the nonzero drift result and exact stale-byte preservation assertions."
 owner_domain = 4
 interface = "4.cli-lp-tools-production-interfaces-test-codegen"
+observation_revision = "6d2c32a65a1c7989a6a37abf5965929de9769ae4"
+current_review = "Current CodegenTests at :86 uses isolated frozen inputs and generated outputs rather than the former default --check target. Retain codegen-drift-test-target pending qualification; the command inventory at launchpad.md:7366 alone proves no test outcome."
 
 [finding.materializer-test-authority]
 file = "tools/launchpad/production/interfaces/test_materialize.py"
@@ -917,6 +963,8 @@ expected = "The materializer suite must generate from the current reviewed spec 
 proposal = "Bind the current spec and supplementary bundle in tools/launchpad/production/interfaces/test_materialize.py and the owning test command, preserving all generated schema checks and version isolation assertions."
 owner_domain = 4
 interface = "4.cli-lp-tools-production-interfaces-test-materialize"
+observation_revision = "6d2c32a65a1c7989a6a37abf5965929de9769ae4"
+current_review = "Current derive_authority at :17 and main at :226 bind spec/catalog and required supplementary input. Retain materializer-test-authority pending qualification; launchpad.md:7367 omits the required invocation inputs."
 
 [finding.load-v1-contract-path]
 file = "tools/launchpad/production/load/protocol.py"
@@ -928,6 +976,8 @@ expected = "Local protocol calibration must validate exact reviewed stream schem
 proposal = "In tools/launchpad/production/load/protocol.py bind the current frozen contract bundle explicitly and update the owning local test invocation; retain positive and negative validation against the same real schema."
 owner_domain = 4
 interface = "4.cli-lp-tools-production-load-protocol"
+observation_revision = "6d2c32a65a1c7989a6a37abf5965929de9769ae4"
+current_review = "Current validate at :10 uses the hash-pinned generated v1 schemas at :5 and :6 instead of the historical absent bundle. Retain load-v1-contract-path pending owning qualification. launchpad.md:7410 incorrectly presents this imported helper as a command."
 
 [finding.load-v2-contract-path]
 file = "tools/launchpad/production/load/phase2_types.py"
@@ -939,6 +989,8 @@ expected = "The shared load harness must bind one current reviewed v2 contract b
 proposal = "Provide a required source-bound schema authority in tools/launchpad/production/load/phase2_types.py and propagate it through phase2, phase3 and phase4 configuration; migrate all consumers together without bypassing validation."
 owner_domain = 4
 interface = "4.cli-lp-tools-production-load-phase2-types"
+observation_revision = "6d2c32a65a1c7989a6a37abf5965929de9769ae4"
+current_review = "Current ContractAuthority at :49 binds reviewed schema/OpenAPI paths and digests to the candidate; validate_v2 at :92 requires that authority. Retain load-v2-contract-path pending owning qualification. This helper is imported, not the executable command advertised at launchpad.md:7399."
 
 [finding.load-route-catalog-path]
 file = "tools/launchpad/production/load/phase2_runner.py"
@@ -950,6 +1002,8 @@ expected = "The admitted workload must resolve its exact operations, methods and
 proposal = "Update tools/launchpad/production/load/phase2_runner.py and its phase4 caller to receive the reviewed OpenAPI authority with an interface digest, keeping exact category, operation and method agreement checks."
 owner_domain = 4
 interface = "4.cli-lp-tools-production-load-phase2-runner"
+observation_revision = "6d2c32a65a1c7989a6a37abf5965929de9769ae4"
+current_review = "Current resolve_routes at :62 uses supplied ContractAuthority, not the historical absent v2 path; config inputs remain explicit at :375. Retain load-route-catalog-path pending owning qualification. Compare launchpad.md:7395 through :7398."
 
 [finding.load-final-admission-path]
 file = "tools/launchpad/production/load/phase4_runner.py"
@@ -961,6 +1015,8 @@ expected = "Final load admission must refer to the reviewed current programme li
 proposal = "Replace the legacy spec and task binding in tools/launchpad/production/load/phase4_runner.py with the current coordinator authority agreed by the root programme; preserve strict admission, candidate and all49 lane checks."
 owner_domain = 4
 interface = "4.cli-lp-tools-production-load-phase4-runner"
+observation_revision = "6d2c32a65a1c7989a6a37abf5965929de9769ae4"
+current_review = "Current validate_runtime at :37 consumes source-bound runtime authority and validates the coordinator for final admission. Retain load-final-admission-path pending owning qualification; launchpad.md:7404 through :7409 match option names but omit this authority prerequisite."
 
 [finding.load-phase4-qualification-command]
 file = "tools/launchpad/production/load/phase-4-scenario-manifest.json"
@@ -972,6 +1028,8 @@ expected = "The scenario manifest must name the current reviewed qualification e
 proposal = "Update tools/launchpad/production/load/phase-4-scenario-manifest.json together with the coordinator migration, recording the current task and authority path while preserving all workload and evidence requirements."
 owner_domain = 4
 interface = "4.fmt-lp-tools-production-load-phase-4-scenario-manifest"
+observation_revision = "6d2c32a65a1c7989a6a37abf5965929de9769ae4"
+current_review = "Current verify_cmd at :116 names task 22.33.965 and spec/layerx-merge/spec.kvx; :117 adds coordinator authority. Retain load-phase4-qualification-command as historical pending owning qualification. The frozen format row at launchpad.md:7387 is not capacity evidence."
 
 [finding.local-load-command-doc]
 file = "tools/launchpad/production/load/README.md"
@@ -983,6 +1041,8 @@ expected = "The local calibration instructions must select the bounded local sui
 proposal = "In tools/launchpad/production/load/README.md document test_load.py as the local primitive command and list phase2 through phase4 invocations with their required source-bound runtime configuration and actual workload effects."
 owner_domain = 4
 interface = "4.cli-lp-tools-production-load-test-load"
+observation_revision = "6d2c32a65a1c7989a6a37abf5965929de9769ae4"
+current_review = "Current instructions at :13 select test_load.py; :26 separates live provider discovery; :100 specifies root-path chain-125 committed-block finality and :113 binds final execution to coordinator authority. Documentation is accurate on these reviewed boundaries; retain the original local-load-command-doc finding as historical pending owning qualification."
 
 [finding.local-load-manifest-command]
 file = "tools/launchpad/production/load/phase-1-scenario-manifest.json"
@@ -994,6 +1054,8 @@ expected = "The phase1 command must execute exactly the bounded local primitives
 proposal = "Change the phase1 command pattern to test_load.py in tools/launchpad/production/load/phase-1-scenario-manifest.json and keep the provider suites as their own configured qualification commands; do not skip or remove their assertions."
 owner_domain = 4
 interface = "4.fmt-lp-tools-production-load-phase-1-scenario-manifest"
+observation_revision = "6d2c32a65a1c7989a6a37abf5965929de9769ae4"
+current_review = "Current command at :25 selects test_load.py, matching the bounded-local label and current README:17. Retain local-load-manifest-command as historical pending owning qualification; capacity_qualified remains false."
 
 [finding.precompile-retirement-doc]
 file = "docs/system/precompiles.md"
@@ -1004,6 +1066,7 @@ observed = "The ABI inventory lists layerxanchor, layerxverify and custody withd
 expected = "Integrators must see which historical ABI selectors refuse after the upgrade and use committed block finality, native balance moves, bridgeOut and node proofs for the supported operations."
 proposal = "Update the tools/docs generator that owns docs/system/precompiles.md to annotate retired selectors, refusal codes and activation boundaries, link the supported node and native replacements, and regenerate the page."
 owner_domain = 6
+observation_revision = "6d2c32a65a1c7989a6a37abf5965929de9769ae4"
 
 [finding.site-beta]
 file = "docs/site/docs/operators/beta-cluster.md"
@@ -1014,6 +1077,7 @@ observed = "The cluster instructions mount a custody profile into layerxd and re
 expected = "Operators must bring up the merged paxd BFT network with native custody and committed-block finality, without the retired layerxd daemon or separate receipt-authority service."
 proposal = "Rewrite docs/site/docs/operators/beta-cluster.md around the current paxd bootstrap and native custody configuration, remove layerxd and retired authority provisioning steps, and synchronize the site and wiki operator instructions."
 owner_domain = 8
+observation_revision = "6d2c32a65a1c7989a6a37abf5965929de9769ae4"
 
 [finding.wiki-beta]
 file = "docs/wiki/BetaCluster.md"
@@ -1024,6 +1088,7 @@ observed = "The cluster instructions mount a custody profile into layerxd and re
 expected = "Operators must bring up the merged paxd BFT network with native custody and committed-block finality, without the retired layerxd daemon or separate receipt-authority service."
 proposal = "Rewrite docs/wiki/BetaCluster.md around the current paxd bootstrap and native custody configuration, remove layerxd and retired authority provisioning steps, and synchronize the site and wiki operator instructions."
 owner_domain = 8
+observation_revision = "6d2c32a65a1c7989a6a37abf5965929de9769ae4"
 
 [finding.site-agent]
 file = "docs/site/docs/agents/running.md"
@@ -1034,6 +1099,7 @@ observed = "The agent submission section sends eth_sendRawTransaction to /rpc. T
 expected = "Agent EVM submissions must use the root JSON-RPC endpoint of the chain125 api1 through api14 or api-mainnet-beta node origins; a committed receipt is final."
 proposal = "Update docs/site/docs/agents/running.md submission examples and endpoint guidance to the current node root and merged finality model, with hosted px_ gateway calls documented separately."
 owner_domain = 9
+observation_revision = "6d2c32a65a1c7989a6a37abf5965929de9769ae4"
 
 [finding.wiki-agent]
 file = "docs/wiki/RunningAnAgent.md"
@@ -1044,6 +1110,7 @@ observed = "The agent submission section sends eth_sendRawTransaction to /rpc. T
 expected = "Agent EVM submissions must use the root JSON-RPC endpoint of the chain125 api1 through api14 or api-mainnet-beta node origins; a committed receipt is final."
 proposal = "Update docs/wiki/RunningAnAgent.md submission examples and endpoint guidance to the current node root and merged finality model, with hosted px_ gateway calls documented separately."
 owner_domain = 9
+observation_revision = "6d2c32a65a1c7989a6a37abf5965929de9769ae4"
 
 [finding.site-node]
 file = "docs/site/docs/platform/hosted-node.md"
@@ -1054,6 +1121,7 @@ observed = "The page advertises an image that builds layerxd and documents layer
 expected = "The hosted node operator contract must describe paxd with its merged proposing kernel and BFT committed-block finality; layerxd, LNI and separate finality authority are retired."
 proposal = "Rewrite docs/site/docs/platform/hosted-node.md from the current paxd deployment and supported proof/query boundaries; remove daemon and authority replica startup, socket and key instructions and synchronize the site and wiki copies."
 owner_domain = 8
+observation_revision = "6d2c32a65a1c7989a6a37abf5965929de9769ae4"
 
 [finding.wiki-node]
 file = "docs/wiki/HostedNode.md"
@@ -1064,6 +1132,7 @@ observed = "The page advertises an image that builds layerxd and documents layer
 expected = "The hosted node operator contract must describe paxd with its merged proposing kernel and BFT committed-block finality; layerxd, LNI and separate finality authority are retired."
 proposal = "Rewrite docs/wiki/HostedNode.md from the current paxd deployment and supported proof/query boundaries; remove daemon and authority replica startup, socket and key instructions and synchronize the site and wiki copies."
 owner_domain = 8
+observation_revision = "6d2c32a65a1c7989a6a37abf5965929de9769ae4"
 
 [finding.site-gateway]
 file = "docs/site/docs/platform/hosted-gateway.md"
@@ -1074,6 +1143,7 @@ observed = "The gateway page declares POST /rpc, GET /rpc/schema and GET /rpc/ws
 expected = "Public node JSON-RPC uses the node root, with no unified /rpc router; hosted px_ methods are governed by services/platform/hosted/gateway/openrpc.json."
 proposal = "Rewrite docs/site/docs/platform/hosted-gateway.md route and authentication guidance around the current hosted OpenRPC contract and node root origins, remove the retired /rpc endpoints, and generate matching site and wiki method coverage."
 owner_domain = 8
+observation_revision = "6d2c32a65a1c7989a6a37abf5965929de9769ae4"
 
 [finding.wiki-gateway]
 file = "docs/wiki/HostedGateway.md"
@@ -1084,6 +1154,7 @@ observed = "The gateway page declares POST /rpc, GET /rpc/schema and GET /rpc/ws
 expected = "Public node JSON-RPC uses the node root, with no unified /rpc router; hosted px_ methods are governed by services/platform/hosted/gateway/openrpc.json."
 proposal = "Rewrite docs/wiki/HostedGateway.md route and authentication guidance around the current hosted OpenRPC contract and node root origins, remove the retired /rpc endpoints, and generate matching site and wiki method coverage."
 owner_domain = 8
+observation_revision = "6d2c32a65a1c7989a6a37abf5965929de9769ae4"
 
 [finding.site-registry]
 file = "docs/site/docs/platform/registry.md"
@@ -1094,6 +1165,7 @@ observed = "The registry topology directs operators to layerx-agent-boundary and
 expected = "Registry reads and rebuild verification must describe current chain-height state and commit/proof authority without the retired separate receipt-authority and LNI boundary topology."
 proposal = "Update docs/site/docs/platform/registry.md topology, credentials and restart procedure from the merged node-backed registry design, replacing separate authority endpoints with current chain state and proof sources and synchronizing both published copies."
 owner_domain = 8
+observation_revision = "6d2c32a65a1c7989a6a37abf5965929de9769ae4"
 
 [finding.wiki-registry]
 file = "docs/wiki/HostedRegistry.md"
@@ -1104,6 +1176,7 @@ observed = "The registry topology directs operators to layerx-agent-boundary and
 expected = "Registry reads and rebuild verification must describe current chain-height state and commit/proof authority without the retired separate receipt-authority and LNI boundary topology."
 proposal = "Update docs/wiki/HostedRegistry.md topology, credentials and restart procedure from the merged node-backed registry design, replacing separate authority endpoints with current chain state and proof sources and synchronizing both published copies."
 owner_domain = 8
+observation_revision = "6d2c32a65a1c7989a6a37abf5965929de9769ae4"
 
 [finding.sdk-generated-symbol-doc]
 file = "docs/system/sdk.md"
@@ -1114,6 +1187,95 @@ observed = "The generated Rust SDK table lists an exported item named fn with ki
 expected = "The SDK inventory must list real declared public symbols with their correct kinds and omit parser tokens from the published API surface."
 proposal = "Correct the Rust declaration extraction in the tools/docs generator for docs/system/sdk.md, regenerate the inventory and confirm actual pub const fn declarations retain their real function names."
 owner_domain = 16
+observation_revision = "6d2c32a65a1c7989a6a37abf5965929de9769ae4"
+
+[finding.launchpad-tool-authority-options]
+file = "spec/layerx-merge/contracts/launchpad.md"
+line = 7311
+class = "doc-drift"
+severity = "medium"
+observed = "The tools interface table still marks optional --spec/--bundle/--chain-bundle at :7311, :7313 and :7315, optional generator/schema and compatibility inputs at :7320 and :7322, retired examples/materializer defaults at :7343, :7344 and :7356, and optional persistence inputs at :7360 and :7361. Current capability_check.py:252 requires explicit authorities, codegen.py:150 requires --schema/--manifest, compatibility_check.py:59 requires --manifest, examples_check.py:251 requires spec/catalog and contracts, materialize.py:387 requires output/frozen-v1 authority, and persistence_check.py:126 requires register/runtime-source. The environment rows at launchpad.md:7323, :7324, :7351 through :7353, :7363 and :7364 name inputs replaced by bind_inputs/CLI entry points in their test modules."
+expected = "An operator or integrator must be able to derive the current required source-authority arguments and supported environment inputs from the contract; stale defaults must not direct generation or qualification to a retired specification."
+proposal = "Amend spec/layerx-merge/contracts/launchpad.md#launchpad-tools and its owning interface registry rows to publish the exact current parser inputs and supported test invocations, including mutually exclusive spec/catalog inputs and frozen-v1 output isolation; preserve all source and digest validation."
+owner_domain = 4
+observation_revision = "0f3fe6b8c5c1973c0e80408097cf66e06e40785f"
+
+[finding.launchpad-library-commands]
+file = "spec/layerx-merge/contracts/launchpad.md"
+line = 7368
+class = "doc-drift"
+severity = "medium"
+observed = "The cli_command rows at spec/layerx-merge/contracts/launchpad.md:7368, :7369, :7379, :7388, :7391 through :7394, :7399, :7410, :7411 and :7425 publish python3 invocations of calibration, capture, network, phase2_accounts, phase2_feeder, phase2_http, phase2_latency, phase2_receivers, phase2_types, protocol, scheduler and workload. These members define importable functions/classes without a top-level workload entry point: calibration.py:9 exposes evaluate, capture.py:229 exposes final_acceptance and phase2_feeder.py:96 exposes feed_real_transactions. The node command at :7389 similarly names phase2_browser.ts:20, which exports observeBrowserDelivery without invoking it. artifact-identity.cjs and identity-guard.cjs at :7326 and :7338 only export library checks. Executing a library file is not the documented workload or check."
+expected = "Command rows must name an executable entry point that performs the described check; library interfaces must be identified as imports and linked to the real configured runner or test that calls them."
+proposal = "Correct the library classifications and signatures in spec/layerx-merge/contracts/launchpad.md#launchpad-tools and the corresponding registry rows; link phase2_runner.py, phase3_runner.py, phase4_runner.py and admitted tests with required configuration, and document browser compilation/import through phase2_browser.tsconfig.json rather than an inert node command."
+owner_domain = 4
+observation_revision = "0f3fe6b8c5c1973c0e80408097cf66e06e40785f"
+
+[finding.clients-receipt-authority]
+file = "spec/layerx-merge/contracts/clients.md"
+line = 19
+class = "doc-drift"
+severity = "medium"
+observed = "spec/layerx-merge/contracts/clients.md:19 and :24 through :30 prescribe pax_sequencerReceipt rungs, a separate sequencer and MsgSequenceBatch; :49 through :51 mandate ReceiptKeys verification, while :20 still routes joined reads through a router. In this slice phase2_feeder.py:99, :108 and :114 uses node-root eth_chainId, eth_sendRawTransaction and eth_getTransactionReceipt; auth/reported_hash_backend.go:65 reads node-reported block identities and auth/contract.go:67 brackets state reads with pinned-height hash checks. The current load README:100 explicitly treats a receipt as final after block commit."
+expected = "BRIEF network facts 1 through 3 require the single merged BFT chain, node-root JSON-RPC and committed-block receipt finality; hosted px_ methods have their own gateway contract. The launchpad client contract must describe these actual producer/consumer boundaries instead of a retired sequencer/rung/router dependency."
+proposal = "Amend spec/layerx-merge/contracts/clients.md operations, receipt-verification and shared-Go sections to distinguish submission from committed receipts, document current node block/state proof identity checks and hosted px_ ownership, and align the affected conformance criteria without restoring ReceiptKeys or weakening proof checks."
+owner_domain = 4
+observation_revision = "0f3fe6b8c5c1973c0e80408097cf66e06e40785f"
+
+[finding.clients-offchain-operations]
+file = "spec/layerx-merge/contracts/clients.md"
+line = 13
+class = "doc-drift"
+severity = "medium"
+observed = "spec/layerx-merge/contracts/clients.md:13 claims every client operation is one of E/S/R/Q/B/W, and :17 describes every user write as an EIP-1559 transaction with DID binding. The shared-Go group at :319 includes this slice, but operation.go:62 signs KindleLaunch HTTP operation envelopes, ledger.go:60 atomically applies authorized PostgreSQL effects and replays by nonce/digest, contract.go:116 verifies EOA/ERC1271 proofs, and assertion.go:31 binds mTLS service assertions to identity and request digest. HTTP ticket/session clients and bodyless DELETE authorization are not any of the stated on-chain write/binding operations."
+expected = "The client contract must distinguish wallet-authorized off-chain HTTP effects, session/ticket reads and service assertions from on-chain EIP-1559 writes, preserving each actual replay, audience, route, body and expiry binding."
+proposal = "Amend spec/layerx-merge/contracts/clients.md operations/identity and launchpad-sdk-shared-go sections with the signed-operation, EIP-191/ERC1271, session-ticket and mTLS boundaries; attach real existing authorization/audit integration criteria separately from the unrelated preflight criteria at :346 and :347."
+owner_domain = 4
+observation_revision = "0f3fe6b8c5c1973c0e80408097cf66e06e40785f"
+
+[finding.services-receipt-authority]
+file = "spec/layerx-merge/contracts/services.md"
+line = 28
+class = "doc-drift"
+severity = "medium"
+observed = "spec/layerx-merge/contracts/services.md:28 applies separate sequencer ReceiptKeys admission to every service, and :39 lists that sequencer as private to a router; :346 makes platform-gateway the indexer dependency. The reviewed auth/reported_hash_backend.go:65 and auth/contract.go:67 instead bind wallet state to node-reported committed-block identities, while load/phase2_feeder.py:114 consumes ordinary eth_getTransactionReceipt on the node root. services.md:29 correctly requires signed chain writes, but its receipt and topology guidance would make operators provision an authority these launchpad paths do not call."
+expected = "BRIEF network facts 1 through 3 require merged paxd BFT commit finality and node-root RPC, with hosted gateway methods distinguished from node receipt/state authority. Signature checks for wallet proofs, service assertions and webhook delivery are separate contracts."
+proposal = "Amend spec/layerx-merge/contracts/services.md universal receipt rule, catalogue and launchpad dependencies to document the merged node and actual receipt/state verification paths, preserving named refusals and request/webhook signature checks; remove the separate sequencer/router requirement rather than adding it to launchpad consumers."
+owner_domain = 4
+observation_revision = "0f3fe6b8c5c1973c0e80408097cf66e06e40785f"
+
+[finding.services-recovery-contract]
+file = "spec/layerx-merge/contracts/services.md"
+line = 347
+class = "doc-drift"
+severity = "medium"
+observed = "spec/layerx-merge/contracts/services.md:347 and :352 reduce indexer recovery to re-indexing from the last committed height, and :379 through :384 list only market-topic/reserves ABI criteria. The shared slice requires actual PostgreSQL/object-store providers and source/deployment/decoder/ABI/code provenance in delivery/archive.go:55 and :61, leases and matching active generation state in replay.go:53, scoped shadow proof in shadow.go:103 and alias promotion in replay.go:254. The runtime constructs NewArchive at services/launchpad/indexer/internal/app/app.go:513 and invokes ReplayEngine.Rebuild at :557. A bare height restart omits the operational prerequisites and generation/readiness boundary."
+expected = "Operators must know the archive provenance, durable generation/lease/alias state, shadow coverage and readiness/refusal conditions required for real recovery; ABI parity tests alone cannot establish restart, cutover or rollback qualification."
+proposal = "Extend spec/layerx-merge/contracts/services.md#launchpad-indexer with the actual archive/rebuild inputs, generation and alias lifecycle, authority and failure behavior and owner-qualified restart/cutover criteria. Retain active-rebuild-restart and all related historical recovery findings until the owning domain supplies qualification evidence."
+owner_domain = 4
+observation_revision = "0f3fe6b8c5c1973c0e80408097cf66e06e40785f"
+
+[finding.load-phase2-qualification-command]
+file = "tools/launchpad/production/load/phase-2-scenario-manifest.json"
+line = 45
+class = "config-drift"
+severity = "medium"
+observed = "verify_cmd invokes tools/launchpad/production/qualify.py --task 2.48 --spec launchpad/spec/production-system/spec.kvx --require-current-source, retaining the retired authority path despite the canonical tools contract at spec/layerx-merge/contracts/launchpad.md:7383 and the merged programme. The configured workload command at :44 is separate and does not repair that qualification binding."
+expected = "The phase-2 manifest must name a current reviewed qualification task and specification for this candidate, while preserving configured live workload and source/interface evidence requirements; a file_format row does not establish successful qualification."
+proposal = "Update tools/launchpad/production/load/phase-2-scenario-manifest.json with the root-reviewed current task/spec mapping, consistent with the source-bound phase2 runner and owning coordinator. Preserve all live journey, duration and evidence assertions and do not infer full capacity from a host result."
+owner_domain = 4
+observation_revision = "0f3fe6b8c5c1973c0e80408097cf66e06e40785f"
+
+[finding.load-phase3-qualification-command]
+file = "tools/launchpad/production/load/phase-3-scenario-manifest.json"
+line = 95
+class = "config-drift"
+severity = "medium"
+observed = "verify_cmd invokes tools/launchpad/production/qualify.py --task 3.48 --spec launchpad/spec/production-system/spec.kvx --require-current-source, retaining the retired authority path despite the canonical tools contract at spec/layerx-merge/contracts/launchpad.md:7385 and the merged programme. The actual fault-runner command remains explicitly configured; its presence does not make the published qualification command valid."
+expected = "The phase-3 manifest must bind fault/recovery qualification to the current reviewed programme task and candidate authority without claiming that frozen scenario labels or isolated fault results qualify final integrated capacity."
+proposal = "Update tools/launchpad/production/load/phase-3-scenario-manifest.json with the root-reviewed current task/spec mapping and synchronize the qualification-boundary wording, keeping provider admission, real faults, reconciliation and every existing evidence assertion."
+owner_domain = 4
+observation_revision = "0f3fe6b8c5c1973c0e80408097cf66e06e40785f"
 
 [doc.01]
 path = "docs/system/precompiles.md"
@@ -1177,20 +1339,20 @@ notes = "sdk-generated-symbol-doc: line916 The generated Rust SDK table lists an
 
 [doc.13]
 path = "tools/launchpad/production/load/README.md"
-status = "misleading"
-notes = "Line3 broad unittest discovery includes live phase2 through phase4 provider gates despite the following loopback-only claim; the capacity limitations elsewhere are explicit and accurate."
+status = "accurate"
+notes = "Current tools/launchpad/production/load/README.md:13 through :28 selects test_load.py and distinguishes provider gates; :74 through :89 explains source-bound contract/coordinator inputs; :100 through :119 states committed-block finality and limits capacity claims. The prior local-load-command-doc finding remains historical and pending owning qualification, not a claim about the current README text."
 
 [doc.14]
-path = "contracts/launchpad.md"
-status = "missing"
-notes = "The interface registry links this contract page, but the page is absent in the audited checkout; the linked source declarations were used to trace actual producer and consumer contracts."
+path = "spec/layerx-merge/contracts/launchpad.md"
+status = "misleading"
+notes = "spec/layerx-merge/contracts/launchpad.md:6820 is existing tooling prose, :7040 is the tools interface group, and :7090 begins production-tool rows; :7302 through :7425 cover this slice. Compared all 24 interface-tool and 33 load-tool members, including schemas/manifests/tests and required parser inputs. Accounting inputs and phase runner --config/--config-sha256/--output names agree; source-authority defaults/environment rows :7311 through :7364 are stale and import-only modules at :7368, :7369, :7379, :7388 through :7394, :7399, :7410, :7411 and :7425 are misleading cli_command entries (launchpad-tool-authority-options, launchpad-library-commands). The :7454/:7455 client deployment capabilities agree statically with 4498.1/4499.1/4499.2 and current client-deployment source/tests. Operations criteria at :6848 through :6852 are outside the slice, not missing pages or evidence of qualification. Phase-2/3 qualifier path disagreements are recorded against their manifests; no deployment, workload or capacity gate ran."
 
 [doc.15]
-path = "contracts/clients.md"
-status = "missing"
-notes = "The interface registry links this contract page, but the page is absent in the audited checkout; the linked source declarations were used to trace actual producer and consumer contracts."
+path = "spec/layerx-merge/contracts/clients.md"
+status = "misleading"
+notes = "spec/layerx-merge/contracts/clients.md:319 covers the 27 auth and 26 delivery members and :739 covers the one web widget; the shared/interface and web acceptance tables at :342 and :807 name tests outside this slice. Auth uses EIP-191/ERC1271 wallet proofs and signed HTTP mutation/session assertions (operation.go:62, ledger.go:60, contract.go:116); delivery uses durable envelopes, broker acknowledgements, PostgreSQL generations and scoped shadow proofs. The exhaustive operation list :13/:17 omits those off-chain effects (clients-offchain-operations), while :19 through :30 and :49 through :51 prescribe retired sequencer rungs/ReceiptKeys and :20 a router, unlike reported_hash_backend.go:65 and phase2_feeder.py:99 through :118 (clients-receipt-authority). SlippageSelector and computeMinOut delegate to shared trade settings/domain and introduce no receipt authority. No unrelated receipt or web acceptance test is claimed to cover these members."
 
 [doc.16]
-path = "contracts/services.md"
-status = "missing"
-notes = "The interface registry links this contract page, but the page is absent in the audited checkout; the linked source declarations were used to trace actual producer and consumer contracts."
+path = "spec/layerx-merge/contracts/services.md"
+status = "misleading"
+notes = "spec/layerx-merge/contracts/services.md:27 and :29 agree with named refusals and signed chain writes, and :30 is consistent with reference-based webhook secrets. Compared auth, delivery and load service consumers with :260 through :335 (gateway group and criteria) and :337 through :384 (indexer group and criteria). The universal ReceiptKeys rule :28 and sequencer/router catalogue :39 contradict node-root committed-block authority used by auth/contract.go:67 and load/phase2_feeder.py:114 (services-receipt-authority). The height-only recovery description :347/:352 omits archive provenance, generation/lease/alias and shadow-proof requirements in delivery/archive.go:55, replay.go:53/:106 and shadow.go:103 (services-recovery-contract). Gateway criteria :323/:324 exercise auth measurements outside this slice and indexer criteria :383/:384 cover ABI parity, not replay restart qualification. Existing high active-rebuild-restart remains blocking pending owning-domain evidence; no new service or missing-page repair is proposed."
