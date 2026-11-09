@@ -732,7 +732,7 @@ func resumeCurve(ctx context.Context, client *attestor.Client, o Options, w Wall
 		}
 	}
 	if !c.Refreshed {
-		descriptions, e := client.InspectRefreshRecovery(ctx, o.CeremonyID, c.ImportSession, c.RefreshSession, c.KeyID, c.PublicKey, c.Curve, c.BaseEpoch)
+		descriptions, e := client.InspectRefreshRecoveryWithPreviousSession(ctx, o.CeremonyID, c.ImportSession, c.RefreshSession, c.RefreshRecoverySession, c.KeyID, c.PublicKey, c.Curve, c.BaseEpoch)
 		if e != nil {
 			return e
 		}
@@ -1006,7 +1006,7 @@ func resumeHeldIdentity(ctx context.Context, client *attestor.Client, o Options,
 	var replies []attestor.DescribeResponse
 	var err error
 	if c.EpochCaptured {
-		replies, err = client.InspectRefreshRecovery(ctx, o.CeremonyID, "", c.RefreshSession, c.KeyID, c.PublicKey, c.Curve, c.BaseEpoch)
+		replies, err = client.InspectRefreshRecoveryWithPreviousSession(ctx, o.CeremonyID, "", c.RefreshSession, c.RefreshRecoverySession, c.KeyID, c.PublicKey, c.Curve, c.BaseEpoch)
 	} else {
 		replies, err = client.DescribeCeremony(ctx, c.KeyID)
 	}

@@ -6,6 +6,7 @@ import (
 	"time"
 
 	transfer "github.com/Sidiora-Labs/Paxeer-X-Network/interchain/modules/apps/transfer"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/interchain/modules/apps/transfer/keeper"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/interchain/modules/apps/transfer/types"
 	channeltypes "github.com/Sidiora-Labs/Paxeer-X-Network/interchain/modules/core/04-channel/types"
 	ibctesting "github.com/Sidiora-Labs/Paxeer-X-Network/interchain/testing"
@@ -14,7 +15,6 @@ import (
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
 	metrics "github.com/armon/go-metrics"
 	"github.com/stretchr/testify/require"
-	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/metric/metricdata"
@@ -152,8 +152,8 @@ func TestRepairM_1205_AtomicRefusals(t *testing.T) {
 func TestRepairM_1205_MetricContract(t *testing.T) {
 	reader := sdkmetric.NewManualReader()
 	provider := sdkmetric.NewMeterProvider(sdkmetric.WithReader(reader))
-	otel.SetMeterProvider(provider)
 	t.Cleanup(func() { require.NoError(t, provider.Shutdown(context.Background())) })
+	t.Cleanup(keeper.BindTransferMetricsForTest(provider))
 	legacy := metrics.NewInmemSink(time.Minute, time.Hour)
 	config := metrics.DefaultConfig("")
 	config.EnableHostname = false

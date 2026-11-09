@@ -3,6 +3,9 @@ package v575_test
 import (
 	"bytes"
 	"fmt"
+	"go/ast"
+	"go/parser"
+	"go/token"
 	"math/big"
 	"testing"
 	"time"
@@ -178,6 +181,66 @@ func repair1264AssertAssociated(t *testing.T, f repair1264Fixture, ret []byte, m
 	require.NotNil(t, account)
 	require.NotNil(t, account.GetPubKey())
 	require.Equal(t, f.pub.Bytes(), account.GetPubKey().Bytes())
+}
+
+func TestAddressConversionContextWiring(t *testing.T) {
+	source, err := parser.ParseFile(token.NewFileSet(), "addr.go", nil, 0)
+	require.NoError(t, err)
+	var methods []*ast.FuncDecl
+	for _, decl := range source.Decls {
+		method, ok := decl.(*ast.FuncDecl)
+		if !ok || method.Name.Name != "associate" || method.Recv == nil || len(method.Recv.List) != 1 {
+			continue
+		}
+		receiver := method.Recv.List[0].Type
+		if pointer, ok := receiver.(*ast.StarExpr); ok {
+			receiver = pointer.X
+		}
+		if name, ok := receiver.(*ast.Ident); ok && name.Name == "PrecompileExecutor" {
+			methods = append(methods, method)
+		}
+	}
+	require.Len(t, methods, 1)
+	method := methods[0]
+	require.NotNil(t, method.Body)
+	require.NotEmpty(t, method.Type.Params.List)
+	require.Len(t, method.Type.Params.List[0].Names, 1)
+	ctx := method.Type.Params.List[0].Names[0]
+	require.Equal(t, "ctx", ctx.Name)
+	require.NotNil(t, ctx.Obj)
+	var recoveryCalls []*ast.CallExpr
+	ast.Inspect(method.Body, func(node ast.Node) bool {
+		call, ok := node.(*ast.CallExpr)
+		if !ok {
+			return true
+		}
+		selector, ok := call.Fun.(*ast.SelectorExpr)
+		if !ok {
+			return true
+		}
+		pkg, ok := selector.X.(*ast.Ident)
+		if !ok || pkg.Name != "helpers" {
+			return true
+		}
+		require.NotEqual(t, "GetAddresses", selector.Sel.Name, "associate must retain its recovery context")
+		if selector.Sel.Name == "GetAddressesForContext" {
+			recoveryCalls = append(recoveryCalls, call)
+		}
+		return true
+	})
+	require.Len(t, recoveryCalls, 1)
+	call := recoveryCalls[0]
+	require.False(t, call.Ellipsis.IsValid())
+	want := []string{"ctx", "vBig", "rBig", "sBig", "customMessageHash"}
+	require.Len(t, call.Args, len(want))
+	for i, name := range want {
+		arg, ok := call.Args[i].(*ast.Ident)
+		require.True(t, ok, "recovery argument %d must be the unchanged %s", i, name)
+		require.Equal(t, name, arg.Name)
+		if i == 0 {
+			require.Same(t, ctx.Obj, arg.Obj, "recovery must receive the method's ctx parameter")
+		}
+	}
 }
 
 func TestRepairM_1264_HistoricalStaticCallStateDiff(t *testing.T) {

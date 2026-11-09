@@ -848,13 +848,13 @@ note = "Read in full. Concrete findings below describe the discrepancy and ownin
 path = "wasm/benchmarks/app_test.go"
 lines = 207
 verdict = "issues"
-note = "Read the full test file and its real producer/keeper/ABI path. Reviewed assertions: . Expectations agree with current shapes and lifecycle; retained historical and explicit retirement assertions are intentional."
+note = "Reviewed helpers: setup, SetupWithGenesisAccounts, InitializeWasmApp. Concrete findings 001 and 002 describe the audited initialization and database-selection discrepancies. These findings describe audit revision 2b99f88520e4e809ad5593f3bee2df74fe355d7b; commit 5ed2e071fced4663a503c5ffec01d645a8bc825e subsequently repaired benchmark-compatible initialization and selected database/options handling (wasm/benchmarks/app_test.go:29), with existing regression coverage at wasm/benchmarks/repair_m1271_test.go:20 and wasm/benchmarks/repair_m1271_test.go:83."
 
 [file.141]
 path = "wasm/benchmarks/bench_test.go"
 lines = 166
 verdict = "issues"
-note = "Read the full test file and its real producer/keeper/ABI path. Reviewed assertions: BenchmarkTxSending. Expectations agree with current shapes and lifecycle; retained historical and explicit retirement assertions are intentional."
+note = "Reviewed benchmark: BenchmarkTxSending. Concrete findings 003 and 004 describe the audited transaction-count and block-lifecycle discrepancies. These findings describe audit revision 2b99f88520e4e809ad5593f3bee2df74fe355d7b; commit 5ed2e071fced4663a503c5ffec01d645a8bc825e subsequently repaired complete transaction batches, including partial blocks (wasm/benchmarks/bench_test.go:111), and the real block lifecycle (wasm/benchmarks/app_test.go:252), with existing regression coverage at wasm/benchmarks/repair_m1271_test.go:100 and wasm/benchmarks/repair_m1271_test.go:136."
 
 [file.142]
 path = "wasm/benchmarks/cw20_test.go"
