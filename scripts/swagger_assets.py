@@ -1,11 +1,24 @@
 #!/usr/bin/env python3
-"""Validate and atomically publish statik output under the swagger namespace."""
+"""Stage canonical Swagger assets and atomically publish their shared archive."""
 
+import ast
+import io
 import os
 from pathlib import Path
 import re
+import shutil
 import sys
 import tempfile
+import zipfile
+
+
+def prepare(source, destination):
+    source = Path(source)
+    schema = (source / "swagger.yml").read_bytes()
+    if not schema:
+        raise ValueError("empty canonical Swagger schema")
+    shutil.copytree(source, destination)
+    (Path(destination) / "swagger.yaml").write_bytes(schema)
 
 
 def namespace(source):
@@ -17,9 +30,32 @@ def namespace(source):
         raise ValueError("unexpected statik initializer")
     if len(re.findall(r'(?m)^\s*data := "', source)) != 1:
         raise ValueError("missing embedded asset data")
-    pattern = r'(?m)^\tfs\.Register(?:\(data\)|WithNamespace\("swagger", data\))$'
-    result, count = re.subn(pattern, '\tfs.RegisterWithNamespace(swaggerNamespace, data)', source)
-    if count != 1:
+    literal = re.search(r'(?m)^\tdata := ("[^\n]*")$', source)
+    if literal is None:
+        raise ValueError("invalid embedded asset literal")
+    try:
+        archive = ast.literal_eval("b" + literal[1])
+        with zipfile.ZipFile(io.BytesIO(archive)) as bundle:
+            names = bundle.namelist()
+            if len(names) != len(set(names)) or bundle.testzip() is not None:
+                raise ValueError("invalid Swagger archive members")
+            for name in (
+                "swagger.yml", "swagger.yaml", "index.html",
+                "swagger-initializer.js", "swagger-ui-bundle.js",
+            ):
+                if not bundle.read(name):
+                    raise ValueError(f"empty Swagger asset: {name}")
+            if bundle.read("swagger.yml") != bundle.read("swagger.yaml"):
+                raise ValueError("Swagger schema aliases differ")
+    except (SyntaxError, KeyError, zipfile.BadZipFile) as error:
+        raise ValueError("invalid embedded Swagger archive") from error
+    pattern = r'(?m)^[\t ]+fs\.Register(?:\(data\)|WithNamespace\("swagger", data\))$'
+    result, count = re.subn(
+        pattern,
+        '\tfs.Register(data)\n\tfs.RegisterWithNamespace(swaggerNamespace, data)',
+        source,
+    )
+    if count != 1 or len(re.findall(r'\bfs\.Register(?:WithNamespace)?\(', source)) != 1:
         raise ValueError("expected exactly one default or swagger namespace registration")
     if "swaggerNamespace" in source:
         raise ValueError("unexpected existing namespace declaration")
@@ -45,6 +81,9 @@ def publish(source, destination):
 
 if __name__ == "__main__":
     try:
-        publish(*sys.argv[1:])
+        if sys.argv[1:2] == ["prepare"]:
+            prepare(*sys.argv[2:])
+        else:
+            publish(*sys.argv[1:])
     except (ValueError, OSError, TypeError) as error:
         sys.exit(f"swagger generation: {error}")
