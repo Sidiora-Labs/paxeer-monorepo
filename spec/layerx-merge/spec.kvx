@@ -345604,7 +345604,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.93.211]
 title = "Triage issue #1741 and write its report"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -345635,7 +345635,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.93.210]
 title = "Triage issue #1740 and write its report"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -345666,7 +345666,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.93.209]
 title = "Triage issue #1739 and write its report"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -345697,7 +345697,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.93.208]
 title = "Triage issue #1738 and write its report"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -345728,7 +345728,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.93.207]
 title = "Triage issue #1737 and write its report"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -345759,7 +345759,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.93.206]
 title = "Triage issue #1736: The 22.33.14 repair record asks for a commit_block migration that main has already landed"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -345790,7 +345790,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.93.205]
 title = "Triage issue #1735 and write its report"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -345821,7 +345821,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.93.204]
 title = "Triage issue #1734 and write its report"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -345852,7 +345852,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.93.203]
 title = "Triage issue #1733 and write its report"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -345883,7 +345883,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.93.202]
 title = "Triage issue #1732 and write its report"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -345914,7 +345914,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.93.201]
 title = "Triage issue #1731 and write its report"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -345945,7 +345945,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.93.200]
 title = "Triage issue #1730 and write its report"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -345976,7 +345976,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.93.199]
 title = "Triage issue #1729 and write its report"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -346007,7 +346007,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.93.198]
 title = "Triage issue #1728 and write its report"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -346038,7 +346038,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.93.197]
 title = "Triage issue #1727 and write its report"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
