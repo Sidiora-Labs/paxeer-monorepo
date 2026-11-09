@@ -1,0 +1,364 @@
+[disposition.22.9.10.10]
+finding = "22.9.10.10"
+status = "resolved"
+evidence = "On main, services/interop/crates/x-websearch/tests/fixtures/gateway/exact.json:192 retains the signed type-2 transaction alongside its receipt digest and transaction hash. Commit 9f2b202594 introduced the signed bytes and 2c4a62dd00 re-recorded the exact payments from chain-125 signing."
+
+[disposition.22.9.10.11]
+finding = "22.9.10.11"
+status = "resolved"
+evidence = "On main, services/agent/sdk/typescript/test/receipt-fixture.test.ts:9 imports verifySequencerReceipt, and line 11 imports only PROGRAMS_PRECOMPILE from ai_market. Commit cb50180548 migrated this consumer away from the removed exported kernel receipt decoder."
+
+[disposition.22.9.10.12]
+finding = "22.9.10.12"
+status = "resolved"
+evidence = "On main, services/agent/sdk/typescript/src/web-search.ts:405 validates one PaymentExact ledger log, including its address, topic count, payee, asset and amount. Commit cb50180548 landed this offer binding while retaining signed receipt and transaction verification."
+
+[disposition.22.9.10.13]
+finding = "22.9.10.13"
+status = "resolved"
+evidence = "On main, services/agent/sdk/typescript/src/web-search.ts:620 obtains signed bytes from payment.rawTransaction and treats the settlement extension transaction bytes as an optional equality check at line 630. Commit cb50180548 landed the payer-result binding."
+
+[disposition.22.9.10.14]
+finding = "22.9.10.14"
+status = "resolved"
+evidence = "On main, services/agent/sdk/typescript/src/web-search.ts:15 names LAYERX-PAYER-ADDRESS, and line 503 sends the normalized payer address with that header. Commit cb50180548 landed the address-header migration and matching consumers."
+
+[disposition.22.9.10.15]
+finding = "22.9.10.15"
+status = "resolved"
+evidence = "On main, services/agent/sdk/typescript/test/web-search.test.ts:121 serializes JSON bodies or decodes bodyBase64 according to the recorded response shape. Commit 2425f89be1 landed this response handling, and cb50180548 aligned exactIn at line 169 with the recorded sequencer receipt answer."
+
+[disposition.22.9.10.16]
+finding = "22.9.10.16"
+status = "resolved"
+evidence = "On main, services/agent/sdk/typescript/test/web-search.test.ts:302 changes receiptDigest within the retained settlement extension and expects settlement-receipt-mismatch. Commit cb50180548 landed this negative case against the current payment fields."
+
+[disposition.22.9.10.17]
+finding = "22.9.10.17"
+status = "resolved"
+evidence = "On main, services/platform/examples/marketplace/package.json:19 declares only the LayerX SDK dependency and contains no ganache dependency. Commit 749b72f5e6 removed the undeclared dependency under task 22.31.441 and retained deployment-payload coverage against recorded JSON-RPC results."
+
+[disposition.22.9.10.18]
+finding = "22.9.10.18"
+status = "resolved"
+evidence = "On main, services/agent/sdk/typescript/src/ai_market.ts:3034 requires directory and receiptKeys when opening OperationJournal and refuses empty keys, while services/agent/sdk/typescript/test/repair-22-33-20.test.ts:139 supplies receiptPins to both journals. Commit cb50180548 landed commit-finality handling with this two-argument contract retained."
+
+[disposition.22.9.10.19]
+finding = "22.9.10.19"
+status = "resolved"
+evidence = "On main, services/agent/sdk/typescript/test/program-lifecycle.test.ts:47 exercises registration payloads of 524288 and 524289 bytes, asserting acceptance at the boundary and encoder and signed-consumer refusal above it. Commit 4acb4e720d landed these network-boundary cases."
+
+[disposition.22.9.10.1]
+finding = "22.9.10.1"
+status = "resolved"
+evidence = "On main, services/agent/sdk/typescript/test/program-lifecycle.test.ts:127 admits guest ABIs 3, 4 and 5, and line 110 fixes the first unsupported ABI at 6. Commit 265eb3e069 landed ABI-5 admission and 4acb4e720d retained it in the expanded lifecycle proof."
+
+[disposition.22.9.10.20]
+finding = "22.9.10.20"
+status = "resolved"
+evidence = "On main, services/agent/sdk/typescript/test/agent-http-major2.test.ts:74 supplies a gateway credential, asserts contractMajor 2 and retains HTTP envelope version 1; the proof-bundle case also supplies that credential at line 149. Commit cb50180548 landed these producer-aligned cases."
+
+[disposition.22.9.10.21]
+finding = "22.9.10.21"
+status = "resolved"
+evidence = "On main, services/agent/sdk/typescript/test/gas-station.test.ts:106 retains malformed paymentDenom refusals, and services/agent/sdk/typescript/package.json:37 selects the CI test runner. Commit cb50180548 aligned receipt-denomination coverage, and 10fe4690e5 repaired the package inventory target recorded at spec/layerx-merge/programme/sweeps/repairs/node-agent-sdk.1.kvx:4 with verified revision fe51e67a7e0f8de61f6ce46fe6a93b57d2343146."
+
+[disposition.22.9.10.22]
+finding = "22.9.10.22"
+status = "resolved"
+evidence = "On main, services/agent/sdk/typescript/test/intent-legs.test.ts:22 uses flat to, value, calldata, nonce and chain_id fields, and line 89 retains the per-leg nonce refusal cases. Commit cb50180548 migrated these cases to the current intent wire shape."
+
+[disposition.22.9.10.2]
+finding = "22.9.10.2"
+status = "resolved"
+evidence = "On main, services/agent/sdk/typescript/test/program-executed-v3.test.ts:23 verifies the producer-issued sequencer receipt corpus and re-encodes its Programs-call receipt. Commit 10fe4690e5 supplied this coverage using sequencer-receipt-v1.json instead of the retired kernel receipt vector."
+
+[disposition.22.9.10.3]
+finding = "22.9.10.3"
+status = "resolved"
+evidence = "On main, sdk/platform/conformance/fixtures/intent-plan-v1.json:5 keeps request endpoints to kind and the applicable account, while line 39 places public-key and EVM resolution facts in response legs. Commit cb50180548 landed this request/result separation."
+
+[disposition.22.9.10.4]
+finding = "22.9.10.4"
+status = "resolved"
+evidence = "On main, services/agent/sdk/typescript/src/intent.ts:430 requires plan_digest, journey_kind, total_fee, legs and signing_requirements with optional tx_hash, and line 434 derives sponsorship from absent or null nonces. Commit cb50180548 landed this decoder contract."
+
+[disposition.22.9.10.5]
+finding = "22.9.10.5"
+status = "resolved"
+evidence = "On main, services/agent/sdk/typescript/src/intent.ts:486 decodes flat transaction and fee fields, and sdk/platform/conformance/fixtures/intent-plan-v1.json:116 includes to, calldata, chain_id, value and nonce in the second leg. Commit cb50180548 aligned the decoder and vector with the producer fields."
+
+[disposition.22.9.10.6]
+finding = "22.9.10.6"
+status = "environment"
+evidence = "On main, services/agent/sdk/typescript/test/ai-market.test.ts:2859 retains the Python secp256k1 signing comparison and imports cryptography.hazmat at line 2877. The Python SDK declares cryptography as its derivation extra at services/agent/sdk/python/pyproject.toml:21."
+
+[disposition.22.9.10.7]
+finding = "22.9.10.7"
+status = "resolved"
+evidence = "On main, services/agent/sdk/typescript/src/exchange.ts:607 encodes the five-input placeOrder overload, and services/agent/sdk/typescript/test/precompile-calls.test.ts:204 dispatches exchange signatures through the ABI consumer. Commit cb50180548 aligned the call builder and precompile coverage with the published exchange ABI."
+
+[disposition.22.9.10.8]
+finding = "22.9.10.8"
+status = "resolved"
+evidence = "On main, services/agent/sdk/typescript/src/exchange.ts:602 selects the account-bearing overload only when accountId is supplied and line 607 otherwise encodes marketId, side, price, quantity and timeInForce. Commit cb50180548 landed the ABI-selected overload handling."
+
+[disposition.22.9.10.9]
+finding = "22.9.10.9"
+status = "resolved"
+evidence = "On main, services/agent/sdk/typescript/test/web-search-sequencer.test.ts:42 returns receipt, txHash, rawTransaction and idempotencyKey from the exact payer. Commit cb50180548 migrated this consumer to the current exact-payment contract."
+
+[disposition.22.9.18.1]
+finding = "22.9.18.1"
+status = "resolved"
+evidence = "On main, services/agent/crates/layerx-agentd/tests/proof_serve_errors.rs:17 re-exports the shared HTTP helpers with pub(crate) visibility. Commits 8926f90cfb and 76589ba862 landed the shared-helper visibility and module layout used by the serve-errors proof."
+
+[disposition.22.9.18.2]
+finding = "22.9.18.2"
+status = "resolved"
+evidence = "On main, services/agent/crates/layerx-agentd/tests/proof_serve_errors.rs:14 includes proof_native_reads as its daemon module and line 17 exposes its parser, response writer and HTTP helpers with crate visibility. Commit 76589ba862 landed this current layout after the visibility repair in 8926f90cfb."
+
+[disposition.22.9.18.3]
+finding = "22.9.18.3"
+status = "environment"
+evidence = "On main, services/agent/crates/layerx-sdk/src/lib.rs:50 exports the programs API, and services/agent/crates/layerx-sdk/src/program_http.rs:2377 retains the native terminal corpus proof. That proof requires a corpus file and asserts ten ABI/outcome cases at line 2408 with the pinned sequencer key."
+
+[disposition.22.9.18.4]
+finding = "22.9.18.4"
+status = "resolved"
+evidence = "On main, tests/programs/test_terminal_v5.c:104 requires settlement-failure detail tag 7 and still checks the exact detail length and empty applied-leg inventory. Commit 888f49041a landed this alignment with the kernel refusal tag under task 1.18.5."
+
+[disposition.22.9.18.5]
+finding = "22.9.18.5"
+status = "resolved"
+evidence = "On main, services/agent/crates/layerx-sdk/src/program_http.rs:2431 validates native signed activities before binding the call and reports the corpus record, name, field and decoder byte offset on refusal. Commit af9b1ccc59 landed this diagnostic and native-corpus reconciliation."
+
+[disposition.22.9.18.6]
+finding = "22.9.18.6"
+status = "resolved"
+evidence = "On main, services/agent/crates/layerx-sdk/src/program_http.rs:125 accepts the 0x00 native activity form and the 0x02 EIP-1559 transaction form, binding both to the Programs call. Commit af9b1ccc59 landed support for the native producer form alongside typed EVM transactions."
+
+[disposition.22.9.31.2]
+finding = "22.9.31.2"
+status = "resolved"
+evidence = "On main, services/agent/crates/layerx-agentd/tests/webhook.rs:216 retains unreachable-endpoint retry coverage, line 251 retains byte-identical timeout retries, and line 407 asserts capability-revocation termination. Commit 303f490d7d landed the endpoint fixture migration with these outcomes retained."
+
+[disposition.22.9.31.3]
+finding = "22.9.31.3"
+status = "resolved"
+evidence = "On main, services/agent/Cargo.lock:761 records layerx-agentd and lines 828 and 1058 record layerx-client and layerx-sdk with their workspace dependencies. Commit 93caf955b1 refreshed this lock under task 22.99.158 for the client and SDK manifest changes."
+
+[disposition.22.9.38.1]
+finding = "22.9.38.1"
+status = "resolved"
+evidence = "On main, services/agent/crates/layerx-agentd/src/human_runtime.rs:10114 resolves each managed-agent DID to its bound EVM address and line 10123 compares that address with the held actor. Commit 88f0fa6906 landed operation 48 handling for the durable approval actor form."
+
+[disposition.22.9.38.2]
+finding = "22.9.38.2"
+status = "resolved"
+evidence = "On main, services/agent/crates/layerx-agentd/tests/human_projection_facts.rs:188 starts InProcessProjection and line 1130 loads the embedded recorded authority facts before preparing native proofs. Commits 0fea5284fd and 9397b65f47 landed the self-contained projection fixture and its current authority-library integration."
+
+[disposition.22.9.38.3]
+finding = "22.9.38.3"
+status = "resolved"
+evidence = "On main, services/human/crates/layerx-human-service/tests/observed_balances_denom.rs:23 constructs Quantity from big-endian bytes and line 54 compares balance against Some(quantity). Commit 0f2268dc6d landed task 22.31.443, retaining the maximal-u128 and unobserved-asset assertions."
+
+[disposition.22.9.38.4]
+finding = "22.9.38.4"
+status = "resolved"
+evidence = "On main, services/human/crates/layerx-human-service/tests/observed_balances_denom.rs:24 narrows Quantity through for_operation for wallet comparisons and line 65 checks wallet_balance against the resulting Amount. Commit 0f2268dc6d landed the consumer migration under task 22.31.443."
+
+[disposition.22.9.39.1]
+finding = "22.9.39.1"
+status = "resolved"
+evidence = "On main, services/agent/crates/layerx-agentd/tests/human_approval_budget_actor.rs:643 loads embedded recorded authority facts and line 881 exercises real EVM holds and changed-binding refusals. Commit 88f0fa6906 landed this approval actor proof, with the current authority integration carried by 9397b65f47."
+
+[disposition.22.23.11.1]
+finding = "22.23.11.1"
+status = "resolved"
+evidence = "On main, services/agent/crates/layerx-client/tests/sequencer.rs:204 initializes payment_denom from the producer receipt JSON. Commit 8f26909112 landed paymentDenom in the Rust receipt view and migrated the sequencer test consumer."
+
+[disposition.22.23.11.2]
+finding = "22.23.11.2"
+status = "resolved"
+evidence = "On main, services/agent/crates/layerx-agentd-host/tests/payer.rs:239 supplies payment_denom in its ExecutedReceipt initializer alongside fee_denom. Commit 8f26909112 landed this dependent payer-test migration with the receipt type change."
+
+[disposition.22.23.11.3]
+finding = "22.23.11.3"
+status = "resolved"
+evidence = "On main, services/agent/crates/layerx-client/src/rpc/receipt.rs:375 checks the fee denomination separately and line 377 compares the protocol asset with sha256(payment_denom). Commit 8f26909112 landed the payment-asset binding under task 22.23.11."
+
+[disposition.22.23.11.4]
+finding = "22.23.11.4"
+status = "resolved"
+evidence = "On main, services/agent/crates/layerx-agentd/tests/support/mod.rs:947 emits paymentDenom with the receipt fee and execution fields. Commit ef0e8c5d4f landed task 9.98.4 across daemon receipt fixtures so the exact receipt decoder receives the payment denomination."
+
+[disposition.22.34.4.1]
+finding = "22.34.4.1"
+status = "resolved"
+evidence = "On main, sdk/x/auth/client/cli/tx_sign.go:69 captures both factory and error from NewFactoryCLI and returns constructor failures. Commit d56c2b440d landed task 22.31.463 across the auth, genutil, staking, EVM and token-factory command callers."
+
+[disposition.22.34.4.2]
+finding = "22.34.4.2"
+status = "resolved"
+evidence = "On main, rpc/px_node_root_kernel_test.go:107 initializes the application with the genesis chain ID and line 109 creates the producer context with the same ID. Commit 561806a652 landed the initialized kernel RPC harness."
+
+[disposition.22.34.4.3]
+finding = "22.34.4.3"
+status = "resolved"
+evidence = "On main, rpc/px_node_root_kernel_test.go:383 restarts the server and line 386 requires px_getReceiptKeys to return the governed local pin independently of sequencer receipts. Commit 561806a652 landed these restart and unavailable-consensus distinctions."
+
+[disposition.22.34.4.4]
+finding = "22.34.4.4"
+status = "environment"
+evidence = "On main, rpc/px_node_root_kernel_test.go:272 covers the registered commit, validator, receipt-key, sequence-batch and sequencer-receipt methods through the node root. Its ParamsAndUnavailable proof at line 381 separately checks restart behavior and typed parameter and consensus refusals."
+
+[disposition.22.34.5.1]
+finding = "22.34.5.1"
+status = "resolved"
+evidence = "On main, services/agent/crates/layerx-agentd/tests/human_approval_budget_actor.rs:79 consumes the hosted authority library Response and BudgetStateConfig types, and services/agent/crates/layerx-agentd/tests/human_projection_facts.rs:553 uses the same library boundary. Commit 9397b65f47 landed task 22.31.497 restoring these dependent test targets."
+
+[disposition.22.35.1.1]
+finding = "22.35.1.1"
+status = "resolved"
+evidence = "On main, apps/explorer/toolkit/theme/recipes/stat.recipe.ts:150 applies statValue with fontWeight 600 to the scan compound variant. Commit 43b677746c landed this recipe and the resolved visual-system assertions at apps/explorer/toolkit/theme/repair-22-35-1.spec.ts:214."
+
+[disposition.22.35.1.2]
+finding = "22.35.1.2"
+status = "resolved"
+evidence = "On main, apps/explorer/toolkit/theme/recipes/stat.recipe.spec.ts:23 requires the scan variant to omit its own textStyle and line 25 requires statValue with weight 600 in the compound variant. Commit 43b677746c landed this recipe-resolution coverage."
+
+[disposition.22.35.10.1]
+finding = "22.35.10.1"
+status = "resolved"
+evidence = "On main, apps/explorer/configs/app/features/assistant.ts:5 gates Ask on NEXT_PUBLIC_ASSISTANT_ENABLED and apps/explorer/pages/api/assistant.ts:47 returns 503 when no model endpoint is configured. Commit 18fc77a542 landed the route and panel, including the real-route answer case at apps/explorer/ui/snippets/searchBar/repair-22-35-10.spec.tsx:146."
+
+[disposition.22.35.3.1]
+finding = "22.35.3.1"
+status = "resolved"
+evidence = "On main, apps/explorer/ui/snippets/searchBar/repair-22-35-3.spec.tsx:52 exercises hero and compact prompt variants and line 89 covers command/control search focus. Commit 3e47cce170 landed the integrated SearchBarInput and grouped-suggestion behavior."
+
+[disposition.22.35.6.1]
+finding = "22.35.6.1"
+status = "resolved"
+evidence = "On main, apps/explorer/ui/shared/Page/repair-22-35-6.spec.tsx:112 reads data-tab-label independently of the transfer count and line 115 checks that count separately. Commit 76afeae8d8 landed the entity-tab proof with label and counter assertions preserved."
+
+[disposition.22.35.6.2]
+finding = "22.35.6.2"
+status = "resolved"
+evidence = "On main, apps/explorer/ui/shared/Page/repair-22-35-6.spec.tsx:123 waits for the History trigger to become enabled before clicking and line 125 asserts the shallow history-route update. Commit 76afeae8d8 landed this loaded-tab interaction proof."
+
+[disposition.22.35.8.1]
+finding = "22.35.8.1"
+status = "resolved"
+evidence = "On main, apps/explorer/lib/cookies.ts:3 imports getEnvValue from app utilities and line 44 derives cookie attributes directly from those utilities. Commit 848a7d3023 landed the cookie dependency change without importing the cyclic aggregate app configuration."
+
+[disposition.22.35.8.2]
+finding = "22.35.8.2"
+status = "environment"
+evidence = "On main, apps/explorer/ui/repair-22-35-8.spec.ts:169, line 177 and line 185 retain separate Home, Transaction and Address checks in both colour modes. The stored-preference proof at line 193 asserts the colour selection survives a provider remount."
+
+[disposition.22.35.8.3]
+finding = "22.35.8.3"
+status = "environment"
+evidence = "On main, apps/explorer/ui/repair-22-35-8.spec.ts:169 verifies Home in both colour modes, line 177 does the same for Transaction and line 185 for Address. The shared pageBodyBackground helper at line 139 checks the saved preference against the opposite system preference."
+
+[disposition.22.35.9.1]
+finding = "22.35.9.1"
+status = "environment"
+evidence = "On main, services/explorer/backend/apps/block_scout_web/lib/block_scout_web/router.ex:115 forwards the root to WebRouter when enabled. StatsController at services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api/v2/stats_controller.ex:99 returns Chain.block_height as total_blocks, and services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/chain_controller.ex:19 uses the same height for the chain page."
+
+[disposition.22.35.9.2]
+finding = "22.35.9.2"
+status = "environment"
+evidence = "On main, services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api/v2/stats_controller.ex:99 returns the latest consensus block height as total_blocks. The proof at services/explorer/backend/apps/block_scout_web/test/repair/repair_22_35_9_test.exs:18 checks height 500 across gaps and excludes a non-consensus block at height 600."
+
+[disposition.22.36.1.1]
+finding = "22.36.1.1"
+status = "resolved"
+evidence = "On main, tools/README.md:10 links the vendored tools/hyperfide tree to docs/hyperfide/DOCUMENTATION.md, whose line 5 resolves back to its retained command reference. Commit 0bb8393cc6 landed the relocation including tools/hyperfide/pnpm-lock.yaml and tools/hyperfide/core/control-plane/package-lock.json."
+
+[disposition.22.36.2.1]
+finding = "22.36.2.1"
+status = "resolved"
+evidence = "On main, docs/platform/content/reference/human-api.md:5 identifies contract major 1 minor 10, and services/platform/examples/samples/verify-receipt-rust/Cargo.lock:3 retains the moved Rust lock. Commit 0295d41349 landed the documentation, sample and reader migration."
+
+[disposition.22.36.2.2]
+finding = "22.36.2.2"
+status = "resolved"
+evidence = "On main, services/platform/examples/samples/verify-receipt-rust/Cargo.lock:3 retains a version-4 lock for the relocated receipt verification sample. Commit 0295d41349 landed this lock with the platform sample tree and documentation move."
+
+[disposition.22.36.3.1]
+finding = "22.36.3.1"
+status = "resolved"
+evidence = "On main, docker/wallet-pwa/Dockerfile.dockerignore:28 names docs/wallet, and the wallet documentation is retained under docs/wallet/app and docs/wallet/service. Commit fccba4222e landed the documentation move and its Docker-context reader update."
+
+[disposition.22.36.4.1]
+finding = "22.36.4.1"
+status = "resolved"
+evidence = "On main, services/explorer/deploy/env/frontend.example.env:11 and services/explorer/deploy/railway/README.md:215 both refer to docs/explorer/ENVS.md. Commit e715884386 landed these deployment-reader updates with the explorer documentation relocation."
+
+[disposition.22.36.5.1]
+finding = "22.36.5.1"
+status = "resolved"
+evidence = "On main, services/platform/perps-data/internal/records/records.go:119 points to docs/perps/data-api.md and docs/site/docs/interop/x402.md:319 links the moved portability guide under docs/interop. Commit 33dc75d17a landed these live-reader updates with the remaining document moves."
+
+[disposition.22.37.1.1]
+finding = "22.37.1.1"
+status = "environment"
+evidence = "On main, tools/hyperfide/tests/hyperfide/cases/source_control/0_8.py:436 distinguishes regressions as FAIL and missing required artifact evidence as BLOCKED, with distinct exit codes at line 439. Its installed-service and immutable prepared-image assertions remain required."
+
+[disposition.22.37.1.2]
+finding = "22.37.1.2"
+status = "environment"
+evidence = "On main, tools/hyperfide/tests/hyperfide/cases/source_control/layout_tooling_driver_test.py:53 declares the reference-classification test and line 114 declares the vendored-subtree binding test. The driver retains separate host commit and source subtree bindings for the vendored source identity."
+
+[disposition.22.37.11.1]
+finding = "22.37.11.1"
+status = "resolved"
+evidence = "On main, tools/hyperfide/core/control-plane/package.json:11 synchronizes the source contracts before compilation, and tools/hyperfide/tests/hyperfide/cases/source_control/1_3.py:20 loads the compiled service and SDK module roots. Commit f2d519555c landed the capability path against these current contracts."
+
+[disposition.22.37.11.2]
+finding = "22.37.11.2"
+status = "resolved"
+evidence = "On main, tools/hyperfide/sdk/source-control/src/contracts.ts:86 declares PRIVATE_AGENT_GROUP_CONTEXT_FIELDS and line 331 declares parsePrivateAgentGroupContext. Commit f2d519555c landed the private-context schema in the authored SDK module consumed by the control-plane contract copy."
+
+[disposition.22.37.12.1]
+finding = "22.37.12.1"
+status = "resolved"
+evidence = "On main, tools/hyperfide/core/control-plane/src/source_control/queries.ts:95 preserves explicit REDACTED coverage and tools/hyperfide/tests/hyperfide/support/native_source_api_actor.mjs:1005 expects the decoded null-prototype path object. Commit 987381c3c8 landed the query contract and matching redaction regression."
+
+[disposition.22.37.12.2]
+finding = "22.37.12.2"
+status = "resolved"
+evidence = "On main, tools/hyperfide/core/control-plane/src/source_control/contracts.ts:794 and tools/hyperfide/sdk/source-control/src/contracts.ts:794 both declare SourceIndexFreshness with index_generation and index_complete. Commit 987381c3c8 landed both contract surfaces with the ancestry and causal-read changes."
+
+[disposition.22.37.14.1]
+finding = "22.37.14.1"
+status = "resolved"
+evidence = "On main, tools/hyperfide/core/control-plane/src/source_control/workspaces.ts:178 inserts workspace root pins and tools/hyperfide/core/control-plane/src/assurance/native_source.ts:950 acquires EVIDENCE retention roots in the publication transaction. Commit 7d92290fde landed these producers and the authorized checkpoint proof at tools/hyperfide/tests/hyperfide/support/native_source_collection_api.mjs:382."
+
+[disposition.22.37.14.2]
+finding = "22.37.14.2"
+status = "resolved"
+evidence = "On main, tools/hyperfide/tests/hyperfide/support/native_source_collection_api.mjs:88 grants source.acceptance.read alongside the publication actions used at line 526. Commit 7d92290fde landed the complete publication-handler capability set while retaining production authorization checks."
+
+[disposition.22.37.15.1]
+finding = "22.37.15.1"
+status = "environment"
+evidence = "On main, tools/hyperfide/core/control-plane/src/source_control/workspaces.ts:284 checks the attempt deadline and returns ATTEMPT_EXPIRED when it has elapsed. The virtual-filesystem consumer at tools/hyperfide/sdk/source-control/src/host/virtual-filesystem.ts:157 maps that refusal to EACCES."
+
+[disposition.22.37.16.1]
+finding = "22.37.16.1"
+status = "environment"
+evidence = "On main, tools/hyperfide/plugins/hyperfide-graph/host.ts:124 routes native graph requests through source.graph.query and tools/hyperfide/plugins/hyperfide-graph/host.test.ts:91 requires protected native source configuration. Missing configuration yields a typed refusal before any local checkout command."
+
+[disposition.22.37.16.2]
+finding = "22.37.16.2"
+status = "environment"
+evidence = "On main, tools/hyperfide/plugins/hyperfide-graph/host.ts:26 selects native handling when a native pin or source configuration is present, and line 125 calls source.graph.query with the pin. The graph host proof at tools/hyperfide/plugins/hyperfide-graph/host.test.ts:116 rejects native checkout commands without a graph pin."
+
+[disposition.22.37.16.3]
+finding = "22.37.16.3"
+status = "resolved"
+evidence = "On main, tools/hyperfide/sdk/source-control/package.json:22 exports the signed entry, and tools/hyperfide/core/server/test/services/plugins/builtin-registry.test.ts:34 includes the source-control plugin while line 88 locates prepared bundles under tools/bundled-plugins/dist. Commit e8e04bb782 landed the registry-test repair under task 22.31.580; c0d8f7a39e landed the native graph consumers."

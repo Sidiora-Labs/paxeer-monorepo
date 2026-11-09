@@ -172,16 +172,13 @@ def test_matrix_current_version_is_v7():
 
 def test_service_operator_runbook_has_only_open_gaps():
     text = _read_doc("service-operator-runbook")
-    gaps = _table_rows(_section(text, "Gaps in this runbook"))
-    assert gaps[0] == ["Path", "Gap"]
-    assert [row[0] for row in gaps[1:]] == [
-        "services/bridge/deploy/attestors.json",
-    ]
-    assert "pending governance" in gaps[1][1]
+    gaps = _section(text, "Gaps in this runbook")
+    assert "No open implementation gaps are listed in this runbook." in gaps
+    assert not any(line.startswith("|") for line in gaps.splitlines())
     marked = [line for line in text.splitlines() if "**Gap" in line]
-    assert len(marked) == 2  # Definition and attestor manifest.
+    assert len(marked) == 1  # Definition only.
     support = _table_rows(_section(text, "Implemented service support"))
-    assert len(support[1:]) == 5
+    assert len(support[1:]) == 6
     for path in (
         "services/platform/hosted/gateway/deployment.yaml:97",
         "services/explorer/backend/config/runtime.exs:315",
@@ -190,6 +187,18 @@ def test_service_operator_runbook_has_only_open_gaps():
         "services/platform/hosted/gateway/README.md:9",
     ):
         assert any(path in row[0] for row in support[1:])
+    manifest = next(row for row in support[1:] if "attestors.json" in row[0])
+    assert "Decision 3042" in manifest[1]
+    assert "threshold 1" in manifest[1]
+    assert "all nine configurations agree" in manifest[1]
+    assert "check exits 0" in manifest[1]
+    bridge = _section(text, "Bridge")
+    assert "0x12598F221f1e645322C7665537D4Ab130281f51d" in bridge
+    assert "threshold `1`" in bridge
+    assert "exits 0 on the committed manifest" in bridge
+    assert "**Gap" not in bridge
+    assert "pending governance" not in bridge
+    assert "deployment inputs" in bridge
     gateway = _section(text, "Hosted gateway")
     assert "`api1` to `api14`" in gateway
     assert (
