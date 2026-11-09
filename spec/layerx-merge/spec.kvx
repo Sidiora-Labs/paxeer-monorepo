@@ -336601,7 +336601,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.184]
 title = "Repair the nine closure dispositions that cite no location or name a missing or self-referencing follow-up"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 48
 requires = []
