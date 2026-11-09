@@ -19800,3 +19800,88 @@ fix = "The cases qualify the recorded packet through NewPrivateFixtureRPCQualifi
 title = "The agent SDK TypeScript build runs before the package dependencies of its own directory are installed"
 symptom = "Task 22.39.258 attempts 1 and 2 (110b460fb3f7, fe32a21a6e97): pnpm --dir services/agent/sdk/typescript run build fails with tsc not found because services/agent/sdk/typescript carries its own package-lock.json and the qualification environment installed only the repository root workspace; attempt 1 recovered by installing inside the attempt at the cost of a repair cycle, attempt 2 stopped at the build"
 fix = "The build commands of 22.39.258 and 22.39.288 install the directory with npm ci before the TypeScript build"
+
+[gotcha.3996]
+title = "The V1 Programs vector reverts with LXP_ERR_MODULE_DISABLED because its deploy names an upgrade authority other than the acting principal"
+symptom = "Task 18.1667.1 attempt 9 at 216f58a857: after the receipt binding repair the vector vector-v1-programs-positive reverts (submit protocol 3, activity 0x00090003, ABI 1) with LXP_ERR_MODULE_DISABLED at tests/programs/main_test.go:320; src/modules/programs/deploy.c upgrade_policy_authorized (:548 to :583) returns at the comparison of the upgrade authority with the authority principal and, when they differ under LXP_PROTOCOL_VERSION_STATE_COMMITMENT, derives the agent main account and needs the transfer runtime accounts the fixture host does not provide, so it returns LXP_ERR_MODULE_DISABLED at :583; precompiles/layerxprograms/method_deploy_test.go:92 to :95 sets the upgrade authority to the authority principal for policy 1"
+fix = "The vector deploys with the upgrade authority equal to the authority principal, the form method_deploy_test.go uses, and the kernel check returns at the principal comparison"
+
+[gotcha.3997]
+title = "The restart fixture expects the receipt amount to equal the budget spend while the producer records the transaction value"
+symptom = "Task 18.1724.1 attempt 9 at 444abad99bf5: TestCurrentReceiptRestartFixture at rpc/receipt_equality_test.go:482 expects the receipt amount 25 (the budget spend) and reads 0; node/sequencer/receipt.go:426 sets the receipt amount from the transaction value, precompiles/layerxpay/layerxpay.go:163 requires a zero value on every pay call and reads the spend from the calldata, and services/agent/crates/layerx-crypto/src/evm_transaction.rs:315 refuses a nonzero value; the daemon support services/agent/crates/layerx-agentd/tests/support/current_node.rs builds a receipt with amount 25 by hand (sequencer_receipt_with_details) and tests/outbox_recover.rs:361 commits the budget with the same 25"
+fix = "Decision 3128: the receipt amount is the transaction value and the spend is the committed budget state; the fixture and the daemon support assert each value against its producer"
+
+[gotcha.3998]
+title = "The explorer backend suite needs a Postgres the qualification environment never provisions because the explorer reads a bare TEST_DATABASE_URL from an .exs file"
+symptom = "Task 22.39.271 attempt 1 at 7482c7b35: mix test apps/explorer/test/explorer/chain/paxeer_x fails because Explorer.Repo cannot create its database at localhost:5432 (connection refused); services/explorer/backend/apps/explorer/config/test.exs reads TEST_DATABASE_URL without a prefix through ConfigHelper.parse_url_env_var and falls back to localhost:5432 explorer_test, and the environment detection matched only prefixed variables and never scanned .exs files"
+fix = "The qualification environment detects the bare TEST_DATABASE_URL in .exs files and exports a database for it before the gate"
+
+[gotcha.3999]
+title = "The market fuel cases read a fixture directory that a Go test of the node writes and the task verification never runs that test"
+symptom = "Task 22.38.13 attempt 1 at ff3180d432: the fuel_budget cases fail at programs/crates/layerx-programs-ai-market/tests/fuel_budget.rs:1856 with owner: No such file or directory, run the declared Go fixture gate first; measured_fund_cpu_fuel (:1853) and the attribution case (:1639) read programs/target/repair-478 (owner, asset, create, fund, current) which rpc/repair_478_test.go writes (repair478RunObserved :508 to :522, TestRepair478_FundWithinProductionAllowance :574, TestFundConsumptionAttribution :190, guest sizes at :184), so the Rust cases depend on a Go producer the build step must run first"
+fix = "Decision 3129: the build step runs the two Go tests of rpc/repair_478_test.go before the cargo build"
+
+[gotcha.4000]
+title = "The production export answers export.invalid_proof for every refusal of the offline export operation so the failing stage is invisible"
+symptom = "Task 18.1752.1 attempt 6 at a411e0fcaf: tests/issue_1752.rs:960 expects 200 from the production export and reads 500 with class VerificationFailure, reason export.invalid_proof, retriability Terminal; the reason comes from the closure at services/agent/crates/layerx-agentd/src/agent_rpc_adapters.rs:1921 which offline_export_operation applies at nine sites (the response check, the fact selector, the artifact encoding and the decoding of the committed bundle), while the attempt-5 note pointed only at export::verify of export.rs; the daemon served px_getReceiptKeys, pax_sequencerReceipt, eth_getProof, commit and block_results, so the bundle was fetched and the refusal is in its verification"
+fix = "The attempt logs the refusing site of offline_export_operation at each application of the closure, prints the daemon log in the case message and repairs the stage it names; agent_rpc_adapters.rs joins the touches"
+
+[gotcha.4001]
+title = "A parity gate attempt died on a full disk before its evidence was written"
+symptom = "Task 17.4.6 attempt 7: no evidence.json; the verification ended with OSError Errno 28 No space left on device at spec/layerx-merge/programme/parity.py:442 while writing per-row logs under the pytest temporary directory, and the gate shell then failed to read the tree (git read-tree status 128); the environment started with 21G free, so the parity run writes more than that in temporary files"
+fix = "Attempt 8 continues from the attempt-6 tree; the parity run keeps its per-row logs under the task log directory and removes each row log once the row is recorded"
+
+[gotcha.4002]
+title = "The pay module suite is red on a tree that never touched it: an ABI method without a kernel activity and a genesis fixture with a placeholder escrow record"
+symptom = "Task 22.39.249 attempt 1 at fc156cad1c (changed layerxproof, xweb and addr only): modules/layerxpay/keeper/gate_test.go:60 and :128 fail for streamOpenForAsk because precompiles/layerxpay/abi.json:104 and stream.go:18 publish the method while types.MethodActivity (modules/layerxpay/types/activity.go:54) carries no entry for it; modules/layerxpay/module_test.go:114 panics with LXP_NON_CANONICAL corrupt escrow state unknown escrow key because the genesis fixture at :107 stores the bytes 1, 2, 3 under the escrow kernel key and ValidateOwnedGenesis has validated escrow records since ecb298987c (escrow_views.go:99)"
+fix = "Task 22.39.291 adds the activity entry with its activity table row and gives the fixture a canonical escrow record; task 22.39.249 verifies without the pay module tests"
+
+[gotcha.4003]
+title = "A retired-reference scan over the programs root reports the findings of the runtime crate another task owns"
+symptom = "Task 22.39.252 attempt 1 at 153cd5aa99: the cases pass and the scan ends with 35 findings, 5 of them FINALIZED_RANK rows in programs/crates/layerx-programs-ai-market/src/queries.rs and 30 in programs/crates/layerx-programs-runtime, the tree of task 22.39.251, because the verification scans --path programs"
+fix = "The verification scans the market crate and programs/README.md only; the five queries.rs rows are repaired or allowed through the catalogue"
+
+[gotcha.4004]
+title = "Two agent gates run TLS identity cases without the boundary executable and carry suites red on their own trees"
+symptom = "Task 22.39.253 attempt 1 at 3459f3d174 and task 22.39.257 attempt 1 at 4a561d6da6: the ops::program and outbound_tls cases of layerx-agentd and three rpc cases of layerx-sdk panic at services/platform/tests/support/tls_boundary.rs:186 because the gates never build layerx-paxeer-boundary (decision 2982 names the form); besides them, three human_runtime::retained_settlement_tests cases of 253 panic at human_runtime.rs:23566 with Refused at witness_binding on a tree that edited human_runtime.rs, and v5_native_corpus_binds_exact_profiles_authority_and_all_outcomes of 257 (program_http.rs:2383) fails with Error Verification on a tree that edited rpc.rs, rpc_sign.rs and wallet.rs of the SDK"
+fix = "Decision 3129 sets the boundary form on both gates; decision 3130 bisects each red case against the base revision before any repair"
+
+[gotcha.4005]
+title = "A retired-reference attempt declined because its remaining repairs needed the catalogue and a test file outside its touches"
+symptom = "Task 22.39.254 attempt 1 at cf8af36f96 (no gate ran): the model session reported that the remaining layerx-types repairs need catalogue allowances and an update to services/agent/crates/layerx-types/tests/ids.rs, both outside the touches list"
+fix = "The touches list names the catalogue (decision 3125) and tests/ids.rs"
+
+[gotcha.4006]
+title = "A network gateway case expects a real identity fixture file from an environment variable no producer sets"
+symptom = "Task 22.39.260 attempt 1 at 6494a22f3c: identity_selector_contract::real_repeated_account_and_balance_lookup_preserves_owner panics at services/human/crates/layerx-network-gateway/src/lib.rs:1529 with real isolated identity fixture required NotPresent because it reads PAXEER_X_IDENTITY_FIXTURE, a JSON file naming a healthy gateway target and real selectors, and nothing in the repository or the gate writes that file"
+fix = "Decision 3132: the case reports the missing variable by name and returns without failing; the record names it as a live probe"
+
+[gotcha.4007]
+title = "The web application end-to-end cases serve the px_ history methods from the gateway stub while the client sends them to the node root"
+symptom = "Task 22.39.269 attempt 1 at 9314aa156e: apps/web/e2e/gateway-history.test.ts:129 fails with the method px_getHistory does not exist/is not available because apps/web/src/api/gateway.ts:24 to :40 (NODE_METHODS) routes px_getHistory and px_getUnifiedHistory to LAYERX_NODE_ENDPOINT per decision 2521 while the case answers them on the LAYERX_GATEWAY_URL stub and its node stub (:95) answers only eth_blockNumber and eth_getTransactionReceipt; apps/web/e2e/gas-station.test.ts:450 reads outcome unavailable instead of sent for the same reason; the attempt changed neither file"
+fix = "Decision 3131: both cases serve the node-root methods from the node stub and assert the ownership; the two files join the touches of 22.39.269"
+
+[gotcha.4008]
+title = "The explorer receipts specs assert the receipt page link the attempt replaced, and the account specs are red before the attempt"
+symptom = "Task 22.39.270 attempt 1 at 797672453a: apps/explorer/ui/paxeerX/receipts/PaxeerXReceiptsTableItem.tsx and PaxeerXReceiptsListItem.tsx now link a receipt that carries a transaction hash to the transaction page while PaxeerXReceiptsListItem.spec.tsx, PaxeerXReceiptsTable.spec.tsx and PaxeerXReceiptsTableItem.spec.tsx (outside the touches) still expect the receipt page; the nine account failures (ActivityList.spec.tsx:50 and :106, ActivityListItem.spec.tsx:36 to :69 expecting the Token transfer label, AssetList.spec.tsx expecting the empty message No assets are held by this account, repair-22-33-502.spec.ts) are on components the attempt never changed"
+fix = "The receipts specs join the touches and follow the repaired links; task 22.39.292 repairs the account specs; the verification of 22.39.270 runs the anchors, chains, feed and receipts directories"
+
+[gotcha.4009]
+title = "The node RPC vet fails on a subscription test that copies a lock value"
+symptom = "Task 22.39.278 attempt 1 at a17034fa0a: go vet ./rpc/ reports rpc/subscribe_test.go:338 assignment copies lock value to storedEnv (storedEnv := *tmClient.Environment), a file outside the touches, so the build never passed"
+fix = "The file joins the touches and the case keeps a pointer to the environment or builds a fresh one field by field"
+
+[gotcha.4010]
+title = "Seven retired-reference trees carry only live identifiers and documentation rows the catalogue must allow"
+symptom = "Attempt 1 of 22.39.255 (15 findings: KeystoreSigner, RemoteSigner and sign_disclosed in layerx-crypto api-contract.md, remote.rs and signer.rs), 22.39.256 (one: FINALIZED_RANK at layerx-client ai_market.rs:695), 22.39.262 (23: receipt_authority in openrpc.json, the anchors and receipts proxies, the refusal lists of lx_getSequence, lx_getProgramEvents and lx_getWalletCaps, the /v1/programs ingress), 22.39.263 (55: agent-boundary deployment.rs, authority_replica, sign_disclosed, the indexer abi.rs rows for the retired precompiles, FINALIZED_RANK, the webhooks repair module), 22.39.274 (97: runtime-dependencies.json rows, foundation.go, roster.go, repair-m797.kvx), 22.39.275 (26: the upgrade-replay tool imports the retired precompiles by design) and 22.39.277 (40: Makefile:373 lxp_test_golden_replay, Treasury.sol:79 recordDeposit and the contracts documentation) ended with the scan red because the catalogue was outside every touches list"
+fix = "Decision 3125 applies: each tree adds its allowed_references entries and documentation rows to tools/paxeer-x/retired_callers.json, now in its touches"
+
+[gotcha.4011]
+title = "Twenty audit-record cases of the qualification tree pin producers that later tasks moved"
+symptom = "Task 22.39.273 attempt 1 at 5022aa2d5a (changed the paxeer-x fixtures only): 20 of 4496 cases under tools/qualification/audit_repairs fail in fourteen files: test_px_node_root_design pins the hosted contracts of px_getSequenceBatch, px_getHistory and px_getUnifiedHistory (live hosted contract changed or abbreviated), test_repair_22_31_605 expects apps/wallet where services/wallet now lives, test_repair_22_33_1016 and test_repair_22_33_1017 pin Makefile gate text, test_repair_22_33_1331 pins lockfiles, test_repair_22_33_1417, test_repair_22_33_64 and test_repair_22_33_1443 pin openrpc and history documents, test_repair_22_33_1565, test_repair_22_33_19, test_repair_22_33_29, test_repair_22_33_626, test_repair_22_33_738 and test_repair_22_36_1 pin digests and directory layouts; the scan never ran"
+fix = "Task 22.39.293 re-pins each case to the producer as it is on main and records the move; task 22.39.273 verifies with those fourteen files ignored"
+
+[gotcha.4012]
+title = "The platform SDK check refuses a handwritten TypeScript module the pipeline lock does not classify"
+symptom = "Task 17.5.7 attempt 8 at 5510aaff11: make platform-build fails in platform-sdk-check because layerx-platform-sdkgen --check reports an unclassified file in the generated markdown root, services/agent/sdk/typescript/src/inference_market.ts, added by dbb814a6ff (task 22.38.31) without a row under handwritten.agent-compatibility in sdk/platform/pipeline.kvx (sdk/platform/generators/src/main.rs:2106 and declared_handwritten at :2163)"
+fix = "Task 22.39.294 declares the module in the pipeline lock and the wave 6 gate requires it; decision 3133"
