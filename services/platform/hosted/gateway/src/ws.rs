@@ -577,7 +577,7 @@ fn subscription_text(
     upstream: &mut Option<native_tls::TlsStream<TcpStream>>,
     subscriptions: &mut RelaySubscriptions,
 ) -> Result<bool, String> {
-    if !super::public_reads::consume_read() {
+    if !super::public_reads::consume_read(&config.read_windows) {
         ws_wire::write(stream, 8, &1013_u16.to_be_bytes())?;
         return Ok(false);
     }
