@@ -36330,3 +36330,59 @@ symbol = "test_retired_checkpoint_settlement.py::test_checkpoint_settlement_is_r
 observed = "Attempt 1 at 814ead680779: build exit 0; verification exit 1: assert_retired found live references to the deleted document in seventeen files led by the historical settlement module and the proof test support; log /out/logs/verify-1.log."
 assumption = "The document is the archival producer of the historical readers; deleting it contradicts decision 3006, and no trust reader remains."
 severity = "high"
+
+[finding.22.39.117.3]
+task = "22.39.117"
+file = "sdk/launchpad/shared/chain::TestPhase2ReadAdapterRealRegisteredPool"
+symbol = "chain::TestPhase2ReadAdapterRealRegisteredPool"
+observed = "Attempt 3 at 76bb1147bf8a: build exit 0 (cd sdk/launchpad/shared and go vet); verification exit 1: the four shared package trees passed and make -C services/launchpad ci failed in shared/redis (L09_REDIS_URL is not set) and in shared/config/deployment and shared/config/capabilities (anvil not found on PATH); log /out/logs/verify-1.log."
+assumption = "Only the environment is at fault; every other launchpad package passed at the attempt tree."
+severity = "high"
+
+[finding.22.39.177.2]
+task = "22.39.177"
+file = "programs/crates/layerx-programs-arbiter/tests/activity_codec.rs"
+symbol = "activity_codec.rs"
+observed = "Attempt 2 at 791076fd4c6d: build exit 0; verification exit 101: activity_codec, authority_from_prestate (with the exclusion of decision 3015) and repair_22_33_215 passed, proof_arbiter_crate failed two cases with Err(Encoding) at tests/proof_arbiter_crate.rs line 1794 and Err(Witness(Encoding)) at line 1538, the retirement grep passed; log /out/logs/verify-1.log."
+assumption = "The admission change routes a boundary leaf through the historical encoder; the two cases pass on main."
+severity = "high"
+
+[finding.22.33.223.12]
+task = "22.33.223"
+file = "programs/crates/layerx-programs-ai-market/tests/repair_22_33_223.rs"
+symbol = "repair_22_33_223.rs"
+observed = "Attempt 13 at f3500b77dd19: build exit 0; dependents exit 0; verification exit 101 after two repair cycles: roster_state_fuel_scaling, maximum_state_fuel_scaling and every_routed_operation_fits_the_protocol_cpu_fuel_cap failed (BudgetExceeded for Cpu at attempted 1000003 to 1000040 against 1000000 on the four handlers at rosters 16, 24 and 32; one routed execution without measured fuel after application error 2305 at the sealed_task_set step); log /out/logs/verify-2.log."
+assumption = "The overages are marginal rescans and the unmeasured execution is a fixture ordering defect; the cap is right."
+severity = "high"
+
+[finding.22.39.180.1]
+task = "22.39.180"
+file = "tests/ci/test_release_docs_gap_markers.py"
+symbol = "test_release_docs_gap_markers.py"
+observed = "Attempt 1 at bbe08676b47c: build exit 0 (py_compile of the two tests); verification exit 1: thirty-three cases passed and one failed at tests/ci/test_release_docs_gap_markers.py line 195, asserting decision 2521 in the hosted gateway section of the service operator runbook; log /out/logs/verify-1.log."
+assumption = "The test is the stale consumer of a rewrite that removed decision numbers; the documents are right."
+severity = "high"
+
+[finding.22.39.178.1]
+task = "22.39.178"
+file = "tests/ci/test_wallet_test_workflow.py"
+symbol = "test_wallet_test_workflow.py"
+observed = "Attempt 1 at 6df4284976e6: build exit 0 at the second build; verification exit 1: twelve cases passed and test_wallet_setup_provides_web_locks failed asserting the named import of the lock registry that the two widget tests replaced; log /out/logs/verify-1.log."
+assumption = "The consumer asserts the names of a producer that changed; the widget files and the lockfiles are right."
+severity = "high"
+
+[finding.22.39.179.1]
+task = "22.39.179"
+file = "apps/wallet/src/surfaces/test/repair-22-33-206.test.ts"
+symbol = "repair-22-33-206.test.ts"
+observed = "Attempt 1 at dfa11a0e570d: build exit 2 (cd apps/wallet, corepack enable, pnpm install --frozen-lockfile and pnpm exec tsc --noEmit -p tsconfig.json) with TS18047 and TS2339 at apps/wallet/src/server/repair-22-33-168.test.ts line 123; the verification never ran; log /out/logs/build-1.log."
+assumption = "The type errors predate the task and sit in a file outside its touches; the expectation change is sound."
+severity = "high"
+
+[finding.6.59.7.2]
+task = "6.59.7"
+file = "tests/bridge/retired/test_retired_checkpoint_settlement.py::test_checkpoint_settlement_is_retired"
+symbol = "test_retired_checkpoint_settlement.py::test_checkpoint_settlement_is_retired"
+observed = "Attempt 2 at d0c441866ae8: build exit 0; verification exit 1 at the second run: sixty-one cases passed and test_layerx_image_includes_reachable failed at tests/ci/test_image_compile_inputs_not_ignored.py line 290; the publication refused files changed outside the touches (two hosted node test scripts with whitespace-only changes); log /out/logs/verify-2.log."
+assumption = "The image test is pre-existing red since 9.27.4 and the scope refusal is inherited whitespace; the retirement itself is complete."
+severity = "high"
