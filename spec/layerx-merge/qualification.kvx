@@ -36474,3 +36474,11 @@ symbol = "agent_rpc_adapters.rs"
 observed = "Attempt 1 at 6c2da1a64f69 (base a26369c7eda6): build exit 0; verification exit 1: the record and the grep passed and cargo clippy failed with eight errors in services/agent/crates/layerx-types (five missing Errors sections, two unused self arguments, one item after statements), none in layerx-agentd; log /out/logs/verify-1.log."
 assumption = "The daemon crate itself is lint-clean at the attempt tree; the failures belong to the types crate the gate reached through the workspace."
 severity = "high"
+
+[finding.22.39.117.6]
+task = "22.39.117"
+file = "sdk/launchpad/shared/chain::TestPhase2ReadAdapterRealRegisteredPool"
+symbol = "chain::TestPhase2ReadAdapterRealRegisteredPool"
+observed = "Attempt 6 at b7b8ec69ce77 (base 47b44760f795): build exit 0; verification exit 1: every launchpad package passed except sdk/launchpad/shared/db/production, where TestPhase2ConcurrentIndexesAndRecovery failed in its cleanup with private migration database cleanup failed, context deadline exceeded (online_indexes_test.go line 39) after a 2.05 s lock wait; log /out/logs/verify-1.log."
+assumption = "The environment now mirrors the public job completely; the one failure is a three-second fixture deadline on a forced database drop."
+severity = "high"
