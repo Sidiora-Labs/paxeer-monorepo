@@ -342969,7 +342969,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.93.296]
 title = "Triage issue #1826 and write its report"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -343000,7 +343000,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.93.295]
 title = "Triage issue #1825: Remove the deleted glTF model from both size allowlists"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -343031,7 +343031,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.93.294]
 title = "Triage issue #1824: Emit the declared license in both Python wheel metadata generators"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -343062,7 +343062,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.93.293]
 title = "Triage issue #1823: Include shared chart declarations in the launchpad Docker build"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -343093,7 +343093,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.93.292]
 title = "Triage issue #1822: Preserve the shared Swagger contract in regeneration paths"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -343124,7 +343124,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.93.291]
 title = "Triage issue #1821 and write its report"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -343155,7 +343155,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.93.290]
 title = "Triage issue #1820 and write its report"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -343186,7 +343186,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.93.289]
 title = "Triage issue #1819: Reject stale source bindings in the layout receipt prerequisite"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -343217,7 +343217,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.93.288]
 title = "Triage issue #1818: Supply the required dashboard API origin during the Docker build"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -343248,7 +343248,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.93.287]
 title = "Triage issue #1817 and write its report"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -343279,7 +343279,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.93.286]
 title = "Triage issue #1816: Reconcile ask-stream ID types in the inference contract and protocol guide"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
