@@ -345863,7 +345863,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.93.196]
 title = "Triage issue #1726 and write its report"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -345894,7 +345894,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.93.195]
 title = "Triage issue #1725 and write its report"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -345925,7 +345925,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.93.194]
 title = "Triage issue #1724: Use node-consistent amounts in the current-receipt restart fixture"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -345956,7 +345956,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.93.193]
 title = "Triage issue #1723: Migrate retained CLI documentation tests to root-node transport"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -345987,7 +345987,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.93.192]
 title = "Triage issue #1722 and write its report"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -346018,7 +346018,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.93.191]
 title = "Triage issue #1721: Migrate retained receipt-store tests to authenticated ingress"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -346049,7 +346049,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.93.190]
 title = "Triage issue #1720: Keep the home chart within its stated calendar-day window"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -346080,7 +346080,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.93.189]
 title = "Triage issue #1719: Restore token category filters on browser history navigation"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -346111,7 +346111,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.93.188]
 title = "Triage issue #1718: Update retained explorer shell tests for the new search placeholder"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -346142,7 +346142,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.93.187]
 title = "Triage issue #1717: Search results render two desktop headers after shell migration"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -346173,7 +346173,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.93.186]
 title = "Triage issue #1716: Reconcile explorer stat-label palette with the 3:1 contrast requirement"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -346204,7 +346204,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.93.185]
 title = "Triage issue #1715: Reconcile nextSequence identifier used by web payer with Ledger ABI"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -346235,7 +346235,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.93.184]
 title = "Triage issue #1714: Resolve committed journey receipt references through evidence.get"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -346266,7 +346266,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.93.183]
 title = "Triage issue #1713: Web-search exact-payment adapter rejects valid two-log receipts"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -346297,7 +346297,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.93.182]
 title = "Triage issue #1712: Restore real HTTP coverage after explorer fetchApi switches to global fetch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -346328,7 +346328,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.93.181]
 title = "Triage issue #1711: Migrate retained middleware conformance fixtures to the verified receipt digest"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -346359,7 +346359,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.93.180]
 title = "Triage issue #1710: Receipt vector refresher rejects the second V2 producer case"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -346390,7 +346390,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.93.179]
 title = "Triage issue #1709: Rust fiat replay tests still load the retired receipt corpus"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -346421,7 +346421,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.93.178]
 title = "Triage issue #1708 and write its report"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -346452,7 +346452,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.93.177]
 title = "Triage issue #1707 and write its report"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -346483,7 +346483,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.93.176]
 title = "Triage issue #1706 and write its report"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -346514,7 +346514,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.93.175]
 title = "Triage issue #1705 and write its report"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -346545,7 +346545,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.93.174]
 title = "Triage issue #1704 and write its report"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -348870,7 +348870,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.93.99]
 title = "Triage issue #1626: Staking redelegation query erases sparse-page continuation after scan cap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -348901,7 +348901,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.93.98]
 title = "Triage issue #1625: Guarded SurfaceRuntime is rejected by deployment attestation and pool reads"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -348963,7 +348963,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.93.96]
 title = "Triage issue #1623 and write its report"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -348994,7 +348994,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.93.95]
 title = "Triage issue #1622 and write its report"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -349025,7 +349025,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.93.94]
 title = "Triage issue #1621 and write its report"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -349056,7 +349056,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.93.93]
 title = "Triage issue #1620 and write its report"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -349118,7 +349118,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.93.91]
 title = "Triage issue #1618 and write its report"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -349180,7 +349180,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.93.89]
 title = "Triage issue #1616 and write its report"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -349273,7 +349273,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.93.86]
 title = "Triage issue #1613 and write its report"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -349304,7 +349304,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.93.85]
 title = "Triage issue #1612 and write its report"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -349335,7 +349335,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.93.84]
 title = "Triage issue #1611 and write its report"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -349366,7 +349366,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.93.83]
 title = "Triage issue #1610 and write its report"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -349397,7 +349397,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.93.82]
 title = "Triage issue #1609 and write its report"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -349459,7 +349459,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.93.80]
 title = "Triage issue #1607 and write its report"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
