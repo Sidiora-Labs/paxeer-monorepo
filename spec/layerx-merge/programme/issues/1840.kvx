@@ -1,0 +1,48 @@
+[issue.1840]
+number = 1840
+title = "[Coherence] The new root-path check makes the account-derivation transport-loss test fail when it constructs its client"
+revision = "a910fdedd579e63379ae6c2e4d4971990d28f8ad"
+verdict = "task"
+evidence = "The root-path validation introduced by commit a7d39f7f680edfb7e6e92a49468618bd1341cb30 remains at services/agent/sdk/python/layerx_sdk/x402_rpc.py:189 and :249, while tests/agent/sdk/python/test_account_derivation.py:601 still constructs PaymentRpc on /rpc before its outcome assertions at :602 and :613, preventing coverage of the submission/read distinction in services/agent/sdk/python/layerx_sdk/account_derivation.py:814 even after commit 06d9fa865e929be081a8bddc1836c9ac8e384d48 repaired other assertions in the test file."
+close_comment = "The account-binding transport-loss test still uses /rpc, which the node client rejects before the outcome checks run. A focused test correction must use the node root endpoint and retain the unknown submission outcome and safe read retry assertions."
+
+[task.18.1840.1]
+title = "Issue #1840: Use the node root endpoint in the account-binding transport-loss test"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181840.1"]
+capabilities = []
+interfaces = []
+do_1 = "Change the PaymentRpc endpoint in tests/agent/sdk/python/test_account_derivation.py:601 from /rpc to /, matching services/agent/sdk/python/layerx_sdk/x402_rpc.py:189 and :249; keep the bound, non-listening socket so the real urllib request reaches a refused connection without changing client endpoint validation."
+do_2 = "Retain both subtests in test_bind_rpc_transport_loss_keeps_unknown_submission_outcome at tests/agent/sdk/python/test_account_derivation.py:598 and assert that _bind_rpc(rpc.call, method, []) raises UNKNOWN_OUTCOME with retry unknown-outcome for eth_sendRawTransaction and TRANSPORT_FAILURE with retry safe for eth_chainId, including the existing URLError cause assertion at :616; this exercises _bind_rpc at services/agent/sdk/python/layerx_sdk/account_derivation.py:801 rather than directly calling PaymentRpc.send."
+symbols = ["test_bind_rpc_transport_loss_keeps_unknown_submission_outcome"]
+touches = ["tests/agent/sdk/python/test_account_derivation.py"]
+tests = ["tests/agent/sdk/python/test_account_derivation.py::BindTransportTest::test_bind_rpc_transport_loss_keeps_unknown_submission_outcome"]
+planned_paths = []
+build_cmd = "python3 -m py_compile tests/agent/sdk/python/test_account_derivation.py"
+verify_cmd = "python3 -m pytest tests/agent/sdk/python/test_account_derivation.py::BindTransportTest::test_bind_rpc_transport_loss_keeps_unknown_submission_outcome -q"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181840]
+title = "Account-binding transport-loss coverage reaches both outcome classifications"
+ac_1 = "The test at tests/agent/sdk/python/test_account_derivation.py:598 constructs PaymentRpc on the accepted node root endpoint, reaches both real connection failures through _bind_rpc, and preserves the code, retry and URLError cause assertions at :602, :613 and :616 for the mapping at services/agent/sdk/python/layerx_sdk/account_derivation.py:814."
+
+[acceptance.18.1840.1]
+feature = "18"
+req = "181840.1"
+scenario = "Given a node root endpoint backed by a bound, non-listening socket, when the account-binding transport-loss test invokes eth_sendRawTransaction and eth_chainId through PaymentRpc.call and _bind_rpc, then construction succeeds and both subtests assert their original error code, retry class and URLError cause: UNKNOWN_OUTCOME with unknown-outcome for submission and TRANSPORT_FAILURE with safe for the read."
+contract = "contracts/agent-ts-sdk.md#production"
+test = "tests/agent/sdk/python/test_account_derivation.py::BindTransportTest::test_bind_rpc_transport_loss_keeps_unknown_submission_outcome (planned)"
+qualification = "UNRUN"
