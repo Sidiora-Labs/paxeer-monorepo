@@ -160415,7 +160415,7 @@ do_4 = "Requalify attempt 1 at 80a88738417b with the npm build of decision 3072;
 
 [task.18.1699.1]
 title = "Issue #1699: Recover advanced actions after rejected or failed wallet signatures"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -160536,7 +160536,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1687.1]
 title = "Issue #1687: Preserve profile save acknowledgment when removing a draft image"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -191269,7 +191269,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1598.1]
 title = "Issue #1598: Verify Programs receipts from both hosted module registrations"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
