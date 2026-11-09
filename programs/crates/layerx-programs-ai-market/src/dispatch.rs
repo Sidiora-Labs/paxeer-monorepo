@@ -1187,6 +1187,7 @@ const TRANSITION_SCRATCH_BYTES: usize = max_of(&[
     REBIND_SCRATCH_BYTES,
     admission::ADMISSION_SCRATCH_BYTES,
     rooms::SCRATCH_BYTES,
+    rewards::bonds::SCRATCH_BYTES,
 ]);
 /// Router scratch: at least the largest scratch any routed transition or the F01 revision
 /// rebinding needs.
@@ -1720,7 +1721,7 @@ fn transition_inner(
         0x0501..=0x0503 | 0x0601..=0x0605 | 0x0701..=0x0703 => handle_settlement,
         0x0801..=0x0809 => handle_admission,
         0x0A01 | 0x0A02 => handle_read,
-        0x0B01..=0x0B04 | 0x0B0C => handle_rooms,
+        0x0B01..=0x0B04 | 0x0B09..=0x0B0C => handle_rooms,
         0x0B05 => handle_laps,
         0x0B08 => handle_split_payout,
         0x0B06 | 0x0B07 => handle_canary,
@@ -1973,7 +1974,22 @@ fn handle_rooms(
     event: &mut [u8],
     record_out: &mut [u8; RECORD_PAYLOAD_BYTES],
 ) -> CodecResult<Step> {
-    match queries::placement::apply(ctx, envelope, present(current)?, next, scratch, event)? {
+    let current = present(current)?;
+    let operation = envelope.envelope.operation;
+    let outcome = match operation {
+        LockBond => rewards::bonds::apply_lock_bond(ctx, envelope, current, next, scratch, event)?,
+        SlashBond => {
+            rewards::bonds::apply_slash_bond(ctx, envelope, current, next, scratch, event)?
+        }
+        RefundBond => {
+            rewards::bonds::apply_refund_bond(ctx, envelope, current, next, scratch, event)?
+        }
+        CloseRoom => {
+            rewards::bonds::apply_close_room(ctx, envelope, current, next, scratch, event)?
+        }
+        _ => queries::placement::apply(ctx, envelope, current, next, scratch, event)?,
+    };
+    match outcome {
         rooms::Outcome::Applied {
             revision,
             state_len,
