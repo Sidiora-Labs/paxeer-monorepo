@@ -7,6 +7,12 @@ import type { AddressInfo } from "node:net";
 import { isDeepStrictEqual } from "node:util";
 import { pathToFileURL } from "node:url";
 import { test, type TestContext } from "node:test";
+import { keccak_256 } from "@noble/hashes/sha3.js";
+import { ed25519 } from "@noble/curves/ed25519.js";
+import { decodeLedgerTransaction } from "../src/ledger-payment.js";
+import { encodeSequencerReceipt } from "../src/sequencer-receipt-codec.js";
+import { verifySequencerReceipt, type SequencerReceipt } from "../src/verifier.js";
+import { committedVector, recordedCommittedKeys } from "./recorded-committed.js";
 import { recordedWebRpc, webReceiptKeys, exactRecording, sellerFixture } from "./recorded-web-search.js";
 
 import {
@@ -32,6 +38,183 @@ export function assertPayerGrantRoundTrip(canonical: Uint8Array): PayerGrant {
   return grant;
 }
 
+export async function webSearchExactPaymentLogReceipts(context: TestContext): Promise<void> {
+  const bytes = (value: string): Uint8Array => new Uint8Array(Buffer.from(value.replace(/^0x/u, ""), "hex"));
+  const rawTransaction = bytes(committedVector.rawTransaction);
+  const recordedReceipt = bytes(committedVector.signedReceipt);
+  const authenticated = await verifySequencerReceipt(recordedReceipt, rawTransaction, recordedCommittedKeys());
+  assert.deepEqual(encodeSequencerReceipt(authenticated.receipt), recordedReceipt);
+  // Attempt 3 authorizes issuing the settlement fixture with the producer codec.
+  // Preserve the producer transaction and complete log effects, and use the
+  // seller recorder's deterministic signing key and its existing receipt pin.
+  const seed = new Uint8Array(createHash("sha256").update("x-websearch-test/key/sequencer").digest());
+  assert.deepEqual(ed25519.getPublicKey(seed), webReceiptKeys[0]!.publicKey);
+  const batchId = new Uint8Array(32);
+  new DataView(batchId.buffer).setBigUint64(24, webReceiptKeys[0]!.first_height);
+  const settlement: SequencerReceipt = {
+    ...authenticated.receipt, moduleId: 12, operation: 2, batchId, contextHash: webReceiptKeys[0]!.keyId,
+  };
+  const signingDigest = new Uint8Array(createHash("sha256").update("LXP/v1/receipt\0", "ascii")
+    .update(encodeSequencerReceipt(settlement, false)).digest());
+  const issued: SequencerReceipt = { ...settlement, sequencerSignature: ed25519.sign(signingDigest, seed) };
+  const receipt = encodeSequencerReceipt(issued);
+  const call = decodeLedgerTransaction(rawTransaction);
+  const word = (index: number): string => Buffer.from(call.data.subarray(4 + index * 32, 36 + index * 32)).toString("hex");
+  const from = word(0), payTo = word(1), asset = word(2), reference = word(5);
+  const offer: WebSearchOffer = {
+    scheme: "exact", network: `eip155:${call.chainId}`, amount: BigInt(`0x${word(3)}`).toString(),
+    asset, payTo, maxTimeoutSeconds: 60, currency: "SID", account: payTo,
+  };
+  const accepted = {
+    scheme: offer.scheme, network: offer.network, amount: offer.amount, asset, payTo, maxTimeoutSeconds: offer.maxTimeoutSeconds,
+    extra: { layerx: { account: offer.account, commitment: "executed", currency: offer.currency } },
+  };
+  const logs = committedVector.receiptJson.logs;
+  assert.equal(logs.length, 2);
+  const [transfer, exact] = logs;
+  assert.ok(transfer && exact);
+  assert.equal(transfer.topics[1], `0x${from}`);
+  assert.equal(transfer.topics[2], `0x${payTo}`);
+  assert.equal(transfer.topics[3], `0x${asset}`);
+  assert.equal(exact.topics[1], `0x${reference}`);
+  assert.equal(exact.topics[2], `0x${from}`);
+  assert.equal(exact.topics[3], `0x${payTo}`);
+  const txHash = `0x${Buffer.from(keccak_256(rawTransaction)).toString("hex")}`;
+  const payment: WebSearchExactPayment = { receipt, rawTransaction, txHash, idempotencyKey: reference, logs };
+  const receiptDigest = createHash("sha256").update("LXP/v1/receipt\0", "ascii")
+    .update(receipt.subarray(0, -69)).update(Uint8Array.of(0)).digest("hex");
+  const received: unknown[] = [];
+  const failures: unknown[] = [];
+  const server = createServer((request, response) => {
+    try {
+      assert.equal(request.method, "GET");
+      assert.equal(request.url, "/payment");
+      const header = request.headers["payment-signature"];
+      assert.equal(typeof header, "string");
+      received.push(JSON.parse(Buffer.from(String(header), "base64").toString("utf8")) as unknown);
+      response.writeHead(204); response.end();
+    } catch (error) { failures.push(error); response.writeHead(500); response.end(); }
+  });
+  server.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  const { port } = server.address() as AddressInfo;
+  const endpoint = `http://127.0.0.1:${port}`;
+  class PaymentPreparationClient extends WebSearchClient {
+    public async deliver(): Promise<void> {
+      const prepared = await this.preparePayment(offer, accepted, `${endpoint}/payment`);
+      const response = await fetch(`${endpoint}/payment`, { headers: { "PAYMENT-SIGNATURE": prepared.header } });
+      assert.equal(response.status, 204);
+    }
+  }
+  function client(candidate: WebSearchExactPayment, receiptKeys = webReceiptKeys, omitIdempotencyKey = false): PaymentPreparationClient {
+    return new PaymentPreparationClient({
+      endpoint, network: offer.network, nativeAsset: "ff".repeat(32),
+      assets: { SID: { assetId: asset, maxAmount: BigInt(offer.amount) } }, receiptKeys,
+      payer: { preferences: [{ currency: "SID", scheme: "exact" }], exact: async () => {
+        if (!omitIdempotencyKey) return candidate;
+        const { idempotencyKey, ...withoutKey } = candidate;
+        assert.equal(idempotencyKey, reference);
+        return withoutKey;
+      } },
+    });
+  }
+  const expectedHeader = {
+    x402Version: 2, accepted, payload: { txHash, receiptDigest, verificationLevel: "receipted", idempotencyKey: reference },
+  };
+  try {
+    await context.test("refuses an authenticated receipt with the wrong settlement operation before delivery", async () => {
+      const before = received.length;
+      await assert.rejects(client({ ...payment, receipt: recordedReceipt }, recordedCommittedKeys()).deliver(),
+        (error: unknown) => error instanceof WebSearchError && error.code === "settlement-operation-mismatch");
+      assert.equal(received.length, before);
+    });
+    await context.test("delivers the producer-encoded settlement with unmodified Transfer and PaymentExact logs", async () => {
+      await client(payment).deliver();
+      assert.deepEqual(received, [expectedHeader]);
+      assert.deepEqual(payment.receipt, encodeSequencerReceipt(issued));
+      assert.deepEqual(recordedReceipt, bytes(committedVector.signedReceipt));
+      assert.deepEqual(payment.rawTransaction, bytes(committedVector.rawTransaction));
+      assert.deepEqual(payment.logs, committedVector.receiptJson.logs);
+    });
+    await context.test("selects PaymentExact independently of its position", async () => {
+      await client({ ...payment, logs: [exact, transfer] }).deliver();
+      assert.deepEqual(received, [expectedHeader, expectedHeader]);
+    });
+    const topic = (index: number, value: string) => ({ ...exact, topics: exact.topics.map((item, position) => position === index ? value : item) });
+    const wrong = `0x${"11".repeat(32)}`;
+    const invalidLogs: readonly (readonly [string, unknown])[] = [
+      ["absent event", [transfer]],
+      ["empty logs", []],
+      ["duplicate event", [transfer, exact, exact]],
+      ["wrong Ledger address", [transfer, { ...exact, address: "0x000000000000000000000000000000000000101b" }]],
+      ["wrong event topic", [transfer, topic(0, wrong)]],
+      ["wrong reference", [transfer, topic(1, wrong)]],
+      ["wrong payer", [transfer, topic(2, wrong)]],
+      ["wrong payee", [transfer, topic(3, wrong)]],
+      ["wrong asset", [transfer, { ...exact, data: `${wrong}${exact.data.slice(66)}` }]],
+      ["wrong amount", [transfer, { ...exact, data: `${exact.data.slice(0, -2)}04` }]],
+      ["amount overflow", [transfer, { ...exact, data: `${exact.data.slice(0, 66)}01${exact.data.slice(68)}` }]],
+      ["truncated data", [transfer, { ...exact, data: exact.data.slice(0, -2) }]],
+      ["nonhex data", [transfer, { ...exact, data: `${exact.data.slice(0, -2)}gg` }]],
+      ["missing topic", [transfer, { ...exact, topics: exact.topics.slice(0, 3) }]],
+      ["sparse topics", [transfer, { ...exact, topics: [exact.topics[0], , exact.topics[2], exact.topics[3]] }]],
+      ["nonhex topic", [transfer, topic(2, `0x${"gg".repeat(32)}`)]],
+      ["malformed address", [transfer, { ...exact, address: "0x101a" }]],
+      ["null log", [null, exact]],
+      ["malformed accompanying log", [{ ...transfer, topics: [null] }, exact]],
+      ["nonarray logs", {}],
+      ["null topics", [transfer, { ...exact, topics: null }]],
+      ["nonstring data", [transfer, { ...exact, data: 3 }]],
+      ["conflicting event beside matching event", [transfer, exact, topic(1, wrong)]],
+    ];
+    for (const [name, invalid] of invalidLogs) {
+      await context.test(`refuses ${name} before delivery`, async () => {
+        const before = received.length;
+        await assert.rejects(client({ ...payment, logs: invalid as WebSearchExactPayment["logs"] }).deliver(),
+          (error: unknown) => error instanceof WebSearchError && error.code === "receipt-offer-mismatch");
+        assert.equal(received.length, before);
+      });
+    }
+    const forgedReceipt = new Uint8Array(receipt);
+    forgedReceipt[forgedReceipt.length - 1] = forgedReceipt.at(-1)! ^ 1;
+    const wrongTransaction = new Uint8Array(rawTransaction);
+    wrongTransaction[wrongTransaction.length - 1] = wrongTransaction.at(-1)! ^ 1;
+    for (const [name, candidate, code] of [
+      ["invalid signature", { ...payment, receipt: forgedReceipt }, "receipt-unverified"],
+      ["transaction mismatch", { ...payment, rawTransaction: wrongTransaction }, "receipt-unverified"],
+      ["transaction hash mismatch", { ...payment, txHash: wrong }, "receipt-unverified"],
+      ["idempotency reference mismatch", { ...payment, idempotencyKey: wrong.slice(2) }, "receipt-offer-mismatch"],
+    ] as const) {
+      await context.test(`refuses ${name} before delivery`, async () => {
+        const before = received.length;
+        await assert.rejects(client(candidate).deliver(), (error: unknown) => error instanceof WebSearchError && error.code === code);
+        assert.equal(received.length, before);
+      });
+    }
+    await context.test("binds the event reference even without an idempotency key", async () => {
+      const before = received.length;
+      await assert.rejects(client({ ...payment, logs: [transfer, topic(1, wrong)] }, webReceiptKeys, true).deliver(),
+        (error: unknown) => error instanceof WebSearchError && error.code === "receipt-offer-mismatch");
+      assert.equal(received.length, before);
+    });
+    for (const [name, pins] of [
+      ["wrong receipt key", webReceiptKeys.map(pin => ({ ...pin, publicKey: new Uint8Array(32).fill(17) }))],
+      ["receipt height outside pin", webReceiptKeys.map(pin => ({ ...pin, first_height: pin.last_height + 1n, last_height: pin.last_height + 1n }))],
+    ] as const) {
+      await context.test(`refuses ${name} before delivery`, async () => {
+        const before = received.length;
+        await assert.rejects(client(payment, pins).deliver(),
+          (error: unknown) => error instanceof WebSearchError && error.code === "receipt-unverified");
+        assert.equal(received.length, before);
+      });
+    }
+    assert.deepEqual(failures, []);
+  } finally {
+    server.closeAllConnections();
+    await new Promise<void>((resolve, reject) => server.close(error => error ? reject(error) : resolve()));
+  }
+}
+
 export async function webSearchClientTests(context: TestContext): Promise<void> {
   const gateway = await recordedWebRpc();
   const openReplays = new Set<ReturnType<typeof createServer>>();
@@ -44,7 +227,11 @@ export async function webSearchClientTests(context: TestContext): Promise<void> 
     interface Vector { readonly payload: string; readonly media_type: string; readonly text: string; readonly digest: string }
 
     const fixture = (path: string): Json => sellerFixture<Json>(path);
-    const exchange = (fixture("client-exchange.json")["exchange"] as Step[]);
+    const exactExchange = JSON.parse(readFileSync(new URL(
+      "../../../../../../services/interop/crates/x-websearch/tests/fixtures/client-exchange.json", import.meta.url,
+    ), "utf8")) as { readonly exchange: readonly Step[] };
+    const exchange = (fixture("client-exchange.json")["exchange"] as Step[])
+      .map((step, index) => index >= 2 && index < 10 ? exactExchange.exchange[index]! : step);
     const vectors = (fixture("content-vectors.json")["vectors"] as Vector[]);
     const buyer = fixture("gateway/buyer.json");
     const config = fixture("config/valid.json");
@@ -164,9 +351,9 @@ export async function webSearchClientTests(context: TestContext): Promise<void> 
       preferences: [{ currency: "SID", scheme: "metered" }],
       metered: async () => ({ grant: bytes((buyer["grants"] as Json)["SID"] as string), idempotencyKey: payload(searchPaid)["idempotencyKey"] as string }),
     };
-    const exactIn = (currency: WebSearchCurrency): WebSearchPayer => ({
+    const exactIn = (currency: WebSearchCurrency) => ({
       preferences: [{ currency, scheme: "exact" }],
-      exact: async (): Promise<WebSearchExactPayment> => {
+      exact: async (_offer: WebSearchOffer, _target: string): Promise<WebSearchExactPayment> => {
         const payment = exactRecording.payments[currency];
         const answer = exactRecording.endpoints.gateway["*"].find(rule => rule.method === "pax_sequencerReceipt" && rule.params[0] === payment.txHash);
         assert.ok(answer);
@@ -178,7 +365,7 @@ export async function webSearchClientTests(context: TestContext): Promise<void> 
         return { receipt, txHash: payment.txHash, logs: result.logs,
           rawTransaction: bytes(payment.rawTransaction.slice(2)), idempotencyKey: payment.idempotencyKey };
       },
-    });
+    } satisfies WebSearchPayer);
     const exactUsdc = exactIn("USDC");
 
     // The content digest of every committed vector.
@@ -236,7 +423,7 @@ export async function webSearchClientTests(context: TestContext): Promise<void> 
       const sidecar = await replay(clone());
       try {
         const payer: WebSearchPayer = { ...exactUsdc, exact: async (offer, target) => {
-          const payment = await exactUsdc.exact!(offer, target) as WebSearchExactPayment;
+          const payment: WebSearchExactPayment = { ...await exactUsdc.exact(offer, target) };
           return { ...payment, logs: alter(payment.logs) };
         } };
         await refused(client(sidecar.endpoint, payer).fetch(fetchUrl("USDC")), "receipt-offer-mismatch");
@@ -447,5 +634,6 @@ export async function webSearchClientTests(context: TestContext): Promise<void> 
 }
 
 if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  test(webSearchExactPaymentLogReceipts);
   test(webSearchClientTests);
 }
