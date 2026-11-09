@@ -48,7 +48,7 @@ def test_unknown_plan_is_not_pending() -> None:
         "v6.10": "done_height == 0",
         "v6.12.0": "done_height == 0",
         "v7.0": "done_height == 0",
-        "v7.0-anchor-store-delete": "never applied",
+        "v7.0-anchor-store-delete": "done_height == 0",
         "v99.0": "never applied",
     }
     assert pending_rule([]) == {}

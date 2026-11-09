@@ -133,7 +133,7 @@ impl RemoteSigner {
             .map_err(|error| handshake_refusal(&error))?;
         let length = u32::try_from(body.len()).map_err(|_| SignRefusal::MalformedResponse)?;
         tls.write_all(&length.to_be_bytes())
-            .and_then(|()| tls.write_all(&body))
+            .and_then(|()| tls.write_all(body))
             .map_err(|error| io_refusal(&error))?;
         read_response(&mut tls)
     }
@@ -192,6 +192,9 @@ impl Signer for RemoteSigner {
 
 /// Decodes the v2 retained-bind request body after the bounded length frame.
 /// Refuses v1 activity requests, unknown kinds, truncation and trailing bytes.
+///
+/// # Errors
+/// Returns `MalformedResponse` for an unsupported frame or invalid bind message.
 pub fn decode_bind_request(body: &[u8]) -> Result<BindMessage, SignRefusal> {
     if body.get(..7) != Some(b"LXRS\0\x02\x01".as_slice()) {
         return Err(SignRefusal::MalformedResponse);

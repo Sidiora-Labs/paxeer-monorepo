@@ -1,11 +1,11 @@
 import { http, fallback, createConfig, createStorage, cookieStorage, type CreateConnectorFn } from 'wagmi';
 import { type Chain } from 'viem';
 import { injected, walletConnect } from 'wagmi/connectors';
-import { PAXEER_RPC_URL, getPaxeerRpcUrls } from '@/core/rpc';
+import { getPaxeerRpcUrl, getPaxeerRpcUrls } from '@/core/rpc';
 import { walletConnectProjectId } from '@/core/backend-origins';
 import { getPaxeerWallet, paxeerEmbeddedConnector } from '@/core/wallet-sdk/embedded_sdk/embedded';
 
-export { PAXEER_RPC_URL } from '@/core/rpc';
+export { getPaxeerRpcUrl } from '@/core/rpc';
 
 /** Origin this deployment is served from; used for wallet pairing metadata. */
 export const CANONICAL_ORIGIN = (process.env.NEXT_PUBLIC_CANONICAL_ORIGIN || 'https://sidiora.fun').replace(/\/+$/, '');
@@ -16,7 +16,9 @@ export const paxeer = {
   nativeCurrency: { name: 'PAX', symbol: 'PAX', decimals: 18 },
   rpcUrls: {
     default: {
-      http: [PAXEER_RPC_URL],
+      get http() {
+        return [getPaxeerRpcUrl()] as const;
+      },
     },
   },
   blockExplorers: {
@@ -34,27 +36,6 @@ export const appMetadata = {
 /** Set only when a WalletConnect project id is configured for this deployment. */
 export const walletConnectConfigured = walletConnectProjectId() !== null;
 
-const primaryRpc = http(
-  PAXEER_RPC_URL,
-  {
-    batch: { batchSize: 1024, wait: 16 },
-    retryCount: 2,
-  },
-);
-
-// Second usable endpoint from the shared list (core/rpc.ts), so a retired or
-// malformed fallback is never contacted and every RPC host is in the CSP.
-const fallbackRpcUrl = getPaxeerRpcUrls()[1];
-const transports = fallbackRpcUrl
-  ? fallback(
-      [
-        primaryRpc,
-        http(fallbackRpcUrl, { batch: true, retryCount: 1 }),
-      ],
-      { rank: { interval: 60_000 } },
-    )
-  : primaryRpc;
-
 /**
  * Set only when the Paxeer Embedded Wallet is configured for this deployment
  * (NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY present). The connector is created in
@@ -62,13 +43,15 @@ const transports = fallbackRpcUrl
  * exist on the server, and wagmi state is restored from cookies regardless of
  * the connector list.
  */
-export const embeddedWalletConfigured = typeof window !== 'undefined' && getPaxeerWallet() !== null;
+export const embeddedWalletConfigured =
+  typeof window !== 'undefined' &&
+  Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY);
 
-function createConnectors(): CreateConnectorFn[] {
+function createConnectors(rpcUrl: string): CreateConnectorFn[] {
   const list: CreateConnectorFn[] = [];
   const embedded = typeof window !== 'undefined' ? getPaxeerWallet() : null;
   if (embedded) {
-    list.push(paxeerEmbeddedConnector({ wallet: embedded, chainId: paxeer.id, rpcUrl: PAXEER_RPC_URL }));
+    list.push(paxeerEmbeddedConnector({ wallet: embedded, chainId: paxeer.id, rpcUrl }));
   }
   list.push(injected());
   // The CSP allows the WalletConnect hosts exactly when this id is set (core/backend-origins.ts).
@@ -81,9 +64,20 @@ function createConnectors(): CreateConnectorFn[] {
 
 /** Builds a fresh wagmi config. Callers should use {@link getWagmiConfig}. */
 export function createWagmiConfig() {
+  const [primaryRpcUrl, fallbackRpcUrl] = getPaxeerRpcUrls();
+  const primaryRpc = http(primaryRpcUrl, {
+    batch: { batchSize: 1024, wait: 16 },
+    retryCount: 2,
+  });
+  const transports = fallbackRpcUrl
+    ? fallback(
+        [primaryRpc, http(fallbackRpcUrl, { batch: true, retryCount: 1 })],
+        { rank: { interval: 60_000 } },
+      )
+    : primaryRpc;
   return createConfig({
     chains: [paxeer],
-    connectors: createConnectors(),
+    connectors: createConnectors(primaryRpcUrl),
     multiInjectedProviderDiscovery: true,
     storage: createStorage({ storage: cookieStorage }),
     transports: {

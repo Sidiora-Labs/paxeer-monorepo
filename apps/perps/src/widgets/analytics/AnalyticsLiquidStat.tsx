@@ -6,6 +6,7 @@
 // has no recent balance events. A daily percentage requires both endpoints.
 
 import { useMemo } from "react";
+import { COLLATERAL_TOKENS } from "@/core/perps/config";
 import { LiquidStat, type LiquidStatState } from "@/ui/tokens/LiquidStat";
 import { useProtocolSnapshots } from "@/hooks/perps/useAnalytics";
 import { useEnrichedGlobalStats } from "@/hooks/perps/useEnrichedStats";
@@ -51,7 +52,7 @@ function buildTvlTimeline(
   const out: { ts: number; tvl: number }[] = [];
   for (const record of records) {
     const ts = Date.parse(record.blockTimestamp);
-    const tvl = Number(record.tvlUsd) / 1e18;
+    const tvl = Number(record.tvlUsd) / 10 ** COLLATERAL_TOKENS.usdl.decimals;
     if (
       !/^\d+$/.test(record.tvlUsd) ||
       !Number.isFinite(tvl) ||

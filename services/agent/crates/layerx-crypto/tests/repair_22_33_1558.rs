@@ -1,6 +1,7 @@
 //! Producer -> canonical transaction/SSH transport -> production consumer proofs.
-//! Findings and out-of-scope migrations are recorded in src/repair_22_33_1558.kvx.
+//! Findings and out-of-scope migrations are recorded in `src/repair_22_33_1558.kvx`.
 
+use support::assertions;
 mod support;
 
 use std::future::Future;
@@ -49,14 +50,19 @@ fn hex(text: &str) -> Vec<u8> {
     text.as_bytes()
         .chunks_exact(2)
         .map(|pair| {
-            u8::from_str_radix(std::str::from_utf8(pair).expect("fixture UTF-8"), 16)
-                .expect("fixture hex")
+            assertions::require(
+                u8::from_str_radix(
+                    assertions::require(std::str::from_utf8(pair), "fixture UTF-8"),
+                    16,
+                ),
+                "fixture hex",
+            )
         })
         .collect()
 }
 
 fn signer_and_options() -> (LocalSigner, CallOptions) {
-    let account = derive_from_seed(&[7; 64], 0).expect("derived account");
+    let account = assertions::require(derive_from_seed(&[7; 64], 0), "derived account");
     let signer = LocalSigner::from_derived_account(&account);
     let options = CallOptions {
         from: account.evm_address(),
@@ -97,30 +103,55 @@ fn debit() -> SendDebit {
 
 fn payment_round_trip(payload: &[u8]) -> DisclosedCall {
     let (signer, options) = signer_and_options();
-    let produced = ledger_payment_call(payload, &options).expect("produce payment call");
+    let produced = assertions::require(
+        ledger_payment_call(payload, &options),
+        "produce payment call",
+    );
     let bytes = produced.call.encode_unsigned();
     assert_eq!(bytes[0], 2);
-    let received = decode_unsigned(&bytes).expect("consume type-2 bytes");
-    let consumed = DisclosedCall::from_call(received.clone(), options.from).expect("bind call");
+    let received = assertions::require(decode_unsigned(&bytes), "consume type-2 bytes");
+    let consumed = assertions::require(
+        DisclosedCall::from_call(received.clone(), options.from),
+        "bind call",
+    );
     assert_eq!(consumed.disclosure, produced.disclosure);
-    assert_eq!(consumed.disclosure.reencode().expect("reencode"), bytes);
-    consumed
-        .disclosure
-        .validate_canonical(&bytes)
-        .expect("canonical validation");
-    let signature = ready(sign_disclosed_call(
-        &signer,
-        &received,
-        &consumed.disclosure,
-        options.from,
-    ))
-    .expect("EVM signing");
+    assert_eq!(
+        {
+            let Ok(value) = consumed.disclosure.reencode() else {
+                panic!("reencode");
+            };
+            value
+        },
+        bytes
+    );
+    assertions::require(
+        consumed.disclosure.validate_canonical(&bytes),
+        "canonical validation",
+    );
+    let signature = assertions::require(
+        ready(sign_disclosed_call(
+            &signer,
+            &received,
+            &consumed.disclosure,
+            options.from,
+        )),
+        "EVM signing",
+    );
     let wire = assemble(&received, &signature);
-    let (committed_call, committed_signature) = decode_signed(&wire).expect("signed transport");
-    let sender = recover_sender(&committed_call, &committed_signature).expect("recover sender");
+    let (committed_call, committed_signature) =
+        assertions::require(decode_signed(&wire), "signed transport");
+    let sender = assertions::require(
+        recover_sender(&committed_call, &committed_signature),
+        "recover sender",
+    );
     assert_eq!(sender, options.from);
     assert_eq!(
-        bind_call(&committed_call, sender).expect("consumer disclosure"),
+        {
+            let Ok(value) = bind_call(&committed_call, sender) else {
+                panic!("consumer disclosure");
+            };
+            value
+        },
         produced.disclosure
     );
     consumed
@@ -128,9 +159,7 @@ fn payment_round_trip(payload: &[u8]) -> DisclosedCall {
 
 // Compatibility is retained only with an actionable Rust deprecation notice.
 fn assert_deprecated(source: &str, declaration: &str) {
-    let offset = source
-        .find(declaration)
-        .expect("live compatibility declaration");
+    let offset = assertions::require(source.find(declaration), "live compatibility declaration");
     let start = source[..offset].rfind("\n\n").map_or(0, |index| index + 2);
     assert!(
         source[start..offset].contains("#[deprecated("),
@@ -139,7 +168,8 @@ fn assert_deprecated(source: &str, declaration: &str) {
 }
 
 #[test]
-fn activity_disclosure_still_public_is_closed_by_transaction_round_trip() {
+fn activity_disclosure_still_public_is_closed_by_transaction_round_trip(
+) -> Result<(), Box<dyn std::error::Error>> {
     let source = include_str!("../src/disclosure.rs");
     for declaration in ["pub fn bind(", "pub fn bind_budget_mutation("] {
         assert!(
@@ -149,13 +179,14 @@ fn activity_disclosure_still_public_is_closed_by_transaction_round_trip() {
     }
     assert!(!include_str!("../src/signer.rs").contains("pub fn sign_disclosed<'a>("));
     let payer = LocalSigner::new([5; 32]);
-    let payload = ready(debit().sign(&payer)).expect("native authorization producer");
+    let payload = ready(debit().sign(&payer))
+        .map_err(|error| format!("native authorization producer: {error:?}"))?;
     let produced = payment_round_trip(&payload);
     assert_eq!(
         produced
             .disclosure
             .payload_sequence()
-            .expect("source sequence"),
+            .map_err(|error| format!("source sequence: {error:?}"))?,
         Some(7)
     );
     assert_eq!(produced.disclosure.envelope_sequence(), 9);
@@ -180,10 +211,13 @@ fn activity_disclosure_still_public_is_closed_by_transaction_round_trip() {
     assert!(validate_call(&produced.call, &produced.disclosure, [9; 20]).is_err());
     let retired_activity = support::archived_send(25);
     assert!(decode_unsigned(&retired_activity).is_err());
+
+    Ok(())
 }
 
 #[test]
-fn api_contract_document_absent_is_closed_by_owned_contract_and_raw_bind_vector() {
+fn api_contract_document_absent_is_closed_by_owned_contract_and_raw_bind_vector(
+) -> Result<(), Box<dyn std::error::Error>> {
     let contract = include_str!("../src/api-contract.md");
     assert!(include_str!("../src/lib.rs").contains("#![doc = include_str!(\"api-contract.md\")]"));
     for term in [
@@ -204,15 +238,18 @@ fn api_contract_document_absent_is_closed_by_owned_contract_and_raw_bind_vector(
     // Published chain/client vector: a hash of this message would produce a
     // different signature, so this proves the raw-message signing contract.
     let message_bytes = hex("4c583a5041584545522d42494e443a763100000000000000000000000000000000000000000000000000000000000ae3f2102132435465768798a9bacbdcedfe0f1e2d3c4b0000000000000000");
-    let binding = BindMessage::decode(&message_bytes).expect("published consent");
+    let binding = BindMessage::decode(&message_bytes)
+        .map_err(|error| format!("published consent: {error:?}"))?;
     assert_eq!(binding.as_bytes().len(), BIND_MESSAGE_BYTES);
     let signer = LocalSigner::new([0x61; 32]);
-    let signature =
-        ready(signer.sign(SigningRequest::bind(&binding))).expect("raw consent signing");
+    let signature = ready(signer.sign(SigningRequest::bind(&binding)))
+        .map_err(|error| format!("raw consent signing: {error:?}"))?;
     assert_eq!(signature.as_bytes().as_slice(), hex("c815ff4b2c34fe06ed50e904133b8f4cc618255ce6493d1a1177480eb2e959ed16f055fbe0e12885c199bf662b430e4f9f131addb2aa705fde963fa5995ece0f"));
     binding
         .verify(&signer.public_key(), signature.as_bytes())
-        .expect("chain-compatible verification");
+        .map_err(|error| format!("chain-compatible verification: {error:?}"))?;
+
+    Ok(())
 }
 
 struct TestDirectory(PathBuf);
@@ -224,18 +261,22 @@ impl TestDirectory {
             std::process::id(),
             NEXT.fetch_add(1, Ordering::Relaxed),
         ));
-        std::fs::create_dir(&directory).expect("isolated fixture directory");
+        assertions::require(
+            std::fs::create_dir(&directory),
+            "isolated fixture directory",
+        );
         Self(directory)
     }
 }
 impl Drop for TestDirectory {
     fn drop(&mut self) {
-        std::fs::remove_dir_all(&self.0).expect("remove fixture directory");
+        assertions::require(std::fs::remove_dir_all(&self.0), "remove fixture directory");
     }
 }
 
 #[test]
-fn crypto_retired_exports_are_closed_while_key_storage_and_signing_reopen() {
+fn crypto_retired_exports_are_closed_while_key_storage_and_signing_reopen(
+) -> Result<(), Box<dyn std::error::Error>> {
     let exports = include_str!("../src/lib.rs");
     assert_deprecated(exports, "pub mod onboarding;");
     assert!(!exports.contains("pub mod settlement_recipient;"));
@@ -253,27 +294,36 @@ fn crypto_retired_exports_are_closed_while_key_storage_and_signing_reopen() {
         secret,
         identity,
         125,
-        KeystoreEntropy::new([0x31; 16], [0x42; 24]).expect("fixture entropy"),
+        KeystoreEntropy::new([0x31; 16], [0x42; 24])
+            .map_err(|error| format!("fixture entropy: {error:?}"))?,
     )
-    .expect("seal production store");
-    std::fs::write(&path, store.to_bytes().expect("persist encrypted store")).expect("write store");
+    .map_err(|error| format!("seal production store: {error:?}"))?;
+    std::fs::write(
+        &path,
+        store
+            .to_bytes()
+            .map_err(|error| format!("persist encrypted store: {error:?}"))?,
+    )
+    .map_err(|error| format!("write store: {error:?}"))?;
     drop(store);
-    let recovered = Keystore::from_bytes(&std::fs::read(path).expect("read reopened store"))
-        .expect("decode store");
+    let recovered = Keystore::from_bytes(
+        &std::fs::read(path).map_err(|error| format!("read reopened store: {error:?}"))?,
+    )
+    .map_err(|error| format!("decode store: {error:?}"))?;
     assert_eq!(
         recovered.open(secret, identity, 126).err(),
         Some(KeystoreError::NetworkMismatch)
     );
     let signer = recovered
         .open_with(secret, identity, 125, |seed| LocalSigner::new(*seed))
-        .expect("recover signer");
+        .map_err(|error| format!("recover signer: {error:?}"))?;
     let (_, options) = signer_and_options();
     let consent = bind_message(&options, 2);
-    let signature =
-        ready(signer.sign(SigningRequest::bind(&consent))).expect("recovered bind signing");
+    let signature = ready(signer.sign(SigningRequest::bind(&consent)))
+        .map_err(|error| format!("recovered bind signing: {error:?}"))?;
     consent
         .verify(&signer.public_key(), signature.as_bytes())
-        .expect("recovered signature");
+        .map_err(|error| format!("recovered signature: {error:?}"))?;
     assert_eq!(
         ready(signer.sign_transaction(&Eip1559Call {
             chain_id: 125,
@@ -286,16 +336,20 @@ fn crypto_retired_exports_are_closed_while_key_storage_and_signing_reopen() {
         })),
         Err(SignError::EvmKeyUnavailable)
     );
+
+    Ok(())
 }
 
 #[test]
-fn nested_activity_onboarding_is_closed_by_registration_transaction_and_consent() {
+fn nested_activity_onboarding_is_closed_by_registration_transaction_and_consent(
+) -> Result<(), Box<dyn std::error::Error>> {
     let legacy = include_str!("../src/onboarding.rs");
     assert_deprecated(legacy, "pub struct OnboardingConsent");
     assert_deprecated(legacy, "pub struct SponsoredRegistration");
     let (signer, options) = signer_and_options();
     let consent = bind_message(&options, 2);
-    let signature = ready(signer.sign(SigningRequest::bind(&consent))).expect("DID consent");
+    let signature = ready(signer.sign(SigningRequest::bind(&consent)))
+        .map_err(|error| format!("DID consent: {error:?}"))?;
     let authorization = BindAuthorization {
         message: consent,
         public_key: signer.public_key(),
@@ -303,14 +357,17 @@ fn nested_activity_onboarding_is_closed_by_registration_transaction_and_consent(
     };
     let call = authorization
         .to_call(&options)
-        .expect("registration producer");
+        .map_err(|error| format!("registration producer: {error:?}"))?;
     assert_eq!(call.nonce, 9, "EVM nonce is independent from bind nonce 2");
-    let tx_signature = ready(signer.sign_transaction(&call)).expect("EVM owner consent");
+    let tx_signature = ready(signer.sign_transaction(&call))
+        .map_err(|error| format!("EVM owner consent: {error:?}"))?;
     let wire = assemble(&call, &tx_signature);
-    let (received, signature) = decode_signed(&wire).expect("registration transaction");
-    let sender = recover_sender(&received, &signature).expect("transaction sender");
-    let consumed =
-        BindAuthorization::from_call(&received, sender, 2).expect("registration consumer");
+    let (received, signature) =
+        decode_signed(&wire).map_err(|error| format!("registration transaction: {error:?}"))?;
+    let sender = recover_sender(&received, &signature)
+        .map_err(|error| format!("transaction sender: {error:?}"))?;
+    let consumed = BindAuthorization::from_call(&received, sender, 2)
+        .map_err(|error| format!("registration consumer: {error:?}"))?;
     assert_eq!(consumed, authorization);
     assert!(BindAuthorization::from_call(&received, sender, 3).is_err());
     assert!(BindAuthorization::from_call(&received, [0x32; 20], 2).is_err());
@@ -336,10 +393,13 @@ fn nested_activity_onboarding_is_closed_by_registration_transaction_and_consent(
     let mut trailing = received;
     trailing.data.push(0);
     assert!(BindAuthorization::from_call(&trailing, sender, 2).is_err());
+
+    Ok(())
 }
 
 #[test]
-fn old_send_envelope_constructor_is_closed_with_native_payload_compatibility() {
+fn old_send_envelope_constructor_is_closed_with_native_payload_compatibility(
+) -> Result<(), Box<dyn std::error::Error>> {
     let source = include_str!("../src/send.rs");
     for declaration in [
         "pub struct EnvelopeOptions",
@@ -354,7 +414,10 @@ fn old_send_envelope_constructor_is_closed_with_native_payload_compatibility() {
     let fixture = hex(include_str!("fixtures/payments/native-1-5.hex"));
     let consumed = payment_round_trip(&fixture);
     assert_eq!(
-        consumed.disclosure.construct_method().expect("method"),
+        consumed
+            .disclosure
+            .construct_method()
+            .map_err(|error| format!("{}: {error:?}", "method"))?,
         Some(ConstructMethod::LedgerSend {
             payload: fixture.clone()
         })
@@ -378,10 +441,13 @@ fn old_send_envelope_constructor_is_closed_with_native_payload_compatibility() {
     let mut trailing = fixture;
     trailing.push(0);
     assert!(ledger_payment_call(&trailing, &options).is_err());
+
+    Ok(())
 }
 
 #[test]
-fn recipient_binding_not_signed_is_closed_by_surface_retirement() {
+fn recipient_binding_not_signed_is_closed_by_surface_retirement(
+) -> Result<(), Box<dyn std::error::Error>> {
     assert!(!Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("src/settlement_recipient.rs")
         .exists());
@@ -390,10 +456,11 @@ fn recipient_binding_not_signed_is_closed_by_surface_retirement() {
     // signature. There is no independently replaceable custody digest field.
     let (signer, options) = signer_and_options();
     let consent = bind_message(&options, 2);
-    let signature = ready(signer.sign(SigningRequest::bind(&consent))).expect("binding signature");
+    let signature = ready(signer.sign(SigningRequest::bind(&consent)))
+        .map_err(|error| format!("binding signature: {error:?}"))?;
     consent
         .verify(&signer.public_key(), signature.as_bytes())
-        .expect("original consent");
+        .map_err(|error| format!("original consent: {error:?}"))?;
     for offset in 0..BIND_MESSAGE_BYTES {
         let mut changed = *consent.as_bytes();
         changed[offset] ^= 1;
@@ -404,19 +471,26 @@ fn recipient_binding_not_signed_is_closed_by_surface_retirement() {
             Err(error) => assert_eq!(error, SignError::InvalidDisclosure),
         }
     }
+
+    Ok(())
 }
 
 fn ssh_string(bytes: &[u8], out: &mut Vec<u8>) {
     out.extend_from_slice(
-        &u32::try_from(bytes.len())
-            .expect("bounded SSH string")
-            .to_be_bytes(),
+        &assertions::require(u32::try_from(bytes.len()), "bounded SSH string").to_be_bytes(),
     );
     out.extend_from_slice(bytes);
 }
 fn read_string<'a>(bytes: &'a [u8], cursor: &mut usize) -> &'a [u8] {
-    let length =
-        u32::from_be_bytes(bytes[*cursor..*cursor + 4].try_into().expect("SSH length")) as usize;
+    let length = {
+        let Ok(length) = usize::try_from(u32::from_be_bytes(assertions::require(
+            bytes[*cursor..*cursor + 4].try_into(),
+            "SSH length",
+        ))) else {
+            panic!("SSH size exceeds usize");
+        };
+        length
+    };
     *cursor += 4;
     let value = &bytes[*cursor..*cursor + length];
     *cursor += length;
@@ -424,7 +498,7 @@ fn read_string<'a>(bytes: &'a [u8], cursor: &mut usize) -> &'a [u8] {
 }
 
 /// A committed-key OpenSSH protocol peer fixture. The component under repair
-/// is the unmodified production KeystoreSigner, including real Unix I/O and
+/// is the unmodified production `KeystoreSigner`, including real Unix I/O and
 /// strict Ed25519 response verification; no external ssh-agent binary is used.
 struct AgentPeer {
     socket: PathBuf,
@@ -433,8 +507,8 @@ struct AgentPeer {
 }
 impl AgentPeer {
     fn start(socket: &Path, seed: [u8; 32]) -> Self {
-        let listener = UnixListener::bind(socket).expect("bind SSH agent peer");
-        listener.set_nonblocking(true).expect("nonblocking accept");
+        let listener = assertions::require(UnixListener::bind(socket), "bind SSH agent peer");
+        assertions::require(listener.set_nonblocking(true), "nonblocking accept");
         let stop = Arc::new(AtomicBool::new(false));
         let stopped = Arc::clone(&stop);
         let thread = std::thread::spawn(move || {
@@ -452,18 +526,25 @@ impl AgentPeer {
                     }
                     Err(error) => panic!("SSH accept: {error}"),
                 };
-                stream
-                    .set_read_timeout(Some(Duration::from_secs(2)))
-                    .expect("read bound");
-                stream
-                    .set_write_timeout(Some(Duration::from_secs(2)))
-                    .expect("write bound");
+                assertions::require(
+                    stream.set_read_timeout(Some(Duration::from_secs(2))),
+                    "read bound",
+                );
+                assertions::require(
+                    stream.set_write_timeout(Some(Duration::from_secs(2))),
+                    "write bound",
+                );
                 let mut length = [0; 4];
-                stream.read_exact(&mut length).expect("request length");
-                let length = u32::from_be_bytes(length) as usize;
+                assertions::require(stream.read_exact(&mut length), "request length");
+                let length = {
+                    let Ok(length) = usize::try_from(u32::from_be_bytes(length)) else {
+                        panic!("SSH size exceeds usize");
+                    };
+                    length
+                };
                 assert!((1..=2048).contains(&length));
                 let mut request = vec![0; length];
-                stream.read_exact(&mut request).expect("SSH request");
+                assertions::require(stream.read_exact(&mut request), "SSH request");
                 assert_eq!(request[0], 13);
                 let mut cursor = 1;
                 let requested_key = read_string(&request, &mut cursor);
@@ -480,10 +561,19 @@ impl AgentPeer {
                 } else {
                     vec![5]
                 };
-                stream
-                    .write_all(&(response.len() as u32).to_be_bytes())
-                    .expect("response length");
-                stream.write_all(&response).expect("SSH signature response");
+                assertions::require(
+                    stream.write_all(
+                        &({
+                            let Ok(length) = u32::try_from(response.len()) else {
+                                panic!("SSH response exceeds u32");
+                            };
+                            length
+                        })
+                        .to_be_bytes(),
+                    ),
+                    "response length",
+                );
+                assertions::require(stream.write_all(&response), "SSH signature response");
             }
             transcript
         });
@@ -496,13 +586,11 @@ impl AgentPeer {
 
     fn stop(&mut self) -> Vec<Vec<u8>> {
         self.stop.store(true, Ordering::Release);
-        let transcript = self
-            .thread
-            .take()
-            .expect("running agent peer")
-            .join()
-            .expect("SSH peer thread");
-        std::fs::remove_file(&self.socket).expect("close agent socket");
+        let transcript = assertions::require(
+            assertions::require(self.thread.take(), "running agent peer").join(),
+            "SSH peer thread",
+        );
+        assertions::require(std::fs::remove_file(&self.socket), "close agent socket");
         transcript
     }
 }
@@ -515,7 +603,8 @@ impl Drop for AgentPeer {
 }
 
 #[test]
-fn keystore_accepts_activity_preimage_is_closed_before_and_after_reopening() {
+fn keystore_accepts_activity_preimage_is_closed_before_and_after_reopening(
+) -> Result<(), Box<dyn std::error::Error>> {
     assert!(!include_str!("../src/signer.rs").contains("pub fn sign_disclosed<'a>("));
     let directory = TestDirectory::new();
     let socket = directory.0.join("agent.sock");
@@ -533,59 +622,26 @@ fn keystore_accepts_activity_preimage_is_closed_before_and_after_reopening() {
         17,
         &retired_activity,
     )
-    .expect("retired preimage fixture")
+    .map_err(|error| format!("retired preimage fixture: {error:?}"))?
     .digest();
     let mut first_signature = None;
     for _ in 0..2 {
         let mut agent = AgentPeer::start(&socket, seed);
-        let signer = KeystoreSigner::new(&socket, public_key).expect("external signer");
-        assert_eq!(
-            ready(signer.sign(request)),
-            Err(SignError::InvalidDisclosure)
-        );
-        let mut altered = payment.disclosure.clone();
-        altered.amounts[0].value += 1;
-        assert_eq!(
-            SigningRequest::new(
-                layerx_crypto::SignatureMessage::new(
-                    layerx_wire::hash::Domain::SignaturePreimage,
-                    support::PROTOCOL_VERSION,
-                    support::NETWORK_ID,
-                    &transaction,
-                )
-                .expect("activity preimage domain"),
-                &altered,
-            )
-            .err(),
-            Some(SignError::DisclosureMismatch("amounts"))
-        );
-        for retired in [retired_activity.as_slice(), activity_digest.as_slice()] {
-            assert_eq!(
-                ready(signer.sign_bind_bytes(retired)),
-                Err(SignError::InvalidDisclosure)
-            );
-            assert_eq!(
-                debit().signing_request(retired).err(),
-                Some(SignError::DisclosureMismatch("send_authorization"))
-            );
-        }
-        for length in 0..BIND_MESSAGE_BYTES {
-            assert_eq!(
-                ready(signer.sign_bind_bytes(&consent.as_bytes()[..length])),
-                Err(SignError::InvalidDisclosure)
-            );
-        }
-        let mut trailing = consent.as_bytes().to_vec();
-        trailing.push(0);
-        assert_eq!(
-            ready(signer.sign_bind_bytes(&trailing)),
-            Err(SignError::InvalidDisclosure)
-        );
-        let signature =
-            ready(signer.sign_bind_bytes(consent.as_bytes())).expect("SSH raw bind signing");
+        let signer = KeystoreSigner::new(&socket, public_key)
+            .map_err(|error| format!("external signer: {error:?}"))?;
+        assert_retired_agent_requests(
+            &signer,
+            request,
+            &payment,
+            &transaction,
+            [retired_activity.as_slice(), activity_digest.as_slice()],
+            &consent,
+        )?;
+        let signature = ready(signer.sign_bind_bytes(consent.as_bytes()))
+            .map_err(|error| format!("SSH raw bind signing: {error:?}"))?;
         consent
             .verify(&public_key, signature.as_bytes())
-            .expect("real returned signature");
+            .map_err(|error| format!("real returned signature: {error:?}"))?;
         if let Some(first) = first_signature {
             assert_eq!(
                 signature, first,
@@ -595,16 +651,21 @@ fn keystore_accepts_activity_preimage_is_closed_before_and_after_reopening() {
             first_signature = Some(signature);
         }
         let debit = debit();
-        let canonical = debit.authorization_message().expect("native payer message");
+        let canonical = debit
+            .authorization_message()
+            .map_err(|error| format!("native payer message: {error:?}"))?;
         let request = debit
             .signing_request(&canonical)
-            .expect("typed payer request");
-        let payer_bytes = request.signing_bytes().expect("permitted payer digest");
-        let payload = ready(debit.sign(&signer)).expect("SSH payer authorization");
+            .map_err(|error| format!("typed payer request: {error:?}"))?;
+        let payer_bytes = request
+            .signing_bytes()
+            .map_err(|error| format!("permitted payer digest: {error:?}"))?;
+        let payload = ready(debit.sign(&signer))
+            .map_err(|error| format!("SSH payer authorization: {error:?}"))?;
         payment_round_trip(&payload);
         let absent_key = LocalSigner::new([0x62; 32]).public_key();
-        let wrong_signer =
-            KeystoreSigner::new(&socket, absent_key).expect("well-formed absent key");
+        let wrong_signer = KeystoreSigner::new(&socket, absent_key)
+            .map_err(|error| format!("well-formed absent key: {error:?}"))?;
         assert_eq!(
             ready(wrong_signer.sign_bind_bytes(consent.as_bytes())),
             Err(SignError::KeystoreRefused)
@@ -621,7 +682,8 @@ fn keystore_accepts_activity_preimage_is_closed_before_and_after_reopening() {
             "no retired request reached the agent"
         );
     }
-    let unavailable = KeystoreSigner::new(&socket, public_key).expect("closed external signer");
+    let unavailable = KeystoreSigner::new(&socket, public_key)
+        .map_err(|error| format!("closed external signer: {error:?}"))?;
     assert_eq!(
         ready(unavailable.sign_bind_bytes(&retired_activity)),
         Err(SignError::InvalidDisclosure)
@@ -630,4 +692,60 @@ fn keystore_accepts_activity_preimage_is_closed_before_and_after_reopening() {
         ready(unavailable.sign_bind_bytes(consent.as_bytes())),
         Err(SignError::KeystoreUnavailable)
     );
+
+    Ok(())
+}
+
+fn assert_retired_agent_requests(
+    signer: &KeystoreSigner,
+    request: SigningRequest<'_>,
+    payment: &DisclosedCall,
+    transaction: &[u8],
+    retired_inputs: [&[u8]; 2],
+    consent: &BindMessage,
+) -> Result<(), Box<dyn std::error::Error>> {
+    assert_eq!(
+        ready(signer.sign(request)),
+        Err(SignError::InvalidDisclosure)
+    );
+    let mut altered = payment.disclosure.clone();
+    altered.amounts[0].value += 1;
+    assert_eq!(
+        SigningRequest::new(
+            layerx_crypto::SignatureMessage::new(
+                layerx_wire::hash::Domain::SignaturePreimage,
+                support::PROTOCOL_VERSION,
+                support::NETWORK_ID,
+                transaction,
+            )
+            .map_err(|error| format!("activity preimage domain: {error:?}"))?,
+            &altered,
+        )
+        .err(),
+        Some(SignError::DisclosureMismatch("amounts"))
+    );
+    for retired in retired_inputs {
+        assert_eq!(
+            ready(signer.sign_bind_bytes(retired)),
+            Err(SignError::InvalidDisclosure)
+        );
+        assert_eq!(
+            debit().signing_request(retired).err(),
+            Some(SignError::DisclosureMismatch("send_authorization"))
+        );
+    }
+    for length in 0..BIND_MESSAGE_BYTES {
+        assert_eq!(
+            ready(signer.sign_bind_bytes(&consent.as_bytes()[..length])),
+            Err(SignError::InvalidDisclosure)
+        );
+    }
+    let mut trailing = consent.as_bytes().to_vec();
+    trailing.push(0);
+    assert_eq!(
+        ready(signer.sign_bind_bytes(&trailing)),
+        Err(SignError::InvalidDisclosure)
+    );
+
+    Ok(())
 }

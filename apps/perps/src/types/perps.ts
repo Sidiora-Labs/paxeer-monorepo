@@ -116,6 +116,11 @@ export interface ProtocolSnapshotRecord {
   totalPositions: string;
   totalOpenPositions: string;
   totalMarkets: string;
+  /**
+   * Raw six-decimal USDL custody inflow-minus-outflow sum from
+   * services/platform/perps-data/internal/store/projections.go, returned unchanged
+   * by services/platform/perps-data/internal/graphql/perps.go.
+   */
   tvlUsd: string;
   insuranceTotalUsd: string;
   onchainTimestamp: number;
