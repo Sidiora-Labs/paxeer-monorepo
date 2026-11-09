@@ -1,5 +1,6 @@
 #![allow(dead_code)]
 
+use super::assertions;
 use ed25519_dalek::{Signer as _, SigningKey};
 use layerx_crypto::send::{SendCondition, SendDebit};
 use layerx_crypto::SignatureMessage;
@@ -35,40 +36,53 @@ pub fn send_debit(amount: u128) -> SendDebit {
     }
 }
 
+/// # Panics
+/// Panics if the retained protocol fixture, local peer or test environment is invalid.
 pub fn send(amount: u128) -> (Vec<u8>, [u8; 32]) {
     let key = SigningKey::from_bytes(&[0x53; 32]);
     let public_key = key.verifying_key().to_bytes();
     let debit = send_debit(amount);
-    let canonical = debit
-        .authorization_message()
-        .expect("kernel debit authorization");
-    let message = SignatureMessage::new(
-        Domain::SignaturePreimage,
-        PROTOCOL_VERSION,
-        NETWORK_ID,
-        &canonical,
-    )
-    .expect("kernel debit scope");
+    let canonical =
+        assertions::require(debit.authorization_message(), "kernel debit authorization");
+    let message = assertions::require(
+        SignatureMessage::new(
+            Domain::SignaturePreimage,
+            PROTOCOL_VERSION,
+            NETWORK_ID,
+            &canonical,
+        ),
+        "kernel debit scope",
+    );
     let signature = key.sign(&message.digest()).to_bytes();
     (
-        debit
-            .encode_signed(public_key, signature)
-            .expect("kernel send payload"),
+        assertions::require(
+            debit.encode_signed(public_key, signature),
+            "kernel send payload",
+        ),
         public_key,
     )
 }
 
+/// # Panics
+/// Panics if the retained protocol fixture, local peer or test environment is invalid.
 pub fn recorded_send() -> Vec<u8> {
     let text = include_str!("../fixtures/payments/native-1-5.hex").trim();
     text.as_bytes()
         .chunks_exact(2)
         .map(|pair| {
-            u8::from_str_radix(std::str::from_utf8(pair).expect("fixture UTF-8"), 16)
-                .expect("fixture hex")
+            assertions::require(
+                u8::from_str_radix(
+                    assertions::require(std::str::from_utf8(pair), "fixture UTF-8"),
+                    16,
+                ),
+                "fixture hex",
+            )
         })
         .collect()
 }
 
+/// # Panics
+/// Panics if the retained protocol fixture, local peer or test environment is invalid.
 pub fn bridge_withdraw(amount: u128) -> Vec<u8> {
     let mut payload = Encoder::new(512);
     assert!(payload.u16(0x4802).is_ok());

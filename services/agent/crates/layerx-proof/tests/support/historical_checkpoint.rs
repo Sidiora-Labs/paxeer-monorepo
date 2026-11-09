@@ -1,6 +1,6 @@
 //! Archived fixture data for testing the retained decoder's certificate refusal.
 
-use std::path::PathBuf;
+use std::{fmt::Write as _, path::PathBuf};
 
 use layerx_proof::export_codec::{
     ArtifactDecodeError, CompleteOfflineArtifact, ExportCodecError, FactSelector,
@@ -32,23 +32,25 @@ pub struct Domain {
 }
 
 pub struct Guarantor {
-    pub guarantor_id: [u8; 32],
+    pub id: [u8; 32],
     pub signer: [u8; 20],
     pub public_key: [u8; 33],
 }
 
 fn number(value: &Value) -> u64 {
-    value
-        .as_u64()
-        .expect("historical configuration unsigned integer")
+    let Some(number) = value.as_u64() else {
+        panic!("historical configuration unsigned integer");
+    };
+    number
 }
 
 fn hex<const N: usize>(value: &Value) -> [u8; N] {
-    let text = value
-        .as_str()
-        .expect("historical configuration hex string")
-        .strip_prefix("0x")
-        .expect("historical configuration hex prefix");
+    let Some(text) = value.as_str() else {
+        panic!("historical configuration hex string");
+    };
+    let Some(text) = text.strip_prefix("0x") else {
+        panic!("historical configuration hex prefix");
+    };
     assert_eq!(text.len(), N * 2);
     let mut bytes = [0; N];
     for (byte, pair) in bytes.iter_mut().zip(text.as_bytes().chunks_exact(2)) {
@@ -59,23 +61,24 @@ fn hex<const N: usize>(value: &Value) -> [u8; N] {
 
 impl Configuration {
     pub fn domain(&self, name: &str) -> Domain {
-        let domain = self.document["settlement_domains"]
-            .get(name)
-            .expect("historical configuration settlement domain");
+        let Some(domain) = self.document["settlement_domains"].get(name) else {
+            panic!("historical configuration settlement domain");
+        };
         Domain {
             paxeer_chain_id: number(&domain["paxeer_chain_id"]),
             network_id: must(u32::try_from(number(&domain["network_id"]))),
             settlement_contract: hex(&domain["settlement_contract"]),
-            guarantor_set: domain["guarantor_set"]
-                .as_array()
-                .expect("historical configuration guarantor set")
-                .iter()
-                .map(|key| Guarantor {
-                    guarantor_id: hex(&key["guarantor_id"]),
-                    signer: hex(&key["signer"]),
-                    public_key: hex(&key["public_key"]),
-                })
-                .collect(),
+            guarantor_set: match domain["guarantor_set"].as_array() {
+                Some(keys) => keys,
+                None => panic!("historical configuration guarantor set"),
+            }
+            .iter()
+            .map(|key| Guarantor {
+                id: hex(&key["guarantor_id"]),
+                signer: hex(&key["signer"]),
+                public_key: hex(&key["public_key"]),
+            })
+            .collect(),
         }
     }
 }
@@ -88,9 +91,11 @@ pub fn configuration() -> Configuration {
     let policy = &document["finality_policy"];
     let certificate_threshold = must(usize::try_from(number(&policy["certificate_threshold"])));
     assert!(certificate_threshold > 0);
-    let maximum_attestation_delay_ms = number(&policy["maximum_attestation_delay_seconds"])
-        .checked_mul(1_000)
-        .expect("historical configuration attestation delay fits milliseconds");
+    let Some(maximum_attestation_delay_ms) =
+        number(&policy["maximum_attestation_delay_seconds"]).checked_mul(1_000)
+    else {
+        panic!("historical configuration attestation delay fits milliseconds");
+    };
     assert!(maximum_attestation_delay_ms > 0);
     Configuration {
         document,
@@ -128,11 +133,10 @@ pub fn certificate_record(vector: &CheckpointVector, reference: Option<&[u8]>) -
     if let Some(reference) = reference {
         lp(&mut certificate, reference);
     }
-    let hex: String = vector
-        .expected_digest
-        .iter()
-        .map(|byte| format!("{byte:02x}"))
-        .collect();
+    let mut hex = String::with_capacity(vector.expected_digest.len() * 2);
+    for byte in vector.expected_digest {
+        must(write!(hex, "{byte:02x}"));
+    }
     let mut record = b"LXCP".to_vec();
     record.push(1);
     lp(
@@ -145,7 +149,7 @@ pub fn certificate_record(vector: &CheckpointVector, reference: Option<&[u8]>) -
     let domain = configuration.domain(&vector.settlement_domain);
     record.extend_from_slice(&must(u16::try_from(domain.guarantor_set.len())).to_be_bytes());
     for key in &domain.guarantor_set {
-        record.extend_from_slice(&key.guarantor_id);
+        record.extend_from_slice(&key.id);
         record.extend_from_slice(&key.public_key);
         record.push(1);
     }
@@ -172,20 +176,5 @@ pub fn assert_refused(record: Vec<u8>, activity_id: [u8; 32]) {
             index: 0,
             error: ExportCodecError::Tag,
         }),
-    );
-}
-
-pub fn assert_deprecated(source: &str, declaration: &str) {
-    let (prefix, _) = source
-        .split_once(declaration)
-        .expect("retained public declaration");
-    let (_, attribute) = prefix
-        .rsplit_once("#[deprecated(")
-        .expect("deprecation attribute");
-    assert!(attribute.contains("historical settlement configuration cannot establish BFT commitment; checkpoint::verify_declared_certificate returns CheckpointError::RetiredCertificateVerifier; use receipt or inclusion verification"));
-    assert!(attribute.trim_end().ends_with(")]"));
-    assert!(
-        !attribute.contains("pub "),
-        "deprecation must apply to {declaration}"
     );
 }
