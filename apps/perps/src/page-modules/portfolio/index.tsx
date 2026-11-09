@@ -35,7 +35,6 @@ import {
 } from "@/widgets/portfolio/PortfolioTopBar";
 import { PortfolioSpotSection } from "@/widgets/portfolio/PortfolioSpotSection";
 import { usePortfolioBalances } from "./balances";
-import { PortfolioBalanceBoundary } from "./PortfolioBalanceBoundary";
 import { PortfolioOrdersAvailability } from "./PortfolioOrdersAvailability";
 
 /* ══════════════════════════════════════════════════════════════════════
@@ -151,27 +150,27 @@ export default function PortfolioPage() {
 
         <ErrorBoundary fallbackLabel={`Portfolio · ${activeNav}`}>
           {activeNav === "overview" ? (
-            <PortfolioBalanceBoundary snapshot={balanceSnapshot} onRetry={retryBalances}>
-              <PortfolioOverviewPanel
-                isConnected={isConnected}
-                hasVault={isConnected}
-                address={address}
-                totalVaultUsd={totalVaultUsd}
-                unrealizedPnl={unrealizedPnl}
-                openPositions={positions.length}
-                realizedPnl={realizedPnl}
-                totalTrades={totalTrades}
-                balances={balances}
-                {...overviewDailyPnlProps(dailyPnlResult)}
-                isLoading={statsLoading}
-                privacy={privacy}
-                onTogglePrivacy={onTogglePrivacy}
-                onRefresh={onRefresh}
-                onConnect={connect}
-                onDeposit={onDepositOrWithdraw}
-                onWithdraw={onDepositOrWithdraw}
-              />
-            </PortfolioBalanceBoundary>
+            <PortfolioOverviewPanel
+              isConnected={isConnected}
+              hasVault={isConnected}
+              address={address}
+              totalVaultUsd={totalVaultUsd}
+              unrealizedPnl={unrealizedPnl}
+              openPositions={positions.length}
+              realizedPnl={realizedPnl}
+              totalTrades={totalTrades}
+              balances={balances}
+              balanceSnapshot={balanceSnapshot}
+              onRetryBalances={retryBalances}
+              {...overviewDailyPnlProps(dailyPnlResult)}
+              isLoading={statsLoading}
+              privacy={privacy}
+              onTogglePrivacy={onTogglePrivacy}
+              onRefresh={onRefresh}
+              onConnect={connect}
+              onDeposit={onDepositOrWithdraw}
+              onWithdraw={onDepositOrWithdraw}
+            />
           ) : activeNav === "positions" ? (
             <PortfolioPositionsPanel
               positions={positions}
