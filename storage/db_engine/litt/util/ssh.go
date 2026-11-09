@@ -21,7 +21,8 @@ import (
 	"golang.org/x/crypto/ssh/knownhosts"
 )
 
-// SSHTimeouts bounds connections, control commands and complete file transfers.
+// SSHTimeouts bounds connections and control commands. Transfer is a finite
+// rsync I/O inactivity bound, rounded up to whole seconds, not a total duration.
 // Zero fields use the production defaults; negative durations are rejected.
 type SSHTimeouts struct{ Dial, Command, Transfer time.Duration }
 
@@ -60,8 +61,8 @@ type SSHSession struct {
 	cleanupErr              error
 }
 
-func NewSSHSession(logger *slog.Logger, user, host string, port uint64, keyPath, knownHosts string, verbose bool) (*SSHSession, error) {
-	return NewSSHSessionContext(context.Background(), logger, user, host, port, keyPath, knownHosts, verbose)
+func NewSSHSession(logger *slog.Logger, user, host string, port uint64, keyPath, knownHosts string, verbose bool, options ...SSHTimeouts) (*SSHSession, error) {
+	return NewSSHSessionContext(context.Background(), logger, user, host, port, keyPath, knownHosts, verbose, options...)
 }
 
 // NewSSHSessionContext requires a known-hosts trust source. Parent cancellation
@@ -213,8 +214,16 @@ func (s *SSHSession) operation(ctx context.Context, timeout time.Duration) (cont
 		return nil, nil, err
 	}
 	s.operations.Add(1)
-	operationCtx, cancel := context.WithTimeout(s.ctx, timeout)
-	stop := context.AfterFunc(ctx, cancel)
+	var operationCtx context.Context
+	var cancel context.CancelFunc
+	if timeout > 0 {
+		operationCtx, cancel = context.WithTimeout(ctx, timeout)
+	} else {
+		// Transfers delegate inactivity detection to rsync while retaining the
+		// caller's deadline and both caller and session cancellation.
+		operationCtx, cancel = context.WithCancel(ctx)
+	}
+	stop := context.AfterFunc(s.ctx, cancel)
 	return operationCtx, func() { stop(); cancel(); s.operations.Done() }, nil
 }
 
@@ -276,7 +285,7 @@ func (s *SSHSession) Rsync(sourceFile, destFile string, throttleMB float64) erro
 }
 
 func (s *SSHSession) RsyncContext(ctx context.Context, sourceFile, destFile string, throttleMB float64) error {
-	ctx, finish, err := s.operation(ctx, s.timeouts.Transfer)
+	ctx, finish, err := s.operation(ctx, 0)
 	if err != nil {
 		return err
 	}
