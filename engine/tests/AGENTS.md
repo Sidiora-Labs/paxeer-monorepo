@@ -27,6 +27,8 @@ the same suite entry point and command configuration inside the bounded task gat
 
 `STATE_TEST_DIR`, `STATE_TEST_NAME`, `STATE_TEST_FORK` and `STATE_TEST_COUNT` are
 required. The name is a literal substring of the full loader/post-case name.
+A name ending in `/` followed by a decimal post index must match the complete
+loader/post-case name exactly; `/4` does not also select `/40` through `/49`.
 Only the declared `Cancun` post selection is supported; there is no map-order
 fork fallback. Missing posts, empty selections, count mismatches and Go subtest
 filters that prevent execution fail qualification. Every selected identifier is
