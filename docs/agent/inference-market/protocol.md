@@ -115,8 +115,8 @@ The planned pay methods at `0x101B` are:
 ```text
 streamOpenForAsk(bytes32 askRef, address settlementAccount, uint256 rate,
                  uint8 rateUnit, uint256 totalCap, bytes32 hostAuthorityKey)
-    returns (uint64 streamId)
-askStreamOf(bytes32 askRef) view returns (uint64)
+    returns (bytes32 streamId)
+askStreamOf(bytes32 askRef) view returns (bytes32)
 ```
 
 Each ask pays through one metered stream. The host key is its single meter
@@ -124,8 +124,9 @@ authority. **A reading equals the cumulative token count of the last settled
 lap batch.** Only streamMeter advances that reading; another key or a regressing
 reading refuses. Streaming response chunks and locally estimated usage never
 authorize a meter increment. Preserve the stream's rate unit and cap when
-encoding a price quoted per thousand tokens. AskStreamOpened binds ask
-reference, stream ID and settlement account.
+encoding a price quoted per thousand tokens.
+`AskStreamOpened(bytes32 indexed askRef, bytes32 indexed streamId, address settlementAccount)`
+binds ask reference, stream ID and settlement account.
 
 ## Payout split and bonds
 
