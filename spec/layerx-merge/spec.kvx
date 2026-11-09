@@ -192177,7 +192177,7 @@ do_4 = "Attempt 2 (continue, gotcha 3753, decisions 3053 and 3057): start from t
 
 [task.22.39.221]
 title = "Bring the layerx-agent-api crate and its test targets under the workspace lints"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["22.39.209"]
@@ -347453,7 +347453,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1851.1]
 title = "Issue #1851: Emit the FastAPI test extra in wheel metadata"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
