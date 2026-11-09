@@ -39,7 +39,11 @@ func (p PrecompileExecutor) emitAt(evm *vm.EVM, role string, calledAt common.Add
 		}
 		address = calledAt
 	case name == "RoleGranted" || name == "RoleRevoked":
-	case role == types.RoleRouter || role == types.RoleFeesRouter:
+	case role == types.RoleFeesRouter:
+		if calledAt != address && calledAt != precompile {
+			return fmt.Errorf("launchpad: invalid %s event surface %s", role, calledAt.Hex())
+		}
+	case role == types.RoleRouter:
 		if calledAt != address && calledAt != precompile {
 			return fmt.Errorf("launchpad: invalid %s event surface %s", role, calledAt.Hex())
 		}
