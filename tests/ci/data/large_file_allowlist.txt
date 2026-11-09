@@ -9,7 +9,6 @@ apps/launchpad/web/public/charting_library/bundles/library.f5eaeb6901219f861981.
 apps/launchpad/web/public/shadcn.png	7677753	Existing web application image or icon asset.
 apps/launchpad/web/src/app/icon.svg	2533888	Existing web application image or icon asset.
 apps/perps/public/Model_Compressed.glb	2074912	Existing web application 3D model asset.
-apps/perps/public/model.gltf	2767402	Existing web application 3D model asset.
 apps/wallet/public/PAXPORT.png	2310255	Existing web application image or icon asset.
 apps/wallet/public/PAXPORT.svg	3856962	Existing web application image or icon asset.
 apps/wallet/public/paxeerCOEX_light.svg	2235176	Existing web application image or icon asset.

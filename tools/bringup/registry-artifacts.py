@@ -281,6 +281,16 @@ def delegate(path, pid):
     return workers
 
 
+def persist_completed_job(directory, state, *, exit_code, logs, started, observations,
+                          interrupted, command):
+    result = {'exit_code': exit_code, 'stdout': logs.stdout, 'stderr': logs.stderr,
+              'elapsed': time.monotonic() - started, 'observations': observations,
+              'interrupted': interrupted, 'command': command}
+    state['jobs'].append(result)
+    write_json(Path(directory) / 'lifecycle.json', state)
+    return result
+
+
 def run_job(directory, command, *, memory=67108864, pids=16, cpu=1000000, wall=3000,
             io_limit=104857600, mandatory=True, interrupt=False, unavailable=False):
     directory = Path(directory)
@@ -351,11 +361,9 @@ def run_job(directory, command, *, memory=67108864, pids=16, cpu=1000000, wall=3
             require(process.returncode == 0, 'docker wait failed: ' + stderr)
             exit_code = int(stdout.strip())
             logs = run(['docker', 'logs', name], check=False)
-            result = {'exit_code': exit_code, 'stdout': logs.stdout, 'stderr': logs.stderr,
-                      'elapsed': time.monotonic() - started, 'observations': observations,
-                      'interrupted': interrupted, 'command': command}
-            state['jobs'].append(result)
-            return result
+            return persist_completed_job(directory, state, exit_code=exit_code, logs=logs,
+                                         started=started, observations=observations,
+                                         interrupted=interrupted, command=command)
         finally:
             # Reload after the shared store publishes a discovered ID. The
             # finalizer must reconcile even if create never returned an ID.

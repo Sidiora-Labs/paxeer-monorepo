@@ -47,6 +47,13 @@ describe('eth_getLogs', function () {
             });
             expect(response.ok, `Wasm ${key} capability query succeeded`).to.equal(true);
             const result = await response.json();
+            if (
+                typeof result !== 'object' || result === null || !('param' in result) ||
+                typeof result.param !== 'object' || result.param === null ||
+                !('value' in result.param) || typeof result.param.value !== 'string'
+            ) {
+                throw new Error(`Wasm ${key} capability query returned an invalid parameter`);
+            }
             return JSON.parse(result.param.value);
         };
         const [upload, instantiate] = await Promise.all([

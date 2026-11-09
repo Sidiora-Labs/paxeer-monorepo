@@ -31,18 +31,36 @@ const CHART_ITEMS: Record<ChainIndicatorId, Pick<TimeChartDataItem, 'name' | 'va
   },
 };
 
-export function prepareChartItems(items: Array<TimeChartItemRaw>): Array<TimeChartItem> {
-  return items
+export function prepareChartItems(items: Array<TimeChartItemRaw>, calendarWindowDays?: number): Array<TimeChartItem> {
+  let windowItems = items;
+  if (calendarWindowDays !== undefined) {
+    const latestTimestamp = items.reduce((latest, { date }) => (
+      Number.isFinite(date.getTime()) ? Math.max(latest, date.getTime()) : latest
+    ), -Infinity);
+    if (!Number.isFinite(latestTimestamp)) {
+      return [];
+    }
+
+    const start = new Date(latestTimestamp);
+    start.setUTCHours(0, 0, 0, 0);
+    start.setUTCDate(start.getUTCDate() - (calendarWindowDays - 1));
+    const end = new Date(latestTimestamp);
+    end.setUTCHours(0, 0, 0, 0);
+    end.setUTCDate(end.getUTCDate() + 1);
+    windowItems = items.filter(({ date }) => date >= start && date < end);
+  }
+
+  return windowItems
     .filter((item) => item.value != null && item.value !== '' && Number.isFinite(Number(item.value)) && Number.isFinite(item.date.getTime()))
     .sort(sortByDateDesc)
     .map((item) => ({ ...item, value: Number(item.value) }));
 }
 
-export function getChartData(indicatorId: ChainIndicatorId, data: Array<TimeChartItemRaw>): TimeChartData {
+export function getChartData(indicatorId: ChainIndicatorId, data: Array<TimeChartItemRaw>, calendarWindowDays?: number): TimeChartData {
   return [ {
     id: indicatorId.replace(' ', '_'),
     charts: [],
-    items: prepareChartItems(data),
+    items: prepareChartItems(data, calendarWindowDays),
     name: CHART_ITEMS[indicatorId].name,
     valueFormatter: CHART_ITEMS[indicatorId].valueFormatter,
   } ];

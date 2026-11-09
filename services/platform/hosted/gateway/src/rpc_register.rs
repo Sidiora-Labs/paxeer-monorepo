@@ -437,7 +437,7 @@ fn configured_tenant() -> Result<String, String> {
     let tenant = std::env::var("LAYERX_GATEWAY_TENANT")
         .map_err(|_| "registration requires trusted LAYERX_GATEWAY_TENANT".to_owned())?;
     if tenant.is_empty()
-        || tenant.len() > 128
+        || tenant.len() > 95
         || !tenant.bytes().all(|byte| {
             byte.is_ascii_lowercase() || byte.is_ascii_digit() || b"-_.".contains(&byte)
         })

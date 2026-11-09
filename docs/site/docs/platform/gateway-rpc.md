@@ -34,9 +34,15 @@ second chain or change the public EVM chain ID.
 ## Hosted gateway endpoint and request shape
 
 An operator-deployed gateway accepts `POST /` at its own configured origin.
-Obtain that origin from the operator. The `px_*` methods below are hosted
-contracts, not additional methods promised on every public node. The checked-in
-OpenRPC document has no `servers` entry establishing a public gateway origin.
+Obtain that origin from the operator. The checked-in OpenRPC document has no
+`servers` entry establishing a public gateway origin.
+
+The node serves the `px` namespace at its root and answers from node state.
+`px_getBalances` and `px_getCapabilities` are node reads and do not require a
+hosted gateway.
+Only `px_register` and `px_requestFunds` are hosted operations.
+After parameter validation, node calls to either operation return JSON-RPC
+`-32004` with `error.data.code: "hosted_gateway_service_required"`.
 
 The gateway's method contract is
 `services/platform/hosted/gateway/openrpc.json` (OpenRPC 1.3.2).
@@ -57,10 +63,11 @@ Example hosted read, sent to the operator's gateway root:
 {"jsonrpc":"2.0","id":1,"method":"px_getNetwork","params":[]}
 ```
 
-## Hosted methods
+## Gateway method schemas
 
-These are the 17 declared method names. Optional trailing arguments can be
-omitted; consult OpenRPC for each method's exact selectors and schemas.
+The gateway declares these 17 method names, including reads also served by the
+node. Optional trailing arguments can be omitted; consult OpenRPC for each
+gateway method's exact selectors and schemas.
 
 | Method | Positional parameters | Result |
 | --- | --- | --- |
@@ -123,8 +130,8 @@ idempotency from the principal, DID and signer key. A retry resolves the same
 claim. Incomplete funded evidence returns `-32603`, and a pending upstream
 claim remains `-32001` with `data.code: "faucet_claim_pending"`.
 
-`px_getRouteCatalogue` requires gateway key authentication even though most
-reads are public. Its credential format is:
+On the gateway, `px_getRouteCatalogue` requires gateway key authentication even
+though most reads are public. Its credential format is:
 
 ```text
 Authorization: LayerX-Key <key-id>:lxp_live_<64-hex-secret>
