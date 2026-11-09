@@ -64,14 +64,15 @@ impl ToolDefinition {
     /// Installation metadata consumed by the platform CLI.
     #[must_use]
     pub fn descriptor(self, arguments: Value) -> Value {
-        json!({
+        let mut descriptor = json!({
             "name": self.name,
             "kind": match self.kind { ToolKind::Read => "read", ToolKind::Write => "write" },
             "scope": self.required_scope,
             "mutation": self.mutation,
             "evidence": self.evidence,
-            "arguments": arguments,
-        })
+        });
+        descriptor["arguments"] = arguments;
+        descriptor
     }
 }
 
@@ -889,6 +890,7 @@ impl Server {
     }
 }
 
+#[must_use]
 pub fn tool_operation(name: &str) -> Option<Operation> {
     match name {
         "subscription.create" => Some(Operation::SubscriptionCreate),
@@ -917,13 +919,14 @@ pub fn tool_operation(name: &str) -> Option<Operation> {
             Some(Operation::Submit)
         }
         "activity.track" => Some(Operation::Track),
-        "faucet.request" => None,
         "activity.wait" => Some(Operation::Wait),
         _ => None,
     }
 }
 
 pub trait DaemonExecutionBoundary: ToolBoundary {
+    /// # Errors
+    /// Returns the owner refusal if the submitted invocation cannot be reconciled.
     fn reconcile(&mut self, submission_ref: &str) -> Result<Value, BoundaryRefusal>;
 }
 
@@ -935,6 +938,8 @@ pub struct DaemonToolResult {
 }
 
 impl DaemonToolResult {
+    /// # Errors
+    /// Returns a server error if the invocation is no longer authorized, its durable state is unavailable, or the result writer fails.
     pub fn release_current<T>(
         self,
         core_sequence: u64,
@@ -1031,6 +1036,8 @@ impl Server {
         Ok(())
     }
 
+    /// # Errors
+    /// Returns a server error for missing scope, failed authorization, invalid tool metadata, unknown invocation outcome or failed durable effect persistence.
     pub fn describe_for_release(
         &self,
         core_sequence: u64,
@@ -1074,6 +1081,8 @@ impl Server {
         }
     }
 
+    /// # Errors
+    /// Returns a server error for invalid arguments, failed authorization, an unknown invocation outcome or failed durable effect persistence.
     pub fn execute_for_release<B: DaemonExecutionBoundary>(
         &mut self,
         core_sequence: u64,
@@ -1211,7 +1220,7 @@ fn encode_mcp_outcome(value: &Result<Value, BoundaryRefusal>) -> Result<Vec<u8>,
                 BoundaryRefusal::Unauthorized => json!({"kind": "unauthorized"}),
                 BoundaryRefusal::Owner(error) => json!({
                     "kind": "owner", "class": format!("{:?}", error.class),
-                    "protocol_result_code": error.protocol_result_code.map(|code| code.raw()),
+                    "protocol_result_code": error.protocol_result_code.map(layerx_types::result::ResultCode::raw),
                     "retriability": format!("{:?}", error.retriability),
                     "request_id": error.request_id.0.to_string(), "reason": error.reason.as_str(),
                 }),
@@ -1222,7 +1231,7 @@ fn encode_mcp_outcome(value: &Result<Value, BoundaryRefusal>) -> Result<Vec<u8>,
                     json!({"kind": "malformed", "reason": reason})
                 }
                 BoundaryRefusal::Held { hold_id, awaiting } => {
-                    json!({"kind": "held", "hold_id": hold_id.iter().map(|byte| format!("{byte:02x}")).collect::<String>(), "awaiting": awaiting})
+                    json!({"kind": "held", "hold_id": crate::hex(hold_id), "awaiting": awaiting})
                 }
             };
             json!({"error": refusal})

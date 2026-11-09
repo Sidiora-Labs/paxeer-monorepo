@@ -1,3 +1,5 @@
+use layerx_mcp_test_support::option_assertion;
+
 use std::collections::BTreeSet;
 use std::fs;
 use std::io::{Cursor, Read as _, Write as _};
@@ -306,9 +308,8 @@ fn exchange(session: &mut Session<DaemonBoundary>, requests: &[Value]) -> Vec<Va
 
 fn assert_closed_input_schema(schema: &Value, tool_name: &str) {
     if let Some(branches) = schema.get("oneOf") {
-        let branches = branches
-            .as_array()
-            .expect("oneOf must contain schema branches");
+        let branches =
+            option_assertion::required(branches.as_array(), "oneOf must contain schema branches");
         assert!(
             !branches.is_empty(),
             "tool {tool_name} has no input branches"
@@ -594,7 +595,7 @@ fn assert_refused_shapes(responses: &[Value]) {
     );
     assert_eq!(
         responses[2].pointer("/error/code").and_then(Value::as_i64),
-        Some(-32602)
+        Some(-32_602)
     );
 }
 
@@ -698,7 +699,7 @@ fn a_read_only_binding_never_exposes_a_write_tool() {
     }));
     assert_eq!(
         responses[1].pointer("/error/code").and_then(Value::as_i64),
-        Some(-32602)
+        Some(-32_602)
     );
     let _ = fs::remove_dir_all(root);
 }
@@ -721,60 +722,7 @@ fn the_protocol_socket_refuses_every_unprotected_endpoint_and_serves_an_admitted
         .cloned()
         .unwrap_or_else(|| panic!("listener absent"));
 
-    let relative = ListenerConfig {
-        endpoint: PathBuf::from("mcp.sock"),
-        ..configuration.clone()
-    };
-    assert_eq!(
-        Listener::bind(relative).err(),
-        Some(ListenerError::RelativeEndpoint)
-    );
-    let broad = ListenerConfig {
-        mode: 0o666,
-        ..configuration.clone()
-    };
-    assert_eq!(
-        Listener::bind(broad).err(),
-        Some(ListenerError::ModeTooBroad)
-    );
-    let unpeered = ListenerConfig {
-        admitted_uids: Vec::new(),
-        ..configuration.clone()
-    };
-    assert_eq!(
-        Listener::bind(unpeered).err(),
-        Some(ListenerError::NoAdmittedPeer)
-    );
-    let immediate = ListenerConfig {
-        deadline: Duration::from_millis(0),
-        ..configuration.clone()
-    };
-    assert_eq!(
-        Listener::bind(immediate).err(),
-        Some(ListenerError::ZeroDeadline)
-    );
-    let open_parent = root.join("open");
-    fs::create_dir_all(&open_parent).unwrap_or_else(|error| panic!("open parent: {error}"));
-    fs::set_permissions(&open_parent, fs::Permissions::from_mode(0o777))
-        .unwrap_or_else(|error| panic!("open parent mode: {error}"));
-    let world = ListenerConfig {
-        endpoint: open_parent.join("mcp.sock"),
-        ..configuration.clone()
-    };
-    assert_eq!(
-        Listener::bind(world).err(),
-        Some(ListenerError::ParentUnowned)
-    );
-    let occupied = root.join("occupied.sock");
-    fs::write(&occupied, b"").unwrap_or_else(|error| panic!("occupied: {error}"));
-    let taken = ListenerConfig {
-        endpoint: occupied,
-        ..configuration.clone()
-    };
-    assert_eq!(
-        Listener::bind(taken).err(),
-        Some(ListenerError::EndpointExists)
-    );
+    assert_unprotected_listener_refusals(&root, &configuration);
 
     let listener = Listener::bind(configuration).unwrap_or_else(|error| {
         panic!("bind: {}", error.detail());
@@ -1179,8 +1127,7 @@ fn listener_applies_the_declared_group_and_keeps_replacement_files() {
     fs::remove_dir_all(root).unwrap_or_else(|error| panic!("cleanup: {error}"));
 }
 
-#[path = "support/session_transport.rs"]
-mod session_transport;
+use layerx_mcp_test_support::session_transport;
 
 #[test]
 fn session_only_scopes_describe_list_and_call_over_transport() {
@@ -1192,4 +1139,61 @@ fn session_only_scopes_describe_list_and_call_over_transport() {
 #[test]
 fn session_only_read_only_transport_enforces_restrictions() {
     session_transport::session_tools_read_only_filtering();
+}
+
+fn assert_unprotected_listener_refusals(root: &Path, configuration: &ListenerConfig) {
+    let relative = ListenerConfig {
+        endpoint: PathBuf::from("mcp.sock"),
+        ..configuration.clone()
+    };
+    assert_eq!(
+        Listener::bind(relative).err(),
+        Some(ListenerError::RelativeEndpoint)
+    );
+    let broad = ListenerConfig {
+        mode: 0o666,
+        ..configuration.clone()
+    };
+    assert_eq!(
+        Listener::bind(broad).err(),
+        Some(ListenerError::ModeTooBroad)
+    );
+    let unpeered = ListenerConfig {
+        admitted_uids: Vec::new(),
+        ..configuration.clone()
+    };
+    assert_eq!(
+        Listener::bind(unpeered).err(),
+        Some(ListenerError::NoAdmittedPeer)
+    );
+    let immediate = ListenerConfig {
+        deadline: Duration::from_millis(0),
+        ..configuration.clone()
+    };
+    assert_eq!(
+        Listener::bind(immediate).err(),
+        Some(ListenerError::ZeroDeadline)
+    );
+    let open_parent = root.join("open");
+    fs::create_dir_all(&open_parent).unwrap_or_else(|error| panic!("open parent: {error}"));
+    fs::set_permissions(&open_parent, fs::Permissions::from_mode(0o777))
+        .unwrap_or_else(|error| panic!("open parent mode: {error}"));
+    let world = ListenerConfig {
+        endpoint: open_parent.join("mcp.sock"),
+        ..configuration.clone()
+    };
+    assert_eq!(
+        Listener::bind(world).err(),
+        Some(ListenerError::ParentUnowned)
+    );
+    let occupied = root.join("occupied.sock");
+    fs::write(&occupied, b"").unwrap_or_else(|error| panic!("occupied: {error}"));
+    let taken = ListenerConfig {
+        endpoint: occupied,
+        ..configuration.clone()
+    };
+    assert_eq!(
+        Listener::bind(taken).err(),
+        Some(ListenerError::EndpointExists)
+    );
 }
