@@ -1,0 +1,7 @@
+[issue.1585]
+number = 1585
+title = "[Coherence] The audit record declares the market contract pages missing, but all three exist under spec/layerx-merge/contracts/"
+revision = "bb8caac8b3e73e3e2f4b330805574f0bcb540641"
+verdict = "spec-edit"
+evidence = "The completed audit and repair tasks (spec/layerx-merge/spec.kvx:379094 and :300629) must drop the false missing-interface-contracts claim and reassess doc.13 through doc.15 (spec/layerx-merge/programme/audit/records/22.30.17.kvx:1208 and :1283), resolve contracts relative to spec/layerx-merge (spec/layerx-merge/interfaces.kvx:34128), and replace restoration wording in the registry proposals at :946, :957, :968 and :979 of that audit record and the repair proposal at spec/layerx-merge/spec.kvx:300639 with reconciliation of existing pages: spec/layerx-merge/contracts/markets.md:1, spec/layerx-merge/contracts/perps-data.md:1 and spec/layerx-merge/contracts/perps-client.md:1060 and :1346 are unchanged from reviewed commit e996b207d4fb41ca18d07a036438928da26634db, and precompiles/spot/abi/repair_m714.kvx:7 already acknowledges their existence."
+close_comment = "The market, perps-data and perps-client contract pages already exist under spec/layerx-merge/contracts/, including the hooks section and useMarketConfig declaration. The audit and completed repair task need a specification correction that removes the false missing-page finding, reassesses the three documentation entries against the existing pages and describes remaining interface drift as reconciliation work."
