@@ -1,0 +1,7 @@
+[issue.1800]
+number = 1800
+title = "[Coherence] The Rust SDK quickstart still says RpcClient::request_funds calls the retired lx_requestFunds method"
+revision = "a910fdedd579e63379ae6c2e4d4971990d28f8ad"
+verdict = "already-fixed"
+evidence = "Commit f83b4c42538f23292ff9b02ee286a93d0592a364 corrected both references: docs/wiki/SdkQuickstartRust.md:7 lists px_requestFunds, docs/wiki/SdkQuickstartRust.md:39 identifies it as the RpcClient::request_funds method and docs/wiki/SdkQuickstartRust.md:48 directs it to the configured hosted gateway, matching services/agent/crates/layerx-sdk/src/rpc.rs:1129, docs/wiki/SdkQuickstartDotNet.md:24 and docs/wiki/HostedFaucet.md:144, with regression assertions at tests/ci/test_sdk_quickstart_rpc_methods.py:24 and tests/ci/test_sdk_quickstart_rpc_methods.py:38."
+close_comment = "The Rust SDK quickstart now names px_requestFunds in both the wrapper list and the RpcClient::request_funds section, and directs faucet claims to the configured hosted gateway. The documentation matches the SDK implementation, and regression checks reject retired method names and require px_requestFunds in the faucet section."
