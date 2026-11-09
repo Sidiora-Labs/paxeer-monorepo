@@ -270,7 +270,12 @@ def test_sdk_producer_transport_and_result_contracts():
     assert 'node.Tx(ctx, hash, true)' in source("sdk/x/auth/tx/query.go")
     assert '"delegation with delegator %s not found for validator %s"' in source("sdk/x/staking/keeper/grpc_query.go")
     assert 'return clientCtx.PrintProto(res.DelegationResponse)' in source("sdk/x/staking/client/cli/query.go")
-    assert 'sdkerrors.Wrap(sdkerrors.ErrKeyNotFound, err.Error())' in source("sdk/baseapp/abci.go")
+    baseapp = source("sdk/baseapp/abci.go")
+    # Task 18.1678.1 removed raw gRPC messages from the non-debug ABCI result.
+    assert 'sdkerrors.Wrap(sdkerrors.ErrKeyNotFound, err.Error())' not in baseapp
+    assert 'case codes.NotFound:\n\t\treturn sdkerrors.ErrKeyNotFound' in baseapp
+    assert 'res = sdkerrors.QueryResultWithDebug(gRPCErrorToSDKError(err), app.trace)' in baseapp
+    assert 'if app.trace {\n\t\t\t_, _, res.Log = sdkerrors.ABCIInfo(err, true)' in baseapp
     assert 'return status.Error(codes.NotFound, resp.Log)' in source("sdk/client/query.go")
     assert 'fmt.Fprintln(os.Stderr, "Error:", err)' in source("daemon/paxd/main.go")
 
