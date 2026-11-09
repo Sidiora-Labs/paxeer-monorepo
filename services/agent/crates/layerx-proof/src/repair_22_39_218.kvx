@@ -1,0 +1,739 @@
+[repair]
+task = "22.39.218"
+base_revision = "d231853743c82e8c3cb9d90f45e9eee7e331f914"
+baseline = "No standalone baseline run: ordered gate instructions permit verification only through hf-done after implementation and hf-build. Source inventory below is not claimed as compiler output."
+evidence = "The private runner ledger /out/run/gates.jsonl records the exact candidate revisions, commands, exit codes and logs for hf-build and hf-done. Final lint count is established only by a passing hf-done at the built candidate revision."
+status = "Attempt 4 implementation complete; qualification is resolved by the matching final hf-build and hf-done rows referenced in attempt_4_qualification. Earlier attempt sections retain their historical results."
+
+[source_inventory.1]
+file = "src/export.rs"
+line = 629
+lint = "clippy::expect_used"
+repair = "let achieved = outcome\n            .rung()\n            .ok_or(CompleteExportError::ReceiptBinding { fact })?;"
+
+[source_inventory.2]
+file = "src/state_range.rs"
+line = 77
+lint = "clippy::missing_errors_doc"
+repair = "/// # Errors\n    /// Refuses empty or oversized prefixes, incomplete or unordered module inventories,\n    /// invalid witness positions, and roots that do not match `state_root`.\n    pub fn verify_prefix"
+
+[source_inventory.3]
+file = "src/state_range.rs"
+line = 109
+lint = "clippy::missing_errors_doc"
+repair = "/// # Errors\n    /// Refuses oversized inventories, invalid module identifiers, unordered leaves,\n    /// inconsistent witness positions, and mismatched subtree or composite roots.\n    pub fn verify_full_module"
+
+[source_inventory.4]
+file = "src/state_range.rs"
+line = 187
+lint = "clippy::missing_errors_doc"
+repair = "/// # Errors\n/// Refuses oversized account inventories, missing account-tree anchors,\n/// unordered accounts, invalid witness positions, and mismatched roots.\npub fn verify_account_tree"
+
+[source_inventory.5]
+file = "src/state_range.rs"
+line = 251
+lint = "clippy::missing_errors_doc"
+repair = "/// # Errors\n/// Refuses a module count outside the kernel registry, unencodable module\n/// identifiers, and a composite root unequal to `expected_root`.\npub fn verify_composite_roots"
+
+[source_inventory.6]
+file = "src/state_range.rs"
+line = 61
+lint = "clippy::must_use_candidate"
+repair = "Mark the pure inventory/prefix accessor #[must_use]."
+
+[source_inventory.7]
+file = "src/state_range.rs"
+line = 58
+lint = "clippy::must_use_candidate"
+repair = "Mark the pure inventory/prefix accessor #[must_use]."
+
+[source_inventory.8]
+file = "src/state_range.rs"
+line = 55
+lint = "clippy::must_use_candidate"
+repair = "Mark the pure inventory/prefix accessor #[must_use]."
+
+[source_inventory.9]
+file = "src/state_range.rs"
+line = 52
+lint = "clippy::must_use_candidate"
+repair = "Mark the pure inventory/prefix accessor #[must_use]."
+
+[source_inventory.10]
+file = "src/state_range.rs"
+line = 46
+lint = "clippy::must_use_candidate"
+repair = "Mark the pure inventory/prefix accessor #[must_use]."
+
+[source_inventory.11]
+file = "src/state_range.rs"
+line = 43
+lint = "clippy::must_use_candidate"
+repair = "Mark the pure inventory/prefix accessor #[must_use]."
+
+[source_inventory.12]
+file = "src/state_range.rs"
+line = 40
+lint = "clippy::must_use_candidate"
+repair = "Mark the pure inventory/prefix accessor #[must_use]."
+
+[source_inventory.13]
+file = "src/state_range.rs"
+line = 37
+lint = "clippy::must_use_candidate"
+repair = "Mark the pure inventory/prefix accessor #[must_use]."
+
+[source_inventory.14]
+file = "src/receipt.rs"
+line = 118
+lint = "clippy::missing_errors_doc"
+repair = "/// # Errors\n    /// Refuses non-range keys, malformed or unsigned receipts, invalid signatures,\n    /// and receipts outside a unique authorised sequencer range.\n    pub fn from_receipt_keys<'a>("
+
+[source_inventory.15]
+file = "src/receipt.rs"
+line = 1013
+lint = "clippy::missing_errors_doc"
+repair = "/// # Errors\n/// Refuses invalid maintenance or activity inclusion chains and receipts that do\n/// not authenticate a native pre-execution rejection under the derived batch.\npub fn verify_program_preexecution_rejection_maintained_chain("
+
+[source_inventory.16]
+file = "src/state_witness.rs"
+line = 11
+lint = "clippy::cast_lossless"
+repair = "const MAX_COMPOSITE_LEAVES: u32 = ModuleId::ALL[ModuleId::ALL.len() - 1] as u32 + 1;"
+
+[source_inventory.17]
+file = "tests/export_complete.rs"
+line = 223
+lint = "clippy::expect_used"
+repair = "Match the required fixture value explicitly; missing evidence still panics with the original reason."
+
+[source_inventory.18]
+file = "tests/repair_22_33_1557.rs"
+line = 59
+lint = "clippy::expect_used"
+repair = "Match the required fixture value explicitly; missing evidence still panics with the original reason."
+
+[source_inventory.19]
+file = "tests/repair_22_33_1557.rs"
+line = 204
+lint = "clippy::expect_used"
+repair = "Match the required fixture value explicitly; missing evidence still panics with the original reason."
+
+[source_inventory.20]
+file = "tests/offline_export.rs"
+line = 31
+lint = "clippy::expect_used"
+repair = "Match the required fixture value explicitly; missing evidence still panics with the original reason."
+
+[source_inventory.21]
+file = "tests/native_terminal_outcome.rs"
+line = 77
+lint = "clippy::expect_used"
+repair = "Match the required fixture value explicitly; missing evidence still panics with the original reason."
+
+[source_inventory.22]
+file = "tests/native_terminal_outcome.rs"
+line = 158
+lint = "clippy::expect_used"
+repair = "Match the required fixture value explicitly; missing evidence still panics with the original reason."
+
+[source_inventory.23]
+file = "tests/native_terminal_outcome.rs"
+line = 163
+lint = "clippy::expect_used"
+repair = "Match the required fixture value explicitly; missing evidence still panics with the original reason."
+
+[source_inventory.24]
+file = "tests/native_terminal_outcome.rs"
+line = 220
+lint = "clippy::expect_used"
+repair = "Match the required fixture value explicitly; missing evidence still panics with the original reason."
+
+[source_inventory.25]
+file = "tests/native_terminal_outcome.rs"
+line = 266
+lint = "clippy::expect_used"
+repair = "Match the required fixture value explicitly; missing evidence still panics with the original reason."
+
+[source_inventory.26]
+file = "tests/native_terminal_outcome.rs"
+line = 368
+lint = "clippy::expect_used"
+repair = "Match the required fixture value explicitly; missing evidence still panics with the original reason."
+
+[source_inventory.27]
+file = "tests/inclusion.rs"
+line = 154
+lint = "clippy::expect_used"
+repair = "Match the required fixture value explicitly; missing evidence still panics with the original reason."
+
+[source_inventory.28]
+file = "tests/support/historical_checkpoint.rs"
+line = 47
+lint = "clippy::expect_used"
+repair = "Match the required fixture value explicitly; missing evidence still panics with the original reason."
+
+[source_inventory.29]
+file = "tests/support/historical_checkpoint.rs"
+line = 62
+lint = "clippy::expect_used"
+repair = "Match the required fixture value explicitly; missing evidence still panics with the original reason."
+
+[source_inventory.30]
+file = "tests/support/historical_checkpoint.rs"
+line = 91
+lint = "clippy::expect_used"
+repair = "Match the required fixture value explicitly; missing evidence still panics with the original reason."
+
+[source_inventory.31]
+file = "tests/support/historical_checkpoint.rs"
+line = 41
+lint = "clippy::expect_used"
+repair = "let Some(number) = value.as_u64() else {\n        panic!(\"historical configuration unsigned integer\");\n    };\n    number"
+
+[source_inventory.32]
+file = "tests/support/historical_checkpoint.rs"
+line = 48
+lint = "clippy::expect_used"
+repair = "let Some(text) = value.as_str() else {\n        panic!(\"historical configuration hex string\");\n    };\n    let Some(text) = text.strip_prefix(\"0x\") else {\n        panic!(\"historical configuration hex prefix\");\n    };"
+
+[source_inventory.33]
+file = "tests/support/historical_checkpoint.rs"
+line = 70
+lint = "clippy::expect_used"
+repair = "guarantor_set: match domain[\"guarantor_set\"].as_array() {\n                Some(keys) => keys,\n                None => panic!(\"historical configuration guarantor set\"),\n            }"
+
+[source_inventory.34]
+file = "tests/native_terminal_outcome.rs"
+line = 50
+lint = "clippy::expect_used"
+repair = "let Some(pins) = lines.next() else {\n        panic!(\"retained native sequencer pins\");\n    };\n    let pins = pins.split('\\t')"
+
+[source_inventory.35]
+file = "tests/native_terminal_outcome.rs"
+line = 189
+lint = "clippy::expect_used"
+repair = "let Some(protocol) = verified.receipt().protocol() else {\n        panic!(\"verified protocol\");\n    };\n    assert_eq!(protocol.result_code(), -206);"
+
+[source_inventory.36]
+file = "tests/repair_22_33_1562.rs"
+line = 20
+lint = "clippy::expect_used"
+repair = "fn retired_checkpoint_suite_and_mislabelled_case_names_are_deleted() -> std::io::Result<()> {"
+
+[source_inventory.37]
+file = "tests/support/historical_checkpoint.rs"
+line = 178
+lint = "dead_code"
+repair = "Remove the unused deprecation-attribute helper after its historical compatibility API was retired; retain every executable test and certificate refusal assertion."
+
+[source_inventory.38]
+file = "tests/export_complete.rs"
+line = 1192
+lint = "clippy::too_many_lines"
+repair = "Extract native vector lookup and decoding from the state export fixture builder while retaining the account-leaf assertion and all proof construction."
+
+[qualification]
+build_reference = "/out/run/gates.jsonl: final build row for this candidate"
+verify_reference = "/out/run/gates.jsonl: final verify row for this candidate"
+verified_revision = "Resolved by the final matching build and verify rows in the private runner ledger."
+remaining_lints = "Final count is zero if and only if the final matching candidate hf-done row in /out/run/gates.jsonl exits zero; otherwise the final verify log is the remaining inventory."
+required_remaining_lint_count = 0
+
+[reported_lint.1]
+file = "src/export_codec.rs"
+line = 243
+lint = "dead_code"
+repair = "Remove the unused private Reader::u16 method left after certificate codec retirement."
+revision = "3f88ce8e167d7b205e5de00e2692b78a9a398e96"
+command = "cg spec done 22.39.218 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+
+[reported_lint.2]
+file = "src/export_codec.rs"
+line = 319
+lint = "dead_code"
+repair = "Remove the unused private Writer::u16 method left after certificate codec retirement."
+revision = "3f88ce8e167d7b205e5de00e2692b78a9a398e96"
+command = "cg spec done 22.39.218 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+
+[reported_lint.3]
+file = "src/state_witness.rs"
+line = 9
+lint = "dead_code"
+repair = "Remove the private module-id constant made redundant by the direct enum conversion in MAX_COMPOSITE_LEAVES."
+revision = "3f88ce8e167d7b205e5de00e2692b78a9a398e96"
+command = "cg spec done 22.39.218 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+
+[reported_lint.4]
+file = "src/export_codec.rs"
+line = 709
+lint = "clippy::large_enum_variant"
+repair = "Decision 3057: allow clippy::large_enum_variant on ProofRecord alone, with a reason preserving its public AccountStateRecord by-value variant layout and signature."
+revision = "3f88ce8e167d7b205e5de00e2692b78a9a398e96"
+command = "cg spec done 22.39.218 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+
+[reported_lint.5]
+file = "src/receipt.rs"
+line = 929
+lint = "clippy::missing_errors_doc"
+repair = "Document the signature, shape, refusal-domain and activity/batch/root checks of native pre-execution rejection verification."
+revision = "3f88ce8e167d7b205e5de00e2692b78a9a398e96"
+command = "cg spec done 22.39.218 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+
+[reported_lint.6]
+file = "src/receipt.rs"
+line = 1226
+lint = "clippy::manual_range_contains"
+repair = "Express the identical half-open ACCOUNT..SANDBOX_DESTROY membership predicate with Range::contains; preserve every tested version, bound and assertion."
+revision = "3f88ce8e167d7b205e5de00e2692b78a9a398e96"
+command = "cg spec done 22.39.218 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+
+[reported_build_warnings]
+revision = "3f88ce8e167d7b205e5de00e2692b78a9a398e96"
+command = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-proof --all-targets"
+exit = 0
+log = "/out/logs/build-1.log"
+file = "tests/support/historical_checkpoint.rs"
+lines = [23, 29, 35, 107, 114, 120, 166]
+lint = "dead_code"
+repair = "Use retained_certificate_retirement::historical from repair_22_33_1557 instead of compiling a second support module whose certificate helpers and fields are unused. All existing helper calls and tests remain."
+
+[remaining.src_export_codec]
+file = "src/export_codec.rs"
+symbol = "ProofRecord"
+lint = "clippy::large_enum_variant"
+count = 0
+severity = "note"
+assumption = "Public variant payload types are part of the public signature that this task explicitly forbids changing."
+
+[gotcha.public_enum_layout]
+area = "rust"
+symptom = "The all-targets lint gate stops at a public enum size difference before integration-test lint inventory."
+cause = "The existing AccountState variant carries a public record by value while the task forbids public signature changes and disabling checks."
+do = "Decision 3057 authorises the allowance on ProofRecord alone with a public-layout reason; preserve the public payload signature."
+
+[continuation]
+base_revision = "93249965659c4b9cb25e6d721c9a37f9bc005106"
+source_attempt_revision = "a145e3ae66b3f736bd413373cc69b593bbd6e3d9"
+policy = "Preserve attempt 1, retain assertions and public signatures, and use only bounded hf-build and hf-done invocations for qualification."
+
+[continuation_inventory]
+revision = "51ee3c12136e686732ee4b5ce267d6bbc708039b"
+command = "cg spec done 22.39.218 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+distinct_lint_locations = 15
+
+[continuation_lint.1]
+file = "tests/repair_22_33_1563.rs"
+line = 6
+column = 5
+lint = "clippy::doc_markdown"
+repair = "Put the named Rust items in backticks in the existing test documentation."
+
+[continuation_lint.2]
+file = "tests/repair_22_33_1563.rs"
+line = 7
+column = 5
+lint = "clippy::doc_markdown"
+repair = "Put the named Rust items in backticks in the existing test documentation."
+
+[continuation_lint.3]
+file = "tests/repair_22_33_1563.rs"
+line = 8
+column = 5
+lint = "clippy::doc_markdown"
+repair = "Put the named Rust items in backticks in the existing test documentation."
+
+[continuation_lint.4]
+file = "tests/repair_22_33_1563.rs"
+line = 9
+column = 145
+lint = "clippy::doc_markdown"
+repair = "Put the named Rust items in backticks in the existing test documentation."
+
+[continuation_lint.5]
+file = "tests/repair_22_33_1563.rs"
+line = 9
+column = 174
+lint = "clippy::doc_markdown"
+repair = "Put the named Rust items in backticks in the existing test documentation."
+
+[continuation_lint.6]
+file = "tests/export_complete.rs"
+line = 130
+column = 9
+lint = "clippy::similar_names"
+repair = "Rename the encoded signed receipt binding to receipt_bytes, distinct from signer."
+
+[continuation_lint.7]
+file = "tests/receipt.rs"
+line = 443
+column = 1
+lint = "clippy::too_many_lines"
+repair = "Extract pin refusal and receipt binding refusal helpers, invoked by the existing test with the same fixture inputs and every original assertion."
+
+[continuation_lint.8]
+file = "tests/repair_22_33_1562.rs"
+line = 6
+column = 44
+lint = "clippy::doc_markdown"
+repair = "Put the named Rust items in backticks in the existing test documentation."
+
+[continuation_lint.9]
+file = "tests/repair_22_33_1562.rs"
+line = 7
+column = 5
+lint = "clippy::doc_markdown"
+repair = "Put the named Rust items in backticks in the existing test documentation."
+
+[continuation_lint.10]
+file = "tests/repair_22_33_1562.rs"
+line = 8
+column = 5
+lint = "clippy::doc_markdown"
+repair = "Put the named Rust items in backticks in the existing test documentation."
+
+[continuation_lint.11]
+file = "tests/repair_22_33_1562.rs"
+line = 9
+column = 40
+lint = "clippy::doc_markdown"
+repair = "Put the named Rust items in backticks in the existing test documentation."
+
+[continuation_lint.12]
+file = "tests/repair_22_33_1562.rs"
+line = 10
+column = 5
+lint = "clippy::doc_markdown"
+repair = "Put the named Rust items in backticks in the existing test documentation."
+
+[continuation_lint.13]
+file = "tests/repair_22_33_1562.rs"
+line = 11
+column = 9
+lint = "clippy::doc_markdown"
+repair = "Put the named Rust items in backticks in the existing test documentation."
+
+[continuation_lint.14]
+file = "tests/export_complete.rs"
+line = 40
+column = 5
+lint = "clippy::format_collect"
+repair = "Append hexadecimal bytes directly to a preallocated String with write! and checked formatting."
+
+[continuation_lint.15]
+file = "tests/export_complete.rs"
+line = 1407
+column = 20
+lint = "clippy::cloned_ref_to_slice_refs"
+repair = "Borrow the same reference through std::slice::from_ref instead of cloning it into a temporary array."
+
+[final_qualification_reference]
+ledger = "/out/run/gates.jsonl"
+build = "Final build row, with its exact revision, cargo build command, exit code and private log; must exit zero."
+verify = "Final verify row, with its exact revision, cg spec done command, exit code and private log; must exit zero."
+verified_revision = "The revision field shared by those final build and verify rows; the record is part of that candidate, so its own hash is resolved by reference."
+final_lint_count = "0 on a passing final verify row, as Clippy checks every crate target with warnings denied. An unsuccessful row makes no zero-count claim."
+assertions = "All existing tests and refusal assertions remain executable; the receipt test calls both extracted assertion helpers."
+
+[gotcha.integration_inventory]
+symptom = "The initial library failure prevented integration-test Clippy diagnostics from being reported."
+do = "Continue from attempt 1 with the expressly authorised enum allowance, inventory through the bounded gate, and repair every distinct reported test location before the final build and verify."
+
+[bounded_result]
+revision = "66366cb0d2eb28cf657d7a0814ce3af7553a7347"
+command = "cg spec done 22.39.218 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-2.log"
+build_log = "/out/logs/build-2.log"
+build_exit = 0
+remaining_distinct_lint_locations = 5
+status = "Stopped after the final bounded gate; only this failure inventory was appended afterward, without further code repair or gate runs."
+
+[bounded_remaining_file.1]
+file = "tests/native_terminal_outcome.rs"
+count = 1
+
+[bounded_remaining_file.2]
+file = "tests/repair_22_31_226.rs"
+count = 2
+
+[bounded_remaining_file.3]
+file = "tests/support/historical_checkpoint.rs"
+count = 2
+
+[bounded_remaining_lint.1]
+file = "tests/native_terminal_outcome.rs"
+line = 337
+column = 1
+lint = "clippy::too_many_lines"
+status = "unrepaired; bounded gate budget spent"
+
+[bounded_remaining_lint.2]
+file = "tests/repair_22_31_226.rs"
+line = 2
+column = 5
+lint = "clippy::doc_markdown"
+status = "unrepaired; bounded gate budget spent"
+
+[bounded_remaining_lint.3]
+file = "tests/repair_22_31_226.rs"
+line = 2
+column = 55
+lint = "clippy::doc_markdown"
+status = "unrepaired; bounded gate budget spent"
+
+[bounded_remaining_lint.4]
+file = "tests/support/historical_checkpoint.rs"
+line = 35
+column = 5
+lint = "clippy::struct_field_names"
+status = "unrepaired; bounded gate budget spent"
+
+[bounded_remaining_lint.5]
+file = "tests/support/historical_checkpoint.rs"
+line = 136
+column = 23
+lint = "clippy::format_collect"
+status = "unrepaired; bounded gate budget spent"
+
+[gotcha.target_scheduling]
+symptom = "The first failed all-targets Clippy run reported 15 distinct locations, while the next run reached additional integration targets and reported the remaining inventory above."
+do = "Carry the implemented repairs and this exact inventory into a separately authorised continuation; do not claim that one failed Cargo run exhaustively schedules every target."
+
+[attempt_3]
+base_revision = "027bfa65e2a8c1dcc27852c4ea1d6414ec78c44e"
+source_attempt_revision = "44fccbf445bc251fb3861ea516db241031a7e91d"
+policy = "Preserve the attempt-2 repairs and every test assertion; qualify only through hf-build and hf-done at the same candidate revision."
+inventory = "The prior bounded log records five distinct source locations, repeated across integration targets; the ruling describes seven reported diagnostics. The field-name lint is at historical_checkpoint.rs:35, and the format iterator is at historical_checkpoint.rs:136 in that log."
+
+[attempt_3_lint.1]
+file = "tests/native_terminal_outcome.rs"
+line = 337
+lint = "clippy::too_many_lines"
+repair = "Split the original test into named helpers for complete maintenance receipts, terminal receipt tampering, batch binding, and maintenance authority tampering; invoke every helper from the original test with identical evidence and assertions."
+
+[attempt_3_lint.2]
+file = "tests/repair_22_31_226.rs"
+line = 2
+column = 5
+lint = "clippy::doc_markdown"
+repair = "Wrap guarantor_only_success_cannot_yield_committed in documentation backticks."
+
+[attempt_3_lint.3]
+file = "tests/repair_22_31_226.rs"
+line = 2
+column = 55
+lint = "clippy::doc_markdown"
+repair = "Wrap native_evidence_stops_at_receipted in documentation backticks."
+
+[attempt_3_lint.4]
+file = "tests/support/historical_checkpoint.rs"
+line = 35
+lint = "clippy::struct_field_names"
+repair = "Rename the test-support Guarantor.guarantor_id field to id and update its construction and both consumers; keep the archival JSON guarantor_id key and signed-vector fields unchanged."
+
+[attempt_3_lint.5]
+file = "tests/support/historical_checkpoint.rs"
+line = 136
+lint = "clippy::format_collect"
+repair = "Write the same two-digit lowercase digest bytes into a preallocated String with checked write! calls, preserving the certificate encoding."
+
+[attempt_3_qualification]
+ledger = "/out/run/gates.jsonl"
+build_reference = "Final build row for this candidate: exact revision, command, exit code and private log; exit must be zero."
+verify_reference = "Final verify row for this candidate: exact revision, command, exit code and private log; exit must be zero."
+verified_revision = "The exact shared revision of the final build and verify rows; resolved by reference because this record contributes to the candidate hash."
+final_lint_count = "0 if and only if the final verify row exits zero at the final build revision; no zero-count claim applies to a failed gate."
+required_remaining_lint_count = 0
+
+[gotcha.shared_support_inventory]
+symptom = "The continuation ruling counts repeated test-target diagnostics and places the field-name lint with the importing test; the retained bounded record identifies five distinct source locations."
+do = "Repair the shared support at its actual declarations and inventory every distinct location; use the final all-targets gate to establish the count of zero."
+
+[attempt_3_repair_cycle.1]
+revision = "e3250d08195e0a23cea89c9c1cd629bb32a61140"
+command = "cg spec done 22.39.218 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+build_reference = "/out/run/gates.jsonl: build row 1, revision e3250d08195e0a23cea89c9c1cd629bb32a61140, exit 0, /out/logs/build-1.log"
+remaining_distinct_lint_locations = 2
+
+[attempt_3_lint.6]
+file = "tests/sequencer_corpus.rs"
+line = 114
+column = 22
+lint = "clippy::doc_markdown"
+repair = "Wrap ProtocolReceipt in the existing layout documentation in backticks."
+
+[attempt_3_lint.7]
+file = "tests/inclusion.rs"
+line = 128
+lint = "clippy::too_many_lines"
+repair = "Extract verified_state_for_roots and assert_uncommitted_proof_rungs helpers from the original test, preserving every proof construction, level and rung assertion, and proof-root assertion with the original inputs."
+
+[gotcha.additional_test_targets]
+symptom = "The first continuation verification passed the recorded source locations but exposed doc_markdown in sequencer_corpus.rs and too_many_lines in inclusion.rs at revision e3250d08195e0a23cea89c9c1cd629bb32a61140."
+do = "Repair both in-scope test locations in the first bounded repair cycle; rebuild the final candidate before invoking hf-done again, and resolve final zero-count evidence through the matching ledger rows."
+
+[attempt_3_repair_cycle.2]
+revision = "cbb178071e03e604f6566bdec56a831a54b9f6f9"
+command = "cg spec done 22.39.218 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-2.log"
+build_reference = "/out/run/gates.jsonl: build row 2, revision cbb178071e03e604f6566bdec56a831a54b9f6f9, exit 0, /out/logs/build-2.log"
+remaining_distinct_lint_locations = 4
+
+[attempt_3_lint.8]
+file = "tests/repair_22_33_1557.rs"
+line = 2
+column = 21
+lint = "clippy::doc_markdown"
+repair = "Wrap the existing src/repair_22_33_1557.kvx documentation path in backticks."
+
+[attempt_3_lint.9]
+file = "tests/repair_22_33_1557.rs"
+line = 232
+lint = "clippy::expect_used"
+repair = "Replace expect_err with err().unwrap_or_else and the same failure panic; the original SequencerSignature assertion still requires an error and checks its exact class."
+
+[attempt_3_lint.10]
+file = "tests/repair_22_33_1557.rs"
+line = 259
+lint = "clippy::clone_on_copy"
+repair = "Copy the same AuthorizedBatch value directly into ReceiptFact without calling clone."
+
+[attempt_3_lint.11]
+file = "tests/repair_22_33_1557.rs"
+line = 313
+lint = "clippy::format_collect"
+repair = "Write the same two-digit lowercase identifier bytes into a preallocated String with checked write! calls, keeping the checkpoint-selector refusal assertion unchanged."
+
+[attempt_3_final_evidence]
+revision = "cbb178071e03e604f6566bdec56a831a54b9f6f9"
+command = "cg spec done 22.39.218 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-2.log"
+build_reference = "/out/run/gates.jsonl: build row 2, revision cbb178071e03e604f6566bdec56a831a54b9f6f9, exit 0, /out/logs/build-2.log"
+verify_reference = "/out/run/gates.jsonl: verify row 2, the last executed verification; no row 3 exists."
+remaining_reported_lint_count = 4
+final_lint_count = "Unknown for the current candidate: all four last-reported locations are repaired at source, but the runner refused a further build, so no zero-count claim is made."
+status = "Stopped at the enforced repair budget; task remains in_progress and no further gate is run."
+assertions = "No test is removed, skipped, ignored, weakened or expected to fail; every original assertion remains in the executing test or its called helper."
+
+[attempt_3_last_reported_file.1]
+file = "tests/repair_22_33_1557.rs"
+count = 4
+lints = ["clippy::doc_markdown", "clippy::expect_used", "clippy::clone_on_copy", "clippy::format_collect"]
+repair_status = "All four source repairs are applied and formatted after the last verification; qualification is unavailable within this attempt's enforced budget."
+
+[gotcha.enforced_repair_budget]
+symptom = "hf-build refused the final candidate with exit 3 and 'repair budget spent (2 of 2)' after build row 2 and verify row 2, although those two reruns qualified one repair implementation."
+cause = "The runner counts max(0, builds - max_builds) + max(0, verifies - max_verify), so one build rerun plus one verify rerun consumes both available units."
+do = "Preserve the current repairs for a later authorised continuation; do not bypass the wrapper or claim the unexecuted final gates."
+
+
+[attempt_4]
+base_revision = "36d4f17d46b13214e8020f75aff34feb0eb5f8c4"
+source_attempt_revision = "a724daeb709d31cd5a717974a35e0622cc4b597f"
+policy = "Preserve the inherited implementation and all test assertions; complete the six sites from gotcha 3819 and qualify only through hf-build followed by hf-done."
+inventory = "All six source repairs were already present in the carried tree; replace the error extraction with the explicitly requested Err match before qualification. No earlier gate ledger is present in this sandbox."
+
+[attempt_4_lint.1]
+file = "tests/sequencer_corpus.rs"
+line = 114
+lint = "clippy::doc_markdown"
+repair = "Retain backticks around ProtocolReceipt in the canonical layout documentation."
+
+[attempt_4_lint.2]
+file = "tests/repair_22_33_1557.rs"
+line = 2
+lint = "clippy::doc_markdown"
+repair = "Retain backticks around the repair record path in the test documentation."
+
+[attempt_4_lint.3]
+file = "tests/inclusion.rs"
+line = 128
+lint = "clippy::too_many_lines"
+repair = "Retain verified_state_for_roots and assert_uncommitted_proof_rungs as named helpers called by the original test; all original level, rung and root assertions execute with the same inputs."
+
+[attempt_4_lint.4]
+file = "tests/repair_22_33_1557.rs"
+line = 232
+lint = "clippy::expect_used"
+repair = "Match the actual from_receipt_keys result: Err supplies the check for the original SequencerSignature assertion, and Ok panics with the original absent receipt-key pins reason."
+
+[attempt_4_lint.5]
+file = "tests/repair_22_33_1557.rs"
+line = 259
+lint = "clippy::clone_on_copy"
+repair = "Retain direct copying of AuthorizedBatch into ReceiptFact."
+
+[attempt_4_lint.6]
+file = "tests/repair_22_33_1557.rs"
+line = 313
+lint = "clippy::format_collect"
+repair = "Retain checked write! calls into a preallocated String for the same two-digit lowercase identifier bytes and unchanged checkpoint-selector refusal assertion."
+
+[attempt_4_qualification]
+ledger = "/out/run/gates.jsonl"
+build_reference = "Final build row: exact candidate revision, cargo build command, exit code and private log."
+verify_reference = "Final verify row: exact candidate revision, cg spec done command, exit code and private log."
+verified_revision = "The shared revision of the final passing build and verify rows; resolve by reference because this record contributes to that revision."
+final_lint_count = "0 if and only if hf-done exits zero at the same revision as the passing hf-build; otherwise the final verify log inventories the remaining diagnostics."
+required_remaining_lint_count = 0
+assertions = "Every inherited test and assertion remains executable; no assertion, bound, public signature or lint level changes in this continuation."
+
+[gotcha.continuation_error_match]
+symptom = "The carried repair for expect_err used err().unwrap_or_else, while the continuation explicitly requires a match on Err."
+do = "Match Err at the original assertion and panic on Ok, preserving the exact SequencerSignature criterion and failure reason."
+
+
+[attempt_4_repair_cycle.1]
+revision = "259ce4b59cb4dc7d87a70ab2722f21cdf7a74303"
+command = "cg spec done 22.39.218 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+build_reference = "/out/run/gates.jsonl: build row 1, revision 259ce4b59cb4dc7d87a70ab2722f21cdf7a74303, exit 0, /out/logs/build-1.log"
+remaining_reported_lint_count = 4
+
+[attempt_4_lint.7]
+file = "tests/receipt.rs"
+line = 185
+lint = "clippy::too_many_lines"
+repair = "Extract assert_current_programs_vector and assert_legacy_programs_versions from programs_module_versions_verify_signed_receipts, preserving every iteration, input, expected error, assertion and signing/verification code path."
+
+[attempt_4_lint.8]
+file = "tests/receipt.rs"
+line = 219
+lint = "clippy::expect_used"
+repair = "Match the required protocol with let Some, preserving the Programs protocol receipt panic on absence and the original module version assertion."
+
+[attempt_4_lint.9]
+file = "tests/receipt.rs"
+line = 226
+lint = "clippy::expect_used"
+repair = "Match the required call outcome with let Some, preserving the call outcome panic on absence and the exact guest ABI assertion."
+
+[attempt_4_lint.10]
+file = "tests/receipt.rs"
+line = 243
+lint = "clippy::expect_used"
+repair = "Replace Result::expect with unwrap_or_else and the same dispatch Programs receipt failure context and error; preserve the exact canonical bytes assertion."
+
+[gotcha.additional_programs_receipt_inventory]
+symptom = "The bounded all-targets gate at 259ce4b59cb4dc7d87a70ab2722f21cdf7a74303 revealed four more lint sites in programs_module_versions_verify_signed_receipts after the six carried repairs."
+do = "Repair the complete reported function inventory in one cycle, preserving all assertions, then format, rebuild and verify the same final candidate through the wrappers."
