@@ -192836,7 +192836,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1777.1]
 title = "Issue #1777: Read inference availability through the authenticated gateway"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.244", "22.39.279"]
