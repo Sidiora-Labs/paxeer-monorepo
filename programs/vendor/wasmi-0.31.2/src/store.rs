@@ -349,8 +349,13 @@ impl StoreInner {
         };
         use core::mem::size_of;
         fn allocation<T>(count: usize) -> Result<u64, ExecutionObserverError> {
+            if count == 0 {
+                return Ok(0);
+            }
             count
-                .checked_mul(size_of::<T>())
+                .checked_mul(2)
+                .map(|count| count.max(4))
+                .and_then(|count| count.checked_mul(size_of::<T>()))
                 .and_then(|bytes| u64::try_from(bytes).ok())
                 .ok_or(ExecutionObserverError::SnapshotLimitExceeded)
         }
@@ -1769,6 +1774,8 @@ impl<T> Store<T> {
             boundary_authorized: false,
             aggregate_bytes: 0,
             aggregate_work: 0,
+            retained_allocation_bytes: 0,
+            retained_allocation_work: 0,
             maximum_bytes,
             maximum_work,
             sampled_current: false,
@@ -1874,6 +1881,8 @@ impl<T> Store<T> {
         observer.supplement = pre.snapshot.supplement.clone();
         observer.aggregate_bytes = bytes;
         observer.aggregate_work = bytes;
+        observer.retained_allocation_bytes = bytes;
+        observer.retained_allocation_work = bytes;
         replay.pending = Some(alloc::sync::Arc::new(pre.clone()));
         replay.single_step = true;
         Ok(observer.maximum_bytes)
@@ -2122,6 +2131,12 @@ impl<T> Store<T> {
         if self.inner.execution_observer.is_none() {
             return Ok(());
         }
+        let replay = self.inner.replay_enabled();
+        self.inner
+            .execution_observer
+            .as_mut()
+            .expect("observer exists")
+            .authorize_retained_execution_snapshot(canonical_charge, replay)?;
         let mut charge = self
             .inner
             .retained_observation_charge(canonical_charge, instance)
@@ -2158,6 +2173,30 @@ impl<T> Store<T> {
                 return Err(ExecutionObserverError::SupplementRejected);
             }
         };
+        if canonical_charge.collect {
+            let overlay_bytes = (|| {
+                let headers = supplement
+                    .storage_overlay
+                    .len()
+                    .checked_mul(core::mem::size_of::<(Vec<u8>, Option<Vec<u8>>)>())
+                    .and_then(|bytes| u64::try_from(bytes).ok())?;
+                supplement
+                    .storage_overlay
+                    .iter()
+                    .try_fold(headers, |total, (key, value)| {
+                        total
+                            .checked_add(u64::try_from(key.len()).ok()?)?
+                            .checked_add(u64::try_from(value.as_ref().map_or(0, Vec::len)).ok()?)
+                    })
+            })()
+            .ok_or(ExecutionObserverError::SnapshotLimitExceeded)
+            .inspect_err(|error| self.inner.fail_execution_observer(*error))?;
+            self.inner
+                .execution_observer
+                .as_mut()
+                .expect("observer exists")
+                .authorize_retained_allocation(overlay_bytes, overlay_bytes)?;
+        }
         self.inner
             .execution_observer
             .as_mut()

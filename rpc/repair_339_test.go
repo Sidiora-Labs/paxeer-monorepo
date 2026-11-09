@@ -322,7 +322,7 @@ func TestRepair_339_TenantPendingRaw(t *testing.T) {
 	require.NoError(t, q.app.BankKeeper.MintCoins(state, "evm", coins))
 	require.NoError(t, q.app.BankKeeper.SendCoinsFromModuleToAccount(state, "evm", sdk.AccAddress(operator.Bytes()), coins))
 	for _, name := range []string{"repair-first", "repair-second"} {
-		_, err := q.app.LayerXChainsKeeper.Create(state, operator, name, 2*pendingFilterDeployGas, params.MinByteAllowance,
+		_, err := q.app.LayerXChainsKeeper.Create(state, operator, name, 4*pendingFilterDeployGas, params.MinByteAllowance,
 			0, params.MinBond.Add(params.CreationFee), q.app.EvmKeeper.GetNextBaseFeePerGas(state))
 		require.NoError(t, err)
 	}
@@ -339,6 +339,7 @@ func TestRepair_339_TenantPendingRaw(t *testing.T) {
 	require.NoError(t, err)
 	config := evmrpcconfig.DefaultConfig
 	config.HTTPAddress, config.HTTPPort, config.WSPort, config.IPRateLimitRPS = TestAddr, 0, 0, 0
+	config.FilterTimeout = time.Minute
 	httpService, err := evmrpc.NewEVMHTTPServer(config, &MockClient{latestOverride: q.committed}, &q.app.EvmKeeper,
 		q.app.BeginBlockKeepers, q.app.BaseApp, q.app.TracerAnteHandler, q.ctxProvider, q.txConfig, "", nil, q.option, pending)
 	require.NoError(t, err)
@@ -350,28 +351,103 @@ func TestRepair_339_TenantPendingRaw(t *testing.T) {
 	t.Cleanup(wsService.Stop)
 	require.NoError(t, wsService.Start())
 	views := repair339Views(t, httpService.(*evmrpc.HTTPServer), wsService.(*evmrpc.HTTPServer))
-	var txs []*ethtypes.Transaction
-	for i, chainID := range []*big.Int{q.app.EvmKeeper.ChainID(open), chainstypes.ChainIDOf(1), chainstypes.ChainIDOf(1), chainstypes.ChainIDOf(2)} {
-		tx, err := ethtypes.SignNewTx(sender.EvmPrivateKey, ethtypes.LatestSignerForChainID(chainID), &ethtypes.DynamicFeeTx{
-			ChainID: chainID, Nonce: uint64(i), GasFeeCap: big.NewInt(pendingGasPriceWei), GasTipCap: big.NewInt(0), Gas: pendingFilterDeployGas, Data: pendingFilterInitCode,
-		})
-		require.NoError(t, err)
-		data, err := ethtx.NewTxDataFromTx(tx)
-		require.NoError(t, err)
-		msg, err := evmtypes.NewMsgEVMTransaction(data)
-		require.NoError(t, err)
-		builder := q.txConfig(0).NewTxBuilder()
-		require.NoError(t, builder.SetMsgs(msg))
-		builder.SetGasLimit(pendingFilterDeployGas)
-		encoded, err := q.txConfig(0).TxEncoder()(builder.GetTx())
-		require.NoError(t, err)
-		accepted := pendingFilterReceipt(t, q.app, q.exec, q.feed, encoded, tx.Hash())
-		// Consensus index zero is reserved for MsgSequenceBatch. RPC lookup
-		// positions enumerate the EVM transactions from zero; receipts retain
-		// their canonical consensus positions starting at one.
-		require.Equal(t, i+1, accepted.TxIndex)
-		txs = append(txs, tx)
+	installed := make([][2][3]rpc.ID, len(views))
+	for vi, view := range views {
+		for ci, c := range []*rpc.Client{view.http, view.ws} {
+			for fi := range installed[vi][ci] {
+				require.NoError(t, json.Unmarshal(repair339Call(t, c, "eth_newPendingTransactionFilter", false), &installed[vi][ci][fi]))
+				require.NotEmpty(t, installed[vi][ci][fi])
+			}
+		}
 	}
+	produce := func(firstNonce int) []*ethtypes.Transaction {
+		t.Helper()
+		var txs []*ethtypes.Transaction
+		for i, chainID := range []*big.Int{q.app.EvmKeeper.ChainID(open), chainstypes.ChainIDOf(1), chainstypes.ChainIDOf(1), chainstypes.ChainIDOf(2)} {
+			nonce := firstNonce + i
+			tx, err := ethtypes.SignNewTx(sender.EvmPrivateKey, ethtypes.LatestSignerForChainID(chainID), &ethtypes.DynamicFeeTx{
+				ChainID: chainID, Nonce: uint64(nonce), GasFeeCap: big.NewInt(pendingGasPriceWei), GasTipCap: big.NewInt(0), Gas: pendingFilterDeployGas, Data: pendingFilterInitCode,
+			})
+			require.NoError(t, err)
+			data, err := ethtx.NewTxDataFromTx(tx)
+			require.NoError(t, err)
+			msg, err := evmtypes.NewMsgEVMTransaction(data)
+			require.NoError(t, err)
+			builder := q.txConfig(0).NewTxBuilder()
+			require.NoError(t, builder.SetMsgs(msg))
+			builder.SetGasLimit(pendingFilterDeployGas)
+			encoded, err := q.txConfig(0).TxEncoder()(builder.GetTx())
+			require.NoError(t, err)
+			accepted := pendingFilterReceipt(t, q.app, q.exec, q.feed, encoded, tx.Hash())
+			// Consensus index zero is reserved for MsgSequenceBatch. RPC lookup
+			// positions enumerate the EVM transactions from zero; receipts retain
+			// their canonical consensus positions starting at one.
+			require.Equal(t, nonce+1, accepted.TxIndex)
+			require.Equal(t, uint64(nonce+1), accepted.Seq)
+			txs = append(txs, tx)
+		}
+		return txs
+	}
+	poll := func(c *rpc.Client, id rpc.ID, want []common.Hash) {
+		t.Helper()
+		var got []common.Hash
+		require.NoError(t, json.Unmarshal(repair339Call(t, c, "eth_getFilterChanges", id), &got))
+		require.Equal(t, want, got)
+		require.JSONEq(t, "[]", string(repair339Call(t, c, "eth_getFilterChanges", id)))
+	}
+	wantHashes := func(view repair339View, txs []*ethtypes.Transaction) []common.Hash {
+		var hashes []common.Hash
+		for i, tx := range txs {
+			if view.allows(i % 4) {
+				hashes = append(hashes, tx.Hash())
+			}
+		}
+		return hashes
+	}
+	pollBatch := func(txs []*ethtypes.Transaction, buffered bool) {
+		t.Helper()
+		for vi, view := range views {
+			for ci, c := range []*rpc.Client{view.http, view.ws} {
+				fi := 0
+				if buffered {
+					fi = 2
+				}
+				if vi != 0 {
+					other := views[3-vi]
+					cross := []*rpc.Client{other.http, other.ws}[ci]
+					ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+					var result json.RawMessage
+					err := cross.CallContext(ctx, &result, "eth_getFilterChanges", installed[vi][ci][fi])
+					cancel()
+					require.EqualError(t, err, "filter belongs to another chain")
+					var coded rpc.Error
+					require.ErrorAs(t, err, &coded)
+					require.Equal(t, -32000, coded.ErrorCode())
+				}
+				want := wantHashes(view, txs)
+				poll(c, installed[vi][ci][fi], want)
+				if !buffered {
+					root := []*rpc.Client{views[0].http, views[0].ws}[ci]
+					poll(root, installed[vi][ci][1], want)
+					var visible []common.Hash
+					for i, tx := range txs {
+						result := repair339Call(t, c, "eth_getTransactionByHash", tx.Hash())
+						if view.allows(i % 4) {
+							var got struct{ Hash common.Hash }
+							require.NoError(t, json.Unmarshal(result, &got))
+							require.Equal(t, tx.Hash(), got.Hash)
+							visible = append(visible, got.Hash)
+						} else {
+							require.JSONEq(t, "null", string(result))
+						}
+					}
+					require.Equal(t, want, visible)
+				}
+			}
+		}
+	}
+	txs := produce(0)
+	pollBatch(txs, false)
 	for round := 0; round < 2; round++ {
 		for vi := range views {
 			view := &views[vi]
@@ -419,6 +495,31 @@ func TestRepair_339_TenantPendingRaw(t *testing.T) {
 				var raw hexutil.Bytes
 				require.NoError(t, json.Unmarshal(repair339Call(t, c, "eth_getRawTransactionByBlockNumberAndIndex", "pending", "0x4"), &raw))
 				require.Empty(t, raw)
+			}
+		}
+	}
+	second := produce(len(txs))
+	pollBatch(second, false)
+	txs = append(txs, second...)
+	sealed, err := q.exec.Seal(q.committed + 1)
+	require.NoError(t, err)
+	require.Len(t, sealed.Txs, len(txs))
+	sealed.Store.Write()
+	q.committed++
+	require.Equal(t, q.committed, q.app.CommitMultiStore().Commit(true).Version)
+	require.NoError(t, q.feed.Committed(q.committed))
+	for _, tx := range txs {
+		_, ok := q.exec.PendingTx(tx.Hash())
+		require.False(t, ok)
+	}
+	pollBatch(txs, true)
+	for vi, view := range views {
+		for ci, c := range []*rpc.Client{view.http, view.ws} {
+			for _, id := range installed[vi][ci] {
+				require.JSONEq(t, "[]", string(repair339Call(t, c, "eth_getFilterChanges", id)))
+				var removed bool
+				require.NoError(t, json.Unmarshal(repair339Call(t, c, "eth_uninstallFilter", id), &removed))
+				require.True(t, removed)
 			}
 		}
 	}
