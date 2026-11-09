@@ -62,7 +62,8 @@ use layerx_types::{
     ids::{Did, IdempotencyKey},
     payload::{ActivityType, ModuleId, ModuleRegistration, ModuleRegistry, Payload},
 };
-use layerx_wire::{activity, encode::Encoder, hash, receipt};
+use layerx_wire::historical::activity;
+use layerx_wire::{encode::Encoder, hash, receipt};
 use sha2::{Digest, Sha256};
 use std::{collections::BTreeMap, ffi::c_void, rc::Rc};
 
@@ -594,7 +595,7 @@ fn signed_activity(
         .unwrap();
     let unsigned = builder.build().unwrap();
     let signature = owner.sign(
-        layerx_wire::sign::preimage_unsigned(&unsigned)
+        layerx_wire::historical::sign::preimage_unsigned(&unsigned)
             .unwrap()
             .as_bytes(),
     );
@@ -603,7 +604,7 @@ fn signed_activity(
     )
     .unwrap();
     let decoded = activity::decode_signed(&bytes, &registry).unwrap();
-    let id = hash::activity_id(&decoded).unwrap();
+    let id = layerx_wire::historical::hash::activity_id(&decoded).unwrap();
     (bytes, id)
 }
 fn application_state(

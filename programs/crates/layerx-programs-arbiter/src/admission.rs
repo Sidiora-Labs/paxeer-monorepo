@@ -7,7 +7,7 @@ use layerx_proof::state_range::{
 };
 use layerx_proof::state_witness::StateWitness;
 use layerx_types::payload::{ActivityType, ModuleId, ModuleRegistration, ModuleRegistry};
-use layerx_wire::activity::Activity;
+use layerx_wire::historical::activity::Activity;
 
 use crate::{ics23, ReplayError};
 
@@ -151,16 +151,19 @@ impl AdmissionEvidence {
         let registration = ModuleRegistration::new(ModuleId::Programs, &activities)
             .map_err(|_| ReplayError::Admission)?;
         let registry = ModuleRegistry::new(&[registration]).map_err(|_| ReplayError::Admission)?;
-        let activity = layerx_wire::activity::decode_signed(signed, &registry)
+        let activity = layerx_wire::historical::activity::decode_signed(signed, &registry)
             .map_err(|_| ReplayError::Admission)?;
-        if layerx_wire::activity::encode_signed(&activity).map_err(|_| ReplayError::Admission)?
+        if layerx_wire::historical::activity::encode_signed(&activity)
+            .map_err(|_| ReplayError::Admission)?
             != signed
             || activity.network_id() != network_id
             || activity.protocol_version() != 3
             || activity.actor_did().is_empty()
-            || layerx_wire::hash::activity_id(&activity).map_err(|_| ReplayError::Admission)?
+            || layerx_wire::historical::hash::activity_id(&activity)
+                .map_err(|_| ReplayError::Admission)?
                 != *activity_id
-            || layerx_wire::hash::payload_hash(&activity).map_err(|_| ReplayError::Admission)?
+            || layerx_wire::historical::hash::payload_hash(&activity)
+                .map_err(|_| ReplayError::Admission)?
                 != activity.payload_hash()
         {
             return Err(ReplayError::Admission);
@@ -174,8 +177,8 @@ impl AdmissionEvidence {
             .ok_or(ReplayError::Admission)?
             .try_into()
             .map_err(|_| ReplayError::Admission)?;
-        let unsigned =
-            layerx_wire::activity::signing_bytes(&activity).map_err(|_| ReplayError::Admission)?;
+        let unsigned = layerx_wire::historical::activity::signing_bytes(&activity)
+            .map_err(|_| ReplayError::Admission)?;
         let message = layerx_crypto::SignatureMessage::new(
             layerx_wire::hash::Domain::SignaturePreimage,
             activity.protocol_version(),
