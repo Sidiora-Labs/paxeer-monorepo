@@ -1,0 +1,7 @@
+[issue.1726]
+number = 1726
+title = "[Coherence] The node RPC client now rejects any /rpc URL while the wallet fee path, the global --rpc help and the program override still require one"
+revision = "a910fdedd579e63379ae6c2e4d4971990d28f8ad"
+verdict = "already-fixed"
+evidence = "Commits 3f380f61998e26e1947a34ae7c026fb13e1b2875 and 7884cd3f831c98d7c90e60d91d0a8294e1abf4d5 remove the contradictory /rpc requirements: tools/platform/cli/src/rpc.rs:48 retains the node root check, tools/platform/cli/src/wallet.rs:229 and tools/platform/cli/src/wallet.rs:256 preserve and post to the supplied endpoint path, tools/platform/cli/src/wallet.rs:1003 and tools/platform/cli/src/wallet.rs:1099 use that client for gas price and estimation, tools/platform/cli/src/main.rs:94 documents the root, and tools/platform/cli/src/main.rs:1498 validates program overrides through the root-only tools/platform/cli/src/chains.rs:405, with root POST and fee assertions in tools/platform/cli/tests/wallet_estimate_fee.rs:98 and tools/platform/cli/tests/wallet_estimate_fee.rs:180."
+close_comment = "Wallet fee quotes and gas estimates now use the supplied node root endpoint without requiring or appending /rpc. The global --rpc help documents the root endpoint, and program overrides accept that same root URL."
