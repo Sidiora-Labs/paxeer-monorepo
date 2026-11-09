@@ -1,0 +1,7 @@
+[issue.1831]
+number = 1831
+title = "[Coherence] Repository-level Python payment tests still use the retired `layerx:125` network and base64 receipt payload"
+revision = "a910fdedd579e63379ae6c2e4d4971990d28f8ad"
+verdict = "already-fixed"
+evidence = "Commit 06d9fa865e929be081a8bddc1836c9ac8e384d48 migrated both suites: tests/agent/sdk/python/test_repair_22_31_147.py:353 uses eip155:125, :361 builds receipt-proof-v2 and :398 registers the buyer on eip155:125, while tests/agent/sdk/python/test_repair_22_33_17.py:339 uses eip155:125 and :364 registers that network, with both buyers using the recovered EVM sender from tests/agent/sdk/python/payment_receipt_evidence.py:42 and preserving buyer/seller settlement and restart assertions at tests/agent/sdk/python/test_repair_22_31_147.py:405 and tests/agent/sdk/python/test_repair_22_33_17.py:392."
+close_comment = "Both repository-level Python payment suites now use eip155:125, receipt-proof-v2 and the EVM sender as the buyer payer, while retaining the distinct ledger payer in the offer. The existing tests cover buyer/seller settlement and restart recovery with the current payment format."
