@@ -1,0 +1,7 @@
+[issue.1865]
+number = 1865
+title = "[Coherence] The agent SDK CA certificate ca.pem was deleted instead of moved, but the audit tests now load it from the new fixture directory"
+revision = "3520b1428059af90261432778c008a9ce362a0b1"
+verdict = "already-fixed"
+evidence = "Commit d122f710b511777382d9b4592577822593fe327b restored services/agent/crates/layerx-sdk/tests/fixtures/repair_22_31_227_fixture/ca.pem:1 byte for byte from the source certificate deleted by 70fb314c8d1d803d66f09d441f798585c7936027, matching the owner-case path at services/agent/crates/layerx-sdk/tests/support/audit_22_30_99.rs:1406 and authenticated transport path at services/agent/crates/layerx-sdk/tests/support/audit_22_30_99.rs:2033, with an ignore exception at .gitignore:81 and inventory tracking and existence assertions at tests/ci/test_key_material_only_in_fixtures.py:67."
+close_comment = "The original CA certificate is now tracked at tests/fixtures/repair_22_31_227_fixture/ca.pem in the agent SDK, matching both audit-test consumers. The certificate has an explicit ignore exception and fixture inventory checks that require it to remain tracked and present."

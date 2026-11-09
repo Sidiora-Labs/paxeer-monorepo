@@ -275,7 +275,6 @@ func (b *BlockSim) recordError(err error) {
 	if b.err == nil {
 		b.err = err
 	}
-	fmt.Printf("%v\n", err)
 }
 
 func (b *BlockSim) generateConsoleReport(force bool) {
