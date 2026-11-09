@@ -1,0 +1,49 @@
+[issue.1809]
+number = 1809
+title = "[Coherence] The SDK manifest promotes ed25519-dalek and layerx-programs-registry to normal dependencies without refreshing the three independent lockfiles that build layerx-sdk by path, so their --locked gates now refuse to resolve"
+revision = "a910fdedd579e63379ae6c2e4d4971990d28f8ad"
+verdict = "task"
+evidence = "Commit 9047673955751d4432b10880ed5e98b6e52b2c5c repaired the missing SDK dependency edges now present at services/agent/tests/parity/Cargo.lock:918, services/agent/tests/qualify/Cargo.lock:805 and services/agent/qualification/pay2/Cargo.lock:1045, but services/agent/crates/layerx-sdk/Cargo.toml:35 still declares the test-only registry as a normal dependency contrary to services/agent/crates/layerx-sdk/tests/repair_22_31_563.kvx:11 and its use at services/agent/crates/layerx-sdk/tests/repair_22_31_563.rs:461, while services/agent/crates/layerx-sdk/src/native_effect.rs:143 requires Ed25519 signing at runtime."
+close_comment = "The parity, qualify and pay2 lockfiles now contain both SDK dependency edges. A follow-up will restore the registry to test dependencies while retaining Ed25519 signing support and keeping SDK consumer lockfiles consistent."
+
+[task.18.1809.1]
+title = "Issue #1809: Restore the SDK registry dependency to test scope and refresh consumer locks"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181809.1"]
+capabilities = []
+interfaces = []
+do_1 = "Move only layerx_programs_registry from normal dependencies at services/agent/crates/layerx-sdk/Cargo.toml:35 to dev-dependencies at line 37, preserving its alias, package, version and path; retain ed25519-dalek as a normal dependency for services/agent/crates/layerx-sdk/src/native_effect.rs:143 and retain the registry imports used by services/agent/crates/layerx-sdk/tests/repair_22_31_563.rs:461 and tests/repair_22_31_547.rs:7."
+do_2 = "Refresh each of the fourteen declared independent consumer lockfiles with one Cargo metadata resolution per manifest, without cargo update, package version changes or unrelated manifest edits, as decision 2790 at spec/layerx-merge/spec.kvx:9853 requires; remove the SDK's direct registry edge while retaining the registry package required by layerx-client at services/agent/crates/layerx-client/Cargo.toml:10, and leave services/agent/Cargo.lock unchanged because the SDK's own workspace still includes its dev-dependencies."
+do_3 = "Extend tests/ci/test_agent_subproject_lockfiles_current.py, whose production Cargo metadata helper starts at line 8, with test_sdk_registry_is_dev_only_and_consumers_resolve_locked: parse the actual SDK manifest and assert that the registry alias is present only under dev-dependencies and ed25519-dalek remains under dependencies, then invoke real cargo metadata --locked --format-version 1 for every manifest beside the fourteen declared consumer lockfiles and assert each exit code is zero; preserve all existing lockfile tests."
+symbols = ["test_sdk_registry_is_dev_only_and_consumers_resolve_locked"]
+touches = ["services/agent/crates/layerx-sdk/Cargo.toml", "services/agent/fuzz/Cargo.lock", "services/agent/qualification/pay2/Cargo.lock", "services/agent/tests/isolation/Cargo.lock", "services/agent/tests/parity/Cargo.lock", "services/agent/tests/qualify/Cargo.lock", "services/agent/tools/audit-verify/Cargo.lock", "services/agent/tools/policy-harness/Cargo.lock", "services/human/Cargo.lock", "services/human/crates/layerx-intents/fuzz/Cargo.lock", "services/interop/Cargo.lock", "services/platform/Cargo.lock", "services/platform/examples/samples/verify-receipt-rust/Cargo.lock", "services/platform/hosted/node/tests/probe/Cargo.lock", "tools/platform/Cargo.lock", "tests/ci/test_agent_subproject_lockfiles_current.py"]
+tests = ["tests/ci/test_agent_subproject_lockfiles_current.py::test_sdk_registry_is_dev_only_and_consumers_resolve_locked"]
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path services/agent/crates/layerx-sdk/Cargo.toml --lib"
+verify_cmd = "python3 -m pytest -q tests/ci/test_agent_subproject_lockfiles_current.py::test_sdk_registry_is_dev_only_and_consumers_resolve_locked"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181809]
+title = "The SDK keeps test-only registry access outside normal dependencies without invalidating consumer locks"
+ac_1 = "Given the registry is imported by SDK integration tests at services/agent/crates/layerx-sdk/tests/repair_22_31_563.rs:461 and tests/repair_22_31_547.rs:7, the SDK manifest at services/agent/crates/layerx-sdk/Cargo.toml:35 declares it only as a dev-dependency, the production signer at services/agent/crates/layerx-sdk/src/native_effect.rs:143 still builds with ed25519-dalek as a normal dependency, and all fourteen independent SDK consumer manifests resolve with cargo metadata --locked without package version changes."
+
+[acceptance.18.1809.1]
+feature = "18"
+req = "181809.1"
+scenario = "Given the SDK and its independent path consumers, when the registry is restored to dev-dependencies and the consumer locks are refreshed, then production signing still builds, test-only registry access remains available, and every declared consumer resolves with its existing locked dependency versions."
+contract = "contracts/agent-rust-api.md#sdk"
+test = "tests/ci/test_agent_subproject_lockfiles_current.py::test_sdk_registry_is_dev_only_and_consumers_resolve_locked (planned)"
+qualification = "UNRUN"
