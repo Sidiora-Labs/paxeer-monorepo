@@ -36538,3 +36538,19 @@ symbol = "test_repair_22_31_402.py"
 observed = "Attempt 1 at 57191557c5b1: build exit 0 twice; verification exit 1 twice: the manifest check, the record, the placeholder scan and 99 Python cases passed; go test failed in appenv (repair_277_test.go line 108, package viem not found) and proposals (repair_270_test.go line 173, module solc not found); log /out/logs/verify-2.log."
 assumption = "The two helper packages are correct and only uninstalled; the configuration alignment of the attempt is complete."
 severity = "high"
+
+[finding.22.39.117.7]
+task = "22.39.117"
+file = "sdk/launchpad/shared/chain::TestPhase2ReadAdapterRealRegisteredPool"
+symbol = "chain::TestPhase2ReadAdapterRealRegisteredPool"
+observed = "Attempt 7 at c19a2e3904d3: build exit 0; verification exit 2: the direct package run passed, then the make test target ran the shared module a second time and three production cases failed on objects left by the first pass (role l07_stats_owner, relation l07_rollback, role l07_phase3_stats_runtime already exist); log /out/logs/verify-1.log."
+assumption = "The fixtures of the three cases are not rerunnable; the module changes of the task are complete."
+severity = "high"
+
+[finding.22.39.213.1]
+task = "22.39.213"
+file = "spec/layerx-merge/programme/parity-stale.kvx"
+symbol = "parity-stale.kvx"
+observed = "Attempt 1 at 83c457fc182d: build exit 0; verification exit 1: the validator refused stale.24 because its replacement test every_published_activity_and_receipt_round_trips_exactly is not in structures.rs; log /out/logs/verify-1.log."
+assumption = "The 239 dispositions of the attempt are sound; one aged first-round entry blocks the validator."
+severity = "high"
