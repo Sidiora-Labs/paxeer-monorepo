@@ -12239,7 +12239,8 @@ fn decode_capability_action(
 }
 
 fn persisted_terminal_receipt_matches(canonical: &[u8], expected: [u8; 32]) -> bool {
-    Sha256::digest(canonical)[..] == expected
+    crate::protocol_evidence::canonical_receipt_reference(canonical)
+        .is_ok_and(|reference| reference == expected)
 }
 
 fn agent_evidence_digest(
@@ -21018,8 +21019,24 @@ mod terminal_recovery_tests {
             .unwrap_or_else(|error| panic!("unsigned receipt: {error:?}"));
         let protocol_digest = layerx_wire::hash::receipt_digest(&unsigned)
             .unwrap_or_else(|error| panic!("protocol digest: {error:?}"));
-        assert!(!persisted_terminal_receipt_matches(
+        assert_eq!(protocol_digest, terminal.receipt_ref());
+        assert!(persisted_terminal_receipt_matches(
             &canonical,
+            protocol_digest
+        ));
+        use sha2::{Digest, Sha256};
+        let signed_hash: [u8; 32] = Sha256::digest(&canonical).into();
+        let tagged_signed = layerx_wire::hash::receipt_digest(&canonical)
+            .unwrap_or_else(|error| panic!("signed-byte domain digest: {error:?}"));
+        for wrong_reference in [signed_hash, tagged_signed] {
+            assert_ne!(wrong_reference, protocol_digest);
+            assert!(!persisted_terminal_receipt_matches(
+                &canonical,
+                wrong_reference
+            ));
+        }
+        assert!(!persisted_terminal_receipt_matches(
+            &canonical[..10],
             protocol_digest
         ));
         let mut altered = canonical;
@@ -21717,7 +21734,7 @@ pub fn write_submission(
             },
             Rung::Receipted,
             Some(
-                layerx_wire::hash::receipt_digest(receipt.canonical_bytes())
+                crate::protocol_evidence::canonical_receipt_reference(receipt.canonical_bytes())
                     .map_err(|_| HumanOperationError::Refused)?,
             ),
         )
