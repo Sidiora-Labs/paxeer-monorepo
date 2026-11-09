@@ -7,7 +7,7 @@ pub(super) const SIGNATURE_PREIMAGE_DOMAIN: &[u8] = b"LXP/v1/signature-preimage\
 pub(super) const AUTHORITY_HASH_DOMAIN: &[u8] = b"LXP/v1/authority-hash\0";
 
 pub(super) const fn protocol_version_supported(version: u16) -> bool {
-    matches!(version, 1 | 2 | 3)
+    matches!(version, 1..=3)
 }
 
 pub(super) struct Encoder {

@@ -6,7 +6,7 @@ mod call_codec;
 /// Call disclosure, including the exact-payment ABI produced by the web payer.
 pub mod call {
     pub use super::call_codec::*;
-    use super::*;
+    use super::{Disclosure, DisclosureError, Eip1559Call, Source};
 
     /// Complete arguments of a ledger `payExact` call. Expiry is in milliseconds.
     #[derive(Clone, Debug, Eq, PartialEq)]
@@ -28,6 +28,9 @@ pub mod call {
     }
 
     /// Decode the exact ABI, refusing another target, noncanonical integers or trailing bytes.
+    ///
+    /// # Errors
+    /// Returns `MalformedPayload` for a different target, invalid ABI or zero payment field.
     pub fn decode_pay_exact(call: &Eip1559Call) -> Result<PayExactCall, DisclosureError> {
         let mut ledger = [0; 20];
         ledger[18..].copy_from_slice(&[0x10, 0x1a]);
@@ -35,23 +38,19 @@ pub mod call {
             return Err(DisclosureError::MalformedPayload);
         }
         let args = &call.data[4..];
-        let word = |index: usize| -> [u8; 32] {
-            args[index * 32..(index + 1) * 32]
-                .try_into()
-                .expect("checked ABI length")
-        };
-        let amount = word(3);
-        let expiry = word(4);
+        let word = |index| super::call_codec::word(args, index);
+        let amount = word(3)?;
+        let expiry = word(4)?;
         if amount[..16] != [0; 16] || expiry[..24] != [0; 24] {
             return Err(DisclosureError::MalformedPayload);
         }
         let payment = PayExactCall {
-            payer: word(0),
-            recipient: word(1),
-            asset: word(2),
-            amount: u128::from_be_bytes(amount[16..].try_into().expect("uint128")),
-            expires_at_ms: u64::from_be_bytes(expiry[24..].try_into().expect("uint64")),
-            idempotency_key: word(5),
+            payer: word(0)?,
+            recipient: word(1)?,
+            asset: word(2)?,
+            amount: u128::from_be_bytes(super::call_codec::uint(amount)?),
+            expires_at_ms: u64::from_be_bytes(super::call_codec::uint(expiry)?),
+            idempotency_key: word(5)?,
         };
         if payment.payer == [0; 32]
             || payment.recipient == [0; 32]
@@ -66,6 +65,9 @@ pub mod call {
     }
 
     /// Bind canonical transaction bytes and sender, including exact web payments.
+    ///
+    /// # Errors
+    /// Refuses unsupported calls, malformed ABI fields or overflowing fee bounds.
     pub fn bind_call(call: &Eip1559Call, from: [u8; 20]) -> Result<Disclosure, DisclosureError> {
         if !is_pay_exact(call) {
             return super::call_codec::bind_call(call, from);
@@ -96,6 +98,9 @@ pub mod call {
     }
 
     /// Rebind the consumer's exact transaction and sender before trusting its disclosure.
+    ///
+    /// # Errors
+    /// Refuses malformed calls or disclosure fields that differ from the transaction.
     pub fn validate_call(
         call: &Eip1559Call,
         disclosure: &Disclosure,
@@ -127,6 +132,7 @@ use std::fmt;
 use sha2::{Digest as _, Sha256};
 
 use layerx_types::payload::{ActivityType, ModuleId};
+#[cfg(test)]
 type Activity = layerx_wire::historical::activity::Activity;
 use layerx_wire::decode::Decoder;
 use layerx_wire::encode::Encoder;
@@ -137,10 +143,15 @@ use crate::{
     authority_grant::AuthorityGrant,
     ct,
     evm_transaction::Eip1559Call,
-    onboarding::{OnboardingConsent, SponsoredRegistration},
     payments::{Grant, Payment},
     session::{decode_session_key, IssuedSessionKey},
 };
+
+#[allow(
+    deprecated,
+    reason = "Retains the historical onboarding disclosure compatibility types"
+)]
+use crate::onboarding::{OnboardingConsent, SponsoredRegistration};
 
 const ASSET_SEND_ORDINAL: u16 = 5;
 const SEND_WIRE_TAG: u16 = 0x5301;
@@ -280,11 +291,19 @@ enum Source {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+#[allow(
+    deprecated,
+    reason = "Retains historical onboarding consent and registration disclosures"
+)]
 pub enum DisclosedOnboarding {
     Consent(OnboardingConsent),
     Registration(SponsoredRegistration),
 }
 
+#[allow(
+    deprecated,
+    reason = "Encodes retained historical onboarding disclosures for audit compatibility"
+)]
 impl DisclosedOnboarding {
     /// # Errors
     /// Refuses invalid or altered onboarding commitments.
@@ -450,6 +469,7 @@ fn decode_send(payload: &[u8]) -> Result<SendSemantics, DisclosureError> {
     })
 }
 
+#[cfg(test)]
 fn decode_bridge_deposit_credit(
     payload: &[u8],
     activity: &Activity,
@@ -524,65 +544,6 @@ fn disclose_grant(
 fn disclose_grant_amounts(grant: &Grant, amounts: &mut Vec<DisclosedAmount>) {
     disclose_amount(amounts, AmountRole::PerDrawMaximum, grant.per_draw_maximum);
     disclose_amount(amounts, AmountRole::GrantAllowance, grant.allowance);
-}
-
-fn payment_monetary_fields(
-    payment: &Payment,
-) -> (Vec<Counterparty>, Vec<DisclosedAmount>, [u8; 32]) {
-    let mut counterparties = Vec::new();
-    let mut amounts = Vec::new();
-    let asset = match payment {
-        Payment::Register(registration) => {
-            disclose_amount(&mut amounts, AmountRole::SupplyCap, registration.supply_cap);
-            registration.asset
-        }
-        Payment::OpenAccount { asset }
-        | Payment::Pause { asset }
-        | Payment::Unpause { asset }
-        | Payment::ProgramAccount { asset, .. } => *asset,
-        Payment::Receive {
-            from,
-            to,
-            asset,
-            amount,
-            payer_grant,
-            ..
-        } => {
-            disclose_party(&mut counterparties, CounterpartyRole::Payer, *from);
-            disclose_party(&mut counterparties, CounterpartyRole::Recipient, *to);
-            disclose_amount(&mut amounts, AmountRole::Transfer, *amount);
-            disclose_grant_amounts(payer_grant, &mut amounts);
-            *asset
-        }
-        Payment::Mint { asset, to, amount } => {
-            disclose_party(&mut counterparties, CounterpartyRole::Recipient, *to);
-            disclose_amount(&mut amounts, AmountRole::Transfer, *amount);
-            *asset
-        }
-        Payment::Burn {
-            asset,
-            from,
-            amount,
-        } => {
-            disclose_party(&mut counterparties, CounterpartyRole::Payer, *from);
-            disclose_amount(&mut amounts, AmountRole::Transfer, *amount);
-            *asset
-        }
-        Payment::IssueGrant(grant) => {
-            disclose_grant(grant, &mut counterparties, &mut amounts);
-            grant.asset
-        }
-        Payment::ProgramTransfer { legs, .. } => {
-            for leg in legs {
-                disclose_party(&mut counterparties, CounterpartyRole::Payer, leg.from);
-                disclose_party(&mut counterparties, CounterpartyRole::Recipient, leg.to);
-                disclose_amount(&mut amounts, AmountRole::Transfer, leg.amount);
-            }
-            [0; 32]
-        }
-        Payment::RevokeGrant { .. } => [0; 32],
-    };
-    (counterparties, amounts, asset)
 }
 
 struct DisclosureFields {
@@ -821,6 +782,14 @@ impl Disclosure {
             }
             None => encoder.u8(0)?,
         }
+        self.encode_transport_extensions(&mut encoder)?;
+        let Source::Call(call) = &self.source;
+        encoder.fixed(&call.signing_hash())?;
+        encoder.bytes(&call.data, MAX_TRANSPORT_DISCLOSURE_BYTES)?;
+        Ok(encoder.finish())
+    }
+
+    fn encode_transport_extensions(&self, encoder: &mut Encoder) -> Result<(), DisclosureError> {
         if let Some(withdrawal) = self.withdrawal {
             encoder.u64(withdrawal.account_sequence)?;
             encoder.fixed(&withdrawal.evm_recipient)?;
@@ -835,7 +804,7 @@ impl Disclosure {
             )?;
         }
         if let Some(payment) = &self.payment {
-            encoder.bytes(&payment.encode(&self.actor)?, 32768)?;
+            encoder.bytes(&payment.encode(&self.actor)?, 32_768)?;
         }
         if let Some(session) = &self.session_grant {
             encoder.bytes(&session.grant.registration_payload, 1024)?;
@@ -852,10 +821,7 @@ impl Disclosure {
         if let Some(operation) = &self.native_operation {
             encoder.bytes(&operation.encode()?, 2048)?;
         }
-        let Source::Call(call) = &self.source;
-        encoder.fixed(&call.signing_hash())?;
-        encoder.bytes(&call.data, MAX_TRANSPORT_DISCLOSURE_BYTES)?;
-        Ok(encoder.finish())
+        Ok(())
     }
 
     /// Returns the signing digest after checking every disclosed field.

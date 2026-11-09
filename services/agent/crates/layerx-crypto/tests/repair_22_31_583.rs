@@ -29,8 +29,9 @@ fn ready<F: Future>(future: F) -> F::Output {
     }
 }
 
-fn registration() -> Result<(LocalSigner, BindAuthorization, Eip1559Call, [u8; 20]), Box<dyn Error>>
-{
+type Registration = (LocalSigner, BindAuthorization, Eip1559Call, [u8; 20]);
+
+fn registration() -> Result<Registration, Box<dyn Error>> {
     let account = derive_from_seed(&[0x07; 64], 0)?;
     let signer = LocalSigner::from_derived_account(&account);
     let from = signer.evm_address().ok_or("missing EVM address")?;
