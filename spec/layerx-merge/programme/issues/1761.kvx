@@ -1,0 +1,7 @@
+[issue.1761]
+number = 1761
+title = "[Coherence] layerx-agentd cannot compile when its embedded compatibility matrix moves"
+revision = "a910fdedd579e63379ae6c2e4d4971990d28f8ad"
+verdict = "already-fixed"
+evidence = "Commit a0cc1e345c1270bdf15888f087070d84b190fb0f corrected PUBLISHED_MATRIX at services/agent/crates/layerx-agentd/src/compat.rs:8 to include the existing docs/agent/COMPATIBILITY.md:10, with document equality, current-row and release-validation assertions at services/agent/crates/layerx-agentd/tests/repair_22_31_572.rs:6, :15 and :29, explicit include scope at spec/layerx-merge/spec.kvx:189657 and crate build and focused verification commands at spec/layerx-merge/spec.kvx:189660 and :189661 under completed task 22.31.572."
+close_comment = "The daemon now embeds the compatibility matrix from docs/agent/COMPATIBILITY.md, and its README links to the same document. Dedicated regression tests cover the embedded document, the current compatibility row and release validation, so the document move no longer leaves this include pointing at a missing file."

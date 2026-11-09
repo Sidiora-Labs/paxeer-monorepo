@@ -1,0 +1,7 @@
+[issue.1769]
+number = 1769
+title = "[P2] Restore app icons omitted by the Hyperfide directory move"
+revision = "a910fdedd579e63379ae6c2e4d4971990d28f8ad"
+verdict = "already-fixed"
+evidence = "Commit fd5cfe93f08efb2e335061b90ac334bd1b794b94 restores the six mobile icons referenced by tools/hyperfide/apps/mobile/app.json:8 and tools/hyperfide/apps/mobile/app.config.js:28, the five desktop icons covering tools/hyperfide/apps/desktop/scripts/desktop-release-channel.mjs:33 and tools/hyperfide/apps/desktop/electron-builder.config.json:56, and both default 512px web icons referenced by tools/hyperfide/apps/web/public/manifest.webmanifest:16, all still tracked unchanged at the report revision with existence, mode and original-byte assertions in tools/qualification/audit_repairs/test_repair_22_36_1.py:111."
+close_comment = "The missing icons have been restored under tools/hyperfide, covering production and development mobile variants, stable and nightly desktop channels, and the default web manifest. Commit fd5cfe93f08efb2e335061b90ac334bd1b794b94 resolves the missing asset inputs, and the existing preservation test checks the restored files against their original bytes and modes."
