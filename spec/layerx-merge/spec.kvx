@@ -191907,7 +191907,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.279]
 title = "Add the read window field to the configuration literal of the gateway test repair_22_33_1336"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
