@@ -1,8 +1,15 @@
 package deployment
 
 import (
+	"bytes"
+	"context"
+	"crypto/sha256"
 	"encoding/json"
+	"fmt"
 	"os"
+	"os/exec"
+	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -152,6 +159,20 @@ func TestEveryFrontendGeneratedRoleMatchesGoManifest(t *testing.T) {
 		t.Fatal(e)
 	}
 	roles := map[string]string{"Router": "router", "Quoter": "quoter", "FeesRouter": "feesRouter", "OpticalRegistry": "opticalRegistry", "ProtocolConfig": "protocolConfig", "SidioraFactory": "factory", "SidioraNFT": "nft", "EventEmitter": "eventEmitter", "FeeAccumulator": "feeAccumulator", "PoolRegistry": "poolRegistry", "PoolBeacon": "poolBeacon", "USDL": "usdl", "Treasury": "treasury", LaunchpadPrecompileRole: "launchpadPrecompile"}
+	if len(roles) != len(m.Roles) {
+		t.Fatal("frontend role inventory differs from Current")
+	}
+	identityJSON, e := json.Marshal(frontend["roleIdentity"])
+	if e != nil {
+		t.Fatal(e)
+	}
+	var identities map[string]Role
+	if e = json.Unmarshal(identityJSON, &identities); e != nil {
+		t.Fatal(e)
+	}
+	if len(identities) != len(m.Roles) {
+		t.Fatalf("frontend identities = %d, want %d", len(identities), len(m.Roles))
+	}
 	addresses := map[string]string{}
 	for role, key := range roles {
 		s, ok := frontend[key].(string)
@@ -159,12 +180,80 @@ func TestEveryFrontendGeneratedRoleMatchesGoManifest(t *testing.T) {
 			t.Fatalf("frontend role %s missing", role)
 		}
 		addresses[role] = s
+		identity, ok := identities[key]
+		if !ok {
+			t.Fatalf("frontend identity for %s missing", role)
+		}
+		identity.Address = s
+		if identity != m.Roles[role] {
+			t.Fatalf("frontend %s identity = %+v, want %+v", role, identity, m.Roles[role])
+		}
 	}
 	if e = m.CompareAddresses(addresses); e != nil {
 		t.Fatal(e)
 	}
 	if frontend["manifestSha256"] != m.SourceManifestSHA256 || frontend["chainId"] != float64(125) {
 		t.Fatal("frontend deployment identity drift")
+	}
+
+	root, e := filepath.Abs("../../../../..")
+	if e != nil {
+		t.Fatal(e)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	// This immutable reviewed blob predates a key-sorting rewrite of the checkout
+	// manifest. Preserve its exact byte digest and all frozen deployment provenance.
+	approved := exec.CommandContext(ctx, "git", "-C", root, "show", "dd845c4ecc0802bef5548e086ef431ec99fe1f12")
+	reviewedSource, e := approved.Output()
+	if e != nil {
+		t.Fatalf("read reviewed manifest blob: %v", e)
+	}
+	if fmt.Sprintf("%x", sha256.Sum256(reviewedSource)) != m.SourceManifestSHA256 {
+		t.Fatal("reviewed manifest digest differs from Current")
+	}
+	checkedOut, e := os.ReadFile(filepath.Join(root, "contracts/launchpad/deployments/paxeer-x-network-addresses.json"))
+	if e != nil {
+		t.Fatal(e)
+	}
+	var original, current any
+	if e = json.Unmarshal(reviewedSource, &original); e != nil {
+		t.Fatal(e)
+	}
+	if e = json.Unmarshal(checkedOut, &current); e != nil {
+		t.Fatal(e)
+	}
+	if !reflect.DeepEqual(original, current) {
+		t.Fatal("checked-out deployment differs from reviewed inputs")
+	}
+	contractRoot := t.TempDir()
+	if e = os.Mkdir(filepath.Join(contractRoot, "deployments"), 0700); e != nil {
+		t.Fatal(e)
+	}
+	sourcePath := filepath.Join(contractRoot, "deployments/paxeer-x-network-addresses.json")
+	if e = os.WriteFile(sourcePath, reviewedSource, 0600); e != nil {
+		t.Fatal(e)
+	}
+	script := `const {deriveDeployment,renderHelper,checkClient}=require(process.argv[1]);
+ const data=deriveDeployment(process.argv[2]);
+ const helper=renderHelper(data);
+ checkClient(process.argv[3],data,helper);
+ process.stdout.write(helper);`
+	browser := exec.CommandContext(ctx, "node", "-e", script,
+		filepath.Join(root, "tools/launchpad/production/interfaces/contracts/client-deployment.cjs"),
+		contractRoot, filepath.Join(root, "apps/launchpad/web/src"))
+	rendered, e := browser.CombinedOutput()
+	if e != nil {
+		t.Fatalf("browser deployment generator: %v\n%s", e, rendered)
+	}
+	if !bytes.Equal(rendered, source) {
+		t.Fatal("browser generator does not reproduce deployment.ts")
+	}
+	generator := exec.CommandContext(ctx, "python3", "generate.py", "--source", sourcePath,
+		"--frozen-client", filepath.Join(root, "sdk/launchpad/protocol/contracts/v1/chain/client-deployment.json"),
+		"--output", "current.json", "--check")
+	if output, err := generator.CombinedOutput(); err != nil {
+		t.Fatalf("manifest generator: %v\n%s", err, output)
 	}
 }
 
