@@ -576,9 +576,9 @@ defmodule Explorer.Chain.PaxeerX.SequencerReceipt do
       keys =
         for pin <- pins,
             %{key_id: id, public_key: public, first_height: first, last_height: last} = pin,
-            is_binary(id) and byte_size(id) == 32 and is_binary(public) and byte_size(public) == 32,
-            is_integer(first) and is_integer(last) and first >= 0 and first <= last,
-            :crypto.hash(:sha256, public) == id,
+            is_binary(id) and byte_size(id) == 32 and id != @zero32 and
+              is_binary(public) and byte_size(public) == 32,
+            is_integer(first) and is_integer(last) and first > 0 and first <= last and last <= @uint64_max,
             Enum.any?(discovered, fn
               %{key_id: ^id, public_key: ^public, first_height: a, last_height: b}
               when is_integer(a) and is_integer(b) ->
