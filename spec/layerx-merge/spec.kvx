@@ -183549,7 +183549,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.295]
 title = "Return the launchpad surface identities to the installed runtime and publish the guarded runtime as the staged identity"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
