@@ -4,6 +4,8 @@
 
 // Preserve the existing real inclusion producer/consumer assertions for all
 // three retained constructors, including state evidence, in this focused gate.
+#[path = "support/historical_checkpoint.rs"]
+mod historical;
 #[path = "repair_22_31_226.rs"]
 mod retained_certificate_retirement;
 #[path = "export_complete.rs"]
@@ -345,15 +347,11 @@ fn historical_checkpoint_vectors_preserve_bytes_without_a_certificate_verifier()
     use layerx_wire::hash::{checkpoint_attestation_digest, checkpoint_id};
 
     let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../..");
-    let configuration = must(
-        layerx_types::settlement::DeclaredCheckpointSettlement::parse(include_str!(
-            "../../../../../contracts/config/checkpoint-settlement.json"
-        )),
-    );
+    let configuration = historical::configuration();
     let vectors = must(load_checkpoint_vectors(&root));
     assert_eq!(vectors.len(), CHECKPOINT_VECTOR_CASES.len());
     for vector in vectors {
-        let domain = must(configuration.domain(&vector.settlement_domain));
+        let domain = configuration.domain(&vector.settlement_domain);
         assert_eq!(
             must(checkpoint_id(&vector.header.bytes, &vector.validity_proof)),
             vector.expected_digest
@@ -362,8 +360,8 @@ fn historical_checkpoint_vectors_preserve_bytes_without_a_certificate_verifier()
             let mut statement = Vec::new();
             statement.extend_from_slice(&vector.header.protocol_version.to_be_bytes());
             statement.extend_from_slice(&vector.header.network_id.to_be_bytes());
-            statement.extend_from_slice(&domain.paxeer_chain_id().to_be_bytes());
-            statement.extend_from_slice(&domain.settlement_contract());
+            statement.extend_from_slice(&domain.paxeer_chain_id.to_be_bytes());
+            statement.extend_from_slice(&domain.settlement_contract);
             statement.extend_from_slice(&vector.header.epoch.to_be_bytes());
             statement.extend_from_slice(&vector.expected_digest);
             statement.extend_from_slice(&vector.expected_digest);

@@ -59,7 +59,8 @@ fn guarantor_only_success_cannot_yield_committed() {
     let vector = historical::fresh();
     assert_eq!(vector.outcome, CheckpointOutcome::Accept);
     let configuration = historical::configuration();
-    let domain = must(configuration.domain(&vector.settlement_domain));
+    let domain = configuration.domain(&vector.settlement_domain);
+    assert_eq!(domain.network_id, vector.header.network_id);
     assert_eq!(
         must(checkpoint_id(&vector.header.bytes, &vector.validity_proof)),
         vector.expected_digest
@@ -68,15 +69,15 @@ fn guarantor_only_success_cannot_yield_committed() {
     for signed in &vector.attestations {
         assert!(signers.insert(signed.guarantor_id));
         let key = domain
-            .guarantor_set()
+            .guarantor_set
             .iter()
-            .find(|key| key.guarantor_id() == signed.guarantor_id)
+            .find(|key| key.guarantor_id == signed.guarantor_id)
             .unwrap_or_else(|| panic!("published guarantor must be bonded"));
         let mut statement = Vec::new();
         statement.extend_from_slice(&vector.header.protocol_version.to_be_bytes());
         statement.extend_from_slice(&vector.header.network_id.to_be_bytes());
-        statement.extend_from_slice(&domain.paxeer_chain_id().to_be_bytes());
-        statement.extend_from_slice(&domain.settlement_contract());
+        statement.extend_from_slice(&domain.paxeer_chain_id.to_be_bytes());
+        statement.extend_from_slice(&domain.settlement_contract);
         statement.extend_from_slice(&vector.header.epoch.to_be_bytes());
         statement.extend_from_slice(&vector.expected_digest);
         statement.extend_from_slice(&vector.expected_digest);
@@ -94,12 +95,10 @@ fn guarantor_only_success_cannot_yield_committed() {
             must(checkpoint_attestation_digest(&signed.message)),
             signed.digest
         );
-        assert_eq!(
-            must(secp256k1::evm_address(&key.public_key())),
-            signed.signer
-        );
+        assert_eq!(must(secp256k1::evm_address(&key.public_key)), signed.signer);
+        assert_eq!(key.signer, signed.signer);
         must(secp256k1::verify_recoverable_digest(
-            &key.public_key(),
+            &key.public_key,
             &signed.signature,
             signed.signature_v,
             &signed.digest,
@@ -109,16 +108,11 @@ fn guarantor_only_success_cannot_yield_committed() {
         assert!(signed.attested_at_ms >= vector.header.timestamp_ms);
         assert!(
             signed.attested_at_ms - vector.header.timestamp_ms
-                <= configuration
-                    .finality_policy()
-                    .maximum_attestation_delay_ms()
+                <= configuration.maximum_attestation_delay_ms
         );
     }
     assert_eq!(signers.len(), 3);
-    assert_eq!(
-        vector.threshold,
-        configuration.finality_policy().certificate_threshold()
-    );
+    assert_eq!(vector.threshold, configuration.certificate_threshold);
     assert!(signers.len() >= vector.threshold);
 
     for reference in [None, Some(b"registered-checkpoint".as_slice())] {
