@@ -1,0 +1,7 @@
+[issue.1616]
+number = 1616
+title = "[Coherence] The audit record marks the explorer websocket contract page accurate, but the record's own high finding shows one of its join rows is wrong"
+revision = "bb8caac8b3e73e3e2f4b330805574f0bcb540641"
+verdict = "already-fixed"
+evidence = "Although the historical doc.17 accurate rating remains at spec/layerx-merge/programme/audit/records/22.30.141.kvx:2063, commit ad394c9d7ca791099f429cffbef9f12bd8f65f8d added the legacy join and canonical-topic forwarding at services/explorer/backend/apps/block_scout_web/lib/block_scout_web/channels/token_instance_channel.ex:10, with both socket routes covered at services/explorer/backend/apps/block_scout_web/test/repair/repair_22_31_388_test.exs:301, and commit 2b68b50fe4b59f8ee2cf3589e347d373ffe16b9c rewrote the page listed in spec/layerx-merge/programme/docs/rewrite/22.32.183.kvx:8, replacing the incorrect shared-socket join row and pinned line references with distinct topic registrations at spec/layerx-merge/contracts/explorer-ws.md:19 and spec/layerx-merge/contracts/explorer-ws.md:26 and the explicit legacy forwarding description at spec/layerx-merge/contracts/explorer-ws.md:139."
+close_comment = "The explorer websocket contract has been rewritten and now distinguishes token_instances_old:<address> on /socket from token_instances:<address> on /socket/v2, with source links replacing the old pinned line references. The legacy channel now joins its registered topic and forwards metadata notifications from the canonical topic, with regression coverage for both sockets."

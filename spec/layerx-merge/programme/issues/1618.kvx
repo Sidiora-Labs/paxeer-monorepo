@@ -1,0 +1,7 @@
+[issue.1618]
+number = 1618
+title = "[Coherence] The audit record marks 21 interface contract pages as missing, but every one exists under spec/layerx-merge/contracts/"
+revision = "bb8caac8b3e73e3e2f4b330805574f0bcb540641"
+verdict = "spec-edit"
+evidence = "The unchanged audit from commit a2922c20e485488bae96addfa71282a1733a323d falsely declares all contract targets absent at spec/layerx-merge/programme/audit/records/22.30.140.kvx:1629 and marks doc.014 through doc.034 missing at :1750 through :1853, although all 21 pages exist under spec/layerx-merge/contracts/ and the registry target at spec/layerx-merge/interfaces.kvx:579705 resolves to spec/layerx-merge/contracts/sdk-js.md:3951 under the contract convention at spec/layerx-merge/contracts/README.md:8; the specification must correct the audit statuses and finding and the derived missing-page rewrite and repair mandates, including the completed task 22.33.372 at spec/layerx-merge/spec.kvx:364993 and :365005, to require review of existing specification-relative pages and only evidenced content mismatches."
+close_comment = "All 21 contract pages already exist under spec/layerx-merge/contracts/, including the SDK package anchor referenced by the registry. This requires a specification correction: replace the false missing-page finding and derived creation mandates with reviews of the existing pages, retaining any supported content mismatches."

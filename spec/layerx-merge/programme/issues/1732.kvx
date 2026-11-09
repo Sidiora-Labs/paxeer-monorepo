@@ -1,0 +1,49 @@
+[issue.1732]
+number = 1732
+title = "[Coherence] The install journey's A2A receipt check now takes its batch, asset and state-root facts from the receipt it is verifying, so those checks always pass"
+revision = "a910fdedd579e63379ae6c2e4d4971990d28f8ad"
+verdict = "task"
+evidence = "The change introduced by commit 29f97a268a3a270a78ad55c7069c5854392dbd39 remains at tools/platform/cli/tests/install-journey.sh:448, where height, paymentDenom and canonical receipt roots supply the expectations passed at tools/platform/cli/tests/install-journey.sh:453 to the equality checks at services/agent/crates/layerx-proof/src/receipt.rs:372, while services/agent/crates/layerx-wire/src/receipt.rs:1007 confirms the roots are receipt fields and rpc/sequencer_receipt.go:533 confirms the response height comes from the receipt batch id; however, node/sequencer/receipt.go:234 and node/sequencer/receipt.go:244 establish that the native envelope uses the payment-denomination digest and sequence hashes, so its asset must be checked independently without conflating it with the ledger payload asset read at tools/platform/cli/tests/install-journey.sh:293."
+close_comment = "The A2A install journey still supplies receipt-derived batch and sequence-root values as verification expectations, leaving mismatches against independent transaction evidence undetected. The repair will bind verification to independent batch and sequence evidence and the expected native payment denomination, while separately checking the ledger payment asset."
+
+[task.18.1732.1]
+title = "Issue #1732: Bind A2A journey receipt verification to independent payment and sequence evidence"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181732.1"]
+capabilities = []
+interfaces = []
+do_1 = "Replace the self-derived authority at tools/platform/cli/tests/install-journey.sh:416 and tools/platform/cli/tests/install-journey.sh:446 with independently checked batch and block evidence for the submitted transaction, using the existing px_getSequenceBatch interface at rpc/px_kernel.go:134 and the sequence-chain contract at modules/sequencer/types/seqhash.go:13 to obtain the expected batch and preceding/resulting sequence hashes; pass those expectations to receipt verify and refuse absent, unrelated or inconsistent evidence rather than copying roots or height from the receipt under verification."
+do_2 = "Bind the native receipt asset to an independently supplied expected base payment denomination, respecting node/sequencer/receipt.go:234 and node/sequencer/receipt.go:358, and separately reconcile the disclosed ledger payment's asset, source, destination and amount against independently read ledger outcomes; preserve the signed payload asset at tools/platform/cli/tests/install-journey.sh:293 and the existing transaction, signer, source-sequence, nonce and result checks at tools/platform/cli/tests/install-journey.sh:417 without substituting the ledger payload asset for the native envelope asset."
+do_3 = "Extend install_journey_a2a_contract at tools/platform/cli/tests/repair_22_33_1495.rs:1691 beyond its current submission-only assertions to execute the journey's actual authority reconciliation and the real receipt verifier using the existing producer-recorded ledger payment case loaded at tools/platform/cli/tests/repair_22_33_1495.rs:1145; prove acceptance with independent matching evidence and rejection with mismatched batch id, native payment asset, either sequence root or ledger payment asset, including a valid signed receipt for a different transition, without constructing fake receipts or deriving expected authority from the receipt being checked."
+symbols = ["install_journey_a2a_contract"]
+touches = ["tools/platform/cli/tests/install-journey.sh", "tools/platform/cli/tests/repair_22_33_1495.rs"]
+tests = ["tools/platform/cli/tests/repair_22_33_1495.rs::install_journey_a2a_contract"]
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path tools/platform/Cargo.toml -p layerx-platform-cli"
+verify_cmd = "cargo test --locked --manifest-path tools/platform/Cargo.toml -p layerx-platform-cli --test repair_22_33_1495 install_journey_a2a_contract -- --exact"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181732]
+title = "A2A journey verification rejects receipts inconsistent with independent payment and sequence facts"
+ac_1 = "The authority consumed at tools/platform/cli/tests/install-journey.sh:453 comes from independently checked batch and transaction evidence rather than the receipt fields currently copied at tools/platform/cli/tests/install-journey.sh:448, and the regression at tools/platform/cli/tests/repair_22_33_1495.rs:1691 accepts matching evidence and rejects mismatched batch, native asset, previous root, resulting root and ledger payment asset while retaining signature and transaction checks."
+
+[acceptance.18.1732.1]
+feature = "18"
+req = "181732.1"
+scenario = "Given a producer-issued A2A payment receipt and independent payment and sequence evidence, when the install journey reconciles and verifies the receipt, then matching evidence succeeds and a different batch, native asset, previous root, resulting root or ledger payment asset is refused."
+contract = "contracts/platform-cli.md#cli-cli-commands"
+test = "tools/platform/cli/tests/repair_22_33_1495.rs::install_journey_a2a_contract (planned)"
+qualification = "UNRUN"

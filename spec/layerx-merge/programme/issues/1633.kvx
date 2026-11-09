@@ -1,0 +1,49 @@
+[issue.1633]
+number = 1633
+title = "[P2] Preserve tx_hash in node-root history responses"
+revision = "bb8caac8b3e73e3e2f4b330805574f0bcb540641"
+verdict = "task"
+evidence = "At bb8caac8b3e73e3e2f4b330805574f0bcb540641, src/modules/history/indexer.go:106 and :163 retain only tx_id when decoding rows returned by rpc/px_history.go:120, whereas services/platform/hosted/gateway/src/history.rs:263 copies tx_id into tx_hash and services/agent/sdk/typescript/src/history.ts:192 requires tx_hash, leaving the node response incompatible with the SDK despite the subset assertions in rpc/px_node_root_history_test.go:155."
+close_comment = "Node-root history still omits the transaction hash required by existing SDK history decoding. The repair will retain tx_id, add the matching tx_hash, and verify that both history methods preserve the exact hash through HTTP, WebSocket and SDK decoding."
+
+[task.18.1633.1]
+title = "Issue #1633: Preserve transaction hashes in node-root history rows"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181633.1"]
+capabilities = []
+interfaces = []
+do_1 = "Add an exported TxHash string with the tx_hash JSON tag to Row in src/modules/history/indexer.go:106 and assign it unconditionally from the decoded TxID in rowFrom at src/modules/history/indexer.go:163, retaining tx_id and matching services/platform/hosted/gateway/src/history.rs:263-266; the authoritative value is the indexer transaction ID emitted by services/platform/hosted/indexer/src/store.rs:2219, including when an upstream document also contains a different tx_hash."
+do_2 = "Add TestPxNodeRoot_History_TransactionHashParity in rpc/px_node_root_history_test.go beside the real node transport coverage at :131, using the producer-derived recordings and HTTP replay at :51-85 with committed node state; call px_getHistory and px_getUnifiedHistory over both HTTP and WebSocket, require nonempty pages, and compare every row's retained tx_id and tx_hash with the exact original producer transaction ID and the matching row in rpc/testdata/px-history/gateway-recording.json:68-69."
+do_3 = "Within the same Go regression, pass the actual serialized node result to a Node subprocess using native TypeScript stripping to import the existing services/agent/sdk/typescript/src/history.ts, invoke decodePaxeerHistoryPage or decodeUnifiedHistoryPage for the corresponding method, and assert every decoded txHash equals the original producer transaction ID; retain the existing decoder checks at :190-257 and the HTTP/WebSocket and restart assertions in rpc/px_node_root_history_test.go:173-185."
+symbols = ["Row", "rowFrom", "TestPxNodeRoot_History_TransactionHashParity"]
+touches = ["src/modules/history/indexer.go", "rpc/px_node_root_history_test.go"]
+tests = ["rpc/px_node_root_history_test.go::TestPxNodeRoot_History_TransactionHashParity", "rpc/px_node_root_history_test.go::TestPxNodeRoot_History_TransportShapesAndRestart"]
+planned_paths = []
+build_cmd = "make -s paxd-native-libs && go build ./rpc/..."
+verify_cmd = "go test -count=1 ./rpc/ -run '^TestPxNodeRoot_History_(TransactionHashParity|TransportShapesAndRestart)$'"
+gate_kind = "planned"
+sandbox_profile = "go-cgo"
+owner_role = "fm-rpc-api"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181633]
+title = "Node-root history preserves the transaction hash required by existing SDK consumers"
+ac_1 = "Given a nonempty page emitted by the real indexer serializer at services/platform/hosted/indexer/src/store.rs:2207-2229, both px_getHistory and px_getUnifiedHistory return tx_hash equal to that page's tx_id while retaining tx_id over HTTP and WebSocket through rpc/px_history.go:45-57 and :120, and the existing TypeScript decoders at services/agent/sdk/typescript/src/history.ts:190-257 preserve that exact value as txHash for every row."
+
+[acceptance.18.1633.1]
+feature = "18"
+req = "181633.1"
+scenario = "Given a real producer-derived nonempty history page and a node configured with that indexer, when both node-root history methods are called over HTTP and WebSocket and their responses are decoded by the existing TypeScript history decoders, then every row retains the producer transaction ID as tx_id and tx_hash and the decoded txHash equals that exact value."
+contract = "contracts/evm-rpc.md#px-node-root-history"
+test = "rpc/px_node_root_history_test.go::TestPxNodeRoot_History_TransactionHashParity (planned)"
+qualification = "UNRUN"

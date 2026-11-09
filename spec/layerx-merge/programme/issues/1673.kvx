@@ -1,0 +1,48 @@
+[issue.1673]
+number = 1673
+title = "[Coherence] Signed ID-token verification breaks the existing confirm-OTP controller test, which still feeds an unsigned HS256 token and mocks no key-set request"
+revision = "bb8caac8b3e73e3e2f4b330805574f0bcb540641"
+verdict = "task"
+evidence = "Commit d45bbbfcacac1bf668cd502591423c3b2ada0196 introduced RS256, kid, JWKS and claim validation still present at services/explorer/backend/apps/explorer/lib/explorer/third_party_integrations/auth0/internal.ex:260 and internal.ex:291, but services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/account/api/v2/authenticate_controller_test.exs:299 still supplies only sub/email, authenticate_controller_test.exs:663 constructs HS256 with a junk signature, and authenticate_controller_test.exs:319 expects three calls without JWKS before asserting HTTP 200 at authenticate_controller_test.exs:373."
+close_comment = "The confirm-OTP success test still supplies a token rejected by signed Auth0 ID-token verification and omits the signing-key request. Update its token and key-set response so the existing HTTP 200 and user-details assertions continue to protect OTP confirmation from request-body regressions."
+
+[task.18.1673.1]
+title = "Issue #1673: Restore the confirm-OTP success test with a signed Auth0 ID token"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181673.1"]
+capabilities = []
+interfaces = []
+do_1 = "In services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/account/api/v2/authenticate_controller_test.exs:298 and authenticate_controller_test.exs:662, replace the fabricated HS256 token with a token signed by a generated RSA key using RS256 and a matching kid; supply sub, email, iss matching the configured Auth0 domain with its trailing slash, aud matching the configured client_id, an unexpired exp and a current iat, using the existing public_jwk helper at authenticate_controller_test.exs:669 for the matching public key."
+do_2 = "Update the existing provider expectations at services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/account/api/v2/authenticate_controller_test.exs:319 to require four calls including GET /.well-known/jwks.json returning the matching public key, retain the OTP and management-token POSTs and user GET, and assert the OTP POST carries the submitted email and code; exercise the real router, controller and Auth0 verifier while preserving the HTTP 200, email and name assertions at authenticate_controller_test.exs:369 and leaving production signature and claim checks intact."
+symbols = ["build_test_jwt"]
+touches = ["services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/account/api/v2/authenticate_controller_test.exs"]
+tests = ["services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/account/api/v2/authenticate_controller_test.exs::test POST api/account/v2/confirm_otp confirm OTP successfully"]
+planned_paths = []
+build_cmd = "services/explorer/deploy/tools/mix-in-builder.sh cmd --app block_scout_web mix compile"
+verify_cmd = "services/explorer/deploy/tools/mix-in-builder.sh test apps/block_scout_web/test/block_scout_web/controllers/account/api/v2/authenticate_controller_test.exs --only 'test:test POST api/account/v2/confirm_otp confirm OTP successfully'"
+gate_kind = "planned"
+sandbox_profile = "elixir"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181673]
+title = "The confirm-OTP controller success regression exercises verified Auth0 ID-token claims"
+ac_1 = "Given an RS256-signed ID token with matching kid, issuer and audience and valid exp/iat, the regression at services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/account/api/v2/authenticate_controller_test.exs:298 obtains the matching JWKS through the real verifier at services/explorer/backend/apps/explorer/lib/explorer/third_party_integrations/auth0/internal.ex:255, proves the submitted body email and OTP reach Auth0, and returns HTTP 200 with the expected email and name as asserted at authenticate_controller_test.exs:373."
+
+[acceptance.18.1673.1]
+feature = "18"
+req = "181673.1"
+scenario = "Given the configured Auth0 issuer and client and a genuinely signed RS256 ID token with its matching public key, when the confirm-OTP controller receives the email and OTP in the request body, then the token is verified through JWKS and the existing success test returns HTTP 200 with the expected email and name."
+contract = "contracts/explorer-http-api.md#explorer-http-api-contract"
+test = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/account/api/v2/authenticate_controller_test.exs::test POST api/account/v2/confirm_otp confirm OTP successfully (planned)"
+qualification = "UNRUN"
