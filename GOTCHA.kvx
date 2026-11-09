@@ -20000,3 +20000,28 @@ fix = "Attempt 13 serves a signed header for every height the regression reads"
 title = "A record-only retired-reference repair leaves every finding in place"
 symptom = "Task 22.39.272 attempt 2 at 026eda712c3f: the scan of apps/launchpad, sdk/launchpad and contracts/launchpad still reports twelve findings, statusOf at apps/launchpad/web/src/widgets/profile/activity-transport.ts:75 and :88 and recordDeposit at contracts/launchpad/contracts/core/SidioraFactory.sol:82, interfaces/ITreasury.sol:18, periphery/Router.sol:166, protocol/Treasury.sol:79, sdk/launchpad/protocol/catalog/reviewed.json:9102, :9449, :9450 and the same three lines of sdk/launchpad/protocol/contracts/v1/chain/abi-catalog.json; the attempt changed only apps/launchpad/repair_22_39_272.kvx, and the scan honours an allowance only through allowed_references of tools/paxeer-x/retired_callers.json (an entry whose path covers the file and whose symbols name the symbol, or whose path equals the file and whose lines carry the exact line), a file the task does not admit in its touches"
 fix = "Attempt 3 admits the catalogue and repairs or allows each finding; decision 3125"
+
+[gotcha.4036]
+title = "The pay module suites read the kernel activity table before its streamOpenForAsk entry exists"
+symptom = "Task 22.39.298 attempt 1 at 4b50ddc26e55: with the genesis producer repairs in place, go test ./modules/layerxpay/types/ ./modules/layerxpay/keeper/ still fails four cases on one missing activity entry: TestMethodActivityMatchesKernelTypes at modules/layerxpay/types/activity_test.go:107 (nonpayable ABI method streamOpenForAsk has no frozen expectation) and :133 (41 ABI methods, want 40), and TestCheckWritePauseExitPaths, TestCheckWriteFamilyDisabled and TestCheckWriteViewsUngated at modules/layerxpay/keeper/gate_test.go:60, :128 and :185, whose activity maps lack streamOpenForAsk. The method entered the ABI at 41d32cc012 (task 22.38.9); its activity entry is the work of 22.39.291, which requires 22.39.298."
+fix = "Decision 3143: the verification of 22.39.298 skips the four cases that read the activity table; 22.39.291 runs the whole module once the entry exists."
+
+[gotcha.4037]
+title = "The parity run exhausts the disk of the qualification environment even with one row log at a time"
+symptom = "Task 17.4.6 attempt 8: after the build installed the wallet, explorer and Elixir dependencies the parity run completed the first twelve rows (ten go test rows, one make build row, one cg spec row) and then failed with OSError Errno 28 (No space left on device) at spec/layerx-merge/programme/parity.py:480 while flushing the report and at :354 while opening the next row source; the attempt wrote no evidence record (log logs-verify-1.log of the attempt). The report embeds the complete output of every row, and the Go build cache, the two node module trees, the browser download and the Elixir build all stay on the same volume."
+fix = "Top-level do_9 of 17.4.6: record the free space of the working volume in each row log, embed only the last two hundred lines of a row output in the report, and remove the build outputs of a recorded row that no later row reads."
+
+[gotcha.4038]
+title = "One inclusive-range lint remained in the program replay test"
+symptom = "Task 22.39.235 attempt 8 at a746cb12c7d8: cargo clippy -p layerx-programs-runtime --all-targets -- -D warnings fails on a single site, programs/crates/layerx-programs-runtime/tests/program_replay.rs:256 (changed.splice(offset..offset + 1, replacement), clippy::range_plus_one), exit 101, log /out/logs/verify-2.log."
+fix = "Attempt 9 writes the range as offset..=offset and changes nothing else."
+
+[gotcha.4039]
+title = "One recorded-read test function of the agent SDK still exceeds one hundred lines"
+symptom = "Task 22.39.225 attempt 9 at 8021eeccdb8b: cargo clippy -p layerx-sdk --all-targets -- -D warnings fails on a single site, services/agent/crates/layerx-sdk/tests/repair_22_31_487.rs:45, recorded_api_read_decodes_through_sdk_without_a_retired_alias has 107 lines (clippy::too_many_lines), exit 101, log /out/logs/verify-2.log."
+fix = "Attempt 10 splits the function into named helpers and changes nothing else."
+
+[gotcha.4040]
+title = "Concurrent additions to the retired-callers catalogue conflict textually on the same list tail"
+symptom = "Three qualified repairs (22.39.247 attempt 2 at 802b20fcf830, 22.39.297 attempt 2 at 21cc035c4105 and 18.1752.1 attempt 7 at 5484ea469ed9) could not be integrated onto their domain branches: each appended entries to allowed_references of tools/paxeer-x/retired_callers.json at the end of the list, as another repair already on the branch had, so the three-way text merge reports a conflict in the catalogue although the additions are independent. The same conflict kept the agent and kernel domain branches from merging into main for a day."
+fix = "Decision 3142: the catalogue merges by three-way union of its object lists; the integration resolved the three repairs and the two branches that way and the scanner validates the merged catalogue."
