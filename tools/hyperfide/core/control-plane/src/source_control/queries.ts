@@ -627,6 +627,12 @@ export class SourceQueries {
             });
           continue;
         }
+        if (before?.kind === "directory" || after?.kind === "directory")
+          state.directories.push({
+            path,
+            before: before?.kind === "directory" ? before.object_id : null,
+            after: after?.kind === "directory" ? after.object_id : null,
+          });
         if (this.selection.includes(path))
           entries.push({
             path,
