@@ -1,0 +1,7 @@
+[issue.1733]
+number = 1733
+title = "[Coherence] Decision 2631 and the 22.33.1569 attempt-6 repair blame the 60-second Pending on missing node commit trust, but the SDK returns MissingFinalityTrust straight away in that case and never waits it out as Pending"
+revision = "a910fdedd579e63379ae6c2e4d4971990d28f8ad"
+verdict = "spec-edit"
+evidence = "Decision 2631 (spec/layerx-merge/spec.kvx:8901), completed task 22.33.1569 (spec/layerx-merge/spec.kvx:191837, do_12 at :191872), GOTCHA.kvx:15766 and spec/layerx-merge/qualification.kvx:32220 must distinguish the trust prerequisite from the unproven timeout diagnosis: services/agent/crates/layerx-sdk/src/rpc_verification.rs:342 returns MissingFinalityTrust after the commit and block reads, :193 propagates it immediately, :188 retries only absent receipts or remote -32001/-32005 responses, and :228 converts a read outcome to absence only when the deadline expires, consistent with the missing-trust assertion at services/agent/crates/layerx-sdk/tests/support/audit_22_30_99.rs:1050 and stalled-read Pending assertion at :2412."
+close_comment = "Missing node commit authority produces MissingFinalityTrust once the committed receipt and block reads succeed; it does not itself explain a 60-second Pending timeout. The specification needs to distinguish this trust requirement from a receipt that has not reached committed, retryable RPC responses, or reads that exhaust the deadline."
