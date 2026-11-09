@@ -6,6 +6,8 @@ import { cn } from "@/ui/utils/cn";
 import { Button } from "@/ui/atoms/button";
 import { fmtUsdCompact as fmtUsd } from "@/ui/utils/format";
 import { coinLogoUrl } from "@/core/perps/config";
+import { PortfolioBalanceBoundary } from "@/page-modules/portfolio/PortfolioBalanceBoundary";
+import type { PortfolioBalanceSnapshot } from "@/page-modules/portfolio/balances";
 import type { DailyPnl } from "@/hooks/perps/useDailyPnl";
 import { PortfolioAssetsChart } from "./PortfolioAssetsChart";
 import { PortfolioPerformanceGrid } from "./PortfolioPerformanceGrid";
@@ -30,6 +32,8 @@ interface PortfolioOverviewPanelProps {
   realizedPnl: number;
   totalTrades: number;
   balances: TokenBalance[];
+  balanceSnapshot: PortfolioBalanceSnapshot;
+  onRetryBalances: () => void;
   dailyPnl: DailyPnl[];
   dailyPnlLoading: boolean;
   /** Set when both PerfDB daily PnL reads failed. */
@@ -69,7 +73,7 @@ export function PortfolioOverviewPanel(props: PortfolioOverviewPanelProps) {
   const {
     isConnected, hasVault, address,
     totalVaultUsd, unrealizedPnl, openPositions, realizedPnl, totalTrades,
-    balances, dailyPnl, dailyPnlLoading, dailyPnlError, dailyPnlSkippedDays, dailyPnlHistoryCapped,
+    balances, balanceSnapshot, onRetryBalances, dailyPnl, dailyPnlLoading, dailyPnlError, dailyPnlSkippedDays, dailyPnlHistoryCapped,
     isLoading, privacy,
     onTogglePrivacy, onRefresh, onConnect, onDeposit, onWithdraw,
   } = props;
@@ -93,6 +97,8 @@ export function PortfolioOverviewPanel(props: PortfolioOverviewPanelProps) {
           realizedPnl={realizedPnl}
           totalTrades={totalTrades}
           balances={balances}
+          balanceSnapshot={balanceSnapshot}
+          onRetryBalances={onRetryBalances}
           isLoading={isLoading}
           privacy={privacy}
           onTogglePrivacy={onTogglePrivacy}
@@ -135,6 +141,8 @@ interface TotalValueCardProps {
   realizedPnl: number;
   totalTrades: number;
   balances: TokenBalance[];
+  balanceSnapshot: PortfolioBalanceSnapshot;
+  onRetryBalances: () => void;
   isLoading: boolean;
   privacy: boolean;
   onTogglePrivacy: () => void;
@@ -147,7 +155,7 @@ interface TotalValueCardProps {
 function TotalValueCard(props: TotalValueCardProps) {
   const {
     isConnected, hasVault, totalValue, pnl, pnlPct,
-    openPositions, realizedPnl, totalTrades, balances, isLoading, privacy,
+    openPositions, realizedPnl, totalTrades, balances, balanceSnapshot, onRetryBalances, isLoading, privacy,
     onTogglePrivacy, onRefresh, onConnect, onDeposit, onWithdraw,
   } = props;
 
@@ -215,24 +223,26 @@ function TotalValueCard(props: TotalValueCardProps) {
       </div>
 
       {/* Balances strip */}
-      {topBalances.length > 0 ? (
-        <div className="flex flex-wrap items-center gap-2">
-          {topBalances.map((b) => (
-            <div
-              key={b.address}
-              className="flex items-center gap-1.5 rounded-[var(--radius-pill)] bg-surface-0 border border-white/[0.04] px-2 py-1"
-            >
-              <img src={coinLogoUrl(b.symbol)} alt="" className="h-4 w-4 rounded-full" />
-              <span className="text-[11px] font-mono text-foreground tabular-nums">
-                {mask((Number(b.vaultBalance) / 10 ** b.decimals).toLocaleString("en-US", {
-                  maximumFractionDigits: b.decimals > 6 ? 4 : 2,
-                }))}
-              </span>
-              <span className="text-[10px] text-muted-foreground">{b.symbol}</span>
-            </div>
-          ))}
-        </div>
-      ) : null}
+      <PortfolioBalanceBoundary snapshot={balanceSnapshot} onRetry={onRetryBalances}>
+        {topBalances.length > 0 ? (
+          <div className="flex flex-wrap items-center gap-2">
+            {topBalances.map((b) => (
+              <div
+                key={b.address}
+                className="flex items-center gap-1.5 rounded-[var(--radius-pill)] bg-surface-0 border border-white/[0.04] px-2 py-1"
+              >
+                <img src={coinLogoUrl(b.symbol)} alt="" className="h-4 w-4 rounded-full" />
+                <span className="text-[11px] font-mono text-foreground tabular-nums">
+                  {mask((Number(b.vaultBalance) / 10 ** b.decimals).toLocaleString("en-US", {
+                    maximumFractionDigits: b.decimals > 6 ? 4 : 2,
+                  }))}
+                </span>
+                <span className="text-[10px] text-muted-foreground">{b.symbol}</span>
+              </div>
+            ))}
+          </div>
+        ) : null}
+      </PortfolioBalanceBoundary>
 
       {/* Stats grid */}
       <div className="grid grid-cols-3 gap-2">
