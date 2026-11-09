@@ -107,7 +107,7 @@ fn generated_contract_is_pinned_to_the_schema() {
 }
 
 #[test]
-fn native_send_v2_records_declare_the_canonical_consent_contract() {
+fn native_send_v2_records_declare_the_canonical_consent_contract() -> Result<(), String> {
     use layerx_agent_api::identity::NativeSendPurposeV2;
 
     for source in [AGENT_API_V1_SOURCE, BASELINE] {
@@ -154,7 +154,8 @@ fn native_send_v2_records_declare_the_canonical_consent_contract() {
             schema["record.NativeSendPurposeV2.domain"],
             "\"LayerX/native/send-purpose/v2\""
         );
-        let domain = std::str::from_utf8(NativeSendPurposeV2::DOMAIN).unwrap();
+        let domain = std::str::from_utf8(NativeSendPurposeV2::DOMAIN)
+            .map_err(|error| format!("required value: {error:?}"))?;
         assert_eq!(
             schema["record.NativeSendPurposeV2.domain"],
             format!("\"{}\"", domain.trim_end_matches('\0'))
@@ -188,6 +189,8 @@ fn native_send_v2_records_declare_the_canonical_consent_contract() {
             assert!(schema["record.NativeSendPurposeV2.authority"].contains(required));
         }
     }
+
+    Ok(())
 }
 
 #[test]

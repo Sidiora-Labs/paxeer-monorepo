@@ -38,6 +38,8 @@ impl NativeSendPurposeV2 {
     pub const TRANSACTION_TYPE: u8 = 2;
     pub const MAX_CANONICAL_BYTES: usize = 2048;
 
+    /// # Errors
+    /// Returns an error for malformed identifiers, zero keys or commitments, a zero lifetime, or a wrong transaction type, chain or activity.
     pub fn validate(self) -> Result<Self, ContractError> {
         self.validate_fields()?;
         Ok(self)
@@ -90,6 +92,8 @@ impl NativeSendPurposeV2 {
 
     /// Compare with independently authenticated, current owner resolution.
     /// A matching key alone never authorizes another stable principal.
+    /// # Errors
+    /// Returns a purpose validation error or a mismatch with the current owner DID, consent key or EVM sender.
     pub fn check_current_owner(
         &self,
         owner_did: &AgentDid,
@@ -109,6 +113,8 @@ impl NativeSendPurposeV2 {
     /// Compare with the retained preparation and independently recovered sender.
     /// Consumers must additionally check session, expiry, capability and economic
     /// commitment against their current authoritative state before release.
+    /// # Errors
+    /// Returns a purpose validation error or a mismatch with the prepared transaction type, chain, recovered sender or digest.
     pub fn check_prepared_transaction(
         &self,
         transaction_type: u8,
@@ -131,6 +137,8 @@ impl NativeSendPurposeV2 {
     /// sender20, session32, generation/expiry u64BE, capability32, type u8,
     /// chain u64BE, activity5, then the five digest32 fields in declaration order.
     /// The consent signature covers SHA-256 of exactly these bytes.
+    /// # Errors
+    /// Returns a purpose validation error or an error if a text length or the complete frame exceeds its encoding bound.
     pub fn canonical_bytes(&self) -> Result<Vec<u8>, ContractError> {
         self.validate_fields()?;
         let mut bytes = Self::DOMAIN.to_vec();
@@ -169,6 +177,8 @@ impl NativeSendPurposeV2 {
         Ok(bytes)
     }
 
+    /// # Errors
+    /// Returns an error for a malformed, truncated, oversized or noncanonical frame, a wrong domain or version, or invalid purpose fields.
     pub fn from_canonical_bytes(bytes: &[u8]) -> Result<Self, ContractError> {
         if bytes.len() > Self::MAX_CANONICAL_BYTES {
             return Err(ContractError::OutOfRange("native_send.length"));
@@ -234,6 +244,8 @@ impl SignedNativeSendPurposeV2 {
     pub const MAX_CANONICAL_BYTES: usize =
         Self::DOMAIN.len() + 4 + NativeSendPurposeV2::MAX_CANONICAL_BYTES + 64;
 
+    /// # Errors
+    /// Returns a purpose validation error or an error for an all-zero signature.
     pub fn validate(self) -> Result<Self, ContractError> {
         self.purpose.validate_fields()?;
         if self.signature == [0; 64] {
@@ -243,6 +255,8 @@ impl SignedNativeSendPurposeV2 {
     }
 
     /// The signed frame is domain, u32BE purpose length, canonical purpose, sig64.
+    /// # Errors
+    /// Returns an error for invalid purpose fields, an all-zero signature, or an unrepresentable purpose length.
     pub fn canonical_bytes(&self) -> Result<Vec<u8>, ContractError> {
         self.clone().validate()?;
         let purpose = self.purpose.canonical_bytes()?;
@@ -255,6 +269,8 @@ impl SignedNativeSendPurposeV2 {
         Ok(bytes)
     }
 
+    /// # Errors
+    /// Returns an error for an oversized, truncated or malformed frame, a wrong domain, invalid purpose fields, or an all-zero signature.
     pub fn from_canonical_bytes(bytes: &[u8]) -> Result<Self, ContractError> {
         if bytes.len() > Self::MAX_CANONICAL_BYTES {
             return Err(ContractError::OutOfRange("native_send.length"));
