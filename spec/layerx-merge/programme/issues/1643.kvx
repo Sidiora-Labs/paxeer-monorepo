@@ -1,0 +1,49 @@
+[issue.1643]
+number = 1643
+title = "[P2] Align Autobahn newHeads test fixture with committed-block hash validation"
+revision = "bb8caac8b3e73e3e2f4b330805574f0bcb540641"
+verdict = "task"
+evidence = "TestSubscribeNewHeadsAutobahn still publishes the unrelated hash and header values at rpc/subscribe_test.go:140 and rpc/subscribe_test.go:181 and expects them at rpc/subscribe_test.go:210 before reaching rpc/subscribe_test.go:222, whereas rpc/setup_test.go:381 serves the block defined at rpc/setup_test.go:270 with the different hash from rpc/setup_test.go:91 and header from rpc/setup_test.go:187, so the consumer at rpc/subscribe.go:165 rejects it at rpc/subscribe.go:643 under the validation introduced by commit 0bdbbf4a9afba2badd9cddf2594a1b4209e82e89."
+close_comment = "The positive Autobahn newHeads fixture uses a hash and header values that differ from the committed block. The follow-up test repair will align those values and verify that mismatched events are rejected while subsequent valid heads still arrive."
+
+[task.18.1643.1]
+title = "Issue #1643: Align the Autobahn newHeads fixture with its committed block"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181643.1"]
+capabilities = []
+interfaces = []
+do_1 = "In TestSubscribeNewHeadsAutobahn, replace the unrelated event fields at rpc/subscribe_test.go:140 and rpc/subscribe_test.go:181 with the hash, parent, timestamp, proposer and state fields from the exact block already loaded at rpc/subscribe_test.go:149 through MockClient.Block at rpc/setup_test.go:381; derive the expected notification fields at rpc/subscribe_test.go:210 from that block, preserve the same-block receipts root assertion at rpc/subscribe_test.go:221 and all header, execution and HTTP parity assertions, and retain the production hash equality check at rpc/subscribe.go:643 unchanged."
+do_2 = "Keep the nested committed block roots test invoked at rpc/subscribe_test.go:222 and its real Autobahn commit-to-WebSocket coverage at rpc/subscribe_test.go:230; the focused verbose verification must report that subtest executing and passing after the positive fixture receives its notification."
+do_3 = "Add TestSubscribeNewHeadsAutobahnRejectsMismatchedHash in rpc/subscribe_test.go as a separate negative regression using an isolated notifier and subscription with real committed block data from the existing committed-block setup at rpc/subscribe_test.go:230; publish a genuinely unequal 32-byte event hash, assert no notification within a bounded observation interval, then publish the valid committed event and assert delivery with its canonical hash and fields on the same subscription, proving the consumer at rpc/subscribe.go:165 continues after rejection without adding test doubles or weakening checks."
+symbols = ["TestSubscribeNewHeadsAutobahn", "testSubscribeNewHeadsAutobahnCommit", "TestSubscribeNewHeadsAutobahnRejectsMismatchedHash"]
+touches = ["rpc/subscribe_test.go"]
+tests = ["rpc/subscribe_test.go::TestSubscribeNewHeadsAutobahn", "rpc/subscribe_test.go::TestSubscribeNewHeadsAutobahnRejectsMismatchedHash"]
+planned_paths = []
+build_cmd = "go build ./rpc/..."
+verify_cmd = "CGO_ENABLED=1 go test -count=1 -v ./rpc/ -run '^(TestSubscribeNewHeadsAutobahn|TestSubscribeNewHeadsAutobahnRejectsMismatchedHash)$'"
+gate_kind = "planned"
+sandbox_profile = "go-cgo"
+owner_role = "fm-rpc-api"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181643]
+title = "Autobahn newHeads tests distinguish valid committed events from mismatched hashes"
+ac_1 = "Given the block served by MockClient.Block at rpc/setup_test.go:381, when TestSubscribeNewHeadsAutobahn publishes its event through rpc/subscribe_test.go:181, then the notification equals that committed block's hash, parent, timestamp, proposer and state fields, preserves the same-block receipts root and HTTP parity assertions at rpc/subscribe_test.go:205 and rpc/subscribe_test.go:221, and reaches the real committed block roots subtest at rpc/subscribe_test.go:222; a separate regression proves that an unequal event hash is rejected without terminating delivery of a subsequent valid event, with the production check at rpc/subscribe.go:643 preserved."
+
+[acceptance.18.1643.1]
+feature = "18"
+req = "181643.1"
+scenario = "Given an Autobahn newHeads subscription and a committed block, when a matching event is published, then the subscriber receives that block's canonical header and the nested committed block roots test passes; when a separate subscription receives a mismatched event followed by a valid committed event, then only the valid event is delivered and the subscription remains active."
+contract = "contracts/evm-rpc.md#newheads"
+test = "rpc/subscribe_test.go::TestSubscribeNewHeadsAutobahn; rpc/subscribe_test.go::TestSubscribeNewHeadsAutobahnRejectsMismatchedHash (planned)"
+qualification = "UNRUN"
