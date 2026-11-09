@@ -6,9 +6,8 @@ const NODE: &[u8] = b"LXP/v1/state-node\0";
 const MAX_KEY: usize = 129;
 const MAX_VALUE: usize = 1_048_576;
 const MAX_DEPTH: usize = 32;
-const MAX_MODULE_ID: u16 = ModuleId::ALL[ModuleId::ALL.len() - 1] as u16;
 const MIN_COMPOSITE_LEAVES: u32 = ModuleId::Bridge as u32 + 1;
-const MAX_COMPOSITE_LEAVES: u32 = MAX_MODULE_ID as u32 + 1;
+const MAX_COMPOSITE_LEAVES: u32 = ModuleId::ALL[ModuleId::ALL.len() - 1] as u32 + 1;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum StateProofError {
