@@ -52,10 +52,10 @@ use serde_json::Value;
 use sha2::{Digest as _, Sha256};
 use std::fmt::Debug;
 
-const HEIGHT: u64 = 1010;
+pub(crate) const HEIGHT: u64 = 1010;
 const OWNER: [u8; 32] = [12; 32];
-const PROGRAM: [u8; 32] = [11; 32];
-const CHAIN_ID: &str = "ai-market-consumer-fixture";
+pub(crate) const PROGRAM: [u8; 32] = [11; 32];
+pub(crate) const CHAIN_ID: &str = "ai-market-consumer-fixture";
 
 #[track_caller]
 fn checked<T, E: Debug>(result: Result<T, E>) -> T {
@@ -148,7 +148,7 @@ fn route(operation: Operation, payload: &[u8], current: Option<&[u8]>) -> (Vec<u
     (next, result.payload.to_vec())
 }
 
-fn producer_state() -> Vec<u8> {
+pub(crate) fn producer_state() -> Vec<u8> {
     let policy = checked(TaskPolicyV1::bounded_default(
         1,
         1,
@@ -178,7 +178,7 @@ fn producer_state() -> Vec<u8> {
     route(dispatch::CREATE, &payload, None).0
 }
 
-fn authority() -> Vec<Validator> {
+pub(crate) fn authority() -> Vec<Validator> {
     vec![Validator {
         pub_key: SigningKey::from_bytes(&[7; 32]).verifying_key().to_bytes(),
         voting_power: 10,
@@ -271,13 +271,13 @@ fn signed_commit(header: &Header) -> Commit {
     commit
 }
 
-struct Material {
-    header: Header,
-    commit: Commit,
-    proof: Vec<u8>,
+pub(crate) struct Material {
+    pub(crate) header: Header,
+    pub(crate) commit: Commit,
+    pub(crate) proof: Vec<u8>,
 }
 impl Material {
-    fn new(state: &[u8], program: [u8; 32]) -> Self {
+    pub(crate) fn new(state: &[u8], program: [u8; 32]) -> Self {
         let (proof, app_hash) = native_membership(state, program);
         let authority = authority();
         let header = Header {
@@ -330,7 +330,7 @@ impl Material {
 
 /// Fresh ProgramRead bytes bound to a verified commit; membership is checked against
 /// the recorded production consumer inputs below.
-fn capture(state: &[u8], material: &Material, sequence: u64) -> (Vec<u8>, CaptureFacts) {
+pub(crate) fn capture(state: &[u8], material: &Material, sequence: u64) -> (Vec<u8>, CaptureFacts) {
     checked(material.verify());
     let header = checked(queries::read_header(
         state,
@@ -378,12 +378,12 @@ fn recorded_bytes(record: &Value, field: &str) -> Vec<u8> {
         .collect()
 }
 
-fn transcript() -> Value {
+pub(crate) fn transcript() -> Value {
     let recorded: Value = checked(serde_json::from_str(CONSUMER_TRANSCRIPT));
     assert_eq!(recorded["format"], 1);
     assert_eq!(
         recorded["source_revision"],
-        "aa5e0820b3652890f3812a220f4b91f4f8a45387"
+        "116ae09395ecb90e9547e536cc7d40168f788fa9"
     );
     assert_eq!(
         recorded["consumer"],
@@ -440,7 +440,7 @@ fn assert_recorded_capture(
 }
 
 #[test]
-fn ai_real_consumer_recovers_fresh_guest_captures() {
+pub(crate) fn ai_real_consumer_recovers_fresh_guest_captures() {
     let state = producer_state();
     let material = Material::new(&state, PROGRAM);
     let recorded = transcript();
@@ -518,7 +518,7 @@ fn ai_real_consumer_recovers_fresh_guest_captures() {
 }
 
 #[test]
-fn ai_real_consumer_refuses_unauthenticated_evidence_across_restart() {
+pub(crate) fn ai_real_consumer_refuses_unauthenticated_evidence_across_restart() {
     let state = producer_state();
     let valid = Material::new(&state, PROGRAM);
     let (captured, facts) = capture(&state, &valid, 77);
@@ -621,7 +621,7 @@ fn ai_real_consumer_refuses_unauthenticated_evidence_across_restart() {
 // Recorded peer fixture, produced by the real consumer at implementation time.
 const CONSUMER_TRANSCRIPT: &str = r#"{
   "consumer": "services/platform/hosted/indexer/src/ai_market.rs::ProjectionStore",
-  "consumer_source_sha256": "2e387f6033b6985960035c9d38646074a70549de51f4ba58283e9f11703eab96",
+  "consumer_source_sha256": "ea9d74fffbd8142a5e729dff6b500e6c905df536338bb6d4a58195b7ff78709f",
   "format": 1,
   "membership_source_sha256": "4febdba4ca0e65df633c39a729dbb4b8ed07a65a0f755a2c1a915887a451ae19",
   "refusals": [
@@ -716,7 +716,7 @@ const CONSUMER_TRANSCRIPT: &str = r#"{
       "view_error": "FinalityUnavailable"
     }
   ],
-  "source_revision": "aa5e0820b3652890f3812a220f4b91f4f8a45387",
+  "source_revision": "116ae09395ecb90e9547e536cc7d40168f788fa9",
   "successes": [
     {
       "authenticated_chain": "62b6b14734fa769c3e0fbc94de495a3d038be49a2524b1c071d75d0a4eed71f6",
@@ -724,7 +724,7 @@ const CONSUMER_TRANSCRIPT: &str = r#"{
       "before_binding": "000162b6b14734fa769c3e0fbc94de495a3d038be49a2524b1c071d75d0a4eed71f60b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b744eebed105eb139035ae582bae51c8c92208f1a7f1e1933c661c0e9df02bc2c000000000000004d00000000000003f2abe1bd580ca46f0fd46c0a56031309feed1ebd2475bfe36b3d3509ce112c39c321514b4d3a58d5a6e6979fce4cb9f4cdfa80000e274ff7208c661a6c325a67b000000000000000012362af4a9e9a60e9d0c3595a01caa9aa061f1de35e100b7070079ca571b405bb000000000000000001a67386b575a56979d7c4ec20c110df67bab48fb3821b3b458ae3adad0d423d230000000000000003f2abe1bd580ca46f0fd46c0a56031309feed1ebd2475bfe36b3d3509ce112c39c321514b4d3a58d5a6e6979fce4cb9f4cdfa80000e274ff7208c661a6c325a67b0880a61049e8d0f99f612275a77986b174b1f36da32487f0188c1ed9b7cedf668040000000000001e150000000000000000",
       "block_hash": "abe1bd580ca46f0fd46c0a56031309feed1ebd2475bfe36b3d3509ce112c39c3",
       "chunks": 1,
-      "database_sha256": "4bd33acc55dfd4feea8bac3cee91298b915b40fa2e668637fe4b78a1786a3e8e",
+      "database_sha256": "5dec17fa9ded20ba65943c0c19a94274f36d62f615a9d62acf52eec779a3ffaa",
       "event_binding": "000162b6b14734fa769c3e0fbc94de495a3d038be49a2524b1c071d75d0a4eed71f60b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b744eebed105eb139035ae582bae51c8c92208f1a7f1e1933c661c0e9df02bc2c000000000000004d00000000000003f2abe1bd580ca46f0fd46c0a56031309feed1ebd2475bfe36b3d3509ce112c39c321514b4d3a58d5a6e6979fce4cb9f4cdfa80000e274ff7208c661a6c325a67b000000000000000012362af4a9e9a60e9d0c3595a01caa9aa061f1de35e100b7070079ca571b405bb000000000000000001a67386b575a56979d7c4ec20c110df67bab48fb3821b3b458ae3adad0d423d230000000000000003f2abe1bd580ca46f0fd46c0a56031309feed1ebd2475bfe36b3d3509ce112c39c321514b4d3a58d5a6e6979fce4cb9f4cdfa80000e274ff7208c661a6c325a67b0880a61049e8d0f99f612275a77986b174b1f36da32487f0188c1ed9b7cedf668040000000000001e150000000000000000",
       "event_snapshot_id": "e79f506c76b52e843255052e4f795b49b6f6770c6503b848788293d30b925ed7",
       "freshness": "Current",
@@ -753,7 +753,7 @@ const CONSUMER_TRANSCRIPT: &str = r#"{
       "before_binding": "000162b6b14734fa769c3e0fbc94de495a3d038be49a2524b1c071d75d0a4eed71f60b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b744eebed105eb139035ae582bae51c8c92208f1a7f1e1933c661c0e9df02bc2c000000000000004e00000000000003f2abe1bd580ca46f0fd46c0a56031309feed1ebd2475bfe36b3d3509ce112c39c321514b4d3a58d5a6e6979fce4cb9f4cdfa80000e274ff7208c661a6c325a67b000000000000000012362af4a9e9a60e9d0c3595a01caa9aa061f1de35e100b7070079ca571b405bb000000000000000001a67386b575a56979d7c4ec20c110df67bab48fb3821b3b458ae3adad0d423d230000000000000003f2abe1bd580ca46f0fd46c0a56031309feed1ebd2475bfe36b3d3509ce112c39c321514b4d3a58d5a6e6979fce4cb9f4cdfa80000e274ff7208c661a6c325a67b0880a61049e8d0f99f612275a77986b174b1f36da32487f0188c1ed9b7cedf668040000000000001e790000000000000000",
       "block_hash": "abe1bd580ca46f0fd46c0a56031309feed1ebd2475bfe36b3d3509ce112c39c3",
       "chunks": 1,
-      "database_sha256": "9e29614ca18175602987dfa1e9d803d8ecb0b2ed39deaf2242c58a51037164b2",
+      "database_sha256": "258fae3eaf0adaa19b05cfd157827632fabbeb5af6c1f475e2da2cd8302f6eee",
       "event_binding": "000162b6b14734fa769c3e0fbc94de495a3d038be49a2524b1c071d75d0a4eed71f60b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b744eebed105eb139035ae582bae51c8c92208f1a7f1e1933c661c0e9df02bc2c000000000000004e00000000000003f2abe1bd580ca46f0fd46c0a56031309feed1ebd2475bfe36b3d3509ce112c39c321514b4d3a58d5a6e6979fce4cb9f4cdfa80000e274ff7208c661a6c325a67b000000000000000012362af4a9e9a60e9d0c3595a01caa9aa061f1de35e100b7070079ca571b405bb000000000000000001a67386b575a56979d7c4ec20c110df67bab48fb3821b3b458ae3adad0d423d230000000000000003f2abe1bd580ca46f0fd46c0a56031309feed1ebd2475bfe36b3d3509ce112c39c321514b4d3a58d5a6e6979fce4cb9f4cdfa80000e274ff7208c661a6c325a67b0880a61049e8d0f99f612275a77986b174b1f36da32487f0188c1ed9b7cedf668040000000000001e790000000000000000",
       "event_snapshot_id": "9cb4665739b71c8f7534098d0c4ec0aa9bc12126f559614154e3c6f0976ba282",
       "freshness": "Current",
