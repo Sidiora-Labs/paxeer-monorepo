@@ -191276,7 +191276,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.241]
 title = "Re-record the x-websearch conformance suite digest after the metered payer fixture change"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -348266,7 +348266,7 @@ do_3 = "Attempt 2 (continue, gotcha 3801, decision 3077): the attempt-1 tree 718
 
 [task.18.1845.1]
 title = "Issue #1845: Separate registry verification from unconditional middleware checks"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["18.1843.1"]
